@@ -1,0 +1,424 @@
+/* The restaurant's own online ordering page (/online/:token, SW-A-22).
+
+   Built on the QR guest page's look (guest.css): the same warm hero band,
+   dish cards, sheets and status badge, so a guest who has ordered at a table
+   recognises the restaurant. What is its own lives here: the takeaway or
+   delivery switch, the facts strip (hours, delivery charge, minimum, how to
+   pay), the checkout block and the status page. Phone-first at 390px. */
+
+/* ------------------------------------------------------------ hero */
+
+.oo-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.oo-hero-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 0.875rem;
+  opacity: 0.9;
+}
+
+.oo-hero-line .g-icon {
+  margin-top: 2px;
+}
+
+/* Takeaway or delivery: two large buttons, the chosen one white. */
+.oo-service {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.oo-service-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 60px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgb(255 255 255 / 28%);
+  background: rgb(255 255 255 / 12%);
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.oo-service-button span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.oo-service-button strong {
+  font-size: 0.95rem;
+}
+
+.oo-service-button small {
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+.oo-service-button:hover:not(.is-on) {
+  background: rgb(255 255 255 / 20%);
+}
+
+.oo-service-button.is-on {
+  background: #fff;
+  color: #0d302b;
+  border-color: #fff;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 18%);
+}
+
+.oo-service-button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+/* The facts a guest decides on, before opening the cart. */
+.oo-facts {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.oo-facts li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 18%);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ dish cards */
+
+.oo-packing {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.oo-packing-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------ cart and checkout */
+
+.oo-service-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--g-soft);
+  color: var(--primary);
+}
+
+.oo-service-tag.is-delivery {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.oo-totals {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.oo-totals > div {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.oo-totals > div.oo-sub {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.oo-totals > div.oo-grand,
+.oo-status-sums > div.oo-grand {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--g-line);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.oo-free {
+  color: var(--g-good);
+}
+
+.oo-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.oo-hint.is-good {
+  color: var(--g-good);
+}
+
+.oo-checkout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--g-line);
+}
+
+.oo-checkout h3 {
+  font-size: 1rem;
+}
+
+.oo-pay {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.oo-pay legend {
+  margin-bottom: 6px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.oo-pay-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--g-line);
+  background: var(--surface);
+}
+
+.oo-pay-option input {
+  margin: 3px 0 0;
+  accent-color: var(--primary);
+}
+
+.oo-pay-option .g-icon {
+  margin-top: 1px;
+  color: var(--muted);
+}
+
+.oo-pay-option .g-grow {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.oo-pay-option strong {
+  font-size: 0.9rem;
+}
+
+.oo-pay-option small {
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.oo-pay-option.is-on {
+  border-color: var(--primary);
+  background: var(--g-soft);
+}
+
+.oo-pay-option.is-on .g-icon {
+  color: var(--primary);
+}
+
+.oo-pay-option.is-off {
+  background: var(--surface-2);
+  border-style: dashed;
+}
+
+.oo-pay-option.is-off strong {
+  color: var(--muted);
+}
+
+.oo-soon {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--chip-bg);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------ the status page */
+
+.oo-status-shell {
+  max-width: 640px;
+  padding-top: 16px;
+}
+
+.oo-status-card {
+  padding: 18px 16px;
+  border-radius: 20px;
+  background: var(--surface);
+  border: 1px solid var(--g-line);
+  box-shadow: var(--g-shadow);
+}
+
+.oo-status-kicker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.oo-order-no {
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.g-steps.oo-steps-5 {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.g-steps.oo-steps-5 li {
+  font-size: 0.6875rem;
+  text-align: center;
+}
+
+.oo-live {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.oo-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--g-good);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .oo-live-dot {
+    animation: oo-live 2s ease-in-out infinite;
+  }
+}
+
+@keyframes oo-live {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.oo-status-sums {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px dashed var(--g-line);
+}
+
+.oo-status-sums > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.9rem;
+}
+
+.oo-status-sums dt,
+.oo-status-sums dd {
+  margin: 0;
+}
+
+.oo-address {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 10px 0 0;
+  font-size: 0.875rem;
+}
+
+.oo-address .g-icon {
+  margin-top: 2px;
+  color: var(--muted);
+}
+
+.oo-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.oo-order-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--g-line);
+  border-radius: 14px;
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+}
+
+.g-requests .oo-order-row .g-grow {
+  display: flex;
+  flex-direction: column;
+}
+
+.g-request-icon.is-out,
+.g-request-icon.is-delivered,
+.g-request-icon.is-collected {
+  background: var(--g-good-bg);
+  color: var(--g-good);
+}
+
+a.g-pill {
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (min-width: 700px) {
+  .oo-hero {
+    display: flex;
+  }
+
+  .oo-service {
+    max-width: 520px;
+  }
+
+  .oo-status-card {
+    padding: 24px;
+  }
+}

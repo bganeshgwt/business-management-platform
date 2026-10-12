@@ -41,10 +41,13 @@ src/
 ├── hooks/useAuth.js    Read the auth state in any component
 ├── routes/ProtectedRoute.jsx  Requires login, optionally a permission
 ├── layouts/AppLayout.jsx      Top bar shared by logged-in pages
-├── pages/              One file per screen
-├── services/
+├── modules/            One folder per module: pages/ (one file per screen),
+│                       services/ and styles/ the module alone uses
+├── components/         Shared UI (DataGrid, Modal, PageHeader …)
+├── services/           Shared services
 │   ├── api.js          axios instance, token handling, error messages
 │   └── auth.service.js Login and current-user calls
+├── styles/             Shared stylesheets and tokens
 └── index.css           App-wide styles
 ```
 
@@ -59,14 +62,14 @@ src/
 
 ## Adding a page
 
-1. Create `src/pages/MyPage.jsx`.
+1. Create `src/modules/<module>/pages/MyPage.jsx` (see docs/ARCHITECTURE.md §5).
 2. Add a route in `App.jsx`, inside `<ProtectedRoute>` if it needs a login:
    ```jsx
    <Route path="my-page" element={<MyPage />} />
    ```
    Add `permission="menu.view"` on a `ProtectedRoute` to require a permission.
 3. Add a link in `layouts/AppLayout.jsx`.
-4. Put API calls in `src/services/<module>.service.js`, never directly in the page.
+4. Put API calls in the module's `services/<area>.service.js`, never directly in the page.
 
 Use `hasPermission("menu.manage")` from `useAuth()` to show or hide buttons.
 The backend still checks permissions, so hiding is only for convenience.

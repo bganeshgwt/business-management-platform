@@ -1,0 +1,14 @@
+/* Users (pro pass): finding a role among hundreds in the user form. */
+.acc-role-search {
+  width: 100%;
+  margin: 2px 0 8px;
+}
+
+.acc-role-filter {
+  min-width: 200px;
+}
+
+.acc-role-desc {
+  display: block;
+  margin-bottom: 2px;
+}

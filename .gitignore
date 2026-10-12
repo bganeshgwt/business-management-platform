@@ -1,0 +1,24 @@
+# Dependencies and builds
+node_modules/
+dist/
+coverage/
+
+# Secrets and machine-local data (backups, demo logins, uploads)
+.env
+.env.*
+!.env.example
+backend/.local/
+backend/uploads/
+backend/private_uploads/
+
+# Test and tool output
+test-results/
+playwright-report/
+*.out
+*.log
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

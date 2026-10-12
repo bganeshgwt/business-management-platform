@@ -1,0 +1,76 @@
+/* Stock screens, pro pass (B): small pieces the shared stock.css does not have. */
+
+/* "Low · 4 kg short": the badge and its short line side by side, one row high. */
+.stk-level {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+/* "Retired" after an item's name, quiet. */
+.stk-retired-tag {
+  margin-left: var(--space-2);
+  font-size: var(--text-xs);
+  vertical-align: middle;
+}
+
+/* What a stock count covers: the four choices as one row of options. */
+.stk-scope-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-2);
+}
+
+.stk-scope-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.stk-scope-choice[aria-checked="true"] {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.stk-scope-choice strong {
+  font-size: var(--text-md);
+}
+
+.stk-scope-choice span {
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+/* A reference in the movements list that opens its bill, order or note. */
+.stk-ref-link {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--text-sm);
+}
+
+/* The single card a one-store restaurant sees on Transfers. */
+.stk-one-store {
+  max-width: 640px;
+}
+
+/* Food cost on the dish list: "₹60 · 24%". */
+.mnu-cost {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.mnu-cost.is-high .mnu-cost-pct {
+  color: var(--danger);
+  font-weight: var(--weight-bold);
+}

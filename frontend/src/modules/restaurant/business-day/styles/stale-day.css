@@ -1,0 +1,169 @@
+/* A business day left open from an earlier date (StaleDay.jsx). */
+
+.stale-day {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--danger-border);
+  border-left: 4px solid var(--danger);
+  border-radius: var(--radius-md);
+  background: var(--danger-bg);
+}
+
+.stale-day-icon {
+  color: var(--danger);
+  flex: none;
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+.stale-day-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.stale-day h2 {
+  margin: 0;
+  font-size: var(--text-md);
+  color: var(--danger);
+}
+
+.stale-day p {
+  margin: 2px 0 0;
+  color: var(--text);
+  font-size: var(--text-sm);
+}
+
+.stale-day-action {
+  flex: none;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .stale-day {
+    flex-wrap: wrap;
+  }
+
+  .stale-day-action {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* The date an entry goes on: quiet when it is today, amber when it is not. */
+.bday-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  max-width: 100%;
+}
+
+.bday-chip strong {
+  color: var(--text);
+}
+
+.bday-chip.is-old {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.bday-chip.is-old strong {
+  color: var(--warning-text);
+}
+
+/* Business day > Today: which till, and the everyday cash actions. */
+.bd-hero-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.bd-hero-old {
+  color: var(--danger);
+  font-weight: var(--weight-medium);
+}
+
+.bd-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+@media (max-width: 640px) {
+  .bd-quick {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .bd-quick > * {
+    justify-content: center;
+  }
+}
+
+/* Close day: one line per thing in the way, its link at the end. */
+.cash-blockers ul:has(> .cash-blocker) {
+  list-style: none;
+  padding-left: 0;
+  gap: 6px;
+}
+
+.cash-blocker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding: 6px 0;
+  border-top: 1px solid var(--warning-border);
+}
+
+.cash-blocker:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.cash-blocker-what {
+  min-width: 0;
+  flex: 1 1 260px;
+}
+
+.cash-blocker-sub {
+  display: block;
+  font-size: var(--text-xs);
+  opacity: 0.9;
+  overflow-wrap: anywhere;
+}
+
+.cash-blocker > a,
+.cash-blocker > .link-button {
+  flex: none;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .bd-quick > :last-child:nth-child(odd) {
+    grid-column: span 2;
+  }
+}
+
+@media print {
+  .stale-day {
+    display: none;
+  }
+}
+
+.cash-blocker.is-old .cash-blocker-what strong {
+  color: var(--danger);
+}

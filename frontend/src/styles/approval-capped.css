@@ -1,0 +1,11 @@
+/* Managers whose own discount cap is below the discount asked for: listed in
+   the PIN prompt greyed, with their limit, never offered (REQ-APPROVER-CAPPED). */
+.acc-approver.is-capped {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: grayscale(0.6);
+}
+
+.acc-approver.is-capped .badge {
+  margin-left: auto;
+}

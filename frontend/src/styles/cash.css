@@ -1,0 +1,680 @@
+/* Cash & loyalty screens: the close-of-day count, cash drawers per shift,
+   cash in and out, the cash rules and the loyalty programme. Built on the
+   money screens' look (billing.css) and the shared tokens. */
+
+/* ------------------------------------------------------------ tab indicator */
+
+/* The money screens' tab bar opts into the shared sliding indicator
+   (motion.css / useMotionScope): the underline is drawn by ::before so it can
+   glide from the old tab to the new one. Standing still it looks exactly as
+   the border did. */
+.money-tabs[data-motion-tabs] {
+  position: relative;
+  isolation: isolate;
+}
+
+.money-tabs[data-motion-tabs] > .money-tab {
+  position: relative;
+}
+
+.money-tabs[data-motion-tabs] > .money-tab.is-active {
+  border-bottom-color: transparent;
+}
+
+.money-tabs[data-motion-tabs] > .money-tab.is-active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--primary);
+  transform-origin: 0 0;
+}
+
+/* ----------------------------------------------------------------- the count */
+
+.cash-count {
+  display: grid;
+  gap: 12px;
+}
+
+.cash-count-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.cash-count-head > span {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.cash-count-notes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.cash-count-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.cash-count-total strong {
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.cash-count-error {
+  color: var(--danger);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.cash-count.is-refused .cash-count-total,
+.cash-count.is-refused .bd-cash input {
+  border-color: var(--danger);
+}
+
+/* ------------------------------------------------- what the drawer should hold */
+
+.cash-expect-wrap {
+  display: grid;
+  gap: 8px;
+}
+
+.cash-expect-wrap .section-heading,
+.cash-methods .section-heading {
+  margin: 0;
+}
+
+.cash-expect {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 4px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.cash-expect > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 14px;
+  font-size: 0.875rem;
+}
+
+.cash-expect dt {
+  color: var(--text-2);
+}
+
+.cash-expect dd {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.cash-expect .is-sub {
+  padding-top: 0;
+  font-size: 0.8125rem;
+}
+
+.cash-expect .is-sub dt,
+.cash-expect .is-sub dd {
+  color: var(--muted);
+}
+
+.cash-expect .is-total {
+  margin-top: 4px;
+  padding-top: 9px;
+  border-top: 1px dashed var(--border-strong);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.cash-expect .is-total dt {
+  color: var(--text);
+}
+
+.cash-expect.is-single .is-total {
+  margin-top: 0;
+  padding-top: 5px;
+  border-top: 0;
+}
+
+/* The difference between the count and what the drawer should hold. */
+.cash-diff {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.cash-diff-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.cash-diff-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.cash-diff.is-match {
+  border-color: var(--success-border);
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.cash-diff.is-near {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.cash-diff.is-far {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.cash-diff small {
+  flex-basis: 100%;
+  color: inherit;
+  opacity: 0.85;
+}
+
+/* --------------------------------------------------------- card and UPI ticks */
+
+.cash-methods {
+  display: grid;
+  gap: 8px;
+}
+
+.cash-method {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.cash-method.is-ticked {
+  border-color: var(--success-border);
+  background: color-mix(in srgb, var(--success) 6%, var(--surface));
+}
+
+.cash-method-name {
+  display: grid;
+  gap: 1px;
+  line-height: 1.3;
+}
+
+.cash-method-name strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cash-method-figure {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.cash-method-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.cash-method-actions input[type="number"] {
+  width: 140px;
+  max-width: 100%;
+}
+
+.cash-method-actions .checkbox {
+  min-height: 38px;
+  padding-right: 4px;
+}
+
+.cash-method-actions .cash-method-note {
+  flex: 1 1 200px;
+  width: auto;
+}
+
+/* ------------------------------------------------------- what is in the way */
+
+.cash-blockers {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.cash-blockers > strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cash-blockers ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 3px;
+  font-size: 0.875rem;
+}
+
+.cash-blockers a,
+.cash-blockers .link-button {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* --------------------------------------------------------- the day just closed */
+
+.cash-closed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 20px;
+  padding: 20px 24px;
+  border-left: 4px solid var(--primary);
+}
+
+.cash-closed-text {
+  display: grid;
+  gap: 4px;
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.cash-closed-text h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.cash-closed-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.cash-closed-facts strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.cash-closed-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+/* Over / short in the recent days list. */
+.cash-variance {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cash-variance.is-short {
+  color: var(--danger);
+}
+
+.cash-variance.is-over {
+  color: var(--warning-text);
+}
+
+.cash-variance.is-match {
+  color: var(--success-text);
+}
+
+/* ------------------------------------------------------------ cash drawers */
+
+.drawer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 14px;
+  padding: 16px 20px 20px;
+}
+
+.drawer-card {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.drawer-card.is-open {
+  border-top: 3px solid var(--success);
+}
+
+.drawer-card.is-mine {
+  box-shadow: 0 0 0 1px var(--primary-soft), var(--shadow-xs);
+}
+
+.drawer-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.drawer-card-who {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.drawer-card-who strong {
+  font-size: 1rem;
+}
+
+.drawer-figures {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.drawer-figures > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+}
+
+.drawer-figures dt {
+  color: var(--text-2);
+}
+
+.drawer-figures dd {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.drawer-figures .is-total {
+  margin-top: 4px;
+  padding-top: 7px;
+  border-top: 1px dashed var(--border-strong);
+  font-weight: 700;
+  font-size: 0.9375rem;
+}
+
+.drawer-figures .is-total dt {
+  color: var(--text);
+}
+
+.drawer-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.drawer-blind {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+/* Cash in and out: the three kinds side by side. */
+.cash-move-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cash-move-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cash-move-kind.is-drop {
+  color: var(--info-text);
+}
+
+.cash-move-kind.is-petty {
+  color: var(--warning-text);
+}
+
+.cash-move-kind.is-in {
+  color: var(--success-text);
+}
+
+/* The choice of what kind of cash entry, at the top of its dialog. */
+.cash-kinds {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.cash-kind {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--motion-fast, 140ms) ease,
+    background-color var(--motion-fast, 140ms) ease;
+}
+
+.cash-kind strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+}
+
+.cash-kind span {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+.cash-kind:hover {
+  border-color: var(--border-strong);
+}
+
+.cash-kind.is-active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.cash-kind:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* ----------------------------------------------------------------- rules */
+
+.cash-rules {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px 20px;
+  padding: 20px;
+}
+
+.cash-rules .field small {
+  line-height: 1.35;
+}
+
+.cash-rules-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* ------------------------------------------------------- loyalty programme */
+
+.loyalty-rules {
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 16px 20px;
+  padding: 20px;
+}
+
+.loyalty-rules .section-heading {
+  grid-column: 1 / -1;
+  margin: 4px 0 -4px;
+}
+
+.loyalty-rules .field small {
+  line-height: 1.35;
+}
+
+.loyalty-example {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--info-border);
+  border-radius: var(--radius);
+  background: var(--info-bg);
+  color: var(--info-text);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.loyalty-example svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.loyalty-switch {
+  grid-column: 1 / -1;
+}
+
+/* ------------------------------------------------------------- expenses */
+
+.expense-flags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.expense-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg);
+  color: var(--text-2);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.expense-flag.is-locked {
+  background: var(--surface-3);
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------------ phone */
+
+@media (max-width: 640px) {
+  .drawer-grid {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 14px 16px 16px;
+  }
+
+  .cash-kinds {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cash-rules,
+  .loyalty-rules {
+    padding: 16px;
+  }
+
+  .cash-closed {
+    padding: 18px 16px;
+  }
+
+  .cash-method-actions input[type="number"] {
+    flex: 1 1 120px;
+    width: auto;
+  }
+}
+
+/* ------------------------------------------------------ lists (data grid) */
+
+/* The lists on these screens are the shared data grid (S.No., paging,
+   export and phone cards are its own). What is left here: a cell that holds
+   two actions side by side, the note under the expense filters, and a
+   cancelled cash entry's amount struck through. */
+.expense-row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.expense-range-note {
+  margin: 8px 0 0;
+}
+
+tr.is-cancelled .cash-move-amount {
+  text-decoration: line-through;
+}

@@ -1,0 +1,21 @@
+/* Expenses list (ExpensesPage.jsx): who recorded it under the date, and who
+   was paid, so the row fits a laptop screen. */
+
+.expense-by {
+  display: block;
+  max-width: 9rem;
+  overflow: hidden;
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.expense-payee {
+  display: -webkit-box;
+  max-width: 22ch;
+  overflow: hidden;
+  font-size: var(--text-md);
+  line-height: 1.35;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}

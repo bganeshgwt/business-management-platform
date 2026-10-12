@@ -1,0 +1,265 @@
+/* The business switcher in the header (components/BusinessSwitcher.jsx). */
+.bsw {
+  position: relative;
+  min-width: 0;
+}
+
+.bsw-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 300px;
+  min-height: 42px;
+  padding: 5px 10px 5px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.bsw-trigger:hover,
+.bsw-trigger.is-open {
+  border-color: var(--primary);
+  background: var(--surface-2);
+}
+
+.bsw-trigger:focus-visible,
+.bsw-option:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.bsw-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.bsw-name {
+  font-weight: 650;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bsw-text small {
+  color: var(--muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bsw-caret {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+/* The type's mark in a tinted square: one tone per family of business. */
+.bsw-type {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.bsw-type-restaurant { background: var(--warning-bg); color: var(--warning-text); }
+.bsw-type-salon,
+.bsw-type-healthcare { background: color-mix(in srgb, #7c5cff 14%, transparent); color: #6d4fe0; }
+.bsw-type-pharmacy { background: var(--danger-bg); color: var(--danger); }
+.bsw-type-electronics,
+.bsw-type-wholesale { background: color-mix(in srgb, #2f7de1 14%, transparent); color: #2a6fc9; }
+
+.bsw-panel {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 8px);
+  width: 360px;
+  max-width: calc(100vw - 24px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 8px;
+  z-index: 70;
+  animation: bsw-in 140ms ease-out;
+}
+
+.bsw-panel.is-leaving {
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+@keyframes bsw-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.bsw-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  background: var(--surface-2);
+}
+
+.bsw-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 9px 0;
+  font: inherit;
+  outline: none;
+}
+
+.bsw-list {
+  max-height: min(60vh, 440px);
+  overflow-y: auto;
+  margin-top: 6px;
+}
+
+.bsw-group {
+  margin: 10px 8px 4px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.bsw-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.bsw-option:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.bsw-option.is-current {
+  background: var(--nav-active-bg);
+}
+
+.bsw-option:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.bsw-option-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.bsw-option-text strong {
+  font-size: 0.875rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bsw-option-text small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.bsw-check {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.bsw-empty {
+  padding: 12px 8px;
+}
+
+/* On a phone the trigger keeps the type mark and a short name; the panel
+   spans the screen under the header. */
+@media (max-width: 640px) {
+  /* The switcher already names the business, so the brand keeps only its
+     mark and the switcher takes the room the name had. */
+  .topbar:has(.bsw) .brand {
+    flex: 0 0 auto;
+  }
+
+  .topbar:has(.bsw) .brand-text {
+    display: none;
+  }
+
+  .topbar:has(.bsw) .user-menu {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .bsw {
+    flex: 1;
+  }
+
+  .bsw-trigger {
+    width: 100%;
+    max-width: none;
+    padding-right: 6px;
+    gap: 6px;
+  }
+
+  .bsw-text small {
+    display: none;
+  }
+
+  .bsw-panel {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    top: calc(var(--topbar-height, 64px) + 6px);
+    width: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bsw-panel,
+  .bsw-panel.is-leaving {
+    animation: none;
+    transition: none;
+  }
+}
+
+.bsw-all {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 10px 8px 4px;
+  border-top: 1px solid var(--border);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+}

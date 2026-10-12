@@ -1,0 +1,24 @@
+/* Payroll (PayrollPage.jsx): the "tips waiting to share" line. */
+
+.acc-tips-waiting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-md);
+}
+
+.acc-tips-waiting svg {
+  flex-shrink: 0;
+}
+
+.acc-tips-waiting a {
+  font-weight: var(--weight-medium);
+}
+
+/* The day breakdown under "payable" wraps instead of being cut off. */
+.pay-days-split {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

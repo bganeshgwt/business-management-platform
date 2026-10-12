@@ -1,0 +1,57 @@
+/* Settings → Order and bill numbers: what a bill number looks like at each
+   till (the main counter and every outlet). */
+.invoice-series {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.invoice-series-title {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.invoice-series ul {
+  display: flex;
+  flex-direction: column;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.invoice-series li {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) auto;
+  align-items: center;
+  gap: 2px 12px;
+  padding: 8px 12px;
+}
+
+.invoice-series li + li {
+  border-top: 1px solid var(--border);
+}
+
+.invoice-series-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.invoice-series li > .settings-sample {
+  justify-self: end;
+}
+
+.invoice-series-note {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 520px) {
+  .invoice-series li {
+    grid-template-columns: 1fr;
+  }
+
+  .invoice-series li > .settings-sample {
+    justify-self: start;
+  }
+}

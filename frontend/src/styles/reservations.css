@@ -1,0 +1,2125 @@
+/* Reservations and the walk-in waitlist
+   --------------------------------------
+   index.css is loaded after page styles, so any rule here that adjusts a
+   global class (.card, .button, .tile...) is scoped under .rsv-page to win.
+
+   Every status has a colour AND a word, for the same reason the floor plan
+   does: a colour alone means nothing to a colourblind host or a new one. The
+   hues match the floor plan's for the same ideas — violet is held for a
+   booking, blue is a table eating, amber is waiting too long, red is lost. */
+
+.rsv-tone-booked {
+  --tone: var(--violet);
+  --tone-bg: color-mix(in srgb, var(--violet-bg) 55%, var(--surface));
+  --tone-text: var(--violet);
+}
+
+.rsv-tone-confirmed {
+  --tone: var(--violet);
+  --tone-bg: var(--violet-bg);
+  --tone-text: color-mix(in srgb, var(--violet) 75%, var(--text));
+}
+
+.rsv-tone-seated {
+  --tone: var(--info);
+  --tone-bg: var(--info-bg);
+  --tone-text: var(--info-text);
+}
+
+.rsv-tone-completed {
+  --tone: color-mix(in srgb, var(--muted) 60%, var(--surface));
+  --tone-bg: var(--surface-2);
+  --tone-text: var(--muted);
+}
+
+.rsv-tone-no_show {
+  --tone: var(--danger);
+  --tone-bg: var(--danger-bg);
+  --tone-text: var(--danger);
+}
+
+.rsv-tone-cancelled {
+  --tone: var(--border-strong);
+  --tone-bg: var(--surface-2);
+  --tone-text: var(--muted);
+}
+
+.rsv-tone-late,
+.rsv-tone-due {
+  --tone: var(--warning);
+  --tone-bg: var(--warning-bg);
+  --tone-text: var(--warning-text);
+}
+
+.rsv-tone-soon {
+  --tone: var(--success);
+  --tone-bg: var(--success-bg);
+  --tone-text: var(--success-text);
+}
+
+.rsv-tone-walkin {
+  --tone: var(--muted);
+  --tone-bg: var(--surface-3);
+  --tone-text: var(--text-2);
+}
+
+/* The slot is over and nobody was seated: a no-show in all but name. */
+.rsv-tone-missed {
+  --tone: var(--danger);
+  --tone-bg: var(--danger-bg);
+  --tone-text: var(--danger);
+}
+
+/* ---------------------------------------------------------------- basics */
+
+.rsv-icon {
+  flex: 0 0 auto;
+  vertical-align: -2px;
+}
+
+.rsv-page .button,
+.rsv-page .chip-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-decoration: none;
+}
+
+.rsv-page .rsv-small-button {
+  padding: 6px 12px;
+  font-size: 0.8125rem;
+}
+
+.rsv-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px 2px 7px;
+  border-radius: 999px;
+  background: var(--tone-bg);
+  color: var(--tone-text);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.rsv-chip::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--tone);
+}
+
+/* Occasions are a reason to make an effort, so they get their own colour. */
+.rsv-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--rsv-occasion) 12%, var(--surface));
+  color: var(--rsv-occasion);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* The occasion colour: a rose mixed from the red and the violet tokens. */
+.rsv-page,
+.rsv-tag,
+.rsv-block-name {
+  --rsv-occasion: color-mix(in srgb, var(--danger) 55%, var(--violet));
+}
+
+.rsv-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--chip-bg);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.rsv-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--chip-bg);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 700;
+  vertical-align: 2px;
+}
+
+.tab.active .rsv-count {
+  background: color-mix(in srgb, var(--surface) 25%, transparent);
+  color: inherit;
+}
+
+.rsv-count.is-strong {
+  background: var(--primary);
+  color: var(--primary-text);
+}
+
+/* The book for another day is on its way: the old one fades until it lands.
+   Prefixed, because this sheet is also loaded by the floor plan and a bare
+   class name here would restyle any other page that used it. */
+.rsv-stale {
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
+
+.rsv-page .rsv-danger-text {
+  color: var(--danger);
+}
+
+.rsv-page .rsv-danger-chip {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
+}
+
+.rsv-page .rsv-danger-button {
+  background: var(--danger-solid);
+  color: white;
+}
+
+.rsv-page .rsv-danger-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger-solid) 88%, black);
+}
+
+.rsv-warn-text {
+  color: var(--warning-text);
+}
+
+.rsv-missing {
+  color: var(--warning-text);
+  font-weight: 600;
+}
+
+.rsv-spacer {
+  flex: 1;
+}
+
+/* ---------------------------------------------------------------- header */
+
+.rsv-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rsv-notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rsv-notice-link {
+  font-weight: 700;
+  color: inherit;
+  white-space: nowrap;
+}
+
+.rsv-notice-close {
+  display: grid;
+  place-items: center;
+  margin-left: auto;
+  padding: 4px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.rsv-notice-close:hover {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+/* ---------------------------------------------------------------- date bar */
+
+.rsv-page .rsv-datebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  padding: 12px 16px;
+}
+
+.rsv-datenav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.rsv-navbtn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.rsv-navbtn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.rsv-datebox {
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: 0 6px;
+  line-height: 1.25;
+}
+
+.rsv-date-relative {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.rsv-date-relative.is-today {
+  color: var(--primary);
+}
+
+.rsv-date-long {
+  font-size: 1.125rem;
+}
+
+.rsv-page .rsv-today {
+  padding: 7px 12px;
+  font-size: 0.8125rem;
+}
+
+.rsv-datepick {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--muted);
+}
+
+.rsv-datepick input {
+  padding: 7px 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.rsv-datepick:focus-within,
+.rsv-search:focus-within {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.rsv-datepick input:focus,
+.rsv-search input:focus {
+  outline: none;
+}
+
+.rsv-datebar-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.rsv-hours {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.rsv-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 290px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--muted);
+}
+
+.rsv-search input {
+  width: 100%;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.rsv-search-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  width: min(440px, calc(100vw - 32px));
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.rsv-search-results ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rsv-search-results button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1px 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rsv-search-results button:hover {
+  background: var(--chip-bg);
+}
+
+.rsv-search-results .rsv-chip {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+.rsv-search-when {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.rsv-search-who {
+  overflow: hidden;
+  font-size: 0.85rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rsv-search-empty,
+.rsv-search-more {
+  margin: 0;
+  padding: 8px 10px;
+}
+
+.rsv-search-group {
+  padding: 8px 10px 3px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.rsv-search-group:not(:first-child) {
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+/* The week around the day being viewed, with how full each one is. */
+.rsv-week {
+  position: relative;
+  display: grid;
+  flex-basis: 100%;
+  grid-template-columns: repeat(7, minmax(112px, 1fr));
+  gap: 8px;
+  padding-top: 12px;
+  overflow-x: auto;
+  border-top: 1px solid var(--border);
+}
+
+.rsv-week-day {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rsv-week-day:hover {
+  border-color: var(--primary);
+}
+
+.rsv-week-day strong {
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.rsv-week-name {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.rsv-week-day.is-today .rsv-week-name {
+  color: var(--primary);
+}
+
+.rsv-week-note {
+  color: var(--muted);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.rsv-week-bar {
+  display: block;
+  width: 100%;
+  height: 3px;
+  margin-top: 5px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--chip-bg);
+}
+
+.rsv-week-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--violet);
+}
+
+.rsv-week-day.is-current {
+  border-color: var(--primary);
+  background: var(--nav-active-bg);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 16%, transparent);
+}
+
+.rsv-week-day.is-closed {
+  background: repeating-linear-gradient(135deg, var(--surface-2) 0 6px, var(--chip-bg) 6px 12px);
+}
+
+/* ---------------------------------------------------------------- numbers */
+
+/* The six figures are the shared StatTile, six across on a desk. */
+.rsv-page .rsv-tiles.stat-grid {
+  grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+}
+
+.rsv-tile-live {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 400;
+}
+
+.rsv-attention {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid color-mix(in srgb, var(--warning-text) 25%, transparent);
+  border-radius: 10px;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.rsv-attention-icon {
+  padding-top: 1px;
+}
+
+.rsv-attention p {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.rsv-attention p + p {
+  margin-top: 4px;
+}
+
+.rsv-attention-body {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The sentence and its one-click fix side by side, the button under the
+   words on a phone. */
+.rsv-attention p.rsv-attention-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.rsv-attention-row > span {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.rsv-page .rsv-attention-action {
+  flex: 0 0 auto;
+  border-color: color-mix(in srgb, var(--warning-text) 35%, var(--border));
+  background: var(--surface);
+  color: var(--warning-text);
+}
+
+.rsv-inline-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ---------------------------------------------------------------- layout */
+
+.rsv-page .rsv-board {
+  padding: 0;
+  overflow: hidden;
+}
+
+.rsv-board-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px 20px;
+  padding: 16px 20px 12px;
+}
+
+.rsv-board-head h2 {
+  margin: 0 0 2px;
+}
+
+.rsv-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.rsv-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.rsv-legend-swatch {
+  width: 14px;
+  height: 10px;
+  border: 1.5px solid var(--tone);
+  border-left-width: 3px;
+  border-radius: 3px;
+  background: var(--tone-bg);
+}
+
+.rsv-legend-swatch.rsv-tone-booked {
+  border-style: dashed;
+  border-left-style: solid;
+}
+
+/* ---------------------------------------------------------------- timeline
+   A row per table, a column per half hour. The table names stay pinned on
+   the left while the evening scrolls sideways, so "which table is that?"
+   never needs a scroll back. */
+
+/* The half-hours share whatever width there is, so a desktop sees the whole
+   service at once; below a readable minimum the day scrolls sideways
+   instead of squeezing names into slivers. */
+.rsv-tl {
+  --label: 112px;
+  --min-slot: 40px;
+  --row: 50px;
+  position: relative;
+  overflow-x: auto;
+  border-top: 1px solid var(--border);
+}
+
+.rsv-tl-grid {
+  position: relative;
+  width: 100%;
+  min-width: calc(var(--label) + var(--min-slot) * var(--slots));
+}
+
+.rsv-tl-head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  height: 44px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.rsv-tl-corner {
+  position: sticky;
+  left: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  flex: 0 0 var(--label);
+  width: var(--label);
+  padding: 0 12px;
+  border-right: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.rsv-tl-scale {
+  display: flex;
+  flex: 1;
+}
+
+.rsv-tl-tick {
+  display: flex;
+  align-items: flex-start;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 7px 0 0 5px;
+  border-left: 1px solid transparent;
+  color: var(--muted);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.rsv-tl-tick.is-hour {
+  border-left-color: var(--border);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.rsv-tl-group {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  height: 30px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* The words ride along with the scroll instead of vanishing off the left. */
+.rsv-tl-group > span {
+  position: sticky;
+  left: 0;
+  padding-left: 12px;
+  white-space: nowrap;
+}
+
+.rsv-tl-group-count {
+  margin-left: 10px;
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.rsv-tl-group.is-attention {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.rsv-tl-row {
+  display: flex;
+  height: var(--row);
+  border-bottom: 1px solid var(--border);
+}
+
+.rsv-tl-row:last-of-type {
+  border-bottom: 0;
+}
+
+.rsv-tl-label {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: 0 0 var(--label);
+  width: var(--label);
+  padding: 0 12px;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  line-height: 1.2;
+}
+
+.rsv-tl-label strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.95rem;
+}
+
+.rsv-tl-label span {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.rsv-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--info);
+}
+
+.rsv-tl-track {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+/* One set of column lines for the whole grid, under the bookings. */
+.rsv-tl-cols {
+  position: absolute;
+  top: 44px;
+  right: 0;
+  bottom: 0;
+  left: var(--label);
+  z-index: 0;
+  display: flex;
+  pointer-events: none;
+}
+
+.rsv-tl-cols span {
+  flex: 1 1 0;
+  border-left: 1px dashed color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.rsv-tl-cols span.is-hour {
+  border-left: 1px solid var(--border);
+}
+
+.rsv-tl-track.is-bookable {
+  cursor: cell;
+}
+
+.rsv-tl-track.is-bookable:hover {
+  background-color: color-mix(in srgb, var(--primary) 4%, transparent);
+}
+
+.rsv-block {
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: calc(100% * var(--x) / var(--slots) + 2px);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  width: calc(100% * var(--w) / var(--slots) - 4px);
+  min-width: 0;
+  padding: 2px 8px;
+  overflow: hidden;
+  border: 1.5px solid var(--tone);
+  border-left-width: 4px;
+  border-radius: 7px;
+  background: var(--tone-bg);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition:
+    box-shadow 0.12s,
+    transform 0.12s;
+}
+
+.rsv-block:hover {
+  z-index: 2;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.rsv-block:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+/* Not yet confirmed: drawn in pencil. */
+.rsv-block.rsv-tone-booked {
+  border-style: dashed;
+  border-left-style: solid;
+}
+
+.rsv-block.rsv-tone-completed {
+  opacity: 0.8;
+}
+
+.rsv-block.rsv-tone-no_show {
+  background: repeating-linear-gradient(135deg, var(--tone-bg) 0 6px, var(--surface) 6px 12px);
+  opacity: 0.85;
+}
+
+.rsv-block.rsv-tone-walkin {
+  background: repeating-linear-gradient(135deg, var(--tone-bg) 0 8px, var(--surface-2) 8px 16px);
+  border-style: solid;
+}
+
+.rsv-block.is-static {
+  cursor: default;
+}
+
+/* Due soon, and the table still has someone else at it. */
+.rsv-block.is-blocked {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--warning) 55%, transparent);
+}
+
+.rsv-block.is-blocked .rsv-block-name .rsv-icon {
+  color: var(--warning);
+}
+
+.rsv-block.is-static:hover {
+  transform: none;
+}
+
+/* The booked slot is drawn solid; the time they have stayed past it is
+   hatched, so the overstay reads at a glance. */
+.rsv-block.is-overstay::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: calc(100% * var(--booked));
+  z-index: -1;
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--tone) 16%, transparent) 0 6px,
+    transparent 6px 12px
+  );
+  border-left: 1px dashed color-mix(in srgb, var(--tone) 60%, transparent);
+  pointer-events: none;
+}
+
+.rsv-block.is-overstay {
+  isolation: isolate;
+}
+
+.rsv-block-over {
+  color: var(--tone-text);
+  font-weight: 600;
+}
+
+.rsv-block-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rsv-block-name .rsv-icon {
+  color: var(--rsv-occasion);
+}
+
+.rsv-block-meta {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  overflow: hidden;
+  color: var(--tone-text);
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rsv-block.is-short .rsv-block-meta {
+  display: none;
+}
+
+/* The same party drawn on a table joined to its main one: lighter, so the
+   main table's block still reads as "where they sit". */
+.rsv-block.is-joined {
+  border-style: dashed;
+  opacity: 0.85;
+}
+
+.rsv-block-joined {
+  font-weight: 600;
+}
+
+.rsv-tl-past {
+  position: absolute;
+  top: 44px;
+  bottom: 0;
+  left: var(--label);
+  z-index: 0;
+  width: calc((100% - var(--label)) * var(--x) / var(--slots));
+  background: color-mix(in srgb, var(--text) 3.5%, transparent);
+  pointer-events: none;
+}
+
+.rsv-tl-now {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--label) + (100% - var(--label)) * var(--x) / var(--slots));
+  z-index: 4;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--danger-solid);
+  pointer-events: none;
+}
+
+.rsv-tl-now span {
+  position: absolute;
+  top: 23px;
+  left: 50%;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--danger-solid);
+  color: white;
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+/* Before opening, after closing, or the whole of a closed day: greyed out
+   and not bookable. */
+.rsv-tl-shut {
+  position: absolute;
+  top: 44px;
+  bottom: 0;
+  left: calc(var(--label) + (100% - var(--label)) * var(--x) / var(--slots));
+  z-index: 0;
+  width: calc((100% - var(--label)) * var(--w) / var(--slots));
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--text) 5%, transparent) 0 6px,
+    transparent 6px 12px
+  );
+  pointer-events: none;
+}
+
+.rsv-tl-closed {
+  position: absolute;
+  top: 44px;
+  right: 0;
+  bottom: 0;
+  left: var(--label);
+  z-index: 3;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 16px 16px;
+  pointer-events: none;
+}
+
+.rsv-tl-closed-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 380px;
+  padding: 14px 18px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  color: var(--muted);
+}
+
+.rsv-tl-closed-card strong {
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.rsv-tl-closed-card p {
+  margin: 2px 0 0;
+}
+
+/* ---------------------------------------------------------------- agenda */
+
+.rsv-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rsv-hour {
+  padding: 0 20px 6px;
+}
+
+.rsv-hour:last-child {
+  padding-bottom: 20px;
+}
+
+.rsv-hour-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 10px 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed var(--border);
+  font-size: 0.9rem;
+}
+
+.rsv-hour-head .muted {
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.rsv-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rsv-card {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--tone);
+  border-radius: 10px;
+  background: var(--surface);
+  transition:
+    box-shadow 0.12s,
+    border-color 0.12s;
+}
+
+.rsv-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.rsv-card.rsv-tone-cancelled,
+.rsv-card.rsv-tone-completed {
+  background: var(--surface-2);
+}
+
+.rsv-card.rsv-tone-cancelled .rsv-card-name {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.rsv-card-main {
+  display: flex;
+  flex: 1;
+  gap: 16px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 10px 0 0 10px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rsv-card-main:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.rsv-card-when {
+  display: flex;
+  flex: 0 0 82px;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.rsv-card-when strong {
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.rsv-card-when small {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.rsv-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.rsv-card-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.rsv-card-name {
+  font-size: 1rem;
+}
+
+.rsv-card-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 0.8125rem;
+}
+
+.rsv-card-facts > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.rsv-card-facts .rsv-icon {
+  color: var(--muted);
+}
+
+.rsv-card-request {
+  display: inline-flex;
+  align-items: flex-start;
+  align-self: flex-start;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: 0.8rem;
+}
+
+.rsv-card-request .rsv-icon {
+  margin-top: 2px;
+}
+
+.rsv-card-reason {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+/* Cancelling is one click away but not shouting: it is the rarest action. */
+.rsv-quiet-button {
+  padding: 5px 6px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.8125rem;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.rsv-quiet-button:hover {
+  color: var(--danger);
+}
+
+.rsv-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 10px 12px;
+}
+
+/* ---------------------------------------------------------------- waitlist */
+
+.rsv-page .rsv-waitlist {
+  padding: 16px 18px;
+}
+
+.rsv-waitlist-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+/* A section's title with the design system's tinted icon beside it, the
+   way every SectionCard heads itself. */
+.rsv-head-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.rsv-head-main .section-card-icon {
+  flex: none;
+}
+
+.rsv-waitlist-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 2px;
+}
+
+.rsv-wait-empty {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 2px;
+  color: var(--muted);
+}
+
+.rsv-wait-empty p {
+  margin: 0;
+}
+
+.rsv-wait-empty p:first-of-type {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.rsv-wait-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rsv-wait {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.rsv-wait.is-near {
+  border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
+}
+
+.rsv-wait.is-over {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+  background: color-mix(in srgb, var(--danger-bg) 55%, var(--surface));
+}
+
+.rsv-wait-top {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.rsv-wait-pos {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--chip-bg);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.rsv-wait-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  min-width: 0;
+}
+
+.rsv-wait-line {
+  flex-basis: 100%;
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+.rsv-wait-notes {
+  flex-basis: 100%;
+}
+
+.rsv-wait-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.2;
+}
+
+.rsv-wait-clock strong {
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--success-text);
+}
+
+.rsv-wait-clock small {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.rsv-wait.is-near .rsv-wait-clock strong {
+  color: var(--warning-text);
+}
+
+.rsv-wait.is-over .rsv-wait-clock strong,
+.rsv-wait.is-over .rsv-wait-clock small {
+  color: var(--danger);
+}
+
+.rsv-wait-bar {
+  height: 4px;
+  margin: 9px 0;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--chip-bg);
+}
+
+.rsv-wait-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--success-text);
+  transition: width 0.4s;
+}
+
+.rsv-wait.is-near .rsv-wait-bar span {
+  background: var(--warning);
+}
+
+.rsv-wait.is-over .rsv-wait-bar span {
+  background: var(--danger);
+}
+
+.rsv-wait-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.rsv-wait-actions .action-menu-trigger {
+  margin-left: auto;
+}
+
+.rsv-notified {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--success-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.rsv-wait-recent {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.rsv-wait-recent summary {
+  color: var(--muted);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rsv-wait-recent ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rsv-wait-recent li {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  line-height: 1.35;
+}
+
+.rsv-wait-unclosed-count {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: 0.72rem;
+}
+
+.rsv-wait-recent li.rsv-wait-unclosed {
+  border-color: color-mix(in srgb, var(--warning-text) 30%, var(--border));
+  background: var(--warning-bg);
+}
+
+.rsv-wait-unclosed-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 3px;
+}
+
+.rsv-wait-unclosed-actions .link-button {
+  font-size: 0.8rem;
+}
+
+/* ---------------------------------------------------------------- forms */
+
+.rsv-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 16px 24px;
+}
+
+.rsv-editor-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.rsv-editor-side {
+  min-width: 0;
+  padding-left: 24px;
+  border-left: 1px solid var(--border);
+}
+
+.rsv-editor-actions {
+  grid-column: 1 / -1;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.rsv-page .rsv-first-heading {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.rsv-row-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.rsv-row-3 {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.rsv-stepper {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.rsv-stepper > button {
+  width: 38px;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1.15rem;
+  cursor: pointer;
+}
+
+.rsv-stepper > button:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.field .rsv-stepper input {
+  width: 68px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.rsv-stepper-quick {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 6px;
+}
+
+.rsv-stepper-quick button,
+.rsv-choice {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.rsv-stepper-quick button:hover,
+.rsv-choice:hover {
+  border-color: var(--primary);
+}
+
+.rsv-stepper-quick button.is-active,
+.rsv-choice.is-active {
+  border-color: var(--primary);
+  background: var(--nav-active-bg);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.rsv-choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rsv-guest {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--success-bg);
+  color: var(--success-text);
+  font-size: 0.8125rem;
+}
+
+.rsv-guest.is-warning {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.rsv-guest.is-plain {
+  background: var(--chip-bg);
+  color: var(--text);
+}
+
+.rsv-guest .link-button {
+  margin-left: auto;
+  color: inherit;
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------- table picker */
+
+.rsv-picker-summary {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+}
+
+.rsv-picker-inuse {
+  color: var(--muted);
+}
+
+.rsv-pick-group-name {
+  margin: 12px 0 6px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.rsv-pick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+
+.rsv-pick {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-height: 66px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rsv-pick:hover:not(:disabled) {
+  border-color: var(--primary);
+}
+
+.rsv-pick-no {
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.rsv-pick-seats {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.rsv-pick-note {
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.rsv-pick.fit-free .rsv-pick-note {
+  color: var(--success-text);
+}
+
+.rsv-pick.fit-clash .rsv-pick-note {
+  color: var(--violet);
+}
+
+.rsv-pick.fit-small .rsv-pick-note {
+  color: var(--warning-text);
+}
+
+.rsv-pick.fit-occupied .rsv-pick-note {
+  color: var(--info-text);
+}
+
+/* Still being cleaned after the last party, as the floor plan shows it. */
+.rsv-pick.fit-cleaning .rsv-pick-note {
+  color: var(--warning-text);
+}
+
+.rsv-pick:disabled {
+  background: repeating-linear-gradient(135deg, var(--surface-2) 0 6px, var(--chip-bg) 6px 12px);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.rsv-pick.is-selected {
+  border-color: var(--primary);
+  background: var(--nav-active-bg);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+/* A table pushed together with the main one for a large party (SW-A-16). */
+.rsv-pick.is-joined {
+  border-color: var(--primary);
+  border-style: dashed;
+  background: color-mix(in srgb, var(--nav-active-bg) 60%, var(--surface));
+}
+
+.rsv-pick.is-joined .rsv-pick-note,
+.rsv-pick.is-selected .rsv-pick-note {
+  color: var(--primary);
+}
+
+.rsv-join-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+  font-size: 0.82rem;
+}
+
+.rsv-join-bar.is-on {
+  border-style: solid;
+  border-color: var(--primary);
+  background: var(--nav-active-bg);
+}
+
+.rsv-override-block .field {
+  margin-top: 8px;
+}
+
+.rsv-pick-best {
+  position: absolute;
+  top: -8px;
+  right: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--success-text);
+  color: var(--surface);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.rsv-pick-none {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  min-height: 0;
+  margin-bottom: 2px;
+}
+
+.rsv-page .rsv-override {
+  align-items: flex-start;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.rsv-page .rsv-override input {
+  margin-top: 3px;
+}
+
+.rsv-picker .alert {
+  margin: 10px 0 0;
+}
+
+/* ---------------------------------------------------------------- one booking */
+
+.rsv-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rsv-detail-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--tone) 35%, transparent);
+  border-left: 5px solid var(--tone);
+  border-radius: 12px;
+  background: var(--tone-bg);
+}
+
+.rsv-detail-date {
+  color: var(--tone-text);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.rsv-detail-when strong {
+  display: block;
+  font-size: 1.4rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.rsv-detail-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rsv-detail-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-size: 0.9rem;
+}
+
+.rsv-detail-facts > span:not(.rsv-tag) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rsv-request-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: 0.875rem;
+}
+
+.rsv-request-box .rsv-icon {
+  margin-top: 3px;
+}
+
+.rsv-internal-box {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--muted);
+  border-radius: 8px;
+  background: var(--chip-bg);
+  font-size: 0.875rem;
+}
+
+.rsv-detail-list {
+  font-size: 0.9rem;
+}
+
+.rsv-detail-list a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.rsv-history {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rsv-history li {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  padding-bottom: 12px;
+  font-size: 0.875rem;
+}
+
+/* The line joining one step to the next. */
+.rsv-history li:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  top: 16px;
+  bottom: 0;
+  left: 4px;
+  width: 2px;
+  background: var(--border);
+}
+
+.rsv-history-dot {
+  flex: 0 0 10px;
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.rsv-history-note {
+  margin: 2px 0 0;
+}
+
+.rsv-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+/* ---------------------------------------------------------------- floor plan
+   Used by the Tables page, which shows the party a table is held for. */
+
+.floor-table-booking {
+  display: block;
+  margin-top: auto;
+  color: var(--state);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.floor-table-next {
+  display: block;
+  margin-top: 2px;
+  color: var(--warning-text);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------- narrow */
+
+@media (max-width: 860px) {
+  .rsv-editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rsv-editor-side {
+    padding-top: 4px;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .rsv-row-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rsv-row-3 > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .rsv-datebar-side {
+    width: 100%;
+  }
+
+  .rsv-search {
+    flex: 1 1 100%;
+    min-width: 0;
+    order: 3;
+  }
+}
+
+@media (max-width: 640px) {
+  .rsv-tl {
+    --label: 68px;
+    --min-slot: 44px;
+    --row: 48px;
+  }
+
+  .rsv-tl-label {
+    padding: 0 8px;
+  }
+
+  /* The grid is wider than the screen here, so the closed-day note sits at
+     the left edge, where the timeline opens, rather than in the middle. */
+  .rsv-tl-closed {
+    justify-content: flex-start;
+    padding: 24px 10px 10px;
+  }
+
+  .rsv-tl-closed-card {
+    max-width: 260px;
+  }
+
+  /* Exactly as wide as the search box, so it keeps the page's side margin. */
+  .rsv-search-results {
+    left: 0;
+    width: auto;
+  }
+
+  .rsv-datebox {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .rsv-datenav {
+    width: 100%;
+  }
+
+  .rsv-datepick {
+    flex: 1 1 100%;
+  }
+
+  .rsv-datepick input {
+    width: 100%;
+  }
+
+  .rsv-page .rsv-tiles.stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .rsv-board-head {
+    padding: 14px 14px 10px;
+  }
+
+  .rsv-hour {
+    padding: 0 12px 6px;
+  }
+
+  .rsv-card {
+    flex-direction: column;
+  }
+
+  .rsv-card-main {
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 12px 6px;
+  }
+
+  /* The time on its own line, read across: "7:30 pm until 9:00 pm". */
+  .rsv-card-when {
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .rsv-card-actions {
+    justify-content: flex-start;
+    padding: 4px 12px 12px;
+  }
+
+  .rsv-row-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rsv-stepper-quick {
+    margin-left: 0;
+  }
+
+  .rsv-header-actions {
+    width: 100%;
+  }
+
+  .rsv-header-actions .button {
+    flex: 1 1 auto;
+  }
+}
+
+/* A booking whose table went out of service after it was taken. */
+.rsv-table-off {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+}
+
+/* A table on a closed floor or in a closed section, on the timeline. */
+.rsv-tl-row.is-closed-table .rsv-tl-label strong {
+  color: var(--muted);
+}
+
+.rsv-tl-closed-tag {
+  color: var(--warning-text);
+  font-weight: 600;
+}
+
+.rsv-tl-row.is-closed-table .rsv-tl-track {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0 8px,
+    color-mix(in srgb, var(--muted) 10%, transparent) 8px 9px
+  );
+}

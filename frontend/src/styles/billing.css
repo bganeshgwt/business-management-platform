@@ -1,0 +1,1591 @@
+/* The money screens: the bill dialog (POS and Bills screen), the Bills
+   screen, Business day, Discounts & offers, Expenses, Settings and Tax rates.
+   Tokens only, so dark mode needs nothing of its own. */
+
+/* --------------------------------------------------------------- the bill dialog */
+
+.bill-modal {
+  display: grid;
+  gap: 14px;
+}
+
+.bill-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bill-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+/* The bill as it prints: a paper-like panel, every figure in tabular digits. */
+.bill-paper {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bill-paper-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.bill-lines {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.bill-lines th {
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--border-strong);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.bill-lines td {
+  padding: 6px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  vertical-align: top;
+}
+
+.bill-lines .right {
+  padding-left: 10px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.bill-line-discount {
+  display: block;
+  font-size: 12px;
+  color: var(--success-text);
+}
+
+.bill-sums {
+  display: grid;
+  gap: 2px;
+  margin: 10px 0 0;
+}
+
+.bill-sum {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0;
+  font-size: 13.5px;
+}
+
+.bill-sum dt {
+  color: var(--text-2);
+}
+
+.bill-sum dd {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.bill-sum.is-subtotal {
+  padding-top: 2px;
+  font-weight: 600;
+}
+
+.bill-sum.is-subtotal dt {
+  color: var(--text);
+}
+
+.bill-sum.is-coupon dd,
+.bill-sum.is-manual dd,
+.bill-sum.is-itemDiscount dd,
+.bill-sum.is-discount dd,
+.bill-sum.is-points dd,
+.bill-sum.is-complimentary dd {
+  color: var(--success-text);
+}
+
+.bill-sum.is-total {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border-strong);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.bill-sum.is-total dt {
+  color: var(--text);
+}
+
+.bill-sum.is-paid,
+.bill-sum.is-due {
+  font-size: 13px;
+}
+
+.bill-sum.is-due dd {
+  font-weight: 700;
+  color: var(--danger);
+}
+
+.bill-note {
+  margin: 6px 0 0;
+}
+
+/* The side: what can be done to the bill. */
+.bill-side {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  min-width: 0;
+}
+
+.bill-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bill-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.bill-action:hover {
+  background: var(--surface-hover);
+}
+
+.bill-action.is-set {
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  background: var(--primary-soft);
+}
+
+.bill-action.is-open {
+  border-color: var(--primary);
+  box-shadow: var(--ring);
+}
+
+.bill-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.bill-panel p {
+  margin: 0;
+}
+
+.bill-panel-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.bill-panel-row > input {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.bill-panel-end {
+  justify-content: flex-end;
+}
+
+.bill-panel-current {
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 13px;
+}
+
+.bill-chips .chip-button.is-active {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.bill-dish-discounts {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bill-dish-discounts li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.bill-dish-discounts input {
+  flex: 0 0 90px;
+  width: 90px;
+}
+
+/* Taking a payment: the till's main job, so it is the biggest thing here. */
+.bill-pay {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.bill-pay-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.bill-pay-head strong {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bill-methods {
+  display: flex;
+  width: 100%;
+}
+
+.bill-methods .segment {
+  flex: 1 1 0;
+}
+
+.bill-pay-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.bill-change {
+  font-weight: 600;
+  color: var(--success-text);
+}
+
+.bill-pay-button {
+  width: 100%;
+  min-height: 44px;
+  font-size: 15px;
+}
+
+.bill-history h3 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.bill-history ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bill-history li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bill-history li > span:first-child {
+  min-width: 0;
+}
+
+.bill-history li.is-refund strong {
+  color: var(--danger);
+}
+
+.bill-history-end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.bill-more {
+  display: grid;
+  gap: 8px;
+}
+
+.bill-details {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.bill-details > summary {
+  padding: 10px 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.bill-details[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.bill-details > .bill-panel {
+  border: 0;
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+
+@media (max-width: 760px) {
+  .bill-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .bill-pay-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .bill-panel-row > .segmented {
+    display: flex;
+    width: 100%;
+  }
+
+  .bill-panel-row > .segmented .segment {
+    flex: 1 1 0;
+  }
+}
+
+/* --------------------------------------------------------------- the Bills screen */
+
+.bills-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.bills-day-alert {
+  margin: 0;
+}
+
+.bills-methods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bills-method {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bills-method strong {
+  font-weight: 700;
+}
+
+.bills-methods-label {
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.bills-number {
+  font-weight: 600;
+}
+
+/* Money still owed on a bill: the figure as sent, in the warning colour so a
+   column of zeros does not hide the one that is not. */
+.bills-due {
+  color: var(--warning-text);
+  font-weight: 700;
+}
+
+/* A void bill stays in the list for the record, quieter than the rest. */
+.table tr.is-void td {
+  color: var(--muted);
+}
+
+.table tr.is-void td strong {
+  font-weight: 500;
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--muted) 60%, transparent);
+}
+
+.bills-search {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.bills-search input {
+  width: 100%;
+}
+
+.bills-when {
+  display: grid;
+  line-height: 1.25;
+}
+
+.bills-when .small {
+  color: var(--muted);
+}
+
+.bills-who {
+  display: grid;
+  line-height: 1.25;
+}
+
+.bills-flags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.bills-print {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.bills-print.is-reprinted {
+  font-weight: 600;
+  color: var(--warning-text);
+}
+
+/* --------------------------------------------------------------- settings */
+
+.settings-sections {
+  display: grid;
+  gap: 16px;
+}
+
+.sc-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.discount-limits {
+  display: grid;
+  gap: 8px;
+}
+
+.discount-limit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.discount-limit-name {
+  display: grid;
+  line-height: 1.3;
+}
+
+.discount-limit-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.discount-limit-input input {
+  width: 90px;
+}
+
+.timezone-now {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------- tax rates */
+
+.rate-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--warning-text);
+}
+
+.move-dishes {
+  display: grid;
+  gap: 12px;
+}
+
+.move-dishes ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.move-dishes li {
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg);
+  font-size: 13px;
+}
+
+/* --------------------------------------------------------------- given at the till */
+
+.given-reasons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.given-reason {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.given-reason strong {
+  font-size: 15px;
+}
+
+.given-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+@media (max-width: 480px) {
+  .discount-limit {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.bills-toolbar {
+  display: grid;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.bills-toolbar > .alert {
+  margin: 0;
+}
+
+.bills-search-row {
+  display: flex;
+  gap: 8px;
+}
+
+.bills-search-row .input-with-icon {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .bills-toolbar {
+    padding: 14px 16px;
+  }
+}
+
+.bill-paper-to {
+  margin: -2px 0 8px;
+  color: var(--text-2);
+}
+
+/* On a phone these lists scroll sideways rather than squeezing each row into
+   a tall column of wrapped words. */
+.given-staff {
+  min-width: 560px;
+}
+
+.given-bills {
+  min-width: 900px;
+}
+
+/* =============================================================== shared pieces */
+
+/* Tabs under a page header: underlined, with an icon and a count. The same
+   look as the tabs on the stock screens. */
+.money-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.money-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.money-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px 11px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 140ms ease,
+    background-color 140ms ease;
+}
+
+.money-tab:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.money-tab:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.money-tab.is-active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  font-weight: 600;
+}
+
+.money-tab-count {
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.money-tab.is-active .money-tab-count {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+/* The filters across the top of a list card: a quiet band, one row. */
+.money-filterbar {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+/* Filters that stand above several cards sit in a card of their own. */
+.money-filtercard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px 24px;
+  padding: 16px 20px;
+}
+
+/* The line saying what the filters cover reads first, across the card. */
+.money-filtercard-note {
+  flex: 1 1 100%;
+  order: -1;
+  margin: 0;
+}
+
+/* A loading line inside an edge-to-edge card keeps the card's margin. */
+.money-pad {
+  padding: 16px 20px;
+}
+
+/* Two lines in one cell: the main fact, and a quieter one under it. */
+.bd-when {
+  display: grid;
+  gap: 1px;
+  line-height: 1.3;
+}
+
+/* ============================================================== business day */
+
+.bd-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px 32px;
+  padding: 22px 24px;
+  border-left: 4px solid var(--success);
+  background:
+    linear-gradient(100deg, color-mix(in srgb, var(--success) 7%, transparent), transparent 55%),
+    var(--surface);
+}
+
+.bd-hero.is-closed {
+  border-left-color: var(--border-strong);
+  background: var(--surface);
+}
+
+.bd-hero-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  min-width: 0;
+  flex: 1 1 360px;
+}
+
+.bd-hero-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 14px;
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.bd-hero.is-closed .bd-hero-icon {
+  background: var(--surface-3);
+  color: var(--text-2);
+}
+
+.bd-hero-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.bd-hero-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.bd-hero-date {
+  margin: 2px 0 0;
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+.bd-hero-meta {
+  margin: 0;
+  max-width: 62ch;
+}
+
+.bd-hero-notes {
+  margin: 4px 0 0;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  font-size: 0.875rem;
+}
+
+.bd-hero-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0;
+}
+
+.bd-hero-facts > div {
+  min-width: 150px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.bd-hero-facts dt {
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.bd-hero-facts dd {
+  margin: 2px 0 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.bd-hero-facts dd.mono {
+  font-size: 1rem;
+  padding-top: 5px;
+}
+
+.bd-days tr.is-current td {
+  background: color-mix(in srgb, var(--success) 5%, transparent);
+}
+
+.bd-notes {
+  max-width: 28ch;
+}
+
+/* The close dialog: the day being closed, then the count. */
+.bd-closing {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.bd-closing-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.bd-closing-text {
+  display: grid;
+  gap: 1px;
+  line-height: 1.35;
+}
+
+/* The cash box: the figure the day is closed on, so it is the largest thing. */
+.bd-cash {
+  position: relative;
+  display: block;
+}
+
+.bd-cash-symbol {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 1.05rem;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.field .bd-cash input {
+  width: 100%;
+  padding-left: 32px;
+  font-size: 1.15rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.bd-count {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.bd-count > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 10px 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.bd-count[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.bd-count-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px 14px;
+  padding: 12px;
+  background: var(--surface-2);
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+
+.bd-count-row {
+  display: grid;
+  grid-template-columns: 52px 12px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.bd-count-note {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.bd-count-row input {
+  width: 100%;
+  min-width: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.bd-blockers strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bd-blockers li + li {
+  margin-top: 2px;
+}
+
+/* ============================================================ discounts & offers */
+
+.offer-code {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 220px;
+}
+
+.offer-code-chip {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border: 1px dashed color-mix(in srgb, var(--primary) 55%, transparent);
+  border-radius: var(--radius-sm);
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.offer-code-name {
+  display: grid;
+  gap: 1px;
+  line-height: 1.3;
+  min-width: 0;
+}
+
+.offer-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.offer-value svg {
+  color: var(--muted);
+}
+
+.given-bill-link {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.given-bill-link:hover {
+  text-decoration: underline;
+}
+
+.given-approved {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.given-approved svg {
+  color: var(--info-text);
+}
+
+/* ==================================================================== expenses */
+
+.expense-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-2);
+}
+
+.expense-mode svg {
+  color: var(--muted);
+}
+
+.expense-note {
+  display: -webkit-box;
+  max-width: 34ch;
+  overflow: hidden;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+}
+
+.expenses-table tr.is-rejected td {
+  color: var(--muted);
+}
+
+.expenses-table tr.is-rejected td strong {
+  font-weight: 500;
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--muted) 60%, transparent);
+}
+
+.expense-categories {
+  max-height: 46vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.expense-categories tr.is-editing td {
+  background: var(--primary-soft);
+}
+
+.expense-category-form {
+  display: grid;
+  gap: 12px;
+}
+
+.expense-category-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 12px;
+}
+
+/* ==================================================================== settings */
+
+/* A switch that changes how bills work gets its own tinted row, so it is
+   not read as a caption of the field above it. */
+.settings-toggle {
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  line-height: 1.45;
+}
+
+.settings-toggle input {
+  margin-top: 3px;
+}
+
+.sc-type {
+  padding: 6px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+
+.sc-type.is-on {
+  border-color: color-mix(in srgb, var(--primary) 50%, transparent);
+  background: var(--primary-soft);
+  color: var(--text);
+}
+
+.settings-sample {
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--chip-bg);
+  color: var(--text);
+}
+
+.settings-sections > .alert {
+  margin: 0;
+}
+
+/* =================================================================== tax rates */
+
+.rate-name {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.rate-name .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rate-pill {
+  display: inline-block;
+  min-width: 52px;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--info-bg);
+  color: var(--info-text);
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ====================================================================== phones */
+
+
+@media (max-width: 760px) {
+  .money-filterbar,
+  .money-pad {
+    padding: 14px 16px;
+  }
+
+  .money-filtercard {
+    padding: 14px 16px;
+  }
+
+  .money-tab {
+    padding: 10px 10px 11px;
+    gap: 6px;
+  }
+
+  .bd-hero {
+    padding: 18px 16px;
+    gap: 16px;
+  }
+
+  .bd-hero-main {
+    flex-basis: 100%;
+    gap: 12px;
+  }
+
+  .bd-hero-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+  }
+
+  .bd-hero-date {
+    font-size: 1.25rem;
+  }
+
+  .bd-hero-facts {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .bd-hero-facts > div {
+    min-width: 0;
+    padding: 10px 12px;
+  }
+
+  .bd-hero-facts dd {
+    font-size: 1.15rem;
+  }
+
+  .bd-hero .button-lg {
+    width: 100%;
+  }
+
+  .expense-category-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .offer-code {
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}
+
+/* On a phone a wide list becomes a column of cards: the row's name and its
+   status across the top, then each figure under a small label of its own
+   (the cell's data-label), two to a line. Scrolling sideways through nine
+   columns to find what is still due was the thing to avoid. */
+@media (max-width: 640px) {
+  .table.money-cards,
+  .table.money-cards tbody {
+    display: block;
+  }
+
+  .table.money-cards thead {
+    display: none;
+  }
+
+  .table.money-cards tbody tr {
+    display: grid;
+    grid-auto-flow: row dense;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px 14px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .table.money-cards tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .table.money-cards tbody td,
+  .table.money-cards tbody td.right {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    text-align: left;
+    white-space: normal;
+    background: none;
+  }
+
+  .table.money-cards tbody tr:hover > td {
+    background: none;
+  }
+
+  .table.money-cards td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 2px;
+    color: var(--muted);
+    font-size: 0.6875rem;
+    font-weight: 650;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .table.money-cards tbody td.money-card-title {
+    order: -2;
+    font-size: 1rem;
+  }
+
+  .table.money-cards tbody td.money-card-status {
+    order: -1;
+    justify-self: end;
+    text-align: right;
+  }
+
+  /* Lists with many figures (bills, credit notes) put three to a line, so
+     Total, Paid and Due read across like the columns they came from. */
+  .table.money-cards.money-cards-3 tbody tr {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .table.money-cards.money-cards-3 tbody td.money-card-title {
+    grid-column: span 2;
+  }
+
+  /* These two lists scroll sideways on a tablet; as cards they need no width. */
+  .table.money-cards.given-staff,
+  .table.money-cards.given-bills {
+    min-width: 0;
+  }
+
+  /* An empty optional cell (no notes) is left out of the card. */
+  .table.money-cards tbody td.money-card-hide {
+    display: none;
+  }
+
+  .table.money-cards tbody td.money-card-wide {
+    grid-column: 1 / -1;
+    max-width: none;
+  }
+
+  .table.money-cards tbody td.row-actions {
+    grid-column: 1 / -1;
+    order: 99;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 12px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border);
+  }
+
+  .table.money-cards tbody td.row-actions > * + * {
+    margin-left: 0;
+  }
+
+  .section-card.is-flush .table.money-cards td:first-child,
+  .section-card.is-flush .table.money-cards td:last-child {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .section-card.is-flush .table.money-cards td.row-actions:last-child {
+    padding-top: 8px;
+  }
+
+  /* Filters on a phone: the search and the switches take the width, the two
+     dates sit side by side, and the quick ranges fall into a two-by-two. */
+  .money-filterbar .filters {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .money-filterbar .filters > *,
+  .money-filtercard .filters > * {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
+  .money-filterbar .filters > .field:has(> input[type="date"]),
+  .money-filtercard .filters > .field:has(> input[type="date"]) {
+    grid-column: auto;
+  }
+
+  .money-filterbar .filters .field,
+  .money-filtercard .filters .field {
+    min-width: 0;
+  }
+
+  .money-filterbar .segmented,
+  .money-filtercard .segmented {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .money-filtercard .filters {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px;
+    width: 100%;
+  }
+}
+
+/* A status chip in a two-line cell keeps its own width. */
+.bd-when > .badge {
+  justify-self: start;
+}
+
+/* --- Billing and payments build ------------------------------------------- */
+
+/* The UPI QR for the amount being taken: large enough to scan from across
+   the counter, on white in both themes (scanners need the contrast). */
+.bill-upi {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.bill-upi-code {
+  flex: 0 0 auto;
+  width: 148px;
+  padding: 6px;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.bill-upi-code svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.bill-upi-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.bill-tip {
+  color: var(--success-text);
+  font-size: 0.8125rem;
+}
+
+.bill-history li.is-correction {
+  color: var(--muted);
+}
+
+.bill-fix {
+  margin-top: 10px;
+}
+
+@media (max-width: 480px) {
+  .bill-upi {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .bill-upi-code {
+    width: 180px;
+  }
+}
+
+/* Settings → Payment types: the add/change form above the list. */
+.payment-type-form {
+  display: grid;
+  grid-template-columns: minmax(140px, 180px) minmax(180px, 1fr) auto auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 14px;
+}
+
+.payment-type-ref {
+  align-self: center;
+}
+
+.payment-type-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 760px) {
+  .payment-type-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Outlets: the series each outlet prints, with where it comes from. */
+.outlet-series {
+  display: grid;
+  gap: 2px;
+}
+
+.text-warning {
+  color: var(--warning-text);
+}
+
+/* Offer rules (SW-B-17): chips for days, categories and chosen dishes. */
+.offer-rule-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.offer-rule-matches {
+  display: grid;
+  margin-top: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.offer-rule-match {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.offer-rule-match:last-child {
+  border-bottom: 0;
+}
+
+.offer-rule-match:hover,
+.offer-rule-match:focus-visible {
+  background: var(--surface-2);
+}
+
+/* Bills: named payment types and advances beside the methods. */
+.bills-method.is-type {
+  background: var(--surface-2);
+}
+
+.bills-method .bill-tip {
+  margin-left: 4px;
+}
+
+/* Cash given: one tap for the usual notes, and the change in large type. */
+.bill-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.chip-button.bill-note.is-active {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.bill-change.bill-change-big {
+  display: block;
+  margin-top: 6px;
+  font-size: 1.25rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.bills-days summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.bills-days p {
+  margin: 6px 0 0;
+}
+
+.bills-more-tenders summary {
+  cursor: pointer;
+  font-size: 0.8125rem;
+  color: var(--primary);
+}
+
+.bills-more-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}

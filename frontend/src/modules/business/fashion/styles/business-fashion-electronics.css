@@ -1,0 +1,523 @@
+/* Fashion and electronics screens (Phase 2, T3). Only page layout here; the
+   grid, cards and badges come from the shared styles and design tokens. */
+
+.fe-presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.fe-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.fe-size-prices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+}
+
+.fe-size-price {
+  margin: 0;
+}
+
+.fe-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+
+/* One matrix cell: pieces in stock over the variant's price. */
+.fe-cell {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.2;
+}
+
+.fe-cell small {
+  font-size: 0.75rem;
+}
+
+.fe-cell-out strong {
+  color: var(--danger);
+}
+
+.fe-cell-low strong {
+  color: var(--warning-text);
+}
+
+.fe-inline-field {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.fe-inline-field > span {
+  white-space: nowrap;
+}
+
+.fe-policy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 0.875rem;
+}
+
+.fe-find {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.fe-find > .field {
+  flex: 1 1 260px;
+  margin: 0;
+}
+
+.fe-sale-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  font-size: 0.875rem;
+}
+
+.fe-subhead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 8px;
+  font-size: 0.9375rem;
+}
+
+.fe-gap {
+  margin-top: 10px;
+}
+
+.fe-warn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: 0.875rem;
+}
+
+.fe-results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fe-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.fe-result > .bz-two-line {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.fe-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.fe-facts dt {
+  color: var(--muted);
+}
+
+.fe-facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 520px) {
+  .fe-facts {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .fe-facts dd {
+    margin-bottom: 8px;
+  }
+}
+
+/* Pro pass E: a row of small controls (a gift coming back, filters). */
+.fe-inline-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3) var(--space-4);
+}
+
+.fe-inline-row > .field {
+  margin: 0;
+  min-width: 120px;
+}
+
+.fe-markdown {
+  color: var(--danger);
+  font-weight: var(--weight-medium);
+}
+
+/* --- Size × colour matrix (pro pass E-10): a real grid on every screen.
+   Colours stay pinned on the left; sizes scroll sideways on a phone. --- */
+.fe-matrix-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.fe-matrix {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--text-md);
+}
+
+.fe-matrix th,
+.fe-matrix td {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.fe-matrix thead th {
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-weight: var(--weight-medium);
+}
+
+.fe-matrix thead th strong {
+  display: block;
+  color: var(--text);
+  font-size: var(--text-base);
+}
+
+.fe-matrix thead th small,
+.fe-matrix-colour small {
+  display: block;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
+}
+
+.fe-matrix .fe-matrix-colour {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 112px;
+  background: var(--surface);
+  text-align: left;
+  font-weight: var(--weight-medium);
+  box-shadow: 1px 0 0 var(--border);
+}
+
+.fe-matrix thead .fe-matrix-colour {
+  background: var(--surface-2);
+}
+
+.fe-matrix-cell {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  min-height: 44px;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+}
+
+.fe-matrix-cell strong {
+  font-size: var(--text-lg);
+  font-variant-numeric: tabular-nums;
+}
+
+.fe-matrix-cell small {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.fe-matrix-cell:hover,
+.fe-matrix-cell:focus-visible {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+.fe-matrix-cell.is-out {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+}
+
+.fe-matrix-cell.is-out strong {
+  color: var(--danger);
+}
+
+.fe-matrix-cell.is-low {
+  border-color: color-mix(in srgb, var(--warning) 50%, var(--border));
+  background: color-mix(in srgb, var(--warning) 10%, var(--surface));
+}
+
+.fe-matrix-cell.is-low strong {
+  color: var(--warning-text);
+}
+
+.fe-matrix-cell.is-off {
+  opacity: 0.55;
+}
+
+.fe-matrix-none {
+  color: var(--muted);
+}
+
+.fe-matrix-total {
+  color: var(--text-2);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.fe-matrix tfoot th,
+.fe-matrix tfoot td {
+  border-bottom: 0;
+  background: var(--surface-2);
+}
+
+.fe-matrix.is-entry input {
+  width: 72px;
+  text-align: center;
+}
+
+.fe-matrix.is-codes input {
+  width: 150px;
+}
+
+.fe-matrix-costs th input {
+  display: block;
+  width: 96px;
+  margin-top: var(--space-1);
+}
+
+.fe-matrix-costs td,
+.fe-matrix-costs th {
+  background: color-mix(in srgb, var(--primary) 5%, var(--surface));
+}
+
+.fe-receive-style {
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.fe-receive-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.fe-cell-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+@media (max-width: 640px) {
+  .fe-matrix th,
+  .fe-matrix td {
+    padding: var(--space-1);
+  }
+
+  .fe-matrix .fe-matrix-colour {
+    min-width: 84px;
+    max-width: 110px;
+    white-space: normal;
+  }
+
+  .fe-matrix-cell {
+    min-width: 52px;
+  }
+}
+
+/* Size curve: a small bar per size, its share of the style's sales. */
+.fe-curve {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 40px;
+}
+
+.fe-curve-bar {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  width: 22px;
+  height: 100%;
+}
+
+.fe-curve-bar > span {
+  width: 14px;
+  border-radius: 3px 3px 0 0;
+  background: var(--primary);
+}
+
+.fe-curve-bar > span.is-out {
+  background: var(--danger);
+}
+
+.fe-curve-bar small {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.2;
+}
+
+/* Status chips with counts above the open repair jobs (E-25). */
+.fe-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) 0;
+}
+
+.fe-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 34px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.fe-chip b {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.fe-chip.is-active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+  color: var(--text);
+  font-weight: var(--weight-medium);
+}
+
+.fe-chip.is-alert b {
+  background: var(--danger);
+  color: var(--surface);
+}
+
+.fe-lookup {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  font-size: var(--text-sm);
+}
+
+.fe-lookup p {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  margin: 0;
+}
+
+.fe-secret {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.fe-secret input {
+  flex: 1;
+}
+
+/* Repair job: the status as the headline (E-26), checklist chips. */
+.fe-status-value {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+}
+
+.fe-status-value.tone-danger { color: var(--danger); }
+.fe-status-value.tone-warning { color: var(--warning-text); }
+.fe-status-value.tone-success { color: var(--success); }
+
+.fe-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.fe-tag {
+  padding: 2px var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+}
+
+.fe-tag.is-bad {
+  border-color: color-mix(in srgb, var(--danger) 50%, var(--border));
+  color: var(--danger);
+}
+
+.fe-tell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

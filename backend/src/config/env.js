@@ -8,19 +8,169 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
+// Which kind of server this is. Unset means a developer's machine. Only
+// "development" and "test" (in any letter case, spaces trimmed) are treated
+// as safe to run with sample settings: "production", "Production", "prod",
+// "staging" or anything else a hosting panel may say is a live server, so a
+// typo can never quietly switch the checks below off.
+const nodeEnv = String(process.env.NODE_ENV || "development").trim().toLowerCase() || "development";
+const SAFE_ENVIRONMENTS = new Set(["development", "dev", "test", "local"]);
+const isLive = !SAFE_ENVIRONMENTS.has(nodeEnv);
+
+// The login secret signs every session token. Anyone who knows it can mint a
+// token for any user — the platform owner included — without a password. The
+// value shipped in .env.example is public, and a short or repetitive one can
+// be guessed offline from a single captured token, so a live server refuses
+// to start with any of them. On a developer's own machine it only warns,
+// loudly, so the sample .env keeps working.
+//
+// Placeholders are compared on their letters and digits alone, so
+// "CHANGE_ME_TO_A_LONG_RANDOM_STRING", "change-me " or "Change Me" are all
+// caught.
+const PLACEHOLDERS = [
+  "changemetoalongrandomstring",
+  "changeme",
+  "secret",
+  "yourjwtsecret",
+  "jwtsecret",
+  "yoursecret",
+  "secretkey",
+  "yoursecretkey",
+  "supersecret",
+  "mysecret",
+  "password",
+];
+const MIN_SECRET_LENGTH = 32;
+// A random secret of 32+ characters uses far more than this many different
+// characters; "aaaa…" or "abababab…" does not.
+const MIN_DISTINCT_CHARACTERS = 10;
+
+const secretProblem = (raw) => {
+  const secret = String(raw);
+  const letters = secret.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  if (PLACEHOLDERS.includes(letters) || letters.includes("changeme")) {
+    return "JWT_SECRET is still an example value (like the one in .env.example)";
+  }
+
+  const length = secret.trim().length;
+
+  if (length < MIN_SECRET_LENGTH) {
+    return `JWT_SECRET is only ${length} character${length === 1 ? "" : "s"} long; use at least ${MIN_SECRET_LENGTH}`;
+  }
+
+  const distinct = new Set(secret).size;
+
+  if (distinct < MIN_DISTINCT_CHARACTERS) {
+    return `JWT_SECRET repeats the same ${distinct === 1 ? "character" : `${distinct} characters`}, which is easy to guess; use a random one`;
+  }
+
+  return null;
+};
+
+const problem = secretProblem(process.env.JWT_SECRET);
+
+if (problem) {
+  const fix =
+    "Generate one with: node -e \"console.log(require('crypto').randomBytes(48).toString('hex'))\"";
+
+  if (isLive) {
+    console.error(
+      `Refusing to start (NODE_ENV=${nodeEnv}): ${problem}. Anyone who knows it can sign in as any user. ${fix}`
+    );
+    process.exit(1);
+  }
+
+  console.warn(
+    [
+      "",
+      "!!! ================================================================ !!!",
+      `!!!  UNSAFE LOGIN SECRET: ${problem}.`,
+      "!!!  Fine on a developer machine; the server refuses to start like this",
+      "!!!  unless NODE_ENV is development or test.",
+      `!!!  ${fix}`,
+      "!!! ================================================================ !!!",
+      "",
+    ].join("\n")
+  );
+}
+
+// A whole number from the environment, or the default when unset or invalid.
+const intFrom = (name, fallback, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) => {
+  const value = Number(process.env[name]);
+  return Number.isInteger(value) && value >= min && value <= max ? value : fallback;
+};
+
 module.exports = {
-  nodeEnv: process.env.NODE_ENV || "development",
+  nodeEnv,
+  isLive,
   port: Number(process.env.PORT) || 5000,
-  corsOrigin: process.env.CORS_ORIGIN || "http://localhost:5173",
+  // One origin, or several separated by commas (e.g. the admin site and a
+  // second front end on another address).
+  corsOrigin: (() => {
+    const origins = (process.env.CORS_ORIGIN || "http://localhost:5173")
+      .split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean);
+
+    return origins.length === 1 ? origins[0] : origins;
+  })(),
   db: {
     host: process.env.DB_HOST,
     port: Number(process.env.DB_PORT),
     database: process.env.DB_NAME,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
+    // How many database connections the API keeps (pg's own default, ten).
+    // Requests queue for a connection and every query is short, so ten
+    // carries a busy service; a larger site raises it here. Every API process
+    // and tool shares PostgreSQL's limit (a hundred by default), so this is
+    // not raised for everyone.
+    max: intFrom("DB_POOL_MAX", 10, { min: 2, max: 200 }),
+    // A request that cannot get a connection within this long fails with an
+    // error instead of waiting for ever. Before, a pool that ran dry froze the
+    // whole API — sign-in included — until it was restarted. The cause of
+    // those freezes, a transaction asking the pool for a second connection
+    // while it holds one, is what DB_POOL_GUARD (below) catches; this limit
+    // is the last line of defence, so a stuck query can never take sign-in
+    // down for good.
+    connectionTimeoutMillis: intFrom("DB_CONNECT_TIMEOUT_MS", 15000, { min: 1000, max: 120000 }),
+    // Idle connections are handed back after ten seconds (pg's default), so a
+    // quiet afternoon does not hold the server's connections.
+    idleTimeoutMillis: intFrom("DB_IDLE_TIMEOUT_MS", 10000, { min: 1000, max: 3600000 }),
   },
+  // The hold-and-wait guard (config/database.js): "warn" logs every place
+  // that asks the pool for a second connection while its transaction holds
+  // one, "throw" refuses it (the tests run with it). Anything else, the
+  // default, leaves the pool exactly as pg made it.
+  dbPoolGuard: ["warn", "throw"].includes(String(process.env.DB_POOL_GUARD || "").trim().toLowerCase())
+    ? String(process.env.DB_POOL_GUARD).trim().toLowerCase()
+    : "off",
   jwt: {
     secret: process.env.JWT_SECRET,
+    // How long a session lasts without being used. The screen renews the token
+    // while someone is working (POST /api/auth/refresh), so a 12-hour shift is
+    // never cut off mid-service; a till left untouched overnight signs out.
     expiresIn: process.env.JWT_EXPIRES_IN || "8h",
   },
+  // How many FAILED sign-ins one internet address may make in fifteen minutes.
+  // Successful sign-ins are not counted, so a whole shift signing in on the
+  // restaurant's Wi-Fi never trips it. Guessing one person's password is
+  // stopped by the per-account lockout below, so this can afford to be
+  // generous; an automated test run sets it far higher.
+  loginAttemptsPerQuarterHour: intFrom("LOGIN_ATTEMPT_LIMIT", 30, { min: 1 }),
+  // Per-account lockout: this many wrong passwords (or wrong PINs) inside
+  // lockWindowMinutes locks that one account (or PIN) for lockMinutes.
+  accountLock: {
+    attempts: intFrom("ACCOUNT_LOCK_ATTEMPTS", 5, { min: 1, max: 50 }),
+    windowMinutes: intFrom("ACCOUNT_LOCK_WINDOW_MINUTES", 15, { min: 1, max: 1440 }),
+    lockMinutes: intFrom("ACCOUNT_LOCK_MINUTES", 15, { min: 1, max: 1440 }),
+  },
+  // Behind a hosting proxy or load balancer every request arrives from the
+  // proxy's address, so the per-address login limit would be shared by the
+  // whole platform. Set TRUST_PROXY to the number of proxies in front of the
+  // API (usually 1) so the real client address is used. Unset means no proxy.
+  trustProxy: intFrom("TRUST_PROXY", 0, { min: 0, max: 10 }),
+  // A manager approval token lives this long before it must be used.
+  approvalTtlSeconds: intFrom("APPROVAL_TTL_SECONDS", 120, { min: 15, max: 900 }),
 };

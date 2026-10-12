@@ -1,0 +1,232 @@
+/* Settings -> Features, and the screen a switched-off feature's page shows. */
+
+.feature-off {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 520px;
+  margin: 48px auto;
+  padding: 32px 24px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.feature-off h1 {
+  margin: 4px 0 0;
+  font-size: 1.25rem;
+}
+
+.feature-off p {
+  margin: 0 0 6px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.feature-off-art {
+  display: inline-grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--surface-3, var(--chip-bg));
+  color: var(--muted);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.features-page {
+  display: grid;
+  gap: 18px;
+}
+
+.features-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  color: var(--muted);
+}
+
+.features-group {
+  display: grid;
+  gap: 10px;
+}
+
+.features-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.feature-card {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color 0.15s var(--ease), background-color 0.15s var(--ease);
+}
+
+.feature-card.is-on {
+  border-color: var(--success-border);
+}
+
+.feature-card.is-off {
+  background: var(--surface-hover);
+}
+
+.feature-card-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: var(--chip-bg);
+  color: var(--muted);
+}
+
+.feature-card.is-on .feature-card-icon {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.feature-card-text {
+  min-width: 0;
+}
+
+.feature-card-text strong {
+  display: block;
+  line-height: 1.3;
+}
+
+.feature-card-text p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.feature-card-needs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.feature-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.feature-chip.is-missing {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.feature-switch {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  width: 46px;
+  height: 26px;
+  margin-top: 2px;
+}
+
+.feature-switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.feature-switch input:disabled {
+  cursor: not-allowed;
+}
+
+.feature-switch span {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--border-strong);
+  transition: background-color 0.15s var(--ease);
+  pointer-events: none;
+}
+
+.feature-switch span::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: var(--shadow-xs);
+  transition: transform 0.15s var(--ease);
+}
+
+.feature-switch input:checked + span {
+  background: var(--primary);
+}
+
+.feature-switch input:checked + span::after {
+  transform: translateX(20px);
+}
+
+.feature-switch input:focus-visible + span {
+  box-shadow: var(--ring);
+}
+
+.feature-switch input:disabled + span {
+  opacity: 0.55;
+}
+
+.feature-core-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.feature-dialog-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  line-height: 1.45;
+}
+
+@media (max-width: 640px) {
+  .features-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .feature-card {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    padding: 12px;
+  }
+
+  .feature-card-icon {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+.feature-card-hint {
+  color: var(--warning-text);
+}

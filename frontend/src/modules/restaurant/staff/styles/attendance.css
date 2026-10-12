@@ -1,0 +1,75 @@
+/* Attendance day sheet on a phone: one-tap P / A / ½ / L / WO per person
+   (AttendancePage.jsx, phone columns). Colours come from the theme tokens,
+   so dark mode follows. */
+
+.acc-quick {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.acc-quick-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.acc-quick-button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  cursor: pointer;
+}
+
+.acc-quick-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.acc-quick-button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.acc-quick-button.is-active.is-present,
+.acc-quick-button.is-active.is-half_day {
+  border-color: var(--success-border);
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.acc-quick-button.is-active.is-absent {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.acc-quick-button.is-active.is-leave {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.acc-quick-button.is-active.is-week_off {
+  border-color: var(--info-border);
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+
+.acc-quick-times {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.acc-quick-times .field {
+  min-width: 7.5rem;
+}

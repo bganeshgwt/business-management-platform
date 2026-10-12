@@ -1,0 +1,262 @@
+/* Dues & accounts: who owes the restaurant, how much and for how long. */
+
+.dues-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dues-filterbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.dues-help {
+  margin: 0;
+}
+
+.dues-name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 180px;
+}
+
+.dues-owes {
+  color: var(--danger);
+  font-variant-numeric: tabular-nums;
+}
+
+.dues-old {
+  color: var(--warning-text);
+  font-weight: 600;
+}
+
+.dues-sub {
+  display: block;
+  margin-top: 2px;
+}
+
+.dues-when {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+/* How much of the limit is used: a thin bar under the limit. */
+.dues-meter {
+  display: block;
+  width: 72px;
+  height: 4px;
+  margin: 4px 0 0 auto;
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg);
+  overflow: hidden;
+}
+
+.dues-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+}
+
+.dues-meter span.is-full {
+  background: var(--danger);
+}
+
+.dues-actions {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* On a desktop the statement is an icon beside Collect, so the row keeps
+   to the card's width; on a phone (cards) it has room for its word. */
+.dues-action-word {
+  display: none;
+}
+
+.dues-picked {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.dues-matches {
+  display: flex;
+  flex-direction: column;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.dues-matches li + li {
+  border-top: 1px solid var(--border);
+}
+
+.dues-matches button {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 12px;
+  border: 0;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dues-matches button:hover,
+.dues-matches button:focus-visible {
+  background: var(--surface-2);
+}
+
+/* Which till's business day (drawer) the money collected goes into. */
+.dues-till {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.dues-till > svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+/* Where the money collected goes, bill by bill. */
+.dues-plan p {
+  margin: 0 0 6px;
+}
+
+.dues-plan ul {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.dues-plan li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding: 8px 12px;
+}
+
+.dues-plan li + li {
+  border-top: 1px solid var(--border);
+}
+
+.dues-plan li.is-paid {
+  background: var(--success-bg);
+}
+
+.dues-plan-figures {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dues-statement-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.dues-range {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .dues-header-actions {
+    width: 100%;
+  }
+
+  .dues-header-actions .button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .dues-name {
+    min-width: 0;
+  }
+
+  .dues-meter {
+    margin-left: 0;
+  }
+
+  .dues-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .dues-action-word {
+    display: inline;
+  }
+
+  .dues-range .field {
+    flex: 1 1 140px;
+  }
+}
+
+/* A figure with a line under it (bills owed, room left on the limit). */
+.dues-cell {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.dues-advance {
+  color: var(--success-text);
+  font-weight: 600;
+}
+
+/* Advances held for the guest, under their statement. */
+.dues-advances-held {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--success-bg);
+}
+
+.dues-advances-held ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 0.875rem;
+}

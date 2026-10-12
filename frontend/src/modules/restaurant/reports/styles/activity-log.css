@@ -1,0 +1,25 @@
+/* Activity log (ActivityLog.jsx only): the line naming the dates and person
+   the figures cover, and the staff picker's width in the filter bar. */
+
+.acc-log-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.acc-log-range svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.acc-log-range strong {
+  color: var(--text);
+  font-weight: var(--weight-medium);
+}
+
+.acc-log-person {
+  min-width: 14rem;
+}

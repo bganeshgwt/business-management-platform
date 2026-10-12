@@ -1,3 +1,8 @@
 node_modules/
 .env
 .env.*.local
+# Uploaded images: user content, not source.
+uploads/
+.local/
+# Private files (paper bills on expenses and purchase bills): never public.
+private_uploads/

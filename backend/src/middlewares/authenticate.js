@@ -1,4 +1,4 @@
-const authService = require("../services/auth.service");
+const authService = require("../modules/access/services/auth.service");
 const AppError = require("../utils/AppError");
 
 // Requires "Authorization: Bearer <token>" and sets req.user, including

@@ -1,0 +1,1293 @@
+/* Reports (every tab: sales, the GST pack, P&L, day book, theft control…),
+   and the restaurant's own pages: profile, outlets and business hours.
+   Built on the tokens and shared classes in index.css and ui.css — colours
+   come only from tokens, so dark mode follows by itself. */
+
+/* --- The controls card: which report, and for which dates ---------------- */
+
+.report-controls {
+  display: grid;
+  gap: 16px;
+  padding: 18px 20px;
+}
+
+/* On a phone the thirteen buttons are one drop-down (see .report-tabs). */
+.report-picker {
+  display: none;
+}
+
+.report-tabs {
+  display: grid;
+  gap: 10px;
+}
+
+.report-tab-group {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.report-tab-group-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.report-tab-group-label svg {
+  color: var(--area-ink);
+}
+
+.report-tab-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.report-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.report-tab svg {
+  color: var(--area-ink);
+  transition: color 140ms ease;
+}
+
+.report-tab:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.report-tab:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* The report in force: the brand tint with an edge, so it is still obvious
+   to someone who cannot tell the two shades apart. */
+.report-tab.is-active {
+  background: var(--area-tint);
+  border-color: color-mix(in srgb, var(--area-ink) 45%, transparent);
+  color: var(--area-ink);
+  font-weight: 650;
+}
+
+.report-tab.is-active svg {
+  color: var(--area-ink);
+}
+
+.report-filters {
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.report-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+}
+
+.report-range .field {
+  min-width: 150px;
+}
+
+.report-range .report-quick {
+  min-width: 0;
+}
+
+.report-range .segmented {
+  flex-wrap: wrap;
+}
+
+/* Reports: reading a closed outlet's history. */
+.report-outlet-pick {
+  min-width: 200px;
+}
+
+.report-outlet-pick select {
+  width: 100%;
+}
+
+/* --- The report in force ---------------------------------------------------- */
+
+.report-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 2px 2px 0;
+}
+
+.report-heading-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 11px;
+  background: var(--surface);
+  color: var(--primary);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-xs);
+}
+
+.report-heading-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.report-heading-text h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+}
+
+.report-heading-text p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+/* "17 – 25 September 2026 · All outlets" — the period, in words. */
+.report-period {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  flex-shrink: 0;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-period svg {
+  color: var(--primary);
+}
+
+.report-period-outlet {
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.report-context {
+  display: grid;
+  gap: 8px;
+}
+
+.report-context:empty {
+  display: none;
+}
+
+/* A one-line notice in the report's own tone: "Figures for Rajahmundry
+   only", "Reading the business day that is still open". Quieter than an
+   alert — these are facts about the page, not problems. */
+.report-scope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 0;
+  padding: 9px 14px;
+  border: 1px solid color-mix(in srgb, var(--tone, var(--primary)) 22%, var(--border));
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--tone-bg, var(--primary-soft)) 70%, var(--surface));
+  color: var(--text);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.report-scope > svg {
+  flex-shrink: 0;
+  color: var(--tone, var(--primary));
+}
+
+.report-scope > span {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.report-loading {
+  padding: 28px 20px;
+}
+
+/* A report being re-read keeps showing the last answer, dimmed, instead of
+   collapsing to a spinner and jumping the page. */
+.report-body.is-refreshing {
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
+
+/* --- Pieces every report uses ------------------------------------------------- */
+
+/* A heading with a control beside it (a download, a switch) wraps under the
+   title on a narrow screen rather than squeezing the control into a sliver. */
+.reports-page .card-heading {
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+/* Padding for what sits in a flush card beside its table: a switch above
+   it, a "show more" or a note below it. */
+.report-pad {
+  padding: 14px 20px;
+}
+
+.report-pad + .table-wrap,
+.report-pad + .empty-state {
+  border-top: 1px solid var(--border);
+}
+
+.report-card-foot {
+  margin: 0;
+  padding: 12px 20px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.section-card.is-flush > .section-card-body > .report-card-foot:last-child {
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.stack-sm {
+  display: grid;
+  gap: 6px;
+}
+
+.stack-sm > p {
+  margin: 0;
+}
+
+/* An alert straight inside a flush card keeps off the card's edges. */
+.reports-page .section-card.is-flush > .section-card-body > .alert {
+  margin: 14px 20px 0;
+}
+
+.report-lede {
+  margin: 0;
+  line-height: 1.55;
+}
+
+/* The name column of a report table reads first. */
+.reports-page .table td.report-strong {
+  font-weight: 550;
+  color: var(--text);
+}
+
+.report-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.report-search input {
+  min-width: 260px;
+}
+
+.report-more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.report-download {
+  flex-shrink: 0;
+}
+
+.report-sections {
+  align-self: flex-start;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+.report-group + .report-group {
+  border-top: 1px solid var(--border);
+}
+
+.report-subhead {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.report-group > .report-subhead {
+  padding: 14px 20px 10px;
+}
+
+.report-notes {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+
+.report-warnings {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+/* Two cards side by side keep the same height, so their edges line up. */
+.report-pair {
+  align-items: stretch;
+}
+
+/* A statement: label on the left, figure on the right, a hairline between
+   lines and the total set apart — the way a bill or a P&L reads. */
+/* No column gap: the hairline under each line runs unbroken from the
+   label to the figure; the figure keeps its distance with padding instead. */
+.report-statement {
+  gap: 0;
+}
+
+.report-statement dd {
+  padding-left: 16px;
+}
+
+.report-statement dt,
+.report-statement dd {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.report-statement dt {
+  color: var(--text-2);
+}
+
+.report-statement dd {
+  font-variant-numeric: tabular-nums;
+}
+
+.report-statement dt:last-of-type,
+.report-statement dd:last-of-type {
+  border-bottom: 0;
+}
+
+.report-statement .is-total {
+  padding: 10px 0;
+  border-top: 2px solid var(--border-strong);
+  color: var(--text);
+  font-size: 1.02rem;
+}
+
+.sales-breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+
+.sales-breakdown-panel {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.sales-breakdown-panel h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 1rem;
+}
+
+.sales-breakdown-panel h3 > span {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 0.8125rem;
+}
+
+.sales-breakdown-intro,
+.sales-breakdown-timing {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.sales-breakdown-amounts {
+  margin: 16px 0 0;
+}
+
+.sales-breakdown-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 16px;
+  align-items: baseline;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.sales-breakdown-row dt > span {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.sales-breakdown-row dt small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.sales-breakdown-row dd {
+  margin: 0;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9375rem;
+}
+
+.sales-breakdown-sign {
+  color: var(--muted);
+}
+
+.sales-breakdown-row.is-total {
+  margin-top: 4px;
+  padding: 14px 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--primary-soft);
+}
+
+.sales-breakdown-row.is-total dd {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.sales-breakdown-help {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.sales-breakdown-help h4 {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.sales-breakdown-help p,
+.sales-breakdown-example p {
+  margin: 8px 0 0;
+  color: var(--text-2);
+  font-size: 0.8125rem;
+  line-height: 1.65;
+}
+
+.sales-breakdown-timing {
+  margin-top: 16px;
+}
+
+.sales-breakdown-example {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.sales-breakdown-example summary {
+  cursor: pointer;
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 0.8125rem;
+}
+
+@media (max-width: 1100px) {
+  .sales-breakdown-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .sales-breakdown-panel {
+    padding: 14px;
+  }
+
+  .sales-breakdown-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sales-breakdown-row dd {
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+.report-sheet {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+
+/* Total and subtotal rows in any report table. */
+.report-total td,
+.report-subtotal td {
+  font-weight: 600;
+}
+
+.report-total td {
+  border-top: 2px solid var(--border-strong);
+  background: var(--surface-2);
+}
+
+.table tr.is-cancelled td {
+  color: var(--muted);
+}
+
+/* Money columns line up on the right, as on any statement. The global table
+   rule (.table td { text-align: left }) outranks the .right helper, which
+   left every amount in the reports ragged; scoped to the Reports screen. */
+.reports-page .table th.right,
+.reports-page .table td.right {
+  text-align: right;
+}
+
+/* Sentences stacked inside a notice (the day book's "left out" notes). */
+.reports-page .alert p {
+  margin: 0 0 4px;
+}
+
+.reports-page .alert p:last-child {
+  margin-bottom: 0;
+}
+
+/* A badge with an icon in it ("★ Best"). */
+.reports-page .badge svg {
+  flex-shrink: 0;
+}
+
+/* --- GST pack -------------------------------------------------------------- */
+
+.gst-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.gst-identity {
+  display: grid;
+  gap: 12px;
+}
+
+.gst-identity-main {
+  display: grid;
+  gap: 2px;
+}
+
+.gst-identity-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.gst-number {
+  font-size: 1.4rem;
+  letter-spacing: 0.05em;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.gst-number.is-missing {
+  color: var(--warning-text);
+  letter-spacing: 0;
+}
+
+.gst-identity-note {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+  line-height: 1.5;
+}
+
+.report-checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  font-size: 0.875rem;
+}
+
+.report-checks li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  line-height: 1.45;
+}
+
+.report-checks li > span:first-child {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+.report-checks li.is-ok > span:first-child {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.report-checks li.is-off > span:first-child {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.report-checks li.is-off {
+  font-weight: 600;
+}
+
+/* "Remove GSTIN" sits apart from Cancel and Save, on the left of the bar. */
+.report-dialog-aside {
+  margin-right: auto;
+}
+
+/* --- Profit & loss --------------------------------------------------------- */
+
+.pl-basis-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 24px;
+  padding: 14px 20px;
+}
+
+.pl-basis-text {
+  display: grid;
+  gap: 2px;
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.pl-basis .segmented {
+  flex-wrap: wrap;
+}
+
+/* The bottom line in its own colour: green for a profit, red for a loss,
+   and the icon and the words beside it say which as well. */
+.stat-tile.pl-bottom .stat-tile-value {
+  color: var(--tone);
+}
+
+.stat-tile.pl-bottom {
+  border-color: color-mix(in srgb, var(--tone) 35%, var(--border));
+}
+
+/* --- Day book ---------------------------------------------------------------- */
+
+.voucher-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+/* In a flush card the list runs edge to edge; the card is its frame. */
+.section-card.is-flush .voucher-list {
+  border: 0;
+  border-radius: 0;
+}
+
+.voucher + .voucher {
+  border-top: 1px solid var(--border);
+}
+
+.voucher-head {
+  display: grid;
+  grid-template-columns: 96px 112px 1fr auto 20px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 20px;
+  border: 0;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+
+.voucher-head:hover {
+  background: var(--surface-hover);
+}
+
+.voucher-head:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.voucher.is-open .voucher-head {
+  background: var(--surface-2);
+}
+
+.voucher-head .badge {
+  justify-self: start;
+}
+
+.voucher-date {
+  color: var(--text-2);
+  font-size: 0.875rem;
+}
+
+.voucher-body {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.voucher-party {
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+
+.voucher-narration {
+  overflow-wrap: anywhere;
+}
+
+.voucher-amount {
+  font-weight: 650;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.voucher-toggle {
+  display: inline-grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.voucher .table-wrap {
+  padding: 0 20px 14px;
+  background: var(--surface-2);
+}
+
+.voucher-entries {
+  font-size: 0.875rem;
+}
+
+.report-tile-link {
+  align-self: flex-start;
+  padding: 0;
+  text-align: left;
+}
+
+/* --- Theft control ------------------------------------------------------------- */
+
+/* The figure whose list is open below, marked by its edge and a ring. */
+.theft-tiles .stat-tile.is-selected {
+  border-color: var(--tone);
+  box-shadow:
+    var(--shadow-sm),
+    0 0 0 1px var(--tone);
+}
+
+.theft-threshold {
+  min-width: 190px;
+}
+
+/* Theft control's write-offs: three lists under one heading. */
+.theft-sub {
+  margin: 0.25rem var(--card-pad, 1.25rem) 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+/* --- Restaurant profile ---------------------------------------------------------- */
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.profile-aside {
+  display: grid;
+  gap: 16px;
+}
+
+.profile-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.profile-links a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  margin: 0 -12px;
+  border-radius: var(--radius);
+  color: var(--text);
+  text-decoration: none;
+  transition: background-color 140ms ease;
+}
+
+.profile-links a:hover {
+  background: var(--surface-hover);
+}
+
+.profile-link-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.profile-links strong {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.profile-links small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.profile-links a > svg:last-child {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.profile-save {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px 16px;
+}
+
+.profile-save .muted {
+  margin: 0 auto 0 0;
+}
+
+/* --- Business hours --------------------------------------------------------------- */
+
+.hours-page .hours-list {
+  display: grid;
+}
+
+.hours-page .hours-row {
+  display: grid;
+  grid-template-columns: 150px 110px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px 16px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.hours-page .hours-row:last-child {
+  border-bottom: 0;
+}
+
+.hours-page .hours-row.is-closed {
+  background: var(--surface-2);
+}
+
+.hours-page .hours-row.is-today .hours-day {
+  color: var(--primary);
+}
+
+.hours-day {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.hours-page .hours-times {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.hours-page .hours-times input {
+  width: 128px;
+}
+
+.hours-closed-note {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.hours-length {
+  justify-self: end;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Outlets ------------------------------------------------------------------------ */
+
+.outlet-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.outlet-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.outlet-mark.is-closed {
+  background: var(--surface-3);
+  color: var(--muted);
+}
+
+.outlet-name-cell strong {
+  display: block;
+  font-weight: 600;
+}
+
+/* --- Paper ------------------------------------------------------------------------ */
+
+/* Only on paper: what the sheet covers. The filters that say it on screen
+   are hidden when printing. */
+.report-print-head {
+  display: none;
+}
+
+@media print {
+  .report-print-head {
+    display: grid;
+    gap: 2px;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 2px solid currentColor;
+  }
+
+  .report-controls,
+  .report-heading,
+  .report-sections,
+  .report-toolbar,
+  .report-more,
+  .report-download,
+  .report-actions,
+  .voucher-toggle,
+  .theft-tiles .stat-tile-icon {
+    display: none !important;
+  }
+
+  .report-body.is-refreshing {
+    opacity: 1;
+  }
+}
+
+/* --- Tablets ------------------------------------------------------------------------ */
+
+@media (max-width: 1100px) {
+  .gst-top,
+  .profile-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* --- Phones ---------------------------------------------------------------------- */
+
+@media (max-width: 640px) {
+  .report-controls {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+
+  /* One drop-down instead of three rows of buttons. */
+  .report-picker {
+    display: flex;
+  }
+
+  .report-tabs {
+    display: none;
+  }
+
+  .report-filters {
+    padding-top: 12px;
+  }
+
+  .report-range .field {
+    min-width: 0;
+    flex: 1 1 140px;
+  }
+
+  .report-range .report-quick {
+    flex-basis: 100%;
+  }
+
+  .report-outlet-pick {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .report-heading {
+    flex-wrap: wrap;
+    gap: 10px 12px;
+  }
+
+  .report-heading-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .report-heading-text {
+    flex: 1 1 calc(100% - 52px);
+  }
+
+  .report-period {
+    width: 100%;
+  }
+
+  .report-pad {
+    padding: 12px 16px;
+  }
+
+  .report-card-foot {
+    padding: 12px 16px;
+  }
+
+  .reports-page .section-card.is-flush > .section-card-body > .alert {
+    margin: 12px 16px 0;
+  }
+
+  .report-group > .report-subhead {
+    padding: 12px 16px 8px;
+  }
+
+  .report-search,
+  .report-search input {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .report-actions,
+  .report-actions .button {
+    width: 100%;
+  }
+
+  .pl-basis-bar {
+    padding: 14px 16px;
+  }
+
+  .voucher-head {
+    grid-template-columns: 1fr auto 16px;
+    grid-template-areas:
+      "date amount toggle"
+      "type type type"
+      "body body body";
+    row-gap: 4px;
+    padding: 12px 16px;
+  }
+
+  .voucher-date {
+    grid-area: date;
+  }
+
+  .voucher-head .badge {
+    grid-area: type;
+  }
+
+  .voucher-body {
+    grid-area: body;
+  }
+
+  .voucher-amount {
+    grid-area: amount;
+  }
+
+  .voucher-toggle {
+    grid-area: toggle;
+  }
+
+  .voucher .table-wrap {
+    padding: 0 16px 12px;
+  }
+
+  .gst-number {
+    font-size: 1.1rem;
+  }
+
+  .theft-threshold {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .hours-page .hours-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "day toggle"
+      "times times"
+      "length length";
+    padding: 12px 16px;
+    row-gap: 8px;
+  }
+
+  .hours-page .hours-day {
+    grid-area: day;
+  }
+
+  .hours-page .hours-toggle {
+    grid-area: toggle;
+  }
+
+  .hours-page .hours-times,
+  .hours-page .hours-closed-note {
+    grid-area: times;
+  }
+
+  .hours-page .hours-length {
+    grid-area: length;
+    justify-self: start;
+  }
+
+  .hours-page .hours-times input {
+    flex: 1 1 110px;
+    width: auto;
+  }
+}
+
+/* The dashboard on a device still set to an outlet that has been closed:
+   the sentence, and the button that puts the device back on all outlets. */
+.report-closed-outlet {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.report-closed-outlet .button {
+  flex: none;
+}
+
+@media (max-width: 640px) {
+  .report-closed-outlet .button {
+    width: 100%;
+  }
+}
+
+/* Six figures three to a row, seven or eight four to a row: auto-fit left
+   the sixth tile alone on a second line. Phones keep two to a row. */
+@media (min-width: 861px) {
+  .stat-grid.report-tiles-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .stat-grid.report-tiles-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* A closed day on a phone already says "Closed all day" under its name. */
+@media (max-width: 640px) {
+  .hours-page .hours-row.is-closed .hours-length {
+    display: none;
+  }
+}
+
+/* Figures inside a card (day end, day book) on a phone: one to a row. Two
+   to a row left ₹65,19,801.00 broken over two lines. */
+@media (max-width: 640px) {
+  .reports-page .section-card-body .stat-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Day end: the day's notes (opening, closing, the shift log book). */
+.dayend-notes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.dayend-notes p {
+  margin: 0.15rem 0 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.dayend-notes-counter {
+  display: block;
+  font-size: 0.85rem;
+}
+
+/* A small badge beside a name in a report grid ("free", "no recipe"). */
+.report-badge-gap {
+  margin-left: 0.4rem;
+}

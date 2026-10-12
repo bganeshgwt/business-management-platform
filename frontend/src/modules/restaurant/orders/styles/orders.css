@@ -1,0 +1,783 @@
+/* Running orders: the POS cart for an order already with the kitchen, the
+   "take off a dish" prompts, the Orders page (its list, the order dialog and
+   the cancelled-after-KOT report) and the happy-hour price table. Every
+   colour comes from the shared tokens, so dark mode follows by itself. */
+
+/* ---------------------------------------------------------------- chips */
+
+/* A small status word with its colour and a dot. Colour is never the only
+   signal: the word says the same thing. */
+.oc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--chip-bg);
+  color: var(--text-2);
+}
+
+.oc-chip::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.oc-chip-new {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.oc-chip-pending,
+.oc-chip-stage-new {
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+
+.oc-chip-preparing,
+.oc-chip-stage-cooking {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.oc-chip-ready,
+.oc-chip-stage-ready {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.oc-chip-served {
+  background: var(--surface-3);
+  color: var(--text-2);
+}
+
+/* Served and then taken off the bill: the row an owner reads first. */
+.oc-chip-stage-served,
+.oc-chip-cancel,
+.oc-chip-cancelled {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.oc-chip-remove {
+  background: var(--chip-bg);
+  color: var(--text);
+}
+
+.oc-chip-outlet {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+/* The happy-hour name under a price. */
+.oc-offer-tag {
+  align-self: flex-start;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 1px 7px;
+  border-radius: 5px;
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+/* ---------------------------------------------------------------- POS */
+
+.oc-running-more {
+  margin: 0;
+}
+
+/* On a phone the counts go under "Still running" instead of squeezing the
+   heading onto two lines beside them. */
+@media (max-width: 560px) {
+  .running-strip .running-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .running-strip .running-head h2 {
+    white-space: nowrap;
+  }
+}
+
+/* The order the cart is showing, picked out in the Still running strip. */
+.open-order.oc-open-order-current,
+.pos-page .open-order.oc-open-order-current {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+/* What the cart is: a new order, or the running order being changed and
+   whether that change is saved. */
+.oc-editing {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.oc-editing.is-new {
+  background: transparent;
+  border-color: transparent;
+  padding: 0;
+}
+
+.cart-line.oc-cart-line {
+  align-items: start;
+}
+
+.cart-line.oc-cart-line .qty-controls,
+.cart-line.oc-cart-line .line-total {
+  margin-top: 1px;
+}
+
+.oc-line-body {
+  min-width: 0;
+}
+
+.oc-line-name {
+  overflow-wrap: anywhere;
+}
+
+.oc-line-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 5px;
+}
+
+/* A saved line that saving will take off: still visible, clearly going. */
+.oc-cart-line.is-gone .oc-line-name,
+.oc-cart-line.is-gone .line-total {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.qty-controls button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* A quiet box, not struck-through text: it now also says how many of a dish
+   are still on ("1 still on"), which must read plainly. */
+.oc-cancelled-note {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.oc-cancel-hint {
+  margin: 0;
+}
+
+/* ---------------------------------------------------------------- reasons */
+
+.oc-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip-button.oc-reason {
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 0.875rem;
+}
+
+.chip-button.oc-reason.is-active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.oc-cancel-prompt > p {
+  margin: 0;
+}
+
+.oc-cancel-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.oc-cancel-list li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 10px 14px;
+}
+
+.oc-cancel-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.oc-cancel-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------- Orders page */
+
+.oc-tabs {
+  max-width: 100%;
+}
+
+.oc-tabs .segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  font-size: 0.875rem;
+}
+
+/* The filters of a list card: one row under the card's heading. */
+.oc-toolbar {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.oc-pad {
+  padding: 20px;
+}
+
+.oc-list .empty-state,
+.oc-report-filters .empty-state {
+  padding: 40px 20px;
+}
+
+.oc-order-no {
+  display: block;
+  font-weight: 700;
+}
+
+/* The order's type under its number: dine-in, takeaway or delivery (and
+   which channel), each with its icon. */
+.oc-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+/* The order list's cells (the shared data grid): a heading line and the
+   muted lines under it. */
+.oc-c-order,
+.oc-c-where,
+.oc-c-placed {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.oc-c-placed {
+  min-width: 140px;
+}
+
+.oc-where {
+  font-weight: 600;
+}
+
+.oc-money {
+  font-weight: 700;
+}
+
+.oc-prewrap {
+  white-space: pre-line;
+}
+
+/* The order dialog: the facts as small labelled boxes. */
+.oc-facts.details {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.oc-facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.oc-facts dt {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+.oc-facts dd {
+  font-weight: 500;
+}
+
+.oc-facts .oc-fact-wide {
+  grid-column: 1 / -1;
+}
+
+.oc-facts .oc-fact-danger {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+}
+
+.oc-facts .oc-fact-danger dt,
+.oc-facts .oc-fact-danger dd {
+  color: var(--danger);
+}
+
+.oc-l-name {
+  font-weight: 600;
+}
+
+/* A dish line's details under its name, one per line. */
+.oc-l-sub {
+  display: block;
+}
+
+/* A line taken off whole: struck through (the row is muted by the grid). */
+.oc-line-cancelled .oc-l-name {
+  text-decoration: line-through;
+}
+
+.oc-danger-chip {
+  color: var(--danger);
+}
+
+.button.oc-danger-chip:hover:not(:disabled),
+.chip-button.oc-danger-chip:hover {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+/* Taking one dish off: a panel in the danger tone, under the lines. */
+.oc-remove {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--danger-border);
+  border-left: 4px solid var(--danger);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.oc-remove .form-actions {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.oc-remove-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.oc-remove-head strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.oc-remove-head strong svg {
+  color: var(--danger);
+}
+
+.oc-pin-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--warning-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.oc-none {
+  margin: 0;
+}
+
+/* The money of the order, the total the hero. */
+.oc-totals.details {
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+/* No gap between the two columns, so the line over the total runs across. */
+.oc-totals.details {
+  column-gap: 0;
+}
+
+.oc-totals dt {
+  padding-right: 16px;
+}
+
+.oc-totals .oc-total-label,
+.oc-totals .oc-total-value {
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  color: var(--text);
+}
+
+.oc-totals .oc-total-value strong {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.oc-kitchen-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.oc-kitchen-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.oc-kitchen-label svg {
+  color: var(--primary);
+}
+
+.oc-kitchen-switch .segment {
+  min-height: 34px;
+  font-size: 0.875rem;
+}
+
+.oc-kitchen-switch .segment.is-active:disabled {
+  cursor: default;
+}
+
+.oc-kitchen-switch .segment:disabled:not(.is-active) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Cancelling the whole order: set apart, in the danger tone. */
+.oc-cancel-order {
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--danger-bg) 45%, var(--surface));
+}
+
+.oc-cancel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--danger);
+}
+
+.oc-cancel-row {
+  margin-top: 0;
+}
+
+.oc-cancel-help {
+  margin: 0;
+}
+
+.oc-report-intro {
+  margin: 0;
+  max-width: 72ch;
+}
+
+.oc-export {
+  margin-left: auto;
+}
+
+.stat-tile.oc-tile-alert,
+.oc-tile-alert {
+  border-color: var(--danger-border);
+}
+
+.oc-tile-alert .tile-value,
+.oc-tile-alert .stat-tile-value {
+  color: var(--danger);
+}
+
+.oc-report-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.oc-reason-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.oc-reason-bar-label {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 12px;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+.oc-reason-bar-label .small {
+  font-variant-numeric: tabular-nums;
+}
+
+.oc-reason-bar {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.oc-reason-bar span {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--chart-hue);
+}
+
+/* ---------------------------------------------------------------- happy hour */
+
+/* The phone version of the happy-hour list: one card per window. */
+.oc-window-cards {
+  display: none;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.oc-window-cards li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 0;
+}
+
+.oc-window-cards li + li {
+  border-top: 1px solid var(--border);
+}
+
+.oc-window-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.oc-window-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.oc-window-cards .row-actions {
+  flex-wrap: wrap;
+  padding-top: 2px;
+}
+
+@media (max-width: 640px) {
+  .oc-window-cards {
+    display: block;
+  }
+
+  .oc-window-table-wrap {
+    display: none;
+  }
+}
+
+.oc-window-table .oc-window-dish th {
+  padding-top: 14px;
+  font-size: 0.9375rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.oc-window-table .oc-window-dish td {
+  background: var(--surface-2);
+}
+
+.oc-window-size {
+  padding-left: 24px;
+}
+
+.oc-window-warn {
+  margin-top: 2px;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--warning-text);
+}
+
+.oc-window-table .inline-number {
+  max-width: 120px;
+}
+
+@media (max-width: 860px) {
+  /* minmax(0, 1fr), not 1fr: the staff table must scroll inside its card
+     rather than push both cards wider than the phone. */
+  .oc-report-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .oc-export {
+    margin-left: 0;
+  }
+}
+
+/* The order list's filters on a phone. (The list itself is the shared data
+   grid, which turns each order into a card by itself.) */
+@media (max-width: 640px) {
+  .oc-toolbar {
+    padding: 14px 16px;
+  }
+
+  .oc-toolbar .field {
+    min-width: 0;
+    flex: 1 1 140px;
+  }
+
+  .oc-toolbar .filters-summary {
+    flex: 1 1 100%;
+    margin-left: 0;
+    padding-bottom: 0;
+  }
+
+  .oc-facts.details {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .oc-kitchen-switch {
+    width: 100%;
+  }
+
+  .oc-cancel-row input {
+    flex: 1 1 100%;
+  }
+
+  .oc-cancel-row .button {
+    flex: 1 1 100%;
+  }
+
+  .oc-kitchen-switch .segment {
+    flex: 1 1 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .cart-line.oc-cart-line {
+    grid-template-columns: 1fr auto;
+  }
+
+  .cart-line.oc-cart-line .line-total {
+    grid-column: 2;
+    min-width: 0;
+  }
+
+  .oc-window-size {
+    padding-left: 12px;
+  }
+}
+
+/* Staff names in the report read as names, not centred buttons. */
+.oc-report-split .link-button {
+  text-align: left;
+}
+
+/* Picking a dish to add to a happy hour: the select sized like every other
+   field, not a bare browser control. */
+.oc-window-add select {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  padding: 9px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.oc-window-table .oc-window-dish th {
+  white-space: normal;
+}
+
+.oc-window-normal-inline {
+  display: none;
+}
+
+/* On a phone: dish and size on the left, the price box on the right, and
+   the normal price under the size instead of a column of its own. */
+@media (max-width: 560px) {
+  .oc-window-table .oc-window-normal {
+    display: none;
+  }
+
+  .oc-window-normal-inline {
+    display: block;
+  }
+
+  .oc-window-table .oc-window-dish-name {
+    padding-right: 4px;
+  }
+
+  .oc-window-table .inline-number {
+    max-width: 96px;
+  }
+}
+
+/* "Open ORD-0412" under a refusal: a button the size of its words. */
+.chip-button.oc-open-busy {
+  align-self: flex-start;
+  padding: 8px 12px;
+}

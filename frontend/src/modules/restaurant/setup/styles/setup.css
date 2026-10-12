@@ -1,0 +1,107 @@
+/* Restaurant set-up screens (profile checklist, settings read-only lines,
+   outlets' numbering warning). Theme tokens only, so dark mode follows. */
+
+.setup-checklist {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.setup-checklist a {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  margin: 0 calc(-1 * var(--space-3));
+  border-radius: var(--radius-md);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.setup-checklist a:hover {
+  background: var(--surface-hover);
+}
+
+.setup-checklist a:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.setup-checklist a > svg {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.setup-check {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+}
+
+.setup-check.is-done {
+  border-color: var(--success-border);
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.setup-check.is-missing {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.setup-check.is-unknown {
+  color: var(--muted);
+}
+
+.setup-check-text {
+  display: grid;
+  min-width: 0;
+}
+
+.setup-check-text strong {
+  font-size: var(--text-md);
+}
+
+.setup-check-text small {
+  font-size: var(--text-sm);
+  line-height: 1.35;
+}
+
+/* A setting shown as words, not a field (Settings -> GST: tax on new dishes). */
+.settings-readonly {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  font-size: var(--text-md);
+}
+
+/* Outlets: two outlets numbering their bills under the same prefix. */
+.outlet-series-warning {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.outlet-series-warning .button {
+  margin-left: auto;
+}
+
+.outlet-next-bill {
+  font-variant-numeric: tabular-nums;
+}
+
+.outlet-next-bill.is-clash {
+  color: var(--danger);
+  font-weight: var(--weight-medium);
+}

@@ -1,0 +1,2176 @@
+/* Staff time clock
+   ----------------
+   index.css is loaded after page styles, so any rule here that adjusts a
+   global class (.card, .button, .segmented…) is scoped under .tc-page to win.
+
+   Status is always colour AND words ("Late · 32 min"), never colour alone:
+   green is on the clock, amber is a break, red is someone who should be here
+   and is not, blue is on the way, grey is done or off. The tablet parts are
+   sized for a finger, not a mouse: 64 px keys, 88 px action buttons. */
+
+/* Every colour here is a design token, so the page follows the light and
+   dark themes with no rule of its own. Break time is the one bright amber
+   (--star): the warning amber is too close to the brand orange to tell a
+   break bar from the "now" line at a glance. */
+.tc-page {
+  --tc-work: var(--success);
+  --tc-break: var(--star);
+  --tc-shift-line: var(--placeholder);
+  --tc-info: var(--info);
+  --tc-info-bg: var(--info-bg);
+  --tc-info-text: var(--info-text);
+  --tc-shadow: var(--shadow-sm);
+  --tc-shadow-lift: var(--shadow-md);
+  /* The clock band stays dark in both themes: the deepest ink the theme has,
+     and the lightest colour to write on it. */
+  --tc-ink: var(--text);
+  --tc-on-ink: var(--surface);
+}
+
+@media (prefers-color-scheme: dark) {
+  .tc-page {
+    --tc-ink: var(--surface-2);
+    --tc-on-ink: var(--text);
+  }
+}
+
+/* --- tones ------------------------------------------------------------------ */
+
+.tc-tone-success {
+  --tone: var(--tc-work);
+  --tone-bg: var(--success-bg);
+  --tone-text: var(--success-text);
+}
+
+.tc-tone-warning {
+  --tone: var(--tc-break);
+  --tone-bg: var(--warning-bg);
+  --tone-text: var(--warning-text);
+}
+
+.tc-tone-danger {
+  --tone: var(--danger);
+  --tone-bg: var(--danger-bg);
+  --tone-text: var(--danger);
+}
+
+.tc-tone-info {
+  --tone: var(--tc-info);
+  --tone-bg: var(--tc-info-bg);
+  --tone-text: var(--tc-info-text);
+}
+
+.tc-tone-neutral {
+  --tone: var(--placeholder);
+  --tone-bg: var(--chip-bg);
+  --tone-text: var(--muted);
+}
+
+.tc-icon {
+  flex: none;
+}
+
+/* --- header tabs ------------------------------------------------------------ */
+
+.tc-tab-short {
+  display: none;
+}
+
+.tc-page .tc-tabs {
+  flex-wrap: nowrap;
+}
+
+.tc-page .tc-tabs .segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 0.875rem;
+}
+
+/* --- the kiosk area (and its full-screen form on the tablet) ---------------- */
+
+.tc-area {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* In full screen the browser fixes the area to the screen's height; without
+   this the flex column would squash its children (the hero first, since it
+   hides its overflow) instead of letting the area scroll. */
+.tc-area > * {
+  flex-shrink: 0;
+}
+
+.tc-area:fullscreen,
+.tc-area.is-fullscreen {
+  background: var(--bg);
+  padding: 20px;
+  overflow: auto;
+}
+
+/* The area is scrolled to its top when someone picks their name; leave a
+   little air above the clock bar. */
+.tc-area {
+  scroll-margin-top: 12px;
+}
+
+/* --- hero clock ------------------------------------------------------------- */
+
+.tc-hero {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: center;
+  padding: 26px 30px;
+  border-radius: var(--radius-lg);
+  color: var(--tc-on-ink);
+  background:
+    radial-gradient(circle at 88% -30%, color-mix(in srgb, var(--primary) 55%, transparent), transparent 55%),
+    radial-gradient(circle at 10% 130%, color-mix(in srgb, var(--primary) 32%, transparent), transparent 50%),
+    linear-gradient(
+      135deg,
+      var(--tc-ink) 0%,
+      color-mix(in srgb, var(--tc-ink) 92%, var(--tc-on-ink)) 55%,
+      color-mix(in srgb, var(--tc-ink) 78%, var(--primary)) 100%
+    );
+  box-shadow: var(--shadow-lg);
+}
+
+.tc-hero::after {
+  /* A faint clock-face ring, so the band reads as "time" at a glance. */
+  content: "";
+  position: absolute;
+  right: -60px;
+  top: -80px;
+  width: 280px;
+  height: 280px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--tc-on-ink) 8%, transparent);
+  box-shadow:
+    0 0 0 40px color-mix(in srgb, var(--tc-on-ink) 2.5%, transparent),
+    0 0 0 80px color-mix(in srgb, var(--tc-on-ink) 2%, transparent);
+  pointer-events: none;
+}
+
+.tc-hero-main,
+.tc-hero-side {
+  position: relative;
+  z-index: 1;
+}
+
+.tc-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--tc-on-ink) 72%, transparent);
+}
+
+.tc-clock {
+  margin: 0;
+  font-size: clamp(3.25rem, 7vw, 5.5rem);
+  font-weight: 750;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+}
+
+.tc-clock-sec {
+  margin-left: 2px;
+  font-size: 0.4em;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: color-mix(in srgb, var(--tc-on-ink) 55%, transparent);
+}
+
+.tc-clock-period {
+  margin-left: 10px;
+  font-size: 0.32em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: color-mix(in srgb, var(--primary) 45%, var(--tc-on-ink));
+}
+
+.tc-hero-date {
+  margin: 10px 0 0;
+  font-size: 1.15rem;
+  color: color-mix(in srgb, var(--tc-on-ink) 86%, transparent);
+}
+
+.tc-hero-side {
+  display: grid;
+  gap: 10px;
+  min-width: 280px;
+}
+
+.tc-hero-stat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  background: color-mix(in srgb, var(--tc-on-ink) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tc-on-ink) 12%, transparent);
+  color: color-mix(in srgb, var(--tc-on-ink) 92%, transparent);
+}
+
+.tc-hero-stat strong {
+  font-size: 1.05rem;
+  color: var(--tc-on-ink);
+}
+
+.tc-hero-muted {
+  color: color-mix(in srgb, var(--tc-on-ink) 62%, transparent);
+}
+
+.tc-hero-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  --tc-live: color-mix(in srgb, var(--success) 60%, var(--tc-on-ink));
+  background: var(--tc-live);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--tc-live) 18%, transparent);
+  flex: none;
+}
+
+.tc-hero-dot.is-live {
+  animation: tc-pulse 2s ease-in-out infinite;
+}
+
+.tc-hero-button {
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--primary) 55%, transparent);
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  color: color-mix(in srgb, var(--primary) 30%, var(--tc-on-ink));
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.tc-hero-button:hover {
+  background: color-mix(in srgb, var(--primary) 28%, transparent);
+}
+
+@keyframes tc-pulse {
+  50% {
+    box-shadow: 0 0 0 7px color-mix(in srgb, var(--tc-live) 6%, transparent);
+  }
+}
+
+/* The slim bar while someone is at the keypad: the same live clock, one line
+   tall, so the keypad and the buttons start near the top of a tablet. */
+.tc-hero.is-compact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 18px;
+  padding: 12px 20px;
+  border-radius: 14px;
+}
+
+.tc-hero.is-compact::after {
+  width: 160px;
+  height: 160px;
+  top: -70px;
+  right: -40px;
+}
+
+.tc-hero.is-compact > * {
+  position: relative;
+  z-index: 1;
+}
+
+.tc-hero.is-compact .tc-clock {
+  font-size: 2.1rem;
+  letter-spacing: -0.02em;
+}
+
+.tc-hero.is-compact .tc-hero-date {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.tc-hero-compact-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  font-size: 0.9rem;
+  color: color-mix(in srgb, var(--tc-on-ink) 86%, transparent);
+}
+
+.tc-hero-compact-stat strong {
+  color: var(--tc-on-ink);
+}
+
+.tc-hero.is-compact .tc-hero-button {
+  padding: 7px 12px;
+}
+
+/* --- kiosk + board layout ---------------------------------------------------- */
+
+.tc-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(330px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.tc-page .tc-kiosk {
+  padding: 22px;
+  box-shadow: var(--tc-shadow);
+  border-radius: 14px;
+  min-height: 520px;
+}
+
+.tc-kiosk-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.tc-kiosk-head h2 {
+  font-size: 1.3rem;
+}
+
+/* --- search / code ------------------------------------------------------------ */
+
+.tc-search {
+  position: relative;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.tc-search-icon {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  display: flex;
+  pointer-events: none;
+}
+
+.tc-page .tc-search input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 1rem;
+  padding: 11px 12px 11px 40px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.tc-page .tc-search input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: var(--ring);
+}
+
+.tc-inline-error {
+  margin: -8px 0 14px;
+  font-size: 0.85rem;
+  color: var(--danger);
+}
+
+/* --- people grid ---------------------------------------------------------------- */
+
+.tc-people {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(152px, 1fr));
+  gap: 12px;
+}
+
+.tc-person {
+  position: relative;
+  font: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-height: 164px;
+  padding: 18px 10px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  text-align: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.12s, box-shadow 0.15s, border-color 0.15s;
+}
+
+.tc-person:hover {
+  border-color: var(--primary);
+  box-shadow: var(--tc-shadow-lift);
+  transform: translateY(-2px);
+}
+
+.tc-person:active {
+  transform: scale(0.98);
+}
+
+.tc-person:focus-visible,
+.tc-key:focus-visible,
+.tc-action:focus-visible,
+.tc-back:focus-visible,
+.tc-tl-who:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 40%, transparent);
+  outline-offset: 2px;
+}
+
+.tc-person-name {
+  margin-top: 4px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.tc-person-role {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+
+.tc-person-flag {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.tc-person-flag.is-danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+/* --- avatars -------------------------------------------------------------------- */
+
+.tc-avatar {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  background: var(--av-bg);
+  color: var(--av-text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--av-text) 14%, transparent);
+}
+
+.tc-avatar-sm {
+  width: 34px;
+  height: 34px;
+  font-size: 0.75rem;
+}
+
+.tc-avatar-lg {
+  width: 64px;
+  height: 64px;
+  font-size: 1.3rem;
+}
+
+.tc-avatar-xl {
+  width: 104px;
+  height: 104px;
+  font-size: 2.2rem;
+}
+
+.tc-avatar[data-dot]::after {
+  content: "";
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2.5px solid var(--surface);
+  background: var(--dot, var(--placeholder));
+}
+
+.tc-avatar[data-dot="success"] {
+  --dot: var(--tc-work);
+}
+
+.tc-avatar[data-dot="warning"] {
+  --dot: var(--tc-break);
+}
+
+.tc-avatar[data-dot="danger"] {
+  --dot: var(--danger);
+}
+
+.tc-avatar[data-dot="info"] {
+  --dot: var(--tc-info);
+}
+
+/* Initials tinted by department, so a cook and a captain are told apart
+   before their name is read. */
+.tc-dept-kitchen {
+  --av-bg: var(--primary-soft);
+  --av-text: var(--primary);
+}
+
+.tc-dept-service {
+  --av-bg: var(--info-bg);
+  --av-text: var(--info-text);
+}
+
+.tc-dept-management {
+  --av-bg: var(--violet-bg);
+  --av-text: var(--violet);
+}
+
+.tc-dept-delivery {
+  --av-bg: var(--warning-bg);
+  --av-text: var(--warning-text);
+}
+
+.tc-dept-housekeeping {
+  --av-bg: var(--success-bg);
+  --av-text: var(--success-text);
+}
+
+.tc-dept-other {
+  --av-bg: var(--chip-bg);
+  --av-text: var(--text-2);
+}
+
+/* --- chips ------------------------------------------------------------------------ */
+
+.tc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  background: var(--tone-bg);
+  color: var(--tone-text);
+}
+
+.tc-chip::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--tone);
+  flex: none;
+}
+
+/* --- PIN step ----------------------------------------------------------------------- */
+
+.tc-back {
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px 6px 6px;
+  margin: -6px 0 8px -6px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tc-back:hover {
+  background: var(--nav-active-bg);
+}
+
+.tc-pin-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 28px;
+  align-items: center;
+}
+
+.tc-who {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  padding: 24px 16px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.tc-who h2 {
+  margin: 8px 0 0;
+  font-size: 1.45rem;
+}
+
+.tc-who-shift {
+  margin-top: 2px;
+}
+
+.tc-pin-entry {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tc-pin-prompt {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 650;
+}
+
+.tc-dots {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin: 16px 0 8px;
+}
+
+.tc-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--tc-shift-line);
+  transition: background 0.1s, border-color 0.1s, transform 0.1s;
+}
+
+.tc-dot.is-optional {
+  border-style: dashed;
+  opacity: 0.55;
+}
+
+.tc-dot.is-filled {
+  background: var(--primary);
+  border-color: var(--primary);
+  border-style: solid;
+  opacity: 1;
+  transform: scale(1.08);
+}
+
+.tc-dots.is-wrong {
+  animation: tc-shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+.tc-dots.is-wrong .tc-dot {
+  border-color: var(--danger);
+}
+
+@keyframes tc-shake {
+  10%,
+  90% {
+    transform: translateX(-2px);
+  }
+
+  20%,
+  80% {
+    transform: translateX(4px);
+  }
+
+  30%,
+  50%,
+  70% {
+    transform: translateX(-9px);
+  }
+
+  40%,
+  60% {
+    transform: translateX(9px);
+  }
+}
+
+.tc-pin-message {
+  min-height: 2.6em;
+  max-width: 340px;
+  margin: 0 0 12px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.tc-pin-message.is-error {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.tc-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  width: 100%;
+  max-width: 330px;
+}
+
+.tc-key {
+  font: inherit;
+  display: grid;
+  place-items: center;
+  height: 64px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 1.65rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  box-shadow: 0 2px 0 var(--border);
+  touch-action: manipulation;
+  user-select: none;
+  transition: background 0.1s, transform 0.06s, box-shadow 0.06s;
+}
+
+.tc-key:hover:not(:disabled) {
+  background: var(--chip-bg);
+}
+
+.tc-key:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 0 0 var(--border);
+}
+
+.tc-key:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.tc-key-muted {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.tc-page .tc-enter {
+  width: 100%;
+  max-width: 330px;
+  margin-top: 12px;
+  padding: 14px;
+  font-size: 1.05rem;
+  border-radius: 12px;
+}
+
+.tc-no-pin {
+  gap: 10px;
+  text-align: center;
+  padding: 24px;
+}
+
+.tc-no-pin h3 {
+  margin: 0;
+}
+
+.tc-no-pin p {
+  max-width: 340px;
+}
+
+.tc-no-pin-mark {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+/* --- action step ----------------------------------------------------------------- */
+
+.tc-action-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.tc-hello {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.tc-missed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+/* A line the person must read before they tap: running late, or a forgotten
+   clock-in in the way. Colour and words, like every status here. */
+.tc-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--tone) 35%, transparent);
+  border-left: 4px solid var(--tone);
+  background: var(--tone-bg);
+  color: var(--text);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.tc-callout .tc-icon {
+  margin-top: 1px;
+  color: var(--tone-text);
+}
+
+.tc-callout strong {
+  color: var(--tone-text);
+}
+
+.tc-session {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 18px;
+}
+
+.tc-session div {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.tc-session dt {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tc-session dd {
+  margin: 2px 0 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.tc-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+}
+
+.tc-action {
+  font: inherit;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 96px;
+  padding: 18px 20px;
+  border: 0;
+  border-radius: 16px;
+  text-align: left;
+  color: var(--action-text, var(--surface));
+  background: var(--action);
+  cursor: pointer;
+  touch-action: manipulation;
+  box-shadow: 0 12px 24px -14px var(--action);
+  transition: transform 0.1s, filter 0.15s;
+}
+
+.tc-action:hover:not(:disabled) {
+  filter: brightness(1.07);
+  transform: translateY(-1px);
+}
+
+.tc-action:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.tc-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Filled with the theme's strong colour and written in the card colour, so
+   the words stay readable in both themes (the fills turn light in dark mode,
+   the writing dark). */
+.tc-action-in {
+  --action: var(--success);
+}
+
+.tc-action-break {
+  --action: var(--primary);
+  --action-text: var(--primary-text);
+}
+
+.tc-action-out {
+  --action: var(--text-2);
+}
+
+.tc-action-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.tc-action-label {
+  display: block;
+  font-size: 1.3rem;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.tc-action-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.84rem;
+  opacity: 0.9;
+}
+
+.tc-my-day {
+  margin-top: 20px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px dashed var(--border);
+}
+
+.tc-my-punches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9rem;
+}
+
+.tc-my-punches li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tc-action-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+/* --- done step ------------------------------------------------------------------- */
+
+.tc-page .tc-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  padding: 40px 24px 28px;
+  border-top: 5px solid var(--tone);
+}
+
+.tc-done-mark {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: var(--tone-bg);
+  color: var(--tone);
+  box-shadow: 0 0 0 10px color-mix(in srgb, var(--tone-bg) 45%, transparent);
+  animation: tc-pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.3);
+}
+
+.tc-done-headline {
+  margin: 12px 0 0;
+  font-size: 1.75rem;
+}
+
+.tc-done-line {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.tc-done-line strong {
+  color: var(--tone-text);
+}
+
+.tc-done-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 6px 0 4px;
+  padding: 0;
+  list-style: none;
+}
+
+.tc-done-chips li {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  background: var(--chip-bg);
+  color: var(--text);
+}
+
+.tc-countdown {
+  width: min(320px, 100%);
+  height: 5px;
+  margin: 14px 0 8px;
+  border-radius: 999px;
+  background: var(--chip-bg);
+  overflow: hidden;
+}
+
+.tc-countdown span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--tone);
+  animation: tc-drain linear forwards;
+}
+
+@keyframes tc-drain {
+  from {
+    width: 100%;
+  }
+
+  to {
+    width: 0;
+  }
+}
+
+@keyframes tc-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* --- the on-duty board ------------------------------------------------------------- */
+
+/* A SectionCard: its heading carries the title and the live time, the body
+   the lists. */
+.tc-page .tc-board > .section-card-body {
+  padding: 14px 18px 18px;
+}
+
+.tc-board-section + .tc-board-section {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.tc-board-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--tone-text);
+}
+
+.tc-board-count {
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  background: var(--tone-bg);
+  color: var(--tone-text);
+}
+
+.tc-board-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tc-board-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 10px;
+  border-left: 3px solid transparent;
+}
+
+.tc-board-row:hover {
+  background: var(--surface-2);
+}
+
+.tc-board-section.tc-tone-danger .tc-board-row,
+.tc-board-row.tc-tone-danger {
+  background: var(--danger-bg);
+  border-left-color: var(--tone);
+}
+
+.tc-board-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tc-board-name {
+  font-size: 0.9rem;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Wraps rather than cutting off: "likely not coming — call them" and
+   "staying on, or forgot to clock out?" are the point of the line. */
+.tc-board-detail {
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.tc-board-timer {
+  text-align: right;
+  font-size: 0.92rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  color: var(--tone-text);
+  white-space: nowrap;
+}
+
+.tc-board-timer small {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.tc-board-off {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+
+.tc-missing {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--danger-bg);
+  border: 1px solid color-mix(in srgb, var(--danger) 25%, transparent);
+}
+
+.tc-missing-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--danger);
+}
+
+.tc-missing ul {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.82rem;
+}
+
+.tc-missing li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* "Fix" opens that day's timeline: a small chip on the row, not a bare
+   underlined word. */
+.tc-missing-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 6px 1px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--danger-border);
+  background: var(--surface);
+  color: var(--danger);
+  font-size: 0.75rem;
+  font-weight: 650;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: border-color 140ms ease;
+}
+
+.tc-missing-link:hover {
+  border-color: var(--danger);
+  text-decoration: none;
+}
+
+.tc-feed {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.tc-feed ol {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.82rem;
+}
+
+.tc-feed li {
+  display: grid;
+  grid-template-columns: 64px auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.tc-feed-time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.tc-feed-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.tc-feed-clock_in,
+.tc-feed-break_end {
+  background: var(--tc-work);
+}
+
+.tc-feed-break_start {
+  background: var(--tc-break);
+}
+
+.tc-feed-clock_out {
+  background: var(--muted);
+}
+
+/* --- day timeline ------------------------------------------------------------------- */
+
+.tc-page .tc-day-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.tc-day-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.tc-page .tc-nav-button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.tc-page .tc-nav-button:disabled {
+  opacity: 0.4;
+}
+
+.tc-day-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 190px;
+  padding: 0 6px;
+  line-height: 1.25;
+}
+
+.tc-day-title strong {
+  font-size: 1.05rem;
+}
+
+.tc-day-eyebrow {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.tc-page .tc-date-input {
+  font: inherit;
+  font-size: 0.875rem;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.tc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.tc-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tc-swatch {
+  display: inline-block;
+  width: 18px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.tc-swatch-open {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--surface) 40%, transparent) 0 3px,
+    transparent 3px 6px
+  );
+}
+
+.tc-swatch-shift {
+  border: 1.5px dashed var(--tc-shift-line);
+}
+
+.tc-missing-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.tc-page .tc-timeline > .tc-timeline-body {
+  padding: 8px 20px;
+}
+
+.tc-tl {
+  --who: 230px;
+  --stats: 250px;
+}
+
+.tc-tl-axis,
+.tc-tl-row {
+  display: grid;
+  grid-template-columns: var(--who) minmax(0, 1fr) var(--stats);
+  gap: 16px;
+  align-items: center;
+}
+
+.tc-tl-axis {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.tc-tl-ticks {
+  position: relative;
+  height: 18px;
+}
+
+.tc-tl-tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.tc-tl-tick:first-child {
+  transform: none;
+}
+
+.tc-tl-tick:last-child {
+  transform: translateX(-100%);
+}
+
+.tc-tl-row {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.tc-tl-row:last-child {
+  border-bottom: 0;
+}
+
+.tc-tl-row.is-open {
+  background: linear-gradient(to right, var(--surface-2), var(--surface-2));
+  border-radius: 10px;
+}
+
+.tc-tl-who {
+  font: inherit;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tc-tl-who:hover {
+  background: var(--surface-2);
+}
+
+.tc-tl-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.tc-tl-name strong,
+.tc-tl-name span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tc-tl-track {
+  position: relative;
+  height: 34px;
+  border-radius: 8px;
+  background-image: linear-gradient(to right, var(--border) 1px, transparent 1px);
+  background-size: calc(100% / var(--hours)) 100%;
+}
+
+.tc-tl-shift {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  border: 1.5px dashed var(--tc-shift-line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--tc-shift-line) 8%, transparent);
+}
+
+.tc-tl-seg {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  border-radius: 5px;
+}
+
+.tc-seg-work {
+  background: var(--tc-work);
+}
+
+.tc-seg-break {
+  background: var(--tc-break);
+}
+
+.tc-seg-gap {
+  background: repeating-linear-gradient(45deg, var(--chip-bg) 0 4px, transparent 4px 8px);
+  border: 1px solid var(--border);
+}
+
+.tc-tl-seg.is-open {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--surface) 32%, transparent) 0 6px,
+    transparent 6px 12px
+  );
+  background-size: 17px 17px;
+  animation: tc-march 1.2s linear infinite;
+}
+
+.tc-tl-seg.is-open::after {
+  content: "";
+  position: absolute;
+  right: -4px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: inherit;
+  background-color: var(--tc-work);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tc-work) 25%, transparent);
+}
+
+.tc-seg-break.is-open::after {
+  background-color: var(--tc-break);
+}
+
+@keyframes tc-march {
+  to {
+    background-position: 17px 0;
+  }
+}
+
+.tc-tl-now {
+  position: absolute;
+  top: -10px;
+  bottom: -10px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--primary);
+  opacity: 0.75;
+  z-index: 2;
+}
+
+/* "Not in yet" sits on a small label of its own, above the rostered-shift
+   outline and the hour lines, so the words are never cut by them. */
+.tc-tl-empty {
+  position: absolute;
+  top: 50%;
+  left: 6px;
+  z-index: 1;
+  transform: translateY(-50%);
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--border);
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-style: italic;
+  white-space: nowrap;
+}
+
+.tc-tl-empty:empty {
+  display: none;
+}
+
+.tc-tl-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 0.82rem;
+}
+
+.tc-tl-figures {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tc-tl-flags {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.tc-flag {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: var(--tone-bg);
+  color: var(--tone-text);
+  white-space: nowrap;
+}
+
+.tc-tl-detail {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 4px 6px 6px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.tc-punches {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+}
+
+.tc-punches li {
+  display: grid;
+  grid-template-columns: auto 72px 96px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.tc-punch-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.tc-tl-sum {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.tc-fix {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tc-clean {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 16px 20px;
+}
+
+.tc-clean .tc-icon {
+  color: var(--success-text);
+}
+
+.tc-reason-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: -6px;
+}
+
+.tc-page .tc-remove-punch,
+.tc-remove-punch {
+  padding: 0;
+  font-size: inherit;
+}
+
+/* The punch being taken back, shown as it appears in the punch list. */
+.tc-remove-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.tc-remove-card .tc-feed-dot {
+  margin-top: 7px;
+}
+
+.tc-remove-note {
+  display: block;
+  margin-top: 2px;
+}
+
+/* --- PINs ---------------------------------------------------------------------------- */
+
+/* The filters in a band across the top of the list, as on every list. */
+.tc-pins-head {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.tc-pins-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.tc-pins-find {
+  position: relative;
+  display: inline-flex;
+  margin-left: auto;
+}
+
+.tc-pins-find .tc-search-icon {
+  left: 11px;
+}
+
+.tc-page .tc-pins-search {
+  font: inherit;
+  font-size: 0.875rem;
+  width: 220px;
+  padding: 7px 10px 7px 34px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.tc-page .tc-pins-search:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: var(--ring);
+}
+
+/* --- figures ------------------------------------------------------------------------- */
+
+/* Five figures in one row on a desktop, three to a row on a laptop, two on a
+   phone (the shared StatTile draws each one). */
+.tc-page .tc-stat-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.tc-page .tc-stat-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tc-pin-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tc-pin-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.2fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tc-pin-row:last-child {
+  border-bottom: 0;
+}
+
+.tc-pin-row:hover {
+  background: var(--surface-2);
+}
+
+.tc-pin-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.tc-pin-person > span:last-child {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tc-pin-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.tc-pin-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.tc-page .tc-pin-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  font-size: 0.85rem;
+}
+
+.tc-pin-input {
+  font-size: 1.4rem !important;
+  letter-spacing: 0.4em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The wide spacing is for the dots of a typed PIN, not the hint text. */
+.tc-pin-input::placeholder {
+  font-size: 0.95rem;
+  letter-spacing: normal;
+}
+
+.tc-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.tc-checks li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tc-checks li .tc-icon {
+  padding: 2px;
+  border-radius: 50%;
+  background: var(--chip-bg);
+  color: transparent;
+}
+
+.tc-checks li.is-ok {
+  color: var(--success-text);
+}
+
+.tc-checks li.is-ok .tc-icon {
+  background: var(--tc-work);
+  color: var(--surface);
+}
+
+/* --- responsive ---------------------------------------------------------------------- */
+
+@media (max-width: 1180px) {
+  .tc-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tc-page .tc-stat-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .tc-tl {
+    --who: 190px;
+    --stats: 200px;
+  }
+}
+
+@media (max-width: 900px) {
+  .tc-pin-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  .tc-who {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 14px;
+  }
+
+  .tc-who h2 {
+    margin: 0;
+  }
+
+  .tc-avatar-xl {
+    width: 64px;
+    height: 64px;
+    font-size: 1.35rem;
+  }
+
+  .tc-tl-axis,
+  .tc-tl-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .tc-tl-axis > span:first-child,
+  .tc-tl-axis > span:last-child {
+    display: none;
+  }
+
+  .tc-tl-tick.is-minor {
+    visibility: hidden;
+  }
+
+  .tc-tl-row {
+    padding: 12px 0;
+  }
+
+  .tc-tl-stats {
+    padding: 0 6px;
+  }
+
+  .tc-tl-now {
+    top: -3px;
+    bottom: -3px;
+  }
+
+  /* A week off has nothing to draw; on a phone the empty strip only adds
+     scrolling. */
+  .tc-tl-track.is-empty {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .tc-hero {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 20px;
+    gap: 16px;
+  }
+
+  /* On a phone the tiles right below already say this, and a phone has no
+     use for kiosk full screen: the clock alone brings the kiosk up the page. */
+  .tc-hero-side {
+    display: none;
+  }
+
+  .tc-hero::after {
+    width: 200px;
+    height: 200px;
+  }
+
+  .tc-hero-date {
+    font-size: 1rem;
+  }
+
+  .tc-page .tc-kiosk {
+    padding: 16px;
+    min-height: 0;
+  }
+
+  .tc-people {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .tc-person {
+    min-height: 150px;
+    padding: 16px 8px 12px;
+  }
+
+  .tc-chip {
+    white-space: normal;
+    text-align: center;
+  }
+
+  .tc-session {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .tc-session div {
+    padding: 10px;
+  }
+
+  .tc-session dd {
+    font-size: 1.05rem;
+  }
+
+  .tc-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tc-hello {
+    font-size: 1.35rem;
+  }
+
+  .tc-page .tc-stat-grid,
+  .tc-page .tc-stat-grid-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tc-page .tc-stat-grid > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  .tc-pins-head {
+    padding: 12px 16px;
+  }
+
+  .tc-pins-filters,
+  .tc-pins-find,
+  .tc-page .tc-pins-search {
+    width: 100%;
+  }
+
+  .tc-pins-find {
+    margin-left: 0;
+  }
+
+  .tc-page .tc-board > .section-card-body,
+  .tc-page .tc-timeline > .tc-timeline-body {
+    padding: 12px 16px;
+  }
+
+  .tc-clean {
+    padding: 14px 16px;
+  }
+
+  .tc-pin-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 12px 16px;
+  }
+
+  .tc-pin-state {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    padding-left: 46px;
+  }
+
+  .tc-pin-actions {
+    grid-row: 1;
+    grid-column: 2;
+  }
+
+  .tc-day-title {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .tc-page .tc-date-input {
+    flex: 1 1 100%;
+    order: 5;
+  }
+
+  .tc-punches li {
+    grid-template-columns: auto 64px minmax(0, 1fr);
+  }
+
+  .tc-punches li > :last-child {
+    grid-column: 2 / -1;
+  }
+
+  .tc-page .tc-tabs {
+    width: 100%;
+  }
+
+  .tc-tab-long {
+    display: none;
+  }
+
+  .tc-tab-short {
+    display: inline;
+  }
+
+  .tc-page .tc-tabs .segment {
+    flex: 1;
+    justify-content: center;
+    padding: 8px 8px;
+  }
+
+  /* On a phone the detail often takes two lines: keep the avatar and the
+     timer at the top of the row with the name. */
+  .tc-board-row {
+    align-items: start;
+  }
+
+  .tc-board-row .tc-avatar {
+    margin-top: 2px;
+  }
+
+  /* The slim clock bar: time and date only. */
+  .tc-hero.is-compact {
+    padding: 10px 16px;
+    gap: 2px 12px;
+  }
+
+  .tc-hero.is-compact .tc-clock {
+    font-size: 1.7rem;
+  }
+
+  .tc-hero.is-compact .tc-hero-date {
+    font-size: 0.9rem;
+  }
+
+  .tc-hero-compact-stat,
+  .tc-hero.is-compact .tc-hero-button {
+    display: none;
+  }
+}
+
+/* A landscape tablet (1024 x 768, 1280 x 800) is short: tighten the keypad a
+   little so the whole of it, Enter included, sits on the screen. */
+@media (min-width: 721px) and (max-height: 840px) {
+  .tc-key {
+    height: 56px;
+  }
+
+  .tc-dots {
+    margin: 10px 0 6px;
+  }
+
+  .tc-page .tc-enter {
+    padding: 12px;
+    margin-top: 10px;
+  }
+
+  .tc-page .tc-kiosk {
+    min-height: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tc-dots.is-wrong,
+  .tc-done-mark,
+  .tc-hero-dot.is-live,
+  .tc-tl-seg.is-open {
+    animation: none;
+  }
+
+  .tc-countdown span {
+    animation-duration: 0s;
+  }
+}

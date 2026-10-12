@@ -20,7 +20,7 @@ async function main() {
   const mobile = await ask("Mobile (optional): ");
   const password = await ask("Password (min 8 characters): ");
   const roleCode = restaurantCode
-    ? (await ask("Role [RESTAURANT_ADMIN, MANAGER, CASHIER, CAPTAIN, KITCHEN]: ")).toUpperCase()
+    ? (await ask("Role [RESTAURANT_ADMIN, MANAGER, CASHIER, CAPTAIN, KITCHEN, ACCOUNTANT, STORE_KEEPER]: ")).toUpperCase()
     : "SUPER_ADMIN";
 
   if (!name || !email || password.length < 8 || password.length > 72) {

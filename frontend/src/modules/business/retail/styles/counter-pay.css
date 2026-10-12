@@ -1,0 +1,145 @@
+/* Round 2 (R2-CORE): Quick bill's split payment, EMI, kits and the biller. */
+
+/* Five or six ways to pay: two rows of three, every one in reach. */
+.rt-tender.rt-tender-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.rt-tender.rt-tender-grid .segment {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.rt-parts {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.rt-parts legend {
+  padding: 0 var(--space-1);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* One payment: how, how much, "Rest" on the first row; the cash handed over
+   (or the UPI / card reference) and remove on the second. */
+.rt-part {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px dashed var(--border);
+}
+
+.rt-part > * {
+  min-width: 0;
+}
+
+.rt-part > :nth-child(4) {
+  grid-column: 1 / 3;
+}
+
+.rt-part > :nth-child(5) {
+  justify-self: center;
+}
+
+.rt-part input,
+.rt-part select {
+  width: 100%;
+}
+
+.rt-parts-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+}
+
+.rt-ok {
+  color: var(--success-text);
+  font-weight: var(--weight-medium);
+}
+
+.rt-emi .rt-inline {
+  flex-wrap: wrap;
+}
+
+.rt-emi .rt-inline .field {
+  min-width: 140px;
+}
+
+.rt-emi-sum {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.rt-done-part strong {
+  font-size: 1.05rem;
+}
+
+/* A kit's parts under its name, with the serial of a phone in it. */
+.rt-kit-parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.rt-kit-part select {
+  max-width: 100%;
+  font-size: var(--text-sm);
+}
+
+/* Who is billing on this till. */
+.rt-biller .rt-biller-name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rt-biller-people {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-2);
+}
+
+.rt-biller-person {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.rt-biller-person.is-active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.rt-biller-person:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+@media (max-width: 640px) {
+  .rt-biller .rt-biller-name {
+    max-width: 90px;
+  }
+}

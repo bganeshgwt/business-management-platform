@@ -1,0 +1,45 @@
+/* "Sold via recipes ₹a + Kitchen issues ₹b + … = Profit & loss food cost ₹x":
+   each part stays whole, the line breaks between parts, so a long sum wraps
+   inside its card at any width (1440 and 390 alike). */
+.food-cost-strip .fcs-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.food-cost-strip .fcs-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+}
+
+.food-cost-strip .fcs-part {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.food-cost-strip .fcs-op {
+  color: var(--muted);
+}
+
+.food-cost-strip .fcs-note {
+  font-size: var(--text-sm);
+}
+
+/* On a phone a part can be wider than the card: let it wrap inside rather
+   than push the page sideways. */
+@media (max-width: 480px) {
+  .food-cost-strip .fcs-part {
+    white-space: normal;
+  }
+
+  .food-cost-strip .fcs-title {
+    flex-basis: 100%;
+  }
+}
