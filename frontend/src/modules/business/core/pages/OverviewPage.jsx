@@ -106,7 +106,7 @@ export default function OverviewPage() {
     { key: "exchanges_today", icon: "undo", tone: "info", text: (n) => `${n} ${n === 1 ? "exchange" : "exchanges"} today`, to: "exchanges" },
     { key: "broken_sizes", icon: "tag", tone: "warning", text: (n) => `${n} ${n === 1 ? "style has" : "styles have"} sizes sold out`, to: "variants" },
     { key: "low_stock", icon: "alert", tone: "warning", text: (n) => `${n} ${n === 1 ? "item is" : "items are"} low on stock`, to: "stock" },
-    { key: "expiring_soon", icon: "clock", tone: "warning", text: (n) => `${n} ${n === 1 ? "batch expires" : "batches expire"} in 30 days`, to: "near-expiry", when: biz.has("batches") && !WEIGHED_TYPES.includes(biz.type) },
+    { key: "expiring_soon", icon: "clock", tone: "warning", text: (n) => `${n} ${n === 1 ? "batch expires" : "batches expire"} in ${biz.settings.near_expiry_days || 30} days`, to: "near-expiry", when: biz.has("batches") && !WEIGHED_TYPES.includes(biz.type) },
     { key: "transfers_in_transit", icon: "layers", tone: "info", text: (n) => `${n} stock ${n === 1 ? "transfer" : "transfers"} on the way`, to: "transfers" },
     { key: "counts_open", icon: "clipboard", tone: "info", text: (n) => `${n} stock ${n === 1 ? "count" : "counts"} open`, to: "counts" },
     { key: "appointments_left_today", icon: "calendar", tone: "info", text: (n) => `${n} ${n === 1 ? "appointment" : "appointments"} still to come today`, to: biz.type === "salon" ? "salon-calendar" : "appointments" },

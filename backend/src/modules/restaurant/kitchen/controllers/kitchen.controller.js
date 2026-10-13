@@ -362,8 +362,8 @@ const getSettings = async (req, res) => {
 // SW-A-12: what KOTs, the kitchen screen and change slips call a dish.
 const NAME_MODES = ["menu", "kitchen", "both"];
 
-// The timers (both marks together) and the kitchen-name choice are saved from
-// separate cards; either may be sent alone.
+// The timers (both marks together, and the pass time) and the kitchen-name
+// choice are saved from separate cards; either may be sent alone.
 const updateSettings = async (req, res) => {
   const body = req.body || {};
   const timers = body.warnMinutes !== undefined || body.lateMinutes !== undefined;
@@ -378,11 +378,20 @@ const updateSettings = async (req, res) => {
     }
   }
 
+  // How long plated food may wait at the pass before the bell says so.
+  if (body.passMinutes !== undefined && body.passMinutes !== null) {
+    data.passMinutes = v.requiredNumber(body.passMinutes, "Waiting at the pass (minutes)", { min: 1, max: 60 });
+
+    if (!Number.isInteger(data.passMinutes)) {
+      throw new AppError(400, "Use whole minutes for the time at the pass");
+    }
+  }
+
   if (body.kitchenNameMode !== undefined) {
     data.kitchenNameMode = v.requiredEnum(body.kitchenNameMode, "Names on KOTs", NAME_MODES);
   }
 
-  if (!timers && data.kitchenNameMode === undefined) {
+  if (!timers && data.passMinutes === undefined && data.kitchenNameMode === undefined) {
     throw new AppError(400, "Nothing to save: send the kitchen timers or which names the KOT prints");
   }
 
@@ -392,7 +401,7 @@ const updateSettings = async (req, res) => {
 
   res.json({
     success: true,
-    message: timers ? "Kitchen timers saved" : "Names on KOTs saved",
+    message: timers || data.passMinutes !== undefined ? "Kitchen timers saved" : "Names on KOTs saved",
     data: settings,
   });
 };

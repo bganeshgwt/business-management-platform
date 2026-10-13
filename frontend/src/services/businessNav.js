@@ -197,6 +197,7 @@ export function businessSections(type) {
       links: [
         { section: "settings", label: "Business settings", icon: "settings", need: "settings.view" },
         { section: "tax-rates", label: "Tax rates", icon: "tax", need: "settings.view" },
+        { section: "payment-methods", label: "Payment methods", icon: "collection", need: "settings.view" },
         { section: "number-series", label: "Number series", icon: "numbering", need: "settings.view" },
         { section: "locations", label: "Locations", icon: "locations", need: "settings.view" },
         { section: "health-settings", label: type === "pharmacy" ? "Pharmacy settings" : "Clinic & lab settings", icon: "serviceSettings", need: "settings.view", types: [...PHARMACY, ...CLINIC] },

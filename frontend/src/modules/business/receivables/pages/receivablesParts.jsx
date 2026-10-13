@@ -14,9 +14,10 @@ import { word } from "../../../../services/businessNav";
 import { toast } from "../../../../services/toast";
 import FormDialog from "../../core/pages/FormDialog";
 import { Badge, Field, FormError } from "../../core/pages/ui";
-import { CHEQUE_STATUS, METHODS, STATEMENT_KINDS, chequeWord, printStatements, reminderText, whatsappLink } from "./receivablesFormat";
+import { CHEQUE_STATUS, STATEMENT_KINDS, chequeWord, printStatements, reminderText, whatsappLink } from "./receivablesFormat";
 import "../../../../styles/business-trade.css";
 import { businessToday, newKey, useOpenBusiness, useOptions } from "../../core/pages/hooks";
+import { usePaymentMethods } from "../../core/pages/paymentMethods";
 
 // Shared receivables pieces: recording a collection, a customer's account
 // (open bills with their age, advances, cheques, reminders), follow-ups and
@@ -37,6 +38,9 @@ export function CollectionDialog({ contactId: fixedContact, documentId, onClose,
   const [requestKey] = useState(newKey);
   const [form, setForm] = useState({ contactId: fixedContact ? String(fixedContact) : "", locationId: String(locations[0]?.id || ""), amount: "", method: "cash",
     reference: "", chequeDate: today, bank: "", notes: "", mode: documentId ? "choose" : "auto", salespersonId: "", routeId: "" });
+  // `form.method`: one of the business's own methods; the cheque fields go by its kind.
+  const methods = usePaymentMethods();
+  const kind = methods.kindOf(form.method);
   const [bills, setBills] = useState(null);
   const [account, setAccount] = useState(null);
   const [amounts, setAmounts] = useState({});
@@ -70,9 +74,9 @@ export function CollectionDialog({ contactId: fixedContact, documentId, onClose,
 
   const chosen = Object.values(amounts).reduce((s, v) => s + (Number(v) || 0), 0);
   const submit = () => businessWrite(biz.id, "collections", {
-    contactId: form.contactId, locationId: form.locationId, amount: form.amount, method: form.method, requestKey,
+    contactId: form.contactId, locationId: form.locationId, amount: form.amount, ...methods.body(form.method), requestKey,
     reference: form.reference || undefined, notes: form.notes || undefined,
-    ...(form.method === "cheque" ? { chequeDate: form.chequeDate || undefined, bank: form.bank || undefined } : {}),
+    ...(kind === "cheque" ? { chequeDate: form.chequeDate || undefined, bank: form.bank || undefined } : {}),
     ...(form.mode === "advance" ? { allocations: [] } : {}),
     ...(form.mode === "choose" ? { allocations: Object.entries(amounts).filter(([, v]) => Number(v) > 0).map(([id, amount]) => ({ documentId: Number(id), amount })) } : {}),
     ...(wholesale && salespersonId ? { salespersonId } : {}),
@@ -102,17 +106,17 @@ export function CollectionDialog({ contactId: fixedContact, documentId, onClose,
         <input required type="number" min="0.01" step="0.01" inputMode="decimal" value={form.amount} onChange={set("amount")} />
       </Field>
       <Field label="Paid by">
-        <select value={form.method} onChange={set("method")}>{METHODS.map(([code, name]) => <option key={code} value={code}>{name}</option>)}</select>
+        <select value={methods.resolve(form.method)} onChange={set("method")}>{methods.options().map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}</select>
       </Field>
       {quick.length > 0 && (
         <div className="field-wide bz-quick-amounts" role="group" aria-label="Fill in the amount">
           {quick.map((q) => <button key={q.label} type="button" className="chip-button" onClick={() => setForm((f) => ({ ...f, amount: q.value.toFixed(2) }))}>{q.label}</button>)}
         </div>
       )}
-      <Field label={form.method === "cheque" ? "Cheque number" : "Reference (optional)"}>
-        <input required={form.method === "cheque"} maxLength={100} value={form.reference} onChange={set("reference")} placeholder={form.method === "upi" ? "UPI transaction ID" : form.method === "cheque" ? "6-digit number" : undefined} />
+      <Field label={kind === "cheque" ? "Cheque number" : "Reference (optional)"}>
+        <input required={kind === "cheque"} maxLength={100} value={form.reference} onChange={set("reference")} placeholder={kind === "upi" ? "UPI transaction ID" : kind === "cheque" ? "6-digit number" : undefined} />
       </Field>
-      {form.method === "cheque" && (
+      {kind === "cheque" && (
         <>
           <Field label="Cheque date" hint={form.chequeDate > today ? "Post-dated: it can be deposited from this date." : undefined}>
             <input type="date" required value={form.chequeDate} onChange={set("chequeDate")} />
@@ -297,7 +301,7 @@ export function AccountDialog({ contactId, onClose, onChanged }) {
         {account && (
           <div className="stack">
             <div className="bz-ageing" role="list" aria-label="Age of what is owed">
-              {[["Owes now", s.balance, Number(s.balance) > 0 ? "danger" : "neutral"], ["0–30 days", s.days_0_30], ["31–60 days", s.days_31_60], ["61–90 days", s.days_61_90], ["Over 90 days", s.days_over_90, Number(s.days_over_90) > 0 ? "danger" : ""], ["Overdue", s.overdue, Number(s.overdue) > 0 ? "warning" : ""]].map(([label, value, tone]) => (
+              {[["Owes now", s.balance, Number(s.balance) > 0 ? "danger" : "neutral"], [biz.ages.first, s.days_0_30], [biz.ages.second, s.days_31_60], [biz.ages.third, s.days_61_90], [biz.ages.over, s.days_over_90, Number(s.days_over_90) > 0 ? "danger" : ""], ["Overdue", s.overdue, Number(s.overdue) > 0 ? "warning" : ""]].map(([label, value, tone]) => (
                 <div key={label} role="listitem" className={`bz-ageing-cell ${tone ? `is-${tone}` : ""}`}><small>{label}</small><strong>{biz.exact(value || 0)}</strong></div>
               ))}
             </div>

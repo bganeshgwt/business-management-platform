@@ -29,6 +29,12 @@ async function loadStock(sim) {
   const lots = await repo.all(db, `SELECT id,sku_id,lot_code,expires_on,quantity FROM business_stock_lots WHERE business_id=$1 AND location_id=$2 AND quantity>0`,
     [sim.business.id, sim.location.id]);
   for (const lot of lots) lotsOf(sim, lot.sku_id).push({ id: lot.id, code: lot.lot_code, qty: Number(lot.quantity), expires: lot.expires_on, trueExpiry: lot.expires_on });
+  // A pharmacy's recalled batches are blocked: never sold or moved.
+  sim.blocked = new Set();
+  if (sim.business.business_type === 'pharmacy') {
+    const recalled = await repo.all(db, "SELECT sku_id,lot_code FROM pharmacy_recalls WHERE business_id=$1 AND blocked AND status='open'", [sim.business.id]);
+    for (const r of recalled) sim.blocked.add(`${Number(r.sku_id)}|${r.lot_code}`);
+  }
 }
 // One item's batches as they are now in the database.
 async function reloadSku(sim, skuId) {
@@ -46,7 +52,8 @@ function lotsOf(sim, skuId) {
 const onHand = (sim, skuId) => lotsOf(sim, skuId).reduce((s, l) => s + l.qty, 0);
 // Batches that can be sold on the day (first to expire first).
 function usableLots(sim, item, day) {
-  return lotsOf(sim, item.id).filter((l) => l.qty > 0.0005 && (!l.trueExpiry || l.trueExpiry >= day) && (!l.expires || l.expires >= sim.realToday))
+  return lotsOf(sim, item.id).filter((l) => l.qty > 0.0005 && (!l.trueExpiry || l.trueExpiry >= day) && (!l.expires || l.expires >= sim.realToday)
+    && !sim.blocked?.has(`${Number(item.id)}|${l.code}`))
     .sort((a, b) => String(a.trueExpiry || '9999').localeCompare(String(b.trueExpiry || '9999')) || String(a.code).localeCompare(String(b.code)));
 }
 
@@ -61,8 +68,10 @@ function actor(sim, ...roles) {
 }
 
 // Runs a posting once, dated `when`.
+// A branch's postings carry its own prefix (branches.js), so they never meet
+// the main store's steps.
 async function post(sim, table, step, when, run, options) {
-  return base.once(sim.business.id, table, step, (requestKey) => machine.at(sim.business.id, when, () => run(requestKey), options));
+  return base.once(sim.business.id, table, `${sim.stepPrefix || ''}${step}`, (requestKey) => machine.at(sim.business.id, when, () => run(requestKey), options));
 }
 
 // --- Purchases --------------------------------------------------------------------------------
@@ -79,7 +88,8 @@ const shelfLife = (item) => item.meta.shelf || 365;
 async function receive(sim, day, minutes, supplier, lines, step, extra = {}) {
   if (!lines.length) return null;
   const who = actor(sim, 'stock_keeper', 'manager');
-  const billNo = `${supplier.billPrefix}/${day.slice(5, 7)}${day.slice(8, 10)}${extra.billSuffix || ''}`;
+  // A branch's deliveries come on the supplier's own bills to that branch.
+  const billNo = `${supplier.billPrefix}/${day.slice(5, 7)}${day.slice(8, 10)}${extra.billSuffix || ''}${sim.billSuffix || ''}`;
   const input = lines.map((l) => {
     const line = { skuId: l.item.id, unitPrice: money(l.cost ?? costOf(sim, l.item)) };
     const pack = l.item.meta.pack;
@@ -458,7 +468,10 @@ async function fixExpiries(sim) {
 async function run(sim) {
   const today = sim.realToday;
   const start = clock.addDays(today, -sim.def.days);
-  const history = await base.marker(sim.business.id, 'demo.history_seeded');
+  // A branch keeps its own markers (branches.js).
+  const historyKey = sim.markerKey || 'demo.history_seeded';
+  const morningKey = sim.morningKey || 'demo.morning';
+  const history = await base.marker(sim.business.id, historyKey);
   const through = history?.details?.through || null;
   await loadStock(sim);
   const stats = { days: 0, bills: 0 };
@@ -468,14 +481,14 @@ async function run(sim) {
     const isToday = day === today;
     const limit = isToday ? clock.minutesNow() : 24 * 60;
     const closed = sim.def.closedOn ? sim.def.closedOn(day) : false;
-    const morningDone = isToday && (await base.marker(sim.business.id, 'demo.morning'))?.details?.day === day;
+    const morningDone = isToday && (await base.marker(sim.business.id, morningKey))?.details?.day === day;
     if (!morningDone) {
       if (day === start) await openingStock(sim, day);
       if (sim.hooks.firstDay && day === start) await sim.hooks.firstDay(sim, day);
       if (!closed) await deliveries(sim, day);
       if (sim.hooks.morning) await sim.hooks.morning(sim, day, closed);
       if (!closed && day !== start) await paySuppliers(sim, day);
-      if (isToday) await base.setMarker(sim.business.id, sim.owner.id, 'demo.morning', { day });
+      if (isToday) await base.setMarker(sim.business.id, sim.owner.id, morningKey, { day });
     }
     if (!closed) {
       await sellDay(sim, day, limit);
@@ -493,11 +506,11 @@ async function run(sim) {
     stats.days += 1;
   }
   await fixExpiries(sim);
-  if (!through || through < clock.addDays(today, -1)) await base.setMarker(sim.business.id, sim.owner.id, 'demo.history_seeded', { through: clock.addDays(today, -1) });
+  if (!through || through < clock.addDays(today, -1)) await base.setMarker(sim.business.id, sim.owner.id, historyKey, { through: clock.addDays(today, -1) });
   if (sim.hooks.today) await sim.hooks.today(sim, today);
   const after = await repo.one(db, "SELECT count(*)::int AS n FROM business_documents WHERE business_id=$1 AND kind='sale'", [sim.business.id]);
   stats.bills = after.n - before.n;
   return stats;
 }
 
-module.exports = { reloadSku, payOldest, run, receive, bill, fill, basket, quantity, post, actor, onHand, lotsOf, usableLots, takeStock, costOf, batchCode, money, round3, qtyText, methodOf, loadStock, collect };
+module.exports = { openingStockAt: openingStock, reloadSku, payOldest, run, receive, bill, fill, basket, quantity, post, actor, onHand, lotsOf, usableLots, takeStock, costOf, batchCode, money, round3, qtyText, methodOf, loadStock, collect };

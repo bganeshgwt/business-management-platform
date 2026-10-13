@@ -1726,8 +1726,10 @@ function ReorderTab() {
   // Saving who an item is ordered from changes the item.
   const canAssign = hasPermission("inventory.manage");
 
-  const [horizonText, setHorizon] = useQueryFilter("horizon", "7");
-  const horizon = HORIZONS.includes(Number(horizonText)) ? Number(horizonText) : 7;
+  const [horizonText, setHorizon] = useQueryFilter("horizon", "");
+  // Days picked here; none picked: the restaurant's own default (Settings ->
+  // Alerts and timings), which the plan says it used.
+  const picked = Number(horizonText) >= 1 && Number(horizonText) <= 30 ? Number(horizonText) : null;
   const [view, setView] = useQueryFilter("view", "order");
   const [statusFilter, setStatusFilter] = useQueryFilter("status");
   const [search, setSearch] = useState("");
@@ -1739,19 +1741,22 @@ function ReorderTab() {
   const [busyGroup, setBusyGroup] = useState(null);
   const [groupErrors, setGroupErrors] = useState({});
   const [suppliers, setSuppliers] = useState([]);
+  const horizon = picked || plan?.horizon || 7;
+  // The usual choices, and the restaurant's own default among them.
+  const horizons = [...new Set([...HORIZONS, plan?.defaultHorizon || 7])].sort((a, b) => a - b);
 
   // Typed quantities survive a reload — making one supplier's draft must not
   // wipe what was typed on another's card. They are cleared where they stop
   // meaning anything: the lines just drafted, and all of them when the
   // horizon (and so every suggestion) changes.
   useEffect(() => {
-    getReorderPlan(horizon)
+    getReorderPlan(picked || undefined)
       .then((data) => {
         setPlan(data);
         setError("");
       })
       .catch((err) => setError(getErrorMessage(err)));
-  }, [horizon, version]);
+  }, [picked, version]);
 
   useEffect(() => {
     if (canOrder && canSeeSuppliers) {
@@ -1886,7 +1891,7 @@ function ReorderTab() {
           <div className="field">
             <span>Buy enough for</span>
             <div className="segmented" role="radiogroup" aria-label="Days to cover">
-              {HORIZONS.map((days) => (
+              {horizons.map((days) => (
                 <button
                   type="button"
                   key={days}

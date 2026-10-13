@@ -351,7 +351,12 @@ const closeDrawer = async (restaurantId, outletId, id, data, user) => {
     throw new AppError(409, "This drawer is already closed");
   }
 
-  businessDayService.checkCount({ counted: data.closingCash, countMethod: data.countMethod, denominations: data.denominations });
+  businessDayService.checkCount({
+    counted: data.closingCash,
+    countMethod: data.countMethod,
+    denominations: data.denominations,
+    notes: businessDayService.toRules(settings).denominations,
+  });
 
   const figures = await drawerFigures(restaurantId, row, true);
   const variance = round2(data.closingCash - figures._expected);

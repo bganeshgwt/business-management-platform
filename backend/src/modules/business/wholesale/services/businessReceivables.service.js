@@ -5,6 +5,7 @@ const AppError = require('../../../../utils/AppError');
 const access = require('../../core/services/businessAccess.service');
 const numbering = require('../../core/services/businessNumbering');
 const { decimal, uuid, dateText, recordPayment } = require('../../core/services/business.service');
+const paymentMethods = require('../../core/services/businessPaymentMethods.service');
 
 // Shared receivables (retail udhaar and wholesale outstanding are the same
 // thing): collections from customers, advances, outstanding balances with
@@ -132,19 +133,22 @@ const openItemsSql = `WITH b AS (SELECT timezone, (now() AT TIME ZONE timezone):
 
 // Per customer: the balance and the open amount in each age bucket, plus
 // cheques not yet cleared and the last reminder / promise.
+// The group edges are the business's ageing_days (30, 60, 90 by default): the
+// columns keep their names, days_0_30 being the first group and so on.
 const ageingSql = `WITH oi AS (${openItemsSql}),
+ edges AS (SELECT COALESCE((SELECT ageing_days FROM business_settings WHERE business_id=$1), '{30,60,90}'::smallint[]) AS d),
  per AS (
   SELECT contact_id,
     sum(open_amount) AS outstanding,
-    sum(open_amount) FILTER (WHERE age_days<=30) AS days_0_30,
-    sum(open_amount) FILTER (WHERE age_days BETWEEN 31 AND 60) AS days_31_60,
-    sum(open_amount) FILTER (WHERE age_days BETWEEN 61 AND 90) AS days_61_90,
-    sum(open_amount) FILTER (WHERE age_days>90) AS days_over_90,
+    sum(open_amount) FILTER (WHERE age_days<=edges.d[1]) AS days_0_30,
+    sum(open_amount) FILTER (WHERE age_days>edges.d[1] AND age_days<=edges.d[2]) AS days_31_60,
+    sum(open_amount) FILTER (WHERE age_days>edges.d[2] AND age_days<=edges.d[3]) AS days_61_90,
+    sum(open_amount) FILTER (WHERE age_days>edges.d[3]) AS days_over_90,
     sum(open_amount) FILTER (WHERE overdue) AS overdue,
     max(days_overdue) FILTER (WHERE open_amount>0) AS most_days_overdue,
     count(*) FILTER (WHERE open_amount>0)::int AS open_bills,
     min(bill_date) FILTER (WHERE open_amount>0) AS oldest_bill
-  FROM oi GROUP BY contact_id
+  FROM oi CROSS JOIN edges GROUP BY contact_id
  )
  SELECT c.id AS contact_id, c.name, c.phone, c.gstin, c.credit_limit, c.credit_days,
    ${repo.contactBalanceSql('c')} AS balance,
@@ -281,10 +285,11 @@ async function createCollection(business, user, body, { extend } = {}) {
   const requestKey = uuid(body.requestKey);
   const hash = crypto.createHash('sha256').update(JSON.stringify(body)).digest('hex');
   const amount = paise(decimal(body.amount, 'Amount collected', 2, 0.01));
-  const method = v.requiredEnum(body.method, 'Paid by', METHODS);
+  // `methodId`: one of the business's own payment methods (its kind is checked below).
+  const choice = paymentMethods.readChoice(body, 'Paid by', METHODS);
   const reference = v.optionalString(body.reference, 'Reference', 100);
-  if (method === 'cheque' && !reference) fail('Enter the cheque number as the reference');
-  if (method !== 'cheque' && (body.chequeDate || body.bank)) fail('A cheque date and bank go with a cheque');
+  if (choice.method === 'cheque' && !reference) fail('Enter the cheque number as the reference');
+  if (choice.method && choice.method !== 'cheque' && (body.chequeDate || body.bank)) fail('A cheque date and bank go with a cheque');
   let plan = 'auto';
   if (body.allocations !== undefined && body.allocations !== null) {
     const list = v.requiredArray(body.allocations, 'Bills to settle');
@@ -300,6 +305,9 @@ async function createCollection(business, user, body, { extend } = {}) {
       if (old.request_hash !== hash) fail('This request key was already used for different data', 409);
       return old;
     }
+    const { method, methodName } = await paymentMethods.settle(db, business.id, choice, 'Paid by', METHODS);
+    if (method === 'cheque' && !reference) fail('Enter the cheque number as the reference');
+    if (method !== 'cheque' && (body.chequeDate || body.bank)) fail('A cheque date and bank go with a cheque');
     const today = (await repo.one(db, 'SELECT (now() AT TIME ZONE $1)::date::text AS day', [business.timezone])).day;
     const cheque = method === 'cheque' ? readCheque(body, today) : null;
     const location = await repo.one(db, 'SELECT * FROM business_locations WHERE business_id=$1 AND id=$2 AND active', [business.id, id(body.locationId, 'Location')]);
@@ -312,10 +320,10 @@ async function createCollection(business, user, body, { extend } = {}) {
     const free = await freeCredit(db, business.id, contact.id);
     const reserve = plan === 'auto' ? Math.min(amount, Math.max(0, paise(contact.opening_balance) - free)) : 0;
     const number = await numbering.nextNumber(db, business.id, location.id, 'collection', user.id);
-    const collection = await repo.one(db, `INSERT INTO business_collections(business_id,location_id,collection_no,series_id,contact_id,contact_name,amount,method,reference,notes,request_key,request_hash,created_by)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+    const collection = await repo.one(db, `INSERT INTO business_collections(business_id,location_id,collection_no,series_id,contact_id,contact_name,amount,method,reference,notes,request_key,request_hash,created_by,method_name)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
     [business.id, location.id, number.number, number.seriesId, contact.id, contact.name, rupees(amount), method, reference,
-      v.optionalString(body.notes, 'Notes', 500), requestKey, hash, user.id]);
+      v.optionalString(body.notes, 'Notes', 500), requestKey, hash, user.id, methodName]);
     if (cheque) {
       await db.query(`INSERT INTO business_collection_cheques(business_id,collection_id,contact_id,cheque_no,cheque_date,bank)
         VALUES($1,$2,$3,$4,$5,$6)`, [business.id, collection.id, contact.id, reference, cheque.chequeDate, cheque.bank]);
@@ -509,7 +517,8 @@ async function addFollowUp(business, user, contactId, body) {
   });
 }
 
-const methodSql = (column) => `CASE ${column} WHEN 'upi' THEN 'UPI' WHEN 'bank' THEN 'bank transfer' ELSE ${column} END`;
+// The business's own name for the method where one was recorded (PhonePe), else the kind.
+const methodSql = (column) => `COALESCE(${column}_name, CASE ${column} WHEN 'upi' THEN 'UPI' WHEN 'bank' THEN 'bank transfer' ELSE ${column} END)`;
 
 // --- Statement -------------------------------------------------------------------------
 

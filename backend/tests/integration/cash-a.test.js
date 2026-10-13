@@ -67,7 +67,7 @@ test("billing, reports and guest accounts", { timeout: 600000 }, async (t) => {
     });
     rid = made.id;
     const rates = await all("SELECT percentage, hsn_code, is_default FROM tax_rates WHERE restaurant_id = $1 ORDER BY percentage", [rid]);
-    assert.deepEqual(rates.map((r) => Number(r.percentage)), [0, 5, 12, 18, 28]);
+    assert.deepEqual(rates.map((r) => Number(r.percentage)), [0, 5, 18, 40]);
     const def = rates.find((r) => r.is_default);
     assert.equal(Number(def.percentage), 5);
     assert.equal(def.hsn_code, "996331");

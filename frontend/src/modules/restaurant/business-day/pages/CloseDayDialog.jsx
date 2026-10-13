@@ -159,7 +159,7 @@ export default function CloseDayDialog({ day, currency, onClose, onClosed, onSho
     const payload = {
       closingCash: counted,
       countMethod: method,
-      denominations: method === "notes" ? notesPayload(notes) : null,
+      denominations: method === "notes" ? notesPayload(notes, preview?.rules?.denominations) : null,
       varianceReason: reason.trim() || null,
       methodChecks: methodChecks(),
       notes: dayNotes.trim() || null,
@@ -338,6 +338,7 @@ export default function CloseDayDialog({ day, currency, onClose, onClosed, onSho
           onMethod={setMethod}
           notes={notes}
           onNotes={setNotes}
+          denominations={preview?.rules?.denominations}
           refused={Boolean(error) && counted === null}
           message={counted === null ? error : ""}
           autoFocus

@@ -12,6 +12,9 @@ import { toast } from "../../../../services/toast";
 import FormDialog from "../../core/pages/FormDialog";
 import { Badge, BusinessHeader, Field, FormError, PeriodFilter } from "../../core/pages/ui";
 import { businessToday, newKey, useOpenBusiness, useOptions, useServerList } from "../../core/pages/hooks";
+import { usePaymentMethods } from "../../core/pages/paymentMethods";
+// An advance is taken by the business's own methods of these kinds (no cheques).
+const ADVANCE_KINDS = ["cash", "upi", "card", "bank"];
 import { RepairBadge, Segmented } from "../../fashion/pages/shared";
 import { REPAIR_STATES, refuse } from "../../fashion/pages/feFormat";
 import { CHECKLIST, sendWhatsApp, stageFor } from "./repairParts";
@@ -123,6 +126,7 @@ function IntakeDialog({ onClose, onSaved }) {
   const models = (options?.["catalog?active=true&kind=goods"] || []).filter((s) => s.tracking === "serial");
   const locations = biz.locations.filter((l) => l.active);
   const canAdvance = biz.can("sales.edit");
+  const methods = usePaymentMethods();
   const [requestKey] = useState(newKey);
   const [customer, setCustomer] = useState(null);
   const [form, setForm] = useState({ locationId: String(locations[0]?.id || ""), customerName: "", customerPhone: "", skuId: "", device: "", serial: "",
@@ -156,7 +160,7 @@ function IntakeDialog({ onClose, onSaved }) {
       skuId: form.skuId || undefined, device: form.device || undefined, serial: form.serial.trim() || undefined, problem: form.problem, accessories: form.accessories || undefined,
       conditionNotes: form.conditionNotes || undefined, estimate: form.estimate || undefined, promisedOn: form.promisedOn || undefined, technician: form.technician || undefined,
       passcode: form.passcode || undefined, checklist: checks, warrantyOwnerConfirmed: otherOwner && ownerOk ? true : undefined,
-      ...(canAdvance && Number(form.advance) > 0 ? { advance: { amount: form.advance, method: form.advanceMethod } } : {}),
+      ...(canAdvance && Number(form.advance) > 0 ? { advance: { amount: form.advance, ...methods.body(form.advanceMethod, ADVANCE_KINDS) } } : {}),
     });
   };
   return (
@@ -217,7 +221,7 @@ function IntakeDialog({ onClose, onSaved }) {
         <>
           <Field label="Advance taken (optional)" hint="Credited on the final bill."><input type="number" min="0" step="1" value={form.advance} onChange={set("advance")} /></Field>
           {Number(form.advance) > 0 && (
-            <Field label="Advance paid by"><select value={form.advanceMethod} onChange={set("advanceMethod")}>{["cash", "upi", "card", "bank"].map((m) => <option key={m} value={m}>{m === "upi" ? "UPI" : m[0].toUpperCase() + m.slice(1)}</option>)}</select></Field>
+            <Field label="Advance paid by"><select value={methods.resolve(form.advanceMethod, ADVANCE_KINDS)} onChange={set("advanceMethod")}>{methods.options(ADVANCE_KINDS).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}</select></Field>
           )}
         </>
       )}

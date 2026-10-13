@@ -7,6 +7,8 @@ import api from './api';
 export const listBusinesses = async () => (await api.get('/businesses')).data.data;
 export const provisionBusinesses = async () => (await api.post('/businesses/development-demos', {})).data.data;
 export const linkRestaurant = async () => (await api.post('/businesses/link-restaurant', {})).data.data;
+// An owner adds another business of their own (any type but restaurant).
+export const createBusiness = async (body) => (await api.post('/businesses', body)).data.data;
 export const businessContext = async (businessId, signal) => (await api.get(`/businesses/${businessId}/context`, { signal })).data.data;
 // Remembers this business as the one the person last opened.
 export const openBusiness = async (businessId) => (await api.post(`/businesses/${businessId}/open`, {})).data.data;

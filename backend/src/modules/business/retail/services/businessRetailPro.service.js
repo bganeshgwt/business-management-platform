@@ -5,6 +5,7 @@ const AppError = require('../../../../utils/AppError');
 const access = require('../../core/services/businessAccess.service');
 const { decimal, dateText, uuid } = require('../../core/services/business.service');
 const receivables = require('../../wholesale/services/businessReceivables.service');
+const paymentMethods = require('../../core/services/businessPaymentMethods.service');
 const { isbn13 } = require('./businessBooks');
 
 // Retail pro pass (7 Oct 2026, builder C):
@@ -19,13 +20,15 @@ const id = (value, name = 'Record ID') => v.requiredId(value, name);
 
 // --- Near expiry ------------------------------------------------------------------
 
-// Batches with stock that expire within `days` (7–180, default 30), the
+// Batches with stock that expire within `days` (1–365; by default the
+// business's near_expiry_days, 30 unless changed in Business settings), the
 // expired ones first. Each row: days left, value at cost and at the shelf
 // price, and the item's running markdown (an item % offer), if any.
 async function nearExpiry(business, query) {
   await access.require(business, 'inventory.view');
-  const days = query.days === undefined || query.days === '' ? 30 : Number(query.days);
-  if (!Number.isInteger(days) || days < 1 || days > 180) fail('Show batches expiring within 1 to 180 days');
+  const fallback = (await repo.one(repo.pool, 'SELECT near_expiry_days FROM business_settings WHERE business_id=$1', [business.id]))?.near_expiry_days ?? 30;
+  const days = query.days === undefined || query.days === '' ? Number(fallback) : Number(query.days);
+  if (!Number.isInteger(days) || days < 1 || days > 365) fail('Show batches expiring within 1 to 365 days');
   const location = query.location ? id(query.location, 'Location') : null;
   const rows = await repo.all(repo.pool, `WITH today AS (SELECT (now() AT TIME ZONE timezone)::date AS d FROM businesses WHERE id=$1)
     SELECT l.id,l.location_id,loc.name AS location_name,l.sku_id,s.label,s.code,s.unit,s.price,s.tracking,l.lot_code,l.expires_on,l.quantity,l.unit_cost,
@@ -169,7 +172,9 @@ async function createOrder(business, user, body) {
   const contactId = body.contactId ? id(body.contactId, 'Customer') : null;
   if (advance > 0 && !contactId) fail('Pick or add the customer to take an advance: it is kept on their account');
   if (advance > 0) await access.require(business, 'receivables.create');
-  const method = advance > 0 ? v.requiredEnum(body.method || 'cash', 'Advance paid by', ['cash', 'upi', 'card', 'bank']) : null;
+  // `methodId`: one of the business's own payment methods (no cheques for an advance).
+  const methodId = advance > 0 && body.methodId ? body.methodId : undefined;
+  const method = advance > 0 ? (await paymentMethods.pick(repo.pool, business.id, { method: body.method || undefined, methodId }, 'Advance paid by', ['cash', 'upi', 'card', 'bank'], 'cash')).method : null;
 
   const insert = async (db, collectionId) => {
     const existing = await repo.one(db, 'SELECT * FROM books_customer_orders WHERE business_id=$1 AND request_key=$2', [business.id, requestKey]);
@@ -196,7 +201,7 @@ async function createOrder(business, user, body) {
   if (advance > 0) {
     let saved = null;
     const collection = await receivables.createCollection(business, user, {
-      locationId: body.locationId, contactId, amount: advance.toFixed(2), method, requestKey,
+      locationId: body.locationId, contactId, amount: advance.toFixed(2), method, methodId, requestKey,
       notes: `Advance for a book order: ${f.title}`.slice(0, 500), allocations: [],
     }, { extend: async (db, row) => { saved = await insert(db, row.id); } });
     // A repeated request returns the first collection; its order is found by key.

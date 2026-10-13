@@ -5,6 +5,8 @@ import { dateShort, dateTime, moneyExact } from "../../../../services/format";
 
 export const METHODS = [["cash", "Cash"], ["upi", "UPI"], ["bank", "Bank transfer"], ["cheque", "Cheque"], ["card", "Card"]];
 export const methodName = (m) => (METHODS.find(([code]) => code === m) || [m, m])[1];
+// A receipt's method as taken: the business's own name (PhonePe) where one was recorded.
+export const receiptMethod = (row) => row?.method_name || methodName(row?.method);
 
 // A cheque's state in words, with the badge tone (pro pass D-02).
 export const CHEQUE_STATUS = {
@@ -51,7 +53,7 @@ export function printReceipt(receipt, biz) {
     styles: "body{font:13px system-ui;color:#111} h1{font-size:18px;margin:0} table{width:100%;border-collapse:collapse;margin-top:12px} td,th{border-bottom:1px solid #ddd;padding:6px;text-align:left} .r{text-align:right} .warn{border:1px solid #b91c1c;color:#7f1d1d;padding:6px 8px;margin:8px 0}",
     body: `<h1>${escapeHtml(seller.legal_name || seller.display_name || biz.business.name)}</h1>${seller.gstin ? `<small>GSTIN ${escapeHtml(seller.gstin)}</small>` : ""}
       <p><strong>Receipt ${escapeHtml(receipt.collection_no)}</strong> · ${escapeHtml(dateTime(receipt.created_at))}<br>
-      Received from ${escapeHtml(receipt.contact_name)} the sum of <strong>${money(receipt.amount)}</strong> by ${escapeHtml(methodName(receipt.method))}${receipt.reference ? ` (${escapeHtml(receipt.reference)})` : ""}.</p>
+      Received from ${escapeHtml(receipt.contact_name)} the sum of <strong>${money(receipt.amount)}</strong> by ${escapeHtml(receiptMethod(receipt))}${receipt.reference ? ` (${escapeHtml(receipt.reference)})` : ""}.</p>
       ${cheque ? `<p>Cheque no. ${escapeHtml(cheque.cheque_no)} dated ${escapeHtml(dateShort(cheque.cheque_date, { year: true }))}${cheque.bank ? `, ${escapeHtml(cheque.bank)}` : ""}. Subject to realisation.</p>` : ""}
       ${cheque?.status === "bounced" ? `<div class="warn">This cheque was returned unpaid on ${escapeHtml(dateShort(cheque.bounced_at, { year: true }))} (${escapeHtml(cheque.bounce_reason || "")}). The receipt no longer counts.</div>` : ""}
       ${receipt.salesperson_name ? `<p>Collected by ${escapeHtml(receipt.salesperson_name)}${receipt.route_name ? ` · ${escapeHtml(receipt.route_name)}` : ""}</p>` : ""}

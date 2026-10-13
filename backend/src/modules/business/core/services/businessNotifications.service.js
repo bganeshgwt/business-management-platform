@@ -50,7 +50,8 @@ async function feed(business) {
       SELECT l.id,s.label,s.unit,l.lot_code,l.expires_on::text AS expires_on,l.quantity,(l.expires_on - today.d) AS days_left,loc.name AS location_name
       FROM business_stock_lots l CROSS JOIN today JOIN catalog_skus s ON s.business_id=l.business_id AND s.id=l.sku_id
       JOIN business_locations loc ON loc.business_id=l.business_id AND loc.id=l.location_id
-      WHERE l.business_id=$1 AND l.quantity>0 AND l.expires_on IS NOT NULL AND l.expires_on <= today.d + 30
+      WHERE l.business_id=$1 AND l.quantity>0 AND l.expires_on IS NOT NULL
+        AND l.expires_on <= today.d + COALESCE((SELECT near_expiry_days FROM business_settings WHERE business_id=$1),30)
       ORDER BY l.expires_on,s.label LIMIT $2`, [business.id, LIMIT]);
     for (const lot of lots) {
       const days = Number(lot.days_left);

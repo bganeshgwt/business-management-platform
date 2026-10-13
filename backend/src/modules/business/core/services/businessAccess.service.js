@@ -54,18 +54,73 @@ async function access(user, businessId, permission) {
   return business;
 }
 
+// --- Locations: who works where ----------------------------------------------
+//
+// A person tied to one location (business_memberships.location_id) works
+// there only: a location they name must be theirs, and a request that names
+// none is answered for their location. Everyone else may pick a location in
+// the top bar (X-Business-Location); that only fills in the location a
+// request leaves out, so lists, reports and the counter open on that branch.
+// Request parameters that carry a location:
+const QUERY_LOCATION_KEYS = ['location', 'locationId'];
+const BODY_LOCATION_KEYS = ['locationId', 'fromLocationId'];
+const isGiven = (value) => value !== undefined && value !== null && value !== '';
+
+function locationMismatch(business) {
+  fail(`You work at ${business.member_location_name || 'one location'} only. Ask a manager who works across every location.`, 403);
+}
+
+// Throws when a person tied to a location acts on another one's record.
+function requireLocation(business, locationId) {
+  if (business.member_location_id && isGiven(locationId) && String(locationId) !== String(business.member_location_id)) locationMismatch(business);
+}
+
+function scope(req, business) {
+  const tied = business.member_location_id ? String(business.member_location_id) : null;
+  let chosen = null;
+  if (!tied) {
+    const header = req.get('x-business-location');
+    if (header && /^\d{1,18}$/.test(header) && business.active_location_ids.map(String).includes(header)) chosen = header;
+  }
+  const effective = tied || chosen;
+  business.location_scope = effective ? Number(effective) : null;
+  business.location_tied = Boolean(tied);
+  if (!effective) return;
+  const query = { ...req.query };
+  req.locationFilledIn = [];
+  for (const key of QUERY_LOCATION_KEYS) {
+    if (!isGiven(query[key])) { query[key] = effective; req.locationFilledIn.push(key); }
+    else if (tied && String(query[key]) !== tied) locationMismatch(business);
+  }
+  // Express 5 makes req.query a getter: replace it for the rest of this request.
+  Object.defineProperty(req, 'query', { value: query, writable: true, configurable: true, enumerable: true });
+  if (tied && req.body && typeof req.body === 'object' && !Array.isArray(req.body)) {
+    for (const key of BODY_LOCATION_KEYS) if (isGiven(req.body[key])) requireLocation(business, req.body[key]);
+    if (req.body.opening && typeof req.body.opening === 'object') requireLocation(business, req.body.opening.locationId);
+    if (['POST', 'PUT', 'PATCH'].includes(req.method) && !isGiven(req.body.locationId)) req.body.locationId = Number(tied);
+  }
+}
+
 async function context(business) {
   const catalogue = await repo.platformCatalogue();
-  const settings = await repo.one(repo.pool, `SELECT display_name,legal_name,gstin,state_code,tax_mode,rounding,fiscal_year_start_month,date_format,logo_path,max_bill_discount_percent,walk_in_credit,counter_pin_every_bill
+  const settings = await repo.one(repo.pool, `SELECT display_name,legal_name,gstin,state_code,tax_mode,rounding,fiscal_year_start_month,date_format,logo_path,max_bill_discount_percent,walk_in_credit,counter_pin_every_bill,
+    voucher_valid_days,ageing_days,near_expiry_days,weight_buttons_grams,receipt_width_mm,day_cutoff_hour
     FROM business_settings WHERE business_id=$1`, [business.id]);
-  const locations = await repo.all(repo.pool, 'SELECT id,name,code,active,sells_at_counter FROM business_locations WHERE business_id=$1 ORDER BY id', [business.id]);
+  const allLocations = await repo.all(repo.pool, `SELECT id,name,code,active,sells_at_counter,address_line1,address_line2,city,postal_code,state_code,gstin,phone
+    FROM business_locations WHERE business_id=$1 ORDER BY id`, [business.id]);
+  // Every location picker on the screens is built from `locations`: a person
+  // tied to a location (or who picked one in the top bar) sees that one only.
+  // `allLocations` is for what names other locations (a transfer's destination).
+  const locations = business.location_scope ? allLocations.filter((l) => Number(l.id) === business.location_scope) : allLocations;
   const { permissions, capabilities, modules } = business;
   return {
     business: { id: business.id, name: business.name, code: business.code, business_type: business.business_type, type_name: business.type_name,
       legacy_restaurant_id: business.legacy_restaurant_id, is_demo: business.is_demo, currency: business.currency, timezone: business.timezone },
     role: { id: business.role_id, name: business.role_name, full_access: business.full_access },
+    member: { location_id: business.member_location_id || null, location_name: business.member_location_name || null },
+    currentLocationId: business.location_scope || null,
     permissions, capabilities, modules,
-    moduleCatalogue: catalogue.modules, settings, locations,
+    moduleCatalogue: catalogue.modules, settings, locations, allLocations,
   };
 }
 
@@ -158,20 +213,37 @@ async function memberCandidates(business, user) {
   // user on the platform. Inviting people from elsewhere is Phase 2.
   // People already on this business's staff list (with access on or off) are
   // managed there, so they are not offered again.
-  return repo.all(repo.pool, `SELECT u.id,u.name,u.email FROM users u WHERE u.restaurant_id=$1 AND u.status='active'
-    AND NOT EXISTS (SELECT 1 FROM business_memberships m WHERE m.business_id=$2 AND m.user_id=u.id) ORDER BY u.name`, [user.restaurantId, business.id]);
+  // Also people who work in another business this person owns and whose login
+  // was made in Business Admin (no restaurant behind it). Another restaurant's
+  // people are never offered.
+  return repo.all(repo.pool, `SELECT u.id,u.name,u.email FROM users u WHERE u.status='active'
+    AND (u.restaurant_id=$1 OR u.restaurant_id IS NULL AND EXISTS (SELECT 1 FROM business_memberships o JOIN business_roles r ON r.business_id=o.business_id AND r.id=o.role_id AND r.full_access
+      JOIN business_memberships x ON x.business_id=o.business_id AND x.user_id=u.id WHERE o.user_id=$3 AND o.active))
+    AND NOT EXISTS (SELECT 1 FROM business_memberships m WHERE m.business_id=$2 AND m.user_id=u.id) ORDER BY u.name`, [user.restaurantId || null, business.id, user.id]);
 }
 
-async function setMember(business, user, body) {
+// options.newLogin: the person's login was just made for this business
+// (Staff & access › New staff login), so they are eligible by definition.
+async function setMember(business, user, body, options = {}) {
   await require_(business, 'access.edit');
   const targetId = id(body.userId, 'Staff account');
   const active = v.requiredBoolean(body.active, 'Active', true);
+  // Where they work: one location, or every location (empty). Older clients
+  // send nothing and the person keeps what they have.
+  const locationGiven = body.workLocationId !== undefined;
+  const workLocationId = locationGiven && isGiven(body.workLocationId) ? id(body.workLocationId, 'Location') : null;
+  // A manager tied to a location can only give access at that location.
+  if (business.member_location_id && (!locationGiven || String(workLocationId) !== String(business.member_location_id))) {
+    fail(`You work at ${business.member_location_name || 'one location'}, so you can only give access there.`, 403);
+  }
   return repo.transaction(async (db) => {
     await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
-    const candidate = await repo.one(db, "SELECT id FROM users WHERE id=$1 AND restaurant_id=$2 AND status='active'", [targetId, user.restaurantId]);
+    const candidate = await repo.one(db, `SELECT id FROM users u WHERE id=$1 AND status='active' AND (restaurant_id=$2
+      OR restaurant_id IS NULL AND EXISTS (SELECT 1 FROM business_memberships o JOIN business_roles r ON r.business_id=o.business_id AND r.id=o.role_id AND r.full_access
+        JOIN business_memberships x ON x.business_id=o.business_id AND x.user_id=u.id WHERE o.user_id=$3 AND o.active))`, [targetId, user.restaurantId || null, user.id]);
     const existing = await repo.one(db, `SELECT m.*,r.full_access FROM business_memberships m JOIN business_roles r ON r.business_id=m.business_id AND r.id=m.role_id
       WHERE m.business_id=$1 AND m.user_id=$2`, [business.id, targetId]);
-    if (!candidate && !existing) fail('Eligible staff member not found', 404);
+    if (!candidate && !existing && !options.newLogin) fail('Eligible staff member not found', 404);
     if (existing?.full_access) fail('The owner\'s access cannot be changed here', 409);
     if (targetId === user.id) fail('You cannot change your own access. Ask another person with access rights.', 403);
     // Nobody may change, demote or switch off someone who can do more than they can.
@@ -191,12 +263,21 @@ async function setMember(business, user, body) {
       const beyond = rolePermissions.filter((code) => !business.permissions.includes(code));
       if (beyond.length) fail(`The ${role.name} role can do things you cannot (${beyond.slice(0, 3).join(', ')}), so you cannot give it out`, 403);
     }
-    const member = await repo.one(db, `INSERT INTO business_memberships(business_id,user_id,role_id,active,created_by,updated_by) VALUES($1,$2,$3,$4,$5,$5)
-      ON CONFLICT(business_id,user_id) DO UPDATE SET role_id=EXCLUDED.role_id,active=EXCLUDED.active,updated_by=EXCLUDED.updated_by,updated_at=now() RETURNING *`,
-    [business.id, targetId, role.id, active, user.id]);
-    await repo.audit(db, business.id, user.id, 'membership.updated', targetId, { roleId: role.id, role: role.name, active });
+    // A manager tied to a location manages that location's people only.
+    if (existing && business.member_location_id && String(existing.location_id) !== String(business.member_location_id)) {
+      fail('This person does not work at your location', 403);
+    }
+    if (workLocationId) {
+      const location = await repo.one(db, 'SELECT id FROM business_locations WHERE business_id=$1 AND id=$2 AND active', [business.id, workLocationId]);
+      if (!location) fail('Location not found or closed', 404);
+    }
+    const member = await repo.one(db, `INSERT INTO business_memberships(business_id,user_id,role_id,active,created_by,updated_by,location_id) VALUES($1,$2,$3,$4,$5,$5,$6)
+      ON CONFLICT(business_id,user_id) DO UPDATE SET role_id=EXCLUDED.role_id,active=EXCLUDED.active,updated_by=EXCLUDED.updated_by,updated_at=now(),
+      location_id=CASE WHEN $7 THEN EXCLUDED.location_id ELSE business_memberships.location_id END RETURNING *`,
+    [business.id, targetId, role.id, active, user.id, workLocationId, locationGiven]);
+    await repo.audit(db, business.id, user.id, 'membership.updated', targetId, { roleId: role.id, role: role.name, active, locationId: member.location_id });
     return { ...member, role_name: role.name };
   });
 }
 
-module.exports = { devEnabled, access, load, can, require: require_, requireAny, context, permissionCatalogue, createRole, updateRole, memberCandidates, setMember };
+module.exports = { devEnabled, access, load, scope, requireLocation, can, require: require_, requireAny, context, permissionCatalogue, createRole, updateRole, memberCandidates, setMember };

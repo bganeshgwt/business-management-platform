@@ -1080,10 +1080,11 @@ Linked section: [data model §2](BUSINESS_PLATFORM_DATA_MODEL.md#2-identity--acc
 
 #### `business_memberships`
 Purpose: one row for each person who can open a business. Each person has one login, stored in `users`, and can hold memberships in many businesses.
-Key columns: PK (`business_id`, `user_id` -> `users`), `role_id`, `active`, `last_opened_at`, plus `created_by` and `updated_by`.
-Relations: (`business_id`, `role_id`) -> `business_roles`, so a membership can only hold a role of its own business.
+Key columns: PK (`business_id`, `user_id` -> `users`), `role_id`, `active`, `last_opened_at`, `location_id` (the one location the person works at; NULL = every location), plus `created_by` and `updated_by`.
+Relations: (`business_id`, `role_id`) -> `business_roles`, so a membership can only hold a role of its own business; (`business_id`, `location_id`) -> `business_locations`.
+Rules (1791630000000): trigger `business_membership_location_rules` refuses tying the owner (full-access role) to a location and tying anyone to a closed location.
 Rules: the old `role` text column (owner, manager, viewer) was mapped to roles and then dropped. Index `business_memberships_recent` covers (user, last_opened_at) for active rows.
-Added by: 1791280000000 (table). 1791300000001 added `role_id`, the audit columns and `last_opened_at`, and dropped `role`.
+Added by: 1791280000000 (table). 1791300000001 added `role_id`, the audit columns and `last_opened_at`, and dropped `role`. 1791630000000 added `location_id`.
 
 #### `business_roles`
 Purpose: each business's own copy of the six templates (`template_code` set), plus custom roles (`template_code` NULL).
@@ -1108,7 +1109,8 @@ Linked section: [data model §3](BUSINESS_PLATFORM_DATA_MODEL.md#3-business-tena
 
 #### `businesses`
 Purpose: the tenant root. A restaurant appears here as one row whose `legacy_restaurant_id` points to `restaurants` ([five layers](BUSINESS_PLATFORM_DATA_MODEL.md#the-five-layers)).
-Key columns: `name`, `code` (unique), `business_type` -> `business_types`, `legacy_restaurant_id` (unique, -> `restaurants`), `is_demo`, `status` (active or inactive), `currency` (default INR), `timezone` (default Asia/Kolkata), `created_by`.
+Key columns: `name`, `code` (unique), `business_type` -> `business_types`, `legacy_restaurant_id` (unique, -> `restaurants`), `is_demo`, `status` (active or inactive), `currency` (default INR; the owner changes it in Business settings until the first document), `timezone` (default Asia/Kolkata; editable), `created_by`.
+Created by: the platform console (Platform › Businesses), an owner's "Add a business", the restaurant link, or (development only) the demo set-up — `businessOnboarding.service.js`.
 Rules:
 - CHECK: `legacy_restaurant_id` may be set only when the type is `restaurant`.
 - Trigger `businesses_type_is_fixed` refuses any change of type.
@@ -1118,6 +1120,7 @@ Added by: 1791280000000. Triggers were added by 1791300000000 and 1791300000005.
 #### `business_settings`
 Purpose: one row per business with its legal and display details, tax mode, rounding and fiscal year.
 Key columns: PK `business_id`, `display_name`, `legal_name`, `gstin` (GSTIN-pattern CHECK), address fields, `state_code`, `postal_code` (6 digits), `tax_mode` (exclusive or inclusive), `rounding` (none or nearest_rupee), `fiscal_year_start_month` (default 4), `invoice_footer`, `receipt_footer`, `date_format`.
+Business rules (1791640002000, Business settings › Rules): `voucher_valid_days` (90), `ageing_days` (three increasing limits, `{30,60,90}`), `near_expiry_days` (30), `weight_buttons_grams` (1–8 values, `{250,500,1000,2000}`), `receipt_width_mm` (58 or 80), `day_cutoff_hour` (0–12, 5).
 Rules: CHECK: the first two characters of the GSTIN must equal `state_code`. Seeded by `business_seed_settings()`.
 Added by: 1791300000002 business-settings-tax-rates-number-series.
 
@@ -1160,9 +1163,12 @@ Added by: 1791280000000. The FK, the columns and both triggers were added by 179
 
 #### `business_locations`
 Purpose: the outlets and godowns of a business.
-Key columns: `name`, `code` (unique per business), `active`.
-Relations: the target of every `location_id` composite FK, including lots, documents, series, transfers, counts, collections, orders, repair jobs and weight batches.
-Added by: 1791280000000.
+Key columns: `name`, `code` (unique per business), `active`, `sells_at_counter`; the location's own `address_line1`, `address_line2`, `city`, `postal_code`, `state_code`, `gstin` and `phone` (all optional: an empty field prints Business settings).
+Relations: the target of every `location_id` composite FK, including lots, documents, series, transfers, counts, collections, orders, repair jobs, weight batches and memberships.
+Rules:
+- CHECK: `gstin` is GSTIN-shaped, `state_code` two digits, `postal_code` six digits, and the GSTIN's first two digits equal `state_code` (`business_locations_gstin_state`).
+- Trigger `business_location_close_rules` refuses to close a location while an active membership is tied to it.
+Added by: 1791280000000. 1791610000000 added `sells_at_counter`; 1791630000000 the address, state, GSTIN and phone.
 
 #### `business_audit`
 Purpose: the activity log, recording who did what. It is written in the same transaction as the change it records ([five layers](BUSINESS_PLATFORM_DATA_MODEL.md#the-five-layers)).
@@ -1962,6 +1968,7 @@ Modules `pharmacy` (type pharmacy; needs sales, batches, contacts), `patients` (
 | `health_counters` | Running numbers: patient `P00001`, visit `OP00001`, lab order `LAB00001`, sample barcode `S0000001`, debit note `DN00001` | — |
 | `health_signatories` | Pharmacists, doctors and pathologists: member user, name as registered, qualification, registration no., council, a doctor's calendar (`business_resources`) | one active signatory per calendar |
 | `health_files` | Prescription scans (JPG / PNG / WebP / PDF, bytes checked) in `private_uploads/health/<business>/` | — |
+| `pharmacy_location_licences` | A pharmacy branch's own drug licence numbers (Forms 20, 21, 20B, 21B, 20F); PK (business, location). A location without a row prints the business-wide numbers from `health_settings` (1791630000000) | FK to `business_locations` |
 | `pharmacy_drugs` | Drug master per SKU: composition (+ generated `composition_key`), strength, form, manufacturer, schedule (none, G, H, H1, X, narcotic), tablets per strip, strips per box, loose sale, cold chain, storage | loose sale needs tablets per strip |
 | `pharmacy_prescriptions` | The prescription a scheduled sale was made on: patient, doctor and registration no., date, scan, pharmacist, keep-until; one per bill | append-only; constraint trigger `pharmacy_scheduled_sale_check` (deferred) refuses a sale line of an H / H1 / X / narcotic drug without one |
 | `pharmacy_register_entries` | H1, X and narcotic registers: one row per sold line with patient, prescriber, drug, quantity, batch, expiry, pharmacist, keep-until | append-only; X / narcotic need the pharmacist |

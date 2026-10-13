@@ -15,6 +15,10 @@ import FormDialog from "../../core/pages/FormDialog";
 import ReasonDialog from "../../core/pages/ReasonDialog";
 import { BusinessHeader, Field, FormError } from "../../core/pages/ui";
 import { newKey, quantity, useOpenBusiness, useOptions } from "../../core/pages/hooks";
+import { usePaymentMethods } from "../../core/pages/paymentMethods";
+// Delivery takes cash, UPI, card or bank; an advance goes back by cash, UPI or bank.
+const PAY_KINDS = ["cash", "upi", "card", "bank"];
+const REFUND_KINDS = ["cash", "upi", "bank"];
 import { barcodeSvg } from "../../retail/services/barcode";
 import { RepairBadge } from "../../fashion/pages/shared";
 import { REPAIR_STATES } from "../../fashion/pages/feFormat";
@@ -158,7 +162,7 @@ export default function RepairJobPage() {
             <ul className="fe-refunds">
               {job.advance.refunds.map((r) => (
                 <li key={r.id}>
-                  <span>{r.refund_no} · {biz.exact(r.amount)} by {r.method === "upi" ? "UPI" : r.method} · {dateTime(r.created_at)} · approved by {r.approved_by_name} — {r.reason}</span>
+                  <span>{r.refund_no} · {biz.exact(r.amount)} by {r.method_name || (r.method === "upi" ? "UPI" : r.method)} · {dateTime(r.created_at)} · approved by {r.approved_by_name} — {r.reason}</span>
                   <button type="button" className="chip-button" onClick={() => printRefundReceipt(biz, { ...r, collection_no: job.advance.collection_no }, job.customer_name)}><Icon name="print" size={13} /> Receipt</button>
                 </li>
               ))}
@@ -351,17 +355,18 @@ function DeliverDialog({ job, short, advance, onClose, onSaved }) {
   }, 0);
   const left = Math.max(0, Math.round((estimate - advance) * 100) / 100);
   const [form, setForm] = useState({ amount: job.lines.length ? left.toFixed(2) : "", method: "cash", reference: "", note: "" });
+  const methods = usePaymentMethods();
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
   const canCollect = job.lines.length > 0 && biz.can("sales.edit") && left > 0;
   return (
     <FormDialog title={`Deliver ${job.job_no}`} icon="check" width={560} onClose={onClose} onSaved={onSaved} submitLabel={job.lines.length ? "Deliver and post the bill" : "Deliver"}
       description={job.lines.length ? `The ${job.lines.length} line${job.lines.length === 1 ? "" : "s"} become a bill of about ${biz.exact(estimate)} including GST${advance > 0 ? `, less the advance of ${biz.exact(advance)}` : ""}${short ? ". A part is short at this location: delivery will be refused until it is received." : "."}` : advance > 0 ? `Nothing was charged; the advance of ${biz.exact(advance)} stays on the customer's account to refund or use.` : "Nothing was charged or fitted, so no bill is made."}
       onSubmit={() => businessWrite(biz.id, `repairs/${job.id}/deliver`, { requestKey, note: form.note || undefined,
-        ...(canCollect && Number(form.amount) > 0 ? { payment: { amount: form.amount, method: form.method, reference: form.reference || undefined } } : {}) })}>
+        ...(canCollect && Number(form.amount) > 0 ? { payment: { amount: form.amount, ...methods.body(form.method, PAY_KINDS), reference: form.reference || undefined } } : {}) })}>
       {canCollect && (
         <>
           <Field label="Collected now" hint="Leave 0 to collect later on the bill."><input type="number" min="0" step="0.01" value={form.amount} onChange={set("amount")} /></Field>
-          <Field label="Paid by"><select value={form.method} onChange={set("method")}>{["cash", "upi", "card", "bank"].map((m) => <option key={m} value={m}>{m === "upi" ? "UPI" : m[0].toUpperCase() + m.slice(1)}</option>)}</select></Field>
+          <Field label="Paid by"><select value={methods.resolve(form.method, PAY_KINDS)} onChange={set("method")}>{methods.options(PAY_KINDS).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}</select></Field>
           <Field label="Reference (optional)" wide><input maxLength={100} value={form.reference} onChange={set("reference")} /></Field>
         </>
       )}
@@ -405,17 +410,19 @@ function RefundDialog({ job, free, onClose, onSaved }) {
   const { user } = useAuth();
   const [requestKey] = useState(newKey);
   const [form, setForm] = useState({ amount: free.toFixed(2), method: "cash", reference: "" });
+  const methods = usePaymentMethods();
+  const kind = methods.kindOf(form.method, REFUND_KINDS);
   const [approval, setApproval] = useState(emptyApproval);
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
   return (
     <FormDialog title={`Refund the advance on ${job.job_no}`} icon="wallet" width={600} submitLabel="Refund" onClose={onClose} onSaved={onSaved}
       description={`${biz.exact(free)} is left of the advance ${job.advance.collection_no}. A receipt prints for the customer to sign.`}
-      onSubmit={() => businessWrite(biz.id, `repairs/${job.id}/advance-refund`, { amount: form.amount, method: form.method, reference: form.reference || null, requestKey, ...approvalFor(approval, user?.id) })}>
+      onSubmit={() => businessWrite(biz.id, `repairs/${job.id}/advance-refund`, { amount: form.amount, ...methods.body(form.method, REFUND_KINDS), reference: form.reference || null, requestKey, ...approvalFor(approval, user?.id) })}>
       <Field label={`Amount (${biz.symbol})`}><input required type="number" min="0.01" max={free} step="0.01" value={form.amount} onChange={set("amount")} /></Field>
       <Field label="Paid back by">
-        <select value={form.method} onChange={set("method")}><option value="cash">Cash</option><option value="upi">UPI</option><option value="bank">Bank transfer</option></select>
+        <select value={methods.resolve(form.method, REFUND_KINDS)} onChange={set("method")}>{methods.options(REFUND_KINDS).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}</select>
       </Field>
-      {form.method !== "cash" && <Field label="Reference" wide><input required maxLength={100} value={form.reference} onChange={set("reference")} /></Field>}
+      {kind !== "cash" && <Field label="Reference" wide><input required maxLength={100} value={form.reference} onChange={set("reference")} /></Field>}
       <ManagerApproval permission="sales.refund" value={approval} onChange={setApproval} reasonLabel="Reason" reasonPlaceholder={job.status === "cancelled" ? "e.g. Returned unrepaired" : "e.g. Bill came to less than the advance"} />
     </FormDialog>
   );

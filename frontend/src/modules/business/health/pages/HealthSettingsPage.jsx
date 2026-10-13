@@ -83,7 +83,7 @@ export default function HealthSettingsPage() {
         <fieldset className="bz-fieldset" disabled={!canEdit || busy}>
           {pharmacy ? (
             <>
-              <SectionCard icon="file" title="Drug licences" description="Printed on every bill. Form 20 / 21 are retail licences; 20B / 21B wholesale; 20F lets you sell Schedule X.">
+              <SectionCard icon="file" title="Drug licences" description="Printed on every bill. Form 20 / 21 are retail licences; 20B / 21B wholesale; 20F lets you sell Schedule X. A branch licensed on its own enters its numbers under Licences by branch below.">
                 <div className="form-grid">
                   <Field label="Form 20 (retail)"><input value={form.drug_licence_20 || ""} onChange={set("drug_licence_20")} maxLength={60} /></Field>
                   <Field label="Form 21 (retail, Schedule C / C1)"><input value={form.drug_licence_21 || ""} onChange={set("drug_licence_21")} maxLength={60} /></Field>
@@ -133,6 +133,7 @@ export default function HealthSettingsPage() {
           )}
         </fieldset>
       </form>
+      {pharmacy && (saved.locationLicences || []).length > 1 && <BranchLicences rows={saved.locationLicences} canEdit={canEdit} business={saved} onSaved={() => setVersion((n) => n + 1)} />}
       <SectionCard flush icon="users" title={pharmacy ? "Registered pharmacists" : "Doctors and pathologists"}
         description={pharmacy ? "The pharmacist named on bills and who signs off Schedule X with their own PIN." : "The doctor's registration number prints on prescriptions; the pathologist approves reports with their PIN."}
         actions={canEdit && <button type="button" className="button" onClick={() => setAdding({ kind: pharmacy ? "pharmacist" : "doctor" })}><Icon name="plus" size={15} /> Add</button>}>
@@ -182,6 +183,44 @@ function SignatoryDialog({ current, pharmacy, onClose, onSaved }) {
         </Field>
       )}
       <label className="hl-check field-wide"><input type="checkbox" checked={form.active} onChange={set("active")} /> Active</label>
+    </FormDialog>
+  );
+}
+
+// Each pharmacy premises is licensed on its own: a branch's numbers print on
+// the bills it raises. A branch with none uses the business-wide numbers.
+const LICENCE_FORMS = [["drug_licence_20", "drugLicence20", "Form 20"], ["drug_licence_21", "drugLicence21", "Form 21"],
+  ["drug_licence_20b", "drugLicence20b", "Form 20B"], ["drug_licence_21b", "drugLicence21b", "Form 21B"], ["drug_licence_20f", "drugLicence20f", "Form 20F"]];
+
+function BranchLicences({ rows, canEdit, business, onSaved }) {
+  const [editing, setEditing] = useState(null);
+  const own = (row) => LICENCE_FORMS.filter(([column]) => row[column]).map(([column, , form]) => `${form} ${row[column]}`);
+  const columns = [
+    { key: "location", header: "Branch", value: (r) => r.location_name, mobile: "title", render: (r) => <span>{r.location_name}{!r.active && <span className="muted small"> (closed)</span>}</span> },
+    { key: "licences", header: "Licences on its bills", value: (r) => own(r).join(" · ") || "Business licences",
+      render: (r) => (own(r).length ? <span className="mono small">{own(r).join(" · ")}</span> : <span className="muted">Uses the business licences above</span>) },
+    canEdit && { key: "actions", header: "", label: "Actions", type: "actions", render: (r) => <button type="button" className="chip-button" onClick={() => setEditing(r)}>Edit</button> },
+  ].filter(Boolean);
+  return (
+    <SectionCard flush icon="map-pin" title="Licences by branch" description="Each pharmacy premises holds its own drug licences. Enter a branch's numbers to print them on its bills; leave them empty to use the business licences.">
+      <DataGrid id="pharmacy-branch-licences" caption="Licences by branch" rows={rows.map((r) => ({ ...r, id: r.location_id }))} columns={columns} variant="compact" rowNoun={["branch", "branches"]} />
+      {editing && <BranchLicenceDialog row={editing} business={business} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); toast.success("Licences saved"); onSaved(); }} />}
+    </SectionCard>
+  );
+}
+
+function BranchLicenceDialog({ row, business, onClose, onSaved }) {
+  const biz = useOpenBusiness();
+  const [form, setForm] = useState(() => Object.fromEntries(LICENCE_FORMS.map(([column, field]) => [field, row[column] || ""])));
+  return (
+    <FormDialog title={`Drug licences: ${row.location_name}`} icon="file" width={560} onClose={onClose} onSaved={onSaved}
+      description="Leave every number empty to use the business licences on this branch's bills."
+      onSubmit={() => businessWrite(biz.id, `health/location-licences/${row.location_id}`, form, "put")}>
+      {LICENCE_FORMS.map(([column, field, label]) => (
+        <Field key={field} label={label}>
+          <input value={form[field]} maxLength={60} placeholder={business[column] || ""} onChange={(e) => setForm((f) => ({ ...f, [field]: e.target.value }))} />
+        </Field>
+      ))}
     </FormDialog>
   );
 }

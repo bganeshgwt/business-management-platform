@@ -5,16 +5,19 @@
 // door does not need to be told who is late — the manager who has to find
 // cover does.
 const timeclock = require("../../modules/restaurant/staff/services/timeclock.service");
+const ruleSettings = require("../../modules/restaurant/setup/services/ruleSettings.service");
 
+// The late and long-break lines are the restaurant's own (Settings -> Alerts
+// and timings, timeclockLateMinutes and timeclockLongBreakMinutes), read once
+// per check. What they start at:
+//
 // A rostered person not in fifteen minutes after their shift began is worth a
 // phone call: they may be stuck in traffic, or not coming at all.
-const LATE_ALERT_MINUTES = 15;
 // Twelve hours on the clock is past any single shift; it is almost always a
 // forgotten clock-out, and left alone it pays someone for a night at home.
 const LONG_SESSION_HOURS = 12;
 // A 30-minute meal break that reaches 45 minutes is worth knowing about (or
 // the shift's own break, where a shift allows longer).
-const LONG_BREAK_MINUTES = 45;
 // Past this the kiosk itself treats the session as forgotten (see the
 // service); the alert changes wording to match.
 const STALE_HOURS = timeclock.STALE_HOURS;
@@ -51,6 +54,7 @@ async function collectAlerts({ restaurantId, timezone: rawZone, now, pool }) {
   const today = timeclock.localDate(now, timezone);
   const yesterday = timeclock.addDays(today, -1);
   const at = now.toISOString();
+  const rules = await ruleSettings.load(restaurantId, pool);
 
   const [rostered, openDays, lastPunches] = await Promise.all([
     // Today's roster, and yesterday's in case an overnight shift is still on.
@@ -129,7 +133,7 @@ async function collectAlerts({ restaurantId, timezone: rawZone, now, pool }) {
       continue;
     }
 
-    const alertFrom = new Date(window.startsAt.getTime() + LATE_ALERT_MINUTES * 60000);
+    const alertFrom = new Date(window.startsAt.getTime() + rules.timeclockLateMinutes * 60000);
 
     // Only while the shift is on: after it ends this is an absence for the
     // attendance sheet, not something to chase now.
@@ -204,10 +208,11 @@ async function collectAlerts({ restaurantId, timezone: rawZone, now, pool }) {
       continue;
     }
 
-    // Past 45 minutes — or past the shift's own break, where a shift allows
-    // a longer one (a 60-minute split break is not "long" at 50).
+    // Past 45 minutes (the restaurant's long-break line) — or past the
+    // shift's own break, where a shift allows a longer one (a 60-minute split
+    // break is not "long" at 50).
     const allowed = Number(row.shift_break_minutes || 0);
-    const limit = Math.max(LONG_BREAK_MINUTES, allowed);
+    const limit = Math.max(rules.timeclockLongBreakMinutes, allowed);
     const minutes = Math.round((now - new Date(row.punched_at)) / 60000);
 
     if (minutes < limit) {

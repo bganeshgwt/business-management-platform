@@ -70,7 +70,7 @@ const ensureSettings = async (db, restaurantId) => {
   );
 
   const result = await db.query(
-    "SELECT warn_minutes, late_minutes, live_since, kitchen_name_mode FROM kitchen_settings WHERE restaurant_id = $1",
+    "SELECT warn_minutes, late_minutes, pass_minutes, live_since, kitchen_name_mode FROM kitchen_settings WHERE restaurant_id = $1",
     [restaurantId]
   );
 
@@ -79,18 +79,27 @@ const ensureSettings = async (db, restaurantId) => {
 
 const findSettings = (restaurantId) => ensureSettings(pool, restaurantId);
 
-// A field left out (undefined) keeps what is saved: the timers and the
-// kitchen-name choice (SW-A-12) are saved from separate cards.
+// A field left out (undefined) keeps what is saved: the timers (with the
+// pass time) and the kitchen-name choice (SW-A-12) are saved from separate
+// cards.
 const updateSettings = async (restaurantId, data, userId) => {
   await ensureSettings(pool, restaurantId);
 
   const result = await pool.query(
     `UPDATE kitchen_settings
      SET warn_minutes = COALESCE($2, warn_minutes), late_minutes = COALESCE($3, late_minutes),
-         kitchen_name_mode = COALESCE($5, kitchen_name_mode), updated_by = $4
+         kitchen_name_mode = COALESCE($5, kitchen_name_mode), pass_minutes = COALESCE($6, pass_minutes),
+         updated_by = $4
      WHERE restaurant_id = $1
-     RETURNING warn_minutes, late_minutes, live_since, kitchen_name_mode`,
-    [restaurantId, data.warnMinutes ?? null, data.lateMinutes ?? null, userId, data.kitchenNameMode ?? null]
+     RETURNING warn_minutes, late_minutes, pass_minutes, live_since, kitchen_name_mode`,
+    [
+      restaurantId,
+      data.warnMinutes ?? null,
+      data.lateMinutes ?? null,
+      userId,
+      data.kitchenNameMode ?? null,
+      data.passMinutes ?? null,
+    ]
   );
 
   return result.rows[0];

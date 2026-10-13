@@ -29,12 +29,12 @@ const OPENING_NOTE = "Opening balance (import)";
 const TAGS = ["vip", "allergy", "jain", "vegan", "corporate", "family", "blogger"];
 
 const COLUMNS = [
-  { key: "name", label: "Name", need: "new", aliases: ["name", "guestname", "customername", "customer", "guest", "fullname"], help: "The guest's name.", example: "Priya Sharma" },
+  { key: "name", label: "Name", need: "new", aliases: ["name", "guestname", "customername", "customer", "guest", "fullname"], help: "The guest's name.", example: "Guest name" },
   { key: "mobile", label: "Mobile", need: "always", aliases: ["mobile", "mobileno", "mobilenumber", "phone", "phoneno", "phonenumber", "contact", "contactno", "whatsapp", "cell"], help: "+91, a leading 0 and spaces are fine. Finds an existing guest. A row needs a mobile or an email.", example: "98765 43210" },
-  { key: "email", label: "Email", need: "optional", aliases: ["email", "emailid", "mail", "emailaddress"], help: "Finds the guest when there is no mobile.", example: "priya@example.com" },
+  { key: "email", label: "Email", need: "optional", aliases: ["email", "emailid", "mail", "emailaddress"], help: "Finds the guest when there is no mobile.", example: "guest@example.com" },
   { key: "birthday", label: "Birthday", need: "optional", aliases: ["birthday", "dateofbirth", "dob", "birthdate", "born"], help: "25-12-1990.", example: "14-02-1992" },
   { key: "anniversary", label: "Anniversary", need: "optional", aliases: ["anniversary", "anniversarydate", "weddinganniversary", "marriageanniversary", "doa"], help: "Their wedding anniversary: 25-12-2015.", example: "09-11-2016" },
-  { key: "company", label: "Company", need: "optional", aliases: ["company", "companyname", "business", "firm", "organisation", "organization"], help: "The company a GST invoice is made out to.", example: "Sharma Traders" },
+  { key: "company", label: "Company", need: "optional", aliases: ["company", "companyname", "business", "firm", "organisation", "organization"], help: "The company a GST invoice is made out to.", example: "Example Company Pvt Ltd" },
   { key: "gstin", label: "GSTIN", need: "optional", aliases: ["gstin", "gst", "gstno", "gstnumber"], help: "15 characters, checked. Needs the company name.", example: "" },
   { key: "tags", label: "Tags", need: "optional", aliases: ["tags", "tag", "labels", "segment"], help: "Any of: VIP, Allergy, Jain, Vegan, Corporate, Family, Blogger — separated by commas.", example: "VIP, Jain" },
   { key: "allergies", label: "Allergies", need: "optional", aliases: ["allergies", "allergy", "allergicto", "foodallergy"], help: "What the kitchen must know. Needed with the Allergy tag.", example: "" },
@@ -467,9 +467,9 @@ const importGuide = () =>
   sheet.guideOf(COLUMNS, {
     columns: ["Name", "Mobile", "Email", "Birthday", "Anniversary", "Company", "GSTIN", "Tags", "Offers consent", "Opening points"],
     rows: [
-      ["Priya Sharma", "98765 43210", "priya@example.com", "14-02-1992", "09-11-2016", "", "", "VIP", "Yes", "450"],
-      ["Arjun Reddy", "+91 94400 11223", "", "05-06-1988", "", "Reddy Constructions", "", "Corporate", "No", "120"],
-      ["Fatima Khan", "098490 33445", "", "", "21-01-2019", "", "", "Family, Jain", "Yes", "0"],
+      ["Guest name one", "98765 43210", "guest@example.com", "14-02-1992", "09-11-2016", "", "", "VIP", "Yes", "450"],
+      ["Guest name two", "+91 94400 11223", "", "05-06-1988", "", "Example Company Pvt Ltd", "", "Corporate", "No", "120"],
+      ["Guest name three", "098490 33445", "", "", "21-01-2019", "", "", "Family, Jain", "Yes", "0"],
     ],
   });
 

@@ -5,6 +5,7 @@ const purchaseService = require("../../purchasing/services/purchase.service");
 const { pinnedStore } = require("./inventory.service");
 const tradingDay = require("../../business-day/services/tradingDay");
 const AppError = require("../../../../utils/AppError");
+const ruleSettings = require("../../setup/services/ruleSettings.service");
 const { round2 } = require("../../../../utils/money");
 
 // Why stock was thrown away. A fixed list, because the point of recording it is
@@ -33,11 +34,13 @@ const reasonLabel = (key) =>
   (REASONS.find((reason) => reason.key === key) || UNSPECIFIED).label;
 
 // Reorder maths. Kept as named numbers so the helper line on the screen and
-// the calculation can never disagree.
-const USAGE_DAYS = 14; // how far back "how fast does it go" looks
-const SAFETY_DAYS = 2; // cushion on top of the horizon, for a late delivery
+// the calculation can never disagree. The look-back, the safety cushion and
+// the default horizon are the restaurant's own (Settings -> Alerts and
+// timings, read per plan); these are what it starts at.
+const USAGE_DAYS = ruleSettings.DEFAULTS.reorderLookbackDays; // how far back "how fast does it go" looks
+const SAFETY_DAYS = ruleSettings.DEFAULTS.reorderSafetyDays; // cushion on top of the horizon, for a late delivery
 const CRITICAL_DAYS = 2; // under this much cover left, it is urgent
-const DEFAULT_HORIZON = 7;
+const DEFAULT_HORIZON = ruleSettings.DEFAULTS.reorderHorizonDays;
 
 // A mistaken entry can be undone for a week. After that the stock has been
 // counted since, and a correction belongs in a stock adjustment.
@@ -535,7 +538,7 @@ const reverseWastage = async (restaurantId, id, note, userId, { pinnedOutletId =
 // safety days. Measured against the horizon alone, an item with 8 days left on
 // a 7-day plan read "OK" while the card beside it said "order 9 L", and nobody
 // could tell why an OK item was being bought.
-const statusOf = (stock, reorderLevel, cover, horizon) => {
+const statusOf = (stock, reorderLevel, cover, horizon, safetyDays = SAFETY_DAYS) => {
   if (stock <= 0) {
     return "out";
   }
@@ -544,7 +547,7 @@ const statusOf = (stock, reorderLevel, cover, horizon) => {
     return "critical";
   }
 
-  if ((reorderLevel > 0 && stock <= reorderLevel) || (cover !== null && cover < horizon + SAFETY_DAYS)) {
+  if ((reorderLevel > 0 && stock <= reorderLevel) || (cover !== null && cover < horizon + safetyDays)) {
     return "low";
   }
 
@@ -559,7 +562,7 @@ const URGENCY = { out: 0, critical: 1, low: 2, ok: 3 };
 const knownPrice = (value) =>
   value !== null && value !== undefined && Number(value) > 0 ? Number(value) : null;
 
-const toReorderLine = (row, { horizon, now, windowStart }) => {
+const toReorderLine = (row, { horizon, now, windowStart, usageDays = USAGE_DAYS, safetyDays = SAFETY_DAYS }) => {
   const stock = Number(row.current_stock);
   const reorderLevel = Number(row.reorder_level);
   const sold = Math.max(0, Number(row.sold));
@@ -581,22 +584,22 @@ const toReorderLine = (row, { horizon, now, windowStart }) => {
   }
 
   const since = Math.max(windowStart.getTime(), Math.min(...starts));
-  const days = Math.min(USAGE_DAYS, Math.max(1, (now.getTime() - since) / DAY));
+  const days = Math.min(usageDays, Math.max(1, (now.getTime() - since) / DAY));
 
   const soldPerDay = sold / days;
   const wastedPerDay = wasted / days;
   const dailyUsage = soldPerDay + wastedPerDay;
 
   const cover = dailyUsage > 0 ? Math.max(0, stock) / dailyUsage : null;
-  const status = statusOf(stock, reorderLevel, cover, horizon);
+  const status = statusOf(stock, reorderLevel, cover, horizon, safetyDays);
 
   // Enough to last the horizon plus a safety cushion — and never less than
   // twice the reorder level, so an item the kitchen sets a floor for is topped
   // up to comfortably above it rather than back onto it.
   const covered = stock + onOrder + inDraft;
-  const target = Math.max(dailyUsage * (horizon + SAFETY_DAYS), reorderLevel * 2);
+  const target = Math.max(dailyUsage * (horizon + safetyDays), reorderLevel * 2);
   const needsOrder =
-    covered <= reorderLevel || (dailyUsage > 0 && covered < dailyUsage * (horizon + SAFETY_DAYS));
+    covered <= reorderLevel || (dailyUsage > 0 && covered < dailyUsage * (horizon + safetyDays));
   const suggested = needsOrder ? roundOrder(target - covered, row.unit) : 0;
 
   const price = knownPrice(row.last_price) ?? knownPrice(row.last_cost);
@@ -642,12 +645,16 @@ const toReorderLine = (row, { horizon, now, windowStart }) => {
 };
 
 // `store` (from pinnedStore): one store's plan, for someone tied to an outlet.
-const reorder = async (restaurantId, { horizon = DEFAULT_HORIZON, store = null } = {}, now = new Date()) => {
+// `horizon` left out: the restaurant's own default.
+const reorder = async (restaurantId, { horizon: asked = null, store = null } = {}, now = new Date()) => {
   requireRestaurantId(restaurantId);
 
-  const context = await getContext(restaurantId, now);
-  const windowStart = new Date(now.getTime() - USAGE_DAYS * DAY);
-  const windowStartDate = addDays(context.businessDate, -(USAGE_DAYS - 1));
+  const [context, rules] = await Promise.all([getContext(restaurantId, now), ruleSettings.load(restaurantId)]);
+  const horizon = asked || rules.reorderHorizonDays;
+  const usageDays = rules.reorderLookbackDays;
+  const safetyDays = rules.reorderSafetyDays;
+  const windowStart = new Date(now.getTime() - usageDays * DAY);
+  const windowStartDate = addDays(context.businessDate, -(usageDays - 1));
 
   const rows = await inventoryInsightRepository.findReorderRows(
     restaurantId,
@@ -657,7 +664,7 @@ const reorder = async (restaurantId, { horizon = DEFAULT_HORIZON, store = null }
   );
 
   const lines = rows
-    .map((row) => toReorderLine(row, { horizon, now, windowStart }))
+    .map((row) => toReorderLine(row, { horizon, now, windowStart, usageDays, safetyDays }))
     .sort(
       (a, b) =>
         URGENCY[a.status] - URGENCY[b.status] ||
@@ -709,8 +716,10 @@ const reorder = async (restaurantId, { horizon = DEFAULT_HORIZON, store = null }
     currency: context.currency,
     store: store ? { outletId: store.outletId, name: store.name, via: store.via || null } : null,
     horizon,
-    safetyDays: SAFETY_DAYS,
-    usageDays: USAGE_DAYS,
+    // The restaurant's own default, so a screen can mark it among its choices.
+    defaultHorizon: rules.reorderHorizonDays,
+    safetyDays,
+    usageDays,
     criticalDays: CRITICAL_DAYS,
     summary: {
       items: lines.length,
@@ -766,10 +775,11 @@ const createDraftOrder = async (restaurantId, data, userId) => {
     throw new AppError(400, "The same item is listed twice");
   }
 
-  const [items, prices, context] = await Promise.all([
+  const [items, prices, context, rules] = await Promise.all([
     inventoryInsightRepository.findItemsByIds(restaurantId, ids),
     inventoryInsightRepository.findSupplierPrices(restaurantId, supplier.id, ids),
     getContext(restaurantId),
+    ruleSettings.load(restaurantId),
   ]);
 
   const itemById = new Map(items.map((item) => [Number(item.id), item]));
@@ -805,9 +815,9 @@ const createDraftOrder = async (restaurantId, data, userId) => {
     };
   });
 
-  const horizonText = data.horizon ? `${data.horizon}-day` : `${DEFAULT_HORIZON}-day`;
+  const horizonText = `${data.horizon || rules.reorderHorizonDays}-day`;
   const notes = [
-    `Drafted from Waste & reorder: ${horizonText} cover plus ${SAFETY_DAYS} days' safety.`,
+    `Drafted from Waste & reorder: ${horizonText} cover plus ${rules.reorderSafetyDays} days' safety.`,
     unpriced.length
       ? `No price on record for ${unpriced.join(", ")} — agree one with the supplier before sending.`
       : null,
@@ -872,7 +882,7 @@ const summary = async (restaurantId, now = new Date(), { pinnedOutletId = null, 
       { from: addDays(weekFrom, -7), to: addDays(weekFrom, -1) },
       store
     ),
-    reorder(restaurantId, { horizon: DEFAULT_HORIZON, store }, now),
+    reorder(restaurantId, { store }, now),
   ]);
 
   return {

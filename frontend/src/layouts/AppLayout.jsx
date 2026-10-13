@@ -10,6 +10,7 @@ import usePresence from "../hooks/usePresence";
 import "../components/arrival";
 import OutletSwitcher from "../components/OutletSwitcher";
 import BusinessSwitcher from "../components/BusinessSwitcher";
+import BusinessLocationSwitcher from "../components/BusinessLocationSwitcher";
 import BusinessProvider from "../context/BusinessProvider";
 import useBusiness from "../hooks/useBusiness";
 import { businessMenu, businessPath } from "../services/businessNav";
@@ -171,7 +172,10 @@ const NAV_SECTIONS = [
   },
   {
     title: "Platform",
-    links: [{ to: "/platform/restaurants", label: "Restaurants", icon: "platform", permission: "platform.restaurants.manage" }],
+    links: [
+      { to: "/platform/restaurants", label: "Restaurants", icon: "platform", permission: "platform.restaurants.manage" },
+      { to: "/platform/businesses", label: "Businesses", icon: "store", permission: "platform.restaurants.manage" },
+    ],
   },
 ];
 
@@ -409,6 +413,7 @@ function AppShell() {
         <div className="user-menu">
           <BusinessSwitcher />
           {!businessMode && !chooser && <OutletSwitcher className="acc-outlet-wide" />}
+          {businessMode && <BusinessLocationSwitcher className="acc-outlet-wide" />}
           {!businessMode && !chooser && <NotificationBell />}
           {bellFeed && <NotificationBell key={businessId} feed={bellFeed} />}
 
@@ -460,6 +465,7 @@ function AppShell() {
                 </div>
 
                 {!businessMode && <OutletSwitcher className="acc-outlet-narrow" />}
+                {businessMode && <BusinessLocationSwitcher className="acc-outlet-narrow" />}
 
                 <Link role="menuitem" className="acc-menu-item" to="/profile" onClick={() => setAccountOpen(false)}>
                   <Icon name="user" size={17} />

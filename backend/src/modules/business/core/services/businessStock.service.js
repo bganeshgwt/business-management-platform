@@ -22,7 +22,8 @@ async function createTransfer(business, user, body) {
   await access.require(business, 'stock_transfers.create');
   const requestKey = uuid(body.requestKey);
   const hash = crypto.createHash('sha256').update(JSON.stringify(body)).digest('hex');
-  const fromId = id(body.fromLocationId, 'Sending location');
+  // Staff tied to a location send from it (they cannot name another: businessAccess.scope).
+  const fromId = id(body.fromLocationId ?? (business.location_tied ? business.location_scope : undefined), 'Sending location');
   const toId = id(body.toLocationId, 'Receiving location');
   if (fromId === toId) fail('Choose two different locations');
   const lines = v.requiredArray(body.lines, 'Lines');
@@ -100,6 +101,8 @@ async function receiveTransfer(business, user, transferId) {
   await access.require(business, 'stock_transfers.approve');
   return repo.transaction(async (db) => {
     const { transfer, lines } = await lockTransfer(db, business, transferId);
+    // Received by the location it was sent to.
+    access.requireLocation(business, transfer.to_location_id);
     const destination = await repo.one(db, 'SELECT id FROM business_locations WHERE business_id=$1 AND id=$2 AND active', [business.id, transfer.to_location_id]);
     if (!destination) fail('The receiving location is closed. Reopen it or cancel the transfer.', 409);
     for (const line of lines) {
@@ -120,6 +123,7 @@ async function cancelTransfer(business, user, transferId, body) {
   const reason = v.requiredString(body.reason, 'Reason for cancelling', 300);
   return repo.transaction(async (db) => {
     const { transfer, lines } = await lockTransfer(db, business, transferId);
+    access.requireLocation(business, transfer.from_location_id);
     // The goods go back into the very lots they left.
     for (const line of lines) {
       const lot = await repo.one(db, 'SELECT * FROM business_stock_lots WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, line.source_lot_id]);
@@ -208,6 +212,7 @@ async function lockOpenCount(db, business, countId) {
   const count = await repo.one(db, 'SELECT * FROM business_stock_counts WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(countId)]);
   if (!count) fail('Count not found', 404);
   if (count.status !== 'open') fail(`This count is already ${count.status}`, 409);
+  access.requireLocation(business, count.location_id);
   return count;
 }
 

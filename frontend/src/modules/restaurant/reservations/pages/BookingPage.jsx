@@ -385,7 +385,7 @@ function BookingForm() {
                   autoComplete="name"
                   maxLength={80}
                   required
-                  placeholder="Ananya Reddy"
+                  placeholder="Your name"
                 />
               </label>
               <label className="gb-field">

@@ -6,23 +6,26 @@ const { round2 } = require("../../../../../utils/money");
 const gst = require("../../../billing/services/gstBreakdown");
 const { num } = require("./common");
 const { describe, scopeFor } = require("./scope");
+const ruleSettings = require("../../../setup/services/ruleSettings.service");
 
 // ---------------------------------------------------------------------------
 // Theft control
 // ---------------------------------------------------------------------------
 
-// Where a large discount starts, unless the screen asks for another line: a
-// fifth of the bill, or ₹1,000 on any bill.
-const DEFAULT_DISCOUNT_PERCENT = 20;
+// Where a large discount starts, unless the screen asks for another line:
+// the restaurant's own line (Settings -> Alerts and timings, the same one the
+// bell rings at), which until changed is a fifth of the bill, or ₹1,000 on
+// any bill.
+const DEFAULT_DISCOUNT_PERCENT = ruleSettings.DEFAULTS.alertLargeDiscountPercent;
 
-const DEFAULT_DISCOUNT_AMOUNT = 1000;
+const DEFAULT_DISCOUNT_AMOUNT = ruleSettings.DEFAULTS.alertLargeDiscountAmount;
 
 const THEFT_LIMIT = 500;
 
 const theftReport = async (restaurantId, range, { outletId = null, discountPercent, discountAmount } = {}) => {
-  const context = await scopeFor(restaurantId, range, outletId);
-  const percent = discountPercent ?? DEFAULT_DISCOUNT_PERCENT;
-  const amount = discountAmount ?? DEFAULT_DISCOUNT_AMOUNT;
+  const [context, rules] = await Promise.all([scopeFor(restaurantId, range, outletId), ruleSettings.load(restaurantId)]);
+  const percent = discountPercent ?? rules.alertLargeDiscountPercent;
+  const amount = discountAmount ?? rules.alertLargeDiscountAmount;
   const [data, corrections] = await Promise.all([
     reportRepository.theft(context.scope, {
       discountPercent: percent,

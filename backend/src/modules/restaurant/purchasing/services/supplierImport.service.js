@@ -15,12 +15,12 @@ const sheet = require("../../imports/services/sheetImport");
 // input credit depends on it being exactly right.
 
 const COLUMNS = [
-  { key: "name", label: "Supplier name", need: "new", aliases: ["name", "suppliername", "supplier", "vendor", "vendorname", "party", "partyname", "firm", "firmname", "business"], help: "The business name as on their bills.", example: "Sri Lakshmi Dairy" },
+  { key: "name", label: "Supplier name", need: "new", aliases: ["name", "suppliername", "supplier", "vendor", "vendorname", "party", "partyname", "firm", "firmname", "business"], help: "The business name as on their bills.", example: "Example Dairy Supplier" },
   { key: "code", label: "Code", need: "optional", aliases: ["code", "suppliercode", "vendorcode", "shortcode"], help: "Your own short code for the supplier.", example: "DAIRY01" },
-  { key: "contactPerson", label: "Contact person", need: "optional", aliases: ["contactperson", "contact", "contactname", "person", "owner", "salesperson"], help: "Who you call.", example: "Ramesh" },
+  { key: "contactPerson", label: "Contact person", need: "optional", aliases: ["contactperson", "contact", "contactname", "person", "owner", "salesperson"], help: "Who you call.", example: "Contact name" },
   { key: "mobile", label: "Mobile", need: "optional", aliases: ["mobile", "mobileno", "mobilenumber", "phone", "phoneno", "phonenumber", "whatsapp", "cell"], help: "+91, a leading 0 and spaces are fine. Purchase orders go to it on WhatsApp.", example: "98480 12345" },
-  { key: "email", label: "Email", need: "optional", aliases: ["email", "emailid", "mail", "emailaddress"], help: "For purchase orders by email.", example: "orders@lakshmidairy.in" },
-  { key: "address", label: "Address", need: "optional", aliases: ["address", "location", "city", "area"], help: "Printed on returns (debit notes).", example: "Main Road, Rajahmundry" },
+  { key: "email", label: "Email", need: "optional", aliases: ["email", "emailid", "mail", "emailaddress"], help: "For purchase orders by email.", example: "orders@example.com" },
+  { key: "address", label: "Address", need: "optional", aliases: ["address", "location", "city", "area"], help: "Printed on returns (debit notes).", example: "Street, City" },
   { key: "gstin", label: "GSTIN", need: "optional", aliases: ["gstin", "gst", "gstno", "gstnumber", "gstinno", "taxid"], help: "The 15-character GSTIN, checked character by character.", example: "37ABCDE1234F1Z5" },
   { key: "paymentTerms", label: "Payment terms", need: "optional", aliases: ["paymentterms", "terms", "payment"], help: "In words: Weekly cheque, Cash on delivery.", example: "Weekly cheque" },
   { key: "creditDays", label: "Credit days", need: "optional", aliases: ["creditdays", "credit", "creditperiod", "days"], help: "Days of credit from the bill date (0 to 365): sets due dates and ageing.", example: "7" },
@@ -307,9 +307,9 @@ const importGuide = () =>
   sheet.guideOf(COLUMNS, {
     columns: ["Supplier name", "Code", "Contact person", "Mobile", "Email", "Address", "GSTIN", "Payment terms", "Credit days"],
     rows: [
-      ["Sri Lakshmi Dairy", "DAIRY01", "Ramesh", "98480 12345", "orders@lakshmidairy.in", "Main Road, Rajahmundry", "37AAACL1234F1ZY", "Weekly cheque", "7"],
-      ["Godavari Vegetables", "VEG01", "Suresh", "+91 94400 22334", "", "Market Yard, Rajahmundry", "", "Cash on delivery", "0"],
-      ["Coastal Meats", "MEAT01", "Imran", "099080 55667", "", "Danavaipeta", "", "Fortnightly", "15"],
+      ["Example Dairy Supplier", "DAIRY01", "Contact name", "98480 12345", "orders@example.com", "Street, City", "37AAACL1234F1ZY", "Weekly cheque", "7"],
+      ["Example Vegetable Supplier", "VEG01", "Contact name", "+91 94400 22334", "", "Street, City", "", "Cash on delivery", "0"],
+      ["Example Meat Supplier", "MEAT01", "Contact name", "099080 55667", "", "Street, City", "", "Fortnightly", "15"],
     ],
   });
 

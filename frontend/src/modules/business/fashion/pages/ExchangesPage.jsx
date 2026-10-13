@@ -12,6 +12,10 @@ import { toast } from "../../../../services/toast";
 import FormDialog from "../../core/pages/FormDialog";
 import { Badge, BusinessHeader, Field, FormError, PeriodFilter } from "../../core/pages/ui";
 import { dateTime, newKey, quantity, useOpenBusiness, useServerList } from "../../core/pages/hooks";
+import { usePaymentMethods } from "../../core/pages/paymentMethods";
+// The difference is settled in money by the business's own methods of these kinds.
+const MONEY_KINDS = ["cash", "upi", "card", "bank"];
+const CREDIT = ["voucher", "on_account"];
 import { VariantPicker } from "../../retail/pages/counterParts";
 import { methodWord, refuse } from "./feFormat";
 import { printBill, printVoucherById } from "./feDocuments";
@@ -152,7 +156,10 @@ function NewExchangeDialog({ policy, onClose, onSaved }) {
   const [out, setOut] = useState([]);
   const [scan, setScan] = useState("");
   const [swap, setSwap] = useState(null);
+  // `form.method`: "voucher", "on_account", or one of the business's own payment methods.
   const [form, setForm] = useState({ reason: "", locationId: String(biz.locations.find((l) => l.active)?.id || ""), method: "cash", amount: "", reference: "", name: "", phone: "" });
+  const methods = usePaymentMethods();
+  const settleBy = () => (CREDIT.includes(form.method) ? { method: form.method } : methods.body(form.method, MONEY_KINDS));
   const [quote, setQuote] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -248,8 +255,8 @@ function NewExchangeDialog({ policy, onClose, onSaved }) {
     if (!quote) throw refuse("Work out the difference first, so you can see what the customer pays or gets back.");
     if (!form.reason.trim()) throw refuse("Give a reason for the exchange.");
     if (refundBlocked) throw refuse("Giving money back needs the refund permission. Give a credit voucher, or ask a manager.");
-    const settlement = due > 0 ? { method: form.method, amount: form.amount, reference: form.reference || undefined }
-      : excess > 0 ? { method: form.method, reference: form.reference || undefined, ...(form.method === "voucher" ? { name: form.name || undefined, phone: form.phone || undefined } : {}) } : undefined;
+    const settlement = due > 0 ? { ...settleBy(), amount: form.amount, reference: form.reference || undefined }
+      : excess > 0 ? { ...settleBy(), reference: form.reference || undefined, ...(form.method === "voucher" ? { name: form.name || undefined, phone: form.phone || undefined } : {}) } : undefined;
     return businessWrite(biz.id, "exchanges", { ...full(), reason: form.reason, requestKey, ...(settlement ? { settlement } : {}) });
   };
 
@@ -277,7 +284,6 @@ function NewExchangeDialog({ policy, onClose, onSaved }) {
     { key: "price", header: biz.settings.tax_mode === "inclusive" ? "Price" : "Price before GST", type: "money", exact: true, value: (l) => l.price * Number(l.quantity || 0) },
     { key: "remove", header: "", label: "Remove", type: "actions", render: (l) => <button type="button" className="link-button danger" onClick={() => { setOut((all) => all.filter((x) => x.key !== l.key)); stale(); }}>Remove</button> },
   ];
-  const methods = ["cash", "upi", "card", "bank"];
 
   return (
     <FormDialog title="New exchange" icon="refresh" width={1040} onClose={onClose} onSaved={onSaved} onSubmit={submit}
@@ -363,9 +369,9 @@ function NewExchangeDialog({ policy, onClose, onSaved }) {
               {(due > 0 || excess > 0) && (
                 <>
                   <Field label={due > 0 ? "Paid by" : "Given back as"}>
-                    <select value={form.method} onChange={set("method")}>
+                    <select value={CREDIT.includes(form.method) ? form.method : methods.resolve(form.method, MONEY_KINDS)} onChange={set("method")}>
                       {excess > 0 && <option value="voucher">Credit voucher (valid {quote.voucherDays || 90} days)</option>}
-                      {(due > 0 || !gift) && methods.map((m) => <option key={m} value={m}>{methodWord(m)}</option>)}
+                      {(due > 0 || !gift) && methods.options(MONEY_KINDS).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}
                       {excess > 0 && sale?.contact_id && <option value="on_account">Keep on the customer's account</option>}
                     </select>
                   </Field>

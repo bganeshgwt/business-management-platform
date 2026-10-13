@@ -16,8 +16,16 @@ const { fail, id, v, category, dateText, timeText, addDays, dayOfWeek, daysBetwe
 
 const BACKFILL_DAYS = 31;
 const AHEAD_DAYS = 7;
-// A due time before this belongs to the trading day before (a 01:00 closing check).
+// A due time before this belongs to the trading day before (a 01:00 closing
+// check). The default; each restaurant (Settings) and business (Business
+// settings › Rules) sets its own hour.
 const DAY_CUTOFF = "05:00";
+async function dayCutoff(db, scope) {
+  const row = scope.world === "restaurant"
+    ? await repo.one(db, "SELECT day_cutoff_hour AS h FROM restaurant_settings WHERE restaurant_id = $1", [scope.restaurantId])
+    : await repo.one(db, "SELECT day_cutoff_hour AS h FROM business_settings WHERE business_id = $1", [scope.businessId]);
+  return row && row.h !== null && row.h !== undefined ? `${String(row.h).padStart(2, "0")}:00` : DAY_CUTOFF;
+}
 const LOCK_KEY = 72017; // pg_advisory_xact_lock(LOCK_KEY, business id)
 
 // Does a schedule fall on this calendar day?
@@ -41,11 +49,11 @@ function fallsOn(s, day) {
 
 // The occurrences of one day: [{ slot, due (local "YYYY-MM-DD HH:MM"), opens, closes, label }].
 // Local times are turned into moments by the database, in the business's zone.
-function slotsOn(s, day, shifts) {
+function slotsOn(s, day, shifts, cutoff = DAY_CUTOFF) {
   const at = (d, time) => `${d} ${time}`;
-  const nightAware = (time) => (time < DAY_CUTOFF ? addDays(day, 1) : day);
-  const dayEnd = at(addDays(day, 1), DAY_CUTOFF);
-  const dayStart = at(day, DAY_CUTOFF);
+  const nightAware = (time) => (time < cutoff ? addDays(day, 1) : day);
+  const dayEnd = at(addDays(day, 1), cutoff);
+  const dayStart = at(day, cutoff);
   if (s.frequency === "per_shift" && shifts) {
     return shifts.map((shift, index) => {
       const start = shift.start.slice(0, 5), end = shift.end.slice(0, 5);
@@ -91,10 +99,11 @@ async function generateSchedule(db, scope, s, today) {
   const assignees = await repo.all(db, "SELECT kind, user_id, employee_id, resource_id, role_id, business_role_id FROM business_task_assignees WHERE business_id = $1 AND schedule_id = $2",
     [scope.businessId, s.id]);
   const shifts = s.frequency === "per_shift" ? await shiftsFor(db, scope, s) : null;
+  const cutoff = await dayCutoff(db, scope);
   let made = 0;
   for (let day = from; day <= to; day = addDays(day, 1)) {
     if (!fallsOn(s, day)) continue;
-    for (const slot of slotsOn(s, day, shifts)) {
+    for (const slot of slotsOn(s, day, shifts, cutoff)) {
       const task = await repo.one(db, `INSERT INTO business_tasks (business_id, title, description, category_code, priority, location_id, outlet_id, assign_mode,
           opens_at, due_at, closes_at, schedule_id, occurrence_date, occurrence_slot, shift_label, template_id, library_code, requires_review, created_by)
         SELECT $1, $2, $3, $4, $5, $6, $7, $8,

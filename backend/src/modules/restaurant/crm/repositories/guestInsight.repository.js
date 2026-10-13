@@ -47,7 +47,11 @@ const findContext = async (restaurantId, now = new Date()) => {
 // Spend is summed per order first and only then per guest. Joining bills
 // straight onto orders and counting would count an order split into three
 // bills as three visits.
-const findGuestFacts = async (restaurantId, timezone, now = new Date()) => {
+//
+// visits_60 counts the visits inside the restaurant's "regular" window
+// (regularDays, 60 unless it set another); the name is kept from when the
+// window was always 60 days.
+const findGuestFacts = async (restaurantId, timezone, now = new Date(), regularDays = 60) => {
   const result = await pool.query(
     `WITH clock AS (
        SELECT ($3::timestamptz AT TIME ZONE $2::text)::date AS today
@@ -80,7 +84,7 @@ const findGuestFacts = async (restaurantId, timezone, now = new Date()) => {
               MAX(v.visit_date) AS last_visit_date,
               -- "In the last 60 days" is today and the 59 before it, the same
               -- way "last 7 days" means this week on every other screen.
-              COUNT(*) FILTER (WHERE v.visit_date > clock.today - 60)::int AS visits_60
+              COUNT(*) FILTER (WHERE v.visit_date > clock.today - $4::int)::int AS visits_60
        FROM visits v
        CROSS JOIN clock
        GROUP BY v.customer_id
@@ -98,7 +102,7 @@ const findGuestFacts = async (restaurantId, timezone, now = new Date()) => {
      CROSS JOIN clock
      LEFT JOIN per_guest g ON g.customer_id = c.id
      WHERE c.restaurant_id = $1 AND c.status = 'active'`,
-    [restaurantId, timezone, now.toISOString()]
+    [restaurantId, timezone, now.toISOString(), regularDays]
   );
 
   return result.rows;
@@ -222,7 +226,7 @@ const findGuestById = async (restaurantId, customerId) => {
 
 // The same numbers as findGuestFacts, for a handful of named guests rather
 // than the whole guest book. idx_orders_customer_id finds their orders.
-const findStatsForGuests = async (restaurantId, customerIds, timezone, now = new Date()) => {
+const findStatsForGuests = async (restaurantId, customerIds, timezone, now = new Date(), regularDays = 60) => {
   if (customerIds.length === 0) {
     return [];
   }
@@ -234,7 +238,7 @@ const findStatsForGuests = async (restaurantId, customerIds, timezone, now = new
      SELECT c.id, c.name, c.mobile, c.loyalty_points,
             COUNT(o.id)::int AS visits,
             COUNT(o.id) FILTER (
-              WHERE (o.placed_at AT TIME ZONE $3::text)::date > clock.today - 60
+              WHERE (o.placed_at AT TIME ZONE $3::text)::date > clock.today - $5::int
             )::int AS visits_60,
             COALESCE(SUM(s.amount), 0) AS spend
      FROM customers c
@@ -250,7 +254,7 @@ const findStatsForGuests = async (restaurantId, customerIds, timezone, now = new
      ) s ON TRUE
      WHERE c.restaurant_id = $1 AND c.id = ANY($2::bigint[]) AND c.status = 'active'
      GROUP BY c.id, c.name, c.mobile, c.loyalty_points, clock.today`,
-    [restaurantId, customerIds, timezone, now.toISOString()]
+    [restaurantId, customerIds, timezone, now.toISOString(), regularDays]
   );
 
   return result.rows;

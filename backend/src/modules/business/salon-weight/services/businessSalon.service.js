@@ -7,6 +7,7 @@ const AppError = require('../../../../utils/AppError');
 const access = require('../../core/services/businessAccess.service');
 const numbering = require('../../core/services/businessNumbering');
 const core = require('../../core/services/business.service');
+const paymentMethods = require('../../core/services/businessPaymentMethods.service');
 const { USED_SQL } = require('./businessSalonSales');
 
 // Salon & spa (Phase 2, T4): service times and stylist skills, the
@@ -376,12 +377,12 @@ async function clash(db, business, column, resourceId, starts, ends) {
 
 // A client's money taken in advance: a shared receivables collection with
 // nothing put against bills yet (the client's advance).
-async function takeDeposit(db, business, user, { location, contact, amount, method, reference, requestKey, note }) {
+async function takeDeposit(db, business, user, { location, contact, amount, method, methodName = null, reference, requestKey, note }) {
   const key = derivedKey(requestKey, 'deposit');
   const number = await numbering.nextNumber(db, business.id, location.id, 'collection', user.id);
-  const collection = await repo.one(db, `INSERT INTO business_collections(business_id,location_id,collection_no,series_id,contact_id,contact_name,amount,method,reference,notes,request_key,request_hash,created_by)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
-  [business.id, location.id, number.number, number.seriesId, contact.id, contact.name, rupees(amount), method, reference, note.slice(0, 500), key, hashOf({ key, amount, method }), user.id]);
+  const collection = await repo.one(db, `INSERT INTO business_collections(business_id,location_id,collection_no,series_id,contact_id,contact_name,amount,method,reference,notes,request_key,request_hash,created_by,method_name)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+  [business.id, location.id, number.number, number.seriesId, contact.id, contact.name, rupees(amount), method, reference, note.slice(0, 500), key, hashOf({ key, amount, method }), user.id, methodName]);
   await repo.audit(db, business.id, user.id, 'collection.recorded', collection.id, { collectionNo: collection.collection_no, amount: collection.amount, allocated: '0.00', deposit: true });
   await repo.event(db, business.id, user.id, 'collection.recorded', 'collection', collection.id, {
     collectionNo: collection.collection_no, contactId: contact.id, amount: collection.amount, method, allocations: [], unallocated: collection.amount, purpose: 'deposit',
@@ -419,10 +420,11 @@ async function readBooking(business, body, user) {
     const amount = paise(core.decimal(body.deposit.amount, 'Deposit', 2, 0, 1000000));
     if (amount > 0) {
       await access.require(business, 'sales.edit');
-      const method = v.requiredEnum(body.deposit.method, 'Deposit paid by', METHODS);
+      // `methodId`: one of the business's own payment methods.
+      const { method, methodName } = await paymentMethods.pick(repo.pool, business.id, body.deposit, 'Deposit paid by', METHODS);
       const reference = v.optionalString(body.deposit.reference, 'Reference', 100);
       if (method === 'cheque' && !reference) fail('Enter the cheque number as the reference');
-      deposit = { amount, method, reference };
+      deposit = { amount, method, methodName, reference };
     }
   }
   const notes = v.optionalString(body.notes, 'Notes', 300);
@@ -718,7 +720,10 @@ async function bill(business, user, body) {
     const paying = payments.reduce((s, p) => s + paise(p.amount), 0);
     if (paying + applied > paise(doc.total)) fail(`Only ${rupees(paise(doc.total) - applied)} is left to pay on this bill`, 409);
     for (const [n, p] of payments.entries()) {
-      await core.recordPayment(db, business, user, doc, { ...p, key: derivedKey(requestKey, n === 0 ? 'paid' : `paid-${n}`) });
+      // A payment naming one of the business's methods takes its kind and name.
+      const { method, methodName } = await paymentMethods.settle(db, business.id, p, 'Payment method', METHODS);
+      if (method === 'cheque' && !p.reference) fail('Enter the cheque number as the reference');
+      await core.recordPayment(db, business, user, doc, { amount: p.amount, reference: p.reference, method, methodName, key: derivedKey(requestKey, n === 0 ? 'paid' : `paid-${n}`) });
     }
     for (const tip of tips) {
       const staff = await repo.one(db, `SELECT r.id,r.name FROM business_resources r LEFT JOIN salon_resource_profiles p ON p.business_id=r.business_id AND p.resource_id=r.id
@@ -766,10 +771,10 @@ function readPayments(body) {
     if (!p || typeof p !== 'object' || Array.isArray(p)) fail('Each payment must be an object');
     const label = list.length > 1 ? `Payment ${n + 1}` : 'Amount paid now';
     const amount = core.decimal(p.amount, label, 2, 0, 100000000);
-    const method = v.requiredEnum(p.method, 'Payment method', METHODS);
+    const { method, methodId } = paymentMethods.readChoice(p, 'Payment method', METHODS);
     const reference = v.optionalString(p.reference, 'Payment reference', 100);
     if (method === 'cheque' && !reference) fail('Enter the cheque number as the reference');
-    return { amount, method, reference };
+    return { amount, method, methodId, reference };
   }).filter((p) => p.amount > 0);
 }
 // A tip for the stylist, taken with the bill but not part of it (no GST).

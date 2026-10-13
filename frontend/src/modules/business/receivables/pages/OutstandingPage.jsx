@@ -57,10 +57,10 @@ export default function OutstandingPage() {
     { key: "phone", header: "Phone", value: (r) => r.phone || "", mobile: "subtitle",
       render: (r) => (r.phone ? <a href={`tel:${r.phone}`}>{r.phone}</a> : <span className="muted">—</span>) },
     { key: "balance", header: show === "advance" ? "Advance held" : "Owes", type: "money", exact: true, value: (r) => (show === "advance" ? -Number(r.balance) : Number(r.balance)), total: "sum", mobile: "show" },
-    { key: "d30", header: "0–30 days", type: "money", exact: true, value: (r) => Number(r.days_0_30), total: "sum" },
-    { key: "d60", header: "31–60", type: "money", exact: true, value: (r) => Number(r.days_31_60), total: "sum" },
-    { key: "d90", header: "61–90", type: "money", exact: true, value: (r) => Number(r.days_61_90), total: "sum" },
-    { key: "d90p", header: "Over 90", type: "money", exact: true, value: (r) => Number(r.days_over_90), total: "sum", mobile: "show" },
+    { key: "d30", header: biz.ages.first, type: "money", exact: true, value: (r) => Number(r.days_0_30), total: "sum" },
+    { key: "d60", header: biz.ages.second, type: "money", exact: true, value: (r) => Number(r.days_31_60), total: "sum" },
+    { key: "d90", header: biz.ages.third, type: "money", exact: true, value: (r) => Number(r.days_61_90), total: "sum" },
+    { key: "d90p", header: biz.ages.over, type: "money", exact: true, value: (r) => Number(r.days_over_90), total: "sum", mobile: "show" },
     { key: "overdue", header: "Overdue", type: "money", exact: true, value: (r) => Number(r.overdue), total: "sum", mobile: "show" },
     { key: "late", header: "Days late", type: "number", value: (r) => Number(r.most_days_overdue) || null, defaultHidden: true },
     { key: "cheques", header: "Cheques in hand", type: "money", exact: true, value: (r) => Number(r.uncleared_cheques) || null, defaultHidden: true },
@@ -118,7 +118,7 @@ export default function OutstandingPage() {
       <ErrorMessage message={list.error} />
       {t && (
         <div className="bz-ageing" role="list" aria-label="Totals">
-          {[["Owed in all", t.outstanding, "danger"], ["0–30 days", t.days_0_30], ["31–60 days", t.days_31_60], ["61–90 days", t.days_61_90], ["Over 90 days", t.days_over_90, Number(t.days_over_90) > 0 ? "danger" : ""], ["Overdue", t.overdue, Number(t.overdue) > 0 ? "warning" : ""]].map(([label, value, tone]) => (
+          {[["Owed in all", t.outstanding, "danger"], [biz.ages.first, t.days_0_30], [biz.ages.second, t.days_31_60], [biz.ages.third, t.days_61_90], [biz.ages.over, t.days_over_90, Number(t.days_over_90) > 0 ? "danger" : ""], ["Overdue", t.overdue, Number(t.overdue) > 0 ? "warning" : ""]].map(([label, value, tone]) => (
             <div key={label} role="listitem" className={`bz-ageing-cell ${tone ? `is-${tone}` : ""}`}><small>{label}</small><strong>{biz.exact(value)}</strong></div>
           ))}
         </div>

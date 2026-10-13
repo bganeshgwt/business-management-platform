@@ -10,12 +10,14 @@ const access = require('../../core/services/businessAccess.service');
 // cash back — walk-ins included. The credit leaves the original sale as a
 // credit-note refund (no money moves), and the voucher is spent later as a
 // credit-note payment on a new bill (Quick bill or New sale: body.voucher).
-// A voucher is valid for VALID_DAYS; what is left after that lapses.
+// A voucher is valid for the business's voucher_valid_days (Business settings ›
+// Rules, 90 by default); what is left after that lapses.
 
 const fail = (message, status = 400) => { throw new AppError(status, message); };
 const id = (value, name = 'Record ID') => v.requiredId(value, name);
 const cents = (value) => Math.round(Number(value) * 100);
 const money = (p) => (p / 100).toFixed(2);
+// Kept for older callers; the business's own setting wins.
 const VALID_DAYS = 90;
 
 const voucherSql = `SELECT x.*,(x.amount - x.used) AS balance,c.name AS contact_name,c.phone AS contact_phone,l.name AS location_name,
@@ -47,7 +49,7 @@ async function issue(db, business, user, { doc, amount, locationId, key, name, p
   const contact = doc.contact_id ? await repo.one(db, 'SELECT name,phone FROM business_contacts WHERE business_id=$1 AND id=$2', [business.id, doc.contact_id]) : null;
   const row = await repo.one(db, `INSERT INTO business_exchange_vouchers(business_id,location_id,voucher_no,contact_id,customer_name,customer_phone,amount,expires_on,
       source_document_id,request_key,created_by,exchange_id)
-    VALUES($1,$2,$3,$4,$5,$6,$7,((now() AT TIME ZONE $8)::date + $9::int),$10,$11,$12,$13) RETURNING *`,
+    VALUES($1,$2,$3,$4,$5,$6,$7,((now() AT TIME ZONE $8)::date + COALESCE((SELECT voucher_valid_days FROM business_settings WHERE business_id=$1),$9::int)),$10,$11,$12,$13) RETURNING *`,
   [business.id, locationId, voucherNo, doc.contact_id || null, name || contact?.name || null, phone || contact?.phone || null, money(amount),
     business.timezone, VALID_DAYS, doc.id, key('voucher'), user.id, exchangeId]);
   await repo.audit(db, business.id, user.id, 'voucher.issued', row.id, { voucherNo, amount: row.amount, documentId: doc.id });

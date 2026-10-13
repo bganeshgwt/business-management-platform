@@ -82,10 +82,11 @@ const readLimit = (value) => {
 // most, and a bigger list is a mistake or a script.
 const MAX_DRAFT_LINES = 200;
 
-// Whole days only: "cover for 7.5 days" is not a plan anyone makes.
+// Whole days only: "cover for 7.5 days" is not a plan anyone makes. Left
+// out: null, and the plan covers the restaurant's own default.
 const readHorizon = (value) => {
   if (value === undefined || value === null || value === "") {
-    return inventoryInsightService.DEFAULT_HORIZON;
+    return null;
   }
 
   const horizon = Number(value);

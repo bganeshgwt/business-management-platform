@@ -4,7 +4,9 @@ const AppError = require("../../../../utils/AppError");
 
 const DUPLICATE = "23505";
 
-// Food plated and waiting to be picked up this long is going cold.
+// Food plated and waiting to be picked up this long is going cold. The
+// restaurant sets its own beside the kitchen timers (kitchen_settings
+// .pass_minutes); this is what it starts at.
 const PASS_MINUTES = 8;
 
 const STATION_COLORS = ["orange", "red", "amber", "green", "teal", "blue", "violet", "pink", "slate"];
@@ -148,7 +150,7 @@ const toStation = (row) => ({
 const toSettings = (row) => ({
   warnMinutes: row.warn_minutes,
   lateMinutes: row.late_minutes,
-  passMinutes: PASS_MINUTES,
+  passMinutes: row.pass_minutes ?? PASS_MINUTES,
   liveSince: row.live_since,
   kitchenNameMode: row.kitchen_name_mode || "both",
 });
@@ -644,6 +646,7 @@ const getSettings = async (restaurantId) => {
 const updateSettings = async (restaurantId, data, userId) => {
   requireRestaurantId(restaurantId);
 
+  // The pass time (or the names on KOTs) alone: nothing to compare.
   if (data.warnMinutes === undefined) {
     return toSettings(await kitchenRepository.updateSettings(restaurantId, data, userId));
   }

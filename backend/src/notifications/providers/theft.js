@@ -16,18 +16,24 @@
 // "could not check" instead of "all clear".
 const { completeContext } = require("..");
 const { VOIDED_BILL_OF_REMOVAL, DRAWER_EXPECTED } = require("../../modules/restaurant/reports/repositories/report.repository");
+const ruleSettings = require("../../modules/restaurant/setup/services/ruleSettings.service");
 
+// The lines below are the restaurant's own (Settings -> Alerts and timings);
+// these are what a restaurant that never changed them gets.
+//
 // A discount is "large" at a fifth of the bill, or ₹1,000 on any bill — the
 // same line the theft-control report draws by default.
-const LARGE_DISCOUNT_PERCENT = 20;
-const LARGE_DISCOUNT_AMOUNT = 1000;
+const LARGE_DISCOUNT_PERCENT = ruleSettings.DEFAULTS.alertLargeDiscountPercent;
+const LARGE_DISCOUNT_AMOUNT = ruleSettings.DEFAULTS.alertLargeDiscountAmount;
 // Half the bill given away is a warning, not just worth knowing.
-const HUGE_DISCOUNT_PERCENT = 50;
+const HUGE_DISCOUNT_PERCENT = ruleSettings.DEFAULTS.alertHugeDiscountPercent;
 // One reprint is a guest asking for a copy. A third print is worth a look.
-const REPRINT_ALERT_PRINTS = 3;
-// A drawer a few rupees out is loose change; past this it is a question.
+const REPRINT_ALERT_PRINTS = ruleSettings.DEFAULTS.alertReprintCount;
+// A drawer a few rupees out is loose change; past the restaurant's cash
+// difference limit (the line past which a count needs a reason) it is a
+// question, and past the critical line an alarm.
 const CASH_SHORT_WARNING = 100;
-const CASH_SHORT_CRITICAL = 1000;
+const CASH_SHORT_CRITICAL = ruleSettings.DEFAULTS.alertCashShortCritical;
 // Last night's closed day stays in view until the next day is well under way.
 const RECENT_CLOSE_HOURS = 18;
 // Past this many of one kind, the rest are one summary line.
@@ -85,6 +91,12 @@ const nameOrSummarise = (alerts, summary) => {
 };
 
 async function collectAlerts({ restaurantId, businessDate, timezone, now, pool, money }) {
+  // One read of the restaurant's own lines, for every check below.
+  const rules = await ruleSettings.load(restaurantId, pool);
+  const largePercent = rules.alertLargeDiscountPercent;
+  const largeAmount = rules.alertLargeDiscountAmount;
+  const reprintPrints = rules.alertReprintCount;
+
   // The days in view: every day being traded — the main counter's and each
   // outlet's own (a branch trades a day of its own, and its refunds, voids
   // and drawer are in it) — and any closed in the last few hours. Bills
@@ -129,7 +141,7 @@ async function collectAlerts({ restaurantId, businessDate, timezone, now, pool, 
                   AND (b.discount_amount - COALESCE(b.loyalty_discount, 0) >= $6
                        OR (b.subtotal > 0
                            AND (b.discount_amount - COALESCE(b.loyalty_discount, 0)) * 100 / b.subtotal >= $7))))`,
-      [restaurantId, businessDate, timezone, dayIds, REPRINT_ALERT_PRINTS, LARGE_DISCOUNT_AMOUNT, LARGE_DISCOUNT_PERCENT]
+      [restaurantId, businessDate, timezone, dayIds, reprintPrints, largeAmount, largePercent]
     ),
     pool.query(
       `SELECT r.id, r.amount, r.refund_method, r.reason, r.refunded_at, r.business_day_id,
@@ -247,11 +259,11 @@ async function collectAlerts({ restaurantId, businessDate, timezone, now, pool, 
       return { row, percent };
     })
     .filter(
-      ({ row, percent }) => Number(row.discount) >= LARGE_DISCOUNT_AMOUNT || percent >= LARGE_DISCOUNT_PERCENT
+      ({ row, percent }) => Number(row.discount) >= largeAmount || percent >= largePercent
     )
     .map(({ row, percent }) => ({
       id: `theft:discount:${row.id}`,
-      severity: percent >= HUGE_DISCOUNT_PERCENT ? "warning" : "info",
+      severity: percent >= rules.alertHugeDiscountPercent ? "warning" : "info",
       title: `${percent}% off ${row.bill_number} — ${money(row.discount)} discount`,
       detail: [row.cashier && `billed by ${row.cashier}`, row.discount_code ? `code ${row.discount_code}` : "no coupon code"]
         .filter(Boolean)
@@ -267,7 +279,7 @@ async function collectAlerts({ restaurantId, businessDate, timezone, now, pool, 
   // The print count is in the id, so the next reprint of the same bill
   // rings again.
   const reprints = bills.rows
-    .filter((row) => row.print_count >= REPRINT_ALERT_PRINTS)
+    .filter((row) => row.print_count >= reprintPrints)
     .map((row) => {
       const log = logOf.get(`${row.id}:reprint`);
       return {
@@ -319,10 +331,10 @@ async function collectAlerts({ restaurantId, businessDate, timezone, now, pool, 
   // --- Cash short at close ----------------------------------------------
   const shortAlerts = closes.rows
     .map((row) => ({ row, short: Number(row.expected_cash) - Number(row.closing_cash) }))
-    .filter(({ short }) => short >= CASH_SHORT_WARNING)
+    .filter(({ short }) => short > 0 && short >= rules.cashShortWarning)
     .map(({ row, short }) => ({
       id: `theft:cash-short:${row.id}`,
-      severity: short >= CASH_SHORT_CRITICAL ? "critical" : "warning",
+      severity: short >= rules.alertCashShortCritical ? "critical" : "warning",
       title: `Cash short by ${money(short)} at the close of ${row.outlet_name ? `${row.outlet_name}, ` : ""}${dateLabel(row.business_date)}`,
       detail: `Expected ${money(row.expected_cash)}, counted ${money(row.closing_cash)}${
         row.closed_by ? ` · closed by ${row.closed_by}` : ""
@@ -370,7 +382,7 @@ async function collectAlerts({ restaurantId, businessDate, timezone, now, pool, 
     ...nameOrSummarise(reprints, (rest) => ({
       id: `theft:reprints:summary:${businessDate}`,
       severity: "info",
-      title: `${plural(rest.length, "more bill", "more bills")} printed ${REPRINT_ALERT_PRINTS} times or more`,
+      title: `${plural(rest.length, "more bill", "more bills")} printed ${reprintPrints} times or more`,
       link: reportLink(businessDate),
       category: "Theft control",
     })),
@@ -396,7 +408,8 @@ module.exports = {
 
   collect: (context) => collectAlerts(completeContext(context)),
 
-  // Exported for tests; the registry only calls collect().
+  // The lines a restaurant gets until it sets its own (exported for tests;
+  // the registry only calls collect()).
   thresholds: {
     LARGE_DISCOUNT_PERCENT,
     LARGE_DISCOUNT_AMOUNT,

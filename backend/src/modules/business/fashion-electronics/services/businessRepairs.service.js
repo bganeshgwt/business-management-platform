@@ -5,6 +5,7 @@ const AppError = require('../../../../utils/AppError');
 const access = require('../../core/services/businessAccess.service');
 const core = require('../../core/services/business.service');
 const numbering = require('../../core/services/businessNumbering');
+const paymentMethods = require('../../core/services/businessPaymentMethods.service');
 const { phoneDigits } = require('./businessElectronics.service');
 // Round 2: advance refunds and the manager's PIN (shared with the salon).
 const refunds = () => require('../../salon-weight/services/businessAdvanceRefunds');
@@ -97,7 +98,8 @@ async function intake(business, user, body) {
     const amount = core.decimal(body.advance.amount ?? 0, 'Advance');
     if (amount > 0) {
       await access.require(business, 'sales.edit');
-      advance = { amount, method: v.requiredEnum(body.advance.method, 'Advance paid by', ['cash', 'card', 'upi', 'bank']), reference: v.optionalString(body.advance.reference, 'Reference', 100) };
+      // `methodId`: one of the business's own payment methods (no cheques).
+      advance = { amount, ...await paymentMethods.pick(repo.pool, business.id, body.advance, 'Advance paid by', ['cash', 'card', 'upi', 'bank']), reference: v.optionalString(body.advance.reference, 'Reference', 100) };
     }
   }
   return repo.transaction(async (db) => {
@@ -150,9 +152,9 @@ async function intake(business, user, body) {
     let collection = null;
     if (advance) {
       const receipt = await numbering.nextNumber(db, business.id, location.id, 'collection', user.id);
-      collection = await repo.one(db, `INSERT INTO business_collections(business_id,location_id,collection_no,series_id,contact_id,contact_name,amount,method,reference,notes,request_key,request_hash,created_by)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`, [business.id, location.id, receipt.number, receipt.seriesId, contact.id, contact.name,
-        advance.amount.toFixed(2), advance.method, advance.reference, `Advance on repair ${number.number}`, derivedKey(requestKey, 'advance'), hash, user.id]);
+      collection = await repo.one(db, `INSERT INTO business_collections(business_id,location_id,collection_no,series_id,contact_id,contact_name,amount,method,reference,notes,request_key,request_hash,created_by,method_name)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`, [business.id, location.id, receipt.number, receipt.seriesId, contact.id, contact.name,
+        advance.amount.toFixed(2), advance.method, advance.reference, `Advance on repair ${number.number}`, derivedKey(requestKey, 'advance'), hash, user.id, advance.methodName]);
       await repo.audit(db, business.id, user.id, 'collection.recorded', collection.id, { amount: collection.amount, method: collection.method, repairJob: number.number });
       await repo.event(db, business.id, user.id, 'collection.recorded', 'collection', collection.id, {
         collectionNo: collection.collection_no, contactId: contact.id, amount: collection.amount, method: collection.method });
@@ -314,7 +316,7 @@ async function deliver(business, user, jobId, body) {
   if (body.payment !== undefined && body.payment !== null) {
     if (typeof body.payment !== 'object' || Array.isArray(body.payment)) fail('Payment must be an object');
     const amount = core.decimal(body.payment.amount ?? 0, 'Amount paid now');
-    if (amount > 0) paidNow = { amount, method: v.requiredEnum(body.payment.method, 'Payment method', ['cash', 'card', 'upi', 'bank']), reference: v.optionalString(body.payment.reference, 'Reference', 100) };
+    if (amount > 0) paidNow = { amount, ...await paymentMethods.pick(repo.pool, business.id, body.payment, 'Payment method', ['cash', 'card', 'upi', 'bank']), reference: v.optionalString(body.payment.reference, 'Reference', 100) };
   }
   const note = v.optionalString(body.note, 'Note', 500);
   return repo.transaction(async (db) => {

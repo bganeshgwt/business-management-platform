@@ -15,6 +15,7 @@ import FormDialog from "./FormDialog";
 import { Badge, Field, FormError } from "./ui";
 import { businessDate } from "./invoice";
 import { businessToday, newKey, useOpenBusiness, useServerList } from "./hooks";
+import { usePaymentMethods } from "./paymentMethods";
 
 // What the business owes its suppliers (pro pass C-05): the list with what is
 // overdue by each supplier's credit days, paying a supplier against several
@@ -70,7 +71,10 @@ export function SupplierPayDialog({ contactId, name, onClose, onSaved }) {
   const [requestKey] = useState(newKey);
   const [account, setAccount] = useState(null);
   const [error, setError] = useState("");
+  // `method`: one of the business's own methods (paymentMethods.js); "bank" = the first bank one.
+  const methods = usePaymentMethods();
   const [form, setForm] = useState({ amount: "", method: "bank", reference: "", notes: "", mode: "auto", locationId: String(locations[0]?.id || "") });
+  const kind = methods.kindOf(form.method);
   const [amounts, setAmounts] = useState({});
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   useEffect(() => {
@@ -82,7 +86,7 @@ export function SupplierPayDialog({ contactId, name, onClose, onSaved }) {
   }, [biz.id, contactId]);
   const chosen = Object.values(amounts).reduce((s, v) => s + (Number(v) || 0), 0);
   const submit = () => businessWrite(biz.id, `suppliers/${contactId}/payments`, {
-    locationId: form.locationId, amount: form.amount, method: form.method, reference: form.reference || undefined, notes: form.notes || undefined, requestKey,
+    locationId: form.locationId, amount: form.amount, ...methods.body(form.method), reference: form.reference || undefined, notes: form.notes || undefined, requestKey,
     ...(form.mode === "advance" ? { allocations: [] } : {}),
     ...(form.mode === "choose" ? { allocations: Object.entries(amounts).filter(([, v]) => Number(v) > 0).map(([documentId, amount]) => ({ documentId: Number(documentId), amount })) } : {}),
   });
@@ -93,10 +97,10 @@ export function SupplierPayDialog({ contactId, name, onClose, onSaved }) {
       {!account && !error && <div className="field-wide"><Loading /></div>}
       <Field label="Amount paid"><input required type="number" min="0.01" step="0.01" value={form.amount} onChange={set("amount")} /></Field>
       <Field label="Paid by">
-        <select value={form.method} onChange={set("method")}>{METHODS.map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select>
+        <select value={methods.resolve(form.method)} onChange={set("method")}>{methods.options().map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}</select>
       </Field>
-      <Field label={form.method === "cheque" ? "Cheque number" : form.method === "bank" ? "UTR / reference (optional)" : "Reference (optional)"}>
-        <input required={form.method === "cheque"} maxLength={100} value={form.reference} onChange={set("reference")} />
+      <Field label={kind === "cheque" ? "Cheque number" : kind === "bank" ? "UTR / reference (optional)" : "Reference (optional)"}>
+        <input required={kind === "cheque"} maxLength={100} value={form.reference} onChange={set("reference")} />
       </Field>
       {locations.length > 1 && (
         <Field label="Paid from">
@@ -195,7 +199,7 @@ async function printVoucher(biz, paymentId) {
     body: `<h1>${escapeHtml(seller.legal_name || seller.display_name || biz.business.name)}</h1>
       <p><strong>Payment voucher ${escapeHtml(v.payment_no)}</strong> · ${escapeHtml(businessDate(v.created_at, seller.date_format, biz.business.timezone))}</p>
       <p>Paid to <strong>${escapeHtml(v.contact_name)}</strong>${v.contact_gstin ? ` (GSTIN ${escapeHtml(v.contact_gstin)})` : ""}<br>
-      ${escapeHtml(biz.exact(v.amount))} by ${escapeHtml((METHODS.find(([c]) => c === v.method) || [v.method, v.method])[1])}${v.reference ? ` · ${escapeHtml(v.reference)}` : ""}<br>
+      ${escapeHtml(biz.exact(v.amount))} by ${escapeHtml(v.method_name || (METHODS.find(([c]) => c === v.method) || [v.method, v.method])[1])}${v.reference ? ` · ${escapeHtml(v.reference)}` : ""}<br>
       <em>${escapeHtml(amountInWords(v.amount))}</em></p>
       <table><thead><tr><th>Against</th><th class="r">Amount</th></tr></thead><tbody>${rows}
       ${Number(v.unallocated) > 0 ? `<tr><td>Advance (not yet against a receipt)</td><td class="r">${escapeHtml(biz.exact(v.unallocated))}</td></tr>` : ""}</tbody></table>

@@ -29,6 +29,8 @@ const shop = require('./realistic/shop');
 const clock = require('./realistic/clock');
 const machine = require('./realistic/machine');
 const tasks = require('./realistic/tasks');
+const branches = require('./realistic/branches');
+const polish = require('./realistic/polish');
 
 const db = repo.pool;
 const DEFINITIONS = () => {
@@ -126,7 +128,10 @@ async function main() {
     await sim.decimalsReady;
     if (sim.hooks.setup) await sim.hooks.setup(sim);
     const stats = await shop.run(sim);
-    const work = await tasks.seed(sim);
+    // Round 3 (12 Oct): its other branches, then the payment methods, names and house rules.
+    const branchNote = await branches.run(sim, logins);
+    const polished = await polish.run(sim);
+    const work = [await tasks.seed(sim), branchNote, polished].filter(Boolean).join('; ');
     const today = await repo.one(db, `SELECT count(*)::int AS bills, COALESCE(sum(total),0) AS sales FROM business_documents
       WHERE business_id=$1 AND kind='sale' AND (created_at AT TIME ZONE 'Asia/Kolkata')::date=$2::date`, [sim.business.id, sim.realToday]);
     lines.push(`  ${def.name}: ${stats.bills} new bills (today ${today.bills}, ₹${Math.round(Number(today.sales)).toLocaleString('en-IN')})${work ? `, ${work}` : ''} [${Math.round((Date.now() - started) / 1000)}s]`);

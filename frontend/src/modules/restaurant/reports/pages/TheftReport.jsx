@@ -568,7 +568,8 @@ export default function TheftReport({ data, currency, discountPercent, onDiscoun
           <label className="field theft-threshold">
             <span>Large discount from</span>
             <select value={discountPercent} onChange={(event) => onDiscountPercent(Number(event.target.value))}>
-              {DISCOUNT_LINES.map((value) => (
+              {/* The restaurant's own line is always a choice, even one not in the list. */}
+              {[...new Set([...DISCOUNT_LINES, discountPercent])].sort((a, b) => a - b).map((value) => (
                 <option key={value} value={value}>
                   {value}% of the bill
                 </option>

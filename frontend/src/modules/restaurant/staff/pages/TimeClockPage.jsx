@@ -1642,7 +1642,7 @@ function DayTab({ canManage }) {
       icon: "moon",
       value: duration(totals.overtimeMinutes),
       label: "Overtime",
-      note: "15 min or more past a shift's end",
+      note: `${data.overtimeFromMinutes ?? 15} min or more past a shift's end`,
     },
   ];
 

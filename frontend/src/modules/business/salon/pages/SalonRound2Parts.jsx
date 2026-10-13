@@ -13,6 +13,9 @@ import { dateLong, dateShort } from "../../../../services/format";
 import FormDialog from "../../core/pages/FormDialog";
 import { Badge, Field, FormError } from "../../core/pages/ui";
 import { businessToday, newKey, quantity, useOpenBusiness, useOptions, useServerList } from "../../core/pages/hooks";
+import { usePaymentMethods } from "../../core/pages/paymentMethods";
+// An advance goes back by cash, UPI or bank (the business's own methods of those kinds).
+const REFUND_KINDS = ["cash", "upi", "bank"];
 import ManagerApproval from "./ManagerApproval";
 import { approvalFor, emptyApproval } from "./approval";
 import { WEEKDAYS, methodWord } from "./salon";
@@ -182,6 +185,8 @@ export function AdvanceDialog({ client, deposit, onClose, onSaved }) {
   const [requestKey] = useState(newKey);
   const [mode, setMode] = useState(deposit.held ? "wallet" : "cash");
   const [form, setForm] = useState({ amount: String(Number(deposit.unused)), method: "cash", reference: "" });
+  const methods = usePaymentMethods();
+  const kind = methods.kindOf(form.method, REFUND_KINDS);
   const [approval, setApproval] = useState(emptyApproval);
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
   return (
@@ -190,7 +195,7 @@ export function AdvanceDialog({ client, deposit, onClose, onSaved }) {
       description={`${biz.exact(deposit.unused)} left of ${biz.exact(deposit.amount)}${deposit.held ? " · held for a booking still to come" : " · the client's advance for any bill"}.`}
       onSubmit={() => businessWrite(biz.id, `salon/clients/${client.id}/advance-refund`, {
         mode, collectionId: deposit.id, requestKey, ...approvalFor(approval, user?.id),
-        ...(mode === "cash" ? { amount: form.amount, method: form.method, reference: form.reference || null } : {}),
+        ...(mode === "cash" ? { amount: form.amount, ...methods.body(form.method, REFUND_KINDS), reference: form.reference || null } : {}),
       })}>
       {deposit.held && (
         <Field label="What to do" wide hint={mode === "wallet" ? "Usable on any bill; the booking then keeps no deposit, so a no-show charges nothing." : "Cash, UPI or bank; a receipt prints."}>
@@ -206,9 +211,9 @@ export function AdvanceDialog({ client, deposit, onClose, onSaved }) {
             <input required type="number" min="0.01" max={Number(deposit.unused)} step="0.01" value={form.amount} onChange={set("amount")} />
           </Field>
           <Field label="Paid back by">
-            <select value={form.method} onChange={set("method")}><option value="cash">Cash</option><option value="upi">UPI</option><option value="bank">Bank transfer</option></select>
+            <select value={methods.resolve(form.method, REFUND_KINDS)} onChange={set("method")}>{methods.options(REFUND_KINDS).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}</select>
           </Field>
-          {form.method !== "cash" && <Field label="Reference" wide><input required maxLength={100} value={form.reference} onChange={set("reference")} placeholder="UPI / bank reference" /></Field>}
+          {kind !== "cash" && <Field label="Reference" wide><input required maxLength={100} value={form.reference} onChange={set("reference")} placeholder="UPI / bank reference" /></Field>}
         </>
       )}
       <ManagerApproval permission="sales.refund" value={approval} onChange={setApproval} reasonLabel="Reason"
@@ -235,7 +240,7 @@ export function ClientAdvances({ biz, data, onChanged }) {
     { key: "refund_no", header: "Refund", value: (r) => r.refund_no, mobile: "title" },
     { key: "created_at", header: "Date", type: "date", value: (r) => r.created_at, render: (r) => dateShort(r.created_at), mobile: "subtitle" },
     { key: "amount", header: "Amount", type: "money", exact: true, value: (r) => Number(r.amount), mobile: "show" },
-    { key: "method", header: "By", value: (r) => methodWord(r.method) },
+    { key: "method", header: "By", value: (r) => r.method_name || methodWord(r.method) },
     { key: "approved_by_name", header: "Approved by", value: (r) => r.approved_by_name, defaultHidden: true },
     { key: "print", header: "", label: "Print", type: "actions", render: (r) => <button type="button" className="chip-button" onClick={() => printRefundReceipt(biz, r, data.contact.name)}><Icon name="print" size={13} /> Receipt</button> },
   ];

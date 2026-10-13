@@ -6,6 +6,7 @@ const access = require('./businessAccess.service');
 const numbering = require('./businessNumbering');
 const { decimal, kindPermission } = require('./business.service');
 const retailOffers = require('../../retail/services/businessOffers');
+const paymentMethods = require('./businessPaymentMethods.service');
 
 const fail = (message, status = 400) => { throw new AppError(status, message); };
 const id = (value) => v.requiredId(value, 'Record ID');
@@ -28,6 +29,8 @@ async function lockDocument(db, business, documentId, action) {
   const doc = await repo.one(db, 'SELECT * FROM business_documents WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(documentId)]);
   if (!doc) fail('Document not found', 404);
   await access.require(business, kindPermission(doc.kind, action));
+  // Staff tied to a location take returns and refunds on its own bills.
+  access.requireLocation(business, doc.location_id);
   return doc;
 }
 function readReturn(body) {
@@ -133,16 +136,19 @@ async function postReturn(db, business, user, doc, { reason, requestKey, hash, l
 }
 async function refund(business, user, documentId, body) {
   const amount = decimal(body.amount, 'Refund amount', 2, 0.01);
-  const method = v.requiredEnum(body.method, 'Refund method', ['cash', 'card', 'upi', 'bank']);
+  // A refund never goes out by cheque. `methodId`: one of the business's own methods.
+  const refundKinds = ['cash', 'card', 'upi', 'bank'];
+  const choice = paymentMethods.readChoice(body, 'Refund method', refundKinds);
   const reason = v.requiredString(body.reason, 'Refund reason', 300);
   const requestKey = key(body.requestKey);
   return repo.transaction(async (db) => {
     const doc = await lockDocument(db, business, documentId, 'refund');
     const previous = await repo.one(db, 'SELECT * FROM business_refunds WHERE business_id=$1 AND request_key=$2', [business.id, requestKey]);
     if (previous) {
-      if (previous.document_id !== doc.id || cents(previous.amount) !== cents(amount) || previous.method !== method || previous.reason !== reason) fail('Refund key already used', 409);
+      if (previous.document_id !== doc.id || cents(previous.amount) !== cents(amount) || (choice.method && previous.method !== choice.method) || previous.reason !== reason) fail('Refund key already used', 409);
       return previous;
     }
+    const { method, methodName } = await paymentMethods.settle(db, business.id, choice, 'Refund method', refundKinds);
     const sums = await repo.one(db, `SELECT
       COALESCE((SELECT sum(amount) FROM business_payments WHERE business_id=$1 AND document_id=$2),0) AS paid,
       COALESCE((SELECT sum(total) FROM business_returns WHERE business_id=$1 AND document_id=$2),0) AS returned,
@@ -169,9 +175,9 @@ async function refund(business, user, documentId, body) {
         fail(`The customer paid ${(Math.max(0, customerPaid) / 100).toFixed(2)} themselves on this EMI bill; the financed part goes back to the financier when the loan is cancelled.`, 409);
       }
     }
-    const result = await repo.one(db, `INSERT INTO business_refunds(business_id,document_id,amount,method,reason,request_key,created_by)
-      VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [business.id, doc.id, amount, method, reason, requestKey, user.id]);
-    await repo.audit(db, business.id, user.id, `${doc.kind}.refunded`, result.id, { documentId: doc.id, amount });
+    const result = await repo.one(db, `INSERT INTO business_refunds(business_id,document_id,amount,method,reason,request_key,created_by,method_name)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`, [business.id, doc.id, amount, method, reason, requestKey, user.id, methodName]);
+    await repo.audit(db, business.id, user.id, `${doc.kind}.refunded`, result.id, { documentId: doc.id, amount, ...(methodName ? { method, methodName } : {}) });
     await repo.event(db, business.id, user.id, `${doc.kind}.refunded`, 'refund', result.id, { documentId: doc.id, documentNo: doc.document_no, amount: result.amount, method });
     return result;
   });
@@ -212,6 +218,7 @@ async function adjust(business, user, lotId, body) {
     }
     const lot = await lockLot(db, business.id, id(lotId));
     if (!lot) fail('Stock lot not found', 404);
+    access.requireLocation(business, lot.location_id);
     const adjustment = await applyAdjustment(db, business, user, lot, quantity, reason, requestKey);
     await repo.audit(db, business.id, user.id, 'stock.adjusted', adjustment.id, { reason, quantity });
     await repo.event(db, business.id, user.id, 'stock.adjusted', 'stock_adjustment', adjustment.id, { lotId: lot.id, skuId: lot.sku_id, locationId: lot.location_id, quantity, reason });

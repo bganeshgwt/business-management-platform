@@ -7,6 +7,7 @@ const core = require('../../core/services/business.service');
 const returns = require('../../core/services/businessReturns.service');
 const numbering = require('../../core/services/businessNumbering');
 const vouchers = require('./businessVouchers.service');
+const paymentMethods = require('../../core/services/businessPaymentMethods.service');
 
 // Exchanges: goods come back and replacements are sold in one step, in one
 // transaction:
@@ -77,6 +78,8 @@ function readInput(body, { quote }) {
     if (typeof body.settlement !== 'object' || Array.isArray(body.settlement)) fail('Settlement must be an object');
     settlement = {
       method: v.optionalEnum(body.settlement.method, 'How the difference is settled', [...MONEY_METHODS, 'on_account', 'voucher'], null),
+      // One of the business's own payment methods, when money moves.
+      methodId: body.settlement.methodId === undefined || body.settlement.methodId === null || body.settlement.methodId === '' ? null : id(body.settlement.methodId, 'Payment method'),
       amount: body.settlement.amount === undefined || body.settlement.amount === null || body.settlement.amount === '' ? null : core.decimal(body.settlement.amount, 'Amount', 2, 0),
       reference: v.optionalString(body.settlement.reference, 'Reference', 100),
       // A walk-in's name and phone, printed on a credit voucher.
@@ -179,15 +182,20 @@ async function run(db, business, user, given, { key, hash, quote }) {
   // 4. The difference.
   const settlement = input.settlement || {};
   let collected = 0, refunded = 0, method = null, creditCollection = null, voucherAmount = 0;
+  // A settlement naming one of the business's methods takes its kind and name.
+  const named = settlement.methodId && (due > 0 || excess > 0)
+    ? await paymentMethods.settle(db, business.id, { methodId: settlement.methodId, method: settlement.method }, 'How the difference is settled', MONEY_METHODS) : null;
+  const moneyMethod = named ? named.method : settlement.method;
+  const methodName = named?.methodName ?? null;
   if (due > 0) {
     const amount = settlement.amount === null || settlement.amount === undefined ? due : cents(settlement.amount);
     if (amount > due) fail(`Only ${money(due)} is due on the new bill`);
     if (!doc.contact_id && amount !== due) fail(`A walk-in customer pays the whole difference now (${money(due)}).`);
     if (amount > 0) {
-      if (!MONEY_METHODS.includes(settlement.method)) fail('Choose how the customer pays the difference: cash, card, UPI or bank');
+      if (!MONEY_METHODS.includes(moneyMethod)) fail('Choose how the customer pays the difference: cash, card, UPI or bank');
       await access.require(business, 'sales.edit');
-      await core.recordPayment(db, business, user, sale, { amount: money(amount), method: settlement.method, reference: settlement.reference || null, key: derivedKey(key, 'collect') });
-      collected = amount; method = settlement.method;
+      await core.recordPayment(db, business, user, sale, { amount: money(amount), method: moneyMethod, methodName, reference: settlement.reference || null, key: derivedKey(key, 'collect') });
+      collected = amount; method = moneyMethod;
     }
   } else if (excess > 0) {
     if (settlement.method === 'voucher') {
@@ -215,14 +223,14 @@ async function run(db, business, user, given, { key, hash, quote }) {
       await repo.event(db, business.id, user.id, 'collection.recorded', 'collection', creditCollection.id, {
         collectionNo: creditCollection.collection_no, contactId: doc.contact_id, amount: creditCollection.amount, method: 'credit_note' });
     } else {
-      if (!MONEY_METHODS.includes(settlement.method)) fail(`The customer gets ${money(excess)} back: choose cash, card, UPI or bank, a credit voucher${doc.contact_id ? ', or keep it on their account' : ''}`);
+      if (!MONEY_METHODS.includes(moneyMethod)) fail(`The customer gets ${money(excess)} back: choose cash, card, UPI or bank, a credit voucher${doc.contact_id ? ', or keep it on their account' : ''}`);
       await access.require(business, 'sales.refund');
-      const back = await repo.one(db, `INSERT INTO business_refunds(business_id,document_id,amount,method,reason,request_key,created_by)
-        VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [business.id, doc.id, money(excess), settlement.method,
-        `Difference refunded on exchange (${sale.document_no})`.slice(0, 300), derivedKey(key, 'refund'), user.id]);
+      const back = await repo.one(db, `INSERT INTO business_refunds(business_id,document_id,amount,method,reason,request_key,created_by,method_name)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`, [business.id, doc.id, money(excess), moneyMethod,
+        `Difference refunded on exchange (${sale.document_no})`.slice(0, 300), derivedKey(key, 'refund'), user.id, methodName]);
       await repo.audit(db, business.id, user.id, 'sale.refunded', back.id, { documentId: doc.id, amount: back.amount, method: back.method });
       await repo.event(db, business.id, user.id, 'sale.refunded', 'refund', back.id, { documentId: doc.id, documentNo: doc.document_no, amount: back.amount, method: back.method });
-      refunded = excess; method = settlement.method;
+      refunded = excess; method = moneyMethod;
     }
   }
   const exchange = await repo.one(db, `INSERT INTO business_exchanges(business_id,location_id,original_document_id,return_id,new_document_id,contact_id,

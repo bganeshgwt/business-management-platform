@@ -259,7 +259,7 @@ export default function DrawersPanel({
       const closed = await closeDrawer(endDrawer.id, {
         closingCash: counted,
         countMethod: form.method || "notes",
-        denominations: (form.method || "notes") === "notes" ? notesPayload(notes) : null,
+        denominations: (form.method || "notes") === "notes" ? notesPayload(notes, data.rules.denominations) : null,
         varianceReason: (form.reason || "").trim() || null,
         notes: (form.notes || "").trim() || null,
       });
@@ -873,6 +873,7 @@ export default function DrawersPanel({
               onMethod={(method) => setForm((all) => ({ ...all, method }))}
               notes={notes}
               onNotes={setNotes}
+              denominations={data.rules.denominations}
               refused={Boolean(formError) && counted === null}
               message={counted === null ? formError : ""}
               autoFocus

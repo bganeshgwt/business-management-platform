@@ -2,6 +2,7 @@ const pool = require("../../../../config/database");
 const crmRepository = require("../repositories/crm.repository");
 const loyaltyRepository = require("../repositories/loyalty.repository");
 const AppError = require("../../../../utils/AppError");
+const ruleSettings = require("../../setup/services/ruleSettings.service");
 const { round2 } = require("../../../../utils/money");
 const {
   abroadTenCountry,
@@ -218,10 +219,14 @@ const listGuestBook = async (restaurantId, filters, reveal, options = {}) => {
 
   const typed = options.revealTyped ? typedMobileOf(filters.search) : null;
   const terms = readSearch(filters.search, reveal);
-  // A quick view (occasion this week, lapsed) counts from the restaurant's today.
-  const today = filters.view ? await todayFor(restaurantId) : null;
+  // A quick view (occasion this week, lapsed) counts from the restaurant's
+  // today; "lapsed" is the restaurant's own line, the one Guest insights uses.
+  const [today, rules] = await Promise.all([
+    filters.view ? todayFor(restaurantId) : null,
+    ruleSettings.load(restaurantId),
+  ]);
   const [page, counts] = await Promise.all([
-    crmRepository.findGuestBook(restaurantId, { ...filters, ...terms, today }),
+    crmRepository.findGuestBook(restaurantId, { ...filters, ...terms, today, lapsedDays: rules.guestLapsedDays }),
     crmRepository.guestBookCounts(restaurantId),
   ]);
 
@@ -231,6 +236,8 @@ const listGuestBook = async (restaurantId, filters, reveal, options = {}) => {
       ...toListedCustomer(row, reveal, typed),
     })),
     counts,
+    // So the "Lapsed" view can say how many days it means.
+    lapsedDays: rules.guestLapsedDays,
     searchLimited: Boolean(terms.limited),
   };
 };
@@ -242,10 +249,13 @@ const listGuestBook = async (restaurantId, filters, reveal, options = {}) => {
 const exportGuestBook = async (restaurantId, filters, reveal = true) => {
   requireRestaurantId(restaurantId);
 
-  const today = filters.view ? await todayFor(restaurantId) : null;
+  const [today, rules] = await Promise.all([
+    filters.view ? todayFor(restaurantId) : null,
+    ruleSettings.load(restaurantId),
+  ]);
   const page = await crmRepository.findGuestBookForExport(
     restaurantId,
-    { ...filters, ...readSearch(filters.search, reveal), today },
+    { ...filters, ...readSearch(filters.search, reveal), today, lapsedDays: rules.guestLapsedDays },
     EXPORT_CAP
   );
 

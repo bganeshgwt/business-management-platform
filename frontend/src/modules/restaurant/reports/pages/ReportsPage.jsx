@@ -125,7 +125,9 @@ const LOADERS = {
   // screen has no store of its own to read, so its write-offs are not shown.
   theft: (range, options) =>
     Promise.all([
-      getTheftReport({ ...range, discountPercent: options.over }),
+      // No line picked: the server draws the restaurant's own (Settings ->
+      // Alerts and timings).
+      getTheftReport({ ...range, discountPercent: options.over || undefined }),
       range.outletId || !options.stockOn
         ? Promise.resolve(null)
         : getWriteoffControl({ from: range.from, to: range.to }).catch(() => null),
@@ -185,7 +187,7 @@ export default function ReportsPage() {
   const fromParam = searchParams.get("from") || "";
   const toParam = searchParams.get("to") || "";
   const [basis, setBasis] = useQueryFilter("basis", "consumption");
-  const [overParam, setOver] = useQueryFilter("over", "20");
+  const [overParam, setOver] = useQueryFilter("over", "");
   // A closed outlet, read from here or from the Outlets page's link. The top
   // bar only offers outlets that trade; a closed branch's history (and its
   // last GST return) is still read, without making it the outlet this device
@@ -220,7 +222,9 @@ export default function ReportsPage() {
   const [openDaysShown, setOpenDaysShown] = useState(false);
   const from = fromParam || anchor || today();
   const to = toParam || fromParam || anchor || today();
-  const over = Number(overParam) || 20;
+  // The large-discount line picked on the theft tab; null until one is: the
+  // report then uses the restaurant's own line.
+  const over = Number(overParam) || null;
 
   // Closed outlets, for the picker. Only for someone who may list outlets and
   // is not tied to one.
@@ -711,7 +715,7 @@ export default function ReportsPage() {
               data={current}
               currency={currency}
               range={{ from, to }}
-              discountPercent={over}
+              discountPercent={over || current.thresholds?.discountPercent || 20}
               onDiscountPercent={(next) => {
                 setLoading(true);
                 setOver(next);

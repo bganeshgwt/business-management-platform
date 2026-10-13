@@ -382,8 +382,11 @@ async function prescription(business, user, prescriptionId) {
 // pharmacist, the prescription and each line's schedule and expiry.
 async function invoiceExtras(db, business, documentId) {
   if (business.business_type !== 'pharmacy') return null;
-  const [settings, rx, lines, pharmacists] = await Promise.all([
+  const [settings, branch, rx, lines, pharmacists] = await Promise.all([
     h.settings(db, business.id),
+    // The selling branch's own licences, when it has them.
+    repo.one(db, `SELECT p.* FROM pharmacy_location_licences p JOIN business_documents d ON d.business_id=p.business_id AND d.location_id=p.location_id
+      WHERE d.business_id=$1 AND d.id=$2`, [business.id, documentId]),
     repo.one(db, `SELECT r.patient_name,r.doctor_name,r.doctor_reg_no,r.prescribed_on,g.name AS pharmacist_name,g.registration_no AS pharmacist_reg_no
       FROM pharmacy_prescriptions r LEFT JOIN health_signatories g ON g.business_id=r.business_id AND g.id=r.signatory_id WHERE r.business_id=$1 AND r.document_id=$2`, [business.id, documentId]),
     repo.all(db, `SELECT l.id AS line_id,pd.schedule,lt.expires_on FROM business_document_lines l
@@ -393,7 +396,8 @@ async function invoiceExtras(db, business, documentId) {
       WHERE l.business_id=$1 AND l.document_id=$2 ORDER BY l.id`, [business.id, documentId]),
     repo.all(db, "SELECT name,registration_no FROM health_signatories WHERE business_id=$1 AND kind='pharmacist' AND active ORDER BY id LIMIT 1", [business.id]),
   ]);
-  const licences = [['20', settings.drug_licence_20], ['21', settings.drug_licence_21], ['20B', settings.drug_licence_20b], ['21B', settings.drug_licence_21b], ['20F', settings.drug_licence_20f]]
+  const held = branch || settings;
+  const licences = [['20', held.drug_licence_20], ['21', held.drug_licence_21], ['20B', held.drug_licence_20b], ['21B', held.drug_licence_21b], ['20F', held.drug_licence_20f]]
     .filter(([, value]) => value).map(([form, number]) => ({ form, number }));
   const pharmacist = rx?.pharmacist_name ? { name: rx.pharmacist_name, registration_no: rx.pharmacist_reg_no } : pharmacists[0] || null;
   return { licences, pharmacist, prescription: rx || null, lines };

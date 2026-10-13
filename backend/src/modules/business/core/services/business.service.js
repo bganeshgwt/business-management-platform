@@ -11,6 +11,7 @@ const retailOffers = require('../../retail/services/businessOffers');
 const books = require('../../retail/services/businessBooks');
 // Salon packages, memberships and staff on a bill (Phase 2, T4).
 const salonSales = require('../../salon-weight/services/businessSalonSales');
+const paymentMethods = require('./businessPaymentMethods.service');
 
 const { devEnabled } = access;
 const fail = (message, status = 400) => { throw new AppError(status, message); };
@@ -150,12 +151,31 @@ async function provision(user) {
 
 // --- Locations and contacts ----------------------------------------------
 
+// A location's own address, state and GSTIN (a separately registered
+// branch). They print on the bills it raises; an empty field falls back to
+// Business settings. null when the client sent none of them.
+const LOCATION_ADDRESS_KEYS = ['addressLine1', 'addressLine2', 'city', 'postalCode', 'stateCode', 'gstin', 'phone'];
+function locationFields(body) {
+  if (!LOCATION_ADDRESS_KEYS.some((key) => body[key] !== undefined)) return null;
+  const gstin = readGstin(body.gstin);
+  const stateText = v.optionalString(body.stateCode, 'State code', 2);
+  if (stateText && !/^\d{2}$/.test(stateText)) fail('State code must be the two-digit GST state code');
+  const stateCode = stateText || (gstin ? gstin.slice(0, 2) : null);
+  if (gstin && stateCode && gstin.slice(0, 2) !== stateCode) fail('The state code must match the first two digits of the GSTIN');
+  const postal = v.optionalString(body.postalCode, 'PIN code', 10);
+  if (postal && !/^\d{6}$/.test(postal)) fail('PIN code must be six digits');
+  return [v.optionalString(body.addressLine1, 'Address line 1', 200), v.optionalString(body.addressLine2, 'Address line 2', 200),
+    v.optionalString(body.city, 'City', 100), postal, stateCode, gstin, v.optionalString(body.phone, 'Phone', 30)];
+}
+
 async function createLocation(business, user, body) {
   await access.require(business, 'settings.edit');
   return repo.transaction(async (db) => {
-    const row = await repo.one(db, 'INSERT INTO business_locations(business_id,name,code,sells_at_counter) VALUES($1,$2,$3,$4) RETURNING *',
+    const f = locationFields(body);
+    const row = await repo.one(db, `INSERT INTO business_locations(business_id,name,code,sells_at_counter,address_line1,address_line2,city,postal_code,state_code,gstin,phone)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
       [business.id, v.requiredString(body.name, 'Location name', 150), v.requiredString(body.code, 'Location code', 30).toUpperCase(),
-        v.requiredBoolean(body.sellsAtCounter, 'Sells at the counter', true)]);
+        v.requiredBoolean(body.sellsAtCounter, 'Sells at the counter', true), ...(f || [null, null, null, null, null, null, null])]);
     await repo.audit(db, business.id, user.id, 'location.created', row.id);
     return row;
   });
@@ -173,8 +193,14 @@ async function updateLocation(business, user, locationId, body) {
     }
     // Older clients send no counter flag: the location keeps what it has (pro pass C-22).
     const counter = body.sellsAtCounter === undefined ? null : v.requiredBoolean(body.sellsAtCounter, 'Sells at the counter');
-    const row = await repo.one(db, 'UPDATE business_locations SET name=$3,active=$4,sells_at_counter=COALESCE($5,sells_at_counter) WHERE business_id=$1 AND id=$2 RETURNING *',
-      [business.id, id(locationId), v.requiredString(body.name, 'Location name', 150), active, counter]);
+    // Address and GSTIN: older clients send none of them and the location keeps what it has.
+    const f = locationFields(body);
+    const row = await repo.one(db, `UPDATE business_locations SET name=$3,active=$4,sells_at_counter=COALESCE($5,sells_at_counter),
+      address_line1=CASE WHEN $6 THEN $7 ELSE address_line1 END,address_line2=CASE WHEN $6 THEN $8 ELSE address_line2 END,
+      city=CASE WHEN $6 THEN $9 ELSE city END,postal_code=CASE WHEN $6 THEN $10 ELSE postal_code END,
+      state_code=CASE WHEN $6 THEN $11 ELSE state_code END,gstin=CASE WHEN $6 THEN $12 ELSE gstin END,phone=CASE WHEN $6 THEN $13 ELSE phone END
+      WHERE business_id=$1 AND id=$2 RETURNING *`,
+      [business.id, id(locationId), v.requiredString(body.name, 'Location name', 150), active, counter, Boolean(f), ...(f || [null, null, null, null, null, null, null])]);
     if (!row) fail('Location not found', 404);
     await repo.audit(db, business.id, user.id, 'location.updated', row.id, { active });
     return row;
@@ -438,18 +464,20 @@ async function conversion(db, businessId, sku, entered) {
 // rest on udhaar). Each part is { method, amount, reference?, tendered? };
 // "full" on one part means "the rest of the bill". Only cash can be handed
 // over in excess (`tendered`): change is given back from cash alone.
+// A part may name one of the business's payment methods (`methodId`): its
+// kind and name are filled in when the bill is posted (settleParts).
 const MAX_PAYMENT_PARTS = 8;
 function readPaymentPart(part, name = 'Payment') {
   if (!part || typeof part !== 'object' || Array.isArray(part)) fail(`${name} must be an object`);
-  const method = v.requiredEnum(part.method, 'Payment method', methods);
+  const { methodId, method } = paymentMethods.readChoice(part, 'Payment method', methods);
   const amount = part.amount === 'full' ? 'full' : decimal(part.amount, 'Amount paid now', 2, 0, 100000000);
   let tendered = null;
   if (part.tendered !== undefined && part.tendered !== null && part.tendered !== '') {
-    if (method !== 'cash') fail('Only cash is handed over in notes: change is given back from cash only');
+    if (method !== 'cash' && !methodId) fail('Only cash is handed over in notes: change is given back from cash only');
     tendered = decimal(part.tendered, 'Cash handed over', 2, 0.01, 100000000);
     if (amount !== 'full' && paise(tendered) < paise(amount)) fail('The cash handed over is less than the cash part of the bill');
   }
-  return { amount, method, reference: v.optionalString(part.reference, 'Payment reference', 100), tendered };
+  return { amount, method, methodId, reference: v.optionalString(part.reference, 'Payment reference', 100), tendered };
 }
 function readPayments(body) {
   const one = body.payment !== undefined && body.payment !== null;
@@ -659,6 +687,7 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     const prepaid = voucherUse?.amount || 0;
     // The payments taken now (one or several), and an EMI's financed part.
     let parts = (Array.isArray(paidNow) ? paidNow : paidNow ? [paidNow] : []).map((part) => ({ ...part }));
+    parts = await paymentMethods.settleParts(db, business.id, parts);
     const fixedPaid = parts.filter((part) => part.amount !== 'full').reduce((sum, part) => sum + paise(part.amount), 0);
     const financeUse = finance ? await financeSales().prepare(db, business, finance, { contact, buyer, left: rounded - prepaid - fixedPaid, hasFull: parts.some((part) => part.amount === 'full') }) : null;
     const financed = financeUse?.amount || 0;
@@ -689,9 +718,10 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     }
     if (priceUpdates.length) await access.require(business, 'catalog.edit');
     // GST: the buyer as they were when billed, and where the supply is made
-    // (the buyer's GSTIN state, otherwise the shop's own state).
+    // (the buyer's GSTIN state, otherwise the selling location's own state,
+    // otherwise the business's: a branch in another state supplies from there).
     const buyerGstin = kind === 'sale' ? contact?.gstin || null : null;
-    const placeOfSupply = kind === 'sale' ? (buyerGstin ? buyerGstin.slice(0, 2) : settings?.state_code || null) : null;
+    const placeOfSupply = kind === 'sale' ? (buyerGstin ? buyerGstin.slice(0, 2) : location.state_code || settings?.state_code || null) : null;
     const number = await numbering.nextNumber(db, business.id, location.id, kind, user.id);
     const saved = await repo.one(db, `INSERT INTO business_documents(business_id,location_id,kind,document_no,series_id,contact_id,contact_name,subtotal,tax,round_off,total,tax_mode,due_on,request_key,request_hash,notes,created_by,
       place_of_supply,buyer_gstin,buyer_address,supplier_bill_no,supplier_bill_date)
@@ -769,7 +799,8 @@ async function movement(db, businessId, lotId, documentId, quantity, balance) {
   await db.query('INSERT INTO business_stock_movements(business_id,lot_id,document_id,quantity,balance_after) VALUES($1,$2,$3,$4,$5)', [businessId, lotId, documentId, quantity, balance]);
 }
 async function detail(business, documentId) {
-  const doc = await repo.one(repo.pool, `SELECT d.*,l.name AS location_name,l.code AS location_code,c.gstin AS contact_gstin,c.phone AS contact_phone,c.address AS contact_address
+  const doc = await repo.one(repo.pool, `SELECT d.*,l.name AS location_name,l.code AS location_code,c.gstin AS contact_gstin,c.phone AS contact_phone,c.address AS contact_address,
+    to_jsonb(l) AS location
     FROM business_documents d JOIN business_locations l ON l.business_id=d.business_id AND l.id=d.location_id
     LEFT JOIN business_contacts c ON c.business_id=d.business_id AND c.id=d.contact_id WHERE d.business_id=$1 AND d.id=$2`, [business.id, id(documentId)]);
   if (!doc) fail('Document not found', 404);
@@ -793,38 +824,63 @@ async function detail(business, documentId) {
   const finance = doc.kind === 'sale' && payments.some((p) => p.method === 'finance') ? await financeSales().ofDocument(repo.pool, business.id, doc.id) : [];
   // A pharmacy bill also prints its drug licences, the pharmacist and the prescription (round 2, health module).
   const pharmacy = doc.kind === 'sale' && business.business_type === 'pharmacy' ? await require('../../health/services/businessPharmacy.service').invoiceExtras(repo.pool, business, doc.id) : null;
-  return { ...doc, ...buyer, finance, pharmacy, lines: lines.map((line) => ({ ...line, returned_quantity: returnedLines.find((r) => r.line_id === line.id)?.quantity || '0' })), payments, returns, refunds, seller: settings, retail, wholesale };
+  return { ...doc, ...buyer, finance, pharmacy, lines: lines.map((line) => ({ ...line, returned_quantity: returnedLines.find((r) => r.line_id === line.id)?.quantity || '0' })), payments, returns, refunds, seller: branchSeller(settings, doc.location), retail, wholesale };
+}
+// The seller as a bill prints it: Business settings, with the selling
+// location's own address, phone, state and GSTIN where it has them (a
+// separately registered branch). `branch_name` names the branch on the bill
+// when it has its own address or GSTIN.
+function branchSeller(settings, location) {
+  const seller = { ...(settings || {}) };
+  if (!location) return seller;
+  const ownAddress = [location.address_line1, location.address_line2, location.city, location.postal_code].some(Boolean);
+  if (ownAddress) Object.assign(seller, { address_line1: location.address_line1, address_line2: location.address_line2, city: location.city, postal_code: location.postal_code });
+  if (location.state_code) seller.state_code = location.state_code;
+  if (location.gstin) seller.gstin = location.gstin;
+  if (location.phone) seller.phone = location.phone;
+  if (ownAddress || location.gstin) seller.branch_name = location.name;
+  return seller;
 }
 // Inside a posting transaction: the document is already locked.
 // collectionId: the shared collection receipt this money came from (receivables).
 // supplierPaymentId: the supplier payment voucher it came from (payables).
-async function recordPayment(db, business, user, doc, { amount, method, reference, key, collectionId = null, supplierPaymentId = null, tendered = null }) {
+// methodName: the business's own name for the method (NULL from older screens).
+// Money from a collection receipt carries the receipt's method name.
+async function recordPayment(db, business, user, doc, { amount, method, methodName, reference, key, collectionId = null, supplierPaymentId = null, tendered = null }) {
+  if (methodName === undefined && collectionId) {
+    const receipt = await repo.one(db, 'SELECT method,method_name FROM business_collections WHERE business_id=$1 AND id=$2', [business.id, collectionId]);
+    methodName = receipt?.method === method ? receipt.method_name : null;
+  }
   const sums = await repo.one(db, `SELECT
     COALESCE((SELECT sum(amount) FROM business_payments WHERE business_id=$1 AND document_id=$2),0) AS paid,
     COALESCE((SELECT sum(total) FROM business_returns WHERE business_id=$1 AND document_id=$2),0) AS returned,
     COALESCE((SELECT sum(amount) FROM business_refunds WHERE business_id=$1 AND document_id=$2),0) AS refunded`, [business.id, doc.id]);
   if (paise(amount) + paise(sums.paid) - paise(sums.refunded) > paise(doc.total) - paise(sums.returned)) fail('Payment exceeds the outstanding amount', 409);
-  const result = await repo.one(db, `INSERT INTO business_payments(business_id,document_id,amount,method,reference,request_key,created_by,collection_id,supplier_payment_id,tendered)
-   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`, [business.id, doc.id, amount, method, reference, key, user.id, collectionId, supplierPaymentId, tendered ?? null]);
-  await repo.audit(db, business.id, user.id, 'payment.recorded', result.id, { documentId: doc.id, amount, ...(collectionId ? { collectionId } : {}), ...(supplierPaymentId ? { supplierPaymentId } : {}) });
-  await repo.event(db, business.id, user.id, 'payment.recorded', 'payment', result.id, { documentId: doc.id, documentNo: doc.document_no, kind: doc.kind, amount: result.amount, method });
+  const result = await repo.one(db, `INSERT INTO business_payments(business_id,document_id,amount,method,reference,request_key,created_by,collection_id,supplier_payment_id,tendered,method_name)
+   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`, [business.id, doc.id, amount, method, reference, key, user.id, collectionId, supplierPaymentId, tendered ?? null, methodName ?? null]);
+  await repo.audit(db, business.id, user.id, 'payment.recorded', result.id, { documentId: doc.id, amount, ...(methodName ? { method, methodName } : {}), ...(collectionId ? { collectionId } : {}), ...(supplierPaymentId ? { supplierPaymentId } : {}) });
+  await repo.event(db, business.id, user.id, 'payment.recorded', 'payment', result.id, { documentId: doc.id, documentNo: doc.document_no, kind: doc.kind, amount: result.amount, method, ...(methodName ? { methodName } : {}) });
   return result;
 }
 async function payment(business, user, documentId, body) {
   const amount = decimal(body.amount, 'Payment amount', 2, 0.01);
-  const method = v.requiredEnum(body.method, 'Payment method', methods);
+  const choice = paymentMethods.readChoice(body, 'Payment method', methods);
   const key = uuid(body.requestKey);
   const reference = v.optionalString(body.reference, 'Reference', 100);
   return repo.transaction(async (db) => {
     const doc = await repo.one(db, 'SELECT * FROM business_documents WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(documentId)]);
     if (!doc) fail('Document not found', 404);
     await access.require(business, kindPermission(doc.kind, 'edit'));
+    access.requireLocation(business, doc.location_id);
     const old = await repo.one(db, 'SELECT * FROM business_payments WHERE business_id=$1 AND request_key=$2', [business.id, key]);
     if (old) {
-      if (old.document_id !== doc.id || Number(old.amount) !== amount || old.method !== method || old.reference !== reference) fail('Payment request key already used', 409);
+      // A retry is the same payment (a named method sent alone has no kind to compare yet).
+      const sameMethod = !choice.method || old.method === choice.method;
+      if (old.document_id !== doc.id || Number(old.amount) !== amount || !sameMethod || old.reference !== reference) fail('Payment request key already used', 409);
       return old;
     }
-    return recordPayment(db, business, user, doc, { amount, method, reference, key });
+    const { method, methodName } = await paymentMethods.settle(db, business.id, choice, 'Payment method', methods);
+    return recordPayment(db, business, user, doc, { amount, method, methodName, reference, key });
   });
 }
 
@@ -906,24 +962,26 @@ async function reports(business, filters) {
   if (to < from || Date.parse(to) - Date.parse(from) > 366 * 86400000) fail('Choose a date range of up to 367 days');
   // Only the document kinds this person may see are reported.
   const kinds = ['sale', 'purchase'].filter((k) => access.can(business, kindPermission(k, 'view')));
+  // One location (asked for, picked in the top bar, or where the person works), or all.
+  const location = filters.location ? id(filters.location, 'Location') : null;
   // Each event is reported on its own posting date. A return today does not
   // silently rewrite yesterday's trading; collections have their own dates.
   const rows = (await repo.pool.query(`WITH events AS (
-    SELECT (created_at AT TIME ZONE $4)::date AS day,kind,total,subtotal AS net,tax FROM business_documents WHERE business_id=$1 AND kind=ANY($5)
+    SELECT (created_at AT TIME ZONE $4)::date AS day,kind,total,subtotal AS net,tax FROM business_documents WHERE business_id=$1 AND kind=ANY($5) AND ($6::bigint IS NULL OR location_id=$6)
     UNION ALL SELECT (r.created_at AT TIME ZONE $4)::date,d.kind||'_return',r.total,
       COALESCE((SELECT sum(net) FROM business_return_lines l WHERE l.business_id=r.business_id AND l.return_id=r.id),0),
       COALESCE((SELECT sum(tax) FROM business_return_lines l WHERE l.business_id=r.business_id AND l.return_id=r.id),0)
-      FROM business_returns r JOIN business_documents d ON d.business_id=r.business_id AND d.id=r.document_id WHERE r.business_id=$1 AND d.kind=ANY($5)
+      FROM business_returns r JOIN business_documents d ON d.business_id=r.business_id AND d.id=r.document_id WHERE r.business_id=$1 AND d.kind=ANY($5) AND ($6::bigint IS NULL OR d.location_id=$6)
     UNION ALL SELECT (p.created_at AT TIME ZONE $4)::date,d.kind||'_payment',p.amount,0,0
-      FROM business_payments p JOIN business_documents d ON d.business_id=p.business_id AND d.id=p.document_id WHERE p.business_id=$1 AND d.kind=ANY($5)
+      FROM business_payments p JOIN business_documents d ON d.business_id=p.business_id AND d.id=p.document_id WHERE p.business_id=$1 AND d.kind=ANY($5) AND ($6::bigint IS NULL OR d.location_id=$6)
     UNION ALL SELECT (r.created_at AT TIME ZONE $4)::date,d.kind||'_refund',r.amount,0,0
-      FROM business_refunds r JOIN business_documents d ON d.business_id=r.business_id AND d.id=r.document_id WHERE r.business_id=$1 AND d.kind=ANY($5)
+      FROM business_refunds r JOIN business_documents d ON d.business_id=r.business_id AND d.id=r.document_id WHERE r.business_id=$1 AND d.kind=ANY($5) AND ($6::bigint IS NULL OR d.location_id=$6)
   ) SELECT day::text AS day,kind,count(*)::int AS entries,sum(total) AS total,sum(net) AS net,sum(tax) AS tax
-    FROM events WHERE day BETWEEN $2::date AND $3::date GROUP BY day,kind ORDER BY day DESC,kind`, [business.id, from, to, business.timezone, kinds])).rows;
-  return { from, to, timezone: business.timezone, rows };
+    FROM events WHERE day BETWEEN $2::date AND $3::date GROUP BY day,kind ORDER BY day DESC,kind`, [business.id, from, to, business.timezone, kinds, location])).rows;
+  return { from, to, timezone: business.timezone, location, rows };
 }
 
 module.exports = { statusAllowed, list, provision, linkRestaurant, createLocation, updateLocation, updateContact, reports, createCatalog, updateCatalog, createContact,
   createPriceRule, disablePriceRule, document, detail, payment, resource, appointment, appointmentStatus, decimal, signedDecimal, dateText, uuid,
   lineNet, lineTax, inclusiveNet, devEnabled, kindPermission, readUnit, postDocument, recordPayment, conversion, requiredDecimals, readPayments,
-  GOODS_TYPES, readHsn, readMrp, checkMrp, shelfPaise };
+  GOODS_TYPES, readHsn, readMrp, checkMrp, shelfPaise, branchSeller };

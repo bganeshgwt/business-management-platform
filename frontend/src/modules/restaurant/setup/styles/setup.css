@@ -105,3 +105,33 @@
   color: var(--danger);
   font-weight: var(--weight-medium);
 }
+
+/* Settings -> Alerts and timings: one titled group of rules per area. */
+.settings-rule-group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.settings-rule-group + .settings-rule-group {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.settings-rule-group > legend {
+  padding: 0;
+  margin-bottom: var(--space-1);
+}
+
+.settings-rule-note {
+  margin: 0 0 var(--space-3);
+}
+
+/* The notes a cash count lists: a row of ticks that wraps on a phone. */
+.settings-note-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}

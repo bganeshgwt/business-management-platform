@@ -63,6 +63,7 @@ const TipsPage = lazy(() => import("./modules/restaurant/staff/pages/TipsPage"))
 const MyWorkPage = lazy(() => import("./modules/restaurant/staff/pages/MyWorkPage"));
 const LogbookPage = lazy(() => import("./modules/restaurant/logbook/pages/LogbookPage"));
 const PlatformRestaurantsPage = lazy(() => import("./modules/platform/pages/PlatformRestaurantsPage"));
+const PlatformBusinessesPage = lazy(() => import("./modules/platform/pages/PlatformBusinessesPage"));
 const CollectionDisplayPage = lazy(() => import("./modules/restaurant/orders/pages/CollectionDisplayPage"));
 const ServiceSettingsPage = lazy(() => import("./modules/restaurant/setup/pages/ServiceSettingsPage"));
 const FeaturesPage = lazy(() => import("./modules/restaurant/setup/pages/FeaturesPage"));
@@ -162,6 +163,7 @@ export default function App() {
 
           <Route element={<ProtectedRoute permission="platform.restaurants.manage" />}>
             <Route path="platform/restaurants" element={<PlatformRestaurantsPage />} />
+            <Route path="platform/businesses" element={<PlatformBusinessesPage />} />
           </Route>
 
           {/* Each area also requires its own permission, checked again by the API. */}

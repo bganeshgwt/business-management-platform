@@ -20,7 +20,7 @@ export default function TransfersPage() {
   const [creating, setCreating] = useState(false);
   const [openId, setOpenId] = useState(null);
   const [notice, setNotice] = useState("");
-  const enoughLocations = biz.locations.filter((l) => l.active).length > 1;
+  const enoughLocations = biz.allLocations.filter((l) => l.active).length > 1;
 
   const columns = useMemo(() => [
     { key: "transfer_no", header: "Transfer", value: (t) => t.transfer_no, mobile: "title", pin: true,
@@ -74,10 +74,13 @@ const emptyLine = () => ({ key: newKey(), lotId: "", quantity: "" });
 
 function TransferDialog({ onClose, onSaved }) {
   const biz = useOpenBusiness();
+  // Sent from the locations this person works with, to any other open one.
   const locations = biz.locations.filter((l) => l.active);
+  const destinations = biz.allLocations.filter((l) => l.active);
   const { options, error } = useOptions(["stock"]);
   const [requestKey] = useState(newKey);
-  const [form, setForm] = useState({ fromLocationId: String(locations[0]?.id || ""), toLocationId: String(locations[1]?.id || ""), notes: "" });
+  const [form, setForm] = useState(() => ({ fromLocationId: String(locations[0]?.id || ""),
+    toLocationId: String(destinations.find((l) => String(l.id) !== String(locations[0]?.id))?.id || ""), notes: "" }));
   const [lines, setLines] = useState([emptyLine()]);
   const lots = (options?.stock || []).filter((l) => String(l.location_id) === form.fromLocationId && Number(l.quantity) > 0);
   const setLine = (key, name, value) => setLines((all) => all.map((l) => (l.key === key ? { ...l, [name]: value } : l)));
@@ -95,7 +98,7 @@ function TransferDialog({ onClose, onSaved }) {
       </Field>
       <Field label="To">
         <select required value={form.toLocationId} onChange={(e) => setForm((f) => ({ ...f, toLocationId: e.target.value }))}>
-          {locations.filter((l) => String(l.id) !== form.fromLocationId).map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+          {destinations.filter((l) => String(l.id) !== form.fromLocationId).map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
         </select>
       </Field>
       <div className="field-wide bz-lines">
@@ -137,6 +140,8 @@ function TransferDetail({ transferId, onClose, onChanged }) {
       .catch((err) => { if (!controller.signal.aborted) setError(getErrorMessage(err)); });
     return () => controller.abort();
   }, [biz.id, transferId, version]);
+  // Staff tied to a location receive what was sent to it and cancel what it sent.
+  const worksAt = (locationId) => !biz.member.location_id || String(biz.member.location_id) === String(locationId);
   const receive = async () => {
     setBusy(true);
     try {
@@ -169,8 +174,8 @@ function TransferDetail({ transferId, onClose, onChanged }) {
             {transfer.notes && <p className="muted">{transfer.notes}</p>}
             {transfer.status === "in_transit" && (
               <div className="form-actions bz-start">
-                {biz.can("stock_transfers.approve") && <button type="button" className="button" disabled={busy} onClick={receive}><Icon name="check" size={16} /> Confirm it arrived</button>}
-                {biz.can("stock_transfers.cancel") && <button type="button" className="button button-secondary" disabled={busy} onClick={() => setCancelling(true)}>Cancel transfer</button>}
+                {biz.can("stock_transfers.approve") && worksAt(transfer.to_location_id) && <button type="button" className="button" disabled={busy} onClick={receive}><Icon name="check" size={16} /> Confirm it arrived</button>}
+                {biz.can("stock_transfers.cancel") && worksAt(transfer.from_location_id) && <button type="button" className="button button-secondary" disabled={busy} onClick={() => setCancelling(true)}>Cancel transfer</button>}
               </div>
             )}
           </div>

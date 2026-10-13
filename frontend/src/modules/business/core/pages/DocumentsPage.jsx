@@ -15,6 +15,9 @@ import FormDialog from "./FormDialog";
 import { BusinessHeader, Badge, Field, FormError, PeriodFilter } from "./ui";
 import { businessToday, dateTime, newKey, quantity, useOpenBusiness, useOptions, useServerList } from "./hooks";
 import { GOODS_TYPES, methodWord, printReceipt } from "../../retail/pages/retail";
+import { usePaymentMethods } from "./paymentMethods";
+// The kinds taken on a bill here (and a refund never goes out by cheque).
+const PAY_KINDS = ["cash", "upi", "card", "bank"];
 // The one collection form (pro pass D-09) and wholesale delivery words (D-21).
 import { CollectionDialog } from "../../receivables/pages/receivablesParts";
 import { DELIVERY } from "../../wholesale/pages/deliveryFormat";
@@ -182,6 +185,8 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
   const { options, error } = useOptions(["catalog?active=true", `contacts?kind=${contactKind}&active=true`, "units", ...(pickLots ? ["stock"] : [])]);
   const locations = biz.locations.filter((l) => l.active);
   const [requestKey] = useState(newKey);
+  // `form.method`: one of the business's own methods (paymentMethods.js).
+  const methods = usePaymentMethods();
   const [form, setForm] = useState({ locationId: String(locations[0]?.id || ""), contactId: "", notes: "", paidNow: "", method: "cash", reference: "",
     supplierBillNo: "", supplierBillDate: businessToday(biz.business.timezone) });
   const [lines, setLines] = useState([emptyLine()]);
@@ -249,8 +254,8 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
   const submit = async () => {
     const doc = await businessWrite(biz.id, "documents", {
       kind, locationId: form.locationId, contactId: form.contactId || null, notes: form.notes || undefined, requestKey,
-      ...(walkInPays ? { payment: { amount: "full", method: form.method, reference: form.reference || undefined } }
-        : Number(form.paidNow) > 0 ? { payment: { amount: form.paidNow, method: form.method, reference: form.reference || undefined } } : {}),
+      ...(walkInPays ? { payment: { amount: "full", ...methods.body(form.method, PAY_KINDS), reference: form.reference || undefined } }
+        : Number(form.paidNow) > 0 ? { payment: { amount: form.paidNow, ...methods.body(form.method, PAY_KINDS), reference: form.reference || undefined } } : {}),
       ...(sale ? {} : { supplierBillNo: form.supplierBillNo, supplierBillDate: form.supplierBillDate || undefined }),
       lines: lines.map((l) => {
         const sku = skuOf(l);
@@ -376,8 +381,8 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
         <>
           <p className="field-wide small muted">A walk-in pays the whole bill now. To give udhaar, choose the customer above.</p>
           <Field label="Paid by">
-            <select value={form.method} onChange={set("method")}>
-              {["cash", "upi", "card", "bank"].map((m) => <option key={m} value={m}>{m === "upi" ? "UPI" : m[0].toUpperCase() + m.slice(1)}</option>)}
+            <select value={methods.resolve(form.method, PAY_KINDS)} onChange={set("method")}>
+              {methods.options(PAY_KINDS).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}
             </select>
           </Field>
         </>
@@ -389,8 +394,8 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
             <input type="number" min="0" step="0.01" value={form.paidNow} onChange={set("paidNow")} />
           </Field>
           <Field label="Paid by">
-            <select value={form.method} onChange={set("method")} disabled={!Number(form.paidNow)}>
-              {["cash", "upi", "card", "bank"].map((m) => <option key={m} value={m}>{m === "upi" ? "UPI" : m[0].toUpperCase() + m.slice(1)}</option>)}
+            <select value={methods.resolve(form.method, PAY_KINDS)} onChange={set("method")} disabled={!Number(form.paidNow)}>
+              {methods.options(PAY_KINDS).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}
             </select>
           </Field>
         </>
@@ -460,10 +465,10 @@ export function DocumentDetail({ documentId, onClose, onChanged, initialAction =
           </div>
           {(doc.payments.length > 0 || doc.returns.length > 0 || doc.refunds.length > 0) && (
             <ul className="bz-history">
-              {doc.payments.map((p) => <li key={`p${p.id}`}><Badge status="completed" label="Payment" /> {biz.exact(p.amount)} by {p.method === "credit_note" ? "credit note" : p.method === "finance" ? "EMI (owed by the financier)" : p.method.toUpperCase()} {p.reference ? `· ${p.reference}` : ""}{p.tendered && Number(p.tendered) > Number(p.amount) ? ` · ${biz.exact(p.tendered)} handed over, ${biz.exact(Number(p.tendered) - Number(p.amount))} change` : ""} · {dateTime(p.created_at)}</li>)}
+              {doc.payments.map((p) => <li key={`p${p.id}`}><Badge status="completed" label="Payment" /> {biz.exact(p.amount)} by {p.method === "credit_note" ? "credit note" : p.method === "finance" ? "EMI (owed by the financier)" : p.method_name || p.method.toUpperCase()} {p.reference ? `· ${p.reference}` : ""}{p.tendered && Number(p.tendered) > Number(p.amount) ? ` · ${biz.exact(p.tendered)} handed over, ${biz.exact(Number(p.tendered) - Number(p.amount))} change` : ""} · {dateTime(p.created_at)}</li>)}
               {(doc.finance || []).map((f) => <li key={`emi${f.id}`}><Badge status={f.status === "pending" ? "pending" : f.status === "settled" ? "completed" : "cancelled"} label="EMI" /> {f.financier_name} · loan {f.loan_no}{f.do_no ? ` · DO ${f.do_no}` : ""} · financed {biz.exact(f.financed_amount)} · down payment {biz.exact(f.down_payment)}{f.status === "pending" ? " · awaiting payout" : f.status === "settled" ? " · paid out" : " · cancelled"}</li>)}
               {doc.returns.map((r) => <li key={`r${r.id}`}><Badge status="no_show" label="Return" /> {r.return_no || `#${r.id}`} · {biz.exact(r.total)} · {r.reason} · {dateTime(r.created_at)}</li>)}
-              {doc.refunds.map((r) => <li key={`f${r.id}`}><Badge status="cancelled" label="Refund" /> {biz.exact(r.amount)} by {r.method === "credit_note" ? "credit note" : r.method === "finance" ? "EMI reversed (financier)" : r.method.toUpperCase()} · {r.reason} · {dateTime(r.created_at)}</li>)}
+              {doc.refunds.map((r) => <li key={`f${r.id}`}><Badge status="cancelled" label="Refund" /> {biz.exact(r.amount)} by {r.method === "credit_note" ? "credit note" : r.method === "finance" ? "EMI reversed (financier)" : r.method_name || r.method.toUpperCase()} · {r.reason} · {dateTime(r.created_at)}</li>)}
             </ul>
           )}
           <div className="form-actions bz-start">
@@ -489,11 +494,12 @@ function DocumentAction({ doc, action, balance, onClose, onSaved }) {
   const biz = useOpenBusiness();
   const [requestKey] = useState(newKey);
   const open = doc.lines.filter((l) => Number(l.quantity) > Number(l.returned_quantity));
+  const methods = usePaymentMethods();
   const [form, setForm] = useState({ amount: action === "payments" ? balance.toFixed(2) : action === "refunds" ? Math.abs(balance).toFixed(2) : "", method: "cash", reference: "", reason: "", lineId: String(open[0]?.id || ""), quantity: "", restock: true });
   const set = (name) => (event) => setForm((f) => ({ ...f, [name]: event.target.type === "checkbox" ? event.target.checked : event.target.value }));
   const submit = () => businessWrite(biz.id, `documents/${doc.id}/${action}`, action === "returns"
     ? { reason: form.reason, requestKey, lines: [{ lineId: form.lineId, quantity: form.quantity, ...(doc.kind === "sale" ? { restock: form.restock } : {}) }] }
-    : { amount: form.amount, method: form.method, ...(action === "payments" ? { reference: form.reference || undefined } : { reason: form.reason }), requestKey });
+    : { amount: form.amount, ...methods.body(form.method, PAY_KINDS), ...(action === "payments" ? { reference: form.reference || undefined } : { reason: form.reason }), requestKey });
   const titles = { payments: doc.kind === "sale" ? "Record a collection" : "Record a supplier payment", returns: doc.kind === "sale" ? "Take back items" : "Return goods to the supplier", refunds: doc.kind === "sale" ? "Refund the customer" : "Record a refund from the supplier" };
   return (
     <FormDialog title={titles[action]} icon={action === "returns" ? "undo" : "wallet"} width={560} onClose={onClose} onSaved={onSaved} onSubmit={submit}
@@ -515,7 +521,7 @@ function DocumentAction({ doc, action, balance, onClose, onSaved }) {
         <>
           <Field label="Amount"><input required type="number" min="0.01" step="0.01" value={form.amount} onChange={set("amount")} /></Field>
           <Field label="Method">
-            <select value={form.method} onChange={set("method")}>{["cash", "upi", "card", "bank"].map((m) => <option key={m} value={m}>{m === "upi" ? "UPI" : m[0].toUpperCase() + m.slice(1)}</option>)}</select>
+            <select value={methods.resolve(form.method, PAY_KINDS)} onChange={set("method")}>{methods.options(PAY_KINDS).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}</select>
           </Field>
           {action === "payments" && <Field label="Reference (optional)" wide><input value={form.reference} maxLength={100} onChange={set("reference")} /></Field>}
         </>

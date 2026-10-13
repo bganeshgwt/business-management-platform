@@ -561,7 +561,9 @@ function segmentEmpty({ segment, summary, searching }) {
 
 // The guests on the chosen list. The rows come from the server (search and
 // "Show all" ask it again); the grid sorts and pages what it was given.
-function SegmentRows({ segment, items, loading, error, onRetry, empty, currency, today, loyalty, onOpen, contactsHidden }) {
+// windowDays: the restaurant's "regular" window (its rules), which a row's
+// recent-visit count is counted over.
+function SegmentRows({ segment, items, loading, error, onRetry, empty, currency, today, loyalty, onOpen, contactsHidden, windowDays = 60 }) {
   return (
     <DataGrid
       id="crm-guest-segment"
@@ -611,7 +613,7 @@ function SegmentRows({ segment, items, loading, error, onRetry, empty, currency,
           render: (guest) => (
             <>
               <span className="gi-num">{count(guest.visits)}</span>
-              <span className="gi-sub">{count(guest.visits60)} in 60 days</span>
+              <span className="gi-sub">{count(guest.visits60)} in {windowDays} days</span>
             </>
           ),
         },
@@ -1165,6 +1167,7 @@ export default function GuestInsightsPage() {
             loyalty={summary.loyalty}
             onOpen={openGuest}
             contactsHidden={!canSeeContacts}
+            windowDays={summary.rules?.regularWindowDays}
           />
 
           {listReady && list.total > list.items.length && (

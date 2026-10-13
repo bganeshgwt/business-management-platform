@@ -6,7 +6,8 @@
 // follow the restaurant's own kitchen timers (Kitchen display → Stations).
 const { stillInKitchenSql } = require("../../modules/restaurant/kitchen/repositories/kitchen.repository");
 
-// Food waiting at the pass this long is going cold. Matches the board.
+// Food waiting at the pass this long is going cold, unless the restaurant
+// set its own beside the kitchen timers. Matches the board.
 const PASS_MINUTES = 8;
 
 // Past the late mark by this much, a ticket stops being a warning.
@@ -82,10 +83,11 @@ module.exports = {
   collect: async ({ restaurantId, now, pool }) => {
     try {
       const settings = await pool.query(
-        "SELECT late_minutes FROM kitchen_settings WHERE restaurant_id = $1",
+        "SELECT late_minutes, pass_minutes FROM kitchen_settings WHERE restaurant_id = $1",
         [restaurantId]
       );
       const lateMinutes = settings.rows[0] ? settings.rows[0].late_minutes : 20;
+      const passMinutes = settings.rows[0] ? settings.rows[0].pass_minutes : PASS_MINUTES;
       const criticalMinutes = lateMinutes + CRITICAL_AFTER_LATE;
       const at = now.toISOString();
 
@@ -112,7 +114,7 @@ module.exports = {
             ${STILL_IN_KITCHEN}
               AND k.kot_status = 'ready'
               AND k.ready_at <= $2::timestamptz - make_interval(mins => $3)`),
-          [restaurantId, at, PASS_MINUTES]
+          [restaurantId, at, passMinutes]
         ),
       ]);
 
@@ -176,7 +178,7 @@ module.exports = {
           detail: `Ready ${waiting} min ago · ${row.station_name} · pick it up before it goes cold`,
           link: `/kitchen?station=${row.station_id}`,
           category: "Kitchen",
-          at: new Date(new Date(row.ready_at).getTime() + PASS_MINUTES * 60000).toISOString(),
+          at: new Date(new Date(row.ready_at).getTime() + passMinutes * 60000).toISOString(),
         });
       }
 
@@ -190,10 +192,10 @@ module.exports = {
           members: members(pass.rows),
           severity: "warning",
           title: `${plural(passRest, "more plate", "more plates")} waiting at the pass`,
-          detail: `Ready for over ${PASS_MINUTES} min and not yet served`,
+          detail: `Ready for over ${passMinutes} min and not yet served`,
           link: "/kitchen",
           category: "Kitchen",
-          at: new Date(new Date(next.ready_at).getTime() + PASS_MINUTES * 60000).toISOString(),
+          at: new Date(new Date(next.ready_at).getTime() + passMinutes * 60000).toISOString(),
         });
       }
 

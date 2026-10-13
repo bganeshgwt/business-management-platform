@@ -11,7 +11,8 @@ import { dateShort } from "../../../../services/format";
 import { BusinessHeader, Field } from "../../core/pages/ui";
 import { DocumentDetail } from "../../core/pages/DocumentsPage";
 import { newKey, quantity as qtyText, useDirtyGuard, useOpenBusiness } from "../../core/pages/hooks";
-import { methodWord, printReceipt } from "./retail";
+import { methodWord, paymentWord, printReceipt } from "./retail";
+import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import { CustomerBox, PayBar, PhoneLines, ReturnFinder, VariantPicker } from "./counterParts";
 import { BillerButton, BillerDialog, FinanceFields, PaymentParts } from "./counterPay";
 import { emptyFinance, financeBody, financeReady, newPart, partsBody, partsSummary, takeCarry, writeCarry } from "./counterPayState";
@@ -44,7 +45,8 @@ import CounterWeightTools from "../../weight/pages/CounterWeightTools";
 // A school set's code (bookshops) adds the whole booklist.
 
 // Weigh buttons in grams, put into the line's unit: 250 g is 0.25 on a kg
-// line and 250 on a g line.
+// line and 250 on a g line. The business sets its own (Business settings ›
+// Rules); these are the defaults.
 const WEIGHT_STEPS = [250, 500, 1000, 2000];
 const kgPerUnit = (sku) => Number(sku?.factor_to_base || 1);
 const trim = (n) => String(Number(n.toFixed(3)));
@@ -89,6 +91,10 @@ export default function CounterPage() {
   const [quote, setQuote] = useState(null);
   const [quoteError, setQuoteError] = useState(null);
   const [method, setMethod] = useState("cash");
+  // The business's own methods (PhonePe, Sodexo…): which one of a kind the
+  // cash / UPI / card button takes, when the kind has several.
+  const methods = usePaymentMethods();
+  const [methodKeys, setMethodKeys] = useState({});
   const [received, setReceived] = useState("");
   const [partPaid, setPartPaid] = useState("");
   const [parts, setParts] = useState(() => [newPart("cash"), newPart("upi")]);
@@ -326,12 +332,13 @@ export default function CounterPage() {
   // What is taken now, as the server takes it (one payment, several, or an EMI).
   function payBody() {
     if (!canPay) return {};
-    if (emi) return financeBody(finance);
-    if (split) return partsBody(parts).length ? { payments: partsBody(parts) } : {};
-    if (udhaar) return paidNow > 0 ? { payment: { amount: paidNow.toFixed(2), method: "cash" } } : {};
+    const by = (kind) => methods.body(methodKeys[kind] || kind, [kind]);
+    if (emi) return financeBody(finance, methods);
+    if (split) return partsBody(parts).length ? { payments: partsBody(parts, methods) } : {};
+    if (udhaar) return paidNow > 0 ? { payment: { amount: paidNow.toFixed(2), ...by("cash") } } : {};
     if (toPay <= 0) return {};
-    if (method === "cash") return { payments: [{ method: "cash", amount: "full", ...(Number(received) > toPay ? { tendered: Number(received).toFixed(2) } : {}) }] };
-    return { payment: { amount: "full", method } };
+    if (method === "cash") return { payments: [{ ...by("cash"), amount: "full", ...(Number(received) > toPay ? { tendered: Number(received).toFixed(2) } : {}) }] };
+    return { payment: { amount: "full", ...by(method) } };
   }
   async function post(pin = null) {
     if (!ready) return;
@@ -457,7 +464,7 @@ export default function CounterPage() {
           </span>
           {!l.scale && (
             <span className="rt-steps">
-              {WEIGHT_STEPS.map((g) => <button key={g} type="button" className="chip-button" onClick={() => setLine(l.key, { quantity: stepQuantity(l, g) })}>{g < 1000 ? `${g} g` : `${g / 1000} kg`}</button>)}
+              {(biz.settings.weight_buttons_grams?.length ? biz.settings.weight_buttons_grams : WEIGHT_STEPS).map((g) => <button key={g} type="button" className="chip-button" onClick={() => setLine(l.key, { quantity: stepQuantity(l, g) })}>{g < 1000 ? `${g} g` : `${g / 1000} kg`}</button>)}
               <input className="rt-worth" aria-label={`Amount worth of ${l.sku.label}`} type="number" inputMode="decimal" min="1" placeholder={`${biz.symbol} worth`}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); worth(l, e.currentTarget.value); } }} onBlur={(e) => worth(l, e.currentTarget.value)} />
             </span>
@@ -499,9 +506,9 @@ export default function CounterPage() {
         <SectionCard icon="check" tone="success" title={`Bill ${posted.doc.document_no} saved`}>
           <div className="rt-done">
             <div><span className="muted">Total</span><strong>{biz.exact(posted.doc.total)}</strong></div>
-            <div><span className="muted">Paid</span><strong>{biz.exact(paid)}{posted.doc.payments.length === 1 ? ` · ${methodWord(posted.doc.payments[0].method)}` : ""}</strong></div>
+            <div><span className="muted">Paid</span><strong>{biz.exact(paid)}{posted.doc.payments.length === 1 ? ` · ${paymentWord(posted.doc.payments[0])}` : ""}</strong></div>
             {posted.doc.payments.length > 1 && posted.doc.payments.map((p) => (
-              <div key={p.id} className="rt-done-part"><span className="muted">{p.method === "finance" ? `EMI · ${posted.doc.finance?.[0]?.financier_name || "financier"}` : methodWord(p.method)}</span><strong>{biz.exact(p.amount)}</strong></div>
+              <div key={p.id} className="rt-done-part"><span className="muted">{p.method === "finance" ? `EMI · ${posted.doc.finance?.[0]?.financier_name || "financier"}` : paymentWord(p)}</span><strong>{biz.exact(p.amount)}</strong></div>
             ))}
             {posted.doc.finance?.map((f) => <div key={f.id}><span className="muted">EMI loan</span><strong>{f.financier_name} · {f.loan_no}{f.do_no ? ` · DO ${f.do_no}` : ""}</strong></div>)}
             {posted.change > 0 && <div className="rt-change"><span>Give back</span><strong>{biz.exact(posted.change)}</strong></div>}
@@ -612,12 +619,24 @@ export default function CounterPage() {
             {problem && <ErrorMessage message={problem} />}
             {waiting.length > 0 && <p className="small rt-warn">Enter the weight of {waiting.map((l) => l.sku.label).join(", ")}.</p>}
             <div className="segmented rt-tender rt-tender-grid" role="group" aria-label="Paid by">
-              {[...TENDERS, ...(canEmi ? [["emi", ""]] : [])].map(([m, key]) => (
-                <button key={m} type="button" className={`segment ${method === m ? "is-active" : ""}`} aria-pressed={method === m}
-                  disabled={m === "udhaar" && !customer} title={m === "udhaar" && !customer ? "Choose the customer first" : m === "split" ? `Several payments: cash, UPI, card${customer ? ", the rest on udhaar" : ""} (${key})` : m === "emi" ? "EMI / finance through a financier" : `${TENDER_WORDS[m] || methodWord(m)} (${key})`}
-                  onClick={() => setMethod(m)}>{TENDER_WORDS[m] || methodWord(m)} {key && <kbd>{key}</kbd>}</button>
-              ))}
+              {[...TENDERS, ...(canEmi ? [["emi", ""]] : [])].map(([m, key]) => {
+                // A kind the business has switched every method of off is not offered.
+                const off = !TENDER_WORDS[m] && methods.ready && !methods.has(m);
+                const word = TENDER_WORDS[m] || methods.label(m);
+                return (
+                  <button key={m} type="button" className={`segment ${method === m ? "is-active" : ""}`} aria-pressed={method === m}
+                    disabled={(m === "udhaar" && !customer) || off} title={m === "udhaar" && !customer ? "Choose the customer first" : off ? `No ${methodWord(m)} method is switched on (Settings › Payment methods)` : m === "split" ? `Several payments: cash, UPI, card${customer ? ", the rest on udhaar" : ""} (${key})` : m === "emi" ? "EMI / finance through a financier" : `${word} (${key})`}
+                    onClick={() => setMethod(m)}>{word} {key && <kbd>{key}</kbd>}</button>
+                );
+              })}
             </div>
+            {["cash", "upi", "card"].includes(method) && methods.options([method]).length > 1 && (
+              <Field label={`Which ${methodWord(method) === "UPI" ? "UPI" : methodWord(method).toLowerCase()}`}>
+                <select value={methods.resolve(methodKeys[method] || method, [method])} onChange={(e) => setMethodKeys((k) => ({ ...k, [method]: e.target.value }))}>
+                  {methods.options([method]).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}
+                </select>
+              </Field>
+            )}
             <form className="stack rt-pay-form" onSubmit={(e) => { e.preventDefault(); post(); }}>
               {method === "cash" && canPay && (
                 <>
@@ -654,7 +673,7 @@ export default function CounterPage() {
                 {posting ? "Saving…" : udhaar ? `Put ${biz.exact(onCredit)} on udhaar` : toPay <= 0 && fromVoucher > 0 ? "Pay with the voucher"
                   : split ? `Take ${biz.exact(splitSum.paid)}${onCredit > 0.004 ? ` · ${biz.exact(onCredit)} on udhaar` : ""}`
                   : emi ? `Take ${biz.exact(downSum.paid)} · ${biz.exact(Math.max(0, toPay - downSum.paid))} on EMI`
-                  : `Take ${biz.exact(toPay)}${method !== "cash" ? ` by ${methodWord(method)}` : ""}`} <kbd>F12</kbd>
+                  : `Take ${biz.exact(toPay)}${method !== "cash" ? ` by ${methods.name(methodKeys[method] || method, [method])}` : ""}`} <kbd>F12</kbd>
               </button>
             </form>
           </SectionCard>

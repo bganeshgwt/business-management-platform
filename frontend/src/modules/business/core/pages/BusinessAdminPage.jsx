@@ -7,7 +7,8 @@ import SectionCard from "../../../../components/SectionCard";
 import Icon from "../../../../components/Icon";
 import { ErrorMessage, ScreenLoading } from "../../../../components/Feedback";
 import { getErrorMessage } from "../../../../services/api";
-import { businessRead, linkRestaurant, provisionBusinesses } from "../../../../services/business.service";
+import { businessRead, createBusiness, linkRestaurant, provisionBusinesses } from "../../../../services/business.service";
+import { AddBusinessDialog } from "./NewBusinessForm";
 import { moneyShort } from "../../../../services/format";
 import { businessPath, TYPE_ICONS } from "../../../../services/businessNav";
 import "../styles/business-admin.css";
@@ -22,6 +23,7 @@ export default function BusinessAdminPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [q, setQ] = useState("");
+  const [adding, setAdding] = useState(false);
 
   if (!directory && !directoryError) {
     return <ScreenLoading label="Loading your businesses…" />;
@@ -51,6 +53,9 @@ export default function BusinessAdminPage() {
     }
   };
   const linked = businesses.some((b) => b.is_signed_in_restaurant);
+  // Owners (and a restaurant's admin) may start another business of their own.
+  const canAdd = businesses.some((b) => b.full_access && !b.is_demo) || user.roles.includes("RESTAURANT_ADMIN");
+  const types = Object.entries(directory?.types || {}).map(([code, t]) => ({ code, name: t.name }));
   const term = q.trim().toLowerCase();
   const shown = term ? businesses.filter((b) => `${b.name} ${b.type_name} ${b.role_name}`.toLowerCase().includes(term)) : businesses;
 
@@ -76,6 +81,7 @@ export default function BusinessAdminPage() {
           </div>
         )}
         <div className="form-actions bz-start">
+          {canAdd && <button type="button" className="button" onClick={() => setAdding(true)}>Add a business</button>}
           {user.roles.includes("RESTAURANT_ADMIN") && !linked && (
             <button type="button" className="button button-secondary" disabled={busy} onClick={() => run(linkRestaurant)}>Link my restaurant</button>
           )}
@@ -91,6 +97,8 @@ export default function BusinessAdminPage() {
           </p>
         )}
       </SectionCard>
+      {adding && <AddBusinessDialog types={types} onClose={() => setAdding(false)} submit={createBusiness}
+        onSaved={async (business) => { setAdding(false); await reloadDirectory(); switchTo(business); }} />}
     </div>
   );
 }
@@ -114,7 +122,8 @@ function BusinessCard({ business, onOpen }) {
     businessRead(business.id, "summary", undefined, controller.signal).then(setSummary).catch(() => {});
     return () => controller.abort();
   }, [business.id, restaurant]);
-  const [name, owner] = splitName(business.name);
+  // Only a demo's name carries its owner after " — "; a real name is shown whole.
+  const [name, owner] = business.is_demo ? splitName(business.name) : [business.name, ""];
   const alerts = summary ? ["low_stock", "expiring_soon", "promises_broken", "repairs_ready", "orders_to_dispatch"].reduce((n, key) => n + Number(summary[key] || 0), 0) : 0;
   const figures = summary ? [
     "sales_today" in summary && `Today ${moneyShort(summary.sales_today)}`,

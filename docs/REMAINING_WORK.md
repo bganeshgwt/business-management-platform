@@ -43,8 +43,8 @@ out-of-range reading, and a "Diwali preparation 2026" project. The demo story fo
 "Demo tidy-up: stale order"; 3 unpaid bills worth ₹1,922 carried as dues), and today's day is open
 with live orders.
 
-To refresh "today" before a demo, run in `backend`: `npm run seed:realistic -- --user-id 2` and
-`npm run demo:tidy-restaurant -- --user-id 2` (takes seconds; history is not duplicated).
+To refresh "today" before a demo, run in `backend`: `npm run demo:today -- --user-id 2`
+(all realistic businesses and their branches, then the restaurant; about a minute; nothing is posted twice).
 
 **Things to know about the demo data**
 - The activity log, warranty start dates and sold packages show the load date (8 Oct). The
@@ -86,6 +86,42 @@ a brief restaurant header while a shop opens; two PIN entries when switching and
 are both on; some wide tables scroll inside their grid on desktop (by design).
 
 ---
+
+## Multi-location for every business type (12 Oct)
+
+Shops, pharmacies, salons and every other business type now work with several
+locations the way the restaurant's outlets do: each location's own address,
+phone and GSTIN on its bills (and its own state as the place of supply), staff
+tied to one location (they bill, stock and report there only), a location picker
+in the top bar, transfers received by the destination, a **Locations compared**
+report, and a pharmacy branch's own drug licences. Database change
+`1791630000000_business-multi-location` is on your database (verified backup
+taken just before: `backend/.local/backups/2026-10-12T10-41-01-118Z-0ee8f1`).
+Customers' balances stay business-wide by design.
+
+## No more hard-coded business rules (12 Oct)
+
+- **Real onboarding.** Platform › Businesses creates a business of any type
+  (except restaurant) with its owner's login; an owner can add another business
+  of their own; Staff & access makes staff logins and resets their passwords.
+  Currency and time zone are editable in Business settings. No demo data needed.
+- **Payment methods** are the owner's (Settings › Payment methods): rename, add
+  (PhonePe, Paytm, Sodexo…), switch off; each is cash, UPI, card, bank or cheque
+  underneath, and bills and the day close show the name.
+- **Business settings › Rules**: expiring-soon days, voucher validity, customer
+  credit age groups, quick weight buttons, receipt paper, day cut-off.
+- **Restaurant settings › Alerts and timings**: theft alert levels, kitchen pass
+  time, delivery and reservation timings, time-clock limits, guest segments,
+  reorder planning and the cash-count notes.
+- **No demo names** in import templates or the public booking page; the
+  restaurant starts with today's GST slabs (0, 5, 18, 40 %).
+- Database changes `1791640000000`–`1791640002000` are on your database
+  (verified backup just before: `backend/.local/backups/2026-10-12T11-36-25-316Z-1e9450`).
+
+Still fixed on purpose: GST, GSTIN and state-code rules, the permission list,
+PIN lockout (security), split payment up to 8 parts, label-sheet sizes, reason
+lists that drive reports (wastage, claims, debit notes, cancellations), and the
+stock-age groups of fashion and electronics reports.
 
 ## What you need to do
 

@@ -48,10 +48,12 @@ const STATUSES = [
 const URL_DEFAULTS = { tab: "book", status: "active", sort: "lastVisit", from: "0" };
 
 // Quick views, worked out by the server (GET /crm/guest-book?view=…). Top
-// spenders also sorts by spend.
-const VIEWS = [
+// spenders also sorts by spend. "Lapsed" is the restaurant's own number of
+// days (Settings -> Alerts and timings, the one Guest insights uses too),
+// which the guest book answers with.
+const viewsFor = (lapsedDays) => [
   { value: "occasion", label: "Occasion this week", icon: "gift", hint: "A birthday or anniversary in the next 7 days" },
-  { value: "lapsed", label: "Lapsed 60+ days", icon: "clock", hint: "Came before, but not in the last 60 days" },
+  { value: "lapsed", label: `Lapsed ${lapsedDays}+ days`, icon: "clock", hint: `Came before, but not in the last ${lapsedDays} days` },
   { value: "top", label: "Top spenders", icon: "star", hint: "Everyone who has spent, biggest first", sort: "spend" },
 ];
 
@@ -268,6 +270,7 @@ export default function CustomersPage() {
   };
 
   const counts = book ? book.counts : null;
+  const lapsedDays = book?.lapsedDays ?? 45;
   const items = book ? book.items : [];
   const hidden = items.some((row) => row.contactHidden);
   const showReports = canSeePoints || canSeeSales;
@@ -674,7 +677,7 @@ export default function CustomersPage() {
                 view === "occasion"
                   ? "No birthdays or anniversaries in the next 7 days."
                   : view === "lapsed"
-                    ? "Nobody has lapsed: every guest came in the last 60 days."
+                    ? `Nobody has lapsed: every guest came in the last ${lapsedDays} days.`
                     : tag || optedIn || business || view
                       ? "No guest matches these filters."
                       : "No guests here yet."
@@ -718,7 +721,7 @@ export default function CustomersPage() {
                   <div className="field">
                     <span>Quick view</span>
                     <div className="segmented" role="radiogroup" aria-label="Quick view">
-                      {VIEWS.map((option) => (
+                      {viewsFor(lapsedDays).map((option) => (
                         <button
                           key={option.value}
                           type="button"

@@ -4,8 +4,8 @@
 // guest's own booking — never a table, another guest or a count of covers.
 //
 // How a time is offered. The day's opening hours (every service period, so a
-// lunch and a dinner are two lists) give the times, every half hour up to the
-// last seating. A time is free when the guests already expected in that
+// lunch and a dinner are two lists) give the times, every half hour (or the
+// step the restaurant set) up to the last seating. A time is free when the guests already expected in that
 // window — live bookings and requests still waiting for an answer — plus this
 // party fit inside the share of the room's seats the manager opened to online
 // guests. Requests count because the host may say yes to every one of them.
@@ -18,6 +18,7 @@ const reservationService = require("./reservation.service");
 const { logFor } = require("../../../../utils/audit");
 const { maskMobile } = require("../../../../utils/phone");
 const AppError = require("../../../../utils/AppError");
+const ruleSettings = require("../../setup/services/ruleSettings.service");
 
 const {
   localClock,
@@ -29,10 +30,8 @@ const {
   toMinutes,
   hhmm,
   WEEKDAYS,
-  LAST_SEATING_BEFORE_CLOSE,
 } = reservationService;
 
-const SLOT_MINUTES = 30;
 const LINK_PATTERN = /^[A-Za-z0-9_-]{16,64}$/;
 const GUEST_PATTERN = /^[A-Za-z0-9_-]{24,64}$/;
 const DUPLICATE = "23505";
@@ -80,7 +79,10 @@ const resolveLink = async (token) => {
     `${placeName(link)} is not taking bookings online at the moment. Please ${callUs(link)}.`
   );
 
-  return link;
+  // The step between the times offered and the last seating before closing
+  // are the restaurant's own (Settings -> Alerts and timings), the same last
+  // seating the host stand books to.
+  return { ...link, rules: await ruleSettings.load(link.restaurant_id) };
 };
 
 const requireOpen = (link) => {
@@ -181,9 +183,9 @@ const timesFor = async (link, hours, clock, date, partySize, db = pool) => {
   const starts = [];
 
   for (const period of periods) {
-    const last = Math.max(period.open, period.close - LAST_SEATING_BEFORE_CLOSE);
+    const last = Math.max(period.open, period.close - link.rules.reservationLastSeatingMinutes);
 
-    for (let minutes = period.open; minutes <= last; minutes += SLOT_MINUTES) {
+    for (let minutes = period.open; minutes <= last; minutes += link.rules.reservationSlotMinutes) {
       starts.push({ minutes, meal: mealName(minutes) });
     }
   }

@@ -16,7 +16,8 @@ import { BusinessHeader, Field } from "../../core/pages/ui";
 import { businessToday, newKey, quantity, useDirtyGuard, useOpenBusiness } from "../../core/pages/hooks";
 import useAuth from "../../../../hooks/useAuth";
 import { BillerButton, BillerDialog, PaymentParts } from "../../retail/pages/counterPay";
-import { newPart, partsBody, partsSummary, takeCarry, writeCarry } from "../../retail/pages/counterPayState";
+import { newPart, PART_KINDS, partsBody, partsSummary, takeCarry, writeCarry } from "../../retail/pages/counterPayState";
+import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import { ScheduleBadge, SignOff } from "./healthParts";
 import { RX_SCHEDULES, SIGNED_SCHEDULES, uploadPrescriptionFile, useSignatories } from "./healthFormat";
 import "../styles/health.css";
@@ -29,7 +30,6 @@ import "../styles/health.css";
 // Schedule X one also the registered pharmacist's PIN. H1 and X lines are
 // written to their registers with the bill.
 const emptyRx = { patientName: "", patientPhone: "", patientAge: "", patientAddress: "", doctorName: "", doctorRegNo: "", doctorAddress: "", prescribedOn: "" };
-const METHODS = [["cash", "Cash"], ["upi", "UPI"], ["card", "Card"], ["split", "Split"]];
 
 export default function PharmacyCounterPage() {
   const biz = useOpenBusiness();
@@ -47,7 +47,11 @@ export default function PharmacyCounterPage() {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [signoff, setSignoff] = useState({});
+  // A method key of the business's own methods (paymentMethods.js), or "split".
   const [method, setMethod] = useState("cash");
+  const methods = usePaymentMethods();
+  const payButtons = [...methods.options(PART_KINDS).map((m) => [m.key, m.name]), ["split", "Split"]];
+  const chosen = method === "split" ? "split" : methods.resolve(method, PART_KINDS);
   // One key per bill: a retry after a lost reply is the same bill.
   const [requestKey, setRequestKey] = useState(newKey);
   const [busy, setBusy] = useState(false);
@@ -100,11 +104,11 @@ export default function PharmacyCounterPage() {
   // The payment(s): one method for the whole bill, or a split whose last
   // part is "the rest of the bill" (the server works out the exact total).
   function payBody() {
-    if (method !== "split") return { payment: { amount: "full", method } };
+    if (method !== "split") return { payment: { amount: "full", ...methods.body(method, PART_KINDS) } };
     const given = parts.filter((p) => Number(p.amount) > 0);
     const last = parts[parts.length - 1];
-    const before = partsBody(given.filter((p) => p.key !== last.key));
-    return { payments: [...before, { method: last.method, amount: "full", ...(last.method !== "cash" && last.reference.trim() ? { reference: last.reference.trim() } : {}) }] };
+    const before = partsBody(given.filter((p) => p.key !== last.key), methods);
+    return { payments: [...before, { ...methods.body(last.methodKey || last.method, PART_KINDS), amount: "full", ...(last.method !== "cash" && last.reference.trim() ? { reference: last.reference.trim() } : {}) }] };
   }
   async function sell(event, pin = null) {
     event?.preventDefault();
@@ -229,7 +233,7 @@ export default function PharmacyCounterPage() {
         )}
         <div className="hl-paybar">
           <div className="segmented" role="group" aria-label="Paid by">
-            {METHODS.map(([value, label]) => <button key={value} type="button" className={`segment ${method === value ? "is-active" : ""}`} aria-pressed={method === value} onClick={() => setMethod(value)}>{label}</button>)}
+            {payButtons.map(([value, label]) => <button key={value} type="button" className={`segment ${chosen === value ? "is-active" : ""}`} aria-pressed={chosen === value} onClick={() => setMethod(value)}>{label}</button>)}
           </div>
           <button type="submit" className="button" disabled={busy || !lines.length || uploading || (method === "split" && partsSummary(parts).shortCash)}>{busy ? "Saving…" : "Save bill"}</button>
         </div>

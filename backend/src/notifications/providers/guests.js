@@ -7,13 +7,15 @@
 // that makes them matter.
 //
 // The rules (what makes a regular, a big spender, a sitting) are the Guest
-// insights screen's own, imported from its service, so the bell and the screen
-// can never disagree about who someone is.
+// insights screen's own: the restaurant's regular and big-spender lines
+// (Settings -> Alerts and timings, read through ruleSettings exactly as the
+// screen reads them) and the screen's sitting length, so the bell and the
+// screen can never disagree about who someone is.
 const guestInsightRepository = require("../../modules/restaurant/crm/repositories/guestInsight.repository");
 const guestInsightService = require("../../modules/restaurant/crm/services/guestInsight.service");
+const ruleSettings = require("../../modules/restaurant/setup/services/ruleSettings.service");
 
-const { REGULAR_VISITS, REGULAR_WINDOW_DAYS, BIG_SPENDER_SHARE, SEATED_WITHIN_HOURS } =
-  guestInsightService.rules;
+const { SEATED_WITHIN_HOURS } = guestInsightService.rules;
 
 // The top-spender line moves slowly — one bill cannot shift it much — but
 // working it out reads every guest's history. So it is worked out at most
@@ -28,15 +30,17 @@ const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`;
 // "T5" reads as a table; a bare "5" needs the word.
 const tableLabel = (tableNo) => (/^\d+$/.test(String(tableNo)) ? `table ${tableNo}` : String(tableNo));
 
-const bigSpenderThreshold = async (restaurantId, now) => {
+// share: the restaurant's top share (0.1 for the top 10%). A changed share is
+// worked out afresh rather than waiting out the cache.
+const bigSpenderThreshold = async (restaurantId, share, now) => {
   const cached = thresholdCache.get(restaurantId);
 
-  if (cached && now.getTime() - cached.at < THRESHOLD_TTL_MS) {
+  if (cached && cached.share === share && now.getTime() - cached.at < THRESHOLD_TTL_MS) {
     return cached.value;
   }
 
-  const value = await guestInsightRepository.findBigSpenderThreshold(restaurantId, BIG_SPENDER_SHARE);
-  thresholdCache.set(restaurantId, { value, at: now.getTime() });
+  const value = await guestInsightRepository.findBigSpenderThreshold(restaurantId, share);
+  thresholdCache.set(restaurantId, { value, share, at: now.getTime() });
 
   return value;
 };
@@ -85,7 +89,7 @@ module.exports = {
   resetCache: () => thresholdCache.clear(),
 };
 
-async function collectAlerts({ restaurantId, timezone, now, today, money }) {
+async function collectAlerts({ restaurantId, timezone, now, today, money, pool }) {
   const clock = now instanceof Date ? now : new Date();
   const zone = timezone || "Asia/Kolkata";
   const localToday = today || new Intl.DateTimeFormat("en-CA", { timeZone: zone }).format(clock);
@@ -94,10 +98,11 @@ async function collectAlerts({ restaurantId, timezone, now, today, money }) {
   // Both read a handful of rows: running orders (idx_orders_status) and the
   // guest book filtered to one calendar day.
   const dayKeys = guestInsightService.birthdayKeysFor(localToday);
-  const [seated, birthdays, anniversaries] = await Promise.all([
+  const [seated, birthdays, anniversaries, rules] = await Promise.all([
     guestInsightRepository.findSeatedGuests(restaurantId, SEATED_WITHIN_HOURS, clock),
     guestInsightRepository.findBirthdayGuests(restaurantId, dayKeys),
     guestInsightRepository.findAnniversaryGuests(restaurantId, dayKeys),
+    ruleSettings.load(restaurantId, pool),
   ]);
 
   if (seated.length === 0 && birthdays.length === 0 && anniversaries.length === 0) {
@@ -113,8 +118,8 @@ async function collectAlerts({ restaurantId, timezone, now, today, money }) {
   ];
 
   const [stats, threshold, favourites] = await Promise.all([
-    guestInsightRepository.findStatsForGuests(restaurantId, ids, zone, clock),
-    seated.length ? bigSpenderThreshold(restaurantId, clock) : null,
+    guestInsightRepository.findStatsForGuests(restaurantId, ids, zone, clock, rules.guestRegularDays),
+    seated.length ? bigSpenderThreshold(restaurantId, rules.guestBigSpenderPercent / 100, clock) : null,
     guestInsightRepository.findFavouriteDishes(
       restaurantId,
       [...new Set(seated.map((row) => row.customer_id))]
@@ -126,7 +131,7 @@ async function collectAlerts({ restaurantId, timezone, now, today, money }) {
   const birthdayToday = new Set(birthdays.map((row) => row.id));
   const anniversaryToday = new Map(anniversaries.map((row) => [row.id, row.anniversary_date]));
 
-  const isRegular = (stat) => Number(stat.visits_60) >= REGULAR_VISITS;
+  const isRegular = (stat) => Number(stat.visits_60) >= rules.guestRegularVisits;
   const isBigSpender = (stat) => threshold !== null && Number(stat.spend) > 0 && Number(stat.spend) >= threshold;
 
   const alerts = [];
@@ -169,9 +174,9 @@ async function collectAlerts({ restaurantId, timezone, now, today, money }) {
       title,
       detail: [
         regular
-          ? `${plural(Number(stat.visits_60), "visit", "visits")} in ${REGULAR_WINDOW_DAYS} days`
+          ? `${plural(Number(stat.visits_60), "visit", "visits")} in ${rules.guestRegularDays} days`
           : null,
-        big ? `top ${Math.round(BIG_SPENDER_SHARE * 100)}% by spend` : null,
+        big ? `top ${rules.guestBigSpenderPercent}% by spend` : null,
         `${format(stat.spend)} lifetime`,
         favourite ? `usually has ${favourite}` : null,
         // Still seated, but not for long: the moment for a goodbye.
@@ -201,7 +206,7 @@ async function collectAlerts({ restaurantId, timezone, now, today, money }) {
       severity: "info",
       title: `${stat.name}'s birthday today`,
       detail: [
-        `Regular · ${plural(Number(stat.visits_60), "visit", "visits")} in ${REGULAR_WINDOW_DAYS} days`,
+        `Regular · ${plural(Number(stat.visits_60), "visit", "visits")} in ${rules.guestRegularDays} days`,
         stat.mobile,
         "send a wish, or a dessert on the house if they come in",
       ]
@@ -244,7 +249,7 @@ async function collectAlerts({ restaurantId, timezone, now, today, money }) {
       severity: "info",
       title: `${stat.name}'s wedding anniversary today${years && years.years ? ` (${years.years} years)` : ""}`,
       detail: [
-        `Regular · ${plural(Number(stat.visits_60), "visit", "visits")} in ${REGULAR_WINDOW_DAYS} days`,
+        `Regular · ${plural(Number(stat.visits_60), "visit", "visits")} in ${rules.guestRegularDays} days`,
         stat.mobile,
         "send a wish, or offer them a table for two tonight",
       ]

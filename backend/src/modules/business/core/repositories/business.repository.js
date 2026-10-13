@@ -52,8 +52,11 @@ const list = async (userId, demos) => (await pool.query(`
 
 // Membership, role, permissions and enabled modules in one statement: what
 // the server checks on every business request.
+// member_location_id: the one location this person works at (NULL = all).
 const access = (id, userId) => one(pool, `SELECT b.*,t.name AS type_name,m.role_id,r.name AS role_name,r.full_access,
- ${capabilitiesSql} AS capabilities,
+ ${capabilitiesSql} AS capabilities,m.location_id AS member_location_id,
+ (SELECT name FROM business_locations WHERE business_id=b.id AND id=m.location_id) AS member_location_name,
+ COALESCE((SELECT json_agg(id ORDER BY id) FROM business_locations WHERE business_id=b.id AND active),'[]') AS active_location_ids,
  CASE WHEN r.full_access THEN (SELECT json_agg(code ORDER BY code) FROM business_permissions)
   ELSE COALESCE((SELECT json_agg(permission_code ORDER BY permission_code) FROM business_role_permissions
    WHERE business_id=r.business_id AND role_id=r.id),'[]') END AS permissions
@@ -97,9 +100,11 @@ const documentTotalsSql = `COALESCE((SELECT SUM(amount) FROM business_payments p
 // in, the timestamp its date range applies to, the filters it accepts and its
 // order. Values are always bound parameters.
 const lists = {
-  members: { sql: `SELECT m.user_id AS id,m.role_id,r.name AS role_name,r.full_access,m.active,m.last_opened_at,m.created_at,u.name,u.email
-    FROM business_memberships m JOIN users u ON u.id=m.user_id JOIN business_roles r ON r.business_id=m.business_id AND r.id=m.role_id WHERE m.business_id=$1`,
-  search: ['name', 'email', 'role_name'], filters: { role: 'role_id' }, order: 'full_access DESC,name' },
+  members: { sql: `SELECT m.user_id AS id,m.role_id,r.name AS role_name,r.full_access,m.active,m.last_opened_at,m.created_at,u.name,u.email,
+    m.location_id,l.name AS location_name
+    FROM business_memberships m JOIN users u ON u.id=m.user_id JOIN business_roles r ON r.business_id=m.business_id AND r.id=m.role_id
+    LEFT JOIN business_locations l ON l.business_id=m.business_id AND l.id=m.location_id WHERE m.business_id=$1`,
+  search: ['name', 'email', 'role_name', 'location_name'], filters: { role: 'role_id', location: 'location_id' }, order: 'full_access DESC,name' },
   roles: { sql: `SELECT r.*,(SELECT count(*)::int FROM business_memberships m WHERE m.business_id=r.business_id AND m.role_id=r.id AND m.active) AS member_count,
     CASE WHEN r.full_access THEN (SELECT count(*)::int FROM business_permissions) ELSE (SELECT count(*)::int FROM business_role_permissions p WHERE p.business_id=r.business_id AND p.role_id=r.id) END AS permission_count,
     CASE WHEN r.full_access THEN (SELECT json_agg(code) FROM business_permissions) ELSE COALESCE((SELECT json_agg(permission_code) FROM business_role_permissions p WHERE p.business_id=r.business_id AND p.role_id=r.id),'[]') END AS permissions
@@ -142,11 +147,13 @@ const lists = {
   resources: { sql: 'SELECT r.*,l.name AS location_name FROM business_resources r JOIN business_locations l ON l.business_id=r.business_id AND l.id=r.location_id WHERE r.business_id=$1',
     search: ['name', 'role_label', 'location_name'], order: 'id DESC' },
   // Pro pass D-12/D-13: the item's biggest pack (to show cases), and filters
-  // for batches with stock and batches expiring within 90 days.
+  // for batches with stock and batches expiring soon (the business's
+  // near_expiry_days, Business settings › Rules).
   stock: { sql: `SELECT l.*,s.label,s.code,s.unit,s.reorder_level,s.tracking,loc.name AS location_name,
     (l.expires_on IS NOT NULL AND l.expires_on < (now() AT TIME ZONE b.timezone)::date) AS expired,
     (l.quantity > 0) AS in_stock,
-    (l.quantity > 0 AND l.expires_on IS NOT NULL AND l.expires_on <= (now() AT TIME ZONE b.timezone)::date + 90) AS expiring,
+    (l.quantity > 0 AND l.expires_on IS NOT NULL AND l.expires_on <= (now() AT TIME ZONE b.timezone)::date
+      + COALESCE((SELECT near_expiry_days FROM business_settings bs WHERE bs.business_id=l.business_id),30)) AS expiring,
     (SELECT u.unit_code FROM catalog_sku_units u WHERE u.business_id=s.business_id AND u.sku_id=s.id AND u.active ORDER BY u.quantity_in_base DESC LIMIT 1) AS pack_unit,
     (SELECT u.quantity_in_base FROM catalog_sku_units u WHERE u.business_id=s.business_id AND u.sku_id=s.id AND u.active ORDER BY u.quantity_in_base DESC LIMIT 1) AS pack_factor
     FROM business_stock_lots l JOIN businesses b ON b.id=l.business_id
@@ -205,7 +212,7 @@ const lists = {
     (SELECT count(*)::int FROM business_stock_count_lines x WHERE x.business_id=c.business_id AND x.count_id=c.id AND x.counted_quantity IS NOT NULL) AS counted_count,
     (SELECT count(*)::int FROM business_stock_count_lines x WHERE x.business_id=c.business_id AND x.count_id=c.id AND x.adjustment_id IS NOT NULL) AS corrected_count
     FROM business_stock_counts c JOIN business_locations l ON l.business_id=c.business_id AND l.id=c.location_id WHERE c.business_id=$1`,
-  search: ['count_no', 'location_name', 'notes'], date: 'created_at', filters: { status: 'status' }, order: 'id DESC' },
+  search: ['count_no', 'location_name', 'notes'], date: 'created_at', filters: { status: 'status', location: 'location_id' }, order: 'id DESC' },
   appointments: { sql: `SELECT a.*,r.name AS resource_name,c.name AS contact_name,s.label AS service_name
     FROM business_appointments a JOIN business_resources r ON r.business_id=a.business_id AND r.id=a.resource_id
     JOIN business_contacts c ON c.business_id=a.business_id AND c.id=a.contact_id
@@ -252,15 +259,17 @@ function addLists(extra) {
 const listFilters = (kind) => Object.keys(lists[kind]?.filters || {});
 const hasDate = (kind) => Boolean(lists[kind]?.date);
 
-async function summary(businessId) {
+// locationId: a branch (tied staff, or picked in the top bar) narrows the
+// sales, stock and day figures; customers' balances stay business-wide.
+async function summary(businessId, locationId = null) {
   return one(pool, `WITH tz AS (SELECT timezone, (now() AT TIME ZONE timezone)::date AS today FROM businesses WHERE id=$1),
    sales_events AS (
      SELECT (d.created_at AT TIME ZONE tz.timezone)::date AS day, tz.today, d.total AS amount FROM business_documents d, tz
-     WHERE d.business_id=$1 AND d.kind='sale' AND d.created_at >= date_trunc('month', now()) - interval '2 days'
+     WHERE d.business_id=$1 AND d.kind='sale' AND d.created_at >= date_trunc('month', now()) - interval '2 days' AND ($2::bigint IS NULL OR d.location_id=$2)
      UNION ALL
      SELECT (r.created_at AT TIME ZONE tz.timezone)::date, tz.today, -r.total FROM business_returns r
      JOIN business_documents d ON d.business_id=r.business_id AND d.id=r.document_id CROSS JOIN tz
-     WHERE r.business_id=$1 AND d.kind='sale' AND r.created_at >= date_trunc('month', now()) - interval '2 days'),
+     WHERE r.business_id=$1 AND d.kind='sale' AND r.created_at >= date_trunc('month', now()) - interval '2 days' AND ($2::bigint IS NULL OR d.location_id=$2)),
    -- Every customer's balance as Udhaar / Outstanding shows it: opening
    -- balance and bills, less what was paid and their advances.
    balances AS (SELECT ${contactBalanceSql('c')} AS balance FROM business_contacts c WHERE c.business_id=$1 AND c.kind='customer')
@@ -268,22 +277,27 @@ async function summary(businessId) {
    (SELECT count(*)::int FROM catalog_skus WHERE business_id=$1 AND active) AS skus,
    (SELECT count(*)::int FROM business_contacts WHERE business_id=$1 AND active) AS contacts,
    (SELECT count(*)::int FROM business_locations WHERE business_id=$1 AND active) AS locations,
-   (SELECT count(*)::int FROM business_appointments a JOIN businesses b ON b.id=a.business_id WHERE a.business_id=$1 AND a.status='booked'
-     AND (a.starts_at AT TIME ZONE b.timezone)::date = (now() AT TIME ZONE b.timezone)::date) AS appointments_today,
-   (SELECT count(*)::int FROM business_appointments WHERE business_id=$1 AND status='booked' AND starts_at>=now()) AS appointments_upcoming,
-   (SELECT count(*)::int FROM business_stock_transfers WHERE business_id=$1 AND status='in_transit') AS transfers_in_transit,
-   (SELECT count(*)::int FROM business_stock_counts WHERE business_id=$1 AND status='open') AS counts_open,
+   (SELECT count(*)::int FROM business_appointments a JOIN businesses b ON b.id=a.business_id
+     JOIN business_resources res ON res.business_id=a.business_id AND res.id=a.resource_id WHERE a.business_id=$1 AND a.status='booked'
+     AND (a.starts_at AT TIME ZONE b.timezone)::date = (now() AT TIME ZONE b.timezone)::date AND ($2::bigint IS NULL OR res.location_id=$2)) AS appointments_today,
+   (SELECT count(*)::int FROM business_appointments a JOIN business_resources res ON res.business_id=a.business_id AND res.id=a.resource_id
+     WHERE a.business_id=$1 AND a.status='booked' AND a.starts_at>=now() AND ($2::bigint IS NULL OR res.location_id=$2)) AS appointments_upcoming,
+   (SELECT count(*)::int FROM business_stock_transfers WHERE business_id=$1 AND status='in_transit'
+     AND ($2::bigint IS NULL OR from_location_id=$2 OR to_location_id=$2)) AS transfers_in_transit,
+   (SELECT count(*)::int FROM business_stock_counts WHERE business_id=$1 AND status='open' AND ($2::bigint IS NULL OR location_id=$2)) AS counts_open,
    (SELECT count(*)::int FROM (SELECT s.id FROM catalog_skus s JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id
      WHERE s.business_id=$1 AND s.active AND p.kind='goods' AND s.reorder_level>0
-     AND COALESCE((SELECT sum(quantity) FROM business_stock_lots l WHERE l.business_id=s.business_id AND l.sku_id=s.id),0) <= s.reorder_level) low) AS low_stock,
-   (SELECT count(*)::int FROM business_stock_lots l JOIN businesses b ON b.id=l.business_id WHERE l.business_id=$1 AND l.quantity>0
-     AND l.expires_on IS NOT NULL AND l.expires_on <= (now() AT TIME ZONE b.timezone)::date + 30) AS expiring_soon,
+     AND COALESCE((SELECT sum(quantity) FROM business_stock_lots l WHERE l.business_id=s.business_id AND l.sku_id=s.id AND ($2::bigint IS NULL OR l.location_id=$2)),0) <= s.reorder_level) low) AS low_stock,
+   (SELECT count(*)::int FROM business_stock_lots l JOIN businesses b ON b.id=l.business_id WHERE l.business_id=$1 AND l.quantity>0 AND ($2::bigint IS NULL OR l.location_id=$2)
+     AND l.expires_on IS NOT NULL AND l.expires_on <= (now() AT TIME ZONE b.timezone)::date
+       + COALESCE((SELECT near_expiry_days FROM business_settings WHERE business_id=$1),30)) AS expiring_soon,
    -- Net of returns, each on its own posting date (as Reports count them):
    -- an even exchange adds nothing, a return today lowers today's sales.
    (SELECT COALESCE(sum(amount) FILTER (WHERE day = today),0) FROM sales_events) AS sales_today,
    (SELECT COALESCE(sum(amount) FILTER (WHERE date_trunc('month', day) = date_trunc('month', today)),0) FROM sales_events) AS sales_month,
-   COALESCE((SELECT sum(total) FROM business_documents WHERE business_id=$1 AND kind='sale'),0)
-   -COALESCE((SELECT sum(r.total) FROM business_returns r JOIN business_documents d ON d.business_id=r.business_id AND d.id=r.document_id WHERE r.business_id=$1 AND d.kind='sale'),0) AS sales,
+   COALESCE((SELECT sum(total) FROM business_documents WHERE business_id=$1 AND kind='sale' AND ($2::bigint IS NULL OR location_id=$2)),0)
+   -COALESCE((SELECT sum(r.total) FROM business_returns r JOIN business_documents d ON d.business_id=r.business_id AND d.id=r.document_id WHERE r.business_id=$1 AND d.kind='sale'
+     AND ($2::bigint IS NULL OR d.location_id=$2)),0) AS sales,
    (SELECT COALESCE(sum(balance) FILTER (WHERE balance>0),0) FROM balances) AS receivables_owed,
    (SELECT COALESCE(-sum(balance) FILTER (WHERE balance<0),0) FROM balances) AS receivables_advances,
    (SELECT COALESCE(sum(balance),0) FROM balances) AS receivables,
@@ -297,6 +311,6 @@ async function summary(businessId) {
    -COALESCE((SELECT sum(total) FROM business_returns r WHERE r.business_id=d.business_id AND r.document_id=d.id),0)
    -COALESCE((SELECT sum(amount) FROM business_payments p WHERE p.business_id=d.business_id AND p.document_id=d.id),0)
    +COALESCE((SELECT sum(amount) FROM business_refunds r WHERE r.business_id=d.business_id AND r.document_id=d.id),0)))
-   FROM business_documents d WHERE d.business_id=$1 AND kind='purchase'),0) AS payables`, [businessId]);
+   FROM business_documents d WHERE d.business_id=$1 AND kind='purchase'),0) AS payables`, [businessId, locationId]);
 }
 module.exports = { pool, transaction, one, all, audit, event, platformCatalogue, list, access, markOpened, page, listFilters, hasDate, summary, contactBalanceSql, addLists };

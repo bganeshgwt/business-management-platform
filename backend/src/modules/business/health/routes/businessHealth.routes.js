@@ -38,6 +38,8 @@ module.exports = function healthRoutes(router, { context, send, b }) {
   // Settings and signatories (pharmacy and clinic alike).
   router.get(b('/health/settings'), context(['pharmacy.view', 'patients.view', 'lab.view', 'settings.view']), async (req, res) => send(res, await common.getSettings(req.business)));
   router.put(b('/health/settings'), context(['pharmacy.edit', 'settings.edit']), async (req, res) => send(res, await common.saveSettings(req.business, req.user, req.body)));
+  router.put(b('/health/location-licences/:locationId'), context(['pharmacy.edit', 'settings.edit']), async (req, res) =>
+    send(res, await common.saveLocationLicences(req.business, req.user, req.params.locationId, req.body)));
   router.get(b('/health/signatories'), context(['pharmacy.view', 'patients.view', 'lab.view', 'settings.view']), async (req, res) =>
     send(res, await common.signatories(req.business, req.query.kind ? v.requiredEnum(req.query.kind, 'Kind', ['pharmacist', 'doctor', 'pathologist']) : null)));
   router.post(b('/health/signatories'), context(['pharmacy.edit', 'settings.edit']), async (req, res) => send(res, await common.saveSignatory(req.business, req.user, req.body), 201));

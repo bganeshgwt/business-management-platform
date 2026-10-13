@@ -2,6 +2,7 @@ const bcrypt = require("bcrypt");
 const timeclockRepository = require("../repositories/timeclock.repository");
 const staffRepository = require("../repositories/staff.repository");
 const AppError = require("../../../../utils/AppError");
+const ruleSettings = require("../../setup/services/ruleSettings.service");
 
 const { pool } = timeclockRepository;
 
@@ -20,14 +21,18 @@ const PIN_ROUNDS = 10;
 // clock-in "on duty" into the next day.
 const STALE_HOURS = 16;
 
+// The two rules below are the restaurant's own (Settings -> Alerts and
+// timings, read per call); these are what it starts at. The PIN lockout above
+// stays fixed: it is a guard against guessing PINs, not a house rule.
+//
 // The clock opens an hour before someone's rostered start. Earlier than that
 // is paid time nobody agreed to; a manager can still add the punch when they
 // did ask someone to come in early.
-const EARLY_CLOCK_IN_MINUTES = 60;
+const EARLY_CLOCK_IN_MINUTES = ruleSettings.DEFAULTS.timeclockEarlyMinutes;
 
 // Five minutes wiping down the station after the shift is not overtime. Staying
 // a quarter of an hour or more past the end is, and then all of it counts.
-const OVERTIME_THRESHOLD_MINUTES = 15;
+const OVERTIME_THRESHOLD_MINUTES = ruleSettings.DEFAULTS.timeclockOvertimeMinutes;
 
 // Days that are looked back over for forgotten clock-outs.
 const OPEN_DAY_LOOKBACK = 7;
@@ -214,11 +219,12 @@ const shiftWindow = (workDate, roster, timezone) => {
 //              the same rule the attendance sheet uses, so the two agree
 //   overtime = time past the shift's end that is also genuinely extra hours:
 //              staying 40 minutes after arriving an hour late is not overtime,
-//              and nothing under 15 minutes past the end counts at all
+//              and nothing under 15 minutes past the end counts at all (the
+//              restaurant's overtime line, from `rules`)
 //
 // Punches out of order (a break with no clock-in) come back as `invalid`
 // rather than being guessed at.
-const summarise = (punches, window, now = new Date()) => {
+const summarise = (punches, window, now = new Date(), rules = ruleSettings.DEFAULTS) => {
   const sorted = [...punches].sort(
     (a, b) => new Date(a.punched_at) - new Date(b.punched_at) || Number(a.id || 0) - Number(b.id || 0)
   );
@@ -310,7 +316,7 @@ const summarise = (punches, window, now = new Date()) => {
 
     const pastEnd = checkOut ? minutesBetween(window.endsAt, checkOut) : 0;
 
-    if (pastEnd >= OVERTIME_THRESHOLD_MINUTES) {
+    if (pastEnd >= rules.timeclockOvertimeMinutes) {
       overtimeMinutes = Math.max(0, Math.min(pastEnd, workedMinutes - window.scheduledMinutes));
     }
   }
@@ -552,12 +558,13 @@ const workDateForClockIn = async (db, restaurantId, employeeId, now, timezone) =
 
 // Rebuilds the attendance row for one person's work date from its punches.
 const rebuildAttendance = async (client, restaurantId, employee, workDate, userId, now, timezone) => {
-  const [punches, roster] = await Promise.all([
+  const [punches, roster, rules] = await Promise.all([
     timeclockRepository.findDayPunches(client, restaurantId, employee.id, workDate),
     timeclockRepository.findRosterFor(client, restaurantId, employee.id, [workDate]),
+    ruleSettings.load(restaurantId, client),
   ]);
   const window = shiftWindow(workDate, roster[0], timezone);
-  const summary = summarise(punches, window, now);
+  const summary = summarise(punches, window, now, rules);
 
   if (summary.invalid) {
     const { punch, state } = summary.invalid;
@@ -780,7 +787,8 @@ const clockInOpensAt = async (db, restaurantId, employeeId, window, now) => {
     return null;
   }
 
-  const opensAt = new Date(window.startsAt.getTime() - EARLY_CLOCK_IN_MINUTES * 60000);
+  const { timeclockEarlyMinutes } = await ruleSettings.load(restaurantId, db);
+  const opensAt = new Date(window.startsAt.getTime() - timeclockEarlyMinutes * 60000);
 
   if (now >= opensAt) {
     return null;
@@ -1124,12 +1132,13 @@ const board = async (restaurantId, now = new Date()) => {
   const staleBefore = new Date(now.getTime() - STALE_HOURS * 3600000);
   const dates = [yesterday, today, tomorrow];
 
-  const [employees, roster, punches, openDays, settings] = await Promise.all([
+  const [employees, roster, punches, openDays, settings, rules] = await Promise.all([
     timeclockRepository.findActiveEmployees(restaurantId),
     timeclockRepository.findRosterForDates(restaurantId, dates),
     timeclockRepository.findPunchesForDates(restaurantId, dates),
     timeclockRepository.findOpenDays(restaurantId, staleBefore, addDays(today, -OPEN_DAY_LOOKBACK)),
     timeclockRepository.findSettings(restaurantId),
+    ruleSettings.load(restaurantId),
   ]);
 
   const rosterBy = new Map(roster.map((row) => [`${row.employee_id}|${row.work_date}`, row]));
@@ -1143,7 +1152,7 @@ const board = async (restaurantId, now = new Date()) => {
       dates.map((date) => {
         const rosterRow = rosterBy.get(`${employee.id}|${date}`);
         const window = shiftWindow(date, rosterRow, timezone);
-        const day = summarise(punchesBy.get(`${employee.id}|${date}`) || [], window, now);
+        const day = summarise(punchesBy.get(`${employee.id}|${date}`) || [], window, now, rules);
         return [date, { date, roster: rosterRow, window, day }];
       })
     );
@@ -1213,7 +1222,7 @@ const board = async (restaurantId, now = new Date()) => {
 
     if ((status === "on_duty" || status === "on_break") && window && now > window.endsAt) {
       const over = minutesBetween(window.endsAt, now);
-      pastEndMinutes = over >= OVERTIME_THRESHOLD_MINUTES ? over : null;
+      pastEndMinutes = over >= rules.timeclockOvertimeMinutes ? over : null;
     }
 
     const lastDayPunches = punchesBy.get(`${employee.id}|${focus.date}`) || [];
@@ -1339,11 +1348,12 @@ const day = async (restaurantId, requestedDate, now = new Date()) => {
   // ones first so it never offers a photo that has gone.
   await sweepOldPhotos(restaurantId);
 
-  const [employees, roster, attendance, punches] = await Promise.all([
+  const [employees, roster, attendance, punches, rules] = await Promise.all([
     timeclockRepository.findEmployeesForDay(restaurantId, date),
     timeclockRepository.findRosterForDates(restaurantId, [date]),
     timeclockRepository.findAttendanceForDate(restaurantId, date),
     timeclockRepository.findPunchesForDates(restaurantId, [date]),
+    ruleSettings.load(restaurantId),
   ]);
 
   const rosterBy = new Map(roster.map((row) => [row.employee_id, row]));
@@ -1370,7 +1380,7 @@ const day = async (restaurantId, requestedDate, now = new Date()) => {
     }
 
     const window = shiftWindow(date, rosterRow, timezone);
-    const summary = summarise(own, window, now);
+    const summary = summarise(own, window, now, rules);
     const valid = !summary.invalid;
 
     // What the day comes to, in words a manager uses.
@@ -1463,6 +1473,8 @@ const day = async (restaurantId, requestedDate, now = new Date()) => {
     today,
     timezone,
     now: now.toISOString(),
+    // Where overtime starts, past a shift's end (the restaurant's own rule).
+    overtimeFromMinutes: rules.timeclockOvertimeMinutes,
     rows,
     totals: {
       rostered: rows.filter((row) => row.shift).length,
@@ -1821,6 +1833,7 @@ module.exports = {
   sweepOldPhotos,
   ACTIONS,
   EARLY_CLOCK_IN_MINUTES,
+  OVERTIME_THRESHOLD_MINUTES,
   PIN_MAX_ATTEMPTS,
   PIN_WINDOW_MINUTES,
   PIN_LOCK_MINUTES,

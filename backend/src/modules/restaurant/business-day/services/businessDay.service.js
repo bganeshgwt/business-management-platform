@@ -8,6 +8,7 @@ const loyaltyService = require("../../crm/services/loyalty.service");
 const tradingDay = require("./tradingDay");
 const outletRepository = require("../../setup/repositories/outlet.repository");
 const AppError = require("../../../../utils/AppError");
+const ruleSettings = require("../../setup/services/ruleSettings.service");
 const { round2 } = require("../../../../utils/money");
 
 const DUPLICATE = "23505";
@@ -62,6 +63,9 @@ const toRules = (settings) => ({
   cutoffHour: Number(settings.day_cutoff_hour ?? 5),
   varianceThreshold: n(settings.cash_variance_threshold ?? 100),
   blindCount: Boolean(settings.cash_blind_count),
+  // The notes the count lists, largest first (coins are always counted
+  // besides): the restaurant's own list, Settings -> Alerts and timings.
+  denominations: ruleSettings.fromRow(settings).cashDenominations,
 });
 
 const may = (user, permission) => Boolean(user && Array.isArray(user.permissions) && user.permissions.includes(permission));
@@ -323,18 +327,36 @@ const dayFigures = async (restaurantId, day, db = undefined) => {
 
 // The count, as the closer gave it: notes and coins add up to the total.
 //
-// count: { counted, countMethod: 'notes' | 'total', denominations }
-const DENOMINATIONS = ["2000", "500", "200", "100", "50", "20", "10", "coins"];
-
+// count: { counted, countMethod: 'notes' | 'total', denominations, notes }
+//
+// notes: the restaurant's list of notes (its settings' cash_denominations,
+// whole rupees); coins are always counted besides, as one amount. A note the
+// list does not have is refused rather than left out of the sum, so the
+// count can never quietly come to less than what was typed.
 const checkCount = (count) => {
   if (count.countMethod !== "notes") {
     return;
   }
 
   const notes = count.denominations || {};
+  const allowed = (count.notes || ruleSettings.DEFAULT_DENOMINATIONS).map(String);
+  const keys = [...allowed, "coins"];
   let paise = 0;
 
-  for (const key of DENOMINATIONS) {
+  for (const key of Object.keys(notes)) {
+    const value = notes[key];
+
+    if (!keys.includes(key) && value !== undefined && value !== null && value !== "" && Number(value) !== 0) {
+      throw new AppError(
+        400,
+        /^\d+$/.test(key)
+          ? `₹${key} notes are not on this restaurant's cash count (it counts ${allowed.map((note) => `₹${note}`).join(", ")} and coins). Count them as coins or change the list in Settings.`
+          : "The notes counted could not be read. Count again."
+      );
+    }
+  }
+
+  for (const key of keys) {
     const value = notes[key];
 
     if (value === undefined || value === null || value === "") {
@@ -539,7 +561,12 @@ const evaluateClose = async (restaurantId, data, user, settings = null, { atTill
     );
   }
 
-  checkCount({ counted: data.closingCash, countMethod: data.countMethod, denominations: data.denominations });
+  checkCount({
+    counted: data.closingCash,
+    countMethod: data.countMethod,
+    denominations: data.denominations,
+    notes: ruleSettings.fromRow(rules).cashDenominations,
+  });
 
   const figures = await dayFigures(restaurantId, current);
   const variance = round2(data.closingCash - figures.inDrawer);

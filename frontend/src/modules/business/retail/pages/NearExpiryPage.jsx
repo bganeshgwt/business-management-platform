@@ -34,7 +34,8 @@ const tone = (days) => (days < 0 ? "danger" : days <= 7 ? "warning" : "info");
 export default function NearExpiryPage() {
   const biz = useOpenBusiness();
   const confirm = useConfirm();
-  const [days, setDays] = useState(30);
+  // Opens on the business's own "expiring soon" (Business settings › Rules).
+  const [days, setDays] = useState(() => Number(biz.settings.near_expiry_days) || 30);
   const [location, setLocation] = useState("");
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -112,7 +113,7 @@ export default function NearExpiryPage() {
           toolbar={(
             <>
               <div className="segmented" role="group" aria-label="Expiring within">
-                {WINDOWS.map((n) => (
+                {[...new Set([...WINDOWS, Number(biz.settings.near_expiry_days) || 30])].sort((x, y) => x - y).map((n) => (
                   <button key={n} type="button" className={`segment ${days === n ? "is-active" : ""}`} aria-pressed={days === n} onClick={() => setDays(n)}>{n} days</button>
                 ))}
               </div>

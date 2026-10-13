@@ -115,6 +115,49 @@ their name and types their PIN. The approval covers only what is shown
 minutes. If the action then fails for another reason, the approval is used
 up and the manager must approve again. The activity log names both people.
 
+## Starting a business
+
+*Added 12 October 2026.* A business of any type except a restaurant (shops,
+wholesale, fashion, electronics, salon, meat and weight shops, pharmacy, clinic)
+is created in one of two ways; nothing needs demo data.
+
+- **Platform › Businesses** (the platform's own super admin): *Add a business*
+  with its type, name and code, legal name, GSTIN, address, currency, time zone,
+  first location, and the **owner's login** (a new email and password, or an
+  existing login by its email). The owner signs in and finds the business ready:
+  roles, GST slabs, units and the type's modules are set up. The console also
+  switches a business off and on and sets a locked-out owner's new password.
+- **Your businesses › Add a business** (an owner, or a restaurant's admin): the
+  same details, and they become the new business's owner.
+
+The type and code cannot change later; everything else can, in Business settings.
+A restaurant is still created from Platform › Restaurants (its menu, tables and
+kitchen are set up with it).
+
+**Staff logins.** In Staff & access, *New staff login* creates a login for
+someone who has none (name, email, first password, role and where they work);
+*Give access* adds someone who already has a login (your restaurant's staff, or
+people working in another business you own). *Password* sets a new password for
+a member of staff whose login is used only in this business; their open
+sessions end.
+
+**Currency and time zone** are in Business settings. The currency can change
+until the first bill or purchase is recorded; the time zone decides what "today"
+is for bills, the day close and reports.
+
+### Business settings › Rules
+
+Each rule starts at the value the product always used; change only what you need.
+
+| Rule | Default | What it changes |
+|---|---|---|
+| Expiring soon means within | 30 days | Batches on the Overview, the bell, the near-expiry list and the stock list's "Expiring" filter (a pharmacy keeps its own in Pharmacy settings) |
+| Credit vouchers valid for | 90 days | How long a voucher from an exchange or return can be spent |
+| Customer credit age groups | 30, 60, 90 days | The columns of Outstanding, Udhaar and the wholesale reports ("0–30 days" … "Over 90 days" follow the numbers) |
+| Quick weight buttons | 250 g, 500 g, 1 kg, 2 kg | The buttons on a loose item at Quick bill (up to 8) |
+| Till receipt paper | 80 mm | 58 mm for a small receipt printer |
+| Day cut-off | 5 am | A task due after midnight, before this hour, belongs to the day before |
+
 ## The business switcher
 
 The button in the top bar shows the business you are in, with its type. Click
@@ -1634,6 +1677,40 @@ every action, so a hidden screen is never just hidden.
 server (the screen only shows the server's quote), and nothing posted is ever
 edited — a mistake is corrected by a return, a refund, a reversal or a reasoned
 stock correction, each with its own number.
+
+### Several locations (branches)
+
+*Added 12 October 2026.* A business with more than one shop, counter or
+godown works like the restaurant's outlets.
+
+- **Settings › Locations**: each location can have its own **address, phone,
+  GSTIN and state**. They print on the bills, receipts and delivery challans it
+  raises; an empty field prints the one in Business settings. A branch
+  registered on its own GSTIN (often in another state) supplies from that state,
+  so its walk-in bills carry the right place of supply. A location that holds
+  stock, or that has staff tied to it, cannot be closed until they are moved.
+- **Staff & access › Works at**: a person can work at **every location** or at
+  **one**. Tied to one, they bill, move stock, count stock, take returns and see
+  reports, the Overview and the day close for that location only; another
+  location's bill, stock or report is refused. A manager tied to a location
+  gives access at that location only. The owner always works everywhere.
+- **The location picker** (top bar, beside the business switcher) appears when a
+  business has two or more open locations. Pick a branch and every list, report,
+  the Overview, Quick bill and day close open on it; *All locations* shows the
+  whole business. Someone tied to a location sees their location's name there
+  instead of a picker. Changing it reloads the page.
+- **Transfers** are sent from the locations you work with to any other open
+  location; the receiving location confirms them and the sending one cancels.
+- **Reports › Locations compared**: bills, sales, returns, net sales and each
+  location's share, the average bill, money collected, purchases and the stock
+  each holds now, for the report dates. It always shows every location (someone
+  tied to one sees theirs).
+- **Pharmacy › Settings › Licences by branch**: each premises holds its own drug
+  licences; a branch's numbers print on its bills, and a branch with none prints
+  the business-wide numbers.
+
+What customers owe (udhaar / outstanding) stays business-wide: a customer
+belongs to the business, not to one branch.
 
 ## Retail counter (grocery / kirana, supermarket, books & stationery)
 

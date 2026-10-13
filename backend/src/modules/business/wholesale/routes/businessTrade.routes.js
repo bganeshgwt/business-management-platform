@@ -28,6 +28,8 @@ const router = express.Router();
 const send = (res, data, status = 200) => res.status(status).json({ success: true, data });
 const context = (permission) => async (req, res, next) => {
   req.business = await access.load(req.user, req.params.businessId);
+  // A person tied to one location works there only; a branch picked in the top bar fills in the location a request leaves out.
+  access.scope(req, req.business);
   if (Array.isArray(permission)) await access.requireAny(req.business, permission);
   else if (permission) await access.require(req.business, permission);
   next();

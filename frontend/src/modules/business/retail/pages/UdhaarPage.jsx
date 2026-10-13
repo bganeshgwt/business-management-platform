@@ -54,8 +54,8 @@ export default function UdhaarPage() {
       <div className="stat-grid">
         <StatTile icon="wallet" tone="primary" label="Udhaar to collect" value={summary ? biz.amount(summary.totals.outstanding) : "—"} note={summary ? `${summary.total} ${summary.total === 1 ? "customer" : "customers"}` : ""} />
         <StatTile icon="alert" tone="danger" label="Overdue" value={summary ? biz.amount(summary.totals.overdue) : "—"} note="past their credit days" />
-        <StatTile icon="clock" tone="warning" label="Over 90 days old" value={summary ? biz.amount(summary.totals.days_over_90) : "—"} note="hardest to recover" />
-        <StatTile icon="calendar" label="0–30 days old" value={summary ? biz.amount(summary.totals.days_0_30) : "—"} note="recent udhaar" />
+        <StatTile icon="clock" tone="warning" label={`${biz.ages.over} old`} value={summary ? biz.amount(summary.totals.days_over_90) : "—"} note="hardest to recover" />
+        <StatTile icon="calendar" label={`${biz.ages.first} old`} value={summary ? biz.amount(summary.totals.days_0_30) : "—"} note="recent udhaar" />
       </div>
       <SuccessMessage message={notice} />
       <div className="segmented" role="tablist" aria-label="Udhaar views">

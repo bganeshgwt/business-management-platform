@@ -3,6 +3,7 @@ const AppError = require("../../../../utils/AppError");
 const { round2 } = require("../../../../utils/money");
 const { maskMobile, mobileSearchDigits, normaliseMobile } = require("../../../../utils/phone");
 const { maskEmail } = require("./crm.service");
+const ruleSettings = require("../../setup/services/ruleSettings.service");
 
 // Guest insights: who comes back, who stopped, who to thank.
 //
@@ -10,26 +11,30 @@ const { maskEmail } = require("./crm.service");
 // orders linked to each guest and the bills on those orders, at the moment it
 // is asked for — so a list can never disagree with the bills it came from.
 //
-// The rules below are the whole of it. They are named constants, not numbers
-// scattered through the code, because a manager will ask "why is Priya a
-// regular?" and the answer has to be one line anyone can read.
+// The rules below are the whole of it. They are named, not numbers scattered
+// through the code, because a manager will ask "why is Priya a regular?" and
+// the answer has to be one line anyone can read. The regular, new, lapsed
+// and big-spender lines are the restaurant's own (Settings -> Alerts and
+// timings, carried on the context as context.rules); the numbers here are
+// what a restaurant starts with.
 
 // A regular: three or more visits in the last 60 days.
-const REGULAR_VISITS = 3;
-const REGULAR_WINDOW_DAYS = 60;
+const REGULAR_VISITS = ruleSettings.DEFAULTS.guestRegularVisits;
+const REGULAR_WINDOW_DAYS = ruleSettings.DEFAULTS.guestRegularDays;
 // Active: any visit in the same 60 days.
 const ACTIVE_WINDOW_DAYS = 60;
 // New: first ever visit in the last 30 days.
-const NEW_WINDOW_DAYS = 30;
+const NEW_WINDOW_DAYS = ruleSettings.DEFAULTS.guestNewDays;
 // Lapsed: came at least twice, then nothing for 45 days. One visit and gone
-// is a passer-by, not someone the restaurant has lost.
+// is a passer-by, not someone the restaurant has lost. (The guest book's
+// "Lapsed" view uses the same number of days.)
 const LAPSED_MIN_VISITS = 2;
-const LAPSED_QUIET_DAYS = 45;
+const LAPSED_QUIET_DAYS = ruleSettings.DEFAULTS.guestLapsedDays;
 // Big spenders: everyone who has spent at least as much as the guest who
 // closes the top tenth. Guests level with that line are all in — leaving out
 // one of two guests with the same spend would be impossible to explain — so
 // the list can hold a little more than a tenth, and the words say so.
-const BIG_SPENDER_SHARE = 0.1;
+const BIG_SPENDER_SHARE = ruleSettings.DEFAULTS.guestBigSpenderPercent / 100;
 // Birthdays: today and the six days after it — this week, as a host plans it.
 const BIRTHDAY_WINDOW_DAYS = 7;
 // Unhappy: a rating of two stars or less, or any complaint, in 90 days.
@@ -229,17 +234,19 @@ const SEGMENTS = [
     key: "regulars",
     label: "Regulars",
     tone: "success",
-    definition: () => `${REGULAR_VISITS}+ visits in the last ${REGULAR_WINDOW_DAYS} days`,
+    definition: (context) =>
+      `${context.rules.guestRegularVisits}+ visits in the last ${context.rules.guestRegularDays} days`,
     hint: "Know them by name. Their usual table and their usual order, remembered, is what keeps them coming.",
-    includes: (guest) => guest.visits60 >= REGULAR_VISITS,
+    // visits60: visits inside the regular window, whatever its length.
+    includes: (guest, context) => guest.visits60 >= context.rules.guestRegularVisits,
     compare: (a, b) => b.visits60 - a.visits60 || b.spendPaise - a.spendPaise,
-    reason: (guest) =>
+    reason: (guest, context) =>
       [
-        `${plural(guest.visits60, "visit", "visits")} in ${REGULAR_WINDOW_DAYS} days`,
+        `${plural(guest.visits60, "visit", "visits")} in ${context.rules.guestRegularDays} days`,
         guest.visitEveryDays ? rhythm(guest.visitEveryDays, "about") : null,
         // The windows overlap: a regular can already have gone quiet, and
         // that is the one thing about them worth saying first on a call list.
-        guest.daysSinceLastVisit !== null && guest.daysSinceLastVisit >= LAPSED_QUIET_DAYS
+        guest.daysSinceLastVisit !== null && guest.daysSinceLastVisit >= context.rules.guestLapsedDays
           ? `but not seen for ${guest.daysSinceLastVisit} days`
           : null,
       ]
@@ -250,10 +257,12 @@ const SEGMENTS = [
     key: "new",
     label: "New guests",
     tone: "info",
-    definition: () => `First visit in the last ${NEW_WINDOW_DAYS} days`,
+    definition: (context) => `First visit in the last ${context.rules.guestNewDays} days`,
     hint: "The second visit is the hardest one to win. Thank them while the meal is still fresh in their mind.",
-    includes: (guest) =>
-      guest.visits > 0 && guest.daysSinceFirstVisit !== null && guest.daysSinceFirstVisit < NEW_WINDOW_DAYS,
+    includes: (guest, context) =>
+      guest.visits > 0 &&
+      guest.daysSinceFirstVisit !== null &&
+      guest.daysSinceFirstVisit < context.rules.guestNewDays,
     compare: (a, b) =>
       a.daysSinceFirstVisit - b.daysSinceFirstVisit || new Date(b.firstVisit) - new Date(a.firstVisit),
     reason: (guest) =>
@@ -266,13 +275,13 @@ const SEGMENTS = [
     key: "lapsed",
     label: "At risk / lapsed",
     tone: "warning",
-    definition: () =>
-      `${LAPSED_MIN_VISITS}+ visits before, none in the last ${LAPSED_QUIET_DAYS} days`,
+    definition: (context) =>
+      `${LAPSED_MIN_VISITS}+ visits before, none in the last ${context.rules.guestLapsedDays} days`,
     hint: "Start with the biggest spenders: a personal call or a “we miss you” offer wins back more than a mass message.",
-    includes: (guest) =>
+    includes: (guest, context) =>
       guest.visits >= LAPSED_MIN_VISITS &&
       guest.daysSinceLastVisit !== null &&
-      guest.daysSinceLastVisit >= LAPSED_QUIET_DAYS,
+      guest.daysSinceLastVisit >= context.rules.guestLapsedDays,
     compare: (a, b) => b.spendPaise - a.spendPaise || a.daysSinceLastVisit - b.daysSinceLastVisit,
     reason: (guest) =>
       [
@@ -295,10 +304,10 @@ const SEGMENTS = [
     // that ties at the line could break.
     definition: (context) =>
       context.bigSpenderFrom
-        ? `Spent ${moneyText(context.bigSpenderFrom, context.currency)} or more — where your top ${Math.round(
-            BIG_SPENDER_SHARE * 100
-          )}% begins`
-        : `The top ${Math.round(BIG_SPENDER_SHARE * 100)}% of guests by lifetime spend, once bills are paid`,
+        ? `Spent ${moneyText(context.bigSpenderFrom, context.currency)} or more — where your top ${
+            context.rules.guestBigSpenderPercent
+          }% begins`
+        : `The top ${context.rules.guestBigSpenderPercent}% of guests by lifetime spend, once bills are paid`,
     // Said only when ties at the line make the list longer than a tenth, so
     // nobody has to wonder why 10% of 141 guests is 54.
     note: (context, count) => {
@@ -413,12 +422,13 @@ const monthStart = (todayIso) => `${todayIso.slice(0, 8)}01`;
 // Guests level on spend share a rank, as on any leaderboard (1, 2, 3, 3, 5):
 // the rank is one more than the number of guests who spent strictly more.
 // The big-spender line is the spend of the guest who closes the top tenth
-// (a tenth of spenders, rounded up, never fewer than one).
-const rankBySpend = (guests) => {
+// (a tenth of spenders — or the restaurant's own share — rounded up, never
+// fewer than one).
+const rankBySpend = (guests, share = BIG_SPENDER_SHARE) => {
   const spenders = guests
     .filter((guest) => guest.spendPaise > 0)
     .sort((a, b) => b.spendPaise - a.spendPaise || a.id - b.id);
-  const topCount = spenders.length ? Math.max(1, Math.ceil(spenders.length * BIG_SPENDER_SHARE)) : 0;
+  const topCount = spenders.length ? Math.max(1, Math.ceil(spenders.length * share)) : 0;
   const spendRank = new Map();
 
   spenders.forEach((guest, index) => {
@@ -496,7 +506,10 @@ const withContact = (row, reveal) => ({
 const load = async (restaurantId, now = new Date()) => {
   requireRestaurantId(restaurantId);
 
-  const settings = await guestInsightRepository.findContext(restaurantId, now);
+  const [settings, rules] = await Promise.all([
+    guestInsightRepository.findContext(restaurantId, now),
+    ruleSettings.load(restaurantId),
+  ]);
 
   if (!settings) {
     throw new AppError(404, "Restaurant not found");
@@ -506,7 +519,7 @@ const load = async (restaurantId, now = new Date()) => {
   const today = settings.today;
 
   const [rows, signals] = await Promise.all([
-    guestInsightRepository.findGuestFacts(restaurantId, timezone, now),
+    guestInsightRepository.findGuestFacts(restaurantId, timezone, now, rules.guestRegularDays),
     guestInsightRepository.findUnhappySignals(restaurantId, UNHAPPY_WINDOW_DAYS, UNHAPPY_MAX_RATING, now),
   ]);
 
@@ -530,9 +543,13 @@ const load = async (restaurantId, now = new Date()) => {
     }
   }
 
-  const { spenders, topCount, linePaise: bigSpenderFromPaise, spendRank } = rankBySpend(guests);
+  const { spenders, topCount, linePaise: bigSpenderFromPaise, spendRank } = rankBySpend(
+    guests,
+    rules.guestBigSpenderPercent / 100
+  );
 
   const context = {
+    rules,
     today,
     timezone,
     currency: settings.currency_symbol,
@@ -700,13 +717,13 @@ const summary = async (restaurantId, now = new Date(), { reveal = true } = {}) =
       pointValue: context.pointValue,
     },
     rules: {
-      regularVisits: REGULAR_VISITS,
-      regularWindowDays: REGULAR_WINDOW_DAYS,
+      regularVisits: context.rules.guestRegularVisits,
+      regularWindowDays: context.rules.guestRegularDays,
       activeWindowDays: ACTIVE_WINDOW_DAYS,
-      newWindowDays: NEW_WINDOW_DAYS,
+      newWindowDays: context.rules.guestNewDays,
       lapsedMinVisits: LAPSED_MIN_VISITS,
-      lapsedQuietDays: LAPSED_QUIET_DAYS,
-      bigSpenderSharePercent: Math.round(BIG_SPENDER_SHARE * 100),
+      lapsedQuietDays: context.rules.guestLapsedDays,
+      bigSpenderSharePercent: context.rules.guestBigSpenderPercent,
       bigSpenderFrom: context.bigSpenderFrom,
       birthdayWindowDays: BIRTHDAY_WINDOW_DAYS,
       unhappyWindowDays: UNHAPPY_WINDOW_DAYS,
@@ -833,10 +850,13 @@ module.exports = {
   SEGMENT_KEYS,
   DEFAULT_LIMIT,
   MAX_LIMIT,
-  // The rules, for the bell, so it and this screen can never disagree.
+  // The rules a restaurant starts with. The bell reads each restaurant's own
+  // through ruleSettings, as this screen does, so the two never disagree.
   rules: {
     REGULAR_VISITS,
     REGULAR_WINDOW_DAYS,
+    NEW_WINDOW_DAYS,
+    LAPSED_QUIET_DAYS,
     BIG_SPENDER_SHARE,
     SEATED_WITHIN_HOURS,
   },

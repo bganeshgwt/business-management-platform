@@ -3,22 +3,25 @@
 // Every sum is done in paise, so ₹0.10 + ₹0.20 is never ₹0.30000000000000004.
 
 // The notes an Indian drawer holds, largest first (₹2,000 notes are out of
-// circulation). Coins are counted as one amount.
+// circulation). Coins are counted as one amount. A restaurant may list its
+// own (Settings -> Alerts and timings; the cash rules carry them as
+// `denominations`), and the functions below take that list; this is what it
+// starts at.
 export const NOTES = [500, 200, 100, 50, 20, 10];
 
 const paise = (value) => Math.round(Number(value || 0) * 100);
 
 // The total of a note-by-note count.
-export const notesTotal = (notes) =>
-  (NOTES.reduce((sum, note) => sum + note * 100 * Math.max(0, Math.floor(Number(notes[note]) || 0)), 0) +
+export const notesTotal = (notes, list = NOTES) =>
+  (list.reduce((sum, note) => sum + note * 100 * Math.max(0, Math.floor(Number(notes[note]) || 0)), 0) +
     Math.max(0, paise(notes.coins))) /
   100;
 
 // The denominations as the API takes them: only what was counted.
-export const notesPayload = (notes) => {
+export const notesPayload = (notes, list = NOTES) => {
   const out = {};
 
-  for (const note of NOTES) {
+  for (const note of list) {
     const value = Math.floor(Number(notes[note]) || 0);
 
     if (value > 0) {

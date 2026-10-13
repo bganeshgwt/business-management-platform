@@ -324,7 +324,9 @@ const BOOK_STATUS = {
   erased: "c.erased_at IS NOT NULL",
 };
 
-// "Lapsed": no visit in this many days.
+// "Lapsed": no visit in this many days, unless the caller passes the
+// restaurant's own (lapsedDays: the guest_lapsed_days setting, the same line
+// Guest insights draws).
 const LAPSED_DAYS = 60;
 
 const findGuestBook = async (restaurantId, filters = {}) => {
@@ -339,6 +341,7 @@ const findGuestBook = async (restaurantId, filters = {}) => {
     business = false,
     view = null,
     today = null,
+    lapsedDays = LAPSED_DAYS,
     sort = "name",
     ascending = true,
     limit = 25,
@@ -373,7 +376,7 @@ const findGuestBook = async (restaurantId, filters = {}) => {
        AND (NOT $6::boolean OR c.gstin IS NOT NULL)
        -- The quick views ($10, with the restaurant's today in $11):
        --   occasion  a birthday or anniversary in the next 7 days (today included)
-       --   lapsed    came before, but not in the last ${LAPSED_DAYS} days
+       --   lapsed    came before, but not in the last $12 days
        --   top       has spent something (the screen sorts by spend)
        AND ($10::text IS NULL
             OR ($10 = 'occasion' AND EXISTS (
@@ -381,7 +384,7 @@ const findGuestBook = async (restaurantId, filters = {}) => {
                   WHERE to_char($11::date + ahead.n, 'MM-DD') = to_char(c.date_of_birth, 'MM-DD')
                      OR to_char($11::date + ahead.n, 'MM-DD') = to_char(c.anniversary_date, 'MM-DD')))
             OR ($10 = 'lapsed' AND f.last_visit IS NOT NULL
-                AND f.last_visit < ($11::date - ${LAPSED_DAYS})::timestamp)
+                AND f.last_visit < ($11::date - $12::int)::timestamp)
             OR ($10 = 'top' AND COALESCE(f.spend, 0) > 0))
      ORDER BY ${orderBy} ${ascending ? "ASC" : "DESC"} NULLS LAST, LOWER(c.name), c.id
      LIMIT $7 OFFSET $8`,
@@ -397,6 +400,7 @@ const findGuestBook = async (restaurantId, filters = {}) => {
       emailExact,
       view,
       today,
+      lapsedDays,
     ]
   );
 

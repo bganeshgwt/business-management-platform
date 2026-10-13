@@ -84,10 +84,10 @@ export default function WholesaleReportsPage() {
         { key: "name", header: by === "route" ? "Route" : "Salesperson", value: (r) => r.name, mobile: "title" },
         { key: "customers", header: "Customers owing", type: "number", value: (r) => r.customers, total: "sum" },
         { key: "balance", header: "Outstanding", type: "money", exact: true, value: (r) => Number(r.balance), total: "sum", mobile: "show" },
-        { key: "d30", header: "0–30 days", type: "money", exact: true, value: (r) => Number(r.days_0_30), total: "sum" },
-        { key: "d60", header: "31–60", type: "money", exact: true, value: (r) => Number(r.days_31_60), total: "sum" },
-        { key: "d90", header: "61–90", type: "money", exact: true, value: (r) => Number(r.days_61_90), total: "sum" },
-        { key: "d90p", header: "Over 90", type: "money", exact: true, value: (r) => Number(r.days_over_90), total: "sum", mobile: "show" },
+        { key: "d30", header: biz.ages.first, type: "money", exact: true, value: (r) => Number(r.days_0_30), total: "sum" },
+        { key: "d60", header: biz.ages.second, type: "money", exact: true, value: (r) => Number(r.days_31_60), total: "sum" },
+        { key: "d90", header: biz.ages.third, type: "money", exact: true, value: (r) => Number(r.days_61_90), total: "sum" },
+        { key: "d90p", header: biz.ages.over, type: "money", exact: true, value: (r) => Number(r.days_over_90), total: "sum", mobile: "show" },
         { key: "overdue", header: "Overdue", type: "money", exact: true, value: (r) => Number(r.overdue), total: "sum" },
       ];
     }
@@ -101,7 +101,7 @@ export default function WholesaleReportsPage() {
       { key: "returned", header: "Returns", type: "money", exact: true, value: (r) => Number(r.returned), total: "sum" },
       { key: "net", header: "Net sales", type: "money", exact: true, value: (r) => Number(r.net_sales), total: "sum", mobile: "show" },
     ];
-  }, [group, by]);
+  }, [group, by, biz.ages]);
 
   const rows = data?.key === report ? data.rows : null;
   return (

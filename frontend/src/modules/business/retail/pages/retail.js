@@ -8,6 +8,8 @@ export const RETAIL_TYPES = ["grocery", "supermarket", "books"];
 export { GOODS as GOODS_TYPES } from "../../../../services/businessNav";
 export const METHOD_WORDS = { cash: "Cash", upi: "UPI", card: "Card", bank: "Bank transfer", cheque: "Cheque", credit_note: "Credit note", finance: "EMI (financier)" };
 export const methodWord = (method) => METHOD_WORDS[method] || method;
+// A payment as taken: the business's own method name (PhonePe) where it was recorded.
+export const paymentWord = (payment) => payment?.method_name || methodWord(payment?.method);
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 export const OFFER_KINDS = {

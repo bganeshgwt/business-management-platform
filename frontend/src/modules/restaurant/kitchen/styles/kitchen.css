@@ -1455,7 +1455,8 @@ button.kot-line:focus-visible {
 
 .kds-timers {
   display: grid;
-  grid-template-columns: 1fr 1fr auto;
+  /* Warning, late, the pass, and the button. */
+  grid-template-columns: 1fr 1fr 1fr auto;
   gap: 12px;
   align-items: end;
 }

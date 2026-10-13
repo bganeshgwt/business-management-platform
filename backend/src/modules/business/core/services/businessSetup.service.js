@@ -20,9 +20,39 @@ const optionalPattern = (value, name, pattern, hint, max) => {
 
 // --- Settings ----------------------------------------------------------------
 
+// Business rules (Business settings › Rules). Returns the columns to change,
+// or null when the client sent none of them (an older client).
+const RULE_FIELDS = ['voucherValidDays', 'ageingDays', 'nearExpiryDays', 'weightButtonsGrams', 'receiptWidthMm', 'dayCutoffHour'];
+const wholeNumber = (value, name, min, max) => {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < min || n > max) fail(`${name} must be a whole number from ${min} to ${max}`);
+  return n;
+};
+async function readRules(db, businessId, body) {
+  if (!RULE_FIELDS.some((key) => body[key] !== undefined)) return null;
+  const rules = {};
+  if (body.voucherValidDays !== undefined) rules.voucher_valid_days = wholeNumber(body.voucherValidDays, 'Credit vouchers valid for (days)', 1, 3650);
+  if (body.nearExpiryDays !== undefined) rules.near_expiry_days = wholeNumber(body.nearExpiryDays, 'Expiring soon (days)', 1, 365);
+  if (body.receiptWidthMm !== undefined) rules.receipt_width_mm = v.requiredEnum(Number(body.receiptWidthMm), 'Receipt paper', [58, 80]);
+  if (body.dayCutoffHour !== undefined) rules.day_cutoff_hour = wholeNumber(body.dayCutoffHour, 'Day cut-off hour', 0, 12);
+  if (body.ageingDays !== undefined) {
+    const edges = v.requiredArray(body.ageingDays, 'Credit age groups').map((d) => wholeNumber(d, 'A credit age group', 1, 3650));
+    if (edges.length !== 3 || !(edges[0] < edges[1] && edges[1] < edges[2])) fail('Give three credit age limits, each larger than the one before (for example 30, 60, 90)');
+    rules.ageing_days = edges;
+  }
+  if (body.weightButtonsGrams !== undefined) {
+    const grams = v.requiredArray(body.weightButtonsGrams, 'Weight buttons').map((g) => wholeNumber(g, 'A weight button (grams)', 1, 100000));
+    if (!grams.length || grams.length > 8) fail('Give 1 to 8 weight buttons');
+    rules.weight_buttons_grams = [...new Set(grams)].sort((a, b) => a - b);
+  }
+  return rules;
+}
+
 async function getSettings(business) {
   await access.require(business, 'settings.view');
-  return repo.one(repo.pool, 'SELECT * FROM business_settings WHERE business_id=$1', [business.id]);
+  const settings = await repo.one(repo.pool, 'SELECT * FROM business_settings WHERE business_id=$1', [business.id]);
+  // The business's currency and time zone live on the business itself.
+  return { ...settings, currency: business.currency, timezone: business.timezone };
 }
 async function updateSettings(business, user, body) {
   await access.require(business, 'settings.edit');
@@ -67,6 +97,29 @@ async function updateSettings(business, user, body) {
     const counter = await repo.one(db, `UPDATE business_settings SET max_bill_discount_percent=$2,walk_in_credit=$3,counter_pin_every_bill=$4 WHERE business_id=$1
       RETURNING max_bill_discount_percent,walk_in_credit,counter_pin_every_bill`, [business.id, maxDiscount, walkInCredit, pinEveryBill]);
     Object.assign(saved, counter);
+    // The business's own rules (12 Oct); each left out keeps what it is.
+    const rules = await readRules(db, business.id, body);
+    if (rules) {
+      const keys = Object.keys(rules);
+      const updated = await repo.one(db, `UPDATE business_settings SET ${keys.map((k, i) => `${k}=$${i + 2}`).join(',')} WHERE business_id=$1
+        RETURNING ${keys.join(',')}`, [business.id, ...keys.map((k) => rules[k])]);
+      Object.assign(saved, updated);
+      await repo.audit(db, business.id, user.id, 'settings.rules_updated', business.id, updated);
+    }
+    // Currency and time zone (12 Oct): older clients send neither and keep them.
+    const { readCurrency, readTimezone } = require('./businessOnboarding.service');
+    const currency = body.currency === undefined ? business.currency : readCurrency(body.currency, business.currency);
+    const timezone = body.timezone === undefined ? business.timezone : readTimezone(body.timezone, business.timezone);
+    if (currency !== business.currency) {
+      // Amounts already recorded are in the old currency: they would change meaning.
+      const used = await repo.one(db, 'SELECT count(*)::int AS n FROM business_documents WHERE business_id=$1', [business.id]);
+      if (used.n) fail('The currency cannot change once bills or purchases are recorded in it.', 409);
+    }
+    if (currency !== business.currency || timezone !== business.timezone) {
+      await db.query('UPDATE businesses SET currency=$2,timezone=$3,updated_at=now() WHERE id=$1', [business.id, currency, timezone]);
+      await repo.audit(db, business.id, user.id, 'business.locale_updated', business.id, { currency, timezone });
+    }
+    Object.assign(saved, { currency, timezone });
     await repo.audit(db, business.id, user.id, 'settings.updated', business.id, { taxMode: saved.tax_mode, rounding: saved.rounding,
       maxBillDiscountPercent: saved.max_bill_discount_percent, walkInCredit: saved.walk_in_credit, counterPinEveryBill: saved.counter_pin_every_bill });
     return saved;

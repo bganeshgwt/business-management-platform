@@ -5,12 +5,14 @@
 // Read-only. Where an order stands comes from the same expression the
 // deliveries board uses, so the bell and the board never disagree.
 const { effectiveStatusSql } = require("../../modules/restaurant/deliveries/repositories/delivery.repository");
+const ruleSettings = require("../../modules/restaurant/setup/services/ruleSettings.service");
 
-// Packed food waiting this long for a rider is going cold. Matches the board.
-const READY_WAIT_MINUTES = 10;
-// A run past this is a warning; past the second, someone should phone the rider.
-const OUT_WARN_MINUTES = 45;
-const OUT_CRITICAL_MINUTES = 60;
+// The timings are the restaurant's own (Settings -> Alerts and timings), read
+// once per check, the same ones the board uses:
+//   deliveryReadyWaitMinutes    packed food waiting this long for a rider is
+//                               going cold
+//   deliveryOutWarnMinutes /    a run past the first is a warning; past the
+//   deliveryOutCriticalMinutes  second, someone should phone the rider
 // Far enough back to catch an order still on the road after the day closed,
 // near enough that the bell never reads history.
 const LOOKBACK = "18 hours";
@@ -40,6 +42,10 @@ module.exports = {
   collect: async ({ restaurantId, now, pool }) => {
     try {
       const at = now.toISOString();
+      const rules = await ruleSettings.load(restaurantId, pool);
+      const readyWaitMinutes = rules.deliveryReadyWaitMinutes;
+      const outWarnMinutes = rules.deliveryOutWarnMinutes;
+      const outCriticalMinutes = rules.deliveryOutCriticalMinutes;
 
       // Uses the orders (restaurant_id, placed_at) index, then works only on
       // the handful of deliveries still in play.
@@ -82,7 +88,7 @@ module.exports = {
 
       // ------------------------------------------------ waiting at the pass
       const waiting = rows.filter(
-        (row) => row.status === "ready" && minutesBetween(row.ready_at, now) > READY_WAIT_MINUTES
+        (row) => row.status === "ready" && minutesBetween(row.ready_at, now) > readyWaitMinutes
       );
 
       for (const row of waiting.slice(0, NAMED_LIMIT)) {
@@ -98,7 +104,7 @@ module.exports = {
           }`,
           link: `/deliveries?order=${row.id}`,
           category: "Deliveries",
-          at: new Date(new Date(row.ready_at).getTime() + READY_WAIT_MINUTES * 60000).toISOString(),
+          at: new Date(new Date(row.ready_at).getTime() + readyWaitMinutes * 60000).toISOString(),
         });
       }
 
@@ -110,10 +116,10 @@ module.exports = {
           members: members(rest),
           severity: "warning",
           title: `${plural(rest.length, "more order", "more orders")} packed and waiting for riders`,
-          detail: `Ready for over ${READY_WAIT_MINUTES} min — food is going cold`,
+          detail: `Ready for over ${readyWaitMinutes} min — food is going cold`,
           link: "/deliveries",
           category: "Deliveries",
-          at: new Date(new Date(rest[0].ready_at).getTime() + READY_WAIT_MINUTES * 60000).toISOString(),
+          at: new Date(new Date(rest[0].ready_at).getTime() + readyWaitMinutes * 60000).toISOString(),
         });
       }
 
@@ -122,14 +128,14 @@ module.exports = {
         (row) =>
           row.status === "out_for_delivery" &&
           row.dispatched_at &&
-          minutesBetween(row.dispatched_at, now) > OUT_WARN_MINUTES
+          minutesBetween(row.dispatched_at, now) > outWarnMinutes
       );
 
       for (const row of long.slice(0, NAMED_LIMIT)) {
         const minutes = minutesBetween(row.dispatched_at, now);
         // A new severity is a new condition, so escalating to critical makes
         // a read alert unread again.
-        const severity = minutes > OUT_CRITICAL_MINUTES ? "critical" : "warning";
+        const severity = minutes > outCriticalMinutes ? "critical" : "warning";
         const rider = row.rider_name || row.partner_rider_name || "The rider";
 
         alerts.push({
@@ -143,25 +149,25 @@ module.exports = {
           category: "Deliveries",
           at: new Date(
             new Date(row.dispatched_at).getTime() +
-              (severity === "critical" ? OUT_CRITICAL_MINUTES : OUT_WARN_MINUTES) * 60000
+              (severity === "critical" ? outCriticalMinutes : outWarnMinutes) * 60000
           ).toISOString(),
         });
       }
 
       if (long.length > NAMED_LIMIT) {
         const rest = long.slice(NAMED_LIMIT);
-        const worst = rest.some((row) => minutesBetween(row.dispatched_at, now) > OUT_CRITICAL_MINUTES);
+        const worst = rest.some((row) => minutesBetween(row.dispatched_at, now) > outCriticalMinutes);
 
         alerts.push({
           // Per severity: a run crossing the hour is a new condition.
           id: `deliveries:out-more:${worst ? "critical" : "warning"}`,
           members: members(rest),
           severity: worst ? "critical" : "warning",
-          title: `${plural(rest.length, "more delivery", "more deliveries")} out over ${OUT_WARN_MINUTES} min`,
+          title: `${plural(rest.length, "more delivery", "more deliveries")} out over ${outWarnMinutes} min`,
           detail: "Check the rider panel on the deliveries board",
           link: "/deliveries",
           category: "Deliveries",
-          at: new Date(new Date(rest[0].dispatched_at).getTime() + OUT_WARN_MINUTES * 60000).toISOString(),
+          at: new Date(new Date(rest[0].dispatched_at).getTime() + outWarnMinutes * 60000).toISOString(),
         });
       }
 

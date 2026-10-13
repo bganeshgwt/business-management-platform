@@ -33,7 +33,7 @@ export const PO_STATUS = {
   cancelled: { label: "Cancelled", tone: "danger" },
 };
 
-export const GST_RATES = [0, 5, 12, 18, 28];
+export const GST_RATES = [0, 5, 12, 18, 28, 40];
 
 export const PAYMENT_METHODS = [
   { value: "cash", label: "Cash" },

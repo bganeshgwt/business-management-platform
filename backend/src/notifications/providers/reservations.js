@@ -4,9 +4,11 @@
 // Everything is worked out on the restaurant's own clock (`timezone`), because
 // bookings are kept as local wall-clock times.
 const { WAITLIST_GRACE_MINUTES } = require("../../modules/restaurant/reservations/repositories/reservation.repository");
+const ruleSettings = require("../../modules/restaurant/setup/services/ruleSettings.service");
 
 const ARRIVING_WITHIN_MINUTES = 30;
-const LATE_AFTER_MINUTES = 15;
+// When a booking counts as late is the restaurant's own (Settings -> Alerts
+// and timings, reservationLateMinutes), the same line the host stand uses.
 // Past this, a booking nobody resolved is history for the day-end, not
 // something to ring a bell about every time the bell polls. A late booking
 // also stops ringing once its whole booked slot has gone by: by then the
@@ -47,6 +49,7 @@ module.exports = {
 async function collectAlerts({ restaurantId, timezone, now, pool }) {
   const zone = timezone || "Asia/Kolkata";
   const at = now instanceof Date ? now : new Date();
+  const lateAfterMinutes = (await ruleSettings.load(restaurantId, pool)).reservationLateMinutes;
 
   // Both queries read only today's live bookings and the live queue — both
   // indexed and small — so this is safe to run on every poll.
@@ -102,7 +105,7 @@ async function collectAlerts({ restaurantId, timezone, now, pool }) {
         // Became worth knowing half an hour before they are due.
         at: new Date(new Date(row.starts_at_utc).getTime() - ARRIVING_WITHIN_MINUTES * 60000).toISOString(),
       });
-    } else if (-row.minutes_until >= LATE_AFTER_MINUTES) {
+    } else if (-row.minutes_until >= lateAfterMinutes) {
       alerts.push({
         // Its own id, apart from the arriving one, so having read "arriving at
         // 7:30" does not silence "20 min late" for the same guest.
@@ -112,7 +115,7 @@ async function collectAlerts({ restaurantId, timezone, now, pool }) {
         detail: `${party} booked for ${timeLabel(row.start_time)} · ${bookingDetail(row)}`,
         link,
         category: "Reservations",
-        at: new Date(new Date(row.starts_at_utc).getTime() + LATE_AFTER_MINUTES * 60000).toISOString(),
+        at: new Date(new Date(row.starts_at_utc).getTime() + lateAfterMinutes * 60000).toISOString(),
       });
     }
   }

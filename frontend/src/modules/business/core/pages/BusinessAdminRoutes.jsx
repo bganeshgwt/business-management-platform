@@ -25,6 +25,7 @@ const DayClosePage = lazy(() => import("./DayClosePage"));
 const ActivityPage = lazy(() => import("./ActivityPage"));
 const SettingsPage = lazy(() => import("./SettingsPage"));
 const TaxRatesPage = lazy(() => import("./TaxRatesPage"));
+const PaymentMethodsPage = lazy(() => import("./PaymentMethodsPage"));
 const NumberSeriesPage = lazy(() => import("./NumberSeriesPage"));
 const LocationsPage = lazy(() => import("./LocationsPage"));
 const StaffAccessPage = lazy(() => import("./StaffAccessPage"));
@@ -196,6 +197,7 @@ export default function BusinessAdminRoutes() {
         <Route path="activity" element={page("activity", <ActivityPage />)} />
         <Route path="settings" element={page("settings", <SettingsPage />)} />
         <Route path="tax-rates" element={page("tax-rates", <TaxRatesPage />)} />
+        <Route path="payment-methods" element={page("payment-methods", <PaymentMethodsPage />)} />
         <Route path="number-series" element={page("number-series", <NumberSeriesPage />)} />
         <Route path="locations" element={page("locations", <LocationsPage />)} />
         <Route path="staff" element={page("staff", <StaffAccessPage />)} />

@@ -9,13 +9,15 @@ import { NOTES, notesTotal } from "./cashMath";
 //   notes    { 500: "3", 100: "12", coins: "35.50" }
 //   refused  draws the box in the error colour after a refused count
 //   message  says why, right under the box
+//   denominations  the restaurant's notes, largest first (its cash rules)
 export default function CashCount({
   countRef,
   currency, value, onChange, method, onMethod, notes, onNotes, refused = false, label = "Cash counted in the drawer", autoFocus = false, message = "",
+  denominations = NOTES,
 }) {
   const setNote = (key, next) => {
     const all = { ...notes, [key]: next };
-    const total = notesTotal(all);
+    const total = notesTotal(all, denominations);
 
     onNotes(all);
     // Nothing counted yet stays empty, not "0".
@@ -51,7 +53,7 @@ export default function CashCount({
       {method === "notes" ? (
         <>
           <div className="cash-count-notes">
-            {NOTES.map((note, index) => (
+            {denominations.map((note, index) => (
               <label key={note} className="bd-count-row">
                 <span className="bd-count-note">
                   {currency}

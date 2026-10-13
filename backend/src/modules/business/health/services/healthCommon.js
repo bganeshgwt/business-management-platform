@@ -62,12 +62,41 @@ async function settings(db, businessId) {
 
 async function getSettings(business) {
   await access.requireAny(business, ['pharmacy.view', 'patients.view', 'lab.view', 'settings.view']);
-  const [row, signatories, seller] = await Promise.all([
+  const [row, signatories, seller, locationLicences] = await Promise.all([
     settings(repo.pool, business.id),
     signatoryList(repo.pool, business.id),
     repo.one(repo.pool, 'SELECT display_name,legal_name,gstin,address_line1,address_line2,city,postal_code,phone,email FROM business_settings WHERE business_id=$1', [business.id]),
+    repo.all(repo.pool, `SELECT l.id AS location_id,l.name AS location_name,l.active,p.drug_licence_20,p.drug_licence_21,p.drug_licence_20b,p.drug_licence_21b,p.drug_licence_20f
+      FROM business_locations l LEFT JOIN pharmacy_location_licences p ON p.business_id=l.business_id AND p.location_id=l.id
+      WHERE l.business_id=$1 AND ($2::bigint IS NULL OR l.id=$2) ORDER BY l.id`, [business.id, business.location_tied ? business.location_scope : null]),
   ]);
-  return { ...row, signatories, seller };
+  return { ...row, signatories, seller, locationLicences };
+}
+
+// A pharmacy branch's own drug licences (each premises is licensed on its
+// own). All five empty: the branch uses the business-wide numbers above.
+const LICENCE_FIELDS = [['drug_licence_20', 'drugLicence20', 'Form 20'], ['drug_licence_21', 'drugLicence21', 'Form 21'],
+  ['drug_licence_20b', 'drugLicence20b', 'Form 20B'], ['drug_licence_21b', 'drugLicence21b', 'Form 21B'], ['drug_licence_20f', 'drugLicence20f', 'Form 20F']];
+async function saveLocationLicences(business, user, locationId, body) {
+  await access.requireAny(business, ['pharmacy.edit', 'settings.edit']);
+  const location = id(locationId, 'Location');
+  access.requireLocation(business, location);
+  const values = LICENCE_FIELDS.map(([, key, form]) => text(body[key], `Drug licence (${form})`, 60) || null);
+  return repo.transaction(async (db) => {
+    const found = await repo.one(db, 'SELECT id,name FROM business_locations WHERE business_id=$1 AND id=$2', [business.id, location]);
+    if (!found) fail('Location not found', 404);
+    let row = null;
+    if (values.some(Boolean)) {
+      const columns = LICENCE_FIELDS.map(([column]) => column);
+      row = await repo.one(db, `INSERT INTO pharmacy_location_licences(business_id,location_id,${columns.join(',')},updated_by,updated_at)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,now()) ON CONFLICT (business_id,location_id) DO UPDATE SET ${columns.map((c) => `${c}=EXCLUDED.${c}`).join(',')},
+        updated_by=EXCLUDED.updated_by,updated_at=now() RETURNING *`, [business.id, location, ...values, user.id]);
+    } else {
+      await db.query('DELETE FROM pharmacy_location_licences WHERE business_id=$1 AND location_id=$2', [business.id, location]);
+    }
+    await repo.audit(db, business.id, user.id, 'pharmacy.location_licences_saved', location, { location: found.name, own: Boolean(row) });
+    return { location_id: location, location_name: found.name, ...(row || Object.fromEntries(LICENCE_FIELDS.map(([column]) => [column, null]))) };
+  });
 }
 
 const years = (value, name, fallback) => (value === undefined ? fallback : v.requiredNumber(Number(value), name, { min: 1, max: 30 }));
@@ -245,5 +274,5 @@ function ageOn(patient, on) {
   return { years: yearsOld, days: Math.round(yearsOld * 365.25) };
 }
 
-module.exports = { fail, id, optionalId, text, requestKey, hashOf, dateOnly, optionalDate, today, requireType, nextNumber, settings, getSettings, saveSettings,
+module.exports = { fail, id, optionalId, text, requestKey, hashOf, dateOnly, optionalDate, today, requireType, nextNumber, settings, getSettings, saveSettings, saveLocationLicences,
   signatories, saveSignatory, verifySignature, uploadOne, addPrescriptionFile, openFile, ageOn, ROOT };

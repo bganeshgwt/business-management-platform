@@ -29,7 +29,7 @@ export default function WholesaleToday() {
     money && <StatTile key="collected" icon="wallet" tone="success" label="Collected today" money={s ? collected : undefined} loading={loading}
       note={s ? (s.collected_today.map((r) => `${r.name.split(" ")[0]} ${biz.amount(r.amount)}`).join(" · ") || "nothing yet") : undefined} to={biz.path("collections")} />,
     money && <StatTile key="overdue" icon="alert" tone={Number(s?.overdue?.amount) > 0 ? "danger" : "neutral"} label="Overdue" money={s ? Number(s.overdue.amount) : undefined} loading={loading}
-      note={s ? `${count(s.overdue.customers)} customers${Number(s.overdue.over_90) > 0 ? ` · ${biz.amount(s.overdue.over_90)} over 90 days` : ""}` : undefined} to={biz.path("outstanding")} />,
+      note={s ? `${count(s.overdue.customers)} customers${Number(s.overdue.over_90) > 0 ? ` · ${biz.amount(s.overdue.over_90)} ${biz.ages.over.toLowerCase()}` : ""}` : undefined} to={biz.path("outstanding")} />,
   ].filter(Boolean);
   const todo = s ? [
     money && s.cheques.to_deposit > 0 && { icon: "wallet", tone: "warning", text: `${s.cheques.to_deposit} ${s.cheques.to_deposit === 1 ? "cheque" : "cheques"} to deposit · ${biz.amount(s.cheques.to_deposit_value)}`, to: "collections?tab=cheques" },

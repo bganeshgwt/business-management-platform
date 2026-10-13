@@ -2,6 +2,7 @@ const repo = require('../../core/repositories/business.repository');
 const v = require('../../../../utils/validate');
 const access = require('../../core/services/businessAccess.service');
 const core = require('../../core/services/business.service');
+const paymentMethods = require('../../core/services/businessPaymentMethods.service');
 const h = require('./healthCommon');
 const clinic = require('./businessClinic.service');
 
@@ -210,7 +211,7 @@ async function createOrder(business, user, body) {
   if (bill && body.payment) {
     await access.require(business, 'sales.edit');
     const amount = body.payment.amount === 'full' ? 'full' : core.decimal(body.payment.amount, 'Amount paid now', 2, 0, 100000000);
-    paidNow = amount === 'full' || amount > 0 ? { amount, method: v.requiredEnum(body.payment.method, 'Payment method', ['cash', 'card', 'upi', 'bank', 'cheque']), reference: text(body.payment.reference, 'Payment reference', 100) } : null;
+    paidNow = amount === 'full' || amount > 0 ? { amount, ...paymentMethods.readChoice(body.payment, 'Payment method'), reference: text(body.payment.reference, 'Payment reference', 100) } : null;
   }
   return repo.transaction(async (db) => {
     await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);

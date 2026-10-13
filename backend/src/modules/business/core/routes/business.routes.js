@@ -8,6 +8,9 @@ const setup = require('../services/businessSetup.service');
 const takings = require('../services/businessTakings.service');
 const payables = require('../services/businessPayables.service');
 const notifications = require('../services/businessNotifications.service');
+const branches = require('../services/businessBranches.service');
+const onboarding = require('../services/businessOnboarding.service');
+const paymentMethods = require('../services/businessPaymentMethods.service');
 const repo = require('../repositories/business.repository');
 const v = require('../../../../utils/validate');
 const AppError = require('../../../../utils/AppError');
@@ -29,11 +32,15 @@ router.use((req, res, next) => {
 const send = (res, data, status = 200) => res.status(status).json({ success: true, data });
 router.get('/', async (req, res) => send(res, await service.list(req.user)));
 router.post('/development-demos', async (req, res) => send(res, await service.provision(req.user), 201));
+// An owner adds another business of their own (any type but restaurant).
+router.post('/', async (req, res) => send(res, await onboarding.ownerCreate(req.user, req.body), 201));
 router.post('/link-restaurant', async (req, res) => send(res, await service.linkRestaurant(req.user)));
 
 // permission: one code, a list (any of them), or none (any member).
 const context = (permission) => async (req, res, next) => {
   req.business = await access.load(req.user, req.params.businessId);
+  // A person tied to one location works there only; a branch picked in the top bar fills in the location a request leaves out.
+  access.scope(req, req.business);
   if (Array.isArray(permission)) await access.requireAny(req.business, permission);
   else if (permission) await access.require(req.business, permission);
   next();
@@ -51,7 +58,7 @@ const SUMMARY_FIGURES = {
   appointments_today: 'appointments.view', appointments_upcoming: 'appointments.view',
 };
 router.get(b('/summary'), context(), async (req, res) => {
-  const [all, today] = await Promise.all([repo.summary(req.business.id), takings.today(req.business)]);
+  const [all, today] = await Promise.all([repo.summary(req.business.id, req.business.location_scope), takings.today(req.business)]);
   const figures = { ...SUMMARY_FIGURES, ...takings.TODAY_FIGURES };
   const values = { ...all, ...today };
   send(res, Object.fromEntries(Object.entries(figures)
@@ -60,6 +67,8 @@ router.get(b('/summary'), context(), async (req, res) => {
 // The bell (pro pass G-07): alerts worked out from live data, each only to those allowed to see it.
 router.get(b('/notifications'), context(), async (req, res) => send(res, await notifications.feed(req.business)));
 router.get(b('/reports'), context('reports.view'), async (req, res) => send(res, await service.reports(req.business, req.query)));
+// Branch comparison: every location side by side for a period.
+router.get(b('/reports/locations'), context('reports.view'), async (req, res) => send(res, await branches.compare(req.business, req.query)));
 // Day close: takings by payment method, person and counter (read-only).
 router.get(b('/reports/takings'), context(['reports.view', 'sales.view']), async (req, res) => send(res, await takings.takings(req.business, req.query)));
 
@@ -78,7 +87,10 @@ for (const [name, permission] of Object.entries(listPermissions)) {
     const offset = req.query.offset === undefined ? 0 : Number(req.query.offset);
     if (limit > 100 || !Number.isSafeInteger(offset) || offset < 0 || offset > 10000000) throw new AppError(400, 'Invalid pagination');
     const filters = {};
-    for (const key of repo.listFilters(name)) if (req.query[key] !== undefined && req.query[key] !== '') filters[key] = String(req.query[key]).slice(0, 60);
+    // The staff list shows everyone (people working at every location too)
+    // unless a location is asked for, or the person is tied to one.
+    const unscoped = name === 'members' && !req.business.location_tied ? new Set(req.locationFilledIn || []) : new Set();
+    for (const key of repo.listFilters(name)) if (req.query[key] !== undefined && req.query[key] !== '' && !unscoped.has(key)) filters[key] = String(req.query[key]).slice(0, 60);
     // A document list shows only the kinds this person may see.
     if (name === 'documents') {
       const kinds = ['sale', 'purchase'].filter((kind) => access.can(req.business, service.kindPermission(kind, 'view')));
@@ -101,6 +113,12 @@ router.post(b('/tax-rates'), context('settings.edit'), async (req, res) => send(
 router.patch(b('/tax-rates/:id'), context('settings.edit'), async (req, res) => send(res, await setup.updateTaxRate(req.business, req.user, req.params.id, req.body)));
 router.post(b('/number-series'), context('settings.edit'), async (req, res) => send(res, await setup.createSeries(req.business, req.user, req.body), 201));
 router.patch(b('/number-series/:id'), context('settings.edit'), async (req, res) => send(res, await setup.updateSeries(req.business, req.user, req.params.id, req.body)));
+// Payment methods the owner names (PhonePe, Sodexo…), each of a fixed kind. Any
+// member lists those switched on (the counter offers them); ?all=true adds the
+// switched-off ones for those who look after the settings.
+router.get(b('/payment-methods'), context(), async (req, res) => send(res, await paymentMethods.list(req.business, req.query)));
+router.post(b('/payment-methods'), context('settings.edit'), async (req, res) => send(res, await paymentMethods.create(req.business, req.user, req.body), 201));
+router.patch(b('/payment-methods/:methodId'), context('settings.edit'), async (req, res) => send(res, await paymentMethods.update(req.business, req.user, req.params.methodId, req.body)));
 router.post(b('/locations'), context('settings.edit'), async (req, res) => send(res, await service.createLocation(req.business, req.user, req.body), 201));
 router.patch(b('/locations/:id'), context('settings.edit'), async (req, res) => send(res, await service.updateLocation(req.business, req.user, req.params.id, req.body)));
 
@@ -110,6 +128,10 @@ router.post(b('/roles'), context('access.edit'), async (req, res) => send(res, a
 router.patch(b('/roles/:id'), context('access.edit'), async (req, res) => send(res, await access.updateRole(req.business, req.user, req.params.id, req.body)));
 router.get(b('/member-candidates'), context('access.edit'), async (req, res) => send(res, await access.memberCandidates(req.business, req.user)));
 router.post(b('/members'), context('access.edit'), async (req, res) => send(res, await access.setMember(req.business, req.user, req.body), 201));
+// A login of their own for a member of staff, and a new password for one.
+router.post(b('/staff-accounts'), context('access.edit'), async (req, res) => send(res, await onboarding.createStaffAccount(req.business, req.user, req.body), 201));
+router.post(b('/staff-accounts/:userId/password'), context('access.edit'), async (req, res) =>
+  send(res, await onboarding.resetStaffPassword(req.business, req.user, req.params.userId, req.body)));
 
 // Catalogue.
 router.post(b('/catalog'), context('catalog.create'), async (req, res) => send(res, await service.createCatalog(req.business, req.user, req.body), 201));

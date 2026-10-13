@@ -47,6 +47,15 @@ export const outletStorage = {
   clear: () => write(OUTLET_KEY, null),
 };
 
+// Which location of a business (Business Admin) the person picked in the top
+// bar, per business, on this device. The server ignores it for someone tied
+// to a location and checks it is an open location of that business.
+const businessLocationKey = (businessId) => `bz_location_${businessId}`;
+export const businessLocationStorage = {
+  get: (businessId) => read(businessLocationKey(businessId)),
+  set: (businessId, locationId) => write(businessLocationKey(businessId), locationId ? String(locationId) : null),
+};
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
 });
@@ -81,6 +90,13 @@ api.interceptors.request.use((config) => {
 
   if (outlet) {
     config.headers["X-Outlet-Id"] = outlet;
+  }
+
+  const business = /^\/?businesses\/(\d+)(?:\/|$)/.exec(config.url || "");
+  const location = business && businessLocationStorage.get(business[1]);
+
+  if (location) {
+    config.headers["X-Business-Location"] = location;
   }
 
   return config;

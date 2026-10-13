@@ -3,6 +3,7 @@ const { logAction } = require("../../../../utils/audit");
 const v = require("../../../../utils/validate");
 const AppError = require("../../../../utils/AppError");
 const restaurantFeatures = require("../services/restaurantFeatures.service");
+const ruleSettings = require("../services/ruleSettings.service");
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
 
@@ -94,6 +95,9 @@ const getSettings = async (req, res) => {
       upiVpa: settings.upi_vpa || null,
       upiPayeeName: settings.upi_payee_name || null,
       invoiceNumbering: settings.invoice_numbering || "continuous",
+      // Alerts and timings: when a discount is large, a delivery late, a
+      // guest a regular… (ruleSettings.service lists each with its default).
+      rules: ruleSettings.fromRow(settings),
     },
   });
 };
@@ -182,12 +186,17 @@ const updateSettings = async (req, res) => {
   // Loyalty on or off is the Loyalty points feature now. An older screen (or
   // script) that still sends it switches the feature, under the same rules
   // as Settings -> Features: Guests must be on, and the change is logged.
+  // Alerts and timings. Left out (an older screen): kept as they are. Checked
+  // against what is saved before anything is written.
+  const rules = ruleSettings.readInput(body.rules);
+
   const loyaltyEnabled =
     body.loyaltyEnabled === undefined || body.loyaltyEnabled === null
       ? undefined
       : v.requiredBoolean(body.loyaltyEnabled, "Loyalty", false);
 
   await restaurantService.checkNumbering(req.user.restaurantId, data.invoicePrefix, money.invoiceNumbering);
+  await ruleSettings.check(req.user.restaurantId, rules);
 
   if (loyaltyEnabled !== undefined && loyaltyEnabled !== restaurantFeatures.has(req.user, "guest_loyalty")) {
     const switched = await restaurantFeatures.set(req.user, "guest_loyalty", loyaltyEnabled);
@@ -196,7 +205,12 @@ const updateSettings = async (req, res) => {
 
   await restaurantService.updateSettings(req.user.restaurantId, data, req.user.id);
   await restaurantService.updateMoneySettings(req.user.restaurantId, money, req.user.id);
+  await ruleSettings.save(req.user.restaurantId, rules, req.user.id);
   Object.assign(data, Object.fromEntries(Object.entries(money).filter(([, value]) => value !== undefined)));
+
+  if (rules && Object.keys(rules).length > 0) {
+    data.rules = rules;
+  }
 
   logAction(req, "update", "settings", { label: "Restaurant settings", details: data });
 

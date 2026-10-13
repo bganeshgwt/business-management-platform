@@ -46,11 +46,9 @@ const planFor = (restaurantId, businessDate, now) => {
 
   // The promise is what is kept, so two polls arriving together share one
   // calculation instead of both starting their own.
-  const plan = inventoryInsightService.reorder(
-    restaurantId,
-    { horizon: inventoryInsightService.DEFAULT_HORIZON },
-    now
-  );
+  // The restaurant's own horizon, look-back and safety days (no horizon
+  // given), so the bell's plan is the one the reorder screen opens on.
+  const plan = inventoryInsightService.reorder(restaurantId, {}, now);
 
   plans.set(restaurantId, { plan, businessDate, version, at: Date.now() });
   // A failed calculation is not kept: the next poll tries again.
@@ -239,6 +237,8 @@ const buildPicture = async ({ restaurantId, businessDate, now, pool }) => {
   return {
     out,
     runningOut,
+    // How far back the plan read usage, for "not used in the last … days".
+    usageDays: plan.usageDays,
     // What the core stock alerts must leave alone.
     coveredIds: new Set([...out, ...runningOut].map((line) => Number(line.id))),
   };
@@ -307,7 +307,7 @@ const coveredItemIds = async (context) => {
 
 // ---------------------------------------------------------------- alerts
 
-const outAlert = (line, businessDate, now) => {
+const outAlert = (line, businessDate, now, usageDays = inventoryInsightService.USAGE_DAYS) => {
   const inUse = line.dailyUsage > 0;
 
   return {
@@ -322,7 +322,7 @@ const outAlert = (line, businessDate, now) => {
         : null,
       inUse
         ? `uses about ${quantity(line.dailyUsage, line.unit)} a day`
-        : `not used in the last ${inventoryInsightService.USAGE_DAYS} days`,
+        : `not used in the last ${usageDays} days`,
       nextStep(line, businessDate) || "not on order — raise a purchase order",
     ]
       .filter(Boolean)
@@ -359,8 +359,8 @@ const runningOutAlert = (line, businessDate, now) => {
   };
 };
 
-const stockAlerts = ({ out, runningOut }, businessDate, now) => {
-  const alerts = out.slice(0, NAMED_LIMIT).map((line) => outAlert(line, businessDate, now));
+const stockAlerts = ({ out, runningOut, usageDays }, businessDate, now) => {
+  const alerts = out.slice(0, NAMED_LIMIT).map((line) => outAlert(line, businessDate, now, usageDays));
 
   if (out.length > NAMED_LIMIT) {
     const rest = out.slice(NAMED_LIMIT);

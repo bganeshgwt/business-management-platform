@@ -13,6 +13,9 @@ import { toast } from "../../../../services/toast";
 import FormDialog from "../../core/pages/FormDialog";
 import { BusinessHeader, Field } from "../../core/pages/ui";
 import { businessToday, newKey, useDirtyGuard, useOpenBusiness, useOptions } from "../../core/pages/hooks";
+import { usePaymentMethods } from "../../core/pages/paymentMethods";
+// A visit or lab bill paid in full at the desk: UPI, cash or card.
+const PAY_KINDS = ["upi", "cash", "card"];
 import { FlagBadge, LabStatus, ReportReady } from "./healthParts";
 import { SEX_WORDS, resultText } from "./healthFormat";
 import { printPrescription } from "./healthPrint";
@@ -179,13 +182,14 @@ function NoteDialog({ visitId, onClose, onSaved }) {
 function BillDialog({ visit, onClose, onSaved }) {
   const biz = useOpenBusiness();
   const [method, setMethod] = useState("upi");
+  const methods = usePaymentMethods();
   const [key] = useState(newKey);
   const locationId = biz.locations.find((l) => l.active)?.id;
   return (
     <FormDialog title={`Bill ${visit.visit_no}`} icon="receipt" width={520} onClose={onClose} onSaved={onSaved} successMessage={(r) => `Billed ${r.document.document_no}`}
       description={visit.appointment_id ? "The consultation booked with the appointment is billed (exempt from GST)." : "This walk-in visit has no booked service; bill it on the Sales screen."}
-      onSubmit={() => businessWrite(biz.id, `clinic/visits/${visit.id}/bill`, { requestKey: key, locationId, payment: { amount: "full", method } })}>
-      <Field label="Paid by"><select value={method} onChange={(e) => setMethod(e.target.value)}>{[["upi", "UPI"], ["cash", "Cash"], ["card", "Card"]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Field>
+      onSubmit={() => businessWrite(biz.id, `clinic/visits/${visit.id}/bill`, { requestKey: key, locationId, payment: { amount: "full", ...methods.body(method, PAY_KINDS) } })}>
+      <Field label="Paid by"><select value={methods.resolve(method, PAY_KINDS)} onChange={(e) => setMethod(e.target.value)}>{methods.options(PAY_KINDS).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}</select></Field>
     </FormDialog>
   );
 }
@@ -197,6 +201,7 @@ export function OrderTestsDialog({ visit, patient, onClose, onSaved }) {
   const [priority, setPriority] = useState("routine");
   const [bill, setBill] = useState(true);
   const [method, setMethod] = useState("upi");
+  const methods = usePaymentMethods();
   const [key] = useState(newKey);
   const tests = options?.["lab/tests?active=true"] || [];
   const toggle = (id) => setChosen((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
@@ -204,7 +209,7 @@ export function OrderTestsDialog({ visit, patient, onClose, onSaved }) {
   return (
     <FormDialog title={`Order tests · ${visit?.patient_name || patient?.name}`} icon="activity" width={720} onClose={onClose} onSaved={onSaved} submitLabel="Order" successMessage={(o) => `${o.order_no} ordered`}
       onSubmit={() => businessWrite(biz.id, "lab/orders", { requestKey: key, locationId: biz.locations.find((l) => l.active)?.id, ...(visit ? { visitId: visit.id } : { contactId: patient.contact_id }),
-        testIds: chosen, priority, referredBy: visit?.doctor_name || undefined, bill, ...(bill ? { payment: { amount: "full", method } } : {}) })}>
+        testIds: chosen, priority, referredBy: visit?.doctor_name || undefined, bill, ...(bill ? { payment: { amount: "full", ...methods.body(method, PAY_KINDS) } } : {}) })}>
       {error && <div className="field-wide"><ErrorMessage message={error} /></div>}
       <div className="field-wide hl-test-list">
         {tests.map((t) => (
@@ -215,7 +220,7 @@ export function OrderTestsDialog({ visit, patient, onClose, onSaved }) {
       </div>
       <Field label="Priority"><select value={priority} onChange={(e) => setPriority(e.target.value)}><option value="routine">Routine</option><option value="urgent">Urgent</option></select></Field>
       <label className="hl-check"><input type="checkbox" checked={bill} onChange={(e) => setBill(e.target.checked)} /> Bill the tests now{bill && total ? ` (${biz.exact(total)})` : ""}</label>
-      {bill && <Field label="Paid by"><select value={method} onChange={(e) => setMethod(e.target.value)}>{[["upi", "UPI"], ["cash", "Cash"], ["card", "Card"]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Field>}
+      {bill && <Field label="Paid by"><select value={methods.resolve(method, PAY_KINDS)} onChange={(e) => setMethod(e.target.value)}>{methods.options(PAY_KINDS).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}</select></Field>}
     </FormDialog>
   );
 }

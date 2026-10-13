@@ -13,7 +13,10 @@ import { toast } from "../../../../services/toast";
 import FormDialog from "../../core/pages/FormDialog";
 import { ActiveBadge, Badge, BusinessHeader, Field, FormError } from "../../core/pages/ui";
 import { newKey, quantity, useOpenBusiness, useServerList } from "../../core/pages/hooks";
-import { methodWord, whatsappLink } from "./retail";
+import { whatsappLink } from "./retail";
+import { usePaymentMethods } from "../../core/pages/paymentMethods";
+// A book-order advance: the business's own methods of these kinds (no cheques).
+const ADVANCE_KINDS = ["cash", "upi", "card", "bank"];
 import "../styles/business-retail.css";
 
 // Booklists and customer orders (pro pass C-24), for bookshops.
@@ -133,6 +136,7 @@ function OrderDialog({ onClose, onSaved }) {
   const [requestKey] = useState(newKey);
   const [customer, setCustomer] = useState(null);
   const [form, setForm] = useState({ customerName: "", phone: "", title: "", author: "", isbn: "", quantity: "1", promisedOn: "", advance: "", method: "cash", notes: "" });
+  const methods = usePaymentMethods();
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
   const location = biz.locations.find((l) => l.active && l.sells_at_counter !== false) || biz.locations.find((l) => l.active);
   const canAdvance = biz.has("receivables") && biz.can("receivables.create");
@@ -144,7 +148,7 @@ function OrderDialog({ onClose, onSaved }) {
         requestKey, locationId: location?.id, title: form.title, author: form.author || undefined, isbn: form.isbn || undefined, quantity: form.quantity,
         promisedOn: form.promisedOn || undefined, notes: form.notes || undefined, phone: form.phone || undefined,
         ...(customer ? { contactId: customer.id } : { customerName: form.customerName }),
-        ...(customer && canAdvance && Number(form.advance) > 0 ? { advance: form.advance, method: form.method } : {}),
+        ...(customer && canAdvance && Number(form.advance) > 0 ? { advance: form.advance, ...methods.body(form.method, ADVANCE_KINDS) } : {}),
       })}>
       <SearchPicker label="Customer (optional)" placeholder="Name or phone of a regular" value={customer} onChange={setCustomer}
         search={(q, { signal }) => businessRead(biz.id, "contacts", { kind: "customer", active: "true", q, limit: 8 }, signal).then((page) => page.items)}
@@ -161,7 +165,7 @@ function OrderDialog({ onClose, onSaved }) {
           <Field label="Advance (optional)"><input type="number" min="0" step="0.01" value={form.advance} onChange={set("advance")} /></Field>
           {Number(form.advance) > 0 && (
             <Field label="Advance paid by">
-              <select value={form.method} onChange={set("method")}>{["cash", "upi", "card"].map((m) => <option key={m} value={m}>{methodWord(m)}</option>)}</select>
+              <select value={methods.resolve(form.method, ADVANCE_KINDS)} onChange={set("method")}>{methods.options(ADVANCE_KINDS).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}</select>
             </Field>
           )}
         </>

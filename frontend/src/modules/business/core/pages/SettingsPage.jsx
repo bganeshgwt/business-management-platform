@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import SectionCard from "../../../../components/SectionCard";
 import { ErrorMessage, Loading, SuccessMessage } from "../../../../components/Feedback";
 import { businessRead, businessWrite } from "../../../../services/business.service";
+import { COMMON_CURRENCIES } from "./newBusiness";
+
+const zoneList = (() => { try { return Intl.supportedValuesOf("timeZone"); } catch { return ["Asia/Kolkata"]; } })();
 import { getErrorMessage } from "../../../../services/api";
 import { BusinessHeader, Badge, Field } from "./ui";
 import { useDirtyGuard, useOpenBusiness } from "./hooks";
@@ -17,11 +20,29 @@ const fromRow = (s) => ({
   invoiceFooter: s.invoice_footer || "", receiptFooter: s.receipt_footer || "",
   maxBillDiscountPercent: String(Number(s.max_bill_discount_percent ?? 10)), walkInCredit: Boolean(s.walk_in_credit),
   counterPinEveryBill: Boolean(s.counter_pin_every_bill),
+  currency: s.currency || "INR", timezone: s.timezone || "Asia/Kolkata",
+  // Business rules.
+  voucherValidDays: String(s.voucher_valid_days ?? 90), nearExpiryDays: String(s.near_expiry_days ?? 30),
+  ageing1: String(s.ageing_days?.[0] ?? 30), ageing2: String(s.ageing_days?.[1] ?? 60), ageing3: String(s.ageing_days?.[2] ?? 90),
+  weightButtons: (s.weight_buttons_grams || [250, 500, 1000, 2000]).join(", "), receiptWidthMm: String(s.receipt_width_mm ?? 80),
+  dayCutoffHour: String(s.day_cutoff_hour ?? 5),
 });
+// What the API takes: the rules as numbers and lists.
+const toBody = (form) => {
+  const { ageing1, ageing2, ageing3, weightButtons, ...rest } = form;
+  return {
+    ...rest,
+    ageingDays: [ageing1, ageing2, ageing3].map(Number),
+    weightButtonsGrams: weightButtons.split(/[\s,]+/).filter(Boolean).map(Number),
+    voucherValidDays: Number(form.voucherValidDays), nearExpiryDays: Number(form.nearExpiryDays),
+    receiptWidthMm: Number(form.receiptWidthMm), dayCutoffHour: Number(form.dayCutoffHour),
+  };
+};
 
 const SECTIONS = [
   { id: "bz-settings-details", label: "Business details" },
   { id: "bz-settings-prices", label: "Prices and totals" },
+  { id: "bz-settings-rules", label: "Rules" },
   { id: "bz-settings-modules", label: "Modules" },
 ];
 
@@ -52,7 +73,7 @@ export default function SettingsPage() {
     setBusy(true);
     setError("");
     try {
-      const saved = await businessWrite(biz.id, "settings", form, "put");
+      const saved = await businessWrite(biz.id, "settings", toBody(form), "put");
       setForm(fromRow(saved));
       setSaved(fromRow(saved));
       setSavedAt(new Date());
@@ -111,6 +132,14 @@ export default function SettingsPage() {
                     {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
                   </select>
                 </Field>
+                <Field label="Currency" hint="Three letters, e.g. INR. Cannot change once bills or purchases are recorded.">
+                  <input required list="settings-currencies" className="mono" maxLength={3} value={form.currency} onChange={(e) => { setDirty(true); setForm((f) => ({ ...f, currency: e.target.value.toUpperCase() })); }} />
+                  <datalist id="settings-currencies">{COMMON_CURRENCIES.map((c) => <option key={c} value={c} />)}</datalist>
+                </Field>
+                <Field label="Time zone" hint="Decides what “today” is for bills, the day close and reports.">
+                  <input required list="settings-zones" maxLength={60} value={form.timezone} onChange={set("timezone")} />
+                  <datalist id="settings-zones">{zoneList.map((z) => <option key={z} value={z} />)}</datalist>
+                </Field>
                 <Field label="Date format on documents">
                   <select value={form.dateFormat} onChange={set("dateFormat")}>
                     {["DD/MM/YYYY", "DD-MM-YYYY", "DD MMM YYYY", "YYYY-MM-DD"].map((f) => <option key={f} value={f}>{f}</option>)}
@@ -133,6 +162,37 @@ export default function SettingsPage() {
                 </Field>
                 <Field label="Invoice footer" wide><input maxLength={500} value={form.invoiceFooter} onChange={set("invoiceFooter")} placeholder="e.g. Goods once sold will be exchanged within 7 days with the bill." /></Field>
                 <Field label="Receipt footer" wide><input maxLength={300} value={form.receiptFooter} onChange={set("receiptFooter")} placeholder="e.g. Thank you! Visit again." /></Field>
+              </div>
+            </SectionCard>
+            <SectionCard id="bz-settings-rules" icon="sliders" title="Rules" description="How this business works day to day. Each starts at the usual value; change only what you need.">
+              <div className="form-grid">
+                <Field label="Expiring soon means within (days)" hint="Batches shown on the Overview, the bell, the near-expiry list and the stock list.">
+                  <input type="number" min="1" max="365" required value={form.nearExpiryDays} onChange={set("nearExpiryDays")} />
+                </Field>
+                <Field label="Credit vouchers valid for (days)" hint="A voucher from an exchange or return can be spent until then.">
+                  <input type="number" min="1" max="3650" required value={form.voucherValidDays} onChange={set("voucherValidDays")} />
+                </Field>
+                <Field label="Customer credit age groups (days)" hint="What customers owe is grouped by the age of the bill: up to the first, up to the second, up to the third, and older." wide>
+                  <span style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+                    <input type="number" min="1" max="3650" required aria-label="First group up to (days)" value={form.ageing1} onChange={set("ageing1")} />
+                    <input type="number" min="2" max="3650" required aria-label="Second group up to (days)" value={form.ageing2} onChange={set("ageing2")} />
+                    <input type="number" min="3" max="3650" required aria-label="Third group up to (days)" value={form.ageing3} onChange={set("ageing3")} />
+                  </span>
+                </Field>
+                <Field label="Quick weight buttons (grams)" hint="At Quick bill for loose goods, e.g. 100, 250, 500, 1000. Up to 8.">
+                  <input required value={form.weightButtons} onChange={set("weightButtons")} />
+                </Field>
+                <Field label="Till receipt paper" hint="The width of the receipt printer's roll.">
+                  <select value={form.receiptWidthMm} onChange={set("receiptWidthMm")}>
+                    <option value="80">80 mm</option>
+                    <option value="58">58 mm</option>
+                  </select>
+                </Field>
+                <Field label="Day cut-off" hint="A task due after midnight, before this hour, belongs to the day before (a late closing check).">
+                  <select value={form.dayCutoffHour} onChange={set("dayCutoffHour")}>
+                    {Array.from({ length: 13 }, (_, h) => <option key={h} value={h}>{h === 0 ? "Midnight" : h === 12 ? "Noon" : `${h} am`}</option>)}
+                  </select>
+                </Field>
               </div>
             </SectionCard>
           </fieldset>

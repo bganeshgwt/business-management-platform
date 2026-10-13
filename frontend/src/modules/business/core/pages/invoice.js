@@ -141,6 +141,7 @@ function a4(doc, biz, f) {
   const savings = Number(doc.retail?.savings || 0);
   return `<div class="top"><div><h1>${escapeHtml(sellerName)}</h1>
       ${seller.legal_name && seller.display_name && seller.legal_name !== seller.display_name ? `<div class="muted">${escapeHtml(seller.display_name)}</div>` : ""}
+      ${seller.branch_name ? `<div class="muted">${escapeHtml(seller.branch_name)}</div>` : ""}
       <div>${address([seller.address_line1, seller.address_line2, seller.city, seller.postal_code])}</div>
       <div>${[seller.gstin && `GSTIN <strong>${escapeHtml(seller.gstin)}</strong>`, seller.state_code && `State ${escapeHtml(stateName(seller.state_code))}`].filter(Boolean).join(" · ")}</div>
       ${pharmacyBlock(doc)}
@@ -220,6 +221,7 @@ function till(doc, biz, f, { change = 0, udhaar = null } = {}) {
   const redeemed = loyalty.find((e) => e.kind === "redeem");
   const savings = Number(doc.retail?.savings || 0);
   return `<h1>${escapeHtml(seller.display_name || seller.legal_name || biz.business.name)}</h1>
+    ${seller.branch_name ? `<div class="c small">${escapeHtml(seller.branch_name)}</div>` : ""}
     <div class="c small">${[seller.address_line1, seller.city, seller.postal_code].filter(Boolean).map(escapeHtml).join(", ")}${seller.phone ? `<br>Ph ${escapeHtml(seller.phone)}` : ""}${seller.gstin ? `<br>GSTIN ${escapeHtml(seller.gstin)}` : ""}</div>${pharmacyBlock(doc)}
     <div class="c"><strong>${escapeHtml(f.title.toUpperCase())}</strong></div>
     <hr><div class="row"><span>${escapeHtml(doc.document_no)}</span><span>${escapeHtml(businessDate(doc.created_at, seller.date_format, biz.business.timezone))} ${escapeHtml(new Date(doc.created_at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }))}</span></div>
@@ -263,7 +265,14 @@ export function printTaxInvoice(doc, biz, { paper = "a4", ...extra } = {}) {
   const facts = invoiceFacts(doc);
   printDocument({
     title: doc.document_no,
-    styles: paper === "80mm" ? TILL_STYLES : A4_STYLES,
+    styles: paper === "80mm" ? tillStyles(biz) : A4_STYLES,
     body: paper === "80mm" ? till(doc, biz, facts, extra) : a4(doc, biz, facts),
   });
+}
+
+// The till receipt on the business's own paper (Business settings › Rules:
+// 80 mm, or 58 mm for a small printer). "80mm" in the callers means "the till".
+function tillStyles(biz) {
+  if (Number(biz?.settings?.receipt_width_mm) !== 58) return TILL_STYLES;
+  return TILL_STYLES.replace("width:72mm", "width:50mm").replace("@page{size:80mm auto;", "@page{size:58mm auto;").replace("font:12px/1.35", "font:11px/1.3");
 }

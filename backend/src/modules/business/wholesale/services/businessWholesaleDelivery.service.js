@@ -364,8 +364,12 @@ async function challan(business, user, dispatchId) {
       LEFT JOIN business_documents doc ON doc.business_id=bl.business_id AND doc.id=bl.document_id
       LEFT JOIN business_stock_lots lot ON lot.business_id=bl.business_id AND lot.sku_id=bl.sku_id AND lot.location_id=doc.location_id AND lot.lot_code=bl.lot_code
       WHERE dl.business_id=$1 AND dl.dispatch_id=$2 ORDER BY bl.id`, [business.id, row.id]);
-    const seller = await repo.one(db, 'SELECT * FROM business_settings WHERE business_id=$1', [business.id]);
-    return { ...head, lines, seller };
+    // The consignor is the dispatching location (its own address and GSTIN when it has them).
+    const [settings, location] = await Promise.all([
+      repo.one(db, 'SELECT * FROM business_settings WHERE business_id=$1', [business.id]),
+      repo.one(db, 'SELECT l.* FROM business_locations l JOIN business_documents d ON d.business_id=l.business_id AND d.location_id=l.id WHERE d.business_id=$1 AND d.id=$2', [business.id, head.document_id]),
+    ]);
+    return { ...head, lines, seller: core.branchSeller(settings, location) };
   });
 }
 

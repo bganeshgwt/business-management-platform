@@ -12,6 +12,7 @@ const crmRepository = require("../../crm/repositories/crm.repository");
 const tableRepository = require("../../tables/repositories/table.repository");
 const orderService = require("../../orders/services/order.service");
 const AppError = require("../../../../utils/AppError");
+const ruleSettings = require("../../setup/services/ruleSettings.service");
 
 const DUPLICATE = "23505";
 // Order numbers come from a counter row locked until the order commits, so a
@@ -23,10 +24,12 @@ const ORDER_NUMBER_ATTEMPTS = 6;
 // A booking typed in at 7:05 for "7:00" is the host catching up, not a
 // booking in the past.
 const PAST_GRACE_MINUTES = 15;
-// Late enough that the table should be chased or given away.
-const LATE_AFTER_MINUTES = 15;
-// Kitchens stop seating before they stop cooking.
-const LAST_SEATING_BEFORE_CLOSE = 30;
+// Late enough that the table should be chased or given away, and how long
+// before closing the last table is seated (kitchens stop seating before they
+// stop cooking). Each restaurant sets its own (Settings -> Alerts and
+// timings); these are what it starts at.
+const LATE_AFTER_MINUTES = ruleSettings.DEFAULTS.reservationLateMinutes;
+const LAST_SEATING_BEFORE_CLOSE = ruleSettings.DEFAULTS.reservationLastSeatingMinutes;
 const MAX_DAYS_AHEAD = 365;
 
 const SEATABLE = ["booked", "confirmed", "no_show"];
@@ -280,7 +283,9 @@ const toTable = (row) => ({
     : null,
 });
 
-const toHours = (row) => {
+// lastSeating: minutes before closing the last booking may start (the
+// restaurant's setting; its settings row carries it).
+const toHours = (row, lastSeating = LAST_SEATING_BEFORE_CLOSE) => {
   if (!row) {
     return null;
   }
@@ -304,8 +309,8 @@ const toHours = (row) => {
     // Minutes from midnight, so a close past midnight still sorts after open.
     openMinutes: open,
     closeMinutes: close,
-    lastBooking: hhmm(Math.max(open, close - LAST_SEATING_BEFORE_CLOSE)),
-    lastBookingMinutes: Math.max(open, close - LAST_SEATING_BEFORE_CLOSE),
+    lastBooking: hhmm(Math.max(open, close - lastSeating)),
+    lastBookingMinutes: Math.max(open, close - lastSeating),
   };
 };
 
@@ -331,15 +336,16 @@ const checkDate = (data, clock) => {
 
 // Only enforced when the restaurant has set its hours; a place that has not
 // told us when it opens has not asked us to police it.
-const checkHours = async (restaurantId, date, startTime) => {
+const checkHours = async (restaurantId, date, startTime, settings = null) => {
   const hours = await restaurantRepository.findBusinessHours(restaurantId);
+  const lastSeating = ruleSettings.fromRow(settings).reservationLastSeatingMinutes;
 
   if (hours.length === 0) {
     return;
   }
 
   const weekday = weekdayOf(date);
-  const day = toHours(hours.find((row) => Number(row.day_of_week) === weekday));
+  const day = toHours(hours.find((row) => Number(row.day_of_week) === weekday), lastSeating);
 
   if (!day) {
     return;
@@ -682,7 +688,7 @@ const create = async (restaurantId, data, userId) => {
   const clock = localClock(settings.timezone);
 
   checkDate(data, clock);
-  await checkHours(restaurantId, data.date, data.startTime);
+  await checkHours(restaurantId, data.date, data.startTime, settings);
   await requireCustomer(restaurantId, data.customerId);
 
   // References are drawn one booking at a time (lockReferences), so the
@@ -750,7 +756,7 @@ const update = async (restaurantId, id, data, userId, outletId = null) => {
   // An evening booking edited at 8 pm to fix a spelling is not "in the past".
   if (moved) {
     checkDate(data, clock);
-    await checkHours(restaurantId, data.date, data.startTime);
+    await checkHours(restaurantId, data.date, data.startTime, settings);
   }
 
   if (data.customerId !== existing.customerId) {
@@ -1800,6 +1806,7 @@ const board = async (restaurantId, date, outletId = null) => {
   requireRestaurantId(restaurantId);
 
   const settings = await settingsFor(restaurantId);
+  const rules = ruleSettings.fromRow(settings);
   const clock = localClock(settings.timezone);
   const day = date || clock.date;
 
@@ -1831,11 +1838,11 @@ const board = async (restaurantId, date, outletId = null) => {
     ? bookings
         .filter((booking) => ["booked", "confirmed"].includes(booking.status))
         .map((booking) => ({ booking, minutes: clock.minutes - toMinutes(booking.startTime) }))
-        .filter((item) => item.minutes >= LATE_AFTER_MINUTES)
+        .filter((item) => item.minutes >= rules.reservationLateMinutes)
     : [];
   const missed = behind.filter((item) => item.minutes >= item.booking.durationMinutes).length;
   const late = behind.length - missed;
-  const week = hours.map(toHours);
+  const week = hours.map((row) => toHours(row, rules.reservationLastSeatingMinutes));
 
   return {
     date: day,
@@ -1844,7 +1851,7 @@ const board = async (restaurantId, date, outletId = null) => {
     timezone: settings.timezone,
     now: clock.stamp,
     nowMinutes: clock.minutes,
-    lateAfterMinutes: LATE_AFTER_MINUTES,
+    lateAfterMinutes: rules.reservationLateMinutes,
     hours: week.find((row) => row && row.dayOfWeek === weekdayOf(day)) || null,
     week,
     outlook: Array.from({ length: 7 }, (_, index) => {

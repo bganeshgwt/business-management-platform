@@ -8,19 +8,23 @@ const AppError = require("../../../../utils/AppError");
 const guestAddressRepository = require("../../online/repositories/guestAddress.repository");
 const { round2 } = require("../../../../utils/money");
 const { maskMobile } = require("../../../../utils/phone");
+const ruleSettings = require("../../setup/services/ruleSettings.service");
 
 const DUPLICATE = "23505";
 
+// The timings below are the restaurant's own (Settings -> Alerts and
+// timings, read per call through ruleSettings); these are what it starts at.
+//
 // Door to door: from the moment the order is placed to the moment it is in the
 // guest's hands. 45 minutes is what the aggregators hold a restaurant to.
-const SLA_MINUTES = 45;
+const SLA_MINUTES = ruleSettings.DEFAULTS.deliverySlaMinutes;
 // Amber from here: still on time, but only if it leaves now.
-const WARN_MINUTES = 30;
+const WARN_MINUTES = ruleSettings.DEFAULTS.deliveryWarnMinutes;
 // Packed food waiting this long for a rider is going cold.
-const READY_WAIT_MINUTES = 10;
+const READY_WAIT_MINUTES = ruleSettings.DEFAULTS.deliveryReadyWaitMinutes;
 // A single run should never take longer than this; past it, call the rider.
-const OUT_WARN_MINUTES = 45;
-const OUT_CRITICAL_MINUTES = 60;
+const OUT_WARN_MINUTES = ruleSettings.DEFAULTS.deliveryOutWarnMinutes;
+const OUT_CRITICAL_MINUTES = ruleSettings.DEFAULTS.deliveryOutCriticalMinutes;
 // One rider, one bag: more than this in one run is a mistake, not a plan.
 const MAX_RUN = 12;
 
@@ -225,13 +229,14 @@ const buildRiders = (riderRows, orders, isToday, now) =>
 
 // withMoney: sales and cash figures only for someone who may read reports.
 // The counts and clocks are the same for everyone at the desk.
-const buildStats = (orders, isToday, now, withMoney) => {
+const buildStats = (orders, isToday, now, withMoney, rules = ruleSettings.DEFAULTS) => {
+  const sla = rules.deliverySlaMinutes;
   const today = orders.filter(isToday);
   const pre = orders.filter((order) => PRE_DISPATCH.includes(order.status));
   const out = orders.filter((order) => order.status === "out_for_delivery");
   const delivered = today.filter((order) => order.status === "delivered");
   const timed = delivered.filter((order) => order.doorMinutes !== null);
-  const onTime = timed.filter((order) => order.doorMinutes <= SLA_MINUTES);
+  const onTime = timed.filter((order) => order.doorMinutes <= sla);
   const live = [...pre, ...out];
   // Late is tonight's problem: an order left on the board from an earlier
   // day is counted apart (earlierInPlay), not as "running late".
@@ -250,7 +255,7 @@ const buildStats = (orders, isToday, now, withMoney) => {
       (order) =>
         order.status === "ready" &&
         order.readyAt &&
-        minutesBetween(order.readyAt, now) > READY_WAIT_MINUTES
+        minutesBetween(order.readyAt, now) > rules.deliveryReadyWaitMinutes
     ).length,
     withoutRider: pre.filter((order) => !order.rider && !order.partnerRiderName).length,
     outNow: out.length,
@@ -262,9 +267,9 @@ const buildStats = (orders, isToday, now, withMoney) => {
     timedCount: timed.length,
     onTimeCount: onTime.length,
     onTimeRate: timed.length ? Math.round((onTime.length / timed.length) * 100) : null,
-    lateNow: live.filter((order) => tonight(order) && minutesBetween(order.placedAt, now) > SLA_MINUTES).length,
-    lateOut: out.filter((order) => tonight(order) && minutesBetween(order.placedAt, now) > SLA_MINUTES).length,
-    lateWaiting: pre.filter((order) => tonight(order) && minutesBetween(order.placedAt, now) > SLA_MINUTES).length,
+    lateNow: live.filter((order) => tonight(order) && minutesBetween(order.placedAt, now) > sla).length,
+    lateOut: out.filter((order) => tonight(order) && minutesBetween(order.placedAt, now) > sla).length,
+    lateWaiting: pre.filter((order) => tonight(order) && minutesBetween(order.placedAt, now) > sla).length,
     earlierInPlay: live.filter((order) => !tonight(order)).length,
     cashWithRiders: withMoney
       ? round2(out.reduce((sum, order) => sum + (order.paymentState === "paid" ? 0 : order.dueAmount), 0))
@@ -363,10 +368,11 @@ const board = async (restaurantId, { outletId, withMoney = false, revealContacts
     .sort((a, b) => new Date(a.placedAt) - new Date(b.placedAt));
   const riderIds = [...new Set(orders.filter((order) => order.rider).map((order) => order.rider.id))];
 
-  const [riderRows, channelRows, locale] = await Promise.all([
+  const [riderRows, channelRows, locale, rules] = await Promise.all([
     deliveryRepository.findRiders(restaurantId, { outletId, includeIds: riderIds }),
     salesChannelRepository.findAll(restaurantId),
     deliveryRepository.findLocale(restaurantId),
+    ruleSettings.load(restaurantId),
   ]);
 
   const now = new Date();
@@ -385,11 +391,11 @@ const board = async (restaurantId, { outletId, withMoney = false, revealContacts
     timezone: locale.timezone,
     currency: locale.currency,
     serverTime: now.toISOString(),
-    slaMinutes: SLA_MINUTES,
-    warnMinutes: WARN_MINUTES,
-    readyWaitMinutes: READY_WAIT_MINUTES,
-    outWarnMinutes: OUT_WARN_MINUTES,
-    outCriticalMinutes: OUT_CRITICAL_MINUTES,
+    slaMinutes: rules.deliverySlaMinutes,
+    warnMinutes: rules.deliveryWarnMinutes,
+    readyWaitMinutes: rules.deliveryReadyWaitMinutes,
+    outWarnMinutes: rules.deliveryOutWarnMinutes,
+    outCriticalMinutes: rules.deliveryOutCriticalMinutes,
     showsMoney: withMoney,
     orders: orders.map((order) => {
       if (FINISHED.includes(order.status)) {
@@ -409,7 +415,7 @@ const board = async (restaurantId, { outletId, withMoney = false, revealContacts
       boardCount: orders.filter((order) => order.channel && order.channel.id === channel.id).length,
     })),
     untaggedCount: orders.filter((order) => !order.channel).length,
-    stats: buildStats(orders, isToday, now, withMoney),
+    stats: buildStats(orders, isToday, now, withMoney, rules),
   };
 };
 
@@ -1164,10 +1170,11 @@ const report = async (restaurantId, { from, to, outletId = null }) => {
   requireRestaurantId(restaurantId);
   await salesChannelRepository.ensureDefaults(restaurantId);
 
-  const [days, locale, outlet] = await Promise.all([
+  const [days, locale, outlet, rules] = await Promise.all([
     deliveryRepository.findOpenDays(restaurantId, outletId),
     deliveryRepository.findLocale(restaurantId),
     outletId ? outletRepository.findById(restaurantId, outletId) : Promise.resolve(null),
+    ruleSettings.load(restaurantId),
   ]);
 
   // "Today" is the open business day, which is not the calendar date once
@@ -1198,7 +1205,7 @@ const report = async (restaurantId, { from, to, outletId = null }) => {
   const [sales, bills, performance, channelRows] = await Promise.all([
     deliveryRepository.channelSales(restaurantId, start, end, outletId),
     deliveryRepository.billTotals(restaurantId, start, end, outletId),
-    deliveryRepository.deliveryPerformance(restaurantId, start, end, SLA_MINUTES, outletId),
+    deliveryRepository.deliveryPerformance(restaurantId, start, end, rules.deliverySlaMinutes, outletId),
     salesChannelRepository.findAll(restaurantId),
   ]);
 
@@ -1332,7 +1339,7 @@ const report = async (restaurantId, { from, to, outletId = null }) => {
     outletId: outletId || null,
     outletName: outlet ? outlet.name : null,
     currency: locale.currency,
-    slaMinutes: SLA_MINUTES,
+    slaMinutes: rules.deliverySlaMinutes,
     rows,
     totals,
     reconciliation: {

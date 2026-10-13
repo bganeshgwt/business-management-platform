@@ -10,6 +10,16 @@ import { monthStart } from "../../../../services/dates";
 // format, a server-paged list with search and a period, and record pickers.
 
 export const CURRENCY_SYMBOL = { INR: "₹" };
+// Any currency's symbol, as the browser writes it (₹, $, €, AED …).
+export function currencySymbol(code) {
+  if (CURRENCY_SYMBOL[code]) return CURRENCY_SYMBOL[code];
+  try {
+    const part = new Intl.NumberFormat("en-IN", { style: "currency", currency: code, currencyDisplay: "narrowSymbol" }).formatToParts(0).find((p) => p.type === "currency");
+    return part ? part.value : `${code} `;
+  } catch {
+    return `${code} `;
+  }
+}
 export const newKey = () => crypto.randomUUID();
 const addDays = (day, days) => {
   const date = new Date(`${day}T00:00:00Z`);
@@ -24,18 +34,34 @@ export const businessToday = (timezone) => new Intl.DateTimeFormat("en-CA", { ti
 export const quantity = (value, unit) => `${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 3 })}${unit ? ` ${unit}` : ""}`;
 export const dateTime = (value) => (value ? new Date(value).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "—");
 
+// The age-group labels for what customers owe: "0–30 days" … "Over 90 days",
+// from the business's own limits.
+export function ageLabels(days) {
+  const [a, b, c] = Array.isArray(days) && days.length === 3 ? days.map(Number) : [30, 60, 90];
+  return { edges: [a, b, c], first: `0–${a} days`, second: `${a + 1}–${b} days`, third: `${b + 1}–${c} days`, over: `Over ${c} days` };
+}
+
 // The open business, what it has on, what this person may do, and its money.
 export function useOpenBusiness() {
   const biz = useBusiness();
   const business = biz.context.business;
-  const symbol = CURRENCY_SYMBOL[business.currency] || `${business.currency} `;
+  const symbol = currencySymbol(business.currency);
   return {
     ...biz,
     business,
     id: business.id,
     type: business.business_type,
     settings: biz.context.settings || {},
+    // The locations this person works with: theirs only when tied to one, or
+    // the branch picked in the top bar. `allLocations` names every location
+    // (a transfer's destination, settings); `member.location_id` is set for
+    // someone tied to one location.
     locations: biz.context.locations || [],
+    allLocations: biz.context.allLocations || biz.context.locations || [],
+    member: biz.context.member || { location_id: null, location_name: null },
+    currentLocationId: biz.context.currentLocationId || null,
+    // The customer-credit age groups (Business settings › Rules; 30/60/90 by default).
+    ages: ageLabels(biz.context.settings?.ageing_days),
     symbol,
     amount: (value) => money(value, symbol),
     exact: (value) => moneyExact(value, symbol),

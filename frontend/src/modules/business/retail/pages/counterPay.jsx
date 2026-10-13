@@ -8,18 +8,20 @@ import { businessRead, businessWrite } from "../../../../services/business.servi
 import { getErrorMessage } from "../../../../services/api";
 import { deviceTokens } from "../../../../services/auth.service";
 import { Field } from "../../core/pages/ui";
-import { methodWord } from "./retail";
-import { newPart, partsSummary, round2 } from "./counterPayState";
+import { usePaymentMethods } from "../../core/pages/paymentMethods";
+import { newPart, PART_KINDS, partsSummary, round2 } from "./counterPayState";
 import "../styles/counter-pay.css";
 
 // Round 2 (R2-CORE) pieces of Quick bill: several payments on one bill
 // (split payment), an EMI sale through a financier, the per-staff PIN at a
 // shared till, and the bill carried across a switch of biller.
 
-const PART_METHODS = ["cash", "upi", "card"];
-// Cash + UPI + card on one bill. `due` is what these parts should cover;
-// "Rest" fills a part with what is still left. The change comes only from cash.
+// Cash + UPI + card on one bill, by the business's own methods (PhonePe,
+// Sodexo…). `due` is what these parts should cover; "Rest" fills a part with
+// what is still left. The change comes only from cash (the kind, whatever
+// the method is called).
 export function PaymentParts({ biz, parts, onChange, due, label = "Payments", leftWord = "Left to pay" }) {
+  const methods = usePaymentMethods();
   const set = (key, changes) => onChange(parts.map((p) => (p.key === key ? { ...p, ...changes } : p)));
   const { paid, change } = partsSummary(parts);
   const left = round2(due - paid);
@@ -31,8 +33,9 @@ export function PaymentParts({ biz, parts, onChange, due, label = "Payments", le
         const rest = round2(Math.max(0, due - others));
         return (
           <div key={part.key} className="rt-part">
-            <select aria-label={`Payment ${index + 1} by`} value={part.method} onChange={(e) => set(part.key, { method: e.target.value, tendered: "" })}>
-              {PART_METHODS.map((m) => <option key={m} value={m}>{methodWord(m)}</option>)}
+            <select aria-label={`Payment ${index + 1} by`} value={methods.resolve(part.methodKey || part.method, PART_KINDS)}
+              onChange={(e) => set(part.key, { methodKey: e.target.value, method: methods.kindOf(e.target.value, PART_KINDS), tendered: "" })}>
+              {methods.options(PART_KINDS).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}
             </select>
             <input aria-label={`Payment ${index + 1} amount`} type="number" inputMode="decimal" min="0" step="0.01" placeholder="Amount"
               value={part.amount} onChange={(e) => set(part.key, { amount: e.target.value })} />

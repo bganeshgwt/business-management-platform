@@ -22,6 +22,7 @@ import useAuth from "../../../../hooks/useAuth";
 import { Link, useLocation } from "react-router-dom";
 import { FEATURES_PATH } from "../../../../services/features";
 import PaymentTypesCard from "./PaymentTypesCard";
+import AlertRulesCard from "./AlertRulesCard";
 import "../../../../styles/billing.css";
 import "../styles/invoice-series.css";
 import "../styles/setup.css";
@@ -46,6 +47,7 @@ const SECTIONS = [
   { id: "settings-upi", label: "UPI payments" },
   { id: "settings-loyalty", label: "Loyalty" },
   { id: "settings-printing", label: "Printing" },
+  { id: "settings-alerts", label: "Alerts and timings" },
   { id: "settings-discounts", label: "Discounts at the till" },
   { id: "settings-payment-types", label: "Payment types" },
 ];
@@ -165,6 +167,14 @@ export default function RestaurantSettingsPage() {
         loyaltyPointValue: Number(form.loyaltyPointValue),
         loyaltyMinRedeem: Number(form.loyaltyMinRedeem),
         printCopies: Number(form.printCopies),
+        // Alerts and timings: numbers, and the list of notes as it is.
+        ...(form.rules
+          ? {
+              rules: Object.fromEntries(
+                Object.entries(form.rules).map(([key, value]) => [key, Array.isArray(value) ? value : Number(value)])
+              ),
+            }
+          : {}),
       });
       setForm(updated);
       setSaved(updated);
@@ -671,6 +681,15 @@ export default function RestaurantSettingsPage() {
                 </label>
               </div>
             </SectionCard>
+
+            {form.rules && (
+              <AlertRulesCard
+                rules={form.rules}
+                onChange={(rules) => setForm({ ...form, rules })}
+                canEdit={canEdit}
+                currency={form.currencySymbol || "₹"}
+              />
+            )}
 
             {/* Beside the Save button, where the eye is when it is pressed. */}
             <ErrorMessage message={error} />

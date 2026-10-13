@@ -113,7 +113,14 @@ Viewer; nobody gained or lost access.
 | `/:id/<list>` | GET lists with `limit`, `offset`, `q` (search), `from`/`to` (period) and list filters: `catalog`, `categories`, `units`, `pack-sizes`, `contacts`, `pricing`, `locations`, `tax-rates`, `number-series`, `resources`, `stock`, `movements`, `documents` (`kind`), `transfers`, `counts`, `appointments`, `audit`, `members`, `roles` |
 | `/:id/settings` | GET, PUT |
 | `/:id/modules`, `/:id/modules/:code` | GET, PUT `{ enabled }` |
-| `/:id/tax-rates`, `/:id/number-series`, `/:id/locations` | POST; PATCH `/:rowId` |
+| `/:id/tax-rates`, `/:id/number-series`, `/:id/locations` | POST; PATCH `/:rowId`. A location also takes `addressLine1`, `addressLine2`, `city`, `postalCode`, `stateCode`, `gstin`, `phone` (12 Oct; a PATCH without any of them keeps what the location has) |
+| `POST /businesses` | An owner (or a restaurant's admin) adds a business of their own: `{ businessType, name, code, legalName?, gstin?, stateCode?, addressLine1?, addressLine2?, city?, postalCode?, phone?, email?, currency?, timezone?, locationName?, locationCode? }`; any type but restaurant |
+| `/api/users/platform/businesses` | Platform super admin only: GET (q, type, status), POST (the fields above plus `owner: { email, name?, password?, mobile? }`), PUT `/:id/status`, POST `/:id/owner-password { userId, password }` |
+| `/:id/staff-accounts` | POST `{ name, email, password, mobile?, roleId, workLocationId? }`: a new login and its access (`access.edit`); POST `/:userId/password { password }` for a member whose login is used only in this business |
+| `/:id/settings` (12 Oct) | PUT also takes `currency` (until the first document), `timezone`, and the rules `voucherValidDays`, `ageingDays` [3], `nearExpiryDays`, `weightButtonsGrams` [1–8], `receiptWidthMm` (58/80), `dayCutoffHour` (0–12); each left out keeps its value |
+| `/:id/members` | POST `{ userId, roleId, active?, workLocationId? }`: `workLocationId` ties the person to one location (empty = every location; left out = unchanged) |
+| `/:id/reports/locations` | GET `from`, `to`: every location side by side (bills, sales, returns, net, share %, average bill, collected, purchases, stock at cost); `reports.view` + `sales.view` |
+| Header `X-Business-Location` | Optional on any request of a business: the location picked in the top bar. Used wherever the request names no location (`location` / `locationId` in the query, `locationId` in a body is the person's own choice). Ignored for someone tied to a location: for them every location named must be theirs (403 otherwise) and one left out is theirs. |
 | `/:id/categories`, `/:id/units`, `/:id/pack-sizes`, `/:id/catalog`, `/:id/contacts` | POST; PATCH `/:rowId` |
 | `/:id/pricing` | POST; DELETE `/:ruleId` switches a price off |
 | `/:id/documents` | POST (sale or purchase, optional `payment`); GET `/:docId`; POST `/:docId/payments`, `/returns`, `/refunds` |

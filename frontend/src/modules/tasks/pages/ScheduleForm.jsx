@@ -145,7 +145,7 @@ export default function ScheduleFormDialog({ schedule, template, onClose, onSave
         <PlaceSelect value={form.placeId} onChange={(v) => set("placeId", v)} />
         <AssignField mode={assignMode} assignees={assignees} onChange={(mode, list) => { setAssignMode(mode); setAssignees(list); }} />
         <label className="field field-wide tk-inline"><input type="checkbox" checked={form.requiresReview} onChange={(e) => set("requiresReview", e.target.checked)} /> A manager reviews each one when it is done</label>
-        <p className="muted small field-wide">Missed: a day's task not done by the end of its window (the end of the trading day, 5 am) is marked missed and counts against compliance.</p>
+        <p className="muted small field-wide">Missed: a day's task not done by the end of its window (the end of the trading day, at the day cut-off hour set in settings) is marked missed and counts against compliance.</p>
         <ErrorMessage message={error} />
         <div className="form-actions field-wide">
           <button type="button" className="button button-secondary" onClick={onClose} disabled={busy}>Cancel</button>

@@ -8,6 +8,7 @@ const leaveService = require("./leave.service");
 const statutoryService = require("./statutory.service");
 const tipService = require("./tip.service");
 const AppError = require("../../../../utils/AppError");
+const ruleSettings = require("../../setup/services/ruleSettings.service");
 const { round2 } = require("../../../../utils/money");
 
 // "16 Aug – 31 Aug 2026" for a pay period in words a person reads.
@@ -30,7 +31,9 @@ const FOREIGN_KEY = "23503";
 // Five minutes wiping down the station after the shift is not overtime. Staying
 // a quarter of an hour or more past the end is, and then all of it counts —
 // the same rule the time clock uses, so a typed-in day and a clocked day agree.
-const OVERTIME_THRESHOLD_MINUTES = 15;
+// The restaurant sets its own (Settings -> Alerts and timings); this is what
+// it starts at.
+const OVERTIME_THRESHOLD_MINUTES = ruleSettings.DEFAULTS.timeclockOvertimeMinutes;
 
 // Longer than this between check-in and check-out is a typing mistake, not a
 // shift (a double shift with overtime is about 14 hours).
@@ -700,8 +703,9 @@ const windowFor = (shift, date, timezone) =>
 //   late     = minutes after the shift start, less the grace minutes
 //   overtime = time past the shift's end that is also genuinely extra hours
 //              (arriving an hour late and staying 40 minutes is not overtime),
-//              and only once it reaches 15 minutes
-const calculate = (window, checkIn, checkOut, status) => {
+//              and only once it reaches the restaurant's overtime line
+//              (15 minutes unless it set another)
+const calculate = (window, checkIn, checkOut, status, overtimeFrom = OVERTIME_THRESHOLD_MINUTES) => {
   const none = { workedMinutes: 0, lateMinutes: 0, overtimeMinutes: 0, breakMinutes: 0 };
 
   if (!checkIn || !checkOut || ["absent", "leave", "week_off"].includes(status)) {
@@ -721,7 +725,7 @@ const calculate = (window, checkIn, checkOut, status) => {
 
   const pastEnd = checkOut > window.endsAt ? minutesBetween(window.endsAt, checkOut) : 0;
   const overtimeMinutes =
-    pastEnd >= OVERTIME_THRESHOLD_MINUTES
+    pastEnd >= overtimeFrom
       ? Math.max(0, Math.min(pastEnd, worked - window.scheduledMinutes))
       : 0;
 
@@ -867,7 +871,7 @@ const saveAttendance = async (restaurantId, data, userId) => {
     data.acceptOverAllowance
   );
 
-  const timezone = await getTimezone(restaurantId);
+  const [timezone, rules] = await Promise.all([getTimezone(restaurantId), ruleSettings.load(restaurantId)]);
   const { checkIn, checkOut } = resolveTimes(data, timezone, shift);
 
   if (checkIn && checkOut && checkOut < checkIn) {
@@ -883,7 +887,7 @@ const saveAttendance = async (restaurantId, data, userId) => {
 
   const off = ["absent", "leave", "week_off"].includes(data.attendanceStatus);
   const window = windowFor(shift, data.attendanceDate, timezone);
-  const totals = calculate(window, checkIn, checkOut, data.attendanceStatus);
+  const totals = calculate(window, checkIn, checkOut, data.attendanceStatus, rules.timeclockOvertimeMinutes);
 
   const before = await staffRepository.findAttendanceRow(restaurantId, data.employeeId, data.attendanceDate);
 

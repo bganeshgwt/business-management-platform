@@ -2039,6 +2039,8 @@ function DishExceptions({ exceptions, stations, stationById, fallback, saving, o
 function TimersCard({ settings, onSave }) {
   const [warn, setWarn] = useState(String(settings.warnMinutes));
   const [late, setLate] = useState(String(settings.lateMinutes));
+  // How long plated food may wait at the pass before the bell says so.
+  const [pass, setPass] = useState(String(settings.passMinutes ?? 8));
 
   // Three example tickets, so the effect of the numbers is visible before saving.
   const sample = [5, 12, 25].map((minutes) => ({
@@ -2058,7 +2060,7 @@ function TimersCard({ settings, onSave }) {
         className="kds-timers"
         onSubmit={(event) => {
           event.preventDefault();
-          onSave({ warnMinutes: Number(warn), lateMinutes: Number(late) });
+          onSave({ warnMinutes: Number(warn), lateMinutes: Number(late), passMinutes: Number(pass) });
         }}
       >
         <label className="field">
@@ -2068,6 +2070,10 @@ function TimersCard({ settings, onSave }) {
         <label className="field">
           <span>Late after (minutes)</span>
           <input type="number" min="2" max="180" value={late} onChange={(event) => setLate(event.target.value)} />
+        </label>
+        <label className="field">
+          <span>At the pass, flag after (minutes)</span>
+          <input type="number" min="1" max="60" value={pass} onChange={(event) => setPass(event.target.value)} />
         </label>
         <button type="submit" className="button">
           Save timers
@@ -2085,7 +2091,7 @@ function TimersCard({ settings, onSave }) {
 
       <p className="muted small kds-setup-foot">
         The bell warns about tickets past the late mark, turns critical ten minutes after that,
-        and flags food left at the pass for over {settings.passMinutes} minutes.
+        and flags food left at the pass for over {settings.passMinutes} minutes (8 unless you change it).
       </p>
     </SectionCard>
   );

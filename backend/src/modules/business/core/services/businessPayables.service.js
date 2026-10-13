@@ -5,6 +5,7 @@ const AppError = require('../../../../utils/AppError');
 const access = require('./businessAccess.service');
 const numbering = require('./businessNumbering');
 const { decimal, uuid, dateText, recordPayment } = require('./business.service');
+const paymentMethods = require('./businessPaymentMethods.service');
 
 // What the business owes its suppliers (pro pass C-05): the payables list
 // with what is overdue by each supplier's credit days, one supplier's open
@@ -112,7 +113,7 @@ async function allocate(db, business, user, voucher, available, plan, keyBase, s
   const made = [];
   let left = available, n = startAt;
   const pay = async (doc, amount) => {
-    made.push(await recordPayment(db, business, user, doc, { amount: rupees(amount), method: voucher.method, reference: voucher.payment_no, key: derivedKey(keyBase, n), supplierPaymentId: voucher.id }));
+    made.push(await recordPayment(db, business, user, doc, { amount: rupees(amount), method: voucher.method, reference: voucher.payment_no, key: derivedKey(keyBase, n), supplierPaymentId: voucher.id, methodName: voucher.method_name }));
     n += 1; left -= amount;
   };
   if (plan === 'auto') {
@@ -141,9 +142,10 @@ async function pay(business, user, contactId, body) {
   const requestKey = uuid(body.requestKey);
   const hash = crypto.createHash('sha256').update(JSON.stringify({ ...body, contactId: String(contactId) })).digest('hex');
   const amount = paise(decimal(body.amount, 'Amount paid', 2, 0.01));
-  const method = v.requiredEnum(body.method, 'Paid by', METHODS);
+  // `methodId`: one of the business's own payment methods (its kind is checked below).
+  const choice = paymentMethods.readChoice(body, 'Paid by', METHODS);
   const reference = v.optionalString(body.reference, 'Reference', 100);
-  if (method === 'cheque' && !reference) fail('Enter the cheque number as the reference');
+  if (choice.method === 'cheque' && !reference) fail('Enter the cheque number as the reference');
   let plan = 'auto';
   if (body.allocations !== undefined && body.allocations !== null) {
     const list = v.requiredArray(body.allocations, 'Receipts to settle');
@@ -159,6 +161,8 @@ async function pay(business, user, contactId, body) {
       if (old.request_hash !== hash) fail('This request key was already used for different data', 409);
       return old;
     }
+    const { method, methodName } = await paymentMethods.settle(db, business.id, choice, 'Paid by', METHODS);
+    if (method === 'cheque' && !reference) fail('Enter the cheque number as the reference');
     const location = await repo.one(db, 'SELECT * FROM business_locations WHERE business_id=$1 AND id=$2 AND active', [business.id, id(body.locationId, 'Location')]);
     if (!location) fail('Location not found', 404);
     const contact = await repo.one(db, "SELECT * FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind='supplier' FOR UPDATE", [business.id, id(contactId, 'Supplier')]);
@@ -168,10 +172,10 @@ async function pay(business, user, contactId, body) {
     const free = await repo.one(db, `SELECT COALESCE(sum(k.amount-${allocatedSql}),0) AS free FROM business_supplier_payments k WHERE k.business_id=$1 AND k.contact_id=$2`, [business.id, contact.id]);
     const reserve = plan === 'auto' ? Math.min(amount, Math.max(0, paise(contact.opening_balance) - paise(free.free))) : 0;
     const number = await numbering.nextNumber(db, business.id, location.id, 'supplier_payment', user.id);
-    const voucher = await repo.one(db, `INSERT INTO business_supplier_payments(business_id,location_id,payment_no,series_id,contact_id,contact_name,amount,method,reference,notes,request_key,request_hash,created_by)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+    const voucher = await repo.one(db, `INSERT INTO business_supplier_payments(business_id,location_id,payment_no,series_id,contact_id,contact_name,amount,method,reference,notes,request_key,request_hash,created_by,method_name)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
     [business.id, location.id, number.number, number.seriesId, contact.id, contact.name, rupees(amount), method, reference,
-      v.optionalString(body.notes, 'Notes', 500), requestKey, hash, user.id]);
+      v.optionalString(body.notes, 'Notes', 500), requestKey, hash, user.id, methodName]);
     const payments = await allocate(db, business, user, voucher, amount - reserve, plan, requestKey);
     const allocated = payments.reduce((s, p) => s + paise(p.amount), 0);
     await repo.audit(db, business.id, user.id, 'supplier.paid', voucher.id, { paymentNo: voucher.payment_no, supplier: contact.name, amount: voucher.amount, allocated: rupees(allocated) });
@@ -200,7 +204,8 @@ async function paymentDetail(business, paymentId) {
   return { ...voucher, allocations, allocated: rupees(allocated), unallocated: rupees(paise(voucher.amount) - allocated), seller };
 }
 
-const methodSql = (column) => `CASE ${column} WHEN 'upi' THEN 'UPI' WHEN 'bank' THEN 'bank transfer' ELSE ${column} END`;
+// The business's own name for the method where one was recorded (PhonePe), else the kind.
+const methodSql = (column) => `COALESCE(${column}_name, CASE ${column} WHEN 'upi' THEN 'UPI' WHEN 'bank' THEN 'bank transfer' ELSE ${column} END)`;
 
 // Every money event with one supplier in date order: what they billed
 // (receipts), what went back (returns), what was paid (payments, vouchers)

@@ -14,7 +14,7 @@ import { Badge, BusinessHeader, PeriodFilter } from "../../core/pages/ui";
 import { businessToday, useOpenBusiness, useOptions, useServerList } from "../../core/pages/hooks";
 import { Segmented } from "../../wholesale/pages/shared";
 import { ChequeActionDialog, CollectionDialog } from "./receivablesParts";
-import { CHEQUE_STATUS, METHODS, chequeWord, methodName, printReceipt } from "./receivablesFormat";
+import { CHEQUE_STATUS, METHODS, chequeWord, printReceipt, receiptMethod } from "./receivablesFormat";
 
 // The salesperson's evening settlement lives with the wholesale screens.
 const SettlementPanel = lazy(() => import("../../wholesale/pages/SettlementPanel"));
@@ -71,8 +71,8 @@ function Receipts({ wholesale, onOpen }) {
       render: (k) => <button type="button" className="link-button mono" onClick={() => onOpen(k.id)}>{k.collection_no}</button> },
     { key: "created_at", header: "Received", type: "datetime", value: (k) => k.created_at, mobile: "subtitle", render: (k) => dateTime(k.created_at) },
     { key: "contact_name", header: "Customer", value: (k) => k.contact_name, mobile: "show" },
-    { key: "method", header: "Paid by", value: (k) => methodName(k.method), render: (k) => (
-      <span className="bz-two-line">{methodName(k.method)}{k.cheque_status && <small><Badge tone={CHEQUE_STATUS[k.cheque_status]?.tone} label={chequeWord({ status: k.cheque_status, cheque_date: k.cheque_date }, today)} /></small>}</span>
+    { key: "method", header: "Paid by", value: (k) => receiptMethod(k), render: (k) => (
+      <span className="bz-two-line">{receiptMethod(k)}{k.cheque_status && <small><Badge tone={CHEQUE_STATUS[k.cheque_status]?.tone} label={chequeWord({ status: k.cheque_status, cheque_date: k.cheque_date }, today)} /></small>}</span>
     ) },
     { key: "reference", header: "Reference", value: (k) => k.reference || "", defaultHidden: true },
     { key: "amount", header: "Amount", type: "money", exact: true, value: (k) => Number(k.amount), total: "sum", mobile: "show",
@@ -198,7 +198,7 @@ function ReceiptDetail({ collectionId, onClose, onChanged }) {
   return (
     <>
       <Modal title={receipt ? `Receipt ${receipt.collection_no}` : "Loading…"} icon="wallet" width={760} onClose={() => { if (!acting) onClose(); }}
-        description={receipt ? `${receipt.contact_name} · ${methodName(receipt.method)}${receipt.reference ? ` ${receipt.reference}` : ""} · ${dateTime(receipt.created_at)} by ${receipt.created_by_name}` : undefined}>
+        description={receipt ? `${receipt.contact_name} · ${receiptMethod(receipt)}${receipt.reference ? ` ${receipt.reference}` : ""} · ${dateTime(receipt.created_at)} by ${receipt.created_by_name}` : undefined}>
         <ErrorMessage message={error} />
         {!receipt && !error && <Loading />}
         {receipt && (

@@ -2768,6 +2768,23 @@ h3 {
   text-overflow: ellipsis;
 }
 
+/* Business Admin: the one location a person works at, shown, not chosen. */
+.outlet-switcher.bz-location-pinned {
+  display: inline-flex;
+  align-items: center;
+  width: auto;
+  max-width: 200px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-weight: 500;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 /* Visible to a screen reader, not on screen. */
 .sr-only {
   position: absolute;

@@ -504,14 +504,15 @@ const replaceBusinessHours = async (restaurantId, days, userId) => {
 // none of them: no tax rates (so every dish it added was sold GST-free), no
 // delivery channels, no settings row until a screen first asked for one.
 //
-// GST rates an Indian restaurant actually uses; 5% restaurant service
-// (SAC 996331) is the default. The same five as 1789830000000_create-tax-rates.
+// The GST slabs since the September 2025 rationalisation, the same as a new
+// business starts with (nil, 5 %, 18 %, 40 %); 5 % restaurant service (SAC
+// 996331) is the default. Every rate can be renamed, switched off or added to
+// under Menu › Tax rates.
 const DEFAULT_TAX_RATES = [
   { name: "Exempt", percentage: 0, hsnCode: null, isDefault: false },
   { name: "GST 5% (restaurant)", percentage: 5, hsnCode: "996331", isDefault: true },
-  { name: "GST 12%", percentage: 12, hsnCode: "2106", isDefault: false },
-  { name: "GST 18%", percentage: 18, hsnCode: "2201", isDefault: false },
-  { name: "GST 28%", percentage: 28, hsnCode: "2202", isDefault: false },
+  { name: "GST 18%", percentage: 18, hsnCode: null, isDefault: false },
+  { name: "GST 40%", percentage: 40, hsnCode: null, isDefault: false },
 ];
 
 // The five delivery channels of 1789905000000_create-deliveries-and-channels.

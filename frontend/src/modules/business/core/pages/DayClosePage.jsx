@@ -13,13 +13,32 @@ import { escapeHtml, printDocument } from "../../../../services/print";
 import { dateLong } from "../../../../services/format";
 import { BusinessHeader, Field } from "./ui";
 import { businessToday, useOpenBusiness } from "./hooks";
+import { KIND_WORDS } from "./paymentMethods";
 
 // Day close (pro pass C-04): what the counter sold and the money that came
 // in and went out today (or over a few days), by payment method, by the
 // person who took it and by counter, with the cash that should be in the
 // drawer, and a 72 mm end-of-day slip to print. Read-only.
 
-const METHODS = [["cash", "Cash"], ["upi", "UPI"], ["card", "Card"], ["bank", "Bank transfer"], ["cheque", "Cheque"]];
+const METHODS = Object.entries(KIND_WORDS);
+
+// The business's own method names within each kind (PhonePe and Paytm under
+// UPI), from the day close's byMethodName: one row per name.
+function namedRows(data) {
+  const named = data?.byMethodName;
+  if (!named) return [];
+  const rows = new Map();
+  for (const [group, list] of Object.entries(named)) {
+    for (const r of list) {
+      const id = `${r.method}|${r.name}`;
+      if (!rows.has(id)) rows.set(id, { id, name: r.name, kind: KIND_WORDS[r.method] || r.method, received: 0, refunds: 0, suppliers: 0, bounced: 0 });
+      rows.get(id)[group] += Number(r.amount);
+    }
+  }
+  return [...rows.values()].map((r) => ({ ...r, net: r.received - r.refunds - r.suppliers - r.bounced }));
+}
+// Worth a table of its own only when a name says more than the kind does.
+const namesSayMore = (rows) => rows.some((r) => r.name !== r.kind);
 
 export default function DayClosePage() {
   const biz = useOpenBusiness();
@@ -43,6 +62,7 @@ export default function DayClosePage() {
     net: Number(data.received[code]) - Number(data.refunds[code]) - Number(data.suppliers[code]) - Number(data.bounced?.[code] || 0),
   })).filter((r) => r.received || r.refunds || r.suppliers || r.bounced) : [];
   const anyBounced = Number(data?.bounced?.total || 0) > 0;
+  const byName = namedRows(data);
   const methodColumns = [
     { key: "name", header: "Method", value: (r) => r.name, mobile: "title" },
     { key: "received", header: "Came in", type: "money", exact: true, value: (r) => r.received, total: "sum", mobile: "show" },
@@ -90,6 +110,13 @@ export default function DayClosePage() {
         <DataGrid id="business-day-close-methods" caption="Takings by payment method" rows={methodRows} columns={methodColumns} currency={biz.symbol} loading={!data && !error}
           rowNoun={["method", "methods"]} empty="No money moved in these dates" emptyIcon="wallet" />
       </SectionCard>
+      {namesSayMore(byName) && (
+        <SectionCard flush icon="list" title="By method name" description="Each kind split by the names your counter uses (Settings › Payment methods).">
+          <DataGrid id="business-day-close-method-names" caption="Takings by method name" rows={byName} currency={biz.symbol}
+            columns={[methodColumns[0], { key: "kind", header: "Kind", value: (r) => r.kind, mobile: "subtitle" }, ...methodColumns.slice(1)]}
+            rowNoun={["method", "methods"]} empty="No money moved in these dates" emptyIcon="wallet" />
+        </SectionCard>
+      )}
       <SectionCard flush icon="users" title="By person">
         <DataGrid id="business-day-close-people" caption="Takings by person" rows={(data?.byPerson || []).map((p) => ({ ...p, id: p.userId }))} columns={personColumns}
           currency={biz.symbol} loading={!data && !error} rowNoun={["person", "people"]} empty="Nobody billed or took money in these dates" emptyIcon="users" />
@@ -132,7 +159,8 @@ function printSlip(data, biz, locations) {
       <div class="c">${escapeHtml(place || "")}</div><hr>
       ${row("Bills", escapeHtml(String(data.sales.bills)))}${row("Sales", m(data.sales.total))}${row("Returns", m(data.sales.returns))}${row("Net sales", m(data.sales.net))}
       ${row("GST in sales", m(data.sales.tax))}${row("Discounts at counter", m(data.sales.counterDiscounts))}<hr>
-      ${METHODS.filter(([c]) => Number(data.received[c])).map(([c, n]) => row(`${n} in`, m(data.received[c]))).join("")}
+      ${(data.byMethodName ? data.byMethodName.received.map((r) => [r.name, r.amount]) : METHODS.filter(([c]) => Number(data.received[c])).map(([c, n]) => [n, data.received[c]]))
+        .map(([n, v]) => row(`${n} in`, m(v))).join("")}
       ${row("Money in", m(data.received.total))}${row("Refunds", m(data.refunds.total))}${row("Paid to suppliers", m(data.suppliers.total))}${Number(data.bounced?.total || 0) ? row("Cheques bounced", m(data.bounced.total)) : ""}<hr>
       <div class="row big"><span>CASH IN DRAWER</span><span>${m(data.cashInHand)}</span></div>
       ${row("Given on udhaar", m(data.sales.onCredit))}${row("Udhaar collected", m(data.received.collections))}

@@ -20,12 +20,13 @@ import { Segmented } from "../../wholesale/pages/shared";
 import ClientPanel from "./ClientPanel";
 import { ClientPicker } from "./salonParts";
 import {
-  METHODS, STATUS_WORDS, WEEKDAYS, addDays, awayOn, bookingMessage, hoursOn, categoryTone, clockMinutes, clockText, hourLabel, longDay, methodWord, minutesOfDay,
+  STATUS_WORDS, WEEKDAYS, addDays, awayOn, bookingMessage, hoursOn, categoryTone, clockMinutes, clockText, hourLabel, longDay, methodWord, minutesOfDay,
   minutesText, sendMessage, timeOfDay, whatsappLink, zonedInstant,
 } from "./salon";
 import ManagerApproval from "./ManagerApproval";
 import { approvalFor, emptyApproval } from "./approval";
 import useAuth from "../../../../hooks/useAuth";
+import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import "../styles/salon-pro.css";
 
 // The salon's day (or week): one column per stylist and per room, bookings
@@ -489,6 +490,8 @@ function BookDialog({ day, data, slot, onClose, onSaved }) {
   const rooms = data.resources.filter((r) => r.kind === "room");
   const [form, setForm] = useState({ skuId: slot.skuId ? String(slot.skuId) : "", resourceId: slot.resourceId ? String(slot.resourceId) : "", roomId: "",
     date: slot.nextVisit ? addDays(day, 28) : day, time: slot.time || "10:00", deposit: "", method: "upi", reference: "", notes: "" });
+  // The deposit's method: one of the business's own (paymentMethods.js).
+  const methods = usePaymentMethods();
   const [picked, setContact] = useState(undefined);
   const clients = useMemo(() => [...extra, ...(options?.["contacts?kind=customer&active=true"] || [])], [extra, options]);
   // A client named in the address or by "Book next visit" is chosen once the list is in.
@@ -509,7 +512,7 @@ function BookDialog({ day, data, slot, onClose, onSaved }) {
     const saved = await businessWrite(biz.id, "salon/appointments", {
       contactId: contact.id, skuId: form.skuId, resourceId: form.resourceId, roomId: form.roomId || null, startsAt: zonedInstant(form.date, form.time, tz),
       notes: form.notes || null, requestKey,
-      ...(money && Number(form.deposit) > 0 ? { deposit: { amount: form.deposit, method: form.method, reference: form.reference || null } } : {}),
+      ...(money && Number(form.deposit) > 0 ? { deposit: { amount: form.deposit, ...methods.body(form.method), reference: form.reference || null } } : {}),
       ...(override ? { override: approvalFor(override.value, user?.id) } : {}),
     }).catch((err) => overrideAsked(err, override, setOverride));
     return { saved, summary: { contact_name: contact.name, contact_phone: contact.phone, service_name: service?.label, resource_name: stylist?.name, deposit_amount: Number(form.deposit) > 0 ? form.deposit : null } };
@@ -547,10 +550,10 @@ function BookDialog({ day, data, slot, onClose, onSaved }) {
           </Field>
           {Number(form.deposit) > 0 && (
             <Field label="Deposit paid by">
-              <select value={form.method} onChange={set("method")}>{METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select>
+              <select value={methods.resolve(form.method)} onChange={set("method")}>{methods.options().map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}</select>
             </Field>
           )}
-          {Number(form.deposit) > 0 && form.method === "cheque" && <Field label="Cheque number"><input required maxLength={100} value={form.reference} onChange={set("reference")} /></Field>}
+          {Number(form.deposit) > 0 && methods.kindOf(form.method) === "cheque" && <Field label="Cheque number"><input required maxLength={100} value={form.reference} onChange={set("reference")} /></Field>}
         </>
       )}
       <Field label="Notes for this visit" wide><input maxLength={300} value={form.notes} onChange={set("notes")} placeholder="Wants a trim only" /></Field>

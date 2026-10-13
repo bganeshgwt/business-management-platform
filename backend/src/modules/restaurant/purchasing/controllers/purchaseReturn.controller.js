@@ -21,7 +21,8 @@ const PAYMENT_METHODS = ["cash", "card", "upi", "bank", "cheque", "other"];
 
 // The GST slabs a supplier bill can carry, as on a purchase bill: a debit
 // note is credited at the rate the goods were bought at.
-const TAX_RATES = [0, 0.25, 3, 5, 12, 18, 28];
+// 12 % and 28 % stay for supplier bills dated before the September 2025 GST change.
+const TAX_RATES = [0, 0.25, 3, 5, 12, 18, 28, 40];
 
 const readTaxRate = (value) => {
   const rate = v.optionalNumber(value, "GST rate", { min: 0, max: 28 });

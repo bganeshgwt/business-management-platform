@@ -17,7 +17,8 @@ import { newKey, useDirtyGuard, useOpenBusiness, useOptions } from "../../core/p
 import { printReceipt } from "../../retail/pages/retail";
 import ClientPanel from "./ClientPanel";
 import { ClientPicker } from "./salonParts";
-import { METHODS, timeOfDay, whatsappLink } from "./salon";
+import { timeOfDay, whatsappLink } from "./salon";
+import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import "../styles/salon-pro.css";
 
 // The salon counter: services and products on one bill, each service with
@@ -48,6 +49,8 @@ export default function SalonBillPage() {
   const [quoteError, setQuoteError] = useState("");
   const [useAdvance, setUseAdvance] = useState(true);
   const [payments, setPayments] = useState(() => [emptyPayment()]);
+  // Each payment's `method` is one of the business's own methods (paymentMethods.js).
+  const methods = usePaymentMethods();
   const [tip, setTip] = useState({ open: false, staffId: "", amount: "", method: "cash" });
   const [discount, setDiscount] = useState({ open: false, mode: "amount", value: "", reason: "" });
   const [notes, setNotes] = useState("");
@@ -159,8 +162,9 @@ export default function SalonBillPage() {
     try {
       const result = await businessWrite(biz.id, "salon/bills", {
         ...body, appointmentIds, notes: notes || null, requestKey,
-        payments: payments.map((p, i) => ({ amount: paymentAmount(p, i).toFixed(2), method: p.method, reference: p.reference || null })).filter((p) => Number(p.amount) > 0),
-        ...(tipAmount > 0 ? { tips: [{ staffId: tip.staffId, amount: tipAmount.toFixed(2), method: tip.method }] } : {}),
+        payments: payments.map((p, i) => ({ amount: paymentAmount(p, i).toFixed(2), ...methods.body(p.method), reference: p.reference || null })).filter((p) => Number(p.amount) > 0),
+        // A tip is recorded by its kind (the stylist's tips are counted by cash, UPI…).
+        ...(tipAmount > 0 ? { tips: [{ staffId: tip.staffId, amount: tipAmount.toFixed(2), method: methods.kindOf(tip.method) }] } : {}),
       });
       const firstService = filled.find((l) => skuOf(l)?.kind === "service" && !planOf(l.skuId));
       setPosted({ ...result, paid: paying, total: shownQuote?.total, savings: shownQuote?.savings, tip: tipAmount, client, next: firstService ? { sku: firstService.skuId, staff: firstService.staffId } : null });
@@ -311,8 +315,8 @@ export default function SalonBillPage() {
               {payments.map((p, i) => (
                 <div key={p.key} className="sw-pay-row">
                   <Field label={i === 0 ? "Paid by" : "And by"}>
-                    <select value={p.method} onChange={(e) => setPayments((all) => all.map((x) => (x.key === p.key ? { ...x, method: e.target.value } : x)))}>
-                      {METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                    <select value={methods.resolve(p.method)} onChange={(e) => setPayments((all) => all.map((x) => (x.key === p.key ? { ...x, method: e.target.value } : x)))}>
+                      {methods.options().map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}
                     </select>
                   </Field>
                   <Field label={`Amount (${biz.symbol})`}>
@@ -320,7 +324,7 @@ export default function SalonBillPage() {
                       onChange={(e) => setPayments((all) => all.map((x) => (x.key === p.key ? { ...x, amount: e.target.value } : x)))} />
                   </Field>
                   {i > 0 ? <button type="button" className="icon-button danger" aria-label="Remove this payment" onClick={() => setPayments((all) => all.filter((x) => x.key !== p.key))}><Icon name="x" size={16} /></button> : <span />}
-                  {p.method !== "cash" && <Field label="Reference" wide><input maxLength={100} value={p.reference} onChange={(e) => setPayments((all) => all.map((x) => (x.key === p.key ? { ...x, reference: e.target.value } : x)))} placeholder="UPI / card slip number" /></Field>}
+                  {methods.kindOf(p.method) !== "cash" && <Field label={methods.kindOf(p.method) === "cheque" ? "Cheque number" : "Reference"} wide><input maxLength={100} value={p.reference} onChange={(e) => setPayments((all) => all.map((x) => (x.key === p.key ? { ...x, reference: e.target.value } : x)))} placeholder="UPI / card slip number" /></Field>}
                 </div>
               ))}
               {payments.length < 3 && shownQuote && toPay > 0 && (
@@ -336,8 +340,8 @@ export default function SalonBillPage() {
                     </select>
                   </Field>
                   <Field label={`Tip (${biz.symbol})`}><input type="number" min="0" step="1" value={tip.amount} onChange={(e) => setTip((t) => ({ ...t, amount: e.target.value }))} /></Field>
-                  <select aria-label="Tip paid by" className="sw-tip-method" value={tip.method} onChange={(e) => setTip((t) => ({ ...t, method: e.target.value }))}>
-                    {METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                  <select aria-label="Tip paid by" className="sw-tip-method" value={methods.resolve(tip.method)} onChange={(e) => setTip((t) => ({ ...t, method: e.target.value }))}>
+                    {methods.options().map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}
                   </select>
                 </div>
               ) : biz.can("sales.edit") && <button type="button" className="link-button" onClick={() => setTip((t) => ({ ...t, open: true, staffId: lines.find((l) => l.staffId)?.staffId || "" }))}>+ Tip for the stylist</button>}
