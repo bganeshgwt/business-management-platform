@@ -4,7 +4,9 @@ import DataGrid from "../../../../components/DataGrid/DataGrid";
 import Icon from "../../../../components/Icon";
 import SearchPicker from "../../../../components/SearchPicker";
 import SectionCard from "../../../../components/SectionCard";
-import { ErrorMessage, SuccessMessage } from "../../../../components/Feedback";
+import ContentTabs from "../../../../components/ContentTabs";
+import Modal from "../../../../components/Modal";
+import { ErrorMessage } from "../../../../components/Feedback";
 import useConfirm from "../../../../hooks/useConfirm";
 import { businessRead, businessWrite } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
@@ -60,6 +62,8 @@ export default function SalonBillPage() {
   const [posted, setPosted] = useState(null);
   const [docId, setDocId] = useState(null);
   const [card, setCard] = useState(null);
+  // Which list the "Add to the bill" card shows.
+  const [addTab, setAddTab] = useState("services");
   const pendingAppointment = useRef(params.get("appointment"));
   const dirty = lines.length > 0 && !posted;
   useDirtyGuard(dirty);
@@ -73,8 +77,32 @@ export default function SalonBillPage() {
   const client = contact !== undefined ? contact : (params.get("contact") && clients.find((c) => String(c.id) === params.get("contact"))) || null;
   const contactId = client ? String(client.id) : "";
   const skuOf = (line) => items.find((s) => String(s.id) === String(line.skuId));
-  // The services clients have most often (the first eight services, as listed).
-  const quick = useMemo(() => items.filter((s) => s.kind === "service" && !planOf(s.id)).slice(0, 8), [items, plans]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Two kinds of line: services (with packages and memberships), done by a
+  // stylist; products sold over the counter. Items kept for use in services
+  // only (back-bar colour, developer) are never offered for sale.
+  const serviceItems = useMemo(() => items.filter((s) => s.kind === "service"), [items]);
+  const productItems = useMemo(() => items.filter((s) => s.kind === "goods" && !s.internal_use), [items]);
+  // Products by shelf group (Hair care, Skin care, …), in stock first.
+  const productGroups = useMemo(() => {
+    const map = new Map();
+    for (const s of productItems) { const g = s.category || "Other products"; if (!map.has(g)) map.set(g, []); map.get(g).push(s); }
+    return [...map.entries()].sort(([a], [b]) => (a === "Other products") - (b === "Other products") || a.localeCompare(b))
+      .map(([name, list]) => ({ name, list: list.sort((x, y) => (Number(y.stock) > 0) - (Number(x.stock) > 0) || x.label.localeCompare(y.label)) }));
+  }, [productItems]);
+  const [productGroup, setProductGroup] = useState("");
+  const shownProducts = productGroups.find((g) => g.name === productGroup) || productGroups[0];
+  // Services by category, as the salon's menu card reads (Hair, Skin, …);
+  // packages and memberships each have their own group at the end.
+  const groupOf = (s) => { const plan = planOf(s.id); return plan ? (plan.kind === "membership" ? "Memberships" : "Packages") : s.category || "Other services"; };
+  const serviceGroups = useMemo(() => {
+    const map = new Map();
+    for (const s of serviceItems) { const g = groupOf(s); if (!map.has(g)) map.set(g, []); map.get(g).push(s); }
+    const last = ["Other services", "Packages", "Memberships"];
+    return [...map.entries()].sort(([a], [b]) => (last.indexOf(a) - last.indexOf(b)) || a.localeCompare(b))
+      .map(([name, list]) => ({ name, list: list.sort((x, y) => x.label.localeCompare(y.label)) }));
+  }, [serviceItems, plans]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [serviceGroup, setServiceGroup] = useState("");
+  const shownGroup = serviceGroups.find((g) => g.name === serviceGroup) || serviceGroups[0];
 
   const packagesFor = (line, held = summary) => (held?.packages || []).filter((p) => p.services.some((s) => String(s.sku_id) === String(line.skuId) && Number(s.sessions) > Number(s.used)));
   // A service the client has in a package is paid from it unless "charge it" is chosen.
@@ -92,7 +120,7 @@ export default function SalonBillPage() {
         if (wanted) {
           pendingAppointment.current = null;
           setLines([lineOf({ id: wanted.sku_id }, { staffId: String(wanted.resource_id), appointmentId: String(wanted.id), clientPlanId: packageFor({ skuId: wanted.sku_id }, result) })]);
-          setParams({}, { replace: true });
+          setParams((p) => new URLSearchParams(p.get("open") ? { open: p.get("open") } : {}), { replace: true });
         }
       })
       .catch((err) => { if (!controller.signal.aborted) setError(getErrorMessage(err)); });
@@ -180,6 +208,9 @@ export default function SalonBillPage() {
     setNotes(""); setRequestKey(newKey()); setUseAdvance(true);
   };
 
+  const isProduct = (l) => skuOf(l)?.kind === "goods";
+  const serviceLines = lines.filter((l) => !isProduct(l));
+  const productLines = lines.filter(isProduct);
   const columns = [
     { key: "item", header: "Service or product", minWidth: 220, value: (l) => skuOf(l)?.label || "",
       render: (l) => {
@@ -229,58 +260,165 @@ export default function SalonBillPage() {
           onClick={() => setLines((all) => all.filter((x) => x.key !== l.key))}><Icon name="trash" size={16} /></button>
       ) },
   ].filter(Boolean);
-
-  if (posted) {
-    return <BillDone biz={biz} posted={posted} onNext={reset} onOpen={() => setDocId(posted.document.id)} docId={docId} onCloseDoc={() => setDocId(null)}
-      onBookNext={() => navigate(`${businessPath(biz.id, "salon-calendar")}?book=1&contact=${posted.client?.id || ""}${posted.next ? `&sku=${posted.next.sku}&staff=${posted.next.staff}` : ""}`)} />;
-  }
+  // A service line: the service, who did it (needed for commission), a
+  // package to pay from, the price. Its quantity is one a line.
+  const serviceColumns = columns.filter((c) => c.key !== "quantity").map((c) => (c.key === "item" ? { ...c, header: "Service" } : c.key === "staff" ? { ...c, header: "Done by" } : c));
+  // A product line: the product with its stock, how many, who sold it (optional), the price.
+  const productColumns = columns.filter((c) => c.key !== "package").map((c) => {
+    if (c.key === "item") return { ...c, header: "Product", render: (l) => {
+      const sku = skuOf(l);
+      return <div className="sw-item"><strong>{sku?.label || "…"}</strong><small className="muted">{sku ? `${biz.exact(sku.price)} each · ${Number(sku.stock)} in stock` : ""}</small></div>;
+    } };
+    if (c.key === "staff") return { ...c, header: "Sold by", render: (l, ctx) => (
+      <select aria-label={ctx.label} value={l.staffId} onChange={(e) => setLine(l.key, "staffId", e.target.value)}>
+        <option value="">Nobody</option>
+        {staff.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+      </select>
+    ) };
+    return c;
+  });
+  // What each part comes to before discounts (the server's quote).
+  const partTotal = (products) => filled.reduce((sum, l) => sum + (isProduct(l) === products ? Number(quoteLine(shownQuote, filled, l)?.amount || 0) : 0), 0);
+  // One more of a product already on the bill adds to its quantity.
+  const addProduct = (sku) => {
+    if (!sku) return;
+    const same = lines.find((l) => String(l.skuId) === String(sku.id));
+    if (same) setLine(same.key, "quantity", String(Number(same.quantity || 0) + 1));
+    else addItem(sku);
+  };
 
   return (
     <div className="stack">
-      <BusinessHeader icon="receipt" title="New bill"
-        description="Services and products together. Each service carries the stylist who did it; packages, memberships and deposits are applied for you." />
+      <BusinessHeader icon="receipt" title="New bill" description="Client, services done, products bought, then payment." />
       <ErrorMessage message={error || optionsError} />
       <div className="sw-bill">
         <div className="sw-stack">
-          <SectionCard icon="user" title="Client"
-            actions={client && <button type="button" className="button button-secondary button-sm" onClick={() => setCard(client.id)}><Icon name="user" size={14} /> Client card</button>}>
-            <div className="form-grid">
-              <div className="field-wide">
-                <ClientPicker value={client} onChange={pickClient} clients={clients} onCreated={(c) => setExtraClients((all) => [c, ...all])} walkIn
+          {/* The client in one line: who it is (walk-in if empty), where, and their card. */}
+          <section className="card sw-client-bar" aria-label="Client">
+            <div className="sw-client-row">
+              <span className="sw-client-icon" aria-hidden="true"><Icon name="user" size={18} /></span>
+              <strong className="sw-client-title">Client</strong>
+              <div className="sw-client-pick">
+                <ClientPicker value={client} onChange={pickClient} clients={clients} onCreated={(c) => setExtraClients((all) => [c, ...all])} walkIn hideLabel
                   label="Client (walk-in if left empty)" />
               </div>
               {locations.length > 1 && (
-                <Field label="Location">
-                  <select value={locationId} onChange={(e) => setLocationId(e.target.value)}>{locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select>
-                </Field>
+                <select aria-label="Location" className="sw-client-location" value={locationId} onChange={(e) => setLocationId(e.target.value)}>
+                  {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                </select>
               )}
+              {client && <button type="button" className="button button-secondary button-sm" onClick={() => setCard(client.id)}><Icon name="user" size={14} /> Client card</button>}
             </div>
             {contactId && summary && <ClientCard biz={biz} summary={summary} billed={appointmentIds} onAdd={addAppointment} />}
+          </section>
+          {/* Adding stays in one place (tabs), the bill grows below it: a long
+              list of services never pushes the products out of reach. */}
+          <SectionCard flush icon="plus" title="Add to the bill" className="sw-add">
+            <ContentTabs label="What to add" value={addTab} onChange={setAddTab}
+              options={[{ value: "services", label: "Services" }, { value: "products", label: `Products for sale${productItems.length ? ` (${productItems.length})` : ""}` }]}>
+              {addTab === "services" ? (
+                <div className="sw-add-panel">
+                  <SearchPicker aria-label="Add a service" options={serviceItems} clearOnSelect onChange={addItem} disabled={!options}
+                    getKey={(s) => s.id} getLabel={(s) => s.label}
+                    getDescription={(s) => `${planOf(s.id) ? (planOf(s.id).kind === "membership" ? "Membership" : "Package") : "Service"} · ${biz.exact(s.price)}`}
+                    getKeywords={(s) => `${s.code || ""} ${s.category || ""}`}
+                    placeholder="Search a service, package or membership" />
+                  {serviceGroups.length > 0 && (
+                    <>
+                      <div className="sw-cats" role="group" aria-label="Service categories">
+                        {serviceGroups.map((g) => (
+                          <button key={g.name} type="button" className={`sw-cat ${shownGroup?.name === g.name ? "is-active" : ""}`} aria-pressed={shownGroup?.name === g.name}
+                            onClick={() => setServiceGroup(g.name)}>{g.name} <small>{g.list.length}</small></button>
+                        ))}
+                      </div>
+                      <div className="sw-tiles" aria-label={`${shownGroup.name} services`}>
+                        {shownGroup.list.map((s) => {
+                          const count = serviceLines.filter((l) => String(l.skuId) === String(s.id)).length;
+                          return (
+                            <button key={s.id} type="button" className={`sw-tile ${count ? "is-on" : ""}`} onClick={() => addItem(s)} title={`Add ${s.label}`}>
+                              <span className="sw-tile-name">{s.label}</span>
+                              <span className="sw-tile-price">{biz.amount(s.price)}{count ? <small> · {count} on bill</small> : null}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="sw-add-panel">
+                  <SearchPicker aria-label="Add a product" options={productItems} clearOnSelect onChange={addProduct} disabled={!options}
+                    getKey={(s) => s.id} getLabel={(s) => s.label}
+                    getDescription={(s) => `${biz.exact(s.price)} · ${Number(s.stock) > 0 ? `${Number(s.stock)} in stock` : "out of stock"}`}
+                    getKeywords={(s) => `${s.code || ""} ${s.barcode || ""} ${s.category || ""} ${s.brand || ""}`} isDisabled={(s) => Number(s.stock) <= 0}
+                    placeholder="Search a product, or scan its barcode" />
+                  {productGroups.length > 0 ? (
+                    <>
+                      <div className="sw-cats" role="group" aria-label="Product groups">
+                        {productGroups.map((g) => (
+                          <button key={g.name} type="button" className={`sw-cat ${shownProducts?.name === g.name ? "is-active" : ""}`} aria-pressed={shownProducts?.name === g.name}
+                            onClick={() => setProductGroup(g.name)}>{g.name} <small>{g.list.length}</small></button>
+                        ))}
+                      </div>
+                      <div className="sw-tiles" aria-label={`${shownProducts.name} products`}>
+                        {shownProducts.list.map((s) => {
+                          const on = productLines.find((l) => String(l.skuId) === String(s.id));
+                          const stock = Number(s.stock);
+                          const out = stock <= 0;
+                          return (
+                            <button key={s.id} type="button" className={`sw-tile is-product ${on ? "is-on" : ""} ${out ? "is-out" : ""}`} disabled={out}
+                              onClick={() => addProduct(s)} title={out ? `${s.label}: out of stock` : `Add ${s.label}`}>
+                              <span className="sw-tile-name">{s.label}</span>
+                              <span className="sw-tile-price">{biz.amount(s.price)}</span>
+                              <span className={`sw-tile-stock ${out ? "is-out" : stock <= 3 ? "is-low" : ""}`}>
+                                {out ? "Out of stock" : `${stock} in stock`}{on ? ` · ${Number(on.quantity)} on bill` : ""}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  ) : <p className="sw-note">No products for sale yet. Add them in Services & products as goods kept in stock.</p>}
+                </div>
+              )}
+            </ContentTabs>
           </SectionCard>
-          <SectionCard flush icon="list" title="On the bill">
-            <div className="sw-quick">
-              <div style={{ flex: "1 1 280px" }}>
-                <SearchPicker aria-label="Add a service or product" options={items} clearOnSelect onChange={addItem} disabled={!options}
-                  getKey={(s) => s.id} getLabel={(s) => s.label}
-                  getDescription={(s) => `${planOf(s.id) ? (planOf(s.id).kind === "membership" ? "Membership" : "Package") : s.kind === "service" ? "Service" : `Product · ${Number(s.stock)} in stock`} · ${biz.exact(s.price)}`}
-                  getKeywords={(s) => `${s.code || ""} ${s.barcode || ""} ${s.category || ""}`} isDisabled={(s) => s.kind === "goods" && Number(s.stock) <= 0}
-                  placeholder="Add a service or product — name, code or barcode" />
-              </div>
-            </div>
-            {quick.length > 0 && (
-              <div className="sw-quick" aria-label="Quick add">
-                {quick.map((s) => <button key={s.id} type="button" className="chip-button" onClick={() => addItem(s)}>{s.label}</button>)}
-              </div>
+          <SectionCard flush icon="list" title={`On this bill${lines.length ? ` · ${lines.length} ${lines.length === 1 ? "line" : "lines"}` : ""}`} className="sw-lines">
+            {!lines.length ? (
+              <p className="sw-note sw-pad">Nothing yet. Add the services done (a booking from the calendar comes in by itself, with its stylist), then any products bought.</p>
+            ) : (
+              <>
+                {serviceLines.length > 0 && (
+                  <div className="sw-group is-services">
+                    <div className="sw-group-head">
+                      <span><Icon name="sparkles" size={15} /> Services <small className="muted">· {serviceLines.length}</small></span>
+                      <strong>{biz.exact(partTotal(false))}</strong>
+                    </div>
+                    <DataGrid variant="editor" caption="Services on the bill" rows={serviceLines} rowKey={(l) => l.key} columns={serviceColumns} currency={biz.symbol} />
+                  </div>
+                )}
+                {productLines.length > 0 && (
+                  <div className="sw-group is-products">
+                    <div className="sw-group-head">
+                      <span><Icon name="tag" size={15} /> Products <small className="muted">· {productLines.length}</small></span>
+                      <strong>{biz.exact(partTotal(true))}</strong>
+                    </div>
+                    <DataGrid variant="editor" caption="Products on the bill" rows={productLines} rowKey={(l) => l.key} columns={productColumns} currency={biz.symbol} />
+                  </div>
+                )}
+              </>
             )}
-            {lines.length ? <DataGrid variant="editor" caption="Bill lines" rows={lines} rowKey={(l) => l.key} columns={columns} currency={biz.symbol} />
-              : <p className="sw-note sw-pad">Type a service above or tap one. A booking from the calendar comes in by itself.</p>}
           </SectionCard>
         </div>
         <div className="sw-bill-side">
           <SectionCard icon="receipt" title="Total">
             <FormError message={quoteError} />
-            {!shownQuote ? <p className="sw-note">Add a service or product to see the bill.</p> : (
+            {!shownQuote ? <p className="sw-note">Add a service or a product to see the bill.</p> : (
               <dl className="sw-sum">
+                {serviceLines.length > 0 && productLines.length > 0 && <>
+                  <div><dt>Services ({serviceLines.length})</dt><dd>{biz.exact(partTotal(false))}</dd></div>
+                  <div><dt>Products ({productLines.length})</dt><dd>{biz.exact(partTotal(true))}</dd></div>
+                </>}
                 <div><dt>Before discounts</dt><dd>{biz.exact(shownQuote.lines.reduce((s, l) => s + Number(l.amount), 0))}</dd></div>
                 {Number(shownQuote.savings) > 0 && <div className="is-saving"><dt>Discounts & membership</dt><dd>−{biz.exact(shownQuote.savings)}</dd></div>}
                 <div><dt>{shownQuote.taxMode === "inclusive" ? "GST included" : "GST"}</dt><dd>{biz.exact(shownQuote.tax)}</dd></div>
@@ -362,11 +500,15 @@ export default function SalonBillPage() {
       </div>
       <ClientPanel contactId={card} onClose={() => setCard(null)}
         onBook={(c) => navigate(`${businessPath(biz.id, "salon-calendar")}?book=1&contact=${c.contact.id}${c.profile?.preferred_resource_id ? `&staff=${c.profile.preferred_resource_id}` : ""}`)} />
+      {/* The saved bill opens over the page (as at Quick bill); closing it starts the next bill. */}
+      {posted && <BillDone biz={biz} posted={posted} onNext={reset} onOpen={() => setDocId(posted.document.id)} docId={docId} onCloseDoc={() => setDocId(null)}
+        onBookNext={() => navigate(`${businessPath(biz.id, "salon-calendar")}?book=1&contact=${posted.client?.id || ""}${posted.next ? `&sku=${posted.next.sku}&staff=${posted.next.staff}` : ""}`)} />}
     </div>
   );
 }
 
-// After the bill: print, send on WhatsApp, book the next visit, next bill.
+// After the bill, in a pop-up over the page: print, send on WhatsApp, book
+// the next visit, or start the next bill (Enter, or closing it).
 function BillDone({ biz, posted, onNext, onOpen, docId, onCloseDoc, onBookNext }) {
   const doc = posted.document;
   const phone = posted.client?.phone;
@@ -380,17 +522,16 @@ function BillDone({ biz, posted, onNext, onOpen, docId, onCloseDoc, onBookNext }
   const text = `Thank you for visiting ${biz.business.name}! Bill ${doc.document_no}: ${biz.exact(doc.total)}${Number(posted.savings) > 0 ? ` (you saved ${biz.exact(posted.savings)})` : ""}. See you again soon.`;
   useEffect(() => {
     const onKey = (event) => {
-      if (/^(INPUT|TEXTAREA|SELECT)$/.test(event.target?.tagName || "")) return;
+      // A focused button answers Enter itself.
+      if (/^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(event.target?.tagName || "") || docId) return;
       if (event.key === "Enter") onNext();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onNext]);
+  }, [onNext, docId]);
   return (
-    <div className="stack">
-      <BusinessHeader icon="receipt" title="New bill" />
-      <SuccessMessage message={`Bill ${doc.document_no} saved.`} />
-      <SectionCard icon="check-circle" tone="success" title={`Bill ${doc.document_no}`}>
+    <>
+      <Modal title={`Bill ${doc.document_no} saved`} icon="check" width={640} onClose={onNext}>
         <dl className="sw-facts">
           <div><dt>Total</dt><dd>{biz.exact(doc.total)}</dd></div>
           <div><dt>From the advance</dt><dd>{biz.exact(posted.advanceApplied)}</dd></div>
@@ -399,15 +540,15 @@ function BillDone({ biz, posted, onNext, onOpen, docId, onCloseDoc, onBookNext }
           {Number(posted.savings) > 0 && <div><dt>Client saved</dt><dd>{biz.exact(posted.savings)}</dd></div>}
         </dl>
         <div className="sw-row" style={{ marginTop: "1rem" }}>
-          <button type="button" className="button" onClick={onNext}><Icon name="plus" size={15} /> Next bill</button>
+          <button type="button" className="button" data-autofocus onClick={onNext}><Icon name="plus" size={15} /> Next bill <kbd>Enter</kbd></button>
           {biz.can("sales.print") && <button type="button" className="button button-secondary" onClick={print}><Icon name="print" size={15} /> Print</button>}
           {phone && <a className="button button-secondary" href={whatsappLink(phone, text)} target="_blank" rel="noreferrer"><Icon name="message" size={15} /> WhatsApp bill</a>}
           {posted.client && biz.can("appointments.create") && <button type="button" className="button button-secondary" onClick={onBookNext}><Icon name="calendar" size={15} /> Book next visit</button>}
           <button type="button" className="button button-secondary" onClick={onOpen}>Open the bill</button>
         </div>
-      </SectionCard>
+      </Modal>
       {docId && <DocumentDetail documentId={docId} onClose={onCloseDoc} onChanged={() => {}} />}
-    </div>
+    </>
   );
 }
 

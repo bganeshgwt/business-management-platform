@@ -132,12 +132,14 @@ async function modules(business) {
   const { modules: all } = await repo.platformCatalogue();
   // For a restaurant business these rows ARE the restaurant's features: the
   // same business_capabilities rows Settings -> Features reads and writes.
-  const rows = await repo.all(repo.pool, `SELECT t.module_code,t.enabled_by_default,
+  const rows = await repo.all(repo.pool, `SELECT t.module_code,t.enabled_by_default,t.recommended,t.recommended_note,
     COALESCE((SELECT json_agg(requires_module_code) FROM platform_module_dependencies d WHERE d.module_code=t.module_code),'[]') AS requires
     FROM platform_module_business_types t WHERE t.business_type=$1`, [business.business_type]);
   return all.filter((m) => m.kind === 'core' || rows.some((r) => r.module_code === m.code)).map((m) => {
     const row = rows.find((r) => r.module_code === m.code);
-    return { ...m, enabled: business.modules.includes(m.code), enabled_by_default: row?.enabled_by_default ?? true, requires: row?.requires || [] };
+    // recommended: most businesses of this trade use it (with why), for an owner choosing tools.
+    return { ...m, enabled: business.modules.includes(m.code), enabled_by_default: row?.enabled_by_default ?? true, requires: row?.requires || [],
+      recommended: Boolean(row?.recommended), recommended_note: row?.recommended_note || null };
   });
 }
 async function setModule(business, user, code, body) {
@@ -158,6 +160,9 @@ async function setModule(business, user, code, body) {
   }
   return repo.transaction(async (db) => {
     await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
+    if (code === 'expenses' && !enabled && await repo.one(db,'SELECT id FROM business_expenses WHERE business_id=$1 LIMIT 1',[business.id])) {
+      fail('Expenses must stay enabled once money has been recorded, so historical reports remain complete.',409);
+    }
     // The database refuses a module the type does not have, a missing
     // dependency, or switching off something another module needs.
     if (enabled) await db.query('INSERT INTO business_capabilities(business_id,capability,enabled_by) VALUES($1,$2,$3) ON CONFLICT DO NOTHING', [business.id, code, user.id]);
@@ -250,13 +255,32 @@ async function updateSeries(business, user, seriesId, body) {
 
 // --- Categories --------------------------------------------------------------
 
+// A top-level category's department (Clothing, Home, Grocery…); its
+// sub-categories always follow it. undefined: not sent.
+async function readDepartment(db, business, value) {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  const row = await repo.one(db, 'SELECT id FROM business_departments WHERE business_id=$1 AND id=$2 AND active', [business.id, id(value, 'Department')]);
+  if (!row) fail('Department not found or switched off', 404);
+  return row.id;
+}
+// Every category below this one takes its department.
+const cascadeDepartment = (db, businessId, categoryId, departmentId) => db.query(`WITH RECURSIVE sub AS (
+    SELECT id FROM catalog_categories WHERE business_id=$1 AND parent_id=$2
+    UNION ALL SELECT c.id FROM catalog_categories c JOIN sub ON c.business_id=$1 AND c.parent_id=sub.id)
+  UPDATE catalog_categories SET department_id=$3 WHERE business_id=$1 AND id IN (SELECT id FROM sub)`, [businessId, categoryId, departmentId]);
+
 async function createCategory(business, user, body) {
   await access.require(business, 'catalog.create');
   return repo.transaction(async (db) => {
     const parentId = body.parentId ? id(body.parentId, 'Parent category') : null;
-    if (parentId && !(await repo.one(db, 'SELECT id FROM catalog_categories WHERE business_id=$1 AND id=$2', [business.id, parentId]))) fail('Parent category not found', 404);
-    const row = await repo.one(db, `INSERT INTO catalog_categories(business_id,parent_id,name,sort_order,created_by,updated_by) VALUES($1,$2,$3,$4,$5,$5) RETURNING *`,
-      [business.id, parentId, v.requiredString(body.name, 'Category name', 100), decimal(body.sortOrder ?? 0, 'Sort order', 0, 0, 100000), user.id]);
+    const parent = parentId ? await repo.one(db, 'SELECT id,department_id FROM catalog_categories WHERE business_id=$1 AND id=$2', [business.id, parentId]) : null;
+    if (parentId && !parent) fail('Parent category not found', 404);
+    const departmentId = parent ? parent.department_id : (await readDepartment(db, business, body.departmentId)) ?? null;
+    // A person tied to a department adds categories in it only.
+    if (business.member_department_id && String(departmentId) !== String(business.member_department_id)) fail('You work in one department: add categories in it only', 403);
+    const row = await repo.one(db, `INSERT INTO catalog_categories(business_id,parent_id,name,sort_order,created_by,updated_by,department_id) VALUES($1,$2,$3,$4,$5,$5,$6) RETURNING *`,
+      [business.id, parentId, v.requiredString(body.name, 'Category name', 100), decimal(body.sortOrder ?? 0, 'Sort order', 0, 0, 100000), user.id, departmentId]);
     await repo.audit(db, business.id, user.id, 'category.created', row.id, { name: row.name });
     return row;
   });
@@ -270,11 +294,20 @@ async function updateCategory(business, user, categoryId, body) {
       const children = await repo.one(db, 'SELECT count(*)::int AS n FROM catalog_categories WHERE business_id=$1 AND parent_id=$2 AND active', [business.id, id(categoryId)]);
       if (children.n) fail('Switch off or move the categories inside this one first', 409);
     }
-    const row = await repo.one(db, `UPDATE catalog_categories SET parent_id=$3,name=$4,sort_order=$5,active=$6,updated_by=$7,updated_at=now()
-      WHERE business_id=$1 AND id=$2 RETURNING *`, [business.id, id(categoryId), parentId, v.requiredString(body.name, 'Category name', 100),
-      decimal(body.sortOrder ?? 0, 'Sort order', 0, 0, 100000), active, user.id]);
-    if (!row) fail('Category not found', 404);
-    await repo.audit(db, business.id, user.id, 'category.updated', row.id, { name: row.name, active });
+    const current = await repo.one(db, 'SELECT id,department_id FROM catalog_categories WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(categoryId)]);
+    if (!current) fail('Category not found', 404);
+    if (business.member_department_id && String(current.department_id) !== String(business.member_department_id)) fail('This category is in another department', 403);
+    const parent = parentId ? await repo.one(db, 'SELECT id,department_id FROM catalog_categories WHERE business_id=$1 AND id=$2', [business.id, parentId]) : null;
+    if (parentId && !parent) fail('Parent category not found', 404);
+    // Under a parent: the parent's department. At the top: the one chosen (or kept).
+    const chosen = await readDepartment(db, business, body.departmentId);
+    const departmentId = parent ? parent.department_id : chosen === undefined ? current.department_id : chosen;
+    if (business.member_department_id && String(departmentId) !== String(business.member_department_id)) fail('You work in one department: keep its categories in it', 403);
+    const row = await repo.one(db, `UPDATE catalog_categories SET parent_id=$3,name=$4,sort_order=$5,active=$6,updated_by=$7,updated_at=now(),department_id=$8
+      WHERE business_id=$1 AND id=$2 RETURNING *`, [business.id, current.id, parentId, v.requiredString(body.name, 'Category name', 100),
+      decimal(body.sortOrder ?? 0, 'Sort order', 0, 0, 100000), active, user.id, departmentId]);
+    if (String(current.department_id) !== String(departmentId)) await cascadeDepartment(db, business.id, current.id, departmentId);
+    await repo.audit(db, business.id, user.id, 'category.updated', row.id, { name: row.name, active, departmentId: row.department_id });
     return row;
   });
 }

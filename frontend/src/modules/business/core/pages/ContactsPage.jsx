@@ -25,7 +25,7 @@ export default function ContactsPage({ kind }) {
   const [editing, setEditing] = useState(() => (params.get("new") === "1" && biz.can("contacts.create") ? {} : null));
   const [notice, setNotice] = useState("");
   useEffect(() => {
-    if (params.get("new")) setParams({}, { replace: true });
+    if (params.get("new")) setParams((p) => new URLSearchParams(p.get("open") ? { open: p.get("open") } : {}), { replace: true });
   }, [params, setParams]);
 
   const columns = useMemo(() => [

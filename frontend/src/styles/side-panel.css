@@ -246,9 +246,28 @@ html.has-side-panel {
 
 .panel-row-actions {
   display: inline-flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: 6px;
   justify-content: flex-end;
+  white-space: nowrap;
+}
+
+/* Why a row has fewer actions ("Drawer counted"). */
+.panel-row-note {
+  cursor: help;
+}
+
+/* A panel's result line: the words, then Dismiss at the far end. */
+.panel-message {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.panel-message > span {
+  flex: 1;
+  min-width: 0;
 }
 
 .panel-note {
@@ -267,3 +286,8 @@ html.has-side-panel {
 .panel-cell-stack .muted {
   font-size: 0.8125rem;
 }
+
+/* A full working screen opened over a page: nearly the whole width. */
+.side-panel.is-wide { width: min(1320px, calc(100vw - 72px)); }
+.side-panel.is-wide .side-panel-body { padding: 16px 20px 24px; }
+@media (max-width: 640px) { .side-panel.is-wide { width: 100%; } }

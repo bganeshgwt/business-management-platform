@@ -11,7 +11,6 @@ import {
   getBusinessDay,
   getClosePreview,
   getXReport,
-  openBusinessDay,
   reopenBusinessDay,
 } from "../services/businessDay.service";
 import { getDaySummary } from "../../billing/services/bill.service";
@@ -23,6 +22,7 @@ import useAuth from "../../../../hooks/useAuth";
 import useQueryFilter from "../../../../hooks/useQueryFilter";
 import useShake from "../../../../hooks/useShake";
 import CloseDayDialog from "./CloseDayDialog";
+import OpenDayDialog from "./OpenDayDialog";
 import DrawersPanel from "./DrawersPanel";
 import CashRules from "./CashRules";
 import PastDays from "./PastDays";
@@ -66,6 +66,8 @@ export default function BusinessDayPage() {
 
   // "open" | "close" | { reopen: day }
   const [dialog, setDialog] = useState(null);
+  // The date the Open day dialog starts on.
+  const [openDate, setOpenDate] = useState("");
   const [form, setForm] = useState({ businessDate: "", cash: "", notes: "", reason: "" });
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -171,53 +173,18 @@ export default function BusinessDayPage() {
   };
 
   const openDialog = () => {
-    setForm({ businessDate: opening.suggested || "", cash: "", notes: "", reason: "" });
-    setFormError("");
+    setOpenDate(opening.suggested || "");
     setJustClosed(null);
     setDialog("open");
   };
 
-  const submitOpen = async (event) => {
-    event.preventDefault();
-    setFormError("");
-
-    if (!allowed.includes(form.businessDate)) {
-      setFormError(
-        allowed.length > 1
-          ? `Open today's day (${dateText(allowed[1])}) or last night's (${dateText(allowed[0])}).`
-          : `Only today's business day (${dateText(allowed[0])}) can be opened.`
-      );
-      shakeForm();
-      return;
-    }
-
-    if (form.cash === "" || Number(form.cash) < 0) {
-      setFormError("Count the opening cash into the drawer and enter it (0 if it starts empty).");
-      shakeForm();
-      return;
-    }
-
-    setSaving(true);
-
-    try {
-      const day = await openBusinessDay({
-        businessDate: form.businessDate,
-        openingCash: Math.round(Number(form.cash) * 100) / 100,
-        notes: form.notes.trim() || null,
-      });
-      setSuccess(`Business day ${dateText(day.businessDate, { weekday: true })} opened`);
-      setDialog(null);
-      setJustClosed(null);
-      forgetBusinessDay();
-      load();
-      loadSummary();
-      loadHold();
-    } catch (err) {
-      setFormError(getErrorMessage(err));
-      shakeForm();
-    } finally {
-      setSaving(false);
-    }
+  const opened = (day, { reopened } = {}) => {
+    setSuccess(`Business day ${dateText(day.businessDate, { weekday: true })} ${reopened ? "is open again" : "opened"}`);
+    setDialog(null);
+    setJustClosed(null);
+    load();
+    loadSummary();
+    loadHold();
   };
 
   const submitReopen = async (event) => {
@@ -261,8 +228,7 @@ export default function BusinessDayPage() {
         getBusinessDay()
           .then((fresh) => {
             if (fresh && !fresh.current && fresh.opening && fresh.opening.suggested) {
-              setForm({ businessDate: fresh.opening.suggested, cash: "", notes: "", reason: "" });
-              setFormError("");
+              setOpenDate(fresh.opening.suggested);
               setDialog("open");
             }
           })
@@ -291,7 +257,6 @@ export default function BusinessDayPage() {
   const cashRow = summary && summary.byMethod.find((row) => row.paymentMethod === "cash");
   const blind = Boolean(status && status.blind);
   const showTakings = Boolean(current && summary && summary.dayOpen && summary.businessDayId === current.id);
-  const takenToday = opening.taken.find((row) => row.date === opening.today);
 
   const tabs = [
     { key: "day", label: "Today", icon: "sun" },
@@ -599,81 +564,13 @@ export default function BusinessDayPage() {
       )}
 
       {dialog === "open" && (
-        <Modal
-          title="Open business day"
-          icon="sun"
-          description="Orders and payments from now on count towards this day."
+        <OpenDayDialog
+          opening={opening}
+          currency={currency}
+          initialDate={openDate}
           onClose={() => setDialog(null)}
-          width={480}
-        >
-          <form className="form-grid bd-form" onSubmit={submitOpen} noValidate ref={formRef}>
-            <label className="field">
-              <span>Business date</span>
-              <input
-                type="date"
-                value={form.businessDate}
-                min={allowed[0]}
-                max={allowed[allowed.length - 1]}
-                onChange={(event) => setForm({ ...form, businessDate: event.target.value })}
-                readOnly={allowed.length === 1}
-                required
-              />
-              <small className="muted">
-                {allowed.length > 1
-                  ? `Today, or last night's day until ${opening.cutoffHour}:00 this morning (it ran past midnight).`
-                  : "Today, on the restaurant's clock. Another date cannot be opened."}
-              </small>
-            </label>
-
-            <label className="field">
-              <span>Opening cash ({currency})</span>
-              <span className="bd-cash">
-                <span className="bd-cash-symbol" aria-hidden="true">
-                  {currency}
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  inputMode="decimal"
-                  value={form.cash}
-                  onChange={(event) => setForm({ ...form, cash: event.target.value })}
-                  placeholder="Count the float"
-                  autoFocus
-                />
-              </span>
-              <small className="muted">Cash in the drawer before service starts</small>
-            </label>
-
-            {takenToday && (
-              <p className="field-wide small muted">
-                Today&apos;s day was opened and closed already. If it was closed by mistake, reopen it from the Today tab or Past days.
-              </p>
-            )}
-
-            <label className="field field-wide">
-              <span>Notes (optional)</span>
-              <textarea
-                rows={2}
-                value={form.notes}
-                maxLength={500}
-                onChange={(event) => setForm({ ...form, notes: event.target.value })}
-                placeholder="Anything the next shift should know"
-              />
-            </label>
-
-            <ErrorMessage message={formError} />
-
-            <div className="form-actions field-wide">
-              <button type="button" className="button button-secondary" onClick={() => setDialog(null)}>
-                Cancel
-              </button>
-              <button type="submit" className="button" disabled={saving}>
-                {saving ? "Opening…" : "Open day"}
-              </button>
-            </div>
-          </form>
-        </Modal>
+          onOpened={opened}
+        />
       )}
 
       {dialog === "close" && current && (

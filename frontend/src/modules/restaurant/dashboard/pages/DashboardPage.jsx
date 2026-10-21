@@ -6,7 +6,6 @@ import StatTile from "../../../../components/StatTile";
 import DashboardPanels, { PanelStatTile } from "./panels/DashboardPanels";
 import DashboardLogbook from "./DashboardLogbook";
 // Tasks (modules/tasks): today's checklists, overdue, issues waiting.
-import TasksTodayCard from "../../../tasks/pages/TasksTodayCard";
 import Icon from "../../../../components/Icon";
 import { ErrorMessage, ScreenLoading } from "../../../../components/Feedback";
 import { getDashboard, getDashboardLive } from "../../reports/services/report.service";
@@ -19,6 +18,7 @@ import useAuth from "../../../../hooks/useAuth";
 import { plural, shortDate } from "../../reports/pages/reportFormat";
 import { agoLabel, floorCounts, greeting, longDate, minutesFrom, waitText } from "./liveFormat";
 import AttentionCard from "./AttentionCard";
+import DayButton from "../../business-day/pages/DayButton";
 import TradingToday from "./TradingToday";
 import StaleDaysBanner from "./StaleDaysBanner";
 import FloorBlock from "./FloorBlock";
@@ -34,6 +34,10 @@ import {
   OrdersTodayCard,
 } from "./SalesCharts";
 import "../styles/dashboard.css";
+import PreordersBlock from "./PreordersBlock";
+
+// Formats that seat no one: no tables tile or floor block.
+const NO_TABLES = ["cloud_kitchen", "bakery"];
 
 // Today against a day worth comparing it to, as the figure tile draws it. A
 // percentage needs a baseline: with nothing to compare against, saying so
@@ -510,10 +514,8 @@ export default function DashboardPage() {
             )}
 
             {hasPermission("business_day.manage") && (
-              <Link className={`button ${data.dayOpen ? "button-secondary" : ""}`} to="/business-day">
-                <Icon name={data.dayOpen ? "lock" : "unlock"} size={16} />
-                {data.dayOpen ? "Close day" : "Open day"}
-              </Link>
+              // Opens the Open / Close day dialog here, not on another page.
+              <DayButton dayOpen={data.dayOpen} currency={currency} onChanged={refresh} />
             )}
             {data.dayOpen && hasPermission("orders.create") && (
               <Link className="button" to="/pos">
@@ -669,7 +671,7 @@ export default function DashboardPage() {
                 : `${plural(data.covers.seatedNow, "guest", "guests")} seated`
           }
         />
-        {hasPermission("tables.view") && (
+        {hasPermission("tables.view") && !NO_TABLES.includes(user.restaurantFormat) && (
           <PanelStatTile
             panel="floor.busy"
             icon="table"
@@ -701,7 +703,6 @@ export default function DashboardPage() {
           log book (SW-A-07). Renders nothing without logbook.view or when
           nothing is open. */}
       {liveSources.logbook && <DashboardLogbook handover={feed.logbook ? feed.logbook.data : null} />}
-      {hasFeature("tasks") && <TasksTodayCard />}
 
       {/* Live service on the left, the day's trading in a phone-width column
           on the right (wide screens only, and only for someone who sees sales
@@ -716,7 +717,8 @@ export default function DashboardPage() {
 
           <div className="dash-grid-wrap">
             <div className="dash-live">
-              {liveSources.tables && <FloorBlock entry={feed.tables} outletId={data.outletId} currency={currency} canSeeSales={canSeeSales} />}
+              {hasFeature("preorders") && hasPermission("orders.view") && <PreordersBlock currency={currency} />}
+              {liveSources.tables && !NO_TABLES.includes(user.restaurantFormat) && <FloorBlock entry={feed.tables} outletId={data.outletId} currency={currency} canSeeSales={canSeeSales} />}
               {liveSources.kitchen && <KitchenBlock entry={feed.kitchen} />}
               {liveSources.reservations && <ReservationsBlock entry={feed.reservations} />}
               {liveSources.requests && (

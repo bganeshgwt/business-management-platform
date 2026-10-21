@@ -94,6 +94,10 @@ export default function LiveBlock({ icon, tone = "primary", title, to, panel, op
   );
 }
 
+// A figure with nothing to show yet ("—"): a small quiet dash, not a bold one
+// that reads as a value that failed to load.
+const shown = (value) => (value === "—" ? <span className="dash-none" aria-label="none yet">—</span> : value);
+
 // The row of figures at the top of a block. `alert` colours the figure in its
 // tone — used only when the number is a problem (tickets late, riders late),
 // so colour keeps meaning something. A figure with `panel` and `to` opens
@@ -107,9 +111,10 @@ export function Figures({ items }) {
           panel={item.panel}
           to={item.panel ? item.to : undefined}
           size="sm"
-          tone={item.tone || "neutral"}
+          // A tile marks a problem (`alert`) and is plain while its number is fine.
+          tone={item.alert === false ? "neutral" : item.tone || "neutral"}
           label={item.label}
-          value={item.value}
+          value={shown(item.value)}
           of={item.of}
           note={item.note}
           title={item.title || item.label}
@@ -139,7 +144,7 @@ export function Facts({ items }) {
             {row.label}
             {row.sub && <small className={`dash-fact-sub ${row.subTone ? `tone-${row.subTone}` : ""}`}>{row.sub}</small>}
           </span>
-          <span className="dash-fact-value">{row.value}</span>
+          <span className="dash-fact-value">{shown(row.value)}</span>
         </li>
       ))}
     </ul>

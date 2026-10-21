@@ -194,6 +194,34 @@ function readManualDiscount(body) {
   return has(amount) ? { amount: paise(text), reason } : { percent: Number(text), reason };
 }
 
+// A coupon code typed at the counter ("DIWALI100"), or null.
+function readCoupon(body) {
+  if (body.coupon === undefined || body.coupon === null || String(body.coupon).trim() === '') return null;
+  const code = String(body.coupon).trim().toUpperCase();
+  if (!/^[A-Z0-9-]{3,20}$/.test(code)) fail('A coupon code is 3 to 20 letters, digits or dashes');
+  return code;
+}
+
+// The coupon's offer if it may be used on this bill now; refuses with the
+// reason otherwise. Locks the offer so two bills cannot both take its last use.
+async function couponOffer(db, business, code, contact, grossBill, running) {
+  const offer = await repo.one(db, 'SELECT * FROM retail_offers WHERE business_id=$1 AND coupon_code=$2 FOR UPDATE', [business.id, code]);
+  if (!offer) fail(`There is no coupon ${code}`, 404);
+  const live = running.find((o) => Number(o.id) === Number(offer.id));
+  if (!live) fail(`Coupon ${code} cannot be used now (switched off, outside its dates or hours)`, 409);
+  if (grossBill < paise(offer.min_bill_amount)) fail(`Coupon ${code} needs a bill of at least ${money(paise(offer.min_bill_amount))}`, 409);
+  if (offer.per_customer_limit && !contact) fail(`Coupon ${code} is limited per customer: choose the customer first`, 409);
+  if (offer.usage_limit || offer.per_customer_limit) {
+    const used = await repo.one(db, `SELECT count(DISTINCT x.document_id)::int AS total,
+        count(DISTINCT x.document_id) FILTER (WHERE d.contact_id=$3)::int AS mine
+      FROM retail_sale_discounts x JOIN business_documents d ON d.business_id=x.business_id AND d.id=x.document_id
+      WHERE x.business_id=$1 AND x.offer_id=$2`, [business.id, offer.id, contact?.id || null]);
+    if (offer.usage_limit && used.total >= offer.usage_limit) fail(`Coupon ${code} has been used up (${offer.usage_limit} bills)`, 409);
+    if (offer.per_customer_limit && used.mine >= offer.per_customer_limit) fail(`${contact.name} has already used coupon ${code} ${used.mine === 1 ? 'once' : `${used.mine} times`}`, 409);
+  }
+  return live;
+}
+
 function readRedeem(body) {
   if (body.loyalty === undefined || body.loyalty === null) return 0;
   if (typeof body.loyalty !== 'object' || Array.isArray(body.loyalty)) fail('Loyalty must be an object');
@@ -214,8 +242,14 @@ async function priceSale(db, business, { contact, lines, body, taxMode }) {
   const grossBill = sum(lines.filter(open).map((l) => l.amount));
   const caps = business.capabilities;
 
+  const couponCode = readCoupon(body);
+  if (couponCode && !caps.includes('offers')) fail('Offers and coupons are not switched on for this business');
+  let coupon = null;
   if (caps.includes('offers')) {
-    const offers = (await runningOffers(db, business.id)).filter((o) => grossBill >= paise(o.min_bill_amount));
+    const running = await runningOffers(db, business.id);
+    if (couponCode) coupon = { code: couponCode, offer: await couponOffer(db, business, couponCode, contact, grossBill, running), applied: false };
+    // A coupon's offer counts only on the bill it was given for.
+    const offers = running.filter((o) => (!o.coupon_code || Number(o.id) === Number(coupon?.offer.id)) && grossBill >= paise(o.min_bill_amount));
     if (offers.length) {
       const groups = new Map();
       lines.forEach((line, index) => {
@@ -337,7 +371,8 @@ async function priceSale(db, business, { contact, lines, body, taxMode }) {
     });
     loyalty.redeem = { points: redeemPoints, value };
   }
-  return { perLine, rows, loyalty };
+  if (coupon) coupon.applied = rows.some((r) => Number(r.offerId) === Number(coupon.offer.id));
+  return { perLine, rows, loyalty, coupon: coupon && { code: coupon.code, name: coupon.offer.name, applied: coupon.applied } };
 }
 
 // What a quote shows about points: balance, what this bill earns, the most
@@ -361,6 +396,8 @@ function quoteOf({ prepared, offers, subtotal, tax, roundOff, rounded, taxMode, 
     taxMode, contactId: contact?.id || null,
     lines: prepared.map((line, index) => ({
       skuId: line.sku.id, label: line.sku.label, unit: line.sku.unit, quantity: line.quantity, unitPrice: Number(line.price).toFixed(2),
+      // Which price the line sold at: the list, this branch's own, the member price or a customer rule.
+      priceKind: line.priceKind || null,
       enteredUnit: line.entered?.unit || null, enteredQuantity: line.entered?.quantity ?? null,
       amount: money(line.amount), discount: money(offers?.perLine[index] || 0), net: money(line.net), tax: money(line.tax), taxRate: line.sku.tax_rate,
       lotCode: line.lotCode || null,
@@ -371,6 +408,8 @@ function quoteOf({ prepared, offers, subtotal, tax, roundOff, rounded, taxMode, 
     subtotal: money(subtotal), tax: money(tax), roundOff: money(roundOff), total: money(rounded),
     savings: money(sum(offers?.perLine || [])),
     loyalty: loyaltyPreview(offers, rounded),
+    // The coupon given, and whether it took anything off (another offer may be better).
+    coupon: offers?.coupon || null,
   };
 }
 

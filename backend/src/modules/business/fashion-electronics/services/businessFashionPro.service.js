@@ -66,7 +66,7 @@ const markdownSql = `SELECT o.id,o.name,o.product_id,o.value,o.starts_on::text,o
   WHERE o.business_id=$1 AND o.kind='product_percent'`;
 
 function requireOffers(business) {
-  if (!business.modules.includes('offers')) fail('Offers & discounts is not switched on for this business. An owner can turn it on in Settings › Modules.', 403);
+  if (!business.modules.includes('offers')) fail('Offers & discounts is not switched on for this business. An owner can turn it on in Settings › Business tools.', 403);
 }
 
 // % off each chosen style until a date; one offer per style.

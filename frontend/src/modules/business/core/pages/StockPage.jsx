@@ -1,7 +1,4 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import Icon from "../../../../components/Icon";
-import { businessPath } from "../../../../services/businessNav";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
 import SectionCard from "../../../../components/SectionCard";
 import { ErrorMessage, SuccessMessage } from "../../../../components/Feedback";
@@ -32,6 +29,7 @@ export default function StockPage() {
     { key: "label", header: "Item", value: (l) => l.label, mobile: "title", pin: true },
     { key: "code", header: "SKU", value: (l) => l.code, className: "mono", defaultHidden: true },
     { key: "location", header: "Location", value: (l) => l.location_name, mobile: "subtitle" },
+    { key: "shelf", header: "Shelf", value: (l) => l.shelf_location || "", render: (l) => l.shelf_location || <span className="muted">—</span> },
     batches && { key: "lot", header: biz.has("serials") ? "Batch / serial" : "Batch", value: (l) => l.lot_code || "", className: "mono", mobile: "show" },
     biz.has("batches") && { key: "expires_on", header: "Expiry", type: "date", value: (l) => l.expires_on,
       render: (l) => (l.expires_on ? (
@@ -51,7 +49,7 @@ export default function StockPage() {
     <div className="stack">
       <BusinessHeader icon="box" title="Stock on hand"
         description="What is on the shelf at each location, batch by batch, at its average cost. Corrections need a reason and are kept in the movement history."
-        actions={biz.has("batches") && <Link className="button button-secondary" to={businessPath(biz.id, "near-expiry")}><Icon name="clock" size={15} /> Expiring soon</Link>} />
+        />
       <SuccessMessage message={notice} />
       <ErrorMessage message={list.error} />
       <SectionCard flush icon="list" title="Stock">

@@ -43,8 +43,9 @@ async function platformCatalogue() {
 const capabilitiesSql = `COALESCE((SELECT json_agg(capability ORDER BY capability) FROM business_capabilities WHERE business_id=b.id),'[]')`;
 const list = async (userId, demos) => (await pool.query(`
  SELECT b.id,b.name,b.code,b.business_type,b.legacy_restaurant_id,b.is_demo,b.status,b.currency,b.timezone,
-  t.name AS type_name,m.role_id,r.name AS role_name,r.full_access,m.last_opened_at,${capabilitiesSql} AS capabilities
- FROM businesses b JOIN business_types t ON t.code=b.business_type
+  CASE rf.format WHEN 'cafe' THEN 'Café' WHEN 'bakery' THEN 'Bakery' WHEN 'cloud_kitchen' THEN 'Cloud kitchen' ELSE t.name END AS type_name,rf.format AS restaurant_format,
+  m.role_id,r.name AS role_name,r.full_access,m.last_opened_at,${capabilitiesSql} AS capabilities
+ FROM businesses b JOIN business_types t ON t.code=b.business_type LEFT JOIN restaurants rf ON rf.id=b.legacy_restaurant_id
  JOIN business_memberships m ON m.business_id=b.id
  JOIN business_roles r ON r.business_id=m.business_id AND r.id=m.role_id
  WHERE m.user_id=$1 AND m.active AND b.status='active' AND (NOT b.is_demo OR $2)
@@ -52,9 +53,11 @@ const list = async (userId, demos) => (await pool.query(`
 
 // Membership, role, permissions and enabled modules in one statement: what
 // the server checks on every business request.
-// member_location_id: the one location this person works at (NULL = all).
+// member_location_id: the one location this person works at (NULL = all);
+// member_department_id: the one department whose products and stock they handle (NULL = all).
 const access = (id, userId) => one(pool, `SELECT b.*,t.name AS type_name,m.role_id,r.name AS role_name,r.full_access,
- ${capabilitiesSql} AS capabilities,m.location_id AS member_location_id,
+ ${capabilitiesSql} AS capabilities,m.location_id AS member_location_id,m.department_id AS member_department_id,
+ (SELECT name FROM business_departments WHERE business_id=b.id AND id=m.department_id) AS member_department_name,
  (SELECT name FROM business_locations WHERE business_id=b.id AND id=m.location_id) AS member_location_name,
  COALESCE((SELECT json_agg(id ORDER BY id) FROM business_locations WHERE business_id=b.id AND active),'[]') AS active_location_ids,
  CASE WHEN r.full_access THEN (SELECT json_agg(code ORDER BY code) FROM business_permissions)
@@ -101,9 +104,10 @@ const documentTotalsSql = `COALESCE((SELECT SUM(amount) FROM business_payments p
 // order. Values are always bound parameters.
 const lists = {
   members: { sql: `SELECT m.user_id AS id,m.role_id,r.name AS role_name,r.full_access,m.active,m.last_opened_at,m.created_at,u.name,u.email,
-    m.location_id,l.name AS location_name
+    m.location_id,l.name AS location_name,m.department_id,dep.name AS department_name
     FROM business_memberships m JOIN users u ON u.id=m.user_id JOIN business_roles r ON r.business_id=m.business_id AND r.id=m.role_id
-    LEFT JOIN business_locations l ON l.business_id=m.business_id AND l.id=m.location_id WHERE m.business_id=$1`,
+    LEFT JOIN business_locations l ON l.business_id=m.business_id AND l.id=m.location_id
+    LEFT JOIN business_departments dep ON dep.business_id=m.business_id AND dep.id=m.department_id WHERE m.business_id=$1`,
   search: ['name', 'email', 'role_name', 'location_name'], filters: { role: 'role_id', location: 'location_id' }, order: 'full_access DESC,name' },
   roles: { sql: `SELECT r.*,(SELECT count(*)::int FROM business_memberships m WHERE m.business_id=r.business_id AND m.role_id=r.id AND m.active) AS member_count,
     CASE WHEN r.full_access THEN (SELECT count(*)::int FROM business_permissions) ELSE (SELECT count(*)::int FROM business_role_permissions p WHERE p.business_id=r.business_id AND p.role_id=r.id) END AS permission_count,
@@ -113,7 +117,7 @@ const lists = {
     JOIN catalog_skus s ON s.business_id=r.business_id AND s.id=r.sku_id
     LEFT JOIN business_contacts c ON c.business_id=r.business_id AND c.id=r.contact_id WHERE r.business_id=$1`,
   search: ['label', 'sku_code', 'contact_name'], order: 'id DESC' },
-  catalog: { sql: `SELECT s.*,p.name AS product_name,COALESCE(cat.name,p.category) AS category,p.category_id,p.brand,p.kind,
+  catalog: { sql: `SELECT s.*,p.name AS product_name,COALESCE(cat.name,p.category) AS category,p.category_id,p.brand,p.kind,cat.department_id,
     t.name AS tax_rate_name,u.name AS unit_name,u.decimals AS unit_decimals,
     CASE WHEN s.is_kit THEN COALESCE((SELECT min(floor(COALESCE((SELECT sum(l.quantity) FROM business_stock_lots l WHERE l.business_id=k.business_id AND l.sku_id=k.component_sku_id),0)/k.quantity))
         FROM catalog_kit_components k WHERE k.business_id=s.business_id AND k.kit_sku_id=s.id),0)
@@ -124,7 +128,7 @@ const lists = {
     LEFT JOIN catalog_categories cat ON cat.business_id=p.business_id AND cat.id=p.category_id
     LEFT JOIN business_tax_rates t ON t.business_id=s.business_id AND t.id=s.tax_rate_id
     LEFT JOIN business_units u ON u.business_id=s.business_id AND u.code=s.unit WHERE s.business_id=$1`,
-  search: ['label', 'code', 'barcode', 'product_name', 'category', 'brand'], filters: { category: 'category_id', kind: 'kind', active: 'active', kit: 'is_kit' }, order: 'id DESC' },
+  search: ['label', 'code', 'barcode', 'product_name', 'category', 'brand', 'shelf_location'], filters: { category: 'category_id', kind: 'kind', active: 'active', kit: 'is_kit', department: 'department_id' }, order: 'id DESC' },
   categories: { sql: `WITH RECURSIVE tree AS (
       SELECT c.*,c.name::text AS path,1 AS depth FROM catalog_categories c WHERE c.business_id=$1 AND c.parent_id IS NULL
       UNION ALL SELECT c.*,tree.path||' › '||c.name,tree.depth+1 FROM catalog_categories c JOIN tree ON c.business_id=tree.business_id AND c.parent_id=tree.id)
@@ -145,11 +149,13 @@ const lists = {
     search: ['name', 'phone', 'email', 'gstin'], filters: { kind: 'kind', active: 'active' }, order: 'id DESC' },
   locations: { sql: 'SELECT * FROM business_locations WHERE business_id=$1', search: ['name', 'code'], filters: { active: 'active' }, order: 'id' },
   resources: { sql: 'SELECT r.*,l.name AS location_name FROM business_resources r JOIN business_locations l ON l.business_id=r.business_id AND l.id=r.location_id WHERE r.business_id=$1',
-    search: ['name', 'role_label', 'location_name'], order: 'id DESC' },
+    search: ['name', 'role_label', 'location_name'], filters: { location: 'location_id' }, order: 'id DESC' },
   // Pro pass D-12/D-13: the item's biggest pack (to show cases), and filters
   // for batches with stock and batches expiring soon (the business's
   // near_expiry_days, Business settings › Rules).
-  stock: { sql: `SELECT l.*,s.label,s.code,s.unit,s.reorder_level,s.tracking,loc.name AS location_name,
+  stock: { sql: `SELECT l.*,s.label,s.code,s.unit,s.reorder_level,s.tracking,s.shelf_location,loc.name AS location_name,
+    (SELECT c.department_id FROM catalog_products p JOIN catalog_categories c ON c.business_id=p.business_id AND c.id=p.category_id
+      WHERE p.business_id=s.business_id AND p.id=s.product_id) AS department_id,
     (l.expires_on IS NOT NULL AND l.expires_on < (now() AT TIME ZONE b.timezone)::date) AS expired,
     (l.quantity > 0) AS in_stock,
     (l.quantity > 0 AND l.expires_on IS NOT NULL AND l.expires_on <= (now() AT TIME ZONE b.timezone)::date
@@ -159,7 +165,7 @@ const lists = {
     FROM business_stock_lots l JOIN businesses b ON b.id=l.business_id
     JOIN catalog_skus s ON s.business_id=l.business_id AND s.id=l.sku_id
     JOIN business_locations loc ON loc.business_id=l.business_id AND loc.id=l.location_id WHERE l.business_id=$1`,
-  search: ['label', 'code', 'lot_code', 'location_name'], filters: { location: 'location_id', sku: 'sku_id', in_stock: 'in_stock', expiring: 'expiring' }, order: 'id DESC' },
+  search: ['label', 'code', 'lot_code', 'location_name', 'shelf_location'], filters: { location: 'location_id', sku: 'sku_id', in_stock: 'in_stock', expiring: 'expiring', department: 'department_id' }, order: 'id DESC' },
   // Searchable by the serial / IMEI numbers and the supplier's bill number on it too.
   // Wholesale (pro pass D-21): an invoice raised by dispatching a sales order
   // carries the order, its salesperson and route, and the delivery state.
@@ -206,18 +212,19 @@ const lists = {
     FROM business_stock_transfers t
     JOIN business_locations f ON f.business_id=t.business_id AND f.id=t.from_location_id
     JOIN business_locations d ON d.business_id=t.business_id AND d.id=t.to_location_id WHERE t.business_id=$1`,
-  search: ['transfer_no', 'from_location_name', 'to_location_name', 'notes'], date: 'created_at', filters: { status: 'status' }, order: 'id DESC' },
+  search: ['transfer_no', 'from_location_name', 'to_location_name', 'notes'], date: 'created_at',
+  filters: { status: 'status', location: { any: ['from_location_id', 'to_location_id'] } }, order: 'id DESC' },
   counts: { sql: `SELECT c.*,l.name AS location_name,
     (SELECT count(*)::int FROM business_stock_count_lines x WHERE x.business_id=c.business_id AND x.count_id=c.id) AS line_count,
     (SELECT count(*)::int FROM business_stock_count_lines x WHERE x.business_id=c.business_id AND x.count_id=c.id AND x.counted_quantity IS NOT NULL) AS counted_count,
     (SELECT count(*)::int FROM business_stock_count_lines x WHERE x.business_id=c.business_id AND x.count_id=c.id AND x.adjustment_id IS NOT NULL) AS corrected_count
     FROM business_stock_counts c JOIN business_locations l ON l.business_id=c.business_id AND l.id=c.location_id WHERE c.business_id=$1`,
   search: ['count_no', 'location_name', 'notes'], date: 'created_at', filters: { status: 'status', location: 'location_id' }, order: 'id DESC' },
-  appointments: { sql: `SELECT a.*,r.name AS resource_name,c.name AS contact_name,s.label AS service_name
+  appointments: { sql: `SELECT a.*,r.name AS resource_name,r.location_id,c.name AS contact_name,s.label AS service_name
     FROM business_appointments a JOIN business_resources r ON r.business_id=a.business_id AND r.id=a.resource_id
     JOIN business_contacts c ON c.business_id=a.business_id AND c.id=a.contact_id
     JOIN catalog_skus s ON s.business_id=a.business_id AND s.id=a.sku_id WHERE a.business_id=$1`,
-  search: ['contact_name', 'service_name', 'resource_name'], date: 'starts_at', filters: { status: 'status' }, order: 'starts_at DESC,id DESC' },
+  search: ['contact_name', 'service_name', 'resource_name'], date: 'starts_at', filters: { status: 'status', location: 'location_id' }, order: 'starts_at DESC,id DESC' },
   audit: { sql: `SELECT a.id,a.action,a.entity_id,a.created_at,a.actor_id,a.details,u.name AS actor_name FROM business_audit a
     JOIN users u ON u.id=a.actor_id WHERE a.business_id=$1`, search: ['action', 'actor_name'], date: 'created_at', order: 'id DESC' },
 };
@@ -241,8 +248,15 @@ async function page(businessId, kind, limit, offset, options = {}) {
   for (const [name, value] of Object.entries(options.filters || {})) {
     const column = spec.filters?.[name];
     if (!column || value === undefined || value === null) continue;
-    if (Array.isArray(value)) { values.push(value); where.push(`records.${column}::text = ANY($${values.length}::text[])`); }
-    else { values.push(String(value)); where.push(`records.${column}::text = $${values.length}`); }
+    // A filter is one column, or { any: [columns] } (a transfer is a branch's
+    // when it leaves or reaches it), with orNull: an empty column means every
+    // branch (a salon-wide holiday).
+    const columns = typeof column === 'string' ? [column] : column.any;
+    values.push(Array.isArray(value) ? value : String(value));
+    const test = (c) => (Array.isArray(value) ? `records.${c}::text = ANY($${values.length}::text[])` : `records.${c}::text = $${values.length}`);
+    const tests = columns.map(test);
+    if (column.orNull) tests.push(...columns.map((c) => `records.${c} IS NULL`));
+    where.push(tests.length > 1 ? `(${tests.join(' OR ')})` : tests[0]);
   }
   // Single statement: page and count see the same database snapshot, including empty pages.
   return one(pool, `WITH records AS (${spec.sql}), matched AS (SELECT * FROM records ${where.length ? `WHERE ${where.join(' AND ')}` : ''})

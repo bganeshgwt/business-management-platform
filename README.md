@@ -51,6 +51,17 @@ business-management-platform/
 
 ## Running it locally
 
+After installing dependencies and configuring both applications, start them in
+two terminals from the project root:
+
+```bash
+npm run dev-backend
+npm run dev-frontend
+```
+
+These commands forward to the existing backend and frontend development scripts.
+Database updates can also run from the root: `npm --prefix backend run migrate:up`.
+
 ### 1. Database
 
 ```sql

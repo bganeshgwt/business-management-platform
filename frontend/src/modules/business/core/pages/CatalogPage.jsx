@@ -4,7 +4,9 @@ import DataGrid from "../../../../components/DataGrid/DataGrid";
 import Icon from "../../../../components/Icon";
 import SectionCard from "../../../../components/SectionCard";
 import { ErrorMessage, Loading, SuccessMessage } from "../../../../components/Feedback";
-import { businessWrite } from "../../../../services/business.service";
+import { businessRead, businessWrite } from "../../../../services/business.service";
+import Modal from "../../../../components/Modal";
+import { getErrorMessage } from "../../../../services/api";
 import { word } from "../../../../services/businessNav";
 import FormDialog from "./FormDialog";
 import { ActiveBadge, BusinessHeader, Field, FormError } from "./ui";
@@ -29,20 +31,25 @@ export default function CatalogPage() {
   const list = useServerList("catalog", { gridId: "business-catalog", params: category ? { category } : {} });
   const [editing, setEditing] = useState(() => (params.get("new") === "1" && biz.can("catalog.create") ? {} : null));
   const [notice, setNotice] = useState("");
+  const [pricing, setPricing] = useState(null);
+  // A branch may sell at its own price once there is more than one.
+  const branches = biz.locations.filter((l) => l.active).length > 1;
   const title = word(biz.type, "products", "Products & services");
   useEffect(() => {
-    if (params.get("new")) setParams({}, { replace: true });
+    if (params.get("new")) setParams((p) => new URLSearchParams(p.get("open") ? { open: p.get("open") } : {}), { replace: true });
   }, [params, setParams]);
 
   const columns = useMemo(() => [
     { key: "label", header: "Item", value: (s) => s.label, mobile: "title", pin: true,
-      render: (s) => <span className="bz-two-line"><strong>{s.label}</strong>{s.product_name !== s.label && <small className="muted">{s.product_name}</small>}</span> },
+      render: (s) => <span className="bz-two-line"><strong>{s.label}</strong>{s.internal_use ? <small className="muted">Used in services · not sold</small> : s.product_name !== s.label && <small className="muted">{s.product_name}</small>}</span> },
     { key: "code", header: "SKU", value: (s) => s.code, className: "mono", mobile: "subtitle" },
     { key: "barcode", header: "Barcode", value: (s) => s.barcode || "", className: "mono", defaultHidden: true },
     { key: "category", header: "Category", value: (s) => s.category || "" },
     { key: "price", header: biz.settings.tax_mode === "inclusive" ? "Price (incl. tax)" : "Price", type: "money", exact: true, value: (s) => Number(s.price), mobile: "show" },
     { key: "mrp", header: "MRP", type: "money", exact: true, value: (s) => (s.mrp === null || s.mrp === undefined ? null : Number(s.mrp)), defaultHidden: biz.type === "salon" || biz.type === "healthcare" },
+    biz.has("loyalty") && { key: "member_price", header: "Member price", type: "money", exact: true, value: (s) => (s.member_price === null || s.member_price === undefined ? null : Number(s.member_price)) },
     { key: "tax", header: "GST", value: (s) => s.tax_rate_name || `${Number(s.tax_rate)}%` },
+    biz.has("inventory") && { key: "shelf", header: "Shelf", value: (s) => s.shelf_location || "", render: (s) => s.shelf_location || <span className="muted">—</span> },
     { key: "hsn", header: "HSN / SAC", value: (s) => s.hsn_code || "", className: "mono", defaultHidden: true },
     { key: "unit", header: "Unit", value: (s) => s.unit_name || s.unit },
     { key: "tracking", header: "Stock tracking", value: (s) => TRACKING[s.tracking], defaultHidden: true },
@@ -53,8 +60,13 @@ export default function CatalogPage() {
     { key: "in_packs", header: "In packs", defaultHidden: !biz.has("sales_orders"), value: (s) => (packOf(s) ? inPacks(s.stock, s.unit, packOf(s).unit, packOf(s).factor) : ""),
       render: (s) => (packOf(s) && s.kind !== "service" ? inPacks(s.stock, s.unit, packOf(s).unit, packOf(s).factor) : <span className="muted">—</span>) },
     { key: "active", header: "Status", type: "status", value: (s) => (s.active ? "active" : "inactive"), render: (s) => <ActiveBadge active={s.active} /> },
-    biz.can("catalog.edit") && { key: "actions", header: "", label: "Actions", type: "actions", render: (s) => <button type="button" className="chip-button" onClick={() => setEditing(s)}>Edit</button> },
-  ], [biz]);
+    biz.can("catalog.edit") && { key: "actions", header: "", label: "Actions", type: "actions", render: (s) => (
+      <span className="bz-row-actions">
+        <button type="button" className="chip-button" onClick={() => setEditing(s)}>Edit</button>
+        {branches && <button type="button" className="chip-button" onClick={() => setPricing(s)}>Branch prices</button>}
+      </span>
+    ) },
+  ], [biz, branches]);
 
   return (
     <div className="stack">
@@ -80,6 +92,8 @@ export default function CatalogPage() {
       </SectionCard>
       {editing && <CatalogDialog sku={editing} onClose={() => setEditing(null)}
         onSaved={(s) => { setEditing(null); setNotice(`${s.label} saved.`); list.reload(); }} />}
+      {pricing && <BranchPricesDialog sku={pricing} onClose={() => setPricing(null)}
+        onSaved={(n) => { setPricing(null); setNotice(n ? `${pricing.label}: ${n === 1 ? "one branch price" : `${n} branch prices`} changed.` : "No branch price changed."); }} />}
     </div>
   );
 }
@@ -97,10 +111,14 @@ function CatalogDialog({ sku, onClose, onSaved }) {
     tracking: biz.type === "pharmacy" ? "batch" : "quantity", price: sku.price || "", taxRateId: sku.tax_rate_id ? String(sku.tax_rate_id) : "",
     categoryId: sku.category_id ? String(sku.category_id) : "", brand: "", reorderLevel: sku.reorder_level ? String(Number(sku.reorder_level)) : "", active: sku.active ?? true,
     mrp: sku.mrp ? String(Number(sku.mrp)) : "", hsnCode: sku.hsn_code || "",
+    shelfLocation: sku.shelf_location || "", memberPrice: sku.member_price ? String(Number(sku.member_price)) : "",
+    internalUse: Boolean(sku.internal_use),
     // Pro pass C-17: stock already on the shelf when the item is added.
     openingQuantity: "", openingCost: "", openingLocation: String(biz.locations.find((l) => l.active)?.id || ""), openingLot: "", openingExpiry: "",
   }));
   const canOpening = !editing && biz.has("inventory") && biz.can("inventory.edit");
+  // A business doing services keeps some stock only to use in them (a salon's colour, a clinic's gloves).
+  const usedInServices = ["salon", "healthcare"].includes(biz.type) || biz.has("appointments");
   const set = (name) => (e) => {
     const value = e.target.type === "checkbox" ? e.target.checked : e.target.value;
     setForm((f) => ({ ...f, [name]: value, ...(name === "kind" ? { unit: value === "service" ? "service" : "each" } : {}) }));
@@ -113,7 +131,8 @@ function CatalogDialog({ sku, onClose, onSaved }) {
 
   const submit = () => (editing
     ? businessWrite(biz.id, `catalog/${sku.id}`, { label: form.label, price: form.price, taxRateId: taxRateId || undefined, taxRate: taxRateId ? undefined : sku.tax_rate,
-      categoryId: form.categoryId || null, reorderLevel: form.reorderLevel || 0, active: form.active, mrp: form.mrp, hsnCode: form.hsnCode, barcode: form.barcode }, "patch")
+      categoryId: form.categoryId || null, reorderLevel: form.reorderLevel || 0, active: form.active, mrp: form.mrp, hsnCode: form.hsnCode, barcode: form.barcode,
+      shelfLocation: form.shelfLocation, ...(biz.has("loyalty") ? { memberPrice: form.memberPrice } : {}), ...(usedInServices ? { internalUse: form.internalUse } : {}) }, "patch")
     : businessWrite(biz.id, "catalog", {
       ...form, taxRateId: taxRateId || undefined, categoryId: form.categoryId || undefined, productId: form.productId || undefined, reorderLevel: form.reorderLevel || 0,
       attributes: Object.fromEntries(attributeFields.map(([key]) => [key, form[key] || ""])),
@@ -194,7 +213,17 @@ function CatalogDialog({ sku, onClose, onSaved }) {
           {categories.map((c) => <option key={c.id} value={c.id}>{c.path}</option>)}
         </select>
       </Field>
-      {form.kind === "goods" && <Field label="Reorder level" hint="Shown as low on stock at or below this."><input type="number" min="0" step="0.001" value={form.reorderLevel} onChange={set("reorderLevel")} /></Field>}
+      {form.kind === "goods" && <Field label="Reorder level" hint="Shown as low on stock at or below this; purchase orders suggest topping up to it."><input type="number" min="0" step="0.001" value={form.reorderLevel} onChange={set("reorderLevel")} /></Field>}
+      {form.kind === "goods" && (
+        <Field label="Shelf location (optional)" hint="Where it sits, e.g. “Aisle 3 · Shelf B” or “Backroom”.">
+          <input maxLength={40} value={form.shelfLocation} onChange={set("shelfLocation")} />
+        </Field>
+      )}
+      {biz.has("loyalty") && (
+        <Field label="Member price (optional)" hint="What a loyalty customer pays when the bill names them. Below the selling price.">
+          <input type="number" min="0" step="0.01" value={form.memberPrice} onChange={set("memberPrice")} />
+        </Field>
+      )}
       {canOpening && form.kind === "goods" && form.tracking !== "serial" && (
         <div className="bz-opening" role="group" aria-labelledby="opening-stock-title">
           <p className="bz-opening-title" id="opening-stock-title"><strong>Opening stock</strong> <span className="muted">(optional)</span></p>
@@ -221,7 +250,57 @@ function CatalogDialog({ sku, onClose, onSaved }) {
       {!editing && attributeFields.map(([key, label]) => (
         <Field key={key} label={label}><input maxLength={150} value={form[key] || ""} onChange={set(key)} /></Field>
       ))}
+      {usedInServices && form.kind === "goods" && (
+        <label className="checkbox bz-check field-wide">
+          <input type="checkbox" checked={form.internalUse} onChange={set("internalUse")} /> For use in services only, not sold (e.g. hair colour, developer, spa cream). It stays out of the bill.
+        </label>
+      )}
       {editing && <label className="checkbox bz-check"><input type="checkbox" checked={form.active} onChange={set("active")} /> Active (switched-off items cannot be sold)</label>}
     </FormDialog>
+  );
+}
+
+// A price per branch: a branch left empty sells at the item's own price.
+function BranchPricesDialog({ sku, onClose, onSaved }) {
+  const biz = useOpenBusiness();
+  const [rows, setRows] = useState(null);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    businessRead(biz.id, `catalog/${sku.id}/branch-prices`, undefined, controller.signal)
+      .then((data) => setRows(data.branches.map((b) => ({ ...b, value: b.price ? String(Number(b.price)) : "" }))))
+      .catch((err) => { if (!controller.signal.aborted) setError(getErrorMessage(err)); });
+    return () => controller.abort();
+  }, [biz.id, sku.id]);
+  const save = async () => {
+    setSaving(true); setError("");
+    try {
+      const result = await businessWrite(biz.id, `catalog/${sku.id}/branch-prices`, { prices: rows.map((r) => ({ locationId: r.location_id, price: r.value })) }, "put");
+      onSaved(result.changed);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally { setSaving(false); }
+  };
+  return (
+    <Modal title={`Branch prices · ${sku.label}`} icon="tag" width={520} onClose={onClose}
+      description={`Each branch sells at ${biz.exact(sku.price)} unless it has its own price. Offers, member prices and customer prices still apply.`}
+      footer={<>
+        <button type="button" className="button button-secondary" onClick={onClose} disabled={saving}>Cancel</button>
+        <button type="button" className="button" onClick={save} disabled={!rows || saving}>{saving ? "Saving…" : "Save prices"}</button>
+      </>}>
+      <ErrorMessage message={error} />
+      {!rows && !error && <Loading />}
+      {rows && (
+        <div className="form-grid">
+          {rows.map((r) => (
+            <Field key={r.location_id} label={r.location_name} hint={r.value ? "Its own price" : `Sells at ${biz.exact(sku.price)}`}>
+              <input type="number" min="0" step="0.01" placeholder={String(Number(sku.price))} value={r.value}
+                onChange={(e) => setRows((all) => all.map((x) => (x.location_id === r.location_id ? { ...x, value: e.target.value } : x)))} />
+            </Field>
+          ))}
+        </div>
+      )}
+    </Modal>
   );
 }

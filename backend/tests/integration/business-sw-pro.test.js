@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+const { withTools } = require('./helpers/tools');
 
 // Pro pass F (7 Oct 2026) — salon & spa and weight shops: moving a booking
 // (never a late-cancel charge), stylist hours / weekly off / leave, arrival,
@@ -69,7 +70,7 @@ test('salon & weight shops, pro pass F', { timeout: 300000 }, async (t) => {
   const key = () => crypto.randomUUID();
   const paise = (value) => Math.round(Number(value) * 100);
 
-  const demos = (await request('POST', '/businesses/development-demos', {}, 201)).businesses;
+  const demos = (await withTools(request, (await request('POST', '/businesses/development-demos', {}, 201)).businesses));
   await other('POST', '/businesses/development-demos', {}, 201);
   await pool.query("UPDATE business_settings SET tax_mode='exclusive', rounding='none', walk_in_credit=true");
   const byType = (type) => demos.find((b) => b.business_type === type);

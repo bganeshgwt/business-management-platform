@@ -1,10 +1,13 @@
 import { lazy, Suspense } from "react";
-import { Link, Navigate, Route, Routes, useParams } from "react-router-dom";
+import { Link, Navigate, Route, Routes, useParams, useSearchParams } from "react-router-dom";
 import useBusiness from "../../../../hooks/useBusiness";
 import PageHeader from "../../../../components/PageHeader";
 import SectionCard from "../../../../components/SectionCard";
 import { ScreenLoading } from "../../../../components/Feedback";
+import SidePanel from "../../../../components/SidePanel";
 import { sectionRule, typeAllows } from "../../../../services/businessNav";
+import WorkspaceNav from './WorkspaceNav';
+import { workspaceLabel } from "../../../../services/businessWorkspace";
 
 const OverviewPage = lazy(() => import("./OverviewPage"));
 const DocumentsPage = lazy(() => import("./DocumentsPage"));
@@ -22,6 +25,7 @@ const AppointmentsPage = lazy(() => import("./AppointmentsPage"));
 const ResourcesPage = lazy(() => import("./ResourcesPage"));
 const ReportsPage = lazy(() => import("./ReportsPage"));
 const DayClosePage = lazy(() => import("./DayClosePage"));
+const ExpensesPage = lazy(() => import('./ExpensesPage'));
 const ActivityPage = lazy(() => import("./ActivityPage"));
 const SettingsPage = lazy(() => import("./SettingsPage"));
 const TaxRatesPage = lazy(() => import("./TaxRatesPage"));
@@ -92,6 +96,10 @@ const VisitPage = lazy(() => import("../../health/pages/VisitPage"));
 const LabOrdersPage = lazy(() => import("../../health/pages/LabOrdersPage"));
 const LabOrderPage = lazy(() => import("../../health/pages/LabOrderPage"));
 const LabTestsPage = lazy(() => import("../../health/pages/LabTestsPage"));
+// Round 3: doctors' fees and OPD, the token queue and lab quality control.
+const DoctorsPage = lazy(() => import("../../health/pages/DoctorsPage"));
+const TokenQueuePage = lazy(() => import("../../health/pages/TokenQueuePage"));
+const LabQcPage = lazy(() => import("../../health/pages/LabQcPage"));
 // Tasks, issues & projects (modules/tasks), the same screens as the restaurant's.
 const TasksRoutes = lazy(() => import("../../../tasks/pages/TasksRoutes"));
 
@@ -106,7 +114,7 @@ function Notice({ title, children }) {
 
 // A screen this person's role or this business's modules do not include.
 // The server refuses the data anyway; this says why in words.
-function Guard({ section, children }) {
+function Guard({ section, children, nav = true }) {
   const { can, has, context } = useBusiness();
   const type = context?.business.business_type;
   const rule = sectionRule(section, type);
@@ -122,14 +130,123 @@ function Guard({ section, children }) {
     const moduleCode = rule.need?.split(".")[0];
     return (
       <Notice title="Not available here">
-        <p>{moduleCode && !has(moduleCode) ? "This business does not use this module. An owner can switch it on under Business settings › Modules." : "Your role in this business does not include this screen. Ask the owner if you need it."}</p>
+        <p>{moduleCode && !has(moduleCode) ? "This business does not use this tool. An owner can switch it on under Settings › Business tools." : "Your role in this business does not include this screen. Ask the owner if you need it."}</p>
       </Notice>
     );
   }
-  return children;
+  return <>{nav && <WorkspaceNav section={section} />}{children}</>;
 }
 
 const page = (section, element) => <Guard section={section}>{element}</Guard>;
+
+// Every screen of a business at /business-admin/<id>/<section>, by section.
+// The same screens open in a wide panel over the Overview (?open=<section>),
+// so the routes and the panel can never drift apart.
+function screens(type) {
+  return {
+    appointments: type === "salon" ? <SalonAppointmentsPage /> : <AppointmentsPage />,
+    "sales": <DocumentsPage kind="sale" />,
+    "day-close": <DayClosePage />,
+    "purchases": <DocumentsPage kind="purchase" />,
+    "customers": <ContactsPage kind="customer" />,
+    "suppliers": <ContactsPage kind="supplier" />,
+    "pricing": <PricingPage />,
+    "sales-orders": <SalesOrdersPage />,
+    "back-orders": <BackOrdersPage />,
+    "routes": <RoutesPage />,
+    "wholesale-reports": <WholesaleReportsPage />,
+    "dispatch": <DispatchPage />,
+    "price-groups": <PriceGroupsPage />,
+    "claims": <ClaimsPage />,
+    "purchase-orders": <PurchaseOrdersPage />,
+    "outstanding": <OutstandingPage />,
+    "collections": <CollectionsPage />,
+    "products": <CatalogPage />,
+    "categories": <CategoriesPage />,
+    "units": <UnitsPage />,
+    "kits": <KitsPage />,
+    "emi-finance": <FinancePage />,
+    "stock": <StockPage />,
+    "movements": <MovementsPage />,
+    "transfers": <TransfersPage />,
+    "counts": <CountsPage />,
+    "reports": <ReportsPage />,
+    "expenses": <ExpensesPage />,
+    "activity": <ActivityPage />,
+    "settings": <SettingsPage />,
+    "tax-rates": <TaxRatesPage />,
+    "payment-methods": <PaymentMethodsPage />,
+    "number-series": <NumberSeriesPage />,
+    "locations": <LocationsPage />,
+    "staff": <StaffAccessPage />,
+    "roles": <RolesPage />,
+    "counter": <CounterPage />,
+    "udhaar": <UdhaarPage />,
+    "offers": <OffersPage />,
+    "loyalty": <LoyaltyPage />,
+    "books": <BooksPage />,
+    "labels": <LabelsPage />,
+    "retail-reports": <RetailReportsPage />,
+    "near-expiry": <NearExpiryPage />,
+    "book-orders": <BookOrdersPage />,
+    "variants": <VariantsPage />,
+    "variant-reports": <VariantReportsPage />,
+    "exchanges": <ExchangesPage />,
+    "serials": <SerialsPage />,
+    "warranties": <WarrantiesPage />,
+    "repairs": <RepairsPage />,
+    "salon-calendar": <SalonCalendarPage />,
+    "salon-bill": <SalonBillPage />,
+    "packages": <PackagesPage />,
+    "salon-setup": <SalonSetupPage />,
+    "commissions": <CommissionsPage />,
+    "processing": <ProcessingPage />,
+    "wastage": <WastagePage />,
+    "weight-stock": <WeightStockPage />,
+    "weight-reports": <WeightReportsPage />,
+    "salon-reports": <SalonReportsPage />,
+    "rates": <RatesPage />,
+    "pickup-orders": <PickupOrdersPage />,
+    "rx-sale": <PharmacyCounterPage />,
+    "drug-master": <DrugMasterPage />,
+    "pharmacy-registers": <PharmacyRegistersPage />,
+    "pharmacy-batches": <PharmacyBatchesPage />,
+    "health-settings": <HealthSettingsPage />,
+    "clinic-today": <ClinicTodayPage />,
+    "clinic-queue": <TokenQueuePage />,
+    doctors: <DoctorsPage />,
+    "lab-qc": <LabQcPage />,
+    "patients": <PatientsPage />,
+    "visits": <VisitsPage />,
+    "lab-orders": <LabOrdersPage />,
+    "lab-tests": <LabTestsPage />,
+  };
+}
+
+// A screen opened over the Overview (?open=<section>): the real screen in a
+// wide panel, with "Open full page" for the screen on its own. Closing it
+// returns to the Overview. Any other settings in the address (?new=1,
+// ?cut=1) reach the screen as they would on its own page.
+function OverviewSheet() {
+  const { context } = useBusiness();
+  const [params, setParams] = useSearchParams();
+  const section = params.get("open");
+  const type = context.business.business_type;
+  const element = section ? screens(type)[section] : null;
+  if (!element) return null;
+  const rule = sectionRule(section, type);
+  const title = workspaceLabel(section, type, rule?.label || "Details");
+  const rest = new URLSearchParams(params);
+  rest.delete("open");
+  return (
+    <SidePanel open wide title={title} icon="grid" onClose={() => setParams(new URLSearchParams(), { replace: false })}
+      footer={<Link className="button button-secondary" to={`/business-admin/${context.business.id}/${section}${rest.toString() ? `?${rest}` : ""}`}>Open full page</Link>}>
+      <Suspense fallback={<ScreenLoading />}>
+        <Guard section={section} nav={false}>{element}</Guard>
+      </Suspense>
+    </SidePanel>
+  );
+}
 
 // /business-admin/<id>/… : one business's admin, inside the main layout.
 export default function BusinessAdminRoutes() {
@@ -162,88 +279,17 @@ export default function BusinessAdminRoutes() {
   return (
     <Suspense fallback={<ScreenLoading />}>
       <Routes key={context.business.id}>
-        <Route index element={<OverviewPage />} />
-        <Route path="sales" element={page("sales", <DocumentsPage kind="sale" />)} />
-        <Route path="day-close" element={page("day-close", <DayClosePage />)} />
-        <Route path="purchases" element={page("purchases", <DocumentsPage kind="purchase" />)} />
-        <Route path="customers" element={page("customers", <ContactsPage kind="customer" />)} />
-        <Route path="suppliers" element={page("suppliers", <ContactsPage kind="supplier" />)} />
-        <Route path="appointments" element={page("appointments", context.business.business_type === "salon" ? <SalonAppointmentsPage /> : <AppointmentsPage />)} />
+        <Route index element={<><OverviewPage /><OverviewSheet /></>} />
+        {Object.entries(screens(context.business.business_type)).map(([section, element]) => <Route key={section} path={section} element={page(section, element)} />)}
         {/* A salon keeps its stylists and rooms on one screen (Stylists & services). */}
         <Route path="resources" element={context.business.business_type === "salon"
           ? <Navigate to={`/business-admin/${context.business.id}/salon-setup?tab=staff`} replace /> : page("resources", <ResourcesPage />)} />
-        <Route path="pricing" element={page("pricing", <PricingPage />)} />
-        <Route path="sales-orders" element={page("sales-orders", <SalesOrdersPage />)} />
-        <Route path="back-orders" element={page("back-orders", <BackOrdersPage />)} />
-        <Route path="routes" element={page("routes", <RoutesPage />)} />
-        <Route path="wholesale-reports" element={page("wholesale-reports", <WholesaleReportsPage />)} />
-        <Route path="dispatch" element={page("dispatch", <DispatchPage />)} />
-        <Route path="price-groups" element={page("price-groups", <PriceGroupsPage />)} />
-        <Route path="claims" element={page("claims", <ClaimsPage />)} />
-        <Route path="purchase-orders" element={page("purchase-orders", <PurchaseOrdersPage />)} />
-        <Route path="outstanding" element={page("outstanding", <OutstandingPage />)} />
-        <Route path="collections" element={page("collections", <CollectionsPage />)} />
-        <Route path="products" element={page("products", <CatalogPage />)} />
-        <Route path="categories" element={page("categories", <CategoriesPage />)} />
-        <Route path="units" element={page("units", <UnitsPage />)} />
-        <Route path="kits" element={page("kits", <KitsPage />)} />
-        <Route path="emi-finance" element={page("emi-finance", <FinancePage />)} />
-        <Route path="stock" element={page("stock", <StockPage />)} />
-        <Route path="movements" element={page("movements", <MovementsPage />)} />
-        <Route path="transfers" element={page("transfers", <TransfersPage />)} />
-        <Route path="counts" element={page("counts", <CountsPage />)} />
         <Route path="counts/:countId" element={page("counts", <CountSheetPage />)} />
-        <Route path="reports" element={page("reports", <ReportsPage />)} />
-        <Route path="activity" element={page("activity", <ActivityPage />)} />
-        <Route path="settings" element={page("settings", <SettingsPage />)} />
-        <Route path="tax-rates" element={page("tax-rates", <TaxRatesPage />)} />
-        <Route path="payment-methods" element={page("payment-methods", <PaymentMethodsPage />)} />
-        <Route path="number-series" element={page("number-series", <NumberSeriesPage />)} />
-        <Route path="locations" element={page("locations", <LocationsPage />)} />
-        <Route path="staff" element={page("staff", <StaffAccessPage />)} />
-        <Route path="roles" element={page("roles", <RolesPage />)} />
-        <Route path="counter" element={page("counter", <CounterPage />)} />
-        <Route path="udhaar" element={page("udhaar", <UdhaarPage />)} />
-        <Route path="offers" element={page("offers", <OffersPage />)} />
-        <Route path="loyalty" element={page("loyalty", <LoyaltyPage />)} />
-        <Route path="books" element={page("books", <BooksPage />)} />
-        <Route path="labels" element={page("labels", <LabelsPage />)} />
-        <Route path="retail-reports" element={page("retail-reports", <RetailReportsPage />)} />
-        <Route path="near-expiry" element={page("near-expiry", <NearExpiryPage />)} />
-        <Route path="book-orders" element={page("book-orders", <BookOrdersPage />)} />
-        <Route path="variants" element={page("variants", <VariantsPage />)} />
         <Route path="variants/:productId" element={page("variants", <VariantMatrixPage />)} />
-        <Route path="variant-reports" element={page("variant-reports", <VariantReportsPage />)} />
-        <Route path="exchanges" element={page("exchanges", <ExchangesPage />)} />
-        <Route path="serials" element={page("serials", <SerialsPage />)} />
-        <Route path="warranties" element={page("warranties", <WarrantiesPage />)} />
-        <Route path="repairs" element={page("repairs", <RepairsPage />)} />
         <Route path="repairs/:jobId" element={page("repairs", <RepairJobPage />)} />
-        <Route path="salon-calendar" element={page("salon-calendar", <SalonCalendarPage />)} />
-        <Route path="salon-bill" element={page("salon-bill", <SalonBillPage />)} />
-        <Route path="packages" element={page("packages", <PackagesPage />)} />
-        <Route path="salon-setup" element={page("salon-setup", <SalonSetupPage />)} />
-        <Route path="commissions" element={page("commissions", <CommissionsPage />)} />
-        <Route path="processing" element={page("processing", <ProcessingPage />)} />
-        <Route path="wastage" element={page("wastage", <WastagePage />)} />
-        <Route path="weight-stock" element={page("weight-stock", <WeightStockPage />)} />
-        <Route path="weight-reports" element={page("weight-reports", <WeightReportsPage />)} />
-        <Route path="salon-reports" element={page("salon-reports", <SalonReportsPage />)} />
-        <Route path="rates" element={page("rates", <RatesPage />)} />
-        <Route path="pickup-orders" element={page("pickup-orders", <PickupOrdersPage />)} />
-        <Route path="rx-sale" element={page("rx-sale", <PharmacyCounterPage />)} />
-        <Route path="drug-master" element={page("drug-master", <DrugMasterPage />)} />
-        <Route path="pharmacy-registers" element={page("pharmacy-registers", <PharmacyRegistersPage />)} />
-        <Route path="pharmacy-batches" element={page("pharmacy-batches", <PharmacyBatchesPage />)} />
-        <Route path="health-settings" element={page("health-settings", <HealthSettingsPage />)} />
-        <Route path="clinic-today" element={page("clinic-today", <ClinicTodayPage />)} />
-        <Route path="patients" element={page("patients", <PatientsPage />)} />
         <Route path="patients/:contactId" element={page("patients", <PatientPage />)} />
-        <Route path="visits" element={page("visits", <VisitsPage />)} />
         <Route path="visits/:visitId" element={page("visits", <VisitPage />)} />
-        <Route path="lab-orders" element={page("lab-orders", <LabOrdersPage />)} />
         <Route path="lab-orders/:orderId" element={page("lab-orders", <LabOrderPage />)} />
-        <Route path="lab-tests" element={page("lab-tests", <LabTestsPage />)} />
         <Route path="tasks/*" element={page("tasks", <TasksRoutes />)} />
         <Route path="*" element={<Notice title="Page not found"><p>Use the menu on the left to find the screen you need.</p></Notice>} />
       </Routes>

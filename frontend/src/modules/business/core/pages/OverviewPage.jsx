@@ -8,10 +8,11 @@ import { businessRead } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
 import { count } from "../../../../services/format";
 import { GOODS, word } from "../../../../services/businessNav";
-// Tasks (modules/tasks): today's checklists, overdue, issues waiting.
-const TasksTodayCard = lazy(() => import("../../../tasks/pages/TasksTodayCard"));
 import { BusinessHeader } from "./ui";
 import { useOpenBusiness } from "./hooks";
+import useAuth from "../../../../hooks/useAuth";
+import { PeopleToday, SalesPicture } from "./OverviewToday";
+import { overviewLink } from "./overviewLink";
 
 // The wholesale day (pro pass D-08): orders, back-orders, collections, cheques, beats.
 const WholesaleToday = lazy(() => import("../../wholesale/pages/WholesaleToday"));
@@ -25,6 +26,21 @@ const WEIGHED_TYPES = ["meat", "weight_retail"];
 // a shop, the salon bill for a salon, a sales order for a wholesaler.
 
 const METHOD_WORDS = { cash: "cash", upi: "UPI", card: "card", bank: "bank", cheque: "cheque" };
+// "▲ 23% vs last Fri by this time": today so far against the same weekday a
+// week ago at the same hour (null when there is nothing to compare).
+function paceWords(sales) {
+  if (!sales) return null;
+  const now = Number(sales.today), then = Number(sales.last_week_by_now);
+  if (!(then > 0)) return now > 0 ? { up: true, text: `last ${sales.weekday} had nothing by now` } : null;
+  const change = Math.round(((now - then) / then) * 100);
+  // A very quiet last week makes a percent meaningless: "8× last Fri by now".
+  if (change >= 300) return { up: true, text: `${Math.round(now / then)}× last ${sales.weekday} by now` };
+  return { up: change >= 0, text: `${change >= 0 ? "▲" : "▼"} ${Math.abs(change)}% vs last ${sales.weekday} by now` };
+}
+const greet = (date) => (date.getHours() < 12 ? "Good morning" : date.getHours() < 17 ? "Good afternoon" : "Good evening");
+// Who a business with appointments books: stylists, doctors, technicians.
+const PEOPLE = { salon: "Stylists", healthcare: "Doctors", electronics: "Technicians" };
+
 // The singular of each type's customer word ("Add a customer").
 const CUSTOMER_ONE = { salon: "client", healthcare: "patient" };
 
@@ -61,15 +77,20 @@ function firstActions(biz) {
 
 export default function OverviewPage() {
   const biz = useOpenBusiness();
+  const { user } = useAuth();
   const [summary, setSummary] = useState(null);
+  const [picture, setPicture] = useState(null);
   const [error, setError] = useState("");
   useEffect(() => {
     const controller = new AbortController();
     businessRead(biz.id, "summary", undefined, controller.signal)
       .then(setSummary)
       .catch((err) => { if (!controller.signal.aborted) setError(getErrorMessage(err)); });
+    // The picture of the day loads beside it; the page works without it.
+    businessRead(biz.id, "overview", undefined, controller.signal).then(setPicture).catch(() => {});
     return () => controller.abort();
   }, [biz.id]);
+  const pace = paceWords(picture?.sales);
 
   const s = summary || {};
   const loading = !summary && !error;
@@ -83,16 +104,16 @@ export default function OverviewPage() {
   // At most four headline figures, all whole rupees.
   const tiles = [
     has("sales_today") && <StatTile key="today" icon="receipt" tone="primary" label="Sales today" money={summary ? Number(s.sales_today) : undefined} loading={loading}
-      note={summary && s.bills_today !== undefined ? `${count(s.bills_today)} bills · this month ${biz.amount(s.sales_month)}` : "after returns"} to={biz.path(goods ? "day-close" : "sales")} />,
+      note={summary && s.bills_today !== undefined ? <>{count(s.bills_today)} bills{pace ? <> · <span className={pace.up ? "text-success" : "text-danger"}>{pace.text}</span></> : ` · this month ${biz.amount(s.sales_month)}`}</> : "after returns"} to={overviewLink(goods ? "day-close" : "sales")} />,
     has("taken_today") && <StatTile key="taken" icon="wallet" tone="success" label="Money in today" money={summary ? takenTotal : undefined} loading={loading}
-      note={takenNote || "nothing taken yet"} to={biz.path(goods ? "day-close" : "reports")} />,
+      note={takenNote || "nothing taken yet"} to={overviewLink(goods ? "day-close" : "reports")} />,
     has("receivables") && <StatTile key="due" icon="clipboard" tone={Number(s.receivables) > 0 ? "warning" : "neutral"} label={`${word(biz.type, "customers", "Customers")} owe`} money={summary ? Number(s.receivables_owed ?? s.receivables) : undefined} loading={loading}
       note={summary ? [Number(s.credit_given_today) > 0 && `${biz.amount(s.credit_given_today)} given today`, Number(s.receivables_advances) > 0 && `${biz.amount(s.receivables_advances)} advances`].filter(Boolean).join(" · ") || "net of advances" : undefined}
-      to={biz.path(receivablesPath)} />,
+      to={overviewLink(receivablesPath)} />,
     has("payables") && <StatTile key="pay" icon="truck" tone={Number(s.payables_overdue) > 0 ? "danger" : "neutral"} label="To pay suppliers" money={summary ? Number(s.payables) : undefined} loading={loading}
-      note={summary && Number(s.payables_overdue) > 0 ? `${biz.amount(s.payables_overdue)} overdue` : "none overdue"} to={biz.path("suppliers")} />,
+      note={summary && Number(s.payables_overdue) > 0 ? `${biz.amount(s.payables_overdue)} overdue` : "none overdue"} to={overviewLink("suppliers")} />,
     biz.type === "salon" && has("appointments_today") && <StatTile key="appt" icon="calendar" tone="info" label="Appointments today" value={summary ? count(s.appointments_today) : undefined} loading={loading}
-      note={summary && s.appointments_left_today !== undefined ? `${count(s.appointments_left_today)} still to come today` : undefined} to={biz.path("salon-calendar")} />,
+      note={summary && s.appointments_left_today !== undefined ? `${count(s.appointments_left_today)} still to come today` : undefined} to={overviewLink("salon-calendar")} />,
   ].filter(Boolean).slice(0, 4);
 
   // What needs doing today, by type: only lines with something to do.
@@ -113,22 +134,48 @@ export default function OverviewPage() {
   ].filter((t) => t.when !== false && summary && Number(s[t.key]) > 0);
   const walkIn = summary && Number(s.receivables_walk_in) > 0;
   const actions = firstActions(biz);
-  const enabled = biz.context.moduleCatalogue.filter((m) => m.kind === "optional" && biz.has(m.code));
+  const enabled = biz.context.moduleCatalogue.filter((m) => m.kind === "optional" && !['tasks','issues','projects'].includes(m.code) && biz.has(m.code));
 
   return (
     <div className="stack">
-      <BusinessHeader icon="grid" title="Overview" description={`${biz.business.type_name}. Your role here: ${biz.context.role.name}.`} />
+      <BusinessHeader icon="grid" title={`${greet(new Date())}, ${(user?.name || "").split(" ")[0] || "there"}`}
+        // The two things done most often (Quick bill / New bill first), at the top: no scrolling to start a bill.
+        actions={actions.length > 0 && (
+          <span className="bz-actions">
+            {actions[1] && <Link className="button button-secondary" to={overviewLink(actions[1].to)}><Icon name={actions[1].icon} size={16} /> {actions[1].label}</Link>}
+            <Link className="button" to={overviewLink(actions[0].to)}><Icon name={actions[0].icon} size={16} /> {actions[0].label}</Link>
+          </span>
+        )}
+        description={`${new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })} · ${biz.locations.length === 1 ? biz.locations[0].name : biz.context.currentLocationId ? biz.locations.find((l) => String(l.id) === String(biz.context.currentLocationId))?.name : "All branches"} · ${biz.context.role.name}`} />
       <ErrorMessage message={error} />
       {tiles.length > 0 && <div className="stat-grid bz-stat-grid">{tiles}</div>}
-      {biz.has("sales_orders") && biz.can("sales_orders.view") && <Suspense fallback={null}><WholesaleToday /></Suspense>}
-      {WEIGHED_TYPES.includes(biz.type) && biz.has("weight") && biz.can("inventory.view") && <Suspense fallback={null}><WeightToday /></Suspense>}
-      {biz.has("tasks") && <Suspense fallback={null}><TasksTodayCard businessId={biz.id} /></Suspense>}
+      {/* What needs doing and the usual actions come first, before the charts. */}
       <div className="bz-two">
+        <SectionCard icon="check" title="Needs doing today" description={summary ? (todo.length || walkIn ? "Tap a line to open it." : "Nothing waiting. A good day so far.") : "Checking…"}>
+          {(todo.length > 0 || walkIn) && (
+            <ul className="bz-todo">
+              {todo.map((t) => (
+                <li key={t.key}>
+                  <Link to={overviewLink(t.to)} className={`bz-todo-line tone-${t.tone}`}>
+                    <Icon name={t.icon} size={16} /><span>{t.text(Number(s[t.key]))}</span><Icon name="chevron-right" size={14} className="bz-action-go" />
+                  </Link>
+                </li>
+              ))}
+              {walkIn && (
+                <li>
+                  <Link to={overviewLink("sales")} className="bz-todo-line tone-warning">
+                    <Icon name="receipt" size={16} /><span>{biz.amount(s.receivables_walk_in)} unpaid on walk-in bills</span><Icon name="chevron-right" size={14} className="bz-action-go" />
+                  </Link>
+                </li>
+              )}
+            </ul>
+          )}
+        </SectionCard>
         {actions.length > 0 && (
           <SectionCard icon="zap" title="Start here" description="The things done most often in this business.">
             <div className="bz-actions-grid">
               {actions.map((a) => (
-                <Link key={a.label} className="bz-action" to={biz.path(a.to)}>
+                <Link key={a.label} className="bz-action" to={overviewLink(a.to)}>
                   <span className="bz-action-icon" aria-hidden="true"><Icon name={a.icon} size={18} /></span>
                   <span>{a.label}</span>
                   <Icon name="chevron-right" size={16} className="bz-action-go" />
@@ -137,30 +184,17 @@ export default function OverviewPage() {
             </div>
           </SectionCard>
         )}
-        <SectionCard icon="check" title="Needs doing today" description={summary ? (todo.length || walkIn ? "Tap a line to open it." : "Nothing waiting. A good day so far.") : "Checking…"}>
-          {(todo.length > 0 || walkIn) && (
-            <ul className="bz-todo">
-              {todo.map((t) => (
-                <li key={t.key}>
-                  <Link to={biz.path(t.to)} className={`bz-todo-line tone-${t.tone}`}>
-                    <Icon name={t.icon} size={16} /><span>{t.text(Number(s[t.key]))}</span><Icon name="chevron-right" size={14} className="bz-action-go" />
-                  </Link>
-                </li>
-              ))}
-              {walkIn && (
-                <li>
-                  <Link to={biz.path("sales")} className="bz-todo-line tone-warning">
-                    <Icon name="receipt" size={16} /><span>{biz.amount(s.receivables_walk_in)} unpaid on walk-in bills</span><Icon name="chevron-right" size={14} className="bz-action-go" />
-                  </Link>
-                </li>
-              )}
-            </ul>
-          )}
-        </SectionCard>
       </div>
+      {picture?.appointments && ["salon", "healthcare"].includes(biz.type) && (
+        <PeopleToday biz={biz} appointments={picture.appointments} personWord={PEOPLE[biz.type] || "Team"}
+          calendarPath={overviewLink(biz.type === "salon" ? "salon-calendar" : "appointments")} />
+      )}
+      {picture?.sales && <SalesPicture biz={biz} sales={picture.sales} salesPath={biz.can("reports.view") ? overviewLink("reports") : null} />}
+      {biz.has("sales_orders") && biz.can("sales_orders.view") && <Suspense fallback={null}><WholesaleToday /></Suspense>}
+      {WEIGHED_TYPES.includes(biz.type) && biz.has("weight") && biz.can("inventory.view") && <Suspense fallback={null}><WeightToday /></Suspense>}
       <SectionCard icon="layers" title="What this business uses"
-        description={biz.can("settings.edit") ? "Switch modules on or off under Business settings." : "Set by the owner."}
-        actions={biz.can("settings.view") && <Link className="button button-secondary button-sm" to={biz.path("settings")}>Settings</Link>}>
+        description={biz.can("settings.edit") ? "Manage business tools under Settings." : "Set by the owner."}
+        actions={biz.can("settings.view") && <Link className="button button-secondary button-sm" to={overviewLink("settings")}>Settings</Link>}>
         <div className="bz-chips">
           {enabled.map((m) => <span key={m.code} className="bz-chip" title={m.description}>{m.name}</span>)}
         </div>

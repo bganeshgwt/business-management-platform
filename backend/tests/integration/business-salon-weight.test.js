@@ -80,9 +80,13 @@ test('salon & spa and weight-based shops', { timeout: 300000 }, async (t) => {
   const S = (suffix) => `/businesses/${salon.id}/${suffix}`;
   const M = (suffix) => `/businesses/${meat.id}/${suffix}`;
 
-  await t.test('modules: salons get packages and commissions, weight shops cutting and wastage', async () => {
-    assert.ok(salon.capabilities.includes('packages') && salon.capabilities.includes('commissions'));
-    for (const shop of [meat, dry]) assert.ok(shop.capabilities.includes('processing') && shop.capabilities.includes('wastage'));
+  await t.test('specialist modules start optional and owners enable the workflows they use', async () => {
+    assert.ok(!salon.capabilities.includes('packages') && !salon.capabilities.includes('commissions'));
+    for (const shop of [meat, dry]) assert.ok(!shop.capabilities.includes('processing') && shop.capabilities.includes('wastage'));
+    for (const code of ['packages','commissions']) await request('PUT', S(`modules/${code}`), {enabled:true});
+    for (const shop of [meat,dry]) await request('PUT', `/businesses/${shop.id}/modules/processing`, {enabled:true});
+    for (const code of ['packages','commissions']) await other('PUT', `/businesses/${otherSalon.id}/modules/${code}`, {enabled:true});
+    await other('PUT', `/businesses/${otherMeat.id}/modules/processing`, {enabled:true});
     assert.ok(!grocery.capabilities.includes('wastage') && !grocery.capabilities.includes('processing'));
     await request('PUT', `/businesses/${grocery.id}/modules/processing`, { enabled: true }, 409);
     await request('GET', `/businesses/${grocery.id}/weight/processing`, undefined, 403);

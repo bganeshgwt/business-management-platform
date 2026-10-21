@@ -85,7 +85,7 @@ export default function VariantMatrixPage() {
   const units = variants.reduce((s, v) => s + Number(v.stock), 0);
   const prices = variants.map((v) => Number(v.price));
   const tracked = variants[0]?.tracking;
-  const done = (message) => { setDialog(null); if (message) toast.success(message); setVersion((n) => n + 1); if (params.get("receive")) setParams({}, { replace: true }); };
+  const done = (message) => { setDialog(null); if (message) toast.success(message); setVersion((n) => n + 1); if (params.get("receive")) setParams((p) => new URLSearchParams(p.get("open") ? { open: p.get("open") } : {}), { replace: true }); };
   const labelsFor = (list) => navigate(biz.path("labels"), { state: { labels: list, template: "garment" } });
   const allLabels = () => labelsFor(variants.filter((v) => Number(v.stock) > 0).map((v) => labelOf(v, data.product, Math.max(1, Math.round(Number(v.stock))))));
   const more = [

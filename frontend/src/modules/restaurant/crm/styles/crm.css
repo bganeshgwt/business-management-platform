@@ -11,11 +11,43 @@
 
 /* --- tabs ------------------------------------------------------------------------ */
 
+.tab-row.crm-tabs,
+.tab-row.crm-history-tabs {
+  flex-wrap: nowrap;
+  gap: 6px;
+  padding-top: 0;
+  border-top: 0;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
 .crm-tabs .tab,
 .crm-history-tabs .tab {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
+  min-height: 46px;
+  padding: 10px 16px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 6px 6px 0 0;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.crm-tabs .tab.active,
+.crm-history-tabs .tab.active {
+  border-bottom-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.crm-tabs .tab.active::before,
+.crm-history-tabs .tab.active::before {
+  display: none;
+}
+.crm-tabs .tab:focus-visible,
+.crm-history-tabs .tab:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -4px;
 }
 
 .crm-tab-count {

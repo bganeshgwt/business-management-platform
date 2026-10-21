@@ -48,7 +48,7 @@ export default function SalesOrdersPage() {
   const [creating, setCreating] = useState(() => (params.get("new") === "1" && biz.can("sales_orders.create") ? { contactId: params.get("customer") || "" } : null));
   const [open, setOpen] = useState(() => (params.get("order") ? { id: Number(params.get("order")), dispatch: params.get("dispatch") === "1" } : null));
   useEffect(() => {
-    if (params.get("new") || params.get("order")) setParams({}, { replace: true });
+    if (params.get("new") || params.get("order")) setParams((p) => new URLSearchParams(p.get("open") ? { open: p.get("open") } : {}), { replace: true });
   }, [params, setParams]);
 
   const columns = useMemo(() => [

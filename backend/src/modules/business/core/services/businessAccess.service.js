@@ -31,7 +31,7 @@ function check(business, permission, catalogue) {
   const moduleCode = permission.slice(0, permission.indexOf('.'));
   if (!business.modules.includes(moduleCode)) {
     const name = catalogue.modules.find((m) => m.code === moduleCode)?.name || moduleCode;
-    fail(`${name} is not switched on for this business. An owner can turn it on in Settings › Modules.`, 403);
+    fail(`${name} is not switched on for this business. An owner can turn it on in Settings › Business tools.`, 403);
   }
   if (!business.permissions.includes(permission)) {
     const name = catalogue.permissions.find((p) => p.code === permission)?.name || permission;
@@ -74,6 +74,16 @@ function locationMismatch(business) {
 function requireLocation(business, locationId) {
   if (business.member_location_id && isGiven(locationId) && String(locationId) !== String(business.member_location_id)) locationMismatch(business);
 }
+// A record between two locations (a transfer) is either one's.
+function requireEitherLocation(business, ...locationIds) {
+  if (business.member_location_id && !locationIds.some((l) => String(l) === String(business.member_location_id))) locationMismatch(business);
+}
+// An appointment is at its staff member's (or room's) location.
+async function requireAppointmentLocation(db, business, appointment) {
+  if (!business.member_location_id || !appointment) return;
+  const { rows: [staff] } = await db.query('SELECT location_id FROM business_resources WHERE business_id=$1 AND id=$2', [business.id, appointment.resource_id]);
+  if (staff) requireLocation(business, staff.location_id);
+}
 
 function scope(req, business) {
   const tied = business.member_location_id ? String(business.member_location_id) : null;
@@ -106,7 +116,7 @@ async function context(business) {
   const settings = await repo.one(repo.pool, `SELECT display_name,legal_name,gstin,state_code,tax_mode,rounding,fiscal_year_start_month,date_format,logo_path,max_bill_discount_percent,walk_in_credit,counter_pin_every_bill,
     voucher_valid_days,ageing_days,near_expiry_days,weight_buttons_grams,receipt_width_mm,day_cutoff_hour
     FROM business_settings WHERE business_id=$1`, [business.id]);
-  const allLocations = await repo.all(repo.pool, `SELECT id,name,code,active,sells_at_counter,address_line1,address_line2,city,postal_code,state_code,gstin,phone
+  const allLocations = await repo.all(repo.pool, `SELECT id,name,code,active,sells_at_counter,address_line1,address_line2,city,postal_code,state_code,gstin,phone,opening_hours
     FROM business_locations WHERE business_id=$1 ORDER BY id`, [business.id]);
   // Every location picker on the screens is built from `locations`: a person
   // tied to a location (or who picked one in the top bar) sees that one only.
@@ -117,7 +127,8 @@ async function context(business) {
     business: { id: business.id, name: business.name, code: business.code, business_type: business.business_type, type_name: business.type_name,
       legacy_restaurant_id: business.legacy_restaurant_id, is_demo: business.is_demo, currency: business.currency, timezone: business.timezone },
     role: { id: business.role_id, name: business.role_name, full_access: business.full_access },
-    member: { location_id: business.member_location_id || null, location_name: business.member_location_name || null },
+    member: { location_id: business.member_location_id || null, location_name: business.member_location_name || null,
+      department_id: business.member_department_id || null, department_name: business.member_department_name || null },
     currentLocationId: business.location_scope || null,
     permissions, capabilities, modules,
     moduleCatalogue: catalogue.modules, settings, locations, allLocations,
@@ -232,6 +243,12 @@ async function setMember(business, user, body, options = {}) {
   // send nothing and the person keeps what they have.
   const locationGiven = body.workLocationId !== undefined;
   const workLocationId = locationGiven && isGiven(body.workLocationId) ? id(body.workLocationId, 'Location') : null;
+  // Which department's products and stock they handle: one, or all (empty).
+  const departmentGiven = body.workDepartmentId !== undefined;
+  const workDepartmentId = departmentGiven && isGiven(body.workDepartmentId) ? id(body.workDepartmentId, 'Department') : null;
+  if (business.member_department_id && (!departmentGiven || String(workDepartmentId) !== String(business.member_department_id))) {
+    fail(`You work in ${business.member_department_name || 'one department'}, so you can only give access there.`, 403);
+  }
   // A manager tied to a location can only give access at that location.
   if (business.member_location_id && (!locationGiven || String(workLocationId) !== String(business.member_location_id))) {
     fail(`You work at ${business.member_location_name || 'one location'}, so you can only give access there.`, 403);
@@ -271,13 +288,21 @@ async function setMember(business, user, body, options = {}) {
       const location = await repo.one(db, 'SELECT id FROM business_locations WHERE business_id=$1 AND id=$2 AND active', [business.id, workLocationId]);
       if (!location) fail('Location not found or closed', 404);
     }
-    const member = await repo.one(db, `INSERT INTO business_memberships(business_id,user_id,role_id,active,created_by,updated_by,location_id) VALUES($1,$2,$3,$4,$5,$5,$6)
+    if (existing && business.member_department_id && String(existing.department_id) !== String(business.member_department_id)) {
+      fail('This person does not work in your department', 403);
+    }
+    if (workDepartmentId) {
+      const department = await repo.one(db, 'SELECT id FROM business_departments WHERE business_id=$1 AND id=$2 AND active', [business.id, workDepartmentId]);
+      if (!department) fail('Department not found or switched off', 404);
+    }
+    const member = await repo.one(db, `INSERT INTO business_memberships(business_id,user_id,role_id,active,created_by,updated_by,location_id,department_id) VALUES($1,$2,$3,$4,$5,$5,$6,$8)
       ON CONFLICT(business_id,user_id) DO UPDATE SET role_id=EXCLUDED.role_id,active=EXCLUDED.active,updated_by=EXCLUDED.updated_by,updated_at=now(),
-      location_id=CASE WHEN $7 THEN EXCLUDED.location_id ELSE business_memberships.location_id END RETURNING *`,
-    [business.id, targetId, role.id, active, user.id, workLocationId, locationGiven]);
-    await repo.audit(db, business.id, user.id, 'membership.updated', targetId, { roleId: role.id, role: role.name, active, locationId: member.location_id });
+      location_id=CASE WHEN $7 THEN EXCLUDED.location_id ELSE business_memberships.location_id END,
+      department_id=CASE WHEN $9 THEN EXCLUDED.department_id ELSE business_memberships.department_id END RETURNING *`,
+    [business.id, targetId, role.id, active, user.id, workLocationId, locationGiven, workDepartmentId, departmentGiven]);
+    await repo.audit(db, business.id, user.id, 'membership.updated', targetId, { roleId: role.id, role: role.name, active, locationId: member.location_id, departmentId: member.department_id });
     return { ...member, role_name: role.name };
   });
 }
 
-module.exports = { devEnabled, access, load, scope, requireLocation, can, require: require_, requireAny, context, permissionCatalogue, createRole, updateRole, memberCandidates, setMember };
+module.exports = { devEnabled, access, load, scope, requireLocation, requireEitherLocation, requireAppointmentLocation, can, require: require_, requireAny, context, permissionCatalogue, createRole, updateRole, memberCandidates, setMember };

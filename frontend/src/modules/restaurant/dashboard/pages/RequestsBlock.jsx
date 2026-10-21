@@ -19,7 +19,7 @@ export default function RequestsBlock({ entry, canSeeSales, currency }) {
       entry={entry}
       summary={(requests) =>
         requests.pendingOrders + requests.openCalls === 0
-          ? "Every order and call has been answered"
+          ? "All answered"
           : `${plural(requests.pendingOrders, "order", "orders")} and ${plural(requests.openCalls, "call", "calls")} open`
       }
       alert={(requests) =>

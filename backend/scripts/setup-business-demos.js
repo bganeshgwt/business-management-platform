@@ -172,6 +172,7 @@ async function main() {
       [userId, `DEMO-${userId}-%`]));
     const load = (row) => access.load(user, row.id);
     const ofType = (types) => mine.filter((b) => types.includes(b.business_type));
+    await require('./demo-business-tools').enableDemoTools(userId,mine.map(b=>b.id));
     for (const row of mine) await sample(await load(row), user);
     // Type extras: each finds or creates what it depends on and skips what it already added.
     for (const row of ofType(['wholesale'])) await require('./demo-wholesale').sampleWholesale(await load(row), user);

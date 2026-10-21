@@ -1,3 +1,4 @@
+import ContentTabs from "../../../../components/ContentTabs";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
@@ -42,13 +43,9 @@ export default function BookOrdersPage() {
     <div className="stack">
       <BusinessHeader icon="book" title="Booklists & orders"
         description="School sets bill a whole booklist in one scan. Customer orders keep track of books asked for and not on the shelf." />
-      <div className="segmented bz-tabs" role="tablist" aria-label="Booklists and orders">
-        {[["orders", "Customer orders"], ["sets", "School sets"]].map(([key, label]) => (
-          <button key={key} type="button" role="tab" aria-selected={tab === key} className={`segment ${tab === key ? "is-active" : ""}`}
-            onClick={() => setParams(key === "orders" ? {} : { tab: key }, { replace: true })}>{label}</button>
-        ))}
-      </div>
+      <ContentTabs label="Booklists and orders" value={tab} options={[["orders", "Customer orders"], ["sets", "School sets"]].map(([value,label])=>({value,label}))} onChange={key=>setParams(p=>{const next=new URLSearchParams(p);next.set("tab",key);return next;},{replace:true})}>
       {tab === "orders" ? <OrdersTab biz={biz} /> : <SetsTab biz={biz} />}
+      </ContentTabs>
     </div>
   );
 }

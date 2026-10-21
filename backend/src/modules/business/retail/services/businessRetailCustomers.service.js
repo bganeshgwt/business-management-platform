@@ -96,7 +96,7 @@ async function collect(business, user, contactId, body) {
 // --- Loyalty -----------------------------------------------------------------------
 
 function requireLoyalty(business) {
-  if (!business.modules.includes('loyalty')) fail('Loyalty points are not switched on for this business. An owner can turn them on in Settings › Modules.', 403);
+  if (!business.modules.includes('loyalty')) fail('Loyalty points are not switched on for this business. An owner can turn them on in Settings › Business tools.', 403);
 }
 const DEFAULT_RULES = { earn_per_amount: '100.00', earn_points: 1, point_value: '1.00', min_redeem_points: 100, max_redeem_percent: '50.00', active: false, return_spent_points: true };
 async function loyaltyRules(business) {

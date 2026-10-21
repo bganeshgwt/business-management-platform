@@ -8,28 +8,25 @@ import { businessRead } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
 import { monthStart } from "../../../../services/dates";
 import { BusinessHeader } from "../../core/pages/ui";
-import { businessToday, useOpenBusiness, useOptions } from "../../core/pages/hooks";
+import { businessToday, useOpenBusiness } from "../../core/pages/hooks";
 import { Segmented } from "../../wholesale/pages/shared";
-import { kg, percentText, processWords, weightOf, yieldTone } from "./weight";
+import { kg, percentText, weightOf, yieldTone } from "./weight";
 
-// Yield (what cutting gave, against the template) and wastage (what was
-// thrown away, against what sold) for a period.
+// Actual processing output, loss and wastage for a period.
 export default function WeightReportsPage() {
   const biz = useOpenBusiness();
   const anchor = businessToday(biz.business.timezone);
   const seesYield = biz.can("processing.view");
   const seesWaste = biz.can("wastage.view");
   const tabs = [
-    seesYield && { value: "yield-items", label: "Yield by template" }, seesYield && { value: "yield-cuts", label: "By output" }, seesYield && { value: "yield-suppliers", label: "By supplier" }, seesYield && { value: "yield-days", label: "By day" },
+    seesYield && { value: "yield-cuts", label: "By output" }, seesYield && { value: "yield-suppliers", label: "By supplier" }, seesYield && { value: "yield-days", label: "By day" },
     seesWaste && { value: "waste-items", label: "Wastage by item" }, seesWaste && { value: "waste-reasons", label: "Wastage by reason" }, seesWaste && { value: "waste-days", label: "Wastage by day" },
   ].filter(Boolean);
   const [tab, setTab] = useState(tabs[0]?.value);
   const [range, setRange] = useState(() => ({ from: monthStart(anchor), to: anchor }));
   const [location, setLocation] = useState("");
-  // Pro pass F-20: compare templates, cutters and suppliers.
-  const [filters, setFilters] = useState({ template: "", cutter: "", supplier: "" });
-  const { options: templateOptions } = useOptions(seesYield ? ["weight/yield-templates"] : []);
-  const words = processWords(biz.type);
+  // Optional staff and supplier filters for processing history.
+  const [filters, setFilters] = useState({ cutter: "", supplier: "" });
   const [yieldData, setYield] = useState(null);
   const [wasteData, setWaste] = useState(null);
   const [error, setError] = useState("");
@@ -37,7 +34,7 @@ export default function WeightReportsPage() {
   useEffect(() => {
     const controller = new AbortController();
     const query = { ...range, location: location || undefined };
-    const yieldQuery = { ...query, template: filters.template || undefined, cutter: filters.cutter || undefined, supplier: filters.supplier || undefined };
+    const yieldQuery = { ...query, cutter: filters.cutter || undefined, supplier: filters.supplier || undefined };
     Promise.all([
       seesYield ? businessRead(biz.id, "weight/reports/yield", yieldQuery, controller.signal) : null,
       seesWaste ? businessRead(biz.id, "weight/reports/wastage", query, controller.signal) : null,
@@ -51,12 +48,6 @@ export default function WeightReportsPage() {
       <DateRangeFilter from={range.from} to={range.to} anchor={anchor} label="dates" onChange={(next) => { setRange(next); setYield(null); setWaste(null); }} />
       {tab?.startsWith("yield") && (
         <>
-          <label className="field"><span>Template</span>
-            <select value={filters.template} onChange={(e) => setFilters((f) => ({ ...f, template: e.target.value }))}>
-              <option value="">Every template</option>
-              {(templateOptions?.["weight/yield-templates"] || []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
-          </label>
           {(yieldData?.cutters || []).length > 0 && (
             <label className="field"><span>{biz.type === "weight_retail" ? "Sorted by" : "Cut by"}</span>
               <select value={filters.cutter} onChange={(e) => setFilters((f) => ({ ...f, cutter: e.target.value }))}>
@@ -90,20 +81,19 @@ export default function WeightReportsPage() {
 
   return (
     <div className="stack">
-      <BusinessHeader icon="chart" title="Yield & wastage"
-        description={`What ${words.title.toLowerCase()} gives against the template (by template, person and supplier), and what was thrown away, by item, reason and day.`} />
+      <BusinessHeader icon="chart" title={biz.type === "weight_retail" ? "Repacking & wastage" : "Cutting & wastage"}
+        description="Input weight, usable output, processing loss and discarded stock for the selected dates." />
       <div className="sw-tiles">
         {seesYield && <StatTile icon="scale" tone="primary" label="Yield" value={yieldData?.totals.yieldPercent ? percentText(yieldData.totals.yieldPercent) : "—"}
           note={yieldData ? `${kg(yieldData.totals.outputKg)} of cuts from ${kg(yieldData.totals.inputKg)}` : ""} />}
-        {seesYield && <StatTile icon="trend-down" tone="warning" label="Short of the template" money={yieldData ? Number(yieldData.shortValue || 0) : undefined} loading={!yieldData && !error}
-          note={yieldData ? `${kg(yieldData.totals.lossKg)} lost in ${yieldData.totals.batches} batches` : ""} />}
+        {seesYield && <StatTile icon="trend-down" tone="warning" label="Processing loss" value={yieldData ? kg(yieldData.totals.lossKg) : undefined} loading={!yieldData && !error}
+          note={yieldData ? `${yieldData.totals.batches} batches` : ""} />}
         {seesWaste && <StatTile icon="trash" tone="danger" label="Wasted" value={wasteData ? kg(wasteData.totals.kg) : undefined} loading={!wasteData && !error} note={wasteData ? `${wasteData.totals.entries} entries` : ""} />}
         {seesWaste && <StatTile icon="rupee" label="Wastage at cost" money={wasteData ? Number(wasteData.totals.value) : undefined} loading={!wasteData && !error} />}
       </div>
       <Segmented label="Report" value={tab} options={tabs} onChange={setTab} />
       <ErrorMessage message={error} />
       {/* One grid per tab, each with its own id; the key remounts it when the tab changes. */}
-      {tab === "yield-items" && <YieldItems key={tab} rows={yieldData?.inputs} grid={grid} />}
       {tab === "yield-cuts" && <YieldCuts key={tab} rows={yieldData?.cuts} grid={grid} />}
       {tab === "yield-days" && <YieldDays key={tab} rows={yieldData?.days} grid={grid} />}
       {tab === "yield-suppliers" && <YieldSuppliers key={tab} rows={yieldData?.bySupplier} grid={grid} />}
@@ -111,32 +101,6 @@ export default function WeightReportsPage() {
       {tab === "waste-reasons" && <WasteReasons key={tab} rows={wasteData?.reasons} grid={grid} />}
       {tab === "waste-days" && <WasteDays key={tab} rows={wasteData?.days} grid={grid} />}
     </div>
-  );
-}
-
-function YieldItems({ rows, grid }) {
-  const columns = useMemo(() => [
-    { key: "label", header: "Template", value: (r) => r.label, mobile: "title", pin: true, render: (r) => <span>{r.label}<small className="muted" style={{ display: "block" }}>{r.input_label}</small></span> },
-    { key: "batches", header: "Batches", type: "number", value: (r) => r.batches, total: "sum" },
-    { key: "input_kg", header: "In", type: "number", value: (r) => Number(r.input_kg), total: "sum", render: (r) => kg(r.input_kg), mobile: "show" },
-    { key: "output_kg", header: "Cuts", type: "number", value: (r) => Number(r.output_kg), total: "sum", render: (r) => kg(r.output_kg) },
-    { key: "loss_kg", header: "Loss", type: "number", value: (r) => Number(r.loss_kg), total: "sum", render: (r) => kg(r.loss_kg) },
-    { key: "yield_percent", header: "Yield", type: "percent", value: (r) => Number(r.yield_percent), mobile: "show",
-      render: (r) => <span className={yieldTone(r.yield_percent, r.expected_percent)}>{percentText(r.yield_percent)}</span> },
-    { key: "expected_percent", header: "Expected", type: "percent", value: (r) => (r.expected_percent === null ? null : Number(r.expected_percent)) },
-    { key: "short_points", header: "Short by", value: (r) => (r.short_points === null ? null : Number(r.short_points)), mobile: "show",
-      render: (r) => (r.short_points === null ? "—" : Number(r.short_points) > 0 ? <span className="sw-yield-low" title={`${kg(r.short_kg)} less than expected`}>{Number(r.short_points).toFixed(1)} pts</span> : <span className="sw-yield-good">On target</span>) },
-    { key: "short_value", header: "Shortfall", type: "money", exact: true, value: (r) => Number(r.short_value || 0), total: "sum" },
-    { key: "input_value", header: "Cost", type: "money", exact: true, value: (r) => Number(r.input_value), total: "sum", defaultHidden: true },
-    { key: "cost_per_input_kg", header: "Cost per kg in", type: "money", exact: true, value: (r) => Number(r.cost_per_input_kg), defaultHidden: true },
-    { key: "cost_per_usable_kg", header: "Cost per usable kg", type: "money", exact: true, value: (r) => Number(r.cost_per_usable_kg), mobile: "show" },
-  ], []);
-  return (
-    <SectionCard flush icon="scale" title="Yield by template">
-      <DataGrid id="weight-report-yield-items" caption="Yield by item cut" columns={columns} rows={rows || []} rowKey={(r) => `${r.input_sku_id}-${r.template_id ?? "none"}`} {...grid}
-        rowNoun={["item", "items"]} rowClassName={(r) => (r.expected_percent !== null && Number(r.yield_percent) + 1 < Number(r.expected_percent) ? "dg-tone-warning" : "")}
-        empty="Nothing cut in these dates" emptyIcon="scale" />
-    </SectionCard>
   );
 }
 

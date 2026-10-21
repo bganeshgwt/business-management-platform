@@ -5,6 +5,7 @@ const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const dates = require('./helpers/dates');
+const { withTools } = require('./helpers/tools');
 
 // Phase 1 fix-up round: each case reproduces a problem the independent
 // verifier found, and pins the fix. Own throwaway database, all migrations.
@@ -50,7 +51,7 @@ test('business platform fixes: round-off returns, whole units, overview figures,
   };
   const request = as(await login('fix-owner'));
   const key = () => crypto.randomUUID();
-  const demos = (await request('POST', '/businesses/development-demos', {}, 201)).businesses;
+  const demos = (await withTools(request, (await request('POST', '/businesses/development-demos', {}, 201)).businesses));
   // Pro pass (1791540000000): goods shops now start with prices including GST,
   // rounded to the rupee, and a walk-in pays in full. These checks were written for
   // prices before GST and post unpaid walk-in bills as fixtures.

@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+const { withTools } = require('./helpers/tools');
 
 // Pro pass, builder E (fashion and electronics, 7 Oct 2026): markdowns on a
 // whole style through Offers, apparel GST by the value of each piece, the
@@ -71,7 +72,7 @@ test('fashion and electronics pro pass', { timeout: 300000 }, async (t) => {
   const key = () => crypto.randomUUID();
   const paise = (value) => Math.round(Number(value) * 100);
 
-  const demos = (await request('POST', '/businesses/development-demos', {}, 201)).businesses;
+  const demos = (await withTools(request, (await request('POST', '/businesses/development-demos', {}, 201)).businesses));
   const fashion = demos.find((b) => b.business_type === 'fashion');
   const electronics = demos.find((b) => b.business_type === 'electronics');
   const F = (suffix) => `/businesses/${fashion.id}/${suffix}`;

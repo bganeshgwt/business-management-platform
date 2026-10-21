@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
 import Icon from "../../../../components/Icon";
 import Modal from "../../../../components/Modal";
@@ -61,7 +61,7 @@ export default function DocumentsPage({ kind }) {
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
-    if (params.get("new")) setParams({}, { replace: true });
+    if (params.get("new")) setParams((p) => new URLSearchParams(p.get("open") ? { open: p.get("open") } : {}), { replace: true });
   }, [params, setParams]);
 
   const columns = useMemo(() => [
@@ -97,11 +97,9 @@ export default function DocumentsPage({ kind }) {
         description={sale
           ? "Every sale with what was collected and what is still due. Prices and tax come from the product list; returns and refunds are recorded on the sale."
           : "Goods received from suppliers. Receiving adds the stock at once; supplier payments and returns are recorded on the receipt."}
-        actions={biz.can(`${area}.create`) && (
-          <button type="button" className="button" onClick={() => setCreating(true)}>
-            <Icon name="plus" size={16} /> {sale ? "New sale" : "Receive purchase"}
-          </button>
-        )}
+        actions={biz.can(`${area}.create`) && (sale && (GOODS_TYPES.includes(biz.type) || biz.type === "salon")
+          ? <Link className="button" to={businessPath(biz.id, biz.type === "salon" ? "salon-bill" : biz.type === "pharmacy" && biz.has("pharmacy") ? "rx-sale" : "counter")}><Icon name="plus" size={16} /> New bill</Link>
+          : <button type="button" className="button" onClick={() => setCreating(true)}><Icon name="plus" size={16} /> {sale ? "New bill" : "Receive purchase"}</button>)}
       />
       <SuccessMessage message={notice} />
       <ErrorMessage message={list.error} />
@@ -173,7 +171,7 @@ export default function DocumentsPage({ kind }) {
   );
 }
 
-const emptyLine = () => ({ key: newKey(), skuId: "", unit: "", quantity: "1", unitPrice: "", lotCode: "", expiresOn: "", sellingPrice: "", mrp: "" });
+const emptyLine = () => ({ key: newKey(), skuId: "", unit: "", quantity: "1", unitPrice: "", freeQuantity: "", discountPercent: "", lotCode: "", expiresOn: "", sellingPrice: "", mrp: "" });
 const GOODS = ["grocery", "supermarket", "books", "pharmacy", "fashion", "electronics", "meat", "weight_retail"];
 
 function NewDocumentDialog({ kind, onClose, onSaved }) {
@@ -198,13 +196,21 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
   const walkInPays = sale && GOODS.includes(biz.type) && !form.contactId && !biz.settings.walk_in_credit;
   const set = (name) => (event) => setForm((f) => ({ ...f, [name]: event.target.value }));
   const items = (options?.["catalog?active=true"] || []).filter((s) => sale || s.kind === "goods");
-  const contacts = options?.[`contacts?kind=${contactKind}&active=true`] || [];
+  const [added, setAdded] = useState([]);
+  const contacts = [...added, ...(options?.[`contacts?kind=${contactKind}&active=true`] || [])];
+  const [newSupplier, setNewSupplier] = useState(false);
   const units = options?.units || [];
   const lots = options?.stock || [];
   const skuOf = (line) => items.find((s) => String(s.id) === String(line.skuId));
   // A receipt is entered in the item's pack (cases of 12) when it has one.
   const packUnit = (skuId) => (sale ? "" : items.find((s) => String(s.id) === String(skuId))?.pack_sizes?.[0]?.unit_code || "");
-  const setLine = (key, name, value) => setLines((all) => all.map((l) => (l.key === key ? { ...l, [name]: value, ...(name === "skuId" ? { unit: packUnit(value), lotCode: "" } : {}) } : l)));
+  const setLine = (key, name, value) => setLines((all) => {
+    const next = all.map((l) => (l.key === key ? { ...l, [name]: value, ...(name === "skuId" ? { unit: packUnit(value), lotCode: "" } : {}) } : l));
+    // Picking an item on the last line opens the next empty one.
+    return name === "skuId" && value && next[next.length - 1].key === key ? [...next, emptyLine()] : next;
+  });
+  // The empty line waiting at the end is left out of the bill.
+  const filled = lines.filter((l) => l.skuId);
   // Scan a barcode (or type a code) to add a line, or one more of a line already there.
   async function scanAdd(event) {
     event.preventDefault();
@@ -219,7 +225,8 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
         if (same) return all.map((l) => (l === same ? { ...l, quantity: String(Number(l.quantity || 0) + 1) } : l));
         const blank = all.find((l) => !l.skuId);
         const line = { ...(blank || emptyLine()), skuId, unit: packUnit(skuId), lotCode: found.serial || "" };
-        return blank ? all.map((l) => (l === blank ? line : l)) : [...all, line];
+        const next = blank ? all.map((l) => (l === blank ? line : l)) : [...all, line];
+        return next.some((l) => !l.skuId) ? next : [...next, emptyLine()];
       });
       setScan("");
     } catch (err) {
@@ -246,7 +253,9 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
     const sku = skuOf(line);
     if (!sku) return 0;
     const factor = unitChoices(sku).find((u) => u.code === (line.unit || sku.unit))?.factor || 1;
-    const amount = sale ? Number(sku.price) * factor * Number(line.quantity || 0) : Number(line.unitPrice || 0) * Number(line.quantity || 0);
+    // A purchase is charged for the paid quantity at the rate, less the trade discount (free units cost nothing).
+    const amount = sale ? Number(sku.price) * factor * Number(line.quantity || 0)
+      : Number(line.unitPrice || 0) * Number(line.quantity || 0) * (1 - Math.min(Number(line.discountPercent || 0), 99.99) / 100);
     return biz.settings.tax_mode === "inclusive" && sale ? amount : amount * (1 + Number(sku.tax_rate) / 100);
   };
   const estimate = lines.reduce((sum, l) => sum + preview(l), 0);
@@ -257,20 +266,23 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
       ...(walkInPays ? { payment: { amount: "full", ...methods.body(form.method, PAY_KINDS), reference: form.reference || undefined } }
         : Number(form.paidNow) > 0 ? { payment: { amount: form.paidNow, ...methods.body(form.method, PAY_KINDS), reference: form.reference || undefined } } : {}),
       ...(sale ? {} : { supplierBillNo: form.supplierBillNo, supplierBillDate: form.supplierBillDate || undefined }),
-      lines: lines.map((l) => {
+      lines: filled.map((l) => {
         const sku = skuOf(l);
         return { skuId: l.skuId, quantity: l.quantity, ...(l.unit && l.unit !== sku?.unit ? { unit: l.unit } : {}),
-          ...(sale ? {} : { unitPrice: l.unitPrice }), ...(["batch", "serial"].includes(sku?.tracking) ? { lotCode: l.lotCode } : {}),
+          ...(sale ? {} : { unitPrice: l.unitPrice }),
+          ...(!sale && Number(l.freeQuantity) > 0 ? { freeQuantity: l.freeQuantity } : {}),
+          ...(!sale && Number(l.discountPercent) > 0 ? { discountPercent: l.discountPercent } : {}), ...(["batch", "serial"].includes(sku?.tracking) ? { lotCode: l.lotCode } : {}),
           ...(!sale && sku?.tracking === "batch" && l.expiresOn ? { expiresOn: l.expiresOn } : {}),
           ...(repricing && l.sellingPrice ? { sellingPrice: l.sellingPrice } : {}), ...(repricing && l.mrp ? { mrp: l.mrp } : {}) };
       }),
     });
     // Labels for what arrived: one per piece counted in the stock unit.
-    const labels = sale ? [] : lines.map((l) => {
+    const labels = sale ? [] : filled.map((l) => {
       const sku = skuOf(l);
       if (!sku || Number(sku.unit_decimals) > 0) return null;
       const factor = unitChoices(sku).find((u) => u.code === (l.unit || sku.unit))?.factor || 1;
-      const pieces = Math.round(Number(l.quantity) * factor);
+      // Free units arrive too and need their labels.
+      const pieces = Math.round((Number(l.quantity) + Number(l.freeQuantity || 0)) * factor);
       return pieces > 0 && pieces <= 500 ? { id: sku.id, label: sku.label, code: sku.code, barcode: sku.barcode, price: repricing && l.sellingPrice ? l.sellingPrice : sku.price,
         mrp: repricing && l.mrp ? l.mrp : sku.mrp, unit: sku.unit, copies: String(pieces) } : null;
     }).filter(Boolean);
@@ -281,8 +293,8 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
   const needsLot = lines.some((l) => ["batch", "serial"].includes(skuOf(l)?.tracking));
   const needsExpiry = lines.some((l) => skuOf(l)?.tracking === "batch");
   const lineColumns = [
-    { key: "item", header: "Item", minWidth: 250, render: (l, ctx) => (
-      <SearchPicker aria-label={ctx.label} required options={items} value={skuOf(l) || null} placeholder="Name, code or barcode"
+    { key: "item", header: "Item", minWidth: sale ? 250 : 200, render: (l, ctx) => (
+      <SearchPicker aria-label={ctx.label} required={Boolean(l.skuId) || filled.length === 0} options={items} value={skuOf(l) || null} placeholder="Name, code or barcode"
         getLabel={(s) => s.label} getKeywords={(s) => `${s.code} ${s.barcode || ""} ${s.product_name || ""}`}
         getDescription={(s) => `${s.code} · ${biz.exact(s.price)}${s.mrp ? ` · MRP ${biz.exact(s.mrp)}` : ""} · ${quantity(s.stock, s.unit)} in stock`}
         onChange={(s) => setLine(l.key, "skuId", s ? String(s.id) : "")} />
@@ -298,10 +310,18 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
     { key: "quantity", header: "Qty", type: "number", width: 90, value: (l) => Number(l.quantity) || 0, render: (l, ctx) => (
       <input aria-label={ctx.label} required type="number" min="0.001" step="0.001" value={l.quantity} onChange={(e) => setLine(l.key, "quantity", e.target.value)} />
     ) },
-    !sale && { key: "cost", header: "Cost per unit", type: "money", width: 110, value: (l) => Number(l.unitPrice) || 0, render: (l, ctx) => (
-      <input aria-label={ctx.label} required type="number" min="0" step="0.01" value={l.unitPrice} onChange={(e) => setLine(l.key, "unitPrice", e.target.value)} />
+    // Free units on a scheme ("10 + 1 free"), in the same unit as Qty: they go into stock at no cost.
+    !sale && { key: "free", header: "Free", type: "number", width: 84, value: (l) => Number(l.freeQuantity) || 0, render: (l, ctx) => (
+      <input aria-label={ctx.label} type="number" min="0" step="0.001" placeholder="0" value={l.freeQuantity} onChange={(e) => setLine(l.key, "freeQuantity", e.target.value)} />
     ) },
-    needsLot && { key: "lot", header: "Batch / serial", render: (l, ctx) => {
+    !sale && { key: "cost", header: "Rate", type: "money", width: 110, value: (l) => Number(l.unitPrice) || 0, render: (l, ctx) => (
+      <input aria-label={ctx.label} required={Boolean(l.skuId)} type="number" min="0" step="0.01" value={l.unitPrice} onChange={(e) => setLine(l.key, "unitPrice", e.target.value)} />
+    ) },
+    // The supplier's trade discount on the rate.
+    !sale && { key: "discount", header: "Disc %", type: "number", width: 84, value: (l) => Number(l.discountPercent) || 0, render: (l, ctx) => (
+      <input aria-label={ctx.label} type="number" min="0" max="99.99" step="0.01" placeholder="0" value={l.discountPercent} onChange={(e) => setLine(l.key, "discountPercent", e.target.value)} />
+    ) },
+    needsLot && { key: "lot", header: "Batch / serial", width: 130, render: (l, ctx) => {
       const sku = skuOf(l);
       if (!["batch", "serial"].includes(sku?.tracking)) return <span className="muted">—</span>;
       if (pickLots) {
@@ -329,13 +349,13 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
       ? <input aria-label={ctx.label} type="date" required={biz.type === "pharmacy"} value={l.expiresOn} onChange={(e) => setLine(l.key, "expiresOn", e.target.value)} />
       : <span className="muted">—</span>) },
     { key: "amount", header: "Amount", type: "money", exact: true, value: (l) => preview(l), total: "sum" },
-    { key: "remove", header: "", label: "Remove", type: "actions", render: (l) => lines.length > 1 && (
+    { key: "remove", header: "", label: "Remove", type: "actions", render: (l) => lines.length > 1 && l.skuId && (
       <button type="button" className="link-button danger" onClick={() => setLines((all) => all.filter((x) => x.key !== l.key))}>Remove</button>
     ) },
   ];
 
   return (
-    <FormDialog title={sale ? "New sale" : "Receive a purchase"} icon={sale ? "receipt" : "truck"} width={1040}
+    <FormDialog title={sale ? "New sale" : "Receive a purchase"} icon={sale ? "receipt" : "truck"} width={sale ? 1040 : 1320}
       description={sale
         ? `Prices and tax come from the product list${biz.settings.tax_mode === "inclusive" ? " (prices include tax)" : ""}. Posting reduces stock.`
         : "Enter costs before tax. Receiving adds the stock at this location straight away."}
@@ -347,12 +367,22 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
           {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
         </select>
       </Field>
-      <Field label={sale ? `${word(biz.type, "customers", "Customers").replace(/s$/, "")} (optional)` : "Supplier"}>
-        <select required={!sale} value={form.contactId} onChange={set("contactId")}>
-          <option value="">{sale ? "Walk-in" : "Choose…"}</option>
-          {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}{c.credit_limit ? ` · limit ${biz.amount(c.credit_limit)}` : ""}</option>)}
-        </select>
-      </Field>
+      {sale ? (
+        <Field label={`${word(biz.type, "customers", "Customers").replace(/s$/, "")} (optional)`}>
+          <select value={form.contactId} onChange={set("contactId")}>
+            <option value="">Walk-in</option>
+            {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}{c.credit_limit ? ` · limit ${biz.amount(c.credit_limit)}` : ""}</option>)}
+          </select>
+        </Field>
+      ) : (
+        <div className="field bz-supplier-field">
+          <SearchPicker label="Supplier" required options={contacts} value={contacts.find((c) => String(c.id) === form.contactId) || null}
+            getKey={(c) => c.id} getLabel={(c) => c.name} getKeywords={(c) => `${c.phone || ""} ${c.gstin || ""}`}
+            getDescription={(c) => [c.phone, c.gstin && `GSTIN ${c.gstin}`].filter(Boolean).join(" · ")}
+            placeholder="Type the supplier's name" onChange={(c) => setForm((f) => ({ ...f, contactId: c ? String(c.id) : "" }))} />
+          {biz.can("contacts.create") && <button type="button" className="link-button small" onClick={() => setNewSupplier(true)}>+ New supplier</button>}
+        </div>
+      )}
       {!sale && (
         <>
           <Field label="Supplier's bill number" hint="As printed on their invoice; the same bill cannot be entered twice.">
@@ -401,6 +431,8 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
         </>
       )}
       <Field label="Notes" wide><input value={form.notes} maxLength={500} onChange={set("notes")} /></Field>
+      {newSupplier && <NewSupplierDialog onClose={() => setNewSupplier(false)}
+        onSaved={(c) => { setNewSupplier(false); setAdded((list) => [c, ...list]); setForm((f) => ({ ...f, contactId: String(c.id) })); }} />}
     </FormDialog>
   );
 }
@@ -442,6 +474,9 @@ export function DocumentDetail({ documentId, onClose, onChanged, initialAction =
             { key: "quantity", header: "Qty", value: (l) => Number(l.entered_quantity || l.quantity), render: (l) => (l.entered_unit ? `${quantity(l.entered_quantity, l.entered_unit)} (${quantity(l.quantity, l.unit)})` : quantity(l.quantity, l.unit)) },
             { key: "unit_price", header: "Rate", type: "money", exact: true, value: (l) => Number(l.entered_unit_price || l.unit_price), render: (l) => rateText(biz, l.entered_unit_price || l.unit_price) },
             { key: "lot_code", header: "Batch / serial", value: (l) => l.lot_code || "", defaultHidden: !doc.lines.some((l) => l.lot_code) },
+            // A supplier's scheme on a received line: free units and the trade discount.
+            doc.kind === "purchase" && doc.lines.some((l) => Number(l.free_quantity) || Number(l.discount_percent)) && { key: "scheme", header: "Scheme",
+              value: (l) => [Number(l.free_quantity) ? `${Number(l.free_quantity)} free` : "", Number(l.discount_percent) ? `${Number(l.discount_percent)}% off` : ""].filter(Boolean).join(" · ") },
             { key: "net", header: "Before tax", type: "money", exact: true, value: (l) => Number(l.net), total: "sum" },
             { key: "tax", header: `Tax`, type: "money", exact: true, value: (l) => Number(l.tax), total: "sum" },
             { key: "returned", header: "Returned", type: "number", value: (l) => Number(l.returned_quantity), defaultHidden: !doc.returns.length },
@@ -452,7 +487,7 @@ export function DocumentDetail({ documentId, onClose, onChanged, initialAction =
                 if (!given.length) return "—";
                 return <span className="bz-two-line"><span>−{biz.exact(given.reduce((s, x) => s + Number(x.amount), 0))}</span><small className="muted">{given.map((x) => x.label).join(", ")}</small></span>;
               } },
-          ]} />
+          ].filter(Boolean)} />
           <div className="bz-totals">
             <span>Before tax <strong>{biz.exact(doc.subtotal)}</strong></span>
             <span>Tax <strong>{biz.exact(doc.tax)}</strong></span>
@@ -527,6 +562,22 @@ function DocumentAction({ doc, action, balance, onClose, onSaved }) {
         </>
       )}
       {action !== "payments" && <Field label="Reason" wide><input required value={form.reason} maxLength={300} onChange={set("reason")} /></Field>}
+    </FormDialog>
+  );
+}
+
+// A supplier added from the purchase form: name, phone and GSTIN; the rest
+// can be filled in later under Suppliers.
+function NewSupplierDialog({ onClose, onSaved }) {
+  const biz = useOpenBusiness();
+  const [form, setForm] = useState({ name: "", phone: "", gstin: "" });
+  const set = (name) => (e) => setForm((f) => ({ ...f, [name]: name === "gstin" ? e.target.value.toUpperCase() : e.target.value }));
+  return (
+    <FormDialog title="New supplier" icon="truck" width={480} onClose={onClose} onSaved={onSaved} submitLabel="Add supplier"
+      onSubmit={() => businessWrite(biz.id, "contacts", { kind: "supplier", name: form.name.trim(), phone: form.phone.trim() || undefined, gstin: form.gstin.trim() || undefined })}>
+      <Field label="Name" wide><input required autoFocus maxLength={150} value={form.name} onChange={set("name")} placeholder="e.g. Sri Murugan Medical Agencies" /></Field>
+      <Field label="Phone (optional)"><input maxLength={30} inputMode="tel" value={form.phone} onChange={set("phone")} /></Field>
+      <Field label="GSTIN (optional)"><input className="mono" maxLength={15} value={form.gstin} onChange={set("gstin")} /></Field>
     </FormDialog>
   );
 }

@@ -67,6 +67,9 @@ const PlatformBusinessesPage = lazy(() => import("./modules/platform/pages/Platf
 const CollectionDisplayPage = lazy(() => import("./modules/restaurant/orders/pages/CollectionDisplayPage"));
 const ServiceSettingsPage = lazy(() => import("./modules/restaurant/setup/pages/ServiceSettingsPage"));
 const FeaturesPage = lazy(() => import("./modules/restaurant/setup/pages/FeaturesPage"));
+// Food formats: a bakery's and café's pre-orders and the day-end unsold count.
+const PreordersPage = lazy(() => import("./modules/restaurant/preorders/pages/PreordersPage"));
+const DayEndUnsoldPage = lazy(() => import("./modules/restaurant/inventory/pages/DayEndUnsoldPage"));
 // Tasks, issues & projects (modules/tasks): the same screens serve Business Admin.
 const TasksRoutes = lazy(() => import("./modules/tasks/pages/TasksRoutes"));
 
@@ -202,6 +205,9 @@ export default function App() {
             <Route element={<ProtectedRoute feature="deliveries" />}>
               <Route path="deliveries" element={<DeliveriesPage />} />
             </Route>
+            <Route element={<ProtectedRoute feature="preorders" />}>
+              <Route path="preorders" element={<PreordersPage />} />
+            </Route>
           </Route>
 
           <Route element={<ProtectedRoute permission="sales.view" />}>
@@ -265,6 +271,7 @@ export default function App() {
             <Route path="inventory/items" element={<InventoryItemsPage />} />
             <Route path="inventory/stock" element={<StockLedgerPage />} />
             <Route path="inventory/insights" element={<InventoryInsightsPage />} />
+            <Route path="inventory/day-end" element={<DayEndUnsoldPage />} />
             <Route path="inventory/transfers" element={<TransfersPage />} />
             <Route path="inventory/settings" element={<StockSettingsPage />} />
           </Route>

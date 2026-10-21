@@ -20,7 +20,7 @@ const paise = (value) => Math.round(Number(value) * 100);
 const rupees = (p) => (p / 100).toFixed(2);
 const qty = (m) => (m / 1000).toFixed(3);
 const weighs = (business) => {
-  if (!business.modules.includes('weight')) fail('Sold by weight is not switched on for this business. An owner can turn it on in Settings › Modules.', 403);
+  if (!business.modules.includes('weight')) fail('Sold by weight is not switched on for this business. An owner can turn it on in Settings › Business tools.', 403);
 };
 const TODAY_START = `(date_trunc('day', now() AT TIME ZONE b.timezone) AT TIME ZONE b.timezone)`;
 
@@ -40,7 +40,7 @@ repo.addLists({
         WHERE l.business_id=o.business_id AND l.order_id=o.id),'[]') AS lines
       FROM weight_pickup_orders o JOIN businesses b ON b.id=o.business_id JOIN business_locations loc ON loc.business_id=o.business_id AND loc.id=o.location_id
       JOIN users u ON u.id=o.created_by LEFT JOIN business_documents d ON d.business_id=o.business_id AND d.id=o.document_id WHERE o.business_id=$1`,
-    search: ['customer_name', 'phone', 'notes', 'document_no'], date: 'pickup_at', filters: { status: 'status', id: 'id', today: 'today', active: 'active' }, order: 'pickup_at,id',
+    search: ['customer_name', 'phone', 'notes', 'document_no'], date: 'pickup_at', filters: { status: 'status', id: 'id', today: 'today', active: 'active', location: 'location_id' }, order: 'pickup_at,id',
   },
   'weight-day-closes': {
     sql: `SELECT c.*,loc.name AS location_name,u.name AS created_by_name FROM weight_day_closes c

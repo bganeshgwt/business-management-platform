@@ -463,3 +463,71 @@ button.sw-chip {
     grid-column: 1 / -1;
   }
 }
+
+/* The bill's two parts: services done (a stylist each) and products sold. */
+.sw-part.is-products { border-top: 3px solid color-mix(in srgb, var(--colour-orange, #ea580c) 55%, transparent); }
+.sw-part:not(.is-products) { border-top: 3px solid color-mix(in srgb, var(--primary) 55%, transparent); }
+.sw-product-chip small { margin-left: 6px; color: var(--muted); font-weight: 400; }
+
+/* A section ending with its shortcut row keeps a margin below it (the card
+   edge never touches the buttons). */
+.sw-part .sw-quick:last-child { padding-bottom: 16px; }
+
+/* The client as one compact bar on the bill. */
+.sw-client-bar { padding: 12px 16px; }
+.sw-client-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.sw-client-icon {
+  width: 36px; height: 36px; border-radius: var(--radius);
+  display: grid; place-items: center;
+  background: color-mix(in srgb, var(--primary) 10%, transparent); color: var(--primary);
+}
+.sw-client-title { font-size: 1rem; }
+.sw-client-pick { flex: 1 1 280px; min-width: 0; }
+.sw-client-location { width: auto; max-width: 220px; }
+.sw-client-bar > :not(.sw-client-row) { margin-top: 12px; }
+
+/* Add to the bill: tabs, then the search and shortcuts of the chosen list. */
+.sw-add .content-tabs-area { padding: 12px 16px 16px; }
+.sw-add .content-tab-panel { padding-top: 12px; }
+.sw-add-panel { display: grid; gap: 10px; }
+.sw-chips { display: flex; flex-wrap: wrap; gap: var(--space-2, 8px); }
+
+/* On this bill: services, then products, each with its own heading and subtotal. */
+.sw-group + .sw-group { border-top: 1px solid var(--border); }
+.sw-group-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 16px; font-weight: 600;
+  background: color-mix(in srgb, var(--group-tone, var(--primary)) 6%, transparent);
+  border-left: 3px solid var(--group-tone, var(--primary));
+}
+.sw-group-head > span { display: inline-flex; align-items: center; gap: 6px; color: var(--group-tone, var(--primary)); }
+.sw-group.is-products { --group-tone: var(--colour-orange, #c2410c); }
+
+/* Services by category on the bill: the menu's sections, then its services as tiles. */
+.sw-cats { display: flex; flex-wrap: wrap; gap: 6px; }
+.sw-cat {
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+}
+.sw-cat small { color: var(--muted); font-weight: 500; margin-left: 2px; }
+.sw-cat.is-active { background: var(--primary); border-color: var(--primary); color: var(--primary-text, #fff); }
+.sw-cat.is-active small { color: inherit; opacity: 0.85; }
+.sw-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+.sw-tile {
+  display: grid; gap: 2px; text-align: left; padding: 9px 11px; cursor: pointer;
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); font: inherit;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+.sw-tile:hover { border-color: var(--primary); }
+.sw-tile.is-on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 7%, transparent); }
+.sw-tile-name { font-weight: 600; font-size: 0.875rem; line-height: 1.25; }
+.sw-tile-price { color: var(--muted); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.sw-tile.is-on .sw-tile-price small { color: var(--primary); font-weight: 600; }
+
+/* Product tiles: price, then the stock left (low in amber, none greyed out). */
+.sw-tile.is-product.is-on { border-color: var(--colour-orange, #c2410c); background: color-mix(in srgb, var(--colour-orange, #c2410c) 7%, transparent); }
+.sw-tile-stock { font-size: 0.75rem; color: var(--success, #15803d); }
+.sw-tile-stock.is-low { color: var(--warning, #b45309); }
+.sw-tile-stock.is-out { color: var(--muted); }
+.sw-tile.is-out { opacity: 0.55; cursor: not-allowed; }
+.sw-tile.is-product.is-on .sw-tile-stock { color: var(--colour-orange, #c2410c); font-weight: 600; }

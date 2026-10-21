@@ -24,25 +24,52 @@ const SERVICES = [
   ['Gold facial', 'SV-GOLDFACIAL', 2500, 75, 15, 'Skin', 0.8, 'f', true], ['Eyebrow threading', 'SV-THREAD', 60, 10, 5, 'Skin', 6, 'f'], ['Upper lip threading', 'SV-LIP', 40, 5, 5, 'Skin', 3, 'f'],
   ['Waxing: full arms', 'SV-WAX-ARMS', 450, 30, 10, 'Skin', 2, 'f'], ['Waxing: full legs', 'SV-WAX-LEGS', 700, 45, 10, 'Skin', 1.4, 'f'], ['Manicure', 'SV-MANI', 600, 40, 10, 'Hands & feet', 1.6, 'any'],
   ['Pedicure', 'SV-PEDI', 800, 50, 10, 'Hands & feet', 1.6, 'any'], ['Party make-up', 'SV-PARTYMU', 3500, 90, 15, 'Make-up', 0.3, 'f'], ['Bridal make-up', 'SV-BRIDAL', 18000, 180, 30, 'Make-up', 0.05, 'f'],
+  // The rest of a full unisex salon & spa menu (16 Oct 2026).
+  ['Hair wash & blow-dry', 'SV-BLOWDRY', 450, 30, 10, 'Hair', 3, 'f'], ['Hair ironing (straightening)', 'SV-IRONING', 700, 40, 10, 'Hair', 1.5, 'f'],
+  ['Smoothening', 'SV-SMOOTH', 5500, 150, 15, 'Hair', 0.3, 'f'], ['Dandruff treatment', 'SV-DANDRUFF', 1500, 45, 10, 'Hair', 0.8, 'any'],
+  ['Hair colour (men)', 'SV-COLOUR-M', 900, 40, 10, 'Hair', 1.2, 'm'], ['Clean shave', 'SV-SHAVE', 150, 15, 5, 'Hair', 3, 'm'],
+  ['De-tan pack', 'SV-DTAN', 700, 30, 10, 'Skin', 1.6, 'any'], ['Face bleach', 'SV-BLEACH', 500, 25, 10, 'Skin', 1.2, 'f'],
+  ['Full face threading', 'SV-FACETHREAD', 250, 20, 5, 'Skin', 1.5, 'f'], ['Waxing: underarms', 'SV-WAX-UA', 200, 15, 5, 'Skin', 2, 'f'],
+  ["Men's facial", 'SV-FACIAL-M', 1200, 50, 10, 'Skin', 0.8, 'm', true], ['Gel nail polish', 'SV-GELNAIL', 900, 45, 10, 'Hands & feet', 1, 'f'],
+  ['Spa pedicure', 'SV-SPAPEDI', 1300, 60, 10, 'Hands & feet', 0.8, 'any'], ['Saree draping', 'SV-SAREE', 600, 20, 5, 'Make-up', 0.6, 'f'],
+  ['Engagement make-up', 'SV-ENGAGE', 9000, 150, 20, 'Make-up', 0.08, 'f'], ['Full body massage (60 min)', 'SV-BODYMSG', 2200, 60, 15, 'Spa', 0.6, 'any', true],
+  ['Foot reflexology (30 min)', 'SV-FOOTMSG', 800, 30, 10, 'Spa', 0.8, 'any'],
 ];
 const STAFF = [
-  ['Priya Nair', 'Senior stylist', ['SV-CUT-W', 'SV-CUT-K', 'SV-COLOUR', 'SV-ROOT', 'SV-HIGHLIGHT', 'SV-KERATIN', 'SV-HAIRSPA', 'SV-PARTYMU', 'SV-BRIDAL']],
-  ['Arjun Shetty', 'Stylist', ['SV-CUT-M', 'SV-CUT-K', 'SV-BEARD', 'SV-ROOT', 'SV-HAIRSPA', 'SV-HEADMSG']],
-  ['Faizal Ahmed', 'Stylist', ['SV-CUT-M', 'SV-CUT-W', 'SV-BEARD', 'SV-COLOUR', 'SV-ROOT', 'SV-HEADMSG', 'SV-KERATIN']],
-  ['Neha Hegde', 'Beauty therapist', ['SV-CLEANUP', 'SV-FACIAL', 'SV-GOLDFACIAL', 'SV-THREAD', 'SV-LIP', 'SV-WAX-ARMS', 'SV-WAX-LEGS', 'SV-PARTYMU', 'SV-BRIDAL']],
-  ['Lakshmi Gowda', 'Beauty therapist', ['SV-THREAD', 'SV-LIP', 'SV-WAX-ARMS', 'SV-WAX-LEGS', 'SV-MANI', 'SV-PEDI', 'SV-CLEANUP', 'SV-HEADMSG']],
+  ['Priya Nair', 'Senior stylist', ['SV-CUT-W', 'SV-CUT-K', 'SV-COLOUR', 'SV-ROOT', 'SV-HIGHLIGHT', 'SV-KERATIN', 'SV-HAIRSPA', 'SV-PARTYMU', 'SV-BRIDAL', 'SV-SMOOTH', 'SV-BLOWDRY', 'SV-ENGAGE', 'SV-SAREE']],
+  ['Arjun Shetty', 'Stylist', ['SV-CUT-M', 'SV-CUT-K', 'SV-BEARD', 'SV-ROOT', 'SV-HAIRSPA', 'SV-HEADMSG', 'SV-SHAVE', 'SV-COLOUR-M', 'SV-DANDRUFF']],
+  ['Faizal Ahmed', 'Stylist', ['SV-CUT-M', 'SV-CUT-W', 'SV-BEARD', 'SV-COLOUR', 'SV-ROOT', 'SV-HEADMSG', 'SV-KERATIN', 'SV-SHAVE', 'SV-COLOUR-M', 'SV-IRONING', 'SV-BLOWDRY', 'SV-FACIAL-M']],
+  ['Neha Hegde', 'Beauty therapist', ['SV-CLEANUP', 'SV-FACIAL', 'SV-GOLDFACIAL', 'SV-THREAD', 'SV-LIP', 'SV-WAX-ARMS', 'SV-WAX-LEGS', 'SV-PARTYMU', 'SV-BRIDAL', 'SV-DTAN', 'SV-BLEACH', 'SV-FACETHREAD', 'SV-FACIAL-M', 'SV-BODYMSG', 'SV-ENGAGE']],
+  ['Lakshmi Gowda', 'Beauty therapist', ['SV-THREAD', 'SV-LIP', 'SV-WAX-ARMS', 'SV-WAX-LEGS', 'SV-MANI', 'SV-PEDI', 'SV-CLEANUP', 'SV-HEADMSG', 'SV-WAX-UA', 'SV-GELNAIL', 'SV-SPAPEDI', 'SV-FOOTMSG', 'SV-DTAN', 'SV-SAREE']],
 ];
 const ROOMS = ['Spa room 1', 'Spa room 2'];
 
 // Prices before GST (the salon quotes GST on top), so with GST they stay within the MRP.
 const exGst = (mrp, gst) => Math.floor((mrp / (1 + gst / 100)) * 100) / 100;
 const productItems = items([
-  ['Keratin shampoo 250 ml', 'RT-SHAMPOO', 'each', 690, 5, 'Retail products', 2, 'beauty', { price: exGst(690, 5), hsn: '3305', margin: 0.38, reorder: 4, target: 16 }],
-  ['Hair conditioner 250 ml', 'RT-COND', 'each', 650, 5, 'Retail products', 1.2, 'beauty', { price: exGst(650, 5), hsn: '3305', margin: 0.38, reorder: 4, target: 12 }],
-  ['Argan hair serum 100 ml', 'RT-SERUM', 'each', 899, 18, 'Retail products', 1.2, 'beauty', { price: exGst(899, 18), hsn: '3305', margin: 0.4, reorder: 3, target: 10 }],
-  ['Onion hair oil 200 ml', 'RT-OIL', 'each', 449, 5, 'Retail products', 1.2, 'beauty', { price: exGst(449, 5), hsn: '3305', margin: 0.4, reorder: 4, target: 12 }],
-  ['Vitamin C face wash 100 ml', 'RT-FACEWASH', 'each', 399, 18, 'Retail products', 1, 'beauty', { price: exGst(399, 18), hsn: '3304', margin: 0.4, reorder: 4, target: 12 }],
-  ['Sunscreen SPF 50, 80 g', 'RT-SUNSCREEN', 'each', 599, 18, 'Retail products', 0.8, 'beauty', { price: exGst(599, 18), hsn: '3304', margin: 0.4, reorder: 3, target: 10 }],
+  ['Keratin shampoo 250 ml', 'RT-SHAMPOO', 'each', 690, 5, 'Hair care', 2, 'beauty', { price: exGst(690, 5), hsn: '3305', margin: 0.38, reorder: 4, target: 16 }],
+  ['Hair conditioner 250 ml', 'RT-COND', 'each', 650, 5, 'Hair care', 1.2, 'beauty', { price: exGst(650, 5), hsn: '3305', margin: 0.38, reorder: 4, target: 12 }],
+  ['Argan hair serum 100 ml', 'RT-SERUM', 'each', 899, 18, 'Hair care', 1.2, 'beauty', { price: exGst(899, 18), hsn: '3305', margin: 0.4, reorder: 3, target: 10 }],
+  ['Onion hair oil 200 ml', 'RT-OIL', 'each', 449, 5, 'Hair care', 1.2, 'beauty', { price: exGst(449, 5), hsn: '3305', margin: 0.4, reorder: 4, target: 12 }],
+  ['Vitamin C face wash 100 ml', 'RT-FACEWASH', 'each', 399, 18, 'Skin care', 1, 'beauty', { price: exGst(399, 18), hsn: '3304', margin: 0.4, reorder: 4, target: 12 }],
+  ['Sunscreen SPF 50, 80 g', 'RT-SUNSCREEN', 'each', 599, 18, 'Skin care', 0.8, 'beauty', { price: exGst(599, 18), hsn: '3304', margin: 0.4, reorder: 3, target: 10 }],
+  // A fuller take-home shelf (16 Oct 2026): hair, skin, men's grooming and tools.
+  ['Anti-dandruff shampoo 340 ml', 'RT-ADSHAMPOO', 'each', 499, 5, 'Hair care', 1.4, 'beauty', { price: exGst(499, 5), hsn: '3305', margin: 0.38, reorder: 4, target: 14 }],
+  ['Keratin hair mask 200 g', 'RT-MASK', 'each', 799, 18, 'Hair care', 0.8, 'beauty', { price: exGst(799, 18), hsn: '3305', margin: 0.4, reorder: 3, target: 10 }],
+  ['Heat protect hair spray 200 ml', 'RT-SPRAY', 'each', 549, 18, 'Hair care', 0.6, 'beauty', { price: exGst(549, 18), hsn: '3305', margin: 0.4, reorder: 2, target: 8 }],
+  ['Hair colour, natural black (box)', 'RT-COLOURBOX', 'each', 245, 18, 'Hair care', 1, 'beauty', { price: exGst(245, 18), hsn: '3305', margin: 0.3, reorder: 4, target: 12 }],
+  ['Daily moisturiser 100 ml', 'RT-MOIST', 'each', 449, 18, 'Skin care', 1.2, 'beauty', { price: exGst(449, 18), hsn: '3304', margin: 0.4, reorder: 4, target: 12 }],
+  ['Aloe vera gel 150 g', 'RT-ALOE', 'each', 299, 18, 'Skin care', 1.2, 'beauty', { price: exGst(299, 18), hsn: '3304', margin: 0.42, reorder: 4, target: 12 }],
+  ['Night repair cream 50 g', 'RT-NIGHT', 'each', 699, 18, 'Skin care', 0.6, 'beauty', { price: exGst(699, 18), hsn: '3304', margin: 0.42, reorder: 2, target: 8 }],
+  ['Face scrub 100 g', 'RT-SCRUB', 'each', 349, 18, 'Skin care', 0.8, 'beauty', { price: exGst(349, 18), hsn: '3304', margin: 0.42, reorder: 3, target: 10 }],
+  ['Body lotion 400 ml', 'RT-LOTION', 'each', 499, 18, 'Skin care', 0.8, 'beauty', { price: exGst(499, 18), hsn: '3304', margin: 0.38, reorder: 3, target: 10 }],
+  ['Lip balm 4.5 g', 'RT-LIPBALM', 'each', 149, 18, 'Skin care', 1.4, 'beauty', { price: exGst(149, 18), hsn: '3304', margin: 0.45, reorder: 5, target: 16 }],
+  ['Kajal (smudge-proof)', 'RT-KAJAL', 'each', 199, 18, 'Make-up & nails', 1, 'beauty', { price: exGst(199, 18), hsn: '3304', margin: 0.45, reorder: 4, target: 12 }],
+  ['Nail polish remover 100 ml', 'RT-REMOVER', 'each', 179, 18, 'Make-up & nails', 0.8, 'beauty', { price: exGst(179, 18), hsn: '3304', margin: 0.45, reorder: 3, target: 10 }],
+  ['Beard oil 30 ml', 'RT-BEARDOIL', 'each', 399, 18, "Men's grooming", 1, 'beauty', { price: exGst(399, 18), hsn: '3305', margin: 0.42, reorder: 3, target: 10 }],
+  ['Beard wash 100 ml', 'RT-BEARDWASH', 'each', 299, 18, "Men's grooming", 0.8, 'beauty', { price: exGst(299, 18), hsn: '3305', margin: 0.42, reorder: 3, target: 10 }],
+  ['Paddle hair brush', 'RT-BRUSH', 'each', 399, 18, 'Tools', 0.6, 'beauty', { price: exGst(399, 18), hsn: '9603', margin: 0.45, reorder: 2, target: 6 }],
+  ['Wide-tooth comb', 'RT-COMB', 'each', 149, 18, 'Tools', 0.8, 'beauty', { price: exGst(149, 18), hsn: '9615', margin: 0.5, reorder: 3, target: 10 }],
 ]);
 const serviceItems = SERVICES.map(([label, code, price, minutes, buffer, category, w, who, room]) => ({ name: label, label, code, unit: 'service', kind: 'service', price, gst: 5, category,
   w, who, minutes, buffer, room: Boolean(room), hsn: '9997', mrpPrinted: false }));
@@ -73,8 +100,11 @@ async function setup(sim) {
     for (const [name, role, skills] of STAFF) {
       const row = await repo.one(base.db, 'SELECT * FROM business_resources WHERE business_id=$1 AND name=$2', [sim.business.id, name])
         || await service.resource(sim.business, sim.owner, { name, roleLabel: role, locationId: sim.location.id });
-      if (!await repo.one(base.db, 'SELECT 1 FROM salon_resource_profiles WHERE business_id=$1 AND resource_id=$2', [sim.business.id, row.id])) {
-        await salon.saveStaff(sim.business, sim.owner, row.id, { kind: 'staff', skuIds: skills.map((c) => code(c).id) });
+      const profile = await repo.one(base.db, 'SELECT 1 FROM salon_resource_profiles WHERE business_id=$1 AND resource_id=$2', [sim.business.id, row.id]);
+      // A stylist who has learnt new services since (a fuller menu) gets them added.
+      const known = profile ? (await repo.all(base.db, 'SELECT sku_id FROM salon_staff_skills WHERE business_id=$1 AND resource_id=$2', [sim.business.id, row.id])).map((r) => String(r.sku_id)) : [];
+      if (!profile || skills.some((c) => !known.includes(String(code(c).id)))) {
+        await salon.saveStaff(sim.business, sim.owner, row.id, { kind: 'staff', skuIds: [...new Set([...known, ...skills.map((c) => String(code(c).id))])] });
       }
       ex.staff.push({ ...row, skills: new Set(skills) });
     }
@@ -321,7 +351,7 @@ const salonDef = {
   staff: [{ name: 'Deepa Kamath', login: 'deepa', role: 'manager' }, { name: 'Spoorthi Rao', login: 'spoorthi', role: 'cashier' }],
   suppliers: [supplier('beauty', 'Bengaluru Salon Supplies & Cosmetics', '29', 'sl-beauty', { prefix: 'BSS', creditDays: 15, days: [3], address: 'Commercial Street, Bengaluru' })],
   regulars: [...regulars('kannada', 60, 'salon', { udhaar: [] }), ...regulars('north', 25, 'salon-n', { udhaar: [] }).map((c, i) => ({ ...c, key: `n${i + 1}` }))],
-  categories: [['Hair'], ['Skin'], ['Hands & feet'], ['Make-up'], ['Retail products']],
+  categories: [['Hair'], ['Skin'], ['Hands & feet'], ['Make-up'], ['Spa'], ['Retail products', ['Hair care', 'Skin care', 'Make-up & nails', "Men's grooming", 'Tools']]],
   items: [...serviceItems, ...productItems],
   modules: [],
   hooks: {

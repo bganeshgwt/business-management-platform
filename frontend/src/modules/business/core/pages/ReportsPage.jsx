@@ -13,6 +13,7 @@ import { businessToday, useOpenBusiness } from "./hooks";
 const LABELS = {
   sale: "Sales", purchase: "Purchases received", sale_return: "Sales returns", purchase_return: "Returns to suppliers",
   sale_payment: "Collected from customers", purchase_payment: "Paid to suppliers", sale_refund: "Refunded to customers", purchase_refund: "Refunds from suppliers",
+  expense: 'Paid expenses', expense_reversal: 'Expense reversals', collection_bounced: 'Bounced collections', finance_payout: 'Received from financiers',
 };
 
 // Money events by the day they were posted: sales, returns, collections and
@@ -35,7 +36,7 @@ export default function ReportsPage() {
   }, [biz.id, range]);
   const totals = useMemo(() => {
     const sum = (kind, field = "total") => (report?.rows || []).filter((r) => r.kind === kind).reduce((s, r) => s + Number(r[field]), 0);
-    return { sales: sum("sale") - sum("sale_return"), tax: sum("sale", "tax") - sum("sale_return", "tax"), collected: sum("sale_payment") - sum("sale_refund"), purchases: sum("purchase") - sum("purchase_return") };
+    return { sales: sum("sale") - sum("sale_return"), tax: sum("sale", "tax") - sum("sale_return", "tax"), collected: sum("sale_payment") + sum('finance_payout') - sum("sale_refund") - sum('collection_bounced'), purchases: sum("purchase") - sum("purchase_return"), expenses: sum('expense') - sum('expense_reversal') };
   }, [report]);
   const columns = [
     { key: "day", header: "Date", type: "date", value: (r) => r.day, mobile: "subtitle" },
@@ -50,10 +51,11 @@ export default function ReportsPage() {
       <BusinessHeader icon="chart" title="Reports" description={`Money in and out by the day it was posted (${biz.business.timezone}). This is an operational register, not a GST filing pack.${place ? ` Showing ${place.name} only.` : ""}`} />
       <ErrorMessage message={error} />
       <div className="stat-grid">
-        {biz.can("sales.view") && <StatTile icon="receipt" tone="primary" label="Net sales" value={report ? biz.amount(totals.sales) : "—"} note="after returns" />}
-        {biz.can("sales.view") && <StatTile icon="percent" label="GST on sales" value={report ? biz.amount(totals.tax) : "—"} note="after returns" />}
-        {biz.can("sales.view") && <StatTile icon="wallet" tone="success" label="Collected" value={report ? biz.amount(totals.collected) : "—"} note="less refunds" />}
-        {biz.can("purchasing.view") && <StatTile icon="truck" label="Purchases" value={report ? biz.amount(totals.purchases) : "—"} note="after returns" />}
+        {biz.can("sales.view") && <StatTile icon="receipt" tone="primary" label="Net sales" value={report ? biz.exact(totals.sales) : "—"} note="after returns" />}
+        {biz.can("sales.view") && <StatTile icon="percent" label="GST on sales" value={report ? biz.exact(totals.tax) : "—"} note="after returns" />}
+        {biz.can("sales.view") && <StatTile icon="wallet" tone="success" label="Collected" value={report ? biz.exact(totals.collected) : "—"} note="less refunds" />}
+        {biz.can("purchasing.view") && <StatTile icon="truck" label="Purchases" value={report ? biz.exact(totals.purchases) : "—"} note="after returns" />}
+        {biz.can('expenses.view') && <StatTile icon="expenses" label="Expenses" value={report ? biz.exact(totals.expenses) : undefined} loading={!report && !error} note="after reversals" />}
       </div>
       <SectionCard flush icon="list" title="Day by day">
         <DataGrid id="business-report-days" caption="Money events by day" columns={columns} currency={biz.symbol}
@@ -63,6 +65,7 @@ export default function ReportsPage() {
           empty="Nothing posted in these dates" emptyIcon="chart" />
       </SectionCard>
       {branches && <BranchComparison range={range} />}
+      {biz.has("inventory") && <DepartmentReport range={range} />}
     </div>
   );
 }
@@ -100,6 +103,41 @@ function BranchComparison({ range }) {
         rows={data?.locations || []} loading={!data && !error}
         exportName={biz.can("reports.export") ? `${biz.business.code}-locations-${range.from}-${range.to}` : undefined}
         empty="No location has sales in these dates" emptyIcon="map-pin" />
+    </SectionCard>
+  );
+}
+
+// Sales, returns and margin by department, for a store that has departments
+// (Categories › Departments). Hidden until there is one.
+function DepartmentReport({ range }) {
+  const biz = useOpenBusiness();
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    businessRead(biz.id, "reports/departments", range, controller.signal)
+      .then((r) => { setData(r); setError(""); })
+      .catch((err) => { if (!controller.signal.aborted) setError(getErrorMessage(err)); });
+    return () => controller.abort();
+  }, [biz.id, range]);
+  if (data && !data.rows.some((r) => r.department_id)) return null;
+  const columns = [
+    { key: "department", header: "Department", value: (r) => r.department, mobile: "title", pin: true, render: (r) => (r.department_id ? r.department : <span className="muted">{r.department}</span>) },
+    { key: "bills", header: "Bills", type: "number", value: (r) => r.bills },
+    { key: "net", header: "Sales (before tax)", type: "money", value: (r) => Number(r.net_sales), total: "sum" },
+    { key: "returns", header: "Returns", type: "money", value: (r) => Number(r.returns), total: "sum" },
+    { key: "after", header: "Net of returns", type: "money", value: (r) => Number(r.net_after_returns), total: "sum", mobile: "show" },
+    { key: "cost", header: "Cost", type: "money", value: (r) => Number(r.cost), total: "sum" },
+    { key: "margin", header: "Margin", type: "money", value: (r) => Number(r.margin), total: "sum" },
+    { key: "margin_pct", header: "Margin %", type: "number", value: (r) => r.margin_percent, render: (r) => (r.margin_percent === null ? "—" : `${r.margin_percent}%`) },
+  ];
+  return (
+    <SectionCard flush icon="grid" title="Departments" description="Sales, returns and margin of each department in these dates. Margin is sales less the cost each sold item had in stock.">
+      <ErrorMessage message={error} />
+      <DataGrid id="business-report-departments" caption="Sales by department" columns={columns} currency={biz.symbol}
+        rows={(data?.rows || []).map((r) => ({ ...r, id: r.department_id || "none" }))} loading={!data && !error}
+        exportName={biz.can("reports.export") ? `${biz.business.code}-departments-${range.from}-${range.to}` : undefined}
+        empty="No department sold anything in these dates" emptyIcon="grid" />
     </SectionCard>
   );
 }

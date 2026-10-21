@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
 import Icon from "../../../../components/Icon";
 import SectionCard from "../../../../components/SectionCard";
 import { ErrorMessage, Loading, SuccessMessage } from "../../../../components/Feedback";
 import useAuth from "../../../../hooks/useAuth";
-import { businessWrite } from "../../../../services/business.service";
+import { businessRead, businessWrite } from "../../../../services/business.service";
 import FormDialog from "./FormDialog";
 import { ActiveBadge, Badge, BusinessHeader, Field, FormError } from "./ui";
 import { dateTime, useOpenBusiness, useOptions, useServerList } from "./hooks";
@@ -28,6 +28,9 @@ export default function StaffAccessPage() {
     // Someone tied to a location bills, stocks and reports there only.
     branches && { key: "location", header: "Works at", value: (m) => m.location_name || "Every location",
       render: (m) => (m.location_name ? m.location_name : <span className="muted">Every location</span>) },
+    // Someone tied to a department handles its products and stock only.
+    { key: "department", header: "Department", value: (m) => m.department_name || "", defaultHidden: true,
+      render: (m) => m.department_name || <span className="muted">All</span> },
     { key: "last", header: "Last opened", type: "datetime", value: (m) => m.last_opened_at, render: (m) => (String(m.id) === String(user.id) ? <span>Using it now</span> : m.last_opened_at ? dateTime(m.last_opened_at) : <span className="muted">Not yet</span>) },
     { key: "active", header: "Access", type: "status", value: (m) => (m.active ? "active" : "inactive"), render: (m) => <ActiveBadge active={m.active} />, mobile: "show" },
     editable && { key: "actions", header: "", label: "Actions", type: "actions", render: (m) => !m.full_access && m.id !== user.id && (
@@ -70,8 +73,21 @@ function AccessDialog({ member, onClose, onSaved }) {
   const { options, error } = useOptions(["roles?active=true", ...(editing ? [] : ["member-candidates"])]);
   // A manager tied to a location gives access at that location only.
   const pinned = biz.member.location_id ? String(biz.member.location_id) : null;
+  // A manager tied to a department gives access in that department only.
+  const pinnedDepartment = biz.member.department_id ? String(biz.member.department_id) : null;
   const [form, setForm] = useState({ userId: member.id ? String(member.id) : "", roleId: member.role_id ? String(member.role_id) : "", active: member.active ?? true,
-    workLocationId: pinned || (member.location_id ? String(member.location_id) : "") });
+    workLocationId: pinned || (member.location_id ? String(member.location_id) : ""),
+    workDepartmentId: pinnedDepartment || (member.department_id ? String(member.department_id) : "") });
+  const [departments, setDepartments] = useState([]);
+  useEffect(() => {
+    if (!biz.has("inventory")) return undefined;
+    const controller = new AbortController();
+    businessRead(biz.id, "departments", undefined, controller.signal)
+      .then((rows) => setDepartments(rows.filter((d) => d.active || String(d.id) === form.workDepartmentId))).catch(() => {});
+    return () => controller.abort();
+    // Loaded once for the dialog; the chosen department stays listed even when switched off.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [biz.id]);
   const places = biz.allLocations.filter((l) => l.active || String(l.id) === form.workLocationId);
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
   const roles = (options?.["roles?active=true"] || []).filter((r) => !r.full_access);
@@ -79,7 +95,7 @@ function AccessDialog({ member, onClose, onSaved }) {
   return (
     <FormDialog title={editing ? `Access for ${member.name}` : "Give someone access"} icon="user-plus" width={560} onClose={onClose} onSaved={onSaved} disabled={!options}
       description="People from your own staff list can be added. The Owner role is given only when a business is set up."
-      onSubmit={() => businessWrite(biz.id, "members", form)}>
+      onSubmit={() => businessWrite(biz.id, "members", { ...form, ...(departments.length || pinnedDepartment ? {} : { workDepartmentId: undefined }) })}>
       <FormError message={error} />
       {!options && !error && <div className="field-wide"><Loading /></div>}
       {!editing && (
@@ -103,6 +119,14 @@ function AccessDialog({ member, onClose, onSaved }) {
           <select value={form.workLocationId} disabled={Boolean(pinned)} onChange={set("workLocationId")}>
             {!pinned && <option value="">Every location</option>}
             {places.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+          </select>
+        </Field>
+      )}
+      {(departments.length > 0 || pinnedDepartment) && (
+        <Field label="Department" wide hint="Tied to one department, they see and change its products and stock only. Billing stays open to every item.">
+          <select value={form.workDepartmentId} disabled={Boolean(pinnedDepartment)} onChange={set("workDepartmentId")}>
+            {!pinnedDepartment && <option value="">All departments</option>}
+            {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         </Field>
       )}

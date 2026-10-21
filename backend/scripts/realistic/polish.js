@@ -16,7 +16,7 @@ const EXTRA = {
   salon: [{ name: 'Razorpay payment link', kind: 'upi' }],
   wholesale: [{ name: 'RTGS (Bank of Maharashtra)', kind: 'bank' }],
 };
-const RENAME = { UPI: 'Google Pay', Card: 'Card (HDFC machine)', 'Bank transfer': 'Bank transfer (NEFT / IMPS)' };
+const RENAME = { UPI: 'Google Pay', 'Card (HDFC machine)': 'Card', 'Bank transfer': 'Bank transfer (NEFT / IMPS)' };
 
 // House rules per kind of shop; anything not named keeps the default.
 const RULES = {
@@ -78,9 +78,49 @@ async function rules(sim) {
   });
 }
 
+// Opening hours of each shop, by trade (a day left out is closed).
+const week = (open, close, days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']) => Object.fromEntries(days.map((d) => [d, { open, close }]));
+const HOURS = {
+  kirana: week('07:00', '22:00'), supermarket: week('08:00', '22:00'), wholesale: week('09:00', '19:00', ['mon', 'tue', 'wed', 'thu', 'fri', 'sat']),
+  fashion: week('10:30', '21:30'), electronics: week('10:00', '21:00'), salon: week('09:00', '21:00'), meat: week('06:00', '14:00'),
+  dryfruits: week('09:30', '21:00'), books: week('09:30', '20:30', ['mon', 'tue', 'wed', 'thu', 'fri', 'sat']), pharmacy: week('08:00', '23:00'), clinic: week('09:00', '20:00', ['mon', 'tue', 'wed', 'thu', 'fri', 'sat']),
+};
+async function openingHours(sim) {
+  const hours = HOURS[sim.def.key];
+  if (!hours) return;
+  await db.query('UPDATE business_locations SET opening_hours=$2 WHERE business_id=$1 AND opening_hours IS NULL', [sim.business.id, JSON.stringify(hours)]);
+}
+
+// The supermarket's shelf places, member prices on staples and a welcome coupon.
+const SHELVES = [[/rice|atta|dal|oil|sugar|salt/i, 'Aisle 1 · Staples'], [/milk|curd|butter|paneer|cheese|bread/i, 'Dairy chiller'], [/biscuit|chips|noodle|snack/i, 'Aisle 4 · Snacks'],
+  [/soap|shampoo|paste|detergent|cleaner/i, 'Aisle 6 · Home & care'], [/frozen|peas|ice/i, 'Freezer 2']];
+async function supermarketExtras(sim) {
+  if (sim.def.key !== 'supermarket') return;
+  const items = await repo.all(db, 'SELECT id,label,price,shelf_location,member_price FROM catalog_skus WHERE business_id=$1 AND active', [sim.business.id]);
+  for (const item of items) {
+    const shelf = !item.shelf_location && SHELVES.find(([pattern]) => pattern.test(item.label))?.[1];
+    // Members pay about 3% less on staples, rounded down to the rupee.
+    const member = !item.member_price && /rice|atta|dal|oil|sugar/i.test(item.label) && Number(item.price) >= 50 ? Math.floor(Number(item.price) * 0.97) : null;
+    if (shelf || member) await db.query('UPDATE catalog_skus SET shelf_location=COALESCE($3,shelf_location),member_price=COALESCE($4,member_price) WHERE business_id=$1 AND id=$2', [sim.business.id, item.id, shelf || null, member]);
+  }
+  if (!sim.business.modules.includes('offers')) return;
+  if (await repo.one(db, "SELECT 1 FROM retail_offers WHERE business_id=$1 AND coupon_code='WELCOME50'", [sim.business.id])) return;
+  await require('../../src/modules/business/retail/services/businessRetailOffers.service').createOffer(sim.business, sim.owner,
+    { name: 'Welcome coupon: Rs 50 off a first big shop', kind: 'bill_amount', value: '50', minBillAmount: '500', startsOn: '2026-01-01', couponCode: 'WELCOME50', perCustomerLimit: 1 });
+}
+
+// A salon's back-bar products ("(salon use)") are used in services, never sold.
+async function salonUse(sim) {
+  if (sim.def.key !== 'salon') return;
+  await db.query("UPDATE catalog_skus SET internal_use=TRUE WHERE business_id=$1 AND label ILIKE '%(salon use)%' AND NOT internal_use", [sim.business.id]);
+}
+
 async function run(sim) {
   await paymentMethods(sim);
+  await salonUse(sim);
   await rules(sim);
+  await openingHours(sim);
+  await supermarketExtras(sim);
   const named = await namePayments(sim);
   return named ? `${named} payments named` : '';
 }

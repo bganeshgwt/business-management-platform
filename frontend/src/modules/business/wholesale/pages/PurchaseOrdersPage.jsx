@@ -104,7 +104,10 @@ export default function PurchaseOrdersPage() {
 function SuggestionsDialog({ onClose, onRaised }) {
   const biz = useOpenBusiness();
   const locations = biz.locations.filter((l) => l.active);
-  const [locationId, setLocationId] = useState(String(locations[0]?.id || ""));
+  // A wholesaler orders for a godown and its customers' back-orders; a shop for its branch shelves.
+  const orders = biz.has("sales_orders");
+  const place = orders ? "godown" : "branch";
+  const [locationId, setLocationId] = useState(String(biz.currentLocationId || locations[0]?.id || ""));
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [picked, setPicked] = useState(new Set());
@@ -169,7 +172,7 @@ function SuggestionsDialog({ onClose, onRaised }) {
       render: (i) => <Badge tone={i.reason === "back_order" ? "warning" : "info"} label={i.reason === "back_order" ? "Back-orders" : "Low stock"} /> },
     { key: "stock", header: "In stock", type: "number", width: 125, value: (i) => Number(i.stock), render: (i) => shortPacks(i.stock, i.unit, i.pack_unit, i.pack_factor) },
     { key: "level", header: "Reorder level", type: "number", value: (i) => Number(i.reorder_level), render: (i) => quantity(i.reorder_level, i.unit), defaultHidden: true },
-    { key: "back", header: "Back orders", type: "number", width: 110, value: (i) => Number(i.back_orders), render: (i) => (Number(i.back_orders) ? shortPacks(i.back_orders, i.unit, i.pack_unit, i.pack_factor) : "—") },
+    orders && { key: "back", header: "Back orders", type: "number", width: 110, value: (i) => Number(i.back_orders), render: (i) => (Number(i.back_orders) ? shortPacks(i.back_orders, i.unit, i.pack_unit, i.pack_factor) : "—") },
     { key: "on", header: "On order", type: "number", width: 100, value: (i) => Number(i.on_order), render: (i) => (Number(i.on_order) ? shortPacks(i.on_order, i.unit, i.pack_unit, i.pack_factor) : "—") },
     { key: "qty", header: "Order", width: 135, render: (i) => (
       <label className="bz-cases" style={{ gridTemplateColumns: "4.5rem auto", alignItems: "center" }}>
@@ -179,14 +182,16 @@ function SuggestionsDialog({ onClose, onRaised }) {
     ) },
     { key: "cost", header: "Last cost", type: "money", exact: true, defaultHidden: true, value: (i) => Number(i.last_cost || 0), render: (i) => (i.last_cost ? `${biz.exact(i.last_cost)} / ${i.unit}` : "—") },
     { key: "value", header: "Value", type: "money", exact: true, width: 110, value: (i) => amountOf(i), total: "sum", mobile: "show" },
-  ];
+  ].filter(Boolean);
   return (
     <Modal title="Reorder suggestions" icon="sparkles" width={1180} onClose={onClose} dismissible={!busy}
-      description="What to order now at one godown: customers' back-orders plus the reorder level, less what is in stock and already on order, in whole cases. One draft order is raised for each supplier.">
+      description={orders
+        ? "What to order now at one godown: customers' back-orders plus the reorder level, less what is in stock and already on order, in whole cases. One draft order is raised for each supplier."
+        : "What to order now for one branch: up to each item's reorder level, less what is in stock and already on order, in whole cases. One draft order is raised for each supplier."}>
       <div className="stack">
         <div className="form-grid">
           {locations.length > 1 && (
-            <Field label="Godown"><select value={locationId} onChange={(e) => setLocationId(e.target.value)}>{locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></Field>
+            <Field label={orders ? "Godown" : "Branch"}><select value={locationId} onChange={(e) => setLocationId(e.target.value)}>{locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></Field>
           )}
           <div className="field">
             <SearchPicker label="Supplier for items never bought (optional)" value={fallback} options={suppliers} onChange={setFallback}
@@ -196,7 +201,7 @@ function SuggestionsDialog({ onClose, onRaised }) {
         <ErrorMessage message={error} />
         {!current && !error ? <Loading label="Working out what to order…" /> : (
           <DataGrid id="wholesale-reorder-suggestions" variant="compact" caption="Reorder suggestions" rows={items} rowKey={(i) => i.sku_id} columns={columns} currency={biz.symbol}
-            rowNoun={["item", "items"]} empty="Nothing to order" emptyHint="Every item is above its reorder level and back-orders are covered." emptyIcon="check" />
+            rowNoun={["item", "items"]} empty="Nothing to order" emptyHint={orders ? "Every item is above its reorder level and back-orders are covered." : `Every item at this ${place} is above its reorder level. Set reorder levels on Products to get suggestions.`} emptyIcon="check" />
         )}
         {noSupplier.length > 0 && !fallback && <p className="bz-note-card is-warning small">{noSupplier.length} chosen item{noSupplier.length === 1 ? " has" : "s have"} never been bought: choose a supplier above for {noSupplier.length === 1 ? "it" : "them"}, or untick {noSupplier.length === 1 ? "it" : "them"}.</p>}
         <div className="form-actions">

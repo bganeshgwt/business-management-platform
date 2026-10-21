@@ -62,7 +62,7 @@ async function nearExpiry(business, query) {
 // --- School sets (booklists) --------------------------------------------------------
 
 function requireBooks(business) {
-  if (!business.modules.includes('books')) fail('Book details are not switched on for this business. An owner can turn them on in Settings › Modules.', 403);
+  if (!business.modules.includes('books')) fail('Book details are not switched on for this business. An owner can turn them on in Settings › Business tools.', 403);
 }
 function setFields(body) {
   const code = String(body.code ?? '').trim().toUpperCase().replace(/\s+/g, '-');
@@ -244,7 +244,7 @@ repo.addLists({
       FROM books_customer_orders o JOIN business_locations l ON l.business_id=o.business_id AND l.id=o.location_id
       LEFT JOIN business_collections k ON k.business_id=o.business_id AND k.id=o.collection_id
       LEFT JOIN users u ON u.id=o.created_by WHERE o.business_id=$1`,
-    search: ['order_no', 'customer_name', 'phone', 'title', 'author', 'isbn'], date: 'created_at', filters: { status: 'status' },
+    search: ['order_no', 'customer_name', 'phone', 'title', 'author', 'isbn'], date: 'created_at', filters: { status: 'status', location: 'location_id' },
     order: "CASE status WHEN 'arrived' THEN 0 WHEN 'ordered' THEN 1 ELSE 2 END,created_at DESC,id DESC",
   },
 });

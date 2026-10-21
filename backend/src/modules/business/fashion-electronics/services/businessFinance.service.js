@@ -48,7 +48,7 @@ function readInput(value) {
 
 // Inside the sale's posting, before anything is saved: what the financier pays.
 async function prepare(db, business, input, { contact, buyer, left, hasFull }) {
-  if (!business.modules.includes('finance')) fail('EMI & finance is not switched on for this business. An owner can turn it on in Settings › Modules.', 403);
+  if (!business.modules.includes('finance')) fail('EMI & finance is not switched on for this business. An owner can turn it on in Settings › Business tools.', 403);
   const financier = await repo.one(db, 'SELECT * FROM electronics_financiers WHERE business_id=$1 AND id=$2 AND active', [business.id, input.financierId]);
   if (!financier) fail('Financier not found', 404);
   if (!contact && !(buyer?.name && buyer?.phone)) fail('An EMI sale needs the customer: choose them, or give the buyer\'s name and phone', 409);

@@ -28,9 +28,9 @@ const paise = (value) => Math.round(Number(value || 0) * 100);
 const rupees = (p) => (p / 100).toFixed(2);
 const METHODS = ['cash', 'upi', 'card', 'bank', 'cheque'];
 
-async function takings(business, query) {
+async function takings(business, query, db = repo.pool) {
   await access.requireAny(business, ['reports.view', 'sales.view']);
-  const today = (await repo.one(repo.pool, 'SELECT (now() AT TIME ZONE $1)::date::text AS day', [business.timezone])).day;
+  const today = (await repo.one(db, 'SELECT (now() AT TIME ZONE $1)::date::text AS day', [business.timezone])).day;
   const from = query.from ? dateText(query.from, 'From date') : today;
   const to = query.to ? dateText(query.to, 'To date') : from;
   if (to < from) fail('The end date is before the start date');
@@ -38,8 +38,8 @@ async function takings(business, query) {
   const locationId = query.locationId ? v.requiredId(query.locationId, 'Location') : null;
   const values = [business.id, from, to, business.timezone, locationId];
   const day = (column) => `(${column} AT TIME ZONE $4)::date BETWEEN $2::date AND $3::date`;
-  const [sales, money, returns, discounts, people, locations, seller, finance] = await Promise.all([
-    repo.one(repo.pool, `SELECT count(*)::int AS bills, COALESCE(sum(d.total),0) AS total, COALESCE(sum(d.tax),0) AS tax, COALESCE(sum(d.round_off),0) AS round_off,
+  const queries = [
+    () => repo.one(db, `SELECT count(*)::int AS bills, COALESCE(sum(d.total),0) AS total, COALESCE(sum(d.tax),0) AS tax, COALESCE(sum(d.round_off),0) AS round_off,
         COALESCE(sum(d.total - COALESCE((SELECT sum(p.amount) FROM business_payments p WHERE p.business_id=d.business_id AND p.document_id=d.id AND p.created_at=d.created_at),0))
           FILTER (WHERE d.contact_id IS NOT NULL),0) AS on_credit,
         COALESCE(sum(GREATEST(0,d.total - COALESCE((SELECT sum(p.amount) FROM business_payments p WHERE p.business_id=d.business_id AND p.document_id=d.id),0)))
@@ -47,7 +47,7 @@ async function takings(business, query) {
         count(*) FILTER (WHERE d.contact_id IS NULL)::int AS walk_in_bills
       FROM business_documents d WHERE d.business_id=$1 AND d.kind='sale' AND ${day('d.created_at')} AND ($5::bigint IS NULL OR d.location_id=$5)`, values),
     // Every movement of money, one row each: in (+) or out (-).
-    repo.all(repo.pool, `SELECT * FROM (
+    () => repo.all(db, `SELECT * FROM (
         SELECT 'sale_payment' AS source, p.method, p.method_name, p.created_by AS person, d.location_id, p.amount AS amount, (p.created_at=d.created_at) AS at_sale, p.created_at
           FROM business_payments p JOIN business_documents d ON d.business_id=p.business_id AND d.id=p.document_id
           WHERE p.business_id=$1 AND d.kind='sale' AND p.collection_id IS NULL AND p.method<>'finance' AND ${day('p.created_at')}
@@ -55,6 +55,9 @@ async function takings(business, query) {
           FROM electronics_finance_settlements s WHERE s.business_id=$1 AND s.amount_received>0 AND ${day('s.created_at')}
         UNION ALL SELECT 'collection', k.method, k.method_name, k.created_by, k.location_id, k.amount, false, k.created_at
           FROM business_collections k WHERE k.business_id=$1 AND ${day('k.created_at')}
+        UNION ALL SELECT 'supplier_refund', f.method, f.method_name, f.created_by, d.location_id, f.amount, false, f.created_at
+          FROM business_refunds f JOIN business_documents d ON d.business_id=f.business_id AND d.id=f.document_id
+          WHERE f.business_id=$1 AND d.kind='purchase' AND ${day('f.created_at')}
         UNION ALL SELECT 'refund', f.method, f.method_name, f.created_by, d.location_id, -f.amount, false, f.created_at
           FROM business_refunds f JOIN business_documents d ON d.business_id=f.business_id AND d.id=f.document_id
           WHERE f.business_id=$1 AND d.kind='sale' AND f.method<>'finance' AND ${day('f.created_at')}
@@ -70,17 +73,17 @@ async function takings(business, query) {
         UNION ALL SELECT 'supplier', k.method, k.method_name, k.created_by, k.location_id, -k.amount, false, k.created_at
           FROM business_supplier_payments k WHERE k.business_id=$1 AND ${day('k.created_at')}
       ) m WHERE ($5::bigint IS NULL OR m.location_id=$5)`, values),
-    repo.one(repo.pool, `SELECT count(*)::int AS count, COALESCE(sum(r.total),0) AS total FROM business_returns r
+    () => repo.one(db, `SELECT count(*)::int AS count, COALESCE(sum(r.total),0) AS total FROM business_returns r
       JOIN business_documents d ON d.business_id=r.business_id AND d.id=r.document_id
       WHERE r.business_id=$1 AND d.kind='sale' AND ${day('r.created_at')} AND ($5::bigint IS NULL OR d.location_id=$5)`, values),
-    repo.all(repo.pool, `SELECT x.source, COALESCE(sum(x.amount),0) AS amount FROM retail_sale_discounts x
+    () => repo.all(db, `SELECT x.source, COALESCE(sum(x.amount),0) AS amount FROM retail_sale_discounts x
       JOIN business_documents d ON d.business_id=x.business_id AND d.id=x.document_id
       WHERE x.business_id=$1 AND ${day('d.created_at')} AND ($5::bigint IS NULL OR d.location_id=$5) GROUP BY x.source`, values),
-    repo.all(repo.pool, `SELECT d.created_by AS person, count(*)::int AS bills, sum(d.total) AS sales FROM business_documents d
+    () => repo.all(db, `SELECT d.created_by AS person, count(*)::int AS bills, sum(d.total) AS sales FROM business_documents d
       WHERE d.business_id=$1 AND d.kind='sale' AND ${day('d.created_at')} AND ($5::bigint IS NULL OR d.location_id=$5) GROUP BY d.created_by`, values),
-    repo.all(repo.pool, 'SELECT id,name,code FROM business_locations WHERE business_id=$1 ORDER BY id', [business.id]),
-    repo.one(repo.pool, 'SELECT display_name,legal_name,gstin,address_line1,city,postal_code,phone FROM business_settings WHERE business_id=$1', [business.id]),
-    repo.one(repo.pool, `SELECT
+    () => repo.all(db, 'SELECT id,name,code FROM business_locations WHERE business_id=$1 ORDER BY id', [business.id]),
+    () => repo.one(db, 'SELECT display_name,legal_name,gstin,address_line1,city,postal_code,phone FROM business_settings WHERE business_id=$1', [business.id]),
+    () => repo.one(db, `SELECT
         COALESCE((SELECT sum(p.amount) FROM business_payments p JOIN business_documents d ON d.business_id=p.business_id AND d.id=p.document_id
           WHERE p.business_id=$1 AND p.method='finance' AND ${day('p.created_at')} AND ($5::bigint IS NULL OR d.location_id=$5)),0) AS booked,
         (SELECT count(*)::int FROM business_payments p JOIN business_documents d ON d.business_id=p.business_id AND d.id=p.document_id
@@ -88,14 +91,17 @@ async function takings(business, query) {
         COALESCE((SELECT sum(f.amount) FROM business_refunds f JOIN business_documents d ON d.business_id=f.business_id AND d.id=f.document_id
           WHERE f.business_id=$1 AND f.method='finance' AND ${day('f.created_at')} AND ($5::bigint IS NULL OR d.location_id=$5)),0) AS cancelled,
         COALESCE((SELECT sum(s.subvention_total) FROM electronics_finance_settlements s WHERE s.business_id=$1 AND ${day('s.created_at')} AND ($5::bigint IS NULL OR s.location_id=$5)),0) AS subvention`, values),
-  ]);
+  ];
+  const results = db === repo.pool ? await Promise.all(queries.map(query => query())) : [];
+  if (db !== repo.pool) for (const query of queries) results.push(await query());
+  const [sales, money, returns, discounts, people, locations, seller, finance] = results;
 
   const byMethod = () => Object.fromEntries(METHODS.map((m) => [m, 0]));
-  const received = byMethod(), refunds = byMethod(), suppliers = byMethod(), bounced = byMethod();
-  let atSale = 0, laterOnBills = 0, collections = 0, fromFinanciers = 0;
+  const received = byMethod(), refunds = byMethod(), suppliers = byMethod(), bounced = byMethod(), expenses = byMethod();
+  let atSale = 0, laterOnBills = 0, collections = 0, fromFinanciers = 0, fromSuppliers = 0;
   const persons = new Map(), places = new Map();
   // { received: Map("upi|PhonePe" -> paise), refunds, suppliers, bounced }
-  const named = { received: new Map(), refunds: new Map(), suppliers: new Map(), bounced: new Map() };
+  const named = { received: new Map(), refunds: new Map(), suppliers: new Map(), bounced: new Map(), expenses: new Map() };
   const addNamed = (group, method, name, amount) => {
     const key = `${method}|${displayName(method, name)}`;
     named[group].set(key, (named[group].get(key) || 0) + amount);
@@ -108,20 +114,23 @@ async function takings(business, query) {
     if (!places.has(key)) places.set(key, { locationId: key, bills: 0, sales: 0, in: byMethod(), out: 0 });
     return places.get(key);
   };
+  const seesExpenses = access.can(business, 'expenses.view');
+  money.push(...await require('./businessExpenses.service').moneyRows(business,from,to,locationId,db));
   for (const row of money) {
     const amount = paise(row.amount);
     const method = METHODS.includes(row.method) ? row.method : null;
-    if (row.source === 'sale_payment' || row.source === 'collection' || row.source === 'finance_payout') {
+    if (row.source === 'sale_payment' || row.source === 'collection' || row.source === 'finance_payout' || row.source === 'supplier_refund') {
       if (method) { received[method] += amount; addNamed('received', method, row.method_name, amount); }
       if (row.source === 'collection') collections += amount;
       else if (row.source === 'finance_payout') fromFinanciers += amount;
+      else if (row.source === 'supplier_refund') { if (method) fromSuppliers += amount; }
       else if (row.at_sale) atSale += amount;
       else laterOnBills += amount;
       if (method) { personRow(String(row.person)).in[method] += amount; placeRow(String(row.location_id)).in[method] += amount; }
     } else {
       if (method) {
-        ({ refund: refunds, bounce: bounced }[row.source] || suppliers)[method] -= amount;
-        addNamed({ refund: 'refunds', bounce: 'bounced' }[row.source] || 'suppliers', method, row.method_name, -amount);
+        ({ refund: refunds, bounce: bounced, expense: expenses }[row.source] || suppliers)[method] -= amount;
+        addNamed({ refund: 'refunds', bounce: 'bounced', expense: 'expenses' }[row.source] || 'suppliers', method, row.method_name, -amount);
       }
       personRow(String(row.person)).out -= amount;
       placeRow(String(row.location_id)).out -= amount;
@@ -131,13 +140,13 @@ async function takings(business, query) {
     const row = personRow(String(p.person));
     row.bills = p.bills; row.sales = paise(p.sales);
   }
-  const placeSales = await repo.all(repo.pool, `SELECT d.location_id, count(*)::int AS bills, sum(d.total) AS sales FROM business_documents d
+  const placeSales = await repo.all(db, `SELECT d.location_id, count(*)::int AS bills, sum(d.total) AS sales FROM business_documents d
     WHERE d.business_id=$1 AND d.kind='sale' AND ${day('d.created_at')} AND ($5::bigint IS NULL OR d.location_id=$5) GROUP BY d.location_id`, values);
   for (const p of placeSales) {
     const row = placeRow(String(p.location_id));
     row.bills = p.bills; row.sales = paise(p.sales);
   }
-  const names = persons.size ? await repo.all(repo.pool, 'SELECT id,name FROM users WHERE id=ANY($1::bigint[])', [[...persons.keys()]]) : [];
+  const names = persons.size ? await repo.all(db, 'SELECT id,name FROM users WHERE id=ANY($1::bigint[])', [[...persons.keys()]]) : [];
   const sum = (o) => Object.values(o).reduce((s, x) => s + x, 0);
   const asMoney = (o) => Object.fromEntries(Object.entries(o).map(([k, x]) => [k, rupees(x)]));
   const discount = (source) => paise(discounts.find((d) => d.source === source)?.amount);
@@ -153,7 +162,7 @@ async function takings(business, query) {
       onCredit: rupees(paise(sales.on_credit)), walkInBills: sales.walk_in_bills, walkInUnpaid: rupees(paise(sales.walk_in_unpaid)),
       offers: rupees(discount('offer')), points: rupees(discount('points')), counterDiscounts: rupees(discount('manual')),
     },
-    received: { ...asMoney(received), total: rupees(sum(received)), atSale: rupees(atSale), laterOnBills: rupees(laterOnBills), collections: rupees(collections), fromFinanciers: rupees(fromFinanciers) },
+    received: { ...asMoney(received), total: rupees(sum(received)), atSale: rupees(atSale), laterOnBills: rupees(laterOnBills), collections: rupees(collections), fromFinanciers: rupees(fromFinanciers), fromSuppliers: rupees(fromSuppliers) },
     // EMI: financed on today's bills (owed by financiers, not in the drawer),
     // loans cancelled, and the subvention financiers kept from their payouts.
     finance: { booked: rupees(paise(finance.booked)), bills: finance.bills, cancelled: rupees(paise(finance.cancelled)), subvention: rupees(paise(finance.subvention)) },
@@ -162,11 +171,12 @@ async function takings(business, query) {
     // Cheques returned unpaid on these days (counted as money in on the day
     // they were received; their receipt stops counting the day they bounce).
     bounced: { ...asMoney(bounced), total: rupees(sum(bounced)) },
+    expenses: seesExpenses ? { ...asMoney(expenses), total: rupees(sum(expenses)), visible: true } : { visible: false },
     // Cash that came in less cash that went out over these days.
-    cashInHand: rupees(received.cash - refunds.cash - suppliers.cash - bounced.cash),
-    net: rupees(sum(received) - sum(refunds) - sum(suppliers) - sum(bounced)),
+    cashInHand: rupees(received.cash - refunds.cash - suppliers.cash - bounced.cash - expenses.cash),
+    net: rupees(sum(received) - sum(refunds) - sum(suppliers) - sum(bounced) - sum(expenses)),
     // The same money by the business's own method names: [{ method (kind), name, amount }].
-    byMethodName: { received: namedList(named.received), refunds: namedList(named.refunds), suppliers: namedList(named.suppliers), bounced: namedList(named.bounced) },
+    byMethodName: { received: namedList(named.received), refunds: namedList(named.refunds), suppliers: namedList(named.suppliers), bounced: namedList(named.bounced), expenses: seesExpenses ? namedList(named.expenses) : [] },
     byPerson: [...persons.values()].map((p) => ({ ...p, name: names.find((n) => String(n.id) === p.userId)?.name || `User ${p.userId}`,
       sales: rupees(p.sales), in: asMoney(p.in), received: rupees(sum(p.in)), out: rupees(p.out) })).sort((a, b) => b.bills - a.bills || a.name.localeCompare(b.name)),
     byLocation: [...places.values()].map((p) => ({ ...p, name: locations.find((l) => String(l.id) === p.locationId)?.name || `Location ${p.locationId}`,

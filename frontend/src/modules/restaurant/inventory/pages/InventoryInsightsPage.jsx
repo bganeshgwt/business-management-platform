@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import SearchPicker from "../../../../components/SearchPicker";
 import PageHeader from "../../../../components/PageHeader";
 import UiIcon from "../../../../components/Icon";
@@ -1730,8 +1730,22 @@ function ReorderTab() {
   // Days picked here; none picked: the restaurant's own default (Settings ->
   // Alerts and timings), which the plan says it used.
   const picked = Number(horizonText) >= 1 && Number(horizonText) <= 30 ? Number(horizonText) : null;
-  const [view, setView] = useQueryFilter("view", "order");
-  const [statusFilter, setStatusFilter] = useQueryFilter("status");
+  const [params, setParams] = useSearchParams();
+  const view = params.get("view") ?? "order";
+  const statusFilter = params.get("status") ?? "";
+  // Update the view and its filter in one navigation. Separate URL updates
+  // in the same click overwrite one another and leave the wrong list open.
+  const setView = (nextView, nextStatus = statusFilter) => {
+    setParams((current) => {
+      const updated = new URLSearchParams(current);
+      if (nextView === "order") updated.delete("view");
+      else updated.set("view", nextView);
+      if (nextStatus) updated.set("status", nextStatus);
+      else updated.delete("status");
+      return updated;
+    }, { replace: true });
+  };
+  const setStatusFilter = (nextStatus) => setView(view, nextStatus);
   const [search, setSearch] = useState("");
   const [plan, setPlan] = useState(null);
   const [error, setError] = useState("");
@@ -1878,8 +1892,7 @@ function ReorderTab() {
 
   const statusTile = (status) => ({
     onClick: () => {
-      setView("all");
-      setStatusFilter(statusFilter === status ? "" : status);
+      setView("all", statusFilter === status ? "" : status);
     },
     active: showAll && statusFilter === status,
   });
@@ -1918,8 +1931,7 @@ function ReorderTab() {
                 aria-checked={!showAll}
                 className={`segment ${!showAll ? "is-active" : ""}`}
                 onClick={() => {
-                  setView("order");
-                  setStatusFilter("");
+                  setView("order", "");
                 }}
               >
                 To order · {summary.toOrder}

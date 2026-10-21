@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+const { withTools } = require('./helpers/tools');
 
 // Tasks, issues & projects (migration 1791620000000, backend/src/modules/tasks):
 // one data model keyed on business_id, two front doors (/api/tasks for the
@@ -92,10 +93,10 @@ test('tasks, issues and projects', { timeout: 900000 }, async (t) => {
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
   const photo = (itemId) => { const fd = new FormData(); if (itemId) fd.append('itemId', String(itemId)); fd.append('kind', 'photo'); fd.append('file', new Blob([png], { type: 'image/png' }), 'p.png'); return fd; };
 
-  await t.test('the three modules are on by default for every type and the restaurant, with their permissions', async () => {
-    const types = await pool.query("SELECT business_type, count(*)::int AS n FROM platform_module_business_types WHERE module_code IN ('tasks','issues','projects') AND enabled_by_default GROUP BY 1");
+  await t.test('the three modules start on for the restaurant and are an owner\'s choice for every other type, with their permissions', async () => {
+    const types = await pool.query("SELECT business_type, count(*)::int AS n, count(*) FILTER (WHERE enabled_by_default)::int AS on_ FROM platform_module_business_types WHERE module_code IN ('tasks','issues','projects') GROUP BY 1");
     assert.equal(types.rows.length, 12);
-    assert.ok(types.rows.every((r) => r.n === 3));
+    assert.ok(types.rows.every((r) => r.n === 3 && r.on_ === (r.business_type === 'restaurant' ? 3 : 0)));
     const me = await O('GET', '/auth/me');
     for (const code of ['tasks', 'issues', 'projects']) assert.ok(me.features.includes(code), code);
     assert.ok(me.permissions.includes('tasks.manage') && me.permissions.includes('issues.review'));
@@ -341,7 +342,7 @@ test('tasks, issues and projects', { timeout: 900000 }, async (t) => {
     await assert.rejects(pool.query("INSERT INTO business_task_assignees(business_id,task_id,kind,user_id) VALUES($1,$2,'user',$3)", [businessA, mine.id, ids.other]), { code: '23514' });
     await assert.rejects(pool.query("INSERT INTO business_task_assignees(business_id,task_id,kind,user_id) VALUES($1,$2,'user',$3)", [businessB, mine.id, ids.other]), { code: '23503' });
     // Business world: demos for the owner; the other restaurant's owner is no member.
-    const demos = (await O('POST', '/businesses/development-demos', {}, 201)).businesses;
+    const demos = (await withTools(O, (await O('POST', '/businesses/development-demos', {}, 201)).businesses, { work: true }));
     const grocery = demos.find((b) => b.business_type === 'grocery');
     const pharmacy = demos.find((b) => b.business_type === 'pharmacy');
     await X('GET', `/businesses/${grocery.id}/tasks/my`, undefined, 404);

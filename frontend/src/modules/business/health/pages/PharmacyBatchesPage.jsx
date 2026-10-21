@@ -1,3 +1,4 @@
+import ContentTabs from "../../../../components/ContentTabs";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
@@ -36,12 +37,11 @@ export default function PharmacyBatchesPage() {
     <div className="stack">
       <BusinessHeader icon="clock" title="Expiry, returns & recalls"
         description="Send short-dated and broken stock back to the distributor on a debit note; recall a batch to find every buyer and stop it being sold." />
-      <div className="segmented hl-tabs" role="tablist" aria-label="View">
-        {TABS.map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={tab === key} className={`segment ${tab === key ? "is-active" : ""}`} onClick={() => setParams({ tab: key }, { replace: true })}>{label}</button>)}
-      </div>
+      <ContentTabs label="Pharmacy stock views" value={tab} options={TABS.map(([value,label])=>({value,label}))} onChange={key=>setParams(p=>{const next=new URLSearchParams(p);next.set("tab",key);return next;},{replace:true})}>
       {tab === "expiry" && <ExpiryView biz={biz} />}
       {tab === "returns" && <ReturnsView biz={biz} />}
       {tab === "recalls" && <RecallsView biz={biz} />}
+      </ContentTabs>
     </div>
   );
 }

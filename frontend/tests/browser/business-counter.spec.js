@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import fs from "node:fs";
 import process from "node:process";
 
-// Quick bill and Day close for a goods shop (pro pass, business shared
+// Quick bill and Daily money for a goods shop (pro pass, business shared
 // commerce): the counter opens for every goods type, F-keys work, a weighed
 // item waits for its weight, a bill can be held and recalled, a walk-in is
 // not offered udhaar, and the day close and the A4 tax invoice render.
@@ -54,14 +54,17 @@ test("the counter runs from the keyboard: F2, F4, hold and recall; udhaar needs 
   await expect(page.locator("#counter-customer")).toBeFocused();
   await page.keyboard.press("F2");
   await expect(scan).toBeFocused();
-  // Udhaar is not offered to a walk-in.
-  await expect(page.getByRole("button", { name: /^Udhaar/ })).toBeDisabled();
+  // Udhaar for a walk-in asks for the customer first (the customer box takes focus).
+  await page.getByRole("button", { name: /^Udhaar/ }).click();
+  await expect(page.getByText(/pick the customer who will pay later/).first()).toBeVisible();
+  await expect(page.locator("#counter-customer")).toBeFocused();
+  await page.keyboard.press("F2");
   // Add the first item the search finds.
   await scan.fill("ri");
   const match = page.locator(".rt-matches button").first();
   await expect(match).toBeVisible({ timeout: 15_000 });
   await match.click();
-  await expect(page.getByText("Bill · 1 line")).toBeVisible();
+  await expect(page.locator(".rt-grand")).toContainText("1 item");
   // A weighed line waits for its weight; the take button stays off until then.
   if (await page.locator(".rt-weigh").count()) {
     await expect(page.locator(".rt-post")).toBeDisabled();
@@ -69,17 +72,17 @@ test("the counter runs from the keyboard: F2, F4, hold and recall; udhaar needs 
   }
   await expect(page.locator(".rt-grand strong")).not.toHaveText("₹0.00", { timeout: 15_000 });
   await page.keyboard.press("F10");
-  await expect(page.getByText("Bill · 0 lines")).toBeVisible();
+  await expect(page.getByText(/Nothing on the bill yet/)).toBeVisible();
   await page.locator(".rt-held button").first().click();
-  await expect(page.getByText("Bill · 1 line")).toBeVisible();
+  await expect(page.locator(".rt-grand")).toContainText("1 item");
   await page.getByRole("button", { name: "Clear" }).click();
 });
 
-test("Day close and the A4 tax invoice render", async ({ page }) => {
+test("Daily money and the A4 tax invoice render", async ({ page }) => {
   const grocery = businessOf("grocery");
   test.skip(!grocery, "Development demo businesses are needed.");
   await page.goto(`/business-admin/${grocery.id}/day-close`);
-  await expect(page.getByRole("heading", { name: "Day close" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: "Daily money" })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "By payment method" })).toBeVisible();
   await page.goto(`/business-admin/${grocery.id}/sales`);
   // A shop's Sales opens on today; the month has bills even early in the day.
@@ -111,7 +114,7 @@ test("search by keyboard, Return from the counter, and the phone's pay bar", asy
   await expect(scan).toHaveAttribute("aria-activedescendant", await active.getAttribute("id"));
   const picked = (await active.locator("strong").innerText()).trim();
   await scan.press("Enter");
-  await expect(page.getByText("Bill · 1 line")).toBeVisible();
+  await expect(page.locator(".rt-grand")).toContainText("1 item");
   await expect(page.locator(".rt-item strong").first()).toHaveText(picked);
   // A typed name never shows "No item has this barcode".
   await expect(page.getByText(/No item has this barcode/)).toHaveCount(0);

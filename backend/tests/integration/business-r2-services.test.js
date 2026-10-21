@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+const { withTools } = require('./helpers/tools');
 
 // Round 2, builder R2-SVC (8 Oct 2026): salon stylist weeks, holidays and the
 // manager's override; back-bar products taken from stock when a service is
@@ -66,7 +67,7 @@ test('round 2: salon, weight shops and repairs', { timeout: 300000 }, async (t) 
   const key = () => crypto.randomUUID();
   const paise = (value) => Math.round(Number(value) * 100);
 
-  const demos = (await request('POST', '/businesses/development-demos', {}, 201)).businesses;
+  const demos = (await withTools(request, (await request('POST', '/businesses/development-demos', {}, 201)).businesses));
   await pool.query("UPDATE business_settings SET tax_mode='exclusive', rounding='none', walk_in_credit=true");
   const salon = demos.find((b) => b.business_type === 'salon');
   const meat = demos.find((b) => b.business_type === 'meat');

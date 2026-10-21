@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import ActionMenu from "../../../../components/ActionMenu";
 import Icon from "../../../../components/Icon";
 import { businessRead, businessWrite } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
@@ -18,7 +19,8 @@ import "../styles/weight-pro.css";
 //    (weights, or "₹200 worth" turned into a weight at today's rate) and
 //    its customer; the order is closed with the bill once it is taken.
 // toolsRef.current.posted(documentId) is called by the counter after a bill.
-export default function CounterWeightTools({ biz, locationId, onAdd, onCustomer, toolsRef }) {
+export default function CounterWeightTools({ biz, locationId, onAdd, onCustomer, toolsRef, additionalActions = [] }) {
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [cutting, setCutting] = useState(false);
   const [pickup, setPickup] = useState(null);
@@ -94,8 +96,11 @@ export default function CounterWeightTools({ biz, locationId, onAdd, onCustomer,
   return (
     <>
       {pickup && <span className="rt-pickup-chip" title="The bill closes this order when it is taken"><Icon name="clipboard" size={14} /> Order: {pickup.customer_name}</span>}
-      {biz.can("sales.view") && <Link className="button button-secondary" to={businessPath(biz.id, "pickup-orders")}><Icon name="clipboard" size={15} /> Pickup orders</Link>}
-      {canCut && <button type="button" className="button button-secondary" onClick={() => setCutting(true)}><Icon name="scale" size={15} /> Cut to order</button>}
+      <ActionMenu text="More" label="More counter actions" items={[
+        ...additionalActions,
+        ...(biz.can("sales.view") ? [{ label: "Pickup orders", icon: "clipboard", onClick: () => navigate(businessPath(biz.id, "pickup-orders")) }] : []),
+        ...(canCut ? [{ label: "Cut to order", icon: "scale", onClick: () => setCutting(true) }] : []),
+      ]} />
       {cutting && (
         <NewBatchDialog path="weight/cut-to-order" title="Cut to order" submitLabel="Cut and add to the bill" onClose={() => setCutting(false)} onSaved={added}
           description="Weigh the whole item, cut it, weigh the cut. The cut goes on this bill; the whole item leaves stock now." />

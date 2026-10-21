@@ -52,10 +52,10 @@ export function PanelMessage({ message, tone = "success", onDismiss }) {
   }
 
   return (
-    <div className={`alert ${tone === "success" ? "alert-success" : tone === "info" ? "alert-info" : ""}`} role={tone === "error" ? "alert" : "status"}>
+    <div className={`alert panel-message ${tone === "success" ? "alert-success" : tone === "info" ? "alert-info" : ""}`} role={tone === "error" ? "alert" : "status"}>
       <span>{message}</span>
       {onDismiss && (
-        <button type="button" className="link-button small" onClick={onDismiss} style={{ marginLeft: "auto" }}>
+        <button type="button" className="link-button small" onClick={onDismiss}>
           Dismiss
         </button>
       )}

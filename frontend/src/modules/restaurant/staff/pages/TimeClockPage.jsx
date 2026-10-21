@@ -586,6 +586,7 @@ function TileRow({ tiles, className = "" }) {
       {tiles.map((tile) => (
         <StatTile
           key={tile.label}
+          size="sm"
           icon={TILE_ICON[tile.icon] || tile.icon}
           tone={tile.value === 0 ? "neutral" : tile.tone}
           label={tile.label}

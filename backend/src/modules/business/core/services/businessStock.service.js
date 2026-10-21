@@ -149,6 +149,7 @@ async function transferDetail(business, transferId) {
     JOIN business_locations d ON d.business_id=t.business_id AND d.id=t.to_location_id
     JOIN users u ON u.id=t.created_by LEFT JOIN users c ON c.id=t.closed_by WHERE t.business_id=$1 AND t.id=$2`, [business.id, id(transferId)]);
   if (!transfer) fail('Transfer not found', 404);
+  access.requireEitherLocation(business, transfer.from_location_id, transfer.to_location_id);
   transfer.lines = await repo.all(repo.pool, `SELECT x.*,s.label,s.code,s.unit FROM business_stock_transfer_lines x
     JOIN catalog_skus s ON s.business_id=x.business_id AND s.id=x.sku_id WHERE x.business_id=$1 AND x.transfer_id=$2 ORDER BY x.id`, [business.id, transfer.id]);
   return transfer;

@@ -35,7 +35,7 @@ const derivedKey = (base, part) => {
 };
 const REASONS = { trimming: 'Trimming', spoiled: 'Spoiled', unsold: 'Unsold / past its best', drip_loss: 'Drip / moisture loss', damaged: 'Damaged', other: 'Other' };
 const requireModule = (business, code, name) => {
-  if (!business.modules.includes(code)) fail(`${name} is not switched on for this business. An owner can turn it on in Settings › Modules.`, 403);
+  if (!business.modules.includes(code)) fail(`${name} is not switched on for this business. An owner can turn it on in Settings › Business tools.`, 403);
 };
 // Thousandths of a kilogram in one stock unit (kg = 1000, g = 1).
 const kgFactor = (sku) => (sku.unit_kind === 'weight' ? (sku.base_unit_code ? Number(sku.factor_to_base) : 1) : null);

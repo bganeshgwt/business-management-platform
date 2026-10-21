@@ -7,7 +7,7 @@ import SectionCard from "../../../../components/SectionCard";
 import Icon from "../../../../components/Icon";
 import { ErrorMessage, ScreenLoading } from "../../../../components/Feedback";
 import { getErrorMessage } from "../../../../services/api";
-import { businessRead, createBusiness, linkRestaurant, provisionBusinesses } from "../../../../services/business.service";
+import { businessRead, createBusiness, linkRestaurant } from "../../../../services/business.service";
 import { AddBusinessDialog } from "./NewBusinessForm";
 import { moneyShort } from "../../../../services/format";
 import { businessPath, TYPE_ICONS } from "../../../../services/businessNav";
@@ -39,7 +39,6 @@ export default function BusinessAdminPage() {
     return <Navigate to={businessPath(recent.id)} replace />;
   }
 
-  const admin = user.permissions.includes("restaurant.settings.manage") || user.permissions.includes("platform.restaurants.manage");
   const run = async (work) => {
     setBusy(true);
     setError("");
@@ -85,17 +84,7 @@ export default function BusinessAdminPage() {
           {user.roles.includes("RESTAURANT_ADMIN") && !linked && (
             <button type="button" className="button button-secondary" disabled={busy} onClick={() => run(linkRestaurant)}>Link my restaurant</button>
           )}
-          {directory?.developmentSwitching && admin && (
-            <button type="button" className="button button-secondary" disabled={busy} onClick={() => run(provisionBusinesses)}>
-              {busy ? "Creating businesses…" : "Set up demo businesses"}
-            </button>
-          )}
         </div>
-        {directory?.developmentSwitching && admin && (
-          <p className="muted small">
-            The button creates one empty demo business of each type, named after you. To fill them with sample products and sales, ask your administrator to load the sample data.
-          </p>
-        )}
       </SectionCard>
       {adding && <AddBusinessDialog types={types} onClose={() => setAdding(false)} submit={createBusiness}
         onSaved={async (business) => { setAdding(false); await reloadDirectory(); switchTo(business); }} />}

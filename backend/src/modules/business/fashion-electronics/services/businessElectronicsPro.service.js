@@ -238,7 +238,7 @@ async function closeFaulty(business, user, faultyId, body) {
 // --- Warranty claims against the brand ---------------------------------------------------------
 
 const CLAIM_STATES = ['raised', 'submitted', 'approved', 'rejected', 'credited'];
-const claimSql = `SELECT k.*,j.job_no,j.device,j.serial,j.customer_name,j.status AS job_status,c.name AS supplier_name,u.name AS created_by_name
+const claimSql = `SELECT k.*,j.job_no,j.device,j.serial,j.customer_name,j.status AS job_status,j.location_id,c.name AS supplier_name,u.name AS created_by_name
   FROM electronics_warranty_claims k
   JOIN electronics_repair_jobs j ON j.business_id=k.business_id AND j.id=k.job_id
   LEFT JOIN business_contacts c ON c.business_id=k.business_id AND c.id=k.supplier_contact_id
@@ -301,7 +301,7 @@ const lists = {
   'faulty-units': { sql: faultySql, search: ['serial', 'label', 'code', 'supplier_name', 'sold_no', 'replacement_serial', 'claim_no'], date: 'created_at',
     filters: { status: 'status' }, order: 'id DESC' },
   'warranty-claims': { sql: claimSql, search: ['brand', 'claim_no', 'job_no', 'device', 'serial', 'customer_name'], date: 'created_at',
-    filters: { status: 'status' }, order: 'id DESC' },
+    filters: { status: 'status', location: 'location_id' }, order: 'id DESC' },
 };
 
 module.exports = { receive, fromExchange, markFaulty, sendToSupplier, closeFaulty, createClaim, updateClaim, claimSummary, lists, derivedKey };

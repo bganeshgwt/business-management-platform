@@ -20,7 +20,7 @@ const id = (value, name = 'Record ID') => v.requiredId(value, name);
 const hashOf = (value) => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
 function requireModule(business, code, name) {
-  if (!business.modules.includes(code)) fail(`${name} is not switched on for this business. An owner can turn it on in Settings › Modules.`, 403);
+  if (!business.modules.includes(code)) fail(`${name} is not switched on for this business. An owner can turn it on in Settings › Business tools.`, 403);
 }
 // The last ten digits of a phone number: "+91 98450-12345" → "9845012345".
 function phoneDigits(phone, name = 'Phone') {

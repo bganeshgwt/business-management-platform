@@ -19,7 +19,7 @@ const optionalId = (value, name) => (value === undefined || value === null || va
 repo.addLists({
   // Appointment history for a salon: the deposit, the bill and any charge on each booking.
   'salon-appointments': {
-    sql: `SELECT a.id,a.starts_at,a.ends_at,a.status,a.contact_id,a.resource_id,a.sku_id,c.name AS contact_name,c.phone AS contact_phone,
+    sql: `SELECT a.id,a.starts_at,a.ends_at,a.status,a.contact_id,a.resource_id,a.sku_id,r.location_id,c.name AS contact_name,c.phone AS contact_phone,
       s.label AS service_name,r.name AS resource_name,rm.name AS room_name,d.price_at_booking,k.collection_no AS deposit_no,k.amount AS deposit_amount,
       bd.document_no AS bill_no,bd.total AS bill_total,d.bill_document_id,fd.document_no AS fee_no,fd.total AS fee_total,d.fee_document_id,
       d.arrived_at,COALESCE(d.walk_in,false) AS walk_in,COALESCE(d.moved_count,0) AS moved_count,d.reminder_sent_at,d.confirmation_sent_at
@@ -32,7 +32,7 @@ repo.addLists({
       LEFT JOIN business_documents bd ON bd.business_id=d.business_id AND bd.id=d.bill_document_id
       LEFT JOIN business_documents fd ON fd.business_id=d.business_id AND fd.id=d.fee_document_id WHERE a.business_id=$1`,
     search: ['contact_name', 'contact_phone', 'service_name', 'resource_name', 'bill_no'], date: 'starts_at',
-    filters: { status: 'status', staff: 'resource_id', contact: 'contact_id' }, order: 'starts_at DESC,id DESC',
+    filters: { status: 'status', staff: 'resource_id', contact: 'contact_id', location: 'location_id' }, order: 'starts_at DESC,id DESC',
   },
   'salon-walk-ins': {
     sql: `SELECT w.*,c.name AS contact_name,c.phone AS contact_phone,s.label AS service_name,r.name AS resource_name,
@@ -42,12 +42,12 @@ repo.addLists({
       JOIN catalog_skus s ON s.business_id=w.business_id AND s.id=w.sku_id
       LEFT JOIN salon_services ss ON ss.business_id=w.business_id AND ss.sku_id=w.sku_id
       LEFT JOIN business_resources r ON r.business_id=w.business_id AND r.id=w.resource_id WHERE w.business_id=$1`,
-    search: ['contact_name', 'contact_phone', 'service_name'], date: 'arrived_at', filters: { status: 'status' }, order: 'arrived_at',
+    search: ['contact_name', 'contact_phone', 'service_name'], date: 'arrived_at', filters: { status: 'status', location: 'location_id' }, order: 'arrived_at',
   },
   'salon-commission-payouts': {
-    sql: `SELECT p.*,r.name AS resource_name,u.name AS created_by_name FROM salon_commission_payouts p
+    sql: `SELECT p.*,r.name AS resource_name,r.location_id,u.name AS created_by_name FROM salon_commission_payouts p
       JOIN business_resources r ON r.business_id=p.business_id AND r.id=p.resource_id JOIN users u ON u.id=p.created_by WHERE p.business_id=$1`,
-    search: ['resource_name', 'reference', 'note'], date: 'created_at', filters: { staff: 'resource_id' }, order: 'created_at DESC,id DESC',
+    search: ['resource_name', 'reference', 'note'], date: 'created_at', filters: { staff: 'resource_id', location: 'location_id' }, order: 'created_at DESC,id DESC',
   },
   'salon-plan-usage': {
     sql: `SELECT x.id,x.client_plan_id,x.created_at,x.document_no,x.document_id,x.label,x.quantity,x.kind,x.amount FROM (
@@ -77,6 +77,7 @@ async function move(business, user, appointmentId, body) {
   return repo.transaction(async (db) => {
     await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
     const appointment = await repo.one(db, 'SELECT * FROM business_appointments WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(appointmentId, 'Appointment')]);
+    await access.requireAppointmentLocation(db, business, appointment);
     if (!appointment) fail('Appointment not found', 404);
     if (appointment.status !== 'booked') fail('Only a booking still to come can be moved', 409);
     const details = await repo.one(db, 'SELECT * FROM salon_appointment_details WHERE business_id=$1 AND appointment_id=$2 FOR UPDATE', [business.id, appointment.id]);
@@ -141,6 +142,7 @@ async function arrive(business, user, appointmentId) {
   await access.require(business, 'appointments.edit');
   return repo.transaction(async (db) => {
     const appointment = await repo.one(db, 'SELECT * FROM business_appointments WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(appointmentId, 'Appointment')]);
+    await access.requireAppointmentLocation(db, business, appointment);
     if (!appointment) fail('Appointment not found', 404);
     if (appointment.status !== 'booked') fail('Only a booking still to come can be marked arrived', 409);
     const today = await repo.one(db, `SELECT ($2::timestamptz AT TIME ZONE timezone)::date = (now() AT TIME ZONE timezone)::date AS today FROM businesses WHERE id=$1`,
@@ -164,6 +166,7 @@ async function messageSent(business, user, appointmentId, body) {
   const kind = v.requiredEnum(body.kind, 'Message', ['confirmation', 'reminder']);
   return repo.transaction(async (db) => {
     const appointment = await repo.one(db, 'SELECT * FROM business_appointments WHERE business_id=$1 AND id=$2', [business.id, id(appointmentId, 'Appointment')]);
+    await access.requireAppointmentLocation(db, business, appointment);
     if (!appointment) fail('Appointment not found', 404);
     if (appointment.status !== 'booked') fail('Only a booking still to come gets a confirmation or reminder', 409);
     const column = kind === 'confirmation' ? 'confirmation_sent_at' : 'reminder_sent_at';
@@ -327,7 +330,7 @@ async function cancelLeave(business, user, resourceId, leaveId) {
 // body: { endsOn, reason }. A later end date only; audited with the reason.
 async function extendClientPlan(business, user, clientPlanId, body) {
   salon.requireSalon(business);
-  if (!business.modules.includes('packages')) fail('Packages & memberships is not switched on for this business. An owner can turn it on in Settings › Modules.', 403);
+  if (!business.modules.includes('packages')) fail('Packages & memberships is not switched on for this business. An owner can turn it on in Settings › Business tools.', 403);
   await access.require(business, 'packages.edit');
   const endsOn = core.dateText(body.endsOn, 'New end date');
   const reason = v.requiredString(body.reason, 'Reason', 300);
