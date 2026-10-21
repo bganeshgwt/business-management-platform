@@ -212,6 +212,7 @@ const clinic = {
       }
       // Then patients, consultations and the lab (rules.clinicRules).
       await rules.clinicRules(sim);
+      await rules.clinicDesk(sim);
     },
   },
 };

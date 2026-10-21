@@ -1,6 +1,7 @@
 const repo = require('../../core/repositories/business.repository');
 const v = require('../../../../utils/validate');
 const access = require('../../core/services/businessAccess.service');
+const quality = require('./businessLabQuality.service');
 const core = require('../../core/services/business.service');
 const paymentMethods = require('../../core/services/businessPaymentMethods.service');
 const h = require('./healthCommon');
@@ -31,7 +32,7 @@ const clinic = require('./businessClinic.service');
 const { fail, id, optionalId, text } = h;
 const requireLab = (business) => {
   h.requireType(business, ['healthcare'], 'Lab screens');
-  if (!business.modules.includes('lab')) fail('Laboratory is not switched on for this business. An owner can turn it on in Settings › Modules.', 403);
+  if (!business.modules.includes('lab')) fail('Laboratory is not switched on for this business. An owner can turn it on in Settings › Business tools.', 403);
 };
 const SAMPLE_TYPES = ['blood', 'serum', 'plasma', 'urine', 'stool', 'swab', 'sputum', 'other'];
 const seesResults = (business) => ['lab.edit', 'lab.approve', 'patients.view_clinical'].some((p) => access.can(business, p));
@@ -47,7 +48,7 @@ repo.addLists({
     search: ['code', 'name', 'sample_type', 'method'], filters: { kind: 'kind', active: 'active', sample: 'sample_type' }, order: 'kind DESC,name',
   },
   'lab-orders': {
-    sql: `SELECT o.id,o.order_no,o.contact_id,o.visit_id,o.status,o.priority,o.referred_by,o.created_at,o.approved_at,o.outside_lab,o.document_id,
+    sql: `SELECT o.id,o.order_no,o.location_id,o.contact_id,o.visit_id,o.status,o.priority,o.referred_by,o.created_at,o.approved_at,o.outside_lab,o.document_id,
       c.name AS patient_name,c.phone AS patient_phone,p.patient_no,p.sex,d.document_no,v.visit_no,(o.outside_lab IS NOT NULL) AS outside,
       (SELECT string_agg(t.code,', ' ORDER BY ot.id) FROM lab_order_tests ot JOIN lab_tests t ON t.business_id=ot.business_id AND t.id=ot.test_id
         WHERE ot.business_id=o.business_id AND ot.order_id=o.id) AS tests,
@@ -58,7 +59,7 @@ repo.addLists({
       LEFT JOIN business_documents d ON d.business_id=o.business_id AND d.id=o.document_id
       LEFT JOIN health_visits v ON v.business_id=o.business_id AND v.id=o.visit_id WHERE o.business_id=$1`,
     search: ['order_no', 'patient_name', 'patient_phone', 'patient_no', 'barcodes', 'tests', 'referred_by', 'outside_lab'], date: 'created_at',
-    filters: { status: 'status', priority: 'priority', patient: 'contact_id', outside: 'outside', visit: 'visit_id' }, order: "priority='urgent' DESC,created_at DESC,id DESC",
+    filters: { status: 'status', priority: 'priority', patient: 'contact_id', outside: 'outside', visit: 'visit_id', location: 'location_id' }, order: "priority='urgent' DESC,created_at DESC,id DESC",
   },
 });
 
@@ -346,6 +347,7 @@ async function enterResults(business, user, orderId, body) {
   if (!list.length || list.length > 300) fail('Enter between 1 and 300 results');
   return repo.transaction(async (db) => {
     const order = await repo.one(db, 'SELECT * FROM lab_orders WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(orderId, 'Lab order')]);
+    if (order) access.requireLocation(business, order.location_id);
     if (!order) fail('Lab order not found', 404);
     if (['approved', 'cancelled'].includes(order.status)) fail('This order is closed; its results cannot change', 409);
     const patient = await repo.one(db, 'SELECT * FROM health_patients WHERE business_id=$1 AND contact_id=$2', [business.id, order.contact_id]);
@@ -389,15 +391,22 @@ async function approve(business, user, orderId, body) {
   const signer = await h.verifySignature(business, 'pathologist', body.signoff, 'Approving a report');
   return repo.transaction(async (db) => {
     const order = await repo.one(db, 'SELECT * FROM lab_orders WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(orderId, 'Lab order')]);
+    if (order) access.requireLocation(business, order.location_id);
     if (!order) fail('Lab order not found', 404);
     if (order.status === 'approved') return orderDetail(db, business, order.id, { log: false, forceResults: true });
     const current = await recompute(db, business, order.id);
     if (current.status !== 'resulted') fail('Enter every result before approving the report', 409);
-    await db.query("UPDATE lab_orders SET status='approved',approved_by=$3,approved_signatory_id=$4,approved_at=now(),updated_at=now() WHERE business_id=$1 AND id=$2",
+    // A parameter whose quality control failed today is not signed out.
+    const heldByQc = await quality.rejectedQc(db, business, order.id);
+    if (heldByQc.length) {
+      fail(`Today's QC failed for ${heldByQc.map((q) => `${q.name} (${q.rules.join(', ')})`).join('; ')}. Correct the analyser and run QC again before signing.`, 409, { reason: 'qc_rejected', parameters: heldByQc });
+    }
+    await db.query("UPDATE lab_orders SET status='approved',approved_by=$3,approved_signatory_id=$4,approved_at=now(),amend_reason=NULL,amend_requested_by=NULL,amend_requested_at=NULL,updated_at=now() WHERE business_id=$1 AND id=$2",
       [business.id, order.id, signer.user_id, signer.id]);
+    const version = await quality.recordVersion(db, business, order, signer);
     const flagged = await repo.one(db, "SELECT count(*)::int AS n FROM lab_results WHERE business_id=$1 AND order_id=$2 AND flag IN ('critical_low','critical_high')", [business.id, order.id]);
-    await repo.audit(db, business.id, signer.user_id, 'lab.report_approved', order.id, { orderNo: order.order_no, pathologist: signer.name, enteredBy: user.id });
-    await repo.event(db, business.id, signer.user_id, 'lab.report_ready', 'lab_order', order.id, { orderNo: order.order_no, contactId: order.contact_id, visitId: order.visit_id, critical: flagged.n });
+    await repo.audit(db, business.id, signer.user_id, 'lab.report_approved', order.id, { orderNo: order.order_no, pathologist: signer.name, enteredBy: user.id, version, amendReason: order.amend_reason });
+    await repo.event(db, business.id, signer.user_id, 'lab.report_ready', 'lab_order', order.id, { orderNo: order.order_no, contactId: order.contact_id, visitId: order.visit_id, critical: flagged.n, version });
     return orderDetail(db, business, order.id, { log: false, forceResults: true });
   });
 }
@@ -408,6 +417,7 @@ async function cancelOrder(business, user, orderId, body) {
   const reason = v.requiredString(body.reason, 'Reason', 300);
   return repo.transaction(async (db) => {
     const order = await repo.one(db, 'SELECT * FROM lab_orders WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(orderId, 'Lab order')]);
+    if (order) access.requireLocation(business, order.location_id);
     if (!order) fail('Lab order not found', 404);
     if (['approved', 'cancelled'].includes(order.status)) fail('This order is already closed', 409);
     await db.query("UPDATE lab_orders SET status='cancelled',cancel_reason=$3,updated_at=now() WHERE business_id=$1 AND id=$2", [business.id, order.id, reason]);
@@ -425,6 +435,7 @@ async function refer(business, user, orderId, body) {
   const charge = body.outsideCharge === undefined || body.outsideCharge === '' || body.outsideCharge === null ? null : core.decimal(body.outsideCharge, 'Outside lab charge', 2, 0, 10000000);
   return repo.transaction(async (db) => {
     const order = await repo.one(db, 'SELECT * FROM lab_orders WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(orderId, 'Lab order')]);
+    if (order) access.requireLocation(business, order.location_id);
     if (!order) fail('Lab order not found', 404);
     if (['approved', 'cancelled'].includes(order.status)) fail('This order is closed', 409);
     const settings = await h.settings(db, business.id);
@@ -478,7 +489,8 @@ async function orderDetail(db, business, orderId, { log = true, forceResults = f
     for (const p of params) if (!p.range_text) p.range_text = rangeText(rangeFor(ranges.filter((r) => String(r.parameter_id) === String(p.parameter_id)), order.sex, ageDays), p.unit);
     if (log) await clinic.logClinicalView(business, order.contact_id, 'lab results', { orderNo: order.order_no });
   }
-  return { ...order, age, samples, tests, results_visible: results };
+  const qc = ['received', 'in_process', 'resulted'].includes(order.status) ? await quality.orderQc(db, business, order.id) : [];
+  return { ...order, age, samples, tests, results_visible: results, qc };
 }
 async function order(business, orderId) {
   requireLab(business);
@@ -486,11 +498,36 @@ async function order(business, orderId) {
   return orderDetail(repo.pool, business, id(orderId, 'Lab order'));
 }
 // The printable report (approved orders only).
-async function report(business, orderId) {
+async function report(business, orderId, query = {}) {
   requireLab(business);
   await access.require(business, 'lab.print');
   const detail = await orderDetail(repo.pool, business, id(orderId, 'Lab order'), { log: false, forceResults: true });
-  if (detail.status !== 'approved') fail('The report is printed once the pathologist approves it', 409);
+  const asked = query.version === undefined || query.version === '' ? null : v.requiredNumber(Number(query.version), 'Version', { min: 1, max: 999 });
+  const versionRows = await repo.all(repo.pool, `SELECT x.version,x.amend_reason,x.approved_at,x.results,g.name AS pathologist_name,g.qualification AS pathologist_qualification,
+      g.registration_no AS pathologist_reg_no FROM lab_report_versions x LEFT JOIN health_signatories g ON g.business_id=x.business_id AND g.id=x.signatory_id
+    WHERE x.business_id=$1 AND x.order_id=$2 ORDER BY x.version`, [business.id, detail.id]);
+  if (asked) {
+    const old = versionRows.find((x) => Number(x.version) === asked);
+    if (!old) fail(`Version ${asked} of this report was never signed`, 404);
+    const current = detail.status === 'approved' && asked === Number(detail.version);
+    if (!current) {
+      // An earlier signed report, as it was, marked superseded.
+      for (const t of detail.tests) {
+        t.parameters = old.results.filter((r) => r.test_code === t.code).map((r) => ({ parameter_id: r.parameter_id, name: r.name, unit: r.unit, value_numeric: r.value_numeric,
+          value_text: r.value_text, range_text: r.range_text, flag: r.flag }));
+      }
+      Object.assign(detail, { pathologist_name: old.pathologist_name, pathologist_qualification: old.pathologist_qualification, pathologist_reg_no: old.pathologist_reg_no,
+        approved_at: old.approved_at, status: 'approved', superseded: true });
+    }
+    detail.report_version = asked;
+    detail.report_amend_reason = old.amend_reason;
+  } else {
+    if (detail.status !== 'approved') fail('The report is printed once the pathologist approves it', 409);
+    detail.report_version = Number(detail.version);
+    detail.report_amend_reason = versionRows.find((x) => Number(x.version) === Number(detail.version))?.amend_reason || null;
+  }
+  const previous = versionRows.find((x) => Number(x.version) === detail.report_version - 1);
+  detail.amends = previous ? { version: previous.version, approved_at: previous.approved_at } : null;
   const [settings, seller] = await Promise.all([h.settings(repo.pool, business.id),
     repo.one(repo.pool, 'SELECT display_name,legal_name,address_line1,address_line2,city,postal_code,phone,email FROM business_settings WHERE business_id=$1', [business.id])]);
   await repo.transaction((db) => repo.audit(db, business.id, business.member_user_id, 'lab.report_printed', detail.id, { orderNo: detail.order_no, contactId: detail.contact_id }));

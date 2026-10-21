@@ -179,17 +179,33 @@ function NoteDialog({ visitId, onClose, onSaved }) {
   );
 }
 
+// The consultation is the doctor's fee: full for a first visit, the follow-up
+// fee (or nothing) within their follow-up days, else the booked service.
+const FEE_WORDS = { consultation: "Consultation", follow_up: "Follow-up", free_follow_up: "Free follow-up", booked_service: "Booked service" };
 function BillDialog({ visit, onClose, onSaved }) {
   const biz = useOpenBusiness();
   const [method, setMethod] = useState("upi");
   const methods = usePaymentMethods();
   const [key] = useState(newKey);
-  const locationId = biz.locations.find((l) => l.active)?.id;
+  const [fee, setFee] = useState(null);
+  useEffect(() => { businessRead(biz.id, `clinic/visits/${visit.id}/fee`).then(setFee).catch(() => setFee({ kind: "none" })); }, [biz.id, visit.id]);
+  const free = fee?.kind === "free_follow_up";
+  const last = fee?.last_consultation;
   return (
-    <FormDialog title={`Bill ${visit.visit_no}`} icon="receipt" width={520} onClose={onClose} onSaved={onSaved} successMessage={(r) => `Billed ${r.document.document_no}`}
-      description={visit.appointment_id ? "The consultation booked with the appointment is billed (exempt from GST)." : "This walk-in visit has no booked service; bill it on the Sales screen."}
-      onSubmit={() => businessWrite(biz.id, `clinic/visits/${visit.id}/bill`, { requestKey: key, locationId, payment: { amount: "full", ...methods.body(method, PAY_KINDS) } })}>
-      <Field label="Paid by"><select value={methods.resolve(method, PAY_KINDS)} onChange={(e) => setMethod(e.target.value)}>{methods.options(PAY_KINDS).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}</select></Field>
+    <FormDialog title={`Bill ${visit.visit_no}`} icon="receipt" width={520} onClose={onClose} onSaved={onSaved} disabled={!fee || fee.kind === "none"}
+      submitLabel={free ? "Record free follow-up" : "Bill and take payment"}
+      successMessage={(r) => (r.document ? `Billed ${r.document.document_no}` : "Recorded as a free follow-up")}
+      description={!fee ? "Working out the fee…" : fee.kind === "none" ? "No fee is set for this doctor and nothing was booked; bill it on the Sales screen, or set the doctor's fee under Doctors."
+        : "Consultations are exempt from GST."}
+      onSubmit={() => businessWrite(biz.id, `clinic/visits/${visit.id}/bill`, { requestKey: key, locationId: visit.location_id, ...(free ? {} : { payment: { amount: "full", ...methods.body(method, PAY_KINDS) } }) })}>
+      {fee && fee.kind !== "none" && (
+        <div className="field-wide hl-fee">
+          <span className="bz-two-line"><strong>{FEE_WORDS[fee.kind]}{fee.label && !free ? `: ${fee.label}` : ""}</strong>
+            {last && <small className="muted">Within {fee.follow_up_days} days of {last.visit_no} ({dateShort(last.day)})</small>}</span>
+          <strong>{free ? biz.amount(0) : biz.amount(fee.price)}</strong>
+        </div>
+      )}
+      {!free && <Field label="Paid by"><select value={methods.resolve(method, PAY_KINDS)} onChange={(e) => setMethod(e.target.value)}>{methods.options(PAY_KINDS).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}</select></Field>}
     </FormDialog>
   );
 }

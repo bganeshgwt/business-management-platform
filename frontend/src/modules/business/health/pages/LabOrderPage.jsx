@@ -23,6 +23,7 @@ import "../styles/health.css";
 // rejected), result entry against the patient's reference ranges (out of
 // range values flagged as typed), the pathologist's approval by PIN, an
 // outside-lab referral, and the printed report once approved.
+const QC_WORDS = { accepted: ["success", "in control"], warning: ["warning", "1-2s warning"], rejected: ["danger", "QC failed"], not_run: ["neutral", "not run yet"] };
 const SAMPLE_WORDS = { awaited: ["warning", "To collect"], collected: ["info", "Collected"], received: ["success", "In the lab"], rejected: ["danger", "Rejected"] };
 
 // The flag a value would get, judged on the screen the same way the server does.
@@ -71,8 +72,8 @@ export default function LabOrderPage() {
       toast.success(saved.status === "resulted" ? "All results entered: ready for the pathologist" : "Results saved");
     } catch (err) { setError(getErrorMessage(err)); } finally { setBusy(false); }
   }
-  const printReport = async () => {
-    try { printLabReport(await businessRead(biz.id, `lab/orders/${orderId}/report`)); } catch (err) { toast.error(getErrorMessage(err)); }
+  const printReport = async (reportVersion) => {
+    try { printLabReport(await businessRead(biz.id, `lab/orders/${orderId}/report`, reportVersion ? { version: reportVersion } : undefined)); } catch (err) { toast.error(getErrorMessage(err)); }
   };
 
   const closed = order && ["approved", "cancelled"].includes(order.status);
@@ -96,10 +97,12 @@ export default function LabOrderPage() {
     <div className="stack">
       <BusinessHeader icon="activity" title={`${order.order_no} · ${order.patient_name}`}
         description={`${order.patient_no} · ${SEX_WORDS[order.sex]} · ${order.age} y · ordered ${dateTime(order.created_at)}${order.referred_by ? ` · by ${order.referred_by}` : ""}`}
-        primary={order.status === "approved" && biz.can("lab.print") ? <button type="button" className="button" onClick={printReport}><Icon name="print" size={16} /> Print report</button>
+        primary={order.status === "approved" && biz.can("lab.print") ? <button type="button" className="button" onClick={() => printReport()}><Icon name="print" size={16} /> Print report</button>
           : order.status === "resulted" && biz.can("lab.approve") ? <button type="button" className="button" onClick={() => setDialog("approve")}><Icon name="shield" size={16} /> Approve report</button> : undefined}
         secondary={<Link className="button button-secondary" to={businessPath(biz.id, "lab-orders")}>All orders</Link>}
         more={[{ label: "Print sample labels", icon: "print", onClick: () => printSampleLabels(order) },
+          order.status === "approved" && biz.can("lab.approve") && { label: "Amend the report", icon: "edit", onClick: () => setDialog("amend") },
+          Number(order.version) > 0 && (biz.can("lab.print") || biz.can("lab.approve")) && { label: "Report versions", icon: "history", onClick: () => setDialog("versions") },
           !closed && biz.can("lab.create") && { label: "Send to an outside lab", icon: "truck", onClick: () => setDialog("refer") },
           !closed && biz.can("lab.create") && { separator: true }, !closed && biz.can("lab.create") && { label: "Cancel the order", icon: "ban", danger: true, onClick: () => setDialog("cancel") }].filter(Boolean)} />
       <div className="hl-strip">
@@ -109,9 +112,18 @@ export default function LabOrderPage() {
         {order.visit_no && <Link to={businessPath(biz.id, `visits/${order.visit_id}`)} className="chip-button">Visit {order.visit_no}</Link>}
         {order.outside_lab && <StatusBadge tone="info" label={`Outside lab: ${order.outside_lab}${order.outside_ref_no ? ` (${order.outside_ref_no})` : ""}`} />}
         {order.status === "approved" && <StatusBadge status="approved" label={`Approved ${dateTime(order.approved_at)} · ${order.pathologist_name}`} />}
+        {Number(order.version) > 1 && order.status === "approved" && <StatusBadge tone="info" label={`Amended report · version ${order.version}`} />}
+        {order.amend_reason && <StatusBadge tone="warning" label={`Being amended (after version ${order.version}): ${order.amend_reason}`} />}
         {order.status === "cancelled" && <StatusBadge tone="neutral" label={`Cancelled: ${order.cancel_reason}`} />}
       </div>
       <ErrorMessage message={error} />
+      {order.qc?.length > 0 && (
+        <div className="hl-strip" aria-label="Quality control today">
+          <span className="muted">QC today:</span>
+          {order.qc.map((q) => <StatusBadge key={q.parameter_id} tone={QC_WORDS[q.status][0]} label={`${q.name}: ${QC_WORDS[q.status][1]}`} />)}
+          {order.qc.some((q) => q.status === "rejected") && <Link className="chip-button" to={businessPath(biz.id, "lab-qc")}>Open quality control</Link>}
+        </div>
+      )}
       <SectionCard flush icon="box" title="Samples">
         <DataGrid id="lab-order-samples" caption="Samples" variant="compact" rows={order.samples} columns={sampleColumns} />
       </SectionCard>
@@ -146,6 +158,8 @@ export default function LabOrderPage() {
         </div>
       )}
       {dialog === "approve" && <ApproveDialog order={order} onClose={() => setDialog(null)} onSaved={() => refresh("Report approved: ready to print")} />}
+      {dialog === "amend" && <AmendDialog order={order} onClose={() => setDialog(null)} onSaved={() => refresh("Report reopened: correct the results and approve it again")} />}
+      {dialog === "versions" && <VersionsDialog order={order} onPrint={printReport} onClose={() => setDialog(null)} />}
       {dialog === "refer" && <ReferDialog order={order} onClose={() => setDialog(null)} onSaved={() => refresh("Sent to the outside lab")} />}
       {dialog === "cancel" && <ReasonDialog title={`Cancel ${order.order_no}`} submitLabel="Cancel order" label="Why" description={order.document_no ? `It was billed on ${order.document_no}: refund it from Sales if the patient paid.` : undefined}
         onSubmit={(reason) => businessWrite(biz.id, `lab/orders/${order.id}/cancel`, { reason })} onClose={() => setDialog(null)} onSaved={() => refresh("Order cancelled")} />}
@@ -165,6 +179,51 @@ function ApproveDialog({ order, onClose, onSaved }) {
       description={`${flagged.length} value${flagged.length === 1 ? "" : "s"} out of range${flagged.some((p) => String(p.flag).startsWith("critical")) ? ", including critical ones: tell the doctor" : ""}. Once approved, the results are fixed.`}
       onSubmit={() => businessWrite(biz.id, `lab/orders/${order.id}/approve`, { signoff: { signatoryId: Number(signoff.signatoryId), pin: signoff.pin } })}>
       <SignOff kind="pathologist" signatories={pathologists} value={signoff} onChange={setSignoff} />
+    </FormDialog>
+  );
+}
+
+// Reopens a signed report for correction: the pathologist's reason and PIN.
+// The signed version is kept and can still be printed (marked superseded).
+function AmendDialog({ order, onClose, onSaved }) {
+  const biz = useOpenBusiness();
+  const pathologists = useSignatories(biz.id, "pathologist");
+  const [signoff, setSignoff] = useState({});
+  const [reason, setReason] = useState("");
+  return (
+    <FormDialog title={`Amend ${order.order_no}`} icon="edit" width={560} onClose={onClose} onSaved={onSaved} submitLabel="Reopen for amendment"
+      description={`Version ${order.version} stays on record as it was signed. After correcting, approve again: the new report prints as amended, with this reason.`}
+      onSubmit={() => businessWrite(biz.id, `lab/orders/${order.id}/amend`, { reason, signoff: { signatoryId: Number(signoff.signatoryId), pin: signoff.pin } })}>
+      <Field label="Reason for the amendment" wide><textarea required maxLength={300} rows={2} value={reason} placeholder="e.g. Transcription error: 9.5 entered for 12.5" onChange={(e) => setReason(e.target.value)} /></Field>
+      <SignOff kind="pathologist" signatories={pathologists} value={signoff} onChange={setSignoff} />
+    </FormDialog>
+  );
+}
+
+// Every signed version, newest first, each printable as it was signed.
+function VersionsDialog({ order, onPrint, onClose }) {
+  const biz = useOpenBusiness();
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  useEffect(() => { businessRead(biz.id, `lab/orders/${order.id}/versions`).then(setData).catch((err) => setError(getErrorMessage(err))); }, [biz.id, order.id]);
+  return (
+    <FormDialog title={`Report versions · ${order.order_no}`} icon="history" width={600} onClose={onClose} hideSubmit onSubmit={() => null}>
+      <div className="field-wide">
+        <ErrorMessage message={error} />
+        {!data && !error ? <Loading /> : (
+          <ol className="hl-versions">
+            {(data?.versions || []).map((x) => (
+              <li key={x.id}>
+                <span className="bz-inline"><strong>Version {x.version}</strong>
+                  {x.superseded ? <StatusBadge tone="neutral" label="Superseded" /> : <StatusBadge status="approved" label="Current" />}</span>
+                <small className="muted">Signed {dateTime(x.approved_at)} · {x.pathologist_name || "—"}</small>
+                {x.amend_reason && <small>Amended: {x.amend_reason}</small>}
+                {biz.can("lab.print") && <button type="button" className="chip-button" onClick={() => onPrint(x.version)}><Icon name="print" size={14} /> Print version {x.version}</button>}
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
     </FormDialog>
   );
 }
