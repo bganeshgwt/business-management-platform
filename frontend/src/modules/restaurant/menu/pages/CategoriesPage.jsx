@@ -18,11 +18,18 @@ import { getErrorMessage } from "../../../../services/api";
 import { count } from "../../../../services/format";
 import useAuth from "../../../../hooks/useAuth";
 import "../../../../styles/menu.css";
+import { listBrands } from "../services/brand.service";
 
-const EMPTY = { name: "", description: "", sortOrder: 0, status: "active" };
+const EMPTY = { name: "", description: "", sortOrder: 0, status: "active", brandId: "" };
 
 export default function CategoriesPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, hasFeature } = useAuth();
+  // Brands (one kitchen, several names): whose menu a category is.
+  const brandsOn = hasFeature("brands");
+  const [brands, setBrands] = useState([]);
+  useEffect(() => {
+    if (brandsOn) listBrands().then(setBrands).catch(() => undefined);
+  }, [brandsOn]);
   const canManage = hasPermission("menu.manage");
 
   const [categories, setCategories] = useState([]);
@@ -66,6 +73,7 @@ export default function CategoriesPage() {
       description: category.description || "",
       sortOrder: category.sortOrder,
       status: category.status,
+      brandId: category.brandId ? String(category.brandId) : "",
     });
     setFormError("");
     setEditing(category);
@@ -85,13 +93,14 @@ export default function CategoriesPage() {
       name: form.name.trim(),
       description: form.description.trim() || null,
       sortOrder: Number(form.sortOrder),
+      brandId: form.brandId ? Number(form.brandId) : null,
     };
 
     try {
       if (editing.id) {
-        const was = { ...editing, description: editing.description || null };
+        const was = { ...editing, description: editing.description || null, brandId: editing.brandId || null };
         const changed = Object.fromEntries(
-          ["name", "description", "sortOrder", "status"]
+          ["name", "description", "sortOrder", "status", ...(brandsOn ? ["brandId"] : [])]
             .filter((key) => payload[key] !== was[key])
             .map((key) => [key, payload[key]])
         );
@@ -212,6 +221,7 @@ export default function CategoriesPage() {
               render: (category) => <span className="mnu-order">{category.sortOrder}</span>,
             },
             { key: "name", header: "Name", value: (category) => category.name, mobile: "title", pin: true, filter: "text" },
+            ...(brandsOn ? [{ key: "brand", header: "Brand", value: (category) => category.brandName || "Every brand", mobile: "show" }] : []),
             {
               key: "description",
               header: "Description",
@@ -307,6 +317,17 @@ export default function CategoriesPage() {
               />
               <small className="muted">Lower numbers come first</small>
             </label>
+
+            {brandsOn && (
+              <label className="field field-wide">
+                <span>Brand</span>
+                <select value={form.brandId} onChange={change("brandId")}>
+                  <option value="">Every brand (shared: drinks, desserts)</option>
+                  {brands.filter((brand) => brand.status === "active" || String(brand.id) === form.brandId).map((brand) => <option key={brand.id} value={brand.id}>{brand.name}</option>)}
+                </select>
+                <small className="muted">Its dishes are on this brand's menu only, at the POS and on its channel listings.</small>
+              </label>
+            )}
 
             <label className="field field-wide">
               <span>Description</span>

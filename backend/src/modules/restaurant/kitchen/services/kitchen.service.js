@@ -98,6 +98,7 @@ const toTicket = (row) => ({
   guestCount: row.guest_count,
   customerName: row.customer_name,
   orderNotes: row.order_notes,
+  brandName: row.brand_name || null,
   // The parcel's daily token, printed large so the counter can call it.
   tokenNo: row.token_no === null || row.token_no === undefined ? null : Number(row.token_no),
   round: row.round,

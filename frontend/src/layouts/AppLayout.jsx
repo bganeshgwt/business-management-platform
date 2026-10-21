@@ -85,6 +85,7 @@ const NAV_SECTIONS = [
   {
     title: "Menu",
     links: [
+      { to: "/menu/brands", label: "Brands", icon: "outlets", permission: "orders.view", feature: "brands" },
       { to: "/menu/categories", label: "Categories", icon: "categories", permission: "menu.view" },
       { to: "/menu/products", label: "Products", icon: "products", permission: "menu.view" },
       { to: "/menu/modifiers", label: "Modifiers", icon: "modifiers", permission: "menu.view" },

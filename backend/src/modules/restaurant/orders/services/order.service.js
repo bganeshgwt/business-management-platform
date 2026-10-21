@@ -71,6 +71,8 @@ const toOrder = (row) => ({
   deliveryAddress: row.delivery_address || null,
   deliveryLandmark: row.delivery_landmark || null,
   externalOrderRef: row.external_order_ref || null,
+  brandId: row.brand_id ? Number(row.brand_id) : null,
+  brandName: row.brand_name || null,
   deliveryEtaMinutes:
     row.delivery_eta_minutes === null || row.delivery_eta_minutes === undefined
       ? null
@@ -975,6 +977,11 @@ const create = async (restaurantId, data, userId) => {
   }
 
   const table = await validateTable(restaurantId, data.orderType, data.tableId);
+
+  // Brands: the brand must be this restaurant's and every dish on its menu.
+  if (data.brandId) {
+    await require("../../menu/services/brand.service").checkOrder(restaurantId, data.brandId, (data.items || []).map((item) => item.productId));
+  }
 
   await refuseOtherOutletTable(restaurantId, table, data.outletId, { pinned: Boolean(data.outletPinned) });
 

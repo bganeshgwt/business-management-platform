@@ -282,7 +282,9 @@ export const KOT_FONTS = [
 // hot pan: station, number and table in big type, then one line per dish with
 // the quantity first. Notes are boxed, because a missed "no onion" is a plate
 // sent back.
-export const buildKot = (ticket, { restaurantName = "" } = {}) => {
+export const buildKot = (ticket, { restaurantName: kitchenName = "" } = {}) => {
+  // Brands: the order's brand is the name on its ticket.
+  const restaurantName = ticket.brandName || kitchenName;
   const where = destination(ticket);
   const live = ticket.items.filter((item) => item.liveQuantity > 0);
   const voided = ticket.items.filter((item) => item.cancelledQuantity > 0);

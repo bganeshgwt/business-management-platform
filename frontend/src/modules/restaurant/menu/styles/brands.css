@@ -1,0 +1,28 @@
+/* Brands: one kitchen, several names. */
+.br-actions { display: flex; justify-content: flex-end; }
+.br-name { display: inline-flex; align-items: center; gap: 10px; }
+.br-two { display: flex; flex-direction: column; }
+.br-dot { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 auto; }
+.br-note { margin: 0; font-size: 0.85rem; }
+.br-colors { display: flex; gap: 8px; }
+.br-swatch { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+.br-swatch.is-on { border-color: var(--text); box-shadow: 0 0 0 2px var(--surface) inset; }
+.br-range { display: flex; gap: 12px; flex-wrap: wrap; }
+.br-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.br-tile { border: 1px solid var(--border); border-radius: var(--radius-lg, 12px); background: var(--surface); padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.br-tile span { color: var(--muted); font-size: 0.85rem; }
+.br-tile strong { font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.br-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 14px; }
+.br-card { border: 1px solid var(--border); border-radius: var(--radius-lg, 12px); background: var(--surface); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.br-card header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.br-card header .muted { margin-left: auto; font-size: 0.85rem; }
+.br-figures { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.9rem; color: var(--muted); }
+.br-figures strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.br-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.br-table th, .br-table td { padding: 6px 4px; border-top: 1px solid var(--border); text-align: left; }
+.br-table th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
+.br-table .r { text-align: right; font-variant-numeric: tabular-nums; }
+/* POS: the brand an order is for. */
+.pos-brands { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pos-brand { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+.pos-brand.is-on { border-color: var(--brand-color, var(--primary)); background: color-mix(in srgb, var(--brand-color, var(--primary)) 12%, transparent); }

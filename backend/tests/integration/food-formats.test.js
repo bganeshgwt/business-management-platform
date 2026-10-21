@@ -163,6 +163,34 @@ test("food formats: café, bakery and cloud kitchen", { timeout: 600000 }, async
     assert.equal(service.tokensEnabled, true);
     const parcel = (await O("POST", "/orders", { orderType: "takeaway", items: [{ productId: cake.id, quantity: 1 }] }, 201)).data;
     assert.ok(parcel.tokenNo >= 1);
+    // Brands: one kitchen, several names (on with the cloud kitchen format).
+    owner = await login("owner@test.invalid");
+    assert.ok((await O("GET", "/auth/me")).data.features.includes("brands"));
+    await request("POST", "/menu/brands", { name: "Wrap Republic" }, 403, cook);
+    const biryani = (await O("POST", "/menu/brands", { name: "Biryani Box", tagline: "Hyderabadi dum biryani", color: "#b45309" }, 201)).data;
+    const wraps = (await O("POST", "/menu/brands", { name: "Wrap Republic" }, 201)).data;
+    await O("POST", "/menu/brands", { name: "wrap republic" }, 409);
+    const wrapCat = (await O("POST", "/menu/categories", { name: "Rolls & wraps", brandId: wraps.id }, 201)).data;
+    assert.equal(wrapCat.brandId, wraps.id);
+    const roll = (await O("POST", "/menu/products", { categoryId: wrapCat.id, name: "Chicken kathi roll", price: 189, taxPercentage: 0 }, 201)).data;
+    const biryaniCat = (await O("POST", "/menu/categories", { name: "Biryani", brandId: biryani.id }, 201)).data;
+    const dum = (await O("POST", "/menu/products", { categoryId: biryaniCat.id, name: "Chicken dum biryani", price: 329, taxPercentage: 0 }, 201)).data;
+    // The shared category (Cakes & cookies, no brand) is on every brand's menu.
+    const wrong = await O("POST", "/orders", { orderType: "delivery", brandId: biryani.id, items: [{ productId: roll.id, quantity: 1 }] }, 400);
+    assert.match(wrong.message, /Wrap Republic's menu/);
+    const order = (await O("POST", "/orders", { orderType: "delivery", brandId: biryani.id, items: [{ productId: dum.id, quantity: 2 }, { productId: cake.id, quantity: 1 }] }, 201)).data;
+    assert.equal(order.brandName, "Biryani Box");
+    const bill = (await O("POST", "/bills", { orderId: order.id }, 201)).data;
+    assert.equal(bill.brandName, "Biryani Box");
+    await O("POST", "/orders", { orderType: "delivery", brandId: wraps.id, items: [{ productId: roll.id, quantity: 1 }] }, 201);
+    const report = (await O("GET", `/menu/brands/report?from=${TODAY}&to=${TODAY}`)).data;
+    const mine = report.brands.find((b) => b.brandId === biryani.id);
+    assert.equal(mine.bills, 1);
+    assert.equal(mine.sales, Number(bill.totalAmount));
+    const brands = (await O("GET", "/menu/brands")).data;
+    assert.deepEqual(brands.map((b) => [b.name, b.categoryCount]), [["Biryani Box", 1], ["Wrap Republic", 1]]);
+    await O("PUT", `/menu/brands/${wraps.id}`, { name: "Wrap Republic", status: "inactive" });
+    await O("POST", "/orders", { orderType: "delivery", brandId: wraps.id, items: [{ productId: roll.id, quantity: 1 }] }, 409);
     // A café: the counter starts on takeaway, dine-in allowed.
     const cafe = (await O("PUT", "/restaurants/current/format", { format: "cafe" })).data;
     assert.equal(cafe.label, "Café");

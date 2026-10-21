@@ -99,6 +99,11 @@ router.delete("/selling-rules/:id", authorize("menu.manage"), sellingRules.remov
 router.get("/menu-card", authorize("menu.view"), require("../controllers/menuCard.controller").card);
 
 // Categories
+// Brands (feature "brands"): one kitchen, several names.
+router.get("/brands", requireFeature("brands"), authorize("orders.view"), require("../controllers/brand.controller").list);
+router.post("/brands", requireFeature("brands"), authorize("menu.manage"), require("../controllers/brand.controller").create);
+router.put("/brands/:id", requireFeature("brands"), authorize("menu.manage"), require("../controllers/brand.controller").update);
+router.get("/brands/report", requireFeature("brands"), authorize("reports.view"), require("../controllers/brand.controller").report);
 router.get("/categories", authorize("menu.view"), menuController.listCategories);
 router.post("/categories", authorize("menu.manage"), menuController.createCategory);
 router.put("/categories/:id", authorize("menu.manage"), menuController.updateCategory);

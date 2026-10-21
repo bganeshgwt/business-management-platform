@@ -1005,6 +1005,7 @@ const TICKET_SELECT = `
          s.name AS station_name, s.color AS station_color,
          o.order_number, o.order_type, o.source, o.guest_count, o.customer_name,
          o.notes AS order_notes, o.order_status, o.placed_at, o.token_no,
+         (SELECT rb.name FROM restaurant_brands rb WHERE rb.id = o.brand_id) AS brand_name,
          t.table_no,
          -- Which round of the order this is: 1 for the first call to the pass,
          -- 2 for the mains after the starters, and so on.

@@ -313,7 +313,10 @@ export const buildReceipt = (bill, options = {}) => {
 
   const head = [
     settings.receiptLogoPath ? `<div class="c"><img class="logo" src="${escape(settings.receiptLogoPath)}" alt="Logo" /></div>` : "",
-    `<div class="c b big">${escape(seller.name || options.restaurantName || "")}</div>`,
+    // Brands: the brand the order was taken under heads the bill; the
+    // registered business that supplies it follows (its GSTIN below).
+    bill.brandName ? `<div class="c b big">${escape(bill.brandName)}</div><div class="c s">by ${escape(seller.name || options.restaurantName || "")}</div>`
+      : `<div class="c b big">${escape(seller.name || options.restaurantName || "")}</div>`,
     seller.outletName ? `<div class="c">${escape(seller.outletName)}</div>` : "",
     settings.billHeader ? `<div class="c s">${escape(settings.billHeader)}</div>` : "",
     seller.address ? `<div class="c s">${escape(seller.address)}</div>` : "",

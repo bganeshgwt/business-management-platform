@@ -26,6 +26,8 @@ const readCategoryBody = (body = {}, forUpdate = false) => {
       () => v.optionalNumber(body.sortOrder, "Sort order", { min: 0, max: 9999 }) ?? 0
     ),
     status: unlessLeftOut("status", () => v.optionalEnum(body.status, "Status", ["active", "inactive"], "active")),
+    // Brands: whose menu it is; null (or 0) is every brand's.
+    brandId: unlessLeftOut("brandId", () => (body.brandId === null || body.brandId === "" || body.brandId === 0 || body.brandId === undefined ? null : v.requiredId(body.brandId, "Brand"))),
   };
 
   if (forUpdate && Object.values(data).every((value) => value === undefined)) {

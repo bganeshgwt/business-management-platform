@@ -23,6 +23,7 @@ export const FEATURE_NAMES = {
   stock_recipes: "Stock & recipes",
   staff_payroll: "Staff & payroll",
   preorders: "Pre-orders & cakes",
+  brands: "Brands",
   tasks: "Tasks & checklists",
   issues: "Issues",
   projects: "Projects",

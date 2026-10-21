@@ -2141,6 +2141,15 @@ While a parameter's latest QC today is failed, its patient reports cannot be app
 - Commission per channel is in *Deliveries › Report*.
 - Tables are hidden from the menu and the dashboard.
 
+**Brands: one kitchen, several names** (*Menu › Brands*, feature *Brands*, on for a cloud kitchen).
+- **Setting up:** *Add a brand* for each name the kitchen sells under (as listed on Swiggy and Zomato), with a colour for the POS. In *Menu › Categories*, give each category its brand. A category with no brand (drinks, desserts) is on every brand's menu.
+- **Taking orders:** the POS shows the brands above the menu. Pick one, and the menu shows its categories and the shared ones. The order is taken under that brand, and a dish from another brand's menu is refused.
+- **Printing:** the KOT and the bill print the brand's name. The registered business that supplies it follows on the bill, with its GSTIN.
+- **Report:** *Sales by brand* shows each brand's bills, sales, aggregator commission (at each order's own rate) and net, by channel.
+- **Pausing:** a brand can be paused, which takes no new orders and keeps its history.
+
+The demo cloud kitchen, Biryani Box, sells as Biryani Box, Wrap Republic and Bowl Theory.
+
 **Demo.** `npm run demo:food-formats` (backend) adds Brew & Bloom Café, Sweet Crust Bakery (with cake pre-orders and this morning's bake) and Biryani Box (Swiggy and Zomato orders), each with its own owner login (in `backend/.local/food-demo-logins.json`) and a week of trading.
 
 ---

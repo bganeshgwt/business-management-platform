@@ -25,7 +25,8 @@ const ORDER_COLUMNS = `o.id, o.order_number, o.order_type, o.source, o.table_id,
                        o.delivered_at, o.merged_into_order_id,
                        o.token_no, o.token_collected_at,
                        o.delivery_charge, o.delivery_charge_tax_percent, o.delivery_charge_waived_at,
-                       o.delivery_charge_waived_reason`;
+                       o.delivery_charge_waived_reason,
+                       o.brand_id, (SELECT rb.name FROM restaurant_brands rb WHERE rb.id = o.brand_id) AS brand_name`;
 
 // The tables joined to an order (two tables pushed together, one bill), and
 // the order another was joined into. Scalar subqueries, so the grouped list
@@ -709,6 +710,7 @@ const create = async (restaurantId, data, userId) => {
     );
 
     const orderId = inserted.rows[0].id;
+    if (data.brandId) await client.query("UPDATE orders SET brand_id = $2 WHERE id = $1", [orderId, data.brandId]);
     if(data.channelId) await client.query("UPDATE orders SET channel_id=$2,channel_commission_percent=$3 WHERE id=$1",[orderId,data.channelId,data.channelCommissionPercent]);
     await insertItems(client, orderId, data.items || [], userId);
     await deliveryChargeRepository.refresh(client, orderId);

@@ -36,11 +36,11 @@ const FORMATS = {
   },
   cloud_kitchen: {
     label: "Cloud kitchen",
-    summary: "Delivery only: Swiggy, Zomato and the own app or phone; channel prices and commission; no tables.",
+    summary: "Delivery only: Swiggy, Zomato and the own app or phone; several brands from one kitchen; channel prices and commission; no tables.",
     posOrderTypes: ["delivery", "takeaway"],
     defaultOrderType: "delivery",
     tokens: ["delivery", "online", "takeaway"],
-    features: { guests: true, deliveries: true, online_ordering: true, captain_sections: false, reservations: false, qr_ordering: false, tips: false },
+    features: { guests: true, deliveries: true, online_ordering: true, brands: true, captain_sections: false, reservations: false, qr_ordering: false, tips: false },
   },
 };
 const FORMAT_CODES = Object.keys(FORMATS);

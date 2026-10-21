@@ -27,6 +27,8 @@ const orderService = require("../src/modules/restaurant/orders/services/order.se
 const billService = require("../src/modules/restaurant/billing/services/bill.service");
 const deliveryService = require("../src/modules/restaurant/deliveries/services/delivery.service");
 const preorderService = require("../src/modules/restaurant/preorders/services/preorder.service");
+const brandService = require("../src/modules/restaurant/menu/services/brand.service");
+const restaurantFeatures = require("../src/modules/restaurant/setup/services/restaurantFeatures.service");
 
 const LOGINS = path.resolve(__dirname, "../.local/food-demo-logins.json");
 const DAYS = 6;
@@ -270,6 +272,64 @@ async function preorders(restaurantId, userId, products) {
   say(`  pre-orders · ${book.length} cake and party orders (2 due today, 4 later)`);
 }
 
+// The cloud kitchen sells under three brands from one kitchen: its biryani
+// menu as Biryani Box, rolls as Wrap Republic and rice bowls as Bowl Theory;
+// drinks and sides are on every brand's menu. Today's orders come in under
+// each brand on Swiggy, Zomato and its own riders.
+async function kitchenBrands() {
+  const restaurant = (await pool.query("SELECT id FROM restaurants WHERE code = 'BIRYANIBOX'")).rows[0];
+  if (!restaurant) return;
+  const restaurantId = restaurant.id;
+  if ((await pool.query("SELECT 1 FROM restaurant_brands WHERE restaurant_id = $1", [restaurantId])).rowCount) {
+    say("Biryani Box: brands already set up");
+    return;
+  }
+  const admin = (await pool.query("SELECT id, name FROM users WHERE restaurant_id = $1 ORDER BY id LIMIT 1", [restaurantId])).rows[0];
+  const userId = admin.id;
+  await restaurantFeatures.apply({ restaurantId, actor: admin, code: "brands", enabled: true, via: "demo" });
+  const brand = async (name, tagline, color, sortOrder) => brandService.save(restaurantId, null, { name, tagline, color, sortOrder, status: "active" }, userId);
+  const biryani = await brand("Biryani Box", "Hyderabadi dum biryani and kebabs", "#b45309", 1);
+  const wraps = await brand("Wrap Republic", "Kathi rolls and wraps", "#1f8a70", 2);
+  const bowls = await brand("Bowl Theory", "Home-style rice bowls", "#7c3aed", 3);
+  // The biryani menu (and every order so far) is Biryani Box's.
+  await pool.query("UPDATE categories SET brand_id = $2 WHERE restaurant_id = $1 AND name IN ('Biryani', 'Kebabs')", [restaurantId, biryani.id]);
+  await pool.query("UPDATE orders SET brand_id = $2 WHERE restaurant_id = $1 AND brand_id IS NULL", [restaurantId, biryani.id]);
+  const add = async (category, brandId, items, sortOrder) => {
+    const saved = await menuService.createCategory(restaurantId, { name: category, description: null, sortOrder, status: "active", brandId }, userId);
+    const rows = [];
+    for (const [name, price, foodType] of items) {
+      rows.push(await menuService.createProduct(restaurantId, { categoryId: saved.id, name, code: null, description: null, price, foodType, isAvailable: true, sortOrder: 0, status: "active" }, userId));
+    }
+    return rows;
+  };
+  const rolls = await add("Rolls & wraps", wraps.id, [["Chicken kathi roll", 189, "non_veg"], ["Mutton seekh roll", 229, "non_veg"], ["Paneer tikka wrap", 179, "veg"], ["Egg roll", 129, "egg"]], 10);
+  const riceBowls = await add("Rice bowls", bowls.id, [["Butter chicken rice bowl", 249, "non_veg"], ["Chilli paneer rice bowl", 229, "veg"], ["Rajma chawal bowl", 199, "veg"], ["Dal makhani bowl", 209, "veg"]], 11);
+  const drinks = await add("Drinks", null, [["Masala chaas", 49, "veg"], ["Sweet lassi", 79, "veg"]], 12);
+  const biryaniItems = (await pool.query(`SELECT p.id FROM products p JOIN categories c ON c.id = p.category_id WHERE p.restaurant_id = $1 AND c.brand_id = $2`, [restaurantId, biryani.id])).rows;
+  const channels = (await pool.query("SELECT id, name FROM sales_channels WHERE restaurant_id = $1 AND status = 'active' AND channel_type = 'aggregator'", [restaurantId])).rows;
+  const menus = [[biryani, biryaniItems], [wraps, rolls], [bowls, riceBowls]];
+  let orders = 0;
+  for (let n = 0; n < 30; n += 1) {
+    const [chosen, items] = menus[n % 5 === 4 ? 2 : n % 3 === 2 ? 1 : n % 4 === 3 ? 2 : 0];
+    const lines = [{ productId: pick(items).id, productVariantId: null, modifierIds: [], notes: null, quantity: between(1, 2) }];
+    if (random() < 0.4) lines.push({ productId: pick(drinks).id, productVariantId: null, modifierIds: [], notes: null, quantity: 1 });
+    const channel = random() < 0.85 ? pick(channels) : null;
+    try {
+      const order = await orderService.create(restaurantId, { orderType: "delivery", source: channel ? "partner" : "pos", brandId: chosen.id, channelId: channel ? channel.id : null,
+        outletId: null, customerId: null, customerName: null, customerMobile: null, guestCount: null, notes: null, items: lines }, userId);
+      if (channel) await deliveryService.updateDetails(restaurantId, order.id, { externalRef: `${channel.name.slice(0, 3).toUpperCase()}${between(10000000, 99999999)}` }, userId).catch(() => {});
+      if (n < 26) {
+        const bill = await billService.createForOrder(restaurantId, { orderId: order.id, discountCode: null, outletId: null, loyaltyPoints: null, items: [] }, userId);
+        await billService.addPayment(restaurantId, bill.id, { paymentMethod: channel ? "online" : "upi", amount: bill.dueAmount, tenderedAmount: null, transactionRef: channel ? null : `UPI${between(100000, 999999)}` }, userId);
+      }
+      orders += 1;
+    } catch (error) {
+      if (n === 0) say(`  (skipped an order: ${error.message})`);
+    }
+  }
+  say(`Biryani Box: 3 brands (Biryani Box, Wrap Republic, Bowl Theory), ${rolls.length + riceBowls.length + drinks.length} new items, ${orders} brand orders today`);
+}
+
 async function main() {
   for (const def of PLACES) {
     const made = await place(def);
@@ -287,6 +347,7 @@ async function main() {
       await trade(def, restaurantId, userId, products, tableRows);
     }
   }
+  await kitchenBrands();
   say(`Logins: ${LOGINS}`);
 }
 

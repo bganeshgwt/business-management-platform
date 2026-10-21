@@ -37,6 +37,7 @@ const ICONS = {
   stock_recipes: "box",
   staff_payroll: "clock",
   preorders: "calendar",
+  brands: "store",
 };
 
 const GROUP_NOTES = {

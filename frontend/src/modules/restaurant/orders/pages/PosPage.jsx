@@ -72,6 +72,8 @@ import GuestBox from "./GuestBox";
 import DeliveryFields from "./DeliveryFields";
 import DeliveryChargeLine from "./DeliveryChargeLine";
 import WeighDialog from "./WeighDialog";
+import { listBrands } from "../../menu/services/brand.service";
+import "../../menu/styles/brands.css";
 import { EMPTY_DELIVERY, deliveryOf, deliveryPayload, sameDelivery } from "../services/posDelivery";
 import { DishAvailability, SoldOutPanel } from "./SoldOutControls";
 import BillModal from "./BillModal";
@@ -180,6 +182,19 @@ export default function PosPage() {
   const orderTypes = ORDER_TYPES.filter((type) => (type.value !== "delivery" || deliveriesOn) && (!posSetup || posSetup.posOrderTypes.includes(type.value)));
   const dineInOn = orderTypes.some((type) => type.value === "dine_in");
   const [weighing, setWeighing] = useState(null);
+  // Brands (one kitchen, several names): the brand a new order is taken
+  // under; the menu shows that brand's categories and the shared ones.
+  const brandsOn = hasFeature("brands");
+  const [brands, setBrands] = useState([]);
+  const [brandId, setBrandId] = useState("");
+  useEffect(() => {
+    if (!brandsOn) return;
+    listBrands().then((rows) => {
+      const selling = rows.filter((row) => row.status === "active");
+      setBrands(selling);
+      setBrandId((current) => current || (selling[0] ? String(selling[0].id) : ""));
+    }).catch(() => undefined);
+  }, [brandsOn]);
   const canCancelAfterKot = hasPermission("orders.cancel_after_kot");
   // Only staff who may read the guest book find a regular by name; everyone
   // who takes orders finds one by the mobile typed at the till.
@@ -652,7 +667,11 @@ export default function PosPage() {
 
   // A dish in a category that is switched off (breakfast after 11) is not on
   // sale, so it is not on the till either — "All" included.
-  const liveCategoryIds = useMemo(() => new Set(categories.map((row) => row.id)), [categories]);
+  const brandCategories = useMemo(
+    () => (brandId ? categories.filter((row) => !row.brandId || String(row.brandId) === brandId) : categories),
+    [categories, brandId]
+  );
+  const liveCategoryIds = useMemo(() => new Set(brandCategories.map((row) => row.id)), [brandCategories]);
   const liveProducts = useMemo(
     () => products.filter((product) => liveCategoryIds.has(product.categoryId)),
     [products, liveCategoryIds]
@@ -1313,6 +1332,7 @@ export default function PosPage() {
         saved = await createOrder({
           orderType,
           channelId: orderType === "delivery" && delivery.channelId ? Number(delivery.channelId) : null,
+          brandId: brandsOn && brandId ? Number(brandId) : null,
           tableId: orderType === "dine_in" && tableId ? Number(tableId) : null,
           overrideHold: orderType === "dine_in" ? hold : false,
           // Where the order came from: a delivery channel, the captain's
@@ -1509,6 +1529,7 @@ export default function PosPage() {
 
       showOrder(order);
       setOrderType(order.orderType);
+      if (order.brandId) setBrandId(String(order.brandId));
       setTableId(order.tableId ? String(order.tableId) : "");
       setOverrideHold(false);
       setNotice("");
@@ -1891,12 +1912,26 @@ export default function PosPage() {
     </section>
   );
 
+  const brandBar = brandsOn && brands.length > 0 && (
+    <div className="pos-brands" role="radiogroup" aria-label="Brand this order is for">
+      {brands.map((brand) => (
+        <button key={brand.id} type="button" role="radio" aria-checked={brandId === String(brand.id)} disabled={Boolean(editingOrder)}
+          className={`pos-brand ${brandId === String(brand.id) ? "is-on" : ""}`} style={{ "--brand-color": brand.color || undefined }}
+          onClick={() => { setBrandId(String(brand.id)); setCategoryId(""); }}>
+          <span className="br-dot" style={{ background: brand.color || "var(--primary)" }} aria-hidden="true" />{brand.name}
+        </button>
+      ))}
+    </div>
+  );
+
   const categoryTabs = (
+    <>
+    {brandBar}
     <div className="pos-cat-tabs" role="tablist" aria-label="Menu categories">
       <button type="button" role="tab" aria-selected={!categoryId} className={`pos-cat-tab ${!categoryId ? "is-active" : ""}`} onClick={() => setCategoryId("")}>
         All
       </button>
-      {categories.map((category) => (
+      {brandCategories.map((category) => (
         <button
           type="button"
           role="tab"
@@ -1909,6 +1944,7 @@ export default function PosPage() {
         </button>
       ))}
     </div>
+    </>
   );
 
   const searchBox = (

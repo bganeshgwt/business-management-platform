@@ -49,6 +49,7 @@ const findAll = async (restaurantId, filters = {}) => {
 
   const result = await pool.query(
     `SELECT ${BILL_COLUMNS}, o.order_number, o.order_type, o.customer_name, o.customer_mobile,
+            (SELECT rb.name FROM restaurant_brands rb WHERE rb.id = o.brand_id) AS brand_name,
             c.name AS linked_customer_name, c.mobile AS linked_customer_mobile,
             t.table_no, u.name AS created_by_name, ot.name AS outlet_name,
             ac.name AS account_name, NULLIF(BTRIM(ac.company_name), '') AS account_company,
@@ -134,6 +135,7 @@ const findHeader = async (restaurantId, id, outletId = null, db = pool) => {
 const findById = async (restaurantId, id, outletId = null) => {
   const billResult = await pool.query(
     `SELECT ${BILL_COLUMNS}, o.order_number, o.order_type, o.customer_name, o.customer_mobile,
+            (SELECT rb.name FROM restaurant_brands rb WHERE rb.id = o.brand_id) AS brand_name,
             o.guest_count, o.customer_id, t.table_no, u.name AS created_by_name,
             c.name AS linked_customer_name, c.mobile AS linked_customer_mobile,
             gb.name AS discount_given_by_name, ga.name AS discount_approved_by_name,

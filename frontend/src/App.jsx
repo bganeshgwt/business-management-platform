@@ -70,6 +70,7 @@ const FeaturesPage = lazy(() => import("./modules/restaurant/setup/pages/Feature
 // Food formats: a bakery's and café's pre-orders and the day-end unsold count.
 const PreordersPage = lazy(() => import("./modules/restaurant/preorders/pages/PreordersPage"));
 const DayEndUnsoldPage = lazy(() => import("./modules/restaurant/inventory/pages/DayEndUnsoldPage"));
+const BrandsPage = lazy(() => import("./modules/restaurant/menu/pages/BrandsPage"));
 // Tasks, issues & projects (modules/tasks): the same screens serve Business Admin.
 const TasksRoutes = lazy(() => import("./modules/tasks/pages/TasksRoutes"));
 
@@ -207,6 +208,9 @@ export default function App() {
             </Route>
             <Route element={<ProtectedRoute feature="preorders" />}>
               <Route path="preorders" element={<PreordersPage />} />
+            </Route>
+            <Route element={<ProtectedRoute feature="brands" />}>
+              <Route path="menu/brands" element={<BrandsPage />} />
             </Route>
           </Route>
 

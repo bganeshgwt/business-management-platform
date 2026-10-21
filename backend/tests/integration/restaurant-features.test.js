@@ -100,10 +100,10 @@ test("restaurant features switch on and off", { timeout: 600000 }, async (t) => 
     const list = await O("GET", "/restaurants/current/features");
     assert.equal(list.canChange, true);
     // 14 restaurant features + tasks, issues and projects (1791620000000), which apply to every type,
-    // + pre-orders (food formats, 1791950410000), which starts off like loyalty.
-    assert.equal(list.features.length, 18);
+    // + pre-orders and brands (food formats, 1791950410000 and 1791950411000), which start off like loyalty.
+    assert.equal(list.features.length, 19);
     for (const feature of list.features) {
-      assert.equal(feature.enabled, !["guest_loyalty", "preorders"].includes(feature.code), feature.code);
+      assert.equal(feature.enabled, !["guest_loyalty", "preorders", "brands"].includes(feature.code), feature.code);
       assert.ok(feature.name && feature.description && feature.group, feature.code);
     }
     assert.deepEqual(list.features.find((f) => f.code === "guest_loyalty").requires, ["guests"]);

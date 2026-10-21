@@ -439,6 +439,8 @@ const create = async (req, res) => {
   const data = {
     ...readCommon(body),
     channelId: optionalId(body.channelId, "Channel"),
+    // Brands: the brand the order is taken under (null: the kitchen's name).
+    brandId: optionalId(body.brandId, "Brand"),
     // From the till: a table held for a booking is checked, and a mobile
     // typed without picking a guest finds or signs up the guest.
     holdCheck: true,

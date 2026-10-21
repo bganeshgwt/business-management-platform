@@ -172,6 +172,7 @@ const toBill = (row, { reveal = false } = {}) => {
     orderId: row.order_id,
     orderNumber: row.order_number,
     orderType: row.order_type,
+    brandName: row.brand_name || null,
     outletId: row.outlet_id,
     outletName: row.outlet_name || null,
     businessDayId: row.business_day_id,

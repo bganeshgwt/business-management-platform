@@ -24,7 +24,17 @@ const toCategory = (row) => ({
   sortOrder: row.sort_order,
   status: row.status,
   productCount: row.product_count,
+  // Brands: the brand whose menu it is (null: every brand's).
+  brandId: row.brand_id ? Number(row.brand_id) : null,
+  brandName: row.brand_name || null,
 });
+
+// A category's brand must be this restaurant's.
+const requireOwnBrand = async (restaurantId, brandId) => {
+  if (!brandId) return;
+  const found = await require("../../../../config/database").query("SELECT 1 FROM restaurant_brands WHERE restaurant_id = $1 AND id = $2", [restaurantId, brandId]);
+  if (!found.rowCount) throw new AppError(404, "Brand not found");
+};
 
 // price and tax arrive from PostgreSQL as strings (NUMERIC keeps exact decimals),
 // so they are converted once here for the frontend.
@@ -82,6 +92,7 @@ const listCategories = async (restaurantId) => {
 
 const createCategory = async (restaurantId, data, userId) => {
   requireRestaurantId(restaurantId);
+  await requireOwnBrand(restaurantId, data.brandId);
 
   try {
     const row = await categoryRepository.create(restaurantId, data, userId);
@@ -105,6 +116,8 @@ const updateCategory = async (restaurantId, id, data, userId) => {
   if (!before) {
     throw new AppError(404, "Category not found");
   }
+
+  await requireOwnBrand(restaurantId, data.brandId);
 
   try {
     const row = await categoryRepository.update(restaurantId, id, data, userId);

@@ -1,23 +1,72 @@
 # Business Admin — Application Overview
 
-13 October 2026
+21 October 2026
 
 ## Summary
 
-Business Admin is one web application that runs any of twelve kinds of independent business — restaurants, shops, distributors, salons, pharmacies and clinics — from a single login. It is fully built for the admin side, tested end to end, and loaded with realistic sample data for a demo.
+Business Admin is one web application that runs many kinds of independent business from a single login:
 
-- **Who it is for:** owners, managers and staff of small and mid-sized Indian businesses, including chains with several branches.
-- **What it covers:** selling, buying, stock, customer credit, staff and access, day close, reports, and daily tasks — plus the special work of each business type.
-- **Where it stands:** feature-complete for the admin application; 535 automated integration tests and 30 unit tests pass; 11 realistic sample businesses and a restaurant carry 90 days of history.
-- **What is not yet done:** outside connections (payment gateway, SMS and WhatsApp, food aggregators), hardware links (silent printing, scales), paid plans, separate mobile apps, and going live on a server. These wait on decisions and accounts, listed at the end.
+- restaurants and three food formats (café, bakery and cloud kitchen);
+- shops and distributors;
+- salons;
+- pharmacies, clinics and diagnostic labs.
+
+It is fully built for the admin side, tested end to end, and loaded with realistic sample data for a demo.
+
+- **Who it is for:** owners, managers and staff of small and mid-sized Indian businesses, including chains with several branches and kitchens that sell under several brands.
+- **What it covers:** selling, buying, stock, customer credit, staff and access, day close, reports and daily tasks, plus the special work of each business type.
+- **Where it stands:**
+  - feature-complete for the admin application;
+  - 548 automated integration tests and 30 unit tests pass;
+  - 11 sample shops and clinics, a restaurant with a second branch, a café, a bakery and a cloud kitchen carry realistic history.
+- **What is not yet done:**
+  - outside connections: payment gateway, SMS and WhatsApp, live Swiggy and Zomato links;
+  - hardware links: silent printing, scales;
+  - paid plans, separate mobile apps, and going live on a server.
+
+  These wait on decisions and accounts, listed at the end.
+
+### New since the last overview (13 October)
+
+- **Food formats:** a café, a bakery and a cloud kitchen run on the restaurant engine, each set up for how it works. The bakery gets selling by weight, cake pre-orders with an advance, a bake list and the day-end unsold count. The cloud kitchen gets several brands from one kitchen.
+- **Clinic and lab:**
+  - doctor fees and follow-up rules, OPD timings and free-slot booking;
+  - a daily token queue with a waiting-room display;
+  - amended lab reports that keep every signed version;
+  - lab quality control (QC).
+- **Retail:**
+  - branch and member prices, coupons, cashier shifts and departments;
+  - shelf locations and opening hours;
+  - purchase orders and reorder suggestions for every shop;
+  - free quantity and discount on supplier bills.
+- **Overview screen:** today against last week, a 14-day trend, sales by hour, best sellers and the next appointments. Every action opens in a panel without leaving the screen.
+- **Branches:** every list, record and report now follows the branch a person works at.
 
 ## How the application is organised
 
-One application serves twelve business types: restaurant, grocery / kirana, supermarket, wholesale / FMCG, fashion, electronics, pharmacy, books and stationery, salon and spa, clinics and labs, meat and seafood, and other weight-based shops. A business's type is fixed when it is created and decides which screens and rules it gets.
+One application serves twelve business types:
+
+| Group | Business types |
+| --- | --- |
+| Food | Restaurant |
+| Shops | Grocery / kirana, supermarket, books and stationery |
+| Trade | Wholesale / FMCG |
+| Speciality retail | Fashion, electronics |
+| Services | Salon and spa |
+| Health | Pharmacy, clinics and labs |
+| Weight-based | Meat and seafood, other weight-based shops |
+
+A restaurant also chooses its format: **restaurant, café, bakery or cloud kitchen**. A business's type is fixed when it is created and decides which screens and rules it gets.
 
 ![How Business Admin is organised](images/business-admin-overview.png)
 
-Read top to bottom: the platform sets up businesses; one login opens every business a person belongs to; the shared core does the common work; each business type adds only its own modules. The restaurant runs its own engine but shares the login, roles, switcher and tasks.
+Read the diagram top to bottom:
+1. The platform sets up businesses.
+2. One login opens every business a person belongs to.
+3. The shared core does the common work.
+4. Each business type adds only its own modules.
+
+The restaurant and its formats run their own engine but share the login, roles, switcher and tasks.
 
 ## Shared core modules
 
@@ -25,151 +74,173 @@ Every business except the restaurant runs on the same core. It is built once, so
 
 | Area | Module | What it does |
 | --- | --- | --- |
-| Overview | Overview | Today's and this month's sales after returns, money in today, what customers owe, what is owed to suppliers, low stock, batches expiring soon, transfers on the way, today's appointments, and quick actions |
-| Sell | Sales / Quick bill | Bill at the counter: scan a barcode or scale label, search by name, take cash, UPI, card or split payment, or put the bill on the customer's credit; print an A4 GST invoice or a till receipt |
-| Sell | Returns and refunds | Take goods back against the original bill; each return and refund gets its own number; stock goes back automatically |
-| Sell | Customers | GSTIN (checked), credit limit, credit days, opening balance, and what each customer owes now |
-| Sell | Udhaar / Outstanding | Customer credit: who owes what, how old it is, reminders by WhatsApp, promised dates, numbered collection receipts |
-| Buy | Purchases and suppliers | Record supplier bills; stock goes up at cost; pay suppliers against their bills; supplier statements |
-| Products | Products and services | Items with GST rate, HSN code, MRP, unit, reorder level, and how they are tracked (quantity, batch and expiry, or serial number) |
-| Products | Categories, units and pack sizes | Category tree up to five levels; units with conversions (g to kg); pack sizes (box of 24) |
-| Stock | Stock on hand and movements | Stock by location and batch with its value; every change recorded with its reason |
-| Stock | Transfers and counts | Send stock between locations (in transit until received); count stock over time, approved by a manager before stock changes |
-| Time | Appointments | Book staff and rooms without double-booking; done, no-show and cancel rules |
-| Money | Day close | Takings by payment method, by person and by counter, matched with cash in hand |
-| Settings | Business settings | Legal name, GSTIN, address, prices with or without GST, rounding, financial year, currency, time zone, rules |
-| Settings | Tax rates and number series | GST slabs; bill numbers per location and financial year with no gaps or duplicates |
-| Settings | Locations and payment methods | Branches and godowns; the ways the shop takes money |
-| People | Staff and access, roles | Who can open the business, their role, and which branch they work at |
-| Insight | Reports and activity log | Money by day, branch comparison, and who did what |
+| Overview | Overview | Today's sales against the same day last week, a 14-day trend, sales by hour, best sellers, money in, what customers and suppliers are owed, low stock, expiring batches, the next appointments and the jobs needing attention; every action opens in a panel |
+| Sell | Sales / Quick bill | Barcode or scale-label billing, branch and member prices, coupons, cashier shifts; cash, UPI, card or credit; A4 GST invoice or till receipt |
+| Sell | Returns and refunds | Goods back against the original bill, each return and refund numbered, stock back automatically |
+| Sell | Customers and udhaar | GSTIN, credit limit and days, what each owes, ageing, reminders, numbered collection receipts |
+| Buy | Purchases and suppliers | Supplier bills with free quantity and discount, purchase orders, reorder suggestions, supplier payments and statements |
+| Products | Products, categories, units | GST rate, HSN, MRP, shelf location, member price, departments, batch / expiry / serial tracking, pack sizes |
+| Stock | Stock, transfers, counts | Stock by branch and batch with its value; transfers in transit; counts approved before stock changes |
+| Time | Appointments | Staff and rooms without double booking; done, no-show and cancel rules |
+| Money | Day close and expenses | Takings by method, person and counter matched with cash; expenses with approval |
+| Settings | Business settings | Legal name, GSTIN, address, tax mode, rounding, financial year, opening hours, rules, number series, payment methods |
+| People | Staff and access | Role, branch and department for each person |
+| Insight | Reports and activity log | Money by day, branch comparison, department sales, and who did what |
 
-Two rules hold everywhere: prices, tax and totals are always worked out by the server, and nothing posted is ever edited — a mistake is corrected by a return, refund or reasoned correction with its own number.
+Two rules hold everywhere:
+- Prices, tax and totals are always worked out by the server.
+- Nothing posted is ever edited. A mistake is corrected by a return, refund or reasoned correction with its own number.
 
 ## Modules by business type
 
-Each business type adds only what is truly its own on top of the shared core. The restaurant is the exception: it was built first and runs its own complete engine, sharing login, roles, the switcher and tasks with everyone else.
+Each business type adds only what is truly its own on top of the shared core. The restaurant is the exception: it runs its own complete engine, shared by its formats.
 
-### Restaurant
+### Restaurant, café, bakery and cloud kitchen
 
-- **POS:** dine-in, takeaway and delivery orders; split bills; UPI QR for the exact amount.
-- **Kitchen display and KOT:** orders reach the right kitchen station; dishes marked sold out.
-- **Tables and QR ordering:** floors and tables; guests scan a QR to order or call staff; captain sections.
-- **Reservations and online booking:** bookings, waitlist, the restaurant's own booking page.
-- **Online ordering and delivery:** own ordering page, pickup tokens, riders and rider cash settlement, Swiggy and Zomato channels (typed in today).
-- **Menu:** dishes, modifiers, combos, happy-hour prices, recipes that drive stock use.
-- **Back office:** business day with cash drawers per shift, X and Z reports, stock and purchasing, expenses, staff attendance, leave, payroll and tips, guest loyalty and feedback, fourteen reports including GST filing and profit and loss.
+- **POS:**
+  - dine-in, takeaway and delivery orders;
+  - split bills;
+  - a UPI QR for the exact amount;
+  - the kinds of order offered depend on the format.
+- **Kitchen display and KOT:** orders reach the right kitchen station; dishes can be marked sold out.
+- **Tables and QR ordering:** floors and tables, guest QR ordering, captain sections.
+- **Reservations and online booking:** bookings, the waitlist, and the restaurant's own booking page.
+- **Online ordering and delivery:**
+  - the restaurant's own ordering page and pickup tokens;
+  - riders and rider cash;
+  - Swiggy and Zomato channels with channel prices and commission (orders are typed in today).
+- **Menu:** dishes, modifiers, combos, happy-hour prices, and recipes that drive stock use.
+- **Back office:**
+  - the business day, opened and closed from the dashboard;
+  - cash drawers, X and Z reports;
+  - stock and purchasing, expenses;
+  - staff attendance, payroll and tips;
+  - guest loyalty;
+  - fourteen reports including GST filing and profit and loss.
+
+| Format | How it is set up |
+| --- | --- |
+| Restaurant | Tables, captains and the kitchen; dine-in, takeaway and delivery |
+| Café | Order and pay at the counter with a token number to collect; a few tables; pre-orders for parties |
+| Bakery | Takeaway and delivery; bakes made each morning from recipes; cookies and sweets sold by weight (price per kg); cake pre-orders with the message, an advance, a bake list and hand-over billing; the day-end unsold count written off at cost |
+| Cloud kitchen | Delivery only, with no tables. Several brands from one kitchen: each brand has its own menu, prints on its KOT and bill, and has its own sales by channel net of commission |
 
 ### Grocery / kirana and supermarket
 
-- **Quick bill:** scan barcodes or weighing-scale labels; quick weight buttons for loose goods.
-- **Offers:** six kinds (buy 4 get 1 free, percentage off and so on); the best offer applies itself.
-- **Loyalty points:** earn and redeem; settled fairly on returns.
-- **Udhaar book:** who owes what, reminders, promised dates, statements.
-- **Labels and near expiry:** barcode label sheets; batches about to expire.
+- **Quick bill:** barcodes, weighing-scale labels, quick weight buttons, coupons, member and branch prices, cashier shifts.
+- **Offers and loyalty:** six kinds of offer, the best one applied automatically; points earned and redeemed.
+- **Departments:** staff tied to a department, and a department sales report.
+- **Udhaar book, labels and near expiry:** who owes what, label sheets, batches about to expire.
 
 ### Books and stationery
 
-- **ISBN billing:** the ISBN is the barcode; a wrong check digit is caught.
-- **School sets:** a class's whole book list sold as one set.
-- **Book orders:** order a title for a customer and track it until it arrives.
+- **ISBN billing:** a wrong check digit is caught.
+- **School sets and book orders.**
 
 ### Wholesale / FMCG distribution
 
-- **Sales orders:** taken by the salesperson at the shop's own price; credit checked.
-- **Dispatch and back-orders:** send all or part; pick list, van load sheet, delivery challan.
-- **Routes and beats:** which salesperson visits which shops on which day.
-- **Cheques and credit hold:** cheque tracking; a bounce adds a charge and can hold credit.
-- **Price groups and schemes:** retailer or HoReCa prices; buy N get M free.
-- **Purchase orders:** reorder suggestions, receiving in parts, claims on suppliers.
+- **Sales orders, dispatch and back-orders:** pick list, van load sheet, delivery challan.
+- **Routes and beats, cheques and credit hold.**
+- **Price groups, schemes and purchase orders.**
 
 ### Fashion
 
-- **Size × colour grid:** one style in every size and colour, each with its own barcode and stock.
-- **Exchanges and credit vouchers:** swap goods, settle the difference, or issue a voucher.
-- **Markdowns:** percentage off until a date, then the price returns by itself.
-- **GST by price:** 5% up to ₹2,500 a piece, 18% above, applied automatically.
-- **Tags and style reports:** garment tags with MRP; size curves and broken sizes.
+- **Size × colour grid:** each size and colour has its own barcode and stock.
+- **Exchanges and credit vouchers, markdowns.**
+- **GST by price:** applied automatically.
+- **Garment tags and size curves.**
 
 ### Electronics and mobiles
 
-- **IMEI / serial register:** where every unit is and its full history.
-- **Warranties:** registered from the sale; claims with brands.
-- **Repairs:** job card, parts and labour, advance, bill on delivery.
-- **EMI and financiers:** down payment now; the financier's payout tracked to the rupee.
-- **Kits and bundles:** phone, cover and screen guard at one price.
+- **IMEI / serial register.**
+- **Warranties, repairs, EMI and financiers.**
+- **Kits and bundles.**
 
 ### Salon and spa
 
-- **Calendar:** a column per stylist and room; no double booking.
-- **Deposits and no-shows:** fair late-cancellation charges.
-- **Packages and memberships:** prepaid sessions and member discounts.
-- **Commissions:** per stylist, service or product; monthly target slabs.
-- **Schedules and service profitability:** working hours, leave and holidays; products used per service.
+- **Calendar:** a column per stylist and room, with deposits and fair no-show charges.
+- **Bill:** services and products in separate tabs by category; products kept for salon use cannot be sold.
+- **Packages, memberships, commissions and schedules.**
 
 ### Meat, seafood and weight-based shops
 
-- **Sell by weight:** kg or grams, scale labels, quick weight buttons.
-- **Daily rates:** today's price per kg.
-- **Cutting and yield:** whole bird or fish into cuts; true cost per usable kg.
-- **Wastage and yield by supplier:** what was lost and which supplier yields best.
+- **Selling by weight and daily rates.**
+- **Cutting and yield:** true cost per usable kg.
+- **Wastage and yield by supplier.**
 
 ### Pharmacy
 
-- **Drug master:** salt, strength, schedule, strips and loose tablets.
-- **Prescription sale:** first-to-expire batch; cheaper substitutes by the same salt.
-- **Schedule rules and registers:** H, H1 and X need a prescription and a pharmacist; H1 and X registers ready for inspection.
-- **Expiry returns and recalls:** debit notes to distributors; block a recalled batch and list every buyer.
+- **Drug master and prescription sale:** first-to-expire batch, substitutes by salt.
+- **Schedule rules and registers:** H, H1 and X, ready for inspection.
+- **Expiry returns and recalls.**
 
 ### Clinics and diagnostic labs
 
-- **Today's patients:** waiting, with the doctor, billed, report ready.
-- **Patients and consent:** registration with recorded consent.
-- **Consultations:** vitals, diagnosis, prescription, follow-up date; doctors only.
-- **Lab:** orders, sample barcodes, results, pathologist approval, printed reports.
+- **Today's patients and the token queue:**
+  - each patient gets a token on arrival, and priority patients are called first;
+  - the doctor calls the next patient and starts the consultation from the token;
+  - a full-screen board shows the waiting room who is being seen.
+- **Doctors:**
+  - consultation fee, plus a reduced or free follow-up within a set number of days;
+  - OPD timings by weekday, with morning and evening sessions and leave;
+  - appointments are booked only into a doctor's free slots;
+  - the bill picks the right fee;
+  - an earnings report shows each doctor's patients, fees and share.
+- **Patients and consent, consultations:** registration with recorded consent; vitals, diagnosis, prescription and follow-up (doctors only).
+- **Lab:**
+  - orders, sample barcodes, results and pathologist approval;
+  - amended reports keep every signed version and print as "amended", with the reason; older versions print as "superseded";
+  - quality control: each morning's control runs are judged by the standard Westgard rules, a failed control holds that test's reports until QC passes again, and a chart shows the control's trend.
 
-Pharmacy and clinic rules follow standard Indian practice and should be reviewed by a pharmacist, a doctor and a legal adviser before real use.
+Pharmacy and clinic rules follow standard Indian practice. A pharmacist, a doctor and a legal adviser should review them before real use.
 
 ## Multiple locations (branches)
 
-A business can run several shops, counters or godowns, each kept separately while the owner sees all of them together.
+A business can run several shops, counters, godowns, clinics or outlets. Each is kept separately, and the owner sees all of them together.
 
-- **Each location has its own** stock, bill numbers per financial year, day close, and — when entered — its own address, phone, GSTIN and state, printed on the bills it raises. A branch registered in another state bills from that state.
-- **Staff can be tied to one branch.** They then bill, move stock, take returns and see reports for that branch only; anything for another branch is refused. A branch manager can give access only at their own branch.
-- **A location picker in the top bar** lets an owner or area manager look at one branch or all of them; every list, report and the Overview follow the choice.
-- **Stock transfers** are sent by one branch and confirmed by the receiving branch, with goods shown as "on the way" in between.
-- **Locations compared report:** bills, sales, returns, net sales, each branch's share, average bill, money collected, purchases and stock held, side by side.
-- **Pharmacy branches** hold their own drug licence numbers, as the law requires per premises.
-
-Customer credit (udhaar) stays business-wide, because a customer belongs to the business, not to one branch. The restaurant has the same branch features under the name "outlets".
+- **Each location has its own:**
+  - stock;
+  - bill numbers;
+  - day close;
+  - branch prices;
+  - opening hours;
+  - its own address, phone, GSTIN and state, printed on its bills.
+- **Staff tied to one branch:** they see, open and change only that branch's records. This covers bills, transfers, appointments, visits, lab orders, repairs, pre-orders and every list and report. Anything belonging to another branch is refused by the server.
+- **The top-bar location picker:** an owner can look at one branch or all of them, and every list follows the choice.
+- **Stock transfers:** sent by one branch and confirmed by the receiving one.
+- **Locations compared report:** the branches side by side.
+- **Pharmacy branches:** each holds its own drug licence numbers.
+- **The restaurant:** has the same under the name "outlets". The demo restaurant runs a second outlet.
 
 ## People, roles and security
 
-Every action needs two keys: the business must have that module switched on, and the person's role in that business must allow the action. Both are checked by the server on every request, not only hidden on screen.
+Every action needs two keys: the business must have that module switched on, and the person's role must allow the action. Both are checked by the server on every request.
 
-- **One login, many businesses.** A person can belong to several businesses with a different role in each, and switches between them from the top bar.
-- **Roles:** six ready roles in every business — Owner, Manager, Cashier, Stock keeper, Accountant, Viewer — plus any the owner creates. Each role is a set of permissions such as "give refunds" or "export reports".
-- **No privilege climbing:** a manager can never give a role or permission they do not hold themselves, and the owner's access cannot be changed by anyone else.
-- **Staff logins:** the owner creates logins for staff, sets their role and branch, and can reset a staff member's password.
-- **Sign-in protection:** passwords stored encrypted, two-step sign-in, locking after repeated wrong attempts, and personal PINs for shared tills.
-- **Data kept apart:** each business sees only its own data; the database itself refuses any record that points at another business.
-- **Activity log:** every change records who did what and when; posted bills are never edited.
-- **Clinical privacy:** only doctors see clinical notes, and every view of them is logged.
+- **One login, many businesses**, each with its own role.
+- **Six ready roles** in every business, plus any the owner creates. A manager can never give more than they hold.
+- **Staff logins with a branch and a department.**
+- **Sign-in protection:** encrypted passwords, two-step sign-in, lockout after repeated wrong attempts, PINs for shared tills, PIN sign-off for pathologists and pharmacists.
+- **Data kept apart:** each business sees only its own data, enforced by the database too.
+- **Activity log:** a record of who did what; posted bills are never edited.
+- **Clinical privacy:** only doctors see clinical notes, and every view is logged.
 
 ## Owner-controlled settings
 
-Business rules are settings the owner changes, not values fixed in the program. Each starts at a sensible default, so nothing changes until the owner edits it.
+Business rules are settings the owner changes, not values fixed in the program. Each starts at a sensible default.
 
 | Setting | Default | What the owner controls |
 | --- | --- | --- |
-| Payment methods | Cash, UPI, Card, Bank transfer, Cheque | Add, rename, reorder or switch off methods (PhonePe, Paytm, a meal card); bills and the day close show the name |
-| Expiring soon | 30 days | Which batches the Overview, alerts and stock list flag |
-| Credit voucher validity | 90 days | How long an exchange or return voucher can be spent |
-| Customer credit age groups | 30 / 60 / 90 days | The columns of outstanding and udhaar reports |
-| Quick weight buttons | 250 g, 500 g, 1 kg, 2 kg | The buttons for loose goods at the counter |
+| Payment methods | Cash, UPI, Card, Bank transfer, Cheque | Add, rename, reorder or switch off methods |
+| Restaurant format | Restaurant | Café, bakery or cloud kitchen: the POS order types, tokens and starting features (each can still be changed) |
+| Features | By type and format | Switch on or off pre-orders, brands, deliveries, reservations, QR ordering, loyalty, stock, payroll and more |
+| Doctor fees and OPD | None | Per doctor: fee, follow-up rule, slot length, share, timings, leave |
+| Expiring soon | 30 days | Which batches are flagged |
+| Credit voucher validity | 90 days | How long an exchange voucher can be spent |
+| Customer credit age groups | 30 / 60 / 90 days | Columns of outstanding and udhaar reports |
+| Quick weight buttons | 250 g, 500 g, 1 kg, 2 kg | Buttons for loose goods |
 | Receipt paper | 80 mm | 58 mm for small printers |
-| Day cut-off | 5 am | When a late-night task still belongs to the day before |
-| Currency and time zone | INR, Asia/Kolkata | Per business; currency locked once bills exist |
-| Restaurant alerts and timings | Old fixed values | 25 limits: theft alerts, kitchen pass time, delivery and reservation timings, time-clock limits, guest segments, reorder planning, cash-count notes |
+| Day cut-off | 5 am | When late-night work still belongs to the day before |
+| Currency and time zone | INR, Asia/Kolkata | Per business |
 
 Kept fixed on purpose: GST and GSTIN rules (law), the permission list (security design), and the PIN lockout (protection against guessing).
 
@@ -177,59 +248,75 @@ Kept fixed on purpose: GST and GSTIN rules (law), the permission list (security 
 
 Every business, restaurant included, gets the same tools for the team's daily work, designed for the phone.
 
-- **My tasks:** today's work, ticked off step by step.
-- **Checklists:** 82 ready-made templates (opening, closing, cleaning and more) to start from.
-- **Recurring tasks:** daily, weekly or monthly work that creates itself.
-- **Issues:** a problem raised, given to someone, fixed and closed; an out-of-range reading can raise one by itself.
-- **Projects:** six ready plans, such as festival preparation, with milestones and owners.
-- **Board, calendar and reports:** who is doing what, what is late, what was missed, compliance by person.
+- **My tasks and checklists:** 82 ready-made templates (opening, closing, cleaning and more); recurring tasks.
+- **Issues:** raised, assigned, fixed and closed. An out-of-range reading can raise one automatically.
+- **Projects:** with milestones; a board, a calendar and compliance reports.
+
+These tools are recommended per business type and switched off where they are not needed.
 
 ## Reports and insights
 
-Every list can be searched, paged, filtered by date and exported; reports respect each person's role and branch.
+Every list can be searched, paged, filtered by date and exported. Reports respect each person's role and branch.
 
-- **All businesses:** Overview, money by day (sales, returns, collections, refunds, purchases), day close, locations compared, outstanding and ageing, activity log.
-- **Retail:** top sellers, slow movers, margin by category, stock value, what offers gave away.
-- **Wholesale:** by salesperson, route or customer; collections; schemes by retailer.
-- **Fashion and electronics:** sales by size and colour, style and size curves, stock age, warranties and repairs.
-- **Salon:** service profitability, stylist commissions and statements.
-- **Meat and weight shops:** yield by item, cut and supplier; wastage by reason.
-- **Pharmacy and clinic:** H1 and X registers, prescription log, expiry by distributor, lab worklists.
-- **Restaurant:** fourteen reports, including GST filing, profit and loss, Tally day book, dish profitability, theft control and day end (Z report).
+- **All businesses:** Overview, money by day, day close, locations compared, outstanding and ageing, department sales, activity log.
+- **Retail and wholesale:**
+  - top sellers, slow movers, margin, stock value, offers given away;
+  - by salesperson, route or customer.
+- **Fashion, electronics and salon:** sizes and styles, warranties and repairs, service profitability, commissions.
+- **Meat and weight shops:** yield and wastage.
+- **Pharmacy, clinic and lab:**
+  - H1 and X registers;
+  - doctor earnings;
+  - lab worklists, report versions and the QC history.
+- **Restaurant and food formats:**
+  - fourteen reports including GST filing, profit and loss, Tally day book and Z report;
+  - for the cloud kitchen, sales by brand and channel after aggregator commission.
 
 ## Platform administration and onboarding
 
 A new customer can be set up in minutes, without technical help or sample data.
 
-- **Platform › Businesses** (the platform team): create a business of any type with its name, code, GSTIN, address, currency, time zone, first location and the owner's login. The owner signs in and finds it ready: roles, GST slabs, units, payment methods and the type's modules are in place. The same screen switches a business off and on and resets an owner's password.
-- **Platform › Restaurants:** the same for restaurants, which also get their menu, tables and kitchen set-up.
-- **Add a business** (an owner): start another business of their own and become its owner.
-- **Modules on demand:** each business switches optional modules on or off within what its type allows; this is ready to be tied to paid plans later.
-- **Sample businesses** are marked as demos and disappear automatically when the system runs in live mode.
+- **Platform › Businesses:** create a business of any type with its owner's login. It is ready to use on first sign-in.
+- **Platform › Restaurants:** the same for restaurants. The platform team chooses the format (restaurant, café, bakery or cloud kitchen), and it starts set up for that format.
+- **Add a business:** an owner can start another business of their own.
+- **Modules on demand:** each business switches modules on or off within what its type allows. This is ready to be tied to paid plans later.
+- **Sample businesses** are marked as demos and disappear in live mode.
 
 ## Quality and readiness
 
-The admin application is complete and verified by automated tests; it has not yet been used by real staff in a live shop.
+The admin application is complete and verified by automated tests. It has not yet been used by real staff in a live shop.
 
-- **Automated tests:** 535 integration tests and 30 unit tests pass, run against a fresh database each time; the screens pass a lint check and a production build.
-- **Rules in the database:** where a mistake would lose money or stock (duplicate bill numbers, negative stock, editing a posted bill, another business's data), the database refuses it as well as the program.
-- **Realistic demo data:** 11 sample businesses with 90 days of history and today's live trade, 7 of them with a second branch, plus the FoodEx restaurant.
+- **Automated tests:** 548 integration tests and 30 unit tests pass, each run against a fresh database. The screens pass a lint check and a production build, and every new screen was checked in a browser.
+- **Rules in the database:** where a mistake would lose money, stock or medical records, the database refuses it as well as the program. Examples:
+  - duplicate bill numbers;
+  - negative stock;
+  - editing a posted bill or a signed report;
+  - changing a QC run;
+  - another business's data.
+- **Realistic demo data:**
+  - 11 sample shops and clinics with 90 days of history, 7 of them with a second branch;
+  - the FoodEx restaurant with a second outlet;
+  - a café, a bakery and a cloud kitchen with a week of trading.
 
 | Sample business | City | Shows |
 | --- | --- | --- |
 | Sri Lakshmi Kirana | Hyderabad | Loose goods by weight, udhaar |
-| Sai Annapurna Super Bazaar | Bengaluru | Two branches, loyalty, offers, expiry |
+| Sai Annapurna Super Bazaar | Bengaluru | Two branches, loyalty, offers, coupons, expiry |
 | Sahyadri FMCG Distributors | Pune | Beats, dispatch, cheques, Karnataka depot |
-| Rangoli Silks & Fashions | Chennai | Size × colour, exchanges, Bengaluru branch with own GSTIN |
+| Rangoli Silks & Fashions | Chennai | Size × colour, exchanges, branch with own GSTIN |
 | Sri Venkateswara Mobiles | Hyderabad | IMEI, warranties, repairs, EMI |
-| Glow & Grace Salon & Spa | Bengaluru | Calendar, packages, commissions |
+| Glow & Grace Salon & Spa | Bengaluru | Calendar, packages, commissions, products by category |
 | Al-Noor Meat & Seafood | Hyderabad | Daily rates, cutting and yield, two shops |
-| Gupta Dry Fruits | New Delhi | Sales by weight, corporate orders, two shops |
+| Gupta Dry Fruits | New Delhi | Sales by weight, two shops |
 | Vidya Book House | Pune | ISBN, school sets |
 | Sri Sai Medicals | Chennai | Schedules, registers, a recall, branch licences |
-| Sanjeevani Clinic & Diagnostics | Hyderabad | Appointments, consultations, lab reports |
+| Sanjeevani Clinic & Diagnostics | Hyderabad | Doctor fees and OPD, token queue, lab reports, QC |
+| FoodEx Restaurant (+ Madhapur outlet) | Hyderabad | Tables, KOT, deliveries, two outlets |
+| Brew & Bloom Café | Bengaluru | Counter orders with tokens |
+| Sweet Crust Bakery | Hyderabad | Sold by weight, cake pre-orders, day-end unsold |
+| Biryani Box (cloud kitchen) | Hyderabad | Three brands, Swiggy and Zomato, sales by brand |
 
-Before a demo, one command brings every sample business up to the current moment: `npm run demo:today -- --user-id 2`.
+Before a demo, one command brings the sample shops and clinic up to the current moment: `npm run demo:today -- --user-id 2`. The food businesses are added once with `npm run demo:food-formats`.
 
 ## What comes next
 
@@ -238,10 +325,13 @@ The remaining work lies outside the admin application, and each item waits on a 
 | Area | What | Needs from management |
 | --- | --- | --- |
 | Go-live | Server hosting, web address with HTTPS, off-site backups, a 2–4 week pilot with real staff | A server budget and a pilot business and date |
-| Outside services | Online payment confirmation, Swiggy / Zomato, SMS and WhatsApp messages, password reset by message | Provider accounts and contracts |
+| Outside services | Online payment confirmation, live Swiggy / Zomato orders and menus per brand, SMS and WhatsApp messages | Provider accounts and contracts |
 | Hardware | Silent receipt and kitchen printing, cash drawer, live weighing scale | The printer and scale models in use |
 | Plans and subscriptions | Paid plans that decide which modules a business gets | Plan names and prices |
 | Separate apps | Offline POS, captain (waiter) app, customer app, salesperson app | Priority and go-ahead |
-| Expert review | Pharmacy and clinic rules, GST reports and Tally export | A pharmacist, a doctor, an accountant |
+| Expert review | Pharmacy, clinic and lab rules, GST reports and Tally export | A pharmacist, a doctor, an accountant |
 
-Recommended order: run the pilot first with one restaurant and one shop, then add the payment gateway and WhatsApp, then plans and pricing.
+Recommended order:
+1. Run the pilot first with one restaurant (or café) and one shop.
+2. Add the payment gateway and WhatsApp.
+3. Add plans and pricing.
