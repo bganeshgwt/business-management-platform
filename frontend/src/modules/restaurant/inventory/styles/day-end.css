@@ -1,0 +1,10 @@
+/* Day-end unsold. */
+.de-card { border: 1px solid var(--border); border-radius: var(--radius-lg, 12px); background: var(--surface); overflow: hidden; }
+.de-table { width: 100%; border-collapse: collapse; }
+.de-table th, .de-table td { padding: 10px 16px; border-bottom: 1px solid var(--border); text-align: left; }
+.de-table th { font-size: 0.8rem; color: var(--muted); font-weight: 600; background: color-mix(in srgb, var(--border) 25%, transparent); }
+.de-table .r { text-align: right; font-variant-numeric: tabular-nums; }
+.de-table tr.is-on td { background: color-mix(in srgb, var(--warning, #b45309) 7%, transparent); }
+.de-input { display: inline-flex; gap: 8px; align-items: center; justify-content: flex-end; }
+.de-input input { width: 96px; text-align: right; }
+.de-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; flex-wrap: wrap; }

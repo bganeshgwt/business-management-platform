@@ -75,7 +75,8 @@ async function expand(db, business, inputLines, { kind, contact, taxMode, locati
     if (stopped) fail(`${stopped.label}, a part of ${kit.label}, is no longer sold. Change the kit first.`, 409);
     if (parts.some((c) => c.tracking === 'serial') && quantity !== 1) fail(`${kit.label} has a serial-numbered part: bill one kit per line`);
     // The kit's price for this customer and quantity, and its MRP.
-    const priced = await pricing.salePrice(db, business, kit, contact?.id, quantity, null);
+    const priced = await pricing.salePrice(db, business, kit, contact?.id, quantity, null,
+      { locationId, member: Boolean(contact) && business.capabilities.includes('loyalty') });
     core().checkMrp(kit.label, priced.stockPrice, kit.tax_rate, taxMode, kit.mrp);
     const weights = parts.map((c) => paise(c.price) * milli(c.kit_quantity));
     const shares = split(priced.net, weights);

@@ -14,7 +14,8 @@ const A4 = `@page{size:A4;margin:14mm} body{font-family:Arial,Helvetica,sans-ser
   th{background:#f2f2f2;font-size:10.5px} .r{text-align:right} .top{display:flex;justify-content:space-between;gap:16px;border-bottom:2px solid #222;padding-bottom:8px}
   .facts{display:grid;grid-template-columns:repeat(3,1fr);gap:4px 16px;margin:10px 0;padding:8px;border:1px solid #ccc}
   .flag{font-weight:bold} .crit{font-weight:bold;text-decoration:underline} .sign{display:flex;justify-content:space-between;margin-top:42px}
-  .foot{margin-top:18px;border-top:1px solid #ccc;padding-top:6px}`;
+  .foot{margin-top:18px;border-top:1px solid #ccc;padding-top:6px}
+  .amended{border:1.5px solid #111;padding:6px 8px;margin:8px 0;font-size:11px} .superseded{border:2px solid #b91c1c;color:#b91c1c;padding:6px 8px;margin:8px 0;font-weight:bold;text-align:center}`;
 
 const address = (s) => [s?.address_line1, s?.address_line2, s?.city, s?.postal_code].filter(Boolean).map(e).join(", ");
 const vitalsOf = (v) => [
@@ -55,11 +56,18 @@ export function printLabReport(report) {
         <td>${e(p.unit || "")}</td><td>${e(p.range_text || "")}</td></tr>`;
     }).join("")).join("");
   const sample = report.samples.map((s) => `${e(s.barcode)} (${e(s.sample_type)})`).join(", ");
+  // An amended report says what it replaces and why; an earlier version
+  // printed again says it is superseded.
+  const version = report.report_version || 1;
+  const banner = report.superseded
+    ? `<div class="superseded">SUPERSEDED: version ${e(String(version))} of this report was replaced by a later amended report. Do not use for treatment.</div>`
+    : report.amends ? `<div class="amended"><strong>AMENDED REPORT (version ${e(String(version))})</strong>. This replaces version ${e(String(report.amends.version))} reported ${e(dateTime(report.amends.approved_at))}.${report.report_amend_reason ? ` Reason: ${e(report.report_amend_reason)}` : ""}</div>` : "";
   printDocument({
     title: `Lab report ${report.order_no}`,
     styles: A4,
     body: `<div class="top"><div><h1>${e(lab.name)}</h1><div>${address(lab)}</div><div class="small">${[lab.phone, lab.email].filter(Boolean).map(e).join(" · ")}</div>
-        ${lab.registration ? `<div class="small">${e(lab.registration)}</div>` : ""}</div><div class="r"><strong>LABORATORY REPORT</strong><div>${e(report.order_no)}</div></div></div>
+        ${lab.registration ? `<div class="small">${e(lab.registration)}</div>` : ""}</div><div class="r"><strong>LABORATORY REPORT</strong><div>${e(report.order_no)}${version > 1 ? ` · v${e(String(version))}` : ""}</div></div></div>
+      ${banner}
       <div class="facts"><div>Patient: <strong>${e(report.patient_name)}</strong></div><div>${e(report.patient_no)} · ${e(SEX_WORDS[report.sex] || "")} · ${e(String(report.age ?? ""))} y</div>
         <div>Referred by: ${e(report.referred_by || "Self")}</div>
         <div>Sample: ${sample}</div><div>Collected: ${e(dateTime(report.samples[0]?.collected_at) || "—")}</div><div>Reported: ${e(dateTime(report.approved_at))}</div></div>

@@ -14,6 +14,8 @@ import BusinessLocationSwitcher from "../components/BusinessLocationSwitcher";
 import BusinessProvider from "../context/BusinessProvider";
 import useBusiness from "../hooks/useBusiness";
 import { businessMenu, businessPath } from "../services/businessNav";
+import { restaurantMenu } from '../services/restaurantWorkspace';
+import RestaurantWorkspaceNav from '../components/RestaurantWorkspaceNav';
 import NavIcon from "../components/NavIcon";
 import Icon, { BrandMark } from "../components/Icon";
 import NotificationBell from "../components/NotificationBell";
@@ -25,6 +27,7 @@ import { pageAccent } from "../services/pageAccent";
 import { ScreenLoading } from "../components/Feedback";
 import { featuresAllow } from "../services/features";
 import "../styles/access.css";
+import { formatLabel } from "../services/restaurantFormats";
 
 const PINNED_KEY = "rmp_nav_pinned";
 
@@ -64,6 +67,7 @@ const NAV_SECTIONS = [
       { to: "/table-requests", label: "Table requests", icon: "tableRequests", permission: "orders.view", featureAny: ["qr_ordering", "online_ordering"] },
       { to: "/reservations", label: "Reservations", icon: "reservations", permission: "reservations.view", feature: "reservations" },
       { to: "/deliveries", label: "Deliveries", icon: "deliveries", permission: "orders.view", feature: "deliveries" },
+      { to: "/preorders", label: "Pre-orders & cakes", icon: "reservations", permission: "orders.view", feature: "preorders" },
       { to: "/collection", label: "Pickup screen", icon: "pickup", permission: "orders.collection" },
       { to: "/service/settings", label: "Service settings", icon: "serviceSettings", permission: "orders.manage" },
     ],
@@ -91,8 +95,8 @@ const NAV_SECTIONS = [
   {
     title: "Tables",
     links: [
-      { to: "/tables/floors", label: "Floors & areas", icon: "floors", permission: "tables.view" },
-      { to: "/tables", label: "Tables & QR", icon: "tables", permission: "tables.view", end: true },
+      { to: "/tables/floors", label: "Floors & areas", icon: "floors", permission: "tables.view", notFormats: ["cloud_kitchen", "bakery"] },
+      { to: "/tables", label: "Tables & QR", icon: "tables", permission: "tables.view", end: true, notFormats: ["cloud_kitchen", "bakery"] },
     ],
   },
   {
@@ -101,6 +105,7 @@ const NAV_SECTIONS = [
       { to: "/inventory/items", label: "Items & stock", icon: "stock", permission: "inventory.view", feature: "stock_recipes" },
       { to: "/inventory/stock", label: "Stock movements", icon: "movements", permission: "inventory.view", feature: "stock_recipes" },
       { to: "/inventory/insights", label: "Waste & reorder", icon: "inventoryInsights", permission: "inventory.view", feature: "stock_recipes" },
+      { to: "/inventory/day-end", label: "Day-end unsold", icon: "inventoryInsights", permission: "inventory.view", feature: "stock_recipes", formats: ["bakery", "cafe"] },
       { to: "/inventory/transfers", label: "Transfers & indents", icon: "transfers", permission: "inventory.view", feature: "stock_recipes" },
       { to: "/inventory/settings", label: "Stock & purchasing settings", icon: "sliders", permission: "inventory.view", feature: "stock_recipes" },
     ],
@@ -195,6 +200,14 @@ const resolveLink = (link, hasPermission, user, hasFeature) => {
     return null;
   }
 
+  // Some screens belong to a format: a bakery's day-end count; a cloud
+  // kitchen has no tables.
+  const format = user.restaurantFormat || "restaurant";
+
+  if ((link.formats && !link.formats.includes(format)) || (link.notFormats && link.notFormats.includes(format))) {
+    return null;
+  }
+
   if (link.also && !hasPermission(link.also)) {
     return null;
   }
@@ -252,36 +265,48 @@ function AppShell() {
     if (businessMode) {
       return businessContext ? businessMenu(businessId, businessContext.business.business_type, can, has) : [];
     }
-    return NAV_SECTIONS.filter((section) => user.restaurantId || section.title === "Platform").map((section) => ({
+    const resolved = NAV_SECTIONS.filter((section) => user.restaurantId || section.title === "Platform").map((section) => ({
       ...section,
       links: section.links
         .map((link) => resolveLink(link, hasPermission, user, hasFeature))
         .filter(Boolean),
     })).filter((section) => section.links.length > 0);
+    return user.restaurantId ? restaurantMenu(resolved) : resolved;
   }, [businessMode, businessContext, businessId, can, has, hasPermission, hasFeature, user]);
+
+  // The menu shows each area once; quick access and "Jump to…" reach every page
+  // inside it (a business area's pages, a restaurant area's related pages).
+  const everyPage = useMemo(() => availableSections.map((section) => {
+    const seen = new Set();
+    return { ...section, links: section.links.flatMap((link) => link.pages || link.related || [link])
+      .filter((link) => !seen.has(link.to) && seen.add(link.to)) };
+  }), [availableSections]);
 
   const sections = useMemo(() => {
     const term = filter.trim().toLowerCase();
-    return availableSections.map(section => ({
+    if (!term) return availableSections;
+    return everyPage.map(section => ({
       ...section,
-      links: section.links.filter(link => !term || link.label.toLowerCase().includes(term)),
+      links: section.links.filter(link => link.label.toLowerCase().includes(term)),
     })).filter(section => section.links.length > 0);
-  }, [availableSections, filter]);
+  }, [availableSections, everyPage, filter]);
 
   // The section holding the page you are on is never folded away, so you can
   // always see where you are.
   const openSection = useMemo(() => {
-    const match = (businessMode ? availableSections : NAV_SECTIONS).find((section) =>
+    const match = availableSections.find((section) =>
       section.links.some((link) =>
-        link.end ? pathname === link.to : pathname === link.to || pathname.startsWith(`${link.to}/`)
+        (link.end ? pathname === link.to : pathname === link.to || pathname.startsWith(`${link.to}/`))
+        || link.related?.some((item) => pathname === item.to || item.to !== '/' && pathname.startsWith(`${item.to}/`))
+        || (businessMode && link.activeSections?.some((name) => name && (pathname === businessPath(businessId, name) || pathname.startsWith(`${businessPath(businessId, name)}/`))))
       )
     );
 
     // A page with no menu entry of its own — the profile page, say — would
     // otherwise leave every section folded and the menu looking empty, so the
     // first section stands in.
-    return match ? match.title : (businessMode ? availableSections[0]?.title : NAV_SECTIONS[0].title);
-  }, [pathname, businessMode, availableSections]);
+    return match ? match.title : availableSections[0]?.title;
+  }, [pathname, businessMode, businessId, availableSections]);
 
   useEffect(() => {
     try {
@@ -404,7 +429,7 @@ function AppShell() {
             <span className="brand-text">
               <span className="brand-name">{user.restaurantName || "Business Admin"}</span>
               <span className="brand-restaurant">
-                {user.outletName ? `${user.outletName} · Business Admin` : "Business Admin"}
+                {[user.outletName, user.restaurantFormat && user.restaurantFormat !== "restaurant" ? formatLabel(user.restaurantFormat) : null].filter(Boolean).join(" · ") || "Business Admin"}
               </span>
             </span>
           </Link>
@@ -522,7 +547,7 @@ function AppShell() {
             key={`${quickAccessKey(user)}:${businessMode ? businessId : ""}`}
             user={user}
             scope={businessMode ? `business:${businessId}` : undefined}
-            sections={availableSections}
+            sections={everyPage}
             locked={locked}
             onNavigate={() => { setMenuOpen(false); setFilter(""); }}
           />
@@ -574,7 +599,7 @@ function AppShell() {
                         key={link.to}
                         to={link.to}
                         end={link.end}
-                        className="nav-link"
+                        className={({ isActive }) => `nav-link${isActive || link.related?.some(item => pathname === item.to || item.to !== '/' && pathname.startsWith(`${item.to}/`)) || (businessMode && link.activeSections?.some((name) => name && (pathname === businessPath(businessId, name) || pathname.startsWith(`${businessPath(businessId, name)}/`)))) ? ' active' : ''}`}
                         data-accent={pageAccent(link.to)}
                         onClick={() => setMenuOpen(false)}
                       >
@@ -608,6 +633,7 @@ function AppShell() {
         <main className="content-scroll" ref={scrollRef} id="main-content" tabIndex={-1}>
           <div className="content" key={user.id} ref={contentRef}>
             <Suspense fallback={<ScreenLoading />}>
+              {!businessMode && user.restaurantId && <RestaurantWorkspaceNav sections={availableSections} pathname={pathname} />}
               <Outlet />
             </Suspense>
           </div>

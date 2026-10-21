@@ -8,7 +8,80 @@
 
 .rt-tender.rt-tender-grid .segment {
   min-width: 0;
+  /* A method's own name ("Card (HDFC machine)") wraps onto a second line
+     rather than being cut off; its key stays beside it. */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+  text-align: center;
+  padding: 8px 6px;
+}
+
+.rt-scan-tip,
+.rt-key-hint {
+  margin: 0;
+}
+
+.rt-key-hint {
+  margin-top: calc(-1 * var(--space-2));
+}
+
+.rt-key-hint summary {
+  cursor: pointer;
+  width: fit-content;
+}
+
+.rt-keys {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 4px var(--space-3);
+  margin: var(--space-2) 0;
+}
+
+.rt-keys dt {
+  color: var(--muted);
+}
+
+.rt-keys dd {
+  margin: 0;
   white-space: nowrap;
+}
+
+/* Quick bill, a weighed line: the weight box wide enough for its word and
+   no spinner (it is typed or set by the buttons), and the weight buttons
+   in even columns rather than a ragged wrap. */
+.rt-counter .rt-weigh .rt-weigh-row input[type="number"] {
+  width: 96px;
+  flex: 0 0 96px;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.rt-counter .rt-weigh .rt-weigh-row input[type="number"]::-webkit-inner-spin-button,
+.rt-counter .rt-weigh .rt-weigh-row input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.rt-counter .rt-weigh .rt-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-1);
+  max-width: 240px;
+}
+
+.rt-counter .rt-weigh .rt-steps .chip-button,
+.rt-counter .rt-weigh .rt-steps .rt-worth {
+  justify-content: center;
+  min-height: 30px;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.rt-counter .rt-weigh .rt-steps .rt-worth {
+  grid-column: span 2;
+  width: 100%;
+  flex: none;
 }
 
 .rt-parts {
@@ -31,7 +104,8 @@
    (or the UPI / card reference) and remove on the second. */
 .rt-part {
   display: grid;
-  grid-template-columns: 96px minmax(0, 1fr) auto;
+  /* The method gets the wider share: its own name ("Google Pay", "Card (HDFC machine)") must read whole. */
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto;
   gap: var(--space-2);
   align-items: center;
   padding-bottom: var(--space-2);
@@ -141,5 +215,151 @@
 @media (max-width: 640px) {
   .rt-biller .rt-biller-name {
     max-width: 90px;
+  }
+}
+
+/* Quick bill's shelf (counterShelf.jsx): the items as buttons, price and
+   stock here on each, in a scrolling grid under the item box. */
+.rt-shelf {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.rt-shelf-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.rt-shelf-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.rt-shelf-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-2);
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.rt-tile {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  text-align: left;
+  font: inherit;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: inherit;
+  cursor: pointer;
+}
+
+.rt-tile:hover:not(:disabled),
+.rt-tile:focus-visible {
+  border-color: var(--primary);
+  background: var(--surface-hover);
+}
+
+.rt-tile-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1.25;
+}
+
+.rt-tile-price {
+  font-size: 0.875rem;
+}
+
+.rt-tile-stock {
+  font-size: 0.75rem;
+  color: var(--success, #15803d);
+}
+
+.rt-tile.is-out {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.rt-tile-stock.is-out {
+  color: var(--muted);
+}
+
+/* Till layout: the items on the left, the bill and the payment on the right
+   (wider, and scrolling within the screen so "Take" is always in reach). */
+@media (min-width: 1001px) {
+  .rt-counter {
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 440px);
+  }
+
+  .rt-counter-side {
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: 2px;
+  }
+
+  .rt-shelf-grid {
+    max-height: calc(100dvh - 330px);
+    min-height: 240px;
+  }
+}
+
+.rt-bill .rt-phone-lines {
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+.rt-bill .rt-empty {
+  padding: var(--space-3) var(--space-4);
+}
+
+/* A weighed line on the bill, once weighed, is one row: the weight buttons
+   come back while its weight box (or a button) has focus. */
+.rt-bill .rt-weigh.has-weight:not(:focus-within) .rt-steps {
+  display: none;
+}
+
+.rt-bill .rt-phone-line {
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+/* The total, large; tax as one quiet line under it. */
+.rt-totals-pro {
+  display: grid;
+  gap: 2px;
+}
+
+.rt-totals-pro .rt-grand {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+.rt-totals-pro .rt-grand strong {
+  font-size: 2rem;
+}
+
+.rt-tax-line {
+  margin: 0;
+  text-align: right;
+}
+
+/* "Take" stays in view at the foot of the right-hand panel, however long the bill. */
+@media (min-width: 1001px) {
+  .rt-counter-side .rt-post {
+    position: sticky;
+    bottom: 8px;
+    z-index: 2;
+    box-shadow: 0 6px 18px rgb(0 0 0 / 0.12);
   }
 }

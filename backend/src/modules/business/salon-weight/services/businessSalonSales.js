@@ -50,7 +50,7 @@ async function priceSale(db, business, { contact, lines, body, pricing }) {
   // plain service and the client would get no package or membership.
   const plans = business.business_type === 'salon' ? await repo.all(db, 'SELECT * FROM salon_plans WHERE business_id=$1 AND sku_id=ANY($2::bigint[])', [business.id, skuIds]) : [];
   if (plans.length && !packages) {
-    fail(`${plans[0].name} is a ${plans[0].kind}; Packages & memberships is switched off, so it cannot be sold. An owner can turn it on in Settings › Modules.`, 409);
+    fail(`${plans[0].name} is a ${plans[0].kind}; Packages & memberships is switched off, so it cannot be sold. An owner can turn it on in Settings › Business tools.`, 409);
   }
   if (!packages && !enabled(business, 'commissions') && !wantsSalon) return;
   const salon = { redemptions: [], memberships: [], plansSold: [], staff: [] };
@@ -80,7 +80,7 @@ async function priceSale(db, business, { contact, lines, body, pricing }) {
     if (!input || input.clientPlanId === undefined || input.clientPlanId === null || input.clientPlanId === '') continue;
     const line = lines[index];
     if (!line) continue;
-    if (!packages) fail('Packages & memberships are not switched on for this business. An owner can turn it on in Settings › Modules.', 403);
+    if (!packages) fail('Packages & memberships are not switched on for this business. An owner can turn it on in Settings › Business tools.', 403);
     if (!contact) fail('Choose the client whose package is being used');
     if (!open(line)) fail('This line cannot be paid from a package');
     if (!Number.isInteger(Number(line.quantity))) fail('Package sessions are whole numbers');

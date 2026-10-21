@@ -18,6 +18,7 @@ import {
   fireOrderCourse,
   getOrder,
   getServiceDay,
+  getServiceSettings,
   listJoinedTables,
   listOffers,
   listOrders,
@@ -70,11 +71,16 @@ import MoveDialog from "./MoveDialog";
 import GuestBox from "./GuestBox";
 import DeliveryFields from "./DeliveryFields";
 import DeliveryChargeLine from "./DeliveryChargeLine";
+import WeighDialog from "./WeighDialog";
 import { EMPTY_DELIVERY, deliveryOf, deliveryPayload, sameDelivery } from "../services/posDelivery";
 import { DishAvailability, SoldOutPanel } from "./SoldOutControls";
 import BillModal from "./BillModal";
 import "../styles/orders.css";
 import "../styles/pos.css";
+
+// Where a new order starts for each format until the service settings load
+// (a café's counter and a bakery take parcels; a cloud kitchen delivers).
+const FORMAT_START = { cafe: "takeaway", bakery: "takeaway", cloud_kitchen: "delivery" };
 
 const ORDER_TYPES = [
   { value: "dine_in", label: "Dine-in", icon: "utensils" },
@@ -167,7 +173,13 @@ export default function PosPage() {
   // guest box, with Deliveries off no Delivery order type, and so on.
   const guestsOn = hasFeature("guests");
   const deliveriesOn = hasFeature("deliveries");
-  const orderTypes = ORDER_TYPES.filter((type) => type.value !== "delivery" || deliveriesOn);
+  // The kinds of order this POS takes (Service settings: a cloud kitchen
+  // takes no dine-in) and the one a new order starts on.
+  const [posSetup, setPosSetup] = useState(null);
+  const startType = posSetup?.defaultOrderType || FORMAT_START[user.restaurantFormat] || "dine_in";
+  const orderTypes = ORDER_TYPES.filter((type) => (type.value !== "delivery" || deliveriesOn) && (!posSetup || posSetup.posOrderTypes.includes(type.value)));
+  const dineInOn = orderTypes.some((type) => type.value === "dine_in");
+  const [weighing, setWeighing] = useState(null);
   const canCancelAfterKot = hasPermission("orders.cancel_after_kot");
   // Only staff who may read the guest book find a regular by name; everyone
   // who takes orders finds one by the mobile typed at the till.
@@ -246,7 +258,7 @@ export default function PosPage() {
   const [busyOrder, setBusyOrder] = useState(null);
 
   const [cart, setCart] = useState([]);
-  const [orderType, setOrderType] = useState("dine_in");
+  const [orderType, setOrderType] = useState(() => FORMAT_START[user.restaurantFormat] || "dine_in");
 
   // Deliveries switched off while a delivery was being started (a draft, or
   // the switch changed under this till): a new order falls back to takeaway.
@@ -569,6 +581,15 @@ export default function PosPage() {
       })
       .catch(() => undefined);
 
+    getServiceSettings()
+      .then((loaded) => {
+        setPosSetup({ posOrderTypes: loaded.posOrderTypes || ["dine_in", "takeaway", "delivery"], defaultOrderType: loaded.defaultOrderType || "dine_in" });
+        // A fresh till starts on the format's kind of order; one already
+        // holding an order (a draft, a table opened) keeps its own.
+        setOrderType((current) => ((loaded.posOrderTypes || []).includes(current) ? current : loaded.defaultOrderType || current));
+      })
+      .catch(() => undefined);
+
     // Read through the orders API, which every order-taker may read. The
     // business-day screen's own endpoint needs business_day.view, which a
     // captain does not have.
@@ -865,7 +886,7 @@ export default function PosPage() {
     setOrderNotes("");
     setDelivery(EMPTY_DELIVERY);
     setSeenDelivery(EMPTY_DELIVERY);
-    setOrderType("dine_in");
+    setOrderType(startType);
     setBusyOrder(null);
     setSheetOpen(false);
     setNotice("");
@@ -892,6 +913,11 @@ export default function PosPage() {
 
     if (unavailable(product)) {
       setError(`${product.name}: ${offers.get(offerKey(product.id,null))?.unavailableReason || 'sold out'}`);
+      return;
+    }
+
+    if (product.soldBy === "weight") {
+      setWeighing(product);
       return;
     }
 
@@ -955,6 +981,7 @@ export default function PosPage() {
         variantName: variant ? variant.name : null,
         quantity,
         unitPrice,
+        soldBy: product.soldBy || "unit",
         // The menu price in this size, to fall back on when a happy-hour
         // price stops applying (services/posPricing).
         menuPrice: unitPriceFor(product, variant, null).unitPrice,
@@ -1097,6 +1124,10 @@ export default function PosPage() {
       setPendingPicks((count) => Math.max(0, count - 1));
     }
   };
+
+  // A line sold by weight (kg): its own flag, or its dish's when the line came
+  // back from a saved order.
+  const weighedLine = (line) => line.soldBy === "weight" || products.find((one) => one.id === line.productId)?.soldBy === "weight";
 
   const changeQuantity = (line, delta) => {
     if (orderBilled) {
@@ -1953,7 +1984,7 @@ export default function PosPage() {
                 <span className="product-name" title={product.name}>{product.name}</span>
               </span>
               <span className="product-price">
-                <span className="pos-dish-price">{moneyExact(unitPrice, currency)}</span>
+                <span className="pos-dish-price">{moneyExact(unitPrice, currency)}{product.soldBy === "weight" && <small>/kg</small>}</span>
                 {offer && <s className="muted was-price">{moneyExact(product.price, currency)}</s>}
                 {product.code && <span className="pos-dish-code">{product.code}</span>}
               </span>
@@ -2193,12 +2224,12 @@ export default function PosPage() {
                   </div>
                 </div>
 
-                <div className="qty-controls">
-                  <button type="button" onClick={() => changeQuantity(line, -1)} aria-label={`One less ${line.name}`} disabled={line.quantity <= 0}>
+                <div className={`qty-controls ${weighedLine(line) ? "is-weight" : ""}`}>
+                  <button type="button" onClick={() => changeQuantity(line, weighedLine(line) ? -0.05 : -1)} aria-label={weighedLine(line) ? `50 g less ${line.name}` : `One less ${line.name}`} disabled={line.quantity <= 0}>
                     <Icon name="minus" size={16} />
                   </button>
-                  <span>{line.quantity}</span>
-                  <button type="button" onClick={() => changeQuantity(line, 1)} aria-label={`One more ${line.name}`}>
+                  <span>{weighedLine(line) ? `${line.quantity} kg` : line.quantity}</span>
+                  <button type="button" onClick={() => changeQuantity(line, weighedLine(line) ? 0.05 : 1)} aria-label={weighedLine(line) ? `50 g more ${line.name}` : `One more ${line.name}`}>
                     <Icon name="plus" size={16} />
                   </button>
                 </div>
@@ -2536,7 +2567,7 @@ export default function PosPage() {
                   } else if (orderType === "dine_in") {
                     setTableId("");
                   } else {
-                    setOrderType("dine_in");
+                    setOrderType(dineInOn ? "dine_in" : startType);
                   }
                 }}
               >
@@ -2733,6 +2764,10 @@ export default function PosPage() {
         />
       )}
 
+      {weighing && (
+        <WeighDialog product={weighing} unitPrice={unitPriceFor(weighing, null, offers).unitPrice} currency={currency} onClose={() => setWeighing(null)}
+          onAdd={(kg) => { addToCart(weighing, null, [], kg, ""); setWeighing(null); }} />
+      )}
       {picking && (
         <Modal
           title={picking.product.name}

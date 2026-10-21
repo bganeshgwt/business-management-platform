@@ -30,6 +30,8 @@ const toProfile = (user) => ({
   restaurantId: user.restaurant_id,
   restaurantName: user.restaurant_name,
   restaurantCode: user.restaurant_code || null,
+  // restaurant, cafe, bakery or cloud_kitchen: the words and the POS's start.
+  restaurantFormat: user.restaurant_format || "restaurant",
   outletId: user.outlet_id,
   outletName: user.outlet_name || null,
   employeeId: user.employee_id || null,

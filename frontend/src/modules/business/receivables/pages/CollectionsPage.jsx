@@ -34,7 +34,7 @@ export default function CollectionsPage() {
   const [openId, setOpenId] = useState(null);
   const [version, setVersion] = useState(0);
   useEffect(() => {
-    if (params.get("new") || params.get("tab")) setParams({}, { replace: true });
+    if (params.get("new") || params.get("tab")) setParams((p) => new URLSearchParams(p.get("open") ? { open: p.get("open") } : {}), { replace: true });
   }, [params, setParams]);
   const title = word(biz.type, "collections", "Collections");
   const saved = (c) => {

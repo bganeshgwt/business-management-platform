@@ -168,14 +168,39 @@ function locationFields(body) {
     v.optionalString(body.city, 'City', 100), postal, stateCode, gstin, v.optionalString(body.phone, 'Phone', 30)];
 }
 
+// Opening hours: { mon: { open: "09:00", close: "21:00" }, … }; a day left
+// out (or null) is closed. A close before the open runs past midnight.
+// undefined: not sent (kept); null or {}: not given.
+const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+function readOpeningHours(value) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value !== 'object' || Array.isArray(value)) fail('Opening hours must be given per day');
+  const hours = {};
+  for (const [day, slot] of Object.entries(value)) {
+    if (!DAYS.includes(day)) fail(`Unknown day "${day}" in opening hours`);
+    if (slot === null || slot === false) continue;
+    const time = (text, what) => {
+      const t = String(text ?? '').trim();
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(t)) fail(`${day.toUpperCase()} ${what} must be a time like 09:00`);
+      return t;
+    };
+    const open = time(slot?.open, 'opening'), close = time(slot?.close, 'closing');
+    if (open === close) fail(`${day.toUpperCase()}: opening and closing times are the same`);
+    hours[day] = { open, close };
+  }
+  return Object.keys(hours).length ? hours : null;
+}
+
 async function createLocation(business, user, body) {
   await access.require(business, 'settings.edit');
   return repo.transaction(async (db) => {
     const f = locationFields(body);
-    const row = await repo.one(db, `INSERT INTO business_locations(business_id,name,code,sells_at_counter,address_line1,address_line2,city,postal_code,state_code,gstin,phone)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+    const hours = readOpeningHours(body.openingHours);
+    const row = await repo.one(db, `INSERT INTO business_locations(business_id,name,code,sells_at_counter,address_line1,address_line2,city,postal_code,state_code,gstin,phone,opening_hours)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
       [business.id, v.requiredString(body.name, 'Location name', 150), v.requiredString(body.code, 'Location code', 30).toUpperCase(),
-        v.requiredBoolean(body.sellsAtCounter, 'Sells at the counter', true), ...(f || [null, null, null, null, null, null, null])]);
+        v.requiredBoolean(body.sellsAtCounter, 'Sells at the counter', true), ...(f || [null, null, null, null, null, null, null]), hours ? JSON.stringify(hours) : null]);
     await repo.audit(db, business.id, user.id, 'location.created', row.id);
     return row;
   });
@@ -195,12 +220,16 @@ async function updateLocation(business, user, locationId, body) {
     const counter = body.sellsAtCounter === undefined ? null : v.requiredBoolean(body.sellsAtCounter, 'Sells at the counter');
     // Address and GSTIN: older clients send none of them and the location keeps what it has.
     const f = locationFields(body);
+    // Opening hours: older clients send none and the location keeps its own.
+    const hours = readOpeningHours(body.openingHours);
     const row = await repo.one(db, `UPDATE business_locations SET name=$3,active=$4,sells_at_counter=COALESCE($5,sells_at_counter),
+      opening_hours=CASE WHEN $14 THEN $15::jsonb ELSE opening_hours END,
       address_line1=CASE WHEN $6 THEN $7 ELSE address_line1 END,address_line2=CASE WHEN $6 THEN $8 ELSE address_line2 END,
       city=CASE WHEN $6 THEN $9 ELSE city END,postal_code=CASE WHEN $6 THEN $10 ELSE postal_code END,
       state_code=CASE WHEN $6 THEN $11 ELSE state_code END,gstin=CASE WHEN $6 THEN $12 ELSE gstin END,phone=CASE WHEN $6 THEN $13 ELSE phone END
       WHERE business_id=$1 AND id=$2 RETURNING *`,
-      [business.id, id(locationId), v.requiredString(body.name, 'Location name', 150), active, counter, Boolean(f), ...(f || [null, null, null, null, null, null, null])]);
+      [business.id, id(locationId), v.requiredString(body.name, 'Location name', 150), active, counter, Boolean(f), ...(f || [null, null, null, null, null, null, null]),
+        hours !== undefined, hours ? JSON.stringify(hours) : null]);
     if (!row) fail('Location not found', 404);
     await repo.audit(db, business.id, user.id, 'location.updated', row.id, { active });
     return row;
@@ -299,6 +328,31 @@ async function readCategory(db, businessId, value) {
   if (!category) fail('Category not found', 404);
   return category.id;
 }
+// A person tied to a department (Staff & access) changes its items only:
+// an item is in the department of its category.
+async function requireDepartmentItem(db, business, { categoryId = null, skuId = null }) {
+  if (!business.member_department_id) return;
+  const row = skuId
+    ? await repo.one(db, `SELECT c.department_id FROM catalog_skus s JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id
+        LEFT JOIN catalog_categories c ON c.business_id=p.business_id AND c.id=p.category_id WHERE s.business_id=$1 AND s.id=$2`, [business.id, skuId])
+    : categoryId ? await repo.one(db, 'SELECT department_id FROM catalog_categories WHERE business_id=$1 AND id=$2', [business.id, categoryId]) : null;
+  if (String(row?.department_id ?? '') !== String(business.member_department_id)) {
+    fail(`You work in ${business.member_department_name || 'one department'}: this item is outside it`, 403);
+  }
+}
+
+// Where an item sits in the shop ("Aisle 3 · Shelf B"); empty clears it.
+const readShelf = (value) => v.optionalString(value, 'Shelf location', 40) || null;
+// The price a loyalty customer pays: below the item's price, never above its
+// MRP; empty clears it.
+function readMemberPrice(value, price, label) {
+  if (value === undefined || value === null || String(value).trim() === '') return null;
+  const member = decimal(value, 'Member price');
+  if (member <= 0) fail('The member price must be more than zero');
+  if (member >= price) fail(`The member price of ${label} must be below its price (${price.toFixed(2)})`);
+  return member;
+}
+
 // extend(db, sku): a type module's own rows for the new item (book details),
 // written in the same transaction.
 async function createCatalog(business, user, body, extend) {
@@ -328,6 +382,7 @@ async function createCatalog(business, user, body, extend) {
     if (kind === 'service' && !serviceUnit) fail('Services require hour or service units');
     const tax = await readTax(db, business, body);
     const categoryId = await readCategory(db, business.id, body.categoryId);
+    await requireDepartmentItem(db, business, { categoryId });
     let product;
     if (body.productId) {
       product = await repo.one(db, 'SELECT * FROM catalog_products WHERE business_id=$1 AND id=$2 AND active', [business.id, id(body.productId)]);
@@ -342,12 +397,14 @@ async function createCatalog(business, user, body, extend) {
     const price = decimal(body.price, 'Price');
     const mrp = readMrp(body.mrp);
     checkMrp(label, price, tax.rate, await saleTaxMode(db, business.id), mrp);
+    const memberPrice = readMemberPrice(body.memberPrice, price, label);
     await barcodeFree(db, business.id, barcode);
-    const sku = await repo.one(db, `INSERT INTO catalog_skus(business_id,product_id,code,barcode,label,unit,price,tax_rate,tax_rate_id,tracking,reorder_level,attributes,hsn_code,mrp)
-     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+    const sku = await repo.one(db, `INSERT INTO catalog_skus(business_id,product_id,code,barcode,label,unit,price,tax_rate,tax_rate_id,tracking,reorder_level,attributes,hsn_code,mrp,shelf_location,member_price,internal_use)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
     [business.id, product.id, v.requiredString(body.code, 'SKU code', 60).toUpperCase(), barcode,
       label, unit.code, price, tax.rate, tax.taxRateId,
-      tracking, decimal(body.reorderLevel ?? 0, 'Reorder level', 3), JSON.stringify(extra), readHsn(body.hsnCode), mrp]);
+      tracking, decimal(body.reorderLevel ?? 0, 'Reorder level', 3), JSON.stringify(extra), readHsn(body.hsnCode), mrp,
+      readShelf(body.shelfLocation), memberPrice, kind === 'goods' && v.requiredBoolean(body.internalUse, 'For use in services only', false)]);
     if (extend) await extend(db, sku);
     else await books.fromAttributes(db, business, sku, extra);
     await repo.audit(db, business.id, user.id, 'catalog.created', sku.id);
@@ -375,6 +432,8 @@ async function updateCatalog(business, user, skuId, body) {
     const current = await repo.one(db, 'SELECT s.*,p.category_id FROM catalog_skus s JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id WHERE s.business_id=$1 AND s.id=$2 FOR UPDATE OF s',
       [business.id, id(skuId)]);
     if (!current) fail('Item not found', 404);
+    await requireDepartmentItem(db, business, { skuId: current.id });
+    if (body.categoryId !== undefined && body.categoryId) await requireDepartmentItem(db, business, { categoryId: id(body.categoryId) });
     const tax = await readTax(db, business, body, current.tax_rate);
     const label = v.requiredString(body.label, 'Name', 150);
     const price = decimal(body.price, 'Price');
@@ -385,13 +444,23 @@ async function updateCatalog(business, user, skuId, body) {
     const barcode = body.barcode === undefined ? current.barcode : readBarcode(body.barcode);
     if (barcode !== current.barcode) await barcodeFree(db, business.id, barcode, current.id);
     checkMrp(label, price, tax.rate, await saleTaxMode(db, business.id), mrp);
-    const sku = await repo.one(db, `UPDATE catalog_skus SET label=$3,price=$4,tax_rate=$5,tax_rate_id=$6,active=$7,reorder_level=$8,hsn_code=$9,mrp=$10,barcode=$11
+    // Older clients send neither: the item keeps its shelf and member price
+    // (a member price no longer below a lowered price is cleared).
+    const shelf = body.shelfLocation === undefined ? current.shelf_location : readShelf(body.shelfLocation);
+    const memberPrice = body.memberPrice === undefined
+      ? (current.member_price !== null && Number(current.member_price) < price ? current.member_price : null)
+      : readMemberPrice(body.memberPrice, price, label);
+    const sku = await repo.one(db, `UPDATE catalog_skus SET label=$3,price=$4,tax_rate=$5,tax_rate_id=$6,active=$7,reorder_level=$8,hsn_code=$9,mrp=$10,barcode=$11,
+      shelf_location=$12,member_price=$13,internal_use=$14
       WHERE business_id=$1 AND id=$2 RETURNING *`, [business.id, current.id, label,
       price, tax.rate, tax.taxRateId, v.requiredBoolean(body.active, 'Active', true),
-      decimal(body.reorderLevel ?? current.reorder_level, 'Reorder level', 3), hsn, mrp, barcode]);
+      decimal(body.reorderLevel ?? current.reorder_level, 'Reorder level', 3), hsn, mrp, barcode, shelf, memberPrice,
+      body.internalUse === undefined ? current.internal_use : v.requiredBoolean(body.internalUse, 'For use in services only')]);
     if (barcode !== current.barcode) await repo.audit(db, business.id, user.id, 'catalog.barcode_changed', current.id, { label, barcodeFrom: current.barcode || 'none', barcodeTo: barcode || 'none' });
-    if (Number(current.price) !== price || String(current.mrp ?? '') !== String(mrp ?? '')) {
-      await repo.audit(db, business.id, user.id, 'catalog.price_changed', current.id, { label, from: current.price, to: price.toFixed(2), mrpFrom: current.mrp, mrpTo: mrp === null ? null : Number(mrp).toFixed(2) });
+    const memberText = (x) => (x === null || x === undefined ? null : Number(x).toFixed(2));
+    if (Number(current.price) !== price || String(current.mrp ?? '') !== String(mrp ?? '') || memberText(current.member_price) !== memberText(memberPrice)) {
+      await repo.audit(db, business.id, user.id, 'catalog.price_changed', current.id, { label, from: current.price, to: price.toFixed(2), mrpFrom: current.mrp, mrpTo: mrp === null ? null : Number(mrp).toFixed(2),
+        memberFrom: memberText(current.member_price), memberTo: memberText(memberPrice) });
     }
     if (body.categoryId !== undefined) {
       await db.query('UPDATE catalog_products SET category_id=$3 WHERE business_id=$1 AND id=$2', [business.id, current.product_id, await readCategory(db, business.id, body.categoryId)]);
@@ -562,6 +631,18 @@ const counterPins = () => require('./businessCounter.service');
 // prices, offers, points, tax, round-off — and return it without saving.
 // `paidNow`: null, one payment { amount, method, reference } or a list of them
 // (split payment, round 2). `finance`: an EMI sale's financier part.
+// Free units and trade discount on a purchase line, in the line's own unit
+// (packs when it is entered in packs). null when neither is given.
+function readScheme(input) {
+  const given = (value) => value !== undefined && value !== null && String(value).trim() !== '' && Number(value) !== 0;
+  if (!given(input?.freeQuantity) && !given(input?.discountPercent)) return null;
+  const paid = decimal(input.quantity, 'Quantity', 3, 0.001, 100000);
+  const free = given(input.freeQuantity) ? decimal(input.freeQuantity, 'Free quantity', 3, 0, 100000) : 0;
+  const discount = given(input.discountPercent) ? decimal(input.discountPercent, 'Discount %', 2, 0, 99.99) : 0;
+  const paidMilli = milli(paid), totalMilli = milli(paid) + milli(free);
+  return { free: free > 0, freeEntered: free, discount, discountBasis: Math.round(discount * 100), paidMilli, totalMilli, totalText: String(totalMilli / 1000) };
+}
+
 async function postDocument(db, business, user, body, { kind, requestKey, hash, lines: inputLines, paidNow, fixed = null, quote = false, walkInPays = false, voucher = null, finance = null }) {
   {
     // Serializes document posting within a business: one lock order for every
@@ -591,13 +672,20 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     // Purchase lines may also set the item's new selling price and MRP.
     const priceUpdates = [];
     const prepared = [];
-    for (const [lineIndex, input] of lines.entries()) {
+    for (const [lineIndex, rawInput] of lines.entries()) {
+      // A supplier's bill line: free units on a scheme ("10 + 1 free") and a
+      // trade discount on the rate. The line takes in paid + free units and
+      // is charged for the paid ones, less the discount.
+      const scheme = kind === 'purchase' ? readScheme(rawInput) : null;
+      if (kind !== 'purchase' && (Number(rawInput?.freeQuantity || 0) || Number(rawInput?.discountPercent || 0))) fail('Free quantity and trade discount are for purchases');
+      const input = scheme?.free ? { ...rawInput, quantity: scheme.totalText } : rawInput;
       const sku = await repo.one(db, `SELECT s.*,p.kind,u.decimals AS unit_decimals,u.name AS unit_name FROM catalog_skus s
        JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id
        JOIN business_units u ON u.business_id=s.business_id AND u.code=s.unit
        WHERE s.business_id=$1 AND s.id=$2 AND s.active AND p.active`, [business.id, id(input.skuId)]);
       if (!sku) fail('Item not found', 404);
       if (kind === 'purchase' && sku.kind === 'service') fail('Services cannot be received into stock');
+      if (kind === 'sale' && sku.internal_use) fail(`${sku.label} is kept for use in services only and is not sold. Untick "For use in services only" on the item to sell it.`, 409);
       const baseUnit = { decimals: sku.unit_decimals, name: sku.unit_name };
       let quantity, entered = null, factorMicro = 1000000;
       if (input.unit && input.unit !== sku.unit) {
@@ -617,7 +705,7 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
       if (sku.tracking === 'serial' && quantity !== 1) fail('Enter each serial number on its own line');
       const preset = fixed?.[lineIndex] || null;
       const kit = kitOf[lineIndex] || null;
-      let priceRule = null;
+      let priceRule = null, priceKind = null;
       let price, net, enteredPrice = null;
       if (kit) {
         // A component's share of the kit's price, in the document's price terms.
@@ -627,8 +715,9 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
         priceRule = preset.priceRuleId ? { id: preset.priceRuleId } : null;
       } else if (kind === 'sale') {
         // Customer, slab and pack prices (services/businessPricing.js).
-        const priced = await pricing.salePrice(db, business, sku, contact?.id, quantity, entered && { ...entered, factorMicro });
-        priceRule = priced.rule; price = priced.stockPrice; net = priced.net; enteredPrice = priced.enteredPrice;
+        const priced = await pricing.salePrice(db, business, sku, contact?.id, quantity, entered && { ...entered, factorMicro },
+          { locationId: location.id, member: Boolean(contact) && business.capabilities.includes('loyalty') });
+        priceRule = priced.rule; price = priced.stockPrice; net = priced.net; enteredPrice = priced.enteredPrice; priceKind = priced.priceKind;
       } else if (entered) {
         // A purchase in packs is costed per pack; the stock cost per unit follows from it.
         enteredPrice = paise(decimal(input.unitPrice, 'Purchase unit cost'));
@@ -638,6 +727,11 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
         price = decimal(input.unitPrice, 'Purchase unit cost');
         net = lineNet(price, quantity);
       }
+      // Charged for the paid units only, less the trade discount.
+      if (scheme && (scheme.free || scheme.discountBasis)) {
+        if (scheme.free && (sku.tracking === 'serial')) fail('Free serial-numbered units are received on their own lines at no cost');
+        net = roundedDivide(BigInt(net) * BigInt(scheme.paidMilli) * BigInt(10000 - scheme.discountBasis), BigInt(scheme.totalMilli) * 10000n);
+      }
       // Nothing is billed above its MRP (a wholesale dispatch keeps its order's prices).
       if (kind === 'sale' && !preset && !kit) checkMrp(sku.label, price, sku.tax_rate, taxMode, sku.mrp);
       if (kind === 'purchase' && ((input.sellingPrice ?? '') !== '' || (input.mrp ?? '') !== '')) {
@@ -646,7 +740,7 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
         priceUpdates.push({ sku, price: newPrice, mrp: newMrp });
       }
       // Cost of one stock unit on this line, to four places (exact for packs).
-      const stockCost = kind !== 'purchase' ? null : entered ? (net / 100) / quantity : price;
+      const stockCost = kind !== 'purchase' ? null : entered || scheme?.free || scheme?.discountBasis ? (net / 100) / quantity : price;
       const lotCode = sku.tracking === 'batch' || sku.tracking === 'serial' ? v.requiredString(input.lotCode, 'Batch / serial number', 100) : '';
       let expiresOn = null;
       if (input.expiresOn) expiresOn = dateText(input.expiresOn, 'Expiry date');
@@ -654,7 +748,7 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
       if (kind === 'purchase' && business.business_type === 'pharmacy' && !expiresOn) fail('Pharmacy receipts require an expiry date');
       // `amount`: the line at its price, in the document's price terms. Net
       // and tax are split below, once offers have been applied.
-      prepared.push({ sku, quantity, price, amount: net, preset, kit, inputIndex: kit ? kit.inputIndex : kits().inputIndexOf(kitOf, lineIndex), lotCode, expiresOn, priceRule, entered, enteredPrice, factorMicro, stockCost });
+      prepared.push({ sku, quantity, price, priceKind, amount: net, freeQuantity: scheme?.freeEntered || 0, discountPercent: scheme?.discount || 0, preset, kit, inputIndex: kit ? kit.inputIndex : kits().inputIndexOf(kitOf, lineIndex), lotCode, expiresOn, priceRule, entered, enteredPrice, factorMicro, stockCost });
     }
     // Offers and redeemed loyalty points (retail modules, businessOffers.js)
     // come off sale lines before GST is worked out on what is left. Lines
@@ -731,11 +825,12 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
       placeOfSupply, buyerGstin, kind === 'sale' ? contact?.address || null : null, bill.number, bill.date]);
     for (const line of prepared) {
       const savedLine = await repo.one(db, `INSERT INTO business_document_lines(business_id,document_id,sku_id,label,unit,quantity,unit_price,tax_rate,net,tax,lot_code,price_rule_id,
-        entered_unit,entered_quantity,entered_unit_price,unit_factor,hsn_code,mrp,kit_sku_id,kit_label,kit_group)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING id`, [business.id, saved.id, line.sku.id, line.sku.label, line.sku.unit,
+        entered_unit,entered_quantity,entered_unit_price,unit_factor,hsn_code,mrp,kit_sku_id,kit_label,kit_group,free_quantity,discount_percent)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) RETURNING id`, [business.id, saved.id, line.sku.id, line.sku.label, line.sku.unit,
         line.quantity, rateText(line.price, Boolean(line.preset || line.kit)), line.sku.tax_rate, money(line.net), money(line.tax), line.lotCode, line.priceRule?.id || null,
         line.entered?.unit || null, line.entered?.quantity ?? null, line.entered ? money(line.enteredPrice) : null, line.entered ? (line.factorMicro / 1e6).toFixed(6) : null,
-        line.sku.hsn_code || null, line.kit ? null : line.sku.mrp ?? null, line.kit?.skuId || null, line.kit?.label || null, line.kit?.group || null]);
+        line.sku.hsn_code || null, line.kit ? null : line.sku.mrp ?? null, line.kit?.skuId || null, line.kit?.label || null, line.kit?.group || null,
+        line.freeQuantity || 0, line.discountPercent || 0]);
       line.id = savedLine.id;
       if (line.sku.tracking === 'none') continue;
       if (kind === 'purchase') {
@@ -805,6 +900,7 @@ async function detail(business, documentId) {
     LEFT JOIN business_contacts c ON c.business_id=d.business_id AND c.id=d.contact_id WHERE d.business_id=$1 AND d.id=$2`, [business.id, id(documentId)]);
   if (!doc) fail('Document not found', 404);
   await access.require(business, kindPermission(doc.kind, 'view'));
+  access.requireLocation(business, doc.location_id);
   const [lines, payments, returns, refunds, returnedLines, settings, retail, wholesale] = await Promise.all([
     repo.all(repo.pool, 'SELECT * FROM business_document_lines WHERE business_id=$1 AND document_id=$2 ORDER BY id', [business.id, doc.id]),
     repo.all(repo.pool, 'SELECT * FROM business_payments WHERE business_id=$1 AND document_id=$2 ORDER BY id', [business.id, doc.id]),
@@ -911,10 +1007,16 @@ async function appointment(business, user, body) {
   return repo.transaction(async (db) => {
     const staff = await repo.one(db, 'SELECT * FROM business_resources WHERE business_id=$1 AND id=$2 AND active FOR UPDATE', [business.id, id(body.resourceId)]);
     if (!staff) fail('Staff / resource not found', 404);
+    access.requireLocation(business, staff.location_id);
     const contact = await repo.one(db, 'SELECT id FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind=\'customer\' AND active', [business.id, id(body.contactId)]);
     const sku = await repo.one(db, `SELECT s.id FROM catalog_skus s JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id
       WHERE s.business_id=$1 AND s.id=$2 AND s.active AND p.active AND p.kind='service'`, [business.id, id(body.skuId)]);
     if (!contact || !sku) fail('Customer or service not found', 404);
+    // A clinic doctor is booked within their OPD sessions and not on leave.
+    if (business.business_type === 'healthcare') {
+      const problem = await require('../../health/services/businessClinicDesk.service').availabilityProblem(db, business, staff.id, starts, ends);
+      if (problem) fail(problem, 409, { reason: 'doctor_unavailable' });
+    }
     const overlap = await repo.one(db, `SELECT id FROM business_appointments WHERE business_id=$1 AND resource_id=$2
       AND status='booked' AND starts_at<$4 AND ends_at>$3`, [business.id, staff.id, starts, ends]);
     if (overlap) fail('This staff member already has an appointment at that time', 409);
@@ -939,6 +1041,7 @@ async function statusAllowed(db, business, appointment, status) {
 async function appointmentStatus(business, user, appointmentId, body) {
   const status = v.requiredEnum(body.status, 'Status', ['completed', 'cancelled', 'no_show']);
   await access.require(business, status === 'cancelled' ? 'appointments.cancel' : 'appointments.edit');
+  await access.requireAppointmentLocation(repo.pool, business, await repo.one(repo.pool, 'SELECT resource_id FROM business_appointments WHERE business_id=$1 AND id=$2', [business.id, id(appointmentId)]));
   // A salon's no-show and late-cancellation charges come out of the deposit.
   if (salonRules(business)) {
     const result = await salonRules(business).setStatus(business, user, appointmentId, { status, requestKey: body.requestKey || crypto.randomUUID() });
@@ -972,16 +1075,33 @@ async function reports(business, filters) {
       COALESCE((SELECT sum(net) FROM business_return_lines l WHERE l.business_id=r.business_id AND l.return_id=r.id),0),
       COALESCE((SELECT sum(tax) FROM business_return_lines l WHERE l.business_id=r.business_id AND l.return_id=r.id),0)
       FROM business_returns r JOIN business_documents d ON d.business_id=r.business_id AND d.id=r.document_id WHERE r.business_id=$1 AND d.kind=ANY($5) AND ($6::bigint IS NULL OR d.location_id=$6)
+    -- Store credit (a credit-note collection) is no money in; it counts when a bill uses it.
     UNION ALL SELECT (p.created_at AT TIME ZONE $4)::date,d.kind||'_payment',p.amount,0,0
-      FROM business_payments p JOIN business_documents d ON d.business_id=p.business_id AND d.id=p.document_id WHERE p.business_id=$1 AND d.kind=ANY($5) AND ($6::bigint IS NULL OR d.location_id=$6)
+      FROM business_payments p JOIN business_documents d ON d.business_id=p.business_id AND d.id=p.document_id WHERE p.business_id=$1 AND d.kind=ANY($5) AND p.method<>'finance' AND (p.collection_id IS NULL OR p.method='credit_note') AND p.supplier_payment_id IS NULL AND ($6::bigint IS NULL OR d.location_id=$6)
     UNION ALL SELECT (r.created_at AT TIME ZONE $4)::date,d.kind||'_refund',r.amount,0,0
-      FROM business_refunds r JOIN business_documents d ON d.business_id=r.business_id AND d.id=r.document_id WHERE r.business_id=$1 AND d.kind=ANY($5) AND ($6::bigint IS NULL OR d.location_id=$6)
+      FROM business_refunds r JOIN business_documents d ON d.business_id=r.business_id AND d.id=r.document_id WHERE r.business_id=$1 AND d.kind=ANY($5) AND r.method<>'finance' AND ($6::bigint IS NULL OR d.location_id=$6)
+    UNION ALL SELECT (k.created_at AT TIME ZONE $4)::date,'sale_payment',k.amount,0,0
+      FROM business_collections k WHERE k.business_id=$1 AND 'sale'=ANY($5) AND k.method<>'credit_note' AND ($6::bigint IS NULL OR k.location_id=$6)
+    UNION ALL SELECT (k.created_at AT TIME ZONE $4)::date,'purchase_payment',k.amount,0,0
+      FROM business_supplier_payments k WHERE k.business_id=$1 AND 'purchase'=ANY($5) AND ($6::bigint IS NULL OR k.location_id=$6)
+    UNION ALL SELECT (f.created_at AT TIME ZONE $4)::date,'sale_refund',f.amount,0,0
+      FROM business_collection_refunds f JOIN business_collections k ON k.business_id=f.business_id AND k.id=f.collection_id
+      WHERE f.business_id=$1 AND 'sale'=ANY($5) AND ($6::bigint IS NULL OR k.location_id=$6)
+    UNION ALL SELECT (q.bounced_at AT TIME ZONE $4)::date,'collection_bounced',k.amount,0,0
+      FROM business_collection_cheques q JOIN business_collections k ON k.business_id=q.business_id AND k.id=q.collection_id
+      WHERE q.business_id=$1 AND q.status='bounced' AND 'sale'=ANY($5) AND ($6::bigint IS NULL OR k.location_id=$6)
+    UNION ALL SELECT (s.created_at AT TIME ZONE $4)::date,'finance_payout',s.amount_received,0,0
+      FROM electronics_finance_settlements s WHERE s.business_id=$1 AND 'sale'=ANY($5) AND ($6::bigint IS NULL OR s.location_id=$6)
+    UNION ALL SELECT e.spent_on,'expense',e.amount,0,0 FROM business_expenses e
+      WHERE e.business_id=$1 AND $7::boolean AND ($6::bigint IS NULL OR e.location_id=$6)
+    UNION ALL SELECT (e.voided_at AT TIME ZONE $4)::date,'expense_reversal',e.amount,0,0 FROM business_expenses e
+      WHERE e.business_id=$1 AND e.voided_at IS NOT NULL AND $7::boolean AND ($6::bigint IS NULL OR e.location_id=$6)
   ) SELECT day::text AS day,kind,count(*)::int AS entries,sum(total) AS total,sum(net) AS net,sum(tax) AS tax
-    FROM events WHERE day BETWEEN $2::date AND $3::date GROUP BY day,kind ORDER BY day DESC,kind`, [business.id, from, to, business.timezone, kinds, location])).rows;
+    FROM events WHERE day BETWEEN $2::date AND $3::date GROUP BY day,kind ORDER BY day DESC,kind`, [business.id, from, to, business.timezone, kinds, location, access.can(business,'expenses.view')])).rows;
   return { from, to, timezone: business.timezone, location, rows };
 }
 
 module.exports = { statusAllowed, list, provision, linkRestaurant, createLocation, updateLocation, updateContact, reports, createCatalog, updateCatalog, createContact,
   createPriceRule, disablePriceRule, document, detail, payment, resource, appointment, appointmentStatus, decimal, signedDecimal, dateText, uuid,
   lineNet, lineTax, inclusiveNet, devEnabled, kindPermission, readUnit, postDocument, recordPayment, conversion, requiredDecimals, readPayments,
-  GOODS_TYPES, readHsn, readMrp, checkMrp, shelfPaise, branchSeller };
+  GOODS_TYPES, readHsn, readMrp, checkMrp, shelfPaise, branchSeller, requireDepartmentItem };

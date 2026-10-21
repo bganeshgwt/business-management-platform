@@ -2,6 +2,8 @@
 // has switched on and what this person's role allows. The server checks the
 // same two things on every request; the menu only hides what would be refused.
 
+import { dailyWorkspaces, WORKSPACES, workspaceLabel, workspaceSections } from './businessWorkspace.js';
+
 export const businessPath = (id, section = "") => `/business-admin/${id}${section ? `/${section}` : ""}`;
 
 // Someone who works in the signed-in restaurant (has a restaurant role). A
@@ -24,7 +26,7 @@ export function landingBusiness(businesses, restaurantStaff) {
 const TYPE_WORDS = {
   salon: { customers: "Clients", products: "Services & products", resources: "Stylists & rooms", sales: "Bills", appointments: "Appointment history" },
   // Round 2: patients have their own screen (with consent); the core list is the billing contacts.
-  healthcare: { customers: "Billing contacts", products: "Services & tests", resources: "Doctors & rooms", sales: "Bills" },
+  healthcare: { customers: "Billing contacts", products: "Services & charges", resources: "Doctors & rooms", sales: "Bills" },
   pharmacy: { products: "Medicines & products" },
   // Shared receivables (Phase 2): a kirana calls customer credit "udhaar".
   grocery: { outstanding: "Udhaar", collections: "Udhaar collections" },
@@ -68,7 +70,8 @@ export function businessSections(type) {
       links: [
         { section: "counter", label: "Quick bill", icon: "pos", need: "sales.create", types: GOODS },
         { section: "rx-sale", label: "Prescription sale", icon: "pos", need: "sales.create", module: "pharmacy", types: PHARMACY },
-        { section: "day-close", label: "Day close", icon: "businessDay", need: "sales.view", types: GOODS },
+        { section: "day-close", label: "Daily money", icon: "businessDay", need: "sales.view", except: ['restaurant'] },
+        { section: "expenses", label: "Expenses", icon: "expenses", need: "expenses.view", except: ['restaurant'] },
         // Phase 2, T4: the salon's bill and calendar.
         { section: "salon-bill", label: "New bill", icon: "pos", need: "sales.create", types: SALON },
         { section: "salon-calendar", label: "Calendar", icon: "reservations", need: "appointments.view", types: SALON },
@@ -118,10 +121,13 @@ export function businessSections(type) {
       title: "Clinic",
       links: [
         { section: "clinic-today", label: "Today's patients", icon: "reservations", need: "patients.view", types: CLINIC },
+        { section: "clinic-queue", label: "Token queue", icon: "collection", need: "patients.view", types: CLINIC },
         { section: "patients", label: "Patients", icon: "customers", need: "patients.view", types: CLINIC },
         { section: "visits", label: "Visits & follow-ups", icon: "logbook", need: "patients.view", types: CLINIC },
         { section: "lab-orders", label: "Lab orders", icon: "inventoryInsights", need: "lab.view", types: CLINIC },
         { section: "lab-tests", label: "Tests & panels", icon: "categories", need: "lab.view", types: CLINIC },
+        { section: "lab-qc", label: "Quality control", icon: "activity", need: "lab.view", types: CLINIC },
+        { section: "doctors", label: "Doctors, fees & OPD", icon: "employees", need: "appointments.view", types: CLINIC },
       ],
     },
     {
@@ -129,7 +135,8 @@ export function businessSections(type) {
       links: [
         { section: "purchases", label: "Purchases", icon: "purchaseOrders", need: "purchasing.view" },
         // Round 2: purchase orders to the company / super-stockist (wholesale).
-        { section: "purchase-orders", label: "Purchase orders", icon: "purchaseOrders", need: "purchasing.view", module: "sales_orders" },
+        // Every shop that buys stock raises purchase orders (reorder suggestions per branch).
+        { section: "purchase-orders", label: "Purchase orders", icon: "purchaseOrders", need: "purchasing.view", module: "inventory" },
         { section: "suppliers", label: "Suppliers", icon: "suppliers", need: "contacts.view", module: "purchasing" },
         { section: "claims", label: "Claims on suppliers", icon: "returns", need: "purchasing.view", module: "sales_orders" },
       ],
@@ -161,22 +168,23 @@ export function businessSections(type) {
         { section: "serials", label: "Serial / IMEI register", icon: "numbering", need: "inventory.view", module: "serials" },
         // Phase 2, T4: weight-based shops.
         { section: "weight-stock", label: "Stock by weight", icon: "inventoryInsights", need: "inventory.view", module: "weight", types: WEIGHED },
-        { section: "processing", label: word(type, "processing", "Cutting & yield"), icon: "kitchen", need: "processing.view" },
+        { section: "processing", label: WEIGHED.includes(type) ? "Cutting & processing" : word(type, "processing", "Cutting & yield"), icon: "kitchen", need: "processing.view" },
         { section: "wastage", label: "Wastage", icon: "returns", need: "wastage.view" },
       ],
     },
     {
-      // Tasks, issues & projects (modules/tasks), every business type. My tasks needs no permission.
+      // Tasks, issues & projects (modules/tasks): an owner's optional tool for
+      // every business type (Settings › Business tools), off until switched on.
       title: "Tasks",
       links: [
         { section: "tasks", label: "My tasks", icon: "tasks", module: "tasks", end: true },
-        { section: "tasks/board", label: "Team board", icon: "board", need: "tasks.view" },
+        { section: "tasks/board", label: "Team board", icon: "board", need: "tasks.view", module: "tasks" },
         { section: "tasks/calendar", label: "Task calendar", icon: "calendar", module: "tasks" },
         { section: "tasks/issues", label: "Issues", icon: "issues", module: "issues" },
         { section: "tasks/projects", label: "Projects", icon: "projects", module: "projects" },
-        { section: "tasks/templates", label: "Templates", icon: "templates", need: "tasks.create" },
-        { section: "tasks/recurring", label: "Recurring tasks", icon: "recurring", need: "tasks.view" },
-        { section: "tasks/reports", label: "Task reports", icon: "reports", need: "tasks.view" },
+        { section: "tasks/templates", label: "Templates", icon: "templates", need: "tasks.create", module: "tasks" },
+        { section: "tasks/recurring", label: "Recurring tasks", icon: "recurring", need: "tasks.view", module: "tasks" },
+        { section: "tasks/reports", label: "Task reports", icon: "reports", need: "tasks.view", module: "tasks" },
       ],
     },
     {
@@ -186,7 +194,7 @@ export function businessSections(type) {
         { section: "retail-reports", label: "Retail reports", icon: "inventoryInsights", need: "reports.view", module: "sales", types: RETAIL },
         { section: "wholesale-reports", label: "Wholesale reports", icon: "reports", need: "reports.view", module: "sales_orders" },
         { section: "variant-reports", label: "Variant reports", icon: "inventoryInsights", need: "reports.view", module: "variants" },
-        { section: "weight-reports", label: "Yield & wastage", icon: "inventoryInsights", need: "reports.view", types: WEIGHED },
+        { section: "weight-reports", label: "Yield & wastage report", icon: "inventoryInsights", need: "reports.view", types: WEIGHED },
         { section: "salon-reports", label: "Service profitability", icon: "inventoryInsights", need: "reports.view", types: SALON },
         { section: "commissions", label: "Staff commissions", icon: "payroll", need: "commissions.view" },
         { section: "activity", label: "Activity log", icon: "activity", need: "audit.view" },
@@ -215,14 +223,21 @@ export function businessSections(type) {
 
 // The menu this person sees in this business, as the main layout draws it.
 export function businessMenu(businessId, type, can, has) {
-  return businessSections(type)
-    .map((section) => ({
-      title: section.title,
-      links: section.links
-        .filter((link) => (!link.need || can(link.need)) && (!link.module || has(link.module)) && typeAllows(link, type))
-        .map((link) => ({ to: businessPath(businessId, link.section), label: link.label, icon: link.icon, end: link.end, section: link.section })),
-    }))
-    .filter((section) => section.links.length > 0);
+  const rules = businessSections(type).flatMap((group) => group.links);
+  const allowed = (link) => link && typeAllows(link, type) && (!link.need || can(link.need)) && (!link.module || has(link.module));
+  return dailyWorkspaces(type).map((group) => ({
+    title: group.title,
+    links: group.keys.map((key) => {
+      const names = WORKSPACES[key] ? workspaceSections(key, type) : [key];
+      const available = names.map((name) => rules.find((link) => link.section === name && typeAllows(link, type))).filter(allowed);
+      const link = available[0];
+      if (!link) return null;
+      // Every page of the area, for quick access and "Jump to…" (the menu shows the area once).
+      const pages = available.map((item) => ({ to: businessPath(businessId, item.section), label: workspaceLabel(item.section, type, item.label), icon: item.icon, end: item.end }));
+      return { to: businessPath(businessId, link.section), label: key === 'tasks' ? 'Tasks' : workspaceLabel(link.section, type, link.label),
+        icon: link.icon, end: link.end, section: link.section, activeSections: available.map((item) => item.section), pages };
+    }).filter(Boolean),
+  })).filter((group) => group.links.length);
 }
 
 // Whether a screen belongs to this business type (the `types` and `except` rules).

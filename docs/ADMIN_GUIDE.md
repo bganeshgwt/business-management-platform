@@ -178,8 +178,8 @@ businesses**; each line shows your role there.
   (`/business-admin?all=1`) lists them all.
 - Leaving a form you have not saved asks first.
 - On the *Your businesses* page a Restaurant Admin whose restaurant is not yet
-  on the platform sees **Link my restaurant**. Development servers also offer
-  **Set up demo businesses**.
+  on the platform sees **Link my restaurant**. Demo businesses are set up from
+  the command line (`npm run demo:today -- --user-id <id>` in `backend`).
 
 ## Getting around the restaurant admin
 
@@ -2074,6 +2074,74 @@ what is still to refund.
 **A visit** (*Clinic › Visits & follow-ups*, or from Today's patients): the doctor fills vitals (BMI is worked out), complaints, examination, diagnosis and an optional ICD-10 code, advice, the prescription by generic name, and the follow-up date. *Save draft*, then *Complete consultation* (the appointment is marked done; the record is then fixed — *Add a note* to correct it). *More › Print prescription* (A5 with the doctor's registration number), *Bill this visit*, *Order tests*. *Follow-ups due* lists who should come back, with their phone.
 
 **Lab** (*Clinic › Lab orders*): the worklist (to collect, to receive, in process, awaiting approval), today's orders with the dates visible, a *Sample barcode* box that opens the order when scanned, and *New order* (patient, tests, bill now). On an order: *More › Print sample labels*; *Collected*, *Received in lab* or *Reject* (with the reason, then *Collect again*); type results (out-of-range values are flagged as you type); *Save results*. When all are in, the pathologist presses *Approve report* and types their PIN; the visit shows **Report ready** and *Print report* gives the A4 report with the lab's details, ranges, flags, the pathologist's name and registration and the approval time. *Send to an outside lab* records the lab, reference and charge (the results are typed in when they come). *Tests & panels* keeps the catalogue: parameters, units, reference ranges by sex and age, critical limits, and profiles.
+
+## Clinic & lab: doctors, tokens, report versions and QC (round 3)
+
+*Added 21 October 2026.*
+
+**Doctors, fees & OPD** (*Clinic › Doctors, fees & OPD*). For each doctor:
+- **Consultation fee**: a service on the bill.
+- **Follow-up rule**: within N days of a paid consultation, the patient pays the follow-up fee, or nothing if no follow-up fee is set.
+- **Appointment slot**: its length.
+- **Doctor's share** of the fees.
+- **OPD timings**: by weekday, with morning and evening sessions and an optional cap on patients per session.
+
+*Add leave* blocks appointments and tokens on those days and says how many patients are already booked. A doctor with timings can only be booked inside them. *Book appointment* then shows the free slots, and the doctor's fee is filled in. *Bill this visit* shows whether it is a consultation, a paid follow-up or a free follow-up. A free follow-up is recorded without a bill. The **Earnings** tab shows each doctor's patients, fees and share for a period.
+
+**Token queue** (*Clinic › Token queue*). *Give a token* when a patient arrives: each doctor counts from 1 each day, and *Priority* is for the elderly or unwell. On *Today's patients*, *Arrived: token* does the same for a booked patient. Each doctor has a card:
+- **Next patient** marks the previous patient done, skips a called patient who did not come in, and calls the next (priority first).
+- **Start** opens the consultation.
+- Completing the visit finishes the token.
+- *Call back* brings back a skipped patient; *Cancel* frees the place.
+
+*Display board* is the full-screen waiting-room view: each doctor's current number and who is next.
+
+**Amended reports** (*Lab order › More*). Every signed report is kept as signed. To correct one, the pathologist uses *Amend the report*, gives the reason and types their PIN. The order reopens; correct the results and approve it again. The new report prints as **AMENDED REPORT (version 2)**, saying which version it replaces and why. *Report versions* lists each version; an older one prints marked **SUPERSEDED**.
+
+**Quality control** (*Clinic › Quality control*). Set up each control: the parameter, lot, level, target mean and SD, and lot expiry. *Record QC run* every morning. Each run is judged by the Westgard rules:
+- 1-2s gives a warning.
+- 1-3s, 2-2s, R-4s, 4-1s and 10x reject the run.
+
+While a parameter's latest QC today is failed, its patient reports cannot be approved. The order page shows the QC state, and approval says which rule failed. Note the corrective action and run QC again. *Chart* shows the Levey-Jennings chart (±1/2/3 SD) of the last runs.
+
+---
+
+# Café, bakery and cloud kitchen (food formats)
+
+*Added 21 October 2026.* A café, a bakery and a cloud kitchen run on the restaurant: the same POS, menu, KOT, kitchen screen, bills and day close.
+
+**Choosing the format.**
+- *Platform › Restaurants › Add a restaurant* has a **Format** choice.
+- An existing restaurant changes it in *Settings › Features › Format*. This sets how the POS opens, the token numbers and the features it starts with. Any of these can be changed again afterwards, and nothing is deleted.
+- The header and the business switcher show the format.
+
+| Format | POS takes | Starts on | Tokens | Features it switches |
+|---|---|---|---|---|
+| Restaurant | dine-in, takeaway, delivery | dine-in | as set | none |
+| Café | takeaway, dine-in, delivery | takeaway | takeaway | Pre-orders on; reservations and captain sections off |
+| Bakery | takeaway, delivery | takeaway | as set | Pre-orders, advances, stock & recipes on; reservations, QR, captains, KDS and tips off |
+| Cloud kitchen | delivery, takeaway | delivery | delivery, online, takeaway | Deliveries and online ordering on; reservations, QR, captains and tips off; no tables |
+
+*Service settings › Orders the POS takes* changes the kinds of order and the starting one. The server refuses a kind of order the POS does not take.
+
+**Selling by weight** (bakery cookies, sweets). Set the menu item to *Sold: by weight* and the price is per kg. On the POS it asks for the grams on the scale (or offers 100 g to 1 kg). The line shows the kg, and ± changes it 50 g at a time.
+
+**Pre-orders & cakes** (*Orders › Pre-orders & cakes*, feature *Pre-orders & cakes*).
+- **Booking:** *New pre-order* takes the guest (name and mobile), when it is due, pickup or delivery, the items with each cake's message or flavour, and an advance. The advance is an ordinary advance (*Dues › Advances*), in the day's cash.
+- **Baking:** the **Bake list** adds up what is due on a day by item, with every message, and can be printed for the kitchen. *Start baking*, then *Ready*.
+- **Hand-over:** *Hand over & bill* makes a takeaway order on today's business day and opens its bill with the advance taken first.
+- **Cancelling:** a cancelled pre-order keeps its advance held for a refund.
+- **Dashboard:** a Pre-orders block shows what is due today.
+
+**Day-end unsold** (*Inventory › Day-end unsold*, bakery and café). Bakes are prepared stock items made from a recipe (*Inventory › Items › Production*). At closing, type what is left and will not sell tomorrow, then *Write off as unsold*. This is recorded as waste with the reason *Unsold at day end*, at cost. What keeps stays in stock.
+
+**Cloud kitchen.**
+- The POS opens on Delivery. *Came in on* picks Swiggy, Zomato or own delivery, and the partner's order ID is kept.
+- Channel prices are set per item in *Menu › Products* (its selling rules).
+- Commission per channel is in *Deliveries › Report*.
+- Tables are hidden from the menu and the dashboard.
+
+**Demo.** `npm run demo:food-formats` (backend) adds Brew & Bloom Café, Sweet Crust Bakery (with cake pre-orders and this morning's bake) and Biryani Box (Swiggy and Zomato orders), each with its own owner login (in `backend/.local/food-demo-logins.json`) and a week of trading.
 
 ---
 

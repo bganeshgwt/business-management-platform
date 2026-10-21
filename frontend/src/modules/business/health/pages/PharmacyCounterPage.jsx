@@ -15,8 +15,8 @@ import { printTaxInvoice } from "../../core/pages/invoice";
 import { BusinessHeader, Field } from "../../core/pages/ui";
 import { businessToday, newKey, quantity, useDirtyGuard, useOpenBusiness } from "../../core/pages/hooks";
 import useAuth from "../../../../hooks/useAuth";
-import { BillerButton, BillerDialog, PaymentParts } from "../../retail/pages/counterPay";
-import { newPart, PART_KINDS, partsBody, partsSummary, takeCarry, writeCarry } from "../../retail/pages/counterPayState";
+import { BillerButton, BillerDialog } from "../../retail/pages/counterPay";
+import { PART_KINDS, takeCarry, writeCarry } from "../../retail/pages/counterPayState";
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import { ScheduleBadge, SignOff } from "./healthParts";
 import { RX_SCHEDULES, SIGNED_SCHEDULES, uploadPrescriptionFile, useSignatories } from "./healthFormat";
@@ -40,18 +40,16 @@ export default function PharmacyCounterPage() {
   const [locationId, setLocationId] = useState(String(counters[0]?.id || biz.locations[0]?.id || ""));
   const [lines, setLines] = useState(() => carried?.lines || []);
   const [rx, setRx] = useState(() => carried?.rx || { ...emptyRx, prescribedOn: businessToday(biz.business.timezone) });
-  // Split payment (round 2): the parts, the last one taking what is left of the bill.
-  const [parts, setParts] = useState(() => [newPart("cash"), newPart("upi")]);
   const [askPin, setAskPin] = useState(null);
   const pinEveryBill = Boolean(biz.settings?.counter_pin_every_bill);
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [signoff, setSignoff] = useState({});
-  // A method key of the business's own methods (paymentMethods.js), or "split".
+  // One payment method for the bill.
   const [method, setMethod] = useState("cash");
   const methods = usePaymentMethods();
-  const payButtons = [...methods.options(PART_KINDS).map((m) => [m.key, m.name]), ["split", "Split"]];
-  const chosen = method === "split" ? "split" : methods.resolve(method, PART_KINDS);
+  const payButtons = methods.options(PART_KINDS).map((m) => [m.key, m.name]);
+  const chosen = methods.resolve(method, PART_KINDS);
   // One key per bill: a retry after a lost reply is the same bill.
   const [requestKey, setRequestKey] = useState(newKey);
   const [busy, setBusy] = useState(false);
@@ -101,14 +99,9 @@ export default function PharmacyCounterPage() {
     }
   }
 
-  // The payment(s): one method for the whole bill, or a split whose last
-  // part is "the rest of the bill" (the server works out the exact total).
+  // The server works out the exact total for the selected method.
   function payBody() {
-    if (method !== "split") return { payment: { amount: "full", ...methods.body(method, PART_KINDS) } };
-    const given = parts.filter((p) => Number(p.amount) > 0);
-    const last = parts[parts.length - 1];
-    const before = partsBody(given.filter((p) => p.key !== last.key), methods);
-    return { payments: [...before, { ...methods.body(last.methodKey || last.method, PART_KINDS), amount: "full", ...(last.method !== "cash" && last.reference.trim() ? { reference: last.reference.trim() } : {}) }] };
+    return { payment: { amount: "full", ...methods.body(method, PART_KINDS) } };
   }
   async function sell(event, pin = null) {
     event?.preventDefault();
@@ -126,7 +119,7 @@ export default function PharmacyCounterPage() {
       setAskPin(null);
       setLast(result);
       setLines([]); setRx({ ...emptyRx, prescribedOn: businessToday(biz.business.timezone) }); setFile(null); setSignoff({});
-      setParts([newPart("cash"), newPart("upi")]); setRequestKey(newKey());
+      setRequestKey(newKey());
       toast.success(`Bill ${result.document.document_no} saved${result.registers?.length ? ` · ${result.registers.length} register entr${result.registers.length === 1 ? "y" : "ies"}` : ""}`,
         { action: { label: "Print", onClick: () => printBill(result.document.id) } });
     } catch (err) {
@@ -226,16 +219,11 @@ export default function PharmacyCounterPage() {
           </SectionCard>
         )}
         <ErrorMessage message={error} />
-        {method === "split" && lines.length > 0 && (
-          <SectionCard icon="wallet" title="Split payment" description="Up to 8 payments. The last one takes whatever is left of the bill after GST and round-off; change is given from cash only.">
-            <PaymentParts biz={biz} parts={parts} onChange={setParts} due={estimate} leftWord="Not yet given (the last payment takes it)" />
-          </SectionCard>
-        )}
         <div className="hl-paybar">
           <div className="segmented" role="group" aria-label="Paid by">
             {payButtons.map(([value, label]) => <button key={value} type="button" className={`segment ${chosen === value ? "is-active" : ""}`} aria-pressed={chosen === value} onClick={() => setMethod(value)}>{label}</button>)}
           </div>
-          <button type="submit" className="button" disabled={busy || !lines.length || uploading || (method === "split" && partsSummary(parts).shortCash)}>{busy ? "Saving…" : "Save bill"}</button>
+          <button type="submit" className="button" disabled={busy || !lines.length || uploading}>{busy ? "Saving…" : "Save bill"}</button>
         </div>
       </form>
       {last && (

@@ -5,6 +5,7 @@ const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const dates = require('./helpers/dates');
+const { withTools } = require('./helpers/tools');
 
 // Round 2 independent check (8 Oct 2026): the combinations no single builder
 // owned, end to end on a throwaway database with every migration applied.
@@ -79,7 +80,7 @@ test('round 2 cross-feature money and permissions', { timeout: 300000 }, async (
   const paise = (value) => Math.round(Number(value || 0) * 100);
   const sumP = (list, pick) => list.reduce((s, x) => s + paise(pick(x)), 0);
 
-  const demos = (await request('POST', '/businesses/development-demos', {}, 201)).businesses;
+  const demos = (await withTools(request, (await request('POST', '/businesses/development-demos', {}, 201)).businesses));
   const byType = (type) => demos.find((b) => b.business_type === type);
   const electronics = byType('electronics'), grocery = byType('grocery'), pharmacy = byType('pharmacy'), wholesale = byType('wholesale');
   const at = (biz) => (suffix) => `/businesses/${biz.id}/${suffix}`;

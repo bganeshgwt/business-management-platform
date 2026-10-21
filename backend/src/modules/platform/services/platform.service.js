@@ -56,7 +56,15 @@ const list = async (user, filters) => {
 // in one transaction (restaurant.service createRestaurant).
 const create = async (user, data) => {
   requirePlatformUser(user);
-  return restaurantService.createRestaurant(data);
+  const { format = "restaurant", ...rest } = data;
+  const created = await restaurantService.createRestaurant(rest);
+
+  // A café, bakery or cloud kitchen starts with its format's setup.
+  if (format !== "restaurant") {
+    await require("../../restaurant/setup/services/restaurantFormat.service").apply(created.id, format, { id: user.id, name: user.name });
+  }
+
+  return { ...created, format };
 };
 
 const findRestaurant = async (id) => {

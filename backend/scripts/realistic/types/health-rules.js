@@ -14,6 +14,8 @@ const h = require('../../../src/modules/business/health/services/healthCommon');
 const pharmacy = require('../../../src/modules/business/health/services/businessPharmacy.service');
 const clinicSvc = require('../../../src/modules/business/health/services/businessClinic.service');
 const lab = require('../../../src/modules/business/health/services/businessLab.service');
+const desk = require('../../../src/modules/business/health/services/businessClinicDesk.service');
+const quality = require('../../../src/modules/business/health/services/businessLabQuality.service');
 const { people } = require('./common');
 const clock = require('../clock');
 const base = require('../base');
@@ -282,6 +284,7 @@ async function clinicRules(sim) {
   let signer = await repo.one(db, "SELECT * FROM health_signatories WHERE business_id=$1 AND kind='pathologist' AND user_id=$2", [biz.id, pathologist.user.id]);
   if (!signer) signer = await h.saveSignatory(biz, owner, { kind: 'pathologist', userId: pathologist.user.id, name: pathologist.name, qualification: 'MBBS, MD (Pathology)', registrationNo: 'TSMC 40266', council: 'Telangana State Medical Council' });
   await ensureLabCatalogue(sim);
+  await doctorProfiles(sim);
   const desk = sim.staff.find((s) => s.role === 'cashier');
   const tech = sim.staff.find((s) => s.role === 'lab_technician');
   const doctorFor = (resourceId) => {
@@ -478,4 +481,127 @@ async function labProgress(sim, orderId, startsAt, { tech, pathologist, signer, 
   }
 }
 
-module.exports = { pharmacyRules, clinicRules, otcBasket, LAB_TESTS };
+// Round 3: each doctor's fee, follow-up rule and OPD (the clinic is open
+// 9 to 9, Monday to Saturday: a morning and an evening session each).
+const DOCTOR_FEES = { gp: ['CN-GP', 'CN-FUP', 7, 60, 'General physician'], paed: ['CN-PAED', null, 5, 65, 'Paediatrician'], diab: ['CN-DIAB', 'CN-FUP', 10, 70, 'Diabetologist'] };
+async function doctorProfiles(sim) {
+  const biz = sim.business, owner = sim.owner;
+  const skuOf = async (code) => (code ? (await repo.one(db, 'SELECT id FROM catalog_skus WHERE business_id=$1 AND code=$2', [biz.id, code]))?.id : null);
+  for (const [key, [consult, followUp, days, share, speciality]] of Object.entries(DOCTOR_FEES)) {
+    const doctor = sim.extra.doctors[key];
+    if (!doctor) continue;
+    const sessions = [1, 2, 3, 4, 5, 6].flatMap((dow) => [{ dow, starts: '09:00', ends: '14:00', maxPatients: 40 }, { dow, starts: '14:00', ends: '21:00', maxPatients: 50 }]);
+    await desk.saveDoctor(biz, owner, doctor.id, { speciality, consultationSkuId: await skuOf(consult), followUpSkuId: await skuOf(followUp), followUpDays: days, slotMinutes: 10,
+      sharePercent: share, sessions });
+  }
+  // Visits billed before the fees were set up: how they were charged, read
+  // from their bill (as linking a desk bill does), for the earnings report.
+  await db.query(`UPDATE health_visits v SET fee_kind=x.kind,fee_sku_id=x.sku_id FROM (
+      SELECT DISTINCT ON (v2.id) v2.id,l.sku_id,CASE WHEN l.sku_id=p.follow_up_sku_id THEN 'follow_up' ELSE 'consultation' END AS kind
+      FROM health_visits v2 JOIN health_doctor_profiles p ON p.business_id=v2.business_id AND p.resource_id=v2.resource_id
+      JOIN business_document_lines l ON l.business_id=v2.business_id AND l.document_id=v2.document_id AND l.sku_id IN (p.consultation_sku_id,p.follow_up_sku_id)
+      WHERE v2.business_id=$1 AND v2.fee_kind IS NULL ORDER BY v2.id,l.id) x WHERE v.business_id=$1 AND v.id=x.id`, [biz.id]);
+}
+
+// Today's queue: the patients booked in the next hours have arrived and hold
+// a token; each doctor is seeing the first of them.
+async function todaysTokens(sim) {
+  const biz = sim.business;
+  const front = sim.staff.find((s) => s.role === 'cashier');
+  const coming = await repo.all(db, `SELECT a.id,a.resource_id FROM business_appointments a JOIN health_patients p ON p.business_id=a.business_id AND p.contact_id=a.contact_id
+    JOIN businesses b ON b.id=a.business_id
+    WHERE a.business_id=$1 AND a.status='booked' AND (a.starts_at AT TIME ZONE b.timezone)::date=(now() AT TIME ZONE b.timezone)::date
+      AND a.starts_at BETWEEN now() - interval '30 minutes' AND now() + interval '150 minutes'
+      AND EXISTS (SELECT 1 FROM health_consents k WHERE k.business_id=a.business_id AND k.contact_id=a.contact_id AND k.purpose='treatment' AND k.withdrawn_at IS NULL)
+    ORDER BY a.starts_at`, [biz.id]);
+  const issued = [];
+  for (const a of coming) {
+    try { issued.push(await desk.issueToken(front.business, front.user, { appointmentId: a.id })); } catch { /* already in the queue */ }
+  }
+  // Most patients walk in: during OPD hours each doctor has a few waiting.
+  const minutes = clock.minutesNow();
+  if (clock.weekday(sim.realToday) !== 0 && minutes >= 9 * 60 && minutes < 20 * 60 + 30) {
+    const r = clock.rng(`${sim.code}|tokens|${sim.realToday}`);
+    const patients = await repo.all(db, `SELECT p.contact_id FROM health_patients p WHERE p.business_id=$1
+      AND EXISTS (SELECT 1 FROM health_consents k WHERE k.business_id=p.business_id AND k.contact_id=p.contact_id AND k.purpose='treatment' AND k.withdrawn_at IS NULL)
+      ORDER BY p.contact_id`, [biz.id]);
+    for (const key of ['gp', 'paed', 'diab']) {
+      const doctor = sim.extra.doctors?.[key];
+      if (!doctor) continue;
+      for (let n = 0; n < (key === 'gp' ? 5 : 3); n += 1) {
+        const patient = r.pick(patients);
+        try {
+          issued.push(await desk.issueToken(front.business, front.user, { contactId: patient.contact_id, resourceId: doctor.id, priority: r.chance(0.12),
+            note: r.chance(0.3) ? r.pick(['Fever since 2 days', 'Review with reports', 'BP check', 'Child: cough and cold', 'Sugar review']) : undefined }));
+        } catch { /* already waiting today */ }
+      }
+    }
+  }
+  // Each doctor is seeing their first patient.
+  const logins = { gp: 'ravi', paed: 'swathi', diab: 'faisal' };
+  for (const [key, login] of Object.entries(logins)) {
+    const doctor = sim.extra.doctors?.[key];
+    const person = sim.staff.find((s) => s.login === login);
+    if (!doctor || !person) continue;
+    const busy = await repo.one(db, `SELECT 1 FROM health_tokens t JOIN businesses b ON b.id=t.business_id WHERE t.business_id=$1 AND t.resource_id=$2
+      AND t.day=(now() AT TIME ZONE b.timezone)::date AND t.status IN ('called','in_consultation')`, [biz.id, doctor.id]);
+    const first = issued.filter((t) => String(t.resource_id) === String(doctor.id) && t.status === 'waiting').sort((a, b) => a.token_no - b.token_no)[0];
+    if (busy || !first) continue;
+    try { await desk.tokenAction(person.business, person.user, first.id, { action: 'start' }); } catch { /* left waiting */ }
+  }
+}
+
+// QC: two control levels for haemoglobin and fasting glucose, run every
+// morning for the last three weeks (one failed run and its re-run), and today.
+const QC_CONTROLS = [['CBC', 'Haemoglobin', 'Bio-Rad Lyphochek Haematology', 'HM-24071', 'Level 1', 8.2, 0.25], ['CBC', 'Haemoglobin', 'Bio-Rad Lyphochek Haematology', 'HM-24071', 'Level 2', 13.6, 0.35],
+  ['FBS', 'Glucose, fasting', 'Bio-Rad Lyphochek Assayed Chemistry', 'CH-26114', 'Level 1', 92, 3.2], ['FBS', 'Glucose, fasting', 'Bio-Rad Lyphochek Assayed Chemistry', 'CH-26114', 'Level 2', 268, 8.5]];
+async function qualityControl(sim) {
+  const biz = sim.business, today = sim.realToday;
+  const tech = sim.staff.find((s) => s.role === 'lab_technician');
+  for (const [code, parameterName, name, lot, level, mean, sd] of QC_CONTROLS) {
+    const parameter = await repo.one(db, `SELECT p.id FROM lab_parameters p JOIN lab_tests t ON t.business_id=p.business_id AND t.id=p.test_id WHERE p.business_id=$1 AND t.code=$2 AND p.name=$3`,
+      [biz.id, code, parameterName]);
+    if (!parameter) continue;
+    let material = await repo.one(db, 'SELECT * FROM lab_qc_materials WHERE business_id=$1 AND parameter_id=$2 AND lot_no=$3 AND level=$4', [biz.id, parameter.id, lot, level]);
+    if (!material) material = await quality.saveMaterial(biz, sim.owner, null, { parameterId: parameter.id, name, lotNo: lot, level, mean, sd, expiresOn: clock.addDays(today, 150) });
+    const r = clock.rng(`${sim.code}|qc|${material.id}`);
+    // The history (each run judged by the same Westgard rules as at the bench).
+    if (!await repo.one(db, 'SELECT 1 FROM lab_qc_runs WHERE business_id=$1 AND material_id=$2', [biz.id, material.id])) {
+      const zs = [];
+      for (let back = 21; back >= 1; back -= 1) {
+        const day = clock.addDays(today, -back);
+        if (clock.weekday(day) === 0) continue;
+        let z = (r.next() + r.next() + r.next() - 1.5) * 1.3;
+        if (back === 12 && level === 'Level 2' && code === 'FBS') z = 3.4;
+        z = Math.round(z * 1000) / 1000;
+        const judged = quality.westgard(z, [...zs].reverse(), []);
+        const when = clock.at(day, 8 * 60 + r.int(0, 25));
+        await db.query(`INSERT INTO lab_qc_runs(business_id,material_id,parameter_id,value,z,rules,outcome,note,corrective_action,run_at,entered_by,created_at)
+          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$10)`, [biz.id, material.id, parameter.id, (mean + z * sd).toFixed(4), z, judged.rules, judged.outcome,
+          judged.outcome === 'rejected' ? 'Control out on the morning run' : null, null, when, tech.user.id]);
+        zs.push(z);
+        if (judged.outcome === 'rejected') {
+          const fixed = Math.round((r.next() - 0.5) * 1000) / 1000;
+          await db.query(`INSERT INTO lab_qc_runs(business_id,material_id,parameter_id,value,z,rules,outcome,note,corrective_action,run_at,entered_by,created_at)
+            VALUES($1,$2,$3,$4,$5,'{}','accepted',NULL,$6,$7,$8,$7)`, [biz.id, material.id, parameter.id, (mean + fixed * sd).toFixed(4), fixed,
+            'Recalibrated the analyser and opened a fresh control vial', new Date(when.getTime() + 40 * 60000), tech.user.id]);
+          zs.push(fixed);
+        }
+      }
+    }
+    // This morning's run, at the bench.
+    const ran = await repo.one(db, `SELECT 1 FROM lab_qc_runs r JOIN businesses b ON b.id=r.business_id WHERE r.business_id=$1 AND r.material_id=$2
+      AND (r.run_at AT TIME ZONE b.timezone)::date=(now() AT TIME ZONE b.timezone)::date`, [biz.id, material.id]);
+    if (!ran && clock.weekday(today) !== 0) {
+      const z = level === 'Level 1' && code === 'CBC' ? 2.3 : (r.next() - 0.5) * 1.6;
+      await quality.recordRun(tech.business, tech.user, { materialId: material.id, value: (mean + z * sd).toFixed(3) }).catch(() => {});
+    }
+  }
+}
+
+async function clinicDesk(sim) {
+  await todaysTokens(sim);
+  await qualityControl(sim);
+}
+
+module.exports = { pharmacyRules, clinicRules, clinicDesk, otcBasket, LAB_TESTS };

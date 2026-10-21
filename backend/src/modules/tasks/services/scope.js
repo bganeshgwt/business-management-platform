@@ -89,7 +89,7 @@ async function forBusiness(req) {
   };
   scope.requireModule = async (module) => {
     if (!business.modules.includes(module)) {
-      throw new AppError(403, `${MODULE_NAMES[module] || module} is not switched on for this business. An owner can turn it on in Settings › Modules.`);
+      throw new AppError(403, `${MODULE_NAMES[module] || module} is not switched on for this business. An owner can turn it on in Settings › Business tools.`);
     }
   };
   scope.require = (permission) => access.require(business, permission);

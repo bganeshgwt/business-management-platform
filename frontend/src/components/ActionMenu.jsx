@@ -171,6 +171,8 @@ export default function ActionMenu({ items, label = "More actions", text }) {
     item.onClick();
   };
 
+  // Nothing this person may do here: no button that opens an empty menu.
+  if (!usable.length) return null;
   return (
     <>
       <button

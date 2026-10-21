@@ -669,3 +669,101 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* A tool most businesses of this trade use, still switched off: a quiet pill and why. */
+.bz-module-recommended {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.bz-module-why {
+  margin-top: 2px;
+  color: var(--primary);
+}
+
+/* Opening hours in the location form: one row per day. */
+.bz-hours {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+.bz-hours legend { padding: 0 4px; font-weight: 600; }
+.bz-hours-row {
+  display: grid;
+  grid-template-columns: 80px 120px auto 120px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+.bz-hours-row.is-closed input[type="time"] { opacity: 0.45; }
+@media (max-width: 520px) {
+  .bz-hours-row { grid-template-columns: 70px 1fr auto 1fr; }
+  .bz-hours-row > .small { display: none; }
+}
+
+/* Departments on the Categories page: one line each. */
+.bz-departments { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; }
+.bz-departments li { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); }
+.bz-departments li .bz-row-actions { margin-left: auto; }
+.bz-departments li.is-off { opacity: 0.6; }
+
+/* Purchase form: the supplier search with "+ New supplier" under it. */
+.bz-supplier-field { display: grid; gap: 4px; align-content: start; }
+.bz-supplier-field > .link-button { justify-self: start; }
+
+/* --- Overview: the picture of the day ------------------------------------- */
+.bz-ov-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-4, 16px);
+}
+@media (max-width: 1200px) { .bz-ov-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .bz-ov-trend { grid-column: 1 / -1; } }
+@media (max-width: 760px) { .bz-ov-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.bz-ov-next, .bz-ov-team { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.bz-ov-next li, .bz-ov-team li {
+  display: grid;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.bz-ov-next li:last-child, .bz-ov-team li:last-child { border-bottom: 0; }
+.bz-ov-next li { grid-template-columns: 74px minmax(0, 1fr) auto; }
+.bz-ov-next li.is-now { background: color-mix(in srgb, var(--primary) 7%, transparent); border-radius: var(--radius); }
+.bz-ov-time { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--primary); }
+.bz-ov-who { display: grid; min-width: 0; }
+.bz-ov-who strong, .bz-ov-who small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bz-ov-staff { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
+
+.bz-ov-team li { grid-template-columns: 36px minmax(0, 1fr) auto auto; }
+.bz-ov-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--primary); font-weight: 700; font-size: 0.8rem;
+}
+.bz-ov-state { font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.bz-ov-state.is-busy { background: color-mix(in srgb, var(--warning, #b45309) 15%, transparent); color: var(--warning, #b45309); }
+.bz-ov-state.is-next { background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
+.bz-ov-state.is-free { background: var(--surface-2, #f1f5f9); color: var(--muted); }
+.bz-ov-money { display: grid; text-align: right; font-variant-numeric: tabular-nums; }
+@media (max-width: 560px) { .bz-ov-team li { grid-template-columns: 36px minmax(0, 1fr) auto; } .bz-ov-money { grid-column: 2 / -1; text-align: left; } }
+
+/* Best sellers in a narrow Overview card: name and amount on a line, the bar under them. */
+.bz-ov-grid .bar-list li {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "label value" "track track";
+  row-gap: 4px;
+}
+.bz-ov-grid .bar-label { grid-area: label; }
+.bz-ov-grid .bar-value { grid-area: value; text-align: right; }
+.bz-ov-grid .bar-track { grid-area: track; height: 8px; }

@@ -232,7 +232,7 @@ async function sampleRetail(input, user) {
         lines.push({ skuId: s.id, quantity, ...(lotCode ? { lotCode } : {}) });
       }
       if (!lines.length) return null;
-      const redeem = business.modules.includes('loyalty') && person && n % 6 === 1 ? { loyalty: { redeemPoints: String(plan.loyalty.minRedeemPoints) } } : {};
+      const redeem = plan.loyalty && business.modules.includes('loyalty') && person && n % 6 === 1 ? { loyalty: { redeemPoints: String(plan.loyalty.minRedeemPoints) } } : {};
       try {
         return await service.document(business, user, { kind: 'sale', locationId: location.id, contactId: person?.id || null, requestKey, lines, ...common.walkInPays(person?.id, ['cash', 'upi', 'card'][n % 3]), ...redeem });
       } catch (error) {

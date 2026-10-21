@@ -22,7 +22,7 @@ function readTime(value, name) {
   return text;
 }
 
-async function readOffer(db, business, body) {
+async function readOffer(db, business, body, offerId = null) {
   const kind = v.requiredEnum(body.kind, 'Offer type', KINDS);
   const value = service.decimal(body.value, PERCENT.has(kind) ? 'Discount %' : 'Discount amount', 2, 0.01, PERCENT.has(kind) ? 100 : 10000000);
   let skuId = null, categoryId = null, productId = null, buy = null, get = null;
@@ -60,22 +60,35 @@ async function readOffer(db, business, body) {
   const startsTime = readTime(body.startsTime, 'Start time'), endsTime = readTime(body.endsTime, 'End time');
   if ((startsTime === null) !== (endsTime === null)) fail('Give both a start and an end time, or neither');
   if (startsTime && startsTime === endsTime) fail('The start and end times are the same');
+  // A coupon: the offer applies only when its code is given at the counter,
+  // at most usageLimit bills in all and perCustomerLimit per customer.
+  const couponText = optional(body.couponCode) ? null : String(body.couponCode).trim().toUpperCase();
+  if (couponText && !/^[A-Z0-9-]{3,20}$/.test(couponText)) fail('A coupon code is 3 to 20 letters, digits or dashes');
+  const limit = (raw, name) => (optional(raw) ? null : v.requiredId(raw, name));
+  const usageLimit = limit(body.usageLimit, 'Uses in all'), perCustomerLimit = limit(body.perCustomerLimit, 'Uses per customer');
+  if (!couponText && (usageLimit || perCustomerLimit)) fail('Use limits are for coupons: give a coupon code');
+  if (couponText) {
+    const taken = await repo.one(db, 'SELECT id FROM retail_offers WHERE business_id=$1 AND coupon_code=$2 AND ($3::bigint IS NULL OR id<>$3)', [business.id, couponText, offerId]);
+    if (taken) fail(`Coupon code ${couponText} is used by another offer`, 409);
+  }
   return {
+    couponCode: couponText, usageLimit, perCustomerLimit,
     name: v.requiredString(body.name, 'Offer name', 120), kind, skuId, categoryId, productId, value, buy, get,
     minBill: optional(body.minBillAmount) ? 0 : service.decimal(body.minBillAmount, 'Minimum bill', 2, 0, 100000000),
     maxDiscount: optional(body.maxDiscount) ? null : service.decimal(body.maxDiscount, 'Most per bill', 2, 0.01, 100000000),
     startsOn, endsOn, days, startsTime, endsTime, active: v.requiredBoolean(body.active, 'Active', true),
   };
 }
-const values = (business, f) => [business.id, f.name, f.kind, f.skuId, f.categoryId, f.value, f.buy, f.get, f.minBill, f.maxDiscount, f.startsOn, f.endsOn, f.days, f.startsTime, f.endsTime, f.active, f.productId];
+const values = (business, f) => [business.id, f.name, f.kind, f.skuId, f.categoryId, f.value, f.buy, f.get, f.minBill, f.maxDiscount, f.startsOn, f.endsOn, f.days, f.startsTime, f.endsTime, f.active, f.productId,
+  f.couponCode, f.usageLimit, f.perCustomerLimit];
 
 async function createOffer(business, user, body) {
   await access.require(business, 'offers.create');
   return repo.transaction(async (db) => {
     const f = await readOffer(db, business, body);
     const row = await repo.one(db, `INSERT INTO retail_offers(business_id,name,kind,sku_id,category_id,value,buy_quantity,get_quantity,min_bill_amount,max_discount,
-      starts_on,ends_on,days_of_week,starts_time,ends_time,active,product_id,created_by,updated_by)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$18) RETURNING *`, [...values(business, f), user.id]);
+      starts_on,ends_on,days_of_week,starts_time,ends_time,active,product_id,coupon_code,usage_limit,per_customer_limit,created_by,updated_by)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$21) RETURNING *`, [...values(business, f), user.id]);
     await repo.audit(db, business.id, user.id, 'offer.created', row.id, { name: row.name, kind: row.kind, value: row.value });
     return row;
   });
@@ -87,13 +100,14 @@ async function updateOffer(business, user, offerId, body) {
     if (!current) fail('Offer not found', 404);
     // Switching on or off alone keeps everything else as it was.
     const onlySwitch = Object.keys(body).every((k) => k === 'active');
-    const f = onlySwitch ? null : await readOffer(db, business, body);
+    const f = onlySwitch ? null : await readOffer(db, business, body, current.id);
     const row = onlySwitch
       ? await repo.one(db, 'UPDATE retail_offers SET active=$3,updated_by=$4,updated_at=now() WHERE business_id=$1 AND id=$2 RETURNING *',
         [business.id, current.id, v.requiredBoolean(body.active, 'Active'), user.id])
       : await repo.one(db, `UPDATE retail_offers SET name=$2,kind=$3,sku_id=$4,category_id=$5,value=$6,buy_quantity=$7,get_quantity=$8,min_bill_amount=$9,
-        max_discount=$10,starts_on=$11,ends_on=$12,days_of_week=$13,starts_time=$14,ends_time=$15,active=$16,product_id=$17,updated_by=$19,updated_at=now()
-        WHERE business_id=$1 AND id=$18 RETURNING *`, [...values(business, f), current.id, user.id]);
+        max_discount=$10,starts_on=$11,ends_on=$12,days_of_week=$13,starts_time=$14,ends_time=$15,active=$16,product_id=$17,
+        coupon_code=$18,usage_limit=$19,per_customer_limit=$20,updated_by=$22,updated_at=now()
+        WHERE business_id=$1 AND id=$21 RETURNING *`, [...values(business, f), current.id, user.id]);
     await repo.audit(db, business.id, user.id, 'offer.updated', row.id, { name: row.name, active: row.active, ...(onlySwitch ? {} : { kind: row.kind, value: row.value }) });
     return row;
   });
@@ -131,7 +145,7 @@ repo.addLists({
       FROM retail_offers o JOIN businesses b ON b.id=o.business_id
       LEFT JOIN catalog_skus s ON s.business_id=o.business_id AND s.id=o.sku_id
       LEFT JOIN catalog_categories cat ON cat.business_id=o.business_id AND cat.id=o.category_id WHERE o.business_id=$1`,
-    search: ['name', 'sku_label', 'category_name'], filters: { status: 'status', kind: 'kind' },
+    search: ['name', 'sku_label', 'category_name', 'coupon_code'], filters: { status: 'status', kind: 'kind' },
     order: "CASE status WHEN 'running' THEN 0 WHEN 'waiting' THEN 1 WHEN 'scheduled' THEN 2 WHEN 'off' THEN 3 ELSE 4 END,id DESC",
   },
 });

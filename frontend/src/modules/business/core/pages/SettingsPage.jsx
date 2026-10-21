@@ -43,7 +43,7 @@ const SECTIONS = [
   { id: "bz-settings-details", label: "Business details" },
   { id: "bz-settings-prices", label: "Prices and totals" },
   { id: "bz-settings-rules", label: "Rules" },
-  { id: "bz-settings-modules", label: "Modules" },
+  { id: "bz-settings-modules", label: "Business tools" },
 ];
 
 // This business's own details and billing rules, and the modules it uses.
@@ -263,7 +263,12 @@ function ModulesCard() {
   const optional = (modules || []).filter((m) => m.kind === "optional" && (!restaurant || m.code !== "restaurant"));
   const groups = restaurant
     ? [...new Set(optional.map((m) => m.feature_group || "Other"))].map((title) => ({ title, list: optional.filter((m) => (m.feature_group || "Other") === title) }))
-    : [{ title: null, list: optional }];
+    : [
+      {title:'Everyday work',list:optional.filter(m=>['catalog','contacts','sales','purchasing','inventory','expenses','appointments','patients','pharmacy','receivables'].includes(m.code))},
+      // Tools recommended for this trade come first, so an owner sees them before the rest.
+      {title:'Optional workflows',list:optional.filter(m=>!['catalog','contacts','sales','purchasing','inventory','expenses','appointments','patients','pharmacy','receivables'].includes(m.code))
+        .sort((a,b)=>Number(Boolean(b.recommended&&!b.enabled))-Number(Boolean(a.recommended&&!a.enabled)))},
+    ].filter(group=>group.list.length);
   const card = (m) => {
     const neededBy = (modules || []).filter((other) => other.enabled && other.requires.includes(m.code));
     const missing = m.requires.filter((code) => !modules.find((other) => other.code === code)?.enabled);
@@ -271,7 +276,9 @@ function ModulesCard() {
       <div key={m.code} className={`bz-module ${m.enabled ? "is-on" : ""}`}>
         <div>
           <strong>{m.name}</strong>
+          {m.recommended && !m.enabled && <span className="bz-module-recommended">Recommended</span>}
           <p className="muted small">{m.description}</p>
+          {m.recommended && !m.enabled && m.recommended_note && <p className="small bz-module-why">{m.recommended_note}</p>}
           {m.requires.filter((code) => code !== "restaurant").length > 0 && (
             <p className={`small ${missing.length ? "text-warning" : "muted"}`}>Needs {m.requires.filter((code) => code !== "restaurant").map(name).join(", ")}.</p>
           )}
@@ -287,10 +294,10 @@ function ModulesCard() {
     );
   };
   return (
-    <SectionCard id="bz-settings-modules" icon="layers" title={restaurant ? "Restaurant features" : "Modules"}
+    <SectionCard id="bz-settings-modules" icon="layers" title={restaurant ? "Restaurant features" : "Business tools"}
       description={restaurant
         ? "The same switches as the restaurant's Settings → Features. Switching one off hides it everywhere in the restaurant; its records stay. A switch that would leave money stranded (an advance still held, rider cash not settled) is refused."
-        : "What this business uses. Switching one off hides its screens; its records stay. Later, the subscription plan will decide which can be switched on."}>
+        : "Use the tools that match how this business operates. Enable packages, repairs, finance or laboratory work only when you offer them. Switching a tool off keeps its history."}>
       <ErrorMessage message={error} />
       <SuccessMessage message={notice} />
       {!modules && !error && <Loading />}
@@ -301,7 +308,7 @@ function ModulesCard() {
               ? [<p key={`h-${group.title}`} className="section-heading bz-module-group">{group.title}</p>, ...group.list.map(card)]
               : group.list.map(card)
           ))}
-          {modules.filter((m) => m.kind === "core").map((m) => (
+          {modules.filter((m) => restaurant && m.kind === "core").map((m) => (
             <div key={m.code} className="bz-module is-on is-core">
               <div><strong>{m.name}</strong><p className="muted small">{m.description}</p></div>
               <Badge tone="info" label="Always on" />

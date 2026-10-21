@@ -102,10 +102,10 @@
   outline-offset: 2px;
 }
 
-/* --- headline numbers: six StatTiles in one row on a wide screen ----------- */
+/* Keep the guest lists ahead of the optional analysis. */
 
 .gi-page .gi-kpis {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -578,6 +578,41 @@
   align-items: center;
   gap: 12px;
   margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.gi-lists-head > div {
+  flex: 1;
+  min-width: 180px;
+}
+
+.gi-page .gi-group-filter {
+  width: 260px;
+  max-width: 100%;
+  margin: 0;
+}
+
+.gi-analytics > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.gi-analytics > summary::after {
+  content: "+";
+  margin-left: auto;
+  font-size: 1.25rem;
+  color: var(--primary);
+}
+
+.gi-analytics[open] > summary::after {
+  content: "\2212";
+}
+
+.gi-analytics .gi-charts {
+  margin-top: 16px;
 }
 
 .gi-lists-icon {
@@ -602,7 +637,7 @@
 
 .gi-segs {
   display: grid;
-  /* Eight lists (anniversaries joined birthdays): two even rows of four. */
+  /* Four shortcuts; the selector retains every guest group. */
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
@@ -610,28 +645,25 @@
 .gi-seg {
   position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   min-width: 0;
-  padding: 14px;
+  padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   font: inherit;
   color: var(--text);
   text-align: left;
   cursor: pointer;
   transition:
-    border-color 150ms ease,
-    box-shadow 150ms ease,
-    transform 150ms ease;
+    background 150ms ease;
 }
 
 .gi-seg:hover {
-  border-color: var(--tone);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  background: var(--surface-hover);
 }
 
 .gi-seg:focus-visible {
@@ -639,29 +671,24 @@
   outline-offset: 2px;
 }
 
-/* Selected: the tone's own outline and tint, plus a bar along the top — so
-   the choice is clear without relying on the colour alone. */
+/* A quiet tint and underline distinguish selection from an alert. */
 .gi-seg.is-active {
-  border-color: var(--tone);
-  background: linear-gradient(180deg, var(--tone-bg), var(--surface) 75%);
-  box-shadow:
-    0 0 0 1px var(--tone),
-    var(--shadow-md);
+  background: color-mix(in srgb, var(--tone-bg) 55%, var(--surface));
+  border-color: var(--border);
 }
 
 .gi-seg.is-active::before {
   content: "";
   position: absolute;
-  inset: -1px -1px auto;
-  height: 4px;
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  inset: auto 12px 0;
+  height: 2px;
+  border-radius: 2px;
   background: var(--tone);
 }
 
 .gi-seg-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
 }
 
@@ -676,7 +703,7 @@
 }
 
 .gi-seg-count {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.02em;
@@ -689,18 +716,12 @@
   line-height: 1.25;
 }
 
-.gi-seg-def {
-  font-size: 0.75rem;
-  color: var(--muted);
-  line-height: 1.35;
-}
-
 /* The open list. */
 .gi-page .gi-panel {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  border-top: 4px solid var(--tone);
+  border-top: 1px solid var(--border);
 }
 
 .gi-panel-head {
@@ -773,8 +794,8 @@
   margin: 0;
   padding: 10px 12px;
   border-radius: var(--radius);
-  background: var(--tone-bg);
-  color: var(--tone-text);
+  background: var(--surface-2);
+  color: var(--text-2);
   font-size: 0.875rem;
   line-height: 1.45;
 }
@@ -918,16 +939,6 @@
 
 /* --- smaller screens --------------------------------------------------------- */
 
-@media (max-width: 1360px) {
-  .gi-page .gi-kpis {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .gi-segs {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 1100px) {
   .gi-charts {
     grid-template-columns: minmax(0, 1fr);
@@ -959,40 +970,17 @@
     gap: 10px;
   }
 
-  /* Seven cards stacked two by two push the list itself off the first
-     screens, so on a phone they become one row to swipe along. */
-  .gi-segs {
-    display: flex;
-    gap: 8px;
-    margin-inline: -16px;
-    padding: 2px 16px 8px;
-    overflow-x: auto;
-    scroll-snap-type: x proximity;
-    /* Snap to the padding edge, not the screen edge, so the first card keeps
-       its gutter instead of being scrolled flush against the glass. */
-    scroll-padding-inline: 16px;
-    scrollbar-width: none;
-  }
+  .gi-page .gi-group-filter { width: 100%; }
 
-  .gi-segs::-webkit-scrollbar {
-    display: none;
+  /* Keep every shortcut visible, with no hidden horizontal card rail. */
+  .gi-segs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
 
   .gi-seg {
-    flex: 0 0 158px;
-    scroll-snap-align: start;
-    padding: 12px;
-  }
-
-  .gi-seg:hover {
-    transform: none;
-  }
-
-  .gi-seg-def {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    padding: 10px;
   }
 
   .gi-rank li {

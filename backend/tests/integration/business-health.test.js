@@ -93,7 +93,7 @@ test('pharmacy and clinic / lab rules', { timeout: 300000 }, async (t) => {
     const ctx = await request('GET', P('context'));
     assert.ok(ctx.capabilities.includes('pharmacy'));
     const cctx = await request('GET', C('context'));
-    assert.ok(cctx.capabilities.includes('patients') && cctx.capabilities.includes('lab'));
+    assert.ok(cctx.capabilities.includes('patients') && !cctx.capabilities.includes('lab'));
     const roles = (await request('GET', C('roles?limit=100'))).items.map((r) => r.template_code);
     assert.ok(roles.includes('doctor') && roles.includes('pathologist') && roles.includes('lab_technician'));
     assert.ok(!roles.includes('pharmacist'));
@@ -285,6 +285,7 @@ test('pharmacy and clinic / lab rules', { timeout: 300000 }, async (t) => {
   });
 
   await t.test('lab: samples, flagged results, pathologist approval and the report', async () => {
+    await request('PUT', C('modules/lab'), {enabled:true});
     const test = await tech.call('POST', C('lab/tests'), { code: 'HB', name: 'Haemoglobin', sampleType: 'blood', parameters: [
       { name: 'Haemoglobin', unit: 'g/dL', decimals: 1, ranges: [{ sex: 'female', ageFrom: 13, low: 12, high: 15.5, criticalLow: 7 }, { sex: 'male', ageFrom: 13, low: 13.5, high: 17.5 }] },
       { name: 'Malaria antigen', resultType: 'text', ranges: [{ normalText: 'Negative' }] }] }, 201);
@@ -336,6 +337,171 @@ test('pharmacy and clinic / lab rules', { timeout: 300000 }, async (t) => {
     assert.equal((await request('GET', C('lab/orders?status=cancelled'))).total, 1);
   });
 
+  // The clinic's own dates (India), not the test machine's.
+  const ist = (offset) => new Date(Date.now() + 5.5 * 3600000 + offset * 86400000).toISOString().slice(0, 10);
+  const dowOf = (d) => new Date(`${d}T00:00:00Z`).getUTCDay();
+  const at = (d, time) => new Date(`${d}T${time}:00+05:30`).toISOString();
+  let meena, gp, review, kavya;
+
+  await t.test('doctors: fees and follow-ups, OPD sessions, slots, leave and earnings', async () => {
+    meena = await request('POST', C('resources'), { name: 'Dr. Meena', locationId: clinicLocation.id }, 201);
+    gp = await request('POST', C('catalog'), { kind: 'service', unit: 'service', name: 'GP consultation', code: 'GPC', price: '400', taxRate: '0' }, 201);
+    review = await request('POST', C('catalog'), { kind: 'service', unit: 'service', name: 'Review visit', code: 'REV', price: '150', taxRate: '0' }, 201);
+    const tomorrow = ist(1);
+    const sessions = [{ dow: dowOf(tomorrow), starts: '09:00', ends: '13:00' }, { dow: dowOf(tomorrow), starts: '17:00', ends: '20:00' }];
+    const profile = { speciality: 'General physician', consultationSkuId: gp.id, followUpSkuId: review.id, followUpDays: 7, slotMinutes: 15, sharePercent: '60', sessions };
+    await desk.call('PUT', C(`clinic/doctors/${meena.id}`), profile, 403);
+    await request('PUT', C(`clinic/doctors/${meena.id}`), { ...profile, sessions: [...sessions, { dow: dowOf(tomorrow), starts: '12:00', ends: '14:00' }] }, 400);
+    const saved = await request('PUT', C(`clinic/doctors/${meena.id}`), profile);
+    assert.equal(saved.sessions.length, 2);
+    assert.equal(saved.consultation_label, 'GP consultation');
+    assert.ok((await desk.call('GET', C('clinic/doctors'))).some((d) => d.id === meena.id && d.is_doctor));
+    // Slots of 15 minutes in both sessions: 16 in the morning, 12 in the evening.
+    const free = await desk.call('GET', C(`clinic/slots?doctor=${meena.id}&day=${tomorrow}`));
+    assert.equal(free.slots.length, 28);
+    assert.equal(free.slots[0].starts_at, at(tomorrow, '09:00'));
+    // Booked within a session only.
+    kavya = await desk.call('POST', C('clinic/patients'), { name: 'Kavya Iyer', phone: '9000000088', sex: 'female', ageYears: 29,
+      consent: { purposes: ['treatment'], method: 'signed_form', givenBy: 'Self' } }, 201);
+    const book = (time, expected) => desk.call('POST', C('appointments'), { contactId: kavya.contact_id, skuId: gp.id, resourceId: meena.id,
+      startsAt: at(tomorrow, time), endsAt: new Date(Date.parse(at(tomorrow, time)) + 900000).toISOString() }, expected);
+    const outside = await call('POST', C('appointments'), { contactId: kavya.contact_id, skuId: gp.id, resourceId: meena.id, startsAt: at(tomorrow, '14:00'),
+      endsAt: at(tomorrow, '14:15') }, await login('desk@test.invalid'));
+    assert.equal(outside.status, 409);
+    assert.match(outside.body.message, /09:00–13:00, 17:00–20:00/);
+    const booked = await book('09:15', 201);
+    assert.equal((await desk.call('GET', C(`clinic/slots?doctor=${meena.id}&day=${tomorrow}`))).slots[1].taken, true);
+    // Leave that day: the desk is told who is booked, and no one else books.
+    const leave = await request('POST', C(`clinic/doctors/${meena.id}/leave`), { fromDate: tomorrow, reason: 'Conference' }, 201);
+    assert.equal(leave.booked, 1);
+    assert.match((await call('POST', C('appointments'), { contactId: kavya.contact_id, skuId: gp.id, resourceId: meena.id, startsAt: at(tomorrow, '10:00'),
+      endsAt: at(tomorrow, '10:15') }, await login('desk@test.invalid'))).body.message, /on leave/);
+    assert.equal((await desk.call('GET', C(`clinic/slots?doctor=${meena.id}&day=${tomorrow}`))).slots.length, 0);
+    await request('POST', C(`clinic/leave/${leave.id}/cancel`), {});
+    await book('10:00', 201);
+    await request('PATCH', C(`appointments/${booked.id}`), { status: 'cancelled' });
+
+    // Fees: the first visit pays the consultation, a return within 7 days the
+    // review fee; with no review fee set, the follow-up is free.
+    const walkIn = async () => desk.call('POST', C('clinic/visits'), { contactId: kavya.contact_id, resourceId: meena.id }, 201);
+    const first = await walkIn();
+    assert.deepEqual([(await desk.call('GET', C(`clinic/visits/${first.id}/fee`))).kind, (await desk.call('GET', C(`clinic/visits/${first.id}/fee`))).label], ['consultation', 'GP consultation']);
+    const bill1 = await desk.call('POST', C(`clinic/visits/${first.id}/bill`), { requestKey: key(), payment: { amount: 'full', method: 'cash' } }, 201);
+    assert.equal(Number(bill1.document.total), 400);
+    assert.equal(bill1.visit.fee_kind, 'consultation');
+    const second = await walkIn();
+    assert.equal((await desk.call('GET', C(`clinic/visits/${second.id}/fee`))).kind, 'follow_up');
+    assert.equal(Number((await desk.call('POST', C(`clinic/visits/${second.id}/bill`), { requestKey: key() }, 201)).document.total), 150);
+    await request('PUT', C(`clinic/doctors/${meena.id}`), { ...profile, followUpSkuId: null });
+    const third = await walkIn();
+    const free3 = await desk.call('POST', C(`clinic/visits/${third.id}/bill`), { requestKey: key() }, 201);
+    assert.equal(free3.document, null);
+    assert.equal(free3.visit.fee_kind, 'free_follow_up');
+    assert.equal((await one('SELECT fee_kind FROM health_visits WHERE id=$1', [third.id])).fee_kind, 'free_follow_up');
+    // A completed and billed consultation keeps how it was charged.
+    await doctor.call('PATCH', C(`clinic/visits/${first.id}`), { complaints: 'Fever', complete: true });
+    await assert.rejects(pool.query("UPDATE health_visits SET fee_kind='follow_up' WHERE id=$1", [first.id]), /kept as written/);
+    // Earnings: three patients, ₹550 of fees, 60% to the doctor.
+    const today = ist(0);
+    const earnings = await request('GET', C(`clinic/doctor-earnings?from=${today}&to=${today}`));
+    const mine = earnings.doctors.find((d) => d.resource_id === meena.id);
+    assert.deepEqual([mine.visits, mine.consultations, mine.follow_ups, mine.free_follow_ups, mine.fees, mine.share], [3, 1, 1, 1, '550.00', '330.00']);
+    await desk.call('GET', C(`clinic/doctor-earnings?from=${today}&to=${today}`), undefined, 403);
+  });
+
+  await t.test('tokens: issued on arrival, called in turn (priority first), done with the visit', async () => {
+    const today = ist(0);
+    // Today: one session capped at three patients.
+    await request('PUT', C(`clinic/doctors/${meena.id}`), { consultationSkuId: gp.id, followUpDays: 7, slotMinutes: 15, sessions: [{ dow: dowOf(today), starts: '00:00', ends: '23:59', maxPatients: 3 }] });
+    const register = (name, phone) => desk.call('POST', C('clinic/patients'), { name, phone, sex: 'male', ageYears: 50, consent: { purposes: ['treatment'], method: 'signed_form', givenBy: 'Self' } }, 201);
+    const ramesh = await register('Ramesh Gupta', '9000000101'), sunil = await register('Sunil Rao', '9000000102'), arun = await register('Arun Das', '9000000103');
+    const t1 = await desk.call('POST', C('clinic/tokens'), { contactId: kavya.contact_id, resourceId: meena.id }, 201);
+    const t2 = await desk.call('POST', C('clinic/tokens'), { contactId: ramesh.contact_id, resourceId: meena.id }, 201);
+    const t3 = await desk.call('POST', C('clinic/tokens'), { contactId: sunil.contact_id, resourceId: meena.id, priority: true, note: 'Senior citizen' }, 201);
+    assert.deepEqual([t1.token_no, t2.token_no, t3.token_no], [1, 2, 3]);
+    await desk.call('POST', C('clinic/tokens'), { contactId: kavya.contact_id, resourceId: meena.id }, 409);
+    const full = await call('POST', C('clinic/tokens'), { contactId: arun.contact_id, resourceId: meena.id }, await login('desk@test.invalid'));
+    assert.equal(full.body.data.reason, 'opd_full');
+    // The priority patient is called first; "next" again skips them (they did not come in).
+    assert.equal((await doctor.call('POST', C('clinic/tokens/next'), { resourceId: meena.id })).called.token_no, 3);
+    assert.equal((await doctor.call('POST', C('clinic/tokens/next'), { resourceId: meena.id })).called.token_no, 1);
+    assert.equal((await one('SELECT status FROM health_tokens WHERE id=$1', [t3.id])).status, 'skipped');
+    // Starting the consultation opens the visit; completing it finishes the token.
+    const started = await doctor.call('POST', C(`clinic/tokens/${t1.id}`), { action: 'start' });
+    assert.equal(started.status, 'in_consultation');
+    assert.ok(started.visit_id);
+    await doctor.call('PATCH', C(`clinic/visits/${started.visit_id}`), { complaints: 'Cough', complete: true });
+    const queue = await desk.call('GET', C(`clinic/queue?day=${today}`));
+    const board = queue.doctors.find((d) => d.resource_id === meena.id);
+    assert.deepEqual([board.done, board.waiting, board.serving], [1, 1, null]);
+    assert.equal(queue.tokens.find((x) => x.id === t1.id).status, 'done');
+    // A skipped patient can be called back; a cancelled token frees the place.
+    assert.equal((await desk.call('POST', C(`clinic/tokens/${t3.id}`), { action: 'call' })).status, 'called');
+    await desk.call('POST', C(`clinic/tokens/${t2.id}`), { action: 'cancel' });
+    assert.equal((await desk.call('POST', C('clinic/tokens'), { contactId: arun.contact_id, resourceId: meena.id }, 201)).token_no, 4);
+    await desk.call('POST', C(`clinic/tokens/${t1.id}`), { action: 'skip' }, 409);
+  });
+
+  await t.test('lab: an amended report keeps every signed version; QC holds reports by Westgard rules', async () => {
+    const glucose = await tech.call('POST', C('lab/tests'), { code: 'GLU', name: 'Glucose (fasting)', sampleType: 'blood', parameters: [
+      { name: 'Glucose', unit: 'mg/dL', decimals: 0, ranges: [{ low: 70, high: 110 }] }] }, 201);
+    const signer = (await request('GET', C('health/signatories?kind=pathologist')))[0] || (await request('GET', C('health/signatories?kind=pathologist'))).items[0];
+    const signoff = { signatoryId: signer.id, pin: '2468' };
+    const resulted = async (value) => {
+      const order = await desk.call('POST', C('lab/orders'), { requestKey: key(), locationId: clinicLocation.id, contactId: kavya.contact_id, testIds: [glucose.id] }, 201);
+      await desk.call('POST', C(`lab/samples/${order.samples[0].id}`), { action: 'collect' });
+      await tech.call('POST', C(`lab/samples/${order.samples[0].id}`), { action: 'receive' });
+      const otId = (await one('SELECT id FROM lab_order_tests WHERE order_id=$1', [order.id])).id;
+      await tech.call('PUT', C(`lab/orders/${order.id}/results`), { results: [{ orderTestId: otId, parameterId: glucose.parameters[0].id, value: String(value) }] });
+      return { order, otId };
+    };
+    const { order, otId } = await resulted(95);
+    const v1 = await patho.call('POST', C(`lab/orders/${order.id}/approve`), { signoff });
+    assert.equal(v1.version, 1);
+    // Amending: the pathologist, with a reason and their PIN.
+    await tech.call('POST', C(`lab/orders/${order.id}/amend`), { reason: 'Transcription error', signoff }, 403);
+    await patho.call('POST', C(`lab/orders/${order.id}/amend`), { signoff }, 400);
+    const reopened = await patho.call('POST', C(`lab/orders/${order.id}/amend`), { reason: 'Transcription error: 95 entered for 105', signoff });
+    assert.equal(reopened.status, 'resulted');
+    await desk.call('GET', C(`lab/orders/${order.id}/report`), undefined, 403);
+    await doctor.call('GET', C(`lab/orders/${order.id}/report`), undefined, 409);
+    await tech.call('PUT', C(`lab/orders/${order.id}/results`), { results: [{ orderTestId: otId, parameterId: glucose.parameters[0].id, value: '105' }] });
+    const v2 = await patho.call('POST', C(`lab/orders/${order.id}/approve`), { signoff });
+    assert.equal(v2.version, 2);
+    const report = await doctor.call('GET', C(`lab/orders/${order.id}/report`));
+    assert.deepEqual([report.report_version, report.amends.version, report.report_amend_reason], [2, 1, 'Transcription error: 95 entered for 105']);
+    assert.equal(Number(report.tests[0].parameters[0].value_numeric), 105);
+    const old = await doctor.call('GET', C(`lab/orders/${order.id}/report?version=1`));
+    assert.equal(old.superseded, true);
+    assert.equal(Number(old.tests[0].parameters[0].value_numeric), 95);
+    const history = await doctor.call('GET', C(`lab/orders/${order.id}/versions`));
+    assert.deepEqual(history.versions.map((x) => [x.version, x.superseded]), [[2, false], [1, true]]);
+    await assert.rejects(pool.query('UPDATE lab_report_versions SET amend_reason=NULL WHERE order_id=$1', [order.id]), /cannot be changed/);
+    await assert.rejects(pool.query("UPDATE lab_report_versions SET approved_at=approved_at - interval '1 day' WHERE order_id=$1", [order.id]), /cannot be changed/);
+
+    // QC: a control at mean 100, SD 5.
+    const control = await tech.call('POST', C('lab/qc/materials'), { parameterId: glucose.parameters[0].id, name: 'Bio-Rad Lyphochek', lotNo: 'L-4521', level: 'Level 1', mean: 100, sd: 5 }, 201);
+    await desk.call('POST', C('lab/qc/runs'), { materialId: control.id, value: 101 }, 403);
+    const run = (value) => tech.call('POST', C('lab/qc/runs'), { materialId: control.id, value }, 201);
+    assert.equal((await run(102)).outcome, 'accepted');
+    const warn = await run(111);
+    assert.deepEqual([warn.outcome, warn.rules], ['warning', ['1-2s']]);
+    const reject = await run(112);
+    assert.deepEqual([reject.outcome, reject.rules], ['rejected', ['2-2s']]);
+    assert.equal((await tech.call('GET', C('lab/qc/today'))).rejected, 1);
+    // While QC is rejected, a glucose report is not signed.
+    const held = await resulted(88);
+    assert.equal((await tech.call('GET', C(`lab/orders/${held.order.id}`))).qc[0].status, 'rejected');
+    const refused = await call('POST', C(`lab/orders/${held.order.id}/approve`), { signoff }, await login('patho@test.invalid'));
+    assert.equal(refused.body.data.reason, 'qc_rejected');
+    assert.equal((await run(117)).rules.includes('1-3s'), true);
+    const fixed = await tech.call('POST', C('lab/qc/runs'), { materialId: control.id, value: 99, correctiveAction: 'Recalibrated the analyser' }, 201);
+    assert.equal(fixed.outcome, 'accepted');
+    assert.equal((await patho.call('POST', C(`lab/orders/${held.order.id}/approve`), { signoff })).status, 'approved');
+    assert.equal((await tech.call('GET', C(`lab/qc/runs?material=${control.id}`))).total, 5);
+    await assert.rejects(pool.query('UPDATE lab_qc_runs SET value=100 WHERE material_id=$1', [control.id]), /cannot be changed/);
+  });
+
   await t.test('withdrawn consent stops new visits and tests; the record stays', async () => {
     const consent = await one("SELECT id FROM health_consents WHERE business_id=$1 AND contact_id=$2 AND purpose='treatment'", [clinic.id, patient.contact_id]);
     await desk.call('POST', C(`clinic/consents/${consent.id}/withdraw`), { reason: 'Moving away' });
@@ -346,5 +512,46 @@ test('pharmacy and clinic / lab rules', { timeout: 300000 }, async (t) => {
     await assert.rejects(pool.query('DELETE FROM health_consents WHERE id=$1', [consent.id]), /cannot be deleted/);
     const list = await desk.call('GET', C('clinic/patients?consent=false'));
     assert.equal(list.total, 1);
+  });
+  await t.test("a clinic branch: visits, appointments and doctors are each branch's", async () => {
+    const head = (await request('GET', C('locations'))).items[0];
+    const kondapur = await request('POST', C('locations'), { name: 'Kondapur clinic', code: 'KDP' }, 201);
+    const asha = await request('POST', C('resources'), { name: 'Dr. Asha', locationId: kondapur.id }, 201);
+    const ravi = (await request('GET', C('resources'))).items.find((r) => r.name === 'Dr. Ravi');
+    const svc = (await request('GET', C('catalog?q=Consultation'))).items[0];
+    const person = await request('POST', C('clinic/patients'), { name: 'Imran Khan', phone: '9000000077', sex: 'male', ageYears: 41,
+      consent: { purposes: ['treatment'], method: 'signed_form', givenBy: 'Self' } }, 201);
+    const at = (hours) => { const s = new Date(Date.now() + hours * 3600000); return { startsAt: s.toISOString(), endsAt: new Date(s.getTime() + 600000).toISOString() }; };
+    const atHead = await request('POST', C('appointments'), { contactId: person.contact_id, skuId: svc.id, resourceId: ravi.id, ...at(30) }, 201);
+    const atBranch = await request('POST', C('appointments'), { contactId: person.contact_id, skuId: svc.id, resourceId: asha.id, ...at(31) }, 201);
+    // A visit is at its doctor's branch.
+    const headVisit = await request('POST', C('clinic/visits'), { appointmentId: atHead.id }, 201);
+    const branchVisit = await request('POST', C('clinic/visits'), { appointmentId: atBranch.id }, 201);
+    assert.equal(headVisit.location_id, head.id);
+    assert.equal(branchVisit.location_id, kondapur.id);
+    // A receptionist tied to Kondapur.
+    const user = await one('INSERT INTO users(restaurant_id,name,email,password_hash) VALUES($1,$2,$3,$4) RETURNING id', [ownerUser.restaurant_id, 'kdp desk', 'kdp-desk@test.invalid', hash]);
+    const roles = (await request('GET', C('roles?limit=100'))).items;
+    await request('POST', C('members'), { userId: user.id, roleId: roles.find((r) => r.template_code === 'cashier').id, workLocationId: kondapur.id }, 201);
+    const kdp = as(await login('kdp-desk@test.invalid'));
+    // Their lists are Kondapur's: doctors, appointments and visits.
+    assert.deepEqual((await kdp('GET', C('resources'))).items.map((r) => r.id), [asha.id]);
+    const appointments = (await kdp('GET', C('appointments?limit=100'))).items;
+    assert.ok(appointments.some((a) => a.id === atBranch.id) && !appointments.some((a) => a.id === atHead.id));
+    const visits = (await kdp('GET', C('clinic/visits?limit=100'))).items;
+    assert.deepEqual(visits.map((v) => v.id), [branchVisit.id]);
+    // The head clinic's appointment and doctor are beyond them...
+    await kdp('PATCH', C(`appointments/${atHead.id}`), { status: 'no_show' }, 403);
+    await kdp('POST', C('appointments'), { contactId: person.contact_id, skuId: svc.id, resourceId: ravi.id, ...at(40) }, 403);
+    await kdp('POST', C('clinic/visits'), { contactId: person.contact_id, resourceId: ravi.id }, 403);
+    // ...but the patient's earlier visit there is their history, and reads.
+    assert.equal((await kdp('GET', C(`clinic/visits/${headVisit.id}`))).id, headVisit.id);
+    // A walk-in with no doctor opens at the receptionist's own branch.
+    const walkIn = await kdp('POST', C('clinic/visits'), { contactId: person.contact_id }, 201);
+    assert.equal(walkIn.location_id, kondapur.id);
+    // The owner sees both branches, or one asked for.
+    assert.ok((await request('GET', C('clinic/visits?limit=100'))).items.some((v) => v.id === headVisit.id));
+    const headOnly = (await request('GET', C(`clinic/visits?limit=100&location=${head.id}`))).items;
+    assert.ok(headOnly.length > 0 && headOnly.every((v) => v.location_id === head.id));
   });
 });

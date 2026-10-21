@@ -27,7 +27,7 @@ const h = require('./healthCommon');
 const { fail, id, optionalId, text } = h;
 const requireClinic = (business) => {
   h.requireType(business, ['healthcare'], 'Patient records');
-  if (!business.modules.includes('patients')) fail('Patient records are not switched on for this business. An owner can turn them on in Settings › Modules.', 403);
+  if (!business.modules.includes('patients')) fail('Patient records are not switched on for this business. An owner can turn them on in Settings › Business tools.', 403);
 };
 const PURPOSES = ['treatment', 'reports_digital', 'reminders'];
 const canClinical = (business) => access.can(business, 'patients.view_clinical');
@@ -51,7 +51,7 @@ repo.addLists({
   // Visits as the front desk sees them: who, when, which doctor, billed, and
   // whether the lab report is ready. No clinical fields.
   'health-visits': {
-    sql: `SELECT v.id,v.visit_no,v.contact_id,v.appointment_id,v.resource_id,v.status,v.created_at,v.completed_at,v.follow_up_on,v.document_id,
+    sql: `SELECT v.id,v.visit_no,v.location_id,v.contact_id,v.appointment_id,v.resource_id,v.status,v.created_at,v.completed_at,v.follow_up_on,v.document_id,
       c.name AS patient_name,c.phone AS patient_phone,p.patient_no,r.name AS doctor_name,d.document_no,d.total AS bill_total,
       (SELECT CASE WHEN count(*)=0 THEN 'none' WHEN bool_and(o.status IN ('approved','cancelled')) THEN 'ready' ELSE 'pending' END
         FROM lab_orders o WHERE o.business_id=v.business_id AND o.visit_id=v.id AND o.status<>'cancelled') AS lab_status
@@ -60,16 +60,16 @@ repo.addLists({
       LEFT JOIN business_resources r ON r.business_id=v.business_id AND r.id=v.resource_id
       LEFT JOIN business_documents d ON d.business_id=v.business_id AND d.id=v.document_id WHERE v.business_id=$1`,
     search: ['patient_name', 'patient_phone', 'patient_no', 'visit_no', 'doctor_name', 'document_no'], date: 'created_at',
-    filters: { status: 'status', doctor: 'resource_id', patient: 'contact_id', lab: 'lab_status' }, order: 'created_at DESC,id DESC',
+    filters: { status: 'status', doctor: 'resource_id', patient: 'contact_id', lab: 'lab_status', location: 'location_id' }, order: 'created_at DESC,id DESC',
   },
   // Follow-ups due (date filter on the follow-up day).
   'health-follow-ups': {
-    sql: `SELECT v.id,v.visit_no,v.contact_id,v.follow_up_on,(v.follow_up_on::timestamp AT TIME ZONE b.timezone) AS follow_up_at,c.name AS patient_name,c.phone AS patient_phone,p.patient_no,r.name AS doctor_name,
+    sql: `SELECT v.id,v.visit_no,v.location_id,v.contact_id,v.follow_up_on,(v.follow_up_on::timestamp AT TIME ZONE b.timezone) AS follow_up_at,c.name AS patient_name,c.phone AS patient_phone,p.patient_no,r.name AS doctor_name,
       EXISTS (SELECT 1 FROM health_visits n WHERE n.business_id=v.business_id AND n.contact_id=v.contact_id AND n.id<>v.id AND n.created_at>v.created_at AND n.created_at::date>=v.follow_up_on - 2) AS came_back
       FROM health_visits v JOIN businesses b ON b.id=v.business_id JOIN business_contacts c ON c.business_id=v.business_id AND c.id=v.contact_id
       JOIN health_patients p ON p.business_id=v.business_id AND p.contact_id=v.contact_id
       LEFT JOIN business_resources r ON r.business_id=v.business_id AND r.id=v.resource_id WHERE v.business_id=$1 AND v.follow_up_on IS NOT NULL`,
-    search: ['patient_name', 'patient_phone', 'patient_no', 'doctor_name'], date: 'follow_up_at', filters: { came_back: 'came_back' }, order: 'follow_up_on,id',
+    search: ['patient_name', 'patient_phone', 'patient_no', 'doctor_name'], date: 'follow_up_at', filters: { came_back: 'came_back', location: 'location_id' }, order: 'follow_up_on,id',
   },
 });
 
@@ -277,11 +277,23 @@ async function openVisit(business, user, body) {
     const p = await repo.one(db, 'SELECT * FROM health_patients WHERE business_id=$1 AND contact_id=$2', [business.id, contactId]);
     if (!p) fail('Register this person as a patient (with consent) before the visit', 409, { reason: 'not_a_patient' });
     await requireConsent(db, business, contactId);
-    if (resourceId && !await repo.one(db, 'SELECT 1 FROM business_resources WHERE business_id=$1 AND id=$2', [business.id, resourceId])) fail('Doctor not found', 404);
+    const doctorRow = resourceId ? await repo.one(db, 'SELECT location_id FROM business_resources WHERE business_id=$1 AND id=$2', [business.id, resourceId]) : null;
+    if (resourceId && !doctorRow) fail('Doctor not found', 404);
+    // The visit's branch: the doctor's, else the one asked for or picked in
+    // the top bar, else the clinic's first. Branch staff open visits at theirs only.
+    const locationId = doctorRow?.location_id || optionalId(body.locationId, 'Location') || business.location_scope
+      || (await repo.one(db, 'SELECT id FROM business_locations WHERE business_id=$1 AND active ORDER BY id LIMIT 1', [business.id]))?.id;
+    if (!locationId) fail('Add a location for the clinic first', 409);
+    access.requireLocation(business, locationId);
     const doctor = resourceId ? await repo.one(db, "SELECT id FROM health_signatories WHERE business_id=$1 AND resource_id=$2 AND kind='doctor' AND active", [business.id, resourceId]) : null;
     const visitNo = await h.nextNumber(db, business.id, 'visit');
-    const row = await repo.one(db, `INSERT INTO health_visits(business_id,visit_no,contact_id,appointment_id,resource_id,doctor_signatory_id,created_by,updated_by)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$7) RETURNING *`, [business.id, visitNo, contactId, appointment?.id || null, resourceId, doctor?.id || null, user.id]);
+    const row = await repo.one(db, `INSERT INTO health_visits(business_id,visit_no,contact_id,appointment_id,resource_id,doctor_signatory_id,created_by,updated_by,location_id)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$7,$8) RETURNING *`, [business.id, visitNo, contactId, appointment?.id || null, resourceId, doctor?.id || null, user.id, locationId]);
+    // The patient's token (from the appointment) is now in consultation.
+    if (appointment) {
+      await db.query(`UPDATE health_tokens SET visit_id=$3,status='in_consultation',started_at=COALESCE(started_at,now())
+        WHERE business_id=$1 AND appointment_id=$2 AND status IN ('waiting','called','skipped')`, [business.id, appointment.id, row.id]);
+    }
     await repo.audit(db, business.id, user.id, 'visit.opened', row.id, { visitNo, patientNo: p.patient_no, appointmentId: appointment?.id || null });
     await repo.event(db, business.id, user.id, 'visit.opened', 'visit', row.id, { contactId, resourceId, appointmentId: appointment?.id || null });
     return row;
@@ -304,6 +316,7 @@ async function saveVisit(business, user, visitId, body) {
   await access.require(business, 'patients.edit_clinical');
   return repo.transaction(async (db) => {
     const visit = await repo.one(db, 'SELECT * FROM health_visits WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(visitId, 'Visit')]);
+    if (visit) access.requireLocation(business, visit.location_id);
     if (!visit) fail('Visit not found', 404);
     if (visit.status === 'completed') fail('This consultation is completed; add a note to correct it', 409);
     const sets = {};
@@ -349,6 +362,7 @@ async function saveVisit(business, user, visitId, body) {
       const now = await repo.one(db, 'SELECT * FROM health_visits WHERE business_id=$1 AND id=$2', [business.id, visit.id]);
       if (!now.complaints && !now.diagnosis) fail('Write the complaints or the diagnosis before completing the consultation');
       await db.query("UPDATE health_visits SET status='completed',completed_by=$3,completed_at=now(),updated_at=now() WHERE business_id=$1 AND id=$2", [business.id, visit.id, user.id]);
+      await db.query("UPDATE health_tokens SET status='done',done_at=now() WHERE business_id=$1 AND visit_id=$2 AND status IN ('waiting','called','in_consultation','skipped')", [business.id, visit.id]);
       if (visit.appointment_id) {
         const a = await repo.one(db, "UPDATE business_appointments SET status='completed' WHERE business_id=$1 AND id=$2 AND status='booked' RETURNING id", [business.id, visit.appointment_id]);
         if (a) {
@@ -367,7 +381,8 @@ async function addVisitNote(business, user, visitId, body) {
   requireClinic(business);
   await access.require(business, 'patients.edit_clinical');
   return repo.transaction(async (db) => {
-    const visit = await repo.one(db, 'SELECT id,visit_no FROM health_visits WHERE business_id=$1 AND id=$2', [business.id, id(visitId, 'Visit')]);
+    const visit = await repo.one(db, 'SELECT id,visit_no,location_id FROM health_visits WHERE business_id=$1 AND id=$2', [business.id, id(visitId, 'Visit')]);
+    if (visit) access.requireLocation(business, visit.location_id);
     if (!visit) fail('Visit not found', 404);
     const row = await repo.one(db, 'INSERT INTO health_visit_notes(business_id,visit_id,body,created_by) VALUES($1,$2,$3,$4) RETURNING *', [business.id, visit.id,
       v.requiredString(body.body, 'Note', 2000), user.id]);
@@ -378,6 +393,8 @@ async function addVisitNote(business, user, visitId, body) {
 
 // A visit: its front-desk facts for anyone with patients.view; the clinical
 // record (vitals, notes, prescription, lab results) only for clinical roles.
+// Any branch may read a visit: it is the patient's history, which a doctor
+// at the other branch needs. Changing it stays with the visit's own branch.
 async function visit(business, visitId) {
   requireClinic(business);
   await access.require(business, 'patients.view');
@@ -415,8 +432,10 @@ async function visit(business, visitId) {
   prescription: items, notes, lab_results: results, patient_clinical: clinical || {} };
 }
 
-// Bills a visit: the appointment's service (the consultation) and any extra
-// lines, posted as a normal sale; the visit keeps the bill.
+// Bills a visit: the consultation and any extra lines, posted as a normal
+// sale; the visit keeps the bill. The consultation is the doctor's fee (or the
+// follow-up fee, or free, within the follow-up days), else the booked service.
+// A free follow-up with nothing else to bill is recorded without a bill.
 async function billVisit(business, user, visitId, body) {
   requireClinic(business);
   await access.require(business, 'sales.create');
@@ -431,6 +450,7 @@ async function billVisit(business, user, visitId, body) {
   return repo.transaction(async (db) => {
     await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
     const visitRow = await repo.one(db, 'SELECT * FROM health_visits WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(visitId, 'Visit')]);
+    if (visitRow) access.requireLocation(business, visitRow.location_id);
     if (!visitRow) fail('Visit not found', 404);
     if (visitRow.document_id) {
       const doc = await repo.one(db, 'SELECT * FROM business_documents WHERE business_id=$1 AND id=$2', [business.id, visitRow.document_id]);
@@ -442,23 +462,34 @@ async function billVisit(business, user, visitId, body) {
       const doc = await repo.one(db, "SELECT * FROM business_documents WHERE business_id=$1 AND id=$2 AND kind='sale'", [business.id, id(body.documentId, 'Bill')]);
       if (!doc || Number(doc.contact_id) !== Number(visitRow.contact_id)) fail('That bill is not this patient\'s', 409);
       if (await repo.one(db, 'SELECT 1 FROM health_visits WHERE business_id=$1 AND document_id=$2', [business.id, doc.id])) fail(`${doc.document_no} is already linked to a visit`, 409);
-      await db.query('UPDATE health_visits SET document_id=$3 WHERE business_id=$1 AND id=$2', [business.id, visitRow.id, doc.id]);
+      // The doctor's consultation or follow-up fee on that bill, if any.
+      const charged = visitRow.resource_id ? await repo.one(db, `SELECT l.sku_id,CASE WHEN l.sku_id=p.follow_up_sku_id THEN 'follow_up' ELSE 'consultation' END AS kind
+        FROM business_document_lines l JOIN health_doctor_profiles p ON p.business_id=l.business_id AND p.resource_id=$3
+        WHERE l.business_id=$1 AND l.document_id=$2 AND l.sku_id IN (p.consultation_sku_id,p.follow_up_sku_id) ORDER BY l.id LIMIT 1`, [business.id, doc.id, visitRow.resource_id]) : null;
+      await db.query('UPDATE health_visits SET document_id=$3,fee_kind=$4,fee_sku_id=$5 WHERE business_id=$1 AND id=$2', [business.id, visitRow.id, doc.id, charged?.kind || null, charged?.sku_id || null]);
       await repo.audit(db, business.id, user.id, 'visit.billed', visitRow.id, { visitNo: visitRow.visit_no, documentNo: doc.document_no, linked: true });
       return { visit: { ...visitRow, document_id: doc.id }, document: doc, linked: true };
     }
     const lines = [];
-    if (visitRow.appointment_id && body.includeConsultation !== false) {
+    const fee = body.includeConsultation === false ? null : await require('./businessClinicDesk.service').feeFor(db, business, visitRow);
+    if (fee?.skuId) lines.push({ skuId: fee.skuId, quantity: '1' });
+    else if (!fee && visitRow.appointment_id && body.includeConsultation !== false) {
       const a = await repo.one(db, 'SELECT sku_id FROM business_appointments WHERE business_id=$1 AND id=$2', [business.id, visitRow.appointment_id]);
       lines.push({ skuId: a.sku_id, quantity: '1' });
     }
     for (const line of extra) lines.push({ skuId: id(line?.skuId, 'Item'), quantity: String(line.quantity ?? '1') });
+    if (!lines.length && fee?.kind === 'free_follow_up') {
+      await db.query("UPDATE health_visits SET fee_kind='free_follow_up' WHERE business_id=$1 AND id=$2", [business.id, visitRow.id]);
+      await repo.audit(db, business.id, user.id, 'visit.free_follow_up', visitRow.id, { visitNo: visitRow.visit_no, after: fee.last_consultation?.visit_no });
+      return { visit: { ...visitRow, fee_kind: 'free_follow_up' }, document: null, fee };
+    }
     if (!lines.length) fail('Add the consultation or a service to bill');
-    const input = { kind: 'sale', locationId: id(body.locationId, 'Location'), contactId: visitRow.contact_id, lines, payment: body.payment, notes: `Visit ${visitRow.visit_no}` };
+    const input = { kind: 'sale', locationId: body.locationId ? id(body.locationId, 'Location') : visitRow.location_id, contactId: visitRow.contact_id, lines, payment: body.payment, notes: `Visit ${visitRow.visit_no}` };
     const document = await core.postDocument(db, business, user, input, { kind: 'sale', requestKey: key, hash: h.hashOf({ visitId: visitRow.id, ...input }), lines, paidNow });
     // The time stamp alone is written by the database (a completed visit is otherwise fixed).
-    await db.query('UPDATE health_visits SET document_id=$3 WHERE business_id=$1 AND id=$2', [business.id, visitRow.id, document.id]);
-    await repo.audit(db, business.id, user.id, 'visit.billed', visitRow.id, { visitNo: visitRow.visit_no, documentNo: document.document_no });
-    return { visit: { ...visitRow, document_id: document.id }, document };
+    await db.query('UPDATE health_visits SET document_id=$3,fee_kind=$4,fee_sku_id=$5 WHERE business_id=$1 AND id=$2', [business.id, visitRow.id, document.id, fee?.kind || null, fee?.skuId || null]);
+    await repo.audit(db, business.id, user.id, 'visit.billed', visitRow.id, { visitNo: visitRow.visit_no, documentNo: document.document_no, fee: fee?.kind || null });
+    return { visit: { ...visitRow, document_id: document.id, fee_kind: fee?.kind || null }, document, fee };
   });
 }
 
@@ -469,23 +500,27 @@ async function today(business, query) {
   await access.require(business, 'patients.view');
   const day = query.day ? h.dateOnly(query.day, 'Day') : await h.today(repo.pool, business);
   const resource = optionalId(query.doctor, 'Doctor');
+  const location = optionalId(query.location, 'Location');
   const rows = await repo.all(repo.pool, `SELECT a.id AS appointment_id,a.starts_at,a.ends_at,a.status AS appointment_status,a.contact_id,a.resource_id,c.name AS patient_name,c.phone AS patient_phone,
       p.patient_no,(p.contact_id IS NOT NULL) AS registered,r.name AS doctor_name,s.label AS service_name,v.id AS visit_id,v.visit_no,v.status AS visit_status,v.document_id,
       EXISTS (SELECT 1 FROM health_consents k WHERE k.business_id=a.business_id AND k.contact_id=a.contact_id AND k.purpose='treatment' AND k.withdrawn_at IS NULL) AS consent_active,
       (SELECT CASE WHEN count(*)=0 THEN 'none' WHEN bool_and(o.status='approved') THEN 'ready' ELSE 'pending' END FROM lab_orders o
-        WHERE o.business_id=v.business_id AND o.visit_id=v.id AND o.status<>'cancelled') AS lab_status
+        WHERE o.business_id=v.business_id AND o.visit_id=v.id AND o.status<>'cancelled') AS lab_status,
+      tk.id AS token_id,tk.token_no,tk.status AS token_status
     FROM business_appointments a JOIN businesses b ON b.id=a.business_id
     JOIN business_contacts c ON c.business_id=a.business_id AND c.id=a.contact_id JOIN business_resources r ON r.business_id=a.business_id AND r.id=a.resource_id
     JOIN catalog_skus s ON s.business_id=a.business_id AND s.id=a.sku_id
     LEFT JOIN health_patients p ON p.business_id=a.business_id AND p.contact_id=a.contact_id
     LEFT JOIN health_visits v ON v.business_id=a.business_id AND v.appointment_id=a.id
-    WHERE a.business_id=$1 AND (a.starts_at AT TIME ZONE b.timezone)::date=$2::date AND ($3::bigint IS NULL OR a.resource_id=$3)
-    ORDER BY a.starts_at,a.id`, [business.id, day, resource]);
+    LEFT JOIN health_tokens tk ON tk.business_id=a.business_id AND tk.appointment_id=a.id AND tk.status<>'cancelled'
+    WHERE a.business_id=$1 AND (a.starts_at AT TIME ZONE b.timezone)::date=$2::date AND ($3::bigint IS NULL OR a.resource_id=$3) AND ($4::bigint IS NULL OR r.location_id=$4)
+    ORDER BY a.starts_at,a.id`, [business.id, day, resource, location]);
   const walkIns = await repo.all(repo.pool, `SELECT v.id AS visit_id,v.visit_no,v.status AS visit_status,v.contact_id,v.created_at,c.name AS patient_name,p.patient_no,r.name AS doctor_name,v.document_id
     FROM health_visits v JOIN businesses b ON b.id=v.business_id JOIN business_contacts c ON c.business_id=v.business_id AND c.id=v.contact_id
     JOIN health_patients p ON p.business_id=v.business_id AND p.contact_id=v.contact_id LEFT JOIN business_resources r ON r.business_id=v.business_id AND r.id=v.resource_id
-    WHERE v.business_id=$1 AND v.appointment_id IS NULL AND (v.created_at AT TIME ZONE b.timezone)::date=$2::date AND ($3::bigint IS NULL OR v.resource_id=$3) ORDER BY v.created_at`,
-  [business.id, day, resource]);
+    WHERE v.business_id=$1 AND v.appointment_id IS NULL AND (v.created_at AT TIME ZONE b.timezone)::date=$2::date AND ($3::bigint IS NULL OR v.resource_id=$3)
+      AND ($4::bigint IS NULL OR v.location_id=$4) ORDER BY v.created_at`,
+  [business.id, day, resource, location]);
   return { day, appointments: rows, walk_ins: walkIns };
 }
 

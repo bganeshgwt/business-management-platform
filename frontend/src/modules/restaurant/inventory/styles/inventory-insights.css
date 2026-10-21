@@ -107,8 +107,8 @@
    here: a tile that is a switch shows when it is on, and a tile whose answer
    is a name (a reason, an item) wraps it to two lines instead of cutting it. */
 .ii-tile.is-active {
-  border-color: var(--tone);
-  box-shadow: 0 0 0 3px var(--tone-bg), var(--shadow-sm);
+  border-color: var(--border);
+  box-shadow: inset 0 -2px 0 var(--primary), var(--shadow-sm);
 }
 
 .stat-tile-value.ii-tile-words {

@@ -18,7 +18,7 @@ const paise = (value) => Math.round(Number(value) * 100);
 const MAX_VARIANTS = 300;
 
 function requireVariants(business) {
-  if (!business.modules.includes('variants')) fail('Variants are not switched on for this business. An owner can turn them on in Settings › Modules.', 403);
+  if (!business.modules.includes('variants')) fail('Variants are not switched on for this business. An owner can turn them on in Settings › Business tools.', 403);
 }
 
 // EAN-13 check digit; in-store barcodes are "200" + the SKU number (the same

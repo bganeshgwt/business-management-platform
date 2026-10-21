@@ -59,7 +59,7 @@ test("choose five shortcuts, reorder, cancel, reload, and keep them above the sc
   expect(await pathsOf(page)).toEqual(expected);
 
   await page.setViewportSize({ width: 1280, height: 700 });
-  await page.getByRole("navigation", { name: "All pages" }).getByRole("button", { name: "Service", exact: true }).click();
+  await page.getByRole("navigation", { name: "All pages" }).getByRole("button", { name: "Operations", exact: true }).click();
   const before = await page.locator(".quick-access").boundingBox();
   const scrolled = await page.locator(".nav-sections").evaluate(node => { node.scrollTop = node.scrollHeight; return node.scrollTop; });
   expect(scrolled).toBeGreaterThan(0);

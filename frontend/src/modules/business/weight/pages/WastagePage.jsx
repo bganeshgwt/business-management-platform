@@ -73,8 +73,8 @@ export default function WastagePage() {
           empty="No wastage in these dates" emptyIcon="trash" />
       </SectionCard>
       {creating && (
-        <WastageDialog start={creating} onClose={() => { setCreating(false); setParams({}, { replace: true }); }}
-          onSaved={(w) => { setCreating(false); setParams({}, { replace: true }); setNotice(`${weightOf(w.quantity, w.unit)} of ${w.label} written off (${biz.exact(w.value)}).`); list.reload(); setVersion((n) => n + 1); }} />
+        <WastageDialog start={creating} onClose={() => { setCreating(false); setParams((p) => new URLSearchParams(p.get("open") ? { open: p.get("open") } : {}), { replace: true }); }}
+          onSaved={(w) => { setCreating(false); setParams((p) => new URLSearchParams(p.get("open") ? { open: p.get("open") } : {}), { replace: true }); setNotice(`${weightOf(w.quantity, w.unit)} of ${w.label} written off (${biz.exact(w.value)}).`); list.reload(); setVersion((n) => n + 1); }} />
       )}
       {batch && (
         <BatchDialog onClose={() => setBatch(false)}

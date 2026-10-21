@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+const { withTools } = require('./helpers/tools');
 
 // Retail pro pass (7 Oct 2026, builder C): opening stock and barcode editing
 // on items, the Sales list's biller / payment / location, the stock ledger in
@@ -70,7 +71,7 @@ test('retail pro pass: items, sales list, expiry, books, bell', { timeout: 30000
   const key = () => crypto.randomUUID();
   const day = (offset) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
 
-  const demos = (await request('POST', '/businesses/development-demos', {}, 201)).businesses;
+  const demos = (await withTools(request, (await request('POST', '/businesses/development-demos', {}, 201)).businesses));
   const byType = (type) => demos.find((b) => b.business_type === type);
   const grocery = byType('grocery'), supermarket = byType('supermarket'), books = byType('books');
   const G = (suffix) => `/businesses/${grocery.id}/${suffix}`;

@@ -1,0 +1,111 @@
+/* Desktop till: independently scroll long lists, keeping checkout alongside. */
+.rt-counter-summary {
+  min-width: 0;
+}
+
+.rt-counter-page .rt-tender.rt-tender-grid {
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 1200px) {
+  .content:has(.rt-counter-page) {
+    height: 100%;
+    max-width: none;
+    padding: 16px;
+  }
+
+  .rt-counter-page {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .rt-counter-page > .page-header {
+    flex: 0 0 auto;
+    padding: 12px 16px;
+    margin: 0;
+  }
+
+  .rt-counter-page .rt-counter {
+    flex: 1;
+    min-height: 0;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.8fr);
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .rt-counter-page .rt-counter-side {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    position: static;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .rt-counter-main,
+  .rt-counter-summary,
+  .rt-counter-page .rt-pay {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .rt-counter-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .rt-counter-summary > .section-card {
+    flex-shrink: 0;
+  }
+
+  .rt-counter-page .section-card-head {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .rt-counter-page .section-card-body {
+    padding: 12px;
+  }
+
+  .rt-counter-page .section-card.is-flush > .section-card-body {
+    padding: 0;
+  }
+
+  .rt-counter-page .rt-shelf-grid {
+    grid-template-columns: repeat(auto-fill, minmax(125px, 1fr));
+    max-height: none;
+    min-height: 0;
+  }
+
+  .rt-counter-page .rt-bill .rt-phone-lines {
+    max-height: 35dvh;
+  }
+
+  .rt-counter-page .rt-pay {
+    margin: 0;
+    align-self: start;
+    max-height: 100%;
+  }
+
+  .rt-counter-page .rt-pay > .section-card-body {
+    flex: 0 0 auto;
+  }
+
+  .rt-counter-page .rt-pay > .section-card-head {
+    flex-shrink: 0;
+  }
+
+  .rt-counter-page .rt-post {
+    bottom: 0;
+  }
+}

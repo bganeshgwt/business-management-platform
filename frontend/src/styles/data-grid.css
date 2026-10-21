@@ -1238,8 +1238,15 @@
 
 .dg-editor .dg-table td :is(input:not([type="checkbox"], [type="radio"]), select, textarea) {
   width: 100%;
-  min-width: 72px;
+  /* Never wider than the cell: a narrow column (Qty) keeps its box whole. */
+  min-width: min(72px, 100%);
   padding: 6px 8px;
+}
+
+/* A search box in a cell keeps room for its magnifier and its clear button. */
+.dg-editor .dg-table td .search-picker .search-picker-input {
+  padding-left: 34px;
+  padding-right: 34px;
 }
 
 .dg-editor .dg-table td.align-right :is(input, select) {

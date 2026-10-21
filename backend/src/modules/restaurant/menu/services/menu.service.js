@@ -35,6 +35,8 @@ const toProduct = (row) => ({
   name: row.name,
   // SW-A-12: what the KOT and the kitchen screen may print instead (null: none).
   kitchenName: row.kitchen_name || null,
+  // "weight": the price is per kg and a line's quantity is its weight in kg.
+  soldBy: row.sold_by || "unit",
   code: row.code,
   description: row.description,
   price: Number(row.price),
@@ -308,6 +310,7 @@ const keepLeftOut = (data, existing) => {
     sortOrder: keep(data.sortOrder, existing.sort_order),
     status: keep(data.status, existing.status),
     kitchenName: keep(data.kitchenName, existing.kitchen_name),
+    soldBy: keep(data.soldBy, existing.sold_by),
   };
 
   if (data.taxRateId === undefined && data.taxPercentage === undefined) {
@@ -335,6 +338,7 @@ const FIELD_COLUMNS = {
   sortOrder: "sort_order",
   status: "status",
   kitchenName: "kitchen_name",
+  soldBy: "sold_by",
 };
 
 // { column: value } for the given fields, plus the tax pair when tax is one
@@ -476,6 +480,8 @@ const describeNow = (key, current) => {
       return `its display order is now ${current.sortOrder}`;
     case "kitchenName":
       return `its kitchen name is now ${current.kitchenName || "empty"}`;
+    case "soldBy":
+      return current.soldBy === "weight" ? "it is now sold by weight (price per kg)" : "it is now sold by the piece";
     default:
       return "its description was changed";
   }

@@ -38,7 +38,9 @@ const focusable = (root) =>
     )
   ).filter((node) => node.offsetParent !== null || node === document.activeElement);
 
-export default function SidePanel({ open, title, count, rule, icon, toolbar, footer, onClose, children, label }) {
+// wide: nearly the whole screen, for a full working screen opened over a
+// page (the business Overview opens Quick bill or a purchase this way).
+export default function SidePanel({ open, title, count, rule, icon, toolbar, footer, onClose, children, label, wide = false }) {
   const presence = usePresence(open, 200);
   const drawer = useRef(null);
   const returnTo = useRef(null);
@@ -185,7 +187,7 @@ export default function SidePanel({ open, title, count, rule, icon, toolbar, foo
       <div className="side-panel-backdrop" onMouseDown={() => closeRef.current()} aria-hidden="true" />
       <aside
         ref={drawer}
-        className="side-panel"
+        className={`side-panel ${wide ? "is-wide" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

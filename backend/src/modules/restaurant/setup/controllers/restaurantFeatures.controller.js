@@ -1,4 +1,5 @@
 const restaurantFeatures = require("../services/restaurantFeatures.service");
+const restaurantFormat = require("../services/restaurantFormat.service");
 const v = require("../../../../utils/validate");
 const AppError = require("../../../../utils/AppError");
 
@@ -35,4 +36,19 @@ const set = async (req, res) => {
   });
 };
 
-module.exports = { list, preview, set };
+const getFormat = async (req, res) => {
+  res.json({ success: true, data: await restaurantFormat.get(req.user.restaurantId) });
+};
+
+const setFormat = async (req, res) => {
+  const code = v.requiredEnum((req.body || {}).format, "Format", restaurantFormat.FORMAT_CODES);
+  const result = await restaurantFormat.set(req.user, code);
+
+  res.json({
+    success: true,
+    message: `This is now a ${result.label.toLowerCase()}${result.skipped.length ? `; ${result.skipped.length} feature${result.skipped.length === 1 ? " was" : "s were"} left as they are` : ""}`,
+    data: result,
+  });
+};
+
+module.exports = { list, preview, set, getFormat, setFormat };

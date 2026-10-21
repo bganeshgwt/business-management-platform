@@ -4,12 +4,13 @@ import DataGrid from "../../../../components/DataGrid/DataGrid";
 import Icon from "../../../../components/Icon";
 import SectionCard from "../../../../components/SectionCard";
 import { ErrorMessage, SuccessMessage } from "../../../../components/Feedback";
-import { businessWrite } from "../../../../services/business.service";
+import { businessRead, businessWrite } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
 import { businessPath, word } from "../../../../services/businessNav";
 import FormDialog from "./FormDialog";
 import { Badge, BusinessHeader, Field, PeriodFilter } from "./ui";
 import { useOpenBusiness, useOptions, useServerList } from "./hooks";
+import "../../health/styles/health.css";
 
 const clock = (value) => new Date(value).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
 
@@ -30,7 +31,7 @@ export default function AppointmentsPage() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   useEffect(() => {
-    if (params.get("new")) setParams({}, { replace: true });
+    if (params.get("new")) setParams((p) => new URLSearchParams(p.get("open") ? { open: p.get("open") } : {}), { replace: true });
   }, [params, setParams]);
 
   const update = async (row, next) => {
@@ -104,7 +105,31 @@ function BookDialog({ onClose, onSaved }) {
   const { options } = useOptions(["contacts?kind=customer&active=true", "catalog?kind=service&active=true", "resources"]);
   const [form, setForm] = useState({ contactId: "", skuId: "", resourceId: "", date: "", start: "10:00", minutes: "60" });
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
+  // A clinic books a doctor's free slot in their OPD timings (and their fee).
+  const clinic = biz.type === "healthcare";
+  const slotKey = clinic && form.resourceId && form.date ? `${form.resourceId}|${form.date}` : "";
+  const [loaded, setLoaded] = useState({ key: "", data: null });
+  const [picked, setPicked] = useState(null);
+  useEffect(() => {
+    if (!slotKey) return undefined;
+    const [doctor, day] = slotKey.split("|");
+    const controller = new AbortController();
+    businessRead(biz.id, "clinic/slots", { doctor, day }, controller.signal).then((r) => {
+      setLoaded({ key: slotKey, data: r });
+      if (r.doctor.consultation_sku_id) setForm((f) => (f.skuId ? f : { ...f, skuId: String(r.doctor.consultation_sku_id) }));
+    }).catch(() => { if (!controller.signal.aborted) setLoaded({ key: slotKey, data: null }); });
+    return () => controller.abort();
+  }, [biz.id, slotKey]);
+  // A slot chosen for another doctor or day no longer counts.
+  const slots = loaded.key === slotKey ? loaded.data : null;
+  const slot = picked?.key === slotKey ? picked.slot : null;
+  const setSlot = (s) => setPicked({ key: slotKey, slot: s });
+  const bySlot = Boolean(slots?.scheduled);
   const submit = () => {
+    if (bySlot) {
+      if (!slot) throw new Error("Choose a free slot");
+      return businessWrite(biz.id, "appointments", { contactId: form.contactId, skuId: form.skuId, resourceId: form.resourceId, startsAt: slot.starts_at, endsAt: slot.ends_at });
+    }
     const starts = new Date(`${form.date}T${form.start}`);
     const ends = new Date(starts.getTime() + Number(form.minutes) * 60000);
     return businessWrite(biz.id, "appointments", { contactId: form.contactId, skuId: form.skuId, resourceId: form.resourceId, startsAt: starts.toISOString(), endsAt: ends.toISOString() });
@@ -130,12 +155,29 @@ function BookDialog({ onClose, onSaved }) {
         </select>
       </Field>
       <Field label="Date"><input required type="date" value={form.date} onChange={set("date")} /></Field>
-      <Field label="Starts at"><input required type="time" value={form.start} onChange={set("start")} /></Field>
-      <Field label="Takes">
-        <select value={form.minutes} onChange={set("minutes")}>
-          {[15, 30, 45, 60, 90, 120, 180].map((m) => <option key={m} value={m}>{m < 60 ? `${m} minutes` : `${m / 60} hour${m === 60 ? "" : "s"}`}</option>)}
-        </select>
-      </Field>
+      {bySlot || slots?.leave ? (
+        <div className="field-wide stack-sm">
+          <span className="bz-inline"><strong>Free slots</strong><span className="muted">{slots.doctor.slot_minutes} minutes each{slots.doctor.consultation_label ? ` · fee ${biz.exact(slots.doctor.consultation_price)}` : ""}</span></span>
+          {slots.leave ? <p className="muted">{slots.doctor.name} is on leave that day{slots.leave.reason ? ` (${slots.leave.reason})` : ""}.</p>
+            : slots.slots.length === 0 ? <p className="muted">{slots.doctor.name} has no OPD that day.</p> : (
+              <div className="hl-slots" role="group" aria-label="Free slots">
+                {slots.slots.map((s) => (
+                  <button key={s.starts_at} type="button" className={`hl-slot ${slot?.starts_at === s.starts_at ? "is-on" : ""}`} disabled={s.taken || s.past}
+                    aria-pressed={slot?.starts_at === s.starts_at} onClick={() => setSlot(s)} title={s.taken ? "Booked" : s.past ? "Past" : "Free"}>{clock(s.starts_at)}</button>
+                ))}
+              </div>
+            )}
+        </div>
+      ) : (
+        <>
+          <Field label="Starts at"><input required type="time" value={form.start} onChange={set("start")} /></Field>
+          <Field label="Takes">
+            <select value={form.minutes} onChange={set("minutes")}>
+              {[15, 30, 45, 60, 90, 120, 180].map((m) => <option key={m} value={m}>{m < 60 ? `${m} minutes` : `${m / 60} hour${m === 60 ? "" : "s"}`}</option>)}
+            </select>
+          </Field>
+        </>
+      )}
     </FormDialog>
   );
 }

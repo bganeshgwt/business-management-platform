@@ -13,13 +13,14 @@ import { useOpenBusiness } from "../../core/pages/hooks";
 
 // value: the chosen contact object (or null). clients: every active client.
 // onCreated(contact) also adds the new one to the caller's list.
-export function ClientPicker({ value, onChange, clients, onCreated, label = "Client", required, placeholder = "Name or phone", walkIn, autoFocus }) {
+// hideLabel: the label is only spoken (a compact bar that says "Client" itself).
+export function ClientPicker({ value, onChange, clients, onCreated, label = "Client", required, placeholder = "Name or phone", walkIn, autoFocus, hideLabel = false }) {
   const biz = useOpenBusiness();
   const [creating, setCreating] = useState(null);
   const canCreate = biz.can("contacts.create");
   return (
     <>
-      <SearchPicker label={label} value={value} onChange={onChange} options={clients} required={required} autoFocus={autoFocus}
+      <SearchPicker label={hideLabel ? undefined : label} aria-label={hideLabel ? label : undefined} value={value} onChange={onChange} options={clients} required={required} autoFocus={autoFocus}
         getKey={(c) => c.id} getLabel={(c) => c.name}
         getDescription={(c) => [c.phone, Number(c.balance) ? balanceText(c.balance) : ""].filter(Boolean).join(" · ")}
         getKeywords={(c) => `${c.phone || ""} ${String(c.phone || "").replace(/\D/g, "")} ${c.code || ""}`}

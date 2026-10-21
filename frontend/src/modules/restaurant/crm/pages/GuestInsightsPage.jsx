@@ -57,16 +57,17 @@ const PAGE_SIZE = 25;
 const SEGMENT_LOOK = {
   regulars: { icon: "heart", tag: "Regular" },
   new: { icon: "user-plus", tag: "New" },
-  lapsed: { icon: "timer", tag: "Lapsed" },
+  lapsed: { icon: "timer", tag: "Lapsed", shortcut: "At risk" },
   "big-spenders": { icon: "trend-up", tag: "Big spender" },
   birthdays: { icon: "calendar", tag: "Birthday" },
   // A couple's wedding anniversary this week (sweep SW-B-21).
   anniversaries: { icon: "sparkles", tag: "Anniversary" },
-  unhappy: { icon: "frown", tag: "Unhappy" },
+  unhappy: { icon: "frown", tag: "Unhappy", shortcut: "Unhappy" },
   points: { icon: "gift", tag: "Points" },
 };
 
 const SEGMENT_KEYS = Object.keys(SEGMENT_LOOK);
+const PRIMARY_SEGMENTS = ["regulars", "new", "lapsed", "unhappy"];
 
 // The colour of each list's tag wherever a guest carries it. The list cards
 // get theirs from the server, which uses the same names.
@@ -488,15 +489,16 @@ function SegmentCard({ segment, active, onPick }) {
       className={`gi-seg gi-tone-${segment.tone} ${active ? "is-active" : ""}`}
       onClick={() => onPick(segment.key)}
       aria-pressed={active}
+      aria-controls="gi-active-list"
+      title={segment.definition}
     >
       <span className="gi-seg-top">
         <span className="gi-seg-icon">
           <Icon name={look.icon} size={18} />
         </span>
-        <span className="gi-seg-count">{count(segment.count)}</span>
+        <span className="gi-seg-label">{look.shortcut || segment.label}</span>
       </span>
-      <span className="gi-seg-label">{segment.label}</span>
-      <span className="gi-seg-def">{segment.definition}</span>
+      <span className="gi-seg-count">{count(segment.count)}</span>
     </button>
   );
 }
@@ -1000,13 +1002,6 @@ export default function GuestInsightsPage() {
           note={`${count(totals.repeaters)} of ${count(totals.visitors)} came back`}
         />
         <StatTile
-          icon="calendar"
-          tone="violet"
-          label="Visits per guest"
-          value={decimal(kpis.averageVisits)}
-          note={`${count(totals.visits)} visits in all`}
-        />
-        <StatTile
           icon="wallet"
           tone="primary"
           label="Spend per visit"
@@ -1014,27 +1009,9 @@ export default function GuestInsightsPage() {
           title={`${money(kpis.averageSpendPerVisit, currency)} exactly`}
           note={`${money(totals.spend, currency)} over ${count(totals.billedVisits)} billed visits`}
         />
-        <StatTile
-          icon="user-plus"
-          tone="warning"
-          label="New this month"
-          value={count(kpis.newThisMonth)}
-          note={`first visit since ${shortDate(kpis.monthStart, today)}`}
-        />
       </div>
 
       <InHouse seated={summary.inHouse} currency={currency} onOpen={openGuest} now={now} />
-
-      <div className="gi-charts">
-        <Frequency
-          distribution={summary.distribution}
-          visitors={totals.visitors}
-          neverVisited={totals.neverVisited}
-          totals={totals}
-          onFile={kpis.guestsOnFile}
-        />
-        <TopGuests guests={summary.topGuests} currency={currency} onOpen={openGuest} />
-      </div>
 
       <section className="gi-lists" aria-labelledby="gi-lists-title">
         <div className="gi-lists-head">
@@ -1047,10 +1024,16 @@ export default function GuestInsightsPage() {
               Pick a list to see who is on it. Click a guest for every visit, what they order and their points.
             </p>
           </div>
+          <label className="field gi-group-filter">
+            <span>Guest group</span>
+            <select value={segmentKey} onChange={event=>pickSegment(event.target.value)} aria-controls="gi-active-list">
+              {segments.map(segment=><option key={segment.key} value={segment.key}>{segment.label} ({count(segment.count)})</option>)}
+            </select>
+          </label>
         </div>
 
         <div className="gi-segs" role="group" aria-label="Guest lists">
-          {segments.map((segment) => (
+          {PRIMARY_SEGMENTS.map(key=>segments.find(segment=>segment.key===key)).filter(Boolean).map((segment) => (
             <SegmentCard
               key={segment.key}
               segment={segment}
@@ -1060,7 +1043,7 @@ export default function GuestInsightsPage() {
           ))}
         </div>
 
-        <div className={`card gi-panel gi-tone-${active.tone}`}>
+        <div id="gi-active-list" className={`card gi-panel gi-tone-${active.tone}`} role="region" aria-label="Selected guest list">
           <div className="gi-panel-head">
             <div className="gi-panel-title">
               <span className="gi-panel-icon">
@@ -1187,6 +1170,26 @@ export default function GuestInsightsPage() {
           )}
         </div>
       </section>
+
+      <details className="card gi-analytics">
+        <summary>
+          <Icon name="chart" size={18} /> Guest trends &amp; top guests
+        </summary>
+        <p className="small muted">
+          Average visits per guest: {decimal(kpis.averageVisits)}. New this month: {count(kpis.newThisMonth)}
+          {" "}(since {shortDate(kpis.monthStart, today)}).
+        </p>
+        <div className="gi-charts">
+          <Frequency
+            distribution={summary.distribution}
+            visitors={totals.visitors}
+            neverVisited={totals.neverVisited}
+            totals={totals}
+            onFile={kpis.guestsOnFile}
+          />
+          <TopGuests guests={summary.topGuests} currency={currency} onOpen={openGuest} />
+        </div>
+      </details>
 
       <details className="card gi-rules">
         <summary>

@@ -107,7 +107,7 @@ export default function FloorBlock({ entry, outletId, currency = "₹", canSeeSa
               ]}
             />
 
-            {floor.inService > 0 && (
+            {SEGMENTS.some((segment) => segment.key !== "free" && floor[segment.key] > 0) && (
               <div className="dash-meter-wrap">
                 <div
                   className="dash-meter"

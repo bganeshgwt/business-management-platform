@@ -5,6 +5,7 @@ import usePresence from "../hooks/usePresence";
 import useBusiness from "../hooks/useBusiness";
 import { TYPE_ICONS } from "../services/businessNav";
 import "../styles/business-switcher.css";
+import { formatIcon } from "../services/restaurantFormats";
 
 // The business switcher in the header. Lists every business this person is a
 // member of, with its type, and opens the one picked: the signed-in
@@ -42,7 +43,7 @@ export default function BusinessSwitcher() {
     const term = query.trim().toLowerCase();
     const matches = businesses.filter((b) => !term || `${b.name} ${b.type_name} ${b.code}`.toLowerCase().includes(term));
     return [
-      ["Restaurants", matches.filter((b) => b.business_type === "restaurant")],
+      ["Restaurants & food", matches.filter((b) => b.business_type === "restaurant")],
       ["Other businesses", matches.filter((b) => b.business_type !== "restaurant")],
     ].filter(([, list]) => list.length > 0);
   }, [businesses, query]);
@@ -69,7 +70,7 @@ export default function BusinessSwitcher() {
         aria-label={`Business: ${label}. Switch business`}
       >
         <span className={`bsw-type bsw-type-${current?.business_type || "none"}`} aria-hidden="true">
-          <Icon name={TYPE_ICONS[current?.business_type] || "store"} size={16} />
+          <Icon name={current?.restaurant_format ? formatIcon(current.restaurant_format) : TYPE_ICONS[current?.business_type] || "store"} size={16} />
         </span>
         <span className="bsw-text">
           <span className="bsw-name">{label}</span>
@@ -111,7 +112,7 @@ export default function BusinessSwitcher() {
                       onClick={() => pick(business)}
                     >
                       <span className={`bsw-type bsw-type-${business.business_type}`} aria-hidden="true">
-                        <Icon name={TYPE_ICONS[business.business_type] || "store"} size={16} />
+                        <Icon name={business.restaurant_format ? formatIcon(business.restaurant_format) : TYPE_ICONS[business.business_type] || "store"} size={16} />
                       </span>
                       <span className="bsw-option-text">
                         <strong>{business.name}</strong>

@@ -59,6 +59,10 @@ export default function OffersPage() {
   const columns = [
     { key: "name", header: "Offer", value: (o) => o.name, mobile: "title", pin: true,
       render: (o) => <span className="bz-two-line"><strong>{o.name}</strong><small className="muted">{offerSummary(o, biz.amount)}</small></span> },
+    { key: "coupon", header: "Coupon", value: (o) => o.coupon_code || "", className: "mono",
+      render: (o) => (o.coupon_code
+        ? <span className="bz-two-line"><span className="mono">{o.coupon_code}</span><small className="muted">{[o.usage_limit && `${o.usage_limit} uses`, o.per_customer_limit && `${o.per_customer_limit} per customer`].filter(Boolean).join(" · ") || "No limit"}</small></span>
+        : <span className="muted">Automatic</span>) },
     { key: "kind", header: "Type", value: (o) => OFFER_KINDS[o.kind], filter: "select" },
     { key: "when", header: "When", value: (o) => `${o.starts_on}`, render: (o) => (
       <span className="bz-two-line"><span>{dateWords(o.starts_on)}{o.ends_on ? ` – ${dateWords(o.ends_on)}` : " onwards"}</span><small className="muted">{offerWhen(o)}</small></span>
@@ -136,6 +140,7 @@ function OfferDialog({ offer, onClose, onSaved }) {
     minBillAmount: Number(offer.min_bill_amount) ? String(Number(offer.min_bill_amount)) : "", maxDiscount: offer.max_discount ? String(Number(offer.max_discount)) : "",
     startsOn: offer.starts_on || today, endsOn: offer.ends_on || "", days: offer.days_of_week || [], startsTime: offer.starts_time?.slice(0, 5) || "", endsTime: offer.ends_time?.slice(0, 5) || "",
     active: offer.active ?? true,
+    couponCode: offer.coupon_code || "", usageLimit: offer.usage_limit ? String(offer.usage_limit) : "", perCustomerLimit: offer.per_customer_limit ? String(offer.per_customer_limit) : "",
   }));
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
   const kind = form.kind;
@@ -149,6 +154,7 @@ function OfferDialog({ offer, onClose, onSaved }) {
       name: form.name, kind, value: kind === "buy_x_get_y" ? form.value || "100" : form.value, startsOn: form.startsOn, endsOn: form.endsOn || null,
       minBillAmount: form.minBillAmount || 0, maxDiscount: form.maxDiscount || null, daysOfWeek: form.days.length ? form.days : null,
       startsTime: form.startsTime || null, endsTime: form.endsTime || null, active: form.active,
+      couponCode: form.couponCode.trim() || null, usageLimit: form.couponCode.trim() ? form.usageLimit || null : null, perCustomerLimit: form.couponCode.trim() ? form.perCustomerLimit || null : null,
       ...(needsItem ? { skuId: form.skuId } : {}), ...(kind === "category_percent" ? { categoryId: form.categoryId } : {}),
       ...(kind === "buy_x_get_y" ? { buyQuantity: form.buyQuantity, getQuantity: form.getQuantity } : {}),
     };
@@ -201,6 +207,15 @@ function OfferDialog({ offer, onClose, onSaved }) {
       )}
       <Field label="Only on bills of at least (optional)" hint="Counted before any discount."><input type="number" min="0" step="0.01" value={form.minBillAmount} onChange={set("minBillAmount")} /></Field>
       <Field label="Most per bill (optional)" hint="A cap on what one bill can get."><input type="number" min="0.01" step="0.01" value={form.maxDiscount} onChange={set("maxDiscount")} /></Field>
+      <Field label="Coupon code (optional)" hint="With a code the offer applies only when the cashier enters it. Empty: it applies by itself.">
+        <input maxLength={20} className="mono" placeholder="e.g. DIWALI100" value={form.couponCode} onChange={(e) => setForm((f) => ({ ...f, couponCode: e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, "") }))} />
+      </Field>
+      {form.couponCode.trim() && (
+        <>
+          <Field label="Uses in all (optional)" hint="Bills that can use it, across all customers."><input type="number" min="1" step="1" value={form.usageLimit} onChange={set("usageLimit")} /></Field>
+          <Field label="Uses per customer (optional)" hint="Needs the customer on the bill."><input type="number" min="1" step="1" value={form.perCustomerLimit} onChange={set("perCustomerLimit")} /></Field>
+        </>
+      )}
       <Field label="Starts on"><input required type="date" value={form.startsOn} onChange={set("startsOn")} /></Field>
       <Field label="Ends on (optional)"><input type="date" min={form.startsOn} value={form.endsOn} onChange={set("endsOn")} /></Field>
       <div className="field-wide">

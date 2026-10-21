@@ -6,6 +6,8 @@ const common = require('../services/healthCommon');
 const pharmacy = require('../services/businessPharmacy.service');
 const clinic = require('../services/businessClinic.service');
 const lab = require('../services/businessLab.service');
+const desk = require('../services/businessClinicDesk.service');
+const quality = require('../services/businessLabQuality.service');
 
 // Round 2 (R2-HEALTH) — pharmacy, clinic and lab, added to the Business Admin
 // router so they share its login, membership, module and permission checks
@@ -81,6 +83,19 @@ module.exports = function healthRoutes(router, { context, send, b }) {
   router.patch(b('/clinic/visits/:id'), context('patients.edit_clinical'), async (req, res) => send(res, await clinic.saveVisit(req.business, req.user, req.params.id, req.body)));
   router.post(b('/clinic/visits/:id/notes'), context('patients.edit_clinical'), async (req, res) => send(res, await clinic.addVisitNote(req.business, req.user, req.params.id, req.body), 201));
   router.post(b('/clinic/visits/:id/bill'), context('sales.create'), async (req, res) => send(res, await clinic.billVisit(req.business, req.user, req.params.id, req.body), 201));
+  router.get(b('/clinic/visits/:id/fee'), context(['sales.create', 'patients.view']), async (req, res) => send(res, await desk.visitFee(req.business, req.params.id)));
+
+  // Doctors' fees, OPD sessions and leave; appointment slots; the token queue.
+  router.get(b('/clinic/doctors'), context('appointments.view'), async (req, res) => send(res, await desk.doctors(req.business, req.query)));
+  router.put(b('/clinic/doctors/:resourceId'), context('settings.edit'), async (req, res) => send(res, await desk.saveDoctor(req.business, req.user, req.params.resourceId, req.body)));
+  router.post(b('/clinic/doctors/:resourceId/leave'), context('appointments.edit'), async (req, res) => send(res, await desk.addLeave(req.business, req.user, req.params.resourceId, req.body), 201));
+  router.post(b('/clinic/leave/:id/cancel'), context('appointments.edit'), async (req, res) => send(res, await desk.cancelLeave(req.business, req.user, req.params.id)));
+  router.get(b('/clinic/slots'), context('appointments.view'), async (req, res) => send(res, await desk.slots(req.business, req.query)));
+  router.get(b('/clinic/doctor-earnings'), context('reports.view'), async (req, res) => send(res, await desk.doctorEarnings(req.business, req.query)));
+  router.get(b('/clinic/queue'), context('patients.view'), async (req, res) => send(res, await desk.queue(req.business, req.query)));
+  router.post(b('/clinic/tokens'), context('patients.create'), async (req, res) => send(res, await desk.issueToken(req.business, req.user, req.body), 201));
+  router.post(b('/clinic/tokens/next'), context(['patients.create', 'patients.edit_clinical']), async (req, res) => send(res, await desk.callNext(req.business, req.user, req.body)));
+  router.post(b('/clinic/tokens/:id'), context(['patients.create', 'patients.edit_clinical']), async (req, res) => send(res, await desk.tokenAction(req.business, req.user, req.params.id, req.body)));
 
   // Lab.
   list('/lab/tests', 'lab-tests', 'lab.view', isLab);
@@ -91,11 +106,21 @@ module.exports = function healthRoutes(router, { context, send, b }) {
   router.get(b('/lab/worklist'), context('lab.view'), async (req, res) => send(res, await lab.worklist(req.business)));
   router.post(b('/lab/orders'), context('lab.create'), async (req, res) => send(res, await lab.createOrder(req.business, req.user, req.body), 201));
   router.get(b('/lab/orders/:id'), context('lab.view'), async (req, res) => send(res, await lab.order(req.business, req.params.id)));
-  router.get(b('/lab/orders/:id/report'), context('lab.print'), async (req, res) => send(res, await lab.report(req.business, req.params.id)));
+  router.get(b('/lab/orders/:id/report'), context('lab.print'), async (req, res) => send(res, await lab.report(req.business, req.params.id, req.query)));
+  router.get(b('/lab/orders/:id/versions'), context(['lab.print', 'lab.approve', 'lab.edit']), async (req, res) => send(res, await quality.versions(req.business, req.params.id)));
+  router.post(b('/lab/orders/:id/amend'), context('lab.approve'), async (req, res) => send(res, await quality.amend(req.business, req.user, req.params.id, req.body)));
   router.put(b('/lab/orders/:id/results'), context('lab.edit'), async (req, res) => send(res, await lab.enterResults(req.business, req.user, req.params.id, req.body)));
   router.post(b('/lab/orders/:id/approve'), context('lab.approve'), async (req, res) => send(res, await lab.approve(req.business, req.user, req.params.id, req.body)));
   router.post(b('/lab/orders/:id/cancel'), context('lab.create'), async (req, res) => send(res, await lab.cancelOrder(req.business, req.user, req.params.id, req.body)));
   router.post(b('/lab/orders/:id/refer'), context('lab.create'), async (req, res) => send(res, await lab.refer(req.business, req.user, req.params.id, req.body)));
   router.get(b('/lab/samples/barcode/:code'), context('lab.view'), async (req, res) => send(res, await lab.sampleByBarcode(req.business, req.params.code)));
   router.post(b('/lab/samples/:id'), context('lab.create'), async (req, res) => send(res, await lab.sampleAction(req.business, req.user, req.params.id, req.body)));
+
+  // Quality control: controls, runs (Westgard) and today's state.
+  list('/lab/qc/materials', 'lab-qc-materials', 'lab.view', isLab);
+  router.post(b('/lab/qc/materials'), context('lab.edit'), async (req, res) => send(res, await quality.saveMaterial(req.business, req.user, null, req.body), 201));
+  router.put(b('/lab/qc/materials/:id'), context('lab.edit'), async (req, res) => send(res, await quality.saveMaterial(req.business, req.user, req.params.id, req.body)));
+  list('/lab/qc/runs', 'lab-qc-runs', 'lab.view', isLab);
+  router.post(b('/lab/qc/runs'), context('lab.edit'), async (req, res) => send(res, await quality.recordRun(req.business, req.user, req.body), 201));
+  router.get(b('/lab/qc/today'), context('lab.view'), async (req, res) => send(res, await quality.qcToday(req.business)));
 };

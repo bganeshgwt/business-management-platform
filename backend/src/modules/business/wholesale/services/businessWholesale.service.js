@@ -66,7 +66,8 @@ repo.addLists({
       (SELECT count(*)::int FROM wholesale_customer_beats cb JOIN wholesale_beats b ON b.business_id=cb.business_id AND b.id=cb.beat_id
         WHERE cb.business_id=r.business_id AND b.route_id=r.id) AS customer_count
       FROM wholesale_routes r LEFT JOIN business_locations l ON l.business_id=r.business_id AND l.id=r.location_id WHERE r.business_id=$1`,
-  search: ['name', 'location_name'], filters: { active: 'active' }, order: 'active DESC,name' },
+  // A route with no depot runs from every one.
+  search: ['name', 'location_name'], filters: { active: 'active', location: { any: ['location_id'], orNull: true } }, order: 'active DESC,name' },
   beats: { sql: `SELECT b.*,r.name AS route_name,s.name AS salesperson_name,
       (SELECT count(*)::int FROM wholesale_customer_beats cb WHERE cb.business_id=b.business_id AND cb.beat_id=b.id) AS customer_count
       FROM wholesale_beats b JOIN wholesale_routes r ON r.business_id=b.business_id AND r.id=b.route_id
@@ -122,7 +123,7 @@ repo.addLists({
       LEFT JOIN wholesale_salespeople s ON s.business_id=o.business_id AND s.id=o.salesperson_id
       WHERE x.business_id=$1 AND o.status IN ('open','part_dispatched') AND ${remainingSql('x')}>0) y`,
   search: ['order_no', 'contact_name', 'label', 'route_name', 'salesperson_name', 'sku_code'],
-  filters: { route: 'route_id', salesperson: 'salesperson_id', contact: 'contact_id', sku: 'sku_id', order: 'order_id', ready: 'can_go_now' }, order: 'created_at,order_id,id' },
+  filters: { route: 'route_id', salesperson: 'salesperson_id', contact: 'contact_id', sku: 'sku_id', order: 'order_id', ready: 'can_go_now', location: 'location_id' }, order: 'created_at,order_id,id' },
 });
 
 // --- Salespeople, routes, beats ------------------------------------------------------

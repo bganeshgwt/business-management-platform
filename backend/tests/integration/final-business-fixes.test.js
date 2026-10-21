@@ -6,6 +6,7 @@ const { execFile } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+const { withTools } = require('./helpers/tools');
 
 // Final check fixes for the Business Admin (non-restaurant types):
 //   H1  the demo setup is idempotent from any prior state (the old one-item
@@ -83,8 +84,8 @@ test('final business fixes', { timeout: 900000 }, async (t) => {
   const ownerB = await owner('final-b', 'Bharat Shah');
   const a = as(await login('final-a@test.invalid'));
   const b = as(await login('final-b@test.invalid'));
-  const demosA = (await a('POST', '/businesses/development-demos', {}, 201)).businesses.filter((x) => x.is_demo);
-  const demosB = (await b('POST', '/businesses/development-demos', {}, 201)).businesses.filter((x) => x.is_demo);
+  const demosA = (await withTools(a, (await a('POST', '/businesses/development-demos', {}, 201)).businesses)).filter((x) => x.is_demo);
+  const demosB = (await withTools(b, (await b('POST', '/businesses/development-demos', {}, 201)).businesses)).filter((x) => x.is_demo);
   // Pro pass (1791540000000): goods shops now start with prices including GST,
   // rounded to the rupee, and a walk-in pays in full. These checks were written for
   // prices before GST and post unpaid walk-in bills as fixtures.

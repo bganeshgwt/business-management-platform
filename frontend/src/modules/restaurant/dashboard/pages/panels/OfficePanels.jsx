@@ -375,6 +375,13 @@ export function ExpensesPanel({ ctx }) {
 
     return (
       <span className="panel-row-actions">
+        {/* Cash from a drawer already counted: approving would change a closed
+            count, so it can only be rejected. Said, so the missing Approve is not a puzzle. */}
+        {locked && (
+          <span className="muted small panel-row-note" title="Paid in cash from a drawer that is already counted and closed. Approving would change that count, so it can only be rejected.">
+            Drawer counted
+          </span>
+        )}
         {!locked && (
           <button type="button" className="button button-sm" onClick={() => decide(expense, "approved")}>
             Approve

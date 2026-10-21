@@ -41,6 +41,14 @@ const PATHS = {
       <path d="M5 4h14" />
     </>
   ),
+  // Money paid out to run the business (the same drawing as the menu's).
+  expenses: (
+    <>
+      <rect x="2" y="6" width="20" height="13" rx="2" />
+      <path d="M2 10h20" />
+      <circle cx="17" cy="15" r="1.5" />
+    </>
+  ),
   wallet: (
     <>
       <path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5" />

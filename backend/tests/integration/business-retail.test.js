@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+const { withTools } = require('./helpers/tools');
 
 // Phase 2, T1 — retail (grocery / kirana, supermarket, books & stationery):
 // offers applied by the server, loyalty points, udhaar on the shared
@@ -69,7 +70,7 @@ test('retail: offers, loyalty, udhaar, barcodes, books and reports', { timeout: 
   const key = () => crypto.randomUUID();
   const ean = (twelve) => { let s = 0; for (let i = 0; i < 12; i += 1) s += Number(twelve[i]) * (i % 2 ? 3 : 1); return twelve + ((10 - (s % 10)) % 10); };
 
-  const demos = (await request('POST', '/businesses/development-demos', {}, 201)).businesses;
+  const demos = (await withTools(request, (await request('POST', '/businesses/development-demos', {}, 201)).businesses));
   const byType = (list, type) => list.find((b) => b.business_type === type);
   const grocery = byType(demos, 'grocery'), supermarket = byType(demos, 'supermarket'), books = byType(demos, 'books');
   const otherGrocery = byType((await other('POST', '/businesses/development-demos', {}, 201)).businesses, 'grocery');

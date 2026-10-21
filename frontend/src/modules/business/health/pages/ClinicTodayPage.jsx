@@ -38,6 +38,13 @@ export default function ClinicTodayPage() {
   }, [biz.id, day, doctor, version]);
   const canStart = biz.can("patients.edit_clinical") || biz.can("patients.create");
 
+  async function giveToken(row) {
+    try {
+      const token = await businessWrite(biz.id, "clinic/tokens", { appointmentId: row.appointment_id });
+      toast.success(`Token ${token.token_no} for ${token.patient_name}`);
+      setVersion((n) => n + 1);
+    } catch (err) { toast.error(getErrorMessage(err)); }
+  }
   async function start(row) {
     try {
       const visit = await businessWrite(biz.id, "clinic/visits", { appointmentId: row.appointment_id });
@@ -49,17 +56,24 @@ export default function ClinicTodayPage() {
     { key: "time", header: "Time", value: (r) => r.starts_at, render: (r) => timeOnly(r.starts_at), mobile: "subtitle", width: 90 },
     { key: "patient", header: "Patient", value: (r) => r.patient_name, mobile: "title", render: (r) => <span className="bz-two-line"><strong>{r.patient_name}</strong><small className="muted">{r.patient_no || "Not registered"}{r.patient_phone ? ` · ${r.patient_phone}` : ""}</small></span> },
     { key: "doctor", header: "Doctor", value: (r) => r.doctor_name },
+    { key: "token", header: "Token", type: "number", value: (r) => r.token_no, width: 80, render: (r) => (r.token_no ? <strong className="mono">{r.token_no}</strong> : <span className="muted">—</span>) },
     { key: "service", header: "For", value: (r) => r.service_name, defaultHidden: true },
     { key: "visit", header: "Visit", value: (r) => r.visit_status || r.appointment_status, mobile: "show", render: (r) => (
       r.appointment_status === "cancelled" ? <StatusBadge tone="neutral" label="Cancelled" /> : r.appointment_status === "no_show" ? <StatusBadge status="no_show" />
         : r.visit_status === "completed" ? <StatusBadge status="completed" label="Seen" /> : r.visit_status === "open" ? <StatusBadge tone="info" label="In consultation" /> : <StatusBadge tone="warning" label="Waiting" />) },
     { key: "bill", header: "Billed", value: (r) => (r.document_id ? "Yes" : "No"), render: (r) => (r.document_id ? <StatusBadge status="paid" label="Billed" /> : <span className="muted">—</span>) },
     { key: "lab", header: "Lab", value: (r) => r.lab_status || "none", render: (r) => <ReportReady status={r.lab_status} /> },
-    { key: "actions", header: "", label: "Actions", type: "actions", width: 170, render: (r) => {
+    { key: "actions", header: "", label: "Actions", type: "actions", width: 230, render: (r) => {
       if (["cancelled", "no_show"].includes(r.appointment_status)) return null;
       if (!r.registered) return biz.can("patients.create") && <button type="button" className="chip-button" onClick={() => setRegistering(r)}>Register</button>;
       if (r.visit_id) return <button type="button" className="chip-button" onClick={() => navigate(businessPath(biz.id, `visits/${r.visit_id}`))}>Open visit</button>;
-      return canStart && r.consent_active ? <button type="button" className="chip-button" onClick={() => start(r)}>Start visit</button> : <small className="muted">No consent</small>;
+      if (!r.consent_active) return <small className="muted">No consent</small>;
+      return (
+        <span className="bz-inline">
+          {!r.token_no && day === businessToday(biz.business.timezone) && biz.can("patients.create") && <button type="button" className="chip-button" onClick={() => giveToken(r)}>Arrived: token</button>}
+          {canStart && <button type="button" className="chip-button" onClick={() => start(r)}>Start visit</button>}
+        </span>
+      );
     } },
   ];
   const waiting = rows.filter((r) => r.appointment_status === "booked" && !r.visit_id).length;

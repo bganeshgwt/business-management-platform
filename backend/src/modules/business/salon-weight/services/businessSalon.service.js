@@ -36,7 +36,7 @@ const requireSalon = (business) => {
   if (business.business_type !== 'salon') fail('This screen belongs to salon & spa businesses', 404);
 };
 const requireModule = (business, code, name) => {
-  if (!business.modules.includes(code)) fail(`${name} is not switched on for this business. An owner can turn it on in Settings › Modules.`, 403);
+  if (!business.modules.includes(code)) fail(`${name} is not switched on for this business. An owner can turn it on in Settings › Business tools.`, 403);
 };
 const TODAY = '(now() AT TIME ZONE b.timezone)::date';
 // A deposit held for a booking still to come is kept for that booking: it is
@@ -84,7 +84,7 @@ repo.addLists({
         AND lv.to_date >= ${TODAY}),'[]') AS leave
       FROM business_resources r JOIN business_locations l ON l.business_id=r.business_id AND l.id=r.location_id
       LEFT JOIN salon_resource_profiles pr ON pr.business_id=r.business_id AND pr.resource_id=r.id WHERE r.business_id=$1`,
-    search: ['name', 'role_label', 'location_name', 'kind'], filters: { kind: 'kind', active: 'active' }, order: 'active DESC,kind DESC,name',
+    search: ['name', 'role_label', 'location_name', 'kind'], filters: { kind: 'kind', active: 'active', location: 'location_id' }, order: 'active DESC,kind DESC,name',
   },
   'salon-plans': {
     sql: `SELECT pl.*,s.code AS sku_code,s.price,s.tax_rate,s.tax_rate_id,
@@ -122,13 +122,13 @@ repo.addLists({
   },
   'salon-commission-lines': {
     sql: `SELECT ls.line_id,ls.document_id,ls.resource_id,ls.appointment_id,ls.rule_id,ls.item_kind,ls.commission_percent,ls.commission_base,ls.commission_amount,
-      d.document_no,d.created_at,d.contact_name,l.label,l.quantity,l.net,r.name AS resource_name,
+      d.document_no,d.created_at,d.contact_name,d.location_id,l.label,l.quantity,l.net,r.name AS resource_name,
       ${returnedSql('l')} AS returned_quantity,
       round(ls.commission_amount*(l.quantity-${returnedSql('l')})/l.quantity,2) AS commission_after_returns
       FROM salon_line_staff ls JOIN business_document_lines l ON l.business_id=ls.business_id AND l.id=ls.line_id
       JOIN business_documents d ON d.business_id=ls.business_id AND d.id=ls.document_id
       JOIN business_resources r ON r.business_id=ls.business_id AND r.id=ls.resource_id WHERE ls.business_id=$1`,
-    search: ['document_no', 'label', 'resource_name', 'contact_name'], date: 'created_at', filters: { staff: 'resource_id', kind: 'item_kind' }, order: 'created_at DESC,line_id DESC',
+    search: ['document_no', 'label', 'resource_name', 'contact_name'], date: 'created_at', filters: { staff: 'resource_id', kind: 'item_kind', location: 'location_id' }, order: 'created_at DESC,line_id DESC',
   },
 });
 
@@ -367,6 +367,7 @@ async function lockResource(db, business, resourceId, kind, label) {
     LEFT JOIN salon_resource_profiles p ON p.business_id=r.business_id AND p.resource_id=r.id
     WHERE r.business_id=$1 AND r.id=$2 AND r.active FOR UPDATE OF r`, [business.id, resourceId]);
   if (!row || row.kind !== kind) fail(`${label} not found`, 404);
+  access.requireLocation(business, row.location_id);
   return row;
 }
 async function clash(db, business, column, resourceId, starts, ends) {
@@ -530,6 +531,7 @@ async function preview(business, appointmentId, status) {
   await access.require(business, 'appointments.view');
   const db = repo.pool;
   const appointment = await repo.one(db, 'SELECT * FROM business_appointments WHERE business_id=$1 AND id=$2', [business.id, id(appointmentId, 'Appointment')]);
+  await access.requireAppointmentLocation(db, business, appointment);
   if (!appointment) fail('Appointment not found', 404);
   const details = await repo.one(db, 'SELECT * FROM salon_appointment_details WHERE business_id=$1 AND appointment_id=$2', [business.id, appointment.id]);
   const free = details?.deposit_collection_id ? paise((await repo.one(db, `SELECT CASE WHEN ${releasedSql('k')} THEN 0 ELSE ${freeSql('k')} END AS free FROM business_collections k WHERE k.business_id=$1 AND k.id=$2`, [business.id, details.deposit_collection_id])).free) : 0;
@@ -547,6 +549,7 @@ async function setStatus(business, user, appointmentId, body) {
   return repo.transaction(async (db) => {
     await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
     const appointment = await repo.one(db, 'SELECT * FROM business_appointments WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(appointmentId, 'Appointment')]);
+    await access.requireAppointmentLocation(db, business, appointment);
     if (!appointment) fail('Appointment not found', 404);
     if (appointment.status !== 'booked') {
       if (appointment.status === status) return { appointment, fee: null, repeated: true };

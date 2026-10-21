@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+const { withTools } = require('./helpers/tools');
 
 // Multi-location for every business type (12 Oct 2026): a location's own
 // address and GSTIN on its bills, staff tied to one location (they bill,
@@ -63,7 +64,7 @@ test('multi-location: branch details, staff tied to a branch, top-bar branch, co
   const { gstinCheckCharacter } = require('../../src/utils/gstin');
   const gstin = (first14) => first14 + gstinCheckCharacter(first14);
 
-  const demos = (await request('POST', '/businesses/development-demos', {}, 201)).businesses;
+  const demos = (await withTools(request, (await request('POST', '/businesses/development-demos', {}, 201)).businesses));
   const shop = demos.find((b) => b.business_type === 'supermarket');
   const pharmacy = demos.find((b) => b.business_type === 'pharmacy');
   const S = (suffix) => `/businesses/${shop.id}/${suffix}`;
@@ -244,5 +245,21 @@ test('multi-location: branch details, staff tied to a branch, top-bar branch, co
     // Clearing the branch's numbers falls back to the business-wide ones.
     await request('PUT', P(`health/location-licences/${second.id}`), { drugLicence20: '', drugLicence21: '' });
     assert.deepEqual(await licencesOn(second), ['TN-20-HEAD', 'TN-21-HEAD']);
+  });
+  await t.test("a branch never opens another branch's bill or transfer", async () => {
+    const { call: cashier } = people.cashier;
+    const { call: manager } = people.manager;
+    await cashier('GET', S(`documents/${mainSale.id}`), undefined, 403);
+    // A transfer between two other locations is neither listed nor opened.
+    const godown = await request('POST', S('locations'), { name: 'Hosur godown', code: 'HSR' }, 201);
+    const lot = (await request('GET', S(`stock?location=${main.id}`))).items.find((l) => Number(l.quantity) > 0);
+    const away = await request('POST', S('transfers'), { requestKey: key(), fromLocationId: main.id, toLocationId: godown.id, lines: [{ lotId: lot.id, skuId: soap.id, quantity: '1' }] }, 201);
+    const theirs = (await manager('GET', S('transfers?limit=100'))).items;
+    assert.ok(theirs.length > 0 && theirs.every((x) => x.from_location_id === branch.id || x.to_location_id === branch.id));
+    await manager('GET', S(`transfers/${away.id}`), undefined, 403);
+    assert.equal((await manager('GET', S(`transfers/${theirs[0].id}`))).id, theirs[0].id);
+    // The owner, with the godown picked, sees the godown's transfers either way.
+    const picked = as(token, { 'X-Business-Location': String(godown.id) });
+    assert.deepEqual((await picked('GET', S('transfers?limit=100'))).items.map((x) => x.id), [away.id]);
   });
 });

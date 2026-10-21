@@ -22,8 +22,8 @@ export const yieldTone = (actual, expected) => {
 export function processWords(type) {
   if (type === "weight_retail") {
     return { title: "Sorting & repacking", action: "Sort / repack", batch: "Sorting batch", batches: "Sorting batches", outputs: "Outputs weighed", output: "output",
-      from: "Sorted from", input: "What is being sorted", loss: "dust, broken pieces, moisture", template: "Repack template", outputsLabel: "Outputs" };
+      from: "Sorted from", input: "What is being sorted", loss: "dust, broken pieces, moisture", template: "Saved repacking setup", outputsLabel: "Outputs" };
   }
-  return { title: "Cutting & yield", action: "Cut / clean", batch: "Cutting batch", batches: "Cutting batches", outputs: "Cuts weighed", output: "cut",
-    from: "Cut from", input: "What is being cut", loss: "bones, skin, scales, moisture", template: "Yield template", outputsLabel: "Cuts" };
+  return { title: "Cutting & processing", action: "Cut / clean", batch: "Cutting batch", batches: "Cutting batches", outputs: "Cuts weighed", output: "cut",
+    from: "Cut from", input: "What is being cut", loss: "bones, skin, scales, moisture", template: "Saved cutting setup", outputsLabel: "Cuts" };
 }

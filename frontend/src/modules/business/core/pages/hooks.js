@@ -80,19 +80,24 @@ export function useServerList(path, { gridId, params = {}, period = false } = {}
   const [search, setSearch] = useState("");
   const [offset, setOffset] = useState(0);
   const [limit, setLimit] = useState(() => rememberedPageSize(gridId, 25));
-  const [data, setData] = useState(null);
-  const [error, setError] = useState("");
+  const [response, setResponse] = useState({key:"",scope:"",data:null,error:""});
   const [version, setVersion] = useState(0);
   const paramsKey = JSON.stringify(params);
+  // Another business, list or filter never shows the last one's rows; a new
+  // search, page or reload of the same list keeps them until the new ones arrive.
+  const scope = JSON.stringify([businessId,path,paramsKey]);
+  const currentKey = JSON.stringify([businessId,path,paramsKey,limit,offset,search,range,version]);
+  const {data,error} = response.key === currentKey ? response
+    : response.scope === scope && response.data ? {data:response.data,error:""} : {data:null,error:""};
 
   useEffect(() => {
     const controller = new AbortController();
     const query = { ...JSON.parse(paramsKey), limit, offset, q: search.trim() || undefined, ...(range || {}) };
     businessRead(businessId, path, query, controller.signal)
-      .then((result) => { setData(result); setError(""); })
-      .catch((err) => { if (!controller.signal.aborted) setError(getErrorMessage(err)); });
+      .then((result) => { if (!controller.signal.aborted) setResponse({key:currentKey,scope,data:result,error:""}); })
+      .catch((err) => { if (!controller.signal.aborted) setResponse({key:currentKey,scope,data:null,error:getErrorMessage(err)}); });
     return () => controller.abort();
-  }, [businessId, path, paramsKey, limit, offset, search, range, version]);
+  }, [businessId, path, paramsKey, limit, offset, search, range, version, currentKey, scope]);
 
   const reload = useCallback(() => setVersion((n) => n + 1), []);
   const fetchAll = useCallback(async () => {

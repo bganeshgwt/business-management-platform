@@ -35,6 +35,7 @@ const create = async (req, res) => {
     timezone: v.optionalString(body.timezone, "Time zone", 60) || "Asia/Kolkata",
     invoicePrefix: v.optionalString(body.invoicePrefix, "Bill prefix", 10) || "INV",
     orderPrefix: v.optionalString(body.orderPrefix, "Order prefix", 10) || "ORD",
+    format: v.optionalEnum(body.format, "Format", ["restaurant", "cafe", "bakery", "cloud_kitchen"], "restaurant"),
     admin: {
       name: v.requiredString(admin.name, "Admin's name", 150),
       email: v.requiredEmail(admin.email, "Admin's email"),
@@ -46,7 +47,7 @@ const create = async (req, res) => {
   logPlatform(req, created.id, "create", "restaurant", {
     id: created.id,
     label: created.name,
-    details: { code: created.code, firstAdmin: String(admin.email).trim().toLowerCase(), defaults: created.defaults },
+    details: { code: created.code, format: created.format, firstAdmin: String(admin.email).trim().toLowerCase(), defaults: created.defaults },
   });
 
   res.status(201).json({

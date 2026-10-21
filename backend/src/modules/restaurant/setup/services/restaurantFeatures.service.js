@@ -561,4 +561,5 @@ module.exports = {
   set,
   setForBusiness,
   isFeature,
+  apply,
 };

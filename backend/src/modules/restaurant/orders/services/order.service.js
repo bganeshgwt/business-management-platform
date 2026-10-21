@@ -963,6 +963,17 @@ const saleOutlets = async (restaurantId) => {
 const create = async (restaurantId, data, userId) => {
   requireRestaurantId(restaurantId);
 
+  // The counter's own orders follow the kinds of order the POS takes (a cloud
+  // kitchen seats no one); guests' QR and web orders have their own switches.
+  if (!["qr", "website"].includes(data.source) && ["dine_in", "takeaway", "delivery"].includes(data.orderType)) {
+    const taken = (await serviceSettingsRepository.find(restaurantId)).pos_order_types || ["dine_in", "takeaway", "delivery"];
+
+    if (!taken.includes(data.orderType)) {
+      const words = { dine_in: "dine-in", takeaway: "takeaway", delivery: "delivery" };
+      throw new AppError(400, `This outlet does not take ${words[data.orderType]} orders (Service settings › POS).`, { reason: "order_type_off" });
+    }
+  }
+
   const table = await validateTable(restaurantId, data.orderType, data.tableId);
 
   await refuseOtherOutletTable(restaurantId, table, data.outletId, { pinned: Boolean(data.outletPinned) });

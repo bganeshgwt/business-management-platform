@@ -41,14 +41,15 @@ repo.addLists({
         WHERE a.business_id=h.business_id AND a.status='booked' AND (a.starts_at AT TIME ZONE b.timezone)::date=h.day AND (h.location_id IS NULL OR r.location_id=h.location_id)) AS booked
       FROM salon_holidays h JOIN businesses hb ON hb.id=h.business_id JOIN users u ON u.id=h.created_by LEFT JOIN business_locations l ON l.business_id=h.business_id AND l.id=h.location_id
       WHERE h.business_id=$1 AND h.cancelled_at IS NULL`,
-    search: ['name', 'location_name'], date: 'day_at', order: 'day,id',
+    // A salon-wide holiday (no location) is every branch's.
+    search: ['name', 'location_name'], date: 'day_at', filters: { location: { any: ['location_id'], orNull: true } }, order: 'day,id',
   },
   'salon-backbar-usage': {
     sql: `SELECT x.*,d.document_no,d.contact_name,s.label AS service_name,loc.name AS location_name,(x.quantity-x.taken) AS short
       FROM salon_backbar_usage x JOIN business_documents d ON d.business_id=x.business_id AND d.id=x.document_id
       JOIN catalog_skus s ON s.business_id=x.business_id AND s.id=x.service_sku_id JOIN business_locations loc ON loc.business_id=x.business_id AND loc.id=x.location_id
       WHERE x.business_id=$1`,
-    search: ['label', 'service_name', 'document_no', 'contact_name'], date: 'created_at', filters: { product: 'product_sku_id', service: 'service_sku_id' }, order: 'created_at DESC,id DESC',
+    search: ['label', 'service_name', 'document_no', 'contact_name'], date: 'created_at', filters: { product: 'product_sku_id', service: 'service_sku_id', location: 'location_id' }, order: 'created_at DESC,id DESC',
   },
   'salon-commission-plans': {
     sql: `SELECT p.*,COALESCE((SELECT json_agg(json_build_object('from_amount',s.from_amount,'percent',s.percent) ORDER BY s.from_amount) FROM salon_commission_slabs s

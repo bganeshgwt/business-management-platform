@@ -134,6 +134,7 @@ const readProductBody = (body = {}, forUpdate = false) => {
     status: unlessLeftOut("status", () => v.optionalEnum(body.status, "Status", ["active", "inactive"], "active")),
     // SW-A-12: the dish's name for the kitchen, in any script; empty clears it.
     kitchenName: unlessLeftOut("kitchenName", () => v.optionalString(body.kitchenName, "Kitchen name", 150)),
+    soldBy: unlessLeftOut("soldBy", () => v.optionalEnum(body.soldBy, "Sold by", ["unit", "weight"], "unit")),
   };
 };
 
@@ -163,6 +164,7 @@ const PATCH_READERS = {
   sortOrder: (value) => v.requiredNumber(value, "Display order", { min: 0, max: 9999 }),
   status: (value) => v.requiredEnum(value, "Status", ["active", "inactive"]),
   kitchenName: (value) => v.optionalString(value, "Kitchen name", 150),
+  soldBy: (value) => v.requiredEnum(value, "Sold by", ["unit", "weight"]),
 };
 
 const PATCHABLE = Object.keys(PATCH_READERS);

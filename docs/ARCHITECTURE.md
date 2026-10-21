@@ -663,7 +663,7 @@ Example: a new salon screen.
    an existing type file.
 5. **Frontend:** `TYPE_WORDS` and `TYPE_ICONS` in `services/businessNav.js`,
    links with `types: [...]`, pages in `modules/business/<type>/pages/`.
-6. **Demo:** the type appears in *Set up demo businesses* automatically (one
+6. **Demo:** the type gets a demo from `npm run business:demos` automatically (one
    demo per non-restaurant type); add sample data in a `scripts/demo-<type>.js`
    called from `setup-business-demos.js`.
 7. **Tests:** a `tests/integration/business-<type>.test.js`.

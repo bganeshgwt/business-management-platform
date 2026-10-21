@@ -1,3 +1,4 @@
+import ContentTabs from "../../../../components/ContentTabs";
 import { useEffect, useMemo, useState } from "react";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
 import DateRangeFilter from "../../../../components/DateRangeFilter";
@@ -66,9 +67,7 @@ export default function RetailReportsPage() {
     <div className="stack">
       <BusinessHeader icon="chart" title="Retail reports"
         description="Sales are after returns and before GST. Cost is what each unit cost when it was sold, so margins do not move when purchase prices change." />
-      <div className="segmented" role="tablist" aria-label="Retail reports">
-        {tabs.map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={active === key} className={`segment ${active === key ? "is-active" : ""}`} onClick={() => setTab(key)}>{label}</button>)}
-      </div>
+      <ContentTabs label="Retail reports" value={active} options={tabs.map(([value,label])=>({value,label}))} onChange={setTab}>
       {/* The filters sit above the figures they change. */}
       {(active !== "value" || where2) && (
         <div className="rt-toolbar rt-report-filters">
@@ -85,6 +84,7 @@ export default function RetailReportsPage() {
       {active === "slow" && <SlowMovers biz={biz} report={slow} days={days} exportName={exportName("slow-movers")} />}
       {active === "margin" && <Margin biz={biz} report={margin} exportName={exportName("category-margin")} />}
       {active === "value" && <StockValue biz={biz} report={value} exportName={exportName("stock-value")} />}
+      </ContentTabs>
     </div>
   );
 }

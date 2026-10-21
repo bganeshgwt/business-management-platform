@@ -325,7 +325,7 @@ export default function ActivityLog() {
       <SectionCard
         icon="history"
         title="Who did what"
-        description="Newest first. Tap a figure above to see only that kind of action, or pick a person below."
+        description="Newest first. A figure opens money-sensitive activity for its area. Use the filters to narrow the list further."
         actions={
           <>
             {!loading && (

@@ -85,7 +85,7 @@ repo.addLists({
       LEFT JOIN wholesale_salespeople sp ON sp.business_id=wd.business_id AND sp.id=wd.salesperson_id
       WHERE q.business_id=$1`,
     search: ['cheque_no', 'bank', 'contact_name', 'collection_no'], date: 'created_at',
-    filters: { status: 'status', contact: 'contact_id', due: 'due', post_dated: 'post_dated' }, order: 'cheque_date,collection_id',
+    filters: { status: 'status', contact: 'contact_id', due: 'due', post_dated: 'post_dated', location: 'location_id' }, order: 'cheque_date,collection_id',
   },
 });
 

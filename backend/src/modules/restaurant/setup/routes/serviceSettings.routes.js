@@ -12,6 +12,8 @@ const router = express.Router();
 router.get("/", authorize("orders.view"), controller.get);
 // Token numbers and the collection screen: how the counter runs.
 router.put("/tokens", authorize("orders.manage"), controller.updateTokens);
+// The kinds of order the POS takes and the one it starts on.
+router.put("/pos", authorize("orders.manage"), controller.updatePos);
 // The web address table QR codes open: part of setting up the tables.
 router.put("/guest-web-address", authorize("tables.manage"), controller.updateWebAddress);
 // The restaurant's own online ordering page (SW-A-22): one link per selling

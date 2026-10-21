@@ -66,13 +66,14 @@ function readChecklist(value) {
 const readPasscode = (value) => v.optionalString(value, 'Screen lock / pattern', 60);
 
 function requireRepairs(business) {
-  if (!business.modules.includes('repairs')) fail('Repairs & service is not switched on for this business. An owner can turn it on in Settings › Modules.', 403);
+  if (!business.modules.includes('repairs')) fail('Repairs & service is not switched on for this business. An owner can turn it on in Settings › Business tools.', 403);
 }
 async function lockJob(db, business, jobId) {
   // Same lock order as every posting: the business, then the record.
   await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
   const job = await repo.one(db, 'SELECT * FROM electronics_repair_jobs WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(jobId, 'Repair job')]);
   if (!job) fail('Repair job not found', 404);
+  access.requireLocation(business, job.location_id);
   return job;
 }
 const requireOpen = (job) => { if (!OPEN.includes(job.status)) fail(`Repair job ${job.job_no} is ${WORDS[job.status].toLowerCase()} and closed`, 409); };
@@ -187,6 +188,7 @@ async function detail(business, jobId) {
     LEFT JOIN electronics_warranties w ON w.business_id=j.business_id AND w.id=j.warranty_id
     WHERE j.business_id=$1 AND j.id=$2`, [business.id, id(jobId, 'Repair job')]);
   if (!job) fail('Repair job not found', 404);
+  access.requireLocation(business, job.location_id);
   const [lines, events, settings] = await Promise.all([
     repo.all(repo.pool, `SELECT r.*,s.tracking,s.unit,s.tax_rate,
         COALESCE((SELECT sum(quantity) FROM business_stock_lots l WHERE l.business_id=r.business_id AND l.sku_id=r.sku_id AND l.location_id=$3 AND l.lot_code=r.lot_code),0) AS in_stock

@@ -29,6 +29,8 @@
     "seed:realistic": "node scripts/seed-realistic-demos.js",
     "demo:tidy-restaurant": "node scripts/tidy-restaurant-demo.js",
     "demo:today": "node scripts/demo-today.js",
+    "demo:restaurant-branch": "node scripts/demo-restaurant-branch.js",
+    "demo:food-formats": "node scripts/demo-food-formats.js",
     "test": "node --test tests/*.test.js",
     "test:integration": "node --test tests/integration/*.test.js"
   },

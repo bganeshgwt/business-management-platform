@@ -6,6 +6,7 @@ import Icon from "../../../../components/Icon";
 import { businessRead } from "../../../../services/business.service";
 import { count } from "../../../../services/format";
 import { useOpenBusiness } from "../../core/pages/hooks";
+import { overviewLink } from "../../core/pages/overviewLink";
 
 // The distributor's day on the Overview (pro pass D-08): orders to send,
 // back-orders, vans on the road, collected today by salesperson, overdue,
@@ -23,13 +24,13 @@ export default function WholesaleToday() {
   const money = biz.can("receivables.view");
   const tiles = [
     <StatTile key="orders" icon="clipboard" tone="info" label="Orders to dispatch" value={s ? count(s.orders_to_dispatch.count) : undefined} loading={loading}
-      note={s ? `${biz.amount(s.orders_to_dispatch.value)} to send${s.orders_to_dispatch.due_today ? ` · ${s.orders_to_dispatch.due_today} due` : ""}` : undefined} to={biz.path("dispatch")} />,
+      note={s ? `${biz.amount(s.orders_to_dispatch.value)} to send${s.orders_to_dispatch.due_today ? ` · ${s.orders_to_dispatch.due_today} due` : ""}` : undefined} to={overviewLink("dispatch")} />,
     <StatTile key="back" icon="layers" tone={Number(s?.back_orders.value) > 0 ? "warning" : "neutral"} label="Back-orders" money={s ? Number(s.back_orders.value) : undefined} loading={loading}
-      note={s ? `${count(s.back_orders.lines)} lines part sent` : undefined} to={biz.path("back-orders")} />,
+      note={s ? `${count(s.back_orders.lines)} lines part sent` : undefined} to={overviewLink("back-orders")} />,
     money && <StatTile key="collected" icon="wallet" tone="success" label="Collected today" money={s ? collected : undefined} loading={loading}
-      note={s ? (s.collected_today.map((r) => `${r.name.split(" ")[0]} ${biz.amount(r.amount)}`).join(" · ") || "nothing yet") : undefined} to={biz.path("collections")} />,
+      note={s ? (s.collected_today.map((r) => `${r.name.split(" ")[0]} ${biz.amount(r.amount)}`).join(" · ") || "nothing yet") : undefined} to={overviewLink("collections")} />,
     money && <StatTile key="overdue" icon="alert" tone={Number(s?.overdue?.amount) > 0 ? "danger" : "neutral"} label="Overdue" money={s ? Number(s.overdue.amount) : undefined} loading={loading}
-      note={s ? `${count(s.overdue.customers)} customers${Number(s.overdue.over_90) > 0 ? ` · ${biz.amount(s.overdue.over_90)} ${biz.ages.over.toLowerCase()}` : ""}` : undefined} to={biz.path("outstanding")} />,
+      note={s ? `${count(s.overdue.customers)} customers${Number(s.overdue.over_90) > 0 ? ` · ${biz.amount(s.overdue.over_90)} ${biz.ages.over.toLowerCase()}` : ""}` : undefined} to={overviewLink("outstanding")} />,
   ].filter(Boolean);
   const todo = s ? [
     money && s.cheques.to_deposit > 0 && { icon: "wallet", tone: "warning", text: `${s.cheques.to_deposit} ${s.cheques.to_deposit === 1 ? "cheque" : "cheques"} to deposit · ${biz.amount(s.cheques.to_deposit_value)}`, to: "collections?tab=cheques" },
@@ -43,7 +44,7 @@ export default function WholesaleToday() {
       <div className="stat-grid bz-stat-grid">{tiles}</div>
       <div className="bz-two">
         <SectionCard icon="map-pin" title="Today's beats" description={s ? (s.beats_today.length ? "Shops the salespeople visit today." : "No beats are set for today.") : "Checking…"}
-          actions={biz.can("sales_orders.view") && <Link className="button button-secondary button-sm" to={biz.path("routes")}>Routes</Link>}>
+          actions={biz.can("sales_orders.view") && <Link className="button button-secondary button-sm" to={overviewLink("routes")}>Routes</Link>}>
           {s && s.beats_today.length > 0 && (
             <ul className="bz-beats-list">
               {s.beats_today.map((b) => (
@@ -58,7 +59,7 @@ export default function WholesaleToday() {
             <ul className="bz-todo">
               {todo.map((t) => (
                 <li key={t.text}>
-                  <Link to={biz.path(t.to)} className={`bz-todo-line tone-${t.tone}`}><Icon name={t.icon} size={16} /><span>{t.text}</span><Icon name="chevron-right" size={14} className="bz-action-go" /></Link>
+                  <Link to={overviewLink(t.to)} className={`bz-todo-line tone-${t.tone}`}><Icon name={t.icon} size={16} /><span>{t.text}</span><Icon name="chevron-right" size={14} className="bz-action-go" /></Link>
                 </li>
               ))}
             </ul>

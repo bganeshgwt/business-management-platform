@@ -219,6 +219,7 @@ async function adjust(business, user, lotId, body) {
     const lot = await lockLot(db, business.id, id(lotId));
     if (!lot) fail('Stock lot not found', 404);
     access.requireLocation(business, lot.location_id);
+    await require('./business.service').requireDepartmentItem(db, business, { skuId: lot.sku_id });
     const adjustment = await applyAdjustment(db, business, user, lot, quantity, reason, requestKey);
     await repo.audit(db, business.id, user.id, 'stock.adjusted', adjustment.id, { reason, quantity });
     await repo.event(db, business.id, user.id, 'stock.adjusted', 'stock_adjustment', adjustment.id, { lotId: lot.id, skuId: lot.sku_id, locationId: lot.location_id, quantity, reason });

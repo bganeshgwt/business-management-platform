@@ -35,7 +35,7 @@ export default function ProcessingPage() {
       <SuccessMessage message={notice} />
       <Segmented label="Show" value={tab} options={[{ value: "batches", label: words.batches }, { value: "templates", label: `${words.template}s` }]}
         onChange={(value) => { setTab(value); setNotice(""); }} />
-      {tab === "batches" ? <Batches onNotice={setNotice} startWith={startWith} onStarted={() => setParams({}, { replace: true })} />
+      {tab === "batches" ? <Batches onNotice={setNotice} startWith={startWith} onStarted={() => setParams((p) => new URLSearchParams(p.get("open") ? { open: p.get("open") } : {}), { replace: true })} />
         : <Templates onNotice={setNotice} />}
     </div>
   );
@@ -219,12 +219,14 @@ function BatchForm({ options, start = {}, cutters = [], onClose, onSaved, path =
         <input required type="number" min="0.001" step="0.001" max={lot ? Number(lot.quantity) : undefined} value={form.quantity} inputMode="decimal"
           onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))} />
       </Field>
+      <details className="field-wide"><summary>{words.template} (optional)</summary>
       <Field label={words.template} hint={templates.length ? "Lays out the outputs; their expected weights are hints" : "None for this item"}>
         <select value={form.templateId} onChange={(e) => chooseTemplate(e.target.value)} disabled={!templates.length}>
           <option value="">None</option>
           {templates.map((t) => <option key={t.id} value={t.id}>{t.name} ({percentText(t.expected_yield)})</option>)}
         </select>
       </Field>
+      </details>
       <Field label={biz.type === "weight_retail" ? "Sorted by" : "Cut by"} hint="For the yield report by person">
         <input list="weight-cutters" maxLength={100} value={form.cutBy} onChange={(e) => setForm((f) => ({ ...f, cutBy: e.target.value }))} placeholder="Name" />
       </Field>

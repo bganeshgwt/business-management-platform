@@ -40,6 +40,7 @@ const DEFINITIONS = () => {
 
 async function prepare(owner, def, logins) {
   const row = await base.ensureBusiness(owner, def);
+  await require('./demo-business-tools').enableDemoTools(owner.id,[row.id]);
   let business = await base.load(owner, row.id);
   // Set-up is dated to the day before the history starts (dates are given as meant).
   const started = clock.at(clock.addDays(clock.today(), -def.days - 1), '10:00');
@@ -131,7 +132,8 @@ async function main() {
     // Round 3 (12 Oct): its other branches, then the payment methods, names and house rules.
     const branchNote = await branches.run(sim, logins);
     const polished = await polish.run(sim);
-    const work = [await tasks.seed(sim), branchNote, polished].filter(Boolean).join('; ');
+    const taskWork = ['tasks','issues','projects'].every(code=>sim.business.modules.includes(code)) ? await tasks.seed(sim) : null;
+    const work = [taskWork, branchNote, polished].filter(Boolean).join('; ');
     const today = await repo.one(db, `SELECT count(*)::int AS bills, COALESCE(sum(total),0) AS sales FROM business_documents
       WHERE business_id=$1 AND kind='sale' AND (created_at AT TIME ZONE 'Asia/Kolkata')::date=$2::date`, [sim.business.id, sim.realToday]);
     lines.push(`  ${def.name}: ${stats.bills} new bills (today ${today.bills}, ₹${Math.round(Number(today.sales)).toLocaleString('en-IN')})${work ? `, ${work}` : ''} [${Math.round((Date.now() - started) / 1000)}s]`);

@@ -1,3 +1,4 @@
+import ContentTabs from "../../../../components/ContentTabs";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
@@ -58,14 +59,11 @@ export default function UdhaarPage() {
         <StatTile icon="calendar" label={`${biz.ages.first} old`} value={summary ? biz.amount(summary.totals.days_0_30) : "—"} note="recent udhaar" />
       </div>
       <SuccessMessage message={notice} />
-      <div className="segmented" role="tablist" aria-label="Udhaar views">
-        {TABS.map(([key, label]) => (
-          <button key={key} type="button" role="tab" aria-selected={tab === key} className={`segment ${tab === key ? "is-active" : ""}`} onClick={() => setTab(key)}>{label}</button>
-        ))}
-      </div>
+      <ContentTabs label="Udhaar views" value={tab} options={TABS.map(([value,label])=>({value,label}))} onChange={setTab}>
       {tab === "book" && <Book key={`b${version}`} onAction={open} />}
       {tab === "remind" && <RemindToday key={`r${version}`} onAction={open} />}
       {tab === "log" && <ReminderLog key={`l${version}`} />}
+      </ContentTabs>
       {action?.kind === "collect" && <CollectDialog row={action.row} onClose={() => setAction(null)} onSaved={changed} />}
       {action?.kind === "remind" && <RemindDialog row={action.row} onClose={() => setAction(null)} onSaved={changed} />}
       {action?.kind === "statement" && <StatementDialog row={action.row} onClose={() => setAction(null)} />}

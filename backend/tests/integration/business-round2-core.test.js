@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+const { withTools } = require('./helpers/tools');
 
 // Round 2, shared core, retail & electronics (R2-CORE, 8 Oct 2026): split
 // payment on shop bills (cash + UPI + card + udhaar, change from cash only,
@@ -63,7 +64,7 @@ test('round 2 core: split payment, counter PIN, points on returns, EMI, kits', {
   const key = () => crypto.randomUUID();
   const paise = (value) => Math.round(Number(value) * 100);
 
-  const demos = (await request('POST', '/businesses/development-demos', {}, 201)).businesses;
+  const demos = (await withTools(request, (await request('POST', '/businesses/development-demos', {}, 201)).businesses));
   const grocery = demos.find((b) => b.business_type === 'grocery');
   const electronics = demos.find((b) => b.business_type === 'electronics');
   const G = (suffix) => `/businesses/${grocery.id}/${suffix}`;

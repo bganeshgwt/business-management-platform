@@ -70,7 +70,7 @@ export function CustomerBox({ biz, customer, onChange, account }) {
     <SectionCard icon="user" title="Customer" description="Walk-in pays in full. Pick a customer for udhaar or points.">
       {!adding ? (
         <>
-          <SearchPicker aria-label="Find a customer by name or phone (F4)" placeholder="Name or phone  (F4)" inputClassName="rt-find"
+          <SearchPicker aria-label="Find a customer by name or phone (F4)" placeholder="Name or phone  (F4 or Alt+C)" inputClassName="rt-find"
             search={(q, { signal }) => businessRead(biz.id, "contacts", { kind: "customer", active: "true", q, limit: 8 }, signal).then((page) => page.items)}
             minChars={2} getLabel={(c) => c.name} getKeywords={(c) => c.phone}
             getDescription={(c) => [c.phone, Number(c.balance) > 0.004 ? `owes ${biz.exact(c.balance)}` : null].filter(Boolean).join(" · ")}

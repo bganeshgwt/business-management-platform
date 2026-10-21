@@ -929,6 +929,47 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* The business date: a calendar icon in the box, and the native picker on click. */
+.bd-date {
+  position: relative;
+  display: block;
+}
+
+.bd-date > .icon,
+.bd-date > svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--primary);
+  pointer-events: none;
+}
+
+.field .bd-date input {
+  width: 100%;
+  padding-left: 36px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Reopening: the day being opened again, as a card. */
+.bd-open-when {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-muted, var(--surface));
+  color: var(--primary);
+}
+
+.bd-open-when > span {
+  display: grid;
+  gap: 2px;
+  color: var(--text);
+}
+
 .bd-count {
   border: 1px solid var(--border);
   border-radius: var(--radius);

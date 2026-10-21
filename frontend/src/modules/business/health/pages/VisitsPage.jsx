@@ -1,3 +1,4 @@
+import ContentTabs from "../../../../components/ContentTabs";
 import { useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
@@ -19,12 +20,9 @@ export default function VisitsPage() {
   return (
     <div className="stack">
       <BusinessHeader icon="clipboard" title="Visits & follow-ups" description="Every consultation with its bill and lab report; the follow-ups the doctors asked for." />
-      <div className="segmented hl-tabs" role="tablist" aria-label="View">
-        {[["visits", "Visits"], ["follow-ups", "Follow-ups due"]].map(([key, label]) => (
-          <button key={key} type="button" role="tab" aria-selected={tab === key} className={`segment ${tab === key ? "is-active" : ""}`} onClick={() => setParams({ tab: key }, { replace: true })}>{label}</button>
-        ))}
-      </div>
+      <ContentTabs label="Visits and follow-ups" value={tab} options={[["visits", "Visits"], ["follow-ups", "Follow-ups due"]].map(([value,label])=>({value,label}))} onChange={key=>setParams(p=>{const next=new URLSearchParams(p);next.set("tab",key);return next;},{replace:true})}>
       {tab === "visits" ? <VisitList biz={biz} navigate={navigate} /> : <FollowUps biz={biz} navigate={navigate} />}
+      </ContentTabs>
     </div>
   );
 }

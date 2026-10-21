@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
+import Modal from "../../../../components/Modal";
 import Icon from "../../../../components/Icon";
 import SectionCard from "../../../../components/SectionCard";
 import { ErrorMessage, SuccessMessage } from "../../../../components/Feedback";
@@ -40,16 +41,21 @@ export default function LabelsPage() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
-  const add = (items) => setQueue((all) => {
-    const next = [...all];
-    for (const item of items) {
-      const found = next.find((q) => q.id === item.id);
-      if (found) found.copies = String(Number(found.copies) + 1);
-      else next.push({ id: item.id, label: item.label, code: item.code, barcode: item.barcode, price: item.price, mrp: item.mrp, unit: item.unit, copies: "1",
-        size: item.size ?? item.attributes?.size ?? "", color: item.color ?? item.attributes?.color ?? "", brand: item.brand || "", style: item.style || item.product_name || "" });
-    }
-    return next.map((q) => ({ ...q }));
-  });
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const add = useCallback((items) => {
+    if (!items.length) return;
+    setSheetOpen(true);
+    setQueue((all) => {
+      const next = all.map((item) => ({ ...item }));
+      for (const item of items) {
+        const found = next.find((q) => q.id === item.id);
+        if (found) found.copies = String(Number(found.copies) + 1);
+        else next.push({ id: item.id, label: item.label, code: item.code, barcode: item.barcode, price: item.price, mrp: item.mrp, unit: item.unit, copies: "1",
+          size: item.size ?? item.attributes?.size ?? "", color: item.color ?? item.attributes?.color ?? "", brand: item.brand || "", style: item.style || item.product_name || "" });
+      }
+      return next;
+    });
+  }, []);
   async function giveBarcodes(items) {
     setError("");
     try {
@@ -69,7 +75,7 @@ export default function LabelsPage() {
     { key: "price", header: "Price", type: "money", exact: true, value: (s) => Number(s.price), mobile: "show" },
     { key: "stock", header: "In stock", type: "number", value: (s) => Number(s.stock), render: (s) => quantity(s.stock, s.unit) },
     { key: "actions", header: "", label: "Actions", type: "actions", render: (s) => <button type="button" className="chip-button" onClick={() => add([s])}>Add to sheet</button> },
-  ], []);
+  ], [add]);
 
   const totalLabels = queue.reduce((s, q) => s + Math.max(0, Math.floor(Number(q.copies) || 0)), 0);
   const layout = SHEETS[sheet];
@@ -121,7 +127,8 @@ export default function LabelsPage() {
   return (
     <div className="stack">
       <BusinessHeader icon="tag" title="Barcode labels"
-        description="Choose items, set how many labels each, and print on an A4 label sheet. Items without a barcode can be given one here." />
+        description="Choose items, set how many labels each, and print on an A4 label sheet. Items without a barcode can be given one here."
+        actions={<button type="button" className="button button-secondary" onClick={() => setSheetOpen(true)}><Icon name="print" size={16} /> Label sheet ({totalLabels})</button>} />
       <SuccessMessage message={notice} />
       <ErrorMessage message={error || list.error} />
       <SectionCard flush icon="list" title="Items">
@@ -136,6 +143,7 @@ export default function LabelsPage() {
           )}
           empty="No goods in the catalogue yet" emptyIcon="tag" />
       </SectionCard>
+      {sheetOpen && <Modal title="Label sheet" icon="print" width={1000} onClose={() => setSheetOpen(false)}>
       <SectionCard icon="print" title={`Label sheet · ${totalLabels} ${totalLabels === 1 ? "label" : "labels"}${totalLabels ? ` on ${sheets} ${sheets === 1 ? "sheet" : "sheets"}` : ""}`}
         actions={queue.length > 0 && <button type="button" className="button button-secondary button-sm" onClick={() => setQueue([])}>Clear</button>}>
         {queue.length === 0 ? <p className="muted">Add items from the list above (tick several and use “Add to the sheet”).</p> : (
@@ -172,6 +180,7 @@ export default function LabelsPage() {
           </div>
         )}
       </SectionCard>
+      </Modal>}
       {biz.has("weight") && <ScaleCodes />}
     </div>
   );

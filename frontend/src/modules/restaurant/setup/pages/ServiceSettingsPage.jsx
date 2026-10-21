@@ -28,6 +28,67 @@ const TOKEN_TYPES = [
   { value: "online", label: "Online orders" },
 ];
 
+const POS_TYPES = [
+  { value: "dine_in", label: "Dine-in (tables)" },
+  { value: "takeaway", label: "Takeaway / counter" },
+  { value: "delivery", label: "Delivery" },
+];
+
+// The kinds of order the POS takes and the one a new order starts on: a café
+// starts on takeaway, a cloud kitchen takes no dine-in (the format sets them).
+function PosSection({ settings, canEdit, onSaved }) {
+  const [types, setTypes] = useState(settings.posOrderTypes || ["dine_in", "takeaway", "delivery"]);
+  const [start, setStart] = useState(settings.defaultOrderType || "dine_in");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState("");
+  const toggle = (value) => setTypes((current) => {
+    const next = current.includes(value) ? current.filter((type) => type !== value) : [...current, value];
+    if (!next.includes(start) && next.length) setStart(next[0]);
+    return next;
+  });
+  const save = async (event) => {
+    event.preventDefault();
+    setSaving(true); setError(""); setSaved("");
+    try {
+      const result = await updateServiceSettings("pos", { posOrderTypes: types, defaultOrderType: start });
+      setSaved(result.message);
+      onSaved(result.data);
+    } catch (err) { setError(getErrorMessage(err)); } finally { setSaving(false); }
+  };
+  return (
+    <SectionCard as="form" onSubmit={save} id="pos" icon="receipt" title="Orders the POS takes"
+      description="Which kinds of order the POS offers, and which a new order starts on. A cloud kitchen takes no dine-in; a café's counter starts on takeaway.">
+      <ErrorMessage message={error} />
+      <SuccessMessage message={saved} />
+      <div className="form-grid">
+        <fieldset className="field field-wide svc-fieldset" disabled={!canEdit}>
+          <legend>The POS takes</legend>
+          <div className="svc-choices">
+            {POS_TYPES.map((type) => (
+              <label key={type.value} className="svc-choice">
+                <input type="checkbox" checked={types.includes(type.value)} onChange={() => toggle(type.value)} />
+                <span>{type.label}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <label className="field">
+          <span>A new order starts on</span>
+          <select value={start} onChange={(event) => setStart(event.target.value)} disabled={!canEdit}>
+            {POS_TYPES.filter((type) => types.includes(type.value)).map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+          </select>
+        </label>
+      </div>
+      {canEdit && (
+        <div className="form-actions">
+          <button type="submit" className="button" disabled={saving || types.length === 0}>{saving ? "Saving…" : "Save"}</button>
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
 function TokensSection({ settings, canEdit, onSaved }) {
   const [form, setForm] = useState({
     tokensEnabled: settings.tokensEnabled,
@@ -605,12 +666,18 @@ export default function ServiceSettingsPage() {
         // shared but there is no single save bar.
         <SettingsLayout
           sections={[
+            { id: "pos", label: "Orders the POS takes" },
             { id: "tokens", label: "Token numbers" },
             ...(onlineOn ? [{ id: "online-ordering", label: "Online ordering page" }] : []),
             ...(guestPagesOn ? [{ id: "guest-address", label: "Guest web address" }] : []),
           ]}
         >
         <div className="svc-sections">
+          <PosSection
+            settings={settings}
+            canEdit={hasPermission("orders.manage")}
+            onSaved={(next) => setSettings((current) => ({ ...current, ...next }))}
+          />
           <TokensSection
             settings={settings}
             canEdit={hasPermission("orders.manage")}

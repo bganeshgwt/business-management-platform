@@ -1,3 +1,4 @@
+import ContentTabs from "../../../../components/ContentTabs";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
@@ -113,9 +114,7 @@ export default function PharmacyRegistersPage() {
         <StatTile icon="shield" label="Schedule X entries" value={summary ? String(summary.x_entries) : ""} loading={!summary} />
         <StatTile icon="truck" label="Returns awaiting credit" value={summary ? String(summary.returns_awaiting_credit) : ""} loading={!summary} note={summary ? `${biz.amount(summary.returns_awaiting_value)} claimed` : undefined} />
       </div>
-      <div className="segmented hl-tabs" role="tablist" aria-label="Register">
-        {TABS.map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={tab === key} className={`segment ${tab === key ? "is-active" : ""}`} onClick={() => setParams({ tab: key }, { replace: true })}>{label}</button>)}
-      </div>
+      <ContentTabs label="Register" value={tab} options={TABS.map(([value,label])=>({value,label}))} onChange={key=>setParams(p=>{const next=new URLSearchParams(p);next.set("tab",key);return next;},{replace:true})}>
       <SectionCard flush icon="list" title={TABS.find(([k]) => k === tab)[1]}
         actions={biz.can("pharmacy.print") && <button type="button" className="button button-secondary" onClick={print}><Icon name="print" size={15} /> Print</button>}>
         <DataGrid key={tab} {...list.gridProps} caption={TABS.find(([k]) => k === tab)[1]} columns={columns} currency={biz.symbol}
@@ -124,6 +123,7 @@ export default function PharmacyRegistersPage() {
           exportName={biz.can("pharmacy.export") ? `${biz.business.code}-${tab}` : undefined}
           empty={tab === "returns" ? "No returns in this period" : "No entries in this period"} emptyHint="Choose another period above." emptyIcon="clipboard" />
       </SectionCard>
+      </ContentTabs>
       <PrescriptionPanel id={rx} onClose={() => setRx(null)} />
     </div>
   );

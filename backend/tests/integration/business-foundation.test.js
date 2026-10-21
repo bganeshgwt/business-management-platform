@@ -92,9 +92,9 @@ test('business platform foundation: access, numbering, stock control and events'
       assert.deepEqual([...business.capabilities].sort(), expected, business.business_type);
       assert.equal(business.role_name, 'Owner');
     }
-    // The original thirteen defaults are unchanged; counts and transfers were added where stock is kept.
+    // Stock counts remain available; transfers are now an owner's optional tool.
     assert.ok(grocery.capabilities.includes('stock_counts') && !grocery.capabilities.includes('stock_transfers'));
-    assert.ok(electronics.capabilities.includes('stock_transfers') && electronics.capabilities.includes('serials'));
+    assert.ok(!electronics.capabilities.includes('stock_transfers') && electronics.capabilities.includes('serials'));
     assert.ok(!salon.capabilities.includes('stock_transfers'));
   });
 

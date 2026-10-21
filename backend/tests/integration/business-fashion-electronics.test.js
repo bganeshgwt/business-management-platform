@@ -5,6 +5,7 @@ const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const dates = require('./helpers/dates');
+const { withTools } = require('./helpers/tools');
 
 // Phase 2, T3 — fashion and electronics: the size × colour matrix, variant
 // reports, exchanges (return + new sale, difference paid or refunded), the
@@ -70,8 +71,8 @@ test('fashion and electronics: variants, exchanges, serials, warranties, repairs
   const paise = (value) => Math.round(Number(value) * 100);
   const count = async (sql, values) => (await one(sql, values)).n;
 
-  const demos = (await request('POST', '/businesses/development-demos', {}, 201)).businesses;
-  const otherDemos = (await other('POST', '/businesses/development-demos', {}, 201)).businesses;
+  const demos = (await withTools(request, (await request('POST', '/businesses/development-demos', {}, 201)).businesses));
+  const otherDemos = (await withTools(other, (await other('POST', '/businesses/development-demos', {}, 201)).businesses));
   // Pro pass (1791540000000): goods shops now start with prices including GST,
   // rounded to the rupee, and a walk-in pays in full. These checks were written for
   // prices before GST and post unpaid walk-in bills as fixtures.
@@ -307,6 +308,12 @@ test('fashion and electronics: variants, exchanges, serials, warranties, repairs
     const credits = await staff.fashion_cashier('GET', F('exchanges/credits'));
     assert.equal(credits.find((c) => c.contact_id === priya.id).credit, '105.00');
     const later = await request('POST', F('documents'), { kind: 'sale', locationId: fzLocation.id, contactId: priya.id, requestKey: key(), lines: [{ skuId: cell('M', 'White').sku_id, quantity: '1' }] }, 201);
+    // Reports: store credit is no money in when it is kept, only when a bill uses it.
+    const day = (await one("SELECT (now() AT TIME ZONE 'Asia/Kolkata')::date::text AS d")).d;
+    const collected = async () => paise((await request('GET', F(`reports?from=${day}&to=${day}`))).rows.filter((r) => r.kind === 'sale_payment').reduce((s, r) => s + Number(r.total), 0));
+    const beforeUse = await collected();
+    assert.equal(beforeUse, paise((await one("SELECT COALESCE(sum(p.amount),0) AS s FROM business_payments p JOIN business_documents d ON d.id=p.document_id WHERE p.business_id=$1 AND d.kind='sale' AND p.method<>'finance' AND p.collection_id IS NULL", [fz.id])).s)
+      + paise((await one("SELECT COALESCE(sum(amount),0) AS s FROM business_collections WHERE business_id=$1 AND method<>'credit_note'", [fz.id])).s));
     await staff.fashion_viewer('POST', F(`exchanges/credits/${priya.id}/use`), { requestKey: key() }, 403);
     const useKey = key();
     const used = await staff.fashion_cashier('POST', F(`exchanges/credits/${priya.id}/use`), { requestKey: useKey }, 201);
@@ -315,6 +322,7 @@ test('fashion and electronics: variants, exchanges, serials, warranties, repairs
     assert.equal(owed(await docSums(later.id)), paise(later.total) - 10500);
     const pay = await one('SELECT method,collection_id FROM business_payments WHERE business_id=$1 AND document_id=$2', [fz.id, later.id]);
     assert.deepEqual(pay, { method: 'credit_note', collection_id: kept.id });
+    assert.equal(await collected(), beforeUse + 10500, 'the credit counts once, when the bill uses it');
     await staff.fashion_cashier('POST', F(`exchanges/credits/${priya.id}/use`), { requestKey: key() }, 409);
     const after = await one(`SELECT ${require('../../src/modules/business/core/repositories/business.repository').contactBalanceSql('c')} AS b FROM business_contacts c WHERE c.business_id=$1 AND c.id=$2`, [fz.id, priya.id]);
     assert.equal(paise(after.b), paise(balance.b) + paise(later.total), 'using the credit does not change what the customer owes overall');

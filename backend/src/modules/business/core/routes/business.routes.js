@@ -11,6 +11,12 @@ const notifications = require('../services/businessNotifications.service');
 const branches = require('../services/businessBranches.service');
 const onboarding = require('../services/businessOnboarding.service');
 const paymentMethods = require('../services/businessPaymentMethods.service');
+const expenses = require('../services/businessExpenses.service');
+const cashChecks = require('../services/businessCashChecks.service');
+const branchPrices = require('../services/businessLocationPrices.service');
+const departments = require('../services/businessDepartments.service');
+const shifts = require('../services/businessShifts.service');
+const overviewData = require('../services/businessOverview.service');
 const repo = require('../repositories/business.repository');
 const v = require('../../../../utils/validate');
 const AppError = require('../../../../utils/AppError');
@@ -64,6 +70,8 @@ router.get(b('/summary'), context(), async (req, res) => {
   send(res, Object.fromEntries(Object.entries(figures)
     .filter(([key, permission]) => key in values && (!permission || access.can(req.business, permission))).map(([key]) => [key, values[key]])));
 });
+// The Overview's picture of the day (each part only for those allowed to see it).
+router.get(b('/overview'), context(), async (req, res) => send(res, await overviewData.overview(req.business)));
 // The bell (pro pass G-07): alerts worked out from live data, each only to those allowed to see it.
 router.get(b('/notifications'), context(), async (req, res) => send(res, await notifications.feed(req.business)));
 router.get(b('/reports'), context('reports.view'), async (req, res) => send(res, await service.reports(req.business, req.query)));
@@ -71,6 +79,24 @@ router.get(b('/reports'), context('reports.view'), async (req, res) => send(res,
 router.get(b('/reports/locations'), context('reports.view'), async (req, res) => send(res, await branches.compare(req.business, req.query)));
 // Day close: takings by payment method, person and counter (read-only).
 router.get(b('/reports/takings'), context(['reports.view', 'sales.view']), async (req, res) => send(res, await takings.takings(req.business, req.query)));
+router.get(b('/expenses'), context('expenses.view'), async (req,res) => send(res,await expenses.list(req.business,req.query)));
+router.post(b('/expenses'), context('expenses.create'), async (req,res) => send(res,await expenses.create(req.business,req.user,req.body),201));
+router.post(b('/expenses/:expenseId/reverse'), context('expenses.approve'), async (req,res) => send(res,await expenses.reverse(req.business,req.user,req.params.expenseId,req.body)));
+router.get(b('/cash-checks'),context(['reports.view','sales.view']),async(req,res)=>send(res,await cashChecks.list(req.business,req.query)));
+router.post(b('/cash-checks'),context('reports.edit'),async(req,res)=>send(res,await cashChecks.create(req.business,req.user,req.body),201));
+
+// Retail completion: a price per branch, departments, cashier shifts.
+router.get(b('/catalog/:id/branch-prices'), context('catalog.view'), async (req, res) => send(res, await branchPrices.forItem(req.business, req.params.id)));
+router.put(b('/catalog/:id/branch-prices'), context('catalog.edit'), async (req, res) => send(res, await branchPrices.save(req.business, req.user, req.params.id, req.body)));
+router.get(b('/branch-prices'), context(['sales.create', 'catalog.view']), async (req, res) => send(res, await branchPrices.forLocation(req.business, req.query)));
+router.get(b('/departments'), context('catalog.view'), async (req, res) => send(res, await departments.list(req.business)));
+router.post(b('/departments'), context('settings.edit'), async (req, res) => send(res, await departments.create(req.business, req.user, req.body), 201));
+router.patch(b('/departments/:id'), context('settings.edit'), async (req, res) => send(res, await departments.update(req.business, req.user, req.params.id, req.body)));
+router.get(b('/reports/departments'), context('reports.view'), async (req, res) => send(res, await departments.report(req.business, req.query)));
+router.get(b('/shifts'), context('sales.create'), async (req, res) => send(res, await shifts.list(req.business, req.user, req.query)));
+router.get(b('/shifts/current'), context('sales.create'), async (req, res) => send(res, await shifts.current(req.business, req.user, req.query)));
+router.post(b('/shifts'), context('sales.create'), async (req, res) => send(res, await shifts.open(req.business, req.user, req.body), 201));
+router.post(b('/shifts/:id/close'), context('sales.create'), async (req, res) => send(res, await shifts.close(req.business, req.user, req.params.id, req.body)));
 
 // Lists: paging, search, period and the filters each list allows.
 const listPermissions = {
@@ -91,6 +117,8 @@ for (const [name, permission] of Object.entries(listPermissions)) {
     // unless a location is asked for, or the person is tied to one.
     const unscoped = name === 'members' && !req.business.location_tied ? new Set(req.locationFilledIn || []) : new Set();
     for (const key of repo.listFilters(name)) if (req.query[key] !== undefined && req.query[key] !== '' && !unscoped.has(key)) filters[key] = String(req.query[key]).slice(0, 60);
+    // A person tied to a department sees that department's products and stock.
+    if (req.business.member_department_id && ['catalog', 'stock'].includes(name)) filters.department = String(req.business.member_department_id);
     // A document list shows only the kinds this person may see.
     if (name === 'documents') {
       const kinds = ['sale', 'purchase'].filter((kind) => access.can(req.business, service.kindPermission(kind, 'view')));

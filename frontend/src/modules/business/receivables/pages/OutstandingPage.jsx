@@ -45,7 +45,7 @@ export default function OutstandingPage() {
   const [holdRules, setHoldRules] = useState(false);
   const [printing, setPrinting] = useState(false);
   useEffect(() => {
-    if (params.get("customer")) setParams({}, { replace: true });
+    if (params.get("customer")) setParams((p) => new URLSearchParams(p.get("open") ? { open: p.get("open") } : {}), { replace: true });
   }, [params, setParams]);
   const title = word(biz.type, "outstanding", "Outstanding");
   const t = list.data?.totals;

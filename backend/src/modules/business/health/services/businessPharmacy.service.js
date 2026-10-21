@@ -34,7 +34,7 @@ const milli = (n) => Math.round(Number(n) * 1000);
 const q3 = (m) => (m / 1000).toFixed(3).replace(/\.?0+$/, '');
 const requirePharmacy = (business) => {
   h.requireType(business, ['pharmacy'], 'Pharmacy screens');
-  if (!business.modules.includes('pharmacy')) fail('Pharmacy rules are not switched on for this business. An owner can turn them on in Settings › Modules.', 403);
+  if (!business.modules.includes('pharmacy')) fail('Pharmacy rules are not switched on for this business. An owner can turn them on in Settings › Business tools.', 403);
 };
 // A deterministic request key (UUID v4 shape) for a posting made on behalf of another.
 const derivedKey = (...parts) => {
@@ -57,23 +57,23 @@ repo.addLists({
     filters: { schedule: 'schedule', cold_chain: 'cold_chain', has_master: 'has_master', active: 'active' }, order: 'label,id',
   },
   'pharmacy-prescriptions': {
-    sql: `SELECT r.id,r.document_id,d.document_no,d.total,r.patient_name,r.patient_phone,r.patient_age,r.doctor_name,r.doctor_reg_no,r.prescribed_on,r.retain_until,
+    sql: `SELECT r.id,r.document_id,d.document_no,d.total,d.location_id,r.patient_name,r.patient_phone,r.patient_age,r.doctor_name,r.doctor_reg_no,r.prescribed_on,r.retain_until,
       r.file_id,r.created_at,u.name AS created_by_name,g.name AS pharmacist_name,
       (SELECT string_agg(DISTINCT pd.schedule,',') FROM business_document_lines l JOIN pharmacy_drugs pd ON pd.business_id=l.business_id AND pd.sku_id=l.sku_id
         WHERE l.business_id=r.business_id AND l.document_id=r.document_id AND pd.schedule IN ('H','H1','X','narcotic')) AS schedules,
       (SELECT string_agg(l.label,', ' ORDER BY l.id) FROM business_document_lines l WHERE l.business_id=r.business_id AND l.document_id=r.document_id) AS items
       FROM pharmacy_prescriptions r JOIN business_documents d ON d.business_id=r.business_id AND d.id=r.document_id
       JOIN users u ON u.id=r.created_by LEFT JOIN health_signatories g ON g.business_id=r.business_id AND g.id=r.signatory_id WHERE r.business_id=$1`,
-    search: ['patient_name', 'patient_phone', 'doctor_name', 'doctor_reg_no', 'document_no', 'items'], date: 'created_at', order: 'created_at DESC,id DESC',
+    search: ['patient_name', 'patient_phone', 'doctor_name', 'doctor_reg_no', 'document_no', 'items'], date: 'created_at', filters: { location: 'location_id' }, order: 'created_at DESC,id DESC',
   },
   'pharmacy-register': {
     // `returned`: what of the entry's line came back later (the entry itself is never changed).
-    sql: `SELECT e.*,d.document_no,g.name AS pharmacist_name,g.registration_no AS pharmacist_reg_no,u.name AS created_by_name,
+    sql: `SELECT e.*,d.document_no,d.location_id,g.name AS pharmacist_name,g.registration_no AS pharmacist_reg_no,u.name AS created_by_name,
       COALESCE((SELECT sum(rl.quantity) FROM business_return_lines rl WHERE rl.business_id=e.business_id AND rl.line_id=e.line_id),0) AS returned
       FROM pharmacy_register_entries e JOIN business_documents d ON d.business_id=e.business_id AND d.id=e.document_id
       JOIN users u ON u.id=e.created_by LEFT JOIN health_signatories g ON g.business_id=e.business_id AND g.id=e.signatory_id WHERE e.business_id=$1`,
     search: ['drug_name', 'composition', 'patient_name', 'doctor_name', 'doctor_reg_no', 'lot_code', 'document_no'], date: 'created_at',
-    filters: { register: 'register' }, order: 'created_at DESC,id DESC',
+    filters: { register: 'register', location: 'location_id' }, order: 'created_at DESC,id DESC',
   },
   'pharmacy-recalls': {
     sql: `SELECT r.*,s.label,s.code,u.name AS created_by_name,
@@ -89,7 +89,7 @@ repo.addLists({
       (n.status='credited' AND n.credited_amount < n.claimed) AS short_credited
       FROM pharmacy_debit_notes n JOIN business_contacts c ON c.business_id=n.business_id AND c.id=n.contact_id
       JOIN business_locations l ON l.business_id=n.business_id AND l.id=n.location_id JOIN users u ON u.id=n.created_by WHERE n.business_id=$1`,
-    search: ['note_no', 'supplier_name', 'credit_note_no', 'notes'], date: 'created_at', filters: { status: 'status', supplier: 'contact_id', reason: 'reason' },
+    search: ['note_no', 'supplier_name', 'credit_note_no', 'notes'], date: 'created_at', filters: { status: 'status', supplier: 'contact_id', reason: 'reason', location: 'location_id' },
     order: 'created_at DESC,id DESC',
   },
 });

@@ -22,6 +22,8 @@ const REASONS = [
   // or sent back over its quality (Dish wasted, sweep SW-B-22).
   { key: "remade", label: "Remade dish" },
   { key: "quality", label: "Quality complaint" },
+  // A bakery's breads and cakes left at closing and not kept for tomorrow.
+  { key: "unsold", label: "Unsold at day end" },
   { key: "other", label: "Other" },
 ];
 

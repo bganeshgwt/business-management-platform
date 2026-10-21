@@ -36,7 +36,7 @@ module.exports = function salonWeightRoutes(router, { context, send, b }) {
   const isSalon = (business) => salon.requireSalon(business);
   const packagesOn = (business) => {
     isSalon(business);
-    if (!business.modules.includes('packages')) throw new AppError(403, 'Packages & memberships is not switched on for this business. An owner can turn it on in Settings › Modules.');
+    if (!business.modules.includes('packages')) throw new AppError(403, 'Packages & memberships is not switched on for this business. An owner can turn it on in Settings › Business tools.');
   };
 
   // Salon: rules, services, stylists and rooms.
@@ -75,7 +75,7 @@ module.exports = function salonWeightRoutes(router, { context, send, b }) {
 
   // Weight-based shops.
   const weighs = (business) => {
-    if (!business.modules.includes('weight')) throw new AppError(403, 'Sold by weight is not switched on for this business. An owner can turn it on in Settings › Modules.');
+    if (!business.modules.includes('weight')) throw new AppError(403, 'Sold by weight is not switched on for this business. An owner can turn it on in Settings › Business tools.');
   };
   list('/weight/stock', 'weight-stock', 'inventory.view', weighs);
   list('/weight/yield-templates', 'weight-yield-templates', 'processing.view');

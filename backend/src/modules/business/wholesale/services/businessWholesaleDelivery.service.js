@@ -58,7 +58,7 @@ repo.addLists({
       JOIN business_documents doc ON doc.business_id=d.business_id AND doc.id=d.document_id
       LEFT JOIN wholesale_routes r ON r.business_id=o.business_id AND r.id=o.route_id WHERE d.business_id=$1`,
   search: ['order_no', 'contact_name', 'document_no', 'vehicle_no', 'driver_name', 'eway_bill_no', 'challan_no', 'lr_no'], date: 'created_at',
-  filters: { delivery: 'delivery_status', run: 'run_id', route: 'route_id', contact: 'contact_id' }, order: 'id DESC' },
+  filters: { delivery: 'delivery_status', run: 'run_id', route: 'route_id', contact: 'contact_id', location: 'location_id' }, order: 'id DESC' },
 });
 
 // --- Pick list ---------------------------------------------------------------------

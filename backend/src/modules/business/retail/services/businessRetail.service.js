@@ -134,7 +134,7 @@ async function assignBarcodes(business, user, body) {
 }
 
 function requireWeight(business) {
-  if (!business.modules.includes('weight')) fail('Sold by weight is not switched on for this business. An owner can turn it on in Settings › Modules.', 403);
+  if (!business.modules.includes('weight')) fail('Sold by weight is not switched on for this business. An owner can turn it on in Settings › Business tools.', 403);
 }
 async function setScaleCode(business, user, skuId, body) {
   await access.require(business, 'catalog.edit');
@@ -164,7 +164,7 @@ async function removeScaleCode(business, user, skuId) {
 // --- Book details ------------------------------------------------------------------
 
 function requireBooks(business) {
-  if (!business.modules.includes('books')) fail('Book details are not switched on for this business. An owner can turn them on in Settings › Modules.', 403);
+  if (!business.modules.includes('books')) fail('Book details are not switched on for this business. An owner can turn them on in Settings › Business tools.', 403);
 }
 function bookFields(body) {
   const year = body.publishedYear === undefined || body.publishedYear === null || body.publishedYear === '' ? null : Number(body.publishedYear);
