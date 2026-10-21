@@ -69,6 +69,8 @@ router.use("/timeclock", timeclockRoutes);
 router.use("/inventory-insights", inventoryInsightRoutes);
 router.use("/guest-insights", guestInsightRoutes);
 router.use("/availability", availabilityRoutes);
+// Pre-orders: cakes and party orders for a later day (food formats).
+router.use("/preorders", require("../modules/restaurant/preorders/routes/preorder.routes"));
 
 // The one mount with no login in front of it: a guest at a table, holding a
 // QR code. Everything behind it is scoped by that code and rate limited.

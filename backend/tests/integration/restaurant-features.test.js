@@ -99,14 +99,15 @@ test("restaurant features switch on and off", { timeout: 600000 }, async (t) => 
     assert.equal(await one("SELECT count(*)::int AS n FROM businesses WHERE legacy_restaurant_id = $1", [rid]).then((r) => r.n), 0);
     const list = await O("GET", "/restaurants/current/features");
     assert.equal(list.canChange, true);
-    // 14 restaurant features + tasks, issues and projects (1791620000000), which apply to every type.
-    assert.equal(list.features.length, 17);
+    // 14 restaurant features + tasks, issues and projects (1791620000000), which apply to every type,
+    // + pre-orders (food formats, 1791950410000), which starts off like loyalty.
+    assert.equal(list.features.length, 18);
     for (const feature of list.features) {
-      assert.equal(feature.enabled, feature.code !== "guest_loyalty", feature.code);
+      assert.equal(feature.enabled, !["guest_loyalty", "preorders"].includes(feature.code), feature.code);
       assert.ok(feature.name && feature.description && feature.group, feature.code);
     }
     assert.deepEqual(list.features.find((f) => f.code === "guest_loyalty").requires, ["guests"]);
-    assert.deepEqual(list.features.find((f) => f.code === "guests").requiredBy.sort(), ["guest_loyalty", "online_ordering"]);
+    assert.deepEqual(list.features.find((f) => f.code === "guests").requiredBy.sort(), ["guest_loyalty", "online_ordering", "preorders"]);
     const me = await O("GET", "/auth/me");
     assert.equal(me.features.length, 16);
     assert.ok(!me.features.includes("guest_loyalty"));

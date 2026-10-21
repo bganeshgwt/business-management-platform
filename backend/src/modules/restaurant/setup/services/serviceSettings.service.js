@@ -5,6 +5,7 @@ const serviceSettingsRepository = require("../repositories/serviceSettings.repos
 const AppError = require("../../../../utils/AppError");
 
 const TOKEN_ORDER_TYPES = ["takeaway", "delivery", "online"];
+const POS_ORDER_TYPES = ["dine_in", "takeaway", "delivery"];
 
 const requireRestaurantId = (restaurantId) => {
   if (!restaurantId) {
@@ -18,6 +19,9 @@ const toSettings = (row) => ({
   tokensEnabled: Boolean(row.tokens_enabled),
   tokenOrderTypes: row.token_order_types || ["takeaway"],
   collectionClearMinutes: Number(row.collection_clear_minutes),
+  // The kinds of order the POS takes and the one it starts on (the format's).
+  posOrderTypes: row.pos_order_types || POS_ORDER_TYPES,
+  defaultOrderType: row.default_order_type || "dine_in",
   updatedAt: row.updated_at,
 });
 
@@ -98,4 +102,22 @@ const updateWebAddress = async (restaurantId, value, userId) => {
   );
 };
 
-module.exports = { TOKEN_ORDER_TYPES, toSettings, get, updateTokens, readWebAddress, updateWebAddress };
+// Which kinds of order the POS takes, and which a new order starts on.
+const updatePos = async (restaurantId, input, userId) => {
+  requireRestaurantId(restaurantId);
+  const current = await serviceSettingsRepository.find(restaurantId);
+  const types = input.posOrderTypes ?? current.pos_order_types;
+  const start = input.defaultOrderType ?? (types.includes(current.default_order_type) ? current.default_order_type : types[0]);
+
+  if (!types.length) {
+    throw new AppError(400, "The POS must take at least one kind of order");
+  }
+
+  if (!types.includes(start)) {
+    throw new AppError(400, "A new order can only start on a kind of order the POS takes");
+  }
+
+  return toSettings(await serviceSettingsRepository.update(restaurantId, { pos_order_types: types, default_order_type: start }, userId));
+};
+
+module.exports = { TOKEN_ORDER_TYPES, POS_ORDER_TYPES, toSettings, get, updateTokens, updatePos, readWebAddress, updateWebAddress };

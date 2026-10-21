@@ -12,6 +12,7 @@ import { getCurrentUser } from "../../../../services/auth.service";
 import { getErrorMessage } from "../../../../services/api";
 import { listFeatures, previewFeature, setFeature } from "../../../../services/features";
 import "../../../../styles/features.css";
+import FormatCard from "./FormatCard";
 
 // Settings -> Features: the parts of the restaurant this restaurant uses.
 // Switching one off hides it everywhere (menu, pages, buttons, dashboard,
@@ -35,6 +36,7 @@ const ICONS = {
   coupons: "tag",
   stock_recipes: "box",
   staff_payroll: "clock",
+  preorders: "calendar",
 };
 
 const GROUP_NOTES = {
@@ -223,6 +225,8 @@ export default function FeaturesPage() {
 
       <ErrorMessage message={error} />
       <SuccessMessage message={success} />
+
+      <FormatCard canChange={Boolean(data?.canChange)} onChanged={(message, skipped) => afterChange(skipped.length ? `${message}: ${skipped.map((x) => x.reason).join(" ")}` : message)} />
 
       {!data && !error && <Loading />}
 

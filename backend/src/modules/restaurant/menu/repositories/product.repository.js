@@ -3,7 +3,7 @@ const pool = require("../../../../config/database");
 const COLUMNS = `p.id, p.restaurant_id, p.category_id, p.name, p.code, p.description,
                  p.price, p.tax_percentage, p.tax_rate_id, p.tax_mode, p.mrp, p.food_type, p.is_available,
                  p.sort_order, p.status, p.addon_groups, p.availability_schedule, p.combo_choice_groups,
-                 p.is_combo, p.image_path, p.kitchen_name, p.created_at, p.updated_at`;
+                 p.is_combo, p.image_path, p.kitchen_name, p.sold_by, p.created_at, p.updated_at`;
 
 // Filters are optional: NULL means "no filter", so one query serves the whole list screen.
 const findAll = async (restaurantId, filters = {}, db = pool) => {
@@ -132,8 +132,8 @@ const create = async (restaurantId, data, userId) => {
   const result = await pool.query(
     `INSERT INTO products (restaurant_id, category_id, name, code, description, price,
                            tax_percentage, tax_rate_id, tax_mode, mrp, food_type, is_available, sort_order,
-                           status, kitchen_name, created_by, updated_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $16, $15, $15)
+                           status, kitchen_name, created_by, updated_by, sold_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $16, $15, $15, $17)
      RETURNING id`,
     [
       restaurantId,
@@ -157,6 +157,8 @@ const create = async (restaurantId, data, userId) => {
       userId,
       // SW-A-12: the name the KOT may print instead (null: none).
       data.kitchenName || null,
+      // Sold by the piece, or by weight (the price is per kg).
+      data.soldBy || "unit",
     ]
   );
 
@@ -202,6 +204,7 @@ const EDITABLE_COLUMNS = new Set([
   "sort_order",
   "status",
   "kitchen_name",
+  "sold_by",
 ]);
 
 // fields is { column: value }. Returns false when the dish is gone.

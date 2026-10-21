@@ -28,6 +28,7 @@ export const FIELDS = [
   "sortOrder",
   "status",
   "kitchenName",
+  "soldBy",
 ];
 
 export const EMPTY_FORM = {
@@ -44,6 +45,7 @@ export const EMPTY_FORM = {
   sortOrder: 0,
   status: "active",
   kitchenName: "",
+  soldBy: "unit",
 };
 
 // A saved dish as the form holds it (inputs hold text).
@@ -61,6 +63,7 @@ export const productToForm = (product) => ({
   sortOrder: product.sortOrder,
   status: product.status,
   kitchenName: product.kitchenName || "",
+  soldBy: product.soldBy || "unit",
 });
 
 // The form and a saved dish in the same shape, so the two can be compared
@@ -79,6 +82,7 @@ export const formToPayload = (form) => ({
   sortOrder: Number(form.sortOrder || 0),
   status: form.status,
   kitchenName: (form.kitchenName || "").trim() || null,
+  soldBy: form.soldBy || "unit",
 });
 
 export const productToPayload = (product) => ({
@@ -95,6 +99,7 @@ export const productToPayload = (product) => ({
   sortOrder: product.sortOrder,
   status: product.status,
   kitchenName: product.kitchenName || null,
+  soldBy: product.soldBy || "unit",
 });
 
 // Which fields the manager changed: the form against its base.

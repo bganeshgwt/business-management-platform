@@ -31,6 +31,9 @@ const featuresController = require("../controllers/restaurantFeatures.controller
 router.get("/current/features", authorize("restaurant.settings.view"), featuresController.list);
 router.post("/current/features/:code/preview", authorize("restaurant.settings.manage"), featuresController.preview);
 router.put("/current/features/:code", authorize("restaurant.settings.manage"), featuresController.set);
+// The format (restaurant, café, bakery, cloud kitchen) and its starting setup.
+router.get("/current/format", authorize("restaurant.settings.view"), featuresController.getFormat);
+router.put("/current/format", authorize("restaurant.settings.manage"), featuresController.setFormat);
 
 router.get("/current/payment-types", authorize("orders.view"), paymentTypeController.list);
 router.post("/current/payment-types", authorize("restaurant.settings.manage"), paymentTypeController.create);

@@ -303,6 +303,7 @@ export default function ProductsPage() {
       name: (value) => `“${value}”`,
       sortOrder: (value) => String(value),
       kitchenName: (value) => (value ? `“${value}”` : "empty"),
+      soldBy: (value) => (value === "weight" ? "by weight (price per kg)" : "by the piece"),
     }[item.key];
     const label = {
       price: "The price",
@@ -316,6 +317,7 @@ export default function ProductsPage() {
       name: "The name",
       sortOrder: "The display order",
       kitchenName: "The kitchen name",
+      soldBy: "It is sold",
     }[item.key];
     const verb = item.key === "foodType" ? "is now marked" : "is now";
     const now = `${label} ${verb} ${show(item.now)}`;
@@ -1079,6 +1081,16 @@ export default function ProductsPage() {
             <label className="field">
               <span>Description</span>
               <textarea rows={3} value={form.description} onChange={change("description")} />
+            </label>
+
+            {/* A bakery's cookies and sweets: the price is per kg, the POS asks the weight. */}
+            <label className="field">
+              <span>Sold</span>
+              <select value={form.soldBy} onChange={change("soldBy")}>
+                <option value="unit">By the piece / plate</option>
+                <option value="weight">By weight (the price is per kg)</option>
+              </select>
+              {form.soldBy === "weight" && <small className="muted">The POS asks for the weight in grams; 250 g of a ₹600/kg item is ₹150.</small>}
             </label>
 
             {/* SW-A-12: the name the cooks read on the KOT, in their own script. */}

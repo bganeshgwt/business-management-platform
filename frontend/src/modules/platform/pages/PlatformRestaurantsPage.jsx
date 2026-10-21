@@ -21,6 +21,7 @@ import { getErrorMessage } from "../../../services/api";
 import { count } from "../../../services/format";
 import "../../../styles/access.css";
 import "../../../styles/access-sweep.css";
+import { formatLabel } from "../../../services/restaurantFormats";
 
 // The platform console: every restaurant on the platform, for the platform's
 // own super admin. Add one (with everything it starts with and its first
@@ -164,6 +165,7 @@ export default function PlatformRestaurantsPage() {
                   <strong>{row.name}</strong>
                   <span className="muted small mono">
                     {row.code}
+                    {row.format && row.format !== "restaurant" ? ` · ${formatLabel(row.format)}` : ""}
                     {row.contact ? ` · ${row.contact}` : ""}
                   </span>
                 </span>
@@ -324,6 +326,7 @@ export default function PlatformRestaurantsPage() {
 }
 
 const EMPTY = {
+  format: "restaurant",
   name: "",
   code: "",
   contact: "",
@@ -360,6 +363,7 @@ function AddRestaurantModal({ onClose, onCreated }) {
         address: form.address || null,
         invoicePrefix: form.invoicePrefix || "INV",
         orderPrefix: form.orderPrefix || "ORD",
+        format: form.format,
         admin: { name: form.adminName, email: form.adminEmail, mobile: form.adminMobile || null, password: form.adminPassword },
       });
       setDone(result);
@@ -401,6 +405,16 @@ function AddRestaurantModal({ onClose, onCreated }) {
       <form className="form-grid" onSubmit={save}>
         <ErrorMessage message={error} />
         <p className="section-heading field-wide">The restaurant</p>
+        <label className="field field-wide">
+          <span>Format</span>
+          <select value={form.format} onChange={change("format")}>
+            <option value="restaurant">Restaurant: tables, captains, dine-in, takeaway and delivery</option>
+            <option value="cafe">Café: order and pay at the counter, token numbers, a few tables</option>
+            <option value="bakery">Bakery: bakes from recipes, by weight, cake pre-orders, day-end unsold</option>
+            <option value="cloud_kitchen">Cloud kitchen: delivery only, Swiggy / Zomato channels, no tables</option>
+          </select>
+          <small className="muted">Sets how the POS opens and the features it starts with; the owner can change them later.</small>
+        </label>
         <label className="field">
           <span>Name *</span>
           <input value={form.name} onChange={change("name")} required maxLength={150} autoFocus placeholder="Spice Route" />

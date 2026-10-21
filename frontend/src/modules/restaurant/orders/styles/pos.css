@@ -2633,3 +2633,9 @@
 }
 .pos-strip-actions .pos-badge { min-height: 32px; padding: 4px 10px; }
 .pos-strip-actions .button-sm { min-height: 32px; }
+
+/* A bake sold by weight: usual weights and the line's kg. */
+.pos-weigh-usual { display: flex; flex-wrap: wrap; gap: 6px; }
+.pos-weigh-usual .is-active { background: var(--primary); border-color: var(--primary); color: var(--primary-text, #fff); }
+.pos-weigh-total { margin: 0; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.qty-controls.is-weight span { min-width: 4.2em; text-align: center; font-variant-numeric: tabular-nums; }

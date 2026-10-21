@@ -8,7 +8,7 @@ const pool = require("../../../config/database");
 
 const findRestaurants = async (filters) => {
   const result = await pool.query(
-    `SELECT r.id, r.name, r.code, r.status, r.contact, r.email, r.created_at,
+    `SELECT r.id, r.name, r.code, r.status, r.format, r.contact, r.email, r.created_at,
             (SELECT COUNT(*)::int FROM outlets o WHERE o.restaurant_id = r.id) AS outlets,
             (SELECT COUNT(*)::int FROM users u WHERE u.restaurant_id = r.id AND u.status = 'active') AS active_users,
             (SELECT COUNT(*)::int FROM users u WHERE u.restaurant_id = r.id) AS users,

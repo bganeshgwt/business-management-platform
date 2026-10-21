@@ -73,7 +73,7 @@ const findProfileById = async (id) => {
   const result = await pool.query(
     `SELECT u.id, u.restaurant_id, u.outlet_id, u.name, u.email, u.mobile, u.status,
             u.token_version, u.pin_set_at, u.pin_locked_until, u.two_factor_enabled_at,
-            r.name AS restaurant_name, r.code AS restaurant_code, r.status AS restaurant_status,
+            r.name AS restaurant_name, r.code AS restaurant_code, r.status AS restaurant_status, r.format AS restaurant_format,
             o.name AS outlet_name, o.status AS outlet_status,
             COALESCE(ras.idle_lock_minutes, 0) AS idle_lock_minutes,
             emp.id AS employee_id, emp.employee_code,

@@ -53,6 +53,20 @@ const updateTokens = async (req, res) => {
   res.json({ success: true, message: "Token settings saved", data: settings });
 };
 
+// The POS's kinds of order (a cloud kitchen takes no dine-in) and its start.
+const updatePos = async (req, res) => {
+  const body = req.body || {};
+  const input = {
+    posOrderTypes: body.posOrderTypes === undefined ? undefined
+      : [...new Set(v.requiredArray(body.posOrderTypes, "Kinds of order").map((type) => v.requiredEnum(type, "Kind of order", serviceSettingsService.POS_ORDER_TYPES)))],
+    defaultOrderType: body.defaultOrderType === undefined ? undefined : v.requiredEnum(body.defaultOrderType, "A new order starts on", serviceSettingsService.POS_ORDER_TYPES),
+  };
+  const settings = await serviceSettingsService.updatePos(req.user.restaurantId, input, req.user.id);
+
+  logAction(req, "update", "service_settings", { label: "POS order types", details: { orderTypes: settings.posOrderTypes, startsOn: settings.defaultOrderType } });
+  res.json({ success: true, message: "POS order types saved", data: settings });
+};
+
 // The guest pages' web address (QR codes). Who may set up tables may set it.
 const updateWebAddress = async (req, res) => {
   const body = req.body || {};
@@ -180,4 +194,4 @@ const replaceOnlineLink = async (req, res) => {
   });
 };
 
-module.exports = { get, updateTokens, updateWebAddress, listOnlineLinks, updateOnlineLink, replaceOnlineLink };
+module.exports = { get, updateTokens, updateWebAddress, listOnlineLinks, updateOnlineLink, replaceOnlineLink, updatePos };
