@@ -79,7 +79,7 @@ async function readGroupPrice(db, business, body) {
   let unitCode = null;
   if (body.unitCode !== undefined && body.unitCode !== null && body.unitCode !== '' && body.unitCode !== sku.unit) {
     const pack = await repo.one(db, 'SELECT unit_code FROM catalog_sku_units WHERE business_id=$1 AND sku_id=$2 AND unit_code=$3 AND active', [business.id, sku.id, String(body.unitCode)]);
-    if (!pack) fail('This item has no such pack size. Add it under Products › Units & pack sizes first.', 404);
+    if (!pack) fail('This item has no such pack size. Add it under Settings › Units & pack sizes first.', 404);
     unitCode = pack.unit_code;
   }
   const minimum = body.minimumQuantity === undefined || body.minimumQuantity === null || body.minimumQuantity === '' ? 1 : core.decimal(body.minimumQuantity, 'From quantity', 3, 0.001, 100000);

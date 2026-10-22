@@ -53,7 +53,8 @@ router.get("/", authorize("orders.view"), wrap(async (req, res) => {
 }));
 
 router.get("/bake-list", authorize("orders.view"), wrap(async (req, res) => {
-  send(res, await preorders.bakeList(req.user.restaurantId, isoDay(req.query.day, "Day") || new Date().toISOString().slice(0, 10)));
+  // No day asked for: the day this till is trading on (see the service).
+  send(res, await preorders.bakeList(req.user.restaurantId, isoDay(req.query.day, "Day"), ctxOf(req)));
 }));
 
 router.get("/:id", authorize("orders.view"), wrap(async (req, res) => {
@@ -99,7 +100,11 @@ router.post("/", authorize("orders.create"), wrap(async (req, res) => {
   }, req.user.id, ctxOf(req));
 
   logAction(req, "create", "preorder", { id: created.id, label: created.number, details: { due: created.dueAt, total: created.estimatedTotal, advance: created.advanceAmount } });
-  send(res, created, 201, `${created.number} booked for ${created.customerName}`);
+  // Booked even when the till could not take the advance: say so, and how to finish.
+  const refused = created.advanceRefused && created.advanceRefused.replace(/([^.!?])$/, "$1.");
+  send(res, created, 201, refused
+    ? `${created.number} booked for ${created.customerName}, but the advance was not taken: ${refused} Take it from the pre-order when the till can.`
+    : `${created.number} booked for ${created.customerName}`);
 }));
 
 router.post("/:id/advance", authorize("payments.manage"), wrap(async (req, res) => {
@@ -125,7 +130,7 @@ router.post("/:id/cancel", authorize("orders.manage"), wrap(async (req, res) => 
   const reason = v.requiredString((req.body || {}).reason, "Reason", 300);
   const updated = await preorders.cancel(req.user.restaurantId, v.requiredId(req.params.id, "Pre-order"), reason, req.user.id);
   logAction(req, "cancel", "preorder", { id: updated.id, label: updated.number, details: { reason } });
-  send(res, updated, 200, updated.advanceHeld > 0 ? `${updated.number} cancelled. Its advance (${updated.advanceReceipt}) is still held: refund it from Dues › Advances.` : `${updated.number} cancelled`);
+  send(res, updated, 200, updated.advanceHeld > 0 ? `${updated.number} cancelled. Its advance (${updated.advanceReceipt}) is still held: refund it from Dues & accounts › Advances.` : `${updated.number} cancelled`);
 }));
 
 router.post("/:id/collect", authorize("orders.create"), wrap(async (req, res) => {

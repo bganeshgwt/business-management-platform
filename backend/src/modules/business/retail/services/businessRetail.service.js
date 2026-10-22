@@ -57,7 +57,7 @@ async function scan(business, query) {
   if (!sku && /^21\d{11}$/.test(code) && business.modules.includes('weight')) {
     if (!validEan(code)) fail('This scale label did not scan cleanly (check digit wrong). Scan it again or type the item.');
     sku = await repo.one(repo.pool, `${select} AND s.id=(SELECT sku_id FROM retail_scale_items WHERE business_id=$1 AND plu_code=$2)`, [business.id, code.slice(2, 7)]);
-    if (!sku) fail(`No item has scale code ${code.slice(2, 7)}. Set it under Products › Barcode labels › Scale codes.`, 404);
+    if (!sku) fail(`No item has scale code ${code.slice(2, 7)}. Set it under Products & services › Barcode labels › Weighing-scale codes.`, 404);
     const grams = Number(code.slice(7, 12));
     if (!grams) fail('This scale label shows no weight');
     // Grams into the item's own weight unit (kg: 0.001 kg per gram; g: 1).

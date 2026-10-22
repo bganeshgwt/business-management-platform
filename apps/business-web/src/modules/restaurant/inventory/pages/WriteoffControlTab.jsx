@@ -221,7 +221,7 @@ export default function WriteoffControlTab() {
         <p className="muted small">
           {data.store ? `${data.store.name} store only. ` : ""}Waste logged by each person at cost, items and whole dishes;
           entries someone reversed are left out. Limits are set in{" "}
-          <Link to="/inventory/settings">Settings → Stock & purchasing</Link>
+          <Link to="/inventory/settings">Stock → Stock & purchasing settings</Link>
           {wasteLimit !== null && wasteLimit !== undefined ? ` (write-offs over ${money(wasteLimit, currency)}` : " (no write-off limit set"}
           {poLimit !== null && poLimit !== undefined ? `, orders over ${money(poLimit, currency)})` : ", no order limit set)"}.
         </p>

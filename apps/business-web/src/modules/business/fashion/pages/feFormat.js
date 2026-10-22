@@ -30,7 +30,7 @@ export const REPAIR_STATES = {
 export const refuse = (message) => Object.assign(new Error(message), { response: { data: { message } } });
 
 // A date ("2027-10-05" or a timestamp) in the business's own date format
-// (Business settings › Date format).
+// (Business settings › Prices, totals and numbering).
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 export function businessDate(value, format = "DD/MM/YYYY") {
   if (!value) return "—";

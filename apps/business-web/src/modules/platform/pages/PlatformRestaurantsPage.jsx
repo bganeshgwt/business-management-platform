@@ -385,8 +385,8 @@ function AddRestaurantModal({ onClose, onCreated }) {
               <strong>{done.message}</strong>
               <p className="muted small">
                 It starts with {done.data.defaults.tax_rates} GST rates (5% restaurant service as the default), its settings,{" "}
-                {done.data.defaults.channels} delivery channels and the kitchen display's station. The owner finishes
-                Settings → GSTIN and FSSAI after signing in.
+                {done.data.defaults.channels} delivery channels and the kitchen display's station. The owner fills in
+                the GSTIN and FSSAI number under Settings → GST and invoice after signing in.
               </p>
             </div>
           </div>

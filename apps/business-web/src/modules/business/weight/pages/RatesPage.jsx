@@ -152,7 +152,7 @@ function Today({ tabs }) {
         </div>
       )}
       {!data?.customerRates && biz.can("settings.edit") && (
-        <p className="sw-note">A hotel or caterer on its own rate per kg? Switch on <strong>Wholesale price lists</strong> in <Link to={businessPath(biz.id, "settings")}>Business settings › Modules</Link>, then set Customer rates.</p>
+        <p className="sw-note">A hotel or caterer on its own rate per kg? Switch on <strong>Wholesale price lists</strong> in <Link to={businessPath(biz.id, "settings")}>Settings › Business tools</Link>, then set Customer rates.</p>
       )}
       <SectionCard flush icon="tag" title={`${rows.length} items sold by weight`}>
         <DataGrid id="weight-rates" variant="editor" caption="Today's rates" columns={columns} rows={rows} rowKey={(r) => r.id} loading={!data && !error} currency={biz.symbol}

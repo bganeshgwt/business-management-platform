@@ -581,7 +581,7 @@ const gstPack = async (restaurantId, range, outletId = null, { gstin: asked = nu
   const warnings = [];
 
   if (!gstin) {
-    warnings.push("No GSTIN is set. Add it in Restaurant → Settings (or on the outlet) before filing.");
+    warnings.push("No GSTIN is set. Add it under Settings → GST and invoice (or on the outlet) before filing.");
   }
 
   if (untaxedServiceCharge > 0) {

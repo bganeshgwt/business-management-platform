@@ -75,7 +75,7 @@ export const createProductionBatch = async (payload) => (await api.post("/invent
 // used_after_expiry, ?store= main | an outlet id.
 export const listBatches = async (params = {}) => (await api.get("/inventory/batches", { params })).data.data;
 
-// Settings → Stock & purchasing: the approval limits and how transfers land.
+// Stock → Stock & purchasing settings: the approval limits and how transfers land.
 export const getStockSettings = async () => (await api.get("/inventory/settings")).data.data;
 export const saveStockSettings = async (payload) => (await api.put("/inventory/settings", payload)).data;
 

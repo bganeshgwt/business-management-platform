@@ -215,6 +215,45 @@ On 22 October the unused `database/` folder was removed, with its entry in
 the lint settings, and lint passed again. The run logs were not kept in the
 repository.
 
+## Fixes from the docs check — 22 October 2026
+
+The six problems found while checking the docs against the code are fixed
+(listed in [REMAINING_WORK.md](REMAINING_WORK.md)). Each fix was taken out
+again and its test run: every test failed without its fix and passed with it.
+
+- Bake list day asked without a date, pre-order advance the till refuses, a
+  wrong payment type (nothing saved, the guest included), brands switched off
+  (orders, categories, a category keeping its own brand):
+  `backend/tests/integration/food-formats.test.js`.
+- Staff logins in a department: `backend/tests/integration/business-retail-complete.test.js`,
+  and a browser test of both Staff & access dialogs
+  (`apps/business-web/tests/browser/business-staff-access.spec.js`; the
+  departments list is supplied by the test, so nothing is saved).
+- Brand report totals: `backend/tests/brandReport.test.js` (the old sum gave
+  1335.6699999999998).
+- Menu paths: `apps/business-web/tests/menu-paths.test.js` finds every
+  "A → B" or "A › B" in the code and checks it against the menus as drawn (the
+  restaurant's and every kind of shop's), with a list of retired names. It
+  caught all 8 wrong paths planted to try it. Its first runs found 14 old names
+  in code comments, all fixed.
+
+An independent review (three reviewers, and a skeptic for each finding) found
+seven real problems in the first version, all fixed since: the guide described
+the Bake list screen wrongly (the screen still opens on tomorrow; the trading
+day applies when no date is asked for), a refused pre-order still saved a new
+guest, a category could not keep its own brand while brands were off, two
+shop messages named a "Products" area that no shop menu has, and a shop's
+Settings area took another name for someone who may open only some of its
+pages (it is now always "Settings"). Three problems it noticed outside these
+fixes are listed in [REMAINING_BACKLOG.md](REMAINING_BACKLOG.md) §9.
+
+Results on 22 October: backend integration tests 549/549, backend unit tests
+33/33, the staff app's Node tests 6/6, `@bmp/shared` 2/2, lint clean, both
+production builds, and the Staff & access browser test. In the full run
+before the review fixes, one check failed under load ("removing a file is
+logged": it read the activity log a moment before the server wrote it); it
+now waits for the row.
+
 ## Load and recovery evidence
 
 A two-minute run with four concurrent workers completed 1,983 order/bill/payment

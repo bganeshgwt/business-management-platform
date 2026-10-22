@@ -767,13 +767,13 @@ Returns: `data` = array of `{ id, name, description, sortOrder, status, productC
 Permission: `menu.manage`
 Query/Body: `name` (string, required, <=100), `description` (string, <=500), `sortOrder` (0-9999, default 0), `status` (`active` | `inactive`, default `active`), `brandId` (the brand whose menu it is; null, 0 or empty = every brand's)
 Returns: `data` = the category; status 201.
-Errors: 404 brand not found; 409 a category with that name already exists.
+Errors: 403 `feature_off` a brand while the brands feature is off; 404 brand not found; 409 a category with that name already exists.
 
 #### `PUT /api/menu/categories/:id`
 Permission: `menu.manage`
 Query/Body: same fields as create, all optional; a field left out keeps its value.
 Returns: `data` = the updated category.
-Errors: 400 nothing to change (no field sent); 404 category or brand not found; 409 duplicate name.
+Errors: 400 nothing to change (no field sent); 403 `feature_off` giving the category a different brand while the brands feature is off (sending the brand it already has is fine); 404 category or brand not found; 409 duplicate name.
 
 #### `DELETE /api/menu/categories/:id`
 Permission: `menu.manage`
@@ -782,7 +782,7 @@ Returns: no `data` (message "Category deleted").
 Errors: 404 not found; 409 the category still has products (move/delete them or set it inactive).
 
 ### Brands
-One kitchen selling under several names (the `brands` feature, checked before the permission: off answers 403 `feature_off`). A brand has its own menu categories (`brandId` on a category; a category with no brand is every brand's, such as drinks), an order is taken under a brand (`brandId` on `POST /api/orders`), and the brand prints on the order's KOTs and bill (`brandName`). The kitchen, stock, staff, GST and business day stay one. A brand is `{ id, name, tagline, color, sortOrder, status, categoryCount, productCount }` (the counts on the list only).
+One kitchen selling under several names (the `brands` feature, checked before the permission: off answers 403 `feature_off`). A brand has its own menu categories (`brandId` on a category; a category with no brand is every brand's, such as drinks), an order is taken under a brand (`brandId` on `POST /api/orders`), and the brand prints on the order's KOTs and bill (`brandName`). The kitchen, stock, staff, GST and business day stay one. Switched off, a new order or category under a brand is refused (403 `feature_off`); an order taken under a brand before keeps it, and dishes can still be added to it without the menu rule. A brand is `{ id, name, tagline, color, sortOrder, status, categoryCount, productCount }` (the counts on the list only).
 
 #### `GET /api/menu/brands`
 Permission: `orders.view`
@@ -1504,7 +1504,7 @@ Errors: 404 order not found.
 Permission: `orders.create`
 Body: `items[]` (required; each `{ productId, productVariantId?, modifierIds?[], comboSelections?, quantity (0.01-9999), notes? (200), courseNo? (1-20, default 1), courseName? (60), holdCourse? }`), `orderType` (dine_in default, takeaway, delivery, qr, online), `tableId` (required for dine_in), `channelId`, `brandId` (the brand the order is taken under; left out, the kitchen's own name), `source` (pos default, captain, qr, website, phone, partner), `customerId`, `customerName` (150), `customerMobile` (20), `guestCount` (whole number, 1-999), `notes` (500), `overrideHold` (true to seat on a table held for a booking). The outlet comes from `resolveOutlet`, never from the body. A typed mobile with no `customerId` finds the guest, or adds a new guest to the guest book. A dine-in, takeaway or delivery order the counter takes (any source but `qr` and `website`) must be a kind the POS takes (`PUT /api/orders/service-settings/pos`).
 Returns: 201, `data` = the order plus `guestAdded` (`{ id, name }` or null) and `guestNotice`. The order gets a token number when tokens are on for its order type.
-Errors: 400 `order_type_off` (the POS does not take that kind of order); 400 dish not on the menu, outside serving times, size or add-on invalid, or price above MRP; 400 `brand_menu` (a dish on another brand's menu); 404 brand not found; 409 the brand is switched off; 400 `sold_out` (`data.items`); 400 table missing, not in use, or on a closed floor or section; 400 `table_other_outlet` or `table_main_counter`; 409 `table_held` (`data.booking`, resend with `overrideHold`); 409 `table_busy` (`data.orderId`); 409 no business day is open; 409 `outlet_required` (pick an outlet for a takeaway or delivery, or for a till on "All outlets").
+Errors: 400 `order_type_off` (the POS does not take that kind of order); 400 dish not on the menu, outside serving times, size or add-on invalid, or price above MRP; 400 `brand_menu` (a dish on another brand's menu); 403 `feature_off` a brand while the brands feature is off; 404 brand not found; 409 the brand is switched off; 400 `sold_out` (`data.items`); 400 table missing, not in use, or on a closed floor or section; 400 `table_other_outlet` or `table_main_counter`; 409 `table_held` (`data.booking`, resend with `overrideHold`); 409 `table_busy` (`data.orderId`); 409 no business day is open; 409 `outlet_required` (pick an outlet for a takeaway or delivery, or for a till on "All outlets").
 
 #### `POST /api/orders/:id/move-table`
 Permission: `orders.create`
@@ -1652,7 +1652,7 @@ Errors: 400 a status or date that is not valid.
 
 #### `GET /api/preorders/bake-list`
 Permission: `orders.view`
-Query: `day` (YYYY-MM-DD; default the server's date in UTC).
+Query: `day` (YYYY-MM-DD; default the day this till trades on: the open business day of the request's outlet, else the main counter's; with no day open, today on the restaurant's clock, or last night's day before the cut-off hour).
 Returns: `data` = `{ day, items[{ productId, name, soldBy, quantity, orders[{ number, dueAt, quantity, notes, customer }] }] }`. This is what to make that day: the items of every open pre-order due that day, added up by item, each with its messages.
 Errors: 400 the day is not valid.
 
@@ -1664,8 +1664,8 @@ Errors: 404 pre-order not found.
 #### `POST /api/preorders`
 Permission: `orders.create` (an advance also needs `payments.manage`)
 Body: `customerId`, or `customerMobile` (20) with `customerName` (150), which finds the guest or adds them to the guest book; `dueAt` (required, date and time, later today or a later day); `fulfilment` (`pickup` default, `delivery`); `deliveryAddress` (300; required for delivery); `notes` (500); `items[]` (required, 1-30; each `{ productId, productVariantId?, quantity (0.01-9999; kg for a dish sold by weight), notes? (300, the message on the cake) }`); `advance` (optional: `{ amount (1-10,000,000), paymentMethod (cash, card, upi, online, wallet, other), paymentTypeId?, transactionRef? (100) }`). Items are priced from the menu (a size adds its difference). The outlet is the request's.
-Returns: 201, `data` = the pre-order. If the advance is then refused (no business day open, for instance), the answer is that error but the pre-order is already saved: take the advance with `POST /api/preorders/:id/advance`.
-Errors: 400 no due time, or a time already past; 400 not 1-30 items; 400 no guest and no mobile; 400 the advance is more than the order; 403 an advance without `payments.manage`; 404 guest not found; 404 a dish or size not on the menu; plus the advance's errors from `POST /api/bills/advances`.
+Returns: 201, `data` = the pre-order. The advance's payment type is checked before anything is saved. If the till then refuses the advance (no business day open, for instance), the pre-order is booked all the same: `data.advanceRefused` is the reason, the message says the advance was not taken, and it is taken later with `POST /api/preorders/:id/advance`.
+Errors: 400 no due time, or a time already past; 400 not 1-30 items; 400 no guest and no mobile; 400 the advance is more than the order; 400 the advance's payment type is not found, is for another method, is switched off or needs its reference (nothing is saved); 403 an advance without `payments.manage`; 404 guest not found; 404 a dish or size not on the menu. The till's other refusals of the advance come back in `advanceRefused`, not as an error.
 
 #### `POST /api/preorders/:id/advance`
 Permission: `payments.manage`
@@ -1682,7 +1682,7 @@ Errors: 404 pre-order not found; 409 the move is not allowed.
 #### `POST /api/preorders/:id/cancel`
 Permission: `orders.manage`
 Body: `reason` (required, 300).
-Returns: `data` = the pre-order (cancelled). The advance is not handed back here: the message names its receipt, to refund from Dues › Advances (`POST /api/bills/advances/:id/refunds`).
+Returns: `data` = the pre-order (cancelled). The advance is not handed back here: the message names its receipt, to refund from Dues & accounts › Advances (`POST /api/bills/advances/:id/refunds`).
 Errors: 400 no reason; 404 pre-order not found; 409 already collected or cancelled.
 
 #### `POST /api/preorders/:id/collect`
@@ -2808,7 +2808,7 @@ Errors: 400 unknown category or supplier; 400 dated after today; 400 `data.reaso
 Permission: `expenses.manage`
 Query/Body: `ids` (expense ids, required, 1-200), `expectedTotal` (the total the list showed)
 Returns: `data` = `{ count, total, expenses[] }`. "Approve selected": every chosen expense is approved in one transaction, all or none, and each is written to the activity log as if approved on its own. With an outlet set for the request, only that outlet's expenses can be chosen.
-Errors: 400 none chosen, or more than 200; 404 `{ reason: "not_found", ids }` (not found here, or another outlet's); 409 `{ reason: "not_pending", ids }` (someone else decided on them); 409 `{ reason: "drawer_petty_cash", ids }` (petty cash from a drawer is approved under Business day → Drawers); 409 `{ reason: "drawer_closed", ids }`; 409 `{ reason: "total_changed", total }` (the amounts changed since the list was opened).
+Errors: 400 none chosen, or more than 200; 404 `{ reason: "not_found", ids }` (not found here, or another outlet's); 409 `{ reason: "not_pending", ids }` (someone else decided on them); 409 `{ reason: "drawer_petty_cash", ids }` (petty cash from a drawer is approved under Business day → Drawers & cash); 409 `{ reason: "drawer_closed", ids }`; 409 `{ reason: "total_changed", total }` (the amounts changed since the list was opened).
 
 #### `PUT /api/expenses/:id`
 Permission: `expenses.manage`
@@ -4201,8 +4201,8 @@ Errors: 404 staff member or role not found; 404 location not found or closed; 40
 
 #### `POST /api/businesses/:businessId/staff-accounts`
 Permission: `access.edit`
-Query/Body: `name` (required, up to 150), `email` (required), `password` (8-72, required), `mobile` (optional), `roleId` (required), `workLocationId` (optional)
-Returns: 201, the membership row plus `role_name`, `name`, `email`: a login of their own for a member of staff, with no restaurant behind it (a restaurant business's staff stay with that restaurant). The role and location go through the checks of `POST /members`; when those refuse, the new login is removed again.
+Query/Body: `name` (required, up to 150), `email` (required), `password` (8-72, required), `mobile` (optional), `roleId` (required), `workLocationId` (optional), `workDepartmentId` (optional; a giver tied to a department must name their own)
+Returns: 201, the membership row plus `role_name`, `name`, `email`: a login of their own for a member of staff, with no restaurant behind it (a restaurant business's staff stay with that restaurant). The role, location and department go through the checks of `POST /members`; when those refuse, the new login is removed again.
 Errors: 400 validation; 409 "That email already has a login. Give that person access with "Give access" instead."; 409 the mobile number already has a login; plus the errors of `POST /members`.
 
 #### `POST /api/businesses/:businessId/staff-accounts/:userId/password`
@@ -5664,7 +5664,7 @@ New routes (all under `/api/businesses/:businessId`):
 
 ### Salon, weight shops & repairs, round 2 (8 Oct 2026)
 
-Additive routes, same router and checks (membership → module → permission; the services repeat them). Migration `1791620001000_salon-weight-repairs-round2`. A *manager's approval* in a body is `{ reason, approverId?, pin? }`: the approver must hold the named permission in this business and type their own PIN (My profile › PIN; five wrong tries lock it). 400 `wrong_pin` / `approval_needed`, 403 `not_an_approver`, 409 `no_pin`, 423 `pin_locked` (in `data.reason`).
+Additive routes, same router and checks (membership → module → permission; the services repeat them). Migration `1791620001000_salon-weight-repairs-round2`. A *manager's approval* in a body is `{ reason, approverId?, pin? }`: the approver must hold the named permission in this business and type their own PIN (My profile › Personal PIN; five wrong tries lock it). 400 `wrong_pin` / `approval_needed`, 403 `not_an_approver`, 409 `no_pin`, 423 `pin_locked` (in `data.reason`).
 
 Changed behaviour on existing routes:
 

@@ -232,7 +232,7 @@ export function OrderTestsDialog({ visit, patient, onClose, onSaved }) {
           <label key={t.id} className="hl-check"><input type="checkbox" checked={chosen.includes(t.id)} onChange={() => toggle(t.id)} />
             <span><strong>{t.name}</strong> <small className="muted">{t.code} · {t.kind === "profile" ? `profile: ${t.profile_codes}` : `${t.parameter_count} parameter${t.parameter_count === 1 ? "" : "s"}`} · {t.sample_type}{t.sku_price ? ` · ${biz.exact(t.sku_price)}` : ""}</small></span></label>
         ))}
-        {!tests.length && <p className="muted">No tests set up yet (Lab › Tests & panels).</p>}
+        {!tests.length && <p className="muted">No tests set up yet (Lab orders › Tests & panels).</p>}
       </div>
       <Field label="Priority"><select value={priority} onChange={(e) => setPriority(e.target.value)}><option value="routine">Routine</option><option value="urgent">Urgent</option></select></Field>
       <label className="hl-check"><input type="checkbox" checked={bill} onChange={(e) => setBill(e.target.checked)} /> Bill the tests now{bill && total ? ` (${biz.exact(total)})` : ""}</label>

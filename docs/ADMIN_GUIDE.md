@@ -155,7 +155,9 @@ reason, and listed first. Switching a tool off hides its screens and keeps its
 history. Businesses set up before the lean start keep the tools they had.
 
 **Staff logins.** In Staff & access, *New staff login* creates a login for
-someone who has none (name, email, first password, role and where they work);
+someone who has none (name, email, first password, role, where they work and,
+in a business with departments, which department; a manager tied to a
+department makes logins in that department only);
 *Give access* adds someone who already has a login (your restaurant's staff, or
 people working in another business you own). *Password* sets a new password for
 a member of staff whose login is used only in this business; their open
@@ -628,7 +630,7 @@ choose, who is then put on the order) pays now; the receipt says "Pickup order
 ORD-…". Opening the order shows *Paid ahead*. When the bill is made at pickup,
 *Advance* is already chosen with that advance and the amount due; take the rest
 as usual. If the order is cancelled, the advance stays held and is handed back
-from Dues › Advances like any other.
+from Dues & accounts › Advances like any other.
 
 ## Reservations and online booking
 
@@ -2323,7 +2325,7 @@ what is still to refund.
 
 *Added 8 October 2026.* For a business of type Pharmacy, with the business tool **Pharmacy rules** on (Settings › Business tools, on by default). The rules are standard Indian practice; see [DECISIONS_ROUND2.md › Pharmacy & clinic](DECISIONS_ROUND2.md#pharmacy--clinic) and check them with your pharmacist and drugs inspector before going live.
 
-**Set up once** (*Settings › Pharmacy settings*): the drug licence numbers you hold (Form 20 / 21 retail, 20B / 21B wholesale, 20F for Schedule X) — they print on every bill; how long the registers and prescriptions are kept (H1 3 years, X and prescriptions 2); whether a scan of the prescription is required (yes); what "expiring soon" means (90 days). Under **Registered pharmacists** add the pharmacist from your staff with their council registration; they sign with their own PIN (*My profile › PIN*). The **Pharmacist** role exists for them.
+**Set up once** (*Settings › Pharmacy settings*): the drug licence numbers you hold (Form 20 / 21 retail, 20B / 21B wholesale, 20F for Schedule X) — they print on every bill; how long the registers and prescriptions are kept (H1 3 years, X and prescriptions 2); whether a scan of the prescription is required (yes); what "expiring soon" means (90 days). Under **Registered pharmacists** add the pharmacist from your staff with their council registration; they sign with their own PIN (*My profile › Personal PIN*). The **Pharmacist** role exists for them.
 
 **Drug master** (*Medicines & products › Drug master*). For each medicine: salt / composition, strength, form, maker, schedule (OTC, G, H, H1, X, narcotic), tablets per strip and strips per box, whether a strip may be cut and sold loose, cold chain and storage. Filter by schedule, or "No details yet" to finish the list. Items with the same salt and strength are substitutes.
 
@@ -2404,8 +2406,8 @@ While a parameter's latest QC today is failed, its patient reports cannot be app
 **Selling by weight** (bakery cookies, sweets). Set the menu item to *Sold: by weight* and the price is per kg. On the POS it asks for the grams on the scale (or offers 100 g to 1 kg). The line shows the kg, and ± changes it 50 g at a time.
 
 **Pre-orders & cakes** (*Daily work › Pre-orders & cakes*, feature *Pre-orders & cakes*).
-- **Booking:** *New pre-order* takes the guest (name and mobile), when it is due, pickup or delivery, the items with each cake's message or flavour, and an advance. The advance is an ordinary advance (*Dues › Advances*), in the day's cash.
-- **Baking:** the **Bake list** adds up what is due on a day by item, with every message, and can be printed for the kitchen. *Start baking*, then *Ready*.
+- **Booking:** *New pre-order* takes the guest (name and mobile), when it is due, pickup or delivery, the items with each cake's message or flavour, and an advance. The advance is an ordinary advance (*Dues & accounts › Advances*), in the day's cash. If the till cannot take it (no business day open, say), the pre-order is still booked and a warning says so: take it later with *Take advance* on the pre-order.
+- **Baking:** the **Bake list** adds up what is due on a day by item, with every message, and can be printed for the kitchen. It opens on tomorrow; pick any day. *Start baking*, then *Ready*.
 - **Hand-over:** *Hand over & bill* makes a takeaway order on today's business day and opens its bill with the advance taken first.
 - **Cancelling:** a cancelled pre-order keeps its advance held for a refund.
 - **Dashboard:** a Pre-orders block shows what is due today.
@@ -2423,6 +2425,7 @@ While a parameter's latest QC today is failed, its patient reports cannot be app
 - **Taking orders:** the POS shows the brands above the menu. Pick one, and the menu shows its categories and the shared ones. The order is taken under that brand, and a dish from another brand's menu is refused.
 - **Printing:** the KOT and the bill print the brand's name. The registered business that supplies it follows on the bill, with its GSTIN.
 - **Report:** *Sales by brand* shows each brand's bills, sales, aggregator commission (at each order's own rate) and net, by channel.
+- **Switching off:** with *Brands* off, no new order or category can be taken under a brand. Orders and categories that already have a brand keep it, and dishes can still be added to those orders.
 - **Pausing:** a brand can be paused, which takes no new orders and keeps its history.
 
 The demo cloud kitchen, Biryani Box, sells as Biryani Box, Wrap Republic and Bowl Theory.

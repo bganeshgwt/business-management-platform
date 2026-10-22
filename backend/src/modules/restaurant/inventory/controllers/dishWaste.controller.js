@@ -4,7 +4,7 @@ const { logAction } = require("../../../../utils/audit");
 const v = require("../../../../utils/validate");
 const AppError = require("../../../../utils/AppError");
 
-// Waste & reorder → Dish wasted (sweep SW-B-22). Kitchen staff who can log
+// Waste & reorder → Wastage → Dishes wasted (sweep SW-B-22). Kitchen staff who can log
 // waste can log a dish; undoing one puts stock back, so it is a manager's.
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;

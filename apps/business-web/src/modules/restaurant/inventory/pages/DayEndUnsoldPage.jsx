@@ -59,7 +59,7 @@ export default function DayEndUnsoldPage() {
       <PageHeader icon="box" title="Day-end unsold" description="At closing: what is left of today's bakes. Write off what will not sell tomorrow; what keeps stays in stock." />
       <ErrorMessage message={error} />
       {!items && !error ? <Loading /> : items?.length === 0 ? (
-        <EmptyState icon="box" title="No baked items yet" description="Bakes are prepared stock items made from a recipe (Stock › Items › Production). They show here with what is left." />
+        <EmptyState icon="box" title="No baked items yet" description="Bakes are prepared stock items made from a recipe (Stock › Items & stock › Production). They show here with what is left." />
       ) : items && (
         <div className="de-card">
           <table className="de-table">

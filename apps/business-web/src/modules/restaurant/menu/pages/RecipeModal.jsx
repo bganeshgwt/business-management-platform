@@ -359,7 +359,7 @@ export default function RecipeModal({ product, currency, canManage, onClose }) {
               )}
 
               {canManage && items.length === 0 && (
-                <div className="alert">Add inventory items first, under Inventory → Items &amp; stock.</div>
+                <div className="alert">Add inventory items first, under Stock → Items &amp; stock.</div>
               )}
 
               {canManage && items.length > 0 && (

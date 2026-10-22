@@ -333,8 +333,14 @@ test("reports, day-end and dashboard", { timeout: 600000 }, async (t) => {
     assert.match(sixth.message, /5 files/);
 
     await O("DELETE", `/expenses/${expense.id}/attachments/${added.id}`);
-    const log = await one("SELECT COUNT(*)::int AS n FROM audit_logs WHERE restaurant_id = $1 AND action = 'remove_attachment' AND entity_type = 'expense'", [rid]);
-    assert.equal(log.n, 1, "removing a file is logged");
+    // The activity log is written after the answer (best-effort, never in the
+    // way of the action): under load the row can land a moment later.
+    let logged = 0;
+    for (let tries = 0; tries < 50 && !logged; tries += 1) {
+      logged = (await one("SELECT COUNT(*)::int AS n FROM audit_logs WHERE restaurant_id = $1 AND action = 'remove_attachment' AND entity_type = 'expense'", [rid])).n;
+      if (!logged) await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    assert.equal(logged, 1, "removing a file is logged");
     assert.equal((await O("GET", `/expenses/${expense.id}/attachments`)).length, 4);
 
     const supplier = await O("POST", "/suppliers", { name: "Veg Vendor" }, 201);

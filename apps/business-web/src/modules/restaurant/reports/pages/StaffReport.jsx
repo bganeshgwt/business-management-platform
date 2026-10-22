@@ -88,7 +88,7 @@ export default function StaffReport({ data, currency }) {
     [currency]
   );
 
-  // Dine-in sales by captain section (Floor → Captain sections): each bill
+  // Dine-in sales by captain section (Tables & QR → Captain sections): each bill
   // under the captain who held its table on its business day.
   const sections = data.waiters.sections || [];
   const sectionColumns = useMemo(
@@ -182,7 +182,7 @@ export default function StaffReport({ data, currency }) {
         icon="table"
         tone="violet"
         title="By captain section"
-        description="Dine-in bills under the captain who had the table that day (Tables → Captain sections). Tables nobody was given are under No captain set."
+        description="Dine-in bills under the captain who had the table that day (Tables & QR → Captain sections). Tables nobody was given are under No captain set."
         flush
       >
         <DataGrid

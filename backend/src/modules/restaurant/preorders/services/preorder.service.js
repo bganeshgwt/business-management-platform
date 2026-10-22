@@ -3,7 +3,7 @@
 //
 //   booked → in_production → ready → collected   (or cancelled)
 //
-// The advance is an ordinary customer advance (Dues › Advances), so it is in
+// The advance is an ordinary customer advance (Dues & accounts › Advances), so it is in
 // the day's cash and its receipt is numbered with the others. On collection
 // the pre-order becomes a takeaway order on today's business day; the
 // advance is put on that order, so its bill takes the advance first.
@@ -13,6 +13,9 @@ const crmService = require("../../crm/services/crm.service");
 const crmRepository = require("../../crm/repositories/crm.repository");
 const advanceService = require("../../billing/services/customerAdvance.service");
 const orderService = require("../../orders/services/order.service");
+const paymentTypeService = require("../../setup/services/paymentType.service");
+const restaurantRepository = require("../../setup/repositories/restaurant.repository");
+const tradingDay = require("../../business-day/services/tradingDay");
 
 const OPEN = ["booked", "in_production", "ready"];
 const NEXT = { booked: ["in_production", "ready"], in_production: ["ready"], ready: [] };
@@ -107,8 +110,13 @@ const list = async (restaurantId, filters = {}) => {
 };
 
 // What to bake for a day: every open pre-order's items due that day, added
-// up by item, each with its messages.
-const bakeList = async (restaurantId, day) => {
+// up by item, each with its messages. With no day asked for, the day the till
+// is trading on (the open business day, else the restaurant's own date), not
+// the server's: on a server clock in UTC, a bake list opened after midnight in
+// India would otherwise show the day before.
+const bakeList = async (restaurantId, asked, ctx = {}) => {
+  const outletId = ctx.outletId || null;
+  const day = asked || (await tradingDay.currentDateOf(restaurantId, outletId, await restaurantRepository.findSettings(restaurantId, outletId)));
   const rows = (await pool.query(
     `SELECT i.product_id, pr.name || COALESCE(' (' || v.name || ')', '') AS name, pr.sold_by, sum(i.quantity) AS quantity,
         json_agg(json_build_object('number', p.preorder_number, 'dueAt', p.due_at, 'quantity', i.quantity, 'notes', i.notes, 'customer', c.name) ORDER BY p.due_at) AS orders
@@ -160,8 +168,6 @@ const create = async (restaurantId, data, userId, ctx = {}) => {
     throw new AppError(400, "A pre-order is for later today or a later day");
   }
 
-  const customerId = await guestFor(restaurantId, data, userId);
-
   // Each item at its menu price (a size adds its difference; by weight, per kg).
   const priced = [];
 
@@ -190,6 +196,13 @@ const create = async (restaurantId, data, userId, ctx = {}) => {
     throw new AppError(400, `The advance is more than the order (₹${total.toFixed(2)})`);
   }
 
+  // A wrong payment type is a mistake to correct before anything is saved.
+  if (data.advance && data.advance.amount > 0) {
+    await paymentTypeService.forPayment(restaurantId, data.advance.paymentMethod, data.advance.paymentTypeId, data.advance.transactionRef);
+  }
+
+  // The guest last of all: a refused pre-order leaves no new guest behind.
+  const customerId = await guestFor(restaurantId, data, userId);
   const client = await pool.connect();
   let id;
 
@@ -225,13 +238,25 @@ const create = async (restaurantId, data, userId, ctx = {}) => {
     client.release();
   }
 
-  // The advance goes into the day's cash like any other; the pre-order is
-  // kept even if the till cannot take it (no day open): take it from here later.
+  // The advance goes into the day's cash like any other. The pre-order is
+  // kept even if the till cannot take it (no day open): the answer says why
+  // (advanceRefused), and the advance is taken from the pre-order later.
+  let advanceRefused = null;
+
   if (data.advance && data.advance.amount > 0) {
-    await takeAdvance(restaurantId, id, data.advance, userId, ctx);
+    try {
+      await takeAdvance(restaurantId, id, data.advance, userId, ctx);
+    } catch (error) {
+      if (!(error instanceof AppError)) {
+        throw error;
+      }
+
+      advanceRefused = error.message;
+    }
   }
 
-  return findOne(restaurantId, id);
+  const saved = await findOne(restaurantId, id);
+  return advanceRefused ? { ...saved, advanceRefused } : saved;
 };
 
 const takeAdvance = async (restaurantId, id, advance, userId, ctx = {}) => {

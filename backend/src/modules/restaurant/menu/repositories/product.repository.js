@@ -317,7 +317,7 @@ const findHistory = async (restaurantId, id, name, limit = 200) => {
                                   WHERE v.restaurant_id = $1 AND v.product_id = $2)
                   OR (a.action = 'delete' AND a.entity_label LIKE $3 || ' · %')))
        )
-       -- A plate written off (Waste & reorder → Dish wasted) is logged against
+       -- A plate written off (Waste & reorder → Wastage → Dishes wasted) is logged against
        -- the dish but changes nothing about it: it is not part of its history.
        AND a.action NOT IN ('dish_wasted', 'dish_waste_reversed')
      ORDER BY a.created_at DESC, a.id DESC

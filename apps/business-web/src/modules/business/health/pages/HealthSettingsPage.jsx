@@ -154,7 +154,7 @@ function SignatoryDialog({ current, pharmacy, onClose, onSaved }) {
   const members = (options?.members || []).filter((m) => m.active);
   return (
     <FormDialog title={current.id ? `Edit ${current.name}` : "Add a person who signs"} icon="users" width={620} onClose={onClose} onSaved={onSaved} successMessage="Saved"
-      description="They sign with their own PIN (My profile › PIN). Use the name and number exactly as on their council registration."
+      description="They sign with their own PIN (My profile › Personal PIN). Use the name and number exactly as on their council registration."
       onSubmit={() => businessWrite(biz.id, "health/signatories", { ...form, userId: Number(form.userId), resourceId: form.resourceId ? Number(form.resourceId) : null })}>
       {error && <div className="field-wide"><ErrorMessage message={error} /></div>}
       {!pharmacy && (

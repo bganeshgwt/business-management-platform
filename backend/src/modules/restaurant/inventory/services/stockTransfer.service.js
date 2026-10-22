@@ -12,7 +12,7 @@ const { round2 } = require("../../../../utils/money");
 //
 //   * One note carries many items from one store to another, numbered
 //     TRF-0001, valued at cost, printable as a delivery challan.
-//   * With "the receiving store confirms" on (Settings → Stock & purchasing)
+//   * With "the receiving store confirms" on (Stock → Stock & purchasing settings)
 //     stock leaves the sender at dispatch and travels "in transit" until the
 //     receiver checks it; anything short or damaged is written off at the
 //     receiving store with the reason. Otherwise a note lands at once.

@@ -972,7 +972,7 @@ const create = async (restaurantId, data, userId) => {
 
     if (!taken.includes(data.orderType)) {
       const words = { dine_in: "dine-in", takeaway: "takeaway", delivery: "delivery" };
-      throw new AppError(400, `This outlet does not take ${words[data.orderType]} orders (Service settings › POS).`, { reason: "order_type_off" });
+      throw new AppError(400, `This outlet does not take ${words[data.orderType]} orders (Service settings › Orders the POS takes).`, { reason: "order_type_off" });
     }
   }
 

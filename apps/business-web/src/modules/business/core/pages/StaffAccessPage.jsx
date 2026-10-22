@@ -78,16 +78,7 @@ function AccessDialog({ member, onClose, onSaved }) {
   const [form, setForm] = useState({ userId: member.id ? String(member.id) : "", roleId: member.role_id ? String(member.role_id) : "", active: member.active ?? true,
     workLocationId: pinned || (member.location_id ? String(member.location_id) : ""),
     workDepartmentId: pinnedDepartment || (member.department_id ? String(member.department_id) : "") });
-  const [departments, setDepartments] = useState([]);
-  useEffect(() => {
-    if (!biz.has("inventory")) return undefined;
-    const controller = new AbortController();
-    businessRead(biz.id, "departments", undefined, controller.signal)
-      .then((rows) => setDepartments(rows.filter((d) => d.active || String(d.id) === form.workDepartmentId))).catch(() => {});
-    return () => controller.abort();
-    // Loaded once for the dialog; the chosen department stays listed even when switched off.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [biz.id]);
+  const departments = useDepartmentChoices(biz, form.workDepartmentId);
   const places = biz.allLocations.filter((l) => l.active || String(l.id) === form.workLocationId);
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
   const roles = (options?.["roles?active=true"] || []).filter((r) => !r.full_access);
@@ -122,33 +113,31 @@ function AccessDialog({ member, onClose, onSaved }) {
           </select>
         </Field>
       )}
-      {(departments.length > 0 || pinnedDepartment) && (
-        <Field label="Department" wide hint="Tied to one department, they see and change its products and stock only. Billing stays open to every item.">
-          <select value={form.workDepartmentId} disabled={Boolean(pinnedDepartment)} onChange={set("workDepartmentId")}>
-            {!pinnedDepartment && <option value="">All departments</option>}
-            {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-          </select>
-        </Field>
-      )}
+      <DepartmentField departments={departments} pinned={pinnedDepartment} pinnedName={biz.member.department_name} value={form.workDepartmentId} onChange={set("workDepartmentId")} />
       {editing && <label className="checkbox bz-check"><input type="checkbox" checked={form.active} onChange={set("active")} /> Can open this business</label>}
     </FormDialog>
   );
 }
 
 // A login of their own for a member of staff (no restaurant needed): name,
-// email and a first password, with their role and where they work.
+// email and a first password, with their role, where they work and, in a
+// business with departments, which one (a manager tied to a department makes
+// logins in that department only).
 function NewLoginDialog({ onClose, onSaved }) {
   const biz = useOpenBusiness();
   const { options, error } = useOptions(["roles?active=true"]);
   const pinned = biz.member.location_id ? String(biz.member.location_id) : null;
-  const [form, setForm] = useState({ name: "", email: "", mobile: "", password: "", roleId: "", workLocationId: pinned || "" });
+  const pinnedDepartment = biz.member.department_id ? String(biz.member.department_id) : null;
+  const [form, setForm] = useState({ name: "", email: "", mobile: "", password: "", roleId: "", workLocationId: pinned || "", workDepartmentId: pinnedDepartment || "" });
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
   const roles = (options?.["roles?active=true"] || []).filter((r) => !r.full_access);
   const places = biz.allLocations.filter((l) => l.active);
+  const departments = useDepartmentChoices(biz, form.workDepartmentId);
   return (
     <FormDialog title="New staff login" icon="user-plus" width={600} onClose={onClose} onSaved={onSaved} disabled={!options} submitLabel="Create login"
       description="For someone who has no login yet. Tell them their email and this password; they can change it in My profile."
-      onSubmit={() => businessWrite(biz.id, "staff-accounts", { ...form, name: form.name.trim(), email: form.email.trim(), mobile: form.mobile.trim() })}>
+      onSubmit={() => businessWrite(biz.id, "staff-accounts", { ...form, name: form.name.trim(), email: form.email.trim(), mobile: form.mobile.trim(),
+        ...(departments.length || pinnedDepartment ? {} : { workDepartmentId: undefined }) })}>
       <FormError message={error} />
       <Field label="Name"><input required maxLength={150} value={form.name} onChange={set("name")} /></Field>
       <Field label="Email" hint="They sign in with it."><input type="email" required maxLength={150} value={form.email} onChange={set("email")} /></Field>
@@ -168,7 +157,41 @@ function NewLoginDialog({ onClose, onSaved }) {
           </select>
         </Field>
       )}
+      <DepartmentField departments={departments} pinned={pinnedDepartment} pinnedName={biz.member.department_name} value={form.workDepartmentId} onChange={set("workDepartmentId")} />
     </FormDialog>
+  );
+}
+
+// The departments a person can be tied to: the active ones, and the one
+// already chosen even when it has been switched off. Only a business that
+// keeps stock has departments.
+function useDepartmentChoices(biz, keepId) {
+  const [departments, setDepartments] = useState([]);
+  useEffect(() => {
+    if (!biz.has("inventory")) return undefined;
+    const controller = new AbortController();
+    businessRead(biz.id, "departments", undefined, controller.signal)
+      .then((rows) => setDepartments(rows.filter((d) => d.active || String(d.id) === keepId))).catch(() => {});
+    return () => controller.abort();
+    // Loaded once for the dialog; the chosen department stays listed even when switched off.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [biz.id]);
+  return departments;
+}
+
+// Which department they work in; fixed to the giver's own when the giver is
+// tied to one (named even when the list of departments cannot be read).
+function DepartmentField({ departments, pinned, pinnedName, value, onChange }) {
+  if (!departments.length && !pinned) return null;
+  const pinnedListed = departments.some((d) => String(d.id) === pinned);
+  return (
+    <Field label="Department" wide hint="Tied to one department, they see and change its products and stock only. Billing stays open to every item.">
+      <select value={value} disabled={Boolean(pinned)} onChange={onChange}>
+        {!pinned && <option value="">All departments</option>}
+        {pinned && !pinnedListed && <option value={pinned}>{pinnedName || "Your department"}</option>}
+        {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+      </select>
+    </Field>
   );
 }
 

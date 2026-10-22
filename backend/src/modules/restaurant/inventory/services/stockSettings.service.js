@@ -3,7 +3,7 @@ const approvalService = require("../../../access/services/approval.service");
 const AppError = require("../../../../utils/AppError");
 const { round2 } = require("../../../../utils/money");
 
-// Settings → Stock & purchasing (sweep SW-B-10, SW-B-11).
+// Stock → Stock & purchasing settings (sweep SW-B-10, SW-B-11).
 //
 //   poApprovalLimit        a purchase order worth more than this (before GST)
 //                          waits as "Waiting for approval" until someone with

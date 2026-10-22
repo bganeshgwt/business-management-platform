@@ -22,7 +22,7 @@ export const inPacks = (value, packs = []) => {
 
 export const PO_STATUS = {
   draft: { label: "Draft", tone: "muted" },
-  // Over the approval limit (Settings → Stock & purchasing): not sent yet.
+  // Over the approval limit (Stock → Stock & purchasing settings): not sent yet.
   pending_approval: { label: "Waiting for approval", tone: "warning" },
   ordered: { label: "Ordered", tone: "info" },
   partial: { label: "Part received", tone: "warning" },

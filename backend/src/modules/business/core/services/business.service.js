@@ -483,7 +483,7 @@ async function createPriceRule(business, user, body) {
     let unitCode = null;
     if (body.unitCode !== undefined && body.unitCode !== null && body.unitCode !== '') {
       const pack = await repo.one(db, 'SELECT unit_code FROM catalog_sku_units WHERE business_id=$1 AND sku_id=$2 AND unit_code=$3 AND active', [business.id, sku.id, String(body.unitCode)]);
-      if (!pack) fail('This item has no such pack size. Add it under Products › Units & pack sizes first.', 404);
+      if (!pack) fail('This item has no such pack size. Add it under Settings › Units & pack sizes first.', 404);
       unitCode = pack.unit_code;
     }
     const minimum = decimal(body.minimumQuantity, 'Minimum quantity', 3, 0.001, 100000);
@@ -526,7 +526,7 @@ async function conversion(db, businessId, sku, entered) {
   const root = (u) => u.base_unit_code || u.code;
   const toRoot = (u) => (u.base_unit_code ? Number(u.factor_to_base) : 1);
   if (base && entered.kind === base.kind && root(entered) === root(base)) return Math.round((toRoot(entered) / toRoot(base)) * 1e6);
-  fail(`${sku.label} has no pack size in ${entered.name.toLowerCase()}. Add one under Products › Units & pack sizes.`);
+  fail(`${sku.label} has no pack size in ${entered.name.toLowerCase()}. Add one under Settings › Units & pack sizes.`);
 }
 
 // Round 2 (R2-CORE): several payments on one bill (cash + UPI + card, the

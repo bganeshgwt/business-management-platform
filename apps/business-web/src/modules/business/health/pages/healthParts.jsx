@@ -26,7 +26,7 @@ export function FlagBadge({ flag }) {
   return <StatusBadge tone={flag.startsWith("critical") ? "danger" : "warning"} label={FLAG_WORDS[flag]} />;
 }
 
-// Who signs, and their own PIN (My profile › PIN): Schedule X sales, lab reports.
+// Who signs, and their own PIN (My profile › Personal PIN): Schedule X sales, lab reports.
 export function SignOff({ kind, signatories, value, onChange, hint }) {
   const list = signatories || [];
   const word = kind === "pharmacist" ? "Registered pharmacist" : kind === "pathologist" ? "Pathologist" : "Doctor";
@@ -41,7 +41,7 @@ export function SignOff({ kind, signatories, value, onChange, hint }) {
           {list.map((s) => <option key={s.id} value={s.id} disabled={!s.has_pin}>{s.name} · Reg. {s.registration_no}{s.has_pin ? "" : " (no PIN set)"}</option>)}
         </select>
       </Field>
-      <Field label={`${word}'s PIN`} hint={hint || "Their own PIN from My profile › PIN. Checked on the server; never stored with the record."}>
+      <Field label={`${word}'s PIN`} hint={hint || "Their own PIN from My profile › Personal PIN. Checked on the server; never stored with the record."}>
         <input required type="password" inputMode="numeric" autoComplete="off" pattern="\d{4,8}" title="4 to 8 digits" maxLength={8}
           value={value.pin || ""} onChange={(e) => onChange({ ...value, pin: e.target.value.replace(/\D/g, "") })} />
       </Field>

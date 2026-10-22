@@ -4,7 +4,7 @@ const { round2 } = require("../utils/money");
 
 // Large write-offs need a second person (sweep SW-B-10).
 //
-// Settings → Stock & purchasing can set a value above which wastage or a
+// Stock → Stock & purchasing settings can set a value above which wastage or a
 // stock out needs "Approve large write-offs" — or a manager standing there,
 // who types their PIN. Under the limit, or with no limit set, nothing changes:
 // the kitchen logs its waste straight in.

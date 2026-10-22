@@ -234,7 +234,9 @@ export function businessMenu(businessId, type, can, has) {
       if (!link) return null;
       // Every page of the area, for quick access and "Jump to…" (the menu shows the area once).
       const pages = available.map((item) => ({ to: businessPath(businessId, item.section), label: workspaceLabel(item.section, type, item.label), icon: item.icon, end: item.end }));
-      return { to: businessPath(businessId, link.section), label: key === 'tasks' ? 'Tasks' : workspaceLabel(link.section, type, link.label),
+      // Settings keeps its name whoever looks (a stock keeper's first page there is
+      // Units & pack sizes), so a hint can say "Settings › Units & pack sizes".
+      return { to: businessPath(businessId, link.section), label: key === 'tasks' ? 'Tasks' : key === 'settings' ? 'Settings' : workspaceLabel(link.section, type, link.label),
         icon: link.icon, end: link.end, section: link.section, activeSections: available.map((item) => item.section), pages };
     }).filter(Boolean),
   })).filter((group) => group.links.length);

@@ -667,9 +667,10 @@ export default function PosPage() {
 
   // A dish in a category that is switched off (breakfast after 11) is not on
   // sale, so it is not on the till either — "All" included.
+  // With Brands switched off since the till opened, every category shows again.
   const brandCategories = useMemo(
-    () => (brandId ? categories.filter((row) => !row.brandId || String(row.brandId) === brandId) : categories),
-    [categories, brandId]
+    () => (brandsOn && brandId ? categories.filter((row) => !row.brandId || String(row.brandId) === brandId) : categories),
+    [categories, brandId, brandsOn]
   );
   const liveCategoryIds = useMemo(() => new Set(brandCategories.map((row) => row.id)), [brandCategories]);
   const liveProducts = useMemo(
@@ -2524,8 +2525,8 @@ export default function PosPage() {
       {dayOpen === false && (
         <div className="alert">
           {needsOutlet
-            ? "The main counter's business day is not open. Choose the outlet this sale is for under Sale at, or open the main counter's day under Operations → Business day."
-            : "No business day is open. Open it under Operations → Business day before taking orders."}
+            ? "The main counter's business day is not open. Choose the outlet this sale is for under Sale at, or open the main counter's day under Daily work → Business day."
+            : "No business day is open. Open it under Daily work → Business day before taking orders."}
         </div>
       )}
 

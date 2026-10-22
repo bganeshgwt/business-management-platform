@@ -166,7 +166,7 @@ async function readRelease(business, user, body) {
   }
   if (!access.can(approverBusiness, 'receivables.approve')) fail('That person cannot let orders through a credit hold', 403, { reason: 'not_an_approver' });
   const person = await repo.one(repo.pool, "SELECT id,name,pin_hash,pin_locked_until FROM users WHERE id=$1 AND status='active'", [approverId]);
-  if (!person?.pin_hash) fail(`${person?.name || 'That person'} has not set a PIN yet (My profile › PIN).`, 409, { reason: 'no_pin' });
+  if (!person?.pin_hash) fail(`${person?.name || 'That person'} has not set a PIN yet (My profile › Personal PIN).`, 409, { reason: 'no_pin' });
   const slot = await userRepository.reservePinAttempt(person.id, config.accountLock);
   if (!slot.allowed) fail(`${person.name}'s PIN is locked after too many wrong tries. Try again later.`, 423, { reason: 'pin_locked' });
   if (!(await bcrypt.compare(pin, person.pin_hash))) {

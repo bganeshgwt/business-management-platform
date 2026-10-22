@@ -39,7 +39,7 @@ export default function TableGrid({ tables: allTables, joinedBy, now, currency, 
       <div className="pos-table-empty">
         <Icon name="table" size={22} />
         <p className="muted small">
-          No tables are set up yet. Add them under Tables → Floor plan, then come back here.
+          No tables are set up yet. Add them under Tables & QR, then come back here.
         </p>
       </div>
     );

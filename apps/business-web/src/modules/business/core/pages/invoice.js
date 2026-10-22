@@ -23,7 +23,7 @@ export const GST_STATES = {
 export const stateName = (code) => (code ? `${GST_STATES[code] || "State"} (${code})` : "");
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-// A date in the business's own format and time zone (Settings › Date format).
+// A date in the business's own format and time zone (Business settings › Prices, totals and numbering).
 export function businessDate(value, format = "DD MMM YYYY", timezone = "Asia/Kolkata") {
   if (!value) return "";
   const text = /^\d{4}-\d{2}-\d{2}$/.test(String(value)) ? String(value)

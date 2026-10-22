@@ -398,7 +398,7 @@ function WastageTab() {
   const [undoing, setUndoing] = useState(null);
   const [notice, setNotice] = useState("");
   const [exporting, setExporting] = useState(false);
-  // Settings → Stock & purchasing: over this value a write-off needs a
+  // Stock → Stock & purchasing settings: over this value a write-off needs a
   // manager's PIN (or "Approve large write-offs").
   const [limit, setLimit] = useState(null);
 

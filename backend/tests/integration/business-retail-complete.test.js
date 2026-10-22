@@ -132,6 +132,21 @@ test('retail completion: prices by branch and member, coupons, shifts, departmen
   assert.ok(onlyClothing.items.every(i=>String(i.department_id)===String(clothing.id)) && onlyClothing.total===1);
   await assert.rejects(departments.update(business,user,clothing.id,{name:'Clothing',active:false}),/works in Clothing/);
 
+  // A department head makes staff logins in their own department only (Staff &
+  // access › New staff login), and no login is left behind when refused.
+  const onboarding=require('../../src/modules/business/core/services/businessOnboarding.service');
+  const headRole=await access.createRole(business,user,{name:'Department head',permissions:['access.view','access.edit','catalog.view']});
+  const helperRole=await access.createRole(business,user,{name:'Helper',permissions:['catalog.view']});
+  await access.setMember(business,user,{userId:cashierUser.id,roleId:headRole.id,workDepartmentId:clothing.id});
+  const clothingHead=await access.load({id:cashierUser.id},row.id);
+  const newLogin=(email,extra)=>onboarding.createStaffAccount(clothingHead,kavya,{name:'Ravi',email,password:crypto.randomBytes(12).toString('hex'),roleId:helperRole.id,...extra});
+  await assert.rejects(newLogin('ravi-all@test.invalid',{}),/You work in Clothing/);
+  await assert.rejects(newLogin('ravi-grocery@test.invalid',{workDepartmentId:grocery.id}),/You work in Clothing/);
+  assert.equal(await one("SELECT id FROM users WHERE email LIKE 'ravi-%'"),undefined,'No login without access');
+  const ravi=await newLogin('ravi@test.invalid',{workDepartmentId:clothing.id});
+  assert.equal(String(ravi.department_id),String(clothing.id));
+  assert.equal(ravi.role_name,'Helper');
+
   // Department report: sales, returns and margin by department.
   const report=await departments.report(business,{});
   const groceryRow=report.rows.find(r=>r.department==='Grocery');

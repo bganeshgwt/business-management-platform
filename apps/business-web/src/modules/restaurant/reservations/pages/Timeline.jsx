@@ -242,7 +242,7 @@ export default function Timeline({ board, clock, now, isToday, lateAfter, canBoo
       {board.tables.length === 0 ? (
         <EmptyState
           message="No tables to book yet."
-          hint="Add tables under Tables — the timeline draws one row for each."
+          hint="Add tables under Tables & QR — the timeline draws one row for each."
           action={
             <Link className="button" to="/tables">
               Go to tables
@@ -380,7 +380,7 @@ export default function Timeline({ board, clock, now, isToday, lateAfter, canBoo
                   <div>
                     <strong>Closed on {WEEKDAY_NAMES[hours.dayOfWeek]}s</strong>
                     <p className="muted small">
-                      No bookings are taken for this day. Opening hours are set under Restaurant → Business
+                      No bookings are taken for this day. Opening hours are set under Settings → Business
                       hours.
                     </p>
                   </div>

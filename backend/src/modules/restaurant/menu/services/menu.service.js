@@ -29,9 +29,11 @@ const toCategory = (row) => ({
   brandName: row.brand_name || null,
 });
 
-// A category's brand must be this restaurant's.
+// A category's brand must be this restaurant's, and brands switched on (with
+// them off, a category can still lose its brand, but not be given one).
 const requireOwnBrand = async (restaurantId, brandId) => {
   if (!brandId) return;
+  await require("../../setup/services/restaurantFeatures.service").assertRestaurantHas(restaurantId, "brands");
   const found = await require("../../../../config/database").query("SELECT 1 FROM restaurant_brands WHERE restaurant_id = $1 AND id = $2", [restaurantId, brandId]);
   if (!found.rowCount) throw new AppError(404, "Brand not found");
 };
@@ -117,7 +119,10 @@ const updateCategory = async (restaurantId, id, data, userId) => {
     throw new AppError(404, "Category not found");
   }
 
-  await requireOwnBrand(restaurantId, data.brandId);
+  // Keeping the brand it has needs no check (brands may be off since); a new one does.
+  if (data.brandId && String(data.brandId) !== String(before.brand_id)) {
+    await requireOwnBrand(restaurantId, data.brandId);
+  }
 
   try {
     const row = await categoryRepository.update(restaurantId, id, data, userId);

@@ -19,7 +19,7 @@ export default function AuditLogPage() {
         <EmptyState
           icon="lock"
           message="Reading the activity log needs its own permission"
-          hint="Ask the owner to add 'Read the activity log' to your role under Users → Roles."
+          hint="Ask the owner to add 'Read the activity log' to your role under Users & access → Roles & permissions."
         />
       </div>
     );

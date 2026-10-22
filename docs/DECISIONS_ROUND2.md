@@ -17,7 +17,7 @@ The business rules chosen while completing the admin application: one short sect
 - **Amended lab reports:** a signed report is kept as it was signed. To correct it, the pathologist amends it with a reason and their PIN; the order reopens, and signing again makes a new version that says which one it amends. The older one prints as *superseded*. Nothing to set.
 - **Lab quality control:** each run of a control is judged by the Westgard rules: 1-2s warns; 1-3s, 2-2s, R-4s, 4-1s and 10x reject. While a parameter's latest run today is rejected, patient reports with that parameter cannot be signed. Change it: *Lab orders › Quality control* (each control's target mean and SD).
 - **Formats:** a restaurant is a restaurant, a café, a bakery or a cloud kitchen. The format sets the kinds of order the POS takes, the one a new order starts on, token numbers and the features it starts with (a café starts on takeaway with tokens; a bakery takes takeaway and delivery, with recipes, advances and pre-orders and no tables; a cloud kitchen starts on delivery, with online ordering, deliveries and brands and no tables). The server refuses a kind of order the POS does not take. Each setting can be changed afterwards and nothing is deleted. Change it: the owner, in *Settings › Features › Format*; *Service settings › Orders the POS takes*.
-- **Pre-orders:** the advance is an ordinary customer advance, in the day's cash. On hand-over the pre-order becomes a takeaway order on today's business day, and its bill takes the advance first. A cancelled pre-order's advance stays held, to be handed back from *Dues › Advances*. Change it: the *Pre-orders & cakes* feature.
+- **Pre-orders:** the advance is an ordinary customer advance, in the day's cash. On hand-over the pre-order becomes a takeaway order on today's business day, and its bill takes the advance first. A cancelled pre-order's advance stays held, to be handed back from *Dues & accounts › Advances*. Change it: the *Pre-orders & cakes* feature.
 - **Day-end unsold:** what will not sell tomorrow is written off at cost as waste, with the reason "Unsold at day end"; what keeps stays in stock. Nothing to set.
 - **Sold by weight:** the price is per kg and the quantity on the order is the weight; the POS asks for the grams. Change it: the dish's *Sold: by weight*.
 - **Brands:** a category belongs to one brand or to all. An order is taken under one brand, and a dish from another brand's menu is refused. The KOT and the bill print the brand; the brand report takes off each order's own aggregator commission. A paused brand takes no new orders. Change it: *Menu › Brands*; the *Brands* feature.
@@ -93,7 +93,7 @@ The business rules chosen while completing the admin application: one short sect
 - **Change it:** *Outstanding › More › Credit hold rules*: bank charge, how many bounces (empty = never hold for bounces) and the window in days (7–365).
 
 ### Advance on a pickup order (restaurant)
-- **Rule:** a takeaway ordered ahead can take an advance from its order row (*Orders › More › Take advance…*) while it is open and not yet billed. It is an ordinary restaurant advance (receipt number, drawer, GST tables 11A/11B) that remembers the order; an order without a guest gets the paying guest put on it. At billing the bill offers that advance first and pre-selects it for the amount due. A cancelled order's advance stays held and is handed back from *Dues › Advances* with a manager's say-so, as any advance.
+- **Rule:** a takeaway ordered ahead can take an advance from its order row (*Orders › More › Take advance…*) while it is open and not yet billed. It is an ordinary restaurant advance (receipt number, drawer, GST tables 11A/11B) that remembers the order; an order without a guest gets the paying guest put on it. At billing the bill offers that advance first and pre-selects it for the amount due. A cancelled order's advance stays held and is handed back from *Dues & accounts › Advances* with a manager's say-so, as any advance.
 - **Why:** the restaurant's advances already handle the money, the GST and the refund rules; linking to the order is all a pickup order needs.
 - **Change it:** the *Advances* feature switch and `payments.manage` (who may take it).
 
@@ -154,7 +154,7 @@ The business rules chosen while completing the admin application: one short sect
 - **Change it:** *Pharmacy settings › Registers and prescriptions* (years).
 
 ### Pharmacist sign-off for Schedule X
-- **Rule:** a Schedule X or narcotic sale needs a registered pharmacist (a staff member set up with their council registration) to enter their own PIN (*My profile › PIN*, with the usual lock after wrong tries). Optional on other prescription sales.
+- **Rule:** a Schedule X or narcotic sale needs a registered pharmacist (a staff member set up with their council registration) to enter their own PIN (*My profile › Personal PIN*, with the usual lock after wrong tries). Optional on other prescription sales.
 - **Why:** Schedule X sales are under the pharmacist's personal supervision; the PIN proves who checked it without sharing logins.
 - **Change it:** *Pharmacy settings › Registered pharmacists*.
 
@@ -206,7 +206,7 @@ The business rules chosen while completing the admin application: one short sect
 ### Lab results and reports
 - **Rule:** reference ranges by sex and age band (and critical limits); each result is flagged low / high / critical / abnormal as typed, with the range used kept on the result. Results are entered once the sample is received in the lab. A report is approved by a pathologist with their PIN; after that the results cannot change. The A4 report shows the lab, the patient, collection and report times, results with units and ranges, and the pathologist's name, qualification and registration.
 - **Why:** NABL-style report content; a registered pathologist signs reports.
-- **Change it:** *Lab › Tests & panels* (ranges); *Clinic & lab settings* (lab name, registration, footer, pathologists).
+- **Change it:** *Lab orders › Tests & panels* (ranges); *Clinic & lab settings* (lab name, registration, footer, pathologists).
 - **Since 21 Oct 2026:** a signed report can be corrected, by amendment, and every signed version is kept; a report cannot be signed while today's latest quality-control run for one of its parameters is rejected (see *Round 3*).
 
 ### Outside-lab referral commission

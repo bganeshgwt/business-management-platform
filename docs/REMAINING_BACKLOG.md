@@ -113,3 +113,14 @@ From the hand-off log; each is a known gap, not a defect.
   demo ([DEMO_TO_REAL_PLAN.md](DEMO_TO_REAL_PLAN.md#before-a-pilot-customer-uses-one)).
 - The dashboard's short-lived cache is kept per API process; with several API
   processes behind a load balancer it needs a shared cache or sticky sessions.
+
+## 9. Found in the review of 22 October (not fixed yet)
+
+An independent review of the docs-check fixes noticed these in code those fixes
+did not change. Each needs only code; the first should come before a pilot.
+
+| Area | Problem | What it needs |
+| --- | --- | --- |
+| **Staff & access (shops)** | *Password* on Staff & access sets a new password with the location check of *Give access* but not its other two: a manager tied to a department can reset the password of someone in another department, and any manager that of someone whose role can do more than theirs, and then sign in as them. | The department check and "a role no wider than yours", as *Give access* has them, with a test. |
+| **Pre-orders** | A pre-order's advance is taken even with the *Advances* feature off; refunding it after a cancel then needs *Dues & accounts › Advances*, which that switch hides. | The owner's choice: take pre-order advances only with *Advances* on, or keep the refund reachable from the pre-order. |
+| **Pre-orders** | The bake list adds up the pre-orders of every outlet, not only the till's. | Count only the till's outlet (and say so on the list). |

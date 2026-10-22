@@ -83,7 +83,7 @@ export default function Agenda({ board, clock, isToday, isPast, lateAfter, show,
             board.bookings.length > 0
               ? "Pick another filter above to see the rest of the day."
               : board.hours && !board.hours.isOpen
-                ? "Opening hours are set under Restaurant → Business hours."
+                ? "Opening hours are set under Settings → Business hours."
                 : isPast
                   ? "Nobody booked for this day."
                   : "Take one from the phone with New booking — it lands here and on the timeline."

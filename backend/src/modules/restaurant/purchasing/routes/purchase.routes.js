@@ -91,7 +91,7 @@ router.post("/", authorize("purchasing.manage"), purchaseController.create);
 router.put("/:id", authorize("purchasing.manage"), purchaseController.update);
 router.patch("/:id/status", authorize("purchasing.manage"), purchaseController.changeStatus);
 
-// An order over the approval limit (Settings → Stock & purchasing) waits for
+// An order over the approval limit (Stock → Stock & purchasing settings) waits for
 // an approver: someone with "Approve purchase orders over the limit", or the
 // buyer with a manager's PIN, tied to this order and no more than its total.
 // Every other check comes first, so a PIN is never spent on a refused step.

@@ -144,6 +144,46 @@ test("food formats: café, bakery and cloud kitchen", { timeout: 600000 }, async
     assert.equal(cancelled.data.status, "cancelled");
     assert.match(cancelled.message, /still held/);
     await O("POST", `/preorders/${other.id}/collect`, {}, 409);
+    // A wrong payment type for the advance is refused before anything is saved:
+    // no pre-order, and no new guest either.
+    const count = async (table) => (await one(`SELECT count(*)::int AS n FROM ${table} WHERE restaurant_id=$1`, [rid])).n;
+    const before = await count("restaurant_preorders");
+    const guests = await count("customers");
+    const meera = { customerName: "Meera", customerMobile: "9876500003", dueAt, items: [{ productId: cake.id, quantity: 1 }] };
+    const badType = await O("POST", "/preorders", { ...meera, advance: { amount: 300, paymentMethod: "upi", paymentTypeId: 999999 } }, 400);
+    assert.match(badType.message, /payment type was not found/);
+    assert.equal(await count("restaurant_preorders"), before);
+    assert.equal(await count("customers"), guests);
+    // The till cannot take the advance (no business day open): the pre-order is
+    // booked all the same, the message says so, and the advance is taken later.
+    await pool.query("UPDATE business_days SET day_status='closed' WHERE restaurant_id=$1 AND day_status='open'", [rid]);
+    let booked;
+    try {
+      booked = await O("POST", "/preorders", { ...meera, advance: { amount: 300, paymentMethod: "cash" } }, 201);
+      // With no day open, the baker's list opens on the restaurant's own date.
+      assert.equal((await O("GET", "/preorders/bake-list")).data.day, TODAY);
+    } finally {
+      await pool.query("UPDATE business_days SET day_status='open' WHERE restaurant_id=$1 AND business_date=$2", [rid, TODAY]);
+    }
+    assert.match(booked.data.advanceRefused, /Open the business day first/);
+    assert.match(booked.message, /booked for Meera, but the advance was not taken: Open the business day first\..* Take it from the pre-order/);
+    assert.equal(booked.data.advanceId, null);
+    assert.equal(await count("restaurant_preorders"), before + 1);
+    const paid = (await O("POST", `/preorders/${booked.data.id}/advance`, { amount: 300, paymentMethod: "cash" }, 201)).data;
+    assert.match(paid.advanceReceipt, /^ADV/);
+    assert.equal(paid.balanceDue, 500);
+    // Asked without a day, the baker's list is the open business day's, not the
+    // calendar's (as after midnight with last night's day still open). Here the
+    // open day is moved to tomorrow's date to tell the two apart.
+    assert.equal((await O("GET", "/preorders/bake-list")).data.day, TODAY);
+    await pool.query("UPDATE business_days SET business_date=$2 WHERE restaurant_id=$1 AND day_status='open'", [rid, TOMORROW]);
+    try {
+      const bakes = (await O("GET", "/preorders/bake-list")).data;
+      assert.equal(bakes.day, TOMORROW);
+      assert.ok(bakes.items.some((i) => i.productId === cake.id));
+    } finally {
+      await pool.query("UPDATE business_days SET business_date=$2 WHERE restaurant_id=$1 AND day_status='open'", [rid, TODAY]);
+    }
   });
 
   await t.test("unsold at the day's end is a reason for waste", async () => {
@@ -198,6 +238,23 @@ test("food formats: café, bakery and cloud kitchen", { timeout: 600000 }, async
     assert.deepEqual(brands.map((b) => [b.name, b.categoryCount]), [["Biryani Box", 1], ["Wrap Republic", 1]]);
     await O("PUT", `/menu/brands/${wraps.id}`, { name: "Wrap Republic", status: "inactive" });
     await O("POST", "/orders", { orderType: "delivery", brandId: wraps.id, items: [{ productId: roll.id, quantity: 1 }] }, 409);
+    // Brands switched off: no new order or category under a brand. An order
+    // taken under one before keeps its brand and can still be added to.
+    const pending = (await O("POST", "/orders", { orderType: "delivery", brandId: biryani.id, items: [{ productId: dum.id, quantity: 1 }] }, 201)).data;
+    await O("PUT", "/restaurants/current/features/brands", { enabled: false });
+    const off = await O("POST", "/orders", { orderType: "delivery", brandId: biryani.id, items: [{ productId: dum.id, quantity: 1 }] }, 403);
+    assert.equal(off.data?.reason || off.reason, "feature_off");
+    await O("POST", "/menu/categories", { name: "Bowls", brandId: biryani.id }, 403);
+    // A category keeps the brand it has (saved again as it is), but cannot be given another.
+    assert.equal((await O("PUT", `/menu/categories/${wrapCat.id}`, { name: "Rolls & wraps", brandId: wraps.id })).data.brandId, wraps.id);
+    await O("PUT", `/menu/categories/${wrapCat.id}`, { name: "Rolls & wraps", brandId: biryani.id }, 403);
+    await O("POST", "/orders", { orderType: "delivery", items: [{ productId: dum.id, quantity: 1 }] }, 201);
+    await O("PUT", `/orders/${pending.id}/items`, { changesOnly: true, items: [{ productId: roll.id, quantity: 1 }] });
+    const kept = (await O("GET", `/orders/${pending.id}`)).data;
+    assert.equal(kept.items.length, 2);
+    assert.equal(kept.brandName, "Biryani Box");
+    await O("PUT", "/restaurants/current/features/brands", { enabled: true });
+    await O("PATCH", `/orders/${pending.id}/cancel`, { reason: "Test order" });
     // A café: the counter starts on takeaway, dine-in allowed.
     const cafe = (await O("PUT", "/restaurants/current/format", { format: "cafe" })).data;
     assert.equal(cafe.label, "Café");

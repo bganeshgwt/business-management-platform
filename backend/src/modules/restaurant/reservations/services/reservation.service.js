@@ -1015,7 +1015,7 @@ const updateOnlineSettings = async (restaurantId, outletId, data, userId) => {
     if (!before.hoursSet) {
       throw new AppError(
         400,
-        "Set your opening hours first (Restaurant → Business hours). Guests are offered times inside them."
+        "Set your opening hours first (Settings → Business hours). Guests are offered times inside them."
       );
     }
 

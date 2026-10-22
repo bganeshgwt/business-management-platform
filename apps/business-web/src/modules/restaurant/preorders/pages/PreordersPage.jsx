@@ -116,7 +116,7 @@ export default function PreordersPage() {
         <DataGrid id={`preorders-${view}`} caption="Pre-orders" rows={rows} rowKey={(r) => r.id} columns={columns}
           rowClassName={(r) => (dayOf(r.dueAt) === today && ["booked", "in_production"].includes(r.status) ? "dg-tone-warning" : "")} />
       )}
-      {dialog?.create && <NewPreorder currency={currency} onClose={() => setDialog(null)} onSaved={(message) => { setDialog(null); toast.success(message); reload(); }} />}
+      {dialog?.create && <NewPreorder currency={currency} onClose={() => setDialog(null)} onSaved={(message, tone = "success") => { setDialog(null); toast[tone](message); reload(); }} />}
       {dialog?.advance && <AdvanceDialog preorder={dialog.advance} currency={currency} onClose={() => setDialog(null)} onSaved={(message) => { setDialog(null); toast.success(message); reload(); }} />}
       {dialog?.cancel && <CancelDialog preorder={dialog.cancel} onClose={() => setDialog(null)} onSaved={(message) => { setDialog(null); toast.success(message); reload(); }} />}
     </div>
@@ -182,7 +182,8 @@ function NewPreorder({ currency, onClose, onSaved }) {
         items: lines.filter((l) => l.productId).map((l) => ({ productId: Number(l.productId), quantity: Number(l.quantity), notes: l.notes || undefined })),
         advance: form.advance ? { amount: Number(form.advance), paymentMethod: form.method, transactionRef: form.reference || undefined } : undefined,
       });
-      onSaved(result.message);
+      // Booked, but the till could not take the advance (no day open): a warning, not a success.
+      onSaved(result.message, result.data?.advanceRefused ? "warning" : "success");
     } catch (err) { setError(getErrorMessage(err)); } finally { setBusy(false); }
   }
   return (
@@ -267,7 +268,7 @@ function CancelDialog({ preorder, onClose, onSaved }) {
     try { onSaved((await cancelPreorder(preorder.id, reason)).message); } catch (err) { setError(getErrorMessage(err)); } finally { setBusy(false); }
   }
   return (
-    <Modal title={`Cancel ${preorder.number}`} description={preorder.advanceId ? "The advance stays held: refund it from Dues › Advances if the guest asks." : undefined} icon="ban" width={460} onClose={onClose} dismissible={!busy}>
+    <Modal title={`Cancel ${preorder.number}`} description={preorder.advanceId ? "The advance stays held: refund it from Dues & accounts › Advances if the guest asks." : undefined} icon="ban" width={460} onClose={onClose} dismissible={!busy}>
       <form className="stack" onSubmit={save}>
         <ErrorMessage message={error} />
         <label className="field"><span>Why</span><input required maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} autoFocus placeholder="e.g. Party called off" /></label>

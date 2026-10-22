@@ -179,7 +179,7 @@ async function saveSignatory(business, user, body) {
   });
 }
 
-// The registered person signs with their own PIN (My profile › PIN), checked
+// The registered person signs with their own PIN (My profile › Personal PIN), checked
 // before the posting's transaction so a PIN check holds no locks. Returns the
 // signatory row.
 async function verifySignature(business, kind, body, what) {
@@ -192,7 +192,7 @@ async function verifySignature(business, kind, body, what) {
   // Still a member with access to the business.
   try { await access.load({ id: signer.user_id }, business.id); } catch { fail(`${signer.name} no longer has access to this business`, 403, { reason: 'not_a_signatory' }); }
   const person = await repo.one(repo.pool, "SELECT id,name,pin_hash FROM users WHERE id=$1 AND status='active'", [signer.user_id]);
-  if (!person?.pin_hash) fail(`${signer.name} has not set a PIN yet (My profile › PIN).`, 409, { reason: 'no_pin' });
+  if (!person?.pin_hash) fail(`${signer.name} has not set a PIN yet (My profile › Personal PIN).`, 409, { reason: 'no_pin' });
   const slot = await userRepository.reservePinAttempt(person.id, config.accountLock);
   if (!slot.allowed) fail(`${signer.name}'s PIN is locked after too many wrong tries. Try again later.`, 423, { reason: 'pin_locked' });
   if (!(await bcrypt.compare(pin, person.pin_hash))) {

@@ -15,7 +15,7 @@ is [REMAINING_BACKLOG.md](REMAINING_BACKLOG.md); this page is the summary.*
 | **Your database** (`restaurant_management_db`) | Fully up to date: all 133 changes, the last (`1791950412000_document-list-indexes`) applied 21 Oct. Latest backup, taken just before the real copies: `backend/.local/backups/2026-10-21T11-33-42-007Z-b20697` (restore not verified). The latest with a verified restore: `2026-10-16T04-47-00-250Z-e71f58` (16 Oct). |
 | **Your businesses** | On your owner login: FoodEx, the 11 realistic demo shops (see below) and, since 21 Oct, their 11 real copies (`LIVE-…`). The café, bakery and cloud-kitchen demos have their own owner logins (`backend/.local/food-demo-logins.json`). The 11 old "Demo · ..." businesses are marked inactive, not deleted. |
 | **Tests** (21 Oct) | Integration 549/549, unit 30/30, the apps' and packages' Node tests 5/5, lint and both builds clean; the guests' browser suite 6/6 and the staff browser suite of 80 (three timing failures under load passed on rerun). Details in [VERIFICATION.md](VERIFICATION.md). |
-| **Commits** | 9 commits on `main`, on GitHub as `business-management-platform`; round 3 was merged there on 21 Oct. Not committed yet: the real copies' script, the document-list indexes, a brands fix (a dish added later to a brand's order must be on that brand's menu), the staff app / guests' site split and these documents. |
+| **Commits** | 9 commits on `main`, on GitHub as `business-management-platform`; round 3 was merged there on 21 Oct. On the branch `feature/apps-workspaces-and-fixes` (2 commits, not pushed yet): the real copies' script, the document-list indexes, a brands fix (a dish added later to a brand's order must be on that brand's menu), the staff app / guests' site split, these documents, and the fixes from the docs check. |
 
 ---
 
@@ -183,10 +183,35 @@ What to fill in before a customer uses one: [DEMO_TO_REAL_PLAN.md](DEMO_TO_REAL_
   `npm run dev:backend` (the API, port 5010), `npm run dev:business` (staff
   app, 5173) and `npm run dev:customer` (guests' site, 5174).
 
+## Fixes from the docs check (22 Oct)
+
+Checking the docs against the code found six problems. Each is fixed and has a
+test that fails without the fix:
+
+- **Bake list:** asked for without a date, it now gives the list of the
+  business day the till is trading on; it used the UTC calendar date. The Bake
+  list screen always asks for a date, so it is unchanged (it opens on tomorrow).
+- **Pre-order advance:** when the till cannot take the advance (no day open),
+  the pre-order is still booked and a warning says so; *Take advance* on the
+  pre-order takes it later. A wrong payment type is refused before anything is
+  saved, the guest included.
+- **Brands switched off:** no new order or category can be taken under a
+  brand. Orders and categories that have one keep it, and a till left open
+  shows every category again.
+- **Staff logins:** a manager tied to a department can now create logins in
+  that department (it was always refused). *New staff login* asks for the
+  department.
+- **Brand report:** totals are added in paise, so they never show long decimals.
+- **Old menu names:** about 30 screen hints and server messages named places
+  by old menu names (for example "Operations → Business day"). They now match
+  the menus. A test reads every menu path in the code and checks it against
+  the menus, so a wrong one fails the checks. In a shop, *Settings* is now
+  called Settings for everyone (a stock keeper saw it as *Units & pack sizes*).
+
 ## What you need to do
 
 1. **Look through the businesses** with the switcher in the top bar, using the stories in DEMO_GUIDE.md.
-2. **Review and commit** what is not committed yet (see *Commits* above), then push it.
+2. **Push and merge** the branch `feature/apps-workspaces-and-fixes` (see *Commits* above): push it, open a pull request and merge it into `main`.
 3. **Moving to the new repo** is done (12–13 Oct): the code is on GitHub as
    `business-management-platform` (the git remote `origin`; the old repository is `old-origin`).
 4. **For a pilot,** give the customer a real copy, never a demo, and fill it in

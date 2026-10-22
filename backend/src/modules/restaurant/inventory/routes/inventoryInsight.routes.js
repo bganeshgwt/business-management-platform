@@ -32,7 +32,7 @@ const canLogWaste = (req, res, next) => {
 // The figures a dashboard shows from this module.
 router.get("/summary", authorize("inventory.view"), inventoryInsightController.summary);
 
-// Wastage. Over the write-off limit (Settings → Stock & purchasing) an entry
+// Wastage. Over the write-off limit (Stock → Stock & purchasing settings) an entry
 // needs "Approve large write-offs" or a manager's PIN; every check is made
 // before the PIN is asked for. The screens use the item's own address, which
 // ties a manager's approval to that item as well as to the quantity and value.

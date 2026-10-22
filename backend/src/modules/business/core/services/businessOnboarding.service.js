@@ -184,9 +184,11 @@ async function createStaffAccount(business, user, body) {
     await repo.audit(db, business.id, user.id, 'staff_account.created', row.id, { name, email });
     return row;
   });
-  // Their role and location go through the same checks as any other access.
+  // Their role, location and department go through the same checks as any
+  // other access (someone tied to a department makes logins in it only).
   try {
-    const member = await access.setMember(business, user, { userId: created.id, roleId: body.roleId, workLocationId: body.workLocationId, active: true }, { newLogin: true });
+    const member = await access.setMember(business, user,
+      { userId: created.id, roleId: body.roleId, workLocationId: body.workLocationId, workDepartmentId: body.workDepartmentId, active: true }, { newLogin: true });
     return { ...member, name: created.name, email: created.email };
   } catch (error) {
     // No login is left behind without access: the person is created again with valid choices.

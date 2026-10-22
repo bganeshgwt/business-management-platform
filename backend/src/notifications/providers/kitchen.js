@@ -3,7 +3,7 @@
 // worst of them are critical.
 //
 // Read-only: it looks at tickets the kitchen display has already cut. Timings
-// follow the restaurant's own kitchen timers (Kitchen display → Stations).
+// follow the restaurant's own kitchen timers (Kitchen display → Stations & routing).
 const { stillInKitchenSql } = require("../../modules/restaurant/kitchen/repositories/kitchen.repository");
 
 // Food waiting at the pass this long is going cold, unless the restaurant

@@ -32,7 +32,7 @@ import "../styles/dues.css";
 // Dues & accounts: everything owed to the restaurant on one screen.
 //
 //   Accounts  regulars and companies who settle later. Each has a credit
-//             limit; bills are put on the account at the till (Bills → open
+//             limit; bills are put on the account at the till (Bills & payments → open
 //             a bill → On account), and what the account owes is simply what
 //             is still due on those bills — aged 0–30, 31–60, 61–90 and over
 //             90 days. Money collected is paid onto the oldest bills first,
@@ -336,7 +336,7 @@ export default function DuesPage() {
       <PageHeader
         icon="users"
         title="Dues & accounts"
-        description="Regulars and companies who settle later, what each owes and for how long, and bills left unpaid. Put a bill on an account from the bill itself (Bills → open a bill → On account)."
+        description="Regulars and companies who settle later, what each owes and for how long, and bills left unpaid. Put a bill on an account from the bill itself (Bills & payments → open a bill → On account)."
         actions={
           <div className="dues-header-actions">
             <button type="button" className="button button-secondary" onClick={downloadDues} disabled={!data}>
