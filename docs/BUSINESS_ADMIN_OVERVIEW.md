@@ -1,6 +1,6 @@
 # Business Admin — Application Overview
 
-21 October 2026
+22 October 2026
 
 ## Summary
 
@@ -17,7 +17,7 @@ It is fully built for the admin side, tested end to end, and loaded with realist
 - **What it covers:** selling, buying, stock, customer credit, staff and access, day close, reports and daily tasks, plus the special work of each business type.
 - **Where it stands:**
   - feature-complete for the admin application;
-  - 548 automated integration tests and 30 unit tests pass;
+  - 549 automated integration tests and 30 unit tests pass;
   - 11 sample shops and clinics, a restaurant with a second branch, a café, a bakery and a cloud kitchen carry realistic history.
 - **What is not yet done:**
   - outside connections: payment gateway, SMS and WhatsApp, live Swiggy and Zomato links;
@@ -41,6 +41,8 @@ It is fully built for the admin side, tested end to end, and loaded with realist
   - free quantity and discount on supplier bills.
 - **Overview screen:** today against last week, a 14-day trend, sales by hour, best sellers and the next appointments. Every action opens in a panel without leaving the screen.
 - **Branches:** every list, record and report now follows the branch a person works at.
+- **Clean copies for real use:** each of the 11 sample shops and clinics has a twin with the same set-up (products, prices, branches, roles and the trade's own lists) and empty books: no sample sales, customers or GSTINs. A twin is filled in with a real customer's details (the name printed on bills, GSTIN, branches and staff); the samples stay for demos and training.
+- **A separate guests' site:** the pages guests open without signing in (ordering from a table's QR code, online ordering and table booking) now run as their own website, apart from the staff application. Old QR codes and links still work. Pages planned for later (ordering from a shop, booking a salon or clinic appointment, a guest's own account, and the waiter, clinic and lab workspaces) already have their addresses, each saying what is coming.
 
 ## How the application is organised
 
@@ -66,7 +68,7 @@ Read the diagram top to bottom:
 3. The shared core does the common work.
 4. Each business type adds only its own modules.
 
-The restaurant and its formats run their own engine but share the login, roles, switcher and tasks.
+The restaurant and its formats run their own engine but share the login, roles, switcher and tasks. Guests never sign in: table QR ordering, online ordering and table booking open on the separate guests' site.
 
 ## Shared core modules
 
@@ -82,7 +84,7 @@ Every business except the restaurant runs on the same core. It is built once, so
 | Products | Products, categories, units | GST rate, HSN, MRP, shelf location, member price, departments, batch / expiry / serial tracking, pack sizes |
 | Stock | Stock, transfers, counts | Stock by branch and batch with its value; transfers in transit; counts approved before stock changes |
 | Time | Appointments | Staff and rooms without double booking; done, no-show and cancel rules |
-| Money | Day close and expenses | Takings by method, person and counter matched with cash; expenses with approval |
+| Money | Daily money and expenses | Takings by method, person and counter matched with cash, with a cash check and each cashier's shift; expenses paid out, corrected only by a reversal with a reason |
 | Settings | Business settings | Legal name, GSTIN, address, tax mode, rounding, financial year, opening hours, rules, number series, payment methods |
 | People | Staff and access | Role, branch and department for each person |
 | Insight | Reports and activity log | Money by day, branch comparison, department sales, and who did what |
@@ -217,12 +219,12 @@ A business can run several shops, counters, godowns, clinics or outlets. Each is
 Every action needs two keys: the business must have that module switched on, and the person's role must allow the action. Both are checked by the server on every request.
 
 - **One login, many businesses**, each with its own role.
-- **Six ready roles** in every business, plus any the owner creates. A manager can never give more than they hold.
+- **Six ready roles** in every business, plus a Pharmacist in a pharmacy, a Doctor, a Lab technician and a Pathologist in a clinic, and any the owner creates. A manager can never give more than they hold.
 - **Staff logins with a branch and a department.**
-- **Sign-in protection:** encrypted passwords, two-step sign-in, lockout after repeated wrong attempts, PINs for shared tills, PIN sign-off for pathologists and pharmacists.
+- **Sign-in protection:** passwords never stored in readable form, two-step sign-in, lockout after repeated wrong attempts, PINs for shared tills, PIN sign-off for pathologists and pharmacists.
 - **Data kept apart:** each business sees only its own data, enforced by the database too.
 - **Activity log:** a record of who did what; posted bills are never edited.
-- **Clinical privacy:** only doctors see clinical notes, and every view is logged.
+- **Clinical privacy:** only doctors (and the owner) see clinical notes, and every view is logged.
 
 ## Owner-controlled settings
 
@@ -252,7 +254,7 @@ Every business, restaurant included, gets the same tools for the team's daily wo
 - **Issues:** raised, assigned, fixed and closed. An out-of-range reading can raise one automatically.
 - **Projects:** with milestones; a board, a calendar and compliance reports.
 
-These tools are recommended per business type and switched off where they are not needed.
+A restaurant starts with these tools on. Any other business switches them on when it wants them; Tasks is marked as recommended for the trades that usually need it (clinics, pharmacies and supermarkets), and Issues for pharmacies and supermarkets.
 
 ## Reports and insights
 
@@ -276,17 +278,17 @@ Every list can be searched, paged, filtered by date and exported. Reports respec
 
 A new customer can be set up in minutes, without technical help or sample data.
 
-- **Platform › Businesses:** create a business of any type with its owner's login. It is ready to use on first sign-in.
+- **Platform › Businesses:** create a business of any type but the restaurant, with its owner's login. It is ready to use on first sign-in.
 - **Platform › Restaurants:** the same for restaurants. The platform team chooses the format (restaurant, café, bakery or cloud kitchen), and it starts set up for that format.
 - **Add a business:** an owner can start another business of their own.
 - **Modules on demand:** each business switches modules on or off within what its type allows. This is ready to be tied to paid plans later.
-- **Sample businesses** are marked as demos and disappear in live mode.
+- **Sample shops and clinics** are marked as demos and disappear in live mode. Their clean copies are ordinary businesses, set up and ready to be filled in for real customers (handing over ownership is not in the app yet).
 
 ## Quality and readiness
 
 The admin application is complete and verified by automated tests. It has not yet been used by real staff in a live shop.
 
-- **Automated tests:** 548 integration tests and 30 unit tests pass, each run against a fresh database. The screens pass a lint check and a production build, and every new screen was checked in a browser.
+- **Automated tests:** 549 integration tests and 30 unit tests pass, each run against a fresh database. The screens pass a lint check and a production build, and every new screen was checked in a browser.
 - **Rules in the database:** where a mistake would lose money, stock or medical records, the database refuses it as well as the program. Examples:
   - duplicate bill numbers;
   - negative stock;
@@ -316,7 +318,7 @@ The admin application is complete and verified by automated tests. It has not ye
 | Sweet Crust Bakery | Hyderabad | Sold by weight, cake pre-orders, day-end unsold |
 | Biryani Box (cloud kitchen) | Hyderabad | Three brands, Swiggy and Zomato, sales by brand |
 
-Before a demo, one command brings the sample shops and clinic up to the current moment: `npm run demo:today -- --user-id 2`. The food businesses are added once with `npm run demo:food-formats`.
+Before a demo, one command brings the sample shops, the clinic and FoodEx up to the current moment: `npm run demo:today -- --user-id 2`. The food businesses are added once with `npm run demo:food-formats`.
 
 ## What comes next
 
@@ -328,7 +330,7 @@ The remaining work lies outside the admin application, and each item waits on a 
 | Outside services | Online payment confirmation, live Swiggy / Zomato orders and menus per brand, SMS and WhatsApp messages | Provider accounts and contracts |
 | Hardware | Silent receipt and kitchen printing, cash drawer, live weighing scale | The printer and scale models in use |
 | Plans and subscriptions | Paid plans that decide which modules a business gets | Plan names and prices |
-| Separate apps | Offline POS, captain (waiter) app, customer app, salesperson app | Priority and go-ahead |
+| Separate apps | Offline POS, captain (waiter) app, clinic and lab workspaces, guests' pages for shops, appointments and their own account, salesperson app | Priority and go-ahead |
 | Expert review | Pharmacy, clinic and lab rules, GST reports and Tally export | A pharmacist, a doctor, an accountant |
 
 Recommended order:

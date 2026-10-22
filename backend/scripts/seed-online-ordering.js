@@ -141,7 +141,8 @@ const run = async () => {
       restaurantId,
     ])
   ).rows[0];
-  say(opened.rowCount ? `  Main counter link switched on: /online/${link.token}` : `  Main counter link: /online/${link.token}`);
+  // The page itself is on the guests' site (apps/customer-web, http://localhost:5174 in development).
+  say(opened.rowCount ? `  Main counter link switched on: /online/${link.token} (on the guests' site)` : `  Main counter link: /online/${link.token} (on the guests' site)`);
 
   if (!link.is_enabled) {
     say("  The main counter's link is switched off (by a manager); no orders are added.");

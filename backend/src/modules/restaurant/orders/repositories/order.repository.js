@@ -901,7 +901,7 @@ const editOrder = async (restaurantId, orderId, plan, userId) => {
     const locked = await client.query(
       `SELECT o.id, o.order_number, o.order_status, o.kitchen_status, o.outlet_id,
               o.business_day_id, o.table_id, o.order_type, o.notes, o.customer_name,
-              o.customer_mobile, o.customer_id, o.guest_count, o.channel_id,
+              o.customer_mobile, o.customer_id, o.guest_count, o.channel_id, o.brand_id,
               -- The guest book's name, which is what a screen shows for an
               -- order linked to a guest with no name of its own.
               (SELECT c.name FROM customers c WHERE c.id = o.customer_id) AS linked_customer_name,

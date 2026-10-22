@@ -57,7 +57,8 @@ const save = async (restaurantId, id, data, userId) => {
 
 // The brand an order is taken under: one of this restaurant's active brands,
 // and every dish on the order on its menu (its own categories or a shared one).
-const checkOrder = async (restaurantId, brandId, productIds, db = pool) => {
+// allowPaused: a dish added to an open order of a brand paused since.
+const checkOrder = async (restaurantId, brandId, productIds, db = pool, { allowPaused = false } = {}) => {
   if (!brandId) {
     return null;
   }
@@ -68,7 +69,7 @@ const checkOrder = async (restaurantId, brandId, productIds, db = pool) => {
     throw new AppError(404, "Brand not found");
   }
 
-  if (brand.status !== "active") {
+  if (brand.status !== "active" && !allowPaused) {
     throw new AppError(409, `${brand.name} is switched off`);
   }
 

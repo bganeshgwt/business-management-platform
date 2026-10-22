@@ -1,0 +1,680 @@
+/* The floor plan (Tables) and Floors & areas.
+   ------------------------------------------------------
+   The base card, legend and first six state colours live in @bmp/ui's base.css. This
+   file adds what the turn between parties and a table taken out of service
+   need, and the page's own look on top of the design system. Every rule is
+   scoped to an fp- class or to a state class on the floor plan's own
+   elements, so nothing here restyles another page. Colours are tokens only,
+   so dark mode follows by itself. */
+
+/* Cleaning had the same grey as a free table, which is the one confusion the
+   state exists to prevent. A teal made from the blue and the green tokens:
+   not a colour anything else on the floor uses, and nothing like "free". */
+.floor-table.state-cleaning,
+.legend-item.state-cleaning,
+.fp-chip.state-cleaning {
+  --state: color-mix(in srgb, var(--info-text) 45%, var(--success-text));
+  --state-bg: color-mix(in srgb, var(--state) 10%, var(--surface));
+}
+
+/* Out of service: hatched and dashed, so it reads as "not part of the room
+   tonight" even to someone who never looks at the legend. */
+.floor-table.state-out_of_service,
+.legend-item.state-out_of_service,
+.fp-chip.state-out_of_service {
+  --state: var(--muted);
+  --state-bg: var(--surface-2);
+  --state-hatch: repeating-linear-gradient(
+    135deg,
+    var(--surface-2) 0 7px,
+    var(--surface-3) 7px 14px
+  );
+}
+
+.legend-item.state-out_of_service .legend-swatch,
+.fp-chip.state-out_of_service .legend-swatch {
+  background: var(--state-hatch);
+  border-style: dashed;
+}
+
+/* --- The figures along the top ------------------------------------------ */
+
+/* A tile is also the filter: the one that is on says so with its own edge. */
+.fp-page .stat-tile.fp-tile-on {
+  border-color: var(--tone);
+  box-shadow:
+    0 0 0 1px var(--tone),
+    var(--shadow-sm);
+}
+
+/* --- The board card ------------------------------------------------------ */
+
+.fp-board .filters {
+  margin-bottom: 16px;
+}
+
+.fp-board .legend {
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.fp-board .legend-label {
+  color: var(--text-2);
+}
+
+/* --- Floor groups -------------------------------------------------------- */
+
+.fp-page .floor-group + .floor-group {
+  margin-top: 24px;
+}
+
+.fp-page .floor-group-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin: 0 0 10px;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  color: var(--text-2);
+}
+
+.fp-group-icon {
+  color: var(--muted);
+}
+
+.fp-group-area {
+  color: var(--muted);
+}
+
+.fp-group-count {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--muted);
+}
+
+.fp-group-count::before {
+  content: "·";
+  margin-right: 6px;
+}
+
+.fp-group-off {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--muted);
+}
+
+/* --- The table cards ------------------------------------------------------ */
+
+/* auto-fill, not auto-fit: a room with three tables shows three tables at
+   their own size, not three stretched across the monitor. */
+.fp-page .floor-grid {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.fp-page .floor-table {
+  border-color: color-mix(in srgb, var(--state) 38%, var(--border));
+  border-top: 4px solid var(--state);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xs);
+  transition:
+    box-shadow 150ms var(--ease),
+    transform 150ms var(--ease);
+}
+
+/* Free is the only state whose top edge is a plain line, so it gets the
+   card's own white and a stronger edge: an empty table should look ready. */
+.fp-page .floor-table.state-free {
+  --state: var(--border-strong);
+  --state-bg: var(--surface);
+}
+
+.fp-page .floor-table:has(> a.floor-table-main:hover),
+.fp-page .floor-table:has(> button.fp-main-button:hover) {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.fp-page .floor-table-main {
+  gap: 1px;
+  min-height: 112px;
+  padding: 12px 12px 12px;
+}
+
+.fp-page .floor-table-main:hover {
+  background: transparent;
+}
+
+.fp-page .floor-table-no {
+  padding-right: 30px;
+  font-size: 1.3rem;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.fp-page .floor-table-live {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+/* The state in words: the colour is the read from across the room, the word
+   is what a new waiter needs. */
+.fp-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 1px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  color: var(--state);
+}
+
+.fp-state-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--state);
+}
+
+/* Free keeps the legend's neutral: an open ring, not a colour. */
+.floor-table.state-free .fp-state {
+  color: var(--text-2);
+}
+
+.floor-table.state-free .fp-state-dot {
+  background: transparent;
+  border: 1.5px solid var(--muted);
+}
+
+.floor-table.state-out_of_service .fp-state {
+  color: var(--text-2);
+}
+
+.floor-table.state-out_of_service .fp-state-dot {
+  background: transparent;
+  border: 1.5px dashed var(--muted);
+}
+
+.floor-table.state-out_of_service {
+  border-style: dashed;
+  border-top-width: 1px;
+  background: var(--state-hatch);
+}
+
+/* The thinner top edge would lift the text 3px above its neighbours. */
+.floor-table.state-out_of_service .floor-table-main {
+  padding-top: 15px;
+}
+
+.floor-table.state-out_of_service .floor-table-no {
+  color: var(--muted);
+}
+
+.fp-off-reason {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* A booking sitting on a table nobody can use: say so on the card, in red,
+   with the way to fix it. */
+.fp-off-booking {
+  margin: -4px 12px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--danger);
+}
+
+.fp-off-booking a {
+  color: inherit;
+}
+
+/* Switched off while a party is still eating. */
+.fp-off-after {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--warning-text);
+}
+
+.fp-paid-note {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--success-text);
+}
+
+.fp-turn-left {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* The out-of-service card opens the table's edit form for a manager: the
+   whole card is the button, laid out exactly like the link cards. */
+.fp-main-button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* A card that is not a link should not light up as if it were. */
+.floor-table.state-cleaning div.floor-table-main:hover,
+.floor-table.state-out_of_service div.floor-table-main:hover {
+  background: transparent;
+}
+
+/* The QR code: a small square in the corner, out of the way until wanted.
+   A phone has no hover, so there it simply stays in view. */
+.fp-page .floor-table-qr {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  border-color: var(--border);
+  box-shadow: var(--shadow-xs);
+  transition:
+    opacity 140ms ease,
+    color 140ms ease,
+    border-color 140ms ease;
+}
+
+@media (hover: none) {
+  .fp-page .floor-table-qr {
+    opacity: 0.85;
+  }
+}
+
+/* "Mark ready": big enough for a thumb on a tablet at the host stand. */
+.fp-ready {
+  display: block;
+  width: calc(100% - 20px);
+  min-height: 38px;
+  margin: 0 10px 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--state);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--state);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.fp-ready:hover:not(:disabled),
+.fp-ready:focus-visible {
+  background: var(--state);
+  color: var(--surface);
+}
+
+.fp-ready:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.fp-turn-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 20px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.fp-turn-note .icon {
+  flex: none;
+  margin-top: 2px;
+}
+
+/* --- The list view --------------------------------------------------------- */
+
+.fp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px 2px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--state-bg);
+  color: var(--text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fp-chip .legend-swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+}
+
+.fp-name {
+  font-weight: 650;
+}
+
+/* --- The QR dialog ----------------------------------------------------------- */
+
+.fp-qr-frame {
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+/* A QR code must stay dark on light to scan, in either theme. */
+.fp-qr-box .fp-qr-frame img {
+  border: 0;
+  border-radius: var(--radius-sm);
+}
+
+.fp-qr-url {
+  max-width: 100%;
+}
+
+/* --- Floors & areas: the turnover setting --------------------------------------- */
+
+.fp-turnover {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fp-turnover-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.fp-turnover-form .field {
+  width: 200px;
+}
+
+.fp-turnover-help {
+  margin: 0;
+  max-width: 72ch;
+}
+
+.fp-turnover-now {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* --- Phones ------------------------------------------------------------------ */
+
+@media (max-width: 640px) {
+  /* Two tables to a row: a host scrolls the room, not one card per screen. */
+  .fp-page .floor-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .fp-page .floor-table-main {
+    min-height: 104px;
+  }
+
+  .fp-board .legend {
+    gap: 6px 12px;
+  }
+
+  /* Floor and state side by side, the count under them. */
+  .fp-board .filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .fp-board .filters .field {
+    min-width: 0;
+  }
+
+  .fp-board .filters select {
+    width: 100%;
+  }
+
+  .fp-board .filters-summary {
+    grid-column: 1 / -1;
+    margin: 0;
+    text-align: left;
+  }
+
+  .fp-page .fp-tiles .stat-tile:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+
+/* A table every outlet shares, seen from inside one outlet: set up with All
+   outlets, so only named here. */
+.fp-shared-note {
+  white-space: nowrap;
+}
+
+/* The table form's outlet when it is fixed by the outlet being worked in. */
+.fp-outlet-fixed {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+}
+
+.fp-outlet-fixed > span {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* Whose table it is, in the list, for the whole restaurant. */
+.fp-outlet-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.fp-outlet-tag.is-shared {
+  background: transparent;
+  border: 1px dashed var(--border);
+}
+
+/* ------------------------------------------------------------ Print QR codes
+   (pages/tables/QrSheetDialog.jsx): which tables, and how many to a page. */
+
+.qrs {
+  display: grid;
+  gap: 16px;
+}
+
+.qrs-warning {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.qrs-warning p {
+  margin: 0;
+}
+
+.qrs-address {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.qrs-group {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.qrs-group legend {
+  margin-bottom: 8px;
+  padding: 0;
+  font-weight: 700;
+}
+
+.qrs-scope {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.qrs-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 6px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.qrs-option:has(input:checked) {
+  border-color: var(--primary);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.qrs-option:has(input:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.qrs-layouts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.qrs-layout {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 12px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.qrs-layout.is-active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
+.qrs-layout small {
+  font-size: 0.75rem;
+}
+
+/* A little A4 page with the cards drawn on it. */
+.qrs-preview {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), 1fr);
+  grid-template-rows: repeat(var(--rows), 1fr);
+  gap: 2px;
+  width: 42px;
+  height: 58px;
+  margin-bottom: 4px;
+  padding: 3px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  background: var(--surface-2);
+}
+
+.qrs-preview span {
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--primary) 35%, var(--surface));
+}
+
+.qrs-preview-tent {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+.qrs-preview-tent span:first-child {
+  opacity: 0.55;
+}
+
+.qrs-summary {
+  margin: 0;
+  font-weight: 600;
+}
+
+.fp-qr-warning {
+  margin: 0;
+  text-align: left;
+}
+
+@media (max-width: 640px) {
+  .qrs-layouts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* A party left open from an earlier business day: amber, with what to do. */
+.floor-table.is-earlier {
+  outline: 2px solid var(--warning-border);
+  outline-offset: -2px;
+}
+
+.fp-earlier {
+  color: var(--warning-text);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+/* Floors and areas with every table out of service, folded into one line. */
+.fp-closed-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 0.8125rem;
+}

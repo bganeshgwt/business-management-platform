@@ -1,0 +1,1470 @@
+/* Menu: categories, products (sizes & add-ons, combos, recipe, history,
+   import, price revision), modifiers and happy hour
+   --------------------------------------------------------------------------
+   Built on the shared design system (@bmp/ui's base.css, ui.css): page header, stat
+   tiles, section cards, badges, tables. This file only adds what the menu
+   screens need of their own, every colour a token, so dark mode follows with
+   no rule of its own. Page styles load after the shared ones; where a rule
+   here adjusts a shared class it is scoped (.mnu-page, .mnu-list …) so it
+   touches these screens only. */
+
+/* --- Small shared pieces ------------------------------------------------------ */
+
+.mnu-gap {
+  margin-left: 8px;
+}
+
+.mnu-dish {
+  font-weight: 600;
+}
+
+.mnu-tag {
+  margin-left: 8px;
+  vertical-align: 1px;
+}
+
+/* A quiet line with an icon: how something works, or why a list is empty. */
+.mnu-lead {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.mnu-lead > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--info-text);
+}
+
+/* A tinted panel inside a dialog: a step, a group of settings. */
+.mnu-panel {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+/* A heading inside a dialog: icon in its tone, title, one line of purpose. */
+.mnu-subhead {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.mnu-subhead-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.mnu-subhead-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.mnu-subhead-text h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.mnu-subhead-text p {
+  margin: 2px 0 0;
+  line-height: 1.45;
+}
+
+.mnu-subhead-count {
+  align-self: center;
+  white-space: nowrap;
+}
+
+/* "Add a dish…" with its quantity and button, sized like every other field. */
+.mnu-picker {
+  margin-top: 0;
+  padding: 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.inline-form.mnu-picker select,
+.inline-form.mnu-picker input {
+  min-height: 40px;
+  font-size: 0.9rem;
+}
+
+.inline-form.mnu-picker select {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.inline-form.mnu-picker input:not(.inline-number) {
+  flex: 0 1 160px;
+  min-width: 0;
+}
+
+.inline-form.mnu-picker input.inline-number {
+  flex: 0 0 96px;
+  min-width: 0;
+}
+
+/* A remove action in a row: quiet until the pointer says it means it. */
+.chip-button.mnu-danger-chip {
+  color: var(--danger);
+}
+
+.chip-button.mnu-danger-chip:hover:not(:disabled) {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.chip-button.mnu-save-chip {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-text);
+}
+
+.chip-button.mnu-save-chip:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+  color: var(--primary-text);
+}
+
+/* A wrapper that lays out as if it were not there: the "combos can't be
+   served" tile keeps its status role while sitting in the tile grid. */
+.mnu-contents {
+  display: contents;
+}
+
+/* A notice with its action on the same line, wrapping on a phone. */
+.mnu-notice-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.mnu-notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+/* The edit form's "someone changed this dish meanwhile" notice: one line per
+   field they changed. A field the manager had also typed a change to is the
+   one a second Save would overwrite, so it stands out. */
+.mnu-clash {
+  display: grid;
+  gap: 6px;
+}
+
+.mnu-clash-list {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 2px;
+}
+
+.mnu-clash-list li.is-mine {
+  font-weight: 600;
+}
+
+/* --- Dialogs: Save stays in reach ---------------------------------------------------- */
+
+/* A dialog taller than the window (the product form on a laptop, an import
+   preview, a window's dish prices) scrolls as a whole, which left Save and
+   Close below the bottom edge. Their bar sticks to the bottom of the window
+   instead, with the form sliding under it; a dialog that fits is unchanged.
+   The offset is the backdrop's own 24px padding: sticking there left a strip
+   of the form showing below the bar. */
+/* Now shared: every dialog keeps its title bar fixed, scrolls its body and
+   sticks the form's buttons to the bottom (@bmp/ui's base.css .modal). */
+
+/* --- List cards: filters on top, the table edge to edge --------------------------- */
+
+.mnu-toolbar {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.mnu-toolbar .field.mnu-search {
+  flex: 1 1 240px;
+  max-width: 360px;
+}
+
+/* The "Show" switch sits level with the inputs beside it. */
+.mnu-toolbar .segmented {
+  min-height: 40px;
+  align-items: center;
+}
+
+.mnu-list .empty-state {
+  padding: 40px 20px;
+}
+
+/* --- Figures that filter the list ---------------------------------------------------- */
+
+.stat-tile.mnu-pick.is-active {
+  border-color: var(--primary);
+  box-shadow:
+    inset 0 0 0 1px var(--primary),
+    var(--shadow-sm);
+}
+
+.stat-tile.mnu-alarm {
+  border-color: var(--danger-border);
+  background: color-mix(in srgb, var(--danger-bg) 55%, var(--surface));
+}
+
+/* On a phone the three figures share one row, with the detail line left to
+   the wider screen: two rows of tiles pushed the list itself below the
+   first screen, and the third tile sat alone on its row. */
+@media (max-width: 640px) {
+  .mnu-page .stat-grid.mnu-tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .mnu-page .mnu-tiles .stat-tile {
+    padding: 10px 11px;
+    gap: 4px;
+  }
+
+  .mnu-page .mnu-tiles .stat-tile-top {
+    align-items: flex-start;
+    gap: 6px;
+    min-height: 0;
+  }
+
+  .mnu-page .mnu-tiles .stat-tile-label {
+    font-size: 0.75rem;
+  }
+
+  .mnu-page .mnu-tiles .stat-tile-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+  }
+
+  .mnu-page .mnu-tiles .stat-tile-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .mnu-page .mnu-tiles .stat-tile-value {
+    font-size: 1.2rem;
+  }
+
+  .mnu-page .mnu-tiles .stat-tile-foot {
+    display: none;
+  }
+
+  /* The combos warning is a fourth figure: it takes a row of its own. */
+  .mnu-page .mnu-tiles .mnu-alarm {
+    grid-column: 1 / -1;
+  }
+
+  /* The header's four buttons in a tighter size, so they take less of the
+     first screen. */
+  .mnu-page .page-header-actions .button {
+    min-height: 36px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    font-size: 0.8125rem;
+  }
+
+  /* Happy hour: the list first, how it works after it. */
+  .mnu-page > .mnu-how-card {
+    order: 1;
+  }
+}
+
+/* --- Veg / non-veg mark: the square and dot printed on Indian menus ----------------- */
+
+.mnu-food {
+  --food: var(--success);
+  position: relative;
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 7px;
+  flex-shrink: 0;
+  vertical-align: -2px;
+  border: 1.5px solid var(--food);
+  border-radius: 3px;
+}
+
+.mnu-food::after {
+  content: "";
+  position: absolute;
+  inset: 2.5px;
+  border-radius: 50%;
+  background: var(--food);
+}
+
+.mnu-food-non_veg {
+  --food: var(--danger);
+}
+
+.mnu-food-egg {
+  --food: var(--warning);
+}
+
+/* --- Products ---------------------------------------------------------------------- */
+
+.mnu-page .product-thumb {
+  width: 42px;
+  height: 42px;
+  flex-basis: 42px;
+  border-radius: var(--radius-sm);
+}
+
+.mnu-thumb-empty {
+  display: inline-grid;
+  place-items: center;
+  background: var(--surface-3);
+  color: var(--placeholder);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.mnu-dish-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.mnu-dish-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: 2px;
+}
+
+.mnu-dish-line .mnu-tag {
+  margin-left: 8px;
+}
+
+.mnu-code {
+  line-height: 1.3;
+}
+
+.mnu-part-warn {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 5px;
+  margin-top: 3px;
+  color: var(--danger);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.mnu-part-warn svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* --- The on-sale switch ------------------------------------------------------------------ */
+
+.mnu-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--warning-text);
+}
+
+.mnu-switch.is-on {
+  color: var(--success-text);
+}
+
+.mnu-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 38px;
+  height: 22px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.mnu-switch-track {
+  position: relative;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  transition: background-color 150ms ease;
+}
+
+.mnu-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  transition: transform 150ms var(--ease);
+}
+
+.mnu-switch.is-on .mnu-switch-track {
+  background: var(--success);
+  box-shadow: none;
+}
+
+.mnu-switch.is-on .mnu-switch-track::after {
+  transform: translateX(16px);
+}
+
+.mnu-switch input:focus-visible + .mnu-switch-track {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.mnu-switch input:disabled + .mnu-switch-track {
+  opacity: 0.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mnu-switch-track,
+  .mnu-switch-track::after {
+    transition: none;
+  }
+}
+
+/* --- The product form ------------------------------------------------------------------ */
+
+.mnu-photo {
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding-top: 0;
+}
+
+.mnu-photo .photo-preview {
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.mnu-photo-empty {
+  flex-direction: column;
+  gap: 4px;
+  background: var(--surface-3);
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.mnu-photo-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mnu-photo-side input[type="file"] {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.mnu-photo-side input[type="file"]::file-selector-button {
+  margin-right: 10px;
+  padding: 7px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mnu-photo-side input[type="file"]::file-selector-button:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.mnu-photo-later {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Status and "on sale right now" share one cell: whether the dish is on the
+   menu at all, and whether it can be ordered this minute. */
+.mnu-status-field {
+  gap: 8px;
+}
+
+.mnu-onsale-line {
+  font-size: 0.8125rem;
+}
+
+.mnu-onsale-line input {
+  margin: 0;
+  padding: 0;
+}
+
+/* The photo sits beside the description, so it is sized to the textarea. */
+.mnu-page .mnu-photo .photo-preview {
+  width: 76px;
+  height: 76px;
+  flex-basis: 76px;
+}
+
+/* --- Categories -------------------------------------------------------------------------- */
+
+.mnu-order {
+  display: inline-grid;
+  place-items: center;
+  min-width: 28px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Phones: the three lists become cards ------------------------------------------------ */
+
+/* The card rows are laid out on the cells themselves, so the shared "flush
+   table" padding (which lines a table's first and last columns up with the
+   card heading) is replaced here: each card carries its own padding. The
+   extra .section-card in these selectors lets them outrank that rule. */
+@media (max-width: 700px) {
+
+  .mnu-toolbar {
+    padding: 14px 16px;
+  }
+
+  /* Category and Search share a line, Show takes the next: the dishes
+     start higher on the first screen. */
+  .mnu-toolbar {
+    gap: 10px 12px;
+  }
+
+  .mnu-toolbar .field,
+  .mnu-toolbar .field.mnu-search {
+    min-width: 0;
+    width: auto;
+    max-width: none;
+    flex: 1 1 calc(50% - 6px);
+  }
+
+  .mnu-toolbar .field.mnu-show {
+    flex-basis: 100%;
+  }
+
+}
+
+/* --- Import --------------------------------------------------------------------------- */
+
+.mnu-promises {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.mnu-promises li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--success-border);
+  border-radius: var(--radius);
+  background: var(--success-bg);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.mnu-promises li > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mnu-promises strong {
+  color: var(--success-text);
+}
+
+.mnu-promises li > span > span {
+  color: var(--text-2);
+}
+
+.mnu-promise-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--success-text);
+}
+
+.mnu-drop {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 30px 16px;
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+
+.mnu-drop:hover,
+.mnu-drop:focus-within {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.mnu-drop:focus-within {
+  box-shadow: var(--ring);
+}
+
+.mnu-drop input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.mnu-drop.is-busy,
+.mnu-drop.is-busy input {
+  cursor: progress;
+}
+
+.mnu-drop-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 2px;
+  border-radius: 50%;
+  background: var(--primary-soft);
+  color: var(--primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.mnu-drop-title {
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.mnu-guide-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.mnu-guide-head p {
+  margin: 0;
+  flex: 1 1 320px;
+}
+
+.mnu-guide summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  list-style: none;
+}
+
+.mnu-guide summary::-webkit-details-marker {
+  display: none;
+}
+
+.mnu-guide-caret {
+  color: var(--muted);
+  transition: transform 150ms ease;
+}
+
+.mnu-guide[open] .mnu-guide-caret {
+  transform: rotate(90deg);
+}
+
+.mnu-file-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.mnu-file-name {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mnu-file-name > svg {
+  color: var(--primary);
+}
+
+/* Five small figures in a dialog: as many to a row as fit. */
+.mnu-mini-stats {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.mnu-side-effects {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--info-border);
+  border-radius: var(--radius);
+  background: var(--info-bg);
+  font-size: 0.875rem;
+}
+
+.mnu-flag-text {
+  color: var(--warning-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.mnu-filter {
+  align-self: flex-start;
+}
+
+.mnu-count {
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.segment.is-active .mnu-count {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.mnu-action {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.mnu-action-create {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.mnu-action-update {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.mnu-action-unchanged {
+  background: var(--chip-bg);
+  color: var(--muted);
+}
+
+.mnu-change {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.mnu-change + .mnu-change {
+  margin-top: 4px;
+}
+
+.mnu-change-label {
+  display: inline-block;
+  min-width: 96px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.mnu-from {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--muted) 60%, transparent);
+}
+
+.mnu-to {
+  font-weight: 600;
+}
+
+.mnu-change.is-flag .mnu-change-label {
+  color: var(--warning-text);
+  font-weight: 700;
+}
+
+.mnu-note {
+  margin-top: 4px;
+}
+
+.mnu-confirm {
+  padding: 10px 12px;
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-weight: 600;
+}
+
+/* --- Price revision ------------------------------------------------------------------ */
+
+.mnu-revise-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.mnu-revise-cats legend,
+.mnu-revise-rule legend {
+  padding: 0 6px;
+  margin-left: -6px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: var(--text);
+}
+
+.mnu-revise-rule {
+  gap: 14px;
+}
+
+.mnu-whole-menu {
+  padding-bottom: 8px;
+}
+
+.mnu-cat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px 12px;
+  max-height: 260px;
+  overflow: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.mnu-revise-round {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.mnu-revise-go {
+  padding-top: 4px;
+}
+
+.mnu-revise-go .button {
+  width: 100%;
+}
+
+.mnu-problem-list {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 0.875rem;
+}
+
+.mnu-rule {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--primary-soft);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.mnu-rule > svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: var(--primary);
+}
+
+@media (max-width: 760px) {
+  .mnu-revise-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* The import and revision previews on a phone: each row a small card, the
+   whole dialog scrolling rather than a box inside it. */
+@media (max-width: 600px) {
+
+  .mnu-mini-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Five figures two to a row: the fifth takes the whole row, not half. */
+  .mnu-mini-stats > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  /* The five views do not fit one line: two even rows across the width,
+     rather than a ragged wrap. */
+  .segmented.mnu-filter {
+    display: flex;
+    width: 100%;
+  }
+
+  .segmented.mnu-filter .segment {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+
+}
+
+/* --- Sizes & add-ons ---------------------------------------------------------------- */
+
+.mnu-extras {
+  gap: 22px;
+}
+
+.mnu-extras-part {
+  gap: 12px;
+}
+
+.mnu-extras-part + .mnu-extras-part {
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.mnu-size-name {
+  font-weight: 600;
+}
+
+.mnu-inline-input {
+  width: 100%;
+  min-width: 90px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.mnu-inline-input:focus {
+  border-color: var(--primary);
+  box-shadow: var(--ring);
+  outline: none;
+}
+
+.mnu-sz-combo {
+  display: block;
+  margin-top: 2px;
+}
+
+.mnu-add-size {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+  padding: 14px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.mnu-add-size .field {
+  flex: 1 1 140px;
+}
+
+.mnu-add-size .checkbox {
+  padding-bottom: 10px;
+}
+
+.mnu-add-hint {
+  flex-basis: 100%;
+}
+
+.mnu-off-tag {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.mnu-addon-search {
+  max-width: 320px;
+}
+
+/* Add-ons as tick-cards: the name, its price on the right, the whole card
+   the target. A chosen one is tinted, so what the dish offers reads at a
+   glance. */
+.mnu-addon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
+  max-height: 300px;
+  overflow: auto;
+  padding: 2px;
+}
+
+.mnu-addon {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+
+.mnu-addon:hover {
+  border-color: var(--border-strong);
+}
+
+.mnu-addon:has(input:checked) {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+  background: var(--primary-soft);
+}
+
+.mnu-addon:has(input:disabled) {
+  cursor: default;
+}
+
+.mnu-addon input {
+  width: auto;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--primary);
+}
+
+.mnu-addon-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mnu-addon-price {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* --- Combos ------------------------------------------------------------------------ */
+
+.mnu-combo-warn {
+  line-height: 1.5;
+}
+
+/* On a phone the dialog is about 320px wide: each part becomes a small card
+   (the dish on top; quantity, price and Remove underneath), and the dish
+   picker takes the full width instead of running past the dialog's edge. A
+   long dish name in the picker is cut by the select itself. */
+@media (max-width: 600px) {
+
+  .inline-form.mnu-picker select {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .inline-form.mnu-picker input.inline-number,
+  .inline-form.mnu-picker input:not(.inline-number) {
+    flex: 1 1 96px;
+  }
+
+  .inline-form.mnu-picker .button {
+    flex: 1 1 auto;
+  }
+}
+
+/* --- Recipe -------------------------------------------------------------------------- */
+
+.mnu-rc-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mnu-rc-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 128px;
+  padding: 9px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+
+.mnu-rc-tab:hover {
+  border-color: var(--primary);
+}
+
+.mnu-rc-tab strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.9rem;
+}
+
+.mnu-rc-tab small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.mnu-rc-tab.is-active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.mnu-rc-tab.is-flagged small {
+  color: var(--warning-text);
+  font-weight: 600;
+}
+
+.mnu-rc-flag {
+  color: var(--warning);
+}
+
+.mnu-rc-tab:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.mnu-rc-hint .badge {
+  margin-right: 4px;
+}
+
+.mnu-rc-share {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+}
+
+.mnu-rc-share .field {
+  flex: 0 1 260px;
+}
+
+.mnu-rc-share-more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.mnu-rc-costs {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.mnu-recipe .empty-state {
+  padding: 20px 16px;
+}
+
+@media (max-width: 600px) {
+  .mnu-rc-tab {
+    flex: 1 1 130px;
+    min-width: 0;
+  }
+
+  .mnu-rc-share .field,
+  .mnu-rc-share .button,
+  .mnu-rc-share-more .button {
+    flex: 1 1 100%;
+  }
+
+  .mnu-rc-costs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* --- Change history ------------------------------------------------------------------ */
+
+/* A timeline: each entry carries its own piece of the line, so the marks stay
+   inside the scrolling list instead of being clipped at its edge. */
+.mnu-history {
+  list-style: none;
+  margin: 0;
+  padding: 2px 4px 0 0;
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.mnu-history > li {
+  position: relative;
+  margin-left: 12px;
+  padding: 0 0 18px 24px;
+  border-left: 2px solid var(--border);
+}
+
+.mnu-history > li:last-child {
+  border-left-color: transparent;
+  padding-bottom: 4px;
+}
+
+.mnu-history-mark {
+  position: absolute;
+  left: -13px;
+  top: 0;
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--tone-bg);
+  color: var(--tone);
+  box-shadow: 0 0 0 3px var(--surface);
+}
+
+.mnu-history-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding-top: 2px;
+}
+
+.mnu-history-lines {
+  margin: 8px 0 0;
+  padding: 8px 12px;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* --- Happy hour ----------------------------------------------------------------------- */
+
+/* How it works, four short points side by side. */
+.mnu-how-body {
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+
+.mnu-how {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px 20px;
+}
+
+.mnu-how li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--text-2);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.mnu-how-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+
+@media (max-width: 1100px) {
+  .mnu-how {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* The week, Monday first: the days the window runs are lit. */
+.mnu-week {
+  display: inline-flex;
+  gap: 2px;
+  vertical-align: middle;
+}
+
+.mnu-week-day {
+  display: inline-grid;
+  place-items: center;
+  width: 19px;
+  height: 20px;
+  border-radius: 5px;
+  background: var(--surface-3);
+  color: var(--placeholder);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.mnu-week-day.is-on {
+  background: var(--primary-soft);
+  color: var(--primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
+.is-off .mnu-week-day.is-on {
+  background: var(--chip-bg);
+  color: var(--text-2);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+
+.mnu-hours {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+
+.mnu-hours-icon {
+  color: var(--muted);
+}
+
+.mnu-midnight,
+.mnu-outlet {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.mnu-hh-where {
+  display: block;
+  margin-top: 2px;
+}
+
+@media (max-width: 640px) {
+  .mnu-how {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* The window form: the seven days as toggles, Monday first. */
+.mnu-days-field {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.mnu-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mnu-day {
+  position: relative;
+  cursor: pointer;
+}
+
+.mnu-day input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.mnu-day span {
+  display: inline-grid;
+  place-items: center;
+  min-width: 52px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.mnu-day:hover span {
+  border-color: var(--primary);
+}
+
+.mnu-day input:checked + span {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-text);
+}
+
+.mnu-day input:focus-visible + span {
+  box-shadow: var(--ring);
+}
+
+.mnu-hh-warn {
+  margin-top: 2px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--warning-text);
+}
+

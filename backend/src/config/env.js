@@ -105,8 +105,9 @@ module.exports = {
   nodeEnv,
   isLive,
   port: Number(process.env.PORT) || 5000,
-  // One origin, or several separated by commas (e.g. the admin site and a
-  // second front end on another address).
+  // The staff app's address (apps/business-web), or several separated by
+  // commas. The guests' site needs no entry: the public guest API answers any
+  // address (app.js).
   corsOrigin: (() => {
     const origins = (process.env.CORS_ORIGIN || "http://localhost:5173")
       .split(",")

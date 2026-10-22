@@ -1,9 +1,12 @@
 # Business Management Platform — data model
 
-Updated 6 October 2026 (Phase 1). This is the database the Business Admin and
-every later application (POS, Captain, Kitchen display, Customer website,
-Platform admin) stand on. Read [NAMING.md](NAMING.md) for the words used here
-and [MULTI_BUSINESS_ADMIN.md (Business Admin)](MULTI_BUSINESS_ADMIN.md) for what the admin does with it.
+Updated 22 October 2026 (first written for Phase 1, 6 October 2026; each later
+phase and round has its own dated section below, through migration
+`1791950412000`). This is the database the Business Admin and every later
+application (POS, Captain, Kitchen display, Customer website, Platform admin)
+stand on. Read [NAMING.md](NAMING.md) for the words used here,
+[MULTI_BUSINESS_ADMIN.md (Business Admin)](MULTI_BUSINESS_ADMIN.md) for what the admin does with it,
+and [DATABASE.md](DATABASE.md) for every table's columns.
 
 ## The five layers
 
@@ -14,22 +17,32 @@ and [MULTI_BUSINESS_ADMIN.md (Business Admin)](MULTI_BUSINESS_ADMIN.md) for what
                      (later: platform_plans, platform_plan_modules, business_subscriptions)
  2 Identity & access users ── business_memberships ── business_roles ── business_role_permissions
  3 Business (tenant) businesses ── business_settings · business_tax_rates · business_number_series
-                     business_capabilities · business_locations
+                     business_capabilities · business_locations · business_payment_methods
+                     business_departments
  4 Shared core       catalog_categories ── catalog_products ── catalog_skus ── catalog_sku_units
+                     catalog_kit_components · business_sku_location_prices
                      business_units · business_contacts · business_price_rules
                      business_documents (+ lines, payments, returns, refunds)
-                     business_collections · business_exchanges · business_exchange_policies
+                     business_supplier_payments
+                     business_collections (+ cheques, refunds)
+                     business_exchanges (+ policies, vouchers, voucher uses)
                      business_stock_lots · business_stock_movements · business_stock_adjustments
                      business_stock_transfers (+ lines) · business_stock_counts (+ lines)
                      business_resources · business_appointments
- 5 Type extensions   <type>_* tables (Phase 2+), e.g. pharmacy_*, salon_*, electronics_*
+                     business_expenses · business_cash_checks · business_counter_shifts
+ 5 Type extensions   retail_* · books_* · wholesale_* · fashion_* · electronics_* · salon_* · weight_*
+                     pharmacy_* · health_* · lab_*
+ Tasks               business_task* · business_issues · business_project* · platform_task_categories
  Cross-cutting       business_audit (who did what) · business_events (outbox)
 ```
 
 The restaurant module keeps its own tables (`restaurants`, `restaurant_*`,
 `orders`, `bills`, `menu_*`, …) untouched. A restaurant appears in the
 platform as one row of `businesses` with `legacy_restaurant_id` pointing at it;
-nothing in the restaurant tables was renamed or moved.
+nothing in the restaurant tables was renamed or moved. Through that row a
+restaurant's feature switches are `business_capabilities` rows
+([Restaurant features](#restaurant-features)) and its tasks, issues and
+projects live in the shared tables ([Tasks, issues & projects](#tasks-issues--projects-migration-1791620000000-7-oct-2026)).
 
 ## Rules every table follows
 
@@ -56,10 +69,10 @@ nothing in the restaurant tables was renamed or moved.
 | Table | What it holds |
 |---|---|
 | `platform_modules` | The module catalogue: `code` (the capability string), name, description, `kind` = `core` (always on: settings, access, reports, audit) or `optional`. |
-| `platform_module_business_types` | Which modules a business type *may* enable, and which it gets by default (`enabled_by_default`). Applicability is wider than the defaults: a salon may switch on stock transfers, but does not start with them. |
+| `platform_module_business_types` | Which modules a business type *may* enable, and which it gets by default (`enabled_by_default`). Applicability is wider than the defaults: a salon may switch on stock transfers, but does not start with them. Since round 3 a module can also be `recommended` for a type, with a note saying why (Settings › Business tools). |
 | `platform_module_dependencies` | A module that needs another (purchasing needs inventory and contacts). |
-| `business_permissions` | The permission catalogue: `<module>.<action>`, action ∈ view / create / edit / approve / cancel / refund / export / print. Only meaningful pairs exist: 46 in Phase 1, 93 after the Phase 2 migrations. |
-| `business_role_templates` (+ `_permissions`) | The standard roles: Owner (full access), Manager, Cashier / sales, Stock keeper, Accountant, Viewer. |
+| `business_permissions` | The permission catalogue: `<module>.<action>`, action ∈ view / create / edit / approve / cancel / refund / export / print, and later also discount (pro pass), assign, review and manage (tasks), view_clinical and edit_clinical (round 2). Only meaningful pairs exist: 46 in Phase 1, 93 after the Phase 2 migrations, 135 on 22 October 2026. |
+| `business_role_templates` (+ `_permissions`) | The standard roles: Owner (full access), Manager, Cashier / sales, Stock keeper, Accountant, Viewer. Since round 2 a template may belong to some business types (`business_types`, NULL = every type): Pharmacist (pharmacy), Doctor, Lab technician and Pathologist (clinic). |
 
 `business_capabilities.capability` is now a foreign key to `platform_modules`
 (the old hard-coded CHECK list is gone). A constraint trigger
@@ -84,24 +97,40 @@ business_capabilities     + source TEXT ('plan' | 'owner' | 'type_default'), + s
 A subscription will only *write* `business_capabilities` rows (and read
 limits); every check in the server already reads `business_capabilities`, so
 no query, screen or test changes when plans arrive. Until then the owner
-switches modules on and off within what the type allows (Business settings ›
-Modules, permission `settings.edit`; for a restaurant, also its own Settings →
-Features — see [Restaurant features](#restaurant-features)).
+switches modules on and off within what the type allows (Settings › Business
+tools, permission `settings.edit`; for a restaurant, its own Features screen —
+see [Restaurant features](#restaurant-features)).
 
 ### Restaurant features
 
 A restaurant is one business of type `restaurant` (`legacy_restaurant_id`),
 and until 1791470000000 it was one module, `restaurant`, with everything inside
-always on. The parts a restaurant may not want are now **fourteen optional
-modules in this same catalogue**, applying only to type `restaurant`, each
-needing `restaurant`, grouped by `platform_modules.feature_group`:
+always on. The parts a restaurant may not want are now **optional modules in
+this same catalogue**, grouped by `platform_modules.feature_group`: fourteen
+from 1791470000000 and two from 21 October (pre-orders and brands), which
+apply only to type `restaurant` and each need `restaurant`, and the three
+tasks modules, which every type has:
 
 | Group | Codes | Default |
 |---|---|---|
 | Guests | `guests`; `guest_loyalty` (needs `guests`) | on; loyalty **off** |
 | Service | `reservations`, `qr_ordering`, `online_ordering` (needs `guests`), `deliveries`, `kitchen_display`, `captain_sections` | on |
+| Service | `preorders` (needs `guests`; `1791950410000`), `brands` (`1791950411000`) | **off** (the café and bakery formats switch on pre-orders, the cloud kitchen brands) |
 | Money | `tips`, `advances`, `cash_drawers`, `coupons` | on |
 | Back office | `stock_recipes`, `staff_payroll` | on |
+| Operations | `tasks`; `issues`, `projects` (need `tasks`; `1791620000000`) | on for a restaurant (`1791950402000`); off for every other type |
+
+A restaurant's **format** is `restaurants.format` (restaurant, café, bakery or
+cloud kitchen; `1791950410000_food-formats.sql`). Choosing one sets the POS's
+order types and the one a new order starts on
+(`service_settings.pos_order_types`, `default_order_type`), the token numbers
+and these switches; the owner can change each afterwards. The same migration
+adds `products.sold_by` (by the piece, or by weight with the price per kg),
+the day-end "unsold" waste reason, and the pre-orders
+(`restaurant_preorders` + `_items`: the guest, what and when, the message,
+the advance in `customer_advances`, and the takeaway order it becomes on
+collection). Brands are `restaurant_brands`, with `categories.brand_id`
+(NULL = every brand's) and `orders.brand_id` (`1791950411000_kitchen-brands.sql`).
 
 Core, never switched: POS and orders, bills and payments, dues, menu, tables,
 outlets, business day, expenses, log book, reports, users and roles, settings,
@@ -111,8 +140,9 @@ activity log.
   `business_capabilities` row, read through `restaurant_features(restaurant_id)`
   (a restaurant not yet linked to a business has the type defaults;
   `restaurant_business_id()` links it on its first switch). The restaurant's
-  Settings → Features and the Business Admin's Modules screen for the
-  restaurant business read and write the same rows, through the same service
+  Features screen (Settings › Features) and the Business Admin's module
+  switches for the restaurant business (`PUT /api/businesses/:id/modules/:code`)
+  read and write the same rows, through the same service
   (`restaurantFeatures.service.js`: dependencies, refusing a switch that would
   strand money, the activity log).
 - **Every existing restaurant got everything on**, loyalty as its old
@@ -138,7 +168,8 @@ activity log.
   business is a row in `business_memberships (business_id, user_id)`. The same
   login can be a member of a restaurant and of a pharmacy.
 - **Per-business roles.** `business_roles` holds each business's own copy of
-  the six templates (`template_code`) plus roles the business makes itself
+  the six templates (`template_code`; a pharmacy and a clinic also of their
+  type's own) plus roles the business makes itself
   (`template_code` NULL). Copies, not shared rows: one business editing its
   "Manager" never changes another's. Exactly one role per business has
   `full_access` (the Owner); it holds no permission rows and always has every
@@ -148,7 +179,9 @@ activity log.
   `role` text column was dropped after mapping owner → Owner, manager →
   Manager, viewer → Viewer. The templates were written so nobody gained or lost
   anything: Manager = everything except staff access; Viewer = every view and
-  export. `last_opened_at` remembers the business a person last opened.
+  export. `last_opened_at` remembers the business a person last opened;
+  `location_id` (12 Oct) ties a person to one location and `department_id`
+  (16 Oct) to one department (both NULL = all; see round 3 below).
 - **Two checks, both on the server, on every request:** the permission's
   module must be enabled for the business (`business_capabilities`), and the
   person's role must hold the permission. Anti-escalation rules in the service:
@@ -160,9 +193,9 @@ activity log.
 
 | Table | Notes |
 |---|---|
-| `business_settings` | One row per business: legal and display name, GSTIN (pattern-checked in SQL, check-character validated by the API), address, GST state code (must match the GSTIN's first two digits), PIN, phone, email, logo path, `tax_mode` (exclusive / inclusive), `rounding` (none / nearest rupee), `fiscal_year_start_month` (April), invoice and receipt footers, date format. |
+| `business_settings` | One row per business: legal and display name, GSTIN (pattern-checked in SQL, check-character validated by the API), address, GST state code (must match the GSTIN's first two digits), PIN, phone, email, logo path, `tax_mode` (exclusive / inclusive), `rounding` (none / nearest rupee), `fiscal_year_start_month` (April), invoice and receipt footers, date format. Later columns: the [pro pass](#shared-commerce-pro-pass-migration-1791540000000-7-oct-2026), [round 2](#round-2-8-oct-2026) and [round 3](#round-3-1221-oct-2026). |
 | `business_tax_rates` | Named GST slabs, seeded with nil, 5 %, 18 % (default) and 40 % (the slabs since 22 Sep 2025). A slab's `rate` can never change (trigger): add a new slab instead, so old invoices keep meaning. One default per business. SKUs point at a slab (`catalog_skus.tax_rate_id`) and keep `tax_rate` as the rate charged. |
-| `business_number_series` | Per business + location + document kind + fiscal year: `prefix`, `next_number`, `padding`. Prefixes are unique in a business and must not end in a digit, so a number can only come from one series; prefix + digits ≤ 16 characters (the GST limit). A number is taken with `UPDATE … SET next_number = next_number + 1 … RETURNING` inside the posting transaction: concurrent postings queue on the row, a failed posting gives its number back, and a trigger forbids moving `next_number` backwards or changing a series once used. Kinds in Phase 1: sale (SI), purchase (PR), sales_return (CN), purchase_return (DN), stock_transfer (ST), stock_count (SC); Phase 2 adds sales_order, collection, repair_job and processing (ten in all). A series is created automatically on first use (`SI/2627/0001`), or set up in advance by the owner. |
+| `business_number_series` | Per business + location + document kind + fiscal year: `prefix`, `next_number`, `padding`. Prefixes are unique in a business and must not end in a digit, so a number can only come from one series; prefix + digits ≤ 16 characters (the GST limit). A number is taken with `UPDATE … SET next_number = next_number + 1 … RETURNING` inside the posting transaction: concurrent postings queue on the row, a failed posting gives its number back, and a trigger forbids moving `next_number` backwards or changing a series once used. Kinds in Phase 1: sale (SI), purchase (PR), sales_return (CN), purchase_return (DN), stock_transfer (ST), stock_count (SC); Phase 2 adds sales_order (SO), collection (RC), repair_job (RJ) and processing (CP) (ten in all); the pro pass supplier_payment (SP) and round 2 purchase_order (PO) and delivery_challan (DC): thirteen today. A series is created automatically on first use (`SI/2627/0001`), or set up in advance by the owner. |
 
 `business_documents` gained `series_id`, `tax_mode`, `round_off` (the total
 now satisfies `total = subtotal + tax + round_off`) and `due_on` (from the
@@ -181,8 +214,13 @@ used with its prefix.
 **Provisioning.** An `AFTER INSERT` trigger on `businesses` gives every new
 business its roles, settings row, GST slabs, units and its type's default
 modules, whichever code path created it (demo set-up, linking a restaurant, a
-script, later the platform admin). Existing businesses were back-filled by the
-same functions (`business_seed_roles/settings/tax_rates/units`).
+script, the platform console). Existing businesses were back-filled by the
+same functions (`business_seed_roles/settings/tax_rates/units`). Later
+triggers on the same insert add the five payment methods to every type but
+the restaurant (`businesses_default_payment_methods`, 12 Oct) and four
+financiers to an electronics shop (`businesses_default_financiers`, round 2);
+`business_seed_roles` gives a pharmacy and a clinic their own role templates
+too (round 2).
 
 ## 4. Shared core
 
@@ -226,8 +264,9 @@ same functions (`business_seed_roles/settings/tax_rates/units`).
 ## 5. Type extensions (Phase 2+ convention)
 
 Industry-specific data goes in tables named `<type>_*` (for example
-`pharmacy_prescriptions` (planned), `salon_plans`, `electronics_warranties`,
-`healthcare_*` only after the privacy review). Each one:
+`pharmacy_prescriptions`, `salon_plans`, `electronics_warranties`; a
+clinic's are `health_*` and `lab_*`, built in round 2 with consent and
+clinical access rules). Each one:
 
 - carries `business_id BIGINT NOT NULL` and composite foreign keys to the
   core rows it hangs off (`(business_id, sku_id) → catalog_skus`,
@@ -769,3 +808,163 @@ no_show` (with room, deposit, fee), `collection.recorded` (deposit),
   customer with a phone (or the walk-in `buyer`) is known.
 - Collections & outstanding (`receivables`) is on by default for every goods
   type and was switched on for the demo shops.
+
+## Pro passes (7 Oct 2026)
+
+Each pass adds tables and columns beside its type's own and beside the shared
+exchanges and collections (the fashion and electronics pass also changes
+module defaults: offers on for a garment shop, exchanges on for electronics,
+no "sold by weight" for a new garment shop).
+
+| Table / column | What it holds |
+|---|---|
+| `business_collection_cheques` | A cheque taken on a collection: number, its own date (post-dated allowed), bank, received → deposited → cleared, or bounced (from received or deposited) with the reason and the bank charge owed; the bill settlements a bounce took back are kept on the row. It only moves forward and is never deleted (trigger). Permission `receivables.approve` (credit control). |
+| `wholesale_settlements` (+ `_receipts`) | A salesperson's evening settlement for a day: what each method brought, the cash handed over and the difference (a note when it is not zero); each receipt settles once; fixed once saved. |
+| `wholesale_delivery_runs`; transport and delivery columns on `wholesale_dispatches` | One van, many orders, one load sheet; on each dispatch the transporter, LR and e-way bill (12 digits, with its date) and the stage: out for delivery → delivered, part returned (a sales return) or refused. |
+| `wholesale_order_lines` + `discount_percent`, `list_unit_price`, `free_of_line_id`, `scheme_id`; `wholesale_order_edits`; `wholesale_hold_releases` | Line discounts and free goods (a free line is ₹0); an order changed before dispatch (the lines taken off and added, the totals before and after, the reason); a credit hold let through by a manager, with the reason. |
+| `wholesale_price_groups`, `wholesale_group_prices`, `wholesale_schemes` | Price groups with dated prices, per pack or per unit (a new price ends the old one the day before); schemes: buy N get M free and / or a discount % for a period, for everyone or one group. |
+| `wholesale_customer_profiles`, `wholesale_settings` | A trade customer's price group, contact person, state and PIN for the place of supply, trade or walk-in, and whether holds pass them by; the business's credit-hold rule (`hold_overdue_days`). |
+| `wholesale_salespeople` + `user_id`, `monthly_target`; `wholesale_claims` | A salesperson's login and monthly target; claims on suppliers (scheme, damage, expiry, rate difference, shortage, other): open → submitted → settled or rejected. |
+| `fashion_gst_price_slabs` | GST on clothing by price: 5 % up to ₹2,500 a piece and 18 % above, worked out on each sale line after discounts. |
+| `business_exchange_vouchers` (+ `_uses`) | Exchange credit as a numbered voucher (walk-ins too), spent at the counter; a voucher is only ever spent and never deleted, and a use never changes. `business_exchanges.no_bill` marks an exchange made without the bill (a gift). |
+| `electronics_faulty_units`, `electronics_warranty_claims` | A dead-on-arrival or faulty unit held for the supplier (a trigger refuses selling it), linked to its replacement, the exchange and the purchase return; what a warranty repair is claimed back from the brand. Repair jobs gained the `awaiting_approval` status, a passcode cleared when the job closes, a damage checklist and an advance; models a brand helpline. |
+| `retail_offers.product_id` (kind `product_percent`) | A markdown: a % off every size and colour of one style until a date; the shelf price is never rewritten, so it reverts by itself. |
+| `salon_walk_ins`, `salon_client_profiles`, `salon_client_notes`, `salon_staff_leave`, `salon_commission_payouts`, `salon_tips` | The waiting strip; the client card (profile, and notes and colour formulas, append-only); a stylist's leave; commission paid out and tips (both append-only). Bookings gained arrival, confirmation and reminder times, moves and the walk-in mark; stylists their hours and weekly day off; commission rules a flat amount. |
+| `weight_rate_history`, `weight_pack_sizes`, `weight_pickup_orders` (+ `_lines`), `weight_day_closes` | Every rate change (append-only); pouches repacked from loose stock and sold by the piece; phone and WhatsApp orders for pickup; the end-of-day weigh-up (append-only). Cutting batches gained who cut, the supplier and "cut to order". |
+| `business_locations.sells_at_counter`; `books_sets` (+ `_items`); `books_customer_orders` | A warehouse is not a till; a school booklist billed in one scan; a customer's order for a book not in stock, with an advance kept as a numbered collection, moving only forward and never deleted. |
+
+| File | Purpose |
+|---|---|
+| `1791580000000_wholesale-pro-cheques-dispatch-schemes.sql` | Cheques, settlements, delivery runs, order discounts and edits, credit holds, price groups, schemes, customer profiles, claims; `receivables.approve` |
+| `1791595000000_fashion-electronics-pro.sql` | Offers for garment shops and exchanges for electronics (defaults), markdowns, GST by price, credit vouchers, faulty units, warranty claims, repair approval and advances |
+| `1791600000000_salon-weight-pro.sql` | Salon walk-ins, client card, leave, payouts, tips, flat and package commission; weight shops' rates, pack sizes, pickup orders, weigh-ups |
+| `1791610000000_retail-pro.sql` | Counter flag on locations, school sets, books customer orders |
+
+## Tasks, issues & projects (migration 1791620000000, 7 Oct 2026)
+
+One model for every business type and the restaurant, keyed on `business_id`
+([ARCHITECTURE.md › 4.3](ARCHITECTURE.md#43-tasks-issues--projects-one-model-for-both-worlds)):
+
+| Table | What it holds |
+|---|---|
+| `platform_task_categories` | The shared categories (opening and closing, cleaning, food safety, maintenance, stock check, audit, hiring…) |
+| `business_task_templates` (+ `_items`) | A business's own templates; the built-in library of 82 checklists and six project plans is code (`modules/tasks/library`) |
+| `business_tasks` (+ `_assignees`, `_items`, `_comments`, `_files`, `_history`) | A task with who it is for, its checklist answers (section, checkbox, yes / no, number, text, photo, signature, choice), comments, photos and files, and its history (append-only) |
+| `business_task_schedules` | Recurring tasks; each day's task is made once however often it is asked for |
+| `business_issues` | Issues raised by hand, by a failed answer or from a restaurant's log book entry |
+| `business_projects` (+ `_members`, `_milestones`, `_lists`) | Projects, who sees them, their milestones and lists |
+
+Where and who differ by world: a restaurant's outlet, employee or role; a
+business's location, resource or business role. A trigger
+(`business_task_world_check`) refuses a pointer outside the business. Modules
+`tasks`, `issues` and `projects` ([Restaurant features](#restaurant-features));
+13 permissions (`tasks.*`, `issues.*`, `projects.*`, with the actions assign,
+review and manage). Events: `task.assigned`, `issue.reported`,
+`issue.assigned`.
+
+## Round 2 (8 Oct 2026)
+
+Additive, one migration per builder. The rules, and the setting that changes
+each, are in [DECISIONS_ROUND2.md](DECISIONS_ROUND2.md).
+
+| Table / column | What it holds |
+|---|---|
+| `business_payments.tendered` | What the customer handed over for a cash payment (the change is `tendered − amount`); a bill takes up to eight payments in one posting. |
+| `business_settings.counter_pin_every_bill` | The biller's PIN asked for every bill at a shared till. |
+| `retail_loyalty_settings.return_spent_points`; loyalty entry kind `restore` | Points spent on a bill come back in proportion when its goods are returned (on by default). |
+| `catalog_skus.is_kit`, `catalog_kit_components`; `business_document_lines.kit_sku_id`, `kit_label`, `kit_group` | A kit and its parts; a kit sold is posted as its parts, each line remembering the kit. |
+| Module `finance`; `electronics_financiers`, `electronics_finance_cases`, `electronics_finance_settlements`; payment and refund method `finance` | EMI: the financed part of a bill is owed by the financier (a payment of method `finance` settles the customer's part); the financier's payouts, net of the dealer subvention; a case cancelled after a return (a refund of method `finance`). A case only moves one way and is never deleted; a payout is kept as recorded. An electronics shop starts with four financiers. |
+| `wholesale_purchase_orders` (+ `_lines`), `wholesale_purchase_receipts` (+ `_lines`) | A purchase order to a supplier and what came in against it; each receipt is an ordinary core purchase, and a receipt row never changes. |
+| `wholesale_dispatches.challan_no`, `challan_series_id`; series kinds `purchase_order` (PO), `delivery_challan` (DC) | The delivery challan's own number, from its own series. |
+| `wholesale_schemes.free_sku_id`, `free_unit_code`, `no_slab` | Free goods of another item; a scheme that does not stack on a slab price. |
+| `wholesale_settings.bounce_charge`, `bounce_hold_count`, `bounce_hold_days` | The bank charge on a bounce (₹500 by default) and the credit hold after N bounces in a window (2 in 90 days). |
+| `customer_advances.order_id` (restaurant) | The pickup order an advance was taken for. |
+| `salon_staff_week`, `salon_holidays`, `salon_booking_overrides` | A stylist's hours on a weekday where they differ from usual; the salon's closed days; a manager's approval to book outside them, with the reason (append-only; permission `appointments.approve`). |
+| `salon_service_products`, `salon_backbar_usage` | The products a service uses, and what each billed service took from stock at the latest purchase price (append-only). |
+| `business_collection_refunds`, `salon_deposit_releases` | Money of a collection handed back, only to the customer who paid it and never more than is left (append-only; a repair's advance is refunded the same way); a held deposit moved to the client's wallet (append-only). |
+| `salon_commission_plans`, `salon_commission_slabs`, `salon_commission_schemes` | Monthly target (slab) commission plans on the month's net service sales, and the plan each stylist is on from a month. |
+
+**CHECK lists widened** (keep the whole list in any later change):
+`business_payments.method` and `business_refunds.method` add `finance`;
+`retail_loyalty_entries.kind` adds `restore`;
+`business_number_series.document_kind` adds `purchase_order` and
+`delivery_challan`; `business_permissions.action` adds `view_clinical` and
+`edit_clinical` (below).
+
+### Pharmacy, clinic and lab (migration 1791620004000)
+
+Standard Indian practice, to be reviewed by a pharmacist, a doctor and a legal
+adviser before going live
+([DECISIONS_ROUND2.md › Pharmacy & clinic](DECISIONS_ROUND2.md#pharmacy--clinic)).
+Modules `pharmacy` (pharmacy; needs `sales`, `batches`, `contacts`),
+`patients` and `lab` (clinic); permissions `pharmacy.*`, `patients.*` with
+`patients.view_clinical` and `patients.edit_clinical`, and `lab.*`; role
+templates Pharmacist, Doctor, Lab technician and Pathologist. Every look at
+clinical data is written to `business_audit` by the service.
+
+| Table | What it holds |
+|---|---|
+| `health_settings`, `health_signatories`, `health_counters`, `health_files` | One row per pharmacy or clinic (drug licences, retention, the near-expiry window, the lab's details, the consent notice, the referral commission); the people who sign (registered pharmacists, doctors and pathologists with their registration numbers; they sign by PIN); the patient, visit, lab order, sample and debit-note numbers; prescription scans (JPEG, PNG, WebP or PDF, kept in `private_uploads`). |
+| `pharmacy_drugs` | The drug master on a catalogue SKU: salt, strength, form, maker, schedule (none, G, H, H1, X, narcotic), pack, loose sale, cold chain. |
+| `pharmacy_prescriptions`, `pharmacy_register_entries` | The prescription behind a Schedule H, H1 or X sale (doctor, registration number, date, the scan) and the H1 and Schedule X register lines it writes; both append-only. A trigger refuses a prescription medicine on an ordinary sale. |
+| `pharmacy_recalls` | A recalled batch (its buyers are found from the sales that took it); the batch is blocked, and a trigger refuses selling or moving it. |
+| `pharmacy_debit_notes` (+ `_lines`) | Expiry and breakage returns to the distributor and the credit that settles them; lines append-only. |
+| `health_patients`, `health_consents`, `health_patient_clinical` | A patient on a contact; the consent the DPDP Act asks for (kept as given, only its withdrawal recorded, once; never deleted); the clinical card. |
+| `health_visits`, `health_visit_notes`, `health_prescription_items` | A consultation (vitals, diagnosis, follow-up), its notes (append-only) and its prescription (open only until the visit is completed); a completed visit is kept as written. |
+| `lab_tests`, `lab_parameters`, `lab_reference_ranges`, `lab_profile_tests` | Tests with their parameters, ranges by sex and age band (critical limits too), and profiles of tests sold together. |
+| `lab_orders`, `lab_order_tests`, `lab_samples`, `lab_results` | An order's tests, its samples with barcodes and its results, which cannot change once the order is approved or cancelled. |
+
+| File | Purpose |
+|---|---|
+| `1791620001000_salon-weight-repairs-round2.sql` | Stylist weeks, holidays, overrides, back-bar products, advance refunds and wallet moves, slab commission |
+| `1791620002000_core-retail-electronics-round2.sql` | Split payment (`tendered`), PIN for every bill, points back on returns, kits, EMI and financiers |
+| `1791620003000_wholesale-purchase-orders-challan-schemes-bounces.sql` | Purchase orders and receipts, the delivery challan series, cross-item schemes, bounce rules; the restaurant's pickup advance |
+| `1791620004000_pharmacy-clinic-lab.sql` | Pharmacy, patients and lab modules, permissions and type roles, and the tables above |
+
+## Round 3 (12–21 Oct 2026)
+
+| Table / column | What it holds |
+|---|---|
+| `business_locations` + address, city, PIN, `state_code`, `gstin`, `phone` (12 Oct), `opening_hours` (16 Oct) | A location's own details, printed on the bills it raises (the place of supply follows its state), and its opening hours. A location with staff tied to it cannot close (trigger). |
+| `business_memberships.location_id` (12 Oct), `department_id` (16 Oct) | A person tied to one location or one department (NULL = all). Nobody is tied to a closed location, and the owner never to one (trigger). |
+| `pharmacy_location_licences` | A pharmacy branch's own drug licences, printed on its bills. |
+| `business_payment_methods`; `method_name` on `business_payments`, `business_refunds`, `business_collections`, `business_supplier_payments` and `business_collection_refunds` | The business's own names for the ways it takes money, each of five fixed kinds (cash, UPI, card, bank, cheque); every type but the restaurant starts with Cash, UPI, Card, Bank transfer and Cheque; the last one switched on stays on (trigger). The accounts count the kind; each money row also keeps the name. |
+| `business_settings` + `voucher_valid_days`, `ageing_days`, `near_expiry_days`, `weight_buttons_grams`, `receipt_width_mm`, `day_cutoff_hour` | The owner's rules, each defaulting to what the code used to fix (90 days; 30 / 60 / 90; 30 days; 250, 500, 1,000 and 2,000 g; 80 mm; 5 am). |
+| Module `expenses`; `business_expenses` | Money already paid for running costs at one location (category, amount, payment method, request key); never edited or deleted, reversed once with a reason. |
+| `business_cash_checks` | A drawer counted against what it should hold, for one day and location; a difference needs a reason; a permanent snapshot. |
+| `platform_module_business_types.recommended`, `recommended_note` | A tool marked recommended for a trade, with the reason (Settings › Business tools). Since `1791950400000` a new business starts lean: its specialist modules are off until switched on; existing businesses kept theirs. |
+| `catalog_skus.shelf_location`, `member_price`, `internal_use` | Where an item sits, the price a loyalty member pays when it is lower, and an item used up inside services and never sold. |
+| `business_sku_location_prices` | A location's own price for an item. |
+| `retail_offers.coupon_code`, `usage_limit`, `per_customer_limit` | An offer that applies only with its code, and how often it may be used. |
+| `business_counter_shifts` | A cashier's shift at one counter: the float, the closing count and the difference; only the closing count is ever recorded on it, and a closed shift never changes. |
+| `business_departments`; `catalog_categories.department_id` | A store's departments; top-level categories belong to one. |
+| `business_document_lines.free_quantity`, `discount_percent` | A supplier's bill line as printed: free units and a trade discount; the stock cost of each unit received is the line's net over the whole quantity. |
+| `health_visits.location_id` | The branch a clinic visit happens at. |
+| `health_doctor_profiles`, `health_doctor_sessions`, `health_doctor_leave`; `health_visits.fee_kind`, `fee_sku_id` | A doctor's consultation and follow-up services, follow-up days, slot length and share of the fees; OPD sessions by weekday (with the most patients per session); leave; the fee a visit was billed (first visit or follow-up). |
+| `health_tokens` | The day's queue: a token per patient and doctor (waiting, called, in consultation, done, or skipped or cancelled), priority first, numbered per location, doctor and day; one live token per patient and doctor a day. |
+| `lab_orders.version`, `amend_reason` (…); `lab_report_versions` | Every signed report as it was signed (results, ranges, flags, who signed), numbered 1, 2, …; from version 2 each carries the reason for the amendment; never changed or deleted. |
+| `lab_qc_materials`, `lab_qc_runs` | Control materials per parameter (lot, level, target mean and SD) and each run with its z-score, the Westgard rules it broke and its outcome; a run is never changed. |
+
+| File | Purpose |
+|---|---|
+| `1791630000000_business-multi-location.sql` | Location details, staff tied to a location, branch drug licences |
+| `1791640000000_business-payment-methods.sql` | Payment methods and the method name on every money row |
+| `1791640001000_restaurant-rule-settings.sql` | The restaurant's own alerts and timings (its own tables) |
+| `1791640002000_business-rule-settings.sql` | The owner's rules in `business_settings` |
+| `1791950400000_business-workspaces-and-expenses.sql` | Lean starting set-ups, the `expenses` module, expenses and cash checks |
+| `1791950401000_expense-and-cash-reason-guards.sql` | A reversal or a cash difference needs a reason that is really there |
+| `1791950402000_restaurant-keeps-task-defaults.sql` | A restaurant still starts with tasks, issues and projects on |
+| `1791950403000_recommended-business-tools.sql` | Recommended tools per trade |
+| `1791950404000_retail-completion.sql` | Shelf location, member price, branch prices, opening hours, coupons, cashier shifts, departments |
+| `1791950405000_purchase-free-quantity-discount.sql` | Free quantity and discount on a supplier's bill line |
+| `1791950406000_catalog-internal-use.sql` | Items used in services only |
+| `1791950407000_visit-location.sql` | A clinic visit's branch |
+| `1791950408000_clinic-doctors-tokens.sql` | Doctors' fees, OPD sessions and leave; the token queue |
+| `1791950409000_lab-report-versions-qc.sql` | Report versions and quality control |
+| `1791950410000_food-formats.sql` | Restaurant formats, selling by weight, pre-orders ([Restaurant features](#restaurant-features)) |
+| `1791950411000_kitchen-brands.sql` | Brands ([Restaurant features](#restaurant-features)) |
+| `1791950412000_document-list-indexes.sql` | Indexes for the bills lists (each bill's lines, refunds and returned lines) |
+
+**Clean copies** (21 Oct) add no table: `businessClone.service.js` copies a
+demo business's set-up into a new real business through the ordinary tables
+([DEMO_TO_REAL_PLAN.md](DEMO_TO_REAL_PLAN.md)).

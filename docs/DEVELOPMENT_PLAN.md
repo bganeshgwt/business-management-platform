@@ -1,4 +1,4 @@
-> Historical status: see [current verification and remaining scope](VERIFICATION.md) for checks performed on 29 September 2026. Counts and pending labels below may be outdated.
+> Statuses and pending lists below updated 22 October 2026. What was checked: [VERIFICATION.md](VERIFICATION.md); what is left: [REMAINING_BACKLOG.md](REMAINING_BACKLOG.md). The delivery records (Sprint 1, Admin Web, *Closed since*) are history and keep their counts of the time.
 
 # Development plan
 
@@ -14,7 +14,7 @@ work completes.
 
 ```
 Platform Admin → Restaurants → Subscription → Applications → Modules → Users → Roles → Permissions
-Restaurant → Outlet (future) → Menu / Tables / Orders / Inventory / Customers / Staff / Reports
+Restaurant → Outlet → Menu / Tables / Orders / Inventory / Customers / Staff / Reports
 ```
 
 Each restaurant subscribes to the applications and modules it needs. Users only
@@ -25,21 +25,21 @@ see what their roles allow.
 | Phase | Sprint | Work | Status |
 | --- | --- | --- | --- |
 | Foundation | 1 | React/Vite setup, Express, PostgreSQL, authentication, base structure | **Done** |
-| SaaS Platform | 2–3 | Restaurants, plans, subscriptions, applications, modules, platform admin | Not started |
-| Restaurant Core | 4 | Restaurant settings, business day, users, roles, permissions | **Done** (business day pending) |
-| Menu & Tables | 5–7 | Categories, products, pricing, modifiers, tables, QR, availability | **Done**, including tax rates with HSN codes, combos, happy-hour pricing and CSV import/export. Per-outlet pricing and product images pending |
-| Orders & POS | 8–10 | Orders, POS, billing, payments, discounts, refunds | **Done**, including split bills, per-item cancellation and bill reprint |
-| Captain & Kitchen | 11–12 | Captain, KOT, KDS, kitchen stations, status | Not started |
+| SaaS Platform | 2–3 | Restaurants, plans, subscriptions, applications, modules, platform admin | **Partly done**: the platform console creates and switches off restaurants (with their admin's login) and, since 12 October 2026, businesses of every other type (with their owner's login); the module catalogue and each business's module switches (6 October 2026). Plans and subscriptions not started, by decision ([REMAINING_BACKLOG.md](REMAINING_BACKLOG.md) §3) |
+| Restaurant Core | 4 | Restaurant settings, business day, users, roles, permissions | **Done**, the business day included (18 September 2026) |
+| Menu & Tables | 5–7 | Categories, products, pricing, modifiers, tables, QR, availability | **Done**, including tax rates with HSN codes, combos, happy-hour pricing and CSV import/export; product images (19 September 2026) and prices per outlet, service and channel (30 September 2026) |
+| Orders & POS | 8–10 | Orders, POS, billing, payments, discounts, refunds | **Done**, including split bills, per-item cancellation and bill reprint. The split-bill button was later removed at the owner's request; *Move dishes* puts dishes on another order to bill |
+| Captain & Kitchen | 11–12 | Captain, KOT, KDS, kitchen stations, status | **Done** by 25 September 2026: KOTs and the kitchen display with stations and statuses; captains take orders on the POS, in their own sections since 7 October 2026. A captain app of its own is still to come (`/captain` says so) |
 | Inventory | 13–14 | Items, stock, issue, transfer, consumption, low stock, wastage | **Done**, including recipe-based automatic consumption |
 | Purchasing | 15–16 | Suppliers, purchase orders, receiving, returns | **Done**, including returns, supplier payments and outstanding balances |
 | CRM | 17–18 | Customers, loyalty, feedback, complaints | **Done**: customers with visit history, loyalty earning/redemption/adjustment, feedback, complaints |
-| Online Ordering | 19–20 | Customer website, cart, QR ordering, payment, tracking | Not started |
-| Delivery | 21–22 | Delivery management, partner integration, settlement | Not started |
-| Operations | 23–25 | Staff, shifts, expenses, notifications, hardware | **Done**: staff, shifts, roster, attendance, payroll summary and expenses. Notifications and hardware pending |
-| Reports | 26 | Sales, payment, inventory, kitchen, customer and operations reports | **Done** for sales, tax, items, staff, discounts, consumption and day-end |
+| Online Ordering | 19–20 | Customer website, cart, QR ordering, payment, tracking | **Done** except online payment: QR table ordering (by 25 September 2026), the online ordering page with a cart and each order's status page (7 October 2026), all on the guests' site since 21 October 2026. Guests pay at the counter or on delivery; online payment waits for a gateway |
+| Delivery | 21–22 | Delivery management, partner integration, settlement | **Partly done**: the deliveries board with channels and riders (by 25 September 2026), delivery charges and riders' cash settlement (7 October 2026). Partner integration and aggregator payout settlement wait for partner access |
+| Operations | 23–25 | Staff, shifts, expenses, notifications, hardware | **Done**: staff, shifts, roster, attendance, payroll summary and expenses; the staff time clock and in-app notifications, the bell and its alerts page (by 25 September 2026). Messages by SMS, WhatsApp or email and hardware pending |
+| Reports | 26 | Sales, payment, inventory, kitchen, customer and operations reports | **Done** for sales, tax, items, staff, discounts, consumption and day-end; then GST filing, profit & loss, the Tally day book, theft control, waiters, outlets, expenses and dish profitability (by 12 October 2026), and guest insights (by 25 September 2026). Kitchen: the kitchen display and dashboard show today's ticket times; no station report |
 | Integrations | 27 | Payment gateway, maps, messaging, partner APIs | Not started |
-| Testing | 28–29 | Functional, permissions, integration, performance, security | Not started |
-| Pilot & Release | 30–31 | Pilot restaurant, fixes, production setup, release | Not started |
+| Testing | 28–29 | Functional, permissions, integration, performance, security | **Partly done**: 30 unit and 549 integration tests (22 October 2026), browser suites for both web apps, permission and tenant-isolation checks, and a two-minute load run on this PC (30 September 2026). Production capacity and the security of the hosted system wait for hosting |
+| Pilot & Release | 30–31 | Pilot restaurant, fixes, production setup, release | Not started ([PILOT_CHECKLIST.md](PILOT_CHECKLIST.md)); real copies of the demo shops are ready for a pilot customer (21 October 2026) |
 
 ## Sprint 1 (Foundation) — what was delivered
 
@@ -54,14 +54,19 @@ see what their roles allow.
 | Login API with bcrypt + JWT, rate limited | `POST /api/auth/login` |
 | Auth and permission middleware, tenant scoping | `middlewares/authenticate.js`, `authorize.js` |
 | User creation script | `npm run user:create` |
-| React router, auth context, login page, protected layout | `frontend/src/` |
+| React router, auth context, login page, protected layout | `apps/business-web/src/` |
 
 ### Not yet done from Sprint 1
 
-- No refresh token; sessions end after 8 hours
-- No `audit_logs` table
-- No automated tests (Jest + Supertest recommended before Sprint 8)
-- Token stored in `localStorage`; revisit before production
+- No refresh token; sessions end after 8 hours — **done** by 25 September
+  2026: the screen renews the session while someone works
+  (`POST /api/auth/refresh`); one left unused for 8 hours ends
+- No `audit_logs` table — **done** 19 September 2026 (the activity log)
+- No automated tests (Jest + Supertest recommended before Sprint 8) — **done**
+  with Node's own test runner instead: 30 unit and 549 integration tests on
+  22 October 2026, and Playwright browser suites
+- Token stored in `localStorage`; revisit before production — still open
+  (`rmp_token`)
 
 ## Admin Web — what was delivered
 
@@ -139,14 +144,23 @@ matching permission, and the API enforces the same permission again.
 
 ### Still pending in these modules
 
-- Per-outlet **pricing** (the switcher and per-outlet stock are done)
+- Per-outlet **pricing** (the switcher and per-outlet stock are done) —
+  **done** 30 September 2026, with prices per service and channel
 - QR ordering itself: the codes are printed, but the customer page arrives in Sprint 20
+  — **done** by 25 September 2026; the page is on the guests' site since 21 October 2026
 - KOT tickets and the kitchen display (Sprint 11–12); orders already carry a kitchen status
-- Kitchen-station and customer reports (the rest of Sprint 26)
-- Multi-outlet consolidated reporting
-- Notifications (email/SMS/WhatsApp)
+  — **done** by 25 September 2026
+- Kitchen-station and customer reports (the rest of Sprint 26) — customer
+  reports done (guest insights, by 25 September 2026); for the kitchen, the
+  kitchen display and dashboard show today's ticket times, but there is no
+  station report
+- Multi-outlet consolidated reporting — **done**: every report by outlet
+  (30 September 2026) and Reports › Outlets, which compares them all (by
+  12 October 2026)
+- Notifications (email/SMS/WhatsApp) — still open
+  ([REMAINING_BACKLOG.md](REMAINING_BACKLOG.md) §1)
 - Direct thermal-printer and cash-drawer control, which a browser cannot do
-  without a local print agent
+  without a local print agent — still open (REMAINING_BACKLOG.md §2)
 
 ## Module list and dependencies
 
@@ -223,3 +237,7 @@ layer only gates access to what already exists.
 Either way, **Sprint 4 (users, roles, permissions APIs and screens)** is the
 natural next piece, because the tables already exist and users can currently only
 be created from the terminal.
+
+*22 October 2026:* the working POS came first, as suggested; Sprint 4's users
+and roles screens are in the Admin Web above. The subscription layer is still
+to come ([REMAINING_BACKLOG.md](REMAINING_BACKLOG.md) §3).

@@ -1,6 +1,6 @@
 # Admin guide
 
-*For owners, managers and staff. Updated 6 October 2026 from the current
+*For owners, managers and staff. Updated 22 October 2026 from the current
 screens and the rules the server enforces. Words are defined in
 [NAMING.md](NAMING.md); the technical side is in [API.md](API.md) and
 [DATABASE.md](DATABASE.md); what is still to come is in
@@ -8,10 +8,12 @@ screens and the rules the server enforces. Words are defined in
 
 One application, **Business Admin**, runs every business you belong to. A
 restaurant gets the full restaurant admin (menu, tables, POS, kitchen,
-billing, stock, staff, reports). Every other business type — grocery,
-supermarket, wholesale, fashion, electronics, pharmacy, books, salon, clinic,
-meat and weight-based shops — gets the Business Admin screens its modules
-switch on.
+billing, stock, staff, reports); a café, a bakery and a cloud kitchen run on
+it too. Every other business type — grocery, supermarket, wholesale, fashion,
+electronics, pharmacy, books, salon, clinic, meat and weight-based shops —
+gets the Business Admin screens its business tools switch on. Guests never
+sign in: they order and book on the **guests' site**, the pages a
+restaurant's QR codes and links open.
 
 **Two rules hold everywhere.** You only see what your role allows: a screen
 you may not use is not greyed out, it is absent, and the server checks the
@@ -26,30 +28,35 @@ on record.
 
 **Part 1 — Getting started**
 1. [Signing in and staying safe](#signing-in-and-staying-safe)
-2. [The business switcher](#the-business-switcher)
-3. [Getting around the restaurant admin](#getting-around-the-restaurant-admin)
-4. [Lists: the data grid](#lists-the-data-grid)
+2. [Starting a business](#starting-a-business)
+3. [The business switcher](#the-business-switcher)
+4. [Getting around the restaurant admin](#getting-around-the-restaurant-admin)
+5. [Lists: the data grid](#lists-the-data-grid)
+6. [Workspaces still to come](#workspaces-still-to-come)
 
 **Part 2 — The restaurant**
 
-5. [Dashboard](#dashboard)
-6. [Service — POS, orders, kitchen, captains, requests](#service--pos-orders-kitchen-captains-requests)
-7. [Billing, payments, dues and advances](#billing-payments-dues-and-advances)
-8. [Reservations and online booking](#reservations-and-online-booking)
-9. [Online ordering, tokens and the pickup screen](#online-ordering-tokens-and-the-pickup-screen)
-10. [Deliveries, delivery charge and rider cash](#deliveries-delivery-charge-and-rider-cash)
-11. [Restaurant — profile, outlets, hours, settings, payment types](#restaurant--profile-outlets-hours-settings-payment-types)
+7. [Dashboard](#dashboard)
+8. [Service — POS, orders, kitchen, captains, requests](#service--pos-orders-kitchen-captains-requests)
+9. [Billing, payments, dues and advances](#billing-payments-dues-and-advances)
+10. [Reservations and online booking](#reservations-and-online-booking)
+11. [Online ordering, tokens and the pickup screen](#online-ordering-tokens-and-the-pickup-screen)
+    - [The guests' site](#the-guests-site)
+12. [Deliveries, delivery charge and rider cash](#deliveries-delivery-charge-and-rider-cash)
+13. [Restaurant — profile, outlets, hours, settings, payment types](#restaurant--profile-outlets-hours-settings-payment-types)
     - [Features — switching parts of the restaurant on or off](#features--switching-parts-of-the-restaurant-on-or-off)
-12. [Menu](#menu--categories-products-modifiers-tax-rates-happy-hour)
-13. [Tables](#tables--floors--areas-tables--qr)
-14. [Inventory](#inventory)
-15. [Purchasing](#purchasing)
-16. [Customers](#customers--customers-feedback-complaints)
-17. [Operations — business day, cash drawers, log book, discounts, expenses](#operations--business-day-cash-drawers-log-book-discounts-expenses)
-18. [Staff — employees, leave, attendance, time clock, payroll, tips](#staff--employees-leave-attendance-time-clock-payroll-tips)
-19. [Reports and the activity log](#reports--fourteen-reports-and-the-activity-log)
+14. [Menu](#menu--categories-products-modifiers-tax-rates-happy-hour)
+15. [Tables](#tables--floors--areas-tables--qr)
+16. [Inventory](#inventory)
+17. [Purchasing](#purchasing)
+18. [Customers](#customers--customers-feedback-complaints)
+19. [Operations — business day, cash drawers, log book, discounts, expenses](#operations--business-day-cash-drawers-log-book-discounts-expenses)
+20. [Staff — employees, leave, attendance, time clock, payroll, tips](#staff--employees-leave-attendance-time-clock-payroll-tips)
+21. [Reports and the activity log](#reports--fourteen-reports-and-the-activity-log)
 
 **Part 3 — [Business Admin for the other business types](#part-3--business-admin-for-the-other-business-types)**
+
+**[Café, bakery and cloud kitchen (food formats)](#café-bakery-and-cloud-kitchen-food-formats)**
 
 **[Tasks, issues & projects (every business)](#tasks-issues--projects-every-business)**
 
@@ -125,14 +132,27 @@ is created in one of two ways; nothing needs demo data.
   with its type, name and code, legal name, GSTIN, address, currency, time zone,
   first location, and the **owner's login** (a new email and password, or an
   existing login by its email). The owner signs in and finds the business ready:
-  roles, GST slabs, units and the type's modules are set up. The console also
-  switches a business off and on and sets a locked-out owner's new password.
+  roles, GST slabs, units and the type's everyday business tools are set up. The
+  console also switches a business off and on and sets a locked-out owner's new
+  password.
 - **Your businesses › Add a business** (an owner, or a restaurant's admin): the
   same details, and they become the new business's owner.
 
 The type and code cannot change later; everything else can, in Business settings.
 A restaurant is still created from Platform › Restaurants (its menu, tables and
 kitchen are set up with it).
+
+**Business tools** (*Settings › Business tools*, at the foot of Business
+settings) are the parts of Business Admin a business uses, in two groups:
+*Everyday work* (products, customers and suppliers, sales, purchases, stock,
+daily expenses, and the type's own, such as appointments, patient records or
+pharmacy rules) and *Optional workflows*. A new business starts lean: what its
+type uses every day is on, and stock transfers, offers, loyalty points,
+repairs, EMI & finance, packages, commissions, the laboratory, cutting & yield,
+tasks, issues and projects stay off until the owner or a manager switches them
+on. A tool most businesses of the type use is marked *Recommended*, with the
+reason, and listed first. Switching a tool off hides its screens and keeps its
+history. Businesses set up before the lean start keep the tools they had.
 
 **Staff logins.** In Staff & access, *New staff login* creates a login for
 someone who has none (name, email, first password, role and where they work);
@@ -160,17 +180,20 @@ Each rule starts at the value the product always used; change only what you need
 
 ## The business switcher
 
-The button in the top bar shows the business you are in, with its type. Click
-it to search (*Find a business*) and pick from **Restaurants** and **Other
-businesses**; each line shows your role there.
+The button in the top bar shows the business you are in, with its type (a
+café, bakery or cloud kitchen shows its format). Click it to search (*Find a
+business*, by name, type or code) and pick from **Restaurants & food** and
+**Other businesses**; each line shows your role there.
 
 - Picking **your signed-in restaurant** shows the restaurant admin.
 - Picking **any other business** opens its Business Admin at
-  `/business-admin/<id>`, with its own menu (Overview, Sales, Purchases,
-  Products, Stock, Reports, Settings, Staff & access), named for its type — a
-  salon says *Clients* and *Stylists & rooms*, a grocery says *Udhaar*.
-  Inside another business the outlet picker, the bell and Quick access are
-  hidden.
+  `/business-admin/<id>`, with its own menu in three groups (*Daily work*,
+  *Business*, *Management*; see Part 3), named for its type — a salon says
+  *Clients* and *Services & products*, a grocery says *Udhaar*. Inside
+  another business the outlet picker gives way to that business's
+  **location picker**, and the bell and Quick access are its own: the bell
+  warns about low stock, expiring batches, overdue udhaar (outstanding) and
+  promises to pay, repairs, appointments, and tasks and issues.
 - **Another restaurant** is greyed out ("This restaurant opens when you sign
   in to it"): sign in to that restaurant to manage it.
 - The last business you opened is **remembered on the server**, so your next
@@ -179,39 +202,55 @@ businesses**; each line shows your role there.
 - Leaving a form you have not saved asks first.
 - On the *Your businesses* page a Restaurant Admin whose restaurant is not yet
   on the platform sees **Link my restaurant**. Demo businesses are set up from
-  the command line (`npm run demo:today -- --user-id <id>` in `backend`).
+  the command line (`npm run demo:today -- --user-id <id>` in `backend`); they
+  appear only on a test server, listed after the real businesses.
+- **Real copies of the demo shops** (made 21 October 2026). Each of the 11
+  demo shops has a real twin with the code `LIVE-<KIND>` (`LIVE-KIRANA`,
+  `LIVE-PHARMACY`, `LIVE-CLINIC`…): the same name and set-up — business tools,
+  branches, roles, categories, products and prices, offers and the type's own
+  masters (drug master, lab tests, doctors' fees, salon services, routes) —
+  and none of the demo's bills, stock, customers, patients, staff logins or
+  activity. GSTINs, phone numbers, e-mail, logo and licence numbers are left
+  empty. The demo and its copy share a name in the switcher; type *LIVE* in
+  *Find a business* to list the real ones. The demos stay, for training.
+  Before a customer uses a copy, fill in Business settings (the
+  *Name shown in the app* prints on bills; the name in the switcher cannot
+  be changed yet) and each location's GSTIN and phone, give the customer's
+  staff their own logins in Staff & access, check prices and take in opening
+  stock (see [DEMO_TO_REAL_PLAN.md](DEMO_TO_REAL_PLAN.md)).
 
 ## Getting around the restaurant admin
 
 **The top bar**, left to right: the restaurant's name (back to the
-Dashboard), the business switcher, the **Outlet** picker, the **bell**, the
-**lock**, and your account menu.
+Dashboard; under it the outlet you are tied to and, for a café, bakery or
+cloud kitchen, the format), the business switcher, the **Outlet** picker, the
+**bell**, the **lock**, and your account menu.
 
-**The sidebar** shows only the screens your role can open; a section with
-none disappears.
+**The sidebar** has three groups. Each entry opens an area, and the area's
+other pages are **tabs** across the top of its page: the first four show (and
+the one you are on), the rest are under **More tools**; the POS, the kitchen
+display and the pickup screen keep the whole screen. You see only the
+entries and tabs your role can open and whose feature is on (Settings →
+Features); an entry with none disappears, and an entry opens the first of its
+pages you may use. In this guide an arrow goes one level down the menu:
+**Daily work → Kitchen display** is the *Kitchen display* entry of the
+*Daily work* group, and **Orders → Table requests** is the *Orders* entry's
+*Table requests* tab.
 
-| Section | Screens |
+| Group | Entries (and the tabs inside them) |
 | --- | --- |
-| Overview | Dashboard · My work (for a login linked to a staff record) |
-| Service | POS · Orders · Bills & payments · Dues & accounts · Kitchen display · Table requests · Reservations · Deliveries · Pickup screen · Service settings |
-| Restaurant | Profile · Outlets · Business hours · Settings |
-| Menu | Categories · Products · Modifiers · Tax rates · Happy hour |
-| Tables | Floors & areas · Tables & QR |
-| Inventory | Items & stock · Stock movements · Waste & reorder · Transfers & indents · Stock & purchasing settings |
-| Purchasing | Suppliers · Purchase orders · Returns & payments |
-| Customers | Customers · Feedback · Complaints · Guest insights |
-| Operations | Business day · Log book · Discounts & offers · Expenses |
-| Staff | Employees · Shifts & roster · Attendance · Time clock · Payroll · Tips |
-| Reports | Reports · Activity log |
-| Users & access | Users · Roles & permissions |
-| Platform | Restaurants (the platform operator only) |
+| Daily work | Dashboard · POS · **Orders** (Orders, Pickup screen, Table requests, Deliveries) · Pre-orders & cakes · Bills & payments · Dues & accounts · Kitchen display · Expenses · Business day |
+| Operations | **Menu** (Products, Categories, Brands, Modifiers, Happy hour, Tax rates) · **Tables & QR** (Tables & QR, Floors & areas; not in a bakery or cloud kitchen) · Reservations · **Stock** (Items & stock, Stock movements, Waste & reorder, Day-end unsold for a bakery or café, Transfers & indents, Stock & purchasing settings) · **Purchases & suppliers** (Purchase orders, Suppliers, Returns & payments) · **Customers** (Customers, Feedback, Complaints, Guest insights) · **Staff** (Employees, Shifts & roster, Attendance, Time clock, Payroll, Tips, and My work for a login linked to a staff record) |
+| Management | **Reports** (Reports, Activity log, Log book) · **Tasks** (its own strip of task screens) · **Settings** (Settings, Profile, Business hours, Features, Outlets, Service settings, Discounts & offers) · **Users & access** (Users, Roles & permissions) |
+| Platform | Restaurants · Businesses (the platform operator only) |
 
-- Only the section you are in is open; click another section's title to pin
-  it open (remembered in this browser). **Jump to…** at the top filters every
-  screen by name.
+- Only the group you are in is open; click another group's title to pin it
+  open (remembered in this browser). **Jump to…** at the top finds any page
+  by name, tabs included.
 - **Quick access** keeps up to five favourite pages above the menu (**Set
   up**, pick, arrange with the arrows, **Save shortcuts**). It belongs to your
-  login on this browser, so everyone on a shared till has their own.
+  login on this browser, so everyone on a shared till has their own; each
+  business you open in Business Admin keeps its own set too.
 - **The outlet picker** appears when the restaurant has an active outlet and
   you may see outlets and are not tied to one. Changing it reloads the page.
   From then on every order, bill, stock movement, report and dashboard figure
@@ -225,6 +264,8 @@ none disappears.
   closed short). It checks every 30 seconds while the tab is visible, you see
   only alerts from screens you can open, and an alert disappears once its
   cause is fixed. **See all notifications** opens the full list with filters.
+  Where the bell draws its lines (a large discount, a late delivery or
+  booking, a long break) is set in Settings → Alerts and timings.
 
 ## Lists: the data grid
 
@@ -262,6 +303,23 @@ everywhere:
   area's export permission (for example `catalog.export`, `reports.export`).
 - On a phone a list becomes cards.
 
+## Workspaces still to come
+
+*Added 21 October 2026.* Three addresses of Business Admin are kept for
+workspaces that are planned and not built yet. Each already opens a page
+marked *Planned · not built yet*: **What it will do**, then **Until then** with
+where that work is done today and buttons to go there. A bookmark or a tablet
+set up on one of them keeps working when the workspace arrives.
+
+| Address | Planned | Until then |
+| --- | --- | --- |
+| `/captain` | **Captain app for waiters**: a phone screen for each waiter built around their own tables — the section's tables at a glance (free, seated, waiting for food, asking for the bill), orders with sizes, add-ons and notes sent straight to the kitchen, and a call on the phone when a dish is ready to serve | Take orders on the **POS** from its tables view (a captain sees their own section first) and answer guests' QR calls in **Orders → Table requests** |
+| `/clinic` | **Clinic workspace**: one screen for the reception desk and the doctors — registration and the token queue, the consultation (history, notes, prescription and tests) and follow-ups and referrals without leaving the queue | The clinic's own Business Admin menu: **Token queue**, **Today's patients**, **Patients** |
+| `/lab` | **Lab workspace**: one screen for the people who collect samples and run the tests — where each sample is, worklists, result entry and approval, and reports released to the doctor and the patient with every version kept | The clinic's Business Admin: **Lab orders**, **Tests & panels** |
+
+The clinic and lab buttons open the clinic you opened last; someone with no
+clinic gets **Open Business Admin**.
+
 ---
 
 # Part 2 — The restaurant
@@ -273,47 +331,58 @@ seconds while the tab is visible (click **Updated … ago** to refresh now) and
 works in **business days**, not calendar days — a kitchen still serving at
 00:30 is on yesterday's sheet, and the header says so.
 
-**Takings are only for people allowed to see them.** Sales, the cash drawer,
-the month and money owed appear only for roles with *See takings and sales
-figures* (`sales.view`). A captain or the kitchen sees guests, running orders,
+**Takings are only for people allowed to see them.** Sales, the cash drawer
+and money owed appear only for roles with *See takings and sales figures*
+(`sales.view`). A captain or the kitchen sees guests, running orders,
 tables and dishes counted in plates instead. The server leaves the figures out
 of its answer; it is not just the screen hiding them.
 
-**Header buttons:** *Full analysis* (Reports), *Open day* / *Close day*, *New
-order* (while the day is open). Banners warn when orders are blocked because
-no day is open, when one outlet is selected, and when this device is set to an
-outlet that has closed.
+**Header buttons:** *Full analysis* (Reports), *Open day* / *Close day* (the
+dialog opens on the dashboard), *New order* (while the day is open). Banners
+warn when orders are blocked because no day is open, when a counter's day was
+left open from an earlier date (in red, with *Close day* for each counter),
+when one outlet is selected, and when this device is set to an outlet that
+has closed.
 
-**Tiles:** *Sales today* (against the same weekday last week up to the same
-time), *Bills* (with dine-in guests), *Average bill* (with dine-in spend per
-head) — or *Guests served & seated* without `sales.view` — then *Running
-orders* and *Tables in use*. Running orders and tables open the list already
-filtered.
+**Tiles:** *Sales today* (against the same weekday a week earlier, up to the
+same time), *Bills* (with dine-in guests served), *Orders today* (split into
+dine-in, takeaway and delivery, each with what it billed) — or *Guests served
+& seated* without `sales.view` — then *Running orders* and *Tables in use*
+(not in a bakery or cloud kitchen). A plain click on a tile or a row opens its
+detail in a panel over the dashboard, with **Open full page**; Ctrl-click
+(Cmd-click on a Mac) opens the full screen in a new tab.
 
 **Needs attention** lists what is waiting on a person, worst first, each row
-opening the exact list it counted: unpaid bills, bills on account, kitchen
-tickets running late, late deliveries, items out of stock, QR orders to
-accept, unanswered table calls, late bookings, staff late for a shift, items
-running low, open complaints, missing clock-outs, expenses to approve and
-purchase deliveries due. You see a row only if you can act on it. **Log book
-follow-ups** that are still open sit beside it.
+opening exactly what it counted: orders left open from earlier days, unpaid
+bills, bills on account, kitchen tickets running late, late deliveries, items
+out of stock, QR orders to accept, unanswered table calls, late bookings,
+staff late for a shift, items running low, open complaints, missing
+clock-outs, expenses to approve and purchase deliveries due. You see a row
+only if you can act on it. **Log book follow-ups** that are still open sit
+beside it.
 
-**Live service** has one card per area — Floor, Kitchen, Reservations today,
-Table requests, Deliveries, Staff on duty, Stock, Guests (with birthdays) —
-each shown only to roles that can open that screen. Floor, kitchen,
-reservations, requests and deliveries follow the selected outlet; staff, stock
-and guests always cover the whole restaurant. All the cards arrive in one
-request; a card that fails keeps its last figures while the others load.
+**Live service** has one card per area — Pre-orders (when that feature is
+on), Floor, Kitchen, Reservations today, Table requests, Deliveries, Staff on
+duty, Stock, Guests (with birthdays) — each shown only to roles that can open
+that screen. Floor, kitchen, reservations, requests and deliveries follow the
+selected outlet; staff, stock and guests always cover the whole restaurant.
+All the cards arrive in one request; a card that fails keeps its last figures
+while the others load.
 
-**Trading for the day** (with `sales.view`): sales over 7 days (a day with no
-sales is drawn at zero, not skipped), items sold (best sellers and slowest),
-payments collected with the cash drawer (opening cash, cash sales, refunds,
-expenses, expected in drawer — for *All outlets*), order sources, hour by
-hour through the day (with discounts, refunds and voids), and the month so far
-(sales, bills, average day). By design there is no food-cost card and no
-monthly average-bill tile; dish costs are in Reports → Dish profitability.
+**Today's trading** (with `sales.view`) covers this business day only; the
+week and the month are in *Full analysis*. **Money in** by payment method
+(with earlier days' dues collected today) and what the drawer should hold
+(opening cash, cash sales, refunds, expenses — for *All outlets*); **Through
+the day**, hour by hour with the busiest hour; **Items**, best sellers and
+slowest; **Money out**: discounts, refunds, bills voided and expenses.
+Without `sales.view` it shows the items sold, in plates, and the orders taken
+by type. By design there is no food-cost card; dish costs are in Reports →
+Dish profitability.
 
 ## Service — POS, orders, kitchen, captains, requests
+
+In the menu: **POS**, **Orders** (with Table requests) and **Kitchen display**
+under Daily work; captain sections on **Tables & QR**.
 
 ```
 Seat or take order  →  POS: build the cart  →  Save & print KOT
@@ -328,9 +397,10 @@ Seat or take order  →  POS: build the cart  →  Save & print KOT
 The till. Pick a category or search, tap a dish, and it goes into the cart. A
 dish with sizes, add-on groups or combo choices opens a picker first; required
 choices ("Choose one main", "Choose two sides") must be made. Set the **order
-type** — dine-in (table and guests), takeaway or delivery — and attach a known
-guest by name or mobile, which is what makes loyalty, dues and saved delivery
-addresses work.
+type** — dine-in (table and guests), takeaway or delivery, as many of them as
+the restaurant takes (Service settings → Orders the POS takes) — and attach a
+known guest by name or mobile, which is what makes loyalty, dues and saved
+delivery addresses work.
 
 - **Prices are never worked out in the browser.** The cart is an estimate; the
   server prices the order from the menu, the outlet, the service and the
@@ -347,7 +417,8 @@ addresses work.
   another table, or have some dishes moved; the kitchen gets a *TABLE CHANGED*
   slip for tickets already printed.
 - **Nothing can be sold until the business day is open.** The buttons are
-  disabled and a banner points to Operations → Business day.
+  disabled and a banner says to open the day first (Daily work → Business
+  day).
 
 ### Orders
 
@@ -365,7 +436,7 @@ Theft control**, and the kitchen gets a **CANCEL** slip.
 
 ### Kitchen display
 
-**Service → Kitchen display** shows every ticket by station with a running
+**Daily work → Kitchen display** shows every ticket by station with a running
 clock, refreshed every 10 seconds. Cooks move tickets on — **Start cooking →
 Mark ready → Served** (and back if tapped by mistake) — with `kot.manage`; a
 screen with only `kds.view` watches without buttons. The toolbar has
@@ -378,7 +449,8 @@ sold out for today), a chime, and **Focus** (full screen for a wall TV).
 **Stations & routing** (for `menu.manage`): the **Stations** (tandoor, wok,
 bar…; one is the default and cannot be switched off until another is),
 which station cooks each **category**, **dish exceptions**, the **kitchen
-timers** (amber after the warning minutes, red after the late minutes) and
+timers** (amber after the warning minutes, red after the late minutes, and
+food left at the pass flagged after 8 minutes unless you change it) and
 **Names on KOTs**.
 
 **Kitchen names.** A kitchen name is a second name for a dish, a size or an
@@ -399,7 +471,7 @@ served get no slip.
 
 ### Captain sections
 
-**Tables → Tables & QR → Captain sections** is the day's plan of which captain
+**Tables & QR → Captain sections** is the day's plan of which captain
 looks after which **floor**, **section** (a dining area) or single **table**.
 The most specific line wins (a table given to Priya inside Ramesh's floor is
 Priya's). Each place has one captain a day; **Save plan** replaces the whole
@@ -415,10 +487,17 @@ can take orders is offered as a captain, so cashiers and managers appear too.
 
 ### Table requests
 
-The captain's inbox for guests' phones: orders and calls (waiter, bill, water)
-from the QR code on each table, and orders from the restaurant's own **online
-ordering page**. **Nothing is cooked until someone accepts it.** Waiting
-requests come first, oldest first, with a clock that turns amber and then red.
+**Orders → Table requests** is the captain's inbox for guests' phones: orders
+and calls (waiter, bill, water) from the QR code on each table, and orders
+from the restaurant's own **online ordering page**. **Nothing is cooked until
+someone accepts it.** Waiting requests come first, oldest first, with a clock
+that turns amber and then red.
+
+Its **QR ordering** window (the settings button) switches *Guests can order
+from the table* and *Guests can call staff* on or off, sets a note shown at
+the top of the guest menu, and opens *See what guests see* for any table;
+changing it needs `orders.manage`. With ordering paused, guests can still
+read the menu and call staff.
 
 ## Billing, payments, dues and advances
 
@@ -510,7 +589,7 @@ wrongly keyed payment is fixed by refunding and taking it again.
 
 ### Bills & payments screen
 
-**Service → Bills & payments**: tiles for sales today, collected today, still
+**Daily work → Bills & payments**: tiles for sales today, collected today, still
 to collect, discounts given and refunded today, then tabs **Bills** (opens on
 today; search, a status or an order link searches every day), **Credit notes**
 (`sales.view`) and **Payment corrections** (`sales.view` and `audit.view`).
@@ -518,7 +597,7 @@ Opening a bill shows the same bill window as the POS, plus refund and void.
 
 ### Dues & accounts
 
-**Service → Dues & accounts** (`sales.view`) is money owed by regulars and
+**Daily work → Dues & accounts** (`sales.view`) is money owed by regulars and
 companies. **Open an account** (`customers.credit`) for a guest from the guest
 book with a **credit limit**, **days to pay** (default 30) and a status
 (Active, or On hold — no new bills). Tabs:
@@ -553,7 +632,7 @@ from Dues › Advances like any other.
 
 ## Reservations and online booking
 
-**Service → Reservations** holds bookings, the walk-in waitlist and online
+**Operations → Reservations** holds bookings, the walk-in waitlist and online
 booking requests. View it as a **Timeline** (one row per table) or an
 **Agenda** (filters: All, Online requests, To arrive, Seated, Completed,
 No-show / cancelled).
@@ -562,8 +641,9 @@ A booking moves *Booked → Confirmed → Seated → Completed*, or ends as
 No-show, Cancelled or (for an online request) Declined.
 
 - Bookings must fall within **Business hours**, the last one 30 minutes before
-  closing; a time up to 15 minutes in the past is accepted, so a host typing a
-  booking in late is not refused. Up to a year ahead, 1–50 guests, 30–360
+  closing by default (*Last seating before closing*, Settings → Alerts and
+  timings); a time up to 15 minutes in the past is accepted, so a host typing
+  a booking in late is not refused. Up to a year ahead, 1–50 guests, 30–360
   minutes at the table (90 by default).
 - **No double booking:** a table booked, confirmed or seated for an
   overlapping time cannot be booked again. A party bigger than the table needs
@@ -588,9 +668,10 @@ mistake)**. The bell warns when a guest has waited longer than quoted.
 **Online booking** (in the Reservations header) sets up the public booking
 link for the main counter and for each outlet. Guests open
 `<guest web address>/book/<link>`, choose party size, day and time (every 30
-minutes within Business hours), give a name and mobile and send a **request**.
-They never see tables. Their status page shows *Request received*, then
-*Your table is confirmed* or your polite reason for declining. No SMS is sent.
+minutes within Business hours, or the step set under Settings → Alerts and
+timings), give a name and mobile and send a **request**. They never see
+tables. Their status page shows *Request received*, then *Your table is
+confirmed* or your polite reason for declining. No SMS is sent.
 
 | Setting | Default | Limits |
 | --- | --- | --- |
@@ -625,7 +706,7 @@ They never see tables. Their status page shows *Request received*, then
 
 ### Your own online ordering page
 
-**Service → Service settings → Online ordering page** has one card for the
+**Settings → Service settings → Online ordering page** has one card for the
 main counter and one for each open outlet, each with its own link
 (`<guest web address>/online/<link>`), **Switch on/off**, **Copy link**,
 **Open** and **New link**. Guests order takeaway or delivery with no
@@ -654,24 +735,55 @@ commission to anyone.
   for delivery, Delivered* or *Ready for pickup, Collected*) and can cancel
   only until the restaurant has picked it up.
 - **New link** works as for booking: the old link stops at once.
-- Changing a link needs `orders.manage`; anyone with `orders.view` can see and
-  copy links.
+- Service settings opens for roles with `orders.manage` (owners, managers and
+  cashiers), and they are the ones who see, copy and change the links.
+
+### The guests' site
+
+*Added 21 October 2026.* Everything guests open on their phones is the
+**guests' site**: pages of their own, apart from the screens staff sign in to.
+Nobody signs in there, and a guest never reaches a staff screen.
+
+| The guest opens | Address | What they can do |
+| --- | --- | --- |
+| A table's QR code | `<guest web address>/order/<table code>` | Read the menu, send an order (it waits in **Orders → Table requests** until accepted), *Call waiter*, *Request bill*, *Water please*, and leave feedback |
+| The online ordering link | `<guest web address>/online/<link>` | Order takeaway or delivery and follow the order on its status page |
+| The booking link | `<guest web address>/book/<link>` | Ask for a table and follow the request on its status page |
+
+- The site's own address, or a link with part of it missing, never says "Page
+  not found": it asks the guest to scan the table's QR code or open the
+  restaurant's link again (*Order or book from your link*, *This link isn't
+  complete*).
+- Three guest pages are planned and already answer with *Coming soon* and
+  what to do until then: `/shop` (ordering from a shop: call or message the
+  shop), `/appointments` (salon and clinic bookings: call to book) and
+  `/account` (a guest's orders, bookings and points in one place: open the
+  link you were sent).
+- A QR code or link that opens on the staff application's address (printed
+  while the guest pages were part of it) is passed on to the guests' site with
+  the rest of the link kept, so nothing printed needs printing again.
 
 ### Guest web address
 
-**Service settings → Guest ordering web address** is the internet address
-guests' phones open (for example `https://order.myrestaurant.in`). Table QR
-codes, online ordering links and online booking links are all built from it.
-Set it before printing anything: left empty on a till running at a local
-address, every QR code and link points somewhere phones cannot reach (a red
-warning says so). Changing it needs `tables.manage`.
+**Settings → Service settings → Guest ordering web address** is the internet
+address guests' phones open (for example `https://order.myrestaurant.in`).
+Table QR codes, online ordering links and online booking links are all built
+from it. Left empty, they use the platform's own guests' site; on a computer
+running the platform at a local address that is somewhere phones cannot reach
+(a red warning says so), so set it before printing anything. An address set
+here that is itself a local one gets an amber note: only phones on the
+restaurant's own Wi-Fi can open it. Type the address alone (`https://…`, up to
+200 characters, nothing after a `?` or `#`); *A table's code will open* shows
+what a QR code will carry, and **Print QR codes** opens the printable sheets.
+The card shows while QR table ordering or the online ordering page is on.
+Changing it needs `tables.manage`.
 
 ### Token numbers and the pickup screen
 
 **Service settings → Token numbers and the pickup screen**: **Give parcels a
 token number** gives each takeaway, delivery or online order a short number,
 restarting at 1 every business day and per outlet, printed large on the KOT.
-**Service → Pickup screen** shows two columns, *Preparing* and *Ready for
+**Orders → Pickup screen** shows two columns, *Preparing* and *Ready for
 pickup* (token numbers only — no names or prices), refreshing every few
 seconds with an optional chime. Staff tap a ready token → **Yes, collected**
 to clear it, or it leaves by itself after the minutes set. For a TV by the
@@ -682,15 +794,18 @@ whether they get a token.
 
 ## Deliveries, delivery charge and rider cash
 
-**Service → Deliveries** follows every delivery from the pass to the door —
-your own riders, Swiggy / Zomato and website orders — on a **Live board**:
-*Placed, Cooking, Packed, On the road, Delivered* (or Cancelled, with a
-reason). Moving orders, assigning riders (active employees in the delivery
-department, up to 12 orders a run; for an aggregator pickup type the partner's
-rider name) and editing addresses need `orders.manage`. The bell warns about
-packed food waiting more than 10 minutes, a rider out more than 45 minutes and
-a delivery with no address. Other tabs: **Channels**, **Rider cash** (for
-`payments.manage`) and **Channel report**.
+**Orders → Deliveries** follows every delivery from the pass to the door —
+your own riders, Swiggy / Zomato and website orders — on a **Live board** in
+three columns, *To dispatch*, *Out for delivery* and *Delivered today*; each
+delivery moves *Placed, Cooking, Packed, On the road, Delivered* (or
+Cancelled, with a reason). Moving orders, assigning riders (active employees
+in the delivery department, up to 12 orders a run; for an aggregator pickup
+type the partner's rider name) and editing addresses need `orders.manage`.
+The bell warns about packed food waiting more than 10 minutes, a rider out
+more than 45 minutes and a delivery with no address (the minutes, and the
+door-to-door promise of 45 minutes, are set in Settings → Alerts and
+timings). Other tabs: **Channels**, **Rider cash** (for `payments.manage`)
+and **Channel report** (for `reports.view` with `sales.view`).
 
 **Delivery charge.** Each channel (Deliveries → Channels, changed with
 `restaurant.settings.manage`) has a **Delivery charge** and an optional
@@ -730,10 +845,13 @@ cashier's drawer.
 
 ## Restaurant — profile, outlets, hours, settings, payment types
 
-Set up once, changed rarely.
+Set up once, changed rarely. In the menu these are tabs of **Settings**
+(Management).
 
 **Profile** holds the restaurant's name, contact number, email and address.
-The restaurant code is fixed once created.
+The restaurant code is fixed once created. Its **Set-up checklist** ticks off
+what a first bill needs — name, GSTIN, FSSAI number, logo, business hours,
+payment types and a default tax rate — each linked to where it is filled in.
 
 **Outlets** are branches. Pick one in the top bar and every report and the
 dashboard show that outlet alone. Each outlet has:
@@ -748,7 +866,7 @@ dashboard show that outlet alone. Each outlet has:
   out from its code), and its own **UPI ID** when it banks separately.
 
 Each outlet has its own business day, cash drawers and number series. Whether
-an outlet keeps its own stock is set under Inventory → Items & stock → Stores.
+an outlet keeps its own stock is set under Stock → Items & stock → Stores.
 An outlet that has recorded **anything** — sales, stock, money, business days
 — is **never deleted**: *Remove…* offers to **close** it instead. A closed
 outlet stops taking orders, bills and stock and leaves the top-bar list, but
@@ -774,8 +892,9 @@ the two cards saved on their own.
 | **Order and bill numbers** | Prefixes, and *one series that never restarts* or **start again each financial year** (INV/26-27/0001 from 1 April; prefixes then at most 4 characters, the GST 16-character limit). Bills already printed keep their numbers |
 | Auto-consume stock | Take recipe ingredients out of stock when a bill is made |
 | **UPI payments** | The UPI ID and name for the QR on the till and the bill |
-| Loyalty | The basic four fields; the full rules (caps, earn basis, expiry) are on Discounts & offers → Loyalty points |
+| Loyalty | Spend per point, point value and the fewest points to redeem (on or off is under Features); the full rules (caps, earn basis, expiry) are on Discounts & offers → Loyalty points |
 | **Printing** | Paper (58 mm, 80 mm, A4), copies, header and footer, receipt logo (a web address), **document type** (Automatic, Tax Invoice or Bill of Supply with its composition declaration), print by itself when paid, table QR on dine-in bills |
+| **Alerts and timings** | Where the bell, the boards and the lists draw their lines, each starting at the number this guide gives: a large discount (20 % of the bill or ₹1,000), reprints, a day closed short; the delivery promise and its warnings; a late booking, the last seating and the online booking step; the time clock (late, long break, overtime, how early it opens); regular, lapsed and new guests and big spenders; the reorder plan; and the notes listed in a cash count |
 | **Discounts at the till** (saved on its own) | A % cap per role that holds `bills.discount`; empty means no cap; with several roles the highest cap applies |
 | **Payment types** (saved on its own) | See below |
 
@@ -790,11 +909,13 @@ Deliveries → Channels.
 
 ## Features — switching parts of the restaurant on or off
 
-**Restaurant → Features** (`/restaurant/features`). Not every restaurant wants
+**Settings → Features** (`/restaurant/features`). Not every restaurant wants
 everything: one keeps a guest book and loyalty points, another never takes
 bookings, a third has no deliveries. Each part below can be switched on or off
 for the whole restaurant. Everyone can see the list who can see Settings;
-**only the owner** can switch (permission *Manage restaurant settings*).
+**only the owner** can switch (permission *Manage restaurant settings*). The
+**Format** card at the top (restaurant, café, bakery or cloud kitchen) sets
+several of these at once; see Café, bakery and cloud kitchen.
 
 | Group | Feature | What it covers | A new restaurant |
 |---|---|---|---|
@@ -806,12 +927,17 @@ for the whole restaurant. Everyone can see the list who can see Settings;
 | Service | **Deliveries & rider cash** | The Delivery order type, the Deliveries board, riders and their cash | On |
 | Service | **Kitchen display (KDS)** | The kitchen screen. With it off, KOTs still print and orders work as before | On |
 | Service | **Captain sections** | Giving each captain a set of tables | On |
+| Service | **Pre-orders & cakes** (needs Guests) | Cake and party orders taken ahead with an advance, the bake list | Off |
+| Service | **Brands (one kitchen, several names)** | Selling under several brand names, brand on orders, KOTs and bills, sales by brand | Off |
 | Money | **Tips** | The tip box when taking payment; tips in the day's cash | On |
 | Money | **Advances & deposits** | Money taken ahead, *From advance* when paying | On |
 | Money | **Cash drawers per shift** | One drawer per cashier with its own count and X report. With it off the day uses one till | On |
 | Money | **Coupons & offers** | Coupon codes and ready-made offers at billing | On |
 | Back office | **Stock & recipes** | Stock items, recipes, purchasing, suppliers, transfers, waste | On |
 | Back office | **Staff & payroll** | Staff records, shifts, attendance, the time clock, leave, payroll, sharing out tips, *My work* | On |
+| Operations | **Tasks & checklists** | Tasks, checklists, templates and recurring tasks | On |
+| Operations | **Issues** (needs Tasks) | Reporting and fixing issues | On |
+| Operations | **Projects** (needs Tasks) | Projects with milestones and task lists | On |
 
 **Always on** (not on the list): POS and orders, bills and payments, dues and
 accounts, menu, tables, outlets, business day (and its cash in and out),
@@ -848,7 +974,8 @@ their history stay exactly as they are; switch the feature back on and
 everything is back. Stock keeps being taken off for what is sold while Stock is
 off, so the numbers are right when it comes back.
 
-**Needs.** Loyalty points and the Online ordering page need Guests. A feature
+**Needs.** Loyalty points, the Online ordering page and Pre-orders & cakes
+need Guests; Issues and Projects need Tasks & checklists. A feature
 that needs another shows *Needs …*; its switch stays off until that one is on.
 A feature another one needs shows *… needs this* and cannot be switched off
 until that one is.
@@ -865,7 +992,7 @@ off would leave money stranded, and says what to do first:
 - **Cash drawers per shift** — a cashier's drawer is still open: count and end
   it (Business day → Drawers & cash).
 - **Stock & recipes** — money is still owed to suppliers on their bills (pay or
-  settle them under Purchasing → Returns & payments).
+  settle them under Purchases & suppliers → Returns & payments).
 
 Every switch is written to the **activity log** (*Switched a feature on/off*,
 with the feature's name and who did it). The same switches appear in the
@@ -907,11 +1034,12 @@ today — the eighty-six list, and there is a tick box right on the list to do i
 service. Marking it *inactive* retires it. Use availability for "we've run out", not
 for menu changes.
 
-**Price revision** is the yearly price rise in one step — "+8% on Starters and Mains,
+**Revise prices** is the yearly price rise in one step — "+8% on Starters and Mains,
 rounded to the nearest ₹5" — with sizes moving by the same rule. Nothing is saved until
 the preview has been seen, and if someone edits a price in the meantime the revision
-stops rather than overwrite it. **History** on a dish shows every edit, price change,
-sold-out switch and size change, newest first, with the value before and after.
+stops rather than overwrite it. **Change history** (a dish's *More actions*, for those
+who read the activity log) shows every edit, price change, sold-out switch and size
+change, newest first, with the value before and after.
 
 **Import and export.** The whole menu downloads as a CSV and uploads back in the same
 shape. The import runs as a **dry run first** — it tells you "12 new dishes, 40 to
@@ -1016,6 +1144,8 @@ invalidates the old one, which is what you do if a printed code goes missing.
 
 ## Inventory
 
+In the menu this area is **Stock** (Operations).
+
 **Items & stock** is the shelf: every ingredient with its unit, quantity on
 hand, reorder level and cost (the weighted average of what was paid). Filter to
 **only what is running low**; the dashboard links straight there. Set the
@@ -1065,7 +1195,7 @@ CSV, checked first like the menu import (`inventory.manage`).
 
 ### Transfers & indents
 
-**Inventory → Transfers & indents.** A **transfer note** (TRF-0001…) moves
+**Stock → Transfers & indents.** A **transfer note** (TRF-0001…) moves
 stock between two stores, valued at cost, earliest expiry first, with an
 optional vehicle or driver; print it as an A4 challan or on 80 mm. With
 **The receiving store confirms what arrived** switched on (Stock & purchasing
@@ -1092,15 +1222,17 @@ before anything has been sent.
   `inventory.manage` and works for 7 days. **Dishes wasted** lists the dish
   write-offs.
 - **Reorder** — what will run short over 3, 7 or 14 days (plus 2 safety days,
-  at the last 14 days' usage, rounded up to a pack), grouped by supplier;
-  **Create draft PO** makes a draft purchase order per supplier at the price
-  last paid (also needs `purchasing.manage`).
+  at the last 14 days' usage, rounded up to a pack), grouped by supplier; the
+  days it opens on, the safety days and the usage period are set in Settings →
+  Alerts and timings → *Reorder plan*. **Create draft PO** makes a draft
+  purchase order per supplier at the price last paid (also needs
+  `purchasing.manage`).
 - **Who wrote off what** (for `audit.view`) — each person's waste at cost,
   write-offs over the limit with who approved them, and large purchase orders.
 
 ### Stock & purchasing settings and approval limits
 
-**Inventory → Stock & purchasing settings** holds two **approval limits**,
+**Stock → Stock & purchasing settings** holds two **approval limits**,
 both blank (no approval) until the owner sets them:
 
 - **Purchase orders over (before GST)** — see Purchasing.
@@ -1114,6 +1246,8 @@ both blank (no approval) until the owner sets them:
 Saving the settings needs `restaurant.settings.manage`.
 
 ## Purchasing
+
+In the menu this area is **Purchases & suppliers** (Operations).
 
 **Suppliers** holds who you buy from — name, code, contact, mobile, GSTIN
 (checked character by character), payment terms and **credit days** (which set
@@ -1202,7 +1336,7 @@ reason.
 
 Deleting a customer keeps their feedback and complaints on record.
 
-**Import** loads guests from a CSV (checked first, like the menu import): every row needs a mobile or an email, and you choose whether a guest already in the book is updated or left alone. Opening points are given once. Importing needs both `customers.manage` and `customers.export`. A guest's **delivery addresses** (up to 5) are kept on their history; only `customers.contact` sees them in full. A guest's **dues** (bills on account) are under Service → Dues & accounts.
+**Import** loads guests from a CSV (checked first, like the menu import): every row needs a mobile or an email, and you choose whether a guest already in the book is updated or left alone. Opening points are given once. Importing needs both `customers.manage` and `customers.export`. A guest's **delivery addresses** (up to 5) are kept on their history; only `customers.contact` sees them in full. A guest's **dues** (bills on account) are under Daily work → Dues & accounts.
 
 **Feedback** collects star ratings and comments from the counter, a QR code, the website
 or the phone. Tiles show the average rating, how many were happy (4–5), how many unhappy
@@ -1231,7 +1365,8 @@ the top.
 numbers, who you know is in the room right now, and lists that turn into phone calls —
 regulars (3 or more visits in 60 days), new faces worth a second visit, regulars who have
 gone quiet (nothing in 45 days), birthdays, the unhappy, and guests sitting on points.
-Each list says in one line how it is decided.
+Each list says in one line how it is decided; the numbers are set in Settings → Alerts
+and timings → *Guests*.
 
 Open and in-progress complaints appear on the Dashboard under Needs attention. The link
 opens the list already filtered to exactly those.
@@ -1240,6 +1375,9 @@ This is the module most often left empty, and the one that most rewards being us
 guest who complains and is answered usually comes back.
 
 ## Operations — business day, cash drawers, log book, discounts, expenses
+
+In the menu, **Business day** and **Expenses** are under Daily work, the
+**Log book** is a tab of Reports and **Discounts & offers** a tab of Settings.
 
 ### Business day
 
@@ -1312,8 +1450,8 @@ The **Z report** is in Reports → Day end · Z report.
 
 ### Discounts & offers
 
-Tabs **Offers**, **Loyalty points** and **Given at the till** (the last two
-need `sales.view`).
+**Settings → Discounts & offers** has the tabs **Offers**, **Loyalty points**
+and **Given at the till** (the last two need `sales.view`).
 
 **Offers** are coupon codes (`discounts.manage` to add): a code and name,
 **money or % off** or **buy X, get Y** (the cheapest qualifying dishes are
@@ -1338,7 +1476,7 @@ bill.
 
 ### Log book
 
-**Operations → Log book** is what one shift tells the next: repairs, guests,
+**Reports → Log book** is what one shift tells the next: repairs, guests,
 stock and staff. **New entry**: kind (Maintenance, Guest, Stock, Staff,
 Other), what happened, the outlet or whole restaurant, the table if it is about
 one, and **Needs follow-up**. Each entry is stamped with your name, the
@@ -1396,7 +1534,8 @@ their code), enter their PIN and **Clock in**, **Start break**, **End break**,
 **Clock out**; *Full screen for the tablet* hides everything else.
 
 - The clock opens 60 minutes before the rostered start; overtime counts only
-  when someone stays 15 minutes or more past the shift end; a clock-in open
+  when someone stays 15 minutes or more past the shift end (both set in
+  Settings → Alerts and timings → *Time clock*); a clock-in open
   more than 16 hours is a forgotten clock-out a manager must fix; a night shift
   stays on the day it started; overlapping punches are refused.
 - PINs are 4–6 digits, typed twice; weak PINs and the end of the person's own
@@ -1453,8 +1592,9 @@ day they were taken on.
 - Shares appear on **Payroll** as a *Tips* line and add to net pay. **Undo
   share-out** works until anyone in it has been marked paid.
 
-**My work** (Overview, for a login linked to a staff record) shows a person
-their own attendance, hours, tips and payslips.
+**My work** (a tab of Staff, for a login linked to a staff record; someone who
+cannot open the other staff screens finds it as their **Staff** entry) shows a
+person their own attendance, hours, tips and payslips.
 
 ## Reports — fourteen reports, and the activity log
 
@@ -1467,9 +1607,9 @@ One date range at the top, the reports beneath it on three shelves — **Sales**
   month are one click each. Dates can also be typed; a start typed after the end moves
   the end with it, rather than showing an error.
 - Every report files a bill under its **business day**, not its calendar date, and reads
-  hours and times on the restaurant's own clock (Settings → Timezone) — the busiest
-  hours, the times on theft control and cancellations, and the times printed on the Z
-  report — whatever clock the computer reading them is set to.
+  hours and times on the restaurant's own clock (Settings → Currency and time zone) —
+  the busiest hours, the times on theft control and cancellations, and the times printed
+  on the Z report — whatever clock the computer reading them is set to.
 - The **outlet switcher** narrows every report to one outlet (the outlet comparison
   excepted), and the screen says so. A **closed** outlet is picked from **Closed
   outlets** beside the dates (shown only when there is one): its history only, with a
@@ -1656,22 +1796,35 @@ number is disputed.
 Every business other than the signed-in restaurant opens in **Business Admin**.
 The screens are shared between the types and renamed to suit each one (a salon
 says *Clients* and *Bills*, a clinic says *Patients*). A screen appears only
-when the business uses that **module** (Settings → Business settings →
-Modules) **and** your role there allows it. The server checks both again on
-every action, so a hidden screen is never just hidden.
+when the business uses that **business tool** (Settings › Business tools) **and**
+your role there allows it. The server checks both again on every action, so a
+hidden screen is never just hidden.
+
+**The menu** has three groups: **Daily work**, **Business** and **Management**.
+As in the restaurant, each entry opens an area whose other pages are tabs
+across the top (the fifth and later under **More tools**; the billing screens
+show none), and an entry opens the first of its pages you may use, so an entry
+is named after that page. A
+path such as *Stock › Expiring soon* in this part means the entry, then the
+tab. On the Overview, its lines and quick actions open their screen in a wide
+panel over it.
 
 ## The screens every type shares
 
-| Menu group | Screens | What they are for |
+| Menu | Entry, and the tabs inside it | What they are for |
 | --- | --- | --- |
-| Overview | Overview | Today's and this month's sales after returns, what customers owe (owed less advances, the same figure as Udhaar / Outstanding), money to pay, low stock, batches expiring soon, transfers on the way, today's appointments, quick actions, and what this type of business has and what is still to come. You see only the figures your role may see. |
-| Sales | Sales (or Bills), Customers (Clients / Patients), Appointments, Staff & rooms, Wholesale prices | Post a sale at the server's prices, take payment with it or leave it on credit, return goods, refund. Customers carry a GSTIN, a credit limit and credit days; a customer over the limit cannot be given more credit. |
-| Purchases | Purchases, Suppliers | Record what was bought; stock goes up at once at its cost. |
-| Products | Products & services, Categories, Units & pack sizes | Items with GST slab, unit, how they are tracked (quantity, batch and expiry, or serial number), reorder level. Categories nest up to five levels. A pack size turns "3 boxes" into 72 pieces exactly. |
-| Stock | Stock on hand, Stock movements, Transfers, Stock counts | Stock by location and batch with its value; every change has a line in the movements ledger with its reason. A transfer is sent, is *on the way*, then is received (or cancelled). A count is entered over time and **approved** by someone allowed to; only then does stock change, and the differences become reasoned corrections. |
-| Reports | Reports, Activity log | Money by day; who did what. |
-| Settings | Business settings (with Modules), Tax rates, Number series, Locations | Legal name, GSTIN, prices with or without GST, rounding, financial year. Number series give each location its own bill numbers per financial year, with no gaps and no duplicates. A location holding stock cannot be closed. |
-| Staff & access | Staff & access, Roles & permissions | Give a person from your staff list a role in this business, change it or switch it off. |
+| Daily work | **Overview** | Up to four headline figures — sales today (against the same weekday last week by this time), money in today, what customers owe (less advances, the same figure as Udhaar / Outstanding) and what is owed to suppliers — then *Needs doing today* (low stock, batches expiring soon, transfers on the way, counts open, broken promises, repairs ready, orders to dispatch…), *Start here* (the things done most often in this type), sales over the last 14 days, hour by hour and the best sellers, the day's bookings for a salon or clinic, and *What this business uses*. You see only the figures your role may see. |
+| Daily work | The type's own counter and day: a shop's **Quick bill**, a pharmacy's **Prescription sale**, a salon's **New bill** and **Appointments** (the calendar), a clinic's **Today's patients**, a wholesaler's **Sales orders** | Described with each type below. |
+| Daily work | **Sales history** (*Bill history* in a salon or clinic), with Exchanges, Warranties and Orders for pickup where the type has them; **Customers** (*Clients*; a clinic's *Patients*), with Loyalty points | Post a sale at the server's prices, take payment with it or leave it on credit, return goods, refund. Customers carry a GSTIN, a credit limit and credit days; a customer over the limit cannot be given more credit. |
+| Daily work | **Udhaar** (*Customer dues* outside a kirana, a meat shop or another weight-based shop), with *Payments received*; **Daily money**, with Expenses (and EMI & financiers) | What customers owe and what they paid; the day's money and paid expenses (below). |
+| Business | **Products & services** (named for the type: *Medicines & products*, *Books & stationery*…), with Categories, Barcode labels, Kits & bundles, Offers & discounts, price lists and the type's own (Drug master, Book details, Size × colour, Today's rates, Stylists & services) | Items with GST slab, unit, how they are tracked (quantity, batch and expiry, or serial number), reorder level. Categories nest up to five levels. |
+| Business | **Purchases**, with Suppliers, Purchase orders (every business that keeps stock) and, for a wholesaler, Claims on suppliers | Record what was bought; stock goes up at once at its cost. |
+| Business | **Stock** (*Stock on hand*), with Stock movements, Stock counts, Expiring soon, Transfers and the type's own (Serial / IMEI register, Stock by weight, Cutting & processing, Wastage, Expiry, returns & recalls) | Stock by location and batch with its value; every change has a line in the movements ledger with its reason. A transfer is sent, is *on the way*, then is received (or cancelled). A count is entered over time and **approved** by someone allowed to; only then does stock change, and the differences become reasoned corrections. |
+| Business | The type's own records: **Registers & prescriptions** (pharmacy), **Booklists & orders** (books), **Repairs** (electronics), **Packages** (salon), **Lab orders** (clinic) | Described with each type below. |
+| Management | **Reports**, with the type's own reports, Staff commissions and Activity log | Money by day, locations compared, departments; who did what. |
+| Management | **Tasks** | See Tasks, issues & projects. |
+| Management | **Settings**: Business settings (with Business tools), Tax rates, Payment methods, Number series, Locations, Units & pack sizes, Staff & rooms (*Doctors & rooms* in a clinic), and Pharmacy settings or Clinic & lab settings | Legal name, GSTIN, prices with or without GST, rounding, financial year, the most a manager may take off a bill at the counter (with a reason; the owner is not limited), whether a walk-in may leave a bill unpaid, and the shared till's PIN rule. Number series give each location its own bill numbers per financial year, with no gaps and no duplicates. A pack size turns "3 boxes" into 72 pieces exactly. A location holding stock cannot be closed. |
+| Management | **Staff & access**, with Roles & permissions | Give a person from your staff list a role in this business, change it or switch it off. |
 
 **Two rules people notice:** prices, tax and totals are always worked out by the
 server (the screen only shows the server's quote), and nothing posted is ever
@@ -1691,12 +1844,13 @@ godown works like the restaurant's outlets.
   stock, or that has staff tied to it, cannot be closed until they are moved.
 - **Staff & access › Works at**: a person can work at **every location** or at
   **one**. Tied to one, they bill, move stock, count stock, take returns and see
-  reports, the Overview and the day close for that location only; another
-  location's bill, stock or report is refused. A manager tied to a location
-  gives access at that location only. The owner always works everywhere.
+  reports, the Overview and Daily money for that location only; another
+  location's bill, stock or report is refused, and so is a record of another
+  location opened by its link. A manager tied to a location gives access at
+  that location only. The owner always works everywhere.
 - **The location picker** (top bar, beside the business switcher) appears when a
   business has two or more open locations. Pick a branch and every list, report,
-  the Overview, Quick bill and day close open on it; *All locations* shows the
+  the Overview, Quick bill and Daily money open on it; *All locations* shows the
   whole business. Someone tied to a location sees their location's name there
   instead of a picker. Changing it reloads the page.
 - **Transfers** are sent from the locations you work with to any other open
@@ -1705,27 +1859,115 @@ godown works like the restaurant's outlets.
   location's share, the average bill, money collected, purchases and the stock
   each holds now, for the report dates. It always shows every location (someone
   tied to one sees theirs).
-- **Pharmacy › Settings › Licences by branch**: each premises holds its own drug
-  licences; a branch's numbers print on its bills, and a branch with none prints
-  the business-wide numbers.
+- **Settings › Pharmacy settings › Licences by branch**: each premises holds its
+  own drug licences; a branch's numbers print on its bills, and a branch with
+  none prints the business-wide numbers.
+- **A clinic's visits** belong to the branch where they happen (the doctor's
+  branch, else the one the front desk works at), so branch staff see their own
+  branch's visits and each branch's patients can be counted.
 
 What customers owe (udhaar / outstanding) stays business-wide: a customer
 belongs to the business, not to one branch.
+
+### Daily money, expenses and cashier shifts
+
+*Added 14 October 2026 (cashier shifts 16 October).* **Daily money** (Daily
+work) is every type's day close. For a day or dates, and one location or all:
+sales and bills, the *Net cash movement* (cash in, less refunds, supplier
+payments and expenses), money in, and what was given on udhaar; then the
+takings by payment method (and by the names your counter uses), by person and
+by location, and *What went into these figures*. **Print end-of-day slip**
+prints it on the till printer, with lines for the cash counted and a
+signature.
+
+- **Cash check** (one day, one location): **Count cash** takes the opening
+  cash and the cash counted; the server works out what the drawer should hold
+  and the difference, which needs a reason. It saves a snapshot and trading
+  carries on; a later count is listed under it. Needs *Record a daily cash
+  check* (`reports.edit`).
+- **Cashier shifts**: at Quick bill each cashier presses **Open shift** with
+  the cash in their drawer, and **Close shift** to count it. The count is
+  blind: the cashier types what they counted, and only then hears whether the
+  drawer is short or over and says why. Daily money lists every shift of the
+  day with what it should hold, what was counted and the difference; a closed
+  shift cannot be changed.
+- **Expenses** (a tab of Daily money; the page says *Daily expenses*): money
+  already paid for running the business — rent, electricity & water, wages,
+  transport, shop supplies, cleaning, maintenance, other — with how and when
+  it was paid and at which location. Supplier bills and stock stay in
+  Purchases. **Record expense** needs `expenses.create`; a mistake is
+  **Reversed** with a reason (`expenses.approve`) and the record stays. Paid
+  expenses count in Daily money.
+
+### Payment methods
+
+*Added 12 October 2026.* **Settings › Payment methods** names the ways the
+business takes money as the counter says them: PhonePe, Paytm, Sodexo, the
+bank account. Each is one of five kinds — Cash, UPI, Card, Bank transfer or
+Cheque — which decides how it is counted (cash in the drawer, cheques to the
+cheque register); the kind is fixed once made. **Add method**, **Edit** (with
+an *Order*: lower comes first at the counter) and **Switch off**: a method
+switched off stays on past bills but is no longer offered. Every screen that
+takes or pays money offers the names, and Daily money adds takings up by kind
+and by name.
+
+### Purchases: free goods, discounts and purchase orders
+
+*Added 16 October 2026.*
+
+- On a purchase, each line takes **Free** (scheme goods, "10 + 1 free": they
+  come into stock at no cost, so every unit costs the line's net divided by
+  the whole quantity) and **Disc %** (the supplier's trade discount on the
+  rate). The supplier box searches as you type, and **+ New supplier** adds
+  one without leaving the purchase.
+- **Purchases › Purchase orders** is there for every business that keeps
+  stock. **Reorder suggestions** for one branch lists what to order — up to
+  each item's reorder level, less what is in stock and already on order, in
+  whole cases — and raises one draft order per supplier; **New purchase order**
+  raises one by hand. Sending, receiving and closing work as described for
+  wholesale below.
+
+### Shop extras: shelf, branch and member prices, coupons, departments
+
+*Added 16 October 2026.* For shops that sell goods, each where its tool is on:
+
+- **Shelf location** on an item ("Aisle 3 · Shelf B", "Backroom"), shown in
+  the products list.
+- **Branch prices** (a product's row, with two or more branches): a branch can
+  sell an item at its own price; without one it sells at the item's price.
+  Offers, member prices and customer prices still apply.
+- **Member price** (with Loyalty points on): what a loyalty customer pays when
+  the bill names them, below the selling price. Quick bill marks the line
+  *member price* or *this branch's price*.
+- **Coupon codes** on an offer (Offers & discounts): with a code the offer
+  applies only when the cashier enters it under *Coupon* at Quick bill, with
+  an optional limit on uses in all and per customer.
+- **Opening hours** for each location (Settings › Locations), shown in the
+  list.
+- **Departments** (Products › Categories, for a store with departments such as
+  Clothing, Home, Grocery): a top-level category belongs to one. In Staff &
+  access a person can be tied to one department and then sees and changes its
+  products and stock only (billing stays open to every item); Reports shows
+  each department's sales, returns and margin.
+- **Quick bill's shelf**: every item as a button with its price and what is in
+  stock at the selling location, narrowed by typing and by category; sold-out
+  items stay on it, greyed.
 
 ## Retail counter (grocery / kirana, supermarket, books & stationery)
 
 - **Quick bill** is the counter. Scan a barcode, a weighing-scale label (it
   bills the weight printed on the label) or a book's ISBN, or search by name.
-  Loose items have 250 g / 500 g / 1 kg / 2 kg buttons. Batch items take the
-  batch that expires first (you can change it). Pick the customer by phone for
-  udhaar and points. Pay by cash (change worked out), UPI, card or **Udhaar**
-  (with an optional part payment), then print the 72 mm till receipt showing
-  what each line saved and GST by rate.
+  Loose items have 250 g / 500 g / 1 kg / 2 kg buttons (Business settings ›
+  Rules). Batch items take the batch that expires first (you can change it).
+  Pick the customer by phone for udhaar and points. Pay by cash (change worked
+  out), UPI, card or **Udhaar** (with an optional part payment), then print
+  the till receipt (80 mm paper, or 58 mm under Business settings › Rules)
+  showing what each line saved and GST by rate.
 - **Offers & discounts** — six kinds (percentage off, amount off, buy X get Y,
   and so on), each described in words ("Buy 4 Instant noodles, get 1 free"),
-  with dates, weekdays and hours. The best offer applies by itself. *What
-  offers gave away* shows the cost for a period. Switching an offer off never
-  changes old bills.
+  with dates, weekdays and hours. The best offer applies by itself (one with a
+  coupon code only when the cashier enters the code). *What offers gave away*
+  shows the cost for a period. Switching an offer off never changes old bills.
 - **Loyalty points** — rules in words (points per ₹, value of a point, the
   minimum to redeem, the most of a bill points may pay). Points never go below
   zero. A return takes back the points its bill earned; if they were already
@@ -1733,9 +1975,10 @@ belongs to the business, not to one branch.
   reason. Points **spent** on a bill come back, in proportion to the goods
   returned (round 2; switch off with *Give back spent points on returns* in
   the rules).
-- **Udhaar** (customer credit) — who owes, how much is overdue, the oldest
-  unpaid bill, credit limit used, the last reminder and the promised date
-  (broken promises in red). *Collect* settles the oldest bills first and keeps
+- **Udhaar** (customer credit; the menu says *Customer dues* in a supermarket
+  or bookshop) — who owes, how much is overdue, the oldest unpaid bill, credit
+  limit used, the last reminder and the promised date (broken promises in
+  red). *Collect* settles the oldest bills first and keeps
   the rest as an advance. *Remind* opens WhatsApp with the message, or records
   an SMS, call or visit. *Statement* prints or shares a running balance.
   Collections are numbered receipts and are never edited.
@@ -1744,20 +1987,30 @@ belongs to the business, not to one branch.
   Shops selling by weight also set each loose item's **weighing-scale code**.
 - **Book details** — title, author, publisher, edition and ISBN; the ISBN
   becomes the barcode and a wrong check digit is caught.
+- **Booklists & orders** (bookshops) — *School sets*: a school's list for a
+  class under one code; scanning or typing the code at Quick bill puts the
+  whole set on the bill, and its lines can still be changed. *Customer orders*:
+  a book asked for and not on the shelf — title, the customer and their phone,
+  and an advance kept on their account with a numbered receipt — then
+  **Arrived** (tell them on WhatsApp) and **Collected**.
+- **Expiring soon** (Stock) — batches with stock that run out of date within
+  the days set in Business settings › Rules, expired ones first. **Mark down**
+  sells every batch of the item at a lower price until the last day (the shelf
+  price stays); **Write off** takes the batch out of stock.
 - **Retail reports** — top sellers, slow movers, margin by category, stock
   value at cost and at selling price.
 
 ### Quick bill — round 2 (8 Oct 2026, every goods shop)
 
-- **Split payment.** *Split* (F11) takes several payments on one bill: cash,
-  UPI and card in any mix (up to 8), each with its amount; *Rest* fills a
-  payment with what is left. Type the cash handed over on the cash payment and
-  Quick bill shows the change — change is only ever given from cash. With a
-  customer picked, whatever is not paid goes on their udhaar. The receipt and
-  the A4 invoice list every payment; Day close counts each under its own method.
-  Day close also takes off an advance handed back to a customer (under
-  *Refunded*) and a cheque that bounced (on the day it bounced, under *Cheques
-  bounced*), so the money figures match what is really in hand.
+- **One payment method per bill** (since 14 October 2026; round 2's *Split*
+  is off the counter). Pay by cash (F6), UPI (F7) or card (F8), or **Udhaar**
+  (F9) with an optional part paid in cash; only an EMI sale's down payment can
+  still be split. Type the cash handed over and Quick bill shows the change —
+  change is only ever given from cash. The receipt and the A4 invoice list the
+  payment; Daily money counts it under its own method. Daily money also takes
+  off an advance handed back to a customer (under *Refunds*) and a cheque that
+  bounced (on the day it bounced, under *Cheques bounced*), so the money
+  figures match what is really in hand.
 - **Who is billing.** The button with your name at the top of Quick bill
   switches the till to another cashier: pick the name, type that person's PIN;
   the bill being built stays and every bill records who billed it. In Business
@@ -1775,6 +2028,10 @@ belongs to the business, not to one branch.
 
 ## Wholesale / FMCG
 
+The wholesaler's **Sales orders** entry (Daily work) holds Sales orders,
+Back-orders, Dispatch, Price groups & schemes, Price lists and Routes &
+salespeople.
+
 - **Sales orders** — the order a shop gives your salesperson: customer, godown,
   salesperson (taken from the customer's beat), lines in pieces or cases. The
   server prices them (the customer's own price, then the quantity slab, per case
@@ -1786,8 +2043,10 @@ belongs to the business, not to one branch.
   *Cancel order* needs a reason.
 - **Back-orders** — every line still to send, oldest first, with the stock at the
   godown now (shaded when short).
-- **Outstanding** and **Collections** — balances in 0–30 / 31–60 / 61–90 / 90+
-  day buckets, statements, numbered collection receipts by cash, UPI, bank,
+- **Outstanding** and **Collections** (in the menu *Customer dues* and
+  *Payments received*) — balances in 0–30 / 31–60 / 61–90 / 90+ day buckets
+  (or the age groups set in Business settings › Rules), statements, numbered
+  collection receipts by cash, UPI, bank,
   cheque (number required) or card, settled oldest first or against bills you
   choose, or kept as an advance.
 - **Routes & salespeople** — routes (the godown the van loads from), beats (route,
@@ -1930,8 +2189,9 @@ belongs to the business, not to one branch.
   payment the customer makes now (cash, UPI, card — several allowed). The rest
   is financed: the customer owes nothing for it; the financier does. The
   customer must be picked, or the buyer's name and phone typed.
-- **EMI & financiers** (Sales menu): *Owed by financier* — cases waiting for
-  their payout, expected subvention and payout, the oldest case, those waiting
+- **EMI & financiers** (a tab of Daily money; the tool *EMI & finance*):
+  *Owed by financier* — cases waiting for their payout, expected subvention
+  and payout, the oldest case, those waiting
   over 15 days; *EMI cases* — every EMI bill by date and status; *Financiers*
   — the list (Bajaj Finserv, HDFC Bank, ICICI Bank, Home Credit to start; add
   others) with each one's dealer subvention %.
@@ -1939,7 +2199,7 @@ belongs to the business, not to one branch.
   payout covers, check the subvention kept on each (from the payout advice),
   the date, how it came (NEFT, UPI, cheque) and the UTR. The amount must match
   financed less subvention exactly, so a short payout is never written off by
-  accident. Day close shows payouts as money in and the financed part of the
+  accident. Daily money shows payouts as money in and the financed part of the
   day's bills apart (not in the drawer).
 - **Loan cancelled.** If the goods come back before the payout, take the goods
   back on the bill first, then *Cancel loan* on the case. The customer is
@@ -1947,7 +2207,8 @@ belongs to the business, not to one branch.
 
 ## Salon & spa
 
-- **Calendar** — one column per stylist and per room for a day, each booking drawn
+- **Calendar** (the *Appointments* entry, beside *Appointment history*) — one
+  column per stylist and per room for a day, each booking drawn
   at its time and length (service plus clean-up), a red line at now. Click a free
   time to book: client, service, only the stylists who do it, a room when the
   service needs one, and a deposit. A booking cannot overlap another booking of
@@ -1989,6 +2250,9 @@ belongs to the business, not to one branch.
   in ml or g. Billing the service takes them out of stock at once; if the books
   have less, the bill still goes through and the shortfall shows in *Service
   profitability › Products used*. Product cost is the latest purchase price.
+  Tick *For use in services only, not sold* on such a product (Services &
+  products) and the bill screens leave it out; a clinic does the same for its
+  gloves and other supplies.
 - **Service profitability** (Reports) — per service: done, sales (after
   discounts and returns, before GST), products used, commission, and what is left.
 - **A client's advance or deposit** — client card › *Advance*: each receipt with
@@ -2009,24 +2273,37 @@ belongs to the business, not to one branch.
 
 - **Quick bill** works by weight: weigh buttons, scale labels, and a kg / g switch
   to type grams.
+- **Today's rates** (Products) — every item sold by weight on one screen, built
+  for the phone: the day's opening rate, today's rate, the change, the cost per
+  kg of the stock and the margin. Change one, or a whole category by ₹ or %,
+  and save them together; Quick bill uses the new rates at once, every change
+  is kept in the *Rate history*, and the list can be shared on WhatsApp or
+  printed for the counter.
+- **Orders for pickup** (Sales history) — phone and WhatsApp orders ("2 kg
+  boneless for 6 pm"), in pickup order. **Ready** prints a packing slip and
+  tells the customer; **Bill** opens Quick bill with the order's items to
+  weigh, and the order closes with that bill.
 - **Stock by weight** — every item kept in kg or g per location, with value,
   cost and selling price per kg, margin, what was sold, cut and wasted in the last
   7 days, and the earliest use-by date.
-- **Cutting & yield** — *Cut / clean* a whole item into its cuts: input item and
-  batch, weight in, a **yield template** that fills in the expected cuts, then the
-  cuts as weighed. The screen shows the loss and the yield live. Cutting moves
-  stock the moment it is saved, and the cuts carry the whole cost of the input,
-  so the cost per usable kg is honest.
+- **Cutting & processing** (*Sorting & repacking* in a dry-fruit or other
+  weight shop, with *Sort / repack*) — *Cut / clean* a whole item into its cuts:
+  input item and batch, weight in, a **yield template** (a *saved cutting
+  setup*) that fills in the expected cuts, then the cuts as weighed. The screen
+  shows the loss and the yield live. Cutting moves stock the moment it is
+  saved, and the cuts carry the whole cost of the input, so the cost per
+  usable kg is honest.
 - **Wastage** — record trimming, spoiled, unsold, drip / moisture loss, damaged or
   other (with a note), from a chosen batch; the cost is shown before saving and the
   stock leaves at once.
-- **Yield & wastage reports** — yield by item, by cut and by day; wastage by item
-  (against what sold), by reason and by day.
+- **Cutting & wastage** report (*Repacking & wastage* in a weight shop) — yield
+  by output, by supplier and by day; wastage by item (against what sold), by
+  reason and by day.
 - **Cut to order** (Quick bill) — weigh the whole bird or fish, choose the cuts
   (curry cut, boneless, fillet), weigh each; the screen shows the yield and the
   loss. Saving takes the whole weight out of stock and puts the cuts on the bill
   at their own rates.
-- **Yield by supplier** (round 2) — *Yield & wastage › By supplier*: each whole
+- **Yield by supplier** (round 2) — *Cutting & wastage › By supplier*: each whole
   item's average yield from each supplier it was bought from in the dates (total
   usable ÷ total whole weight), its worst and best batch, and how far it is from
   that item's average over all suppliers.
@@ -2044,42 +2321,42 @@ what is still to refund.
 
 ## Pharmacy (round 2)
 
-*Added 8 October 2026.* For a business of type Pharmacy, with the module **Pharmacy rules** on (Business settings › Modules, on by default). The rules are standard Indian practice; see [DECISIONS_ROUND2.md › Pharmacy & clinic](DECISIONS_ROUND2.md#pharmacy--clinic) and check them with your pharmacist and drugs inspector before going live.
+*Added 8 October 2026.* For a business of type Pharmacy, with the business tool **Pharmacy rules** on (Settings › Business tools, on by default). The rules are standard Indian practice; see [DECISIONS_ROUND2.md › Pharmacy & clinic](DECISIONS_ROUND2.md#pharmacy--clinic) and check them with your pharmacist and drugs inspector before going live.
 
 **Set up once** (*Settings › Pharmacy settings*): the drug licence numbers you hold (Form 20 / 21 retail, 20B / 21B wholesale, 20F for Schedule X) — they print on every bill; how long the registers and prescriptions are kept (H1 3 years, X and prescriptions 2); whether a scan of the prescription is required (yes); what "expiring soon" means (90 days). Under **Registered pharmacists** add the pharmacist from your staff with their council registration; they sign with their own PIN (*My profile › PIN*). The **Pharmacist** role exists for them.
 
-**Drug master** (*Pharmacy › Drug master*). For each medicine: salt / composition, strength, form, maker, schedule (OTC, G, H, H1, X, narcotic), tablets per strip and strips per box, whether a strip may be cut and sold loose, cold chain and storage. Filter by schedule, or "No details yet" to finish the list. Items with the same salt and strength are substitutes.
+**Drug master** (*Medicines & products › Drug master*). For each medicine: salt / composition, strength, form, maker, schedule (OTC, G, H, H1, X, narcotic), tablets per strip and strips per box, whether a strip may be cut and sold loose, cold chain and storage. Filter by schedule, or "No details yet" to finish the list. Items with the same salt and strength are substitutes.
 
-**Prescription sale** (*Sales › Prescription sale*). Find a medicine by name, salt or maker. Each line sells by the strip (or loose tablets when allowed); the batch shown is the first to expire, and the server takes batches first-to-expire, never an expired or recalled one. *Substitutes* opens the same salt and strength, cheapest in stock first, with *Use this*. When a line is Schedule H, H1 or X the **Prescription** box appears: patient, phone (for recalls), age, address, doctor, registration number, clinic, date and a photo or scan (*Take photo / choose file*). For Schedule X the registered pharmacist chooses their name and types their PIN. *Save bill*; print 80 mm or A4. Quick bill still sells OTC medicines; a prescription medicine there is refused with a message pointing here. Paid several ways? Choose *Split*: up to 8 payments, the last one takes whatever is left of the bill. *Switch* (top right) hands the till to another person by their PIN, as on Quick bill, and with *Ask the biller's PIN for every bill* on, Save bill asks that PIN; Schedule X still needs the pharmacist's own PIN. The H1 and X registers show a *Returned* column when goods on an entry came back (the entry itself never changes).
+**Prescription sale** (Daily work; Quick bill opens from the Overview or *Jump to…*). Find a medicine by name, salt or maker. Each line sells by the strip (or loose tablets when allowed); the batch shown is the first to expire, and the server takes batches first-to-expire, never an expired or recalled one. *Substitutes* opens the same salt and strength, cheapest in stock first, with *Use this*. When a line is Schedule H, H1 or X the **Prescription** box appears: patient, phone (for recalls), age, address, doctor, registration number, clinic, date and a photo or scan (*Take photo / choose file*). For Schedule X the registered pharmacist chooses their name and types their PIN. *Save bill*; print 80 mm or A4. Quick bill still sells OTC medicines; a prescription medicine there is refused with a message pointing here. One payment method pays the whole bill (since 14 October 2026). *Switch* (top right) hands the till to another person by their PIN, as on Quick bill, and with *Ask the biller's PIN for every bill* on, Save bill asks that PIN; Schedule X still needs the pharmacist's own PIN. The H1 and X registers show a *Returned* column when goods on an entry came back (the entry itself never changes).
 
-**Registers & prescriptions** (*Pharmacy › Registers & prescriptions*): the **H1 register**, the **Schedule X register**, the **prescription log** (click a row to see it and *Open the scan*) and the **expiry returns** with their credit status. Each opens on this month with the dates visible; *Print* gives the register as an inspector expects; *Export CSV*.
+**Registers & prescriptions** (its own entry, under Business): the **H1 register**, the **Schedule X register**, the **prescription log** (click a row to see it and *Open the scan*) and the **expiry returns** with their credit status. Each opens on this month with the dates visible; *Print* gives the register as an inspector expects; *Export CSV*.
 
-**Expiry, returns & recalls** (*Pharmacy › Expiry, returns & recalls*).
+**Expiry, returns & recalls** (*Stock › Expiry, returns & recalls*).
 - *Expiring by distributor*: batches expiring within 30 / 60 / 90 / 180 days, one card per distributor. *Return on a debit note* → choose the reason and quantities → the stock leaves as a supplier return on that distributor's purchase (what you owe them goes down). A batch with no purchase on record is written off.
 - *Debit notes*: each note, claimed and credited; open one to *Print* it or *Record credit note* (their number, date and the amount, which may be less).
 - *Recalls*: *Recall a batch* (medicine, batch, alert reference, reason, block now) lists every bill with that batch and the buyer's phone; while blocked, nobody can sell or transfer it. *Close the recall* with how it was handled.
 
 ## Clinic & lab (round 2)
 
-*Added 8 October 2026.* For a business of type Clinics & diagnostic labs, with the modules **Patient records** and **Laboratory** (on by default).
+*Added 8 October 2026.* For a business of type Clinics & diagnostic labs, with the business tools **Patient records** (on by default) and **Laboratory** (a new clinic switches it on in Settings › Business tools, where it is marked *Recommended*). In the menu, **Today's patients** (Daily work) holds the clinic's day — its tabs are Token queue, Visits & follow-ups, Appointments and Doctors, fees & OPD — **Patients** sits beside it, and **Lab orders** (Business) holds Tests & panels and Quality control.
 
 **Who sees what.** The **Doctor** role reads and writes clinical notes (vitals, diagnoses, prescriptions, results). The front desk (**Cashier**) registers patients, records consent, books and starts visits, bills and orders tests, and sees whether a report is ready — never the notes. The **Lab technician** collects and receives samples and enters results; the **Pathologist** approves reports with their PIN. Every look at clinical data is in the activity log (`patient.clinical_viewed`).
 
 **Set up once** (*Settings › Clinic & lab settings*): the lab's name and registration for reports, the report footer, the consent notice (changing it makes a new version), how long clinical records are kept (3 years), the referral commission switch (off: an ethical and legal question). Under **Doctors and pathologists** add each doctor (registration number, council, their appointment calendar) and the pathologist.
 
-**Today's patients** (*Clinic › Today's patients*): the day's appointments by time, whether each is registered (with consent), waiting, in consultation or seen, billed, and whether the lab report is ready. *Register* (front desk), *Start visit*, *Open visit*. Pick another day or one doctor at the top.
+**Today's patients**: the day's appointments by time, whether each is registered (with consent), waiting, in consultation or seen, billed, and whether the lab report is ready. *Register* (front desk), *Start visit*, *Open visit*. Pick another day or one doctor at the top.
 
-**Patients** (*Clinic › Patients*): *Register patient* — name, mobile, sex, date of birth or age, guardian, emergency phone, then the consent notice: treatment and records (required), reports on WhatsApp / e-mail and reminders (optional), how it was given and by whom; tick that it was shown. A patient's page shows details, the **clinical card** (doctors only: blood group, allergies, conditions, medicines), consents (*Withdraw* records the reason; no new visit or test starts without treatment consent, the record is kept), visits and lab orders.
+**Patients**: *Register patient* — name, mobile, sex, date of birth or age, guardian, emergency phone, then the consent notice: treatment and records (required), reports on WhatsApp / e-mail and reminders (optional), how it was given and by whom; tick that it was shown. A patient's page shows details, the **clinical card** (doctors only: blood group, allergies, conditions, medicines), consents (*Withdraw* records the reason; no new visit or test starts without treatment consent, the record is kept), visits and lab orders.
 
-**A visit** (*Clinic › Visits & follow-ups*, or from Today's patients): the doctor fills vitals (BMI is worked out), complaints, examination, diagnosis and an optional ICD-10 code, advice, the prescription by generic name, and the follow-up date. *Save draft*, then *Complete consultation* (the appointment is marked done; the record is then fixed — *Add a note* to correct it). *More › Print prescription* (A5 with the doctor's registration number), *Bill this visit*, *Order tests*. *Follow-ups due* lists who should come back, with their phone.
+**A visit** (*Today's patients › Visits & follow-ups*, or from Today's patients): the doctor fills vitals (BMI is worked out), complaints, examination, diagnosis and an optional ICD-10 code, advice, the prescription by generic name, and the follow-up date. *Save draft*, then *Complete consultation* (the appointment is marked done; the record is then fixed — *Add a note* to correct it). *More › Print prescription* (A5 with the doctor's registration number), *Bill this visit*, *Order tests*. *Follow-ups due* lists who should come back, with their phone.
 
-**Lab** (*Clinic › Lab orders*): the worklist (to collect, to receive, in process, awaiting approval), today's orders with the dates visible, a *Sample barcode* box that opens the order when scanned, and *New order* (patient, tests, bill now). On an order: *More › Print sample labels*; *Collected*, *Received in lab* or *Reject* (with the reason, then *Collect again*); type results (out-of-range values are flagged as you type); *Save results*. When all are in, the pathologist presses *Approve report* and types their PIN; the visit shows **Report ready** and *Print report* gives the A4 report with the lab's details, ranges, flags, the pathologist's name and registration and the approval time. *Send to an outside lab* records the lab, reference and charge (the results are typed in when they come). *Tests & panels* keeps the catalogue: parameters, units, reference ranges by sex and age, critical limits, and profiles.
+**Lab** (*Lab orders*): the worklist (to collect, to receive, in process, awaiting approval), today's orders with the dates visible, a *Sample barcode* box that opens the order when scanned, and *New order* (patient, tests, bill now). On an order: *More › Print sample labels*; *Collected*, *Received in lab* or *Reject* (with the reason, then *Collect again*); type results (out-of-range values are flagged as you type); *Save results*. When all are in, the pathologist presses *Approve report* and types their PIN; the visit shows **Report ready** and *Print report* gives the A4 report with the lab's details, ranges, flags, the pathologist's name and registration and the approval time. *Send to an outside lab* records the lab, reference and charge (the results are typed in when they come). *Tests & panels* keeps the catalogue: parameters, units, reference ranges by sex and age, critical limits, and profiles.
 
 ## Clinic & lab: doctors, tokens, report versions and QC (round 3)
 
 *Added 21 October 2026.*
 
-**Doctors, fees & OPD** (*Clinic › Doctors, fees & OPD*). For each doctor:
+**Doctors, fees & OPD** (*Today's patients › Doctors, fees & OPD*). For each doctor:
 - **Consultation fee**: a service on the bill.
 - **Follow-up rule**: within N days of a paid consultation, the patient pays the follow-up fee, or nothing if no follow-up fee is set.
 - **Appointment slot**: its length.
@@ -2088,7 +2365,7 @@ what is still to refund.
 
 *Add leave* blocks appointments and tokens on those days and says how many patients are already booked. A doctor with timings can only be booked inside them. *Book appointment* then shows the free slots, and the doctor's fee is filled in. *Bill this visit* shows whether it is a consultation, a paid follow-up or a free follow-up. A free follow-up is recorded without a bill. The **Earnings** tab shows each doctor's patients, fees and share for a period.
 
-**Token queue** (*Clinic › Token queue*). *Give a token* when a patient arrives: each doctor counts from 1 each day, and *Priority* is for the elderly or unwell. On *Today's patients*, *Arrived: token* does the same for a booked patient. Each doctor has a card:
+**Token queue** (*Today's patients › Token queue*). *Give a token* when a patient arrives: each doctor counts from 1 each day, and *Priority* is for the elderly or unwell. On *Today's patients*, *Arrived: token* does the same for a booked patient. Each doctor has a card:
 - **Next patient** marks the previous patient done, skips a called patient who did not come in, and calls the next (priority first).
 - **Start** opens the consultation.
 - Completing the visit finishes the token.
@@ -2098,7 +2375,7 @@ what is still to refund.
 
 **Amended reports** (*Lab order › More*). Every signed report is kept as signed. To correct one, the pathologist uses *Amend the report*, gives the reason and types their PIN. The order reopens; correct the results and approve it again. The new report prints as **AMENDED REPORT (version 2)**, saying which version it replaces and why. *Report versions* lists each version; an older one prints marked **SUPERSEDED**.
 
-**Quality control** (*Clinic › Quality control*). Set up each control: the parameter, lot, level, target mean and SD, and lot expiry. *Record QC run* every morning. Each run is judged by the Westgard rules:
+**Quality control** (*Lab orders › Quality control*). Set up each control: the parameter, lot, level, target mean and SD, and lot expiry. *Record QC run* every morning. Each run is judged by the Westgard rules:
 - 1-2s gives a warning.
 - 1-3s, 2-2s, R-4s, 4-1s and 10x reject the run.
 
@@ -2118,28 +2395,28 @@ While a parameter's latest QC today is failed, its patient reports cannot be app
 | Format | POS takes | Starts on | Tokens | Features it switches |
 |---|---|---|---|---|
 | Restaurant | dine-in, takeaway, delivery | dine-in | as set | none |
-| Café | takeaway, dine-in, delivery | takeaway | takeaway | Pre-orders on; reservations and captain sections off |
-| Bakery | takeaway, delivery | takeaway | as set | Pre-orders, advances, stock & recipes on; reservations, QR, captains, KDS and tips off |
-| Cloud kitchen | delivery, takeaway | delivery | delivery, online, takeaway | Deliveries and online ordering on; reservations, QR, captains and tips off; no tables |
+| Café | takeaway, dine-in, delivery | takeaway | takeaway | Guests and pre-orders on; reservations and captain sections off |
+| Bakery | takeaway, delivery | takeaway | as set | Guests, pre-orders, advances, stock & recipes on; reservations, QR, captains, KDS and tips off; no tables |
+| Cloud kitchen | delivery, takeaway | delivery | delivery, online, takeaway | Guests, deliveries, online ordering and brands on; reservations, QR, captains and tips off; no tables |
 
 *Service settings › Orders the POS takes* changes the kinds of order and the starting one. The server refuses a kind of order the POS does not take.
 
 **Selling by weight** (bakery cookies, sweets). Set the menu item to *Sold: by weight* and the price is per kg. On the POS it asks for the grams on the scale (or offers 100 g to 1 kg). The line shows the kg, and ± changes it 50 g at a time.
 
-**Pre-orders & cakes** (*Orders › Pre-orders & cakes*, feature *Pre-orders & cakes*).
+**Pre-orders & cakes** (*Daily work › Pre-orders & cakes*, feature *Pre-orders & cakes*).
 - **Booking:** *New pre-order* takes the guest (name and mobile), when it is due, pickup or delivery, the items with each cake's message or flavour, and an advance. The advance is an ordinary advance (*Dues › Advances*), in the day's cash.
 - **Baking:** the **Bake list** adds up what is due on a day by item, with every message, and can be printed for the kitchen. *Start baking*, then *Ready*.
 - **Hand-over:** *Hand over & bill* makes a takeaway order on today's business day and opens its bill with the advance taken first.
 - **Cancelling:** a cancelled pre-order keeps its advance held for a refund.
 - **Dashboard:** a Pre-orders block shows what is due today.
 
-**Day-end unsold** (*Inventory › Day-end unsold*, bakery and café). Bakes are prepared stock items made from a recipe (*Inventory › Items › Production*). At closing, type what is left and will not sell tomorrow, then *Write off as unsold*. This is recorded as waste with the reason *Unsold at day end*, at cost. What keeps stays in stock.
+**Day-end unsold** (*Stock › Day-end unsold*, bakery and café). Bakes are prepared stock items made from a recipe (*Stock › Items & stock › Production*). At closing, type what is left and will not sell tomorrow, then *Write off as unsold*. This is recorded as waste with the reason *Unsold at day end*, at cost. What keeps stays in stock.
 
 **Cloud kitchen.**
 - The POS opens on Delivery. *Came in on* picks Swiggy, Zomato or own delivery, and the partner's order ID is kept.
 - Channel prices are set per item in *Menu › Products* (its selling rules).
-- Commission per channel is in *Deliveries › Report*.
-- Tables are hidden from the menu and the dashboard.
+- Commission per channel is set in *Deliveries › Channels*, and the *Channel report* takes it off the bill totals.
+- Tables are hidden from the menu and the dashboard (in a bakery too).
 
 **Brands: one kitchen, several names** (*Menu › Brands*, feature *Brands*, on for a cloud kitchen).
 - **Setting up:** *Add a brand* for each name the kitchen sells under (as listed on Swiggy and Zomato), with a colour for the POS. In *Menu › Categories*, give each category its brand. A category with no brand (drinks, desserts) is on every brand's menu.
@@ -2156,14 +2433,17 @@ The demo cloud kitchen, Biryani Box, sells as Biryani Box, Wrap Republic and Bow
 
 # Tasks, issues & projects (every business)
 
-*Added 7 October 2026.* The same screens in the restaurant (menu section
-**Tasks**, `/tasks`) and in every other business (menu section **Tasks**,
-`/business-admin/<id>/tasks`). A strip at the top of each task screen moves
-between them on a phone: My tasks · Team board · Calendar · Issues · Projects ·
+*Added 7 October 2026.* The same screens in the restaurant (menu entry
+**Tasks** under Management, `/tasks`) and in every other business (menu entry
+**Tasks** under Management, `/business-admin/<id>/tasks`). The entry opens the
+first task screen you may use, and a strip at the top of each task screen
+moves between them: My tasks · Team board · Calendar · Issues · Projects ·
 Templates · Recurring · Reports. Owners switch the three parts on or off in
-Settings › Features (restaurant, group *Operations*) or Business settings ›
-Modules: **Tasks & checklists**, **Issues** and **Projects** (the last two need
-Tasks). All three start on.
+Settings › Features (restaurant, group *Operations*) or Settings › Business
+tools: **Tasks & checklists**, **Issues** and **Projects** (the last two need
+Tasks). A restaurant starts with all three on; another business starts with
+them off (Tasks is marked *Recommended* for a supermarket, a pharmacy and a
+clinic).
 
 ## What each person sees
 
@@ -2175,7 +2455,7 @@ Tasks). All three start on.
 | `tasks.view` | The team board, the team calendar, recurring tasks and task reports. |
 | `tasks.review` | Approves finished tasks that need a review, or sends them back with a note. |
 | `tasks.manage` | Keeps the business's own templates; cancels, reopens and deletes tasks. |
-| `issues.create` / `issues.assign` / `issues.review` | Reports an issue / assigns and fixes issues / closes and reopens them. `issues.view` sees all issues; others see the ones they reported or own. |
+| `issues.create` / `issues.assign` / `issues.review` / `issues.manage` | Reports an issue / assigns and fixes issues / closes and reopens them / deletes them. `issues.view` sees all issues; others see the ones they reported or own. |
 | `projects.create` / `projects.view` / `projects.manage` | Starts a project / sees every project / changes any project. Members see their own projects. |
 
 Defaults: Owner, Restaurant Admin and Manager have everything; Cashier,
@@ -2311,9 +2591,9 @@ Business Admin grew separately:
 
 | | Restaurant admin | Business Admin (other types) |
 | --- | --- | --- |
-| Permission codes | **76** in the `permissions` table — 75 a restaurant can use, plus `platform.restaurants.manage`, which belongs to the platform owner only | **93** in `business_permissions` (46 shared core + 47 added for retail, wholesale, fashion, electronics, salon and weight shops) |
+| Permission codes | **89** in the `permissions` table — 88 a restaurant can use, plus `platform.restaurants.manage`, which belongs to the platform owner only | **135** in `business_permissions`, each belonging to one module (the table below) |
 | Where roles are edited | Users & access → Roles & permissions | Staff & access → Roles & permissions, inside each business |
-| Shape of a code | `<area>.<action>` such as `orders.create`, `bills.void` | `<module>.<action>`; action is view, create, edit, approve, cancel, refund, export or print |
+| Shape of a code | `<area>.<action>` such as `orders.create`, `bills.void` | `<module>.<action>`; action is view, create, edit, approve, cancel, refund, export or print, and for a few modules discount, assign, review, manage, view_clinical or edit_clinical |
 
 ## Restaurant roles
 
@@ -2348,6 +2628,7 @@ still do it once with a **manager's PIN**.
 | Expenses | `expenses.view`, `expenses.manage` |
 | Staff | `staff.view`, `staff.manage`, `staff.clock`, `staff.salaries` |
 | Reservations | `reservations.view`, `reservations.manage`, `reservations.online` |
+| Tasks | `tasks.view`, `tasks.create`, `tasks.assign`, `tasks.review`, `tasks.manage`, `issues.view`, `issues.create`, `issues.assign`, `issues.review`, `issues.manage`, `projects.view`, `projects.create`, `projects.manage` |
 | Platform | `platform.restaurants.manage` (never in a restaurant role) |
 
 ### The built-in roles
@@ -2357,13 +2638,15 @@ version and change that.
 
 | Role | Holds | In short |
 | --- | --- | --- |
-| **Restaurant Admin** | all 75 | Everything in the restaurant |
-| **Manager** | 70 | Everything except changing settings, outlets, users and roles, and approving purchase orders over the limit. Can close the day, void, refund, comp, correct payments, approve large write-offs, waive delivery charges, write off rider shortfalls, see salaries |
-| **Cashier** | 25 | POS, orders, billing and payments, KOTs, opening the day (not closing it), reprints, reports and takings, guests and feedback, reservations, log book, time clock, staff view. Voids, refunds, discounts, comps, payment corrections, cash in/out, dues and closing the day need a manager's PIN |
-| **Captain / Waiter** | 9 | Menu, tables, take orders, KOTs, mark a dish sold out, reservations, pickup screen — no billing and no takings |
-| **Kitchen Staff** | 8 | Kitchen display and KOTs, sold out, read stock, log wastage, count stock, raise indents, pickup screen |
+| **Restaurant Admin** | all 88 | Everything in the restaurant |
+| **Manager** | 83 | Everything except changing settings, outlets, users and roles, and approving purchase orders over the limit. Can close the day, void, refund, comp, correct payments, approve large write-offs, waive delivery charges, write off rider shortfalls, see salaries, and run tasks, issues and projects |
+| **Cashier** | 26 | POS, orders, billing and payments, KOTs, opening the day (not closing it), reprints, reports and takings, guests and feedback, reservations, log book, time clock, staff view, reporting issues. Voids, refunds, discounts, comps, payment corrections, cash in/out, dues and closing the day need a manager's PIN |
+| **Accountant** | 14 | The books: reports and takings, the business day (to read), expenses, supplier bills and payments, staff and salaries, the activity log; sees tasks, issues and projects. No till and no menu |
+| **Store keeper** | 12 | The store: stock, counts, wastage, indents, purchase orders, receiving goods and returns, the supplier list and the menu (to read), reporting issues. No payments, reports or salaries |
+| **Captain / Waiter** | 10 | Menu, tables, take orders, KOTs, mark a dish sold out, reservations, pickup screen, reporting issues — no billing and no takings |
+| **Kitchen Staff** | 9 | Kitchen display and KOTs, sold out, read stock, log wastage, count stock, raise indents, pickup screen, reporting issues |
 | **Collection display** | 1 | The pickup-screen TV (`orders.collection`) and nothing else |
-| Super Admin | all 76 | The platform owner; never shown or assignable in a restaurant |
+| Super Admin | all 89 | The platform owner; never shown or assignable in a restaurant |
 
 Worth knowing: only the Restaurant Admin can approve purchase orders over the
 limit until you give `purchasing.approve` to a copied role; cashiers can open
@@ -2389,46 +2672,56 @@ roles that must use two-step sign-in.
 
 ## Business Admin roles
 
-Each business has its own copies of six standard roles, plus any roles its
-owner makes, edited on a module × action grid. You cannot give what you do not
-have; the Owner role cannot be handed out or changed.
+Each business has its own copies of six standard roles — a pharmacy also gets
+**Pharmacist**, and a clinic **Doctor**, **Lab technician** and **Pathologist**
+(see Pharmacy and Clinic & lab) — plus any roles its owner makes, edited on a
+module × action grid. You cannot give what you do not have; the Owner role
+cannot be handed out or changed.
 
 | Role | May do |
 | --- | --- |
 | Owner | Everything, including staff access (and every future permission) |
-| Manager | Everything except staff access |
+| Manager | Everything except staff access and, in a clinic, the clinical notes and printed prescriptions and the lab's results, approval and printed reports (those belong to the doctors, the lab technicians and the pathologist) |
 | Cashier / sales | Sales, collections, printing; add customers; book and complete appointments; see products, stock and price lists |
 | Stock keeper | Products, receiving purchases, stock corrections, counts (not approving them), transfers |
 | Accountant | See everything, record payments and collections, export and print; no stock changes |
 | Viewer | See and export everything; change nothing |
 
-A permission also needs its **module** switched on for the business (for
-example `repairs.create` needs the Repairs module). The 93 codes by module:
+A permission also needs its **module** switched on for the business
+(Settings › Business tools; for example `repairs.create` needs *Repairs &
+service*). The 135 codes by module:
 
 | Module | Actions |
 | --- | --- |
 | catalog | view, create, edit, export, print |
 | contacts | view, create, edit, export |
-| sales | view, create, edit, refund, export, print |
+| sales | view, create, edit, refund, export, print, discount |
 | purchasing | view, create, edit, refund, export, print |
 | inventory | view, edit, export |
 | stock_transfers, stock_counts | view, create, approve, cancel |
 | wholesale | view, edit |
-| appointments | view, create, edit, cancel |
-| reports | view, export |
+| appointments | view, create, edit, cancel, approve |
+| reports | view, edit (a daily cash check), export |
 | audit | view, export |
 | settings, access | view, edit |
-| receivables | view, create, export, print |
+| expenses | view, create, approve (reverse an expense) |
+| receivables | view, create, export, print, approve |
 | sales_orders | view, create, edit, approve, cancel, export, print |
 | offers | view, create, edit |
 | loyalty | view, create, edit, export |
 | exchanges | view, create, export |
 | warranties | view, create, cancel, export, print |
 | repairs | view, create, edit, approve, cancel, export, print |
+| finance | view, create, edit |
 | packages | view, create, edit, export |
 | commissions | view, edit, export |
 | processing | view, create, edit, export |
 | wastage | view, create, export |
+| pharmacy | view, create, edit, approve, export, print |
+| patients | view, create, edit, view_clinical, edit_clinical, export, print |
+| lab | view, create, edit, approve, export, print |
+| tasks, issues | view, create, assign, review, manage |
+| projects | view, create, manage |
 
 ---
 
@@ -2439,7 +2732,7 @@ example `repairs.create` needs the Repairs module). The 93 codes by module:
 | When | Who | Screen | What happens |
 | --- | --- | --- | --- |
 | Before service | Manager | **Business day** | Open the day (each outlet its own) and count the opening float into the drawer. Nothing can be sold until this is done |
-| Before service | Manager | **Tables → Captain sections** | *Copy yesterday's plan*, adjust, save |
+| Before service | Manager | **Tables & QR → Captain sections** | *Copy yesterday's plan*, adjust, save |
 | Before service | Manager | **Kitchen display → Sold out** | Mark anything not available today |
 | Before service | Anyone | **Log book** | Read what the last shift left; close follow-ups dealt with |
 | Service | Host | **Reservations**, **Tables** | Answer online requests, seat bookings and walk-ins |
@@ -2508,6 +2801,14 @@ Decisions worth making before rollout, not defects:
   at least the Restaurant Admin.
 - **Set the guest web address** before printing QR codes or sharing booking
   and ordering links.
+- **Check the alert lines** (Settings → Alerts and timings): each starts at
+  the number this guide gives, and a busy counter and a fine-dining room
+  rarely want the same ones.
+- **Switch on the business tools a new business needs** (Settings › Business
+  tools): specialist tools start off; the *Recommended* ones are marked.
+- **Guest pages still to come:** ordering from a shop, booking a salon or
+  clinic, and a guest's own account (`/shop`, `/appointments`, `/account` on
+  the guests' site say *Coming soon*).
 - **Payments are recorded by people.** A UPI QR can be shown for the exact
   amount, but nothing confirms the money arrived until a payment gateway is
   connected. Online orders are pay-at-collection or cash on delivery.

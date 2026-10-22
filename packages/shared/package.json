@@ -1,0 +1,13 @@
+{
+  "name": "@bmp/shared",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Plain JavaScript the apps share: money and number formatting, dates, menu choice rules. Source only, no build.",
+  "exports": {
+    "./*": "./src/*.js"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  }
+}

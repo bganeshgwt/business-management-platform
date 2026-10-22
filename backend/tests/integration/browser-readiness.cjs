@@ -1,6 +1,6 @@
 // Opt-in browser acceptance against this suite's disposable database. Every
 // /api request is forwarded to the isolated server, never the working API.
-const { chromium, expect } = require('../../../frontend/node_modules/@playwright/test');
+const { chromium, expect } = require('../../../node_modules/@playwright/test');
 const path = require('node:path');
 const fs = require('node:fs');
 const assert = require('node:assert/strict');

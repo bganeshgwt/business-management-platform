@@ -1,6 +1,6 @@
-> **Historical document** (September 2026), kept for the record and no longer updated; it names the old folder `restaurant-management-platform`. Current state: [ARCHITECTURE.md](ARCHITECTURE.md).
+> **Historical document** (September 2026), kept for the record and no longer updated; it names the old folders `restaurant-management-platform` and `frontend` (now `business-management-platform` and `apps/business-web`). Current state: [ARCHITECTURE.md](ARCHITECTURE.md).
 
-> Historical status: see [current verification and remaining scope](VERIFICATION.md) for checks performed on 29 September 2026. Counts and pending labels below may be outdated.
+> Historical status: see [current verification and remaining scope](VERIFICATION.md) for checks performed since 29 September 2026, and [REMAINING_BACKLOG.md](REMAINING_BACKLOG.md) for what is left. Counts and pending labels below may be outdated.
 
 # Restaurant Admin — Audit and Completion Status
 

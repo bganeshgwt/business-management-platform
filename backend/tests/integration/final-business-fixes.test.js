@@ -274,7 +274,7 @@ test('final business fixes', { timeout: 900000 }, async (t) => {
   });
 
   await t.test('L3: a screen of another business type is refused by the page guard', async () => {
-    const nav = await import(pathToFileURL(path.resolve(__dirname, '../../../frontend/src/services/businessNav.js')).href);
+    const nav = await import(pathToFileURL(path.resolve(__dirname, '../../../apps/business-web/src/services/businessNav.js')).href);
     assert.equal(nav.typeAllows(nav.sectionRule('counter', 'salon'), 'salon'), false);
     assert.equal(nav.typeAllows(nav.sectionRule('counter', 'grocery'), 'grocery'), true);
     assert.equal(nav.typeAllows(nav.sectionRule('salon-bill', 'grocery'), 'grocery'), false);

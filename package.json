@@ -1,8 +1,23 @@
 {
   "name": "business-management-platform",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev-frontend": "npm --prefix frontend run dev",
-    "dev-backend": "npm --prefix backend run dev"
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:business": "npm run dev -w @bmp/business-web --",
+    "dev:customer": "npm run dev -w @bmp/customer-web --",
+    "build": "npm run build -w @bmp/business-web -w @bmp/customer-web",
+    "lint": "oxlint apps packages",
+    "test": "npm test --workspaces --if-present && npm --prefix backend test",
+    "test:integration": "npm --prefix backend run test:integration",
+    "test:browser": "npm run test:browser -w @bmp/business-web -w @bmp/customer-web",
+    "dev-backend": "npm run dev:backend",
+    "dev-frontend": "npm run dev:business --"
+  },
+  "devDependencies": {
+    "oxlint": "^1.81.0"
   }
 }

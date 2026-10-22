@@ -3,6 +3,11 @@
 Prepared 30 September 2026. No printer or cash drawer is currently available.
 No real restaurant pilot has been conducted. External integrations remain deferred.
 
+22 October 2026: the code still prints through the browser only, and the
+outside integrations are still deferred. A shop, salon, pharmacy or clinic
+pilot starts from its clean copy (`LIVE-<KIND>`) and the checklist in
+[DEMO_TO_REAL_PLAN.md › Before a pilot customer uses one](DEMO_TO_REAL_PLAN.md#before-a-pilot-customer-uses-one).
+
 ## Local software evidence
 
 The isolated API suite creates its own random database, installs all migrations,

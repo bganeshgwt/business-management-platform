@@ -40,15 +40,16 @@ The original audit is historical; see [backlog reconciliation](REMAINING_BACKLOG
 From the repository root:
 
 ```powershell
-npm.cmd test --prefix backend
+npm.cmd test
 npm.cmd run test:integration --prefix backend
-npm.cmd run lint --prefix frontend
-npm.cmd run build --prefix frontend
+npm.cmd run lint
+npm.cmd run build
 ```
 
-Unit tests do not use a database. Integration tests read connection settings from
+`npm.cmd test` runs the Node tests of the apps and packages, then the backend's
+unit tests. Unit tests do not use a database. Integration tests read connection settings from
 the backend environment, create a unique `rmp_test_*` database, install all 47
-migrations and remove that database on completion. They never seed or clear the
+migrations (133 on 22 October 2026) and remove that database on completion. They never seed or clear the
 working database. The test database account needs database-creation permission.
 
 The acceptance checks include 28 unit checks and 37 API scenarios. The optional
@@ -62,7 +63,7 @@ Frontend lint and production build passed. Syntax validation passed for all 221
 backend source/script/test files. All 47 migrations are applied to development,
 and the final database check found no remaining test or restore databases.
 
-With the frontend development server running, exercise real browser writes in
+With the staff app's development server running, exercise real browser writes in
 the disposable integration database:
 
 ```powershell
@@ -78,8 +79,11 @@ to `http://localhost:5173`. This is separate from the working-database screen sw
 
 ```powershell
 $env:E2E_CREDENTIALS_FILE = 'C:\full\path\backend\.local\demo-logins-EXAMPLE.json'
-npm.cmd run test:browser --prefix frontend
+npm.cmd run test:browser -w @bmp/business-web
 ```
+
+Without `-w`, it runs this suite and then the guests' site's (`apps/customer-web`,
+`E2E_CUSTOMER_URL`, default `http://localhost:5174`).
 
 All six screen/receipt browser tests passed. The screen sweep reads all authenticated routes at desktop/mobile widths and
 opens the configuration dialogs. It does not post orders or stock movements.
@@ -104,7 +108,7 @@ ambiguous test locator). Ten visual previews cover dashboard, POS, reports,
 reservations and inventory at 1440px/light and 390px/dark, with no browser errors
 or document overflow. Frontend lint and production build also passed.
 
-Run `frontend/tests/browser/ui-motion.spec.js` with the same local credentials
+Run `apps/business-web/tests/browser/ui-motion.spec.js` with the same local credentials
 and browser setup above. Preview images and run logs are under
 `backend/.local/ui-motion-preview` and `backend/.local/ui-motion-checks.log`;
 the reduced-motion rerun is in `backend/.local/ui-reduced-motion-check.log`.
@@ -171,6 +175,46 @@ Evidence is in `backend/.local/polish-ui-checks.log`,
 `backend/.local/polish-date-alert-checks.json`. The date/alert scenarios used
 intercepted read responses and did not change restaurant records.
 
+## Apps and packages — 21–22 October 2026
+
+The web side became npm workspaces: the staff app moved from `frontend/` to
+`apps/business-web`, the guest pages (QR table ordering, online ordering and
+table booking) to the guests' site, `apps/customer-web`, and what both use to
+`packages/ui` and `packages/shared` (see [ARCHITECTURE.md](ARCHITECTURE.md),
+§7.3 G). The development database has all 133 migrations applied, the last
+(`1791950412000_document-list-indexes`) on 21 October.
+
+On 21 October, after the move, the backend's 549 integration tests passed
+(round 3's clinic and lab, food-format, brand and clean-copy tests among them),
+with its 30 unit tests and the Node tests of the staff app (3) and
+`@bmp/shared` (2). Lint (580 files) and both production builds passed, also
+built the way CI builds them (`VITE_API_BASE_URL=/api`,
+`VITE_CUSTOMER_WEB_URL=same-origin`); without the addresses it needs, each app
+refuses to build or to start its development server. The guests' build holds
+no staff code (0.56 MB of files, against 4.8 MB). With the servers running,
+`/api/public` answered any address and the staff calls only the staff app, and
+each development server refused files outside its own app, `packages/` and
+`node_modules` (checked with curl).
+
+All 6 tests of the guests' browser suite passed, including a check that the
+shared look loads in light and dark (it fails when the shared styles are left
+out) and that no guest request carries a staff login. The guests' pages
+matched the same pages served from the last commit's code, pixel for pixel, at
+390 and 1280 px, light and dark (11 screenshots).
+
+The staff browser suite has 80 tests. The full run of the 79 then present
+passed 75 and skipped the platform console's, which needs a super-admin login;
+three failed — the salon bill test because it typed into the service picker
+before its services had arrived, the other two on timing under load — and all
+three passed when their files were run again on their own. The 80th, a new
+test of the old-link redirect, passed on its own. The spec files changed by
+the last fixes passed again; a confirm-dialog test that failed once on timing
+now waits for the dialog, and passed three times in a row.
+
+On 22 October the unused `database/` folder was removed, with its entry in
+the lint settings, and lint passed again. The run logs were not kept in the
+repository.
+
 ## Load and recovery evidence
 
 A two-minute run with four concurrent workers completed 1,983 order/bill/payment
@@ -194,8 +238,8 @@ inspect any temporary database before deleting it.
 ## Deferred scope
 
 Payment gateways, messaging providers, aggregator connections and hosting are
-deferred. Existing development login remains; additional authentication work is
-deferred. Direct thermal-printer/cash-drawer integration and physical testing need
+deferred. Two-step sign-in with recovery codes was added on 2 October 2026; a
+self-service password reset waits for a messaging provider. Direct thermal-printer/cash-drawer integration and physical testing need
 the actual equipment. No real restaurant pilot has been conducted.
 
 Unknown expiry dates and legacy cost history cannot be reconstructed from missing

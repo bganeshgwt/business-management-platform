@@ -1,11 +1,14 @@
 # Business Admin
 
-Updated 6 October 2026 (Phase 1 of the Business Management Platform). Business
-Admin is the one admin application for every business a person belongs to.
+Updated 22 October 2026 (first written for Phase 1 of the Business Management
+Platform, 6 October 2026; each later phase and round has its own dated section
+below). Business Admin is the one admin application for every business a person
+belongs to; the technical documents call it the staff app (`apps/business-web`).
 Words used here are defined in [NAMING.md](NAMING.md); the database is
 explained in [BUSINESS_PLATFORM_DATA_MODEL.md](BUSINESS_PLATFORM_DATA_MODEL.md).
-Plans, subscriptions and the platform admin are later phases; the database is
-already shaped for them.
+Plans and subscriptions, and a platform admin application of its own, are later
+phases; the database is already shaped for them. Until then the platform
+console inside Business Admin creates businesses (round 3, below).
 
 ## Opening a business: the switcher
 
@@ -15,39 +18,63 @@ already shaped for them.
   before (`/`, `/pos`, `/menu/…`). Picking **any other business** opens its
   Business Admin at `/business-admin/<business id>/…`, with a menu built from
   that business's modules and the person's permissions: a salon without stock
-  transfers never sees Transfers; a Viewer never sees "New sale".
+  transfers never sees Transfers; a Viewer never sees "New sale". Another
+  restaurant the person belongs to is listed too, but its admin opens only by
+  signing in to that restaurant.
 - The choice is **remembered per person on the server**
   (`business_memberships.last_opened_at`), so the next sign-in lands in the
   same business. The URL carries the business, so links and reloads open the
   same business. The server re-checks the membership, the module and the
   permission on every request; an ID in the URL grants nothing.
+- **Where a sign-in lands** (round 2): someone with no restaurant role (a
+  kirana cashier) goes straight to a business of theirs, the one opened last
+  or else the first in the list, and never sees the restaurant dashboard;
+  restaurant staff land on their restaurant, or on the business they opened
+  last when that is not their restaurant.
 - `/business-admin` goes to the last business opened; `/business-admin?all=1`
-  lists them all (with *Link my restaurant* and, in development, *Set up demo
-  businesses*). The old `?business=<id>` links still work.
+  lists them all (with *Add a business* for the owner of a real business or a
+  restaurant admin, and *Link my restaurant* for a restaurant admin whose
+  restaurant is not linked yet). The old `?business=<id>` links still work.
 - Switching with an unsaved form open asks first.
 - A screen opened by its address follows the same rules as the menu: without
   the module or permission it says why, and a screen of another business type
   (a salon's `/counter`, a kirana's `/salon-bill`) says *Not available for this
   business type*.
-- Inside a business the header shows the person's role in that business.
+- Inside a business the header shows the person's role in that business, and
+  a business with several locations a location picker (round 3, below).
 
 ## The menu of a business
 
-| Group | Screens (each needs its module and a permission) |
+Since 14 October 2026 the menu has three groups. Each entry is an *area*: it
+opens the first of its screens this person may use, and the area's other
+screens are tabs at the top of the page (the first four, the rest under *More
+tools*; the tills and Tasks keep their own). Every screen still needs its
+module and a permission, and a screen of another business type is never
+listed (`services/businessNav.js`, `services/businessWorkspace.js`).
+
+| Group | Areas (the screens inside) |
 |---|---|
-| Overview | Today's and this month's sales **after returns** (each return on its own day, as Reports count them), **customers owe (net)** — every customer's balance as Udhaar / Outstanding show it: opening balances and bills, less payments and advances, with "owed − advances" and any unpaid walk-in bills underneath — to pay, low stock, expiring batches, transfers in transit, today's appointments, quick actions, the modules in use, and what this type has and what is still to come for it (from [REMAINING_BACKLOG.md](REMAINING_BACKLOG.md)) |
-| Sales | Sales (Bills for salons and clinics), Customers (Clients / Patients), Appointments, Staff & rooms (Stylists & rooms / Doctors & rooms), Wholesale prices |
-| Purchases | Purchases, Suppliers |
-| Products | Products & services (named per type), Categories, Units & pack sizes |
-| Stock | Stock on hand, Stock movements, Transfers, Stock counts |
-| Reports | Reports, Activity log |
-| Settings | Business settings (with Modules), Tax rates, Number series, Locations |
-| Staff & access | Staff & access, Roles & permissions |
+| Daily work | **Overview**; the till — **Quick bill** (goods shops), **Prescription sale** with Quick bill (pharmacy), **New bill** (salon); **Today's patients** (clinic), with Token queue, Visits & follow-ups, Appointments and Doctors, fees & OPD; **Sales orders** (wholesale), with Back-orders, Dispatch, Price groups & schemes, Price lists and Routes & salespeople; **Appointments** (salon: the calendar), with Appointment history; **Sales history** (*Bill history* in a salon or a clinic), with Exchanges, Warranties and Orders for pickup; **Customers** (*Clients* in a salon, *Customers & retailers* in wholesale), with Loyalty points, or a clinic's **Patients**, with Billing contacts; **Udhaar** (kirana, meat and weight shops) or **Customer dues**, with Payments received; **Daily money**, with Expenses and EMI & financiers |
+| Business | **Products** under the type's own name, with Today's rates, Size × colour or Variants, Book details, Drug master, Stylists & services, Categories, Kits & bundles, Barcode labels, Offers & discounts and Wholesale prices (a weight shop's Customer rates); **Purchases**, with Suppliers, Purchase orders and Claims on suppliers; **Stock** (*Product stock* in a salon), with Stock by weight, Stock movements, Stock counts, Expiring soon (the pharmacy's Expiry, returns & recalls), Transfers, Serial / IMEI register, Cutting & processing (Sorting & repacking) and Wastage; and the type's own area: **Registers & prescriptions** (pharmacy), **Booklists & orders** (books), **Repairs** with Appointments (electronics), **Packages** (salon), **Lab orders** with Tests & panels and Quality control (clinic) |
+| Management | **Reports**, with Retail, Wholesale and Variant reports, Cutting & wastage (Repacking & wastage), Service profitability, Staff commissions and the Activity log; **Tasks**; **Settings**, with Tax rates, Payment methods, Number series, Locations, Units & pack sizes, Staff & rooms (Doctors & rooms) and Pharmacy or Clinic & lab settings; **Staff & access**, with Roles & permissions |
+
+The **Overview** shows today against the same weekday a week earlier by this
+hour, the last 14 days, today hour by hour, the best sellers and, where there
+are appointments, who comes next; what needs doing today; and the type's first
+actions. Each of its actions opens the real screen in a wide panel over the
+Overview (`?open=<screen>`, with *Open full page*). Phase 1's figures (sales
+**after returns**, each return on its own day as Reports count them;
+**customers owe (net)**, as Udhaar / Outstanding show it) are kept.
 
 Every list is the shared DataGrid with S.No., server paging and search; lists
 that grow (sales, purchases, movements, transfers, counts, appointments,
 activity) open on the current month with a date range. Export and print
 buttons appear only with the matching permission.
+
+The dated sections below name the menu group a screen had when it was built
+(Sales, Products, Stock, Reports) and its name then (*Day close*, *Udhaar
+collections*, *Modules*); the table above says where each screen is now and
+what it is called.
 
 ## What each screen does (Phase 1)
 
@@ -78,26 +105,31 @@ buttons appear only with the matching permission.
 - **Business settings** — legal name, GSTIN, address, prices including or
   excluding GST, rounding, financial-year start, date format, footers, and the
   **Modules** switches (within what the business type allows; dependencies
-  are enforced). **Tax rates** — named GST slabs (nil, 5 %, 18 %, 40 % seeded),
+  are enforced; called *Business tools* since round 3, below). **Tax rates** — named GST slabs (nil, 5 %, 18 %, 40 % seeded),
   rate fixed once created. **Number series** — prefix, digits and next number
   per location, document and financial year (≤ 16 characters).
   **Locations** — a location with stock or transfers in transit cannot close.
 - **Staff & access** — give a person from your staff list a role here,
   change it or switch it off. **Roles & permissions** — the six standard roles
-  (each business has its own copies) and your own roles, edited on a module ×
-  action matrix. You cannot give what you do not have; the Owner role cannot
-  be handed out or changed.
+  (each business has its own copies; a pharmacy and a clinic also have their
+  own, below) and your own roles, edited on a module × action matrix. You
+  cannot give what you do not have; the Owner role cannot be handed out or
+  changed.
 
 ## Roles
 
 | Role | May do |
 |---|---|
 | Owner | Everything, including staff access (full access, also to future permissions) |
-| Manager | Everything except staff access |
+| Manager | Everything except staff access; in a clinic also not clinical records or printing prescriptions, nor the lab's results, sign-off and printed reports |
 | Cashier / sales | Sales, collections, printing; add customers; book and complete appointments; see products, stock and price lists |
 | Stock keeper | Products, receiving purchases, stock corrections, counts (not approving them), transfers (send and receive) |
 | Accountant | See everything, record payments and collections, export and print; no stock changes |
 | Viewer | See and export everything; change nothing |
+| Pharmacist (pharmacy only, round 2) | Sell and refund at the counter, prescriptions and the H1 / Schedule X registers, the sign-off for Schedule X, recalls and expiry returns, the drug master; see stock and purchases |
+| Doctor (clinic only) | Patients with their clinical records (see and write), appointments, lab orders; see bills |
+| Lab technician (clinic only) | Samples and results; see patients |
+| Pathologist (clinic only) | As the lab technician, plus approving reports and export |
 
 Existing memberships were mapped owner → Owner, manager → Manager, viewer →
 Viewer; nobody gained or lost access.
@@ -118,7 +150,7 @@ Viewer; nobody gained or lost access.
 | `/api/users/platform/businesses` | Platform super admin only: GET (q, type, status), POST (the fields above plus `owner: { email, name?, password?, mobile? }`), PUT `/:id/status`, POST `/:id/owner-password { userId, password }` |
 | `/:id/staff-accounts` | POST `{ name, email, password, mobile?, roleId, workLocationId? }`: a new login and its access (`access.edit`); POST `/:userId/password { password }` for a member whose login is used only in this business |
 | `/:id/settings` (12 Oct) | PUT also takes `currency` (until the first document), `timezone`, and the rules `voucherValidDays`, `ageingDays` [3], `nearExpiryDays`, `weightButtonsGrams` [1–8], `receiptWidthMm` (58/80), `dayCutoffHour` (0–12); each left out keeps its value |
-| `/:id/members` | POST `{ userId, roleId, active?, workLocationId? }`: `workLocationId` ties the person to one location (empty = every location; left out = unchanged) |
+| `/:id/members` | POST `{ userId, roleId, active?, workLocationId?, workDepartmentId? }`: `workLocationId` ties the person to one location and `workDepartmentId` (16 Oct) to one department (empty = every one; left out = unchanged) |
 | `/:id/reports/locations` | GET `from`, `to`: every location side by side (bills, sales, returns, net, share %, average bill, collected, purchases, stock at cost); `reports.view` + `sales.view` |
 | Header `X-Business-Location` | Optional on any request of a business: the location picked in the top bar. Used wherever the request names no location (`location` / `locationId` in the query, `locationId` in a body is the person's own choice). Ignored for someone tied to a location: for them every location named must be theirs (403 otherwise) and one left out is theirs. |
 | `/:id/categories`, `/:id/units`, `/:id/pack-sizes`, `/:id/catalog`, `/:id/contacts` | POST; PATCH `/:rowId` |
@@ -129,6 +161,14 @@ Viewer; nobody gained or lost access.
 | `/:id/counts` | POST; GET `/:countId`; PATCH `/:countId/lines`; POST `/:countId/post`, `/cancel` |
 | `/:id/resources`, `/:id/appointments` | POST; PATCH `/appointments/:apptId` status |
 | `/:id/permissions`, `/:id/roles`, `/:id/members`, `/:id/member-candidates` | Access management (member candidates leave out people already on this business's staff list) |
+| `/:id/overview` | GET the Overview's picture of the day: 14 days, today against the same weekday a week ago by this hour, sales by hour, best sellers, who comes next (each part only to those allowed; round 3) |
+| `/:id/payment-methods` | GET; POST, PATCH `/:methodId` (`settings.edit`): the business's own names, each of one of five kinds (round 3) |
+| `/:id/departments` | GET (`catalog.view`); POST, PATCH `/:rowId` (`settings.edit`); GET `/:id/reports/departments` (`reports.view`) (round 3) |
+| `/:id/catalog/:skuId/branch-prices` | GET (`catalog.view`), PUT (`catalog.edit`): each location's own price; GET `/:id/branch-prices` (`sales.create` or `catalog.view`) for a counter (round 3) |
+| `/:id/shifts` | GET, GET `/current`, POST, POST `/:shiftId/close` (`sales.create`): a cashier's shift at one counter (round 3) |
+| `/:id/expenses` | GET (`expenses.view`), POST (`expenses.create`), POST `/:expenseId/reverse` (`expenses.approve`, with a reason) (round 3) |
+| `/:id/cash-checks` | GET (`reports.view` or `sales.view`), POST (`reports.edit`): a counted drawer for one day and location (round 3) |
+| `/:id/kits`, `/:id/counter/staff`, `POST /:id/counter/switch`, `/:id/finance/…` | Kits, the shared till's biller switched by PIN, EMI & financiers (round 2, below) |
 
 A business the person is not a member of answers 404. A module that is off,
 or a permission the role lacks, answers 403 with a sentence naming it.
@@ -139,13 +179,28 @@ answer 409/400 with a readable message.
 
 1. Back up the database and verify the restore (`npm run db:backup -- --verify` in `backend`).
 2. Apply the migrations (`npm run migrate:up`).
-3. Set `MULTI_BUSINESS_DEVELOPMENT=true` in the backend `.env` and restart the API.
-4. Run `npm run business:demos -- --user-id <admin id> --sample-data` for
+3. Set `MULTI_BUSINESS_DEVELOPMENT=true` in the backend `.env` and restart the
+   API. From the repository root, `npm run dev:backend` starts the API (port
+   5010) and `npm run dev:business` the staff app (port 5173);
+   `npm run dev:customer` serves the guests' site (port 5174).
+4. The demo businesses used for showing the product are the **realistic** set:
+   `npm run demo:today -- --user-id <owner id>` (in `backend`) makes one
+   business of every type but the restaurant, with about ninety days of
+   history, and brings them (and the demo restaurant, FoodEx) up to now on
+   every later run ([DEMO_GUIDE.md](DEMO_GUIDE.md) section 6). Each also has a
+   clean copy for real use, made by
+   `npm run business:real-copies -- --owner-user-id <owner id>`
+   ([DEMO_TO_REAL_PLAN.md](DEMO_TO_REAL_PLAN.md)).
+
+   The first, smaller set is still there: run
+   `npm run business:demos -- --user-id <admin id> --sample-data` for
    eleven demo businesses with realistic (fictional) catalogues, customers,
    suppliers, purchases, sales, a return, a transfer in transit, an open count
-   and appointments, plus each type's extras (below). The **Set up demo
-   businesses** button only creates the empty demos; the sample data comes from
-   this command.
+   and appointments, plus each type's extras (below). There is no button for
+   it any more: `POST /api/businesses/development-demos` (development only)
+   creates the empty demos, and the sample data comes from this command. The
+   realistic set switches these older "Demo · …" businesses off (kept, not
+   deleted).
 
    Demo businesses are named after their owner ("Demo · Grocery & kirana —
    Asha Rao"), so two people's demo sets are told apart; an older demo with
@@ -167,12 +222,19 @@ answer 409/400 with a readable message.
 
 ## Tests
 
+From the repository root:
+
 ```powershell
-npm.cmd test --prefix backend
-npm.cmd run test:integration --prefix backend   # includes business-admin and business-foundation
-npm.cmd run lint --prefix frontend
-npm.cmd run build --prefix frontend
+npm.cmd test                    # the apps' and packages' Node tests, then the backend's unit tests
+npm.cmd run test:integration    # every backend integration file, each on its own new database
+npm.cmd run lint
+npm.cmd run build               # both web apps
 ```
+
+On 21 October 2026 the integration run passed all 549 tests (every file, the
+restaurant's included), and the backend's 30 unit tests pass. One file runs
+alone with `node --test tests/integration/<file>` in `backend`. Each section
+below names its own files; the later ones are listed under round 2 and round 3.
 
 `tests/integration/business-foundation.test.js` covers the Phase 1 rules:
 provisioning, the module catalogue in the database, each template role's
@@ -183,18 +245,28 @@ events written and rolled back with their transaction, transfers and counts
 reconciling with the ledger, category trees, exact pack conversions, credit
 limits and list search/period filters. `business-admin.test.js` keeps covering
 the earlier increment (isolation, weighted stock, serials, expiry, returns,
-refunds, wholesale prices, appointments).
+refunds, wholesale prices, appointments). `business-foundation-fixes.test.js`
+covers the fixes made after verification: the round-off coming back in
+proportion on returns, whole units staying whole, overview figures by role,
+nobody changing a person or role above them, the financial-year start fixed
+once documents are numbered, and a reused count key refused.
 
 ## Still to do
 
 Phase 2 built retail, wholesale, fashion, electronics, salon and weight-based
-shops (sections below). What is left — integrations, hardware, plans and the
-platform admin, pharmacy and clinic rules, the event publisher, and the gaps
-left inside each built module — is kept in one place:
+shops; tasks, issues and projects followed on 7 October; round 2 (8 October)
+built pharmacy, clinic and lab and a second pass on every type; round 3 (12–21
+October) added branches, onboarding, the owner's own rules and the rest
+(sections below). What is left — integrations, hardware, plans and the
+platform admin, the event publisher, separate apps, and the gaps left inside
+each built module — is kept in one place:
 [REMAINING_BACKLOG.md](REMAINING_BACKLOG.md). The full endpoint reference is
 [API.md](API.md); the tables are in [DATABASE.md](DATABASE.md).
 
-No regulated clinical or dispensing workflow is claimed. Demo records are fictional.
+The pharmacy and clinic rules follow standard Indian practice
+([DECISIONS_ROUND2.md](DECISIONS_ROUND2.md)) and are not certified: a
+pharmacist, a doctor and a legal adviser review them before real use. Demo
+records are fictional.
 
 ## Wholesale / FMCG and collections (Phase 2, T2)
 
@@ -485,7 +557,13 @@ guard's business-type rule.
 | Yield & wastage | *Yield by template* (curry cut and boneless no longer pooled), with *Short by* (points) and *Shortfall* (₹); filters template, cut by, supplier; a *Short of the template* tile. |
 | Labels | The demo's weighed items have scale codes (PLU 101…) so a scale label scans at Quick bill. |
 
-Not done in this pass: a monthly slab commission, advance payments on pickup orders (note them on the order), a "recovered ₹" for offcuts sold cheap, the A4 / 80 mm invoice still prints GST rows for nil-rated bills, a salon "Book" button on the generic Clients list (the card opens from the calendar, bill and history).
+Tests: `backend/tests/integration/business-sw-pro.test.js` (moving a booking,
+stylist hours and leave, arrival and walk-ins, the client card, commission on
+plan sales, package sessions and flat amounts, payouts and tips, package
+holders, the rate board, cut to order, wastage and the weigh-up, orders for
+pickup, repacking dry fruits).
+
+Not done in this pass: a monthly slab commission, advance payments on pickup orders (note them on the order), a "recovered ₹" for offcuts sold cheap, the A4 / 80 mm invoice still prints GST rows for nil-rated bills, a salon "Book" button on the generic Clients list (the card opens from the calendar, bill and history). Round 2 (below) built the monthly target (slab) commission and prints a 0 % slab as one "Exempt" row; the other three are still open.
 
 ## Shared commerce, pro pass (7 Oct 2026)
 
@@ -530,7 +608,8 @@ GST is added before comparing. HSN and MRP are copied onto each bill line.
 **Day close** (`/day-close`, needs `sales.view`): sales, returns, money in by
 method, refunds, payments to suppliers, the cash that should be in the drawer,
 udhaar given and collected, by person and by location, for a day or up to 31
-days, with a 72 mm end-of-day slip. Read-only.
+days, with a 72 mm end-of-day slip. Read-only. (Since 14 October it is *Daily
+money*, with a cash check and each cashier's shift: round 3, below.)
 
 **Tax invoice.** One shared document (`modules/business/core/pages/invoice.js`)
 prints every sale: A4 (*Print invoice*) and 80 mm (*Till receipt*, Quick bill).
@@ -586,7 +665,7 @@ filters `walk_in_due=true`; `GET /summary` adds today's figures
 `broken_sizes`, `repairs_ready`, `repairs_overdue`, `warranties_missing`,
 `orders_to_dispatch`, `payables_overdue`), each only to those allowed to see
 it. Tests: `backend/tests/integration/business-core-pro.test.js`,
-`frontend/tests/browser/business-counter.spec.js`.
+`apps/business-web/tests/browser/business-counter.spec.js`.
 
 ## Retail, pro pass (7 Oct 2026, builder C)
 
@@ -594,10 +673,10 @@ Migration `1791610000000_retail-pro.sql` (`business_locations.sells_at_counter`,
 `books_sets` / `books_set_items`, `books_customer_orders`). Code:
 `backend/src/modules/business/retail/services/businessRetailPro.service.js`,
 `core/services/businessNotifications.service.js`; screens in
-`frontend/src/modules/business/retail/pages/` (`NearExpiryPage`,
+`apps/business-web/src/modules/business/retail/pages/` (`NearExpiryPage`,
 `BookOrdersPage`, Quick bill) and small additive edits to core screens.
 Tests: `backend/tests/integration/business-retail-pro.test.js` (7 checks),
-`frontend/tests/browser/business-counter.spec.js` (keyboard search, Return,
+`apps/business-web/tests/browser/business-counter.spec.js` (keyboard search, Return,
 phone pay bar).
 
 **Quick bill**
@@ -668,7 +747,7 @@ instructions.
 Migration `1791595000000_fashion-electronics-pro.sql`; code in
 `backend/src/modules/business/fashion-electronics/` (new
 `businessFashionPro`, `businessVouchers`, `businessElectronicsPro` services)
-and `frontend/src/modules/business/{fashion,electronics}/`. Small additive
+and `apps/business-web/src/modules/business/{fashion,electronics}/`. Small additive
 edits: retail offers (`product_percent`), Quick bill (credit voucher),
 Barcode labels (garment tag), the size × colour picker (`initialProduct`),
 `business.service.js` (voucher and GST-by-price hooks in posting),
@@ -738,4 +817,298 @@ Tests: `backend/tests/integration/business-fe-pro.test.js` (12 tests).
   the card reprints in any state (marked expired or cancelled), with the bill
   value, brand helpline, the IMEI as a barcode and a stamp and signature box.
 
-Not done (flagged): finance / EMI sales (E-22) and accessory kits (E-28).
+Not done (flagged): finance / EMI sales (E-22) and accessory kits (E-28). Both
+were built in round 2 (EMI & financiers, Kits & bundles; below).
+
+## Tasks, issues & projects (7 Oct 2026)
+
+Module `modules/tasks` (backend and staff app), migration
+`1791620000000_tasks-issues-projects.sql`: the same screens for every business
+type and the restaurant, on one set of tables
+([ARCHITECTURE.md › 4.3](ARCHITECTURE.md#43-tasks-issues--projects-one-model-for-both-worlds)).
+Three modules: `tasks`, and `issues` and `projects`, which need it. A
+restaurant starts with them on; since 14 October every other type starts with
+them off and switches them on in Settings › Business tools, where a clinic, a
+pharmacy and a supermarket see Tasks marked recommended.
+
+| Screen | What it does |
+|---|---|
+| My tasks | This person's tasks for today, made for a phone: checklist items ticked, answered yes / no, a number, a choice, text, a photo or a signature; a failed answer raises an issue |
+| Team board | Everyone's tasks by state (`tasks.view`) |
+| Task calendar | Tasks by day |
+| Issues | Raised by hand, by a failed answer or (restaurant) from a log book entry; assigned, fixed and closed; an issue can become a task |
+| Projects | From a template or blank, with members (who sees it), milestones and lists; progress counts the done tasks |
+| Templates | 82 ready-made checklists by business type (opening, closing, cleaning, temperature logs, audits…) and six project plans; a business copies one and edits its own |
+| Recurring tasks | Schedules that make each day's tasks, once however often they are asked for; past days left undone count as missed |
+| Task reports | Completion, on time, missed by person and category, compliance, issue ages |
+
+Permissions: `tasks.view / create / assign / review / manage`,
+`issues.view / create / assign / review / manage`,
+`projects.view / create / manage`. API: `/api/businesses/:id/tasks/…`, and
+`/api/tasks/…` for the restaurant, on the same services. Sample data:
+`npm run seed:tasks -- --user-id <admin id>` (the first demo set) and the
+realistic set's checklists, readings, issues and its "Diwali preparation 2026"
+project. Tests: `tests/integration/tasks.test.js`.
+
+## Round 2 (8 Oct 2026)
+
+Four builders, then an independent check. Every rule chosen, with the setting
+that changes it, is in [DECISIONS_ROUND2.md](DECISIONS_ROUND2.md). Migrations
+`1791620001000` to `1791620004000`.
+
+**Shops and electronics (R2-CORE)**, migration
+`1791620002000_core-retail-electronics-round2.sql`:
+- **Split payment**: one bill takes up to eight payments in one posting (cash,
+  UPI, card…, the rest on udhaar for a named customer); only cash can be
+  over-tendered (`tendered`; the change is worked out from it). Since 14
+  October Quick bill and the pharmacy counter offer one way per bill (cash,
+  UPI, card, or udhaar with a part paid in cash); `POST /documents` with
+  `payments`, and the salon bill (up to three ways), still take several.
+- **The shared till**: the biller switched by PIN (`GET /counter/staff`,
+  `POST /counter/switch`), and *PIN for every bill* in Business settings.
+- **Loyalty**: points spent on a bill come back, in proportion, when its goods
+  are returned (a setting, on by default).
+- **Kits & bundles** (Products; electronics, fashion, books, supermarkets): a
+  kit sells at its own price as its parts — stock comes off each part, the
+  price is split over the parts so GST and HSN are each part's, and a
+  serial-numbered part's IMEI or serial is asked for.
+- **EMI & financiers** (module `finance`, electronics; under Daily money): an
+  EMI sale leaves the financed part owed by the financier (Bajaj Finserv, HDFC
+  Bank, ICICI Bank and Home Credit to start with, or the owner's own);
+  payouts are recorded net of the dealer's subvention; a loan is cancelled
+  after the goods come back.
+- A 0 % slab prints as one "Exempt" row on the invoice; a staff sign-in lands
+  on its own business (above).
+
+**Wholesale (R2-WS)**, migration
+`1791620003000_wholesale-purchase-orders-challan-schemes-bounces.sql`:
+- **Purchase orders** to the company or the super-stockist (Purchases; since
+  16 October for every shop that keeps stock): raised by hand or from the
+  suggestions (items at their reorder level, back-orders the godown cannot
+  cover), changed while a draft, sent and printed, received in parts — each
+  receipt an ordinary purchase with the supplier's bill — and closed short or
+  cancelled.
+- **Delivery challan**: its own number series per location and financial
+  year, one number per dispatch, printed on A4.
+- **Schemes**: the free goods may be another item ("buy 5 cases of A, get 1
+  of B"), a scheme may refuse to stack on a slab price, free lines show at ₹0
+  on the invoice, and a scheme report.
+- **Bounced cheques**: exactly the bills the cheque settled open again, the
+  bank charge (₹500 by default, editable on each bounce) and a credit hold
+  after two bounces in 90 days (both settings).
+- The restaurant: an advance taken on a pickup order is offered first on that
+  order's bill.
+
+**Salon, weight shops and repairs (R2-SVC)**, migration
+`1791620001000_salon-weight-repairs-round2.sql`:
+- Each stylist's **week** (hours per weekday, days off) and the **salon's
+  holidays** (Stylists & services); booking outside them needs a manager's
+  approval with a reason (`appointments.approve`).
+- **Back-bar products** a service uses leave stock when the service is billed,
+  at the latest purchase price; **Service profitability** (Reports) shows each
+  service's sales after them and after the commission.
+- A client's **advance** handed back in cash, UPI or bank with a manager's PIN
+  and a receipt, or a held deposit moved to the client's wallet (the client
+  card).
+- **Monthly target (slab) commission**: plans with slabs on the month's net
+  service sales, the plan each stylist is on, and the month's statement.
+- Weight shops: cut to order, and yield compared **by supplier**.
+- Repairs: an **advance** taken at intake is used at delivery, or refunded
+  with a manager's PIN when the job is cancelled.
+
+**Pharmacy (R2-HEALTH)**, migration `1791620004000_pharmacy-clinic-lab.sql`,
+module `pharmacy` (on for a pharmacy), role Pharmacist:
+- **Drug master** (Products): salt, strength, form, maker, schedule, pack and
+  storage; medicines of the same salt and strength are each other's
+  substitutes.
+- **Prescription sale**, the pharmacy's till (Quick bill stays beside it):
+  medicines by name, salt or maker, by the strip or, where the drug master
+  allows, by the tablet; the first batch to expire first, never a recalled
+  one. A Schedule H, H1 or X medicine needs the prescription (doctor,
+  registration number, date, a scan); a Schedule X one also the registered
+  pharmacist's PIN.
+- **Registers & prescriptions**: the H1 and Schedule X registers, filled in by
+  each sale, and the prescription log, printed as an inspector expects.
+- **Expiry, returns & recalls** (Stock): what expires soon by distributor,
+  expiry and breakage returns on debit notes with the distributors' credit
+  notes, and recalls (every buyer found, the batch blocked).
+- **Pharmacy settings**: drug licences, record keeping, the near-expiry
+  window and the registered pharmacists.
+
+**Clinic and lab (R2-HEALTH)**, modules `patients` (on for a clinic) and
+`lab` (off for a new clinic since 14 October, recommended), roles Doctor, Lab
+technician and Pathologist:
+- **Patients** with the consent the DPDP Act asks for (what for, the notice
+  shown, how it was given); withdrawn consent stops new visits and tests, and
+  the record stays.
+- **Today's patients** and **Visits & follow-ups**: the day's appointments with
+  their visit, consent, bill and report; the consultation (vitals, diagnosis,
+  prescription, follow-up) is written by a doctor. Clinical data needs
+  `patients.view_clinical` / `patients.edit_clinical` (the Doctor and the
+  Owner), and every look is written to the activity log.
+- **Lab**: tests with parameters and reference ranges by sex and age band,
+  profiles, samples with barcodes, results flagged against the ranges as they
+  are typed, the pathologist's approval by PIN, the printed report, and
+  referral to an outside lab.
+- **Clinic & lab settings**: the lab's details, the consent notice, record
+  keeping, the referral commission and who signs.
+
+API (under `/api/businesses/:id`): `counter/…`, `kits`, `finance/…`;
+`purchase-orders` (with `/suggestions`, `/:id/send`, `/receive`, `/close`),
+`dispatches/:id/challan`, `wholesale-scheme-report`; `salon/staff/:id/week`,
+`salon/holidays`, `salon/services/:skuId/products`,
+`salon/reports/service-profitability`, `salon/clients/:contactId/advance-refund`,
+`salon/commission-plans`, `salon/commission-schemes`,
+`salon/commission-statement`; `pharmacy/drugs`, `pharmacy/sales`,
+`pharmacy/prescriptions`, `pharmacy/registers/h1` and `/x`,
+`pharmacy/recalls`, `pharmacy/debit-notes`, `pharmacy/near-expiry`,
+`health/settings`, `health/signatories`; `clinic/patients`,
+`clinic/consents`, `clinic/today`, `clinic/visits`, `clinic/follow-ups`;
+`lab/tests`, `lab/orders`, `lab/worklist`, `lab/samples`. The full list is in
+[API.md](API.md).
+
+Sample data: the realistic set ([DEMO_GUIDE.md](DEMO_GUIDE.md) section 6).
+Tests: `business-round2-core.test.js`, `business-wholesale-r2.test.js`,
+`business-r2-services.test.js`, `business-health.test.js`, and
+`round2-cross-check.test.js` (features meeting on one bill: split payment,
+EMI and a kit returned in parts; a kit bought with points; an H1 sale
+returned; a scheme with a bounced cheque; a restaurant advance counted once).
+
+## Round 3 (12–21 Oct 2026)
+
+**Branches (12 Oct)**, migration `1791630000000_business-multi-location.sql`:
+- A location carries its own address, phone, state and GSTIN, printed on the
+  bills it raises; the place of supply follows its state.
+- A person's access can be tied to one location (Staff & access › *Works
+  at*): they see, bill, stock and report there only. Since 21 October every
+  list with a location follows it, and a record opened by its address is
+  checked against it. A location someone is tied to cannot close.
+- The **location picker** in the header (sent as `X-Business-Location`) fills
+  in the location a request leaves open; for someone tied to a location it is
+  always theirs.
+- Transfers are sent by the source and received by the destination;
+  **Locations compared** (Reports) puts every location side by side; a
+  pharmacy branch prints its own drug licences; a clinic visit belongs to a
+  branch (`1791950407000_visit-location.sql`).
+
+**Onboarding (12 Oct)**:
+- Platform › Businesses (platform super admin): a business of any type but the
+  restaurant, with its owner's login; switch it off and on; give an owner a
+  new password.
+- *Add a business* (`/business-admin?all=1`): an owner starts another business
+  of their own.
+- Staff & access › **New staff login**: a login and its access in one step
+  (role and location; a department, since 16 October, is given on the
+  person's access), and a new password for a login used only in this
+  business.
+- Currency (until the first document) and time zone in Business settings.
+
+**Payment methods and the owner's rules (12 Oct)**, migrations
+`1791640000000_business-payment-methods.sql` and
+`1791640002000_business-rule-settings.sql`:
+- Settings › **Payment methods**: every business but the restaurant starts with
+  Cash, UPI, Card, Bank transfer and Cheque; the owner renames them, adds
+  their own (PhonePe, Paytm, Sodexo…) and switches them off (the last one stays
+  on). Each is one of five fixed kinds, which decides how its money is
+  counted; bills, receipts and Daily money show the name.
+- Business settings › **Rules**: expiring-soon days (30), credit voucher
+  validity (90 days), the customer credit age groups (30 / 60 / 90 days), the
+  quick weight buttons (250 g, 500 g, 1 kg, 2 kg), receipt paper (80 or 58
+  mm) and the day cut-off for tasks (5 am).
+
+**Workspaces, Daily money and expenses (14 Oct)**, migrations
+`1791950400000_business-workspaces-and-expenses.sql`,
+`1791950401000_expense-and-cash-reason-guards.sql` and
+`1791950403000_recommended-business-tools.sql`:
+- The three-group menu with each area's tabs (above).
+- **Daily money** (was Day close): sale payments, later collections, refunds,
+  supplier payments, finance payouts, expenses and bounced cheques, by method
+  and method name, person and counter, and the *net cash movement* (not a
+  counted balance). A **cash check** records the drawer counted against what it
+  should hold for one day and location; a difference needs a reason, and the
+  check is kept as saved (`reports.edit`).
+- **Expenses** (module `expenses`, on for every type but the restaurant):
+  money already paid for running costs, from one location, dated up to 30 days
+  back and never ahead. Never edited or deleted: a mistake is reversed with a
+  reason by someone with `expenses.approve`.
+- **Lean starting set-up**: a new business starts without the specialist tools
+  (transfers, repairs, finance, packages, commissions, the lab, loyalty,
+  offers, cutting, tasks); the owner switches them on in Settings › **Business
+  tools**, where the ones most of a trade uses are marked *Recommended*, with
+  the reason. Existing businesses kept what they had.
+
+**Retail completion and purchases (16 Oct)**, migrations
+`1791950404000_retail-completion.sql`,
+`1791950405000_purchase-free-quantity-discount.sql` and
+`1791950406000_catalog-internal-use.sql`:
+- Products: a **shelf location** ("Aisle 3 · Shelf B"), a **member price** for
+  loyalty customers when lower than the list price, **branch prices** (a
+  location's own price; a branch without one sells at the item's), and *for
+  use in services only* (a salon's colour, a clinic's gloves: never on a bill).
+- Locations: **opening hours**. Offers: a **coupon code** (the offer then
+  applies only when the cashier enters it), with a limit of uses and of uses
+  per customer.
+- Quick bill: a **cashier shift**, opened with a float and closed with a count
+  at one counter and checked against that cashier's own cash; a closed shift
+  is a permanent record (Daily money lists them).
+- **Departments** (on Categories, for goods shops): top-level categories belong
+  to one; a person tied to a department sees and changes only its products and
+  stock and still bills any item; Reports › Departments.
+- Purchase orders and reorder suggestions for every shop that keeps stock,
+  per branch. Supplier bills take **free quantity** ("10 + 1 free") and a
+  **discount %** on each line; the stock cost of each unit received is the
+  line's net over the whole quantity.
+
+**Salon and the Overview (21 Oct)**: the salon bill shows services and products
+in tabs by category, and products kept for salon use cannot be sold; the
+Overview of every type (above) opens each action in a panel.
+
+**Clinic: doctors, fees and the token queue (21 Oct)**, migration
+`1791950408000_clinic-doctors-tokens.sql`:
+- **Doctors, fees & OPD**: each doctor's consultation fee (a catalogue
+  service), the follow-up rule (a reduced fee, or free, within so many days),
+  OPD sessions by weekday (mornings and evenings, with the most patients per
+  session), the slot length, leave, and their share of the fees. An
+  appointment on a doctor's leave is refused and, once the doctor has
+  sessions, so is one outside them; only free slots are offered. The bill
+  picks the right fee; the earnings report shows each doctor's patients, fees
+  and share.
+- **Token queue**: each arriving patient gets a token for their doctor
+  (priority for the elderly or unwell), the doctor calls the next one and
+  starts the consultation from it, and the token is done with the visit. The
+  *Display board* is the waiting room's screen.
+
+**Lab: report versions and quality control (21 Oct)**, migration
+`1791950409000_lab-report-versions-qc.sql`:
+- A signed report is corrected by amendment: the pathologist reopens it with
+  a reason and their PIN, corrects it and signs again. Each signed report is
+  kept as it was signed (version 1, 2, …); the new one says it amends the
+  earlier one, which prints marked superseded (*Report versions* on the
+  order).
+- **Quality control**: control materials (lot, level, target mean and SD) per
+  parameter, each day's runs judged by the Westgard rules (1-2s warns; 1-3s,
+  2-2s, R-4s, 4-1s and 10x reject) and a Levey-Jennings chart per control.
+  While a parameter's latest run today is rejected, patient reports with it
+  cannot be signed. A QC run is never changed.
+
+**Clean copies (21 Oct)**: `npm run business:real-copies -- --owner-user-id
+<id>` gives each demo shop a real twin, `LIVE-<KIND>`, with its set-up and none
+of its history (`businessClone.service.js`; [DEMO_TO_REAL_PLAN.md](DEMO_TO_REAL_PLAN.md)).
+
+The restaurant's own changes of these weeks (the café, bakery and cloud
+kitchen formats, brands, pre-orders, the day opened and closed on the
+dashboard, a second demo outlet) are in [ADMIN_GUIDE.md](ADMIN_GUIDE.md).
+
+API (under `/api/businesses/:id`): the core rows in the API table above, and
+`clinic/doctors`, `clinic/doctors/:resourceId/leave`, `clinic/slots`,
+`clinic/visits/:id/fee`, `clinic/doctor-earnings`, `clinic/queue`,
+`clinic/tokens` (with `/next` and `/:id`), `lab/orders/:id/versions`,
+`lab/orders/:id/amend`, `lab/qc/materials`, `lab/qc/runs`, `lab/qc/today`,
+`health/location-licences/:locationId`; `POST /api/businesses`,
+`/api/users/platform/businesses`, `/:id/staff-accounts` (in the API table).
+
+Tests: `business-multi-location.test.js`, `business-onboarding.test.js`,
+`business-payment-methods.test.js`, `business-rules.test.js`,
+`business-workspace-money.test.js`, `business-retail-complete.test.js`,
+`business-health.test.js` (doctors, tokens, versions and QC, a clinic branch)
+and `business-clean-copy.test.js`.

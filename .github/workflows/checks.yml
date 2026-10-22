@@ -31,16 +31,20 @@ jobs:
           cache: npm
           cache-dependency-path: |
             backend/package-lock.json
-            frontend/package-lock.json
+            package-lock.json
       - run: npm ci
         working-directory: backend
       - run: npm test
         working-directory: backend
       - run: npm run test:integration
         working-directory: backend
+      # The web apps (apps/*) and shared packages (packages/*): one workspace
+      # install at the root, then lint, unit tests and both production builds.
       - run: npm ci
-        working-directory: frontend
       - run: npm run lint
-        working-directory: frontend
+      - run: npm test --workspaces --if-present
+      # A build needs the addresses it will run at; CI builds as one domain.
       - run: npm run build
-        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: /api
+          VITE_CUSTOMER_WEB_URL: same-origin

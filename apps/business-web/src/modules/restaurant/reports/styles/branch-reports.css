@@ -1,0 +1,185 @@
+/* Branch accounting on the Reports screen: the report shelves' sliding
+   highlight, the GST registration a pack is filed for, and a day-end sheet
+   that adds up counters trading on different dates. Uses the shared tokens
+   and the motion system (@bmp/ui's styles/motion.css); nothing here animates width,
+   height or position. */
+
+/* --- The report shelves: the highlight glides to the report opened ------- */
+/* useMotionScope slides the ::before from the report left to the one opened
+   ([data-motion-tabs]). Each tab has a background of its own, so the active
+   one lifts above its neighbours and carries its fill on the pseudo-element;
+   standing still it looks exactly as before. */
+.report-tab-list[data-motion-tabs] > .report-tab {
+  position: relative;
+}
+
+.report-tab-list[data-motion-tabs] > .report-tab.is-active {
+  z-index: 1;
+  isolation: isolate;
+  background: transparent;
+  border-color: transparent;
+}
+
+.report-tab-list[data-motion-tabs] > .report-tab.is-active::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--area-tint);
+  border: 1px solid color-mix(in srgb, var(--area-ink) 45%, transparent);
+  transform-origin: 0 0;
+}
+
+/* --- Counters open on different dates ------------------------------------ */
+.report-open-days strong {
+  font-weight: 650;
+}
+
+/* --- GST: which registration the pack is filed for ----------------------- */
+.gst-registrations {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.gst-registrations-note {
+  margin: 0;
+}
+
+/* One even column of choices (two side by side where there is room), so
+   GSTINs of different counters line up rather than ragged by name length. */
+.gst-registration-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 8px;
+}
+
+.gst-registration {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast, 140ms) var(--motion-ease, ease),
+    border-color var(--motion-fast, 140ms) var(--motion-ease, ease),
+    color var(--motion-fast, 140ms) var(--motion-ease, ease);
+}
+
+.gst-registration:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.gst-registration:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.gst-registration.is-active {
+  background: var(--primary-soft, var(--chip-bg));
+  border-color: color-mix(in srgb, var(--primary) 55%, transparent);
+  color: var(--text);
+}
+
+.gst-registration-number {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.9rem;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.gst-registration-who {
+  font-size: 0.8rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+/* --- Day end: each counter's own date, and a matched count --------------- */
+.dayend-drawer-date {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.dayend-verdict {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-weight: 600;
+  color: var(--success-text);
+}
+
+/* --- GST pack: the buyer's GSTIN, checked as it is typed ------------------ */
+.gst-hint-ok {
+  color: var(--success-text);
+}
+
+.gst-hint-ok::before {
+  content: "\2713  ";
+}
+
+.gst-hint-bad {
+  color: var(--danger);
+}
+
+/* --- GST pack in data grids ----------------------------------------------- */
+/* A second line inside a cell (the order type under an invoice number, the
+   date under a credit note): its own line, in a table cell or a phone card. */
+.gst-cell-line {
+  display: block;
+}
+
+/* The two halves of the HSN summary share one card: a rule between them. */
+.section-card.is-flush > .section-card-body > .dg.gst-hsn-grid + .dg.gst-hsn-grid {
+  border-top: 1px solid var(--border);
+}
+
+/* --- Activity log in a data grid ------------------------------------------ */
+/* A money-sensitive entry carries an edge as well as its dot: on the row in a
+   table, on the whole card on a phone. */
+.dg-row.acc-log-sensitive > td:first-child,
+.dg-card.acc-log-sensitive {
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+/* "Add buyer's GSTIN" under the buyer: a line of its own, read from the left. */
+.gst-cell-line > .link-button {
+  text-align: left;
+}
+
+.report-open-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.report-open-chips .chip-button.is-active {
+  border-color: var(--warning-text);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-weight: var(--weight-medium);
+}
+
+.report-open-list {
+  display: grid;
+  gap: 2px;
+  margin-top: 6px;
+  max-height: 160px;
+  overflow: auto;
+  font-size: var(--text-xs);
+}

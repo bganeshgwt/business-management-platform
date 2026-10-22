@@ -11,6 +11,7 @@
     "migrate:down": "node scripts/migrate.js down",
     "restaurant:create": "node scripts/create-restaurant.js",
     "business:demos": "node scripts/setup-business-demos.js",
+    "business:real-copies": "node scripts/make-real-copies.js",
     "user:create": "node scripts/create-user.js",
     "user:demo": "node scripts/create-demo-logins.js",
     "db:backup": "node scripts/backup.js",

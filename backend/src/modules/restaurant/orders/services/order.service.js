@@ -1965,6 +1965,15 @@ const updateItems = async (restaurantId, id, data, userId, options = {}) => {
       restaurantId,
       id,
       async ({ order, items, stageOfCancel, db }) => {
+        // Brands: a dish added to a brand's order must be on that brand's menu.
+        if (order.brand_id) {
+          const added = (data.items || []).filter((item) => !item.id && item.productId).map((item) => item.productId);
+
+          if (added.length) {
+            await require("../../menu/services/brand.service").checkOrder(restaurantId, order.brand_id, added, db, { allowPaused: true });
+          }
+        }
+
         const planned = await planEdit({
           restaurantId,
           order,

@@ -1,6 +1,6 @@
 # Status — Business Management Platform (Business Admin)
 
-*As of 8 October 2026, evening. Written for the owner. The detailed list of what is left
+*As of 22 October 2026. Written for the owner. The detailed list of what is left
 is [REMAINING_BACKLOG.md](REMAINING_BACKLOG.md); this page is the summary.*
 
 ---
@@ -10,11 +10,12 @@ is [REMAINING_BACKLOG.md](REMAINING_BACKLOG.md); this page is the summary.*
 | | |
 |---|---|
 | **Scope agreed on 6 Oct** | One **Business Admin** application for all business types, with a **business switcher**. Commercial platform (plans, subscriptions, billing) later. |
-| **Built, independently checked and fixed** | Shared foundation, Restaurant, Retail (grocery/kirana, supermarket, books & stationery), Wholesale/FMCG, Fashion, Electronics, Salon & spa, Meat/seafood and other weight-based shops, plus the "pro pass" on every area and **Tasks, Issues & Projects** (82 checklist templates, 6 project plans) |
-| **Your database** (`restaurant_management_db`) | Fully up to date (last 7 changes applied 7 Oct evening, through `1791620000000_tasks-issues-projects`). Latest backup, taken just before the demo load: `backend/.local/backups/2026-10-08T06-18-32-809Z-cfef93` (restore verified). |
-| **Your demo businesses** | 12 businesses on your owner login: FoodEx plus 11 realistic ones (see below). The 11 old "Demo · ..." businesses are marked inactive, not deleted. |
-| **Tests** | Integration 493/494 (the one failure is a timing flake in a two-step sign-in test that passes on rerun), unit 30/30, lint and build clean, 0 database-connection warnings; round-2 screens checked at desktop and phone size, light and dark |
-| **Nothing committed** | All changes are in your working folder for you to review and commit (`git add -A`) |
+| **Built, independently checked and fixed** | Shared foundation, Restaurant, Retail (grocery/kirana, supermarket, books & stationery), Wholesale/FMCG, Fashion, Electronics, Salon & spa, Meat/seafood and other weight-based shops, plus the "pro pass" on every area and **Tasks, Issues & Projects** (82 checklist templates, 6 project plans); Pharmacy and Clinic & lab (round 2, 8 Oct) |
+| **Built since, with tests** | Several locations for every type, payment methods and rules (12 Oct); daily money, expenses and cash checks (14 Oct); shop extras and cashier shifts (16 Oct); clinic & lab extras, café / bakery / cloud kitchen and kitchen brands (round 3, 21 Oct); real copies of the demo shops and the staff app / guests' site split (21 Oct). See the sections below. |
+| **Your database** (`restaurant_management_db`) | Fully up to date: all 133 changes, the last (`1791950412000_document-list-indexes`) applied 21 Oct. Latest backup, taken just before the real copies: `backend/.local/backups/2026-10-21T11-33-42-007Z-b20697` (restore not verified). The latest with a verified restore: `2026-10-16T04-47-00-250Z-e71f58` (16 Oct). |
+| **Your businesses** | On your owner login: FoodEx, the 11 realistic demo shops (see below) and, since 21 Oct, their 11 real copies (`LIVE-…`). The café, bakery and cloud-kitchen demos have their own owner logins (`backend/.local/food-demo-logins.json`). The 11 old "Demo · ..." businesses are marked inactive, not deleted. |
+| **Tests** (21 Oct) | Integration 549/549, unit 30/30, the apps' and packages' Node tests 5/5, lint and both builds clean; the guests' browser suite 6/6 and the staff browser suite of 80 (three timing failures under load passed on rerun). Details in [VERIFICATION.md](VERIFICATION.md). |
+| **Commits** | 9 commits on `main`, on GitHub as `business-management-platform`; round 3 was merged there on 21 Oct. Not committed yet: the real copies' script, the document-list indexes, a brands fix (a dish added later to a brand's order must be on that brand's menu), the staff app / guests' site split and these documents. |
 
 ---
 
@@ -36,8 +37,8 @@ out-of-range reading, and a "Diwali preparation 2026" project. The demo story fo
 | Al-Noor Fresh Chicken, Mutton & Seafood | Hyderabad | daily rates, cutting and yield, wastage, restaurants on credit |
 | Gupta Dry Fruits & Mewa Bhandar | Delhi | sales in grams, corporate Diwali order |
 | Vidya Book House & Stationers | Pune | ISBN, school sets, schools on account |
-| Sri Sai Medicals | Chennai | basic catalogue, batch and expiry |
-| Sanjeevani Family Clinic & Diagnostics | Hyderabad | doctors, appointments, today's queue |
+| Sri Sai Medicals | Chennai | basic catalogue, batch and expiry; since round 2 the drug master, prescription sales, H1 and X registers, expiry returns and a recall |
+| Sanjeevani Family Clinic & Diagnostics | Hyderabad | doctors, appointments, today's queue; since round 2 patients with consent, consultations and the lab; since round 3 doctors' fees and OPD, today's tokens and lab QC |
 
 **FoodEx tidy-up:** the old open business day was closed (6 stale orders cancelled with the reason
 "Demo tidy-up: stale order"; 3 unpaid bills worth ₹1,922 carried as dues), and today's day is open
@@ -52,7 +53,8 @@ To refresh "today" before a demo, run in `backend`: `npm run demo:today -- --use
   payment vouchers exist for today only; in the history, payments are on each bill.
 - Navratri and Diwali are still ahead in the real calendar, so the history shows the run-up to them.
 - Staff logins of the new businesses first land on FoodEx (staff accounts belong to the owner's
-  restaurant) and then switch business. This is worth fixing (see below).
+  restaurant) and then switch business. This is worth fixing (see below). *Fixed in round 2
+  (8 Oct): they now land straight on their own business.*
 
 ---
 
@@ -119,15 +121,76 @@ Customers' balances stay business-wide by design.
   (verified backup just before: `backend/.local/backups/2026-10-12T11-36-25-316Z-1e9450`).
 
 Still fixed on purpose: GST, GSTIN and state-code rules, the permission list,
-PIN lockout (security), split payment up to 8 parts, label-sheet sizes, reason
+PIN lockout (security), split payment up to 8 parts (taken off the counter screens on
+14 October 2026), label-sheet sizes, reason
 lists that drive reports (wastage, claims, debit notes, cancellations), and the
 stock-age groups of fashion and electronics reports.
+
+## Daily money and shop extras (14–16 Oct)
+
+- **Menus by workspace:** every business has three menu groups, Daily work,
+  Business and Management; an entry opens an area whose related pages are
+  tabs. Tasks shows only where it is switched on, and **Business tools** marks
+  the tools a trade usually uses as *Recommended*.
+- **Daily money** (every type's day close), **daily expenses** (money already
+  paid; a mistake is reversed with a reason, never edited) and the **cash
+  check** (the drawer counted against what it should hold).
+- Your change of 14 Oct: Quick bill and the pharmacy counter take one payment
+  method per bill.
+- **Shop extras:** a branch's own prices, member prices, shelf locations,
+  opening hours, coupon codes, departments with staff tied to one, and
+  **cashier shifts** (each cashier's float and blind count). Purchases take
+  free goods and a trade discount. Items kept only for use in services are
+  never sold.
+- **Overview** for every type: today against last week, 14 days of sales, the
+  day by hour, best sellers and who is next.
+- Database changes `1791950400000`–`1791950406000` are on your database.
+
+## Round 3: clinic & lab, food formats, brands (21 Oct)
+
+- **Clinic & lab:** each doctor's consultation and follow-up fees, OPD
+  sessions with a patient cap, and leave; the day's token queue with a
+  display board; every signed lab report kept as a version (an amendment
+  needs a reason and the pathologist's PIN); quality control by the Westgard
+  rules: while a test's latest control run today has failed, reports with it
+  cannot be signed. A visit belongs to its branch.
+- **Café, bakery and cloud kitchen** run on the restaurant as its *format*,
+  which sets how the POS opens and the features it starts with. Pre-orders
+  and cakes with an advance and a bake list, leftover bakes written off as
+  "Unsold at day end", and dishes sold by weight. Demo:
+  `npm run demo:food-formats` (Brew & Bloom Café, Sweet Crust Bakery, Biryani Box).
+- **Brands:** one kitchen selling under several names; each brand has its
+  menu categories, prints on the KOT and the bill, and has a sales report.
+- Database changes `1791950407000`–`1791950412000` are on your database.
+  Round 3 is merged into `main` on GitHub.
+
+## Real copies of the demo shops (21 Oct)
+
+Each of the 11 demo shops has a real twin, `LIVE-<KIND>`, with the same
+set-up and empty books, for a pilot customer. The demos stay for training.
+What to fill in before a customer uses one: [DEMO_TO_REAL_PLAN.md](DEMO_TO_REAL_PLAN.md).
+
+## Staff app and guests' site (21 Oct)
+
+- The **staff app** (`apps/business-web`, was `frontend/`) is everything people
+  sign in to. The **guests' site** (`apps/customer-web`) is what guests open:
+  QR table ordering, online ordering and table booking, with no sign-in. Old
+  QR codes and links keep working: the staff app sends them on.
+- Planned screens already have their addresses and say what is coming: the
+  captain, clinic and lab workspaces on the staff app; shop, appointments and
+  account pages on the guests' site.
+- Start everything from the project folder, one terminal each:
+  `npm run dev:backend` (the API, port 5010), `npm run dev:business` (staff
+  app, 5173) and `npm run dev:customer` (guests' site, 5174).
 
 ## What you need to do
 
 1. **Look through the businesses** with the switcher in the top bar, using the stories in DEMO_GUIDE.md.
-2. **Review and commit** (`git add -A`) when you are happy.
-3. **Later:** move the code to the new repo (the folder is already renamed to `business-management-platform`; the git remote still points to `restaurant-management-platform`).
+2. **Review and commit** what is not committed yet (see *Commits* above), then push it.
+3. **Moving to the new repo** is done (12–13 Oct): the code is on GitHub as
+   `business-management-platform` (the git remote `origin`; the old repository is `old-origin`).
+4. **For a pilot,** give the customer a real copy, never a demo, and fill it in
+   first ([DEMO_TO_REAL_PLAN.md](DEMO_TO_REAL_PLAN.md#before-a-pilot-customer-uses-one)).
 
 ---
 
@@ -172,9 +235,9 @@ stock screens, deliveries, advances, the log book and captain sections. A branch
 |---|---|---|
 | Outside services | Payment gateway / UPI confirmation, Swiggy/Zomato, SMS/WhatsApp/email, password reset by email/SMS | Provider accounts |
 | Hardware | Silent thermal printing, cash-drawer kick, weighing scale and barcode scanner bridges | The devices |
-| Platform layer | Plans, subscriptions, platform admin (the database is ready) | Your plan names and prices |
-| Other apps | Standalone POS, captain app, customer website/app, salesperson mobile app | Your go-ahead |
+| Platform layer | Plans and subscriptions; the platform admin as an app of its own (the console in Business Admin already covers every business type) | Your plan names and prices |
+| Other apps | Standalone POS, captain app, clinic and lab workspaces, the guests' site's shop, appointment and account pages, salesperson mobile app (the guests' site itself exists since 21 Oct; the planned pages already say what is coming) | Your go-ahead |
 | Pharmacy & clinic extras | NDPS narcotic forms; messages to patients (report ready, follow-up) | NDPS licence details; messaging provider |
 | Live updates | Push changes to screens through the events outbox | Build after admin sign-off |
-| Smaller "later" items | Listed per module in the backlog (e.g. warranty claims to the maker, salon online booking, e-way bill API) | Your priority |
-| Go-live | Hosting, domain with HTTPS, off-machine backups, pilot with real staff ([PILOT_CHECKLIST.md](PILOT_CHECKLIST.md)) | A server and a pilot date |
+| Smaller "later" items | Listed per module in the backlog (e.g. salon online booking, e-way bill API, a message by itself when a repair is ready); warranty claims to the maker were done on 7 Oct | Your priority |
+| Go-live | Hosting for the API, the staff app and the guests' site, domains with HTTPS, off-machine backups, pilot with real staff ([PILOT_CHECKLIST.md](PILOT_CHECKLIST.md)) | A server and a pilot date |

@@ -21,7 +21,7 @@ const AppError = require("./AppError");
 //   Anything else ("call me", 12345, two numbers in one box) is not a mobile.
 //
 // The same rule is enforced by the database (chk_customers_mobile_format) and
-// mirrored for the screens in frontend/src/services/phone.js.
+// mirrored for the screens in apps/business-web/src/services/phone.js.
 
 const INDIAN = /^[6-9]\d{9}$/;
 // Never +91: an Indian mobile has exactly one form, its 10 digits. No country

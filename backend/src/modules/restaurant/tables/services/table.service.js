@@ -714,7 +714,7 @@ const updateSettings = async (restaurantId, data, userId, scope = {}) => {
 };
 
 // What a printed table QR code needs: the address guests' phones open (null:
-// the screen's own), and the restaurant's name and logo for the card.
+// the guests' site's own), and the restaurant's name and logo for the card.
 const qrSettings = async (restaurantId) => {
   const [service, restaurant, settings] = await Promise.all([
     serviceSettingsRepository.find(restaurantId),

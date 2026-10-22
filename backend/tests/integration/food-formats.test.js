@@ -180,6 +180,13 @@ test("food formats: café, bakery and cloud kitchen", { timeout: 600000 }, async
     assert.match(wrong.message, /Wrap Republic's menu/);
     const order = (await O("POST", "/orders", { orderType: "delivery", brandId: biryani.id, items: [{ productId: dum.id, quantity: 2 }, { productId: cake.id, quantity: 1 }] }, 201)).data;
     assert.equal(order.brandName, "Biryani Box");
+    // Adding a dish to that order later follows the same menu.
+    const open = (await O("POST", "/orders", { orderType: "delivery", brandId: biryani.id, items: [{ productId: dum.id, quantity: 1 }] }, 201)).data;
+    const added = await O("PUT", `/orders/${open.id}/items`, { changesOnly: true, items: [{ productId: roll.id, quantity: 1 }] }, 400);
+    assert.match(added.message, /Wrap Republic's menu/);
+    await O("PUT", `/orders/${open.id}/items`, { changesOnly: true, items: [{ productId: cake.id, quantity: 1 }] });
+    assert.equal((await O("GET", `/orders/${open.id}`)).data.items.length, 2);
+    await O("PATCH", `/orders/${open.id}/cancel`, { reason: "Test order" });
     const bill = (await O("POST", "/bills", { orderId: order.id }, 201)).data;
     assert.equal(bill.brandName, "Biryani Box");
     await O("POST", "/orders", { orderType: "delivery", brandId: wraps.id, items: [{ productId: roll.id, quantity: 1 }] }, 201);

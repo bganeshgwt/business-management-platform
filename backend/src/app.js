@@ -23,7 +23,12 @@ app.use(helmet());
 // Live screens (kitchen, deliveries, the bell) poll every few seconds; gzip cuts
 // a deliveries board from about 200 KB to about 25 KB on a restaurant's Wi-Fi.
 app.use(compression());
-app.use(cors({ origin: config.corsOrigin }));
+// The guests' public API (/api/public: table QR ordering, online ordering,
+// booking) answers any web address: it needs no login and carries no cookies,
+// so a restaurant can point its own domain at the guests' site without a
+// change here. Everything else answers only the apps listed in CORS_ORIGIN.
+const isPublicGuestApi = (req) => req.path === "/api/public" || req.path.startsWith("/api/public/");
+app.use(cors((req, callback) => callback(null, { origin: isPublicGuestApi(req) ? true : config.corsOrigin })));
 app.use(express.json({ limit: "1mb" }));
 app.use(morgan("dev"));
 

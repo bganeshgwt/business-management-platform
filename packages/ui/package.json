@@ -1,0 +1,18 @@
+{
+  "name": "@bmp/ui",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "The platform's look, shared by the apps: design tokens and global styles, icons, menu choice components. Source only, no build.",
+  "exports": {
+    "./styles.css": "./src/styles/index.css",
+    "./styles/*": "./src/styles/*",
+    "./*": "./src/*.jsx"
+  },
+  "dependencies": {
+    "@bmp/shared": "*"
+  },
+  "peerDependencies": {
+    "react": "^19.2.8"
+  }
+}

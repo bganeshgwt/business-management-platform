@@ -961,7 +961,7 @@ const toOnlineSettings = (row, room, hours) => ({
   token: row.token,
   path: `/book/${row.token}`,
   // The public address guests' pages live at (Service settings), shared with
-  // the table QR codes; empty means "this screen's own address".
+  // the table QR codes; empty means "the guest site's own address".
   guestWebAddress: row.guest_web_address || null,
   isEnabled: row.is_enabled,
   maxPartySize: row.max_party_size,
