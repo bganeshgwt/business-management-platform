@@ -1,8 +1,9 @@
-// Since 1791950400000 a new business starts lean: specialist tools are off
-// until an owner turns them on (Settings › Business tools). Tests written
-// for those tools turn them on first, through the same API an owner uses.
+// A new business starts lean: specialist tools are off until an owner turns
+// them on (Settings › Business tools). Tests written for those tools turn
+// them on first, through the same API an owner uses.
 
-// The tools each type used to start with (the Down section of that migration).
+// The specialist tools of each type, as the Down section of migration
+// 1791950400000 lists them.
 const SPECIALIST = {
   electronics: ['repairs', 'finance', 'stock_transfers'],
   salon: ['packages', 'commissions'],
@@ -29,4 +30,4 @@ async function withTools(request, businesses, { work = false } = {}) {
   return businesses.map((business) => now.find((b) => String(b.id) === String(business.id)) || business);
 }
 
-module.exports = { withTools, SPECIALIST, WORK };
+module.exports = { withTools };

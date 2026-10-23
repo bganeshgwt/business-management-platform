@@ -5,8 +5,6 @@ const guestAddressService = require("../services/guestAddress.service");
 // Full addresses are for customers.contact, as mobiles are (crm.controller).
 const reveals = (req) => (req.user?.permissions || []).includes("customers.contact");
 
-const LABELS = ["Home", "Office", "Other"];
-
 const readAddress = (body = {}) => ({
   // Home, Office, or a word of the guest's own ("Mum's place").
   label: v.optionalString(body.label, "Label", 30) || "Home",
@@ -49,4 +47,4 @@ const remove = async (req, res) => {
   res.json({ success: true, message: `${address.label} address removed from ${guest.name}` });
 };
 
-module.exports = { LABELS, list, update, remove };
+module.exports = { list, update, remove };

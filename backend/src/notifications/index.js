@@ -68,11 +68,8 @@ const LABELS = {
   businessDay: "Business day",
   kitchen: "Kitchen",
   reservations: "Reservations",
-  tableRequests: "Table requests",
   deliveries: "Deliveries",
-  timeclock: "Time clock",
   inventoryInsights: "Waste & reorder",
-  guests: "Guests",
 };
 
 const humanise = (key) => {
@@ -443,10 +440,9 @@ const keyOf = (id) => {
 // its own provider whether it is still live, not the whole bell.
 //
 // `outletId` is the outlet the person is tied to (null for someone who sees
-// every outlet). Providers that keep per-store alerts (stock expiry, supplier
-// bills, transfers, purchase approvals) show such a person only their own
-// store's; it was never passed before, so a branch manager saw the main
-// store's alerts too.
+// every outlet). Providers that keep per-outlet alerts (stock expiry, supplier
+// bills, transfers, purchase approvals, online booking requests) show such a
+// person only their own outlet's.
 const collect = async ({
   restaurantId,
   permissions = [],
@@ -530,10 +526,5 @@ module.exports = {
   completeContext,
   permittedKeys,
   keyOf,
-  SEVERITIES,
-  PROVIDER_TIMEOUT_MS,
   MAX_ID_LENGTH,
-  // Exposed for tests.
-  loadProviders,
-  normalise,
 };

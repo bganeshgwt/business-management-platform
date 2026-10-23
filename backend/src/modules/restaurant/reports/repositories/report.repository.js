@@ -3,13 +3,13 @@
 // outlet scope, live bills, bill lines, stock movements, voided bills).
 // This file only gathers them, so callers keep one require.
 
-const { VOIDED_BILL_OF_REMOVAL, dayAt, roughWindow, scopeParams } = require("./report/sql");
+const { VOIDED_BILL_OF_REMOVAL, dayAt, roughWindow } = require("./report/sql");
 const { cancellationReport, covers, discountReport, orderTypes, outletComparison, paymentModes, paymentTypes, salesByDay, salesByHour, salesSummary } = require("./report/sales");
 const { addonSales, categorySales, dishProfitability, itemSales, menuPerformance } = require("./report/items");
 const { billItemTaxRows, billParties, billTaxLines, billTaxRows, billsForBreakdown, clearBillRecipient, creditNoteTaxRows, findBill, gstBills, gstCreditNotes, hsnDescriptions, setBillRecipient } = require("./report/gst");
 const { captainSections, staffReport, waiterReport } = require("./report/staff");
 const { consumptionReport } = require("./report/stock");
-const { DRAWER_EXPECTED, DRAWER_PARTS, drawers } = require("./report/drawers");
+const { DRAWER_EXPECTED, DRAWER_PARTS } = require("./report/drawers");
 const { dayEndReport, dayLogbook, daysOfDate, nearestDays, ridersOwed } = require("./report/dayEnd");
 const { dashboard, kitchenNow, openDays } = require("./report/dashboard");
 const { employeeOutlets, expensesByCategory, purchasesByMonth, refundsByMonth, revenueByMonth, stockCostByMonth } = require("./report/profitLoss");
@@ -30,11 +30,9 @@ module.exports = {
   dishProfitability,
   ridersOwed,
   DRAWER_EXPECTED,
-  drawers,
   daysOfDate,
   nearestDays,
   kitchenNow,
-  scopeParams,
   salesSummary,
   salesByDay,
   salesByHour,

@@ -3,7 +3,7 @@ const inventoryRepository = require("./inventory.repository");
 const recipeRepository = require("../../menu/repositories/recipe.repository");
 const comboRepository = require("../../menu/repositories/combo.repository");
 
-// A finished dish written off by its recipe (sweep SW-B-22): the dish entry,
+// A finished dish written off by its recipe: the dish entry,
 // and one ordinary wastage row per ingredient that points back at it
 // (reference_type 'dish_waste'), so every waste and stock report counts it
 // like any other waste.

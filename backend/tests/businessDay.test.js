@@ -5,7 +5,11 @@ const vm = require("node:vm");
 const { createRequire } = require("node:module");
 const path = require("node:path");
 
+const DATABASE = require.resolve("../src/config/database");
+
 // Exercise the HTTP controller without loading credentials or touching a DB.
+// Its service and the audit writer are stubbed, matched on the end of the
+// path the controller requires them by ("../../../../utils/audit").
 function controller() {
   const file = path.resolve(__dirname, "../src/modules/restaurant/business-day/controllers/businessDay.controller.js");
   const realRequire = createRequire(file);
@@ -13,12 +17,16 @@ function controller() {
   const service = Object.fromEntries(["openDay", "closeDay"].map((method) => [method,
     async (...args) => { calls.push({ method, args }); return { id: 1, businessDate: "2026-09-29" }; },
   ]));
+  const audit = { logAction() {}, diff: () => ({}) };
   const context = { module: { exports: {} }, require: (name) => {
     if (name.endsWith("businessDay.service")) return service;
-    if (name === "../utils/audit") return { logAction() {} };
+    if (name.endsWith("utils/audit")) return audit;
     return realRequire(name);
   }};
   vm.runInNewContext(fs.readFileSync(file, "utf8"), context, { filename: file });
+  // A stub that misses its module lets the real one load, and the real audit
+  // writer saves to the database named in backend/.env.
+  assert.equal(require.cache[DATABASE], undefined, "the controller must not load config/database");
   const res = { status() { return this; }, json() {} };
   const req = (body) => ({ body, user: { id: 1, restaurantId: 1 } });
   return { api: context.module.exports, calls, res, req };

@@ -28,7 +28,7 @@ const toDiscount = (row) => ({
   usedCount: row.used_count,
   appliesTo: row.applies_to,
   status: row.status,
-  // The rules (SW-B-17).
+  // The offer's rules.
   offerType: row.offer_type || "discount",
   productIds: (row.product_ids || []).map(Number),
   categoryIds: (row.category_ids || []).map(Number),

@@ -259,19 +259,14 @@ async function removeMilestone(scope, projectId, milestoneId) {
   return detail(scope, projectId);
 }
 
-async function saveList(scope, projectId, listId, body) {
+async function addList(scope, projectId, body) {
   await repo.transaction(async (db) => {
     const row = await load(db, scope, projectId, { lock: true });
     if (!canEdit(scope, row)) fail(403, "Only the project's owner can change task lists");
     const name = v.requiredString(body.name, "List name", 80);
-    if (listId) {
-      const done = await repo.one(db, "UPDATE business_project_lists SET name = $4 WHERE business_id = $1 AND project_id = $2 AND id = $3 RETURNING id", [scope.businessId, row.id, id(listId, "Task list"), name]);
-      if (!done) fail(404, "Task list not found");
-    } else {
-      const position = Number((await repo.one(db, "SELECT COALESCE(max(position), -1) + 1 AS n FROM business_project_lists WHERE business_id = $1 AND project_id = $2", [scope.businessId, row.id])).n);
-      await db.query("INSERT INTO business_project_lists (business_id, project_id, name, position) VALUES ($1, $2, $3, $4)", [scope.businessId, row.id, name, position]);
-    }
-    await repo.history(db, scope, { projectId: row.id }, listId ? "list_renamed" : "list_added", { name });
+    const position = Number((await repo.one(db, "SELECT COALESCE(max(position), -1) + 1 AS n FROM business_project_lists WHERE business_id = $1 AND project_id = $2", [scope.businessId, row.id])).n);
+    await db.query("INSERT INTO business_project_lists (business_id, project_id, name, position) VALUES ($1, $2, $3, $4)", [scope.businessId, row.id, name, position]);
+    await repo.history(db, scope, { projectId: row.id }, "list_added", { name });
   });
   return detail(scope, projectId);
 }
@@ -305,4 +300,4 @@ const templatesList = () => library.PROJECT_TEMPLATES.map((t) => ({
   taskCount: Object.values(t.lists).reduce((n, list) => n + list.length, 0),
 }));
 
-module.exports = { list, detail, create, update, setMembers, saveMilestone, removeMilestone, saveList, removeList, comment, templatesList };
+module.exports = { list, detail, create, update, setMembers, saveMilestone, removeMilestone, addList, removeList, comment, templatesList };

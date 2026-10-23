@@ -7,7 +7,7 @@ const paymentMethods = require('../../core/services/businessPaymentMethods.servi
 const h = require('./healthCommon');
 const clinic = require('./businessClinic.service');
 
-// Laboratory (round 2, R2-HEALTH).
+// Laboratory.
 //
 //   Tests       a test has parameters (CBC: Hb, WBC, platelets …), each with a
 //               unit and reference ranges by sex and age band (and critical
@@ -25,7 +25,8 @@ const clinic = require('./businessClinic.service');
 //   Referral    a test sent to an outside lab is recorded on the order (lab,
 //               reference, its charge). A referral commission is recorded
 //               only when the business switches it on (default off: an
-//               ethical and legal question, see DECISIONS_ROUND2.md).
+//               ethical and legal question, see docs/BUSINESS_RULES.md ›
+//               Outside-lab referral commission).
 // Results are clinical data: only lab.edit, lab.approve or
 // patients.view_clinical see them, and each read is written to business_audit.
 
@@ -549,4 +550,4 @@ async function worklist(business) {
     (SELECT count(*)::int FROM lab_orders WHERE business_id=$1 AND outside_lab IS NOT NULL AND status NOT IN ('approved','cancelled')) AS outside_open`, [business.id]);
 }
 
-module.exports = { requireLab, saveTest, test, createOrder, sampleAction, sampleByBarcode, enterResults, approve, cancelOrder, refer, order, report, worklist, rangeFor, flagOf };
+module.exports = { requireLab, saveTest, test, createOrder, sampleAction, sampleByBarcode, enterResults, approve, cancelOrder, refer, order, report, worklist };

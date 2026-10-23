@@ -1,33 +1,13 @@
-// Loyalty history, the day's bill summary, credit-note list and till options.
+// The day's bill summary, credit-note list and till options.
 // Part of bill.service.js, which re-exports these for its callers.
 
 const billRepository = require("../../repositories/bill.repository");
 const restaurantRepository = require("../../../setup/repositories/restaurant.repository");
 const businessDayRepository = require("../../../business-day/repositories/businessDay.repository");
-const loyaltyRepository = require("../../../crm/repositories/loyalty.repository");
 const AppError = require("../../../../../utils/AppError");
 const { round2 } = require("../../../../../utils/money");
 const { COMPLIMENTARY_REASONS, DISCOUNT_REASONS, n, requireRestaurantId } = require("./shape");
 const { outletOf } = require("./rules");
-
-// A guest's points history.
-const loyaltyHistory = async (restaurantId, customerId) => {
-  requireRestaurantId(restaurantId);
-
-  const rows = await loyaltyRepository.findForCustomer(restaurantId, customerId);
-
-  return rows.map((row) => ({
-    id: row.id,
-    points: row.points,
-    balanceAfter: row.balance_after,
-    entryType: row.entry_type,
-    amount: row.amount === null ? null : Number(row.amount),
-    notes: row.notes,
-    billNumber: row.bill_number,
-    createdAt: row.created_at,
-    createdByName: row.created_by_name,
-  }));
-};
 
 // The day's figures for the outlet the person is looking at. Each outlet
 // trades its own business day, so:
@@ -214,7 +194,6 @@ const tillOptions = async (restaurantId, userId, permissions = []) => {
 };
 
 module.exports = {
-  loyaltyHistory,
   daySummary,
   listCreditNotes,
   tillOptions,

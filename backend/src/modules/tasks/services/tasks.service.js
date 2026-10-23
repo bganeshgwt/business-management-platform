@@ -105,7 +105,7 @@ async function list(scope, query = {}) {
 }
 
 // My tasks: today (open now or due today), overdue, upcoming (next 7 days), done (today).
-async function mine(scope, query = {}) {
+async function mine(scope) {
   await recurrence.ensure(scope);
   const today = localToday(scope.timezone);
   const p = new repo.Params([scope.businessId]);
@@ -525,5 +525,5 @@ async function comment(scope, taskId, body) {
 
 module.exports = {
   list, mine, calendar, detail, load, rights, create, createIn, update, start, answer, complete, review, cancel, reopen, remove, comment,
-  filesOf, commentsOf, historyOf, shape,
+  filesOf, commentsOf, historyOf,
 };

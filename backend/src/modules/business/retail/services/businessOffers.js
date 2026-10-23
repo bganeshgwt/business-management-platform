@@ -6,7 +6,8 @@ const access = require('../../core/services/businessAccess.service');
 // posting transaction (business.service.js › document). Retail modules
 // `offers` and `loyalty`; nothing here runs for a business without them.
 //
-// The rule, in the order it is applied (docs/BUSINESS_PLATFORM_DATA_MODEL.md):
+// The rule, in the order it is applied (docs/BUSINESS_PLATFORM_DATA_MODEL.md
+// › Retail):
 //  1. Only offers running now count: switched on, within their dates, on
 //     today's weekday and inside their daily time window (business time zone),
 //     and the bill before any discount reaches their minimum.
@@ -139,7 +140,7 @@ async function reverseForReturn(db, business, user, doc, saved) {
   return entry;
 }
 // Points the customer spent on a sale come back when goods on that sale are
-// returned (round 2, R2-CORE; Loyalty rules › "Give back spent points on
+// returned (Loyalty rules › "Give back spent points on
 // returns", on by default): the redeemed points times the share of the bill's
 // value returned so far, cumulative, so a bill returned in parts gives back
 // exactly what was spent once everything is back. The goods' refund is what
@@ -177,7 +178,7 @@ const earnedPoints = (settings, totalPaise) => (settings && settings.active
   ? Math.floor(totalPaise / paise(settings.earn_per_amount)) * Number(settings.earn_points) : 0);
 
 // A small discount the counter gives on this bill ("₹5 kam kar do"): an
-// amount or a percent of what the customer pays, with a reason. Pro pass C-11.
+// amount or a percent of what the customer pays, with a reason.
 function readManualDiscount(body) {
   if (body.discount === undefined || body.discount === null) return null;
   if (typeof body.discount !== 'object' || Array.isArray(body.discount)) fail('Discount must be an object');
@@ -401,7 +402,7 @@ function quoteOf({ prepared, offers, subtotal, tax, roundOff, rounded, taxMode, 
       enteredUnit: line.entered?.unit || null, enteredQuantity: line.entered?.quantity ?? null,
       amount: money(line.amount), discount: money(offers?.perLine[index] || 0), net: money(line.net), tax: money(line.tax), taxRate: line.sku.tax_rate,
       lotCode: line.lotCode || null,
-      // Round 2: the request line this came from, and its kit (if any).
+      // The request line this came from, and its kit (if any).
       inputIndex: line.inputIndex ?? index, kitSkuId: line.kit?.skuId || null, kitLabel: line.kit?.label || null, kitGroup: line.kit?.group || null,
       offers: (offers?.rows || []).filter((r) => r.index === index).map((r) => ({ label: r.label, source: r.source, offerId: r.offerId, amount: money(r.amount) })),
     })),
@@ -447,4 +448,4 @@ async function saleExtras(db, businessId, documentId) {
   return { discounts, savings: money(sum(discounts.map((d) => paise(d.amount)))), loyalty, heldBack: money(held) };
 }
 
-module.exports = { priceSale, quoteOf, recordSale, reverseForReturn, restoreForReturn, heldBack, saleExtras, loyaltyPreview, pointsBalance, loyaltySettings, earnedPoints, split, BALANCE_SQL, RUNNING };
+module.exports = { priceSale, quoteOf, recordSale, reverseForReturn, restoreForReturn, heldBack, saleExtras, pointsBalance, loyaltySettings, split, BALANCE_SQL, RUNNING };

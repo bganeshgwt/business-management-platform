@@ -7,7 +7,7 @@ const core = require('../../core/services/business.service');
 const numbering = require('../../core/services/businessNumbering');
 const paymentMethods = require('../../core/services/businessPaymentMethods.service');
 const { phoneDigits } = require('./businessElectronics.service');
-// Round 2: advance refunds and the manager's PIN (shared with the salon).
+// Advance refunds and the manager's PIN (shared with the salon).
 const refunds = () => require('../../salon-weight/services/businessAdvanceRefunds');
 const pins = () => require('../../salon-weight/services/businessManagerPin');
 const FREE_SQL = (k) => `${k}.amount-COALESCE((SELECT sum(p.amount) FROM business_payments p WHERE p.business_id=${k}.business_id AND p.collection_id=${k}.id),0)
@@ -37,7 +37,7 @@ const derivedKey = (key, part) => {
 };
 const OPEN = ['received', 'diagnosing', 'waiting_parts', 'in_repair', 'awaiting_approval', 'ready'];
 // The first move listed is the usual next step (the screen's main button).
-// "Awaiting approval" (pro pass E-19): the charges are more than the
+// "Awaiting approval": the charges are more than the
 // estimate, or the technician asks; the customer approves (work goes on) or
 // declines (the device goes back unrepaired) through `approval` below.
 const MOVES = {
@@ -388,7 +388,7 @@ async function cancelJob(business, user, jobId, body) {
   });
 }
 
-// The customer's answer when the job waits for approval (E-19): approved
+// The customer's answer when the job waits for approval: approved
 // (the work goes on where it was, the estimate becomes the charges so far)
 // or declined (the device goes back unrepaired; nothing is billed).
 async function approval(business, user, jobId, body) {
@@ -422,7 +422,7 @@ async function approval(business, user, jobId, body) {
   });
 }
 
-// A message or call to the customer, kept in the job's history (E-18). The
+// A message or call to the customer, kept in the job's history. The
 // message itself goes from the person's own WhatsApp (a wa.me link).
 async function logMessage(business, user, jobId, body) {
   await access.require(business, 'repairs.view');
@@ -440,7 +440,7 @@ async function logMessage(business, user, jobId, body) {
   });
 }
 
-// Open jobs by status for the board's chips (E-25).
+// Open jobs by status for the board's chips.
 async function counts(business) {
   await access.require(business, 'repairs.view');
   requireRepairs(business);
@@ -471,7 +471,7 @@ const lists = {
   filters: { status: 'status', stage: 'stage', location: 'location_id', overdue: 'overdue', not_collected: 'not_collected', advance_to_refund: 'advance_to_refund' }, order: 'id DESC' },
 };
 
-// Round 2 (R2-SVC): the advance taken at intake handed back — when the job
+// The advance taken at intake handed back — when the job
 // was returned unrepaired (cancelled), or what is left of it after delivery
 // (the bill came to less, or nothing was billed). Cash, UPI or bank, with a
 // reason and a manager's PIN (sales.refund); a numbered refund with a receipt.
@@ -493,4 +493,4 @@ async function refundAdvance(business, user, jobId, body) {
   });
 }
 
-module.exports = { refundAdvance, intake, detail, updateDetails, setStatus, addLine, removeLine, deliver, cancelJob, approval, logMessage, counts, lists, MOVES };
+module.exports = { refundAdvance, intake, detail, updateDetails, setStatus, addLine, removeLine, deliver, cancelJob, approval, logMessage, counts, lists };

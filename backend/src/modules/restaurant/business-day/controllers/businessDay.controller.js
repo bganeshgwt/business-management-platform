@@ -242,7 +242,6 @@ module.exports = {
   close,
   validateClose,
   precheckClose,
-  readClose,
   closePreview,
   checkClose,
   reopen,

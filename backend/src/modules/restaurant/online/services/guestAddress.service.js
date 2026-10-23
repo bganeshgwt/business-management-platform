@@ -1,4 +1,4 @@
-// Saved delivery addresses (sweep SW-A-18): read at the till and in the
+// Saved delivery addresses: read at the till and in the
 // guest book, edited and removed in the guest book.
 //
 // Privacy follows the guest book's rule for contact details: the full text
@@ -90,4 +90,4 @@ const remove = async (restaurantId, customerId, id) => {
   return { guest, address: existing };
 };
 
-module.exports = { maskAddress, toAddress, listForGuest, update, remove };
+module.exports = { toAddress, listForGuest, update, remove };

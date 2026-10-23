@@ -3,13 +3,13 @@ const AppError = require('../../../../utils/AppError');
 const v = require('../../../../utils/validate');
 const access = require('./businessAccess.service');
 
-// Per-staff PIN at a shared counter (round 2, R2-CORE).
+// Per-staff PIN at a shared counter.
 //
 // A shop's till stays signed in all day. Each cashier switches the till to
 // themselves with their own PIN (no sign-out, the bill being built stays),
 // and every bill then records who billed it (business_documents.created_by is
 // the person the till is switched to). With "Ask the PIN for every bill" on
-// (Business settings › Counter), Quick bill asks the biller's PIN before each
+// (Business settings › Prices, totals and numbering), Quick bill asks the biller's PIN before each
 // bill and the server checks it.
 //
 // Nothing new about PINs: the person's own PIN (My profile, or set by an

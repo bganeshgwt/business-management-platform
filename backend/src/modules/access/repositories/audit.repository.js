@@ -278,4 +278,4 @@ const findPeople = async (restaurantId, q, limit) => {
   return result.rows;
 };
 
-module.exports = { record, findAll, search, countMatching, exportPage, summary, facets, findPeople, redactSalaryMoney };
+module.exports = { record, findAll, search, countMatching, exportPage, summary, facets, findPeople };

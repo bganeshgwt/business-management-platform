@@ -15,13 +15,6 @@ const taxFromExclusive = (netAmount, taxPercentage) => ({
   tax: round2((netAmount * taxPercentage) / 100),
 });
 
-// Rounds a bill total to the nearest whole unit of currency and reports the
-// difference, which appears on the bill as "round off".
-const roundOff = (total) => {
-  const rounded = Math.round(total);
-  return { rounded: round2(rounded), difference: round2(rounded - total) };
-};
-
 // --- Whole paise --------------------------------------------------------------
 // A bill is worked out in whole paise (integers), where every sum is exact,
 // and turned back into rupees only at the end. Splitting one rounded figure
@@ -78,7 +71,6 @@ module.exports = {
   round2,
   taxFromInclusive,
   taxFromExclusive,
-  roundOff,
   toPaise,
   fromPaise,
   percentOf,

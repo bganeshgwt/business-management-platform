@@ -37,7 +37,6 @@ router.use((req, res, next) => {
 });
 const send = (res, data, status = 200) => res.status(status).json({ success: true, data });
 router.get('/', async (req, res) => send(res, await service.list(req.user)));
-router.post('/development-demos', async (req, res) => send(res, await service.provision(req.user), 201));
 // An owner adds another business of their own (any type but restaurant).
 router.post('/', async (req, res) => send(res, await onboarding.ownerCreate(req.user, req.body), 201));
 router.post('/link-restaurant', async (req, res) => send(res, await service.linkRestaurant(req.user)));
@@ -72,7 +71,7 @@ router.get(b('/summary'), context(), async (req, res) => {
 });
 // The Overview's picture of the day (each part only for those allowed to see it).
 router.get(b('/overview'), context(), async (req, res) => send(res, await overviewData.overview(req.business)));
-// The bell (pro pass G-07): alerts worked out from live data, each only to those allowed to see it.
+// The bell: alerts worked out from live data, each only to those allowed to see it.
 router.get(b('/notifications'), context(), async (req, res) => send(res, await notifications.feed(req.business)));
 router.get(b('/reports'), context('reports.view'), async (req, res) => send(res, await service.reports(req.business, req.query)));
 // Branch comparison: every location side by side for a period.
@@ -128,7 +127,10 @@ for (const [name, permission] of Object.entries(listPermissions)) {
     const search = typeof req.query.q === 'string' && req.query.q.trim() ? req.query.q.trim().slice(0, 100) : null;
     const from = readDate(req.query.from, 'From date'), to = readDate(req.query.to, 'To date');
     if (from && to && to < from) throw new AppError(400, 'The end date is before the start date');
-    send(res, await repo.page(req.business.id, name, limit, offset, { search, from, to, timezone: req.business.timezone, filters }));
+    const result = await repo.page(req.business.id, name, limit, offset, { search, from, to, timezone: req.business.timezone, filters });
+    // Each person on the staff list says whether the caller manages them (Change and Password).
+    if (name === 'members') await access.markManaged(req.business, result.items);
+    send(res, result);
   });
 }
 
@@ -210,7 +212,7 @@ router.post(b('/appointments'), context('appointments.create'), async (req, res)
 router.patch(b('/appointments/:id'), context(['appointments.edit', 'appointments.cancel']), async (req, res) =>
   send(res, await service.appointmentStatus(req.business, req.user, req.params.id, req.body)));
 
-// Phase 2 trade routes: shared receivables and wholesale (routes/businessTrade.routes.js).
+// Trade routes: shared receivables and wholesale (routes/businessTrade.routes.js).
 router.use(require('../../wholesale/routes/businessTrade.routes'));
 // Retail: counter, udhaar, offers, loyalty, books, labels and reports.
 require('../../retail/routes/businessRetail.routes')(router, { context, send, b });
@@ -218,10 +220,10 @@ require('../../retail/routes/businessRetail.routes')(router, { context, send, b 
 require('../../fashion-electronics/routes/businessFashionElectronics.routes')(router, { context, send, b });
 // Salon & spa and weight-based shops: calendar, deposits, packages, memberships, commissions, cutting, wastage.
 require('../../salon-weight/routes/businessSalonWeight.routes')(router, { context, send, b });
-// Pharmacy, clinic and lab (round 2): drug master, prescriptions, registers, patients, consultations, lab.
+// Pharmacy, clinic and lab: drug master, prescriptions, registers, patients, consultations, lab.
 require('../../health/routes/businessHealth.routes')(router, { context, send, b });
 
-// Round 2: per-staff PIN at the counter, kits / bundles, EMI & finance.
+// Per-staff PIN at the counter, kits / bundles, EMI & finance.
 require('./businessCounter.routes')(router, { context, send, b });
 
 // Scoped constraint failures are the person's conflict, not a server fault.

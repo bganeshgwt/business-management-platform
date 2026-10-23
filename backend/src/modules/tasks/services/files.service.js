@@ -7,14 +7,16 @@ const tasks = require("./tasks.service");
 const issues = require("./issues.service");
 const recurrence = require("./recurrence.service");
 const { fail, id, optionalId, v } = require("./common");
+const config = require("../../../config/env");
 const AppError = require("../../../utils/AppError");
 
 // Photos, signatures and files on tasks, checklist items and issues. Kept
-// OUTSIDE the public uploads folder, in private_uploads/tasks/<business>/,
-// under a generated name, and only ever sent through the API to someone who
-// may see the record. The bytes are checked: a renamed file is refused.
+// OUTSIDE the public uploads folder, in tasks/<business>/ of the private
+// uploads folder (PRIVATE_UPLOADS_DIR; config/env.js), under a generated
+// name, and only ever sent through the API to someone who may see the
+// record. The bytes are checked: a renamed file is refused.
 
-const ROOT = path.join(__dirname, "..", "..", "..", "..", "private_uploads", "tasks");
+const ROOT = path.join(config.privateUploadsDir, "tasks");
 const MAX_BYTES = 5 * 1024 * 1024;
 const SIGNATURES = [
   { mime: "image/jpeg", ext: "jpg", bytes: [0xff, 0xd8, 0xff] },
@@ -133,4 +135,4 @@ async function remove(scope, fileId) {
   });
 }
 
-module.exports = { uploadOne, add, open, remove, ROOT };
+module.exports = { uploadOne, add, open, remove };

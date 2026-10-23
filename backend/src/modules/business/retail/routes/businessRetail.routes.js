@@ -6,7 +6,7 @@ const retail = require('../services/businessRetail.service');
 const customers = require('../services/businessRetailCustomers.service');
 const offers = require('../services/businessRetailOffers.service');
 const reports = require('../services/businessRetailReports.service');
-const pro = require('../services/businessRetailPro.service');
+const books = require('../services/businessRetailBooks.service');
 
 // Retail routes (grocery / kirana, supermarket, books & stationery), added to
 // the Business Admin router so they share its membership, module and
@@ -76,15 +76,15 @@ module.exports = function retailRoutes(router, { context, send, b }) {
   router.post(b('/books'), context('catalog.create'), async (req, res) => send(res, await retail.createBook(req.business, req.user, req.body), 201));
   router.put(b('/books/:skuId'), context('catalog.edit'), async (req, res) => send(res, await retail.updateBook(req.business, req.user, req.params.skuId, req.body)));
 
-  // Pro pass C: batches near expiry, school sets and customer orders for books.
-  router.get(b('/retail/near-expiry'), context('inventory.view'), async (req, res) => send(res, await pro.nearExpiry(req.business, req.query)));
+  // Batches near expiry, school sets and customer orders for books.
+  router.get(b('/retail/near-expiry'), context('inventory.view'), async (req, res) => send(res, await books.nearExpiry(req.business, req.query)));
   list('/books/sets', 'book-sets', 'catalog.view', retail.requireBooks);
-  router.post(b('/books/sets'), context('catalog.create'), async (req, res) => send(res, await pro.createSet(req.business, req.user, req.body), 201));
-  router.get(b('/books/sets/:setId'), context('catalog.view'), async (req, res) => send(res, await pro.getSet(req.business, req.params.setId)));
-  router.put(b('/books/sets/:setId'), context('catalog.edit'), async (req, res) => send(res, await pro.updateSet(req.business, req.user, req.params.setId, req.body)));
+  router.post(b('/books/sets'), context('catalog.create'), async (req, res) => send(res, await books.createSet(req.business, req.user, req.body), 201));
+  router.get(b('/books/sets/:setId'), context('catalog.view'), async (req, res) => send(res, await books.getSet(req.business, req.params.setId)));
+  router.put(b('/books/sets/:setId'), context('catalog.edit'), async (req, res) => send(res, await books.updateSet(req.business, req.user, req.params.setId, req.body)));
   list('/books/orders', 'book-orders', 'sales.view', retail.requireBooks);
-  router.post(b('/books/orders'), context('sales.create'), async (req, res) => send(res, await pro.createOrder(req.business, req.user, req.body), 201));
-  router.post(b('/books/orders/:orderId/status'), context(['sales.create', 'sales.edit']), async (req, res) => send(res, await pro.setOrderStatus(req.business, req.user, req.params.orderId, req.body)));
+  router.post(b('/books/orders'), context('sales.create'), async (req, res) => send(res, await books.createOrder(req.business, req.user, req.body), 201));
+  router.post(b('/books/orders/:orderId/status'), context(['sales.create', 'sales.edit']), async (req, res) => send(res, await books.setOrderStatus(req.business, req.user, req.params.orderId, req.body)));
 
   return router;
 };

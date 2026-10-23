@@ -12,7 +12,7 @@ const { foodCostParts } = require("./profitLoss");
 // Items
 // ---------------------------------------------------------------------------
 
-// Dish profitability (SW-B-15): each dish and size sold in the range, what it
+// Dish profitability: each dish and size sold in the range, what it
 // sold before GST, what its ingredients cost (the stock its bills really took,
 // at the cost of the day: see reportRepository.dishProfitability), the food
 // cost % and what is left per plate and in all. Nothing of it is on the
@@ -122,7 +122,7 @@ const itemSales = async (restaurantId, range, outletId = null) => {
       quantity: num(row.quantity),
       grossSales: round2(num(row.gross_sales)),
     })),
-    // Add-ons sold in the range (SW-B-16): plates that carried each one and
+    // Add-ons sold in the range: plates that carried each one and
     // what it added (menu price, before any bill discount). Free ones count.
     addons: addons.map((row) => ({
       modifierId: row.modifier_id || null,

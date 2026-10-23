@@ -126,4 +126,4 @@ function selectedParts(groups = [], selections = []) {
   return result;
 }
 
-module.exports = { get, save, validateSchedule, availableNow, selectedParts, readSelections };
+module.exports = { get, save, availableNow, selectedParts, readSelections };

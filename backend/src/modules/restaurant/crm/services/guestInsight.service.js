@@ -846,8 +846,6 @@ module.exports = {
   segmentList,
   segmentExport,
   findGuest,
-  rankBySpend,
-  SEGMENT_KEYS,
   DEFAULT_LIMIT,
   MAX_LIMIT,
   // The rules a restaurant starts with. The bell reads each restaurant's own
@@ -861,7 +859,5 @@ module.exports = {
     SEATED_WITHIN_HOURS,
   },
   birthdayKeysFor,
-  nextBirthday,
   nextAnniversary,
-  daysBetween,
 };

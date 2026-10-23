@@ -28,7 +28,6 @@ const ACTION_LABELS = {
   "loyalty.adjust": "add or remove points by hand",
   "audit.view": "read the activity log",
   "customers.credit": "put a bill on a guest's account",
-  // Billing and payments build (R4).
   "bills.payment_correct": "correct how a payment was taken",
   "advances.refund": "hand back an advance",
   "orders.waive_delivery_charge": "take off the delivery charge",
@@ -102,7 +101,7 @@ const SCOPE_FIELDS = {
   businessDayId: { kind: "id", word: "business day" },
   customerId: { kind: "id", word: "guest" },
   productId: { kind: "id", word: "dish" },
-  // Back office (SW-B-10): a write-off is tied to the stock item it takes
+  // Back office: a write-off is tied to the stock item it takes
   // out, a purchase-order approval to that order, a count's write-off to
   // that count sheet. Without them a PIN given for 2 kg paneer wrote off
   // ghee, and one given for one order approved another of the same size.
@@ -118,7 +117,7 @@ const SCOPE_FIELDS = {
   percent: { kind: "upTo", word: "percentage" },
   closingCash: { kind: "money", word: "cash counted" },
   carryUnpaid: { kind: "flag", word: "choice to carry unpaid bills" },
-  // Correcting how a payment was taken (SW-B-02): this payment, from this
+  // Correcting how a payment was taken: this payment, from this
   // method to that one — a PIN given for "cash to UPI" cannot turn a card
   // payment into cash.
   paymentId: { kind: "id", word: "payment" },
@@ -127,7 +126,7 @@ const SCOPE_FIELDS = {
   // A cash entry's direction (paid_in, petty_cash, drop, or cancel_ and one
   // of them): a PIN given for ₹1,000 in cannot take ₹1,000 out.
   cashMove: { kind: "text", word: "cash in or out" },
-  // An advance handed back (SW-B-04).
+  // An advance handed back.
   advanceId: { kind: "id", word: "advance" },
 };
 
@@ -864,12 +863,8 @@ const redeem = async ({ token, restaurantId, userId, permission, method, url, sc
 
 module.exports = {
   ACTION_LABELS,
-  SCOPE_FIELDS,
   actionLabel,
-  normaliseTarget,
   normaliseScope,
-  scopeMismatch,
-  describeScope,
   listApprovers,
   approve,
   redeem,

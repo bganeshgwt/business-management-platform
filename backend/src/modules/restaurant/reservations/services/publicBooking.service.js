@@ -1,4 +1,4 @@
-// The guest side of online table booking (SW-A-21). Nobody here is signed
+// The guest side of online table booking. Nobody here is signed
 // in: a request carries the restaurant's booking-link token, or a guest's own
 // status token, and nothing else. Every answer is about times and the
 // guest's own booking — never a table, another guest or a count of covers.

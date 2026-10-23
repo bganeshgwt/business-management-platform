@@ -97,4 +97,4 @@ const projectByCode = new Map(PROJECT_TEMPLATES.map((t) => [t.code, t]));
 // The templates a business of this type sees, its own type's first.
 const forType = (type) => TEMPLATES.filter((t) => t.types.includes(type)).sort((a, b) => Number(a.common) - Number(b.common));
 
-module.exports = { TEMPLATES, PROJECT_TEMPLATES, ALL_TYPES, forType, get: (code) => byCode.get(code) || null, getProject: (code) => projectByCode.get(code) || null };
+module.exports = { PROJECT_TEMPLATES, forType, get: (code) => byCode.get(code) || null, getProject: (code) => projectByCode.get(code) || null };

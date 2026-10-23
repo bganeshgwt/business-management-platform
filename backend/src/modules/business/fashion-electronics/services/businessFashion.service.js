@@ -398,4 +398,4 @@ const lists = {
   search: ['name', 'brand', 'category'], filters: { category: 'category_id', active: 'active' }, order: 'name,id' },
 };
 
-module.exports = { createProduct, addVariants, setPrices, matrix, variantReport, requireVariants, lists, inStoreBarcode };
+module.exports = { createProduct, addVariants, setPrices, matrix, variantReport, requireVariants, lists };

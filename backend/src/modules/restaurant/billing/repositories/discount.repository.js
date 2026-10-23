@@ -64,7 +64,7 @@ const findById = async (restaurantId, id) => {
   return result.rows[0] || null;
 };
 
-// The offer's rules (SW-B-17), in the order the inserts and updates take them.
+// The offer's rules, in the order the inserts and updates take them.
 const ruleValues = (data) => [
   data.offerType || "discount",
   data.productIds && data.productIds.length ? data.productIds : null,

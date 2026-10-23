@@ -4,7 +4,7 @@ const { dayAt, roughWindow } = require("../../reports/repositories/report.reposi
 const AppError = require("../../../../utils/AppError");
 const { round2 } = require("../../../../utils/money");
 
-// Write-offs and approvals, person by person (sweeps SW-B-10 and SW-B-22):
+// Write-offs and approvals, person by person:
 // the stock side of theft control. Waste is where stock disappears without a
 // bill, so the owner wants to see, for a period:
 //

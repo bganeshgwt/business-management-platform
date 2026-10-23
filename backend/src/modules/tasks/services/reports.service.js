@@ -19,7 +19,6 @@ async function report(scope, query = {}) {
   const from = dateText(query.from, "From") || addDays(to, -29);
   if (from > to || daysBetween(from, to) > 366) fail(400, "Choose a period of up to a year");
   const placeId = query.place ? id(query.place, "Place") : null;
-  const placeColumn = scope.world === "restaurant" ? "outlet_id" : "location_id";
   // Someone tied to one outlet reports on that outlet.
   const outlet = scope.outletScope || (scope.world === "restaurant" ? placeId : null);
   const location = scope.world === "business" ? placeId : null;
@@ -101,47 +100,4 @@ async function report(scope, query = {}) {
   };
 }
 
-// The dashboard card and the bell: today's checklists, what is overdue, issues waiting.
-async function summary(scope) {
-  await recurrence.ensure(scope);
-  const people = require("./people.service");
-  const today = localToday(scope.timezone);
-  const p = new repo.Params([scope.businessId, scope.timezone, today]);
-  const visible = people.visibleSql(scope, p, "t");
-  const mine = people.mineSql(scope, p, "t");
-  const row = await repo.one(repo.pool, `SELECT
-      count(*) FILTER (WHERE (t.due_at AT TIME ZONE $2)::date = $3 AND t.status <> 'cancelled') AS today_total,
-      count(*) FILTER (WHERE (t.due_at AT TIME ZONE $2)::date = $3 AND t.status = 'done') AS today_done,
-      count(*) FILTER (WHERE (t.due_at AT TIME ZONE $2)::date = $3 AND t.status = 'missed') AS today_missed,
-      count(*) FILTER (WHERE t.status IN ('todo', 'in_progress') AND t.due_at < now()) AS overdue,
-      count(*) FILTER (WHERE t.status = 'done' AND t.review_status = 'pending') AS review,
-      count(*) FILTER (WHERE ${mine} AND t.status IN ('todo', 'in_progress') AND (t.due_at IS NULL OR (t.due_at AT TIME ZONE $2)::date <= $3)) AS mine_open,
-      count(*) FILTER (WHERE ${mine} AND t.status IN ('todo', 'in_progress') AND t.due_at < now()) AS mine_overdue,
-      count(*) FILTER (WHERE ${mine} AND t.status = 'done' AND (t.completed_at AT TIME ZONE $2)::date = $3) AS mine_done,
-      min(t.due_at) FILTER (WHERE t.status IN ('todo', 'in_progress') AND t.due_at < now()) AS oldest_overdue
-    FROM business_tasks t WHERE t.business_id = $1 AND ${visible} AND (t.due_at IS NULL OR t.due_at < ($3::date + 2)::timestamp AT TIME ZONE $2)`, p.values);
-  let issues = null;
-  if (scope.has("issues")) {
-    const ip = new repo.Params([scope.businessId]);
-    const visibleIssues = require("./issues.service").visibleSql(scope, ip, "i");
-    const uid = ip.add(scope.userId);
-    const x = await repo.one(repo.pool, `SELECT count(*) FILTER (WHERE i.status IN ('open', 'in_progress')) AS open,
-        count(*) FILTER (WHERE i.status IN ('open', 'in_progress') AND i.severity IN ('high', 'critical')) AS serious,
-        count(*) FILTER (WHERE i.status = 'open' AND i.assignee_user_id IS NULL) AS unassigned,
-        count(*) FILTER (WHERE i.status IN ('open', 'in_progress') AND i.assignee_user_id = ${uid}) AS mine,
-        count(*) FILTER (WHERE i.status = 'resolved') AS to_close,
-        min(i.reported_at) FILTER (WHERE i.status IN ('open', 'in_progress') AND i.severity IN ('high', 'critical')) AS oldest_serious
-      FROM business_issues i WHERE i.business_id = $1 AND ${visibleIssues}`, ip.values);
-    issues = { open: Number(x.open), serious: Number(x.serious), unassigned: Number(x.unassigned), mine: Number(x.mine), toClose: Number(x.to_close), oldestSerious: x.oldest_serious };
-  }
-  return {
-    today,
-    team: scope.can("tasks.view"),
-    todayTotal: Number(row.today_total), todayDone: Number(row.today_done), todayMissed: Number(row.today_missed),
-    overdue: Number(row.overdue), oldestOverdue: row.oldest_overdue, review: scope.can("tasks.review") ? Number(row.review) : 0,
-    mine: { open: Number(row.mine_open), overdue: Number(row.mine_overdue), done: Number(row.mine_done) },
-    issues,
-  };
-}
-
-module.exports = { report, summary };
+module.exports = { report };

@@ -7,7 +7,6 @@ const requireFeature = require("../../../../middlewares/requireFeature");
 const resolveOutlet = require("../../../../middlewares/resolveOutlet");
 const writeoffApproval = require("../../../../middlewares/writeoffApproval");
 const stockSettingsController = require("../controllers/stockSettings.controller");
-const AppError = require("../../../../utils/AppError");
 
 const router = express.Router();
 
@@ -26,7 +25,7 @@ router.use(requireFeature("stock_recipes"));
 router.use(resolveOutlet);
 router.get("/batches", authorize("inventory.view"), require("../controllers/batch.controller").list);
 
-// Settings → Stock & purchasing: approval limits and how transfers are received.
+// Stock → Stock & purchasing settings: approval limits and how transfers are received.
 router.get(
   "/settings",
   anyOf("inventory.view", "purchasing.view", "restaurant.settings.view"),

@@ -7,7 +7,7 @@ const core = require('../../core/services/business.service');
 const receivables = require('./businessReceivables.service');
 const wholesale = require('./businessWholesale.service');
 
-// The distributor's money and day (pro pass D-03, D-08, D-17, D-22).
+// The distributor's money and day.
 //
 //   Evening settlement  what one salesperson collected on a day, by method,
 //                       against the cash they hand over; a shortage or an
@@ -37,7 +37,7 @@ repo.addLists({
   search: ['supplier_name', 'credit_note_no', 'notes', 'document_no'], date: 'created_at', filters: { status: 'status', supplier: 'contact_id', kind: 'kind' }, order: 'id DESC' },
 });
 
-// --- Evening settlement (D-03) --------------------------------------------------------
+// --- Evening settlement --------------------------------------------------------
 
 // A salesperson's receipts on a day that are not settled yet, by method.
 async function receiptsToSettle(db, business, salespersonId, day) {
@@ -112,7 +112,7 @@ async function settle(business, user, body) {
   });
 }
 
-// --- The wholesale overview (D-08) ------------------------------------------------------
+// --- The wholesale overview ------------------------------------------------------
 
 async function summary(business) {
   await access.require(business, 'sales_orders.view');
@@ -162,7 +162,7 @@ async function summary(business) {
   };
 }
 
-// --- A salesperson's beat sheet (D-17) ---------------------------------------------------
+// --- A salesperson's beat sheet ---------------------------------------------------
 
 // The shops on a salesperson's beats for a weekday (today by default): what
 // they owe, how late, their last order — to print or open on the phone.
@@ -189,7 +189,7 @@ async function beatSheet(business, salespersonId, query) {
   return { salesperson, weekday, shops };
 }
 
-// --- Claims against suppliers (D-22) -------------------------------------------------------
+// --- Claims against suppliers -------------------------------------------------------
 
 const CLAIM_KINDS = ['scheme', 'damage', 'expiry', 'rate_difference', 'shortage', 'other'];
 async function createClaim(business, user, body) {

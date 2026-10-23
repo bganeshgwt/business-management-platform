@@ -1,4 +1,4 @@
-// The delivery charge on an order (sweep SW-A-17), worked out by the
+// The delivery charge on an order, worked out by the
 // database from the order's own lines and its channel — never from a figure
 // the screen sent. Shared by the orders module (new orders, changed dishes)
 // and the deliveries module (a changed channel), so both follow one rule:

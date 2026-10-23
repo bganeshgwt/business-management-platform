@@ -153,19 +153,6 @@ const findForSale = async (client, restaurantId, productId, productVariantId) =>
   return fallback.rows;
 };
 
-// Food cost of one plate, using the weighted average purchase cost where it is available.
-const costForProduct = async (restaurantId, productId) => {
-  const result = await pool.query(
-    `SELECT COALESCE(SUM(r.quantity * COALESCE(i.average_cost, i.last_cost, 0)), 0) AS cost
-     FROM product_recipes r
-     JOIN inventory_items i ON i.id = r.inventory_item_id
-     WHERE r.restaurant_id = $1 AND r.product_id = $2 AND r.product_variant_id IS NULL`,
-    [restaurantId, productId]
-  );
-
-  return Number(result.rows[0].cost);
-};
-
 module.exports = {
   findByProduct,
   findVariants,
@@ -177,5 +164,4 @@ module.exports = {
   update,
   remove,
   findForSale,
-  costForProduct,
 };

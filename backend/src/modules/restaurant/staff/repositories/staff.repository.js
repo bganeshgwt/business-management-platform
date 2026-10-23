@@ -651,32 +651,6 @@ const hasPunches = async (restaurantId, employeeId, date) => {
   return result.rows[0].clocked;
 };
 
-// Totals per employee for a period, which the payroll summary turns into money.
-// Kept for callers of the earlier summary; payroll now reads payrollDays.
-const attendanceSummary = async (restaurantId, from, to) => {
-  const result = await pool.query(
-    `SELECT e.id, e.name, e.employee_code, e.department, e.designation,
-            e.salary_type, e.salary_amount,
-            COUNT(*) FILTER (WHERE a.attendance_status = 'present')::int AS present_days,
-            COUNT(*) FILTER (WHERE a.attendance_status = 'half_day')::int AS half_days,
-            COUNT(*) FILTER (WHERE a.attendance_status = 'absent')::int AS absent_days,
-            COUNT(*) FILTER (WHERE a.attendance_status = 'leave')::int AS leave_days,
-            COUNT(*) FILTER (WHERE a.attendance_status = 'week_off')::int AS week_offs,
-            COALESCE(SUM(a.worked_minutes), 0)::int AS worked_minutes,
-            COALESCE(SUM(a.late_minutes), 0)::int AS late_minutes,
-            COALESCE(SUM(a.overtime_minutes), 0)::int AS overtime_minutes
-     FROM employees e
-     LEFT JOIN attendance a ON a.employee_id = e.id
-       AND a.attendance_date BETWEEN $2::date AND $3::date
-     WHERE e.restaurant_id = $1 AND e.status = 'active'
-     GROUP BY e.id
-     ORDER BY e.name`,
-    [restaurantId, from, to]
-  );
-
-  return result.rows;
-};
-
 // --- Payroll ---
 
 // The salary line in force on a day (`dayExpr`) for employee `employeeExpr`:
@@ -1313,7 +1287,6 @@ module.exports = {
   upsertAttendance,
   findAttendanceRow,
   hasPunches,
-  attendanceSummary,
   findPayrollEmployees,
   payrollDays,
   findPayrollSettings,

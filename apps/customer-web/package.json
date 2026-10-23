@@ -1,0 +1,25 @@
+{
+  "name": "@bmp/customer-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "The guests' site: table QR ordering, online ordering and table booking. No sign-in.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@bmp/shared": "*",
+    "@bmp/ui": "*",
+    "axios": "^1.20.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "vite": "^8.3.0"
+  }
+}

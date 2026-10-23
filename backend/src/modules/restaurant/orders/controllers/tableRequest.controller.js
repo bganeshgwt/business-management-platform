@@ -12,7 +12,7 @@ const { maskMobile } = require("../../../../utils/phone");
 // pending and today are the live inbox (today only); history is "Earlier
 // days", a date range; all is every request (API only).
 const VIEWS = ["pending", "today", "history", "all"];
-// online: orders from the restaurant's own ordering page (SW-A-22).
+// online: orders from the restaurant's own ordering page.
 const TYPES = ["order", "service", "online"];
 
 const CALL_NAMES = {

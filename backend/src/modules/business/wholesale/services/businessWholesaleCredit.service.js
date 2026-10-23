@@ -8,7 +8,7 @@ const userRepository = require('../../../access/repositories/user.repository');
 const receivables = require('./businessReceivables.service');
 const core = require('../../core/services/business.service');
 
-// Wholesale credit control and customer details (pro pass D-07, D-16).
+// Wholesale credit control and customer details.
 //
 //   Credit hold   Business setting "hold new orders when a bill is more than N
 //                 days past its due date". A held customer's order is refused
@@ -70,7 +70,7 @@ async function profile(business, contactId, db = repo.pool) {
     JOIN wholesale_routes r ON r.business_id=b.business_id AND r.id=b.route_id
     LEFT JOIN wholesale_salespeople s ON s.business_id=b.business_id AND s.id=b.salesperson_id WHERE cb.business_id=$1 AND cb.contact_id=$2`, [business.id, contact.id]);
   return { contact_id: contact.id, price_group_id: null, contact_person: null, state_code: null, pin_code: null, pan: null, fssai: null,
-    trade_type: 'trade', hold_exempt: false, ...(row || {}), beat: beat || null };
+    trade_type: 'trade', hold_exempt: false, ...row, beat: beat || null };
 }
 async function readProfile(body) {
   const state = v.optionalString(body.stateCode, 'State', 2);
@@ -123,7 +123,7 @@ async function saveProfile(business, user, contactId, body) {
 
 // Whether a customer is on hold now: { held, reason, days, overdue, limitDays,
 // oldestDue, bounces, bounceLimit, bounceDays }. Two reasons: a bill past the
-// overdue limit, or (round 2) the bounced-cheque limit reached in the window
+// overdue limit, or the bounced-cheque limit reached in the window
 // (it lifts by itself once the oldest of those bounces is out of the window).
 async function holdOf(db, business, contactId) {
   const setting = await settings(business, db);
@@ -166,7 +166,7 @@ async function readRelease(business, user, body) {
   }
   if (!access.can(approverBusiness, 'receivables.approve')) fail('That person cannot let orders through a credit hold', 403, { reason: 'not_an_approver' });
   const person = await repo.one(repo.pool, "SELECT id,name,pin_hash,pin_locked_until FROM users WHERE id=$1 AND status='active'", [approverId]);
-  if (!person?.pin_hash) fail(`${person?.name || 'That person'} has not set a PIN yet (My profile › PIN).`, 409, { reason: 'no_pin' });
+  if (!person?.pin_hash) fail(`${person?.name || 'That person'} has not set a PIN yet (My profile › Personal PIN).`, 409, { reason: 'no_pin' });
   const slot = await userRepository.reservePinAttempt(person.id, config.accountLock);
   if (!slot.allowed) fail(`${person.name}'s PIN is locked after too many wrong tries. Try again later.`, 423, { reason: 'pin_locked' });
   if (!(await bcrypt.compare(pin, person.pin_hash))) {

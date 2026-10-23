@@ -3,7 +3,7 @@ const sellingRules = require("./sellingRules.service");
 const AppError = require("../../../../utils/AppError");
 const { round2 } = require("../../../../utils/money");
 
-// The printed menu card (sweep SW-B-20): the menu one outlet sells for one
+// The printed menu card: the menu one outlet sells for one
 // service, at the prices that outlet and service would charge — the same
 // selling rules the till charges by (an outlet's own price, then a channel's,
 // then the service's). Happy-hour prices are left out: a printed card stays

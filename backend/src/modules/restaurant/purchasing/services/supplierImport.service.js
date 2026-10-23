@@ -4,7 +4,7 @@ const { gstinProblem } = require("../../../../utils/gstin");
 const { normaliseMobile } = require("../../../../utils/phone");
 const sheet = require("../../imports/services/sheetImport");
 
-// Suppliers from a spreadsheet (sweep SW-B-12): thirty vendors with their
+// Suppliers from a spreadsheet: thirty vendors with their
 // numbers, GSTINs and credit terms in one go, with sheetImport's safety (a
 // check first, only the file's columns change, all or nothing, the same file
 // twice changes nothing).
@@ -334,4 +334,4 @@ const importSuppliers = async (restaurantId, rows, userId, options = {}) => {
   return { ...summary, createdSuppliers: await apply(restaurantId, planned, userId) };
 };
 
-module.exports = { COLUMNS, importGuide, importSuppliers };
+module.exports = { importGuide, importSuppliers };

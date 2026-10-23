@@ -1,0 +1,50 @@
+/* The kit editor's parts and the payout dialog's cases. */
+.bz-kit-parts,
+.bz-payout-cases {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bz-kit-parts li,
+.bz-payout-cases li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px auto;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.bz-payout-cases li {
+  grid-template-columns: minmax(0, 1fr) 120px;
+}
+
+.bz-payout-cases li.is-off {
+  opacity: 0.6;
+}
+
+.bz-payout-cases .checkbox {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.bz-kit-parts input,
+.bz-payout-cases input[type="number"] {
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .bz-kit-parts li {
+    grid-template-columns: minmax(0, 1fr) 80px auto;
+  }
+  .bz-payout-cases li {
+    grid-template-columns: minmax(0, 1fr) 96px;
+  }
+}

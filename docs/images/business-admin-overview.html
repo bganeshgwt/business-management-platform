@@ -1,0 +1,106 @@
+<!doctype html>
+<!--
+  Source of business-admin-overview.png (docs/PRODUCT_OVERVIEW.md). Edit the
+  words here, then render the diagram again at 1344 px wide, for example with
+  Playwright: open this file, screenshot the #diagram element.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>How the platform is organised</title>
+<style>
+  :root {
+    --ink: #1f2328;
+    --quiet: #5f6368;
+    --line: #c9c9c3;
+    --grey: #eeeeec;
+    --blue-bg: #e4eef9;
+    --blue: #2f6fcf;
+    --card: #ffffff;
+    --arrow: #b8b8b2;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #ffffff; font-family: "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif; color: var(--ink); }
+  #diagram { width: 1344px; padding: 28px 42px 40px; background: #ffffff; }
+  h1 { margin: 0 0 22px; font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+  .band { border: 2px solid var(--line); background: var(--grey); border-radius: 14px; padding: 20px; text-align: center; font-size: 22px; }
+  .arrow { height: 28px; position: relative; }
+  .arrow::before { content: ""; position: absolute; top: 2px; bottom: 8px; width: 2px; background: var(--arrow); }
+  .arrow::after { content: ""; position: absolute; bottom: 2px; border: 7px solid transparent; border-top: 9px solid var(--arrow); border-bottom: 0; transform: translateX(-6px); }
+  .arrow.center::before, .arrow.center::after { left: 50%; }
+  .split { display: grid; grid-template-columns: 922px 1fr; gap: 26px; }
+  .split .arrow.left::before, .split .arrow.left::after { left: 50%; }
+  .core { border: 3px solid var(--blue); background: var(--blue-bg); border-radius: 14px; padding: 18px 22px; }
+  .core h2, .types h2, .engine h2 { margin: 0 0 10px; font-size: 22px; font-weight: 600; }
+  .core p { margin: 4px 0; font-size: 19px; }
+  .types { border: 2px dashed var(--line); border-radius: 14px; padding: 18px 20px 20px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .card { background: var(--card); border: 2px solid var(--line); border-radius: 12px; padding: 14px 20px; }
+  .card strong { display: block; font-size: 20px; font-weight: 600; }
+  .card span { display: block; margin-top: 6px; font-size: 18px; color: var(--quiet); }
+  .engine { border: 2px solid var(--line); border-radius: 14px; padding: 18px 22px; height: 100%; display: flex; flex-direction: column; }
+  .engine .sub { color: var(--quiet); font-size: 19px; margin: 0 0 14px; }
+  .engine ul { list-style: none; margin: 0; padding: 0; }
+  .engine li { font-size: 19px; margin: 0 0 11px; }
+  .guests { margin-top: auto; border: 2px solid var(--blue); background: var(--blue-bg); border-radius: 12px; padding: 12px 16px; }
+  .guests strong { display: block; font-size: 19px; font-weight: 600; }
+  .guests span { display: block; margin-top: 4px; font-size: 17px; color: var(--quiet); }
+</style>
+</head>
+<body>
+<div id="diagram">
+  <h1>Every business runs on one shared core; each type adds only its own modules</h1>
+  <div class="band">Platform: create restaurants and businesses, module list, ready-made roles</div>
+  <div class="arrow center"></div>
+  <div class="band">One login, business switcher, roles and permissions, tasks, issues and projects</div>
+  <div class="split">
+    <div>
+      <div class="arrow left"></div>
+      <div class="core">
+        <h2>Shared core: reused by every business type</h2>
+        <p>Products, customers and suppliers, sales, returns and refunds, purchases</p>
+        <p>Stock, batches, transfers and counts, appointments, udhaar and customer dues</p>
+        <p>Daily money, reports, locations, payment methods, business rules</p>
+      </div>
+      <div class="arrow left"></div>
+      <div class="types">
+        <h2>Business-type modules: each type adds only its own</h2>
+        <div class="grid">
+          <div class="card"><strong>Grocery and retail</strong><span>Offers, loyalty, credit</span></div>
+          <div class="card"><strong>Books, stationery</strong><span>ISBN, school sets</span></div>
+          <div class="card"><strong>Wholesale, FMCG</strong><span>Orders, dispatch, beats</span></div>
+          <div class="card"><strong>Fashion</strong><span>Sizes, exchanges</span></div>
+          <div class="card"><strong>Electronics</strong><span>IMEI, warranties, EMI</span></div>
+          <div class="card"><strong>Salon and spa</strong><span>Calendar, packages</span></div>
+          <div class="card"><strong>Meat, weight shops</strong><span>Rates, cutting, yield</span></div>
+          <div class="card"><strong>Pharmacy</strong><span>Schedules, registers</span></div>
+          <div class="card"><strong>Clinic and lab</strong><span>Patients, lab reports</span></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="arrow left"></div>
+      <div class="engine">
+        <h2>Restaurant engine</h2>
+        <p class="sub">Its own engine; also cafés, bakeries and cloud kitchens</p>
+        <ul>
+          <li>POS and billing</li>
+          <li>Kitchen display, KOT</li>
+          <li>Tables and QR ordering</li>
+          <li>Menu and recipes</li>
+          <li>Reservations</li>
+          <li>Online orders, delivery</li>
+          <li>Business day, drawers</li>
+          <li>Staff, payroll, tips</li>
+          <li>Reports and GST filing</li>
+        </ul>
+        <div class="guests">
+          <strong>Guests' site (its own app)</strong>
+          <span>QR table ordering, online ordering, table booking</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

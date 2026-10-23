@@ -14,7 +14,7 @@ const requireRestaurantId = (restaurantId) => {
 };
 
 const toSettings = (row) => ({
-  // The address every table QR code opens (SW-A-14); null: the screen's own.
+  // The address every table QR code opens; null: the guests' site's own.
   guestWebAddress: row.guest_web_address || null,
   tokensEnabled: Boolean(row.tokens_enabled),
   tokenOrderTypes: row.token_order_types || ["takeaway"],
@@ -59,8 +59,8 @@ const updateTokens = async (restaurantId, input, userId) => {
 
 // The guest pages' web address, as a QR code will carry it: http(s), a host,
 // at most a path in front of /order/<token>, no query and no trailing slash.
-// Empty clears it (the QR screens then use their own address, and warn when
-// that is one guests' phones cannot reach).
+// Empty clears it (the staff screens then use the guests' site's own address,
+// and warn when that is one guests' phones cannot reach).
 const readWebAddress = (value) => {
   const text = String(value === undefined || value === null ? "" : value).trim();
 
@@ -120,4 +120,4 @@ const updatePos = async (restaurantId, input, userId) => {
   return toSettings(await serviceSettingsRepository.update(restaurantId, { pos_order_types: types, default_order_type: start }, userId));
 };
 
-module.exports = { TOKEN_ORDER_TYPES, POS_ORDER_TYPES, toSettings, get, updateTokens, updatePos, readWebAddress, updateWebAddress };
+module.exports = { TOKEN_ORDER_TYPES, POS_ORDER_TYPES, get, updateTokens, updatePos, updateWebAddress };

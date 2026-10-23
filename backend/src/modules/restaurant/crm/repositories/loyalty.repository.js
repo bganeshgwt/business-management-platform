@@ -390,44 +390,6 @@ const findBillPoints = async (restaurantId, billId) => {
   return result.rows[0];
 };
 
-// A customer's visits: what they ordered, when, and what they spent.
-const findOrdersForCustomer = async (restaurantId, customerId, limit = 50) => {
-  const result = await pool.query(
-    `SELECT o.id, o.order_number, o.order_type, o.placed_at, o.order_status,
-            o.total_amount AS order_total,
-            b.bill_number, b.total_amount AS bill_total, b.bill_status,
-            COUNT(oi.id)::int AS item_count,
-            STRING_AGG(DISTINCT oi.item_name, ', ') AS items
-     FROM orders o
-     LEFT JOIN bills b ON b.order_id = o.id AND b.bill_status <> 'void'
-     LEFT JOIN order_items oi ON oi.order_id = o.id AND oi.item_status <> 'cancelled'
-     WHERE o.restaurant_id = $1 AND o.customer_id = $2
-     GROUP BY o.id, b.bill_number, b.total_amount, b.bill_status
-     ORDER BY o.placed_at DESC
-     LIMIT $3`,
-    [restaurantId, customerId, limit]
-  );
-
-  return result.rows;
-};
-
-// What a guest has spent: their bills less what credit notes gave back (a bill
-// refunded in full was not spent), void bills not at all.
-const customerSummary = async (restaurantId, customerId) => {
-  const result = await pool.query(
-    `SELECT COUNT(DISTINCT o.id)::int AS visits,
-            COALESCE(SUM(b.total_amount - COALESCE(b.credited_amount, 0)) FILTER (WHERE b.bill_status <> 'void'), 0) AS total_spent,
-            MAX(o.placed_at) AS last_visit,
-            COALESCE(AVG(b.total_amount - COALESCE(b.credited_amount, 0)) FILTER (WHERE b.bill_status <> 'void'), 0) AS average_spend
-     FROM orders o
-     LEFT JOIN bills b ON b.order_id = o.id
-     WHERE o.restaurant_id = $1 AND o.customer_id = $2 AND o.order_status <> 'cancelled'`,
-    [restaurantId, customerId]
-  );
-
-  return result.rows[0];
-};
-
 // The dishes this customer orders most often.
 const favouriteItems = async (restaurantId, customerId, limit = 5) => {
   const result = await pool.query(
@@ -504,16 +466,12 @@ const expiringSoon = async (restaurantId, timezone, days = 30, limit = 400) => {
 module.exports = {
   readRules,
   pointsForBill,
-  expiredLeft,
-  expireDue,
   expireNow,
   findWithExpiredPoints,
   setExpiryOfHeldPoints,
   recordPoints,
   findForCustomer,
   findBillPoints,
-  findOrdersForCustomer,
-  customerSummary,
   favouriteItems,
   programmeSummary,
   expiringSoon,

@@ -1,0 +1,1342 @@
+/* Guest book, feedback and complaints
+   -----------------------------------
+   Every rule is scoped with a crm- class: this file is global once imported,
+   and @bmp/ui's base.css loads after page styles, so a rule that adjusts a global
+   class (.table, .tab…) sits under .crm-page or .crm-history to win without
+   !important.
+
+   Colours come only from the tokens in @bmp/ui's base.css, so dark mode follows by
+   itself. Tags carry a word and a colour; colour is the quick cue, never the
+   only one. */
+
+/* --- tabs ------------------------------------------------------------------------ */
+
+.tab-row.crm-tabs,
+.tab-row.crm-history-tabs {
+  flex-wrap: nowrap;
+  gap: 6px;
+  padding-top: 0;
+  border-top: 0;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+.crm-tabs .tab,
+.crm-history-tabs .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-height: 46px;
+  padding: 10px 16px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 6px 6px 0 0;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.crm-tabs .tab.active,
+.crm-history-tabs .tab.active {
+  border-bottom-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.crm-tabs .tab.active::before,
+.crm-history-tabs .tab.active::before {
+  display: none;
+}
+.crm-tabs .tab:focus-visible,
+.crm-history-tabs .tab:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -4px;
+}
+
+.crm-tab-count {
+  min-width: 20px;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.crm-tabs .tab.active .crm-tab-count {
+  background: var(--primary-text);
+  color: var(--primary);
+}
+
+/* The count on the active history tab sits on the accent colour. */
+.crm-history .tab.active .muted {
+  color: inherit;
+  opacity: 0.85;
+}
+
+/* --- a list in a flush card: its filters ride in the grid's toolbar ------------------- */
+
+.crm-list .crm-masked-note {
+  margin: 14px 20px 0;
+}
+
+.crm-page .crm-tag-filter,
+.crm-page .crm-status-filter {
+  min-width: 140px;
+}
+
+/* The status switch sits level with the inputs beside it. */
+.crm-list .segmented {
+  min-height: 40px;
+  align-items: center;
+}
+
+.crm-seg-count {
+  margin-left: 6px;
+  font-size: 0.75rem;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.crm-page .crm-flags {
+  gap: 4px;
+  min-width: 0;
+}
+
+.crm-flag-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  min-height: 40px;
+}
+
+.crm-dup-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.crm-lead {
+  margin: 0;
+}
+
+.crm-strong {
+  font-weight: 600;
+}
+
+/* A row's own action (Update, Mark reviewed): a link with its icon. */
+.crm-row-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.crm-page .crm-row-link-quiet {
+  color: var(--text-2);
+}
+
+.crm-page .crm-row-link-quiet:hover:not(:disabled) {
+  color: var(--text);
+}
+
+/* --- the guest book table ------------------------------------------------------------- */
+
+.crm-guest {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.crm-guest-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.crm-guest-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+
+.crm-guest-name {
+  font-weight: 600;
+  text-decoration: none;
+  /* A wrapped name on a link-button would centre itself. */
+  text-align: left;
+}
+
+.crm-guest-name:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.crm-guest-sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+}
+
+.crm-allergy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.crm-erased-row .crm-guest-name {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.crm-erased-row .crm-avatar {
+  opacity: 0.55;
+}
+
+/* "Cancelled · not a visit" on a line of its own under the order number. */
+.crm-cancelled-row .badge {
+  display: block;
+  width: fit-content;
+  margin-top: 4px;
+}
+
+/* --- avatars ------------------------------------------------------------------------ */
+
+.crm-avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.crm-avatar-lg {
+  width: 52px;
+  height: 52px;
+  font-size: 1.05rem;
+}
+
+/* Soft tints with their own strong text, so each pair reads in both themes. */
+.crm-avatar-1 {
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+
+.crm-avatar-2 {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.crm-avatar-3 {
+  background: var(--violet-bg);
+  color: var(--violet);
+}
+
+.crm-avatar-4 {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.crm-avatar-5 {
+  background: var(--surface-3);
+  color: var(--text-2);
+}
+
+/* --- tags ------------------------------------------------------------------------ */
+
+.crm-tag {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.55;
+  background: var(--tag-bg, var(--chip-bg));
+  color: var(--tag-fg, var(--text));
+  white-space: nowrap;
+}
+
+.crm-tag-after {
+  margin-left: 6px;
+}
+
+/* Each tag's colours as variables, so the chip in a list and the selected
+   toggle in the form are the same colour. */
+.crm-tag-vip {
+  --tag-bg: var(--warning-bg);
+  --tag-fg: var(--warning-text);
+}
+
+.crm-tag-allergy {
+  --tag-bg: var(--danger-bg);
+  --tag-fg: var(--danger);
+}
+
+.crm-tag-jain,
+.crm-tag-vegan {
+  --tag-bg: var(--success-bg);
+  --tag-fg: var(--success-text);
+}
+
+.crm-tag-corporate {
+  --tag-bg: var(--info-bg);
+  --tag-fg: var(--info-text);
+}
+
+.crm-tag-family {
+  --tag-bg: color-mix(in srgb, var(--danger) 10%, var(--violet-bg));
+  --tag-fg: color-mix(in srgb, var(--danger) 55%, var(--violet));
+}
+
+.crm-tag-blogger {
+  --tag-bg: var(--violet-bg);
+  --tag-fg: var(--violet);
+}
+
+/* --- pager --------------------------------------------------------------------------- */
+
+.crm-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.crm-pager-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.crm-pager-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.crm-pager-size select {
+  font: inherit;
+  padding: 5px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* --- the guest picker ------------------------------------------------------------------ */
+
+.crm-picker {
+  position: relative;
+}
+
+.crm-picker-drop {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.crm-picker-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.crm-picker-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.crm-picker-list button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 400;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.crm-picker-list button.is-active {
+  background: var(--primary-soft);
+}
+
+.crm-picker-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.crm-picker-name {
+  font-weight: 600;
+}
+
+.crm-picker-name .crm-tag {
+  margin-left: 6px;
+}
+
+.crm-picker-note {
+  margin: 0;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.crm-picker-drop > .crm-picker-note:first-child {
+  border-top: 0;
+}
+
+.crm-picked {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.crm-picked-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  font-weight: 400;
+}
+
+/* --- forms --------------------------------------------------------------------------- */
+
+.crm-hint-ok {
+  color: var(--success-text);
+}
+
+.crm-hint-ok::before {
+  content: "✓ ";
+}
+
+.crm-hint-bad {
+  color: var(--danger);
+}
+
+/* A named group inside a form: the legend reads as the form's section
+   headings do, and the fields sit under it. */
+.crm-fieldset {
+  gap: 10px;
+}
+
+.crm-fieldset > legend.section-heading {
+  float: left;
+  width: 100%;
+  margin: 8px 0 0;
+  padding: 14px 0 0;
+}
+
+.crm-fieldset > legend + * {
+  clear: both;
+}
+
+.crm-fieldset-help {
+  margin: 0;
+}
+
+.crm-two,
+.crm-three {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+
+.crm-three {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.7fr) minmax(0, 1.4fr);
+}
+
+.crm-tag-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.crm-tag-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 6px 12px 6px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-2);
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+
+.crm-tag-toggle svg {
+  color: var(--muted);
+}
+
+.crm-tag-toggle:hover {
+  border-color: var(--primary);
+}
+
+.crm-tag-toggle.is-on {
+  border-color: transparent;
+  background: var(--tag-bg, var(--chip-bg));
+  color: var(--tag-fg, var(--text));
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+.crm-tag-toggle.is-on svg {
+  color: currentColor;
+}
+
+.crm-tag-toggle:focus-visible,
+.crm-star:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.crm-consent {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.crm-consent .checkbox,
+.crm-twin-confirm .checkbox {
+  align-items: flex-start;
+}
+
+.crm-consent .checkbox input,
+.crm-twin-confirm .checkbox input {
+  margin-top: 3px;
+}
+
+.crm-consent .checkbox > span,
+.crm-twin-confirm .checkbox > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* "It is a different number": asked only after the server found the same ten
+   digits on another guest, so it sits right under the error, in its colours. */
+.crm-twin-confirm {
+  padding: 10px 14px;
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+/* --- merge and erase --------------------------------------------------------------------- */
+
+.crm-merge-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: stretch;
+  gap: 12px;
+}
+
+.crm-merge-arrow {
+  align-self: center;
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.crm-merge-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+
+.crm-merge-side.is-keep {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.crm-merge-side.is-merge {
+  border-style: dashed;
+}
+
+.crm-merge-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.crm-merge-side.is-keep .crm-merge-choice {
+  color: var(--primary);
+}
+
+.crm-merge-who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.crm-merge-who-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.crm-merge-name {
+  font-size: 1.05rem;
+}
+
+.crm-merge-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+  margin: 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.crm-merge-facts div {
+  display: flex;
+  flex-direction: column;
+}
+
+.crm-merge-facts dt {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.crm-merge-facts dd {
+  margin: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.crm-merge-summary ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+/* "Pick another record" goes to the far left, away from Merge. */
+.crm-push-left {
+  margin-right: auto;
+}
+
+/* Room for the picker's matches inside the merge dialog. The record being
+   merged sits above the search, so the room is not an empty band. */
+.crm-merge-find {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 280px;
+}
+
+.crm-merge-this .badge {
+  flex-shrink: 0;
+}
+
+.crm-merge-find p {
+  margin: 0;
+}
+
+/* What comes after the search, at the foot of the room kept for the matches
+   (the list of matches opens over it). */
+.crm-merge-find .crm-merge-next {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: auto;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.crm-merge-next svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--info);
+}
+
+.crm-erase-lists {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.crm-erase-lists > div {
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.crm-erase-lists > .crm-erase-removed {
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
+}
+
+.crm-erase-lists > .crm-erase-kept {
+  background: var(--success-bg);
+  border-color: var(--success-border);
+}
+
+.crm-erase-removed .crm-mini-heading {
+  color: var(--danger);
+}
+
+.crm-erase-kept .crm-mini-heading {
+  color: var(--success-text);
+}
+
+.crm-erase-lists ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 3px;
+}
+
+.crm-mini-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.crm-erase-sure {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+/* --- possible duplicates -------------------------------------------------------------------- */
+
+.crm-dup-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.crm-page .crm-dup-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 24px;
+  padding: 16px 20px;
+}
+
+.crm-dup-sides {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  flex: 1 1 560px;
+}
+
+.crm-dup-side {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.crm-dup-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.crm-dup-who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.crm-dup-who-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.crm-dup-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.crm-dup-equals {
+  font-weight: 800;
+  color: var(--warning-text);
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-pill);
+  padding: 4px 9px;
+  font-size: 0.8125rem;
+}
+
+.crm-dup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* --- reports ---------------------------------------------------------------------------------- */
+
+.crm-report-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px 20px;
+}
+
+.crm-report-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding-bottom: 9px;
+}
+
+.crm-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin-top: 8px;
+}
+
+.crm-section-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: var(--radius);
+  background: var(--tone-bg);
+  color: var(--tone);
+}
+
+.crm-section-titles {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.crm-section-head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.crm-section-head p {
+  margin: 2px 0 0;
+}
+
+.crm-report-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+/* Side by side, the two report cards end level, rather than one stopping
+   short and leaving a blank block in the middle of the report. The chart takes
+   the spare height (ColumnChart fixes its height inline, so the plot overrides
+   it here); the table of days sits under it. */
+@media (min-width: 1101px) {
+  .crm-report-grid {
+    align-items: stretch;
+  }
+
+  .crm-days-card > .section-card-body {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .crm-days-plot {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 150px;
+  }
+
+  .crm-page .crm-days-plot .column-chart {
+    flex: 1 1 auto;
+    height: auto !important;
+    min-height: 150px;
+    align-items: stretch;
+  }
+
+  .crm-page .crm-days-plot .column {
+    height: auto;
+  }
+}
+
+.crm-holders {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.crm-holders li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.crm-holders li:last-child {
+  border-bottom: 0;
+}
+
+.crm-holder-rank {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--chip-bg);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.crm-holder-name,
+.crm-holder-points {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.crm-holder-name {
+  flex: 1;
+}
+
+.crm-holder-points {
+  align-items: flex-end;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- history -------------------------------------------------------------------------------------- */
+
+.crm-history-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.crm-history-who {
+  min-width: 0;
+}
+
+.crm-history-who p {
+  margin: 2px 0;
+}
+
+.crm-history-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.crm-history-contact {
+  font-weight: 600;
+}
+
+/* "Show full number" beside a masked mobile. */
+.crm-reveal {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  font-weight: 600;
+  font-size: inherit;
+}
+
+.crm-allergy-banner {
+  margin: 0;
+}
+
+.crm-history .stat-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.crm-favourites {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.crm-favourites-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 4px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.crm-fav {
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 0.8125rem;
+}
+
+.crm-merge-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+}
+
+.crm-merge-note svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.crm-more {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.crm-points-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.crm-adjust {
+  max-width: none;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.crm-plus {
+  color: var(--success-text);
+}
+
+.crm-minus {
+  color: var(--danger);
+}
+
+/* --- feedback ---------------------------------------------------------------------------------------- */
+
+.crm-stars-low {
+  color: var(--danger);
+}
+
+.crm-stars-mid {
+  color: var(--warning);
+}
+
+.crm-stars-high {
+  color: var(--star);
+}
+
+.crm-stars-off {
+  color: var(--border-strong);
+}
+
+/* The rating as a figure too, so it is read without the colours. */
+.crm-stars-num {
+  margin-left: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0;
+}
+
+.crm-comment {
+  min-width: 220px;
+  max-width: 420px;
+}
+
+.crm-star-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.crm-star {
+  font-size: 1.9rem;
+  line-height: 1;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--border-strong);
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    transform 120ms ease;
+}
+
+.crm-star:hover {
+  transform: scale(1.08);
+}
+
+.crm-star.is-on {
+  color: var(--star);
+}
+
+.crm-star-word {
+  display: flex;
+  flex-direction: column;
+  margin-left: 10px;
+  line-height: 1.3;
+}
+
+/* --- complaints ---------------------------------------------------------------------------------------- */
+
+.crm-complaint-cell {
+  min-width: 200px;
+}
+
+.crm-resolution {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 3px;
+  color: var(--success-text);
+}
+
+.crm-resolution svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.crm-reference-row {
+  display: flex;
+  gap: 8px;
+}
+
+.crm-reference-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.crm-ref-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--success-border);
+  border-left: 3px solid var(--success);
+  border-radius: var(--radius-sm);
+  background: var(--success-bg);
+  font-weight: 400;
+}
+
+.crm-ref-number {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--success-text);
+}
+
+/* --- narrow screens ------------------------------------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+  /* minmax(0, …): a plain 1fr track grows to the widest table inside it and
+     pushes the card off a phone's screen; the table scrolls in its card. */
+  .crm-report-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .crm-history .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .crm-list .crm-masked-note {
+    margin: 12px 16px 0;
+  }
+
+  .crm-page .crm-desk-only {
+    display: none;
+  }
+
+  /* The four-way status switch fills the row rather than running off it. */
+  .crm-list .segmented {
+    display: flex;
+    width: 100%;
+  }
+
+  .crm-list .segmented .segment {
+    flex: 1 1 0;
+    justify-content: center;
+    padding-inline: 6px;
+  }
+
+  .crm-merge-grid,
+  .crm-dup-sides {
+    grid-template-columns: 1fr;
+  }
+
+  .crm-merge-arrow {
+    justify-self: center;
+    transform: rotate(90deg);
+  }
+
+  .crm-dup-equals {
+    justify-self: start;
+  }
+
+  .crm-two,
+  .crm-three,
+  .crm-erase-lists {
+    grid-template-columns: 1fr;
+  }
+
+  .crm-pager {
+    justify-content: center;
+  }
+
+  .crm-page .crm-pager-size {
+    display: none;
+  }
+
+  .crm-page .crm-dup-card {
+    padding: 14px 16px;
+  }
+
+  .crm-page .crm-dup-card .crm-dup-actions {
+    width: 100%;
+  }
+
+  .crm-page .crm-dup-card .crm-dup-actions .button {
+    flex: 1 1 0;
+    justify-content: center;
+  }
+
+  .crm-history-head {
+    gap: 12px;
+  }
+
+  .crm-avatar-lg {
+    width: 44px;
+    height: 44px;
+    font-size: 0.9rem;
+  }
+
+  .crm-star-word {
+    margin-left: 4px;
+  }
+
+  /* The report dates: From and To side by side, the quick picks in one row
+     under them, rather than three stacked boxes and a switch that wraps. */
+  .crm-reports .crm-report-filters .filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    width: 100%;
+  }
+
+  .crm-reports .crm-report-filters .filters .field {
+    min-width: 0;
+  }
+
+  .crm-reports .crm-report-filters .filters .field:has(.segmented) {
+    grid-column: 1 / -1;
+  }
+
+  .crm-reports .crm-report-filters .segmented {
+    display: flex;
+    width: 100%;
+  }
+
+  .crm-reports .crm-report-filters .segment {
+    flex: 1 1 auto;
+    padding-inline: 6px;
+    text-align: center;
+  }
+
+  .crm-report-note {
+    padding-bottom: 0;
+  }
+
+  /* Five figures two to a row leave the last one alone: it takes the row. */
+  .crm-reports .stat-grid > .stat-tile:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}

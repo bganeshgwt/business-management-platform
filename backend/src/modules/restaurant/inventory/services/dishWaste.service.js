@@ -5,7 +5,7 @@ const { pinnedStore } = require("./inventory.service");
 const AppError = require("../../../../utils/AppError");
 const { round2 } = require("../../../../utils/money");
 
-// A finished dish written off by its recipe (sweep SW-B-22).
+// A finished dish written off by its recipe.
 //
 // "2 × Paneer Butter Masala, remade" takes the dish's recipe for that size —
 // a combo through its dishes, the add-ons chosen through theirs, sub-recipes
@@ -265,8 +265,6 @@ const pickable = async (restaurantId) => {
 };
 
 module.exports = {
-  REASONS,
-  REASON_KEYS,
   prepare,
   log,
   get,

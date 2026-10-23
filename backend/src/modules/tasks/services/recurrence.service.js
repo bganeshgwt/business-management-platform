@@ -329,4 +329,4 @@ async function compliance(scope, scheduleId, query = {}) {
   return { from, to, days: rows };
 }
 
-module.exports = { ensure, forget, recount, list, one, save, setActive, compliance, fallsOn, slotsOn, DAY_CUTOFF };
+module.exports = { ensure, forget, recount, list, save, setActive, compliance, fallsOn, slotsOn };

@@ -177,9 +177,4 @@ const setForProduct = async (restaurantId, comboProductId, items, userId) => {
   return { before, combo: await getForProduct(restaurantId, comboProductId) };
 };
 
-// Used when an order is taken: the parts of a combo that cannot be made right
-// now. Empty for an ordinary dish.
-const unavailablePartsOf = async (restaurantId, productId, client) =>
-  comboRepository.findUnavailableParts(restaurantId, productId, client);
-
-module.exports = { getForProduct, setForProduct, unavailablePartsOf };
+module.exports = { getForProduct, setForProduct };

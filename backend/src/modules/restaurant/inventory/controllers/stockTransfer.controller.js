@@ -4,7 +4,7 @@ const v = require("../../../../utils/validate");
 const AppError = require("../../../../utils/AppError");
 const { readDate } = require("../../../../utils/calendarDate");
 
-// Transfer notes and indents (sweep SW-B-11). The outlet a person is tied to
+// Transfer notes and indents. The outlet a person is tied to
 // comes from resolveOutlet; such a person works with their own store only.
 const pinnedOutlet = (req) => (req.outletPinned ? req.outletId : null);
 

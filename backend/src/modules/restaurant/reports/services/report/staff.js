@@ -85,7 +85,7 @@ const waiterReport = async (restaurantId, range, outletId = null) => {
       removedValue: round2(rows.reduce((sum, row) => sum + row.removedValue, 0)),
       removedWithVoid: rows.reduce((sum, row) => sum + row.removedWithVoid, 0),
     },
-    // Dine-in sales by captain section (Floor → Captain sections): each bill
+    // Dine-in sales by captain section (Tables & QR → Captain sections): each bill
     // under the captain who held its table that day; captainId null for
     // tables no captain was given.
     sections: sectionRows.map((row) => ({

@@ -346,9 +346,9 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Creates a restaurant with everything it starts with (GST rates first, the
 // settings row, delivery channels, the kitchen's catch-all station) and its
-// first admin — the supported way to add a restaurant, used by
-// scripts/create-restaurant.js. Every input is checked before anything is
-// written, and the whole thing is one transaction.
+// first admin — the supported way to add a restaurant, used by Platform ›
+// Restaurants (platform.service create). Every input is checked before
+// anything is written, and the whole thing is one transaction.
 //
 // data: { name, code, contact, email, address, timezone, invoicePrefix,
 //         orderPrefix, admin: { name, email, mobile, password } }
@@ -438,7 +438,6 @@ module.exports = {
   checkNumbering,
   updateMoneySettings,
   listTimezones,
-  readTimezone,
   getDiscountLimits,
   saveDiscountLimits,
   getBusinessHours,

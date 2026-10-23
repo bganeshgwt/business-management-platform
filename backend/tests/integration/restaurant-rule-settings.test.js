@@ -2,17 +2,17 @@
 // to end on a throwaway database of its own (the same pattern as
 // restaurant.test.js — never DB_NAME):
 //
-//   RULES-1  a new restaurant's rules are exactly the numbers the code used
-//            before they were settings, everywhere they are read
-//   RULES-2  the large-discount line moves what the bell's theft alert and
-//            the theft report flag; the cash-short alert warns from the cash
-//            difference limit and turns critical at the restaurant's line
-//   RULES-3  the lapsed-guest days move Guest insights' "lapsed" list and the
-//            guest book's "Lapsed" view together
-//   RULES-4  the cash count takes the restaurant's list of notes
-//   RULES-5  values out of range, of the wrong kind or that do not fit
-//            together are refused with a 400, and nothing is saved
-//   RULES-6  the kitchen's pass time sits with its timers
+//   - a new restaurant's rules are exactly the numbers the code used
+//     before they were settings, everywhere they are read
+//   - the large-discount line moves what the bell's theft alert and
+//     the theft report flag; the cash-short alert warns from the cash
+//     difference limit and turns critical at the restaurant's line
+//   - the lapsed-guest days move Guest insights' "lapsed" list and the
+//     guest book's "Lapsed" view together
+//   - the cash count takes the restaurant's list of notes
+//   - values out of range, of the wrong kind or that do not fit
+//     together are refused with a 400, and nothing is saved
+//   - the kitchen's pass time sits with its timers
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
@@ -125,7 +125,7 @@ test("restaurant rule settings", { timeout: 600000 }, async (t) => {
   const today = (await one("SELECT business_date::text AS d FROM business_days WHERE restaurant_id = $1 AND day_status = 'open'", [rid])).d;
   const range = `?from=${today}&to=${today}`;
 
-  await t.test("RULES-1: a new restaurant's rules are the numbers the code always used", async () => {
+  await t.test("a new restaurant's rules are the numbers the code always used", async () => {
     const settings = await O("GET", "/restaurants/current/settings");
     assert.deepEqual(settings.rules, {
       alertLargeDiscountPercent: 20,
@@ -155,8 +155,7 @@ test("restaurant rule settings", { timeout: 600000 }, async (t) => {
       reorderHorizonDays: 7,
       cashDenominations: [500, 200, 100, 50, 20, 10],
     });
-    // The constants the modules still export for a restaurant with no row
-    // are the same numbers.
+    // The defaults, for a restaurant with no row, are the same numbers.
     assert.deepEqual(ruleSettings.fromRow(null), settings.rules);
 
     // Where the rules are read, the old numbers come back.
@@ -184,7 +183,7 @@ test("restaurant rule settings", { timeout: 600000 }, async (t) => {
 
   let small;
   let big;
-  await t.test("RULES-2: the large-discount line moves what the bell and the theft report flag", async () => {
+  await t.test("the large-discount line moves what the bell and the theft report flag", async () => {
     // ₹1,000 at 15% off (₹150): under 20% and under ₹1,000 — not large.
     small = await discounted(2, 15);
     // ₹1,000 at 25% off: large at the default line, but under half — info.
@@ -216,7 +215,7 @@ test("restaurant rule settings", { timeout: 600000 }, async (t) => {
     assert.ok((await theftAlerts()).some((alert) => alert.id === `theft:reprint:${small.id}:2`));
   });
 
-  await t.test("RULES-3: the lapsed days move Guest insights and the guest book together", async () => {
+  await t.test("the lapsed days move Guest insights and the guest book together", async () => {
     const guest = await O("POST", "/crm/customers", { name: "Kavya", mobile: "9876500077" }, 201);
     for (let i = 0; i < 2; i += 1) await pay(await bill((await order(1, { customerId: guest.id })).id));
     // Both visits fifty days ago.
@@ -246,7 +245,7 @@ test("restaurant rule settings", { timeout: 600000 }, async (t) => {
     assert.equal(await regulars(), true);
   });
 
-  await t.test("RULES-4: the cash count takes the restaurant's list of notes", async () => {
+  await t.test("the cash count takes the restaurant's list of notes", async () => {
     const preview = await O("GET", "/business-day/close-preview");
     const inDrawer = preview.figures.inDrawer;
     // Short by ₹500 when counted: a ₹2,000 note, then the rest in ₹500s and
@@ -284,7 +283,7 @@ test("restaurant rule settings", { timeout: 600000 }, async (t) => {
     assert.equal((await theftAlerts()).find((alert) => alert.id.startsWith("theft:cash-short:")), undefined);
   });
 
-  await t.test("RULES-5: values that do not fit are refused, and nothing is saved", async () => {
+  await t.test("values that do not fit are refused, and nothing is saved", async () => {
     const before = await O("GET", "/restaurants/current/settings");
     const refuse = async (rules, pattern) => {
       const result = await O("PUT", "/restaurants/current/settings", { ...before, billFooter: "Changed?", rules }, 400);
@@ -323,7 +322,7 @@ test("restaurant rule settings", { timeout: 600000 }, async (t) => {
     );
   });
 
-  await t.test("RULES-6: the kitchen's pass time is saved with its timers", async () => {
+  await t.test("the kitchen's pass time is saved with its timers", async () => {
     const saved = await O("PUT", "/kitchen/settings", { passMinutes: 12 });
     assert.equal(saved.passMinutes, 12);
     assert.equal(saved.warnMinutes, 10, "the timers are kept");

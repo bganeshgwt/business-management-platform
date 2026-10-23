@@ -1,4 +1,4 @@
-// The restaurant's own online ordering page (SW-A-22), under
+// The restaurant's own online ordering page, under
 // /api/public/online. NO login: the menu and the order form are reached by a
 // link's token, a guest's own order by the 192-bit token it was given.
 //

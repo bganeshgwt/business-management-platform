@@ -4,11 +4,12 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+const { daysFrom } = require('./helpers/dates');
 
-// Real onboarding (12 Oct 2026): the platform creates a business of any type
+// Onboarding: the platform creates a business of any type
 // for a customer with the owner's new login; the owner signs in, adds staff
 // logins of their own, resets one's password, changes currency and time zone,
-// and adds another business of their own. No restaurant or demo is involved.
+// and adds another business of their own. No restaurant is involved.
 test('onboarding: platform creates a business, owner signs in, staff logins, locale, owner adds a business', { timeout: 300000 }, async (t) => {
   require('dotenv').config({ quiet: true });
   const database = `rmp_test_${crypto.randomBytes(10).toString('hex')}`;
@@ -26,7 +27,6 @@ test('onboarding: platform creates a business, owner signs in, staff logins, loc
   process.env.DB_NAME = database;
   process.env.NODE_ENV = 'test';
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex');
-  process.env.MULTI_BUSINESS_DEVELOPMENT = 'false';
   process.env.LOGIN_ATTEMPT_LIMIT = '5000';
   const { runner } = await import('node-pg-migrate');
   await runner({ databaseUrl: { ...connection, database }, dir: path.resolve(__dirname, '../../migrations'), migrationsTable: 'pgmigrations', direction: 'up', count: Infinity, checkOrder: true, log() {} });
@@ -64,14 +64,12 @@ test('onboarding: platform creates a business, owner signs in, staff logins, loc
 
   await t.test('the platform creates a business with its owner', async () => {
     await platform('POST', '/users/platform/businesses', { ...shop, businessType: 'restaurant' }, 400);
-    await platform('POST', '/users/platform/businesses', { ...shop, code: 'DEMO-X' }, 400);
     await platform('POST', '/users/platform/businesses', { ...shop, timezone: 'Mars/Olympus' }, 400);
     await platform('POST', '/users/platform/businesses', { ...shop, currency: 'XYZW' }, 400);
     await platform('POST', '/users/platform/businesses', { ...shop, owner: { email: 'owner@arogya.test' } }, 400);
     const created = await platform('POST', '/users/platform/businesses', shop, 201);
     business = created.business;
     assert.equal(business.code, 'AROGYA-MED');
-    assert.equal(business.is_demo, false);
     assert.equal(created.owner.created, true);
     await platform('POST', '/users/platform/businesses', { ...shop, name: 'Again' }, 409);
     const list = await platform('GET', '/users/platform/businesses?type=pharmacy');
@@ -127,6 +125,47 @@ test('onboarding: platform creates a business, owner signs in, staff logins, loc
     await owner('POST', B(`staff-accounts/${ownerId}/password`), { password: 'Whatever-123' }, 403);
   });
 
+  await t.test('a new password only for someone whose role does no more than yours', async () => {
+    const roles = (await owner('GET', B('roles?limit=100'))).items;
+    const cashier = roles.find((r) => r.template_code === 'cashier');
+    const manager = roles.find((r) => r.template_code === 'manager');
+    // A supervisor does what a cashier does, and gives staff access.
+    const supervisor = await owner('POST', B('roles'), { name: 'Supervisor', permissions: [...cashier.permissions, 'access.view', 'access.edit'] }, 201);
+    const staff = async (name, email, password, roleId) => (await owner('POST', B('staff-accounts'), { name, email, password, roleId }, 201)).user_id;
+    await staff('Latha S', 'latha@arogya.test', 'Latha-pass-2026', supervisor.id);
+    const kiran = await staff('Kiran B', 'kiran@arogya.test', 'Kiran-pass-2026', cashier.id);
+    const meera = await staff('Meera P', 'meera@arogya.test', 'Meera-pass-2026', manager.id);
+    const latha = as(await login('latha@arogya.test', 'Latha-pass-2026'));
+    await latha('POST', B(`staff-accounts/${kiran}/password`), { password: 'Kiran-new-2026' });
+    assert.ok(await login('kiran@arogya.test', 'Kiran-new-2026'));
+    // A manager can do more than a supervisor, so the supervisor cannot sign in as one.
+    const refused = await latha('POST', B(`staff-accounts/${meera}/password`), { password: 'Taken-over-2026' }, 403);
+    assert.match(refused.message, /^This person's role can do things yours cannot \(.+\), so you cannot change their access or password$/);
+    assert.equal(await login('meera@arogya.test', 'Taken-over-2026'), null);
+    assert.ok(await login('meera@arogya.test', 'Meera-pass-2026'));
+  });
+
+  await t.test('the staff list says whom the caller manages', async () => {
+    // Staff & access shows Change and Password only where `manages` is true.
+    const manages = async (who) => Object.fromEntries((await who('GET', B('members?limit=100'))).items.map((m) => [m.email, m.manages]));
+    const latha = as(await login('latha@arogya.test', 'Latha-pass-2026'));
+    // The supervisor manages the cashiers; not the manager, whose role can do
+    // more, nor the owner, nor themselves.
+    assert.deepEqual(await manages(latha), {
+      'owner@arogya.test': false, 'latha@arogya.test': false, 'ravi@arogya.test': true, 'kiran@arogya.test': true, 'meera@arogya.test': false,
+    });
+    // The owner manages everyone but themselves.
+    assert.deepEqual(await manages(owner), {
+      'owner@arogya.test': false, 'latha@arogya.test': true, 'ravi@arogya.test': true, 'kiran@arogya.test': true, 'meera@arogya.test': true,
+    });
+    // Someone who may only look at the staff list manages nobody.
+    const lookOnly = await owner('POST', B('roles'), { name: 'Staff list', permissions: ['access.view'] }, 201);
+    await owner('POST', B('staff-accounts'), { name: 'Asha N', email: 'asha@arogya.test', password: 'Asha-pass-2026', roleId: lookOnly.id }, 201);
+    const asha = await manages(as(await login('asha@arogya.test', 'Asha-pass-2026')));
+    assert.equal(Object.keys(asha).length, 6);
+    assert.ok(Object.values(asha).every((answer) => answer === false), JSON.stringify(asha));
+  });
+
   await t.test('currency and time zone are the owner\'s to set until bills exist', async () => {
     const current = await owner('GET', B('settings'));
     assert.equal(current.currency, 'INR');
@@ -141,7 +180,7 @@ test('onboarding: platform creates a business, owner signs in, staff logins, loc
     const supplier = await owner('POST', B('contacts'), { kind: 'supplier', name: 'Distributor' }, 201);
     const item = await owner('POST', B('catalog'), { kind: 'goods', unit: 'strip', tracking: 'batch', taxRate: '5', name: 'Item', code: 'IT1', price: '10', hsnCode: '3004' }, 201);
     await owner('POST', B('documents'), { kind: 'purchase', requestKey: crypto.randomUUID(), locationId: location.id, contactId: supplier.id,
-      lines: [{ skuId: item.id, quantity: '5', unitPrice: '5', lotCode: 'L1', expiresOn: new Date(Date.now() + 300 * 86400000).toISOString().slice(0, 10) }] }, 201);
+      lines: [{ skuId: item.id, quantity: '5', unitPrice: '5', lotCode: 'L1', expiresOn: daysFrom(300) }] }, 201);
     await owner('PUT', B('settings'), { ...body, currency: 'USD' }, 409);
     await owner('PUT', B('settings'), { ...body, timezone: 'Asia/Kolkata' });
   });

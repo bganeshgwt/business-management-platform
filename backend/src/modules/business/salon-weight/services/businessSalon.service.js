@@ -1,5 +1,5 @@
 const crypto = require('node:crypto');
-// The manager-PIN check (round 2), loaded when first needed.
+// The manager-PIN check, loaded when first needed.
 const pins = () => require('./businessManagerPin');
 const repo = require('../../core/repositories/business.repository');
 const v = require('../../../../utils/validate');
@@ -10,7 +10,7 @@ const core = require('../../core/services/business.service');
 const paymentMethods = require('../../core/services/businessPaymentMethods.service');
 const { USED_SQL } = require('./businessSalonSales');
 
-// Salon & spa (Phase 2, T4): service times and stylist skills, the
+// Salon & spa: service times and stylist skills, the
 // appointment calendar by stylist and room with deposits and the
 // no-show / late-cancellation rule, the salon bill (services + products,
 // packages, memberships, deposits), package and membership plans, and staff
@@ -42,11 +42,11 @@ const TODAY = '(now() AT TIME ZONE b.timezone)::date';
 // A deposit held for a booking still to come is kept for that booking: it is
 // not put against other bills (so a later no-show can still be charged from
 // it) unless that booking is on the bill. `keep`: the bill's booking ids.
-// Round 2: a deposit moved to the client's wallet (salon_deposit_releases) is no longer held.
+// A deposit moved to the client's wallet (salon_deposit_releases) is no longer held.
 const notHeldSql = (alias, keep) => `NOT EXISTS (SELECT 1 FROM salon_appointment_details sd JOIN business_appointments sa ON sa.business_id=sd.business_id AND sa.id=sd.appointment_id
   WHERE sd.business_id=${alias}.business_id AND sd.deposit_collection_id=${alias}.id AND sa.status='booked' AND sa.starts_at > now() AND NOT (sa.id = ANY(${keep}::bigint[]))
   AND NOT EXISTS (SELECT 1 FROM salon_deposit_releases dr WHERE dr.business_id=sd.business_id AND dr.collection_id=sd.deposit_collection_id))`;
-// What is left of a receipt: less what went on bills and (round 2) what was refunded.
+// What is left of a receipt: less what went on bills and what was refunded.
 const freeSql = (alias) => `${alias}.amount-COALESCE((SELECT sum(p.amount) FROM business_payments p WHERE p.business_id=${alias}.business_id AND p.collection_id=${alias}.id),0)
   -COALESCE((SELECT sum(f.amount) FROM business_collection_refunds f WHERE f.business_id=${alias}.business_id AND f.collection_id=${alias}.id),0)`;
 // A deposit moved to the wallet is no longer the booking's: no charge comes out of it.
@@ -199,7 +199,7 @@ async function saveStaff(business, user, resourceId, body) {
   const kind = v.requiredEnum(body.kind ?? 'staff', 'Stylist or room', ['staff', 'room']);
   const skuIds = [...new Set(v.requiredArray(body.skuIds ?? [], 'Services').map((x) => id(x, 'Service')))];
   if (kind === 'room' && skuIds.length) fail('A room has no skills; give services to a stylist');
-  // Pro pass F-12: working hours and the weekly day off (optional; kept when not sent).
+  // Working hours and the weekly day off (optional; kept when not sent).
   const schedule = readSchedule(body);
   return repo.transaction(async (db) => {
     const resource = await repo.one(db, 'SELECT * FROM business_resources WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(resourceId, 'Stylist or room')]);
@@ -208,7 +208,7 @@ async function saveStaff(business, user, resourceId, body) {
       const booked = await repo.one(db, `SELECT count(*)::int AS n FROM business_appointments WHERE business_id=$1 AND resource_id=$2 AND status='booked' AND ends_at>now()`, [business.id, resource.id]);
       if (booked.n) fail(`${resource.name} has ${booked.n} upcoming booking${booked.n === 1 ? '' : 's'} as a stylist; move them before making it a room`, 409);
     }
-    // Pro pass F-12: rename, change the role, or switch off (not with bookings to come).
+    // Rename, change the role, or switch off (not with bookings to come).
     const name = body.name === undefined ? resource.name : v.requiredString(body.name, 'Name', 150);
     const roleLabel = body.roleLabel === undefined ? resource.role_label : v.optionalString(body.roleLabel, 'Role', 100);
     const active = v.requiredBoolean(body.active, 'Active', resource.active);
@@ -255,7 +255,7 @@ function readSchedule(body) {
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 // A stylist is booked only on a working day, inside their hours for that
-// weekday (round 2: the weekly schedule), not on leave and not on a salon
+// weekday (the weekly schedule), not on leave and not on a salon
 // holiday. Returns what is wrong, or null.
 async function availabilityProblem(db, business, staff, starts, ends) {
   const row = await repo.one(db, `SELECT COALESCE(p.weekly_off,'{}') AS weekly_off,p.works_from,p.works_to,
@@ -303,7 +303,7 @@ async function calendar(business, query) {
   await access.require(business, 'appointments.view');
   const day = core.dateText(query.date, 'Date');
   const locationId = optionalId(query.location, 'Location');
-  // Pro pass F-03: a week (or a few days) at once.
+  // A week (or a few days) at once.
   const days = query.days === undefined || query.days === '' ? 1 : Number(query.days);
   if (!Number.isInteger(days) || days < 1 || days > 7) fail('Show 1 to 7 days at a time');
   const db = repo.pool;
@@ -347,7 +347,7 @@ async function calendar(business, query) {
       COALESCE(ss.needs_room,false) AS needs_room FROM catalog_skus s JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id
       LEFT JOIN salon_services ss ON ss.business_id=s.business_id AND ss.sku_id=s.id
       WHERE s.business_id=$1 AND s.active AND p.active AND p.kind='service' AND ${planSkuFilter} ORDER BY s.label`, [business.id]),
-    // Round 2: salon holidays in the days shown.
+    // Salon holidays in the days shown.
     repo.all(db, `SELECT id,location_id,day::text AS day,name FROM salon_holidays WHERE business_id=$1 AND cancelled_at IS NULL
       AND day BETWEEN $2::date AND $2::date + ($3::int - 1) AND ($4::bigint IS NULL OR location_id IS NULL OR location_id=$4) ORDER BY day`, [business.id, day, days, locationId]),
   ]);
@@ -401,7 +401,7 @@ async function book(business, user, body) {
   const input = await readBooking(business, body, user);
   return repo.transaction(async (db) => bookIn(db, business, user, body, input));
 }
-// A manager's override of the stylist's hours / leave / a holiday (round 2):
+// A manager's override of the stylist's hours / leave / a holiday:
 // body.override = { reason, approverId?, pin? }. Read before the transaction.
 async function readOverride(business, user, body) {
   if (body.override === undefined || body.override === null) return null;
@@ -604,7 +604,7 @@ async function clientSummary(db, business, contactId) {
       ORDER BY a.starts_at LIMIT 10`, [business.id, contact.id]),
     repo.all(db, `SELECT id,document_no,total,created_at FROM business_documents WHERE business_id=$1 AND contact_id=$2 AND kind='sale' ORDER BY id DESC LIMIT 5`, [business.id, contact.id]),
   ]);
-  // Pro pass F-05: the client card — profile, notes and formulas, visits, totals.
+  // The client card — profile, notes and formulas, visits, totals.
   const [profile, notes, visits, stats, refunds] = await Promise.all([
     repo.one(db, `SELECT p.*,r.name AS preferred_resource_name FROM salon_client_profiles p
       LEFT JOIN business_resources r ON r.business_id=p.business_id AND r.id=p.preferred_resource_id WHERE p.business_id=$1 AND p.contact_id=$2`, [business.id, contact.id]),
@@ -622,7 +622,7 @@ async function clientSummary(db, business, contactId) {
       (SELECT r.name FROM salon_line_staff ls JOIN business_documents d ON d.business_id=ls.business_id AND d.id=ls.document_id
         JOIN business_resources r ON r.business_id=ls.business_id AND r.id=ls.resource_id WHERE ls.business_id=$1 AND d.contact_id=$2
         GROUP BY r.id,r.name ORDER BY count(*) DESC,max(ls.created_at) DESC LIMIT 1) AS usual_stylist`, [business.id, contact.id]),
-    // Round 2: advances handed back (cash / UPI / bank), for the receipt.
+    // Advances handed back (cash / UPI / bank), for the receipt.
     repo.all(db, `SELECT f.id,f.refund_no,f.amount,f.method,f.reference,f.reason,f.created_at,k.collection_no,a.name AS approved_by_name,u.name AS created_by_name
       FROM business_collection_refunds f JOIN business_collections k ON k.business_id=f.business_id AND k.id=f.collection_id
       JOIN users a ON a.id=f.approved_by JOIN users u ON u.id=f.created_by WHERE f.business_id=$1 AND f.contact_id=$2 ORDER BY f.id DESC LIMIT 20`, [business.id, contact.id]),
@@ -683,7 +683,7 @@ async function bill(business, user, body) {
   const hash = hashOf(body);
   const lines = readBill(body);
   const useAdvance = v.requiredBoolean(body.useAdvance, 'Use advance', false);
-  // Pro pass F-07: up to three payments on one bill (UPI and the rest in
+  // Up to three payments on one bill (UPI and the rest in
   // cash) — mixed tender, not a split bill. `payment` (one) still works.
   const payments = readPayments(body);
   const tips = readTips(body);
@@ -969,7 +969,7 @@ async function commissionReport(business, query) {
       COALESCE(sum(round(x.commission_amount*(x.quantity-x.returned_q)/x.quantity,2)),0) AS commission
     FROM lines x JOIN business_resources r ON r.business_id=$1 AND r.id=x.resource_id
     GROUP BY r.id,r.name,r.role_label ORDER BY commission DESC,r.name`, [business.id, from, to]);
-  // Pro pass F-09: tips and what has been paid out, so Earned · Paid · Due line up.
+  // Tips and what has been paid out, so Earned · Paid · Due line up.
   const [tips, paid] = await Promise.all([
     repo.all(repo.pool, `SELECT t.resource_id,r.name,r.role_label,sum(t.amount) AS tips FROM salon_tips t JOIN businesses b ON b.id=t.business_id
       JOIN business_resources r ON r.business_id=t.business_id AND r.id=t.resource_id
@@ -989,9 +989,9 @@ async function commissionReport(business, query) {
     if (!byId.has(Number(p.resource_id))) { const row = blank(p); rows.push(row); byId.set(Number(p.resource_id), row); }
     Object.assign(byId.get(Number(p.resource_id)), { paid: p.paid, paid_to: p.paid_to });
   }
-  // Round 2: stylists on a monthly target (slab) plan earn the slab on their
+  // Stylists on a monthly target (slab) plan earn the slab on their
   // services instead of the flat rules' per-line amounts.
-  const slabs = await require('./businessSalonRound2.service').slabAdjustments(repo.pool, business, from, to);
+  const slabs = await require('./businessSalonBackOffice.service').slabAdjustments(repo.pool, business, from, to);
   for (const [resourceId, entry] of slabs) {
     let row = byId.get(resourceId);
     if (!row) {
@@ -1055,7 +1055,7 @@ async function payCommission(business, user, body) {
 
 module.exports = {
   getSettings, saveSettings, saveService, saveStaff, calendar, book, preview, setStatus, client, quote, bill,
-  createPlan, updatePlan, cancelClientPlan, createRule, updateRule, commissionReport, payCommission, requireSalon, feeFor,
-  // Pro pass F: used by businessSalonPro.service.js.
-  bookIn, readBooking, readOverride, staffAvailable, availabilityProblem, recordOverride, freeSql, notHeldSql, releasedSql, lockResource, settingsRow, clientSummary, hashOf, derivedKey, METHODS, timeText,
+  createPlan, updatePlan, cancelClientPlan, createRule, updateRule, commissionReport, payCommission, requireSalon,
+  // Used by businessSalonDesk.service.js.
+  bookIn, readBooking, readOverride, staffAvailable, availabilityProblem, recordOverride, freeSql, notHeldSql, lockResource, settingsRow, derivedKey, timeText,
 };

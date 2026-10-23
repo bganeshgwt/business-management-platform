@@ -1,4 +1,4 @@
-// Purchase orders over the approval limit (Settings → Stock & purchasing),
+// Purchase orders over the approval limit (Stock → Stock & purchasing settings),
 // waiting for someone who may approve them. A supplier cannot deliver what
 // has not been sent, so an order left waiting is a kitchen short tomorrow.
 //

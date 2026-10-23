@@ -290,7 +290,7 @@ const LIVE_DATA = {
     const open = await first(db, "SELECT count(*)::int AS n FROM cash_drawers WHERE restaurant_id = $1 AND drawer_status = 'open'", [rid]);
 
     return open.n
-      ? { blockers: [`${plural(open.n, "cash drawer is", "cash drawers are")} still open. Count and end ${open.n === 1 ? "it" : "them"} first (Business day → Drawers).`] }
+      ? { blockers: [`${plural(open.n, "cash drawer is", "cash drawers are")} still open. Count and end ${open.n === 1 ? "it" : "them"} first (Business day → Drawers & cash).`] }
       : { warnings: ["The business day goes back to one till, counted at day end."] };
   },
   coupons: async (db, rid) => {
@@ -323,7 +323,7 @@ const LIVE_DATA = {
     const warnings = ["Stock is still taken off for what is sold, so the numbers are right when Stock is switched back on."];
 
     if (owed.n) {
-      blockers.push(`${money(owed.amount)} is still owed to ${plural(owed.n, "supplier", "suppliers")}. Pay or settle their bills first (Purchasing → Returns & payments).`);
+      blockers.push(`${money(owed.amount)} is still owed to ${plural(owed.n, "supplier", "suppliers")}. Pay or settle their bills first (Purchases & suppliers → Returns & payments).`);
     }
 
     if (open.n) {
@@ -368,7 +368,7 @@ const HIDES = {
   captain_sections: ["Captain sections on the floor plan"],
   tips: ["Tips", "The tip box at payment", "Tips on payroll"],
   advances: ["Advances & deposits"],
-  cash_drawers: ["Drawers per shift (Business day → Drawers)"],
+  cash_drawers: ["Drawers per shift (Business day → Drawers & cash)"],
   coupons: ["Discounts & offers", "Coupons at the till"],
   stock_recipes: [
     "Items & stock",
@@ -548,15 +548,12 @@ const isFeature = async (code) => (await loadCatalogue()).some((row) => row.code
 
 module.exports = {
   OWNER_PERMISSION,
-  loadCatalogue,
   featuresOf,
   has,
   assertOn,
   assertRestaurantHas,
   offError,
-  nameOf,
   list,
-  listFor,
   preview,
   set,
   setForBusiness,

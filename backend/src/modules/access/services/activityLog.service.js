@@ -138,4 +138,4 @@ const people = async (restaurantId, q, limit = 20) => {
   return auditRepository.findPeople(restaurantId, q, limit);
 };
 
-module.exports = { search, exportPage, facets, people, isRealDate, EXPORT_MAX_ROWS };
+module.exports = { search, exportPage, facets, people };

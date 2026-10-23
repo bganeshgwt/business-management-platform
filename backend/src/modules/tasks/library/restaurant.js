@@ -1,7 +1,7 @@
 // Restaurant templates. FSSAI figures: chilled food at 5 °C or below, frozen
 // at −18 °C or colder, hot holding at 63 °C or above (FSSAI training asks for
 // 60 °C; 63 °C passes both), reheating to 74 °C, frying oil polar compounds
-// at 25 % or less. See scratchpad RESEARCH.md §5.
+// at 25 % or less.
 
 const R = ["restaurant"];
 

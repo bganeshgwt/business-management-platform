@@ -2,7 +2,7 @@ const repo = require('../../core/repositories/business.repository');
 const AppError = require('../../../../utils/AppError');
 const v = require('../../../../utils/validate');
 
-// Salon & spa on a bill (Phase 2, T4), called by the core posting
+// Salon & spa on a bill, called by the core posting
 // (business.service.js › postDocument) right after retail offers, so the
 // Bills screen, the salon's New bill, a quote and any later POS get the same
 // result:
@@ -163,8 +163,8 @@ async function sessionValue(db, business, redemption, line, basis) {
 
 // After the bill and its lines are saved (same transaction).
 async function recordSale(db, business, user, saved, lines, pricing) {
-  // Round 2: the back-bar products each service line used leave stock.
-  if (business.business_type === 'salon') await require('./businessSalonRound2.service').consumeBackbar(db, business, user, saved, lines);
+  // The back-bar products each service line used leave stock.
+  if (business.business_type === 'salon') await require('./businessSalonBackOffice.service').consumeBackbar(db, business, user, saved, lines);
   const salon = pricing?.salon;
   if (!salon) return;
   for (const r of salon.redemptions) {
@@ -194,7 +194,7 @@ async function recordSale(db, business, user, saved, lines, pricing) {
       { planId: plan.id, contactId: saved.contact_id, documentId: saved.id, startsOn: held.starts_on, endsOn: held.ends_on });
   }
   const commissions = enabled(business, 'commissions');
-  // Pro pass F-08: a package or membership sold is its own kind ('plan', with
+  // A package or membership sold is its own kind ('plan', with
   // its own rule); a service paid from a package ('session') earns on the
   // session's value — the package's price per session, or the service's list
   // price (salon settings) — by the service rules. A rule may be a flat amount
@@ -232,4 +232,4 @@ async function recordSale(db, business, user, saved, lines, pricing) {
   }
 }
 
-module.exports = { priceSale, recordSale, USED_SQL, percentOf };
+module.exports = { priceSale, recordSale, USED_SQL };

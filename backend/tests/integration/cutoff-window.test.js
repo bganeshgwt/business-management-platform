@@ -4,16 +4,16 @@
 // database.
 //
 // What it keeps true:
-//   CUTOFF-WRITEOFF   the write-off control's default period ends on the open
-//                     day's date, and every large write-off and purchase
-//                     approval is attributed to the business day it happened
-//                     in — never to its calendar date — including one logged
-//                     after the day was closed but before the cut-off.
-//   CUTOFF-DASHBOARD  a branch that closes last night's day before the
-//                     cut-off still shows that day on its dashboard, day book
-//                     and reports — not the calendar date with ₹0 — and so do
-//                     All outlets once every day is closed; past the cut-off
-//                     the calendar date is "today" again.
+//   - the write-off control's default period ends on the open
+//     day's date, and every large write-off and purchase
+//     approval is attributed to the business day it happened
+//     in — never to its calendar date — including one logged
+//     after the day was closed but before the cut-off.
+//   - a branch that closes last night's day before the
+//     cut-off still shows that day on its dashboard, day book
+//     and reports — not the calendar date with ₹0 — and so do
+//     All outlets once every day is closed; past the cut-off
+//     the calendar date is "today" again.
 //
 // The window is made, not waited for: the test restaurant's cut-off hour is
 // set so that the current hour on its clock falls inside it, whatever time
@@ -25,29 +25,15 @@ const crypto = require("node:crypto");
 const path = require("node:path");
 const { Client } = require("pg");
 const bcrypt = require("bcrypt");
-const { DEFAULT_TZ, today, addDays } = require("./helpers/dates");
-
-const hourIn = (zone) =>
-  Number(new Intl.DateTimeFormat("en-GB", { timeZone: zone, hour: "2-digit", hourCycle: "h23" }).format(new Date()));
-
-// Place-named zones a whole hour apart all round the clock (the settings
-// refuse "Etc/GMT-5": it counts backwards). One of them is always early in
-// the morning.
-const ZONES = [
-  DEFAULT_TZ, "Africa/Abidjan", "Africa/Lagos", "Africa/Johannesburg", "Africa/Nairobi", "Asia/Dubai",
-  "Asia/Tashkent", "Asia/Dhaka", "Asia/Bangkok", "Asia/Singapore", "Asia/Tokyo", "Australia/Brisbane",
-  "Pacific/Guadalcanal", "Pacific/Tarawa", "Pacific/Fakaofo", "Pacific/Kiritimati", "Atlantic/Cape_Verde",
-  "America/Noronha", "America/Sao_Paulo", "America/La_Paz", "America/Bogota", "America/Guatemala",
-  "America/Phoenix", "Pacific/Pitcairn", "Pacific/Gambier", "Pacific/Honolulu", "Pacific/Pago_Pago",
-];
+const { today, addDays, hourNow, zoneWithHour } = require("./helpers/dates");
 
 // A zone and a cut-off with the current hour at least two hours inside the
 // window (the cut-off can be at most 12): Asia/Kolkata whenever its hour
-// allows it, else the first zone where it is early morning now.
+// allows it, else the first zone (helpers/dates ZONES) where it is early
+// morning now.
 const windowNow = () => {
-  const zone = ZONES.find((name) => hourIn(name) <= 9);
-  assert.ok(zone, "some zone is between midnight and 10 am");
-  return { zone, cutoff: hourIn(zone) + 3 };
+  const zone = zoneWithHour(0, 9);
+  return { zone, cutoff: hourNow(zone) + 3 };
 };
 
 test("the cut-off window: last night's day is still the trading day", { timeout: 600000 }, async (t) => {
@@ -166,7 +152,7 @@ test("the cut-off window: last night's day is still the trading day", { timeout:
   await setCutoff(CUTOFF);
   const CALENDAR = today(ZONE);
   const LAST_NIGHT = addDays(CALENDAR, -1);
-  assert.ok(hourIn(ZONE) < CUTOFF, `the hour on ${ZONE} (${hourIn(ZONE)}) is inside the window (cut-off ${CUTOFF})`);
+  assert.ok(hourNow(ZONE) < CUTOFF, `the hour on ${ZONE} (${hourNow(ZONE)}) is inside the window (cut-off ${CUTOFF})`);
 
   const food = await O("POST", "/menu/tax-rates", { name: "Food 5%", percentage: 5, hsnCode: "996331" }, 201);
   const category = await O("POST", "/menu/categories", { name: "Mains" }, 201);
@@ -192,7 +178,7 @@ test("the cut-off window: last night's day is still the trading day", { timeout:
   };
   const LARGE = "SELECT COUNT(*)::int AS n FROM audit_logs WHERE restaurant_id = $1 AND action = 'wastage' AND details ? 'overLimit'";
 
-  await t.test("CUTOFF-WRITEOFF tonight's large write-offs and purchase approvals are on last night's day", async () => {
+  await t.test("tonight's large write-offs and purchase approvals are on last night's day", async () => {
     const day = await O("POST", "/business-day/open", { openingCash: 1000 }, 201);
     assert.equal(day.businessDate, LAST_NIGHT, "a day opened without a date before the cut-off is last night's");
 
@@ -232,7 +218,7 @@ test("the cut-off window: last night's day is still the trading day", { timeout:
     assert.equal(calendar.purchaseApprovals.length, 0);
   });
 
-  await t.test("CUTOFF-DASHBOARD a branch that closed last night's day still shows it until the cut-off", async () => {
+  await t.test("a branch that closed last night's day still shows it until the cut-off", async () => {
     const A = (await O("POST", "/outlets", { name: "Night Branch", code: "NIGHT" }, 201)).id;
     const dayA = await O("POST", "/business-day/open", { openingCash: 500 }, 201, H(A));
     assert.equal(dayA.businessDate, LAST_NIGHT);
@@ -267,7 +253,7 @@ test("the cut-off window: last night's day is still the trading day", { timeout:
     await nudge("Back in the window");
   });
 
-  await t.test("CUTOFF-DASHBOARD with every day closed, All outlets and the stock screens stay on last night", async () => {
+  await t.test("with every day closed, All outlets and the stock screens stay on last night", async () => {
     const sheet = await O("GET", "/reports/day-end");
     await O("POST", "/business-day/close", { closingCash: sheet.expectedCash });
 

@@ -130,4 +130,4 @@ async function list(business, user, query) {
   return { date: day, items: await Promise.all(rows.map((row) => withFigures(repo.pool, business, row))) };
 }
 
-module.exports = { current, open, close, list, cashMovement };
+module.exports = { current, open, close, list };

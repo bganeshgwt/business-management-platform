@@ -75,11 +75,11 @@ async function updateSettings(business, user, body) {
     // Document numbers run per financial year. Once any series exists, moving
     // the year's start would file new documents under the wrong year's series.
     const current = await repo.one(db, 'SELECT fiscal_year_start_month,max_bill_discount_percent,walk_in_credit,counter_pin_every_bill FROM business_settings WHERE business_id=$1 FOR UPDATE', [business.id]);
-    // Counter rules (pro pass); older clients do not send them and keep what is set.
+    // Counter rules; older clients do not send them and keep what is set.
     const maxDiscount = body.maxBillDiscountPercent === undefined || body.maxBillDiscountPercent === null || body.maxBillDiscountPercent === ''
       ? current?.max_bill_discount_percent ?? 10 : decimal(body.maxBillDiscountPercent, 'Most discount at the counter', 2, 0, 100);
     const walkInCredit = body.walkInCredit === undefined ? Boolean(current?.walk_in_credit) : v.requiredBoolean(body.walkInCredit, 'Unpaid walk-in bills');
-    // Round 2: Quick bill asks the biller's PIN for every bill (shared tills).
+    // Quick bill asks the biller's PIN for every bill (shared tills).
     const pinEveryBill = body.counterPinEveryBill === undefined ? Boolean(current?.counter_pin_every_bill) : v.requiredBoolean(body.counterPinEveryBill, 'Ask the PIN for every bill');
     if (current && Number(current.fiscal_year_start_month) !== Number(values[13])) {
       const used = await repo.one(db, 'SELECT count(*)::int AS n FROM business_number_series WHERE business_id=$1', [business.id]);
@@ -97,7 +97,7 @@ async function updateSettings(business, user, body) {
     const counter = await repo.one(db, `UPDATE business_settings SET max_bill_discount_percent=$2,walk_in_credit=$3,counter_pin_every_bill=$4 WHERE business_id=$1
       RETURNING max_bill_discount_percent,walk_in_credit,counter_pin_every_bill`, [business.id, maxDiscount, walkInCredit, pinEveryBill]);
     Object.assign(saved, counter);
-    // The business's own rules (12 Oct); each left out keeps what it is.
+    // The business's own rules; each left out keeps what it is.
     const rules = await readRules(db, business.id, body);
     if (rules) {
       const keys = Object.keys(rules);
@@ -106,7 +106,7 @@ async function updateSettings(business, user, body) {
       Object.assign(saved, updated);
       await repo.audit(db, business.id, user.id, 'settings.rules_updated', business.id, updated);
     }
-    // Currency and time zone (12 Oct): older clients send neither and keep them.
+    // Currency and time zone: older clients send neither and keep them.
     const { readCurrency, readTimezone } = require('./businessOnboarding.service');
     const currency = body.currency === undefined ? business.currency : readCurrency(body.currency, business.currency);
     const timezone = body.timezone === undefined ? business.timezone : readTimezone(body.timezone, business.timezone);

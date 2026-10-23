@@ -48,7 +48,7 @@ router.post(
   "/close",
   authorize("business_day.manage"),
   businessDayController.validateClose,
-  // [cash-b] Everything else that would refuse the close is checked before
+  // Everything else that would refuse the close is checked before
   // an approval is spent on it.
   businessDayController.precheckClose,
   authorizeOrApprove("business_day.close", { scope: closeScope }),

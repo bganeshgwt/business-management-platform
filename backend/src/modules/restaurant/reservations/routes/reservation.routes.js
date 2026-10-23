@@ -22,7 +22,7 @@ router.get("/day", authorize("reservations.view"), reservationController.board);
 router.get("/availability", authorize("reservations.view"), reservationController.availability);
 router.get("/guest", authorize("reservations.view"), reservationController.lookupGuest);
 
-// Online booking (SW-A-21): the requests inbox, and the public booking link
+// Online booking: the requests inbox, and the public booking link
 // of the counter or outlet being worked in. Answering a request is the host
 // stand's job; opening the channel and its limits is a manager's.
 router.get("/requests", authorize("reservations.view"), reservationController.requests);

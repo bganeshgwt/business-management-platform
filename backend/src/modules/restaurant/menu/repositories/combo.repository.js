@@ -136,30 +136,10 @@ const findCombosContaining = async (restaurantId, productId) => {
   return result.rows;
 };
 
-// The parts of a combo that cannot be made right now: sold out, archived, or
-// the exact size it uses switched off. Empty for a dish that is not a combo.
-// Taking an order for a combo should ask this (see the order step), because a
-// thali whose dal has run out cannot be served. Accepts a transaction client.
-const findUnavailableParts = async (restaurantId, comboProductId, client = pool) => {
-  const result = await client.query(
-    `SELECT p.id, p.name, v.name AS variant_name
-     FROM combo_items ci
-     JOIN products p ON p.id = ci.product_id
-     LEFT JOIN product_variants v ON v.id = ci.product_variant_id
-     WHERE ci.restaurant_id = $1 AND ci.combo_product_id = $2
-       AND (NOT p.is_available OR p.status <> 'active' OR v.status = 'inactive')
-     ORDER BY ci.sort_order, ci.id`,
-    [restaurantId, comboProductId]
-  );
-
-  return result.rows;
-};
-
 module.exports = {
   findItems,
   findNestingConflicts,
   replaceItems,
   findItemsForSale,
   findCombosContaining,
-  findUnavailableParts,
 };

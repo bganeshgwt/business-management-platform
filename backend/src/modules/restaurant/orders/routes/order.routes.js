@@ -65,7 +65,7 @@ router.post("/:id/courses/:courseNo/fire", authorize("orders.create"), orderCont
 router.patch("/:id/items/:itemId/cancel", authorize("orders.manage"), orderController.cancelItem);
 router.patch("/:id/kitchen-status", authorize("kot.manage"), orderController.setKitchenStatus);
 router.patch("/:id/cancel", authorize("orders.manage"), orderController.cancel);
-// A delivery's trip charge (SW-A-17): waiving it takes a manager (or their
+// A delivery's trip charge: waiving it takes a manager (or their
 // PIN) and a reason; charging it again is anyone's who takes orders.
 router.post(
   "/:id/delivery-charge/waive",

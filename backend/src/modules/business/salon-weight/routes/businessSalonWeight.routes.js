@@ -4,12 +4,12 @@ const AppError = require('../../../../utils/AppError');
 const core = require('../../core/services/business.service');
 const salon = require('../services/businessSalon.service');
 const weight = require('../services/businessWeight.service');
-const salonPro = require('../services/businessSalonPro.service');
-const weightPro = require('../services/businessWeightPro.service');
-const round2 = require('../services/businessSalonRound2.service');
+const desk = require('../services/businessSalonDesk.service');
+const daily = require('../services/businessWeightDaily.service');
+const backOffice = require('../services/businessSalonBackOffice.service');
 const pins = require('../services/businessManagerPin');
 
-// Phase 2, T4 — salon & spa and weight-based shops, added to the Business
+// Salon & spa and weight-based shop routes, added to the Business
 // Admin router so they share its login, membership, module and permission
 // checks (context) and its database-error translation:
 //   /:businessId/salon/…    booking rules, service times, stylists & rooms, calendar,
@@ -90,65 +90,65 @@ module.exports = function salonWeightRoutes(router, { context, send, b }) {
   router.get(b('/weight/reports/yield'), context('reports.view'), async (req, res) => send(res, await weight.yieldReport(req.business, req.query)));
   router.get(b('/weight/reports/wastage'), context('reports.view'), async (req, res) => send(res, await weight.wastageReport(req.business, req.query)));
 
-  // Pro pass F (7 Oct 2026), salon: move, arrive, messages, walk-ins, the
-  // client card, stylist leave, package holders, commission payouts, history.
-  router.patch(b('/salon/appointments/:appointmentId'), context('appointments.edit'), async (req, res) => send(res, await salonPro.move(req.business, req.user, req.params.appointmentId, req.body)));
-  router.post(b('/salon/appointments/:appointmentId/arrived'), context('appointments.edit'), async (req, res) => send(res, await salonPro.arrive(req.business, req.user, req.params.appointmentId)));
+  // Salon front desk: move, arrive, messages, walk-ins, the client card,
+  // stylist leave, package holders, commission payouts, history.
+  router.patch(b('/salon/appointments/:appointmentId'), context('appointments.edit'), async (req, res) => send(res, await desk.move(req.business, req.user, req.params.appointmentId, req.body)));
+  router.post(b('/salon/appointments/:appointmentId/arrived'), context('appointments.edit'), async (req, res) => send(res, await desk.arrive(req.business, req.user, req.params.appointmentId)));
   router.post(b('/salon/appointments/:appointmentId/messages'), context(['appointments.create', 'appointments.edit']), async (req, res) =>
-    send(res, await salonPro.messageSent(req.business, req.user, req.params.appointmentId, req.body)));
+    send(res, await desk.messageSent(req.business, req.user, req.params.appointmentId, req.body)));
   list('/salon/appointments', 'salon-appointments', 'appointments.view', isSalon);
   list('/salon/walk-ins', 'salon-walk-ins', 'appointments.view', isSalon);
-  router.post(b('/salon/walk-ins'), context('appointments.create'), async (req, res) => send(res, await salonPro.addWalkIn(req.business, req.user, req.body), 201));
-  router.post(b('/salon/walk-ins/:walkInId/seat'), context('appointments.create'), async (req, res) => send(res, await salonPro.seatWalkIn(req.business, req.user, req.params.walkInId, req.body)));
-  router.post(b('/salon/walk-ins/:walkInId/left'), context('appointments.create'), async (req, res) => send(res, await salonPro.walkInLeft(req.business, req.user, req.params.walkInId)));
-  router.put(b('/salon/clients/:contactId/profile'), context('contacts.edit'), async (req, res) => send(res, await salonPro.saveProfile(req.business, req.user, req.params.contactId, req.body)));
-  router.post(b('/salon/clients/:contactId/notes'), context('contacts.edit'), async (req, res) => send(res, await salonPro.addNote(req.business, req.user, req.params.contactId, req.body), 201));
-  router.post(b('/salon/staff/:resourceId/leave'), context('appointments.create'), async (req, res) => send(res, await salonPro.addLeave(req.business, req.user, req.params.resourceId, req.body), 201));
+  router.post(b('/salon/walk-ins'), context('appointments.create'), async (req, res) => send(res, await desk.addWalkIn(req.business, req.user, req.body), 201));
+  router.post(b('/salon/walk-ins/:walkInId/seat'), context('appointments.create'), async (req, res) => send(res, await desk.seatWalkIn(req.business, req.user, req.params.walkInId, req.body)));
+  router.post(b('/salon/walk-ins/:walkInId/left'), context('appointments.create'), async (req, res) => send(res, await desk.walkInLeft(req.business, req.user, req.params.walkInId)));
+  router.put(b('/salon/clients/:contactId/profile'), context('contacts.edit'), async (req, res) => send(res, await desk.saveProfile(req.business, req.user, req.params.contactId, req.body)));
+  router.post(b('/salon/clients/:contactId/notes'), context('contacts.edit'), async (req, res) => send(res, await desk.addNote(req.business, req.user, req.params.contactId, req.body), 201));
+  router.post(b('/salon/staff/:resourceId/leave'), context('appointments.create'), async (req, res) => send(res, await desk.addLeave(req.business, req.user, req.params.resourceId, req.body), 201));
   router.post(b('/salon/staff/:resourceId/leave/:leaveId/cancel'), context('appointments.create'), async (req, res) =>
-    send(res, await salonPro.cancelLeave(req.business, req.user, req.params.resourceId, req.params.leaveId)));
-  router.patch(b('/salon/client-plans/:clientPlanId'), context('packages.edit'), async (req, res) => send(res, await salonPro.extendClientPlan(req.business, req.user, req.params.clientPlanId, req.body)));
-  router.get(b('/salon/client-plans-summary'), context('packages.view'), async (req, res) => send(res, await salonPro.planTotals(req.business)));
+    send(res, await desk.cancelLeave(req.business, req.user, req.params.resourceId, req.params.leaveId)));
+  router.patch(b('/salon/client-plans/:clientPlanId'), context('packages.edit'), async (req, res) => send(res, await desk.extendClientPlan(req.business, req.user, req.params.clientPlanId, req.body)));
+  router.get(b('/salon/client-plans-summary'), context('packages.view'), async (req, res) => send(res, await desk.planTotals(req.business)));
   list('/salon/plan-usage', 'salon-plan-usage', 'packages.view', packagesOn);
   list('/salon/commission-payouts', 'salon-commission-payouts', 'commissions.view', isSalon);
   router.post(b('/salon/commission-payouts'), context('commissions.edit'), async (req, res) => send(res, await salon.payCommission(req.business, req.user, req.body), 201));
 
-  // Pro pass F, weight shops: rates, today's stock, the weigh-up, wastage in
-  // one go, cutting to order, orders for pickup, today's figures.
-  router.get(b('/weight/rates'), context('catalog.view'), async (req, res) => send(res, await weightPro.rates(req.business)));
-  router.put(b('/weight/rates'), context('catalog.edit'), async (req, res) => send(res, await weightPro.saveRates(req.business, req.user, req.body)));
+  // A weight shop's day: rates, today's stock, the weigh-up, wastage in one
+  // go, cutting to order, orders for pickup, today's figures.
+  router.get(b('/weight/rates'), context('catalog.view'), async (req, res) => send(res, await daily.rates(req.business)));
+  router.put(b('/weight/rates'), context('catalog.edit'), async (req, res) => send(res, await daily.saveRates(req.business, req.user, req.body)));
   list('/weight/rate-history', 'weight-rate-history', 'catalog.view', weighs);
-  router.get(b('/weight/stock-today'), context('inventory.view'), async (req, res) => send(res, await weightPro.stockToday(req.business, req.query)));
-  router.post(b('/weight/day-close'), context('inventory.edit'), async (req, res) => send(res, await weightPro.closeDay(req.business, req.user, req.body), 201));
+  router.get(b('/weight/stock-today'), context('inventory.view'), async (req, res) => send(res, await daily.stockToday(req.business, req.query)));
+  router.post(b('/weight/day-close'), context('inventory.edit'), async (req, res) => send(res, await daily.closeDay(req.business, req.user, req.body), 201));
   list('/weight/day-closes', 'weight-day-closes', 'inventory.view', weighs);
-  router.post(b('/weight/wastage/batch'), context('wastage.create'), async (req, res) => send(res, await weightPro.wastageBatch(req.business, req.user, req.body), 201));
-  router.post(b('/weight/cut-to-order'), context(['processing.create', 'sales.create']), async (req, res) => send(res, await weightPro.cutToOrder(req.business, req.user, req.body), 201));
+  router.post(b('/weight/wastage/batch'), context('wastage.create'), async (req, res) => send(res, await daily.wastageBatch(req.business, req.user, req.body), 201));
+  router.post(b('/weight/cut-to-order'), context(['processing.create', 'sales.create']), async (req, res) => send(res, await daily.cutToOrder(req.business, req.user, req.body), 201));
   list('/weight/pickup-orders', 'weight-pickup-orders', 'sales.view', weighs);
-  router.post(b('/weight/pickup-orders'), context('sales.create'), async (req, res) => send(res, await weightPro.createPickup(req.business, req.user, req.body), 201));
-  router.post(b('/weight/pickup-orders/:orderId/status'), context('sales.create'), async (req, res) => send(res, await weightPro.setPickupStatus(req.business, req.user, req.params.orderId, req.body)));
-  router.get(b('/weight/today'), context('inventory.view'), async (req, res) => send(res, await weightPro.today(req.business)));
+  router.post(b('/weight/pickup-orders'), context('sales.create'), async (req, res) => send(res, await daily.createPickup(req.business, req.user, req.body), 201));
+  router.post(b('/weight/pickup-orders/:orderId/status'), context('sales.create'), async (req, res) => send(res, await daily.setPickupStatus(req.business, req.user, req.params.orderId, req.body)));
+  router.get(b('/weight/today'), context('inventory.view'), async (req, res) => send(res, await daily.today(req.business)));
 
-  // Round 2 (R2-SVC), salon: the stylist's week, holidays, back-bar products,
+  // Salon back office: the stylist's week, holidays, back-bar products,
   // service profitability, advance refunds / wallet, slab commission plans.
-  router.put(b('/salon/staff/:resourceId/week'), context('appointments.create'), async (req, res) => send(res, await round2.saveWeek(req.business, req.user, req.params.resourceId, req.body)));
+  router.put(b('/salon/staff/:resourceId/week'), context('appointments.create'), async (req, res) => send(res, await backOffice.saveWeek(req.business, req.user, req.params.resourceId, req.body)));
   list('/salon/holidays', 'salon-holidays', 'appointments.view', isSalon);
-  router.post(b('/salon/holidays'), context('settings.edit'), async (req, res) => send(res, await round2.addHoliday(req.business, req.user, req.body), 201));
-  router.post(b('/salon/holidays/:holidayId/cancel'), context('settings.edit'), async (req, res) => send(res, await round2.cancelHoliday(req.business, req.user, req.params.holidayId)));
+  router.post(b('/salon/holidays'), context('settings.edit'), async (req, res) => send(res, await backOffice.addHoliday(req.business, req.user, req.body), 201));
+  router.post(b('/salon/holidays/:holidayId/cancel'), context('settings.edit'), async (req, res) => send(res, await backOffice.cancelHoliday(req.business, req.user, req.params.holidayId)));
   router.get(b('/service-approvers'), context(['appointments.create', 'sales.edit', 'repairs.view']), async (req, res) => {
     if (req.business.business_type !== 'salon' && !req.business.modules.includes('repairs')) throw new AppError(404, 'Not found');
     send(res, await pins.approvers(req.business, String(req.query.permission || '')));
   });
-  router.get(b('/salon/services/:skuId/products'), context('catalog.view'), async (req, res) => send(res, await round2.recipe(req.business, req.params.skuId)));
-  router.put(b('/salon/services/:skuId/products'), context('catalog.edit'), async (req, res) => send(res, await round2.saveRecipe(req.business, req.user, req.params.skuId, req.body)));
+  router.get(b('/salon/services/:skuId/products'), context('catalog.view'), async (req, res) => send(res, await backOffice.recipe(req.business, req.params.skuId)));
+  router.put(b('/salon/services/:skuId/products'), context('catalog.edit'), async (req, res) => send(res, await backOffice.saveRecipe(req.business, req.user, req.params.skuId, req.body)));
   list('/salon/backbar-usage', 'salon-backbar-usage', 'reports.view', isSalon);
-  router.get(b('/salon/reports/service-profitability'), context('reports.view'), async (req, res) => send(res, await round2.serviceProfitability(req.business, req.query)));
-  router.post(b('/salon/clients/:contactId/advance-refund'), context('sales.edit'), async (req, res) => send(res, await round2.advanceRefund(req.business, req.user, req.params.contactId, req.body), 201));
+  router.get(b('/salon/reports/service-profitability'), context('reports.view'), async (req, res) => send(res, await backOffice.serviceProfitability(req.business, req.query)));
+  router.post(b('/salon/clients/:contactId/advance-refund'), context('sales.edit'), async (req, res) => send(res, await backOffice.advanceRefund(req.business, req.user, req.params.contactId, req.body), 201));
   list('/salon/advance-refunds', 'salon-advance-refunds', 'sales.view', isSalon);
   list('/salon/commission-plans', 'salon-commission-plans', 'commissions.view', isSalon);
-  router.post(b('/salon/commission-plans'), context('commissions.edit'), async (req, res) => send(res, await round2.createCommissionPlan(req.business, req.user, req.body), 201));
-  router.patch(b('/salon/commission-plans/:planId'), context('commissions.edit'), async (req, res) => send(res, await round2.updateCommissionPlan(req.business, req.user, req.params.planId, req.body)));
-  router.get(b('/salon/commission-schemes'), context('commissions.view'), async (req, res) => send(res, await round2.schemes(req.business)));
-  router.put(b('/salon/staff/:resourceId/commission-scheme'), context('commissions.edit'), async (req, res) => send(res, await round2.setScheme(req.business, req.user, req.params.resourceId, req.body)));
-  router.get(b('/salon/commission-statement'), context('commissions.view'), async (req, res) => send(res, await round2.statement(req.business, req.query)));
+  router.post(b('/salon/commission-plans'), context('commissions.edit'), async (req, res) => send(res, await backOffice.createCommissionPlan(req.business, req.user, req.body), 201));
+  router.patch(b('/salon/commission-plans/:planId'), context('commissions.edit'), async (req, res) => send(res, await backOffice.updateCommissionPlan(req.business, req.user, req.params.planId, req.body)));
+  router.get(b('/salon/commission-schemes'), context('commissions.view'), async (req, res) => send(res, await backOffice.schemes(req.business)));
+  router.put(b('/salon/staff/:resourceId/commission-scheme'), context('commissions.edit'), async (req, res) => send(res, await backOffice.setScheme(req.business, req.user, req.params.resourceId, req.body)));
+  router.get(b('/salon/commission-statement'), context('commissions.view'), async (req, res) => send(res, await backOffice.statement(req.business, req.query)));
 
   return router;
 };

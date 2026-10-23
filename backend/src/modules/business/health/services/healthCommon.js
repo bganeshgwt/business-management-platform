@@ -12,7 +12,7 @@ const userRepository = require('../../../access/repositories/user.repository');
 
 // What the pharmacy, clinic and lab services share: running numbers, the
 // settings row, the people who sign (pharmacist, doctor, pathologist) and
-// their PIN check, and prescription scans kept in private_uploads.
+// their PIN check, and prescription scans kept in the private uploads folder.
 
 const fail = (message, status = 400, details) => { throw new AppError(status, message, details); };
 const id = (value, name = 'Record ID') => v.requiredId(value, name);
@@ -179,7 +179,7 @@ async function saveSignatory(business, user, body) {
   });
 }
 
-// The registered person signs with their own PIN (My profile › PIN), checked
+// The registered person signs with their own PIN (My profile › Personal PIN), checked
 // before the posting's transaction so a PIN check holds no locks. Returns the
 // signatory row.
 async function verifySignature(business, kind, body, what) {
@@ -192,7 +192,7 @@ async function verifySignature(business, kind, body, what) {
   // Still a member with access to the business.
   try { await access.load({ id: signer.user_id }, business.id); } catch { fail(`${signer.name} no longer has access to this business`, 403, { reason: 'not_a_signatory' }); }
   const person = await repo.one(repo.pool, "SELECT id,name,pin_hash FROM users WHERE id=$1 AND status='active'", [signer.user_id]);
-  if (!person?.pin_hash) fail(`${signer.name} has not set a PIN yet (My profile › PIN).`, 409, { reason: 'no_pin' });
+  if (!person?.pin_hash) fail(`${signer.name} has not set a PIN yet (My profile › Personal PIN).`, 409, { reason: 'no_pin' });
   const slot = await userRepository.reservePinAttempt(person.id, config.accountLock);
   if (!slot.allowed) fail(`${signer.name}'s PIN is locked after too many wrong tries. Try again later.`, 423, { reason: 'pin_locked' });
   if (!(await bcrypt.compare(pin, person.pin_hash))) {
@@ -206,7 +206,8 @@ async function verifySignature(business, kind, body, what) {
 
 // --- Prescription scans (private) --------------------------------------------------------------
 
-const ROOT = path.join(__dirname, '..', '..', '..', '..', '..', 'private_uploads', 'health');
+// In health/<business>/ of the private uploads folder (PRIVATE_UPLOADS_DIR; config/env.js).
+const ROOT = path.join(config.privateUploadsDir, 'health');
 const MAX_BYTES = 5 * 1024 * 1024;
 const SIGNATURES = [
   { mime: 'image/jpeg', ext: 'jpg', bytes: [0xff, 0xd8, 0xff] },
@@ -275,4 +276,4 @@ function ageOn(patient, on) {
 }
 
 module.exports = { fail, id, optionalId, text, requestKey, hashOf, dateOnly, optionalDate, today, requireType, nextNumber, settings, getSettings, saveSettings, saveLocationLicences,
-  signatories, saveSignatory, verifySignature, uploadOne, addPrescriptionFile, openFile, ageOn, ROOT };
+  signatories, saveSignatory, verifySignature, uploadOne, addPrescriptionFile, openFile, ageOn };

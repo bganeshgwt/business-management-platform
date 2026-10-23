@@ -1,4 +1,4 @@
-// Captain sections (sweep SW-A-20): which captain has which floor, section
+// Captain sections: which captain has which floor, section
 // or table on a business date. Read by the floor plan and the POS ("My
 // tables") and the QR inbox (a table's call goes first to its captain).
 const AppError = require("../../../../utils/AppError");

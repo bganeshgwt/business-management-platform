@@ -21,7 +21,7 @@ const AppError = require("./AppError");
 //   Anything else ("call me", 12345, two numbers in one box) is not a mobile.
 //
 // The same rule is enforced by the database (chk_customers_mobile_format) and
-// mirrored for the screens in frontend/src/services/phone.js.
+// mirrored for the screens in apps/business-web/src/services/phone.js.
 
 const INDIAN = /^[6-9]\d{9}$/;
 // Never +91: an Indian mobile has exactly one form, its 10 digits. No country
@@ -101,8 +101,6 @@ const normaliseMobile = (value) => {
 
   return INDIAN.test(digits) ? digits : null;
 };
-
-const isValidMobile = (value) => normaliseMobile(value) !== null;
 
 // What is wrong with a number, in words a cashier can act on. null when it is
 // fine or blank.
@@ -262,7 +260,6 @@ const abroadTenCountry = (mobile) => {
 
 module.exports = {
   normaliseMobile,
-  isValidMobile,
   mobileProblem,
   readMobile,
   mobileSearchDigits,
@@ -270,7 +267,4 @@ module.exports = {
   formatMobile,
   tenDigitTwin,
   abroadTenCountry,
-  INDIAN_MOBILE: INDIAN,
-  INTERNATIONAL_MOBILE: INTERNATIONAL,
-  ABROAD_TEN_DIGITS: ABROAD_TEN,
 };

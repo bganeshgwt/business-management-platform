@@ -48,13 +48,13 @@ router.delete("/areas/:id", authorize("tables.manage"), resolveOutlet, tableCont
 // Floor settings (before "/:id", which would otherwise take "settings" as an id)
 router.get("/settings", authorize("tables.view"), tableController.getSettings);
 // What a printed QR code carries: the guest pages' web address, and the
-// restaurant's name and logo for the card (SW-A-14).
+// restaurant's name and logo for the card.
 router.get("/qr-settings", requireFeature("qr_ordering"), authorize("tables.view"), tableController.qrSettings);
 router.put("/settings", authorize("tables.manage"), resolveOutlet, tableController.updateSettings);
 
 // Tables
 // The floor plan follows the outlet the person works in (resolveOutlet).
-// Captain sections (SW-A-20): who has which floor, section or table on a
+// Captain sections: who has which floor, section or table on a
 // business date. Everyone on the floor reads the plan; managers make it.
 router.get("/sections", requireFeature("captain_sections"), authorize("tables.view"), resolveOutlet, captainSectionController.plan);
 router.put("/sections", requireFeature("captain_sections"), authorize("tables.manage"), resolveOutlet, captainSectionController.save);

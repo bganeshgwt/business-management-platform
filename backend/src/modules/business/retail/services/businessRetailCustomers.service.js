@@ -117,7 +117,7 @@ async function saveLoyaltyRules(business, user, body) {
     service.decimal(body.maxRedeemPercent, 'Most of a bill paid with points', 2, 1, 100), v.requiredBoolean(body.active, 'Active'),
   ];
   return repo.transaction(async (db) => {
-    // Round 2: points spent on a bill come back when its goods are returned
+    // Points spent on a bill come back when its goods are returned
     // (on by default); older clients send nothing and keep what is set.
     const before = await repo.one(db, 'SELECT return_spent_points FROM retail_loyalty_settings WHERE business_id=$1 FOR UPDATE', [business.id]);
     const giveBack = body.returnSpentPoints === undefined ? (before ? before.return_spent_points : true) : v.requiredBoolean(body.returnSpentPoints, 'Give back spent points on returns');
@@ -193,4 +193,4 @@ repo.addLists({
   },
 });
 
-module.exports = { udhaarBook, reminderList, customer, remind, statement, collect, loyaltyRules, saveLoyaltyRules, customerPoints, adjustPoints, requireLoyalty };
+module.exports = { udhaarBook, reminderList, customer, remind, statement, collect, loyaltyRules, saveLoyaltyRules, customerPoints, adjustPoints };

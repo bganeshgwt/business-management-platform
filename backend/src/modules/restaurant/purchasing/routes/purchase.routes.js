@@ -64,7 +64,7 @@ router.use(resolveOutlet);
 router.get("/receipts", authorize("purchasing.view"), purchaseController.listReceipts);
 router.post("/receipts", authorize("purchasing.receive"), purchaseController.createReceipt);
 router.get("/receipts/:receiptId", authorize("purchasing.view"), purchaseController.getReceipt);
-// The supplier's paper bill (SW-B-09): photos or PDFs, at most five, served
+// The supplier's paper bill: photos or PDFs, at most five, served
 // only through here. A voided bill keeps its files.
 const billFiles = require("../../expenses/controllers/attachment.controller").purchaseBill;
 const { uploadOne } = require("../../expenses/services/attachment.service");
@@ -91,7 +91,7 @@ router.post("/", authorize("purchasing.manage"), purchaseController.create);
 router.put("/:id", authorize("purchasing.manage"), purchaseController.update);
 router.patch("/:id/status", authorize("purchasing.manage"), purchaseController.changeStatus);
 
-// An order over the approval limit (Settings → Stock & purchasing) waits for
+// An order over the approval limit (Stock → Stock & purchasing settings) waits for
 // an approver: someone with "Approve purchase orders over the limit", or the
 // buyer with a manager's PIN, tied to this order and no more than its total.
 // Every other check comes first, so a PIN is never spent on a refused step.

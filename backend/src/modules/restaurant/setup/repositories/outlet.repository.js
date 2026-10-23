@@ -72,14 +72,6 @@ const update = async (restaurantId, id, data, userId) => {
   return result.rows[0] || null;
 };
 
-const countUsers = async (outletId) => {
-  const result = await pool.query("SELECT COUNT(*)::int AS count FROM users WHERE outlet_id = $1", [
-    outletId,
-  ]);
-
-  return result.rows[0].count;
-};
-
 // What still points at an outlet, in two kinds.
 //
 //   history  sales, stock and money already recorded there. It can never be
@@ -150,6 +142,20 @@ const usage = async (restaurantId, outletId) => {
   return { history, setup: listOf(SETUP), lastBillAt: row.last_bill_at };
 };
 
+// The numbers of the pre-orders still to be baked and handed over at an
+// outlet (booked, in production or ready), soonest due first. They are on
+// that outlet's bake list and on no other till's.
+const openPreorders = async (restaurantId, outletId) => {
+  const result = await pool.query(
+    `SELECT preorder_number FROM restaurant_preorders
+     WHERE restaurant_id = $1 AND outlet_id = $2 AND status IN ('booked', 'in_production', 'ready')
+     ORDER BY due_at, id`,
+    [restaurantId, outletId]
+  );
+
+  return result.rows.map((row) => row.preorder_number);
+};
+
 const remove = async (restaurantId, id) => {
   const result = await pool.query(
     "DELETE FROM outlets WHERE restaurant_id = $1 AND id = $2 RETURNING id",
@@ -164,7 +170,7 @@ module.exports = {
   findById,
   create,
   update,
-  countUsers,
   usage,
+  openPreorders,
   remove,
 };

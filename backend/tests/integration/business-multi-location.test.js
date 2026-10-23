@@ -4,9 +4,11 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+const { createBusinesses } = require('./helpers/businesses');
 const { withTools } = require('./helpers/tools');
+const { daysFrom } = require('./helpers/dates');
 
-// Multi-location for every business type (12 Oct 2026): a location's own
+// Multi-location for every business type: a location's own
 // address and GSTIN on its bills, staff tied to one location (they bill,
 // stock, report and manage people there only), the branch picked in the top
 // bar narrowing what a request leaves open, transfers received by the
@@ -29,7 +31,6 @@ test('multi-location: branch details, staff tied to a branch, top-bar branch, co
   process.env.DB_NAME = database;
   process.env.NODE_ENV = 'test';
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex');
-  process.env.MULTI_BUSINESS_DEVELOPMENT = 'true';
   process.env.LOGIN_ATTEMPT_LIMIT = '5000';
   const { runner } = await import('node-pg-migrate');
   await runner({ databaseUrl: { ...connection, database }, dir: path.resolve(__dirname, '../../migrations'), migrationsTable: 'pgmigrations', direction: 'up', count: Infinity, checkOrder: true, log() {} });
@@ -64,9 +65,7 @@ test('multi-location: branch details, staff tied to a branch, top-bar branch, co
   const { gstinCheckCharacter } = require('../../src/utils/gstin');
   const gstin = (first14) => first14 + gstinCheckCharacter(first14);
 
-  const demos = (await withTools(request, (await request('POST', '/businesses/development-demos', {}, 201)).businesses));
-  const shop = demos.find((b) => b.business_type === 'supermarket');
-  const pharmacy = demos.find((b) => b.business_type === 'pharmacy');
+  const [shop, pharmacy] = await withTools(request, await createBusinesses(request, 'OWNER', ['supermarket', 'pharmacy']));
   const S = (suffix) => `/businesses/${shop.id}/${suffix}`;
   const P = (suffix) => `/businesses/${pharmacy.id}/${suffix}`;
   const main = (await request('GET', S('locations'))).items[0];
@@ -160,6 +159,11 @@ test('multi-location: branch details, staff tied to a branch, top-bar branch, co
     await manager('POST', S('members'), { userId: people.newcomer.id, roleId: branchManagerRole.id, workLocationId: branch.id }, 201);
     const staff = await manager('GET', S('members'));
     assert.ok(staff.items.every((m) => m.location_id === branch.id));
+    // Of the branch's people they manage the newcomer, who has their role; not
+    // the cashier, whose role sees products and customers and theirs does not;
+    // nor themselves.
+    assert.deepEqual(Object.fromEntries(staff.items.map((m) => [m.id, m.manages])),
+      { [people.cashier.id]: false, [people.manager.id]: false, [people.newcomer.id]: true });
     // The owner's staff list shows everyone, with where each works.
     const all = await request('GET', S('members'));
     assert.equal(all.items.find((m) => m.id === people.cashier.id).location_name, 'Chennai Anna Salai');
@@ -233,7 +237,7 @@ test('multi-location: branch details, staff tied to a branch, top-bar branch, co
     const supplierP = await request('POST', P('contacts'), { kind: 'supplier', name: 'Medical agencies' }, 201);
     const pcm = await request('POST', P('catalog'), { kind: 'goods', unit: 'strip', tracking: 'batch', taxRateId: five.id, name: 'Paracetamol 650 strip', code: 'PCM', price: '30', hsnCode: '3004' }, 201);
     await request('PUT', P(`pharmacy/drugs/${pcm.id}`), { composition: 'Paracetamol', strength: '650 mg', schedule: 'none', unitsPerStrip: 15 });
-    const expiry = new Date(Date.now() + 400 * 86400000).toISOString().slice(0, 10);
+    const expiry = daysFrom(400);
     const licencesOn = async (location) => {
       await request('POST', P('documents'), { kind: 'purchase', requestKey: key(), locationId: location.id, contactId: supplierP.id,
         lines: [{ skuId: pcm.id, quantity: '10', unitPrice: '20', lotCode: `B${location.id}`, expiresOn: expiry }] }, 201);

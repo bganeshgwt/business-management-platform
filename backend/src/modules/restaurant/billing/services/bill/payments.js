@@ -112,7 +112,7 @@ const addPayment = async (restaurantId, billId, data, userId, ctx = {}) => {
   return getById(restaurantId, billId, ctx);
 };
 
-// --- Correcting how a payment was taken (SW-B-02) -------------------------------
+// --- Correcting how a payment was taken -----------------------------------------
 
 const CORRECTION_ERRORS = {
   NOT_FOUND: () => new AppError(404, "Bill not found"),

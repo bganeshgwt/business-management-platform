@@ -480,9 +480,8 @@ const bumpCounter = async (client, restaurantId, prefix) => {
   );
 };
 
-// `outletId` is kept in the signature for the callers; the series is the
-// prefix, whichever outlet prints it.
-const nextOrderNumber = async (client, restaurantId, prefix, outletId) => {
+// The series is the prefix, whichever outlet prints it.
+const nextOrderNumber = async (client, restaurantId, prefix) => {
   for (;;) {
     const result = await bumpCounter(client, restaurantId, prefix);
 
@@ -677,7 +676,7 @@ const create = async (restaurantId, data, userId) => {
       guest = await addGuest(client, restaurantId, data.newGuest, userId);
     }
 
-    const orderNumber = await nextOrderNumber(client, restaurantId, data.orderPrefix, data.outletId);
+    const orderNumber = await nextOrderNumber(client, restaurantId, data.orderPrefix);
     // A parcel's daily token, when the restaurant uses them (order.service).
     const tokenNo = data.withToken ? await nextToken(client, restaurantId, data.businessDayId) : null;
 
@@ -901,7 +900,7 @@ const editOrder = async (restaurantId, orderId, plan, userId) => {
     const locked = await client.query(
       `SELECT o.id, o.order_number, o.order_status, o.kitchen_status, o.outlet_id,
               o.business_day_id, o.table_id, o.order_type, o.notes, o.customer_name,
-              o.customer_mobile, o.customer_id, o.guest_count, o.channel_id,
+              o.customer_mobile, o.customer_id, o.guest_count, o.channel_id, o.brand_id,
               -- The guest book's name, which is what a screen shows for an
               -- order linked to a guest with no name of its own.
               (SELECT c.name FROM customers c WHERE c.id = o.customer_id) AS linked_customer_name,
@@ -2211,7 +2210,7 @@ const moveDishes = async (restaurantId, orderId, toTableId, plan, userId, option
       // wherever they were ordered (the captain's phone, a guest's QR): the
       // new order says so, so "who took it" and each captain's sales stay
       // right. Whoever moved them is in the order's history and the log.
-      const orderNumber = await nextOrderNumber(client, restaurantId, options.orderPrefix, source.outlet_id);
+      const orderNumber = await nextOrderNumber(client, restaurantId, options.orderPrefix);
       const inserted = await client.query(
         `INSERT INTO orders (restaurant_id, outlet_id, business_day_id, order_number, order_type,
                              source, table_id, guest_count, subtotal, tax_amount, total_amount,
@@ -2390,7 +2389,7 @@ const findMoves = async (restaurantId, orderId) => {
   return result.rows;
 };
 
-// A regular guest's last few orders, for "Repeat" at the till (SW-A-18):
+// A regular guest's last few orders, for "Repeat" at the till:
 // what they had (dish, size, add-ons, how many, the note), newest first.
 // Called-off orders and dishes taken off are left out; prices are not
 // read — a repeat is charged at today's prices.
@@ -2428,7 +2427,6 @@ module.exports = {
   markCollected,
   findAll,
   findById,
-  findRunningOnTable,
   create,
   editOrder,
   cancel,

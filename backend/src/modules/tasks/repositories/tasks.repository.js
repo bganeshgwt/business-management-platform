@@ -38,7 +38,7 @@ async function audit(db, scope, action, entityId, details = {}) {
   if (scope.world === "restaurant") await restaurantAudit(db, scope, action, entityId, details);
 }
 
-// A restaurant reads its activity log from audit_logs (round 2, R2-WS): the
+// A restaurant reads its activity log from audit_logs: the
 // same action is written there too, in that log's shape ("task.completed" →
 // action "completed", entity "task", labelled with the task's title), inside
 // the same transaction. A savepoint keeps a failure here from undoing the

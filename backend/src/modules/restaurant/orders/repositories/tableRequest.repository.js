@@ -117,7 +117,7 @@ const findDayWindow = async (restaurantId, outletId = null) => {
 // midnight for a place with no day open. The whole restaurant's "today" is
 // every place's own today put together:
 //   - a branch opening its day mid-service does not restart the
-//     restaurant's "today" and drop what was already answered (RG-S-03);
+//     restaurant's "today" and drop what was already answered;
 //   - a branch day left open for three days stretches only that branch's
 //     "today", not everyone's. Taking the earliest open day of any branch
 //     for the whole restaurant made every table's list and counts reach back
@@ -247,7 +247,8 @@ const findComboParts = async (restaurantId) => {
 };
 
 // Every timed price running right now, for the whole menu in one read. The
-// rules are the order service's (see priceWindow.repository findActivePrice):
+// rules are the order service's (see priceWindow.repository LIVE_PRICES_SQL
+// and findActivePrices):
 // the restaurant's local clock, windows that run past midnight, a size-specific
 // price beating a whole-dish one, then priority, then the newer window. Which
 // row wins for which dish is settled by the service from these rows.
@@ -599,7 +600,7 @@ const STAFF_COLUMNS = `r.id, r.table_id, r.outlet_id, r.request_type, r.status, 
             COALESCE(items.list, '[]') AS items`;
 
 // Joined once for the list and once for a single request, so both describe a
-// request the same way. A website order has no table (SW-A-22), so the table
+// request the same way. A website order has no table, so the table
 // is a LEFT JOIN; it names the selling point it was sent to instead.
 const STAFF_JOINS = `
      LEFT JOIN dining_tables t ON t.id = r.table_id
@@ -958,7 +959,6 @@ const findEarlierWaiting = async (restaurantId, outletId = null, channels = ["qr
 
 module.exports = {
   findEarlierWaiting,
-  OPEN_STATUSES,
   // "Today" for each request, for the bell (notifications/providers).
   TODAY_FROM,
   DAY_START,

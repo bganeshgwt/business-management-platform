@@ -306,4 +306,4 @@ async function fromLogbook(scope, entryId, body = {}) {
   return detail(scope, created.id);
 }
 
-module.exports = { list, detail, load, rights, create, update, setStatus, convert, comment, remove, fromLogbook, raiseFromItem, visibleSql, shape };
+module.exports = { list, detail, load, create, update, setStatus, convert, comment, remove, fromLogbook, raiseFromItem, visibleSql };

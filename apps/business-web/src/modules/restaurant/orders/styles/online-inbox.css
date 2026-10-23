@@ -1,0 +1,82 @@
+/* Online orders in the Table requests inbox: the card of an order
+   from the restaurant's own ordering page — no table number, but a service
+   badge, the delivery address and how the guest pays. The rest of the card
+   is the inbox's own (table-requests.css). */
+
+.tr-table-badge.oi-badge {
+  background: var(--tr-info-bg, var(--primary-soft));
+  color: var(--tr-info, var(--primary));
+}
+
+.tr-table-badge.oi-badge.is-delivery {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.tr-card.is-closed .tr-table-badge.oi-badge {
+  background: var(--chip-bg);
+  color: var(--muted);
+}
+
+.oi-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.oi-address {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.oi-address .icon,
+.oi-address svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--muted);
+}
+
+.oi-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+}
+
+.oi-tag {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--chip-bg);
+  color: var(--text);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.oi-tag.is-channel {
+  background: color-mix(in srgb, #7c3aed 14%, var(--surface));
+  color: #6d28d9;
+}
+
+.oi-tag.is-delivery {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.oi-tag.is-takeaway {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+@media (prefers-color-scheme: dark) {
+  .oi-tag.is-channel {
+    color: #c4b5fd;
+  }
+}

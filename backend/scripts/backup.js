@@ -34,12 +34,14 @@ async function main() {
   const archive = path.join(folder,"database.dump");
   const connection = ["--host",config.db.host,"--port",String(config.db.port),"--username",config.db.user,"--no-password"];
   run("pg_dump",[...connection,"--format=custom","--file",archive,"--dbname",config.db.database]);
-  // Public uploads (logos, menu photos) and private ones (bills attached to
-  // expenses and purchase bills, served only through the API) both belong to
-  // the data: a restore without them would lose every attached bill.
-  const uploads = path.resolve(__dirname,"../uploads");
+  // Public uploads (menu photos) and private ones (bills attached to
+  // expenses and purchase bills, prescription scans, task photos, served only
+  // through the API) both belong to the data: a restore without them would
+  // lose every attached bill. Taken from wherever UPLOADS_DIR and
+  // PRIVATE_UPLOADS_DIR put them (config/env.js).
+  const uploads = config.uploadsDir;
   if (fs.existsSync(uploads)) fs.cpSync(uploads,path.join(folder,"uploads"),{recursive:true});
-  const privateUploads = path.resolve(__dirname,"../private_uploads");
+  const privateUploads = config.privateUploadsDir;
   if (fs.existsSync(privateUploads)) fs.cpSync(privateUploads,path.join(folder,"private_uploads"),{recursive:true});
   const manifest = { database:config.db.database,createdAt:new Date().toISOString(),uploadsIncluded:fs.existsSync(uploads),privateUploadsIncluded:fs.existsSync(privateUploads),restoreVerified:false };
   fs.writeFileSync(path.join(folder,"manifest.json"),JSON.stringify(manifest,null,2)+"\n");

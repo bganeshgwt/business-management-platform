@@ -16,7 +16,7 @@ router.put("/tokens", authorize("orders.manage"), controller.updateTokens);
 router.put("/pos", authorize("orders.manage"), controller.updatePos);
 // The web address table QR codes open: part of setting up the tables.
 router.put("/guest-web-address", authorize("tables.manage"), controller.updateWebAddress);
-// The restaurant's own online ordering page (SW-A-22): one link per selling
+// The restaurant's own online ordering page: one link per selling
 // point. Anyone at the front of house may see and copy a link; opening a
 // public channel, its limits and replacing its address is a manager's call,
 // as switching QR ordering is (orders.manage).

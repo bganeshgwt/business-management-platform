@@ -4,9 +4,6 @@ const { round2 } = require("../../../../utils/money");
 const kitchenSlipRepository = require("./kitchenSlip.repository");
 const { todayStartsSql } = require("../../orders/repositories/tradingClock");
 
-// Tickets still in the kitchen. "served" and "cancelled" have left the board.
-const OPEN_STATUSES = ["new", "cooking", "ready"];
-
 // Dine-in and QR guests eat at the table: once their order is paid, whatever
 // the kitchen never saw has long since been served. Takeaway and delivery are
 // often paid at the counter before a pan is lit, so a paid one still cooks —
@@ -24,10 +21,6 @@ const VOID_VISIBLE_FOR = "5 minutes";
 // Without a limit, such tickets sit on the board as "new" for ever, and the
 // oldest-waiting figure and the bell count them as the kitchen running late.
 const CLOSED_ORDER_GRACE = "2 hours";
-
-// The shortest age a manager can clear tickets at. Anything younger may well
-// still be cooking.
-const CLEAR_MIN_MINUTES = 60;
 
 // Which open tickets are really still in the kitchen, as SQL over `k` (kots)
 // and `o` (its order) at the moment `now` (a timestamptz expression). These
@@ -80,7 +73,7 @@ const ensureSettings = async (db, restaurantId) => {
 const findSettings = (restaurantId) => ensureSettings(pool, restaurantId);
 
 // A field left out (undefined) keeps what is saved: the timers (with the
-// pass time) and the kitchen-name choice (SW-A-12) are saved from separate
+// pass time) and the kitchen-name choice are saved from separate
 // cards.
 const updateSettings = async (restaurantId, data, userId) => {
   await ensureSettings(pool, restaurantId);
@@ -588,7 +581,7 @@ const loadOrderItems = async (db, orderIds) => {
             oi.variant_name, oi.quantity, oi.notes, oi.item_status, oi.created_at, oi.course_no,
             oi.fire_status, oi.fired_at, oi.created_by, oi.fired_by,
             p.category_id, p.food_type, p.is_combo,
-            -- SW-A-12: the kitchen names the ticket is cut with.
+            -- The kitchen names the ticket is cut with.
             p.kitchen_name, pv.kitchen_name AS variant_kitchen_name,
             COALESCE(
               JSON_AGG(JSON_BUILD_OBJECT('id', m.modifier_id, 'name', m.modifier_name,
@@ -699,7 +692,7 @@ const recomputeStatuses = async (db, orderIds, userId = null) => {
 // order, so an edit can never land half way through.
 //
 // options.orderIds works on just those orders, and ignores the go-live cut-off
-// — used when a till asks for one order's tickets, and by the seed.
+// — used when a till asks for one order's tickets.
 const sync = async (restaurantId, options = {}) =>
   withTransaction(async (client) => {
     const settings = await ensureSettings(client, restaurantId);
@@ -1021,7 +1014,7 @@ const TICKET_SELECT = `
          -- Who sent THIS round: a later round may be added by another
          -- captain, or a held course fired by the manager.
          sender.name AS sent_by_name, k.sent_by, k.outlet_id,
-         -- SW-A-12: menu, kitchen or both names on the ticket. On every ticket
+         -- Menu, kitchen or both names on the ticket. On every ticket
          -- (not only the board) so a till printing a KOT follows it too.
          COALESCE(ks.kitchen_name_mode, 'both') AS kitchen_name_mode
   FROM kots k
@@ -1189,7 +1182,7 @@ const orderExists = async (restaurantId, orderId, outletId = null) => {
 // The business days "today" means: the open one(s), or the last one if the
 // restaurant is closed right now, so the figures do not go blank at close.
 // The business day (or days) the kitchen's figures count. A screen on one
-// outlet reads that outlet's own day (REQ-RC-WALK-08): a branch trading its
+// outlet reads that outlet's own day: a branch trading its
 // 6 Oct must not show the main counter's 5 Oct, nor count its tickets. With
 // "All outlets" every open day counts, and the date shown is the main
 // counter's. With nothing open, the last day there was.
@@ -1486,21 +1479,6 @@ const setItemDone = async (restaurantId, kotId, itemId, done, userId) =>
     return { ticket: await findTicketById(restaurantId, kotId, client) };
   });
 
-// How many open tickets a manager's "Clear old tickets" would take off.
-const countOld = async (restaurantId, { olderThanMinutes, stationId, outletId }) => {
-  const result = await pool.query(
-    `SELECT COUNT(*)::int AS count
-     FROM kots
-     WHERE restaurant_id = $1 AND kot_status IN ('new', 'cooking', 'ready')
-       AND created_at < NOW() - make_interval(mins => $2)
-       AND ($3::bigint IS NULL OR station_id = $3)
-       AND ($4::bigint IS NULL OR outlet_id = $4)`,
-    [restaurantId, olderThanMinutes, stationId || null, outletId || null]
-  );
-
-  return result.rows[0].count;
-};
-
 // A manager's end-of-rush tidy: open tickets older than this were almost
 // certainly served without anyone pressing Served. They leave the board as
 // cleared (not served by anyone), so they are not timed or offered for
@@ -1765,18 +1743,12 @@ const findPrintSettings = async (restaurantId) => {
 
 module.exports = {
   findEarlierOpen,
-  OPEN_STATUSES,
-  CLOSED_ORDER_GRACE,
-  CLEAR_MIN_MINUTES,
   stillInKitchenSql,
   findSettings,
   updateSettings,
   ensureDefault: (restaurantId) => ensureDefaultStation(pool, restaurantId),
   sync,
-  planOrder,
-  itemStatuses,
   lineKey,
-  countOld,
   clearOld,
   findOpenTickets,
   findRecentlyServed,

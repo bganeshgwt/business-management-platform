@@ -1,25 +1,24 @@
-// Reports, day-end and dashboard (job R5, 6 Oct 2026), end to end on a
-// throwaway database.
+// Reports, day-end and dashboard, end to end on a throwaway database.
 //
 // What it keeps true:
-//   REQ-DASH-LOAD   the dashboard answer is kept for a few seconds and thrown
-//                   away the moment money moves (no stale takings after a
-//                   payment); the one live request answers exactly the blocks
-//                   each person may read, the same as the blocks' own routes;
-//                   another restaurant reads only its own.
-//   REQ-DASH-DUES   bills put on a guest's account are not "unpaid".
-//   REQ-ACCESS-DAYEND-TIPS  tips by method on the day-end sheet; cash tips in
-//                   the drawer's expected cash, never in the sales.
-//   SW-X-RIDER-DRAWER  a rider's cash and shortfall reach the drawer and the
-//                   day-end, to the paisa; what riders still owe is said.
-//   SW-B-07         closing the day never erases the opening note.
-//   SW-B-15/16      dish profitability ties to the stock its bills took; the
-//                   items report lists add-ons sold.
-//   R4 hand-offs    cash advances in the drawer; advances and payment types
-//                   in the day book; payment corrections in theft control;
-//                   GSTR-1 11A/11B; sales by payment type.
-//   SW-B-09         the paper bill on an expense or a purchase bill: private,
-//                   five at most, right type and size, removal logged.
+//   - the dashboard answer is kept for a few seconds and thrown
+//     away the moment money moves (no stale takings after a
+//     payment); the one live request answers exactly the blocks
+//     each person may read, the same as the blocks' own routes;
+//     another restaurant reads only its own.
+//   - bills put on a guest's account are not "unpaid".
+//   - tips by method on the day-end sheet; cash tips in
+//     the drawer's expected cash, never in the sales.
+//   - a rider's cash and shortfall reach the drawer and the
+//     day-end, to the paisa; what riders still owe is said.
+//   - closing the day never erases the opening note.
+//   - dish profitability ties to the stock its bills took; the
+//     items report lists add-ons sold.
+//   - cash advances in the drawer; advances and payment types
+//     in the day book; payment corrections in theft control;
+//     GSTR-1 11A/11B; sales by payment type.
+//   - the paper bill on an expense or a purchase bill: private,
+//     five at most, right type and size, removal logged.
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
@@ -140,7 +139,7 @@ test("reports, day-end and dashboard", { timeout: 600000 }, async (t) => {
 
   const day = await O("POST", "/business-day/open", { openingCash: 2000, notes: "Float has ₹500 in coins" }, 201);
   const floor = await O("POST", "/tables/floors", { name: "Ground" }, 201);
-  const table = await O("POST", "/tables", { floorId: floor.id, tableNo: "T1", capacity: 4 }, 201);
+  await O("POST", "/tables", { floorId: floor.id, tableNo: "T1", capacity: 4 }, 201);
 
   const order = async (items, extra = {}) =>
     request("POST", "/orders", { orderType: "takeaway", ...extra, items }, 201, owner).then((placed) => placed.order || placed);
@@ -148,7 +147,7 @@ test("reports, day-end and dashboard", { timeout: 600000 }, async (t) => {
   const pay = async (bill, method = "cash", extra = {}) =>
     O("POST", `/bills/${bill.id}/payments`, { paymentMethod: method, amount: bill.dueAmount, ...extra }, 201);
 
-  await t.test("REQ-DASH-LOAD the dashboard is kept, and thrown away the moment money moves", async () => {
+  await t.test("the dashboard is kept, and thrown away the moment money moves", async () => {
     const first = await O("GET", "/reports/dashboard");
     // Changed behind the API's back: a kept answer does not see it…
     await pool.query("UPDATE business_days SET opening_cash = opening_cash + 100 WHERE id = $1", [day.id]);
@@ -167,7 +166,7 @@ test("reports, day-end and dashboard", { timeout: 600000 }, async (t) => {
     await O("POST", "/expenses/categories", { name: "Kept-cache nudge" }, 201);
   });
 
-  await t.test("REQ-DASH-LOAD one live request answers exactly the blocks a person may read", async () => {
+  await t.test("one live request answers exactly the blocks a person may read", async () => {
     const live = await O("GET", "/reports/dashboard/live");
     const tables = await O("GET", "/tables");
     assert.deepEqual(live.blocks.tables.data, tables, "the same answer as the block's own route");
@@ -194,7 +193,7 @@ test("reports, day-end and dashboard", { timeout: 600000 }, async (t) => {
     assert.equal(otherDash.billCount, 0, "nor our bills");
   });
 
-  await t.test("REQ-DASH-DUES a bill on a guest's account is not an unpaid bill", async () => {
+  await t.test("a bill on a guest's account is not an unpaid bill", async () => {
     const before = await O("GET", "/reports/dashboard");
     const guest = await O("POST", "/crm/customers", { name: "Company Guest", mobile: "9876500091" }, 201);
     const bill = await raise((await order([{ productId: roti.id, quantity: 1 }])).id);
@@ -206,7 +205,7 @@ test("reports, day-end and dashboard", { timeout: 600000 }, async (t) => {
     assert.equal(after.onAccount.due, Number((before.onAccount.due + bill.totalAmount).toFixed(2)));
   });
 
-  await t.test("REQ-ACCESS-DAYEND-TIPS tips by method; cash tips in the drawer, never in sales", async () => {
+  await t.test("tips by method; cash tips in the drawer, never in sales", async () => {
     const before = await O("GET", "/reports/day-end");
     const b1 = await raise((await order([{ productId: roti.id, quantity: 3 }])).id);
     await pay(b1, "cash", { tipAmount: 20, tenderedAmount: b1.dueAmount + 20 });
@@ -226,7 +225,7 @@ test("reports, day-end and dashboard", { timeout: 600000 }, async (t) => {
     assert.equal(preview.figures.dayExpected, after.expectedCash, "the close and the day-end agree to the paisa");
   });
 
-  await t.test("SW-X-RIDER-DRAWER a rider's cash and shortfall reach the drawer and the day-end", async () => {
+  await t.test("a rider's cash and shortfall reach the drawer and the day-end", async () => {
     const rider = await one("INSERT INTO employees (restaurant_id, name, department) VALUES ($1, 'Ravi', 'delivery') RETURNING id", [rid]);
     const bills = [];
     for (const quantity of [2, 3]) {
@@ -265,7 +264,7 @@ test("reports, day-end and dashboard", { timeout: 600000 }, async (t) => {
     assert.equal(close.figures.dayExpected, repaid.expectedCash);
   });
 
-  await t.test("SW-B-15/16 dish profitability ties to the stock its bills took; add-ons sold are listed", async () => {
+  await t.test("dish profitability ties to the stock its bills took; add-ons sold are listed", async () => {
     const placed = await order([
       { productId: paneer.id, quantity: 2, modifierIds: [cheese.id, freeDip.id] },
       { productId: roti.id, quantity: 2 },
@@ -299,7 +298,7 @@ test("reports, day-end and dashboard", { timeout: 600000 }, async (t) => {
     assert.equal(byName["Mint dip"].free, true);
   });
 
-  await t.test("SW-B-09 the paper bill on an expense and a purchase bill is private, limited and logged", async () => {
+  await t.test("the paper bill on an expense and a purchase bill is private, limited and logged", async () => {
     const categories = await O("GET", "/expenses/categories");
     const expense = await O("POST", "/expenses", { expenseCategoryId: categories[0].id, amount: 450, paymentMode: "upi", notes: "Plumber" }, 201);
     const png = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
@@ -333,8 +332,14 @@ test("reports, day-end and dashboard", { timeout: 600000 }, async (t) => {
     assert.match(sixth.message, /5 files/);
 
     await O("DELETE", `/expenses/${expense.id}/attachments/${added.id}`);
-    const log = await one("SELECT COUNT(*)::int AS n FROM audit_logs WHERE restaurant_id = $1 AND action = 'remove_attachment' AND entity_type = 'expense'", [rid]);
-    assert.equal(log.n, 1, "removing a file is logged");
+    // The activity log is written after the answer (best-effort, never in the
+    // way of the action): under load the row can land a moment later.
+    let logged = 0;
+    for (let tries = 0; tries < 50 && !logged; tries += 1) {
+      logged = (await one("SELECT COUNT(*)::int AS n FROM audit_logs WHERE restaurant_id = $1 AND action = 'remove_attachment' AND entity_type = 'expense'", [rid])).n;
+      if (!logged) await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    assert.equal(logged, 1, "removing a file is logged");
     assert.equal((await O("GET", `/expenses/${expense.id}/attachments`)).length, 4);
 
     const supplier = await O("POST", "/suppliers", { name: "Veg Vendor" }, 201);
@@ -351,7 +356,7 @@ test("reports, day-end and dashboard", { timeout: 600000 }, async (t) => {
     await request("GET", `/purchase-orders/receipts/${billId}/attachments`, undefined, 404, foreign);
   });
 
-  await t.test("R4-DRAWER-ADVANCES cash advances in and out reach the drawer; paying from an advance is not new cash", async () => {
+  await t.test("cash advances in and out reach the drawer; paying from an advance is not new cash", async () => {
     const guest = await O("POST", "/crm/customers", { name: "Party Host", mobile: "9876500071" }, 201);
     const before = await O("GET", "/reports/day-end");
     const advance = await O("POST", "/bills/advances", { customerId: guest.id, amount: 500, paymentMethod: "cash", purpose: "Birthday party" }, 201);
@@ -375,7 +380,7 @@ test("reports, day-end and dashboard", { timeout: 600000 }, async (t) => {
     assert.ok(received && received.entries.some((e) => e.ledger === "Cash" && e.debit > 0));
   });
 
-  await t.test("R4 payment types, corrections, delivery charges and 11A in the reports", async () => {
+  await t.test("payment types, corrections, delivery charges and 11A in the reports", async () => {
     const type = await O("POST", "/restaurants/current/payment-types", { paymentMethod: "other", name: "Pluxee" }, 201);
     const typeId = (type.paymentType || type).id;
     const bill = await raise((await order([{ productId: roti.id, quantity: 5 }])).id);
@@ -411,7 +416,7 @@ test("reports, day-end and dashboard", { timeout: 600000 }, async (t) => {
     assert.equal(theirs.summary.corrections.count, 0, "another restaurant sees none of our corrections");
   });
 
-  await t.test("SW-B-07 closing the day keeps the opening note beside the closing one", async () => {
+  await t.test("closing the day keeps the opening note beside the closing one", async () => {
     const preview = await O("GET", "/business-day/close-preview");
     await O("POST", "/business-day/close", { closingCash: preview.figures.inDrawer, carryUnpaid: true, notes: "All good, AC fixed" });
     const status = await O("GET", "/business-day");

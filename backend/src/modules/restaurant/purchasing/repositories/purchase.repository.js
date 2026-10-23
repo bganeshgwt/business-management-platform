@@ -226,7 +226,7 @@ const updateDraft = async (restaurantId, id, data, userId) => {
   }
 };
 
-// --- Approval of orders over the limit (Settings → Stock & purchasing) ---
+// --- Approval of orders over the limit (Stock → Stock & purchasing settings) ---
 //
 // Each step moves the order only from the status it is expected to be in, so
 // two approvers pressing at the same moment move it once; the second is told

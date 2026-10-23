@@ -10,6 +10,8 @@ const { pool } = timeclockRepository;
 
 // Five wrong PINs inside fifteen minutes locks that person's PIN for fifteen
 // minutes. Enough for honest fat fingers, far too few to guess 10,000 PINs.
+// The PIN lockout stays fixed: it is a guard against guessing PINs, not a
+// house rule.
 const PIN_MAX_ATTEMPTS = 5;
 const PIN_WINDOW_MINUTES = 15;
 const PIN_LOCK_MINUTES = 15;
@@ -20,19 +22,6 @@ const PIN_ROUNDS = 10;
 // overtime) is about 14 hours, so 16 leaves room without keeping a forgotten
 // clock-in "on duty" into the next day.
 const STALE_HOURS = 16;
-
-// The two rules below are the restaurant's own (Settings -> Alerts and
-// timings, read per call); these are what it starts at. The PIN lockout above
-// stays fixed: it is a guard against guessing PINs, not a house rule.
-//
-// The clock opens an hour before someone's rostered start. Earlier than that
-// is paid time nobody agreed to; a manager can still add the punch when they
-// did ask someone to come in early.
-const EARLY_CLOCK_IN_MINUTES = ruleSettings.DEFAULTS.timeclockEarlyMinutes;
-
-// Five minutes wiping down the station after the shift is not overtime. Staying
-// a quarter of an hour or more past the end is, and then all of it counts.
-const OVERTIME_THRESHOLD_MINUTES = ruleSettings.DEFAULTS.timeclockOvertimeMinutes;
 
 // Days that are looked back over for forgotten clock-outs.
 const OPEN_DAY_LOOKBACK = 7;
@@ -208,8 +197,8 @@ const shiftWindow = (workDate, roster, timezone) => {
 
 // Walks one person's punches for one work date, in order, and works out the
 // day: when they came and went, time on and off the clock, lateness and
-// overtime. It is the single source of those numbers — the kiosk, the board,
-// the attendance row and the seed all go through here.
+// overtime. It is the single source of those numbers — the kiosk, the board
+// and the attendance row all go through here.
 //
 //   worked   = (check-out - check-in) - breaks
 //   breaks   = every stretch off the clock between the first clock-in and the
@@ -782,6 +771,10 @@ const shiftForNow = async (db, restaurantId, employeeId, current, now, timezone)
 
 // When it is too early to clock in for this shift, the time the clock opens;
 // otherwise null. A second stint on a day already started is never early.
+// How far ahead of the rostered start the clock opens is the restaurant's own
+// (Settings -> Alerts and timings; an hour unless changed). Earlier than that
+// is paid time nobody agreed to; a manager can still add the punch when they
+// did ask someone to come in early.
 const clockInOpensAt = async (db, restaurantId, employeeId, window, now) => {
   if (!window) {
     return null;
@@ -1829,14 +1822,8 @@ module.exports = {
   getSettings,
   saveSettings,
   getPhoto,
-  purgeOldPhotos,
   sweepOldPhotos,
   ACTIONS,
-  EARLY_CLOCK_IN_MINUTES,
-  OVERTIME_THRESHOLD_MINUTES,
-  PIN_MAX_ATTEMPTS,
-  PIN_WINDOW_MINUTES,
-  PIN_LOCK_MINUTES,
   STALE_HOURS,
   verify,
   punch,
@@ -1849,8 +1836,7 @@ module.exports = {
   setPin,
   removePin,
   unlockPin,
-  // Pure helpers, shared with the notification provider, the seed and tests.
-  summarise,
+  // Pure helpers, shared with the notification provider and other modules.
   shiftWindow,
   zonedInstant,
   localDate,

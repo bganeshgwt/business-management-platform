@@ -18,22 +18,6 @@ const { completeContext } = require("..");
 const { VOIDED_BILL_OF_REMOVAL, DRAWER_EXPECTED } = require("../../modules/restaurant/reports/repositories/report.repository");
 const ruleSettings = require("../../modules/restaurant/setup/services/ruleSettings.service");
 
-// The lines below are the restaurant's own (Settings -> Alerts and timings);
-// these are what a restaurant that never changed them gets.
-//
-// A discount is "large" at a fifth of the bill, or ₹1,000 on any bill — the
-// same line the theft-control report draws by default.
-const LARGE_DISCOUNT_PERCENT = ruleSettings.DEFAULTS.alertLargeDiscountPercent;
-const LARGE_DISCOUNT_AMOUNT = ruleSettings.DEFAULTS.alertLargeDiscountAmount;
-// Half the bill given away is a warning, not just worth knowing.
-const HUGE_DISCOUNT_PERCENT = ruleSettings.DEFAULTS.alertHugeDiscountPercent;
-// One reprint is a guest asking for a copy. A third print is worth a look.
-const REPRINT_ALERT_PRINTS = ruleSettings.DEFAULTS.alertReprintCount;
-// A drawer a few rupees out is loose change; past the restaurant's cash
-// difference limit (the line past which a count needs a reason) it is a
-// question, and past the critical line an alarm.
-const CASH_SHORT_WARNING = 100;
-const CASH_SHORT_CRITICAL = ruleSettings.DEFAULTS.alertCashShortCritical;
 // Last night's closed day stays in view until the next day is well under way.
 const RECENT_CLOSE_HOURS = 18;
 // Past this many of one kind, the rest are one summary line.
@@ -91,7 +75,11 @@ const nameOrSummarise = (alerts, summary) => {
 };
 
 async function collectAlerts({ restaurantId, businessDate, timezone, now, pool, money }) {
-  // One read of the restaurant's own lines, for every check below.
+  // One read of the restaurant's own lines (Settings -> Alerts and timings),
+  // for every check below. Until it sets its own, a discount is "large" at a
+  // fifth of the bill or ₹1,000 on any bill, the same line the theft-control
+  // report draws; and one reprint is a guest asking for a copy, while a third
+  // print is worth a look.
   const rules = await ruleSettings.load(restaurantId, pool);
   const largePercent = rules.alertLargeDiscountPercent;
   const largeAmount = rules.alertLargeDiscountAmount;
@@ -263,6 +251,8 @@ async function collectAlerts({ restaurantId, businessDate, timezone, now, pool, 
     )
     .map(({ row, percent }) => ({
       id: `theft:discount:${row.id}`,
+      // Half the bill given away (the default line) is a warning, not just
+      // worth knowing.
       severity: percent >= rules.alertHugeDiscountPercent ? "warning" : "info",
       title: `${percent}% off ${row.bill_number} — ${money(row.discount)} discount`,
       detail: [row.cashier && `billed by ${row.cashier}`, row.discount_code ? `code ${row.discount_code}` : "no coupon code"]
@@ -329,6 +319,9 @@ async function collectAlerts({ restaurantId, businessDate, timezone, now, pool, 
   });
 
   // --- Cash short at close ----------------------------------------------
+  // A drawer a few rupees out is loose change; past the restaurant's cash
+  // difference limit (the line past which a count needs a reason) it is a
+  // question, and past the critical line an alarm.
   const shortAlerts = closes.rows
     .map((row) => ({ row, short: Number(row.expected_cash) - Number(row.closing_cash) }))
     .filter(({ short }) => short > 0 && short >= rules.cashShortWarning)
@@ -407,15 +400,4 @@ module.exports = {
   permission: "audit.view",
 
   collect: (context) => collectAlerts(completeContext(context)),
-
-  // The lines a restaurant gets until it sets its own (exported for tests;
-  // the registry only calls collect()).
-  thresholds: {
-    LARGE_DISCOUNT_PERCENT,
-    LARGE_DISCOUNT_AMOUNT,
-    REPRINT_ALERT_PRINTS,
-    CASH_SHORT_WARNING,
-    CASH_SHORT_CRITICAL,
-    NAMED_LIMIT,
-  },
 };

@@ -8,9 +8,9 @@ const core = require('../../core/services/business.service');
 const { applyAdjustment, lockLot } = require('../../core/services/businessReturns.service');
 const { split } = require('../../retail/services/businessOffers');
 
-// Meat, seafood and other weight-based shops (Phase 2, T4): cutting /
+// Meat, seafood and other weight-based shops: cutting /
 // processing with yield, yield templates, daily wastage, stock by weight and
-// the yield and wastage reports. See "Weight-based retail" in
+// the yield and wastage reports. See "Weight-based shops" in
 // docs/BUSINESS_PLATFORM_DATA_MODEL.md.
 //
 // When stock moves: a cutting batch takes the input weight out of its lot
@@ -178,7 +178,7 @@ async function processBatch(business, user, body) {
   const list = v.requiredArray(body.outputs, 'Cuts');
   if (!list.length || list.length > 20) fail('Record between 1 and 20 cuts');
   const notes = v.optionalString(body.notes, 'Notes', 500);
-  // Pro pass F-19: who cut it (the yield report compares cutters).
+  // Who cut it (the yield report compares cutters).
   const cutBy = v.optionalString(body.cutBy, 'Cut by', 100);
   const cutToOrder = v.requiredBoolean(body.cutToOrder, 'Cut to order', false);
   return repo.transaction(async (db) => {
@@ -216,7 +216,7 @@ async function processBatch(business, user, body) {
       let kgMilli;
       if (sku.unit_kind === 'weight') kgMilli = toKgMilli(quantityMilli, kgFactor(sku));
       else {
-        // Pro pass F-23: repacking into pouches sold by the piece (a 250 g pack = 0.25 kg each).
+        // Repacking into pouches sold by the piece (a 250 g pack = 0.25 kg each).
         const remembered = await repo.one(db, 'SELECT pack_kg FROM weight_pack_sizes WHERE business_id=$1 AND sku_id=$2', [business.id, sku.id]);
         const packKg = entry.packKg === undefined || entry.packKg === null || entry.packKg === '' ? remembered?.pack_kg : core.decimal(entry.packKg, `Weight of one ${sku.label}`, 3, 0.001, 1000);
         if (!packKg) fail(`Say how much one ${sku.label} weighs (pack weight in kg)`);
@@ -344,7 +344,7 @@ function period(query) {
 }
 // The supplier of a batch's whole item: kept on the batch when it was cut,
 // otherwise (batches cut before that was kept) the purchase that brought its
-// input batch in (round 2).
+// input batch in.
 const SUPPLIER = (pb) => `COALESCE(${pb}.supplier_id,(SELECT d.contact_id FROM business_stock_movements m JOIN business_documents d ON d.business_id=m.business_id AND d.id=m.document_id
   WHERE m.business_id=${pb}.business_id AND m.lot_id=${pb}.input_lot_id AND d.kind='purchase' AND d.contact_id IS NOT NULL ORDER BY m.id DESC LIMIT 1))`;
 const IN_PERIOD = (alias) => `${alias}.business_id=$1 AND (${alias}.created_at AT TIME ZONE b.timezone)::date BETWEEN $2::date AND $3::date AND ($4::bigint IS NULL OR ${alias}.location_id=$4)`;
@@ -354,7 +354,7 @@ async function yieldReport(business, query) {
   await access.require(business, 'reports.view');
   await access.require(business, 'processing.view');
   const { from, to, location } = period(query);
-  // Pro pass F-20: filter by template, cutter and supplier; inputs are
+  // Filter by template, cutter and supplier; inputs are
   // grouped by template (whole item → cut), so curry-cut and boneless batches
   // of the same bird are never pooled into one meaningless yield.
   const template = optionalId(query.template, 'Template');
@@ -385,7 +385,7 @@ async function yieldReport(business, query) {
     repo.all(repo.pool, `SELECT DISTINCT pb.cut_by FROM weight_processing_batches pb WHERE pb.business_id=$1 AND pb.cut_by IS NOT NULL ORDER BY 1 LIMIT 50`, [business.id]),
     repo.all(repo.pool, `SELECT DISTINCT c.id,c.name FROM weight_processing_batches pb JOIN business_contacts c ON c.business_id=pb.business_id AND c.id=${SUPPLIER('pb')}
       WHERE pb.business_id=$1 ORDER BY c.name LIMIT 50`, [business.id]),
-    // Round 2: the average yield of each whole item by the supplier it was
+    // The average yield of each whole item by the supplier it was
     // bought from (weighted by kg: total cut ÷ total whole weight), so a
     // supplier whose birds dress out lighter shows up.
     repo.all(repo.pool, `SELECT ${SUPPLIER('pb')} AS supplier_id,COALESCE(max(c.name),'No purchase (opening stock)') AS supplier_name,pb.input_sku_id,max(pb.input_label) AS input_label,
@@ -457,7 +457,7 @@ async function wastageReport(business, query) {
 async function wastageToday(business) {
   requireModule(business, 'wastage', 'Daily wastage');
   await access.require(business, 'wastage.view');
-  // count(w.id), not count(*): a day with no entries still has the business row (F-20).
+  // count(w.id), not count(*): a day with no entries still has the business row.
   return repo.one(repo.pool, `SELECT count(w.id)::int AS entries,COALESCE(sum(w.kg),0) AS kg,COALESCE(sum(w.value),0) AS value,
     (SELECT COALESCE(sum(value),0) FROM weight_wastage_entries x WHERE x.business_id=$1 AND date_trunc('month', x.created_at AT TIME ZONE b.timezone) = date_trunc('month', now() AT TIME ZONE b.timezone)) AS month_value,
     (SELECT COALESCE(sum(kg),0) FROM weight_wastage_entries x WHERE x.business_id=$1 AND date_trunc('month', x.created_at AT TIME ZONE b.timezone) = date_trunc('month', now() AT TIME ZONE b.timezone)) AS month_kg
@@ -467,6 +467,6 @@ async function wastageToday(business) {
 
 module.exports = {
   createTemplate, updateTemplate, processBatch, batchDetail, recordWastage, yieldReport, wastageReport, wastageToday, REASONS,
-  // Pro pass F: used by businessWeightPro.service.js.
+  // Used by businessWeightDaily.service.js.
   wasteFromLot, SKU_SQL, kgFactor, readQuantity, requireModule, hashOf, derivedKey,
 };

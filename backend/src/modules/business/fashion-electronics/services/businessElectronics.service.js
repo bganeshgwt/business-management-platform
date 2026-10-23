@@ -310,8 +310,8 @@ const lists = {
     filters: { state: 'state', sku: 'sku_id' }, order: 'id DESC' },
 };
 
-// A sale of serial-numbered units registers each unit's warranty at once
-// (pro pass E-14): the model's months and terms, from the day of the sale,
+// A sale of serial-numbered units registers each unit's warranty at once:
+// the model's months and terms, from the day of the sale,
 // to the customer on the bill (or the walk-in's name and phone given at the
 // counter). Inside the sale's own transaction. A unit whose model has no
 // warranty, or a sale with no name and phone, is left for Warranties ›

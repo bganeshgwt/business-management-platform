@@ -36,13 +36,12 @@ module.exports = {
       directory,
     });
   },
-  // Round 2: the people pickers search here (paged) instead of loading everyone.
+  // The people pickers search here (paged) instead of loading everyone.
   people: async (req, res) => send(res, await people.search(req.scope, req.query)),
-  summary: async (req, res) => send(res, await reports.summary(req.scope)),
   report: async (req, res) => send(res, await reports.report(req.scope, req.query)),
 
   // Tasks.
-  mine: async (req, res) => send(res, await tasks.mine(req.scope, req.query)),
+  mine: async (req, res) => send(res, await tasks.mine(req.scope)),
   list: async (req, res) => send(res, await tasks.list(req.scope, req.query)),
   calendar: async (req, res) => send(res, await tasks.calendar(req.scope, req.query)),
   detail: async (req, res) => send(res, await tasks.detail(req.scope, req.params.taskId)),
@@ -82,7 +81,6 @@ module.exports = {
 
   // Recurring.
   schedules: async (req, res) => send(res, await recurrence.list(req.scope, req.query)),
-  schedule: async (req, res) => send(res, await recurrence.one(req.scope, req.params.scheduleId)),
   createSchedule: async (req, res) => send(res, await recurrence.save(req.scope, null, body(req)), 201),
   updateSchedule: async (req, res) => send(res, await recurrence.save(req.scope, req.params.scheduleId, body(req))),
   scheduleActive: async (req, res) => send(res, await recurrence.setActive(req.scope, req.params.scheduleId, body(req))),
@@ -109,8 +107,7 @@ module.exports = {
   addMilestone: async (req, res) => send(res, await projects.saveMilestone(req.scope, req.params.projectId, null, body(req)), 201),
   updateMilestone: async (req, res) => send(res, await projects.saveMilestone(req.scope, req.params.projectId, req.params.milestoneId, body(req))),
   removeMilestone: async (req, res) => send(res, await projects.removeMilestone(req.scope, req.params.projectId, req.params.milestoneId)),
-  addList: async (req, res) => send(res, await projects.saveList(req.scope, req.params.projectId, null, body(req)), 201),
-  updateList: async (req, res) => send(res, await projects.saveList(req.scope, req.params.projectId, req.params.listId, body(req))),
+  addList: async (req, res) => send(res, await projects.addList(req.scope, req.params.projectId, body(req)), 201),
   removeList: async (req, res) => send(res, await projects.removeList(req.scope, req.params.projectId, req.params.listId)),
   projectComment: async (req, res) => send(res, await projects.comment(req.scope, req.params.projectId, body(req)), 201),
 };

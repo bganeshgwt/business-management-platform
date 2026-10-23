@@ -1,0 +1,282 @@
+/* Trade screens (wholesale and shared receivables). Uses the app's
+   tokens only; cards keep visible borders like the rest of Business Admin. */
+
+.bz-ageing {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.bz-ageing-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  min-width: 0;
+}
+
+.bz-ageing-cell small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.bz-ageing-cell strong {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.02rem;
+  overflow-wrap: anywhere;
+}
+
+.bz-ageing-cell.is-danger strong {
+  color: var(--danger);
+}
+
+.bz-ageing-cell.is-warning strong {
+  color: var(--warning-text);
+}
+
+.bz-trade-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.75rem;
+}
+
+@media (max-width: 720px) {
+  .bz-ageing {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Names that open a record, left-aligned like the text around them. */
+.bz-link-left {
+  text-align: left;
+}
+
+/* --- Wholesale: owes card, quick amounts, notes, order entry,
+   dispatch board, settlement. Tokens only. -------------------------------- */
+
+.chip-button.danger {
+  color: var(--danger);
+  border-color: var(--danger-border);
+}
+
+.bz-owes-card {
+  display: flex;
+  align-items: center;
+  min-height: 2.6rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.bz-owes-line {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-md);
+}
+
+.bz-quick-amounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: calc(-1 * var(--space-2));
+}
+
+.bz-note-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.bz-note-card.is-danger {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+}
+
+.bz-note-card.is-warning {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+}
+
+/* The customer card in a new order: owes, overdue, credit left, last order. */
+.bz-customer-card {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.bz-customer-card > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.bz-customer-card small {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.bz-customer-card strong {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bz-customer-card .is-danger strong {
+  color: var(--danger);
+}
+
+.bz-customer-card-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+/* Cases + pieces on one order line. */
+.bz-cases {
+  display: grid;
+  grid-template-columns: minmax(3.5rem, 1fr) minmax(3.5rem, 1fr);
+  gap: var(--space-1);
+  min-width: 7.5rem;
+}
+
+.bz-cases label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.bz-cases input,
+.bz-small-input {
+  min-width: 0;
+  width: 100%;
+}
+
+.bz-line-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: end;
+}
+
+/* Settlement and overview figures. */
+.bz-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-2);
+}
+
+.bz-figure {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  min-width: 0;
+}
+
+.bz-figure small {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.bz-figure strong {
+  font-size: var(--text-lg);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.bz-figure.is-danger strong {
+  color: var(--danger);
+}
+
+.bz-figure.is-success strong {
+  color: var(--success-text);
+}
+
+.bz-toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+
+.bz-selected-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.bz-beats-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.bz-beats-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.bz-beats-list li:last-child {
+  border-bottom: 0;
+}
+
+@media (max-width: 640px) {
+  .bz-line-add {
+    grid-template-columns: 1fr;
+  }
+
+  .bz-selected-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.bz-form-section {
+  margin: var(--space-2) 0 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  font-weight: var(--weight-medium);
+  color: var(--text);
+}
+
+.bz-customer-card > .bz-customer-card-actions {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+}

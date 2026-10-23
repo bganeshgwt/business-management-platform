@@ -6,9 +6,9 @@ const v = require('../../../../utils/validate');
 const { readGstin } = require('../../../../utils/gstin');
 const { readMobile } = require('../../../../utils/phone');
 
-// Real businesses, created the supported way (12 Oct 2026): any business type
-// (a restaurant is created from Platform › Restaurants, with its own restaurant
-// set-up), its legal details, its first location and its owner's login.
+// Creating businesses: any business type (a restaurant is created from
+// Platform › Restaurants, with its own restaurant set-up), its legal details,
+// its first location and its owner's login.
 //   * the platform's super admin creates one for a customer (Platform ›
 //     Businesses), the owner being a new login or an existing one;
 //   * an owner adds another business of their own ("Add a business" on the
@@ -40,7 +40,6 @@ function readTimezone(value, fallback = 'Asia/Kolkata') {
 function readCode(value, field = 'Business code') {
   const code = v.requiredString(value, field, 40).toUpperCase().replace(/\s+/g, '-');
   if (!/^[A-Z0-9][A-Z0-9-]{1,39}$/.test(code)) fail(`${field} may use letters, digits and dashes (2 to 40)`);
-  if (code.startsWith('DEMO-')) fail(`${field} cannot start with DEMO- (kept for demo businesses)`);
   return code;
 }
 
@@ -113,7 +112,7 @@ async function platformList(user, query = {}) {
         JOIN business_roles r ON r.business_id=m.business_id AND r.id=m.role_id AND r.full_access JOIN users u ON u.id=m.user_id
         WHERE m.business_id=b.id AND m.active) AS owners
     FROM businesses b JOIN business_types t ON t.code=b.business_type LEFT JOIN business_settings s ON s.business_id=b.id
-    WHERE NOT b.is_demo AND ($1::text IS NULL OR concat_ws(' ',b.name,b.code,s.city,s.gstin) ILIKE $1)
+    WHERE ($1::text IS NULL OR concat_ws(' ',b.name,b.code,s.city,s.gstin) ILIKE $1)
       AND ($2::text IS NULL OR b.business_type=$2) AND ($3::text IS NULL OR b.status=$3)
     ORDER BY b.created_at DESC LIMIT 500`, [q, type, status]);
   const types = await repo.all(repo.pool, 'SELECT code,name FROM business_types ORDER BY name');
@@ -133,7 +132,7 @@ async function platformSetStatus(user, businessId, body) {
   requirePlatform(user);
   const status = v.requiredEnum(body.status, 'Status', ['active', 'inactive']);
   return repo.transaction(async (db) => {
-    const row = await repo.one(db, 'UPDATE businesses SET status=$2,updated_at=now() WHERE id=$1 AND NOT is_demo RETURNING id,name,status', [v.requiredId(businessId, 'Business'), status]);
+    const row = await repo.one(db, 'UPDATE businesses SET status=$2,updated_at=now() WHERE id=$1 RETURNING id,name,status', [v.requiredId(businessId, 'Business'), status]);
     if (!row) fail('Business not found', 404);
     await repo.audit(db, row.id, user.id, status === 'active' ? 'business.reactivated' : 'business.switched_off', row.id);
     return row;
@@ -160,7 +159,7 @@ async function platformResetOwnerPassword(user, businessId, body) {
 async function ownerCreate(user, body) {
   // Owners of a business (or a restaurant's admin) may start another one.
   const owns = await repo.one(repo.pool, `SELECT 1 FROM business_memberships m JOIN business_roles r ON r.business_id=m.business_id AND r.id=m.role_id AND r.full_access
-    JOIN businesses b ON b.id=m.business_id WHERE m.user_id=$1 AND m.active AND b.status='active' AND NOT b.is_demo LIMIT 1`, [user.id]);
+    JOIN businesses b ON b.id=m.business_id WHERE m.user_id=$1 AND m.active AND b.status='active' LIMIT 1`, [user.id]);
   if (!owns && !user.roles?.includes('RESTAURANT_ADMIN') && !isPlatformUser(user)) fail('Only the owner of a business can add another business', 403);
   return repo.transaction(async (db) => createBusiness(db, user, body, user.id));
 }
@@ -184,9 +183,11 @@ async function createStaffAccount(business, user, body) {
     await repo.audit(db, business.id, user.id, 'staff_account.created', row.id, { name, email });
     return row;
   });
-  // Their role and location go through the same checks as any other access.
+  // Their role, location and department go through the same checks as any
+  // other access (someone tied to a department makes logins in it only).
   try {
-    const member = await access.setMember(business, user, { userId: created.id, roleId: body.roleId, workLocationId: body.workLocationId, active: true }, { newLogin: true });
+    const member = await access.setMember(business, user,
+      { userId: created.id, roleId: body.roleId, workLocationId: body.workLocationId, workDepartmentId: body.workDepartmentId, active: true }, { newLogin: true });
     return { ...member, name: created.name, email: created.email };
   } catch (error) {
     // No login is left behind without access: the person is created again with valid choices.
@@ -196,8 +197,10 @@ async function createStaffAccount(business, user, body) {
   }
 }
 
-// A new password for one of this business's staff (not an owner, and only
-// someone the caller can manage: the role checks of setMember apply).
+// A new password for one of this business's staff: not an owner, and only
+// someone the caller manages, by the same checks as Give access (their
+// location, their department, and a role that does no more than the
+// caller's), since whoever sets the password can sign in as them.
 async function resetStaffPassword(business, user, staffId, body) {
   await access.require(business, 'access.edit');
   const password = v.requiredPassword(body.password, 'New password');
@@ -207,7 +210,7 @@ async function resetStaffPassword(business, user, staffId, body) {
     if (!member) fail('That person has no access to this business', 404);
     if (member.full_access) fail("An owner's password is changed by the owner (My profile) or by the platform", 403);
     if (Number(member.user_id) === Number(user.id)) fail('Change your own password from My profile', 400);
-    access.requireLocation(business, member.location_id);
+    await access.requireManages(db, business, member);
     // A login shared with other businesses or a restaurant is not this business's to reset.
     const elsewhere = await repo.one(db, 'SELECT count(*)::int AS n FROM business_memberships WHERE user_id=$1 AND business_id<>$2 AND active', [member.user_id, business.id]);
     if (elsewhere.n || (member.restaurant_id && Number(member.restaurant_id) !== Number(business.legacy_restaurant_id))) {

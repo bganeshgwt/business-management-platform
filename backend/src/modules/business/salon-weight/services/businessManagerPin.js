@@ -6,11 +6,11 @@ const config = require('../../../../config/env');
 const access = require('../../core/services/businessAccess.service');
 const userRepository = require('../../../access/repositories/user.repository');
 
-// A manager's say-so on the counter (round 2, R2-SVC), the same way the
+// A manager's say-so on the counter, the same way the
 // wholesale credit hold is released: { reason, approverId?, pin? }.
 //   - The approver must be a member of this business whose role holds the
 //     permission (or full access).
-//   - Their PIN (My profile › PIN; five wrong tries lock it) is checked.
+//   - Their PIN (My profile › Personal PIN; five wrong tries lock it) is checked.
 //   - With `selfWithoutPin`, a person who holds the permission themselves
 //     may approve their own action with only the reason (booking overrides).
 //     Money leaving the drawer (refunds) always needs the PIN, the person's
@@ -37,7 +37,7 @@ async function readApproval(business, user, body, permission, { reasonLabel = 'R
   }
   if (!access.can(approverBusiness, permission)) fail('That person cannot approve this', 403, { reason: 'not_an_approver' });
   const person = await repo.one(repo.pool, "SELECT id,name,pin_hash FROM users WHERE id=$1 AND status='active'", [approverId]);
-  if (!person?.pin_hash) fail(`${person?.name || 'That person'} has not set a PIN yet (My profile › PIN).`, 409, { reason: 'no_pin' });
+  if (!person?.pin_hash) fail(`${person?.name || 'That person'} has not set a PIN yet (My profile › Personal PIN).`, 409, { reason: 'no_pin' });
   const slot = await userRepository.reservePinAttempt(person.id, config.accountLock);
   if (!slot.allowed) fail(`${person.name}'s PIN is locked after too many wrong tries. Try again later.`, 423, { reason: 'pin_locked' });
   if (!(await bcrypt.compare(pin, person.pin_hash))) {

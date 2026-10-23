@@ -5,11 +5,10 @@ const path = require("node:path");
 const { Client } = require("pg");
 const bcrypt = require("bcrypt");
 
-// Online table booking for guests (SW-A-21): a booking link, the guest's
+// Online table booking for guests: a booking link, the guest's
 // request, the host's answer and the guest's own status link, on a throwaway
 // database of its own.
-const { today, daysFrom, weekdayOf } = require("./helpers/dates");
-const TODAY = today();
+const { daysFrom, weekdayOf } = require("./helpers/dates");
 const daysFromToday = (n) => daysFrom(n);
 const weekday = weekdayOf;
 

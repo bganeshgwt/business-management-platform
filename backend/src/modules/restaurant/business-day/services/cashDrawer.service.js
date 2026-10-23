@@ -776,5 +776,4 @@ module.exports = {
   recordMovement,
   checkCancel,
   cancelMovement,
-  findDrawerOr404,
 };

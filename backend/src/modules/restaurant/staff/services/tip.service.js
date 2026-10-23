@@ -586,10 +586,8 @@ module.exports = {
   preview,
   confirm,
   listShareouts,
-  getShareout,
   byPerson,
   undo,
   tipsForPayroll,
-  splitByWeight,
   today,
 };

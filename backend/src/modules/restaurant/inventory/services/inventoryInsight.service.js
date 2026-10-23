@@ -19,7 +19,7 @@ const REASONS = [
   { key: "returned", label: "Returned by guest" },
   { key: "over_prepped", label: "Over-prepped" },
   // A finished dish thrown away because it was made twice and billed once,
-  // or sent back over its quality (Dish wasted, sweep SW-B-22).
+  // or sent back over its quality (Dish wasted).
   { key: "remade", label: "Remade dish" },
   { key: "quality", label: "Quality complaint" },
   // A bakery's breads and cakes left at closing and not kept for tomorrow.
@@ -36,13 +36,12 @@ const reasonLabel = (key) =>
   (REASONS.find((reason) => reason.key === key) || UNSPECIFIED).label;
 
 // Reorder maths. Kept as named numbers so the helper line on the screen and
-// the calculation can never disagree. The look-back, the safety cushion and
-// the default horizon are the restaurant's own (Settings -> Alerts and
-// timings, read per plan); these are what it starts at.
+// the calculation can never disagree. The look-back and the safety cushion
+// are the restaurant's own (Settings -> Alerts and timings, read per plan);
+// these are what it starts at.
 const USAGE_DAYS = ruleSettings.DEFAULTS.reorderLookbackDays; // how far back "how fast does it go" looks
 const SAFETY_DAYS = ruleSettings.DEFAULTS.reorderSafetyDays; // cushion on top of the horizon, for a late delivery
 const CRITICAL_DAYS = 2; // under this much cover left, it is urgent
-const DEFAULT_HORIZON = ruleSettings.DEFAULTS.reorderHorizonDays;
 
 // A mistaken entry can be undone for a week. After that the stock has been
 // counted since, and a correction belongs in a stock adjustment.
@@ -911,11 +910,6 @@ module.exports = {
   REASONS,
   REASON_KEYS,
   USAGE_DAYS,
-  SAFETY_DAYS,
-  CRITICAL_DAYS,
-  DEFAULT_HORIZON,
-  MIN_QUANTITY,
-  roundOrder,
   planVersion,
   planChanged,
   getContext,

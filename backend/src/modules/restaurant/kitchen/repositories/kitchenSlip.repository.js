@@ -62,7 +62,7 @@ const byStation = (lines) => {
     entry.lines.push({
       name: line.name,
       variant: line.variant || null,
-      // SW-A-12: the slip prints what the ticket printed.
+      // The slip prints what the ticket printed.
       ...(line.kitchenName ? { kitchenName: line.kitchenName } : {}),
       ...(line.variantKitchenName ? { variantKitchenName: line.variantKitchenName } : {}),
       quantity: round2(line.quantity),
@@ -282,7 +282,7 @@ const toSlip = (row) => ({
   firstPrintedAt: row.first_printed_at,
   lastPrintedAt: row.last_printed_at,
   printedByName: row.printed_by_name || null,
-  // SW-A-12: which name the slip prints (the kitchen settings' choice).
+  // Which name the slip prints (the kitchen settings' choice).
   nameMode: row.kitchen_name_mode || "both",
 });
 
@@ -376,5 +376,4 @@ module.exports = {
   claimUnprinted,
   recordPrint,
   findRecent,
-  toSlip,
 };

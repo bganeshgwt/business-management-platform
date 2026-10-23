@@ -4,7 +4,7 @@ const authorize = require("../../../../middlewares/authorize");
 const requireFeature = require("../../../../middlewares/requireFeature");
 const authorizeOrApprove = require("../../../../middlewares/authorizeOrApprove");
 
-// Advances and deposits (SW-B-04), under /api/bills/advances. The bills
+// Advances and deposits, under /api/bills/advances. The bills
 // router has already signed the person in and settled their outlet
 // (authenticate, resolveOutlet).
 const router = express.Router();
@@ -18,7 +18,7 @@ router.get("/", authorize("sales.view"), customerAdvanceController.list);
 router.get("/gst", authorize("sales.view"), customerAdvanceController.gst);
 // The till offers a guest's advances when paying their bill.
 router.get("/held/:customerId", authorize("payments.manage"), customerAdvanceController.heldFor);
-// Round 2: what was taken ahead on one pickup order.
+// What was taken ahead on one pickup order.
 router.get("/order/:orderId", authorize("payments.manage"), customerAdvanceController.forOrder);
 router.get("/:id", authorize("payments.manage"), customerAdvanceController.getById);
 

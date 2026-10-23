@@ -4,10 +4,11 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+const { createBusinesses } = require('./helpers/businesses');
 const dates = require('./helpers/dates');
 const { withTools } = require('./helpers/tools');
 
-// Phase 2, T3 — fashion and electronics: the size × colour matrix, variant
+// Fashion and electronics: the size × colour matrix, variant
 // reports, exchanges (return + new sale, difference paid or refunded), the
 // serial / IMEI lifecycle across locations, warranty registration and lookup,
 // and repair jobs. Runs against its own throwaway database with every
@@ -29,7 +30,6 @@ test('fashion and electronics: variants, exchanges, serials, warranties, repairs
   process.env.DB_NAME = database;
   process.env.NODE_ENV = 'test';
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex');
-  process.env.MULTI_BUSINESS_DEVELOPMENT = 'true';
   process.env.LOGIN_ATTEMPT_LIMIT = '5000';
   const { runner } = await import('node-pg-migrate');
   await runner({ databaseUrl: { ...connection, database }, dir: path.resolve(__dirname, '../../migrations'), migrationsTable: 'pgmigrations', direction: 'up', count: Infinity, checkOrder: true, log() {} });
@@ -71,17 +71,12 @@ test('fashion and electronics: variants, exchanges, serials, warranties, repairs
   const paise = (value) => Math.round(Number(value) * 100);
   const count = async (sql, values) => (await one(sql, values)).n;
 
-  const demos = (await withTools(request, (await request('POST', '/businesses/development-demos', {}, 201)).businesses));
-  const otherDemos = (await withTools(other, (await other('POST', '/businesses/development-demos', {}, 201)).businesses));
-  // Pro pass (1791540000000): goods shops now start with prices including GST,
-  // rounded to the rupee, and a walk-in pays in full. These checks were written for
-  // prices before GST and post unpaid walk-in bills as fixtures.
+  const [fz, el, grocery] = await withTools(request, await createBusinesses(request, 'OWNER', ['fashion', 'electronics', 'grocery']));
+  const [otherFz, otherEl] = await withTools(other, await createBusinesses(other, 'OTHER', ['fashion', 'electronics']));
+  // Goods shops start with prices including GST, rounded to the rupee, and a
+  // walk-in pays in full. These checks use prices before GST and post unpaid
+  // walk-in bills as fixtures.
   await pool.query("UPDATE business_settings SET tax_mode='exclusive', rounding='none', walk_in_credit=true");
-  const fz = demos.find((b) => b.business_type === 'fashion');
-  const el = demos.find((b) => b.business_type === 'electronics');
-  const grocery = demos.find((b) => b.business_type === 'grocery');
-  const otherFz = otherDemos.find((b) => b.business_type === 'fashion');
-  const otherEl = otherDemos.find((b) => b.business_type === 'electronics');
   const F = (suffix) => `/businesses/${fz.id}/${suffix}`;
   const E = (suffix) => `/businesses/${el.id}/${suffix}`;
 
@@ -300,7 +295,7 @@ test('fashion and electronics: variants, exchanges, serials, warranties, repairs
     assert.ok(Number(balance.b) < 0, 'the customer has credit on account');
     // The kept credit is an advance (a credit-note collection), spendable on a
     // later bill even though this fashion business has receivables switched off.
-    assert.ok(fz.capabilities.includes('receivables'), 'pro pass: every goods counter can collect udhaar');
+    assert.ok(fz.capabilities.includes('receivables'), 'every goods counter can collect udhaar');
     const kept = await one('SELECT * FROM business_collections WHERE business_id=$1 AND id=$2', [fz.id, exchange.credit_collection_id]);
     assert.equal(kept.method, 'credit_note');
     assert.equal(kept.amount, '105.00');
@@ -412,8 +407,8 @@ test('fashion and electronics: variants, exchanges, serials, warranties, repairs
 
   let warranty;
   await t.test('warranties: registered from the sale, found by IMEI or phone, cancelled with a reason', async () => {
-    // Pro pass (E-14): the sale registered the unit's warranty itself, to Ravi on file.
-    // It is cancelled here so registering by hand is checked as before.
+    // The sale registered the unit's warranty itself, to Ravi on file.
+    // It is cancelled here so registering by hand can be checked too.
     assert.equal(sale.warranties?.length, 1);
     assert.equal(sale.warranties[0].serial, imeis[0]);
     await request('POST', E(`warranties/${sale.warranties[0].id}/cancel`), { reason: 'Checking registration by hand' });

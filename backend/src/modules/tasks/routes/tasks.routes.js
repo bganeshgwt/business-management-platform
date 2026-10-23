@@ -36,7 +36,6 @@ function build(scopeFor) {
 
   r.get("/context", T, c.context);
   r.get("/people", T, c.people);
-  r.get("/summary", T, c.summary);
   r.get("/reports", T, c.report);
 
   // Templates and the built-in library.
@@ -52,7 +51,6 @@ function build(scopeFor) {
   // Recurring tasks.
   r.get("/schedules", T, c.schedules);
   r.post("/schedules", T, c.createSchedule);
-  r.get("/schedules/:scheduleId", T, c.schedule);
   r.put("/schedules/:scheduleId", T, c.updateSchedule);
   r.patch("/schedules/:scheduleId/active", T, c.scheduleActive);
   r.get("/schedules/:scheduleId/compliance", T, c.compliance);
@@ -80,7 +78,6 @@ function build(scopeFor) {
   r.patch("/projects/:projectId/milestones/:milestoneId", P, c.updateMilestone);
   r.delete("/projects/:projectId/milestones/:milestoneId", P, c.removeMilestone);
   r.post("/projects/:projectId/lists", P, c.addList);
-  r.patch("/projects/:projectId/lists/:listId", P, c.updateList);
   r.delete("/projects/:projectId/lists/:listId", P, c.removeList);
   r.post("/projects/:projectId/comments", P, c.projectComment);
 

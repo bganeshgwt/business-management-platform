@@ -4,7 +4,7 @@ const AppError = require('../../../../utils/AppError');
 const access = require('../../core/services/businessAccess.service');
 const core = require('../../core/services/business.service');
 
-// Wholesale price groups and schemes (pro pass D-11).
+// Wholesale price groups and schemes.
 //
 //   Price group   retailer / wholesaler / modern trade / HoReCa: each trade
 //                 customer belongs to at most one. A group price applies
@@ -79,7 +79,7 @@ async function readGroupPrice(db, business, body) {
   let unitCode = null;
   if (body.unitCode !== undefined && body.unitCode !== null && body.unitCode !== '' && body.unitCode !== sku.unit) {
     const pack = await repo.one(db, 'SELECT unit_code FROM catalog_sku_units WHERE business_id=$1 AND sku_id=$2 AND unit_code=$3 AND active', [business.id, sku.id, String(body.unitCode)]);
-    if (!pack) fail('This item has no such pack size. Add it under Products › Units & pack sizes first.', 404);
+    if (!pack) fail('This item has no such pack size. Add it under Settings › Units & pack sizes first.', 404);
     unitCode = pack.unit_code;
   }
   const minimum = body.minimumQuantity === undefined || body.minimumQuantity === null || body.minimumQuantity === '' ? 1 : core.decimal(body.minimumQuantity, 'From quantity', 3, 0.001, 100000);
@@ -198,7 +198,7 @@ async function saveScheme(business, user, schemeId, body) {
     const free = body.freeQuantity === undefined || body.freeQuantity === '' || body.freeQuantity === null ? 0 : core.decimal(body.freeQuantity, 'Free quantity', 3, 0, 100000);
     const discount = body.discountPercent === undefined || body.discountPercent === '' || body.discountPercent === null ? 0 : core.decimal(body.discountPercent, 'Discount %', 2, 0, 99.99);
     if (!free && !discount) fail('A scheme gives free goods, a discount, or both');
-    // The free goods may be another item: "buy 5 cases of A, get 1 of B" (round 2).
+    // The free goods may be another item: "buy 5 cases of A, get 1 of B".
     let freeSku = null, freeUnit = null;
     const freeSkuId = optionalId(body.freeSkuId, 'Free item');
     if (freeSkuId && freeSkuId !== sku.id) {
@@ -273,7 +273,7 @@ async function schemeFor(db, businessId, groupId, sku, quantityMilli, entered, d
   return null;
 }
 
-// --- Scheme report per retailer (round 2) --------------------------------------------------------
+// --- Scheme report per retailer --------------------------------------------------------
 
 // For orders taken in the period: per retailer and scheme, how many orders
 // earned it, what was bought on the scheme and sent, the free goods sent and

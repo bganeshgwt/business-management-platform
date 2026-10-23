@@ -304,8 +304,4 @@ module.exports = {
   permission: "business_day.view",
 
   collect: (context) => collectAlerts(completeContext(context)),
-
-  // Exported for tests; the registry only calls collect().
-  evaluate,
-  wallClock,
 };

@@ -1,0 +1,105 @@
+/* Service settings (pages/service/ServiceSettingsPage.jsx). Shared cards,
+   fields and buttons come from the app; only this page's own pieces here. */
+
+.svc-sections {
+  display: grid;
+  gap: 20px;
+  max-width: 1040px;
+}
+
+.svc-toggle {
+  align-items: flex-start;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  line-height: 1.45;
+}
+
+.svc-toggle input {
+  margin-top: 3px;
+}
+
+.svc-toggle span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.svc-fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.svc-fieldset legend {
+  margin-bottom: 6px;
+  padding: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.svc-fieldset:disabled {
+  opacity: 0.6;
+}
+
+.svc-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.svc-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 6px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.svc-choice:has(input:checked) {
+  border-color: var(--primary);
+  background: var(--primary-soft, var(--nav-active-bg));
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.svc-note small {
+  line-height: 1.5;
+}
+
+.svc-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  overflow-wrap: anywhere;
+}
+
+.svc-link-row code {
+  font-size: 0.875rem;
+}
+
+.svc-warning {
+  margin: 0;
+}
+
+.svc-table-scroll {
+  min-width: 0;
+}
+
+/* Captain sections dialog. */
+.cap-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

@@ -228,4 +228,4 @@ const live = async (req, res) => {
   res.json({ success: true, data });
 };
 
-module.exports = { live, BLOCK_KEYS };
+module.exports = { live };

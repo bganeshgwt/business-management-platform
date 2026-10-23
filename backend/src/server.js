@@ -13,7 +13,16 @@ const start = async () => {
     process.exit(1);
   }
 
-  app.listen(config.port, () => {
+  // Express hands a failed listen (a port already in use) to this callback:
+  // say so and stop, rather than report a server that is not there.
+  app.listen(config.port, (error) => {
+    if (error) {
+      console.error(error.code === "EADDRINUSE"
+        ? `Could not start API: port ${config.port} is already in use. Is the API already running in another terminal?`
+        : `Could not start API: ${error.message}`);
+      process.exit(1);
+    }
+
     console.log(`Server running on port ${config.port}`);
   });
 };

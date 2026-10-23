@@ -2,11 +2,13 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const multer = require("multer");
+const config = require("../config/env");
 const AppError = require("../utils/AppError");
 
-// Everything uploaded lives under one folder, outside src/, so it is never
-// mixed up with code and is easy to back up or point at a mounted volume.
-const UPLOAD_ROOT = path.join(__dirname, "..", "..", "uploads");
+// Public uploads live under one folder outside src/ (UPLOADS_DIR, by default
+// backend/uploads; config/env.js), so they are never mixed up with code and
+// are easy to back up or keep on a mounted volume. app.js serves it at /uploads.
+const UPLOAD_ROOT = config.uploadsDir;
 const PRODUCT_DIR = path.join(UPLOAD_ROOT, "products");
 
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -110,4 +112,4 @@ const removeUpload = async (relativePath) => {
   }
 };
 
-module.exports = { productImageUpload, saveProductImage, removeUpload, UPLOAD_ROOT, MAX_BYTES };
+module.exports = { productImageUpload, saveProductImage, removeUpload };

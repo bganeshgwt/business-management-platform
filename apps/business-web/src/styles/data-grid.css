@@ -1,0 +1,1414 @@
+/* DataGrid (components/DataGrid) — every list in the app.
+
+   Colours, radii and shadows only from the tokens in @bmp/ui's base.css and colour.css,
+   so dark mode follows by itself. Motion only from motion.css keyframes and
+   tokens; prefers-reduced-motion switches all of it off there. Everything is
+   scoped under .dg (or .dg-menu, which is drawn on document.body). */
+
+.dg {
+  --dg-pad-x: 16px;
+  --dg-pad-y: 12px;
+  --dg-edge: 16px;
+  --dg-row-h: 49px;
+  --dg-head-bg: var(--surface-2);
+  --dg-line: var(--border);
+  --dg-pin-shadow: color-mix(in srgb, var(--text) 16%, transparent);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  /* Clips the table's square corners to the frame without making the grid a
+     scroll box (which would capture the sticky header). */
+  overflow: clip;
+  /* The grid takes the width its parent gives it and never asks for more:
+     a wide table inside a CSS grid or flex item would otherwise hold that
+     item open, the page would scroll sideways, and the grid would never be
+     narrow enough to turn into cards. The table scrolls inside instead. */
+  contain: inline-size;
+  font-size: 0.875rem;
+  scroll-margin-top: 12px;
+}
+
+/* In the dark a pale shadow would read as a light line; it darkens instead. */
+@media (prefers-color-scheme: dark) {
+  .dg {
+    --dg-pin-shadow: rgb(0 0 0 / 38%);
+  }
+}
+
+.dg.is-compact {
+  --dg-pad-x: 12px;
+  --dg-pad-y: 7px;
+  --dg-row-h: 37px;
+}
+
+.dg-compact,
+.dg-editor {
+  --dg-edge: 12px;
+}
+
+/* A grid straight in a flush section card: the card is the frame, and the
+   first and last columns line up with the card's heading. */
+.section-card.is-flush > .section-card-body > .dg {
+  --dg-edge: 20px;
+  border: 0;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  box-shadow: none;
+}
+
+.section-card.is-flush > .section-card-body > .dg .dg-table tr > :first-child {
+  padding-left: 20px;
+}
+
+.section-card.is-flush > .section-card-body > .dg .dg-table tr > :last-child {
+  padding-right: 20px;
+}
+
+/* --- Toolbar --------------------------------------------------------------------- */
+
+.dg-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 12px;
+  padding: 12px var(--dg-edge);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.dg-toolbar-page {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.dg-toolbar-page .field {
+  margin: 0;
+}
+
+.dg-toolbar-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.dg .dg-tool {
+  min-height: 36px;
+  padding: 6px 12px;
+  gap: 6px;
+  font-size: 0.8125rem;
+}
+
+.dg .dg-tool.is-open,
+.dg-tool.is-open {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border-strong));
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.dg-tool-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  color: var(--primary-text);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.dg-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 250px;
+  max-width: 100%;
+}
+
+.dg-search-icon {
+  position: absolute;
+  left: 11px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.dg .dg-search input {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px 6px 34px;
+  font-size: 0.875rem;
+}
+
+.dg-sortby {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.dg-sortby-icon {
+  position: absolute;
+  left: 11px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.dg .dg-sortby select {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px 6px 32px;
+  font-size: 0.875rem;
+}
+
+/* Filters on a phone: a short form under the toolbar. */
+.dg-filter-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px var(--dg-edge);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.dg-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.dg-filter-panel > .dg-tool {
+  justify-self: start;
+}
+
+.dg-filter-field input,
+.dg-filter-field select {
+  width: 100%;
+  min-height: 44px;
+  font-weight: 400;
+}
+
+/* Rows chosen for a bulk action. Slides down into place; reduced motion
+   just shows it. */
+.dg-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 8px var(--dg-edge);
+  background: var(--primary-soft);
+  border-bottom: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
+}
+
+.dg-bulk-count {
+  font-size: 0.875rem;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.dg-bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dg-bulk {
+    --motion-rise: -8px;
+    animation: motion-rise var(--motion-enter) var(--motion-ease);
+  }
+}
+
+.dg-inline-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px var(--dg-edge);
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-bottom: 1px solid var(--danger-border);
+  font-size: 0.8125rem;
+}
+
+.dg-inline-error > span {
+  flex: 1;
+}
+
+/* --- Table ----------------------------------------------------------------------- */
+
+.dg-body {
+  position: relative;
+  min-width: 0;
+}
+
+/* The grid scrolls sideways inside itself, never the page. */
+.dg-scroll {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+}
+
+/* A long page scrolls in a frame about one screen tall, so its header stays
+   in view (the same rule the old tables used after twenty rows). */
+.dg-scroll.is-framed {
+  overflow-y: auto;
+  max-height: max(440px, calc(100dvh - 220px));
+}
+
+.dg-scroll:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.dg-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.dg-table th,
+.dg-table td {
+  padding: var(--dg-pad-y) var(--dg-pad-x);
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--dg-line);
+  overflow-wrap: break-word;
+}
+
+.dg-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+.dg-head-row > th {
+  position: relative;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  background: var(--dg-head-bg);
+  color: var(--text-2);
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  line-height: 1.35;
+  white-space: nowrap;
+  /* The line under the header is a step darker than the row lines, so the
+     header reads as a band of its own. */
+  border-bottom: 1px solid var(--border-strong);
+}
+
+/* A column someone sized keeps that width, so its heading may be cut. */
+.dg-head-row > th.is-sized {
+  overflow: hidden;
+}
+
+.dg-head-row > th.is-sorted {
+  color: var(--text);
+}
+
+.dg-head-label {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* A sized column's heading wraps onto a second line rather than being cut;
+   only a third line is clipped. */
+.dg-head-row > th.is-sized {
+  white-space: normal;
+}
+
+.is-sized .dg-head-label {
+  display: -webkit-box;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  overflow-wrap: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.dg-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  margin: -4px -6px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) ease, color var(--motion-fast) ease;
+}
+
+.dg-sort:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+.dg-sort:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+/* Right-aligned columns put the arrow before the words, so the words line
+   up with the figures under them. */
+.align-right > .dg-sort {
+  flex-direction: row-reverse;
+}
+
+.dg-caret {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  color: var(--primary);
+  transition:
+    rotate var(--motion-normal) var(--motion-ease),
+    opacity var(--motion-fast) ease;
+}
+
+.dg-caret[data-dir="none"] {
+  opacity: 0;
+  color: var(--muted);
+}
+
+.dg-sort:hover .dg-caret[data-dir="none"],
+.dg-sort:focus-visible .dg-caret[data-dir="none"] {
+  opacity: 0.6;
+}
+
+.dg-caret[data-dir="desc"] {
+  rotate: 180deg;
+}
+
+/* The drag handle on a header's right edge. Hidden until the header is
+   pointed at or the handle has keyboard focus. */
+.dg-resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 10px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.dg-resize::before {
+  content: "";
+  position: absolute;
+  top: 28%;
+  bottom: 28%;
+  right: 4px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--border-strong);
+  opacity: 0;
+  transition: opacity var(--motion-fast) ease;
+}
+
+.dg-head-row:hover .dg-resize::before {
+  opacity: 1;
+}
+
+.dg-resize:hover::before,
+.dg-resize:focus-visible::before,
+.dg-resize.is-dragging::before {
+  top: 0;
+  bottom: 0;
+  background: var(--primary);
+  opacity: 1;
+}
+
+.dg-resize:focus-visible {
+  outline: none;
+}
+
+/* Narrowest a column of words gets. When the columns do not fit, the table
+   scrolls sideways under the pinned column instead of squeezing every name
+   down to one word a line. (A column's own minWidth, or a width someone
+   dragged, wins over these.) */
+.dg-table :is(th, td).type-text {
+  min-width: 7.5rem;
+}
+
+.dg-table :is(th, td).is-title {
+  min-width: 11rem;
+}
+
+.dg-table :is(th, td).type-status {
+  min-width: 6.5rem;
+}
+
+.dg-table :is(th, td).is-sized {
+  min-width: 0;
+}
+
+/* Columns of figures: right-aligned, never broken across lines. */
+.dg-table .align-right {
+  text-align: right;
+}
+
+.dg-table .align-center {
+  text-align: center;
+}
+
+.dg-table td.type-number,
+.dg-table td.type-money,
+.dg-table td.type-percent,
+.dg-table td.type-date,
+.dg-table td.type-datetime {
+  white-space: nowrap;
+}
+
+.dg-table td.type-actions,
+.dg-table th.type-actions {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.dg-table td.align-right > .row-actions {
+  justify-content: flex-end;
+}
+
+/* A column someone resized holds that width; its text wraps (or, for one
+   long word, is cut with an ellipsis) inside it. */
+.dg-cell {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dg-blank {
+  color: var(--muted);
+}
+
+/* Serial number: narrow, quiet, figures on the right. */
+.dg-table .dg-serial-col {
+  width: 1%;
+  padding-left: 14px;
+  padding-right: 4px;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.dg-head-row > .dg-serial-col {
+  font-size: 0.75rem;
+}
+
+.dg-serial-col abbr {
+  text-decoration: none;
+  cursor: help;
+}
+
+.dg-table .dg-select-col {
+  width: 1%;
+  padding-left: 10px;
+  padding-right: 4px;
+}
+
+.dg-check {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  vertical-align: middle;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+/* Rows. A row has one background, set as two variables on the row (at rest
+   and under the pointer) and painted by every cell the same way — pinned
+   cells included, which must be opaque to cover what scrolls beneath them.
+   Tones, selection and hover only change the variables, so a toned row is
+   one even tint from S.No. to its last cell, in either theme. */
+.dg-row {
+  --dg-row-bg: var(--surface);
+  --dg-row-hover: var(--surface-hover);
+}
+
+.dg-row > td {
+  background-color: var(--dg-row-bg);
+  transition: background-color var(--motion-fast) ease;
+}
+
+@media (hover: hover) {
+  .dg-row:hover > td {
+    background-color: var(--dg-row-hover);
+  }
+}
+
+.dg-row:last-child > td {
+  border-bottom: 0;
+}
+
+.dg-row.is-clickable {
+  cursor: pointer;
+}
+
+.dg-row:focus-visible {
+  outline: none;
+}
+
+.dg-row:focus-visible > td {
+  background-color: var(--dg-row-hover);
+  box-shadow:
+    inset 0 2px 0 var(--primary),
+    inset 0 -2px 0 var(--primary);
+}
+
+.dg-row:focus-visible > td:first-child {
+  box-shadow:
+    inset 0 2px 0 var(--primary),
+    inset 0 -2px 0 var(--primary),
+    inset 2px 0 0 var(--primary);
+}
+
+.dg-row:focus-visible > td:last-child {
+  box-shadow:
+    inset 0 2px 0 var(--primary),
+    inset 0 -2px 0 var(--primary),
+    inset -2px 0 0 var(--primary);
+}
+
+/* Row tones (rowClassName): a tint across the row and a mark on its edge, so
+   the meaning does not rest on colour alone where a word sits beside it. */
+.dg-row.dg-tone-danger {
+  --dg-row-bg: color-mix(in srgb, var(--danger-bg) 75%, var(--surface));
+  --dg-row-hover: color-mix(in srgb, var(--danger-bg) 75%, var(--surface-hover));
+}
+
+.dg-row.dg-tone-warning {
+  --dg-row-bg: color-mix(in srgb, var(--warning-bg) 75%, var(--surface));
+  --dg-row-hover: color-mix(in srgb, var(--warning-bg) 75%, var(--surface-hover));
+}
+
+.dg-row.dg-tone-success {
+  --dg-row-bg: color-mix(in srgb, var(--success-bg) 70%, var(--surface));
+  --dg-row-hover: color-mix(in srgb, var(--success-bg) 70%, var(--surface-hover));
+}
+
+/* Chosen for a bulk action: wins over a tone while it is chosen. */
+.dg-row.is-selected {
+  --dg-row-bg: color-mix(in srgb, var(--primary-soft) 80%, var(--surface));
+  --dg-row-hover: color-mix(in srgb, var(--primary-soft) 80%, var(--surface-hover));
+}
+
+.dg-card.dg-tone-danger {
+  background-color: color-mix(in srgb, var(--danger-bg) 75%, var(--surface));
+}
+
+.dg-card.dg-tone-warning {
+  background-color: color-mix(in srgb, var(--warning-bg) 75%, var(--surface));
+}
+
+.dg-card.dg-tone-success {
+  background-color: color-mix(in srgb, var(--success-bg) 70%, var(--surface));
+}
+
+.dg-row.dg-tone-danger > td:first-child { box-shadow: inset 3px 0 0 var(--danger); }
+.dg-row.dg-tone-warning > td:first-child { box-shadow: inset 3px 0 0 var(--warning); }
+.dg-row.dg-tone-success > td:first-child { box-shadow: inset 3px 0 0 var(--success); }
+.dg-card.dg-tone-danger { box-shadow: inset 3px 0 0 var(--danger); }
+.dg-card.dg-tone-warning { box-shadow: inset 3px 0 0 var(--warning); }
+.dg-card.dg-tone-success { box-shadow: inset 3px 0 0 var(--success); }
+
+.dg-row.dg-tone-muted > td,
+.dg-card.dg-tone-muted {
+  color: var(--text-2);
+}
+
+.dg-row.dg-tone-muted > td:not(.type-actions) :is(strong, .badge),
+.dg-card.dg-tone-muted :is(.dg-card-title, .dg-card-fields) {
+  opacity: 0.78;
+}
+
+/* Pinned columns stay at the left while the rest scroll under them; a soft
+   shadow on their edge appears once something has scrolled beneath. */
+.dg-table .is-pinned {
+  position: sticky;
+  z-index: 1;
+}
+
+.dg-head-row > .is-pinned,
+.dg-filter-row > .is-pinned {
+  z-index: 2;
+}
+
+.dg-table .is-pin-edge::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: -10px;
+  bottom: 0;
+  width: 10px;
+  pointer-events: none;
+  background: linear-gradient(to right, var(--dg-pin-shadow), transparent);
+  opacity: 0;
+  transition: opacity var(--motion-fast) ease;
+}
+
+.dg-head-row > .is-pin-edge {
+  overflow: visible;
+}
+
+.dg-scroll.is-scrolled-x .is-pin-edge::after {
+  opacity: 1;
+}
+
+/* The actions column stays at the right edge of a wide table, so the row's
+   buttons are always in reach without scrolling sideways; while columns are
+   hidden beneath it, it casts a soft shadow to its left. */
+.dg-table .is-pinned-right {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+}
+
+.dg-head-row > .is-pinned-right,
+.dg-filter-row > .is-pinned-right {
+  z-index: 2;
+}
+
+.dg-table .is-pinned-right::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -10px;
+  width: 10px;
+  pointer-events: none;
+  background: linear-gradient(to left, var(--dg-pin-shadow), transparent);
+  opacity: 0;
+  transition: opacity var(--motion-fast) ease;
+}
+
+.dg-scroll.has-more-right .is-pinned-right::before {
+  opacity: 1;
+}
+
+/* Filter row under the headers */
+.dg-filter-row > td {
+  padding-top: 6px;
+  padding-bottom: 8px;
+  background: var(--dg-head-bg);
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.dg-filter-cell input,
+.dg-filter-cell select {
+  width: 100%;
+  min-width: 80px;
+  min-height: 32px;
+  padding: 4px 8px;
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+/* Totals: a band of their own, over every filtered row. In a framed list
+   they stay at the foot of the frame. */
+.dg-total-row > th,
+.dg-total-row > td {
+  background: var(--dg-head-bg);
+  border-top: 2px solid var(--border-strong);
+  border-bottom: 0;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dg-table .dg-total-row > :is(.is-pinned, .is-pinned-right) {
+  background: var(--dg-head-bg);
+}
+
+.dg-total-row > .dg-total-label {
+  color: var(--text-2);
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+
+.dg-scroll.is-framed tfoot {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+}
+
+/* Skeleton rows: the height of a real row, so nothing jumps when the rows
+   arrive. The shimmer itself is motion.css's .skeleton. */
+.dg-row-skeleton > td {
+  height: var(--dg-row-h);
+}
+
+.dg-skeleton {
+  min-height: 0;
+  height: 11px;
+  border-radius: 6px;
+}
+
+/* Loading, failed, empty and no-match states sit in the visible part of a
+   wide table, not centred across columns scrolled out of view. */
+.dg-state-row > td {
+  padding: 0;
+  border-bottom: 0;
+}
+
+.dg-state-row .empty-state,
+.dg-state {
+  position: sticky;
+  left: 0;
+  max-width: calc(var(--dg-view-w, 100%) - 2px);
+}
+
+.dg-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 36px 20px;
+  text-align: center;
+}
+
+.dg-state-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.dg-state-message {
+  margin: 0;
+  max-width: 46ch;
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* A thin bar while a list that is already on screen reloads: no rows vanish
+   and nothing moves. */
+.dg-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.dg-progress::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, var(--primary) 50%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dg-progress::after {
+    animation: motion-shimmer 1.2s var(--motion-ease-in-out) infinite;
+  }
+}
+
+/* Off-screen copy used to measure a column for "double-click to fit". */
+.dg-measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: max-content;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: nowrap;
+  font-size: 0.875rem;
+}
+
+.dg-measure.is-head {
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+/* --- Pager ----------------------------------------------------------------------- */
+
+.dg-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 22px;
+  padding: 10px var(--dg-edge);
+  border-top: 1px solid var(--border);
+  background: var(--dg-head-bg);
+  color: var(--text-2);
+  font-size: 0.8125rem;
+}
+
+.dg-pager-range {
+  margin: 0 auto 0 0;
+  white-space: nowrap;
+}
+
+.dg-pager-range strong {
+  color: var(--text);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.dg-pager-size,
+.dg-pager-page {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.dg .dg-pager select {
+  min-height: 34px;
+  padding: 4px 8px;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  background-color: var(--surface);
+}
+
+.dg-pager-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dg-pager-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-xs);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease;
+}
+
+.dg-pager-button.is-step {
+  padding: 0 12px;
+}
+
+.dg-pager-button:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.dg-pager-button:disabled {
+  opacity: 0.45;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.dg-pager-page {
+  margin: 0 4px;
+}
+
+/* --- Phone cards ----------------------------------------------------------------- */
+
+.dg.is-cards {
+  --dg-edge: 12px;
+}
+
+.dg.is-cards .dg-toolbar {
+  padding: 12px;
+}
+
+.dg.is-cards .dg-toolbar-page {
+  flex-basis: 100%;
+}
+
+.dg.is-cards .dg-toolbar-tools {
+  width: 100%;
+  margin-left: 0;
+  justify-content: flex-start;
+}
+
+/* On a phone the search takes what is left of its line; the sort list and
+   the buttons share the next one, so the controls never run off the edge. */
+.dg.is-cards .dg-search {
+  width: auto;
+  flex: 1 1 200px;
+}
+
+.dg.is-cards .dg-sortby {
+  flex: 1 1 150px;
+}
+
+.dg.is-cards .dg-toolbar-tools > .dg-tool {
+  flex: 0 0 auto;
+}
+
+.dg.is-cards .dg-tool,
+.dg.is-cards .dg-search input,
+.dg.is-cards .dg-sortby select {
+  min-height: 44px;
+}
+
+.dg-cards-wrap {
+  background: var(--surface-2);
+}
+
+.dg-cards {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 10px;
+  list-style: none;
+}
+
+.dg-cards-select {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 4px 14px 0;
+  color: var(--text-2);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.dg-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  overflow-wrap: anywhere;
+}
+
+.dg-card.is-clickable {
+  cursor: pointer;
+}
+
+.dg-card:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.dg-card.is-selected {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+  background: color-mix(in srgb, var(--primary-soft) 70%, var(--surface));
+}
+
+.dg-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.dg-card-head > .dg-check {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+}
+
+.dg-card-titles {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.dg-card-serial {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.dg-card-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.9375rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+/* Secondary words inside the heading (a code, "keeps its own stock") stay
+   quiet rather than taking the heading's weight. */
+.dg-card-title :is(.muted, small, .small) {
+  font-weight: 400;
+}
+
+.dg-card-subtitle {
+  color: var(--text-2);
+  font-size: 0.8125rem;
+}
+
+.dg-card-fields {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.dg-card-field {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+}
+
+.dg-card-field > dt {
+  flex-shrink: 0;
+  max-width: 45%;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.dg-card-field > dd {
+  min-width: 0;
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.dg-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.dg-card-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* 44px targets for whatever the page puts in a card's actions. */
+.dg-card-actions :is(.button, .chip-button, .link-button) {
+  min-height: 44px;
+}
+
+/* A text link grown to 44px keeps its words centred beside the buttons. */
+.dg-card-actions .link-button {
+  display: inline-flex;
+  align-items: center;
+}
+
+.dg-card-actions .action-menu-trigger {
+  width: 44px;
+  height: 44px;
+}
+
+.dg-card-total {
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
+  background: color-mix(in srgb, var(--primary-soft) 45%, var(--surface));
+  margin: 0 10px 10px;
+}
+
+.dg-card-total .dg-card-fields {
+  border-top-color: color-mix(in srgb, var(--primary) 20%, var(--border));
+}
+
+.dg-card-total .dg-card-field > dd {
+  font-weight: 700;
+}
+
+.dg-card-skeleton {
+  gap: 12px;
+}
+
+.dg-cards-state {
+  background: var(--surface);
+}
+
+.dg-footer-table {
+  margin: 0 10px 10px;
+  width: calc(100% - 20px);
+}
+
+/* Entry lines on a phone: every input stacked under its label. */
+.dg-card-inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px 12px;
+}
+
+.dg-card-input {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.dg-card-label {
+  color: var(--text-2);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.dg-card-input :is(input:not([type="checkbox"], [type="radio"]), select, textarea) {
+  width: 100%;
+  min-height: 44px;
+}
+
+/* The pager on a phone: the count and page size on one line, the page
+   buttons across the full width under them, every one a 44px target. */
+.dg.is-cards .dg-pager {
+  gap: 10px 12px;
+  padding: 12px;
+}
+
+.dg.is-cards .dg-pager-nav {
+  order: 3;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.dg.is-cards .dg-pager-word {
+  display: none;
+}
+
+.dg.is-cards .dg-pager-button,
+.dg.is-cards .dg-pager select {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.dg.is-cards .dg-pager-button.is-step {
+  padding: 0 8px;
+}
+
+/* --- Entry tables (variant "editor") --------------------------------------------- */
+
+.dg-editor .dg-table td {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.dg-editor .dg-table td :is(input:not([type="checkbox"], [type="radio"]), select, textarea) {
+  width: 100%;
+  /* Never wider than the cell: a narrow column (Qty) keeps its box whole. */
+  min-width: min(72px, 100%);
+  padding: 6px 8px;
+}
+
+/* A search box in a cell keeps room for its magnifier and its clear button. */
+.dg-editor .dg-table td .search-picker .search-picker-input {
+  padding-left: 34px;
+  padding-right: 34px;
+}
+
+.dg-editor .dg-table td.align-right :is(input, select) {
+  text-align: right;
+}
+
+/* Entry lines do not light up under the pointer (a tone still shows). */
+.dg-editor .dg-row {
+  --dg-row-hover: var(--dg-row-bg);
+}
+
+/* --- Column menu (drawn on document.body) ---------------------------------------- */
+
+.dg-menu {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+  font-size: 0.875rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dg-menu {
+    transform-origin: top right;
+    animation: motion-pop-in 160ms var(--motion-ease);
+  }
+}
+
+.dg-menu-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.dg-menu-group > legend {
+  padding: 0 6px 6px;
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dg-menu-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  padding: 5px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.dg-menu-check:hover {
+  background: var(--surface-hover);
+}
+
+.dg-menu-check.is-fixed {
+  color: var(--text-2);
+  cursor: default;
+}
+
+.dg-menu-check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--primary);
+}
+
+.dg-menu-note {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.dg-menu-density {
+  width: 100%;
+}
+
+.dg-menu-density .segment {
+  flex: 1;
+}
+
+.dg-menu-reset {
+  justify-content: flex-start;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  padding-top: 10px;
+}
+
+/* --- Print ----------------------------------------------------------------------- */
+
+@media print {
+  .dg {
+    border: 0;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .dg-toolbar,
+  .dg-filter-panel,
+  .dg-bulk,
+  .dg-inline-error,
+  .dg-pager,
+  .dg-progress,
+  .dg-resize,
+  .dg-filter-row,
+  .dg-caret,
+  .dg-table .type-actions,
+  .dg-table .dg-select-col {
+    display: none !important;
+  }
+
+  .dg-scroll {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  .dg-table thead {
+    position: static;
+    display: table-header-group;
+  }
+
+  .dg-table .is-pinned,
+  .dg-table .is-pinned-right,
+  .dg-scroll.is-framed tfoot {
+    position: static;
+  }
+
+  .dg-table th,
+  .dg-table td {
+    padding: 4px 8px;
+    background: none !important;
+    box-shadow: none !important;
+    color: #000;
+    border-bottom: 1px solid #c8c8c8;
+  }
+
+  .dg-row {
+    break-inside: avoid;
+  }
+}
+
+/* Phone cards: the record's name leads and its S.No. sits quietly
+   under it; a field with nothing in it ("—") is left out of the card. */
+.dg-card-titles > .dg-card-serial {
+  order: 9;
+  font-weight: 600;
+}
+
+.dg-card-field:has(> dd > .dg-blank:only-child) {
+  display: none;
+}

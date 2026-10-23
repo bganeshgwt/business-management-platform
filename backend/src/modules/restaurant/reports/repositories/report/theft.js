@@ -9,7 +9,7 @@ const { DRAWER_EXPECTED } = require("./drawers");
 // Theft control
 // ===========================================================================
 
-// Payment corrections (R4-THEFT-CORRECTIONS): a payment's method changed after
+// Payment corrections: a payment's method changed after
 // it was taken — cash written up as UPI is exactly how cash leaves a drawer
 // unnoticed. Every one in the range (by the payment's business day), with who
 // changed it and the manager whose PIN allowed it.

@@ -4,7 +4,7 @@ const v = require('../../../../utils/validate');
 const access = require('./businessAccess.service');
 const pricing = require('./businessPricing');
 
-// Accessory kits and bundles (round 2, R2-CORE): "Mobile + cover + screen
+// Accessory kits and bundles: "Mobile + cover + screen
 // guard" sold at one kit price. The kit is a catalogue item of its own
 // (is_kit, no stock of its own); its components are ordinary items.
 //
@@ -70,7 +70,7 @@ async function expand(db, business, inputLines, { kind, contact, taxMode, locati
     if (input.unit && input.unit !== kit.unit) fail(`${kit.label} is sold in whole kits`);
     const quantity = core().decimal(input.quantity, 'Quantity', 0, 1, 1000);
     const parts = components.filter((c) => Number(c.kit_sku_id) === Number(kit.id));
-    if (!parts.length) fail(`${kit.label} has no components yet. Add them under Products › Kits & bundles.`, 409);
+    if (!parts.length) fail(`${kit.label} has no components yet. Add them on the Kits & bundles page.`, 409);
     const stopped = parts.find((c) => !c.active);
     if (stopped) fail(`${stopped.label}, a part of ${kit.label}, is no longer sold. Change the kit first.`, 409);
     if (parts.some((c) => c.tracking === 'serial') && quantity !== 1) fail(`${kit.label} has a serial-numbered part: bill one kit per line`);
@@ -246,4 +246,4 @@ async function forCounter(db, business, kit, locationId) {
   return out;
 }
 
-module.exports = { expand, inputIndexOf, list, create, update, forCounter, split };
+module.exports = { expand, inputIndexOf, list, create, update, forCounter };

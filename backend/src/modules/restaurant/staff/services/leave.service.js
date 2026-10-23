@@ -439,7 +439,4 @@ module.exports = {
   balances,
   register,
   checkDay,
-  // Pure helpers, shared with tests.
-  simulate,
-  allowanceFor,
 };

@@ -11,7 +11,7 @@ const { FOOD_LABELS, rupees, taxLabel, translateMenuRule } = require("./menuComm
 // Menu import from a spreadsheet: how a new restaurant loads a 300-dish menu,
 // and how an existing one revises prices once a year.
 //
-// The rules that keep it safe (menu audit B1):
+// The rules that keep it safe:
 //
 //   * Only what the file says changes. A column that is not in the file, or a
 //     cell left empty, keeps what the dish has. A "category, name, price"
@@ -122,7 +122,7 @@ const COLUMNS = [
     help: "Add-ons offered with the dish: Extra cheese; Butter=25. Name=Price creates an add-on or changes its price everywhere. The list replaces what the dish offers; none removes all. Empty leaves them as they are.",
     example: "Mint chutney=20",
   },
-  // SW-A-12: the names the KOT and the kitchen screen print, in any script.
+  // The names the KOT and the kitchen screen print, in any script.
   // Bills and the guest menu keep the menu name.
   {
     key: "kitchenName",
@@ -384,7 +384,7 @@ const parseAddOns = (raw) => {
   return { addOns };
 };
 
-// SW-A-12: "Half=हाफ; Full=फुल" — kitchen names by size or add-on name.
+// "Half=हाफ; Full=फुल" — kitchen names by size or add-on name.
 // "none" as a value removes one. what: "Size kitchen names" or "Add-on
 // kitchen names", for the problem text.
 const parseKitchenNames = (raw, what, maxLength = 100) => {
@@ -755,7 +755,7 @@ const plan = (rawRows, context) => {
   const newCategories = new Map();
   const newAddOns = new Map();
   const addOnPriceChanges = new Map();
-  // SW-A-12: add-on kitchen names, one per add-on across the file.
+  // Add-on kitchen names, one per add-on across the file.
   const addOnKitchenNames = new Map();
   const seenDishes = new Map();
   const seenCodes = new Map();
@@ -1227,7 +1227,7 @@ const plan = (rawRows, context) => {
       }
     }
 
-    // SW-A-12: kitchen names. The dish's own: empty keeps it, none clears it.
+    // Kitchen names. The dish's own: empty keeps it, none clears it.
     let kitchenName = existing ? existing.kitchen_name || null : null;
 
     if (given("kitchenName")) {
@@ -1395,7 +1395,7 @@ const plan = (rawRows, context) => {
     });
   }
 
-  // SW-A-12: every add-on kitchen name must name an add-on on the menu or
+  // Every add-on kitchen name must name an add-on on the menu or
   // one the file creates; only real changes are written, and each shows on
   // the row that names it first.
   const addOnKitchenNameChanges = [];
@@ -1798,4 +1798,4 @@ const importGuide = async (restaurantId) => {
   };
 };
 
-module.exports = { exportProducts, importProducts, importGuide, EXPORT_COLUMNS, COLUMNS };
+module.exports = { exportProducts, importProducts, importGuide };

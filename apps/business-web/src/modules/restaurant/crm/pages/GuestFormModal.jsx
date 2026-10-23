@@ -1,0 +1,359 @@
+import { useState } from "react";
+import Modal from "../../../../components/Modal";
+import Icon from "@bmp/ui/Icon";
+import { ErrorMessage } from "../../../../components/Feedback";
+import { createCustomer, listCustomers, updateCustomer } from "../services/crm.service";
+import { getErrorMessage } from "../../../../services/api";
+import { abroadTenCountry, formatMobile, mobileHint, normaliseMobile, tenDigitTwin } from "../../../../services/phone";
+import { GUEST_TAGS, gstinHint, shortDate, tidyGstin } from "../../../../services/guestBook";
+import "../styles/crm.css";
+
+const fromGuest = (guest) => ({
+  name: guest?.name || "",
+  mobile: guest?.mobile ? formatMobile(guest.mobile) : "",
+  email: guest?.email || "",
+  dateOfBirth: guest?.dateOfBirth || "",
+  anniversaryDate: guest?.anniversaryDate || "",
+  status: guest?.status || "active",
+  address: guest?.address || "",
+  notes: guest?.notes || "",
+  companyName: guest?.companyName || "",
+  gstin: guest?.gstin || "",
+  tags: guest?.tags || [],
+  allergies: guest?.allergies || "",
+  marketingOptIn: Boolean(guest?.marketingOptIn),
+});
+
+function Hint({ hint, fallback }) {
+  if (!hint) {
+    return fallback ? <small className="muted">{fallback}</small> : null;
+  }
+
+  return <small className={hint.ok ? "crm-hint-ok" : "crm-hint-bad"}>{hint.text}</small>;
+}
+
+// Adding or editing a guest: who they are, how to reach them, what the floor
+// should know (tags, allergies), the business details for a GST invoice, and
+// whether they agreed to hear about offers.
+//
+// Staff who see a guest's contact details masked (a cashier) get those boxes
+// empty, with the masked value as a hint. Left empty they keep what is on
+// file (the server treats an empty box from them as "unchanged"); a new
+// number typed in replaces the old one, for a guest who changed phones.
+//
+// When another guest holds the same ten digits in the other form (+9598473967
+// from Myanmar and the Indian 9598473967), the form asks before saving (and
+// the server refuses the save until it is answered): nearly always it is the
+// same guest typed with "+" and no 91. "It is a different number" has to be
+// ticked for the save to go through.
+export default function GuestFormModal({ guest, onClose, onSaved }) {
+  const editing = Boolean(guest && guest.id);
+  const hidden = editing && Boolean(guest.contactHidden);
+  const [form, setForm] = useState(() => fromGuest(guest));
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  // { name, country } of the guest holding the other form, once found.
+  const [twin, setTwin] = useState(null);
+  const [differentNumber, setDifferentNumber] = useState(false);
+
+  const change = (field) => (event) => {
+    setForm({ ...form, [field]: event.target.value });
+
+    if (field === "mobile") {
+      setTwin(null);
+      setDifferentNumber(false);
+    }
+  };
+
+  const toggleTag = (tag) =>
+    setForm({
+      ...form,
+      tags: form.tags.includes(tag) ? form.tags.filter((t) => t !== tag) : [...form.tags, tag],
+    });
+
+  // Who holds the same ten digits in the other form, asked before saving so
+  // the question comes up without a refused save. The server checks again.
+  const findTwin = async () => {
+    const mobile = normaliseMobile(form.mobile);
+    const other = tenDigitTwin(mobile);
+
+    if (!other || (editing && guest.mobile === mobile)) {
+      return null;
+    }
+
+    try {
+      const rows = await listCustomers({ search: other, limit: 5 });
+      const holder = rows.find((row) => row.mobile === other && (!editing || row.id !== guest.id));
+
+      return holder ? { name: holder.name, country: abroadTenCountry(mobile.startsWith("+") ? mobile : other) || "abroad", mobile, other } : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const twinMessage = (found) =>
+    found.mobile.startsWith("+")
+      ? `${found.name} already has the Indian mobile ${formatMobile(found.other)}. “${found.mobile}” is the same ten digits with a + in front, which is how a mobile from ${found.country} is written. If it is ${found.name}'s number, open their record. If this guest's number really is from ${found.country}, confirm that and save again.`
+      : `${found.name} already has ${found.other}, a mobile from ${found.country} with the same ten digits. If this is ${found.name}, open their record. If it is a different, Indian mobile, confirm that and save again.`;
+
+  const save = async (event) => {
+    event.preventDefault();
+    setError("");
+    setSaving(true);
+
+    if (!differentNumber) {
+      const found = await findTwin();
+
+      if (found) {
+        setTwin({ name: found.name, country: found.country });
+        setError(twinMessage(found));
+        setSaving(false);
+        return;
+      }
+    }
+
+    const payload = {
+      name: form.name,
+      mobile: form.mobile.trim() || null,
+      email: form.email.trim() || null,
+      dateOfBirth: form.dateOfBirth || null,
+      anniversaryDate: form.anniversaryDate || null,
+      status: form.status,
+      address: form.address || null,
+      notes: form.notes || null,
+      companyName: form.companyName.trim() || null,
+      gstin: tidyGstin(form.gstin) || null,
+      tags: form.tags,
+      allergies: form.allergies.trim() || null,
+      marketingOptIn: form.marketingOptIn,
+      ...(twin && differentNumber ? { sameDigitsConfirmed: true } : {}),
+    };
+
+    try {
+      const saved = editing ? await updateCustomer(guest.id, payload) : await createCustomer(payload);
+      onSaved(saved, editing ? `${saved.name} updated` : `${saved.name} added to the guest book`);
+    } catch (err) {
+      const details = err.response?.data?.data;
+
+      if (details && details.reason === "same_digits") {
+        setTwin({ name: details.existingName, country: details.country });
+        setDifferentNumber(false);
+      }
+
+      setError(getErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const allergyOn = form.tags.includes("allergy");
+
+  return (
+    <Modal
+      title={editing ? `Edit ${guest.name}` : "Add a guest"}
+      icon={editing ? "edit" : "user-plus"}
+      description="Only the name is needed. A mobile lets the till recognise them next time."
+      onClose={onClose}
+      width={680}
+    >
+      <form className="form-grid crm-form" onSubmit={save}>
+        <ErrorMessage message={error} />
+
+        <p className="section-heading field-wide">Who they are</p>
+
+        <label className="field">
+          <span>Name *</span>
+          <input value={form.name} onChange={change("name")} required autoFocus maxLength={150} />
+        </label>
+
+        <label className="field">
+          <span>Mobile</span>
+          <input
+            value={form.mobile}
+            onChange={change("mobile")}
+            inputMode="tel"
+            maxLength={20}
+            placeholder={hidden ? guest.mobileDisplay || "No mobile on file" : "98765 43210"}
+          />
+          <Hint
+            hint={mobileHint(form.mobile)}
+            fallback={
+              hidden
+                ? "Hidden for your role. Leave empty to keep it; type a new number only if it changed."
+                : "How the till recognises them next time"
+            }
+          />
+        </label>
+
+        {twin && (
+          <div className="field field-wide crm-twin-confirm">
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={differentNumber}
+                onChange={(event) => setDifferentNumber(event.target.checked)}
+              />
+              <span>
+                <strong>
+                  {form.mobile.trim().startsWith("+")
+                    ? `It is a different number, from ${twin.country}, not ${twin.name}'s`
+                    : `It is a different, Indian number, not ${twin.name}'s`}
+                </strong>
+                <small className="muted">Tick only after checking with the guest, then save again.</small>
+              </span>
+            </label>
+          </div>
+        )}
+
+        <label className="field">
+          <span>Email</span>
+          <input
+            type="email"
+            value={form.email}
+            onChange={change("email")}
+            maxLength={150}
+            placeholder={hidden ? guest.emailMasked || "No email on file" : ""}
+          />
+          {hidden && <small className="muted">Leave empty to keep it</small>}
+        </label>
+
+        <label className="field">
+          <span>Date of birth</span>
+          <input type="date" value={form.dateOfBirth} onChange={change("dateOfBirth")} max={new Date().toLocaleDateString("en-CA")} />
+          <small className="muted">Puts them on the birthday list in Guest insights</small>
+        </label>
+
+        <label className="field">
+          <span>Wedding anniversary</span>
+          <input
+            type="date"
+            value={form.anniversaryDate}
+            onChange={change("anniversaryDate")}
+            max={new Date().toLocaleDateString("en-CA")}
+          />
+          <small className="muted">Puts them on the anniversaries list, and the till shows it that week</small>
+        </label>
+
+        <fieldset className="field field-wide crm-fieldset">
+          <legend className="section-heading">What the floor should know</legend>
+          <p className="muted small crm-fieldset-help">Tap every tag that applies. Tags show beside the guest's name wherever staff look them up.</p>
+          <div className="crm-tag-picker" role="group" aria-label="Tags">
+            {GUEST_TAGS.map((tag) => {
+              const on = form.tags.includes(tag.value);
+
+              return (
+                <button
+                  key={tag.value}
+                  type="button"
+                  className={`crm-tag-toggle crm-tag-${tag.value} ${on ? "is-on" : ""}`}
+                  aria-pressed={on}
+                  title={tag.hint}
+                  onClick={() => toggleTag(tag.value)}
+                >
+                  {on ? <Icon name="check" size={14} /> : <Icon name="plus" size={14} />}
+                  {tag.label}
+                </button>
+              );
+            })}
+          </div>
+          {allergyOn && (
+            <label className="field crm-allergy-field">
+              <span>Allergic to *</span>
+              <input
+                value={form.allergies}
+                onChange={change("allergies")}
+                required
+                maxLength={300}
+                placeholder="Peanuts, shellfish"
+              />
+              <small className="muted">Shown on their card, so it reaches the kitchen</small>
+            </label>
+          )}
+        </fieldset>
+
+        <fieldset className="field field-wide crm-fieldset">
+          <legend className="section-heading">For a GST invoice in their company's name</legend>
+          <div className="crm-two">
+            <label className="field">
+              <span>Company name</span>
+              <input value={form.companyName} onChange={change("companyName")} maxLength={150} placeholder="Shah Textiles Pvt Ltd" />
+            </label>
+            <label className="field">
+              <span>GSTIN</span>
+              <input
+                value={form.gstin}
+                onChange={change("gstin")}
+                maxLength={20}
+                placeholder="27AAPFU0939F1ZV"
+                className="mono"
+                autoCapitalize="characters"
+              />
+              <Hint hint={gstinHint(form.gstin)} fallback="Kept on their record for a B2B tax invoice" />
+              {editing && guest.gstin && (
+                <small className="muted">
+                  A change applies to new bills. Bills already issued keep the GSTIN they were made out to.
+                </small>
+              )}
+            </label>
+          </div>
+        </fieldset>
+
+        <p className="section-heading field-wide">Offers</p>
+
+        <div className="field field-wide crm-consent">
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={form.marketingOptIn}
+              onChange={(event) => setForm({ ...form, marketingOptIn: event.target.checked })}
+            />
+            <span>
+              <strong>The guest agreed to receive offers by SMS or WhatsApp</strong>
+              <small className="muted">
+                Tick only if they said yes. The DPDP Act 2023 needs a guest's consent before any offer is sent.
+                {editing && guest.marketingOptInAt ? ` Recorded ${shortDate(guest.marketingOptInAt)}.` : ""}
+              </small>
+            </span>
+          </label>
+        </div>
+
+        <p className="section-heading field-wide">On their record</p>
+
+        <label className="field">
+          <span>Status</span>
+          <select value={form.status} onChange={change("status")}>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+          <small className="muted">Inactive guests stay on file but leave the lists</small>
+        </label>
+
+        <label className="field">
+          <span>Notes</span>
+          <input value={form.notes} onChange={change("notes")} maxLength={500} placeholder="Prefers the window table" />
+        </label>
+
+        <label className="field field-wide">
+          <span>Address</span>
+          <textarea
+            rows={2}
+            value={form.address}
+            onChange={change("address")}
+            maxLength={500}
+            placeholder={hidden ? "Hidden for your role. Leave empty to keep it." : ""}
+          />
+        </label>
+
+        <div className="form-actions field-wide">
+          <button type="button" className="button button-secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className="button" disabled={saving}>
+            <Icon name="check" size={16} />
+            {saving ? "Saving…" : editing ? "Save changes" : "Add guest"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}

@@ -4,7 +4,7 @@ const {randomUUID}=require('node:crypto');
 // The restaurant's own calendar date (Asia/Kolkata): only today's business day can be opened.
 const TODAY=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'});
 
-module.exports=async(t,{request,one,pool,rid,category,unit,user,token})=>{
+module.exports=async(t,{request,one,pool,rid,category,unit,token})=>{
   const newDish=async(name,price=100)=>one(`INSERT INTO products(restaurant_id,category_id,name,price,tax_percentage) VALUES($1,$2,$3,$4,0) RETURNING id`,[rid,category.id,name,price]);
   const raw=async(name)=>one('INSERT INTO inventory_items(restaurant_id,name,unit_id) VALUES($1,$2,$3) RETURNING id',[rid,name,unit.id]);
   const stock=async(id)=>(Number((await one('SELECT current_stock FROM inventory_items WHERE id=$1',[id])).current_stock));

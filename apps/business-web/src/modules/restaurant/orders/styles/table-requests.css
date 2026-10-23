@@ -1,0 +1,1041 @@
+/* Table requests: the staff inbox for QR orders and calls from tables.
+   Two lanes side by side on a desk; one lane at a time, with a switch, on a
+   phone carried round the floor. */
+
+/* The page's own names for the shared tokens, so the rules below read the
+   same as before and dark mode comes with the tokens. */
+.tr-page {
+  --tr-soft: var(--primary-soft);
+  --tr-info: var(--info-text);
+  --tr-info-bg: var(--info-bg);
+  --tr-violet: var(--violet);
+  --tr-violet-bg: var(--violet-bg);
+  --tr-shadow: var(--shadow-sm);
+}
+
+.tr-page .icon {
+  flex-shrink: 0;
+}
+
+/* ------------------------------------------------------------ header */
+
+.tr-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.tr-icon-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tr-icon-button.is-on {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.tr-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--success-bg);
+  color: var(--success-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.tr-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: tr-blink 2s ease-in-out infinite;
+}
+
+.tr-live.is-down {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+@keyframes tr-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* ------------------------------------------------------------ tiles */
+
+/* The figures are the shared StatTile. A tile whose tone is a warning or a
+   danger also takes that colour on its edge, so a late inbox shows from the
+   door. */
+.tr-stats .stat-tile.tone-warning,
+.tr-stats .stat-tile.tone-danger {
+  border-color: color-mix(in srgb, var(--tone) 35%, var(--border));
+}
+
+.tr-flash {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tr-flash > span {
+  flex: 1;
+}
+
+.tr-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------ toolbar */
+
+.tr-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.tr-toolbar-note {
+  margin-left: auto;
+}
+
+.tr-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--chip-bg);
+  color: var(--text);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.segment.is-active .tr-count {
+  background: var(--primary);
+  color: var(--primary-text);
+}
+
+/* The lane switch is for a phone; on a desk both lanes are on screen.
+   Scoped under the toolbar because the shared .segmented rule loads after
+   this file and would otherwise win. */
+.tr-toolbar .tr-lanes {
+  display: none;
+}
+
+/* ------------------------------------------------------------ board */
+
+.tr-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.tr-lane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.tr-lane-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tr-lane-head h2 {
+  margin: 0;
+}
+
+.tr-lane-head > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.tr-lane-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.tr-lane-icon.is-orders {
+  background: var(--tr-soft);
+  color: var(--primary);
+}
+
+.tr-lane-icon.is-calls {
+  background: var(--tr-info-bg);
+  color: var(--tr-info);
+}
+
+.tr-lane-count {
+  display: grid;
+  place-items: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--chip-bg);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.tr-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ------------------------------------------------------------ cards */
+
+.tr-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--tr-shadow);
+}
+
+/* Waiting cards carry a coloured edge; handled ones go quiet. */
+.tr-card.is-open::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 12px;
+  bottom: 12px;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: var(--primary);
+}
+
+.tr-card.is-closed {
+  background: var(--surface-2);
+  box-shadow: none;
+}
+
+.tr-card.is-fresh {
+  animation: tr-arrive 1.6s ease-in-out 3;
+}
+
+@keyframes tr-arrive {
+  0%,
+  100% {
+    box-shadow: var(--tr-shadow);
+  }
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 25%, transparent), var(--tr-shadow);
+  }
+}
+
+.tr-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tr-table-badge {
+  display: grid;
+  place-items: center;
+  min-width: 46px;
+  height: 46px;
+  padding: 0 6px;
+  border-radius: 12px;
+  background: var(--tr-soft);
+  color: var(--primary);
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  flex-shrink: 0;
+}
+
+.tr-card.is-closed .tr-table-badge {
+  background: var(--chip-bg);
+  color: var(--muted);
+}
+
+.tr-card-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  line-height: 1.3;
+}
+
+.tr-card-title strong {
+  font-size: 1rem;
+}
+
+.tr-card-title span {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tr-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--chip-bg);
+  color: var(--text);
+  font-weight: 800;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tr-clock.is-warn {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.tr-clock.is-late {
+  background: var(--danger-bg);
+  color: var(--danger);
+  animation: tr-late 1.6s ease-in-out infinite;
+}
+
+@keyframes tr-late {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 30%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--danger) 0%, transparent);
+  }
+}
+
+.tr-guest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin: -2px 0 0;
+  font-size: 0.875rem;
+}
+
+.tr-guest-name {
+  font-weight: 600;
+}
+
+.tr-guest-phone {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.tr-guest-phone:hover {
+  color: var(--primary);
+}
+
+.tr-items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tr-items li {
+  display: grid;
+  grid-template-columns: 14px 30px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px dashed var(--border);
+  font-size: 0.9rem;
+}
+
+.tr-items li:last-child {
+  border-bottom: 0;
+}
+
+.tr-qty {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.tr-item-name {
+  font-weight: 600;
+  min-width: 0;
+}
+
+.tr-variant {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.tr-mods,
+.tr-item-note {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.tr-item-note {
+  font-style: italic;
+  color: var(--warning-text);
+}
+
+.tr-item-price {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.tr-items-summary {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tr-items-summary:hover {
+  color: var(--text);
+}
+
+.tr-food {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid currentColor;
+  border-radius: 3px;
+  position: relative;
+  top: 1px;
+}
+
+.tr-food::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.tr-food-veg {
+  color: var(--success);
+}
+
+.tr-food-egg {
+  color: var(--warning);
+}
+
+.tr-food-non_veg {
+  color: var(--danger);
+}
+
+.tr-food-non_veg::after {
+  border-radius: 0;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+
+.tr-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.tr-note .icon {
+  margin-top: 2px;
+}
+
+.tr-card-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.tr-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.tr-total strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.tr-destination {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.tr-destination.is-new {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.tr-destination.is-add {
+  background: var(--tr-info-bg);
+  color: var(--tr-info);
+}
+
+.tr-outcome {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.tr-outcome > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.tr-outcome.is-good {
+  color: var(--success-text);
+}
+
+.tr-outcome.is-bad {
+  color: var(--danger);
+}
+
+.tr-card-error {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.tr-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.tr-actions .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
+}
+
+.tr-accept {
+  min-width: 132px;
+}
+
+.tr-reject:hover:not(:disabled) {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.tr-bill-link {
+  margin-right: auto;
+  text-decoration: none;
+}
+
+.tr-muted-line {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------ calls */
+
+.tr-call-icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--tr-soft);
+  color: var(--primary);
+}
+
+.tr-call-bill .tr-call-icon {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.tr-call-water .tr-call-icon {
+  background: var(--tr-info-bg);
+  color: var(--tr-info);
+}
+
+.tr-call-other .tr-call-icon {
+  background: var(--tr-violet-bg);
+  color: var(--tr-violet);
+}
+
+.tr-call.is-open.tr-call-bill::before {
+  background: var(--success-text);
+}
+
+.tr-call.is-open.tr-call-water::before {
+  background: var(--tr-info);
+}
+
+.tr-call.is-open.tr-call-other::before {
+  background: var(--tr-violet);
+}
+
+.tr-card.is-closed .tr-call-icon {
+  background: var(--chip-bg);
+  color: var(--muted);
+}
+
+.tr-call-message {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--tr-violet-bg);
+  color: var(--text);
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+.tr-call-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tr-chip-good {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.tr-chip-bad {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.tr-chip-warn {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.tr-chip-info {
+  background: var(--tr-info-bg);
+  color: var(--tr-info);
+}
+
+.tr-chip-muted {
+  background: var(--chip-bg);
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------ settings and reject */
+
+.tr-settings {
+  gap: 14px;
+}
+
+.tr-switch-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.tr-switch-row input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tr-switch-row strong {
+  display: block;
+  font-size: 0.9375rem;
+}
+
+.tr-switch-row small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.tr-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 999px;
+  background: var(--border);
+  flex-shrink: 0;
+  transition: background 140ms ease;
+}
+
+.tr-switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  transition: transform 140ms ease;
+}
+
+.tr-switch-row.is-on {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+  background: var(--tr-soft);
+}
+
+.tr-switch-row.is-on .tr-switch {
+  background: var(--primary);
+}
+
+.tr-switch-row.is-on .tr-switch::after {
+  transform: translateX(18px);
+}
+
+.tr-switch-row:has(input:focus-visible) {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Read-only for someone who may not change it: the switch is greyed and the
+   row says On or Off in words, so it cannot be mistaken for one to press. */
+.tr-switch-row.is-locked {
+  cursor: default;
+}
+
+.tr-switch-row.is-locked.is-on {
+  border-color: var(--border);
+  background: var(--surface-2);
+}
+
+.tr-switch-row.is-locked .tr-switch {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
+.tr-switch-state {
+  margin-left: auto;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+  background: var(--chip-bg);
+  color: var(--muted);
+}
+
+.tr-switch-state.is-on {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.tr-locked-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.tr-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px dashed var(--border);
+}
+
+.tr-preview strong {
+  display: block;
+}
+
+.tr-preview small {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.tr-preview-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tr-preview-row select {
+  flex: 1;
+  min-width: 160px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.tr-preview-row .button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+}
+
+.tr-reject-help {
+  margin: 0;
+}
+
+.tr-reason-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tr-reason-chips .chip-button {
+  padding: 8px 12px;
+  border-radius: 999px;
+}
+
+.tr-reason-chips .chip-button.is-active {
+  border-color: var(--primary);
+  background: var(--tr-soft);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ phone */
+
+@media (max-width: 900px) {
+  .tr-board {
+    grid-template-columns: 1fr;
+  }
+
+  .tr-toolbar .tr-lanes {
+    display: inline-flex;
+  }
+
+  .tr-board.show-orders .tr-lane-calls,
+  .tr-board.show-calls .tr-lane-orders {
+    display: none;
+  }
+
+  .tr-toolbar-note {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+/* On a phone the figures shrink to one strip, so the first request card is
+   on screen without scrolling past them: the cards are the work, the figures
+   are a glance. The colour moves from the icon to the number. */
+@media (max-width: 700px) {
+  .tr-stats.stat-grid {
+    /* The fourth figure is a time ("12m 05s"), the widest value. */
+    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.3fr) minmax(0, 1fr);
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+
+  .tr-stats .stat-tile {
+    gap: 2px;
+    padding: 8px 8px 9px;
+    border: 0;
+    border-left: 1px solid var(--border);
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .tr-stats .stat-tile:first-child {
+    border-left: 0;
+  }
+
+  /* Number first, its name under it, and the colour on the number. */
+  .tr-stats .stat-tile-top {
+    order: 2;
+    min-height: 0;
+  }
+
+  .tr-stats .stat-tile-icon,
+  .tr-stats .stat-tile-foot {
+    display: none;
+  }
+
+  .tr-stats .stat-tile-value {
+    font-size: 1.05rem;
+    white-space: nowrap;
+    color: var(--tone);
+  }
+
+  .tr-stats .stat-tile.tone-neutral .stat-tile-value {
+    color: var(--text);
+  }
+
+  .tr-stats .stat-tile-label {
+    font-size: 0.6875rem;
+    line-height: 1.2;
+  }
+}
+
+@media (max-width: 600px) {
+  .tr-header-actions {
+    width: 100%;
+  }
+
+  /* Full-width switches: easy to hit with a thumb while carrying plates. */
+  .tr-toolbar .segmented {
+    display: flex;
+    width: 100%;
+    flex-wrap: nowrap;
+  }
+
+  .tr-toolbar .segment {
+    flex: 1;
+    padding: 10px 8px;
+  }
+
+  .tr-live {
+    margin-right: auto;
+  }
+
+  .tr-icon-button span {
+    display: none;
+  }
+
+  .tr-card {
+    padding: 12px 14px;
+  }
+
+  .tr-actions .button {
+    flex: 1;
+  }
+
+  .tr-bill-link {
+    flex-basis: 100%;
+  }
+
+  .tr-card-head {
+    gap: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tr-page *,
+  .tr-page *::before,
+  .tr-page *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ------------------------------------------------- Today and Earlier days */
+
+/* The data grid's cells: a heading line and a muted line under it. */
+.tr-history .tr-h-table,
+.tr-history .tr-h-request,
+.tr-history .tr-h-outcome {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tr-history .tr-h-outcome .tr-card-error {
+  margin: 2px 0 0;
+}
+
+.tr-history .row-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* The captain who has the table today. */
+.tr-captain {
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--chip-bg);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tr-captain.is-mine {
+  background: var(--nav-active-bg);
+  color: var(--primary);
+}

@@ -16,10 +16,10 @@ const tradingDayRules = require("../../../business-day/services/tradingDay");
 // ---------------------------------------------------------------------------
 
 // What should be in the drawer now, by the same arithmetic as the day-end
-// sheet (one definition, reportRepository.drawers). With an outlet chosen:
-// its own day's drawer when it trades a day of its own; otherwise only the
-// cash its bills took on the main counter's day (the float is not its own).
-// For the whole restaurant: every drawer of the day added up.
+// sheet (one definition, drawers() in repositories/report/drawers.js). With
+// an outlet chosen: its own day's drawer when it trades a day of its own;
+// otherwise only the cash its bills took on the main counter's day (the float
+// is not its own). For the whole restaurant: every drawer of the day added up.
 const dashboardCash = (data, outlet) => {
   if (!data.cashDays || data.cashDays.length === 0) {
     return null;

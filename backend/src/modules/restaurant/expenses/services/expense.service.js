@@ -43,7 +43,7 @@ const toExpense = (row) => ({
   drawerClosed: row.drawer_day_status === "closed",
   // Petty cash paid from a drawer: changed or cancelled there, not here.
   fromDrawer: Boolean(row.movement_id),
-  // Photos or PDFs of the paper bill (SW-B-09): the paperclip on the list.
+  // Photos or PDFs of the paper bill: the paperclip on the list.
   attachmentCount: Number(row.attachment_count || 0),
 });
 
@@ -225,7 +225,7 @@ const validateLinks = async (restaurantId, data) => {
 };
 
 // atTill: recorded by a person through the API, so the dating rules above
-// apply. The demo seed scripts call this directly to lay down past spending.
+// apply. Server code that calls this directly may lay down past spending.
 const create = async (restaurantId, data, userId, { atTill = false } = {}) => {
   requireRestaurantId(restaurantId);
   await validateLinks(restaurantId, data);
@@ -397,9 +397,6 @@ module.exports = {
   removeCategory,
   list,
   defaults,
-  checkDating,
-  datingContext,
-  toExpense,
   create,
   update,
   setStatus,

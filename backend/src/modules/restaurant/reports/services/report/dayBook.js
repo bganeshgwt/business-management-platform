@@ -12,7 +12,7 @@ const { gstinFor, loadGstData, seriesOf, taxableLines } = require("./gstData");
 // ---------------------------------------------------------------------------
 
 // Money received from guests before their bill (advances and deposits): a
-// liability until it is used on a bill or handed back (R4-DAYBOOK-ADVANCES).
+// liability until it is used on a bill or handed back.
 const ADVANCES_LEDGER = "Advances from customers";
 
 // Cash a rider did not hand in: owed by him (a ledger per rider, as two
@@ -286,10 +286,10 @@ const dayBook = async (
   }
 
   // One receipt per day, method and party. Numbered per day and method, the
-  // walk-in guests' first and each company guest after it (R-20260924-CARD,
-  // R-20260924-CARD-2): numbered by day and method alone, a company's card
-  // payment and the walk-ins' shared one number, and an Excel-to-Tally
-  // mapper — which groups rows by voucher number — merged them.
+  // walk-in guests' first and each company guest after it: numbered by day
+  // and method alone, a company's card payment and the walk-ins' shared one
+  // number, and an Excel-to-Tally mapper — which groups rows by voucher
+  // number — merged them.
   const receiptList = [...receiptGroups.values()].sort(
     (a, b) =>
       a.date.localeCompare(b.date) ||

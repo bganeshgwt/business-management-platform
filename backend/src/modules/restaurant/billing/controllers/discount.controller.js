@@ -35,7 +35,7 @@ const optionalTime = (value, field) => {
 const idList = (value, field) =>
   value === undefined || value === null ? [] : [...new Set(v.requiredArray(value, field).map((id) => v.requiredId(id, field)))];
 
-// The offer's rules (SW-B-17): which dishes, which days and hours, once per
+// The offer's rules: which dishes, which days and hours, once per
 // guest, and buy X get Y.
 const readRules = (body = {}) => {
   const offerType = v.optionalEnum(body.offerType, "Offer type", ["discount", "buy_get"], "discount");

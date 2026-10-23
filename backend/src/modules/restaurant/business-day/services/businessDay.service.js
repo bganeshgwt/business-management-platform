@@ -49,7 +49,7 @@ const toDay = (row) =>
     methodChecks: row.method_checks || null,
     reopenedCount: Number(row.reopened_count || 0),
     notes: row.notes,
-    // Kept apart (SW-B-07): what the opener wrote, and what the closer wrote.
+    // Kept apart: what the opener wrote, and what the closer wrote.
     // Who and when are the day's own opened/closed by and at.
     openingNotes: row.opening_notes || null,
     closingNotes: row.closing_notes || null,
@@ -172,8 +172,8 @@ const listDays = async (restaurantId, outletId, user, { from, to, page, pageSize
 // the API does): today's, or (until the cut-off hour of the morning)
 // yesterday's, on the restaurant's own clock. A business day for next January
 // or for four months ago was accepted before, and every report of that date
-// then counted takings that never happened on it. The demo seed scripts call
-// this directly to lay down past days, which is what they are for.
+// then counted takings that never happened on it. Server code that calls this
+// directly (a test laying down past days) may open any date.
 const openDay = async (restaurantId, data, userId, { atTill = false } = {}) => {
   requireRestaurantId(restaurantId);
 
@@ -449,8 +449,8 @@ const checkMethods = (methodChecks, figures) => {
 //
 // atTill: a person closing at the till (every close through the API). Then
 // cash expenses still waiting for approval stop the close, and a difference
-// beyond the threshold needs a reason. The demo seed scripts close past days
-// directly without them.
+// beyond the threshold needs a reason. Server code that closes a day directly
+// does so without them.
 const evaluateClose = async (restaurantId, data, user, settings = null, { atTill = true } = {}) => {
   requireRestaurantId(restaurantId);
 
@@ -732,8 +732,8 @@ const checkClose = async (restaurantId, data, user) => {
   }
 };
 
-// who: the person closing (the API passes the signed-in user; the seed
-// scripts pass a user id).
+// who: the person closing (the API passes the signed-in user; server code
+// may pass a bare user id).
 const closeDay = async (restaurantId, data, who, { atTill = false } = {}) => {
   requireRestaurantId(restaurantId);
 
@@ -916,7 +916,6 @@ module.exports = {
   getStatus,
   listDays,
   openDay,
-  dayFigures,
   cashOfDay,
   checkCount,
   requireReason,

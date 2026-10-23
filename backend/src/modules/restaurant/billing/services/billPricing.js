@@ -373,4 +373,4 @@ const priceBill = ({
   };
 };
 
-module.exports = { priceBill, discountOn, couponOnLines };
+module.exports = { priceBill };

@@ -5,7 +5,7 @@ const access = require('./businessAccess.service');
 const { dateText } = require('./business.service');
 const { displayName } = require('./businessPaymentMethods.service');
 
-// Day close for a shop counter (pro pass C-04): what was sold and what money
+// Day close for a shop counter: what was sold and what money
 // came in and went out over a day (or a few), by payment method, by the
 // person who took it and by counter / location, with the cash that should be
 // in the drawer. Read-only: it adds up what was posted and changes nothing.
@@ -14,8 +14,8 @@ const { displayName } = require('./businessPaymentMethods.service');
 // collections from customers (udhaar / outstanding, advances included).
 // Money out: refunds to customers (on bills, and advances handed back,
 // business_collection_refunds) and payments to suppliers. A cheque that
-// bounced is taken off on the day it bounced (round 2 check).
-// EMI (round 2): the financed part of a bill is not money in at the counter;
+// bounced is taken off on the day it bounced.
+// EMI: the financed part of a bill is not money in at the counter;
 // it is shown apart (booked on EMI), and the financier's payout is money in
 // on the day it is recorded, net of the subvention the financier kept.
 // Split payments need nothing special: each part is its own payment row.
@@ -185,7 +185,7 @@ async function takings(business, query, db = repo.pool) {
 }
 
 // The overview's "today at the counter" figures and what needs doing today,
-// per business type (pro pass C-03, D-08, E-24). Each figure is sent only to
+// per business type. Each figure is sent only to
 // someone allowed to see what it adds up (the route filters by FIGURES).
 async function today(business) {
   const has = (module) => business.modules.includes(module);

@@ -9,11 +9,10 @@ const { attributes } = require('./businessModules');
 const pricing = require('./businessPricing');
 const retailOffers = require('../../retail/services/businessOffers');
 const books = require('../../retail/services/businessBooks');
-// Salon packages, memberships and staff on a bill (Phase 2, T4).
+// Salon packages, memberships and staff on a bill.
 const salonSales = require('../../salon-weight/services/businessSalonSales');
 const paymentMethods = require('./businessPaymentMethods.service');
 
-const { devEnabled } = access;
 const fail = (message, status = 400) => { throw new AppError(status, message); };
 function decimal(value, name, places = 2, min = 0, max = 100000000) {
   if ((typeof value !== 'number' && typeof value !== 'string') || String(value).trim() === '' ||
@@ -94,10 +93,10 @@ const rateText = (price, fourPlaces) => {
 // --- Directory and set-up ------------------------------------------------
 
 async function list(user) {
-  const businesses = await repo.list(user.id, devEnabled());
+  const businesses = await repo.list(user.id);
   const { modules } = await repo.platformCatalogue();
   const types = Object.fromEntries((await repo.all(repo.pool, 'SELECT code,name FROM business_types ORDER BY name')).map((t) => [t.code, { name: t.name }]));
-  return { developmentSwitching: devEnabled(), types, modules: modules.map(({ code, name, kind }) => ({ code, name, kind })),
+  return { types, modules: modules.map(({ code, name, kind }) => ({ code, name, kind })),
     businesses: businesses.map((b) => ({ ...b, is_signed_in_restaurant: Boolean(b.legacy_restaurant_id) && Number(b.legacy_restaurant_id) === Number(user.restaurantId) })) };
 }
 async function linkRestaurant(user) {
@@ -112,39 +111,6 @@ async function linkRestaurant(user) {
     await db.query(`INSERT INTO business_memberships(business_id,user_id,role_id,created_by,updated_by)
       SELECT $1,$2,id,$2,$2 FROM business_roles WHERE business_id=$1 AND full_access ON CONFLICT DO NOTHING`, [business.id, user.id]);
     await db.query("INSERT INTO business_capabilities(business_id,capability) VALUES($1,'restaurant') ON CONFLICT DO NOTHING", [business.id]);
-  });
-  return list(user);
-}
-async function provision(user) {
-  if (!devEnabled()) fail('Development business setup is disabled', 404);
-  if (!user.permissions.includes('restaurant.settings.manage') && !user.permissions.includes('platform.restaurants.manage')) fail('Business setup requires administrator access', 403);
-  await repo.transaction(async (db) => {
-    // Repeatable provisioning for this tester; never grants access to another user's demo.
-    await db.query('SELECT pg_advisory_xact_lock(7312,$1::int)', [user.id]);
-    const types = await repo.all(db, "SELECT code,name FROM business_types WHERE code<>'restaurant' ORDER BY code");
-    // Demo names say whose they are, so two people's demo sets are told apart.
-    const person = (await repo.one(db, 'SELECT name FROM users WHERE id=$1', [user.id]))?.name?.trim().slice(0, 60) || `user ${user.id}`;
-    for (const type of types) {
-      const code = `DEMO-${user.id}-${type.code}`;
-      const name = `Demo · ${type.name} — ${person}`;
-      let business = await repo.one(db, 'SELECT * FROM businesses WHERE code=$1', [code]);
-      if (business) {
-        if (!business.is_demo || String(business.created_by) !== String(user.id)) fail('Demo business code is already in use', 409);
-        // An older demo still carrying the plain name gets the owner's name added
-        // (a name the tester chose is kept).
-        if (business.name === `Demo · ${type.name}`) {
-          await db.query('UPDATE businesses SET name=$2 WHERE id=$1', [business.id, name]);
-          await repo.audit(db, business.id, user.id, 'business.demo.renamed', business.id, { name });
-        }
-        continue;
-      }
-      business = await repo.one(db, `INSERT INTO businesses(name,code,business_type,is_demo,created_by)
-       VALUES($1,$2,$3,true,$4) RETURNING *`, [name, code, type.code, user.id]);
-      await db.query(`INSERT INTO business_memberships(business_id,user_id,role_id,created_by,updated_by)
-        SELECT $1,$2,id,$2,$2 FROM business_roles WHERE business_id=$1 AND full_access`, [business.id, user.id]);
-      await db.query('INSERT INTO business_locations(business_id,name,code) VALUES($1,\'Main location\',\'MAIN\')', [business.id]);
-      await repo.audit(db, business.id, user.id, 'business.demo.created', business.id);
-    }
   });
   return list(user);
 }
@@ -216,7 +182,7 @@ async function updateLocation(business, user, locationId, body) {
       [business.id, id(locationId)]);
       if (open.stock || open.transfers) fail('This location still holds stock or has transfers in transit. Move or correct them before closing it.', 409);
     }
-    // Older clients send no counter flag: the location keeps what it has (pro pass C-22).
+    // Older clients send no counter flag: the location keeps what it has.
     const counter = body.sellsAtCounter === undefined ? null : v.requiredBoolean(body.sellsAtCounter, 'Sells at the counter');
     // Address and GSTIN: older clients send none of them and the location keeps what it has.
     const f = locationFields(body);
@@ -291,7 +257,7 @@ async function barcodeFree(db, businessId, barcode, skuId = null) {
   const clash = await repo.one(db, 'SELECT label FROM catalog_skus WHERE business_id=$1 AND barcode=$2 AND ($3::bigint IS NULL OR id<>$3) LIMIT 1', [businessId, barcode, skuId]);
   if (clash) fail(`Barcode ${barcode} is already on ${clash.label}`, 409);
 }
-// Opening stock typed with a new item (pro pass C-17): which location, how
+// Opening stock typed with a new item: which location, how
 // many, at what cost, and the batch for batch-tracked items.
 function readOpeningStock(body, tracking) {
   const raw = body.openingStock;
@@ -440,7 +406,7 @@ async function updateCatalog(business, user, skuId, body) {
     // Older clients send no HSN or MRP: those keep what the item has.
     const mrp = body.mrp === undefined ? current.mrp : readMrp(body.mrp);
     const hsn = body.hsnCode === undefined ? current.hsn_code : readHsn(body.hsnCode);
-    // Pro pass C-17: the barcode can be changed (or cleared); older clients send none.
+    // The barcode can be changed (or cleared); older clients send none.
     const barcode = body.barcode === undefined ? current.barcode : readBarcode(body.barcode);
     if (barcode !== current.barcode) await barcodeFree(db, business.id, barcode, current.id);
     checkMrp(label, price, tax.rate, await saleTaxMode(db, business.id), mrp);
@@ -483,7 +449,7 @@ async function createPriceRule(business, user, body) {
     let unitCode = null;
     if (body.unitCode !== undefined && body.unitCode !== null && body.unitCode !== '') {
       const pack = await repo.one(db, 'SELECT unit_code FROM catalog_sku_units WHERE business_id=$1 AND sku_id=$2 AND unit_code=$3 AND active', [business.id, sku.id, String(body.unitCode)]);
-      if (!pack) fail('This item has no such pack size. Add it under Products › Units & pack sizes first.', 404);
+      if (!pack) fail('This item has no such pack size. Add it under Settings › Units & pack sizes first.', 404);
       unitCode = pack.unit_code;
     }
     const minimum = decimal(body.minimumQuantity, 'Minimum quantity', 3, 0.001, 100000);
@@ -526,10 +492,10 @@ async function conversion(db, businessId, sku, entered) {
   const root = (u) => u.base_unit_code || u.code;
   const toRoot = (u) => (u.base_unit_code ? Number(u.factor_to_base) : 1);
   if (base && entered.kind === base.kind && root(entered) === root(base)) return Math.round((toRoot(entered) / toRoot(base)) * 1e6);
-  fail(`${sku.label} has no pack size in ${entered.name.toLowerCase()}. Add one under Products › Units & pack sizes.`);
+  fail(`${sku.label} has no pack size in ${entered.name.toLowerCase()}. Add one under Settings › Units & pack sizes.`);
 }
 
-// Round 2 (R2-CORE): several payments on one bill (cash + UPI + card, the
+// Several payments on one bill (cash + UPI + card, the
 // rest on udhaar). Each part is { method, amount, reference?, tendered? };
 // "full" on one part means "the rest of the bill". Only cash can be handed
 // over in excess (`tendered`): change is given back from cash alone.
@@ -577,17 +543,17 @@ async function document(business, user, body) {
   if (parts.length) await access.require(business, kindPermission(kind, 'edit'));
   // A goods shop's walk-in pays the whole bill now: udhaar needs a named customer.
   const walkInPays = kind === 'sale' && GOODS_TYPES.includes(business.business_type);
-  // An exchange credit voucher spent on this sale (fashion / electronics pro pass).
+  // An exchange credit voucher spent on this sale (fashion / electronics).
   const voucher = kind === 'sale' ? exchangeVouchers().readInput(body.voucher) : null;
   if (voucher) await access.require(business, kindPermission(kind, 'edit'));
-  // EMI through a financier (electronics, round 2).
+  // EMI through a financier (electronics).
   const finance = kind === 'sale' ? financeSales().readInput(body.finance) : null;
   if (finance) {
     await access.require(business, 'finance.create');
     await access.require(business, kindPermission(kind, 'edit'));
   }
   // Quick bill on a shared till: the biller's PIN for every bill, when the
-  // business asks for it (round 2, per-staff PIN).
+  // business asks for it (per-staff PIN).
   if (kind === 'sale' && body.channel === 'counter') await counterPins().checkBill(business, user, counterPin);
   return repo.transaction((db) => postDocument(db, business, user, body, { kind, requestKey, hash, lines, paidNow: parts, walkInPays, voucher, finance }));
 }
@@ -616,10 +582,10 @@ function readBuyer(body) {
 const electronicsWarranties = () => require('../../fashion-electronics/services/businessElectronics.service');
 // Wholesale invoice extras (loaded when first needed: it requires this file).
 const wholesaleDelivery = () => require('../../wholesale/services/businessWholesaleDelivery.service');
-// Fashion / electronics pro pass: credit vouchers and apparel GST by price per piece.
+// Fashion / electronics: credit vouchers and apparel GST by price per piece.
 const exchangeVouchers = () => require('../../fashion-electronics/services/businessVouchers.service');
-const fashionPricing = () => require('../../fashion-electronics/services/businessFashionPro.service');
-// Round 2: EMI sales, kits, and the counter's per-staff PIN.
+const fashionPricing = () => require('../../fashion-electronics/services/businessFashionMerchandising.service');
+// EMI sales, kits, and the counter's per-staff PIN.
 const financeSales = () => require('../../fashion-electronics/services/businessFinance.service');
 const kits = () => require('./businessKits.service');
 const counterPins = () => require('./businessCounter.service');
@@ -630,7 +596,7 @@ const counterPins = () => require('./businessCounter.service');
 // `quote` (retail counter): work out the bill exactly as posting would —
 // prices, offers, points, tax, round-off — and return it without saving.
 // `paidNow`: null, one payment { amount, method, reference } or a list of them
-// (split payment, round 2). `finance`: an EMI sale's financier part.
+// (split payment). `finance`: an EMI sale's financier part.
 // Free units and trade discount on a purchase line, in the line's own unit
 // (packs when it is entered in packs). null when neither is given.
 function readScheme(input) {
@@ -665,8 +631,8 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     }
     if (kind === 'purchase' && !contact) fail('Select a supplier');
     const buyer = kind === 'sale' ? readBuyer(body) : null;
-    // A kit sells as its components: each takes its share of the kit's price
-    // (round 2). `lines` are then the component lines; `kitOf[i]` says which.
+    // A kit sells as its components: each takes its share of the kit's price.
+    // `lines` are then the component lines; `kitOf[i]` says which.
     const { lines, kitOf } = await kits().expand(db, business, inputLines, { kind, contact, taxMode, locationId: location.id, fixed });
     let subtotal = 0, tax = 0;
     // Purchase lines may also set the item's new selling price and MRP.
@@ -911,14 +877,14 @@ async function detail(business, documentId) {
     repo.one(repo.pool, 'SELECT * FROM business_settings WHERE business_id=$1', [business.id]),
     // Offers and points on a retail sale (what each line was given).
     doc.kind === 'sale' ? retailOffers.saleExtras(repo.pool, business.id, doc.id) : null,
-    // A dispatched sales order: order, transport, e-way bill, line discounts and free goods (pro pass D-05).
+    // A dispatched sales order: order, transport, e-way bill, line discounts and free goods.
     doc.kind === 'sale' && business.modules.includes('sales_orders') ? wholesaleDelivery().invoiceExtras(repo.pool, business.id, doc.id) : null,
   ]);
   // The buyer as billed (older documents have no snapshot: the contact as it is now).
   const buyer = { contact_gstin: doc.buyer_gstin || doc.contact_gstin, contact_address: doc.buyer_address || doc.contact_address };
-  // An EMI bill's finance case (round 2).
+  // An EMI bill's finance case.
   const finance = doc.kind === 'sale' && payments.some((p) => p.method === 'finance') ? await financeSales().ofDocument(repo.pool, business.id, doc.id) : [];
-  // A pharmacy bill also prints its drug licences, the pharmacist and the prescription (round 2, health module).
+  // A pharmacy bill also prints its drug licences, the pharmacist and the prescription (health module).
   const pharmacy = doc.kind === 'sale' && business.business_type === 'pharmacy' ? await require('../../health/services/businessPharmacy.service').invoiceExtras(repo.pool, business, doc.id) : null;
   return { ...doc, ...buyer, finance, pharmacy, lines: lines.map((line) => ({ ...line, returned_quantity: returnedLines.find((r) => r.line_id === line.id)?.quantity || '0' })), payments, returns, refunds, seller: branchSeller(settings, doc.location), retail, wholesale };
 }
@@ -927,7 +893,7 @@ async function detail(business, documentId) {
 // separately registered branch). `branch_name` names the branch on the bill
 // when it has its own address or GSTIN.
 function branchSeller(settings, location) {
-  const seller = { ...(settings || {}) };
+  const seller = { ...settings };
   if (!location) return seller;
   const ownAddress = [location.address_line1, location.address_line2, location.city, location.postal_code].some(Boolean);
   if (ownAddress) Object.assign(seller, { address_line1: location.address_line1, address_line2: location.address_line2, city: location.city, postal_code: location.postal_code });
@@ -1101,7 +1067,7 @@ async function reports(business, filters) {
   return { from, to, timezone: business.timezone, location, rows };
 }
 
-module.exports = { statusAllowed, list, provision, linkRestaurant, createLocation, updateLocation, updateContact, reports, createCatalog, updateCatalog, createContact,
-  createPriceRule, disablePriceRule, document, detail, payment, resource, appointment, appointmentStatus, decimal, signedDecimal, dateText, uuid,
-  lineNet, lineTax, inclusiveNet, devEnabled, kindPermission, readUnit, postDocument, recordPayment, conversion, requiredDecimals, readPayments,
-  GOODS_TYPES, readHsn, readMrp, checkMrp, shelfPaise, branchSeller, requireDepartmentItem };
+module.exports = { statusAllowed, list, linkRestaurant, createLocation, updateLocation, updateContact, reports, createCatalog, updateCatalog, createContact,
+  createPriceRule, disablePriceRule, document, detail, payment, resource, appointment, appointmentStatus, decimal, dateText, uuid,
+  lineNet, lineTax, inclusiveNet, kindPermission, readUnit, postDocument, recordPayment, conversion, requiredDecimals, readPayments,
+  readMrp, checkMrp, branchSeller, requireDepartmentItem };

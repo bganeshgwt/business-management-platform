@@ -137,4 +137,4 @@ async function settleParts(db, businessId, parts) {
 const DEFAULT_NAMES = { cash: 'Cash', upi: 'UPI', card: 'Card', bank: 'Bank transfer', cheque: 'Cheque' };
 const displayName = (method, methodName) => methodName || DEFAULT_NAMES[method] || method;
 
-module.exports = { KINDS, list, create, update, readChoice, settle, pick, settleParts, displayName, DEFAULT_NAMES };
+module.exports = { list, create, update, readChoice, settle, pick, settleParts, displayName };

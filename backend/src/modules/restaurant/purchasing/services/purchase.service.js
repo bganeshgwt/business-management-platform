@@ -1,7 +1,6 @@
 const purchaseRepository = require("../repositories/purchase.repository");
 const supplierRepository = require("../repositories/supplier.repository");
 const inventoryRepository = require("../../inventory/repositories/inventory.repository");
-const businessDayRepository = require("../../business-day/repositories/businessDay.repository");
 const stockSettingsService = require("../../inventory/services/stockSettings.service");
 const { openDayOf } = require("../../business-day/services/tradingDay");
 const AppError = require("../../../../utils/AppError");
@@ -677,7 +676,7 @@ const toReceipt = (row) => ({
   hasRejections: row.has_rejections ?? (row.lines ? row.lines.some((l) => Number(l.rejected_quantity) > 0) : undefined),
   createdAt: row.created_at,
   createdByName: row.created_by_name,
-  // Photos or PDFs of the supplier's paper bill (SW-B-09).
+  // Photos or PDFs of the supplier's paper bill.
   attachmentCount: Number(row.attachment_count || 0),
   lines: (row.lines || []).map((line) => ({
     id: line.id,
@@ -1055,7 +1054,4 @@ module.exports = {
   voidReceipt,
   register,
   remove,
-  priceBillLine,
-  billTotals,
-  splitTax,
 };

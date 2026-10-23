@@ -5,6 +5,7 @@
 // sales by channel and what the aggregators keep.
 const pool = require("../../../../config/database");
 const AppError = require("../../../../utils/AppError");
+const restaurantFeatures = require("../../setup/services/restaurantFeatures.service");
 
 const toBrand = (row) => ({
   id: Number(row.id),
@@ -57,9 +58,20 @@ const save = async (restaurantId, id, data, userId) => {
 
 // The brand an order is taken under: one of this restaurant's active brands,
 // and every dish on the order on its menu (its own categories or a shared one).
-const checkOrder = async (restaurantId, brandId, productIds, db = pool) => {
+// allowPaused: a dish added to an open order of a brand paused since.
+// Brands are a feature: switched off, a new order cannot be taken under one,
+// and an order taken under a brand before keeps its brand without the menu rule.
+const checkOrder = async (restaurantId, brandId, productIds, db = pool, { allowPaused = false } = {}) => {
   if (!brandId) {
     return null;
+  }
+
+  if (!(await restaurantFeatures.featuresOf(restaurantId, db)).includes("brands")) {
+    if (allowPaused) {
+      return null;
+    }
+
+    await restaurantFeatures.assertRestaurantHas(restaurantId, "brands");
   }
 
   const brand = (await db.query("SELECT * FROM restaurant_brands WHERE restaurant_id = $1 AND id = $2", [restaurantId, brandId])).rows[0];
@@ -68,7 +80,7 @@ const checkOrder = async (restaurantId, brandId, productIds, db = pool) => {
     throw new AppError(404, "Brand not found");
   }
 
-  if (brand.status !== "active") {
+  if (brand.status !== "active" && !allowPaused) {
     throw new AppError(409, `${brand.name} is switched off`);
   }
 
@@ -106,6 +118,17 @@ const report = async (restaurantId, { from, to }) => {
      GROUP BY 1, 2, 3, 4 ORDER BY 2, 6 DESC`,
     [restaurantId, from, to]
   )).rows;
+
+  return { from, to, ...summarise(rows) };
+};
+
+// The report's figures from its rows (one per brand and channel). Money is
+// added in paise and turned back into rupees at the end, so a total never
+// shows a floating-point tail (0.1 + 0.2 = 0.30000000000000004).
+const paise = (value) => Math.round(Number(value) * 100);
+const rupees = (value) => value / 100;
+
+const summarise = (rows) => {
   const brands = new Map();
 
   for (const row of rows) {
@@ -116,19 +139,21 @@ const report = async (restaurantId, { from, to }) => {
     }
 
     const brand = brands.get(key);
-    const sales = Number(row.sales), commission = Number(row.commission);
+    const sales = paise(row.sales), commission = paise(row.commission);
     brand.bills += row.bills;
     brand.sales += sales;
     brand.commission += commission;
-    brand.channels.push({ channel: row.channel, bills: row.bills, sales, commission, net: Math.round((sales - commission) * 100) / 100 });
+    brand.channels.push({ channel: row.channel, bills: row.bills, sales: rupees(sales), commission: rupees(commission), net: rupees(sales - commission) });
   }
 
-  const list = [...brands.values()].map((b) => ({ ...b, sales: Math.round(b.sales * 100) / 100, commission: Math.round(b.commission * 100) / 100,
-    net: Math.round((b.sales - b.commission) * 100) / 100, averageBill: b.bills ? Math.round((b.sales / b.bills) * 100) / 100 : 0 }))
-    .sort((a, b) => b.sales - a.sales);
-  const totals = list.reduce((t, b) => ({ bills: t.bills + b.bills, sales: t.sales + b.sales, commission: t.commission + b.commission }), { bills: 0, sales: 0, commission: 0 });
+  const inPaise = [...brands.values()].sort((a, b) => b.sales - a.sales);
+  const totals = inPaise.reduce((t, b) => ({ bills: t.bills + b.bills, sales: t.sales + b.sales, commission: t.commission + b.commission }), { bills: 0, sales: 0, commission: 0 });
 
-  return { from, to, brands: list, totals: { ...totals, net: Math.round((totals.sales - totals.commission) * 100) / 100 } };
+  return {
+    brands: inPaise.map((b) => ({ ...b, sales: rupees(b.sales), commission: rupees(b.commission), net: rupees(b.sales - b.commission),
+      averageBill: b.bills ? rupees(Math.round(b.sales / b.bills)) : 0 })),
+    totals: { bills: totals.bills, sales: rupees(totals.sales), commission: rupees(totals.commission), net: rupees(totals.sales - totals.commission) },
+  };
 };
 
-module.exports = { list, save, checkOrder, report, toBrand };
+module.exports = { list, save, checkOrder, report, summarise };

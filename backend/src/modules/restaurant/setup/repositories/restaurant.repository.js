@@ -642,10 +642,7 @@ const countDefaults = async (restaurantId) => {
 };
 
 module.exports = {
-  DEFAULT_TAX_RATES,
-  SERIES_MAX,
   outletInvoicePrefix,
-  financialYearOf,
   numberSeries,
   seriesMaxOf,
   FY_SERIES_MAX,

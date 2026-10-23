@@ -39,9 +39,6 @@ const partsIn = (zone, at = new Date()) => {
 // Today's date on the restaurant's clock, YYYY-MM-DD.
 const todayOf = (settings, at = new Date()) => partsIn(zoneOf(settings), at).date;
 
-// The hour of the day on the restaurant's clock, 0-23.
-const hourOf = (settings, at = new Date()) => partsIn(zoneOf(settings), at).hour;
-
 // A date some days later (or earlier), on the calendar itself.
 const addDays = (date, days) => {
   const [y, m, d] = String(date).split("-").map(Number);
@@ -123,8 +120,6 @@ const currentDateOf = async (restaurantId, outletId, settings, at = new Date()) 
 module.exports = {
   zoneOf,
   todayOf,
-  hourOf,
-  addDays,
   sayDate,
   openableDates,
   dateWithNoDayOpen,

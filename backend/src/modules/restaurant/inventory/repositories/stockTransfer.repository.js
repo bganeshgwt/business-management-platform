@@ -810,7 +810,6 @@ const closeIndent = async (restaurantId, id, status, reason, userId) => {
 };
 
 module.exports = {
-  nextNumber,
   findTransfers,
   transitTotals,
   openIndentCount,
@@ -823,5 +822,4 @@ module.exports = {
   findIndentById,
   createIndent,
   closeIndent,
-  refreshIndentStatus,
 };

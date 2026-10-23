@@ -78,19 +78,19 @@ const updateWebAddress = async (req, res) => {
 
   logAction(req, "update", "service_settings", {
     label: "Guest ordering web address",
-    details: { guestWebAddress: settings.guestWebAddress || "(this screen's own address)" },
+    details: { guestWebAddress: settings.guestWebAddress || "(the guest site's own address)" },
   });
 
   res.json({
     success: true,
     message: settings.guestWebAddress
       ? `QR codes now open ${settings.guestWebAddress}`
-      : "QR codes now use the address this screen is on",
+      : "QR codes now open the guest site's own address",
     data: settings,
   });
 };
 
-// ---------------------------------------------------------------- online ordering links (SW-A-22)
+// ---------------------------------------------------------------- online ordering links
 
 // A link id in the address; anything that cannot be one is a link that does
 // not exist.

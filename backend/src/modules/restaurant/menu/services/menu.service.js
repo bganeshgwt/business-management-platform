@@ -29,9 +29,11 @@ const toCategory = (row) => ({
   brandName: row.brand_name || null,
 });
 
-// A category's brand must be this restaurant's.
+// A category's brand must be this restaurant's, and brands switched on (with
+// them off, a category can still lose its brand, but not be given one).
 const requireOwnBrand = async (restaurantId, brandId) => {
   if (!brandId) return;
+  await require("../../setup/services/restaurantFeatures.service").assertRestaurantHas(restaurantId, "brands");
   const found = await require("../../../../config/database").query("SELECT 1 FROM restaurant_brands WHERE restaurant_id = $1 AND id = $2", [restaurantId, brandId]);
   if (!found.rowCount) throw new AppError(404, "Brand not found");
 };
@@ -43,7 +45,7 @@ const toProduct = (row) => ({
   categoryId: row.category_id,
   categoryName: row.category_name,
   name: row.name,
-  // SW-A-12: what the KOT and the kitchen screen may print instead (null: none).
+  // What the KOT and the kitchen screen may print instead (null: none).
   kitchenName: row.kitchen_name || null,
   // "weight": the price is per kg and a line's quantity is its weight in kg.
   soldBy: row.sold_by || "unit",
@@ -117,7 +119,10 @@ const updateCategory = async (restaurantId, id, data, userId) => {
     throw new AppError(404, "Category not found");
   }
 
-  await requireOwnBrand(restaurantId, data.brandId);
+  // Keeping the brand it has needs no check (brands may be off since); a new one does.
+  if (data.brandId && String(data.brandId) !== String(before.brand_id)) {
+    await requireOwnBrand(restaurantId, data.brandId);
+  }
 
   try {
     const row = await categoryRepository.update(restaurantId, id, data, userId);
@@ -451,9 +456,6 @@ const editProduct = async (restaurantId, id, input, userId) =>
     return () => fields;
   });
 
-const updateProduct = async (restaurantId, id, data, userId) =>
-  (await editProduct(restaurantId, id, data, userId)).product;
-
 // 200, "200" and 200.00 are the same price; "" and null the same empty code.
 const sameValue = (a, b) => {
   const x = a === undefined || a === "" ? null : a;
@@ -759,10 +761,8 @@ module.exports = {
   listProducts,
   getProduct,
   createProduct,
-  updateProduct,
   editProduct,
   patchProduct,
-  setProductAvailability,
   changeAvailability,
   setProductStatus,
   productHistory,

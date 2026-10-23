@@ -180,7 +180,6 @@ const remove = async (restaurantId, id) => {
 };
 
 module.exports = {
-  DEFAULT_CHANNELS,
   ensureDefaults,
   findAll,
   findById,

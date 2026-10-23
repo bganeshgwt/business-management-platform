@@ -4,7 +4,9 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+const { createBusinesses } = require('./helpers/businesses');
 const { withTools } = require('./helpers/tools');
+const dates = require('./helpers/dates');
 
 // Tasks, issues & projects (migration 1791620000000, backend/src/modules/tasks):
 // one data model keyed on business_id, two front doors (/api/tasks for the
@@ -31,7 +33,6 @@ test('tasks, issues and projects', { timeout: 900000 }, async (t) => {
   process.env.DB_NAME = database;
   process.env.NODE_ENV = 'test';
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex');
-  process.env.MULTI_BUSINESS_DEVELOPMENT = 'true';
   process.env.LOGIN_ATTEMPT_LIMIT = '5000';
   const { runner } = await import('node-pg-migrate');
   await runner({ databaseUrl: { ...connection, database }, dir: path.resolve(__dirname, '../../migrations'), migrationsTable: 'pgmigrations', direction: 'up', count: Infinity, checkOrder: true, log() {} });
@@ -105,7 +106,7 @@ test('tasks, issues and projects', { timeout: 900000 }, async (t) => {
     const ctx = await O('GET', '/tasks/context');
     assert.equal(ctx.world, 'restaurant');
     assert.equal(ctx.categories.length, 14);
-    // Round 2: people are searched on the server (paged), not loaded with the context.
+    // People are searched on the server (paged), not loaded with the context.
     assert.equal(ctx.directory.people, undefined);
     assert.ok(ctx.directory.peopleCount >= 2);
     const everyone = await O('GET', '/tasks/people?limit=50');
@@ -164,11 +165,13 @@ test('tasks, issues and projects', { timeout: 900000 }, async (t) => {
     await O('POST', '/tasks', { title: 'x', assignMode: 'role', assignees: [] }, 400);
     await O('POST', '/tasks', { title: 'x', assignMode: 'on_shift', assignees: [{ kind: 'user', id: ids.owner }] }, 400);
     // On shift: with nobody rostered that day everyone sees it; once a roster exists, only those rostered or clocked in.
-    const onShift = await O('POST', '/tasks', { title: 'Close the gas valves', assignMode: 'on_shift', dueAt: iso(HOUR) }, 201);
+    // The task's day is the day it is due: tonight, so today's roster is its roster
+    // whatever the hour (an hour from now is tomorrow's date after 23:00).
+    const today = dates.today();
+    const onShift = await O('POST', '/tasks', { title: 'Close the gas valves', assignMode: 'on_shift', dueAt: dates.momentAt(today, '23:59') }, 201);
     assert.ok((await K('GET', '/tasks/my')).tasks.some((x) => x.id === onShift.id));
     assert.ok((await C('GET', '/tasks/my')).tasks.some((x) => x.id === onShift.id));
     const shift = (await one("INSERT INTO shifts(restaurant_id,name,start_time,end_time) VALUES($1,'Evening','16:00','23:59') RETURNING id", [rid])).id;
-    const today = (await one("SELECT (now() AT TIME ZONE 'Asia/Kolkata')::date::text AS d")).d;
     await pool.query("INSERT INTO shift_assignments(restaurant_id,employee_id,shift_id,work_date,assignment_status) VALUES($1,$2,$3,$4,'scheduled')", [rid, kitchenEmployee, shift, today]);
     assert.ok((await K('GET', '/tasks/my')).tasks.some((x) => x.id === onShift.id), 'rostered today');
     assert.ok(!(await C('GET', '/tasks/my')).tasks.some((x) => x.id === onShift.id), 'not rostered, not clocked in');
@@ -180,22 +183,27 @@ test('tasks, issues and projects', { timeout: 900000 }, async (t) => {
   });
 
   await t.test('recurring tasks: generated once however often asked, past days missed, edits regenerate the future only', async () => {
-    const today = (await one("SELECT (now() AT TIME ZONE 'Asia/Kolkata')::date AS d")).d;
-    const startsOn = (await one("SELECT ((now() AT TIME ZONE 'Asia/Kolkata')::date - 3)::text AS d")).d;
+    // A day's last check stays open until the 5 am cut-off the next morning, so the
+    // days that are over are those before the trading date (yesterday's date
+    // between midnight and the cut-off). Occurrences are made to a week past today.
+    const today = dates.today();
+    const trading = dates.tradingToday();
+    const startsOn = dates.addDays(trading, -3);
     const s = await O('POST', '/tasks/schedules', { title: 'Temperature log', libraryCode: 'restaurant.temperature_log', frequency: 'daily', dueTimes: ['10:30', '17:00'],
       assignMode: 'on_shift', startsOn, placeId: outletA }, 201);
     const business = await businessOf(rid);
     const countOf = async () => Number((await one('SELECT count(*) AS n FROM business_tasks WHERE business_id=$1 AND schedule_id=$2', [business, s.id])).n);
-    // 3 days back + today + 7 ahead, two a day.
-    assert.equal(await countOf(), 22);
+    // From three days before the trading date to a week past today, two a day.
+    const made = 2 * (dates.daysBetween(startsOn, dates.addDays(today, 7)) + 1);
+    assert.equal(await countOf(), made);
     const scope = await require('../../src/modules/tasks/services/scope').forRestaurant({ user: { ...(await O('GET', '/auth/me')), id: ids.owner, restaurantId: rid } });
     await pool.query('UPDATE business_task_schedules SET generated_through = NULL WHERE id = $1', [s.id]);
     await Promise.all(Array.from({ length: 6 }, () => recurrence.ensure(scope, { force: true })));
-    assert.equal(await countOf(), 22, 'six screens at once make nothing twice');
+    assert.equal(await countOf(), made, 'six screens at once make nothing twice');
     const dup = await one('SELECT count(*) AS n FROM (SELECT occurrence_date, occurrence_slot FROM business_tasks WHERE schedule_id=$1 GROUP BY 1,2 HAVING count(*) > 1) x', [s.id]);
     assert.equal(Number(dup.n), 0);
-    // Every past day closed without being done: missed, with a line in its history.
-    const past = await one(`SELECT count(*) FILTER (WHERE status='missed') AS missed, count(*) AS n FROM business_tasks WHERE schedule_id=$1 AND occurrence_date < $2`, [s.id, today]);
+    // Every day that is over closed without being done: missed, with a line in its history.
+    const past = await one(`SELECT count(*) FILTER (WHERE status='missed') AS missed, count(*) AS n FROM business_tasks WHERE schedule_id=$1 AND occurrence_date < $2`, [s.id, trading]);
     assert.equal(Number(past.n), 6);
     assert.equal(Number(past.missed), 6);
     assert.ok(Number((await one("SELECT count(*) AS n FROM business_task_history WHERE action='missed' AND task_id IN (SELECT id FROM business_tasks WHERE schedule_id=$1)", [s.id])).n) >= 6);
@@ -208,7 +216,7 @@ test('tasks, issues and projects', { timeout: 900000 }, async (t) => {
       assignMode: 'on_shift', startsOn, placeId: outletA });
     const tomorrow = await one('SELECT count(*) AS n FROM business_tasks WHERE schedule_id=$1 AND occurrence_date = $2::date + 1', [s.id, today]);
     assert.equal(Number(tomorrow.n), 3);
-    assert.equal(Number((await one("SELECT count(*) AS n FROM business_tasks WHERE schedule_id=$1 AND status='missed' AND occurrence_date < $2", [s.id, today])).n), 6);
+    assert.equal(Number((await one("SELECT count(*) AS n FROM business_tasks WHERE schedule_id=$1 AND status='missed' AND occurrence_date < $2", [s.id, trading])).n), 6);
     // Pausing cancels the future occurrences not started.
     await O('PATCH', `/tasks/schedules/${s.id}/active`, { active: false });
     assert.equal(Number((await one("SELECT count(*) AS n FROM business_tasks WHERE schedule_id=$1 AND status='todo' AND due_at > now()", [s.id])).n), 0);
@@ -341,10 +349,10 @@ test('tasks, issues and projects', { timeout: 900000 }, async (t) => {
     await assert.rejects(pool.query("INSERT INTO business_tasks(business_id,title,category_code,outlet_id) VALUES($1,'x','others',$2)", [businessA, outletOther]), { code: '23514' });
     await assert.rejects(pool.query("INSERT INTO business_task_assignees(business_id,task_id,kind,user_id) VALUES($1,$2,'user',$3)", [businessA, mine.id, ids.other]), { code: '23514' });
     await assert.rejects(pool.query("INSERT INTO business_task_assignees(business_id,task_id,kind,user_id) VALUES($1,$2,'user',$3)", [businessB, mine.id, ids.other]), { code: '23503' });
-    // Business world: demos for the owner; the other restaurant's owner is no member.
-    const demos = (await withTools(O, (await O('POST', '/businesses/development-demos', {}, 201)).businesses, { work: true }));
-    const grocery = demos.find((b) => b.business_type === 'grocery');
-    const pharmacy = demos.find((b) => b.business_type === 'pharmacy');
+    // Business world: the owner adds a pharmacy and a grocery with tasks, issues
+    // and projects on; the other restaurant's owner is no member. The pharmacy
+    // comes first so the grocery's location does not share outlet A's id.
+    const [pharmacy, grocery] = await withTools(O, await createBusinesses(O, 'OWNER', ['pharmacy', 'grocery']), { work: true });
     await X('GET', `/businesses/${grocery.id}/tasks/my`, undefined, 404);
     const g = `/businesses/${grocery.id}/tasks`;
     const ctx = await O('GET', `${g}/context`);
@@ -426,7 +434,7 @@ test('tasks, issues and projects', { timeout: 900000 }, async (t) => {
   });
 
   await t.test('reports: completion, on-time, missed by person and category, compliance, issue ages', async () => {
-    // A clean business for exact numbers: the pharmacy demo.
+    // A clean business for exact numbers: the owner's pharmacy, with no tasks yet.
     const ph = (await O('GET', '/businesses')).businesses.find((b) => b.business_type === 'pharmacy');
     const P = `/businesses/${ph.id}/tasks`;
     const day = (await one("SELECT ((now() AT TIME ZONE 'Asia/Kolkata')::date - 1)::text AS d")).d;
@@ -450,14 +458,16 @@ test('tasks, issues and projects', { timeout: 900000 }, async (t) => {
     assert.deepEqual([cleaning.due, cleaning.done, cleaning.missed, cleaning.completionRate], [2, 1, 1, 50]);
     const owner = report.byPerson.find((r) => r.person === String(ids.owner));
     assert.deepEqual([owner.due, owner.done, owner.missed], [4, 3, 1]);
-    // Compliance of a daily schedule over its first four days: three done, one missed.
-    const start = (await one("SELECT ((now() AT TIME ZONE 'Asia/Kolkata')::date - 4)::text AS d")).d;
+    // Compliance of a daily schedule over its first four days, all over (before the
+    // trading date: a day's check stays open until the cut-off next morning):
+    // three done, one missed.
+    const trading = dates.tradingToday();
+    const start = dates.addDays(trading, -4);
     const s = await O('POST', `${P}/schedules`, { title: 'Medicine fridge', libraryCode: 'pharmacy.fridge', frequency: 'daily', dueTimes: ['10:00'], startsOn: start, assignMode: 'on_shift' }, 201);
-    const occ = (await pool.query("SELECT id FROM business_tasks WHERE schedule_id=$1 AND occurrence_date < (now() AT TIME ZONE 'Asia/Kolkata')::date ORDER BY occurrence_date", [s.id])).rows;
+    const occ = (await pool.query('SELECT id FROM business_tasks WHERE schedule_id=$1 AND occurrence_date < $2 ORDER BY occurrence_date', [s.id, trading])).rows;
     assert.equal(occ.length, 4);
     await pool.query("UPDATE business_tasks SET status='done', completed_at = due_at - interval '5 minutes', completed_by=$2 WHERE id = ANY($1::bigint[])", [occ.slice(0, 3).map((r) => r.id), ids.owner]);
-    const toDay = (await one("SELECT ((now() AT TIME ZONE 'Asia/Kolkata')::date - 1)::text AS d")).d;
-    const rep2 = await O('GET', `${P}/reports?from=${start}&to=${toDay}`);
+    const rep2 = await O('GET', `${P}/reports?from=${start}&to=${dates.addDays(trading, -1)}`);
     const fridge = rep2.compliance.find((r) => r.scheduleId === s.id);
     assert.deepEqual([fridge.due, fridge.done, fridge.missed, fridge.completionRate], [4, 3, 1, 75]);
     assert.equal(fridge.days.length, 4);
@@ -470,9 +480,6 @@ test('tasks, issues and projects', { timeout: 900000 }, async (t) => {
     assert.equal(ages['8+ days'].open, 1);
     assert.equal(ages['8+ days'].serious, 1);
     assert.equal(ages['0–1 days'].open, 1);
-    const summary = await O('GET', `${P}/summary`);
-    assert.equal(summary.issues.open, 2);
-    assert.equal(summary.issues.serious, 1);
     // The bell carries the serious issue for those who see issues.
     const feed = await O('GET', `/businesses/${ph.id}/notifications`);
     assert.ok(feed.items.some((x) => x.id.startsWith('issues:serious:')));

@@ -5,7 +5,7 @@ const AppError = require('../../../../utils/AppError');
 const core = require('../../core/services/business.service');
 const paymentMethods = require('../../core/services/businessPaymentMethods.service');
 
-// Handing back money a customer paid in advance (round 2, R2-SVC): a salon
+// Handing back money a customer paid in advance: a salon
 // client's advance or deposit, or a repair job's advance. The advance is a
 // shared receivables collection (business_collections); the refund is its
 // own row (business_collection_refunds) with a number made from the receipt
@@ -73,4 +73,4 @@ async function refundCollection(db, business, user, { collectionId, contactId, i
   return { refund: { ...refund, collection_no: receipt.collection_no, contact_name: receipt.contact_name, approved_by_name: approval.approver.name, left: rupees(free - amount) }, repeated: false };
 }
 
-module.exports = { readRefund, refundCollection, FREE_SQL };
+module.exports = { readRefund, refundCollection };

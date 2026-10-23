@@ -157,8 +157,6 @@ const pruneOld = async (restaurantId, userId) => {
 };
 
 module.exports = {
-  KEEP_DAYS,
-  KEEP_PER_USER,
   findContext,
   findReads,
   markRead,

@@ -1,6 +1,6 @@
 const pool = require("../../../../config/database");
 
-// Settings → Stock & purchasing: the approval limits and how transfers are
+// Stock → Stock & purchasing settings: the approval limits and how transfers are
 // received. One row per restaurant, made the first time the screen is saved;
 // until then every limit is blank (no approval needed) and transfers land at
 // once, which is how the app has always behaved.

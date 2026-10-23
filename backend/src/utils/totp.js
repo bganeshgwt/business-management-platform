@@ -140,7 +140,7 @@ let warnedNoKey = false;
 // is always the one configured now; derived keys are cached per material.
 const keyMaterial = () => {
   if (process.env.TWO_FACTOR_KEY) {
-    return { material: process.env.TWO_FACTOR_KEY, own: true };
+    return { material: process.env.TWO_FACTOR_KEY };
   }
 
   if (!warnedNoKey && process.env.NODE_ENV === "production") {
@@ -150,7 +150,7 @@ const keyMaterial = () => {
     );
   }
 
-  return { material: config.jwt.secret, own: false };
+  return { material: config.jwt.secret };
 };
 
 const keyFor = (purpose) => {
@@ -227,23 +227,17 @@ const hashRecoveryCodeWithSalt = (code, salt) =>
     );
   });
 
-// Sets made before 2 October 2026 (no salt kept): a hash keyed with the
+// Sets made before codes were salted (no salt kept): a hash keyed with the
 // server's key. Still checked, so nobody's printed codes stop working; the
 // next new set uses the salted hash above.
 const hashRecoveryCode = (code) =>
   crypto.createHmac("sha256", keyFor("recovery")).update(normaliseRecoveryCode(code)).digest("hex");
-
-// Whether TWO_FACTOR_KEY itself is set (rather than derived from JWT_SECRET).
-const hasOwnKey = () => keyMaterial().own;
 
 // The key that signs the short "password was right, now the code" ticket. It
 // is not the session key, so the ticket can never be used as a session.
 const challengeKey = () => keyFor("challenge").toString("hex");
 
 module.exports = {
-  STEP_SECONDS,
-  DIGITS,
-  base32Encode,
   base32Decode,
   stepAt,
   codeFor,
@@ -258,6 +252,5 @@ module.exports = {
   newRecoverySalt,
   hashRecoveryCodeWithSalt,
   hashRecoveryCode,
-  hasOwnKey,
   challengeKey,
 };

@@ -1,0 +1,99 @@
+/* A planned workspace (layouts/PlannedPage.jsx): what is coming, and what to
+   use until then. The same card as a switched-off feature, wider, with the
+   two halves side by side on a desk and stacked on a phone. */
+
+.planned {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  max-width: 760px;
+  margin: 40px auto;
+  padding: 32px 28px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.planned-art {
+  display: inline-grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.planned-status {
+  margin: 0;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg);
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.planned h1 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.planned-lead {
+  margin: 0;
+  color: var(--muted);
+}
+
+.planned-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  width: 100%;
+  margin-top: 12px;
+  text-align: left;
+}
+
+.planned-column {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.planned-column h2 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.planned-column ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-2);
+}
+
+.planned-column p {
+  margin: 0 0 12px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.planned-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 720px) {
+  .planned {
+    margin: 16px auto;
+    padding: 24px 16px;
+  }
+
+  .planned-columns {
+    grid-template-columns: 1fr;
+  }
+}

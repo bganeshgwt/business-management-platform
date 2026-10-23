@@ -3,7 +3,7 @@ const approvalService = require("../../../access/services/approval.service");
 const AppError = require("../../../../utils/AppError");
 const { round2 } = require("../../../../utils/money");
 
-// Settings → Stock & purchasing (sweep SW-B-10, SW-B-11).
+// Stock → Stock & purchasing settings.
 //
 //   poApprovalLimit        a purchase order worth more than this (before GST)
 //                          waits as "Waiting for approval" until someone with
@@ -79,4 +79,4 @@ const save = async (restaurantId, data, userId) => {
 // Is this much over the limit? A blank limit is never exceeded.
 const overLimit = (limit, value) => limit !== null && limit !== undefined && round2(value) > Number(limit) + 0.004;
 
-module.exports = { ACTION_WORDS, get, save, overLimit };
+module.exports = { get, save, overLimit };

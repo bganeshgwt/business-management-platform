@@ -91,7 +91,7 @@ const readDetails = (raw) => {
   const has = (key) => Object.prototype.hasOwnProperty.call(body, key);
 
   if (has("address")) data.address = text(body.address, "Delivery address", 500);
-  // One of the guest's saved addresses, by id (SW-A-18): the server copies
+  // One of the guest's saved addresses, by id: the server copies
   // its full text onto the delivery, also for staff who see it masked.
   if (has("savedAddressId")) data.savedAddressId = optionalWholeId(body.savedAddressId, "Saved address");
   // The label a new address is kept under on the guest: Home, Office…
@@ -133,7 +133,7 @@ const readChannel = (raw) => {
     color: v.optionalEnum(body.color, "Colour", COLORS, DEFAULT_COLOR[channelType]),
     sortOrder,
     status: v.optionalEnum(body.status, "Status", ["active", "inactive"], "active"),
-    // The trip charge on this channel's deliveries (SW-A-17) and the order
+    // The trip charge on this channel's deliveries and the order
     // size from which it is free. Left out of a request = left as it is.
     ...readDeliveryCharge(body),
   };

@@ -5,7 +5,7 @@ const core = require('../../core/services/business.service');
 const paymentMethods = require('../../core/services/businessPaymentMethods.service');
 const h = require('./healthCommon');
 
-// Clinic (round 2, R2-HEALTH): patients, consent and consultations.
+// Clinic: patients, consent and consultations.
 //
 //   Patient       a customer contact with a patient ID (P00001), age or date of
 //                 birth, sex, guardian and emergency phone. Registration
@@ -208,16 +208,6 @@ async function saveClinical(business, user, contactId, body) {
   });
 }
 
-async function giveConsent(business, user, contactId, body) {
-  requireClinic(business);
-  await access.require(business, 'patients.create');
-  const consent = consentInput({ ...body, purposes: body.purposes });
-  return repo.transaction(async (db) => {
-    const p = await repo.one(db, 'SELECT contact_id FROM health_patients WHERE business_id=$1 AND contact_id=$2', [business.id, id(contactId, 'Patient')]);
-    if (!p) fail('Patient not found', 404);
-    return addConsents(db, business, user, p.contact_id, consent);
-  });
-}
 // Optional purposes may be added without re-taking treatment consent.
 async function addConsent(business, user, contactId, body) {
   requireClinic(business);
@@ -524,5 +514,5 @@ async function today(business, query) {
   return { day, appointments: rows, walk_ins: walkIns };
 }
 
-module.exports = { requireClinic, register, updatePatient, patient, saveClinical, giveConsent, addConsent, withdrawConsent, requireConsent, openVisit, saveVisit, addVisitNote,
+module.exports = { requireClinic, register, updatePatient, patient, saveClinical, addConsent, withdrawConsent, requireConsent, openVisit, saveVisit, addVisitNote,
   visit, billVisit, today, logClinicalView };

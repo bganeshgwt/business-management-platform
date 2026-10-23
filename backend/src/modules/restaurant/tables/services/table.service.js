@@ -235,8 +235,8 @@ const readTable = async (restaurantId, id) => {
 //
 // `scope` = { outletId, pinned }: the outlet the person works in (tied to it,
 // or the switcher on it) and whether they are tied to it. Empty for the whole
-// restaurant ("All outlets"), and for the server's own callers (seed scripts),
-// which set up anything as before.
+// restaurant ("All outlets"), and for the server's own callers, which set up
+// anything as before.
 //
 // Working in one outlet, the floor plan shows that outlet's tables and the
 // tables shared by every outlet, and the setup follows the same line:
@@ -544,7 +544,7 @@ const listTables = async (restaurantId, filters) => {
 
   const [rows, captains] = await Promise.all([
     tableRepository.findTables(restaurantId, filters),
-    // Today's captain of each table (SW-A-20), for "My tables".
+    // Today's captain of each table, for "My tables".
     require("./captainSection.service").captainsToday(restaurantId, filters.outletId || null),
   ]);
 
@@ -714,7 +714,7 @@ const updateSettings = async (restaurantId, data, userId, scope = {}) => {
 };
 
 // What a printed table QR code needs: the address guests' phones open (null:
-// the screen's own), and the restaurant's name and logo for the card.
+// the guests' site's own), and the restaurant's name and logo for the card.
 const qrSettings = async (restaurantId) => {
   const [service, restaurant, settings] = await Promise.all([
     serviceSettingsRepository.find(restaurantId),

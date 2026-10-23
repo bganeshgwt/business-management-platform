@@ -295,7 +295,7 @@ const feedback = async (req, res) => {
   });
 };
 
-// ---------------------------------------------------------------- the online ordering page (SW-A-22)
+// ---------------------------------------------------------------- the online ordering page
 
 const PAYMENT_MODES = ["pay_at_pickup", "cash_on_delivery", "online"];
 

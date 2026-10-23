@@ -4,8 +4,10 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+const { createBusinesses } = require('./helpers/businesses');
+const { daysFrom } = require('./helpers/dates');
 
-// Round 2 (R2-HEALTH): pharmacy and clinic / lab rules. Drug master and
+// Pharmacy and clinic / lab rules. Drug master and
 // substitutes, prescription sales (Schedule H / H1 / X) with the scan, the H1
 // and X registers, the pharmacist's PIN, strip / loose sale, batch recall and
 // blocking, expiry returns as debit notes; patients with DPDP consent,
@@ -30,7 +32,6 @@ test('pharmacy and clinic / lab rules', { timeout: 300000 }, async (t) => {
   process.env.DB_NAME = database;
   process.env.NODE_ENV = 'test';
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex');
-  process.env.MULTI_BUSINESS_DEVELOPMENT = 'true';
   process.env.LOGIN_ATTEMPT_LIMIT = '5000';
   const { runner } = await import('node-pg-migrate');
   await runner({ databaseUrl: { ...connection, database }, dir: path.resolve(__dirname, '../../migrations'), migrationsTable: 'pgmigrations', direction: 'up', count: Infinity, checkOrder: true, log() {} });
@@ -69,12 +70,10 @@ test('pharmacy and clinic / lab rules', { timeout: 300000 }, async (t) => {
   const request = as(token);
   const other = as(await login('health-other@test.invalid'));
   const key = () => crypto.randomUUID();
-  const day = (offset) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
+  // The pharmacy's and the clinic's own dates (India's), not the UTC date.
+  const day = (offset) => daysFrom(offset);
 
-  const demos = (await request('POST', '/businesses/development-demos', {}, 201)).businesses;
-  const pharmacy = demos.find((b) => b.business_type === 'pharmacy');
-  const clinic = demos.find((b) => b.business_type === 'healthcare');
-  const grocery = demos.find((b) => b.business_type === 'grocery');
+  const [pharmacy, clinic, grocery] = await createBusinesses(request, 'OWNER', ['pharmacy', 'healthcare', 'grocery']);
   const P = (s) => `/businesses/${pharmacy.id}/${s}`;
   const C = (s) => `/businesses/${clinic.id}/${s}`;
 
@@ -167,7 +166,7 @@ test('pharmacy and clinic / lab rules', { timeout: 300000 }, async (t) => {
     assert.deepEqual(lines.rows.map((l) => [l.lot_code, Number(l.quantity), l.entered_unit]), [['CFA', 20, 'strip'], ['CFB', 10, 'strip']]);
     assert.equal(sold.registers.length, 2);
     assert.ok(sold.registers.every((r) => r.register === 'H1' && r.doctor_reg_no === 'TNMC 65432' && r.patient_name === 'Lakshmi R'));
-    const retain = await one("SELECT retain_until - created_at::date AS days FROM pharmacy_register_entries WHERE business_id=$1 LIMIT 1", [pharmacy.id]);
+    const retain = await one("SELECT retain_until - (created_at AT TIME ZONE 'Asia/Kolkata')::date AS days FROM pharmacy_register_entries WHERE business_id=$1 LIMIT 1", [pharmacy.id]);
     assert.ok(retain.days >= 365 * 3);
     // The same request again returns the same bill; the scan cannot be reused.
     const again = await counter.call('POST', P('pharmacy/sales'), body, 201);
@@ -337,8 +336,6 @@ test('pharmacy and clinic / lab rules', { timeout: 300000 }, async (t) => {
     assert.equal((await request('GET', C('lab/orders?status=cancelled'))).total, 1);
   });
 
-  // The clinic's own dates (India), not the test machine's.
-  const ist = (offset) => new Date(Date.now() + 5.5 * 3600000 + offset * 86400000).toISOString().slice(0, 10);
   const dowOf = (d) => new Date(`${d}T00:00:00Z`).getUTCDay();
   const at = (d, time) => new Date(`${d}T${time}:00+05:30`).toISOString();
   let meena, gp, review, kavya;
@@ -347,7 +344,7 @@ test('pharmacy and clinic / lab rules', { timeout: 300000 }, async (t) => {
     meena = await request('POST', C('resources'), { name: 'Dr. Meena', locationId: clinicLocation.id }, 201);
     gp = await request('POST', C('catalog'), { kind: 'service', unit: 'service', name: 'GP consultation', code: 'GPC', price: '400', taxRate: '0' }, 201);
     review = await request('POST', C('catalog'), { kind: 'service', unit: 'service', name: 'Review visit', code: 'REV', price: '150', taxRate: '0' }, 201);
-    const tomorrow = ist(1);
+    const tomorrow = day(1);
     const sessions = [{ dow: dowOf(tomorrow), starts: '09:00', ends: '13:00' }, { dow: dowOf(tomorrow), starts: '17:00', ends: '20:00' }];
     const profile = { speciality: 'General physician', consultationSkuId: gp.id, followUpSkuId: review.id, followUpDays: 7, slotMinutes: 15, sharePercent: '60', sessions };
     await desk.call('PUT', C(`clinic/doctors/${meena.id}`), profile, 403);
@@ -402,7 +399,7 @@ test('pharmacy and clinic / lab rules', { timeout: 300000 }, async (t) => {
     await doctor.call('PATCH', C(`clinic/visits/${first.id}`), { complaints: 'Fever', complete: true });
     await assert.rejects(pool.query("UPDATE health_visits SET fee_kind='follow_up' WHERE id=$1", [first.id]), /kept as written/);
     // Earnings: three patients, ₹550 of fees, 60% to the doctor.
-    const today = ist(0);
+    const today = day(0);
     const earnings = await request('GET', C(`clinic/doctor-earnings?from=${today}&to=${today}`));
     const mine = earnings.doctors.find((d) => d.resource_id === meena.id);
     assert.deepEqual([mine.visits, mine.consultations, mine.follow_ups, mine.free_follow_ups, mine.fees, mine.share], [3, 1, 1, 1, '550.00', '330.00']);
@@ -410,7 +407,7 @@ test('pharmacy and clinic / lab rules', { timeout: 300000 }, async (t) => {
   });
 
   await t.test('tokens: issued on arrival, called in turn (priority first), done with the visit', async () => {
-    const today = ist(0);
+    const today = day(0);
     // Today: one session capped at three patients.
     await request('PUT', C(`clinic/doctors/${meena.id}`), { consultationSkuId: gp.id, followUpDays: 7, slotMinutes: 15, sessions: [{ dow: dowOf(today), starts: '00:00', ends: '23:59', maxPatients: 3 }] });
     const register = (name, phone) => desk.call('POST', C('clinic/patients'), { name, phone, sex: 'male', ageYears: 50, consent: { purposes: ['treatment'], method: 'signed_form', givenBy: 'Self' } }, 201);

@@ -84,15 +84,6 @@ const update = async (restaurantId, id, data, userId) => {
   return result.rows[0] || null;
 };
 
-const countPurchaseOrders = async (supplierId) => {
-  const result = await pool.query(
-    "SELECT COUNT(*)::int AS count FROM purchase_orders WHERE supplier_id = $1",
-    [supplierId]
-  );
-
-  return result.rows[0].count;
-};
-
 // Everything that records goods or money with this supplier. Any of it keeps
 // the supplier on the books: deleting them would orphan the history (and the
 // database refuses anyway, which used to surface as a bare server error).
@@ -124,7 +115,6 @@ module.exports = {
   findById,
   create,
   update,
-  countPurchaseOrders,
   countHistory,
   remove,
 };

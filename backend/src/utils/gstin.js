@@ -103,8 +103,6 @@ const gstinProblem = (value) => {
   return null;
 };
 
-const isValidGstin = (value) => Boolean(tidyGstin(value)) && gstinProblem(value) === null;
-
 // For controllers: blank is null, a valid GSTIN comes back tidied, anything
 // else is refused with a sentence naming the field.
 const readGstin = (value, field = "GSTIN") => {
@@ -124,11 +122,8 @@ const readGstin = (value, field = "GSTIN") => {
 };
 
 module.exports = {
-  GSTIN_PATTERN: PATTERN,
-  GST_STATES: STATES,
   gstinCheckCharacter,
   gstinState,
   gstinProblem,
-  isValidGstin,
   readGstin,
 };

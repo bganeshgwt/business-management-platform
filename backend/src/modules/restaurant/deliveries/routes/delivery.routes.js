@@ -53,7 +53,7 @@ router.post("/dispatch", authorize("orders.manage"), deliveryController.dispatch
 // sales.view as well as reports.view.
 router.get("/report", authorize("reports.view", "sales.view"), deliveryController.report);
 
-// Rider cash settlement (SW-A-19): a rider's delivered, unpaid bills paid in
+// Rider cash settlement: a rider's delivered, unpaid bills paid in
 // one step by whoever takes payments; a shortfall written off needs a
 // manager (or their PIN). The day's settlements and riders' dues.
 router.get(

@@ -1,16 +1,14 @@
 const pool = require("../../../../config/database");
-const crmRepository = require("../repositories/crm.repository");
 const AppError = require("../../../../utils/AppError");
 const { gstinProblem } = require("../../../../utils/gstin");
 const { normaliseMobile, mobileProblem, maskMobile, formatMobile, tenDigitTwin } = require("../../../../utils/phone");
 const sheet = require("../../imports/services/sheetImport");
 
-// The guest book from a spreadsheet, points balances included (sweep
-// SW-B-13): how a restaurant brings its regulars over from Petpooja or an
-// old register without typing each one, and without anyone losing the
-// points they were owed. sheetImport's safety applies (a check first, only
-// the file's columns change, all or nothing, the same file twice changes
-// nothing). And:
+// The guest book from a spreadsheet, points balances included: how a
+// restaurant brings its regulars over from Petpooja or an old register
+// without typing each one, and without anyone losing the points they were
+// owed. sheetImport's safety applies (a check first, only the file's columns
+// change, all or nothing, the same file twice changes nothing). And:
 //
 //   * A guest is found by mobile (+91, a leading 0 and spaces are fine; it is
 //     stored as the 10 digits), else by email. A row that matches an existing
@@ -495,4 +493,4 @@ const importGuests = async (restaurantId, rows, userId, options = {}) => {
   return { ...summary, applied: await apply(restaurantId, planned, userId) };
 };
 
-module.exports = { COLUMNS, OPENING_NOTE, importGuide, importGuests };
+module.exports = { importGuide, importGuests };

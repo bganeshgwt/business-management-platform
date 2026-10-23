@@ -198,14 +198,12 @@ const guideOf = (columns, sample) => ({
 });
 
 module.exports = {
-  MAX_ROWS,
   normalise,
   resolveColumns,
   cellsOf,
   parseNumber,
   parseYesNo,
   parseDate,
-  fingerprintOf,
   staleError,
   checkRows,
   summarise,

@@ -4,9 +4,10 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+const { createBusinesses } = require('./helpers/businesses');
 const dates = require('./helpers/dates');
 
-// Phase 2, T2 — wholesale / FMCG: sales orders, dispatch with back-orders and
+// Wholesale / FMCG: sales orders, dispatch with back-orders and
 // FEFO batches, order prices per pack, credit limits at order and invoice,
 // shared receivables (collections, advances, ageing, statements), routes,
 // beats and salespeople, wholesale reports. Runs against its own throwaway
@@ -28,7 +29,6 @@ test('wholesale: orders, dispatch, back-orders, collections and ageing', { timeo
   process.env.DB_NAME = database;
   process.env.NODE_ENV = 'test';
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex');
-  process.env.MULTI_BUSINESS_DEVELOPMENT = 'true';
   process.env.LOGIN_ATTEMPT_LIMIT = '5000';
   const { runner } = await import('node-pg-migrate');
   await runner({ databaseUrl: { ...connection, database }, dir: path.resolve(__dirname, '../../migrations'), migrationsTable: 'pgmigrations', direction: 'up', count: Infinity, checkOrder: true, log() {} });
@@ -70,16 +70,12 @@ test('wholesale: orders, dispatch, back-orders, collections and ageing', { timeo
   const key = () => crypto.randomUUID();
   const paise = (value) => Math.round(Number(value) * 100);
 
-  const demos = (await request('POST', '/businesses/development-demos', {}, 201)).businesses;
-  const otherDemos = (await other('POST', '/businesses/development-demos', {}, 201)).businesses;
-  // Pro pass (1791540000000): goods shops now start with prices including GST,
-  // rounded to the rupee, and a walk-in pays in full. These checks were written for
-  // prices before GST and post unpaid walk-in bills as fixtures.
+  const [ws, grocery, salon] = await createBusinesses(request, 'OWNER', ['wholesale', 'grocery', 'salon']);
+  const [otherWs] = await createBusinesses(other, 'OTHER', ['wholesale']);
+  // Goods shops start with prices including GST, rounded to the rupee, and a
+  // walk-in pays in full. These checks use prices before GST and post unpaid
+  // walk-in bills as fixtures.
   await pool.query("UPDATE business_settings SET tax_mode='exclusive', rounding='none', walk_in_credit=true");
-  const ws = demos.find((b) => b.business_type === 'wholesale');
-  const grocery = demos.find((b) => b.business_type === 'grocery');
-  const salon = demos.find((b) => b.business_type === 'salon');
-  const otherWs = otherDemos.find((b) => b.business_type === 'wholesale');
   const root = (business, suffix) => `/businesses/${business.id}/${suffix}`;
   const W = (suffix) => root(ws, suffix);
 
@@ -330,7 +326,7 @@ test('wholesale: orders, dispatch, back-orders, collections and ageing', { timeo
 
   await t.test('collections: oldest bills first, the rest is an advance, receipts are numbered and fixed', async () => {
     // Age the first invoice 45 days and add an old opening balance.
-    await pool.query("UPDATE business_documents SET created_at=now()-interval '45 days', due_on=(now()-interval '30 days')::date WHERE id=$1", [firstInvoice.id]);
+    await pool.query("UPDATE business_documents SET created_at=now()-interval '45 days', due_on=$2 WHERE id=$1", [firstInvoice.id, day(-30)]);
     await request('PATCH', W(`contacts/${kirana.id}`), { name: 'Balaji Kirana', openingBalance: '1500', openingBalanceOn: day(-100), creditLimit: '20000', creditDays: 15 });
     const account = await request('GET', W(`receivables/customers/${kirana.id}`));
     const balance = paise(account.summary.balance);
@@ -346,7 +342,7 @@ test('wholesale: orders, dispatch, back-orders, collections and ageing', { timeo
     const receipt = await staff.accountant('POST', W('collections'), body, 201);
     assert.match(receipt.collection_no, /^RC\//);
     // The opening balance is the oldest item: 1,500 stays on account against it; bills get the rest.
-    // Pro pass D-01: that 1,500 is reported as against the opening balance, not as an advance.
+    // That 1,500 is reported as against the opening balance, not as an advance.
     assert.equal(receipt.opening_applied, '1500.00');
     assert.equal(receipt.unallocated, '0.00');
     assert.equal(receipt.allocated, '4500.00');

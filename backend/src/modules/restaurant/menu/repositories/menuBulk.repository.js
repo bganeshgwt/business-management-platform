@@ -196,7 +196,7 @@ const replaceProductModifiers = async (client, productId, modifierIds, userId) =
   }
 };
 
-// SW-A-12: a size's kitchen name, found by the dish and the size's name (a
+// A size's kitchen name, found by the dish and the size's name (a
 // size the same import has just created has no id in the plan yet).
 const setVariantKitchenName = async (client, restaurantId, productId, name, kitchenName, userId) => {
   await client.query(

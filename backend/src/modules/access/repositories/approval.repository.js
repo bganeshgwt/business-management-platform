@@ -122,7 +122,7 @@ const findScopeFacts = async (restaurantId, scope) => {
       one("SELECT id, po_number FROM purchase_orders WHERE restaurant_id = $1 AND id = $2", scope.purchaseOrderId),
       one("SELECT id, count_number FROM stock_counts WHERE restaurant_id = $1 AND id = $2", scope.stockCountId),
       pool.query("SELECT currency_symbol FROM restaurant_settings WHERE restaurant_id = $1", [restaurantId]),
-      // A payment being corrected, and an advance being handed back (R4).
+      // A payment being corrected, and an advance being handed back.
       one("SELECT id, bill_id, payment_method, amount FROM payments WHERE restaurant_id = $1 AND id = $2", scope.paymentId),
       one(
         `SELECT a.id, a.receipt_number, c.name AS customer_name,

@@ -483,7 +483,7 @@ const addPayment = async (req, res) => {
     amount: v.requiredNumber(body.amount, "Amount", { min: 0.01, max: 99999999 }),
     tenderedAmount: v.optionalNumber(body.tenderedAmount, "Cash given", { min: 0, max: 99999999 }),
     transactionRef: v.optionalString(body.transactionRef, "Reference", 100),
-    // On top of the amount, for the staff (SW-B-03).
+    // On top of the amount, for the staff.
     tipAmount: v.optionalNumber(body.tipAmount, "Tip", { min: 0, max: 999999 }) ?? 0,
     paymentTypeId: body.paymentTypeId ? v.requiredId(body.paymentTypeId, "Payment type") : null,
     advanceId: body.advanceId ? v.requiredId(body.advanceId, "Advance") : null,
@@ -516,7 +516,7 @@ const addPayment = async (req, res) => {
   res.status(201).json({ success: true, message: "Payment recorded", data: bill });
 };
 
-// --- Correcting how a payment was taken (SW-B-02) ------------------------------
+// --- Correcting how a payment was taken ----------------------------------------
 
 const METHOD_WORDS = { cash: "cash", card: "card", upi: "UPI", online: "online", wallet: "wallet", other: "other" };
 
@@ -594,7 +594,7 @@ const checkAccount = async (req, res, next) => {
     await restaurantFeatures.assertOn(req.user, "guests");
   }
 
-  req.accountCheck = await customerAccountService.checkPutOnAccount(req.user.restaurantId, req.bill, data.customerId, ctxOf(req));
+  req.accountCheck = await customerAccountService.checkPutOnAccount(req.user.restaurantId, req.bill, data.customerId);
   next();
 };
 

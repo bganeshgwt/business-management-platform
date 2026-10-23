@@ -15,7 +15,7 @@ const pinnedOutlet = (req) => (req.outletPinned ? req.outletId : null);
 // switcher — its own store when it keeps one, else the main store it sells
 // from. "All outlets" is every store. Picking an outlet that sells from the
 // main store used to change nothing, so the figures still counted the other
-// branches' own stores (MV-6); now they are the main store's, the shelf that
+// branches' own stores; now they are the main store's, the shelf that
 // outlet's kitchen actually uses, and the screen says so.
 const viewStore = async (req) => {
   if (!req.outletId) {
