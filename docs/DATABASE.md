@@ -408,9 +408,9 @@ Added by: 1789912000000_pos-floor-moves-and-sold-out.
 
 #### `restaurant_preorders`
 Purpose: an order for a later day (a cake, a party tray) with the message, an advance and the time it is due. It moves booked → in_production → ready → collected (or cancelled); on collection it becomes a takeaway order on the open business day, and the advance is put on that order, so its bill takes the advance first.
-Key columns: `outlet_id`, `preorder_number` (varchar 20, PRE-0001…), `customer_id`, `due_at`, `fulfilment` (`pickup` / `delivery`), `delivery_address`, `notes` (varchar 500), `status` (`booked` / `in_production` / `ready` / `collected` / `cancelled`), `estimated_total` (>= 0), `advance_id` (an ordinary guest advance), `order_id` (the order it became), `cancel_reason`, `collected_at`, `created_by`, `updated_by`.
+Key columns: `outlet_id` (where it was booked; NULL = the main counter), `preorder_number` (varchar 20, PRE-0001…), `customer_id`, `due_at`, `fulfilment` (`pickup` / `delivery`), `delivery_address`, `notes` (varchar 500), `status` (`booked` / `in_production` / `ready` / `collected` / `cancelled`), `estimated_total` (>= 0), `advance_id` (an ordinary guest advance), `order_id` (the order it became), `cancel_reason`, `collected_at`, `created_by`, `updated_by`.
 Relations: `restaurant_id` -> `restaurants` (CASCADE); `outlet_id` -> `outlets` (SET NULL); `customer_id` -> `customers` (RESTRICT); `advance_id` -> `customer_advances` (SET NULL); `order_id` -> `orders` (SET NULL).
-Rules: UNIQUE (restaurant_id, preorder_number); cancelled exactly when there is a `cancel_reason`; a collected pre-order has its order; delivery needs an address (CHECKs). Partial index restaurant_preorders_due (restaurant_id, due_at) on booked, in-production and ready rows. The endpoints need the `preorders` feature (off by default; the café and bakery formats switch it on).
+Rules: UNIQUE (restaurant_id, preorder_number); cancelled exactly when there is a `cancel_reason`; a collected pre-order has its order; delivery needs an address (CHECKs). Partial index restaurant_preorders_due (restaurant_id, due_at) on booked, in-production and ready rows. The endpoints need the `preorders` feature (off by default; the café and bakery formats switch it on), and taking an advance also needs `advances`.
 Added by: 1791950410000_food-formats.
 
 #### `restaurant_preorder_items`
@@ -1035,7 +1035,7 @@ These are the tables of the multi-business platform: the platform catalogue, ide
 Conventions that apply to every table here, so they are not repeated per table:
 - Rows belonging to a business carry `business_id BIGINT NOT NULL`. Each link between two business rows is a composite FK `(business_id, x_id) -> x(business_id, id)`, backed by `UNIQUE (business_id, id)` on the target.
 - "Append-only" means a BEFORE UPDATE OR DELETE trigger refuses every delete and every change except a correction of `created_at`.
-- A rule trigger raises SQLSTATE 23514, which the API returns as a 409. The guards on `business_expenses`, `business_cash_checks` and `business_counter_shifts` raise PostgreSQL's default error code instead; no API call makes the change they refuse.
+- A rule trigger raises SQLSTATE 23514 with a sentence a person can read and no constraint name, which the API returns as a 409 carrying that sentence.
 - "Added by" names migrations by timestamp: the file is `backend/migrations/<timestamp>_<slug>.sql`.
 
 ## Platform
@@ -1510,7 +1510,7 @@ Added by: 1791540000000; 1791640000000 (`method_name`).
 
 ### Expenses and cash
 
-Module `expenses` ("Daily expenses", optional, for every type except the restaurant, which has its own `expenses` table; on by default) with permissions `expenses.view`, `expenses.create` and `expenses.approve` (reverse an expense). A daily cash check needs `reports.edit`. Unlike the other rule triggers, the three guards below raise a plain exception rather than SQLSTATE 23514 (it would reach a caller as a 500); the services lock the row and check first, so they never send a change a guard refuses.
+Module `expenses` ("Daily expenses", optional, for every type except the restaurant, which has its own `expenses` table; on by default) with permissions `expenses.view`, `expenses.create` and `expenses.approve` (reverse an expense). A daily cash check needs `reports.edit`. The three guards below raise SQLSTATE 23514 with their sentence, as the other rule triggers do, so a change one refuses would reach a caller as a 409; the services lock the row and check first, so they never send such a change.
 
 #### `business_expenses`
 Purpose: money a business paid out (rent, wages, transport), recorded once and reversed, if wrong, with a reason.
@@ -1520,7 +1520,7 @@ Rules:
 - CHECK `business_expenses_void_shape`: the three reversal columns are all NULL, or all set with a non-blank reason.
 - Trigger `business_expenses_immutable` (function `guard_business_expense`): never deleted; the only change is one reversal.
 - Indexes `business_expenses_day` (business, day, location) and partial `business_expenses_void`. The service allows a date up to 30 days back and never in the future.
-Added by: 1791950400000 business-workspaces-and-expenses; 1791950401000 expense-and-cash-reason-guards.
+Added by: 1791950400000 business-workspaces-and-expenses; 1791950401000 expense-and-cash-reason-guards; 1791950413000 shop-guards-check-violation (the guard's error code).
 
 #### `business_cash_checks`
 Purpose: a daily cash check at one location: the opening cash, the cash counted, and what the day's cash movements say should be there. A check is a permanent snapshot; a correction is a new check.
@@ -1531,7 +1531,7 @@ Rules:
 - CHECK `business_cash_checks_reason`: a difference needs a non-blank reason.
 - Trigger `business_cash_checks_immutable` (function `guard_business_cash_check`) refuses every update and delete.
 - Index `business_cash_checks_day` (business, day, location, newest first).
-Added by: 1791950400000; 1791950401000.
+Added by: 1791950400000; 1791950401000; 1791950413000 (the guard's error code).
 
 #### `business_counter_shifts`
 Purpose: one cashier's shift at one counter location: the float they start with, then the cash they count at the end against what their own cash movements there say the drawer should hold (cash sales, collections and refunds received from suppliers in; cash refunds, supplier payments and expenses out). Many cashiers can bill at once; each count is checked against only what that person took and paid out.
@@ -1541,7 +1541,7 @@ Rules:
 - CHECK `business_counter_shifts_closed_shape`: an open shift has none of the closing columns; a closed one has them all, with `expected_cash = opening_cash + movement_cash`, `difference = counted_cash - expected_cash`, and a reason when there is a difference.
 - One open shift per person and location (partial unique index `business_counter_shifts_one_open`); index `business_counter_shifts_day`.
 - Trigger `business_counter_shifts_immutable` (function `guard_business_counter_shift`): never deleted; only the closing count may be written, once.
-Added by: 1791950404000 retail-completion.
+Added by: 1791950404000 retail-completion; 1791950413000 shop-guards-check-violation (the guard's error code).
 
 ## Retail
 

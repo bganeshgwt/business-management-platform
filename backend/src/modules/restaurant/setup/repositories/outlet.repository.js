@@ -142,6 +142,20 @@ const usage = async (restaurantId, outletId) => {
   return { history, setup: listOf(SETUP), lastBillAt: row.last_bill_at };
 };
 
+// The numbers of the pre-orders still to be baked and handed over at an
+// outlet (booked, in production or ready), soonest due first. They are on
+// that outlet's bake list and on no other till's.
+const openPreorders = async (restaurantId, outletId) => {
+  const result = await pool.query(
+    `SELECT preorder_number FROM restaurant_preorders
+     WHERE restaurant_id = $1 AND outlet_id = $2 AND status IN ('booked', 'in_production', 'ready')
+     ORDER BY due_at, id`,
+    [restaurantId, outletId]
+  );
+
+  return result.rows.map((row) => row.preorder_number);
+};
+
 const remove = async (restaurantId, id) => {
   const result = await pool.query(
     "DELETE FROM outlets WHERE restaurant_id = $1 AND id = $2 RETURNING id",
@@ -157,5 +171,6 @@ module.exports = {
   create,
   update,
   usage,
+  openPreorders,
   remove,
 };

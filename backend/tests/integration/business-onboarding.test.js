@@ -125,6 +125,47 @@ test('onboarding: platform creates a business, owner signs in, staff logins, loc
     await owner('POST', B(`staff-accounts/${ownerId}/password`), { password: 'Whatever-123' }, 403);
   });
 
+  await t.test('a new password only for someone whose role does no more than yours', async () => {
+    const roles = (await owner('GET', B('roles?limit=100'))).items;
+    const cashier = roles.find((r) => r.template_code === 'cashier');
+    const manager = roles.find((r) => r.template_code === 'manager');
+    // A supervisor does what a cashier does, and gives staff access.
+    const supervisor = await owner('POST', B('roles'), { name: 'Supervisor', permissions: [...cashier.permissions, 'access.view', 'access.edit'] }, 201);
+    const staff = async (name, email, password, roleId) => (await owner('POST', B('staff-accounts'), { name, email, password, roleId }, 201)).user_id;
+    await staff('Latha S', 'latha@arogya.test', 'Latha-pass-2026', supervisor.id);
+    const kiran = await staff('Kiran B', 'kiran@arogya.test', 'Kiran-pass-2026', cashier.id);
+    const meera = await staff('Meera P', 'meera@arogya.test', 'Meera-pass-2026', manager.id);
+    const latha = as(await login('latha@arogya.test', 'Latha-pass-2026'));
+    await latha('POST', B(`staff-accounts/${kiran}/password`), { password: 'Kiran-new-2026' });
+    assert.ok(await login('kiran@arogya.test', 'Kiran-new-2026'));
+    // A manager can do more than a supervisor, so the supervisor cannot sign in as one.
+    const refused = await latha('POST', B(`staff-accounts/${meera}/password`), { password: 'Taken-over-2026' }, 403);
+    assert.match(refused.message, /^This person's role can do things yours cannot \(.+\), so you cannot change their access or password$/);
+    assert.equal(await login('meera@arogya.test', 'Taken-over-2026'), null);
+    assert.ok(await login('meera@arogya.test', 'Meera-pass-2026'));
+  });
+
+  await t.test('the staff list says whom the caller manages', async () => {
+    // Staff & access shows Change and Password only where `manages` is true.
+    const manages = async (who) => Object.fromEntries((await who('GET', B('members?limit=100'))).items.map((m) => [m.email, m.manages]));
+    const latha = as(await login('latha@arogya.test', 'Latha-pass-2026'));
+    // The supervisor manages the cashiers; not the manager, whose role can do
+    // more, nor the owner, nor themselves.
+    assert.deepEqual(await manages(latha), {
+      'owner@arogya.test': false, 'latha@arogya.test': false, 'ravi@arogya.test': true, 'kiran@arogya.test': true, 'meera@arogya.test': false,
+    });
+    // The owner manages everyone but themselves.
+    assert.deepEqual(await manages(owner), {
+      'owner@arogya.test': false, 'latha@arogya.test': true, 'ravi@arogya.test': true, 'kiran@arogya.test': true, 'meera@arogya.test': true,
+    });
+    // Someone who may only look at the staff list manages nobody.
+    const lookOnly = await owner('POST', B('roles'), { name: 'Staff list', permissions: ['access.view'] }, 201);
+    await owner('POST', B('staff-accounts'), { name: 'Asha N', email: 'asha@arogya.test', password: 'Asha-pass-2026', roleId: lookOnly.id }, 201);
+    const asha = await manages(as(await login('asha@arogya.test', 'Asha-pass-2026')));
+    assert.equal(Object.keys(asha).length, 6);
+    assert.ok(Object.values(asha).every((answer) => answer === false), JSON.stringify(asha));
+  });
+
   await t.test('currency and time zone are the owner\'s to set until bills exist', async () => {
     const current = await owner('GET', B('settings'));
     assert.equal(current.currency, 'INR');

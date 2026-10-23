@@ -1,7 +1,14 @@
 // Pre-orders: cakes and party orders for a later day (feature "preorders").
 // Seeing them is part of taking orders (orders.view); booking, moving them
 // along and handing them over is taking an order (orders.create); taking the
-// advance is a payment (payments.manage); cancelling is orders.manage.
+// advance is a payment (payments.manage), and needs the feature "advances"
+// too (the service refuses it, on booking or later, when that is off);
+// cancelling is orders.manage. The bake list is also the kitchen's, which
+// bakes from it: the kitchen display's own permission (kds.view) reads it,
+// and nothing else here.
+//
+// Staff tied to one outlet see and act on that outlet's pre-orders only: any
+// other answers 404, as another outlet's bill or advance does (ctxOf).
 const express = require("express");
 const authenticate = require("../../../../middlewares/authenticate");
 const authorize = require("../../../../middlewares/authorize");
@@ -49,16 +56,17 @@ router.get("/", authorize("orders.view"), wrap(async (req, res) => {
   const status = v.optionalEnum(req.query.status, "Status", ["open", "all", "booked", "in_production", "ready", "collected", "cancelled"], "open");
   send(res, await preorders.list(req.user.restaurantId, {
     status, from: isoDay(req.query.from, "From"), to: isoDay(req.query.to, "To"), search: v.optionalString(req.query.search, "Search", 100),
-  }));
+  }, ctxOf(req)));
 }));
 
-router.get("/bake-list", authorize("orders.view"), wrap(async (req, res) => {
-  // No day asked for: the day this till is trading on (see the service).
+router.get("/bake-list", authorize.any("orders.view", "kds.view"), wrap(async (req, res) => {
+  // This till's list: its outlet's pre-orders, or the main counter's. No day
+  // asked for: the day this till is trading on (see the service).
   send(res, await preorders.bakeList(req.user.restaurantId, isoDay(req.query.day, "Day"), ctxOf(req)));
 }));
 
 router.get("/:id", authorize("orders.view"), wrap(async (req, res) => {
-  send(res, await preorders.findOne(req.user.restaurantId, v.requiredId(req.params.id, "Pre-order")));
+  send(res, await preorders.findOne(req.user.restaurantId, v.requiredId(req.params.id, "Pre-order"), ctxOf(req)));
 }));
 
 router.post("/", authorize("orders.create"), wrap(async (req, res) => {
@@ -121,14 +129,14 @@ router.post("/:id/advance", authorize("payments.manage"), wrap(async (req, res) 
 
 router.post("/:id/status", authorize("orders.create"), wrap(async (req, res) => {
   const status = v.requiredEnum((req.body || {}).status, "Status", ["in_production", "ready"]);
-  const updated = await preorders.setStatus(req.user.restaurantId, v.requiredId(req.params.id, "Pre-order"), status, req.user.id);
+  const updated = await preorders.setStatus(req.user.restaurantId, v.requiredId(req.params.id, "Pre-order"), status, req.user.id, ctxOf(req));
   logAction(req, "status", "preorder", { id: updated.id, label: updated.number, details: { status } });
   send(res, updated);
 }));
 
 router.post("/:id/cancel", authorize("orders.manage"), wrap(async (req, res) => {
   const reason = v.requiredString((req.body || {}).reason, "Reason", 300);
-  const updated = await preorders.cancel(req.user.restaurantId, v.requiredId(req.params.id, "Pre-order"), reason, req.user.id);
+  const updated = await preorders.cancel(req.user.restaurantId, v.requiredId(req.params.id, "Pre-order"), reason, req.user.id, ctxOf(req));
   logAction(req, "cancel", "preorder", { id: updated.id, label: updated.number, details: { reason } });
   send(res, updated, 200, updated.advanceHeld > 0 ? `${updated.number} cancelled. Its advance (${updated.advanceReceipt}) is still held: refund it from Dues & accounts › Advances.` : `${updated.number} cancelled`);
 }));

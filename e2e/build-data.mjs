@@ -88,8 +88,10 @@ export async function buildTestData({ api, logins, sql }) {
   }, 201);
   const owner = caller(api, await signIn("RESTAURANT_ADMIN"));
 
+  // The restaurant's own staff. A login with businesses of its own works in
+  // those shops only, and is made with them further down.
   const roles = await owner("GET", "/roles");
-  for (const person of logins.filter((item) => !["SUPER_ADMIN", "RESTAURANT_ADMIN"].includes(item.role))) {
+  for (const person of logins.filter((item) => !["SUPER_ADMIN", "RESTAURANT_ADMIN"].includes(item.role) && !item.businesses)) {
     const role = roles.find((item) => item.code === person.role && item.isSystem);
     await owner("POST", "/users", { name: person.name, email: person.email, password: person.password, roleIds: [role.id] }, 201);
   }
@@ -280,6 +282,20 @@ export async function buildTestData({ api, logins, sql }) {
       stylist: { id: stylist.id, name: stylist.name },
       service: { id: service.id, name: service.label },
     });
+  }
+
+  // Each login that works in some of the owner's shops: made in the first
+  // of them, as Staff & access › New staff login makes one, then given access
+  // to the others; a manager in every one.
+  for (const person of logins.filter((item) => item.businesses)) {
+    const [first, ...others] = person.businesses.map((type) => businesses[type]);
+    const manager = (await owner("GET", `/businesses/${first.id}/roles`)).items.find((role) => role.template_code === "manager");
+    const made = await owner("POST", `/businesses/${first.id}/staff-accounts`, {
+      name: person.name, email: person.email, password: person.password, roleId: manager.id,
+    }, 201);
+    for (const business of others) {
+      await owner("POST", `/businesses/${business.id}/members`, { userId: made.user_id, role: "manager" }, 201);
+    }
   }
 
   return {

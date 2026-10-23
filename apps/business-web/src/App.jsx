@@ -214,9 +214,6 @@ export default function App() {
             <Route element={<ProtectedRoute feature="deliveries" />}>
               <Route path="deliveries" element={<DeliveriesPage />} />
             </Route>
-            <Route element={<ProtectedRoute feature="preorders" />}>
-              <Route path="preorders" element={<PreordersPage />} />
-            </Route>
             <Route element={<ProtectedRoute feature="brands" />}>
               <Route path="menu/brands" element={<BrandsPage />} />
             </Route>
@@ -228,6 +225,12 @@ export default function App() {
 
           <Route element={<ProtectedRoute permission="kds.view" feature="kitchen_display" />}>
             <Route path="kitchen" element={<KitchenDisplayPage />} />
+          </Route>
+
+          {/* Pre-orders: the counter's (orders.view), and the kitchen's
+              bake list (kds.view), as its menu link and the API allow. */}
+          <Route element={<ProtectedRoute permissionAny={["orders.view", "kds.view"]} feature="preorders" />}>
+            <Route path="preorders" element={<PreordersPage />} />
           </Route>
 
           {/* The same rule as its menu link: service settings are for people

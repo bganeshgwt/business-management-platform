@@ -111,8 +111,8 @@ Most arguments about numbers are really arguments about words. Settle these firs
 
 | Word | Meaning |
 |---|---|
-| **Pre-order** | An order for a later day (a cake, a party tray) with the message, an advance and the time it is due. It is made ready and, on collection, billed as a takeaway order against the advance. |
-| **Bake list** | Everything the open pre-orders due on a day need, added up, for the kitchen. |
+| **Pre-order** | An order for a later day (a cake, a party tray) with the message, the time it is due and, while *Advances & deposits* is on, an advance. It is made ready and, on collection, billed as a takeaway order, which takes the advance first. |
+| **Bake list** | Everything the open pre-orders booked at one till (an outlet, or the main counter) and due on a day need, added up, for the kitchen. |
 | **Sold by weight** | A dish or bake priced per kg; the quantity on the order is the weight (0.25 = 250 g). |
 | **Day-end unsold** | What is left on the shelf at closing. What will not sell tomorrow is written off at cost as "Unsold at day end"; what keeps stays in stock. |
 | **Brand** | One of the names a kitchen sells under: a cloud kitchen might sell curries under one brand and wraps under another. A category belongs to one brand or to all. An order is taken under a brand, which its KOT and bill print and the brand report counts. |

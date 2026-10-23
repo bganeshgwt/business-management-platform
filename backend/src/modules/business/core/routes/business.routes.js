@@ -127,7 +127,10 @@ for (const [name, permission] of Object.entries(listPermissions)) {
     const search = typeof req.query.q === 'string' && req.query.q.trim() ? req.query.q.trim().slice(0, 100) : null;
     const from = readDate(req.query.from, 'From date'), to = readDate(req.query.to, 'To date');
     if (from && to && to < from) throw new AppError(400, 'The end date is before the start date');
-    send(res, await repo.page(req.business.id, name, limit, offset, { search, from, to, timezone: req.business.timezone, filters }));
+    const result = await repo.page(req.business.id, name, limit, offset, { search, from, to, timezone: req.business.timezone, filters });
+    // Each person on the staff list says whether the caller manages them (Change and Password).
+    if (name === 'members') await access.markManaged(req.business, result.items);
+    send(res, result);
   });
 }
 

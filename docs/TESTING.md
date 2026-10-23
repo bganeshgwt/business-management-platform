@@ -141,7 +141,6 @@ same.
 | --- | --- |
 | `DB_POOL_GUARD=warn` | Logs a `[db pool guard]` line for any code that asks the pool for a second connection while its transaction holds one, the pattern that can freeze the API. Run the whole suite with it and look for none. `floor-and-service.test.js` always runs with `warn` and fails on a line from its own code; `restaurant-money-paths.test.js` always runs with `throw`. |
 | `RMP_LOAD_SECONDS` | The load test in `restaurant.test.js` ([Load test](#load-test)). |
-| `RMP_BROWSER_TESTS=1`, `BUSINESS_BROWSER_TESTS=1` | The browser checks inside the integration run ([below](#browser-checks-inside-the-integration-run)). |
 
 In PowerShell, set one for a run and clear it after:
 
@@ -177,37 +176,6 @@ In bash: `RMP_LOAD_SECONDS=120 node --test tests/integration/restaurant.test.js`
 It measures one simple flow on one machine against a local PostgreSQL. It
 says nothing about capacity in production, printing, Wi-Fi, a long shift or a
 database that holds years of trading.
-
-### Browser checks inside the integration run
-
-Two browser checks live inside integration files and run only when switched
-on. They are not part of `npm run test:browser` or of CI; moving them into the
-browser suite is on the
-[backlog](BACKLOG.md#7-left-inside-built-modules).
-
-| Switch | Runs | What it does in the browser, at 1440 px (light) and 390 px (dark) | Screenshots |
-| --- | --- | --- | --- |
-| `RMP_BROWSER_TESTS=1` | `browser-readiness.cjs`, inside `restaurant.test.js` | A dish's serving times and combo choices, the combo picker on the POS, a production batch posted and voided, and wastage recorded against a batch | `backend/.local/readiness-ui/` |
-| `BUSINESS_BROWSER_TESTS=1` | `business-admin-browser.cjs`, inside `business-admin.test.js` | In a books shop: add an item and a supplier, receive a purchase, sell, collect, take back and refund; an unsaved form asks before it is thrown away; the header's switcher opens other businesses | `backend/.local/business-admin-ui/` |
-
-They need the staff app's development server running (`npm run dev:business`)
-at `E2E_BASE_URL`. That defaults to `http://localhost:5173` for the restaurant
-check and to `http://127.0.0.1:5175` for the business check, so set it for the
-business check. The page signs in with the test's own token, and every request
-it sends to a path with `/api` in it goes to the test's own API and database
-instead; your own API is not used. They use the installed Edge on Windows and
-Playwright's Chromium elsewhere. In `backend`:
-
-```powershell
-$env:BUSINESS_BROWSER_TESTS = '1'
-$env:E2E_BASE_URL = 'http://localhost:5173'
-node --test tests/integration/business-admin.test.js
-Remove-Item Env:BUSINESS_BROWSER_TESTS, Env:E2E_BASE_URL
-```
-
-The restaurant check runs the same way, with `RMP_BROWSER_TESTS` and
-`restaurant.test.js`; with the staff app at `http://localhost:5173` it needs
-no `E2E_BASE_URL`.
 
 ### When an integration run goes wrong
 
@@ -271,7 +239,7 @@ npm run test:browser -- --list                           # list the tests: no se
 ```
 
 Every run but `--list` does the whole set-up first, which takes about half a
-minute. A full run takes about 22 minutes, and about half of it is
+minute. A full run takes about 25 minutes, and nearly half of it is
 `business-workspaces.spec.js`, which opens every menu page of every business.
 
 ### What a run does
@@ -360,8 +328,12 @@ them.
 - **Logins**, one for each role a spec signs in as, with `.invalid` e-mail
   addresses and passwords made fresh for each run: `SUPER_ADMIN` (the
   platform admin), `RESTAURANT_ADMIN` (the restaurant's admin, who also owns
-  every business below), and the restaurant's `CASHIER`, `CAPTAIN` and
-  `KITCHEN`, none of them tied to an outlet. There is no manager login.
+  every business below), the restaurant's `CASHIER`, `CAPTAIN` and `KITCHEN`,
+  none of them tied to an outlet, and `SHOP_MANAGER`, the Manager of the books
+  shop, the grocery, the pharmacy, the wholesaler and the salon, with no place
+  in the restaurant. That login is made in the books shop with *New staff
+  login*, then given access to the other four with *Give access*. The
+  restaurant has no manager login.
 - **The restaurant, E2E Bistro** (Asia/Kolkata): two outlets; one floor with
   tables 1 to 5, none tied to an outlet, each cleaned for five minutes after
   its bill is paid; two menu categories, four dishes at the restaurant's
@@ -392,16 +364,19 @@ Project `staff`, in `apps/business-web/tests/browser/`:
 
 | Spec | Signs in as | What it checks | What it changes |
 | --- | --- | --- | --- |
+| `business-admin.spec.js` | `RESTAURANT_ADMIN`, `SHOP_MANAGER` | At 1440 px (light) and 390 px (dark). In the books shop, as its owner: a book is added with its ISBN and no GST, five copies are received from a new supplier (the posted receipt opens, owing the supplier), and one is sold at Quick bill, opened from *Sales › New bill*, on udhaar to a customer added there. The bill, opened from Sales, is collected (the amount still open is filled in), the book is taken back and the customer refunded (the whole credit is filled in); nothing scrolls sideways. A form with unsaved changes asks first: *Keep editing* keeps what was typed, *Discard changes* closes it. As `SHOP_MANAGER`, who lands in one of their shops: the header's switcher opens each of the others, and every link in its menu is that business's own (on a phone, the menu opens from the header's menu button). Saves screenshots for review. | Adds a book, a supplier and a customer named for the run, with the purchase, the sale, its collection, the return and the refund; the switcher records the business `SHOP_MANAGER` opened last |
 | `business-counter.spec.js` | `RESTAURANT_ADMIN` | Quick bill opens for the grocery, fashion, electronics, books and the meat shop, each with its own scan words (scale label, barcode, IMEI, ISBN), and fashion's has *Size & colour*. F2 and F4 move between the scan and customer boxes; udhaar asks for a customer first; the loose rice waits for its weight, with the take button off until 500 g is chosen; F10 holds the bill and it comes back. The search list moves by keyboard and never says a typed name is a missing barcode; *Return* finds today's sale; on a phone the lines are compact and the pay bar stays at the foot. Daily money opens by payment method, and the sale's A4 tax invoice shows HSN/SAC, the amount in words and the place of supply. | Nothing: bills are built on screen and cleared |
 | `business-salon-weight.spec.js` | `RESTAURANT_ADMIN` | The salon calendar's day and week show the stylist, and *Walk-in* opens. The salon bill adds the service from its search box, shows *Take ₹…* and *Total ₹…*, and offers another way to pay. The meat shop's *Today's rates* holds each cut's rate per kg, *Stock by weight* offers *Close the day*, and *Orders for pickup* opens. | Nothing |
-| `business-staff-access.spec.js` | `RESTAURANT_ADMIN` | In the supermarket's *Staff & access*, *New staff login* and *Give access* offer only the active departments, and show no department field when there are none. The test supplies the list of departments itself. | Nothing: the dialogs are cancelled |
+| `business-staff-access.spec.js` | `RESTAURANT_ADMIN` | In the supermarket's *Staff & access*, *New staff login* and *Give access* offer only the active departments, and show no department field when there are none. *Change* and *Password* show only beside the people the staff list marks as managed, and never on your own row. The test supplies the list of departments itself, and adds to the staff list one person the caller manages and one they do not. | Nothing: the dialogs are cancelled |
 | `business-wholesale.spec.js` | `RESTAURANT_ADMIN` | The wholesaler's overview shows its day. A new sales order finds the retailer and shows their last order, and takes the noodles by search as two cases and ten pieces, counted in pieces. The dispatch board and delivery runs, the cheques and salesperson settlement in *Collections*, *Promise* on the retailer's row in *Outstanding*, price groups and claims all open. | Nothing: the order is cancelled |
 | `business-workspaces.spec.js` | `RESTAURANT_ADMIN` | For every business type: a short menu (at most 16 links, no set-up pages), its settings and reports; every main-menu page opens with no script error or server error, and every related page the business has switched on opens with its tab marked and no failed read from the business API. Also: tabs by keyboard and in the browser's history, tabs and *More tools* on a phone, in-page tabs, the label sheet, Quick bill's search, the meat shop's counter, stock, udhaar, expenses and Daily money, the pharmacy's prescription sale with one way to pay, and the restaurant's related areas with their view tabs. Saves screenshots for review. | Nothing |
+| `combos-and-production.spec.js` | `RESTAURANT_ADMIN` | At 1440 px (light) and 390 px (dark): a dish's serving times and combo choice are set and saved (the serving period is tried, then removed, so the dish stays on all day); on the POS the combo waits for its choice before *Add to order*, and goes on the order with the choice, at the dish's price plus the choice's extra price. A prepared item's changed recipe must be saved before *Post production*; a batch is made, then voided, which puts its ingredient back; part of a delivery's batch is written off. The stock the API reports is checked after each step. Saves screenshots for review. | Adds two dishes and two stock items named for the run, with a delivery, a production batch (voided) and a write-off. Nothing goes to the kitchen: the combo is only put on the POS's order, which is never sent |
 | `dashboard-panels.spec.js` | `RESTAURANT_ADMIN` | A dashboard tile or a *Needs attention* row opens its records in a panel whose count is the figure and whose list holds that many. The address carries the panel, so Back closes it and a reload opens it again; Escape and *Close* close it; a Ctrl-click opens the full screen in a new tab; rejecting an expense in the panel updates the count; on a phone the panel is a full-screen sheet. | Adds an expense and rejects it |
 | `data-grid.spec.js` | `RESTAURANT_ADMIN`, `SUPER_ADMIN` | The shared DataGrid, on a page that exists only inside the test (60 made-up rows): sorting, search, filters, paging with serial numbers running on across pages, rows per page, hidden columns and widths kept over a reload, CSV export, cards on a phone, row tones in light and dark, server paging, narrow and pinned columns, and the entry variant. Then *Outlets* (every outlet, sorted both ways, one page, the CSV headings, phone cards) and, as the platform admin, *Platform › Restaurants* (pages of 25 numbered on from 26, 50 rows per page kept over a reload, a search that narrows to the test restaurant). `GRID_SHOTS_DIR`, when set, receives screenshots. | Nothing |
 | `floor-actions.spec.js` | `RESTAURANT_ADMIN`, `CAPTAIN`, `CASHIER` | The dashboard's Floor panel: *Start order* on a free table opens the POS; an eating table offers *Open order* and *Bill*, and the POS goes straight to the bill; *Take payment* opens the bill; a paid table goes to cleaning and *Mark ready* frees it. A captain gets no *Bill*, *Take payment* or *Cancel order*, even on the order left open from an earlier day; a cashier may bill that order, or cancel it from the row's menu. | Places, bills and pays an order of its own on a free table, then marks the table ready |
 | `guest-book.spec.js` | `RESTAURANT_ADMIN` | With Loyalty points switched off, as a new restaurant starts, the guest book's reports show guest sales only: no points tab, no error, and no request for the points report. | Nothing |
 | `guest-redirect.spec.js` | — | Old guest links on the staff app's address (`/order`, `/online`, `/book`) land on the guests' site with path, query and hash kept; the guest data old pages kept in the browser is cleared, and the staff's own settings stay. | Nothing |
+| `preorders.spec.js` | `RESTAURANT_ADMIN`, `KITCHEN` | At 1440 px (light) and 390 px (dark). With *Advances & deposits* off, *New pre-order* books 1 cake and 0.5 kg of cookies sold by weight: it shows no advance fields, only the line saying why, and there is no *Advances held* on the page or in the dashboard's Pre-orders block. With Advances on, a second is booked with a ₹500 advance by UPI, and the dashboard shows ₹500 held; with an outlet picked, the block says *All outlets* and still counts every outlet's. Each booking is checked against the API. The bake list for tomorrow (the main counter's) adds them up, 2 × cake and 1 kg of cookies, with each pre-order and its message. `KITCHEN` finds *Pre-orders & cakes* in its menu and gets the bake list alone, with no *New pre-order*, tabs, tiles or row actions, and none of its pre-order requests is refused. Nothing scrolls sideways; saves screenshots for review. | Switches Pre-orders on, and Advances off and on, through the API, then back as they were. Adds a cake and cookies named for the run, two guests and two pre-orders (cancelled at the end), and a UPI advance taken and handed back on the main counter's day |
 | `printing.spec.js` | — | [Receipt printing checks](#receipt-printing-checks). | Nothing |
 | `quick-access.spec.js` | `RESTAURANT_ADMIN`, `KITCHEN` | Quick access: five shortcuts chosen, reordered and saved, kept over a reload, unchanged by *Cancel*, and still in place while the menu scrolls. Each person has their own, and a stored page the person may not open, or no page at all, is never shown. Keyboard focus in the editor, a phone, and a short landscape screen. | Nothing: shortcuts live in the browser |
 | `screens.spec.js` | `RESTAURANT_ADMIN` | Every route in the staff app's `src/App.jsx` that takes no parameter, at 1440 px and 390 px, opens with no script error, no server error and no request to a switched-off feature; the platform's pages turn a restaurant admin away. A dish's *Prices & outlets*, *Serving times & combo choices* and *Sizes & add-ons* open, and, with Stock & recipes on, an add-on's *Ingredient recipe* and the production tab. | Nothing |
@@ -458,13 +433,19 @@ Rules every spec keeps:
 - **Leave the shared data as you found it**, or change only what the spec
   made itself: `floor-actions.spec.js` places, bills and pays an order of its
   own and marks the table ready again; `dashboard-panels.spec.js` adds an
-  expense and rejects it.
+  expense and rejects it; `preorders.spec.js` puts back the feature switches
+  it turns, cancels its pre-orders and hands its advance back, even when the
+  test fails; `business-admin.spec.js`,
+  `combos-and-production.spec.js` and `preorders.spec.js` make what they work
+  on, named for the screen and the moment, so a retry never meets what an
+  earlier attempt made.
 - **Open a business by its address** (`/business-admin/<id>/…`). Never through
   the header's business switcher or the business list's *Open* cards while
   signed in as the shared owner: that records the business as the one last
   opened (`POST /businesses/:id/open`), and every later spec that signs in as
   `RESTAURANT_ADMIN` lands in that business instead of on the restaurant's
-  dashboard, for the rest of the run.
+  dashboard, for the rest of the run. The switcher is tried as `SHOP_MANAGER`
+  (`business-admin.spec.js`), a login no other spec uses.
 - **Call the API** inside `page.evaluate`, with `fixture().urls.api` and the
   page's own token (`localStorage.getItem("rmp_token")`), as
   `dashboard-panels.spec.js` does; or through the app's own API module by its
@@ -586,18 +567,18 @@ Integration tests are in `backend/tests/integration/`, browser specs in
 | Area | Integration tests | Browser specs |
 | --- | --- | --- |
 | Starting the API | `server-start.test.js` (a port already in use is refused with a clear message; a free one starts) | — |
-| Restaurant: from the order to the day's close, end to end | `restaurant.test.js` (with `service-readiness.cjs`, the [load test](#load-test) and a [browser check](#browser-checks-inside-the-integration-run)) | `screens.spec.js` |
+| Restaurant: from the order to the day's close, end to end | `restaurant.test.js` (with `service-readiness.cjs` and the [load test](#load-test)) | `screens.spec.js`, `combos-and-production.spec.js` (serving times, combo choices, production) |
 | Restaurant: floor, service, kitchen and the live screens | `floor-and-service.test.js`, `front-of-house.test.js`, `service-deliveries-captains.test.js`, `kitchen-names.test.js`, `cutoff-window.test.js` | `floor-actions.spec.js`, `dashboard-panels.spec.js` |
 | Restaurant: bills, payments, GST and branches | `billing-payments.test.js`, `billing-gst-accounts.test.js`, `restaurant-money-paths.test.js`, `branch-reports.test.js` | `printing.spec.js` |
 | Restaurant: cash, the day's close, reports and the dashboard | `cash-drawers-and-loyalty.test.js`, `day-close-roles.test.js`, `reports-dayend.test.js`, `dashboard-panels.test.js` | `dashboard-panels.spec.js`, `ui-motion.spec.js`, `scroll-layout.spec.js` |
-| Restaurant: stock, purchasing and imports | `restaurant-stock.test.js`, `stock-purchasing-imports.test.js`, `stock-cost-and-guest-privacy.test.js` | `visual-density.spec.js` (reorder) |
+| Restaurant: stock, purchasing and imports | `restaurant-stock.test.js`, `stock-purchasing-imports.test.js`, `stock-cost-and-guest-privacy.test.js` | `visual-density.spec.js` (reorder), `combos-and-production.spec.js` (production, batch write-off) |
 | Restaurant: set-up, features and rules | `restaurant-setup.test.js`, `restaurant-features.test.js`, `restaurant-rule-settings.test.js` | `screens.spec.js`, `guest-book.spec.js` |
 | Restaurant: staff, sign-in and approvals | `staff-and-sign-in.test.js`, `two-step-and-tied-approvals.test.js`, `payroll-expenses-guests.test.js` | `quick-access.spec.js` |
 | Restaurant: guests, online ordering and booking | `online-ordering.test.js`, `online-booking.test.js`, `restaurant-pickup-advances.test.js`, `payroll-expenses-guests.test.js` (the guest book) | `guest-pages.spec.js` (the guests' site), `guest-redirect.spec.js`, `guest-book.spec.js`, `visual-density.spec.js` (guest insights) |
-| Café, bakery and cloud kitchen; brands | `food-formats.test.js`, and the unit test `brandReport.test.js` | — |
-| Business platform: set-up, roles, numbering, stock control and events | `business-foundation.test.js`, `business-foundation-edge-cases.test.js`, `business-admin.test.js`, `business-onboarding.test.js`, `business-bookings-overview.test.js` | `business-workspaces.spec.js`, `business-staff-access.spec.js` |
-| Shared core: prices, invoices, the counter, payments, money, branches and rules | `business-shared-commerce.test.js`, `business-counter-payments.test.js`, `business-payment-methods.test.js`, `business-workspace-money.test.js`, `business-multi-location.test.js`, `business-rules.test.js`, `cross-feature-money.test.js` | `business-counter.spec.js` |
-| Retail: grocery, supermarket, books | `business-retail.test.js`, `business-retail-stock-books.test.js`, `business-retail-prices-departments.test.js` | `business-counter.spec.js` |
+| Café, bakery and cloud kitchen; brands | `food-formats.test.js` (with pre-orders kept to the outlet of staff tied to one, the kitchen's read-only bake list, and an outlet with open pre-orders neither closed nor deleted), and the unit test `brandReport.test.js` | `preorders.spec.js` (booking, the bake list, the kitchen's view) |
+| Business platform: set-up, roles, numbering, stock control and events | `business-foundation.test.js`, `business-foundation-edge-cases.test.js`, `business-admin.test.js`, `business-onboarding.test.js`, `business-bookings-overview.test.js` | `business-workspaces.spec.js`, `business-staff-access.spec.js`, `business-admin.spec.js` (the switcher, unsaved forms) |
+| Shared core: prices, invoices, the counter, payments, money, branches and rules | `business-shared-commerce.test.js`, `business-counter-payments.test.js`, `business-payment-methods.test.js`, `business-workspace-money.test.js`, `business-multi-location.test.js`, `business-rules.test.js`, `cross-feature-money.test.js`, `business-shop-guards.test.js` (the database guards on expenses, cash checks and cashier shifts) | `business-counter.spec.js`, `business-admin.spec.js` (purchase, sale, collection, return, refund) |
+| Retail: grocery, supermarket, books | `business-retail.test.js`, `business-retail-stock-books.test.js`, `business-retail-prices-departments.test.js` | `business-counter.spec.js`, `business-admin.spec.js` (the books shop) |
 | Wholesale | `business-wholesale.test.js`, `business-wholesale-distribution.test.js`, `business-wholesale-purchasing.test.js` | `business-wholesale.spec.js` |
 | Fashion and electronics | `business-fashion-electronics.test.js`, `business-fashion-electronics-sales-service.test.js` | `business-counter.spec.js` (their counters) |
 | Salon & spa, meat and weight-based shops | `business-salon-weight.test.js`, `business-salon-weight-daily.test.js`, `business-salon-back-office.test.js` | `business-salon-weight.spec.js` |
@@ -626,6 +607,5 @@ replaces with its own database) and `NODE_ENV=test`; there is no
    `VITE_CUSTOMER_WEB_URL=same-origin`: both apps built as one domain serves
    them.
 
-A failing step stops the job. CI does not run the browser tests, the browser
-checks inside the integration run or the load test: run
-`npm run test:browser` yourself when a change touches screens.
+A failing step stops the job. CI does not run the browser tests or the load
+test: run `npm run test:browser` yourself when a change touches screens.

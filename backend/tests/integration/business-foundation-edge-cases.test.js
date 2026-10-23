@@ -166,10 +166,14 @@ test('business platform: round-off returns, whole units, overview figures, demot
     await request('POST', root(grocery, 'members'), { userId: staff['shop-helper'].id, roleId: helper.id }, 201);
     const clerk = as(staff['shop-super'].token);
     const managerRole = (await roles()).find((r) => r.template_code === 'manager');
-    await clerk('POST', root(grocery, 'members'), { userId: staff['shop-manager'].id, roleId: helper.id, active: false }, 403);
+    const switchedOff = await clerk('POST', root(grocery, 'members'), { userId: staff['shop-manager'].id, roleId: helper.id, active: false }, 403);
+    assert.match(switchedOff.message, /^This person's role can do things yours cannot \(.+\), so you cannot change their access or password$/);
     await clerk('POST', root(grocery, 'members'), { userId: staff['shop-manager'].id, roleId: helper.id }, 403);
     await clerk('PATCH', root(grocery, `roles/${managerRole.id}`), { name: 'Manager', permissions: managerRole.permissions.filter((p) => p !== 'sales.view') }, 403);
     await clerk('PATCH', root(grocery, `roles/${managerRole.id}`), { name: 'Manager', permissions: managerRole.permissions, active: false }, 403);
+    // Even emptying it, with nothing handed out, is refused: the role is above them.
+    const emptied = await clerk('PATCH', root(grocery, `roles/${managerRole.id}`), { name: 'Manager', permissions: [] }, 403);
+    assert.match(emptied.message, /^The Manager role can do things yours cannot \(.+\), so you cannot change it$/);
     const after = (await roles()).find((r) => r.template_code === 'manager');
     assert.ok(after.permissions.includes('sales.view') && after.active);
     assert.equal((await one('SELECT active FROM business_memberships WHERE business_id=$1 AND user_id=$2', [grocery.id, staff['shop-manager'].id])).active, true);

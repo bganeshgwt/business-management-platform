@@ -10,7 +10,7 @@ Business Admin, the staff application of the Business Management Platform, runs 
 - **What it covers:** selling, buying, stock, customer credit, staff and access, daily money, reports and daily tasks, plus the special work of each business type.
 - **Where it stands:** the admin side and the guests' site are built and tested end to end. They have not yet run in a live business.
 - **Not built yet:**
-  - outside connections: payment gateway, SMS and WhatsApp, live Swiggy and Zomato links;
+  - outside connections: payment gateway, SMS and WhatsApp, live Swiggy and Zomato links, maps;
   - hardware links: silent printing, scales;
   - paid plans, separate mobile apps, and going live on a server.
 
@@ -35,12 +35,12 @@ A restaurant also chooses its format: **restaurant, café, bakery or cloud kitch
 ![How Business Admin is organised](images/business-admin-overview.png)
 
 Read the diagram top to bottom:
-1. The platform sets up businesses.
+1. The platform sets up restaurants and businesses.
 2. One login opens every business a person belongs to.
-3. The shared core does the common work. Its *Day close* box is the Daily money screen.
+3. The shared core does the common work.
 4. Each business type adds only its own modules.
 
-The restaurant and its formats run their own engine, with roles of their own, but share the login, the switcher and tasks. Guests never sign in: table QR ordering, online ordering and table booking open on the separate guests' site.
+The restaurant and its formats run their own engine, with roles of their own, but share the login, the switcher and tasks. Guests never sign in: table QR ordering, online ordering and table booking open on the separate guests' site. The diagram's source is `images/business-admin-overview.html`: edit the words there and render it again.
 
 ## The shared core
 

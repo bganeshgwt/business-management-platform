@@ -255,9 +255,6 @@ test("isolated restaurant workflows", { timeout: 600000 }, async (t) => {
   let order, bill;
   const newOrder = () => request("POST", "/orders", { orderType: "takeaway", customerId: guest.id, items: [{ productId: product.id, quantity: 2 }] }, 201);
   await require('./service-readiness.cjs')(t,{request,one,pool,rid,category,unit,token});
-  if (process.env.RMP_BROWSER_TESTS === '1') {
-    await require('./browser-readiness.cjs')(t,{base,token,one,rid,category,unit,request});
-  }
   await t.test("order reaches kitchen and prevents premature day close", async () => {
     order = await newOrder();
     await request("GET", "/kitchen/board");

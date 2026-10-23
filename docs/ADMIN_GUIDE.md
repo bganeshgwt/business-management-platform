@@ -283,7 +283,14 @@ in a business with departments, which department; a manager tied to a
 department makes logins in that department only); *Give access* adds someone
 who already has a login (your restaurant's staff, or people working in
 another business you own). *Password* sets a new password for a member of
-staff whose login is used only in this business; their open sessions end.
+staff whose login is used only in this business; their open sessions end. You
+can change someone (*Change*, the same form as *Give access*), or set their
+password, only when you manage them: if you are tied to a location or a
+department, they are tied to that same one (not to every location or every
+department), and their role can do nothing yours cannot. *Change* and
+*Password* show only beside the people you manage, never beside the owner or
+yourself
+([BUSINESS_RULES.md › Who a manager can change in Staff & access](BUSINESS_RULES.md#who-a-manager-can-change-in-staff--access)).
 
 **Currency and time zone** are in Business settings. The currency can change
 until the first bill or purchase is recorded; the time zone decides what
@@ -576,9 +583,11 @@ beside it.
 on), Floor, Kitchen, Reservations today, Table requests, Deliveries, Staff on
 duty, Stock, Guests (with birthdays) — each shown only to roles that can open
 that screen. Floor, kitchen, reservations, requests and deliveries follow the
-selected outlet; staff, stock and guests always cover the whole restaurant.
-All the cards arrive in one request; a card that fails keeps its last figures
-while the others load.
+selected outlet; staff, stock and guests always cover the whole restaurant,
+and so do pre-orders, except for staff tied to an outlet, who see that
+outlet's. Pre-orders are read when the page opens; the other cards arrive in
+one request, and a card that fails keeps its last figures while the others
+load.
 
 **Today's trading** (with `sales.view`) covers this business day only; the
 week and the month are in *Full analysis*. **Money in** by payment method
@@ -1084,6 +1093,13 @@ staff or tables attached can be deleted once they are moved; one with nothing
 recorded is deleted outright. Staff tied to a closed outlet cannot record
 anything until they are moved.
 
+An outlet with **open pre-orders** (booked, in production or ready) is neither
+closed nor deleted until they are handed over or cancelled in *Pre-orders &
+cakes* ([BUSINESS_RULES.md › Pre-orders](BUSINESS_RULES.md#pre-orders)), and
+the message names them. *Remove…* still offers to close or delete such an
+outlet, and the refusal then shows at the top of the Outlets page; setting
+*Status* to *Inactive (closed)* in *Edit* shows it in the dialog.
+
 **Business hours** are the opening and closing times per weekday, up to three
 service periods a day, including closed days. They drive the bell's "the day
 has not been opened" alerts, online booking times and reservation limits.
@@ -1136,7 +1152,7 @@ several of these at once; see Café, bakery and cloud kitchen.
 | Service | **Deliveries & rider cash** | The Delivery order type, the Deliveries board, riders and their cash | On |
 | Service | **Kitchen display (KDS)** | The kitchen screen. With it off, KOTs still print and orders work the same way | On |
 | Service | **Captain sections** | Giving each captain a set of tables | On |
-| Service | **Pre-orders & cakes** (needs Guests) | Cake and party orders taken ahead with an advance, the bake list | Off |
+| Service | **Pre-orders & cakes** (needs Guests) | Cake and party orders taken ahead (with an advance while Advances & deposits is on), the bake list | Off |
 | Service | **Brands (one kitchen, several names)** | Selling under several brand names, brand on orders, KOTs and bills, sales by brand | Off |
 | Money | **Tips** | The tip box when taking payment; tips in the day's cash | On |
 | Money | **Advances & deposits** | Money taken ahead, *From advance* when paying | On |
@@ -1163,7 +1179,8 @@ switcher, and the Outlets page is where it adds its first branch.
 - its buttons go: with Guests off the POS has no guest box (a delivery still
   asks for a name and mobile, kept on that order only), with Deliveries off
   there is no Delivery order type, with Tips off no tip box, with Advances off
-  no *From advance*, with Coupons off no Coupon on the bill, with Loyalty off no
+  no *From advance* and no advance on a pre-order, with Coupons off no Coupon
+  on the bill, with Loyalty off no
   Points, with Captain sections off no *Captain sections* on Tables, with QR
   ordering off no QR codes, with Stock off no Recipe on dishes and add-ons;
 - its dashboard cards and alerts, its report tabs (Dish profitability and Stock
@@ -2041,11 +2058,14 @@ A café, a bakery and a cloud kitchen run on the restaurant: the same POS, menu,
 **Selling by weight** (bakery cookies, sweets). Set the menu item to *Sold: by weight* and the price is per kg. On the POS it asks for the grams on the scale (or offers 100 g to 1 kg). The line shows the kg, and ± changes it 50 g at a time.
 
 **Pre-orders & cakes** (*Daily work → Pre-orders & cakes*, feature *Pre-orders & cakes*).
-- **Booking:** *New pre-order* takes the guest (name and mobile), when it is due, pickup or delivery, the items with each cake's message or flavour, and an advance. The advance is an ordinary advance (*Dues & accounts → Advances*), in the day's cash. If the till cannot take it (no business day open, say), the pre-order is still booked and a warning says so: take it later with *Take advance* on the pre-order.
-- **Baking:** the **Bake list** adds up what is due on a day by item, with every message, and can be printed for the kitchen. It opens on tomorrow; pick any day. *Start baking*, then *Ready*.
+- **Booking:** *New pre-order* takes the guest (name and mobile), when it is due, pickup or delivery, the items with each cake's message or flavour, and an advance. An item is counted in whole pieces, or in kg in steps of 50 g when it is sold by weight. The advance is an ordinary advance (*Dues & accounts → Advances*), in the day's cash. If the till cannot take it (no business day open, say), the pre-order is still booked and a warning says so: take it later with *Take advance* on the pre-order.
+- **Advances:** taking one needs *Advances & deposits* (*Settings → Features*; on for a new restaurant, and choosing the Bakery format switches it on). While it is off, *New pre-order* has no advance: whoever takes payments sees a line saying so instead, with a link to *Settings → Features* for those who can open Settings. Pre-orders have no *Take advance*, and *Advances held* is hidden, on the page and in the dashboard's Pre-orders block. If it is switched off while the dialog is open, booking with an advance is refused, the advance field goes, and booking again goes through without it.
+- **Outlets:** a pre-order is booked at the outlet picked in the top bar (yours, when you are tied to one), or at the main counter under *All outlets*, and its row names the outlet after its number (*PRE-0004 · Kondapur*). Staff tied to an outlet see only that outlet's pre-orders, in the lists, the tiles and the dashboard's Pre-orders block, and cannot open, move along, hand over, cancel or take an advance on another outlet's or the main counter's. Everyone else sees every outlet's, whichever outlet is picked; with an outlet picked, the dashboard's Pre-orders block says *All outlets*. An outlet with open pre-orders can be neither closed nor deleted ([Outlets](#restaurant--profile-outlets-hours-settings-payment-types)).
+- **Baking:** the **Bake list** adds up what is due on a day by item, with every message, and can be printed for the kitchen. Each outlet, and the main counter, has its own list of the pre-orders booked there: the screen shows the list of the outlet picked in the top bar (yours, when you are tied to one), or the main counter's under *All outlets*, with its name beside the date and on the print. A restaurant without outlets has one list. It opens on tomorrow; pick any day. *Start baking*, then *Ready*.
+- **Kitchen:** the kitchen's login (the built-in *Kitchen Staff* role, or any role with `kds.view` but not `orders.view`) finds *Pre-orders & cakes* under *Daily work* while the feature is on, and gets the bake list alone: pick the day, *Print*. It has no tiles, no *Open*, *Collected* or *Cancelled*, no *New pre-order*, no *Start baking*, *Ready*, *Hand over & bill* or *Cancel*, and no Pre-orders block on the dashboard. *Kitchen display* need not be on. A baker tied to an outlet gets that outlet's list, and one tied to none the main counter's, as the *Kitchen Staff* role has no outlet picker: tie each outlet's baker to it in *Users*.
 - **Hand-over:** *Hand over & bill* makes a takeaway order on today's business day and opens its bill with the advance taken first.
-- **Cancelling:** a cancelled pre-order keeps its advance held for a refund.
-- **Dashboard:** a Pre-orders block shows what is due today.
+- **Cancelling:** a cancelled pre-order keeps its advance held, to hand back from *Dues & accounts → Advances*; the cancel dialog says so when an advance is held.
+- **Dashboard:** a Pre-orders block shows how many are due today and tomorrow, the first four due today with their times, and, while *Advances & deposits* is on, the advances held.
 
 **Day-end unsold** (*Stock → Day-end unsold*, bakery and café). Bakes are prepared stock items made from a recipe (*Stock → Items & stock → Production*). At closing, type what is left and will not sell tomorrow, then *Write off as unsold*. This is recorded as waste with the reason *Unsold at day end*, at cost. What keeps stays in stock.
 
@@ -2121,8 +2141,9 @@ restaurant's outlets.
   **one**. Tied to one, they bill, move stock, count stock, take returns and see
   reports, the Overview and Daily money for that location only; another
   location's bill, stock or report is refused, and so is a record of another
-  location opened by its link. A manager tied to a location gives access at
-  that location only. The owner always works everywhere.
+  location opened by its link. A manager tied to a location gives access, and
+  sets new passwords, at that location only: for the people tied to it, not
+  for those who work at every location. The owner always works everywhere.
 - **The location picker** (top bar, beside the business switcher) appears when a
   business has two or more open locations. Pick a branch and every list, report,
   the Overview, Quick bill and Daily money open on it; *All locations* shows the
@@ -2271,8 +2292,10 @@ For shops that sell goods, each where its tool is on:
 - **Departments** (Products & services › Categories, for a store with departments such as
   Clothing, Home, Grocery): a top-level category belongs to one. In Staff &
   access a person can be tied to one department and then sees and changes its
-  products and stock only (billing stays open to every item); Reports shows
-  each department's sales, returns and margin.
+  products and stock only (billing stays open to every item); a manager tied
+  to a department gives access, and sets new passwords, only for the people
+  of that department. Reports shows each department's sales, returns and
+  margin.
 
 ## Retail counter (grocery / kirana, supermarket, books & stationery)
 
@@ -3044,7 +3067,7 @@ version and change that.
 | **Accountant** | The books: reports and takings, the business day (to read), expenses, supplier bills and payments, staff and salaries, the activity log; sees tasks, issues and projects. No till and no menu |
 | **Store keeper** | The store: stock, counts, wastage, indents, purchase orders, receiving goods and returns, the supplier list and the menu (to read), reporting issues. No payments, reports or salaries |
 | **Captain / Waiter** | Menu, tables, take orders, KOTs, mark a dish sold out, reservations, pickup screen, reporting issues — no billing and no takings |
-| **Kitchen Staff** | Kitchen display and KOTs, sold out, read stock, log wastage, count stock, raise indents, pickup screen, reporting issues |
+| **Kitchen Staff** | Kitchen display and KOTs, sold out, read stock, log wastage, count stock, raise indents, pickup screen, reporting issues, the bake list (*Pre-orders & cakes*, when on) |
 | **Collection display** | The pickup-screen TV (`orders.collection`) and nothing else |
 | Super Admin | The platform's own login ([The first platform login](#the-first-platform-login-and-the-platform-screens)); never shown or assignable in a restaurant |
 
@@ -3076,8 +3099,9 @@ Each business has its own copies of the standard roles — Owner, Manager,
 Cashier / sales, Stock keeper, Accountant and Viewer; a pharmacy also gets
 **Pharmacist**, and a clinic **Doctor**, **Lab technician** and
 **Pathologist** — plus any roles its owner makes, edited on a module × action
-grid. You cannot give what you do not have; the Owner role cannot be handed
-out or changed.
+grid. You cannot give what you do not have, nor change, or set a new
+password for, someone whose role can do more than yours; the Owner role
+cannot be handed out or changed.
 
 | Role | May do |
 | --- | --- |
@@ -3164,6 +3188,9 @@ the link you were sent).
   sends it.
 - **Swiggy and Zomato** orders are typed in, and their payouts are not
   reconciled here.
+- **There is no map.** A delivery address is typed in, with a landmark, and
+  riders find it with a maps app of their own; the delivery charge is set per
+  channel, not by distance.
 - **Printing goes through the browser** (58 mm, 80 mm or A4); silent thermal
   printing, the cash-drawer kick and scales need hardware and a print bridge.
 - **The day book is a CSV for an Excel-to-Tally import**, not a live link.
@@ -3171,7 +3198,10 @@ the link you were sent).
   the tax, document type and logo they were issued with.
 - **There is no self-service password reset.** An admin sets a new password:
   Users in a restaurant, Staff & access › *Password* in a business, and the
-  platform screens for a restaurant's admin or a business's owner.
+  platform screens for a restaurant's admin or a business's owner. Nothing
+  makes the person change a password someone else set, a new login's first
+  one included, at their next sign-in: ask them to change it under My profile
+  straight away.
 - **Business Admin has no CSV import.** A shop types in its products,
   customers and suppliers ([First steps in a new
   business](#first-steps-in-a-new-business)).

@@ -46,7 +46,9 @@ const readPinned = () => {
 
 // Each link names the permission it needs, so staff only see what they can open.
 // `also` is a second permission the page needs as well (payroll is staff
-// management AND salaries).
+// management AND salaries). `permissionAny` lists permissions of which one is
+// enough (pre-orders: the counter's orders.view, or the kitchen's kds.view
+// for the bake list).
 const NAV_SECTIONS = [
   {
     title: "Overview",
@@ -67,7 +69,7 @@ const NAV_SECTIONS = [
       { to: "/table-requests", label: "Table requests", icon: "tableRequests", permission: "orders.view", featureAny: ["qr_ordering", "online_ordering"] },
       { to: "/reservations", label: "Reservations", icon: "reservations", permission: "reservations.view", feature: "reservations" },
       { to: "/deliveries", label: "Deliveries", icon: "deliveries", permission: "orders.view", feature: "deliveries" },
-      { to: "/preorders", label: "Pre-orders & cakes", icon: "reservations", permission: "orders.view", feature: "preorders" },
+      { to: "/preorders", label: "Pre-orders & cakes", icon: "reservations", permissionAny: ["orders.view", "kds.view"], feature: "preorders" },
       { to: "/collection", label: "Pickup screen", icon: "pickup", permission: "orders.collection" },
       { to: "/service/settings", label: "Service settings", icon: "serviceSettings", permission: "orders.manage" },
     ],
@@ -190,6 +192,10 @@ const NAV_SECTIONS = [
 // from the menu, and so from quick access, until it is switched back on.
 const resolveLink = (link, hasPermission, user, hasFeature) => {
   if (link.permission && !hasPermission(link.permission)) {
+    return null;
+  }
+
+  if (link.permissionAny && !link.permissionAny.some((code) => hasPermission(code))) {
     return null;
   }
 

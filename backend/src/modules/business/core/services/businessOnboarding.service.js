@@ -197,8 +197,10 @@ async function createStaffAccount(business, user, body) {
   }
 }
 
-// A new password for one of this business's staff (not an owner, and only
-// someone the caller can manage: the role checks of setMember apply).
+// A new password for one of this business's staff: not an owner, and only
+// someone the caller manages, by the same checks as Give access (their
+// location, their department, and a role that does no more than the
+// caller's), since whoever sets the password can sign in as them.
 async function resetStaffPassword(business, user, staffId, body) {
   await access.require(business, 'access.edit');
   const password = v.requiredPassword(body.password, 'New password');
@@ -208,7 +210,7 @@ async function resetStaffPassword(business, user, staffId, body) {
     if (!member) fail('That person has no access to this business', 404);
     if (member.full_access) fail("An owner's password is changed by the owner (My profile) or by the platform", 403);
     if (Number(member.user_id) === Number(user.id)) fail('Change your own password from My profile', 400);
-    access.requireLocation(business, member.location_id);
+    await access.requireManages(db, business, member);
     // A login shared with other businesses or a restaurant is not this business's to reset.
     const elsewhere = await repo.one(db, 'SELECT count(*)::int AS n FROM business_memberships WHERE user_id=$1 AND business_id<>$2 AND active', [member.user_id, business.id]);
     if (elsewhere.n || (member.restaurant_id && Number(member.restaurant_id) !== Number(business.legacy_restaurant_id))) {

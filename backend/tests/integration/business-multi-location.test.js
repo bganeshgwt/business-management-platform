@@ -159,6 +159,11 @@ test('multi-location: branch details, staff tied to a branch, top-bar branch, co
     await manager('POST', S('members'), { userId: people.newcomer.id, roleId: branchManagerRole.id, workLocationId: branch.id }, 201);
     const staff = await manager('GET', S('members'));
     assert.ok(staff.items.every((m) => m.location_id === branch.id));
+    // Of the branch's people they manage the newcomer, who has their role; not
+    // the cashier, whose role sees products and customers and theirs does not;
+    // nor themselves.
+    assert.deepEqual(Object.fromEntries(staff.items.map((m) => [m.id, m.manages])),
+      { [people.cashier.id]: false, [people.manager.id]: false, [people.newcomer.id]: true });
     // The owner's staff list shows everyone, with where each works.
     const all = await request('GET', S('members'));
     assert.equal(all.items.find((m) => m.id === people.cashier.id).location_name, 'Chennai Anna Salai');

@@ -33,7 +33,10 @@ export default function StaffAccessPage() {
       render: (m) => m.department_name || <span className="muted">All</span> },
     { key: "last", header: "Last opened", type: "datetime", value: (m) => m.last_opened_at, render: (m) => (String(m.id) === String(user.id) ? <span>Using it now</span> : m.last_opened_at ? dateTime(m.last_opened_at) : <span className="muted">Not yet</span>) },
     { key: "active", header: "Access", type: "status", value: (m) => (m.active ? "active" : "inactive"), render: (m) => <ActiveBadge active={m.active} />, mobile: "show" },
-    editable && { key: "actions", header: "", label: "Actions", type: "actions", render: (m) => !m.full_access && m.id !== user.id && (
+    // Only for people the server says you manage: never the owner or yourself;
+    // if you are tied to a location or a department, only that one's people;
+    // and only someone whose role can do nothing yours cannot.
+    editable && { key: "actions", header: "", label: "Actions", type: "actions", render: (m) => m.manages && (
       <span className="bz-actions">
         <button type="button" className="chip-button" onClick={() => setEditing(m)}>Change</button>
         <button type="button" className="chip-button" onClick={() => setPassword(m)}>Password</button>

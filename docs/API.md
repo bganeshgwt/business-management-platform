@@ -115,7 +115,7 @@ online ordering) answer 403 with a sentence for the guest and the same `data`.
 | `preorders` | `/api/preorders/*` |
 | `brands` | `GET/POST /api/menu/brands`, `PUT /api/menu/brands/:id`, `GET /api/menu/brands/report` |
 | `tips` | `/api/staff/tips/*` (needs `staff_payroll` too); a payment with `tipAmount` > 0 |
-| `advances` | `/api/bills/advances/*`; a payment with `paymentMethod: "advance"` or an `advanceId` |
+| `advances` | `/api/bills/advances/*`; a payment with `paymentMethod: "advance"` or an `advanceId`; a pre-order's advance (`advance.amount` above 0 on `POST /api/preorders`, and `POST /api/preorders/:id/advance`) |
 | `cash_drawers` | `POST /api/business-day/drawers`, `POST /api/business-day/drawers/:id/close`; a cash movement or X report naming a `drawerId` / `cashierId`. `GET /api/business-day/drawers` stays (the day's cash in and out) and returns `drawers: []`, `drawersOff: true` |
 | `coupons` | `GET/POST /api/discounts`, `PUT/DELETE /api/discounts/:id`; `discountCode` on a bill (`GET /api/discounts/given` stays) |
 | `stock_recipes` | `/api/inventory/*`, `/api/inventory-insights/*`, `/api/suppliers/*`, `/api/purchase-orders/*`, `/api/purchase-returns/*`, the recipe routes under `/api/menu` (`products/:id/recipe`, `recipe/:id`, `recipes/import*`, `modifiers/:id/recipe`), `GET /api/reports/profitability`, `GET /api/reports/consumption` |
@@ -1627,54 +1627,54 @@ Errors: 404 guest or address not found.
 
 ### Pre-orders
 
-Mounted at `/api/preorders` (preorder.routes.js): the user must be signed in, `resolveOutlet` runs, and the `preorders` feature must be on (403 `feature_off`). A pre-order is a cake or party order for a later day: its items with the message for each, an advance, and when it is due. It moves booked → in_production → ready → collected, or is cancelled. The advance is an ordinary guest advance (`/api/bills/advances`): it goes into the open business day and takes the next receipt number. On collection the pre-order becomes a takeaway order on today's business day, and the advance is put on that order, so its bill takes the advance first. Pre-orders belong to the restaurant: the list is not narrowed by outlet. The pre-order shape is `{ id, number (PRE-0001), status, customerId, customerName, customerMobile, dueAt, fulfilment (pickup, delivery), deliveryAddress, notes, outletId, outletName, estimatedTotal, advanceId, advanceReceipt, advanceAmount, advanceHeld, balanceDue, orderId, orderNumber, cancelReason, items[{ id, productId, productVariantId, name, quantity, unitPrice, notes, soldBy }], createdAt, createdByName, collectedAt }`. Ids must be whole numbers, else 400.
+Mounted at `/api/preorders` (preorder.routes.js): the user must be signed in, `resolveOutlet` runs, and the `preorders` feature must be on (403 `feature_off`). A pre-order is a cake or party order for a later day: its items with the message for each, an advance, and when it is due. It moves booked → in_production → ready → collected, or is cancelled. The advance is an ordinary guest advance (`/api/bills/advances`), so it also needs the `advances` feature: it goes into the open business day and takes the next receipt number. On collection the pre-order becomes a takeaway order on today's business day, and the advance is put on that order, so its bill takes the advance first. Staff tied to an outlet see and act on that outlet's pre-orders only: `GET /api/preorders` lists no other, whatever the status asked for, and `GET /:id`, `POST /:id/status`, `/advance`, `/collect` and `/cancel` answer 404 "Pre-order not found" for another outlet's pre-order or one booked at the main counter, and change nothing. Everyone else sees and acts on every outlet's, whichever outlet is picked: `X-Outlet-Id` only chooses the till, that is, whose bake list is read, where a new pre-order is booked and where a collected one is billed. Each till has its own bake list, which the kitchen reads too: `kds.view` reads the bake list and nothing else here, so the built-in Kitchen Staff role (`kds.view` without `orders.view`) gets 403 on the list, a single pre-order, booking, a status, hand-over, cancelling and an advance. The pre-order shape is `{ id, number (PRE-0001), status, customerId, customerName, customerMobile, dueAt, fulfilment (pickup, delivery), deliveryAddress, notes, outletId, outletName, estimatedTotal, advanceId, advanceReceipt, advanceAmount, advanceHeld, balanceDue, orderId, orderNumber, cancelReason, items[{ id, productId, productVariantId, name, quantity, unitPrice, notes, soldBy }], createdAt, createdByName, collectedAt }`. Ids must be whole numbers, else 400.
 
 #### `GET /api/preorders`
 Permission: `orders.view`
 Query: `status` (`open` default: booked, in production or ready; `all`; or one of booked, in_production, ready, collected, cancelled), `from`, `to` (due dates, YYYY-MM-DD, in the restaurant's time zone), `search` (100: number, guest name or mobile, notes).
-Returns: `data` = array of pre-orders, soonest due first, at most 300.
+Returns: `data` = array of pre-orders (for staff tied to an outlet, that outlet's only), soonest due first, at most 300.
 Errors: 400 a status or date that is not valid.
 
 #### `GET /api/preorders/bake-list`
-Permission: `orders.view`
+Permission: `orders.view` or `kds.view` (the kitchen display's permission, which reads the list whether or not the Kitchen display feature is on; a bakery starts with it off)
 Query: `day` (YYYY-MM-DD; default the day this till trades on: the open business day of the request's outlet, else the main counter's; with no day open, today on the restaurant's clock, or last night's day before the cut-off hour).
-Returns: `data` = `{ day, items[{ productId, name, soldBy, quantity, orders[{ number, dueAt, quantity, notes, customer }] }] }`. This is what to make that day: the items of every open pre-order due that day, added up by item, each with its messages.
+Returns: `data` = `{ day, counter, items[{ productId, name, soldBy, quantity, orders[{ number, dueAt, quantity, notes, customer }] }] }`. This is what the till asking makes that day: the items of the open pre-orders booked at its outlet and due that day, added up by item, each with its messages. The till is the request's outlet (the user's own when they are tied to one, else `X-Outlet-Id`); with none, it is the main counter, whose list holds the pre-orders booked with no outlet. `counter` names the till: `{ outletId, name }` for an outlet; `{ outletId: null, name: "Main counter" }` for the main counter of a restaurant with active outlets; `null` for a restaurant with no active outlet, whose single list is the main counter's.
 Errors: 400 the day is not valid.
 
 #### `GET /api/preorders/:id`
 Permission: `orders.view`
 Returns: `data` = the pre-order.
-Errors: 404 pre-order not found.
+Errors: 404 pre-order not found, or (for staff tied to an outlet) another outlet's or the main counter's.
 
 #### `POST /api/preorders`
 Permission: `orders.create` (an advance also needs `payments.manage`)
 Body: `customerId`, or `customerMobile` (20) with `customerName` (150), which finds the guest or adds them to the guest book; `dueAt` (required, date and time, later today or a later day); `fulfilment` (`pickup` default, `delivery`); `deliveryAddress` (300; required for delivery); `notes` (500); `items[]` (required, 1-30; each `{ productId, productVariantId?, quantity (0.01-9999; kg for a dish sold by weight), notes? (300, the message on the cake) }`); `advance` (optional: `{ amount (1-10,000,000), paymentMethod (cash, card, upi, online, wallet, other), paymentTypeId?, transactionRef? (100) }`). Items are priced from the menu (a size adds its difference). The outlet is the request's.
 Returns: 201, `data` = the pre-order. The advance's payment type is checked before anything is saved. If the till then refuses the advance (no business day open, for instance), the pre-order is booked all the same: `data.advanceRefused` is the reason, the message says the advance was not taken, and it is taken later with `POST /api/preorders/:id/advance`.
-Errors: 400 no due time, or a time already past; 400 not 1-30 items; 400 no guest and no mobile; 400 the advance is more than the order; 400 the advance's payment type is not found, is for another method, is switched off or needs its reference (nothing is saved); 403 an advance without `payments.manage`; 404 guest not found; 404 a dish or size not on the menu. The till's other refusals of the advance come back in `advanceRefused`, not as an error.
+Errors: 400 no due time, or a time already past; 400 not 1-30 items; 400 no guest and no mobile; 400 the advance is more than the order; 400 the advance's payment type is not found, is for another method, is switched off or needs its reference (nothing is saved); 403 an advance without `payments.manage`; 403 `feature_off` (`feature: "advances"`) an advance while Advances & deposits is switched off (nothing is saved: no pre-order, no new guest, no number used; without an advance, or with an amount of 0, the pre-order is booked); 404 guest not found; 404 a dish or size not on the menu. The till's other refusals of the advance come back in `advanceRefused`, not as an error.
 
 #### `POST /api/preorders/:id/advance`
 Permission: `payments.manage`
 Body: `amount` (required, 1-10,000,000), `paymentMethod` (required: cash, card, upi, online, wallet, other), `paymentTypeId`, `transactionRef` (100).
 Returns: 201, `data` = the pre-order with its `advanceReceipt`. The advance's purpose is "Pre-order PRE-…".
-Errors: 400 no amount; 404 pre-order not found; 409 the pre-order is collected or cancelled; 409 it already has its advance; plus the errors of `POST /api/bills/advances` (no business day open, payment-type errors).
+Errors: 400 no amount; 403 `feature_off` (`feature: "advances"`) while Advances & deposits is switched off, for any pre-order, another outlet's included, as it is checked before the pre-order is looked up (nothing is taken); 404 pre-order not found, or (for staff tied to an outlet) another outlet's or the main counter's; 409 the pre-order is collected or cancelled; 409 it already has its advance; plus the errors of `POST /api/bills/advances` (no business day open, payment-type errors).
 
 #### `POST /api/preorders/:id/status`
 Permission: `orders.create`
 Body: `status` (required: `in_production` or `ready`). A booked pre-order may go to either; one in production goes to ready. The same status again changes nothing.
 Returns: `data` = the pre-order.
-Errors: 404 pre-order not found; 409 the move is not allowed.
+Errors: 404 pre-order not found, or (for staff tied to an outlet) another outlet's or the main counter's; 409 the move is not allowed.
 
 #### `POST /api/preorders/:id/cancel`
 Permission: `orders.manage`
 Body: `reason` (required, 300).
 Returns: `data` = the pre-order (cancelled). The advance is not handed back here: the message names its receipt, to refund from Dues & accounts › Advances (`POST /api/bills/advances/:id/refunds`).
-Errors: 400 no reason; 404 pre-order not found; 409 already collected or cancelled.
+Errors: 400 no reason; 404 pre-order not found, or (for staff tied to an outlet) another outlet's or the main counter's; 409 already collected or cancelled.
 
 #### `POST /api/preorders/:id/collect`
 Permission: `orders.create`
 Body: none.
 Returns: 201, `data` = `{ preorder, orderId, orderNumber }`. A takeaway order (source `pos`) opens on today's business day at the request's outlet (else the pre-order's), with the pre-order's items and messages and the note "Pre-order PRE-…"; the advance is tied to it. The order is then billed as usual. Collecting again returns the pre-order and its order id.
-Errors: 404 pre-order not found; 409 cancelled; plus the errors of `POST /api/orders` (no business day open, a dish taken off the menu or sold out, takeaway not taken by the POS).
+Errors: 404 pre-order not found, or (for staff tied to an outlet) another outlet's or the main counter's; 409 cancelled; plus the errors of `POST /api/orders` (no business day open, a dish taken off the menu or sold out, takeaway not taken by the POS).
 
 ### Table requests (QR orders, calls and online orders, staff side)
 
@@ -3875,7 +3875,7 @@ Errors: 404 not found.
 #### `GET /api/outlets/:id/usage`
 Permission: `outlets.manage`
 Query/Body: none
-Returns: `data` = `{ history[{ table, label, count }], setup[{ table, label, count }], lastBillAt, canDelete, mustDeactivate }`. `history` covers sales, stock, days and money (these must stay). `setup` covers people, tables and floors (these can be moved).
+Returns: `data` = `{ history[{ table, label, count }], setup[{ table, label, count }], lastBillAt, canDelete, mustDeactivate }`. `history` covers sales, stock, days and money (these must stay). `setup` covers people, tables and floors (these can be moved). Open pre-orders are not counted: `canDelete` can be true for an outlet that `DELETE` still refuses until they are handed over or cancelled.
 Errors: 404 not found.
 
 #### `POST /api/outlets`
@@ -3888,13 +3888,13 @@ Errors: 409 code already exists; 400 bad GSTIN, FSSAI or UPI ID; 400 prefix too 
 Permission: `outlets.manage`
 Query/Body: the same fields as create. If `gstNumber`, `fssaiNumber` or `upiVpa` is left out, the value on file is kept. Sending null or "" clears it.
 Returns: `data` = the outlet. Bills raised after the change carry the outlet's new GSTIN.
-Errors: 404 not found; 409 code already exists; the same 400s as create.
+Errors: 404 not found; 409 code already exists; the same 400s as create; 409 `{ reason: "outlet_has_open_preorders", preorders }` when an active outlet is set inactive while it still has open pre-orders (booked, in production or ready). `preorders` lists every number, soonest due first. The message names them (over four: the first three and how many more), as in ""Kondapur" still has 2 open pre-orders to bake and hand over (PRE-0004 and PRE-0006), so it cannot be closed yet. Hand them over or cancel them first, in Pre-orders & cakes." (for one: "1 open pre-order … Hand it over or cancel it first"). Any other change to an open outlet, and saving one already inactive, is not checked.
 
 #### `DELETE /api/outlets/:id`
 Permission: `outlets.manage`
 Query/Body: none
 Returns: `data` none; message "Outlet "X" deleted".
-Errors: 404 not found or already deleted; 409 `{ reason: "outlet_has_history", history }` (set it inactive instead); 409 `{ reason: "outlet_in_use", setup }` (move people, tables and floors first).
+Errors, in the order they are checked: 404 not found or already deleted; 409 `{ reason: "outlet_has_open_preorders", preorders }` while it has open pre-orders, as for `PUT` ("… so it cannot be deleted yet. …"; before the two below, which suggest setting the outlet inactive, as that waits for the pre-orders too); 409 `{ reason: "outlet_has_history", history }` (set it inactive instead); 409 `{ reason: "outlet_in_use", setup }` (move people, tables and floors first).
 
 ---
 
@@ -4054,7 +4054,7 @@ Rows carry extra columns:
 - `stock` (one row per lot) adds `label, code, unit, reorder_level, tracking, shelf_location, department_id, location_name, expired, in_stock`, `expiring` (within the business's Expiring soon days, `nearExpiryDays` in Business settings › Rules; 30 until changed) and the item's largest pack, `pack_unit, pack_factor`.
 - `movements` adds `source, source_no, reason, location_name`, newest first in time order (`created_at`, then id).
 - `documents` adds `location_name, paid, returned, refunded, walk_in_due, unpaid, lot_codes, created_by_name` and `paid_by` (`cash`, `upi`, `card`, `bank`, or `mixed` for a bill paid several ways). An invoice raised by dispatching a sales order also carries `order_no, salesperson_name, route_name, delivery_status`, and `source` is `order` (else `counter`). The search covers the document number, the customer or supplier name, notes, the supplier's bill number, serial and batch numbers, the order number and the biller's name.
-- `appointments` adds `resource_name, location_id, contact_name, service_name`. `members` adds `location_id, location_name, department_id, department_name`. `roles` adds `member_count, permission_count, permissions[]`.
+- `appointments` adds `resource_name, location_id, contact_name, service_name`. `members` adds `location_id, location_name, department_id, department_name` and `manages`: true when the caller manages this person, so may change them (`POST …/members`) and set their password, that is, the caller holds `access.edit`, the person is neither the owner nor the caller, and the rules under [Staff access and roles](#staff-access-and-roles) allow it (a login also used elsewhere still has its password changed there). `roles` adds `member_count, permission_count, permissions[]`.
 - `transfers` and `counts` add line counts and value or progress. `supplier-payments` adds `location_name, created_by_name, allocated, unallocated`.
 
 See `backend/src/modules/business/core/repositories/business.repository.js` (`lists`).
@@ -4160,7 +4160,7 @@ Errors: 400 invalid dates or "Choose a date range of up to 367 days"; 403 anothe
 
 ### Staff access and roles
 
-A caller can only grant permissions they hold. They also cannot edit a role, or change a member, whose permissions go beyond their own. An Owner (`full_access`) is exempt from both rules.
+A caller can only grant permissions they hold. They also cannot edit a role, or change a member or set a new password for one, whose permissions go beyond their own. A caller tied to a location (or a department) changes, and sets new passwords for, only the people tied to that same location (or department), not those who work at every one. An Owner (`full_access`) is exempt from these rules.
 
 #### `GET /api/businesses/:businessId/permissions`
 Permission: `access.view`
@@ -4188,7 +4188,7 @@ Returns: `data = [{ id, name, email }]`: the active staff accounts of the caller
 Permission: `access.edit`
 Query/Body: `userId` (required), `roleId` (or instead `role`, a role template: `manager`, `viewer`, `cashier`, `stock_keeper` or `accountant`), `active` (default true), `workLocationId` (the one location they work at; null or empty = every location; left out: kept), `workDepartmentId` (the one department whose products and stock they handle; null or empty = all; left out: kept)
 Returns: 201, the membership row (an upsert, with `location_id` and `department_id`) plus `role_name`.
-Errors: 404 staff member or role not found; 404 location not found or closed; 404 department not found or switched off; 403 when changing your own access, or when the target or role goes beyond your permissions; 403 a manager tied to a location (or department) giving access elsewhere, or changing someone who works elsewhere; 409 when the target is the owner, or when the role is the Owner role.
+Errors: 404 staff member or role not found; 404 location not found or closed; 404 department not found or switched off; 403 when changing your own access, or when the target or role goes beyond your permissions; 403 a manager tied to a location (or department) giving access elsewhere, or changing someone who is not tied to that same location (or department), such as someone who works at every one; 409 when the target is the owner, or when the role is the Owner role.
 
 #### `POST /api/businesses/:businessId/staff-accounts`
 Permission: `access.edit`
@@ -4200,7 +4200,7 @@ Errors: 400 validation; 409 "That email already has a login. Give that person ac
 Permission: `access.edit`
 Query/Body: `password` (8-72, required)
 Returns: `{ id, name }`. The person is signed out everywhere and their sign-in lockout is lifted.
-Errors: 400 your own password (change it from My profile); 403 an owner's password (changed by the owner or the platform); 403 someone who works at another location; 404 "That person has no access to this business"; 409 the login is also used in another business or a restaurant (its password is changed there).
+Errors, in the order they are checked: 400 validation; 404 "That person has no access to this business"; 403 an owner's password (changed by the owner or the platform); 400 your own password (change it from My profile); 403 "This person does not work at your location" (you are tied to a location, and they are tied to another or work at every location); 403 "This person does not work in your department" (you are tied to a department, and they are in another or in every department); 403 "This person's role can do things yours cannot (…), so you cannot change their access or password" (their role holds a permission yours lacks, up to three named; never for an Owner); 409 the login is also used in another business or a restaurant (its password is changed there).
 
 ### Catalogue, categories, units, pack sizes, pricing rules
 

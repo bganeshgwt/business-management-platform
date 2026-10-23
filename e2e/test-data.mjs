@@ -8,12 +8,19 @@ export const TIMEZONE = "Asia/Kolkata";
 
 // One login per role a spec signs in as. Passwords are made fresh for every
 // run and are written only to the run's own file under test-results.
+//
+// SHOP_MANAGER works in a few of the owner's businesses (`businesses`, keys
+// of BUSINESSES below), as their manager, and not in the restaurant. Opening
+// a business from the header's switcher changes where a login lands after
+// signing in, so the switcher is tried with this login only: every other
+// login keeps landing where the specs expect it to.
 export const LOGINS = [
   { role: "SUPER_ADMIN", name: "Platform admin", email: "platform@e2e.invalid" },
   { role: "RESTAURANT_ADMIN", name: "Asha Rao", email: "owner@bistro.e2e.invalid" },
   { role: "CASHIER", name: "Ravi Kumar", email: "cashier@bistro.e2e.invalid" },
   { role: "CAPTAIN", name: "Suresh Nair", email: "captain@bistro.e2e.invalid" },
   { role: "KITCHEN", name: "Meena Iyer", email: "kitchen@bistro.e2e.invalid" },
+  { role: "SHOP_MANAGER", name: "Kavya Reddy", email: "manager@shops.e2e.invalid", businesses: ["books", "grocery", "pharmacy", "wholesale", "salon"] },
 ];
 
 // The restaurant the RESTAURANT_ADMIN runs. Tables 1-3 are free; table 4

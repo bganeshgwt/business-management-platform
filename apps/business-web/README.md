@@ -109,7 +109,9 @@ Import them by name: `import Icon from "@bmp/ui/Icon"`,
    ```jsx
    <Route path="my-page" element={<MyPage />} />
    ```
-   Add `permission="menu.view"` on a `ProtectedRoute` to require a permission.
+   Add `permission="menu.view"` on a `ProtectedRoute` to require a permission,
+   or `permissionAny={["orders.view", "kds.view"]}` when any one of several
+   will do (the menu link names the same).
    A Business Admin screen is an entry in `screens()` in
    `modules/business/core/pages/BusinessAdminRoutes.jsx`
    (`"section": <MyPage />`): that gives it its route, guarded by

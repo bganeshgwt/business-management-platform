@@ -4,9 +4,15 @@
 //   booked → in_production → ready → collected   (or cancelled)
 //
 // The advance is an ordinary customer advance (Dues & accounts › Advances), so it is in
-// the day's cash and its receipt is numbered with the others. On collection
-// the pre-order becomes a takeaway order on today's business day; the
-// advance is put on that order, so its bill takes the advance first.
+// the day's cash and its receipt is numbered with the others. Like any
+// advance it needs Advances & deposits switched on (Settings → Features),
+// where it is used or handed back; with that off, a pre-order is booked
+// without one. On collection the pre-order becomes a takeaway order on
+// today's business day; the advance is put on that order, so its bill takes
+// the advance first.
+//
+// Staff tied to one outlet see and act on that outlet's pre-orders only, as
+// with its bills and advances; everyone else sees every outlet's.
 const pool = require("../../../../config/database");
 const AppError = require("../../../../utils/AppError");
 const crmService = require("../../crm/services/crm.service");
@@ -14,6 +20,8 @@ const crmRepository = require("../../crm/repositories/crm.repository");
 const advanceService = require("../../billing/services/customerAdvance.service");
 const orderService = require("../../orders/services/order.service");
 const paymentTypeService = require("../../setup/services/paymentType.service");
+const restaurantFeatures = require("../../setup/services/restaurantFeatures.service");
+const outletRepository = require("../../setup/repositories/outlet.repository");
 const restaurantRepository = require("../../setup/repositories/restaurant.repository");
 const tradingDay = require("../../business-day/services/tradingDay");
 
@@ -65,20 +73,35 @@ const toPreorder = (row) => ({
   collectedAt: row.collected_at || null,
 });
 
-const findOne = async (restaurantId, id, db = pool) => {
-  const row = (await db.query(`${SELECT} AND p.id = $2`, [restaurantId, id])).rows[0];
+// The outlet a request is kept to: the user's own when they are tied to one
+// (resolveOutlet's outletPinned), else none. The outlet picked at the top by
+// someone who works at every outlet narrows nothing.
+const pinnedOf = (ctx) => (ctx && ctx.outletPinned ? ctx.outletId : null);
 
-  if (!row) {
+// ctx: { outletId, outletPinned }. For staff tied to an outlet, another
+// outlet's pre-order, or one booked with no outlet, is not found.
+const findOne = async (restaurantId, id, ctx = {}) => {
+  const row = (await pool.query(`${SELECT} AND p.id = $2`, [restaurantId, id])).rows[0];
+  const pinned = pinnedOf(ctx);
+
+  if (!row || (pinned && Number(row.outlet_id || 0) !== Number(pinned))) {
     throw new AppError(404, "Pre-order not found");
   }
 
   return toPreorder(row);
 };
 
-// filters: { status: open | <status> | all, from, to (due dates), search }
-const list = async (restaurantId, filters = {}) => {
+// filters: { status: open | <status> | all, from, to (due dates), search }.
+// Staff tied to an outlet get that outlet's pre-orders only (ctx).
+const list = async (restaurantId, filters = {}, ctx = {}) => {
   const values = [restaurantId];
   const where = [];
+  const pinned = pinnedOf(ctx);
+
+  if (pinned) {
+    values.push(pinned);
+    where.push(`p.outlet_id = $${values.length}`);
+  }
 
   if (!filters.status || filters.status === "open") {
     where.push("p.status IN ('booked','in_production','ready')");
@@ -109,11 +132,26 @@ const list = async (restaurantId, filters = {}) => {
   return rows.map(toPreorder);
 };
 
-// What to bake for a day: every open pre-order's items due that day, added
-// up by item, each with its messages. With no day asked for, the day the till
-// is trading on (the open business day, else the restaurant's own date), not
-// the server's: on a server clock in UTC, a bake list opened after midnight in
-// India would otherwise show the day before.
+// The till a bake list is for: an outlet, or the main counter (the pre-orders
+// booked with no outlet picked). A restaurant without outlets has a single
+// list, and nothing to name (null).
+const counterOf = async (restaurantId, outletId) => {
+  if (outletId) {
+    const outlet = await outletRepository.findById(restaurantId, outletId);
+    return { outletId: Number(outletId), name: outlet ? outlet.name : "This outlet" };
+  }
+
+  const outlets = await pool.query("SELECT 1 FROM outlets WHERE restaurant_id = $1 AND status = 'active' LIMIT 1", [restaurantId]);
+  return outlets.rowCount ? { outletId: null, name: "Main counter" } : null;
+};
+
+// What to bake for a day at this till: the open pre-orders booked at its
+// outlet (at the main counter, those booked with no outlet) due that day,
+// added up by item, each with its messages. Another outlet's cakes are on
+// that outlet's list, not on this one. With no day asked for, the day the
+// till is trading on (the open business day, else the restaurant's own
+// date), not the server's: on a server clock in UTC, a bake list opened after
+// midnight in India would otherwise show the day before.
 const bakeList = async (restaurantId, asked, ctx = {}) => {
   const outletId = ctx.outletId || null;
   const day = asked || (await tradingDay.currentDateOf(restaurantId, outletId, await restaurantRepository.findSettings(restaurantId, outletId)));
@@ -127,11 +165,16 @@ const bakeList = async (restaurantId, asked, ctx = {}) => {
      JOIN customers c ON c.id = p.customer_id
      WHERE p.restaurant_id = $1 AND p.status IN ('booked','in_production','ready')
        AND (p.due_at AT TIME ZONE s.timezone)::date = $2::date
+       AND p.outlet_id IS NOT DISTINCT FROM $3::bigint
      GROUP BY i.product_id, pr.name, v.name, pr.sold_by ORDER BY pr.name`,
-    [restaurantId, day]
+    [restaurantId, day, outletId]
   )).rows;
 
-  return { day, items: rows.map((row) => ({ productId: Number(row.product_id), name: row.name, soldBy: row.sold_by, quantity: n(row.quantity), orders: row.orders })) };
+  return {
+    day,
+    counter: await counterOf(restaurantId, outletId),
+    items: rows.map((row) => ({ productId: Number(row.product_id), name: row.name, soldBy: row.sold_by, quantity: n(row.quantity), orders: row.orders })),
+  };
 };
 
 // The guest: the one picked, or found (or added) by mobile.
@@ -191,6 +234,13 @@ const create = async (restaurantId, data, userId, ctx = {}) => {
   }
 
   const total = Math.round(priced.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0) * 100) / 100;
+
+  // An advance needs Advances & deposits, where it is used or handed back:
+  // with that switched off, the request is refused (feature_off) before
+  // anything is saved. A pre-order without one is booked all the same.
+  if (data.advance && data.advance.amount > 0) {
+    await restaurantFeatures.assertRestaurantHas(restaurantId, "advances");
+  }
 
   if (data.advance && data.advance.amount > total + 0.009) {
     throw new AppError(400, `The advance is more than the order (₹${total.toFixed(2)})`);
@@ -259,8 +309,10 @@ const create = async (restaurantId, data, userId, ctx = {}) => {
   return advanceRefused ? { ...saved, advanceRefused } : saved;
 };
 
+// Taken later, from the pre-order: the same advance, so the same rule.
 const takeAdvance = async (restaurantId, id, advance, userId, ctx = {}) => {
-  const preorder = await findOne(restaurantId, id);
+  await restaurantFeatures.assertRestaurantHas(restaurantId, "advances");
+  const preorder = await findOne(restaurantId, id, ctx);
 
   if (!OPEN.includes(preorder.status)) {
     throw new AppError(409, `${preorder.number} is ${preorder.status}`);
@@ -284,8 +336,8 @@ const takeAdvance = async (restaurantId, id, advance, userId, ctx = {}) => {
   return findOne(restaurantId, id);
 };
 
-const setStatus = async (restaurantId, id, status, userId) => {
-  const preorder = await findOne(restaurantId, id);
+const setStatus = async (restaurantId, id, status, userId, ctx = {}) => {
+  const preorder = await findOne(restaurantId, id, ctx);
 
   if (preorder.status === status) {
     return preorder;
@@ -300,8 +352,8 @@ const setStatus = async (restaurantId, id, status, userId) => {
   return findOne(restaurantId, id);
 };
 
-const cancel = async (restaurantId, id, reason, userId) => {
-  const preorder = await findOne(restaurantId, id);
+const cancel = async (restaurantId, id, reason, userId, ctx = {}) => {
+  const preorder = await findOne(restaurantId, id, ctx);
 
   if (!OPEN.includes(preorder.status)) {
     throw new AppError(409, `${preorder.number} is ${preorder.status}`);
@@ -317,7 +369,7 @@ const cancel = async (restaurantId, id, reason, userId) => {
 // Handed over: a takeaway order on today's business day with the pre-order's
 // items and messages; the advance is put on it so its bill takes it first.
 const collect = async (restaurantId, id, userId, ctx = {}) => {
-  const preorder = await findOne(restaurantId, id);
+  const preorder = await findOne(restaurantId, id, ctx);
 
   if (preorder.status === "collected") {
     return { preorder, orderId: preorder.orderId };

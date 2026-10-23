@@ -241,7 +241,7 @@ The browser tests also start their own API and both web apps, on ports 5110,
 5183 and 5184, and make the data they need, so the servers from `npm run dev`
 can keep running. They use the installed Edge on Windows; elsewhere, install
 Playwright's Chromium (`npx playwright install chromium`). Start one run at a
-time; a full run takes about 22 minutes.
+time; a full run takes about 25 minutes.
 
 What each suite covers, what it needs and how to run part of one:
 [docs/TESTING.md](docs/TESTING.md).

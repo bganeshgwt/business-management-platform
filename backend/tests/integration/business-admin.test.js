@@ -23,7 +23,6 @@ test('multi-business admin: isolation, weighted stock, idempotency and appointme
   process.env.DB_NAME = database;
   process.env.NODE_ENV = 'test';
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex');
-  process.env.CORS_ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5175';
   const { runner } = await import('node-pg-migrate');
   await runner({ databaseUrl: { ...connection, database }, dir: path.resolve(__dirname, '../../migrations'), migrationsTable: 'pgmigrations', direction: 'up', count: Infinity, checkOrder: true, log() {} });
   pool = require('../../src/config/database');
@@ -56,8 +55,7 @@ test('multi-business admin: isolation, weighted stock, idempotency and appointme
   const root = (b, suffix) => `/businesses/${b.id}/${suffix}`;
   await t.test('businesses an owner adds are restricted to that owner', async () => {
     await request('GET', '/businesses', undefined, 401, null);
-    // Books is opened only by the browser check at the end.
-    businesses = await createBusinesses(request, 'OWNER', ['grocery', 'electronics', 'pharmacy', 'salon', 'wholesale', 'books']);
+    businesses = await createBusinesses(request, 'OWNER', ['grocery', 'electronics', 'pharmacy', 'salon', 'wholesale']);
     // Goods shops start GST-inclusive; these checks use prices before GST.
     await pool.query("UPDATE business_settings SET tax_mode='exclusive', rounding='none', walk_in_credit=true");
     const ids = businesses.map((b) => b.id);
@@ -236,7 +234,4 @@ test('multi-business admin: isolation, weighted stock, idempotency and appointme
     const members = await request('GET', root(salon, 'members'));
     assert.equal(members.items.find((m) => m.id === staff.id).active, false);
   });
-  if (process.env.BUSINESS_BROWSER_TESTS === '1') {
-    await require('./business-admin-browser.cjs')(t, { base, token, businesses });
-  }
 });

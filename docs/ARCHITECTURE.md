@@ -282,10 +282,11 @@ The code has two request paths, one per data world (§5 explains why).
   Management). `BusinessAdminRoutes.jsx` guards each screen with the same
   rule, so a screen opened by its address says why it is not available.
 - The restaurant's own menu links are `NAV_SECTIONS` in `layouts/AppLayout.jsx`
-  (a link may also name the formats it is for: `formats`, `notFormats`).
-  `restaurantMenu()` in `services/restaurantWorkspace.js` groups them into
-  areas, and `App.jsx` guards each route with `ProtectedRoute` (`permission`,
-  `feature`, `featureAny`).
+  (a link names its `permission`, or with `permissionAny` several of which one
+  is enough, and may also name the formats it is for: `formats`,
+  `notFormats`). `restaurantMenu()` in `services/restaurantWorkspace.js`
+  groups them into areas, and `App.jsx` guards each route with
+  `ProtectedRoute` (`permission`, `permissionAny`, `feature`, `featureAny`).
 
 ### 3.3 Manager approval
 
@@ -393,7 +394,8 @@ In the code:
   `req.user.features` with the profile. `middlewares/requireFeature.js`
   refuses a switched-off feature's routes with 403 `reason: "feature_off"`.
   Controllers refuse the mixed cases (a delivery order, a tip, paying from an
-  advance, a coupon, points, picking a guest). The public QR, booking and
+  advance, a coupon, points, picking a guest); the pre-order service refuses
+  a pre-order's advance while `advances` is off. The public QR, booking and
   online pages check the restaurant's features. Notification providers and
   the live dashboard's blocks name a `feature` and are skipped while it is
   off. `modules/restaurant/setup/services/restaurantFeatures.service.js`
@@ -632,7 +634,7 @@ workspaces; the backend has its own install.
 │   ├── private_uploads/      bills attached to expenses and purchases, prescription scans, task
 │   │                         files, unless PRIVATE_UPLOADS_DIR names another folder: user data,
 │   │                         never public
-│   └── .local/               backups, logs, screenshots: never copied or committed
+│   └── .local/               backups and other machine-local files: never copied or committed
 ├── apps/
 │   ├── business-web/         the staff app (React + Vite, :5173)
 │   │   ├── src/

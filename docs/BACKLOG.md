@@ -9,13 +9,13 @@ What [ADMIN_GUIDE.md](ADMIN_GUIDE.md) and [API.md](API.md) describe is built. Th
 | Area | What is left | Needs from management |
 | --- | --- | --- |
 | Go-live | Server hosting, a web address with HTTPS, off-site backups, a 2–4 week pilot with real staff ([GO_LIVE.md](GO_LIVE.md)) | A server budget, a pilot business and a date |
-| Outside services | Online payment confirmation, live Swiggy / Zomato orders and menus per brand, SMS and WhatsApp messages ([§1](#1-outside-integrations)) | Provider accounts and contracts |
+| Outside services | Online payment confirmation, live Swiggy / Zomato orders and menus per brand, SMS and WhatsApp messages, maps ([§1](#1-outside-integrations)) | Provider accounts and contracts; the go-ahead for maps |
 | Hardware | Silent receipt and kitchen printing, the cash drawer, a live weighing scale ([§2](#2-hardware)) | The printer and scale models in use |
 | Plans and subscriptions | Paid plans that decide which modules a business gets ([§3](#3-the-platform-layer)) | Plan names and prices |
 | Separate apps | Offline POS, captain (waiter) app, clinic and lab workspaces, guests' pages for shops, appointments and their own account, salesperson app ([§4](#4-applications-beyond-the-admin)) | Priority and go-ahead |
 | Expert review | The pharmacy, clinic and lab rules ([BUSINESS_RULES.md](BUSINESS_RULES.md#pharmacy-clinic-and-lab)); the GST reports and the Tally export | A pharmacist, a doctor, a legal adviser and an accountant |
 
-**Recommended order:** run the pilot first, with one restaurant (or café) and one shop; then add the payment gateway and WhatsApp; then plans and pricing. Before the pilot come the items in [§8](#8-needed-in-the-code-before-go-live), the first problem in [§9](#9-known-problems) and the steps in [GO_LIVE.md](GO_LIVE.md).
+**Recommended order:** run the pilot first, with one restaurant (or café) and one shop; then add the payment gateway and WhatsApp; then plans and pricing. Before the pilot come the items in [§8](#8-needed-in-the-code-before-go-live) and the steps in [GO_LIVE.md](GO_LIVE.md).
 
 **Technical order** ([ARCHITECTURE.md › Where the structure is going](ARCHITECTURE.md#9-where-the-structure-is-going)): the restaurant onto the shared core (plan E), one identity and role system per business (plan D), live updates through the outbox, the other apps, plans and subscriptions, outside integrations, hardware, and the migration baseline (plan F) just before go-live.
 
@@ -30,6 +30,7 @@ The owner's rule: internal work first, outside connections later.
 | **SMS / WhatsApp / email** | Reminders (udhaar, the waitlist's "notify", booking status, repair stages, salon appointments, retail and guest insights) open a prepared `wa.me` link or are recorded by hand. The `business_events` outbox records the moments a message would go out (repair ready, booking made, collection received). | A provider account (MSG91, Gupshup, Twilio, the Meta WhatsApp Business API), with DLT-registered SMS templates in India; the owner's approved wording for each message; per-business opt-out that respects the consent already stored (the customers' marketing consent). |
 | **Messages to patients** | A clinic records each patient's consent for reports on WhatsApp or e-mail and for reminders, and *Follow-ups due* lists who should come back, with their phone. Nothing is sent by itself. | The messaging provider (above) and the outbox publisher (§5). |
 | **Password reset by email / SMS** | A restaurant admin resets passwords (`PATCH /api/users/:id/password`). In a business, Staff & access resets its staff logins' passwords. The Platform screens reset a restaurant admin's or a business owner's. Two-step sign-in and recovery codes exist. There is no self-service "forgot password". | The SMS / email provider above; a one-time-code table with expiry and attempt limits; a rule for who may reset (owners only, or every user). |
+| **Maps** | None built. A delivery address is typed in, with a landmark, and saved with the guest for next time; the delivery charge is set per channel, not by distance; no screen or guest page shows a map. | A maps provider account (Google Maps Platform, MapmyIndia or Mapbox) with keys and a spending limit; the owner's go-ahead, with which use comes first: a pin on each delivery address, a delivery charge or area by distance, riders' routes, or the restaurant's place on the guests' site. |
 
 ## 2. Hardware
 
@@ -89,6 +90,9 @@ Known gaps, not defects. The owner decides when each is built.
 | **Every business type** | Ownership cannot be handed over. The Owner role is given only when a business is created, and *Staff & access* cannot give it to another login. | The owner's rule for who may hand a business over; then code. |
 | **Shops** | No CSV import of products, customers or suppliers: they are typed in. Stock comes in with the item (opening stock) or through a purchase; a stock count corrects stock already on record. Only the restaurant imports CSV files (menu, recipes, stock items, suppliers and guests). | Code only. |
 | **Restaurant** | A kitchen-station report. The kitchen display and the dashboard show only today's ticket times. | Code only. |
+| **Restaurant** | Pre-orders: the outlet *Remove* dialog does not count open pre-orders (the server refuses to close such an outlet, but the dialog learns it only on the button); switching *Pre-orders & cakes* off gives no warning about open pre-orders; the dashboard's Pre-orders card does not refresh with the other cards; closing an outlet and booking a pre-order there at the same moment can both pass. | Code only: count open pre-orders in `GET /api/outlets/:id/usage`, a live-data check like Reservations', a refresh with the other cards, a row lock. |
+| **Restaurant** | Kitchen staff read the bake list but cannot mark a pre-order *In production* or *Ready*, which needs `orders.create`. A kitchen login not tied to an outlet always reads the main counter's list. | The owner's rule for who moves pre-orders along; then code. |
+| **Every business type** | *Staff & access* lists everyone to a manager tied to a department (with no buttons on people outside it), and shows *Password* for a person whose login is also used elsewhere, which the server then refuses. | The owner's rule for what a department manager sees; then code. |
 | **Restaurant** | *Table requests › Open guest menu* opens the platform's guests' site, even when the restaurant has its own guest web address. Both serve the same page. | Code only. |
 | **Wholesale** | The e-way bill API link: the number is typed in by hand on the dispatch and printed on the invoice and the challan. The salesperson app is in [§4](#4-applications-beyond-the-admin). | GSP / NIC API access. |
 | **Wholesale** | A return of scheme goods does not take back the free goods that came with them. | The owner's rule for free goods on a return; then code. |
@@ -101,23 +105,16 @@ Known gaps, not defects. The owner decides when each is built.
 | **Guests' site** | The backend has no default guest address (a `GUEST_WEB_URL` setting): only the staff app knows the guests' site's address. One is needed before the first SMS, WhatsApp or e-mail link is sent. | Code only. |
 | **Staff app** | The restaurant's header shows for a moment while a shop opens. | Code only. |
 | **Staff app** | With *Shared till* set to ask the biller's PIN for every bill, a cashier who has just switched the till to themselves types their PIN again for the bill. | Code only. |
-| **Browser tests** | Two browser checks still live inside the backend's integration tests and run only when switched on: `browser-readiness.cjs` from `restaurant.test.js` (`RMP_BROWSER_TESTS=1`) and `business-admin-browser.cjs` from `business-admin.test.js` (`BUSINESS_BROWSER_TESTS=1`). They need the staff app's development server already running, and CI never runs them ([TESTING.md › Browser checks inside the integration run](TESTING.md#browser-checks-inside-the-integration-run)). | Move them into the browser suite (`npm run test:browser`), on the data each run makes, then remove the two switches. Code only. |
 
 ## 8. Needed in the code before go-live
 
 The production settings, backups, serving the two web apps and the expert reviews are in [GO_LIVE.md](GO_LIVE.md). These need code:
 
 - **The session token.** The staff app keeps it in the browser's `localStorage` (`rmp_token`). Decide before production whether it stays there.
+- **A password someone else set.** A password that someone else sets for a person (a new login's first password, or a new one, in the restaurant's *Users*, in *Staff & access* or on the Platform screens) never has to be changed at the next sign-in, so whoever set it can sign in as that person until they change it in *My profile*. It needs a must-change flag set on every such password, and a sign-in step that makes the person choose their own before anything else.
 - **The dashboard cache.** It is kept per API process (`backend/src/utils/dashboardCache.js`). With several API processes behind a load balancer, it needs a shared cache or sticky sessions.
 - **Plan F, the migration baseline** ([§6](#6-structure-work)). When no more schema changes are expected, new installs run one baseline file instead of every migration.
 
 ## 9. Known problems
 
-Open problems in the code. The first should be fixed before a pilot.
-
-| Area | Problem | What it needs |
-| --- | --- | --- |
-| **Staff & access (shops)** | *Password* on Staff & access sets a new password with only one of the checks *Give access* makes, the location. A manager tied to a department can reset the password of someone in another department, and any manager can reset the password of someone whose role can do more than theirs, and then sign in as them. | The department check and "a role no wider than yours", as *Give access* has them, with a test. |
-| **Pre-orders** | A pre-order's advance is taken even with the *Advances* feature off. Refunding it after a cancel then needs *Dues & accounts › Advances*, which that switch hides. | The owner's choice: take pre-order advances only with *Advances* on, or keep the refund reachable from the pre-order. |
-| **Pre-orders** | The bake list adds up the pre-orders of every outlet, not only the till's. | Count only the till's outlet, and say so on the list. |
-| **Shop database guards** | The guards on `business_expenses`, `business_cash_checks` and `business_counter_shifts` raise PostgreSQL's default error code, not the check-violation code (23514) the API answers with a clear 409. No screen reaches them today; a new code path that did would get a server error. | A new migration that raises them with `ERRCODE '23514'`. |
+None is open. A problem found in the code is listed here, with what it needs, until it is fixed.

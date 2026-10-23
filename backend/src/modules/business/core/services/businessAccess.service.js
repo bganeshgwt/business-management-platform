@@ -139,15 +139,60 @@ async function permissionCatalogue(business) {
   };
 }
 
+// What each of these roles may do, by role id: { full_access, permissions[] },
+// the permissions in the catalogue's order (catalog.view, catalog.create, …).
+async function roleRights(db, business, roleIds) {
+  const rows = await repo.all(db, `SELECT r.id,r.full_access,ARRAY(SELECT p.permission_code FROM business_role_permissions p
+      JOIN business_permissions c ON c.code=p.permission_code WHERE p.business_id=r.business_id AND p.role_id=r.id ORDER BY c.sort_order,c.code) AS permissions
+    FROM business_roles r WHERE r.business_id=$1 AND r.id=ANY($2::bigint[])`, [business.id, roleIds]);
+  return new Map(rows.map((r) => [Number(r.id), r]));
+}
+
 // The actor must hold every permission of a role they act on (and so of its
 // holders): otherwise they could demote or lock out someone above them.
-async function requireCovers(db, business, roleId, who) {
-  if (business.full_access) return;
-  const role = await repo.one(db, 'SELECT full_access FROM business_roles WHERE business_id=$1 AND id=$2', [business.id, roleId]);
-  if (role?.full_access) fail(`${who} has full access, which you do not have`, 403);
-  const held = (await repo.all(db, 'SELECT permission_code FROM business_role_permissions WHERE business_id=$1 AND role_id=$2', [business.id, roleId])).map((r) => r.permission_code);
-  const beyond = held.filter((code) => !business.permissions.includes(code));
-  if (beyond.length) fail(`${who} can do things you cannot (${beyond.slice(0, 3).join(', ')}), so you cannot change it`, 403);
+// Answers why not, or null when they hold it all. `role` comes from
+// roleRights; `who` names it and `what` is the action refused.
+function whyNotCovered(business, role, who, what) {
+  if (business.full_access) return null;
+  if (role?.full_access) return `${who} has full access, which yours does not, so you cannot ${what}`;
+  const beyond = (role?.permissions || []).filter((code) => !business.permissions.includes(code));
+  return beyond.length ? `${who} can do things yours cannot (${beyond.slice(0, 3).join(', ')}), so you cannot ${what}` : null;
+}
+async function requireCovers(db, business, roleId, who, what) {
+  const reason = whyNotCovered(business, (await roleRights(db, business, [roleId])).get(Number(roleId)), who, what);
+  if (reason) fail(reason, 403);
+}
+
+// Whether the caller may act on this member of staff (Give access, and a new
+// password from Staff & access): null when they may, else why not. A manager
+// tied to a location or a department manages only the people tied to that
+// same one, not those who work across every location or department; and
+// nobody acts on someone who can do more than they can (a new password would
+// let them sign in as that person). `member` is the person's
+// business_memberships row (or a staff list row), `role` what their role may
+// do (roleRights).
+function whyNotManaged(business, member, role) {
+  if (business.member_location_id && String(member.location_id) !== String(business.member_location_id)) return 'This person does not work at your location';
+  if (business.member_department_id && String(member.department_id) !== String(business.member_department_id)) return 'This person does not work in your department';
+  return whyNotCovered(business, role, "This person's role", 'change their access or password');
+}
+async function requireManages(db, business, member) {
+  const reason = whyNotManaged(business, member, (await roleRights(db, business, [member.role_id])).get(Number(member.role_id)));
+  if (reason) fail(reason, 403);
+}
+
+// The staff list's answer, for each person, to whether the caller manages
+// them: Staff & access shows Change and Password only where it is true. It
+// needs access.edit, and is never true for the owner or for the caller
+// themselves (Give access and a new password refuse both); otherwise it is
+// requireManages' answer. Sets `manages` on each row.
+async function markManaged(business, members) {
+  const edits = can(business, 'access.edit');
+  const roles = edits ? await roleRights(repo.pool, business, members.map((m) => m.role_id)) : new Map();
+  for (const m of members) {
+    m.manages = edits && !m.full_access && Number(m.id) !== Number(business.member_user_id) && !whyNotManaged(business, m, roles.get(Number(m.role_id)));
+  }
+  return members;
 }
 
 // A person can only hand out what they hold themselves: a manager with
@@ -192,7 +237,7 @@ async function updateRole(business, user, roleId, body) {
     if (role.full_access) fail('The Owner role always has every permission and cannot be changed', 409);
     // A role that can do things this person cannot is out of their reach
     // altogether: they may not edit, reduce or switch it off.
-    await requireCovers(db, business, role.id, `The ${role.name} role`);
+    await requireCovers(db, business, role.id, `The ${role.name} role`, 'change it');
     if (!active) {
       const used = await repo.one(db, 'SELECT count(*)::int AS n FROM business_memberships WHERE business_id=$1 AND role_id=$2 AND active', [business.id, role.id]);
       if (used.n) fail(`${used.n} ${used.n === 1 ? 'person has' : 'people have'} this role. Give them another role before switching it off.`, 409);
@@ -255,8 +300,9 @@ async function setMember(business, user, body, options = {}) {
     if (!candidate && !existing && !options.newLogin) fail('Eligible staff member not found', 404);
     if (existing?.full_access) fail('The owner\'s access cannot be changed here', 409);
     if (targetId === user.id) fail('You cannot change your own access. Ask another person with access rights.', 403);
-    // Nobody may change, demote or switch off someone who can do more than they can.
-    if (existing) await requireCovers(db, business, existing.role_id, 'This person');
+    // Someone already on the staff list is changed only by a manager of theirs:
+    // the same location and department, and a role that can do no more.
+    if (existing) await requireManages(db, business, existing);
     // The role is either named, or (for an older client) one of the three template words.
     let role;
     if (body.roleId !== undefined && body.roleId !== null && body.roleId !== '') {
@@ -272,16 +318,9 @@ async function setMember(business, user, body, options = {}) {
       const beyond = rolePermissions.filter((code) => !business.permissions.includes(code));
       if (beyond.length) fail(`The ${role.name} role can do things you cannot (${beyond.slice(0, 3).join(', ')}), so you cannot give it out`, 403);
     }
-    // A manager tied to a location manages that location's people only.
-    if (existing && business.member_location_id && String(existing.location_id) !== String(business.member_location_id)) {
-      fail('This person does not work at your location', 403);
-    }
     if (workLocationId) {
       const location = await repo.one(db, 'SELECT id FROM business_locations WHERE business_id=$1 AND id=$2 AND active', [business.id, workLocationId]);
       if (!location) fail('Location not found or closed', 404);
-    }
-    if (existing && business.member_department_id && String(existing.department_id) !== String(business.member_department_id)) {
-      fail('This person does not work in your department', 403);
     }
     if (workDepartmentId) {
       const department = await repo.one(db, 'SELECT id FROM business_departments WHERE business_id=$1 AND id=$2 AND active', [business.id, workDepartmentId]);
@@ -297,4 +336,4 @@ async function setMember(business, user, body, options = {}) {
   });
 }
 
-module.exports = { load, scope, requireLocation, requireEitherLocation, requireAppointmentLocation, can, require: require_, requireAny, context, permissionCatalogue, createRole, updateRole, memberCandidates, setMember };
+module.exports = { load, scope, requireLocation, requireEitherLocation, requireAppointmentLocation, can, require: require_, requireAny, context, permissionCatalogue, createRole, updateRole, requireManages, markManaged, memberCandidates, setMember };

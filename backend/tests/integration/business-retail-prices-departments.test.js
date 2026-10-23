@@ -147,6 +147,52 @@ test('retail: prices by branch and member, coupons, shifts, departments, reorder
   assert.equal(String(ravi.department_id),String(clothing.id));
   assert.equal(ravi.role_name,'Helper');
 
+  // A new password (Staff & access › Password) keeps to the people Give access
+  // reaches: a department head sets one in their own department only (not for
+  // someone across every department), and a person tied to a location at that
+  // location only (not for someone who works at every location). A refusal
+  // changes nothing; the owner reaches everyone.
+  const bcrypt=require('bcrypt');
+  const staffLogin=(name,extra)=>onboarding.createStaffAccount(business,user,{name,email:`${name.toLowerCase()}@test.invalid`,password:crypto.randomBytes(12).toString('hex'),roleId:helperRole.id,...extra});
+  const newPassword=(by,who,staff)=>onboarding.resetStaffPassword(by,who,staff.user_id,{password:'Fresh-pass-2026'});
+  const hasNewPassword=async(staff)=>bcrypt.compare('Fresh-pass-2026',(await one('SELECT password_hash FROM users WHERE id=$1',[staff.user_id])).password_hash);
+  const gita=await staffLogin('Gita',{workDepartmentId:grocery.id});
+  const mohan=await staffLogin('Mohan',{});
+  await assert.rejects(newPassword(clothingHead,kavya,gita),{statusCode:403,message:'This person does not work in your department'});
+  await assert.rejects(newPassword(clothingHead,kavya,mohan),{statusCode:403,message:'This person does not work in your department'});
+  assert.deepEqual(await newPassword(clothingHead,kavya,ravi),{id:ravi.user_id,name:'Ravi'});
+  assert.ok(await hasNewPassword(ravi));
+  const lata=await staffLogin('Lata',{roleId:headRole.id,workLocationId:branch.id});
+  const branchHead=await access.load({id:lata.user_id},row.id);
+  const lataUser={id:lata.user_id,name:lata.name};
+  const arun=await staffLogin('Arun',{workLocationId:branch.id});
+  const meena=await staffLogin('Meena',{workLocationId:main.id});
+  await assert.rejects(newPassword(branchHead,lataUser,meena),{statusCode:403,message:'This person does not work at your location'});
+  await assert.rejects(newPassword(branchHead,lataUser,mohan),{statusCode:403,message:'This person does not work at your location'});
+  await newPassword(branchHead,lataUser,arun);
+  assert.ok(await hasNewPassword(arun));
+  assert.deepEqual(await Promise.all([gita,mohan,meena].map(hasNewPassword)),[false,false,false]);
+  await newPassword(business,user,gita);
+  assert.ok(await hasNewPassword(gita));
+  // Give access has the same reach: nobody is pulled in from outside it.
+  await assert.rejects(access.setMember(clothingHead,kavya,{userId:gita.user_id,roleId:helperRole.id,workDepartmentId:clothing.id}),{statusCode:403,message:'This person does not work in your department'});
+  await assert.rejects(access.setMember(branchHead,lataUser,{userId:mohan.user_id,roleId:helperRole.id,workLocationId:branch.id}),{statusCode:403,message:'This person does not work at your location'});
+
+  // The staff list says whom the caller manages, and Staff & access shows
+  // Change and Password only there. The Clothing head: Clothing's people
+  // whose role does no more than theirs (not Deepa, a manager). The JP Nagar
+  // head: the branch's people. The owner: everyone else. Nobody manages the
+  // owner or themselves.
+  const managerRoleId=(await one("SELECT id FROM business_roles WHERE business_id=$1 AND template_code='manager'",[row.id])).id;
+  const deepa=await staffLogin('Deepa',{roleId:managerRoleId,workDepartmentId:clothing.id});
+  const manages=async(by)=>Object.fromEntries((await access.markManaged(by,(await repo.page(row.id,'members',100,0,{})).items)).map(m=>[m.name,m.manages]));
+  assert.deepEqual(await manages(clothingHead),{Owner:false,Kavya:false,Ravi:true,Deepa:false,Gita:false,Mohan:false,Lata:false,Arun:false,Meena:false});
+  assert.deepEqual(await manages(branchHead),{Owner:false,Kavya:false,Ravi:false,Deepa:false,Gita:false,Mohan:false,Lata:false,Arun:true,Meena:false});
+  assert.deepEqual(await manages(business),{Owner:false,Kavya:true,Ravi:true,Deepa:true,Gita:true,Mohan:true,Lata:true,Arun:true,Meena:true});
+  // The answer is Give access's own: Deepa is out of the Clothing head's reach there too.
+  await assert.rejects(access.setMember(clothingHead,kavya,{userId:deepa.user_id,roleId:helperRole.id,workDepartmentId:clothing.id}),
+    {statusCode:403,message:/^This person's role can do things yours cannot \(.+\), so you cannot change their access or password$/});
+
   // Department report: sales, returns and margin by department.
   const report=await departments.report(business,{});
   const groceryRow=report.rows.find(r=>r.department==='Grocery');

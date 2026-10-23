@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import PageHeader from "../../../../components/PageHeader";
 import Modal from "../../../../components/Modal";
 import Icon from "@bmp/ui/Icon";
@@ -10,6 +10,7 @@ import { getErrorMessage } from "../../../../services/api";
 import { moneyExact } from "@bmp/shared/format";
 import { toast } from "../../../../services/toast";
 import useAuth from "../../../../hooks/useAuth";
+import { FEATURES_PATH } from "../../../../services/features";
 import { listProducts } from "../../menu/services/menu.service";
 import { getSettings } from "../../setup/services/restaurant.service";
 import { cancelPreorder, collectPreorder, createPreorder, getBakeList, listPreorders, setPreorderStatus, takePreorderAdvance } from "../services/preorder.service";
@@ -18,7 +19,15 @@ import "../styles/preorders.css";
 // Pre-orders: a cake or a party order for a later day. The counter books it
 // (the guest, what and when, the message on the cake, the advance), the
 // kitchen bakes from the day's bake list and marks it ready, and on pickup it
-// becomes a takeaway order, billed with the advance taken first.
+// becomes a takeaway order, billed with the advance taken first. An advance
+// needs Advances & deposits (Settings → Features): with that off, a pre-order
+// is booked without one, and none is offered later.
+//
+// Staff tied to an outlet get that outlet's pre-orders only (the server
+// sends no other, so the tiles count those alone); everyone else sees every
+// outlet's, each named on its row. The kitchen (kds.view without
+// orders.view) gets the bake list alone: it books, hands over and cancels
+// nothing.
 const STATUS = {
   booked: ["neutral", "Booked"], in_production: ["info", "Baking"], ready: ["success", "Ready"],
   collected: ["neutral", "Collected"], cancelled: ["neutral", "Cancelled"],
@@ -32,7 +41,9 @@ const qtyText = (item) => (item.soldBy === "weight" ? `${item.quantity} kg` : `$
 const METHODS = [["upi", "UPI"], ["cash", "Cash"], ["card", "Card"]];
 
 export default function PreordersPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, hasFeature } = useAuth();
+  const advancesOn = hasFeature("advances");
+  const bakeOnly = !hasPermission("orders.view");
   const navigate = useNavigate();
   const [view, setView] = useState("open");
   const [rows, setRows] = useState(null);
@@ -43,12 +54,13 @@ export default function PreordersPage() {
   const reload = useCallback(() => setVersion((n) => n + 1), []);
   useEffect(() => { getSettings().then((s) => setCurrency(s.currencySymbol || "₹")).catch(() => undefined); }, []);
   useEffect(() => {
+    if (bakeOnly) return undefined;
     let live = true;
     listPreorders(view === "bake" ? { status: "open" } : { status: view })
       .then((data) => { if (live) { setRows(data); setError(""); } })
       .catch((err) => { if (live) setError(getErrorMessage(err)); });
     return () => { live = false; };
-  }, [view, version]);
+  }, [bakeOnly, view, version]);
 
   const canTake = hasPermission("orders.create");
   const move = async (row, status) => {
@@ -72,7 +84,7 @@ export default function PreordersPage() {
   const columns = useMemo(() => [
     { key: "due", header: "Due", value: (r) => r.dueAt, type: "datetime", mobile: "subtitle", width: 180, render: (r) => (
       <span className="po-two"><span className={`po-due ${dayOf(r.dueAt) === today ? "is-today" : ""}`}>{dueText(r.dueAt)}</span>
-        <small className="muted mono">{r.number}{r.fulfilment === "delivery" ? " · delivery" : ""}</small></span>) },
+        <small className="muted mono">{r.number}{r.outletName ? ` · ${r.outletName}` : ""}{r.fulfilment === "delivery" ? " · delivery" : ""}</small></span>) },
     { key: "guest", header: "Guest", value: (r) => r.customerName, mobile: "title", width: 170, render: (r) => (
       <span className="po-two"><strong>{r.customerName}</strong><small className="muted">{r.customerMobile || ""}</small></span>) },
     { key: "items", header: "What", value: (r) => r.items.map((i) => i.name).join(", "), mobile: "show", width: 260, render: (r) => (
@@ -88,11 +100,20 @@ export default function PreordersPage() {
           {r.status === "booked" && <button type="button" className="button button-secondary button-sm" onClick={() => move(r, "in_production")}>Start baking</button>}
           {r.status === "in_production" && <button type="button" className="button button-secondary button-sm" onClick={() => move(r, "ready")}>Ready</button>}
           {r.status === "ready" && <button type="button" className="button button-sm" onClick={() => collect(r)}>Hand over & bill</button>}
-          {!r.advanceId && hasPermission("payments.manage") && <button type="button" className="link-button" onClick={() => setDialog({ advance: r })}>Take advance</button>}
+          {!r.advanceId && advancesOn && hasPermission("payments.manage") && <button type="button" className="link-button" onClick={() => setDialog({ advance: r })}>Take advance</button>}
           {hasPermission("orders.manage") && <button type="button" className="link-button danger" onClick={() => setDialog({ cancel: r })}>Cancel</button>}
         </span>
       ) : null) },
-  ].filter(Boolean), [canTake, currency, today]); // eslint-disable-line react-hooks/exhaustive-deps
+  ].filter(Boolean), [advancesOn, canTake, currency, today]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (bakeOnly) {
+    return (
+      <div className="stack">
+        <PageHeader icon="calendar" title="Pre-orders & cakes" description="The bake list: what the open pre-orders need on a day, added up by item, with each cake's message." />
+        <BakeList />
+      </div>
+    );
+  }
 
   return (
     <div className="stack">
@@ -102,7 +123,7 @@ export default function PreordersPage() {
         <div className="po-tile"><span>Due today</span><strong>{rows ? dueToday.length : "–"}</strong></div>
         <div className="po-tile"><span>Due tomorrow</span><strong>{rows ? dueTomorrow.length : "–"}</strong></div>
         <div className="po-tile"><span>Ready to hand over</span><strong>{rows ? ready.length : "–"}</strong></div>
-        <div className="po-tile"><span>Advances held</span><strong>{rows ? moneyExact(held, currency) : "–"}</strong></div>
+        {advancesOn && <div className="po-tile"><span>Advances held</span><strong>{rows ? moneyExact(held, currency) : "–"}</strong></div>}
       </div>
       <div className="segmented" role="tablist" aria-label="Pre-order views">
         {[["open", "Open"], ["bake", "Bake list"], ["collected", "Collected"], ["cancelled", "Cancelled"]].map(([key, label]) => (
@@ -123,8 +144,11 @@ export default function PreordersPage() {
   );
 }
 
-// What the kitchen bakes for a day: every open pre-order's items, added up,
-// with each cake's message.
+// What the kitchen bakes for a day at this till: its open pre-orders' items,
+// added up, with each cake's message. Each outlet has its own list, and the
+// main counter's is the pre-orders booked with no outlet picked; the head
+// names which (counter: none in a restaurant without outlets, which has a
+// single list).
 function BakeList() {
   const [day, setDay] = useState(() => addDays(todayText(), 1));
   const [data, setData] = useState(null);
@@ -134,14 +158,19 @@ function BakeList() {
     getBakeList(day).then((d) => { if (live) { setData(d); setError(""); } }).catch((err) => { if (live) setError(getErrorMessage(err)); });
     return () => { live = false; };
   }, [day]);
+  const counter = data?.counter || null;
+  const bookedAt = counter ? `booked at ${counter.outletId ? counter.name : "the main counter"} and ` : "";
   return (
     <section className="po-bake">
       <div className="po-bake-head">
-        <label className="field"><span>Bake for</span><input type="date" value={day} onChange={(e) => e.target.value && setDay(e.target.value)} /></label>
+        <div className="po-bake-for">
+          <label className="field"><span>Bake for</span><input type="date" value={day} onChange={(e) => e.target.value && setDay(e.target.value)} /></label>
+          {counter && <span className="po-bake-counter"><Icon name="store" size={14} /><span className="sr-only">Pre-orders booked at</span> {counter.name}</span>}
+        </div>
         <button type="button" className="button button-secondary" onClick={() => window.print()}><Icon name="print" size={16} /> Print</button>
       </div>
       <ErrorMessage message={error} />
-      {!data && !error ? <Loading /> : data?.items.length === 0 ? <EmptyState icon="calendar" title="Nothing to bake for this day" description="Pre-orders due that day show here, added up by item." /> : data && (
+      {!data && !error ? <Loading /> : data?.items.length === 0 ? <EmptyState icon="calendar" title="Nothing to bake for this day" description={`Pre-orders ${bookedAt}due that day show here, added up by item.`} /> : data && (
         <ul className="po-bake-list">
           {data.items.map((item) => (
             <li key={item.productId}>
@@ -159,7 +188,10 @@ function BakeList() {
 }
 
 function NewPreorder({ currency, onClose, onSaved }) {
-  const { hasPermission } = useAuth();
+  const { hasPermission, hasFeature } = useAuth();
+  // The advance is offered to whoever takes payments, while Advances is on.
+  const canTakeAdvance = hasPermission("payments.manage");
+  const advancesOn = hasFeature("advances");
   const [products, setProducts] = useState([]);
   const [form, setForm] = useState(() => ({ customerName: "", customerMobile: "", day: addDays(todayText(), 1), time: "17:00", fulfilment: "pickup", deliveryAddress: "", notes: "",
     advance: "", method: "upi", reference: "" }));
@@ -171,6 +203,7 @@ function NewPreorder({ currency, onClose, onSaved }) {
   const setLine = (i, key) => (e) => setLines((list) => list.map((l, n) => (n === i ? { ...l, [key]: e.target.value } : l)));
   const productOf = (id) => products.find((p) => String(p.id) === String(id));
   const total = lines.reduce((sum, l) => sum + (productOf(l.productId)?.price || 0) * Number(l.quantity || 0), 0);
+  const advance = canTakeAdvance && advancesOn ? form.advance : "";
   async function save(event) {
     event.preventDefault();
     setBusy(true); setError("");
@@ -180,7 +213,7 @@ function NewPreorder({ currency, onClose, onSaved }) {
         customerName: form.customerName, customerMobile: form.customerMobile, dueAt, fulfilment: form.fulfilment,
         deliveryAddress: form.fulfilment === "delivery" ? form.deliveryAddress : undefined, notes: form.notes || undefined,
         items: lines.filter((l) => l.productId).map((l) => ({ productId: Number(l.productId), quantity: Number(l.quantity), notes: l.notes || undefined })),
-        advance: form.advance ? { amount: Number(form.advance), paymentMethod: form.method, transactionRef: form.reference || undefined } : undefined,
+        advance: advance ? { amount: Number(advance), paymentMethod: form.method, transactionRef: form.reference || undefined } : undefined,
       });
       // Booked, but the till could not take the advance (no day open): a warning, not a success.
       onSaved(result.message, result.data?.advanceRefused ? "warning" : "success");
@@ -202,12 +235,16 @@ function NewPreorder({ currency, onClose, onSaved }) {
           <legend>What</legend>
           {lines.map((line, i) => {
             const product = productOf(line.productId);
+            // Whole pieces, or kg in 50 g steps. The least is one step: the
+            // browser counts the steps from the least, so any other least
+            // would refuse 1 piece or 0.5 kg.
+            const step = product?.soldBy === "weight" ? "0.05" : "1";
             return (
               <div key={i} className="po-line">
                 <label className="field"><span>Item</span><select required value={line.productId} onChange={setLine(i, "productId")}>
                   <option value="">Choose…</option>{products.map((p) => <option key={p.id} value={p.id}>{p.name} · {moneyExact(p.price, currency)}{p.soldBy === "weight" ? "/kg" : ""}</option>)}</select></label>
                 <label className="field"><span>{product?.soldBy === "weight" ? "Weight (kg)" : "Quantity"}</span>
-                  <input type="number" required min="0.01" step={product?.soldBy === "weight" ? "0.05" : "1"} value={line.quantity} onChange={setLine(i, "quantity")} /></label>
+                  <input type="number" required min={step} step={step} value={line.quantity} onChange={setLine(i, "quantity")} /></label>
                 <label className="field po-line-note"><span>Message / flavour</span><input maxLength={300} value={line.notes} onChange={setLine(i, "notes")} placeholder="e.g. Happy Birthday Riya · eggless" /></label>
                 <button type="button" className="icon-button" aria-label="Remove item" disabled={lines.length === 1} onClick={() => setLines((list) => list.filter((_, n) => n !== i))}><Icon name="trash" size={16} /></button>
               </div>
@@ -216,14 +253,18 @@ function NewPreorder({ currency, onClose, onSaved }) {
           <button type="button" className="link-button" onClick={() => setLines((list) => [...list, { productId: "", quantity: "1", notes: "" }])}>Add another item</button>
         </fieldset>
         <label className="field"><span>Notes for the kitchen</span><input maxLength={500} value={form.notes} onChange={set("notes")} placeholder="e.g. Candles and a knife; pick up after school" /></label>
-        {hasPermission("payments.manage") && (
+        {canTakeAdvance && (advancesOn ? (
           <div className="po-grid">
             <label className="field"><span>Advance now</span><input type="number" min="0" step="1" value={form.advance} onChange={set("advance")} placeholder="0" /></label>
             <label className="field"><span>Paid by</span><select value={form.method} onChange={set("method")}>{METHODS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
             {form.method !== "cash" && <label className="field"><span>Reference</span><input maxLength={100} value={form.reference} onChange={set("reference")} /></label>}
           </div>
-        )}
-        <p className="po-total">Order value <strong>{moneyExact(total, currency)}</strong>{form.advance ? <> · due on pickup <strong>{moneyExact(Math.max(0, total - Number(form.advance)), currency)}</strong></> : null}</p>
+        ) : (
+          <p className="po-note"><Icon name="info" size={15} />
+            <span>Advances &amp; deposits is switched off, so no advance is taken. An owner can switch it on in{" "}
+              {hasPermission("restaurant.settings.view") ? <Link to={FEATURES_PATH}>Settings → Features</Link> : <strong>Settings → Features</strong>}.</span></p>
+        ))}
+        <p className="po-total">Order value <strong>{moneyExact(total, currency)}</strong>{advance ? <> · due on pickup <strong>{moneyExact(Math.max(0, total - Number(advance)), currency)}</strong></> : null}</p>
         <div className="form-actions">
           <button type="button" className="button button-secondary" onClick={onClose} disabled={busy}>Cancel</button>
           <button type="submit" className="button" disabled={busy}>{busy ? "Booking…" : "Book pre-order"}</button>
@@ -268,7 +309,7 @@ function CancelDialog({ preorder, onClose, onSaved }) {
     try { onSaved((await cancelPreorder(preorder.id, reason)).message); } catch (err) { setError(getErrorMessage(err)); } finally { setBusy(false); }
   }
   return (
-    <Modal title={`Cancel ${preorder.number}`} description={preorder.advanceId ? "The advance stays held: refund it from Dues & accounts › Advances if the guest asks." : undefined} icon="ban" width={460} onClose={onClose} dismissible={!busy}>
+    <Modal title={`Cancel ${preorder.number}`} description={preorder.advanceHeld > 0 ? "The advance stays held: refund it from Dues & accounts › Advances if the guest asks." : undefined} icon="ban" width={460} onClose={onClose} dismissible={!busy}>
       <form className="stack" onSubmit={save}>
         <ErrorMessage message={error} />
         <label className="field"><span>Why</span><input required maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} autoFocus placeholder="e.g. Party called off" /></label>
