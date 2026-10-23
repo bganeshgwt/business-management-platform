@@ -804,7 +804,7 @@ const toStaffRequest = (row) => ({
   tableId: row.table_id,
   tableNo: row.table_no,
   // Where it came from: a table's QR code, or the restaurant's own ordering
-  // page (SW-A-22) — then it has no table, but a service, a guest, maybe an
+  // page — then it has no table, but a service, a guest, maybe an
   // address, and how they will pay.
   channel: row.channel || "qr",
   serviceType: row.service_type || null,
@@ -878,7 +878,7 @@ const list = async (restaurantId, filters) => {
   const [window, { rows, total }, captains] = await Promise.all([
     tableRequestRepository.findInboxWindow(restaurantId, filters.outletId || null),
     tableRequestRepository.findAll(restaurantId, filters),
-    // The captain who has each table today (SW-A-20): the inbox puts a
+    // The captain who has each table today: the inbox puts a
     // captain's own tables first and marks them; everyone still sees all.
     require("../../tables/services/captainSection.service").captainsToday(restaurantId, filters.outletId || null),
   ]);
@@ -1191,7 +1191,7 @@ const acceptInto = async (restaurantId, row, userId, outletId) => {
   }
 };
 
-// A website order (SW-A-22): a takeaway or delivery order of its own, on the
+// A website order: a takeaway or delivery order of its own, on the
 // Website channel, at the selling point its link belongs to — the outlet, or
 // the main counter when the link is the main counter's (outlet null). Never
 // at the outlet of whoever pressed Accept: the guest ordered from that
@@ -1448,7 +1448,6 @@ const closeEarlier = async (restaurantId, reason, userId, outletId = null, chann
 
 module.exports = {
   closeEarlier,
-  MAX_WAITING_ORDERS,
   // Shared with the online ordering page (onlineOrder.service).
   menuFor,
   mergeLines,

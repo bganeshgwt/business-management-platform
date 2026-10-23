@@ -10,9 +10,9 @@ import { Badge, BusinessHeader, PeriodFilter } from "../../core/pages/ui";
 import { useOpenBusiness, useOptions, useServerList } from "../../core/pages/hooks";
 import ClientPanel from "./ClientPanel";
 import { STATUS_WORDS, timeOfDay } from "./salon";
-import "../styles/salon-pro.css";
+import "../styles/salon.css";
 
-// A salon's appointment history (pro pass F-13): every booking with its
+// A salon's appointment history: every booking with its
 // deposit, its bill or charge, and whether it was moved or a walk-in; by
 // stylist, client and status. Opens on this month and the next 30 days.
 export default function SalonAppointmentsPage() {

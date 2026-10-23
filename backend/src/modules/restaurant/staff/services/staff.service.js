@@ -1948,7 +1948,6 @@ module.exports = {
   statutorySummary,
   musterRoll,
   copyWeek,
-  computePayroll,
   listEmployees,
   createEmployee,
   updateEmployee,
@@ -1973,6 +1972,4 @@ module.exports = {
   recordPayment,
   recordPaymentsBulk,
   removePayment,
-  // Pure helper, shared with tests.
-  calculate,
 };

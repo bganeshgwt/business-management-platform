@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import useAuth from "../../../../hooks/useAuth";
 import { businessRead } from "../../../../services/business.service";
 import { useOpenBusiness } from "../../core/pages/hooks";
-import "../styles/salon-pro.css";
+import "../styles/salon.css";
 
-// A manager's say-so inside a form (round 2, R2-SVC): the reason, who
+// A manager's say-so inside a form: the reason, who
 // approves and their PIN. Used for booking outside a stylist's hours
 // (appointments.approve; a manager approving their own booking gives only
 // the reason) and for handing back an advance (sales.refund; always a PIN,

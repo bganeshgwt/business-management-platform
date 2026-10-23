@@ -127,7 +127,7 @@ async function postReturn(db, business, user, doc, { reason, requestKey, hash, l
       lines: prepared.map((p) => ({ lineId: p.line.id, skuId: p.line.sku_id, quantity: p.quantity, restock: p.restock })),
     });
     // Points the customer spent on this bill come back in proportion
-    // (round 2, a loyalty setting), then the points the sale earned go back
+    // (a loyalty setting), then the points the sale earned go back
     // with the goods (retail).
     await retailOffers.restoreForReturn(db, business, user, doc, saved);
     await retailOffers.reverseForReturn(db, business, user, doc, saved);
@@ -163,7 +163,7 @@ async function refund(business, user, documentId, body) {
     }
     // Never more than was actually paid, less what was already refunded.
     if (cents(amount) > cents(sums.paid) - cents(sums.refunded)) fail('Refund exceeds what was paid on this document, less earlier refunds', 409);
-    // An EMI bill (round 2): the customer gets back only what they paid
+    // An EMI bill: the customer gets back only what they paid
     // themselves; the financed part goes back to the financier when the loan
     // is cancelled (EMI & finance › cancel).
     const own = await repo.one(db, `SELECT
@@ -226,4 +226,4 @@ async function adjust(business, user, lotId, body) {
     return adjustment;
   });
 }
-module.exports = { createReturn, postReturn, readReturn, lockDocument, refund, adjust, applyAdjustment, lockLot };
+module.exports = { createReturn, postReturn, lockDocument, refund, adjust, applyAdjustment, lockLot };

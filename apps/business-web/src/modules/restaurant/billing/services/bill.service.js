@@ -61,9 +61,6 @@ export const getTillOptions = async () => (await api.get("/bills/till-options"))
 export const listCreditNotes = async (filters = {}) =>
   (await api.get("/bills/credit-notes", { params: filters })).data.data;
 
-// What is still unbilled on an order
-export const getBillableItems = async (orderId) => (await api.get(`/bills/billable/${orderId}`)).data.data;
-
 // Records a print and returns the bill as it must be printed: its print count,
 // and copy "original" or "duplicate". A reprint needs bills.reprint or a
 // manager (the prompt opens by itself).

@@ -1,4 +1,4 @@
-// A guest's saved delivery addresses (SW-A-18), under
+// A guest's saved delivery addresses, under
 // /api/crm/customers/:customerId/addresses. Reading is for the guest book;
 // changing one needs the full text, so it is for people who may see
 // contact details (customers.contact) and edit guests (customers.manage).

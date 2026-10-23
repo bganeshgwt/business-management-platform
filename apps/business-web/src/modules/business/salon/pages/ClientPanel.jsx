@@ -11,10 +11,10 @@ import { Badge, Field } from "../../core/pages/ui";
 import { useOpenBusiness, useOptions } from "../../core/pages/hooks";
 import { Segmented } from "../../wholesale/pages/shared";
 import { whatsappLink } from "./salon";
-import { ClientAdvances } from "./SalonRound2Parts";
-import "../styles/salon-pro.css";
+import { ClientAdvances } from "./salonBackOfficeParts";
+import "../styles/salon.css";
 
-// The salon client card (pro pass F-05): who they are, what they had and
+// The salon client card: who they are, what they had and
 // with whom, their packages, notes and colour formulas (dated, kept as
 // written), allergies, birthday and usual stylist. Opens from the calendar
 // and the bill without leaving them.

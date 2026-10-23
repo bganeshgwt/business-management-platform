@@ -17,9 +17,9 @@ export default function App() {
       <Routes>
         {/* Where a printed table QR code lands. */}
         <Route path="/order/:token" element={<QrLandingPage />} />
-        {/* A restaurant's online ordering page and each order's status (SW-A-22). */}
+        {/* A restaurant's online ordering page and each order's status. */}
         <Route path="/online/:token/*" element={<OnlineOrderPage />} />
-        {/* A restaurant's booking link and each guest's own booking (SW-A-21). */}
+        {/* A restaurant's booking link and each guest's own booking. */}
         <Route path="/book/*" element={<BookingPage />} />
 
         {/* Planned, not built yet (plannedPages.js): the address works and says

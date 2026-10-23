@@ -11,7 +11,7 @@ import SuccessCheck from "../../../../components/SuccessCheck";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
 import DateRangeFilter from "../../../../components/DateRangeFilter";
 import { EmptyState, ErrorMessage, Loading, SuccessMessage } from "../../../../components/Feedback";
-import "../styles/stock-pro.css";
+import "../styles/inventory.css";
 import useAuth from "../../../../hooks/useAuth";
 import useShake from "../../../../hooks/useShake";
 import useQueryFilter from "../../../../hooks/useQueryFilter";
@@ -39,9 +39,9 @@ import { Chip, ReasonDialog, Tabs } from "./stockUi";
 import { niceDate, qty } from "./stockFormat";
 import { printTransfer } from "./transferDocument";
 import "../../../../styles/stock.css";
-import "../../../../styles/backoffice-sweep.css";
+import "../../../../styles/backoffice.css";
 
-// Stock moving between a restaurant's own stores (sweep SW-B-11).
+// Stock moving between a restaurant's own stores.
 //
 // A transfer note carries many items from one store to another on one
 // numbered challan, valued at cost. With "the receiving store confirms"

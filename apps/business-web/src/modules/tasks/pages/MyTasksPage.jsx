@@ -22,7 +22,7 @@ const dueText = (task) => {
   return sameDay ? `Due ${timeOnly(task.dueAt)}` : `Due ${dateShort(task.dueAt)}, ${timeOnly(task.dueAt)}`;
 };
 
-export function TaskCard({ task }) {
+function TaskCard({ task }) {
   const { link } = useTasks();
   const notYet = task.status === "todo" && task.opensAt && new Date(task.opensAt) > new Date();
   const action = task.status === "todo" ? (notYet ? `Opens ${timeOnly(task.opensAt)}` : "Start") : task.status === "in_progress" ? "Continue" : "View";

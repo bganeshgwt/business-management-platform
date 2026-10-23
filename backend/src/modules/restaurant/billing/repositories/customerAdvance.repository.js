@@ -2,7 +2,7 @@ const pool = require("../../../../config/database");
 const billRepository = require("./bill.repository");
 const { numberSeries } = require("../../setup/repositories/restaurant.repository");
 
-// Advances and deposits (sweep SW-B-04): money a guest or a company pays
+// Advances and deposits: money a guest or a company pays
 // ahead — a party's deposit, half of a bulk order — held for them and used
 // on the final bill. Every query is filtered by restaurant_id.
 
@@ -144,7 +144,7 @@ const findHeldByCustomer = async (restaurantId, customerIds = null) => {
 // data: { customerId, amount, paymentMethod, paymentTypeId, transactionRef,
 //         purpose, reservationId, orderId, outletId (the till) }
 //
-// orderId (round 2): a pickup order taken ahead. The order must be this
+// orderId: a pickup order taken ahead. The order must be this
 // restaurant's open takeaway with no bill yet; a guest is put on it when it
 // has none, so its bill offers this advance first.
 const create = async (restaurantId, data, userId) => {

@@ -6,7 +6,7 @@ import { MONTH_NAMES, dayMonth } from "@bmp/shared/dates";
 // ---------------------------------------------------------------- vocabulary
 
 export const STATUS = {
-  // An online request (SW-A-21): holds no table until someone says yes.
+  // An online request: holds no table until someone says yes.
   requested: { label: "Requested · online", hint: "waiting for your answer" },
   booked: { label: "Booked", hint: "not confirmed yet" },
   confirmed: { label: "Confirmed", hint: "guest said yes" },
@@ -135,8 +135,8 @@ export const tableOffSentence = (booking) =>
 export const tableOffNow = (booking) =>
   Boolean(booking.tableOutOfService) && ["booked", "confirmed"].includes(booking.status);
 
-// A large party holds its main table and the others pushed together with it
-// (SW-A-16): "T11 + T12 + T13". The main table always comes first.
+// A large party holds its main table and the others pushed together with it:
+// "T11 + T12 + T13". The main table always comes first.
 export const tablesLabel = (booking) =>
   booking.tableNo
     ? [booking.tableNo, ...(booking.extraTables || []).map((table) => table.tableNo)].join(" + ")

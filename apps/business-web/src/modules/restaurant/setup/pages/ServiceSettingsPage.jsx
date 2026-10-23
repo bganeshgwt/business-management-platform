@@ -293,7 +293,7 @@ function GuestAddressSection({ settings, canEdit, onSaved }) {
   );
 }
 
-// ---------------------------------------------------------------- online ordering (SW-A-22)
+// ---------------------------------------------------------------- online ordering
 
 // The restaurant's own ordering page, one link per selling point: the main
 // counter and each outlet. Each link is switched on, given its limits and

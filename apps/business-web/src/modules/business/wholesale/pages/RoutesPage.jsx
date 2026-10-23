@@ -44,7 +44,7 @@ export default function RoutesPage() {
   );
 }
 
-// Pro pass D-17: a salesperson's login, monthly target, what their orders
+// A salesperson's login, monthly target, what their orders
 // were invoiced and what they collected this month; their beat sheet for today.
 function Salespeople({ edit, onSaved }) {
   const biz = useOpenBusiness();

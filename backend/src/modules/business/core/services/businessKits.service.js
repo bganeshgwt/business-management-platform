@@ -4,7 +4,7 @@ const v = require('../../../../utils/validate');
 const access = require('./businessAccess.service');
 const pricing = require('./businessPricing');
 
-// Accessory kits and bundles (round 2, R2-CORE): "Mobile + cover + screen
+// Accessory kits and bundles: "Mobile + cover + screen
 // guard" sold at one kit price. The kit is a catalogue item of its own
 // (is_kit, no stock of its own); its components are ordinary items.
 //
@@ -246,4 +246,4 @@ async function forCounter(db, business, kit, locationId) {
   return out;
 }
 
-module.exports = { expand, inputIndexOf, list, create, update, forCounter, split };
+module.exports = { expand, inputIndexOf, list, create, update, forCounter };

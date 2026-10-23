@@ -18,9 +18,9 @@ import {
 } from "../services/inventoryInsight.service";
 import { qty } from "./stockFormat";
 import { Chip, ReasonDialog } from "./stockUi";
-import "../../../../styles/backoffice-sweep.css";
+import "../../../../styles/backoffice.css";
 
-// Dish wasted (sweep SW-B-22): a finished dish thrown away — dropped at the
+// Dish wasted: a finished dish thrown away — dropped at the
 // pass, made twice and billed once, left over at night, sent back — written
 // off by its recipe in one entry instead of ingredient by ingredient. The
 // server takes the size's recipe (a combo through its dishes, the add-ons

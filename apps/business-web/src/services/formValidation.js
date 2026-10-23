@@ -26,7 +26,7 @@ const labelOf = (control) => {
 // "Product name" -> "product name"; "GSTIN" stays "GSTIN".
 const lower = (text) => (/^[A-Z0-9]{2}/.test(text) ? text : text.charAt(0).toLowerCase() + text.slice(1));
 
-export const messageFor = (control) => {
+const messageFor = (control) => {
   const v = control.validity;
   const label = labelOf(control);
   const what = label ? lower(label) : "this";
@@ -133,5 +133,3 @@ export function installFormValidation() {
   document.addEventListener("input", onEdit, true);
   document.addEventListener("change", onEdit, true);
 }
-
-export default installFormValidation;

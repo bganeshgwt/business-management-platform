@@ -27,7 +27,7 @@ const LEGEND = [
 //   choose(table, info)   a tap on a table that may be chosen
 //   reasonOff(table, info) why a table may not be chosen here (null: it may)
 //   myUserId              the signed-in person: a captain with a section today
-//                         (SW-A-20) sees "My tables" first, and can show all
+//                         sees "My tables" first, and can show all
 export default function TableGrid({ tables: allTables, joinedBy, now, currency, choose, reasonOff, selectedId, compact, myUserId = null }) {
   const [onlyMine, setOnlyMine] = useState(true);
   const mine = myUserId ? allTables.filter((table) => table.captain && table.captain.userId === myUserId) : [];

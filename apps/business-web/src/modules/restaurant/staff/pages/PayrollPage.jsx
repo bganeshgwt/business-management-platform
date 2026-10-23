@@ -30,7 +30,7 @@ import useAuth from "../../../../hooks/useAuth";
 import { Link } from "react-router-dom";
 import { StatutorySettingsModal, StatutorySummary } from "./StatutoryPanel";
 import "../../../../styles/access.css";
-import "../../../../styles/access-sweep.css";
+import "../../../../styles/staff.css";
 import "../styles/payroll.css";
 
 const SALARY_TYPES = { monthly: "Monthly", daily: "Daily wage", hourly: "Hourly" };
@@ -686,7 +686,7 @@ export default function PayrollPage() {
                 <span>Week offs are paid</span>
               </label>
               {data.employees.some((row) => row.leaveTypesInUse) ? (
-                <span className="small asw-policy-note">
+                <span className="small staff-policy-note">
                   <Icon name="calendar" size={14} />
                   {/* One flex item, so the link stays inside the sentence. */}
                   <span>
@@ -759,7 +759,7 @@ export default function PayrollPage() {
                   key: "days",
                   width: 176,
                   minWidth: 150,
-                  className: "asw-log-cell",
+                  className: "staff-log-cell",
                   header: "Days",
                   type: "number",
                   value: (row) => row.payableDays,
@@ -839,7 +839,7 @@ export default function PayrollPage() {
                   key: "statutory",
                   header: "PF · ESI · PT",
                   width: 140,
-                  className: "asw-log-cell",
+                  className: "staff-log-cell",
                   type: "money",
                   value: (row) => row.statutoryDeductions,
                   total: "sum",
@@ -887,7 +887,7 @@ export default function PayrollPage() {
                   key: "paid",
                   header: "Paid",
                   width: 140,
-                  className: "asw-log-cell",
+                  className: "staff-log-cell",
                   type: "status",
                   value: (row) => (row.paid ? "paid" : row.partlyPaid ? "part paid" : "not paid"),
                   mobile: "show",
@@ -1003,7 +1003,7 @@ export default function PayrollPage() {
                   mobile: "show",
                   render: (item) => <strong>{money(item.amount, currency)}</strong>,
                 },
-                { key: "note", header: "Reason", value: (item) => item.note || "", mobile: "show", className: "asw-log-cell" },
+                { key: "note", header: "Reason", value: (item) => item.note || "", mobile: "show", className: "staff-log-cell" },
                 { key: "by", header: "Recorded by", value: (item) => item.createdByName || "", mobile: "hide" },
                 {
                   key: "actions",

@@ -10,7 +10,7 @@ const receivables = require('./businessReceivables.service');
 const prices = require('./businessWholesalePricing.service');
 const credit = require('./businessWholesaleCredit.service');
 
-// Wholesale / FMCG distribution (Phase 2, T2).
+// Wholesale / FMCG distribution.
 //
 //   Customer → sales order (prices fixed now: customer price, slab, pack)
 //            → dispatch, in one go or in parts (each dispatch is a tax
@@ -35,7 +35,6 @@ const rupees = (p) => (p / 100).toFixed(2);
 const qty = (m) => (m / 1000).toFixed(3);
 const roundedDivide = (numerator, denominator) => Number((numerator + denominator / 2n) / denominator);
 const hashOf = (body) => crypto.createHash('sha256').update(JSON.stringify(body)).digest('hex');
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 // --- Lists ---------------------------------------------------------------------
 
@@ -44,7 +43,7 @@ const remainingSql = (l) => `(${l}.quantity-${l}.dispatched_quantity-${l}.closed
 const remainingValueSql = (l) => `round((${l}.net+${l}.tax)*${remainingSql(l)}/${l}.quantity,2)`;
 
 repo.addLists({
-  // Pro pass D-17: the login a salesperson uses, their monthly target, what
+  // The login a salesperson uses, their monthly target, what
   // their orders were invoiced this month and what they collected.
   salespeople: { sql: `SELECT s.*,u.name AS user_name,u.email AS user_email,
       (SELECT count(*)::int FROM wholesale_beats b WHERE b.business_id=s.business_id AND b.salesperson_id=s.id AND b.active) AS beat_count,
@@ -73,8 +72,8 @@ repo.addLists({
       FROM wholesale_beats b JOIN wholesale_routes r ON r.business_id=b.business_id AND r.id=b.route_id
       LEFT JOIN wholesale_salespeople s ON s.business_id=b.business_id AND s.id=b.salesperson_id WHERE b.business_id=$1`,
   search: ['name', 'route_name', 'salesperson_name'], filters: { route: 'route_id', salesperson: 'salesperson_id', active: 'active' }, order: 'active DESC,route_name,visit_day NULLS LAST,name' },
-  // Customers with their beat and trade details (D-16): walk-ins sort last
-  // and are left out of order taking; what they owe comes along (D-06, D-15).
+  // Customers with their beat and trade details: walk-ins sort last
+  // and are left out of order taking; what they owe comes along.
   'customer-beats': { sql: `SELECT c.id,c.name,c.phone,c.gstin,c.address,c.credit_limit,c.credit_days,cb.beat_id,b.name AS beat_name,b.route_id,r.name AS route_name,
       b.salesperson_id,s.name AS salesperson_name,b.visit_day,COALESCE(p.trade_type,'trade') AS trade_type,p.price_group_id,g.name AS price_group_name,
       p.state_code,p.contact_person,COALESCE(p.hold_exempt,false) AS hold_exempt,
@@ -107,7 +106,7 @@ repo.addLists({
   search: ['order_no', 'contact_name', 'salesperson_name', 'route_name', 'notes'], date: 'created_at',
   filters: { status: 'status', contact: 'contact_id', salesperson: 'salesperson_id', route: 'route_id', location: 'location_id', beat: 'beat_id' }, order: 'id DESC' },
   // Everything still to send, with the stock at the dispatching godown;
-  // can_go_now: that stock covers the line (D-04).
+  // can_go_now: that stock covers the line.
   'back-orders': { sql: `SELECT y.*,(y.available>=y.remaining) AS can_go_now FROM (
       SELECT x.id,x.order_id,o.order_no,o.created_at,o.expected_on,o.contact_id,o.contact_name,o.location_id,o.status,o.route_id,o.salesperson_id,o.beat_id,
       r.name AS route_name,s.name AS salesperson_name,x.sku_id,x.label,x.unit,x.quantity,x.dispatched_quantity,${remainingSql('x')} AS remaining,
@@ -136,7 +135,7 @@ async function audited(business, user, action, work) {
   });
 }
 // A salesperson may be linked to the login they use in this business, and
-// given a monthly sales target (D-17).
+// given a monthly sales target.
 async function saveSalesperson(business, user, salespersonId, body) {
   await access.require(business, 'sales_orders.edit');
   const name = v.requiredString(body.name, 'Name', 150), phone = v.optionalString(body.phone, 'Phone', 30);
@@ -261,7 +260,7 @@ async function orderContext(db, business, contact) {
   };
 }
 
-// Prices one order line on the server (D-06, D-11):
+// Prices one order line on the server:
 //   input: { skuId, quantity, unit?, discountPercent?, freeQuantity? }
 // The customer's own price, else their price group's, else a slab, else the
 // list price; then a scheme's discount and the line's own discount (needs
@@ -290,7 +289,7 @@ async function priceLine(db, business, ctx, input) {
   if (quantity <= 0 || quantity > 100000) fail('Quantity must be between 0.001 and 100000 in the stock unit');
   core.requiredDecimals(quantity, { decimals: sku.unit_decimals, name: sku.unit_name }, 'Quantity');
   // The scheme first: one marked "don't combine with slab price" prices the
-  // line without quantity slabs (round 2); otherwise it stacks on them.
+  // line without quantity slabs; otherwise it stacks on them.
   const scheme = await prices.schemeFor(db, business.id, ctx.groupId, sku, milli(quantity), entered, ctx.day);
   const noSlab = Boolean(scheme?.noSlab);
   let priced = await pricing.salePrice(db, business, sku, ctx.contact.id, quantity, entered && { ...entered, factorMicro });
@@ -449,7 +448,7 @@ async function createOrder(business, user, body) {
     }
     const total = subtotal + tax;
     await checkCreditLimit(db, business, contact, total);
-    // Credit hold (D-07): overdue past the business's limit needs a release.
+    // Credit hold: overdue past the business's limit needs a release.
     const hold = await credit.checkHold(db, business, contact, release);
     const number = await numbering.nextNumber(db, business.id, location.id, 'sales_order', user.id);
     const order = await repo.one(db, `INSERT INTO wholesale_orders(business_id,order_no,series_id,location_id,contact_id,contact_name,salesperson_id,route_id,beat_id,
@@ -478,7 +477,7 @@ async function revalue(db, business, orderId) {
   return repo.one(db, 'UPDATE wholesale_orders SET subtotal=$3,tax=$4,total=$5 WHERE business_id=$1 AND id=$2 RETURNING *', [business.id, orderId, rupees(subtotal), rupees(tax), rupees(subtotal + tax)]);
 }
 
-// Edit an order before it goes (D-18). body: { requestKey, reason,
+// Edit an order before it goes. body: { requestKey, reason,
 //   lines: [{ orderLineId?, skuId?, quantity, unit?, discountPercent?, freeQuantity? }], expectedOn?, notes?, release? }
 // `lines` is what should still be sent: an existing line keeps its price when
 // its quantity and discount are unchanged; a changed one has its unsent part
@@ -571,7 +570,7 @@ async function editOrder(business, user, orderId, body) {
 }
 
 // Drops what is left of one line (and its free goods) — the odd remainder
-// that will not be sent (D-20).
+// that will not be sent.
 async function closeLine(business, user, orderId, lineId, body) {
   await access.require(business, 'sales_orders.cancel');
   const reason = v.requiredString(body.reason, 'Reason', 300);
@@ -669,7 +668,7 @@ async function pickLots(db, business, order, line, quantityMilli, chosen) {
   return picks;
 }
 
-// Transport and e-way bill details of a dispatch (D-05, D-10).
+// Transport and e-way bill details of a dispatch.
 function readTransport(body) {
   const ewayBillNo = v.optionalString(body.ewayBillNo, 'E-way bill number', 14)?.replace(/\s+/g, '') || null;
   if (ewayBillNo && !/^[0-9]{12}$/.test(ewayBillNo)) fail('An e-way bill number has 12 digits');
@@ -948,4 +947,4 @@ async function routeCustomers(business, routeId) {
 }
 
 module.exports = { saveSalesperson, salespersonLogins, saveRoute, saveBeat, setCustomerBeat, createOrder, editOrder, closeLine, orderDetail, dispatch, dispatchInTransaction,
-  readTransport, closeOrder, collect, reports, routeCustomers, remainingSql, remainingValueSql, DAYS };
+  readTransport, closeOrder, collect, reports, routeCustomers, remainingSql, remainingValueSql };

@@ -2,20 +2,22 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const multer = require("multer");
+const config = require("../../../../config/env");
 const pool = require("../../../../config/database");
 const AppError = require("../../../../utils/AppError");
 
-// The paper bill behind an expense or a supplier's bill (sweep SW-B-09): a
+// The paper bill behind an expense or a supplier's bill: a
 // photo of the receipt or the PDF the supplier sent. Up to five files on one
 // record, JPG, PNG or PDF, at most 5 MB each.
 //
 // The files are kept OUTSIDE the public uploads folder (which is served to
-// anyone with the link) and only ever sent through the API, to a signed-in
-// person of the same restaurant with the right to see that record. Removing
-// one is recorded (who and when) and the file itself is kept: a receipt that
-// vanishes after someone asks about it is exactly what a theft check must be
-// able to see. A voided purchase bill keeps its files.
-const PRIVATE_ROOT = path.join(__dirname, "..", "..", "..", "..", "..", "private_uploads", "attachments");
+// anyone with the link), in attachments/ of the private uploads folder
+// (PRIVATE_UPLOADS_DIR; config/env.js), and only ever sent through the API, to
+// a signed-in person of the same restaurant with the right to see that
+// record. Removing one is recorded (who and when) and the file itself is
+// kept: a receipt that vanishes after someone asks about it is exactly what a
+// theft check must be able to see. A voided purchase bill keeps its files.
+const PRIVATE_ROOT = path.join(config.privateUploadsDir, "attachments");
 const MAX_BYTES = 5 * 1024 * 1024;
 const MAX_FILES = 5;
 
@@ -226,4 +228,4 @@ const remove = async (restaurantId, entityType, entityId, attachmentId, userId, 
   return toAttachment(row);
 };
 
-module.exports = { uploadOne, list, add, open, remove, MAX_FILES, MAX_BYTES, PRIVATE_ROOT };
+module.exports = { uploadOne, list, add, open, remove };

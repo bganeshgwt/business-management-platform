@@ -5,7 +5,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const assert = require('node:assert/strict');
 
-module.exports = async (t, { base, token, one, pool, rid, category, unit, request }) => {
+module.exports = async (t, { base, token, one, rid, category, unit, request }) => {
   const browser = await chromium.launch({ channel: process.platform === 'win32' ? 'msedge' : undefined });
   const directory = path.resolve(__dirname, '../../.local/readiness-ui');
   fs.mkdirSync(directory, { recursive: true });

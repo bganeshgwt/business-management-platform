@@ -4,8 +4,10 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+const { createBusinesses } = require('./helpers/businesses');
+const { daysFrom, momentAt, zoneWithHour } = require('./helpers/dates');
 
-// Phase 2, T4 — salon & spa (service times, stylist skills, rooms, the
+// Salon & spa (service times, stylist skills, rooms, the
 // calendar with deposits and the no-show / late-cancel rule, packages,
 // memberships, the mixed bill, staff commissions) and weight-based shops
 // (sales by weight, cutting with yield and cost sharing, yield templates,
@@ -28,7 +30,6 @@ test('salon & spa and weight-based shops', { timeout: 300000 }, async (t) => {
   process.env.DB_NAME = database;
   process.env.NODE_ENV = 'test';
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex');
-  process.env.MULTI_BUSINESS_DEVELOPMENT = 'true';
   process.env.LOGIN_ATTEMPT_LIMIT = '5000';
   const { runner } = await import('node-pg-migrate');
   await runner({ databaseUrl: { ...connection, database }, dir: path.resolve(__dirname, '../../migrations'), migrationsTable: 'pgmigrations', direction: 'up', count: Infinity, checkOrder: true, log() {} });
@@ -68,15 +69,12 @@ test('salon & spa and weight-based shops', { timeout: 300000 }, async (t) => {
   const key = () => crypto.randomUUID();
   const paise = (value) => Math.round(Number(value) * 100);
 
-  const demos = (await request('POST', '/businesses/development-demos', {}, 201)).businesses;
-  const otherDemos = (await other('POST', '/businesses/development-demos', {}, 201)).businesses;
-  // Pro pass (1791540000000): goods shops now start with prices including GST,
-  // rounded to the rupee, and a walk-in pays in full. These checks were written for
-  // prices before GST and post unpaid walk-in bills as fixtures.
+  const [salon, meat, dry, grocery] = await createBusinesses(request, 'OWNER', ['salon', 'meat', 'weight_retail', 'grocery']);
+  const [otherSalon, otherMeat] = await createBusinesses(other, 'OTHER', ['salon', 'meat']);
+  // Goods shops start with prices including GST, rounded to the rupee, and a
+  // walk-in pays in full. These checks use prices before GST and post unpaid
+  // walk-in bills as fixtures.
   await pool.query("UPDATE business_settings SET tax_mode='exclusive', rounding='none', walk_in_credit=true");
-  const byType = (list, type) => list.find((b) => b.business_type === type);
-  const salon = byType(demos, 'salon'), meat = byType(demos, 'meat'), dry = byType(demos, 'weight_retail'), grocery = byType(demos, 'grocery');
-  const otherSalon = byType(otherDemos, 'salon'), otherMeat = byType(otherDemos, 'meat');
   const S = (suffix) => `/businesses/${salon.id}/${suffix}`;
   const M = (suffix) => `/businesses/${meat.id}/${suffix}`;
 
@@ -130,9 +128,16 @@ test('salon & spa and weight-based shops', { timeout: 300000 }, async (t) => {
   const room = await request('POST', S('resources'), { name: 'Spa room', locationId: loc.id }, 201);
   const ananya = await request('POST', S('contacts'), { kind: 'customer', name: 'Ananya' }, 201);
   const ravi = await request('POST', S('contacts'), { kind: 'customer', name: 'Ravi' }, 201);
+  // The salon's clock is made, not waited for: a late cancellation is booked an
+  // hour from now inside its 09:00–21:00 hours, so the salon keeps a time zone
+  // where it is between 10:00 and 16:00 whenever the suite runs (India's while
+  // its hour allows it). Its dates and times are read on that clock; the weight
+  // shops stay on India's.
+  const zone = zoneWithHour(10, 15);
+  await pool.query('UPDATE businesses SET timezone=$2 WHERE id=$1', [salon.id, zone]);
   // Bookings are made on a day 10 days ahead, at 10:00 business time.
-  const ahead = await one("SELECT ((now() AT TIME ZONE 'Asia/Kolkata')::date + 10)::text AS d");
-  const at = (hhmm, day = ahead.d) => new Date(`${day}T${hhmm}:00+05:30`).toISOString();
+  const ahead = { d: daysFrom(10, zone) };
+  const at = (hhmm, day = ahead.d) => momentAt(day, hhmm, zone);
   // The day of a booking has come: its start moves to `minutes` ago (a no-show
   // is allowed only after the start, and a booking is done or billed on its day).
   const arrive = async (appointmentId, minutes = 60) => pool.query(`UPDATE business_appointments SET ends_at=now()-($2::int * interval '1 minute')+(ends_at-starts_at),
@@ -214,19 +219,14 @@ test('salon & spa and weight-based shops', { timeout: 300000 }, async (t) => {
     const patched = await request('PATCH', S(`appointments/${viaList.id}`), { status: 'no_show' });
     assert.equal(patched.status, 'no_show');
     assert.equal(patched.fee.total, '100.00', '100% of ₹400, capped at the ₹100 deposit');
-    // Late cancellation (today, within 4 hours or already started): 50% of ₹400, out of a ₹500 deposit.
-    const now = new Date(Date.now() + 60 * 60000);
-    const hhmm = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(now);
-    const todayIst = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
-    // An hour from now, or (late in the evening) this morning, already past; both are inside the free-cancellation window.
-    const slot = hhmm >= '09:00' && hhmm <= '20:00' ? hhmm : todayIst === new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date()) && hhmm > '20:00' ? '09:00' : null;
-    if (slot) {
-      const late = await request('POST', S('salon/appointments'), { contactId: ananya.id, skuId: cut.id, resourceId: priya.id, startsAt: at(slot, todayIst), requestKey: key(), deposit: { amount: '500', method: 'cash' } }, 201);
-      const charged = await request('POST', S(`salon/appointments/${late.id}/status`), { status: 'cancelled', requestKey: key() });
-      assert.equal(charged.fee.total, '200.00');
-      const left = await one(`SELECT k.amount - COALESCE((SELECT sum(amount) FROM business_payments p WHERE p.collection_id=k.id),0) AS free FROM business_collections k WHERE k.id=$1`, [late.deposit_collection_id]);
-      assert.equal(left.free, '300.00', 'the rest of the deposit stays as advance');
-    }
+    // Late cancellation (within 4 hours of the start): 50% of ₹400, out of a ₹500 deposit. An hour
+    // from now is inside the salon's hours on its clock.
+    const late = await request('POST', S('salon/appointments'), { contactId: ananya.id, skuId: cut.id, resourceId: priya.id,
+      startsAt: new Date(Math.ceil((Date.now() + 3600000) / 60000) * 60000).toISOString(), requestKey: key(), deposit: { amount: '500', method: 'cash' } }, 201);
+    const charged = await request('POST', S(`salon/appointments/${late.id}/status`), { status: 'cancelled', requestKey: key() });
+    assert.equal(charged.fee.total, '200.00');
+    const left = await one(`SELECT k.amount - COALESCE((SELECT sum(amount) FROM business_payments p WHERE p.collection_id=k.id),0) AS free FROM business_collections k WHERE k.id=$1`, [late.deposit_collection_id]);
+    assert.equal(left.free, '300.00', 'the rest of the deposit stays as advance');
     const events = await rows("SELECT kind FROM business_events WHERE business_id=$1 AND entity_type='appointment' AND entity_id=$2 ORDER BY id", [salon.id, deposited.id]);
     assert.deepEqual(events.map((e) => e.kind), ['appointment.booked', 'appointment.no_show']);
   });
@@ -272,7 +272,7 @@ test('salon & spa and weight-based shops', { timeout: 300000 }, async (t) => {
     const move = async (days) => {
       await pool.query('ALTER TABLE salon_client_plans DISABLE TRIGGER salon_client_plans_fixed');
       try {
-        await pool.query(`UPDATE salon_client_plans SET starts_on=(now() AT TIME ZONE 'Asia/Kolkata')::date+$2::int-30,ends_on=(now() AT TIME ZONE 'Asia/Kolkata')::date+$2::int WHERE id=$1`, [ananyaPackage.id, days]);
+        await pool.query(`UPDATE salon_client_plans SET starts_on=(now() AT TIME ZONE $3)::date+$2::int-30,ends_on=(now() AT TIME ZONE $3)::date+$2::int WHERE id=$1`, [ananyaPackage.id, days, zone]);
       } finally {
         await pool.query('ALTER TABLE salon_client_plans ENABLE TRIGGER salon_client_plans_fixed');
       }
@@ -367,7 +367,7 @@ test('salon & spa and weight-based shops', { timeout: 300000 }, async (t) => {
     // A return takes commission back in proportion.
     const detail = await request('GET', S(`documents/${posted.document.id}`));
     await request('POST', S(`documents/${posted.document.id}/returns`), { reason: 'Unhappy', requestKey: key(), lines: [{ lineId: detail.lines[0].id, quantity: '1', restock: false }] }, 201);
-    const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+    const day = daysFrom(0, zone);
     const report = await request('GET', S(`salon/commissions?from=${day}&to=${day}`));
     const priyaRow = report.rows.find((r) => r.resource_id === priya.id);
     // Priya today: lines billed before any rule earned 0%; the facial was returned (0); the shampoo earned 5% of ₹500.

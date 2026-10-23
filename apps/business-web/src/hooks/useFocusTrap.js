@@ -29,7 +29,7 @@ const FIELDS = 'input:not([disabled]):not([type="hidden"]):not([readonly]), sele
 const ALLOWED_OUTSIDE =
   ".acc-overlay, .acc-lock, .action-menu, .dg-colmenu, [role='menu'], [role='listbox'], .search-picker-list, .toaster, [data-focus-trap-allow]";
 
-export const focusableIn = (root) =>
+const focusableIn = (root) =>
   Array.from(root.querySelectorAll(FOCUSABLE)).filter(
     (node) => node.offsetParent !== null || node === document.activeElement || getComputedStyle(node).position === "fixed"
   );

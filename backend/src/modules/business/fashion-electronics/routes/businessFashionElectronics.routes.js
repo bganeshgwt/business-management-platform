@@ -6,11 +6,11 @@ const fashion = require('../services/businessFashion.service');
 const exchanges = require('../services/businessExchanges.service');
 const electronics = require('../services/businessElectronics.service');
 const repairs = require('../services/businessRepairs.service');
-const fashionPro = require('../services/businessFashionPro.service');
+const merchandising = require('../services/businessFashionMerchandising.service');
 const vouchers = require('../services/businessVouchers.service');
-const electronicsPro = require('../services/businessElectronicsPro.service');
+const suppliers = require('../services/businessElectronicsSuppliers.service');
 
-// Phase 2, T3 — fashion and electronics, added to the Business Admin router
+// Fashion and electronics routes, added to the Business Admin router
 // so they share its login, membership, module and permission checks
 // (context) and its database-error translation:
 //   /:businessId/fashion/…      size × colour matrix, variant reports
@@ -21,7 +21,7 @@ const electronicsPro = require('../services/businessElectronicsPro.service');
 //   /:businessId/repairs/…      repair jobs
 // Services repeat every permission check.
 
-repo.addLists({ ...fashion.lists, ...exchanges.lists, ...electronics.lists, ...repairs.lists, ...vouchers.lists, ...electronicsPro.lists });
+repo.addLists({ ...fashion.lists, ...exchanges.lists, ...electronics.lists, ...repairs.lists, ...vouchers.lists, ...suppliers.lists });
 
 module.exports = function fashionElectronicsRoutes(router, { context, send, b }) {
   // Paged lists in the same shape as every other business list. `check`
@@ -48,14 +48,14 @@ module.exports = function fashionElectronicsRoutes(router, { context, send, b })
   router.post(b('/fashion/products/:productId/variants'), context('catalog.create'), async (req, res) => send(res, await fashion.addVariants(req.business, req.user, req.params.productId, req.body), 201));
   router.put(b('/fashion/products/:productId/prices'), context('catalog.edit'), async (req, res) => send(res, await fashion.setPrices(req.business, req.user, req.params.productId, req.body)));
   router.get(b('/fashion/reports/variants'), context('reports.view'), async (req, res) => send(res, await fashion.variantReport(req.business, req.query)));
-  // Pro pass: barcodes, markdowns, GST by price, reports by style.
-  router.put(b('/fashion/products/:productId/barcodes'), context('catalog.edit'), async (req, res) => send(res, await fashionPro.setBarcodes(req.business, req.user, req.params.productId, req.body)));
-  router.get(b('/fashion/markdowns'), context('offers.view'), async (req, res) => send(res, await fashionPro.markdowns(req.business, req.query)));
-  router.post(b('/fashion/markdowns'), context('offers.create'), async (req, res) => send(res, await fashionPro.createMarkdowns(req.business, req.user, req.body), 201));
-  router.post(b('/fashion/markdowns/:offerId/end'), context('offers.edit'), async (req, res) => send(res, await fashionPro.endMarkdown(req.business, req.user, req.params.offerId)));
-  router.get(b('/fashion/gst-rule'), context('catalog.view'), async (req, res) => send(res, await fashionPro.gstRule(req.business)));
-  router.put(b('/fashion/gst-rule'), context('settings.edit'), async (req, res) => send(res, await fashionPro.saveGstRule(req.business, req.user, req.body)));
-  router.get(b('/fashion/reports/styles'), context('reports.view'), async (req, res) => send(res, await fashionPro.styleReport(req.business, req.query)));
+  // Merchandising: barcodes, markdowns, GST by price, reports by style.
+  router.put(b('/fashion/products/:productId/barcodes'), context('catalog.edit'), async (req, res) => send(res, await merchandising.setBarcodes(req.business, req.user, req.params.productId, req.body)));
+  router.get(b('/fashion/markdowns'), context('offers.view'), async (req, res) => send(res, await merchandising.markdowns(req.business, req.query)));
+  router.post(b('/fashion/markdowns'), context('offers.create'), async (req, res) => send(res, await merchandising.createMarkdowns(req.business, req.user, req.body), 201));
+  router.post(b('/fashion/markdowns/:offerId/end'), context('offers.edit'), async (req, res) => send(res, await merchandising.endMarkdown(req.business, req.user, req.params.offerId)));
+  router.get(b('/fashion/gst-rule'), context('catalog.view'), async (req, res) => send(res, await merchandising.gstRule(req.business)));
+  router.put(b('/fashion/gst-rule'), context('settings.edit'), async (req, res) => send(res, await merchandising.saveGstRule(req.business, req.user, req.body)));
+  router.get(b('/fashion/reports/styles'), context('reports.view'), async (req, res) => send(res, await merchandising.styleReport(req.business, req.query)));
 
   // Exchanges.
   list('/exchanges', 'exchanges', 'exchanges.view');
@@ -78,12 +78,12 @@ module.exports = function fashionElectronicsRoutes(router, { context, send, b })
   list('/serials', 'serials', 'inventory.view', serials);
   router.get(b('/serials/history'), context('inventory.view'), async (req, res) => send(res, await electronics.serialHistory(req.business, req.query)));
   router.put(b('/serials/details'), context('inventory.edit'), async (req, res) => send(res, await electronics.saveSerialDetails(req.business, req.user, req.body)));
-  // Pro pass: units scanned in on one receipt; faulty / DOA units.
-  router.post(b('/electronics/receipts'), context('purchasing.create'), async (req, res) => send(res, await electronicsPro.receive(req.business, req.user, req.body), 201));
+  // Units scanned in on one receipt; faulty / DOA units.
+  router.post(b('/electronics/receipts'), context('purchasing.create'), async (req, res) => send(res, await suppliers.receive(req.business, req.user, req.body), 201));
   list('/electronics/faulty', 'faulty-units', 'inventory.view', serials);
-  router.post(b('/electronics/faulty'), context('inventory.edit'), async (req, res) => send(res, await electronicsPro.markFaulty(req.business, req.user, req.body), 201));
-  router.post(b('/electronics/faulty/:faultyId/send'), context('purchasing.refund'), async (req, res) => send(res, await electronicsPro.sendToSupplier(req.business, req.user, req.params.faultyId, req.body)));
-  router.post(b('/electronics/faulty/:faultyId/close'), context('inventory.edit'), async (req, res) => send(res, await electronicsPro.closeFaulty(req.business, req.user, req.params.faultyId, req.body)));
+  router.post(b('/electronics/faulty'), context('inventory.edit'), async (req, res) => send(res, await suppliers.markFaulty(req.business, req.user, req.body), 201));
+  router.post(b('/electronics/faulty/:faultyId/send'), context('purchasing.refund'), async (req, res) => send(res, await suppliers.sendToSupplier(req.business, req.user, req.params.faultyId, req.body)));
+  router.post(b('/electronics/faulty/:faultyId/close'), context('inventory.edit'), async (req, res) => send(res, await suppliers.closeFaulty(req.business, req.user, req.params.faultyId, req.body)));
 
   // Warranties.
   list('/warranties', 'warranties', 'warranties.view');
@@ -97,8 +97,8 @@ module.exports = function fashionElectronicsRoutes(router, { context, send, b })
   list('/repairs', 'repair-jobs', 'repairs.view');
   router.get(b('/repairs/counts'), context('repairs.view'), async (req, res) => send(res, await repairs.counts(req.business)));
   list('/warranty-claims', 'warranty-claims', 'repairs.view');
-  router.get(b('/warranty-claims/summary'), context('repairs.view'), async (req, res) => send(res, await electronicsPro.claimSummary(req.business)));
-  router.patch(b('/warranty-claims/:claimId'), context('repairs.edit'), async (req, res) => send(res, await electronicsPro.updateClaim(req.business, req.user, req.params.claimId, req.body)));
+  router.get(b('/warranty-claims/summary'), context('repairs.view'), async (req, res) => send(res, await suppliers.claimSummary(req.business)));
+  router.patch(b('/warranty-claims/:claimId'), context('repairs.edit'), async (req, res) => send(res, await suppliers.updateClaim(req.business, req.user, req.params.claimId, req.body)));
   router.post(b('/repairs'), context('repairs.create'), async (req, res) => send(res, await repairs.intake(req.business, req.user, req.body), 201));
   router.get(b('/repairs/:jobId'), context('repairs.view'), async (req, res) => send(res, await repairs.detail(req.business, req.params.jobId)));
   router.patch(b('/repairs/:jobId'), context('repairs.edit'), async (req, res) => send(res, await repairs.updateDetails(req.business, req.user, req.params.jobId, req.body)));
@@ -110,7 +110,7 @@ module.exports = function fashionElectronicsRoutes(router, { context, send, b })
   router.post(b('/repairs/:jobId/cancel'), context('repairs.cancel'), async (req, res) => send(res, await repairs.cancelJob(req.business, req.user, req.params.jobId, req.body)));
   router.post(b('/repairs/:jobId/approval'), context('repairs.edit'), async (req, res) => send(res, await repairs.approval(req.business, req.user, req.params.jobId, req.body)));
   router.post(b('/repairs/:jobId/messages'), context('repairs.view'), async (req, res) => send(res, await repairs.logMessage(req.business, req.user, req.params.jobId, req.body), 201));
-  router.post(b('/repairs/:jobId/claims'), context('repairs.edit'), async (req, res) => send(res, await electronicsPro.createClaim(req.business, req.user, req.params.jobId, req.body), 201));
+  router.post(b('/repairs/:jobId/claims'), context('repairs.edit'), async (req, res) => send(res, await suppliers.createClaim(req.business, req.user, req.params.jobId, req.body), 201));
 
   return router;
 };

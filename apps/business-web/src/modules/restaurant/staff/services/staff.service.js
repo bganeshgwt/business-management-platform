@@ -20,7 +20,6 @@ export const deleteShift = async (id) => (await api.delete(`/staff/shifts/${id}`
 // Roster
 export const getRoster = async (range) => (await api.get("/staff/roster", { params: range })).data.data;
 export const saveAssignment = async (payload) => (await api.post("/staff/roster", payload)).data.data;
-export const deleteAssignment = async (id) => (await api.delete(`/staff/roster/${id}`)).data;
 
 // Attendance
 export const getAttendance = async (date) =>
@@ -33,15 +32,12 @@ export const markRemaining = async (date) =>
 
 // Payroll
 export const getPayroll = async (range) => (await api.get("/staff/payroll", { params: range })).data.data;
-export const getPayrollSettings = async () => (await api.get("/staff/payroll/settings")).data.data;
 export const savePayrollSettings = async (payload) =>
   (await api.put("/staff/payroll/settings", payload)).data.data;
 export const addPayrollAdjustment = async (payload) =>
   (await api.post("/staff/payroll/adjustments", payload)).data.data;
 export const deletePayrollAdjustment = async (id) =>
   (await api.delete(`/staff/payroll/adjustments/${id}`)).data;
-export const listPayrollPayments = async (range) =>
-  (await api.get("/staff/payroll/payments", { params: range })).data.data;
 export const recordPayrollPayment = async (payload) =>
   (await api.post("/staff/payroll/payments", payload)).data.data;
 export const deletePayrollPayment = async (id) => (await api.delete(`/staff/payroll/payments/${id}`)).data;

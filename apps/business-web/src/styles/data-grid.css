@@ -1402,7 +1402,7 @@
   }
 }
 
-/* Phone cards (pro pass): the record's name leads and its S.No. sits quietly
+/* Phone cards: the record's name leads and its S.No. sits quietly
    under it; a field with nothing in it ("—") is left out of the card. */
 .dg-card-titles > .dg-card-serial {
   order: 9;

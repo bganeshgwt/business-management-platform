@@ -562,7 +562,7 @@
 .bz-todo-line.tone-success > svg:first-child { color: var(--success); }
 .bz-todo-line.tone-info > svg:first-child { color: var(--primary); }
 
-/* --- Business chooser, pro pass C-15 ---------------------------------------------------- */
+/* --- Business chooser -------------------------------------------------------------------- */
 /* Its own page: no restaurant menu around it. */
 .app-shell.is-chooser .sidebar,
 .app-shell.is-chooser .menu-toggle {
@@ -643,7 +643,7 @@
   }
 }
 
-/* Opening stock in the Add item dialog (pro pass C-17). */
+/* Opening stock in the Add item dialog. */
 .bz-opening {
   grid-column: 1 / -1;
   display: grid;

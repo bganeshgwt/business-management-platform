@@ -8,7 +8,7 @@ import { count } from "@bmp/shared/format";
 import { useOpenBusiness } from "../../core/pages/hooks";
 import { overviewLink } from "../../core/pages/overviewLink";
 
-// The distributor's day on the Overview (pro pass D-08): orders to send,
+// The distributor's day on the Overview: orders to send,
 // back-orders, vans on the road, collected today by salesperson, overdue,
 // cheques to deposit, and today's beats. Each figure opens its screen.
 export default function WholesaleToday() {

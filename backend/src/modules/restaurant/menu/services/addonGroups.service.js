@@ -62,4 +62,4 @@ async function save(restaurantId, productId, input, userId) {
   finally { db.release(); }
 }
 
-module.exports={get,save,validateGroups,validateSelection};
+module.exports={get,save,validateSelection};

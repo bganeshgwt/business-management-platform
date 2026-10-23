@@ -536,7 +536,7 @@ export default function CloseDayDialog({ day, currency, onClose, onClosed, onSho
         )}
 
         {/* The opening note is kept: the closer's note goes beside it, never
-            over it (SW-B-07). */}
+            over it. */}
         {(day.openingNotes || day.notes) && (
           <p className="field-wide muted small pre-line">
             Opening note{day.openedByName ? ` (${day.openedByName})` : ""}: {day.openingNotes || day.notes}

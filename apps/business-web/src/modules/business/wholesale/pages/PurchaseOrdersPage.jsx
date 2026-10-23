@@ -19,7 +19,7 @@ import { Segmented } from "./shared";
 import { inPacks, packOf } from "./tradeFormat";
 import { PO_STATUS, printPurchaseOrder } from "./purchaseFormat";
 
-// Purchase orders to suppliers (round 2): to the company or the
+// Purchase orders to suppliers: to the company or the
 // super-stockist. Raised by hand or from the reorder suggestions (items at or
 // below their reorder level and customers' back-orders the godown cannot
 // cover), sent and printed, received in parts — each receipt is an ordinary

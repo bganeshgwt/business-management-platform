@@ -146,8 +146,7 @@ const create = async (restaurantId, data, userId) => {
       data.taxRateId,
       // "default" (the restaurant's own setting) when the caller says nothing,
       // the same as the menu screen sends: a script or an import that has no
-      // opinion on how the price carries tax must not fail on it (the demo
-      // seed stopped on the very first dish).
+      // opinion on how the price carries tax must not fail on it.
       data.taxMode || "default",
       data.mrp ?? null,
       data.foodType,
@@ -155,7 +154,7 @@ const create = async (restaurantId, data, userId) => {
       data.sortOrder,
       data.status,
       userId,
-      // SW-A-12: the name the KOT may print instead (null: none).
+      // The name the KOT may print instead (null: none).
       data.kitchenName || null,
       // Sold by the piece, or by weight (the price is per kg).
       data.soldBy || "unit",

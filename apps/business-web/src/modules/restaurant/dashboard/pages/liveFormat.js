@@ -21,23 +21,6 @@ export const hourLabel = (hour) => {
   return `${twelve}${suffix}`;
 };
 
-// Every hour from the first sale to the last, so an empty one o'clock shows as
-// an empty column rather than vanishing and pulling two o'clock next to noon.
-export const hourlyColumns = (byHour) => {
-  if (byHour.length === 0) {
-    return [];
-  }
-
-  const sales = new Map(byHour.map((row) => [row.hour, row.netSales]));
-  const first = Math.min(...sales.keys());
-  const last = Math.max(...sales.keys());
-
-  return Array.from({ length: last - first + 1 }, (ignored, index) => ({
-    label: hourLabel(first + index),
-    value: sales.get(first + index) || 0,
-  }));
-};
-
 // How stale the figures on screen are. A live dashboard has to say when it
 // last looked, or a stopped clock is indistinguishable from a quiet hour.
 export const agoLabel = (updatedAt, now) => {

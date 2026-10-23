@@ -358,7 +358,7 @@ const num = (v) => Number(v || 0);
 function offerText(s) {
   const per = s.unit_code || s.unit || "";
   const parts = [`Buy ${quantity(s.buy_quantity, per)}`];
-  // Round 2: the free goods may be another item, counted in its own pack.
+  // The free goods may be another item, counted in its own pack.
   if (num(s.free_quantity) > 0) {
     parts[0] += s.free_sku_id && s.free_label
       ? `, get ${quantity(s.free_quantity, s.free_unit_code || s.free_stock_unit || "")} of ${s.free_label} free`
@@ -439,7 +439,7 @@ function SchemeDialog({ groups, items, onClose, onSaved }) {
     validFrom: businessToday(biz.business.timezone), validTo: "", freeUnitCode: "", noSlab: false,
   }));
   const [item, setItem] = useState(null);
-  // Round 2: "buy 5 cases of A, get 1 of B" — the free goods may be another item.
+  // "buy 5 cases of A, get 1 of B" — the free goods may be another item.
   const [freeItem, setFreeItem] = useState(null);
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
   const choices = perChoices(item);

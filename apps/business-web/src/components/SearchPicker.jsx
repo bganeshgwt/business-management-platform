@@ -4,7 +4,7 @@ import Icon from "@bmp/ui/Icon";
 
 // Type to find, arrows to move, Enter to pick: the one control for choosing
 // an item, a customer, a supplier, a member of staff or a variant out of a
-// list too long for a <select>. Usage and examples: SCRATCH/pro/G/COMPONENTS.md.
+// list too long for a <select>.
 //
 //   <SearchPicker label="Customer" value={customer} onChange={setCustomer}
 //                 options={customers} getLabel={(c) => c.name}

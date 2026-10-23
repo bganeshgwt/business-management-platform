@@ -1019,7 +1019,7 @@ export default function PosPage() {
     );
   };
 
-  // "Repeat" on one of a regular's last orders (SW-A-18): the same dishes,
+  // "Repeat" on one of a regular's last orders: the same dishes,
   // sizes and add-ons go into the cart at today's prices. A dish no longer
   // on the menu, sold out, in a size no longer sold, or a combo whose
   // choices must be picked again is skipped, and the cashier is told which.

@@ -71,12 +71,12 @@ export default function LeaveChoice({ employee, date, onClose, onSave }) {
       ) : (
         <div className="stack">
           <ErrorMessage message={error} />
-          <div className="asw-leave-options" role="radiogroup" aria-label="Leave type">
+          <div className="staff-leave-options" role="radiogroup" aria-label="Leave type">
             {balances.map((row) => {
               const empty = row.paid && row.left < 1;
 
               return (
-                <label key={row.typeId} className={`asw-choice ${chosen === row.typeId ? "is-checked" : ""}`}>
+                <label key={row.typeId} className={`staff-choice ${chosen === row.typeId ? "is-checked" : ""}`}>
                   <input
                     type="radio"
                     name="leave-type"
@@ -115,7 +115,7 @@ export default function LeaveChoice({ employee, date, onClose, onSave }) {
               Cancel
             </button>
             {warning ? (
-              <button type="button" className="button asw-button-warning" onClick={() => save(true)} disabled={busy}>
+              <button type="button" className="button staff-button-warning" onClick={() => save(true)} disabled={busy}>
                 {busy ? "Saving…" : "Save anyway — unpaid"}
               </button>
             ) : (

@@ -1,4 +1,4 @@
-// A guest's occasions this week (sweep SW-B-21), worked out from their
+// A guest's occasions this week, worked out from their
 // birthday and wedding anniversary: [{ kind, label, days }], soonest first.
 // Today is the restaurant's open business day when given (YYYY-MM-DD). A
 // 29 February date is kept on 28 February in a year without one.

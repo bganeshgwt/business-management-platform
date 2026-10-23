@@ -12,7 +12,7 @@ import { NewBusinessFields } from "../../business/core/pages/NewBusinessForm";
 import { businessBody, emptyBusiness } from "../../business/core/pages/newBusiness";
 import { createPlatformBusiness, listPlatformBusinesses, resetPlatformBusinessOwner, setPlatformBusinessStatus } from "../services/platform.service";
 
-// Platform › Businesses: every real business of every type but restaurant
+// Platform › Businesses: every business of every type but restaurant
 // (restaurants have their own console). Create one for a customer with its
 // owner's login, switch one off and on, and give a locked-out owner a new
 // password. Nothing here shows a business's bills or customers.

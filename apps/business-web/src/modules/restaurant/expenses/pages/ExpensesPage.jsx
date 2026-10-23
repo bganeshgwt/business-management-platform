@@ -335,7 +335,7 @@ export default function ExpensesPage() {
     }
   };
 
-  // The paper bill (photos, PDFs) of one expense, SW-B-09. Opened from the
+  // The paper bill (photos, PDFs) of one expense. Opened from the
   // paperclip, and before approving an expense that carries one, so the
   // approver sees the bill they are approving.
   const [filesOf, setFilesOf] = useState(null);

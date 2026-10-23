@@ -742,7 +742,7 @@ export default function BillsPage() {
     </SectionCard>
   );
 
-  // Payments whose method was corrected (SW-B-02), for the owner's checks.
+  // Payments whose method was corrected, for the owner's checks.
   const correctionColumns = [
     { key: "bill", header: "Bill", value: (row) => row.billNumber, mobile: "title", pin: true, render: (row) => (
       <button type="button" className="link-button mono" onClick={() => open(row.billId)}>

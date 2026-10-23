@@ -6,7 +6,7 @@ import { getErrorMessage } from "../../../../services/api";
 import { dayMonth } from "@bmp/shared/dates";
 import "../styles/attachments.css";
 
-// The paper bill behind an expense or a supplier's bill (SW-B-09): photos or
+// The paper bill behind an expense or a supplier's bill: photos or
 // PDFs, at most five, each up to 5 MB. Opening a file reads it through the
 // signed-in session (the files are never on a public link) and shows it in a
 // new tab. On a phone, "Add a photo" offers the camera.

@@ -109,4 +109,4 @@ const businessScope = (module = "tasks") => async (req, res, next) => {
   next();
 };
 
-module.exports = { forRestaurant, forBusiness, restaurantScope, businessScope, MODULE_NAMES };
+module.exports = { forRestaurant, restaurantScope, businessScope };

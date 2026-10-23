@@ -6,7 +6,7 @@ const { round2 } = require("../../../../utils/money");
 const { MAX_AMOUNT, MAX_QUANTITY } = require("../../../../utils/amountLimit");
 const sheet = require("../../imports/services/sheetImport");
 
-// Stock items from a spreadsheet (sweep SW-B-12): how a restaurant moving
+// Stock items from a spreadsheet: how a restaurant moving
 // from Petpooja or a paper register loads 300 items, their packs and what is
 // on the shelf today, in one go. The rules are sheetImport's (a check first,
 // only the file's columns change, all or nothing, the same file twice changes
@@ -643,4 +643,4 @@ const importItems = async (restaurantId, rows, userId, options = {}) => {
   return { ...summary, createdItems: created };
 };
 
-module.exports = { COLUMNS, importGuide, importItems };
+module.exports = { importGuide, importItems };

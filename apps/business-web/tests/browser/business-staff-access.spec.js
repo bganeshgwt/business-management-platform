@@ -1,29 +1,22 @@
 import {test,expect} from '@playwright/test';
-import fs from 'node:fs';
-import process from 'node:process';
+
+import {business,signIn} from '../../../../e2e/fixture.mjs';
 
 // Staff & access: which department a person works in, on both "New staff
-// login" and "Give access". The demo shops keep no departments, so the list
-// is answered here; the dialogs are closed without saving anything.
-const credentialPath=process.env.E2E_CREDENTIALS_FILE;
-const account=credentialPath?JSON.parse(fs.readFileSync(credentialPath,'utf8')).accounts.find(a=>a.role==='RESTAURANT_ADMIN'):null;
+// login" and "Give access". The test supermarket (e2e/test-data.mjs), which
+// the restaurant's admin owns, keeps no departments, so the list is answered
+// here; the dialogs are closed without saving anything.
 const DIALOGS=[['New staff login','New staff login'],['Give access','Give someone access']];
 
 test.beforeEach(async({page})=>{
-  test.skip(!account,'Set E2E_CREDENTIALS_FILE for the local demo account.');
-  await page.goto('/login');
-  await page.locator('input[autocomplete="username"]').fill(account.email);
-  await page.locator('input[autocomplete="current-password"]').fill(account.password);
-  await page.getByRole('button',{name:'Sign in',exact:true}).click();
-  await expect(page.locator('main.content-scroll')).toBeVisible();
+  await signIn(page);
+  await expect(page.locator('main.content-scroll')).toBeVisible({timeout:30000});
 });
 
 test('both staff dialogs offer the active departments, and show no department field without any',async({page})=>{
   const errors=[];
   page.on('pageerror',e=>errors.push(e.message));
-  const businesses=await page.evaluate(async()=>(await (await import('/src/services/business.service.js')).listBusinesses()).businesses);
-  const shop=businesses.find(b=>b.business_type==='supermarket'&&b.is_demo);
-  expect(shop,'supermarket demo is available').toBeTruthy();
+  const shop=business('supermarket');
   // The shop's real answer, with this list of departments in it.
   let departments=[{id:901,name:'Clothing',active:true},{id:902,name:'Footwear',active:true},{id:903,name:'Old counter',active:false}];
   const DEPARTMENTS_URL=/\/api\/businesses\/\d+\/departments$/;

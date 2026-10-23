@@ -41,15 +41,15 @@ async function platformCatalogue() {
 }
 
 const capabilitiesSql = `COALESCE((SELECT json_agg(capability ORDER BY capability) FROM business_capabilities WHERE business_id=b.id),'[]')`;
-const list = async (userId, demos) => (await pool.query(`
- SELECT b.id,b.name,b.code,b.business_type,b.legacy_restaurant_id,b.is_demo,b.status,b.currency,b.timezone,
+const list = async (userId) => (await pool.query(`
+ SELECT b.id,b.name,b.code,b.business_type,b.legacy_restaurant_id,b.status,b.currency,b.timezone,
   CASE rf.format WHEN 'cafe' THEN 'Café' WHEN 'bakery' THEN 'Bakery' WHEN 'cloud_kitchen' THEN 'Cloud kitchen' ELSE t.name END AS type_name,rf.format AS restaurant_format,
   m.role_id,r.name AS role_name,r.full_access,m.last_opened_at,${capabilitiesSql} AS capabilities
  FROM businesses b JOIN business_types t ON t.code=b.business_type LEFT JOIN restaurants rf ON rf.id=b.legacy_restaurant_id
  JOIN business_memberships m ON m.business_id=b.id
  JOIN business_roles r ON r.business_id=m.business_id AND r.id=m.role_id
- WHERE m.user_id=$1 AND m.active AND b.status='active' AND (NOT b.is_demo OR $2)
- ORDER BY b.is_demo,b.name`, [userId, demos])).rows;
+ WHERE m.user_id=$1 AND m.active AND b.status='active'
+ ORDER BY b.name`, [userId])).rows;
 
 // Membership, role, permissions and enabled modules in one statement: what
 // the server checks on every business request.
@@ -76,9 +76,9 @@ const markOpened = (businessId, userId) => pool.query(
 // part of the customer's collections not yet applied to a bill (their
 // advance; see "Shared receivables" in docs/BUSINESS_PLATFORM_DATA_MODEL.md).
 // A supplier's payments not yet applied to a receipt are an advance the
-// same way (business_supplier_payments, pro pass C-05). A bounced cheque
-// receipt no longer counts, and its bank charge is owed (pro pass D-02). An
-// advance handed back (business_collection_refunds, round 2) is added back.
+// same way (business_supplier_payments). A bounced cheque receipt no longer
+// counts, and its bank charge is owed. An advance handed back
+// (business_collection_refunds) is added back.
 const contactBalanceSql = (alias) => `(${alias}.opening_balance + COALESCE((SELECT sum(d.total
    -COALESCE((SELECT sum(total) FROM business_returns r WHERE r.business_id=d.business_id AND r.document_id=d.id),0)
    -COALESCE((SELECT sum(amount) FROM business_payments p WHERE p.business_id=d.business_id AND p.document_id=d.id),0)
@@ -150,7 +150,7 @@ const lists = {
   locations: { sql: 'SELECT * FROM business_locations WHERE business_id=$1', search: ['name', 'code'], filters: { active: 'active' }, order: 'id' },
   resources: { sql: 'SELECT r.*,l.name AS location_name FROM business_resources r JOIN business_locations l ON l.business_id=r.business_id AND l.id=r.location_id WHERE r.business_id=$1',
     search: ['name', 'role_label', 'location_name'], filters: { location: 'location_id' }, order: 'id DESC' },
-  // Pro pass D-12/D-13: the item's biggest pack (to show cases), and filters
+  // The item's biggest pack (to show cases), and filters
   // for batches with stock and batches expiring soon (the business's
   // near_expiry_days, Business settings › Rules).
   stock: { sql: `SELECT l.*,s.label,s.code,s.unit,s.reorder_level,s.tracking,s.shelf_location,loc.name AS location_name,
@@ -167,7 +167,7 @@ const lists = {
     JOIN business_locations loc ON loc.business_id=l.business_id AND loc.id=l.location_id WHERE l.business_id=$1`,
   search: ['label', 'code', 'lot_code', 'location_name', 'shelf_location'], filters: { location: 'location_id', sku: 'sku_id', in_stock: 'in_stock', expiring: 'expiring', department: 'department_id' }, order: 'id DESC' },
   // Searchable by the serial / IMEI numbers and the supplier's bill number on it too.
-  // Wholesale (pro pass D-21): an invoice raised by dispatching a sales order
+  // Wholesale: an invoice raised by dispatching a sales order
   // carries the order, its salesperson and route, and the delivery state.
   documents: { sql: `SELECT x.*,(x.contact_id IS NULL AND x.kind='sale' AND x.total-x.returned-x.paid+x.refunded>0) AS walk_in_due,
     (x.total-x.returned-x.paid+x.refunded>0) AS unpaid FROM (
@@ -175,7 +175,7 @@ const lists = {
     (SELECT string_agg(DISTINCT dl.lot_code,' ') FROM business_document_lines dl WHERE dl.business_id=d.business_id AND dl.document_id=d.id AND dl.lot_code<>'') AS lot_codes,
     o.order_no,o.salesperson_id,sp.name AS salesperson_name,o.route_id,r.name AS route_name,w.delivery_status,
     CASE WHEN w.id IS NULL THEN 'counter' ELSE 'order' END AS source,
-    -- Pro pass C-12: who billed it and how it was paid (one method, or mixed).
+    -- Who billed it and how it was paid (one method, or mixed).
     cu.name AS created_by_name,
     (SELECT CASE WHEN count(DISTINCT p.method)>1 THEN 'mixed' ELSE min(p.method) END FROM business_payments p
       WHERE p.business_id=d.business_id AND p.document_id=d.id) AS paid_by
@@ -204,7 +204,7 @@ const lists = {
     LEFT JOIN business_stock_counts sc ON sc.business_id=a.business_id AND sc.id=a.count_id
     WHERE m.business_id=$1`,
   search: ['label', 'lot_code', 'source_no', 'reason', 'location_name'], date: 'created_at', filters: { location: 'location_id', source: 'source' },
-  // In time order (pro pass C-27): a back-dated posting sits on its own date.
+  // In time order: a back-dated posting sits on its own date.
   order: 'created_at DESC,id DESC' },
   transfers: { sql: `SELECT t.*,f.name AS from_location_name,d.name AS to_location_name,
     (SELECT count(*)::int FROM business_stock_transfer_lines x WHERE x.business_id=t.business_id AND x.transfer_id=t.id) AS line_count,
@@ -271,7 +271,6 @@ function addLists(extra) {
   }
 }
 const listFilters = (kind) => Object.keys(lists[kind]?.filters || {});
-const hasDate = (kind) => Boolean(lists[kind]?.date);
 
 // locationId: a branch (tied staff, or picked in the top bar) narrows the
 // sales, stock and day figures; customers' balances stay business-wide.
@@ -327,4 +326,4 @@ async function summary(businessId, locationId = null) {
    +COALESCE((SELECT sum(amount) FROM business_refunds r WHERE r.business_id=d.business_id AND r.document_id=d.id),0)))
    FROM business_documents d WHERE d.business_id=$1 AND kind='purchase'),0) AS payables`, [businessId, locationId]);
 }
-module.exports = { pool, transaction, one, all, audit, event, platformCatalogue, list, access, markOpened, page, listFilters, hasDate, summary, contactBalanceSql, addLists };
+module.exports = { pool, transaction, one, all, audit, event, platformCatalogue, list, access, markOpened, page, listFilters, summary, contactBalanceSql, addLists };

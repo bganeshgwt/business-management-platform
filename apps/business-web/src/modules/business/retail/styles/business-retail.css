@@ -448,7 +448,7 @@
   background: var(--surface);
 }
 
-/* --- Quick bill, pro pass: the pay card always in view, keys, risk, weights --- */
+/* --- Quick bill: the pay card always in view, keys, risk, weights --- */
 /* The pay card heads the side column, which stays in view and scrolls on
    its own: "To pay" and the take-payment button never leave the screen. */
 @media (min-width: 1001px) {
@@ -741,7 +741,7 @@
   flex: 0 0 96px;
 }
 
-/* Garment tag preview (pro pass E-11): the size large beside the style. */
+/* Garment tag preview: the size large beside the style. */
 .rt-label-tag {
   display: flex;
   align-items: flex-start;
@@ -756,8 +756,6 @@
   font-size: var(--text-lg);
   line-height: 1.2;
 }
-
-/* --- Retail pro pass (builder C) ------------------------------------------------------- */
 
 /* The highlighted search match (↓ / ↑ at the counter). */
 .rt-matches button.is-active {

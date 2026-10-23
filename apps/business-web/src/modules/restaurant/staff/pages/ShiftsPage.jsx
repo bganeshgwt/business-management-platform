@@ -28,7 +28,7 @@ import { escapeHtml, printDocument } from "../../../../services/print";
 import useAuth from "../../../../hooks/useAuth";
 import LeaveChoice from "./LeaveChoice";
 import "../../../../styles/access.css";
-import "../../../../styles/access-sweep.css";
+import "../../../../styles/staff.css";
 
 const EMPTY_SHIFT = {
   name: "",
@@ -493,7 +493,7 @@ export default function ShiftsPage() {
         actions={
           <div className="acc-week-nav">
             {employees.length > 0 && shifts.length > 0 && (
-              <div className="asw-week-tools">
+              <div className="staff-week-tools">
                 {canManage && (
                   <button type="button" className="button button-secondary button-sm" onClick={() => setCopying(true)}>
                     <Icon name="copy" size={15} /> Copy last week
@@ -784,7 +784,7 @@ function CopyWeekModal({ weekStart, weekEnd, onClose, onCopied }) {
     >
       {result ? (
         <div className="stack">
-          <div className="asw-done">
+          <div className="staff-done">
             <SuccessCheck size={44} label="Roster copied" />
             <div>
               <strong>{result.message}</strong>
@@ -794,7 +794,7 @@ function CopyWeekModal({ weekStart, weekEnd, onClose, onCopied }) {
           {result.data.skipped.length > 0 && (
             <div>
               <p className="section-heading">Skipped</p>
-              <ul className="asw-skip-list">
+              <ul className="staff-skip-list">
                 {reasons.map(([reason, total]) => (
                   <li key={reason}>
                     <strong>{total}</strong> {SKIP_WORDS[reason] || reason}
@@ -817,7 +817,7 @@ function CopyWeekModal({ weekStart, weekEnd, onClose, onCopied }) {
       ) : (
         <div className="stack">
           <ErrorMessage message={error} />
-          <ul className="asw-facts">
+          <ul className="staff-facts">
             <li>
               <Icon name="check" size={16} />
               <span>People who are inactive or have left, and shifts no longer used, are skipped.</span>
@@ -899,7 +899,7 @@ function TextCopyModal({ employees, days, entryOf, restaurantName, onClose }) {
             ))}
           </select>
         </label>
-        <textarea className="asw-text-copy" rows={Math.min(14, text.split("\n").length + 1)} value={text} readOnly />
+        <textarea className="staff-text-copy" rows={Math.min(14, text.split("\n").length + 1)} value={text} readOnly />
         <div className="form-actions">
           <button type="button" className="button button-secondary" onClick={onClose}>
             Close

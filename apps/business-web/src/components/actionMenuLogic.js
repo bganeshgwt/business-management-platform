@@ -3,8 +3,8 @@
 // component so both can be read — and tested — on their own.
 
 export const MENU_WIDTH = 190;
-export const ITEM_HEIGHT = 34;
-export const EDGE_GAP = 8;
+const ITEM_HEIGHT = 34;
+const EDGE_GAP = 8;
 
 // The next stop in the given direction. Separators and disabled entries are
 // skipped rather than focused, and both ends wrap, which is what a menu does.

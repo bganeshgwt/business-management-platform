@@ -285,7 +285,7 @@ export default function ProductExtrasModal({ product, currency, canManage, onClo
                             aria-label="Size name"
                             onChange={(event) => setEditing({ ...editing, name: event.target.value })}
                           />
-                          {/* SW-A-12: the size's name on the KOT, in the cooks' script. */}
+                          {/* The size's name on the KOT, in the cooks' script. */}
                           <div className="muted small">Kitchen name</div>
                           <input
                             className="mnu-inline-input"

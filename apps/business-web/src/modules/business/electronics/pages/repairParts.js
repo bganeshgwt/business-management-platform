@@ -2,7 +2,7 @@ import { businessWrite } from "../../../../services/business.service";
 import { dateShort } from "@bmp/shared/format";
 import { whatsappLink } from "../../retail/pages/retail";
 
-// Telling a repair customer (pro pass E-18): one message per stage, sent
+// Telling a repair customer: one message per stage, sent
 // from the person's own WhatsApp (wa.me) or a call, and logged on the job.
 
 export const MESSAGE_STAGES = [
@@ -17,7 +17,7 @@ export const MESSAGE_STAGES = [
 // The stage that fits the job's status (the button offered first).
 export const stageFor = (status) => ({ received: "received", diagnosing: "received", waiting_parts: "parts", in_repair: "delayed", awaiting_approval: "approval", ready: "ready" }[status] || "received");
 
-export function repairMessage(job, stage, biz, amountDue) {
+function repairMessage(job, stage, biz, amountDue) {
   const shop = biz.settings.display_name || biz.business.name;
   const phone = biz.settings.phone ? ` Call us on ${biz.settings.phone}.` : "";
   const due = amountDue > 0 ? ` Amount to pay: ${biz.exact(amountDue)}.` : "";

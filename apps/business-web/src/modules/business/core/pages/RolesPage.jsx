@@ -12,7 +12,7 @@ import { useOpenBusiness, useServerList } from "./hooks";
 const ACTIONS = [["view", "See"], ["create", "Add"], ["edit", "Change"], ["approve", "Approve"], ["cancel", "Cancel"], ["refund", "Refund"], ["export", "Export"], ["print", "Print"], ["discount", "Discount"],
   // Tasks, issues & projects: assign to others, review / close, keep templates.
   ["assign", "Assign"], ["review", "Review"], ["manage", "Manage"],
-  // Clinic (round 2): reading and writing clinical notes.
+  // Clinic: reading and writing clinical notes.
   ["view_clinical", "See clinical"], ["edit_clinical", "Write clinical"]];
 
 // Roles of this business and what each may do: one row per module, one

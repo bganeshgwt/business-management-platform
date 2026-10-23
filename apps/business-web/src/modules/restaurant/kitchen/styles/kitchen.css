@@ -1380,7 +1380,7 @@ button.kot-line:focus-visible {
   min-width: 170px;
 }
 
-/* SW-A-12: a kitchen name with the menu name in small type under it. */
+/* A kitchen name with the menu name in small type under it. */
 .kds-kitchen-name {
   display: inline;
 }

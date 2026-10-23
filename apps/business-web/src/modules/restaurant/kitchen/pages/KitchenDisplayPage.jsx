@@ -1446,7 +1446,7 @@ function TicketCard({ ticket, now, settings, fresh, busy, canManage, siblings, o
         {ticket.items.map((item) => {
           const gone = item.liveQuantity <= 0;
           const tappable = canTap && !gone;
-          // SW-A-12: the kitchen's own names, as the kitchen settings choose.
+          // The kitchen's own names, as the kitchen settings choose.
           const names = itemNames(item, ticket.nameMode);
 
           const body = (
@@ -2097,7 +2097,7 @@ function TimersCard({ settings, onSave }) {
   );
 }
 
-// SW-A-12: what tickets call a dish. Dishes, sizes and add-ons get their
+// What tickets call a dish. Dishes, sizes and add-ons get their
 // kitchen name on the menu screens; this chooses whether the KOT, the board
 // and the change slips show it, the menu name, or both. Kept with the
 // kitchen's own settings because it changes nothing a guest or a bill sees.

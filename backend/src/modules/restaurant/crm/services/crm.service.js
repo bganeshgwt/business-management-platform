@@ -326,8 +326,8 @@ const mobileTaken = async (client, restaurantId, mobile, exceptId = null, confir
   );
 };
 
-// Every writer goes through here, the API and the seed scripts alike: a
-// mobile is stored in the one format (utils/phone.js), whatever was typed.
+// Every writer goes through here: a mobile is stored in the one format
+// (utils/phone.js), whatever was typed.
 const tidyCustomerData = (data) => ({
   ...data,
   // Left out (undefined) on an edit means "keep what is on file".
@@ -475,9 +475,6 @@ const editCustomer = async (restaurantId, id, data, userId, options = {}) => {
     }
   });
 };
-
-const updateCustomer = async (restaurantId, id, data, userId) =>
-  (await editCustomer(restaurantId, id, data, userId)).after;
 
 const plural = (count, word) => `${count} ${word}${count === 1 ? "" : "s"}`;
 
@@ -1208,9 +1205,6 @@ const editComplaint = async (restaurantId, id, data, userId, options = {}) => {
   };
 };
 
-const updateComplaint = async (restaurantId, id, data, userId) =>
-  (await editComplaint(restaurantId, id, data, userId)).after;
-
 // A customer's visit history: what they spent, how often, and what they like.
 const customerHistory = async (restaurantId, customerId, options = {}) => {
   requireRestaurantId(restaurantId);
@@ -1553,7 +1547,6 @@ module.exports = {
   listGuestBook,
   exportGuestBook,
   createCustomer,
-  updateCustomer,
   editCustomer,
   removeCustomer,
   eraseCustomer,
@@ -1567,11 +1560,9 @@ module.exports = {
   listAssignees,
   lookupReference,
   createComplaint,
-  updateComplaint,
   editComplaint,
   loyaltyReport,
   customerSalesReport,
   todayFor,
-  toCustomer,
   maskEmail,
 };

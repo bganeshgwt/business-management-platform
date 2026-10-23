@@ -49,7 +49,7 @@ async function directory(scope) {
   };
 }
 
-// The people pickers search on the server (round 2, R2-WS): a big restaurant
+// The people pickers search on the server: a big restaurant
 // has hundreds of logins and staff, and loading them all with the screen
 // cost about 330 KB. query: { q?, kind? ('user' = logins only), limit?, offset? }
 // → { rows: [{ kind, id, name, detail, placeId, login }], total }, by name.

@@ -76,7 +76,7 @@ function rowActions(biz, row, onAction) {
   return (
     <div className="row-actions">
       {biz.can("receivables.create") && owes && <button type="button" className="chip-button" onClick={() => onAction("collect", row)}>Collect</button>}
-      {/* Pro pass C-18: Remind is an everyday action, so it is a button too. */}
+      {/* Remind is an everyday action, so it is a button too. */}
       {biz.can("receivables.create") && owes && <button type="button" className="chip-button" onClick={() => onAction("remind", row)}>Remind</button>}
       <ActionMenu label={`More for ${row.name}`} items={[
         { label: "Statement", icon: "file", onClick: () => onAction("statement", row) },

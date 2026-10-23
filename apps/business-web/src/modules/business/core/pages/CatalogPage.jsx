@@ -54,7 +54,7 @@ export default function CatalogPage() {
     { key: "unit", header: "Unit", value: (s) => s.unit_name || s.unit },
     { key: "tracking", header: "Stock tracking", value: (s) => TRACKING[s.tracking], defaultHidden: true },
     { key: "stock", header: "In stock", type: "number", value: (s) => (s.kind === "service" ? null : Number(s.stock)), render: (s) => (s.kind === "service" ? <span className="muted">Service</span> : quantity(s.stock, s.unit)), mobile: "show" },
-    // Pro pass D-12: the case price and stock in cases, for goods sold by the pack.
+    // The case price and stock in cases, for goods sold by the pack.
     { key: "case_price", header: "Pack price", type: "money", exact: true, defaultHidden: !biz.has("sales_orders"),
       value: (s) => (packOf(s) ? Number(s.price) * packOf(s).factor : null), render: (s) => (packOf(s) ? `${biz.exact(Number(s.price) * packOf(s).factor)} / ${packOf(s).unit}` : <span className="muted">—</span>) },
     { key: "in_packs", header: "In packs", defaultHidden: !biz.has("sales_orders"), value: (s) => (packOf(s) ? inPacks(s.stock, s.unit, packOf(s).unit, packOf(s).factor) : ""),
@@ -113,7 +113,7 @@ function CatalogDialog({ sku, onClose, onSaved }) {
     mrp: sku.mrp ? String(Number(sku.mrp)) : "", hsnCode: sku.hsn_code || "",
     shelfLocation: sku.shelf_location || "", memberPrice: sku.member_price ? String(Number(sku.member_price)) : "",
     internalUse: Boolean(sku.internal_use),
-    // Pro pass C-17: stock already on the shelf when the item is added.
+    // Stock already on the shelf when the item is added.
     openingQuantity: "", openingCost: "", openingLocation: String(biz.locations.find((l) => l.active)?.id || ""), openingLot: "", openingExpiry: "",
   }));
   const canOpening = !editing && biz.has("inventory") && biz.can("inventory.edit");

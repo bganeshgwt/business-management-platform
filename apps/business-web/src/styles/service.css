@@ -97,7 +97,7 @@
   min-width: 0;
 }
 
-/* Captain sections dialog (SW-A-20). */
+/* Captain sections dialog. */
 .cap-actions {
   display: flex;
   flex-wrap: wrap;

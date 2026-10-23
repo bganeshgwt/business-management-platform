@@ -14,7 +14,7 @@ import { Badge, Field } from "../../core/pages/ui";
 import { businessToday, newKey, useOpenBusiness, useOptions, useServerList } from "../../core/pages/hooks";
 import { METHODS, methodName } from "../../receivables/pages/receivablesFormat";
 
-// The evening question (pro pass D-03): "Ravi went out today — what did he
+// The evening question: "Ravi went out today — what did he
 // collect in cash, UPI and cheques, what did he hand over, what is short?"
 // Pick a salesperson and a day: their receipts not yet settled, by method;
 // type the cash handed over; a shortage or excess needs a note. Receipts he

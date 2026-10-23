@@ -25,7 +25,7 @@ import { escapeHtml, printDocument } from "../../../../services/print";
 import useAuth from "../../../../hooks/useAuth";
 import useQueryFilter from "../../../../hooks/useQueryFilter";
 import { Chip, Tile } from "./stockUi";
-import "../styles/stock-pro.css";
+import "../styles/inventory.css";
 import { qty, signedMoney } from "./stockFormat";
 
 const STATUS = {

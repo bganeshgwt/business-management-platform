@@ -3,7 +3,7 @@ const v = require('../../../../utils/validate');
 const access = require('../../core/services/businessAccess.service');
 const h = require('./healthCommon');
 
-// Lab quality (round 3):
+// Lab quality:
 //
 //   Report      every signed report is kept as signed (results, ranges, flags,
 //   versions    who signed). A correction after signing is an amendment: the
@@ -219,4 +219,4 @@ async function orderQc(db, business, orderId) {
     WHERE ot.business_id=$1 AND ot.order_id=$2 GROUP BY p.id,p.name HAVING count(m.id)>0 ORDER BY p.name`, [business.id, orderId]);
 }
 
-module.exports = { requireLab, snapshot, recordVersion, amend, versions, saveMaterial, westgard, recordRun, qcToday, rejectedQc, orderQc };
+module.exports = { recordVersion, amend, versions, saveMaterial, recordRun, qcToday, rejectedQc, orderQc };

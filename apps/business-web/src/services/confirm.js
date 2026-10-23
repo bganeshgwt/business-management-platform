@@ -22,7 +22,7 @@ export const subscribeConfirm = (listener) => {
   return () => listeners.delete(listener);
 };
 
-export const hasConfirmHost = () => listeners.size > 0;
+const hasConfirmHost = () => listeners.size > 0;
 
 export const settleConfirm = (answer) => {
   const open = current;
@@ -56,5 +56,3 @@ export const confirmAction = (options = {}) => {
     emit();
   });
 };
-
-export default confirmAction;

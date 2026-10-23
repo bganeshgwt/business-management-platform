@@ -30,7 +30,7 @@ createRoot(document.getElementById("root")).render(
           {/* The manager-PIN prompt, opened by any screen whose action needs
               an approval the signed-in person cannot give themselves. */}
           <ApprovalDialog />
-          {/* "Are you sure?" from useConfirm(), and the toasts from useToast(). */}
+          {/* "Are you sure?" from useConfirm(), and the toasts from services/toast.js. */}
           <ConfirmHost />
           <Toaster />
         </AuthProvider>

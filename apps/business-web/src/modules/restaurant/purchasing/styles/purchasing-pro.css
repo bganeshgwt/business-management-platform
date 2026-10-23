@@ -1,5 +1,0 @@
-/* Purchasing (pro pass): the tile whose status the list is showing. */
-.stat-tile.is-picked {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 1px var(--primary) inset, var(--shadow-sm);
-}

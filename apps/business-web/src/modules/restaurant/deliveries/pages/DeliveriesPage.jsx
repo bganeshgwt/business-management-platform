@@ -15,7 +15,7 @@ export default function DeliveriesPage() {
   // The channel report is takings (gross, commission, net): it needs the
   // sales figures permission as well as reports, as on the server.
   const canReport = hasPermission("reports.view") && hasPermission("sales.view");
-  // Rider cash (SW-A-19): for whoever takes payments.
+  // Rider cash: for whoever takes payments.
   const canSettle = hasPermission("payments.manage");
   const [tab, setTab] = useQueryFilter("tab", "board");
 

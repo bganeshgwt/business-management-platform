@@ -102,8 +102,6 @@ const normaliseMobile = (value) => {
   return INDIAN.test(digits) ? digits : null;
 };
 
-const isValidMobile = (value) => normaliseMobile(value) !== null;
-
 // What is wrong with a number, in words a cashier can act on. null when it is
 // fine or blank.
 const mobileProblem = (value) => {
@@ -262,7 +260,6 @@ const abroadTenCountry = (mobile) => {
 
 module.exports = {
   normaliseMobile,
-  isValidMobile,
   mobileProblem,
   readMobile,
   mobileSearchDigits,
@@ -270,7 +267,4 @@ module.exports = {
   formatMobile,
   tenDigitTwin,
   abroadTenCountry,
-  INDIAN_MOBILE: INDIAN,
-  INTERNATIONAL_MOBILE: INTERNATIONAL,
-  ABROAD_TEN_DIGITS: ABROAD_TEN,
 };

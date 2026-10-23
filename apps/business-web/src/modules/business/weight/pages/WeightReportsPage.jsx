@@ -189,7 +189,7 @@ function WasteDays({ rows, grid }) {
   );
 }
 
-// Round 2 (R2-SVC): the average yield of each whole item by the supplier it
+// The average yield of each whole item by the supplier it
 // was bought from (total cut ÷ total whole weight), against that item's
 // average over every supplier — whose birds dress out lighter shows here.
 function YieldSuppliers({ rows, grid }) {

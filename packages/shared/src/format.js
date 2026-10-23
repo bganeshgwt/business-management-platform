@@ -1,7 +1,7 @@
 // Money, counts, dates and durations on screen — one place, so every screen
 // says ₹6,15,657, "6 Oct" and "1h 40m" the same way. The API always sends
 // plain numbers and ISO dates, so formatting is a presentation decision and
-// lives here rather than in each page. SCRATCH/pro/G/COMPONENTS.md lists them.
+// lives here rather than in each page.
 
 import { MONTH_NAMES } from "./dates.js";
 
@@ -75,14 +75,6 @@ export const balanceText = (value, { owes = "Owes", advance = "Advance", settled
   return number > 0 ? `${owes} ${format(number)}` : `${advance} ${format(Math.abs(number))}`;
 };
 
-// A signed number with a real minus sign: "−1 each", "+3".
-export const signed = (value, { plus = false } = {}) => {
-  const number = Number(value || 0);
-  const size = Math.abs(number);
-  const text = Number.isInteger(size) ? GROUPED.format(size) : String(size);
-  return number < 0 ? `${MINUS}${text}` : plus && number > 0 ? `+${text}` : text;
-};
-
 // --- Amount in words (Indian system), for tax invoices ----------------------
 
 const ONES = [
@@ -137,7 +129,7 @@ export const amountInWords = (value) => {
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export const toDate = (value) => {
+const toDate = (value) => {
   if (value === null || value === undefined || value === "") {
     return null;
   }

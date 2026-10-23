@@ -1,8 +1,8 @@
-/* Shared components added in the pro pass (SCRATCH/pro/G/COMPONENTS.md):
-   stat-tile figures that never break, toasts, form fields and inline errors,
-   the search picker, the skip link, the page header's "More" menu and the
-   settings layout. Loaded once in main.jsx, after ui.css. Sizes come from
-   the tokens at the top of base.css (--text-*, --space-*, --weight-*). */
+/* Shared components: stat-tile figures that never break, toasts, form fields
+   and inline errors, the search picker, the skip link, the page header's
+   "More" menu and the settings layout. Loaded once in main.jsx, after ui.css.
+   Sizes come from the tokens at the top of base.css (--text-*, --space-*,
+   --weight-*). */
 
 /* --- Stat tiles: a figure never breaks over two lines ------------------------------- */
 .stat-tile-value {

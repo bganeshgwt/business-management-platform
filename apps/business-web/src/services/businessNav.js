@@ -11,8 +11,8 @@ export const businessPath = (id, section = "") => `/business-admin/${id}${sectio
 export const isRestaurantStaff = (user) => Boolean(user?.restaurantId) && Array.isArray(user?.roles) && user.roles.length > 0;
 
 // Where a person lands after signing in: the business they used last; someone
-// with no restaurant role falls back to the first business in their list
-// (round 2, R2-CORE). null = stay on the restaurant's home screen.
+// with no restaurant role falls back to the first business in their list.
+// null = stay on the restaurant's home screen.
 export function landingBusiness(businesses, restaurantStaff) {
   const list = businesses || [];
   const recent = [...list].filter((b) => b.last_opened_at)
@@ -25,16 +25,16 @@ export function landingBusiness(businesses, restaurantStaff) {
 // Words a business of each type uses for the same screens.
 const TYPE_WORDS = {
   salon: { customers: "Clients", products: "Services & products", resources: "Stylists & rooms", sales: "Bills", appointments: "Appointment history" },
-  // Round 2: patients have their own screen (with consent); the core list is the billing contacts.
+  // Patients have their own screen (with consent); the core list is the billing contacts.
   healthcare: { customers: "Billing contacts", products: "Services & charges", resources: "Doctors & rooms", sales: "Bills" },
   pharmacy: { products: "Medicines & products" },
-  // Shared receivables (Phase 2): a kirana calls customer credit "udhaar".
+  // Shared receivables: a kirana calls customer credit "udhaar".
   grocery: { outstanding: "Udhaar", collections: "Udhaar collections" },
   books: { products: "Books & stationery" },
   wholesale: { customers: "Customers & retailers", pricing: "Price lists" },
   fashion: { products: "Products & variants", variants: "Size × colour" },
   electronics: { products: "Products & models" },
-  // Pro pass F-15/F-23: a meat shop's customer rates; a dry-fruit shop sorts and repacks.
+  // A meat shop's customer rates; a dry-fruit shop sorts and repacks.
   meat: { pricing: "Customer rates" },
   weight_retail: { pricing: "Customer rates", processing: "Sorting & repacking" },
 };
@@ -49,13 +49,13 @@ export const TYPE_ICONS = {
 
 // Retail screens (Quick bill, Udhaar, Retail reports) belong to these types.
 const RETAIL = ["grocery", "supermarket", "books"];
-// Weight-based shops (Phase 2, T4) bill loose weighed goods at the same counter.
+// Weight-based shops bill loose weighed goods at the same counter.
 const WEIGHED = ["meat", "weight_retail"];
 const SALON = ["salon"];
-// Round 2 (health module): pharmacy rules, and patients and the lab of a clinic.
+// The health module: pharmacy rules, and patients and the lab of a clinic.
 const PHARMACY = ["pharmacy"];
 const CLINIC = ["healthcare"];
-// Pro pass: every goods shop bills at the counter (Quick bill), keeps udhaar
+// Every goods shop bills at the counter (Quick bill), keeps udhaar
 // for named customers and closes its day there.
 export const GOODS = [...RETAIL, "pharmacy", "fashion", "electronics", ...WEIGHED];
 
@@ -72,26 +72,26 @@ export function businessSections(type) {
         { section: "rx-sale", label: "Prescription sale", icon: "pos", need: "sales.create", module: "pharmacy", types: PHARMACY },
         { section: "day-close", label: "Daily money", icon: "businessDay", need: "sales.view", except: ['restaurant'] },
         { section: "expenses", label: "Expenses", icon: "expenses", need: "expenses.view", except: ['restaurant'] },
-        // Phase 2, T4: the salon's bill and calendar.
+        // The salon's bill and calendar.
         { section: "salon-bill", label: "New bill", icon: "pos", need: "sales.create", types: SALON },
         { section: "salon-calendar", label: "Calendar", icon: "reservations", need: "appointments.view", types: SALON },
-        // Pro pass F-16: phone and WhatsApp orders for pickup at a weight shop.
+        // Phone and WhatsApp orders for pickup at a weight shop.
         { section: "pickup-orders", label: "Orders for pickup", icon: "pickup", need: "sales.view", module: "weight", types: WEIGHED },
         { section: "sales", label: word(type, "sales", "Sales"), icon: "bills", need: "sales.view" },
         { section: "customers", label: word(type, "customers", "Customers"), icon: "customers", need: "contacts.view" },
         { section: "udhaar", label: "Udhaar", icon: "dues", need: "receivables.view", types: GOODS },
-        // Pro pass C-19: a shop's udhaar collections sit right under Udhaar, one name for every shop.
+        // A shop's udhaar collections sit right under Udhaar, one name for every shop.
         { section: "collections", label: "Udhaar collections", icon: "collection", need: "receivables.view", types: GOODS },
-        // Pro pass C-24: school booklists and customer orders (bookshops).
+        // School booklists and customer orders (bookshops).
         { section: "book-orders", label: "Booklists & orders", icon: "orders", need: "sales.view", module: "books" },
         { section: "offers", label: "Offers & discounts", icon: "discounts", need: "offers.view" },
         { section: "loyalty", label: "Loyalty points", icon: "loyalty", need: "loyalty.view" },
         { section: "appointments", label: word(type, "appointments", "Appointments"), icon: "reservations", need: "appointments.view" },
-        // A salon edits its stylists and rooms under Stylists & services (pro pass F-12).
+        // A salon edits its stylists and rooms under Stylists & services.
         { section: "resources", label: word(type, "resources", "Staff & rooms"), icon: "employees", need: "appointments.view", except: SALON },
         { section: "pricing", label: word(type, "pricing", "Wholesale prices"), icon: "priceList", need: "wholesale.view" },
         { section: "price-groups", label: "Price groups & schemes", icon: "discounts", need: "wholesale.view", module: "sales_orders" },
-        // Phase 2, T2: wholesale orders and the shared receivables screens.
+        // Wholesale orders and the shared receivables screens.
         { section: "sales-orders", label: "Sales orders", icon: "orders", need: "sales_orders.view" },
         { section: "dispatch", label: "Dispatch", icon: "deliveries", need: "sales_orders.view" },
         { section: "back-orders", label: "Back-orders", icon: "pickup", need: "sales_orders.view" },
@@ -99,13 +99,13 @@ export function businessSections(type) {
         { section: "outstanding", label: word(type, "outstanding", "Outstanding"), icon: "dues", need: "receivables.view", except: GOODS },
         { section: "collections", label: word(type, "collections", "Collections"), icon: "collection", need: "receivables.view", except: GOODS },
         { section: "routes", label: "Routes & salespeople", icon: "deliveries", need: "sales_orders.view" },
-        // Phase 2, T3: fashion exchanges, electronics repairs and warranties.
+        // Fashion exchanges, electronics repairs and warranties.
         { section: "exchanges", label: "Exchanges", icon: "returns", need: "exchanges.view" },
         { section: "repairs", label: "Repairs", icon: "repair", need: "repairs.view" },
         { section: "warranties", label: "Warranties", icon: "warranty", need: "warranties.view" },
-        // Round 2: EMI sales owed by financiers, and their payouts.
+        // EMI sales owed by financiers, and their payouts.
         { section: "emi-finance", label: "EMI & financiers", icon: "wallet", need: "finance.view" },
-        // Phase 2, T4: salon packages and memberships.
+        // Salon packages and memberships.
         { section: "packages", label: "Packages", icon: "package", need: "packages.view", types: SALON },
       ],
     },
@@ -134,7 +134,7 @@ export function businessSections(type) {
       title: "Purchases",
       links: [
         { section: "purchases", label: "Purchases", icon: "purchaseOrders", need: "purchasing.view" },
-        // Round 2: purchase orders to the company / super-stockist (wholesale).
+        // Purchase orders to the company / super-stockist (wholesale).
         // Every shop that buys stock raises purchase orders (reorder suggestions per branch).
         { section: "purchase-orders", label: "Purchase orders", icon: "purchaseOrders", need: "purchasing.view", module: "inventory" },
         { section: "suppliers", label: "Suppliers", icon: "suppliers", need: "contacts.view", module: "purchasing" },
@@ -150,7 +150,7 @@ export function businessSections(type) {
         { section: "books", label: "Book details", icon: "categories", need: "catalog.view", module: "books" },
         { section: "labels", label: "Barcode labels", icon: "numbering", need: "catalog.print", module: "inventory" },
         { section: "variants", label: word(type, "variants", "Variants"), icon: "modifiers", need: "catalog.view", module: "variants" },
-        // Round 2: a kit / bundle sells as its parts (goods shops).
+        // A kit / bundle sells as its parts (goods shops).
         { section: "kits", label: "Kits & bundles", icon: "box", need: "catalog.view", module: "inventory", types: GOODS },
         { section: "salon-setup", label: "Stylists & services", icon: "hours", need: "appointments.view", types: SALON },
         { section: "rates", label: "Today's rates", icon: "priceList", need: "catalog.view", module: "weight", types: WEIGHED },
@@ -161,12 +161,12 @@ export function businessSections(type) {
       links: [
         { section: "stock", label: "Stock on hand", icon: "stock", need: "inventory.view" },
         { section: "movements", label: "Stock movements", icon: "movements", need: "inventory.view" },
-        // Pro pass C-14: batches running out of date, with markdown and write-off.
+        // Batches running out of date, with markdown and write-off.
         { section: "near-expiry", label: "Expiring soon", icon: "hours", need: "inventory.view", module: "batches" },
         { section: "transfers", label: "Transfers", icon: "transfers", need: "stock_transfers.view" },
         { section: "counts", label: "Stock counts", icon: "counts", need: "stock_counts.view" },
         { section: "serials", label: "Serial / IMEI register", icon: "numbering", need: "inventory.view", module: "serials" },
-        // Phase 2, T4: weight-based shops.
+        // Weight-based shops.
         { section: "weight-stock", label: "Stock by weight", icon: "inventoryInsights", need: "inventory.view", module: "weight", types: WEIGHED },
         { section: "processing", label: WEIGHED.includes(type) ? "Cutting & processing" : word(type, "processing", "Cutting & yield"), icon: "kitchen", need: "processing.view" },
         { section: "wastage", label: "Wastage", icon: "returns", need: "wastage.view" },

@@ -1,4 +1,4 @@
-// Online table booking on the host stand (SW-A-21): the inbox of requests
+// Online table booking on the host stand: the inbox of requests
 // guests send from the booking link, and the link itself — on or off, its
 // limits, and the address and QR code to share.
 import { useEffect, useMemo, useState } from "react";

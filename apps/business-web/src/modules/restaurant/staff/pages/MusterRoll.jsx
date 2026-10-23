@@ -146,7 +146,7 @@ export default function MusterRoll({ canManage, restaurantName, outlets = [], le
         title={`Attendance register · ${monthWords(month)}`}
         description="P present · ½ half day · A absent · L leave · WO week off; a red mark is a late arrival. Tap a day to correct it."
         actions={
-          <div className="asw-inline-actions">
+          <div className="staff-inline-actions">
             <button type="button" className="button button-secondary button-sm" onClick={print} disabled={!data || data.rows.length === 0}>
               <Icon name="print" size={15} /> Print
             </button>
@@ -200,7 +200,7 @@ export default function MusterRoll({ canManage, restaurantName, outlets = [], le
           <EmptyState icon="users" message="Nobody to show" hint="The register lists active staff, and anyone with a day recorded in the month." />
         ) : (
           <>
-            <div className="asw-muster-tiles">
+            <div className="staff-muster-tiles">
               <StatTile size="sm" icon="check-circle" tone="success" label="Present days" value={count(data.totals.present)} note={data.totals.halfDays ? `+ ${data.totals.halfDays} half days` : "full days"} />
               <StatTile size="sm" icon="x-circle" tone={data.totals.absent ? "danger" : "neutral"} label="Absent" value={count(data.totals.absent)} note="loss-of-pay days" />
               <StatTile size="sm" icon="calendar" tone="info" label="Leave · week offs" value={`${data.totals.leave} · ${data.totals.weekOffs}`} />
@@ -230,7 +230,7 @@ export default function MusterRoll({ canManage, restaurantName, outlets = [], le
                 ...data.days.map((date) => ({
                   key: `d${date.slice(8)}`,
                   header: (
-                    <span className={`asw-muster-day ${isSunday(date) ? "is-sunday" : ""} ${date === data.today ? "is-today" : ""}`}>
+                    <span className={`staff-muster-day ${isSunday(date) ? "is-sunday" : ""} ${date === data.today ? "is-today" : ""}`}>
                       <span>{Number(date.slice(8))}</span>
                       <small>{weekdayOf(date)}</small>
                     </span>
@@ -250,22 +250,22 @@ export default function MusterRoll({ canManage, restaurantName, outlets = [], le
                     const editable = canManage && !["not_employed", "future"].includes(value.status);
 
                     return (
-                      <div className={`asw-muster-cell is-${value.status} ${isSunday(date) ? "is-sunday" : ""}`}>
+                      <div className={`staff-muster-cell is-${value.status} ${isSunday(date) ? "is-sunday" : ""}`}>
                         {editable ? (
                           <button
                             type="button"
-                            className="asw-muster-button"
+                            className="staff-muster-button"
                             onClick={() => setCell({ row, date, value })}
                             aria-label={`${row.name}, ${dayWords(date)}: ${STATUSES[value.status] || "not marked"}${value.late ? ", late" : ""}`}
                             title={`${STATUSES[value.status] || "Not marked"}${value.leaveType ? ` (${value.leaveType})` : ""}${value.late ? ` · ${value.lateMinutes} min late` : ""}`}
                           >
                             {value.code || "·"}
-                            {value.late && <span className="asw-late-mark" aria-hidden="true" />}
+                            {value.late && <span className="staff-late-mark" aria-hidden="true" />}
                           </button>
                         ) : (
-                          <span className="asw-muster-static" title={STATUSES[value.status] || ""}>
+                          <span className="staff-muster-static" title={STATUSES[value.status] || ""}>
                             {value.code}
-                            {value.late && <span className="asw-late-mark" aria-hidden="true" />}
+                            {value.late && <span className="staff-late-mark" aria-hidden="true" />}
                           </span>
                         )}
                       </div>
@@ -446,7 +446,7 @@ function DayFix({ cell, leaveTypes, onClose, onSaved }) {
               Cancel
             </button>
             {warning ? (
-              <button type="button" className="button asw-button-warning" onClick={() => save(true)} disabled={busy}>
+              <button type="button" className="button staff-button-warning" onClick={() => save(true)} disabled={busy}>
                 {busy ? "Saving…" : "Save anyway — unpaid"}
               </button>
             ) : (

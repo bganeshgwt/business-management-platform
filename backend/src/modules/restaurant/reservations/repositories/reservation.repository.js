@@ -851,7 +851,7 @@ const attachWaitlistOrder = async (restaurantId, id, orderId) => {
   );
 };
 
-// --- Online booking (SW-A-21) ----------------------------------------------
+// --- Online booking --------------------------------------------------------
 //
 // A booking link belongs to one place: the main counter (outlet NULL) or one
 // outlet. Its room and its load are counted strictly for that place — unlike
@@ -1092,7 +1092,6 @@ module.exports = {
   findByGuestToken,
   lockTables,
   setExtraTables,
-  HOLDING,
   WAITLIST_GRACE_MINUTES,
   findByDate,
   findAll,

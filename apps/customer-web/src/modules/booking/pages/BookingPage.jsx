@@ -1,4 +1,4 @@
-// A guest booking a table online (SW-A-21). Public, no login:
+// A guest booking a table online. Public, no login:
 //   /book/:token                 the restaurant's (or outlet's) booking link
 //   /book/status/:guestToken     the guest's own booking, its answer and a way to cancel
 //

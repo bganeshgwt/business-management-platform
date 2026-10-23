@@ -7,7 +7,7 @@ import api from "./api";
 // Names here are for the "switched off" screen a route shows before any
 // request is made; the Features screen itself reads names and descriptions
 // from the server (the platform module catalogue).
-export const FEATURE_NAMES = {
+const FEATURE_NAMES = {
   guests: "Guests & CRM",
   guest_loyalty: "Loyalty points",
   reservations: "Reservations",

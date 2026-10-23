@@ -1,11 +1,11 @@
 import { escapeHtml, printDocument } from "../../../../services/print";
 import { amountInWords, moneyExact } from "@bmp/shared/format";
 
-// The one GST tax invoice every Business Admin type prints (pro pass G-15,
-// D-05): A4 for the file and the buyer, 80 mm for the till. Everything on it
-// is what was posted — lines, HSN, MRP, rates, discounts, GST, round-off —
-// never recalculated; only the CGST / SGST halves are split here, to the
-// paisa, so they always add up to the GST that was charged.
+// The one GST tax invoice every Business Admin type prints: A4 for the file
+// and the buyer, 80 mm for the till. Everything on it is what was posted —
+// lines, HSN, MRP, rates, discounts, GST, round-off — never recalculated;
+// only the CGST / SGST halves are split here, to the paisa, so they always
+// add up to the GST that was charged.
 //
 //   printTaxInvoice(doc, biz, { paper: "a4" | "80mm", change, udhaar })
 //   doc:    GET /businesses/:id/documents/:docId (with seller, retail extras)
@@ -20,7 +20,7 @@ export const GST_STATES = {
   29: "Karnataka", 30: "Goa", 31: "Lakshadweep", 32: "Kerala", 33: "Tamil Nadu", 34: "Puducherry", 35: "Andaman & Nicobar Islands",
   36: "Telangana", 37: "Andhra Pradesh", 38: "Ladakh", 97: "Other territory",
 };
-export const stateName = (code) => (code ? `${GST_STATES[code] || "State"} (${code})` : "");
+const stateName = (code) => (code ? `${GST_STATES[code] || "State"} (${code})` : "");
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 // A date in the business's own format and time zone (Business settings › Prices, totals and numbering).
@@ -45,14 +45,14 @@ const RATE = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumF
 const halves = (taxPaise) => [taxPaise - Math.floor(taxPaise / 2), Math.floor(taxPaise / 2)];
 
 // Everything both papers print, worked out once.
-export function invoiceFacts(doc) {
+function invoiceFacts(doc) {
   const seller = doc.seller || {};
   const sale = doc.kind === "sale";
   const pos = doc.place_of_supply || (doc.contact_gstin ? String(doc.contact_gstin).slice(0, 2) : seller.state_code) || null;
   const interstate = Boolean(sale && pos && seller.state_code && pos !== seller.state_code);
   const discounts = doc.retail?.discounts || [];
-  // A dispatched wholesale order (pro pass D-05): each line's trade / scheme
-  // discount off the list price, and free goods.
+  // A dispatched wholesale order: each line's trade / scheme discount off the
+  // list price, and free goods.
   const trade = doc.wholesale?.lines || [];
   const lines = doc.lines.map((line, index) => {
     const tax = p(line.tax);
@@ -77,9 +77,9 @@ export function invoiceFacts(doc) {
     row.taxable += l.taxable; row.cgst += l.cgst; row.sgst += l.sgst; row.igst += l.igst; row.tax += l.tax;
     summary.set(key, row);
   }
-  // Round 2 (R2-CORE): a 0% (exempt / nil-rated) slab is one "Exempt" row of
-  // the summary when the bill has such lines; a row with nothing in it (free
-  // goods at a rate) is left out, and so are tax rows of zero.
+  // A 0% (exempt / nil-rated) slab is one "Exempt" row of the summary when the
+  // bill has such lines; a row with nothing in it (free goods at a rate) is
+  // left out, and so are tax rows of zero.
   const summaryRows = [...summary.values()].filter((row) => row.taxable !== 0 || row.tax !== 0)
     .map((row) => ({ ...row, exempt: row.rate === 0 && row.tax === 0 }));
   const sum = (key) => lines.reduce((s, l) => s + l[key], 0);
@@ -106,7 +106,7 @@ const A4_STYLES = `body{font:12px/1.4 system-ui,-apple-system,"Segoe UI",sans-se
   .grand td{font-size:14px;font-weight:700;border-top:2px solid #111!important} .words{font-style:italic}
   .sign{display:flex;justify-content:space-between;margin-top:28px;align-items:flex-end} .sign .r{text-align:right}`;
 
-// A pharmacy bill (round 2, health module): each line's schedule and expiry,
+// A pharmacy bill: each line's schedule and expiry,
 // and the drug licence numbers, the registered pharmacist and the prescription.
 function pharmacyLine(doc, line) {
   const x = (doc.pharmacy?.lines || []).find((l) => l.line_id === line.id);
@@ -177,7 +177,7 @@ function a4(doc, biz, f) {
 }
 
 // Order, salesperson and transport of a dispatched wholesale order, with the
-// e-way bill (pro pass D-05). Nothing for any other sale.
+// e-way bill. Nothing for any other sale.
 function transportBox(doc, date) {
   const w = doc.wholesale;
   if (!w) return "";
@@ -247,7 +247,7 @@ function till(doc, biz, f, { change = 0, udhaar = null } = {}) {
 }
 
 const METHOD_WORDS = { cash: "Cash", upi: "UPI", card: "Card", bank: "Bank transfer", cheque: "Cheque", credit_note: "Credit note", finance: "EMI" };
-// An EMI bill's financier and loan (round 2).
+// An EMI bill's financier and loan.
 const financeWords = (doc) => (doc.finance || []).map((f) => `${f.financier_name} ${f.loan_no}`).join(", ") || "financier";
 // Change given back: what the counter says, or (a reprint) cash handed over less the cash part (paise).
 const changeBack = (doc, change) => (change > 0 ? p(change) : doc.payments.reduce((s, x) => s + (x.method === "cash" && x.tendered ? Math.max(0, p(x.tendered) - p(x.amount)) : 0), 0));

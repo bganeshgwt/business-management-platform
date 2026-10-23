@@ -1,4 +1,4 @@
-// The restaurant's own online ordering page (SW-A-22): its links, one per
+// The restaurant's own online ordering page: its links, one per
 // selling point (the main counter, outlet NULL, and each outlet), and the
 // guest's side of a website order. The staff side — the inbox, accepting and
 // rejecting — is the table-requests module's own, because a website order is

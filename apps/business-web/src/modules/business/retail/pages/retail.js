@@ -4,9 +4,8 @@ import { dateShort } from "@bmp/shared/format";
 // Shared by the retail screens (Quick bill, Udhaar, Offers, Loyalty, Books,
 // Barcode labels, Retail reports): words, receipt printing and messages.
 
-export const RETAIL_TYPES = ["grocery", "supermarket", "books"];
 export { GOODS as GOODS_TYPES } from "../../../../services/businessNav";
-export const METHOD_WORDS = { cash: "Cash", upi: "UPI", card: "Card", bank: "Bank transfer", cheque: "Cheque", credit_note: "Credit note", finance: "EMI (financier)" };
+const METHOD_WORDS = { cash: "Cash", upi: "UPI", card: "Card", bank: "Bank transfer", cheque: "Cheque", credit_note: "Credit note", finance: "EMI (financier)" };
 export const methodWord = (method) => METHOD_WORDS[method] || method;
 // A payment as taken: the business's own method name (PhonePe) where it was recorded.
 export const paymentWord = (payment) => payment?.method_name || methodWord(payment?.method);
@@ -38,8 +37,8 @@ export function offerSummary(offer, amount) {
   }
 }
 
-// Why a running offer is not giving anything right now, in words (pro pass
-// C-21): "Runs Sundays only", "Runs 4–7 pm", "Runs Sat, Sun · 4–7 pm".
+// Why a running offer is not giving anything right now, in words:
+// "Runs Sundays only", "Runs 4–7 pm", "Runs Sat, Sun · 4–7 pm".
 const DAY_NAMES = ["Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays", "Sundays"];
 const clock = (text) => {
   const [h, m] = String(text).slice(0, 5).split(":").map(Number);

@@ -1,25 +1,14 @@
 import {test,expect} from '@playwright/test';
-import fs from 'node:fs';
-import path from 'node:path';
-import process from 'node:process';
 
-const credentialPath=process.env.E2E_CREDENTIALS_FILE;
-const account=credentialPath?JSON.parse(fs.readFileSync(credentialPath,'utf8')).accounts.find(a=>a.role==='RESTAURANT_ADMIN'):null;
-let businesses=[];
-// The demo of a type: these checks read its sample data. The owner's real
-// copies (LIVE-…) start empty and come first in the list.
-const demoOf=type=>businesses.find(b=>b.business_type===type&&b.is_demo)||businesses.find(b=>b.business_type===type);
+import {business as businessOf,fixture,localDate,signIn} from '../../../../e2e/fixture.mjs';
+
+// The restaurant's admin owns one business of every type (e2e/test-data.mjs),
+// each with the specialist tools its trade uses switched on; the meat shop
+// sells cuts by weight. Screenshots for the visual review go to each test's
+// own folder under test-results.
 test.beforeEach(async({page})=>{
-  test.skip(!account,'Set E2E_CREDENTIALS_FILE for the local demo account.');
-  await page.goto('/login');
-  await page.locator('input[autocomplete="username"]').fill(account.email);
-  await page.locator('input[autocomplete="current-password"]').fill(account.password);
-  await page.getByRole('button',{name:'Sign in',exact:true}).click();
-  await expect(page.locator('main.content-scroll')).toBeVisible();
-  businesses=await page.evaluate(async()=>{
-    const api=await import('/src/services/business.service.js');
-    return (await api.listBusinesses()).businesses;
-  });
+  await signIn(page);
+  await expect(page.locator('main.content-scroll')).toBeVisible({timeout:30000});
 });
 
 test('every local business presents a small menu and accessible stock, settings and report workspaces',async({page})=>{
@@ -28,8 +17,7 @@ test('every local business presents a small menu and accessible stock, settings 
   page.on('pageerror',e=>errors.push(e.message));
   const types=['grocery','supermarket','wholesale','fashion','electronics','pharmacy','books','salon','healthcare','meat','weight_retail'];
   for(const type of types){
-    const business=demoOf(type);
-    expect(business,`${type} demo is available`).toBeTruthy();
+    const business=businessOf(type);
     await page.goto(`/business-admin/${business.id}/settings`);
     await expect(page.getByRole('heading',{name:'Business settings',exact:true})).toBeVisible({timeout:30000});
     const sidebar=page.locator('.sidebar');
@@ -42,21 +30,20 @@ test('every local business presents a small menu and accessible stock, settings 
     await page.goto(`/business-admin/${business.id}/reports`);
     await expect(page.getByRole('heading',{name:'Reports',exact:true})).toBeVisible({timeout:30000});
     await expect(page.getByText('This screen belongs to a different kind of business.')).toHaveCount(0);
-    const result=await page.evaluate(async({id})=>{
+    // Today on the business's own clock.
+    const result=await page.evaluate(async({id,today})=>{
       const api=await import('/src/services/business.service.js');
-      const today=new Date().toISOString().slice(0,10);
       return (await api.businessRead(id,'reports',{from:today,to:today})).rows;
-    },{id:business.id});
+    },{id:business.id,today:localDate()});
     expect(Array.isArray(result)).toBeTruthy();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),`${type} has no page-width overflow`).toBeTruthy();
   }
   expect(errors).toEqual([]);
 });
 
-test('meat billing fits desktop, customer dues share navigation, and expense/cash dialogs stay on their page',async({page})=>{
+test('meat billing fits desktop, customer dues share navigation, and expense/cash dialogs stay on their page',async({page},testInfo)=>{
   await page.setViewportSize({width:1440,height:900});
-  const business=demoOf('meat');
-  expect(business).toBeTruthy();
+  const business=businessOf('meat');
   await page.goto(`/business-admin/${business.id}/counter`);
   await expect(page.getByRole('heading',{name:'Quick bill',exact:true})).toBeVisible({timeout:30000});
   await expect(page.getByRole('heading',{name:'Customer',exact:true})).toBeVisible();
@@ -85,18 +72,19 @@ test('meat billing fits desktop, customer dues share navigation, and expense/cas
   await page.getByRole('button',{name:'Count cash',exact:true}).click();
   await expect(page.getByRole('dialog').getByText('Opening cash',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Cancel',exact:true}).click();
-  const folder=path.resolve('.local/workspace-review');fs.mkdirSync(folder,{recursive:true});
   await expect(page.locator(".modal-backdrop, .motion-backdrop-ghost")).toHaveCount(0);
-  await page.screenshot({path:path.join(folder,'daily-money.png'),fullPage:true});
+  await page.screenshot({path:testInfo.outputPath('daily-money.png'),fullPage:true});
   await page.goto(`/business-admin/${business.id}/counter`);
   await expect(page.locator('.rt-post')).toBeVisible();
+  // The shelf holds the shop's cuts.
   await expect(page.locator(".rt-shelf-grid")).toBeVisible();
-  await page.screenshot({path:path.join(folder,'meat-counter.png')});
+  await expect(page.locator(".rt-shelf-grid")).toContainText(business.items[0].name);
+  await page.screenshot({path:testInfo.outputPath('meat-counter.png')});
 });
 
 test('mobile navigation keeps related tools reachable without horizontal overflow',async({page})=>{
   await page.setViewportSize({width:390,height:844});
-  const business=demoOf('meat');
+  const business=businessOf('meat');
   await page.goto(`/business-admin/${business.id}/stock`);
   await expect(page.getByRole('heading',{name:'Stock on hand',exact:true})).toBeVisible({timeout:30000});
   await page.getByRole('button',{name:'More tools',exact:true}).click();
@@ -116,12 +104,12 @@ test('restaurant stock tools share their area and keep the existing permission-f
 });
 
 test('prescription billing has one payment method and optional offers remain reachable',async({page})=>{
-  const pharmacy=demoOf('pharmacy');
+  const pharmacy=businessOf('pharmacy');
   await page.goto(`/business-admin/${pharmacy.id}/rx-sale`);
   await expect(page.getByRole('heading',{name:'Prescription sale',exact:true})).toBeVisible({timeout:30000});
   await expect(page.getByRole('group',{name:'Paid by'})).toBeVisible();
   await expect(page.getByRole('button',{name:'Split',exact:true})).toHaveCount(0);
-  const grocery=demoOf('grocery');
+  const grocery=businessOf('grocery');
   await page.goto(`/business-admin/${grocery.id}/products`);
   await expect(page.getByRole('navigation',{name:'Related pages'})).toBeVisible({timeout:30000});
   const offers=page.getByRole('navigation',{name:'Related pages'}).getByRole('link',{name:'Offers & discounts',exact:true});
@@ -141,8 +129,8 @@ test('all business main menu destinations render without runtime or API failures
   page.on('response',response=>{
     if(response.status()>=500&&response.url().includes('/api/')) failures.push(`${response.status()} ${response.url()}`);
   });
-  for(const business of businesses){
-    if(business.business_type==='restaurant')continue;
+  // Every business the restaurant's admin owns: one of each type.
+  for(const business of Object.values(fixture().businesses)){
     await page.goto(`/business-admin/${business.id}/settings`);
     await expect(page.getByRole('heading',{name:'Business settings',exact:true})).toBeVisible({timeout:30000});
     const links=await page.locator('.sidebar a.nav-link').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')).filter(href=>href.startsWith('/business-admin/')));
@@ -157,7 +145,7 @@ test('all business main menu destinations render without runtime or API failures
   expect(failures).toEqual([]);
 });
 
-test('related page tabs show selection, work from the keyboard and preserve browser history',async({page})=>{
+test('related page tabs show selection, work from the keyboard and preserve browser history',async({page},testInfo)=>{
   await page.setViewportSize({width:1440,height:900});
   await page.goto('/logbook');
   await expect(page.getByRole('heading',{name:'Log book',exact:true})).toBeVisible({timeout:30000});
@@ -186,13 +174,12 @@ test('related page tabs show selection, work from the keyboard and preserve brow
   await expect(page.locator('.modal-backdrop, .motion-backdrop-ghost')).toHaveCount(0);
   await page.locator('main.content-scroll').evaluate(node=>{node.scrollTop=0;});
   await expect(nav).toBeInViewport();
-  const folder=path.resolve('.local/workspace-review');fs.mkdirSync(folder,{recursive:true});
-  await page.screenshot({path:path.join(folder,'tabs-logbook.png')});
+  await page.screenshot({path:testInfo.outputPath('tabs-logbook.png')});
 });
 
-test('mobile tabs expose overflow and keep a page selected from More tools visible',async({page})=>{
+test('mobile tabs expose overflow and keep a page selected from More tools visible',async({page},testInfo)=>{
   await page.setViewportSize({width:390,height:844});
-  const meat=demoOf('meat');
+  const meat=businessOf('meat');
   await page.goto(`/business-admin/${meat.id}/stock`);
   const nav=page.getByRole('navigation',{name:'Related pages'});
   await expect(nav).toBeVisible({timeout:30000});
@@ -210,12 +197,11 @@ test('mobile tabs expose overflow and keep a page selected from More tools visib
     return item.left>=track.left-1&&item.right<=track.right+1;
   })).toBeTruthy();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBeTruthy();
-  const folder=path.resolve('.local/workspace-review');fs.mkdirSync(folder,{recursive:true});
-  await page.screenshot({path:path.join(folder,'tabs-mobile.png')});
+  await page.screenshot({path:testInfo.outputPath('tabs-mobile.png')});
 });
 
 test('in-page tabs switch the named panel with arrows and retain other query filters',async({page})=>{
-  const books=demoOf('books');
+  const books=businessOf('books');
   await page.goto(`/business-admin/${books.id}/book-orders?review=keep`);
   const tabs=page.getByRole('tablist',{name:'Booklists and orders'});
   await expect(tabs).toBeVisible({timeout:30000});
@@ -229,7 +215,7 @@ test('in-page tabs switch the named panel with arrows and retain other query fil
   await page.keyboard.press('Home');
   await expect(page.getByRole('tabpanel',{name:'Customer orders'})).toBeVisible();
   expect(await tabs.locator('[tabindex="0"]').count()).toBe(1);
-  const pharmacy=demoOf('pharmacy');
+  const pharmacy=businessOf('pharmacy');
   await page.goto(`/business-admin/${pharmacy.id}/pharmacy-batches`);
   await page.getByRole('tab',{name:'Recalls',exact:true}).click();
   await expect(page.getByRole('tabpanel',{name:'Recalls'})).toBeVisible();
@@ -237,7 +223,7 @@ test('in-page tabs switch the named panel with arrows and retain other query fil
 });
 
 test('label selection opens a modal and retains the editable queue after closing',async({page})=>{
-  const meat=demoOf('meat');
+  const meat=businessOf('meat');
   await page.goto(`/business-admin/${meat.id}/labels`);
   const add=page.getByRole('button',{name:'Add to sheet',exact:true}).first();
   await expect(add).toBeVisible({timeout:30000});
@@ -258,7 +244,7 @@ test('label selection opens a modal and retains the editable queue after closing
 });
 
 test('Quick bill clears a failed search when the input changes and adds the selected match',async({page})=>{
-  const meat=demoOf('meat');
+  const meat=businessOf('meat');
   await page.goto(`/business-admin/${meat.id}/counter`);
   const input=page.getByRole('combobox',{name:'Scan or type an item',exact:true});
   await expect(input).toBeVisible({timeout:30000});
@@ -267,8 +253,10 @@ test('Quick bill clears a failed search when the input changes and adds the sele
   await expect(page.getByText(/Nothing matches "ZZ-NOT-AN-ITEM-UI-REVIEW"/)).toBeVisible();
   await input.press('Escape');
   await expect(page.getByText(/Nothing matches "ZZ-NOT-AN-ITEM-UI-REVIEW"/)).toHaveCount(0);
-  await input.fill('chicken');
-  const match=page.locator('.rt-matches button').first();
+  // A cut sold by weight: it goes on the bill waiting for its weight.
+  const cut=meat.items[0].name;
+  await input.fill(cut);
+  const match=page.locator('.rt-matches button').filter({hasText:cut});
   await expect(match).toBeVisible();
   await match.click();
   await expect(page.getByRole('button',{name:'Clear',exact:true})).toBeVisible();
@@ -287,30 +275,29 @@ for(const type of ['grocery','supermarket','wholesale','fashion','electronics','
     if(response.status()>=400&&response.url().includes('/api/businesses/'))failures.push(`${response.status()} ${response.url()}`);
   });
   let reviewed=0;
-  for(const business of businesses.filter(item=>item.business_type===type)){
-    const sections=await page.evaluate(async({id,type})=>{
-      const api=await import('/src/services/business.service.js');
-      const nav=await import('/src/services/businessNav.js');
-      const workspace=await import('/src/services/businessWorkspace.js');
-      const context=await api.businessContext(id);
-      const allowed=rule=>rule&&nav.typeAllows(rule,type)&&(!rule.need||context.permissions.includes(rule.need)&&context.modules.includes(rule.need.split('.')[0]))&&(!rule.module||context.modules.includes(rule.module));
-      const rules=nav.businessSections(type).flatMap(group=>group.links);
-      const names=workspace.dailyWorkspaces(type).flatMap(group=>group.keys).flatMap(key=>workspace.WORKSPACES[key]?workspace.workspaceSections(key,type):[key]);
-      return [...new Set(names)].filter(name=>!['','counter','rx-sale','salon-bill','dispatch','routes'].includes(name)&&allowed(rules.find(rule=>rule.section===name&&nav.typeAllows(rule,type))));
-    },{id:business.id,type:business.business_type});
-    for(const section of sections){
-      const url=`/business-admin/${business.id}/${section}`;
-      await page.goto(url);
-      await expect(page.locator('main.content-scroll h1').first(),url).toBeVisible({timeout:30000});
-      await expect(page.getByRole('heading',{name:'Not available here',exact:true}),url).toHaveCount(0);
-      const related=page.getByRole('navigation',{name:'Related pages'});
-      if(await related.count()){
-        await expect(related.locator('[aria-current="page"]'),url).toHaveCount(1);
-        await expect(related.locator('[aria-current="page"]'),url).toHaveAttribute('href',url);
-      }
-      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),url).toBeTruthy();
-      reviewed++;
+  const business=businessOf(type);
+  const sections=await page.evaluate(async({id,type})=>{
+    const api=await import('/src/services/business.service.js');
+    const nav=await import('/src/services/businessNav.js');
+    const workspace=await import('/src/services/businessWorkspace.js');
+    const context=await api.businessContext(id);
+    const allowed=rule=>rule&&nav.typeAllows(rule,type)&&(!rule.need||context.permissions.includes(rule.need)&&context.modules.includes(rule.need.split('.')[0]))&&(!rule.module||context.modules.includes(rule.module));
+    const rules=nav.businessSections(type).flatMap(group=>group.links);
+    const names=workspace.dailyWorkspaces(type).flatMap(group=>group.keys).flatMap(key=>workspace.WORKSPACES[key]?workspace.workspaceSections(key,type):[key]);
+    return [...new Set(names)].filter(name=>!['','counter','rx-sale','salon-bill','dispatch','routes'].includes(name)&&allowed(rules.find(rule=>rule.section===name&&nav.typeAllows(rule,type))));
+  },{id:business.id,type});
+  for(const section of sections){
+    const url=`/business-admin/${business.id}/${section}`;
+    await page.goto(url);
+    await expect(page.locator('main.content-scroll h1').first(),url).toBeVisible({timeout:30000});
+    await expect(page.getByRole('heading',{name:'Not available here',exact:true}),url).toHaveCount(0);
+    const related=page.getByRole('navigation',{name:'Related pages'});
+    if(await related.count()){
+      await expect(related.locator('[aria-current="page"]'),url).toHaveCount(1);
+      await expect(related.locator('[aria-current="page"]'),url).toHaveAttribute('href',url);
     }
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),url).toBeTruthy();
+    reviewed++;
   }
   console.log(`Reviewed ${reviewed} enabled business pages and their related tabs.`);
   expect(failures).toEqual([]);

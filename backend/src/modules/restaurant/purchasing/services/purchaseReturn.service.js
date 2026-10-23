@@ -1195,15 +1195,6 @@ const statement = async (restaurantId, { supplierId, from, to }) => {
   };
 };
 
-// What the day-end cash count should allow for: cash paid to suppliers out of
-// the drawer on that trading day, { count, amount }. For the day-end report,
-// which subtracts it from the cash the drawer should hold.
-const tillPaymentsForDay = async (restaurantId, businessDate) => {
-  requireRestaurantId(restaurantId);
-
-  return purchaseReturnRepository.findTillPayments(restaurantId, businessDate);
-};
-
 module.exports = {
   openBillsFor,
   list,
@@ -1212,7 +1203,6 @@ module.exports = {
   create,
   update,
   voidReturn,
-  tillPaymentsForDay,
   listPayments,
   createPayment,
   updatePayment,

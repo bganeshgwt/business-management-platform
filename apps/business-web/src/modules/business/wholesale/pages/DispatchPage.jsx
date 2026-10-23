@@ -16,7 +16,7 @@ import { DAYS } from "./tradeFormat";
 import { ChallanDialog, DeliveryDialog, TransportDialog, TransportFields } from "./deliveryParts";
 import { DELIVERY, emptyTransport, printInvoicesOf, printLoadSheet, printPickList, transportBody } from "./deliveryFormat";
 
-// Dispatch (pro pass D-04, D-10): the orders waiting to go, by route, beat
+// Dispatch: the orders waiting to go, by route, beat
 // day or wanted-by date; tick them, print one pick list, send them together
 // on one van (each order gets its own tax invoice; what is not in stock
 // stays a back-order), print the load sheet and every invoice at once; then

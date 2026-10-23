@@ -1,16 +1,11 @@
 import { expect, test } from "@playwright/test";
-import fs from "node:fs";
-import process from "node:process";
 
-// The guests' site against the running API (E2E_API_URL): each page opens from
-// its link, a broken or planned address says what to do instead of "Page not
-// found", and no request from a guest page ever carries a staff login.
-// Reads only; nothing is ordered or booked.
-const API = process.env.E2E_API_URL || "http://localhost:5010/api";
-const credentialsFile = process.env.E2E_CREDENTIALS_FILE;
-const account = credentialsFile
-  ? JSON.parse(fs.readFileSync(credentialsFile, "utf8")).accounts.find((item) => item.role === "RESTAURANT_ADMIN")
-  : null;
+import { fixture } from "../../../../e2e/fixture.mjs";
+
+// The guests' site against the test API: each page opens from its link, a
+// broken or planned address says what to do instead of "Page not found", and
+// no request from a guest page ever carries a staff login. Reads only;
+// nothing is ordered or booked.
 
 // Every page: no script errors, and no Authorization header on any request.
 let problems = [];
@@ -85,17 +80,15 @@ test("unknown links say so in the guest's words", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Online booking unavailable" })).toBeVisible();
 });
 
-test("a table's QR code opens its menu", async ({ page, request }) => {
-  test.skip(!account, "Set E2E_CREDENTIALS_FILE to the local demo credentials file.");
-  // A real table's code, read through the staff API.
-  const login = await request.post(`${API}/auth/login`, { data: { identifier: account.email, password: account.password } });
-  const staffToken = (await login.json()).data.token;
-  const tables = (await (await request.get(`${API}/tables`, { headers: { Authorization: `Bearer ${staffToken}` } })).json()).data;
-  const table = tables.find((item) => item.qrToken);
-  test.skip(!table, "No table with a QR code in this database.");
+test("a table's QR code opens its menu", async ({ page }) => {
+  // A real table's code, the test restaurant's first table: it opens that
+  // table's page, listing every dish the restaurant has on its menu.
+  const { name, tables, products } = fixture().restaurant;
+  const [table] = tables;
 
   await page.goto(`/order/${table.qrToken}`);
-  await expect(page.locator(".g-dish").first()).toBeVisible();
-  expect(await page.locator(".g-dish").count()).toBeGreaterThan(0);
-  await expect(page).toHaveTitle(/Table/);
+  for (const dish of products) {
+    await expect(page.getByRole("button", { name: `${dish.name}, details`, exact: true })).toBeVisible();
+  }
+  await expect(page).toHaveTitle(`${name} · Table ${table.tableNo}`);
 });

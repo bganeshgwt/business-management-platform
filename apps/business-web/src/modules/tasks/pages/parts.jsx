@@ -13,8 +13,8 @@ import { ISSUE_STATUS, PRIORITY, PROJECT_STATUS, SEVERITY, TASK_STATUS } from ".
 
 // Small pieces every task screen shares.
 
-// A person from this business, searched on the server as you type (round 2:
-// a big restaurant has hundreds of staff; loading them all was ~330 KB).
+// A person from this business, searched on the server as you type (a big
+// restaurant has hundreds of staff; loading them all would be ~330 KB).
 // kind "user": logins only (issues, projects). exclude: [{ kind, id }] or ids.
 export function PeoplePicker({ kind, exclude = [], ...props }) {
   const { searchPeople } = useTasks();

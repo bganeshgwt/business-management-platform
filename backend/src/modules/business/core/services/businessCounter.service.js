@@ -3,7 +3,7 @@ const AppError = require('../../../../utils/AppError');
 const v = require('../../../../utils/validate');
 const access = require('./businessAccess.service');
 
-// Per-staff PIN at a shared counter (round 2, R2-CORE).
+// Per-staff PIN at a shared counter.
 //
 // A shop's till stays signed in all day. Each cashier switches the till to
 // themselves with their own PIN (no sign-out, the bill being built stays),

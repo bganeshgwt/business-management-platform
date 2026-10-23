@@ -371,4 +371,4 @@ const collect = async (restaurantId, id, userId, ctx = {}) => {
   return { preorder: await findOne(restaurantId, id), orderId: Number(order.id), orderNumber: order.orderNumber };
 };
 
-module.exports = { OPEN, list, bakeList, findOne, create, takeAdvance, setStatus, cancel, collect };
+module.exports = { list, bakeList, findOne, create, takeAdvance, setStatus, cancel, collect };

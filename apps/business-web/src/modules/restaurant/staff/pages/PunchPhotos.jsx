@@ -90,11 +90,11 @@ export function PunchCamera({ captureRef }) {
   }, [captureRef, state]);
 
   return (
-    <div className={`asw-camera is-${state}`}>
-      <div className="asw-camera-frame">
+    <div className={`staff-camera is-${state}`}>
+      <div className="staff-camera-frame">
         <video ref={videoRef} muted playsInline aria-label="Camera" />
         {state !== "live" && (
-          <span className="asw-camera-off">
+          <span className="staff-camera-off">
             <Icon name={state === "none" ? "eye-off" : "eye"} size={22} />
           </span>
         )}
@@ -148,7 +148,7 @@ export function PunchPhoto({ punchId, status, hasPhoto }) {
 
   if (status === "missing") {
     return (
-      <span className="asw-photo-tag is-missing" title="The tablet's camera could not take a photo; the punch still counts">
+      <span className="staff-photo-tag is-missing" title="The tablet's camera could not take a photo; the punch still counts">
         <Icon name="eye-off" size={12} /> No photo
       </span>
     );
@@ -156,7 +156,7 @@ export function PunchPhoto({ punchId, status, hasPhoto }) {
 
   if (!hasPhoto || failed) {
     return (
-      <span className="asw-photo-tag" title="Photos are deleted after the keeping time">
+      <span className="staff-photo-tag" title="Photos are deleted after the keeping time">
         <Icon name="eye-off" size={12} /> Photo deleted
       </span>
     );
@@ -164,11 +164,11 @@ export function PunchPhoto({ punchId, status, hasPhoto }) {
 
   return (
     <>
-      <button type="button" className="asw-photo-thumb" onClick={() => setOpen(!open)} aria-label="Photo taken with this punch" aria-expanded={open}>
+      <button type="button" className="staff-photo-thumb" onClick={() => setOpen(!open)} aria-label="Photo taken with this punch" aria-expanded={open}>
         {url ? <img src={url} alt="" width={32} height={32} /> : <span className="skeleton" />}
       </button>
       {open && url && (
-        <span className="asw-photo-large motion-tooltip">
+        <span className="staff-photo-large motion-tooltip">
           <img src={url} alt="Photo taken with this punch" width={180} height={180} />
         </span>
       )}
@@ -226,7 +226,7 @@ export function PunchPhotoSettings() {
       <div className="stack">
         <ErrorMessage message={error} />
         <SuccessMessage message={success} />
-        <div className="asw-photo-settings">
+        <div className="staff-photo-settings">
           <label className="field">
             <span>Delete photos after (days)</span>
             <input type="number" min="1" max="365" value={keepDays} onChange={(event) => setKeepDays(event.target.value)} />
@@ -236,7 +236,7 @@ export function PunchPhotoSettings() {
             people who can see staff records can see the photos.
           </p>
         </div>
-        <div className="form-actions asw-actions-left">
+        <div className="form-actions staff-actions-left">
           {settings && settings.punchPhotos ? (
             <>
               <button type="button" className="button" onClick={() => save(true)} disabled={busy || String(settings.photoKeepDays) === keepDays}>

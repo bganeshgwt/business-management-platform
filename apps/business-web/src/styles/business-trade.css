@@ -1,4 +1,4 @@
-/* Phase 2 trade screens (wholesale and shared receivables). Uses the app's
+/* Trade screens (wholesale and shared receivables). Uses the app's
    tokens only; cards keep visible borders like the rest of Business Admin. */
 
 .bz-ageing {
@@ -54,7 +54,7 @@
   text-align: left;
 }
 
-/* --- Pro pass D (wholesale): owes card, quick amounts, notes, order entry,
+/* --- Wholesale: owes card, quick amounts, notes, order entry,
    dispatch board, settlement. Tokens only. -------------------------------- */
 
 .chip-button.danger {

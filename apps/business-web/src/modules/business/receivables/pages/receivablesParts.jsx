@@ -24,10 +24,10 @@ import { usePaymentMethods } from "../../core/pages/paymentMethods";
 // the statement.
 
 // Record money received from a customer — the one collection form, opened
-// from Collections, Outstanding, a customer's account and a sale (pro pass
-// D-09, D-15). Automatic allocation settles the oldest bills first (an old
-// opening balance before any bill); "bills I choose" names them; "keep as
-// advance" settles nothing yet. A cheque carries its date and bank.
+// from Collections, Outstanding, a customer's account and a sale. Automatic
+// allocation settles the oldest bills first (an old opening balance before
+// any bill); "bills I choose" names them; "keep as advance" settles nothing
+// yet. A cheque carries its date and bank.
 export function CollectionDialog({ contactId: fixedContact, documentId, onClose, onSaved }) {
   const biz = useOpenBusiness();
   const wholesale = biz.has("sales_orders") && biz.can("sales_orders.view");
@@ -169,7 +169,7 @@ export function CollectionDialog({ contactId: fixedContact, documentId, onClose,
 }
 
 // "Owes ₹28,447.40 · ₹17,119.40 overdue · oldest bill 76 days" for a customer.
-export function OwesLine({ summary }) {
+function OwesLine({ summary }) {
   const biz = useOpenBusiness();
   if (!summary) return null;
   const balance = Number(summary.balance);
@@ -183,7 +183,7 @@ export function OwesLine({ summary }) {
   );
 }
 
-// Note a call, a WhatsApp or a visit, and the date and amount promised (D-14).
+// Note a call, a WhatsApp or a visit, and the date and amount promised.
 export function FollowUpDialog({ customer, onClose, onSaved }) {
   const biz = useOpenBusiness();
   const today = businessToday(biz.business.timezone);
@@ -207,10 +207,9 @@ export function FollowUpDialog({ customer, onClose, onSaved }) {
   );
 }
 
-// Deposit, cleared or bounced (D-02). A bounce needs credit control. Round 2:
-// the bank charge starts at the business's setting (Rs 500 unless changed)
-// and can be changed for this cheque; reaching the bounce limit puts the
-// customer on credit hold.
+// Deposit, cleared or bounced. A bounce needs credit control. The bank charge
+// starts at the business's setting (Rs 500 unless changed) and can be changed
+// for this cheque; reaching the bounce limit puts the customer on credit hold.
 export function ChequeActionDialog({ cheque, action, onClose, onSaved }) {
   const biz = useOpenBusiness();
   const [form, setForm] = useState({ depositedInto: "", reason: "", charge: action === "bounce" ? "500" : "" });
@@ -361,9 +360,9 @@ export function AccountDialog({ contactId, onClose, onChanged }) {
   );
 }
 
-// The statement opens from the oldest unpaid bill when there is one (D-14),
+// The statement opens from the oldest unpaid bill when there is one,
 // so the bills behind the balance are on it; otherwise the current month.
-export function StatementDialog({ contact, from, onClose }) {
+function StatementDialog({ contact, from, onClose }) {
   const biz = useOpenBusiness();
   const anchor = businessToday(biz.business.timezone);
   const [range, setRange] = useState({ from: from && from < monthStart(anchor) ? from : monthStart(anchor), to: anchor });

@@ -1,4 +1,4 @@
-// Online table booking for guests (SW-A-21), mounted under /api/public/booking.
+// Online table booking for guests, mounted under /api/public/booking.
 // No login: a request is scoped by the restaurant's booking-link token or by
 // a guest's own status token.
 //

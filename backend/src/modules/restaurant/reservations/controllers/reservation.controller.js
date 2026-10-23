@@ -437,7 +437,7 @@ const seat = async (req, res) => {
   });
 };
 
-// --- Online requests and the booking link (SW-A-21) --------------------------
+// --- Online requests and the booking link ------------------------------------
 
 const requests = async (req, res) => {
   const result = await reservationService.pendingRequests(req.user.restaurantId, req.outletId);

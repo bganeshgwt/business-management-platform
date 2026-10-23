@@ -13,7 +13,7 @@ import { businessToday, quantity, useOpenBusiness, useServerList } from "../../c
 import { Segmented } from "../../wholesale/pages/shared";
 import "../../../../styles/business-salon-weight.css";
 
-// Service profitability (round 2, R2-SVC): per service in a period, what it
+// Service profitability: per service in a period, what it
 // sold for (after discounts and returns, before GST), the back-bar products
 // it used (at their latest purchase price) and the stylists' commission, and
 // what is left; and every product taken by a service, with any shortfall.

@@ -267,4 +267,4 @@ const revise = async (restaurantId, input, userId) => {
   return result;
 };
 
-module.exports = { revise, roundPrice };
+module.exports = { revise };

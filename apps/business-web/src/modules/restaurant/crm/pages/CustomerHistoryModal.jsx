@@ -152,7 +152,7 @@ export default function CustomerHistoryModal({ customer, currency = "₹", canMa
             <div className="crm-history-head">
               <GuestAvatar guest={guest} size="lg" />
               <div className="crm-history-who">
-                {/* "Anniversary today", "Birthday Sat" (sweep SW-B-21). */}
+                {/* "Anniversary today", "Birthday Sat". */}
                 <GuestOccasion guest={guest} />
                 {guest.tags.length > 0 && (
                   <div className="crm-history-tags">

@@ -14,7 +14,7 @@ const requireRestaurantId = (restaurantId) => {
 };
 
 const toSettings = (row) => ({
-  // The address every table QR code opens (SW-A-14); null: the guests' site's own.
+  // The address every table QR code opens; null: the guests' site's own.
   guestWebAddress: row.guest_web_address || null,
   tokensEnabled: Boolean(row.tokens_enabled),
   tokenOrderTypes: row.token_order_types || ["takeaway"],
@@ -120,4 +120,4 @@ const updatePos = async (restaurantId, input, userId) => {
   return toSettings(await serviceSettingsRepository.update(restaurantId, { pos_order_types: types, default_order_type: start }, userId));
 };
 
-module.exports = { TOKEN_ORDER_TYPES, POS_ORDER_TYPES, toSettings, get, updateTokens, updatePos, readWebAddress, updateWebAddress };
+module.exports = { TOKEN_ORDER_TYPES, POS_ORDER_TYPES, get, updateTokens, updatePos, updateWebAddress };

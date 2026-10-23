@@ -190,7 +190,7 @@ const dayEndReport = async (restaurantId, dayIds, { billOutletId = null, timezon
   };
 };
 
-// The days' handover notes from the shift log book (SW-B-07): entries written
+// The days' handover notes from the shift log book: entries written
 // on these days' dates for these days' counters — an outlet's own, or the
 // whole restaurant's (no outlet). Oldest first, as the day ran.
 const dayLogbook = async (restaurantId, dayIds) => {

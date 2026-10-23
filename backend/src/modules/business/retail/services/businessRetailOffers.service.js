@@ -27,7 +27,7 @@ async function readOffer(db, business, body, offerId = null) {
   const value = service.decimal(body.value, PERCENT.has(kind) ? 'Discount %' : 'Discount amount', 2, 0.01, PERCENT.has(kind) ? 100 : 10000000);
   let skuId = null, categoryId = null, productId = null, buy = null, get = null;
   if (kind === 'product_percent') {
-    // A markdown on one style: every size and colour (fashion pro pass).
+    // A markdown on one style: every size and colour (fashion).
     const product = await repo.one(db, "SELECT id FROM catalog_products WHERE business_id=$1 AND id=$2 AND kind='goods'", [business.id, id(body.productId, 'Product')]);
     if (!product) fail('Product not found', 404);
     productId = product.id;
@@ -150,4 +150,4 @@ repo.addLists({
   },
 });
 
-module.exports = { createOffer, updateOffer, givenAway, KINDS };
+module.exports = { createOffer, updateOffer, givenAway };

@@ -1,4 +1,4 @@
-/* Round 2 (R2-CORE): Quick bill's split payment, EMI, kits and the biller. */
+/* Quick bill's split payment, EMI, kits and the biller. */
 
 /* Five or six ways to pay: two rows of three, every one in reach. */
 .rt-tender.rt-tender-grid {
@@ -334,18 +334,18 @@
 }
 
 /* The total, large; tax as one quiet line under it. */
-.rt-totals-pro {
+.rt-totals-large {
   display: grid;
   gap: 2px;
 }
 
-.rt-totals-pro .rt-grand {
+.rt-totals-large .rt-grand {
   border-top: 0;
   padding-top: 0;
   margin-top: 0;
 }
 
-.rt-totals-pro .rt-grand strong {
+.rt-totals-large .rt-grand strong {
   font-size: 2rem;
 }
 

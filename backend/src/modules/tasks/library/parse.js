@@ -70,4 +70,4 @@ function parseItem(line, position) {
 
 const parseItems = (lines) => lines.map((line, index) => parseItem(line, index));
 
-module.exports = { parseItem, parseItems };
+module.exports = { parseItems };

@@ -21,7 +21,7 @@ import useAuth from "../../../../hooks/useAuth";
 import useQueryFilter from "../../../../hooks/useQueryFilter";
 import MusterRoll from "./MusterRoll";
 import "../../../../styles/access.css";
-import "../../../../styles/access-sweep.css";
+import "../../../../styles/staff.css";
 import { hoursFromMinutes } from "./hoursText";
 import "../styles/attendance.css";
 
@@ -588,7 +588,7 @@ export default function AttendancePage() {
                     </select>
                     {draft.attendanceStatus === "leave" && leaveTypes.length > 0 && (
                       <select
-                        className="asw-leave-select"
+                        className="staff-leave-select"
                         value={draft.leaveTypeId || (defaultLeaveType ? String(defaultLeaveType.id) : "")}
                         onChange={(event) => setDraft(row.employeeId, { leaveTypeId: event.target.value })}
                         disabled={locked}
@@ -776,7 +776,7 @@ export default function AttendancePage() {
               </button>
               <button
                 type="button"
-                className="button asw-button-warning"
+                className="button staff-button-warning"
                 onClick={() => save(overAllowance.row, true, overAllowance.changes)}
                 disabled={savingId === overAllowance.row.employeeId}
               >

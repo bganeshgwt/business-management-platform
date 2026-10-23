@@ -4,8 +4,14 @@ const assert = require("node:assert/strict");
 // utils/queryAll: queries on a transaction's client run one at a time (pg
 // warns "Calling client.query() when the client is already executing a
 // query" when they are queued), queries on the pool run side by side.
-require("dotenv").config({ quiet: true });
-const pool = require("../src/config/database");
+//
+// It tells the pool from a client by identity, so it is given a stand-in
+// pool: the real one (config/database) reads backend/.env and points at the
+// developer's database. Put in require's cache under config/database's own
+// path, the stand-in is what queryAll's require of that file returns.
+const DATABASE = require.resolve("../src/config/database");
+const pool = {};
+require.cache[DATABASE] = { id: DATABASE, filename: DATABASE, loaded: true, exports: pool };
 const queryAll = require("../src/utils/queryAll");
 
 test("queryAll runs a client's queries one after another, in order", async () => {
@@ -31,5 +37,4 @@ test("queryAll runs pool queries side by side", async () => {
   assert.equal(most, 3);
   await queryAll(undefined, [task(), task()]);
   assert.equal(most, 3);
-  await pool.end();
 });

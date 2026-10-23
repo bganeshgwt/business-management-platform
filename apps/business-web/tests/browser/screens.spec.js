@@ -1,13 +1,10 @@
 import { test, expect } from "@playwright/test";
 import fs from "node:fs";
-import process from "node:process";
 
-// Explicit opt-in credentials: no known default password and no guessing.
-// Only signs in and reads screens; business writes belong to the isolated API suite.
-const credentialsFile = process.env.E2E_CREDENTIALS_FILE;
-const account = credentialsFile
-  ? JSON.parse(fs.readFileSync(credentialsFile, "utf8")).accounts.find(a => a.role === "RESTAURANT_ADMIN")
-  : null;
+import { signIn } from "../../../../e2e/fixture.mjs";
+
+// Signs in as the test restaurant's admin and only reads screens; business
+// writes belong to the isolated API suite.
 const source = fs.readFileSync(new URL("../../src/App.jsx", import.meta.url), "utf8");
 const routes = ["/", ...source.matchAll(/<Route path="([^"*:]+)"/g)]
   .map(item => typeof item === "string" ? item : "/" + item[1].replace(/^\//, ""))
@@ -19,28 +16,21 @@ const restaurantRoutes = routes.filter(route => !route.startsWith("/platform/"))
 
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
   test(`all authenticated screens load at ${viewport.width}px`, async ({ page }) => {
-    // Every screen at one width, on the large test database: about 3.5
-    // minutes on a quiet machine. Each route is its own step, so a failure
-    // still names the screen.
+    // Every screen at one width takes a few minutes. Each route is its own
+    // step, so a failure still names the screen.
     test.setTimeout(600_000);
-    test.skip(!account, "Set E2E_CREDENTIALS_FILE to the gitignored demo credentials file.");
     const failures = [];
     page.on("pageerror", error => failures.push(error.message));
-    page.on("response", response => {
+    page.on("response", async response => {
       if (response.status() >= 500) failures.push(`${response.status()} ${response.url()}`);
+      // A screen never asks for a feature the restaurant has switched off.
+      if (response.status() === 403 && (await response.json().catch(() => null))?.data?.reason === "feature_off") {
+        failures.push(`feature off: ${response.url()}`);
+      }
     });
     await page.setViewportSize(viewport);
-    await page.goto("/login");
-    await page.locator('input[autocomplete="username"]').fill(account.email);
-    await page.locator('input[autocomplete="current-password"]').fill(account.password);
-    await page.getByRole("button", { name: "Sign in", exact: true }).click();
-    try {
-      await expect(page.locator("main.content-scroll")).toBeVisible();
-    } finally {
-      // Keep a failed-login snapshot from containing the entered password.
-      const passwordInput = page.locator('input[autocomplete="current-password"]');
-      if (await passwordInput.count()) await passwordInput.fill("");
-    }
+    await signIn(page);
+    await expect(page.locator("main.content-scroll")).toBeVisible();
     for (const route of platformRoutes) {
       await test.step(`${route} is refused to a restaurant admin`, async () => {
         await page.goto(route);

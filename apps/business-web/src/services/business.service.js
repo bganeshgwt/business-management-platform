@@ -1,5 +1,4 @@
 import api from './api';
-import { normalizePaymentLabels } from './paymentLabels';
 
 // Business Admin API (/api/businesses). The business ID always travels in the
 // URL; the server checks the membership, the module and the permission on
@@ -13,9 +12,9 @@ export const businessContext = async (businessId, signal) => (await api.get(`/bu
 // Remembers this business as the one the person last opened.
 export const openBusiness = async (businessId) => (await api.post(`/businesses/${businessId}/open`, {})).data.data;
 export const businessRead = async (businessId, path, params, signal) =>
-  normalizePaymentLabels((await api.get(`/businesses/${businessId}/${path}`, { params, signal })).data.data);
+  (await api.get(`/businesses/${businessId}/${path}`, { params, signal })).data.data;
 export const businessWrite = async (businessId, path, body, method = 'post') =>
-  normalizePaymentLabels((await api[method](`/businesses/${businessId}/${path}`, body)).data.data);
+  (await api[method](`/businesses/${businessId}/${path}`, body)).data.data;
 
 // Pickers load all pages explicitly rather than silently losing records past 100.
 export async function businessOptions(businessId, path, signal, params = {}) {

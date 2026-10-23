@@ -20,7 +20,7 @@ export const draftKey = (user) =>
 
 // Whether there is anything worth bringing back: dishes not yet saved, a
 // change to a running order, or details typed for an order not yet placed.
-export const worthKeeping = (draft) => {
+const worthKeeping = (draft) => {
   if (!draft) {
     return false;
   }

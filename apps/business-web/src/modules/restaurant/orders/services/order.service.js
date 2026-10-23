@@ -121,7 +121,7 @@ export const listOrderMoves = async (id) => (await api.get(`/orders/${id}/moves`
 // mainTableNo }].
 export const listJoinedTables = async () => (await api.get("/orders/joined-tables")).data.data;
 
-// A delivery's trip charge (SW-A-17): waived with a reason (a manager, or
+// A delivery's trip charge: waived with a reason (a manager, or
 // their PIN), or charged again. Each answers { message, data: order }.
 export const waiveDeliveryCharge = async (orderId, reason, headers) =>
   (await api.post(`/orders/${orderId}/delivery-charge/waive`, { reason }, { headers })).data;

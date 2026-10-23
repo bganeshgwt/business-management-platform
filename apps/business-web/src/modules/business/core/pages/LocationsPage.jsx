@@ -47,7 +47,7 @@ export default function LocationsPage() {
       render: (l) => ([l.address_line1, l.city, l.gstin].some(Boolean)
         ? <span className="bz-two-line"><span>{[l.address_line1, l.city].filter(Boolean).join(", ") || "—"}</span>{l.gstin && <small className="muted mono">GSTIN {l.gstin}</small>}</span>
         : <span className="muted">Business settings</span>) },
-    // Pro pass C-22: a warehouse keeps stock but is not offered as a till at Quick bill.
+    // A warehouse keeps stock but is not offered as a till at Quick bill.
     { key: "counter", header: "Quick bill", value: (l) => (l.sells_at_counter === false ? "Stock only" : "Sells here"),
       render: (l) => <Badge tone={l.sells_at_counter === false ? "neutral" : "info"} label={l.sells_at_counter === false ? "Stock only" : "Sells here"} /> },
     { key: "hours", header: "Opening hours", value: (l) => hoursText(l.opening_hours), render: (l) => {

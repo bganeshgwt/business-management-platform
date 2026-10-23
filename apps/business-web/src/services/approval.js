@@ -52,7 +52,7 @@ export const hasApprovalHandler = () => handler !== null;
 // What the innermost withApproval call is doing, for the dialog's heading.
 export const currentApprovalLabel = () => (labels.length > 0 ? labels[labels.length - 1] : null);
 
-export const approvalReason = (error) => error?.response?.data?.data?.reason || null;
+const approvalReason = (error) => error?.response?.data?.data?.reason || null;
 
 export const isApprovalRequired = (error) =>
   error?.response?.status === 403 &&
@@ -88,7 +88,7 @@ export const requestApproval = (request) => {
 // refusal is. A token for "void bill INV-0042" then cannot void another bill.
 export const CAPTURE_HEADER = "X-Approval-Capture";
 
-export const isCapture = (error) => Boolean(error && error.approvalCapture);
+const isCapture = (error) => Boolean(error && error.approvalCapture);
 
 // Runs fn once with the capture header, to learn which request it makes
 // without sending it: { target }. A service that does not pass the headers on

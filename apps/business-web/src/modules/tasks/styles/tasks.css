@@ -290,10 +290,3 @@
 @media (prefers-reduced-motion: reduce) {
   .tk-progress-fill, .tk-tick, .tk-big, .tk-item { transition: none; }
 }
-
-/* --- Today's checklists card (dashboard, overview) ------------------------------------------------ */
-.tk-today { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-5); }
-.tk-today-figure strong { font-size: var(--text-2xl); font-weight: var(--weight-heavy); font-variant-numeric: tabular-nums; }
-.tk-today-figure span { color: var(--muted); font-weight: var(--weight-bold); margin-left: 2px; }
-.tk-today .tk-progress { flex: 1 1 200px; }
-.tk-today-links { display: flex; flex-wrap: wrap; gap: var(--space-2); }

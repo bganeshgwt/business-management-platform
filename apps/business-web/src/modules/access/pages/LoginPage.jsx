@@ -6,7 +6,7 @@ import { getErrorMessage } from "../../../services/api";
 import { beginLoginTwoFactorSetup, rememberedRestaurantCode } from "../../../services/auth.service";
 import Icon, { BrandMark } from "@bmp/ui/Icon";
 import TwoStepSignIn from "./TwoStepSignIn";
-import "../../../styles/access-sweep.css";
+import "../../../styles/staff.css";
 
 // What was typed looks like a staff code rather than an email or a phone
 // number, so the restaurant's code is needed too (staff codes repeat across

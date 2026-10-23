@@ -2,7 +2,7 @@ import { escapeHtml, printDocument } from "../../../../services/print";
 import { moneyExact } from "@bmp/shared/format";
 import { niceDate, qty } from "../../inventory/pages/stockFormat";
 
-// A purchase return printed as a debit note (sweep SW-B-23): what the
+// A purchase return printed as a debit note: what the
 // restaurant sends the supplier with the goods going back, so the supplier
 // issues a credit. Number and date, both parties with their GSTINs, the bill
 // the goods came on, each line's quantity, rate, taxable value and GST, GST

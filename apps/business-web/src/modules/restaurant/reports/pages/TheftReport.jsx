@@ -12,7 +12,7 @@ import { clockTime, dayAndDate, plural } from "./reportFormat";
 // classic fiddles — serve, take cash, delete the dish; void a paid bill;
 // reprint a bill to reuse it; a big discount to a friend — each have a list.
 // Stock written off is the same question asked of the store: who wrote off
-// what, and who approved it (REQ-THEFT-WRITEOFFS).
+// what, and who approved it.
 const DISCOUNT_LINES = [10, 15, 20, 25, 30, 50];
 
 const LISTS = [

@@ -34,7 +34,7 @@ router.put("/:id", authorize("expenses.manage"), expenseController.update);
 router.patch("/:id/status", authorize("expenses.manage"), expenseController.setStatus);
 router.delete("/:id", authorize("expenses.manage"), expenseController.remove);
 
-// The paper bill behind an expense (SW-B-09): photos or PDFs, at most five,
+// The paper bill behind an expense: photos or PDFs, at most five,
 // served only through here to people who may see expenses.
 const attachments = require("../controllers/attachment.controller").expense;
 const { uploadOne } = require("../services/attachment.service");

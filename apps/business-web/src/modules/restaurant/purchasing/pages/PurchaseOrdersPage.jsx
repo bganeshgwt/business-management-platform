@@ -38,8 +38,8 @@ import PurchaseRegisterPanel from "./PurchaseRegisterPanel";
 import { EMPTY_LINE, billTotals } from "./lineMath";
 import { mailLink, orderMessage, printPurchaseOrder, whatsappLink } from "./poDocument";
 import "../../../../styles/stock.css";
-import "../../../../styles/backoffice-sweep.css";
-import "../styles/purchasing-pro.css";
+import "../../../../styles/backoffice.css";
+import "../styles/purchase-orders.css";
 
 const orderedText = (line) =>
   line.packName && line.packQuantity

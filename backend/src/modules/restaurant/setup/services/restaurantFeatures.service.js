@@ -548,15 +548,12 @@ const isFeature = async (code) => (await loadCatalogue()).some((row) => row.code
 
 module.exports = {
   OWNER_PERMISSION,
-  loadCatalogue,
   featuresOf,
   has,
   assertOn,
   assertRestaurantHas,
   offError,
-  nameOf,
   list,
-  listFor,
   preview,
   set,
   setForBusiness,

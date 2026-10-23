@@ -1,4 +1,4 @@
-// The restaurant's own online ordering page (SW-A-22).
+// The restaurant's own online ordering page.
 //
 // A guest opens a public link — one per selling point: the main counter
 // (outlet null) and each outlet — and orders a takeaway or a delivery. Like a
@@ -744,7 +744,6 @@ const replaceLinkToken = async (restaurantId, id, userId) => {
 
 module.exports = {
   SERVICES,
-  servingHours,
   getMenu,
   placeOrder,
   getOrder,

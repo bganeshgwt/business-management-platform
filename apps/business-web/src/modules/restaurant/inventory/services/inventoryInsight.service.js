@@ -4,18 +4,14 @@ import api from "../../../../services/api";
 export const getWastageReport = async (filters = {}) =>
   (await api.get("/inventory-insights/wastage", { params: filters })).data.data;
 
-// Over the write-off limit a manager's PIN is asked for; `headers` carries
-// the one-time approval (services/approval.js withApproval).
-export const logWastage = async (payload, headers = {}) =>
-  (await api.post("/inventory-insights/wastage", payload, { headers })).data;
-
 // The wastage log a page at a time ({ items, total, reversed, limit, offset }),
 // so the grid pages through every entry rather than the newest few hundred.
 export const getWastageEntries = async (filters = {}) =>
   (await api.get("/inventory-insights/wastage/entries", { params: filters })).data.data;
 
-// The same entry through the item's own address: over the write-off limit,
-// a manager's approval is tied to this item as well as the amount.
+// A wastage entry, through the item's own address. Over the write-off limit a
+// manager's PIN is asked for: `headers` carries the one-time approval
+// (services/approval.js withApproval), tied to this item as well as the amount.
 export const logItemWastage = async (itemId, payload, headers = {}) =>
   (await api.post(`/inventory-insights/items/${itemId}/wastage`, payload, { headers })).data;
 
@@ -28,10 +24,6 @@ export const getReorderPlan = async (horizon) =>
 
 export const createDraftOrder = async (payload) =>
   (await api.post("/inventory-insights/reorder/draft-orders", payload)).data;
-
-// The handful of figures a dashboard shows from this module.
-export const getInventoryInsightSummary = async () =>
-  (await api.get("/inventory-insights/summary")).data.data;
 
 // Dish wasted: a finished dish written off by its recipe.
 export const getDishWasteOptions = async () => (await api.get("/inventory-insights/dish-waste/options")).data.data;

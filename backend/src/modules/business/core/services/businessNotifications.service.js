@@ -1,7 +1,7 @@
 const repo = require('../repositories/business.repository');
 const access = require('./businessAccess.service');
 
-// The Business Admin bell (pro pass G-07): what needs someone's attention in
+// The Business Admin bell: what needs someone's attention in
 // one business, worked out from live data when asked — nothing is stored.
 // Each alert has a stable id (kind + record), so the browser can remember
 // which ones this person has already seen. Only what this person may see is

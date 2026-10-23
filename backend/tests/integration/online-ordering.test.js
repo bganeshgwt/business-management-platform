@@ -5,7 +5,7 @@ const path = require("node:path");
 const { Client } = require("pg");
 const bcrypt = require("bcrypt");
 
-// The restaurant's own online ordering page (SW-A-22): a public link per
+// The restaurant's own online ordering page: a public link per
 // selling point, takeaway and delivery orders that land in the staff inbox,
 // acceptance into a Website-channel order with its delivery charge, the
 // guest's status page, and the limits per mobile.

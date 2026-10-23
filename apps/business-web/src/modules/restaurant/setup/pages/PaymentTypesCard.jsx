@@ -12,7 +12,7 @@ import {
 import { getErrorMessage } from "../../../../services/api";
 import { BILL_PAYMENT_OPTIONS, paymentMethodLabel } from "../../../../services/labels";
 
-// Owner-named payment types (sweep SW-B-18): a Pluxee or Sodexo meal card or
+// Owner-named payment types: a Pluxee or Sodexo meal card or
 // a cheque under Other, PhonePe under UPI. The till offers them under their
 // method; the day summary and the reports total each one apart. A type that
 // was used is switched off, never deleted, so history keeps its name.

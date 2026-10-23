@@ -1,5 +1,5 @@
-/* Phase 2, T4 screens: salon calendar and bill, weight shops' cutting and
-   wastage. Uses the app's tokens only; cards keep visible borders. */
+/* The salon's calendar and bill, and weight shops' cutting and wastage.
+   Uses the app's tokens only; cards keep visible borders. */
 
 .sw-tiles {
   display: grid;

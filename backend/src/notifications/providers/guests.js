@@ -84,9 +84,6 @@ module.exports = {
       return [];
     }
   },
-
-  // For tests: forget the cached top-spender line.
-  resetCache: () => thresholdCache.clear(),
 };
 
 async function collectAlerts({ restaurantId, timezone, now, today, money, pool }) {

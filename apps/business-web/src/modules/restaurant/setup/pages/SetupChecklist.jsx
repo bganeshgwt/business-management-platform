@@ -5,7 +5,7 @@ import Icon from "@bmp/ui/Icon";
 import { getBusinessHours, getSettings, listPaymentTypes } from "../services/restaurant.service";
 import { listTaxRates } from "../../menu/services/menu.service";
 
-// Restaurant profile's set-up checklist (B-35): what a restaurant needs before
+// Restaurant profile's set-up checklist: what a restaurant needs before
 // its first bill is right, each with a tick and a link to the exact section
 // where it is filled in. Each check reads what the owner already has; one
 // that cannot be read (no permission, offline) shows as "not checked" rather

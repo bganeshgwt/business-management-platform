@@ -4,7 +4,7 @@ import { dateShort } from "@bmp/shared/format";
 import { barcodeSvg } from "../../retail/services/barcode";
 import { printTaxInvoice } from "../../core/pages/invoice";
 
-// Printed papers of the fashion and electronics screens (pro pass E):
+// Printed papers of the fashion and electronics screens:
 // the new bill of an exchange, the credit voucher, small helpers.
 
 const svgOf = (code) => {
@@ -18,7 +18,7 @@ export async function printBill(biz, documentId, paper = "80mm") {
 }
 
 // A credit voucher (CV000123): the amount, valid until, the barcode to scan at the counter.
-export function printVoucher(voucher, biz) {
+function printVoucher(voucher, biz) {
   const seller = voucher.seller || {};
   const shop = seller.display_name || seller.legal_name || biz.business.name;
   printDocument({

@@ -254,14 +254,11 @@ const save = async (restaurantId, input, userId, db = pool) => {
 };
 
 module.exports = {
-  RULES,
   DEFAULTS,
   DEFAULT_DENOMINATIONS,
   fromRow,
-  withCashVariance,
   load,
   readInput,
-  checkTogether,
   check,
   save,
 };

@@ -52,20 +52,6 @@ const EMAIL_MATCH = (column, nameParam, exactParam) =>
   `(CASE WHEN ${exactParam}::boolean THEN ${column} ILIKE ${nameParam} ESCAPE '\\'
          ELSE ${column} ILIKE '%' || ${nameParam} || '%' ESCAPE '\\' END)`;
 
-const findCustomers = async (restaurantId, filters = {}) => {
-  const result = await pool.query(
-    `SELECT ${CUSTOMER_COLUMNS}
-     FROM customers
-     WHERE restaurant_id = $1
-       AND ($2::text IS NULL OR name ILIKE '%' || $2 || '%' OR mobile ILIKE '%' || $2 || '%')
-     ORDER BY name
-     LIMIT $3`,
-    [restaurantId, filters.search || null, filters.limit || 500]
-  );
-
-  return result.rows;
-};
-
 // The quick lookup behind the till's guest search and the pickers: a name or
 // part of a mobile written any way (the digits come in already tidied, see
 // utils/phone.js mobileSearchDigits). Returns the page and how many matched,
@@ -786,26 +772,6 @@ const recordInvoiceBuyer = async (client, restaurantId, billId, userId) => {
   return result.rowCount;
 };
 
-// Buyers frozen before the address was copied with them: each gets the
-// guest's address, but only while the guest still carries the GSTIN the
-// invoice was made out to (a guest whose GSTIN has since changed is now a
-// different buyer, and their address is not this invoice's). An address
-// someone wrote on the bill by hand is never touched. Returns how many.
-const backfillInvoiceBuyerAddresses = async (client, restaurantId) => {
-  const result = await client.query(
-    `UPDATE bill_gst_recipients r
-     SET address = ${INVOICE_ADDRESS}
-     FROM bills b
-     JOIN orders o ON o.id = b.order_id
-     JOIN customers g ON g.id = o.customer_id
-     WHERE r.restaurant_id = $1 AND b.id = r.bill_id AND b.restaurant_id = r.restaurant_id
-       AND r.address IS NULL AND g.gstin = r.gstin AND ${INVOICE_ADDRESS} IS NOT NULL`,
-    [restaurantId]
-  );
-
-  return result.rowCount;
-};
-
 // Bills of these guests with no buyer on the bill: their ordinary (B2C)
 // sales. Read before a merge decides whether
 // the guest who stays may carry a GSTIN.
@@ -828,7 +794,6 @@ const countOrdinaryBills = async (client, restaurantId, customerIds) => {
 // and visit counts and sales must still add up); everything that says who the
 // person was goes, wherever a copy of it was made. Returns how many rows of
 // each kind were cleared.
-const DIGITS_10 = (column) => `RIGHT(REGEXP_REPLACE(COALESCE(${column}, ''), '[^0-9]', '', 'g'), 10)`;
 
 // A copy of a mobile typed anywhere (a QR form, a complaint) in the stored
 // form, so it can be compared with the guest's own: an Indian number as its
@@ -960,20 +925,6 @@ const detachLiveRecords = async (client, restaurantId, customerId) => {
 
 // --- Opening one guest's number on purpose ---
 
-// How many different guests' contact details this person has opened in the
-// last day (the activity log is the record of it).
-const countContactViews = async (restaurantId, userId, hours = 24) => {
-  const result = await pool.query(
-    `SELECT COUNT(DISTINCT entity_id)::int AS guests
-     FROM audit_logs
-     WHERE restaurant_id = $1 AND user_id = $2 AND action = 'view_contact' AND entity_type = 'customer'
-       AND created_at > NOW() - make_interval(hours => $3::int)`,
-    [restaurantId, userId, hours]
-  );
-
-  return result.rows[0].guests;
-};
-
 // Opening a guest's contact details, decided and written in one transaction
 // the caller holds: a lock per person first, so twenty requests sent at once
 // are counted one after another rather than all reading "0 so far" before
@@ -1009,36 +960,7 @@ const recordContactView = async (client, entry) => {
   );
 };
 
-const hasViewedContact = async (restaurantId, userId, customerId, hours = 24) => {
-  const result = await pool.query(
-    `SELECT 1 FROM audit_logs
-     WHERE restaurant_id = $1 AND user_id = $2 AND action = 'view_contact' AND entity_type = 'customer'
-       AND entity_id = $3 AND created_at > NOW() - make_interval(hours => $4::int)
-     LIMIT 1`,
-    [restaurantId, userId, customerId, hours]
-  );
-
-  return result.rows.length > 0;
-};
-
 // --- Feedback ---
-
-const findFeedback = async (restaurantId, filters = {}) => {
-  const result = await pool.query(
-    `SELECT f.id, f.customer_id, f.customer_name, f.customer_mobile, f.rating, f.comments,
-            f.source, f.feedback_status, f.created_at,
-            c.name AS linked_customer_name
-     FROM feedback f
-     LEFT JOIN customers c ON c.id = f.customer_id
-     WHERE f.restaurant_id = $1
-       AND ($2::text IS NULL OR f.feedback_status = $2)
-     ORDER BY f.created_at DESC
-     LIMIT 200`,
-    [restaurantId, filters.status || null]
-  );
-
-  return result.rows;
-};
 
 // A page of feedback, newest first, with how many there are in all. Search
 // reads the guest's name, their mobile (any way it was written) and the
@@ -1104,11 +1026,6 @@ const findFeedbackById = async (restaurantId, id) => {
   return result.rows[0] || null;
 };
 
-const countFeedback = async (restaurantId, filters = {}) => {
-  const page = await findFeedbackPage(restaurantId, { ...filters, limit: 1, offset: 0 });
-  return page.total || 0;
-};
-
 const createFeedback = async (restaurantId, data, userId) => {
   const result = await pool.query(
     `INSERT INTO feedback (restaurant_id, customer_id, customer_name, customer_mobile,
@@ -1170,23 +1087,6 @@ const COMPLAINT_COLUMNS = `c.id, c.customer_id, c.customer_name, c.customer_mobi
 const COMPLAINT_JOINS = `LEFT JOIN users u ON u.id = c.assigned_to
      LEFT JOIN bills b ON b.id = c.bill_id
      LEFT JOIN orders o ON o.id = c.order_id`;
-
-const findComplaints = async (restaurantId, filters = {}) => {
-  const result = await pool.query(
-    `SELECT ${COMPLAINT_COLUMNS}, u.name AS assigned_to_name
-     FROM complaints c
-     ${COMPLAINT_JOINS}
-     WHERE c.restaurant_id = $1
-       AND ($2::text[] IS NULL OR c.complaint_status = ANY($2))
-     ORDER BY
-       CASE c.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
-       c.created_at DESC
-     LIMIT 200`,
-    [restaurantId, filters.status || null]
-  );
-
-  return result.rows;
-};
 
 // A page of complaints: open and urgent first, with how many match in all.
 const findComplaintsPage = async (restaurantId, filters = {}) => {
@@ -1673,7 +1573,6 @@ const salesSplit = async (restaurantId, timezone, from, to) => {
 };
 
 module.exports = {
-  findCustomers,
   searchCustomers,
   findCustomerById,
   findCustomerByMobile,
@@ -1700,23 +1599,17 @@ module.exports = {
   deleteMergedCustomer,
   recordMerge,
   recordInvoiceBuyer,
-  backfillInvoiceBuyerAddresses,
   countOrdinaryBills,
   eraseCustomer,
   detachLiveRecords,
-  countContactViews,
-  hasViewedContact,
   lockContactViews,
   contactViewsToday,
   recordContactView,
-  findFeedback,
   findFeedbackPage,
   findFeedbackById,
-  countFeedback,
   createFeedback,
   updateFeedbackStatus,
   feedbackSummary,
-  findComplaints,
   findComplaintsPage,
   findComplaintById,
   createComplaint,

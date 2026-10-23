@@ -40,7 +40,7 @@ import { BusinessDateChip, StaleDayNotice } from "../../business-day/pages/Stale
 const DISH_ONLY_REASONS = ["remade", "quality"];
 
 // Which store the figures are for when an outlet is picked (or the person is
-// tied to one): its own store, or the main store it sells from (MV-6).
+// tied to one): its own store, or the main store it sells from.
 const storeNote = (store) =>
   store
     ? store.via

@@ -301,25 +301,6 @@ const saveRequiredRoles = async (restaurantId, roleIds, userId) => {
   }
 };
 
-// Two-step status of every login in a restaurant, for the Users list.
-const findStatusForRestaurant = async (restaurantId) => {
-  const result = await pool.query(
-    `SELECT u.id, u.two_factor_enabled_at,
-            EXISTS (
-              SELECT 1
-              FROM user_roles ur
-              JOIN roles ro ON ro.id = ur.role_id AND ro.status = 'active'
-              JOIN restaurant_two_factor_roles tr ON tr.role_id = ro.id AND tr.restaurant_id = u.restaurant_id
-              WHERE ur.user_id = u.id
-            ) AS required
-     FROM users u
-     WHERE u.restaurant_id = $1`,
-    [restaurantId]
-  );
-
-  return result.rows;
-};
-
 module.exports = {
   findState,
   findSecret,
@@ -339,5 +320,4 @@ module.exports = {
   countTrustedDevices,
   findRequiredRoles,
   saveRequiredRoles,
-  findStatusForRestaurant,
 };

@@ -2,7 +2,7 @@ const pool = require("../../../../config/database");
 const AppError = require("../../../../utils/AppError");
 const sheet = require("../../imports/services/sheetImport");
 
-// Recipes from a spreadsheet (sweep SW-B-12): what each dish (and each size)
+// Recipes from a spreadsheet: what each dish (and each size)
 // takes from stock, one row per ingredient — recipes for 200 dishes loaded
 // in one go instead of one line at a time, with sheetImport's safety.
 //
@@ -305,4 +305,4 @@ const importRecipes = async (restaurantId, rows, userId, options = {}) => {
   return summary;
 };
 
-module.exports = { COLUMNS, importGuide, importRecipes };
+module.exports = { importGuide, importRecipes };

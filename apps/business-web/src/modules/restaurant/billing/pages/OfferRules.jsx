@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { listCategories, listProducts } from "../../menu/services/menu.service";
 import { WEEKDAYS } from "./offerRulesText";
 
-// The rules an offer can carry (sweep SW-B-17), as part of the offer form:
+// The rules an offer can carry, as part of the offer form:
 // what kind of offer, which dishes or categories, which days and hours, and
 // once per guest. The till checks every rule and says in words why a coupon
 // does not apply.

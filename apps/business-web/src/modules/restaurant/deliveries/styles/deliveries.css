@@ -1691,7 +1691,7 @@ button.dlv-address:disabled {
   }
 }
 
-/* ---------------------------------------------------------------- delivery charge (SW-A-17) */
+/* ---------------------------------------------------------------- delivery charge */
 
 .dlv-channel-charge {
   display: flex;
@@ -1719,7 +1719,7 @@ button.dlv-address:disabled {
   }
 }
 
-/* ---------------------------------------------------------------- rider cash (SW-A-19) */
+/* ---------------------------------------------------------------- rider cash */
 
 .dlv-rider-handin {
   display: flex;

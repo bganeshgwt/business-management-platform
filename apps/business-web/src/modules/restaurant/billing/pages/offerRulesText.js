@@ -1,4 +1,4 @@
-// What an offer's rules are, in words (SW-B-17): shared by the offer form
+// What an offer's rules are, in words: shared by the offer form
 // and the offers list.
 
 export const WEEKDAYS = [

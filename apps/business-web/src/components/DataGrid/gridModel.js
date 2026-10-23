@@ -5,12 +5,11 @@
 import { money, moneyExact } from "@bmp/shared/format";
 import { MONTH_NAMES } from "@bmp/shared/dates";
 
-export const TYPES = ["text", "number", "money", "percent", "date", "datetime", "status", "actions"];
+const TYPES = ["text", "number", "money", "percent", "date", "datetime", "status", "actions"];
 const NUMERIC = new Set(["number", "money", "percent"]);
 const DATES = new Set(["date", "datetime"]);
 
 export const isNumeric = (column) => NUMERIC.has(column.type);
-export const isDate = (column) => DATES.has(column.type);
 
 // "Table 9" before "Table 10", the way a person counts, in the app's locale.
 const COLLATOR = new Intl.Collator("en-IN", { numeric: true });
@@ -43,7 +42,7 @@ export const humanise = (value) => {
 
 // A date the way dates.js reads one: "2026-09-23" is that calendar day here,
 // not midnight in Greenwich.
-export const toDate = (value) => {
+const toDate = (value) => {
   if (isEmpty(value)) {
     return null;
   }
@@ -196,7 +195,7 @@ export const formatValue = (column, value) => {
 // Sort keys: numbers as numbers, dates as moments, words as words. Blank is
 // null, and blank always sorts last in either direction — an unpaid bill with
 // no payment date should not lead a "newest first" list.
-export const sortKey = (column, value) => {
+const sortKey = (column, value) => {
   if (isEmpty(value)) {
     return null;
   }

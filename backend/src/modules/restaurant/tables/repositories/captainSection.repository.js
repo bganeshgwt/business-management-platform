@@ -1,4 +1,4 @@
-// Captain sections (sweep SW-A-20; migration 1791330000003).
+// Captain sections (migration 1791330000003).
 const pool = require("../../../../config/database");
 
 const findForDate = async (restaurantId, date, db = pool) => {

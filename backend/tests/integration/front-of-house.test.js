@@ -1,5 +1,4 @@
-// The front of house's live screens (pro pass A, 7 Oct 2026), end to end on
-// a throwaway database:
+// The front of house's live screens, end to end on a throwaway database:
 //
 //   - an order taken on an earlier trading day and never closed is flagged
 //     (GET /tables live.earlierDay, GET /orders earlierDay + summary.earlier)

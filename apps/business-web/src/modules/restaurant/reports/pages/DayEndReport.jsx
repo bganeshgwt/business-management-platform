@@ -538,7 +538,7 @@ function DayEndSheet({ data, currency, settings, restaurantName, printedBy }) {
   );
 }
 
-// Tips collected, by how they were given (REQ-ACCESS-DAYEND-TIPS). They are on
+// Tips collected, by how they were given. They are on
 // top of the payments: never in the sales, the GST or the P&L. Cash tips are
 // in the drawer until they are shared out.
 function TipsCard({ data, currency }) {
@@ -586,7 +586,7 @@ function TipLine({ row, currency }) {
   );
 }
 
-// Riders' cash (SW-X-RIDER-DRAWER): what riders handed in when their bills
+// Riders' cash: what riders handed in when their bills
 // were settled, what they did not (off the drawer, kept as owed or written
 // off), owed shortfalls handed over on the day, and what riders still owe.
 function RidersCard({ data, currency }) {
@@ -627,7 +627,7 @@ function RidersCard({ data, currency }) {
 
 const LOG_WORDS = { maintenance: "Maintenance", guest: "Guests", stock: "Stock", staff: "Staff", other: "Other" };
 
-// The day's notes (SW-B-07): each counter's opening and closing note, kept
+// The day's notes: each counter's opening and closing note, kept
 // apart with who wrote them, and the shift log book's entries for the day.
 function NotesCard({ data }) {
   const notes = data.notes || [];

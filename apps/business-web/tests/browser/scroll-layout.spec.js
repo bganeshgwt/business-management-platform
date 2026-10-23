@@ -1,11 +1,6 @@
 import { test, expect } from "@playwright/test";
-import fs from "node:fs";
-import process from "node:process";
 
-const credentialsFile = process.env.E2E_CREDENTIALS_FILE;
-const account = credentialsFile
-  ? JSON.parse(fs.readFileSync(credentialsFile, "utf8")).accounts.find(item => item.role === "RESTAURANT_ADMIN")
-  : null;
+import { localDate, signIn } from "../../../../e2e/fixture.mjs";
 
 for (const viewport of [
   { width: 1920, height: 900 },
@@ -14,23 +9,22 @@ for (const viewport of [
   { width: 740, height: 390 },
 ]) {
   test(`dashboard and report scrolling stay inside the app at ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
-    test.skip(!account, "Set E2E_CREDENTIALS_FILE to the local demo credentials file.");
     await page.setViewportSize(viewport);
-    await page.goto("/login");
-    await page.locator('input[autocomplete="username"]').fill(account.email);
-    await page.locator('input[autocomplete="current-password"]').fill(account.password);
-    await page.getByRole("button", { name: "Sign in", exact: true }).click();
-    try {
-      await expect(page.locator(".dash-page")).toBeVisible();
-    } finally {
-      const input = page.locator('input[autocomplete="current-password"]');
-      if (await input.count()) await input.fill("");
-    }
+    await signIn(page, "RESTAURANT_ADMIN");
+    await expect(page.locator(".dash-page")).toBeVisible();
 
-    for (const route of ["/", "/reports?tab=sales&from=2026-09-01&to=2026-09-30"]) {
+    // Both run past the screen: the dashboard with the test restaurant's
+    // trading and live blocks, the sales report over the last 30 days (every
+    // day of the range is drawn and listed, sales or none).
+    for (const route of ["/", `/reports?tab=sales&from=${localDate(-29)}&to=${localDate()}`]) {
       if (route !== "/") await page.goto(route);
       // The dashboard draws columns and bars; the sales report draws the trend line.
       await expect(page.locator(route === "/" ? ".dash-page" : ".trend-chart").first()).toBeAttached();
+      // The dashboard's live blocks arrive in a request of their own after its
+      // figures, and the page grows when they replace their placeholders. The
+      // sign-in reached the dashboard without loading a page, so "networkidle"
+      // may be long past: wait for the blocks themselves.
+      if (route === "/") await expect(page.locator(".dash-page .dash-skeleton")).toHaveCount(0);
       await page.waitForLoadState("networkidle");
       const before = await page.evaluate(() => ({
         height: innerHeight,

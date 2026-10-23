@@ -38,8 +38,8 @@ const keyOf = (m) => (m.id ? `m${m.id}` : m.kind);
 // Until the list arrives (or if it cannot be read): the five kinds by their usual names.
 const FALLBACK = METHOD_KINDS.map((kind) => ({ id: null, name: KIND_WORDS[kind], kind, key: kind }));
 
-// Pure helpers over a list of methods (each with `key`), for screens and tests.
-export function methodTools(list) {
+// Pure helpers over a list of methods (each with `key`); usePaymentMethods hands them to the screens.
+function methodTools(list) {
   const methods = list;
   const byKey = new Map(methods.map((m) => [m.key, m]));
   const options = (kinds = METHOD_KINDS) => methods.filter((m) => kinds.includes(m.kind));

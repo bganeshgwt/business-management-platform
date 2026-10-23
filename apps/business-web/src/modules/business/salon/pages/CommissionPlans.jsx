@@ -12,7 +12,7 @@ import FormDialog from "../../core/pages/FormDialog";
 import { ActiveBadge, Badge, Field, FormError } from "../../core/pages/ui";
 import { businessToday, newKey, useOpenBusiness, useServerList } from "../../core/pages/hooks";
 
-// Monthly target (slab) commission (round 2, R2-SVC): plans with slabs on the
+// Monthly target (slab) commission: plans with slabs on the
 // month's net service sales (after discounts and returns, before GST), which
 // plan each stylist is on from which month (or the flat rules), and the
 // month's payout statement with the bands worked out.

@@ -28,7 +28,7 @@ export const STATION_COLORS = [
 
 // 754 seconds -> "12:34"; past 99 minutes a clock stops being readable at a
 // glance, so it becomes "1h 42m".
-export const clock = (milliseconds) => {
+const clock = (milliseconds) => {
   const seconds = Math.max(0, Math.floor(milliseconds / 1000));
   const minutes = Math.floor(seconds / 60);
 
@@ -146,7 +146,7 @@ export const plural = (count, one, many) => `${count} ${count === 1 ? one : many
 
 // ---------------------------------------------------------------- kitchen names
 //
-// SW-A-12: a dish, size or add-on may carry a kitchen name in the cooks' own
+// A dish, size or add-on may carry a kitchen name in the cooks' own
 // script (पनीर टिक्का, பனீர் டிக்கா). The kitchen settings choose what tickets,
 // the kitchen screen and change slips show; each ticket and slip carries that
 // choice (nameMode) from the API, so a till printing a KOT follows it too.
@@ -169,7 +169,7 @@ export const dishNames = (menuName, kitchenName, mode = "both") => {
 };
 
 // The one-line form for a size, an add-on or a combo part: "हाफ (Half)".
-export const inlineName = (menuName, kitchenName, mode = "both") => {
+const inlineName = (menuName, kitchenName, mode = "both") => {
   const { main, sub } = dishNames(menuName, kitchenName, mode);
 
   return sub ? `${main} (${sub})` : main;
@@ -221,7 +221,7 @@ export const allDayCounts = (tickets) => {
       const entry = counts.get(key) || {
         key,
         name: item.name,
-        // SW-A-12: the names as the kitchen reads them.
+        // The names as the kitchen reads them.
         label: names.main,
         subLabel: names.sub,
         variant: item.variant,
@@ -246,14 +246,14 @@ export const allDayCounts = (tickets) => {
 
 const PAPER_WIDTHS = { "58mm": 220, "80mm": 300, a4: 420 };
 
-export const paperPixels = (paperWidth) => PAPER_WIDTHS[paperWidth] || PAPER_WIDTHS["80mm"];
+const paperPixels = (paperWidth) => PAPER_WIDTHS[paperWidth] || PAPER_WIDTHS["80mm"];
 
 // The ticket's typeface, then every Indian script by name: a monospace font
 // has no Devanagari or Tamil, and the browser takes each letter from the
 // first font in this list that has it (Nirmala UI on Windows, Noto on
 // Android and Linux, the older per-script Windows fonts after them), so a
 // kitchen name never prints as empty boxes.
-export const KOT_FONTS = [
+const KOT_FONTS = [
   "ui-monospace",
   '"Cascadia Mono"',
   "Menlo",
@@ -282,7 +282,7 @@ export const KOT_FONTS = [
 // hot pan: station, number and table in big type, then one line per dish with
 // the quantity first. Notes are boxed, because a missed "no onion" is a plate
 // sent back.
-export const buildKot = (ticket, { restaurantName: kitchenName = "" } = {}) => {
+const buildKot = (ticket, { restaurantName: kitchenName = "" } = {}) => {
   // Brands: the order's brand is the name on its ticket.
   const restaurantName = ticket.brandName || kitchenName;
   const where = destination(ticket);
@@ -354,8 +354,8 @@ export const buildKot = (ticket, { restaurantName: kitchenName = "" } = {}) => {
   `;
 };
 
-// The KOT's print styles, exported so the paper can be checked on a screen.
-export const kotStyles = (paperWidth = "80mm") => `
+// The KOT's print styles.
+const kotStyles = (paperWidth = "80mm") => `
       body {
         font-family: ${KOT_FONTS};
         font-size: 15px;
@@ -419,20 +419,7 @@ export const slipTitle = (slip) => SLIP_TITLES[slip.kind] || "CHANGE";
 // "Table 5" or "T5": a bare number reads better with the word.
 const tableText = (value) => (value ? (/^\d+$/.test(String(value)) ? `Table ${value}` : String(value)) : "");
 
-// One line a person can read on a screen: "CANCEL · Tandoor · 1 x Butter Naan".
-export const slipSummary = (slip) => {
-  const dishes = (slip.lines || [])
-    .map((line) => `${qty(line.quantity)} x ${shortName(line, slip.nameMode)}`)
-    .join(", ");
-
-  if (slip.kind === "table_changed") {
-    return `${tableText(slip.fromTableNo)} → ${tableText(slip.toTableNo)} · ${slip.stationName} · ${dishes}`;
-  }
-
-  return `${slipTitle(slip)} · ${slip.stationName} · ${dishes}`;
-};
-
-export const buildSlip = (slip, { restaurantName = "" } = {}) => {
+const buildSlip = (slip, { restaurantName = "" } = {}) => {
   const moved = slip.kind === "table_changed";
   const sign = moved ? "" : "&minus;";
   const mode = slip.nameMode || "both";
@@ -484,7 +471,7 @@ export const buildSlip = (slip, { restaurantName = "" } = {}) => {
   `;
 };
 
-export const slipStyles = (paperWidth = "80mm") => `
+const slipStyles = (paperWidth = "80mm") => `
       body {
         font-family: ${KOT_FONTS};
         font-size: 15px;

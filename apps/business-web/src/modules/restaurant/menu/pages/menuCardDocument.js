@@ -1,7 +1,7 @@
 import { escapeHtml, printDocument } from "../../../../services/print";
 import { uploadUrl } from "../../../../services/api";
 
-// The printed menu card (sweep SW-B-20): one outlet, one service, at the
+// The printed menu card: one outlet, one service, at the
 // prices that outlet and service charge (the server works them out with the
 // till's own selling rules). A4, two columns. A category heading never sits
 // alone at the foot of a column or page — it keeps with its first dish — and

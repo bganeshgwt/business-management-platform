@@ -27,7 +27,7 @@ const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`;
 const localDate = (at, timezone) => new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date(at));
 
 async function collectAlerts(context) {
-  const { restaurantId, now, pool, money, today, timezone } = context;
+  const { restaurantId, pool, money, today, timezone } = context;
   let storeOnly = false;
   let storeId = null;
 

@@ -2,7 +2,7 @@ const v = require("../../../../utils/validate");
 const { logAction } = require("../../../../utils/audit");
 const attachmentService = require("../services/attachment.service");
 
-// The files on an expense or a purchase bill (SW-B-09). One set of handlers
+// The files on an expense or a purchase bill. One set of handlers
 // per kind of record; `param` is the route's name for the record's id.
 //
 // Someone tied to one outlet reaches only that outlet's records (the service

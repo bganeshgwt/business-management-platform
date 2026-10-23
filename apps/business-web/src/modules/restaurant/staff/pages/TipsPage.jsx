@@ -17,7 +17,7 @@ import { monthStart, today } from "@bmp/shared/dates";
 import { count, money, moneyExact } from "@bmp/shared/format";
 import useQueryFilter from "../../../../hooks/useQueryFilter";
 import "../../../../styles/access.css";
-import "../../../../styles/access-sweep.css";
+import "../../../../styles/staff.css";
 
 // Staff -> Tips. Tips are taken at payment (the billing screen's tip box);
 // here a manager sees them by day and by person, shares a period's pool out
@@ -138,7 +138,7 @@ export default function TipsPage() {
         title="Tips"
         description="Tips taken at payment, shared out to the people who worked the shift, and paid with their salary as a separate line."
         action={
-          <div className="asw-header-actions">
+          <div className="staff-header-actions">
             <button type="button" className="button button-secondary" onClick={() => setSettingsOpen(true)} disabled={!data}>
               <Icon name="sliders" size={16} /> How tips are shared
             </button>
@@ -211,7 +211,7 @@ export default function TipsPage() {
             />
           </div>
 
-          <p className="muted small asw-rule-line">
+          <p className="muted small staff-rule-line">
             <Icon name="info" size={14} />{" "}
             {data.settings.routing === "captain"
               ? "A tip on an order a captain took goes straight to that captain; every other tip goes into the day's pool."
@@ -586,18 +586,18 @@ function ShareoutModal({ shareout, onClose }) {
 // Each person's share: straight from their orders, and from the pool.
 function ShareList({ direct, pool, basis }) {
   return (
-    <div className="stack asw-share-list">
+    <div className="stack staff-share-list">
       {direct.length > 0 && (
         <div>
           <p className="section-heading">Straight to the captain</p>
-          <ul className="asw-share-rows">
+          <ul className="staff-share-rows">
             {direct.map((row) => (
               <li key={`d-${row.employeeId}`}>
                 <span>
                   <strong>{row.name}</strong>
                   <small className="muted">{row.tips ? `${row.tips} tip${row.tips === 1 ? "" : "s"} on orders they took` : "tips on orders they took"}</small>
                 </span>
-                <strong className="asw-share-amount">{moneyExact(row.amount)}</strong>
+                <strong className="staff-share-amount">{moneyExact(row.amount)}</strong>
               </li>
             ))}
           </ul>
@@ -608,7 +608,7 @@ function ShareList({ direct, pool, basis }) {
         {pool.length === 0 ? (
           <p className="muted small">Nothing went into the pool.</p>
         ) : (
-          <ul className="asw-share-rows">
+          <ul className="staff-share-rows">
             {pool.map((row) => (
               <li key={`p-${row.employeeId}`}>
                 <span>
@@ -619,7 +619,7 @@ function ShareList({ direct, pool, basis }) {
                     {row.sharePercent !== undefined ? ` · ${row.sharePercent}%` : ""}
                   </small>
                 </span>
-                <strong className="asw-share-amount">{moneyExact(row.amount)}</strong>
+                <strong className="staff-share-amount">{moneyExact(row.amount)}</strong>
               </li>
             ))}
           </ul>
@@ -708,7 +708,7 @@ function ShareOutModal({ initialFrom, initialTo, onClose, onDone }) {
     return (
       <Modal title="Tips shared" icon="check-circle" onClose={onClose} width={560}>
         <div className="stack">
-          <div className="asw-done">
+          <div className="staff-done">
             <SuccessCheck size={48} label="Tips shared" />
             <div>
               <strong>{moneyExact(done.data.total)} shared between {done.data.shares.length} {done.data.shares.length === 1 ? "person" : "people"}.</strong>
@@ -777,7 +777,7 @@ function ShareOutModal({ initialFrom, initialTo, onClose, onDone }) {
           <EmptyState icon="wallet" message="Nothing to share for these days" hint="Either no tips were taken, or they have been shared already." />
         ) : (
           <>
-            <div className="asw-share-summary">
+            <div className="staff-share-summary">
               <div>
                 <span className="muted small">Tips</span>
                 <strong>
@@ -798,7 +798,7 @@ function ShareOutModal({ initialFrom, initialTo, onClose, onDone }) {
                   <strong>{moneyExact(preview.directTotal)}</strong>
                 </div>
               )}
-              <div className="asw-share-pool">
+              <div className="staff-share-pool">
                 <span className="muted small">The pool</span>
                 <strong>
                   <LiveValue value={preview.poolTotal}>{moneyExact(preview.poolTotal)}</LiveValue>
@@ -816,11 +816,11 @@ function ShareOutModal({ initialFrom, initialTo, onClose, onDone }) {
             <ShareList direct={preview.direct} pool={people} basis={preview.basis} />
 
             {(people.length > 0 || excluded.length > 0) && (
-              <details className="asw-exclude">
+              <details className="staff-exclude">
                 <summary>
                   Who shares the pool ({people.length} in{excluded.length ? `, ${excluded.length} left out` : ""}) — untick to leave someone out
                 </summary>
-                <div className="asw-exclude-list">
+                <div className="staff-exclude-list">
                   {people.map((row) => (
                     <label key={row.employeeId} className="checkbox">
                       <input
@@ -905,16 +905,16 @@ function SettingsModal({ settings, onClose, onSaved }) {
       <form className="stack" onSubmit={save}>
         <ErrorMessage message={error} />
 
-        <fieldset className="asw-choice-group">
+        <fieldset className="staff-choice-group">
           <legend>Who gets a tip</legend>
-          <label className={`asw-choice ${routing === "pool" ? "is-checked" : ""}`}>
+          <label className={`staff-choice ${routing === "pool" ? "is-checked" : ""}`}>
             <input type="radio" name="routing" checked={routing === "pool"} onChange={() => setRouting("pool")} />
             <span>
               <strong>The day's pool</strong>
               <small className="muted">Every tip is shared between everyone who worked</small>
             </span>
           </label>
-          <label className={`asw-choice ${routing === "captain" ? "is-checked" : ""}`}>
+          <label className={`staff-choice ${routing === "captain" ? "is-checked" : ""}`}>
             <input type="radio" name="routing" checked={routing === "captain"} onChange={() => setRouting("captain")} />
             <span>
               <strong>The captain who took the order</strong>
@@ -949,9 +949,9 @@ function SettingsModal({ settings, onClose, onSaved }) {
         <div className="field">
           <span>Points per designation</span>
           <small className="muted">Used when sharing by points: a captain with 3 points who worked 10 days gets 30 parts. 0 leaves a designation out.</small>
-          <div className="asw-points">
+          <div className="staff-points">
             {points.map((row, index) => (
-              <div key={index} className="asw-points-row">
+              <div key={index} className="staff-points-row">
                 <input
                   value={row.name}
                   onChange={(event) => setPoints(points.map((item, at) => (at === index ? { ...item, name: event.target.value } : item)))}
@@ -982,7 +982,7 @@ function SettingsModal({ settings, onClose, onSaved }) {
               <Icon name="plus" size={14} /> Add a designation
             </button>
           </div>
-          <label className="field asw-default-points">
+          <label className="field staff-default-points">
             <span>Anyone else</span>
             <input type="number" min="0" max="100" step="0.5" value={defaultPoints} onChange={(event) => setDefaultPoints(event.target.value)} />
           </label>

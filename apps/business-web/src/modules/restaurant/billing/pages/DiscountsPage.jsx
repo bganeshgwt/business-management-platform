@@ -139,7 +139,7 @@ export default function DiscountsPage() {
         (buyGet || form.discountType === "percentage") && form.maxDiscountAmount
           ? Number(form.maxDiscountAmount)
           : null,
-      // The rules (SW-B-17).
+      // The rules.
       offerType: form.offerType,
       productIds: form.productIds,
       categoryIds: form.categoryIds,

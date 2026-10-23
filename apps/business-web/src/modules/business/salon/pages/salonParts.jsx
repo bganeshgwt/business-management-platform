@@ -8,7 +8,7 @@ import { balanceText } from "@bmp/shared/format";
 import { Field } from "../../core/pages/ui";
 import { useOpenBusiness } from "../../core/pages/hooks";
 
-// Pieces the salon screens share (pro pass F-02): a client picker that finds
+// Pieces the salon screens share: a client picker that finds
 // by name or phone and adds a new client on the spot.
 
 // value: the chosen contact object (or null). clients: every active client.

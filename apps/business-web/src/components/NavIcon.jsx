@@ -411,7 +411,7 @@ const PATHS = {
     </>
   ),
 
-  // --- business types (pro pass): their own marks instead of borrowed ones ---
+  // --- business types: their own marks instead of borrowed ones ---
   loyalty: (
     <>
       <path d="M12 2 14.9 8.3 21.8 9 16.6 13.6 18.2 20.4 12 16.9 5.8 20.4 7.4 13.6 2.2 9 9.1 8.3Z" />

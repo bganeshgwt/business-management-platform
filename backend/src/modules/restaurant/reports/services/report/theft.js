@@ -12,16 +12,12 @@ const ruleSettings = require("../../../setup/services/ruleSettings.service");
 // Theft control
 // ---------------------------------------------------------------------------
 
+const THEFT_LIMIT = 500;
+
 // Where a large discount starts, unless the screen asks for another line:
 // the restaurant's own line (Settings -> Alerts and timings, the same one the
 // bell rings at), which until changed is a fifth of the bill, or ₹1,000 on
 // any bill.
-const DEFAULT_DISCOUNT_PERCENT = ruleSettings.DEFAULTS.alertLargeDiscountPercent;
-
-const DEFAULT_DISCOUNT_AMOUNT = ruleSettings.DEFAULTS.alertLargeDiscountAmount;
-
-const THEFT_LIMIT = 500;
-
 const theftReport = async (restaurantId, range, { outletId = null, discountPercent, discountAmount } = {}) => {
   const [context, rules] = await Promise.all([scopeFor(restaurantId, range, outletId), ruleSettings.load(restaurantId)]);
   const percent = discountPercent ?? rules.alertLargeDiscountPercent;
@@ -262,8 +258,4 @@ const theftReport = async (restaurantId, range, { outletId = null, discountPerce
   };
 };
 
-module.exports = {
-  DEFAULT_DISCOUNT_PERCENT,
-  DEFAULT_DISCOUNT_AMOUNT,
-  theftReport,
-};
+module.exports = { theftReport };

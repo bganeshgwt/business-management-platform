@@ -316,7 +316,7 @@ const dayEnd = async (
     refundCount: data.refunds.refund_count,
     totalExpenses: wholeDrawer ? sum("totalExpenses") : num(outletCash.total_expenses),
 
-    // Tips collected, by how they were given (REQ-ACCESS-DAYEND-TIPS). On top
+    // Tips collected, by how they were given. On top
     // of the payments: never in the sales, GST or the P&L. Cash tips are in
     // the drawer's expected cash until they are shared out.
     tips: {
@@ -328,18 +328,18 @@ const dayEnd = async (
     },
     cashTips: wholeDrawer ? sum("cashTips") : round2(num((data.byMethod.find((row) => row.payment_method === "cash") || {}).tips)),
 
-    // Riders' cash (SW-X-RIDER-DRAWER): handed in on settlement (inside the
+    // Riders' cash: handed in on settlement (inside the
     // cash taken), short and off the drawer, and owed shortfalls repaid.
     riderCash: wholeDrawer ? sum("riderCash") : 0,
     riderShortfall: wholeDrawer ? sum("riderShortfall") : 0,
     riderRepaid: wholeDrawer ? sum("riderRepaid") : 0,
-    // Advances and deposits in cash (R4-DRAWER-ADVANCES): in, and handed back.
+    // Advances and deposits in cash: in, and handed back.
     cashAdvances: wholeDrawer ? sum("cashAdvances") : 0,
     cashAdvancesReturned: wholeDrawer ? sum("cashAdvancesReturned") : 0,
     // Still owed by riders from settlements so far (any day), as of now.
     ridersOwe: { count: owed.count, riders: owed.riders, amount: round2(num(owed.amount)) },
 
-    // The day's notes, kept apart (SW-B-07): each counter's opening and
+    // The day's notes, kept apart: each counter's opening and
     // closing note with who wrote it, and the shift log book's entries for
     // the day (only for someone who may read the log book).
     notes: drawers

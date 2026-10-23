@@ -195,7 +195,7 @@ test("restaurant features switch on and off", { timeout: 600000 }, async (t) => 
     await pool.query(
       `INSERT INTO reservations (restaurant_id, reference_no, guest_name, guest_mobile, party_size, reservation_date, start_time,
          duration_minutes, status, source)
-       VALUES ($1, 'R-FEAT-1', 'Kiran', '9848033333', 4, CURRENT_DATE + 2, '20:00', 90, 'confirmed', 'phone')`,
+       VALUES ($1, 'R-FEAT-1', 'Kiran', '9848033333', 4, (now() AT TIME ZONE 'Asia/Kolkata')::date + 2, '20:00', 90, 'confirmed', 'phone')`,
       [rid]
     );
     const preview = await O("POST", "/restaurants/current/features/reservations/preview", { enabled: false });

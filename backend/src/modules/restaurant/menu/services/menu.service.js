@@ -45,7 +45,7 @@ const toProduct = (row) => ({
   categoryId: row.category_id,
   categoryName: row.category_name,
   name: row.name,
-  // SW-A-12: what the KOT and the kitchen screen may print instead (null: none).
+  // What the KOT and the kitchen screen may print instead (null: none).
   kitchenName: row.kitchen_name || null,
   // "weight": the price is per kg and a line's quantity is its weight in kg.
   soldBy: row.sold_by || "unit",
@@ -456,9 +456,6 @@ const editProduct = async (restaurantId, id, input, userId) =>
     return () => fields;
   });
 
-const updateProduct = async (restaurantId, id, data, userId) =>
-  (await editProduct(restaurantId, id, data, userId)).product;
-
 // 200, "200" and 200.00 are the same price; "" and null the same empty code.
 const sameValue = (a, b) => {
   const x = a === undefined || a === "" ? null : a;
@@ -764,10 +761,8 @@ module.exports = {
   listProducts,
   getProduct,
   createProduct,
-  updateProduct,
   editProduct,
   patchProduct,
-  setProductAvailability,
   changeAvailability,
   setProductStatus,
   productHistory,

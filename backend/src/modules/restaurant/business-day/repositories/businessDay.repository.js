@@ -110,8 +110,8 @@ const close = async (restaurantId, id, data, userId, db = pool) => {
   const result = await db.query(
     `UPDATE business_days
      SET day_status = 'closed', closed_at = NOW(), closing_cash = $3, closed_by = $5,
-         -- The closing note is kept beside the opening one, never over it
-         -- (SW-B-07); notes holds the two together for older readers.
+         -- The closing note is kept beside the opening one, never over it;
+         -- notes holds the two together for older readers.
          closing_notes = $4,
          notes = NULLIF(CONCAT_WS(E'\n', NULLIF(opening_notes, ''), NULLIF($4::text, '')), ''),
          counted_cash = $6, count_method = $7, count_denominations = $8, blind_count = $9,
@@ -176,8 +176,8 @@ const reopen = async (restaurantId, id, note) => {
 // What is still unsettled when someone tries to close the day.
 //
 // Open orders are looked for across ALL days, not just this one: an order is a
-// table that has not paid, whichever day it started on. The demo database was
-// found with two orders still open on a day closed two days earlier — which is
+// table that has not paid, whichever day it started on. A restaurant was found
+// with two orders still open on a day closed two days earlier — which is
 // exactly what happens when nothing checks.
 const findUnsettled = async (restaurantId, dayId, outletId) => {
   const [orders, bills] = await Promise.all([

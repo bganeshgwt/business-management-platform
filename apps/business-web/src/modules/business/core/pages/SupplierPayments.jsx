@@ -17,7 +17,7 @@ import { businessDate } from "./invoice";
 import { businessToday, newKey, useOpenBusiness, useServerList } from "./hooks";
 import { usePaymentMethods } from "./paymentMethods";
 
-// What the business owes its suppliers (pro pass C-05): the list with what is
+// What the business owes its suppliers: the list with what is
 // overdue by each supplier's credit days, paying a supplier against several
 // receipts at once (oldest first, or the ones chosen; extra stays as an
 // advance), the supplier's account and statement, and the payment voucher.
@@ -65,7 +65,7 @@ export function PayablesCard() {
 }
 
 // Pay one supplier: the open receipts are shown oldest first.
-export function SupplierPayDialog({ contactId, name, onClose, onSaved }) {
+function SupplierPayDialog({ contactId, name, onClose, onSaved }) {
   const biz = useOpenBusiness();
   const locations = biz.locations.filter((l) => l.active);
   const [requestKey] = useState(newKey);
@@ -137,7 +137,7 @@ export function SupplierPayDialog({ contactId, name, onClose, onSaved }) {
 
 const KIND_WORDS = { purchase: "Receipt", return: "Returned", payment: "Payment", voucher: "Payment", refund: "Refund received", opening: "Opening balance" };
 
-export function SupplierStatementDialog({ contact, onClose }) {
+function SupplierStatementDialog({ contact, onClose }) {
   const biz = useOpenBusiness();
   const anchor = businessToday(biz.business.timezone);
   const [range, setRange] = useState({ from: monthStart(anchor), to: anchor });

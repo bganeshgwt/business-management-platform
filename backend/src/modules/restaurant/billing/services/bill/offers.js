@@ -17,7 +17,7 @@ const AppError = require("../../../../../utils/AppError");
 // coupon the guest was already given — least of all because this very bill
 // took its last use, or the happy hour ended while the guest was eating.
 //
-// The rules (SW-B-17) the coupon may carry, each refused in words the till
+// The rules the coupon may carry, each refused in words the till
 // can read out:
 //   chosen dishes / categories   only those lines count and are discounted
 //   weekdays                     by the business date's day of the week

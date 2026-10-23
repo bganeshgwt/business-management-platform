@@ -12,9 +12,9 @@ import { getErrorMessage } from "../../../../services/api";
 import { money } from "@bmp/shared/format";
 import { dayMonth } from "@bmp/shared/dates";
 import "../../../../styles/stock.css";
-import "../../../../styles/backoffice-sweep.css";
+import "../../../../styles/backoffice.css";
 
-// Stock → Stock & purchasing settings (sweeps SW-B-10 and SW-B-11).
+// Stock → Stock & purchasing settings.
 //
 // Two limits that make sure the person who spends is not the only one who
 // says yes to a large amount, and how stock sent between stores lands. A

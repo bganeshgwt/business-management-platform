@@ -7,7 +7,6 @@ const requireFeature = require("../../../../middlewares/requireFeature");
 const resolveOutlet = require("../../../../middlewares/resolveOutlet");
 const writeoffApproval = require("../../../../middlewares/writeoffApproval");
 const stockSettingsController = require("../controllers/stockSettings.controller");
-const AppError = require("../../../../utils/AppError");
 
 const router = express.Router();
 

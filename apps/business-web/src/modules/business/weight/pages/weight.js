@@ -1,4 +1,4 @@
-// Small helpers shared by the weight-shop screens (Phase 2, T4).
+// Small helpers shared by the weight-shop screens.
 import "../../../../styles/business-salon-weight.css";
 
 export const REASONS = [
@@ -17,7 +17,7 @@ export const yieldTone = (actual, expected) => {
   return Number(actual) + 1 < Number(expected) ? "sw-yield-low" : "sw-yield-good";
 };
 
-// Pro pass F-23: a meat or fish shop cuts and cleans; a dry-fruit or other
+// A meat or fish shop cuts and cleans; a dry-fruit or other
 // weight shop sorts and repacks. The same screens, in each trade's words.
 export function processWords(type) {
   if (type === "weight_retail") {

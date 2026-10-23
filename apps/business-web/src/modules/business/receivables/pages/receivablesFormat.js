@@ -8,7 +8,7 @@ export const methodName = (m) => (METHODS.find(([code]) => code === m) || [m, m]
 // A receipt's method as taken: the business's own name (PhonePe) where one was recorded.
 export const receiptMethod = (row) => row?.method_name || methodName(row?.method);
 
-// A cheque's state in words, with the badge tone (pro pass D-02).
+// A cheque's state in words, with the badge tone.
 export const CHEQUE_STATUS = {
   received: { tone: "warning", label: "In hand" },
   deposited: { tone: "info", label: "Deposited" },

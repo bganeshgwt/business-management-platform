@@ -1,33 +1,21 @@
 import { test, expect } from "@playwright/test";
-import fs from "node:fs";
-import process from "node:process";
 
-// Wholesale pro pass (builder D): the overview's wholesale day, fast order
-// entry (customer card, item search, cases + pieces), the dispatch board and
-// pick list, collections with the cheques and settlement tabs, outstanding
+import { business, signIn, WHOLESALE } from "../../../../e2e/fixture.mjs";
+
+// The wholesaler's screens: the overview's wholesale day, fast order entry
+// (customer card, item search, cases + pieces), the dispatch board and pick
+// list, collections with the cheques and settlement tabs, outstanding
 // follow-ups, price groups and claims. Reads and builds on screen only;
 // nothing is posted.
-const credentialsFile = process.env.E2E_CREDENTIALS_FILE;
-const account = credentialsFile
-  ? JSON.parse(fs.readFileSync(credentialsFile, "utf8")).accounts.find((item) => item.role === "RESTAURANT_ADMIN")
-  : null;
-
+//
+// Signs in as the test restaurant's admin, who owns the test wholesaler
+// (e2e/test-data.mjs): it sells noodles counted in pieces and by the case,
+// and a retailer owes it for a case bought on credit.
 let wholesale = null;
 test.beforeEach(async ({ page }) => {
-  test.skip(!account, "Set E2E_CREDENTIALS_FILE to the local demo credentials file.");
-  await page.goto("/login");
-  await page.locator('input[autocomplete="username"]').fill(account.email);
-  await page.locator('input[autocomplete="current-password"]').fill(account.password);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.locator("main.content-scroll")).toBeVisible();
-  const businesses = await page.evaluate(async () => {
-    const api = (await import("/src/services/business.service.js"));
-    return (await api.listBusinesses()).businesses;
-  });
-  // The demo wholesaler: these checks read its sample data (the owner's real
-  // copy, LIVE-WHOLESALE, starts empty and comes first in the list).
-  wholesale = businesses.find((b) => b.business_type === "wholesale" && b.is_demo) || businesses.find((b) => b.business_type === "wholesale");
-  test.skip(!wholesale, "The development demo wholesale business is needed.");
+  wholesale = business("wholesale");
+  await signIn(page);
+  await expect(page.locator("main.content-scroll")).toBeVisible({ timeout: 30_000 });
 });
 
 const errorsOf = (page) => {
@@ -52,18 +40,21 @@ test("a new order: search the shop, see their dues, add items by search with cas
   const dialog = page.getByRole("dialog", { name: "New sales order" });
   await expect(dialog).toBeVisible({ timeout: 30_000 });
   const customer = dialog.getByRole("combobox", { name: "Customer" });
-  await customer.fill("Om Sai");
+  await customer.fill(wholesale.customer.name);
   await customer.press("ArrowDown");
   await customer.press("Enter");
   await expect(dialog.getByText("Last order", { exact: true })).toBeVisible({ timeout: 15_000 });
   const item = dialog.getByRole("combobox", { name: "Add item" });
-  await item.fill("noodles");
+  await item.fill(wholesale.item.name);
   await item.press("ArrowDown");
   await item.press("Enter");
-  await expect(dialog.getByLabel("Instant noodles 70 g case")).toHaveValue("1");
-  await dialog.getByLabel("Instant noodles 70 g case").fill("2");
-  await dialog.getByLabel("Instant noodles 70 g each").fill("10");
-  await expect(dialog.getByText("202 each")).toBeVisible();
+  // The line starts at one pack; two packs and ten pieces are counted in pieces.
+  const packs = dialog.getByLabel(`${wholesale.item.name} ${WHOLESALE.packUnit}`);
+  await expect(packs).toHaveValue("1");
+  await packs.fill("2");
+  await dialog.getByLabel(`${wholesale.item.name} ${WHOLESALE.item.unit}`).fill("10");
+  const pieces = (2 * WHOLESALE.packSize + 10).toLocaleString("en-IN");
+  await expect(dialog.getByText(`${pieces} ${WHOLESALE.item.unit}`, { exact: true })).toBeVisible();
   await dialog.getByRole("button", { name: "Cancel" }).click();
   expect(errors).toEqual([]);
 });
@@ -79,8 +70,10 @@ test("dispatch board, collections tabs, outstanding, price groups and claims ope
   await expect(page.getByText(/Deposit it on its date/)).toBeVisible({ timeout: 30_000 });
   await page.getByRole("radio", { name: "Salesperson settlement" }).click();
   await expect(page.getByText("Settle a salesperson's day")).toBeVisible({ timeout: 30_000 });
+  // The retailer who bought on credit is followed up from their row.
   await page.goto(`/business-admin/${wholesale.id}/outstanding`);
-  await expect(page.getByRole("button", { name: "Promise" }).first()).toBeVisible({ timeout: 30_000 });
+  const debtor = page.locator(".dg-row, ul.dg-cards > li").filter({ hasText: wholesale.customer.name });
+  await expect(debtor.getByRole("button", { name: "Promise" })).toBeVisible({ timeout: 30_000 });
   await page.goto(`/business-admin/${wholesale.id}/price-groups`);
   await expect(page.getByRole("heading", { name: "Price groups & schemes" })).toBeVisible({ timeout: 30_000 });
   await page.goto(`/business-admin/${wholesale.id}/claims`);

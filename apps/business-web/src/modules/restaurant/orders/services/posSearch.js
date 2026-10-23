@@ -16,7 +16,7 @@ const fold = (text) =>
 //   3  the start of the code
 //   2  the start of the name
 //   1  every word typed is somewhere in the name, in any order
-export const searchRank = (product, search) => {
+const searchRank = (product, search) => {
   const term = fold(search);
 
   if (!term) {
@@ -40,8 +40,6 @@ export const searchRank = (product, search) => {
 
   return term.split(" ").every((word) => name.includes(word)) ? 1 : 0;
 };
-
-export const matchesSearch = (product, search) => searchRank(product, search) > 0;
 
 // The dishes that answer the search, best first; with nothing typed, the
 // menu's own order.

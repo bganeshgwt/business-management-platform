@@ -27,18 +27,17 @@ export const escapeHtml = (value) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
-// The id the print stylesheet keys off. Exported so a test can assert the CSS
-// and the code are talking about the same element.
-export const PRINT_ROOT_ID = "print-root";
+// The id the print stylesheet keys off.
+const PRINT_ROOT_ID = "print-root";
 
 // Set on <html> for as long as the receipt is on the page, so the stylesheet
 // hides the app only while something is actually being printed.
-export const PRINTING_CLASS = "is-printing";
+const PRINTING_CLASS = "is-printing";
 
 // A receipt carries its own typeface and width, which must not leak into the
 // app once the container is gone. Scoping every rule under the container's id
 // keeps it contained without needing Shadow DOM.
-export const scopeStyles = (styles) =>
+const scopeStyles = (styles) =>
   String(styles || "")
     .split("}")
     .map((block) => {

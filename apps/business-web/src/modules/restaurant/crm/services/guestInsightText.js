@@ -126,7 +126,7 @@ export const exportedWhat = (data) =>
 // services/csv.js toCsv, shared by every export in the app, only quotes
 // cells; this guard is applied here, to this page's cells, before they reach
 // it.
-export const spreadsheetSafe = (value) => {
+const spreadsheetSafe = (value) => {
   if (typeof value !== "string") {
     return value;
   }
@@ -139,7 +139,7 @@ export const spreadsheetSafe = (value) => {
 // column a WhatsApp or SMS tool can take as it is, and one Excel neither
 // reads as a formula nor strips a zero from. Blank when fewer than ten digits
 // were typed: that is not a number anyone can message.
-export const tenDigitMobile = (mobile) => {
+const tenDigitMobile = (mobile) => {
   const digits = String(mobile || "").replace(/\D/g, "");
   return digits.length >= 10 ? digits.slice(-10) : "";
 };

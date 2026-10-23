@@ -21,7 +21,7 @@ import ClientPanel from "./ClientPanel";
 import { ClientPicker } from "./salonParts";
 import { timeOfDay, whatsappLink } from "./salon";
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
-import "../styles/salon-pro.css";
+import "../styles/salon.css";
 
 // The salon counter: services and products on one bill, each service with
 // the stylist who did it (for commission). Type or tap a service to add it;

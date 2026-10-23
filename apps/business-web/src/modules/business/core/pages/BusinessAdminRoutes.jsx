@@ -41,10 +41,10 @@ const LoyaltyPage = lazy(() => import("../../retail/pages/LoyaltyPage"));
 const BooksPage = lazy(() => import("../../retail/pages/BooksPage"));
 const LabelsPage = lazy(() => import("../../retail/pages/LabelsPage"));
 const RetailReportsPage = lazy(() => import("../../retail/pages/RetailReportsPage"));
-// Pro pass C: batches near expiry; booklists and customer orders for bookshops.
+// Batches near expiry; booklists and customer orders for bookshops.
 const NearExpiryPage = lazy(() => import("../../retail/pages/NearExpiryPage"));
 const BookOrdersPage = lazy(() => import("../../retail/pages/BookOrdersPage"));
-// Phase 2, T2: wholesale and the shared receivables.
+// Wholesale and the shared receivables.
 const SalesOrdersPage = lazy(() => import("../../wholesale/pages/SalesOrdersPage"));
 const BackOrdersPage = lazy(() => import("../../wholesale/pages/BackOrdersPage"));
 const RoutesPage = lazy(() => import("../../wholesale/pages/RoutesPage"));
@@ -55,7 +55,7 @@ const ClaimsPage = lazy(() => import("../../wholesale/pages/ClaimsPage"));
 const PurchaseOrdersPage = lazy(() => import("../../wholesale/pages/PurchaseOrdersPage"));
 const OutstandingPage = lazy(() => import("../../receivables/pages/OutstandingPage"));
 const CollectionsPage = lazy(() => import("../../receivables/pages/CollectionsPage"));
-// Phase 2, T3: fashion and electronics.
+// Fashion and electronics.
 const VariantsPage = lazy(() => import("../../fashion/pages/VariantsPage"));
 const VariantMatrixPage = lazy(() => import("../../fashion/pages/VariantMatrixPage"));
 const VariantReportsPage = lazy(() => import("../../fashion/pages/VariantReportsPage"));
@@ -64,10 +64,10 @@ const SerialsPage = lazy(() => import("../../electronics/pages/SerialsPage"));
 const WarrantiesPage = lazy(() => import("../../electronics/pages/WarrantiesPage"));
 const RepairsPage = lazy(() => import("../../electronics/pages/RepairsPage"));
 const RepairJobPage = lazy(() => import("../../electronics/pages/RepairJobPage"));
-// Round 2 (R2-CORE): kits / bundles and EMI & financiers.
+// Kits / bundles and EMI & financiers.
 const KitsPage = lazy(() => import("./KitsPage"));
 const FinancePage = lazy(() => import("../../electronics/pages/FinancePage"));
-// Phase 2, T4: salon & spa and weight-based shops.
+// Salon & spa and weight-based shops.
 const SalonCalendarPage = lazy(() => import("../../salon/pages/SalonCalendarPage"));
 const SalonBillPage = lazy(() => import("../../salon/pages/SalonBillPage"));
 const PackagesPage = lazy(() => import("../../salon/pages/PackagesPage"));
@@ -78,11 +78,11 @@ const WastagePage = lazy(() => import("../../weight/pages/WastagePage"));
 const WeightStockPage = lazy(() => import("../../weight/pages/WeightStockPage"));
 const WeightReportsPage = lazy(() => import("../../weight/pages/WeightReportsPage"));
 const SalonReportsPage = lazy(() => import("../../salon/pages/SalonReportsPage"));
-// Pro pass F: salon history with deposits and bills; weight shops' rates and pickup orders.
+// Salon history with deposits and bills; weight shops' rates and pickup orders.
 const SalonAppointmentsPage = lazy(() => import("../../salon/pages/SalonAppointmentsPage"));
 const RatesPage = lazy(() => import("../../weight/pages/RatesPage"));
 const PickupOrdersPage = lazy(() => import("../../weight/pages/PickupOrdersPage"));
-// Round 2: pharmacy (drug master, prescription sale, registers, expiry and recalls), clinic and lab.
+// Pharmacy (drug master, prescription sale, registers, expiry and recalls), clinic and lab.
 const PharmacyCounterPage = lazy(() => import("../../health/pages/PharmacyCounterPage"));
 const DrugMasterPage = lazy(() => import("../../health/pages/DrugMasterPage"));
 const PharmacyRegistersPage = lazy(() => import("../../health/pages/PharmacyRegistersPage"));
@@ -96,7 +96,7 @@ const VisitPage = lazy(() => import("../../health/pages/VisitPage"));
 const LabOrdersPage = lazy(() => import("../../health/pages/LabOrdersPage"));
 const LabOrderPage = lazy(() => import("../../health/pages/LabOrderPage"));
 const LabTestsPage = lazy(() => import("../../health/pages/LabTestsPage"));
-// Round 3: doctors' fees and OPD, the token queue and lab quality control.
+// Doctors' fees and OPD, the token queue and lab quality control.
 const DoctorsPage = lazy(() => import("../../health/pages/DoctorsPage"));
 const TokenQueuePage = lazy(() => import("../../health/pages/TokenQueuePage"));
 const LabQcPage = lazy(() => import("../../health/pages/LabQcPage"));

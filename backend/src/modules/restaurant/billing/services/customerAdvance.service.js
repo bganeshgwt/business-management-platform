@@ -7,7 +7,7 @@ const AppError = require("../../../../utils/AppError");
 const { toPaise, fromPaise, splitGst } = require("../../../../utils/money");
 const { formatMobile, maskMobile } = require("../../../../utils/phone");
 
-// Advances and deposits (sweep SW-B-04). An advance is money held for a
+// Advances and deposits. An advance is money held for a
 // guest, not a sale: it becomes a sale on the bill it is used on (a payment
 // "from advance"), so sales and GST count it once. What is not used can be
 // handed back with a reason and a manager's say-so.

@@ -128,20 +128,6 @@ const findWorkers = async (db, restaurantId, from, to) => {
   return result.rows;
 };
 
-// Employees of this restaurant among `ids` (to check exclusions and pay dates).
-const findEmployeesByIds = async (db, restaurantId, ids) => {
-  if (!ids.length) {
-    return [];
-  }
-
-  const result = await db.query(
-    "SELECT id, name FROM employees WHERE restaurant_id = $1 AND id = ANY($2::bigint[])",
-    [restaurantId, ids]
-  );
-
-  return result.rows;
-};
-
 // People among `ids` whose pay covering `date` is already marked paid.
 const findPaidOn = async (db, restaurantId, ids, date) => {
   if (!ids.length) {
@@ -339,7 +325,6 @@ module.exports = {
   findTips,
   findServiceCharges,
   findWorkers,
-  findEmployeesByIds,
   findPaidOn,
   insertShareout,
   findShareouts,

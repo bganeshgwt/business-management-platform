@@ -14,16 +14,16 @@ import useAuth from "../../../../hooks/useAuth";
 import { PeopleToday, SalesPicture } from "./OverviewToday";
 import { overviewLink } from "./overviewLink";
 
-// The wholesale day (pro pass D-08): orders, back-orders, collections, cheques, beats.
+// The wholesale day: orders, back-orders, collections, cheques, beats.
 const WholesaleToday = lazy(() => import("../../wholesale/pages/WholesaleToday"));
-// A meat or weight shop's day (pro pass F-22): kg sold, cut, wasted, use-by, rates, pickups.
+// A meat or weight shop's day: kg sold, cut, wasted, use-by, rates, pickups.
 const WeightToday = lazy(() => import("../../weight/pages/WeightToday"));
 const WEIGHED_TYPES = ["meat", "weight_retail"];
 
-// The owner's first screen (pro pass C-03, D-08, E-24, G-14): today at the
-// counter in four figures, what needs doing today for this type of business
-// (each line opens its screen), and the right first actions — Quick bill for
-// a shop, the salon bill for a salon, a sales order for a wholesaler.
+// The owner's first screen: today at the counter in four figures, what needs
+// doing today for this type of business (each line opens its screen), and the
+// right first actions — Quick bill for a shop, the salon bill for a salon, a
+// sales order for a wholesaler.
 
 const METHOD_WORDS = { cash: "cash", upi: "UPI", card: "card", bank: "bank", cheque: "cheque" };
 // "▲ 23% vs last Fri by this time": today so far against the same weekday a
@@ -49,7 +49,7 @@ function firstActions(biz) {
   const goods = GOODS.includes(biz.type);
   const list = [];
   if (goods && can("sales.create")) list.push({ to: "counter", icon: "receipt", label: "Quick bill" });
-  // Pro pass F: a weight shop's morning (rates, cutting) and evening (wastage), and phone orders.
+  // A weight shop's morning (rates, cutting) and evening (wastage), and phone orders.
   if (WEIGHED_TYPES.includes(biz.type) && biz.has("weight")) {
     if (can("catalog.edit")) list.push({ to: "rates", icon: "tag", label: "Today's rates" });
     if (biz.has("processing") && can("processing.create")) list.push({ to: "processing?cut=1", icon: "scale", label: biz.type === "weight_retail" ? "Sort / repack" : "Cut / clean" });

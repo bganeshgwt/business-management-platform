@@ -361,7 +361,7 @@ export default function ModifiersPage() {
               <small className="muted">0 for a free choice, like Less spicy</small>
             </label>
 
-            {/* SW-A-12: the add-on's name on the KOT, in the cooks' script. */}
+            {/* The add-on's name on the KOT, in the cooks' script. */}
             <label className="field field-wide">
               <span>Kitchen name</span>
               <input

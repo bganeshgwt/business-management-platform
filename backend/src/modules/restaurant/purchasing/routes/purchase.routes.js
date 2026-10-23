@@ -64,7 +64,7 @@ router.use(resolveOutlet);
 router.get("/receipts", authorize("purchasing.view"), purchaseController.listReceipts);
 router.post("/receipts", authorize("purchasing.receive"), purchaseController.createReceipt);
 router.get("/receipts/:receiptId", authorize("purchasing.view"), purchaseController.getReceipt);
-// The supplier's paper bill (SW-B-09): photos or PDFs, at most five, served
+// The supplier's paper bill: photos or PDFs, at most five, served
 // only through here. A voided bill keeps its files.
 const billFiles = require("../../expenses/controllers/attachment.controller").purchaseBill;
 const { uploadOne } = require("../../expenses/services/attachment.service");

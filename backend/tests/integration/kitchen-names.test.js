@@ -5,7 +5,7 @@ const path = require("node:path");
 const { Client } = require("pg");
 const bcrypt = require("bcrypt");
 
-// SW-A-12: kitchen names (any Indian script) for dishes, sizes and add-ons on
+// Kitchen names (any Indian script) for dishes, sizes and add-ons on
 // KOTs, the kitchen board and change slips; the kitchen settings choose menu,
 // kitchen or both; the menu import and export carry them; bills keep the
 // menu name. Own throwaway database, like restaurant.test.js.

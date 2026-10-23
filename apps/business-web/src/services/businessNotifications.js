@@ -1,7 +1,7 @@
 import { businessRead } from "./business.service";
 import { businessPath } from "./businessNav";
 
-// The bell inside a Business Admin business (pro pass G-07). The server works
+// The bell inside a Business Admin business. The server works
 // the alerts out from live data (GET /api/businesses/:id/notifications: low
 // stock, expiring batches, overdue udhaar, promises, repairs, appointments);
 // which ones this person has opened is remembered in this browser, per person
@@ -32,7 +32,7 @@ function saveSet(key, set) {
   }
 }
 
-export function shapeFeed(raw, reads) {
+function shapeFeed(raw, reads) {
   const items = (raw?.items || []).map((item) => ({ ...item, read: reads.has(item.id) }));
   const unreadCounts = { critical: 0, warning: 0, info: 0 };
   items.forEach((item) => {

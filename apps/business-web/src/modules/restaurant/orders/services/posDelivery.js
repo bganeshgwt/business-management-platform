@@ -1,8 +1,8 @@
 // The delivery details the POS takes with an order, and what is sent to
 // PATCH /deliveries/:orderId (the deliveries module keeps them on the order).
 //
-// savedAddressId: one of the guest's saved addresses, picked with a tap
-// (SW-A-18); the server copies its full text onto the delivery, so it works
+// savedAddressId: one of the guest's saved addresses, picked with a tap;
+// the server copies its full text onto the delivery, so it works
 // also where the till shows it masked. addressLabel: what a new address is
 // kept under on the guest (Home, Office, Other).
 export const EMPTY_DELIVERY = {

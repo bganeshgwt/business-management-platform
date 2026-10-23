@@ -15,13 +15,13 @@ import { ActiveBadge, Badge, BusinessHeader, Field, FormError } from "../../core
 import { useOpenBusiness, useOptions, useServerList } from "../../core/pages/hooks";
 import { Segmented } from "../../wholesale/pages/shared";
 import { WEEKDAYS, minutesText } from "./salon";
-import { Holidays, RecipeDialog, WeekDialog } from "./SalonRound2Parts";
-import { weekText } from "./salonRound2";
+import { Holidays, RecipeDialog, WeekDialog } from "./salonBackOfficeParts";
+import { weekText } from "./salonBackOffice";
 
 // How long each service takes (and its clean-up), which services each
 // stylist does, which resources are rooms, and the booking rules (deposit,
 // free cancellation, late-cancel and no-show charges, calendar hours).
-// Pro pass F-12: the one place for stylists and rooms (the generic Staff &
+// The one place for stylists and rooms (the generic Staff &
 // rooms screen is not shown to salons), with working hours, weekly off and leave.
 const TABS = [{ value: "staff", label: "Stylists & rooms" }, { value: "services", label: "Service times" }, { value: "holidays", label: "Holidays" }, { value: "rules", label: "Booking rules" }];
 

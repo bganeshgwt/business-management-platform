@@ -1,4 +1,4 @@
-// Online table booking for guests (SW-A-21). No login: anyone on the internet
+// Online table booking for guests. No login: anyone on the internet
 // can send anything here, so every field is read strictly and refused in
 // words a guest can act on.
 const publicBookingService = require("../services/publicBooking.service");

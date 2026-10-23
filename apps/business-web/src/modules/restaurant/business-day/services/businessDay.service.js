@@ -29,7 +29,6 @@ export const reopenBusinessDay = async (id, reason) =>
   (await api.post(`/business-day/${id}/reopen`, { reason })).data.data;
 
 // The rules for opening and counting.
-export const getCashRules = async () => (await api.get("/business-day/rules")).data.data;
 export const saveCashRules = async (payload) => (await api.put("/business-day/rules", payload)).data.data;
 
 // Cash drawers per shift.

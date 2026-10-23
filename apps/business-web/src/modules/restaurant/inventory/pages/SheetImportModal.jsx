@@ -10,7 +10,7 @@ import { downloadCsv, parseCsv } from "../../../../services/csv";
 import { getErrorMessage } from "../../../../services/api";
 import { count } from "@bmp/shared/format";
 import "../../../../styles/menu.css";
-import "../../../../styles/backoffice-sweep.css";
+import "../../../../styles/backoffice.css";
 
 // One import screen for stock items, suppliers, recipes and the guest book,
 // with the menu import's safety. The file is read here and sent as plain rows

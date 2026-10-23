@@ -13,15 +13,15 @@ import { Segmented } from "./shared";
 
 // Wholesale reports: sales (invoiced less returns) and orders by customer,
 // salesperson or route for a period; collections by day, method and
-// salesperson; what is outstanding now by route or salesperson; and (round
-// 2) the free goods and discounts each retailer got from each scheme.
+// salesperson; what is outstanding now by route or salesperson; and the free
+// goods and discounts each retailer got from each scheme.
 
 const REPORTS = [
   { value: "salesperson", label: "By salesperson" },
   { value: "route", label: "By route" },
   { value: "customer", label: "By customer" },
   { value: "collections", label: "Collections" },
-  // Round 2: what each retailer got from each scheme (free goods and discount).
+  // What each retailer got from each scheme (free goods and discount).
   { value: "schemes", label: "Schemes by retailer" },
   { value: "outstanding:route", label: "Outstanding by route" },
   { value: "outstanding:salesperson", label: "Outstanding by salesperson" },

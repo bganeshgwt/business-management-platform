@@ -8,7 +8,6 @@ const config = require("./config/env");
 const routes = require("./routes");
 const notFound = require("./middlewares/notFound");
 const errorHandler = require("./middlewares/errorHandler");
-const { UPLOAD_ROOT } = require("./middlewares/upload");
 const { clearOnWrite } = require("./utils/dashboardCache");
 
 const app = express();
@@ -32,8 +31,10 @@ app.use(cors((req, callback) => callback(null, { origin: isPublicGuestApi(req) ?
 app.use(express.json({ limit: "1mb" }));
 app.use(morgan("dev"));
 
-// Uploaded images are plain static files. They are served read-only, with a
-// long cache life because each one has a generated, never-reused name.
+// Uploaded images are plain static files in the public uploads folder
+// (UPLOADS_DIR; config/env.js). They are served read-only, with a long cache
+// life because each one has a generated, never-reused name. The private
+// uploads folder is never served here.
 //
 // helmet() sets Cross-Origin-Resource-Policy: same-origin, which would stop the
 // frontend loading these images while it runs on its own port. They are public
@@ -41,7 +42,7 @@ app.use(morgan("dev"));
 app.use(
   "/uploads",
   helmet.crossOriginResourcePolicy({ policy: "cross-origin" }),
-  express.static(UPLOAD_ROOT, {
+  express.static(config.uploadsDir, {
     maxAge: "7d",
     index: false,
     dotfiles: "ignore",

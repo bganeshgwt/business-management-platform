@@ -8,7 +8,7 @@ const returns = require('../../core/services/businessReturns.service');
 const numbering = require('../../core/services/businessNumbering');
 const wholesale = require('./businessWholesale.service');
 
-// Getting orders out of the godown and to the shops (pro pass D-04, D-05, D-10).
+// Getting orders out of the godown and to the shops.
 //
 //   Pick list     every item wanted by the orders chosen, in cases and
 //                 pieces, against the stock in the godown and the batches
@@ -329,7 +329,7 @@ async function invoiceExtras(db, businessId, documentId) {
   return { ...dispatchRow, lines };
 }
 
-// --- Delivery challan (round 2, R2-WS) -------------------------------------------------------------
+// --- Delivery challan -------------------------------------------------------------
 
 // Everything the A4 delivery challan prints: its number (from the location's
 // 'delivery_challan' series; a dispatch made before challans existed gets its

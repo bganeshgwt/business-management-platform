@@ -27,7 +27,7 @@ import ManagerApproval from "./ManagerApproval";
 import { approvalFor, emptyApproval } from "./approval";
 import useAuth from "../../../../hooks/useAuth";
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
-import "../styles/salon-pro.css";
+import "../styles/salon.css";
 
 // The salon's day (or week): one column per stylist and per room, bookings
 // drawn at their time and length, coloured by service, a red line at "now"
@@ -758,7 +758,7 @@ function AppointmentDialog({ appointment: a, timezone, onClose, onChanged, onOpe
 }
 const longDayOf = (value, timezone) => new Date(value).toLocaleDateString("en-IN", { timeZone: timezone, weekday: "long", day: "numeric", month: "long" });
 
-// Round 2: the first time a booking is refused for the stylist's hours,
+// The first time a booking is refused for the stylist's hours,
 // leave, day off or a holiday, the form shows "Let it through" (a manager's
 // reason and PIN); the next press sends it.
 function overrideAsked(err, override, setOverride) {

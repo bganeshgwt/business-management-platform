@@ -315,14 +315,11 @@ const saveRequiredRoles = async (restaurantId, roleIds, userId) => {
 
 module.exports = {
   TRUST_DAYS,
-  CHALLENGE_MINUTES,
   issueChallenge,
   readChallenge,
   stateOf,
   beginSetup,
   confirmSetup,
-  checkCode,
-  checkRecoveryCode,
   checkAny,
   refusalOf,
   newRecoveryCodes,

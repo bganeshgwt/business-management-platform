@@ -10,7 +10,7 @@ import FormDialog from "./FormDialog";
 import { ActiveBadge, BusinessHeader, Field } from "./ui";
 import { useOpenBusiness, useServerList } from "./hooks";
 import { PayablesCard } from "./SupplierPayments";
-// Wholesale trade details on the customer form (pro pass D-16).
+// Wholesale trade details on the customer form.
 import TradeDetailsFields from "../../wholesale/pages/TradeDetailsFields";
 import { useTradeDetails } from "../../wholesale/pages/tradeDetails";
 

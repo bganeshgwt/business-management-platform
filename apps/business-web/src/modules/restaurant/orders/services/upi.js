@@ -1,6 +1,5 @@
-// UPI payment QR codes (sweep SW-X-UPI) and the table's ordering QR on a
-// bill (SW-B-08). Plain functions with explicit extensions, so a test can run
-// them outside the bundler.
+// UPI payment QR codes and the table's ordering QR on a bill. Plain functions
+// with explicit extensions, so a test can run them outside the bundler.
 import QRCode from "qrcode";
 
 // The address any UPI app opens to pay: the restaurant's UPI ID (VPA), its

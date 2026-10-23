@@ -52,12 +52,11 @@ const DRAWER_PARTS = (bd) => ({
         AND ${EXPENSE_OF_DRAWER("e", bd)}), 0)`,
   supplierCash: SUPPLIER_CASH_OF_DAY(bd),
   // Tips given in cash, on top of the bills (payments.tip_amount): in the
-  // drawer until they are shared out, never in sales, GST or the P&L
-  // (REQ-ACCESS-DAYEND-TIPS).
+  // drawer until they are shared out, never in sales, GST or the P&L.
   cashTips: `COALESCE((SELECT SUM(p.tip_amount) FROM payments p
       WHERE p.business_day_id = ${bd}.id AND p.payment_method = 'cash' AND p.payment_status = 'success'), 0)`,
   // A rider settlement pays each cash bill in full into this day; what the
-  // rider did not hand in never reached the drawer (SW-X-RIDER-DRAWER).
+  // rider did not hand in never reached the drawer.
   riderShortfall: `COALESCE((SELECT SUM(rs.shortfall) FROM rider_settlements rs
       WHERE rs.business_day_id = ${bd}.id), 0)`,
   // An owed shortfall a rider handed over later, into the day open then.
@@ -67,7 +66,7 @@ const DRAWER_PARTS = (bd) => ({
   // inside cashSales, as the bills it paid).
   riderCash: `COALESCE((SELECT SUM(rs.cash_handed) FROM rider_settlements rs
       WHERE rs.business_day_id = ${bd}.id), 0)`,
-  // Advances and deposits taken in cash (R4-DRAWER-ADVANCES): money in the
+  // Advances and deposits taken in cash: money in the
   // drawer that is not a sale yet. Paying a bill "from advance" brings no new
   // cash (payment_method 'advance', never 'cash'), so it is not counted again.
   cashAdvances: `COALESCE((SELECT SUM(ca.amount) FROM customer_advances ca

@@ -30,7 +30,7 @@ export default function PurchaseBillsPanel({ suppliers, currency, canReceive, re
   const [success, setSuccess] = useState("");
   const [viewing, setViewing] = useState(null);
   const [voiding, setVoiding] = useState(false);
-  // The bill whose paper copy (photos, PDFs) is open, SW-B-09.
+  // The bill whose paper copy (photos, PDFs) is open.
   const [filesOf, setFilesOf] = useState(null);
   const filesId = filesOf ? filesOf.id : null;
   const billFiles = useMemo(() => (filesId ? purchaseBillFiles(filesId) : null), [filesId]);

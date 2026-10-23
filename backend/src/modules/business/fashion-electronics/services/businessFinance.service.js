@@ -4,7 +4,7 @@ const AppError = require('../../../../utils/AppError');
 const v = require('../../../../utils/validate');
 const access = require('../../core/services/businessAccess.service');
 
-// EMI / consumer-durable finance at an electronics counter (round 2, R2-CORE).
+// EMI / consumer-durable finance at an electronics counter.
 //
 // The customer pays a down payment (cash, UPI, card — split payment) and a
 // financier (Bajaj Finserv, HDFC Bank, ICICI Bank, Home Credit, or one the

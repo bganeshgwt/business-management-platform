@@ -42,7 +42,7 @@ export default function ApprovalDialog() {
   const [approvers, setApprovers] = useState(null);
   // Managers who could approve a smaller discount but not this one (their own
   // cap is lower): shown greyed with their limit, so nobody types a PIN that
-  // is bound to be refused (REQ-APPROVER-CAPPED).
+  // is bound to be refused.
   const [capped, setCapped] = useState([]);
   // The server's words for what is being approved: { summary, facts }.
   const [described, setDescribed] = useState(null);

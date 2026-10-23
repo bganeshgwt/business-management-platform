@@ -199,7 +199,7 @@ export default function GuestBox({
       ) : null}
 
       {/* A regular's last orders, to put the same again in the cart at
-          today's prices (SW-A-18). */}
+          today's prices. */}
       {customer && onRepeat && (customer.recentOrders || []).length > 0 ? (
         <div className="pos-guest-repeat">
           <p className="pos-guest-repeat-head">

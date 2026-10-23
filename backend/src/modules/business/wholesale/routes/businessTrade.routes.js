@@ -12,15 +12,15 @@ const repo = require('../../core/repositories/business.repository');
 const v = require('../../../../utils/validate');
 const AppError = require('../../../../utils/AppError');
 
-// Phase 2 trade routes, mounted inside business.routes.js (so they share its
+// Trade routes, mounted inside business.routes.js (so they share its
 // login check and its database-error translation):
 //   shared receivables  — collections, outstanding and ageing, statements
 //   wholesale           — salespeople, routes, beats, sales orders, dispatch,
-//                         back-orders, wholesale reports
-//   pro pass (D)        — cheques, follow-ups, settlements, order edits,
-//                         credit hold, price groups and schemes, dispatch
-//                         board, pick list, delivery runs, delivery and
-//                         van returns, trade details, claims, overview
+//                         back-orders, wholesale reports; cheques, follow-ups,
+//                         settlements, order edits, credit hold, price groups
+//                         and schemes, dispatch board, pick list, delivery
+//                         runs, delivery and van returns, trade details,
+//                         claims, overview
 // Every route loads the membership first (404 when there is none), then the
 // module and permission (403); services repeat the permission check.
 
@@ -96,7 +96,7 @@ router.post(b('/sales-orders/:id/dispatch'), context('sales_orders.approve'), as
 router.post(b('/sales-orders/:id/close'), context('sales_orders.cancel'), async (req, res) => send(res, await wholesale.closeOrder(req.business, req.user, req.params.id, req.body)));
 router.get(b('/wholesale-reports'), context('reports.view'), async (req, res) => send(res, await wholesale.reports(req.business, req.query)));
 
-// --- Pro pass (D): money ---------------------------------------------------------------------
+// --- Money ---------------------------------------------------------------------
 router.post(b('/collections/:id/cheque'), context(['receivables.create', 'receivables.approve']), async (req, res) => send(res, await receivables.chequeAction(req.business, req.user, req.params.id, req.body)));
 router.post(b('/receivables/customers/:id/follow-ups'), context('receivables.create'), async (req, res) => send(res, await receivables.addFollowUp(req.business, req.user, req.params.id, req.body), 201));
 router.get(b('/settlements/preview'), context('receivables.view'), async (req, res) => send(res, await money.settlementPreview(req.business, req.query)));
@@ -104,7 +104,7 @@ router.post(b('/settlements'), context('receivables.approve'), async (req, res) 
 router.post(b('/claims'), context('purchasing.edit'), async (req, res) => send(res, await money.createClaim(req.business, req.user, req.body), 201));
 router.patch(b('/claims/:id'), context('purchasing.edit'), async (req, res) => send(res, await money.updateClaim(req.business, req.user, req.params.id, req.body)));
 
-// --- Pro pass (D): orders, credit hold, customers ------------------------------------------------
+// --- Orders, credit hold, customers ------------------------------------------------
 router.patch(b('/sales-orders/:id'), context('sales_orders.create'), async (req, res) => send(res, await wholesale.editOrder(req.business, req.user, req.params.id, req.body)));
 router.post(b('/sales-orders/:id/lines/:lineId/close'), context('sales_orders.cancel'), async (req, res) => send(res, await wholesale.closeLine(req.business, req.user, req.params.id, req.params.lineId, req.body)));
 router.get(b('/sales-orders/customer-summary/:id'), context('sales_orders.view'), async (req, res) => send(res, await customerSummary(req.business, req.params.id)));
@@ -117,7 +117,7 @@ router.get(b('/salesperson-logins'), context('sales_orders.edit'), async (req, r
 router.get(b('/salespeople/:id/beat-sheet'), context('sales_orders.view'), async (req, res) => send(res, await money.beatSheet(req.business, req.params.id, req.query)));
 router.get(b('/wholesale-summary'), context('sales_orders.view'), async (req, res) => send(res, await money.summary(req.business)));
 
-// --- Pro pass (D): price groups and schemes ------------------------------------------------------
+// --- Price groups and schemes ------------------------------------------------------
 router.post(b('/price-groups'), context('wholesale.edit'), async (req, res) => send(res, await prices.saveGroup(req.business, req.user, null, req.body), 201));
 router.patch(b('/price-groups/:id'), context('wholesale.edit'), async (req, res) => send(res, await prices.saveGroup(req.business, req.user, req.params.id, req.body)));
 router.post(b('/group-prices'), context('wholesale.edit'), async (req, res) => send(res, await prices.setGroupPrice(req.business, req.user, req.body), 201));
@@ -126,7 +126,7 @@ router.post(b('/group-prices/:id/end'), context('wholesale.edit'), async (req, r
 router.post(b('/schemes'), context('wholesale.edit'), async (req, res) => send(res, await prices.saveScheme(req.business, req.user, null, req.body), 201));
 router.patch(b('/schemes/:id'), context('wholesale.edit'), async (req, res) => send(res, await prices.saveScheme(req.business, req.user, req.params.id, req.body)));
 
-// --- Pro pass (D): dispatch and delivery -----------------------------------------------------------
+// --- Dispatch and delivery -----------------------------------------------------------
 router.get(b('/dispatch-board'), context('sales_orders.view'), async (req, res) => send(res, await delivery.dispatchBoard(req.business, req.query)));
 router.get(b('/pick-list'), context('sales_orders.view'), async (req, res) => send(res, await delivery.pickList(req.business, req.query)));
 router.post(b('/delivery-runs'), context('sales_orders.approve'), async (req, res) => send(res, await delivery.createRun(req.business, req.user, req.body), 201));
@@ -134,7 +134,7 @@ router.get(b('/delivery-runs/:id'), context('sales_orders.view'), async (req, re
 router.patch(b('/dispatches/:id/transport'), context('sales_orders.approve'), async (req, res) => send(res, await delivery.setTransport(req.business, req.user, req.params.id, req.body)));
 router.post(b('/dispatches/:id/delivery'), context('sales_orders.approve'), async (req, res) => send(res, await delivery.recordDelivery(req.business, req.user, req.params.id, req.body)));
 
-// --- Round 2 (R2-WS): purchase orders, delivery challan, scheme report -------------------------------
+// --- Purchase orders, delivery challan, scheme report -------------------------------
 router.get(b('/purchase-orders/suggestions'), context('purchasing.view'), async (req, res) => send(res, await purchases.suggestions(req.business, req.query)));
 router.post(b('/purchase-orders'), context('purchasing.create'), async (req, res) => send(res, await purchases.create(req.business, req.user, req.body), 201));
 router.get(b('/purchase-orders/:id'), context('purchasing.view'), async (req, res) => send(res, await purchases.detail(req.business, req.params.id)));
@@ -145,9 +145,9 @@ router.post(b('/purchase-orders/:id/close'), context('purchasing.create'), async
 router.post(b('/dispatches/:id/challan'), context('sales_orders.view'), async (req, res) => send(res, await delivery.challan(req.business, req.user, req.params.id)));
 router.get(b('/wholesale-scheme-report'), context('reports.view'), async (req, res) => send(res, await prices.schemeReport(req.business, req.query)));
 
-// Everything the order screen shows about a customer while ordering (D-06,
-// D-07): hold, last order (to repeat it) and, with receivables.view, what
-// they owe and how late.
+// Everything the order screen shows about a customer while ordering: hold,
+// last order (to repeat it) and, with receivables.view, what they owe and
+// how late.
 async function customerSummary(business, contactId) {
   const cid = v.requiredId(contactId, 'Customer');
   const contact = await repo.one(repo.pool, "SELECT id,name,phone,gstin,credit_limit,credit_days FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind='customer'", [business.id, cid]);

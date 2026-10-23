@@ -11,7 +11,7 @@ import { getRiderSettlement, settleRider, settleRiderWriteOff } from "../service
 
 const paise = (value) => Math.round(Number(value || 0) * 100);
 
-// "Settle cash" for one rider back from his runs (SW-A-19). His delivered,
+// "Settle cash" for one rider back from his runs. His delivered,
 // unpaid bills are listed with what each still owes; the cashier marks the
 // ones the guest paid by UPI at the door, counts the cash and saves: every
 // bill is paid in one step, in today's business day. A shortfall is kept as

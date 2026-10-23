@@ -11,7 +11,7 @@ import { dateShort, moneyExact } from "@bmp/shared/format";
 import { escapeHtml, printDocument } from "../../../../services/print";
 import useAuth from "../../../../hooks/useAuth";
 import "../../../../styles/access.css";
-import "../../../../styles/access-sweep.css";
+import "../../../../styles/staff.css";
 import { hoursFromDecimal, hoursFromMinutes } from "./hoursText";
 
 // My work: your own shifts this week and next, this month's attendance, the
@@ -97,7 +97,7 @@ export default function MyWorkPage() {
   const month = data.month;
 
   return (
-    <div className="stack acc-page asw-mywork">
+    <div className="stack acc-page staff-mywork">
       <PageHeader
         icon="calendar"
         title="My work"
@@ -107,27 +107,27 @@ export default function MyWorkPage() {
 
       {data.weeks.map((week) => (
         <SectionCard key={week.from} icon="calendar" title={week.label} description={`${dayMonth(week.from)} – ${dayMonth(week.to)}`}>
-          <ol className="asw-week-strip">
+          <ol className="staff-week-strip">
             {week.days.map((day) => (
-              <li key={day.date} className={`asw-day is-${day.status} ${day.today ? "is-today" : ""} motion-item`}>
-                <span className="asw-day-name">
+              <li key={day.date} className={`staff-day is-${day.status} ${day.today ? "is-today" : ""} motion-item`}>
+                <span className="staff-day-name">
                   {weekday(day.date)} <strong>{dayNumber(day.date)}</strong>
                 </span>
                 {day.status === "scheduled" ? (
                   <>
-                    <span className="asw-day-shift">{day.shiftName}</span>
-                    <span className="asw-day-time">
+                    <span className="staff-day-shift">{day.shiftName}</span>
+                    <span className="staff-day-time">
                       {day.startTime}–{day.endTime}
                     </span>
                   </>
                 ) : day.status === "week_off" ? (
-                  <span className="asw-day-shift">Week off</span>
+                  <span className="staff-day-shift">Week off</span>
                 ) : day.status === "leave" ? (
-                  <span className="asw-day-shift">{day.leaveType ? `${day.leaveType} leave` : "Leave"}</span>
+                  <span className="staff-day-shift">{day.leaveType ? `${day.leaveType} leave` : "Leave"}</span>
                 ) : (
-                  <span className="asw-day-shift muted">Not on the roster</span>
+                  <span className="staff-day-shift muted">Not on the roster</span>
                 )}
-                {day.today && <span className="asw-day-today">Today</span>}
+                {day.today && <span className="staff-day-today">Today</span>}
               </li>
             ))}
           </ol>
@@ -136,7 +136,7 @@ export default function MyWorkPage() {
 
       <SectionCard icon="clipboard" title={`Attendance · ${monthName(month.from)}`} description="As the attendance sheet and the time clock recorded it so far this month.">
         <div className="stack">
-          <div className="asw-muster-tiles">
+          <div className="staff-muster-tiles">
             <StatTile size="sm" icon="check-circle" tone="success" label="Days present" value={String(month.present)} note={month.halfDays ? `+ ${month.halfDays} half day${month.halfDays === 1 ? "" : "s"}` : "full days"} />
             <StatTile size="sm" icon="timer" tone={month.lateDays ? "warning" : "neutral"} label="Late marks" value={String(month.lateDays)} note={month.lateMinutes ? `${hoursFromMinutes(month.lateMinutes)} in all` : "on time every day"} />
             <StatTile size="sm" icon="clock" tone="info" label="Hours worked" value={hoursFromDecimal(month.workedHours)} note={month.overtimeHours ? `${hoursFromDecimal(month.overtimeHours)} overtime` : "no overtime"} />
@@ -145,21 +145,21 @@ export default function MyWorkPage() {
           {month.days.length === 0 ? (
             <p className="muted small">Nothing recorded yet this month.</p>
           ) : (
-            <ul className="asw-attendance-list">
+            <ul className="staff-attendance-list">
               {month.days.slice(0, 31).map((day) => {
                 const status = STATUS[day.status] || { label: day.status, tone: "neutral" };
 
                 return (
                   <li key={day.date}>
-                    <span className="asw-att-date">
+                    <span className="staff-att-date">
                       {weekday(day.date)} {dayMonth(day.date)}
                     </span>
-                    <span className={`badge status-badge asw-tone-${status.tone}`}>
+                    <span className={`badge status-badge staff-tone-${status.tone}`}>
                       <span className="badge-dot" aria-hidden="true" />
                       {status.label}
                       {day.leaveType ? ` · ${day.leaveType}` : ""}
                     </span>
-                    <span className="asw-att-times small muted">
+                    <span className="staff-att-times small muted">
                       {day.checkIn ? `${day.checkIn}–${day.checkOut || "…"}` : ""}
                       {day.workedMinutes ? ` · ${hours(day.workedMinutes)}` : ""}
                     </span>
@@ -174,13 +174,13 @@ export default function MyWorkPage() {
 
       {data.leave && (
         <SectionCard icon="calendar" title="Leave left" description="Paid leave up to each allowance; days over it are unpaid.">
-          <ul className="asw-leave-cards">
+          <ul className="staff-leave-cards">
             {data.leave.map((type) => (
               <li key={type.typeId} className="motion-item">
-                <span className="asw-leave-name">{type.name}</span>
+                <span className="staff-leave-name">{type.name}</span>
                 {type.paid ? (
                   <>
-                    <strong className={`asw-leave-left ${type.left < 1 ? "is-empty" : ""}`}>{days(Math.max(0, type.left))}</strong>
+                    <strong className={`staff-leave-left ${type.left < 1 ? "is-empty" : ""}`}>{days(Math.max(0, type.left))}</strong>
                     <span className="muted small">
                       of {days(type.available)} left in {type.periodLabel}
                       {type.carriedIn ? ` (${days(type.carriedIn)} carried in)` : ""}
@@ -199,10 +199,10 @@ export default function MyWorkPage() {
         {data.payslips.length === 0 ? (
           <EmptyState icon="wallet" message="No payslips yet" hint="Your payslip shows here once your pay for a period is marked paid." />
         ) : (
-          <ul className="asw-slip-list">
+          <ul className="staff-slip-list">
             {data.payslips.map((row) => (
               <li key={row.id} className="motion-item">
-                <span className="asw-slip-period">
+                <span className="staff-slip-period">
                   <strong>
                     {fullDate(row.periodFrom)} – {fullDate(row.periodTo)}
                   </strong>
@@ -210,7 +210,7 @@ export default function MyWorkPage() {
                     Paid {fullDate(row.paidOn)} · {METHODS[row.paymentMethod] || row.paymentMethod}
                   </span>
                 </span>
-                <strong className="asw-slip-net">{moneyExact(row.amountPaid)}</strong>
+                <strong className="staff-slip-net">{moneyExact(row.amountPaid)}</strong>
                 <button type="button" className="chip-button" onClick={() => openSlip(row)}>
                   <Icon name="receipt" size={14} /> Payslip
                 </button>
@@ -278,7 +278,7 @@ function PayslipModal({ slip, restaurantName, onClose }) {
         <Loading />
       ) : (
         <div className="stack">
-          <ul className="asw-slip-lines">
+          <ul className="staff-slip-lines">
             {lines.map(([label, value]) => (
               <li key={label}>
                 <span>{label}</span>

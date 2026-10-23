@@ -6,7 +6,7 @@ const access = require('../../core/services/businessAccess.service');
 const numbering = require('../../core/services/businessNumbering');
 const core = require('../../core/services/business.service');
 
-// Purchase orders to suppliers (round 2, R2-WS).
+// Purchase orders to suppliers.
 //
 //   Suggest   items at or below their reorder level, and customers'
 //             back-orders the godown cannot cover, less what is already on

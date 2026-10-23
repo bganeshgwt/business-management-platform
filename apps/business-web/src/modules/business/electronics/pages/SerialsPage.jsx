@@ -120,7 +120,7 @@ export default function SerialsPage() {
 
 const SOURCE_WORDS = { purchase: "Received", sale: "Sold", sale_return: "Customer returned", purchase_return: "Sent back to supplier", transfer: "Transfer", count: "Stock count", correction: "Correction" };
 
-export function UnitHistory({ unit, onClose, onSaved }) {
+function UnitHistory({ unit, onClose, onSaved }) {
   const biz = useOpenBusiness();
   const [faulty, setFaulty] = useState(false);
   const [data, setData] = useState(null);
@@ -214,7 +214,7 @@ function ModelDialog({ model, onClose, onSaved }) {
   );
 }
 
-// --- Scanning a box of phones in (pro pass E-15) -------------------------------------------
+// --- Scanning a box of phones in -----------------------------------------------------------
 
 // IMEI check digit (Luhn), as the server checks it.
 const validImei = (code) => /^\d{15}$/.test(code) && [...code].reduce((sum, c, i) => {
@@ -316,7 +316,7 @@ function ScanInDialog({ onClose, onSaved }) {
   );
 }
 
-// --- Faulty units and DOA (pro pass E-17) ----------------------------------------------------
+// --- Faulty units and DOA --------------------------------------------------------------------
 
 const FAULTY_STATES = { awaiting_supplier: ["pending", "Waiting for supplier"], sent: ["info", "Sent back"], restocked: ["active", "Found fine"], written_off: ["inactive", "Written off"] };
 

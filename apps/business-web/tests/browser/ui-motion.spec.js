@@ -1,29 +1,16 @@
 import { test, expect } from "@playwright/test";
-import fs from "node:fs";
-import process from "node:process";
 
-const credentialsFile = process.env.E2E_CREDENTIALS_FILE;
-const account = credentialsFile
-  ? JSON.parse(fs.readFileSync(credentialsFile, "utf8")).accounts.find(item => item.role === "RESTAURANT_ADMIN")
-  : null;
+import { localDate, signIn } from "../../../../e2e/fixture.mjs";
 
 test.beforeEach(async ({ page }) => {
-  test.skip(!account, "Set E2E_CREDENTIALS_FILE to the local demo credentials file.");
-  await page.goto("/login");
-  await page.locator('input[autocomplete="username"]').fill(account.email);
-  await page.locator('input[autocomplete="current-password"]').fill(account.password);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  try {
-    await expect(page.locator(".dash-page")).toBeVisible();
-  } finally {
-    const password = page.locator('input[autocomplete="current-password"]');
-    if (await password.count()) await password.fill("");
-  }
+  await signIn(page, "RESTAURANT_ADMIN");
+  await expect(page.locator(".dash-page")).toBeVisible();
 });
 
 test("chart inspection supports keyboard and touch without changing its amounts", async ({ page }, testInfo) => {
-  // The trend line is the sales report's (the dashboard draws columns and bars).
-  await page.goto("/reports?tab=sales&from=2026-09-01&to=2026-09-30");
+  // The trend line is the sales report's (the dashboard draws columns and
+  // bars), over the last week: every day of it is drawn, sales or none.
+  await page.goto(`/reports?tab=sales&from=${localDate(-6)}&to=${localDate()}`);
   const chart = page.locator(".trend-chart").first();
   await expect(chart).toBeVisible();
   const graph = chart.locator("svg.chart");

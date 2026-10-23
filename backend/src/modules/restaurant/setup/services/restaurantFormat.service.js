@@ -113,4 +113,4 @@ const set = async (user, code) => {
   return { ...result, formats: list() };
 };
 
-module.exports = { FORMATS, FORMAT_CODES, list, get, apply, set };
+module.exports = { FORMAT_CODES, get, apply, set };

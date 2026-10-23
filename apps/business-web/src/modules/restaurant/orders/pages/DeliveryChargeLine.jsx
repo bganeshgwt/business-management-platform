@@ -6,7 +6,7 @@ import { restoreDeliveryCharge, waiveDeliveryCharge } from "../services/order.se
 import Icon from "@bmp/ui/Icon";
 import { channelForCharge, previewCharge } from "../services/deliveryCharge";
 
-// The trip charge on a delivery (SW-A-17), shown in the cart before saving.
+// The trip charge on a delivery, shown in the cart before saving.
 //
 // Before the order is saved the till works it out the way the server will
 // (the channel's charge, nothing from "free above"), so the cashier can tell

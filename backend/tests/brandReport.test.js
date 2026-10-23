@@ -5,6 +5,8 @@ const vm = require("node:vm");
 const { createRequire } = require("node:module");
 const path = require("node:path");
 
+const DATABASE = require.resolve("../src/config/database");
+
 // The brand report adds up its rows without loading credentials or touching a
 // database: the service is run with its database and feature lookups stubbed.
 function brandService() {
@@ -16,6 +18,9 @@ function brandService() {
     return realRequire(name);
   }};
   vm.runInNewContext(fs.readFileSync(file, "utf8"), context, { filename: file });
+  // A stub that misses its module lets the real one load, with the database
+  // named in backend/.env behind it.
+  assert.equal(require.cache[DATABASE], undefined, "the brand service must not load config/database");
   return context.module.exports;
 }
 

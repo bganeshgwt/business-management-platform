@@ -53,7 +53,7 @@ export default function BusinessAdminPage() {
   };
   const linked = businesses.some((b) => b.is_signed_in_restaurant);
   // Owners (and a restaurant's admin) may start another business of their own.
-  const canAdd = businesses.some((b) => b.full_access && !b.is_demo) || user.roles.includes("RESTAURANT_ADMIN");
+  const canAdd = businesses.some((b) => b.full_access) || user.roles.includes("RESTAURANT_ADMIN");
   const types = Object.entries(directory?.types || {}).map(([code, t]) => ({ code, name: t.name }));
   const term = q.trim().toLowerCase();
   const shown = term ? businesses.filter((b) => `${b.name} ${b.type_name} ${b.role_name}`.toLowerCase().includes(term)) : businesses;
@@ -92,13 +92,6 @@ export default function BusinessAdminPage() {
   );
 }
 
-// A demo is named "Demo · Grocery & kirana — Owner name": the part that tells
-// the businesses apart leads, and the owner's name is a quiet second line.
-function splitName(name) {
-  const at = String(name).lastIndexOf(" — ");
-  return at > 0 ? [name.slice(0, at), name.slice(at + 3)] : [name, ""];
-}
-
 // One business with what matters today: sales, what customers owe and the
 // things waiting (low stock, expiring batches, broken promises, repairs ready,
 // orders to dispatch). Figures only for what this person may see.
@@ -111,8 +104,6 @@ function BusinessCard({ business, onOpen }) {
     businessRead(business.id, "summary", undefined, controller.signal).then(setSummary).catch(() => {});
     return () => controller.abort();
   }, [business.id, restaurant]);
-  // Only a demo's name carries its owner after " — "; a real name is shown whole.
-  const [name, owner] = business.is_demo ? splitName(business.name) : [business.name, ""];
   const alerts = summary ? ["low_stock", "expiring_soon", "promises_broken", "repairs_ready", "orders_to_dispatch"].reduce((n, key) => n + Number(summary[key] || 0), 0) : 0;
   const figures = summary ? [
     "sales_today" in summary && `Today ${moneyShort(summary.sales_today)}`,
@@ -126,8 +117,8 @@ function BusinessCard({ business, onOpen }) {
         <Icon name={TYPE_ICONS[business.business_type] || "store"} size={18} />
       </span>
       <span className="bz-business-card-text">
-        <strong>{name}</strong>
-        <small>{business.type_name} · {business.role_name}{owner ? ` · ${owner}` : ""}</small>
+        <strong>{business.name}</strong>
+        <small>{business.type_name} · {business.role_name}</small>
         {figures.length > 0 && <span className="bz-business-figures">{figures.map((f, i) => <span key={f} className={i === 2 ? "is-alert" : ""}>{f}</span>)}</span>}
         {restaurant && <span className="bz-business-figures"><span>{business.is_signed_in_restaurant ? "Opens the restaurant admin" : "Sign in to that restaurant to manage it"}</span></span>}
       </span>

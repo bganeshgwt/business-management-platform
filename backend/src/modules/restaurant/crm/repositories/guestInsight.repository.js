@@ -4,7 +4,7 @@ const pool = require("../../../../config/database");
 // guest book, the orders or the bills — it only works out who is who.
 //
 // Two definitions hold across every query here, because they are the ones the
-// guest history panel (loyalty.repository.customerSummary) already uses, and a
+// guest history panel (crm.repository customerTotals) already uses, and a
 // guest's numbers must read the same wherever they are shown:
 //
 //   a visit  = an order linked to the guest that was not cancelled

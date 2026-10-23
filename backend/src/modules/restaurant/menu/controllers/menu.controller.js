@@ -104,7 +104,7 @@ const removeCategory = async (req, res) => {
 // keeps what the dish has (menu.service editProduct). Before, a left-out field
 // took the new-dish default: an edit that sent only name and price turned a
 // non-veg dish veg, dropped its GST to 0% and put it back on sale — the same
-// harm the import had (menu audit B1), through the API instead of a file.
+// harm the import had, through the API instead of a file.
 // null is still an answer: it clears a code or description, or means No tax.
 const readProductBody = (body = {}, forUpdate = false) => {
   const unlessLeftOut = (key, read) => (forUpdate && body[key] === undefined ? undefined : read());
@@ -134,7 +134,7 @@ const readProductBody = (body = {}, forUpdate = false) => {
       () => v.optionalNumber(body.sortOrder, "Sort order", { min: 0, max: 9999 }) ?? 0
     ),
     status: unlessLeftOut("status", () => v.optionalEnum(body.status, "Status", ["active", "inactive"], "active")),
-    // SW-A-12: the dish's name for the kitchen, in any script; empty clears it.
+    // The dish's name for the kitchen, in any script; empty clears it.
     kitchenName: unlessLeftOut("kitchenName", () => v.optionalString(body.kitchenName, "Kitchen name", 150)),
     soldBy: unlessLeftOut("soldBy", () => v.optionalEnum(body.soldBy, "Sold by", ["unit", "weight"], "unit")),
   };

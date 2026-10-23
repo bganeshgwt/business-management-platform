@@ -9,22 +9,6 @@ export const ORDER_STATUS = {
 };
 export const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-// Units a line may be entered in: the stock unit, its pack sizes, and units
-// of the same kind (g for a kg item). factor = stock units in one.
-export function unitChoices(sku, units) {
-  if (!sku) return [];
-  const base = units.find((u) => u.code === sku.unit);
-  const root = base?.base_unit_code || sku.unit;
-  const related = units.filter((u) => u.active && u.code !== sku.unit && u.kind === base?.kind && (u.base_unit_code || u.code) === root);
-  return [
-    { code: sku.unit, label: base?.name || sku.unit, factor: 1 },
-    ...(sku.pack_sizes || []).map((p) => ({ code: p.unit_code, label: `${units.find((u) => u.code === p.unit_code)?.name || p.unit_code} of ${Number(p.quantity_in_base)}`, factor: Number(p.quantity_in_base) })),
-    ...related.filter((u) => !(sku.pack_sizes || []).some((p) => p.unit_code === u.code)).map((u) => ({
-      code: u.code, label: u.name, factor: (u.base_unit_code ? Number(u.factor_to_base) : 1) / (base?.base_unit_code ? Number(base.factor_to_base) : 1),
-    })),
-  ];
-}
-
 // "3 case (216 each)" — what was typed and what it is in the stock unit.
 export const packText = (enteredQty, enteredUnit, qty, unit) => {
   const n = (v) => Number(v || 0).toLocaleString("en-IN", { maximumFractionDigits: 3 });
@@ -58,6 +42,3 @@ export function splitPacks(qty, factor) {
   const cases = Math.floor(n / factor + 1e-9);
   return { cases, pieces: Math.round((n - cases * factor) * 1000) / 1000 };
 }
-
-// The words for where a price came from.
-export const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];

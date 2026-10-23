@@ -20,7 +20,7 @@ import { usePaymentMethods } from "../../core/pages/paymentMethods";
 const ADVANCE_KINDS = ["cash", "upi", "card", "bank"];
 import "../styles/business-retail.css";
 
-// Booklists and customer orders (pro pass C-24), for bookshops.
+// Booklists and customer orders, for bookshops.
 //   School sets: a school's list for a class (books, notebooks, pens) under
 //   one code. Scanning or typing the code at Quick bill puts the whole set on
 //   the bill; lines can still be changed there.

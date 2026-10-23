@@ -24,7 +24,7 @@ const reasonOf = (err) => err?.response?.data?.data?.reason;
 // till, where anyone who learns the password would then need nothing else.
 function TrustBox({ checked, onChange, days }) {
   return (
-    <label className="checkbox asw-trust">
+    <label className="checkbox staff-trust">
       <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
       <span>
         <strong>Trust this device for {days} days</strong>
@@ -36,8 +36,8 @@ function TrustBox({ checked, onChange, days }) {
 
 function StepHead({ icon, title, who }) {
   return (
-    <div className="login-card-head asw-login-head">
-      <span className="asw-login-icon" aria-hidden="true">
+    <div className="login-card-head staff-login-head">
+      <span className="staff-login-icon" aria-hidden="true">
         <Icon name={icon} size={22} />
       </span>
       <h1>{title}</h1>
@@ -98,7 +98,7 @@ function CodeStep({ challenge, onRestart, onSignedIn }) {
   };
 
   return (
-    <form className="card login-card asw-login-step" onSubmit={submit} aria-busy={busy} ref={cardRef}>
+    <form className="card login-card staff-login-step" onSubmit={submit} aria-busy={busy} ref={cardRef}>
       <StepHead icon="shield" title="Two-step sign-in" who={challenge.user?.name} />
 
       {error && (
@@ -111,7 +111,7 @@ function CodeStep({ challenge, onRestart, onSignedIn }) {
         <label className="field">
           <span>A recovery code</span>
           <input
-            className="mono asw-recovery-input"
+            className="mono staff-recovery-input"
             value={recovery}
             onChange={(event) => setRecovery(event.target.value.toUpperCase())}
             placeholder="ABCDE-FGHJK"
@@ -124,7 +124,7 @@ function CodeStep({ challenge, onRestart, onSignedIn }) {
           <small className="muted">One of the ten codes you saved when you turned two-step on. Each works once.</small>
         </label>
       ) : (
-        <label className="field asw-code-field">
+        <label className="field staff-code-field">
           <span>The 6-digit code from your authenticator app</span>
           <CodeInput value={code} onChange={setCode} autoFocus />
           <small className="muted">Open Google or Microsoft Authenticator. The code changes every 30 seconds.</small>
@@ -138,7 +138,7 @@ function CodeStep({ challenge, onRestart, onSignedIn }) {
         {busy ? "Checking…" : "Verify and sign in"}
       </button>
 
-      <div className="asw-login-links">
+      <div className="staff-login-links">
         <button
           type="button"
           className="link-button"
@@ -199,8 +199,8 @@ function SetupStep({ challenge, setup, onRestart, onSignedIn }) {
 
   if (done) {
     return (
-      <div className="card login-card asw-login-step is-wide">
-        <div className="asw-done">
+      <div className="card login-card staff-login-step is-wide">
+        <div className="staff-done">
           <SuccessCheck size={44} label="Two-step sign-in is on" />
           <div>
             <strong>Two-step sign-in is on.</strong>
@@ -208,7 +208,7 @@ function SetupStep({ challenge, setup, onRestart, onSignedIn }) {
           </div>
         </div>
         <div>
-          <h2 className="asw-login-subhead">Save your recovery codes</h2>
+          <h2 className="staff-login-subhead">Save your recovery codes</h2>
           <p className="muted small">If your phone is lost or flat, one of these signs you in instead of the code.</p>
         </div>
         <RecoveryCodes codes={done.recoveryCodes || []} who={done.user?.name || challenge.user?.name || ""} />
@@ -220,7 +220,7 @@ function SetupStep({ challenge, setup, onRestart, onSignedIn }) {
   }
 
   return (
-    <form className="card login-card asw-login-step is-wide" onSubmit={submit} aria-busy={busy} ref={cardRef}>
+    <form className="card login-card staff-login-step is-wide" onSubmit={submit} aria-busy={busy} ref={cardRef}>
       <StepHead icon="shield" title="Set up two-step sign-in" who={challenge.user?.name} />
 
       <div className="alert alert-notice" role="status">
@@ -235,7 +235,7 @@ function SetupStep({ challenge, setup, onRestart, onSignedIn }) {
         </div>
       )}
 
-      <label className="field asw-code-field">
+      <label className="field staff-code-field">
         <span>The 6-digit code the app now shows</span>
         <CodeInput value={code} onChange={setCode} autoFocus />
       </label>
@@ -247,7 +247,7 @@ function SetupStep({ challenge, setup, onRestart, onSignedIn }) {
         {busy ? "Checking…" : "Turn on and sign in"}
       </button>
 
-      <div className="asw-login-links">
+      <div className="staff-login-links">
         <button type="button" className="link-button" onClick={() => onRestart("")}>
           Not you? Start again
         </button>

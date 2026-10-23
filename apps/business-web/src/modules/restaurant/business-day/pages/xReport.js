@@ -18,8 +18,7 @@ const heading = (text) => `<tr><td colspan="2" class="h">${escapeHtml(text)}</td
 // A plain hyphen: receipt printers' fonts often have no minus sign.
 const minus = (money, value) => `-${money(value)}`;
 
-// Tips collected, by method: on top of the payments, never in the sales
-// (REQ-ACCESS-DAYEND-TIPS).
+// Tips collected, by method: on top of the payments, never in the sales.
 const tipLines = (lines, tips, money) => {
   if (!tips || tips.length === 0) {
     return;
@@ -69,7 +68,7 @@ const billLines = (lines, bills, money) => {
   }
 };
 
-export const buildXReport = (data, { restaurantName = "", printedBy = "" } = {}) => {
+const buildXReport = (data, { restaurantName = "", printedBy = "" } = {}) => {
   const money = (value) => moneyExact(value, data.currency || "₹");
   const zone = data.timezone;
   const lines = [];

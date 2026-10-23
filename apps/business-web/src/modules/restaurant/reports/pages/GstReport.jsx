@@ -341,7 +341,7 @@ export default function GstReport({ data, currency, canMarkB2b, onChanged, onReg
   );
 }
 
-// GSTR-1 tables 11A and 11B (R4-DAYBOOK-ADVANCES). An advance or deposit is
+// GSTR-1 tables 11A and 11B. An advance or deposit is
 // taxed when it is received, not when the bill is raised: 11A is what was
 // received in the period and not yet billed in it (tax due now), 11B what
 // was received earlier and used on this period's bills (that tax is taken

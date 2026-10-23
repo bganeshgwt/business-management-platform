@@ -39,7 +39,7 @@ export default function PackagesPage() {
 
 const STATES = [{ value: "active", label: "In use" }, { value: "used_up", label: "All used" }, { value: "expired", label: "Expired" }, { value: "cancelled", label: "Cancelled" }, { value: "", label: "All" }];
 
-// What the salon still owes clients (pro pass F-10): active plans, sessions
+// What the salon still owes clients: active plans, sessions
 // not used yet at the package's price per session, plans expiring in 30 days.
 function PlanTiles({ version }) {
   const biz = useOpenBusiness();

@@ -1,36 +1,34 @@
 import { test, expect } from "@playwright/test";
-import fs from "node:fs";
-import process from "node:process";
+
+import { localDate, signIn, TIMEZONE } from "../../../../e2e/fixture.mjs";
 
 // Tasks on a phone (modules/tasks): My tasks lists today's work, one tap opens
 // the checklist, each answer is a big button or a number pad, a reading out
 // of range turns red and raises an issue, and Mark done finishes it. Runs
 // against the Vite dev server (the task is created through the app's own
-// API module by its /src URL, so the test needs no API address).
-const credentialsFile = process.env.E2E_CREDENTIALS_FILE;
-const account = credentialsFile
-  ? JSON.parse(fs.readFileSync(credentialsFile, "utf8")).accounts.find((item) => item.role === "RESTAURANT_ADMIN")
-  : null;
+// API module by its /src URL, so the test needs no API address). Signs in as
+// the test restaurant's admin.
 
 test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
 test.beforeEach(async ({ page }) => {
-  test.skip(!account, "Set E2E_CREDENTIALS_FILE to the local demo credentials file.");
-  await page.goto("/login");
-  await page.locator('input[autocomplete="username"]').fill(account.email);
-  await page.locator('input[autocomplete="current-password"]').fill(account.password);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  try {
-    await expect(page.locator("main.content-scroll")).toBeVisible();
-  } finally {
-    const password = page.locator('input[autocomplete="current-password"]');
-    if (await password.count()) await password.fill("");
-  }
+  await signIn(page);
+  await expect(page.locator("main.content-scroll")).toBeVisible();
 });
 
-const createTask = (page, title) => page.evaluate(async (name) => {
+// Two hours from now, but no later than the end of the restaurant's day: My
+// tasks lists a task under Today only while its due time is today on the
+// restaurant's clock.
+const dueToday = () => {
+  const offset = new Intl.DateTimeFormat("en-US", { timeZone: TIMEZONE, timeZoneName: "longOffset" })
+    .formatToParts(new Date())
+    .find((part) => part.type === "timeZoneName").value.replace("GMT", "") || "+00:00";
+  const endOfDay = Date.parse(`${localDate()}T23:59:59${offset}`);
+  return new Date(Math.min(Date.now() + 2 * 3600000, endOfDay)).toISOString();
+};
+
+const createTask = (page, title) => page.evaluate(async ({ name, due }) => {
   const { default: api } = await import("/src/services/api.js");
-  const due = new Date(Date.now() + 2 * 3600000).toISOString();
   const response = await api.post("/tasks", {
     title: name, category: "food_safety", priority: "high", dueAt: due,
     items: [
@@ -42,7 +40,7 @@ const createTask = (page, title) => page.evaluate(async (name) => {
     ],
   });
   return response.data.data;
-}, title);
+}, { name: title, due: dueToday() });
 
 const noSideScroll = (page) => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
 

@@ -4,7 +4,7 @@ import { businessRead } from "../../../../services/business.service";
 import { toast } from "../../../../services/toast";
 
 // Words, formats and API helpers the pharmacy, clinic and lab screens share
-// (round 2, health module). The badges and fields are in healthParts.jsx.
+// (the health module). The badges and fields are in healthParts.jsx.
 
 export const SCHEDULES = [["none", "Not scheduled (OTC)"], ["G", "Schedule G"], ["H", "Schedule H (Rx)"], ["H1", "Schedule H1 (Rx + register)"], ["X", "Schedule X (Rx + pharmacist PIN)"], ["narcotic", "Narcotic (NDPS)"]];
 export const FORMS = ["tablet", "capsule", "syrup", "suspension", "injection", "ointment", "cream", "drops", "inhaler", "powder", "gel", "solution", "device", "other"];
@@ -21,7 +21,7 @@ export const resultText = (p) => (p.value_text != null ? p.value_text : p.value_
 export const SEX_WORDS = { female: "Female", male: "Male", other: "Other" };
 export const PURPOSE_WORDS = { treatment: "Treatment and medical records", reports_digital: "Reports on WhatsApp / e-mail", reminders: "Reminders (follow-ups, refills)" };
 export const METHOD_WORDS = { signed_form: "Signed form", verbal: "Told at the desk (verbal)", digital: "Digital (OTP / tablet)" };
-export const ageText = (age) => (age === null || age === undefined ? "" : `${age} y`);
+const ageText = (age) => (age === null || age === undefined ? "" : `${age} y`);
 export const patientLine = (p) => [p.patient_no, p.sex ? SEX_WORDS[p.sex] : "", p.age !== undefined && p.age !== null ? ageText(p.age) : ""].filter(Boolean).join(" · ");
 
 // The people who sign (pharmacist, doctor, pathologist) of this business.

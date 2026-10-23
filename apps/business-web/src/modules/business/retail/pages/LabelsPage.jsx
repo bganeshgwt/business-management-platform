@@ -32,7 +32,7 @@ export default function LabelsPage() {
   const { state } = useLocation();
   const [queue, setQueue] = useState(() => (Array.isArray(state?.labels) ? state.labels : []));
   const [sheet, setSheet] = useState("a24");
-  // Garment tag (fashion, pro pass E-11): style, a large size, colour and the
+  // Garment tag (fashion): style, a large size, colour and the
   // price including GST, instead of the shelf label.
   const [template, setTemplate] = useState(state?.template === "garment" || biz.has("variants") ? "garment" : "shelf");
   const [showPrice, setShowPrice] = useState(true);

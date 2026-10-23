@@ -1,4 +1,10 @@
-require("dotenv").config({ quiet: true });
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+
+// What backend/.env itself says. dotenv never overrides a variable the
+// environment already has, so process.env can differ from it.
+const fromEnvFile = require("dotenv").config({ quiet: true }).parsed || {};
 
 const required = ["DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASSWORD", "JWT_SECRET"];
 const missing = required.filter((key) => !process.env[key]);
@@ -101,9 +107,86 @@ const intFrom = (name, fallback, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}
   return Number.isInteger(value) && value >= min && value <= max ? value : fallback;
 };
 
+// --- Where uploaded files are kept ---------------------------------------------
+//
+// Two folders: the public one, served to anyone at /uploads (menu and product
+// photos), and the private one, whose files are only ever sent through the
+// API (bills on expenses and purchase bills, prescription scans, task
+// photos). Each is backend/uploads or backend/private_uploads unless set; a
+// relative path is taken from backend/.
+const BACKEND = path.resolve(__dirname, "..", "..");
+
+// A test run's folders are its own: one that only backend/.env names is the
+// developer's, so under NODE_ENV=test it counts as not set.
+const folderFrom = (name) => {
+  const value = String(process.env[name] || "").trim();
+
+  if (!value || (nodeEnv === "test" && String(fromEnvFile[name] || "").trim() === value)) {
+    return null;
+  }
+
+  return path.resolve(BACKEND, value);
+};
+
+// Under NODE_ENV=test a folder left unset is a throwaway one under the
+// system's temp folder, made for this process and removed when it exits, so
+// no test run ever writes into a developer's folders. A process stopped
+// outright (a forced kill runs no exit handler, as when the browser tests
+// stop their API) leaves its folder behind; the next test process removes
+// every one whose process has ended.
+const TEST_FOLDER = /^rmp-test-uploads-(\d+)-/;
+
+const processEnded = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return false;
+  } catch (error) {
+    // EPERM: the process is there, but belongs to someone else.
+    return error.code !== "EPERM";
+  }
+};
+
+const testFolder = () => {
+  const temp = os.tmpdir();
+
+  for (const name of fs.readdirSync(temp)) {
+    const pid = Number(TEST_FOLDER.exec(name)?.[1]);
+
+    if (pid && pid !== process.pid && processEnded(pid)) {
+      try {
+        fs.rmSync(path.join(temp, name), { recursive: true, force: true });
+      } catch {
+        // Another test process is removing it too, or a file in it is still
+        // open: it goes next time.
+      }
+    }
+  }
+
+  const folder = fs.mkdtempSync(path.join(temp, `rmp-test-uploads-${process.pid}-`));
+
+  process.on("exit", () => {
+    try {
+      fs.rmSync(folder, { recursive: true, force: true });
+    } catch {
+      // Left for the next test process to remove.
+    }
+  });
+
+  return folder;
+};
+
+const uploadFolders = (() => {
+  const uploads = folderFrom("UPLOADS_DIR");
+  const privateUploads = folderFrom("PRIVATE_UPLOADS_DIR");
+  const base = nodeEnv === "test" && (!uploads || !privateUploads) ? testFolder() : BACKEND;
+
+  return {
+    uploads: uploads || path.join(base, "uploads"),
+    privateUploads: privateUploads || path.join(base, "private_uploads"),
+  };
+})();
+
 module.exports = {
-  nodeEnv,
-  isLive,
   port: Number(process.env.PORT) || 5000,
   // The staff app's address (apps/business-web), or several separated by
   // commas. The guests' site needs no entry: the public guest API answers any
@@ -174,4 +257,8 @@ module.exports = {
   trustProxy: intFrom("TRUST_PROXY", 0, { min: 0, max: 10 }),
   // A manager approval token lives this long before it must be used.
   approvalTtlSeconds: intFrom("APPROVAL_TTL_SECONDS", 120, { min: 15, max: 900 }),
+  // The public uploads folder (UPLOADS_DIR), served at /uploads, and the
+  // private one (PRIVATE_UPLOADS_DIR), sent only through the API: above.
+  uploadsDir: uploadFolders.uploads,
+  privateUploadsDir: uploadFolders.privateUploads,
 };

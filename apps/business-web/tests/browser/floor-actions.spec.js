@@ -1,33 +1,23 @@
 import { test, expect } from "@playwright/test";
-import fs from "node:fs";
-import process from "node:process";
 
-// The dashboard's Floor panel acts on a table where it is listed (pro pass A):
-// a free table starts an order, an eating one opens its order or its bill, a
-// table whose bill is out takes the payment in the panel, a table being
-// cleaned is marked ready — and each action is offered only to a role that
-// may do it (a captain never sees Bill, Take payment or Cancel order).
+import { fixture, signIn } from "../../../../e2e/fixture.mjs";
+
+// The dashboard's Floor panel acts on a table where it is listed: a free
+// table starts an order, an eating one opens its order or its bill, a table
+// whose bill is out takes the payment in the panel, a table being cleaned is
+// marked ready — and each action is offered only to a role that may do it (a
+// captain never sees Bill, Take payment or Cancel order).
 //
-// Needs E2E_CREDENTIALS_FILE with a RESTAURANT_ADMIN account, and for the
-// role checks a CAPTAIN and a CASHIER account, on a database where the
-// restaurant's business day is open. It creates one dine-in order of its own,
-// bills it, pays it in cash and marks the table ready again.
-const credentialsFile = process.env.E2E_CREDENTIALS_FILE;
-const accounts = credentialsFile ? JSON.parse(fs.readFileSync(credentialsFile, "utf8")).accounts : [];
-const accountFor = (role) => accounts.find((item) => item.role === role) || null;
-const admin = accountFor("RESTAURANT_ADMIN");
+// Signs in as the test restaurant's admin, captain and cashier
+// (e2e/test-data.mjs). The restaurant's business day is open, tables 1-3 are
+// free, a table is cleaned for five minutes after its party pays, and one
+// table holds an order left open from an earlier day. The test creates one
+// dine-in order of its own, bills it, pays it in cash and marks the table
+// ready again.
 
-let apiBase = null;
-
-const signIn = async (page, account) => {
-  page.on("request", (request) => {
-    const match = request.url().match(/^(.*\/api)\//);
-    if (match && !apiBase) apiBase = match[1];
-  });
-  await page.goto("/login");
-  await page.locator('input[autocomplete="username"]').fill(account.email);
-  await page.locator('input[autocomplete="current-password"]').fill(account.password);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+// Signs in and waits for the app around the page.
+const signInAs = async (page, role) => {
+  await signIn(page, role);
   await expect(page.locator("main.content-scroll")).toBeVisible({ timeout: 60_000 });
 };
 
@@ -53,7 +43,7 @@ const api = (page, method, path, body) =>
       const json = await response.json().catch(() => ({}));
       return { status: response.status, data: json.data, message: json.message };
     },
-    { base: apiBase, method, path, body }
+    { base: fixture().urls.api, method, path, body }
   );
 
 const rowFor = (panel, tableNo) =>
@@ -62,16 +52,14 @@ const rowFor = (panel, tableNo) =>
     .filter({ has: panel.page().locator(".panel-cell-stack > strong", { hasText: new RegExp(`^${tableNo}$`) }) });
 
 test.describe("floor panel actions", () => {
-  test.skip(!admin, "Set E2E_CREDENTIALS_FILE to the test credentials file.");
   test.setTimeout(300_000);
 
   test("free → start, eating → bill, bill out → take payment, cleaning → ready", async ({ page }) => {
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
-    await signIn(page, admin);
+    await signInAs(page, "RESTAURANT_ADMIN");
     await page.goto("/");
     await expect(page.locator(".dash-page")).toBeVisible({ timeout: 60_000 });
-    expect(apiBase).toBeTruthy();
 
     // Free: the first free table the panel lists; its own action starts an
     // order there.
@@ -80,28 +68,21 @@ test.describe("floor panel actions", () => {
     const firstNo = (await panel.locator(".dg-row:not(.dg-row-skeleton) .panel-cell-stack strong").first().textContent()) || "";
     const tables = (await api(page, "GET", "/tables")).data;
     const free = tables.find((table) => table.tableNo === firstNo.trim() && table.floorState === "free");
-    test.skip(!free, "No free table to use.");
+    expect(free, `the panel's first free table (${firstNo}) is free`).toBeTruthy();
     let row = rowFor(panel, free.tableNo);
     await expect(row.getByRole("button", { name: "Start order" })).toBeVisible();
     await row.getByRole("button", { name: "Start order" }).click();
     await expect(page).toHaveURL(/\/pos/);
 
-    // An order of our own on it.
-    const products = (await api(page, "GET", "/menu/products?status=active")).data;
-    let order = null;
-    for (const product of products.filter((one) => one.isAvailable !== false).slice(0, 25)) {
-      const placed = await api(page, "POST", "/orders", {
-        orderType: "dine_in",
-        tableId: free.id,
-        guestCount: 2,
-        items: [{ productId: product.id, quantity: 1 }],
-      });
-      if (placed.status === 201) {
-        order = placed.data;
-        break;
-      }
-    }
-    expect(order, "an order could be placed").toBeTruthy();
+    // An order of our own on it, of one of the menu's dishes.
+    const [dish] = fixture().restaurant.products;
+    const placed = await api(page, "POST", "/orders", {
+      orderType: "dine_in",
+      tableId: free.id,
+      guestCount: 2,
+      items: [{ productId: dish.id, quantity: 1 }],
+    });
+    expect(placed.status, placed.message).toBe(201);
 
     // Eating, tonight's: Open order and Bill; no "left open" flag.
     await page.goto("/?panel=floor.busy");
@@ -135,59 +116,51 @@ test.describe("floor panel actions", () => {
     const live = (await api(page, "GET", "/tables")).data.find((table) => table.id === free.id).live;
     const paid = await api(page, "POST", `/bills/${live.billId}/payments`, { paymentMethod: "cash", amount: live.billDue });
     expect(paid.status, paid.message).toBe(201);
-    // (A restaurant with no cleaning time set frees the table at once.)
     const after = (await api(page, "GET", "/tables")).data.find((table) => table.id === free.id);
-    if (after.floorState === "cleaning") {
-      await page.goto("/?panel=floor.cleaning");
-      panel = await panelRows(page);
-      row = rowFor(panel, free.tableNo);
-      await expect(row).toHaveCount(1);
-      await row.getByRole("button", { name: "Mark ready" }).click();
-      await expect(page.getByText(`Table ${free.tableNo} is ready for the next party.`)).toBeVisible({ timeout: 30_000 });
-      await expect(rowFor(panel, free.tableNo)).toHaveCount(0, { timeout: 30_000 });
-    } else {
-      expect(after.floorState).toBe("free");
-    }
+    expect(after.floorState).toBe("cleaning");
+    await page.goto("/?panel=floor.cleaning");
+    panel = await panelRows(page);
+    row = rowFor(panel, free.tableNo);
+    await expect(row).toHaveCount(1);
+    await row.getByRole("button", { name: "Mark ready" }).click();
+    await expect(page.getByText(`Table ${free.tableNo} is ready for the next party.`)).toBeVisible({ timeout: 30_000 });
+    await expect(rowFor(panel, free.tableNo)).toHaveCount(0, { timeout: 30_000 });
 
     expect(errors).toEqual([]);
   });
 
   test("a captain gets no Bill, payment or cancel; a cashier may cancel a forgotten order", async ({ browser }) => {
-    const captainAccount = accountFor("CAPTAIN");
-    const cashierAccount = accountFor("CASHIER");
-    test.skip(!captainAccount || !cashierAccount, "Add a CAPTAIN and a CASHIER account to the credentials file.");
+    // The table whose order was left open from an earlier day.
+    const { tableNo } = fixture().restaurant.leftOpenOrder;
 
     const captainPage = await (await browser.newContext()).newPage();
-    await signIn(captainPage, captainAccount);
+    await signInAs(captainPage, "CAPTAIN");
     await captainPage.goto("/?panel=floor.busy");
     let panel = await panelRows(captainPage);
-    const rows = panel.locator(".dg-row:not(.dg-row-skeleton)");
-    if ((await rows.count()) > 0) {
-      await expect(panel.getByRole("button", { name: "Bill", exact: true })).toHaveCount(0);
-      await expect(panel.getByRole("button", { name: "Take payment" })).toHaveCount(0);
-      await expect(panel.getByRole("button", { name: "Open order" }).first()).toBeVisible();
-      // An order left open from an earlier day: Open order only, no menu
-      // with Cancel order (orders.manage) for a captain.
-      const earlierRow = rows.filter({ hasText: "Left open since" }).filter({ hasText: "Eating" }).first();
-      if (await earlierRow.count()) {
-        await expect(earlierRow.getByRole("button", { name: "More for this table" })).toHaveCount(0);
-      }
-    }
+    await expect(panel.getByRole("button", { name: "Open order" }).first()).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Bill", exact: true })).toHaveCount(0);
+    await expect(panel.getByRole("button", { name: "Take payment" })).toHaveCount(0);
+    // The order left open from an earlier day: Open order only, no menu
+    // with Cancel order (orders.manage) for a captain.
+    const earlierRow = rowFor(panel, tableNo);
+    await expect(earlierRow).toContainText("Left open since");
+    await expect(earlierRow).toContainText("Eating");
+    await expect(earlierRow.getByRole("button", { name: "Open order" })).toBeVisible();
+    await expect(earlierRow.getByRole("button", { name: "More for this table" })).toHaveCount(0);
     await captainPage.context().close();
 
     const cashierPage = await (await browser.newContext()).newPage();
-    await signIn(cashierPage, cashierAccount);
+    await signInAs(cashierPage, "CASHIER");
     await cashierPage.goto("/?panel=floor.busy");
     panel = await panelRows(cashierPage);
-    const earlier = panel.locator(".dg-row:not(.dg-row-skeleton)").filter({ hasText: "Left open since" }).filter({ hasText: "Eating" });
-    if ((await earlier.count()) > 0) {
-      // Bill is the row's own action for an order left open; Cancel is in its menu.
-      const first = earlier.first();
-      await expect(first.getByRole("button", { name: "Bill", exact: true })).toBeVisible();
-      await first.getByRole("button", { name: "More for this table" }).click();
-      await expect(cashierPage.getByRole("menuitem", { name: "Cancel order" })).toBeVisible();
-      await cashierPage.keyboard.press("Escape");
-    }
+    const earlier = rowFor(panel, tableNo);
+    await expect(earlier).toContainText("Left open since");
+    await expect(earlier).toContainText("Eating");
+    // Bill is the row's own action for an order left open; Cancel is in its menu.
+    await expect(earlier.getByRole("button", { name: "Bill", exact: true })).toBeVisible();
+    await earlier.getByRole("button", { name: "More for this table" }).click();
+    await expect(cashierPage.getByRole("menuitem", { name: "Cancel order" })).toBeVisible();
+    await cashierPage.keyboard.press("Escape");
     await cashierPage.context().close();
   });
 });

@@ -1,7 +1,4 @@
 // Kitchen display (KDS) and KOTs.
-//
-// Scaffolded centrally so the router is already mounted in routes/index.js;
-// the module builder owns this file and fills it in.
 const express = require("express");
 const kitchenController = require("../controllers/kitchen.controller");
 const authenticate = require("../../../../middlewares/authenticate");

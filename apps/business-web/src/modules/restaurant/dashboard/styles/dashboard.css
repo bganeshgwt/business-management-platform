@@ -781,7 +781,7 @@
   }
 }
 
-/* ---- Pro pass A: days and orders left open, floor actions ---------------- */
+/* ---- Days and orders left open, floor actions ---------------- */
 
 /* A counter's business day left open from an earlier date: red, at the top. */
 .dash-oldday {
@@ -999,7 +999,7 @@
   }
 
   .dash-page > .dash-attention-strip,
-  .dash-page > .asw-handover-notice {
+  .dash-page > .staff-handover-notice {
     order: 2;
   }
 
@@ -1010,7 +1010,7 @@
   }
 }
 
-/* --- Needs attention: one compact strip (replaces the 3-column card grid) --- */
+/* --- Needs attention: one compact strip --- */
 .dash-attention-strip {
   display: grid;
   gap: 10px;

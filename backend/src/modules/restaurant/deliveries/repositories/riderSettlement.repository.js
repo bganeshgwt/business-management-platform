@@ -1,4 +1,4 @@
-// Rider cash settlement (sweep SW-A-19; migration 1791330000002).
+// Rider cash settlement (migration 1791330000002).
 const pool = require("../../../../config/database");
 
 // A rider's delivered bills not yet fully paid, oldest delivery first.

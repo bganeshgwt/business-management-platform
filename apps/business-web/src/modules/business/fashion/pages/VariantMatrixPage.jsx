@@ -18,7 +18,7 @@ import { MarkdownDialog, MarkdownList } from "./fashionParts";
 import "./shared";
 
 // One style's matrix: stock by colour (rows) and size (columns) at one
-// location or all. Pro pass: the price shows once per size (a cell shows its
+// location or all. The price shows once per size (a cell shows its
 // own only when it differs); tapping a cell opens what can be done with that
 // variant (price, reorder level, barcode, labels, receive, sales); on a phone
 // the grid stays a grid that scrolls sideways with the colours pinned.

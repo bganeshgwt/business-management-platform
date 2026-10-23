@@ -1,4 +1,4 @@
-/* Fashion and electronics screens (Phase 2, T3). Only page layout here; the
+/* Fashion and electronics screens. Only page layout here; the
    grid, cards and badges come from the shared styles and design tokens. */
 
 .fe-presets {
@@ -180,7 +180,7 @@
   }
 }
 
-/* Pro pass E: a row of small controls (a gift coming back, filters). */
+/* A row of small controls (a gift coming back, filters). */
 .fe-inline-row {
   display: flex;
   flex-wrap: wrap;
@@ -198,7 +198,7 @@
   font-weight: var(--weight-medium);
 }
 
-/* --- Size × colour matrix (pro pass E-10): a real grid on every screen.
+/* --- Size × colour matrix: a real grid on every screen.
    Colours stay pinned on the left; sizes scroll sideways on a phone. --- */
 .fe-matrix-wrap {
   overflow-x: auto;
@@ -416,7 +416,7 @@
   line-height: 1.2;
 }
 
-/* Status chips with counts above the open repair jobs (E-25). */
+/* Status chips with counts above the open repair jobs. */
 .fe-chips {
   display: flex;
   flex-wrap: wrap;
@@ -488,7 +488,7 @@
   flex: 1;
 }
 
-/* Repair job: the status as the headline (E-26), checklist chips. */
+/* Repair job: the status as the headline, checklist chips. */
 .fe-status-value {
   font-size: var(--text-xl);
   font-weight: var(--weight-bold);

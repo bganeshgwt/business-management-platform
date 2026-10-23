@@ -3,7 +3,7 @@ node_modules/
 dist/
 coverage/
 
-# Secrets and machine-local data (backups, demo logins, uploads)
+# Secrets and machine-local data (backups, uploads)
 .env
 .env.*
 !.env.example

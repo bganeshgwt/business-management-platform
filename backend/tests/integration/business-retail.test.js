@@ -4,9 +4,10 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+const { createBusinesses } = require('./helpers/businesses');
 const { withTools } = require('./helpers/tools');
 
-// Phase 2, T1 — retail (grocery / kirana, supermarket, books & stationery):
+// Retail (grocery / kirana, supermarket, books & stationery):
 // offers applied by the server, loyalty points, udhaar on the shared
 // receivables (reminders, collections, statements), barcode and scale-label
 // lookup, in-store barcodes, book details and retail reports. Each rule, the
@@ -29,7 +30,6 @@ test('retail: offers, loyalty, udhaar, barcodes, books and reports', { timeout: 
   process.env.DB_NAME = database;
   process.env.NODE_ENV = 'test';
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex');
-  process.env.MULTI_BUSINESS_DEVELOPMENT = 'true';
   process.env.LOGIN_ATTEMPT_LIMIT = '5000';
   const { runner } = await import('node-pg-migrate');
   await runner({ databaseUrl: { ...connection, database }, dir: path.resolve(__dirname, '../../migrations'), migrationsTable: 'pgmigrations', direction: 'up', count: Infinity, checkOrder: true, log() {} });
@@ -70,13 +70,11 @@ test('retail: offers, loyalty, udhaar, barcodes, books and reports', { timeout: 
   const key = () => crypto.randomUUID();
   const ean = (twelve) => { let s = 0; for (let i = 0; i < 12; i += 1) s += Number(twelve[i]) * (i % 2 ? 3 : 1); return twelve + ((10 - (s % 10)) % 10); };
 
-  const demos = (await withTools(request, (await request('POST', '/businesses/development-demos', {}, 201)).businesses));
-  const byType = (list, type) => list.find((b) => b.business_type === type);
-  const grocery = byType(demos, 'grocery'), supermarket = byType(demos, 'supermarket'), books = byType(demos, 'books');
-  const otherGrocery = byType((await other('POST', '/businesses/development-demos', {}, 201)).businesses, 'grocery');
-  // Pro pass (1791540000000): goods shops now start with prices including GST,
-  // rounded to the rupee, and a walk-in pays in full. These checks were written for
-  // prices before GST and post unpaid walk-in bills as fixtures.
+  const [grocery, supermarket, books] = await withTools(request, await createBusinesses(request, 'OWNER', ['grocery', 'supermarket', 'books']));
+  const [otherGrocery] = await createBusinesses(other, 'OTHER', ['grocery']);
+  // Goods shops start with prices including GST, rounded to the rupee, and a
+  // walk-in pays in full. These checks use prices before GST and post unpaid
+  // walk-in bills as fixtures.
   await pool.query("UPDATE business_settings SET tax_mode='exclusive', rounding='none', walk_in_credit=true");
   const root = (business, suffix) => `/businesses/${business.id}/${suffix}`;
 
@@ -351,7 +349,7 @@ test('retail: offers, loyalty, udhaar, barcodes, books and reports', { timeout: 
     const credit = (lines) => request('POST', root(grocery, 'documents'), { kind: 'sale', locationId: location.id, contactId: sunita.id, requestKey: key(), lines }, 201);
     const older = await credit([{ skuId: biscuit.id, quantity: '10' }]);
     const newer = await credit([{ skuId: salt.id, quantity: '1' }]);
-    await pool.query("UPDATE business_documents SET created_at=now()-interval '20 days',due_on=(now()-interval '13 days')::date WHERE business_id=$1 AND id=$2", [grocery.id, older.id]);
+    await pool.query("UPDATE business_documents SET created_at=now()-interval '20 days',due_on=(now() AT TIME ZONE 'Asia/Kolkata')::date-13 WHERE business_id=$1 AND id=$2", [grocery.id, older.id]);
     const book = await request('GET', root(grocery, 'udhaar'));
     const row = book.items.find((r) => r.contact_id === sunita.id);
     assert.equal(Number(row.balance), Number(older.total) + Number(newer.total));

@@ -1742,7 +1742,7 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
 }
 
-/* A table pushed together with the main one for a large party (SW-A-16). */
+/* A table pushed together with the main one for a large party. */
 .rsv-pick.is-joined {
   border-color: var(--primary);
   border-style: dashed;

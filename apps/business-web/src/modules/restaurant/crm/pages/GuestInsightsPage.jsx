@@ -60,7 +60,7 @@ const SEGMENT_LOOK = {
   lapsed: { icon: "timer", tag: "Lapsed", shortcut: "At risk" },
   "big-spenders": { icon: "trend-up", tag: "Big spender" },
   birthdays: { icon: "calendar", tag: "Birthday" },
-  // A couple's wedding anniversary this week (sweep SW-B-21).
+  // A couple's wedding anniversary this week.
   anniversaries: { icon: "sparkles", tag: "Anniversary" },
   unhappy: { icon: "frown", tag: "Unhappy", shortcut: "Unhappy" },
   points: { icon: "gift", tag: "Points" },

@@ -120,11 +120,11 @@ router.post(
   publicMenuController.feedback
 );
 
-// Online table booking (SW-A-21): a restaurant's booking link and each
+// Online table booking: a restaurant's booking link and each
 // guest's own status link, with limits of their own.
 router.use("/booking", require("../../reservations/routes/publicBooking.routes"));
 
-// The restaurant's own online ordering page (SW-A-22): takeaway and delivery
+// The restaurant's own online ordering page: takeaway and delivery
 // from a public link, with limits per address and per mobile of their own.
 router.use("/online", require("../../online/routes/publicOnline.routes"));
 

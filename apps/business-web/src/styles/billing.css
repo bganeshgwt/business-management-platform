@@ -1536,7 +1536,7 @@
   color: var(--warning-text);
 }
 
-/* Offer rules (SW-B-17): chips for days, categories and chosen dishes. */
+/* Offer rules: chips for days, categories and chosen dishes. */
 .offer-rule-chips {
   display: flex;
   flex-wrap: wrap;

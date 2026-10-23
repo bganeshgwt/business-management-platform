@@ -1,6 +1,6 @@
 import axios from "axios";
 
-// The restaurant's own online ordering page (SW-A-22): the guest's calls. The
+// The restaurant's own online ordering page: the guest's calls. The
 // staff's settings for each selling point's link stay in the staff app
 // (apps/business-web, modules/restaurant/online).
 //

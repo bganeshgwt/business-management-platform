@@ -9,7 +9,7 @@ import { useOpenBusiness } from "../../core/pages/hooks";
 import { kg, percentText, processWords } from "./weight";
 import { overviewLink } from "../../core/pages/overviewLink";
 
-// A meat or weight shop's day on the Overview (pro pass F-22): kg sold,
+// A meat or weight shop's day on the Overview: kg sold,
 // cut and wasted today, the yield against the templates, what must be used
 // by tomorrow, whether today's rates are set, and the next pickups.
 export default function WeightToday() {

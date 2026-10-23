@@ -17,7 +17,7 @@ import { newKey, useOpenBusiness, useServerList } from "../../core/pages/hooks";
 import { Segmented } from "../../wholesale/pages/shared";
 import { REASONS, kg, processWords, weightOf } from "./weight";
 
-// Everything sold by weight, per location. Today (pro pass F-18): what the
+// Everything sold by weight, per location. Today: what the
 // day opened with, what came in, was cut, sold and wasted since, and what
 // should be on the counter now — then "Close the day": weigh what is left and
 // post the difference (drip loss written off, a surplus put back). The 7-day

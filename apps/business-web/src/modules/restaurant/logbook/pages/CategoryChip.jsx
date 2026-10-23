@@ -6,7 +6,7 @@ export default function CategoryChip({ category }) {
   const item = CATEGORIES[category] || CATEGORIES.other;
 
   return (
-    <span className={`asw-cat asw-cat-${item.tone}`}>
+    <span className={`staff-cat staff-cat-${item.tone}`}>
       <Icon name={item.icon} size={13} /> {item.label}
     </span>
   );

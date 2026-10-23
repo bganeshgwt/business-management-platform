@@ -2,7 +2,7 @@ const authorizeOrApprove = require("./authorizeOrApprove");
 const stockSettingsService = require("../modules/restaurant/inventory/services/stockSettings.service");
 const { round2 } = require("../utils/money");
 
-// Large write-offs need a second person (sweep SW-B-10).
+// Large write-offs need a second person.
 //
 // Stock → Stock & purchasing settings can set a value above which wastage or a
 // stock out needs "Approve large write-offs" — or a manager standing there,

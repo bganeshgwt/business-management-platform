@@ -36,7 +36,7 @@ import SupplierStatementPanel from "./SupplierStatementPanel";
 import { printDebitNote } from "./debitNoteDocument";
 import { round2 } from "./lineMath";
 import "../../../../styles/stock.css";
-import "../../../../styles/backoffice-sweep.css";
+import "../../../../styles/backoffice.css";
 
 const EMPTY_LINE = { inventoryItemId: "", quantity: "", unitPrice: "", taxRate: "0" };
 
@@ -735,7 +735,7 @@ export default function ReturnsPage() {
           <span>{methodLabel(row.paymentMethod)}</span>
           {row.paidFromTill && (
             <span>
-              {/* The branch whose drawer the cash left (sweep REQ-SUPPLIER-OUTLET). */}
+              {/* The branch whose drawer the cash left. */}
               <Chip tone="warning">From the till{row.tillName ? ` · ${row.tillName}` : ""}</Chip>
             </span>
           )}

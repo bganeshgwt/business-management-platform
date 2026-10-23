@@ -86,7 +86,7 @@ const sameModifiers = (left = [], right = []) => {
 };
 
 // The same dish ordered the same way: dish, size, add-ons and the note.
-export const sameDish = (line, candidate) =>
+const sameDish = (line, candidate) =>
   line.productId === candidate.productId &&
   (line.productVariantId || null) === (candidate.productVariantId || null) &&
   (line.notes || "") === (candidate.notes || "") &&

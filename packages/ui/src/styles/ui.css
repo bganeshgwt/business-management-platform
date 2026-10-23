@@ -3,8 +3,7 @@
 
    Loaded straight after base.css (main.jsx), before any page's own
    stylesheet, so a page can still adjust these for itself. Colours come only
-   from the tokens in base.css, so dark mode follows by itself. The catalogue
-   with an example of each is DESIGN_SYSTEM.md in the build notes. */
+   from the tokens in base.css, so dark mode follows by itself. */
 
 /* --- Tones -------------------------------------------------------------------
    One pair of custom properties per tone. A component reads --tone (the

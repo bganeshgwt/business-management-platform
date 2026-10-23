@@ -58,7 +58,7 @@ async function savePolicy(business, user, body) {
 
 function readInput(body, { quote }) {
   // No bill (a gift): the item is named instead, and the return goes on the
-  // most recent sale of it within the policy (pro pass E-05).
+  // most recent sale of it within the policy.
   const noBill = body.noBill === true;
   const documentId = noBill ? null : id(body.documentId, 'Original sale');
   let returnSku = null;
@@ -90,7 +90,7 @@ function readInput(body, { quote }) {
   return {
     documentId, reason, locationId, settlement, noBill, returnSku,
     returnLines: returnLines.map((l) => ({ lineId: id(l?.lineId, 'Line'), quantity: l.quantity, restock: v.requiredBoolean(l.restock, 'Back to stock', true),
-      // Electronics: the unit is dead on arrival or faulty; it waits for the supplier (E-17).
+      // Electronics: the unit is dead on arrival or faulty; it waits for the supplier.
       faulty: v.optionalEnum(l.faulty, 'Faulty', ['doa', 'faulty'], null) })),
     newLines: newLines.map((l) => {
       if (!l || typeof l !== 'object') fail('Each item going out needs an item and a quantity');
@@ -251,7 +251,7 @@ async function run(db, business, user, given, { key, hash, quote }) {
   });
   return { exchangeId: exchange.id, voucherId: voucher?.id || null };
 }
-const faultyUnits = () => require('./businessElectronicsPro.service');
+const faultyUnits = () => require('./businessElectronicsSuppliers.service');
 
 // The figures of an exchange without saving anything: the whole exchange is
 // worked out in a transaction that is then rolled back.
@@ -296,7 +296,7 @@ async function detail(business, exchangeId) {
   return { ...exchange, returnedLines: back, newLines: out, voucher };
 }
 
-// Finding the sale to exchange against (pro pass E-05): scan the item
+// Finding the sale to exchange against: scan the item
 // coming back (barcode, SKU code or serial / IMEI) or type the customer's
 // phone; sales still inside the exchange policy come first, newest first,
 // with the matching lines that can still come back.

@@ -492,7 +492,7 @@ export const printBill = (bill, options = {}) => {
 };
 
 // A credit note, printed for the guest who got money back.
-export const buildCreditNote = (bill, note, options = {}) => {
+const buildCreditNote = (bill, note, options = {}) => {
   const settings = options.settings || {};
   const model = receiptModel(bill, options);
   const { seller } = model;

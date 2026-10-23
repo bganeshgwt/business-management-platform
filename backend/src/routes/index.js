@@ -51,7 +51,7 @@ router.use("/business-day", businessDayRoutes);
 router.use("/suppliers", supplierRoutes);
 router.use("/inventory", inventoryRoutes);
 router.use("/purchase-orders", purchaseRoutes);
-// A guest's saved delivery addresses (SW-A-18), before the guest book's own routes.
+// A guest's saved delivery addresses, before the guest book's own routes.
 router.use("/crm/customers/:customerId/addresses", require("../modules/restaurant/online/routes/guestAddress.routes"));
 router.use("/crm", crmRoutes);
 router.use("/expenses", expenseRoutes);

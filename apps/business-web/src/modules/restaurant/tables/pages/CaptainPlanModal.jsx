@@ -32,7 +32,7 @@ const dayBefore = (date) => {
   return new Date(Date.UTC(y, m - 1, d - 1)).toISOString().slice(0, 10);
 };
 
-// Today's captain sections (SW-A-20): which captain has which floor, section
+// Today's captain sections: which captain has which floor, section
 // or table. A table inside someone's floor can be given to another captain:
 // the table's own line wins. Captains then see "My tables" on the POS, and
 // QR calls for their tables come first in their inbox.

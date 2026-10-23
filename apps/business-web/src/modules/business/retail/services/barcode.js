@@ -57,11 +57,11 @@ const G = ["0100111", "0110011", "0011011", "0100001", "0011101", "0111001", "00
 const R = L.map((code) => code.split("").map((b) => (b === "1" ? "0" : "1")).join(""));
 const PARITY = ["LLLLLL", "LLGLGG", "LLGGLG", "LLGGGL", "LGLLGG", "LGGLLG", "LGGGLL", "LGLGLG", "LGLGGL", "LGGLGL"];
 
-export function eanCheckDigit(twelve) {
+function eanCheckDigit(twelve) {
   const total = twelve.split("").reduce((sum, digit, i) => sum + Number(digit) * (i % 2 ? 3 : 1), 0);
   return String((10 - (total % 10)) % 10);
 }
-export const isEan13 = (code) => /^\d{13}$/.test(code) && eanCheckDigit(code.slice(0, 12)) === code[12];
+const isEan13 = (code) => /^\d{13}$/.test(code) && eanCheckDigit(code.slice(0, 12)) === code[12];
 
 // "1" = bar module, "0" = space module.
 function ean13Modules(code) {

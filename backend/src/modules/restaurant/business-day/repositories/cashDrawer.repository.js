@@ -155,7 +155,7 @@ const drawerTakings = async (restaurantId, drawer, db = pool) => {
       params
     ),
     // Advances this cashier took in cash during the shift, and unused ones
-    // they handed back in cash (R4-DRAWER-ADVANCES).
+    // they handed back in cash.
     () => db.query(
       `SELECT COALESCE((SELECT SUM(ca.amount) FROM customer_advances ca
                 WHERE ca.restaurant_id = $1 AND ca.business_day_id = $2 AND ca.created_by = $3

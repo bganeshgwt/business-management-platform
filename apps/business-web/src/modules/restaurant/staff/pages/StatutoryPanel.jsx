@@ -123,7 +123,7 @@ export function StatutorySettingsModal({ onClose, onSaved }) {
         <form className="stack" onSubmit={save}>
           <ErrorMessage message={error} />
 
-          <fieldset className={`asw-stat-block ${form.pfEnabled ? "is-on" : ""}`}>
+          <fieldset className={`staff-stat-block ${form.pfEnabled ? "is-on" : ""}`}>
             <legend>
               <label className="checkbox">
                 <input type="checkbox" checked={form.pfEnabled} onChange={set("pfEnabled")} />
@@ -147,7 +147,7 @@ export function StatutorySettingsModal({ onClose, onSaved }) {
             <p className="muted small">Each rounded to the nearest rupee. Only people marked "PF" on their record pay it.</p>
           </fieldset>
 
-          <fieldset className={`asw-stat-block ${form.esiEnabled ? "is-on" : ""}`}>
+          <fieldset className={`staff-stat-block ${form.esiEnabled ? "is-on" : ""}`}>
             <legend>
               <label className="checkbox">
                 <input type="checkbox" checked={form.esiEnabled} onChange={set("esiEnabled")} />
@@ -171,7 +171,7 @@ export function StatutorySettingsModal({ onClose, onSaved }) {
             <p className="muted small">Each rounded up to the next rupee, as ESIC does. Only people marked "ESI" pay it.</p>
           </fieldset>
 
-          <fieldset className={`asw-stat-block ${form.ptEnabled ? "is-on" : ""}`}>
+          <fieldset className={`staff-stat-block ${form.ptEnabled ? "is-on" : ""}`}>
             <legend>
               <label className="checkbox">
                 <input type="checkbox" checked={form.ptEnabled} onChange={set("ptEnabled")} />
@@ -190,12 +190,12 @@ export function StatutorySettingsModal({ onClose, onSaved }) {
                 ))}
               </select>
             </label>
-            {preset && preset.note && <p className="small asw-note-line">{preset.note}</p>}
+            {preset && preset.note && <p className="small staff-note-line">{preset.note}</p>}
             {preset && preset.none ? (
               <p className="muted small">{form.ptState} does not charge professional tax. Leave it switched off.</p>
             ) : (
-              <div className="asw-slabs">
-                <div className="asw-slab-head">
+              <div className="staff-slabs">
+                <div className="staff-slab-head">
                   <span>Monthly gross pay above (₹)</span>
                   <span>Tax a month (₹)</span>
                   <span>February (₹)</span>
@@ -203,19 +203,19 @@ export function StatutorySettingsModal({ onClose, onSaved }) {
                   <span />
                 </div>
                 {form.ptSlabs.map((slab, index) => (
-                  <div className="asw-slab-row" key={index}>
+                  <div className="staff-slab-row" key={index}>
                     {/* The headings above the slabs are hidden on phones, so each
                         box carries its own small caption there. */}
-                    <label className="asw-slab-field">
-                      <span className="asw-slab-cap">Pay above (₹)</span>
+                    <label className="staff-slab-field">
+                      <span className="staff-slab-cap">Pay above (₹)</span>
                       <input type="number" min="0" value={slab.over} onChange={(event) => setSlab(index, "over", event.target.value)} disabled={!form.ptEnabled} aria-label="Pay above" />
                     </label>
-                    <label className="asw-slab-field">
-                      <span className="asw-slab-cap">Tax a month (₹)</span>
+                    <label className="staff-slab-field">
+                      <span className="staff-slab-cap">Tax a month (₹)</span>
                       <input type="number" min="0" max="2500" value={slab.amount} onChange={(event) => setSlab(index, "amount", event.target.value)} disabled={!form.ptEnabled} aria-label="Tax a month" />
                     </label>
-                    <label className="asw-slab-field">
-                      <span className="asw-slab-cap">February (₹)</span>
+                    <label className="staff-slab-field">
+                      <span className="staff-slab-cap">February (₹)</span>
                       <input
                         type="number"
                         min="0"
@@ -229,8 +229,8 @@ export function StatutorySettingsModal({ onClose, onSaved }) {
                     </label>
                     {/* Some states tax women differently (Maharashtra: nothing up to
                         ₹25,000). A table with any women's slab taxes women by those. */}
-                    <label className="asw-slab-field">
-                      <span className="asw-slab-cap">For</span>
+                    <label className="staff-slab-field">
+                      <span className="staff-slab-cap">For</span>
                       <select
                         value={slab.for || ""}
                         onChange={(event) => setSlab(index, "for", event.target.value)}
@@ -334,8 +334,8 @@ export function StatutorySummary({ initialMonth, currency }) {
       title={`PF, ESI and professional tax · ${monthWords(month)}`}
       description="What the month owes: taken from pay (employee) and on top (employer). People already paid for the month show what they were paid with."
       actions={
-        <div className="asw-inline-actions">
-          <label className="asw-date-chip">
+        <div className="staff-inline-actions">
+          <label className="staff-date-chip">
             <span className="sr-only">Month</span>
             <input type="month" value={month} onChange={(event) => setMonth(event.target.value || initialMonth)} />
           </label>
@@ -355,7 +355,7 @@ export function StatutorySummary({ initialMonth, currency }) {
         )
       ) : (
         <>
-          <div className="asw-muster-tiles">
+          <div className="staff-muster-tiles">
             <StatTile size="sm" icon="wallet" tone="primary" label="PF payable" value={money(data.totals.pf)} note={`${money(data.totals.pfEmployee)} employee + ${money(data.totals.pfEmployer)} employer`} />
             <StatTile size="sm" icon="shield" tone="info" label="ESI payable" value={money(data.totals.esi)} note={`${money(data.totals.esiEmployee)} employee + ${money(data.totals.esiEmployer)} employer`} />
             <StatTile size="sm" icon="receipt" tone="warning" label="Professional tax" value={money(data.totals.professionalTax)} note={data.settings.ptState || "the state"} />

@@ -16,10 +16,6 @@ export const updateInventoryItem = async (id, payload) =>
   (await api.put(`/inventory/items/${id}`, payload)).data.data;
 export const deleteInventoryItem = async (id) => (await api.delete(`/inventory/items/${id}`)).data;
 
-// Packs an item is bought in (a 15 L tin, a tray of 30), replaced as a list.
-export const saveItemPacks = async (id, packs) =>
-  (await api.put(`/inventory/items/${id}/packs`, { packs })).data.data;
-
 // Stock movements
 export const listStockMovements = async (filters = {}) =>
   (await api.get("/inventory/movements", { params: filters })).data.data;

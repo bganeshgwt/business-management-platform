@@ -1,11 +1,11 @@
-// Small helpers shared by the salon screens (Phase 2, T4).
+// Small helpers shared by the salon screens.
 import "../../../../styles/business-salon-weight.css";
 import { toast } from "../../../../services/toast";
 import { businessWrite } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
 import { whatsappLink } from "../../retail/pages/retail";
 
-export const METHODS = [
+const METHODS = [
   { value: "upi", label: "UPI" }, { value: "cash", label: "Cash" }, { value: "card", label: "Card" },
   { value: "bank", label: "Bank transfer" }, { value: "cheque", label: "Cheque" },
 ];
@@ -61,7 +61,6 @@ export const PLAN_STATE = {
   cancelled: { tone: "inactive", label: "Cancelled" }, upcoming: { tone: "info", label: "Starts later" },
 };
 
-// --- Pro pass F (7 Oct 2026) ------------------------------------------------------------------
 // WhatsApp messages: the person's own WhatsApp (wa.me) with the text ready;
 // the send is then recorded on the booking. The link helper is the retail
 // Udhaar one, so every screen writes numbers the same way.
@@ -104,8 +103,8 @@ export function awayOn(resource, day, holidays = []) {
   if (hoursOn(resource, day).off) return "Day off";
   return "";
 }
-// A stylist's hours on a day (round 2: the weekly schedule wins over the
-// usual hours): { off, from, to } with from/to "HH:MM" or null (salon hours).
+// A stylist's hours on a day (the weekly schedule wins over the usual
+// hours): { off, from, to } with from/to "HH:MM" or null (salon hours).
 export function hoursOn(resource, day) {
   const dow = new Date(`${day}T00:00:00Z`).getUTCDay();
   const own = (resource?.week || []).find((w) => Number(w.dow) === dow);

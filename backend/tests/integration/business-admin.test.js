@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+const { createBusinesses } = require('./helpers/businesses');
 
 test('multi-business admin: isolation, weighted stock, idempotency and appointments', { timeout: 180000 }, async (t) => {
   require('dotenv').config({ quiet: true });
@@ -22,7 +23,6 @@ test('multi-business admin: isolation, weighted stock, idempotency and appointme
   process.env.DB_NAME = database;
   process.env.NODE_ENV = 'test';
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex');
-  process.env.MULTI_BUSINESS_DEVELOPMENT = 'true';
   process.env.CORS_ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5175';
   const { runner } = await import('node-pg-migrate');
   await runner({ databaseUrl: { ...connection, database }, dir: path.resolve(__dirname, '../../migrations'), migrationsTable: 'pgmigrations', direction: 'up', count: Infinity, checkOrder: true, log() {} });
@@ -54,30 +54,19 @@ test('multi-business admin: isolation, weighted stock, idempotency and appointme
   const otherToken = (await request('POST', '/auth/login', { identifier: 'business-other@test.invalid', password })).token;
   let businesses, grocery, electronics, pharmacy, salon;
   const root = (b, suffix) => `/businesses/${b.id}/${suffix}`;
-  await t.test('demo setup is explicit, repeatable and restricted to the caller', async () => {
+  await t.test('businesses an owner adds are restricted to that owner', async () => {
     await request('GET', '/businesses', undefined, 401, null);
-    const first = await request('POST', '/businesses/development-demos', {}, 201);
-    businesses = first.businesses.filter((b) => b.is_demo);
-    assert.equal(businesses.length, 11);
-    const second = await request('POST', '/businesses/development-demos', {}, 201);
-    assert.deepEqual(second.businesses, first.businesses);
-    // Pro pass (1791540000000): goods shops start GST-inclusive; these checks use prices before GST.
+    // Books is opened only by the browser check at the end.
+    businesses = await createBusinesses(request, 'OWNER', ['grocery', 'electronics', 'pharmacy', 'salon', 'wholesale', 'books']);
+    // Goods shops start GST-inclusive; these checks use prices before GST.
     await pool.query("UPDATE business_settings SET tax_mode='exclusive', rounding='none', walk_in_credit=true");
-    assert.equal((await request('GET', '/businesses', undefined, 200, otherToken)).businesses.filter((b) => b.is_demo).length, 0);
+    const ids = businesses.map((b) => b.id);
+    assert.equal((await request('GET', '/businesses', undefined, 200, otherToken)).businesses.filter((b) => ids.includes(b.id)).length, 0);
     grocery = businesses.find((b) => b.business_type === 'grocery');
     electronics = businesses.find((b) => b.business_type === 'electronics');
     pharmacy = businesses.find((b) => b.business_type === 'pharmacy');
     salon = businesses.find((b) => b.business_type === 'salon');
     await request('GET', root(grocery, 'catalog'), undefined, 404, otherToken);
-    process.env.MULTI_BUSINESS_DEVELOPMENT = 'false';
-    await request('POST', '/businesses/development-demos', {}, 404);
-    await request('GET', root(grocery, 'summary'), undefined, 404);
-    process.env.MULTI_BUSINESS_DEVELOPMENT = 'true';
-    const config = require('../../src/config/env');
-    const original = config.isLive; config.isLive = true;
-    await request('POST', '/businesses/development-demos', {}, 404);
-    await request('GET', root(grocery, 'summary'), undefined, 404);
-    config.isLive = original;
   });
   let location, supplier, customer, sku, sale;
   const newSku = (label, overrides = {}) => ({ name: label, code: label, kind: 'goods', unit: 'kg', tracking: 'quantity', price: '120.00', taxRate: '5', ...overrides });

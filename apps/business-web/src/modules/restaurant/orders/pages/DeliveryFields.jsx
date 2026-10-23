@@ -5,7 +5,7 @@ import Icon from "@bmp/ui/Icon";
 // and a landmark the rider can find, the partner's own order number, and
 // what was promised. Saved onto the order for the Deliveries board
 // (services/posDelivery.js has the rules).
-// A known guest's saved addresses (SW-A-18) are offered above the address
+// A known guest's saved addresses are offered above the address
 // box, newest used first: one tap fills it. A new address typed for a known
 // guest is kept on them under the label chosen here.
 const LABELS = ["Home", "Office", "Other"];

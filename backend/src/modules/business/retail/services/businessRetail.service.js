@@ -88,13 +88,13 @@ async function scan(business, query) {
     }
   }
   if (!sku) {
-    // A school set's code adds the whole booklist (pro pass C-24). Loaded
-    // here so the pro service (which needs this one's neighbours) loads first.
-    const set = await require('./businessRetailPro.service').setByCode(business, code, locationId);
+    // A school set's code adds the whole booklist. Loaded here so
+    // businessRetailBooks.service.js (which needs this one's neighbours) loads first.
+    const set = await require('./businessRetailBooks.service').setByCode(business, code, locationId);
     if (set) return { set, sku: null, quantity: null, source: 'set', lots: [], serial: null };
     fail('No item has this barcode, code, ISBN or serial number', 404);
   }
-  // A kit (round 2): its parts, with the units and batches the counter can choose.
+  // A kit: its parts, with the units and batches the counter can choose.
   if (sku.is_kit) {
     const components = await require('../../core/services/businessKits.service').forCounter(repo.pool, business, sku, locationId);
     return { sku, quantity: null, source, lots: [], serial: null, kit: { components } };
@@ -184,7 +184,7 @@ async function saveBook(db, business, user, skuId, f) {
     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(business_id,sku_id) DO UPDATE SET isbn=EXCLUDED.isbn,author=EXCLUDED.author,
     publisher=EXCLUDED.publisher,edition=EXCLUDED.edition,language=EXCLUDED.language,published_year=EXCLUDED.published_year,
     updated_by=EXCLUDED.updated_by,updated_at=now() RETURNING *`, [business.id, skuId, f.isbn, f.author, f.publisher, f.edition, f.language, f.year, user.id]);
-  // The ISBN is the book's barcode (pro pass C-24): an item with no barcode,
+  // The ISBN is the book's barcode: an item with no barcode,
   // or only an in-store one ("200…"), takes the ISBN, so the sticker and the
   // code printed on the book scan the same. A maker's own barcode is kept.
   if (f.isbn) {
@@ -247,4 +247,4 @@ repo.addLists({
   },
 });
 
-module.exports = { quote, scan, assignBarcodes, setScaleCode, removeScaleCode, createBook, updateBook, isbn13, eanCheck, validEan, requireBooks, requireWeight };
+module.exports = { quote, scan, assignBarcodes, setScaleCode, removeScaleCode, createBook, updateBook, requireBooks, requireWeight };

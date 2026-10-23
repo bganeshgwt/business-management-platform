@@ -1,6 +1,6 @@
 import api from "../../../../services/api";
 
-// The restaurant's own online ordering links (SW-A-22): the staff's settings
+// The restaurant's own online ordering links: the staff's settings
 // for each selling point's link, and the address a link opens. The page the
 // guest orders on, and its calls, are the guest site's (apps/customer-web,
 // modules/online-order).

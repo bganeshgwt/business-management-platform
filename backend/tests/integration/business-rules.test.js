@@ -4,8 +4,10 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+const { createBusinesses } = require('./helpers/businesses');
+const { daysFrom } = require('./helpers/dates');
 
-// Business rules (12 Oct 2026): the owner sets the customer-credit age groups,
+// Business rules: the owner sets the customer-credit age groups,
 // "expiring soon", credit-voucher validity, the quick weight buttons, the
 // receipt paper and the day cut-off; each starts at what the code used to fix.
 test('business rules: defaults, validation, age groups and expiring soon follow the settings', { timeout: 300000 }, async (t) => {
@@ -25,7 +27,6 @@ test('business rules: defaults, validation, age groups and expiring soon follow 
   process.env.DB_NAME = database;
   process.env.NODE_ENV = 'test';
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex');
-  process.env.MULTI_BUSINESS_DEVELOPMENT = 'true';
   process.env.LOGIN_ATTEMPT_LIMIT = '5000';
   const { runner } = await import('node-pg-migrate');
   await runner({ databaseUrl: { ...connection, database }, dir: path.resolve(__dirname, '../../migrations'), migrationsTable: 'pgmigrations', direction: 'up', count: Infinity, checkOrder: true, log() {} });
@@ -48,11 +49,10 @@ test('business rules: defaults, validation, age groups and expiring soon follow 
     assert.equal(response.status, expected, `${method} ${route}: ${JSON.stringify(json)}`);
     return json.data ?? json;
   }
-  const demos = (await request('POST', '/businesses/development-demos', {}, 201)).businesses;
-  const shop = demos.find((b) => b.business_type === 'supermarket');
+  const [shop] = await createBusinesses(request, 'RULES', ['supermarket']);
   const S = (suffix) => `/businesses/${shop.id}/${suffix}`;
   const basics = { displayName: 'Rule shop', taxMode: 'inclusive', rounding: 'none', fiscalYearStartMonth: 4, dateFormat: 'DD/MM/YYYY' };
-  const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+  const daysAgo = (n) => daysFrom(-n);
 
   await t.test('defaults are the old fixed values', async () => {
     const ctx = await request('GET', S('context'));
@@ -100,9 +100,8 @@ test('business rules: defaults, validation, age groups and expiring soon follow 
     const location = (await request('GET', S('locations'))).items[0];
     const supplier = await request('POST', S('contacts'), { kind: 'supplier', name: 'Dairy' }, 201);
     const curd = await request('POST', S('catalog'), { kind: 'goods', unit: 'each', tracking: 'batch', taxRate: '5', name: 'Curd', code: 'CURD', price: '40', hsnCode: '0403' }, 201);
-    const inDays = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
     await request('POST', S('documents'), { kind: 'purchase', requestKey: crypto.randomUUID(), locationId: location.id, contactId: supplier.id,
-      lines: [{ skuId: curd.id, quantity: '10', unitPrice: '30', lotCode: 'C20', expiresOn: inDays(20) }] }, 201);
+      lines: [{ skuId: curd.id, quantity: '10', unitPrice: '30', lotCode: 'C20', expiresOn: daysFrom(20) }] }, 201);
     await request('PUT', S('settings'), { ...basics, nearExpiryDays: 10 });
     assert.equal(Number((await request('GET', S('summary'))).expiring_soon), 0);
     assert.equal((await request('GET', S('retail/near-expiry'))).totals.batches, 0);

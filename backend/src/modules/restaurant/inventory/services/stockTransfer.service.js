@@ -8,7 +8,7 @@ const tradingDay = require("../../business-day/services/tradingDay");
 const AppError = require("../../../../utils/AppError");
 const { round2 } = require("../../../../utils/money");
 
-// Transfer notes between stores, and indents (sweep SW-B-11).
+// Transfer notes between stores, and indents.
 //
 //   * One note carries many items from one store to another, numbered
 //     TRF-0001, valued at cost, printable as a delivery challan.

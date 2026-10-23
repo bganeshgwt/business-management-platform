@@ -9,9 +9,9 @@ import { monthStart } from "@bmp/shared/dates";
 // What every Business Admin screen shares: the open business, its money
 // format, a server-paged list with search and a period, and record pickers.
 
-export const CURRENCY_SYMBOL = { INR: "₹" };
+const CURRENCY_SYMBOL = { INR: "₹" };
 // Any currency's symbol, as the browser writes it (₹, $, €, AED …).
-export function currencySymbol(code) {
+function currencySymbol(code) {
   if (CURRENCY_SYMBOL[code]) return CURRENCY_SYMBOL[code];
   try {
     const part = new Intl.NumberFormat("en-IN", { style: "currency", currency: code, currencyDisplay: "narrowSymbol" }).formatToParts(0).find((p) => p.type === "currency");
@@ -36,7 +36,7 @@ export const dateTime = (value) => (value ? new Date(value).toLocaleString("en-I
 
 // The age-group labels for what customers owe: "0–30 days" … "Over 90 days",
 // from the business's own limits.
-export function ageLabels(days) {
+function ageLabels(days) {
   const [a, b, c] = Array.isArray(days) && days.length === 3 ? days.map(Number) : [30, 60, 90];
   return { edges: [a, b, c], first: `0–${a} days`, second: `${a + 1}–${b} days`, third: `${b + 1}–${c} days`, over: `Over ${c} days` };
 }

@@ -7,8 +7,8 @@ const returns = require('../../core/services/businessReturns.service');
 const counterPins = require('../../core/services/businessCounter.service');
 const h = require('./healthCommon');
 
-// Pharmacy (round 2, R2-HEALTH). Standard Indian practice, see
-// docs/DECISIONS_ROUND2.md › Pharmacy & clinic:
+// Pharmacy. Standard Indian practice, see
+// docs/BUSINESS_RULES.md › Pharmacy, clinic and lab:
 //
 //   Drug master     salt / composition, strength, form, maker, schedule (none,
 //                   G, H, H1, X, narcotic), pack (strips × tablets), storage and
@@ -293,7 +293,7 @@ async function sell(business, user, body) {
   if (!inputs.length || inputs.length > 60) fail('Add between 1 and 60 lines');
   const paidNow = readPayment(business, body);
   if (paidNow.length) await access.require(business, 'sales.edit');
-  // A shared till that asks the biller's PIN for every bill (round 2): the
+  // A shared till that asks the biller's PIN for every bill: the
   // pharmacy counter is a counter bill, like Quick bill.
   if (body.channel === 'counter') await counterPins.checkBill(business, user, counterPin);
   const settings = await h.settings(repo.pool, business.id);
@@ -649,4 +649,4 @@ async function creditDebitNote(business, user, noteId, body) {
 }
 
 module.exports = { requirePharmacy, saveDrug, drug, substitutes, sell, prescription, invoiceExtras, registerSummary, createRecall, recall, updateRecall,
-  nearExpiry, createDebitNote, debitNote, creditDebitNote, SCHEDULED };
+  nearExpiry, createDebitNote, debitNote, creditDebitNote };

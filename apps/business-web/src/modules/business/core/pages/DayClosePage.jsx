@@ -17,7 +17,7 @@ import CashCheck from "./CashCheck";
 import CashierShifts from "./CashierShifts";
 import { KIND_WORDS } from "./paymentMethods";
 
-// Day close (pro pass C-04): what the counter sold and the money that came
+// Day close: what the counter sold and the money that came
 // in and went out today (or over a few days), by payment method, by the
 // person who took it and by counter, with net cash movement and an optional counted drawer snapshot.
 // The printable end-of-day slip is 72 mm wide.

@@ -92,7 +92,7 @@ module.exports = {
          FROM waiting w
          JOIN groups g ON g.is_order = w.is_order
          JOIN table_requests r ON r.id = w.id
-         -- A website order (SW-A-22) has no table.
+         -- A website order has no table.
          LEFT JOIN dining_tables t ON t.id = r.table_id
          LEFT JOIN floors f ON f.id = t.floor_id
          LEFT JOIN dining_areas a ON a.id = t.area_id

@@ -23,7 +23,7 @@ import { raiseLogbookIssue } from "../../../tasks/services/tasks.service";
 import toast from "../../../../services/toast";
 import { CATEGORIES } from "./logbookCategories";
 import "../../../../styles/access.css";
-import "../../../../styles/access-sweep.css";
+import "../../../../styles/staff.css";
 
 // The shift log book: what one shift hands over to the next. A noisy freezer,
 // a regular who left unhappy, paneer running short, a waiter who swapped a
@@ -208,10 +208,10 @@ export default function LogbookPage() {
         mobile: "subtitle",
         csv: (entry) => whenText(entry.createdAt),
         render: (entry) => (
-          <span className="asw-log-when">
+          <span className="staff-log-when">
             <strong>{timeText(entry.createdAt)}</strong>
             <span className="muted small">{dayText(entry.businessDate)}</span>
-            {!entry.readByMe && <span className="asw-new-dot">New</span>}
+            {!entry.readByMe && <span className="staff-new-dot">New</span>}
           </span>
         ),
       },
@@ -221,12 +221,12 @@ export default function LogbookPage() {
         value: (entry) => entry.body,
         mobile: "title",
         minWidth: 260,
-        className: "asw-log-cell",
+        className: "staff-log-cell",
         render: (entry) => (
-          <span className="asw-log-text">
-            <span className="asw-log-body">{entry.body}</span>
+          <span className="staff-log-text">
+            <span className="staff-log-body">{entry.body}</span>
             {entry.needsFollowUp && !entry.open && (
-              <span className="asw-log-closed small">
+              <span className="staff-log-closed small">
                 <Icon name="check-circle" size={14} /> Closed by <strong>{entry.closedByName}</strong> {whenText(entry.closedAt)}
                 {entry.closeNote ? ` — “${entry.closeNote}”` : ""}
               </span>
@@ -281,7 +281,7 @@ export default function LogbookPage() {
         header: "Read by",
         value: (entry) => readersOf(entry).map((reader) => reader.name).join(", "),
         mobile: "hide",
-        className: "asw-log-cell",
+        className: "staff-log-cell",
         render: (entry) => {
           const readers = readersOf(entry);
           return readers.length ? (
@@ -355,15 +355,15 @@ export default function LogbookPage() {
               </button>
             )
           }
-          className="asw-handover"
+          className="staff-handover"
         >
           {allRead && handover.unread.length === 0 ? (
-            <div className="asw-done">
+            <div className="staff-done">
               <SuccessCheck size={36} tone="primary" label="All read" />
               <span className="muted">Have a good shift.</span>
             </div>
           ) : (
-            <ul className="asw-log-list is-compact">
+            <ul className="staff-log-list is-compact">
               {handover.unread.slice(0, 5).map((entry) => (
                 <EntryCard key={entry.id} entry={entry} />
               ))}
@@ -399,7 +399,7 @@ export default function LogbookPage() {
       )}
 
       {handover && handover.openCount > 0 && !openOnly && (
-        <div className="alert alert-notice asw-open-note" role="status">
+        <div className="alert alert-notice staff-open-note" role="status">
           <span>
             {handover.openCount === 1 ? "1 follow-up is" : `${count(handover.openCount)} follow-ups are`} still open. Each stays in
             the bell until someone closes it.
@@ -505,7 +505,7 @@ export default function LogbookPage() {
                   />
                 </div>
               )}
-              <label className="checkbox asw-open-only">
+              <label className="checkbox staff-open-only">
                 <input
                   type="checkbox"
                   checked={Boolean(openOnly)}
@@ -550,8 +550,8 @@ export default function LogbookPage() {
 // One entry in the "since you were last here" list.
 function EntryCard({ entry }) {
   return (
-    <li className={`asw-log-entry motion-item ${entry.open ? "is-open" : ""} ${entry.readByMe ? "" : "is-unread"}`}>
-      <div className="asw-log-head">
+    <li className={`staff-log-entry motion-item ${entry.open ? "is-open" : ""} ${entry.readByMe ? "" : "is-unread"}`}>
+      <div className="staff-log-head">
         <CategoryChip category={entry.category} />
         {entry.open && (
           <span className="badge badge-warning status-badge">
@@ -559,10 +559,10 @@ function EntryCard({ entry }) {
             Needs follow-up
           </span>
         )}
-        <span className="asw-log-time muted small">{whenText(entry.createdAt)}</span>
+        <span className="staff-log-time muted small">{whenText(entry.createdAt)}</span>
       </div>
-      <p className="asw-log-body">{entry.body}</p>
-      <p className="asw-log-meta small muted">
+      <p className="staff-log-body">{entry.body}</p>
+      <p className="staff-log-meta small muted">
         <strong>{entry.createdByName}</strong> · {entry.shiftLabel}
         {entry.outletName ? ` · ${entry.outletName}` : " · whole restaurant"}
         {entry.tableLabel ? ` · table ${entry.tableLabel}` : ""}
@@ -616,14 +616,14 @@ function NewEntryModal({ user, outlets, onClose, onSaved }) {
         <ErrorMessage message={error} />
         <div className="field field-wide">
           <span>Kind</span>
-          <div className="asw-cat-picker" role="radiogroup" aria-label="Kind">
+          <div className="staff-cat-picker" role="radiogroup" aria-label="Kind">
             {Object.entries(CATEGORIES).map(([key, item]) => (
               <button
                 key={key}
                 type="button"
                 role="radio"
                 aria-checked={category === key}
-                className={`asw-cat-option asw-cat-${item.tone} ${category === key ? "is-active" : ""}`}
+                className={`staff-cat-option staff-cat-${item.tone} ${category === key ? "is-active" : ""}`}
                 onClick={() => setCategory(key)}
               >
                 <Icon name={item.icon} size={16} /> {item.label}
@@ -672,7 +672,7 @@ function NewEntryModal({ user, outlets, onClose, onSaved }) {
             </select>
           </label>
         )}
-        <label className="checkbox field-wide asw-followup-check">
+        <label className="checkbox field-wide staff-followup-check">
           <input type="checkbox" checked={needsFollowUp} onChange={(event) => setNeedsFollowUp(event.target.checked)} />
           <span>
             <strong>Needs follow-up</strong> — stays at the top of the log and in the bell until someone closes it

@@ -10,7 +10,7 @@ import { ActiveBadge, BusinessHeader, Field } from "./ui";
 import { useOpenBusiness, useServerList } from "./hooks";
 import "../styles/kits-finance.css";
 
-// Kits & bundles (round 2, R2-CORE): "Mobile + cover + screen guard" sold
+// Kits & bundles: "Mobile + cover + screen guard" sold
 // at one kit price. At the counter a kit sells as its parts: stock comes off
 // each part, the price is split over the parts in proportion to their own
 // prices (so GST and the HSN lines on the invoice are each part's), and the

@@ -2323,7 +2323,7 @@
 }
 
 
-/* ---------------------------------------------------------------- delivery charge (SW-A-17) */
+/* ---------------------------------------------------------------- delivery charge */
 
 .pos-delivery-charge {
   display: flex;
@@ -2379,7 +2379,7 @@
   font-size: 0.8rem;
 }
 
-/* ---------------------------------------------------------------- regular guests (SW-A-18) */
+/* ---------------------------------------------------------------- regular guests */
 
 .pos-saved-addresses {
   display: flex;
@@ -2509,7 +2509,7 @@
   white-space: nowrap;
 }
 
-/* "My tables" for a captain with a section today (SW-A-20). */
+/* "My tables" for a captain with a section today. */
 .pos-my-tables {
   align-self: flex-start;
   margin-bottom: 4px;

@@ -378,16 +378,6 @@ const deliveryChargedElsewhere = async (restaurantId, orderId, exceptBillId = nu
   return result.rows.length > 0;
 };
 
-const findByOrderId = async (restaurantId, orderId) => {
-  const result = await pool.query(
-    `SELECT id, bill_status FROM bills
-     WHERE restaurant_id = $1 AND order_id = $2 AND bill_status <> 'void'`,
-    [restaurantId, orderId]
-  );
-
-  return result.rows[0] || null;
-};
-
 // The next number of a series (bills, credit notes), from a counter per
 // restaurant and SERIES — the prefix the number is printed with. The counter
 // row is locked by this update until the transaction commits, so two tills
@@ -2257,7 +2247,6 @@ module.exports = {
   findAll,
   findHeader,
   findById,
-  findByOrderId,
   nextNumber,
   deliveryChargedElsewhere,
   findBillableItems,
@@ -2273,7 +2262,6 @@ module.exports = {
   dueAt,
   closeOrderIfDone,
   dueOf,
-  outletScope,
   addRefund,
   correctPayment,
   correctionProblem,

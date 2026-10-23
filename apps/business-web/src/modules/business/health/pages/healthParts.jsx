@@ -3,8 +3,8 @@ import { Field } from "../../core/pages/ui";
 import { FLAG_WORDS, LAB_STATES, isFlagged } from "./healthFormat";
 import "../styles/health.css";
 
-// Badges and fields the pharmacy, clinic and lab screens share (round 2,
-// health module). Words and helpers: healthFormat.js.
+// Badges and fields the pharmacy, clinic and lab screens share (the health
+// module). Words and helpers: healthFormat.js.
 
 const SCHEDULE_TONES = { H: "warning", H1: "danger", X: "danger", narcotic: "danger", G: "info", none: "neutral", unset: "neutral" };
 export function ScheduleBadge({ schedule }) {

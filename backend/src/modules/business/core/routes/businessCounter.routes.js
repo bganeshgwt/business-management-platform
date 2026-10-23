@@ -3,7 +3,7 @@ const counter = require('../services/businessCounter.service');
 const kits = require('../services/businessKits.service');
 const finance = require('../../fashion-electronics/services/businessFinance.service');
 
-// Round 2 (R2-CORE): the shared counter's per-staff PIN, kits / bundles, and
+// The shared counter's per-staff PIN, kits / bundles, and
 // EMI & finance (electronics). Mounted by business.routes.js with its
 // context() (membership → module → permission) and send().
 module.exports = (router, { context, send, b }) => {

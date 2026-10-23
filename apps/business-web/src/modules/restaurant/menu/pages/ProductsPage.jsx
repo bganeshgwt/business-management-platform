@@ -40,7 +40,7 @@ import PriceRevisionModal from "./PriceRevisionModal";
 import ProductHistoryModal from "./ProductHistoryModal";
 import { EMPTY_FORM, buildPatch, formToPayload, productToForm, rebaseForm, withPhoto } from "./productForm";
 import "../../../../styles/menu.css";
-import "../../inventory/styles/stock-pro.css";
+import "../../inventory/styles/inventory.css";
 import SearchPicker from "../../../../components/SearchPicker";
 import useQueryFilter from "../../../../hooks/useQueryFilter";
 
@@ -125,7 +125,7 @@ export default function ProductsPage() {
   const [switching, setSwitching] = useState(null);
   const [importing, setImporting] = useState(false);
   // Print menu (an A4 card for one outlet and service) and recipes for many
-  // dishes from one spreadsheet (sweeps SW-B-20, SW-B-12).
+  // dishes from one spreadsheet.
   const [printingMenu, setPrintingMenu] = useState(false);
   const [importingRecipes, setImportingRecipes] = useState(false);
   const [revising, setRevising] = useState(false);
@@ -1093,7 +1093,7 @@ export default function ProductsPage() {
               {form.soldBy === "weight" && <small className="muted">The POS asks for the weight in grams; 250 g of a ₹600/kg item is ₹150.</small>}
             </label>
 
-            {/* SW-A-12: the name the cooks read on the KOT, in their own script. */}
+            {/* The name the cooks read on the KOT, in their own script. */}
             <label className="field">
               <span>Kitchen name</span>
               <input

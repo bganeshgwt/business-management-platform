@@ -20,7 +20,7 @@ import { BILL_PAYMENT_OPTIONS, paymentMethodLabel } from "../../../../services/l
 import useAuth from "../../../../hooks/useAuth";
 import { Status } from "../../business-day/pages/moneyUi";
 
-// Advances and deposits (sweep SW-B-04): money a guest or a company pays
+// Advances and deposits: money a guest or a company pays
 // ahead — a birthday party's deposit, half of a bulk order — held for them
 // and used on the final bill ("Advance" when taking the payment). It is not a
 // sale when it comes in: sales and GST count it on the bill it is used on.
@@ -343,9 +343,9 @@ function AdvanceGst({ currency }) {
 }
 
 // Taking an advance: who, how much, how, and what it is for.
-// The till's "Take advance" on a pickup order (takeaway ordered ahead, round
-// 2): the order's guest is chosen already and the advance remembers the
-// order, so its bill offers it first.
+// The till's "Take advance" on a pickup order (takeaway ordered ahead): the
+// order's guest is chosen already and the advance remembers the order, so its
+// bill offers it first.
 export function TakeOrderAdvance({ order, currency, onClose, onTaken }) {
   const [types, setTypes] = useState([]);
 

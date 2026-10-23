@@ -33,7 +33,7 @@ export const getFloorSettings = async () => (await api.get("/tables/settings")).
 export const updateFloorSettings = async (payload) =>
   (await api.put("/tables/settings", payload)).data.data;
 
-// Captain sections (SW-A-20): the plan for a business date (today's by
+// Captain sections: the plan for a business date (today's by
 // default), saving the whole plan, and copying another day's plan.
 export const getCaptainPlan = async (date) =>
   (await api.get("/tables/sections", { params: date ? { date } : {} })).data.data;

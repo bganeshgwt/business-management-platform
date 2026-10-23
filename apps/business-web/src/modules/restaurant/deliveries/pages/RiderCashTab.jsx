@@ -12,7 +12,7 @@ import { dayMonth } from "@bmp/shared/dates";
 
 const ACTION_WORDS = { none: "Full", owed: "Owed by rider", written_off: "Written off" };
 
-// The daily rider settlement report (SW-A-19): who handed in what, for one
+// The daily rider settlement report: who handed in what, for one
 // business date (today's unless another is picked), and every shortfall a
 // rider still owes, whichever day it was — a debt stays on the list until
 // he hands it over.

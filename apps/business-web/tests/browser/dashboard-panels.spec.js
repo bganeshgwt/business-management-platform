@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
-import fs from "node:fs";
 import process from "node:process";
+
+import { fixture, signIn } from "../../../../e2e/fixture.mjs";
 
 // The dashboard's detail panels: a click on a figure, a "Needs attention" row
 // or a live card opens the records behind it in a panel over the dashboard,
@@ -11,11 +12,11 @@ import process from "node:process";
 // opens it again; Escape and the × close it; a Ctrl-click still opens the full
 // screen in a new tab; and a quick action (rejecting an expense this test
 // entered itself) works from the panel and refreshes the dashboard's figure.
-const credentialsFile = process.env.E2E_CREDENTIALS_FILE;
-const account = credentialsFile
-  ? JSON.parse(fs.readFileSync(credentialsFile, "utf8")).accounts.find((item) => item.role === "RESTAURANT_ADMIN")
-  : null;
-
+//
+// Signs in as the test restaurant's admin. Its day is open with a paid bill,
+// a running order, an order left open from an earlier day and stock running
+// low (e2e/test-data.mjs), so the tiles and "Needs attention" rows open
+// panels with records in them.
 const figure = (text) => Number(String(text).replace(/[^\d.]/g, ""));
 
 // "1–25 of 9,270" → 9270; "Showing all 12" → 12.
@@ -42,25 +43,10 @@ const settled = async (page) => {
   return panel;
 };
 
-let apiBase = null;
-
 test.beforeEach(async ({ page }) => {
-  test.skip(!account, "Set E2E_CREDENTIALS_FILE to the local demo credentials file.");
   test.setTimeout(240_000);
-  page.on("request", (request) => {
-    const match = request.url().match(/^(.*\/api)\/reports\/dashboard/);
-    if (match) apiBase = match[1];
-  });
-  await page.goto("/login");
-  await page.locator('input[autocomplete="username"]').fill(account.email);
-  await page.locator('input[autocomplete="current-password"]').fill(account.password);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  try {
-    await expect(page.locator("main.content-scroll")).toBeVisible();
-  } finally {
-    const password = page.locator('input[autocomplete="current-password"]');
-    if (await password.count()) await password.fill("");
-  }
+  await signIn(page);
+  await expect(page.locator("main.content-scroll")).toBeVisible();
   if (!(await page.locator(".dash-page").count())) {
     await page.goto("/");
   }
@@ -141,23 +127,21 @@ test("a Ctrl-click still opens the full screen in a new tab", async ({ page, con
 });
 
 test("a quick action in a panel works and refreshes the dashboard", async ({ page }) => {
-  test.skip(!apiBase, "The API address was not seen.");
   const stamp = `E2E panel check ${Date.now()}`;
 
-  // An expense of our own, waiting for approval, to reject from the panel.
+  // An expense of our own, in the test restaurant's expense category,
+  // waiting for approval, to reject from the panel.
   await page.evaluate(
-    async ({ base, note }) => {
+    async ({ base, categoryId, note }) => {
       const token = localStorage.getItem("rmp_token");
       const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
       const get = async (path) => (await (await fetch(base + path, { headers })).json()).data;
-      const categories = await get("/expenses/categories");
       const defaults = await get("/expenses/defaults");
-      const category = categories.find((one) => one.status !== "inactive") || categories[0];
       const response = await fetch(`${base}/expenses`, {
         method: "POST",
         headers,
         body: JSON.stringify({
-          expenseCategoryId: category.id,
+          expenseCategoryId: categoryId,
           expenseDate: defaults.expenseDate,
           amount: 1,
           paymentMode: "upi",
@@ -166,7 +150,7 @@ test("a quick action in a panel works and refreshes the dashboard", async ({ pag
       });
       if (!response.ok) throw new Error(`expense not created: ${response.status}`);
     },
-    { base: apiBase, note: stamp }
+    { base: fixture().urls.api, categoryId: fixture().restaurant.expenseCategory.id, note: stamp }
   );
 
   await page.goto("/?panel=expenses");

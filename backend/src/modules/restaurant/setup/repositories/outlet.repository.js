@@ -72,14 +72,6 @@ const update = async (restaurantId, id, data, userId) => {
   return result.rows[0] || null;
 };
 
-const countUsers = async (outletId) => {
-  const result = await pool.query("SELECT COUNT(*)::int AS count FROM users WHERE outlet_id = $1", [
-    outletId,
-  ]);
-
-  return result.rows[0].count;
-};
-
 // What still points at an outlet, in two kinds.
 //
 //   history  sales, stock and money already recorded there. It can never be
@@ -164,7 +156,6 @@ module.exports = {
   findById,
   create,
   update,
-  countUsers,
   usage,
   remove,
 };

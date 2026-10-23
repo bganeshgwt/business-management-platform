@@ -192,30 +192,6 @@ const LIVE_PRICES_ORDER = `
   ORDER BY i.product_id, i.product_variant_id, w.priority DESC,
            (w.outlet_id IS NOT NULL) DESC, w.id DESC`;
 
-// The special price for one dish in one size right now, or null.
-//
-// outletId is where the order is taken. Null is a restaurant that does not
-// use outlets, where only windows meant for every outlet apply.
-const findActivePrice = async (
-  client,
-  restaurantId,
-  timezone,
-  productId,
-  productVariantId,
-  outletId = null
-) => {
-  const result = await (client || pool).query(
-    `${LIVE_PRICES_SQL}
-       AND i.product_id = $4
-       AND i.product_variant_id IS NOT DISTINCT FROM $5::bigint
-     ${LIVE_PRICES_ORDER}
-     LIMIT 1`,
-    [restaurantId, timezone, outletId || null, productId, productVariantId || null]
-  );
-
-  return result.rows[0] || null;
-};
-
 // Every timed price running right now at one outlet, one row per dish and
 // size, by exactly the rules above. The POS reads it to show the price an
 // order will be charged before the order is saved.
@@ -240,6 +216,5 @@ module.exports = {
   update,
   remove,
   replaceItems,
-  findActivePrice,
   findActivePrices,
 };

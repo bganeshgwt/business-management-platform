@@ -309,8 +309,8 @@ function ChannelModal({ channel, onClose, onDone }) {
           </span>
         </label>
 
-        {/* The trip charge the guest pays on this channel's deliveries
-            (SW-A-17). Swiggy and Zomato collect their own, so usually 0. */}
+        {/* The trip charge the guest pays on this channel's deliveries.
+            Swiggy and Zomato collect their own, so usually 0. */}
         <div className="dlv-charge-fields">
           <label className="field">
             <span>Delivery charge</span>

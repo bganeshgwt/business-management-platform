@@ -1,6 +1,6 @@
-/* Online booking on the host stand (SW-A-21): the two new booking states,
-   the requests inbox and the booking-link dialog. Tokens only, so light and
-   dark both follow the app. */
+/* Online booking on the host stand: the two booking states only an online
+   request has (requested, declined), the requests inbox and the booking-link
+   dialog. Tokens only, so light and dark both follow the app. */
 
 /* An online request: amber, dashed — asked for, nothing held yet. */
 .rsv-tone-requested {

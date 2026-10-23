@@ -1211,7 +1211,6 @@ const newRecoveryCodes = async (user, password) => {
 module.exports = {
   BCRYPT_ROUNDS,
   mobileDigits,
-  classify,
   assertGoodPin,
   hashPin,
   login,
@@ -1236,5 +1235,4 @@ module.exports = {
   enableTwoFactor,
   disableTwoFactor,
   newRecoveryCodes,
-  deviceHashes,
 };

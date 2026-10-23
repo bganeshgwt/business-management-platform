@@ -8,9 +8,9 @@ import { listOutlets } from "../../../../services/outlet.service";
 import { getErrorMessage } from "../../../../services/api";
 import { count } from "@bmp/shared/format";
 import { printMenuCard } from "./menuCardDocument";
-import "../../../../styles/backoffice-sweep.css";
+import "../../../../styles/backoffice.css";
 
-// Menu → Products → Print menu (sweep SW-B-20): pick an outlet and a service,
+// Menu → Products → Print menu: pick an outlet and a service,
 // see what goes on the card, print it at A4. The prices are the ones that
 // outlet and service charge at the till; dishes off the menu or not sold
 // there are left out (the count says how many).

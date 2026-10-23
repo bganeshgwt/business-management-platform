@@ -242,7 +242,7 @@ function AppShell() {
   const business = useBusiness();
   const businessMode = business.inBusinessAdmin;
   // The business chooser (/business-admin) stands on its own: no restaurant
-  // menu, outlet switcher or restaurant bell around it (pro pass C-15).
+  // menu, outlet switcher or restaurant bell around it.
   const chooser = pathname === "/business-admin";
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -260,7 +260,7 @@ function AppShell() {
   // A platform account (no restaurant) runs the platform, nothing inside a
   // restaurant: it sees only the platform's own pages.
   const { businessId, context: businessContext, can, has } = business;
-  // The bell of the open business (pro pass G-07); the restaurant keeps its own.
+  // The bell of the open business; the restaurant keeps its own.
   const bellFeed = useMemo(() => (businessMode && businessId ? businessFeed(businessId, user.id) : null), [businessMode, businessId, user.id]);
   const availableSections = useMemo(() => {
     if (businessMode) {

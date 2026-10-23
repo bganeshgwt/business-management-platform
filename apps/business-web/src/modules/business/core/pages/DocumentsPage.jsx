@@ -18,7 +18,7 @@ import { GOODS_TYPES, methodWord, printReceipt } from "../../retail/pages/retail
 import { usePaymentMethods } from "./paymentMethods";
 // The kinds taken on a bill here (and a refund never goes out by cheque).
 const PAY_KINDS = ["cash", "upi", "card", "bank"];
-// The one collection form (pro pass D-09) and wholesale delivery words (D-21).
+// The one collection form and wholesale delivery words.
 import { CollectionDialog } from "../../receivables/pages/receivablesParts";
 import { DELIVERY } from "../../wholesale/pages/deliveryFormat";
 
@@ -46,10 +46,10 @@ export default function DocumentsPage({ kind }) {
   const [params, setParams] = useSearchParams();
   const [walkInDue, setWalkInDue] = useState(false);
   const navigate = useNavigate();
-  // Wholesale invoices carry their order, salesperson, route and delivery (pro pass D-21).
+  // Wholesale invoices carry their order, salesperson, route and delivery.
   const trade = sale && biz.has("sales_orders") && biz.can("sales_orders.view");
   const [filters, setFilters] = useState({ unpaid: false, source: "", salesperson: "", route: "", paid_by: "", created_by: "", location: "" });
-  // Pro pass C-12: who billed it (needs the staff list) and where.
+  // Who billed it (needs the staff list) and where.
   const seeStaff = sale && biz.can("access.view");
   const { options: tradeOptions } = useOptions([...(trade ? ["salespeople", "routes"] : []), ...(seeStaff ? ["members"] : [])]);
   const tradeParams = Object.fromEntries(Object.entries({ ...filters, unpaid: filters.unpaid ? "true" : "" }).filter(([, v]) => v));
@@ -437,7 +437,7 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
   );
 }
 
-// Also opened from other screens (the salon calendar and bill, Phase 2 T4).
+// Also opened from other screens (the salon calendar and bill).
 // initialAction: "returns" opens Take back items as soon as the bill is read
 // (Quick bill's Return button).
 export function DocumentDetail({ documentId, onClose, onChanged, initialAction = null }) {

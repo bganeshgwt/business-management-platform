@@ -14,7 +14,7 @@ import { getErrorMessage } from "../../../../services/api";
 import { count, money } from "@bmp/shared/format";
 import { Chip } from "./stockUi";
 import { niceDate, qty } from "./stockFormat";
-import "../../../../styles/backoffice-sweep.css";
+import "../../../../styles/backoffice.css";
 
 // Batches & expiry. Every batch still holding stock, first to expire first,
 // filtered the way the bell's expiry alerts link here (?show=soon&store=main).

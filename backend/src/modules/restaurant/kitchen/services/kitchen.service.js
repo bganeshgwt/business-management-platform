@@ -37,7 +37,7 @@ const toItem = (row) => {
     id: row.id,
     name: row.item_name,
     variant: row.variant_name,
-    // SW-A-12: names in the kitchen's language, as the ticket was cut (null:
+    // Names in the kitchen's language, as the ticket was cut (null:
     // none set). modifierKitchenNames runs parallel to modifiers.
     kitchenName: row.kitchen_name || null,
     variantKitchenName: row.variant_kitchen_name || null,
@@ -117,7 +117,7 @@ const toTicket = (row) => ({
   takenByLabel: takenByLabel(row),
   sentBy: row.sent_by_name || null,
   sentByLabel: sentByLabel(row),
-  // SW-A-12: "menu", "kitchen" or "both" — which name the KOT prints.
+  // "menu", "kitchen" or "both" — which name the KOT prints.
   nameMode: row.kitchen_name_mode || "both",
   items: (row.items || []).map(toItem),
   // Only on the board: the same order's tickets at other stations.
@@ -664,8 +664,6 @@ const updateSettings = async (restaurantId, data, userId) => {
 
 module.exports = {
   STATION_COLORS,
-  PASS_MINUTES,
-  kotLabel,
   board,
   syncNow,
   orderTickets,

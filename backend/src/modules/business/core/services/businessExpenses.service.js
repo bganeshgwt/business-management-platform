@@ -111,14 +111,6 @@ async function reverse(business,user,expenseId,body) {
   });
 }
 
-async function totalsByMethod(business,from,to,locationId) {
-  if (!access.can(business,'expenses.view')) return [];
-  return repo.all(repo.pool,`SELECT method,method_name,sum(amount)::text AS amount FROM (
-    SELECT method,method_name,amount FROM business_expenses WHERE business_id=$1 AND spent_on BETWEEN $2::date AND $3::date AND ($4::bigint IS NULL OR location_id=$4)
-    UNION ALL SELECT method,method_name,-amount FROM business_expenses WHERE business_id=$1 AND (voided_at AT TIME ZONE $5)::date BETWEEN $2::date AND $3::date AND ($4::bigint IS NULL OR location_id=$4)
-    ) events GROUP BY method,method_name`,[business.id,from,to,locationId,business.timezone]);
-}
-
 // Expenses paid out of the drawer, for takings. They count in everyone's cash
 // figures (the money really left); takings hides the breakdown from a role
 // without expenses.view.
@@ -130,4 +122,4 @@ async function moneyRows(business,from,to,locationId,db=repo.pool) {
     [business.id,from,to,locationId,business.timezone]);
 }
 
-module.exports={list,create,reverse,totalsByMethod,moneyRows,CATEGORIES};
+module.exports={list,create,reverse,moneyRows};

@@ -14,9 +14,9 @@ import { getStockSettings } from "../services/inventory.service";
 import { getSettings } from "../../setup/services/restaurant.service";
 import { qty } from "./stockFormat";
 import { Chip } from "./stockUi";
-import "../../../../styles/backoffice-sweep.css";
+import "../../../../styles/backoffice.css";
 
-// Who wrote off what (sweep SW-B-10, SW-B-22): the stock side of theft
+// Who wrote off what: the stock side of theft
 // control. Waste is where stock leaves without a bill, so the owner sees, for
 // a period, each person's waste at cost (items and whole dishes), every
 // write-off over the limit with the manager who approved it, and the large

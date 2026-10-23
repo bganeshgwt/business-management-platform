@@ -29,7 +29,7 @@ import useQueryFilter from "../../../../hooks/useQueryFilter";
 import LeavePanel from "./LeavePanel";
 import ClockPinModal from "./ClockPinModal";
 import "../../../../styles/access.css";
-import "../../../../styles/access-sweep.css";
+import "../../../../styles/staff.css";
 
 const DEPARTMENTS = {
   kitchen: "Kitchen",
@@ -1014,7 +1014,7 @@ export default function EmployeesPage() {
             {canSeePay && (
               <>
                 <p className="section-heading field-wide">PF, ESI and professional tax</p>
-                <div className="field field-wide asw-statutory-checks">
+                <div className="field field-wide staff-statutory-checks">
                   <label className="checkbox">
                     <input type="checkbox" checked={form.pfApplicable} onChange={(event) => setForm({ ...form, pfApplicable: event.target.checked })} />
                     <span>PF (provident fund)</span>

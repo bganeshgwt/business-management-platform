@@ -3,8 +3,7 @@
      Teal actions, ink text and neutral surfaces under module accents. Every page reads these with
      var(--…); nothing on a page should restate a hex value. Each one is
      redefined for dark mode in the block below, so a page written against
-     the tokens is dark-mode complete without a rule of its own.
-     DESIGN_SYSTEM.md (in the build notes) lists what each one is for. */
+     the tokens is dark-mode complete without a rule of its own. */
 
   /* Layers: page, then cards, then the second tone inside a card. */
   --bg: #edf1f6;
@@ -2957,34 +2956,6 @@ h3 {
 .badge-warning {
   background: var(--warning-bg);
   color: var(--warning-text);
-}
-
-/* A sortable column heading: the whole label is the control. */
-.sort-header {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-  color: inherit;
-  background: none;
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-}
-
-.sort-header:hover {
-  color: var(--text);
-}
-
-.sort-header.is-active {
-  color: var(--text);
-  font-weight: 700;
-}
-
-.sort-caret {
-  font-size: 0.625rem;
 }
 
 /* A small action inside a table row. Five underlined links per row turned the

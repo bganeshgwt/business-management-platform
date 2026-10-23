@@ -7,9 +7,9 @@ import { getErrorMessage } from "../../../../services/api";
 import { businessPath } from "../../../../services/businessNav";
 import { toast } from "../../../../services/toast";
 import { NewBatchDialog } from "./ProcessingPage";
-import "../styles/weight-pro.css";
+import "../styles/weight.css";
 
-// Quick bill's tools for a meat or weight shop (pro pass F-16), kept here so
+// Quick bill's tools for a meat or weight shop, kept here so
 // the shared counter only mounts them:
 //  - Cut to order: a whole bird or fish cut in front of the customer. The
 //    cutting batch is posted at once (the whole item leaves stock, the cut

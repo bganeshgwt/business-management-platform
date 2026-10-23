@@ -378,7 +378,7 @@ export default function BusinessDayPage() {
                     {current.openedByName ? ` by ${current.openedByName}` : ""}
                   </p>
                   {/* The opener's note stays on the day; the closer adds their
-                      own beside it (SW-B-07). Handover notes during the day
+                      own beside it. Handover notes during the day
                       go in the shift log book. */}
                   {(current.openingNotes || current.notes) && (
                     <p className="bd-hero-notes pre-line">

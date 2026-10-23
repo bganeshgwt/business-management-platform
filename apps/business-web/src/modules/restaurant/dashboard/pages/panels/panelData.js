@@ -11,7 +11,7 @@ import { getErrorMessage } from "../../../../../services/api";
 // dashboard for long (the dashboard itself reads every 30).
 const PANEL_FRESH = 20000;
 
-export const panelKey = (name, params = null) => ["dash-panel", name, ...sessionScope(), params];
+const panelKey = (name, params = null) => ["dash-panel", name, ...sessionScope(), params];
 
 export function usePanelQuery(name, params, queryFn, options = {}) {
   return useQuery({

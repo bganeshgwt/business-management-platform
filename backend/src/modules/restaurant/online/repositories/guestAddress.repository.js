@@ -1,5 +1,5 @@
-// A regular guest's saved delivery addresses (sweep SW-A-18; migration
-// 1791330000001). Newest used first; at most MAX_ADDRESSES per guest.
+// A regular guest's saved delivery addresses (migration 1791330000001).
+// Newest used first; at most MAX_ADDRESSES per guest.
 const pool = require("../../../../config/database");
 
 // Five covers home, office, a parent's house and a friend's — more and the

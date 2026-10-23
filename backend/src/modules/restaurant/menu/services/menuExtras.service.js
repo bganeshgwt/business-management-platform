@@ -21,7 +21,7 @@ const toVariant = (row) => ({
   isDefault: row.is_default,
   sortOrder: row.sort_order,
   status: row.status,
-  // SW-A-12: the size's name on the KOT ("हाफ"), null when none is set.
+  // The size's name on the KOT ("हाफ"), null when none is set.
   kitchenName: row.kitchen_name || null,
   // How many order lines carried this size: one sold is kept (switched off),
   // never deleted, so the screen offers "Switch off" instead of "Remove".
@@ -48,7 +48,7 @@ const toModifier = (row) => ({
   name: row.name,
   price: Number(row.price),
   status: row.status,
-  // SW-A-12: the add-on's name on the KOT, null when none is set.
+  // The add-on's name on the KOT, null when none is set.
   kitchenName: row.kitchen_name || null,
   productCount: row.product_count,
   ...(row.times_sold !== undefined ? { timesSold: row.times_sold } : {}),

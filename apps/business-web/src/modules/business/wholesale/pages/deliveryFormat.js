@@ -73,7 +73,7 @@ export function printLoadSheet(run, biz) {
   });
 }
 
-// --- Delivery challan (round 2) -------------------------------------------------------
+// --- Delivery challan -----------------------------------------------------------------
 
 const CHALLAN_STYLES = `body{font:12px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;color:#111;max-width:190mm;margin:0 auto}
   @page{size:A4;margin:12mm} h1{font-size:18px;margin:0} h2{font-size:15px;margin:0;letter-spacing:.06em;text-transform:uppercase}

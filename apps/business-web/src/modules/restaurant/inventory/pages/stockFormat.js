@@ -7,19 +7,6 @@ const QUANTITY = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 3 });
 export const qty = (value, unit) =>
   `${QUANTITY.format(Math.round(Number(value || 0) * 1000) / 1000)}${unit ? ` ${unit}` : ""}`;
 
-// A quantity also shown in packs when the item has one: "30,000 ml (2 tins)".
-export const inPacks = (value, packs = []) => {
-  const pack = [...packs].sort((a, b) => b.size - a.size).find((p) => Number(value) >= p.size);
-
-  if (!pack) {
-    return null;
-  }
-
-  const count = Math.round((Number(value) / pack.size) * 100) / 100;
-
-  return `${QUANTITY.format(count)} × ${pack.name}`;
-};
-
 export const PO_STATUS = {
   draft: { label: "Draft", tone: "muted" },
   // Over the approval limit (Stock → Stock & purchasing settings): not sent yet.

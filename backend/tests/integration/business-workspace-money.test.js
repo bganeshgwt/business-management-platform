@@ -17,7 +17,7 @@ test('business expenses and cash checks preserve money, scope, retries and audit
     finally{await admin.end();}
   });
   await admin.query(`CREATE DATABASE "${database}"`);created=true;
-  process.env.DB_NAME=database;process.env.NODE_ENV='test';process.env.MULTI_BUSINESS_DEVELOPMENT='true';
+  process.env.DB_NAME=database;process.env.NODE_ENV='test';
   const {runner}=await import('node-pg-migrate');
   await runner({databaseUrl:{...connection,database},dir:path.resolve(__dirname,'../../migrations'),migrationsTable:'pgmigrations',direction:'up',count:Infinity,checkOrder:true,log(){}});
   pool=require('../../src/config/database');

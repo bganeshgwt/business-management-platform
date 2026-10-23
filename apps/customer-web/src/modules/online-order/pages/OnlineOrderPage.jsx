@@ -15,7 +15,7 @@ import { money } from "@bmp/shared/format";
 import "../../../styles/guest.css";
 import "../styles/online-order.css";
 
-// The restaurant's own online ordering page (SW-A-22): /online/<link>, and
+// The restaurant's own online ordering page: /online/<link>, and
 // each order's own status page, /online/<link>/status/<guest token>.
 //
 // A guest here is at home or at the office, on a phone, deciding between us

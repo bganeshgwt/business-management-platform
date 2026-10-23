@@ -184,7 +184,7 @@ function OrdersList({ canManage, canKitchen, canSeeKots, canCancelAfterKot }) {
   const navigate = useNavigate();
   const canPos = hasPermission("orders.create");
   const canBill = canPos && hasPermission("billing.manage");
-  // Round 2: an advance on a pickup order (a takeaway ordered ahead), used on its bill.
+  // An advance on a pickup order (a takeaway ordered ahead), used on its bill.
   const canAdvance = hasFeature("advances") && hasPermission("payments.manage");
   const [advancing, setAdvancing] = useState(null);
   const [orderAdvances, setOrderAdvances] = useState([]);
@@ -807,7 +807,7 @@ function OrdersList({ canManage, canKitchen, canSeeKots, canCancelAfterKot }) {
               )}
             </dl>
 
-            {/* The order's dishes (REQ-REST1-GRID): on a phone each line is a
+            {/* The order's dishes: on a phone each line is a
                 card (dish and total, then quantity, kitchen state, Remove). */}
             <DataGrid
               id="order-dialog-lines"
@@ -1161,7 +1161,7 @@ function CancelledAfterKot() {
   const [currency, setCurrency] = useState("₹");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  // Every dish pages through the server (REQ-REST1-GRID): no 500-row cap.
+  // Every dish pages through the server: no 500-row cap.
   const [paging, setPaging] = useState(() => ({ page: 1, pageSize: rememberedPageSize("cancelled-every-dish", 25) }));
 
   useEffect(() => {

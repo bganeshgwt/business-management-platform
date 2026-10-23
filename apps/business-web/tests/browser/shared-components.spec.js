@@ -1,28 +1,14 @@
 import { test, expect } from "@playwright/test";
-import fs from "node:fs";
-import process from "node:process";
 
-// The shared pieces every screen leans on (SCRATCH/pro/G/COMPONENTS.md):
+import { fixture, signIn } from "../../../../e2e/fixture.mjs";
+
+// The shared pieces every screen leans on:
 // the dialog focus trap, toasts, the promise-based confirm, inline form
 // errors and the SearchPicker's keyboard. Runs against the Vite dev server
 // (the toast and confirm checks call the app's own modules by their /src URL).
-const credentialsFile = process.env.E2E_CREDENTIALS_FILE;
-const account = credentialsFile
-  ? JSON.parse(fs.readFileSync(credentialsFile, "utf8")).accounts.find((item) => item.role === "RESTAURANT_ADMIN")
-  : null;
-
 test.beforeEach(async ({ page }) => {
-  test.skip(!account, "Set E2E_CREDENTIALS_FILE to the local demo credentials file.");
-  await page.goto("/login");
-  await page.locator('input[autocomplete="username"]').fill(account.email);
-  await page.locator('input[autocomplete="current-password"]').fill(account.password);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  try {
-    await expect(page.locator("main.content-scroll")).toBeVisible();
-  } finally {
-    const password = page.locator('input[autocomplete="current-password"]');
-    if (await password.count()) await password.fill("");
-  }
+  await signIn(page, "RESTAURANT_ADMIN");
+  await expect(page.locator("main.content-scroll")).toBeVisible();
 });
 
 const openAddCategory = async (page) => {
@@ -157,16 +143,18 @@ test("a confirm over a dialog closes alone on Escape", async ({ page }) => {
 });
 
 test("the outlet SearchPicker is driven by the keyboard", async ({ page }) => {
+  // The test restaurant has outlets, so the top bar offers them once it has read them.
   const picker = page.locator(".acc-outlet-wide").getByRole("combobox", { name: "Outlet" });
-  test.skip((await picker.count()) === 0, "This login has no outlets to switch between.");
+  await expect(picker).toBeVisible();
   await expect(picker).toHaveAttribute("aria-expanded", "false");
   await picker.focus();
   await page.keyboard.press("ArrowDown");
   await expect(picker).toHaveAttribute("aria-expanded", "true");
   const list = page.getByRole("listbox");
   await expect(list).toBeVisible();
+  // "All outlets", then each of the restaurant's own.
   const options = list.getByRole("option");
-  expect(await options.count()).toBeGreaterThan(1);
+  await expect(options).toHaveCount(fixture().restaurant.outlets.length + 1);
 
   // The active row follows the arrows (aria-activedescendant).
   const first = await picker.getAttribute("aria-activedescendant");

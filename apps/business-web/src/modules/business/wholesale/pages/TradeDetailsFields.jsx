@@ -4,7 +4,7 @@ import { useOpenBusiness, useOptions } from "../../core/pages/hooks";
 import { GST_STATES } from "../../core/pages/invoice";
 import { DAYS } from "./tradeFormat";
 
-// The wholesale part of the customer form (pro pass D-16).
+// The wholesale part of the customer form.
 export default function TradeDetailsFields({ trade }) {
   const biz = useOpenBusiness();
   const { options } = useOptions(["beats?active=true", ...(biz.can("wholesale.view") ? ["price-groups?active=true"] : [])]);

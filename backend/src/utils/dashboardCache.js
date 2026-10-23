@@ -155,7 +155,4 @@ const clearOnWrite = (req, res, next) => {
   next();
 };
 
-// For tests: how the memory is doing.
-const stats = () => ({ entries: entries.size, ttlMs: TTL_MS });
-
-module.exports = { remember, invalidate, invalidateAll, clearOnWrite, stats, TTL_MS };
+module.exports = { remember, clearOnWrite };

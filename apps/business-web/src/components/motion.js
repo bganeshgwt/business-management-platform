@@ -1,6 +1,5 @@
 // The motion system's JavaScript half. The CSS half — tokens, keyframes and
-// every rule that animates on its own — is @bmp/ui's styles/motion.css; the catalogue
-// with an example of each is MOTION_SYSTEM.md in the build notes.
+// every rule that animates on its own — is @bmp/ui's styles/motion.css.
 //
 // Three rules hold everywhere:
 //   * Nothing waits for an animation. Every animation here is decoration on
@@ -51,7 +50,7 @@ export const play = (node, keyframes, options) => {
 
 // The refused-input shake (a wrong PIN, a refused sign-in): a few small,
 // fast, decaying side-to-side moves. Says "no" without moving the layout.
-export const SHAKE_FRAMES = [
+const SHAKE_FRAMES = [
   { transform: "none" },
   { transform: "translateX(-7px)" },
   { transform: "translateX(6px)" },

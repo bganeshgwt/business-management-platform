@@ -133,7 +133,7 @@ const dayBook = async (scope, { withPayroll = false, withPurchases = true } = {}
           params
         )
       : Promise.resolve({ rows: [] }),
-    // Advances and deposits taken (R4-DAYBOOK-ADVANCES): money received that
+    // Advances and deposits taken: money received that
     // is owed back to the guest until it is used on a bill.
     pool.query(
       `SELECT a.id, a.receipt_number, a.amount, a.payment_method, pt.name AS payment_type_name,

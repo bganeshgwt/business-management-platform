@@ -5,8 +5,6 @@ import api from "../../../../services/api";
 export const getBoard = async (params = {}) =>
   (await api.get("/kitchen/board", { params })).data.data;
 
-export const syncKitchen = async () => (await api.post("/kitchen/sync")).data;
-
 // One order's tickets, cut first if the kitchen has not seen it yet.
 export const getOrderTickets = async (orderId) =>
   (await api.get(`/kitchen/orders/${orderId}/kots`)).data.data;
@@ -26,8 +24,6 @@ export const recordTicketPrint = async (id) =>
 // print the same one.
 export const claimChangeSlips = async (orderIds) =>
   (await api.post("/kitchen/slips/claim", { orderIds })).data.data;
-export const listChangeSlips = async (params = {}) =>
-  (await api.get("/kitchen/slips", { params })).data.data;
 export const recordSlipPrint = async (id) => (await api.post(`/kitchen/slips/${id}/print`)).data.data;
 // A manager's tidy-up: open tickets older than this leave the board.
 export const clearOldTickets = async ({ olderThanMinutes, stationId }) =>

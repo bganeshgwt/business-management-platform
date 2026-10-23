@@ -19,9 +19,8 @@ import { printStatements, reminderText, whatsappLink } from "./receivablesFormat
 // Who owes what, and how old it is: 0–30, 31–60, 61–90 and over 90 days from
 // the bill date, with what is past its due date. Advances are applied to the
 // oldest items first. Shared by wholesale (outstanding) and retail (udhaar).
-// Pro pass D-14: call, WhatsApp and promise on each row, the last reminder
-// and promise, statements for every overdue customer at once; D-19: every
-// amount to the paisa.
+// Call, WhatsApp and promise on each row, the last reminder and promise,
+// statements for every overdue customer at once; every amount to the paisa.
 
 const SHOW = [
   { value: "owing", label: "Owing" },
@@ -165,7 +164,7 @@ export default function OutstandingPage() {
   );
 }
 
-// Credit hold (pro pass D-07): hold new orders of a customer whose bill is
+// Credit hold: hold new orders of a customer whose bill is
 // more than N days past its due date; a manager can let one through.
 function HoldRulesDialog({ onClose }) {
   const biz = useOpenBusiness();

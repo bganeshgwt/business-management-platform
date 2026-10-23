@@ -5,11 +5,10 @@ const guestImportService = require("../../crm/services/guestImport.service");
 const { logAction } = require("../../../../utils/audit");
 const v = require("../../../../utils/validate");
 
-// Spreadsheet imports for stock items, suppliers, recipes and the guest book
-// (sweep SW-B-12, SW-B-13). The browser reads the file and posts plain rows
-// (heading -> cell), so the API stays JSON. dryRun checks and previews; the
-// real import sends the preview's fingerprint back, so what is written is
-// what the person saw.
+// Spreadsheet imports for stock items, suppliers, recipes and the guest book.
+// The browser reads the file and posts plain rows (heading -> cell), so the
+// API stays JSON. dryRun checks and previews; the real import sends the
+// preview's fingerprint back, so what is written is what the person saw.
 
 const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`;
 

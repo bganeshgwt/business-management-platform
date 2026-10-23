@@ -77,18 +77,19 @@ const FIRST_DIRECTION = { name: true, visits: false, lastVisit: false, spend: fa
 const TAB_ICONS = { book: "book", duplicates: "copy", reports: "chart" };
 
 export default function CustomersPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, hasFeature } = useAuth();
   const canManage = hasPermission("customers.manage");
   const canMerge = hasPermission("customers.merge");
   const canErase = hasPermission("customers.erase");
   const canExport = hasPermission("customers.export");
-  const canSeePoints = hasPermission("reports.view");
+  // Points only while the restaurant uses loyalty (Settings → Features).
+  const canSeePoints = hasPermission("reports.view") && hasFeature("guest_loyalty");
   const canSeeSales = hasPermission("sales.view");
 
   const [tab, setTab] = useQueryFilter("tab", "book");
-  // The guest list from the old system, points balances included (sweep
-  // SW-B-13). It brings in every mobile number, so it needs both the right
-  // to manage guests and the right to export them.
+  // The guest list from the old system, points balances included. It brings
+  // in every mobile number, so it needs both the right to manage guests and
+  // the right to export them.
   const canImport = canManage && canExport;
   const [importing, setImporting] = useState(false);
   const [importMode, setImportMode] = useState("update");
@@ -277,7 +278,7 @@ export default function CustomersPage() {
   const tabs = [
     { key: "book", label: "Guest book" },
     { key: "duplicates", label: "Possible duplicates", count: counts ? counts.duplicates : 0 },
-    ...(showReports ? [{ key: "reports", label: "Points & guest sales" }] : []),
+    ...(showReports ? [{ key: "reports", label: canSeePoints && canSeeSales ? "Points & guest sales" : canSeePoints ? "Points" : "Guest sales" }] : []),
   ];
   const activeTab = tabs.some((t) => t.key === tab) ? tab : "book";
   const statusLabel = (STATUSES.find((option) => option.value === status) || STATUSES[0]).label.toLowerCase();

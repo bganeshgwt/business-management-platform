@@ -24,11 +24,9 @@ const ORDER_NUMBER_ATTEMPTS = 6;
 // A booking typed in at 7:05 for "7:00" is the host catching up, not a
 // booking in the past.
 const PAST_GRACE_MINUTES = 15;
-// Late enough that the table should be chased or given away, and how long
-// before closing the last table is seated (kitchens stop seating before they
-// stop cooking). Each restaurant sets its own (Settings -> Alerts and
-// timings); these are what it starts at.
-const LATE_AFTER_MINUTES = ruleSettings.DEFAULTS.reservationLateMinutes;
+// How long before closing the last table is seated (kitchens stop seating
+// before they stop cooking). Each restaurant sets its own (Settings -> Alerts
+// and timings); this is what it starts at.
 const LAST_SEATING_BEFORE_CLOSE = ruleSettings.DEFAULTS.reservationLastSeatingMinutes;
 const MAX_DAYS_AHEAD = 365;
 
@@ -841,7 +839,7 @@ const cancel = async (restaurantId, id, reason, userId, outletId = null) => {
   return getById(restaurantId, id);
 };
 
-// --- Online requests (SW-A-21) ---------------------------------------------
+// --- Online requests -------------------------------------------------------
 //
 // A guest's online booking arrives as a request. Saying yes makes it a
 // confirmed booking — on a table if the host picks one now, or with no table
@@ -1910,7 +1908,6 @@ const board = async (restaurantId, date, outletId = null) => {
 module.exports = {
   board,
   list,
-  getById,
   getDetail,
   create,
   update,
@@ -1933,8 +1930,8 @@ module.exports = {
   resolveWaitlist,
   seatWaitlist,
   KEEP_MOBILE,
-  // Shared with the notification provider and the seed, so every part of
-  // the module agrees on what "now" and "late" mean.
+  // Shared with public booking, so every part of the module agrees on what
+  // "now" means.
   localClock,
   stampAt,
   addDays,
@@ -1942,8 +1939,6 @@ module.exports = {
   dateLabel,
   hhmm,
   WEEKDAYS,
-  LAST_SEATING_BEFORE_CLOSE,
   timeLabel,
   toMinutes,
-  LATE_AFTER_MINUTES,
 };

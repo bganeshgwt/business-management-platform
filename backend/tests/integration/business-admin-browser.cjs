@@ -112,7 +112,7 @@ module.exports = async (t, { base, token, businesses }) => {
           await expect(dialog).toHaveCount(0);
 
           // The header switcher opens each business with its own menu.
-          for (const business of businesses.filter((b) => b.is_demo && b.id !== books.id).slice(0, 4)) {
+          for (const business of businesses.filter((b) => b.id !== books.id && b.business_type !== 'restaurant').slice(0, 4)) {
             await page.locator('.bsw-trigger').click();
             await page.getByRole('option', { name: new RegExp(business.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }).click();
             await expect(page).toHaveURL(new RegExp(`/business-admin/${business.id}$`));

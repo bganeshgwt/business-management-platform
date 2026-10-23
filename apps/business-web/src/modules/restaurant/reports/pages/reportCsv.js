@@ -436,7 +436,7 @@ export const salesCsv = (data) => [
     : []),
 ];
 
-// Dish profitability (SW-B-15), dish by dish, with the totals.
+// Dish profitability, dish by dish, with the totals.
 export const profitabilityCsv = (data) => [
   ...csvHeader("Dish profitability", data),
   ["Dish", "Size", "Has recipe", "Sold", "Sales before GST", "Cost a plate", "Food cost", "Food cost %", "Left a plate", "Left in all"],

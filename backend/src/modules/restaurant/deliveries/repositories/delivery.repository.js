@@ -451,7 +451,6 @@ const deliveryPerformance = async (restaurantId, from, to, slaMinutes, outletId 
 };
 
 module.exports = {
-  LIVE_STATUSES,
   effectiveStatusSql,
   findLocale,
   findOpenDays,

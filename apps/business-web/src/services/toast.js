@@ -8,7 +8,6 @@
 //   toast.info("Printing…", { duration: 2000 });
 //   toast.success("Bill settled", { action: { label: "Print", onClick: print } });
 //
-// Inside a component, useToast() (hooks/useToast.js) returns the same object.
 // A toast stays 4 s (errors 7 s), pauses while hovered or focused, and is
 // read out politely by screen readers (errors assertively).
 

@@ -65,13 +65,7 @@ export const frequencyText = (s) => {
   }
 };
 
-// Local "YYYY-MM-DDTHH:MM" for <input type="datetime-local"> and back.
-export const toLocalInput = (iso) => {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
+// A local "YYYY-MM-DDTHH:MM" from <input type="datetime-local"> as an ISO moment.
 export const fromLocalInput = (value) => (value ? new Date(value).toISOString() : null);
 export const todayText = () => {
   const d = new Date();

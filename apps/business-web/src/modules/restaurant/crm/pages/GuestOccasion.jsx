@@ -1,8 +1,8 @@
 import Icon from "@bmp/ui/Icon";
 import { isoToday, occasionsOf } from "./occasions";
-import "../../../../styles/backoffice-sweep.css";
+import "../../../../styles/backoffice.css";
 
-// A guest's occasion this week (sweep SW-B-21): "Anniversary today",
+// A guest's occasion this week: "Anniversary today",
 // "Birthday Sat". Shown wherever staff meet the guest — the guest's card and
 // the till's guest box — so the floor can wish them, or send a dessert with a
 // candle. Today means the restaurant's open business day (pass it as

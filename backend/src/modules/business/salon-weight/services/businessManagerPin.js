@@ -6,7 +6,7 @@ const config = require('../../../../config/env');
 const access = require('../../core/services/businessAccess.service');
 const userRepository = require('../../../access/repositories/user.repository');
 
-// A manager's say-so on the counter (round 2, R2-SVC), the same way the
+// A manager's say-so on the counter, the same way the
 // wholesale credit hold is released: { reason, approverId?, pin? }.
 //   - The approver must be a member of this business whose role holds the
 //     permission (or full access).

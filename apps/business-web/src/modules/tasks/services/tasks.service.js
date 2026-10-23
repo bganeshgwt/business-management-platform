@@ -18,9 +18,8 @@ export function tasksApi(base) {
   return {
     base,
     context: () => get("/context"),
-    // Round 2: people are searched on the server, a page at a time.
+    // People are searched on the server, a page at a time.
     people: (params, signal) => data(api.get(`${base}/people`, { params, signal })),
-    summary: () => get("/summary"),
     report: (params) => get("/reports", params),
     // Tasks
     mine: () => get("/my"),
@@ -53,7 +52,6 @@ export function tasksApi(base) {
     copyTemplate: (body) => post("/templates/copy", body),
     // Recurring
     schedules: (params) => get("/schedules", params),
-    schedule: (id) => get(`/schedules/${id}`),
     createSchedule: (body) => post("/schedules", body),
     updateSchedule: (id, body) => put(`/schedules/${id}`, body),
     scheduleActive: (id, active) => patch(`/schedules/${id}/active`, { active }),
@@ -79,7 +77,6 @@ export function tasksApi(base) {
     updateMilestone: (id, milestoneId, body) => patch(`/projects/${id}/milestones/${milestoneId}`, body),
     removeMilestone: (id, milestoneId) => del(`/projects/${id}/milestones/${milestoneId}`),
     addList: (id, body) => post(`/projects/${id}/lists`, body),
-    updateList: (id, listId, body) => patch(`/projects/${id}/lists/${listId}`, body),
     removeList: (id, listId) => del(`/projects/${id}/lists/${listId}`),
     commentProject: (id, body) => post(`/projects/${id}/comments`, { body }),
   };

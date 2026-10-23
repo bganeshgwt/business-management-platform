@@ -2,9 +2,7 @@
    ======
    The app's movement, in one place: tokens, keyframes, and every rule that
    animates on its own. The script half (page transition, cascades, sliding
-   pills, live values) is components/motion.js and the hooks it names; the
-   catalogue with a one-line example of each is MOTION_SYSTEM.md in the
-   build notes.
+   pills, live values) is components/motion.js and the hooks it names.
 
    The rules of the road:
    - Fast. Feedback 120–200 ms, entrances 260–420 ms, cascades 32 ms a step
@@ -427,7 +425,7 @@ button.card:active:not(:disabled) {
   overflow-anchor: none;
 }
 
-/* Small polish that came with the first motion pass. */
+/* Small polish. */
 .section-card-head { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
 .table tbody tr:focus-within > td { background-color: var(--surface-hover); }
 .field:focus-within > span:first-child { color: var(--primary); }

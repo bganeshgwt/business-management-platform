@@ -120,7 +120,7 @@ const dues = async (restaurantId, ctx = {}) => {
     customerAdvanceRepository.findHeldByCustomer(restaurantId),
   ]);
   // Advances the guest has paid ahead and not used yet: money held for
-  // them, shown beside what they owe (SW-B-04).
+  // them, shown beside what they owe.
   const heldOf = new Map(held.map((row) => [Number(row.customer_id), round2(n(row.held))]));
   const rows = accounts.map((row) => ({ ...toAccount(row, ctx), advanceHeld: heldOf.get(Number(row.customer_id)) || 0 }));
   const sum = (list, pick) => fromPaise(list.reduce((total, row) => total + toPaise(pick(row)), 0));
@@ -166,7 +166,7 @@ const dues = async (restaurantId, ctx = {}) => {
 // Checks a bill can go on an account before anyone is asked for a PIN: the
 // guest has an account, it is not on hold, and the bill fits in what is left
 // of the limit. Returns what the approval is tied to.
-const checkPutOnAccount = async (restaurantId, bill, customerId, ctx = {}) => {
+const checkPutOnAccount = async (restaurantId, bill, customerId) => {
   requireRestaurantId(restaurantId);
 
   if (bill.bill_status === "void") {
@@ -428,7 +428,7 @@ const statement = async (restaurantId, customerId, { from = null, to = null } = 
   );
 
   // Money the guest paid ahead (advances and deposits), held for them apart
-  // from what they owe: it is used on a bill, or handed back (SW-B-04).
+  // from what they owe: it is used on a bill, or handed back.
   const advances = await customerAdvanceRepository.findAll(restaurantId, {
     customerId,
     status: "all",

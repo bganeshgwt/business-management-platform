@@ -1,10 +1,11 @@
 import { businessPath } from "./businessNav";
 
 // Workspaces the platform will have that are not built yet (see
-// docs/CODE_STRUCTURE.md). Their addresses already work (App.jsx): each opens
-// a page that says what is coming and what to use until then, never "Page not
-// found", so a bookmark or a tablet set up today keeps working. When one is
-// built, its real screen takes the route and its entry here is deleted.
+// docs/ARCHITECTURE.md › Every address). Their addresses already work
+// (App.jsx): each opens a page that says what is coming and what to use until
+// then, never "Page not found", so a bookmark or a tablet set up today keeps
+// working. When one is built, its real screen takes the route and its entry
+// here is deleted.
 //
 // today and links may be functions of { clinic }: the signed-in person's
 // clinic (a healthcare business), or null.

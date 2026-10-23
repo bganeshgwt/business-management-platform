@@ -84,7 +84,7 @@ const toOrder = (row) => ({
   // restaurant uses them, and when it was handed over.
   tokenNo: row.token_no === null || row.token_no === undefined ? null : Number(row.token_no),
   tokenCollectedAt: row.token_collected_at || null,
-  // The trip charge on a delivery (SW-A-17), worked out by the server from
+  // The trip charge on a delivery, worked out by the server from
   // the channel; the bill shows it as its own line with its GST.
   deliveryCharge: Number(row.delivery_charge || 0),
   deliveryChargeTaxPercent:
@@ -528,11 +528,10 @@ const validateTable = async (restaurantId, orderType, tableId) => {
 //
 // A table with no outlet is shared by every outlet: an owner or manager
 // with the top bar on an outlet may seat guests there for that outlet. Staff
-// TIED to an outlet that has tables of its own work on those only
-// (REQ-RC-WALK-07): a manager pinned to the branch ringing up main-room table
-// M4 filed the main room's sale under the branch. An outlet with no tables
-// of its own (a kiosk or counter inside the main room) still uses the shared
-// ones, as before.
+// TIED to an outlet that has tables of its own work on those only: a manager
+// pinned to the branch ringing up main-room table M4 filed the main room's
+// sale under the branch. An outlet with no tables of its own (a kiosk or
+// counter inside the main room) still uses the shared ones, as before.
 const refuseOtherOutletTable = async (restaurantId, table, outletId, { pinned = false } = {}) => {
   if (!table || !outletId || Number(table.outlet_id) === Number(outletId)) {
     return;
@@ -756,12 +755,12 @@ const lookupGuest = async (restaurantId, text, { revealContacts = false } = {}) 
       allergies: known.allergies || null,
       companyName: known.company_name || null,
       status: known.status,
-      // For the birthday / anniversary badge (REQ-GUEST-OCCASION-POS). The
+      // For the birthday / anniversary badge. The
       // till needs the day and month only, so the year is not sent: 2000,
       // a leap year, keeps a 29 February birthday.
       dateOfBirth: monthDay(known.date_of_birth),
       anniversaryDate: monthDay(known.anniversary_date),
-      // Saved delivery addresses, newest used first (SW-A-18): full for
+      // Saved delivery addresses, newest used first: full for
       // people who may see contact details, the label and area for others.
       addresses: addresses.map((row) => guestAddressService.toAddress(row, revealContacts)),
       // The last three orders, for "Repeat" (at today's prices).
@@ -960,7 +959,7 @@ const saleOutlets = async (restaurantId) => {
 
 // data.holdCheck (the till): a table held for a booking needs
 // data.overrideHold. data.linkGuest (the till): a typed mobile finds or adds
-// the guest (guestFromMobile). Other callers (QR requests, seed scripts)
+// the guest (guestFromMobile). Other callers (QR requests, pre-orders)
 // send neither and get exactly what they always got.
 const create = async (restaurantId, data, userId) => {
   requireRestaurantId(restaurantId);
@@ -1113,11 +1112,6 @@ const openTable = async (restaurantId, input, userId) => {
 
   return toOrder(order);
 };
-
-// The open business day an order at this outlet goes on, or why there is
-// none. For callers that must know before they commit to anything (seating
-// a party claims the booking and the table first).
-const dayFor = (restaurantId, outletId) => requireOpenBusinessDay(restaurantId, outletId || null);
 
 // ------------------------------------------------------------------ token collection
 
@@ -1435,8 +1429,8 @@ const authoriseCancellation = async (reductions, reasonCode, reasonNote, gate, o
     });
   }
 
-  // No gate means the call came from the server's own code (a seed script, a
-  // module finishing its own work), not from a person at a till.
+  // No gate means the call came from the server's own code (a module
+  // finishing its own work), not from a person at a till.
   if (!gate) {
     return null;
   }
@@ -1568,8 +1562,8 @@ const reasonFor = (request, gate) =>
     : { code: request.cancelReason || null, note: request.cancelNote || null };
 
 // The header fields of an edit. The POS sends them under `header`, only the
-// ones it means to change. Older callers (the seed scripts, other modules)
-// pass them at the top level, and there every one of them is set, as before.
+// ones it means to change. Older callers (the server's own code) pass them
+// at the top level, and there every one of them is set, as before.
 const headerOf = (data) => {
   if (data.header) {
     return data.header;
@@ -1711,9 +1705,10 @@ const changedElsewhere = (order, line, seen, now) =>
 // before a manager took two burnt naan off from quietly putting them back,
 // and a screen that never saw the dal another till added from taking it off.
 //
-// Older callers (seed scripts, other modules) send the whole cart instead, no
-// ids and no changesOnly. Each dish is matched to the live lines of the same
-// dish ordered the same way, and a live line the cart leaves out comes off.
+// Older callers (API clients that are not browsers, other modules) send the
+// whole cart instead, no ids and no changesOnly. Each dish is matched to the
+// live lines of the same dish ordered the same way, and a live line the cart
+// leaves out comes off.
 //
 // Either way an existing line keeps its price (a happy-hour drink stays at the
 // happy-hour price when dessert is added after the window closes), its
@@ -2588,7 +2583,6 @@ module.exports = {
   setDeliveryChargeWaived,
   collectionBoard,
   markCollected,
-  CANCEL_REASONS,
   REASON_CODES,
   list,
   getById,
@@ -2606,7 +2600,6 @@ module.exports = {
   cancellations,
   priceLines,
   refuseOtherOutletTable,
-  dayFor,
   lookupGuest,
   moveTable,
   joinTable,
@@ -2614,5 +2607,4 @@ module.exports = {
   moveDishes,
   listMoves,
   listJoinedTables,
-  approvalOutsideLock,
 };

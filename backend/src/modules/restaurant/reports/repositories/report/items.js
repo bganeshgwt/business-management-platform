@@ -33,7 +33,7 @@ const itemSales = async (scope) => {
   return result.rows;
 };
 
-// Add-ons sold (SW-B-16): each add-on on the bills of the range, how many
+// Add-ons sold: each add-on on the bills of the range, how many
 // plates carried it and what it added to them. Read through the bill lines,
 // so a dish billed in two parts counts its add-on once per plate billed, and
 // voided bills are out. Free add-ons ("no onion", a free dip) are counted too:
@@ -61,7 +61,7 @@ const addonSales = async (scope) => {
   return result.rows;
 };
 
-// Dish profitability (SW-B-15): for each dish and size sold in the range,
+// Dish profitability: for each dish and size sold in the range,
 // what it sold before GST and what its ingredients cost.
 //
 // The cost is what the stock really lost to these bills: every stock movement

@@ -120,7 +120,7 @@ const LOADERS = {
   expenses: (range) => getExpenseReport(range),
   daybook: (range) => getDayBook(range),
   // With the stock side of theft control beside it: who wrote off what, and
-  // every write-off or large order that needed a manager (REQ-THEFT-WRITEOFFS).
+  // every write-off or large order that needed a manager.
   // Same dates; the outlet is the top bar's. A closed outlet picked on this
   // screen has no store of its own to read, so its write-offs are not shown.
   theft: (range, options) =>

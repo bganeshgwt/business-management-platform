@@ -44,7 +44,7 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       // The development server shows files from this app, the shared packages
       // and the installed libraries only: never the rest of the repository
-      // (backend/.local holds backups and demo logins).
+      // (backend/.local holds backups, logs and screenshots).
       fs: { allow: [here, inRepo("../../packages"), inRepo("../../node_modules")] },
     },
   };

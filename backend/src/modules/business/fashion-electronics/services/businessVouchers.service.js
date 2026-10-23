@@ -4,7 +4,7 @@ const v = require('../../../../utils/validate');
 const AppError = require('../../../../utils/AppError');
 const access = require('../../core/services/businessAccess.service');
 
-// Exchange credit vouchers (pro pass E-06). When an exchange leaves the
+// Exchange credit vouchers. When an exchange leaves the
 // customer with credit (what came back is worth more than what went out),
 // the credit can be printed as a numbered voucher (CV000123) instead of
 // cash back — walk-ins included. The credit leaves the original sale as a

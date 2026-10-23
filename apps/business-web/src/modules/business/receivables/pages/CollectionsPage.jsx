@@ -21,9 +21,8 @@ const SettlementPanel = lazy(() => import("../../wholesale/pages/SettlementPanel
 
 // Money received from customers: one numbered receipt each, with the bills it
 // settled, what went against an old opening balance and what is a true
-// advance (pro pass D-01). Cheques have their own tab (in hand, deposited,
-// cleared, bounced — D-02); a wholesaler settles each salesperson's day here
-// (D-03). Receipts are never edited.
+// advance. Cheques have their own tab (in hand, deposited, cleared, bounced);
+// a wholesaler settles each salesperson's day here. Receipts are never edited.
 export default function CollectionsPage() {
   const biz = useOpenBusiness();
   const [params, setParams] = useSearchParams();

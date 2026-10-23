@@ -1,4 +1,4 @@
-// Words and small helpers shared by the fashion and electronics screens (Phase 2, T3).
+// Words and small helpers shared by the fashion and electronics screens.
 
 // "S, M, L" or "S M L" → ["S", "M", "L"] (commas win when present, so "Sky blue, White" keeps its spaces).
 export const splitList = (text) => {
@@ -15,7 +15,7 @@ export const SIZE_PRESETS = [
   { label: "Free size", value: "Free size" },
 ];
 
-export const METHOD_WORDS = { cash: "Cash", card: "Card", upi: "UPI", bank: "Bank transfer", cheque: "Cheque", credit_note: "Credit note", on_account: "Kept on account" };
+const METHOD_WORDS = { cash: "Cash", card: "Card", upi: "UPI", bank: "Bank transfer", cheque: "Cheque", credit_note: "Credit note", on_account: "Kept on account" };
 export const methodWord = (method) => METHOD_WORDS[method] || method || "—";
 
 // A whole-number quantity for display: 12, 2.5.

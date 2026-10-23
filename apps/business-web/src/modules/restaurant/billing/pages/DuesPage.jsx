@@ -39,7 +39,7 @@ import "../styles/dues.css";
 //             into today's business day of the till taking it.
 //   Unpaid    bills left unpaid that are on nobody's account.
 //   Advances  money guests paid ahead (party deposits, bulk orders), held
-//             for them and used on the final bill (SW-B-04).
+//             for them and used on the final bill.
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 

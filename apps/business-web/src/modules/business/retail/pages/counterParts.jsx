@@ -157,7 +157,7 @@ export function VariantPicker({ biz, locationId, onPick, onClose, initialProduct
 // --- Phone layout -------------------------------------------------------------------------
 
 
-// The bill on a phone (pro pass C-10): one compact row per line — the item,
+// The bill on a phone: one compact row per line — the item,
 // its quantity control and the amount — instead of a tall card each.
 export function PhoneLines({ lines, renderItem, renderQuantity, amountOf, onRemove, biz }) {
   return (

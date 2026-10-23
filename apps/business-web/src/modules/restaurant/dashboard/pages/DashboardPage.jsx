@@ -5,7 +5,6 @@ import PageHeader from "../../../../components/PageHeader";
 import StatTile from "../../../../components/StatTile";
 import DashboardPanels, { PanelStatTile } from "./panels/DashboardPanels";
 import DashboardLogbook from "./DashboardLogbook";
-// Tasks (modules/tasks): today's checklists, overdue, issues waiting.
 import Icon from "@bmp/ui/Icon";
 import { ErrorMessage, ScreenLoading } from "../../../../components/Feedback";
 import { getDashboard, getDashboardLive } from "../../reports/services/report.service";
@@ -556,8 +555,8 @@ export default function DashboardPage() {
       />
 
       {/* The outlet this device was set to has since been closed (on another
-          device, or before this fix). Its history is shown rather than an
-          error, with the one click that puts the device back on all outlets. */}
+          device). Its history is shown rather than an error, with the one
+          click that puts the device back on all outlets. */}
       {data.outletClosed && !data.outletPinned && (
         <div className="alert alert-notice dash-notice">
           <span>
@@ -700,7 +699,7 @@ export default function DashboardPage() {
       <AttentionCard items={attention} alerts={feed.alerts} />
 
       {/* Open log book follow-ups stay here until someone closes them in the
-          log book (SW-A-07). Renders nothing without logbook.view or when
+          log book. Renders nothing without logbook.view or when
           nothing is open. */}
       {liveSources.logbook && <DashboardLogbook handover={feed.logbook ? feed.logbook.data : null} />}
 

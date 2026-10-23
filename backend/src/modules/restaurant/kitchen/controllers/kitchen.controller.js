@@ -359,7 +359,7 @@ const getSettings = async (req, res) => {
   res.json({ success: true, data: await kitchenService.getSettings(req.user.restaurantId) });
 };
 
-// SW-A-12: what KOTs, the kitchen screen and change slips call a dish.
+// What KOTs, the kitchen screen and change slips call a dish.
 const NAME_MODES = ["menu", "kitchen", "both"];
 
 // The timers (both marks together, and the pass time) and the kitchen-name

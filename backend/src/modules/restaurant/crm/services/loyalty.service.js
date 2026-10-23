@@ -242,8 +242,6 @@ const billPoints = async (restaurantId, billId) => {
 };
 
 module.exports = {
-  toRules,
-  redeemLimit,
   assertRedeemAllowed,
   pointsForBill,
   expireGuest,

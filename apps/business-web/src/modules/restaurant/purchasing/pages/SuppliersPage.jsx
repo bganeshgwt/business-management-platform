@@ -51,7 +51,7 @@ export default function SuppliersPage() {
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
-  // Thirty suppliers from the old system's export, in one go (sweep SW-B-12).
+  // Thirty suppliers from the old system's export, in one go.
   const [importing, setImporting] = useState(false);
 
   const load = useCallback(

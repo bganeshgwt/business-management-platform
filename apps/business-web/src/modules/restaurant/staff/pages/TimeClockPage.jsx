@@ -15,7 +15,7 @@ import * as timeclock from "../services/timeclock.service";
 import { PunchCamera, PunchPhoto, PunchPhotoSettings } from "./PunchPhotos";
 import ClockPinModal from "./ClockPinModal";
 import "../styles/timeclock.css";
-import "../../../../styles/access-sweep.css";
+import "../../../../styles/staff.css";
 import { hoursFromMinutes } from "./hoursText";
 
 // The staff time clock.
@@ -1946,7 +1946,7 @@ function DayTab({ canManage }) {
               },
               { key: "employee", header: "Employee", value: (item) => item.employeeName, mobile: "title" },
               { key: "punch", header: "Punch", value: (item) => PUNCH_LABELS[item.action] || item.action, mobile: "show" },
-              { key: "reason", header: "Reason", value: (item) => item.note || "", mobile: "show", className: "asw-log-cell" },
+              { key: "reason", header: "Reason", value: (item) => item.note || "", mobile: "show", className: "staff-log-cell" },
               { key: "addedBy", header: "Added by", value: (item) => item.recordedBy || "", mobile: "show" },
               canManage && {
                 key: "actions",

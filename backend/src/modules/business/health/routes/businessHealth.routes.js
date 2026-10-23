@@ -9,7 +9,7 @@ const lab = require('../services/businessLab.service');
 const desk = require('../services/businessClinicDesk.service');
 const quality = require('../services/businessLabQuality.service');
 
-// Round 2 (R2-HEALTH) — pharmacy, clinic and lab, added to the Business Admin
+// Pharmacy, clinic and lab routes, added to the Business Admin
 // router so they share its login, membership, module and permission checks
 // (context) and its database-error translation:
 //   /:businessId/health/…     settings and the people who sign (pharmacist, doctor, pathologist)

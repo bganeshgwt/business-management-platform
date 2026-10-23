@@ -366,9 +366,3 @@ export const resolvePanel = (key, ctx) => {
     Content: panel.Content,
   };
 };
-
-// The full page behind a key, for a tile's or row's real href.
-export const panelHref = (key, ctx) => {
-  const resolved = resolvePanel(key, ctx);
-  return resolved ? resolved.href : null;
-};

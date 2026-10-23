@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { businessRead, businessWrite } from "../../../../services/business.service";
 
-// A wholesale customer's trade details on the customer form (pro pass D-16):
+// A wholesale customer's trade details on the customer form:
 // beat, price group, state and PIN (place of supply), contact person, PAN,
 // FSSAI, trade or walk-in, never hold. Loaded with the form, saved after the
 // customer is saved.

@@ -50,7 +50,7 @@
 .quick-access-empty { margin: 0; padding: 2px 8px 6px; color: var(--muted); font-size: 0.8125rem; line-height: 1.4; }
 .sidebar .quick-access-links .nav-link.active::before { left: -2px; }
 
-/* The dialog's fixed head, scrolling body and sticky foot now come from @bmp/ui's base.css (.modal). */
+/* The dialog's fixed head, scrolling body and sticky foot come from @bmp/ui's base.css (.modal). */
 .quick-editor-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .quick-editor-heading h3 { margin: 0; font-size: 0.875rem; }
 .quick-editor-heading h3 > span { margin-left: 8px; color: var(--muted); font-weight: 500; }

@@ -25,9 +25,10 @@ import { Segmented } from "./shared";
 // Exchanges: goods come back on a credit note and replacements go out on a
 // new bill, in one step. The credit pays the new bill first; the customer
 // pays any difference, or gets the rest back as money, a credit voucher or
-// (a known customer) credit on account. Pro pass: find the sale by scanning
-// the item or by phone, a gift with no bill, swap the size in one tap,
-// faulty / DOA units for electronics, and the new bill printed on save.
+// (a known customer) credit on account. The screen also finds the sale by
+// scanning the item or by phone, takes back a gift with no bill, swaps the
+// size in one tap, handles faulty / DOA units for electronics, and prints the
+// new bill on save.
 export default function ExchangesPage() {
   const biz = useOpenBusiness();
   const list = useServerList("exchanges", { gridId: "business-exchanges", period: true });

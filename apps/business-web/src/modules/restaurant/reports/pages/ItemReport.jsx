@@ -64,7 +64,7 @@ export default function ItemReport({ data, currency }) {
   );
 }
 
-// Add-ons sold (SW-B-16): how many plates carried each add-on and what it
+// Add-ons sold: how many plates carried each add-on and what it
 // added, in the range and at the outlet picked. Free ones are counted: how
 // often "no onion" or a free dip is asked for is worth knowing too.
 function AddonsCard({ rows, currency }) {

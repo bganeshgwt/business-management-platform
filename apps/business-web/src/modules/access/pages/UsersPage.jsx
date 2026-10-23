@@ -34,8 +34,8 @@ import useAuth from "../../../hooks/useAuth";
 import ActivityLog from "../../restaurant/reports/pages/ActivityLog";
 import SignInHistoryGrid from "./SignInHistoryGrid";
 import "../../../styles/access.css";
-import "../../../styles/access-sweep.css";
-import "../styles/access-pro.css";
+import "../../../styles/staff.css";
+import "../styles/role-search.css";
 
 const EMPTY = {
   name: "",
@@ -696,10 +696,10 @@ export default function UsersPage() {
             tone="success"
             title="Who must use two-step sign-in"
             description="Tick the roles that can see the money or change who does what. Someone in a ticked role without two-step is taken to set it up straight after their password."
-            className="asw-twostep-roles"
+            className="staff-twostep-roles"
           >
             <div className="stack">
-              <div className="asw-role-checks">
+              <div className="staff-role-checks">
                 {roles.map((role) => {
                   const checked = twoStepRoles.includes(Number(role.id));
 
@@ -839,11 +839,11 @@ export default function UsersPage() {
                   key: "signsInWith",
                   header: "Signs in with",
                   width: 210,
-                  className: "asw-log-cell",
+                  className: "staff-log-cell",
                   value: (row) => [row.email, row.mobile].filter(Boolean).join(" · "),
                   mobile: "show",
                   render: (row) => (
-                    <span className="small asw-email-cell">
+                    <span className="small staff-email-cell">
                       {row.email && <span className="acc-block">{row.email}</span>}
                       {row.mobile && <span className={`acc-block ${row.email ? "muted" : ""}`}>{row.mobile}</span>}
                     </span>
@@ -855,7 +855,7 @@ export default function UsersPage() {
                   key: "roles",
                   header: "Roles · outlet",
                   width: 170,
-                  className: "asw-log-cell",
+                  className: "staff-log-cell",
                   value: (row) => (row.roleNames || row.roles).join(", "),
                   csv: (row) => `${(row.roleNames || row.roles).join(", ")} (${row.outletName || "All outlets"})`,
                   mobile: "show",
@@ -878,7 +878,7 @@ export default function UsersPage() {
                   header: "Status",
                   type: "status",
                   width: 132,
-                  className: "asw-log-cell",
+                  className: "staff-log-cell",
                   value: (row) => row.status,
                   mobile: "subtitle",
                   csv: (row) => `${row.status}${row.twoFactorEnabled ? ", two-step on" : ""}${row.loginLockedUntil ? ", locked" : ""}`,
@@ -886,12 +886,12 @@ export default function UsersPage() {
                     <>
                       <StatusBadge status={row.status} />
                       {row.twoFactorEnabled ? (
-                        <span className="badge badge-active asw-twostep-badge">
+                        <span className="badge badge-active staff-twostep-badge">
                           <Icon name="shield" size={12} /> Two-step on
                         </span>
                       ) : row.twoFactorRequired && row.status === "active" ? (
                         <span
-                          className="badge badge-warning asw-twostep-badge"
+                          className="badge badge-warning staff-twostep-badge"
                           title="Their role needs two-step sign-in; they set it up at their next sign-in"
                         >
                           <Icon name="shield" size={12} /> Two-step to set up

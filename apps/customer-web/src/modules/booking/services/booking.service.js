@@ -1,6 +1,6 @@
 import axios from "axios";
 
-// Calls made by a guest booking a table online (SW-A-21), who is never signed
+// Calls made by a guest booking a table online, who is never signed
 // in. Its own axios instance with no interceptors, like the QR ordering one: a
 // staff token saved in this browser must never ride along on a public request,
 // and nothing a guest does may sign a member of staff out.

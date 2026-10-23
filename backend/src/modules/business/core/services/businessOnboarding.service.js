@@ -6,9 +6,9 @@ const v = require('../../../../utils/validate');
 const { readGstin } = require('../../../../utils/gstin');
 const { readMobile } = require('../../../../utils/phone');
 
-// Real businesses, created the supported way (12 Oct 2026): any business type
-// (a restaurant is created from Platform › Restaurants, with its own restaurant
-// set-up), its legal details, its first location and its owner's login.
+// Creating businesses: any business type (a restaurant is created from
+// Platform › Restaurants, with its own restaurant set-up), its legal details,
+// its first location and its owner's login.
 //   * the platform's super admin creates one for a customer (Platform ›
 //     Businesses), the owner being a new login or an existing one;
 //   * an owner adds another business of their own ("Add a business" on the
@@ -40,7 +40,6 @@ function readTimezone(value, fallback = 'Asia/Kolkata') {
 function readCode(value, field = 'Business code') {
   const code = v.requiredString(value, field, 40).toUpperCase().replace(/\s+/g, '-');
   if (!/^[A-Z0-9][A-Z0-9-]{1,39}$/.test(code)) fail(`${field} may use letters, digits and dashes (2 to 40)`);
-  if (code.startsWith('DEMO-')) fail(`${field} cannot start with DEMO- (kept for demo businesses)`);
   return code;
 }
 
@@ -113,7 +112,7 @@ async function platformList(user, query = {}) {
         JOIN business_roles r ON r.business_id=m.business_id AND r.id=m.role_id AND r.full_access JOIN users u ON u.id=m.user_id
         WHERE m.business_id=b.id AND m.active) AS owners
     FROM businesses b JOIN business_types t ON t.code=b.business_type LEFT JOIN business_settings s ON s.business_id=b.id
-    WHERE NOT b.is_demo AND ($1::text IS NULL OR concat_ws(' ',b.name,b.code,s.city,s.gstin) ILIKE $1)
+    WHERE ($1::text IS NULL OR concat_ws(' ',b.name,b.code,s.city,s.gstin) ILIKE $1)
       AND ($2::text IS NULL OR b.business_type=$2) AND ($3::text IS NULL OR b.status=$3)
     ORDER BY b.created_at DESC LIMIT 500`, [q, type, status]);
   const types = await repo.all(repo.pool, 'SELECT code,name FROM business_types ORDER BY name');
@@ -133,7 +132,7 @@ async function platformSetStatus(user, businessId, body) {
   requirePlatform(user);
   const status = v.requiredEnum(body.status, 'Status', ['active', 'inactive']);
   return repo.transaction(async (db) => {
-    const row = await repo.one(db, 'UPDATE businesses SET status=$2,updated_at=now() WHERE id=$1 AND NOT is_demo RETURNING id,name,status', [v.requiredId(businessId, 'Business'), status]);
+    const row = await repo.one(db, 'UPDATE businesses SET status=$2,updated_at=now() WHERE id=$1 RETURNING id,name,status', [v.requiredId(businessId, 'Business'), status]);
     if (!row) fail('Business not found', 404);
     await repo.audit(db, row.id, user.id, status === 'active' ? 'business.reactivated' : 'business.switched_off', row.id);
     return row;
@@ -160,7 +159,7 @@ async function platformResetOwnerPassword(user, businessId, body) {
 async function ownerCreate(user, body) {
   // Owners of a business (or a restaurant's admin) may start another one.
   const owns = await repo.one(repo.pool, `SELECT 1 FROM business_memberships m JOIN business_roles r ON r.business_id=m.business_id AND r.id=m.role_id AND r.full_access
-    JOIN businesses b ON b.id=m.business_id WHERE m.user_id=$1 AND m.active AND b.status='active' AND NOT b.is_demo LIMIT 1`, [user.id]);
+    JOIN businesses b ON b.id=m.business_id WHERE m.user_id=$1 AND m.active AND b.status='active' LIMIT 1`, [user.id]);
   if (!owns && !user.roles?.includes('RESTAURANT_ADMIN') && !isPlatformUser(user)) fail('Only the owner of a business can add another business', 403);
   return repo.transaction(async (db) => createBusiness(db, user, body, user.id));
 }

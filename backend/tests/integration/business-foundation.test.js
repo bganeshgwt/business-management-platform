@@ -4,9 +4,10 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+const { createBusinesses, ALL_TYPES } = require('./helpers/businesses');
 const dates = require('./helpers/dates');
 
-// Phase 1 foundation: module catalogue, per-business roles and permissions,
+// The foundation: module catalogue, per-business roles and permissions,
 // settings, GST slabs, number series, categories, units, credit terms,
 // transfers, counts and the event outbox. Runs against its own throwaway
 // database with every migration applied, like business-admin.test.js.
@@ -27,7 +28,6 @@ test('business platform foundation: access, numbering, stock control and events'
   process.env.DB_NAME = database;
   process.env.NODE_ENV = 'test';
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex');
-  process.env.MULTI_BUSINESS_DEVELOPMENT = 'true';
   process.env.LOGIN_ATTEMPT_LIMIT = '5000';
   const { runner } = await import('node-pg-migrate');
   await runner({ databaseUrl: { ...connection, database }, dir: path.resolve(__dirname, '../../migrations'), migrationsTable: 'pgmigrations', direction: 'up', count: Infinity, checkOrder: true, log() {} });
@@ -56,7 +56,7 @@ test('business platform foundation: access, numbering, stock control and events'
     return (await response.json()).data.token;
   };
   const ownerUser = await owner('foundation-owner');
-  const otherUser = await owner('foundation-other');
+  await owner('foundation-other');
   const token = await login('foundation-owner@test.invalid');
   const otherToken = await login('foundation-other@test.invalid');
   const as = (auth) => async (method, route, body, expected = 200) => {
@@ -68,23 +68,24 @@ test('business platform foundation: access, numbering, stock control and events'
   const other = as(otherToken);
   const key = () => crypto.randomUUID();
 
-  const demos = (await request('POST', '/businesses/development-demos', {}, 201)).businesses;
-  // Pro pass (1791540000000): goods shops now start with prices including GST,
-  // rounded to the rupee, and a walk-in pays in full. These checks were written for
-  // prices before GST and post unpaid walk-in bills as fixtures.
+  // One business of every type a business can be but restaurant, so the first check covers each.
+  const businesses = await createBusinesses(request, 'OWNER', ALL_TYPES);
+  // Goods shops start with prices including GST, rounded to the rupee, and a
+  // walk-in pays in full. These checks use prices before GST and post unpaid
+  // walk-in bills as fixtures.
   await pool.query("UPDATE business_settings SET tax_mode='exclusive', rounding='none', walk_in_credit=true");
-  const byType = (type) => demos.find((b) => b.business_type === type);
+  const byType = (type) => businesses.find((b) => b.business_type === type);
   const grocery = byType('grocery'), electronics = byType('electronics'), salon = byType('salon'), pharmacy = byType('pharmacy');
   const root = (business, suffix) => `/businesses/${business.id}/${suffix}`;
 
   await t.test('every new business is provisioned with roles, settings, GST slabs, units and its default modules', async () => {
-    for (const business of demos) {
+    for (const business of businesses) {
       const counts = await one(`SELECT
         (SELECT count(*)::int FROM business_roles WHERE business_id=$1) AS roles,
         (SELECT count(*)::int FROM business_settings WHERE business_id=$1) AS settings,
         (SELECT count(*)::int FROM business_tax_rates WHERE business_id=$1) AS taxes,
         (SELECT count(*)::int FROM business_units WHERE business_id=$1) AS units`, [business.id]);
-      // The six shared roles, plus the type's own (round 2: pharmacist; doctor, lab technician, pathologist).
+      // The six shared roles, plus the type's own (pharmacist; doctor, lab technician, pathologist).
       const ownRoles = (await one('SELECT count(*)::int AS n FROM business_role_templates WHERE $1 = ANY(business_types)', [business.business_type])).n;
       assert.deepEqual([counts.roles, counts.settings, counts.taxes], [6 + ownRoles, 1, 4], business.business_type);
       assert.ok(counts.units >= 8, `${business.business_type} has its units`);

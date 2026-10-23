@@ -8,7 +8,7 @@ import { printSlip } from "../../../../services/kot.js";
 
 // "1 cancel slip printed for the kitchen (Tandoor)", or "" when nothing
 // needed printing.
-export const slipNote = (slips) => {
+const slipNote = (slips) => {
   if (!slips || slips.length === 0) {
     return "";
   }

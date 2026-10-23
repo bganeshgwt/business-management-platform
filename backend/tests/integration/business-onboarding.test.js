@@ -4,11 +4,12 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+const { daysFrom } = require('./helpers/dates');
 
-// Real onboarding (12 Oct 2026): the platform creates a business of any type
+// Onboarding: the platform creates a business of any type
 // for a customer with the owner's new login; the owner signs in, adds staff
 // logins of their own, resets one's password, changes currency and time zone,
-// and adds another business of their own. No restaurant or demo is involved.
+// and adds another business of their own. No restaurant is involved.
 test('onboarding: platform creates a business, owner signs in, staff logins, locale, owner adds a business', { timeout: 300000 }, async (t) => {
   require('dotenv').config({ quiet: true });
   const database = `rmp_test_${crypto.randomBytes(10).toString('hex')}`;
@@ -26,7 +27,6 @@ test('onboarding: platform creates a business, owner signs in, staff logins, loc
   process.env.DB_NAME = database;
   process.env.NODE_ENV = 'test';
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex');
-  process.env.MULTI_BUSINESS_DEVELOPMENT = 'false';
   process.env.LOGIN_ATTEMPT_LIMIT = '5000';
   const { runner } = await import('node-pg-migrate');
   await runner({ databaseUrl: { ...connection, database }, dir: path.resolve(__dirname, '../../migrations'), migrationsTable: 'pgmigrations', direction: 'up', count: Infinity, checkOrder: true, log() {} });
@@ -64,14 +64,12 @@ test('onboarding: platform creates a business, owner signs in, staff logins, loc
 
   await t.test('the platform creates a business with its owner', async () => {
     await platform('POST', '/users/platform/businesses', { ...shop, businessType: 'restaurant' }, 400);
-    await platform('POST', '/users/platform/businesses', { ...shop, code: 'DEMO-X' }, 400);
     await platform('POST', '/users/platform/businesses', { ...shop, timezone: 'Mars/Olympus' }, 400);
     await platform('POST', '/users/platform/businesses', { ...shop, currency: 'XYZW' }, 400);
     await platform('POST', '/users/platform/businesses', { ...shop, owner: { email: 'owner@arogya.test' } }, 400);
     const created = await platform('POST', '/users/platform/businesses', shop, 201);
     business = created.business;
     assert.equal(business.code, 'AROGYA-MED');
-    assert.equal(business.is_demo, false);
     assert.equal(created.owner.created, true);
     await platform('POST', '/users/platform/businesses', { ...shop, name: 'Again' }, 409);
     const list = await platform('GET', '/users/platform/businesses?type=pharmacy');
@@ -141,7 +139,7 @@ test('onboarding: platform creates a business, owner signs in, staff logins, loc
     const supplier = await owner('POST', B('contacts'), { kind: 'supplier', name: 'Distributor' }, 201);
     const item = await owner('POST', B('catalog'), { kind: 'goods', unit: 'strip', tracking: 'batch', taxRate: '5', name: 'Item', code: 'IT1', price: '10', hsnCode: '3004' }, 201);
     await owner('POST', B('documents'), { kind: 'purchase', requestKey: crypto.randomUUID(), locationId: location.id, contactId: supplier.id,
-      lines: [{ skuId: item.id, quantity: '5', unitPrice: '5', lotCode: 'L1', expiresOn: new Date(Date.now() + 300 * 86400000).toISOString().slice(0, 10) }] }, 201);
+      lines: [{ skuId: item.id, quantity: '5', unitPrice: '5', lotCode: 'L1', expiresOn: daysFrom(300) }] }, 201);
     await owner('PUT', B('settings'), { ...body, currency: 'USD' }, 409);
     await owner('PUT', B('settings'), { ...body, timezone: 'Asia/Kolkata' });
   });

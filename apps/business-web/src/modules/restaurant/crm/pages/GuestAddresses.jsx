@@ -8,7 +8,7 @@ import "../styles/guest-addresses.css";
 
 const LABELS = ["Home", "Office", "Other"];
 
-// A guest's saved delivery addresses in the guest book (SW-A-18): at most
+// A guest's saved delivery addresses in the guest book: at most
 // five, newest used first. They are saved by themselves when a delivery goes
 // to a new address; here they are corrected or removed. The full text is for
 // people who may see contact details; others see the label and the area.

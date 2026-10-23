@@ -12,7 +12,7 @@ const userRepository = require('../../../access/repositories/user.repository');
 
 // What the pharmacy, clinic and lab services share: running numbers, the
 // settings row, the people who sign (pharmacist, doctor, pathologist) and
-// their PIN check, and prescription scans kept in private_uploads.
+// their PIN check, and prescription scans kept in the private uploads folder.
 
 const fail = (message, status = 400, details) => { throw new AppError(status, message, details); };
 const id = (value, name = 'Record ID') => v.requiredId(value, name);
@@ -206,7 +206,8 @@ async function verifySignature(business, kind, body, what) {
 
 // --- Prescription scans (private) --------------------------------------------------------------
 
-const ROOT = path.join(__dirname, '..', '..', '..', '..', '..', 'private_uploads', 'health');
+// In health/<business>/ of the private uploads folder (PRIVATE_UPLOADS_DIR; config/env.js).
+const ROOT = path.join(config.privateUploadsDir, 'health');
 const MAX_BYTES = 5 * 1024 * 1024;
 const SIGNATURES = [
   { mime: 'image/jpeg', ext: 'jpg', bytes: [0xff, 0xd8, 0xff] },
@@ -275,4 +276,4 @@ function ageOn(patient, on) {
 }
 
 module.exports = { fail, id, optionalId, text, requestKey, hashOf, dateOnly, optionalDate, today, requireType, nextNumber, settings, getSettings, saveSettings, saveLocationLicences,
-  signatories, saveSignatory, verifySignature, uploadOne, addPrescriptionFile, openFile, ageOn, ROOT };
+  signatories, saveSignatory, verifySignature, uploadOne, addPrescriptionFile, openFile, ageOn };

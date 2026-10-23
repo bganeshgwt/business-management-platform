@@ -25,7 +25,7 @@ import { DELIVERY, emptyTransport, transportBody } from "./deliveryFormat";
 // Sales orders of a wholesale business. An order fixes the prices; each
 // dispatch sends part or all of it with its own tax invoice; what is not sent
 // yet is a back-order until it is sent or the order is closed short.
-// Pro pass D: fast order entry (search, cases + pieces, discount, free goods,
+// Fast order entry (search, cases + pieces, discount, free goods,
 // repeat last order, the customer's dues while ordering), credit hold with a
 // manager's release, editing before dispatch, transport and delivery.
 
@@ -130,7 +130,7 @@ const stockUnits = (line) => {
   return Number(line.cases || 0) * (pack?.factor || 0) + Number(line.pieces || 0);
 };
 
-// New order, or (with `order`) a change to what is still to send (D-18).
+// New order, or (with `order`) a change to what is still to send.
 function OrderDialog({ order, initialContactId, onClose, onSaved }) {
   const biz = useOpenBusiness();
   const editing = Boolean(order);

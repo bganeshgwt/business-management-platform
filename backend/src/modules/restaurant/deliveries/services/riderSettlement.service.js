@@ -1,4 +1,4 @@
-// Rider cash settlement in one step (sweep SW-A-19).
+// Rider cash settlement in one step.
 //
 // A rider back from a run hands in the cash for the bills he delivered. The
 // cashier sees those bills with what each still owes, ticks the ones the

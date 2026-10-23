@@ -4,7 +4,7 @@ import Icon from "@bmp/ui/Icon";
 import { getHandover, markLogbookRead } from "../services/logbook.service";
 import { getErrorMessage } from "../../../../services/api";
 import CategoryChip from "./CategoryChip";
-import "../../../../styles/access-sweep.css";
+import "../../../../styles/staff.css";
 
 // Right after signing in (or taking over a till with a PIN), a manager is
 // shown what the log book has that they have not read: the entries other
@@ -87,9 +87,9 @@ function HandoverPanel() {
   const unread = handover.unread;
 
   return (
-    <aside className="asw-handover-notice" role="status" aria-label="Log book handover" data-motion-item>
-      <div className="asw-handover-notice-head">
-        <span className="asw-handover-notice-icon" aria-hidden="true">
+    <aside className="staff-handover-notice" role="status" aria-label="Log book handover" data-motion-item>
+      <div className="staff-handover-notice-head">
+        <span className="staff-handover-notice-icon" aria-hidden="true">
           <Icon name="book" size={18} />
         </span>
         <div>
@@ -105,11 +105,11 @@ function HandoverPanel() {
 
       {!done && (
         <>
-          <ul className="asw-handover-notice-list">
+          <ul className="staff-handover-notice-list">
             {unread.slice(0, SHOWN).map((entry) => (
               <li key={entry.id}>
                 <CategoryChip category={entry.category} />
-                <span className="asw-handover-notice-text">
+                <span className="staff-handover-notice-text">
                   {firstLine(entry.body)}
                   <span className="muted small"> · {entry.createdByName}</span>
                 </span>
@@ -117,8 +117,8 @@ function HandoverPanel() {
             ))}
             {unread.length > SHOWN && <li className="muted small">…and {unread.length - SHOWN} more in the log book.</li>}
           </ul>
-          {error && <p className="asw-handover-notice-error small">{error}</p>}
-          <div className="asw-handover-notice-actions">
+          {error && <p className="staff-handover-notice-error small">{error}</p>}
+          <div className="staff-handover-notice-actions">
             <button type="button" className="button button-secondary button-sm" onClick={markAllRead}>
               <Icon name="check" size={15} /> Mark all read
             </button>

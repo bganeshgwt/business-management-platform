@@ -42,7 +42,7 @@ import { getStockImportGuide, importStockItems } from "../services/inventory.ser
 import { withApproval } from "../../../../services/approval";
 import StatTile from "../../../../components/StatTile";
 import "../../../../styles/stock.css";
-import "../styles/stock-pro.css";
+import "../styles/inventory.css";
 import { BusinessDateChip } from "../../business-day/pages/StaleDay";
 import SearchPicker from "../../../../components/SearchPicker";
 import { listSuppliers } from "../../purchasing/services/supplier.service";

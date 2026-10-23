@@ -18,7 +18,7 @@ export const EMPTY_LINE = {
 // price per kg or per ml keeps its decimals. So an order and the bill it
 // becomes show the same total. A line is in packs when it names a pack
 // (`packId`) or says so (`inPacks`, for a delivery against an order).
-export const linePrice = (line) =>
+const linePrice = (line) =>
   line.packId || line.inPacks ? round2(Number(line.unitPrice || 0)) : Number(line.unitPrice || 0);
 
 // One line: quantity × price, then GST either added on top or taken out of a

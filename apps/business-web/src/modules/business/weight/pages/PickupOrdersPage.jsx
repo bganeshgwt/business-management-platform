@@ -21,7 +21,7 @@ import { whatsappLink } from "../../retail/pages/retail";
 import { ClientPicker } from "../../salon/pages/salonParts";
 import { zonedInstant } from "../../salon/pages/salon";
 
-// Orders taken on the phone or WhatsApp for pickup (pro pass F-16): "2 kg
+// Orders taken on the phone or WhatsApp for pickup: "2 kg
 // boneless for 6 pm, Hotel Annapurna". Today's list in pickup order; mark it
 // Ready (prints a packing slip, tells the customer), then Bill opens Quick
 // bill with the order's items to weigh, and the order is closed with that bill.

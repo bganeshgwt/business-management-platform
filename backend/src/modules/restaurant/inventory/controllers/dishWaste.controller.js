@@ -4,7 +4,7 @@ const { logAction } = require("../../../../utils/audit");
 const v = require("../../../../utils/validate");
 const AppError = require("../../../../utils/AppError");
 
-// Waste & reorder → Wastage → Dishes wasted (sweep SW-B-22). Kitchen staff who can log
+// Waste & reorder → Wastage → Dishes wasted. Kitchen staff who can log
 // waste can log a dish; undoing one puts stock back, so it is a manager's.
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -81,7 +81,7 @@ const list = async (req, res) => {
   // The same store as the rest of Waste & reorder.
   let store = null;
 
-  // Tied to an outlet or picked in the switcher alike (MV-6): that outlet's
+  // Tied to an outlet or picked in the switcher alike: that outlet's
   // own store, or the main store it sells from.
   if (req.outletId) {
     store = await inventoryService.pinnedStore(req.user.restaurantId, req.outletId);

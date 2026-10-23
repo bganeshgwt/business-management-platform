@@ -5,9 +5,6 @@ import api from "../../../../services/api";
 export const getDeliveryBoard = async (date) =>
   (await api.get("/deliveries/board", { params: date ? { date } : undefined })).data.data;
 
-// Just the day's delivery figures, for a dashboard tile.
-export const getDeliverySummary = async () => (await api.get("/deliveries/summary")).data.data;
-
 export const getDelivery = async (orderId) =>
   (await api.get(`/deliveries/${orderId}`)).data.data;
 
@@ -34,7 +31,7 @@ export const deleteChannel = async (id) => (await api.delete(`/deliveries/channe
 export const getChannelReport = async (params = {}) =>
   (await api.get("/deliveries/report", { params })).data.data;
 
-// Rider cash settlement (SW-A-19): a rider's delivered, unpaid bills; paying
+// Rider cash settlement: a rider's delivered, unpaid bills; paying
 // them in one step (a shortfall kept as owed, or written off with a
 // manager's PIN); the day's settlements and the dues riders still owe.
 export const getRiderSettlement = async (riderId) =>

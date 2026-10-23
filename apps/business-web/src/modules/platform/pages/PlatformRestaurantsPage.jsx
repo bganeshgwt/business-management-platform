@@ -20,7 +20,7 @@ import {
 import { getErrorMessage } from "../../../services/api";
 import { count } from "@bmp/shared/format";
 import "../../../styles/access.css";
-import "../../../styles/access-sweep.css";
+import "../../../styles/staff.css";
 import { formatLabel } from "../../../services/restaurantFormats";
 
 // The platform console: every restaurant on the platform, for the platform's
@@ -234,9 +234,9 @@ export default function PlatformRestaurantsPage() {
           loading={!data && !error}
           error={data ? "" : error}
           onRetry={load}
-          empty="No restaurants match"
+          empty={search.trim() || status ? "No restaurants match" : "No restaurants yet"}
           emptyIcon="store"
-          emptyHint="Clear the search, or add a restaurant."
+          emptyHint={search.trim() || status ? "Clear the search or the filter, or add a restaurant." : "Add the first restaurant with its owner's login."}
           rowClassName={(row) => (row.status === "active" ? "" : "dg-tone-muted")}
           // The API pages and searches; it does not sort, so the headers do
           // not offer to (sorting 25 of 300 would only look like an answer).
@@ -379,7 +379,7 @@ function AddRestaurantModal({ onClose, onCreated }) {
     return (
       <Modal title="Restaurant added" icon="check-circle" onClose={onClose} width={520}>
         <div className="stack">
-          <div className="asw-done">
+          <div className="staff-done">
             <SuccessCheck size={48} label="Restaurant added" />
             <div>
               <strong>{done.message}</strong>
@@ -537,7 +537,7 @@ function AdminsModal({ restaurant, onClose, onDone }) {
           </div>
         </form>
       ) : (
-        <ul className="asw-share-rows">
+        <ul className="staff-share-rows">
           {data.admins.map((admin) => (
             <li key={admin.id}>
               <span>

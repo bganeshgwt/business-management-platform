@@ -16,7 +16,7 @@ import { Badge, BusinessHeader, Field } from "../../core/pages/ui";
 import { businessToday, newKey, quantity, useOpenBusiness } from "../../core/pages/hooks";
 import "../styles/business-retail.css";
 
-// Expiring soon (pro pass C-14): every batch with stock that runs out of date
+// Expiring soon: every batch with stock that runs out of date
 // within 7, 30 or 60 days — the expired ones first — with what it cost, and
 // the two things a supermarket does about it: mark it down (an item % offer
 // that ends on the batch's date; the shelf price never changes) or write it

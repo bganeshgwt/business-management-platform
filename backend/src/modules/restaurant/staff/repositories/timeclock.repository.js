@@ -337,17 +337,6 @@ const findRosterFor = async (client, restaurantId, employeeId, dates) => {
   return result.rows;
 };
 
-const findAttendanceRow = async (client, restaurantId, employeeId, workDate) => {
-  const result = await client.query(
-    `SELECT id, shift_id, attendance_status, notes
-     FROM attendance
-     WHERE restaurant_id = $1 AND employee_id = $2 AND attendance_date = $3::date`,
-    [restaurantId, employeeId, workDate]
-  );
-
-  return result.rows[0] || null;
-};
-
 // The day's attendance row, rebuilt from the punches. Notes a manager wrote
 // are kept; the status becomes 'present' because someone who punched in was
 // here, whatever the sheet said before.
@@ -531,7 +520,6 @@ module.exports = {
   purgePhotos,
   findPhoto,
   findRosterFor,
-  findAttendanceRow,
   upsertAttendance,
   findRosterForDates,
   findPunchesForDates,

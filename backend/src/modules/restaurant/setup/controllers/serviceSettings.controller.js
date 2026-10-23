@@ -90,7 +90,7 @@ const updateWebAddress = async (req, res) => {
   });
 };
 
-// ---------------------------------------------------------------- online ordering links (SW-A-22)
+// ---------------------------------------------------------------- online ordering links
 
 // A link id in the address; anything that cannot be one is a link that does
 // not exist.

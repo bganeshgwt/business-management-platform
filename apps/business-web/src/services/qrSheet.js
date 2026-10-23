@@ -18,7 +18,7 @@ export const layoutOf = (key) => QR_LAYOUTS.find((layout) => layout.key === key)
 
 // Addresses a guest's phone on mobile data cannot open: this computer, and
 // the private ranges a shop-floor network hands out.
-export const isLocalHost = (hostname) => {
+const isLocalHost = (hostname) => {
   const host = String(hostname || "").toLowerCase().replace(/^\[|\]$/g, "");
 
   return (

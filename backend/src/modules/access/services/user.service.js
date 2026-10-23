@@ -101,7 +101,7 @@ const normaliseContact = async (data, excludingUserId, restaurantId) => {
   return { ...data, mobile };
 };
 
-// --- Who may change whom (SEC-1) --------------------------------------------
+// --- Who may change whom ----------------------------------------------------
 //
 // Managing users is a delegated power, and it must never be a way up. So:
 //   * you can only give roles whose permissions you hold yourself;

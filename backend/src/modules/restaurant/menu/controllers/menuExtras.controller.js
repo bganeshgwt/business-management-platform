@@ -48,7 +48,7 @@ const readVariantBody = (body = {}, forUpdate = false) => {
       () => v.optionalNumber(body.sortOrder, "Sort order", { min: 0, max: 9999 }) ?? 0
     ),
     status: unlessLeftOut("status", () => v.optionalEnum(body.status, "Status", ["active", "inactive"], "active")),
-    // SW-A-12: the size's name for the kitchen, in any script; empty clears it.
+    // The size's name for the kitchen, in any script; empty clears it.
     kitchenName: unlessLeftOut("kitchenName", () => v.optionalString(body.kitchenName, "Kitchen name", 100)),
   };
 

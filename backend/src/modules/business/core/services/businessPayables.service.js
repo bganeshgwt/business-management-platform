@@ -7,7 +7,7 @@ const numbering = require('./businessNumbering');
 const { decimal, uuid, dateText, recordPayment } = require('./business.service');
 const paymentMethods = require('./businessPaymentMethods.service');
 
-// What the business owes its suppliers (pro pass C-05): the payables list
+// What the business owes its suppliers: the payables list
 // with what is overdue by each supplier's credit days, one supplier's open
 // receipts, paying a supplier against several receipts at once (oldest due
 // first, or the receipts chosen; any extra stays as an advance with the
@@ -262,4 +262,4 @@ repo.addLists({
   },
 });
 
-module.exports = { payables, account, pay, paymentDetail, statement, METHODS };
+module.exports = { payables, account, pay, paymentDetail, statement };

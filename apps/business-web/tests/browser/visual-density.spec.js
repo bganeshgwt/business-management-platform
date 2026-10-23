@@ -1,27 +1,15 @@
 import {test,expect} from '@playwright/test';
-import fs from 'node:fs';
-import path from 'node:path';
-import process from 'node:process';
 
-const file=process.env.E2E_CREDENTIALS_FILE;
-const account=file?JSON.parse(fs.readFileSync(file,'utf8')).accounts.find(item=>item.role==='RESTAURANT_ADMIN'):null;
-const folder=path.resolve('.local/density-review');
-let businesses=[];
+import {business,signIn} from '../../../../e2e/fixture.mjs';
+
+// The screenshots for the visual review go to each test's own folder under
+// test-results, which every run starts afresh.
 test.beforeEach(async({page})=>{
-  test.skip(!account,'Set E2E_CREDENTIALS_FILE to the local demo account.');
-  await page.goto('/login');
-  await page.locator('input[autocomplete="username"]').fill(account.email);
-  await page.locator('input[autocomplete="current-password"]').fill(account.password);
-  await page.getByRole('button',{name:'Sign in',exact:true}).click();
+  await signIn(page,'RESTAURANT_ADMIN');
   await expect(page.locator('main.content-scroll')).toBeVisible();
-  businesses=await page.evaluate(async()=>{
-    const api=await import('/src/services/business.service.js');
-    return (await api.listBusinesses()).businesses;
-  });
-  fs.mkdirSync(folder,{recursive:true});
 });
 
-for(const width of [1440,390])test(`guest groups remain accessible with compact shortcuts at ${width}px`,async({page})=>{
+for(const width of [1440,390])test(`guest groups remain accessible with compact shortcuts at ${width}px`,async({page},testInfo)=>{
   const errors=[];
   page.on('pageerror',error=>errors.push(error.message));
   await page.setViewportSize({width,height:900});
@@ -61,8 +49,8 @@ for(const width of [1440,390])test(`guest groups remain accessible with compact 
   const analytics=page.locator('.gi-analytics');
   await expect(analytics).not.toHaveAttribute('open');
   await page.evaluate(()=>Promise.all(document.getAnimations().filter(animation=>animation.effect?.getComputedTiming().iterations!==Infinity).map(animation=>animation.finished.catch(()=>{}))));
-  await page.screenshot({path:path.join(folder,`guest-insights-${width}.png`)});
-  if(width===1440)await page.locator('.gi-lists').screenshot({path:path.join(folder,`guest-lists-${width}.png`)});
+  await page.screenshot({path:testInfo.outputPath(`guest-insights-${width}.png`)});
+  if(width===1440)await page.locator('.gi-lists').screenshot({path:testInfo.outputPath(`guest-lists-${width}.png`)});
   await analytics.locator('summary').click();
   await expect(analytics).toHaveAttribute('open');
   await expect(analytics.locator('.gi-charts')).toBeVisible();
@@ -70,12 +58,13 @@ for(const width of [1440,390])test(`guest groups remain accessible with compact 
   expect(errors).toEqual([]);
 });
 
-test('capture other dense work areas for a visual review',async({page})=>{
+test('capture other dense work areas for a visual review',async({page},testInfo)=>{
   test.setTimeout(240000);
   await page.setViewportSize({width:1440,height:1000});
-  const meat=businesses.find(item=>item.business_type==='meat');
-  const wholesale=businesses.find(item=>item.business_type==='wholesale');
-  const salon=businesses.find(item=>item.business_type==='salon');
+  // The test data's meat shop, wholesaler (a retailer owes it) and salon (a stylist to book).
+  const meat=business('meat');
+  const wholesale=business('wholesale');
+  const salon=business('salon');
   const routes=[['activity-log','/activity-log'],['waste','/inventory/insights'],['reorder','/inventory/insights?tab=reorder'],['theft','/reports?tab=theft'],['time-clock','/staff/timeclock'],['business-day','/business-day'],['shop-overview',`/business-admin/${meat.id}`],['wholesale-dues',`/business-admin/${wholesale.id}/outstanding`],['salon-calendar',`/business-admin/${salon.id}/salon-calendar`]];
   for(const [name,url]of routes){
     await page.goto(url);
@@ -83,16 +72,18 @@ test('capture other dense work areas for a visual review',async({page})=>{
     await page.waitForLoadState('networkidle');
     await expect(page.locator('main.content-scroll [aria-busy="true"]')).toHaveCount(0,{timeout:30000});
     await page.evaluate(()=>Promise.all(document.getAnimations().filter(animation=>animation.effect?.getComputedTiming().iterations!==Infinity).map(animation=>animation.finished.catch(()=>{}))));
-    await page.screenshot({path:path.join(folder,`${name}.png`)});
+    await page.screenshot({path:testInfo.outputPath(`${name}.png`)});
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),url).toBeTruthy();
   }
 });
 
-test('stock and billing selectors keep their matching details',async({page})=>{
+test('stock and billing selectors keep their matching details',async({page},testInfo)=>{
   await page.setViewportSize({width:1440,height:1000});
   const planRead=page.waitForResponse(response=>response.url().includes('/inventory-insights/reorder')&&response.request().method()==='GET');
   await page.goto('/inventory/insights?tab=reorder');
   const plan=(await (await planRead).json()).data;
+  // The test data keeps an item under its reorder level, so Low has rows to show.
+  expect(plan.summary.low).toBeGreaterThan(0);
   const low=page.locator('.ii-tiles').getByRole('button',{name:/^Low /});
   await expect(low).toBeVisible({timeout:30000});
   await low.click();
@@ -109,7 +100,7 @@ test('stock and billing selectors keep their matching details',async({page})=>{
   await out.click();
   await expect(status.getByRole('radio',{name:'Out',exact:true})).toHaveAttribute('aria-checked','true');
   await expect(out).toHaveAttribute('aria-pressed','true');
-  await page.screenshot({path:path.join(folder,'reorder-selected.png')});
+  await page.screenshot({path:testInfo.outputPath('reorder-selected.png')});
   await page.reload();
   await expect(out).toHaveAttribute('aria-pressed','true',{timeout:30000});
   const show=page.getByRole('radiogroup',{name:'What to show',exact:true});

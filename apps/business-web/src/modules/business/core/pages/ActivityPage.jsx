@@ -4,8 +4,8 @@ import { ErrorMessage } from "../../../../components/Feedback";
 import { BusinessHeader, PeriodFilter } from "./ui";
 import { useOpenBusiness, useServerList } from "./hooks";
 
-// What each entry says, in a shop owner's words (pro pass: "sale.posted"
-// read as "Sale posted", "catalog.price_changed" as "Catalog price changed").
+// What each entry says, in a shop owner's words (not "sale.posted" read as
+// "Sale posted", or "catalog.price_changed" as "Catalog price changed").
 const WORDS = {
   "sale.posted": "Sale billed", "purchase.posted": "Purchase received", "payment.recorded": "Payment recorded",
   "sale.returned": "Goods taken back", "purchase.returned": "Goods returned to supplier", "sale.refunded": "Customer refunded", "purchase.refunded": "Refund from supplier",
@@ -24,7 +24,6 @@ const WORDS = {
   "tax_rate.created": "GST slab added", "tax_rate.updated": "GST slab changed", "number_series.created": "Number series added", "number_series.updated": "Number series changed",
   "appointment.booked": "Appointment booked", "appointment.completed": "Appointment done", "appointment.cancelled": "Appointment cancelled", "appointment.no_show": "Client did not come",
   "wastage.recorded": "Wastage recorded", "processing.posted": "Cutting batch recorded", "member.added": "Staff access given",
-  // Retail pro pass.
   "catalog.barcode_changed": "Barcode changed", "book.updated": "Book details changed", "book_set.created": "School set added", "book_set.updated": "School set changed",
   "book_order.created": "Book order taken", "book_order.arrived": "Ordered book arrived", "book_order.collected": "Ordered book collected", "book_order.cancelled": "Book order cancelled",
 };

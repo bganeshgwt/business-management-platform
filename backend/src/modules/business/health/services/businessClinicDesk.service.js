@@ -5,7 +5,7 @@ const core = require('../../core/services/business.service');
 const clinic = require('./businessClinic.service');
 const h = require('./healthCommon');
 
-// The clinic's front desk (round 3):
+// The clinic's front desk:
 //
 //   Doctors     each doctor's consultation fee (a service on the bill), the
 //               reduced or free follow-up within N days of a paid visit, the
@@ -20,7 +20,6 @@ const h = require('./healthCommon');
 
 const { fail, id, optionalId, text } = h;
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const ACTIVE = ['waiting', 'called', 'in_consultation'];
 
 function readTime(value, name) {
   if (typeof value !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) fail(`${name} must be a time (HH:MM)`);

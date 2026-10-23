@@ -2,7 +2,7 @@ import "../styles/business-fashion-electronics.css";
 import { Badge } from "../../core/pages/ui";
 import { REPAIR_STATES } from "./feFormat";
 
-// Small pieces shared by the fashion and electronics screens (Phase 2, T3).
+// Small pieces shared by the fashion and electronics screens.
 
 // A row of buttons where one is chosen (a filter or a tab).
 export function Segmented({ label, options, value, onChange }) {

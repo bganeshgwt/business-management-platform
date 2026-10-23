@@ -12,15 +12,15 @@ import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import { newPart, PART_KINDS, partsSummary, round2 } from "./counterPayState";
 import "../styles/counter-pay.css";
 
-// Round 2 (R2-CORE) pieces of Quick bill: several payments on one bill
-// (split payment), an EMI sale through a financier, the per-staff PIN at a
-// shared till, and the bill carried across a switch of biller.
+// Pieces of Quick bill: several payments on one bill (split payment), an EMI
+// sale through a financier, the per-staff PIN at a shared till, and the bill
+// carried across a switch of biller.
 
 // Cash + UPI + card on one bill, by the business's own methods (PhonePe,
 // Sodexo…). `due` is what these parts should cover; "Rest" fills a part with
 // what is still left. The change comes only from cash (the kind, whatever
 // the method is called).
-export function PaymentParts({ biz, parts, onChange, due, label = "Payments", leftWord = "Left to pay" }) {
+function PaymentParts({ biz, parts, onChange, due, label = "Payments", leftWord = "Left to pay" }) {
   const methods = usePaymentMethods();
   const set = (key, changes) => onChange(parts.map((p) => (p.key === key ? { ...p, ...changes } : p)));
   const { paid, change } = partsSummary(parts);

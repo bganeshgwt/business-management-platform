@@ -5,7 +5,7 @@
 // Kept free of React so the rules can be tested on their own.
 
 // "20:30" -> "8:30"; the floor knows whether it is lunch or dinner.
-export const shortTime = (hhmm) => {
+const shortTime = (hhmm) => {
   const [hours, minutes] = String(hhmm || "").split(":").map(Number);
 
   if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {

@@ -68,7 +68,7 @@ export default function TwoStepCard({ user, onChanged, notice = "" }) {
       {!status ? (
         <Loading label="Checking two-step sign-in…" />
       ) : (
-        <div className="stack asw-twostep">
+        <div className="stack staff-twostep">
           {notice && !message && (
             <div className="alert alert-notice" role="status">
               {notice}
@@ -78,7 +78,7 @@ export default function TwoStepCard({ user, onChanged, notice = "" }) {
 
           {status.enabled ? (
             <>
-              <ul className="asw-facts">
+              <ul className="staff-facts">
                 <li>
                   <Icon name="check-circle" size={16} />
                   <span>
@@ -102,7 +102,7 @@ export default function TwoStepCard({ user, onChanged, notice = "" }) {
                   </span>
                 </li>
               </ul>
-              <div className="form-actions asw-actions-left">
+              <div className="form-actions staff-actions-left">
                 <button type="button" className="button button-secondary" onClick={() => setFlow({ kind: "codes", step: "password" })}>
                   <Icon name="refresh" size={15} /> New recovery codes
                 </button>
@@ -122,7 +122,7 @@ export default function TwoStepCard({ user, onChanged, notice = "" }) {
                 You need a phone with Google Authenticator or Microsoft Authenticator (both free). It works without
                 mobile data, and the code changes every 30 seconds.
               </p>
-              <div className="form-actions asw-actions-left">
+              <div className="form-actions staff-actions-left">
                 <button type="button" className="button" onClick={() => setFlow({ kind: "on", step: "password" })}>
                   <Icon name="shield" size={15} /> Turn on two-step sign-in
                 </button>
@@ -231,7 +231,7 @@ function TurnOn({ user, onClose, onDone }) {
         <form className="stack" onSubmit={confirm}>
           <ScanPanel setup={setup} />
           <ErrorMessage message={error} />
-          <label className="field asw-code-field" ref={fieldRef}>
+          <label className="field staff-code-field" ref={fieldRef}>
             <span>The 6-digit code from the app</span>
             <CodeInput value={code} onChange={setCode} autoFocus />
           </label>
@@ -248,7 +248,7 @@ function TurnOn({ user, onClose, onDone }) {
 
       {step === "codes" && codes && (
         <div className="stack">
-          <div className="asw-done">
+          <div className="staff-done">
             <SuccessCheck size={44} label="Two-step sign-in is on" />
             <div>
               <strong>Two-step sign-in is on.</strong>
@@ -307,12 +307,12 @@ function TurnOff({ onClose, onDone }) {
             <input className="mono" value={recovery} onChange={(event) => setRecovery(event.target.value.toUpperCase())} placeholder="ABCDE-FGHJK" maxLength={20} required />
           </label>
         ) : (
-          <label className="field field-wide asw-code-field">
+          <label className="field field-wide staff-code-field">
             <span>The 6-digit code from the app</span>
             <CodeInput value={code} onChange={setCode} />
           </label>
         )}
-        <button type="button" className="link-button field-wide asw-switch-link" onClick={() => setUseRecovery(!useRecovery)}>
+        <button type="button" className="link-button field-wide staff-switch-link" onClick={() => setUseRecovery(!useRecovery)}>
           {useRecovery ? "Use the code from the app instead" : "Phone lost? Use a recovery code"}
         </button>
         <div className="form-actions field-wide">

@@ -14,7 +14,7 @@ import { businessToday, newKey, useOpenBusiness, useServerList } from "../../cor
 import { Segmented } from "../../fashion/pages/shared";
 import "../../core/styles/kits-finance.css";
 
-// EMI & financiers (round 2, R2-CORE). An EMI sale at the counter leaves the
+// EMI & financiers. An EMI sale at the counter leaves the
 // financed part owed by the financier (Bajaj Finserv, HDFC Bank, ICICI Bank,
 // Home Credit, or one the owner adds). Here: what each financier owes, the
 // cases, recording a payout (net of the dealer subvention the financier

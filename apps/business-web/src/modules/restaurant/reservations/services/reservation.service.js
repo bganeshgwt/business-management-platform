@@ -46,7 +46,7 @@ export const removeWaitlistEntry = async (id) =>
 export const seatWaitlistEntry = async (id, payload) =>
   (await api.post(`/reservations/waitlist/${id}/seat`, payload)).data;
 
-// Online booking (SW-A-21): the requests guests send from the booking link,
+// Online booking: the requests guests send from the booking link,
 // and the link itself for the counter or outlet being worked in.
 export const acceptReservation = async (id, payload = {}) =>
   (await api.patch(`/reservations/${id}/accept`, payload)).data;

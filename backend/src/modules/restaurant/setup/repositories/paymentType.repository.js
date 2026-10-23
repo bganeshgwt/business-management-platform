@@ -1,6 +1,6 @@
 const pool = require("../../../../config/database");
 
-// Owner-named payment types under a method (sweep SW-B-18): Pluxee and
+// Owner-named payment types under a method: Pluxee and
 // Sodexo meal cards or a cheque under Other, PhonePe under UPI. Every query
 // is filtered by restaurant_id.
 

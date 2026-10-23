@@ -27,7 +27,7 @@ export default function BooksPage() {
       render: (b) => <span className="bz-two-line"><strong>{b.label}</strong><small className="muted">{[b.author, b.edition].filter(Boolean).join(" · ") || b.category || ""}</small></span> },
     { key: "author", header: "Author", value: (b) => b.author || "", mobile: "subtitle" },
     { key: "publisher", header: "Publisher", value: (b) => b.publisher || "" },
-    // The ISBN is the barcode (pro pass C-24): a sticker that says otherwise is pointed out.
+    // The ISBN is the barcode: a sticker that says otherwise is pointed out.
     { key: "isbn", header: "ISBN", value: (b) => b.isbn || "", className: "mono", mobile: "show",
       render: (b) => (b.isbn && b.barcode && b.barcode !== b.isbn
         ? <span className="bz-two-line"><span>{b.isbn}</span><small className="rt-warn-text" title={`Labels print ${b.barcode}`}>Barcode {b.barcode} differs</small></span>

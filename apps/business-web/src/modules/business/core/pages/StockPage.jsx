@@ -16,13 +16,13 @@ const daysTo = (day, today) => Math.round((Date.parse(String(day).slice(0, 10)) 
 export default function StockPage() {
   const biz = useOpenBusiness();
   const [location, setLocation] = useState("");
-  // Pro pass D-13: empty batches are hidden unless asked for; expiring soon is one tap.
+  // Empty batches are hidden unless asked for; expiring soon is one tap.
   const [show, setShow] = useState("in_stock");
   const list = useServerList("stock", { gridId: "business-stock", params: { ...(location ? { location } : {}), ...(show ? { [show]: "true" } : {}) } });
   const [adjusting, setAdjusting] = useState(null);
   const [notice, setNotice] = useState("");
   const batches = biz.has("batches") || biz.has("serials");
-  // Days to a batch's expiry, for the badge (pro pass C-25: shown on phone cards too).
+  // Days to a batch's expiry, for the badge (shown on phone cards too).
   const today = businessToday(biz.business.timezone);
 
   const columns = useMemo(() => [

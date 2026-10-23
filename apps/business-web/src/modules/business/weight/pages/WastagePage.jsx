@@ -34,7 +34,7 @@ export default function WastagePage() {
     { key: "label", header: "Item", value: (w) => w.label, mobile: "title", pin: true },
     { key: "lot_code", header: "Batch", value: (w) => w.lot_code || "", defaultHidden: true },
     { key: "quantity", header: "Wasted", type: "number", value: (w) => Number(w.quantity), mobile: "show", render: (w) => weightOf(w.quantity, w.unit) },
-    // The weight once (pro pass F-20); the kg column stays for the spreadsheet.
+    // The weight once; the kg column stays for the spreadsheet.
     { key: "kg", header: "kg", type: "number", value: (w) => (w.kg === null ? null : Number(w.kg)), total: "sum", defaultHidden: true },
     { key: "reason", header: "Reason", type: "status", value: (w) => w.reason, mobile: "show", filterOptions: REASONS,
       render: (w) => <Badge tone={w.reason === "spoiled" || w.reason === "damaged" ? "warning" : "neutral"} label={reasonWord(w.reason)} /> },

@@ -18,8 +18,8 @@ import useQueryFilter from "../../../../hooks/useQueryFilter";
 import { Chip, Tile } from "./stockUi";
 import { niceDate, qty, unitMoney } from "./stockFormat";
 import "../../../../styles/stock.css";
-import "../../../../styles/backoffice-sweep.css";
-import "../styles/stock-pro.css";
+import "../../../../styles/backoffice.css";
+import "../styles/inventory.css";
 
 // Every type a movement can have, in the words a store manager uses.
 const TYPE_LABELS = {

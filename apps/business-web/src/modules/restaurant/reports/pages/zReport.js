@@ -16,7 +16,7 @@ const rule = '<tr><td colspan="2"><div class="rule"></div></td></tr>';
 
 const heading = (text) => `<tr><td colspan="2" class="h">${escapeHtml(text)}</td></tr>`;
 
-export const buildZReport = (data, { restaurantName = "", settings = null, currency = "₹", printedBy = "" } = {}) => {
+const buildZReport = (data, { restaurantName = "", settings = null, currency = "₹", printedBy = "" } = {}) => {
   const money = (value) => moneyExact(value, currency);
   const lines = [];
 
@@ -70,7 +70,7 @@ export const buildZReport = (data, { restaurantName = "", settings = null, curre
   lines.push(row("Refunds given", `-${money(data.totalRefunds)}`));
 
   // Tips, by how they were given: on top of the payments above, never in the
-  // sales or the GST (REQ-ACCESS-DAYEND-TIPS).
+  // sales or the GST.
   const tips = data.tips || { total: 0, byMethod: [] };
   if (tips.total > 0) {
     lines.push(rule, heading("TIPS COLLECTED"));
@@ -154,7 +154,7 @@ export const buildZReport = (data, { restaurantName = "", settings = null, curre
     lines.push(row("Drawer", "the main counter's"));
   }
 
-  // Riders' cash (SW-X-RIDER-DRAWER) and what they still owe.
+  // Riders' cash and what they still owe.
   const owe = data.ridersOwe || { amount: 0, count: 0 };
   if (data.riderCash || data.riderShortfall || data.riderRepaid || owe.amount) {
     lines.push(rule, heading("RIDER CASH"));
@@ -164,7 +164,7 @@ export const buildZReport = (data, { restaurantName = "", settings = null, curre
     lines.push(row("Riders still owe", money(owe.amount), true));
   }
 
-  // The day's notes, kept apart (SW-B-07), and the shift log book's entries.
+  // The day's notes, kept apart, and the shift log book's entries.
   const notes = data.notes || [];
   const logbook = data.logbook || [];
   if (notes.length || logbook.length) {

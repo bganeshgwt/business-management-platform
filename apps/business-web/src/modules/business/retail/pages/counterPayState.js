@@ -1,7 +1,7 @@
 import { newKey } from "../../core/pages/hooks";
 
-// Quick bill's payment helpers (round 2, R2-CORE): split payment parts, an
-// EMI's finance details, and the bill carried across a switch of biller.
+// Quick bill's payment helpers: split payment parts, an EMI's finance details,
+// and the bill carried across a switch of biller.
 
 export const round2 = (n) => Math.round(Number(n || 0) * 100) / 100;
 // `method` is the kind (cash, upi, card: what the change and the reference
@@ -19,7 +19,7 @@ export function partsSummary(parts) {
 }
 // The parts as the server takes them (only those with an amount). `methods`
 // (usePaymentMethods) adds the business's own method to each part.
-export const partsBody = (parts, methods = null) => parts.filter((p) => Number(p.amount) > 0).map((p) => ({
+const partsBody = (parts, methods = null) => parts.filter((p) => Number(p.amount) > 0).map((p) => ({
   ...(methods ? methods.body(p.methodKey || p.method, PART_KINDS) : { method: p.method }), amount: Number(p.amount).toFixed(2),
   ...(p.reference.trim() && p.method !== "cash" ? { reference: p.reference.trim() } : {}),
   ...(p.method === "cash" && Number(p.tendered) > Number(p.amount) ? { tendered: Number(p.tendered).toFixed(2) } : {}),

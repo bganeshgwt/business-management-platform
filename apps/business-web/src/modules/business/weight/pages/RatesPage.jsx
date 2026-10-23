@@ -14,10 +14,10 @@ import { BusinessHeader, PeriodFilter } from "../../core/pages/ui";
 import { businessToday, useDirtyGuard, useOpenBusiness, useServerList } from "../../core/pages/hooks";
 import { Segmented } from "../../wholesale/pages/shared";
 import { whatsappLink } from "../../retail/pages/retail";
-import "../../salon/styles/salon-pro.css";
-import "../styles/weight-pro.css";
+import "../../salon/styles/salon.css";
+import "../styles/weight.css";
 
-// Today's rates (pro pass F-15): every item sold by weight on one screen,
+// Today's rates: every item sold by weight on one screen,
 // built for the phone. The rate the day opened with, today's rate, the change,
 // the cost per kg of what is in stock and the margin. Change one, or all of a
 // category by ₹ or %, save them together (each change is kept in the rate

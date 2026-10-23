@@ -1,6 +1,6 @@
 import api from "../../../../services/api";
 
-// A guest's saved delivery addresses (SW-A-18). The list is full text for
+// A guest's saved delivery addresses. The list is full text for
 // people who may see contact details, the label and area for others.
 export const listGuestAddresses = async (customerId) =>
   (await api.get(`/crm/customers/${customerId}/addresses`)).data.data;

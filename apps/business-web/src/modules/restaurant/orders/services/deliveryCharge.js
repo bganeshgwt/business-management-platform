@@ -1,4 +1,4 @@
-// The delivery charge the till expects (SW-A-17), worked out the way the
+// The delivery charge the till expects, worked out the way the
 // server does (backend deliveryCharge.repository): the channel's charge,
 // nothing from its "free above" amount on, and a delivery with no channel
 // picked is the restaurant's own delivery. The server's figure is the one

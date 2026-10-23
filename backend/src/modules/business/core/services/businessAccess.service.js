@@ -1,5 +1,4 @@
 const repo = require('../repositories/business.repository');
-const config = require('../../../../config/env');
 const AppError = require('../../../../utils/AppError');
 const v = require('../../../../utils/validate');
 
@@ -10,14 +9,13 @@ const v = require('../../../../utils/validate');
 // A membership is the only way into a business; a business ID in the URL
 // grants nothing by itself.
 
-const devEnabled = () => !config.isLive && process.env.MULTI_BUSINESS_DEVELOPMENT === 'true';
 const fail = (message, status = 400) => { throw new AppError(status, message); };
 const id = (value, name = 'Record ID') => v.requiredId(value, name);
 
 async function load(user, businessId) {
   const business = await repo.access(id(businessId, 'Business'), user.id);
   // A business you are not a member of looks exactly like one that does not exist.
-  if (!business || (business.is_demo && !devEnabled())) fail('Business not found', 404);
+  if (!business) fail('Business not found', 404);
   const catalogue = await repo.platformCatalogue();
   const core = catalogue.modules.filter((m) => m.kind === 'core').map((m) => m.code);
   business.modules = [...core, ...business.capabilities];
@@ -46,12 +44,6 @@ async function require_(business, permission) { check(business, permission, awai
 // One of several permissions (e.g. a document list that holds sales and purchases).
 async function requireAny(business, permissions) {
   if (!permissions.some((p) => can(business, p))) await require_(business, permissions[0]);
-}
-
-async function access(user, businessId, permission) {
-  const business = await load(user, businessId);
-  if (permission) await require_(business, permission);
-  return business;
 }
 
 // --- Locations: who works where ----------------------------------------------
@@ -125,7 +117,7 @@ async function context(business) {
   const { permissions, capabilities, modules } = business;
   return {
     business: { id: business.id, name: business.name, code: business.code, business_type: business.business_type, type_name: business.type_name,
-      legacy_restaurant_id: business.legacy_restaurant_id, is_demo: business.is_demo, currency: business.currency, timezone: business.timezone },
+      legacy_restaurant_id: business.legacy_restaurant_id, currency: business.currency, timezone: business.timezone },
     role: { id: business.role_id, name: business.role_name, full_access: business.full_access },
     member: { location_id: business.member_location_id || null, location_name: business.member_location_name || null,
       department_id: business.member_department_id || null, department_name: business.member_department_name || null },
@@ -221,7 +213,7 @@ async function updateRole(business, user, roleId, body) {
 async function memberCandidates(business, user) {
   await require_(business, 'access.edit');
   // Staff accounts of the caller's own restaurant only: no directory of every
-  // user on the platform. Inviting people from elsewhere is Phase 2.
+  // user on the platform, and no inviting people from elsewhere.
   // People already on this business's staff list (with access on or off) are
   // managed there, so they are not offered again.
   // Also people who work in another business this person owns and whose login
@@ -305,4 +297,4 @@ async function setMember(business, user, body, options = {}) {
   });
 }
 
-module.exports = { devEnabled, access, load, scope, requireLocation, requireEitherLocation, requireAppointmentLocation, can, require: require_, requireAny, context, permissionCatalogue, createRole, updateRole, memberCandidates, setMember };
+module.exports = { load, scope, requireLocation, requireEitherLocation, requireAppointmentLocation, can, require: require_, requireAny, context, permissionCatalogue, createRole, updateRole, memberCandidates, setMember };

@@ -25,7 +25,7 @@ import "../styles/business-retail.css";
 import "../styles/counter-layout.css";
 import CounterShelf from "./counterShelf";
 import ShiftButton from "./counterShift";
-// Pro pass F-16: cut to order and orders for pickup at a meat / weight shop.
+// Cut to order and orders for pickup at a meat / weight shop.
 import CounterWeightTools from "../../weight/pages/CounterWeightTools";
 
 // Quick bill: the counter of every goods shop (grocery, supermarket, books,
@@ -45,7 +45,7 @@ import CounterWeightTools from "../../weight/pages/CounterWeightTools";
 // After a bill: Enter or F2 starts the next, P prints.
 //
 // One payment method per bill (or udhaar, with an optional part paid in cash).
-// Round 2 (R2-CORE): EMI through a financier (electronics), kits sold as their parts, and the
+// EMI through a financier (electronics), kits sold as their parts, and the
 // shared till's biller switched by PIN (with "PIN for every bill").
 // In the search list ↓ / ↑ move and Enter adds the highlighted item.
 // A school set's code (bookshops) adds the whole booklist.
@@ -84,7 +84,7 @@ export default function CounterPage() {
   const confirm = useConfirm();
   const narrow = useNarrow();
   // Only locations that sell at the counter are tills (a warehouse is not);
-  // the till chosen is remembered on this device (pro pass C-22).
+  // the till chosen is remembered on this device.
   const active = biz.locations.filter((l) => l.active);
   const tills = active.filter((l) => l.sells_at_counter !== false);
   const locations = tills.length ? tills : active;
@@ -143,7 +143,7 @@ export default function CounterPage() {
   const [lastOpen, setLastOpen] = useState(null);
   const [returning, setReturning] = useState(false);
   const [returnId, setReturnId] = useState(null);
-  // An exchange credit voucher (fashion / electronics pro pass) pays first.
+  // An exchange credit voucher (fashion / electronics) pays first.
   const [voucher, setVoucher] = useState(null);
   const [voucherCode, setVoucherCode] = useState("");
   const [voucherError, setVoucherError] = useState("");
@@ -662,7 +662,7 @@ export default function CounterPage() {
           <SectionCard icon="wallet" title="3 · Take payment" className="rt-pay" id="counter-pay">
             {/* The total first and large; tax is one quiet line under it (a
                 cashier reads the amount to the customer, not the GST). */}
-            <div className="rt-totals rt-totals-pro" aria-live="polite">
+            <div className="rt-totals rt-totals-large" aria-live="polite">
               <div className="rt-grand"><span>To pay{lines.length ? <small className="muted"> · {lines.length} {lines.length === 1 ? "item" : "items"}</small> : null}</span><strong>{bill ? biz.exact(bill.total) : biz.exact(0)}</strong></div>
               <p className="small muted rt-tax-line">{!bill
                 ? (lines.length ? "Working out the total…" : "Add items to see the total.")
@@ -812,7 +812,7 @@ export default function CounterPage() {
 // The scan / search box. Enter looks the code up; typing a name shows matches,
 // which ↓ / ↑ move through and Enter adds (the first one unless another is
 // highlighted). A typed name that is not a code never shows "not found"
-// while there are matches to pick from (pro pass C-09).
+// while there are matches to pick from.
 function ScanBox({ biz, inputRef, onCode, onPick, placeholder, onQuery }) {
   const [text, setText] = useState("");
   useEffect(() => { onQuery?.(text); }, [text, onQuery]);

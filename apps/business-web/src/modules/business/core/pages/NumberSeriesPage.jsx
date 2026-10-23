@@ -9,11 +9,11 @@ import { BusinessHeader, Field } from "./ui";
 import { businessToday, useOpenBusiness, useServerList } from "./hooks";
 
 const KINDS = { sale: "Sale invoices", purchase: "Purchase receipts", sales_return: "Credit notes (sales returns)", purchase_return: "Debit notes (supplier returns)", stock_transfer: "Stock transfers", stock_count: "Stock counts",
-  // Phase 2: wholesale sales orders and collection receipts.
+  // Wholesale sales orders and collection receipts.
   sales_order: "Sales orders", collection: "Collection receipts", purchase_order: "Purchase orders", delivery_challan: "Delivery challans",
-  // Phase 2, T3: electronics repair job cards.
+  // Electronics repair job cards.
   repair_job: "Repair job cards",
-  // Phase 2, T4: meat / weight shops' cutting batches.
+  // Meat / weight shops' cutting batches.
   processing: "Cutting batches" };
 const fiscalLabel = (year) => `${year}-${String((Number(year) + 1) % 100).padStart(2, "0")}`;
 const sample = (s) => `${s.prefix}${String(s.next_number).padStart(s.padding, "0")}`;

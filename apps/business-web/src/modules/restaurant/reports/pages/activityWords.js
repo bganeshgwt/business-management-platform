@@ -131,7 +131,7 @@ const PHRASES = {
   "remove_attachment:expense": "Removed a file from an expense",
   "attach:purchase_bill": "Attached the paper bill to a purchase bill",
   "remove_attachment:purchase_bill": "Removed a file from a purchase bill",
-  // Tasks, issues and projects (round 2: written by the tasks module).
+  // Tasks, issues and projects (written by the tasks module).
   "created:task": "Added a task",
   "updated:task": "Changed a task",
   "assigned:task": "Assigned a task",

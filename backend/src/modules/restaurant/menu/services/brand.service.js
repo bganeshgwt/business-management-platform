@@ -156,4 +156,4 @@ const summarise = (rows) => {
   };
 };
 
-module.exports = { list, save, checkOrder, report, summarise, toBrand };
+module.exports = { list, save, checkOrder, report, summarise };

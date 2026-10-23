@@ -22,9 +22,6 @@ export const createProduct = async (payload) =>
 // One dish as it is now (the sizes dialog works out prices against it).
 export const getProduct = async (id) => (await api.get(`/menu/products/${id}`)).data.data;
 
-export const updateProduct = async (id, payload) =>
-  (await api.put(`/menu/products/${id}`, payload)).data.data;
-
 // The edit form's save: only the fields that changed, and what each said when
 // the form was opened. Someone else's change to another field is kept; a
 // clash on the same field is refused (409, reason "changed_meanwhile", with
@@ -93,18 +90,6 @@ export const listProductModifiers = async (productId) =>
 export const setProductModifiers = async (productId, modifierIds) =>
   (await api.put(`/menu/products/${productId}/modifiers`, { modifierIds })).data.data;
 
-// Recipe: raw materials used by one plate of a dish
-export const getRecipe = async (productId) =>
-  (await api.get(`/menu/products/${productId}/recipe`)).data.data;
-
-export const addRecipeLine = async (productId, payload) =>
-  (await api.post(`/menu/products/${productId}/recipe`, payload)).data.data;
-
-export const updateRecipeLine = async (id, quantity) =>
-  (await api.put(`/menu/recipe/${id}`, { quantity })).data.data;
-
-export const deleteRecipeLine = async (id) => (await api.delete(`/menu/recipe/${id}`)).data.data;
-
 // Tax rates (the HSN/SAC code lives here, not on the product)
 export const listTaxRates = async (filters = {}) =>
   (await api.get("/menu/tax-rates", { params: filters })).data.data;
@@ -138,25 +123,6 @@ export const saveCombo = async (productId, items) =>
 
 export const clearCombo = async (productId) =>
   (await api.delete(`/menu/products/${productId}/combo`)).data.data;
-
-// Price windows: happy hour and other timed prices
-export const listPriceWindows = async (filters = {}) =>
-  (await api.get("/menu/price-windows", { params: filters })).data.data;
-
-export const getPriceWindow = async (id) =>
-  (await api.get(`/menu/price-windows/${id}`)).data.data;
-
-export const createPriceWindow = async (payload) =>
-  (await api.post("/menu/price-windows", payload)).data.data;
-
-export const updatePriceWindow = async (id, payload) =>
-  (await api.put(`/menu/price-windows/${id}`, payload)).data.data;
-
-export const savePriceWindowItems = async (id, items) =>
-  (await api.put(`/menu/price-windows/${id}/items`, { items })).data.data;
-
-export const deletePriceWindow = async (id) =>
-  (await api.delete(`/menu/price-windows/${id}`)).data;
 
 // Product photos. The image goes as multipart, so axios must set its own
 // Content-Type with the boundary — hence the explicit undefined.

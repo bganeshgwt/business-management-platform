@@ -1,7 +1,8 @@
 // Guest pages the platform will have that are not built yet (see
-// docs/CODE_STRUCTURE.md). Their addresses already work (App.jsx): each says
-// what is coming and what to do until then, never "Page not found". When one
-// is built, its real page takes the route and its entry here is deleted.
+// docs/ARCHITECTURE.md › Every address). Their addresses already work
+// (App.jsx): each says what is coming and what to do until then, never "Page
+// not found". When one is built, its real page takes the route and its entry
+// here is deleted.
 export const PLANNED_PAGES = {
   shop: {
     title: "Order from a shop",

@@ -1,41 +1,27 @@
 import { test, expect } from "@playwright/test";
-import fs from "node:fs";
-import process from "node:process";
+
+import { signIn } from "../../../../e2e/fixture.mjs";
 import { quickAccessKey } from "../../src/services/navigationPreferences.js";
 
-const accounts = process.env.E2E_CREDENTIALS_FILE
-  ? JSON.parse(fs.readFileSync(process.env.E2E_CREDENTIALS_FILE, "utf8")).accounts : [];
-const owner = accounts.find(account => account.role === "RESTAURANT_ADMIN");
-const kitchen = accounts.find(account => account.role === "KITCHEN");
-
-async function signIn(page, account) {
-  await page.goto("/login");
-  await page.locator('input[autocomplete="username"]').fill(account.email);
-  await page.locator('input[autocomplete="current-password"]').fill(account.password);
-  const response = page.waitForResponse(reply => reply.url().endsWith("/api/auth/login"));
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  let user;
-  try {
-    const reply = await response;
-    expect(reply.status()).toBe(200);
-    user = (await reply.json()).data.user;
-    await expect(page.locator("main.content-scroll")).toBeVisible();
-  } finally {
-    const input = page.locator('input[autocomplete="current-password"]');
-    if (await input.count()) await input.fill("");
-  }
-  return user;
+// Signs in as the test restaurant's `role` and returns the user the API
+// answered with: shortcuts are kept per user (quickAccessKey).
+async function signInAs(page, role) {
+  const [reply] = await Promise.all([
+    page.waitForResponse(response => response.url().endsWith("/api/auth/login") && response.request().method() === "POST"),
+    signIn(page, role),
+  ]);
+  expect(reply.status()).toBe(200);
+  await expect(page.locator("main.content-scroll")).toBeVisible();
+  return (await reply.json()).data.user;
 }
 
 const quickLinks = page => page.getByRole("navigation", { name: "Quick access", exact: true }).getByRole("link");
 const pathsOf = page => quickLinks(page).evaluateAll(links => links.map(link => link.getAttribute("href")));
 const customize = page => page.getByRole("button", { name: "Customize quick access", exact: true });
 
-test.beforeEach(() => test.skip(!owner, "Set E2E_CREDENTIALS_FILE to the local demo accounts file."));
-
 test("choose five shortcuts, reorder, cancel, reload, and keep them above the scrolling menu", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await signIn(page, owner);
+  await signInAs(page, "RESTAURANT_ADMIN");
   await customize(page).click();
   const dialog = page.getByRole("dialog", { name: "Customize quick access" });
   for (const name of ["POS", "Orders", "Bills & payments", "Reservations", "Reports"]) {
@@ -75,13 +61,12 @@ test("choose five shortcuts, reorder, cancel, reload, and keep them above the sc
 });
 
 test("shortcuts stay separate for staff and cannot expose disallowed pages", async ({ page }) => {
-  test.skip(!kitchen, "This check also needs the demo kitchen account.");
-  const ownerUser = await signIn(page, owner);
+  const ownerUser = await signInAs(page, "RESTAURANT_ADMIN");
   await customize(page).click();
   await page.getByRole("checkbox", { name: "Reports", exact: true }).check();
   await page.getByRole("button", { name: "Save shortcuts" }).click();
   await page.evaluate(() => localStorage.removeItem("rmp_token"));
-  const kitchenUser = await signIn(page, kitchen);
+  const kitchenUser = await signInAs(page, "KITCHEN");
   await expect(page.locator(".quick-access-empty")).toBeVisible();
   await customize(page).click();
   const dialog = page.getByRole("dialog", { name: "Customize quick access" });
@@ -96,7 +81,7 @@ test("shortcuts stay separate for staff and cannot expose disallowed pages", asy
   await expect(quickLinks(page)).toHaveCount(1);
   expect(await pathsOf(page)).toEqual(["/kitchen"]);
   await page.evaluate(() => localStorage.removeItem("rmp_token"));
-  await signIn(page, owner);
+  await signInAs(page, "RESTAURANT_ADMIN");
   expect(await pathsOf(page)).toEqual(["/reports"]);
   expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).paths, quickAccessKey(ownerUser))).toEqual(["/reports"]);
 });
@@ -104,7 +89,7 @@ test("shortcuts stay separate for staff and cannot expose disallowed pages", asy
 test("mobile setup, keyboard focus and short-screen navigation remain usable", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ colorScheme: "dark" });
-  await signIn(page, owner);
+  await signInAs(page, "RESTAURANT_ADMIN");
   await page.getByRole("button", { name: "Toggle menu" }).click();
   await customize(page).click();
   const dialog = page.getByRole("dialog", { name: "Customize quick access" });

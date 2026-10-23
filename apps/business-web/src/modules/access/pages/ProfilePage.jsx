@@ -17,7 +17,7 @@ import useAuth from "../../../hooks/useAuth";
 import TwoStepCard from "./TwoStepCard";
 import SignInHistoryGrid from "./SignInHistoryGrid";
 import "../../../styles/access.css";
-import "../../../styles/access-sweep.css";
+import "../../../styles/staff.css";
 
 // Your own account: the things anyone should be able to change without asking
 // a manager — name, mobile, password, personal PIN — and where you are signed
@@ -238,7 +238,7 @@ export default function ProfilePage() {
         </div>
         {/* Someone on the staff list sees their own shifts and payslips. */}
         {user.employeeId && hasFeature("staff_payroll") && (
-          <Link className="button button-secondary asw-mywork-link" to="/my-work">
+          <Link className="button button-secondary staff-mywork-link" to="/my-work">
             <Icon name="calendar" size={16} /> My shifts &amp; payslips
           </Link>
         )}

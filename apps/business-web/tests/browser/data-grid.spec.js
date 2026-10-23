@@ -3,6 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
+import { fixture, signIn } from "../../../../e2e/fixture.mjs";
+
 // The shared DataGrid (components/DataGrid): sorting, search, filters, paging
 // with serial numbers that run on across pages, column hiding and resizing
 // remembered over a reload, CSV export, the phone card layout, and the entry
@@ -13,14 +15,10 @@ import process from "node:process";
 // /src/main.jsx is answered with a small module that mounts DataGrid on 60
 // made-up purchase orders and an entry form. No app route is added for it.
 //
-// The screen checks sign in like screens.spec.js (E2E_CREDENTIALS_FILE). The
-// platform console needs a SUPER_ADMIN account in that file; without one that
-// part is skipped. GRID_SHOTS_DIR, when set, receives screenshots.
+// The screen checks run on the run's test data (e2e/fixture.mjs): the
+// restaurant's admin opens its outlets, the platform admin the platform's
+// restaurants. GRID_SHOTS_DIR, when set, receives screenshots.
 
-const credentialsFile = process.env.E2E_CREDENTIALS_FILE;
-const accounts = credentialsFile ? JSON.parse(fs.readFileSync(credentialsFile, "utf8")).accounts : [];
-const admin = accounts.find((a) => a.role === "RESTAURANT_ADMIN");
-const platformOwner = accounts.find((a) => a.role === "SUPER_ADMIN");
 const shotsDir = process.env.GRID_SHOTS_DIR;
 
 const shot = async (page, name) => {
@@ -566,48 +564,44 @@ test.describe("DataGrid component", () => {
 
 // --- The two converted screens ---------------------------------------------------------
 
-const signIn = async (page, account) => {
-  await page.goto("/login");
-  await page.locator('input[autocomplete="username"]').fill(account.email);
-  await page.locator('input[autocomplete="current-password"]').fill(account.password);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  try {
-    await expect(page.locator("main.content-scroll")).toBeVisible();
-  } finally {
-    const passwordInput = page.locator('input[autocomplete="current-password"]');
-    if (await passwordInput.count()) await passwordInput.fill("");
-  }
-};
-
 test.describe("converted screens", () => {
   test("Outlets: grid, sort, page, export, phone cards", async ({ page }) => {
-    test.skip(!admin, "Set E2E_CREDENTIALS_FILE to the gitignored demo credentials file.");
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     page.on("response", (response) => response.status() >= 500 && errors.push(`${response.status()} ${response.url()}`));
     await page.setViewportSize({ width: 1440, height: 900 });
-    await signIn(page, admin);
+    await signIn(page, "RESTAURANT_ADMIN");
+    await expect(page.locator("main.content-scroll")).toBeVisible();
     await page.goto("/restaurant/outlets");
     const grid = page.locator(".dg").first();
-    // Five hundred outlets on the test database: give the first load time.
+    // The screen is compiled on its first visit of a run: give the first load time.
     await expect(rowsOf(grid).first()).toBeVisible({ timeout: 20_000 });
     await expect(grid.locator("thead th").first()).toHaveText("S.No.");
     await expect(grid.getByRole("button", { name: "Name" })).toBeVisible();
 
-    const count = await rowsOf(grid).count();
-    expect(count).toBeGreaterThan(0);
-    expect((await serials(grid))[0]).toBe("1");
+    // The test restaurant's outlets, numbered from 1.
+    const outlets = fixture().restaurant.outlets.map((outlet) => outlet.name);
+    await expect(rowsOf(grid)).toHaveCount(outlets.length);
+    expect(await serials(grid)).toEqual(outlets.map((_, i) => String(i + 1)));
 
-    // Sort by name: the header says so; the numbers still start at 1.
+    // Sort by name: the header says so and the rows follow, A to Z and then
+    // Z to A (the list arrives in name order, so only the second proves the
+    // rows move); the numbers still start at 1.
     const nameHeader = grid.locator("thead th", { hasText: "Name" });
+    const names = grid.locator(`${ROW} > td[data-col="name"] strong`);
+    const aToZ = [...outlets].sort((a, b) => a.localeCompare(b, "en-IN", { numeric: true }));
     await nameHeader.getByRole("button").click();
     await expect(nameHeader).toHaveAttribute("aria-sort", "ascending");
+    await expect(names).toHaveText(aToZ);
+    await nameHeader.getByRole("button").click();
+    await expect(nameHeader).toHaveAttribute("aria-sort", "descending");
+    await expect(names).toHaveText([...aToZ].reverse());
     expect((await serials(grid))[0]).toBe("1");
 
-    if (await grid.getByRole("button", { name: "Next page" }).count()) {
-      await grid.getByRole("button", { name: "Next page" }).click();
-      expect((await serials(grid))[0]).toBe("26");
-    }
+    // They all fit on one page: the pager says how many and offers no page
+    // buttons (paging itself is checked on the scratch page and the platform's list).
+    await expect(grid.locator(".dg-pager-range")).toHaveText(`Showing all ${outlets.length}`);
+    await expect(grid.getByRole("button", { name: "Next page" })).toHaveCount(0);
 
     const [download] = await Promise.all([page.waitForEvent("download"), grid.getByRole("button", { name: "Export CSV" }).click()]);
     const csv = readCsv(await download.path());
@@ -629,12 +623,12 @@ test.describe("converted screens", () => {
   });
 
   test("Platform restaurants: server paging numbers on from 26", async ({ page }) => {
-    test.skip(!platformOwner, "Needs a SUPER_ADMIN account in E2E_CREDENTIALS_FILE.");
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     page.on("response", (response) => response.status() >= 500 && errors.push(`${response.status()} ${response.url()}`));
     await page.setViewportSize({ width: 1440, height: 900 });
-    await signIn(page, platformOwner);
+    await signIn(page, "SUPER_ADMIN");
+    await expect(page.locator("main.content-scroll")).toBeVisible();
     await page.goto("/platform/restaurants");
     const grid = page.locator(".dg").first();
     await expect(rowsOf(grid).first()).toBeVisible({ timeout: 20_000 });
@@ -642,16 +636,18 @@ test.describe("converted screens", () => {
     await expect(grid.locator(".dg-sort")).toHaveCount(0);
     expect((await serials(grid))[0]).toBe("1");
 
+    // Every restaurant the test data put on the platform (50): two pages of 25.
+    const { restaurants } = fixture().platform;
     const [request] = await Promise.all([
       page.waitForRequest((req) => req.url().includes("/users/platform/restaurants") && req.url().includes("offset=25")),
       grid.getByRole("button", { name: "Next page" }).click(),
     ]);
     expect(new URL(request.url()).searchParams.get("limit")).toBe("25");
-    await expect(grid.locator(".dg-pager-range")).toContainText("26–50");
+    await expect(grid.locator(".dg-pager-range")).toHaveText(`26–50 of ${restaurants}`);
     await expect.poll(async () => (await serials(grid))[0]).toBe("26");
 
     await grid.getByRole("combobox", { name: "Rows per page" }).selectOption("50");
-    await expect(grid.locator(".dg-pager-range")).toContainText("1–50");
+    await expect(grid.locator(".dg-pager-range")).toHaveText(`1–50 of ${restaurants}`);
     await expect(rowsOf(grid)).toHaveCount(50);
 
     // Remembered: after a reload the very first request already asks for 50.
@@ -662,9 +658,12 @@ test.describe("converted screens", () => {
     expect(new URL(first.url()).searchParams.get("limit")).toBe("50");
     await expect(rowsOf(grid)).toHaveCount(50, { timeout: 20_000 });
 
-    // Search is answered by the API and goes back to the first page.
-    await grid.getByRole("searchbox").fill("FoodEx");
-    await expect(rowsOf(grid).first()).toContainText("FoodEx");
+    // Search is answered by the API and goes back to the first page: of all
+    // of them, only the test restaurant has its name.
+    const { name } = fixture().restaurant;
+    await grid.getByRole("searchbox").fill(name);
+    await expect(rowsOf(grid)).toHaveCount(1);
+    await expect(rowsOf(grid).first()).toContainText(name);
     expect((await serials(grid))[0]).toBe("1");
     expect(errors).toEqual([]);
   });

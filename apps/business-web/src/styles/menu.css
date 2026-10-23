@@ -189,7 +189,7 @@
    instead, with the form sliding under it; a dialog that fits is unchanged.
    The offset is the backdrop's own 24px padding: sticking there left a strip
    of the form showing below the bar. */
-/* Now shared: every dialog keeps its title bar fixed, scrolls its body and
+/* Shared: every dialog keeps its title bar fixed, scrolls its body and
    sticks the form's buttons to the bottom (@bmp/ui's base.css .modal). */
 
 /* --- List cards: filters on top, the table edge to edge --------------------------- */

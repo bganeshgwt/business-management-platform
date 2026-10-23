@@ -52,11 +52,11 @@ export default function LogbookFollowUps({ limit = 4, handover, onOpen }) {
         </Link>
       }
     >
-      <ul className="asw-followups">
+      <ul className="staff-followups">
         {data.openFollowUps.slice(0, limit).map((entry) => (
           <li key={entry.id}>
             <CategoryChip category={entry.category} />
-            <span className="asw-followup-text">{entry.body}</span>
+            <span className="staff-followup-text">{entry.body}</span>
             <span className="muted small">{entry.createdByName}</span>
           </li>
         ))}

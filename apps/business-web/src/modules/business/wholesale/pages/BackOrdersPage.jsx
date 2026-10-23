@@ -13,9 +13,9 @@ import { OrderBadge, Segmented } from "./shared";
 import { inPacks } from "./tradeFormat";
 
 // Everything ordered and not yet sent, oldest order first, with what is in
-// stock now at the dispatching godown. Pro pass D-04 / D-20: lines that can
-// go now are marked and open straight into their dispatch; the odd remainder
-// of one line can be dropped; "By item" totals what is short to buy.
+// stock now at the dispatching godown. Lines that can go now are marked and
+// open straight into their dispatch; the odd remainder of one line can be
+// dropped; "By item" totals what is short to buy.
 const VIEWS = [{ value: "lines", label: "By order line" }, { value: "items", label: "By item" }];
 
 export default function BackOrdersPage() {

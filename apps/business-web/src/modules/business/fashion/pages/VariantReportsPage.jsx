@@ -17,10 +17,9 @@ import { qty } from "./feFormat";
 import { MarkdownDialog } from "./fashionParts";
 
 // Variant reports: what sold (less what came back) by size × colour in the
-// period, what is on the shelf now and how much sold through. Pro pass
-// (E-09): by style with its size curve and stock age, and the broken size
-// runs (a middle size sold out while others are left), each with Reorder
-// and Mark down.
+// period, what is on the shelf now and how much sold through. Also by style
+// with its size curve and stock age, and the broken size runs (a middle size
+// sold out while others are left), each with Reorder and Mark down.
 const VIEWS = [
   { value: "style", label: "By style" },
   { value: "broken", label: "Broken sizes" },

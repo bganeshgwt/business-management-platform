@@ -89,7 +89,7 @@ export default function OutletsPage() {
   // Removing an outlet: { outlet, usage } once what is recorded there is known.
   const [removing, setRemoving] = useState(null);
 
-  // The invoice series each till actually prints (REQ-OUTLET-SERIES): an
+  // The invoice series each till actually prints: an
   // outlet without a prefix of its own prints one worked out from its code.
   const [series, setSeries] = useState([]);
   // From the settings' series list, or (without the settings permission)

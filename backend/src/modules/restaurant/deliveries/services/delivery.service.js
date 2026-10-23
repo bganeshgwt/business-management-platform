@@ -12,19 +12,6 @@ const ruleSettings = require("../../setup/services/ruleSettings.service");
 
 const DUPLICATE = "23505";
 
-// The timings below are the restaurant's own (Settings -> Alerts and
-// timings, read per call through ruleSettings); these are what it starts at.
-//
-// Door to door: from the moment the order is placed to the moment it is in the
-// guest's hands. 45 minutes is what the aggregators hold a restaurant to.
-const SLA_MINUTES = ruleSettings.DEFAULTS.deliverySlaMinutes;
-// Amber from here: still on time, but only if it leaves now.
-const WARN_MINUTES = ruleSettings.DEFAULTS.deliveryWarnMinutes;
-// Packed food waiting this long for a rider is going cold.
-const READY_WAIT_MINUTES = ruleSettings.DEFAULTS.deliveryReadyWaitMinutes;
-// A single run should never take longer than this; past it, call the rider.
-const OUT_WARN_MINUTES = ruleSettings.DEFAULTS.deliveryOutWarnMinutes;
-const OUT_CRITICAL_MINUTES = ruleSettings.DEFAULTS.deliveryOutCriticalMinutes;
 // One rider, one bag: more than this in one run is a mistake, not a plan.
 const MAX_RUN = 12;
 
@@ -220,8 +207,8 @@ const buildRiders = (riderRows, orders, isToday, now) =>
       cashToCollect: round2(
         out.reduce((sum, order) => sum + (order.paymentState === "paid" ? 0 : order.dueAmount), 0)
       ),
-      // Back from the door, not yet paid in: what "Settle cash" takes
-      // (SW-A-19). Earlier days' are in the settle dialog too.
+      // Back from the door, not yet paid in: what "Settle cash" takes.
+      // Earlier days' are in the settle dialog too.
       deliveredUnpaid: handIn.length,
       cashToHandIn: round2(handIn.reduce((sum, order) => sum + order.dueAmount, 0)),
     };
@@ -391,6 +378,11 @@ const board = async (restaurantId, { outletId, withMoney = false, revealContacts
     timezone: locale.timezone,
     currency: locale.currency,
     serverTime: now.toISOString(),
+    // The restaurant's own timings (Settings -> Alerts and timings). The
+    // promise is door to door, from the order placed to the guest's hands
+    // (45 minutes is what the aggregators hold a restaurant to). Amber: still
+    // on time, but only if it leaves now. Packed food waiting longer for a
+    // rider is going cold. A run out past the warning: call the rider.
     slaMinutes: rules.deliverySlaMinutes,
     warnMinutes: rules.deliveryWarnMinutes,
     readyWaitMinutes: rules.deliveryReadyWaitMinutes,
@@ -936,7 +928,7 @@ const updateDetails = async (restaurantId, orderId, data, userId) => {
         }
       }
 
-      // A saved address picked at the till (SW-A-18): its full text goes on
+      // A saved address picked at the till: its full text goes on
       // the delivery. It must be this order's guest's own.
       let savedAddress = null;
 
@@ -1369,11 +1361,6 @@ const report = async (restaurantId, { from, to, outletId = null }) => {
 };
 
 module.exports = {
-  SLA_MINUTES,
-  WARN_MINUTES,
-  READY_WAIT_MINUTES,
-  OUT_WARN_MINUTES,
-  OUT_CRITICAL_MINUTES,
   board,
   summary,
   getOne,

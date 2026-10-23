@@ -168,7 +168,7 @@ export default function BillModal({
     getHeldAdvances(guestId, bill.orderId)
       .then((rows) => {
         setAdvances(rows);
-        // A pickup order paid ahead (round 2): its advance is the payment to take first.
+        // A pickup order paid ahead: its advance is the payment to take first.
         const ahead = rows.find((row) => bill.orderId && Number(row.orderId) === Number(bill.orderId));
         if (ahead && n(bill.dueAmount) > 0) {
           setPayment((current) => ({

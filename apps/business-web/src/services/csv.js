@@ -18,7 +18,7 @@ const safeCell = (cell) => {
 
 // Wraps every cell in quotes and doubles any quote inside, which is the one
 // escaping rule Excel and Google Sheets both follow.
-export const toCsv = (rows) =>
+const toCsv = (rows) =>
   rows
     .map((row) => row.map((cell) => `"${safeCell(cell).replace(/"/g, '""')}"`).join(","))
     .join("\n");
@@ -88,27 +88,4 @@ export const parseCsv = (text) => {
   }
 
   return rows.filter((line) => line.some((value) => String(value).trim() !== ""));
-};
-
-// Turns a parsed sheet into objects keyed by its header row. Header matching
-// ignores case and spaces, so "Food Type", "foodtype" and "food type" all work.
-export const rowsToObjects = (rows, columns) => {
-  if (rows.length < 2) {
-    return [];
-  }
-
-  const normalise = (value) => String(value).trim().toLowerCase().replace(/[\s_]/g, "");
-  const header = rows[0].map(normalise);
-  const index = new Map(columns.map((column) => [column, header.indexOf(normalise(column))]));
-
-  return rows.slice(1).map((line) => {
-    const object = {};
-
-    columns.forEach((column) => {
-      const at = index.get(column);
-      object[column] = at >= 0 ? line[at] : "";
-    });
-
-    return object;
-  });
 };

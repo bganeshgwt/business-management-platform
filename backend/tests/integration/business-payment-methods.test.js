@@ -4,9 +4,10 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+const { createBusinesses } = require('./helpers/businesses');
 
 // Payment methods the owner manages (Settings › Payment methods): the five
-// defaults seeded for every business, the owner's own (PhonePe, Sodexo) each
+// defaults every business starts with, the owner's own (PhonePe, Sodexo) each
 // of a fixed kind, renaming and switching off, a bill paid by a named method
 // recording its kind and name, another business's method or a switched-off
 // one refused, older screens sending the kind alone still working, and the
@@ -29,7 +30,6 @@ test('payment methods: defaults, owner-managed names, kind + name on payments, d
   process.env.DB_NAME = database;
   process.env.NODE_ENV = 'test';
   process.env.JWT_SECRET = crypto.randomBytes(48).toString('hex');
-  process.env.MULTI_BUSINESS_DEVELOPMENT = 'true';
   process.env.LOGIN_ATTEMPT_LIMIT = '5000';
   const { runner } = await import('node-pg-migrate');
   await runner({ databaseUrl: { ...connection, database }, dir: path.resolve(__dirname, '../../migrations'), migrationsTable: 'pgmigrations', direction: 'up', count: Infinity, checkOrder: true, log() {} });
@@ -61,9 +61,7 @@ test('payment methods: defaults, owner-managed names, kind + name on payments, d
   const request = as(await login('methods-owner@test.invalid'));
   const key = () => crypto.randomUUID();
 
-  const demos = (await request('POST', '/businesses/development-demos', {}, 201)).businesses;
-  const shop = demos.find((b) => b.business_type === 'supermarket');
-  const other = demos.find((b) => b.business_type === 'pharmacy');
+  const [shop, other] = await createBusinesses(request, 'OWNER', ['supermarket', 'pharmacy']);
   const S = (suffix) => `/businesses/${shop.id}/${suffix}`;
   const O = (suffix) => `/businesses/${other.id}/${suffix}`;
   const main = (await request('GET', S('locations'))).items[0];
@@ -72,9 +70,9 @@ test('payment methods: defaults, owner-managed names, kind + name on payments, d
     const methods = await request('GET', S('payment-methods'));
     assert.deepEqual(methods.map((m) => [m.name, m.kind]), [['Cash', 'cash'], ['UPI', 'upi'], ['Card', 'card'], ['Bank transfer', 'bank'], ['Cheque', 'cheque']]);
     assert.equal((await request('GET', O('payment-methods'))).length, 5);
-    // A restaurant keeps its own payment types.
-    const kitchen = demos.find((b) => b.business_type === 'restaurant');
-    if (kitchen) assert.equal((await one('SELECT count(*)::int AS n FROM business_payment_methods WHERE business_id=$1', [kitchen.id])).n, 0);
+    // A restaurant keeps its own payment types: the owner's, linked as a business, gets none of these.
+    const kitchen = (await request('POST', '/businesses/link-restaurant', {})).businesses.find((b) => b.business_type === 'restaurant');
+    assert.equal((await one('SELECT count(*)::int AS n FROM business_payment_methods WHERE business_id=$1', [kitchen.id])).n, 0);
   });
 
   let phonepe, sodexo;

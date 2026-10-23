@@ -501,8 +501,8 @@ const updateItems = async (req, res) => {
   // changed. That screen also still holds dishes that were cancelled, as
   // ordinary cart lines, and would put them back on the order and in front
   // of the kitchen. It is asked to reload instead. (Browsers name the page a
-  // save comes from; the seed scripts and other server code do not, and
-  // keep sending whole carts as before.)
+  // save comes from; API clients that are not browsers, tests among them, do
+  // not, and keep sending whole carts as before.)
   //
   // The same goes for a browser changing the note, the guests or the guest
   // without saying what it showed (`seen`): only a POS screen from before

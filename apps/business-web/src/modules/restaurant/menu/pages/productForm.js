@@ -14,7 +14,7 @@
 // base. Pressing Save again then sends only the manager's own changes, on
 // purpose, and still cannot undo anybody else's.
 
-export const FIELDS = [
+const FIELDS = [
   "categoryId",
   "name",
   "code",
@@ -85,7 +85,7 @@ export const formToPayload = (form) => ({
   soldBy: form.soldBy || "unit",
 });
 
-export const productToPayload = (product) => ({
+const productToPayload = (product) => ({
   categoryId: product.categoryId,
   name: product.name,
   code: product.code || null,
@@ -103,7 +103,7 @@ export const productToPayload = (product) => ({
 });
 
 // Which fields the manager changed: the form against its base.
-export const changedFields = (form, base) => {
+const changedFields = (form, base) => {
   const typed = formToPayload(form);
   const was = productToPayload(base);
 

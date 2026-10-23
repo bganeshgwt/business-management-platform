@@ -9,7 +9,7 @@ import DataGrid from "../../../../components/DataGrid/DataGrid";
 import { count, moneyExact } from "@bmp/shared/format";
 import FoodCostStrip from "./FoodCostStrip";
 
-// Dish profitability (SW-B-15): what each dish and size sold before GST, what
+// Dish profitability: what each dish and size sold before GST, what
 // its ingredients cost (the stock its bills really took, at that day's cost),
 // the food cost % and what is left. Nothing of it goes on the dashboard.
 export default function ProfitabilityReport({ data, currency }) {

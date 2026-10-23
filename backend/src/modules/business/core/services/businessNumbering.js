@@ -9,15 +9,15 @@ const AppError = require('../../../../utils/AppError');
 // handed to the next one, so the only gaps are numbers never issued.
 
 const SHORT = { sale: 'SI', purchase: 'PR', sales_return: 'CN', purchase_return: 'DN', stock_transfer: 'ST', stock_count: 'SC',
-  // Phase 2 (migration 1791410000000): wholesale sales orders, collection receipts.
+  // Wholesale sales orders, collection receipts.
   sales_order: 'SO', collection: 'RC',
-  // Phase 2, T3 (migration 1791420000001): electronics repair job cards.
+  // Electronics repair job cards.
   repair_job: 'RJ',
-  // Phase 2, T4 (migration 1791430000001): meat / weight shops' cutting batches.
+  // Meat / weight shops' cutting batches.
   processing: 'CP',
-  // Pro pass (migration 1791540000000): payments made to suppliers.
+  // Payments made to suppliers.
   supplier_payment: 'SP',
-  // Round 2 (R2-WS): wholesale purchase orders to suppliers, delivery challans.
+  // Wholesale purchase orders to suppliers, delivery challans.
   purchase_order: 'PO', delivery_challan: 'DC' };
 const KINDS = Object.keys(SHORT);
 // Kinds printed as GST documents: their numbers must fit in 16 characters.
@@ -86,4 +86,4 @@ async function nextNumber(db, businessId, locationId, kind, userId) {
   return { seriesId: series.id, number: text };
 }
 
-module.exports = { nextNumber, highestUsed, fiscalYear, fiscalLabel, KINDS, SHORT };
+module.exports = { nextNumber, highestUsed, KINDS };

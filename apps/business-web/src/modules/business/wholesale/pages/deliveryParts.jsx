@@ -9,9 +9,9 @@ import { businessToday, newKey, useOpenBusiness } from "../../core/pages/hooks";
 import { inPacks } from "./tradeFormat";
 import { emptyTransport, printChallan, transportBody } from "./deliveryFormat";
 
-// Getting goods to the shop (pro pass D-04, D-05, D-10): transport and
-// e-way bill details, marking a delivery, goods that came back in the van,
-// the load sheet of a run and the invoices printed together.
+// Getting goods to the shop: transport and e-way bill details, marking a
+// delivery, goods that came back in the van, the load sheet of a run and the
+// invoices printed together.
 
 // The transport block shared by a dispatch, a run and a later e-way bill entry.
 export function TransportFields({ form, set, eway = true, compact = false }) {
@@ -47,7 +47,7 @@ export function TransportDialog({ dispatch, onClose, onSaved }) {
   );
 }
 
-// The delivery challan (round 2): check the transporter, vehicle, LR and
+// The delivery challan: check the transporter, vehicle, LR and
 // e-way bill (typed in by hand) for this dispatch, then print the A4
 // challan. Someone who may not change transport prints it as it is.
 export function ChallanDialog({ dispatch, onClose, onSaved }) {

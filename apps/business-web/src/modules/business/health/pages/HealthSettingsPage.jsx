@@ -15,7 +15,8 @@ import "../styles/health.css";
 // Pharmacy settings (drug licences, retention, near-expiry window) or Clinic &
 // lab settings (lab details, consent notice, retention, referral commission),
 // and the people who sign: registered pharmacists, doctors, pathologists.
-// The defaults are the standard practice written in docs/DECISIONS_ROUND2.md.
+// The defaults are the standard practice written in docs/BUSINESS_RULES.md
+// › Pharmacy, clinic and lab.
 const KIND_WORDS = { pharmacist: "Registered pharmacist", doctor: "Doctor", pathologist: "Pathologist" };
 
 export default function HealthSettingsPage() {

@@ -13,7 +13,7 @@ export function CodeInput({ value, onChange, autoFocus = false, id, label = "6-d
   return (
     <input
       id={id}
-      className="asw-code-input"
+      className="staff-code-input"
       type="text"
       inputMode="numeric"
       autoComplete="one-time-code"
@@ -63,15 +63,15 @@ export function ScanPanel({ setup }) {
   };
 
   return (
-    <div className="asw-scan">
-      <div className="asw-scan-qr">
+    <div className="staff-scan">
+      <div className="staff-scan-qr">
         {image ? (
           <img src={image} width={180} height={180} alt="QR code for your authenticator app" />
         ) : (
-          <span className="skeleton asw-scan-skeleton" />
+          <span className="skeleton staff-scan-skeleton" />
         )}
       </div>
-      <ol className="asw-scan-steps">
+      <ol className="staff-scan-steps">
         <li>
           <strong>Open Google Authenticator or Microsoft Authenticator</strong> on your phone (free from the app
           store).
@@ -81,8 +81,8 @@ export function ScanPanel({ setup }) {
         </li>
         <li>
           Can't scan? Choose <strong>enter a setup key</strong> and type:
-          <span className="asw-key-row">
-            <code className="asw-key">{setup.secret}</code>
+          <span className="staff-key-row">
+            <code className="staff-key">{setup.secret}</code>
             <button type="button" className="chip-button" onClick={copyKey}>
               <Icon name={copied ? "check" : "copy"} size={14} /> {copied ? "Copied" : "Copy"}
             </button>
@@ -132,15 +132,15 @@ export function RecoveryCodes({ codes, who }) {
     });
 
   return (
-    <div className="asw-codes">
-      <ol className="asw-codes-grid">
+    <div className="staff-codes">
+      <ol className="staff-codes-grid">
         {codes.map((code) => (
           <li key={code}>
             <code>{code}</code>
           </li>
         ))}
       </ol>
-      <div className="asw-codes-actions">
+      <div className="staff-codes-actions">
         <button type="button" className="button button-secondary button-sm" onClick={copy}>
           <Icon name={copied ? "check" : "copy"} size={15} /> {copied ? "Copied" : "Copy all"}
         </button>

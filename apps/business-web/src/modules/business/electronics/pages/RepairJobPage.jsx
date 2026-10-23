@@ -25,7 +25,7 @@ import { REPAIR_STATES } from "../../fashion/pages/feFormat";
 import { CHECKLIST, JOB_TERMS, MESSAGE_STAGES, logCall, sendWhatsApp, stageFor } from "./repairParts";
 import ManagerApproval from "../../salon/pages/ManagerApproval";
 import { approvalFor, emptyApproval } from "../../salon/pages/approval";
-import { printRefundReceipt } from "../../salon/pages/salonRound2";
+import { printRefundReceipt } from "../../salon/pages/salonBackOffice";
 import useAuth from "../../../../hooks/useAuth";
 
 // One repair job card: the device and the problem, the status as the
@@ -404,7 +404,7 @@ function printJobCard(job, biz) {
   });
 }
 
-// Round 2: the advance handed back (cash, UPI or bank) with a manager's PIN.
+// The advance handed back (cash, UPI or bank) with a manager's PIN.
 function RefundDialog({ job, free, onClose, onSaved }) {
   const biz = useOpenBusiness();
   const { user } = useAuth();

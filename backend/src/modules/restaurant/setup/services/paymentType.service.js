@@ -1,7 +1,7 @@
 const paymentTypeRepository = require("../repositories/paymentType.repository");
 const AppError = require("../../../../utils/AppError");
 
-// Owner-named payment types under a method (sweep SW-B-18). The method still
+// Owner-named payment types under a method. The method still
 // decides where the money is (cash in the drawer, the rest at the bank); the
 // type says exactly what it was — a Pluxee meal card, a cheque — so its
 // settlement can be totalled.

@@ -210,7 +210,7 @@ export default function LeavePanel({ canManage, restaurantName }) {
                 <span className="acc-who-text">
                   <strong>
                     {type.name}
-                    {type.isDefault && <span className="tag asw-default-tag">Default</span>}
+                    {type.isDefault && <span className="tag staff-default-tag">Default</span>}
                   </strong>
                   <span className="muted small">{type.paid ? "Paid leave" : "Unpaid — loss of pay"}</span>
                 </span>
@@ -279,8 +279,8 @@ export default function LeavePanel({ canManage, restaurantName }) {
           title="Leave record"
           description="Each person's leave this month (monthly types) or this year (yearly types): taken out of what was allowed, and what is left. Tap a name for their record."
           actions={
-            <div className="asw-inline-actions">
-              <label className="asw-date-chip">
+            <div className="staff-inline-actions">
+              <label className="staff-date-chip">
                 <span className="sr-only">As on</span>
                 <input type="date" value={date} onChange={(event) => setDate(event.target.value || today())} />
               </label>
@@ -303,7 +303,7 @@ export default function LeavePanel({ canManage, restaurantName }) {
                 pin: true,
                 render: (row) => (
                   <>
-                    <button type="button" className="link-button asw-person-link" onClick={() => setPerson(row)}>
+                    <button type="button" className="link-button staff-person-link" onClick={() => setPerson(row)}>
                       {row.name}
                     </button>
                     {row.designation && <div className="muted small">{row.designation}</div>}
@@ -318,7 +318,7 @@ export default function LeavePanel({ canManage, restaurantName }) {
                   header: (
                     <>
                       {type.name}
-                      <small className="muted asw-leave-head-note">
+                      <small className="muted staff-leave-head-note">
                         {type.paid ? `${days(type.allowanceDays)} ${PERIOD_WORDS[type.allowancePeriod]}` : "unpaid"}
                       </small>
                     </>
@@ -350,8 +350,8 @@ export default function LeavePanel({ canManage, restaurantName }) {
                     const left = Math.max(0, cell.left ?? 0);
 
                     return cell.paid ? (
-                      <span className="asw-balance">
-                        <span className={`asw-balance-left ${left < 1 ? "is-empty" : ""}`}>{days(left)} left</span>
+                      <span className="staff-balance">
+                        <span className={`staff-balance-left ${left < 1 ? "is-empty" : ""}`}>{days(left)} left</span>
                         <span className="muted small">
                           {days(cell.taken)} of {days(cell.available)} taken
                           {cell.unpaid ? ` · ${cell.unpaid} unpaid` : ""}
@@ -484,7 +484,7 @@ export default function LeavePanel({ canManage, restaurantName }) {
       {person && (
         <Modal title={`Leave record — ${person.name}`} description={`As on ${dateWords(register.date)}.`} icon="user" onClose={() => setPerson(null)} width={560}>
           <div className="stack">
-            <ul className="asw-share-rows">
+            <ul className="staff-share-rows">
               {person.types.map((cell) => (
                 <li key={cell.typeId}>
                   <span>
@@ -495,7 +495,7 @@ export default function LeavePanel({ canManage, restaurantName }) {
                         : `${cell.periodLabel}: ${days(cell.taken)} taken, all unpaid`}
                     </small>
                   </span>
-                  <strong className="asw-share-amount">{cell.paid ? `${days(Math.max(0, cell.left))} left` : "—"}</strong>
+                  <strong className="staff-share-amount">{cell.paid ? `${days(Math.max(0, cell.left))} left` : "—"}</strong>
                 </li>
               ))}
             </ul>

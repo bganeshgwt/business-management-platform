@@ -337,14 +337,9 @@ const compute = (settings, person, pay, from, to) => {
 };
 
 module.exports = {
-  PT_PRESETS,
-  DEFAULTS,
   getSettings,
   saveSettings,
   presets,
   compute,
   esiPeriodStart,
-  monthShares,
-  slabAmount,
-  slabsFor,
 };

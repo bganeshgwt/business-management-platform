@@ -174,7 +174,7 @@ const tone = (milliseconds, warnMinutes, lateMinutes) => {
 
 const place = (request) => [request.floorName, request.areaName].filter(Boolean).join(" · ");
 
-// An order from the restaurant's own ordering page (SW-A-22): no table, but
+// An order from the restaurant's own ordering page: no table, but
 // a service, a selling point, maybe an address, and how the guest will pay.
 const isOnline = (request) => request.channel === "website";
 const SERVICE_WORDS = { takeaway: "takeaway", delivery: "delivery" };
@@ -219,7 +219,7 @@ function WaitClock({ since, now, warn, late }) {
   );
 }
 
-// The captain who has the table today (SW-A-20): "Your table", or their name.
+// The captain who has the table today: "Your table", or their name.
 function CaptainTag({ request, myUserId }) {
   if (!request.captain) {
     return null;
@@ -1203,7 +1203,7 @@ export default function TableRequestsPage() {
 
   const serverNow = now + offset;
 
-  // A captain's own tables first (SW-A-20); everyone still sees every request.
+  // A captain's own tables first; everyone still sees every request.
   const myUserId = user ? user.id : null;
   const mineFirst = useCallback(
     (list) =>

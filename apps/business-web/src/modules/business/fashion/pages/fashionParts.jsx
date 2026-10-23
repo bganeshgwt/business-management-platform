@@ -11,7 +11,7 @@ import FormDialog from "../../core/pages/FormDialog";
 import { Field, FormError } from "../../core/pages/ui";
 import { businessToday, useOpenBusiness, useOptions } from "../../core/pages/hooks";
 
-// Pieces shared by the size × colour screens (pro pass E): end-of-season
+// Pieces shared by the size × colour screens: end-of-season
 // markdowns (offers on a whole style, ended by date or by hand) and the
 // apparel GST rule (5 % up to ₹2,500 a piece, 18 % above).
 

@@ -18,7 +18,7 @@ const paymentMethods = require('../../core/services/businessPaymentMethods.servi
 // customer's advance — or, while the customer still has an opening balance
 // that no receipt has covered, money against that opening balance.
 //
-// Cheques (pro pass D-02): a cheque receipt carries its date, bank and status
+// Cheques: a cheque receipt carries its date, bank and status
 // (received → deposited → cleared, or bounced). A bounced cheque no longer
 // counts: the bill settlements it made are taken back (kept on the cheque
 // row and in the activity log), the receipt stops lowering what the customer
@@ -39,14 +39,14 @@ const derivedKey = (base, n) => {
 // A receipt that still counts (not a bounced cheque).
 const liveSql = (k) => `NOT EXISTS (SELECT 1 FROM business_collection_cheques q WHERE q.business_id=${k}.business_id AND q.collection_id=${k}.id AND q.status='bounced')`;
 // What of a receipt is used up: applied to bills, or handed back to the
-// customer (an advance refund, business_collection_refunds, round 2).
+// customer (an advance refund, business_collection_refunds).
 const collectionAllocatedSql = `(COALESCE((SELECT sum(p.amount) FROM business_payments p WHERE p.business_id=k.business_id AND p.collection_id=k.id),0)
   +COALESCE((SELECT sum(f.amount) FROM business_collection_refunds f WHERE f.business_id=k.business_id AND f.collection_id=k.id),0))`;
 
 // --- Lists ---------------------------------------------------------------------
 
 // Each receipt with what went against bills, against the opening balance and
-// what is a true advance (D-01). The opening balance is covered by the
+// what is a true advance. The opening balance is covered by the
 // oldest receipts' unapplied money first, exactly as collecting does it.
 repo.addLists({
   collections: {
@@ -266,7 +266,7 @@ async function freeCredit(db, businessId, contactId) {
   return paise(row.free);
 }
 
-// A cheque's own details (D-02): its date (post-dated up to 180 days ahead,
+// A cheque's own details: its date (post-dated up to 180 days ahead,
 // or up to 90 days old) and the bank it is drawn on.
 function readCheque(body, today) {
   const chequeDate = body.chequeDate === undefined || body.chequeDate === null || body.chequeDate === '' ? today : dateText(body.chequeDate, 'Cheque date');
@@ -379,7 +379,7 @@ async function applyAdvance(business, user, contactId, body) {
 }
 
 // One receipt: what it settled, what went against the opening balance, what
-// is a true advance, its cheque and who collected it (D-01).
+// is a true advance, its cheque and who collected it.
 async function collectionDetail(business, collectionId) {
   await access.require(business, 'receivables.view');
   const collection = await repo.one(repo.pool, `SELECT k.*,l.name AS location_name,u.name AS created_by_name,c.phone AS contact_phone,c.gstin AS contact_gstin,
@@ -414,7 +414,7 @@ async function collectionDetail(business, collectionId) {
 
 // --- Cheques ---------------------------------------------------------------------------
 
-// The bounce rules of a business (round 2, R2-WS): the bank charge put on
+// The bounce rules of a business: the bank charge put on
 // the customer's account (default Rs 500, editable on each bounce) and the
 // credit hold after N bounces in a window (default 2 in 90 days; NULL = never).
 async function bounceRules(db, businessId) {
@@ -494,7 +494,7 @@ async function chequeAction(business, user, collectionId, body) {
   });
 }
 
-// --- Follow-up: reminders and promises (D-14) ----------------------------------------------
+// --- Follow-up: reminders and promises ----------------------------------------------
 
 // The same reminder book the udhaar screen keeps (retail_credit_reminders):
 // a call, a WhatsApp, a visit, with the date they promised to pay.
@@ -576,5 +576,5 @@ async function statement(business, contactId, query) {
 
 module.exports = {
   outstanding, customerAccount, customerOpenBills, createCollection, applyAdvance, collectionDetail, statement, chequeAction, addFollowUp,
-  ageingSql, openItemsSql, liveSql, METHODS, bounceRules, recentBounces,
+  ageingSql, openItemsSql, liveSql, recentBounces,
 };

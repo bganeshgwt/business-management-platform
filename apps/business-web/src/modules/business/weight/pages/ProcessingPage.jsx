@@ -18,7 +18,7 @@ import { kg, percentText, processWords, weightOf, yieldTone } from "./weight";
 // other weight shops): a weighed input becomes what is sold. The input
 // leaves stock and each output enters stock at once; what is left over is
 // process loss. The input's cost is carried by the outputs in proportion to
-// their selling value. Pro pass F-19: the weights start empty (the template's
+// their selling value. The weights start empty (the template's
 // figures are hints), only the template's cuts are offered, and the batch
 // records who cut it and the supplier of the input.
 export default function ProcessingPage() {

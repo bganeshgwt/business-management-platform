@@ -143,7 +143,7 @@ const dashboard = async (
                  AND account_customer_id IS NULL
                  AND ($2::bigint IS NULL OR outlet_id = $2))::int AS unpaid,
               -- Bills put on a guest's or company's account are owed, but on
-              -- purpose: they are counted on their own line (REQ-DASH-DUES).
+              -- purpose: they are counted on their own line.
               (SELECT COUNT(*) FROM bills
                WHERE restaurant_id = $1 AND bill_status IN ('unpaid', 'partial')
                  AND account_customer_id IS NOT NULL
