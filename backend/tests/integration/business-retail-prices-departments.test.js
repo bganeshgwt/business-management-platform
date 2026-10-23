@@ -20,7 +20,7 @@ test('retail: prices by branch and member, coupons, shifts, departments, reorder
     finally{await admin.end();}
   });
   await admin.query(`CREATE DATABASE "${database}"`);created=true;
-  process.env.DB_NAME=database;process.env.NODE_ENV='test';
+  process.env.DB_NAME=database;process.env.NODE_ENV='test';process.env.JWT_SECRET=crypto.randomBytes(48).toString('hex');
   const {runner}=await import('node-pg-migrate');
   await runner({databaseUrl:{...connection,database},dir:path.resolve(__dirname,'../../migrations'),migrationsTable:'pgmigrations',direction:'up',count:Infinity,checkOrder:true,log(){}});
   pool=require('../../src/config/database');
