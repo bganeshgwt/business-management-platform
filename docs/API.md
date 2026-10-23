@@ -1,27 +1,22 @@
 # API reference
 
-Updated 22 October 2026, generated from the routers themselves: every route
-mounted by `backend/src/app.js` and `backend/src/routes/index.js` (including
-the routers each of those mounts) is listed below — **1,138 endpoints**,
-counting each of the tasks module's 58 routes under both of its prefixes
-(`/api/tasks` and `/api/businesses/:businessId/tasks`); each of those is
-listed once. The list was produced by loading the routers without starting
-the server and walking their stacks; each group was then described from its
-controller, service, validator and repository.
+For developers of the staff app, the guests' site and future apps, and for integrators: every endpoint of the API, and the conventions every caller follows.
 
-Base URL (development): `http://localhost:5010/api` (the `PORT` in
-`backend/.env`). Static uploads (product photos) are served read-only at
-`http://localhost:5010/uploads/...`.
+The list comes from the routers themselves. Every route mounted by `backend/src/app.js` and `backend/src/routes/index.js` (including the routers each of those mounts) is listed below: the routers are loaded without starting the server and their stacks walked, and each group is described from its controller, service, validator and repository. The tasks module's routes exist under two prefixes (`/api/tasks` and `/api/businesses/:businessId/tasks`) and are listed once.
+
+Base URL (development): `http://localhost:5010/api` (the `PORT` in `backend/.env`). Uploaded pictures (menu and product photos, in the folder `UPLOADS_DIR` names, `backend/uploads` when it is not set) are served read-only at `http://localhost:5010/uploads/...`.
+
+The tables behind these endpoints are in [DATABASE.md](DATABASE.md), and how a request flows through the code is in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Contents
 
 1. [Conventions](#conventions)
 2. [Platform, access and settings](#platform-access-and-settings)
-3. [Menu, Tables and Kitchen](#menu-tables-and-kitchen)
+3. [Menu](#menu)
 4. [Tables](#tables)
 5. [Kitchen](#kitchen)
 6. [Front of house: orders, table requests, reservations, deliveries and guest pages](#front-of-house-orders-table-requests-reservations-deliveries-and-guest-pages)
-7. [Suppliers, stock, purchasing and expenses](#suppliers-stock-purchasing-and-expenses)
+7. [Back-office rules: stock, purchasing and expenses](#back-office-rules-stock-purchasing-and-expenses)
 8. [Suppliers](#suppliers)
 9. [Inventory](#inventory)
 10. [Inventory insights (waste and reorder)](#inventory-insights-waste-and-reorder)
@@ -38,8 +33,10 @@ Base URL (development): `http://localhost:5010/api` (the `PORT` in
 21. [Shared receivables and Wholesale](#shared-receivables-and-wholesale)
 22. [Retail (counter, udhaar, offers, loyalty, books)](#retail-counter-udhaar-offers-loyalty-books)
 23. [Fashion, electronics, salon and weight-based shops](#fashion-electronics-salon-and-weight-based-shops)
-24. [Pharmacy, clinic & lab (round 2)](#pharmacy-clinic--lab-round-2)
+24. [Pharmacy, clinic & lab](#pharmacy-clinic--lab)
 25. [Tasks, issues & projects](#tasks-issues--projects)
+
+Sections 2 to 19 are the restaurant module's API, with the sign-in and platform routes every app uses. Sections 20 to 24 are the Business Admin's, under `/api/businesses`. Section 25 serves both.
 
 ## Conventions
 
@@ -126,15 +123,14 @@ online ordering) answer 403 with a sentence for the guest and the same `data`.
 | `tasks`, `issues`, `projects` | `/api/tasks/*`: the issue routes need `issues`, the project routes `projects`, the rest `tasks` (see [Tasks, issues & projects](#tasks-issues--projects)) |
 
 The notification bell does not ask a switched-off feature's providers
-(`feature` on a provider, see `src/notifications/README.md`).
+(`feature` on a provider; see [backend/src/notifications/README.md](../backend/src/notifications/README.md)).
 
 ### Permissions and manager approval
 
 Each endpoint below names its **permission** (a code such as `orders.create`).
-"`a` + `b`" means both are needed, "`a` or `b`" means either. Restaurant
-permissions are listed in [ADMIN_GUIDE.md](ADMIN_GUIDE.md#roles-and-permissions);
-there are 89 restaurant codes and 135 Business Admin codes (see
-[DATABASE.md](DATABASE.md)).
+"`a` + `b`" means both are needed, "`a` or `b`" means either. The codes are
+listed in [DATABASE.md › Restaurant permission codes](DATABASE.md#restaurant-permission-codes)
+and [DATABASE.md › Business permission codes](DATABASE.md#business-permission-codes).
 
 Endpoints marked "**or manager approval**" let a person without the
 permission go ahead once, when a manager approves at their side:
@@ -165,28 +161,17 @@ are at most 731 days; with no dates a report reads the current trading day.
 
 ### Business Admin conventions
 
-All Business Admin routes live under `/api/businesses/:businessId/...`.
+All Business Admin routes live under `/api/businesses/:businessId/...`; only the three directory routes sit under `/api/businesses` itself. These rules hold for every one of them:
 
-- The caller's **membership** is loaded first: not a member (or a demo
-  business while development switching is off) answers **404**.
-- Then the **module** and the **permission**: a permission `x.y` needs the
-  module `x` switched on for that business (settings, access, reports and
-  audit are always on); either missing answers **403** with a sentence naming
-  it. Services repeat the check, so it holds whichever way they are called.
-- Every `POST`, `PATCH` and `PUT` must send a JSON object body, even one that
-  reads nothing (send `{}`), or it answers 400 `A JSON object is required`.
-- **Paged lists** take `limit` (1–100, default 25), `offset` (default 0),
-  `q` (search, up to 100 characters), `from` / `to` (`YYYY-MM-DD`, applied
-  only to lists with a date column, read in the business's time zone) and the
-  list's own filters, and answer `data: { total, items }`.
-- Postings that create money or stock take a `requestKey` (a UUID chosen by
-  the screen); sending the same key again returns the first result instead of
-  posting twice.
-- Database rules are translated: a duplicate (23505) answers **409** "This
-  code, name, number or request already exists in this business"; a reference
-  to another business's record (23503) answers **400**; a rule raised by a
-  trigger (23514 without a constraint name) answers **409** with the trigger's
-  own sentence; a failed CHECK answers **400**.
+- **Membership.** Every `/:businessId/...` route first loads the caller's active membership of an active business. No membership, or an unknown ID, answers **404** "Business not found": a business you are not a member of looks exactly like one that does not exist.
+- **Module and permission.** A permission `x.y` needs the module `x` switched on for that business and held by the caller's role. The core modules `settings`, `access`, `reports` and `audit` are always on. A module that is off answers **403** "<Module> is not switched on for this business..."; a role without the permission answers **403** "Your role (<role>) does not allow this: ...". For example `receivables.*` needs Collections & outstanding (`receivables`), `sales_orders.*` needs Sales orders & dispatch, `wholesale.*` needs Wholesale price lists, `offers.*` and `loyalty.*` need Offers and Loyalty, and `repairs.*` needs Repairs & service. The module codes are listed in [DATABASE.md › Platform module codes](DATABASE.md#platform-module-codes). "Any member" below means membership alone. "`a` or `b`" means either permission passes the route; the service then checks the exact one the record needs (for example `sales.*` for a sale and `purchasing.*` for a purchase). Services repeat every check, so a rule holds whichever way a service is called.
+- **JSON body on writes.** Every `POST`, `PATCH` and `PUT` sends a JSON object body, even one that reads nothing (send `{}`); otherwise it answers 400 "A JSON object is required".
+- **Paged lists** take `limit` (1-100, default 25), `offset` (0-10,000,000), `q` (search, up to 100 characters), `from` / `to` (`YYYY-MM-DD`, read in the business's time zone and applied only to lists with a date column) and the list's own filters (each an exact match on the column's text value). They answer `data: { total, items }`. Paging values out of range answer 400 "Invalid pagination", and a `to` before `from` answers 400 "The end date is before the start date".
+- **Request keys.** Postings that create money or stock take a `requestKey`: a UUID (versions 1-5) chosen by the screen; anything else answers 400 "A valid request key is required". Sending the same key with the same body returns the first result instead of posting twice. The same key with a different body answers **409** "This request key was already used for ...".
+- **Database rules** come back as answers: a duplicate (23505) answers **409** "This code, name, number or request already exists in this business"; a reference to another business's record (23503) answers **400** "A related record is not available in this business"; a rule raised by a trigger (23514 without a constraint name) answers **409** with the trigger's own sentence; any other failed CHECK answers **400**.
+- **Locations.** A person's access can be tied to one location (`workLocationId` on `POST …/members`; an owner never is). They then work there only: a location they name in the query (`location`, `locationId`) or the body (`locationId`, `fromLocationId`) must be theirs, a request that names none is answered for theirs (a write with no `locationId` gets theirs), and another location's records answer 403 "You work at <location> only. Ask a manager who works across every location." Anyone else may pick a branch in the top bar (`X-Business-Location`), which only fills in the location a request leaves out. The overview, reports and lists follow the location in effect, and so do the summary's sales, stock, appointment and today figures. The branch comparison (`reports/locations`) is narrowed only for a person tied to a location. Customers' and suppliers' balances stay business-wide.
+- **Departments.** A person can also be tied to one department (`workDepartmentId` on `POST …/members`). They then see and change that department's products and stock only (an item is in its category's department); billing stays open to every item.
+- **Payment methods.** Where a body says how money moved with `method` (`cash`, `upi`, `card`, `bank`, `cheque`), it may name one of the business's own payment methods with `methodId` instead (`GET …/payment-methods`). A financier's payout (`POST …/finance/settlements`), a stylist's tip on a salon bill and a commission payout (`POST …/salon/commission-payouts`) take `method` only. The method's kind counts the money (day close, drawer, cheque register) and its name is recorded with the payment (`method_name`). With both, `method` must be the method's kind (400). A switched-off method answers 409, an unknown one 404, and a kind the step does not take 400 (a refund never goes out by cheque).
 
 ---
 
@@ -371,7 +356,7 @@ Returns: `{ unlocked: true }` (the session is unchanged; the screen just reopens
 Errors: 400 `wrong_pin` / `wrong_password` `{ attemptsLeft }`; 409 `no_pin`; 423 `pin_locked` / `account_locked`; 429.
 
 ### Auth: manager approvals
-How a person without a permission gets one action approved at the till by a manager's PIN. The returned `approvalToken` is sent as `X-Approval-Token` on the protected request (see the intro). Never approvable: `platform.restaurants.manage`, `users.manage`, `roles.manage`. `scope` ties the approval to facts (allowed keys: `billId, orderId, orderItemId, businessDayId, customerId, productId, inventoryItemId, purchaseOrderId, stockCountId, paymentId, advanceId, amount, quantity, points, pointsOff, percent, closingCash, carryUnpaid, fromMethod, toMethod`; see services/approval.service.js). For `bills.discount`, managers whose role discount cap is below `scope.percent` are not offered.
+How a person without a permission gets one action approved at the till by a manager's PIN. The returned `approvalToken` is sent as `X-Approval-Token` on the protected request (see the intro). Never approvable: `platform.restaurants.manage`, `users.manage`, `roles.manage`. `scope` ties the approval to facts (allowed keys: `billId, orderId, orderItemId, businessDayId, customerId, productId, inventoryItemId, purchaseOrderId, stockCountId, paymentId, advanceId, amount, quantity, points, pointsOff, percent, closingCash, carryUnpaid, fromMethod, toMethod, cashMove` (a cash entry's direction, so a PIN given for money in cannot take money out); see services/approval.service.js). For `bills.discount`, managers whose role discount cap is below `scope.percent` are not offered.
 
 #### `GET /api/auth/approvers`
 Permission: login only
@@ -501,7 +486,7 @@ Returns: `{ items[], total (first page only, else null), nextCursor (null on the
 Errors: 400 `too_many_rows` `{ total, max }` (more than 200,000 matches, first page); 400 unreadable cursor; 400 date errors.
 
 ### Users: platform console
-Mounted at `/api/users/platform` (modules/platform/routes/platform.routes.js, after `authenticate`). Permission `platform.restaurants.manage` (Super Admin only; no restaurant can grant it), and the caller must not belong to a restaurant (403 "The platform console is for the platform's own accounts"). Restaurant actions are written to the target restaurant's activity log under "<name> (platform)"; business actions go to that business's audit (`business_audit`).
+Mounted at `/api/users/platform` (modules/platform/routes/platform.routes.js, after `authenticate`). Permission `platform.restaurants.manage` (Super Admin only; no restaurant can grant it), and the caller must not belong to a restaurant (403 "The platform console is for the platform's own accounts"). Restaurant actions are written to the target restaurant's activity log under "<name> (platform)"; business actions go to that business's audit (`business_audit`). The first Super Admin login is made on the server with `npm --prefix backend run user:create`, leaving the restaurant code empty (see [README.md](../README.md)).
 
 #### `GET /api/users/platform/restaurants`
 Permission: `platform.restaurants.manage`
@@ -536,20 +521,20 @@ Errors: 403; 404 restaurant not found; 404 not an admin of that restaurant.
 #### `GET /api/users/platform/businesses`
 Permission: `platform.restaurants.manage`
 Query/Body: `q` (<=100; name, code, city or GSTIN), `type` (a business type code), `status` (`active | inactive`)
-Returns: `{ items: [{ id, name, code, business_type, type_name, status, currency, timezone, created_at, gstin, city, locations, people, owners: [{ id, name, email }] }], types: [{ code, name }] }`: every business that is not a demo, newest first, at most 500.
+Returns: `{ items: [{ id, name, code, business_type, type_name, status, currency, timezone, created_at, gstin, city, locations, people, owners: [{ id, name, email }] }], types: [{ code, name }] }`: every business, newest first, at most 500.
 Errors: 403 restaurant user.
 
 #### `POST /api/users/platform/businesses`
 Permission: `platform.restaurants.manage`
-Query/Body: `businessType` (required; any type but `restaurant`, which is set up from `POST /api/users/platform/restaurants`), `name` (required, <=150), `code` (required, 2-40 letters, digits and dashes, spaces become dashes, stored upper case, not starting `DEMO-`), `legalName`, `gstin` (validated), `stateCode` (2 digits; defaults to the GSTIN's and must match it), `addressLine1`, `addressLine2`, `city`, `postalCode` (6 digits), `phone`, `email`, `currency` (ISO code, default `INR`), `timezone` (default `Asia/Kolkata`), `locationName` (default "Main store"), `locationCode` (default `MAIN`), `owner: { email (required), name, password (8-72), mobile? }`. An email that already has an active login makes that person the owner; otherwise `name` and `password` are required and a new login is made.
+Query/Body: `businessType` (required; any type but `restaurant`, which is set up from `POST /api/users/platform/restaurants`), `name` (required, <=150), `code` (required, 2-40 letters, digits and dashes, spaces become dashes, stored upper case), `legalName`, `gstin` (validated), `stateCode` (2 digits; defaults to the GSTIN's and must match it), `addressLine1`, `addressLine2`, `city`, `postalCode` (6 digits), `phone`, `email`, `currency` (ISO code, default `INR`), `timezone` (default `Asia/Kolkata`), `locationName` (default "Main store"), `locationCode` (default `MAIN`), `owner: { email (required), name, password (8-72), mobile? }`. An email that already has an active login makes that person the owner; otherwise `name` and `password` are required and a new login is made.
 Returns: 201, `{ business, owner: { id, name, created } }`. One transaction: the business with its roles, settings, GST slabs, units, default modules and payment methods, its first location, and the owner's membership.
 Errors: 400 validation (unknown type, a restaurant, code, GSTIN, state code, PIN code, currency, time zone); 403 restaurant user; 409 the business code is taken; 409 the owner's login is not active; 409 the mobile already has a login.
 
 #### `PUT /api/users/platform/businesses/:id/status`
 Permission: `platform.restaurants.manage`
 Query/Body: `status` (`active | inactive`, required)
-Returns: `{ id, name, status }`. A switched-off business no longer appears in its members' business lists and its routes answer 404.
-Errors: 403; 404 business not found (or a demo).
+Returns: `{ id, name, status }`. A switched-off business drops out of its members' business lists, and its routes answer 404.
+Errors: 403; 404 business not found.
 
 #### `POST /api/users/platform/businesses/:id/owner-password`
 Permission: `platform.restaurants.manage`
@@ -625,7 +610,7 @@ Errors: none specific.
 
 #### `PUT /api/restaurants/current/settings`
 Permission: `restaurant.settings.manage`
-Query/Body: required: `currencyCode` (<=3), `currencySymbol` (<=5), `timezone` (IANA place name the DB knows), `taxMode` (`inclusive | exclusive`), `defaultTaxPercentage` (0-100), `serviceChargePercentage` (0-100), `orderPrefix` (<=10), `invoicePrefix` (<=10, `A-Z0-9` then `A-Z0-9/-`). Optional: `serviceChargeOrderTypes` (subset of `dine_in, takeaway, delivery, qr, online`; omitted keeps current), `gstNumber`, `fssaiNumber`, `gstSplit`, `billFooter`, `autoConsumeStock`, loyalty rules (`loyaltyEarnAmount`, `loyaltyPointValue`, `loyaltyMinRedeem`; `loyaltyEnabled`, when sent and different, switches the Loyalty points feature under its rules: owner only, Guests on, logged — the Settings screen no longer sends it), `printPaperWidth` (`58mm | 80mm | a4`), `printCopies` (1-5), `autoPrintBill`, `billHeader`, `printShowQr`, `receiptLogoPath`, `documentType` (`auto | tax_invoice | bill_of_supply`), `compositionPercentage`, `compositionNote`, `upiVpa` (`name@bank`), `upiPayeeName`, `invoiceNumbering` (`continuous | financial_year`); the last three keep their value when omitted. `rules` (object, optional): only the rules sent change, each checked against its range (whole numbers for minutes, days and counts; `reservationSlotMinutes` one of 10, 15, 20, 30, 45, 60; `cashDenominations` 1-15 notes of whole rupees up to 100000); names it does not know are ignored. See controllers/restaurant.controller.js.
+Query/Body: required: `currencyCode` (<=3), `currencySymbol` (<=5), `timezone` (IANA place name the DB knows), `taxMode` (`inclusive | exclusive`), `defaultTaxPercentage` (0-100), `serviceChargePercentage` (0-100), `orderPrefix` (<=10), `invoicePrefix` (<=10, `A-Z0-9` then `A-Z0-9/-`). Optional: `serviceChargeOrderTypes` (subset of `dine_in, takeaway, delivery, qr, online`; omitted keeps current), `gstNumber`, `fssaiNumber`, `gstSplit`, `billFooter`, `autoConsumeStock`, loyalty rules (`loyaltyEarnAmount`, `loyaltyPointValue`, `loyaltyMinRedeem`; `loyaltyEnabled`, when sent and different, switches the Loyalty points feature under its rules: owner only, Guests on, logged; the Settings screen does not send it), `printPaperWidth` (`58mm | 80mm | a4`), `printCopies` (1-5), `autoPrintBill`, `billHeader`, `printShowQr`, `receiptLogoPath`, `documentType` (`auto | tax_invoice | bill_of_supply`), `compositionPercentage`, `compositionNote`, `upiVpa` (`name@bank`), `upiPayeeName`, `invoiceNumbering` (`continuous | financial_year`); the last three keep their value when omitted. `rules` (object, optional): only the rules sent change, each checked against its range (whole numbers for minutes, days and counts; `reservationSlotMinutes` one of 10, 15, 20, 30, 45, 60; `cashDenominations` 1-15 notes of whole rupees up to 100000); names it does not know are ignored. See controllers/restaurant.controller.js.
 Returns: the settings, same shape as GET.
 Errors: 400 validation; 400 invalid invoice prefix; 400 bad UPI ID; 400 timezone is an offset (`UTC+05:30`), an `Etc/` zone, or unknown (with "Did you mean ...?"); 400 `financial_year` numbering with a main or outlet prefix longer than 4 characters; 400 a rule out of its range; 400 rules that do not fit together (the warning discount below the large-discount line, the delivery amber mark not before the promise, an out-for-delivery critical mark not after its warning). The rules are checked, with the saved ones filling in what was not sent, before anything is written.
 
@@ -715,7 +700,7 @@ Errors: none specific.
 #### `POST /api/notifications/read`
 Permission: login only
 Query/Body: `ids` (string[], required, 1-500)
-Returns: `{ ids (marked), skipped (no longer live), read: true }`.
+Returns: `{ ids (marked), skipped (alerts that have cleared), read: true }`.
 Errors: 400 empty / too many / malformed id; 400 none of the ids are in your notifications.
 
 #### `POST /api/notifications/unread`
@@ -753,7 +738,7 @@ Errors: 400 `soldOut` not boolean; 400 size not of that dish; 404 dish not on th
 
 ---
 
-## Menu, Tables and Kitchen
+## Menu
 
 ### Categories
 Mounted at `/api/menu`; every route needs login, and data is scoped to the caller's restaurant (400 "This account is not linked to a restaurant" when the user has none). Edits are written to the activity log with before/after values.
@@ -823,7 +808,7 @@ Errors: 404 product not found.
 
 #### `POST /api/menu/products`
 Permission: `menu.manage`
-Query/Body: `categoryId` (required), `name` (required, <=150), `price` (required, 0-9999999), `code` (<=30), `description` (<=500), `taxRateId` (int or `null` = No tax), `taxPercentage` (0-100, legacy), `taxMode` (`default` | `inclusive` | `exclusive`), `mrp`, `foodType` (`veg` | `non_veg` | `egg`, default `veg`), `isAvailable` (default true), `sortOrder`, `status`, `kitchenName` (<=150), `soldBy` (`unit` default | `weight`: the price is per kg and an order line's quantity is its weight in kg, 0.25 = 250 g)
+Query/Body: `categoryId` (required), `name` (required, <=150), `price` (required, 0-9999999), `code` (<=30), `description` (<=500), `taxRateId` (int or `null` = No tax), `taxPercentage` (0-100; a bare rate, used only when no `taxRateId` is sent), `taxMode` (`default` | `inclusive` | `exclusive`), `mrp`, `foodType` (`veg` | `non_veg` | `egg`, default `veg`), `isAvailable` (default true), `sortOrder`, `status`, `kitchenName` (<=150), `soldBy` (`unit` default | `weight`: the price is per kg and an order line's quantity is its weight in kg, 0.25 = 250 g)
 Returns: `data` = the product; status 201. With no tax field sent the restaurant's default tax rate is applied.
 Errors: 400 category does not exist; 400 tax rate missing or switched off; 400 no tax given and no default rate set; 409 name or code already exists.
 
@@ -870,7 +855,7 @@ Returns: no `data` (message "Product deleted").
 Errors: 404 not found; 409 `{ reason: "in_combo", combos[] }` part of a combo; 409 `{ reason: "has_sales", timesSold, canArchive: true }` already sold (archive instead); 409 `{ reason: "in_use", canArchive: true }` referenced elsewhere.
 
 ### Product images
-Multipart upload held in memory, bytes sniffed before saving under `uploads/products`; one image per dish (the old file is deleted).
+Multipart upload held in memory, bytes sniffed before saving under `products/` in the public upload folder (`UPLOADS_DIR`, `backend/uploads` when it is not set); one image per dish (the old file is deleted).
 
 #### `POST /api/menu/products/:id/image`
 Permission: `menu.manage`
@@ -1534,7 +1519,7 @@ Errors: 400 a line is listed twice, more is moved than the line holds, or no dis
 Permission: `orders.create` (plus `orders.cancel_after_kot` or approval when food the kitchen has is taken off; see above)
 Body: `items[]` (required). An existing line is `{ id, quantity (0-9999; 0 takes it off), seenQuantity }`. A new dish uses the same fields as in create. Also: `changesOnly` (true: only the lines named change), `notes`, `guestCount`, `customerId`, `customerName`, `customerMobile` (change the order's header), `seen` (what the screen showed: `{ notes?, guestCount?, customerId?, customerName?, customerMobile? }`), `cancelReason` (reason code), `cancelNote` (200), `tableId` (must be the order's own table).
 Returns: `data` = the order plus `changes.cancelled[]`, `guestAdded` and `guestNotice`.
-Errors: 409 `outdated_screen` (a browser sent a whole cart, or changed the header without `seen`); 409 `use_move_table` (`tableId` is a different table); 409 `order_changed` or `stale_order` (another device changed the order); 409 the order is billed or closed; 400 a line is listed twice; 400 `brand_menu` (a dish added to a brand's order is not on that brand's menu; a brand switched off since still takes additions to its open orders); plus the pricing errors from create and the cancellation errors above.
+Errors: 409 `outdated_screen` (a browser sent a whole cart, or changed the header without `seen`); 409 `use_move_table` (`tableId` is a different table); 409 `order_changed` or `stale_order` (another device changed the order); 409 the order is billed or closed; 400 a line is listed twice; 400 `brand_menu` (a dish added to a brand's order is not on that brand's menu; a brand switched off after an order opened still takes additions to that order); plus the pricing errors from create and the cancellation errors above.
 
 #### `POST /api/orders/:id/courses/:courseNo/fire`
 Permission: `orders.create`
@@ -1689,7 +1674,7 @@ Errors: 400 no reason; 404 pre-order not found; 409 already collected or cancell
 Permission: `orders.create`
 Body: none.
 Returns: 201, `data` = `{ preorder, orderId, orderNumber }`. A takeaway order (source `pos`) opens on today's business day at the request's outlet (else the pre-order's), with the pre-order's items and messages and the note "Pre-order PRE-…"; the advance is tied to it. The order is then billed as usual. Collecting again returns the pre-order and its order id.
-Errors: 404 pre-order not found; 409 cancelled; plus the errors of `POST /api/orders` (no business day open, a dish no longer on the menu or sold out, takeaway not taken by the POS).
+Errors: 404 pre-order not found; 409 cancelled; plus the errors of `POST /api/orders` (no business day open, a dish taken off the menu or sold out, takeaway not taken by the POS).
 
 ### Table requests (QR orders, calls and online orders, staff side)
 
@@ -1919,7 +1904,7 @@ Errors: 404 rider not found.
 Permission: `orders.manage` and `payments.manage`
 Body: `bills[]` (required, 1-200, each `{ billId, method (cash, upi), upiRef? (60) }`, each bill once), `cashHanded` (required, 0-10000000), `shortfallReason` (200; required when the cash is short).
 Returns: 201, `data` = `{ id, outletId, businessDate, riderId, riderName, billCount, cashExpected, cashHanded, upiAmount, shortfall, shortfallAction (none, owed), shortfallReason, settledAt, settledByName, bills[] }`. Every bill is paid in one transaction, into the cashier's drawer for the open day. A shortfall is recorded as owed by the rider.
-Errors: 400 the cash counted is more than the cash bills come to; 400 the cash is short and no reason was given; 409 a bill is no longer waiting, or was settled at another till; 409 no business day is open; 404 rider not found.
+Errors: 400 the cash counted is more than the cash bills come to; 400 the cash is short and no reason was given; 409 a bill is not waiting for this rider (paid at another till meanwhile), or the bills were settled at another till; 409 no business day is open; 404 rider not found.
 
 #### `POST /api/deliveries/riders/:riderId/settle-write-off`
 Permission: `orders.manage` and `payments.manage`, and `deliveries.write_off_shortfall` or manager approval (the scope is `{ amount }`, the shortfall worked out from the bills before any PIN is asked for)
@@ -2104,7 +2089,7 @@ Errors: 404 order not found; 409 already cancelled, or the restaurant has alread
 
 ---
 
-## Suppliers, stock, purchasing and expenses
+## Back-office rules: stock, purchasing and expenses
 
 ### Approvals in this section (what a manager's token is tied to)
 
@@ -2140,12 +2125,12 @@ Returns: `data` = `{ maxRows: 2000, columns[{ key, label, need, help, example }]
 Permission: `suppliers.manage`
 Query/Body: `rows` (array of `{ heading: cell }`, required, 1 to 2000), `dryRun` (boolean, default false), `fileName` (string ≤200), `fingerprint` (string ≤100, from the dry run's answer)
 Returns: `data` = `{ ok, problems[], rows[], created, updated, unchanged, columns, fingerprint, createdSuppliers? }`. A dry run answers 200 even when there are problems (`ok: false`). Rows are matched to existing suppliers and either created or updated.
-Errors: 400 no rows, over 2000 rows, or a row is not an object; 400 `success:false` with `data` on a real import whose file has problems (nothing written); 409 `data.reason: "stale_preview"` when `fingerprint` no longer matches.
+Errors: 400 no rows, over 2000 rows, or a row is not an object; 400 `success:false` with `data` on a real import whose file has problems (nothing written); 409 `data.reason: "stale_preview"` when `fingerprint` does not match (the data changed after the dry run).
 
 #### `GET /api/suppliers`
-Permission: `suppliers.view`
+Permission: any of `suppliers.view`, `purchasing.view`, `purchasing.manage`, `purchasing.receive`
 Query/Body: none
-Returns: `data` = array of `{ id, name, code, contactPerson, mobile, email, address, gstNumber, paymentTerms, creditDays, status, orderCount, billCount, lastBillDate }`.
+Returns: `data` = array of `{ id, name, code, contactPerson, mobile, email, address, gstNumber, paymentTerms, creditDays, status, orderCount, billCount, lastBillDate }`. Without `suppliers.view` each row is the short form the order and bill forms pick from, `{ id, name, code, gstNumber, creditDays, status, lite: true }`: no contacts, terms or bill history.
 
 #### `POST /api/suppliers`
 Permission: `suppliers.manage`
@@ -2313,7 +2298,7 @@ Errors: 400 unknown item or outlet; 400 the destination outlet is inactive; 400 
 Permission: `inventory.manage`, plus `inventory.approve_writeoff` or manager approval when over the write-off limit
 Query/Body: `inventoryItemId` (required), `quantity` (0.001 to 9,999,999, required), `transactionType` (`adjustment` default | `wastage` | `consumption` | `transfer`), `wasteReason` (only with `wastage`: `spoiled`, `expired`, `overcooked`, `dropped`, `returned`, `over_prepped`, `remade`, `quality`, `unsold`, `other`), `batchId` (only with `wastage`), `reason` (≤150), `notes` (≤500), `outletId`
 Returns: `data` = the updated item; 201. The movement is stored with a negative quantity. It is valued at the item's average cost, or its last cost if there is no average.
-Errors: 400 more than the store holds ("Only X kg … is in stock at …"); 400 `wasteReason` without `wastage`, or `other` with no text; 400 `batchId` on a type other than wastage; 409 the batch no longer has enough stock; 403 approval_required with scope `{ inventoryItemId, quantity, amount }`.
+Errors: 400 more than the store holds ("Only X kg … is in stock at …"); 400 `wasteReason` without `wastage`, or `other` with no text; 400 `batchId` on a type other than wastage; 409 the batch does not have enough stock left; 403 approval_required with scope `{ inventoryItemId, quantity, amount }`.
 
 #### `POST /api/inventory/movements/transfer`
 Permission: `inventory.manage`
@@ -2451,7 +2436,7 @@ Errors: 404 not found or another store's sheet for a pinned user.
 Permission: `inventory.count`
 Query/Body: `lines[{ id (line id), countedQuantity (≥0 or null), reason (variance code), note ≤200 }]` (required), `countedAt`, `notes`
 Returns: `data` = the sheet.
-Errors: 400 a line that is not on this sheet; 404; 409 the sheet is no longer `draft`.
+Errors: 400 a line that is not on this sheet; 404; 409 the sheet is not `draft`.
 
 #### `POST /api/inventory/counts/:id/post`
 Permission: `inventory.manage`, plus `inventory.approve_writeoff` or manager approval when the shortage value is over the write-off limit
@@ -2540,7 +2525,7 @@ Errors: 404 (also another store's entry for a pinned user); 409 already undone; 
 Permission: `audit.view`
 Query/Body: `from`, `to` (YYYY-MM-DD; default last 7 days)
 Returns: `data` = `{ from, to, store, summary{ wastage{ entries, value }, dishes{ entries, value }, largeWriteoffs{ count, value }, purchaseApprovals{ asked, approved, sentBack } }, byPerson[], largeWriteoffs[{ kind, what, quantity, value, limit, loggedBy, approvedBy, at }], purchaseApprovals[{ orderId, poNumber, outcome, total, limit, by, approvedBy, at }] }`. This is the stock side of theft control.
-Errors: 400 dates not like 2026-10-02, or the start after the end.
+Errors: 400 dates not in the form `YYYY-MM-DD`, or the start after the end.
 
 #### `GET /api/inventory-insights/reorder`
 Permission: `inventory.view`
@@ -2685,8 +2670,10 @@ Mounted at `/api/purchase-returns`, with `resolveOutlet`. A return (debit note) 
 
 Lists here have two modes. With none of `from`, `to`, `limit` or `offset`, they return a plain array (up to 200). With any of them, they return `{ items, total, limit (≤500, default 25), offset }`.
 
+The money pages (`payments`, `outstanding`, `statement`) are for whoever pays suppliers or reads the reports: they need `purchasing.view` and either `purchasing.pay` or `reports.view`, so a store keeper who orders and receives does not see them.
+
 #### `GET /api/purchase-returns/payments`
-Permission: `purchasing.view`
+Permission: `purchasing.view` and (`purchasing.pay` or `reports.view`)
 Query/Body: `supplierId`, `status` (`posted`|`void`), and optionally `from`, `to`, `limit`, `offset`
 Returns: `data` = payments, or a page of them. Each payment has `{ id, supplierId, supplierName, purchaseOrderId, poNumber, goodsReceiptId, receiptNumber, billNumber, paymentDate, amount, paymentMethod, referenceNo, notes, status, paidFromTill, businessDate, tillOutletId, tillName, … }`.
 
@@ -2709,12 +2696,12 @@ Returns: `data` = the payment, now `void`.
 Errors: 400 missing reason; 404; 409 already voided.
 
 #### `GET /api/purchase-returns/outstanding`
-Permission: `purchasing.view`
+Permission: `purchasing.view` and (`purchasing.pay` or `reports.view`)
 Query/Body: none
 Returns: `data` = `{ today, tillToday, buckets[{ key, label }], suppliers[{ supplierId, supplierName, creditDays, purchased, returned, paid, outstanding, owed, advance, overdue, openBills, nextDueDate, mostDaysLate, ageing{ notDue, days1to30, days31to60, days61to90, days90plus } }], totals{ purchased, returned, paid, outstanding, advance, net, overdue, ageing } }`. A supplier's advance is never netted against another supplier's balance.
 
 #### `GET /api/purchase-returns/statement`
-Permission: `purchasing.view`
+Permission: `purchasing.view` and (`purchasing.pay` or `reports.view`)
 Query/Body: `supplierId` (required), `from` (default the 1st of `to`'s month), `to` (default today)
 Returns: `data` = `{ supplier{ id, name, gstNumber, … }, from, to, today, openingBalance, entries[{ date, type (bill|return|payment), number, reference, dueDate, amount, status, balance, … }], totals{ billed, settled }, closingBalance, openBills[], ageing, advance, buckets }`.
 Errors: 400 `from` after `to`; 404 supplier.
@@ -2955,7 +2942,7 @@ Range `from`/`to` (YYYY-MM-DD) default to the last 30 days of the restaurant's c
 Permission: `customers.view` and `reports.view`
 Query: `from`, `to`, `limit` (<=100, default 25), `offset`, `all`
 Returns: `data` = `{ from, to, currency, loyaltyEnabled, pointValue, earnAmount, owed { points, value, guests }, period { earned, redeemed, redeemedValue, returned, manual, opening, expired, net, ... }, byDay[], holders { items[], total, limit, offset } }`.
-Errors: 400 bad dates / from after to / range over 400 days; 403 `all` without `customers.export`.
+Errors: 400 bad dates / from after to / range over 400 days; 403 `all` without `customers.export`; 403 `feature_off` while Loyalty points (`guest_loyalty`) is switched off.
 
 #### `GET /api/crm/reports/customer-sales`
 Permission: `customers.view` and `sales.view`
@@ -3401,7 +3388,7 @@ Errors: 404 employee not found.
 ## Reports
 
 ### Outlet selection, dates and caching
-Mounted at `/api/reports`; every route runs `reportOutlet` (backend/src/middlewares/reportOutlet.js). The outlet is `?outletId=` or the `X-Outlet-Id` header (the query wins when both are sent); none means the whole restaurant. Unlike `resolveOutlet`, a closed outlet can be read. A user pinned to an outlet always reads that outlet. Outlet errors: 400 "That outlet id is not valid" (not 1-16 digits); 403 pinned user asking for another outlet; 403 pinned outlet no longer exists; 403 outlet not in your restaurant.
+Mounted at `/api/reports`; every route runs `reportOutlet` (backend/src/middlewares/reportOutlet.js). The outlet is `?outletId=` or the `X-Outlet-Id` header (the query wins when both are sent); none means the whole restaurant. Unlike `resolveOutlet`, a closed outlet can be read. A user pinned to an outlet always reads that outlet. Outlet errors: 400 "That outlet id is not valid" (not 1-16 digits); 403 pinned user asking for another outlet; 403 the pinned outlet does not exist; 403 outlet not in your restaurant.
 Range reports take `from` / `to` (real calendar dates); both left out means the current trading (business) day; `to` before `from` is 400; more than 731 days is 400. Range answers start with `{ from, to, outletId, outletName, outletClosed, timezone }` followed by the report's own fields.
 The dashboard and dashboard/live answers are cached in process memory for 15 seconds (utils/dashboardCache.js). Any successful POST/PUT/PATCH/DELETE for the restaurant clears its cache at once.
 
@@ -3616,7 +3603,7 @@ Errors: 409 voided; 409 bill settled; 400 not on anyone's account (when taking o
 Permission: `payments.manage` and (`bills.refund` or manager approval)
 Query/Body: `amount` (required), `reason` (required, ≤200), `refundMethod` (optional when the bill was paid one way; `advance` puts it back on the advance it was paid from), `paymentTypeId` (needs `refundMethod`), `reversePoints` (default true), `items` (`[{ orderItemId, quantity }]` for dishes returned; the amount must equal their value)
 Returns: status 201, `data` = the bill. On a settled bill a GST credit note is issued (`kind: "credit_note"`; message "Refund recorded · credit note CN-…") and the bill stays paid. On an unsettled bill the payment is handed back (`payment_reversal`) and the amount is owed again.
-Errors: 409 voided; 409 nothing paid that could be given back; 400 "Only N can be refunded"; 400 more than one method used, so name one; 400 dish returns only on a settled bill, dish not on the bill, too many returned, amount differs from the dishes' value, bill older than dish returns; 400 nothing paid from an advance or more than the advance part; 400 `credit_limit` (handing back on an account bill); 409 no business day open; 409 changed at another till.
+Errors: 409 voided; 409 nothing paid that could be given back; 400 "Only N can be refunded"; 400 more than one method used, so name one; 400 dish returns only on a settled bill, dish not on the bill, too many returned, amount differs from the dishes' value, a bill line with no taxable value stored (refund an amount instead); 400 nothing paid from an advance or more than the advance part; 400 `credit_limit` (handing back on an account bill); 409 no business day open; 409 changed at another till.
 
 #### `PATCH /api/bills/:id/void`
 Permission: `billing.manage` and (`bills.void` or manager approval, always)
@@ -3691,12 +3678,12 @@ Errors: 404 guest not found; 400 owes nothing (on those bills); 400 "owes ₹N. 
 
 ### Advances and deposits
 
-Mounted at `/api/bills/advances`. An advance is money held for a guest, not a sale. It becomes a sale on the bill it is used on (payment method `advance`). Status is `held`, `part_used` or `closed`.
+Mounted at `/api/bills/advances` (feature `advances`). An advance is money held for a guest, not a sale. It becomes a sale on the bill it is used on (payment method `advance`). Status is `held`, `part_used` or `closed`. An advance can be taken for a booking (`reservationId`) or for an open pickup order (`orderId`).
 
 #### `GET /api/bills/advances`
 Permission: `sales.view`
 Query/Body: `status` (`held` | `all`; default `held`, or `all` when dates are given), `customerId`, `search` (≤60), `from`, `to`, `page`, `pageSize` (25/50/100, default 25)
-Returns: `data` = `{ items[advance], total, page, pageSize, totals{ amount, used, refunded, held } }`. An advance is `{ id, receiptNumber, customerId, customerName, customerMobile, amount, usedAmount, refundedAmount, heldAmount, status, paymentMethod, paymentTypeName, transactionRef, purpose, reservationId, outletName, businessDate, receivedAt, createdByName }`.
+Returns: `data` = `{ items[advance], total, page, pageSize, totals{ amount, used, refunded, held } }`. An advance is `{ id, receiptNumber, customerId, customerName, customerMobile, amount, usedAmount, refundedAmount, heldAmount, status, paymentMethod, paymentTypeName, transactionRef, purpose, reservationId, orderId, orderNumber, outletName, businessDate, receivedAt, createdByName }`.
 Errors: 400 end date before start date.
 
 #### `GET /api/bills/advances/gst`
@@ -3706,8 +3693,13 @@ Returns: `data` = `{ from, to, rate, receivedCount, received, usedSamePeriod, ta
 
 #### `GET /api/bills/advances/held/:customerId`
 Permission: `payments.manage`
-Query/Body: none
+Query/Body: `orderId` (optional: that order's advance is listed first)
 Returns: `data` = the guest's advances that still hold money (array of advances), used for "Pay from advance".
+
+#### `GET /api/bills/advances/order/:orderId`
+Permission: `payments.manage`
+Query/Body: none
+Returns: `data` = the advances taken on that order (array of advances), shown on the order screen.
 
 #### `GET /api/bills/advances/:id`
 Permission: `payments.manage`
@@ -3717,9 +3709,9 @@ Errors: 404 not found or another outlet's.
 
 #### `POST /api/bills/advances`
 Permission: `payments.manage`
-Query/Body: `customerId` (required), `amount` (required, 1 to 9,999,999), `paymentMethod` (required, the six methods), `paymentTypeId`, `transactionRef`, `purpose` (≤200), `reservationId`
+Query/Body: `customerId` (required), `amount` (required, 1 to 9,999,999), `paymentMethod` (required, the six methods), `paymentTypeId`, `transactionRef`, `purpose` (≤200), and one of `reservationId` or `orderId`. `orderId` names an open takeaway of this restaurant that has no bill yet; the advance's guest must be the order's, and an order without a guest takes this one. Its purpose defaults to "Pickup order <number>".
 Returns: status 201, `data` = the advance with its receipt number. It goes into the open day of the till taking it.
-Errors: 404 guest not found; 400 guest record erased; 409 no business day open; 400 payment-type errors.
+Errors: 400 both `reservationId` and `orderId`; 404 guest or order not found; 400 guest record erased; 409 the order is not a takeaway, is already billed, or is not open; 409 the order is another guest's; 409 no business day open; 400 payment-type errors.
 
 #### `POST /api/bills/advances/:id/refunds`
 Permission: `payments.manage` and (`advances.refund` or manager approval `{ advanceId, amount }`)
@@ -3861,7 +3853,7 @@ Errors: 409 `no_day`; 404 drawer not found; 409 drawer closed; 400 `more_than_dr
 Permission: `business_day.manage` and (`cash.movements` or manager approval `{ businessDayId, amount }` of the entry)
 Query/Body: `reason` (required, ≤300)
 Returns: `data` = the cancelled entry (`cancelledAt`, `cancelledByName`, `cancelReason`). A petty-cash entry's expense is rejected.
-Errors: 404 not found or another till's; 409 already cancelled; 409 day closed; 409 `drawer_counted` (the drawer was closed after the entry); 400 `more_than_drawer` (taking back a cash-in the drawer no longer holds).
+Errors: 404 not found or another till's; 409 already cancelled; 409 day closed; 409 `drawer_counted` (the drawer was closed after the entry); 400 `more_than_drawer` (taking back a cash-in the drawer does not hold).
 
 ---
 
@@ -3937,26 +3929,16 @@ Errors: 404 not found; 409 the type has been used N times (switch it off instead
 
 ## Business Admin (multi-business platform)
 
-All routes are mounted at `/api/businesses` (`backend/src/modules/business/core/routes/business.routes.js`, with the trade, retail, fashion and electronics, salon and weight, health and counter route files added to the same router). Every route requires login. Rules that apply to the whole group:
+All routes are mounted at `/api/businesses` (`backend/src/modules/business/core/routes/business.routes.js`, with the trade, retail, fashion and electronics, salon and weight, health and counter route files added to the same router) and follow the [Business Admin conventions](#business-admin-conventions).
 
-- **JSON body required on writes.** Every `POST`, `PATCH` and `PUT` here must send a JSON object body, even when the route reads nothing from it (send `{}`); otherwise 400 "A JSON object is required".
-- **Membership.** Every `/:businessId/...` route first loads the caller's active membership of an active business. No membership, an unknown ID, or a demo business while development switching is off all give 404 "Business not found".
-- **Module + permission.** A permission code `module.action` needs its module switched on for the business (403 "<Module> is not switched on for this business...") and held by the caller's role (403 "Your role (<role>) does not allow this: ..."). The core modules `settings`, `access`, `reports` and `audit` are always on. Examples: `receivables.*` needs Collections & outstanding (`receivables`), `sales_orders.*` needs Sales orders & dispatch, `wholesale.*` needs Wholesale price lists, `offers.*` / `loyalty.*` need Offers / Loyalty. "any member" means membership only. "`a` or `b`" means either permission passes the route check; the service then checks the exact one the record needs (for example `sales.*` for a sale and `purchasing.*` for a purchase).
-- **Request keys.** Money and stock postings take `requestKey` (UUID v1-5). Repeating the same key with the same body returns the first result. The same key with a different body returns 409.
-- **Paged lists** return `data = { total, items[] }`. They take `limit` (1-100, default 25), `offset` (0-10,000,000), `q` (search, up to 100 chars), `from`/`to` (`YYYY-MM-DD`, only applied when the list has a date column; 400 when `to` < `from`) and the per-list filters named below (exact match on the column's text value). 400 "Invalid pagination" when the paging values are out of range.
-- **DB errors**: unique violation 409 "This code, name, number or request already exists in this business"; foreign-key 400 "A related record is not available in this business"; trigger rule 409 with the trigger's sentence; other check constraint 400.
-- **Locations.** A person's access can be tied to one location (`workLocationId` on `POST /members`; an owner never is). They then work there only: a location they name in the query (`location`, `locationId`) or the body (`locationId`, `fromLocationId`) must be theirs, a request that names none is answered for theirs (a write with no `locationId` gets theirs), and another location's records answer 403 "You work at <location> only. Ask a manager who works across every location." Anyone else may pick a branch in the top bar (`X-Business-Location`), which only fills in the location a request leaves out. The overview, reports and lists follow the location in effect, and so do the summary's sales, stock, appointment and today figures. The branch comparison (`reports/locations`) is narrowed only for a person tied to a location. Customers' and suppliers' balances stay business-wide.
-- **Departments.** A person can also be tied to one department (`workDepartmentId` on `POST /members`). They then see and change that department's products and stock only (an item is in its category's department); billing stays open to every item.
-- **Payment methods.** Where a body says how money moved with `method` (`cash`, `upi`, `card`, `bank`, `cheque`), it may name one of the business's own payment methods with `methodId` instead (`GET /payment-methods`). A financier's payout (`POST …/finance/settlements`), a stylist's tip on a salon bill and a commission payout (`POST …/salon/commission-payouts`) take `method` only. The method's kind counts the money (day close, drawer, cheque register) and its name is recorded with the payment (`method_name`). With both, `method` must be the method's kind (400). A switched-off method answers 409, an unknown one 404, and a kind the step does not take 400 (a refund never goes out by cheque).
+### Directory
 
-### Directory and development demos
-
-These four routes have no `:businessId`, so they skip the membership check.
+These three routes have no `:businessId`, so they skip the membership check.
 
 #### `GET /api/businesses`
 Permission: login only
 Query/Body: none
-Returns: `data = { developmentSwitching, types: { code: { name } }, modules[{ code, name, kind }], businesses[] }`. Each business is `{ id, name, code, business_type, type_name, restaurant_format, legacy_restaurant_id, is_demo, status, currency, timezone, role_id, role_name, full_access, last_opened_at, capabilities[], is_signed_in_restaurant }`; a restaurant's `type_name` is its format's name (Café, Bakery, Cloud kitchen) when it is not a full-service restaurant. Only active memberships of active businesses are listed. Demo businesses are listed only when development switching is on.
+Returns: `data = { types: { code: { name } }, modules[{ code, name, kind }], businesses[] }`. Each business is `{ id, name, code, business_type, type_name, restaurant_format, legacy_restaurant_id, status, currency, timezone, role_id, role_name, full_access, last_opened_at, capabilities[], is_signed_in_restaurant }`, by name; a restaurant's `type_name` is its format's name (Café, Bakery, Cloud kitchen) when it is not a full-service restaurant. Only active memberships of active businesses are listed.
 
 #### `POST /api/businesses`
 Permission: login, as the owner of an active business (or a restaurant's `RESTAURANT_ADMIN`, or the platform's own account)
@@ -3964,32 +3946,18 @@ Query/Body: the business fields of `POST /api/users/platform/businesses` (`busin
 Returns: 201, the new business row. The caller becomes its owner. A restaurant is set up from the platform console instead.
 Errors: 400 validation (as the platform route); 403 "Only the owner of a business can add another business"; 409 the business code is taken.
 
-#### `POST /api/businesses/development-demos`
-Permission: login, plus the user permission `restaurant.settings.manage` or `platform.restaurants.manage`. Only works when development switching is on, which needs both a non-live `NODE_ENV` (development/dev/test/local) and `MULTI_BUSINESS_DEVELOPMENT=true`.
-Query/Body: `{}`
-Returns: 201. Creates one demo business per non-restaurant business type (code `DEMO-<userId>-<type>`, Owner membership, a "Main location"), then returns the same shape as the directory list above. Running it again is safe: demos that already exist are skipped.
-Errors: 404 "Development business setup is disabled"; 403 without admin access; 409 when a demo code is taken by another user's or a non-demo business.
-
 #### `POST /api/businesses/link-restaurant`
 Permission: login with the `RESTAURANT_ADMIN` role and a restaurant on the token
 Query/Body: `{}`
 Returns: Creates or renames the `restaurant`-type business linked to the caller's restaurant, gives the caller the Owner role and switches on the `restaurant` capability. Returns the same shape as the directory list above.
 Errors: 403 "A restaurant administrator is required"; 404 restaurant not found or inactive.
 
-### Shared commerce (pro pass, 7 Oct 2026)
-
-Day close, paying suppliers, and the additive fields on documents, the catalogue, settings, the counter scan and the overview are listed with examples in [MULTI_BUSINESS_ADMIN.md › Shared commerce, pro pass](MULTI_BUSINESS_ADMIN.md#shared-commerce-pro-pass-7-oct-2026). In short:
-
-- The day close: `GET /api/businesses/:businessId/reports/takings` (see [Business context, overview and reports](#business-context-overview-and-reports)).
-- Paying suppliers: `GET /api/businesses/:businessId/payables`, `GET /api/businesses/:businessId/suppliers/:contactId/account`, `GET /api/businesses/:businessId/suppliers/:contactId/statement`, `POST /api/businesses/:businessId/suppliers/:contactId/payments`, `GET /api/businesses/:businessId/supplier-payments` and `GET /api/businesses/:businessId/supplier-payments/:id` (see [Paying suppliers](#paying-suppliers)).
-- `POST /:businessId/documents`: a goods shop's walk-in sale must be paid in full (409 "A walk-in customer pays the whole bill now…") unless the business allows unpaid walk-in bills; `payment.amount` may be `"full"`; `discount: { amount | percent, reason }` needs `sales.discount` (409 over the business's limit); a sale or receipt price above an item's MRP is 409; a supplier bill number already received from that supplier is 409.
-
 ### Business context, overview and reports
 
 #### `GET /api/businesses/:businessId/context`
 Permission: any member
 Query/Body: none
-Returns: `data = { business: { id, name, code, business_type, type_name, legacy_restaurant_id, is_demo, currency, timezone }, role: { id, name, full_access }, member: { location_id, location_name, department_id, department_name }, currentLocationId, permissions[], capabilities[], modules[], moduleCatalogue[], settings: { display_name, legal_name, gstin, state_code, tax_mode, rounding, fiscal_year_start_month, date_format, logo_path, max_bill_discount_percent, walk_in_credit, counter_pin_every_bill, voucher_valid_days, ageing_days, near_expiry_days, weight_buttons_grams, receipt_width_mm, day_cutoff_hour }, locations[{ id, name, code, active, sells_at_counter, address_line1, address_line2, city, postal_code, state_code, gstin, phone, opening_hours }], allLocations[] }`. Here `modules` is the core modules plus the enabled capabilities. `member` is where the caller's access is tied (nulls: every location, every department) and `currentLocationId` the location in effect (tied, or picked with `X-Business-Location`). `locations`, which every location picker is built from, holds only that location when one is in effect; `allLocations` always lists them all (for what names another location, such as a transfer's destination).
+Returns: `data = { business: { id, name, code, business_type, type_name, legacy_restaurant_id, currency, timezone }, role: { id, name, full_access }, member: { location_id, location_name, department_id, department_name }, currentLocationId, permissions[], capabilities[], modules[], moduleCatalogue[], settings: { display_name, legal_name, gstin, state_code, tax_mode, rounding, fiscal_year_start_month, date_format, logo_path, max_bill_discount_percent, walk_in_credit, counter_pin_every_bill, voucher_valid_days, ageing_days, near_expiry_days, weight_buttons_grams, receipt_width_mm, day_cutoff_hour }, locations[{ id, name, code, active, sells_at_counter, address_line1, address_line2, city, postal_code, state_code, gstin, phone, opening_hours }], allLocations[] }`. Here `modules` is the core modules plus the enabled capabilities. `member` is where the caller's access is tied (nulls: every location, every department) and `currentLocationId` the location in effect (tied, or picked with `X-Business-Location`). `locations`, which every location picker is built from, holds only that location when one is in effect; `allLocations` always lists them all (for what names another location, such as a transfer's destination).
 
 #### `POST /api/businesses/:businessId/open`
 Permission: any member
@@ -4000,7 +3968,7 @@ Returns: `data = { opened: businessId }`. Records `last_opened_at` on the caller
 Permission: any member. Each figure is included only when the caller may see it (the module is on and the role holds the permission):
 `skus` (`catalog.view`), `contacts` (`contacts.view`), `locations` (always), `sales_today`, `sales_month`, `sales`, `receivables`, `receivables_owed`, `receivables_advances`, `receivables_walk_in`, `bills_today`, `taken_today`, `credit_given_today` (`sales.view`), `payables`, `payables_overdue` (`purchasing.view`), `low_stock`, `expiring_soon`, `broken_sizes` (`inventory.view`), `transfers_in_transit` (`stock_transfers.view`), `counts_open` (`stock_counts.view`), `appointments_today`, `appointments_upcoming`, `appointments_left_today` (`appointments.view`), `promises_due_today`, `promises_broken` (`receivables.view`), `exchanges_today` (`exchanges.view`), `repairs_ready`, `repairs_overdue` (`repairs.view`), `warranties_missing` (`warranties.view`), `orders_to_dispatch` (`sales_orders.view`).
 Query/Body: none
-Returns: `data` = an object holding only the allowed keys. Counts are integers and money values are decimal strings, except `taken_today`: today's money taken on sales by payment kind, plus `collections`, as an object of numbers (`{ cash: 1200.5, upi: 450, collections: 300 }`), or null when nothing was taken. `sales` is all sales less sale returns. `receivables` is every customer's balance, `receivables_owed` and `receivables_advances` its owing and advance parts, `receivables_walk_in` the unpaid bills of walk-ins; `payables` is the sum of positive outstanding amounts on purchases. `expiring_soon` counts lots with stock that expire within the business's Expiring soon days (`near_expiry_days`, 30 unless changed). A location in effect (tied, or picked with `X-Business-Location`) narrows `sales_today`, `sales_month`, `sales`, `bills_today`, `taken_today`, `credit_given_today`, `low_stock`, `expiring_soon`, `transfers_in_transit`, `counts_open`, `appointments_today` and `appointments_upcoming`; the balances (`receivables`, `receivables_owed`, `receivables_advances`, `receivables_walk_in`, `payables`, `payables_overdue`) and the other figures stay business-wide.
+Returns: `data` = an object holding only the allowed keys. Counts are integers and money values are decimal strings, except `taken_today`: today's money taken on sales by payment kind, plus `collections`, as an object of numbers (`{ cash: 1200.5, upi: 450, collections: 300 }`), or null when nothing was taken; EMI money (method `finance`) is left out of it. `sales` is all sales less sale returns. `receivables` is every customer's balance, `receivables_owed` and `receivables_advances` its owing and advance parts, `receivables_walk_in` the unpaid bills of walk-ins; `payables` is the sum of positive outstanding amounts on purchases. `expiring_soon` counts lots with stock that expire within the business's Expiring soon days (`near_expiry_days`, 30 unless changed). A location in effect (tied, or picked with `X-Business-Location`) narrows `sales_today`, `sales_month`, `sales`, `bills_today`, `taken_today`, `credit_given_today`, `low_stock`, `expiring_soon`, `transfers_in_transit`, `counts_open`, `appointments_today` and `appointments_upcoming`; the balances (`receivables`, `receivables_owed`, `receivables_advances`, `receivables_walk_in`, `payables`, `payables_overdue`) and the other figures stay business-wide.
 
 #### `GET /api/businesses/:businessId/overview`
 Permission: any member. Each part is included only when the caller may see it: `sales` with `sales.view` or `reports.view`; `appointments` with the Appointments module and `appointments.view` (each person's `commission` also needs Commissions and `commissions.view`, else null).
@@ -4022,7 +3990,14 @@ Errors: 400 invalid date, or the end date before the start date.
 #### `GET /api/businesses/:businessId/reports/takings`
 Permission: `reports.view` or `sales.view`
 Query/Body: `from` (default today), `to` (default `from`; up to 31 days), `locationId` (one location)
-Returns: `data = { from, to, timezone, locationId, generatedAt, seller, sales: { bills, total, tax, roundOff, returns, returnsCount, net, onCredit, walkInBills, walkInUnpaid, offers, points, counterDiscounts }, received: { cash, upi, card, bank, cheque, total, atSale, laterOnBills, collections, fromFinanciers, fromSuppliers }, finance: { booked, bills, cancelled, subvention }, refunds: { cash, upi, card, bank, cheque, total }, suppliers: {…}, bounced: {…}, expenses: { cash, upi, card, bank, cheque, total, visible } | { visible: false }, cashInHand, net, byMethodName: { received[], refunds[], suppliers[], bounced[], expenses[] }, byPerson[], byLocation[] }`. The day close: what was sold and what money came in and went out, by payment kind, by the person who took it and by location. Money in is payments taken on sales, collections, refunds received from suppliers (`fromSuppliers`) and financiers' payouts (`fromFinanciers`); money out is refunds (on bills and advances handed back), payments to suppliers, bounced cheques (on the day they bounced) and paid expenses (a reversed expense comes back on the day it was reversed). `cashInHand` is cash in less cash out. `byMethodName` splits each kind by the business's own payment method names, `[{ method, name, amount }]`. Expenses lower the cash for everyone, but their breakdown is shown only with `expenses.view`. Payments and refunds of method `finance` are left out (`finance` shows them apart). Read-only.
+Returns: `data = { from, to, timezone, locationId, generatedAt, seller, sales: { bills, total, tax, roundOff, returns, returnsCount, net, onCredit, walkInBills, walkInUnpaid, offers, points, counterDiscounts }, received: { cash, upi, card, bank, cheque, total, atSale, laterOnBills, collections, fromFinanciers, fromSuppliers }, finance: { booked, bills, cancelled, subvention }, refunds: { cash, upi, card, bank, cheque, total }, suppliers: { cash, upi, card, bank, cheque, total }, bounced: { cash, upi, card, bank, cheque, total }, expenses: { cash, upi, card, bank, cheque, total, visible } | { visible: false }, cashInHand, net, byMethodName: { received[], refunds[], suppliers[], bounced[], expenses[] }, byPerson[], byLocation[] }`. The day close: what was sold and what money came in and went out, by payment kind, by the person who took it and by location. Read-only.
+- Money in (`received`) is payments taken on sales, collections, refunds received from suppliers (`fromSuppliers`) and financiers' payouts recorded in the dates (`fromFinanciers`).
+- Money out is refunds on bills and advances handed back (`refunds`), payments to suppliers (`suppliers`), cheque receipts that bounced, taken off on the day they bounced (`bounced`), and paid expenses (a reversed expense comes back on the day it was reversed).
+- `net` is money in less money out, and `cashInHand` is cash in less cash out.
+- `finance` is the EMI side: `booked` is the amount financed on the period's bills (owed by financiers, not in the drawer), `bills` how many, `cancelled` the loans cancelled, and `subvention` what financiers kept from their payouts. Payments and refunds of method `finance` are left out of the money-in and drawer figures.
+- `byMethodName` splits each kind by the business's own payment method names, `[{ method, name, amount }]`.
+- Expenses lower the cash for everyone, but their breakdown is shown only with `expenses.view`.
+
 Errors: 400 invalid date; 400 "The end date is before the start date"; 400 "Choose up to 31 days for a day close".
 
 #### `GET /api/businesses/:businessId/cash-checks`
@@ -4036,6 +4011,13 @@ Permission: `reports.edit` and (`sales.view` or `reports.view`); with the Expens
 Query/Body: `requestKey` (UUID, required), `date` (required; not in the future), `locationId` (the one in effect when left out), `openingCash` and `countedCash` (required, 0 and up), `reason` (up to 300; required when the count differs)
 Returns: 201, the cash check. The expected cash is the opening cash plus that day's `cashInHand` from the day close (`reports/takings` for that location and day); `difference` = counted less expected. A cash check is a permanent snapshot: record a new one to correct it. Repeating the key with the same body returns the first check.
 Errors: 400 a future date; 400 "Give a reason for the cash difference"; 404 location not available; 409 the request key was already used for a different check, or the same check is being saved at once.
+
+### Notifications (the bell)
+
+#### `GET /api/businesses/:businessId/notifications`
+Permission: any member (each alert also needs its own view permission)
+Query/Body: none
+Returns: `{ items[{ id, severity (critical, warning, info), category, title, detail, at, link }], counts, generatedAt }`. Worked out from live data when asked; nothing is stored. The alerts: items at or below their reorder level (`inventory.view`); batches expired or expiring within the business's Expiring soon days (30 until changed; `inventory.view`, `batches`); customers with bills past due, and promises to pay due today or broken (`receivables.view`); repairs ready or late (`repairs.view`); appointments still to come today (`appointments.view`); and the tasks and issues described under [Tasks, issues & projects](#tasks-issues--projects). Ids are stable per alert, so the browser remembers which were read. At most 15 per kind.
 
 ### Paged lists (core)
 
@@ -4055,7 +4037,7 @@ All of these follow the paged-list contract above. `documents` lists only the ki
 | `GET /api/businesses/:businessId/resources` | `appointments.view` | `location` | none |
 | `GET /api/businesses/:businessId/stock` | `inventory.view` | `location`, `sku`, `in_stock`, `expiring`, `department` (always the person's own when they are tied to one) | none |
 | `GET /api/businesses/:businessId/movements` | `inventory.view` | `location`, `source` (`sale`/`purchase`/`return`/`transfer`/`count`/`correction`) | `created_at` |
-| `GET /api/businesses/:businessId/documents` | `sales.view` or `purchasing.view` | `kind` (`sale`/`purchase`), `location`, `contact`, `walk_in_due` and `unpaid` (`true`/`false`), and `salesperson`, `route`, `delivery`, `source`, `created_by`, `paid_by` (see the wholesale and retail sections) | `created_at` |
+| `GET /api/businesses/:businessId/documents` | `sales.view` or `purchasing.view` | `kind` (`sale`/`purchase`), `location`, `contact`, `walk_in_due` and `unpaid` (`true`/`false`), and `salesperson`, `route`, `delivery`, `source`, `created_by`, `paid_by` (described below the table) | `created_at` |
 | `GET /api/businesses/:businessId/appointments` | `appointments.view` | `status`, `location` | `starts_at` |
 | `GET /api/businesses/:businessId/audit` | `audit.view` | none | `created_at` |
 | `GET /api/businesses/:businessId/members` | `access.view` | `role` (role id), `location` (only when asked for, or when the person is tied to one: the list shows everyone otherwise) | none |
@@ -4066,7 +4048,16 @@ All of these follow the paged-list contract above. `documents` lists only the ki
 
 A location in effect (tied, or picked with `X-Business-Location`) fills in the `location` filter of each list that has one; on `members` only a tied location does.
 
-Rows carry extra columns: `catalog` adds `product_name, category, category_id, department_id, brand, kind, tax_rate_name, unit_name, unit_decimals, stock, pack_sizes[]`, and its search also covers `shelf_location`. `categories` adds `path, depth, product_count, parent_name`. `contacts` adds `balance`. `stock` adds `label, code, unit, reorder_level, tracking, shelf_location, department_id, location_name, expired`. `movements` adds `source, source_no, reason, location_name`. `documents` adds `location_name, paid, returned, refunded`. `appointments` adds `resource_name, location_id, contact_name, service_name`. `members` adds `location_id, location_name, department_id, department_name`. `roles` adds `member_count, permission_count, permissions[]`. `transfers` and `counts` add line counts and value or progress. `supplier-payments` adds `location_name, created_by_name, allocated, unallocated`. See `backend/src/modules/business/core/repositories/business.repository.js` (`lists`).
+Rows carry extra columns:
+- `catalog` adds `product_name, category, category_id, department_id, brand, kind, tax_rate_name, unit_name, unit_decimals, stock, pack_sizes[]`, and its search also covers `shelf_location`.
+- `categories` adds `path, depth, product_count, parent_name`. `contacts` adds `balance`.
+- `stock` (one row per lot) adds `label, code, unit, reorder_level, tracking, shelf_location, department_id, location_name, expired, in_stock`, `expiring` (within the business's Expiring soon days, `nearExpiryDays` in Business settings › Rules; 30 until changed) and the item's largest pack, `pack_unit, pack_factor`.
+- `movements` adds `source, source_no, reason, location_name`, newest first in time order (`created_at`, then id).
+- `documents` adds `location_name, paid, returned, refunded, walk_in_due, unpaid, lot_codes, created_by_name` and `paid_by` (`cash`, `upi`, `card`, `bank`, or `mixed` for a bill paid several ways). An invoice raised by dispatching a sales order also carries `order_no, salesperson_name, route_name, delivery_status`, and `source` is `order` (else `counter`). The search covers the document number, the customer or supplier name, notes, the supplier's bill number, serial and batch numbers, the order number and the biller's name.
+- `appointments` adds `resource_name, location_id, contact_name, service_name`. `members` adds `location_id, location_name, department_id, department_name`. `roles` adds `member_count, permission_count, permissions[]`.
+- `transfers` and `counts` add line counts and value or progress. `supplier-payments` adds `location_name, created_by_name, allocated, unallocated`.
+
+See `backend/src/modules/business/core/repositories/business.repository.js` (`lists`).
 
 ### Settings, modules, tax rates, number series, locations
 
@@ -4105,7 +4096,7 @@ Errors: 404 not found; 409 "A tax slab's rate cannot change"; 409 when switching
 
 #### `POST /api/businesses/:businessId/number-series`
 Permission: `settings.edit`
-Query/Body: `locationId` (required), `documentKind` (one of `sale`, `purchase`, `sales_return`, `purchase_return`, `stock_transfer`, `stock_count`, `sales_order`, `collection`, `repair_job`, `processing`), `fiscalYear` (2000-2200), `prefix` (up to 12 chars of letters, digits, `/` and `-`, not ending in a digit; stored upper-case), `padding` (1-8, default 4), `nextNumber` (default 1; raised above the highest number already used with this prefix)
+Query/Body: `locationId` (required), `documentKind` (one of `sale`, `purchase`, `sales_return`, `purchase_return`, `stock_transfer`, `stock_count`, `sales_order`, `collection`, `repair_job`, `processing`, `supplier_payment`, `purchase_order`, `delivery_challan`), `fiscalYear` (2000-2200), `prefix` (up to 12 chars of letters, digits, `/` and `-`, not ending in a digit; stored upper-case), `padding` (1-8, default 4), `nextNumber` (default 1; raised above the highest number already used with this prefix)
 Returns: 201, the series row.
 Errors: 400 when prefix + digits exceed 16 characters (the GST limit); 404 location not found.
 
@@ -4195,7 +4186,7 @@ Returns: `data = [{ id, name, email }]`: the active staff accounts of the caller
 
 #### `POST /api/businesses/:businessId/members`
 Permission: `access.edit`
-Query/Body: `userId` (required), `roleId` or (older clients) `role` (`manager`, `viewer`, `cashier`, `stock_keeper`, `accountant`), `active` (default true), `workLocationId` (the one location they work at; null or empty = every location; left out: kept), `workDepartmentId` (the one department whose products and stock they handle; null or empty = all; left out: kept)
+Query/Body: `userId` (required), `roleId` (or instead `role`, a role template: `manager`, `viewer`, `cashier`, `stock_keeper` or `accountant`), `active` (default true), `workLocationId` (the one location they work at; null or empty = every location; left out: kept), `workDepartmentId` (the one department whose products and stock they handle; null or empty = all; left out: kept)
 Returns: 201, the membership row (an upsert, with `location_id` and `department_id`) plus `role_name`.
 Errors: 404 staff member or role not found; 404 location not found or closed; 404 department not found or switched off; 403 when changing your own access, or when the target or role goes beyond your permissions; 403 a manager tied to a location (or department) giving access elsewhere, or changing someone who works elsewhere; 409 when the target is the owner, or when the role is the Owner role.
 
@@ -4214,16 +4205,16 @@ Errors: 400 your own password (change it from My profile); 403 an owner's passwo
 ### Catalogue, categories, units, pack sizes, pricing rules
 
 #### `POST /api/businesses/:businessId/catalog`
-Permission: `catalog.create`
-Query/Body: `kind` (`goods`/`service`), `name` (product name; or `productId` to add a variant, which needs the `variants` module), `label`, `code` (SKU code, upper-cased), `barcode`, `unit` (one of the business's unit codes), `tracking` (`quantity`/`batch`/`serial` for goods; batch and serial need their modules), `price`, `taxRateId` (or a legacy `taxRate`), `categoryId` (or legacy free-text `category`), `brand`, `reorderLevel`, `attributes` (an object; only keys allowed by the enabled modules), `shelfLocation` (up to 40, "Aisle 3 · Shelf B"), `memberPrice` (what a loyalty customer pays when the Loyalty module is on; more than zero and below the price), `internalUse` (goods only: kept for use in services, such as a salon's back-bar products, and never sold)
-Returns: 201, the SKU row.
-Errors: 400 goods without the inventory capability, or a unit kind that does not fit (goods need a stock unit, services need an hour or service unit); 400 a member price not below the price; 403 a category outside the caller's department; 404 tax rate, category or product not found; 409 duplicate code.
+Permission: `catalog.create`; opening stock also needs `inventory.edit`
+Query/Body: `kind` (`goods`/`service`), `name` (product name; or `productId` to add a variant, which needs the `variants` module), `label`, `code` (SKU code, upper-cased), `barcode` (letters, digits, `.`, `/` and `-`, up to 80), `unit` (one of the business's unit codes), `tracking` (`quantity`/`batch`/`serial` for goods; batch and serial need their modules), `price`, `taxRateId` (or a bare `taxRate`), `categoryId` (or a free-text `category`), `brand`, `reorderLevel`, `hsnCode` (HSN or SAC code: 4, 6 or 8 digits), `mrp` (GST included), `attributes` (an object; only keys allowed by the enabled modules), `shelfLocation` (up to 40, "Aisle 3 · Shelf B"), `memberPrice` (what a loyalty customer pays when the Loyalty module is on; more than zero and below the price), `internalUse` (goods only: kept for use in services, such as a salon's back-bar products, and never sold), `openingStock` (goods that are not serial-numbered: `{ locationId, quantity, unitCost?, lotCode? (required for batch items), expiresOn? }`)
+Returns: 201, the SKU row. Opening stock goes in as a lot at the cost given, through a stock adjustment with the reason "Opening stock". Two items never share a barcode.
+Errors: 400 goods without the inventory capability, or a unit kind that does not fit (goods need a stock unit, services need an hour or service unit); 400 a bad HSN code, a member price not below the price, or opening stock on a service or a serial-numbered item; 403 a category outside the caller's department; 404 tax rate, category, product or location not found; 409 duplicate code; 409 the barcode is already on another item (the message names it); 409 the price is above the MRP (with prices before GST, the GST is added before comparing).
 
 #### `PATCH /api/businesses/:businessId/catalog/:id`
 Permission: `catalog.edit`
-Query/Body: `label` (required), `price` (required), `taxRateId`/`taxRate`, `active`, `reorderLevel`, `categoryId` (moves the product), `shelfLocation`, `memberPrice` (empty clears it), `internalUse`. Left out, the shelf, the member price and the internal-use mark are kept (a member price no longer below a lowered price is cleared).
-Returns: the updated SKU.
-Errors: 400 a member price not below the price; 403 an item or category outside the caller's department; 404 item, tax rate or category not found.
+Query/Body: `label` (required), `price` (required), `taxRateId`/`taxRate`, `active`, `reorderLevel`, `categoryId` (moves the product), `hsnCode`, `mrp`, `barcode` (empty clears it), `shelfLocation`, `memberPrice` (empty clears it), `internalUse`. Left out, the HSN code, MRP, barcode, shelf, member price and internal-use mark are kept; a member price that is not below a lowered price is cleared.
+Returns: the updated SKU. A change of price, MRP or member price is audited as `catalog.price_changed`, a new barcode as `catalog.barcode_changed`.
+Errors: 400 a member price not below the price; 403 an item or category outside the caller's department; 404 item, tax rate or category not found; 409 the barcode is already on another item; 409 the price is above the MRP.
 
 #### `POST /api/businesses/:businessId/categories`
 Permission: `catalog.create`
@@ -4308,15 +4299,31 @@ Errors: 404 not found.
 ### Sales and purchase documents
 
 #### `POST /api/businesses/:businessId/documents`
-Permission: `sales.create` or `purchasing.create`. The service then requires the one that matches `kind`, plus `<kind>.edit` when a payment is included.
-Query/Body: `kind` (`sale`/`purchase`), `requestKey`, `locationId`, `contactId` (required for a purchase; a customer for a sale), `lines[1..100]` of `{ skuId, quantity, unit? (a pack or related unit), unitPrice (purchases), lotCode (batch/serial items), expiresOn, freeQuantity? and discountPercent? (purchases: free units on a scheme, "10 + 1 free", and a trade discount of up to 99.99% on the rate, in the line's own unit) }`, `payment?` `{ amount, method (cash/card/upi/bank/cheque) or methodId, reference }`, `notes`. Retail sales may also send `loyalty: { redeemPoints }` (needs `loyalty.create`), `coupon` (a coupon code typed at the counter; needs the Offers module) and salon fields; see `businessOffers.js` and `businessSalonSales.js`.
-Returns: 201, the document row (`document_no`, `subtotal`, `tax`, `round_off`, `total`, `due_on`, ...). The server works out sale prices (customer price, quantity slabs, pack prices, the selling branch's own price, a loyalty customer's member price, offers) and GST from the business tax mode and rounding. A sale's place of supply is the buyer's GSTIN state, else the selling location's own state, else the business's. A purchase line with free units takes in paid + free units and is charged for the paid ones, less the trade discount; each line keeps `free_quantity` and `discount_percent`.
-Errors: 404 location, contact or item not found; 404 no coupon with that code; 409 not enough usable stock, credit limit exceeded, serial already received, or request key reused with different data; 409 an item kept for use in services only (`internalUse`); 409 a coupon that cannot be used now (switched off, outside its dates or hours, the bill below its minimum, used up, or already used by this customer as often as allowed); 400 free quantity or a trade discount on a sale; 400 pharmacy purchases without a batch or expiry, and quantity or unit-precision errors.
+Permission: `sales.create` or `purchasing.create`. The service then requires the one that matches `kind`, plus `<kind>.edit` when money is taken now, a voucher is spent or part is financed.
+Query/Body:
+- `kind` (`sale`/`purchase`), `requestKey`, `locationId`, `contactId` (required for a purchase; a customer for a sale), `notes`.
+- `lines[1..100]` of `{ skuId, quantity, unit? (a pack or related unit), lotCode (batch/serial items), expiresOn }`. Purchase lines also take `unitPrice`; `freeQuantity?` and `discountPercent?` (free units on a scheme, "10 + 1 free", and a trade discount of up to 99.99% on the rate, in the line's own unit); and `sellingPrice?` / `mrp?` (the item's new shelf price and MRP from this bill; needs `catalog.edit`; audited as `catalog.price_changed`). A sale line whose item is a kit takes `components[]` of `{ skuId, lotCode }`, naming the serial (required) or batch (optional; the earliest expiry otherwise) of a part.
+- Money taken now: `payment` `{ amount, method (cash/card/upi/bank/cheque) or methodId, reference, tendered? }`, or `payments[1..8]` of the same shape for a bill paid in several ways (sending both is a 400). An `amount` of `"full"` (on at most one part) is the rest of the bill. `tendered` (the cash handed over) is for cash only and is at least that part's amount; the answer then carries `change`.
+- A purchase: `supplierBillNo` and `supplierBillDate` (the supplier's own bill; a date needs the number and is not in the future).
+- A sale: `buyer: { name, phone }` (a walk-in who is not saved as a customer, used for a warranty); `discount: { amount | percent, reason }` (a counter discount: an amount or a percent with up to 2 decimals, not both, and a reason of up to 120 characters; needs `sales.discount`; at most the business's *Most discount at the counter*, `maxBillDiscountPercent`, unless the caller is an Owner); `voucher: { code }` (an exchange credit voucher; it pays first, as a `credit_note` payment with the voucher number as reference, never more than its balance or the bill, and `"full"` is then what is left); `finance: { financierId, loanNo, doNo?, tenureMonths?, amount (a number, or "rest") }` (an EMI through a financier: needs module `finance` and `finance.create`; the financed amount becomes a payment of method `finance`); `channel: "counter"` with `counterPin` (Quick bill: when Business settings ask for the PIN on every bill, `counter_pin_every_bill`, it is the PIN of the person the session belongs to; the PIN is left out of the request hash and never stored).
+- Retail sales also take `loyalty: { redeemPoints }` (needs `loyalty.create`) and `coupon` (a code typed at the counter; needs the Offers module); salon sales take the salon fields. See `businessOffers.js` and `businessSalonSales.js`.
+
+Returns: 201, the document row (`document_no`, `subtotal`, `tax`, `round_off`, `total`, `due_on`, ...), plus `change` when cash was handed over, `financeCase` for an EMI sale, and `warranties` when serial units are sold with the Warranties module on. The server works out sale prices (customer price, quantity slabs, pack prices, the selling branch's own price, a loyalty customer's member price, offers, the counter discount) and GST from the business tax mode and rounding. A sale's place of supply is the buyer's GSTIN state, else the selling location's own state, else the business's. Each line keeps the item's HSN code and MRP. A purchase line with free units takes in paid + free units and is charged for the paid ones, less the trade discount; it keeps `free_quantity` and `discount_percent`. Each payment part is its own `business_payments` row (`tendered` kept on the cash row).
+Rules:
+- A goods shop's walk-in (a sale with no customer) pays the whole bill now, counting a voucher and a financed part, unless the business allows unpaid walk-in bills (`walkInCredit`): otherwise 409 "A walk-in customer pays the whole bill now…".
+- Nothing is sold, or given a new shelf price on a receipt, above its MRP; with prices before GST the GST is added before comparing.
+- The parts paid, plus any voucher and financed amount, may not come to more than the total.
+- A customer's credit limit counts what they would owe after this sale, less what they pay now.
+- A supplier's bill number already received from that supplier is refused.
+- A kit sells as its parts, each at its share of the kit's price; a serial-numbered part makes it one kit per line. Saved lines carry `kit_sku_id`, `kit_label` and `kit_group`.
+- An EMI needs the customer named (a contact, or `buyer` with name and phone), and a loan number is used once per financier.
+
+Errors: 400 both `payment` and `payments`, more than 8 parts, or two parts of `"full"`; 400 the parts come to more than the total; 400 cash handed over less than its part; 400 free quantity or a trade discount on a sale; 400 a serial-numbered kit part on a line of more than one kit; 400 an EMI amount more than what is left; 400 pharmacy purchases without a batch or expiry, and quantity or unit-precision errors; 403 `{ reason: "pin_required" }` without the counter PIN, 400 `wrong_pin`, 423 `pin_locked`, 429 too many tries; 404 location, contact or item not found; 404 no coupon with that code, or an unknown voucher; 409 not enough usable stock, credit limit exceeded, serial already received, or request key reused with different data; 409 a walk-in not paying in full; 409 a price above the MRP; 409 a supplier bill number already received ("Bill … from … was already received as …"); 409 an item kept for use in services only (`internalUse`); 409 a coupon that cannot be used now (switched off, outside its dates or hours, the bill below its minimum, used up, or already used by this customer as often as allowed); 409 a counter discount over the business's limit, or more than the bill; 409 a voucher expired or used up; 409 buying a kit; 409 an EMI without the customer named, or a loan number already used with that financier.
 
 #### `GET /api/businesses/:businessId/documents/:id`
 Permission: `sales.view` or `purchasing.view`, plus the one matching the document's kind
 Query/Body: none
-Returns: `{ ...document, location_name, contact_gstin/phone/address, lines[] (each with returned_quantity), payments[], returns[], refunds[], seller, retail }`. `seller` is Business settings with the selling location's own address, phone, state and GSTIN where it has them, and `branch_name` when it has its own address or GSTIN. For a sale, `retail` is `{ discounts[], savings, loyalty[], heldBack }`; otherwise it is null.
+Returns: `{ ...document, location_name, contact_gstin/phone/address, lines[] (each with returned_quantity), payments[] (each with method_name and tendered), returns[], refunds[], seller, retail, finance[], pharmacy, wholesale }`. `contact_gstin` and `contact_address` are the buyer's as billed. `seller` is Business settings with the selling location's own address, phone, state and GSTIN where it has them, and `branch_name` when it has its own address or GSTIN. For a sale, `retail` is `{ discounts[], savings, loyalty[], heldBack }`; otherwise it is null. `finance` lists an EMI bill's case (financier, loan, DO, amounts, status), and is empty otherwise. `pharmacy` is filled for a pharmacy sale (see [Pharmacy, clinic & lab](#pharmacy-clinic--lab)) and `wholesale` for an invoice raised by dispatching a sales order (see [Sales orders and dispatch](#sales-orders-and-dispatch)); otherwise they are null.
 Errors: 403 another location's document for a person tied to one; 404 not found.
 
 #### `POST /api/businesses/:businessId/documents/:id/payments`
@@ -4328,30 +4335,27 @@ Errors: 404 document not found; 409 "Payment exceeds the outstanding amount", or
 #### `POST /api/businesses/:businessId/documents/:id/returns`
 Permission: `sales.refund` or `purchasing.refund` (the one matching the document's kind)
 Query/Body: `reason` (required), `requestKey`, `lines[1..100]` of `{ lineId, quantity, restock (sales only, default true) }`
-Returns: 201, the return row (`return_no`, `total`, `round_off`). Stock goes back in, or out for a purchase return, at the line's recorded cost. A proportional share of the round-off is returned, and loyalty points the sale earned are reversed.
+Returns: 201, the return row (`return_no`, `total`, `round_off`). Stock goes back in, or out for a purchase return, at the line's recorded cost. A proportional share of the round-off is returned. The loyalty points the sale earned are reversed, and, while the loyalty rule `returnSpentPoints` is on (it is until changed), the points spent on the bill are given back in proportion (`retail_loyalty_entries` kind `restore`).
 Errors: 404 document or line not found; 409 return quantity exceeds what remains, not enough stock for a supplier return, serial already in stock, or no recorded stock cost.
 
 #### `POST /api/businesses/:businessId/documents/:id/refunds`
 Permission: `sales.refund` or `purchasing.refund` (the one matching the document's kind)
 Query/Body: `amount` (at least 0.01), `method` (`cash`/`card`/`upi`/`bank`) or `methodId` (never a cheque), `reason`, `requestKey`
-Returns: 201, the refund row.
-Errors: 409 the refund exceeds the credit available after returns, exceeds what was paid less earlier refunds, or eats into the value held back for spent loyalty points; 404 not found.
+Returns: 201, the refund row. On an EMI bill a refund is never more than the customer paid themselves; the financed part is reversed by cancelling the loan (`POST …/finance/cases/:id/cancel`).
+Errors: 409 the refund exceeds the credit available after returns, exceeds what was paid less earlier refunds, or eats into the value held back for spent loyalty points; 409 on an EMI bill, more than the customer paid; 404 not found.
 
-#### Round 2 additions to documents (R2-CORE, 8 Oct 2026)
-All additive; an older client sending one `payment` is unchanged.
-- **Split payment.** `POST …/documents` also takes `payments[1..8]` of `{ method, amount ("full" on at most one part = the rest of the bill), reference?, tendered? }` instead of `payment` (sending both is a 400). `tendered` (cash handed over) is allowed on cash only and must be at least that part's amount; the response then carries `change` (rupees). The parts plus any voucher and financed amount may not exceed the total (400); a walk-in at a goods shop still pays it all (409). Each part is a `business_payments` row (`tendered` kept on the cash row).
-- **Counter PIN.** A sale sent with `channel: "counter"` (Quick bill) is checked against Business settings `counter_pin_every_bill`: when on, `counterPin` (the PIN of the person the session belongs to) is required — 403 `{ reason: "pin_required" }` without it, 400 `wrong_pin` / 423 `pin_locked` / 429 as for any PIN. The PIN is excluded from the request hash and never stored.
-- **EMI.** `finance: { financierId, loanNo, doNo?, tenureMonths?, amount (number or "rest") }` (needs module `finance`, `finance.create` and `sales.edit`; electronics). The financed amount becomes a payment of method `finance`; the response has `financeCase`. 409 when the customer is not named (contact, or `buyer` name and phone), or the loan number is already used with that financier; 400 when the amount is more than what is left.
-- **Kits.** A line whose item is a kit expands to its parts; `components[]` of `{ skuId, lotCode }` names the serial (required) or batch (optional, earliest expiry otherwise) of a part. A serial-numbered part makes it one kit per line (400). A purchase of a kit is a 409. Saved lines carry `kit_sku_id`, `kit_label`, `kit_group`; quote lines (`POST …/retail/quote`) carry `inputIndex`, `kitSkuId`, `kitLabel`, `kitGroup`.
-- `GET …/documents/:id` adds `finance[]` (the EMI case: financier, loan, DO, amounts, status) and each payment's `tendered`.
-- **Refunds on an EMI bill:** never more than the customer paid themselves (409); the financed part is reversed by cancelling the loan.
-- **Returns** also give back, in proportion, loyalty points spent on the bill (`retail_loyalty_entries` kind `restore`), when the loyalty rule `return_spent_points` is on (default).
+### Counter: staff switch and cashier shifts
 
 #### `GET /api/businesses/:businessId/counter/staff`
-Permission: `sales.create`. Returns `{ current, people[] }`: members whose role may create sales, `{ id, name, roleName, hasPin, locked }`.
+Permission: `sales.create`
+Query/Body: none
+Returns: `{ current, people[] }`: `current` is the signed-in person's id, and `people` the members whose role may create sales, each `{ id, name, roleName, hasPin, locked }`.
 
 #### `POST /api/businesses/:businessId/counter/switch`
-Permission: `sales.create`; PIN rate limit. Body: `userId`, `pin`, `deviceTokens?`. The till carries on as that member: returns `{ token, expiresAt, user }` like `/auth/pin-login`. 404 when the person does not bill at this business; the PIN, account-lock and two-step device rules of `/auth/pin-login` apply.
+Permission: `sales.create`; the PIN rate limit
+Query/Body: `userId`, `pin`, `deviceTokens?`
+Returns: the till carries on as that member: `{ token, expiresAt, user }`, like `POST /api/auth/pin-login`.
+Errors: 404 the person does not bill at this business; the PIN, account-lock and two-step device rules of `POST /api/auth/pin-login` apply.
 
 #### `GET /api/businesses/:businessId/shifts`
 Permission: `sales.create`
@@ -4377,15 +4381,9 @@ Query/Body: `countedCash` (required), `reason` (up to 300; required when the cou
 Returns: the closed shift: `expected_cash` is the opening cash plus this cashier's own cash movements at that location since it opened (cash taken on sales and collections, refunds received from suppliers; less cash refunds, payments to suppliers and expenses they paid, with an expense reversed in the meantime coming back), and `difference` = counted less expected. A closed shift is a permanent record.
 Errors: 400 `{ reason: "difference_reason_required", expected, counted, difference }` ("The drawer is 50.00 short. Say why."); 403 another cashier's shift without `reports.edit`, or another location's; 404 shift not found; 409 already closed.
 
-#### Day close additions
-`GET …/reports/takings` adds `received.fromFinanciers` (payouts recorded in the dates, counted in `received[method]`), and `finance: { booked, bills, cancelled, subvention }`. Round 2 check: advances handed back (`business_collection_refunds`) count in `refunds[method]`, and a cheque receipt that bounced is taken off on the day it bounced in `bounced: { cash, upi, card, bank, cheque, total }`; both lower `net` (and `cashInHand` for cash). Payments and refunds of method `finance` are left out of the money-in and drawer figures. `GET …/summary`'s `taken_today` leaves `finance` out too.
-
-#### Settings additions
-`PUT …/settings` takes `counterPinEveryBill` (boolean; older clients keep the value). `PUT …/loyalty/rules` takes `returnSpentPoints` (boolean, default true). `GET …/context` settings include `counter_pin_every_bill`.
-
 ### Kits
 
-A kit (a bundle) is a goods SKU (`is_kit`) made of other items; on a bill it expands to its parts (see Round 2 additions to documents). `GET …/catalog` rows carry `is_kit`; a kit's `stock` is the kits its parts allow; filter `kit=true`. `GET …/retail/scan` of a kit returns `kit: { components[] (with lots for serial / batch parts) }`.
+A kit (a bundle) is a goods SKU (`is_kit`) made of other items; on a bill it expands to its parts (see [POST …/documents](#post-apibusinessesbusinessiddocuments)). `GET …/catalog` rows carry `is_kit`; a kit's `stock` is the kits its parts allow; filter `kit=true`. `GET …/retail/scan` of a kit returns `kit: { components[] (with lots for serial / batch parts) }`.
 
 #### `GET /api/businesses/:businessId/kits`
 Permission: `catalog.view`
@@ -4406,7 +4404,7 @@ Errors: 404 kit not found; the component errors of create; 409 the price is abov
 
 ### EMI & finance
 
-Module `finance` (electronics): a sale paid partly by a financier's loan (`finance` on `POST …/documents`, see Round 2 additions to documents), the cases the financiers still owe, their payouts, and cancelling a loan.
+Module `finance` (electronics): a sale paid partly by a financier's loan (`finance` on [POST …/documents](#post-apibusinessesbusinessiddocuments)), the cases the financiers still owe, their payouts, and cancelling a loan.
 
 #### `GET /api/businesses/:businessId/finance/financiers`
 Permission: `finance.view` or `finance.create`
@@ -4482,6 +4480,56 @@ Query/Body: none
 Returns: `data` = the voucher with `location_name, created_by_name, contact_phone, contact_gstin, contact_address, allocations[{ id, amount, document_id, document_no, supplier_bill_no, total, bill_at }], allocated, unallocated, seller` (for the print). The list is `GET …/supplier-payments` (paged lists above).
 Errors: 404 supplier payment not found.
 
+### Purchase orders to suppliers
+
+Purchase orders for any business that buys goods (the Purchasing module). The routes are registered from `businessTrade.routes.js`. Reading needs `purchasing.view`; raising, changing, sending, receiving and closing need `purchasing.create`. Each step is audited (`purchase_order.raised`, `changed`, `sent`, `received`, `closed`, `cancelled`) and written as a `purchase_order.*` event.
+
+#### `GET /api/businesses/:businessId/purchase-orders`
+Permission: `purchasing.view`
+Query/Body: the paged-list contract; filters `status` (`draft`/`sent`/`part_received`/`received`/`closed`/`cancelled`, several comma-separated), `contact`, `location`, `late` (`true`); dates on `created_at`
+Returns: `{ total, items[] }`; rows add `location_name, line_count, pending_value, receipt_count, received_value, late`.
+
+#### `GET /api/businesses/:businessId/purchase-orders/suggestions`
+Permission: `purchasing.view`
+Query/Body: `location`, `supplier`
+Returns: `{ location, items[{ sku_id, label, code, unit, tax_rate, reorder_level, stock, back_orders, on_order, supplier_id, supplier_name, last_cost, last_bought_at, pack_unit, pack_factor, need, reason (reorder/back_order), suggested_quantity, suggested_unit, suggested_base }] }`. `need` = back-orders + reorder level − usable stock − on order (open purchase orders), suggested in whole cases (the stock unit when the item has no pack). Back-orders count only with the Sales orders module.
+
+#### `POST /api/businesses/:businessId/purchase-orders`
+Permission: `purchasing.create`
+Query/Body: `requestKey`, `contactId` (a supplier), `locationId`, `expectedOn?`, `notes?`, `lines[1..200]` of `{ skuId, quantity, unit?, unitCost? (per the unit typed, before GST; default the last purchase cost), source? (manual/reorder/back_order) }`
+Returns: 201, the order (`po_no` from the `purchase_order` series, status `draft`).
+Errors: 400 an item never bought and sent without a cost; 400 the same item twice; 400 a service.
+
+#### `GET /api/businesses/:businessId/purchase-orders/:id`
+Permission: `purchasing.view`
+Query/Body: none
+Returns: the order with the supplier's contact details, `lines[]` (with `remaining`, `stock`, `hsn_code`, `tracking`), `receipts[]` (the purchase document, total, supplier bill, lines) and `seller` (for the print).
+Errors: 404 purchase order not found.
+
+#### `PATCH /api/businesses/:businessId/purchase-orders/:id`
+Permission: `purchasing.create`
+Query/Body: `contactId?`, `expectedOn?`, `notes?`, `lines?` (as for create)
+Returns: the order.
+Errors: 409 the order is not a draft (once sent, close it and raise another).
+
+#### `POST /api/businesses/:businessId/purchase-orders/:id/send`
+Permission: `purchasing.create`
+Query/Body: `via` (`whatsapp`, `email`, `printed`, `phone`, `other`)
+Returns: the order, now `sent`.
+Errors: 409 the order is not a draft.
+
+#### `POST /api/businesses/:businessId/purchase-orders/:id/receive`
+Permission: `purchasing.create`
+Query/Body: `requestKey`, `supplierBillNo?`, `supplierBillDate?`, `notes?`, `lines[1..200]` of `{ poLineId, quantity, unit? (the order's pack or the stock unit), unitCost? (the bill's cost per the unit typed; default the order's), lotCode?, expiresOn? }`
+Returns: 201, the order detail. One core purchase is posted (`documents` kind `purchase`, notes "Against PO…"), counting at most what was still to come on each line; the status becomes `part_received` or `received`. A repeat with the same key returns the same receipt.
+Errors: 404 a line not on this order; 409 the order is received, closed or cancelled; the core's checks (batch required, duplicate supplier bill) apply.
+
+#### `POST /api/businesses/:businessId/purchase-orders/:id/close`
+Permission: `purchasing.create`
+Query/Body: `reason`
+Returns: the order: `cancelled` when nothing was received, `closed` when part was (the rest will not come).
+Errors: 409 the order is not open.
+
 ### Daily expenses
 
 Module `expenses` (Daily expenses; on by default for every type but the restaurant, which has its own `/api/expenses`): rent, wages, transport and other money paid out of the business. An expense is never edited or deleted: a mistake is reversed once, with a reason. Paid expenses lower the day close's cash (`reports/takings`) and appear in `GET …/reports` as `expense` and `expense_reversal`.
@@ -4504,7 +4552,7 @@ Query/Body: `reason` (required, up to 300)
 Returns: the expense with `voided_at`, `voided_by` and `void_reason`. Reversing again returns it unchanged; the database refuses any other change.
 Errors: 400 no reason; 403 another location's expense for a person tied to one; 404 expense not found.
 
-### Stock: adjustments, transfers, counts
+### Stock: adjustments, transfers, counts, near expiry
 
 #### `POST /api/businesses/:businessId/stock/:id/adjustments`
 Permission: `inventory.edit` (`:id` is a stock lot)
@@ -4566,9 +4614,15 @@ Query/Body: `reason` (required)
 Returns: the count with `status='cancelled'`.
 Errors: 404 not found; 409 not open.
 
+#### `GET /api/businesses/:businessId/retail/near-expiry`
+Permission: `inventory.view`
+Query/Body: `days` (1-365; default the business's Expiring soon days, `nearExpiryDays`, 30 until changed), `location`
+Returns: `{ days, rows[{ id (lot), location_id, location_name, sku_id, label, code, unit, price, lot_code, expires_on, quantity, unit_cost, days_left, cost_value, shelf_value, markdown }], totals{ batches, expired, within7, costValue, expiredCost } }`. Batches with stock expiring within `days` (expired ones too), soonest first, at most 500. `markdown` is the item's running item-% offer (`{ id, name, value, ends_on }`) or null. A markdown is an ordinary `POST …/offers` (`item_percent`), and a write-off an ordinary `POST …/stock/:id/adjustments`.
+Errors: 400 days out of range.
+
 ### Appointments
 
-For `salon` businesses, booking and status changes are delegated to `businessSalon.service.js`. That service applies service time plus clean-up, opening hours, stylist skills, rooms and deposits, and charges no-show and late-cancellation fees.
+For `salon` businesses, booking and status changes are delegated to `businessSalon.service.js`. That service applies service time plus clean-up, opening hours, stylist skills, rooms and deposits, and charges no-show and late-cancellation fees (see [Salon & spa](#salon--spa)).
 
 #### `POST /api/businesses/:businessId/resources`
 Permission: `appointments.create`
@@ -4590,7 +4644,7 @@ Errors: 403 an appointment at another location for a person tied to one; 409 the
 
 ## Shared receivables and Wholesale
 
-These routes are mounted inside the Business Admin router (`businessTrade.routes.js`), with the same membership, module, permission and DB-error rules. Receivables routes need the Collections & outstanding module (`receivables`). Wholesale routes need Sales orders & dispatch (`sales_orders`). Trade lists also accept several values in one filter, comma-separated (for example `status=open,part_dispatched`, up to 10 values).
+These routes are mounted inside the Business Admin router (`businessTrade.routes.js`), with the same membership, module, permission and DB-error rules. Receivables routes need the Collections & outstanding module (`receivables`). Wholesale routes need Sales orders & dispatch (`sales_orders`). Trade lists also accept several values in one filter, comma-separated (for example `status=open,part_dispatched`, up to 10 values). The purchase orders registered from the same file are under [Purchase orders to suppliers](#purchase-orders-to-suppliers).
 
 ### Paged lists (trade)
 
@@ -4612,14 +4666,14 @@ These routes are mounted inside the Business Admin router (`businessTrade.routes
 | `GET /api/businesses/:businessId/sales-orders` | `sales_orders.view` | `status` (`open`/`part_dispatched`/`dispatched`/`closed`/`cancelled`), `contact`, `salesperson`, `route`, `location`, `beat` | `created_at` |
 | `GET /api/businesses/:businessId/back-orders` | `sales_orders.view` | `route`, `salesperson`, `contact`, `sku`, `order`, `ready` (`true` = stock covers the line) | none |
 
-Collections rows add `allocated` (to bills), `opening_applied` (against the customer's opening balance), `unallocated` (the true advance; 0 for a bounced cheque), `cheque_date, bank, cheque_status, bounce_charge, salesperson_id, salesperson_name, route_id, route_name, settlement_id, settled, location_name, created_by_name` (pro pass D-01). Salespeople add `user_name, user_email, customer_count, invoiced_this_month, collected_this_month`; customer-beats add `trade_type, price_group_id, price_group_name, state_code, contact_person, hold_exempt, beat_today, balance` (walk-ins sort last); sales orders add `hold_released, edited, out_for_delivery`; back-orders add `can_go_now, pack_unit, pack_factor, sku_code, free_of_line_id`. Sales orders add `line_count, pending_value, dispatch_count, invoiced`. Back-orders are open order lines with `remaining, remaining_value, available` (usable stock at the order's location). Customer-beats lists every active customer with their beat, route and salesperson, or nulls when they have none.
+Collections rows add `allocated` (to bills), `opening_applied` (against the customer's opening balance), `unallocated` (the true advance; 0 for a bounced cheque), `cheque_date, bank, cheque_status, bounce_charge, salesperson_id, salesperson_name, route_id, route_name, settlement_id, settled, location_name, created_by_name`. Salespeople add `user_name, user_email, customer_count, invoiced_this_month, collected_this_month`; customer-beats add `trade_type, price_group_id, price_group_name, state_code, contact_person, hold_exempt, beat_today, balance` (walk-ins sort last); sales orders add `hold_released, edited, out_for_delivery`; back-orders add `can_go_now, pack_unit, pack_factor, sku_code, free_of_line_id`. Sales orders add `line_count, pending_value, dispatch_count, invoiced`. Back-orders are open order lines with `remaining, remaining_value, available` (usable stock at the order's location). Customer-beats lists every active customer with their beat, route and salesperson, or nulls when they have none.
 
 ### Collections and receivables
 
 #### `POST /api/businesses/:businessId/collections`
 Permission: `receivables.create`
 Query/Body: `requestKey`, `locationId`, `contactId` (customer), `amount` (at least 0.01), `method` (`cash`/`upi`/`bank`/`cheque`/`card`; `cheque` needs a `reference`), `reference`, `notes`, `allocations?` (an array of up to 200 `{ documentId, amount }` entries; leave it out to settle the oldest due bills first, or send `[]` to keep the whole amount as an advance), `salespersonId?`, `routeId?` (both need the `sales_orders` module)
-Pro pass: `chequeDate` (a cheque's date; up to 180 days ahead for a post-dated cheque, no more than 90 days old; default today) and `bank` go with `method: 'cheque'` only.
+A cheque also takes `chequeDate` (its date: up to 180 days ahead for a post-dated cheque, no more than 90 days old; default today) and `bank`; both go with `method: 'cheque'` only.
 Returns: 201, `{ ...collection (collection_no, amount, method, ...), allocated, opening_applied, unallocated, cheque_date?, bank?, cheque_status? }`. With automatic allocation, any opening balance not yet covered is reserved before bills are settled; that part is `opening_applied`, and `unallocated` is only the true advance.
 Errors: 404 location, customer, bill, salesperson or route not found; 400 when the allocations add up to more than the amount; 403 salesperson or route sent without Sales orders; 409 "Payment exceeds the outstanding amount", or the key was reused.
 
@@ -4629,10 +4683,16 @@ Query/Body: none
 Returns: `{ ...collection, location_name, created_by_name, contact_phone, contact_gstin, contact_address, salesperson_name, route_name, settlement_id, allocations[{ id, amount, document_id, document_no, total, bill_at }], allocated, opening_applied, unallocated, cheque (null or the cheque row with who deposited / cleared / bounced it and the reversed settlements), seller }`
 Errors: 404 not found.
 
+#### `POST /api/businesses/:businessId/collections/:id/cheque`
+Permission: `receivables.create` for `deposit` and `clear`; `receivables.approve` for `bounce`
+Query/Body: `action` (`deposit`/`clear`/`bounce`), `depositedInto?` (deposit), `reason` (bounce, required), `charge?` (bounce: the bank's charge put on the customer's account; left out, the business's bounce charge, `bounceCharge` in the [wholesale settings](#get-apibusinessesbusinessidwholesale-settings-and-put-apibusinessesbusinessidwholesale-settings), 500.00 until changed; `0` for none)
+Returns: the cheque row with `collection_no`, `amount`. A bounce takes back the bill settlements the receipt made (kept in `reversed_allocations`, the activity log and a `collection.reversed` event), the receipt stops counting in every balance, and the charge becomes an open item. When the customer reaches the bounced-cheque limit (`bounceHoldCount` within `bounceHoldDays`), the answer adds `credit_hold { bounces, days, limit }`, and `customer.credit_hold_bounces` (audit) and `customer.credit_hold` (event) are written.
+Errors: 404 not a cheque on file; 409 already cleared or bounced, a post-dated cheque before its date, or deposited twice.
+
 #### `GET /api/businesses/:businessId/outstanding`
 Permission: `receivables.view`. The `route` filter also needs `sales_orders.view`.
 Query/Body: `limit`, `offset`, `q` (name, phone or GSTIN), `show` (`owing` default, `overdue`, `advance`, `all`), `sort` (`outstanding` default, `overdue`, `name`), `route` (route id)
-Returns: `data = { total, totals: { balance, outstanding, days_0_30, days_31_60, days_61_90, days_over_90, overdue, uncleared_cheques, post_dated_cheques }, items[] }`. Each item is `{ contact_id, name, phone, gstin, credit_limit, credit_days, balance, outstanding, the four age buckets, overdue, most_days_overdue, open_bills, oldest_bill, last_collection_at, uncleared_cheques, post_dated_cheques, bounced_cheques, last_reminder_at, promised_on }`. Customer credit is applied to the oldest items first; a bounced cheque no longer counts and its bank charge is an open item. `sort` also takes `promised`. The four age buckets keep their names, but their edges are the business's credit age groups (`ageingDays` in Business settings › Rules; 30, 60 and 90 days until changed).
+Returns: `data = { total, totals: { balance, outstanding, days_0_30, days_31_60, days_61_90, days_over_90, overdue, uncleared_cheques, post_dated_cheques }, items[] }`. Each item is `{ contact_id, name, phone, gstin, credit_limit, credit_days, balance, outstanding, the four age buckets, overdue, most_days_overdue, open_bills, oldest_bill, last_collection_at, uncleared_cheques, post_dated_cheques, bounced_cheques, last_reminder_at, promised_on }`. Customer credit is applied to the oldest items first; a bounced cheque does not count, and its bank charge is an open item. `sort` also takes `promised`. The four age buckets keep their names, but their edges are the business's credit age groups (`ageingDays` in Business settings › Rules; 30, 60 and 90 days until changed).
 
 #### `GET /api/businesses/:businessId/receivables/customers/:id`
 Permission: `receivables.view`
@@ -4651,24 +4711,50 @@ Query/Body: `from`, `to` (required dates)
 Returns: `{ contact, from, to, opening, debit, credit, closing, entries[{ day, at, kind (opening/sale/return/payment/collection/refund/bounce/bounce_charge), reference, debit, credit, document_id, balance }], seller }`. A payment that came from a collection is shown once, as the collection; a bounced cheque shows the receipt, then on the day it bounced the cheque returned (and any bank charge) as debits.
 Errors: 400 invalid dates, or more than 5,000 entries; 404 customer not found.
 
+#### `POST /api/businesses/:businessId/receivables/customers/:id/follow-ups`
+Permission: `receivables.create`
+Query/Body: `channel` (`call`/`whatsapp`/`sms`/`visit`/`other`), `promisedOn?` (today or later), `promisedAmount?`, `note?`
+Returns: 201, the reminder (the same book as Udhaar: `retail_credit_reminders`).
+
 #### `POST /api/businesses/:businessId/receivables/customers/:id/apply-advance`
 Permission: `receivables.create`
 Query/Body: `requestKey`
 Returns: 201, `{ applied, payments }`. The customer's unallocated collections, oldest first, settle their open bills, oldest due first. The part that covers the opening balance is kept. Repeating the key returns `{ applied: '0.00', repeated: true }`.
 Errors: 404 customer not found; 409 "There is no advance to apply, or no open bill to apply it to".
 
+#### `GET /api/businesses/:businessId/settlements/preview`
+Permission: `receivables.view`
+Query/Body: `salesperson` (required), `day` (default today)
+Returns: `{ salesperson, day, receipts[] (theirs that day, not settled, not bounced), earlier[] (settlements already made that day), totals { receipts, cash, upi, cheques, cheque_count, other } }`
+
+#### `POST /api/businesses/:businessId/settlements`
+Permission: `receivables.approve`
+Query/Body: `requestKey`, `salespersonId`, `day`, `cashHanded`, `notes` (required when the cash does not tally)
+Returns: 201, the settlement (`difference` = handed less cash collected; below zero is short). Every receipt of theirs that day not settled yet is settled; a receipt is settled once. Settlements are never changed.
+Errors: 400 a shortage or excess without a note, or a future day; 409 nothing to settle, or the key was reused.
+
 ### Salespeople, routes, beats
 
 #### `POST /api/businesses/:businessId/salespeople`
 Permission: `sales_orders.edit`
-Query/Body: `name` (required), `phone`
+Query/Body: `name` (required), `phone`, `userId` (a member of the business), `monthlyTarget`
 Returns: 201, the salesperson.
 
 #### `PATCH /api/businesses/:businessId/salespeople/:id`
 Permission: `sales_orders.edit`
-Query/Body: `name`, `phone`, `active` (default true)
+Query/Body: `name`, `phone`, `userId`, `monthlyTarget`, `active` (default true)
 Returns: the updated salesperson.
 Errors: 404 not found.
+
+#### `GET /api/businesses/:businessId/salesperson-logins`
+Permission: `sales_orders.edit`
+Query/Body: none
+Returns: the members who can be linked to a salesperson.
+
+#### `GET /api/businesses/:businessId/salespeople/:id/beat-sheet`
+Permission: `sales_orders.view` (the money columns need `receivables.view`)
+Query/Body: `day` (1-7, Monday = 1)
+Returns: `{ salesperson, weekday, shops[{ contact_id, name, phone, address, beat_name, route_name, balance?, overdue?, most_days_overdue?, oldest_bill?, promised_on?, last_order_at, last_order_total, open_orders }] }`.
 
 #### `POST /api/businesses/:businessId/routes`
 Permission: `sales_orders.edit`
@@ -4704,9 +4790,23 @@ Errors: 404 customer or beat not found.
 
 #### `POST /api/businesses/:businessId/sales-orders`
 Permission: `sales_orders.create`
-Query/Body: `requestKey`, `locationId`, `contactId` (customer), `lines[1..100]` of `{ skuId (goods only), quantity, unit? }`, `expectedOn`, `notes`, `beatId`/`routeId`/`salespersonId` (default to the customer's beat)
-Returns: 201, the order (`order_no`, `status='open'`, `subtotal`, `tax`, `total`). Prices (customer price, slab, pack) are fixed when the order is placed.
-Errors: 404 location, customer, item, beat, route or salesperson not found; 400 the beat is on another route, or a line is a service; 409 credit limit exceeded (owed + ordered and not yet sent + this order), or the key was reused.
+Query/Body: `requestKey`, `locationId`, `contactId` (customer), `lines[1..100]` of `{ skuId (goods only), quantity, unit?, discountPercent?, freeQuantity? }`, `expectedOn`, `notes`, `beatId`/`routeId`/`salespersonId` (default to the customer's beat), `release?` (see [Credit hold](#credit-hold))
+Returns: 201, the order (`order_no`, `status='open'`, `subtotal`, `tax`, `total`). Prices are fixed when the order is placed, in the order given under [Price groups and schemes](#price-groups-and-schemes).
+Errors: 404 location, customer, item, beat, route or salesperson not found; 400 the beat is on another route, or a line is a service; 409 credit limit exceeded (owed + ordered and not yet sent + this order); 409 `credit_hold`; 409 the key was reused.
+
+#### Credit hold
+`POST …/sales-orders` and `PATCH …/sales-orders/:id` refuse an order for a customer on hold who is not marked never-hold (`holdExempt`): 409 with `data = { reason: "credit_hold", holdReason, overdue, days, limitDays, oldestDue, bounces, bounceDays }`. `holdReason` is `overdue` (the wholesale settings hold orders after `holdOverdueDays` and the customer has an open bill more than that many days past its due date) or `bounced_cheques` (`bounceHoldCount` cheques bounced within `bounceHoldDays`; the hold lifts by itself once the oldest of them is out of that window). Send the order again with `release: { reason }` if you hold `receivables.approve`, or `release: { reason, approverId, pin }` with the PIN of a member who does (their own PIN from My profile; five wrong tries lock it). The release is kept in `wholesale_hold_releases` and the activity log under the approver. Release errors (in `data.reason`): 400 `not_an_approver` (not a member) and `wrong_pin`, 403 `not_an_approver` (cannot release), 409 `no_pin`, 423 `pin_locked`.
+
+#### `GET /api/businesses/:businessId/hold-releasers`
+Permission: `sales_orders.create`
+Query/Body: none
+Returns: the members who may release a hold, `[{ id, name, has_pin }]`.
+
+#### `PATCH /api/businesses/:businessId/sales-orders/:id`
+Permission: `sales_orders.create`
+Query/Body: `requestKey`, `reason` (required), `lines[]` of `{ orderLineId, quantity (still to send), unit?, discountPercent?, freeQuantity? }` for lines kept or changed and `{ skuId, quantity, unit?, discountPercent?, freeQuantity? }` for new lines, `expectedOn?`, `notes?`, `release?`
+Returns: the order, re-valued. A line left out has its unsent part taken off; a changed one is taken off and added again at today's price (scheme, credit limit and credit hold checked again); what was sent never changes. Recorded in `wholesale_order_edits`.
+Errors: 409 the order is not open, nothing changed, or nothing would be left (cancel or close it instead); 409 credit limit or `credit_hold`.
 
 #### `GET /api/businesses/:businessId/sales-orders/:id`
 Permission: `sales_orders.view`
@@ -4714,11 +4814,21 @@ Query/Body: none
 Returns: `{ ...order, location_name, salesperson_name, route_name, beat_name, contact_phone, contact_gstin, credit_limit, created_by_name, lines[] (each with remaining, remaining_value, available), dispatches[] (each with document_no, total, invoiced_at, lines[]) }`
 Errors: 404 not found.
 
+#### `GET /api/businesses/:businessId/sales-orders/customer-summary/:id`
+Permission: `sales_orders.view` (the account part needs `receivables.view`)
+Query/Body: none
+Returns: `{ contact, last_order (with its lines, to repeat it), hold { held, reason (overdue/bounced_cheques), exempt, days, overdue, limitDays, oldestDue, bounces, bounceLimit, bounceDays }, account (one ageing row or null) }`
+
 #### `POST /api/businesses/:businessId/sales-orders/:id/dispatch`
 Permission: `sales_orders.approve`
-Query/Body: `requestKey`, `lines[1..100]` of `{ orderLineId, quantity, unit? (the line's ordered pack or stock unit), lots?: [{ lotId, quantity }] }`, `vehicleNo`, `notes`
-Returns: 201, `{ dispatch, document, status }`. Each dispatch posts a tax invoice (a core sale) at the order's prices. Batches are picked oldest expiry first unless `lots` names them. The order status becomes `part_dispatched` or `dispatched`.
+Query/Body: `requestKey`, `lines[1..100]` of `{ orderLineId, quantity, unit? (the line's ordered pack or stock unit), lots?: [{ lotId, quantity }] }`, `vehicleNo`, `notes`, and the transport: `driverName`, `helperName`, `transporterName`, `transporterId` (15 characters), `lrNo`, `ewayBillNo` (12 digits), `ewayBillDate`, `distanceKm`
+Returns: 201, `{ dispatch, document, status }`. Each dispatch posts a tax invoice (a core sale) at the order's prices, and takes a `challan_no` from the dispatching location's `delivery_challan` series (per financial year). Batches are picked oldest expiry first unless `lots` names them. The order status becomes `part_dispatched` or `dispatched`.
 Errors: 404 order or line not found; 409 the order is already dispatched, closed or cancelled, the quantity is more than is left on the order, there is not enough usable stock (dispatch less and leave a back-order), a chosen batch is not usable, or the credit limit would be exceeded; 400 the chosen batches do not add up to the quantity.
+
+#### `POST /api/businesses/:businessId/sales-orders/:id/lines/:lineId/close`
+Permission: `sales_orders.cancel`
+Query/Body: `reason`
+Returns: the order (closed or cancelled when nothing is left). Drops what is left of one line and its free goods.
 
 #### `POST /api/businesses/:businessId/sales-orders/:id/close`
 Permission: `sales_orders.cancel`
@@ -4726,130 +4836,61 @@ Query/Body: `reason` (required)
 Returns: the order with `status='cancelled'` (nothing was sent) or `'closed'` (part was sent and the back-order is dropped).
 Errors: 404 not found; 409 not open or part dispatched.
 
+#### Dispatch board, delivery runs and delivery
+- `GET /dispatch-board` (`sales_orders.view`): orders still to dispatch with `lines, lines_ready, lines_none, pending_value`; filters `route`, `day` (beat weekday 1–7), `wantedBy`, `location`.
+- `GET /pick-list?orders=1,2,3` (`sales_orders.view`): `{ location, orders, items[{ sku_id, code, label, unit, wanted, available, short, pack_unit, pack_factor, take[{ lot_code, expires_on, quantity }], order_nos }] }` (batches earliest expiry first). 409 when the orders are not waiting or go out from different godowns.
+- `POST /delivery-runs` (`sales_orders.approve`) `{ requestKey, orderIds[1..60], vehicleNo?, driverName?, driverPhone?, helperName?, routeId?, transporterName?, transporterId?, lrNo?, notes? }`: each order sends what is in stock now (whole packs for lines ordered in packs) on its own invoice; an order with nothing in stock, or refused by the core (credit limit), is skipped. Returns 201 the run with `invoices[]`, `items[]`, `sent[]`, `skipped[{ orderNo, reason }]`.
+- `GET /delivery-runs/:id` (`sales_orders.view`): the load sheet (`items` loaded, `invoices` with `to_collect`).
+- `PATCH /dispatches/:id/transport` (`sales_orders.approve`): the transport and e-way bill fields of the dispatch, later. The e-way bill number is typed in by hand.
+- `POST /dispatches/:id/delivery` (`sales_orders.approve`; returns also need `sales.refund`) `{ status: delivered | part_returned | refused, receivedBy?, note (required for returns), requestKey (returns), returns?: [{ documentLineId, quantity }] }`: goods that came back are a sales return with restock; the order does not reopen. 409 when already marked.
+- `POST /dispatches/:id/challan` (`sales_orders.view`): what the A4 delivery challan prints, issuing the dispatch's challan number first when it has none (audit `dispatch.challan_issued`): the dispatch with its transport (`transporter_name, transporter_id, vehicle_no, lr_no, eway_bill_no, eway_bill_date, driver_name`), `order_no, document_no, location_name`, the consignee (`contact_*`, `contact_state`, `contact_pin`), `lines[{ label, unit, quantity, entered_unit, entered_quantity, unit_factor, lot_code, expires_on, hsn_code, net, tax, free, scheme_name }]` and `seller`.
+- The `dispatches` list rows carry `challan_no`, and its search covers challan and LR numbers.
+- `GET …/documents/:id` of a dispatched sale adds `wholesale { order_no, salesperson_name, route_name, vehicle_no, driver_name, transporter_*, lr_no, eway_bill_no, eway_bill_date, distance_km, delivery_status, lines[{ document_line_id, discount_percent, list_unit_price, free, scheme_name }] }`, which the shared tax invoice prints.
+
+#### `GET /api/businesses/:businessId/wholesale-summary`
+Permission: `sales_orders.view` (money figures need `receivables.view`)
+Query/Body: none
+Returns: `{ orders_to_dispatch { count, value, due_today }, back_orders { lines, value }, out_for_delivery { count, value }, beats_today[], collected_today[{ name, receipts, amount, cash }], cheques { to_deposit, to_deposit_value, post_dated, post_dated_value, in_clearing, bounced_30_days }, overdue { amount, customers, over_90 }, unsettled_today[], hold_overdue_days }`
+
+#### `GET /api/businesses/:businessId/wholesale-settings` and `PUT /api/businesses/:businessId/wholesale-settings`
+Permission: `sales_orders.view` (GET) / `settings.edit` (PUT)
+Query/Body (PUT): `holdOverdueDays` (1–365, or null for no hold), `bounceCharge` (the bank charge put on a customer for a bounced cheque), `bounceHoldCount` (null = never hold for bounces) and `bounceHoldDays` (7–365). A field left out keeps what is saved.
+Returns: the saved row, or the defaults (`hold_overdue_days: null`, `bounce_charge: "500.00"`, `bounce_hold_count: 2`, `bounce_hold_days: 90`) when nothing is saved yet.
+
+#### `GET /api/businesses/:businessId/wholesale-customers/:id` and `PUT /api/businesses/:businessId/wholesale-customers/:id`
+Permission: `contacts.view` / `contacts.edit` (`beatId` needs `sales_orders.edit`; `holdExempt`, on or off, needs `receivables.approve`)
+Query/Body (PUT): `priceGroupId?`, `contactPerson?`, `stateCode?` (two-digit GST state code), `pinCode?`, `pan?`, `fssai?`, `tradeType` (`trade`/`walk_in`), `holdExempt`, `beatId?` (null takes them off their beat)
+Returns: the trade details `{ contact_id, price_group_id, price_group_name, contact_person, state_code, pin_code, pan, fssai, trade_type, hold_exempt, ..., beat }` (defaults when nothing is saved yet; `beat` is `{ beat_id, beat_name, route_id, route_name, salesperson_id, salesperson_name, visit_day }` or null). A dispatch to a customer without a GSTIN takes their state as the place of supply.
+Errors: 404 customer not found.
+
+### Price groups and schemes
+
+Changing them needs `wholesale.edit`; the lists (`price-groups`, `group-prices`, `schemes`) are under [Paged lists (trade)](#paged-lists-trade).
+
+- `POST /price-groups` `{ name, notes? }`; `PATCH /price-groups/:id` `{ name, notes?, active }`.
+- `POST /group-prices` `{ groupId, skuId, unitCode?, minimumQuantity?, unitPrice, validFrom? (today or later), validTo? }`: a price running for the same line ends the day before; one starting on or after that date is refused (409).
+- `POST /group-prices/:id/end` `{ validTo? }`: ends it (an upcoming price is withdrawn: `withdrawn: true`).
+- `POST /group-prices/revise` `{ groupId?, skuIds?, percent (-90..500), validFrom? }`: every price running on that date moves by the percentage from it. Returns `{ revised, from, percent }`.
+- `POST /schemes` `{ name, skuId, unitCode?, buyQuantity, freeQuantity?, discountPercent?, freeSkuId?, freeUnitCode?, noSlab?, groupId?, validFrom?, validTo? }`: `freeSkuId` gives another item free ("buy 5 cases of A, get 1 of B"), in its pack `freeUnitCode`; `noSlab` (boolean) keeps the scheme from combining with slab prices. `PATCH /schemes/:id` `{ active?, validTo? }` (the terms of a used scheme never change). The schemes list adds `free_label` and `free_stock_unit`, and the filter `free_sku`.
+
+Pricing of an order line: the customer's own price, then their group's price (dated), then a slab for everyone, then the list price. The scheme is found first: with `noSlab`, a slab for all customers gives way to the list price, and only a group's base price (minimum 1) is used. The scheme's discount plus a line `discountPercent` (needs `sales.discount` or `wholesale.edit`) then come off. Free goods (the scheme's, plus `freeQuantity`) become a separate line at no charge (`free_of_line_id`); free goods of another item carry `scheme_id`, `net = 0` and `list_unit_price` = that item's list price.
+
+### Claims on suppliers
+
+`POST /claims` (`purchasing.edit`) `{ supplierId, kind (scheme/damage/expiry/rate_difference/shortage/other), amount, documentId? (a purchase from that supplier), periodFrom?, periodTo?, notes? }`; `PATCH /claims/:id` (`purchasing.edit`) `{ status: submitted | settled | rejected, settledAmount + creditNoteNo (settled), notes? }`. A claim moves open → submitted → settled or rejected. The list is `GET …/claims` under [Paged lists (trade)](#paged-lists-trade).
+
+### Wholesale reports
+
 #### `GET /api/businesses/:businessId/wholesale-reports`
 Permission: `reports.view`. Also `sales.view` for `customer`, `salesperson` and `route`; `receivables.view` for `collections` and `outstanding`; and `sales_orders.view` for `salesperson`, `route` and `outstanding`.
 Query/Body: `group` (`customer`/`salesperson`/`route`/`collections`/`outstanding`, required), `from` and `to` (required except for `outstanding`; up to 367 days), `by` (`route` default, or `salesperson`; `outstanding` only)
 Returns: `customer`/`salesperson`/`route`: `{ group, from, to, rows[{ id, name, invoices, invoiced, returned, net_sales, orders, ordered }] }`. `collections`: `{ group, from, to, rows[{ day, method, salesperson, route, receipts, amount, applied }], paidOnBills: { payments, amount } }`. `outstanding`: `{ group, by, rows[{ id, name, customers, balance, the age buckets, overdue }] }`.
 Errors: 400 missing or invalid group or dates.
 
-
-### Pro pass (wholesale, D): cheques, follow-ups, settlement, credit hold, order edits, price groups, delivery
-
-#### `POST /api/businesses/:businessId/collections/:id/cheque`
-Permission: `receivables.create` for `deposit` and `clear`; `receivables.approve` for `bounce`.
-Query/Body: `action` (`deposit`/`clear`/`bounce`), `depositedInto?` (deposit), `reason` (bounce, required), `charge?` (bounce: the bank's charge put on the customer's account)
-Returns: the cheque row with `collection_no`, `amount`. A bounce takes back the bill settlements the receipt made (kept in `reversed_allocations`, the activity log and a `collection.reversed` event), the receipt stops counting in every balance, and the charge becomes an open item.
-Errors: 404 not a cheque on file; 409 already cleared or bounced, a post-dated cheque before its date, deposited twice.
-
-#### `POST /api/businesses/:businessId/receivables/customers/:id/follow-ups`
-Permission: `receivables.create`
-Query/Body: `channel` (`call`/`whatsapp`/`sms`/`visit`/`other`), `promisedOn?` (today or later), `promisedAmount?`, `note?`
-Returns: 201, the reminder (the same book as Udhaar: `retail_credit_reminders`).
-
-#### `GET /api/businesses/:businessId/settlements/preview`
-Permission: `receivables.view`
-Query/Body: `salesperson` (required), `day` (default today)
-Returns: `{ salesperson, day, receipts[] (theirs that day, not settled, not bounced), earlier[] (settlements already made that day), totals { receipts, cash, upi, cheques, cheque_count, other } }`
-
-#### `POST /api/businesses/:businessId/settlements`
-Permission: `receivables.approve`
-Query/Body: `requestKey`, `salespersonId`, `day`, `cashHanded`, `notes` (required when the cash does not tally)
-Returns: 201, the settlement (`difference` = handed less cash collected; below zero is short). Every receipt of theirs that day not settled yet is settled; a receipt is settled once. Settlements are never changed.
-Errors: 400 a shortage or excess without a note, a future day; 409 nothing to settle, the key was reused.
-
-#### `PATCH /api/businesses/:businessId/sales-orders/:id`
-Permission: `sales_orders.create`
-Query/Body: `requestKey`, `reason` (required), `lines[]` of `{ orderLineId, quantity (still to send), unit?, discountPercent?, freeQuantity? }` for lines kept or changed and `{ skuId, quantity, unit?, discountPercent?, freeQuantity? }` for new lines, `expectedOn?`, `notes?`, `release?`
-Returns: the order, re-valued. A line left out has its unsent part taken off; a changed one is taken off and added again at today's price (scheme, credit limit and credit hold checked again); what was sent never changes. Recorded in `wholesale_order_edits`.
-Errors: 409 the order is no longer open, nothing changed, nothing would be left (cancel or close instead), credit limit or hold.
-
-#### `POST /api/businesses/:businessId/sales-orders/:id/lines/:lineId/close`
-Permission: `sales_orders.cancel`
-Query/Body: `reason`
-Returns: the order (closed or cancelled when nothing is left). Drops what is left of one line and its free goods.
-
-#### `GET /api/businesses/:businessId/sales-orders/customer-summary/:id`
-Permission: `sales_orders.view` (the account part needs `receivables.view`)
-Returns: `{ contact, last_order (with its lines, to repeat it), hold { held, exempt, days, overdue, limitDays, oldestDue }, account (one ageing row or null) }`
-
-#### Credit hold on `POST /sales-orders` and `PATCH /sales-orders/:id`
-When Wholesale settings hold orders after N days and the customer has an open bill more than N days past its due date (and is not marked never-hold), the order is refused: 409 with `data.reason = 'credit_hold'` (`overdue`, `days`, `limitDays`, `oldestDue`). Send it again with `release: { reason }` if you hold `receivables.approve`, or `release: { reason, approverId, pin }` with the PIN of a member who does (their own PIN from My profile; five wrong tries lock it, 423). The release is kept in `wholesale_hold_releases` and the activity log under the approver.
-
-#### `GET /api/businesses/:businessId/hold-releasers`
-Permission: `sales_orders.create`. Returns the members who may release a hold, `[{ id, name, has_pin }]`.
-
-#### `GET /api/businesses/:businessId/wholesale-settings` and `PUT /api/businesses/:businessId/wholesale-settings`
-Permission: `sales_orders.view` / `settings.edit`. Body: `holdOverdueDays` (1–365, or null for no hold); round 2 adds `bounceCharge`, `bounceHoldCount`, `bounceHoldDays` (see below). GET returns the saved row, or the defaults (`hold_overdue_days: null`, `bounce_charge: "500.00"`, `bounce_hold_count: 2`, `bounce_hold_days: 90`) when nothing is saved yet.
-
-#### `GET /api/businesses/:businessId/wholesale-customers/:id` and `PUT /api/businesses/:businessId/wholesale-customers/:id`
-Permission: `contacts.view` / `contacts.edit` (`beatId` needs `sales_orders.edit`; `holdExempt`, on or off, needs `receivables.approve`)
-Body: `priceGroupId?`, `contactPerson?`, `stateCode?` (two-digit GST state code), `pinCode?`, `pan?`, `fssai?`, `tradeType` (`trade`/`walk_in`), `holdExempt`, `beatId?` (null takes them off their beat)
-Returns: the trade details `{ contact_id, price_group_id, price_group_name, contact_person, state_code, pin_code, pan, fssai, trade_type, hold_exempt, ..., beat }` (defaults when nothing is saved yet; `beat` is `{ beat_id, beat_name, route_id, route_name, salesperson_id, salesperson_name, visit_day }` or null). A dispatch to a customer without a GSTIN takes their state as the place of supply. 404 customer not found.
-
-#### Price groups and schemes (permission `wholesale.edit`)
-- `POST /price-groups` `{ name, notes? }`; `PATCH /price-groups/:id` `{ name, notes?, active }`
-- `POST /group-prices` `{ groupId, skuId, unitCode?, minimumQuantity?, unitPrice, validFrom? (today or later), validTo? }`: a price running for the same line ends the day before; one starting on or after that date is refused (409).
-- `POST /group-prices/:id/end` `{ validTo? }`: ends it (an upcoming price is withdrawn: `withdrawn: true`).
-- `POST /group-prices/revise` `{ groupId?, skuIds?, percent (-90..500), validFrom? }`: every price running on that date moves by the percentage from it. Returns `{ revised, from, percent }`.
-- `POST /schemes` `{ name, skuId, unitCode?, buyQuantity, freeQuantity?, discountPercent?, groupId?, validFrom?, validTo? }`; `PATCH /schemes/:id` `{ active?, validTo? }` (terms of a used scheme never change).
-Pricing of an order line: the customer's own price, then their group's price (dated), then a slab for everyone, then the list price; then the scheme's discount plus a line `discountPercent` (needs `sales.discount` or `wholesale.edit`); free goods (scheme plus `freeQuantity`) become a separate line at no charge (`free_of_line_id`).
-
-#### Salespeople (pro pass)
-`POST`/`PATCH /salespeople` also take `userId` (a member of the business) and `monthlyTarget`. `GET /salesperson-logins` (`sales_orders.edit`) lists the members to link. `GET /salespeople/:id/beat-sheet?day=1..7` (`sales_orders.view`) returns `{ salesperson, weekday, shops[{ contact_id, name, phone, address, beat_name, route_name, balance?, overdue?, most_days_overdue?, oldest_bill?, promised_on?, last_order_at, last_order_total, open_orders }] }` (the money columns need `receivables.view`).
-
-#### Dispatch and delivery
-- `GET /dispatch-board` (`sales_orders.view`): orders still to dispatch with `lines, lines_ready, lines_none, pending_value`; filters `route`, `day` (beat weekday 1–7), `wantedBy`, `location`.
-- `GET /pick-list?orders=1,2,3` (`sales_orders.view`): `{ location, orders, items[{ sku_id, code, label, unit, wanted, available, short, pack_unit, pack_factor, take[{ lot_code, expires_on, quantity }], order_nos }] }` (batches earliest expiry first). 409 when the orders are not waiting or go out from different godowns.
-- `POST /delivery-runs` (`sales_orders.approve`) `{ requestKey, orderIds[1..60], vehicleNo?, driverName?, driverPhone?, helperName?, routeId?, transporterName?, transporterId?, lrNo?, notes? }`: each order sends what is in stock now (whole packs for lines ordered in packs) on its own invoice; an order with nothing in stock or refused by the core (credit limit) is skipped. Returns 201 the run with `invoices[]`, `items[]`, `sent[]`, `skipped[{ orderNo, reason }]`.
-- `GET /delivery-runs/:id`: the load sheet (`items` loaded, `invoices` with `to_collect`).
-- `POST /sales-orders/:id/dispatch` also takes `driverName, helperName, transporterName, transporterId (15), lrNo, ewayBillNo (12 digits), ewayBillDate, distanceKm`.
-- `PATCH /dispatches/:id/transport` (`sales_orders.approve`): the same transport and e-way bill fields, later.
-- `POST /dispatches/:id/delivery` (`sales_orders.approve`; returns also need `sales.refund`) `{ status: delivered | part_returned | refused, receivedBy?, note (required for returns), requestKey (returns), returns?: [{ documentLineId, quantity }] }`: goods that came back are a sales return with restock; the order does not reopen. 409 when already marked.
-- `GET /documents/:id` of a dispatched sale adds `wholesale { order_no, salesperson_name, route_name, vehicle_no, driver_name, transporter_*, lr_no, eway_bill_no, eway_bill_date, distance_km, delivery_status, lines[{ document_line_id, discount_percent, list_unit_price, free, scheme_name }] }`; the shared tax invoice prints it.
-- `GET /documents` (sales) adds `order_no, salesperson_name, route_name, delivery_status, source, unpaid` and filters `salesperson`, `route`, `delivery`, `source` (`order`/`counter`), `unpaid`.
-
-#### `GET /api/businesses/:businessId/wholesale-summary`
-Permission: `sales_orders.view` (money figures need `receivables.view`)
-Returns: `{ orders_to_dispatch { count, value, due_today }, back_orders { lines, value }, out_for_delivery { count, value }, beats_today[], collected_today[{ name, receipts, amount, cash }], cheques { to_deposit, to_deposit_value, post_dated, post_dated_value, in_clearing, bounced_30_days }, overdue { amount, customers, over_90 }, unsettled_today[], hold_overdue_days }`
-
-#### Claims on suppliers (`purchasing.edit`)
-`POST /claims` `{ supplierId, kind (scheme/damage/expiry/rate_difference/shortage/other), amount, documentId? (a purchase from that supplier), periodFrom?, periodTo?, notes? }`; `PATCH /claims/:id` `{ status: submitted | settled | rejected, settledAmount + creditNoteNo (settled), notes? }` (open → submitted → settled or rejected).
-
-### Round 2 (R2-WS): purchase orders, delivery challan, schemes, bounced cheques
-
-#### Purchase orders (`purchasing.view` to read; `purchasing.create` to raise, change, send, receive, close)
-- `GET /purchase-orders` (paged list): filters `status` (`draft`/`sent`/`part_received`/`received`/`closed`/`cancelled`, comma-separated), `contact`, `location`, `late` (`true`); date range on `created_at`. Rows add `location_name, line_count, pending_value, receipt_count, received_value, late`.
-- `GET /purchase-orders/suggestions?location=&supplier=`: `{ location, items[{ sku_id, label, code, unit, tax_rate, reorder_level, stock, back_orders, on_order, supplier_id, supplier_name, last_cost, last_bought_at, pack_unit, pack_factor, need, reason (reorder/back_order), suggested_quantity, suggested_unit, suggested_base }] }`. need = back-orders + reorder level − usable stock − on order (open POs); suggested in whole cases (the stock unit when the item has no pack). Back-orders count only with the Sales orders module.
-- `POST /purchase-orders` `{ requestKey, contactId (a supplier), locationId, expectedOn?, notes?, lines[1..200]{ skuId, quantity, unit?, unitCost? (per the unit typed, before GST; default the last purchase cost), source? (manual/reorder/back_order) } }` → 201 the order (`po_no` from the `purchase_order` series, status `draft`). 400 an item never bought without a cost, the same item twice.
-- `GET /purchase-orders/:id`: the order with supplier contact details, `lines[]` (`remaining`, `stock`, `hsn_code`, `tracking`), `receipts[]` (the purchase document, total, supplier bill, lines) and `seller` (for the print).
-- `PATCH /purchase-orders/:id` `{ contactId?, expectedOn?, notes?, lines? }`: a draft only (409 once sent).
-- `POST /purchase-orders/:id/send` `{ via: whatsapp | email | printed | phone | other }`: draft → sent. 409 when not a draft.
-- `POST /purchase-orders/:id/receive` `{ requestKey, supplierBillNo?, supplierBillDate?, notes?, lines[{ poLineId, quantity, unit? (the order's pack or the stock unit), unitCost? (the bill's cost per the unit typed; default the order's), lotCode?, expiresOn? }] }` → 201 the order detail. Posts one core purchase (`documents` kind `purchase`, notes "Against PO…"); counts at most what was still to come on each line; status `part_received` or `received`. A repeat with the same key returns the same receipt. 409 when the order is received, closed or cancelled; the core's checks (batch required, duplicate supplier bill) apply.
-- `POST /purchase-orders/:id/close` `{ reason }`: nothing received → `cancelled`; partly received → `closed` (the rest will not come). 409 when not open.
-- Audit: `purchase_order.raised / changed / sent / received / closed / cancelled`; events `purchase_order.*`.
-
-#### Delivery challan
-- Every dispatch takes a `challan_no` from the dispatching location's `delivery_challan` series (per financial year). `GET /dispatches` rows add `challan_no`; search covers challan and LR numbers.
-- `POST /dispatches/:id/challan` (`sales_orders.view`): issues the number once for a dispatch made before challans (audit `dispatch.challan_issued`) and returns what the A4 challan prints: the dispatch with transport (`transporter_name, transporter_id, vehicle_no, lr_no, eway_bill_no, eway_bill_date, driver_name`), `order_no, document_no, location_name`, consignee (`contact_*`, `contact_state`, `contact_pin`), `lines[{ label, unit, quantity, entered_unit, entered_quantity, unit_factor, lot_code, expires_on, hsn_code, net, tax, free, scheme_name }]` and `seller`. The e-way bill number is typed in by hand (`PATCH /dispatches/:id/transport`).
-
-#### Schemes (additions)
-- `POST /schemes` also takes `freeSkuId?` (another item free: "buy 5 cases of A, get 1 of B"), `freeUnitCode?` (its pack) and `noSlab` (boolean: do not combine with slab prices). The list adds `free_label`, `free_stock_unit`, the filter `free_sku`.
-- Order pricing: the scheme is found first; with `noSlab` a slab for all customers gives way to the list price and only a group's base price (minimum 1) is used. Free goods of another item become their own line (`free_of_line_id`, `scheme_id`, `net = 0`, `list_unit_price` = that item's list price).
-- `GET /wholesale-scheme-report?from&to&contact?&scheme?` (`reports.view` and `sales_orders.view`; up to 367 days): `{ from, to, rows[{ contact_id, contact_name, scheme_id, scheme_name, item, unit, free_item, free_unit, pack, free_pack, orders, ordered, bought, free_ordered, free_sent, free_value, discount_value }], totals { orders, free_value, discount_value, retailers } }` for orders taken in the period (not cancelled).
-
-#### Bounced cheques and credit hold (additions)
-- `GET` / `PUT /wholesale-settings` also carry `bounceCharge` (default 500.00), `bounceHoldCount` (default 2; null = never hold for bounces) and `bounceHoldDays` (default 90, 7–365). A field left out keeps what is saved.
-- `POST /collections/:id/cheque` `{ action: 'bounce' }` without `charge` uses the business's bounce charge (with `charge` that amount; `0` for none). The response adds `credit_hold { bounces, days, limit }` when the customer is now at or over the limit; reaching it writes `customer.credit_hold_bounces` (audit) and `customer.credit_hold` (event).
-- `hold` (customer summary) and the 409 `credit_hold` refusal add `reason` / `holdReason` (`overdue` or `bounced_cheques`), `bounces`, `bounceLimit`, `bounceDays`.
-
-#### Restaurant (round 2)
-- `POST /api/bills/advances` also takes `orderId`: an open takeaway of this restaurant with no bill yet (409 otherwise; 404 unknown); the advance's guest must be the order's (409), and an order without a guest gets it. Default purpose "Pickup order …". Not with `reservationId` (400).
-- `GET /api/bills/advances/order/:orderId` (`payments.manage`, Advances feature): the advances taken on that order. `GET /api/bills/advances/held/:customerId?orderId=` lists that order's advance first. Advances carry `orderId`, `orderNumber`.
-- `GET /api/tasks/people` and `GET /api/businesses/:businessId/tasks/people` (the tasks module): `q?`, `kind?` (`user` = logins only), `limit` (1–50, default 20), `offset` → `{ total, rows[{ kind (user/employee/resource), id, name, detail, placeId, login }] }`, ordered by name. `GET …/tasks/context` no longer lists `directory.people`; it gives `directory.peopleCount`.
-- Task, issue, project, recurring-task and template actions taken through `/api/tasks` are also written to the restaurant's `audit_logs` (action = the verb, `entity_type` = task / issue / project / task_schedule / task_template, `entity_label` = the title; a task update that sets assignees is `assigned`).
-
-#### Stock list (core, pro pass D-13)
-`GET /stock` adds `in_stock`, `expiring` (within the business's Expiring soon days, `nearExpiryDays` in Business settings › Rules; 30 until changed), `pack_unit`, `pack_factor`, and the filters `in_stock`, `expiring`.
+#### `GET /api/businesses/:businessId/wholesale-scheme-report`
+Permission: `reports.view` and `sales_orders.view`
+Query/Body: `from`, `to` (up to 367 days), `contact?`, `scheme?`
+Returns: `{ from, to, rows[{ contact_id, contact_name, scheme_id, scheme_name, item, unit, free_item, free_unit, pack, free_pack, orders, ordered, bought, free_ordered, free_sent, free_value, discount_value }], totals { orders, free_value, discount_value, retailers } }` for orders taken in the period (not cancelled).
 
 ## Retail (counter, udhaar, offers, loyalty, books)
 
@@ -4859,15 +4900,22 @@ These routes are added to the Business Admin router by `businessRetail.routes.js
 
 #### `POST /api/businesses/:businessId/retail/quote`
 Permission: `sales.create`
-Query/Body: the same body as a sale on `POST /documents` (`locationId`, `contactId`, `lines[1..100]`, `loyalty.redeemPoints`, ...). `kind` is forced to `sale`, and payment and `requestKey` are ignored.
+Query/Body: the same body as a sale on [POST …/documents](#post-apibusinessesbusinessiddocuments) (`locationId`, `contactId`, `lines[1..100]`, `loyalty.redeemPoints`, `coupon`, `discount`, ...). `kind` is forced to `sale`, and payment and `requestKey` are ignored.
 Returns: `data = { taxMode, contactId, lines[{ skuId, label, unit, quantity, unitPrice, priceKind, enteredUnit, enteredQuantity, amount, discount, net, tax, taxRate, lotCode, offers[] }], subtotal, tax, roundOff, total, savings, loyalty, coupon }`. `priceKind` says which price the line sold at: `list`, `branch` (the location's own), `member` or `rule` (a customer or slab price). `loyalty` is `{ balance, earns, redeemed, redeemedValue, pointValue, minRedeem, maxRedeem }` or null. `coupon` is `{ code, name, applied }` when a coupon was given (`applied` false when another offer was better), else null. The bill is worked out exactly as posting would work it out, and nothing is saved.
-Errors: the same validation as posting (404 item, location or contact; 409 points or redeem limits; the coupon errors). The stock check is skipped.
+Errors: the same validation as posting (404 item, location or contact; 409 points or redeem limits; the coupon and counter-discount errors). The stock check is skipped.
 
 #### `GET /api/businesses/:businessId/retail/scan`
 Permission: `sales.create` or `catalog.view`
 Query/Body: `code` (required, up to 80 chars; spaces removed), `locationId`
-Returns: `data = { sku, quantity, source, lots[] }`. `source` is `barcode`, `isbn` or `scale`. The code is matched against the barcode or SKU code first, then the ISBN (`books` module), then a weighing-scale label `21PPPPPWWWWWC` (`weight` module). For a scale label, `quantity` is the weight in the item's unit. `lots` lists the usable batches, earliest expiry first, for batch or serial items only.
-Errors: 404 no item for the code or the scale code; 400 a scale label with a bad check digit or no weight.
+Returns: `data = { sku, quantity, source, lots[], serial }`. The code is matched, in this order, against:
+- an item's barcode or SKU code (`source: "barcode"`);
+- a book's ISBN (`isbn`; `books` module);
+- a weighing-scale label `21PPPPPWWWWWC` (`scale`; `weight` module): `quantity` is the weight in the item's unit;
+- a serial number, or either IMEI of a phone, of a unit in stock (`serial`; `serials` module): that very unit is billed, so `serial` names it and `lots` holds only it;
+- an active school set's code (`set`; `books` module): the answer is then `{ source: "set", set: { id, name, code, items[{ skuId, quantity, label, barcode, code }] }, sku: null }`, and the counter adds the whole booklist.
+
+`lots` lists the usable batches, earliest expiry first, for batch or serial items only. A kit answers `kit: { components[] (with lots for serial / batch parts) }`.
+Errors: 404 no item has the code ("No item has this barcode, code, ISBN or serial number"), or no item has the scale code; 400 a scale label with a bad check digit or no weight; 409 the unit is in stock at another location (transfer it first), or was already sold (the bill, customer and date are named); 409 a set with an item switched off.
 
 #### `POST /api/businesses/:businessId/retail/barcodes`
 Permission: `catalog.edit`
@@ -4965,7 +5013,7 @@ Errors: 404 customer not found; 409 the customer owes nothing; 400 the promised 
 #### `GET /api/businesses/:businessId/offers`
 Permission: `offers.view`
 Query/Body: the paged-list contract; filters `status` (`running`/`waiting`/`scheduled`/`off`/`ended`), `kind`; `q` also searches the coupon code
-Returns: `{ total, items[] }` of offers, each with `sku_label, category_name, status, given, bills`. Running offers come first.
+Returns: `{ total, items[] }` of offers, each with `sku_label, category_name, status, given, bills`; a fashion markdown (kind `product_percent`) also carries `product_id` and `product_name`. Running offers come first.
 
 #### `GET /api/businesses/:businessId/offers/given`
 Permission: `offers.view` and `sales.view`
@@ -4975,7 +5023,7 @@ Errors: 400 invalid dates.
 
 #### `POST /api/businesses/:businessId/offers`
 Permission: `offers.create`
-Query/Body: `name`, `kind` (`item_percent`, `item_amount`, `category_percent`, `bill_percent`, `bill_amount`, `buy_x_get_y`), `value` (a percentage up to 100, or an amount), `skuId` (item kinds and buy-X-get-Y), `categoryId` (category_percent), `buyQuantity`/`getQuantity` (buy-X-get-Y), `minBillAmount`, `maxDiscount`, `startsOn` (required), `endsOn`, `daysOfWeek` (array of 1-7), `startsTime`/`endsTime` (`HH:MM`, both or neither), `active`, `couponCode` (3-20 letters, digits or dashes, stored upper-case: the offer then applies only to a bill that gives the code, `coupon` on the sale), `usageLimit` and `perCustomerLimit` (coupons only: bills in all, and bills per customer)
+Query/Body: `name`, `kind` (`item_percent`, `item_amount`, `category_percent`, `bill_percent`, `bill_amount`, `buy_x_get_y`, or `product_percent`: every size and colour of one fashion style, see [fashion markdowns](#post-apibusinessesbusinessidfashionmarkdowns)), `value` (a percentage up to 100, or an amount), `skuId` (item kinds and buy-X-get-Y), `productId` (product_percent), `categoryId` (category_percent), `buyQuantity`/`getQuantity` (buy-X-get-Y), `minBillAmount`, `maxDiscount`, `startsOn` (required), `endsOn`, `daysOfWeek` (array of 1-7), `startsTime`/`endsTime` (`HH:MM`, both or neither), `active`, `couponCode` (3-20 letters, digits or dashes, stored upper-case: the offer then applies only to a bill that gives the code, `coupon` on the sale), `usageLimit` and `perCustomerLimit` (coupons only: bills in all, and bills per customer)
 Returns: 201, the offer.
 Errors: 400 validation (a use limit without a coupon code); 404 item or category not found; 409 the coupon code is used by another offer.
 
@@ -4990,11 +5038,11 @@ Errors: 404 not found; 400 validation.
 #### `GET /api/businesses/:businessId/loyalty/rules`
 Permission: `loyalty.view`
 Query/Body: none
-Returns: the saved rules `{ earn_per_amount, earn_points, point_value, min_redeem_points, max_redeem_percent, active, ..., saved: true }`. When nothing is saved yet, the defaults (100.00 per 1 point, point value 1.00, minimum redeem 100, at most 50% of a bill, inactive) with `saved: false`.
+Returns: the saved rules `{ earn_per_amount, earn_points, point_value, min_redeem_points, max_redeem_percent, active, return_spent_points, ..., saved: true }`. When nothing is saved yet, the defaults (100.00 per 1 point, point value 1.00, minimum redeem 100, at most 50% of a bill, inactive, spent points given back on returns) with `saved: false`.
 
 #### `PUT /api/businesses/:businessId/loyalty/rules`
 Permission: `loyalty.edit`
-Query/Body: `earnPerAmount` (1-1,000,000), `earnPoints` (whole number, 1-1000), `pointValue` (0.01-1000), `minRedeemPoints` (whole number, 1-1,000,000), `maxRedeemPercent` (1-100), `active` (boolean, required)
+Query/Body: `earnPerAmount` (1-1,000,000), `earnPoints` (whole number, 1-1000), `pointValue` (0.01-1000), `minRedeemPoints` (whole number, 1-1,000,000), `maxRedeemPercent` (1-100), `active` (boolean, required), `returnSpentPoints` (boolean: give back, in proportion, the points spent on a bill when goods on it come back; kept when left out)
 Returns: the saved rules with `saved: true`.
 
 #### `GET /api/businesses/:businessId/loyalty/members`
@@ -5004,7 +5052,7 @@ Returns: `{ total, items[{ id, name, phone, balance, earned, redeemed, adjusted,
 
 #### `GET /api/businesses/:businessId/loyalty/entries`
 Permission: `loyalty.view`
-Query/Body: the paged-list contract; filters `contact`, `kind` (`earn`/`redeem`/`adjust`/`reverse`); date range on `created_at`
+Query/Body: the paged-list contract; filters `contact`, `kind` (`earn`/`redeem`/`adjust`/`reverse`/`restore`); date range on `created_at`
 Returns: `{ total, items[] }` of points entries, each with `contact_name, contact_phone, document_no, created_by_name`.
 
 #### `GET /api/businesses/:businessId/loyalty/:contactId`
@@ -5037,52 +5085,26 @@ Errors: 400 invalid ISBN or year; 409 the ISBN is already on another item, or th
 #### `PUT /api/businesses/:businessId/books/:skuId`
 Permission: `catalog.edit`, plus the `books` module
 Query/Body: `isbn`, `author`, `publisher`, `edition`, `language`, `publishedYear`
-Returns: the `books_titles` row (an upsert). The item's attributes are synced with the ISBN, author and publisher.
+Returns: the `books_titles` row (an upsert). The item's attributes are synced with the ISBN, author and publisher, and the ISBN becomes the item's barcode when it has none or only an in-store `200…` code (the same holds for an item created with an ISBN attribute).
 Errors: 404 the item is not found or is not goods; 409 the ISBN is already on another item.
-
----
-
-### Pro pass (retail, C): near expiry, school sets, book orders, the bell
-
-Migration `1791610000000_retail-pro.sql`. Code: `modules/business/retail/services/businessRetailPro.service.js`, `modules/business/core/services/businessNotifications.service.js`.
-
-#### `GET /api/businesses/:businessId/retail/near-expiry`
-Permission: `inventory.view`
-Query/Body: `days` (1-365; default the business's Expiring soon days, `nearExpiryDays`, 30 until changed), `location`
-Returns: `{ days, rows[{ id (lot), location_id, location_name, sku_id, label, code, unit, price, lot_code, expires_on, quantity, unit_cost, days_left, cost_value, shelf_value, markdown }], totals{ batches, expired, within7, costValue, expiredCost } }`. Batches with stock expiring within `days` (expired ones too), soonest first, at most 500. `markdown` is the item's running item-% offer (`{ id, name, value, ends_on }`) or null. A markdown is an ordinary `POST /offers` (`item_percent`); a write-off an ordinary `POST /stock/:lotId/adjustments`.
-Errors: 400 days out of range.
 
 #### `GET /api/businesses/:businessId/books/sets`, `POST /books/sets`, `GET /books/sets/:setId`, `PUT /books/sets/:setId`
 Permission: `catalog.view` (list, read), `catalog.create` (POST), `catalog.edit` (PUT); the `books` module (403 when off)
-Query/Body: list: the paged-list contract, filter `active`, `q` searches name, code, school, class. POST / PUT: `{ name, code, school?, className?, notes?, active?, items[1..60]{ skuId, quantity } }`. The code is letters, digits and dashes (spaces become dashes, upper-cased).
-Returns: the set with `items[{ sku_id, quantity, label, code, barcode, price, unit, active, stock }]` and `total`. The list: `{ total, items[{ …set, item_count, total }] }`.
+Query/Body: list: the paged-list contract, filter `active`, `q` searches name, code, school and class. POST / PUT: `{ name, code, school?, className?, notes?, active?, items[1..60]{ skuId, quantity } }`. The code is letters, digits and dashes (spaces become dashes, upper-cased).
+Returns: the set with `items[{ sku_id, quantity, label, code, barcode, price, unit, active, stock }]` and `total`. The list: `{ total, items[{ …set, item_count, total }] }`. A set's code scanned at the counter adds the whole booklist (`GET …/retail/scan`).
 Errors: 400 no items, an item twice, a bad code; 404 an item not of this shop; 409 the code is an item's code or barcode, or another set's code.
-`GET /retail/scan` now also answers a set's code: `{ source: 'set', set: { id, name, code, items[{ skuId, quantity, label, barcode, code }] }, sku: null }` (an active set; 409 when one of its items is switched off).
 
 #### `GET /api/businesses/:businessId/books/orders`, `POST /books/orders`, `POST /books/orders/:orderId/status`
 Permission: `sales.view` (list), `sales.create` (POST; an advance also `receivables.create`), status: `sales.create` (arrived, collected) or `sales.edit` (cancelled); the `books` module
-Query/Body: list: paged, `status` (ordered, arrived, collected, cancelled), `from`/`to` on the date taken, `q` searches number, customer, phone, title, author, ISBN. POST: `{ locationId, requestKey, title, author?, isbn?, quantity?, promisedOn?, notes?, phone?, contactId? | customerName, advance?, method? }`. Status: `{ status }`.
+Query/Body: list: paged, `status` (ordered, arrived, collected, cancelled), `from`/`to` on the date taken, `q` searches number, customer, phone, title, author and ISBN. POST: `{ locationId, requestKey, title, author?, isbn?, quantity?, promisedOn?, notes?, phone?, contactId? | customerName, advance?, method? }`. Status: `{ status }`.
 Returns: the order row (`order_no` BO-0001…). An advance is posted as a numbered collection kept as the customer's advance (`allocations: []`) in the same transaction, so it comes off their next bill; the list adds `collection_no`, `location_name`, `created_by_name`, `stock`.
 Errors: 400 an advance without a customer on file, a bad ISBN; 409 collected before arrived, or a closed order moved. Repeating a request key returns the first order (and no second advance).
 
-#### `GET /api/businesses/:businessId/notifications`
-Permission: membership (each alert also needs its own view permission)
-Returns: `{ items[{ id, severity (critical, warning, info), category, title, detail, at, link }], counts, generatedAt }`. Worked out from live data: items at or below their reorder level (`inventory.view`), batches expired or expiring within the business's Expiring soon days (30 until changed; `inventory.view`, `batches`), customers with bills past due and promises to pay due today or broken (`receivables.view`), repairs ready or late (`repairs.view`), appointments still to come today (`appointments.view`). Ids are stable per alert, so the browser remembers which were read (Business Admin bell). At most 15 per kind.
-
-#### Changed (additive)
-- `POST /catalog` takes `openingStock: { locationId, quantity, unitCost?, lotCode? (batch items), expiresOn? }` (also needs `inventory.edit`): a lot at that cost and an adjustment with the reason "Opening stock". `PATCH /catalog/:id` takes `barcode` (empty clears it; 409 names the item that has it). Both check barcodes for clashes.
-- `GET /documents` rows add `created_by_name` and `paid_by` (`cash`, `upi`, `card`, `bank` or `mixed`); new filters `created_by`, `paid_by`; `q` also searches the biller's name.
-- `GET /movements` is in time order (`created_at` then id, newest first).
-- `POST /locations` and `PATCH /locations/:id` take `sellsAtCounter` (default true; an older client's PATCH keeps it); `GET /context` locations carry `sells_at_counter`.
-- A book's ISBN becomes its barcode when the item has none or only an in-store `200…` code (`PUT /books/:skuId`, and items created with an ISBN attribute).
-
 ## Fashion, electronics, salon and weight-based shops
 
-These routes are part of the Business Admin router (`/api/businesses/:businessId/...`), registered from `backend/src/modules/business/fashion-electronics/routes/businessFashionElectronics.routes.js` and `backend/src/modules/business/salon-weight/routes/businessSalonWeight.routes.js`. Each one first loads the caller's membership. It then checks the permission. The part of the permission code before the dot is also a module that must be switched on: `exchanges.*` needs the Exchanges module, `warranties.*` Warranties, `repairs.*` Repairs & service, `appointments.*`, `packages.*`, `commissions.*`, `processing.*` and `wastage.*` their own modules. If that module is off, the call returns 403 "<Module> is not switched on for this business...". If the role lacks the permission, it returns 403 "Your role (...) does not allow this: ...". Where a permission is shown as a list, any one of them is enough. Some routes also need an extra module, given as "Module:" below; without it they return 403 with the same "not switched on" sentence. Services repeat every permission check.
+These routes are part of the Business Admin router (`/api/businesses/:businessId/...`), registered from `backend/src/modules/business/fashion-electronics/routes/businessFashionElectronics.routes.js` and `backend/src/modules/business/salon-weight/routes/businessSalonWeight.routes.js`, and follow the [Business Admin conventions](#business-admin-conventions). The part of a permission code before the dot is the module that must be on: `exchanges.*` needs the Exchanges module, `warranties.*` Warranties, `repairs.*` Repairs & service, and `appointments.*`, `packages.*`, `commissions.*`, `processing.*` and `wastage.*` their own modules. Some routes also need another module, given as "Module:" below; without it they answer 403 with the same "not switched on" sentence. Where a permission is shown as a list, any one of them is enough.
 
-Paged lists (marked "paged list") read `limit` (1-100, default 25), `offset` (0-10,000,000), `q` (search, up to 100 chars), and `from`/`to` (`YYYY-MM-DD`; they filter only lists that have a date column, as noted). Each list also has its own filters, up to 60 chars each. A list returns `data` = `{ total, items[] }`. It answers 400 "Invalid pagination" and 400 "The end date is before the start date".
-
-Request keys (`requestKey`) must be a UUID; otherwise the call answers 400 "A valid request key is required". Sending the same key with the same body returns the first result. Sending the same key with a different body answers 409 "This request key was already used for ...". Money is sent and returned as decimal strings in rupees, and quantities as decimals to 3 places.
+Lists marked "paged list" follow the paged-list contract, with their own filters named below. Money is sent and returned as decimal strings in rupees, and quantities as decimals to 3 places.
 
 ### Fashion: size x colour matrix
 
@@ -5123,14 +5145,48 @@ Query/Body: `from` and `to` (required, at most 367 days apart); `productId` and 
 Returns: `data` = `{ from, to, truncated, items[], bySize[], byColor[] }`. Each item has the sold, returned and net quantity and sales (before GST), `stock_qty`, `stock_value` and `sell_through` (%). The response holds at most 5,000 variants; `truncated` is true when there were more.
 Errors: 400 invalid dates or a range over 367 days.
 
+#### `PUT /api/businesses/:businessId/fashion/products/:productId/barcodes`
+Permission: `catalog.edit`. Module: `variants`.
+Query/Body: `barcodes` (object of variant SKU id to barcode, 4–80 letters, digits or hyphens; at most 300).
+Returns: `data` = `{ updated }`. The maker's codes replace the in-store ones; codes can be swapped between variants of the style in one call.
+Errors: 400 the same code twice, bad characters; 404 a SKU that is not a variant of this style; 409 the code is on another item.
+
+#### `GET /api/businesses/:businessId/fashion/reports/styles`
+Permission: `reports.view`. Module: `variants`.
+Query/Body: `from`, `to` (required), `productId`, `locationId`.
+Returns: `data` = `{ from, to, styles[], broken[], buckets, ageing[] }`. `styles[]`: per style net pieces, net sales, stock, stock value, sell-through, `sizes[]` (`size, net_qty, stock_qty, share` = % of the style's net pieces), `ages` (`d0_30, d31_60, d61_90, d91_plus` pieces on the shelf by days since they came in, newest receipts first), `oldest_days`, `broken_colors`. `broken[]`: per style and colour, the core sizes (all but the smallest and largest of a run of four or more; the middle of three) at nothing while other sizes of that colour are in stock: `missing[], missing_sku_ids[], in_stock[], stock_qty`. `ageing[]`: per variant SKU.
+
+#### `GET /api/businesses/:businessId/fashion/markdowns`
+Permission: `offers.view`. Modules: `variants`, `offers`.
+Query/Body: `productId` (optional).
+Returns: `data` = markdowns (`retail_offers` of kind `product_percent`) newest first: `id, name, product_id, product_name, value, starts_on, ends_on, active, status (running|scheduled|ended|off), given`.
+
+#### `POST /api/businesses/:businessId/fashion/markdowns`
+Permission: `offers.create`. Modules: `variants`, `offers`.
+Query/Body: `productIds` (1–100 styles), `percent` (1–90), `endsOn` (required, not past), `startsOn` (default today), `name` (default "End of season").
+Returns: `data` = `{ created, offers[] }`, status 201. Every size and colour of each style sells at `percent` off until `endsOn` (inclusive). The shelf price never changes, so the price goes back by itself when the markdown ends. The bill shows the discount like any offer, and GST follows the discounted value.
+Errors: 400 bad dates or percent; 404 a style not found; 409 the style already has a markdown over those dates.
+
+#### `POST /api/businesses/:businessId/fashion/markdowns/:offerId/end`
+Permission: `offers.edit`.
+Query/Body: `{}`
+Returns: the offer row; the markdown ends now (the offer is switched off).
+Errors: 404 not a markdown of this business.
+
+#### `GET /api/businesses/:businessId/fashion/gst-rule` and `PUT /api/businesses/:businessId/fashion/gst-rule`
+Permission: `catalog.view` (GET), `settings.edit` (PUT).
+Query/Body (PUT): `active` (boolean), `threshold` (per piece before GST, default 2500), `rateLow` (default 5), `rateHigh` (default 18), `categoryIds` (optional extra categories).
+Returns: `data` = the rule (`fashion_gst_price_slabs` row; defaults when none is saved, `active: false`).
+Effect: for a garment business, every sale and quote (counter, New sale, exchanges) decides each line's GST rate from the value of one piece after offers and discounts: at or below `threshold` the lower rate, above it the higher rate. With prices including GST the piece is tested at the lower rate (₹2,625 incl. 5 % = ₹2,500 → 5 %). It applies to size × colour variants and the chosen categories, counted in whole pieces.
+
 ### Exchanges
 
-An exchange takes goods back and sells replacements in one transaction. It writes a credit note (return) on the original sale and a new sale bill (SI) for the replacements, priced like any sale. The original sale's credit moves to the new bill as a `credit_note` payment. The customer then pays the difference, gets it refunded, or keeps it on account. If any step fails, nothing is saved. By default, exchanges are allowed within 30 days of the sale.
+An exchange takes goods back and sells replacements in one transaction. It writes a credit note (return) on the original sale and a new sale bill (SI) for the replacements, priced like any sale. The original sale's credit moves to the new bill as a `credit_note` payment. The customer then pays the difference, gets it refunded, keeps it on account, or takes a credit voucher. If any step fails, nothing is saved. By default, exchanges are allowed within 30 days of the sale.
 
 #### `GET /api/businesses/:businessId/exchanges`
 Permission: `exchanges.view`.
 Query/Body: paged list; `q` searches original_no, new_no, return_no, customer_name and reason; `from`/`to` filter on created_at; filters `location` and `contact`.
-Returns: `data` = `{ total, items[] }`. Each item is an exchange row plus `original_no, new_no, return_no, customer_name, location_name, created_by_name, difference`.
+Returns: `data` = `{ total, items[] }`. Each item is an exchange row plus `original_no, new_no, return_no, customer_name, location_name, created_by_name, difference, voucher_no`.
 
 #### `GET /api/businesses/:businessId/exchanges/policy`
 Permission: `exchanges.view` or `exchanges.create`.
@@ -5153,6 +5209,12 @@ Query/Body: `requestKey` (UUID, required); `documentId` (optional; one named bil
 Returns: `data` = `{ applied, payments }`, or `{ repeated: true }` when the key was already used; status 201. Each use is recorded as a `credit_note` payment linked to the credit's collection.
 Errors: 404 customer not found, or the bill is not this customer's sale; 409 no unpaid bill, or no credit left.
 
+#### `GET /api/businesses/:businessId/exchanges/find`
+Permission: `exchanges.create`.
+Query/Body: `code` (barcode, SKU code or serial / IMEI of the item coming back) or `phone` (6+ digits of the customer's phone).
+Returns: `data` = `{ sku, daysAllowed, items[] }`: sales inside the exchange policy (newest first, at most 20) with the matching lines that can still come back (`lineId, skuId, label, lotCode, quantity, returned`).
+Errors: 400 nothing to search by.
+
 #### `POST /api/businesses/:businessId/exchanges/quote`
 Permission: `exchanges.create`.
 Query/Body: the same as create, but `reason` is optional and `settlement` is ignored. The server works out the whole exchange in a transaction and rolls it back.
@@ -5160,16 +5222,31 @@ Returns: `data` = `{ originalNo, returnNo, newNo, returnedValue, newValue, newSu
 Errors: the same as create.
 
 #### `POST /api/businesses/:businessId/exchanges`
-Permission: `exchanges.create`. Collecting a difference also needs `sales.edit`; refunding money needs `sales.refund`.
-Query/Body: `requestKey` (UUID, required); `documentId` (the original sale, required); `returnLines` (1-100 of `{ lineId, quantity, restock }`, required); `newLines` (1-100 of `{ skuId, quantity, unit?, lotCode? }`, required); `reason` (required, up to 280); `locationId` (optional; defaults to the sale's location); `settlement` (`{ method: cash|card|upi|bank|on_account, amount?, reference? }`).
-Returns: `data` = the exchange detail (as `GET /exchanges/:exchangeId`); status 201.
-Errors: 400 missing reason or lines; amount over what is due; a walk-in paying less than the whole difference; no payment or refund method; `on_account` for a walk-in. 404 sale not found. 409 sale older than the policy allows, or the request key was reused with a different body. Return and sale errors from the core posting (quantity over sold, stock) pass through.
+Permission: `exchanges.create`. Collecting a difference also needs `sales.edit`; refunding money needs `sales.refund`, and so does an exchange with no bill.
+Query/Body: `requestKey` (UUID, required); `documentId` (the original sale) and `returnLines` (1-100 of `{ lineId, quantity, restock, faulty? }`), or `noBill: true` with `returnSku: { skuId, quantity, restock }`; `newLines` (1-100 of `{ skuId, quantity, unit?, lotCode? }`, required); `reason` (required, up to 280); `locationId` (optional; defaults to the sale's location); `settlement` (`{ method: cash|card|upi|bank|on_account|voucher, amount?, reference?, name?, phone? }`).
+- `noBill` is a gift with no bill: the return goes on the most recent sale of that item, within the policy, that can still take it back. Any credit is then a voucher.
+- `faulty: "doa" | "faulty"` on a return line (electronics; Module `serials`): the unit must come back into stock. It is then held for the supplier (see [faulty units](#get-apibusinessesbusinessidelectronicsfaulty)), linked to the replacement unit that went out, and its warranty is cancelled and registered again on the replacement for the same customer.
+- `settlement.method: "voucher"` (when the customer is owed money; walk-ins included; no refund permission needed) issues a credit voucher, with `settlement.name` / `settlement.phone` printed on it.
+
+Returns: `data` = the exchange detail (as `GET /exchanges/:exchangeId`) with `no_bill` and `voucher` (`{ id, voucher_no, amount, used, expires_on }` or null); status 201.
+Errors: 400 missing reason or lines; amount over what is due; a walk-in paying less than the whole difference; no payment or refund method; `on_account` for a walk-in; cash on an exchange with no bill. 404 sale not found. 409 sale older than the policy allows; no sale of that item within the policy can take it back (no bill); the request key reused with a different body. Return and sale errors from the core posting (quantity over sold, stock) pass through.
 
 #### `GET /api/businesses/:businessId/exchanges/:exchangeId`
 Permission: `exchanges.view`.
 Query/Body: none.
 Returns: `data` = the exchange row plus `original_no, original_at, new_no, return_no, customer_name, customer_phone, location_name, created_by_name, returnedLines[], newLines[]`.
 Errors: 404 exchange not found.
+
+#### `GET /api/businesses/:businessId/vouchers`
+Permission: `exchanges.view`.
+Query/Body: paged list; filter `state` (`open`, `used`, `expired`); `q` searches the voucher number, name, phone and source bill.
+Returns: `data` = `{ total, items[] }` of credit vouchers.
+
+#### `GET /api/businesses/:businessId/vouchers/by-number/:code` and `GET /api/businesses/:businessId/vouchers/:voucherId`
+Permission: `sales.create` or `exchanges.view` (by number, for the counter); `exchanges.view` (by id, with the shop's details for printing as `seller`).
+Query/Body: none.
+Returns: the voucher with `balance`, `state` and (by number) its `uses[]`. A voucher can be spent for the business's `voucherValidDays` (Business settings › Rules; 90 until changed); it is spent with `voucher` on [POST …/documents](#post-apibusinessesbusinessiddocuments).
+Errors: 404 unknown number ("No credit voucher has that number") or id ("Voucher not found").
 
 ### Electronics: models and the serial / IMEI register
 
@@ -5178,18 +5255,18 @@ A unit's state (in stock, in transit, sold, returned to supplier, written off) i
 #### `GET /api/businesses/:businessId/electronics/models`
 Permission: `catalog.view`. Module: `serials`.
 Query/Body: paged list of serial-tracked SKUs; `q` searches label, code, brand and model_number; filter `active`. No date filter.
-Returns: `data` = `{ total, items[] }`. Each item is `{ id, sku_id, label, code, active, brand, model_number, serial_kind, warranty_months, warranty_terms, in_stock }`.
+Returns: `data` = `{ total, items[] }`. Each item is `{ id, sku_id, label, code, active, brand, model_number, serial_kind, warranty_months, warranty_terms, helpline, in_stock }`.
 
 #### `PUT /api/businesses/:businessId/electronics/models/:skuId`
 Permission: `catalog.edit`. Module: `serials`.
-Query/Body: `serialKind` (`imei` | `serial`, default `serial`); `warrantyMonths` (integer 0-120); `modelNumber` (up to 60); `warrantyTerms` (up to 1000).
+Query/Body: `serialKind` (`imei` | `serial`, default `serial`); `warrantyMonths` (integer 0-120); `modelNumber` (up to 60); `warrantyTerms` (up to 1000); `helpline` (the brand's helpline, printed on the warranty card; kept when left out).
 Returns: `data` = the `electronics_models` row (it is created or replaced).
 Errors: 400 the item is not serial-tracked; 404 item not found.
 
 #### `GET /api/businesses/:businessId/serials`
 Permission: `inventory.view`. Module: `serials`.
-Query/Body: paged list, with one row per unit ever received; `q` searches serial, imei2, label, code, model_number, customer_name, sold_no, received_no and location_name; filters `status` (`in_stock` | `in_transit` | `sold` | `returned_to_supplier` | `written_off` | `out_of_stock`), `sku` and `location`. No date filter.
-Returns: `data` = `{ total, items[] }`. Each item is `{ sku_id, serial, imei2, label, code, brand, model_number, serial_kind, status, location_id, location_name, received_at, received_no, supplier_name, sold_no, sold_at, customer_name, customer_id, warranty_id, warranty_ends_on, last_moved_at, unit_cost, ... }`.
+Query/Body: paged list, with one row per unit ever received; `q` searches serial, imei2, label, code, model_number, customer_name, sold_no, received_no and location_name; filters `status` (`in_stock` | `in_transit` | `sold` | `returned_to_supplier` | `written_off` | `out_of_stock`), `sku`, `location`, `age` (`0_30` | `31_60` | `60_plus`) and `faulty`. No date filter.
+Returns: `data` = `{ total, items[] }`. Each item is `{ sku_id, serial, imei2, label, code, brand, model_number, serial_kind, status, location_id, location_name, received_at, received_no, supplier_name, sold_no, sold_at, customer_name, customer_id, warranty_id, warranty_ends_on, last_moved_at, unit_cost, days_in_stock, age_bucket, faulty, ... }`. `days_in_stock` counts from the day the unit first came in, and `age_bucket` groups it.
 
 #### `GET /api/businesses/:businessId/serials/history`
 Permission: `inventory.view`. Module: `serials`.
@@ -5203,6 +5280,37 @@ Query/Body: `skuId` (required); `serial` (required); `imei2` (optional; 15 digit
 Returns: `data` = the `electronics_serial_details` row (it is created or replaced).
 Errors: 400 invalid second IMEI, or the same as the first; 404 unit not received; 409 the second IMEI is already recorded on another unit.
 
+#### `POST /api/businesses/:businessId/electronics/receipts`
+Permission: `purchasing.create`. Module: `serials`.
+Query/Body: `contactId`, `locationId`, `requestKey` (UUID), `supplierBillNo`, `supplierBillDate` (optional), `notes`, `lines[]` (1–20 models) of `{ skuId, unitPrice, units: [{ serial, imei2? }] }` (at most 200 units).
+Returns: `data` = `{ document, units }`, status 201 (a repeat with the same key: `repeated: true`). One purchase receipt, one line per unit; the second IMEI is saved on each unit.
+Errors: 400 an invalid IMEI (IMEI models) or second IMEI, or a number scanned twice; 409 a number already received.
+
+#### `GET /api/businesses/:businessId/electronics/faulty`
+Permission: `inventory.view`. Module: `serials`.
+Query/Body: paged list; filter `status` (`awaiting_supplier`, `sent`, `restocked`, `written_off`).
+Returns: `data` = `{ total, items[] }`. Rows carry the model, reason, replacement serial, supplier, purchase and return numbers, claim number and where the unit is.
+
+#### `POST /api/businesses/:businessId/electronics/faulty`
+Permission: `inventory.edit`. Module: `serials`.
+Query/Body: `skuId`, `serial`, `kind` (`faulty` default | `doa`), `reason`.
+Returns: 201, the faulty-unit row (`awaiting_supplier`).
+Errors: 409 the unit is not in stock, or is already waiting for the supplier.
+
+#### `POST /api/businesses/:businessId/electronics/faulty/:faultyId/send`
+Permission: `purchasing.refund` and `inventory.edit`. Module: `serials`.
+Query/Body: `requestKey`, `claimNo`, `note`.
+Returns: the row with `status: "sent"` and `return_no`. A purchase return of the unit is posted on the receipt it first came in on (the unit must be at that receipt's location).
+Errors: 404 faulty unit not found; 409 the unit is not waiting, not in stock, at another location (move it first), or has no purchase receipt here (write it off instead).
+
+#### `POST /api/businesses/:businessId/electronics/faulty/:faultyId/close`
+Permission: `inventory.edit`. Module: `serials`.
+Query/Body: `status` (`restocked` | `written_off`), `note` (required), `requestKey`.
+Returns: the closed row. Written off takes the unit out of stock as a correction.
+Errors: 404 faulty unit not found; 409 the unit is not waiting for the supplier.
+
+While a unit is `awaiting_supplier`, the database refuses a sale line for it (409 "… is marked faulty and waits for the supplier").
+
 ### Warranties
 
 A warranty is registered from a sold serial line. Its start defaults to the sale date; its months and terms come from the model; the customer's name and phone come from the sale or the body. Each sold unit can have one live warranty. A warranty cannot be edited or deleted, only cancelled. The Warranties module depends on `serials` and `sales`.
@@ -5210,7 +5318,7 @@ A warranty is registered from a sold serial line. Its start defaults to the sale
 #### `GET /api/businesses/:businessId/warranties`
 Permission: `warranties.view`.
 Query/Body: paged list; `q` searches serial, imei2, customer_name, customer_phone, item_label and document_no; `from`/`to` filter on created_at; filters `state` (`active` | `expiring` (30 days or fewer left) | `expired` | `not_started` | `returned` | `cancelled`) and `sku`.
-Returns: `data` = `{ total, items[] }`. Each item is a warranty row plus `state, document_no, sold_at, sku_code, model_number, imei2, created_by_name, days_left`.
+Returns: `data` = `{ total, items[] }`. Each item is a warranty row plus `state, document_no, sold_at, sku_code, model_number, imei2, created_by_name, days_left, helpline, line_value`.
 
 #### `GET /api/businesses/:businessId/warranties/lookup`
 Permission: `warranties.view`.
@@ -5243,23 +5351,28 @@ Errors: 400 missing reason; 404 active warranty not found (or already cancelled)
 
 ### Repairs
 
-A repair job card is numbered like RJ/2627/0001, from the `repair_job` series at the job's location. Its status moves received -> diagnosing -> waiting_parts -> in_repair -> ready (and back while open). Delivery then turns the job's lines into a sale bill, and only at that point do parts leave stock. Cancelling closes the job without a bill. A delivered or cancelled job is closed: the job and its lines cannot change (409). If an active warranty covers the job's serial today, the job is marked `under_warranty`, and new lines default to price 0. Every route needs Module: `repairs` (403 when off). The Repairs module depends on `sales` and `inventory`.
+A repair job card is numbered like RJ/2627/0001, from the `repair_job` series at the job's location. Its status moves received -> diagnosing -> waiting_parts -> in_repair -> ready (and back while open). A job whose charges go above the estimate, or one the technician sends for it, waits for the customer's approval (`awaiting_approval`). Delivery then turns the job's lines into a sale bill, and only at that point do parts leave stock. Cancelling closes the job without a bill. A delivered or cancelled job is closed: the job and its lines cannot change (409). If an active warranty covers the job's serial today, the job is marked `under_warranty`, and new lines default to price 0. Every route needs Module: `repairs` (403 when off). The Repairs module depends on `sales` and `inventory`.
 
 #### `GET /api/businesses/:businessId/repairs`
 Permission: `repairs.view`.
-Query/Body: paged list; `q` searches job_no, customer_name, customer_phone, device, serial, problem and document_no; `from`/`to` filter on created_at; filters `status`, `stage` (`open` | `closed`) and `location`.
-Returns: `data` = `{ total, items[] }`. Each item is `{ id, job_no, status, customer_name, customer_phone, device, serial, under_warranty, problem, estimate, promised_on, technician, location_name, document_no, bill_total, line_count, overdue, stage, ... }`.
+Query/Body: paged list; `q` searches job_no, customer_name, customer_phone, device, serial, problem and document_no; `from`/`to` filter on created_at; filters `status`, `stage` (`open` | `closed`), `location`, `overdue`, `not_collected` and `advance_to_refund` (`true`).
+Returns: `data` = `{ total, items[] }`. Each item is `{ id, job_no, status, status_since, customer_name, customer_phone, device, serial, under_warranty, problem, estimate, promised_on, technician, location_name, document_no, bill_total, line_count, overdue, not_collected, stage, advance, advance_left, advance_to_refund, ... }`. `not_collected` is a job ready for 3 days or more.
+
+#### `GET /api/businesses/:businessId/repairs/counts`
+Permission: `repairs.view`.
+Query/Body: none.
+Returns: `{ open, received, diagnosing, waiting_parts, in_repair, awaiting_approval, ready, overdue, not_collected }`.
 
 #### `POST /api/businesses/:businessId/repairs`
-Permission: `repairs.create`.
-Query/Body: `requestKey` (UUID, required); `locationId` (required); `problem` (required, up to 1000); `contactId` or `customerName` + `customerPhone` (both are needed in the end); `skuId` or `device` (one is required); `serial`; `accessories`; `conditionNotes`; `estimate`; `promisedOn` (`YYYY-MM-DD`); `technician`.
+Permission: `repairs.create`; an advance also needs `sales.edit`.
+Query/Body: `requestKey` (UUID, required); `locationId` (required); `problem` (required, up to 1000); `contactId` or `customerName` + `customerPhone` (both are needed in the end); `skuId` or `device` (one is required); `serial`; `accessories`; `conditionNotes`; `estimate`; `promisedOn` (`YYYY-MM-DD`); `technician`; `passcode` (the screen lock, up to 60; kept only while the job is open); `checklist` (an object of condition ticks such as `screen_cracked`, `water_damage`; at most 20); `advance` (`{ amount, method: cash|card|upi|bank, reference? }`: recorded as a customer collection, a customer record being found by phone or made, and paid onto the bill at delivery); `warrantyOwnerConfirmed` (noted in the history when someone other than the warranty's owner brings the device).
 Returns: `data` = the new job row (status `received`); status 201.
 Errors: 400 missing problem, name, phone (at least 6 digits) or device; 404 location, customer or model not found; 409 request key reused.
 
 #### `GET /api/businesses/:businessId/repairs/:jobId`
 Permission: `repairs.view`.
 Query/Body: none.
-Returns: `data` = the job plus `location_name, created_by_name, document_no, bill_total, warranty_ends_on, warranty_document_id, lines[]` (each with `in_stock` at the job's location), `events[]` (status history), `seller`, `lines_total`, and `next[]` (the statuses allowed from here; empty when closed).
+Returns: `data` = the job plus `location_name, created_by_name, document_no, bill_total, warranty_ends_on, warranty_document_id, status_since, lines[]` (each with `in_stock` at the job's location), `events[]` (status history), `seller`, `lines_total`, `advance` (`collection_no, amount, method, used, refunded, refunds[], free`; `free` is what is left after use and refunds), `claims[]` and `next[]` (the statuses allowed from here, the usual next step first; empty when closed). `passcode` is shown in full only to roles with `repairs.edit`, masked otherwise.
 Errors: 404 repair job not found.
 
 #### `PATCH /api/businesses/:businessId/repairs/:jobId`
@@ -5270,14 +5383,20 @@ Errors: 404 not found; 409 job closed.
 
 #### `POST /api/businesses/:businessId/repairs/:jobId/status`
 Permission: `repairs.edit`.
-Query/Body: `status` (required: `received`, `diagnosing`, `waiting_parts`, `in_repair` or `ready`); `note` (up to 500). The allowed moves are: received -> diagnosing, waiting_parts, in_repair or ready; diagnosing -> waiting_parts, in_repair or ready; waiting_parts -> in_repair, diagnosing or ready; in_repair -> waiting_parts or ready; ready -> in_repair.
+Query/Body: `status` (required: `received`, `diagnosing`, `waiting_parts`, `in_repair`, `awaiting_approval` or `ready`); `note` (up to 500). The allowed moves, the usual next step first: received -> diagnosing, waiting_parts, in_repair, awaiting_approval or ready; diagnosing -> in_repair, waiting_parts, awaiting_approval or ready; waiting_parts -> in_repair, diagnosing, awaiting_approval or ready; in_repair -> ready, waiting_parts or awaiting_approval; ready -> in_repair. A job awaiting approval moves on only through `…/approval`.
 Returns: `data` = the updated job row; the change is added to the history.
 Errors: 404 not found; 409 job closed, or the move is not allowed.
+
+#### `POST /api/businesses/:businessId/repairs/:jobId/approval`
+Permission: `repairs.edit` (declining also needs `repairs.cancel`).
+Query/Body: `decision` (`approved` | `declined`), `note`, `estimate` (approved: the agreed amount; default the charges so far).
+Returns: the job. Approved: it goes back to the step it was at (in repair by default). Declined: the job is cancelled ("Customer declined the charges") and nothing is billed.
+Errors: 409 the job is not awaiting approval.
 
 #### `POST /api/businesses/:businessId/repairs/:jobId/lines`
 Permission: `repairs.edit`.
 Query/Body: `kind` (`part` | `labour`, required); `skuId` (required; a part must be a goods item and labour a service item); `quantity` (0.001-1000, default 1; whole for count units; exactly 1 for a serial part); `lotCode` (required for a batch or serial part, and it must have been received); `unitPrice` (defaults to the item price, or 0 under warranty); `label`.
-Returns: `data` = the new line row; status 201.
+Returns: `data` = the new line row; status 201. A line that takes the charges above the estimate moves an open job to `awaiting_approval`, and the answer has `awaitingApproval: true`.
 Errors: 400 wrong item kind, or a fractional quantity; 404 item not found, or the lot was not received; 409 job closed.
 
 #### `DELETE /api/businesses/:businessId/repairs/:jobId/lines/:lineId`
@@ -5286,10 +5405,15 @@ Query/Body: none.
 Returns: `data` = `{ removed }` (the line id).
 Errors: 404 job or line not found; 409 job closed.
 
+#### `POST /api/businesses/:businessId/repairs/:jobId/messages`
+Permission: `repairs.view`.
+Query/Body: `channel` (`whatsapp` | `call` | `sms`), `stage` (`received`, `parts`, `approval`, `ready`, `delayed`, `reminder`, `update`), `note`.
+Returns: status 201. Logs "WhatsApp sent: ready to collect" and the like on the job's history; the message itself is sent from the person's own WhatsApp.
+
 #### `POST /api/businesses/:businessId/repairs/:jobId/deliver`
 Permission: `repairs.approve`. When the job has lines, `sales.create` is also needed, plus `sales.edit` when a payment is taken.
-Query/Body: `requestKey` (UUID, required; it also becomes the bill's key); `payment` (`{ amount, method: cash|card|upi|bank, reference? }`, optional); `note`.
-Returns: `data` = the job row, now `delivered`, with `document_id` set to the sale bill (null when there was nothing to bill). Repeating the same key returns the delivered job.
+Query/Body: `requestKey` (UUID, required; it also becomes the bill's key); `payment` (`{ amount, method: cash|card|upi|bank, reference? }`, optional; at most what is left after the advance); `note`.
+Returns: `data` = the job row, now `delivered`, with `document_id` set to the sale bill (null when there was nothing to bill). What is left of the advance is applied to the bill first. Repeating the same key returns the delivered job.
 Errors: 400 a payment when nothing was charged; 404 not found; 409 the job is not `ready`, or is closed. A stock error from the bill posting (a part not in stock at the job's location) also stops delivery.
 
 #### `POST /api/businesses/:businessId/repairs/:jobId/cancel`
@@ -5298,133 +5422,47 @@ Query/Body: `reason` (string, required, up to 300).
 Returns: `data` = the job row, now `cancelled`; nothing is billed.
 Errors: 400 missing reason; 404 not found; 409 already closed.
 
-### Fashion and electronics, pro pass (7 Oct 2026)
-
-Migration `1791595000000_fashion-electronics-pro.sql`. Same router, membership and module checks as above. Tests: `backend/tests/integration/business-fe-pro.test.js`.
-
-#### `PUT /api/businesses/:businessId/fashion/products/:productId/barcodes`
-Permission: `catalog.edit`. Module: `variants`.
-Query/Body: `barcodes` (object of variant SKU id to barcode, 4–80 letters, digits or hyphens; at most 300).
-Returns: `data` = `{ updated }`. The maker's codes replace the in-store ones; codes can be swapped between variants of the style in one call.
-Errors: 400 the same code twice, bad characters; 404 a SKU that is not a variant of this style; 409 the code is on another item.
-
-#### `GET /api/businesses/:businessId/fashion/markdowns`
-Permission: `offers.view`. Modules: `variants`, `offers`.
-Query/Body: `productId` (optional).
-Returns: `data` = markdowns (`retail_offers` of kind `product_percent`) newest first: `id, name, product_id, product_name, value, starts_on, ends_on, active, status (running|scheduled|ended|off), given`.
-
-#### `POST /api/businesses/:businessId/fashion/markdowns`
-Permission: `offers.create`. Modules: `variants`, `offers`.
-Query/Body: `productIds` (1–100 styles), `percent` (1–90), `endsOn` (required, not past), `startsOn` (default today), `name` (default "End of season").
-Returns: `data` = `{ created, offers[] }`, status 201. Every size and colour of each style sells at `percent` off until `endsOn` (inclusive); the shelf price is never changed, so the price "reverts" by itself. The bill shows the discount like any offer, and GST follows the discounted value.
-Errors: 400 bad dates or percent; 404 a style not found; 409 the style already has a markdown over those dates.
-
-#### `POST /api/businesses/:businessId/fashion/markdowns/:offerId/end`
-Permission: `offers.edit`. Ends a markdown now (switches the offer off). Returns the offer row. 404 when not a markdown of this business.
-
-#### `GET /api/businesses/:businessId/fashion/gst-rule` and `PUT /api/businesses/:businessId/fashion/gst-rule`
-Permission: `catalog.view` (GET), `settings.edit` (PUT).
-Query/Body (PUT): `active` (boolean), `threshold` (per piece before GST, default 2500), `rateLow` (default 5), `rateHigh` (default 18), `categoryIds` (optional extra categories).
-Returns: `data` = the rule (`fashion_gst_price_slabs` row; defaults when none saved, `active: false`).
-Effect: for a garment business, every sale and quote (counter, New sale, exchanges) decides each line's GST rate from the value of one piece after offers and discounts: at or below `threshold` the lower rate, above it the higher rate. With prices including GST the piece is tested at the lower rate (₹2,625 incl. 5 % = ₹2,500 → 5 %). Applies to size × colour variants and the chosen categories, counted in whole pieces.
-
-#### `GET /api/businesses/:businessId/fashion/reports/styles`
-Permission: `reports.view`. Module: `variants`.
-Query/Body: `from`, `to` (required), `productId`, `locationId`.
-Returns: `data` = `{ from, to, styles[], broken[], buckets, ageing[] }`. `styles[]`: per style net pieces, net sales, stock, stock value, sell-through, `sizes[]` (`size, net_qty, stock_qty, share` = % of the style's net pieces), `ages` (`d0_30, d31_60, d61_90, d91_plus` pieces on the shelf by days since they came in, newest receipts first), `oldest_days`, `broken_colors`. `broken[]`: per style and colour, the core sizes (all but the smallest and largest of a run of four or more; the middle of three) at nothing while other sizes of that colour are in stock: `missing[], missing_sku_ids[], in_stock[], stock_qty`. `ageing[]`: per variant SKU.
-
-#### `GET /api/businesses/:businessId/exchanges/find`
-Permission: `exchanges.create`.
-Query/Body: `code` (barcode, SKU code or serial / IMEI of the item coming back) or `phone` (6+ digits of the customer's phone).
-Returns: `data` = `{ sku, daysAllowed, items[] }`: sales inside the exchange policy (newest first, at most 20) with the matching lines that can still come back (`lineId, skuId, label, lotCode, quantity, returned`).
-Errors: 400 nothing to search by.
-
-#### `POST /api/businesses/:businessId/exchanges` (additions)
-New body fields:
-- `noBill: true` with `returnSku: { skuId, quantity, restock }` instead of `documentId` / `returnLines`: a gift with no bill. Needs `sales.refund` as well. The return goes on the most recent sale of that item within the policy that can still take it back (409 when none). Any credit must be a voucher (400 for cash).
-- per return line `faulty: "doa" | "faulty"` (electronics; Module `serials`): the unit must come back into stock; it is then held for the supplier (see faulty units), linked to the replacement unit that went out, and its warranty is cancelled and re-registered on the replacement for the same customer.
-- `settlement.method: "voucher"` (when the customer is owed money; walk-ins included; no refund permission needed), with optional `settlement.name` / `settlement.phone` printed on the voucher.
-Returns: the exchange detail, now with `no_bill` and `voucher` (`{ id, voucher_no, amount, used, expires_on }` or null). The list adds `voucher_no`.
-
-#### `GET /api/businesses/:businessId/vouchers`
-Permission: `exchanges.view`. Paged list; filters `state=open|used|expired`; search voucher no., name, phone, source bill.
-
-#### `GET /api/businesses/:businessId/vouchers/by-number/:code` and `GET /api/businesses/:businessId/vouchers/:voucherId`
-Permission: `sales.create` or `exchanges.view` (by number, for the counter); `exchanges.view` (by id, with the shop details for printing as `seller`).
-Returns: the voucher with `balance`, `state` and (by number) its `uses[]`. 404 unknown number ("No credit voucher has that number") or id ("Voucher not found"). A voucher can be spent for the business's `voucherValidDays` (Business settings › Rules; 90 until changed).
-
-#### `POST /api/businesses/:businessId/documents` (addition)
-New body field on sales: `voucher: { code }` (also needs `sales.edit`). The voucher pays first (a `credit_note` payment with the voucher number as reference, never more than its balance or the bill); `payment.amount: "full"` is then what is left, and a walk-in's bill counts as fully paid when voucher + payment cover it. 404 unknown voucher; 409 expired or used up.
-
-#### `POST /api/businesses/:businessId/electronics/receipts`
-Permission: `purchasing.create`. Module: `serials`.
-Query/Body: `contactId`, `locationId`, `requestKey` (UUID), `supplierBillNo`, `supplierBillDate` (optional), `notes`, `lines[]` (1–20 models): `{ skuId, unitPrice, units: [{ serial, imei2? }] }` (at most 200 units).
-Returns: `data` = `{ document, units }`, status 201 (a repeat with the same key: `repeated: true`). One purchase receipt, one line per unit; IMEI 2 saved on each unit.
-Errors: 400 an invalid IMEI (IMEI models) or IMEI 2, a number scanned twice; 409 a number already received.
-
-#### `GET /api/businesses/:businessId/electronics/faulty`
-Permission: `inventory.view`. Module: `serials`. Paged; filter `status=awaiting_supplier|sent|restocked|written_off`. Rows carry the model, reason, replacement serial, supplier, purchase and return numbers, claim no. and where the unit is.
-
-#### `POST /api/businesses/:businessId/electronics/faulty`
-Permission: `inventory.edit`. Body: `skuId`, `serial`, `kind` (`faulty` default | `doa`), `reason`. The unit must be in stock. 409 already held.
-
-#### `POST /api/businesses/:businessId/electronics/faulty/:faultyId/send`
-Permission: `purchasing.refund` and `inventory.edit`. Body: `requestKey`, `claimNo`, `note`. Posts a purchase return of the unit on the receipt it first came in on (the unit must be at that receipt's location). Returns the row with `status: "sent"` and `return_no`. 409 not waiting, not in stock, or at another location.
-
-#### `POST /api/businesses/:businessId/electronics/faulty/:faultyId/close`
-Permission: `inventory.edit`. Body: `status` (`restocked` | `written_off`), `note` (required), `requestKey`. Written off takes the unit out of stock as a correction.
-
-Database rule: while a unit is `awaiting_supplier`, a sale line for it is refused (409 "… is marked faulty and waits for the supplier").
-
-#### `PUT /api/businesses/:businessId/electronics/models/:skuId` (addition)
-New body field `helpline` (brand helpline, printed on the warranty card; kept when not sent). The models list and warranties carry `helpline`; warranties also `line_value`.
-
-#### `GET /api/businesses/:businessId/serials` (addition)
-Rows add `days_in_stock`, `age_bucket` (`0_30`, `31_60`, `60_plus`) and `faulty`; filters `age` and `faulty`.
-
-#### `POST /api/businesses/:businessId/repairs` (additions)
-New body fields: `passcode` (screen lock, up to 60; kept only while the job is open), `checklist` (object of condition ticks such as `screen_cracked`, `water_damage`), `advance` (`{ amount, method: cash|card|upi|bank, reference? }`, needs `sales.edit`; recorded as a customer collection — a customer record is found by phone or made — and paid onto the bill at delivery), `warrantyOwnerConfirmed` (noted in the history when someone other than the warranty owner brings the device).
-Statuses add `awaiting_approval`; the first of `next[]` in the job detail is the usual next step. Adding a line that takes the charges above the estimate moves an open job to `awaiting_approval` (the line response has `awaitingApproval: true`).
-The job detail adds `advance` (`collection_no, amount, method, free`), `claims[]`, `status_since`; `passcode` is shown in full only to roles with `repairs.edit` (otherwise masked). The list adds `status_since`, `not_collected` (ready for 3+ days) and filters `overdue`, `not_collected`. Delivery applies the advance first; `payment.amount` may be at most what is left.
-
-#### `POST /api/businesses/:businessId/repairs/:jobId/approval`
-Permission: `repairs.edit` (declining also `repairs.cancel`). Body: `decision` (`approved` | `declined`), `note`, `estimate` (approved: the agreed amount; default the charges so far). Approved: back to the step before (in repair by default). Declined: the job is cancelled ("Customer declined the charges") and nothing is billed. 409 when the job is not awaiting approval.
-
-#### `POST /api/businesses/:businessId/repairs/:jobId/messages`
-Permission: `repairs.view`. Body: `channel` (`whatsapp` | `call` | `sms`), `stage` (`received`, `parts`, `approval`, `ready`, `delayed`, `reminder`, `update`), `note`. Logs "WhatsApp sent: ready to collect" etc. on the job's history (the message itself is sent from the person's WhatsApp). Status 201.
-
-#### `GET /api/businesses/:businessId/repairs/counts`
-Permission: `repairs.view`. Returns `{ open, received, diagnosing, waiting_parts, in_repair, awaiting_approval, ready, overdue, not_collected }`.
+#### `POST /api/businesses/:businessId/repairs/:jobId/advance-refund`
+Permission: `sales.edit`, and a manager's approval from someone with `sales.refund`, always with their PIN (see the approval body under [Salon & spa](#salon--spa)).
+Query/Body: `amount?` (default all that is left), `method` (`cash`, `upi` or `bank`, or a `methodId`; default cash; UPI and bank need a `reference`), `reference?`, `reason`, `approverId?`, `pin?`, `requestKey`.
+Returns: 201, the refund with `job_no`, numbered after the receipt it comes out of (`<receipt>-R<n>`); noted in the job's history. Only a cancelled or delivered job's advance is handed back. Repeating the key returns the first refund (`repeated: true`).
+Errors: 409 the job has no advance, is still open, or has nothing left to hand back; plus the approval errors.
 
 #### `POST /api/businesses/:businessId/repairs/:jobId/claims`, `GET /api/businesses/:businessId/warranty-claims`, `GET /api/businesses/:businessId/warranty-claims/summary` and `PATCH /api/businesses/:businessId/warranty-claims/:claimId`
 Permission: `repairs.edit` (raise, update), `repairs.view` (lists). Module: `repairs`.
-Raise (job under warranty only): `brand` (default the model's brand), `supplierId`, `claimNo`, `partCost` (default the stock cost of the parts fitted), `notes`; noted on the job's history; 201.
-List: paged; `q` searches brand, claim no., job no., device, serial and customer; filters `status`, `location`; dates on `created_at`. Rows add `job_no, device, serial, customer_name, job_status, location_id, supplier_name, created_by_name`.
+Raise (a job under warranty only): `brand` (default the model's brand), `supplierId`, `claimNo`, `partCost` (default the stock cost of the parts fitted), `notes`; noted on the job's history; 201.
+List: paged; `q` searches brand, claim number, job number, device, serial and customer; filters `status`, `location`; dates on `created_at`. Rows add `job_no, device, serial, customer_name, job_status, location_id, supplier_name, created_by_name`.
 Update: `status` (`raised`, `submitted`, `approved`, `rejected`, `credited`), `claimNo`, `notes`, `creditedAmount` (when credited; default the part cost). Credited and rejected claims are closed (409); 404 "Claim not found".
-Summary: open claims (raised, submitted, approved) per brand with the part cost pending, `[{ brand, claims, pending }]`.
-
-#### `GET /api/businesses/:businessId/offers` (addition)
-Offers of kind `product_percent` (markdowns) carry `product_id` and `product_name`; `POST /offers` accepts `kind: "product_percent"` with `productId`.
+Summary: the open claims (raised, submitted, approved) per brand with the part cost pending, `[{ brand, claims, pending }]`.
 
 ### Salon & spa
 
-All `/salon/...` routes check that the business type is `salon`. For any other type they answer 404 "This screen belongs to salon & spa businesses". Bookings use `business_resources` as stylists (kind `staff`) or rooms (kind `room`). A deposit is a receivables collection kept as the client's advance. While its booking is still to come, that deposit is held for the booking and not used on other bills.
+All `/salon/...` routes check that the business type is `salon`. For any other type they answer 404 "This screen belongs to salon & spa businesses". Bookings use `business_resources` as stylists (kind `staff`) or rooms (kind `room`). A deposit is a receivables collection kept as the client's advance. While its booking is still to come, that deposit is held for the booking and not used on other bills, unless it is moved to the client's wallet (`POST …/salon/clients/:contactId/advance-refund`, mode `wallet`).
+
+A *manager's approval* in a body is `{ reason, approverId?, pin? }`: the approver must hold the named permission in this business and type their own PIN (My profile › Personal PIN; five wrong tries lock it). A person who holds the permission and approves their own booking needs only the reason; money handed back always needs the PIN. Refusals carry `data.reason`: 400 `wrong_pin` or `approval_needed`, 403 `not_an_approver`, 409 `no_pin`, 423 `pin_locked`.
+
+#### `GET /api/businesses/:businessId/service-approvers`
+Permission: `appointments.create`, `sales.edit` or `repairs.view`.
+Query/Body: `permission` (`appointments.approve` or `sales.refund`).
+Returns: the members who may approve, with `has_pin`.
 
 #### `GET /api/businesses/:businessId/salon/settings`
 Permission: `appointments.view` or `settings.view`.
 Query/Body: none.
-Returns: `data` = `{ deposit_percent, free_cancel_hours, late_cancel_fee_percent, no_show_fee_percent, opens_at, closes_at, fee_sku_id, ... }`. When nothing is saved yet, the defaults are 0%, 4 h, 50%, 100%, 09:00 and 21:00.
+Returns: `data` = `{ deposit_percent, free_cancel_hours, late_cancel_fee_percent, no_show_fee_percent, opens_at, closes_at, fee_sku_id, session_commission_basis, ... }`. When nothing is saved yet, the defaults are 0%, 4 h, 50%, 100%, 09:00 and 21:00.
 
 #### `PUT /api/businesses/:businessId/salon/settings`
 Permission: `settings.edit`.
-Query/Body: `depositPercent` (0-100); `freeCancelHours` (0-168); `lateCancelFeePercent` and `noShowFeePercent` (0-100; both default to 0 when left out); `opensAt` and `closesAt` (`HH:MM`).
+Query/Body: `depositPercent` (0-100); `freeCancelHours` (0-168); `lateCancelFeePercent` and `noShowFeePercent` (0-100; both default to 0 when left out); `opensAt` and `closesAt` (`HH:MM`); `sessionCommissionBasis` (`package_price` | `list_price`, default `package_price`: what a session paid from a package earns commission on).
 Returns: `data` = the saved `salon_settings` row.
 Errors: 400 a bad time, or closing not after opening.
+
+**Services and their back-bar products**
 
 #### `GET /api/businesses/:businessId/salon/services`
 Permission: `catalog.view`. Salon only.
 Query/Body: paged list of service SKUs, excluding plan and fee items; `q` searches label, code and category; filter `active`. No date filter.
-Returns: `data` = `{ total, items[] }`. Each item is `{ id, code, label, price, tax_rate, active, product_name, category, duration_minutes, buffer_minutes, needs_room, timed, stylist_count }`.
+Returns: `data` = `{ total, items[] }`. Each item is `{ id, code, label, price, tax_rate, active, product_name, category, duration_minutes, buffer_minutes, needs_room, timed, stylist_count, backbar_products }`.
 
 #### `PUT /api/businesses/:businessId/salon/services/:skuId`
 Permission: `catalog.edit`.
@@ -5432,28 +5470,78 @@ Query/Body: `durationMinutes` (5-600, required); `bufferMinutes` (0-120); `needs
 Returns: `data` = the `salon_services` row (it is created or replaced).
 Errors: 404 service not found (the item must be a service).
 
+#### `GET /api/businesses/:businessId/salon/services/:skuId/products` and `PUT /api/businesses/:businessId/salon/services/:skuId/products`
+Permission: `catalog.view` (GET), `catalog.edit` (PUT).
+Query/Body (PUT): `products` (up to 20 of `{ skuId, quantity }`, each product once), in each product's stock unit. Goods only, not serial-numbered, and whole units for count items.
+Returns: the service's back-bar recipe, with `cost` per service at the products' latest purchase prices. Every service line on a salon bill takes its recipe × quantity out of stock at the bill's location (oldest use-by first; what the books do not have is recorded as short and never stops the bill), costed at the product's latest purchase price; each use is kept in `salon_backbar_usage` and written as a `backbar.used` event.
+
+**Stylists, rooms, the working week, leave and holidays**
+
 #### `GET /api/businesses/:businessId/salon/staff`
 Permission: `appointments.view`. Salon only.
 Query/Body: paged list of resources; `q` searches name, role_label, location_name and kind; filters `kind` (`staff` | `room`) and `active`. No date filter.
-Returns: `data` = `{ total, items[] }`. Each item is a resource row plus `location_name, kind, skills[{ sku_id, label }], booked_today`.
+Returns: `data` = `{ total, items[] }`. Each item is a resource row plus `location_name, kind, skills[{ sku_id, label }], booked_today, week[]`.
 
 #### `PUT /api/businesses/:businessId/salon/staff/:resourceId`
 Permission: `appointments.create`.
-Query/Body: `kind` (`staff` | `room`, default `staff`); `skuIds` (service ids the stylist does; empty means every service; must be empty for a room).
+Query/Body: `kind` (`staff` | `room`, default `staff`); `skuIds` (service ids the stylist does; empty means every service; must be empty for a room; left out keeps the skills); `name`; `roleLabel`; `active`; `weeklyOff` (0 = Sunday … 6); `worksFrom` and `worksTo` (the usual hours).
 Returns: `data` = the resource plus `{ kind, skuIds }`.
-Errors: 400 skills given for a room; 404 not found; 409 making a stylist into a room while they have upcoming bookings.
+Errors: 400 skills given for a room; 404 not found; 409 making a stylist into a room, or switching them off, while they have bookings to come.
+
+#### `PUT /api/businesses/:businessId/salon/staff/:resourceId/week`
+Permission: `appointments.create`.
+Query/Body: `days` (`[{ dow, off, worksFrom?, worksTo? }]`): the weekdays that differ from the stylist's usual hours (the list is replaced). At least one working day.
+Returns: `{ resourceId, days, clashes[] }`: `clashes` are the bookings to come that now fall outside the week (they are not moved).
+
+#### `POST /api/businesses/:businessId/salon/staff/:resourceId/leave` and `POST /api/businesses/:businessId/salon/staff/:resourceId/leave/:leaveId/cancel`
+Permission: `appointments.create`.
+Query/Body: `fromDate`, `toDate` (default `fromDate`), `reason?` (cancel: `{}`).
+Returns: the leave (201 when added). Refused (409) while the stylist has bookings on those days (move them to another stylist first), or when it overlaps other leave.
+Errors: 404 leave not found (cancel).
+
+#### `GET /api/businesses/:businessId/salon/holidays`, `POST /api/businesses/:businessId/salon/holidays` and `POST /api/businesses/:businessId/salon/holidays/:holidayId/cancel`
+Permission: `appointments.view` (list), `settings.edit` (add, cancel).
+Query/Body: list: paged, filter `location`; dates on the day. POST: `{ day, name, locationId? }` (one location, or every location when left out).
+Returns: the salon holiday.
+Errors: 400 a day that has passed; 404 location or holiday not found; 409 bookings exist that day (move them first), or the day is already a holiday.
+
+**The calendar and bookings**
 
 #### `GET /api/businesses/:businessId/salon/calendar`
 Permission: `appointments.view`.
-Query/Body: `date` (`YYYY-MM-DD`, required); `location` (optional location id).
-Returns: `data` = `{ date, timezone, settings, resources[], appointments[], services[], totals }`. Each appointment carries its room, `price_at_booking`, the deposit (`deposit_no`, `deposit_amount`, `deposit_unused`), the fee bill and the service bill. `totals` counts the appointments by status.
+Query/Body: `date` (`YYYY-MM-DD`, required); `days` (1–7, default 1); `location` (optional location id).
+Returns: `data` = `{ date, days, timezone, settings, resources[], appointments[], services[], holidays[], canOverride, totals }`. Each appointment carries its `day`, room, `price_at_booking`, the deposit (`deposit_no`, `deposit_amount`, `deposit_unused`), the fee bill and the service bill, and `arrived_at`, `late`, `confirmation_sent_at`, `reminder_sent_at`, `walk_in`, `moved_count`, `client_no_shows`, `member`, `first_visit`, `category`. Each resource adds `weekly_off`, `works_from`, `works_to`, `leave[]` and `week[]` (`{ dow, off, works_from, works_to }`). `holidays[]` is `{ id, location_id, day, name }`, and `canOverride` says whether the caller may let a booking through the rules. `totals` counts the appointments by status, with `arrived`.
 Errors: 400 invalid date.
 
 #### `POST /api/businesses/:businessId/salon/appointments`
 Permission: `appointments.create`. A deposit also needs `sales.edit`.
-Query/Body: `requestKey` (UUID, required); `contactId` (a customer, required); `skuId` (a service, required); `resourceId` (a stylist, required); `startsAt` (ISO timestamp string, required); `roomId` (required when the service needs a room); `notes` (up to 300); `deposit` (`{ amount, method: cash|card|upi|bank|cheque, reference? }`; a cheque needs a reference). The booking blocks the stylist, and the room, for the service's duration plus its clean-up time.
+Query/Body: `requestKey` (UUID, required); `contactId` (a customer, required); `skuId` (a service, required); `resourceId` (a stylist, required); `startsAt` (ISO timestamp string, required); `roomId` (required when the service needs a room); `notes` (up to 300); `deposit` (`{ amount, method: cash|card|upi|bank|cheque, reference? }`; a cheque needs a reference); `override` (a manager's approval, the approver holding `appointments.approve`). The booking blocks the stylist, and the room, for the service's duration plus its clean-up time.
+The booking follows the salon's calendar hours, salon holidays, and the stylist's leave, weekly day off, usual hours and weekly schedule (a weekday row overrides the usual hours). Outside the calendar hours it is refused with 400 `{ reason: "outside_hours", rule }`; on a holiday, on leave, on a day off or outside the stylist's hours with 409 `{ reason: "outside_hours", rule }`. With `override` it goes through and is kept in `salon_booking_overrides` (audit `appointment.override`).
 Returns: `data` = the appointment row plus `room_id, deposit_collection_id, deposit_no`; status 201.
-Errors: 400 the time is outside opening hours, the time is in the past, a room is needed, or the room is at another location; 404 stylist, room, client or service not found; 409 the stylist lacks the skill, the stylist or room is already booked, or the request key was reused.
+Errors: 400 a time more than a day past, a service that would not end the same day, a room needed, or the room at another location; 400 / 409 `outside_hours`; 404 stylist, room, client or service not found; 409 the stylist lacks the skill, the stylist or room is already booked, or the request key was reused.
+
+#### `PATCH /api/businesses/:businessId/salon/appointments/:appointmentId`
+Permission: `appointments.edit`.
+Query/Body: `startsAt`, `resourceId?`, `roomId?`, `override?`.
+Returns: the moved appointment with `room_id`, `resource_name` and `room_name`. The same checks as booking (hours, skills, the stylist's leave, day off, hours and week, no clash for the stylist or room, a room where needed). It keeps its length, deposit and price, never charges a fee, and resets the confirmation and reminder sent. Audit and event `appointment.moved` `{ from, to }`.
+Errors: 409 the booking is billed or not booked; the booking errors above.
+
+#### `POST /api/businesses/:businessId/salon/appointments/:appointmentId/arrived`
+Permission: `appointments.edit`.
+Query/Body: `{}`
+Returns: the appointment with `arrived_at`; event `appointment.arrived`.
+Errors: 404 appointment not found; 409 not a booking still to come, not today's, or made outside the salon calendar.
+
+#### `POST /api/businesses/:businessId/salon/appointments/:appointmentId/messages`
+Permission: `appointments.create` or `appointments.edit`.
+Query/Body: `kind` (`confirmation` | `reminder`).
+Returns: `{ appointmentId, kind, sentAt }`: a WhatsApp message sent from the person's own phone (wa.me) is recorded.
+Errors: 404 appointment not found; 409 not a booking still to come.
+
+#### `GET /api/businesses/:businessId/salon/appointments`
+Permission: `appointments.view`. Salon only.
+Query/Body: paged list; `q` searches the client's name and phone, the service, the stylist and the bill number; filters `status`, `staff`, `contact`, `location`; dates on `starts_at`.
+Returns: `data` = `{ total, items[] }`: the booking history with the room, price at booking, deposit, bill, charge, `walk_in` and `moved_count`.
 
 #### `GET /api/businesses/:businessId/salon/appointments/:appointmentId/fee`
 Permission: `appointments.view`.
@@ -5464,28 +5552,61 @@ Errors: 400 bad status; 404 appointment not found.
 #### `POST /api/businesses/:businessId/salon/appointments/:appointmentId/status`
 Permission: `appointments.edit` or `appointments.cancel` at the route. The service then needs `appointments.cancel` for `cancelled` and `appointments.edit` for the others. Charging a fee also needs `sales.create`.
 Query/Body: `status` (`completed` | `cancelled` | `no_show`, required); `requestKey` (UUID, required).
-Fee rule: a no-show costs `no_show_fee_percent` of the booked price. A cancellation less than `free_cancel_hours` before the start costs `late_cancel_fee_percent`; one made earlier is free. The fee is only ever taken from the unused deposit (capped at it, in whole rupees). It is posted as a numbered sale bill on the "Cancellation / no-show charge" item, which is created on first use, and paid from the deposit. Whatever is left of the deposit stays the client's advance.
+Fee rule: a no-show costs `no_show_fee_percent` of the booked price. A cancellation less than `free_cancel_hours` before the start costs `late_cancel_fee_percent`; one made earlier is free. The fee is only ever taken from the unused deposit still held for the booking (capped at it, in whole rupees); a deposit moved to the wallet is not touched. It is posted as a numbered sale bill on the "Cancellation / no-show charge" item, which is created on first use, and paid from the deposit. Whatever is left of the deposit stays the client's advance.
 Returns: `data` = `{ appointment, fee }`, where `fee` = `{ documentId, documentNo, total, percent }` or `null`. Repeating the same status returns `{ appointment, fee: null, repeated: true }`.
 Errors: 404 appointment not found; 409 the appointment is not booked any more.
+
+#### `GET /api/businesses/:businessId/salon/walk-ins`, `POST /api/businesses/:businessId/salon/walk-ins`, `POST /api/businesses/:businessId/salon/walk-ins/:walkInId/seat` and `POST /api/businesses/:businessId/salon/walk-ins/:walkInId/left`
+Permission: `appointments.view` (list), `appointments.create` (the rest).
+Query/Body: list: paged, filters `status` and `location`. POST: `{ contactId, skuId, resourceId?, note?, locationId? }`; the location is the one given (a person tied to a location gets theirs), else the stylist's, else the business's first open location. Seat: `{ resourceId, roomId?, requestKey }`. Left: `{}`.
+Returns: the waiting list; the new entry (with `contact_name`, `service_name`); seat books the walk-in from now, marked arrived and `walk_in`, and returns `{ walkIn, appointment }` (`repeated: true` for the same key again); left takes them off the list and returns the entry.
+Errors: 404 client, service or walk-in not found; 409 the client is already waiting (one waiting entry per client), or the walk-in is not waiting any more.
+
+**Clients**
 
 #### `GET /api/businesses/:businessId/salon/clients/:contactId`
 Permission: `sales.create` or `appointments.view`.
 Query/Body: none.
-Returns: `data` = `{ contact, memberships[], packages[], otherPlans[], advance, held, deposits[], upcoming[], bills[] }`. `advance` can be used now; `held` is kept for bookings still to come. Plans are listed only when the Packages module is on.
+Returns: `data` = `{ contact, profile, notes[] (the latest 30), visits[] (bill lines with the stylist), stats { visits, spent, last_visit, no_shows, usual_stylist }, memberships[], packages[], otherPlans[], advance, held, deposits[], refunds[] (the latest 20), upcoming[], bills[] }`. `advance` can be used now; `held` is kept for bookings still to come. Each deposit carries `appointment_id`, `notes` and `released` (moved to the wallet), and its unused amount is less refunds. Plans are listed only when the Packages module is on.
 Errors: 404 client not found.
+
+#### `PUT /api/businesses/:businessId/salon/clients/:contactId/profile`
+Permission: `contacts.edit`.
+Query/Body: `birthday`, `anniversary`, `gender`, `preferredResourceId`, `allergies`.
+Returns: the client card's profile.
+
+#### `POST /api/businesses/:businessId/salon/clients/:contactId/notes`
+Permission: `contacts.edit`.
+Query/Body: `kind` (`note` | `formula`), `body`.
+Returns: 201, the dated note or colour formula, kept as written.
+
+#### `POST /api/businesses/:businessId/salon/clients/:contactId/advance-refund`
+Permission: `sales.edit`, and a manager's approval from someone with `sales.refund` (always with their PIN).
+Query/Body: `collectionId`, `mode` (`cash` | `wallet`), `amount?`, `method?` (`cash`, `upi` or `bank`; UPI and bank need a `reference`), `reference?`, `reason`, `approverId?`, `pin?`, `requestKey`.
+Returns: 201. `cash` hands back what is left of that receipt (or `amount`), numbered `<receipt>-R<n>` (audit and event `collection.refunded`); a repeat with the same key returns the first refund. `wallet` makes a deposit held for a booking still to come the client's advance, usable on any bill (`salon_deposit_releases`, audit `deposit.moved_to_wallet`).
+Errors: 404 not this client's deposit or advance; 409 a cheque that bounced, nothing left, or a deposit that is already the client's advance; plus the approval errors.
+
+#### `GET /api/businesses/:businessId/salon/advance-refunds`
+Permission: `sales.view`. Salon only.
+Query/Body: paged list; filter `contact`; dates on `created_at`.
+Returns: `data` = `{ total, items[] }` of salon advance refunds.
+
+**Bills**
 
 #### `POST /api/businesses/:businessId/salon/quote`
 Permission: `sales.create`.
-Query/Body: the same as the salon bill (lines, `contactId`, `appointmentIds`, `useAdvance`). The core posting runs in quote mode and nothing is saved.
+Query/Body: the same as the salon bill (lines, `contactId`, `appointmentIds`, `useAdvance`, `discount`). The core posting runs in quote mode and nothing is saved.
 Returns: `data` = the bill as posting would make it (lines, membership and package discounts, GST, round-off, total) plus `advance, advanceUsable, toPay`.
 Errors: 400 lines not between 1 and 100. Line and plan errors are the same as the bill.
 
 #### `POST /api/businesses/:businessId/salon/bills`
-Permission: `sales.create`. A payment or `useAdvance` also needs `sales.edit`.
-Query/Body: `requestKey` (UUID, required); `locationId`; `contactId` (required with `useAdvance` or `appointmentIds`); `lines` (1-100 of `{ skuId, quantity, staffId?, clientPlanId?, appointmentId?, lotCode? }`); `appointmentIds` (up to 10); `useAdvance` (boolean); `payment` (`{ amount, method: cash|card|upi|bank|cheque, reference? }`); `notes`.
-How lines are priced: a plan item sells one package or membership per line, to the client. `clientPlanId` pays a service line from a package session. An active membership discounts the other lines. `staffId` records the stylist, and the commission rule is applied to that line when Commissions is on.
+Permission: `sales.create`. A payment or `useAdvance` also needs `sales.edit`; tips need `sales.edit`; a discount needs `sales.discount`.
+Query/Body: `requestKey` (UUID, required); `locationId`; `contactId` (required with `useAdvance` or `appointmentIds`); `lines` (1-100 of `{ skuId, quantity, staffId?, clientPlanId?, appointmentId?, lotCode? }`); `appointmentIds` (up to 10); `useAdvance` (boolean); `payment` (`{ amount, method: cash|card|upi|bank|cheque, reference? }`), or `payments` (up to 3 of the same shape, for a bill paid in several ways); `tips` (`[{ staffId, amount, method }]`: not part of the bill, kept in `salon_tips`); `discount` (`{ amount | percent, reason }`, within the business's counter-discount limit); `notes`.
+How lines are priced: a plan item sells one package or membership per line, to the client. `clientPlanId` pays a service line from a package session. An active membership discounts the other lines. `staffId` records the stylist, and the commission rule is applied to that line when Commissions is on. Each service line takes its back-bar products out of stock (see the back-bar recipe above).
 Returns: `data` = `{ document, advanceApplied }`, or `{ document, advanceApplied, repeated: true }` for a repeated key; status 201. The advance is applied oldest first. Billed booked appointments become `completed`.
-Errors: 400 no client; 403 package used while the module is off; 404 the appointment or package is not this client's; 409 the amount paid is over what is left, an appointment was cancelled, a no-show, or already billed, a package is used up, expired or cancelled, a plan is no longer sold, or a plan is sold while Packages is off.
+Errors: 400 no client; 403 package used while the module is off; 404 the appointment or package is not this client's; 409 the amount paid is over what is left, an appointment was cancelled, a no-show, or already billed, a package is used up, expired or cancelled, a plan is not sold any more, or a plan is sold while Packages is off.
+
+**Packages and memberships**
 
 #### `GET /api/businesses/:businessId/salon/plans`
 Permission: `packages.view`. Salon only; Module: `packages`.
@@ -5509,11 +5630,28 @@ Permission: `packages.view`. Salon only; Module: `packages`.
 Query/Body: paged list; `q` searches contact_name, contact_phone, name and document_no; `from`/`to` filter on created_at; filters `kind`, `state` (`active` | `upcoming` | `expired` | `used_up` | `cancelled`), `contact` and `plan`.
 Returns: `data` = `{ total, items[] }`. Each item is a client plan plus `contact_name, contact_phone, document_no, state, days_left, services[{ sku_id, label, sessions, used }], sessions_total, sessions_used, saved`.
 
+#### `PATCH /api/businesses/:businessId/salon/client-plans/:clientPlanId`
+Permission: `packages.edit`.
+Query/Body: `endsOn` (a later date only), `reason`.
+Returns: the client plan, extended; audited as `package.extended` or `membership.extended`.
+
 #### `POST /api/businesses/:businessId/salon/client-plans/:clientPlanId/cancel`
 Permission: `packages.edit`. Module: `packages`.
 Query/Body: `reason` (string, required, up to 300).
 Returns: `data` = the cancelled client plan row. The bill line that sold it can then be returned through the core returns.
 Errors: 404 not found; 409 already cancelled, or already used on a bill line.
+
+#### `GET /api/businesses/:businessId/salon/client-plans-summary`
+Permission: `packages.view`.
+Query/Body: none.
+Returns: `{ active, sessions_left, sessions_left_value, expiring_30 }`.
+
+#### `GET /api/businesses/:businessId/salon/plan-usage`
+Permission: `packages.view`. Module: `packages`.
+Query/Body: paged list; filter `plan` (a client plan).
+Returns: `data` = `{ total, items[] }`: the bill lines that used a plan's sessions or discount.
+
+**Commissions**
 
 #### `GET /api/businesses/:businessId/salon/commission-rules`
 Permission: `commissions.view`. Salon only.
@@ -5522,35 +5660,109 @@ Returns: `data` = `{ total, items[] }`. Each item is a rule plus `resource_name,
 
 #### `POST /api/businesses/:businessId/salon/commission-rules`
 Permission: `commissions.edit`.
-Query/Body: `appliesTo` (`service` | `goods`, required); `percent` (0-100, required); `resourceId` (a stylist; optional, and none means every stylist); `skuId` (optional, and none means every item). On a bill line, the most specific active rule wins: a named stylist beats all stylists, then a named item beats all items.
+Query/Body: `appliesTo` (`service` | `goods` | `plan`, required; `plan` is selling a package or membership); `percent` (0-100), or `flatAmount` (a flat amount per item instead); `resourceId` (a stylist; optional, and none means every stylist); `skuId` (optional, and none means every item). On a bill line, the most specific active rule wins: a named stylist beats all stylists, then a named item beats all items.
 Returns: `data` = the new rule; status 201.
 Errors: 404 stylist not found; 409 an active rule for exactly this already exists.
 
 #### `PATCH /api/businesses/:businessId/salon/commission-rules/:ruleId`
 Permission: `commissions.edit`.
-Query/Body: `percent` (0-100); `active` (boolean).
+Query/Body: `percent` (0-100) or `flatAmount`; `active` (boolean).
 Returns: `data` = the updated rule.
 Errors: 404 rule not found.
+
+Bill lines with a stylist are recorded as `service`, `goods`, `plan` or `session` (a service paid from a package, whose commission is worked on the session's value: see `sessionCommissionBasis` in the salon settings).
 
 #### `GET /api/businesses/:businessId/salon/commissions`
 Permission: `commissions.view`.
 Query/Body: `from` and `to` (required, at most 367 days apart, by bill date).
-Returns: `data` = `{ from, to, rows[] }`, one row per stylist: `{ resource_id, name, role_label, service_lines, services_done, service_sales, product_sales, bills, commission }`. All figures are net of returns.
+Returns: `data` = `{ from, to, rows[] }`, one row per stylist: `{ resource_id, name, role_label, service_lines, services_done, sessions_done, session_value, service_sales, product_sales, plan_sales, bills, commission, tips, paid, paid_to, due, scheme, slab_commission, slab_months[] }`. All figures are net of returns. For a stylist on a monthly target plan, the service commission is the plan's slab on each month's net service sales, shared over the dates by their part of that month's sales (a whole month gives exactly the slab); payouts are checked against it.
 Errors: 400 invalid dates or range.
 
 #### `GET /api/businesses/:businessId/salon/commission-lines`
 Permission: `commissions.view`. Salon only.
-Query/Body: paged list; `q` searches document_no, label, resource_name and contact_name; `from`/`to` filter on the bill's created_at; filters `staff` (resource id) and `kind` (`service` | `goods`).
+Query/Body: paged list; `q` searches document_no, label, resource_name and contact_name; `from`/`to` filter on the bill's created_at; filters `staff` (resource id), `kind` (`service`, `goods`, `plan` or `session`) and `location`.
 Returns: `data` = `{ total, items[] }`. Each item is `{ line_id, document_id, document_no, created_at, contact_name, label, quantity, net, resource_name, appointment_id, rule_id, item_kind, commission_percent, commission_base, commission_amount, returned_quantity, commission_after_returns }`.
+
+#### `GET /api/businesses/:businessId/salon/commission-payouts` and `POST /api/businesses/:businessId/salon/commission-payouts`
+Permission: `commissions.view` (list), `commissions.edit` (POST).
+Query/Body: list: paged, filters `staff` and `location`. POST: `{ resourceId, from, to, amount, method, reference?, note?, requestKey }`; `method` is `cash`, `upi`, `bank` or `cheque` (a cheque needs its number as `reference`).
+Returns: the payout of commission and tips for a period, kept with what was earned then (the slip).
+Errors: 409 more than is due.
+
+#### `GET /api/businesses/:businessId/salon/commission-plans`, `POST /api/businesses/:businessId/salon/commission-plans` and `PATCH /api/businesses/:businessId/salon/commission-plans/:planId`
+Permission: `commissions.view` (list), `commissions.edit` (POST, PATCH).
+Query/Body: list: paged, filter `active`. POST: `{ name, mode: stepped | whole, slabs: [{ fromAmount, percent }] }` (up to 10 slabs; the first starts at 0). PATCH: `{ name?, active? }`.
+Returns: the monthly target plan.
+Errors: 409 changing the slabs or mode once saved.
+
+#### `GET /api/businesses/:businessId/salon/commission-schemes` and `PUT /api/businesses/:businessId/salon/staff/:resourceId/commission-scheme`
+Permission: `commissions.view` (GET), `commissions.edit` (PUT).
+Query/Body (PUT): `planId` (or null for the flat rules), `fromMonth` (`YYYY-MM`; this month or later).
+Returns: which way each stylist earns on services from a month on.
+
+#### `GET /api/businesses/:businessId/salon/commission-statement`
+Permission: `commissions.view`.
+Query/Body: `month` (`YYYY-MM`), `staff`.
+Returns: the month's payout statement: the plan, `serviceSales`, `bands[]` (`{ from, to, percent, base, amount }`), `serviceCommission`, `others[]` (products, packages sold, sessions), `commission`, `tips`, `paid`, `due`.
+
+**Reports**
+
+#### `GET /api/businesses/:businessId/salon/backbar-usage`
+Permission: `reports.view`. Salon only.
+Query/Body: paged list; filters `product`, `service` and `location`; dates on `created_at`.
+Returns: `data` = `{ total, items[] }`: every product taken by a service, with the bill, quantity, `short` and cost.
+
+#### `GET /api/businesses/:businessId/salon/reports/service-profitability`
+Permission: `reports.view`.
+Query/Body: `from`, `to`.
+Returns: per service: `done`, `sales` (after discounts and returns, before GST), `product_cost`, `commission` (flat-rule amounts), `margin`, `margin_percent`; `totals`; and the `short` uses.
 
 ### Weight-based shops
 
-These routes cover cutting and processing with yield, yield templates, daily wastage, stock by weight, and the yield and wastage reports. Cutting and wastage move stock as reasoned stock corrections, never as sales, so stock cannot go below zero. Quantities are thousandths of the stock unit, and kg figures are converted through the unit's factor. Templates and cutting need Module: `processing` (Cutting & yield). Wastage needs Module: `wastage` (Daily wastage). The stock list needs Module: `weight` (Sold by weight).
+These routes cover cutting and processing with yield, yield templates, daily wastage, stock by weight, the day's rate board, the end-of-day weigh-up, pickup orders, and the yield and wastage reports. Cutting and wastage move stock as reasoned stock corrections, never as sales, so stock cannot go below zero. Quantities are thousandths of the stock unit, and kg figures are converted through the unit's factor. Templates and cutting need Module: `processing` (Cutting & yield). Wastage needs Module: `wastage` (Daily wastage). The stock list, the rate board and pickup orders need Module: `weight` (Sold by weight).
+
+**Stock and the day**
 
 #### `GET /api/businesses/:businessId/weight/stock`
 Permission: `inventory.view`. Module: `weight`.
 Query/Body: paged list, one row per active weight item per active location; `q` searches label, code, category and location_name; filters `location` and `low` (`true`/`false`). No date filter.
-Returns: `data` = `{ total, items[] }`. Each item is `{ id ("sku-location"), sku_id, location_id, location_name, code, label, unit, price, category, kg_factor, on_hand, on_hand_kg, value, average_cost, next_expiry, sold_7d, wasted_7d, cut_7d, low, ... }`.
+Returns: `data` = `{ total, items[] }`. Each item is `{ id ("sku-location"), sku_id, location_id, location_name, code, label, unit, price, category, kg_factor, on_hand, on_hand_kg, value, average_cost, next_expiry, sold_7d, wasted_7d, cut_7d, cut_used_7d, low, ... }`.
+
+#### `GET /api/businesses/:businessId/weight/stock-today`
+Permission: `inventory.view`. Module: `weight`.
+Query/Body: `location`.
+Returns: per item and location: `opening`, `received`, `cut_in`, `cut_out`, `sold` (net of returns), `wasted`, `corrected`, `on_hand`, `use_soon`.
+
+#### `GET /api/businesses/:businessId/weight/today`
+Permission: `inventory.view`. Module: `weight`.
+Query/Body: none.
+Returns: the overview card: kg sold, cut and wasted, what must be used by today or tomorrow, rates changed today, and pickups due today.
+
+#### `POST /api/businesses/:businessId/weight/day-close`
+Permission: `inventory.edit`. Module: `weight`.
+Query/Body: `locationId`, `lines` (`[{ skuId, counted, reason? }]`), `requestKey`.
+Returns: 201, the end-of-day weigh-up, kept in `weight_day_closes`. Short is wastage (oldest batches first, `drip_loss` by default); over is a correction on the newest batch.
+Errors: 404 location not found, or an item not sold by weight; 409 the request key reused with different data.
+
+#### `GET /api/businesses/:businessId/weight/day-closes`
+Permission: `inventory.view`. Module: `weight`.
+Query/Body: paged list; filter `location`; dates on `created_at`.
+Returns: `data` = `{ total, items[] }` of the day closes.
+
+**The rate board**
+
+#### `GET /api/businesses/:businessId/weight/rates` and `PUT /api/businesses/:businessId/weight/rates`
+Permission: `catalog.view` (GET), `catalog.edit` (PUT). Module: `weight`.
+Query/Body (PUT): `rates` (`[{ skuId, price }]`).
+Returns: the day's rate board: each item's rate now, `opening_price`, cost per unit and how many customer rates it has. Saving changes only the items whose rate changed, writes `weight_rate_history` and audits `catalog.price_changed` (`source: rate_board`).
+Errors: 409 a rate above the item's MRP.
+
+#### `GET /api/businesses/:businessId/weight/rate-history`
+Permission: `catalog.view`. Module: `weight`.
+Query/Body: paged list; filter `sku`; dates on the change.
+Returns: `data` = `{ total, items[] }`: every rate change.
+
+**Yield templates and cutting**
 
 #### `GET /api/businesses/:businessId/weight/yield-templates`
 Permission: `processing.view`.
@@ -5571,21 +5783,28 @@ Errors: 404 template not found; 400 validation as for create.
 
 #### `GET /api/businesses/:businessId/weight/processing`
 Permission: `processing.view`.
-Query/Body: paged list of cutting batches; `q` searches batch_no, input_label, notes and location_name; `from`/`to` filter on created_at; filters `location`, `input` and `id`.
+Query/Body: paged list of cutting batches; `q` searches batch_no, input_label, notes and location_name; `from`/`to` filter on created_at; filters `location`, `input`, `id`, `template`, `supplier` and `cutter`.
 Returns: `data` = `{ total, items[] }`. Each item is a batch plus `location_name, created_by_name, template_name, input_lot_code, yield_percent, expected_yield, cost_per_usable_kg, outputs[{ sku_id, label, unit, quantity, kg, cost_share, unit_cost, expected_percent, lot_id }]`.
 
 #### `POST /api/businesses/:businessId/weight/processing`
 Permission: `processing.create`. Module: `processing`.
-Query/Body: `requestKey` (UUID, required); `inputLotId` (the stock lot being cut, required); `inputQuantity` (required, in the lot's unit, no more than the lot holds); `outputs` (1-20 of `{ skuId, quantity }`, each a weight item, no repeats, not the input); `templateId` (optional; must belong to the same input item); `notes` (up to 500).
-In one transaction, the input weight leaves its lot and each cut enters stock at the same location. The input cost is split across the cuts by selling value, or by weight when no cut has a price. A batch-tracked cut gets a batch named after the cutting number, with the input's expiry.
-Returns: `data` = the batch row (`batch_no, input_kg, output_kg, loss_kg, input_value, ...`); status 201.
+Query/Body: `requestKey` (UUID, required); `inputLotId` (the stock lot being cut, required); `inputQuantity` (required, in the lot's unit, no more than the lot holds); `outputs` (1-20 of `{ skuId, quantity, packKg? }`, each a weight item, no repeats, not the input; `packKg` for an output sold by the piece, remembered per item); `templateId` (optional; must belong to the same input item); `cutBy` (who cut it); `notes` (up to 500).
+In one transaction, the input weight leaves its lot and each cut enters stock at the same location. The input cost is split across the cuts by selling value, or by weight when no cut has a price. A batch-tracked cut gets a batch named after the cutting number, with the input's expiry. The supplier of the input batch is recorded with the cutting.
+Returns: `data` = the batch row (`batch_no, input_kg, output_kg, loss_kg, input_value, ...`) with `outputs[]` (`{ skuId, code, label, unit, quantity, lotCode }`); status 201.
 Errors: 400 the input or a cut is not stocked by weight, or the cuts weigh more than the input; 404 input stock, cut or template not found; 409 the input batch has expired (record it as wastage instead), the input quantity is over the lot, or the request key was reused.
+
+#### `POST /api/businesses/:businessId/weight/cut-to-order`
+Permission: `processing.create` and `sales.create`. Module: `processing`.
+Query/Body: as `POST …/weight/processing`.
+Returns: 201, the cutting batch, marked `cut_to_order`: cutting at the counter, whose cut the counter then bills from its batch.
 
 #### `GET /api/businesses/:businessId/weight/processing/:batchId`
 Permission: `processing.view`. Module: `processing`.
 Query/Body: none.
 Returns: `data` = one batch, shaped like a list item.
 Errors: 404 cutting batch not found.
+
+**Wastage**
 
 #### `GET /api/businesses/:businessId/weight/wastage`
 Permission: `wastage.view`.
@@ -5595,7 +5814,7 @@ Returns: `data` = `{ total, items[] }`. Each item is a wastage entry (`label, un
 #### `GET /api/businesses/:businessId/weight/wastage-today`
 Permission: `wastage.view`. Module: `wastage`.
 Query/Body: none.
-Returns: `data` = `{ entries, kg, value, month_value, month_kg }` for today and for the current month, in the business timezone.
+Returns: `data` = `{ entries, kg, value, month_value, month_kg }` for today and for the current month, in the business timezone; `entries` counts today's entries.
 
 #### `POST /api/businesses/:businessId/weight/wastage`
 Permission: `wastage.create`. Module: `wastage`.
@@ -5603,10 +5822,31 @@ Query/Body: `requestKey` (UUID, required); `lotId` (required); `quantity` (requi
 Returns: `data` = the wastage entry, valued at the lot's cost; status 201.
 Errors: 400 a bad reason, a missing note, or a serial-tracked item; 404 stock not found; 409 the quantity is over the lot, or the request key was reused.
 
+#### `POST /api/businesses/:businessId/weight/wastage/batch`
+Permission: `wastage.create`. Module: `wastage`.
+Query/Body: `locationId`, `entries` (`[{ skuId, quantity, reason, note? }]`), `requestKey`.
+Returns: 201, `{ entries[], value, kg }`: many items in one go, each taken from its oldest batches first.
+Errors: 404 location or item not found.
+
+**Pickup orders**
+
+#### `GET /api/businesses/:businessId/weight/pickup-orders` and `POST /api/businesses/:businessId/weight/pickup-orders`
+Permission: `sales.view` (list), `sales.create` (POST). Module: `weight`.
+Query/Body: list: paged, filters `status`, `active`, `today`, `id` and `location`; dates on the pickup time. POST: `{ locationId, contactId? | customerName, phone?, pickupAt, notes?, lines: [{ skuId, quantity? | amount?, note? }], requestKey }`.
+Returns: phone and WhatsApp orders for pickup; POST returns the new order.
+
+#### `POST /api/businesses/:businessId/weight/pickup-orders/:orderId/status`
+Permission: `sales.create`. Module: `weight`.
+Query/Body: `status`: `open` (back to packing), `ready`, `cancelled` (with a `reason`) or `collected` (with its bill's `documentId`).
+Returns: the order.
+Errors: 404 order or bill not found; 409 the order is already collected or cancelled, or the bill is older than the order or already on another order.
+
+**Reports**
+
 #### `GET /api/businesses/:businessId/weight/reports/yield`
 Permission: `reports.view`; the service also requires `processing.view`. Module: `processing`.
-Query/Body: `from` and `to` (required, at most 367 days apart); `location` (optional).
-Returns: `data` = `{ from, to, inputs[], cuts[], days[], totals }`. `inputs` holds each input item's batches, kg in, out and lost, `yield_percent`, `expected_percent` and the cost per usable or input kg. `cuts` gives the kg, cost and share of each cut. `totals` = `{ batches, inputKg, outputKg, lossKg, yieldPercent, inputValue }`.
+Query/Body: `from` and `to` (required, at most 367 days apart); `location`, `template`, `cutter`, `supplier` (optional).
+Returns: `data` = `{ from, to, inputs[], cuts[], days[], cutters[], suppliers[], bySupplier[], shortValue, totals }`. `inputs` holds each input item's batches by item and template (`label` = the template's name): kg in, out and lost, `yield_percent`, `expected_percent`, the cost per usable or input kg, and the shortfall against the template: `short_points` (percentage points below the expected yield), `short_kg` (the usable kg not got) and `short_value` (those kg at the cost of a usable kg), which add up to `shortValue`. `cutters` names who cut. `cuts` gives the kg, cost and share of each cut. `bySupplier[]` is `{ supplier_id, supplier_name, input_sku_id, input_label, batches, input_kg, output_kg, loss_kg, yield_percent, batch_average_percent, worst_percent, best_percent, expected_percent, cost_per_usable_kg, item_average_percent, versus_average }`; a batch's supplier is the one kept when it was cut, otherwise the purchase that brought its input batch in, and the `supplier` filter uses the same. `totals` = `{ batches, inputKg, outputKg, lossKg, yieldPercent, inputValue }`.
 Errors: 400 invalid dates or range.
 
 #### `GET /api/businesses/:businessId/weight/reports/wastage`
@@ -5615,87 +5855,7 @@ Query/Body: `from` and `to` (required, at most 367 days apart); `location` (opti
 Returns: `data` = `{ from, to, items[], reasons[], days[], totals }`. `items` holds each item's entries, quantity, kg, value, sold_quantity and wastage_percent. `reasons` gives the totals per reason with a label. `totals` = `{ entries, kg, value }`.
 Errors: 400 invalid dates or range.
 
-
-### Salon & weight shops, pro pass F (7 Oct 2026)
-
-Additive routes, same router, same checks (membership → module → permission; services repeat them). Migration `1791600000000_salon-weight-pro`.
-
-Changed behaviour on existing salon / weight routes:
-
-- `GET /salon/calendar` takes `days` (1–7, default 1) and returns `days`; each appointment adds `day`, `arrived_at`, `late`, `confirmation_sent_at`, `reminder_sent_at`, `walk_in`, `moved_count`, `client_no_shows`, `member`, `first_visit`, `category`; each resource adds `weekly_off`, `works_from`, `works_to`, `leave[]`; `totals.arrived`.
-- `POST /salon/appointments` (and the generic appointment routes for a salon) refuse a stylist on leave, on their weekly day off or outside their working hours (409).
-- `PUT /salon/staff/:resourceId` also takes `weeklyOff` (0 = Sunday … 6), `worksFrom`, `worksTo`, `name`, `roleLabel`, `active` (switching off with bookings to come is 409). `skuIds` left out keeps the skills.
-- `PUT /salon/settings` also takes `sessionCommissionBasis` (`package_price` | `list_price`).
-- `GET /salon/clients/:contactId` adds `profile`, `notes[]` (latest 30), `visits[]` (bill lines with the stylist), `stats` `{ visits, spent, last_visit, no_shows, usual_stylist }`.
-- `POST /salon/bills` takes `payments: [{ amount, method, reference? }]` (up to 3; mixed tender on one bill — `payment` still works), `tips: [{ staffId, amount, method }]` (not part of the bill, kept in `salon_tips`, `sales.edit`), and `discount: { amount | percent, reason }` (`sales.discount`, the business's counter-discount cap). `POST /salon/quote` takes `discount` too.
-- `POST/PATCH /salon/commission-rules`: `appliesTo` may be `plan` (selling a package or membership); `flatAmount` pays a flat amount per item instead of `percent`. Bill lines with a stylist are recorded as `service`, `goods`, `plan` or `session` (a service paid from a package: commission on the session's value).
-- `GET /salon/commissions` rows add `sessions_done`, `session_value`, `plan_sales`, `tips`, `paid`, `paid_to`, `due`.
-- `POST /weight/processing` takes `cutBy` (who cut it) and, for an output sold by the piece, `packKg` (remembered per item); the supplier of the input batch is recorded; the response adds `outputs[]` `{ skuId, code, label, unit, quantity, lotCode }`. `GET /weight/processing` filters `template`, `supplier`, `cutter`.
-- `GET /weight/reports/yield` groups inputs by item **and template** (`label` = template name), adds `short_points`, `short_kg`, `short_value`, `cutters[]`, `suppliers[]`, `shortValue`; filters `template`, `cutter`, `supplier`.
-- `GET /weight/wastage-today`: `entries` counts only today's entries (was 1 on an empty day). `GET /weight/stock` adds `cut_used_7d`.
-
-New routes (all under `/api/businesses/:businessId`):
-
-| Route | Permission | What it does |
-|---|---|---|
-| `PATCH /salon/appointments/:id` `{ startsAt, resourceId?, roomId? }` | `appointments.edit` | Move a booking: same checks as booking (hours, skills, stylist leave/off/hours, no clash for stylist or room, a room where needed). Keeps its length, deposit and price; never charges a fee. Resets the sent confirmation/reminder. Audit + event `appointment.moved` `{ from, to }`. 409 billed / not booked. |
-| `POST /salon/appointments/:id/arrived` | `appointments.edit` | The client is here (today only). Event `appointment.arrived`. |
-| `POST /salon/appointments/:id/messages` `{ kind: confirmation \| reminder }` | `appointments.create` or `.edit` | Records a WhatsApp message sent from the person's phone (wa.me). |
-| `GET /salon/appointments` | `appointments.view` | History list with deposit, bill, charge, walk-in, moved; filters `status`, `staff`, `contact`; dates on `starts_at`. |
-| `GET /salon/walk-ins` · `POST /salon/walk-ins` `{ contactId, skuId, resourceId?, note?, locationId? }` | `appointments.view` / `.create` | The waiting list (paged; filter `status`). One waiting entry per client (409 when already waiting). The location is the one given (`locationId`; a person tied to a location gets theirs), else the stylist's, else the business's first open location. |
-| `POST /salon/walk-ins/:id/seat` `{ resourceId, roomId?, requestKey }` | `appointments.create` | Books the walk-in from now (marked arrived, `walk_in`). Repeatable with the same key. |
-| `POST /salon/walk-ins/:id/left` | `appointments.create` | Off the list. |
-| `PUT /salon/clients/:contactId/profile` `{ birthday, anniversary, gender, preferredResourceId, allergies }` | `contacts.edit` | The client card's profile. |
-| `POST /salon/clients/:contactId/notes` `{ kind: note \| formula, body }` | `contacts.edit` | A dated note or colour formula (kept as written). |
-| `POST /salon/staff/:id/leave` `{ fromDate, toDate, reason? }`, `POST /salon/staff/:id/leave/:leaveId/cancel` | `appointments.create` | Leave; refused while bookings exist on those days or leave overlaps. |
-| `PATCH /salon/client-plans/:id` `{ endsOn, reason }` | `packages.edit` | Extend a package / membership (later date only), audited `package.extended` / `membership.extended`. |
-| `GET /salon/client-plans-summary` | `packages.view` | `{ active, sessions_left, sessions_left_value, expiring_30 }`. |
-| `GET /salon/plan-usage?plan=` | `packages.view` | Bill lines that used a plan's sessions or discount. |
-| `GET /salon/commission-payouts` · `POST /salon/commission-payouts` `{ resourceId, from, to, amount, method, reference?, note?, requestKey }` | `commissions.view` / `.edit` | Pay commission and tips for a period (not more than due; 409). Kept with what was earned then (slip). `method` is cash, upi, bank or cheque (a cheque needs its number as `reference`). The list is paged. |
-| `GET /weight/rates`, `PUT /weight/rates` `{ rates: [{ skuId, price }] }` | `catalog.view` / `.edit` | The day's rate board: rate now, `opening_price`, cost per unit, customer-rate count. Saving changes only the changed items, refuses a rate above MRP (409), writes `weight_rate_history` and audits `catalog.price_changed` (`source: rate_board`). |
-| `GET /weight/rate-history?sku=` | `catalog.view` | Every rate change. |
-| `GET /weight/stock-today?location=` | `inventory.view` | Per item and location: `opening`, `received`, `cut_in`, `cut_out`, `sold` (net of returns), `wasted`, `corrected`, `on_hand`, `use_soon`. |
-| `POST /weight/day-close` `{ locationId, lines: [{ skuId, counted, reason? }], requestKey }` | `inventory.edit` | End-of-day weigh-up: short = wastage (oldest batches first, `drip_loss` by default), over = a correction on the newest batch. Kept in `weight_day_closes`. `GET /weight/day-closes` lists them. |
-| `POST /weight/wastage/batch` `{ locationId, entries: [{ skuId, quantity, reason, note? }], requestKey }` | `wastage.create` | Many items in one go, oldest batches first. |
-| `POST /weight/cut-to-order` (body as `/weight/processing`) | `processing.create` and `sales.create` | Cutting at the counter, marked `cut_to_order`; the counter then bills the cut from its batch. |
-| `GET /weight/pickup-orders` · `POST /weight/pickup-orders` `{ locationId, contactId? \| customerName, phone?, pickupAt, notes?, lines: [{ skuId, quantity? \| amount?, note? }], requestKey }` | `sales.view` / `sales.create` | Phone / WhatsApp orders for pickup; filters `status`, `active`, `today`, `id`. |
-| `POST /weight/pickup-orders/:id/status` `{ status: open \| ready \| cancelled (reason) \| collected (documentId) }` | `sales.create` | Ready / back to packing / cancelled / collected with its bill. |
-| `GET /weight/today` | `inventory.view` | The overview card: kg sold, cut, wasted, use-by today/tomorrow, rates changed today, pickups due today. |
-
-### Salon, weight shops & repairs, round 2 (8 Oct 2026)
-
-Additive routes, same router and checks (membership → module → permission; the services repeat them). Migration `1791620001000_salon-weight-repairs-round2`. A *manager's approval* in a body is `{ reason, approverId?, pin? }`: the approver must hold the named permission in this business and type their own PIN (My profile › Personal PIN; five wrong tries lock it). 400 `wrong_pin` / `approval_needed`, 403 `not_an_approver`, 409 `no_pin`, 423 `pin_locked` (in `data.reason`).
-
-Changed behaviour on existing routes:
-
-- `POST /salon/appointments` and `PATCH /salon/appointments/:id` follow the stylist's **weekly schedule** (a weekday row overrides the usual hours / weekly off) and **salon holidays**. Outside them, or on leave, or outside the salon's calendar hours: refused with `data: { reason: "outside_hours", rule }` (409; 400 for the calendar hours, as before). Sending `override: { reason, approverId?, pin? }` (approver holds `appointments.approve`; a holder approving their own booking needs only the reason) lets it through and keeps it in `salon_booking_overrides` (audit `appointment.override`).
-- `GET /salon/calendar` resources add `week[]` `{ dow, off, works_from, works_to }`; the response adds `holidays[]` `{ id, location_id, day, name }` and `canOverride`.
-- `GET /salon/staff` rows add `week[]`; `GET /salon/services` rows add `backbar_products`.
-- `GET /salon/clients/:contactId`: `deposits[]` add `released` (moved to the wallet), `appointment_id`, `notes`; a receipt's unused amount is less refunds; `refunds[]` (latest 20).
-- A deposit moved to the wallet is no longer held for its booking: no-show / late-cancel charges take nothing from it; it is usable on any bill.
-- **Salon bills** (any sale of a salon business): each service line takes its back-bar recipe × quantity out of stock at the bill's location (oldest use-by first; what the books do not have is recorded as short and never stops the bill), costed at the product's latest purchase price; `salon_backbar_usage`, event `backbar.used`.
-- `GET /salon/commissions` rows add `scheme`, `slab_commission`, `slab_months[]` for stylists on a target plan: their service commission is the plan's slab on each month's net service sales, shared over the dates by their part of that month's sales (a whole month = exactly the slab). Payouts check against it.
-- `GET /weight/reports/yield` adds `bySupplier[]` `{ supplier_id, supplier_name, input_sku_id, input_label, batches, input_kg, output_kg, loss_kg, yield_percent, batch_average_percent, worst_percent, best_percent, expected_percent, cost_per_usable_kg, item_average_percent, versus_average }`. A batch's supplier is the one kept when it was cut, otherwise the purchase that brought its input batch in; the `supplier` filter uses the same.
-- `GET /repairs/:jobId`: `advance` adds `used`, `refunded`, `refunds[]`, and `free` is less refunds. `GET /repairs` rows add `advance`, `advance_left`, `advance_to_refund`; filter `advance_to_refund=true`. Delivery takes only what is left of the advance.
-
-New routes (all under `/api/businesses/:businessId`):
-
-| Route | Permission | What it does |
-|---|---|---|
-| `PUT /salon/staff/:id/week` `{ days: [{ dow, off, worksFrom?, worksTo? }] }` | `appointments.create` | The weekdays that differ from the stylist's usual hours (replaces the list). At least one working day. Returns `clashes[]`: bookings to come now outside it (not moved). |
-| `GET /salon/holidays` · `POST /salon/holidays` `{ day, name, locationId? }` · `POST /salon/holidays/:id/cancel` | `appointments.view` · `settings.edit` | Salon holidays (every location, or one). Refused for a past day or while bookings exist that day (409). |
-| `GET /service-approvers?permission=appointments.approve\|sales.refund` | `appointments.create`, `sales.edit` or `repairs.view` | Members who may approve, with `has_pin`. |
-| `GET /salon/services/:skuId/products` · `PUT /salon/services/:skuId/products` `{ products: [{ skuId, quantity }] }` (up to 20, each once) | `catalog.view` · `catalog.edit` | A service's back-bar recipe in each product's stock unit; `cost` per service at the latest purchase price. Goods only, not serial-numbered, whole units for count items. |
-| `GET /salon/backbar-usage` | `reports.view` | Every product taken by a service: bill, quantity, `short`, cost; filters `product`, `service`; dates. |
-| `GET /salon/reports/service-profitability?from&to` | `reports.view` | Per service: `done`, `sales` (after discounts and returns, before GST), `product_cost`, `commission` (flat-rule amounts), `margin`, `margin_percent`; `totals`; `short` uses. |
-| `POST /salon/clients/:contactId/advance-refund` `{ collectionId, mode: cash \| wallet, amount?, method?: cash\|upi\|bank, reference?, reason, approverId?, pin?, requestKey }` | `sales.edit` + approver with `sales.refund` (always a PIN) | `cash`: hands back what is left of that receipt (or `amount`), numbered `<receipt>-R<n>`, audit/event `collection.refunded`; repeat-safe by key. `wallet`: a deposit held for a booking still to come becomes the client's advance (`salon_deposit_releases`, audit `deposit.moved_to_wallet`). |
-| `GET /salon/advance-refunds` | `sales.view` | Salon advance refunds; filter `contact`; dates. |
-| `GET /salon/commission-plans` · `POST /salon/commission-plans` `{ name, mode: stepped \| whole, slabs: [{ fromAmount, percent }] }` · `PATCH /salon/commission-plans/:planId` `{ name?, active? }` | `commissions.view` · `.edit` | Monthly target plans. The first slab starts at 0; up to 10. Slabs and mode never change once saved (409). |
-| `GET /salon/commission-schemes` · `PUT /salon/staff/:id/commission-scheme` `{ planId \| null, fromMonth: "YYYY-MM" }` | `commissions.view` · `.edit` | Which way each stylist earns on services from a month on (null = flat rules). This month or later only. |
-| `GET /salon/commission-statement?month=YYYY-MM&staff=` | `commissions.view` | The month's payout statement: plan, `serviceSales`, `bands[]` `{ from, to, percent, base, amount }`, `serviceCommission`, `others[]` (products, packages sold, sessions), `commission`, `tips`, `paid`, `due`. |
-| `POST /repairs/:jobId/advance-refund` `{ amount?, method, reference?, reason, approverId?, pin?, requestKey }` | `sales.edit` + approver with `sales.refund` | The job's advance (or what is left of it) handed back once the job is cancelled or delivered; noted in the job's history. 409 while the job is open, or nothing is left. |
-
-## Pharmacy, clinic & lab (round 2)
+## Pharmacy, clinic & lab
 
 All under `/api/businesses/:businessId/` with the Business Admin checks (membership, module, permission). Lists take `limit`, `offset`, `q`, `from`, `to` and their filters and answer `{ total, items }`. Backend module `modules/business/health/`. Pharmacy routes answer 404 for other business types; clinic and lab routes likewise.
 
@@ -5778,12 +5938,10 @@ A token moves waiting → called → in consultation → done, or is skipped or 
 | `POST /lab/orders/:id/amend` | lab.approve | `{ reason, signoff: { signatoryId, pin } }` (a pathologist): reopens a signed report for correction (back to `resulted`). It is corrected and signed again with `POST …/approve`; the new version says it amends the earlier one, which can still be printed. 409 when the report is not signed |
 | `POST /lab/orders/:id/refer` · `POST /lab/orders/:id/cancel` | lab.create | `{ outsideLab, referenceNo, outsideCharge, referralCommission? }` (409 `referral_commission_off` while the setting is off) · `{ reason }` |
 | `GET /lab/qc/materials` · `POST /lab/qc/materials` · `PUT /lab/qc/materials/:id` | lab.view · lab.edit | Quality-control materials, one per numeric parameter, lot and level: list (filters `active`, `parameter`; rows add `parameter_name, unit, test_code, test_name, last_run, today_outcome, expired`) · `{ parameterId (create only), name, lotNo, level (default "Level 1"), mean, sd, expiresOn?, active }`; 404 a parameter that is not numeric or not yours, or a material not found; 409 the lot and level already set up for the parameter |
-| `GET /lab/qc/runs` · `POST /lab/qc/runs` | lab.view · lab.edit | Runs (filters `material`, `parameter`, `outcome`; dates on `run_at`) · `{ materialId, value, note?, correctiveAction? }` → 201 the run with its `z` score, the Westgard `rules` it broke and its `outcome`: 1-2s warns; 1-3s, 2-2s, R-4s, 4-1s and 10x reject. 409 a control no longer in use, or an expired lot |
+| `GET /lab/qc/runs` · `POST /lab/qc/runs` | lab.view · lab.edit | Runs (filters `material`, `parameter`, `outcome`; dates on `run_at`) · `{ materialId, value, note?, correctiveAction? }` → 201 the run with its `z` score, the Westgard `rules` it broke and its `outcome`: 1-2s warns; 1-3s, 2-2s, R-4s, 4-1s and 10x reject. 409 a control material that is switched off, or an expired lot |
 | `GET /lab/qc/today` | lab.view | Today's QC by parameter: each control's latest run and the parameter's `status` (`rejected`, `not_run`, `warning`, `accepted`), with a count of each. While a parameter's latest run today is rejected, a report with that parameter cannot be signed |
 
 ## Tasks, issues & projects
-
-*Added 7 October 2026 (migration `1791620000000_tasks-issues-projects.sql`, backend module `backend/src/modules/tasks/`).*
 
 One API with two front doors. Every route below exists under both:
 
@@ -5792,7 +5950,7 @@ One API with two front doors. Every route below exists under both:
 | Restaurant (the signed-in restaurant) | `/api/tasks` | `authenticate`; the restaurant's feature switch (`tasks`, `issues` or `projects`, from `req.user.features`; off answers 403 `reason: "feature_off"`); the restaurant permission (`req.user.permissions`). The business is the restaurant's own (`restaurant_business_id()`), never taken from the request. A login tied to one outlet sees that outlet's records and whole-restaurant ones. |
 | Any business | `/api/businesses/:businessId/tasks` | Membership (404 when none), the business capability (403 "<Module> is not switched on for this business…"), then the permission. |
 
-Both are mounted by `modules/tasks/routes/tasks.routes.js`, before the `/businesses` router so photo uploads reach multer. Permissions are checked in the services, against the record:
+Both are mounted by `modules/tasks/routes/tasks.routes.js`, before the `/businesses` router so photo uploads reach multer. Task, issue, project, recurring-task and template actions taken through `/api/tasks` are also written to the restaurant's `audit_logs` (action = the verb, `entity_type` = task / issue / project / task_schedule / task_template, `entity_label` = the title; a task update that sets assignees is `assigned`). Permissions are checked in the services, against the record:
 
 | Permission | Allows |
 | --- | --- |
@@ -5807,12 +5965,12 @@ Both are mounted by `modules/tasks/routes/tasks.routes.js`, before the `/busines
 
 Responses are `{ success: true, data }`. Dates are `YYYY-MM-DD` in the business's time zone; moments are ISO timestamps. Paged lists take `limit` (1–200, default 25), `offset` and `q`, and return `{ rows, total, limit, offset }`. Database rules answer 409 with their sentence (an outlet of another restaurant, a person who does not work here).
 
-### Context, summary, reports
+### Context, people and reports
 
 | Method and path | Returns |
 | --- | --- |
-| `GET /context` | `{ world, businessId, businessType, businessName, timezone, userId, outletScope, categories[], modules{tasks,issues,projects}, permissions[], directory{ people[{kind,id,name,detail,placeId,login}], roles[{kind,id,name}], places[], shifts[], placeWord } }`. People kinds: restaurant `user` and `employee` (staff with no login); business `user` and `resource`. Roles: `role` (restaurant) or `business_role`. |
-| `GET /summary` | The dashboard card and bell figures: `{ today, team, todayTotal, todayDone, todayMissed, overdue, oldestOverdue, review, mine{open,overdue,done}, issues{open,serious,unassigned,mine,toClose,oldestSerious} }`. |
+| `GET /context` | `{ world, businessId, businessType, businessName, timezone, userId, userName, outletScope, categories[{code,name,icon}], CATEGORIES[], modules{tasks,issues,projects}, permissions[], directory{ peopleCount, roles[{kind,id,name}], places[{id,name}], shifts[], placeWord } }`. `CATEGORIES` is the list of category codes. People are not listed here: the pickers search them with `GET /people`. Roles: `role` (restaurant) or `business_role`. |
+| `GET /people?q&kind&limit&offset` | The people pickers' search, by name: `{ total, rows[{ kind, id, name, detail, placeId, login }] }`. Kinds: restaurant `user` and `employee` (staff with no login); business `user` and `resource`. `kind=user` lists logins only; `limit` 1–50 (default 20). |
 | `GET /reports?from&to&place` | `tasks.view`. `{ totals{due,done,onTime,missed,completionRate,onTimeRate,overdue,upcoming,withFailures,averageScore}, byCategory[], byPerson[], compliance[{scheduleId,title,due,done,onTime,missed,completionRate,onTimeRate,withFailures,days[]}], issuesByAge[{bucket,open,serious}], issuesByCategory[], reviewBacklog{count,oldest}, daily[] }`. *Due* counts the tasks due in the period that are done, missed or past their due time; completion rate = done ÷ due; on time = done by the due time ÷ done. Default period: the last 30 days; at most a year. |
 
 ### Tasks
@@ -5833,7 +5991,7 @@ Responses are `{ success: true, data }`. Dates are `YYYY-MM-DD` in the business'
 | `POST /:taskId/reopen` | `reason` | `tasks.manage`; a missed task gets another day. |
 | `DELETE /:taskId` | — | `tasks.manage`; only a one-off task with no answers (cancel it otherwise). |
 | `POST /:taskId/comments` | `body` | Returns the comments. |
-| `POST /:taskId/files` | multipart: `file`, `kind` (`photo` / `signature` / `file`), `itemId` | JPG, PNG, WebP or PDF up to 5 MB; the bytes are checked. Stored in `private_uploads/tasks/<business>/`. A photo or signature item counts as answered. |
+| `POST /:taskId/files` | multipart: `file`, `kind` (`photo` / `signature` / `file`), `itemId` | JPG, PNG, WebP or PDF up to 5 MB; the bytes are checked. Stored in `tasks/<business>/` under the private upload folder (`PRIVATE_UPLOADS_DIR`, `backend/private_uploads` when it is not set). A photo or signature item counts as answered. |
 | `GET /files/:fileId` | — | The file, to someone who can see its task or issue. |
 | `DELETE /files/:fileId` | — | The uploader (or `tasks.manage` / `issues.manage`). The file is kept and the record marked removed. |
 
@@ -5853,12 +6011,11 @@ Responses are `{ success: true, data }`. Dates are `YYYY-MM-DD` in the business'
 | Method and path | Notes |
 | --- | --- |
 | `GET /schedules?all=1` | `tasks.view`. Each with `compliance{due,done,onTime,missed}` for the last 30 days. |
-| `GET /schedules/:id` | `tasks.view`. One recurring task as saved (the list's shape without the 30-day compliance). 404 "Recurring task not found". |
 | `POST /schedules`, `PUT /schedules/:id` | `tasks.assign`. `title`, `templateId` or `libraryCode`, `category`, `priority`, `placeId`, `assignMode`, `assignees[]`, `frequency` (`daily`, `weekdays`, `weekly`, `monthly`, `every_n_days`, `per_shift`), `weekdays[]` (0 = Sunday), `monthDay` (31 = the last day), `everyN`, `dueTimes[]` (1–12 `HH:MM`; a time before the day's cut-off hour belongs to the night before: the restaurant's business-day `cutoffHour`, or a business's `dayCutoffHour`; 05:00 until changed), `shiftId` (per shift, restaurant), `windowMinutes` (opens that long before; empty = all day), `startsOn`, `endsOn`, `requiresReview`, `active`. Editing deletes the days ahead that were not started and makes them again. |
 | `PATCH /schedules/:id/active` | Pause (cancels the days ahead not started) or resume. |
 | `GET /schedules/:id/compliance?from&to` | `{ from, to, days[{day,slot,status,due_at,completed_at,failed_count,critical_failed,id}] }`. |
 
-Generation is lazy and idempotent: the lists, My tasks, the calendar, the summary and the reports first make the occurrences from the day after `generated_through` (at most 31 days back) to 7 days ahead, under a per-business advisory lock and a unique index on (schedule, day, slot), then mark missed every open task whose window has closed. No background job.
+Generation is lazy and idempotent: the task list (`GET /`), My tasks, the calendar and the reports first make the occurrences from the day after `generated_through` (at most 31 days back) to 7 days ahead, under a per-business advisory lock and a unique index on (schedule, day, slot), then mark missed every open task whose window has closed. No background job.
 
 ### Issues
 
@@ -5885,7 +6042,7 @@ Generation is lazy and idempotent: the lists, My tasks, the calendar, the summar
 | `PATCH /projects/:id` | The owner or `projects.manage`: the fields, `status`, `ownerId`. |
 | `PUT /projects/:id/members` | `{ memberIds[] }`. |
 | `POST /projects/:id/milestones`, `PATCH /projects/:id/milestones/:milestoneId`, `DELETE /projects/:id/milestones/:milestoneId` | `{ name, dueOn }`; any member may set `{ done }` alone. The owner or `projects.manage` changes the rest (403 otherwise); 404 milestone not found. Each answers the project as `GET /projects/:id`. |
-| `POST /projects/:id/lists`, `PATCH /projects/:id/lists/:listId`, `DELETE /projects/:id/lists/:listId` | Task lists, `{ name }` (up to 80), changed by the owner or `projects.manage`; deleting one keeps its tasks in the project. 404 task list not found. |
+| `POST /projects/:id/lists`, `DELETE /projects/:id/lists/:listId` | Task lists: add one, `{ name }` (up to 80), placed after the others (201), or delete one, which keeps its tasks in the project outside any list (404 task list not found). The owner or `projects.manage` (403 otherwise). Each answers the project as `GET /projects/:id`. A list keeps the name it was added with. |
 | `POST /projects/:id/comments` | As for tasks. |
 
 ### Notifications

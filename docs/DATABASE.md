@@ -1,55 +1,23 @@
 # Database
 
-Updated 22 October 2026 from the migrations themselves. PostgreSQL 15 or newer
-(built and tested on 18). One database (`restaurant_management_db` by default)
-holds the whole platform: **333 tables** created by **133 migrations** in
-`backend/migrations/`. The schema is defined **only** by those SQL files; this
-document describes the state after the last one.
+For developers and database administrators: what every table holds, the rules the database itself keeps, and the catalogues of business types, modules and permission codes.
+
+PostgreSQL 15 or newer (built and tested on 18). One database holds the whole platform; `DB_NAME` names it (`business_platform_db` in `backend/.env.example`). The schema is defined **only** by the SQL files in `backend/migrations/`, and this document describes it as the newest of them leaves it.
 
 | Part | Tables | Scoped by |
 | --- | --- | --- |
 | [Platform and access (restaurant module)](#platform-and-access) | restaurants, outlets, users, roles, permissions, sign-in and approvals | `restaurant_id` |
 | [Restaurant module](#restaurant-module) | settings, menu, tables, orders, kitchen, bills and payments, cash, guests, stock and purchasing, staff and pay | `restaurant_id`, and `outlet_id` where a branch matters |
-| [Business platform](#business-platform) | platform catalogue, business access, business core, shared core, and one extension group per business type | `business_id` on every row, with composite foreign keys |
+| [Business platform](#business-platform) | platform catalogue, business access, business core, shared core, one extension group per business type, and tasks, issues & projects | `business_id` on every row, with composite foreign keys |
+| [Catalogues](#business-types) | business types, platform module codes, business and restaurant permission codes | — |
 
-The business platform's design — its five layers, the rules every table
-follows, and why — is explained in
-[BUSINESS_PLATFORM_DATA_MODEL.md](BUSINESS_PLATFORM_DATA_MODEL.md). This file
-gives the table-by-table reference and links there instead of repeating it.
-A restaurant also appears on the platform as one `businesses` row whose
-`legacy_restaurant_id` points at it; its own tables are unchanged.
+**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Tasks, issues & projects](#tasks-issues--projects). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
+
+The business platform's design (its five layers, the rules every table follows, and why) is explained in [BUSINESS_PLATFORM_DATA_MODEL.md](BUSINESS_PLATFORM_DATA_MODEL.md). This file gives the table-by-table reference and links there instead of repeating it. A restaurant also appears on the platform as one `businesses` row whose `legacy_restaurant_id` points at it; its own tables are unchanged.
 
 ## Migrations
 
-There are 133 migration files, from `1789636492039_create-restaurants-and-outlets.sql`
-to the newest, `1791950412000_document-list-indexes.sql`. Together they
-create the 333 tables below; `pgmigrations` is the migration tool's own
-record and is not counted.
-
-| Command (in `backend`) | What it does |
-| --- | --- |
-| `npm run migrate:create -- <name>` | Create an empty SQL migration file |
-| `npm run migrate:up` | Run every migration not yet run (in file order; `checkOrder` refuses a file older than the last one applied) |
-| `npm run migrate:down` | Undo the last migration only |
-
-Each file has two halves, and both markers are required:
-
-```sql
--- Up Migration
-CREATE TABLE ...;
-
--- Down Migration
-DROP TABLE IF EXISTS ...;
-```
-
-Finished migrations are recorded in `pgmigrations`; never edit it by hand. The
-API checks on start-up that every migration file has been applied and refuses
-to serve requests otherwise, printing the `npm run migrate:up` command
-(`src/utils/migrationStatus.js`). The integration tests build a fresh
-`rmp_test_…` database from these files on every run.
-
-**Rules.** Never change tables by hand. Never edit a migration that has been
-applied anywhere; write a new one. Always write the Down half.
+Tables are created and changed only by the migration files in `backend/migrations/`, each with an `-- Up Migration` and a `-- Down Migration` half; the migration tool records the files it has run in `pgmigrations`, which is never edited by hand. The commands, how to add a migration, and the rules (never change tables by hand, never edit a migration that has been applied anywhere, always write the Down half) are in [ARCHITECTURE.md › Add a migration](ARCHITECTURE.md#85-add-a-migration).
 
 ## Conventions used by every table
 
@@ -71,8 +39,12 @@ every table as `trg_<table>_updated_at BEFORE UPDATE`, it sets
 would follow from a bug, the rule is enforced by the database too: CHECK
 constraints, partial unique indexes (for example one open business day per
 outlet), and triggers that refuse an edit of a posted record or keep running
-balances. Each table below lists those rules. A trigger refusal reaches the
-caller as a readable 409 message.
+balances. Each table below lists those rules. A trigger's refusal is a
+sentence written for people: the business platform's routes return it as a
+409 ([API.md › Business Admin conventions](API.md#business-admin-conventions)),
+and the restaurant services check the same rules before writing, so there the
+database's refusal is the backstop (a menu rule that still reaches it answers
+400, a feature switch 409).
 
 ## Platform and access
 
@@ -87,7 +59,7 @@ Added by: 1789636492039_create-restaurants-and-outlets; FKs in 1789636494559_cre
 
 #### `outlets`
 Purpose: a branch of a restaurant. Business days, orders, KOTs, counters and stock can be per outlet.
-Key columns: `restaurant_id`, `name`, `code` (varchar 30), `status` (`active` / `inactive`), `own_store` (boolean, the outlet keeps its own stock store), `gst_number` (varchar 15, the outlet's own GSTIN), `order_prefix` / `invoice_prefix` (varchar 10, override the restaurant prefixes), `fssai_number` (varchar 14), `upi_vpa` / `upi_payee_name` (outlet UPI QR on bills).
+Key columns: `restaurant_id`, `name`, `code` (varchar 30), `contact`, `address`, `status` (`active` / `inactive`), `own_store` (boolean, the outlet keeps its own stock store), `gst_number` (varchar 15, the outlet's own GSTIN), `order_prefix` / `invoice_prefix` (varchar 10, override the restaurant prefixes), `fssai_number` (varchar 14), `upi_vpa` / `upi_payee_name` (outlet UPI QR on bills).
 Relations: `restaurant_id` -> `restaurants`; `created_by`, `updated_by` -> `users`.
 Rules: UNIQUE (restaurant_id, code); chk_outlets_gst_number validates the 15-character GSTIN pattern; `fssai_number` must be exactly 14 digits.
 Added by: 1789636492039_create-restaurants-and-outlets; 1789914000000_stock-counts-purchase-bills (own_store); 1789917000000_management-gst-filing (gst_number); 1790726900000_complete-operations-backlog (prefixes); 1791340000002_bill-delivery-charge-fssai-upi-and-yearly-numbers (fssai, UPI).
@@ -98,21 +70,21 @@ Added by: 1789636492039_create-restaurants-and-outlets; 1789914000000_stock-coun
 Purpose: every sign-in account. `restaurant_id` NULL means a platform account (Super Admin).
 Key columns: `restaurant_id`, `outlet_id`, `name`, `email`, `mobile`, `password_hash`, `status` (`active` / `inactive` / `locked`), `last_login_at`; session control `token_version` (bumped by password change / sign out everywhere, invalidates older tokens); lockout `failed_login_count`, `first_failed_login_at`, `login_locked_until` (5 wrong passwords in 15 minutes locks for 15 minutes); personal till PIN `pin_hash` (bcrypt), `pin_set_at`, `pin_failed_count`, `pin_first_failed_at`, `pin_locked_until`; two-step sign-in `two_factor_secret`, `two_factor_enabled_at`, `two_factor_last_step` (last accepted TOTP step, blocks replay), `two_factor_pending`, `two_factor_pending_at` (secret being set up), `two_factor_recovery_salt` (varchar 32).
 Relations: `restaurant_id` -> `restaurants`; `outlet_id` -> `outlets`; `created_by`, `updated_by` -> `users`.
-Rules: uq_users_email_lower (email unique case-insensitively, platform-wide); uq_users_restaurant_mobile (mobile unique per restaurant, platform accounts unique among themselves; replaced the global uq_users_mobile); chk_users_can_sign_in (email or mobile required, email nullable since 1789910000000); chk_users_pin_set (a PIN hash needs `pin_set_at`); chk_users_two_factor (`two_factor_secret` and `two_factor_enabled_at` are both set or both NULL); counters CHECK >= 0.
+Rules: uq_users_email_lower (email unique case-insensitively, platform-wide); uq_users_restaurant_mobile (mobile unique per restaurant; platform accounts unique among themselves); chk_users_can_sign_in (email or mobile required); chk_users_pin_set (a PIN hash needs `pin_set_at`); chk_users_two_factor (`two_factor_secret` and `two_factor_enabled_at` are both set or both NULL); counters CHECK >= 0.
 Added by: 1789636494559_create-users-roles-permissions; 1789910000000_access-approvals-and-sessions; 1790850000000_two-step-sign-in; 1790935000000_access-sign-in-tickets-and-pt-gender.
 
 #### `roles`
 Purpose: named sets of permissions. `restaurant_id` NULL marks a system role shared by every restaurant; restaurants can add custom roles.
 Key columns: `restaurant_id`, `code` (varchar 50), `name`, `description`, `is_system`, `status`.
 Relations: `restaurant_id` -> `restaurants`; `created_by`, `updated_by` -> `users`.
-Rules: UNIQUE NULLS NOT DISTINCT (restaurant_id, code), so system role codes are unique too. Seeded system roles: SUPER_ADMIN, RESTAURANT_ADMIN, MANAGER, CASHIER, CAPTAIN, KITCHEN (1789636497042), DISPLAY "Collection display", a TV role that only sees the token collection screen (1790960000001), and ACCOUNTANT (reports, sales figures, expenses, supplier bills and payments, salaries, the activity log) and STORE_KEEPER (stock, counts, wastage, indents, purchase orders, receiving and returns, the supplier list) (1791590300000).
-Added by: 1789636494559_create-users-roles-permissions; seeds in 1789636497042_seed-roles-and-permissions, 1790960000001_order-tokens-and-collection-screen and 1791590300000_accountant-and-store-keeper-roles.
+Rules: UNIQUE NULLS NOT DISTINCT (restaurant_id, code), so system role codes are unique too. System roles, created by migrations: SUPER_ADMIN, RESTAURANT_ADMIN, MANAGER, CASHIER, CAPTAIN, KITCHEN (1789636497042), DISPLAY "Collection display", a TV role that only sees the token collection screen (1790960000001), and ACCOUNTANT (reports, sales figures, expenses, supplier bills and payments, salaries, the activity log) and STORE_KEEPER (stock, counts, wastage, indents, purchase orders, receiving and returns, the supplier list) (1791590300000).
+Added by: 1789636494559_create-users-roles-permissions; system roles from 1789636497042_seed-roles-and-permissions, 1790960000001_order-tokens-and-collection-screen and 1791590300000_accountant-and-store-keeper-roles.
 
 #### `permissions`
-Purpose: global catalogue of restaurant-module permission codes, defined by application code and seeded by migrations (the separate business module uses `business_permissions`).
+Purpose: global catalogue of restaurant-module permission codes, defined by application code and created by migrations (the separate business module uses `business_permissions`).
 Key columns: `code` (varchar 100), `module` (varchar 50, grouping), `name`, `description`.
 Relations: referenced by `role_permissions.permission_id` and by `approvals.permission` (by code).
-Rules: `code` UNIQUE. 89 codes are seeded across 22 migrations (none deleted in any Up migration); see "Restaurant permission codes" below. 1789910000000 renamed `business_day.manage` to "Open the business day (closing is its own permission)" and `payments.manage` to "Take payments (refunds are their own permission)" when the finer permissions were carved out.
+Rules: `code` UNIQUE. The codes are listed under [Restaurant permission codes](#restaurant-permission-codes).
 Added by: 1789636494559_create-users-roles-permissions; rows from 1789636497042 onward.
 
 #### `user_roles`
@@ -126,8 +98,8 @@ Added by: 1789636494559_create-users-roles-permissions.
 Purpose: which permissions a role grants (many to many).
 Key columns: `role_id`, `permission_id`, `created_by`.
 Relations: `role_id` -> `roles` (ON DELETE CASCADE); `permission_id` -> `permissions` (ON DELETE CASCADE).
-Rules: PRIMARY KEY (role_id, permission_id). Each permission-seeding migration also grants the new codes to the system roles; 1789910000000 additionally grants the carved-out permissions to existing custom roles that held the parent permission (for example `billing.manage` -> `bills.void`, `bills.reprint`, `bills.discount`, `sales.view`), and gives all of them to admin-level custom roles (holding both `users.manage` and `roles.manage`).
-Added by: 1789636494559_create-users-roles-permissions; grants in most later permission migrations.
+Rules: PRIMARY KEY (role_id, permission_id). A migration that adds permission codes also grants them to the system roles that should hold them.
+Added by: 1789636494559_create-users-roles-permissions; grants come with each permission migration.
 
 #### `restaurant_access_settings`
 Purpose: per-restaurant till access settings, owned by the access screens.
@@ -149,7 +121,7 @@ Added by: 1789910000000_access-approvals-and-sessions.
 Purpose: history of every sign-in attempt against a known account (password, PIN switch, unlock, two-step code, recovery code), read by the owner per user.
 Key columns: `restaurant_id`, `user_id`, `method` (`password` / `pin` / `unlock` / `two_factor` / `recovery_code`), `outcome` (`success` / `wrong_password` / `wrong_pin` / `locked` / `inactive` / `code_needed` / `setup_needed` / `wrong_code` / `two_factor_device`), `identifier` (what was typed: email, mobile or employee code), `ip_address`, `user_agent`, `trusted_device` (came from a remembered device), `two_factor` (`passed` / `failed` / `recovery_code` / `trusted_device` / `set_up`).
 Relations: `restaurant_id` -> `restaurants` (CASCADE); `user_id` -> `users` (CASCADE).
-Rules: method, outcome and two_factor CHECK lists (method and outcome constraints were replaced in 1790850000000). Attempts against unknown accounts are not stored. Insert-only (no updated_at).
+Rules: method, outcome and two_factor CHECK lists. Attempts against unknown accounts are not stored. Insert-only (no updated_at).
 Added by: 1789910000000_access-approvals-and-sessions; 1790850000000_two-step-sign-in.
 
 #### `user_trusted_devices`
@@ -174,7 +146,7 @@ Rules: PRIMARY KEY (restaurant_id, role_id).
 Added by: 1790850000000_two-step-sign-in.
 
 #### `user_two_factor_spent_tickets`
-Purpose: makes the short-lived "password was right, now the code" sign-in ticket single-use. A used ticket id is recorded and refused if presented again; rows are only kept until the ticket would have expired.
+Purpose: makes the short-lived sign-in ticket single-use (the ticket a right password earns while the two-step code is still to come). A used ticket id is recorded and refused if presented again; rows are only kept until the ticket would have expired.
 Key columns: `ticket_id` (varchar 40, PK), `user_id`, `expires_at`, `spent_at`.
 Relations: `user_id` -> `users` (CASCADE).
 Rules: PRIMARY KEY on ticket_id (a ticket can be spent once); index on `expires_at` for cleanup.
@@ -196,7 +168,6 @@ Relations: `restaurant_id` -> `restaurants` (CASCADE); `user_id` -> `users` (CAS
 Rules: uq_notification_reads UNIQUE (restaurant_id, user_id, alert_id). No created_by: a person only marks their own alerts.
 Added by: 1789904000000_create-notification-reads.
 
-
 ## Restaurant module
 
 ### Settings
@@ -204,15 +175,15 @@ Added by: 1789904000000_create-notification-reads.
 #### `restaurant_settings`
 Purpose: one row of configuration per restaurant (money, tax, numbering, printing, loyalty, cash drawer, GST identity).
 Key columns: currency `currency_code` (INR), `currency_symbol`, `timezone` (Asia/Kolkata); tax `tax_mode` (`inclusive` / `exclusive`), `default_tax_percentage`, `service_charge_percentage`, `service_charge_order_types` (varchar[] subset of dine_in, takeaway, delivery, qr, online; default dine_in), `document_type` (`auto` / `tax_invoice` / `bill_of_supply`), `composition_percentage`, `composition_note`; identity `gst_number`, `fssai_number`, `gst_split` (show CGST/SGST split); numbering `order_prefix`, `invoice_prefix`, `invoice_numbering` (`continuous` / `financial_year`, the latter restarting every 1 April); printing `bill_header`, `bill_footer`, `print_paper_width` (`58mm` / `80mm` / `a4`), `print_copies` (1 to 5), `auto_print_bill`, `print_show_qr`, `receipt_logo_path`; stock `auto_consume_stock`; loyalty rules `loyalty_earn_amount`, `loyalty_point_value`, `loyalty_min_redeem`, `loyalty_earn_basis` (`total` / `pre_tax`), `loyalty_max_redeem_points`, `loyalty_max_redeem_percent`, `loyalty_expiry_days`; day and cash `day_cutoff_hour` (0 to 12), `cash_variance_threshold`, `cash_blind_count`; UPI `upi_vpa`, `upi_payee_name`.
-Alerts and timings (1791640001000, Settings → Alerts and timings; each default is the number the code used before, then the allowed range): theft control `alert_large_discount_percent` (20; 1 to 100), `alert_large_discount_amount` (1,000; 1 to 10,000,000), `alert_huge_discount_percent` (50; 1 to 100), `alert_reprint_count` (3; 2 to 20), `alert_cash_short_critical` (1,000; 1 to 10,000,000); deliveries `delivery_sla_minutes` (45; 10 to 240), `delivery_warn_minutes` (30; 5 to 235), `delivery_ready_wait_minutes` (10; 1 to 120), `delivery_out_warn_minutes` (45; 5 to 240), `delivery_out_critical_minutes` (60; 10 to 480); reservations `reservation_late_minutes` (15; 1 to 180), `reservation_last_seating_minutes` (30; 0 to 240), `reservation_slot_minutes` (30; one of 10, 15, 20, 30, 45, 60); time clock `timeclock_late_minutes` (15; 1 to 240), `timeclock_long_break_minutes` (45; 5 to 480), `timeclock_overtime_minutes` (15; 0 to 240), `timeclock_early_minutes` (60; 0 to 720); guests `guest_regular_visits` (3; 2 to 50), `guest_regular_days` (60; 7 to 730), `guest_lapsed_days` (45; 7 to 730), `guest_new_days` (30; 1 to 365), `guest_big_spender_percent` (10; 1 to 50); reorder plan `reorder_lookback_days` (14; 3 to 90), `reorder_safety_days` (2; 0 to 30), `reorder_horizon_days` (7; 1 to 30); `cash_denominations` (int[], the notes a cash count lists in rupees, `{500,200,100,50,20,10}`; 1 to 15 values, each 1 to 100,000). The kitchen's pass time is `kitchen_settings.pass_minutes`.
+Alerts and timings (Settings → Alerts and timings; each column's default, then its allowed range): theft control `alert_large_discount_percent` (20; 1 to 100), `alert_large_discount_amount` (1,000; 1 to 10,000,000), `alert_huge_discount_percent` (50; 1 to 100), `alert_reprint_count` (3; 2 to 20), `alert_cash_short_critical` (1,000; 1 to 10,000,000); deliveries `delivery_sla_minutes` (45; 10 to 240), `delivery_warn_minutes` (30; 5 to 235), `delivery_ready_wait_minutes` (10; 1 to 120), `delivery_out_warn_minutes` (45; 5 to 240), `delivery_out_critical_minutes` (60; 10 to 480); reservations `reservation_late_minutes` (15; 1 to 180), `reservation_last_seating_minutes` (30; 0 to 240), `reservation_slot_minutes` (30; one of 10, 15, 20, 30, 45, 60); time clock `timeclock_late_minutes` (15; 1 to 240), `timeclock_long_break_minutes` (45; 5 to 480), `timeclock_overtime_minutes` (15; 0 to 240), `timeclock_early_minutes` (60; 0 to 720); guests `guest_regular_visits` (3; 2 to 50), `guest_regular_days` (60; 7 to 730), `guest_lapsed_days` (45; 7 to 730), `guest_new_days` (30; 1 to 365), `guest_big_spender_percent` (10; 1 to 50); reorder plan `reorder_lookback_days` (14; 3 to 90), `reorder_safety_days` (2; 0 to 30), `reorder_horizon_days` (7; 1 to 30); `cash_denominations` (int[], the notes a cash count lists in rupees, `{500,200,100,50,20,10}`; 1 to 15 values, each 1 to 100,000). The kitchen's pass time is `kitchen_settings.pass_minutes`.
 Relations: `restaurant_id` (PK) -> `restaurants` (CASCADE); `created_by`, `updated_by` -> `users`.
 Rules: percentages 0 to 100; loyalty values positive and bounded; chk_settings_service_charge_types; trigger trg_restaurant_settings_timezone (function check_settings_timezone) refuses a time zone name Postgres does not know or an Etc/posix/SystemV alias. Each alert and timing column has its range CHECK, plus chk_restaurant_settings_huge_discount (the huge discount % is at least the large one), chk_restaurant_settings_delivery_warn (the amber mark comes before the delivery promise) and chk_restaurant_settings_delivery_out (the critical run time is after its warning).
-Loyalty on or off is not here any more: `loyalty_enabled` was moved into the Loyalty points feature (`guest_loyalty`, see [Restaurant features](#restaurant-features)) and dropped by 1791470000000; `restaurantRepository.findSettings` still returns a computed `loyalty_enabled` read from `restaurant_features()`.
+Loyalty on or off is not a column here: it is the Loyalty points feature (`guest_loyalty`, see [Restaurant features](#restaurant-features)), and `restaurantRepository.findSettings` returns a computed `loyalty_enabled` read from `restaurant_features()`.
 Added by: 1789723751286_create-restaurant-settings-and-hours; 1789791748850_create-audit-log-and-gst-settings; 1789817853331_create-loyalty; 1789854000000_add-print-settings; 1789913000000_billing-tax-invoice-and-till-controls; 1790726900000_complete-operations-backlog; 1790810000000_cash-drawers-and-loyalty-rules; 1791340000002_bill-delivery-charge-fssai-upi-and-yearly-numbers; 1791640001000_restaurant-rule-settings (alerts and timings).
 
 #### `business_hours`
 Purpose: opening hours per weekday, restaurant-wide (`outlet_id` NULL) or per outlet; supports several service periods a day.
-Key columns: `outlet_id`, `day_of_week` (0 to 6), `is_open`, `open_time`, `close_time`, `periods` (jsonb array of `{openTime, closeTime}`, backfilled from the single open/close pair).
+Key columns: `outlet_id`, `day_of_week` (0 to 6), `is_open`, `open_time`, `close_time`, `periods` (jsonb array of `{openTime, closeTime}`).
 Relations: `restaurant_id` -> `restaurants` (CASCADE); `outlet_id` -> `outlets` (CASCADE).
 Rules: UNIQUE NULLS NOT DISTINCT (restaurant_id, outlet_id, day_of_week); chk_business_hours_times (an open day needs both times); chk_business_hours_periods_array (`periods` must be a JSON array).
 Added by: 1789723751286_create-restaurant-settings-and-hours; 1790726900000_complete-operations-backlog (periods).
@@ -234,8 +205,8 @@ Added by: 1790960000001_order-tokens-and-collection-screen; 1790960000002_guest-
 Purpose: last number handed out per document series, so concurrent tills get distinct numbers (the row is locked until the transaction commits).
 Key columns: `restaurant_id`, `series` (varchar 40, e.g. `BILL`, `BILL:<prefix>`, `PO`, `PR`), `last_number`.
 Relations: `restaurant_id` -> `restaurants` (CASCADE).
-Rules: PRIMARY KEY (restaurant_id, series); `last_number` >= 0. Seeded from the highest existing bill, purchase-order and purchase-return numbers.
-Added by: 1789913000000_billing-tax-invoice-and-till-controls; 1789914000000_stock-counts-purchase-bills (PO/PR seeds); 1790800000000_billing-series-and-guest-accounts (series widened to 40, per-prefix bill series).
+Rules: PRIMARY KEY (restaurant_id, series); `last_number` >= 0.
+Added by: 1789913000000_billing-tax-invoice-and-till-controls; 1789914000000_stock-counts-purchase-bills (PO and PR series); 1790800000000_billing-series-and-guest-accounts (series up to 40 characters, per-prefix bill series).
 
 #### `till_discount_limits`
 Purpose: maximum on-the-spot till discount a role may give on its own, per restaurant. A role with no row has no cap; going over needs someone whose cap covers it.
@@ -254,7 +225,7 @@ Rules: uq_categories_restaurant_name (name unique per restaurant, case-insensiti
 Added by: 1789723754642_create-menu-tables; 1791950411000_kitchen-brands (brand_id).
 
 #### `restaurant_brands`
-Purpose: the names one kitchen sells under (a cloud kitchen's "Biryani Box" and "Wrap Republic", each its own listing on Swiggy and Zomato). A category belongs to one brand or to all; an order is taken under a brand, which its KOT and bill print and the brand report counts. The kitchen, stock, staff, GST and the business day stay one.
+Purpose: the names one kitchen sells under (a cloud kitchen that sells its rice bowls under one name and its wraps under another, each its own listing on Swiggy and Zomato). A category belongs to one brand or to all; an order is taken under a brand, which its KOT and bill print and the brand report counts. The kitchen, stock, staff, GST and the business day stay one.
 Key columns: `name` (varchar 80, not blank), `tagline` (varchar 150), `color` (varchar 20), `sort_order`, `status` (`active` / `inactive`), `created_by`, `updated_by`.
 Relations: `restaurant_id` -> `restaurants` (CASCADE); referenced by `categories.brand_id` and `orders.brand_id` (both ON DELETE RESTRICT, so a brand in use is switched off, not deleted).
 Rules: uq_restaurant_brands_name (name unique per restaurant, case-insensitive); status CHECK. The brand endpoints need the `brands` feature (off by default; the cloud kitchen format switches it on).
@@ -306,7 +277,7 @@ Added by: 1790726900000_complete-operations-backlog.
 Purpose: named GST rates with HSN/SAC code and cess, assigned to dishes.
 Key columns: `name`, `percentage`, `hsn_code`, `cess_percentage`, `is_default`, `status`.
 Relations: `restaurant_id` -> `restaurants` (CASCADE); referenced by `products.tax_rate_id`.
-Rules: uq_tax_rates_restaurant_name (case-insensitive); uq_tax_rates_default (one default rate per restaurant, partial unique index); percentages 0 to 100. Seeded per restaurant: Exempt, GST 5% (restaurant, default, SAC 996331), 12%, 18%, 28%; 1789913000000 reactivated inactive rates still used by dishes.
+Rules: uq_tax_rates_restaurant_name (case-insensitive); uq_tax_rates_default (one default rate per restaurant, partial unique index); percentages 0 to 100. A new restaurant starts with Exempt, GST 5% (restaurant, the default, SAC 996331), GST 18% and GST 40% (`createRestaurant` in `restaurant.repository.js`).
 Added by: 1789830000000_create-tax-rates.
 
 #### `combo_items`
@@ -380,8 +351,8 @@ Added by: 1791330000003_captain-sections.
 Purpose: a guest order (dine-in, takeaway, delivery, QR or online) from opening to billing.
 Key columns: `outlet_id`, `business_day_id`, `order_number`, `order_type` (`dine_in` / `takeaway` / `delivery` / `qr` / `online`), `source` (`pos` / `captain` / `qr` / `website` / `phone` / `partner`), `table_id`, `customer_id`, `customer_name`, `customer_mobile`, `guest_count`, `order_status` (`open` / `billed` / `completed` / `cancelled`), `kitchen_status` (`pending` / `preparing` / `ready` / `served`), `subtotal`, `tax_amount`, `total_amount`, `notes`, `cancel_reason`, `placed_at`, `completed_at`, `merged_into_order_id`; delivery `channel_id`, `channel_commission_percent` (0 to 50, snapshot), `delivery_status` (`pending` / `preparing` / `ready` / `out_for_delivery` / `delivered` / `cancelled`), `delivery_address`, `delivery_landmark`, `rider_employee_id`, `partner_rider_name`, `external_order_ref`, `delivery_eta_minutes` (5 to 240), `delivery_preparing_at`, `delivery_ready_at`, `dispatched_at`, `delivered_at`, `delivery_cancelled_at`, `delivery_cancel_reason`, `delivery_charge`, `delivery_charge_tax_percent`, `delivery_charge_waived_at`, `delivery_charge_waived_by`, `delivery_charge_waived_reason`; tokens `token_no`, `token_collected_at`, `token_collected_by`; brand `brand_id` (the brand the order was taken under, printed on its KOTs and bill; NULL = the kitchen's own name).
 Relations: `restaurant_id` -> `restaurants` (CASCADE); `outlet_id` -> `outlets`; `business_day_id` -> `business_days`; `table_id` -> `dining_tables`; `customer_id` -> `customers`; `merged_into_order_id` -> `orders` (SET NULL); `channel_id` -> `sales_channels` (SET NULL); `rider_employee_id` -> `employees` (SET NULL); `delivery_charge_waived_by`, `token_collected_by` -> `users`; `brand_id` -> `restaurant_brands` (RESTRICT).
-Rules: UNIQUE (restaurant_id, order_number); chk_orders_table (dine-in needs a table); uq_orders_open_table (one open order per table; the migration aborts if duplicates exist); uq_orders_day_token (a token number is never reused within a business day); chk_orders_delivery_out (out for delivery needs `dispatched_at` and a rider or partner rider name); chk_orders_delivery_cancel_reason; chk_orders_delivery_waiver (a waived charge needs a reason); amounts >= 0. Triggers: trg_orders_free_joined_tables (function free_joined_tables) frees joined tables when the order leaves open/billed; trg_orders_erased_guest (keep_erased_guests_unlinked) refuses to link an erased guest by nulling `customer_id`. Live-table, settled-table, delivery, rider, channel, customer and token-waiting partial indexes support the POS screens; idx_orders_brand (restaurant_id, brand_id) where a brand is set serves the brand report.
-Added by: 1789790365080_create-orders; 1789905000000_create-deliveries-and-channels; 1789908000000_add-guest-insights (index); 1789911000000_orders-core-edits-and-cancellations; 1789912000000_pos-floor-moves-and-sold-out; 1789916000000_crm-guest-book-privacy; 1789921000000_floor-plan-turns (index); 1790820000002_orders-live-table-index; 1790960000001_order-tokens-and-collection-screen; 1791330000000_delivery-charge-on-orders; 1791950411000_kitchen-brands (brand_id).
+Rules: UNIQUE (restaurant_id, order_number); chk_orders_table (dine-in needs a table); uq_orders_open_table (one open order per table); uq_orders_day_token (a token number is never reused within a business day); chk_orders_delivery_out (out for delivery needs `dispatched_at` and a rider or partner rider name); chk_orders_delivery_cancel_reason; chk_orders_delivery_waiver (a waived charge needs a reason); amounts >= 0. Triggers: trg_orders_free_joined_tables (function free_joined_tables) frees joined tables when the order leaves open/billed; trg_orders_erased_guest (keep_erased_guests_unlinked) refuses to link an erased guest by nulling `customer_id`. Partial indexes for tables in use, settled tables, deliveries, riders, channels, customers and waiting tokens support the POS screens; idx_orders_brand (restaurant_id, brand_id) where a brand is set serves the brand report.
+Added by: 1789790365080_create-orders; 1789905000000_create-deliveries-and-channels; 1789908000000_add-guest-insights (index); 1789911000000_orders-core-edits-and-cancellations; 1789912000000_pos-floor-moves-and-sold-out; 1789916000000_crm-guest-book-privacy; 1789921000000_floor-plan-turns (index); 1790820000002 (the open-table index); 1790960000001_order-tokens-and-collection-screen; 1791330000000_delivery-charge-on-orders; 1791950411000_kitchen-brands (brand_id).
 
 #### `order_items`
 Purpose: dish lines on an order, with name, price and tax snapshots.
@@ -400,7 +371,7 @@ Added by: 1789790365080_create-orders; 1789915000000_menu-data-safety (index).
 Purpose: last order number per restaurant, locked per order so concurrent tills never collide.
 Key columns: `restaurant_id` (PK), `last_number`.
 Relations: `restaurant_id` -> `restaurants` (CASCADE).
-Added by: 1789911000000_orders-core-edits-and-cancellations (seeded from existing orders).
+Added by: 1789911000000_orders-core-edits-and-cancellations.
 
 #### `outlet_order_counters`
 Purpose: last order number per outlet (or restaurant-wide when `outlet_id` is NULL), for outlet-prefixed order numbers.
@@ -450,7 +421,7 @@ Rules: index restaurant_preorder_items_order (restaurant_id, preorder_id).
 Added by: 1791950410000_food-formats.
 
 #### `kitchen_stations`
-Purpose: kitchen sections (tandoor, bar) that receive KOTs.
+Purpose: kitchen sections (tandoor, bar) that receive KOTs. A new restaurant starts with one, Main kitchen, as its default.
 Key columns: `name`, `color` (orange, red, amber, green, teal, blue, violet, pink, slate), `sort_order`, `is_default`, `status`.
 Relations: `restaurant_id` -> `restaurants` (CASCADE).
 Rules: uq_kitchen_stations_name (case-insensitive); uq_kitchen_stations_default (one default station per restaurant); chk_kitchen_stations_default_active (the default must be active).
@@ -503,13 +474,13 @@ Rules: partial index idx_kot_change_slips_unprinted on `print_count = 0`.
 Added by: 1790960000000_kitchen-change-slips.
 
 #### `kot_time_repairs`
-Purpose: one-off backup of KOT `created_at` values repaired because the ticket's start, ready or served time preceded its creation; keeps the old value.
+Purpose: a backup kept by migration 1790820000001: the earlier `created_at` of each KOT it corrected (a ticket whose start, ready or served time came before its creation).
 Key columns: `kot_id` (PK), `old_created_at`, `repaired_at`.
 Relations: `kot_id` -> `kots` (CASCADE).
 Added by: 1790820000001_repair-kitchen-ticket-times.
 
 #### `table_requests`
-Purpose: guest requests from a table QR (order, call waiter, bill, water, other) and, since online ordering, website takeaway/delivery orders.
+Purpose: guest requests from a table QR (order, call waiter, bill, water, other) and website takeaway/delivery orders.
 Key columns: `outlet_id`, `table_id` (NULL for website orders), `business_day_id`, `request_type` (`order` / `call_waiter` / `bill` / `water` / `other`), `status` (`pending` / `processing` / `accepted` / `rejected` / `acknowledged` / `done` / `cancelled`), `client_key` (idempotency key), `guest_name`, `guest_mobile`, `notes`, `item_count`, `estimated_total`, `order_id`, `order_action` (`created` / `added`), `kitchen_reached` (`ready` / `served`), `reject_reason`, `repeat_count`, `last_asked_at`, `acknowledged_at/by`, `resolved_at/by`; online `channel` (`qr` / `website`), `online_link_id`, `service_type` (`takeaway` / `delivery`), `delivery_address`, `delivery_landmark`, `payment_mode` (`pay_at_pickup` / `cash_on_delivery`), `delivery_charge`, `guest_token`.
 Relations: `restaurant_id` (CASCADE); `outlet_id` -> `outlets`; `table_id` -> `dining_tables` (CASCADE); `business_day_id`, `order_id`, `online_link_id` -> `online_ordering_links` ON DELETE SET NULL.
 Rules: chk_table_requests_flow (order requests use pending/processing/accepted/rejected/cancelled; others use pending/acknowledged/done/cancelled); chk_table_requests_reject_reason; chk_table_requests_client_key (8 to 64 of A-Z, a-z, 0-9, hyphen); chk_table_requests_channel (a QR request has a table and no service type; a website request has no table, is an order, and has service type, payment mode, guest token, name and mobile, plus an address for delivery); uq_table_requests_client_key (per table); uq_table_requests_open_call (one open call_waiter / bill / water per table); uq_table_requests_guest_token; uq_table_requests_online_key (per online link).
@@ -568,7 +539,7 @@ Added by: 1791330003000_online-ordering.
 Purpose: where delivery orders come from (own delivery, aggregators such as Swiggy and Zomato, phone, website), with commission and delivery charge rules.
 Key columns: `name`, `channel_type` (`own` / `aggregator` / `phone` / `website`), `commission_percent` (0 to 50), `color`, `sort_order`, `status`, `delivery_charge`, `delivery_free_above`.
 Relations: `restaurant_id` -> `restaurants` (CASCADE); referenced by `orders.channel_id` and `product_selling_rules.channel_id`.
-Rules: uq_sales_channels_name (case-insensitive per restaurant); `delivery_free_above` > 0 when set. Seeded per restaurant: Own delivery, Swiggy (22%), Zomato (25%), Phone, Website.
+Rules: uq_sales_channels_name (case-insensitive per restaurant); `delivery_free_above` > 0 when set. A new restaurant starts with Own delivery, Swiggy (22%), Zomato (25%), Phone and Website.
 Added by: 1789905000000_create-deliveries-and-channels; 1791330000000_delivery-charge-on-orders.
 
 #### `customer_addresses`
@@ -578,23 +549,22 @@ Relations: `restaurant_id`, `customer_id` -> `customers` ON DELETE CASCADE.
 Rules: uq_customer_addresses_text (one copy of an address per guest, case and whitespace-insensitive); trigger trg_customers_erased_forget_addresses on `customers` (function forget_erased_guest_addresses) deletes a guest's addresses when the guest is erased.
 Added by: 1791330000001_guest-delivery-addresses.
 
-
 ## Restaurant module (continued): money, guests, stock and staff
 
 ### Business day and cash
 
 #### `discounts`
 Purpose: Coupons and offers a restaurant defines and applies to bills (percentage or flat amount, or buy-X-get-Y).
-Key columns: `code` (VARCHAR(30), case-insensitive coupon code), `discount_type` (`percentage` | `amount`), `value` (NUMERIC(12,2) > 0), `max_discount_amount` (cap on a percentage discount), `min_order_amount`, `valid_from` / `valid_to` (DATE), `usage_limit` / `used_count`, `applies_to` (`all`, `dine_in`, `takeaway`, `delivery`, `online`), `status` (`active` | `inactive`), `offer_type` (`discount` | `buy_get`), `product_ids` / `category_ids` (BIGINT[]; NULL = every dish, otherwise only those lines count and are discounted), `weekdays` (SMALLINT[], 0 = Sunday … 6 = Saturday), `time_from` / `time_to` (TIME; `time_to` before `time_from` runs past midnight), `once_per_guest` (BOOLEAN), `buy_quantity` / `get_quantity` / `get_discount_percent` (buy X get Y: of every X+Y eligible dishes the Y cheapest are discounted by this %, 100 = free).
+Key columns: `name`, `description`, `code` (VARCHAR(30), case-insensitive coupon code), `discount_type` (`percentage` | `amount`), `value` (NUMERIC(12,2) > 0), `max_discount_amount` (cap on a percentage discount), `min_order_amount`, `valid_from` / `valid_to` (DATE), `usage_limit` / `used_count`, `applies_to` (`all`, `dine_in`, `takeaway`, `delivery`, `online`), `status` (`active` | `inactive`), `offer_type` (`discount` | `buy_get`), `product_ids` / `category_ids` (BIGINT[]; NULL = every dish, otherwise only those lines count and are discounted), `weekdays` (SMALLINT[], 0 = Sunday … 6 = Saturday), `time_from` / `time_to` (TIME; `time_to` before `time_from` runs past midnight), `once_per_guest` (BOOLEAN), `buy_quantity` / `get_quantity` / `get_discount_percent` (buy X get Y: of every X+Y eligible dishes the Y cheapest are discounted by this %, 100 = free).
 Relations: `restaurant_id` -> `restaurants` (ON DELETE CASCADE); `created_by` / `updated_by` -> `users`.
 Rules: one code per restaurant regardless of case (unique index `uq_discounts_restaurant_code` on `(restaurant_id, UPPER(code))`); `value > 0`, and `value <= 100` for a percentage (`chk_discount_percentage`); `valid_to >= valid_from` (`chk_discount_dates`); `usage_limit` and `max_discount_amount` positive when given; time window is both-or-neither (`chk_discount_time_window`); weekdays only 0-6 (`chk_discount_weekdays`); a `buy_get` offer must have buy, get and percent set (`chk_discount_buy_get`); buy/get quantities 1-50, get percent 1-100. "Once per guest" is enforced in code by looking up earlier bills of the guest with this discount (index `idx_bills_discount_id`).
 Added by: 1789731798732_create-discounts-and-business-day; 1791340000003_coupon-rules.
 
 #### `business_days`
 Purpose: The trading day that sales, payments, cash and wastage are grouped by (not the calendar midnight), opened and closed per restaurant or outlet, with the cash-up at close.
-Key columns: `outlet_id` (NULL = restaurant-wide / main counter), `business_date` (DATE), `opened_at` / `closed_at`, `opened_by` / `closed_by`, `day_status` (`open` | `closed`), `opening_cash` (>= 0), `closing_cash` (the cash the day accounts for: counted drawer plus drops to the safe minus paid-in top-ups; what reports compare with expected cash), `counted_cash` (what was physically in the drawer), `count_method` (`notes` | `total`), `count_denominations` (JSONB), `blind_count` (BOOLEAN), `first_count` (first figure typed, kept when the count was changed after the difference was shown), `expected_cash`, `cash_dropped`, `cash_paid_in`, `cash_variance`, `variance_reason` (VARCHAR(300)), `method_checks` (JSONB `[{method, system, reported, matched, note}]` for card/UPI reconciliation), `reopened_count`, `opening_notes` (VARCHAR(1000), the opener's note), `closing_notes` (TEXT, the closer's note; may list every unpaid bill), `notes` (legacy combined text, still written: opening + closing note plus a line per reopening).
+Key columns: `outlet_id` (NULL = restaurant-wide / main counter), `business_date` (DATE), `opened_at` / `closed_at`, `opened_by` / `closed_by`, `day_status` (`open` | `closed`), `opening_cash` (>= 0), `closing_cash` (the cash the day accounts for: counted drawer plus drops to the safe minus paid-in top-ups; what reports compare with expected cash), `counted_cash` (what was physically in the drawer), `count_method` (`notes` | `total`), `count_denominations` (JSONB), `blind_count` (BOOLEAN), `first_count` (first figure typed, kept when the count was changed after the difference was shown), `expected_cash`, `cash_dropped`, `cash_paid_in`, `cash_variance`, `variance_reason` (VARCHAR(300)), `method_checks` (JSONB `[{method, system, reported, matched, note}]` for card/UPI reconciliation), `reopened_count`, `opening_notes` (VARCHAR(1000), the opener's note), `closing_notes` (TEXT, the closer's note; may list every unpaid bill), `notes` (the combined text, written too: opening + closing note plus a line per reopening).
 Relations: `restaurant_id` -> `restaurants` (ON DELETE CASCADE); `outlet_id` -> `outlets`; `opened_by` / `closed_by` -> `users`. Referenced by bills, payments, refunds, credit notes, cash drawers/movements, advances, rider settlements and many order/kitchen tables.
-Rules: one row per `(restaurant_id, outlet_id, business_date)` with NULL outlet treated as one key (`UNIQUE NULLS NOT DISTINCT`); only one open day per restaurant/outlet at a time (partial unique index `uq_business_days_one_open` on `(restaurant_id, COALESCE(outlet_id,0)) WHERE day_status = 'open'`); `opening_cash >= 0`, `closing_cash >= 0` when set. The allowed opening date (today, or yesterday until `restaurant_settings.day_cutoff_hour`), the variance threshold that forces a `variance_reason` (`cash_variance_threshold`) and blind counting (`cash_blind_count`) are settings enforced in code. When opening/closing notes were split, existing `notes` were copied to `opening_notes` for open days and `closing_notes` for closed days.
+Rules: one row per `(restaurant_id, outlet_id, business_date)` with NULL outlet treated as one key (`UNIQUE NULLS NOT DISTINCT`); only one open day per restaurant/outlet at a time (partial unique index `uq_business_days_one_open` on `(restaurant_id, COALESCE(outlet_id,0)) WHERE day_status = 'open'`); `opening_cash >= 0`, `closing_cash >= 0` when set. The allowed opening date (today, or yesterday until `restaurant_settings.day_cutoff_hour`), the variance threshold that forces a `variance_reason` (`cash_variance_threshold`) and blind counting (`cash_blind_count`) are settings enforced in code.
 Added by: 1789731798732_create-discounts-and-business-day; 1790726900000_complete-operations-backlog (index `idx_business_days_outlet_status`); 1790810000000_cash-drawers-and-loyalty-rules (cash-up columns); 1791360000000_business-day-opening-and-closing-notes.
 
 #### `cash_drawers`
@@ -614,7 +584,7 @@ Added by: 1790810000000_cash-drawers-and-loyalty-rules.
 ### Billing and payments
 
 #### How bill money is computed
-A bill is a snapshot: once raised its amounts are never recalculated from the menu. The columns on `bills` relate as follows (1789913000000 documents the first two lines; 1791340000002 adds the delivery charge):
+A bill is a snapshot: once raised its amounts are never recalculated from the menu. The columns on `bills` relate as follows:
 
 ```
 subtotal                    sum of the billed order lines before any bill discount
@@ -641,7 +611,7 @@ total_amount              = taxable_amount + tax_amount + round_off
 Purpose: The money document (GST tax invoice or bill of supply) for all or part of an order.
 Key columns: `bill_number` (from `document_counters`, series per invoice prefix; may restart each financial year), `order_id`, `business_day_id`, `outlet_id`, the money columns above (`subtotal`, `discount_amount`, `coupon_discount`, `manual_discount_*`, `item_discount_amount`, `loyalty_points_used`, `loyalty_discount`, `service_charge_percentage`, `service_charge`, `service_charge_tax`, `service_charge_waived` / `_waive_reason`, `delivery_charge`, `delivery_charge_tax`, `delivery_charge_waived` / `_waive_reason` / `_waived_by` / `_approved_by`, `taxable_amount`, `tax_amount`, `cess_amount`, `tax_mode`, `round_off`, `total_amount`, `paid_amount`, `refunded_amount`, `credited_amount`), `bill_status` (`unpaid`, `partial`, `paid`, `void`), `void_reason`, `billed_at`, `settled_at`, `is_split` (one of several bills for one order), `is_complimentary` / `complimentary_reason` / `complimentary_note` / `complimentary_by` / `complimentary_approved_by`, `seller_gstin` and `seller_fssai` (as printed when raised, so reprints never change), `consume_stock` (whether this bill took its ingredients out of stock), `receipt_settings` (JSONB snapshot of print settings), `print_count`, `first_printed_at`, `last_printed_at`, `last_adjusted_at`, `account_customer_id` / `account_at` / `account_by` / `account_approved_by` / `account_note` (bill put on a guest's credit account).
 Relations: `restaurant_id` -> `restaurants` (ON DELETE CASCADE); `outlet_id` -> `outlets`; `business_day_id` -> `business_days`; `order_id` -> `orders`; `discount_id` -> `discounts`; `account_customer_id` -> `customers`; approver / giver columns -> `users`.
-Rules: `bill_number` unique per restaurant; all amount columns `>= 0` except `round_off`; a complimentary bill needs a reason (`chk_bills_complimentary_reason`); a waived service charge needs a reason (`chk_bills_waive_reason`); a waived delivery charge needs a reason (`chk_bills_delivery_waiver`); `service_charge_percentage` 0-100. The original "one live bill per order" index was dropped for split billing; that several bills do not bill more than was ordered is checked in code. Bill-stock reversal: `consume_stock` remembers whether the bill consumed stock at the time (the `auto_consume_stock` setting can change later), so voiding or returning an old bill puts back exactly the stock it took and never stock it did not; existing bills were back-filled from the setting. Partial indexes keep the bell cheap (`idx_bills_unsettled` on unpaid/partial bills), plus `idx_bills_account` (account bills), `idx_bills_discount_id`, `idx_bills_order_id` / `idx_bills_order`, `idx_bills_restaurant_number`.
+Rules: `bill_number` unique per restaurant; all amount columns `>= 0` except `round_off`; a complimentary bill needs a reason (`chk_bills_complimentary_reason`); a waived service charge needs a reason (`chk_bills_waive_reason`); a waived delivery charge needs a reason (`chk_bills_delivery_waiver`); `service_charge_percentage` 0-100. That the bills of one order never bill more than was ordered is checked in code (split billing). Bill-stock reversal: `consume_stock` remembers whether the bill consumed stock at the time (the `auto_consume_stock` setting can change later), so voiding or returning an old bill puts back exactly the stock it took and never stock it did not. Partial indexes keep the bell cheap (`idx_bills_unsettled` on unpaid/partial bills), plus `idx_bills_account` (account bills), `idx_bills_discount_id`, `idx_bills_order_id` / `idx_bills_order`, `idx_bills_restaurant_number`.
 Added by: 1789790367434_create-billing-and-payments; 1789802692848_split-bills-and-returns; 1789817853331_create-loyalty; 1789824100000_bill-stock-reversal; 1789904000000_create-notification-reads; 1789908000000_add-guest-insights; 1789913000000_billing-tax-invoice-and-till-controls; 1790727000000_service-readiness; 1790800000000_billing-series-and-guest-accounts; 1791340000002_bill-delivery-charge-fssai-upi-and-yearly-numbers; 1791340000003_coupon-rules.
 
 #### `bill_items`
@@ -655,7 +625,7 @@ Added by: 1789802692848_split-bills-and-returns; 1789913000000_billing-tax-invoi
 Purpose: The invoice's tax rate by rate: one row per GST rate and cess rate on a bill, read by the printed bill and the GST return.
 Key columns: `tax_percentage`, `cess_percentage`, `items_taxable`, `service_charge_taxable`, `delivery_charge_taxable`, `taxable_value`, `cgst_amount`, `sgst_amount`, `service_charge_tax` (the service charge's part of CGST + SGST), `cess_amount`.
 Relations: `restaurant_id` -> `restaurants` (CASCADE); `bill_id` -> `bills` (ON DELETE CASCADE).
-Rules: unique `(bill_id, tax_percentage, cess_percentage)`; `taxable_value = items_taxable + service_charge_taxable + delivery_charge_taxable` (`bill_taxes_check`, widened from the two-term rule when delivery charge was added).
+Rules: unique `(bill_id, tax_percentage, cess_percentage)`; `taxable_value = items_taxable + service_charge_taxable + delivery_charge_taxable` (`bill_taxes_check`).
 Added by: 1789913000000_billing-tax-invoice-and-till-controls; 1791340000002_bill-delivery-charge-fssai-upi-and-yearly-numbers.
 
 #### `payments`
@@ -666,7 +636,7 @@ Rules: an `advance` payment must name its advance and only it may (`chk_payments
 Added by: 1789790367434_create-billing-and-payments; 1790850000001_tips-leave-and-statutory-pay; 1791340000000_payment-corrections-and-payment-types; 1791340000001_customer-advances.
 
 #### `payment_types`
-Purpose: Owner-named payment types under a method (Pluxee/Sodexo meal cards or cheque under Other, PhonePe under UPI, an Amex machine under Card) so settlements can be totalled per type; the method still decides drawer vs bank.
+Purpose: Owner-named payment types under a method (Pluxee/Sodexo meal cards or cheque under Other, PhonePe under UPI, an Amex machine under Card) so settlements can be totalled per type; the method decides drawer vs bank.
 Key columns: `payment_method` (`cash`, `card`, `upi`, `online`, `wallet`, `other`), `name` (non-blank), `needs_reference` (till asks for a slip/cheque number), `status` (`active` | `inactive`), `sort_order`.
 Relations: `restaurant_id` -> `restaurants` (CASCADE). Referenced by payments, refunds, advances and advance refunds with ON DELETE RESTRICT: a used type is switched off, never deleted.
 Rules: name unique per restaurant and method, case- and space-insensitive (`uq_payment_types_name` on `(restaurant_id, payment_method, UPPER(BTRIM(name)))`).
@@ -683,7 +653,7 @@ Added by: 1791340000000_payment-corrections-and-payment-types.
 Purpose: Money handed back on a bill, either against the sale (credit note) or reversing a part payment on an unsettled bill.
 Key columns: `bill_id`, `payment_id`, `business_day_id`, `amount` (> 0), `refund_method` (`cash`, `card`, `upi`, `online`, `wallet`, `other`, `advance`), `payment_type_id`, `advance_id`, `refund_kind` (`credit_note`: sale and GST go down; `payment_reversal`: sale unchanged, guest still owes), `reason` (required), `refunded_at`.
 Relations: `bill_id` -> `bills` (CASCADE); `payment_id` -> `payments`; `business_day_id` -> `business_days`; `payment_type_id` -> `payment_types` (RESTRICT); `advance_id` -> `customer_advances` (RESTRICT).
-Rules: a refund back onto an advance must name it and only it may (`chk_refunds_advance`). Every pre-existing refund was treated as `credit_note`. Permission `bills.refund`.
+Rules: a refund back onto an advance must name it and only it may (`chk_refunds_advance`). Permission `bills.refund`.
 Added by: 1789790367434_create-billing-and-payments; 1789913000000_billing-tax-invoice-and-till-controls; 1791340000000_payment-corrections-and-payment-types; 1791340000001_customer-advances.
 
 #### `credit_notes`
@@ -711,11 +681,11 @@ Added by: 1789913000000_billing-tax-invoice-and-till-controls.
 Purpose: The registered buyer on a B2B invoice (GSTR-1 B2B); wins over the guest record because it is about this invoice only.
 Key columns: `bill_id`, `gstin`, `legal_name` (non-blank), `address` (TEXT, Rule 46).
 Relations: `bill_id` -> `bills` (UNIQUE, ON DELETE CASCADE).
-Rules: at most one buyer per bill; GSTIN shape checked (`chk_bill_gst_recipients_gstin`, full check-digit validation in the API). Since 1790840000000 billing writes the buyer onto the bill when raised (for a guest with a GSTIN) and the guest book writes it onto past B2B bills before a guest's GSTIN changes, so an issued invoice never changes.
-Added by: 1789917000000_management-gst-filing; 1790800000000_billing-series-and-guest-accounts (`address`); 1790840000000_invoice-buyers-on-the-bill (back-fill).
+Rules: at most one buyer per bill; GSTIN shape checked (`chk_bill_gst_recipients_gstin`, full check-digit validation in the API). Billing writes the buyer onto the bill when it is raised (for a guest with a GSTIN), and the guest book writes it onto past B2B bills before a guest's GSTIN changes, so an issued invoice never changes.
+Added by: 1789917000000_management-gst-filing; 1790800000000_billing-series-and-guest-accounts (`address`); 1790840000000_invoice-buyers-on-the-bill.
 
 #### `invoice_buyer_backfill`
-One-column helper (`bill_id` PK -> `bills`, ON DELETE CASCADE) listing the bills whose `bill_gst_recipients` row was created by the 1790840000000 back-fill (skipping bills raised before the guest's GSTIN was recorded per the audit log), so the Down removes exactly those and never a buyer an accountant typed. Added by: 1790840000000_invoice-buyers-on-the-bill.
+A one-column list (`bill_id` PK -> `bills`, ON DELETE CASCADE) of the buyer rows that migration 1790840000000 wrote, so its Down half removes exactly those. Added by: 1790840000000_invoice-buyers-on-the-bill.
 
 #### `customer_accounts`
 Purpose: A decision to give a guest or company credit (dues): bills are put on the account instead of paid, up to a limit.
@@ -726,10 +696,10 @@ Added by: 1790800000000_billing-series-and-guest-accounts.
 
 #### `customer_advances`
 Purpose: Deposits/advances received from a guest (ADV-0001…), held and later used on bills. Not a sale when received; it becomes one on the bill it is used on.
-Key columns: `receipt_number`, `customer_id`, `business_day_id`, `outlet_id`, `amount` (> 0), `used_amount`, `refunded_amount`, `payment_method`, `payment_type_id`, `transaction_ref`, `purpose`, `reservation_id`, `received_at`.
-Relations: `customer_id` -> `customers` (ON DELETE RESTRICT); `business_day_id` -> `business_days` (SET NULL); `outlet_id` -> `outlets` (SET NULL); `payment_type_id` -> `payment_types` (RESTRICT); `reservation_id` -> `reservations` (SET NULL).
-Rules: `used_amount + refunded_amount <= amount` (CHECK); receipt number unique per restaurant (`uq_customer_advances_number`); partial index `idx_customer_advances_open` lists advances still holding money. Used on a bill via a `payments` row with method `advance`.
-Added by: 1791340000001_customer-advances.
+Key columns: `receipt_number`, `customer_id`, `business_day_id`, `outlet_id`, `amount` (> 0), `used_amount`, `refunded_amount`, `payment_method`, `payment_type_id`, `transaction_ref`, `purpose`, `reservation_id`, `order_id` (the pickup order an advance was taken on), `received_at`.
+Relations: `customer_id` -> `customers` (ON DELETE RESTRICT); `business_day_id` -> `business_days` (SET NULL); `outlet_id` -> `outlets` (SET NULL); `payment_type_id` -> `payment_types` (RESTRICT); `reservation_id` -> `reservations` (SET NULL); `order_id` -> `orders` (SET NULL).
+Rules: `used_amount + refunded_amount <= amount` (CHECK); receipt number unique per restaurant (`uq_customer_advances_number`); partial index `idx_customer_advances_open` lists advances still holding money. Used on a bill via a `payments` row with method `advance`. Trigger `trg_customer_advances_order` (function `customer_advances_order_same_restaurant`) keeps the order within the same restaurant; partial index `idx_customer_advances_order`.
+Added by: 1791340000001_customer-advances; 1791620003000_wholesale-purchase-orders-challan-schemes-bounces (`order_id`).
 
 #### `customer_advance_refunds`
 Purpose: An unused advance handed back to the guest.
@@ -758,7 +728,7 @@ Added by: 1791330000002_rider-cash-settlement.
 Purpose: The guest book: everyone the restaurant recognises, with loyalty balance, GST details, tags, consent and erasure.
 Key columns: `name`, `mobile` (canonical form: Indian mobile as 10 digits, foreign as `+` and country code), `email`, `address`, `date_of_birth`, `anniversary_date`, `loyalty_points` (INTEGER >= 0, the running balance), `notes`, `status`, `company_name`, `gstin`, `tags` (TEXT[] from a fixed list), `allergies`, `marketing_opt_in` / `_at` / `_by` (DPDP consent), `duplicate_of` (suspected duplicate awaiting merge), `erased_at` / `erased_by`.
 Relations: `restaurant_id` -> `restaurants` (CASCADE); `duplicate_of` -> `customers` (SET NULL); user columns -> `users`.
-Rules: mobile unique per restaurant when given (`uq_customers_restaurant_mobile`); mobile format CHECK `chk_customers_mobile_format` (10 digits starting 6-9, or `+` non-91 international, rejecting `+` + Indian-looking 10 digits except listed foreign series); GSTIN shape CHECK `chk_customers_gstin_format`; tags limited to `vip`, `allergy`, `jain`, `vegan`, `corporate`, `family`, `blogger` (`chk_customers_tags`). Erased guests: trigger `trg_customers_erased_points` (function `keep_erased_guests_balance`) stops the balance of an erased record from rising; trigger `trg_customers_erased_forget_addresses` (function `forget_erased_guest_addresses`, AFTER UPDATE) deletes their delivery addresses at the moment of erasure; function `keep_erased_guests_unlinked` (triggers on `orders`, `reservations`, `waitlist_entries`, `feedback`, `complaints`) turns any new link to an erased guest into a walk-in (NULL `customer_id`). The 1789916000000 migration normalised existing mobiles (recorded in `customer_mobile_cleanup`). Merge, erase and full contact view need `customers.merge`, `customers.erase`, `customers.contact`.
+Rules: mobile unique per restaurant when given (`uq_customers_restaurant_mobile`); mobile format CHECK `chk_customers_mobile_format` (10 digits starting 6-9, or `+` non-91 international, rejecting `+` + Indian-looking 10 digits except listed foreign series); GSTIN shape CHECK `chk_customers_gstin_format`; tags limited to `vip`, `allergy`, `jain`, `vegan`, `corporate`, `family`, `blogger` (`chk_customers_tags`). Erased guests: trigger `trg_customers_erased_points` (function `keep_erased_guests_balance`) stops the balance of an erased record from rising; trigger `trg_customers_erased_forget_addresses` (function `forget_erased_guest_addresses`, AFTER UPDATE) deletes their delivery addresses at the moment of erasure; function `keep_erased_guests_unlinked` (triggers on `orders`, `reservations`, `waitlist_entries`, `feedback`, `complaints`) turns any new link to an erased guest into a walk-in (NULL `customer_id`). Merge, erase and full contact view need `customers.merge`, `customers.erase`, `customers.contact`.
 Added by: 1789733008391_create-crm-and-expenses; 1789817853331_create-loyalty (balance used by loyalty); 1789916000000_crm-guest-book-privacy; 1790830000000_erased-guests-earn-no-points; 1790880000000_backoffice-limits-expiry-and-guests (`anniversary_date`); 1791330000001_guest-delivery-addresses (erase trigger).
 
 #### `customer_merges`
@@ -768,7 +738,7 @@ Relations: `kept_customer_id` -> `customers` (SET NULL).
 Added by: 1789916000000_crm-guest-book-privacy.
 
 #### `customer_mobile_cleanup`
-One-off audit of the 1789916000000 mobile normalisation: `customer_id` -> `customers` (CASCADE), `old_mobile`, `old_notes`, `outcome` (`tidied`, `duplicate`, `not_a_mobile`), so the original typing is kept and the clean-up can be undone. Added by: 1789916000000_crm-guest-book-privacy.
+The record of migration 1789916000000's mobile clean-up (`customer_id` -> `customers` CASCADE, `old_mobile`, `old_notes`, `outcome`), so that clean-up can be undone. Added by: 1789916000000_crm-guest-book-privacy.
 
 #### `loyalty_transactions`
 Purpose: The points ledger, so a guest's balance can always be explained. Points are earned when a bill is paid and redeemed at billing.
@@ -786,7 +756,7 @@ Added by: 1789733008391_create-crm-and-expenses; 1789916000000_crm-guest-book-pr
 
 #### `complaints`
 Purpose: Guest complaints with assignment, resolution and the compensation given.
-Key columns: `subject`, `description`, `category` (`food`, `service`, `delivery`, `billing`, `hygiene`, `other`), `priority` (`low`, `medium`, `high`), `complaint_status` (`open`, `in_progress`, `resolved`, `closed`), `assigned_to`, `resolution`, `resolved_at`, `bill_id`, `order_id`, `compensation_type` (`apology`, `replaced`, `removed`, `discount`, `complimentary`, `refund`, `voucher`, `points`), `compensation_value` (>= 0), `compensation_notes`.
+Key columns: `outlet_id`, `customer_id`, `customer_name`, `customer_mobile`, `subject`, `description`, `category` (`food`, `service`, `delivery`, `billing`, `hygiene`, `other`), `priority` (`low`, `medium`, `high`), `complaint_status` (`open`, `in_progress`, `resolved`, `closed`), `assigned_to`, `resolution`, `resolved_at`, `bill_id`, `order_id`, `compensation_type` (`apology`, `replaced`, `removed`, `discount`, `complimentary`, `refund`, `voucher`, `points`), `compensation_value` (>= 0), `compensation_notes`.
 Relations: `customer_id` -> `customers`; `bill_id` -> `bills` (SET NULL); `order_id` -> `orders` (SET NULL); `assigned_to` -> `users`.
 Rules: compensation is a record only (the refund or points are given elsewhere); trigger `trg_complaints_erased_guest` keeps new complaints off erased guests.
 Added by: 1789733008391_create-crm-and-expenses; 1789916000000_crm-guest-book-privacy.
@@ -807,7 +777,7 @@ Purpose: Units of measure for stock items (kg, litre, piece). Key columns: `name
 Purpose: Raw materials and prepared ingredients (not menu products).
 Key columns: `name`, `code`, `unit_id`, `category`, `storage_area` (walk order for counts), `item_type` (`raw` | `prepared`), `current_stock` (NUMERIC(14,3), whole-restaurant figure kept in step with the ledger), `reorder_level`, `last_cost` (NUMERIC(18,8), last price that set cost), `average_cost` (NUMERIC(12,4), running average), `preferred_supplier_id` (the supplier it is normally ordered from, chosen by hand; the reorder plan groups the item under it first, then under the supplier it was last bought from), `status`.
 Relations: `unit_id` -> `units`; `restaurant_id` -> `restaurants` (CASCADE); `preferred_supplier_id` -> `suppliers` (SET NULL).
-Rules: name unique per restaurant (case-insensitive), code unique when given. Per-unit costs carry 8 decimals so quantity x cost returns to the paisa paid. Only stock coming in at a price (`stock_transactions.sets_cost`) may change cost; the 1789914000000 migration repaired items whose cost had been set by a purchase return. Trigger `trg_inventory_items_preferred_supplier` (function `inventory_items_preferred_supplier_same_restaurant`) refuses a preferred supplier of another restaurant; partial index `idx_inventory_items_preferred_supplier`.
+Rules: name unique per restaurant (case-insensitive), code unique when given. Per-unit costs carry 8 decimals so quantity x cost returns to the paisa paid. Only stock coming in at a price (`stock_transactions.sets_cost`) may change cost. Trigger `trg_inventory_items_preferred_supplier` (function `inventory_items_preferred_supplier_same_restaurant`) refuses a preferred supplier of another restaurant; partial index `idx_inventory_items_preferred_supplier`.
 Added by: 1789733002908_create-suppliers-and-inventory; 1789914000000_stock-counts-purchase-bills; 1790726900000_complete-operations-backlog; 1791590200000_inventory-item-preferred-supplier.
 
 #### `inventory_item_packs`
@@ -836,7 +806,7 @@ Purpose: Quantity of each item per store (NULL outlet = main store), so transfer
 Key columns: `inventory_item_id`, `outlet_id`, `quantity`.
 Relations: `inventory_item_id` -> `inventory_items` (CASCADE); `outlet_id` -> `outlets` (CASCADE).
 Rules: one row per item per store, NULL outlet as one key (`UNIQUE NULLS NOT DISTINCT (inventory_item_id, outlet_id)`). Whether an outlet's sales come off its own shelf is `outlets.own_store`.
-Added by: 1789802692848_split-bills-and-returns; 1789914000000_stock-counts-purchase-bills (`own_store` back-fill).
+Added by: 1789802692848_split-bills-and-returns; 1789914000000_stock-counts-purchase-bills.
 
 #### `stock_settings`
 Purpose: Per-restaurant purchasing and stock controls (row created on first save; blank = no limit).
@@ -848,7 +818,7 @@ Added by: 1790880000000_backoffice-limits-expiry-and-guests.
 Purpose: Batch/expiry tracking under the item ledger: one batch of an item as received.
 Key columns: `inventory_item_id`, `batch_number` (varchar 100), `expiry_date`, `received_at`.
 Relations: `restaurant_id` -> `restaurants`, `inventory_item_id` -> `inventory_items` (no cascade); its stock per store is in `inventory_batch_balances`, its share of each ledger row in `inventory_batch_movements`.
-Rules: existing stock was placed in one undated batch per item (no invented expiry). Index `inventory_batches_item` (restaurant_id, inventory_item_id); partial index `idx_inventory_batches_expiry` (dated batches) serves the expiry bell.
+Rules: index `inventory_batches_item` (restaurant_id, inventory_item_id); partial index `idx_inventory_batches_expiry` (dated batches) serves the expiry bell.
 Added by: 1790726500000_inventory-batches; 1790880000000_backoffice-limits-expiry-and-guests (expiry index).
 
 #### `inventory_batch_balances`
@@ -937,12 +907,12 @@ Added by: 1789733005630_create-purchasing; 1789907000000_add-wastage-reasons (in
 #### `goods_receipts`
 Purpose: A supplier bill / delivery (GRN-…), with or without a PO; what a supplier is owed is the sum of these.
 Key columns: `receipt_number`, `supplier_id`, `purchase_order_id`, `outlet_id` (store received into), `bill_number`, `bill_date`, `received_date`, `due_date`, `payment_mode` (`credit` | `paid`), `prices_include_tax`, `taxable_amount`, `tax_amount`, `round_off` (-5 to 5), `total_amount`, `receipt_status` (`posted` | `void`), `void_reason` / `voided_at` / `voided_by`.
-Rules: receipt number unique; a live supplier bill number exists once per supplier (partial unique `uq_goods_receipts_bill` on `(restaurant_id, supplier_id, LOWER(bill_number)) WHERE posted`), preventing double payment; void iff `void_reason` (`chk_goods_receipts_void`). Earlier PO receipts were back-filled as brought-forward receipts. Permission `purchasing.receive`.
+Rules: receipt number unique; a live supplier bill number exists once per supplier (partial unique `uq_goods_receipts_bill` on `(restaurant_id, supplier_id, LOWER(bill_number)) WHERE posted`), preventing double payment; void iff `void_reason` (`chk_goods_receipts_void`). Permission `purchasing.receive`.
 Added by: 1789914000000_stock-counts-purchase-bills; 1790880000000_backoffice-limits-expiry-and-guests (`idx_goods_receipts_due`).
 
 #### `goods_receipt_items`
 Purpose: Lines of a receipt.
-Key columns: `inventory_item_id`, `purchase_order_item_id`, pack copy, `bill_quantity`, `rejected_quantity` / `rejection_reason`, `quantity` (accepted, item unit), `unit_price` (NUMERIC(18,8)), `tax_rate` (0-40), `taxable_amount`, `tax_amount`, `amount`, `unit_cost` (cost per shelf unit including GST, since restaurants on 5% GST cannot claim input credit).
+Key columns: `inventory_item_id`, `purchase_order_item_id`, pack copy, `bill_quantity`, `rejected_quantity` / `rejection_reason`, `quantity` (accepted, item unit), `unit_price` (NUMERIC(18,8)), `tax_rate` (0-40), `taxable_amount`, `tax_amount`, `amount`, `unit_cost` (cost per shelf unit including GST, because restaurants on 5% GST cannot claim input credit).
 Relations: `goods_receipt_id` -> `goods_receipts` (CASCADE); `purchase_order_item_id` -> `purchase_order_items`; `pack_id` -> `inventory_item_packs` (SET NULL).
 Rules: something billed or rejected (`chk_goods_receipt_items_something`).
 Added by: 1789914000000_stock-counts-purchase-bills.
@@ -968,12 +938,12 @@ Rules: void iff reason (`chk_supplier_payments_void`); cash only when paid from 
 Added by: 1789802692848_split-bills-and-returns; 1789914000000_stock-counts-purchase-bills; 1790880000000_backoffice-limits-expiry-and-guests.
 
 #### `document_attachments`
-Purpose: Receipt photos / PDFs on an expense or a supplier bill (up to five, served only through the API).
+Purpose: Receipt photos / PDFs on an expense or a supplier bill (up to five, kept in `attachments/` under the private upload folder, `PRIVATE_UPLOADS_DIR`, and served only through the API).
 Key columns: `entity_type` (`expense` | `purchase_bill`), `entity_id` (polymorphic, no FK), `file_name`, `stored_name` (UNIQUE), `mime_type` (`image/jpeg`, `image/png`, `application/pdf`), `size_bytes` (1 B to 5 MB), `removed_at` / `removed_by`.
 Rules: removal is recorded, not deleted, and both removal columns are set together (`chk_document_attachments_removed`).
 Added by: 1791360000002_expense-and-purchase-bill-attachments.
 
-### Expenses
+### Expense heads and expenses
 
 #### `expense_categories`
 Purpose: Expense heads. Key columns: `name` (unique per restaurant, case-insensitive), `description`, `status`. Added by: 1789733008391_create-crm-and-expenses.
@@ -989,16 +959,16 @@ Added by: 1789733008391_create-crm-and-expenses; 1789904000000_create-notificati
 
 #### `employees`
 Purpose: Staff records, with or without a login.
-Key columns: `user_id`, `outlet_id`, `employee_code`, `name`, `mobile`, `designation`, `department` (`kitchen`, `service`, `management`, `delivery`, `housekeeping`, `other`), `employment_type`, `salary_type` (`monthly`, `daily`, `hourly`), `salary_amount` (today's salary), `date_of_joining` / `date_of_leaving`, time-clock PIN (`pin_hash`, `pin_set_at`, `pin_failed_attempts`, `pin_first_failed_at`, `pin_locked_until`), statutory (`pf_applicable`, `esi_applicable`, `pt_applicable`, `uan`, `esi_number`, `basic_percent`, `gender`), bank for the payroll "Export for bank" sheet (`bank_account_name` when it differs from the employee's name, `bank_account_number`, `bank_ifsc`; all optional, shown and changed only with `staff.salaries`), `status`.
+Key columns: `user_id`, `outlet_id`, `employee_code`, `name`, `mobile`, `email`, `address`, `emergency_contact`, `designation`, `department` (`kitchen`, `service`, `management`, `delivery`, `housekeeping`, `other`), `employment_type`, `salary_type` (`monthly`, `daily`, `hourly`), `salary_amount` (today's salary), `date_of_joining` / `date_of_leaving`, time-clock PIN (`pin_hash`, `pin_set_at`, `pin_failed_attempts`, `pin_first_failed_at`, `pin_locked_until`), statutory (`pf_applicable`, `esi_applicable`, `pt_applicable`, `uan`, `esi_number`, `basic_percent`, `gender`), bank for the payroll "Export for bank" sheet (`bank_account_name` when it differs from the employee's name, `bank_account_number`, `bank_ifsc`; all optional, shown and changed only with `staff.salaries`), `notes`, `status`.
 Relations: `user_id` -> `users`; `outlet_id` -> `outlets`.
 Rules: code unique when given; one employee per login (`uq_employees_user`); leaving >= joining; PIN hash requires `pin_set_at` (`chk_employees_pin_set`; five wrong PINs in 15 minutes lock it, in code); `uan` 12 digits, `esi_number` 10-17 digits; `basic_percent` 50-100; `gender` `female`/`male`/`other` (for state professional tax); `employees_bank_account_number_format` (6 to 20 digits) and `employees_bank_ifsc_format` (4 letters, 0, 6 letters or digits).
 Added by: 1789801110144_create-staff-and-attendance; 1789906000000_create-time-clock; 1790850000001_tips-leave-and-statutory-pay; 1790935000000_access-sign-in-tickets-and-pt-gender; 1791560000000_employee-bank-details.
 
 #### `employee_salary_history`
-Purpose: "From this date, this salary", so past pay periods use the salary then in force. Key columns: `employee_id`, `effective_from`, `salary_type`, `salary_amount`. Relations: `employee_id` -> `employees` (CASCADE). Rules: unique `(employee_id, effective_from)`; a new salary may not start inside a paid period (code). Seeded from each employee's current salary. Added by: 1789910000000_access-approvals-and-sessions.
+Purpose: "From this date, this salary", so past pay periods use the salary then in force. Key columns: `employee_id`, `effective_from`, `salary_type`, `salary_amount`. Relations: `employee_id` -> `employees` (CASCADE). Rules: unique `(employee_id, effective_from)`; a new salary may not start inside a paid period (code). Added by: 1789910000000_access-approvals-and-sessions.
 
 #### `shifts`
-Purpose: Shift patterns. Key columns: `name` (unique per restaurant, case-insensitive), `start_time`, `end_time`, `break_minutes` (0-599), `grace_minutes` (0-119, lateness allowance), `status`. Added by: 1789801110144_create-staff-and-attendance.
+Purpose: Shift patterns. Key columns: `outlet_id`, `name` (unique per restaurant, case-insensitive), `start_time`, `end_time`, `break_minutes` (0-599), `grace_minutes` (0-119, lateness allowance), `status`. Added by: 1789801110144_create-staff-and-attendance.
 
 #### `shift_assignments`
 Purpose: The roster. Key columns: `employee_id`, `shift_id`, `work_date`, `assignment_status` (`scheduled`, `week_off`, `leave`), `leave_type_id`. Relations: `employee_id` -> `employees` (CASCADE); `shift_id` -> `shifts`; `leave_type_id` -> `leave_types`. Rules: one row per person per day. Added by: 1789801110144_create-staff-and-attendance; 1790850000001_tips-leave-and-statutory-pay.
@@ -1058,16 +1028,15 @@ Purpose: The shift log book: what one shift tells the next. Key columns: `outlet
 #### `logbook_reads`
 Who read each entry: PK `(entry_id, user_id)`, `entry_id` -> `logbook_entries` (CASCADE), `user_id` -> `users` (CASCADE), `read_at`. Added by: 1790850000002_logbook-and-punch-photos.
 
-
 ## Business platform
 
-These are the tables of the multi-business platform: platform catalogue, identity and access, the business tenant, the shared core and the type extensions. The design and the reasons behind it are in [BUSINESS_PLATFORM_DATA_MODEL.md](BUSINESS_PLATFORM_DATA_MODEL.md). Each entry below is short and links to the matching section there. Where that document and the migrations disagree, the migrations are correct. The disagreements are listed in [Business platform: rules kept by code, not by the database](#business-platform-rules-kept-by-code-not-by-the-database) near the end.
+These are the tables of the multi-business platform: the platform catalogue, identity and access, the business tenant, the shared core, the type extensions, and tasks, issues & projects. The design and the reasons behind it are in [BUSINESS_PLATFORM_DATA_MODEL.md](BUSINESS_PLATFORM_DATA_MODEL.md); each section below links to the matching section there. Where that document and the migrations disagree, the migrations are correct.
 
 Conventions that apply to every table here, so they are not repeated per table:
 - Rows belonging to a business carry `business_id BIGINT NOT NULL`. Each link between two business rows is a composite FK `(business_id, x_id) -> x(business_id, id)`, backed by `UNIQUE (business_id, id)` on the target.
-- "Append-only" means a BEFORE UPDATE OR DELETE trigger refuses every change except a correction of `created_at`, which the demo set-up uses.
-- A rule trigger raises SQLSTATE 23514, which the API returns as a 409.
-- Unless a migration file is named, "Added by" timestamps refer to `backend/migrations/<timestamp>_<slug>.sql`.
+- "Append-only" means a BEFORE UPDATE OR DELETE trigger refuses every delete and every change except a correction of `created_at`.
+- A rule trigger raises SQLSTATE 23514, which the API returns as a 409. The guards on `business_expenses`, `business_cash_checks` and `business_counter_shifts` raise PostgreSQL's default error code instead; no API call makes the change they refuse.
+- "Added by" names migrations by timestamp: the file is `backend/migrations/<timestamp>_<slug>.sql`.
 
 ## Platform
 
@@ -1076,79 +1045,61 @@ Linked section: [data model §1](BUSINESS_PLATFORM_DATA_MODEL.md#1-platform).
 ### Module catalogue and business types
 
 #### `business_types`
-Purpose: the 12 business types; see the list under [Business types](#business-types). Key columns: `code` (TEXT PK), `name`.
+Purpose: the business types; see the list under [Business types](#business-types). Key columns: `code` (TEXT PK), `name`.
 Relations: referenced by `businesses.business_type` and `platform_module_business_types.business_type`.
 Added by: 1791280000000 multi-business-admin.
 
 #### `platform_modules`
-Purpose: the module catalogue. `code` is the capability string stored in `business_capabilities` ([§1](BUSINESS_PLATFORM_DATA_MODEL.md#1-platform)).
-Key columns: `code` (TEXT PK, CHECK `^[a-z][a-z_]{1,39}$`), `name`, `description`, `kind` (`core` = always on and never stored per business; `optional`), `sort_order`, `feature_group` (heading on a business's Features screen; set for the restaurant features and for tasks, issues and projects; added by 1791470000000).
-Added by: 1791300000000 platform-module-catalogue. Rows were added by 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791470000000, 1791620000000, 1791620002000, 1791620004000, 1791950400000, 1791950410000 and 1791950411000 (54 modules in total; see [Platform module codes](#platform-module-codes)).
+Purpose: the module catalogue; see [Platform module codes](#platform-module-codes). `code` is the capability string stored in `business_capabilities` ([§1](BUSINESS_PLATFORM_DATA_MODEL.md#1-platform)).
+Key columns: `code` (TEXT PK, CHECK `^[a-z][a-z_]{1,39}$`), `name`, `description`, `kind` (`core` = always on and never stored per business; `optional`), `sort_order`, `feature_group` (the heading on the restaurant's Features screen; set for the restaurant features and for tasks, issues and projects).
+Added by: 1791300000000 platform-module-catalogue; 1791470000000 (`feature_group`). Each module's row comes from the migration that adds the module (the *Added by* column of [Platform module codes](#platform-module-codes)).
 
 #### `platform_module_business_types`
 Purpose: which modules each business type may enable, which it gets by default, and which are recommended for it.
 Key columns: PK (`module_code` -> `platform_modules`, `business_type` -> `business_types`), `enabled_by_default`, `recommended` (most businesses of the trade use it; Settings › Business tools points the owner to it), `recommended_note` (varchar 200, the reason shown).
-Rules: the provisioning trigger and `business_capabilities_enforce` both read this table. CHECK `platform_module_business_types_recommended_note`: only a recommended row has a note. New businesses start lean (1791950400000): `tasks`, `issues`, `projects`, `stock_transfers`, `repairs`, `finance`, `packages`, `commissions`, `lab`, `loyalty`, `offers` and `processing` are off by default for every type, except that a restaurant still starts with tasks, issues and projects (1791950402000). Switching a default changes nothing for existing businesses. 1791950403000 marked 20 rows recommended (for example offers, loyalty, stock transfers, wastage, tasks and issues for a supermarket; repairs and EMI for electronics; packages and commissions for a salon; the lab for healthcare; processing for meat and weight shops); recommending switches nothing on.
-Added by: 1791300000000. Each Phase 2 module migration added its own rows. 1791950403000 added `recommended` and `recommended_note`.
+Rules: the provisioning trigger and `business_capabilities_enforce` both read this table. CHECK `platform_module_business_types_recommended_note`: only a recommended row has a note. A new business starts lean: `tasks`, `issues`, `projects`, `stock_transfers`, `repairs`, `finance`, `packages`, `commissions`, `lab`, `loyalty`, `offers` and `processing` are off by default for every type, except that a restaurant starts with tasks, issues and projects. Changing a default changes nothing for existing businesses, and recommending a module switches nothing on. The *Types and default* column of [Platform module codes](#platform-module-codes) shows every row.
+Added by: 1791300000000; each module's migration adds its rows; 1791950400000 business-workspaces-and-expenses and 1791950402000 restaurant-keeps-task-defaults (the lean defaults); 1791950403000 recommended-business-tools (`recommended`, `recommended_note`).
 
 #### `platform_module_dependencies`
 Purpose: modules that need another module, for example purchasing needs inventory and contacts.
 Key columns: PK (`module_code`, `requires_module_code`), both -> `platform_modules`. A CHECK stops a module requiring itself.
-Added by: 1791300000000. Phase 2 module migrations added their own rows.
+Added by: 1791300000000; each module's migration adds its rows.
 
 ### Restaurant features
 
-Added by 1791470000000_restaurant-feature-switches. Linked section:
-[data model, Restaurant features](BUSINESS_PLATFORM_DATA_MODEL.md#restaurant-features).
+Linked section: [data model, Restaurant features](BUSINESS_PLATFORM_DATA_MODEL.md#restaurant-features). Added by 1791470000000_restaurant-feature-switches; `preorders` by 1791950410000_food-formats and `brands` by 1791950411000_kitchen-brands.
 
-The parts of a restaurant it may switch off (Settings → Features) are sixteen
-optional `platform_modules` that apply only to business type `restaurant`
-(`platform_module_business_types`), each depending on `restaurant`, and
-`guest_loyalty`, `online_ordering` and `preorders` also on `guests`. Fourteen
-came with 1791470000000, all on by default except `guest_loyalty`. Two came
-later, both off by default: `preorders` (Pre-orders & cakes, 1791950410000)
-and `brands` (one kitchen, several names, 1791950411000); the café and bakery
-formats switch on pre-orders and the cloud kitchen format brands (code,
-`restaurantFormat.service.js`). Tasks, issues and projects are listed on the
-same screen but apply to every type. A restaurant's switch is a
-`business_capabilities` row of the business it appears as
-(`businesses.legacy_restaurant_id`), so `business_capabilities_enforce`
-refuses a missing dependency or switching off something another feature
-needs. The switches changed no restaurant table; nothing is deleted when a
-feature is switched off.
+The parts of a restaurant it may switch off (Settings → Features) are the optional `platform_modules` that apply only to business type `restaurant` (`platform_module_business_types`): `guests`, `guest_loyalty`, `reservations`, `qr_ordering`, `online_ordering`, `deliveries`, `kitchen_display`, `captain_sections`, `preorders`, `brands`, `tips`, `advances`, `cash_drawers`, `coupons`, `stock_recipes` and `staff_payroll`. Each depends on `restaurant`, and `guest_loyalty`, `online_ordering` and `preorders` also on `guests`. All are on by default except `guest_loyalty`, `preorders` (Pre-orders & cakes) and `brands` (one kitchen, several names); the café and bakery formats switch on pre-orders and the cloud kitchen format brands (code, `restaurantFormat.service.js`). Tasks, issues and projects are listed on the same screen but apply to every type.
 
-Back-fill: every restaurant business got every feature, and `guest_loyalty`
-where `restaurant_settings.loyalty_enabled` was true (a restaurant with no
-business yet and loyalty on was linked first). Then `loyalty_enabled` was
-dropped: the switch is the one truth.
+A restaurant's switch is a `business_capabilities` row of the business it appears as (`businesses.legacy_restaurant_id`), so `business_capabilities_enforce` refuses a missing dependency or switching off something another feature needs. Switching a feature changes no restaurant table; nothing is deleted when a feature is switched off.
 
 | Function | What it does |
 |---|---|
 | `restaurant_business_id(restaurant_id) → bigint` | The business a restaurant appears as, created (with a free code: the restaurant's, else `R<id>`) when it has none. The provisioning trigger gives it roles, settings and the type's default modules; nobody becomes a member. |
-| `restaurant_features(restaurant_id) → text[]` | The feature codes switched on, sorted (STABLE). A restaurant with no business yet has its type's defaults. Read into every signed-in profile (`users.findProfileById` → `req.user.features`), the public pages, the notification bell, `findSettings` (`loyalty_enabled`), the loyalty and guest report queries and the seeds. |
-| `restaurant_feature_set(restaurant_id, code, on, user_id = NULL) → boolean` | Switches one feature (an insert or delete of the capability row, behind the triggers); true when something changed. The API wraps it with the money checks and the activity log; tests and seeds call it directly. |
+| `restaurant_features(restaurant_id) → text[]` | The feature codes switched on, sorted (STABLE). A restaurant with no business yet has its type's defaults. Read into every signed-in profile (`users.findProfileById` → `req.user.features`), the public pages, the notification bell, `findSettings` (`loyalty_enabled`) and the loyalty and guest report queries. |
+| `restaurant_feature_set(restaurant_id, code, on, user_id = NULL) → boolean` | Switches one feature (an insert or delete of the capability row, behind the triggers); true when something changed. The API wraps it with the money checks and the activity log; tests call it directly. |
 
 ### Permissions and role templates
 
 Linked sections: [data model §1](BUSINESS_PLATFORM_DATA_MODEL.md#1-platform) and [§2](BUSINESS_PLATFORM_DATA_MODEL.md#2-identity--access).
 
 #### `business_permissions`
-Purpose: the permission catalogue. Each row is one `<module>.<action>` pair. The catalogue has 135 codes; see [Business permission codes](#business-permission-codes).
-Key columns: `code` (TEXT PK), `module_code` -> `platform_modules`, `action` (view, create, edit, approve, cancel, refund, export, print; `discount` since 1791540000000; `assign`, `review` and `manage` since 1791620000000; `view_clinical` and `edit_clinical` since 1791620004000), `name`, `sort_order`.
-Rules: UNIQUE (`module_code`, `action`). CHECK `code = module_code || '.' || action`. The action CHECK lists every value, so each widening rewrites the whole list.
-Added by: 1791300000001 business-roles-and-permissions (46 codes), then 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791540000000, 1791580000000, 1791620000000, 1791620001000, 1791620002000, 1791620004000 and 1791950400000.
+Purpose: the permission catalogue. Each row is one `<module>.<action>` pair; the codes are listed under [Business permission codes](#business-permission-codes).
+Key columns: `code` (TEXT PK), `module_code` -> `platform_modules`, `action` (view, create, edit, approve, cancel, refund, export, print, discount, assign, review, manage, view_clinical, edit_clinical), `name`, `sort_order`.
+Rules: UNIQUE (`module_code`, `action`). CHECK `code = module_code || '.' || action`. The action CHECK lists every value, so a migration that adds an action rewrites the whole list.
+Added by: 1791300000001 business-roles-and-permissions; codes also from 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791540000000, 1791580000000, 1791620000000, 1791620001000, 1791620002000, 1791620004000 and 1791950400000.
 
 #### `business_role_templates`
-Purpose: the standard roles that the platform defines once: six for every type (owner, manager, cashier, stock_keeper, accountant, viewer) and four for one type (pharmacist for a pharmacy; doctor, lab_technician and pathologist for healthcare).
+Purpose: the standard roles the platform defines once: owner, manager, cashier, stock_keeper, accountant and viewer for every type, plus pharmacist for a pharmacy, and doctor, lab_technician and pathologist for healthcare.
 Key columns: `code` (TEXT PK, same pattern as module codes), `name`, `description`, `full_access`, `sort_order`, `business_types` (TEXT[], the types the template is for; NULL = every type).
 Rules: at most one template has full access (partial unique index `business_role_templates_one_full`). That template is `owner`. `business_seed_roles()` copies only the templates of the business's type.
-Added by: 1791300000001. 1791620004000 added `business_types` and the four type templates.
+Added by: 1791300000001; 1791620004000 (`business_types` and the four type templates).
 
 #### `business_role_template_permissions`
 Purpose: the permissions each template grants. These rows are copied into every business's own roles.
 Key columns: PK (`template_code` -> `business_role_templates`, `permission_code` -> `business_permissions`).
-Rules: the owner template has no rows here because it has full access. Each Phase 2 module migration writes its own grants explicitly. The Phase 1 rule "manager gets everything except access" was a one-time insert and does not apply to later permissions.
-Added by: 1791300000001. Phase 2 module migrations added grants, and so does each later permission migration (for example 1791950400000: the three `expenses` codes to manager and accountant, `expenses.view` to cashier and viewer, `reports.edit` to manager, accountant and cashier).
+Rules: the owner template has no rows here because it has full access. A template gets a new permission only when a migration grants it: each migration that adds permissions writes its own grants.
+Added by: 1791300000001; each permission migration adds its grants (for example 1791950400000: the three `expenses` codes to manager and accountant, `expenses.view` to cashier and viewer, `reports.edit` to manager, accountant and cashier).
 
 ## Identity and access
 
@@ -1158,9 +1109,8 @@ Linked section: [data model §2](BUSINESS_PLATFORM_DATA_MODEL.md#2-identity--acc
 Purpose: one row for each person who can open a business. Each person has one login, stored in `users`, and can hold memberships in many businesses.
 Key columns: PK (`business_id`, `user_id` -> `users`), `role_id`, `active`, `last_opened_at`, `location_id` (the one location the person works at; NULL = every location), `department_id` (the one department the person works in for products and stock; NULL = every department), plus `created_by` and `updated_by`.
 Relations: (`business_id`, `role_id`) -> `business_roles`, so a membership can only hold a role of its own business; (`business_id`, `location_id`) -> `business_locations`; (`business_id`, `department_id`) -> `business_departments` (`business_memberships_department`).
-Rules (1791630000000): trigger `business_membership_location_rules` refuses tying the owner (full-access role) to a location and tying anyone to a closed location; partial index `business_memberships_location` covers (business, location) where a location is set.
-Rules: the old `role` text column (owner, manager, viewer) was mapped to roles and then dropped. Index `business_memberships_recent` covers (user, last_opened_at) for active rows.
-Added by: 1791280000000 (table). 1791300000001 added `role_id`, the audit columns and `last_opened_at`, and dropped `role`. 1791630000000 added `location_id`; 1791950404000 `department_id`.
+Rules: trigger `business_membership_location_rules` refuses tying the owner (full-access role) to a location and tying anyone to a closed location; partial index `business_memberships_location` covers (business, location) where a location is set. Index `business_memberships_recent` covers (user, last_opened_at) for active rows.
+Added by: 1791280000000; 1791300000001 (`role_id`, the audit columns, `last_opened_at`); 1791630000000 business-multi-location (`location_id`); 1791950404000 retail-completion (`department_id`).
 
 #### `business_roles`
 Purpose: each business's own copy of the templates for its type (`template_code` set), plus custom roles (`template_code` NULL).
@@ -1170,14 +1120,14 @@ Rules:
 - Role names are unique per business, ignoring case (`business_roles_name`).
 - A business has at most one full-access role (`business_roles_one_full`).
 - CHECK: `full_access` requires `template_code = 'owner'` and `active`.
-- Roles are seeded by `business_seed_roles()`.
+- `business_seed_roles()` creates a business's roles with the business.
 Added by: 1791300000001.
 
 #### `business_role_permissions`
 Purpose: the permissions a role holds.
 Key columns: PK (`role_id`, `permission_code` -> `business_permissions`). The FK (`business_id`, `role_id`) -> `business_roles` uses ON DELETE CASCADE.
 Rules: trigger `business_role_permissions_not_full` refuses rows for a full-access role, because the owner always has every permission, including ones added later.
-Added by: 1791300000001. Phase 2 module migrations granted the new permissions to existing template-role copies.
+Added by: 1791300000001; each permission migration also grants its new codes to the businesses' existing copies of the templates.
 
 ## Business core
 
@@ -1185,25 +1135,25 @@ Linked section: [data model §3](BUSINESS_PLATFORM_DATA_MODEL.md#3-business-tena
 
 #### `businesses`
 Purpose: the tenant root. A restaurant appears here as one row whose `legacy_restaurant_id` points to `restaurants` ([five layers](BUSINESS_PLATFORM_DATA_MODEL.md#the-five-layers)).
-Key columns: `name`, `code` (unique), `business_type` -> `business_types`, `legacy_restaurant_id` (unique, -> `restaurants`), `is_demo`, `status` (active or inactive), `currency` (default INR; the owner changes it in Business settings until the first document), `timezone` (default Asia/Kolkata; editable), `created_by`.
-Created by: the platform console (Platform › Businesses), an owner's "Add a business", the restaurant link, or (development only) the demo set-up — `businessOnboarding.service.js`; or as a clean copy of another business (`businessClone.service.js`, run by `backend/scripts/make-real-copies.js`): the same set-up, none of the history, `is_demo` false.
+Key columns: `name`, `code` (unique), `business_type` -> `business_types`, `legacy_restaurant_id` (unique, -> `restaurants`), `status` (active or inactive), `currency` (default INR; the owner changes it in Business settings until the first document), `timezone` (default Asia/Kolkata; editable), `is_demo` (boolean, default false; no application code reads it), `created_by`.
+Created by: Platform › Businesses (the platform console) or an owner's *Add a business*, both in `businessOnboarding.service.js`. A restaurant's row comes from *Link my restaurant* (`linkRestaurant` in `business.service.js`) or from `restaurant_business_id()` (see [Restaurant features](#restaurant-features)).
 Rules:
 - CHECK: `legacy_restaurant_id` may be set only when the type is `restaurant`.
 - Trigger `businesses_type_is_fixed` refuses any change of type.
-- AFTER INSERT trigger `businesses_provision_defaults` runs `business_provision_defaults()`. It seeds roles, settings, tax slabs and units, and switches on the type's default modules.
+- AFTER INSERT trigger `businesses_provision_defaults` runs `business_provision_defaults()`. It gives the business the roles of its type (`business_seed_roles()`), its settings row (`business_seed_settings()`), GST slabs (`business_seed_tax_rates()`; none for a restaurant), units (`business_seed_units()`; none for a restaurant without SKUs) and its type's default modules.
 - AFTER INSERT trigger `businesses_default_payment_methods` (function `business_default_payment_methods`) gives every business except a restaurant the five usual payment methods (`business_payment_methods`); a restaurant keeps its own `payment_types`.
-- AFTER INSERT trigger `businesses_default_financiers` (function `electronics_default_financiers`) gives an electronics shop its four financiers (see [Round 2](#round-2-shared-core-retail--electronics-1791620002000-core-retail-electronics-round2)).
-Added by: 1791280000000. Triggers were added by 1791300000000, 1791300000005, 1791620002000 (financiers) and 1791640000000 (payment methods).
+- AFTER INSERT trigger `businesses_default_financiers` (function `electronics_default_financiers`) gives an electronics shop its four financiers (see [`electronics_financiers`](#electronics_financiers)).
+Added by: 1791280000000; triggers from 1791300000000, 1791300000005 business-events-and-provisioning, 1791620002000 (financiers) and 1791640000000 (payment methods).
 
 #### `business_settings`
 Purpose: one row per business with its legal and display details, tax mode, rounding and fiscal year.
-Key columns: PK `business_id`, `display_name`, `legal_name`, `gstin` (GSTIN-pattern CHECK), address fields, `state_code`, `postal_code` (6 digits), `phone`, `email`, `logo_path`, `tax_mode` (exclusive or inclusive), `rounding` (none or nearest_rupee), `fiscal_year_start_month` (default 4), `invoice_footer`, `receipt_footer`, `date_format`, `max_bill_discount_percent` (0–100, default 10: the cap on a counter discount), `walk_in_credit` (default false: a walk-in pays the whole bill), `counter_pin_every_bill` (default false).
-Business rules (1791640002000, Business settings › Rules; each default is what the code used before): `voucher_valid_days` (90; 1–3650), `ageing_days` (three increasing limits, the first at least 1 and the last at most 3650, `{30,60,90}`), `near_expiry_days` (30; 1–365), `weight_buttons_grams` (1–8 values of 1–100,000, `{250,500,1000,2000}`), `receipt_width_mm` (58 or 80; 80), `day_cutoff_hour` (0–12; 5).
-Rules: CHECK: the first two characters of the GSTIN must equal `state_code`. Seeded by `business_seed_settings()`.
-Added by: 1791300000002 business-settings-tax-rates-number-series. 1791540000000 added `max_bill_discount_percent` and `walk_in_credit`; 1791620002000 `counter_pin_every_bill`; 1791640002000 business-rule-settings the six business rules.
+Key columns: PK `business_id`, `display_name`, `legal_name`, `gstin` (GSTIN-pattern CHECK), address fields, `state_code`, `postal_code` (6 digits), `phone`, `email`, `logo_path`, `tax_mode` (exclusive or inclusive), `rounding` (none or nearest_rupee), `fiscal_year_start_month` (default 4), `invoice_footer`, `receipt_footer`, `date_format`, `max_bill_discount_percent` (0–100, default 10: the cap on a counter discount), `walk_in_credit` (default false: a walk-in pays the whole bill), `counter_pin_every_bill` (default false: Quick bill asks the biller's PIN for every bill).
+Business rules (Business settings › Rules; default, then range): `voucher_valid_days` (90; 1–3650), `ageing_days` (three increasing limits, the first at least 1 and the last at most 3650, `{30,60,90}`), `near_expiry_days` (30; 1–365), `weight_buttons_grams` (1–8 values of 1–100,000, `{250,500,1000,2000}`), `receipt_width_mm` (58 or 80; 80), `day_cutoff_hour` (0–12; 5; read by tasks: a due time before it belongs to the day before).
+Rules: CHECK: the first two characters of the GSTIN must equal `state_code`. `business_seed_settings()` makes the row with the business: goods types (grocery, supermarket, books, pharmacy, fashion, electronics, meat, weight_retail) start with prices that include GST, rounded to the rupee; the other types start exclusive, with no rounding.
+Added by: 1791300000002 business-settings-tax-rates-number-series; 1791540000000 business-core-gst-mrp-supplier-payments (`max_bill_discount_percent`, `walk_in_credit`, the goods-type start); 1791620002000 (`counter_pin_every_bill`); 1791640002000 business-rule-settings (the six business rules).
 
 #### `business_tax_rates`
-Purpose: named GST slabs. Non-restaurant businesses are seeded with nil, 5 %, 18 % (the default) and 40 %.
+Purpose: named GST slabs. A new business other than a restaurant starts with GST nil / exempt, GST 5%, GST 18% (the default) and GST 40% (`business_seed_tax_rates()`); a restaurant's rates are its own `tax_rates`.
 Key columns: `name`, `rate` (0–100), `is_default`, `active`. Referenced by `catalog_skus.tax_rate_id`.
 Rules:
 - Names are unique per business, ignoring case.
@@ -1215,7 +1165,7 @@ Added by: 1791300000002.
 #### `business_number_series`
 Purpose: document numbering, one series per business, location, document kind and fiscal year. A number is taken with `UPDATE … next_number + 1` inside the posting transaction.
 Key columns: `location_id`, `document_kind`, `fiscal_year` (the year the fiscal year starts in), `prefix`, `next_number`, `padding`.
-Final `document_kind` list: sale, purchase, sales_return, purchase_return, stock_transfer, stock_count, sales_order, collection, repair_job, processing.
+`document_kind`: sale, purchase, sales_return, purchase_return, stock_transfer, stock_count, sales_order, collection, repair_job, processing, supplier_payment, purchase_order (PO/…) and delivery_challan (DC/…).
 Rules:
 - UNIQUE (business, location, kind, year) and UNIQUE (business, prefix).
 - A prefix may contain only letters, digits, `/` and `-`, and must not end in a digit.
@@ -1224,30 +1174,29 @@ Rules:
   - `next_number` never decreases;
   - prefix and padding are fixed once a number has been used;
   - business, location, kind and year never change.
-Added by: 1791300000002. The kind list was widened by 1791410000000 (sales_order, collection), 1791420000001 (repair_job) and 1791430000001 (processing). The last of these reads the current list and appends to it.
+Added by: 1791300000002; kinds from 1791410000000 (sales_order, collection), 1791420000001 (repair_job), 1791430000001 (processing), 1791540000000 (supplier_payment) and 1791620003000 (purchase_order, delivery_challan).
 
 #### `business_capabilities`
 Purpose: the optional modules switched on for a business ([§1](BUSINESS_PLATFORM_DATA_MODEL.md#1-platform)).
 Key columns: PK (`business_id`, `capability` -> `platform_modules`), `enabled_at`, `enabled_by`.
 Rules:
-- The old hard-coded CHECK was replaced by the FK.
 - Constraint trigger `business_capabilities_enforce` (deferrable) refuses:
   - a core module;
   - a module that does not apply to the business's type;
   - a module whose dependency is off;
   - deleting a module that another enabled module needs.
 - Trigger `business_capabilities_no_update` stops a row from being re-pointed to another business or module.
-Added by: 1791280000000. The FK, the columns and both triggers were added by 1791300000000.
+Added by: 1791280000000; 1791300000000 (the FK to `platform_modules`, `enabled_at`, `enabled_by` and both triggers).
 
 #### `business_locations`
 Purpose: the outlets and godowns of a business.
-Key columns: `name`, `code` (unique per business), `active`, `sells_at_counter`; the location's own `address_line1`, `address_line2`, `city`, `postal_code`, `state_code`, `gstin` and `phone` (all optional: an empty field prints Business settings); `opening_hours` (JSONB object such as `{"mon": {"open": "09:00", "close": "21:00"}}`; a day left out is closed; NULL = not given).
+Key columns: `name`, `code` (unique per business), `active`, `sells_at_counter` (default true; false for a godown the counter does not sell from); the location's own `address_line1`, `address_line2`, `city`, `postal_code`, `state_code`, `gstin` and `phone` (all optional: an empty field prints Business settings); `opening_hours` (JSONB object such as `{"mon": {"open": "09:00", "close": "21:00"}}`; a day left out is closed; NULL = not given).
 Relations: the target of every `location_id` composite FK, including lots, documents, series, transfers, counts, collections, orders, repair jobs, weight batches, memberships, expenses, cash checks, counter shifts, branch prices, clinic visits and tokens.
 Rules:
 - CHECK: `gstin` is GSTIN-shaped, `state_code` two digits, `postal_code` six digits, and the GSTIN's first two digits equal `state_code` (`business_locations_gstin_state`).
 - CHECK: `opening_hours` is a JSON object when set.
 - Trigger `business_location_close_rules` refuses to close a location while an active membership is tied to it.
-Added by: 1791280000000. 1791610000000 added `sells_at_counter`; 1791630000000 the address, state, GSTIN and phone; 1791950404000 `opening_hours`.
+Added by: 1791280000000; 1791610000000 (`sells_at_counter`); 1791630000000 (the address, state, GSTIN and phone); 1791950404000 (`opening_hours`).
 
 #### `business_departments`
 Purpose: the departments of a business (a department store's Grocery, Clothing, Home). A category belongs to one (`catalog_categories.department_id`), and a person may be tied to one for products and stock (`business_memberships.department_id`).
@@ -1284,19 +1233,19 @@ Rules:
 - Sibling names are unique, ignoring case (`catalog_categories_sibling_name`).
 - CHECK: a category cannot be its own parent.
 - Trigger `catalog_categories_no_loops` refuses loops and trees deeper than 5 levels.
-Added by: 1791300000003 catalog-categories-units-and-credit-terms. That migration also turned each distinct legacy `catalog_products.category` text into a top-level category. 1791950404000 added `department_id`.
+Added by: 1791300000003 catalog-categories-units-and-credit-terms; 1791950404000 (`department_id`).
 
 #### `catalog_products`
 Purpose: a product or service. It groups one or more SKUs.
-Key columns: `name`, `kind` (goods or service), `category_id` -> `catalog_categories`, `category` (legacy free text, still readable), `brand`, `active`.
-Added by: 1791280000000. `category_id` was added by 1791300000003.
+Key columns: `name`, `kind` (goods or service), `category_id` -> `catalog_categories`, `category` (free text, shown when `category_id` is empty), `brand`, `active`.
+Added by: 1791280000000; 1791300000003 (`category_id`).
 
 #### `catalog_skus`
 Purpose: the sellable and stocked item: a variant, a pack or a service.
-Key columns: `product_id` -> `catalog_products`, `code`, `barcode`, `label`, `unit`, `price`, `tax_rate`, `tax_rate_id` -> `business_tax_rates`, `tracking` (none, quantity, batch or serial), `reorder_level`, `attributes` (a JSONB object), `active`, `hsn_code`, `mrp`, `is_kit`, `shelf_location` (where it sits, "Aisle 3 · Shelf B"; not blank when set), `member_price` (> 0, what a loyalty customer pays when it is below the list price), `internal_use` (kept in stock only to be used up inside services, a salon's back-bar colour or a clinic's gloves: never sold on a bill, and the bill screens leave it out).
+Key columns: `product_id` -> `catalog_products`, `code`, `barcode`, `label`, `unit`, `price`, `tax_rate`, `tax_rate_id` -> `business_tax_rates`, `tracking` (none, quantity, batch or serial), `reorder_level`, `attributes` (a JSONB object), `active`, `hsn_code` (4, 6 or 8 digits), `mrp`, `is_kit` (a kit; its parts are `catalog_kit_components`), `shelf_location` (where it sits, "Aisle 3 · Shelf B"; not blank when set), `member_price` (> 0, what a loyalty customer pays when it is below the list price), `internal_use` (kept in stock only to be used up inside services, a salon's back-bar colour or a clinic's gloves: never sold on a bill, and the bill screens leave it out).
 Relations: (`business_id`, `unit`) -> `business_units(business_id, code)`. A branch's own price is in `business_sku_location_prices`.
-Rules: `code` and `barcode` are each unique per business. `tax_rate` stays the rate actually charged.
-Added by: 1791280000000. `tax_rate_id` was added by 1791300000002. The unit CHECK became an FK in 1791300000003. 1791540000000 added `hsn_code` and `mrp`; 1791620002000 `is_kit`; 1791950404000 `shelf_location` and `member_price`; 1791950406000 catalog-internal-use `internal_use`.
+Rules: `code` and `barcode` are each unique per business. `tax_rate` stays the rate actually charged. CHECK `catalog_skus_price_within_mrp`: the price is never above the MRP. CHECK `catalog_skus_kit_untracked`: a kit is tracked `none`, so it has no stock of its own.
+Added by: 1791280000000; 1791300000002 (`tax_rate_id`); 1791300000003 (the unit FK); 1791540000000 (`hsn_code`, `mrp`); 1791620002000 (`is_kit`); 1791950404000 (`shelf_location`, `member_price`); 1791950406000 catalog-internal-use (`internal_use`).
 
 #### `catalog_sku_units`
 Purpose: pack sizes per SKU, for example 1 box = 24 stock units.
@@ -1304,33 +1253,40 @@ Key columns: `sku_id`, `unit_code` -> `business_units(code)`, `quantity_in_base`
 Rules: UNIQUE (`business_id`, `sku_id`, `unit_code`). This key is the target of the pack FK on `business_price_rules`.
 Added by: 1791300000003.
 
+#### `catalog_kit_components`
+Purpose: the parts of a kit (an accessory bundle). The kit sells at its own price; its stock, GST and HSN lines are its components'.
+Key columns: `id` (bigserial), `kit_sku_id`, `component_sku_id`, `quantity` (more than 0, at most 1000), `sort_order`, `created_at`.
+Relations: (`business_id`, `kit_sku_id`) and (`business_id`, `component_sku_id`) -> `catalog_skus`.
+Rules: UNIQUE (business, kit, component); CHECK a kit never contains itself; index `catalog_kit_components_kit` (business, kit, sort order).
+Added by: 1791620002000.
+
 #### `business_units`
 Purpose: the units of each business, with an optional conversion to a base unit (g -> kg × 0.001).
-Key columns: `code` (unique per business), `name`, `kind` (count, weight, volume, length, time, service), `decimals` (0–3), `base_unit_code` (composite self-FK on code), `factor_to_base`.
+Key columns: `code` (unique per business), `name`, `kind` (count, weight, volume, length, time, service), `decimals` (0–3), `base_unit_code` (composite self-FK on code), `factor_to_base`, `active`.
 Rules:
 - CHECK: `base_unit_code` and `factor_to_base` are both set or both NULL.
 - CHECK: a unit is not its own base.
 - CHECK: count units have 0 decimals.
-- Seeded by `business_seed_units()`. Restaurants without SKUs get none.
+- A new business gets its units from `business_seed_units()`: the base units, g and ml, and the pack words its type uses. A restaurant without SKUs gets none.
 Added by: 1791300000003.
 
 ### Contacts and prices
 
 #### `business_contacts`
-Purpose: customers and suppliers, with credit terms ([shared receivables](BUSINESS_PLATFORM_DATA_MODEL.md#shared-receivables--customer-credit-collections-outstanding-phase-2-t1--t2)).
+Purpose: customers and suppliers, with credit terms ([shared receivables](BUSINESS_PLATFORM_DATA_MODEL.md#shared-receivables)).
 Key columns: `kind` (customer or supplier), `name`, `phone`, `email`, `address`, `gstin`, `credit_limit` (NULL = no limit), `credit_days` (0–365), `opening_balance`, `opening_balance_on`, `active`.
 Rules:
 - GSTIN is unique per business and kind (partial unique index `business_contacts_gstin`).
 - CHECK: a non-zero opening balance needs a date.
 - Function `business_contact_is_customer()` is used as a trigger on the tables that need a customer.
-Added by: 1791280000000. The credit-term columns were added by 1791300000003.
+Added by: 1791280000000; 1791300000003 (the credit-term columns).
 
 #### `business_price_rules`
-Purpose: quantity-slab and customer-specific prices, optionally per pack ([wholesale](BUSINESS_PLATFORM_DATA_MODEL.md#wholesale--fmcg-phase-2-t2)).
+Purpose: quantity-slab and customer-specific prices, optionally per pack ([wholesale](BUSINESS_PLATFORM_DATA_MODEL.md#wholesale--fmcg)).
 Key columns: `sku_id`, `contact_id` (NULL = general price list), `unit_code` (NULL = stock unit), `minimum_quantity`, `unit_price`, `active`.
 Relations: (`business_id`, `sku_id`, `unit_code`) -> `catalog_sku_units`, so a pack price must name a pack that the item has.
 Rules: one active slab per (business, sku, contact or 0, unit or '', minimum) (partial unique index `business_price_threshold`).
-Added by: 1791280000002 business-price-rules. `unit_code` was added and the index rebuilt by 1791410000001.
+Added by: 1791280000002 business-price-rules; 1791410000001 (`unit_code`, the index).
 
 #### `business_sku_location_prices`
 Purpose: a branch that sells an item at its own price. With no row, the branch sells at the item's own price.
@@ -1343,12 +1299,13 @@ Added by: 1791950404000 retail-completion.
 
 #### `business_documents`
 Purpose: a sale or purchase invoice.
-Key columns: `kind` (sale or purchase), `document_no`, `series_id`, `location_id`, `contact_id`, `contact_name` (snapshot), `subtotal`, `tax`, `round_off`, `total`, `tax_mode`, `due_on`, `request_key`, `request_hash`, `notes`.
+Key columns: `kind` (sale or purchase), `document_no`, `series_id`, `location_id`, `contact_id`, `contact_name` (snapshot), `subtotal`, `tax`, `round_off`, `total`, `tax_mode`, `due_on`, `place_of_supply` (two-digit state code), `buyer_gstin`, `buyer_address`, a purchase's `supplier_bill_no` and `supplier_bill_date`, `request_key`, `request_hash`, `notes`.
 Rules:
 - CHECK `business_documents_total_adds_up`: `total = subtotal + tax + round_off`.
 - CHECK: `round_off` lies strictly between -1 and 1.
 - `document_no` and `request_key` are each unique per business.
-Added by: 1791280000000. 1791300000002 added the series, tax mode, round-off and due date, and replaced the total CHECK.
+- CHECK `business_documents_supplier_bill_on_purchases`: only a purchase carries a supplier bill number and date. Unique index `business_documents_supplier_bill` (business, supplier, bill number ignoring case) refuses the same supplier bill twice.
+Added by: 1791280000000; 1791300000002 (the series, tax mode, round-off, due date and total CHECK); 1791540000000 (place of supply, buyer, supplier bill).
 
 #### `business_document_lines`
 Purpose: a snapshot of each invoice line.
@@ -1357,6 +1314,7 @@ Rules:
 - The four entered-unit columns are all set or all NULL (`business_document_lines_entered_unit_all_or_none`).
 - `unit_price` is unscaled NUMERIC with at most 4 places and below 10^12 (`business_document_lines_unit_price_places`).
 - `free_quantity < quantity` (`business_document_lines_free_below_quantity`).
+- The three kit columns are all set or all NULL (`business_document_lines_kit_shape`).
 - Index `business_document_lines_document` (business, document) lets the bills lists read a bill's lines without scanning the table.
 Added by: 1791280000000.
 - 1791280000001 added `stock_unit_cost` and UNIQUE (business_id, id).
@@ -1368,27 +1326,30 @@ Added by: 1791280000000.
 - 1791950412000 document-list-indexes added `business_document_lines_document`.
 
 #### `business_payment_methods`
-Purpose: the payment methods an owner names for a business ("PhonePe", "Paytm", "Sodexo", "HDFC current account"), each tied to one of five fixed kinds. The accounting (day close, drawer cash, cheque register, change given back) works on the kind; the name is recorded next to it on each payment, refund and receipt (`method_name`), so the day close can say how much came in through each. A restaurant keeps its own `payment_types` and is given no methods here.
+Purpose: the payment methods an owner names for a business ("PhonePe", "Paytm", "Sodexo", "HDFC current account"), each tied to one of five fixed kinds. The accounting (Daily money, drawer cash, cheque register, change given back) works on the kind; the name is recorded next to it on each payment, refund and receipt (`method_name`), so Daily money can say how much came in through each. A restaurant keeps its own `payment_types` and is given no methods here.
 Key columns: `name` (varchar 60, not blank), `kind` (cash, upi, card, bank, cheque), `active`, `sort_order` (0–10000), `created_by`, `updated_by`.
 Relations: referenced by `business_expenses.method_id`.
 Rules:
 - Names are unique per business, ignoring case (`business_payment_methods_name`); index `business_payment_methods_list` (business, sort_order, id).
 - Trigger `business_payment_methods_keep_one` (function `business_payment_method_keep_one`) refuses to switch off the last active method.
-- Every business except a restaurant gets Cash, UPI, Card, Bank transfer and Cheque: existing ones from the migration, new ones from the trigger `businesses_default_payment_methods` on `businesses`.
-Added by: 1791640000000 business-payment-methods, which also added `method_name` (varchar 60, the method's name when the money moved; NULL = posted with the kind only) to `business_payments`, `business_refunds`, `business_collections`, `business_supplier_payments` and `business_collection_refunds`.
+- Every business except a restaurant starts with Cash, UPI, Card, Bank transfer and Cheque, from the trigger `businesses_default_payment_methods` on `businesses`.
+Added by: 1791640000000 business-payment-methods. The same migration gives `business_payments`, `business_refunds`, `business_collections`, `business_supplier_payments` and `business_collection_refunds` their `method_name` (varchar 60, the method's name when the money moved; NULL = posted with the kind only).
 
 #### `business_payments`
-Purpose: money received on a sale, or paid on a purchase. The share of a collection that settles a bill is also stored here.
-Key columns: `document_id`, `amount` (> 0), `method` (cash, card, upi, bank, cheque, credit_note, finance), `method_name` (the owner's name for the method, as it was), `reference`, `collection_id` -> `business_collections`, `request_key` (unique per business).
-Rules: constraint trigger `business_payments_collection_rules` checks two things:
-- a collection pays only sales of the customer who paid it;
-- the payments drawn from one collection never add up to more than its amount.
-Added by: 1791280000000. 1791410000000 added `collection_id`, the trigger and `cheque`. 1791420000000 added `credit_note`. 1791620002000 added `finance` and `tendered` (see Round 2); 1791640000000 `method_name`.
+Purpose: money received on a sale, or paid on a purchase. The share of a collection that settles a bill, and the share of a supplier payment that settles a purchase, are stored here too. Several rows on one document, posted together, are one bill paid in several ways.
+Key columns: `document_id`, `amount` (> 0), `method` (cash, card, upi, bank, cheque, credit_note, finance: the financed part of an EMI bill), `method_name` (the owner's name for the method, as it was), `reference`, `tendered` (cash handed over; the change is `tendered − amount`), `collection_id` -> `business_collections`, `supplier_payment_id` -> `business_supplier_payments`, `request_key` (unique per business).
+Rules:
+- CHECK `business_payments_tendered_cash`: `tendered` only on a cash payment, and never below the amount.
+- CHECK `business_payments_one_source`: a collection or a supplier payment, not both.
+- Constraint trigger `business_payments_collection_rules`: a collection pays only sales of the customer who paid it, and the payments drawn from one collection, with its refunds, never add up to more than its amount.
+- Constraint trigger `business_payments_supplier_rules`: a supplier payment settles only that supplier's purchases, and never more than was paid.
+- UNIQUE (`business_id`, `id`) for composite keys.
+Added by: 1791280000000; 1791410000000 (`collection_id`, the collection trigger, `cheque`); 1791420000000 (`credit_note`); 1791540000000 (`supplier_payment_id`, the supplier rules); 1791620002000 (`finance`, `tendered`); 1791640000000 (`method_name`).
 
 #### `business_returns`
 Purpose: a credit note (on a sale) or a debit note (on a purchase).
 Key columns: `document_id`, `return_no` (unique per business), `series_id`, `reason`, `total`, `round_off` (between -1 and 1), `request_key`, `request_hash`.
-Added by: 1791280000001 business-returns-and-stock-control. 1791300000002 added the number, series and round-off.
+Added by: 1791280000001 business-returns-and-stock-control; 1791300000002 (the number, series and round-off).
 
 #### `business_return_lines`
 Purpose: the quantity returned against each document line.
@@ -1397,13 +1358,49 @@ Rules:
 - UNIQUE (`return_id`, `line_id`).
 - Trigger `business_return_lines_salon_plan` (function `salon_plan_line_return`) refuses to return a line that sold a salon package or membership while that plan is still active.
 - Index `business_return_lines_line` (business, line) lets the bills lists read a line's returns without scanning the table.
-Added by: 1791280000001. The trigger was added by 1791430000000; the index by 1791950412000.
+Added by: 1791280000001; 1791430000000 (the trigger); 1791950412000 (the index).
 
 #### `business_refunds`
 Purpose: money paid back on a document.
-Key columns: `document_id`, `amount` (> 0), `method` (cash, card, upi, bank, credit_note, finance; no cheque), `method_name`, `reason`, `request_key` (unique per business).
+Key columns: `document_id`, `amount` (> 0), `method` (cash, card, upi, bank, credit_note, finance; no cheque; `finance` reverses the financed part of an EMI bill when the loan is cancelled), `method_name`, `reason`, `request_key` (unique per business).
 Rules: index `business_refunds_document` (business, document) serves the bills lists.
-Added by: 1791280000001. `credit_note` was added by 1791420000000, `finance` by 1791620002000, `method_name` by 1791640000000 and the index by 1791950412000.
+Added by: 1791280000001; 1791420000000 (`credit_note`); 1791620002000 (`finance`); 1791640000000 (`method_name`); 1791950412000 (the index).
+
+### Exchanges and vouchers
+
+Exchanges are the `exchanges` module: on by default for fashion and electronics shops, and offered to books, grocery and supermarket.
+
+#### `business_exchange_policies`
+Purpose: how many days after a sale an exchange is allowed.
+Key columns: PK `business_id`, `days_allowed` (1–365, NULL = no limit), `updated_by` (NOT NULL).
+Added by: 1791420000000 fashion-variants-and-exchanges.
+
+#### `business_exchanges`
+Purpose: one exchange. It links the credit note on the original sale with the new sale, and records how the difference was settled.
+Key columns: `location_id`, `original_document_id`, `return_id` (unique), `new_document_id` (unique), `contact_id`, `returned_value`, `new_value`, `credit_applied`, `collected`, `refunded`, `method` (cash, card, upi, bank, on_account, voucher, or NULL), `credit_collection_id` -> `business_collections`, `no_bill` (a gift exchange with no bill, matched to the latest sale of the item), `reason`, `request_key`, `request_hash`.
+Rules:
+- CHECK: the two documents differ.
+- CHECK: money is either collected or refunded, not both.
+- CHECK: a money method (cash, card, upi or bank) is set exactly when money changed hands.
+- CHECK: `on_account` needs a contact.
+- CHECK `business_exchanges_credit_on_account`: `credit_collection_id` may be set only when the method is `on_account`.
+- Trigger `business_exchanges_rules`:
+  - the credit note must belong to the original sale;
+  - both documents must be sales;
+  - the row is never edited or deleted.
+Added by: 1791420000000; 1791420000002 serial-lock-and-exchange-credit (`credit_collection_id`); 1791595000000 (`voucher`, `no_bill`).
+
+#### `business_exchange_vouchers`
+Purpose: exchange credit printed as a numbered voucher (`CV000123`), walk-ins included.
+Key columns: `location_id`, `voucher_no` (`CV` and 6 to 10 digits, unique per business), `contact_id` (optional), `customer_name`, `customer_phone`, `amount`, `used`, `expires_on` (the issue date plus `business_settings.voucher_valid_days`, default 90), `source_document_id` (the sale the credit left as a credit-note refund), `exchange_id`, `request_key` (unique per business).
+Rules: `used <= amount`; trigger `business_exchange_vouchers_rules`: never deleted, only `used` changes and only upwards. Partial index `business_exchange_vouchers_open` lists vouchers with credit left, by expiry.
+Added by: 1791595000000.
+
+#### `business_exchange_voucher_uses`
+Purpose: each spend of a voucher.
+Key columns: `voucher_id`, `document_id`, `payment_id` (the `credit_note` payment on the bill), `amount`, `created_by`.
+Rules: trigger `business_exchange_voucher_uses_fixed` refuses every update and delete.
+Added by: 1791595000000.
 
 ### Stock
 
@@ -1418,23 +1415,23 @@ Rules:
   - an invalid IMEI on first receipt (`imei` models);
   - one number recorded under two items.
 
-  See [fashion and electronics](BUSINESS_PLATFORM_DATA_MODEL.md#fashion-and-electronics-phase-2-t3).
-Added by: 1791280000000. The trigger and index `business_stock_lots_code` were added by 1791420000001. 1791420000002 serial-lock-and-exchange-credit added the advisory lock.
+  See [electronics](BUSINESS_PLATFORM_DATA_MODEL.md#electronics).
+Added by: 1791280000000; 1791420000001 (the trigger, index `business_stock_lots_code`); 1791420000002 (the advisory lock).
 
 #### `business_stock_movements`
 Purpose: the stock ledger. For every lot, the sum of its movements equals its quantity.
 Key columns: `lot_id`, `quantity` (non-zero), `balance_after` (>= 0), and the source: `document_id`, `adjustment_id` or `transfer_id`, plus `return_id`.
 Rules: CHECK `business_stock_movements_one_source`: exactly one of document, adjustment or transfer is set, and `return_id` may be set only together with a document.
-Added by: 1791280000000. 1791280000001 added adjustment and return. 1791300000004 added transfer and the one-source CHECK.
+Added by: 1791280000000; 1791280000001 (adjustment, return); 1791300000004 (transfer, the one-source CHECK).
 
 #### `business_stock_adjustments`
 Purpose: a reasoned stock correction, entered by hand or posted by a count, a weight cutting batch or a wastage entry.
 Key columns: `lot_id`, `quantity` (non-zero), `reason`, `count_id` -> `business_stock_counts`, `request_key` (unique per business).
-Added by: 1791280000001. `count_id` was added by 1791300000004.
+Added by: 1791280000001; 1791300000004 (`count_id`).
 
 #### `business_stock_transfers`
 Purpose: moving stock between two locations of one business. Goods are in transit between dispatch and receipt.
-Key columns: `transfer_no` (unique), `series_id`, `from_location_id`, `to_location_id`, `status` (in_transit, received or cancelled), `closed_by`, `closed_at`, `close_reason`, `request_key`, `request_hash`.
+Key columns: `transfer_no` (unique), `series_id`, `from_location_id`, `to_location_id`, `status` (in_transit, received or cancelled), `closed_by`, `closed_at`, `close_reason`, `notes`, `request_key`, `request_hash`.
 Rules:
 - CHECK: the two locations differ.
 - CHECK: `closed_at` and `closed_by` are set exactly when the status is not in_transit.
@@ -1449,12 +1446,12 @@ Added by: 1791300000004.
 
 #### `business_stock_counts`
 Purpose: a count sheet for one location.
-Key columns: `count_no` (unique), `series_id`, `location_id`, `status` (open, posted or cancelled), the close fields, `request_key`, `request_hash` (nullable).
+Key columns: `count_no` (unique), `series_id`, `location_id`, `status` (open, posted or cancelled), the close fields, `notes`, `request_key`, `request_hash` (nullable).
 Rules:
 - One open count per location (partial unique index `business_stock_counts_one_open`).
 - CHECK: the close fields are set exactly when the count is not open.
 - CHECK: a cancelled count needs a reason.
-Added by: 1791300000004. `request_hash` was added by 1791350000000 stock-count-request-hash.
+Added by: 1791300000004; 1791350000000 stock-count-request-hash (`request_hash`).
 
 #### `business_stock_count_lines`
 Purpose: one lot on a count sheet.
@@ -1464,7 +1461,7 @@ Rules:
 - CHECK: `counted_quantity` and `counted_at` are both set or both NULL.
 Added by: 1791300000004.
 
-### Appointments and collections
+### Appointments
 
 #### `business_resources`
 Purpose: the staff and rooms that can be booked. A salon marks each one as staff or room in `salon_resource_profiles`.
@@ -1479,32 +1476,48 @@ Rules:
 - Partial index on booked rows. The database does not prevent overlaps; the service checks them.
 Added by: 1791280000000.
 
+### Collections and supplier payments
+
+Linked section: [shared receivables](BUSINESS_PLATFORM_DATA_MODEL.md#shared-receivables).
+
 #### `business_collections`
-Purpose: one receipt of money from a customer. The unallocated part is the customer's advance ([shared receivables](BUSINESS_PLATFORM_DATA_MODEL.md#shared-receivables--customer-credit-collections-outstanding-phase-2-t1--t2)).
+Purpose: one receipt of money from a customer. The unallocated part is the customer's advance.
 Key columns: `collection_no` (unique), `series_id`, `location_id`, `contact_id`, `contact_name` (snapshot), `amount` (> 0), `method` (cash, card, upi, bank, cheque, credit_note), `method_name`, `reference`, `notes`, `request_key`, `request_hash`.
 Rules:
 - Trigger `business_collections_customer` checks that the contact is a customer.
 - Trigger `business_collections_fixed` refuses any update or delete.
-Added by: 1791410000000 shared-receivables. `credit_note` was added by 1791420000002, `method_name` by 1791640000000.
+Added by: 1791410000000 shared-receivables; 1791420000002 (`credit_note`); 1791640000000 (`method_name`).
+
+#### `business_collection_cheques`
+Purpose: a cheque receipt's own details and state.
+Key columns: PK (`business_id`, `collection_id`), `contact_id`, `cheque_no`, `cheque_date`, `bank`, `status` (received, deposited, cleared, bounced), who and when for each step (`deposited_at`, `deposited_by`, `cleared_at`, `cleared_by`, `bounced_at`, `bounced_by`), `deposited_into`, `bounce_reason`, `bounce_charge`, `reversed_allocations` (the bill settlements a bounce took back).
+Rules: trigger `business_collection_cheques_flow`: the cheque's number, date, bank and customer never change; status only moves received → deposited → cleared, or received/deposited → bounced; rows are never deleted. A bounced receipt is left out of every balance (`contactBalanceSql`, open items, advances) and its charge is owed.
+Added by: 1791580000000.
+
+#### `business_collection_refunds`
+Purpose: money paid in advance (a `business_collections` receipt) handed back.
+Key columns: `collection_id`, `contact_id`, `refund_no` (`<receipt no>-R<n>`), `amount` (> 0), `method` (cash, upi, bank), `method_name`, `reference`, `reason` (not blank), `source` (`salon` or `repair`; a repair refund names its `repair_job_id`), `approved_by` (the manager whose PIN was typed), `request_key`, `request_hash`, `created_by`.
+Rules: append-only. Constraint trigger `business_collection_refunds_rules`: the same customer, and payments plus refunds never pass the receipt's amount. The shared balances subtract these refunds (`contactBalanceSql` in the core repository, and `collectionAllocatedSql` in the receivables lists), so a refunded advance does not show as the customer's advance; the customer statement lists each refund.
+Added by: 1791620001000; 1791640000000 (`method_name`).
 
 #### `business_supplier_payments`
-Purpose: one payment made to a supplier (pro pass C-05). The part that settles purchase receipts is written as `business_payments` rows with `supplier_payment_id`; the rest is an advance with the supplier ([data model](BUSINESS_PLATFORM_DATA_MODEL.md#shared-commerce-pro-pass-migration-1791540000000-7-oct-2026)).
-Key columns: `payment_no` (unique, `SP/…`), `series_id`, `location_id`, `contact_id` (a supplier), `contact_name` (snapshot), `amount` (> 0), `method` (cash, card, upi, bank, cheque), `method_name` (1791640000000), `reference`, `notes`, `request_key`, `request_hash`, `created_by`.
+Purpose: one payment made to a supplier. The part that settles purchase bills is written as `business_payments` rows with `supplier_payment_id`; the rest is an advance with the supplier ([data model §4](BUSINESS_PLATFORM_DATA_MODEL.md#4-shared-core)).
+Key columns: `payment_no` (unique, `SP/…`), `series_id`, `location_id`, `contact_id` (a supplier), `contact_name` (snapshot), `amount` (> 0), `method` (cash, card, upi, bank, cheque), `method_name`, `reference`, `notes`, `request_key`, `request_hash`, `created_by`.
 Rules:
 - Trigger `business_supplier_payments_supplier` checks the contact is a supplier; `business_supplier_payments_fixed` refuses any update or delete.
 - On `business_payments`: `supplier_payment_id` (FK), CHECK `business_payments_one_source` (a collection or a supplier payment, not both) and constraint trigger `business_payments_supplier_rules` (only that supplier's purchases; never more than was paid).
-Added by: 1791540000000 business-core-gst-mrp-supplier-payments, which also added `catalog_skus.hsn_code` / `.mrp` (CHECK `catalog_skus_price_within_mrp`), `business_document_lines.hsn_code` / `.mrp`, `business_documents.place_of_supply` / `.buyer_gstin` / `.buyer_address` / `.supplier_bill_no` / `.supplier_bill_date` (CHECK `business_documents_supplier_bill_on_purchases`, unique index `business_documents_supplier_bill`), `business_settings.max_bill_discount_percent` / `.walk_in_credit`, the `manual` source on `retail_sale_discounts`, the permission action `discount` (`sales.discount`) and the number kind `supplier_payment`; it changed `business_seed_settings()` (goods types start GST-inclusive, rounded to the rupee).
+Added by: 1791540000000; 1791640000000 (`method_name`).
 
 ### Expenses and cash
 
-Module `expenses` ("Daily expenses", optional, for every type except the restaurant, which has its own `expenses` table; on by default, and switched on for every existing business by its migration) with permissions `expenses.view`, `expenses.create` and `expenses.approve` (reverse an expense). A daily cash check needs `reports.edit`. Unlike the other rule triggers, the three guards below raise a plain exception rather than SQLSTATE 23514 (it would reach a caller as a 500); the services lock the row and check first, so they never send a change a guard refuses.
+Module `expenses` ("Daily expenses", optional, for every type except the restaurant, which has its own `expenses` table; on by default) with permissions `expenses.view`, `expenses.create` and `expenses.approve` (reverse an expense). A daily cash check needs `reports.edit`. Unlike the other rule triggers, the three guards below raise a plain exception rather than SQLSTATE 23514 (it would reach a caller as a 500); the services lock the row and check first, so they never send a change a guard refuses.
 
 #### `business_expenses`
 Purpose: money a business paid out (rent, wages, transport), recorded once and reversed, if wrong, with a reason.
 Key columns: `location_id` (the location that paid), `spent_on`, `category` (rent, utilities, wages, transport, supplies, cleaning, maintenance, other), `description` (not blank), `amount` (> 0), `method` (cash, upi, card, bank), `method_name`, `method_id`, `reference`, `request_key` (UUID, unique per business), `created_by`, and the reversal `voided_at`, `voided_by`, `void_reason`.
 Relations: (`business_id`, `location_id`) -> `business_locations`; (`business_id`, `method_id`) -> `business_payment_methods`.
 Rules:
-- CHECK `business_expenses_void_shape`: the three reversal columns are all NULL, or all set with a non-blank reason (1791950401000 replaced the first CHECK, which let a NULL reason through).
+- CHECK `business_expenses_void_shape`: the three reversal columns are all NULL, or all set with a non-blank reason.
 - Trigger `business_expenses_immutable` (function `guard_business_expense`): never deleted; the only change is one reversal.
 - Indexes `business_expenses_day` (business, day, location) and partial `business_expenses_void`. The service allows a date up to 30 days back and never in the future.
 Added by: 1791950400000 business-workspaces-and-expenses; 1791950401000 expense-and-cash-reason-guards.
@@ -1515,7 +1528,7 @@ Key columns: `location_id`, `checked_on`, `opening_cash`, `counted_cash` (both >
 Relations: (`business_id`, `location_id`) -> `business_locations`.
 Rules:
 - CHECK: `expected_cash = opening_cash + movement_cash` and `difference = counted_cash - expected_cash`.
-- CHECK `business_cash_checks_reason`: a difference needs a non-blank reason (1791950401000 replaced the first CHECK, which let a NULL reason through).
+- CHECK `business_cash_checks_reason`: a difference needs a non-blank reason.
 - Trigger `business_cash_checks_immutable` (function `guard_business_cash_check`) refuses every update and delete.
 - Index `business_cash_checks_day` (business, day, location, newest first).
 Added by: 1791950400000; 1791950401000.
@@ -1532,198 +1545,238 @@ Added by: 1791950404000 retail-completion.
 
 ## Retail
 
-Linked section: [retail](BUSINESS_PLATFORM_DATA_MODEL.md#retail-grocery--kirana-supermarket-books--stationery-phase-2-t1). All seven tables were added by 1791400000000 retail-credit-offers-loyalty-books unless an entry says otherwise.
+Linked section: [retail](BUSINESS_PLATFORM_DATA_MODEL.md#retail-grocery--kirana-supermarket-books--stationery). Grocery and kirana shops, supermarkets, and books & stationery shops use these tables with the shared core.
 
 #### `retail_credit_reminders`
 Purpose: udhaar reminders given to a customer who owes money.
 Key columns: `contact_id`, `channel` (whatsapp, sms, call, visit, other), `balance` (snapshot), `promised_on`, `note`, `created_by`.
-Rules: none beyond the CHECKs listed.
+Added by: 1791400000000 retail-credit-offers-loyalty-books.
 
 #### `retail_offers`
-Purpose: item, category and bill discounts, and buy-X-get-Y offers.
-Key columns: `name`, `kind` (item_percent, item_amount, category_percent, bill_percent, bill_amount, buy_x_get_y), `sku_id`, `category_id`, `value`, `buy_quantity`, `get_quantity`, `min_bill_amount`, `max_discount`, `starts_on`, `ends_on`, `days_of_week` (ISO 1–7), `starts_time`, `ends_time`, `active`, and for a coupon `coupon_code` (3–20 of A–Z, 0–9 and hyphen: the offer applies only when the code is given at the counter), `usage_limit` and `per_customer_limit` (both > 0).
+Purpose: item, category, product and bill discounts, and buy-X-get-Y offers.
+Key columns: `name`, `kind` (item_percent, item_amount, category_percent, product_percent, bill_percent, bill_amount, buy_x_get_y), `sku_id`, `category_id`, `product_id` (-> `catalog_products`; `product_percent` takes a % off every SKU of one product, a fashion markdown), `value`, `buy_quantity`, `get_quantity`, `min_bill_amount`, `max_discount`, `starts_on`, `ends_on`, `days_of_week` (ISO 1–7), `starts_time`, `ends_time`, `active`, and for a coupon `coupon_code` (3–20 of A–Z, 0–9 and hyphen: the offer applies only when the code is given at the counter), `usage_limit` and `per_customer_limit` (both > 0).
 Rules: CHECKs tie each kind to its fields:
 - percent kinds are at most 100;
 - `sku_id` is set exactly for item kinds and buy_x_get_y;
 - `category_id` is set exactly for category_percent;
+- `product_id` is set exactly for product_percent (`retail_offers_product_kind`);
 - the buy and get quantities are set exactly for buy_x_get_y.
 
 The date range must be valid, the time window is set completely or not at all, and `days_of_week` must be a valid subset of 1–7. Usage limits need a coupon code (`retail_offers_limits_need_coupon`), and a coupon code is unique per business (partial unique index `retail_offers_coupon`).
-Added by: 1791400000000. 1791595000000 added `product_id` and the kind `product_percent` (see [Fashion and electronics, pro pass](#fashion-and-electronics-pro-pass-1791595000000-fashion-electronics-pro)); 1791950404000 retail-completion added the coupon columns.
+Added by: 1791400000000; 1791595000000 (`product_id`, `product_percent`); 1791950404000 (the coupon columns).
 
 #### `retail_sale_discounts`
 Purpose: what each sale line was given and why, as a snapshot.
-Key columns: `document_id`, `line_id`, `source` (offer, points, membership, package), `offer_id` -> `retail_offers`, `label`, `amount` (> 0).
+Key columns: `document_id`, `line_id`, `source` (offer, points, membership, package, manual: a counter discount), `offer_id` -> `retail_offers`, `label`, `amount` (> 0).
 Rules:
 - CHECK: `offer_id` is set exactly when the source is `offer`.
 - Append-only (trigger `retail_sale_discounts_append_only` -> `retail_append_only`).
-Added by: 1791400000000. 1791430000000 widened `source` with membership and package.
+Added by: 1791400000000; 1791430000000 (membership, package); 1791540000000 (manual).
 
 #### `retail_loyalty_settings`
 Purpose: the loyalty rules, one row per business.
-Key columns: PK `business_id`, `earn_per_amount`, `earn_points`, `point_value`, `min_redeem_points`, `max_redeem_percent`, `active`.
+Key columns: PK `business_id`, `earn_per_amount`, `earn_points`, `point_value`, `min_redeem_points`, `max_redeem_percent`, `active`, `return_spent_points` (default true: a return gives back the points spent on the sale).
 Rules: range CHECKs on every rule column.
+Added by: 1791400000000; 1791620002000 (`return_spent_points`).
 
 #### `retail_loyalty_entries`
-Purpose: the points ledger. Entries are of kind earn, redeem, adjust or reverse, and a customer's balance is the sum of the points.
+Purpose: the points ledger; a customer's balance is the sum of the points. Entries are of kind earn, redeem, adjust, reverse (earned points taken back on a return) or restore (spent points given back on a return).
 Key columns: `contact_id`, `kind`, `points`, `document_id`, `return_id` -> `business_returns`, `value`, `shortfall_points`, `shortfall_value`, `reason`, `request_key`.
 Rules:
-- CHECK `retail_loyalty_entries_shape` defines the shape of each kind.
+- CHECK `retail_loyalty_entries_shape` defines the shape of each kind (a restore has positive points, a document, a return and a value).
 - Shortfall columns are used only on `reverse` entries.
 - One earn and one redeem per sale (`retail_loyalty_entries_one_per_sale`).
-- One reverse per return (`retail_loyalty_entries_one_per_return`).
+- One entry of each kind per return (`retail_loyalty_entries_one_per_return`), so a return may restore spent points and reverse earned ones.
 - Constraint trigger `retail_loyalty_not_negative` refuses any entry that would leave a customer's balance below 0.
 - Append-only.
-Added by: 1791400000000. 1791400000001 loyalty-points-reversed-on-returns added the reverse kind, the shortfall columns and the trigger.
+Added by: 1791400000000; 1791400000001 loyalty-points-reversed-on-returns (the reverse kind, the shortfall columns, the trigger); 1791620002000 (the restore kind).
 
 #### `retail_scale_items`
 Purpose: the 5-digit PLU code a loose item has on the shop's label scale.
 Key columns: PK (`business_id`, `sku_id`), `plu_code` (unique per business).
 Rules: trigger `retail_scale_items_weighed` requires a SKU whose unit is a weight unit and that is not serial-tracked.
+Added by: 1791400000000.
 
 #### `books_titles`
 Purpose: typed book details per SKU.
 Key columns: PK (`business_id`, `sku_id`), `isbn` (ISBN-13 only, CHECK `books_isbn_valid`), `author`, `publisher`, `edition`, `language`, `published_year` (1450–2200).
-Rules: ISBN is unique per business (partial unique index). The migration back-filled rows from `catalog_skus.attributes`, converting values through `books_isbn13()`.
+Rules: ISBN is unique per business (partial unique index).
+Added by: 1791400000000.
 
-#### `books_sets` (1791610000000 retail-pro)
+#### `books_sets`
 Purpose: a school's booklist for a class, billed in one scan at the counter.
 Key columns: `name`, `code` (unique per business, `^[A-Z0-9][A-Z0-9-]{0,39}$`), `school`, `class_name`, `notes`, `active`, `created_by`. Its books are `books_set_items`.
 Rules: the service refuses a code that is an item's code or barcode.
+Added by: 1791610000000.
 
 #### `books_set_items`
 Purpose: one book (or other item) on a booklist, and how many of it.
 Key columns: PK (`business_id`, `set_id`, `sku_id`), `quantity` (> 0, ≤ 1000), `sort_order`.
 Relations: (`business_id`, `set_id`) -> `books_sets` (ON DELETE CASCADE); (`business_id`, `sku_id`) -> `catalog_skus`.
-Added by: 1791610000000 retail-pro.
+Added by: 1791610000000.
 
-#### `books_customer_orders` (1791610000000 retail-pro)
+#### `books_customer_orders`
 Purpose: a customer's order for a book not on the shelf.
 Key columns: `location_id`, `order_no` (unique per business, BO-0001…), `contact_id`, `customer_name`, `phone`, `title`, `author`, `isbn` (valid ISBN-13 or null), `sku_id`, `quantity`, `advance`, `collection_id` -> `business_collections`, `promised_on`, `notes`, `status` (ordered, arrived, collected, cancelled), `request_key` (unique), `created_by`, `closed_at`.
 Rules: CHECK an advance has its collection and the other way round; CHECK `closed_at` is set exactly for collected / cancelled; trigger `books_customer_order_rules`: never deleted, customer / advance / number / key fixed, a closed order never moves, arrived never goes back to ordered.
+Added by: 1791610000000.
 
 ## Wholesale
 
-Linked section: [wholesale](BUSINESS_PLATFORM_DATA_MODEL.md#wholesale--fmcg-phase-2-t2). All nine tables were added by 1791410000001 wholesale-orders-dispatch-routes.
+Linked section: [wholesale](BUSINESS_PLATFORM_DATA_MODEL.md#wholesale--fmcg). A cheque receipt's state and a refunded advance are shared receivables, under [Collections and supplier payments](#collections-and-supplier-payments).
+
+### Salespeople, routes and settlements
 
 #### `wholesale_salespeople`
 Purpose: the field staff who take orders and collect money.
-Key columns: `name` (unique per business, ignoring case), `phone`, `active`.
+Key columns: `name` (unique per business, ignoring case), `phone`, `active`, `user_id` (their login; unique per business when set), `monthly_target` (>= 0).
+Added by: 1791410000001 wholesale-orders-dispatch-routes; 1791580000000 (`user_id`, `monthly_target`).
 
 #### `wholesale_routes`
 Purpose: a delivery run.
 Key columns: `name` (unique per business, ignoring case), `location_id` (the godown, optional), `active`.
+Added by: 1791410000001.
 
 #### `wholesale_beats`
 Purpose: the shops on a route that one salesperson visits on one ISO weekday.
 Key columns: `route_id`, `name` (unique per route, ignoring case), `visit_day` (1–7, NULL = any day), `salesperson_id`, `active`.
+Added by: 1791410000001.
 
 #### `wholesale_customer_beats`
 Purpose: the one beat each customer belongs to.
 Key columns: PK (`business_id`, `contact_id`), `beat_id`.
 Rules: trigger `wholesale_customer_beats_customer` (`business_contact_is_customer`) requires the contact to be a customer.
-
-#### `wholesale_orders`
-Purpose: a sales order. Stock moves only when it is dispatched.
-Key columns: `order_no` (unique), `series_id`, `location_id`, `contact_id`, `contact_name`, `salesperson_id`, `route_id`, `beat_id`, `status` (open, part_dispatched, dispatched, closed, cancelled), `expected_on`, `tax_mode`, `subtotal`, `tax`, `total`, the close fields, `request_key`, `request_hash`.
-Rules:
-- CHECK: `total = subtotal + tax`.
-- CHECK: closed and cancelled orders carry who closed them, when, and the reason.
-- Trigger `wholesale_orders_customer` requires the contact to be a customer.
-
-#### `wholesale_order_lines`
-Purpose: a snapshot of each ordered line, plus its dispatch progress.
-Key columns: `order_id`, `sku_id`, `label`, `unit`, `quantity`, `unit_price` (4 places), `tax_rate`, `net`, `tax`, `price_rule_id`, the entered-unit columns (all set or all NULL), `dispatched_quantity`, `closed_quantity`.
-Rules:
-- CHECK: `dispatched_quantity + closed_quantity <= quantity`.
-- Trigger `wholesale_order_lines_snapshot`: only the two progress columns may change, and only upwards; lines are never deleted.
-
-#### `wholesale_dispatches`
-Purpose: one dispatch, which is one tax invoice.
-Key columns: `order_id`, `document_id` (the sale, unique), `vehicle_no`, `notes`, `request_key`, `request_hash`.
-
-#### `wholesale_dispatch_lines`
-Purpose: links each invoice line to the order line it came from.
-Key columns: `dispatch_id`, `order_line_id`, `document_line_id` (unique), `quantity`.
+Added by: 1791410000001.
 
 #### `wholesale_collection_details`
 Purpose: the salesperson and route on a shared collection.
 Key columns: PK (`business_id`, `collection_id` -> `business_collections`), `salesperson_id`, `route_id`.
 Rules: CHECK: at least one of `salesperson_id` and `route_id` is set.
-
-
-### Pro pass (wholesale, D) — migration 1791580000000 wholesale-pro-cheques-dispatch-schemes
-
-#### `business_collection_cheques`
-Purpose: a cheque receipt's own details and state (shared receivables).
-Key columns: PK (`business_id`, `collection_id`), `contact_id`, `cheque_no`, `cheque_date`, `bank`, `status` (received, deposited, cleared, bounced), who/when for each step, `deposited_into`, `bounce_reason`, `bounce_charge`, `reversed_allocations` (the bill settlements a bounce took back).
-Rules: trigger `business_collection_cheques_flow` — the cheque's number, date, bank and customer never change; status only moves received → deposited → cleared, or received/deposited → bounced; rows are never deleted. A bounced receipt is left out of every balance (`contactBalanceSql`, open items, advances) and its charge is owed. Existing cheque receipts were back-filled as received.
+Added by: 1791410000001.
 
 #### `wholesale_settlements`
-Purpose: a salesperson's day settled: receipts, cash / UPI / cheques / other, cash handed over and the difference (CHECK `difference = cash_handed - cash`; a difference needs notes). Its receipts are `wholesale_settlement_receipts`. Fixed once written (trigger `wholesale_settlements_fixed`).
+Purpose: a salesperson's day settled: receipts, cash / UPI / cheques / other, cash handed over and the difference. Its receipts are `wholesale_settlement_receipts`.
+Key columns: `salesperson_id`, `day`, `receipts`, `cash`, `upi`, `cheques`, `cheque_count`, `other`, `cash_handed`, `difference`, `notes`, `request_key`, `request_hash`, `created_by`.
+Rules: CHECK `difference = cash_handed - cash`; a difference needs notes. Fixed once written (trigger `wholesale_settlements_fixed`).
+Added by: 1791580000000.
 
 #### `wholesale_settlement_receipts`
 Purpose: the receipts (`business_collections`) a settlement took in.
 Key columns: PK (`business_id`, `collection_id`), so each receipt is settled once; `settlement_id`.
 Relations: (`business_id`, `settlement_id`) -> `wholesale_settlements`; (`business_id`, `collection_id`) -> `business_collections`.
 Rules: fixed once written (trigger `wholesale_settlement_receipts_fixed`, function `wholesale_settlements_fixed`); index `wholesale_settlement_receipts_settlement`.
-Added by: 1791580000000 wholesale-pro-cheques-dispatch-schemes.
+Added by: 1791580000000.
 
-#### `wholesale_delivery_runs`
-Purpose: one van: location, route, vehicle, driver (and phone), helper; the dispatches made together point at it (`wholesale_dispatches.run_id`).
+### Customers, prices and schemes
 
-#### `wholesale_dispatches` (added columns)
-`run_id`, `driver_name`, `helper_name`, `transporter_name`, `transporter_id`, `lr_no`, `eway_bill_no` (12 digits) + `eway_bill_date`, `distance_km`, `delivery_status` (out_for_delivery, delivered, part_returned, refused; earlier dispatches were set to delivered), `delivered_at`, `delivery_recorded_by`, `received_by`, `delivery_note`, `return_id` (the van return).
-
-#### `wholesale_order_lines` (added columns)
-`discount_percent`, `list_unit_price` (before the discount), `free_of_line_id` (a free-goods line; CHECK it carries no value), `scheme_id`.
-
-#### `wholesale_order_edits`
-Purpose: each change to an order before it went: reason, `removed_line_ids` (unsent part taken off), `added_line_ids`, totals before and after, request key.
-
-#### `wholesale_hold_releases`
-Purpose: an order let through a credit hold: overdue amount and days, reason, who released it and who asked.
+#### `wholesale_customer_profiles`
+Purpose: a trade customer's details.
+Key columns: PK (`business_id`, `contact_id`), `price_group_id`, `contact_person`, `state_code` (two digits) and `pin_code` (the place of supply when the customer has no GSTIN), `pan`, `fssai`, `trade_type` (trade or walk_in; walk-ins stay out of the order and collection lists), `hold_exempt` (never put on credit hold; changing it needs `receivables.approve`), `updated_by`, `updated_at`.
+Rules: trigger `wholesale_customer_profiles_customer` requires the contact to be a customer.
+Added by: 1791580000000.
 
 #### `wholesale_price_groups`
-Purpose: customer price groups (`name` unique per business ignoring case, `notes`, `active`); a trade customer's group is on `wholesale_customer_profiles`, and its dated prices are `wholesale_group_prices`.
+Purpose: customer price groups. A trade customer's group is on `wholesale_customer_profiles`, and a group's dated prices are `wholesale_group_prices`.
+Key columns: `name` (unique per business, ignoring case), `notes`, `active`, `created_by`.
+Added by: 1791580000000.
 
 #### `wholesale_group_prices`
 Purpose: a price group's dated price for an item: per stock unit or per pack, from a quantity, `valid_from` to `valid_to`. Changing a price ends the old row the day before the new one starts.
 Key columns: `group_id`, `sku_id`, `unit_code` (a pack, "₹2,050 a case"; NULL = per stock unit), `minimum_quantity` (> 0, default 1), `unit_price` (>= 0), `valid_from`, `valid_to` (NULL = open), `created_by`, `ended_by`.
 Relations: (`business_id`, `group_id`) -> `wholesale_price_groups`; (`business_id`, `sku_id`) -> `catalog_skus`; (`business_id`, `sku_id`, `unit_code`) -> `catalog_sku_units`.
 Rules: CHECK `valid_to >= valid_from`; index `wholesale_group_prices_lookup` (business, group, SKU, latest start first).
-Added by: 1791580000000 wholesale-pro-cheques-dispatch-schemes.
+Added by: 1791580000000.
 
 #### `wholesale_schemes`
-Purpose: buy N (pack or unit) get M free and/or a discount %, for a period, for everyone or one group.
+Purpose: buy N (pack or unit) get M free and/or a discount %, for a period, for everyone or one price group.
+Key columns: `name`, `sku_id`, `unit_code` (the pack bought; NULL = stock units), `buy_quantity` (> 0), `free_quantity`, `discount_percent` (0 to below 100), `free_sku_id` (another item free; NULL = the same item), `free_unit_code` (its pack; FK to `catalog_sku_units`), `no_slab` ("don't combine with slab price"), `group_id` (-> `wholesale_price_groups`; NULL = everyone), `valid_from`, `valid_to`, `active`, `created_by`.
+Rules: CHECKs: a scheme gives free goods or a discount; a free item needs a free quantity; a free pack needs a free item; `valid_to >= valid_from`. Partial index `wholesale_schemes_sku` covers active schemes.
+Added by: 1791580000000; 1791620003000 (`free_sku_id`, `free_unit_code`, `no_slab`).
 
-#### `wholesale_customer_profiles`
-Purpose: a trade customer's details: price group, contact person, `state_code` (place of supply), PIN, PAN, FSSAI, `trade_type` (trade / walk_in), `hold_exempt`.
+### Orders and dispatch
+
+#### `wholesale_orders`
+Purpose: a sales order. Stock moves only when it is dispatched.
+Key columns: `order_no` (unique), `series_id`, `location_id`, `contact_id`, `contact_name`, `salesperson_id`, `route_id`, `beat_id`, `status` (open, part_dispatched, dispatched, closed, cancelled), `expected_on`, `tax_mode`, `subtotal`, `tax`, `total`, the close fields, `notes`, `request_key`, `request_hash`.
+Rules:
+- CHECK: `total = subtotal + tax`.
+- CHECK: closed and cancelled orders carry who closed them, when, and the reason.
+- Trigger `wholesale_orders_customer` requires the contact to be a customer.
+Added by: 1791410000001.
+
+#### `wholesale_order_lines`
+Purpose: a snapshot of each ordered line, plus its dispatch progress.
+Key columns: `order_id`, `sku_id`, `label`, `unit`, `quantity`, `unit_price` (4 places), `list_unit_price` (before the discount), `discount_percent`, `tax_rate`, `net`, `tax`, `price_rule_id`, `scheme_id`, `free_of_line_id` (on a free-goods line: the line it comes free with), the entered-unit columns (all set or all NULL), `dispatched_quantity`, `closed_quantity`.
+Rules:
+- CHECK: `dispatched_quantity + closed_quantity <= quantity`.
+- CHECK `wholesale_order_lines_free_is_free`: a free-goods line carries no value.
+- Trigger `wholesale_order_lines_snapshot`: only the two progress columns may change, and only upwards; lines are never deleted.
+- Partial index `wholesale_order_lines_scheme` serves the scheme report.
+Added by: 1791410000001; 1791580000000 (the discount, list price, free-goods and scheme columns).
+
+#### `wholesale_order_edits`
+Purpose: each change to an order before it went out.
+Key columns: `order_id`, `reason`, `removed_line_ids` (the unsent part taken off), `added_line_ids`, `total_before`, `total_after`, `request_key`, `request_hash`, `created_by`.
+Added by: 1791580000000.
+
+#### `wholesale_dispatches`
+Purpose: one dispatch, which is one tax invoice.
+Key columns: `order_id`, `document_id` (the sale, unique), `vehicle_no`, `notes`, `request_key`, `request_hash`; the van and transport: `run_id` (-> `wholesale_delivery_runs`), `driver_name`, `helper_name`, `transporter_name`, `transporter_id`, `lr_no`, `eway_bill_no` (12 digits) with `eway_bill_date`, `distance_km` (0–4000); the delivery: `delivery_status` (out_for_delivery, delivered, part_returned, refused), `delivered_at`, `delivery_recorded_by`, `received_by`, `delivery_note`, `return_id` (the van return); the delivery challan: `challan_no` (unique per business when set) and `challan_series_id` (from the `delivery_challan` series of the dispatching location and financial year).
+Rules: CHECK an e-way bill number has its date; CHECK a recorded delivery has its time. Partial indexes `wholesale_dispatches_out` (vans out) and `wholesale_dispatches_run`.
+Added by: 1791410000001; 1791580000000 (the van, transport and delivery columns); 1791620003000 (the challan).
+
+#### `wholesale_dispatch_lines`
+Purpose: links each invoice line to the order line it came from.
+Key columns: `dispatch_id`, `order_line_id`, `document_line_id` (unique), `quantity`.
+Added by: 1791410000001.
+
+#### `wholesale_delivery_runs`
+Purpose: one van: location, route, vehicle, driver (and phone), helper. The dispatches made together point at it (`wholesale_dispatches.run_id`).
+Key columns: `location_id`, `route_id`, `vehicle_no`, `driver_name`, `driver_phone`, `helper_name`, `notes`, `request_key` (unique per business), `request_hash`, `created_by`.
+Added by: 1791580000000.
+
+### Credit control
+
+Bouncing a cheque, settling a salesperson's cash and letting an order through a credit hold need `receivables.approve`.
 
 #### `wholesale_settings`
-Purpose: `hold_overdue_days` (hold new orders after a bill is this many days overdue; NULL = off).
+Purpose: the credit-control settings, one row per business.
+Key columns: PK `business_id`, `hold_overdue_days` (1–365: hold new orders once a bill is this many days overdue; NULL = off), `bounce_charge` (0–100,000, default 500: the bank's charge put on the customer's account for a bounced cheque, editable on each bounce), `bounce_hold_count` (1–20, default 2: hold new orders after this many bounced cheques in the window; NULL = never), `bounce_hold_days` (7–365, default 90: the window), `updated_by`, `updated_at`.
+Added by: 1791580000000; 1791620003000 (the bounce settings).
 
-#### `wholesale_salespeople` (added columns)
-`user_id` (their login, unique per business), `monthly_target`.
+#### `wholesale_hold_releases`
+Purpose: an order let through a credit hold: the overdue amount and days, the reason, who released it and who asked.
+Key columns: `order_id`, `contact_id`, `overdue`, `overdue_days`, `reason`, `released_by`, `requested_by`.
+Added by: 1791580000000.
+
+### Claims on suppliers
 
 #### `wholesale_claims`
-Purpose: claims on a supplier (scheme, damage, expiry, rate difference, shortage): amount, optional purchase and period, status open → submitted → settled (with the credit note and amount) or rejected.
+Purpose: a claim on a supplier (scheme, damage, expiry, rate difference, shortage, other): the amount, an optional purchase and period, and the status open → submitted → settled (with the credit note and amount) or rejected.
+Key columns: `contact_id` (the supplier), `kind`, `amount` (> 0), `document_id` (the purchase), `period_from`, `period_to`, `status`, `submitted_at`, `settled_amount`, `credit_note_no`, `closed_at`, `notes`, `created_by`, `updated_by`.
+Rules: CHECKs: a settled claim has its settled amount and close time; a rejected one its close time; the period does not run backwards. Index `wholesale_claims_open`.
+Added by: 1791580000000.
 
-Permission added: `receivables.approve` (credit control: bounce a cheque, settle a salesperson's cash, release a credit hold) for Manager and Accountant.
+### Purchase orders
 
-### Round 2 (R2-WS) — migration 1791620003000_wholesale-purchase-orders-challan-schemes-bounces
+Every business with the `purchasing` module raises purchase orders with these tables, although they are named `wholesale_purchase_*`. A receipt against an order is an ordinary core purchase.
 
 #### `wholesale_purchase_orders`
 Purpose: a purchase order to a supplier (the company or the super-stockist).
 Key columns: `po_no` (unique per business, `purchase_order` number series), `series_id`, `location_id` (the godown it comes into), `contact_id` + `contact_name` (a supplier: trigger `wholesale_purchase_orders_supplier`), `status` (draft, sent, part_received, received, closed, cancelled), `expected_on`, `notes`, `subtotal`, `tax`, `total` (an estimate at the costs asked; CHECK `total = subtotal + tax`), `sent_at` / `sent_by` / `sent_via`, the close fields (required when closed or cancelled), `request_key`, `request_hash`.
+Added by: 1791620003000_wholesale-purchase-orders-challan-schemes-bounces.
 
 #### `wholesale_purchase_order_lines`
 Purpose: what was asked for, and what has come in against it.
 Key columns: `po_id`, `sku_id`, `label`, `unit`, `quantity` (stock units), the entered pack (`entered_unit`, `entered_quantity`, `unit_factor`: all set or all NULL), `unit_cost` (per stock unit before GST, 4 places), `tax_rate`, `net`, `tax`, `received_quantity`, `closed_quantity`, `source` (manual, reorder, back_order).
 Rules: CHECK `received_quantity + closed_quantity <= quantity` (a supplier sending more than asked is received in full on the purchase but counted on the order only up to what was asked).
+Added by: 1791620003000.
 
 #### `wholesale_purchase_receipts`
-Purpose: each receipt against an order is one core purchase (`business_documents` kind `purchase`, unique per receipt): `po_id`, `document_id`, `created_by`. Its lines are `wholesale_purchase_receipt_lines`. Fixed once written (trigger `wholesale_purchase_receipts_fixed`; only the time stamp may be corrected, for the demo).
+Purpose: each receipt against an order is one core purchase (`business_documents` kind `purchase`, unique per receipt). Its lines are `wholesale_purchase_receipt_lines`.
+Key columns: `po_id`, `document_id`, `created_by`.
+Rules: fixed once written (trigger `wholesale_purchase_receipts_fixed`; only the time stamp may be corrected).
+Added by: 1791620003000.
 
 #### `wholesale_purchase_receipt_lines`
 Purpose: links each line of a receipt's purchase to the order line it fills, with the quantity that counts against the order (at most what was still to come).
@@ -1732,24 +1785,9 @@ Relations: (`business_id`, `receipt_id`) -> `wholesale_purchase_receipts`; (`bus
 Rules: fixed once written (trigger `wholesale_purchase_receipt_lines_fixed`, function `wholesale_purchase_receipts_fixed`); index `wholesale_purchase_receipt_lines_line` (business, order line).
 Added by: 1791620003000_wholesale-purchase-orders-challan-schemes-bounces.
 
-#### `wholesale_dispatches` (added columns)
-`challan_no` (unique per business when set), `challan_series_id`: the delivery challan number from the `delivery_challan` series of the dispatching location and financial year.
-
-#### `wholesale_schemes` (added columns)
-`free_sku_id` (another item free; NULL = the same item), `free_unit_code` (its pack; FK to `catalog_sku_units`), `no_slab` ("don't combine with slab price"). CHECKs: a free item needs a free quantity; a free pack needs a free item. Index `wholesale_order_lines_scheme` serves the scheme report.
-
-#### `wholesale_settings` (added columns)
-`bounce_charge` (default 500.00), `bounce_hold_count` (default 2, NULL = never), `bounce_hold_days` (default 90).
-
-#### `business_number_series`
-The document-kind CHECK also allows `purchase_order` (PO/…) and `delivery_challan` (DC/…).
-
-#### `customer_advances` (added column)
-`order_id` -> `orders` (SET NULL): the pickup order an advance was taken on. Trigger `trg_customer_advances_order` keeps it within the same restaurant; partial index `idx_customer_advances_order`.
-
 ## Fashion
 
-Linked section: [fashion and electronics](BUSINESS_PLATFORM_DATA_MODEL.md#fashion-and-electronics-phase-2-t3). All three tables were added by 1791420000000 fashion-variants-and-exchanges, except where noted.
+Linked section: [fashion](BUSINESS_PLATFORM_DATA_MODEL.md#fashion). Exchanges and credit vouchers are shared tables, under [Exchanges and vouchers](#exchanges-and-vouchers); a markdown is a `product_percent` offer in [`retail_offers`](#retail_offers).
 
 #### `fashion_variants`
 Purpose: the size, colour and fabric of each variant SKU.
@@ -1757,40 +1795,30 @@ Key columns: PK (`business_id`, `sku_id`), `product_id`, `size`, `color`, `fabri
 Rules:
 - Each size × colour × fabric combination is unique per product, ignoring case.
 - Trigger `fashion_variants_rules` checks that the SKU belongs to that product, trims the values, and sets `size_rank` with `fashion_size_rank()`.
-- The migration back-filled rows from SKU attributes.
+Added by: 1791420000000.
 
-#### `business_exchange_policies`
-Purpose: how many days after a sale an exchange is allowed.
-Key columns: PK `business_id`, `days_allowed` (1–365, NULL = no limit), `updated_by` (NOT NULL).
-
-#### `business_exchanges`
-Purpose: one exchange. It links the credit note on the original sale with the new sale, and records how the difference was settled.
-Key columns: `location_id`, `original_document_id`, `return_id` (unique), `new_document_id` (unique), `contact_id`, `returned_value`, `new_value`, `credit_applied`, `collected`, `refunded`, `method` (cash, card, upi, bank, on_account, or NULL), `credit_collection_id` -> `business_collections`, `reason`, `request_key`, `request_hash`.
-Rules:
-- CHECK: the two documents differ.
-- CHECK: money is either collected or refunded, not both.
-- CHECK: a money method is set exactly when money changed hands.
-- CHECK: `on_account` needs a contact.
-- CHECK `business_exchanges_credit_on_account`: `credit_collection_id` may be set only when the method is `on_account`.
-- Trigger `business_exchanges_rules`:
-  - the credit note must belong to the original sale;
-  - both documents must be sales;
-  - the row is never edited or deleted.
-Added by: 1791420000000. 1791420000002 added `credit_collection_id`.
+#### `fashion_gst_price_slabs`
+Purpose: apparel GST by the value of each piece. One row per business.
+Key columns: `active`, `threshold` (per piece before GST, default 2500), `rate_low` (5), `rate_high` (18), `category_ids` (extra categories besides size × colour variants).
+Rules: `rate_high >= rate_low`. Read inside sale posting (`businessFashionMerchandising.applyPriceSlabs`), so quotes and bills agree.
+Added by: 1791595000000.
 
 ## Electronics
 
-Linked section: [fashion and electronics](BUSINESS_PLATFORM_DATA_MODEL.md#fashion-and-electronics-phase-2-t3). All six tables were added by 1791420000001 electronics-serials-warranties-repairs.
+Linked section: [electronics](BUSINESS_PLATFORM_DATA_MODEL.md#electronics). Exchanges are shared tables, under [Exchanges and vouchers](#exchanges-and-vouchers).
+
+### Models, serials and warranties
 
 #### `electronics_models`
 Purpose: model details for each serial-tracked SKU.
-Key columns: PK (`business_id`, `sku_id`), `model_number`, `serial_kind` (`imei` is validated; `serial` accepts any text), `warranty_months` (0–120), `warranty_terms`.
-Rules: the migration back-filled rows from SKU attributes, all with `serial_kind = 'serial'`.
+Key columns: PK (`business_id`, `sku_id`), `model_number`, `serial_kind` (`imei` is validated; `serial` accepts any text), `warranty_months` (0–120), `warranty_terms`, `helpline` (the brand helpline on the warranty card), `updated_by`, `updated_at`.
+Added by: 1791420000001 electronics-serials-warranties-repairs; 1791595000000 (`helpline`).
 
 #### `electronics_serial_details`
 Purpose: the second IMEI and a note for one unit.
 Key columns: PK (`business_id`, `sku_id`, `serial`), `imei2` (CHECK `electronics_valid_imei`), `note`.
 Rules: `imei2` is unique per business (partial unique index).
+Added by: 1791420000001.
 
 #### `electronics_warranties`
 Purpose: a warranty registered from a sold serial line.
@@ -1803,518 +1831,63 @@ Rules:
   - the line must be that sale's line for that SKU and serial;
   - after registration the only change allowed is a one-way cancellation;
   - no deletes.
-
-#### `electronics_repair_jobs`
-Purpose: a repair job card.
-Key columns: `job_no` (unique, series kind `repair_job`), `location_id`, `contact_id`, customer name, phone and `phone_digits`, `sku_id`, `device`, `serial`, `warranty_id`, `under_warranty`, `problem`, `estimate`, `promised_on`, `technician`, `status` (received, diagnosing, waiting_parts, in_repair, ready, delivered, cancelled), `document_id` (unique), `delivered_at`, `delivery_key`, `closed_reason`.
-Rules:
-- CHECK: a bill exists only on a delivered job.
-- CHECK: a delivered job has `delivered_at` and `delivery_key`.
-- CHECK: a cancelled job needs a reason.
-- CHECK: `under_warranty` needs `warranty_id`.
-- Trigger `electronics_repair_jobs_closed`: delivered and cancelled jobs never change, and no job is ever deleted.
-
-#### `electronics_repair_lines`
-Purpose: the parts and labour on a job, at the customer's price.
-Key columns: `job_id`, `kind` (part or labour), `sku_id`, `lot_code`, `label`, `quantity`, `unit_price`.
-Rules: trigger `electronics_repair_lines_open` refuses inserts, updates and deletes once the job is closed.
-
-#### `electronics_repair_events`
-Purpose: the status history of a job.
-Key columns: `job_id`, `from_status`, `to_status`, `note`, `created_by`.
-Rules: append-only (trigger `electronics_repair_events_fixed`).
-
-### Fashion and electronics, pro pass (1791595000000 fashion-electronics-pro)
-
-Modules: Offers is on by default for garment shops (existing ones too), Exchanges for electronics (existing ones too); new garment shops no longer start with "Sold by weight". Since 1791950400000 a new garment shop starts with Offers off again; it is recommended for the type, and shops that had it keep it.
-
-#### `retail_offers` (change)
-New column `product_id` (FK to `catalog_products`) and kind `product_percent`: % off every SKU of one product (a fashion markdown). Checks: `(kind = 'product_percent') = (product_id IS NOT NULL)`; `retail_offers_kind_check` and `retail_offers_check3` (value ≤ 100 for % kinds) rewritten with the whole list.
-
-#### `fashion_gst_price_slabs`
-Purpose: apparel GST by the value of each piece. One row per business.
-Key columns: `active`, `threshold` (per piece before GST, default 2500), `rate_low` (5), `rate_high` (18), `category_ids` (extra categories besides size × colour variants).
-Rules: `rate_high >= rate_low`. Read inside sale posting (`businessFashionPro.applyPriceSlabs`), so quotes and bills agree.
-
-#### `business_exchange_vouchers`
-Purpose: exchange credit printed as a numbered voucher (`CV000123`), walk-ins included.
-Key columns: `voucher_no`, `contact_id` (optional), `customer_name`, `customer_phone`, `amount`, `used`, `expires_on` (issued + 90 days), `source_document_id` (the sale the credit left as a credit-note refund), `exchange_id`, `request_key`.
-Rules: `used <= amount`; trigger `business_exchange_vouchers_rules`: never deleted, only `used` changes and only upwards.
-
-#### `business_exchange_voucher_uses`
-Purpose: each spend of a voucher: `voucher_id`, `document_id`, `payment_id` (the `credit_note` payment on the bill), `amount`. Append-only.
-
-#### `business_exchanges` (change)
-`method` may be `voucher`; new column `no_bill` (a gift exchange matched to the latest sale of the item).
+Added by: 1791420000001.
 
 #### `electronics_faulty_units`
 Purpose: a dead-on-arrival or faulty serial unit held for the supplier.
 Key columns: `sku_id`, `serial`, `kind` (`doa`, `faulty`), `reason`, `status` (`awaiting_supplier`, `sent`, `restocked`, `written_off`), `original_document_id`, `exchange_id`, `replacement_sku_id` / `replacement_serial`, `supplier_contact_id`, `purchase_document_id`, `purchase_return_id`, `claim_no`, `closed_note`.
 Rules: one open row per unit (partial unique index); `(status = 'sent') = (purchase_return_id IS NOT NULL)`; trigger `electronics_faulty_not_sold` on `business_document_lines` refuses a sale line for a unit `awaiting_supplier`.
+Added by: 1791595000000.
 
 #### `electronics_warranty_claims`
 Purpose: what a warranty repair is claimed back from the brand or distributor.
 Key columns: `job_id`, `warranty_id`, `brand`, `supplier_contact_id`, `claim_no`, `part_cost`, `status` (`raised`, `submitted`, `approved`, `rejected`, `credited`), `credited_amount`, `notes`.
 Rules: `(status = 'credited') = (credited_amount IS NOT NULL)`.
+Added by: 1791595000000.
 
-#### `electronics_repair_jobs` (change)
-Status adds `awaiting_approval`. New columns `passcode` (cleared when the job closes: check `electronics_repair_jobs_passcode_cleared`), `checklist` (JSON object of condition ticks), `advance_collection_id` (FK to `business_collections`: the advance, applied to the bill at delivery).
+### Repairs
 
-#### `electronics_models` (change)
-New column `helpline` (brand helpline on the warranty card).
-
-
-## Salon
-
-Linked section: [salon and weight](BUSINESS_PLATFORM_DATA_MODEL.md#salon--spa-and-weight-based-shops-phase-2-t4). All thirteen tables were added by 1791430000000 salon-packages-memberships-commissions.
-
-Several salon triggers share functions:
-- `salon_sku_is_service()` requires a SKU whose product is a service.
-- `salon_append_only()` is the append-only function.
-- `business_contact_is_customer()` requires a customer.
-
-### Booking set-up
-
-#### `salon_settings`
-Purpose: the booking and fee rules, one row per salon.
-Key columns: PK `business_id`, `deposit_percent`, `free_cancel_hours` (0–168), `late_cancel_fee_percent`, `no_show_fee_percent`, `opens_at`, `closes_at`, `fee_sku_id` -> `catalog_skus`.
-Rules: CHECK: `closes_at > opens_at`.
-
-#### `salon_services`
-Purpose: the timing of each service SKU. A service without a row takes 60 minutes.
-Key columns: PK (`business_id`, `sku_id`), `duration_minutes` (5–600), `buffer_minutes` (0–120), `needs_room`.
-Rules: trigger `salon_services_service` requires a service SKU.
-
-#### `salon_resource_profiles`
-Purpose: marks a resource as staff or room. A resource without a row is a stylist.
-Key columns: PK (`business_id`, `resource_id` -> `business_resources`), `kind`.
-
-#### `salon_staff_skills`
-Purpose: the services a stylist does. A stylist with no rows does every service.
-Key columns: PK (`business_id`, `resource_id`, `sku_id`).
+#### `electronics_repair_jobs`
+Purpose: a repair job card.
+Key columns: `job_no` (unique, from `series_id`, series kind `repair_job`), `location_id`, `contact_id`, `customer_name`, `customer_phone` and `phone_digits`, `sku_id`, `device`, `serial`, `warranty_id`, `under_warranty`, `problem`, `accessories`, `condition_notes`, `checklist` (JSON object of condition ticks), `passcode`, `estimate`, `promised_on`, `technician`, `status` (received, diagnosing, waiting_parts, in_repair, awaiting_approval, ready, delivered, cancelled), `advance_collection_id` (-> `business_collections`: the advance, applied to the bill at delivery), `document_id` (unique), `delivered_at`, `delivery_key`, `closed_reason`, `request_key`, `request_hash`.
 Rules:
-- Trigger `salon_staff_skills_service` requires a service SKU.
-- Trigger `salon_staff_skills_staff` (`salon_skill_is_staff`) refuses a room.
-
-#### `salon_appointment_details`
-Purpose: the salon extras on a booking.
-Key columns: PK (`business_id`, `appointment_id` -> `business_appointments`), `room_id` -> `business_resources`, `price_at_booking`, `deposit_collection_id` -> `business_collections`, `fee_document_id`, `bill_document_id`, `notes`, `request_key` (unique), `request_hash`.
-Rules: trigger `salon_appointment_details_fixed`:
-- room, price, deposit and request key never change;
-- the fee bill and the final bill are each set once;
-- no deletes.
-
-### Packages and memberships
-
-#### `salon_plans`
-Purpose: a package or membership offered for sale. It is sold through its own SKU.
-Key columns: `kind` (package or membership), `sku_id` (unique), `name` (unique per business, ignoring case), `validity_days` (1–3650), `service_discount_percent`, `product_discount_percent`, `active`.
-Rules:
-- CHECK: the two discount columns are set exactly for a membership.
-- CHECK: a membership has at least one discount above 0.
-
-#### `salon_plan_services`
-Purpose: the sessions per service that a package includes.
-Key columns: PK (`business_id`, `plan_id`, `sku_id`), `sessions` (1–100). The FK to `salon_plans` uses ON DELETE CASCADE.
-Rules: trigger `salon_plan_services_service` requires a service SKU.
-
-#### `salon_client_plans`
-Purpose: a package or membership a client bought, as a snapshot of the plan.
-Key columns: `plan_id`, `contact_id`, `kind`, `name`, `document_id`, `line_id` (unique), `price`, `starts_on`, `ends_on`, the discount percents, `status` (active or cancelled), the cancel fields.
-Rules:
-- CHECK: `ends_on >= starts_on`.
-- CHECK: the kind matches the discount fields.
-- CHECK: the cancel fields are set exactly when the plan is cancelled.
-- Trigger `salon_client_plans_customer` requires a customer.
-- Trigger `salon_client_plans_fixed`: the only change allowed is a one-way cancellation; no deletes.
-
-#### `salon_client_plan_services`
-Purpose: the sessions a client bought, per service, as a snapshot.
-Key columns: PK (`business_id`, `client_plan_id`, `sku_id`), `label`, `sessions`.
-Rules: append-only (trigger `salon_client_plan_services_fixed`).
-
-#### `salon_package_redemptions`
-Purpose: a package session used on a bill line.
-Key columns: (`business_id`, `client_plan_id`, `sku_id`) -> `salon_client_plan_services`, `quantity`, `document_id`, `line_id` (unique).
-Rules:
-- Append-only.
-- Constraint trigger `salon_package_redemptions_left` (`salon_sessions_left`): sessions used never exceed sessions bought. Quantities on returned lines do not count as used.
-
-#### `salon_membership_uses`
-Purpose: the membership discount given on a bill line.
-Key columns: `client_plan_id`, `document_id`, `line_id` (unique), `percent`, `amount`.
-Rules: append-only.
-
-### Commissions
-
-#### `salon_commission_rules`
-Purpose: commission percentages, set for one stylist or everyone, and for services or goods, all items or one SKU.
-Key columns: `resource_id` (NULL = everyone), `applies_to` (service or goods), `sku_id` (NULL = all items of that kind), `percent`, `active`.
-Rules:
-- One active rule per exact scope (partial unique index `salon_commission_rules_one_active`).
-- Trigger `salon_commission_rules_item` requires the SKU's product kind to match `applies_to`.
-
-#### `salon_line_staff`
-Purpose: who did each bill line, and the commission earned on it, as a snapshot.
-Key columns: PK (`business_id`, `line_id`), `document_id`, `resource_id`, `appointment_id`, `rule_id`, `item_kind`, `commission_percent`, `commission_base`, `commission_amount`.
-Rules: append-only.
-
-## Weight
-
-Linked section: [salon and weight](BUSINESS_PLATFORM_DATA_MODEL.md#salon--spa-and-weight-based-shops-phase-2-t4). All five tables were added by 1791430000001 weight-processing-yield-wastage.
-
-`weight_sku_is_weighed()` returns true for a goods SKU whose unit is a weight unit and whose tracking is `quantity` or `batch`.
-
-#### `weight_yield_templates`
-Purpose: the cuts that one input normally gives.
-Key columns: `name` (unique per business, ignoring case), `input_sku_id`, `active`.
-Rules: trigger `weight_yield_templates_weighed` requires a weighed input SKU.
-
-#### `weight_yield_template_outputs`
-Purpose: each expected cut on a template.
-Key columns: PK (`business_id`, `template_id`, `output_sku_id`), `expected_percent` (more than 0, at most 100). The FK to the template uses ON DELETE CASCADE.
-Rules:
-- Trigger `weight_yield_template_outputs_weighed` requires a weighed output SKU.
-- Deferred constraint trigger `weight_yield_template_outputs_total` refuses a template whose expected percentages add up to more than 100.
-
-#### `weight_processing_batches`
-Purpose: one cutting run, numbered with series kind `processing` and prefix `CP`.
-Key columns: `batch_no` (unique), `series_id`, `location_id`, `template_id`, `input_sku_id`, `input_lot_id`, snapshots of the input (`input_label`, `input_unit`, `input_quantity`, `input_unit_cost`, `input_value`), `input_kg`, `output_kg`, `loss_kg`, `input_adjustment_id` -> `business_stock_adjustments`, `request_key`, `request_hash`.
-Rules:
-- CHECK: `output_kg + loss_kg = input_kg`.
-- Append-only (`weight_append_only`).
-
-#### `weight_processing_outputs`
-Purpose: each cut produced by a batch.
-Key columns: `batch_id`, `output_sku_id`, `label`, `unit`, `lot_id`, `quantity`, `kg`, `cost_share`, `unit_cost`, `expected_percent`, `adjustment_id`.
-Rules:
-- UNIQUE (`batch_id`, `output_sku_id`).
-- Append-only.
-
-#### `weight_wastage_entries`
-Purpose: a stock write-off, valued at the lot's cost.
-Key columns: `location_id`, `sku_id`, `lot_id`, `label`, `unit`, `quantity`, `kg` (NULL for counted items), `reason` (trimming, spoiled, unsold, drip_loss, damaged, other), `note`, `unit_cost`, `value`, `adjustment_id` (unique), `request_key`, `request_hash`.
-Rules:
-- CHECK: reason `other` needs a note.
-- Append-only.
-- There is no weighed-item trigger, so counted items can be written off too.
-
-
-### Salon & weight shops, pro pass F (`1791600000000_salon-weight-pro`, 7 Oct 2026)
-
-Changed:
-
-- `salon_appointment_details`: `arrived_at`, `confirmation_sent_at`, `reminder_sent_at`, `moved_count`, `walk_in`. The trigger `salon_appointment_details_fixed` now lets the **room** change (a booking is moved); price, deposit and request key stay fixed, fee and bill are set once.
-- `salon_client_plans_fixed` (trigger function) also allows a later `ends_on` (an extension); an earlier date or any other change is refused.
-- `salon_resource_profiles`: `weekly_off SMALLINT[]` (0 = Sunday, subset of 0–6), `works_from`, `works_to` (both or neither, end after start).
-- `salon_commission_rules.applies_to` adds `plan` (selling a package / membership; a plan's item must be a `salon_plans` SKU — trigger `salon_commission_rule_item`); `flat_amount` (a flat amount per item instead of the percent).
-- `salon_line_staff.item_kind` adds `plan` and `session` (a service paid from a package; `commission_base` is the session's value).
-- `salon_settings.session_commission_basis`: `package_price` (default; the package line's net ÷ its sessions) or `list_price`.
-- `weight_processing_batches`: `cut_by`, `supplier_id` (FK contacts; the supplier of the input batch's latest purchase), `cut_to_order`.
-- `platform_module_business_types`: `wholesale` (price lists) offered to `meat` and `weight_retail`, off by default (customer rates per kg).
-
-New tables, all added by this migration and scoped by `business_id` with composite foreign keys. "Append-only" here means the trigger function `salon_append_only` or `weight_append_only`.
-
-#### `salon_walk_ins`
-Purpose: the waiting list of walk-ins: seated (booked now with a stylist) or left.
-Key columns: `location_id`, `contact_id` (the client), `sku_id` (the service), `resource_id` (the stylist asked for; NULL = whoever is free first), `note`, `status` (waiting, seated, left), `appointment_id` (the booking made when seated), `arrived_at`, `closed_at`, `created_by`, `closed_by`.
-Relations: composite FKs to `business_locations`, `business_contacts`, `catalog_skus`, `business_resources` and `business_appointments`.
-Rules: CHECKs seated ⇔ an appointment and waiting ⇔ not closed; partial index `salon_walk_ins_waiting` (business, arrived_at) on waiting rows.
-Added by: 1791600000000_salon-weight-pro.
-
-#### `salon_client_profiles`
-Purpose: the client card's details, one row per client.
-Key columns: PK (`business_id`, `contact_id`), `birthday`, `anniversary`, `gender` (female, male, other), `preferred_resource_id` (the usual stylist), `allergies` (varchar 300), `updated_by`, `updated_at`.
-Relations: (`business_id`, `contact_id`) -> `business_contacts`; (`business_id`, `preferred_resource_id`) -> `business_resources`.
-Added by: 1791600000000_salon-weight-pro.
-
-#### `salon_client_notes`
-Purpose: dated notes and colour formulas on the client card, kept as written (a new note corrects an old one).
-Key columns: `contact_id`, `kind` (note, formula), `body` (varchar 500, not blank), `created_by`, `created_at`.
-Relations: (`business_id`, `contact_id`) -> `business_contacts`.
-Rules: append-only (trigger `salon_client_notes_append_only`); index `salon_client_notes_contact` (newest first).
-Added by: 1791600000000_salon-weight-pro.
-
-#### `salon_staff_leave`
-Purpose: a stylist's leave, from one date to another, with a reason; cancellable.
-Key columns: `resource_id`, `from_date`, `to_date`, `reason`, `created_by`, `cancelled_by`, `cancelled_at`.
-Relations: (`business_id`, `resource_id`) -> `business_resources`.
-Rules: CHECK `to_date >= from_date` and at most 367 days (`to_date - from_date <= 366`); CHECK cancelled_at ⇔ cancelled_by; partial index `salon_staff_leave_dates` on leave not cancelled.
-Added by: 1791600000000_salon-weight-pro.
-
-#### `salon_commission_payouts`
-Purpose: commission (and tips) paid out to a stylist for a period, printed as a slip, with what was earned in the period when it was paid.
-Key columns: `resource_id`, `period_from`, `period_to`, `commission` (>= 0), `tips` (>= 0), `amount` (> 0, what was paid), `method` (cash, upi, bank, cheque), `reference`, `note`, `request_key`, `request_hash`, `created_by`.
-Relations: (`business_id`, `resource_id`) -> `business_resources`.
-Rules: CHECK `period_to >= period_from`; idempotent by `request_key` (unique per business); append-only (trigger `salon_commission_payouts_append_only`); index `salon_commission_payouts_staff`.
-Added by: 1791600000000_salon-weight-pro.
-
-#### `salon_tips`
-Purpose: a tip for a stylist taken with a bill: not part of the bill and not a sale (no GST); owed to the stylist.
-Key columns: `document_id`, `resource_id`, `amount` (> 0), `method` (cash, card, upi, bank, cheque), `created_by`.
-Relations: (`business_id`, `document_id`) -> `business_documents`; (`business_id`, `resource_id`) -> `business_resources`.
-Rules: one tip per stylist per bill (UNIQUE (`business_id`, `document_id`, `resource_id`)); append-only (trigger `salon_tips_append_only`); index `salon_tips_staff`.
-Added by: 1791600000000_salon-weight-pro.
-
-#### `weight_rate_history`
-Purpose: every change of a weighed item's selling price (the daily rate board): old, new, who, when.
-Key columns: `sku_id`, `old_price`, `new_price` (both >= 0, 4 places), `changed_by`, `changed_at`.
-Relations: (`business_id`, `sku_id`) -> `catalog_skus`.
-Rules: append-only (trigger `weight_rate_history_append_only`); index `weight_rate_history_sku` (newest first).
-Added by: 1791600000000_salon-weight-pro.
-
-#### `weight_pack_sizes`
-Purpose: the weight of one pack of an item sold by the piece (loose stock repacked into pouches).
-Key columns: PK (`business_id`, `sku_id`), `pack_kg` (more than 0, at most 1000), `updated_by`, `updated_at`.
-Relations: (`business_id`, `sku_id`) -> `catalog_skus`.
-Added by: 1791600000000_salon-weight-pro.
-
-#### `weight_pickup_orders`
-Purpose: an order taken on the phone or WhatsApp for pickup at a time.
-Key columns: `location_id`, `contact_id` (optional), `customer_name` (not blank), `phone`, `pickup_at`, `status` (open, ready, collected, cancelled), `notes`, `document_id` (the bill), `ready_at`, `closed_at`, `cancel_reason`, `request_key`, `request_hash`, `created_by`, `updated_by`.
-Relations: composite FKs to `business_locations`, `business_contacts` and `business_documents`.
-Rules: CHECKs collected ⇔ bill, cancelled ⇔ reason, and closed ⇔ collected or cancelled; idempotent by `request_key` (unique per business); partial index `weight_pickup_orders_open` (open and ready orders by pickup time).
-Added by: 1791600000000_salon-weight-pro.
-
-#### `weight_pickup_order_lines`
-Purpose: the items on a pickup order, by weight or by amount ("₹200 worth"); the counter weighs them.
-Key columns: `order_id`, `sku_id`, `label`, `unit`, `quantity` (> 0), `amount` (> 0), `note`.
-Relations: (`business_id`, `order_id`) -> `weight_pickup_orders`; (`business_id`, `sku_id`) -> `catalog_skus`.
-Rules: CHECK a quantity or an amount is given; index `weight_pickup_order_lines_order`.
-Added by: 1791600000000_salon-weight-pro.
-
-#### `weight_day_closes`
-Purpose: the end-of-day weigh-up at a location: what was left, against what the books expected.
-Key columns: `location_id`, `day`, `lines` (JSONB: expected, counted, difference, value and reason per item), `short_kg`, `short_value`, `over_kg`, `request_key`, `request_hash`, `created_by`.
-Relations: (`business_id`, `location_id`) -> `business_locations`.
-Rules: append-only (trigger `weight_day_closes_append_only`); idempotent by `request_key` (unique per business); index `weight_day_closes_day` (newest first).
-Added by: 1791600000000_salon-weight-pro.
-
-### Salon, weight shops & repairs, round 2 (`1791620001000_salon-weight-repairs-round2`, 8 Oct 2026)
-
-#### `salon_staff_week`
-A stylist's weekday that differs from their usual hours: `(business_id, resource_id, dow)` key, `off`, `works_from`, `works_to` (both or neither; none = the salon's hours). A weekday with no row uses `salon_resource_profiles` (`works_from`/`works_to`/`weekly_off`).
-
-#### `salon_holidays`
-`day`, `name`, `location_id` (NULL = every location), `created_by`, cancelled with `cancelled_at/by`. One live holiday per day and location (`salon_holidays_once`).
-
-#### `salon_booking_overrides`
-A booking made (`action = booked`) or moved (`moved`) outside the stylist's hours, on leave, a day off, a holiday or outside calendar hours: `rule_broken`, `reason`, `approved_by`, `requested_by`. Append-only.
-
-#### `salon_service_products`
-A service's back-bar recipe: `(business_id, service_sku_id, product_sku_id)` key, `quantity` in the product's stock unit.
-
-#### `salon_backbar_usage`
-What a billed service line took: `document_id`, `line_id`, `location_id`, service and product, `quantity` (recipe × line quantity), `taken` (what the books had; the rest is short), `unit_cost` (latest purchase price before GST, else the average cost held), `cost`. One row per line and product; append-only. The stock itself leaves through `business_stock_adjustments` ("Back-bar: … on <bill>").
-
-#### `business_collection_refunds`
-Money paid in advance (a `business_collections` receipt) handed back: `refund_no` (`<receipt no>-R<n>`), `amount`, `method` (cash/upi/bank), `method_name` (1791640000000), `reference`, `reason`, `source` (`salon` | `repair`, with `repair_job_id`), `approved_by` (the manager whose PIN was typed), `request_key`/`request_hash`, `created_by`. Append-only. Constraint trigger `business_collection_refunds_rules`: same customer, and payments + refunds never pass the receipt's amount. `business_payments_collection_rules` now counts refunds too.
-*Counted by the shared balances since round 2:* `contactBalanceSql` (core repository) and the receivables lists' `collectionAllocatedSql` subtract `business_collection_refunds`, so a refunded advance no longer shows as the customer's advance (see the Balances note under [Round 2: shared core, retail & electronics](#round-2-shared-core-retail--electronics-1791620002000-core-retail-electronics-round2)). When this table was added they read a receipt's unapplied money as `amount − payments`, and only the salon and repair screens subtracted refunds.
-
-#### `salon_deposit_releases`
-A held deposit moved to the client's wallet: `(business_id, collection_id)` key, `appointment_id`, `reason`, `approved_by`, `created_by`. Append-only. Such a deposit is no longer held for its booking.
-
-#### `salon_commission_plans`
-Purpose: a monthly target (slab) commission plan. `stepped` pays each band of the month's net service sales at its own rate (10% of the first 50,000, 12% of the rest); `whole` pays the whole month at the rate of the highest band reached.
-Key columns: `name` (unique per business, ignoring case: `salon_commission_plans_name`), `mode` (`stepped` | `whole`), `active`, `created_by`, `updated_by`.
-Rules: only the name and `active` change after saving; for new rates the owner makes a new plan, so past months stay as they were paid (a service rule).
-Added by: 1791620001000_salon-weight-repairs-round2.
-
-#### `salon_commission_slabs`
-Purpose: a plan's bands; a band starts at `from_amount` of the month's net service sales.
-Key columns: PK (`business_id`, `plan_id`, `from_amount`), `from_amount` (>= 0; the first at 0), `percent` (0–100).
-Relations: (`business_id`, `plan_id`) -> `salon_commission_plans`.
-Rules: written with the plan (1 to 10 slabs, no two starting at the same amount) and fixed once saved; the service enforces this, there is no trigger.
-Added by: 1791620001000_salon-weight-repairs-round2.
-
-#### `salon_commission_schemes`
-Purpose: which way a stylist earns on services from a month on: `plan_id` NULL = the flat rules (per line), otherwise the slab plan on the month's sales. The latest scheme at or before a month applies.
-Key columns: `resource_id`, `plan_id`, `from_month` (CHECK the first of a month), `created_by`.
-Relations: (`business_id`, `resource_id`) -> `business_resources`; (`business_id`, `plan_id`) -> `salon_commission_plans`.
-Rules: one scheme per stylist per month (UNIQUE (`business_id`, `resource_id`, `from_month`)).
-Added by: 1791620001000_salon-weight-repairs-round2.
-
-Permission added: `appointments.approve` (manager template).
-
-## Tasks, issues & projects
-
-*Migration `1791620000000_tasks-issues-projects.sql` (7 October 2026). Module code: `backend/src/modules/tasks/`.*
-
-**One data model for every business, keyed on `business_id`.** A restaurant
-uses it through its own business row (`businesses.legacy_restaurant_id`,
-`restaurant_business_id()`), so the restaurant and the other eleven types
-share the same tables, reports and template library. Only *where* and *who*
-differ: a restaurant names an `outlet_id`, a restaurant `employee_id` (staff
-with or without a login) and a restaurant role (`role_id`); every other type
-names a `location_id`, a `business_resources` row (`resource_id`) and a
-`business_roles` row (`business_role_id`). Users are the shared `users` table
-in both. When the restaurant moves onto memberships and locations (ARCHITECTURE
-§7.3 D/E) the restaurant-only columns become unused, nothing else changes.
-
-Modules (all optional, feature group "Operations" on the restaurant's Features
-screen): `tasks`; `issues` and `projects`, which need `tasks`. They were on by
-default for all twelve types; since 1791950400000 they are off by default for
-a new business of the other eleven types (the owner switches them on;
-`tasks` and `issues` are recommended for a supermarket and a pharmacy, and
-`tasks` for healthcare), and a restaurant still starts with all three
-(1791950402000). Permissions (in
-`business_permissions` and the restaurant `permissions` table, module
-`tasks`): `tasks.view / create / assign / review / manage`, `issues.view /
-create / assign / review / manage`, `projects.view / create / manage`. The
-`business_permissions.action` CHECK was widened (whole list) with `assign`,
-`review` and `manage`.
-
-Every table but `platform_task_categories` carries `business_id NOT NULL`, and
-every one but `business_project_members`, `business_task_assignees` and
-`business_task_history` also carries `UNIQUE (business_id, id)`; references
-inside the module, and to `business_locations`, `business_resources` and
-`business_roles`, are composite `(business_id, …)` keys. Each table below was
-added by 1791620000000_tasks-issues-projects.
-
-**Trigger `business_task_world_check`** (on tasks, schedules, issues,
-projects, members and assignees) refuses with a sentence (SQL state 23514): an
-outlet that is not the business's own restaurant's, a location on a restaurant
-business, a restaurant employee or role of another restaurant (system roles
-allowed), and a user (`user_id`, `assignee_user_id`, `owner_user_id`) who is
-neither a member of the business nor a user of its restaurant.
-
-Every change writes `business_task_history` and `business_audit`; assigning a
-task and reporting or assigning an issue also write `business_events`
-(`task.assigned`, `issue.reported`, `issue.assigned`) for a later WhatsApp /
-SMS publisher.
-
-#### `platform_task_categories`
-Purpose: the 14 categories every business shares: Stock check, Audit, Cleaning, Day to day task, Hiring, Maintenance & repair work, Marketing, Opening & closing, Order placement & procurement, Production, Project management, Food safety & hygiene, Health & safety, Others.
-Key columns: `code` (TEXT PK, `^[a-z_]{2,40}$`), `name`, `icon`, `sort_order`.
-Relations: referenced by `category_code` on templates, schedules, tasks and issues.
-Added by: 1791620000000, with its 14 rows.
-
-#### `business_task_templates`
-Purpose: a business's own checklist template (the built-in ones are code, `modules/tasks/library/`).
-Key columns: `name` (not blank), `description`, `category_code`, `priority` (low/normal/high/urgent), `requires_review`, `estimated_minutes` (1–1440), `library_code` (the built-in template it was copied from), `active`, `created_by`, `updated_by`.
-Rules: index `business_task_templates_list` (business, active, name).
-Added by: 1791620000000.
-
-#### `business_task_template_items`
-Purpose: one checklist line of a template. A task copies them into `business_task_items`, so editing a template never changes a checklist already done.
-Key columns: `template_id`, `position` (0–500), `kind` (section, checkbox, yes_no, number, text, photo, signature, choice), `label` (not blank), `help`, `required`, `unit`, `min_value`, `max_value`, `options` (jsonb `[{label, fail}]`), `expected` (yes/no: the answer that passes), `photo_required`, `critical` (a failed critical item fails the whole checklist, whatever its score), `raise_issue`, `fail_severity` (low/medium/high/critical).
-Relations: (`business_id`, `template_id`) -> `business_task_templates` (ON DELETE CASCADE).
-Rules: CHECK `business_task_template_items_range` (min ≤ max); CHECK `business_task_template_items_choice` (`options` is an array for a choice); index by template and position.
-Added by: 1791620000000.
-
-#### `business_task_schedules`
-Purpose: a recurring task. Its occurrences are made lazily, each once, up to `generated_through`.
-Key columns: `title`, `description`, `template_id` or `library_code`, `category_code`, `priority`, `location_id` / `outlet_id`, `assign_mode` (people, role, on_shift, unassigned), `frequency` (daily, weekdays, weekly, monthly, every_n_days, per_shift), `every_n` (1–365), `weekdays` smallint[] (0 = Sunday), `month_day` (1–31), `due_times` time[] (one occurrence per time; a time before the day's cut-off hour, `day_cutoff_hour` in the restaurant's or the business's settings, belongs to the trading day before), `shift_id` (per_shift at a restaurant: only this shift; NULL = every active shift), `window_minutes` (5–1440: the task opens this long before it is due; NULL = at the start of the day), `starts_on`, `ends_on`, `requires_review`, `active`, `generated_through` (occurrences exist up to this day).
-Relations: (`business_id`, `template_id`) -> `business_task_templates`; (`business_id`, `location_id`) -> `business_locations`; `outlet_id` -> `outlets`; `shift_id` -> `shifts`; `category_code` -> `platform_task_categories`.
-Rules: CHECKs `business_task_schedules_dates` (end not before start), `_one_place` and `_one_template` (at most one of each pair), `_times` (1 to 12 due times) and `_shape` (the shape fits the frequency: every_n_days needs `every_n`, weekly and weekdays need weekdays, monthly needs `month_day`); trigger `business_task_schedules_world`; partial index `business_task_schedules_active`.
-Added by: 1791620000000.
-
-#### `business_tasks`
-Purpose: one task: one-off, a recurring occurrence, a project task or the fix of an issue.
-Key columns: `title`, `description`, `category_code`, `priority`, `status` (todo, in_progress, done, missed, cancelled), `location_id` / `outlet_id`, `assign_mode`, `opens_at`, `due_at`, `closes_at` (after it, not done = missed), `schedule_id` + `occurrence_date` + `occurrence_slot`, `shift_label`, `template_id` / `library_code`, `project_id`, `project_list_id`, `milestone_id`, `issue_id`, `requires_review`, `review_status` (pending, approved, changes_requested), `reviewed_by` / `reviewed_at` / `review_note`, who and when started / completed / cancelled (with `cancel_reason`), counters `item_count`, `answered_count`, `failed_count`, `score_percent`, `critical_failed`.
-Relations: composite FKs to `business_locations`, `business_task_schedules`, `business_task_templates`, `business_projects`, `business_issues`, and to `business_project_lists` and `business_project_milestones` with `ON DELETE SET NULL` on that column only; `outlet_id` -> `outlets`.
-Rules: CHECKs `business_tasks_one_place`, `_occurrence` (schedule, date and slot all or none), `_done` (done ⇔ completed_at), `_cancelled` (cancelled ⇔ cancelled_at), `_review` (a review status only when review is needed), `_window` (opens_at ≤ due_at) and `_list_needs_project` (a list or milestone only with a project). Partial unique index `business_tasks_occurrence_once` (business, schedule, day, slot): an occurrence is made once however many screens ask. Indexes `business_tasks_due`, `business_tasks_open` (todo and in progress, by `closes_at`) and `business_tasks_project`. Trigger `business_tasks_world`.
-Added by: 1791620000000.
-
-#### `business_task_assignees`
-Purpose: who a task or a schedule is for.
-Key columns: `task_id` or `schedule_id` (exactly one), `kind` (user, employee, resource, role, business_role) with exactly the matching id column: `user_id`, `employee_id` (a restaurant employee), `resource_id`, `role_id` (a restaurant role), `business_role_id`.
-Relations: task and schedule ON DELETE CASCADE; `user_id` -> `users`; `employee_id` -> `employees`; `role_id` -> `roles`; (`business_id`, `resource_id`) -> `business_resources`; (`business_id`, `business_role_id`) -> `business_roles`.
-Rules: CHECKs `business_task_assignees_owner`, `_one` and `_kind`; unique per owner and person (`business_task_assignees_once`); trigger `business_task_assignees_world`.
-Added by: 1791620000000.
-
-#### `business_task_items`
-Purpose: a task's own copy of its checklist, with the answers.
-Key columns: `task_id`, the template item columns, plus `value_bool`, `value_number`, `value_text`, `value_choice`, `note`, `answered`, `failed`, `answered_by`, `answered_at`, `issue_id` (the issue it raised).
-Relations: (`business_id`, `task_id`) -> `business_tasks` (CASCADE); (`business_id`, `issue_id`) -> `business_issues` (`ON DELETE SET NULL (issue_id)`).
-Rules: CHECKs `business_task_items_answer` (answered ⇔ answered_at), `_fail` (failed only when answered) and `_range`.
-Added by: 1791620000000.
-
-#### `business_issues`
-Purpose: a problem to fix. A failed checklist answer can raise one by itself.
-Key columns: `number` (unique per business; shown `ISS-0001`), `title`, `description`, `category_code`, `severity` (low/medium/high/critical), `status` (open, in_progress, resolved, closed), `location_id` / `outlet_id`, `asset_label` (equipment, free text), `assignee_user_id`, `due_at`, `reported_by`, `reported_at`, `resolved_at` / `resolved_by`, `resolution_note`, `closed_at` / `closed_by`, sources `source_task_id`, `source_task_item_id`, `source_logbook_entry_id`.
-Relations: (`business_id`, `source_task_id`) -> `business_tasks`; (`business_id`, `source_task_item_id`) -> `business_task_items` (`ON DELETE SET NULL (source_task_item_id)`); `source_logbook_entry_id` -> `logbook_entries` (SET NULL); `outlet_id` -> `outlets`.
-Rules: CHECKs `business_issues_one_place`, `_resolved` (resolved or closed ⇔ resolved_at) and `_closed` (closed ⇔ closed_at); one issue per log-book entry (partial unique index `business_issues_one_per_logbook_entry`); indexes `business_issues_list` and `business_issues_assignee` (open and in progress); trigger `business_issues_world`.
-Added by: 1791620000000.
-
-#### `business_projects`
-Purpose: a bigger job with members, milestones and task lists (a new outlet, a festival sale, the annual stock audit).
-Key columns: `name`, `description`, `owner_user_id`, `status` (planning, active, on_hold, completed, cancelled), `start_on`, `end_on`, `location_id` / `outlet_id`, `template_code`, `completed_at`.
-Rules: CHECKs `business_projects_dates` (end not before start), `_one_place` and `_completed` (completed ⇔ completed_at); index `business_projects_list`; trigger `business_projects_world`.
-Added by: 1791620000000.
-
-#### `business_project_members`
-Purpose: who is on a project.
-Key columns: PK (`business_id`, `project_id`, `user_id`), `role` (owner / member), `added_at`.
-Relations: (`business_id`, `project_id`) -> `business_projects` (CASCADE); `user_id` -> `users`.
-Rules: index `business_project_members_user`; trigger `business_project_members_world`.
-Added by: 1791620000000.
-
-#### `business_project_milestones`
-Purpose: a milestone of a project.
-Key columns: `project_id`, `name`, `due_on`, `position`, `done_at` / `done_by`.
-Relations: (`business_id`, `project_id`) -> `business_projects` (CASCADE). A task's `milestone_id` is cleared when its milestone is deleted.
-Rules: CHECK `business_project_milestones_done` (both done columns or neither).
-Added by: 1791620000000.
-
-#### `business_project_lists`
-Purpose: a task list inside a project.
-Key columns: `project_id`, `name` (varchar 80), `position`.
-Relations: (`business_id`, `project_id`) -> `business_projects` (CASCADE). Deleting a list keeps its tasks (FK `ON DELETE SET NULL (project_list_id)` on `business_tasks`).
-Added by: 1791620000000.
-
-#### `business_task_comments`
-Purpose: a comment on a task, an issue or a project.
-Key columns: exactly one of `task_id`, `issue_id`, `project_id`; `body` (not blank, up to 2000), `created_by`, `created_at`.
-Relations: each owner ON DELETE CASCADE.
-Rules: CHECK `business_task_comments_owner`; a partial index per owner.
-Added by: 1791620000000.
-
-#### `business_task_files`
-Purpose: a photo, signature or file on a task (or one of its checklist items), an issue or a project. Files live in `private_uploads/tasks/<business>/` and are only sent through the API.
-Key columns: one owner (`task_id`, `issue_id`, `project_id`), optional `item_id` (needs a task), `kind` (photo, signature, file), `stored_name` (generated, unique, `<32 hex>.jpg|png|webp|pdf`), `file_name`, `mime_type` (JPEG, PNG, WebP, PDF), `size_bytes` (≤ 5 MB), `uploaded_by`, `uploaded_at`, `removed_at` / `removed_by` (removing keeps the file).
-Relations: each owner and the item ON DELETE CASCADE.
-Rules: CHECKs `business_task_files_owner`, `_item` and `_removed` (both removal columns or neither); partial indexes by task and by issue.
-Added by: 1791620000000.
-
-#### `business_task_history`
-Purpose: the trail on a task, issue or project.
-Key columns: one owner (`task_id`, `issue_id`, `project_id`), `action`, `details` (jsonb), `actor_id` (NULL = the system, e.g. "missed"), `created_at`.
-Relations: each owner ON DELETE CASCADE, so the trail goes with its task, issue or project.
-Rules: **append-only**: trigger `business_task_history_no_update` (function `business_task_history_append_only`) refuses every UPDATE; CHECK `business_task_history_owner`; a partial index per owner.
-Added by: 1791620000000.
-
-## Round 2: shared core, retail & electronics (1791620002000 core-retail-electronics-round2)
-
-Builder R2-CORE, 8 Oct 2026. Decisions: [DECISIONS_ROUND2.md › Shared core, retail & electronics](DECISIONS_ROUND2.md#shared-core-retail--electronics).
-
-- `business_payments`: method may also be `finance` (the financed part of an EMI bill); new `tendered` (cash handed over; CHECK cash only and `tendered >= amount`; change = tendered − amount); new UNIQUE (`business_id`, `id`) for composite keys. Several rows per document posted together = a split payment.
-- `business_refunds`: method may also be `finance` (an EMI loan cancelled: the financed part reversed on the bill).
-- `business_settings.counter_pin_every_bill` (boolean, default false): Quick bill asks the biller's PIN for every bill.
-- `retail_loyalty_settings.return_spent_points` (boolean, default true). `retail_loyalty_entries` kind `restore` (points > 0, document, return and value required): spent points given back on a return. The one-entry-per-return index is now one per return **and kind** (a return may restore spent points and reverse earned ones).
-- `catalog_skus.is_kit` (boolean; CHECK a kit is tracked `none`: no stock of its own). Its parts are `catalog_kit_components`.
-- `business_document_lines.kit_sku_id`, `kit_label`, `kit_group` (all set or all null): a sale line that is a part of a kit.
-- Module `finance` ("EMI & finance", electronics, needs `sales`; on by default until 1791950400000, now off by default for a new shop and recommended for electronics); permissions `finance.view`, `finance.create` (cashier, manager), `finance.edit` (manager, accountant). Its tables are `electronics_financiers`, `electronics_finance_cases` and `electronics_finance_settlements`.
-- Balances (code, not schema): a customer's balance (`contactBalanceSql`) and the receivables lists' unallocated receipts (`collectionAllocatedSql`) now subtract advances handed back (`business_collection_refunds`, 1791620001000), so a refunded advance stops showing as the customer's advance; the customer statement lists each such refund.
-
-#### `catalog_kit_components`
-Purpose: the parts of a kit (an accessory bundle). The kit sells at its own price; its stock, GST and HSN lines are its components'.
-Key columns: `id` (bigserial), `kit_sku_id`, `component_sku_id`, `quantity` (more than 0, at most 1000), `sort_order`, `created_at`.
-Relations: (`business_id`, `kit_sku_id`) and (`business_id`, `component_sku_id`) -> `catalog_skus`.
-Rules: UNIQUE (business, kit, component); CHECK a kit never contains itself; index `catalog_kit_components_kit` (business, kit, sort order).
-Added by: 1791620002000.
+- CHECK: a bill exists only on a delivered job.
+- CHECK: a delivered job has `delivered_at` and `delivery_key`.
+- CHECK: a cancelled job needs a reason.
+- CHECK: `under_warranty` needs `warranty_id`.
+- CHECK `electronics_repair_jobs_passcode_cleared`: a delivered or cancelled job keeps no passcode.
+- Trigger `electronics_repair_jobs_closed`: delivered and cancelled jobs never change, and no job is ever deleted.
+Added by: 1791420000001; 1791595000000 (`awaiting_approval`, `passcode`, `checklist`, `advance_collection_id`).
+
+#### `electronics_repair_lines`
+Purpose: the parts and labour on a job, at the customer's price.
+Key columns: `job_id`, `kind` (part or labour), `sku_id`, `lot_code`, `label`, `quantity`, `unit_price`.
+Rules: trigger `electronics_repair_lines_open` refuses inserts, updates and deletes once the job is closed.
+Added by: 1791420000001.
+
+#### `electronics_repair_events`
+Purpose: the status history of a job.
+Key columns: `job_id`, `from_status`, `to_status`, `note`, `created_by`.
+Rules: append-only (trigger `electronics_repair_events_fixed`).
+Added by: 1791420000001.
+
+A repair advance handed back is a [`business_collection_refunds`](#business_collection_refunds) row with `source` `repair`.
+
+### EMI and financiers
+
+Module `finance` ("EMI & finance", electronics, needs `sales`; off by default, recommended for electronics), with permissions `finance.view`, `finance.create` (cashier, manager) and `finance.edit` (manager, accountant). The financed part of an EMI bill is a `business_payments` row with method `finance`; cancelling the loan reverses it with a `business_refunds` row of method `finance`.
 
 #### `electronics_financiers`
 Purpose: the EMI financiers an electronics shop sells through, with the dealer subvention each one keeps.
 Key columns: `id` (bigserial), `name` (not blank), `subvention_percent` (0–30), `active`, `created_by`.
-Rules: names are unique per business, ignoring case (`electronics_financiers_name`). AFTER INSERT trigger `businesses_default_financiers` on `businesses` (function `electronics_default_financiers`) gives every new electronics shop Bajaj Finserv, HDFC Bank, ICICI Bank and Home Credit; the migration gave them to the existing ones.
+Rules: names are unique per business, ignoring case (`electronics_financiers_name`). AFTER INSERT trigger `businesses_default_financiers` on `businesses` (function `electronics_default_financiers`) gives every new electronics shop Bajaj Finserv, HDFC Bank, ICICI Bank and Home Credit.
 Added by: 1791620002000.
 
 #### `electronics_finance_cases`
 Purpose: the financed part of one EMI bill, owed by the financier until paid out.
 Key columns: `id` (bigserial), `document_id` (the bill), `payment_id` (the `finance` payment, unique), `financier_id`, `loan_no` (not blank; unique per financier), `do_no`, `tenure_months` (1–60), `customer_name`, `customer_phone`, `down_payment` (>= 0), `financed_amount` (> 0), `status` (pending → settled or cancelled), `settlement_id` + `subvention_charged` (set exactly when settled; at most the financed amount), `cancelled_reason` / `cancelled_by` / `cancelled_at` (reason and time set exactly when cancelled), `created_by`.
 Relations: composite FKs to `business_documents`, `business_payments`, `electronics_financiers` and `electronics_finance_settlements`.
-Rules: trigger `electronics_finance_cases_one_way` (function `electronics_finance_case_one_way`): the status moves once and the bill, financier, loan and amounts never change; only the time stamp may be corrected (demo set-up). Trigger `electronics_finance_cases_no_delete` (function `electronics_finance_no_delete`) refuses deletes. Indexes `electronics_finance_cases_open` (business, financier, status, time) and `electronics_finance_cases_document`.
+Rules: trigger `electronics_finance_cases_one_way` (function `electronics_finance_case_one_way`): the status moves once and the bill, financier, loan and amounts never change; only the time stamp may be corrected. Trigger `electronics_finance_cases_no_delete` (function `electronics_finance_no_delete`) refuses deletes. Indexes `electronics_finance_cases_open` (business, financier, status, time) and `electronics_finance_cases_document`.
 Added by: 1791620002000.
 
 #### `electronics_finance_settlements`
@@ -2324,13 +1897,308 @@ Relations: composite FKs to `electronics_financiers` and `business_locations`; r
 Rules: CHECK `amount_received + subvention_total > 0`. Kept as recorded: trigger `electronics_finance_settlements_no_change` (function `electronics_finance_settlement_kept`) refuses every update but a time-stamp correction, and every delete.
 Added by: 1791620002000.
 
-## Pharmacy, clinic & lab (round 2, `1791620004000_pharmacy-clinic-lab`)
+## Salon
 
-Modules `pharmacy` (type pharmacy; needs sales, batches, contacts), `patients` (type healthcare; needs contacts, appointments) and `lab` (healthcare; needs patients, sales), on by default; since 1791950400000 `lab` is off by default for a new clinic (recommended for healthcare). Permissions `pharmacy.*` (view, create, edit, approve, export, print), `patients.*` (view, create, edit, **view_clinical**, **edit_clinical**, export, print; the action CHECK now also allows `view_clinical`, `edit_clinical`) and `lab.*` (view, create, edit, approve, print, export). `business_role_templates.business_types` (TEXT[], NULL = every type) and the new templates `pharmacist` (pharmacy), `doctor`, `lab_technician`, `pathologist` (healthcare); `business_seed_roles()` copies only the templates of the business's type.
+Linked section: [salon & spa](BUSINESS_PLATFORM_DATA_MODEL.md#salon--spa). Bookings, packages, memberships and commissions start from 1791430000000 salon-packages-memberships-commissions; each entry names its migrations.
 
-Later migrations added a pharmacy branch's own licences (1791630000000), the branch of a visit (1791950407000), doctors' fees, OPD sessions, leave and the token queue (1791950408000), and lab report versions and quality control (1791950409000).
+Several salon triggers share functions:
+- `salon_sku_is_service()` requires a SKU whose product is a service.
+- `salon_append_only()` is the append-only function.
+- `business_contact_is_customer()` requires a customer.
 
-Every table here is scoped by `business_id` with composite foreign keys. "Append-only" means trigger function `health_append_only()`: a row is kept as written (only `created_at` may be corrected, for the demo set-up) and never deleted. Each table below was added by 1791620004000_pharmacy-clinic-lab unless its entry says otherwise.
+Letting a booking through outside a stylist's hours, on leave or on a holiday needs `appointments.approve` (the manager template has it).
+
+### Booking set-up
+
+#### `salon_settings`
+Purpose: the booking and fee rules, one row per salon.
+Key columns: PK `business_id`, `deposit_percent`, `free_cancel_hours` (0–168), `late_cancel_fee_percent`, `no_show_fee_percent`, `opens_at`, `closes_at`, `fee_sku_id` -> `catalog_skus`, `session_commission_basis` (`package_price`, the default: the package line's net ÷ its sessions; or `list_price`).
+Rules: CHECK: `closes_at > opens_at`.
+Added by: 1791430000000; 1791600000000 (`session_commission_basis`).
+
+#### `salon_services`
+Purpose: the timing of each service SKU. A service without a row takes 60 minutes.
+Key columns: PK (`business_id`, `sku_id`), `duration_minutes` (5–600), `buffer_minutes` (0–120), `needs_room`.
+Rules: trigger `salon_services_service` requires a service SKU.
+Added by: 1791430000000.
+
+#### `salon_resource_profiles`
+Purpose: marks a resource as staff or room, with a stylist's usual hours. A resource without a row is a stylist.
+Key columns: PK (`business_id`, `resource_id` -> `business_resources`), `kind`, `weekly_off` (SMALLINT[], 0 = Sunday, a subset of 0–6), `works_from`, `works_to` (both or neither, the end after the start).
+Added by: 1791430000000; 1791600000000 (`weekly_off`, `works_from`, `works_to`).
+
+#### `salon_staff_skills`
+Purpose: the services a stylist does. A stylist with no rows does every service.
+Key columns: PK (`business_id`, `resource_id`, `sku_id`).
+Rules:
+- Trigger `salon_staff_skills_service` requires a service SKU.
+- Trigger `salon_staff_skills_staff` (`salon_skill_is_staff`) refuses a room.
+Added by: 1791430000000.
+
+#### `salon_staff_week`
+Purpose: a stylist's weekday that differs from their usual hours. A weekday with no row uses `salon_resource_profiles` (`works_from`, `works_to`, `weekly_off`).
+Key columns: PK (`business_id`, `resource_id`, `dow`), `off`, `works_from`, `works_to` (both or neither, and none on a day off; none = the salon's hours), `updated_by`, `updated_at`.
+Added by: 1791620001000.
+
+#### `salon_staff_leave`
+Purpose: a stylist's leave, from one date to another, with a reason; cancellable.
+Key columns: `resource_id`, `from_date`, `to_date`, `reason`, `created_by`, `cancelled_by`, `cancelled_at`.
+Relations: (`business_id`, `resource_id`) -> `business_resources`.
+Rules: CHECK `to_date >= from_date` and at most 367 days (`to_date - from_date <= 366`); CHECK cancelled_at ⇔ cancelled_by; partial index `salon_staff_leave_dates` on leave not cancelled.
+Added by: 1791600000000.
+
+#### `salon_holidays`
+Purpose: a day the salon is closed, at one location or at all of them.
+Key columns: `day`, `name` (not blank), `location_id` (NULL = every location), `created_by`, `cancelled_at`, `cancelled_by` (both or neither).
+Rules: one live holiday per day and location (partial unique index `salon_holidays_once`).
+Added by: 1791620001000.
+
+### Bookings and walk-ins
+
+#### `salon_appointment_details`
+Purpose: the salon extras on a booking.
+Key columns: PK (`business_id`, `appointment_id` -> `business_appointments`), `room_id` -> `business_resources`, `price_at_booking`, `deposit_collection_id` -> `business_collections`, `fee_document_id`, `bill_document_id`, `notes`, `arrived_at`, `confirmation_sent_at`, `reminder_sent_at`, `moved_count`, `walk_in`, `request_key` (unique), `request_hash`.
+Rules: trigger `salon_appointment_details_fixed`:
+- the room may change (a booking is moved); price, deposit and request key never change;
+- the fee bill and the final bill are each set once;
+- no deletes.
+Added by: 1791430000000; 1791600000000 (`arrived_at`, `confirmation_sent_at`, `reminder_sent_at`, `moved_count`, `walk_in`, and a room that may change).
+
+#### `salon_booking_overrides`
+Purpose: a booking made (`action` booked) or moved (`moved`) outside the stylist's hours, on leave, on a day off, on a holiday or outside calendar hours.
+Key columns: `appointment_id`, `action`, `rule_broken`, `reason` (not blank), `approved_by`, `requested_by`, `created_at`.
+Rules: append-only; index `salon_booking_overrides_appointment`.
+Added by: 1791620001000.
+
+#### `salon_walk_ins`
+Purpose: the waiting list of walk-ins: seated (booked there and then with a stylist) or left.
+Key columns: `location_id`, `contact_id` (the client), `sku_id` (the service), `resource_id` (the stylist asked for; NULL = whoever is free first), `note`, `status` (waiting, seated, left), `appointment_id` (the booking made when seated), `arrived_at`, `closed_at`, `created_by`, `closed_by`.
+Relations: composite FKs to `business_locations`, `business_contacts`, `catalog_skus`, `business_resources` and `business_appointments`.
+Rules: CHECKs seated ⇔ an appointment and waiting ⇔ not closed; partial index `salon_walk_ins_waiting` (business, arrived_at) on waiting rows.
+Added by: 1791600000000.
+
+#### `salon_deposit_releases`
+Purpose: a held deposit moved to the client's wallet. A released deposit is not held for its booking.
+Key columns: PK (`business_id`, `collection_id`), `appointment_id`, `reason` (not blank), `approved_by`, `created_by`.
+Rules: append-only.
+Added by: 1791620001000.
+
+### Clients
+
+#### `salon_client_profiles`
+Purpose: the client card's details, one row per client.
+Key columns: PK (`business_id`, `contact_id`), `birthday`, `anniversary`, `gender` (female, male, other), `preferred_resource_id` (the usual stylist), `allergies` (varchar 300), `updated_by`, `updated_at`.
+Relations: (`business_id`, `contact_id`) -> `business_contacts`; (`business_id`, `preferred_resource_id`) -> `business_resources`.
+Added by: 1791600000000.
+
+#### `salon_client_notes`
+Purpose: dated notes and colour formulas on the client card, kept as written (a new note corrects an old one).
+Key columns: `contact_id`, `kind` (note, formula), `body` (varchar 500, not blank), `created_by`, `created_at`.
+Relations: (`business_id`, `contact_id`) -> `business_contacts`.
+Rules: append-only (trigger `salon_client_notes_append_only`); index `salon_client_notes_contact` (newest first).
+Added by: 1791600000000.
+
+### Packages and memberships
+
+#### `salon_plans`
+Purpose: a package or membership offered for sale. It is sold through its own SKU.
+Key columns: `kind` (package or membership), `sku_id` (unique), `name` (unique per business, ignoring case), `description`, `validity_days` (1–3650), `service_discount_percent`, `product_discount_percent`, `active`.
+Rules:
+- CHECK: the two discount columns are set exactly for a membership.
+- CHECK: a membership has at least one discount above 0.
+Added by: 1791430000000.
+
+#### `salon_plan_services`
+Purpose: the sessions per service that a package includes.
+Key columns: PK (`business_id`, `plan_id`, `sku_id`), `sessions` (1–100). The FK to `salon_plans` uses ON DELETE CASCADE.
+Rules: trigger `salon_plan_services_service` requires a service SKU.
+Added by: 1791430000000.
+
+#### `salon_client_plans`
+Purpose: a package or membership a client bought, as a snapshot of the plan.
+Key columns: `plan_id`, `contact_id`, `kind`, `name`, `document_id`, `line_id` (unique), `price`, `starts_on`, `ends_on`, the discount percents, `status` (active or cancelled), the cancel fields.
+Rules:
+- CHECK: `ends_on >= starts_on`.
+- CHECK: the kind matches the discount fields.
+- CHECK: the cancel fields are set exactly when the plan is cancelled.
+- Trigger `salon_client_plans_customer` requires a customer.
+- Trigger `salon_client_plans_fixed`: the only changes allowed are a one-way cancellation and a later `ends_on` (an extension); no deletes.
+Added by: 1791430000000; 1791600000000 (extensions).
+
+#### `salon_client_plan_services`
+Purpose: the sessions a client bought, per service, as a snapshot.
+Key columns: PK (`business_id`, `client_plan_id`, `sku_id`), `label`, `sessions`.
+Rules: append-only (trigger `salon_client_plan_services_fixed`).
+Added by: 1791430000000.
+
+#### `salon_package_redemptions`
+Purpose: a package session used on a bill line.
+Key columns: (`business_id`, `client_plan_id`, `sku_id`) -> `salon_client_plan_services`, `quantity`, `document_id`, `line_id` (unique).
+Rules:
+- Append-only.
+- Constraint trigger `salon_package_redemptions_left` (`salon_sessions_left`): sessions used never exceed sessions bought. Quantities on returned lines do not count as used.
+Added by: 1791430000000.
+
+#### `salon_membership_uses`
+Purpose: the membership discount given on a bill line.
+Key columns: `client_plan_id`, `document_id`, `line_id` (unique), `percent`, `amount`.
+Rules: append-only.
+Added by: 1791430000000.
+
+### Back-bar
+
+#### `salon_service_products`
+Purpose: a service's back-bar recipe: the products one service uses up.
+Key columns: PK (`business_id`, `service_sku_id`, `product_sku_id`), `quantity` (in the product's stock unit; more than 0, at most 100,000), `updated_by`, `updated_at`.
+Rules: CHECK a service is not its own product.
+Added by: 1791620001000.
+
+#### `salon_backbar_usage`
+Purpose: what a billed service line took from the back-bar stock.
+Key columns: `document_id`, `line_id`, `location_id`, `service_sku_id`, `product_sku_id`, `label`, `unit`, `quantity` (recipe × line quantity), `taken` (what the books had; the rest is short), `unit_cost` (the latest purchase price before GST, else the average cost held), `cost`.
+Rules: one row per line and product; append-only; index `salon_backbar_usage_period`. The stock itself leaves through `business_stock_adjustments` ("Back-bar: … on <bill>").
+Added by: 1791620001000.
+
+### Commissions and tips
+
+#### `salon_commission_rules`
+Purpose: commission for one stylist or everyone, on services, goods or plans, on all items of the kind or one SKU: a percentage, or a flat amount per item.
+Key columns: `resource_id` (NULL = everyone), `applies_to` (service, goods, or plan: selling a package or membership), `sku_id` (NULL = all items of that kind), `percent`, `flat_amount` (a flat amount per item instead of the percent), `active`.
+Rules:
+- One active rule per exact scope (partial unique index `salon_commission_rules_one_active`).
+- Trigger `salon_commission_rules_item` (function `salon_commission_rule_item`) requires the SKU's product kind to match `applies_to`; a plan's item must be a `salon_plans` SKU.
+Added by: 1791430000000; 1791600000000 (`plan`, `flat_amount`).
+
+#### `salon_line_staff`
+Purpose: who did each bill line, and the commission earned on it, as a snapshot.
+Key columns: PK (`business_id`, `line_id`), `document_id`, `resource_id`, `appointment_id`, `rule_id`, `item_kind` (service, goods, plan, or session: a service paid from a package, whose `commission_base` is the session's value), `commission_percent`, `commission_base`, `commission_amount`.
+Rules: append-only.
+Added by: 1791430000000; 1791600000000 (`plan`, `session`).
+
+#### `salon_commission_plans`
+Purpose: a monthly target (slab) commission plan. `stepped` pays each band of the month's net service sales at its own rate (10% of the first 50,000, 12% of the rest); `whole` pays the whole month at the rate of the highest band reached.
+Key columns: `name` (unique per business, ignoring case: `salon_commission_plans_name`), `mode` (`stepped` | `whole`), `active`, `created_by`, `updated_by`.
+Rules: only the name and `active` change after saving; for new rates the owner makes a new plan, so past months stay as they were paid (a service rule).
+Added by: 1791620001000.
+
+#### `salon_commission_slabs`
+Purpose: a plan's bands; a band starts at `from_amount` of the month's net service sales.
+Key columns: PK (`business_id`, `plan_id`, `from_amount`), `from_amount` (>= 0; the first at 0), `percent` (0–100).
+Relations: (`business_id`, `plan_id`) -> `salon_commission_plans`.
+Rules: written with the plan (1 to 10 slabs, no two starting at the same amount) and fixed once saved; the service enforces this, there is no trigger.
+Added by: 1791620001000.
+
+#### `salon_commission_schemes`
+Purpose: which way a stylist earns on services from a month on: `plan_id` NULL = the flat rules (per line), otherwise the slab plan on the month's sales. The latest scheme at or before a month applies.
+Key columns: `resource_id`, `plan_id`, `from_month` (CHECK the first of a month), `created_by`.
+Relations: (`business_id`, `resource_id`) -> `business_resources`; (`business_id`, `plan_id`) -> `salon_commission_plans`.
+Rules: one scheme per stylist per month (UNIQUE (`business_id`, `resource_id`, `from_month`)).
+Added by: 1791620001000.
+
+#### `salon_commission_payouts`
+Purpose: commission (and tips) paid out to a stylist for a period, printed as a slip, with what was earned in the period when it was paid.
+Key columns: `resource_id`, `period_from`, `period_to`, `commission` (>= 0), `tips` (>= 0), `amount` (> 0, what was paid), `method` (cash, upi, bank, cheque), `reference`, `note`, `request_key`, `request_hash`, `created_by`.
+Relations: (`business_id`, `resource_id`) -> `business_resources`.
+Rules: CHECK `period_to >= period_from`; idempotent by `request_key` (unique per business); append-only (trigger `salon_commission_payouts_append_only`); index `salon_commission_payouts_staff`.
+Added by: 1791600000000.
+
+#### `salon_tips`
+Purpose: a tip for a stylist taken with a bill: not part of the bill and not a sale (no GST); owed to the stylist.
+Key columns: `document_id`, `resource_id`, `amount` (> 0), `method` (cash, card, upi, bank, cheque), `created_by`.
+Relations: (`business_id`, `document_id`) -> `business_documents`; (`business_id`, `resource_id`) -> `business_resources`.
+Rules: one tip per stylist per bill (UNIQUE (`business_id`, `document_id`, `resource_id`)); append-only (trigger `salon_tips_append_only`); index `salon_tips_staff`.
+Added by: 1791600000000.
+
+## Weight
+
+Linked section: [weight-based shops](BUSINESS_PLATFORM_DATA_MODEL.md#weight-based-shops). Meat and seafood shops and other weight-based shops use these tables with the shared core.
+
+`weight_sku_is_weighed()` returns true for a goods SKU whose unit is a weight unit and whose tracking is `quantity` or `batch`. "Append-only" here also covers the trigger function `weight_append_only`.
+
+### Cutting and wastage
+
+#### `weight_yield_templates`
+Purpose: the cuts that one input normally gives.
+Key columns: `name` (unique per business, ignoring case), `input_sku_id`, `active`.
+Rules: trigger `weight_yield_templates_weighed` requires a weighed input SKU.
+Added by: 1791430000001 weight-processing-yield-wastage.
+
+#### `weight_yield_template_outputs`
+Purpose: each expected cut on a template.
+Key columns: PK (`business_id`, `template_id`, `output_sku_id`), `expected_percent` (more than 0, at most 100). The FK to the template uses ON DELETE CASCADE.
+Rules:
+- Trigger `weight_yield_template_outputs_weighed` requires a weighed output SKU.
+- Deferred constraint trigger `weight_yield_template_outputs_total` refuses a template whose expected percentages add up to more than 100.
+Added by: 1791430000001.
+
+#### `weight_processing_batches`
+Purpose: one cutting run, numbered with series kind `processing` and prefix `CP`.
+Key columns: `batch_no` (unique), `series_id`, `location_id`, `template_id`, `input_sku_id`, `input_lot_id`, snapshots of the input (`input_label`, `input_unit`, `input_quantity`, `input_unit_cost`, `input_value`), `input_kg`, `output_kg`, `loss_kg`, `input_adjustment_id` -> `business_stock_adjustments`, `notes`, `cut_by`, `supplier_id` (FK to contacts: the supplier of the input batch's latest purchase), `cut_to_order`, `request_key`, `request_hash`.
+Rules:
+- CHECK: `output_kg + loss_kg = input_kg`.
+- Append-only (`weight_append_only`).
+Added by: 1791430000001; 1791600000000 (`cut_by`, `supplier_id`, `cut_to_order`).
+
+#### `weight_processing_outputs`
+Purpose: each cut produced by a batch.
+Key columns: `batch_id`, `output_sku_id`, `label`, `unit`, `lot_id`, `quantity`, `kg`, `cost_share`, `unit_cost`, `expected_percent`, `adjustment_id`.
+Rules:
+- UNIQUE (`batch_id`, `output_sku_id`).
+- Append-only.
+Added by: 1791430000001.
+
+#### `weight_wastage_entries`
+Purpose: a stock write-off, valued at the lot's cost.
+Key columns: `location_id`, `sku_id`, `lot_id`, `label`, `unit`, `quantity`, `kg` (NULL for counted items), `reason` (trimming, spoiled, unsold, drip_loss, damaged, other), `note`, `unit_cost`, `value`, `adjustment_id` (unique), `request_key`, `request_hash`.
+Rules:
+- CHECK: reason `other` needs a note.
+- Append-only.
+- There is no weighed-item trigger, so counted items can be written off too.
+Added by: 1791430000001.
+
+### Rates, packs, pickup orders and the day's weigh-up
+
+#### `weight_rate_history`
+Purpose: every change of a weighed item's selling price (the daily rate board): old, new, who, when.
+Key columns: `sku_id`, `old_price`, `new_price` (both >= 0, 4 places), `changed_by`, `changed_at`.
+Relations: (`business_id`, `sku_id`) -> `catalog_skus`.
+Rules: append-only (trigger `weight_rate_history_append_only`); index `weight_rate_history_sku` (newest first).
+Added by: 1791600000000.
+
+#### `weight_pack_sizes`
+Purpose: the weight of one pack of an item sold by the piece (loose stock repacked into pouches).
+Key columns: PK (`business_id`, `sku_id`), `pack_kg` (more than 0, at most 1000), `updated_by`, `updated_at`.
+Relations: (`business_id`, `sku_id`) -> `catalog_skus`.
+Added by: 1791600000000.
+
+#### `weight_pickup_orders`
+Purpose: an order taken on the phone or WhatsApp for pickup at a time.
+Key columns: `location_id`, `contact_id` (optional), `customer_name` (not blank), `phone`, `pickup_at`, `status` (open, ready, collected, cancelled), `notes`, `document_id` (the bill), `ready_at`, `closed_at`, `cancel_reason`, `request_key`, `request_hash`, `created_by`, `updated_by`.
+Relations: composite FKs to `business_locations`, `business_contacts` and `business_documents`.
+Rules: CHECKs collected ⇔ bill, cancelled ⇔ reason, and closed ⇔ collected or cancelled; idempotent by `request_key` (unique per business); partial index `weight_pickup_orders_open` (open and ready orders by pickup time).
+Added by: 1791600000000.
+
+#### `weight_pickup_order_lines`
+Purpose: the items on a pickup order, by weight or by amount ("₹200 worth"); the counter weighs them.
+Key columns: `order_id`, `sku_id`, `label`, `unit`, `quantity` (> 0), `amount` (> 0), `note`.
+Relations: (`business_id`, `order_id`) -> `weight_pickup_orders`; (`business_id`, `sku_id`) -> `catalog_skus`.
+Rules: CHECK a quantity or an amount is given; index `weight_pickup_order_lines_order`.
+Added by: 1791600000000.
+
+#### `weight_day_closes`
+Purpose: the end-of-day weigh-up at a location: what was left, against what the books expected.
+Key columns: `location_id`, `day`, `lines` (JSONB: expected, counted, difference, value and reason per item), `short_kg`, `short_value`, `over_kg`, `request_key`, `request_hash`, `created_by`.
+Relations: (`business_id`, `location_id`) -> `business_locations`.
+Rules: append-only (trigger `weight_day_closes_append_only`); idempotent by `request_key` (unique per business); index `weight_day_closes_day` (newest first).
+Added by: 1791600000000.
+
+## Pharmacy, clinic & lab
+
+Linked section: [pharmacy, clinic and lab](BUSINESS_PLATFORM_DATA_MODEL.md#pharmacy-clinic-and-lab).
+
+Modules `pharmacy` (type pharmacy; needs sales, batches, contacts), `patients` (type healthcare; needs contacts, appointments) and `lab` (healthcare; needs patients, sales). `pharmacy` and `patients` are on by default; `lab` is off by default and recommended for healthcare. Permissions `pharmacy.*` (view, create, edit, approve, export, print), `patients.*` (view, create, edit, **view_clinical**, **edit_clinical**, export, print) and `lab.*` (view, create, edit, approve, print, export). The role templates `pharmacist` (pharmacy), `doctor`, `lab_technician` and `pathologist` (healthcare) are given to their type only (`business_role_templates.business_types`).
+
+Every table here is scoped by `business_id` with composite foreign keys. "Append-only" means trigger function `health_append_only()`: a row is kept as written (only `created_at` may be corrected) and never deleted. The tables come from 1791620004000_pharmacy-clinic-lab, except a pharmacy branch's own licences (1791630000000), doctors' fees, OPD sessions, leave and the token queue (1791950408000), and lab report versions and quality control (1791950409000); each entry names its migrations.
 
 ### Shared: settings, numbers, signatories, files
 
@@ -2353,7 +2221,7 @@ Rules: UNIQUE (business, kind, user); one active signatory per calendar (partial
 Added by: 1791620004000.
 
 #### `health_files`
-Purpose: a photo or scan of a prescription, kept in `private_uploads/health/<business>/`.
+Purpose: a photo or scan of a prescription, kept in `health/<business>/` under the private upload folder (`PRIVATE_UPLOADS_DIR`, `backend/private_uploads` when it is not set).
 Key columns: `kind` (`prescription`), `stored_name` (UNIQUE), `file_name`, `mime_type` (JPEG, PNG, WebP, PDF; the bytes are checked by the API), `size_bytes` (> 0), `uploaded_by`, `created_at`.
 Relations: referenced by `pharmacy_prescriptions.file_id` (one prescription per file).
 Added by: 1791620004000.
@@ -2463,7 +2331,7 @@ Purpose: a consultation, the medical record of one visit.
 Key columns: `visit_no` (`OP00001`, unique per business), `contact_id` (the patient), `appointment_id` (one visit each), `resource_id` (the doctor's calendar), `doctor_signatory_id`, `location_id` (the branch: the doctor's, else the branch the reception works at), `status` (open, completed); vitals `bp_systolic` (40–300), `bp_diastolic` (20–200), `pulse` (20–250), `temperature_c` (30–45), `spo2` (50–100), `resp_rate` (4–80), `weight_kg` (0.5–400), `height_cm` (20–250); `complaints`, `examination`, `diagnosis`, `icd10_code` (ICD-10 shape), `advice`, `follow_up_on`, `document_id` (the bill); how the consultation was charged, written once when the visit is billed (a free follow-up with nothing else to bill is recorded with no bill): `fee_kind` (consultation, follow_up, free_follow_up) and `fee_sku_id` (so the doctor's earnings stay as billed when fees change); `created_by`, `updated_by`, `completed_by`, `completed_at`.
 Relations: composite FKs to `health_patients`, `business_appointments`, `business_resources`, `health_signatories`, `business_documents`, `business_locations` (`health_visits_location_fk`) and `catalog_skus` (`health_visits_fee_sku_fk`).
 Rules: CHECK completed ⇔ completed_at; trigger `health_visit_fixed`: a consultation is never deleted, and once completed it is fixed: only its bill and its fee may be added, each once (a correction is a note in `health_visit_notes`). Indexes `health_visits_patient`, `health_visits_follow_up` (partial) and `health_visits_location` (business, location, newest first).
-Added by: 1791620004000; 1791950407000 visit-location (`location_id`, filled for existing visits from the bill's location, else the doctor's calendar's, else the business's first location, open ones first); 1791950408000 (`fee_kind`, `fee_sku_id`, and the trigger now lets the fee be written once).
+Added by: 1791620004000; 1791950407000 visit-location (`location_id`); 1791950408000 (`fee_kind`, `fee_sku_id`; the trigger lets the fee be written once).
 
 #### `health_visit_notes`
 Purpose: dated notes added to a consultation after it was completed.
@@ -2513,7 +2381,7 @@ Purpose: a lab order for a patient, from ordering to the approved report.
 Key columns: `order_no` (`LAB00001`, unique per business), `location_id`, `contact_id` (the patient), `visit_id`, `referred_by`, `priority` (routine, urgent), `status` (ordered → collected → received → in_process → resulted → approved, or cancelled), `document_id` (the bill), an outside lab's `outside_lab`, `outside_ref_no`, `outside_sent_at`, `outside_charge` and `referral_commission` (what it pays back, when the setting allows), `approved_by`, `approved_signatory_id`, `approved_at`, `cancel_reason`, `notes`, `request_key` (unique per business), `request_hash`, `created_by`; amendment `version` (how many times the report has been signed; 0 before the first), `amend_reason`, `amend_requested_by`, `amend_requested_at`.
 Relations: composite FKs to `business_locations`, `health_patients`, `health_visits`, `business_documents` and `health_signatories`; `amend_requested_by` -> `users`.
 Rules: CHECKs approved ⇔ approved_at, a cancelled order has a reason, the outside-lab columns only with an outside lab, and `lab_orders_amending` (an amendment reason is held only while the report is reopened, not approved). Indexes `lab_orders_time`, `lab_orders_visit` and `lab_orders_open` (orders not yet approved or cancelled).
-Added by: 1791620004000; 1791950409000 lab-report-versions-qc (the amendment columns; reports already approved became version 1).
+Added by: 1791620004000; 1791950409000 lab-report-versions-qc (the amendment columns).
 
 #### `lab_samples`
 Purpose: one sample per sample type of an order, with its barcode.
@@ -2539,7 +2407,7 @@ Added by: 1791620004000.
 Purpose: every signed report, kept as it was printed (results, ranges, flags, who signed), numbered 1, 2, …. A correction after signing is an amendment: the pathologist reopens the report with a reason, corrects it and signs again; the earlier version can still be printed, marked superseded.
 Key columns: `order_id`, `version` (> 0), `results` (jsonb), `amend_reason` (NULL exactly for version 1), `signatory_id`, `approved_by`, `approved_at`, `created_at`.
 Relations: (`business_id`, `order_id`) -> `lab_orders`; (`business_id`, `signatory_id`) -> `health_signatories`.
-Rules: UNIQUE (business, order, version); CHECK `(version = 1) = (amend_reason IS NULL)`; trigger `lab_report_versions_fixed` (function `lab_report_version_fixed`): never deleted or changed, except that both time stamps may be moved by the same amount (the demo set-up). Reports approved before the migration were copied in as version 1.
+Rules: UNIQUE (business, order, version); CHECK `(version = 1) = (amend_reason IS NULL)`; trigger `lab_report_versions_fixed` (function `lab_report_version_fixed`): never deleted or changed, except that both time stamps may be moved by the same amount.
 Added by: 1791950409000 lab-report-versions-qc.
 
 #### `lab_qc_materials`
@@ -2556,9 +2424,124 @@ Relations: (`business_id`, `material_id`) -> `lab_qc_materials`; (`business_id`,
 Rules: CHECK a rejected run names at least one rule; append-only (trigger `lab_qc_runs_fixed`); indexes `lab_qc_runs_material` and `lab_qc_runs_parameter` (newest first).
 Added by: 1791950409000.
 
+## Tasks, issues & projects
+
+Linked sections: [data model](BUSINESS_PLATFORM_DATA_MODEL.md#tasks-issues--projects) and [ARCHITECTURE.md §4.3](ARCHITECTURE.md#43-tasks-issues--projects-one-model-for-both-worlds). Migration `1791620000000_tasks-issues-projects.sql`; module code `backend/src/modules/tasks/`.
+
+**One data model for every business, keyed on `business_id`.** A restaurant uses it through its own business row (`businesses.legacy_restaurant_id`, `restaurant_business_id()`), so the restaurant and every other type share the same tables, reports and template library. Only *where* and *who* differ: a restaurant names an `outlet_id`, a restaurant `employee_id` (staff with or without a login) and a restaurant role (`role_id`); every other type names a `location_id`, a `business_resources` row (`resource_id`) and a `business_roles` row (`business_role_id`). Users are the shared `users` table in both. When the restaurant moves onto memberships and locations (plans D and E, [ARCHITECTURE.md](ARCHITECTURE.md) §9.3), the restaurant-only columns fall out of use and nothing else changes.
+
+Modules (all optional, feature group "Operations" on the restaurant's Features screen): `tasks`; `issues` and `projects`, which need `tasks`. A restaurant starts with all three. For every other type they are off by default and the owner switches them on; `tasks` and `issues` are recommended for a supermarket and a pharmacy, and `tasks` for healthcare. Permissions: `tasks.view / create / assign / review / manage`, `issues.view / create / assign / review / manage` and `projects.view / create / manage`, in `business_permissions` (modules `tasks`, `issues` and `projects`) and in the restaurant `permissions` table (module `tasks`).
+
+Every table but `platform_task_categories` carries `business_id NOT NULL`, and every one but `business_project_members`, `business_task_assignees` and `business_task_history` also carries `UNIQUE (business_id, id)`; references inside the module, and to `business_locations`, `business_resources` and `business_roles`, are composite `(business_id, …)` keys. Each table below was added by 1791620000000_tasks-issues-projects.
+
+**Trigger `business_task_world_check`** (on tasks, schedules, issues, projects, members and assignees) refuses with a sentence (SQL state 23514): an outlet that is not the business's own restaurant's, a location on a restaurant business, a restaurant employee or role of another restaurant (system roles allowed), and a user (`user_id`, `assignee_user_id`, `owner_user_id`) who is neither a member of the business nor a user of its restaurant.
+
+Every change writes `business_task_history` and `business_audit`. Assigning a task, and reporting or assigning an issue, also write `business_events` (`task.assigned`, `issue.reported`, `issue.assigned`) for a later WhatsApp / SMS publisher.
+
+#### `platform_task_categories`
+Purpose: the categories every business shares: Stock check, Audit, Cleaning, Day to day task, Hiring, Maintenance & repair work, Marketing, Opening & closing, Order placement & procurement, Production, Project management, Food safety & hygiene, Health & safety, Others.
+Key columns: `code` (TEXT PK, `^[a-z_]{2,40}$`), `name`, `icon`, `sort_order`.
+Relations: referenced by `category_code` on templates, schedules, tasks and issues.
+Added by: 1791620000000, which also creates its rows.
+
+#### `business_task_templates`
+Purpose: a business's own checklist template (the built-in ones are code, `modules/tasks/library/`).
+Key columns: `name` (not blank), `description`, `category_code`, `priority` (low/normal/high/urgent), `requires_review`, `estimated_minutes` (1–1440), `library_code` (the built-in template it was copied from), `active`, `created_by`, `updated_by`.
+Rules: index `business_task_templates_list` (business, active, name).
+Added by: 1791620000000.
+
+#### `business_task_template_items`
+Purpose: one checklist line of a template. A task copies them into `business_task_items`, so editing a template never changes a checklist already done.
+Key columns: `template_id`, `position` (0–500), `kind` (section, checkbox, yes_no, number, text, photo, signature, choice), `label` (not blank), `help`, `required`, `unit`, `min_value`, `max_value`, `options` (jsonb `[{label, fail}]`), `expected` (yes/no: the answer that passes), `photo_required`, `critical` (a failed critical item fails the whole checklist, whatever its score), `raise_issue`, `fail_severity` (low/medium/high/critical).
+Relations: (`business_id`, `template_id`) -> `business_task_templates` (ON DELETE CASCADE).
+Rules: CHECK `business_task_template_items_range` (min ≤ max); CHECK `business_task_template_items_choice` (`options` is an array for a choice); index by template and position.
+Added by: 1791620000000.
+
+#### `business_task_schedules`
+Purpose: a recurring task. Its occurrences are made lazily, each once, up to `generated_through`.
+Key columns: `title`, `description`, `template_id` or `library_code`, `category_code`, `priority`, `location_id` / `outlet_id`, `assign_mode` (people, role, on_shift, unassigned), `frequency` (daily, weekdays, weekly, monthly, every_n_days, per_shift), `every_n` (1–365), `weekdays` smallint[] (0 = Sunday), `month_day` (1–31), `due_times` time[] (one occurrence per time; a time before the day's cut-off hour, `day_cutoff_hour` in the restaurant's or the business's settings, belongs to the trading day before), `shift_id` (per_shift at a restaurant: only this shift; NULL = every active shift), `window_minutes` (5–1440: the task opens this long before it is due; NULL = at the start of the day), `starts_on`, `ends_on`, `requires_review`, `active`, `generated_through` (occurrences exist up to this day).
+Relations: (`business_id`, `template_id`) -> `business_task_templates`; (`business_id`, `location_id`) -> `business_locations`; `outlet_id` -> `outlets`; `shift_id` -> `shifts`; `category_code` -> `platform_task_categories`.
+Rules: CHECKs `business_task_schedules_dates` (end not before start), `_one_place` and `_one_template` (at most one of each pair), `_times` (1 to 12 due times) and `_shape` (the shape fits the frequency: every_n_days needs `every_n`, weekly and weekdays need weekdays, monthly needs `month_day`); trigger `business_task_schedules_world`; partial index `business_task_schedules_active`.
+Added by: 1791620000000.
+
+#### `business_tasks`
+Purpose: one task: one-off, a recurring occurrence, a project task or the fix of an issue.
+Key columns: `title`, `description`, `category_code`, `priority`, `status` (todo, in_progress, done, missed, cancelled), `location_id` / `outlet_id`, `assign_mode`, `opens_at`, `due_at`, `closes_at` (after it, not done = missed), `schedule_id` + `occurrence_date` + `occurrence_slot`, `shift_label`, `template_id` / `library_code`, `project_id`, `project_list_id`, `milestone_id`, `issue_id`, `requires_review`, `review_status` (pending, approved, changes_requested), `reviewed_by` / `reviewed_at` / `review_note`, who and when started / completed / cancelled (with `cancel_reason`), counters `item_count`, `answered_count`, `failed_count`, `score_percent`, `critical_failed`.
+Relations: composite FKs to `business_locations`, `business_task_schedules`, `business_task_templates`, `business_projects`, `business_issues`, and to `business_project_lists` and `business_project_milestones` with `ON DELETE SET NULL` on that column only; `outlet_id` -> `outlets`.
+Rules: CHECKs `business_tasks_one_place`, `_occurrence` (schedule, date and slot all or none), `_done` (done ⇔ completed_at), `_cancelled` (cancelled ⇔ cancelled_at), `_review` (a review status only when review is needed), `_window` (opens_at ≤ due_at) and `_list_needs_project` (a list or milestone only with a project). Partial unique index `business_tasks_occurrence_once` (business, schedule, day, slot): an occurrence is made once however many screens ask. Indexes `business_tasks_due`, `business_tasks_open` (todo and in progress, by `closes_at`) and `business_tasks_project`. Trigger `business_tasks_world`.
+Added by: 1791620000000.
+
+#### `business_task_assignees`
+Purpose: who a task or a schedule is for.
+Key columns: `task_id` or `schedule_id` (exactly one), `kind` (user, employee, resource, role, business_role) with exactly the matching id column: `user_id`, `employee_id` (a restaurant employee), `resource_id`, `role_id` (a restaurant role), `business_role_id`.
+Relations: task and schedule ON DELETE CASCADE; `user_id` -> `users`; `employee_id` -> `employees`; `role_id` -> `roles`; (`business_id`, `resource_id`) -> `business_resources`; (`business_id`, `business_role_id`) -> `business_roles`.
+Rules: CHECKs `business_task_assignees_owner`, `_one` and `_kind`; unique per owner and person (`business_task_assignees_once`); trigger `business_task_assignees_world`.
+Added by: 1791620000000.
+
+#### `business_task_items`
+Purpose: a task's own copy of its checklist, with the answers.
+Key columns: `task_id`, the template item columns, plus `value_bool`, `value_number`, `value_text`, `value_choice`, `note`, `answered`, `failed`, `answered_by`, `answered_at`, `issue_id` (the issue it raised).
+Relations: (`business_id`, `task_id`) -> `business_tasks` (CASCADE); (`business_id`, `issue_id`) -> `business_issues` (`ON DELETE SET NULL (issue_id)`).
+Rules: CHECKs `business_task_items_answer` (answered ⇔ answered_at), `_fail` (failed only when answered) and `_range`.
+Added by: 1791620000000.
+
+#### `business_issues`
+Purpose: a problem to fix. A failed checklist answer can raise one by itself.
+Key columns: `number` (unique per business; shown `ISS-0001`), `title`, `description`, `category_code`, `severity` (low/medium/high/critical), `status` (open, in_progress, resolved, closed), `location_id` / `outlet_id`, `asset_label` (equipment, free text), `assignee_user_id`, `due_at`, `reported_by`, `reported_at`, `resolved_at` / `resolved_by`, `resolution_note`, `closed_at` / `closed_by`, sources `source_task_id`, `source_task_item_id`, `source_logbook_entry_id`.
+Relations: (`business_id`, `source_task_id`) -> `business_tasks`; (`business_id`, `source_task_item_id`) -> `business_task_items` (`ON DELETE SET NULL (source_task_item_id)`); `source_logbook_entry_id` -> `logbook_entries` (SET NULL); `outlet_id` -> `outlets`.
+Rules: CHECKs `business_issues_one_place`, `_resolved` (resolved or closed ⇔ resolved_at) and `_closed` (closed ⇔ closed_at); one issue per log-book entry (partial unique index `business_issues_one_per_logbook_entry`); indexes `business_issues_list` and `business_issues_assignee` (open and in progress); trigger `business_issues_world`.
+Added by: 1791620000000.
+
+#### `business_projects`
+Purpose: a bigger job with members, milestones and task lists (a new outlet, a festival sale, the annual stock audit).
+Key columns: `name`, `description`, `owner_user_id`, `status` (planning, active, on_hold, completed, cancelled), `start_on`, `end_on`, `location_id` / `outlet_id`, `template_code`, `completed_at`.
+Rules: CHECKs `business_projects_dates` (end not before start), `_one_place` and `_completed` (completed ⇔ completed_at); index `business_projects_list`; trigger `business_projects_world`.
+Added by: 1791620000000.
+
+#### `business_project_members`
+Purpose: who is on a project.
+Key columns: PK (`business_id`, `project_id`, `user_id`), `role` (owner / member), `added_at`.
+Relations: (`business_id`, `project_id`) -> `business_projects` (CASCADE); `user_id` -> `users`.
+Rules: index `business_project_members_user`; trigger `business_project_members_world`.
+Added by: 1791620000000.
+
+#### `business_project_milestones`
+Purpose: a milestone of a project.
+Key columns: `project_id`, `name`, `due_on`, `position`, `done_at` / `done_by`.
+Relations: (`business_id`, `project_id`) -> `business_projects` (CASCADE). A task's `milestone_id` is cleared when its milestone is deleted.
+Rules: CHECK `business_project_milestones_done` (both done columns or neither).
+Added by: 1791620000000.
+
+#### `business_project_lists`
+Purpose: a task list inside a project.
+Key columns: `project_id`, `name` (varchar 80), `position`.
+Relations: (`business_id`, `project_id`) -> `business_projects` (CASCADE). Deleting a list keeps its tasks (FK `ON DELETE SET NULL (project_list_id)` on `business_tasks`).
+Added by: 1791620000000.
+
+#### `business_task_comments`
+Purpose: a comment on a task, an issue or a project.
+Key columns: exactly one of `task_id`, `issue_id`, `project_id`; `body` (not blank, up to 2000), `created_by`, `created_at`.
+Relations: each owner ON DELETE CASCADE.
+Rules: CHECK `business_task_comments_owner`; a partial index per owner.
+Added by: 1791620000000.
+
+#### `business_task_files`
+Purpose: a photo, signature or file on a task (or one of its checklist items), an issue or a project. Files live in `tasks/<business>/` under the private upload folder (`PRIVATE_UPLOADS_DIR`, `backend/private_uploads` when it is not set) and are only sent through the API.
+Key columns: one owner (`task_id`, `issue_id`, `project_id`), optional `item_id` (needs a task), `kind` (photo, signature, file), `stored_name` (generated, unique, `<32 hex>.jpg|png|webp|pdf`), `file_name`, `mime_type` (JPEG, PNG, WebP, PDF), `size_bytes` (≤ 5 MB), `uploaded_by`, `uploaded_at`, `removed_at` / `removed_by` (removing keeps the file).
+Relations: each owner and the item ON DELETE CASCADE.
+Rules: CHECKs `business_task_files_owner`, `_item` and `_removed` (both removal columns or neither); partial indexes by task and by issue.
+Added by: 1791620000000.
+
+#### `business_task_history`
+Purpose: the trail on a task, issue or project.
+Key columns: one owner (`task_id`, `issue_id`, `project_id`), `action`, `details` (jsonb), `actor_id` (NULL = the system, e.g. "missed"), `created_at`.
+Relations: each owner ON DELETE CASCADE, so the trail goes with its task, issue or project.
+Rules: **append-only**: trigger `business_task_history_no_update` (function `business_task_history_append_only`) refuses every UPDATE; CHECK `business_task_history_owner`; a partial index per owner.
+Added by: 1791620000000.
+
 ## Business types
 
-These are the 12 rows inserted into `business_types` by 1791280000000 multi-business-admin.
+The rows of `business_types`, created by 1791280000000 multi-business-admin.
 
 | Code | Name |
 |---|---|
@@ -2577,141 +2560,128 @@ These are the 12 rows inserted into `business_types` by 1791280000000 multi-busi
 
 ## Platform module codes
 
-There are 54 modules: 4 core and 50 optional (19 of them listed on the restaurant's Features screen: the 16 restaurant features plus tasks, issues and projects, which apply to every type). No migration deletes a module in its Up section. Which modules a new business of each type starts with, and which are recommended, is in `platform_module_business_types`.
+Core modules are always on and never stored per business; every other module is optional. The restaurant's Features screen lists the restaurant features (see [Restaurant features](#restaurant-features)) and tasks, issues and projects. *Types and default* gives the business types a module applies to (`platform_module_business_types`), which of them start with it switched on, and the types it is recommended for. How to add a module: [ARCHITECTURE.md › Add a module switch](ARCHITECTURE.md#83-add-a-module-switch).
 
-| Code | Kind | Needs | Added by |
-|---|---|---|---|
-| `settings` | core | — | 1791300000000 |
-| `access` | core | — | 1791300000000 |
-| `reports` | core | — | 1791300000000 |
-| `audit` | core | — | 1791300000000 |
-| `catalog` | optional | — | 1791300000000 |
-| `contacts` | optional | — | 1791300000000 |
-| `sales` | optional | catalog | 1791300000000 |
-| `purchasing` | optional | inventory, contacts | 1791300000000 |
-| `inventory` | optional | catalog | 1791300000000 |
-| `stock_counts` | optional | inventory | 1791300000000 |
-| `stock_transfers` | optional | inventory | 1791300000000 |
-| `batches` | optional | inventory | 1791300000000 |
-| `serials` | optional | inventory | 1791300000000 |
-| `variants` | optional | catalog | 1791300000000 |
-| `weight` | optional | catalog | 1791300000000 |
-| `wholesale` | optional | sales, contacts | 1791300000000 |
-| `books` | optional | catalog | 1791300000000 |
-| `appointments` | optional | catalog, contacts | 1791300000000 |
-| `restaurant` | optional | — | 1791300000000 |
-| `offers` | optional | sales, catalog | 1791400000000 |
-| `loyalty` | optional | sales, contacts | 1791400000000 |
-| `receivables` | optional | sales, contacts | 1791410000000 |
-| `sales_orders` | optional | sales, contacts, inventory | 1791410000001 |
-| `exchanges` | optional | sales, inventory | 1791420000000 |
-| `warranties` | optional | serials, sales | 1791420000001 |
-| `repairs` | optional | sales, inventory | 1791420000001 |
-| `finance` | optional | sales | 1791620002000 |
-| `packages` | optional | sales, contacts | 1791430000000 |
-| `commissions` | optional | sales, appointments | 1791430000000 |
-| `pharmacy` | optional | sales, batches, contacts | 1791620004000 |
-| `patients` | optional | contacts, appointments | 1791620004000 |
-| `lab` | optional | patients, sales | 1791620004000 |
-| `processing` | optional | inventory, weight | 1791430000001 |
-| `wastage` | optional | inventory | 1791430000001 |
-| `expenses` | optional | — | 1791950400000 |
-| `guests` | optional | restaurant | 1791470000000 |
-| `guest_loyalty` | optional | restaurant, guests | 1791470000000 |
-| `reservations` | optional | restaurant | 1791470000000 |
-| `qr_ordering` | optional | restaurant | 1791470000000 |
-| `online_ordering` | optional | restaurant, guests | 1791470000000 |
-| `deliveries` | optional | restaurant | 1791470000000 |
-| `kitchen_display` | optional | restaurant | 1791470000000 |
-| `captain_sections` | optional | restaurant | 1791470000000 |
-| `preorders` | optional | restaurant, guests | 1791950410000 |
-| `brands` | optional | restaurant | 1791950411000 |
-| `tips` | optional | restaurant | 1791470000000 |
-| `advances` | optional | restaurant | 1791470000000 |
-| `cash_drawers` | optional | restaurant | 1791470000000 |
-| `coupons` | optional | restaurant | 1791470000000 |
-| `stock_recipes` | optional | restaurant | 1791470000000 |
-| `staff_payroll` | optional | restaurant | 1791470000000 |
-| `tasks` | optional | — | 1791620000000 |
-| `issues` | optional | tasks | 1791620000000 |
-| `projects` | optional | tasks | 1791620000000 |
+| Code | Kind | Needs | Types and default | Added by |
+|---|---|---|---|---|
+| `settings` | core | — | always on | 1791300000000 |
+| `access` | core | — | always on | 1791300000000 |
+| `reports` | core | — | always on | 1791300000000 |
+| `audit` | core | — | always on | 1791300000000 |
+| `catalog` | optional | — | every type but restaurant; on for all | 1791300000000 |
+| `contacts` | optional | — | every type but restaurant; on for all | 1791300000000 |
+| `sales` | optional | catalog | every type but restaurant; on for all | 1791300000000 |
+| `purchasing` | optional | inventory, contacts | every type but restaurant; on except for healthcare | 1791300000000 |
+| `inventory` | optional | catalog | every type but restaurant; on except for healthcare | 1791300000000 |
+| `stock_counts` | optional | inventory | every type but restaurant; on except for healthcare | 1791300000000 |
+| `stock_transfers` | optional | inventory | every type but restaurant; off; recommended for fashion, supermarket, wholesale | 1791300000000 |
+| `batches` | optional | inventory | grocery, healthcare, meat, pharmacy, salon, supermarket, weight_retail, wholesale; on except for healthcare, salon | 1791300000000 |
+| `serials` | optional | inventory | electronics, supermarket; on for electronics | 1791300000000 |
+| `variants` | optional | catalog | books, electronics, fashion, salon, supermarket; on for fashion, supermarket | 1791300000000 |
+| `weight` | optional | catalog | fashion, grocery, meat, supermarket, weight_retail, wholesale; on except for fashion, wholesale | 1791300000000 |
+| `wholesale` | optional | sales, contacts | grocery, meat, pharmacy, supermarket, weight_retail, wholesale; on for wholesale | 1791300000000 |
+| `books` | optional | catalog | books, supermarket; on for books | 1791300000000 |
+| `appointments` | optional | catalog, contacts | electronics, healthcare, salon; on except for electronics | 1791300000000 |
+| `restaurant` | optional | — | restaurant; on | 1791300000000 |
+| `offers` | optional | sales, catalog | books, electronics, fashion, grocery, supermarket; off; recommended for fashion, supermarket | 1791400000000 |
+| `loyalty` | optional | sales, contacts | books, fashion, grocery, supermarket; off; recommended for fashion, supermarket | 1791400000000 |
+| `receivables` | optional | sales, contacts | every type but restaurant; on except for healthcare, salon | 1791410000000 |
+| `sales_orders` | optional | sales, contacts, inventory | wholesale; on | 1791410000001 |
+| `exchanges` | optional | sales, inventory | books, electronics, fashion, grocery, supermarket; on for electronics, fashion | 1791420000000 |
+| `warranties` | optional | serials, sales | electronics, supermarket; on for electronics | 1791420000001 |
+| `repairs` | optional | sales, inventory | electronics; off; recommended for electronics | 1791420000001 |
+| `finance` | optional | sales | electronics; off; recommended for electronics | 1791620002000 |
+| `packages` | optional | sales, contacts | salon; off; recommended for salon | 1791430000000 |
+| `commissions` | optional | sales, appointments | salon; off; recommended for salon | 1791430000000 |
+| `pharmacy` | optional | sales, batches, contacts | pharmacy; on | 1791620004000 |
+| `patients` | optional | contacts, appointments | healthcare; on | 1791620004000 |
+| `lab` | optional | patients, sales | healthcare; off; recommended for healthcare | 1791620004000 |
+| `processing` | optional | inventory, weight | meat, weight_retail; off; recommended for meat, weight_retail | 1791430000001 |
+| `wastage` | optional | inventory | grocery, meat, supermarket, weight_retail; on for meat, weight_retail; recommended for supermarket | 1791430000001 |
+| `expenses` | optional | — | every type but restaurant; on for all | 1791950400000 |
+| `guests` | optional | restaurant | restaurant; on | 1791470000000 |
+| `guest_loyalty` | optional | restaurant, guests | restaurant; off | 1791470000000 |
+| `reservations` | optional | restaurant | restaurant; on | 1791470000000 |
+| `qr_ordering` | optional | restaurant | restaurant; on | 1791470000000 |
+| `online_ordering` | optional | restaurant, guests | restaurant; on | 1791470000000 |
+| `deliveries` | optional | restaurant | restaurant; on | 1791470000000 |
+| `kitchen_display` | optional | restaurant | restaurant; on | 1791470000000 |
+| `captain_sections` | optional | restaurant | restaurant; on | 1791470000000 |
+| `preorders` | optional | restaurant, guests | restaurant; off | 1791950410000 |
+| `brands` | optional | restaurant | restaurant; off | 1791950411000 |
+| `tips` | optional | restaurant | restaurant; on | 1791470000000 |
+| `advances` | optional | restaurant | restaurant; on | 1791470000000 |
+| `cash_drawers` | optional | restaurant | restaurant; on | 1791470000000 |
+| `coupons` | optional | restaurant | restaurant; on | 1791470000000 |
+| `stock_recipes` | optional | restaurant | restaurant; on | 1791470000000 |
+| `staff_payroll` | optional | restaurant | restaurant; on | 1791470000000 |
+| `tasks` | optional | — | every type; on for restaurant; recommended for healthcare, pharmacy, supermarket | 1791620000000 |
+| `issues` | optional | tasks | every type; on for restaurant; recommended for pharmacy, supermarket | 1791620000000 |
+| `projects` | optional | tasks | every type; on for restaurant | 1791620000000 |
 
-Six modules have no permission codes: `restaurant`, `batches`, `serials`, `variants`, `weight` and `books`. Access to them comes from the capability check alone. The sixteen restaurant features have none either: the restaurant's own permissions (`roles`, `permissions`) decide who may do what, and the feature decides whether anyone may (see [Restaurant features](#restaurant-features)).
+These modules have no permission codes: `restaurant`, `batches`, `serials`, `variants`, `weight` and `books`. Access to them comes from the capability check alone. The restaurant features have none either: the restaurant's own permissions (`roles`, `permissions`) decide who may do what, and the feature decides whether anyone may (see [Restaurant features](#restaurant-features)).
 
 ## Business permission codes
 
-After all migrations there are **135** codes. Phase 1 inserted 46, Phase 2 inserted 47, and later passes 42: `sales.discount` (1791540000000), `receivables.approve` (1791580000000), 13 for tasks, issues and projects (1791620000000), `appointments.approve` (1791620001000), 3 for `finance` (1791620002000), 19 for `pharmacy`, `patients` and `lab` (1791620004000), and the 3 `expenses` codes and `reports.edit` (1791950400000). No Up section deletes any (deletes appear only in Down sections). The table below is grouped by module.
+Each code is a `<module>.<action>` row of `business_permissions`, listed here by module with the migration that added it. The owner holds every code; the other roles hold what their template grants (`business_role_template_permissions`). How to add one: [ARCHITECTURE.md › Add a permission](ARCHITECTURE.md#84-add-a-permission).
 
-| Module | Codes | Count | Added by |
-|---|---|---|---|
-| catalog | `catalog.view`, `catalog.create`, `catalog.edit`, `catalog.export`, `catalog.print` | 5 | 1791300000001 |
-| contacts | `contacts.view`, `contacts.create`, `contacts.edit`, `contacts.export` | 4 | 1791300000001 |
-| sales | `sales.view`, `sales.create`, `sales.edit`, `sales.refund`, `sales.export`, `sales.print`, `sales.discount` (action `discount` added to the CHECK) | 7 | 1791300000001; `sales.discount` 1791540000000 |
-| purchasing | `purchasing.view`, `purchasing.create`, `purchasing.edit`, `purchasing.refund`, `purchasing.export`, `purchasing.print` | 6 | 1791300000001 |
-| inventory | `inventory.view`, `inventory.edit`, `inventory.export` | 3 | 1791300000001 |
-| stock_counts | `stock_counts.view`, `stock_counts.create`, `stock_counts.approve`, `stock_counts.cancel` | 4 | 1791300000001 |
-| stock_transfers | `stock_transfers.view`, `stock_transfers.create`, `stock_transfers.approve`, `stock_transfers.cancel` | 4 | 1791300000001 |
-| wholesale | `wholesale.view`, `wholesale.edit` | 2 | 1791300000001 |
-| appointments | `appointments.view`, `appointments.create`, `appointments.edit`, `appointments.cancel`, `appointments.approve` | 5 | 1791300000001; `appointments.approve` 1791620001000 |
-| settings | `settings.view`, `settings.edit` | 2 | 1791300000001 |
-| access | `access.view`, `access.edit` | 2 | 1791300000001 |
-| reports | `reports.view`, `reports.export`, `reports.edit` (record a daily cash check) | 3 | 1791300000001; `reports.edit` 1791950400000 |
-| audit | `audit.view`, `audit.export` | 2 | 1791300000001 |
-| offers | `offers.view`, `offers.create`, `offers.edit` | 3 | 1791400000000 |
-| loyalty | `loyalty.view`, `loyalty.create`, `loyalty.edit`, `loyalty.export` | 4 | 1791400000000 |
-| receivables | `receivables.view`, `receivables.create`, `receivables.export`, `receivables.print`, `receivables.approve` | 5 | 1791410000000; `receivables.approve` 1791580000000 |
-| sales_orders | `sales_orders.view`, `sales_orders.create`, `sales_orders.edit`, `sales_orders.approve`, `sales_orders.cancel`, `sales_orders.export`, `sales_orders.print` | 7 | 1791410000001 |
-| exchanges | `exchanges.view`, `exchanges.create`, `exchanges.export` | 3 | 1791420000000 |
-| warranties | `warranties.view`, `warranties.create`, `warranties.cancel`, `warranties.export`, `warranties.print` | 5 | 1791420000001 |
-| repairs | `repairs.view`, `repairs.create`, `repairs.edit`, `repairs.approve`, `repairs.cancel`, `repairs.export`, `repairs.print` | 7 | 1791420000001 |
-| packages | `packages.view`, `packages.create`, `packages.edit`, `packages.export` | 4 | 1791430000000 |
-| commissions | `commissions.view`, `commissions.edit`, `commissions.export` | 3 | 1791430000000 |
-| processing | `processing.view`, `processing.create`, `processing.edit`, `processing.export` | 4 | 1791430000001 |
-| wastage | `wastage.view`, `wastage.create`, `wastage.export` | 3 | 1791430000001 |
-| tasks, issues, projects | `tasks.view`, `tasks.create`, `tasks.assign`, `tasks.review`, `tasks.manage`, `issues.view`, `issues.create`, `issues.assign`, `issues.review`, `issues.manage`, `projects.view`, `projects.create`, `projects.manage` (actions `assign`, `review`, `manage` added to the CHECK) | 13 | 1791620000000 |
-| finance | `finance.view`, `finance.create`, `finance.edit` | 3 | 1791620002000 |
-| pharmacy | `pharmacy.view`, `pharmacy.create`, `pharmacy.edit`, `pharmacy.approve`, `pharmacy.export`, `pharmacy.print` | 6 | 1791620004000 |
-| patients | `patients.view`, `patients.create`, `patients.edit`, `patients.view_clinical`, `patients.edit_clinical`, `patients.export`, `patients.print` (actions `view_clinical`, `edit_clinical` added to the CHECK) | 7 | 1791620004000 |
-| lab | `lab.view`, `lab.create`, `lab.edit`, `lab.approve`, `lab.print`, `lab.export` | 6 | 1791620004000 |
-| expenses | `expenses.view`, `expenses.create`, `expenses.approve` (reverse an expense) | 3 | 1791950400000 |
-| **Total** | | **135** | |
-
-## Business platform: rules kept by code, not by the database
-
-Places where [the data model](BUSINESS_PLATFORM_DATA_MODEL.md) states a rule that the database does not (or not fully) enforce; the services enforce them.
-
-1. **Provisioning is overstated for restaurants.** §3 says every new business gets "its roles, settings row, GST slabs, units". In fact `business_seed_tax_rates` skips restaurant businesses entirely, and `business_seed_units` skips a restaurant that has no SKUs.
-2. **"Exactly one" owner role is not enforced by the database.** §2 says "Exactly one role per business has `full_access`". The database guarantees at most one (`business_roles_one_full`), plus a CHECK that a full-access role has `template_code = 'owner'` and is active. That there is exactly one depends on the seeding, not on a constraint.
-3. **Idempotency rule has exceptions.** "Rules every table follows" says postings carry a `request_key` plus a request hash. These tables have a `request_key` but no hash column: `business_payments`, `business_refunds`, `business_stock_adjustments`, `business_exchange_vouchers` (1791595000000), `books_customer_orders` (1791610000000), `electronics_finance_settlements` (1791620002000), `business_expenses` and `business_cash_checks` (1791950400000). `retail_loyalty_entries.request_key` is nullable and has no hash. `business_stock_counts.request_hash` is nullable, because counts created before 1791350000000 have none.
-4. **Two figures are enforced by code only.**
-   - `salon_client_plans.ends_on` is described as "= sale day + validity − 1". The database only checks `ends_on >= starts_on`, and the plan's validity is not snapshotted on the client plan.
-   - `electronics_warranties.phone_digits` is described as "last 10 digits". The CHECK accepts 6 to 10 digits.
-5. **Appointment overlap is a service check only.** The `appointments` module description says "with overlap checks", but there is no EXCLUDE constraint. Only a partial index exists, and overlap is checked in the service.
-
+| Module | Codes | Added by |
+|---|---|---|
+| catalog | `catalog.view`, `catalog.create`, `catalog.edit`, `catalog.export`, `catalog.print` | 1791300000001 |
+| contacts | `contacts.view`, `contacts.create`, `contacts.edit`, `contacts.export` | 1791300000001 |
+| sales | `sales.view`, `sales.create`, `sales.edit`, `sales.refund`, `sales.export`, `sales.print`, `sales.discount` (a small discount on a bill, up to the business's limit, with a reason) | 1791300000001; `sales.discount` 1791540000000 |
+| purchasing | `purchasing.view`, `purchasing.create`, `purchasing.edit`, `purchasing.refund`, `purchasing.export`, `purchasing.print` | 1791300000001 |
+| inventory | `inventory.view`, `inventory.edit`, `inventory.export` | 1791300000001 |
+| stock_counts | `stock_counts.view`, `stock_counts.create`, `stock_counts.approve`, `stock_counts.cancel` | 1791300000001 |
+| stock_transfers | `stock_transfers.view`, `stock_transfers.create`, `stock_transfers.approve`, `stock_transfers.cancel` | 1791300000001 |
+| wholesale | `wholesale.view`, `wholesale.edit` | 1791300000001 |
+| appointments | `appointments.view`, `appointments.create`, `appointments.edit`, `appointments.cancel`, `appointments.approve` (let a booking through outside a stylist's hours, on leave or on a holiday) | 1791300000001; `appointments.approve` 1791620001000 |
+| settings | `settings.view`, `settings.edit` | 1791300000001 |
+| access | `access.view`, `access.edit` | 1791300000001 |
+| reports | `reports.view`, `reports.export`, `reports.edit` (record a daily cash check) | 1791300000001; `reports.edit` 1791950400000 |
+| audit | `audit.view`, `audit.export` | 1791300000001 |
+| offers | `offers.view`, `offers.create`, `offers.edit` | 1791400000000 |
+| loyalty | `loyalty.view`, `loyalty.create`, `loyalty.edit`, `loyalty.export` | 1791400000000 |
+| receivables | `receivables.view`, `receivables.create`, `receivables.export`, `receivables.print`, `receivables.approve` (credit control: mark a cheque bounced, settle a salesperson's cash, let an order through a credit hold) | 1791410000000; `receivables.approve` 1791580000000 |
+| sales_orders | `sales_orders.view`, `sales_orders.create`, `sales_orders.edit`, `sales_orders.approve`, `sales_orders.cancel`, `sales_orders.export`, `sales_orders.print` | 1791410000001 |
+| exchanges | `exchanges.view`, `exchanges.create`, `exchanges.export` | 1791420000000 |
+| warranties | `warranties.view`, `warranties.create`, `warranties.cancel`, `warranties.export`, `warranties.print` | 1791420000001 |
+| repairs | `repairs.view`, `repairs.create`, `repairs.edit`, `repairs.approve`, `repairs.cancel`, `repairs.export`, `repairs.print` | 1791420000001 |
+| packages | `packages.view`, `packages.create`, `packages.edit`, `packages.export` | 1791430000000 |
+| commissions | `commissions.view`, `commissions.edit`, `commissions.export` | 1791430000000 |
+| processing | `processing.view`, `processing.create`, `processing.edit`, `processing.export` | 1791430000001 |
+| wastage | `wastage.view`, `wastage.create`, `wastage.export` | 1791430000001 |
+| tasks | `tasks.view`, `tasks.create`, `tasks.assign`, `tasks.review`, `tasks.manage` | 1791620000000 |
+| issues | `issues.view`, `issues.create`, `issues.assign`, `issues.review`, `issues.manage` | 1791620000000 |
+| projects | `projects.view`, `projects.create`, `projects.manage` | 1791620000000 |
+| finance | `finance.view`, `finance.create`, `finance.edit` | 1791620002000 |
+| pharmacy | `pharmacy.view`, `pharmacy.create`, `pharmacy.edit`, `pharmacy.approve`, `pharmacy.export`, `pharmacy.print` | 1791620004000 |
+| patients | `patients.view`, `patients.create`, `patients.edit`, `patients.view_clinical`, `patients.edit_clinical`, `patients.export`, `patients.print` | 1791620004000 |
+| lab | `lab.view`, `lab.create`, `lab.edit`, `lab.approve`, `lab.print`, `lab.export` | 1791620004000 |
+| expenses | `expenses.view`, `expenses.create`, `expenses.approve` (reverse an expense) | 1791950400000 |
 
 ## Restaurant permission codes
 
-Final count: 89 codes in `permissions` (76, plus the 13 tasks, issues and projects codes, module `tasks`, from 1791620000000), from 23 `INSERT INTO permissions` statements in 22 migrations; no Up migration deletes any (every `DELETE FROM permissions` is in a Down section). Grouped by the `module` column; the migration that added each code is in brackets.
+The rows of `permissions`, grouped by the `module` column; the migration that added each code is in brackets. How to add one: [ARCHITECTURE.md › Add a permission](ARCHITECTURE.md#84-add-a-permission).
 
-- platform (1): `platform.restaurants.manage` [1789636497042]
-- restaurant (4): `restaurant.settings.view`, `restaurant.settings.manage`, `outlets.view`, `outlets.manage` [1789636497042]
-- users (5): `users.view`, `users.manage`, `roles.view`, `roles.manage` [1789636497042]; `audit.view` [1789910000000]
-- menu (3): `menu.view`, `menu.manage` [1789636497042]; `menu.availability` [1789910000000]
-- tables (2): `tables.view`, `tables.manage` [1789636497042]
-- orders (7): `orders.view`, `orders.create`, `orders.manage` [1789636497042]; `orders.cancel_after_kot` [1789910000000]; `orders.collection` [1790960000001]; `orders.waive_delivery_charge` [1791330000000]; `deliveries.write_off_shortfall` [1791330000002]
-- billing (7): `billing.manage` [1789636497042]; `bills.void`, `bills.refund`, `bills.reprint`, `bills.discount`, `bills.complimentary` [1789910000000]; `bills.payment_correct` [1791340000000]
-- payments (2): `payments.manage` [1789636497042]; `advances.refund` [1791340000001]
-- tasks (13): `tasks.view`, `tasks.create`, `tasks.assign`, `tasks.review`, `tasks.manage`, `issues.view`, `issues.create`, `issues.assign`, `issues.review`, `issues.manage`, `projects.view`, `projects.create`, `projects.manage` [1791620000000]. Granted to Super Admin, Restaurant Admin and Manager; `issues.create` to Cashier, Captain, Kitchen and Store keeper; the three `.view` codes to Accountant.
-- kitchen (2): `kot.manage`, `kds.view` [1789636497042]
-- reports (2): `reports.view` [1789636497042]; `sales.view` [1789910000000]
-- discounts (2): `discounts.view`, `discounts.manage` [1789731798732]
-- operations (6): `business_day.view`, `business_day.manage` [1789731798732]; `business_day.close` [1789910000000]; `cash.movements` [1790810000000]; `logbook.view`, `logbook.write` [1790850000002]
-- purchasing (8): `suppliers.view`, `suppliers.manage`, `purchasing.view`, `purchasing.manage` [1789733008391]; `purchasing.returns` [1789802692848]; `purchasing.receive`, `purchasing.pay` [1789914000000]; `purchasing.approve` [1790880000000]
-- inventory (6): `inventory.view`, `inventory.manage` [1789733008391]; `inventory.waste` [1789907000000]; `inventory.count` [1789914000000]; `inventory.approve_writeoff`, `inventory.indent` [1790880000000]
-- crm (10): `customers.view`, `customers.manage`, `feedback.view`, `feedback.manage` [1789733008391]; `customers.export` [1789908000000]; `loyalty.adjust`, `customers.credit` [1789910000000]; `customers.merge`, `customers.erase`, `customers.contact` [1789916000000]
-- expenses (2): `expenses.view`, `expenses.manage` [1789733008391]
-- staff (4): `staff.view`, `staff.manage` [1789801110144]; `staff.clock` [1789906000000]; `staff.salaries` [1789910000000]
-- reservations (3): `reservations.view`, `reservations.manage` [1789902000000]; `reservations.online` [1791330001000]
+- platform: `platform.restaurants.manage` [1789636497042]
+- restaurant: `restaurant.settings.view`, `restaurant.settings.manage`, `outlets.view`, `outlets.manage` [1789636497042]
+- users: `users.view`, `users.manage`, `roles.view`, `roles.manage` [1789636497042]; `audit.view` [1789910000000]
+- menu: `menu.view`, `menu.manage` [1789636497042]; `menu.availability` [1789910000000]
+- tables: `tables.view`, `tables.manage` [1789636497042]
+- orders: `orders.view`, `orders.create`, `orders.manage` [1789636497042]; `orders.cancel_after_kot` [1789910000000]; `orders.collection` [1790960000001]; `orders.waive_delivery_charge` [1791330000000]; `deliveries.write_off_shortfall` [1791330000002]
+- billing: `billing.manage` [1789636497042]; `bills.void`, `bills.refund`, `bills.reprint`, `bills.discount`, `bills.complimentary` [1789910000000]; `bills.payment_correct` [1791340000000]
+- payments: `payments.manage` [1789636497042]; `advances.refund` [1791340000001]
+- tasks: `tasks.view`, `tasks.create`, `tasks.assign`, `tasks.review`, `tasks.manage`, `issues.view`, `issues.create`, `issues.assign`, `issues.review`, `issues.manage`, `projects.view`, `projects.create`, `projects.manage` [1791620000000]. Granted to Super Admin, Restaurant Admin and Manager; `issues.create` to Cashier, Captain, Kitchen and Store keeper; the three `.view` codes to Accountant.
+- kitchen: `kot.manage`, `kds.view` [1789636497042]
+- reports: `reports.view` [1789636497042]; `sales.view` [1789910000000]
+- discounts: `discounts.view`, `discounts.manage` [1789731798732]
+- operations: `business_day.view`, `business_day.manage` [1789731798732]; `business_day.close` [1789910000000]; `cash.movements` [1790810000000]; `logbook.view`, `logbook.write` [1790850000002]
+- purchasing: `suppliers.view`, `suppliers.manage`, `purchasing.view`, `purchasing.manage` [1789733008391]; `purchasing.returns` [1789802692848]; `purchasing.receive`, `purchasing.pay` [1789914000000]; `purchasing.approve` [1790880000000]
+- inventory: `inventory.view`, `inventory.manage` [1789733008391]; `inventory.waste` [1789907000000]; `inventory.count` [1789914000000]; `inventory.approve_writeoff`, `inventory.indent` [1790880000000]
+- crm: `customers.view`, `customers.manage`, `feedback.view`, `feedback.manage` [1789733008391]; `customers.export` [1789908000000]; `loyalty.adjust`, `customers.credit` [1789910000000]; `customers.merge`, `customers.erase`, `customers.contact` [1789916000000]
+- expenses: `expenses.view`, `expenses.manage` [1789733008391]
+- staff: `staff.view`, `staff.manage` [1789801110144]; `staff.clock` [1789906000000]; `staff.salaries` [1789910000000]
+- reservations: `reservations.view`, `reservations.manage` [1789902000000]; `reservations.online` [1791330001000]
 
-Note: `deliveries.write_off_shortfall` is filed under module `orders`, and `audit.view` under `users`, as seeded.
-
+Note: `deliveries.write_off_shortfall` is filed under module `orders`, and `audit.view` under `users`.

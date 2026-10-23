@@ -1,224 +1,281 @@
 # Business Management Platform
 
-**Start here:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the vision, where everything lives, why, and how to extend it. [docs/CODE_STRUCTURE.md](docs/CODE_STRUCTURE.md) is the same map on a few pages: the folders, every address, and the next steps.
+For anyone opening the repository, developers first: what the product is, how
+to set it up from an empty database and run it, the commands, the project
+rules, and where every other document is.
+
+**Start here:** developers at [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
+which explains how it is built, where everything lives and how to extend it;
+owners and management at [docs/PRODUCT_OVERVIEW.md](docs/PRODUCT_OVERVIEW.md),
+the product on a few pages.
 
 One platform for independent businesses of twelve types: restaurants,
 grocery / kirana, supermarkets, wholesale / FMCG, fashion, electronics,
 pharmacy, books & stationery, salons & spas, clinics & labs, meat & seafood,
 and other weight-based shops. Each business's data is kept apart, and one
-person can belong to several businesses.
+person can belong to several businesses. What each type gets, from the
+restaurant (which also runs as a café, a bakery or a cloud kitchen) to the
+pharmacy's registers and the clinic's lab, and what is not built yet, is in
+[docs/PRODUCT_OVERVIEW.md](docs/PRODUCT_OVERVIEW.md).
 
 **Two web apps share one API.** The **staff app** (`apps/business-web`) is
 where owners and staff work: a switcher in the header opens any business you
 belong to, with a menu built from the modules that business uses and the
 permissions your role there gives you; the POS, kitchen display and pickup
-screen are part of it. The **guests' site** (`apps/customer-web`) is what a
-restaurant's guests open from a table's QR code, the online ordering link or
-the booking link; nobody signs in there.
-
-- The **restaurant** is the most complete type: menu, tables and QR ordering,
-  POS, kitchen display, captain sections, reservations and online booking,
-  online ordering, deliveries and rider cash, billing with GST, cash drawers,
-  inventory with batches and recipes, purchasing, guests and loyalty, staff,
-  time clock, payroll and tips, and a full set of reports. It can also run as
-  a café, a bakery (selling by weight, cake pre-orders, the day-end unsold
-  count) or a cloud kitchen (several brands from one kitchen).
-- **Retail** (grocery, supermarket, books): quick bill with barcode and scale
-  labels, offers and coupons, loyalty and member prices, branch prices,
-  departments, cashier shifts, udhaar, barcode labels, book details.
-- **Wholesale**: sales orders, dispatch and back-orders, routes and beats,
-  price groups and schemes, purchase orders, collections and cheques,
-  outstanding and ageing.
-- **Fashion and electronics**: size × colour matrix, exchanges, serial / IMEI
-  register, warranties, repair jobs, kits, EMI and financiers.
-- **Salon & spa**: calendar, deposits, packages, memberships, commissions.
-- **Meat and weight-based shops**: stock by weight, cutting and yield, wastage.
-- **Pharmacy**: drug master, prescription sales, the H1 and Schedule X
-  registers, expiry, returns and recalls.
-- **Clinics and labs**: patients and consent, visits, doctors' fees and OPD
-  sessions, the token queue, lab orders and results, report versions and QC.
-
-Every type can run several locations (a restaurant calls them outlets). The
-other types share payment methods named as the counter says them, daily
-expenses and the day's money with cash checks; the restaurant has its own
-payment types, expenses and cash drawers. The pharmacy and clinic rules follow
-standard Indian practice; the owner reviews them with a pharmacist, a doctor
-and a legal adviser before going live ([backlog](docs/REMAINING_BACKLOG.md)).
+screen are part of it, and so is the platform console. The **guests' site**
+(`apps/customer-web`) is what a restaurant's guests open from a table's QR
+code, the online ordering link or the booking link; nobody signs in there.
 
 ## Technology
 
 | Layer | Technology |
 | --- | --- |
-| Web apps | React 19 + Vite 8 (Node.js 20.19+ or 22.12+), React Router 7, TanStack Query; npm workspaces (`apps/*`, `packages/*`) |
-| Backend | Node.js 20.11+ and Express 5 (REST, JSON) |
-| Database | PostgreSQL 15 or newer (built on 18) |
+| Web apps | React 19 + Vite 8, React Router 7, TanStack Query (the staff app); npm workspaces (`apps/*`, `packages/*`) |
+| Backend | Express 5 (REST, JSON), with its own npm install in `backend` |
+| Node.js | 22.12 or newer (CI runs 24) |
+| Database | PostgreSQL 15 or newer (developed on 18; CI runs 17) |
 | Auth | JWT sessions, bcrypt passwords, optional two-step sign-in (authenticator app), staff PINs |
 | Migrations | node-pg-migrate, plain SQL files in `backend/migrations` |
-| CI | GitHub Actions (`.github/workflows/checks.yml`) on Node.js 24 and PostgreSQL 17 |
+| Tests and lint | Node's test runner (`node --test`), Playwright for the browser tests, oxlint |
+| CI | GitHub Actions (`.github/workflows/checks.yml`) on every push and pull request: the backend's unit and integration tests, lint, the workspaces' unit tests and both builds. The browser tests are not part of CI. |
+
+## Repository layout
 
 ```
 business-management-platform/
 ├── apps/
 │   ├── business-web/   The staff app (React + Vite, :5173): src/modules/<module>/ (pages,
-│   │                   services, styles), shared components, services and styles
+│   │                   services, styles), shared components, services and styles;
+│   │                   tests/ (Node tests, and browser/ for the Playwright specs)
 │   └── customer-web/   The guests' site (React + Vite, :5174): table QR ordering, online
-│                       ordering, table booking
+│                       ordering, table booking; tests/browser/
 ├── packages/
 │   ├── ui/             @bmp/ui: the shared look (tokens and global styles), icons, menu
 │   │                   choice components
 │   └── shared/         @bmp/shared: money and number formatting, dates, menu choice rules
 ├── backend/            Express API: src/modules/<module>/ (routes, controllers, services,
-│                       repositories), src/ shared code, migrations/, scripts/ (setup, demo
-│                       data, clean copies, backup), tests/ — its own install
+│                       repositories), src/ shared code, migrations/, scripts/ (migrate,
+│                       first login, backup), tests/ (unit, and integration/); its own install
+├── e2e/                The browser tests' harness: one Playwright config for both apps (it
+│                       starts their web servers), and the set-up that gives each run its own
+│                       database, API and data
+├── tools/              dev.mjs, behind npm run dev
 └── docs/               Documentation (below)
 ```
 
-## Running it locally
+## Set up from an empty database
 
-After installing dependencies and configuring the backend and the web apps,
-start each in its own terminal from the project root:
-
-```bash
-npm run dev:backend       # the API
-npm run dev:business      # the staff app, http://localhost:5173
-npm run dev:customer      # the guests' site, http://localhost:5174
-```
-
-The old names `npm run dev-backend` and `npm run dev-frontend` (the staff app)
-still work. Database updates can also run from the root:
-`npm --prefix backend run migrate:up`.
+You need Node.js and PostgreSQL at the versions under
+[Technology](#technology). The shell commands below run from the project root.
 
 ### 1. Database
 
 ```sql
-CREATE DATABASE restaurant_management_db;
+CREATE DATABASE business_platform_db;
 ```
 
-### 2. Backend
+One database holds every business. The name matches `DB_NAME` in
+`backend/.env.example`; another name works when `DB_NAME` says so.
+
+The migrations build every table as `DB_USER`, the user the API signs in as.
+On PostgreSQL 15 and newer only the database's owner or a superuser (such as
+the `postgres` that `.env.example` names) may create tables in a new
+database, so create it as that user, or name the user as its owner:
+`CREATE DATABASE business_platform_db OWNER <db_user>;`.
+
+### 2. Settings, installs and tables
+
+Copy the three example settings files:
 
 ```bash
-cd backend
-npm install
-cp .env.example .env      # then fill in DB_* and a random JWT_SECRET
-npm run migrate:up        # build or update the database
-npm run dev               # API on http://localhost:5010 (PORT in .env; auto-restart)
+cp backend/.env.example backend/.env
+cp apps/business-web/.env.example apps/business-web/.env
+cp apps/customer-web/.env.example apps/customer-web/.env
 ```
 
-Every setting is explained in [`backend/.env.example`](backend/.env.example):
-the database and its pool (`DB_POOL_MAX`, `DB_CONNECT_TIMEOUT_MS`,
-`DB_IDLE_TIMEOUT_MS`, `DB_POOL_GUARD`), `JWT_SECRET` (at least 32 random
-characters; a live server refuses to start with a weak one), `TWO_FACTOR_KEY`,
-sign-in limits, `CORS_ORIGIN`, `TRUST_PROXY` and `MULTI_BUSINESS_DEVELOPMENT`.
+In `backend/.env`, set:
 
-Create the first restaurant and its admin (it also creates its tax rates,
-settings, delivery channels and main kitchen; never insert a restaurant by
-hand):
+- `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` and `DB_PASSWORD`: the database
+  from step 1. The API stops at start when one is missing.
+- `JWT_SECRET`: at least 32 random characters (the file shows a command that
+  makes one). Anyone who knows it can sign in as any user. A live server
+  refuses to start with the example value or a weak one; on a developer's
+  machine (`NODE_ENV=development`) the API only warns.
+
+Every other setting has a working default, and the file explains each one.
+Read its note on `TWO_FACTOR_KEY` before anyone turns on two-step sign-in: the
+key is set once and never changed.
+
+The two apps' files work as copied when everything runs on one machine with
+the API on `PORT=5010`, as `backend/.env.example` sets it:
+
+- `apps/business-web/.env`: `VITE_API_BASE_URL` (the API, ending in `/api`)
+  and `VITE_CUSTOMER_WEB_URL` (the guests' site, or `same-origin` when one
+  address serves both apps). Guest links and table QR codes open that
+  address, unless a restaurant sets its own guest web address in Service
+  settings.
+- `apps/customer-web/.env`: `VITE_API_BASE_URL`.
+
+Each app's dev server and build refuse to start without them. The backend's
+`CORS_ORIGIN` lists the staff app's address; the guests' site needs no entry,
+because the public guest API answers any address. The production values are in
+[GO_LIVE › Production settings](docs/GO_LIVE.md#2-production-settings).
+
+Then install, and build the tables:
 
 ```bash
-npm run restaurant:create
-# or all at once:
-npm run restaurant:create -- --name "FoodEx Restaurant" --code ABC001 \
-  --contact 9876543210 --address "Rajahmundry, Andhra Pradesh" \
-  --admin-name "Ravi Kumar" --admin-email owner@foodex.in --admin-password "choose-a-strong-one"
+npm install                            # both web apps and the shared packages
+npm --prefix backend install           # the API, which has its own install
+npm --prefix backend run migrate:up    # builds every table in the empty database
 ```
 
-More logins: `npm run user:create`. Local demo logins for each built-in role:
-`npm run user:demo -- <RESTAURANT_CODE>` (development only; the passwords are
-written to `backend/.local/`, never printed).
+The migrations create only what every business shares: the business types,
+the module and permission catalogues, the role templates and system roles, and
+the task categories. No restaurant, business or login exists yet.
 
-### 3. Web apps
+### 3. The first login
 
-One install at the root covers both apps and the shared packages:
+There is no sign-up page. The first login is the platform's **Super Admin**,
+made in the terminal by `backend/scripts/create-user.js`.
+
+1. Run `npm --prefix backend run user:create` and leave the restaurant code
+   empty. Then give a name, an email, a mobile (optional) and a password of 8
+   to 72 characters; the password shows as you type it. This login runs the
+   whole platform, so give it a strong password.
+2. Start the apps ([Run](#run)) and sign in to the staff app,
+   http://localhost:5173, with that login. The Super Admin opens on
+   **Platform › Restaurants**.
+3. Create each restaurant in **Platform › Restaurants** (*Add restaurant*: a
+   restaurant, café, bakery or cloud kitchen, with its admin's login), and each
+   business of another type in **Platform › Businesses** (*Add a business*,
+   with its owner's login). Each one is created with everything it needs to
+   start; never insert one into the database by hand. The owners then sign in
+   and follow
+   [ADMIN_GUIDE › First steps in a new business](docs/ADMIN_GUIDE.md#first-steps-in-a-new-business).
+4. More logins come from the staff screens (a restaurant's **Users & access ›
+   Users**, a business's **Staff & access**), or from `user:create` with a
+   restaurant's code and one of the built-in restaurant roles:
+   `RESTAURANT_ADMIN`, `MANAGER`, `CASHIER`, `CAPTAIN`, `KITCHEN`,
+   `ACCOUNTANT`, `STORE_KEEPER` or `DISPLAY` (a TV at the pickup counter; the
+   prompt's list leaves it out, but takes it).
+
+What the platform screens offer is in
+[ADMIN_GUIDE › The first platform login and the platform screens](docs/ADMIN_GUIDE.md#the-first-platform-login-and-the-platform-screens).
+
+## Run
 
 ```bash
-npm install
-cp apps/business-web/.env.example apps/business-web/.env   # VITE_API_BASE_URL, VITE_CUSTOMER_WEB_URL
-cp apps/customer-web/.env.example apps/customer-web/.env   # VITE_API_BASE_URL
-npm run dev:business      # staff app, http://localhost:5173
-npm run dev:customer      # guests' site, http://localhost:5174
+npm run dev
 ```
 
-The backend's `CORS_ORIGIN` lists the staff app's address; the guests' site
-needs no entry, because the public guest API answers any address. Guest links and table QR codes open `VITE_CUSTOMER_WEB_URL` unless a
-restaurant sets its own guest web address in Service settings; old guest links
-that open on the staff app are sent on to the guests' site.
+This starts the API, the staff app and the guests' site together, each line
+of output marked with its app. It checks the three ports first: when one is
+busy (usually because that app is already running in another terminal), it
+says which and starts nothing. Ctrl+C stops all three, and so does any one of
+them stopping.
 
-### 4. Demo data
+To start them one at a time instead, each in its own terminal:
 
-| Command (in `backend`) | What it does |
+```bash
+npm run dev:backend    # the API; it restarts when a file in backend/src changes
+npm run dev:business   # the staff app
+npm run dev:customer   # the guests' site
+```
+
+| App | Address |
 | --- | --- |
-| `npm run seed:demo` | Fills the first restaurant (if its menu is empty) with a month of realistic trading through the real services: menu with recipes, ingredients, suppliers, tables, staff, guests, about 880 orders billed and paid. `-- --force` to run on a non-empty menu. |
-| `npm run seed:topup` | Trades the demo restaurant forward from its last business day to today, leaving today open and part-traded. Safe to repeat; never touches a closed day. |
-| `npm run seed:reset -- <restaurantId> [--yes]` | Shows (or, with `--yes`, clears) a restaurant's trading data, keeping the restaurant and its users. Refuses on a live server. |
-| `npm run business:demos -- --user-id <adminUserId> [--sample-data]` | Creates eleven demo businesses (every type except the restaurant) and makes an existing admin their owner. `--sample-data` adds, once, realistic fictional catalogues, customers, suppliers, sales, purchases, offers, udhaar, wholesale orders, fashion variants, IMEI handsets, repairs, salon bookings and packages, and meat-shop cutting and wastage. Needs `MULTI_BUSINESS_DEVELOPMENT=true` and a non-live `NODE_ENV`. |
-| `npm run seed:realistic -- --user-id <ownerId> [--only kirana,salon] [--days 90]` | A realistic business of every type but the restaurant (eleven), owned by that user, with staff logins (passwords in `backend/.local/`) and about ninety days of trading up to today, made through the real services. Safe to repeat: a rerun fills in every day since the last run and tops up today. Needs `MULTI_BUSINESS_DEVELOPMENT=true`. |
-| `npm run demo:today -- --user-id <ownerId>` | Before a demo: brings the realistic businesses, the demo restaurant's trading days and its today up to this moment, adding nothing twice. `DEMO_OWNER_ID` in `.env` can stand in for the id. |
-| `npm run demo:food-formats` | Adds a café, a bakery and a cloud kitchen, each a restaurant with its own owner login (in `backend/.local/`), a menu and a week of trading. Never twice. |
-| `npm run business:real-copies -- --owner-user-id <id> [--only KIRANA,PHARMACY]` | A real twin, `LIVE-<KIND>`, of each realistic demo shop: the same set-up and none of its history ([plan](docs/DEMO_TO_REAL_PLAN.md)). A shop already copied is skipped. |
+| API | http://localhost:5010/api (the `PORT` in `backend/.env`); http://localhost:5010/api/health answers when it is up |
+| Staff app | http://localhost:5173 |
+| Guests' site | http://localhost:5174, opened from a table's QR code, a restaurant's online ordering link or its booking link. The bare address says how to find the right link. |
 
-Smaller seeders for single modules exist as `npm run seed:kitchen`,
-`seed:reservations`, `seed:table-requests`, `seed:notifications`,
-`seed:deliveries`, `seed:timeclock`, `seed:inventory-insights`,
-`seed:guest-insights` and `seed:tasks`.
-`npm run demo:tidy-restaurant -- --user-id <id>` closes the demo restaurant's
-old days and opens today like a restaurant in service, and
-`npm run demo:restaurant-branch` gives it a second branch.
+The API refuses to start while a migration is pending, and says so;
+`npm --prefix backend run migrate:up` applies it. It also stops with a clear
+message when its port is taken. The web apps' ports are fixed, so a
+second copy stops instead of moving to another port. A guest link opened on
+the staff app's address is sent on to the guests' site. More on what these
+commands do:
+[ARCHITECTURE › Running them locally](docs/ARCHITECTURE.md#23-running-them-locally).
 
-### 5. Backup
+## Commands
 
-`npm run db:backup` (add `-- --verify` to restore the dump into a scratch
-database and check it). It writes the database, `uploads/` and
-`private_uploads/` to `backend/.local/backups/`. Set `PG_BIN` when `pg_dump`
-is not on the PATH.
+At the project root:
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | The API, the staff app and the guests' site together ([Run](#run)) |
+| `npm run dev:backend` | The API alone, restarting when a file in `backend/src` changes |
+| `npm run dev:business` | The staff app alone, http://localhost:5173 |
+| `npm run dev:customer` | The guests' site alone, http://localhost:5174 |
+| `npm run build` | Production builds of both web apps, each into its own `dist/` ([GO_LIVE › Serve the two web apps](docs/GO_LIVE.md#3-serve-the-two-web-apps)) |
+| `npm run lint` | oxlint over `apps/`, `packages/`, `tools/` and `e2e/` |
+| `npm test` | The unit tests: those of each workspace that has them, then the backend's ([TESTING](docs/TESTING.md)) |
+| `npm run test:integration` | The backend's integration tests, each file on a database of its own ([TESTING](docs/TESTING.md)) |
+| `npm run test:browser` | The browser tests of both web apps, on servers and a database of their own ([TESTING](docs/TESTING.md)) |
+
+In `backend`. From the root, put `--prefix backend` after `npm`, as in
+`npm --prefix backend run migrate:up`.
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | The API under nodemon, restarting when a file in `src/` changes |
+| `npm start` | The API without restarts, as a server runs it ([GO_LIVE › Install on a server](docs/GO_LIVE.md#1-install-on-a-server)) |
+| `npm run migrate:up` | Applies every migration not yet applied, oldest first |
+| `npm run migrate:down` | Rolls back the newest applied migration. For development and test databases: a live database goes back by restoring a backup. |
+| `npm run migrate:create -- <name>` | A new, empty SQL migration in `migrations/` ([ARCHITECTURE › Add a migration](docs/ARCHITECTURE.md#85-add-a-migration)) |
+| `npm run user:create` | A login made in the terminal: the platform Super Admin (restaurant code left empty) or a restaurant's user with a built-in role ([The first login](#3-the-first-login)) |
+| `npm run db:backup` | Backs up the database and both upload folders (`UPLOADS_DIR` and `PRIVATE_UPLOADS_DIR`) into `backend/.local/backups/`. Add `-- --verify` to restore the copy into a scratch database and check it. `PG_BIN` in `backend/.env` names the folder of `pg_dump` and `pg_restore` when they are not on the PATH. ([GO_LIVE › Backups and restore](docs/GO_LIVE.md#5-backups-and-restore)) |
+| `npm test` | The backend's unit tests (the root's `npm test` runs them after the web apps' and packages' tests) |
+| `npm run test:integration` | The backend's integration tests, the same as the root's command |
 
 ## Tests
 
-From the project root:
+`npm test` needs neither a database nor a running server.
 
-```bash
-npm test                    # the apps' and packages' Node tests, then backend unit tests
-npm run test:integration    # backend integration tests (backend/tests/integration/*.test.js)
-npm run lint                # oxlint over apps/ and packages/
-npm run build               # production builds of both web apps
-npm run test:browser        # Playwright: the staff app (needs E2E_CREDENTIALS_FILE), then the guests' site
-```
+The integration and browser tests need PostgreSQL, through the `DB_*` settings
+in `backend/.env` (or the environment), and a PostgreSQL user allowed to
+create databases. Each integration test file, and each browser run, creates its
+own empty `rmp_test_…` database, migrates it and drops it at the end; none of
+them touches `DB_NAME`.
 
-The backend's own commands (`npm test`, `npm run test:integration` in
-`backend/`) work as before.
+The browser tests also start their own API and both web apps, on ports 5110,
+5183 and 5184, and make the data they need, so the servers from `npm run dev`
+can keep running. They use the installed Edge on Windows; elsewhere, install
+Playwright's Chromium (`npx playwright install chromium`). Start one run at a
+time; a full run takes about 22 minutes.
 
-The integration tests never touch `DB_NAME`: each creates its own empty
-`rmp_test_…` database on the configured server, migrates it, and drops it at
-the end. They need a PostgreSQL user allowed to create databases.
+What each suite covers, what it needs and how to run part of one:
+[docs/TESTING.md](docs/TESTING.md).
 
 ## Documentation
 
-| Document | Contents |
-| --- | --- |
-| [docs/ADMIN_GUIDE.md](docs/ADMIN_GUIDE.md) | Guide for owners and staff: signing in, the switcher, the restaurant admin (and its café, bakery and cloud-kitchen formats), the Business Admin for each type, tasks, roles and permissions, the data grid |
-| [docs/API.md](docs/API.md) | Every endpoint: method, path, permission, request, response, errors |
-| [docs/DATABASE.md](docs/DATABASE.md) | Every table, its rules, constraints and triggers |
-| [docs/BUSINESS_PLATFORM_DATA_MODEL.md](docs/BUSINESS_PLATFORM_DATA_MODEL.md) | The five layers of the business platform and their rules |
-| [docs/MULTI_BUSINESS_ADMIN.md](docs/MULTI_BUSINESS_ADMIN.md) | Business Admin: screens per type, set-up, tests |
-| [docs/BUSINESS_ADMIN_OVERVIEW.md](docs/BUSINESS_ADMIN_OVERVIEW.md), [docs/Business_Admin_Application_Overview.docx](docs/Business_Admin_Application_Overview.docx) | The application on a few pages (22 October 2026): what it does for each type, where it stands, what comes next. The .docx is the same overview in Word; its picture is in [docs/images/](docs/images) |
-| [docs/DECISIONS_ROUND2.md](docs/DECISIONS_ROUND2.md) | The business rules chosen while completing the admin application: each rule, why, and the setting that changes it |
-| [docs/REMAINING_BACKLOG.md](docs/REMAINING_BACKLOG.md) | What is left: integrations, hardware, platform layer, other apps |
-| [docs/REMAINING_WORK.md](docs/REMAINING_WORK.md) | The status summary written for the owner; the details are in the backlog |
-| [docs/DEMO_TO_REAL_PLAN.md](docs/DEMO_TO_REAL_PLAN.md) | How the 11 demo shops got real twins (`LIVE-<KIND>`, clean copies, done 21 October 2026), and what to check before a customer uses one |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | **Start here.** Vision, request flow, database layers, code map, how-to recipes, current state and target structure, moving the repository |
-| [docs/CODE_STRUCTURE.md](docs/CODE_STRUCTURE.md) | The code map on a few pages: apps and packages, every address (built and planned), who owns what, the next steps |
-| [docs/NAMING.md](docs/NAMING.md) | The words used: business, type, location, module, role, permission, and each trade's own words |
-| [docs/VERIFICATION.md](docs/VERIFICATION.md), [docs/PILOT_CHECKLIST.md](docs/PILOT_CHECKLIST.md) | What has been tested and the go-live checks |
-| [docs/DEMO_GUIDE.md](docs/DEMO_GUIDE.md) | Walking through the demo: the restaurant script and the realistic businesses of every type |
-| [docs/AUDIT_AND_STATUS.md](docs/AUDIT_AND_STATUS.md), [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md) | History, kept for the record: the September 2026 audit of the restaurant admin, and the original development plan with what was delivered against it |
-| [docs/reference/](docs/reference) | The original plan documents |
+| Document | For | What it covers |
+| --- | --- | --- |
+| [docs/PRODUCT_OVERVIEW.md](docs/PRODUCT_OVERVIEW.md) | Owners, management, prospective customers | The product on a few pages: what it does for each business type, what it does not do yet, and what management decides |
+| [docs/ADMIN_GUIDE.md](docs/ADMIN_GUIDE.md) | Owners, managers, staff, support | How to use every screen, from the first platform login to closing the day, and what each screen allows or refuses |
+| [docs/BUSINESS_RULES.md](docs/BUSINESS_RULES.md) | Owners, accountants, the pharmacist, doctor and legal adviser who review the health rules, support, developers who change a rule | Each rule someone may question: why it is so, and where to change it or why it is fixed, with the legal sources |
+| [docs/GLOSSARY.md](docs/GLOSSARY.md) | Everyone | The words: the product and its apps, the platform's terms, the restaurant's terms and each trade's own words |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Developers | How it is built and why: the applications and their addresses, how a request flows, the code map, conventions, how-to recipes and where the structure is going |
+| [docs/BUSINESS_PLATFORM_DATA_MODEL.md](docs/BUSINESS_PLATFORM_DATA_MODEL.md) | Backend developers | The business platform's data design, layer by layer and type by type, and the rules each table carries |
+| [docs/DATABASE.md](docs/DATABASE.md) | Developers, database administrators | Every table, column, constraint and trigger, and the catalogues of business types, modules and permission codes |
+| [docs/API.md](docs/API.md) | Developers, integrators | Every endpoint, and the conventions every caller follows |
+| [docs/TESTING.md](docs/TESTING.md) | Developers, testers | Running every test, what each suite needs and covers, load and browser runs, and CI |
+| [docs/GO_LIVE.md](docs/GO_LIVE.md) | Whoever installs it for a real business, and the owner who signs it off | Production settings, serving the two web apps, backups and restore, setting up the customer's business, equipment acceptance, the staff pilot and sign-off |
+| [docs/BACKLOG.md](docs/BACKLOG.md) | The owner, developers | What is left to build, in order, what each item needs, and the known problems |
+| [apps/business-web/README.md](apps/business-web/README.md) | Developers of the staff app | Its settings and commands, how its code is laid out, how sign-in works, and adding a page |
+| [apps/customer-web/README.md](apps/customer-web/README.md) | Developers of the guests' site | Its setting and commands, trying it on a phone, and how its code is laid out |
+| [packages/ui/README.md](packages/ui/README.md) | Developers of both web apps | `@bmp/ui`: the shared look (the stylesheets and their design tokens), the icons and the menu choice components |
+| [packages/shared/README.md](packages/shared/README.md) | Developers of both web apps | `@bmp/shared`: the formats, dates and menu choice rules both apps share |
+| [backend/src/notifications/README.md](backend/src/notifications/README.md) | Backend developers | The restaurant's bell: how it works out its alerts, and how a module adds its own |
 
 ## Project rules
 
 1. Never create or change tables by hand. Write a new migration; never edit one
-   that has been applied.
+   that has been applied
+   ([ARCHITECTURE › Add a migration](docs/ARCHITECTURE.md#85-add-a-migration)).
 2. Every tenant query filters by the signed-in user's restaurant or by a
    business membership checked on the server, never by an id from the request.
 3. Always use `$1`, `$2` placeholders in SQL.
 4. Every route except health, sign-in and the public guest pages requires
-   `authenticate` and a permission check.
+   `authenticate`, and a permission check unless it acts only on the
+   signed-in person's own account or tasks.
 5. Never commit `.env`. Add new settings to `.env.example` with fake values.
