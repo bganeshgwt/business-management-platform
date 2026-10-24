@@ -2,7 +2,7 @@
 // has switched on and what this person's role allows. The server checks the
 // same two things on every request; the menu only hides what would be refused.
 
-import { CLINIC, GOODS, PHARMACY, RETAIL, SALON, WEIGHED } from './businessTypes.js';
+import { CLINIC, GOODS, HARDWARE, PHARMACY, RETAIL, SALON, WEIGHED } from './businessTypes.js';
 import { dailyWorkspaces, WORKSPACES, workspaceLabel, workspaceSections } from './businessWorkspace.js';
 
 export { GOODS };
@@ -81,7 +81,13 @@ export function businessSections(type) {
         // Phone and WhatsApp orders for pickup at a weight shop.
         { section: "pickup-orders", label: "Orders for pickup", icon: "pickup", need: "sales.view", module: "weight", types: WEIGHED },
         { section: "sales", label: word(type, "sales", "Sales"), icon: "bills", need: "sales.view" },
+        // Estimates with a validity date that become bills or sales orders.
+        { section: "quotations", label: "Quotations", icon: "logbook", need: "quotations.view", except: ['restaurant'] },
         { section: "customers", label: word(type, "customers", "Customers"), icon: "customers", need: "contacts.view" },
+        // A hardware shop's contractors' and builders' sites, each with its ledger.
+        { section: "sites", label: "Sites", icon: "locations", need: "hardware_sites.view", types: HARDWARE },
+        // A hardware shop's fitters: the register, commission rules, payouts and statements.
+        { section: "fitters", label: "Fitters", icon: "employees", need: "fitter_commission.view", types: HARDWARE },
         { section: "udhaar", label: "Udhaar", icon: "dues", need: "receivables.view", types: GOODS },
         // A shop's udhaar collections sit right under Udhaar, one name for every shop.
         { section: "collections", label: "Udhaar collections", icon: "collection", need: "receivables.view", types: GOODS },
@@ -157,6 +163,8 @@ export function businessSections(type) {
         { section: "kits", label: "Kits & bundles", icon: "box", need: "catalog.view", module: "inventory", types: GOODS },
         { section: "salon-setup", label: "Stylists & services", icon: "hours", need: "appointments.view", types: SALON },
         { section: "rates", label: "Today's rates", icon: "priceList", need: "catalog.view", module: "weight", types: WEIGHED },
+        // A hardware shop's board of the items whose price moves every day.
+        { section: "rates", label: "Today's rates", icon: "priceList", need: "catalog.view", module: "hardware_rates", types: HARDWARE },
       ],
     },
     {
@@ -200,6 +208,7 @@ export function businessSections(type) {
         { section: "weight-reports", label: "Yield & wastage report", icon: "inventoryInsights", need: "reports.view", types: WEIGHED },
         { section: "salon-reports", label: "Service profitability", icon: "inventoryInsights", need: "reports.view", types: SALON },
         { section: "commissions", label: "Staff commissions", icon: "payroll", need: "commissions.view" },
+        { section: "fitter-reports", label: "Fitters' commission", icon: "payroll", need: "fitter_commission.view", types: HARDWARE },
         { section: "activity", label: "Activity log", icon: "activity", need: "audit.view" },
       ],
     },

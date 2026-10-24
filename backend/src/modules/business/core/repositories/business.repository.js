@@ -178,18 +178,22 @@ const lists = {
     -- Who billed it and how it was paid (one method, or mixed).
     cu.name AS created_by_name,
     (SELECT CASE WHEN count(DISTINCT p.method)>1 THEN 'mixed' ELSE min(p.method) END FROM business_payments p
-      WHERE p.business_id=d.business_id AND p.document_id=d.id) AS paid_by
+      WHERE p.business_id=d.business_id AND p.document_id=d.id) AS paid_by,
+    -- A hardware shop's site the bill went to.
+    hs.site_id,hst.name AS site_name
     FROM business_documents d JOIN business_locations l ON l.business_id=d.business_id AND l.id=d.location_id
     LEFT JOIN users cu ON cu.id=d.created_by
     LEFT JOIN wholesale_dispatches w ON w.business_id=d.business_id AND w.document_id=d.id
     LEFT JOIN wholesale_orders o ON o.business_id=w.business_id AND o.id=w.order_id
     LEFT JOIN wholesale_salespeople sp ON sp.business_id=o.business_id AND sp.id=o.salesperson_id
     LEFT JOIN wholesale_routes r ON r.business_id=o.business_id AND r.id=o.route_id
+    LEFT JOIN hardware_document_sites hs ON hs.business_id=d.business_id AND hs.document_id=d.id
+    LEFT JOIN hardware_sites hst ON hst.business_id=hs.business_id AND hst.id=hs.site_id
     WHERE d.business_id=$1) x`,
-  search: ['document_no', 'contact_name', 'notes', 'supplier_bill_no', 'lot_codes', 'order_no', 'created_by_name'], date: 'created_at',
+  search: ['document_no', 'contact_name', 'notes', 'supplier_bill_no', 'lot_codes', 'order_no', 'created_by_name', 'site_name'], date: 'created_at',
   filters: { kind: 'kind', location: 'location_id', contact: 'contact_id', walk_in_due: 'walk_in_due', unpaid: 'unpaid',
     salesperson: 'salesperson_id', route: 'route_id', delivery: 'delivery_status', source: 'source',
-    created_by: 'created_by', paid_by: 'paid_by' }, order: 'id DESC' },
+    created_by: 'created_by', paid_by: 'paid_by', site: 'site_id' }, order: 'id DESC' },
   movements: { sql: `SELECT m.*,s.label,s.unit,l.lot_code,l.location_id,loc.name AS location_name,
     COALESCE(d.document_no,t.transfer_no,sc.count_no,'Correction') AS source_no,
     CASE WHEN m.return_id IS NOT NULL THEN 'return' WHEN m.document_id IS NOT NULL THEN d.kind WHEN m.transfer_id IS NOT NULL THEN 'transfer'

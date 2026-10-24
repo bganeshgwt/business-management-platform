@@ -1,0 +1,29 @@
+/* Quotations: the line of facts under a quotation's title, and the discount
+   fields of the quotation dialog. */
+.qt-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.qt-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.qt-row > .field {
+  flex: 1 1 220px;
+}
+
+.qt-inline {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.qt-inline > select {
+  flex: 0 0 auto;
+  width: auto;
+}

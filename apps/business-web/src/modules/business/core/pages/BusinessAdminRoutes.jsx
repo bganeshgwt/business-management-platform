@@ -102,6 +102,13 @@ const TokenQueuePage = lazy(() => import("../../health/pages/TokenQueuePage"));
 const LabQcPage = lazy(() => import("../../health/pages/LabQcPage"));
 // Tasks, issues & projects (modules/tasks), the same screens as the restaurant's.
 const TasksRoutes = lazy(() => import("../../../tasks/pages/TasksRoutes"));
+// Quotations (every type but a restaurant).
+const QuotationsPage = lazy(() => import("../../quotations/pages/QuotationsPage"));
+// Hardware, paints & building materials.
+const SitesPage = lazy(() => import("../../hardware/pages/SitesPage"));
+const FittersPage = lazy(() => import("../../hardware/pages/FittersPage"));
+const FitterReportPage = lazy(() => import("../../hardware/pages/FitterReportPage"));
+const HardwareRatesPage = lazy(() => import("../../hardware/pages/HardwareRatesPage"));
 
 function Notice({ title, children }) {
   return (
@@ -205,7 +212,7 @@ function screens(type) {
     "weight-stock": <WeightStockPage />,
     "weight-reports": <WeightReportsPage />,
     "salon-reports": <SalonReportsPage />,
-    "rates": <RatesPage />,
+    "rates": type === "hardware" ? <HardwareRatesPage /> : <RatesPage />,
     "pickup-orders": <PickupOrdersPage />,
     "rx-sale": <PharmacyCounterPage />,
     "drug-master": <DrugMasterPage />,
@@ -220,6 +227,10 @@ function screens(type) {
     "visits": <VisitsPage />,
     "lab-orders": <LabOrdersPage />,
     "lab-tests": <LabTestsPage />,
+    "quotations": <QuotationsPage />,
+    "sites": <SitesPage />,
+    "fitters": <FittersPage />,
+    "fitter-reports": <FitterReportPage />,
   };
 }
 

@@ -47,6 +47,30 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   assert.equal(menu('hardware').find(l=>l.section==='udhaar').label,'Udhaar');
   assert.equal(menu('optical').find(l=>l.section==='udhaar').label,'Customer dues');
   assert.equal(menu('lodging').find(l=>l.section==='sales').label,'Bill history');
+  // Quotations sit with Sales wherever the module is on; a hardware shop's orders have no beat screen.
+  const pages=(type,has=()=>true)=>menu(type,has).flatMap(l=>l.pages);
+  for(const type of ['hardware','grocery','garage','wholesale'])assert.ok(pages(type).some(p=>p.to.endsWith('/quotations')),`${type}: quotations under Sales`);
+  assert.ok(!pages('hardware',m=>m!=='quotations').some(p=>p.to.endsWith('/quotations')),'no quotations while the module is off');
+  assert.equal(workspaceFor('quotations','hardware'),'sales');
+  assert.ok(!workspaceSections('orders','hardware').includes('routes'),'hardware: no routes and salespeople');
+  assert.ok(workspaceSections('orders','wholesale').includes('routes'));
+  // A hardware shop's sites sit with its customers; no other trade has them.
+  assert.equal(workspaceFor('sites','hardware'),'customers');
+  assert.ok(pages('hardware').some(p=>p.to.endsWith('/sites')),'hardware: sites with customers');
+  assert.ok(!pages('hardware',m=>m!=='hardware_sites').some(p=>p.to.endsWith('/sites')),'no sites while the module is off');
+  for(const type of ['grocery','wholesale','garage'])assert.ok(!typeAllows(sectionRule('sites',type),type),`${type}: no sites`);
+  // Its fitters sit with its customers too, and their commission with the reports.
+  assert.equal(workspaceFor('fitters','hardware'),'customers');
+  assert.equal(workspaceFor('fitter-reports','hardware'),'reports');
+  for(const end of ['/fitters','/fitter-reports'])assert.ok(pages('hardware').some(p=>p.to.endsWith(end)),`hardware: ${end}`);
+  assert.ok(!pages('hardware',m=>m!=='fitter_commission').some(p=>/\/fitter/.test(p.to)),'no fitters while the module is off');
+  for(const type of ['grocery','salon','garage'])assert.ok(!typeAllows(sectionRule('fitters',type),type),`${type}: no fitters`);
+  // Today's rates: a hardware shop's own board while it is on, and a weight shop's.
+  assert.ok(pages('hardware').some(p=>p.to.endsWith('/rates')),'hardware: the rate board with products');
+  assert.ok(!pages('hardware',m=>m!=='hardware_rates').some(p=>p.to.endsWith('/rates')),'no board while it is off');
+  assert.equal(sectionRule('rates','hardware').module,'hardware_rates');
+  assert.equal(sectionRule('rates','meat').module,'weight');
+  assert.ok(!typeAllows(sectionRule('rates','grocery'),'grocery'),'grocery: no rate board');
 });
 test('restricted roles get a permitted destination even when the first workspace page is unavailable',()=>{
   const permissions=new Set(['purchasing.view','contacts.view','inventory.view','catalog.view']);

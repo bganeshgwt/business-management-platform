@@ -53,6 +53,7 @@ Every business except the restaurant runs on the same core. It is built once, so
 | --- | --- | --- |
 | Overview | Overview | Today's sales against the same day last week, a 14-day trend, sales by hour, best sellers, money in, what customers and suppliers are owed, low stock, expiring batches, the next appointments and the jobs needing attention; every action opens in a panel |
 | Sell | Sales / Quick bill | Barcode or scale-label billing, branch and member prices, coupons, cashier shifts; cash, UPI, card or udhaar; A4 GST invoice or till receipt |
+| Sell | Quotations | Estimates at today's prices with a date they hold until; revised, printed on A4 or sent on WhatsApp; once the customer agrees, billed (or made into a sales order) at the quoted prices |
 | Sell | Returns and refunds | Goods back against the original bill, each return and refund numbered, stock back automatically |
 | Sell | Customers and udhaar | GSTIN, credit limit and days, what each owes, ageing, reminders, numbered collection receipts |
 | Buy | Purchases and suppliers | Supplier bills with free quantity and discount, purchase orders, reorder suggestions, supplier payments and statements |
@@ -172,6 +173,14 @@ Each business type adds only what is truly its own on top of the shared core. Th
   - quality control: each morning's control runs are judged by the standard Westgard rules, a failed control holds that test's reports until QC passes again, and a chart shows the control's trend.
 
 Pharmacy and clinic rules follow standard Indian practice. A pharmacist, a doctor and a legal adviser should review them before real use; [BUSINESS_RULES.md › Pharmacy, clinic and lab](BUSINESS_RULES.md#pharmacy-clinic-and-lab) sets them out.
+
+### Hardware, paints and building materials
+
+- **Quotations for a site:** priced exactly as the bill will be, valid until a date, revised while open, printed or sent on WhatsApp, then billed (or made into a sales order delivered in parts) at the quoted prices.
+- **Sites:** each contractor's and builder's sites; bills, quotations and orders go to a site, and each site has its own ledger and dues to send on WhatsApp.
+- **Today's rates:** the items whose price moves every day (cement, steel, pipes, cable) on one board: the morning's rates typed and saved together, within each item's MRP, used by bills at once and shared on WhatsApp.
+- **Tile & paint calculators:** on Quick bill and in a quotation: the boxes of tiles an area needs with its wastage, and the litres and tins of paint for an area and its coats, added to the bill in one click.
+- **Fitters' commission:** the painters, plumbers, electricians, masons and carpenters who bring customers are named on their bills; each bill's commission is worked out to the paisa by the shop's rules and kept with it, returns take it back, payouts go through the expense book (with a UPI app link), and each fitter has a statement to send on WhatsApp and a line in the commission report.
 
 ### The newer trades
 

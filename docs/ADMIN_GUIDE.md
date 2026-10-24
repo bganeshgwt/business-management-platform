@@ -74,6 +74,7 @@ on record.
   - [Payment methods](#payment-methods)
   - [Purchases: receiving, free goods, discounts, purchase orders, paying suppliers](#purchases-receiving-free-goods-discounts-purchase-orders-paying-suppliers)
   - [Shop extras: shelf, branch and member prices, coupons, departments](#shop-extras-shelf-branch-and-member-prices-coupons-departments)
+  - [Quotations](#quotations)
 - [Retail counter (grocery / kirana, supermarket, books & stationery)](#retail-counter-grocery--kirana-supermarket-books--stationery)
   - [Quick bill](#quick-bill)
 - [Wholesale / FMCG](#wholesale--fmcg)
@@ -86,6 +87,7 @@ on record.
 - [Pharmacy](#pharmacy)
 - [Clinic & lab](#clinic--lab)
 - [Newer trades on the shared core](#newer-trades-on-the-shared-core)
+- [Hardware, paints & building materials](#hardware-paints--building-materials)
 
 **[Part 4 — Tasks, issues & projects](#part-4--tasks-issues--projects)**
 
@@ -276,8 +278,8 @@ daily expenses, and the type's own, such as appointments, patient records or
 pharmacy rules) and *Optional workflows*. A new business starts lean: what its
 type uses every day is on, and stock transfers, offers, loyalty points,
 repairs, EMI & finance, packages, commissions, the laboratory, cutting & yield,
-tasks, issues and projects stay off until the owner or a manager switches them
-on. A tool most businesses of the type use is marked *Recommended*, with the
+quotations (except at a hardware shop), fitters' commission, tasks, issues and
+projects stay off until the owner or a manager switches them on. A tool most businesses of the type use is marked *Recommended*, with the
 reason, and listed first. Switching a tool off hides its screens and keeps its
 history.
 
@@ -2112,7 +2114,7 @@ panel over it.
 | --- | --- | --- |
 | Daily work | **Overview** | Up to four headline figures — sales today (against the same weekday last week by this time), money in today, what customers owe (less advances, the same figure as Udhaar / Outstanding) and what is owed to suppliers — then *Needs doing today* (low stock, batches expiring soon, transfers on the way, counts open, broken promises, repairs ready, orders to dispatch…), *Start here* (the things done most often in this type), sales over the last 14 days, hour by hour and the best sellers, the day's bookings for a salon or clinic, and *What this business uses*. You see only the figures your role may see. |
 | Daily work | The type's own counter and day: a shop's **Quick bill**, a pharmacy's **Prescription sale**, a salon's **New bill** and **Appointments** (the calendar), a clinic's **Today's patients**, a wholesaler's **Sales orders** | Described with each type below. |
-| Daily work | **Sales history** (*Bill history* in a salon or clinic), with Exchanges, Warranties and Orders for pickup where the type has them; **Customers** (*Clients*; a clinic's *Patients*), with Loyalty points | Post a sale at the server's prices, take payment with it or leave it on credit, return goods, refund. Customers carry a GSTIN, a credit limit and credit days; a customer over the limit cannot be given more credit. |
+| Daily work | **Sales history** (*Bill history* in a salon or clinic), with Quotations, Exchanges, Warranties and Orders for pickup where the type has them; **Customers** (*Clients*; a clinic's *Patients*), with Loyalty points | Post a sale at the server's prices, take payment with it or leave it on credit, return goods, refund. Customers carry a GSTIN, a credit limit and credit days; a customer over the limit cannot be given more credit. |
 | Daily work | **Udhaar** (*Customer dues* outside a kirana, a meat or weight-based shop, a general store, a hardware shop or a seeds and fertiliser shop), with *Payments received*; **Daily money**, with Expenses (and EMI & financiers) | What customers owe and what they paid; the day's money and paid expenses (below). |
 | Business | **Products & services** (named for the type: *Medicines & products*, *Books & stationery*…), with Categories, Barcode labels, Kits & bundles, Offers & discounts, price lists and the type's own (Drug master, Book details, Size × colour, Today's rates, Stylists & services) | Items with GST slab, unit, how they are tracked (quantity, batch and expiry, or serial number), reorder level. Categories nest up to five levels. |
 | Business | **Purchases**, with Suppliers, Purchase orders (every business that keeps stock) and, for a wholesaler, Claims on suppliers | Record what was bought; stock goes up at once at its cost. |
@@ -2300,6 +2302,51 @@ For shops that sell goods, each where its tool is on:
   to a department gives access, and sets new passwords, only for the people
   of that department. Reports shows each department's sales, returns and
   margin.
+
+### Quotations
+
+A quotation is an estimate at today's prices with a date it holds until. Every
+type but a restaurant can switch on **Quotations** (Settings › Business
+tools); a hardware shop starts with it, and it is recommended for a garage, a
+general store, an optical shop, a jeweller and a wholesaler. It is under
+*Sales history › Quotations*.
+
+- **New quotation** — choose a saved customer, or type the name and phone of
+  someone who is not one yet; set *Valid until* (a week ahead to start with,
+  at most 180 days); add lines as on a new sale (search or scan the item,
+  pick its unit or pack — *Coil of 25* — and the quantity). Every figure is
+  the server's: the same calculation that prices a sale of these lines now,
+  with customer and slab prices, branch prices, running offers, GST and
+  round-off. A manager may give a discount with a reason, up to the
+  business's counter limit. Saving gives it a number (*QT/2627/0001*, in
+  Settings › Number series). Nothing leaves stock.
+- **Print (A4)** and **Share on WhatsApp** — the quotation under the
+  business's own header, laid out like its bills, with HSN, GST and the date
+  it is valid until; or the same as a message to the customer's phone.
+- **Revise** — while it is open: the lines are priced again at today's
+  prices, the number stays and the revision goes up. Each revision is listed
+  on the quotation with the totals before and after.
+- **Expired** — an open quotation past its date. Its prices may be out of
+  date, so it cannot be billed until it is revised.
+- **Make the bill** — the customer agreed: the bill is posted at the quoted
+  prices, its stock leaves this location, and the quotation shows *Billed*
+  with the bill's number. A customer who is not saved pays the whole bill
+  now; a saved customer may pay part or none, and the rest goes on their
+  dues. Items kept by batch go out oldest expiry first (a line can go over
+  two batches and still adds up to the quotation); serial-numbered items need
+  their numbers chosen. The bill is refused, with the reason, when the item's
+  GST rate, its pack size or the business's rounding changed since, or when
+  the quoted rate is now above the item's MRP: revise the quotation first.
+- **Make a sales order** — with Sales orders on: an order at the quoted
+  prices for a saved customer, sent later in parts, each dispatch with its own
+  bill and delivery challan. A quotation with a service on it is billed
+  instead.
+- **Cancel** — with a reason. A billed, ordered or cancelled quotation never
+  changes.
+
+Who does what: a cashier makes, revises, prints and bills quotations; a
+manager also cancels them; an accountant and a viewer see them (the
+accountant prints them too).
 
 ## Retail counter (grocery / kirana, supermarket, books & stationery)
 
@@ -2902,7 +2949,7 @@ Eleven more types run on the shared screens from the day they are created: *Quic
 | Type | Starts with | Tools to switch on (recommended in bold) |
 | --- | --- | --- |
 | General store & other shops | Quick bill and retail reports; prices including GST; packs, dozens, pairs, rolls and sets | **Variants** (sizes and colours), **Offers**, batches, loyalty, exchanges, serials and warranties, repairs, weight, wastage, price lists |
-| Hardware, paints & building materials | Quick bill and retail reports; bags, coils, rolls, sheets, sets, feet, quintals and tonnes | **Wholesale price lists** (contractor and dealer rates), **Sales orders** (site orders delivered in parts, with challans), **Stock transfers** (shop and godown), batches, variants, weight, offers, exchanges |
+| Hardware, paints & building materials | Its own screens: see [Hardware, paints & building materials](#hardware-paints--building-materials) below | See the same section |
 | Seeds, fertilisers & pesticides | Quick bill and retail reports; batches on (lot and expiry on every sale); bags, packets, bottles, quintals and tonnes | **Wholesale price lists** (dealer rates), weight, offers |
 | Optical shops | Quick bill and retail reports; pairs, packs and bottles | **Batches** (contact-lens expiry), **Variants** (frame colours and sizes), **Appointments** (eye tests with the optometrist), offers, loyalty, exchanges |
 | Vehicle service & auto parts | Quick bill and retail reports for the parts counter; pairs and sets | **Appointments** (service bookings by bay and mechanic), **Wholesale price lists** (mechanic and retailer rates), batches, serials and warranties, offers |
@@ -2923,6 +2970,103 @@ Eleven more types run on the shared screens from the day they are created: *Quic
 - a hotel room 5% at ₹7,500 a night or less, 18% above.
 
 Set each item's slab when adding it, and have an accountant confirm them before trading.
+
+## Hardware, paints & building materials
+
+A hardware, paint and building-material shop bills at **Quick bill** with
+prices including GST rounded to the rupee, keeps udhaar for named customers,
+and sells in bags, coils, rolls, sheets, sets, feet, quintals and tonnes as
+well as pieces, kilos and metres. A new shop starts with **Quotations**,
+**Sites**, **Today's rates** and the **Tile & paint calculators** on.
+Recommended in Settings › Business tools: **Fitters' commission**,
+**Wholesale price lists** (contractor and dealer rates), **Sales orders**
+(site orders delivered in parts, each load with a delivery challan) and
+**Stock transfers** (between the shop and the godown); batches, variants,
+weight, offers and exchanges can be switched on too.
+
+- **Quotations** — the estimate for a site, valid until a date, billed or
+  made into a sales order at its prices ([Quotations](#quotations)). A
+  quotation for a saved customer can go to one of their sites.
+- **Sites** (*Customers & contractors › Sites*) — each contractor's or
+  builder's sites: the site's name, address, the person at the site and their
+  phone. A site belongs to one customer and stays with them; close it when
+  the work is done (its bills stay). *Ledger* on a site's row shows every bill
+  that went there, goods that came back, payments and refunds in date order
+  with the running balance, and its quotations and sales orders; *Send the
+  dues on WhatsApp* sends the customer the site's billed, paid and due
+  figures with each unpaid bill, and *New quotation for this site* starts one.
+- **A bill goes to a site** — on Quick bill, once the customer is picked,
+  *Site* offers their open sites; New sale and a quotation offer the same.
+  On a posted bill, *Set the site* (or *Change the site*) moves it, and the
+  bill's A4 invoice and till receipt print the site. *Sales history* filters
+  by site and shows each bill's site.
+- **Site orders** — with Sales orders on, an order made from a quotation
+  takes the quotation's site, and *Set the site* on an order sends it there:
+  every invoice its dispatches raise goes to that site, and invoices already
+  raised without a site move there too. *Routes & salespeople*, a
+  wholesaler's beat screen, is not part of a hardware shop's Sales orders.
+- **Today's rates** (*Products & services › Today's rates*) — the items
+  whose price changes every day (cement, steel, pipes, cable) on one board.
+  *Put items on the board* adds them; type today's rates and *Save* them
+  together. Each is the item's own price change: a rate above the item's MRP
+  is refused (and nothing in that save changes), the activity log keeps it,
+  and Quick bill, New sale and new quotations use it at once. A quotation
+  already made keeps its prices until it is revised. The board shows each
+  item's rate before the last change, the change, and when it changed,
+  whichever screen changed it. If someone else saved a rate after you opened
+  the board, saving yours is refused: open it again. *Share today's rates*
+  sends the list on WhatsApp, and *More › Print the rate list (A5)* prints it
+  for the counter. *Take off the board* leaves the item and its price as
+  they are.
+- **Tile & paint calculators** (on Quick bill, and in a quotation next to
+  the scan box) — *Tiles*: pick the tiles, type the area (sq ft or m²) and
+  the wastage (10% to start); the calculator gives the boxes to sell and
+  *Add … to the bill* (or the quotation) puts them on. *Paint*: pick the
+  paint, type the area, the coats and (if the paint has none) what one litre
+  covers; it gives the litres and the packs to buy: the least paint, in the
+  fewest tins, from the paint's own tins or the usual 1, 4, 10 and 20 L.
+  The figures live on the items: with the calculators on, the item form
+  (*Products & services*, add or edit) has *Tiles: one unit covers (sq ft)*,
+  *Paint: one litre covers, one coat (sq ft)* and *Paint: litres in one
+  unit*. Give each paint tin its litres (and the paint's coverage) and the
+  calculator can add the tins to the bill.
+
+**Fitters' commission** (switched on in Settings › Business tools) pays the
+painters, plumbers, electricians, masons and carpenters who bring customers.
+
+- **Fitters** (*Customers & contractors › Fitters*) — each fitter's name,
+  trade, phone, UPI id and area; one fitter per phone number. A fitter
+  switched off is named on no new bill, and keeps what they earned and are
+  owed.
+- **Commission rules** (the *Commission rules* tab) — a percent of a line's
+  value before GST, after discounts, for every item, for a category and the
+  categories under it, or for one item; or an amount for each unit of one
+  item (₹2 a bag of cement). A line earns by its item's rule, else by the
+  nearest category's up the tree, else by the rule for every item; each has
+  one rule on at a time. A changed rule applies to bills from then on.
+- **Fitted by** — Quick bill (the *Fitted by* card), New sale and *Make the
+  bill* on a quotation offer the fitters who are on, for a walk-in too. The
+  commission is worked out with the bill, to the paisa, never above a line's
+  value, and kept with the bill; the bill shows who fitted it and what it
+  earned. Goods taken back on the bill take back the commission in
+  proportion, exactly all of it once everything has come back.
+- **Paying a fitter** — *Pay* on a fitter's row or statement records a
+  payout of no more than is due: the amount, how it was paid and a reference.
+  The payout is a paid expense of the shop (category *Other*, "Fitter's
+  commission: name (trade)") at the location that paid, so *Daily money*
+  counts it. With the fitter's UPI id, *Pay … in a UPI app* opens a UPI app
+  with the amount filled in. Paying needs both *Pay fitters their
+  commission* and *Record a paid expense*. To take a payout back, reverse its
+  expense under *Daily money › Expenses*; the *Payouts* tab shows every
+  payout and whether it was reversed.
+- **A fitter's statement** — *Statement* shows the bills they earned on,
+  goods back, payouts and reversed payouts in date order with the running
+  balance. *Send the statement on WhatsApp* sends the totals and the latest
+  bills to the fitter's phone; *Print the statement* prints it with a line
+  for their signature.
+- **Report** (*Reports › Fitters' commission*) — for the dates chosen, each
+  fitter's bills and their value before GST, commission earned, taken back
+  and paid, and what each is due now.
 
 ---
 

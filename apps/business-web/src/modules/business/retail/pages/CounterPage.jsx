@@ -27,6 +27,14 @@ import CounterShelf from "./counterShelf";
 import ShiftButton from "./counterShift";
 // Cut to order and orders for pickup at a meat / weight shop.
 import CounterWeightTools from "../../weight/pages/CounterWeightTools";
+// A hardware shop's bill goes to one of the customer's sites.
+import SiteField from "../../hardware/pages/SiteField";
+import { usesFitters, usesSites } from "../../hardware/pages/hardware";
+// A hardware shop's bill may name the fitter who brought the customer.
+import FitterField from "../../hardware/pages/FitterField";
+// A hardware shop's tile and paint calculator adds what an area needs.
+import CalculatorDialog from "../../hardware/pages/CalculatorDialog";
+import { usesCalculators } from "../../hardware/pages/calculators";
 
 // Quick bill: the counter of every goods shop (grocery, supermarket, books,
 // pharmacy, fashion, electronics, meat and other weight shops). Scan a
@@ -96,6 +104,8 @@ export default function CounterPage() {
   });
   const [lines, setLines] = useState(() => carried?.lines || []);
   const [customer, setCustomer] = useState(() => carried?.customer || null);
+  const [siteId, setSiteId] = useState("");
+  const [fitterId, setFitterId] = useState("");
   const [buyer, setBuyer] = useState({ name: "", phone: "", pan: "", panDeclaration: false });
   const [redeem, setRedeem] = useState(() => carried?.redeem || "");
   const [discount, setDiscount] = useState(() => carried?.discount || { mode: "amount", value: "", reason: "" });
@@ -140,6 +150,7 @@ export default function CounterPage() {
   const changeSearch = useCallback((query) => { setShelfQuery(query); setScanError(""); }, []);
   const [held, setHeld] = useState(() => readHeld(biz.id));
   const [picking, setPicking] = useState(false);
+  const [calculating, setCalculating] = useState(false);
   const [lastOpen, setLastOpen] = useState(null);
   const [returning, setReturning] = useState(false);
   const [returnId, setReturnId] = useState(null);
@@ -291,6 +302,15 @@ export default function CounterPage() {
       return false;
     }
   }
+  // From the tile and paint calculator: each item as if scanned, with its quantity.
+  async function addCalculated(picks) {
+    setScanError("");
+    try {
+      for (const { sku, quantity: count } of picks) addScanned(await businessRead(biz.id, "retail/scan", { code: sku.barcode || sku.code, locationId }), count);
+    } catch (err) {
+      setScanError(getErrorMessage(err));
+    }
+  }
   // A school set: every book and item on its list, with its quantity.
   async function addSet(set) {
     setScanError("");
@@ -319,7 +339,7 @@ export default function CounterPage() {
 
   const reset = useCallback(() => {
     setLines([]); setCustomer(null); setRedeem(""); setReceived(""); setPartPaid(""); setMethod("cash"); setFinance(emptyFinance()); setAskPin(null);
-    setDiscount({ mode: "amount", value: "", reason: "" }); setBuyer({ name: "", phone: "", pan: "", panDeclaration: false });
+    setDiscount({ mode: "amount", value: "", reason: "" }); setBuyer({ name: "", phone: "", pan: "", panDeclaration: false }); setSiteId(""); setFitterId("");
     setQuote(null); setPosted(null); setPostError(""); setScanError(""); setRequestKey(newKey()); setVoucher(null); setVoucherCode(""); setVoucherError(""); setCoupon(""); setCouponText("");
     setTimeout(() => scanRef.current?.focus(), 0);
   }, []);
@@ -410,6 +430,8 @@ export default function CounterPage() {
         ...body, kind: "sale", requestKey, channel: "counter", ...(pin ? { counterPin: pin } : {}),
         ...(Object.keys(buyerBody).length ? { buyer: buyerBody } : {}),
         ...(voucher && fromVoucher > 0 ? { voucher: { code: voucher.voucher_no } } : {}),
+        ...(siteId && customer ? { siteId } : {}),
+        ...(fitterId && usesFitters(biz) ? { fitterId } : {}),
         ...payBody(),
       });
       setAskPin(null);
@@ -604,7 +626,12 @@ export default function CounterPage() {
       <BusinessHeader icon="receipt" title="Quick bill" actions={headerActions} />
       <div className="rt-counter">
         <div className="stack rt-counter-main">
-          <SectionCard icon="search" title="1 · Add items" description="Click an item below, type part of its name, or scan its barcode." actions={fashion && <button type="button" className="button button-secondary button-sm" onClick={() => setPicking(true)}><Icon name="tag" size={14} /> Size & colour</button>}>
+          <SectionCard icon="search" title="1 · Add items" description="Click an item below, type part of its name, or scan its barcode." actions={(fashion || usesCalculators(biz)) && (
+            <>
+              {fashion && <button type="button" className="button button-secondary button-sm" onClick={() => setPicking(true)}><Icon name="tag" size={14} /> Size & colour</button>}
+              {usesCalculators(biz) && <button type="button" className="button button-secondary button-sm" onClick={() => setCalculating(true)}><Icon name="grid" size={14} /> Tile & paint calculator</button>}
+            </>
+          )}>
             <ScanBox biz={biz} inputRef={scanRef} onCode={lookUp} onPick={(sku) => lookUp(sku.barcode || sku.code)} onQuery={changeSearch}
               placeholder={`Scan a barcode${scanWords.length ? `, ${scanWords.join(", ")}` : ""} or type a name  (F2 or Alt+S)`} />
             <ErrorMessage message={scanError} />
@@ -644,7 +671,17 @@ export default function CounterPage() {
               : <PhoneLines biz={biz} lines={lines} onRemove={removeLine} renderItem={columns.find((c) => c.key === "item").render} renderQuantity={columns.find((c) => c.key === "quantity").render} amountOf={columns.find((c) => c.key === "amount").value} />}
           </SectionCard>
           <CustomerBox biz={biz} customer={customer} account={account}
-            onChange={(c) => { setCustomer(c); setRedeem(""); if (!c && method === "udhaar") setMethod("cash"); if (!c) setWantUdhaar(false); }} />
+            onChange={(c) => { setCustomer(c); setRedeem(""); setSiteId(""); if (!c && method === "udhaar") setMethod("cash"); if (!c) setWantUdhaar(false); }} />
+          {usesSites(biz) && customer && (
+            <SectionCard icon="map-pin" title="Site">
+              <SiteField biz={biz} contactId={customer.id} value={siteId} onChange={setSiteId} label="Goes to site" />
+            </SectionCard>
+          )}
+          {usesFitters(biz) && (
+            <SectionCard icon="users" title="Fitted by">
+              <FitterField biz={biz} value={fitterId} onChange={setFitterId} label="Fitter who brought the customer" />
+            </SectionCard>
+          )}
           {needsBuyer && (
             <SectionCard icon="shield" title={emi ? "Buyer" : "Warranty for"} description={emi ? "Name and phone of the buyer, for the financier and the warranty." : "Name and phone of the buyer, so the warranty is registered with this bill."}>
               <div className="rt-inline">
@@ -822,6 +859,7 @@ export default function CounterPage() {
       {savedConfirmation}
       {askPin && <BillerDialog key={askPin.n || 0} biz={biz} mode="confirm" error={askPin.error} onClose={() => setAskPin(null)} onConfirm={(pin) => post(pin)} onSwitched={switched} />}
       {picking && <VariantPicker biz={biz} locationId={locationId} onClose={() => setPicking(false)} onPick={(v) => { lookUp(v.barcode || v.code); }} />}
+      {calculating && <CalculatorDialog biz={biz} target="bill" onAdd={addCalculated} onClose={() => setCalculating(false)} />}
       {lastOpen && <DocumentDetail documentId={lastOpen} onClose={() => setLastOpen(null)} onChanged={() => {}} />}
       {returning && <ReturnFinder biz={biz} onClose={() => setReturning(false)} onPick={(d) => { setReturning(false); setReturnId(d.id); }} />}
       {returnId && <DocumentDetail documentId={returnId} initialAction="returns" onClose={() => setReturnId(null)} onChanged={() => {}} />}

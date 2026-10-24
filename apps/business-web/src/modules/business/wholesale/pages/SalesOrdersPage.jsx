@@ -21,6 +21,9 @@ import { OrderBadge, Segmented } from "./shared";
 import { inPacks, packOf, packText, splitPacks } from "./tradeFormat";
 import { ChallanDialog, DeliveryDialog, TransportDialog, TransportFields } from "./deliveryParts";
 import { DELIVERY, emptyTransport, transportBody } from "./deliveryFormat";
+// A hardware shop's order goes to one of the customer's sites.
+import { OrderSite } from "../../hardware/pages/SiteField";
+import { usesSites } from "../../hardware/pages/hardware";
 
 // Sales orders of a wholesale business. An order fixes the prices; each
 // dispatch sends part or all of it with its own tax invoice; what is not sent
@@ -379,6 +382,7 @@ function OrderDetail({ orderId, startDispatch, onClose, onChanged }) {
               <OrderBadge status={order.status} />
               {order.salesperson_name && <span className="bz-chip"><Icon name="user" size={13} /> {order.salesperson_name}</span>}
               {order.route_name && <span className="bz-chip"><Icon name="map-pin" size={13} /> {order.route_name}{order.beat_name ? ` · ${order.beat_name}` : ""}</span>}
+              {usesSites(biz) && <OrderSite biz={biz} order={order} onChanged={onChanged} />}
               {biz.can("receivables.view") && <button type="button" className="chip-button" onClick={() => setAction({ kind: "account" })}><Icon name="wallet" size={13} /> Customer account</button>}
               {order.expected_on && <span className="muted small">Wanted by {dateShort(order.expected_on)}</span>}
               {order.closed_at && <span className="muted small">{order.status === "cancelled" ? "Cancelled" : "Closed"} {dateTime(order.closed_at)} — {order.close_reason}</span>}

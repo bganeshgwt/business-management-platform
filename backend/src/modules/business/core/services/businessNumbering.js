@@ -18,7 +18,9 @@ const SHORT = { sale: 'SI', purchase: 'PR', sales_return: 'CN', purchase_return:
   // Payments made to suppliers.
   supplier_payment: 'SP',
   // Wholesale purchase orders to suppliers, delivery challans.
-  purchase_order: 'PO', delivery_challan: 'DC' };
+  purchase_order: 'PO', delivery_challan: 'DC',
+  // Quotations (estimates; not GST documents).
+  quotation: 'QT' };
 const KINDS = Object.keys(SHORT);
 // Kinds printed as GST documents: their numbers must fit in 16 characters.
 const GST_KINDS = new Set(['sale', 'sales_return', 'purchase_return']);

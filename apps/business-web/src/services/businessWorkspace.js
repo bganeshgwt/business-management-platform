@@ -8,14 +8,14 @@ export const WORKSPACES = {
   stock: ['stock', 'weight-stock', 'movements', 'counts', 'near-expiry', 'pharmacy-batches', 'transfers', 'serials', 'processing', 'wastage'],
   purchases: ['purchases', 'suppliers', 'purchase-orders', 'claims'],
   dues: ['udhaar', 'outstanding', 'collections'],
-  customers: ['customers', 'loyalty'],
-  sales: ['sales', 'exchanges', 'warranties', 'pickup-orders'],
+  customers: ['customers', 'loyalty', 'sites', 'fitters'],
+  sales: ['sales', 'quotations', 'exchanges', 'warranties', 'pickup-orders'],
   orders: ['sales-orders', 'back-orders', 'dispatch', 'price-groups', 'pricing', 'routes'],
   appointments: ['salon-calendar', 'appointments'],
   care: ['clinic-today', 'clinic-queue', 'visits', 'appointments', 'doctors'],
   patients: ['patients', 'customers'],
   laboratory: ['lab-orders', 'lab-tests', 'lab-qc'],
-  reports: ['reports', 'retail-reports', 'wholesale-reports', 'variant-reports', 'weight-reports', 'salon-reports', 'commissions', 'activity'],
+  reports: ['reports', 'retail-reports', 'wholesale-reports', 'variant-reports', 'weight-reports', 'salon-reports', 'commissions', 'fitter-reports', 'activity'],
   settings: ['settings', 'tax-rates', 'payment-methods', 'number-series', 'locations', 'units', 'resources', 'health-settings'],
   staff: ['staff', 'roles'],
   money: ['day-close', 'expenses', 'emi-finance'],
@@ -54,6 +54,8 @@ export function workspaceSections(key, type) {
     if (section === 'counts') return !WEIGHED.includes(type);
     if (section === 'salon-setup') return type === 'salon';
     if (section === 'appointments') return BOOKS_APPOINTMENTS.includes(type);
+    // Routes and salespeople are a wholesaler's beat; a hardware shop's orders go to sites.
+    if (section === 'routes') return type !== 'hardware';
     if (section === 'day-close' || section === 'expenses') return type !== 'restaurant';
     return true;
   });

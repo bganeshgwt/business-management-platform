@@ -64,6 +64,7 @@ function firstActions(biz) {
   if (biz.has("repairs") && can("repairs.create")) list.push({ to: "repairs?new=1", icon: "settings", label: "Take in a device" });
   if (biz.has("warranties") && can("warranties.view")) list.push({ to: "warranties", icon: "search", label: "Look up an IMEI" });
   if (biz.has("exchanges") && can("exchanges.create")) list.push({ to: "exchanges?new=1", icon: "undo", label: "Exchange an item" });
+  if (biz.has("quotations") && can("quotations.create")) list.push({ to: "quotations?new=1", icon: "clipboard", label: "Make a quotation" });
   if (biz.has("receivables") && can("receivables.create")) list.push({ to: goods ? "udhaar" : "collections?new=1", icon: "wallet", label: goods ? "Collect udhaar" : "Record a collection" });
   if (!goods && biz.type !== "salon" && can("sales.create")) list.push({ to: "sales?new=1", icon: "receipt", label: "New sale (invoice)" });
   if (biz.type !== "salon" && biz.type !== "healthcare" && can("appointments.create") && biz.has("appointments")) list.push({ to: "appointments?new=1", icon: "calendar", label: "Book an appointment" });

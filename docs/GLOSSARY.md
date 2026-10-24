@@ -134,6 +134,23 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Markdown** | A fashion shop's % off every size and colour of one style, until an end date. It runs as an offer; the shelf price never changes, so it goes back by itself. |
 | **GST by price** | Garments taxed by their value per piece: a lower rate up to a set value and a higher rate above it, worked out on each sale line after discounts. The shop sets the value and the two rates. |
 | **EMI case** | An EMI sale's financed part: the customer pays a down payment, and the financier (Bajaj Finserv, HDFC Bank…) owes the rest until its payout, less its subvention, is recorded. |
+| **Quotation** | An estimate at today's prices with a date it is valid until (numbered QT/…). It moves no stock and is not a tax invoice. Once the customer agrees it becomes a bill, or a sales order, at the quoted prices. |
+| **Revision** (of a quotation) | The quotation priced again with changed lines, keeping its number; the lines it replaced are kept with the revision. |
+| **Expired quotation** | An open quotation past its *Valid until* date. Its prices must be revised before it is billed. |
+
+### Hardware, paints & building materials
+
+| Word | Meaning |
+|---|---|
+| **Site** | A contractor's or builder's place of work, under one customer: its bills, quotations and sales orders go to it, and it is closed (never deleted) when the work is done. |
+| **Site ledger** | A site's bills, goods back, payments and refunds in date order with the running balance: what the site owes. |
+| **Coverage** | What one unit of an item covers: the sq ft a box of tiles lays, or the sq ft a litre of paint covers in one coat. Kept on the item for the calculators. |
+| **Today's rates** | A hardware shop's board of the items whose price changes every day: today's prices typed and saved together, shared on WhatsApp. |
+| **Fitter** | A painter, plumber, electrician, mason or carpenter who brings customers to the shop and earns commission on their bills. |
+| **Fitted by** | The fitter named on a bill when it is posted; the bill's commission goes to them. |
+| **Commission rule** | What a bill line earns its fitter: a percent of its value before GST for every item, a category or one item, or an amount per unit of one item. The most specific rule wins. |
+| **Taken back** | Commission a return undoes: a returned line's commission in proportion to the quantity back. |
+| **Payout** | Money paid to a fitter, recorded as a paid expense of the shop; reversing the expense takes it back. |
 
 ### Clinic and lab
 

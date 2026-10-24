@@ -21,6 +21,11 @@ const PAY_KINDS = ["cash", "upi", "card", "bank"];
 // The one collection form and wholesale delivery words.
 import { CollectionDialog } from "../../receivables/pages/receivablesParts";
 import { DELIVERY } from "../../wholesale/pages/deliveryFormat";
+// A hardware shop's sites: on a new sale, as a Sales history filter, and on a bill;
+// and the fitter a new sale names, shown on the bill with their commission.
+import SiteField, { SiteDialog } from "../../hardware/pages/SiteField";
+import FitterField from "../../hardware/pages/FitterField";
+import { tradeWord, usesSites } from "../../hardware/pages/hardware";
 
 // Sales or purchases of one business: the list for a period, a new
 // document, and each document's payments, returns and refunds.
@@ -48,10 +53,11 @@ export default function DocumentsPage({ kind }) {
   const navigate = useNavigate();
   // Wholesale invoices carry their order, salesperson, route and delivery.
   const trade = sale && biz.has("sales_orders") && biz.can("sales_orders.view");
-  const [filters, setFilters] = useState({ unpaid: false, source: "", salesperson: "", route: "", paid_by: "", created_by: "", location: "" });
+  const [filters, setFilters] = useState({ unpaid: false, source: "", salesperson: "", route: "", paid_by: "", created_by: "", location: "", site: "" });
+  const sited = sale && usesSites(biz);
   // Who billed it (needs the staff list) and where.
   const seeStaff = sale && biz.can("access.view");
-  const { options: tradeOptions } = useOptions([...(trade ? ["salespeople", "routes"] : []), ...(seeStaff ? ["members"] : [])]);
+  const { options: tradeOptions } = useOptions([...(trade ? ["salespeople", "routes"] : []), ...(seeStaff ? ["members"] : []), ...(sited ? ["hardware/sites"] : [])]);
   const tradeParams = Object.fromEntries(Object.entries({ ...filters, unpaid: filters.unpaid ? "true" : "" }).filter(([, v]) => v));
   // A shop's sales open on today (the counter's day); Quick pick still offers the month.
   const counterShop = sale && GOODS_TYPES.includes(biz.type);
@@ -80,13 +86,14 @@ export default function DocumentsPage({ kind }) {
     { key: "balance", header: sale ? "To collect" : "To pay", type: "money", exact: true, value: balanceOf, total: "sum", mobile: "show" },
     { key: "state", header: "Status", type: "status", value: (d) => paymentState(d)[1], render: (d) => <Badge tone={paymentState(d)[0]} label={paymentState(d)[1]} /> },
     { key: "due_on", header: "Due on", type: "date", value: (d) => d.due_on, defaultHidden: !sale },
+    sited && { key: "site", header: "Site", value: (d) => d.site_name || "", render: (d) => d.site_name || <span className="muted">—</span> },
     trade && { key: "order_no", header: "Order", value: (d) => d.order_no || "", render: (d) => (d.order_no ? <span className="mono">{d.order_no}</span> : <span className="muted">Counter</span>) },
     trade && { key: "salesperson", header: "Salesperson", value: (d) => d.salesperson_name || "" },
     trade && { key: "route", header: "Route", value: (d) => d.route_name || "", defaultHidden: true },
     trade && { key: "delivery", header: "Delivery", type: "status", value: (d) => d.delivery_status || "",
       render: (d) => (d.delivery_status ? <Badge tone={DELIVERY[d.delivery_status]?.tone} label={DELIVERY[d.delivery_status]?.label} /> : <span className="muted">—</span>) },
     { key: "actions", header: "", label: "Actions", type: "actions", render: (d) => <button type="button" className="chip-button" onClick={() => setOpenId(d.id)} title={`Open ${d.document_no}`}>View</button> },
-  ].filter(Boolean), [biz.locations.length, biz.type, sale, trade]);
+  ].filter(Boolean), [biz.locations.length, biz.type, sale, trade, sited]);
   const setFilter = (name) => (e) => setFilters((f) => ({ ...f, [name]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
 
   return (
@@ -132,6 +139,14 @@ export default function DocumentsPage({ kind }) {
                   <select value={filters.location} onChange={setFilter("location")}>
                     <option value="">All locations</option>
                     {biz.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                  </select>
+                </label>
+              )}
+              {sited && (tradeOptions?.["hardware/sites"] || []).length > 0 && (
+                <label className="field"><span>Site</span>
+                  <select value={filters.site} onChange={setFilter("site")}>
+                    <option value="">Every site</option>
+                    {(tradeOptions?.["hardware/sites"] || []).map((s) => <option key={s.id} value={s.id}>{s.name} · {s.customer_name}</option>)}
                   </select>
                 </label>
               )}
@@ -185,7 +200,7 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
   // `form.method`: one of the business's own methods (paymentMethods.js).
   const methods = usePaymentMethods();
   const [form, setForm] = useState({ locationId: String(locations[0]?.id || ""), contactId: "", notes: "", paidNow: "", method: "cash", reference: "",
-    supplierBillNo: "", supplierBillDate: businessToday(biz.business.timezone), buyerPan: "", panDeclaration: false });
+    supplierBillNo: "", supplierBillDate: businessToday(biz.business.timezone), buyerPan: "", panDeclaration: false, siteId: "", fitterId: "" });
   const [lines, setLines] = useState([emptyLine()]);
   const [repricing, setRepricing] = useState(false);
   const [scan, setScan] = useState("");
@@ -265,6 +280,8 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
   const submit = async () => {
     const doc = await businessWrite(biz.id, "documents", {
       kind, locationId: form.locationId, contactId: form.contactId || null, notes: form.notes || undefined, requestKey,
+      ...(sale && form.contactId && form.siteId ? { siteId: form.siteId } : {}),
+      ...(sale && form.fitterId ? { fitterId: form.fitterId } : {}),
       ...(panNeeded ? { buyer: form.panDeclaration ? { panDeclaration: true } : { pan: form.buyerPan.trim().toUpperCase() || undefined } } : {}),
       ...(walkInPays ? { payment: { amount: "full", ...methods.body(form.method, PAY_KINDS), reference: form.reference || undefined } }
         : Number(form.paidNow) > 0 ? { payment: { amount: form.paidNow, ...methods.body(form.method, PAY_KINDS), reference: form.reference || undefined } } : {}),
@@ -372,7 +389,7 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
       </Field>
       {sale ? (
         <Field label={`${word(biz.type, "customers", "Customers").replace(/s$/, "")} (optional)`}>
-          <select value={form.contactId} onChange={set("contactId")}>
+          <select value={form.contactId} onChange={(e) => setForm((f) => ({ ...f, contactId: e.target.value, siteId: "" }))}>
             <option value="">Walk-in</option>
             {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}{c.credit_limit ? ` · limit ${biz.amount(c.credit_limit)}` : ""}</option>)}
           </select>
@@ -386,6 +403,8 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
           {biz.can("contacts.create") && <button type="button" className="link-button small" onClick={() => setNewSupplier(true)}>+ New supplier</button>}
         </div>
       )}
+      {sale && <SiteField biz={biz} contactId={form.contactId} value={form.siteId} onChange={(siteId) => setForm((f) => ({ ...f, siteId }))} />}
+      {sale && <FitterField biz={biz} value={form.fitterId} onChange={(fitterId) => setForm((f) => ({ ...f, fitterId }))} />}
       {!sale && (
         <>
           <Field label="Supplier's bill number" hint="As printed on their invoice; the same bill cannot be entered twice.">
@@ -501,6 +520,11 @@ export function DocumentDetail({ documentId, onClose, onChanged, initialAction =
                 return <span className="bz-two-line"><span>−{biz.exact(given.reduce((s, x) => s + Number(x.amount), 0))}</span><small className="muted">{given.map((x) => x.label).join(", ")}</small></span>;
               } },
           ].filter(Boolean)} />
+          {doc.hardware?.site && <p className="small">Site <strong>{doc.hardware.site.name}</strong>{doc.hardware.site.address ? ` · ${doc.hardware.site.address}` : ""}</p>}
+          {doc.hardware?.fitter && (
+            <p className="small">Fitted by <strong>{doc.hardware.fitter.name}</strong> ({tradeWord(doc.hardware.fitter.trade).toLowerCase()})
+              {doc.hardware.fitter.commission !== undefined && ` · commission ${biz.exact(doc.hardware.fitter.commission)}${Number(doc.hardware.fitter.taken_back) > 0 ? `, ${biz.exact(doc.hardware.fitter.taken_back)} of it taken back for goods returned` : ""}`}</p>
+          )}
           <div className="bz-totals">
             <span>Before tax <strong>{biz.exact(doc.subtotal)}</strong></span>
             <span>Tax <strong>{biz.exact(doc.tax)}</strong></span>
@@ -527,13 +551,16 @@ export function DocumentDetail({ documentId, onClose, onChanged, initialAction =
             {biz.can(`${area}.refund`) && balance < -0.004 && <button type="button" className="button button-secondary" onClick={() => setAction("refunds")}>{doc.kind === "sale" ? "Refund customer" : "Record supplier refund"}</button>}
             {biz.can(`${area}.print`) && <button type="button" className="button button-secondary" onClick={() => printTaxInvoice(doc, biz)}><Icon name="print" size={15} /> {doc.kind === "sale" ? "Print invoice (A4)" : "Print"}</button>}
             {biz.can(`${area}.print`) && doc.kind === "sale" && GOODS_TYPES.includes(biz.type) && <button type="button" className="button button-secondary" onClick={() => printReceipt(doc, biz)}><Icon name="receipt" size={15} /> Till receipt (80 mm)</button>}
+            {doc.kind === "sale" && doc.contact_id && usesSites(biz) && biz.can("hardware_sites.edit") && <button type="button" className="button button-secondary" onClick={() => setAction("site")}><Icon name="map-pin" size={15} /> {doc.hardware?.site ? "Change the site" : "Set the site"}</button>}
           </div>
         </div>
       )}
     </Modal>
     {action === "collect" && doc && <CollectionDialog contactId={doc.contact_id} documentId={doc.id} onClose={() => setAction(null)}
       onSaved={(c) => { toast.success(`Receipt ${c.collection_no} saved for ${biz.exact(c.amount)}`); changed(); }} />}
-    {action && action !== "collect" && doc && <DocumentAction doc={doc} action={action} balance={balance} onClose={() => setAction(null)} onSaved={changed} />}
+    {action === "site" && doc && <SiteDialog biz={biz} title={`Site of ${doc.document_no}`} contactId={doc.contact_id} current={doc.hardware?.site} path={`hardware/bills/${doc.id}/site`}
+      onClose={() => setAction(null)} onSaved={(r) => { toast.success(r.site ? `${doc.document_no} goes to ${r.site.name}.` : `${doc.document_no} has no site now.`); changed(); }} />}
+    {action && !["collect", "site"].includes(action) && doc && <DocumentAction doc={doc} action={action} balance={balance} onClose={() => setAction(null)} onSaved={changed} />}
     </>
   );
 }

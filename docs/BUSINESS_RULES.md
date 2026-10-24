@@ -23,6 +23,7 @@ The everyday numbers, such as expiring-soon days, voucher validity, credit age g
 - [Salon & spa](#salon--spa)
 - [Meat and weight-based shops](#meat-and-weight-based-shops)
 - [Pharmacy, clinic and lab](#pharmacy-clinic-and-lab)
+- [Hardware, paints & building materials](#hardware-paints--building-materials)
 - [Restaurant and food formats](#restaurant-and-food-formats)
 
 ## Fixed on purpose
@@ -151,6 +152,24 @@ These rules apply to every business type but the restaurant. The goods rules app
 
 - **Rule:** a cashier opens a shift at a counter with the cash in the drawer and closes it with a blind count: they type what they counted before they see what the drawer should hold (their own cash sales, collections, refunds, supplier payments and expenses there). A difference needs a reason. Each person has one open shift per counter, and a closed shift never changes.
 - **Why:** in a supermarket many cashiers bill at once, so each count is checked against that cashier's own cash.
+- **Change it:** nothing to set.
+
+### A quotation's prices
+
+- **Rule:** a quotation is priced by the server exactly as a sale of the same lines would be at that moment: customer and slab prices, the branch's price, running offers, a manager's discount within the counter limit, GST and round-off. Never above an item's MRP. A kit cannot go on a quotation (its parts can). A revision prices every line again at that day's prices.
+- **Why:** what the customer is told must be what the bill says.
+- **Change it:** nothing to set; the prices themselves are set on the items and price lists.
+
+### A quotation holds its prices until its date
+
+- **Rule:** an open quotation may be billed, or made into a sales order, only up to its *Valid until* date, on the business's own calendar (at most 180 days ahead). After it, it shows as *Expired* and must be revised first. The bill is posted at the quoted prices: each line keeps its quoted taxable value and GST, a line taken from two batches is split in proportion so the bill still adds up to the quotation to the paisa, and the bill's total must equal the quotation's. It is refused, with the reason, while an item's GST rate or pack size differs from the quotation, while its quoted rate (GST included) is above its MRP now, or when the business rounds totals differently now.
+- **Why:** cement and steel prices move every week; a shop holds a price only for as long as it promised to, and never bills against the law (MRP) or at a GST rate that is no longer the item's.
+- **Change it:** the date on each quotation (when making or revising it).
+
+### A quotation that is billed or cancelled
+
+- **Rule:** a billed, ordered or cancelled quotation never changes: its lines, totals, customer and site stay as they were (the database refuses any change). An open one is cancelled with a reason; nothing is deleted. Undoing the sale is a return on the bill. A customer who is not saved pays a goods shop's bill in full when it is made; only a saved customer's quotation becomes a sales order, and only for goods.
+- **Why:** the quotation is the record of what was offered and accepted.
 - **Change it:** nothing to set.
 
 ## Money and the day
@@ -375,6 +394,40 @@ These rules apply to every business type but the restaurant. The goods rules app
 - **Rule:** some roles belong to one type of business: Pharmacist to a pharmacy; Doctor, Lab technician and Pathologist to a clinic & lab. A business of that type starts with them, and other types do not get them.
 - **Why:** a kirana should not see a "Doctor" role.
 - **Change it:** they are ordinary roles, editable in *Roles & permissions*.
+
+## Hardware, paints & building materials
+
+A hardware shop sells as every goods shop does ([Shops and the shared core](#shops-and-the-shared-core)), with quotations ([A quotation's prices](#a-quotations-prices)) and these rules of its own.
+
+### A site belongs to one customer
+
+- **Rule:** a site (a contractor's or builder's place of work) is added under one customer and stays with them; it is closed, never deleted, and its bills stay. Only a sale to that customer goes to the site: a walk-in's bill, a purchase or another customer's bill cannot, and the database refuses a site of another customer on a bill, a quotation or a sales order. A closed site takes no new bill, quotation or order. A posted bill's site may be set, changed or taken off later by someone allowed to edit sites, and the activity log keeps each change.
+- **Why:** a contractor runs several sites at once and pays for each separately; the site's ledger must hold that customer's bills only.
+- **Change it:** nothing to set; who may add and change sites is the role's `hardware_sites.edit`.
+
+### A site's ledger and orders
+
+- **Rule:** a site's ledger is its bills (what they came to), less goods that came back and payments on those bills, plus refunds, in date order, with the running balance; what is due on a site is what is still to collect on its bills. A collection receipt counts on the site's ledger once it is put against the site's bills (money kept on account is the customer's, not a site's). Every invoice a sales order's dispatch raises goes to the order's site; setting an order's site also moves its invoices raised without one.
+- **Why:** the shop and the contractor settle up site by site.
+- **Change it:** nothing to set.
+
+### Today's rates change the items' own prices
+
+- **Rule:** a rate saved on the board is the item's price, changed as it would be on the item itself: within its MRP, with its GST slab and everything else kept, and logged as a price change. The rates in one save are saved together or not at all. A rate someone else changed after the board was opened is not overwritten. Bills and new quotations use the new price; a quotation already made keeps its own prices until it is revised.
+- **Why:** a hardware shop's cement and steel prices move with the market every day; one board saves the morning's typing, and going through the item keeps one price per item.
+- **Change it:** which items are on the board, on the board itself; who may change prices is the role's `catalog.edit`.
+
+### A fitter's commission is fixed with the bill
+
+- **Rule:** a bill names at most one fitter, when it is posted (Quick bill, New sale, or the bill made from a quotation); a fitter switched off cannot be named. Each line earns by one rule: the item's own, else the nearest category's up the tree, else the rule for every item; one rule of each is on at a time. A percent is of the line's value before GST, after discounts; an amount per unit is for each stock unit of that one item, and never more than the line's value. The commission is worked out in paise when the bill is posted and kept with it: changing or switching off a rule later never changes it, and the database refuses any change to it. Goods taken back on the bill take back the line's commission in proportion to what has come back so far, so a line returned in parts gives back exactly what it earned.
+- **Why:** a fitter is owed what the bill earned when it was made; rates change, the bills behind them do not. A return undoes the sale it belongs to, and the commission with it.
+- **Change it:** the rules on *Customers & contractors › Fitters › Commission rules*; who may change them is the role's `fitter_commission.edit`.
+
+### A fitter is paid what is due, through the expense book
+
+- **Rule:** what a fitter is due is what their bills earned, less what returns took back, less what they were paid. A payout is never more than that. Each payout is a paid expense of the shop, dated today at the location that paid, so the day's money counts it; reversing that expense takes the payout back and the amount is due again. Paying needs both `fitter_commission.approve` and `expenses.create`. Commission records and payouts are never edited or deleted.
+- **Why:** money paid to a fitter leaves the drawer or the bank like any other expense, and the books must show it once.
+- **Change it:** who may pay is the role's `fitter_commission.approve`.
 
 ## Restaurant and food formats
 

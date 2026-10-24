@@ -33,8 +33,9 @@ Read it with:
                      business_stock_transfers (+ lines) · business_stock_counts (+ lines)
                      business_resources · business_appointments
                      business_expenses · business_cash_checks · business_counter_shifts
+                     business_quotations (+ lines, revisions)
  5 Type extensions   retail_* · books_* · wholesale_* · fashion_* · electronics_* · salon_* · weight_*
-                     pharmacy_* · health_* · lab_*
+                     pharmacy_* · health_* · lab_* · hardware_*
  Tasks               business_task* · business_issues · business_project* · platform_task_categories
  Cross-cutting       business_audit (who did what) · business_events (outbox)
 ```
@@ -80,7 +81,7 @@ The services enforce these rules; the database does not, or not fully:
 
 ### Table names
 
-Platform-wide tables start with `platform_` or `business_`, and the shared catalogue's with `catalog_`. A type's own tables start with the type or its trade: `retail_*` (the shop types), `books_*`, `wholesale_*`, `fashion_*`, `electronics_*`, `salon_*`, `weight_*` (meat and other weight-based shops), `pharmacy_*`, and a clinic's `health_*` and `lab_*`. The restaurant module's tables (`restaurants`, `restaurant_*`, `outlets`, `orders`, `bills`, `menu_*`, …) belong to the restaurant type and are not platform-wide; `business_days` and `business_hours` are restaurant tables despite their names. One `wholesale_*` group serves every type: the purchase orders ([Purchase orders and receipts](#purchase-orders-and-receipts)).
+Platform-wide tables start with `platform_` or `business_`, and the shared catalogue's with `catalog_`. A type's own tables start with the type or its trade: `retail_*` (the shop types), `books_*`, `wholesale_*`, `fashion_*`, `electronics_*`, `salon_*`, `weight_*` (meat and other weight-based shops), `pharmacy_*`, a clinic's `health_*` and `lab_*`, and a hardware shop's `hardware_*`. The restaurant module's tables (`restaurants`, `restaurant_*`, `outlets`, `orders`, `bills`, `menu_*`, …) belong to the restaurant type and are not platform-wide; `business_days` and `business_hours` are restaurant tables despite their names. One `wholesale_*` group serves every type: the purchase orders ([Purchase orders and receipts](#purchase-orders-and-receipts)).
 
 ## 1. Platform
 
@@ -92,7 +93,7 @@ Platform-wide tables start with `platform_` or `business_`, and the shared catal
 | `business_permissions` | The permission catalogue: `<module>.<action>`. The actions are view, create, edit, approve, cancel, refund, export, print, discount, assign, review, manage, view_clinical and edit_clinical. Only meaningful pairs exist; [DATABASE.md](DATABASE.md#business-permission-codes) lists them. |
 | `business_role_templates` (+ `_permissions`) | The standard roles: Owner (full access), Manager, Cashier / sales, Stock keeper, Accountant, Viewer. A template may belong to some business types (`business_types`, NULL = every type): Pharmacist (pharmacy); Doctor, Lab technician and Pathologist (clinic, type `healthcare`). |
 
-**A new business starts lean.** Its type's everyday modules are on. Specialist tools start off: stock transfers, offers, loyalty, repairs, EMI, packages, commissions, cutting, the lab, and tasks, issues and projects (which a restaurant starts with). The owner switches them on in Settings › Business tools, which marks the recommended ones with the reason. Each type section below gives its modules and which start on.
+**A new business starts lean.** Its type's everyday modules are on. Specialist tools start off: stock transfers, offers, loyalty, repairs, EMI, packages, commissions, cutting, the lab, quotations (on for a hardware shop), fitters' commission, and tasks, issues and projects (which a restaurant starts with). The owner switches them on in Settings › Business tools, which marks the recommended ones with the reason. Each type section below gives its modules and which start on.
 
 `business_capabilities.capability` is a foreign key to `platform_modules`. A constraint trigger (`business_capabilities_enforce`) refuses a core module stored per business, a module that does not apply to the business type, a module whose dependency is off, and switching off a module that another enabled module needs. A capability row is switched on or off, never re-pointed. A business's type cannot change after creation (`businesses_type_is_fixed`), because it decides what its records mean.
 
@@ -309,6 +310,30 @@ Rules:
 - **A bounced cheque** takes its receipt out of the customer's account. The bill settlements it made are removed from `business_payments` and kept on the cheque row (`reversed_allocations`), so those bills open again, and the bank charge is added to what the customer owes. The charge (₹500 by default, editable on each bounce) and the credit hold after repeated bounces (2 in 90 days by default) come from `wholesale_settings`, with those defaults when a business has no row ([Wholesale / FMCG](#wholesale--fmcg)).
 - **Udhaar.** Retail uses these tables, endpoints and screens; there is no second ledger. Shops see the word *Udhaar* (the menu words in `apps/business-web/src/services/businessNav.js`).
 - Events: `collection.recorded`, `collection.applied`, `collection.refunded`, `collection.reversed` (a bounce) and `customer.credit_hold`, with audit rows in the same transaction.
+
+## Quotations
+
+An estimate at today's prices with a validity date, for any type but the restaurant. Nothing here is type-specific; a hardware shop's site hangs off it ([Hardware, paints & building materials](#hardware-paints--building-materials)).
+
+| Module | Applies to (starts) | Needs | Permissions |
+|---|---|---|---|
+| `quotations` "Quotations" | every type but the restaurant (on for hardware; off elsewhere, recommended for a garage, a general store, an optical shop, a jeweller and a wholesaler) | catalog, contacts, sales | `quotations.view / create / edit` (revise, make the bill or the order) `/ cancel / print` |
+
+Template grants: Manager everything; Cashier view, create, edit and print; Accountant view and print; Viewer view.
+
+| Table | What it holds |
+|---|---|
+| `business_quotations` | One quotation: `quotation_no` (series kind `quotation`, prefix `QT`; not a GST document), location, the customer (`contact_id`, a customer by trigger, or none) with `customer_name` and `customer_phone` as quoted, `valid_until`, `status` (open, billed, ordered, cancelled; *expired* is an open one past its date, never stored), `tax_mode`, `subtotal`, `tax`, `round_off`, `total` (CHECK total = subtotal + tax + round-off), `savings`, the discount asked for (`discount_amount` or `discount_percent`, with `discount_reason`), `notes`, `revision`, the bill (`document_id`) or the sales order (`order_id`) it became, request key + hash, who made, revised and closed it and when, `cancel_reason`. CHECKs tie each status to its link and closing fields. |
+| `business_quotation_lines` | Each line as a sale line keeps it: item, `label`, `unit`, `quantity` (stock unit), `unit_price`, `amount` (at its price), `discount` (offers and the discount), `tax_rate`, `net`, `tax`, `price_rule_id`, the pack it was entered in (`entered_unit`, `entered_quantity`, `entered_unit_price`, `unit_factor`: all four or none), and the `hsn_code`, `mrp` and `offers` printed on the quotation. |
+| `business_quotation_revisions` | One row per revision: the revision number, the totals before and after, the lines it replaced (`lines_before`), request key + hash. Append-only. |
+
+**Pricing.** The service asks the core to work out a sale of the lines without saving it (`postDocument` with `quote: 'estimate'`: no batch or serial is chosen yet, and a serial item may be several units on one line), so the quotation's figures are the sale's, to the paisa. A kit is refused (its parts are quoted). `POST /quotations/preview` returns the same figures while the lines are typed.
+
+**Rules the database keeps** (triggers, SQL state 23514): only an open quotation changes; it keeps its number, location, request and maker; the revision goes up one at a time; it becomes billed or ordered only while `valid_until` is not past on the business's calendar; it is never deleted. Its lines are never updated (a revision deletes and inserts them, only while it is open). Revisions are append-only.
+
+**Making the bill** (`POST /quotations/:id/bill`) posts an ordinary sale through `postDocument` with `fixed` prices, as a dispatched sales order is billed: each line's stock comes from its one lot, the batches named, or the oldest expiry first (serial numbers are named), and a line split over lots takes its cumulative share of the quoted taxable value and GST, so the bill's subtotal and tax equal the quotation's. A line from one lot without a discount keeps its quoted rate and pack; otherwise the rate is its own value per unit to four places. Before posting, each item must still be sold, at the quoted GST rate and pack size, and the quoted rate (GST included) must not be above its MRP; after posting, the bill's total must equal the quotation's (only a changed rounding setting moves it). A customer who is not saved goes on the bill's notes and pays a goods shop's bill in full. **Making a sales order** (`POST /quotations/:id/order`, module `sales_orders`) places a wholesale order at the quoted values (`placeOrder` with `priced` lines: the same credit-limit and credit-hold checks, number, audit and event as any order) for a saved customer, goods only.
+
+Events, in the same transaction: `quotation.created`, `quotation.revised`, `quotation.billed` (with the core `sale.posted`), `quotation.ordered` (with `sales_order.placed`) and `quotation.cancelled`. Audit: the same actions.
 
 ## Retail: grocery / kirana, supermarket, books & stationery
 
@@ -604,6 +629,63 @@ Events: `pharmacy.dispensed`, `pharmacy.recall_opened` and `pharmacy.debit_note_
 | `lab_qc_materials`, `lab_qc_runs` | Control materials per parameter (lot, level, target mean and SD), and each run with its z-score, the Westgard rules it broke and its outcome. A run is never changed. While a parameter's latest run today is rejected, patient reports with that parameter cannot be signed. |
 
 Events: `visit.opened`, `visit.completed`, `lab.order_created` and `lab.report_ready`.
+
+## Hardware, paints & building materials
+
+A hardware, paint and building-material shop (type `hardware`) sells through the shared core as a goods shop: Quick bill, prices including GST rounded to the rupee, udhaar, and its trade's units (bag, coil, roll, sheet, set, ft, quintal, tonne). It starts with quotations ([Quotations](#quotations)). Its own tables are `hardware_*`; nothing is added to a core table.
+
+| Module | Applies to (starts) | Needs | Permissions |
+|---|---|---|---|
+| `hardware_sites` "Sites" | hardware (on) | contacts, sales | `hardware_sites.view / edit` |
+| `hardware_rates` "Today's rates" | hardware (on) | catalog | none of its own: `catalog.view` sees the board, `catalog.edit` changes it |
+| `hardware_calculators` "Tile & paint calculators" | hardware (on) | catalog | none of its own (`catalog.view`) |
+| `fitter_commission` "Fitters' commission" | hardware (off, recommended) | catalog, sales | `fitter_commission.view / create / edit / approve` (approve = pay) |
+
+Template grants: Sites — Manager and Cashier view and edit; Stock keeper, Accountant and Viewer view. Fitters' commission — Manager everything; Cashier view and create (name a fitter on a bill, add a fitter); Accountant view and approve (pay); Viewer view.
+
+| Table | What it holds |
+|---|---|
+| `hardware_sites` | A contractor's or builder's site under one customer (`contact_id`, a customer by trigger): `name` (unique per customer, any case), `address`, `contact_person`, `phone`, `active`. The customer never changes, and a site is never deleted (trigger). |
+| `hardware_document_sites` | The site a sale went to (one per bill). Set when the bill is posted (`siteId` on `POST /documents`, Quick bill, New sale, a quotation's bill), or later; changed or removed with an audit row. |
+| `hardware_quotation_sites` | The site of a quotation; it changes only while the quotation is open (trigger). |
+| `hardware_order_sites` | The site of a sales order. A trigger on `wholesale_dispatches` puts each invoice a dispatch raises on the order's site. |
+
+**Rules the database keeps** (triggers, SQL state 23514): a site goes only with a sale, quotation or order of its own customer (never a walk-in's bill or a purchase); a quotation's site is fixed once it is billed, ordered or cancelled; a site keeps its customer and is never deleted. The service also refuses a closed site on anything new, and a site on another type's bill (before posting).
+
+**The core's hook.** `postDocument` hands a sale that names a `siteId` to `hardware/services/hardwareSales.service.js` (loaded when needed) in the same transaction, after its lines are saved; `GET /documents/:id` of a hardware sale adds `hardware: { site }`, which the invoice prints. The shared document list carries `site_id` and `site_name` and filters by `site`.
+
+**The ledger** (`GET /hardware/sites/:id`) is worked out from the core rows, never stored: the site's bills (+ total), returns (−), payments on those bills (−, a collection receipt's allocation included) and refunds (+), in date order with the running balance, and the due on each bill (total − returns − payments + refunds). The site list adds each site's bill count, billed and due.
+
+Events: none of their own (a site is not money); the bills, payments and orders write theirs. Audit: `site.created`, `site.updated`, `site.closed`, `site.reopened`, `document.site_set`, `document.site_cleared`, `sales_order.site_set`, `sales_order.site_cleared`.
+
+### Today's rates
+
+| Table | What it holds |
+|---|---|
+| `hardware_rate_items` | The items on the board (one row per `sku_id`, at most 300 a business): `previous_price` and `price_changed_at`, stamped by trigger `catalog_skus_hardware_rate` whenever the item's price changes on any screen; `added_by`, `added_at`. |
+
+Saving the board (`PUT /hardware/rates`) runs the core `updateCatalog` for each changed item inside one transaction (its fifth argument), so the MRP check, the member price and the `catalog.price_changed` audit are the core's; a stale rate (`was`) is refused. Event: `rates.changed` with the items, from and to. Audit: `rates.item_added`, `rates.item_removed`, and the core's own rows for each price.
+
+### Tile & paint calculators
+
+No table: the figures are item attributes (`catalog_skus.attributes`) that the module allows (`core/services/businessModules.js`): `coverageSqftPerUnit` (the sq ft one unit of tiles covers), `coverageSqftPerLitre` (the sq ft one litre of paint covers in one coat) and `litresPerUnit` (the litres in one unit, a paint's tin). They are figures (`figures` in the same file): a number above 0 with up to two decimals, kept as text like every attribute, and the only attributes that may change after the item is made (`PATCH /catalog/:id`). `GET /hardware/calculator-items` lists the items that carry one; the arithmetic (boxes with wastage; litres for the coats; the packs, least paint then fewest tins, bigger tins on a tie) is the staff app's, and adding the result puts ordinary lines on the bill or the quotation.
+
+### Fitters' commission
+
+| Table | What it holds |
+|---|---|
+| `hardware_fitters` | A fitter: `name`, `trade` (painter, plumber, electrician, mason, carpenter, other), `phone` (one fitter per number), `upi_id` (name@bank, checked), `area`, `active`. |
+| `hardware_fitter_rules` | What a line earns: `percent` of its value before GST (up to 50) or `per_unit` (one item only), for every item (no ids), a `category_id` (and the categories under it) or a `sku_id`. One active rule per scope (unique index). |
+| `hardware_fitter_bills` | The fitter of a bill (one per `document_id`) and the `commission` it earned: the sum of its lines, worked out when the bill was posted. |
+| `hardware_fitter_lines` | Each bill line that earned: the rule and its rate as they were, the line's `quantity` (stock units) and `net`, and its `commission` (more than 0, never above the net). |
+| `hardware_fitter_reversals` | Commission taken back by a return line (one per `return_line_id`), written by a trigger on `business_return_lines`: the line's commission × quantity back so far ÷ quantity sold, rounded to the paisa, less what was taken back before. |
+| `hardware_fitter_payouts` | A payout: the fitter, the `amount`, `notes`, and the `expense_id` of the paid expense that carries the method, reference, location and date. Idempotent by `request_key` (+ `request_hash`). Counts while that expense is not reversed. |
+
+Bills, lines, reversals and payouts are append-only (trigger `hardware_append_only`: never changed or deleted).
+
+**The core's hook.** The same `postDocument` hook takes a sale's `fitterId`: `hardware/services/hardwareFitters.service.js` checks the module, the person's `fitter_commission.create` and that the fitter is on, then finds each line's rule (the item's, the nearest category's up the tree, or every item's), works out the commission in paise (a percent: net × percent ÷ 100, rounded; per unit: amount × quantity, at most the net) and writes the bill and its lines in the sale's transaction. `GET /documents/:id` adds `hardware.fitter` (with the commission, what returns took back and each line's share for someone with `fitter_commission.view`; the name and trade only otherwise). A payout writes its expense with the core's `insertExpense` (category `other`) in the same transaction.
+
+**Due** = earned (bills) − taken back (reversals) − paid (payouts whose expense is not reversed); worked out, never stored. Events: `fitter_commission.earned` (a bill with a fitter), `fitter_commission.paid` (a payout). Audit: `fitter.created`, `fitter.updated`, `fitter_rule.created`, `fitter_rule.updated`, `fitter_commission.earned`, `fitter.paid`, and the expense's own `expense.recorded`.
 
 ## Tasks, issues & projects
 

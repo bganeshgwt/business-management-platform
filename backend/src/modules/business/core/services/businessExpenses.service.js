@@ -88,13 +88,20 @@ async function create(business,user,body) {
     if (spentOn < today(business) && await repo.one(db,'SELECT 1 FROM business_cash_checks WHERE business_id=$1 AND location_id=$2 AND checked_on>=$3 LIMIT 1',[business.id,locationId,spentOn])) {
       fail(`The cash at this location was already counted on or after ${spentOn}; record the expense with today's date`,409);
     }
-    const method = await paymentMethods.settle(db,business.id,choice,'Paid by',KINDS);
-    const row = await repo.one(db,`INSERT INTO business_expenses(business_id,location_id,spent_on,category,description,amount,method,method_name,method_id,reference,request_key,created_by)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *,spent_on::text AS spent_on`,
-      [business.id,locationId,spentOn,category,description,amount,method.method,method.methodName,choice.methodId,reference,requestKey,user.id]);
-    await repo.audit(db,business.id,user.id,'expense.recorded',row.id,{amount,method:row.method,locationId,spentOn,description});
-    return row;
+    return insertExpense(db,business,user,{locationId,spentOn,category,description,amount,choice,reference,requestKey});
   });
+}
+
+// Writes a paid expense inside the caller's transaction (create above; a
+// hardware shop's payout to a fitter, kept in the same book). The caller has
+// checked the date, the location, the amount and who may pay.
+async function insertExpense(db,business,user,{locationId,spentOn,category,description,amount,choice,reference,requestKey}) {
+  const method = await paymentMethods.settle(db,business.id,choice,'Paid by',KINDS);
+  const row = await repo.one(db,`INSERT INTO business_expenses(business_id,location_id,spent_on,category,description,amount,method,method_name,method_id,reference,request_key,created_by)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *,spent_on::text AS spent_on`,
+    [business.id,locationId,spentOn,category,description,amount,method.method,method.methodName,choice.methodId,reference,requestKey,user.id]);
+  await repo.audit(db,business.id,user.id,'expense.recorded',row.id,{amount,method:row.method,locationId,spentOn,description});
+  return row;
 }
 
 async function reverse(business,user,expenseId,body) {
@@ -122,4 +129,4 @@ async function moneyRows(business,from,to,locationId,db=repo.pool) {
     [business.id,from,to,locationId,business.timezone]);
 }
 
-module.exports={list,create,reverse,moneyRows};
+module.exports={list,create,reverse,moneyRows,insertExpense,KINDS};

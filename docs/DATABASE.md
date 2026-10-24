@@ -11,7 +11,7 @@ PostgreSQL 15 or newer (built and tested on 18). One database holds the whole pl
 | [Business platform](#business-platform) | platform catalogue, business access, business core, shared core, one extension group per business type, and tasks, issues & projects | `business_id` on every row, with composite foreign keys |
 | [Catalogues](#business-types) | business types, platform module codes, business and restaurant permission codes | — |
 
-**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Tasks, issues & projects](#tasks-issues--projects). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
+**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Tasks, issues & projects](#tasks-issues--projects). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
 
 The business platform's design (its five layers, the rules every table follows, and why) is explained in [BUSINESS_PLATFORM_DATA_MODEL.md](BUSINESS_PLATFORM_DATA_MODEL.md). This file gives the table-by-table reference and links there instead of repeating it. A restaurant also appears on the platform as one `businesses` row whose `legacy_restaurant_id` points at it; its own tables are unchanged.
 
@@ -1087,7 +1087,7 @@ Linked sections: [data model §1](BUSINESS_PLATFORM_DATA_MODEL.md#1-platform) an
 Purpose: the permission catalogue. Each row is one `<module>.<action>` pair; the codes are listed under [Business permission codes](#business-permission-codes).
 Key columns: `code` (TEXT PK), `module_code` -> `platform_modules`, `action` (view, create, edit, approve, cancel, refund, export, print, discount, assign, review, manage, view_clinical, edit_clinical), `name`, `sort_order`.
 Rules: UNIQUE (`module_code`, `action`). CHECK `code = module_code || '.' || action`. The action CHECK lists every value, so a migration that adds an action rewrites the whole list.
-Added by: 1791300000001 business-roles-and-permissions; codes also from 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791540000000, 1791580000000, 1791620000000, 1791620001000, 1791620002000, 1791620004000 and 1791950400000.
+Added by: 1791300000001 business-roles-and-permissions; codes also from 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791540000000, 1791580000000, 1791620000000, 1791620001000, 1791620002000, 1791620004000, 1791950400000 and 1791961000000.
 
 #### `business_role_templates`
 Purpose: the standard roles the platform defines once: owner, manager, cashier, stock_keeper, accountant and viewer for every type, plus pharmacist for a pharmacy, and doctor, lab_technician and pathologist for healthcare.
@@ -1165,7 +1165,7 @@ Added by: 1791300000002.
 #### `business_number_series`
 Purpose: document numbering, one series per business, location, document kind and fiscal year. A number is taken with `UPDATE … next_number + 1` inside the posting transaction.
 Key columns: `location_id`, `document_kind`, `fiscal_year` (the year the fiscal year starts in), `prefix`, `next_number`, `padding`.
-`document_kind`: sale, purchase, sales_return, purchase_return, stock_transfer, stock_count, sales_order, collection, repair_job, processing, supplier_payment, purchase_order (PO/…) and delivery_challan (DC/…).
+`document_kind`: sale, purchase, sales_return, purchase_return, stock_transfer, stock_count, sales_order, collection, repair_job, processing, supplier_payment, purchase_order (PO/…), delivery_challan (DC/…) and quotation (QT/…; not a GST document).
 Rules:
 - UNIQUE (business, location, kind, year) and UNIQUE (business, prefix).
 - A prefix may contain only letters, digits, `/` and `-`, and must not end in a digit.
@@ -1174,7 +1174,7 @@ Rules:
   - `next_number` never decreases;
   - prefix and padding are fixed once a number has been used;
   - business, location, kind and year never change.
-Added by: 1791300000002; kinds from 1791410000000 (sales_order, collection), 1791420000001 (repair_job), 1791430000001 (processing), 1791540000000 (supplier_payment) and 1791620003000 (purchase_order, delivery_challan).
+Added by: 1791300000002; kinds from 1791410000000 (sales_order, collection), 1791420000001 (repair_job), 1791430000001 (processing), 1791540000000 (supplier_payment), 1791620003000 (purchase_order, delivery_challan) and 1791961000000 (quotation).
 
 #### `business_capabilities`
 Purpose: the optional modules switched on for a business ([§1](BUSINESS_PLATFORM_DATA_MODEL.md#1-platform)).
@@ -1545,6 +1545,35 @@ Rules:
 - One open shift per person and location (partial unique index `business_counter_shifts_one_open`); index `business_counter_shifts_day`.
 - Trigger `business_counter_shifts_immutable` (function `guard_business_counter_shift`): never deleted; only the closing count may be written, once.
 Added by: 1791950404000 retail-completion; 1791950413000 shop-guards-check-violation (the guard's error code).
+
+### Quotations
+
+Module `quotations` ("Quotations", optional, for every type except the restaurant; on for hardware, off elsewhere and recommended for garage, general_retail, optical, jewellery and wholesale) needs catalog, contacts and sales. Permissions `quotations.view`, `quotations.create`, `quotations.edit` (revise; make the bill or the sales order), `quotations.cancel` and `quotations.print`. How the figures are worked out: [BUSINESS_PLATFORM_DATA_MODEL.md › Quotations](BUSINESS_PLATFORM_DATA_MODEL.md#quotations).
+
+#### `business_quotations`
+Purpose: an estimate at today's prices with a validity date, which becomes a bill or a sales order at the quoted prices.
+Key columns: `location_id`, `quotation_no` (series kind `quotation`, prefix `QT`), `series_id`, `contact_id` (NULL for someone not saved yet), `customer_name`, `customer_phone`, `valid_until`, `status` (open, billed, ordered, cancelled), `tax_mode`, `subtotal`, `tax`, `round_off` (between -1 and 1), `total`, `savings`, `discount_amount` or `discount_percent` with `discount_reason`, `notes`, `revision` (1-999), `document_id` (the bill), `order_id` (the sales order), `request_key`, `request_hash`, `created_by`/`created_at`, `updated_by`/`updated_at` (the last revision), `closed_by`/`closed_at`, `cancel_reason`.
+Relations: (`business_id`, `location_id`) -> `business_locations`; (`business_id`, `series_id`) -> `business_number_series`; (`business_id`, `contact_id`) -> `business_contacts`; (`business_id`, `document_id`) -> `business_documents`; (`business_id`, `order_id`) -> `wholesale_orders`.
+Rules:
+- UNIQUE (business, number), (business, request key), (business, bill) and (business, order).
+- CHECK total = subtotal + tax + round_off; an amount or a percent discount, not both, and a reason exactly when there is one; `billed` exactly when there is a bill, `ordered` exactly when there is an order, `cancelled` exactly when there is a reason, and the closing columns set exactly when it is no longer open.
+- Trigger `business_quotations_customer`: a contact must be a customer.
+- Trigger `business_quotations_guard`: never deleted; only an open quotation changes; it keeps its number, location, request and maker; the revision goes up one at a time; it becomes billed or ordered only while `valid_until` is not past on the business's own date.
+- Indexes `business_quotations_period`, `business_quotations_contact` and the partial `business_quotations_open` (open ones by date).
+Added by: 1791961000000 quotations-and-hardware.
+
+#### `business_quotation_lines`
+Purpose: a quotation's lines, as sale lines keep them.
+Key columns: `quotation_id`, `sku_id`, `label`, `unit`, `quantity` (stock unit), `unit_price` (up to four places), `amount`, `discount` (<= amount), `tax_rate`, `net`, `tax`, `price_rule_id`, `entered_unit`, `entered_quantity`, `entered_unit_price`, `unit_factor` (all four or none), `hsn_code`, `mrp`, `offers` (JSON array of the offers given).
+Relations: (`business_id`, `quotation_id`) -> `business_quotations`; (`business_id`, `sku_id`) -> `catalog_skus`; (`business_id`, `unit`) -> `business_units`; (`business_id`, `price_rule_id`) -> `business_price_rules`.
+Rules: trigger `business_quotation_lines_guard`: a line is never updated; lines are added or removed only while the quotation is open (a revision replaces them).
+Added by: 1791961000000.
+
+#### `business_quotation_revisions`
+Purpose: each revision of a quotation, with the request that made it.
+Key columns: `quotation_id`, `revision` (2-999), `total_before`, `total_after`, `lines_before` (the lines it replaced, JSON), `request_key`, `request_hash`, `created_by`, `created_at`.
+Rules: UNIQUE (business, request key) and (business, quotation, revision); trigger `business_quotation_revisions_fixed` refuses every update and delete.
+Added by: 1791961000000.
 
 ## Retail
 
@@ -2427,6 +2456,104 @@ Relations: (`business_id`, `material_id`) -> `lab_qc_materials`; (`business_id`,
 Rules: CHECK a rejected run names at least one rule; append-only (trigger `lab_qc_runs_fixed`); indexes `lab_qc_runs_material` and `lab_qc_runs_parameter` (newest first).
 Added by: 1791950409000.
 
+## Hardware
+
+A hardware, paint and building-material shop's own tables (type `hardware`), added by 1791961000000 quotations-and-hardware. How they are used: [BUSINESS_PLATFORM_DATA_MODEL.md › Hardware, paints & building materials](BUSINESS_PLATFORM_DATA_MODEL.md#hardware-paints--building-materials).
+
+### Sites
+
+Module `hardware_sites` ("Sites", optional, hardware only, on) needs contacts and sales; permissions `hardware_sites.view` and `hardware_sites.edit`.
+
+#### `hardware_sites`
+Purpose: a contractor's or builder's site, under one customer.
+Key columns: `contact_id`, `name`, `address`, `contact_person`, `phone`, `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, `contact_id`) -> `business_contacts`.
+Rules:
+- Unique index `hardware_sites_name` (business, customer, lower(name)).
+- Trigger `hardware_sites_customer` (function `business_contact_is_customer`): the contact is a customer.
+- Trigger `hardware_sites_guard`: never deleted; the customer and who made it never change.
+Added by: 1791961000000.
+
+#### `hardware_document_sites`
+Purpose: the site a sale went to.
+Key columns: `document_id` (primary key with the business), `site_id`, `set_by`, `set_at`.
+Relations: (`business_id`, `document_id`) -> `business_documents`; (`business_id`, `site_id`) -> `hardware_sites`.
+Rules: trigger `hardware_document_sites_check` (function `hardware_site_link_check`): the document is a sale to the site's own customer. Index `hardware_document_sites_site`.
+Added by: 1791961000000.
+
+#### `hardware_quotation_sites`
+Purpose: the site of a quotation.
+Key columns: `quotation_id` (primary key with the business), `site_id`, `set_by`, `set_at`.
+Relations: (`business_id`, `quotation_id`) -> `business_quotations`; (`business_id`, `site_id`) -> `hardware_sites`.
+Rules: trigger `hardware_quotation_sites_check`: the quotation's customer owns the site, and the row changes (or goes) only while the quotation is open. Index `hardware_quotation_sites_site`.
+Added by: 1791961000000.
+
+#### `hardware_order_sites`
+Purpose: the site of a sales order; every invoice its dispatches raise goes there.
+Key columns: `order_id` (primary key with the business), `site_id`, `set_by`, `set_at`.
+Relations: (`business_id`, `order_id`) -> `wholesale_orders`; (`business_id`, `site_id`) -> `hardware_sites`.
+Rules:
+- Trigger `hardware_order_sites_check`: the order's customer owns the site.
+- Trigger `wholesale_dispatches_hardware_site` on `wholesale_dispatches` (function `hardware_dispatch_site`): a dispatch's invoice is put on the order's site.
+- Index `hardware_order_sites_site`.
+Added by: 1791961000000.
+
+### Today's rates
+
+Module `hardware_rates` ("Today's rates", optional, hardware only, on) needs catalog; it has no permissions of its own (`catalog.view` and `catalog.edit`).
+
+#### `hardware_rate_items`
+Purpose: the items on a hardware shop's rate board, and when each one's price last changed.
+Key columns: `sku_id` (primary key with the business), `previous_price`, `price_changed_at`, `added_by`, `added_at`.
+Relations: (`business_id`, `sku_id`) -> `catalog_skus`.
+Rules: CHECK `previous_price` and `price_changed_at` are both set or both empty; trigger `catalog_skus_hardware_rate` on `catalog_skus` (function `hardware_rate_item_changed`), after a change of `price`, stamps the price before and the time.
+Added by: 1791961000000.
+
+### Fitters' commission
+
+Module `fitter_commission` ("Fitters' commission", optional, hardware only, off and recommended) needs catalog and sales; permissions `fitter_commission.view`, `.create`, `.edit` and `.approve` (pay). Commission records and payouts are append-only: trigger function `hardware_append_only` refuses any update or delete (SQL state 23514).
+
+#### `hardware_fitters`
+Purpose: a painter, plumber, electrician, mason or carpenter who brings customers.
+Key columns: `name`, `trade` (painter, plumber, electrician, mason, carpenter, other), `phone`, `upi_id`, `area`, `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Rules: CHECK the name is not blank; CHECK `upi_id` looks like name@bank; unique index `hardware_fitters_phone` (business, phone) where a phone is given.
+Added by: 1791961000000.
+
+#### `hardware_fitter_rules`
+Purpose: what a bill line earns: a percent of its value before GST, or an amount per unit of one item.
+Key columns: `category_id` or `sku_id` (neither: every item), `percent` (more than 0, up to 50) or `per_unit` (more than 0), `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, `category_id`) -> `catalog_categories`; (`business_id`, `sku_id`) -> `catalog_skus`.
+Rules: CHECK not both a category and an item; CHECK exactly one of percent and per unit; CHECK per unit only for one item; unique index `hardware_fitter_rules_one_active` (business, category or 0, item or 0) where active.
+Added by: 1791961000000.
+
+#### `hardware_fitter_bills`
+Purpose: the fitter of a bill and the commission it earned when it was posted.
+Key columns: `document_id` (primary key with the business), `fitter_id`, `commission` (0 or more), `created_by`, `created_at`.
+Relations: (`business_id`, `document_id`) -> `business_documents`; (`business_id`, `fitter_id`) -> `hardware_fitters`.
+Rules: append-only (trigger `hardware_fitter_bills_append_only`); index `hardware_fitter_bills_fitter` (business, fitter, date).
+Added by: 1791961000000.
+
+#### `hardware_fitter_lines`
+Purpose: each bill line that earned commission, with the rule's rate as it was.
+Key columns: `line_id` (primary key with the business), `document_id`, `rule_id`, `percent` or `per_unit`, `quantity` (stock units), `net`, `commission`.
+Relations: (`business_id`, `line_id`) -> `business_document_lines`; (`business_id`, `document_id`) -> `hardware_fitter_bills`; (`business_id`, `rule_id`) -> `hardware_fitter_rules`.
+Rules: CHECK the commission is more than 0 and not above the net; CHECK exactly one of percent and per unit; append-only (trigger `hardware_fitter_lines_append_only`).
+Added by: 1791961000000.
+
+#### `hardware_fitter_reversals`
+Purpose: commission taken back by goods returned on a bill.
+Key columns: `return_line_id` (unique), `return_id`, `line_id`, `document_id`, `quantity`, `amount` (0 or more), `created_at`.
+Relations: `return_line_id` -> `business_return_lines`; (`business_id`, `return_id`) -> `business_returns`; (`business_id`, `line_id`) -> `hardware_fitter_lines`.
+Rules: written by trigger `business_return_lines_hardware_fitter` (function `hardware_fitter_reverse_on_return`) after each return line of a line that earned: the line's commission × quantity back so far ÷ quantity sold, rounded to the paisa, less what earlier returns took back. Append-only (trigger `hardware_fitter_reversals_append_only`); index `hardware_fitter_reversals_document`.
+Added by: 1791961000000.
+
+#### `hardware_fitter_payouts`
+Purpose: money paid to a fitter, carried by a paid expense.
+Key columns: `fitter_id`, `expense_id` (unique), `amount` (more than 0), `notes`, `request_key` (unique per business), `request_hash`, `created_by`, `created_at`.
+Relations: (`business_id`, `fitter_id`) -> `hardware_fitters`; (`business_id`, `expense_id`) -> `business_expenses`.
+Rules: append-only (trigger `hardware_fitter_payouts_append_only`); a payout counts while its expense is not reversed; index `hardware_fitter_payouts_fitter` (business, fitter, date).
+Added by: 1791961000000.
+
 ## Tasks, issues & projects
 
 Linked sections: [data model](BUSINESS_PLATFORM_DATA_MODEL.md#tasks-issues--projects) and [ARCHITECTURE.md §4.3](ARCHITECTURE.md#43-tasks-issues--projects-one-model-for-both-worlds). Migration `1791620000000_tasks-issues-projects.sql`; module code `backend/src/modules/tasks/`.
@@ -2613,6 +2740,11 @@ Core modules are always on and never stored per business; every other module is 
 | `processing` | optional | inventory, weight | meat, weight_retail; off; recommended for meat, weight_retail | 1791430000001 |
 | `wastage` | optional | inventory | general_retail, grocery, meat, supermarket, weight_retail; on for meat, weight_retail; recommended for supermarket | 1791430000001 |
 | `expenses` | optional | — | every type but restaurant; on for all | 1791950400000 |
+| `quotations` | optional | catalog, contacts, sales | every type but restaurant; on for hardware; recommended for garage, general_retail, jewellery, optical, wholesale | 1791961000000 |
+| `hardware_sites` | optional | contacts, sales | hardware; on | 1791961000000 |
+| `hardware_rates` | optional | catalog | hardware; on | 1791961000000 |
+| `hardware_calculators` | optional | catalog | hardware; on (item attributes `coverageSqftPerUnit`, `coverageSqftPerLitre`, `litresPerUnit`; no table) | 1791961000000 |
+| `fitter_commission` | optional | catalog, sales | hardware; off; recommended for hardware | 1791961000000 |
 | `guests` | optional | restaurant | restaurant; on | 1791470000000 |
 | `guest_loyalty` | optional | restaurant, guests | restaurant; off | 1791470000000 |
 | `reservations` | optional | restaurant | restaurant; on | 1791470000000 |
@@ -2673,6 +2805,9 @@ Each code is a `<module>.<action>` row of `business_permissions`, listed here by
 | patients | `patients.view`, `patients.create`, `patients.edit`, `patients.view_clinical`, `patients.edit_clinical`, `patients.export`, `patients.print` | 1791620004000 |
 | lab | `lab.view`, `lab.create`, `lab.edit`, `lab.approve`, `lab.print`, `lab.export` | 1791620004000 |
 | expenses | `expenses.view`, `expenses.create`, `expenses.approve` (reverse an expense) | 1791950400000 |
+| quotations | `quotations.view`, `quotations.create`, `quotations.edit` (revise; make the bill or the sales order), `quotations.cancel`, `quotations.print` | 1791961000000 |
+| hardware_sites | `hardware_sites.view`, `hardware_sites.edit` (add and change sites; set the site of a bill, quotation or order) | 1791961000000 |
+| fitter_commission | `fitter_commission.view`, `fitter_commission.create` (name a fitter on a bill; add fitters), `fitter_commission.edit` (change fitters and rules), `fitter_commission.approve` (pay fitters) | 1791961000000 |
 
 ## Restaurant permission codes
 

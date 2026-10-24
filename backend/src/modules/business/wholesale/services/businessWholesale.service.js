@@ -412,60 +412,66 @@ async function createOrder(business, user, body) {
     return existing;
   }
   const release = await credit.readRelease(business, user, body.release);
-  return repo.transaction(async (db) => {
-    await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
-    const old = await repo.one(db, 'SELECT * FROM wholesale_orders WHERE business_id=$1 AND request_key=$2', [business.id, requestKey]);
-    if (old) {
-      if (old.request_hash !== hash) fail('This request key was already used for different data', 409);
-      return old;
-    }
-    const location = await readLocation(db, business, body.locationId, true);
-    const contact = await repo.one(db, "SELECT * FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind='customer' AND active FOR UPDATE", [business.id, id(body.contactId, 'Customer')]);
-    if (!contact) fail('Customer not found', 404);
-    // Route, beat and salesperson: as given, else from the customer's beat.
-    const home = await repo.one(db, `SELECT b.id AS beat_id,b.route_id,b.salesperson_id FROM wholesale_customer_beats cb
-      JOIN wholesale_beats b ON b.business_id=cb.business_id AND b.id=cb.beat_id WHERE cb.business_id=$1 AND cb.contact_id=$2`, [business.id, contact.id]);
-    let beatId = body.beatId === undefined ? home?.beat_id || null : optionalId(body.beatId, 'Beat');
-    let routeId = body.routeId === undefined ? null : optionalId(body.routeId, 'Route');
-    let salespersonId = body.salespersonId === undefined ? null : optionalId(body.salespersonId, 'Salesperson');
-    if (beatId) {
-      const beat = await repo.one(db, 'SELECT * FROM wholesale_beats WHERE business_id=$1 AND id=$2', [business.id, beatId]);
-      if (!beat) fail('Beat not found', 404);
-      routeId = routeId || beat.route_id;
-      if (routeId !== beat.route_id) fail('That beat is on another route');
-      if (body.salespersonId === undefined) salespersonId = beat.salesperson_id;
-    }
-    if (routeId && !(await repo.one(db, 'SELECT id FROM wholesale_routes WHERE business_id=$1 AND id=$2', [business.id, routeId]))) fail('Route not found', 404);
-    if (salespersonId && !(await repo.one(db, 'SELECT id FROM wholesale_salespeople WHERE business_id=$1 AND id=$2 AND active', [business.id, salespersonId]))) fail('Salesperson not found', 404);
-    const ctx = await orderContext(db, business, contact);
-    const prepared = [];
-    let subtotal = 0, tax = 0;
-    for (const input of lines) {
-      const line = await priceLine(db, business, ctx, input);
-      subtotal += line.net; tax += line.tax;
-      if (subtotal + tax > 100000000000) fail('Order total exceeds the supported limit');
-      prepared.push(line);
-    }
-    const total = subtotal + tax;
-    await checkCreditLimit(db, business, contact, total);
-    // Credit hold: overdue past the business's limit needs a release.
-    const hold = await credit.checkHold(db, business, contact, release);
-    const number = await numbering.nextNumber(db, business.id, location.id, 'sales_order', user.id);
-    const order = await repo.one(db, `INSERT INTO wholesale_orders(business_id,order_no,series_id,location_id,contact_id,contact_name,salesperson_id,route_id,beat_id,
-      expected_on,notes,tax_mode,subtotal,tax,total,request_key,request_hash,created_by)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`,
-    [business.id, number.number, number.seriesId, location.id, contact.id, contact.name, salespersonId, routeId, beatId, expectedOn,
-      v.optionalString(body.notes, 'Notes', 500), ctx.taxMode, rupees(subtotal), rupees(tax), rupees(total), requestKey, hash, user.id]);
-    for (const line of prepared) await insertLines(db, business, order.id, line);
-    if (hold) await credit.recordRelease(db, business, user, order, contact, hold, release);
-    await repo.audit(db, business.id, user.id, 'sales_order.placed', order.id, { orderNo: order.order_no, total: order.total });
-    await repo.event(db, business.id, user.id, 'sales_order.placed', 'sales_order', order.id, {
-      orderNo: order.order_no, contactId: contact.id, total: order.total, salespersonId, routeId,
-      lines: prepared.map((l) => ({ skuId: l.sku.id, quantity: l.quantity, unit: l.entered?.unit || l.sku.unit, discountPercent: l.discount, schemeId: l.schemeId,
-        free: l.free ? qty(l.free.quantityMilli) : null, freeItem: l.otherFree ? { skuId: l.otherFree.sku.id, quantity: qty(l.otherFree.quantityMilli) } : null })),
-    });
-    return { ...order, hold_released: Boolean(hold) };
+  return repo.transaction((db) => placeOrder(db, business, user, body, { requestKey, hash, release, expectedOn }));
+}
+
+// Places an order inside the caller's transaction, with the same checks
+// (credit limit, credit hold), number, audit and event as any order.
+// `priced`: lines already priced elsewhere, as priceLine returns them (a
+// quotation's, at its prices); otherwise each line of the body is priced here.
+async function placeOrder(db, business, user, body, { requestKey, hash, release, expectedOn, priced = null }) {
+  await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
+  const old = await repo.one(db, 'SELECT * FROM wholesale_orders WHERE business_id=$1 AND request_key=$2', [business.id, requestKey]);
+  if (old) {
+    if (old.request_hash !== hash) fail('This request key was already used for different data', 409);
+    return old;
+  }
+  const location = await readLocation(db, business, body.locationId, true);
+  const contact = await repo.one(db, "SELECT * FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind='customer' AND active FOR UPDATE", [business.id, id(body.contactId, 'Customer')]);
+  if (!contact) fail('Customer not found', 404);
+  // Route, beat and salesperson: as given, else from the customer's beat.
+  const home = await repo.one(db, `SELECT b.id AS beat_id,b.route_id,b.salesperson_id FROM wholesale_customer_beats cb
+    JOIN wholesale_beats b ON b.business_id=cb.business_id AND b.id=cb.beat_id WHERE cb.business_id=$1 AND cb.contact_id=$2`, [business.id, contact.id]);
+  let beatId = body.beatId === undefined ? home?.beat_id || null : optionalId(body.beatId, 'Beat');
+  let routeId = body.routeId === undefined ? null : optionalId(body.routeId, 'Route');
+  let salespersonId = body.salespersonId === undefined ? null : optionalId(body.salespersonId, 'Salesperson');
+  if (beatId) {
+    const beat = await repo.one(db, 'SELECT * FROM wholesale_beats WHERE business_id=$1 AND id=$2', [business.id, beatId]);
+    if (!beat) fail('Beat not found', 404);
+    routeId = routeId || beat.route_id;
+    if (routeId !== beat.route_id) fail('That beat is on another route');
+    if (body.salespersonId === undefined) salespersonId = beat.salesperson_id;
+  }
+  if (routeId && !(await repo.one(db, 'SELECT id FROM wholesale_routes WHERE business_id=$1 AND id=$2', [business.id, routeId]))) fail('Route not found', 404);
+  if (salespersonId && !(await repo.one(db, 'SELECT id FROM wholesale_salespeople WHERE business_id=$1 AND id=$2 AND active', [business.id, salespersonId]))) fail('Salesperson not found', 404);
+  const ctx = await orderContext(db, business, contact);
+  const prepared = [];
+  let subtotal = 0, tax = 0;
+  for (const input of priced || body.lines) {
+    const line = priced ? input : await priceLine(db, business, ctx, input);
+    subtotal += line.net; tax += line.tax;
+    if (subtotal + tax > 100000000000) fail('Order total exceeds the supported limit');
+    prepared.push(line);
+  }
+  const total = subtotal + tax;
+  await checkCreditLimit(db, business, contact, total);
+  // Credit hold: overdue past the business's limit needs a release.
+  const hold = await credit.checkHold(db, business, contact, release);
+  const number = await numbering.nextNumber(db, business.id, location.id, 'sales_order', user.id);
+  const order = await repo.one(db, `INSERT INTO wholesale_orders(business_id,order_no,series_id,location_id,contact_id,contact_name,salesperson_id,route_id,beat_id,
+    expected_on,notes,tax_mode,subtotal,tax,total,request_key,request_hash,created_by)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`,
+  [business.id, number.number, number.seriesId, location.id, contact.id, contact.name, salespersonId, routeId, beatId, expectedOn,
+    v.optionalString(body.notes, 'Notes', 500), ctx.taxMode, rupees(subtotal), rupees(tax), rupees(total), requestKey, hash, user.id]);
+  for (const line of prepared) await insertLines(db, business, order.id, line);
+  if (hold) await credit.recordRelease(db, business, user, order, contact, hold, release);
+  await repo.audit(db, business.id, user.id, 'sales_order.placed', order.id, { orderNo: order.order_no, total: order.total });
+  await repo.event(db, business.id, user.id, 'sales_order.placed', 'sales_order', order.id, {
+    orderNo: order.order_no, contactId: contact.id, total: order.total, salespersonId, routeId,
+    lines: prepared.map((l) => ({ skuId: l.sku.id, quantity: l.quantity, unit: l.entered?.unit || l.sku.unit, discountPercent: l.discount, schemeId: l.schemeId,
+      free: l.free ? qty(l.free.quantityMilli) : null, freeItem: l.otherFree ? { skuId: l.otherFree.sku.id, quantity: qty(l.otherFree.quantityMilli) } : null })),
   });
+  return { ...order, hold_released: Boolean(hold) };
 }
 
 // Re-values an order from its lines: what was ordered less what was taken
@@ -946,5 +952,5 @@ async function routeCustomers(business, routeId) {
   return rows.map((r) => r.contact_id);
 }
 
-module.exports = { saveSalesperson, salespersonLogins, saveRoute, saveBeat, setCustomerBeat, createOrder, editOrder, closeLine, orderDetail, dispatch, dispatchInTransaction,
+module.exports = { saveSalesperson, salespersonLogins, saveRoute, saveBeat, setCustomerBeat, createOrder, placeOrder, editOrder, closeLine, orderDetail, dispatch, dispatchInTransaction,
   readTransport, closeOrder, collect, reports, routeCustomers, remainingSql, remainingValueSql };

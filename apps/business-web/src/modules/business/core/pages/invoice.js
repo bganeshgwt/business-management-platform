@@ -94,7 +94,8 @@ function invoiceFacts(doc) {
   };
 }
 
-const A4_STYLES = `body{font:12px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;color:#111;max-width:190mm;margin:0 auto}
+// Also the quotation's print (quotations/pages/quotationPrint.js), so both read alike.
+export const A4_STYLES = `body{font:12px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;color:#111;max-width:190mm;margin:0 auto}
   @page{size:A4;margin:12mm} h1{font-size:18px;margin:0} h2{font-size:15px;margin:0;letter-spacing:.06em;text-transform:uppercase}
   .top{display:flex;justify-content:space-between;gap:16px;border-bottom:2px solid #111;padding-bottom:8px}
   .top .right{text-align:right} .muted{color:#555} .warn{border:1px solid #b45309;color:#7c2d12;padding:6px 8px;margin:8px 0;font-size:11px}
@@ -157,6 +158,7 @@ function a4(doc, biz, f) {
     <div class="box"><b>${f.sale ? "Place of supply" : "Received at"}</b>${f.sale ? `<strong>${escapeHtml(stateName(f.pos) || "—")}</strong><div>${f.interstate ? "Inter-state supply: IGST" : "Within the state: CGST + SGST"}</div>` : ""}
       <div>${escapeHtml(doc.location_name || "")}</div>${doc.tax_mode === "inclusive" && f.sale ? '<div class="muted">Prices include GST</div>' : ""}</div></div>
   ${transportBox(doc, date)}
+  ${siteBox(doc)}
   <table><thead><tr><th>#</th><th>Item</th><th>HSN/SAC</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Discount</th><th class="r">Taxable value</th><th class="r">GST</th>${taxHead}<th class="r">Amount</th></tr></thead>
     <tbody>${rows}</tbody></table>
   <div class="totals"><div>
@@ -175,6 +177,13 @@ function a4(doc, biz, f) {
   ${seller.invoice_footer ? `<p><small>${escapeHtml(seller.invoice_footer)}</small></p>` : ""}
   <div class="sign"><small>Certified that the particulars given above are true and correct.${f.sale ? " Goods once sold are subject to the shop's exchange policy." : ""}</small>
     <div class="r">For ${escapeHtml(sellerName)}<br><br><br>Authorised signatory</div></div>`;
+}
+
+// The site a hardware shop's bill went to (nothing for any other bill).
+function siteBox(doc) {
+  const site = doc.hardware?.site;
+  if (!site) return "";
+  return `<div class="box" style="margin-bottom:6px"><b>Site</b><strong>${escapeHtml(site.name)}</strong>${site.address ? ` · ${escapeHtml(site.address)}` : ""}${site.contact_person ? ` · ${escapeHtml(site.contact_person)}` : ""}${site.phone ? ` · Ph ${escapeHtml(site.phone)}` : ""}</div>`;
 }
 
 // Order, salesperson and transport of a dispatched wholesale order, with the
@@ -228,6 +237,7 @@ function till(doc, biz, f, { change = 0, udhaar = null } = {}) {
     <hr><div class="row"><span>${escapeHtml(doc.document_no)}</span><span>${escapeHtml(businessDate(doc.created_at, seller.date_format, biz.business.timezone))} ${escapeHtml(new Date(doc.created_at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }))}</span></div>
     ${doc.contact_name ? `<div>${escapeHtml(doc.contact_name)}${doc.contact_phone ? ` · ${escapeHtml(doc.contact_phone)}` : ""}</div>` : ""}
     ${doc.contact_gstin ? `<div class="small">GSTIN ${escapeHtml(doc.contact_gstin)}</div>` : ""}
+    ${doc.hardware?.site ? `<div class="small">Site ${escapeHtml(doc.hardware.site.name)}${doc.hardware.site.address ? `, ${escapeHtml(doc.hardware.site.address)}` : ""}</div>` : ""}
     ${doc.buyer_pan ? `<div class="small">PAN ${escapeHtml(doc.buyer_pan)}</div>` : doc.pan_declaration ? '<div class="small">No PAN: Form 97 declaration held</div>' : ""}
     ${f.interstate ? `<div class="small">Place of supply ${escapeHtml(stateName(f.pos))}</div>` : ""}<hr>
     ${lineRows}

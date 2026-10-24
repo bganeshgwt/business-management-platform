@@ -123,6 +123,23 @@ export const WHOLESALE = {
   creditSale: { quantity: 96 },
 };
 
+// The hardware shop: cement by the bag and binding wire by the kilo in 25 kg
+// coils, received from the supplier, and a contractor with a site who asks for
+// quotations.
+export const HARDWARE = {
+  supplier: "Ambuja Cement Depot",
+  contractor: { name: "Sharma Constructions", phone: "9845012345" },
+  site: { name: "Whitefield villa", address: "Plot 14, Whitefield, Bengaluru" },
+  cement: { name: "UltraTech OPC 53 grade cement 50 kg", unit: "bag", price: 395, mrp: 450, hsn: "2523" },
+  wire: { name: "Binding wire 20 gauge", unit: "kg", price: 95.5, hsn: "7217" },
+  // Floor tiles by the box, each box covering 16 sq ft (for the tile calculator).
+  tiles: { name: "Vitrified floor tiles 2 x 2 ft, box of 4", unit: "box", price: 1200, hsn: "6907", coverage: 16 },
+  packUnit: "coil",
+  packSize: 25,
+  // A painter who brings customers, earning 2 rupees on every bag of cement.
+  fitter: { name: "Ramesh Kumar", trade: "painter", phone: "9845098450", upiId: "ramesh@okicici", perBag: 2 },
+};
+
 // The salon: one stylist and one service.
 export const SALON = {
   stylist: { name: "Priya Sharma", role: "Senior stylist" },

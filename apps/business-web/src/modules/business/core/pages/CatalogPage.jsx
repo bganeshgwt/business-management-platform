@@ -20,7 +20,12 @@ const ATTRIBUTES = {
   books: [["isbn", "ISBN"], ["author", "Author"], ["publisher", "Publisher"]],
   serials: [["model", "Model"], ["warrantyMonths", "Warranty (months)"]],
   batches: [["manufacturer", "Manufacturer"], ["packDescription", "Pack description"]],
+  // A hardware shop's tile & paint calculators read these.
+  hardware_calculators: [["coverageSqftPerUnit", "Tiles: one unit covers (sq ft)"], ["coverageSqftPerLitre", "Paint: one litre covers, one coat (sq ft)"],
+    ["litresPerUnit", "Paint: litres in one unit"]],
 };
+// Attributes that are figures; they can also be changed after the item is made.
+const FIGURES = ["coverageSqftPerUnit", "coverageSqftPerLitre", "litresPerUnit"];
 const TRACKING = { none: "Not stocked", quantity: "Quantity", batch: "Batch & expiry", serial: "Serial / IMEI" };
 
 export default function CatalogPage() {
@@ -115,6 +120,7 @@ function CatalogDialog({ sku, onClose, onSaved }) {
     mrp: sku.mrp ? String(Number(sku.mrp)) : "", hsnCode: sku.hsn_code || "",
     shelfLocation: sku.shelf_location || "", memberPrice: sku.member_price ? String(Number(sku.member_price)) : "",
     internalUse: Boolean(sku.internal_use),
+    ...Object.fromEntries(FIGURES.map((key) => [key, sku.attributes?.[key] ? String(sku.attributes[key]) : ""])),
     // Stock already on the shelf when the item is added.
     openingQuantity: "", openingCost: "", openingLocation: String(biz.locations.find((l) => l.active)?.id || ""), openingLot: "", openingExpiry: "",
   }));
@@ -128,13 +134,15 @@ function CatalogDialog({ sku, onClose, onSaved }) {
   const defaultSlab = slabs.find((t) => t.is_default);
   const taxRateId = form.taxRateId || (editing ? "" : String(defaultSlab?.id || ""));
   const attributeFields = biz.context.capabilities.flatMap((cap) => ATTRIBUTES[cap] || []);
+  const figureFields = attributeFields.filter(([key]) => FIGURES.includes(key));
   const unitChoices = units.filter((u) => (form.kind === "service" ? ["time", "service"].includes(u.kind) : !["time", "service"].includes(u.kind)));
   const products = [...new Map((options?.catalog || []).map((s) => [s.product_id, s.product_name])).entries()];
 
   const submit = () => (editing
     ? businessWrite(biz.id, `catalog/${sku.id}`, { label: form.label, price: form.price, taxRateId: taxRateId || undefined, taxRate: taxRateId ? undefined : sku.tax_rate,
       categoryId: form.categoryId || null, reorderLevel: form.reorderLevel || 0, active: form.active, mrp: form.mrp, hsnCode: form.hsnCode, barcode: form.barcode,
-      shelfLocation: form.shelfLocation, ...(biz.has("loyalty") ? { memberPrice: form.memberPrice } : {}), ...(usedInServices ? { internalUse: form.internalUse } : {}) }, "patch")
+      shelfLocation: form.shelfLocation, ...(biz.has("loyalty") ? { memberPrice: form.memberPrice } : {}), ...(usedInServices ? { internalUse: form.internalUse } : {}),
+      ...(figureFields.length ? { attributes: Object.fromEntries(figureFields.map(([key]) => [key, form[key] || ""])) } : {}) }, "patch")
     : businessWrite(biz.id, "catalog", {
       ...form, taxRateId: taxRateId || undefined, categoryId: form.categoryId || undefined, productId: form.productId || undefined, reorderLevel: form.reorderLevel || 0,
       attributes: Object.fromEntries(attributeFields.map(([key]) => [key, form[key] || ""])),
@@ -249,8 +257,12 @@ function CatalogDialog({ sku, onClose, onSaved }) {
           </div>
         </div>
       )}
-      {!editing && attributeFields.map(([key, label]) => (
-        <Field key={key} label={label}><input maxLength={150} value={form[key] || ""} onChange={set(key)} /></Field>
+      {(editing ? figureFields : attributeFields).map(([key, label]) => (
+        <Field key={key} label={label}>
+          {FIGURES.includes(key)
+            ? <input type="number" inputMode="decimal" min="0.01" step="0.01" value={form[key] || ""} onChange={set(key)} />
+            : <input maxLength={150} value={form[key] || ""} onChange={set(key)} />}
+        </Field>
       ))}
       {usedInServices && form.kind === "goods" && (
         <label className="checkbox bz-check field-wide">

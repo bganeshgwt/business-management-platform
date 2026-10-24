@@ -5,7 +5,7 @@ const v = require('../../../../utils/validate');
 const { readGstin } = require('../../../../utils/gstin');
 const access = require('./businessAccess.service');
 const numbering = require('./businessNumbering');
-const { attributes } = require('./businessModules');
+const { attributes, figures } = require('./businessModules');
 const pricing = require('./businessPricing');
 const retailOffers = require('../../retail/services/businessOffers');
 const books = require('../../retail/services/businessBooks');
@@ -294,6 +294,24 @@ async function readTax(db, business, body, fallbackRate) {
   const slab = await repo.one(db, 'SELECT id FROM business_tax_rates WHERE business_id=$1 AND rate=$2 AND active ORDER BY is_default DESC,id LIMIT 1', [business.id, rate]);
   return { taxRateId: slab?.id || null, rate };
 }
+// An attribute that holds a figure (businessModules.js › figures): more than
+// 0, up to two decimals; empty is none.
+const readFigure = (value, name) => (value === undefined || value === null || value === '' ? null : String(decimal(value, name, 2, 0.01, 100000)));
+// The figures of an item that may change after it is made (the calculators'
+// coverage): those its business's modules allow; an empty one is removed.
+async function updateFigures(db, business, current, given) {
+  if (!given || typeof given !== 'object' || Array.isArray(given)) fail('Attributes must be an object');
+  const allowed = business.capabilities.flatMap((cap) => attributes[cap] || []).filter((key) => figures[key]);
+  const next = { ...(current.attributes || {}) };
+  for (const [key, value] of Object.entries(given)) {
+    if (!allowed.includes(key)) fail(`Unsupported attribute: ${key}`);
+    const figure = readFigure(value, figures[key]);
+    if (figure === null) delete next[key];
+    else next[key] = figure;
+  }
+  await db.query('UPDATE catalog_skus SET attributes=$3 WHERE business_id=$1 AND id=$2', [business.id, current.id, JSON.stringify(next)]);
+  return next;
+}
 async function readCategory(db, businessId, value) {
   if (value === undefined || value === null || value === '') return null;
   const category = await repo.one(db, 'SELECT id FROM catalog_categories WHERE business_id=$1 AND id=$2 AND active', [businessId, id(value, 'Category')]);
@@ -340,7 +358,7 @@ async function createCatalog(business, user, body, extend) {
   const extra = {};
   for (const [key, value] of Object.entries(body.attributes || {})) {
     if (!allowed.includes(key)) fail(`Unsupported attribute: ${key}`);
-    const text = v.optionalString(value, key, 150);
+    const text = figures[key] ? readFigure(value, figures[key]) : v.optionalString(value, key, 150);
     if (text) extra[key] = text;
   }
   const opening = readOpeningStock(body, tracking);
@@ -398,9 +416,11 @@ async function createCatalog(business, user, body, extend) {
     return sku;
   });
 }
-async function updateCatalog(business, user, skuId, body) {
+async function updateCatalog(business, user, skuId, body, inTransaction = null) {
   await access.require(business, 'catalog.edit');
-  return repo.transaction(async (db) => {
+  // `inTransaction`: the caller's own transaction (a hardware shop's rate board saves many items at once).
+  const run = inTransaction ? (work) => work(inTransaction) : repo.transaction;
+  return run(async (db) => {
     const current = await repo.one(db, 'SELECT s.*,p.category_id FROM catalog_skus s JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id WHERE s.business_id=$1 AND s.id=$2 FOR UPDATE OF s',
       [business.id, id(skuId)]);
     if (!current) fail('Item not found', 404);
@@ -437,6 +457,8 @@ async function updateCatalog(business, user, skuId, body) {
     if (body.categoryId !== undefined) {
       await db.query('UPDATE catalog_products SET category_id=$3 WHERE business_id=$1 AND id=$2', [business.id, current.product_id, await readCategory(db, business.id, body.categoryId)]);
     }
+    // Only figures change after an item is made (a hardware shop's coverage for the calculators).
+    if (body.attributes !== undefined) sku.attributes = await updateFigures(db, business, current, body.attributes);
     await repo.audit(db, business.id, user.id, 'catalog.updated', sku.id);
     return sku;
   });
@@ -547,6 +569,8 @@ async function document(business, user, body) {
   if (!lines.length || lines.length > 100) fail('Add between 1 and 100 lines');
   const parts = readPayments(body);
   if (parts.length) await access.require(business, kindPermission(kind, 'edit'));
+  // Sites and fitters are a hardware shop's; its own service checks them with the bill.
+  if ((named(body.siteId) || named(body.fitterId)) && (kind !== 'sale' || business.business_type !== 'hardware')) fail('Sites and fitters belong to a hardware shop\'s sales');
   // A goods shop's walk-in pays the whole bill now: udhaar needs a named customer.
   const walkInPays = kind === 'sale' && GOODS_TYPES.includes(business.business_type);
   // An exchange credit voucher spent on this sale (fashion / electronics).
@@ -605,12 +629,18 @@ const fashionPricing = () => require('../../fashion-electronics/services/busines
 const financeSales = () => require('../../fashion-electronics/services/businessFinance.service');
 const kits = () => require('./businessKits.service');
 const counterPins = () => require('./businessCounter.service');
+// A hardware shop's bill: the site it goes to and the fitter who brought it.
+const hardwareSales = () => require('../../hardware/services/hardwareSales.service');
+const named = (value) => value !== undefined && value !== null && value !== '';
 // Posts a sale or purchase inside the caller's transaction. Permissions and
 // the request are checked by the caller. `fixed` (used by wholesale
 // dispatch) gives each line's prices already worked out: { price (stock unit,
 // rupees), net, tax, enteredPrice (paise), priceRuleId } — the order's prices.
 // `quote` (retail counter): work out the bill exactly as posting would —
 // prices, offers, points, tax, round-off — and return it without saving.
+// `quote: 'estimate'` (a quotation) does the same before any batch or serial
+// is chosen: batch and serial items need none, and a serial item may be
+// several units on one line.
 // `paidNow`: null, one payment { amount, method, reference } or a list of them
 // (split payment). `finance`: an EMI sale's financier part.
 // Free units and trade discount on a purchase line, in the line's own unit
@@ -647,6 +677,7 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     }
     if (kind === 'purchase' && !contact) fail('Select a supplier');
     const buyer = kind === 'sale' ? readBuyer(body) : null;
+    const estimate = quote === 'estimate';
     // A kit sells as its components: each takes its share of the kit's price.
     // `lines` are then the component lines; `kitOf[i]` says which.
     const { lines, kitOf } = await kits().expand(db, business, inputLines, { kind, contact, taxMode, locationId: location.id, fixed });
@@ -684,7 +715,7 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
         quantity = decimal(input.quantity, 'Quantity', 3, 0.001, 100000);
       }
       requiredDecimals(quantity, baseUnit, 'Quantity');
-      if (sku.tracking === 'serial' && quantity !== 1) fail('Enter each serial number on its own line');
+      if (sku.tracking === 'serial' && quantity !== 1 && !estimate) fail('Enter each serial number on its own line');
       const preset = fixed?.[lineIndex] || null;
       const kit = kitOf[lineIndex] || null;
       let priceRule = null, priceKind = null;
@@ -723,7 +754,7 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
       }
       // Cost of one stock unit on this line, to four places (exact for packs).
       const stockCost = kind !== 'purchase' ? null : entered || scheme?.free || scheme?.discountBasis ? (net / 100) / quantity : price;
-      const lotCode = sku.tracking === 'batch' || sku.tracking === 'serial' ? v.requiredString(input.lotCode, 'Batch / serial number', 100) : '';
+      const lotCode = (sku.tracking === 'batch' || sku.tracking === 'serial') && !estimate ? v.requiredString(input.lotCode, 'Batch / serial number', 100) : '';
       let expiresOn = null;
       if (input.expiresOn) expiresOn = dateText(input.expiresOn, 'Expiry date');
       if (kind === 'purchase' && business.business_type === 'pharmacy' && sku.tracking !== 'batch') fail('Pharmacy goods must use batch tracking');
@@ -859,6 +890,7 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     }
     if (offers) await retailOffers.recordSale(db, business, user, saved, prepared, offers);
     if (offers) await salonSales.recordSale(db, business, user, saved, prepared, offers);
+    if (kind === 'sale' && (named(body.siteId) || named(body.fitterId))) await hardwareSales().recordSale(db, business, user, saved, prepared, body);
     // New shelf prices from this receipt (the person may change the catalogue).
     if (priceUpdates.length) {
       const saleMode = settings?.tax_mode || 'exclusive';
@@ -919,7 +951,9 @@ async function detail(business, documentId) {
   const finance = doc.kind === 'sale' && payments.some((p) => p.method === 'finance') ? await financeSales().ofDocument(repo.pool, business.id, doc.id) : [];
   // A pharmacy bill also prints its drug licences, the pharmacist and the prescription (health module).
   const pharmacy = doc.kind === 'sale' && business.business_type === 'pharmacy' ? await require('../../health/services/businessPharmacy.service').invoiceExtras(repo.pool, business, doc.id) : null;
-  return { ...doc, ...buyer, finance, pharmacy, lines: lines.map((line) => ({ ...line, returned_quantity: returnedLines.find((r) => r.line_id === line.id)?.quantity || '0' })), payments, returns, refunds, seller: branchSeller(settings, doc.location), retail, wholesale };
+  // A hardware bill shows its site and its fitter; the invoice prints the site.
+  const hardware = doc.kind === 'sale' && business.business_type === 'hardware' ? await hardwareSales().invoiceExtras(repo.pool, business, doc.id) : null;
+  return { ...doc, ...buyer, finance, pharmacy, hardware, lines: lines.map((line) => ({ ...line, returned_quantity: returnedLines.find((r) => r.line_id === line.id)?.quantity || '0' })), payments, returns, refunds, seller: branchSeller(settings, doc.location), retail, wholesale };
 }
 // The seller as a bill prints it: Business settings, with the selling
 // location's own address, phone, state and GSTIN where it has them (a

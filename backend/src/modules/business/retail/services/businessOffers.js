@@ -400,6 +400,9 @@ function quoteOf({ prepared, offers, subtotal, tax, roundOff, rounded, taxMode, 
       // Which price the line sold at: the list, this branch's own, the member price or a customer rule.
       priceKind: line.priceKind || null,
       enteredUnit: line.entered?.unit || null, enteredQuantity: line.entered?.quantity ?? null,
+      // The pack's own price and size, the price rule and the HSN and MRP, as the sale line would keep them (quotations).
+      enteredUnitPrice: line.entered ? money(line.enteredPrice) : null, unitFactor: line.entered ? (line.factorMicro / 1e6).toFixed(6) : null,
+      priceRuleId: line.priceRule?.id || null, hsnCode: line.sku.hsn_code || null, mrp: line.sku.mrp ?? null,
       amount: money(line.amount), discount: money(offers?.perLine[index] || 0), net: money(line.net), tax: money(line.tax), taxRate: line.sku.tax_rate,
       lotCode: line.lotCode || null,
       // The request line this came from, and its kit (if any).

@@ -222,6 +222,10 @@ require('../../fashion-electronics/routes/businessFashionElectronics.routes')(ro
 require('../../salon-weight/routes/businessSalonWeight.routes')(router, { context, send, b });
 // Pharmacy, clinic and lab: drug master, prescriptions, registers, patients, consultations, lab.
 require('../../health/routes/businessHealth.routes')(router, { context, send, b });
+// Quotations (every type but a restaurant): estimates that become bills or sales orders.
+require('../../quotations/routes/businessQuotations.routes')(router, { context, send, b });
+// Hardware, paints & building materials: sites, today's rates, fitters' commission.
+require('../../hardware/routes/businessHardware.routes')(router, { context, send, b });
 
 // Per-staff PIN at the counter, kits / bundles, EMI & finance.
 require('./businessCounter.routes')(router, { context, send, b });

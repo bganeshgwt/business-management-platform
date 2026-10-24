@@ -6,7 +6,7 @@
 // one thing no request can make: an order taken on an earlier day.
 import crypto from "node:crypto";
 
-import { BUSINESSES, GROCERY, MEAT, PLATFORM, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
+import { BUSINESSES, GROCERY, HARDWARE, MEAT, PLATFORM, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
 
 // Every call names the status it expects, so a set-up that goes wrong stops
 // at the first wrong answer, with the API's own message, rather than leaving
@@ -274,6 +274,46 @@ export async function buildTestData({ api, logins, sql }) {
       customer: { id: customer.id, name: customer.name },
       item: { id: item.id, name: item.label },
       creditSale: { id: sale.id, number: sale.document_no, total: Number(sale.total) },
+    });
+  }
+
+  // The hardware shop's cement, binding wire and floor tiles (with what a box
+  // covers), their stock, a contractor with a site, and a painter who earns
+  // commission on cement (fitters' commission starts off).
+  {
+    const B = at("hardware");
+    const supplier = await owner("POST", B("contacts"), { kind: "supplier", name: HARDWARE.supplier }, 201);
+    const contractor = await owner("POST", B("contacts"), { kind: "customer", name: HARDWARE.contractor.name, phone: HARDWARE.contractor.phone }, 201);
+    const cement = await owner("POST", B("catalog"), {
+      name: HARDWARE.cement.name, code: "CEM-OPC53", kind: "goods", unit: HARDWARE.cement.unit, tracking: "quantity", price: String(HARDWARE.cement.price),
+      mrp: String(HARDWARE.cement.mrp), hsnCode: HARDWARE.cement.hsn, taxRate: "18",
+    }, 201);
+    const wire = await owner("POST", B("catalog"), {
+      name: HARDWARE.wire.name, code: "WIRE-20G", kind: "goods", unit: HARDWARE.wire.unit, tracking: "quantity", price: String(HARDWARE.wire.price), hsnCode: HARDWARE.wire.hsn, taxRate: "18",
+    }, 201);
+    await owner("POST", B("pack-sizes"), { skuId: wire.id, unitCode: HARDWARE.packUnit, quantityInBase: String(HARDWARE.packSize) }, 201);
+    const tiles = await owner("POST", B("catalog"), {
+      name: HARDWARE.tiles.name, code: "VIT-2X2", kind: "goods", unit: HARDWARE.tiles.unit, tracking: "quantity", price: String(HARDWARE.tiles.price), hsnCode: HARDWARE.tiles.hsn,
+      taxRate: "18", attributes: { coverageSqftPerUnit: String(HARDWARE.tiles.coverage) },
+    }, 201);
+    await owner("POST", B("documents"), {
+      kind: "purchase", requestKey: requestKey(), locationId: businesses.hardware.locationId, contactId: supplier.id, supplierBillNo: "ACD-1001",
+      lines: [{ skuId: cement.id, quantity: "200", unitPrice: "340" }, { skuId: wire.id, quantity: "250", unitPrice: "80" }, { skuId: tiles.id, quantity: "100", unitPrice: "900" }],
+    }, 201);
+    const site = await owner("POST", B("hardware/sites"), { contactId: contractor.id, name: HARDWARE.site.name, address: HARDWARE.site.address }, 201);
+    await owner("PUT", B("modules/fitter_commission"), { enabled: true });
+    const fitter = await owner("POST", B("hardware/fitters"), {
+      name: HARDWARE.fitter.name, trade: HARDWARE.fitter.trade, phone: HARDWARE.fitter.phone, upiId: HARDWARE.fitter.upiId,
+    }, 201);
+    await owner("POST", B("hardware/fitter-rules"), { skuId: cement.id, perUnit: String(HARDWARE.fitter.perBag) }, 201);
+    Object.assign(businesses.hardware, {
+      fitter: { id: fitter.id, name: fitter.name },
+      supplier: { id: supplier.id, name: supplier.name },
+      contractor: { id: contractor.id, name: contractor.name },
+      site: { id: site.id, name: site.name },
+      cement: { id: cement.id, name: cement.label },
+      wire: { id: wire.id, name: wire.label },
+      tiles: { id: tiles.id, name: tiles.label },
     });
   }
 

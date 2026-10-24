@@ -19,3 +19,5 @@ export const GOODS = [...RETAIL, "pharmacy", "fashion", "electronics", ...WEIGHE
 export const SERVICES = ["salon", "healthcare", "memberships", "laundry", "rentals", "lodging"];
 // Shops whose customers call credit "udhaar" (elsewhere: customer dues).
 export const UDHAAR = ["grocery", "meat", "weight_retail", "general_retail", "hardware", "agri_inputs"];
+// Hardware, paints & building materials: sites, today's rates, fitters' commission, calculators.
+export const HARDWARE = ["hardware"];

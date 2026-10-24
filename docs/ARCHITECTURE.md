@@ -622,7 +622,8 @@ workspaces; the backend has its own install.
 │   │   │   │                 reports, logbook, notifications, imports
 │   │   │   ├── business/     core (directory, catalogue, documents, stock, appointments, payment
 │   │   │   │                 methods, expenses, shifts, the counter), retail, wholesale (+ receivables),
-│   │   │   │                 fashion-electronics, salon-weight, health
+│   │   │   │                 fashion-electronics, salon-weight, health, quotations (every type but
+│   │   │   │                 the restaurant), hardware
 │   │   │   └── tasks/        tasks, issues & projects for every business (+ library/ of built-in templates)
 │   │   ├── config/           env.js (reads and checks .env), database.js (pg pool + DB_POOL_GUARD)
 │   │   ├── middlewares/      authenticate, authorize, authorizeOrApprove, resolveOutlet, requireFeature,
@@ -651,7 +652,7 @@ workspaces; the backend has its own install.
 │   │   │   │   ├── restaurant/  the same areas as the backend (except imports/), plus dashboard/
 │   │   │   │   ├── business/ core/ (Business Admin, BusinessAdminRoutes.jsx, hooks.js, ui.jsx) and one
 │   │   │   │   │             folder per type: retail, wholesale, receivables, fashion, electronics, salon,
-│   │   │   │   │             weight, health
+│   │   │   │   │             weight, health, hardware; and quotations (every type but the restaurant)
 │   │   │   │   └── tasks/    the task screens, shared by the restaurant (/tasks) and Business Admin (…/tasks)
 │   │   │   ├── layouts/      AppLayout.jsx (header, switchers, bell, side menu), NotFoundPage, PlannedPage,
 │   │   │   │                 GuestSiteRedirect
@@ -843,6 +844,8 @@ file behind an index file with the module's name, which callers import:
 | Salon & spa | `business/salon-weight`: `businessSalonWeight.routes`, `businessSalon.service`, `businessSalonSales` (pricing, commission on sessions and plan sales), `businessSalonDesk.service` (the front desk: move, arrival, walk-ins, messages, client card, leave, plan extension, history), `businessSalonBackOffice.service` (a stylist's week and salon holidays, back-bar products, handing back advances, monthly target commission plans), `businessManagerPin` (a manager's PIN say-so; repairs use it too), `businessAdvanceRefunds` (an advance handed back; repairs too) | `salon/` (Calendar, New bill, `ClientPanel`, the `salonParts` client picker, Packages, Commissions, `CommissionPlans`, Stylists & services, Service profitability, `ManagerApproval`, `SalonAppointmentsPage`; the back office's parts (a stylist's week, holidays, back-bar, advances) in `salonBackOfficeParts.jsx`, with helpers in `salonBackOffice.js`; styles in `salon/styles/salon.css`) | `salon_*` |
 | Meat and weight shops | the same module and routes file: `businessWeight.service`, `businessWeightDaily.service` (rates, stock today, day close, wastage in one go, cut to order, pickup orders, today) | `weight/` (Rates, Pickup orders, Stock by weight, Cutting & yield, Wastage, Yield & wastage, `WeightToday` on the Overview, `CounterWeightTools` mounted by Quick bill) | `weight_*` |
 | Pharmacy, clinics & labs | `business/health`: `businessHealth.routes` (mounted from `business.routes.js`), `healthUploads.routes` (prescription scans, mounted in `routes/index.js` before `/businesses`), `healthCommon` (settings, signatories and PIN sign-off, counters, private files), `businessPharmacy.service` (drug master, prescription sale, registers, recalls, near expiry, debit notes, invoice extras), `businessClinic.service` (patients, consent, visits, billing a visit), `businessClinicDesk.service` (doctors' fees and follow-ups, OPD sessions and leave, the token queue), `businessLab.service` (tests, orders, samples, results, approval, report), `businessLabQuality.service` (signed report versions and amendments, QC) | `health/` (PharmacyCounter, DrugMaster, PharmacyRegisters, PharmacyBatches, HealthSettings, ClinicToday, TokenQueue, Doctors, Patients, Patient, Visits, Visit, LabOrders, LabOrder, LabTests, LabQc; `healthFormat.js`, `healthParts.jsx`, `healthPrint.js`) | `pharmacy_*`, `health_*`, `lab_*` |
+| Quotations (every type but the restaurant) | `business/quotations`: `businessQuotations.routes` (mounted from `business.routes.js`), `businessQuotations.service` (priced by `postDocument`'s estimate mode; the bill at `fixed` prices; a sales order through `placeOrder`) | `quotations/` (Quotations, `QuotationDialog`, `quotation.js`, `quotationPrint.js`) | `business_quotations` (+ lines, revisions) |
+| Hardware, paints & building materials | `business/hardware`: `businessHardware.routes` (mounted from `business.routes.js`), `hardwareSites.service` (sites, a site's ledger, the site of a bill, quotation or order), `hardwareSales.service` (the sale hook: site and fitter; invoice extras), `hardwareFitters.service` (fitters, rules, commission on a bill, payouts through the expense book, statement, report), `hardwareRates.service` (today's rates through the core catalogue update), `hardwareCalculators.service` (the items with a coverage) | `hardware/` (Sites, `SiteField`, Fitters, `FitterField`, Fitters' commission report, Today's rates, `CalculatorDialog`; helpers in `hardware.js` and `calculators.js`) | `hardware_*` |
 
 **Modules for every business, the restaurant included:**
 
