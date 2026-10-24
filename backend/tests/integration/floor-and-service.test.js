@@ -29,6 +29,7 @@ const crypto = require("node:crypto");
 const path = require("node:path");
 const { Client } = require("pg");
 const bcrypt = require("bcrypt");
+const { momentAt, tradingToday } = require("./helpers/dates");
 
 test("floor and service", { timeout: 600000 }, async (t) => {
   require("dotenv").config({ quiet: true });
@@ -410,7 +411,12 @@ test("floor and service", { timeout: 600000 }, async (t) => {
     assert.ok(!today.items.some((row) => row.id === branchCall.body.data.id), "a day left open does not make a 2-day-old call today's");
     const summary = await O("GET", "/table-requests/summary");
     const ownNow = await one("SELECT opened_at FROM business_days WHERE id = $1", [own.id]);
-    assert.ok(Math.abs(new Date(summary.since) - new Date(ownNow.opened_at)) < 1000, `${summary.since}`);
+    // Today runs from the day's opening, but never from before the trading
+    // day's start (the 05:00 cut-off): between 05:00 and 06:00 the opening
+    // moved back an hour falls before it.
+    const tradingStart = Date.parse(momentAt(tradingToday(), "05:00"));
+    const expectedSince = Math.max(new Date(ownNow.opened_at).getTime(), tradingStart);
+    assert.ok(Math.abs(new Date(summary.since) - expectedSince) < 1000, `${summary.since}`);
     await pool.query("UPDATE business_days SET opened_at = opened_at + INTERVAL '3 days' WHERE id = $1", [branch.id]);
   });
 
