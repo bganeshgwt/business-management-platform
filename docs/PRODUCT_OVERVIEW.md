@@ -62,6 +62,7 @@ Every business except the restaurant runs on the same core. It is built once, so
 | Time | Appointments | Staff and rooms without double booking; done, no-show and cancel rules |
 | Money | Daily money and expenses | Takings by method, person and counter matched with cash, with a cash check and each cashier's shift; expenses paid out, corrected only by a reversal with a reason |
 | Settings | Business settings | Legal name, GSTIN, address, tax mode, rounding, financial year, opening hours, rules, number series, payment methods |
+| Settings | Licences & registrations | Each branch's licences and registrations with their numbers, issuing authority and dates; the bell warns 60 days before one runs out |
 | People | Staff and access | Role, branch and department for each person |
 | Insight | Reports and activity log | Money by day, branch comparison, department sales, and who did what |
 
@@ -182,6 +183,15 @@ Pharmacy and clinic rules follow standard Indian practice. A pharmacist, a docto
 - **Tile & paint calculators:** on Quick bill and in a quotation: the boxes of tiles an area needs with its wastage, and the litres and tins of paint for an area and its coats, added to the bill in one click.
 - **Fitters' commission:** the painters, plumbers, electricians, masons and carpenters who bring customers are named on their bills; each bill's commission is worked out to the paisa by the shop's rules and kept with it, returns take it back, payouts go through the expense book (with a UPI app link), and each fitter has a statement to send on WhatsApp and a line in the commission report.
 
+### Seeds, fertilisers and pesticides
+
+- **Licences at the counter:** each branch's fertiliser, seed and insecticide licences with their numbers and dates; a fertiliser, seed or pesticide is billed only where a licence in force covers it, and the bill prints the licence numbers.
+- **Banned and restricted molecules:** each pesticide keeps its active molecules; a banned one is refused on the item and at the counter, and a molecule barred on some crops is sold only once the farmer's crop is known, never for a barred one. Each entry on the list names the government order behind it.
+- **Seed lots:** each lot comes in with its validity date and is never sold after it.
+- **Subsidised fertiliser:** each bag sold carries the receipt number from the government's PoS device; a daily report sets the bags and receipts against the PoS device's stock, typed in, and the shop's own.
+- **Farmers and season credit:** each farmer's village, father's or husband's name, land, crops and Agri Stack Farmer ID (never an Aadhaar number); dues by village; a credit bill for the kharif, rabi or zaid season falls due at the harvest date given.
+- **Registers:** the daily stock and price board to print, the month's seed stock return in quintals and the insecticide sale register, all worked out from the bills and the stock.
+
 ### The newer trades
 
 General stores, hardware and building-material shops, seeds and fertiliser shops, opticians, garages, jewellers, fuel stations, gyms and coaching centres, laundries, rental businesses, and hotels and lodges run on the shared core from their first day:
@@ -294,6 +304,7 @@ Where a mistake would lose money, stock or medical records, the database refuses
 - a duplicate bill number;
 - stock below zero in a shop (a restaurant bill never waits for stock: its stock may go below zero, and the stock screens then ask for a count);
 - editing a posted bill or a signed lab report;
+- a banned pesticide on a bill, or, with Licences on, a fertiliser, seed or pesticide sold where the branch holds no licence in force;
 - changing a QC run;
 - a record that points at another business's data.
 

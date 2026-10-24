@@ -430,7 +430,7 @@ function pricePieces(q, line, picks) {
 }
 
 // body: { requestKey, payment? | payments?, buyer?: { pan?, panDeclaration? }, lines?: [{ lineId, lots | serials }],
-//   notes?, fitterId? (hardware) }
+//   notes?, fitterId? (hardware), agri? (a farm-input shop's PoS receipt, crop and season: agriSales.service.js) }
 async function bill(business, user, quotationId, body) {
   await access.require(business, 'quotations.edit');
   await access.require(business, 'sales.create');
@@ -464,6 +464,7 @@ async function bill(business, user, quotationId, body) {
       lines: pieces.map((p) => p.input),
       buyer: { ...(q.contact_id ? {} : { name: q.customer_name, phone: q.customer_phone }), pan: buyer.pan, panDeclaration: buyer.panDeclaration },
       ...(site ? { siteId: site.id } : {}), ...(body.fitterId !== undefined && body.fitterId !== null && body.fitterId !== '' ? { fitterId: body.fitterId } : {}),
+      ...(body.agri !== undefined && body.agri !== null ? { agri: body.agri } : {}),
     };
     const document = await core.postDocument(db, business, user, documentBody, { kind: 'sale', requestKey, hash, lines: documentBody.lines, paidNow: parts,
       fixed: pieces.map((p) => p.fixed), walkInPays: GOODS_TYPES.includes(business.business_type) });

@@ -109,6 +109,14 @@ const SitesPage = lazy(() => import("../../hardware/pages/SitesPage"));
 const FittersPage = lazy(() => import("../../hardware/pages/FittersPage"));
 const FitterReportPage = lazy(() => import("../../hardware/pages/FitterReportPage"));
 const HardwareRatesPage = lazy(() => import("../../hardware/pages/HardwareRatesPage"));
+// Licences & registrations (every type but a restaurant).
+const LicencesPage = lazy(() => import("../../licences/pages/LicencesPage"));
+// Seeds, fertilisers & pesticides.
+const FarmersPage = lazy(() => import("../../agri/pages/FarmersPage"));
+const SubsidyPage = lazy(() => import("../../agri/pages/SubsidyPage"));
+const AgriRegistersPage = lazy(() => import("../../agri/pages/AgriRegistersPage"));
+const MoleculesPage = lazy(() => import("../../agri/pages/MoleculesPage"));
+const AgriSettingsPage = lazy(() => import("../../agri/pages/AgriSettingsPage"));
 
 function Notice({ title, children }) {
   return (
@@ -231,6 +239,12 @@ function screens(type) {
     "sites": <SitesPage />,
     "fitters": <FittersPage />,
     "fitter-reports": <FitterReportPage />,
+    "licences": <LicencesPage />,
+    "farmers": <FarmersPage />,
+    "agri-subsidy": <SubsidyPage />,
+    "agri-registers": <AgriRegistersPage />,
+    "molecules": <MoleculesPage />,
+    "agri-settings": <AgriSettingsPage />,
   };
 }
 

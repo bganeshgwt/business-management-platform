@@ -16,7 +16,9 @@ export const WORKSPACES = {
   patients: ['patients', 'customers'],
   laboratory: ['lab-orders', 'lab-tests', 'lab-qc'],
   reports: ['reports', 'retail-reports', 'wholesale-reports', 'variant-reports', 'weight-reports', 'salon-reports', 'commissions', 'fitter-reports', 'activity'],
-  settings: ['settings', 'tax-rates', 'payment-methods', 'number-series', 'locations', 'units', 'resources', 'health-settings'],
+  settings: ['settings', 'tax-rates', 'payment-methods', 'number-series', 'locations', 'units', 'resources', 'health-settings', 'licences', 'agri-settings'],
+  // A seeds, fertilisers & pesticides shop's own area.
+  farm: ['farmers', 'agri-subsidy', 'agri-registers', 'molecules'],
   staff: ['staff', 'roles'],
   money: ['day-close', 'expenses', 'emi-finance'],
   repairs: ['repairs', 'appointments'],
@@ -92,6 +94,7 @@ export function dailyWorkspaces(type) {
   if (type === 'electronics') business.push('repairs');
   if (type === 'salon') business.push('packages');
   if (type === 'healthcare') business.push('laboratory');
+  if (type === 'agri_inputs') business.push('farm');
   return [{ title: 'Daily work', keys: ['', ...daily] }, { title: 'Business', keys: business },
     { title: 'Management', keys: ['reports', 'tasks', 'settings', 'staff'] }];
 }

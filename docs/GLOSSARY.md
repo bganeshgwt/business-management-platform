@@ -137,6 +137,7 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Quotation** | An estimate at today's prices with a date it is valid until (numbered QT/…). It moves no stock and is not a tax invoice. Once the customer agrees it becomes a bill, or a sales order, at the quoted prices. |
 | **Revision** (of a quotation) | The quotation priced again with changed lines, keeping its number; the lines it replaced are kept with the revision. |
 | **Expired quotation** | An open quotation past its *Valid until* date. Its prices must be revised before it is billed. |
+| **Licence** (Licences & registrations) | A licence or registration one location holds (a trade licence, FSSAI, a fertiliser authorisation letter…), with its number, the authority and the dates it is valid. *In force* on a day when it is on and the day falls within its dates. The bell warns 60 days before one runs out. |
 
 ### Hardware, paints & building materials
 
@@ -151,6 +152,33 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Commission rule** | What a bill line earns its fitter: a percent of its value before GST for every item, a category or one item, or an amount per unit of one item. The most specific rule wins. |
 | **Taken back** | Commission a return undoes: a returned line's commission in proportion to the quantity back. |
 | **Payout** | Money paid to a fitter, recorded as a paid expense of the shop; reversing the expense takes it back. |
+
+### Seeds, fertilisers & pesticides
+
+| Word | Meaning |
+|---|---|
+| **Krishi kendra** | A shop selling seeds, fertilisers and pesticides to farmers (an agri-input dealer). |
+| **Farm input** | What an item is for a krishi kendra: fertiliser, seed, pesticide, bio-input or another item. It decides which licence a bill needs and what the counter asks for. |
+| **Fertiliser authorisation letter** | A fertiliser dealer's licence under the Fertiliser (Control) Order 1985: the acknowledgement (Form A2) of the dealer's intimation (Form A1), for one place of business. |
+| **Seed dealer licence** | A seed dealer's licence (Form B) under the Seeds (Control) Order 1983, for one place of business. |
+| **Insecticide sale licence** | The licence (Form VIII) to sell, stock or distribute insecticides under the Insecticides Rules 1971, for one place of business. |
+| **Subsidised fertiliser** | A fertiliser (urea, DAP and the like) sold at the government's subsidised price, through the PoS device as well as on the bill. |
+| **PoS device** | The Department of Fertilizers' point-of-sale machine at the shop. Each subsidised sale is made on it after the farmer's thumb (Aadhaar) check, and it prints a receipt; the bill keeps that receipt's number, never the Aadhaar number. |
+| **iFMS** | The government's integrated fertiliser management system, which records every PoS sale and the stock the PoS shows for the shop. |
+| **Farmer ID** | A farmer's number in the Agri Stack farmer registry, kept with their details. |
+| **Kharif, rabi, zaid** | The three cropping seasons: kharif (monsoon), rabi (winter) and zaid (summer). A season credit bill names one, with its year. |
+| **Season credit** | A farmer's bill left on udhaar for a season's crop, due at the harvest date given on it. |
+| **Village dues** | What the farmers of each village owe, with what is overdue and what is on season credit. |
+| **Molecule** | The active ingredient of a pesticide (chlorpyrifos, mancozeb…), as its label names it. |
+| **Banned molecule** | A molecule India bans for use: an item made of it is never sold. |
+| **Crop-restricted molecule** | A molecule that must not be used on some named crops (chlorpyrifos on ber, citrus and tobacco): sold only for another crop, which the bill names. |
+| **Restricted use** | A molecule allowed only to some users or in one formulation (aluminium phosphide by approved pest-control experts; carbofuran only as 3% CG). |
+| **Formulation** | How a pesticide is made up for use, as its label says: 20% EC, 75% WP, 3% CG and so on. |
+| **Certified seed / truthfully labelled seed** | The two classes of seed a dealer sells: certified by the state's seed certification agency, or labelled by its producer as true to the label. |
+| **Seed lot validity** | The date up to which a seed lot may be sold: 9 months from its test date, 6 months more after a passing retest. It is the lot's expiry. |
+| **Stock and price board** | The daily display of the opening stock and price of each fertiliser and seed, printed for the shop. |
+| **Seed stock return** | The monthly return of each seed's opening stock, purchases, sales and closing stock in quintals, due by the 5th of the next month (Form D). |
+| **Insecticide sale register** | The record of every pesticide sold: date, bill, farmer, product, batch, manufacturer, quantity and expiry. |
 
 ### Clinic and lab
 

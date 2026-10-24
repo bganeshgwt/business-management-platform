@@ -19,6 +19,7 @@ import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import { Segmented } from "../../wholesale/pages/shared";
 import { whatsappLink } from "../../retail/pages/retail";
 import FitterField from "../../hardware/pages/FitterField";
+import { usesAgri } from "../../agri/pages/agri";
 import QuotationDialog from "./QuotationDialog";
 import { STATES, validityWords } from "./quotation";
 import { printQuotation, quotationMessage } from "./quotationPrint";
@@ -208,7 +209,8 @@ function BillDialog({ quotation: q, onClose, onSaved }) {
   const walkIn = !q.contact_id;
   const mustPay = walkIn && GOODS.includes(biz.type) && !biz.settings.walk_in_credit;
   const panNeeded = Number(q.total) > 200000 && !(q.contact_pan || q.contact_gstin);
-  const [form, setForm] = useState({ paidNow: mustPay ? q.total : "", method: "cash", reference: "", notes: "", pan: "", panDeclaration: false, fitterId: "" });
+  const [form, setForm] = useState({ paidNow: mustPay ? q.total : "", method: "cash", reference: "", notes: "", pan: "", panDeclaration: false, fitterId: "", posReceipt: "", crop: "" });
+  const agri = usesAgri(biz);
   const [serials, setSerials] = useState({});
   const set = (name) => (event) => setForm((f) => ({ ...f, [name]: event.target.type === "checkbox" ? event.target.checked : event.target.value }));
   const canPay = biz.can("sales.edit");
@@ -218,6 +220,7 @@ function BillDialog({ quotation: q, onClose, onSaved }) {
     ...(panNeeded ? { buyer: form.panDeclaration ? { panDeclaration: true } : { pan: form.pan.trim().toUpperCase() || undefined } } : {}),
     ...(serialLines.length ? { lines: serialLines.map((l) => ({ lineId: l.id, serials: serials[l.id] || [] })) } : {}),
     ...(form.fitterId ? { fitterId: form.fitterId } : {}),
+    ...(agri && (form.posReceipt.trim() || form.crop.trim()) ? { agri: { ...(form.posReceipt.trim() ? { posReceipt: form.posReceipt.trim() } : {}), ...(form.crop.trim() ? { crop: form.crop.trim() } : {}) } } : {}),
   });
   const toggleSerial = (line, code) => setSerials((all) => {
     const mine = all[line.id] || [];
@@ -264,6 +267,15 @@ function BillDialog({ quotation: q, onClose, onSaved }) {
       )}
       {/* A hardware shop's bill may name the fitter who brought the customer. */}
       <FitterField biz={biz} value={form.fitterId} onChange={(fitterId) => setForm((f) => ({ ...f, fitterId }))} />
+      {/* A farm-input shop's bill: a subsidised fertiliser's PoS receipt and the crop a restricted pesticide is for. */}
+      {agri && (
+        <>
+          <Field label="PoS receipt number (subsidised fertiliser)" hint="The receipt the PoS device printed for this sale. Never the Aadhaar number.">
+            <input maxLength={40} className="mono" value={form.posReceipt} onChange={set("posReceipt")} />
+          </Field>
+          <Field label="Crop it is for (pesticides)" hint="Asked for a pesticide that must not be used on some crops."><input maxLength={100} value={form.crop} onChange={set("crop")} /></Field>
+        </>
+      )}
       <Field label="Notes on the bill (optional)" wide><input maxLength={300} value={form.notes} onChange={set("notes")} /></Field>
     </FormDialog>
   );

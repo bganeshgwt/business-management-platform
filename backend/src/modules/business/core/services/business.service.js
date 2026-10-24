@@ -219,11 +219,13 @@ function contactFields(body, kind) {
     gstin: readGstin(body.gstin), pan: readPan(body.pan), creditLimit, creditDays, opening, openingOn,
   };
 }
-async function createContact(business, user, body) {
+// `inTransaction`: the caller's own transaction (a farm-input shop adds a farmer and their customer record together).
+async function createContact(business, user, body, inTransaction = null) {
   await access.require(business, 'contacts.create');
   const kind = v.requiredEnum(body.kind, 'Contact type', ['customer', 'supplier']);
   const f = contactFields(body, kind);
-  return repo.transaction(async (db) => {
+  const run = inTransaction ? (work) => work(inTransaction) : repo.transaction;
+  return run(async (db) => {
     const contact = await repo.one(db, `INSERT INTO business_contacts(business_id,kind,name,phone,email,address,gstin,credit_limit,credit_days,opening_balance,opening_balance_on,pan)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
     [business.id, kind, f.name, f.phone, f.email, f.address, f.gstin, f.creditLimit, f.creditDays, f.opening, f.openingOn, f.pan]);
@@ -302,8 +304,11 @@ const readFigure = (value, name) => (value === undefined || value === null || va
 async function updateFigures(db, business, current, given) {
   if (!given || typeof given !== 'object' || Array.isArray(given)) fail('Attributes must be an object');
   const allowed = business.capabilities.flatMap((cap) => attributes[cap] || []).filter((key) => figures[key]);
+  // A farm-input shop's classification is changed by its own service (updateCatalog).
+  const classified = business.capabilities.includes('agri') ? attributes.agri : [];
   const next = { ...(current.attributes || {}) };
   for (const [key, value] of Object.entries(given)) {
+    if (classified.includes(key)) continue;
     if (!allowed.includes(key)) fail(`Unsupported attribute: ${key}`);
     const figure = readFigure(value, figures[key]);
     if (figure === null) delete next[key];
@@ -358,6 +363,8 @@ async function createCatalog(business, user, body, extend) {
   const extra = {};
   for (const [key, value] of Object.entries(body.attributes || {})) {
     if (!allowed.includes(key)) fail(`Unsupported attribute: ${key}`);
+    // A farm-input shop's classification is read by its own service (below).
+    if (attributes.agri.includes(key)) continue;
     const text = figures[key] ? readFigure(value, figures[key]) : v.optionalString(value, key, 150);
     if (text) extra[key] = text;
   }
@@ -365,6 +372,8 @@ async function createCatalog(business, user, body, extend) {
   if (opening) await access.require(business, 'inventory.edit');
   const barcode = readBarcode(body.barcode);
   return repo.transaction(async (db) => {
+    // What kind of farm input it is (seeds, fertilisers & pesticides): checked against the molecule master.
+    if (caps.includes('agri')) Object.assign(extra, await agriItems().classify(db, business, body.attributes || {}, { kind, tracking, opening, creating: true }));
     const unit = await readUnit(db, business.id, body.unit);
     const serviceUnit = ['time', 'service'].includes(unit.kind);
     if (tracking === 'serial' && unit.kind !== 'count') fail('Serialized items must be counted in whole units');
@@ -457,8 +466,12 @@ async function updateCatalog(business, user, skuId, body, inTransaction = null) 
     if (body.categoryId !== undefined) {
       await db.query('UPDATE catalog_products SET category_id=$3 WHERE business_id=$1 AND id=$2', [business.id, current.product_id, await readCategory(db, business.id, body.categoryId)]);
     }
-    // Only figures change after an item is made (a hardware shop's coverage for the calculators).
+    // Only figures change after an item is made (a hardware shop's coverage for the calculators),
+    // and a farm-input shop's classification (agriItems.service.js keeps the change in the activity log).
     if (body.attributes !== undefined) sku.attributes = await updateFigures(db, business, current, body.attributes);
+    if (body.attributes && business.capabilities.includes('agri') && attributes.agri.some((key) => key in body.attributes)) {
+      sku.attributes = await agriItems().reclassify(db, business, user, { ...current, label: sku.label }, sku.attributes, body.attributes);
+    }
     await repo.audit(db, business.id, user.id, 'catalog.updated', sku.id);
     return sku;
   });
@@ -631,6 +644,10 @@ const kits = () => require('./businessKits.service');
 const counterPins = () => require('./businessCounter.service');
 // A hardware shop's bill: the site it goes to and the fitter who brought it.
 const hardwareSales = () => require('../../hardware/services/hardwareSales.service');
+// A seeds, fertilisers & pesticides shop's items and bills: classification,
+// the licence, molecule, crop and seed-lot checks, PoS receipts and season credit.
+const agriItems = () => require('../../agri/services/agriItems.service');
+const agriSales = () => require('../../agri/services/agriSales.service');
 const named = (value) => value !== undefined && value !== null && value !== '';
 // Posts a sale or purchase inside the caller's transaction. Permissions and
 // the request are checked by the caller. `fixed` (used by wholesale
@@ -789,6 +806,12 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     const rounded = kind === 'sale' && settings?.rounding === 'nearest_rupee' ? Math.floor((raw + 50) / 100) * 100 : raw;
     const roundOff = rounded - raw;
     if (quote) return retailOffers.quoteOf({ prepared, offers, subtotal, tax, roundOff, rounded, taxMode, contact });
+    // A farm-input shop's sale: every fertiliser, seed and pesticide line is
+    // checked before anything is saved (licence, molecules, crop, seed lot,
+    // PoS receipt); its receipts bring seed lots in with their validity.
+    const agri = kind === 'sale' && agriSales().applies(business) ? await agriSales().checkSale(db, business, { prepared, body, location, contact }) : null;
+    if (!agri && agriSales().given(body)) fail('Crops, PoS receipts and season credit go on the sales of a seeds, fertilisers & pesticides shop with its tools switched on');
+    if (kind === 'purchase' && agriSales().applies(business)) agriSales().checkPurchase(prepared);
     // A credit voucher pays first; "full" is then what is left.
     const voucherUse = voucher ? await exchangeVouchers().prepare(db, business, voucher, rounded) : null;
     const prepaid = voucherUse?.amount || 0;
@@ -808,6 +831,8 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     if (walkInPays && !settings?.walk_in_credit && !contact && rounded > 0 && paidPaise + prepaid + financed < rounded) {
       fail('A walk-in customer pays the whole bill now. To give udhaar, choose the customer first.', 409);
     }
+    // Season credit (a farm-input shop): a named customer's bill left on credit.
+    if (agri) agriSales().checkCredit(agri, { contact, unpaid: rounded - paidPaise - prepaid - financed });
     // Credit limit: what this customer would owe after this sale, less what they pay now.
     if (kind === 'sale' && contact?.credit_limit !== null && contact?.credit_limit !== undefined) {
       const owed = await repo.one(db, `SELECT ${repo.contactBalanceSql('c')} AS balance FROM business_contacts c WHERE c.business_id=$1 AND c.id=$2`, [business.id, contact.id]);
@@ -817,7 +842,9 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
       }
     }
     const today = await repo.one(db, 'SELECT (now() AT TIME ZONE $1)::date AS day', [business.timezone]);
-    const dueOn = contact?.credit_days ? await repo.one(db, 'SELECT ($1::date + $2::int)::text AS day', [today.day, contact.credit_days]) : today;
+    // A season credit bill falls due at the harvest date given on it.
+    const dueOn = agri?.dueOn ? { day: agri.dueOn }
+      : contact?.credit_days ? await repo.one(db, 'SELECT ($1::date + $2::int)::text AS day', [today.day, contact.credit_days]) : today;
     const bill = supplierBill(body, kind, today.day);
     if (bill.number) {
       const same = await repo.one(db, 'SELECT document_no FROM business_documents WHERE business_id=$1 AND contact_id=$2 AND upper(supplier_bill_no)=upper($3)', [business.id, contact.id, bill.number]);
@@ -891,6 +918,8 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     if (offers) await retailOffers.recordSale(db, business, user, saved, prepared, offers);
     if (offers) await salonSales.recordSale(db, business, user, saved, prepared, offers);
     if (kind === 'sale' && (named(body.siteId) || named(body.fitterId))) await hardwareSales().recordSale(db, business, user, saved, prepared, body);
+    // A farm-input shop's lines as billed (input, PoS receipt, crop) and its season or walk-in farmer.
+    if (agri) await agriSales().recordSale(db, business, user, saved, agri);
     // New shelf prices from this receipt (the person may change the catalogue).
     if (priceUpdates.length) {
       const saleMode = settings?.tax_mode || 'exclusive';
@@ -953,7 +982,9 @@ async function detail(business, documentId) {
   const pharmacy = doc.kind === 'sale' && business.business_type === 'pharmacy' ? await require('../../health/services/businessPharmacy.service').invoiceExtras(repo.pool, business, doc.id) : null;
   // A hardware bill shows its site and its fitter; the invoice prints the site.
   const hardware = doc.kind === 'sale' && business.business_type === 'hardware' ? await hardwareSales().invoiceExtras(repo.pool, business, doc.id) : null;
-  return { ...doc, ...buyer, finance, pharmacy, hardware, lines: lines.map((line) => ({ ...line, returned_quantity: returnedLines.find((r) => r.line_id === line.id)?.quantity || '0' })), payments, returns, refunds, seller: branchSeller(settings, doc.location), retail, wholesale };
+  // A farm-input shop's bill: PoS receipts, crops, the season, the farmer and the licences it prints.
+  const agri = doc.kind === 'sale' && business.business_type === 'agri_inputs' ? await agriSales().invoiceExtras(repo.pool, business, doc) : null;
+  return { ...doc, ...buyer, finance, pharmacy, hardware, agri, lines: lines.map((line) => ({ ...line, returned_quantity: returnedLines.find((r) => r.line_id === line.id)?.quantity || '0' })), payments, returns, refunds, seller: branchSeller(settings, doc.location), retail, wholesale };
 }
 // The seller as a bill prints it: Business settings, with the selling
 // location's own address, phone, state and GSTIN where it has them (a

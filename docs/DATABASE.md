@@ -11,7 +11,7 @@ PostgreSQL 15 or newer (built and tested on 18). One database holds the whole pl
 | [Business platform](#business-platform) | platform catalogue, business access, business core, shared core, one extension group per business type, and tasks, issues & projects | `business_id` on every row, with composite foreign keys |
 | [Catalogues](#business-types) | business types, platform module codes, business and restaurant permission codes | — |
 
-**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Tasks, issues & projects](#tasks-issues--projects). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
+**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Licences](#licences) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) · [Tasks, issues & projects](#tasks-issues--projects). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
 
 The business platform's design (its five layers, the rules every table follows, and why) is explained in [BUSINESS_PLATFORM_DATA_MODEL.md](BUSINESS_PLATFORM_DATA_MODEL.md). This file gives the table-by-table reference and links there instead of repeating it. A restaurant also appears on the platform as one `businesses` row whose `legacy_restaurant_id` points at it; its own tables are unchanged.
 
@@ -1087,7 +1087,7 @@ Linked sections: [data model §1](BUSINESS_PLATFORM_DATA_MODEL.md#1-platform) an
 Purpose: the permission catalogue. Each row is one `<module>.<action>` pair; the codes are listed under [Business permission codes](#business-permission-codes).
 Key columns: `code` (TEXT PK), `module_code` -> `platform_modules`, `action` (view, create, edit, approve, cancel, refund, export, print, discount, assign, review, manage, view_clinical, edit_clinical), `name`, `sort_order`.
 Rules: UNIQUE (`module_code`, `action`). CHECK `code = module_code || '.' || action`. The action CHECK lists every value, so a migration that adds an action rewrites the whole list.
-Added by: 1791300000001 business-roles-and-permissions; codes also from 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791540000000, 1791580000000, 1791620000000, 1791620001000, 1791620002000, 1791620004000, 1791950400000 and 1791961000000.
+Added by: 1791300000001 business-roles-and-permissions; codes also from 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791540000000, 1791580000000, 1791620000000, 1791620001000, 1791620002000, 1791620004000, 1791950400000, 1791961000000 and 1791962000000.
 
 #### `business_role_templates`
 Purpose: the standard roles the platform defines once: owner, manager, cashier, stock_keeper, accountant and viewer for every type, plus pharmacist for a pharmacy, and doctor, lab_technician and pathologist for healthcare.
@@ -1244,8 +1244,8 @@ Added by: 1791280000000; 1791300000003 (`category_id`).
 Purpose: the sellable and stocked item: a variant, a pack or a service.
 Key columns: `product_id` -> `catalog_products`, `code`, `barcode`, `label`, `unit`, `price`, `tax_rate`, `tax_rate_id` -> `business_tax_rates`, `tracking` (none, quantity, batch or serial), `reorder_level`, `attributes` (a JSONB object), `active`, `hsn_code` (4, 6 or 8 digits), `mrp`, `is_kit` (a kit; its parts are `catalog_kit_components`), `shelf_location` (where it sits, "Aisle 3 · Shelf B"; not blank when set), `member_price` (> 0, what a loyalty customer pays when it is below the list price), `internal_use` (kept in stock only to be used up inside services, a salon's back-bar colour or a clinic's gloves: never sold on a bill, and the bill screens leave it out).
 Relations: (`business_id`, `unit`) -> `business_units(business_id, code)`. A branch's own price is in `business_sku_location_prices`.
-Rules: `code` and `barcode` are each unique per business. `tax_rate` stays the rate actually charged. CHECK `catalog_skus_price_within_mrp`: the price is never above the MRP. CHECK `catalog_skus_kit_untracked`: a kit is tracked `none`, so it has no stock of its own.
-Added by: 1791280000000; 1791300000002 (`tax_rate_id`); 1791300000003 (the unit FK); 1791540000000 (`hsn_code`, `mrp`); 1791620002000 (`is_kit`); 1791950404000 (`shelf_location`, `member_price`); 1791950406000 catalog-internal-use (`internal_use`).
+Rules: `code` and `barcode` are each unique per business. `tax_rate` stays the rate actually charged. CHECK `catalog_skus_price_within_mrp`: the price is never above the MRP. CHECK `catalog_skus_kit_untracked`: a kit is tracked `none`, so it has no stock of its own. Trigger `catalog_skus_agri_molecules` (function `agri_item_molecules_check`, on insert and on a change of `attributes` that holds `molecules`): the molecules are a list, and none is banned in `agri_molecules`.
+Added by: 1791280000000; 1791300000002 (`tax_rate_id`); 1791300000003 (the unit FK); 1791540000000 (`hsn_code`, `mrp`); 1791620002000 (`is_kit`); 1791950404000 (`shelf_location`, `member_price`); 1791950406000 catalog-internal-use (`internal_use`); 1791962000000 (trigger `catalog_skus_agri_molecules`).
 
 #### `catalog_sku_units`
 Purpose: pack sizes per SKU, for example 1 box = 24 stock units.
@@ -1299,7 +1299,7 @@ Added by: 1791950404000 retail-completion.
 
 #### `business_documents`
 Purpose: a sale or purchase invoice.
-Key columns: `kind` (sale or purchase), `document_no`, `series_id`, `location_id`, `contact_id`, `contact_name` (snapshot), `subtotal`, `tax`, `round_off`, `total`, `tax_mode`, `due_on`, `place_of_supply` (two-digit state code), `buyer_gstin`, `buyer_address`, `buyer_pan` and `pan_declaration` (the buyer has no PAN and signed Form 97; a sale over ₹2,00,000 needs one or the other, checked by the API), a purchase's `supplier_bill_no` and `supplier_bill_date`, `request_key`, `request_hash`, `notes`.
+Key columns: `kind` (sale or purchase), `document_no`, `series_id`, `location_id`, `contact_id`, `contact_name` (snapshot), `subtotal`, `tax`, `round_off`, `total`, `tax_mode`, `due_on` (from the customer's credit days, or the harvest date of a farm-input shop's season credit bill), `place_of_supply` (two-digit state code), `buyer_gstin`, `buyer_address`, `buyer_pan` and `pan_declaration` (the buyer has no PAN and signed Form 97; a sale over ₹2,00,000 needs one or the other, checked by the API), a purchase's `supplier_bill_no` and `supplier_bill_date`, `request_key`, `request_hash`, `notes`.
 Rules:
 - CHECK `business_documents_total_adds_up`: `total = subtotal + tax + round_off`.
 - CHECK: `round_off` lies strictly between -1 and 1.
@@ -1574,6 +1574,21 @@ Purpose: each revision of a quotation, with the request that made it.
 Key columns: `quotation_id`, `revision` (2-999), `total_before`, `total_after`, `lines_before` (the lines it replaced, JSON), `request_key`, `request_hash`, `created_by`, `created_at`.
 Rules: UNIQUE (business, request key) and (business, quotation, revision); trigger `business_quotation_revisions_fixed` refuses every update and delete.
 Added by: 1791961000000.
+
+### Licences
+
+Module `licences` ("Licences & registrations", optional, for every type except the restaurant; on for agri_inputs, off elsewhere and recommended for optical, jewellery, fuel_station and pharmacy) needs nothing. Permissions `licences.view` and `licences.edit`. How they are used: [BUSINESS_PLATFORM_DATA_MODEL.md › Licences & registrations](BUSINESS_PLATFORM_DATA_MODEL.md#licences--registrations).
+
+#### `business_licences`
+Purpose: a licence or registration one location holds, with the dates it is valid.
+Key columns: `location_id`, `kind` (a short code: lower-case letters, digits and `_`), `name`, `licence_no`, `authority`, `valid_from`, `valid_until` (NULL: it does not run out), `covers` (TEXT[]: fertiliser, seed, insecticide), `notes`, `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, `location_id`) -> `business_locations`.
+Rules:
+- CHECK `valid_until` not before `valid_from`; CHECK `covers` within (fertiliser, seed, insecticide); name and number not blank.
+- Unique index `business_licences_number` (business, kind, lower(`licence_no`)); index `business_licences_location` (active ones).
+- Trigger `business_licences_guard`: never deleted; the location, the kind and who made it never change.
+- Function `business_licence_held(business, location, category, day)`: whether the location holds, that day, an active licence covering the category with the day inside its dates. Used by trigger `agri_sale_lines_check`.
+Added by: 1791962000000 licences-and-agri-inputs.
 
 ## Retail
 
@@ -2554,6 +2569,71 @@ Relations: (`business_id`, `fitter_id`) -> `hardware_fitters`; (`business_id`, `
 Rules: append-only (trigger `hardware_fitter_payouts_append_only`); a payout counts while its expense is not reversed; index `hardware_fitter_payouts_fitter` (business, fitter, date).
 Added by: 1791961000000.
 
+## Seeds, fertilisers & pesticides
+
+A krishi kendra's own tables (type `agri_inputs`), added by 1791962000000 licences-and-agri-inputs. Module `agri` ("Seeds, fertilisers & pesticides", optional, agri_inputs only, on) needs catalog, contacts, sales, inventory and batches; permissions `agri.view`, `agri.create` (type the PoS stock) and `agri.edit` (farmers' details). Item classification is kept in `catalog_skus.attributes` (keys `inputKind`, `subsidised`, `seedClass`, `seedCrop`, `seedVariety`, `molecules`, `formulation`, `netKg`; no table). How they are used: [BUSINESS_PLATFORM_DATA_MODEL.md › Seeds, fertilisers & pesticides](BUSINESS_PLATFORM_DATA_MODEL.md#seeds-fertilisers--pesticides).
+
+#### `agri_molecules`
+Purpose: the molecules a shop cannot sell freely. Platform data: no `business_id`, the same for every shop, changed only by migrations.
+Key columns: `code` (primary key: lower-case letters and `_`), `name`, `status` (banned, restricted_use, crop_restricted), `restriction` (the rule in words), `source` (the order or list it comes from).
+Rules: unique index `agri_molecules_name` (lower(name)); CHECK a restricted-use molecule has its rule; the source is not blank. Each row names its source. The rows: dicofol, dinocap and methomyl (banned, S.O. 4294(E) of 3 October 2023); dichlorvos, phorate and triazophos (banned for use, the list as on 31 March 2024); aluminium phosphide, methyl bromide, cypermethrin (its 3% smoke generator), DDT and carbofuran (restricted use); chlorpyrifos, dimethoate, malathion, mancozeb, oxyfluorfen, quinalphos and monocrotophos (barred on named crops, S.O. 4294(E)). The official list is longer; what is left to add is in [BACKLOG.md](BACKLOG.md).
+Added by: 1791962000000.
+
+#### `agri_crops`
+Purpose: the crops and crop groups the cited orders name, which a bill's crop is matched to.
+Key columns: `code` (primary key), `name` (unique, any case), `aliases` (TEXT[]: other names, such as jowar for sorghum).
+Added by: 1791962000000.
+
+#### `agri_molecule_crops`
+Purpose: the crops a crop-restricted molecule must not be used on.
+Key columns: PK (`molecule_code` -> `agri_molecules`, `crop_code` -> `agri_crops`).
+Added by: 1791962000000.
+
+#### `agri_farmers`
+Purpose: a customer's details as a farmer. No Aadhaar number is kept.
+Key columns: PK (`business_id`, `contact_id`), `village` (not blank), `relative_name` (father's or husband's name), `land_acres` (> 0, two places), `crops`, `farmer_id` (Agri Stack Farmer ID: letters, digits, `-` and `/`, 4-30), `notes`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, `contact_id`) -> `business_contacts`.
+Rules:
+- Index `agri_farmers_village` (business, lower(village)); unique index `agri_farmers_farmer_id` (business, upper(Farmer ID)).
+- Trigger `agri_farmers_customer` (function `business_contact_is_customer`): the contact is a customer.
+- Trigger `agri_farmers_guard`: never deleted; the customer and who made it never change.
+Added by: 1791962000000.
+
+#### `agri_bills`
+Purpose: a sale's farm-input details: the season of a credit bill, or a walk-in farmer's name and village.
+Key columns: PK (`business_id`, `document_id`), `season` (kharif, rabi, zaid), `season_year` (2000-2100), `buyer_name`, `village`, `created_by`, `created_at`. The season bill's due date is the document's own `due_on`.
+Relations: (`business_id`, `document_id`) -> `business_documents`.
+Rules:
+- CHECK season and year together; at least a season, a name or a village.
+- Index `agri_bills_season` (business, year, season) of season bills.
+- Trigger `agri_bills_check` (before insert): the document is a sale; a season only on a named customer's sale; a name or village only on a walk-in's.
+- Trigger `agri_bills_append_only` (function `agri_append_only`): never changed or deleted.
+Added by: 1791962000000.
+
+#### `agri_sale_lines`
+Purpose: each fertiliser, seed, pesticide or bio-input line of a sale, as it was billed.
+Key columns: PK (`business_id`, `line_id`), `document_id`, `sku_id`, `input_kind` (fertiliser, seed, pesticide, bio_input), `subsidised`, `pos_receipt` (letters, digits, `-` and `/`, 3-40), `crop` (as said), `crop_code` -> `agri_crops`, `molecules` (TEXT[], the item's then), `created_at`.
+Relations: (`business_id`, `line_id`) -> `business_document_lines`; (`business_id`, `document_id`) -> `business_documents`; (`business_id`, `sku_id`) -> `catalog_skus`.
+Rules:
+- CHECK subsidised exactly when there is a PoS receipt; subsidised only for a fertiliser; a matched crop only with the crop said.
+- Indexes `agri_sale_lines_document` and the partial `agri_sale_lines_subsidised` (business, item).
+- Trigger `agri_sale_lines_check` (function `agri_sale_line_check`): never changed or deleted; on insert, the document is a sale, no molecule is banned, the matched crop is not barred for any molecule, a fertiliser, seed or pesticide line has a licence in force covering it at the sale's location that day while the business has `licences` on (`business_licence_held`), and a seed line's lot is not past its validity.
+Added by: 1791962000000.
+
+#### `agri_pos_checks`
+Purpose: the PoS device's stock typed in at a location on a business day.
+Key columns: `location_id`, `checked_on`, `notes`, `request_key`, `request_hash`, `created_by`, `created_at`.
+Relations: (`business_id`, `location_id`) -> `business_locations`.
+Rules: UNIQUE (business, request key); index `agri_pos_checks_day` (business, location, day); trigger `agri_pos_checks_append_only`: never changed or deleted.
+Added by: 1791962000000.
+
+#### `agri_pos_check_lines`
+Purpose: one subsidised fertiliser of a PoS check: what the PoS device showed and the shop's stock at that moment.
+Key columns: PK (`business_id`, `check_id`, `sku_id`), `pos_stock` (>= 0), `app_stock` (>= 0), both in the item's stock unit.
+Relations: (`business_id`, `check_id`) -> `agri_pos_checks`; (`business_id`, `sku_id`) -> `catalog_skus`.
+Rules: trigger `agri_pos_check_lines_append_only`: never changed or deleted.
+Added by: 1791962000000.
+
 ## Tasks, issues & projects
 
 Linked sections: [data model](BUSINESS_PLATFORM_DATA_MODEL.md#tasks-issues--projects) and [ARCHITECTURE.md §4.3](ARCHITECTURE.md#43-tasks-issues--projects-one-model-for-both-worlds). Migration `1791620000000_tasks-issues-projects.sql`; module code `backend/src/modules/tasks/`.
@@ -2745,6 +2825,8 @@ Core modules are always on and never stored per business; every other module is 
 | `hardware_rates` | optional | catalog | hardware; on | 1791961000000 |
 | `hardware_calculators` | optional | catalog | hardware; on (item attributes `coverageSqftPerUnit`, `coverageSqftPerLitre`, `litresPerUnit`; no table) | 1791961000000 |
 | `fitter_commission` | optional | catalog, sales | hardware; off; recommended for hardware | 1791961000000 |
+| `licences` | optional | — | every type but restaurant; on for agri_inputs; recommended for fuel_station, jewellery, optical, pharmacy | 1791962000000 |
+| `agri` | optional | catalog, contacts, sales, inventory, batches | agri_inputs; on (item attributes `inputKind`, `subsidised`, `seedClass`, `seedCrop`, `seedVariety`, `molecules`, `formulation`, `netKg`) | 1791962000000 |
 | `guests` | optional | restaurant | restaurant; on | 1791470000000 |
 | `guest_loyalty` | optional | restaurant, guests | restaurant; off | 1791470000000 |
 | `reservations` | optional | restaurant | restaurant; on | 1791470000000 |
@@ -2808,6 +2890,8 @@ Each code is a `<module>.<action>` row of `business_permissions`, listed here by
 | quotations | `quotations.view`, `quotations.create`, `quotations.edit` (revise; make the bill or the sales order), `quotations.cancel`, `quotations.print` | 1791961000000 |
 | hardware_sites | `hardware_sites.view`, `hardware_sites.edit` (add and change sites; set the site of a bill, quotation or order) | 1791961000000 |
 | fitter_commission | `fitter_commission.view`, `fitter_commission.create` (name a fitter on a bill; add fitters), `fitter_commission.edit` (change fitters and rules), `fitter_commission.approve` (pay fitters) | 1791961000000 |
+| licences | `licences.view`, `licences.edit` (add, renew, change and switch off licences) | 1791962000000 |
+| agri | `agri.view` (farmers, village dues, the subsidy reconciliation, the registers and the molecule list), `agri.create` (type the PoS device's stock), `agri.edit` (farmers' details) | 1791962000000 |
 
 ## Restaurant permission codes
 

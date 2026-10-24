@@ -14,6 +14,7 @@ const access = require('./businessAccess.service');
 //   promises           promised to pay today, or a promise broken
 //   repairs            ready to collect, or past the promised date
 //   appointments       still to come today
+//   licences           running out within 60 days, or run out
 //   wholesale overdue  (same overdue query, worded as invoices)
 
 const LIMIT = 15;
@@ -117,6 +118,17 @@ async function feed(business) {
         title: `${left.n} ${left.n === 1 ? 'appointment' : 'appointments'} still to come today`,
         detail: `Next at ${new Date(left.next).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: business.timezone || 'Asia/Kolkata' })}`,
         at: new Date(left.next).toISOString(), link: `${base}/${business.business_type === 'salon' ? 'salon-calendar' : 'appointments'}` });
+    }
+  }
+  // Licences & registrations: a licence running out within 60 days (warning), or run out (critical).
+  if (has('licences') && can('licences.view')) {
+    const licences = require('../../licences/services/businessLicences.service');
+    for (const row of await licences.expiring(business, LIMIT)) {
+      const days = Number(row.days);
+      items.push({ id: `licence:${row.id}:${row.valid_until}:${days < 0 ? 'x' : 'soon'}`, severity: days < 0 ? 'critical' : 'warning', category: 'Licences',
+        title: days < 0 ? `${row.name} has run out` : `${row.name} runs out ${dayWord(days)}`,
+        detail: `No. ${row.licence_no} · ${row.location_name} · ${days < 0 ? 'ran out' : 'valid until'} ${licences.dateWords(row.valid_until)}`,
+        at: `${row.valid_until}T00:00:00.000Z`, link: `${base}/licences` });
     }
   }
   // Tasks & issues (modules/tasks): your overdue tasks, the team's, reviews, serious issues.

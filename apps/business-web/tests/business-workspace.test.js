@@ -71,6 +71,19 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   assert.equal(sectionRule('rates','hardware').module,'hardware_rates');
   assert.equal(sectionRule('rates','meat').module,'weight');
   assert.ok(!typeAllows(sectionRule('rates','grocery'),'grocery'),'grocery: no rate board');
+  // A farm-input shop's own area keeps its name (Farm inputs › Molecules) and holds its four pages;
+  // its bill checks and every shop's licences sit with Settings.
+  const farm=menu('agri_inputs').find(l=>l.section==='farmers');
+  assert.equal(farm.label,'Farm inputs');
+  assert.deepEqual(farm.pages.map(p=>p.to.split('/').pop()),['farmers','agri-subsidy','agri-registers','molecules']);
+  assert.equal(workspaceFor('molecules','agri_inputs'),'farm');
+  assert.ok(!menu('agri_inputs',m=>m!=='agri').some(l=>l.section==='farmers'),'no farm area while the module is off');
+  for(const type of ['grocery','hardware','optical'])assert.ok(!typeAllows(sectionRule('farmers',type),type),`${type}: no farm inputs`);
+  assert.equal(workspaceFor('licences','optical'),'settings');
+  for(const type of ['agri_inputs','optical','grocery'])assert.ok(pages(type).some(p=>p.to.endsWith('/licences')),`${type}: licences under Settings`);
+  assert.ok(!pages('optical',m=>m!=='licences').some(p=>p.to.endsWith('/licences')),'no licences page while the tool is off');
+  assert.ok(pages('agri_inputs').some(p=>p.to.endsWith('/agri-settings')),'agri_inputs: its checks under Settings');
+  assert.ok(!pages('hardware').some(p=>p.to.endsWith('/agri-settings')),'hardware: no farm input checks');
 });
 test('restricted roles get a permitted destination even when the first workspace page is unavailable',()=>{
   const permissions=new Set(['purchasing.view','contacts.view','inventory.view','catalog.view']);

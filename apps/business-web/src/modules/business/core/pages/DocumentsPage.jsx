@@ -26,6 +26,8 @@ import { DELIVERY } from "../../wholesale/pages/deliveryFormat";
 import SiteField, { SiteDialog } from "../../hardware/pages/SiteField";
 import FitterField from "../../hardware/pages/FitterField";
 import { tradeWord, usesSites } from "../../hardware/pages/hardware";
+// A farm-input shop's bill: season credit, the farmer, PoS receipts, crops and licences.
+import AgriBillFacts from "../../agri/pages/AgriBillFacts";
 
 // Sales or purchases of one business: the list for a period, a new
 // document, and each document's payments, returns and refunds.
@@ -521,6 +523,7 @@ export function DocumentDetail({ documentId, onClose, onChanged, initialAction =
               } },
           ].filter(Boolean)} />
           {doc.hardware?.site && <p className="small">Site <strong>{doc.hardware.site.name}</strong>{doc.hardware.site.address ? ` · ${doc.hardware.site.address}` : ""}</p>}
+          {doc.agri && <AgriBillFacts doc={doc} />}
           {doc.hardware?.fitter && (
             <p className="small">Fitted by <strong>{doc.hardware.fitter.name}</strong> ({tradeWord(doc.hardware.fitter.trade).toLowerCase()})
               {doc.hardware.fitter.commission !== undefined && ` · commission ${biz.exact(doc.hardware.fitter.commission)}${Number(doc.hardware.fitter.taken_back) > 0 ? `, ${biz.exact(doc.hardware.fitter.taken_back)} of it taken back for goods returned` : ""}`}</p>

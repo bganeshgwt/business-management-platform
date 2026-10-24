@@ -24,6 +24,7 @@ The everyday numbers, such as expiring-soon days, voucher validity, credit age g
 - [Meat and weight-based shops](#meat-and-weight-based-shops)
 - [Pharmacy, clinic and lab](#pharmacy-clinic-and-lab)
 - [Hardware, paints & building materials](#hardware-paints--building-materials)
+- [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides)
 - [Restaurant and food formats](#restaurant-and-food-formats)
 
 ## Fixed on purpose
@@ -171,6 +172,18 @@ These rules apply to every business type but the restaurant. The goods rules app
 - **Rule:** a billed, ordered or cancelled quotation never changes: its lines, totals, customer and site stay as they were (the database refuses any change). An open one is cancelled with a reason; nothing is deleted. Undoing the sale is a return on the bill. A customer who is not saved pays a goods shop's bill in full when it is made; only a saved customer's quotation becomes a sales order, and only for goods.
 - **Why:** the quotation is the record of what was offered and accepted.
 - **Change it:** nothing to set.
+
+### A licence belongs to one location
+
+- **Rule:** with *Licences & registrations* on, each licence is kept for the one location that holds it, with its kind, number, issuing authority and the dates it is valid (no end date: it does not run out). It keeps its location and kind for good, and one number is kept once for a kind of licence in the business. A licence is renewed by changing its *Valid until*, and switched off once surrendered or cancelled; it is never deleted (the database refuses both). The activity log keeps each change with the values before and after. A licence is *in force* on a day when it is on, that day is on or after *Valid from*, and on or before *Valid until*.
+- **Why:** the licences a shop must show are issued for each place of business, and an inspector asks for the one held on a given day.
+- **Change it:** the licence itself, under *Settings › Licences*; who may change licences is the role's `licences.edit`.
+
+### The bell before a licence runs out
+
+- **Rule:** the bell warns about an active licence 60 days before its *Valid until*, and again, as critical, once that date has passed. A licence switched off is not warned about.
+- **Why:** a renewal takes weeks; a shop selling under a lapsed licence sells without one.
+- **Change it:** the 60 days is a code change (`WARN_DAYS` in `businessLicences.service.js`).
 
 ## Money and the day
 
@@ -428,6 +441,64 @@ A hardware shop sells as every goods shop does ([Shops and the shared core](#sho
 - **Rule:** what a fitter is due is what their bills earned, less what returns took back, less what they were paid. A payout is never more than that. Each payout is a paid expense of the shop, dated today at the location that paid, so the day's money counts it; reversing that expense takes the payout back and the amount is due again. Paying needs both `fitter_commission.approve` and `expenses.create`. Commission records and payouts are never edited or deleted.
 - **Why:** money paid to a fitter leaves the drawer or the bank like any other expense, and the books must show it once.
 - **Change it:** who may pay is the role's `fitter_commission.approve`.
+
+## Seeds, fertilisers & pesticides
+
+A farm-input shop sells as every goods shop does ([Shops and the shared core](#shops-and-the-shared-core)), and with its tools on (*Seeds, fertilisers & pesticides*) each item says what kind of farm input it is: fertiliser (subsidised or not), seed, pesticide, bio-input or another item. These rules follow from that. Each is checked by the server before the bill is saved, and again by the database where the bill's farm-input lines are kept. Review them with an agriculture officer of the state before trading: licence validity and dealer rules differ by state.
+
+### A fertiliser, seed or pesticide sells only under a licence in force
+
+- **Rule:** while *Licences & registrations* is on, a bill line of a fertiliser, a seed or a pesticide is refused unless the selling location holds, that day, a licence in force that covers fertilisers, seeds or insecticides respectively. The refusal says which licence is missing, switched off, run out (and when) or not yet valid. With *Licences & registrations* off, bills are not checked against licences, and *Settings › Farm input checks* says so. Bio-inputs and other items need no licence here.
+- **Why:** the Fertiliser (Control) Order 1985, the Seeds (Control) Order 1983 and the Insecticides Rules 1971 each require the dealer to hold an authorisation or licence for each place of business; selling without one is selling unlicensed.
+- **Change it:** keep each location's licences under *Settings › Licences*; switch the check off by switching *Licences & registrations* off in *Settings › Business tools*.
+
+### A banned molecule is never sold
+
+- **Rule:** a pesticide's active molecules are kept with the item, by name. An item made of a molecule the molecule list marks *banned* cannot be added or given that molecule, and is never billed, even if the molecule was banned after the item was made. The database refuses both.
+- **Why:** a molecule banned for use in India must not reach a farmer from the shop.
+- **Change it:** nothing to set: the list is the platform's (below).
+
+### A molecule barred on some crops is never sold for them
+
+- **Rule:** a pesticide made of a molecule barred on some crops (for example chlorpyrifos on ber, citrus and tobacco) is billed only with the crop the farmer is buying it for: the line's own, or the bill's. The crop is matched to the crops the list names, by name or another name (jowar is sorghum); a barred crop refuses the bill. Any other crop is kept with the line as it was said. A crop the list names as a group (vegetables; fruits and vegetables eaten raw) is matched only when it is said as that group, so the counter shows the barred crops for the cashier to ask about.
+- **Why:** S.O. 4294(E) of 3 October 2023 bars some molecules on named crops while allowing them on others; only the crop tells the two apart.
+- **Change it:** nothing to set.
+
+### The molecule list is the platform's, and only what is cited
+
+- **Rule:** the molecule list (*Farm inputs › Molecules*) is platform data, the same for every shop and changed only by the platform. Each entry has its status (banned, restricted use or barred on some crops), the crops it must not be used on, its rule in words and the order it comes from. It holds only entries with a cited source: six banned molecules, five restricted ones and seven barred on named crops. A restricted-use molecule (aluminium phosphide, methyl bromide, DDT, the 3% smoke generator of cypermethrin, carbofuran other than its 3% CG) is shown with its rule on the item form and at the counter; the bill is not refused for it.
+- **Why:** a list a shop could edit would not protect anyone, and an entry without its source cannot be checked.
+- **Change it:** the platform adds and corrects entries with a migration as orders change ([BACKLOG.md › Left inside built modules](BACKLOG.md#7-left-inside-built-modules)).
+
+### A seed lot is sold only while valid
+
+- **Rule:** a seed is kept by batch, and a seed lot's expiry is its validity date: the test date on its tag plus 9 months (6 months more after a passing retest). A receipt of seed, or a seed's opening stock, needs that date. A lot past it is not sold: the bill is refused, naming the lot and the date. A pesticide is kept by batch too, and a batch past its expiry is refused the same way, to be kept apart and marked not for sale.
+- **Why:** seed certification fixes a lot's validity from its test date, and the Insecticides Rules forbid selling expired stock.
+- **Change it:** nothing to set; a lot's date is the one given when it is received.
+
+### A subsidised fertiliser carries its PoS receipt
+
+- **Rule:** a fertiliser marked *subsidised* is billed only with the receipt number the government's PoS device printed for the sale (letters, digits, - and /): one for the bill, or one on each line. It is kept with each subsidised line and printed on the bill. No Aadhaar number is ever asked for or kept; the Farmer ID kept with a farmer is the Agri Stack one. A PoS receipt on any other line is refused.
+- **Why:** every subsidised fertiliser sale goes through the Aadhaar-checked PoS device, and the company is paid the subsidy only on those; with no link to the PoS, the receipt number is what ties the bill to the PoS sale.
+- **Change it:** the item's *Subsidised* box.
+
+### The PoS stock is typed in, never changed
+
+- **Rule:** *Type the PoS stock* keeps, for each subsidised fertiliser at a location, what the PoS device shows and the shop's own stock at that moment, under the business's date. The reconciliation shows, by day and fertiliser, the bags billed, the bills and PoS receipts, what came back, and the last entry of the day with its difference. Entries are never changed or deleted; a mistake is put right by typing it again.
+- **Why:** the shop's stock and the PoS's must agree; the difference is what the company and the inspector look at.
+- **Change it:** nothing to set.
+
+### Season credit is due at the harvest
+
+- **Rule:** a bill left on udhaar for a named customer may carry the season it is for (kharif, rabi or zaid, of the year before, this year or the next) and the harvest date it falls due (today or later, at most 400 days away). That date is the bill's due date, so the bell, Udhaar and the dues by village count it as overdue only after it. A walk-in's bill, or one paid in full, carries no season. The season is kept with the bill and never changed.
+- **Why:** farmers buy on credit for a crop and pay when it is harvested.
+- **Change it:** given on each bill at Quick bill.
+
+### The registers come from the transactions
+
+- **Rule:** the stock and price board (each fertiliser's and seed's opening stock on a day, and its closing stock once the day is over), the monthly seed stock return and the insecticide sale register are worked out from the bills, purchases, returns and stock movements of the location, on the business's own clock; nothing is typed twice. The board shows today's price and MRP. The seed return gives quintals where an item's unit is a weight or its weight of one is given; its other changes are corrections, counts and transfers. It is due by the 5th of the next month.
+- **Why:** the Fertiliser (Control) Order and the Seeds (Control) Order require a daily display of stock and prices, the Seeds (Control) Order a monthly return, and the Insecticides Rules a record of insecticide sales with their batches; working them out from the same records keeps them true to the books.
+- **Change it:** nothing to set.
 
 ## Restaurant and food formats
 

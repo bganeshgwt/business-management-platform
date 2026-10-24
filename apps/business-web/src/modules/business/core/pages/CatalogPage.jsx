@@ -13,6 +13,9 @@ import FormDialog from "./FormDialog";
 import { ActiveBadge, BusinessHeader, Field, FormError } from "./ui";
 import { quantity, useOpenBusiness, useOptions, useServerList } from "./hooks";
 import { inPacks, packOf } from "../../wholesale/pages/tradeFormat";
+// A farm-input shop's items: what kind of input each is (seeds, fertilisers & pesticides).
+import AgriItemFields from "../../agri/pages/AgriItemFields";
+import { agriBody, agriFormOf, classOf, kindWord } from "../../agri/pages/agri";
 
 // Extra details a product may carry, by the module that allows them.
 const ATTRIBUTES = {
@@ -55,6 +58,8 @@ export default function CatalogPage() {
     { key: "mrp", header: "MRP", type: "money", exact: true, value: (s) => (s.mrp === null || s.mrp === undefined ? null : Number(s.mrp)), defaultHidden: SERVICES.includes(biz.type) },
     biz.has("loyalty") && { key: "member_price", header: "Member price", type: "money", exact: true, value: (s) => (s.member_price === null || s.member_price === undefined ? null : Number(s.member_price)) },
     { key: "tax", header: "GST", value: (s) => s.tax_rate_name || `${Number(s.tax_rate)}%` },
+    biz.has("agri") && { key: "input_kind", header: "Farm input", value: (s) => kindWord(classOf(s).kind),
+      render: (s) => (classOf(s).kind ? `${kindWord(classOf(s).kind)}${classOf(s).subsidised ? " · subsidised" : ""}` : <span className="muted">—</span>) },
     biz.has("inventory") && { key: "shelf", header: "Shelf", value: (s) => s.shelf_location || "", render: (s) => s.shelf_location || <span className="muted">—</span> },
     { key: "hsn", header: "HSN / SAC", value: (s) => s.hsn_code || "", className: "mono", defaultHidden: true },
     { key: "unit", header: "Unit", value: (s) => s.unit_name || s.unit },
@@ -121,6 +126,7 @@ function CatalogDialog({ sku, onClose, onSaved }) {
     shelfLocation: sku.shelf_location || "", memberPrice: sku.member_price ? String(Number(sku.member_price)) : "",
     internalUse: Boolean(sku.internal_use),
     ...Object.fromEntries(FIGURES.map((key) => [key, sku.attributes?.[key] ? String(sku.attributes[key]) : ""])),
+    agri: agriFormOf(sku),
     // Stock already on the shelf when the item is added.
     openingQuantity: "", openingCost: "", openingLocation: String(biz.locations.find((l) => l.active)?.id || ""), openingLot: "", openingExpiry: "",
   }));
@@ -137,15 +143,19 @@ function CatalogDialog({ sku, onClose, onSaved }) {
   const figureFields = attributeFields.filter(([key]) => FIGURES.includes(key));
   const unitChoices = units.filter((u) => (form.kind === "service" ? ["time", "service"].includes(u.kind) : !["time", "service"].includes(u.kind)));
   const products = [...new Map((options?.catalog || []).map((s) => [s.product_id, s.product_name])).entries()];
+  // A farm-input shop's goods carry what kind of input they are (the whole classification, every save).
+  const agri = biz.has("agri") && form.kind === "goods";
+  const agriAttributes = agri ? agriBody(form.agri) : {};
+  const { agri: _agriForm, ...fields } = form;
 
   const submit = () => (editing
     ? businessWrite(biz.id, `catalog/${sku.id}`, { label: form.label, price: form.price, taxRateId: taxRateId || undefined, taxRate: taxRateId ? undefined : sku.tax_rate,
       categoryId: form.categoryId || null, reorderLevel: form.reorderLevel || 0, active: form.active, mrp: form.mrp, hsnCode: form.hsnCode, barcode: form.barcode,
       shelfLocation: form.shelfLocation, ...(biz.has("loyalty") ? { memberPrice: form.memberPrice } : {}), ...(usedInServices ? { internalUse: form.internalUse } : {}),
-      ...(figureFields.length ? { attributes: Object.fromEntries(figureFields.map(([key]) => [key, form[key] || ""])) } : {}) }, "patch")
+      ...(figureFields.length || agri ? { attributes: { ...Object.fromEntries(figureFields.map(([key]) => [key, form[key] || ""])), ...agriAttributes } } : {}) }, "patch")
     : businessWrite(biz.id, "catalog", {
-      ...form, taxRateId: taxRateId || undefined, categoryId: form.categoryId || undefined, productId: form.productId || undefined, reorderLevel: form.reorderLevel || 0,
-      attributes: Object.fromEntries(attributeFields.map(([key]) => [key, form[key] || ""])),
+      ...fields, taxRateId: taxRateId || undefined, categoryId: form.categoryId || undefined, productId: form.productId || undefined, reorderLevel: form.reorderLevel || 0,
+      attributes: { ...Object.fromEntries(attributeFields.map(([key]) => [key, form[key] || ""])), ...agriAttributes },
       ...(canOpening && form.kind === "goods" && form.tracking !== "serial" && Number(form.openingQuantity) > 0 ? { openingStock: {
         quantity: form.openingQuantity, unitCost: form.openingCost || "0", locationId: form.openingLocation,
         ...(form.tracking === "batch" ? { lotCode: form.openingLot, expiresOn: form.openingExpiry || undefined } : {}),
@@ -257,6 +267,7 @@ function CatalogDialog({ sku, onClose, onSaved }) {
           </div>
         </div>
       )}
+      {agri && <AgriItemFields biz={biz} value={form.agri} onChange={(next) => setForm((f) => ({ ...f, agri: next }))} tracking={editing ? sku.tracking : form.tracking} />}
       {(editing ? figureFields : attributeFields).map(([key, label]) => (
         <Field key={key} label={label}>
           {FIGURES.includes(key)

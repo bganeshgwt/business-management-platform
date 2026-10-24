@@ -11,7 +11,7 @@ import { getErrorMessage } from "../../../../services/api";
 import { dateShort } from "@bmp/shared/format";
 import { BusinessHeader, Field } from "../../core/pages/ui";
 import { DocumentDetail } from "../../core/pages/DocumentsPage";
-import { newKey, quantity as qtyText, useDirtyGuard, useOpenBusiness } from "../../core/pages/hooks";
+import { businessToday, newKey, quantity as qtyText, useDirtyGuard, useOpenBusiness } from "../../core/pages/hooks";
 import { methodWord, paymentWord, printReceipt } from "./retail";
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import { CustomerBox, PayBar, PhoneLines, ReturnFinder, VariantPicker } from "./counterParts";
@@ -35,6 +35,9 @@ import FitterField from "../../hardware/pages/FitterField";
 // A hardware shop's tile and paint calculator adds what an area needs.
 import CalculatorDialog from "../../hardware/pages/CalculatorDialog";
 import { usesCalculators } from "../../hardware/pages/calculators";
+// A farm-input shop's bill: the PoS receipt, the crop, a walk-in farmer and season credit.
+import AgriBillFields from "../../agri/pages/AgriBillFields";
+import { agriBillBody, agriNeedsOf, agriProblem, emptyAgriBill, useMolecules, usesAgri } from "../../agri/pages/agri";
 
 // Quick bill: the counter of every goods shop (grocery, supermarket, books,
 // pharmacy, fashion, electronics, meat and other weight shops). Scan a
@@ -106,6 +109,8 @@ export default function CounterPage() {
   const [customer, setCustomer] = useState(() => carried?.customer || null);
   const [siteId, setSiteId] = useState("");
   const [fitterId, setFitterId] = useState("");
+  const [agriBill, setAgriBill] = useState(emptyAgriBill);
+  const agriMaster = useMolecules(biz);
   const [buyer, setBuyer] = useState({ name: "", phone: "", pan: "", panDeclaration: false });
   const [redeem, setRedeem] = useState(() => carried?.redeem || "");
   const [discount, setDiscount] = useState(() => carried?.discount || { mode: "amount", value: "", reason: "" });
@@ -340,6 +345,7 @@ export default function CounterPage() {
   const reset = useCallback(() => {
     setLines([]); setCustomer(null); setRedeem(""); setReceived(""); setPartPaid(""); setMethod("cash"); setFinance(emptyFinance()); setAskPin(null);
     setDiscount({ mode: "amount", value: "", reason: "" }); setBuyer({ name: "", phone: "", pan: "", panDeclaration: false }); setSiteId(""); setFitterId("");
+    setAgriBill(emptyAgriBill());
     setQuote(null); setPosted(null); setPostError(""); setScanError(""); setRequestKey(newKey()); setVoucher(null); setVoucherCode(""); setVoucherError(""); setCoupon(""); setCouponText("");
     setTimeout(() => scanRef.current?.focus(), 0);
   }, []);
@@ -391,7 +397,11 @@ export default function CounterPage() {
   const panNeeded = total > 200000 && !(customer?.pan || customer?.gstin);
   const panText = buyer.pan.trim().toUpperCase();
   const panOk = !panNeeded || buyer.panDeclaration || /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(panText);
-  const ready = !posted && bill && !stale && !problem && !posting && !waiting.length && (!udhaar || customer) && !short && !walkInUnpaid && emiOk && panOk;
+  // A farm-input shop's bill: what its fertilisers, seeds and pesticides need first (agri).
+  const agriNeeds = usesAgri(biz) ? agriNeedsOf(lines, agriMaster) : null;
+  const agriCredit = udhaar && Boolean(customer) && onCredit > 0;
+  const agriStop = agriProblem(agriNeeds, agriBill, agriMaster, { credit: agriCredit, today: businessToday(biz.business.timezone) });
+  const ready = !posted && bill && !stale && !problem && !posting && !waiting.length && (!udhaar || customer) && !short && !walkInUnpaid && emiOk && panOk && !agriStop;
 
   async function applyVoucher() {
     setVoucherError("");
@@ -421,8 +431,10 @@ export default function CounterPage() {
     try {
       const body = JSON.parse(payload);
       const before = risk ? risk.owes : 0;
+      // A walk-in farmer's name goes on a farm-input bill (the insecticide register names them).
+      const farmerName = !customer && agriNeeds?.any ? agriBill.farmerName.trim() : "";
       const buyerBody = {
-        ...(needsBuyer && buyer.name.trim() ? { name: buyer.name.trim() } : {}),
+        ...(needsBuyer && buyer.name.trim() ? { name: buyer.name.trim() } : farmerName ? { name: farmerName } : {}),
         ...(needsBuyer && buyer.phone.trim() ? { phone: buyer.phone.trim() } : {}),
         ...(panNeeded && buyer.panDeclaration ? { panDeclaration: true } : panNeeded && panText ? { pan: panText } : {}),
       };
@@ -432,6 +444,7 @@ export default function CounterPage() {
         ...(voucher && fromVoucher > 0 ? { voucher: { code: voucher.voucher_no } } : {}),
         ...(siteId && customer ? { siteId } : {}),
         ...(fitterId && usesFitters(biz) ? { fitterId } : {}),
+        ...agriBillBody(agriNeeds, agriBill, { customer, credit: agriCredit }),
         ...payBody(),
       });
       setAskPin(null);
@@ -682,6 +695,7 @@ export default function CounterPage() {
               <FitterField biz={biz} value={fitterId} onChange={setFitterId} label="Fitter who brought the customer" />
             </SectionCard>
           )}
+          {agriNeeds && <AgriBillFields biz={biz} needs={agriNeeds} value={agriBill} onChange={setAgriBill} master={agriMaster} customer={customer} credit={agriCredit} />}
           {needsBuyer && (
             <SectionCard icon="shield" title={emi ? "Buyer" : "Warranty for"} description={emi ? "Name and phone of the buyer, for the financier and the warranty." : "Name and phone of the buyer, so the warranty is registered with this bill."}>
               <div className="rt-inline">
@@ -781,6 +795,7 @@ export default function CounterPage() {
             {voucher && fromVoucher > 0 && <div className="rt-totals"><div><span>Voucher {voucher.voucher_no}</span><span>−{biz.exact(fromVoucher)}</span></div><div className="rt-grand"><span>Left to pay</span><strong>{biz.exact(toPay)}</strong></div></div>}
             {problem && <ErrorMessage message={problem} />}
             {waiting.length > 0 && <p className="small rt-warn">Enter the weight of {waiting.map((l) => l.sku.label).join(", ")}.</p>}
+            {agriStop && lines.length > 0 && <p className="small rt-warn" role="status">{agriStop}</p>}
             <div className="segmented rt-tender rt-tender-grid" role="group" aria-label="Paid by">
               {[...TENDERS, ...(canEmi ? [["emi", ""]] : [])].map(([m, key]) => {
                 // A kind the business has switched every method of off is not offered.

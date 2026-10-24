@@ -6,7 +6,7 @@
 // one thing no request can make: an order taken on an earlier day.
 import crypto from "node:crypto";
 
-import { BUSINESSES, GROCERY, HARDWARE, MEAT, PLATFORM, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
+import { AGRI, BUSINESSES, GROCERY, HARDWARE, MEAT, PLATFORM, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
 
 // Every call names the status it expects, so a set-up that goes wrong stops
 // at the first wrong answer, with the API's own message, rather than leaving
@@ -314,6 +314,46 @@ export async function buildTestData({ api, logins, sql }) {
       cement: { id: cement.id, name: cement.label },
       wire: { id: wire.id, name: wire.label },
       tiles: { id: tiles.id, name: tiles.label },
+    });
+  }
+
+  // The seeds, fertilisers & pesticides shop: its fertiliser, seed and
+  // insecticide licences; subsidised urea, a chlorpyrifos pesticide and paddy
+  // seed (by batch, each lot with its expiry), received from the supplier; and
+  // a farmer from Kothur.
+  {
+    const B = at("agri_inputs");
+    const locationId = businesses.agri_inputs.locationId;
+    const day = (days) => new Date(Date.now() + days * 86400000).toLocaleDateString("en-CA", { timeZone: TIMEZONE });
+    for (const licence of AGRI.licences) {
+      await owner("POST", B("licences"), { ...licence, locationId, authority: "Agriculture Officer, Rangareddy", validFrom: day(-300), validUntil: day(700) }, 201);
+    }
+    const supplier = await owner("POST", B("contacts"), { kind: "supplier", name: AGRI.supplier }, 201);
+    const urea = await owner("POST", B("catalog"), {
+      name: AGRI.urea.name, code: "UREA-45", kind: "goods", unit: AGRI.urea.unit, tracking: "quantity", price: String(AGRI.urea.price), mrp: String(AGRI.urea.mrp),
+      hsnCode: AGRI.urea.hsn, taxRate: "5", attributes: { inputKind: "fertiliser", subsidised: true, netKg: "45" },
+    }, 201);
+    const pesticide = await owner("POST", B("catalog"), {
+      name: AGRI.pesticide.name, code: "CPF-500", kind: "goods", unit: AGRI.pesticide.unit, tracking: "batch", price: String(AGRI.pesticide.price), mrp: String(AGRI.pesticide.mrp),
+      hsnCode: AGRI.pesticide.hsn, taxRate: "18",
+      attributes: { inputKind: "pesticide", molecules: [AGRI.pesticide.molecule], formulation: AGRI.pesticide.formulation, manufacturer: AGRI.pesticide.manufacturer },
+    }, 201);
+    const seed = await owner("POST", B("catalog"), {
+      name: AGRI.seed.name, code: "SEED-BPT", kind: "goods", unit: AGRI.seed.unit, tracking: "batch", price: String(AGRI.seed.price), taxRate: "0",
+      attributes: { inputKind: "seed", seedClass: "certified", seedCrop: AGRI.seed.crop, seedVariety: AGRI.seed.variety },
+    }, 201);
+    await owner("POST", B("documents"), {
+      kind: "purchase", requestKey: requestKey(), locationId, contactId: supplier.id, supplierBillNo: "IF-2201",
+      lines: [{ skuId: urea.id, quantity: "100", unitPrice: "242" }, { skuId: pesticide.id, quantity: "24", unitPrice: "330", lotCode: AGRI.pesticide.lot, expiresOn: day(300) },
+        { skuId: seed.id, quantity: "200", unitPrice: "45", lotCode: AGRI.seed.lot, expiresOn: day(120) }],
+    }, 201);
+    const farmer = await owner("POST", B("agri/farmers"), AGRI.farmer, 201);
+    Object.assign(businesses.agri_inputs, {
+      supplier: { id: supplier.id, name: supplier.name },
+      urea: { id: urea.id, name: urea.label },
+      pesticide: { id: pesticide.id, name: pesticide.label },
+      seed: { id: seed.id, name: seed.label },
+      farmer: { id: farmer.contact_id, name: farmer.name },
     });
   }
 

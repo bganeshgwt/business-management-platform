@@ -21,3 +21,5 @@ export const SERVICES = ["salon", "healthcare", "memberships", "laundry", "renta
 export const UDHAAR = ["grocery", "meat", "weight_retail", "general_retail", "hardware", "agri_inputs"];
 // Hardware, paints & building materials: sites, today's rates, fitters' commission, calculators.
 export const HARDWARE = ["hardware"];
+// Seeds, fertilisers & pesticides: farmers, the subsidy PoS reconciliation, registers, molecules.
+export const AGRI = ["agri_inputs"];

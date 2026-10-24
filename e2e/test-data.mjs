@@ -123,6 +123,23 @@ export const WHOLESALE = {
   creditSale: { quantity: 96 },
 };
 
+// The seeds, fertilisers & pesticides shop: subsidised urea by the bag, a
+// chlorpyrifos pesticide by the bottle and paddy seed by the kilo (both kept by
+// batch), received from the supplier; its three licences; and a farmer.
+export const AGRI = {
+  supplier: "IFFCO depot, Shamshabad",
+  urea: { name: "Neem coated urea 45 kg", unit: "bag", price: 266.5, mrp: 266.5, hsn: "3102" },
+  pesticide: { name: "Chlorpyrifos 20% EC 500 ml", unit: "bottle", price: 420, mrp: 450, hsn: "3808", molecule: "Chlorpyrifos", formulation: "20% EC", lot: "CP-11",
+    manufacturer: "Dhanuka Agritech" },
+  seed: { name: "Paddy seed BPT 5204", unit: "kg", price: 60, crop: "Paddy", variety: "BPT 5204", lot: "P-2601" },
+  licences: [
+    { kind: "fertiliser", name: "Fertiliser authorisation letter (Form A2)", licenceNo: "FAL/RR/2025/1187", covers: ["fertiliser"] },
+    { kind: "seed", name: "Seed dealer licence (Form B)", licenceNo: "SDL/1123/2025", covers: ["seed"] },
+    { kind: "insecticide", name: "Insecticide sale licence (Form VIII)", licenceNo: "INS/RR/0457", covers: ["insecticide"] },
+  ],
+  farmer: { name: "Ramaiah Goud", phone: "9848012345", village: "Kothur", relativeName: "Venkaiah Goud", landAcres: "3.5", crops: "Paddy, cotton" },
+};
+
 // The hardware shop: cement by the bag and binding wire by the kilo in 25 kg
 // coils, received from the supplier, and a contractor with a site who asks for
 // quotations.

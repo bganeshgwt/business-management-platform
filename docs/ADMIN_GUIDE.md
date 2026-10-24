@@ -75,6 +75,7 @@ on record.
   - [Purchases: receiving, free goods, discounts, purchase orders, paying suppliers](#purchases-receiving-free-goods-discounts-purchase-orders-paying-suppliers)
   - [Shop extras: shelf, branch and member prices, coupons, departments](#shop-extras-shelf-branch-and-member-prices-coupons-departments)
   - [Quotations](#quotations)
+  - [Licences](#licences)
 - [Retail counter (grocery / kirana, supermarket, books & stationery)](#retail-counter-grocery--kirana-supermarket-books--stationery)
   - [Quick bill](#quick-bill)
 - [Wholesale / FMCG](#wholesale--fmcg)
@@ -88,6 +89,7 @@ on record.
 - [Clinic & lab](#clinic--lab)
 - [Newer trades on the shared core](#newer-trades-on-the-shared-core)
 - [Hardware, paints & building materials](#hardware-paints--building-materials)
+- [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides)
 
 **[Part 4 — Tasks, issues & projects](#part-4--tasks-issues--projects)**
 
@@ -278,7 +280,8 @@ daily expenses, and the type's own, such as appointments, patient records or
 pharmacy rules) and *Optional workflows*. A new business starts lean: what its
 type uses every day is on, and stock transfers, offers, loyalty points,
 repairs, EMI & finance, packages, commissions, the laboratory, cutting & yield,
-quotations (except at a hardware shop), fitters' commission, tasks, issues and
+quotations (except at a hardware shop), fitters' commission, licences (except
+at a seeds, fertilisers & pesticides shop), tasks, issues and
 projects stay off until the owner or a manager switches them on. A tool most businesses of the type use is marked *Recommended*, with the
 reason, and listed first. Switching a tool off hides its screens and keeps its
 history.
@@ -438,7 +441,8 @@ business*, by name, type or code) and pick from **Restaurants & food** and
   another business the outlet picker gives way to that business's
   **location picker**, and the bell and Quick access are its own: the bell
   warns about low stock, expiring batches, overdue udhaar (outstanding) and
-  promises to pay, repairs, appointments, and tasks and issues.
+  promises to pay, repairs, appointments, licences running out, and tasks
+  and issues.
 - **Another restaurant** is greyed out ("This restaurant opens when you sign
   in to it"): sign in to that restaurant to manage it.
 - The last business you opened is **remembered on the server**, so your next
@@ -2119,10 +2123,10 @@ panel over it.
 | Business | **Products & services** (named for the type: *Medicines & products*, *Books & stationery*…), with Categories, Barcode labels, Kits & bundles, Offers & discounts, price lists and the type's own (Drug master, Book details, Size × colour, Today's rates, Stylists & services) | Items with GST slab, unit, how they are tracked (quantity, batch and expiry, or serial number), reorder level. Categories nest up to five levels. |
 | Business | **Purchases**, with Suppliers, Purchase orders (every business that keeps stock) and, for a wholesaler, Claims on suppliers | Record what was bought; stock goes up at once at its cost. |
 | Business | **Stock** (*Stock on hand*), with Stock movements, Stock counts, Expiring soon, Transfers and the type's own (Serial / IMEI register, Stock by weight, Cutting & processing, Wastage, Expiry, returns & recalls) | Stock by location and batch with its value; every change has a line in the movements ledger with its reason. A transfer is sent, is *on the way*, then is received (or cancelled). A count is entered over time and **approved** by someone allowed to; only then does stock change, and the differences become reasoned corrections. |
-| Business | The type's own records: **Registers & prescriptions** (pharmacy), **Booklists & orders** (books), **Repairs** (electronics), **Packages** (salon), **Lab orders** (clinic) | Described with each type below. |
+| Business | The type's own records: **Registers & prescriptions** (pharmacy), **Booklists & orders** (books), **Repairs** (electronics), **Packages** (salon), **Lab orders** (clinic), **Farm inputs** (seeds, fertilisers & pesticides) | Described with each type below. |
 | Management | **Reports**, with the type's own reports, Staff commissions and Activity log | Money by day, locations compared, departments; who did what. |
 | Management | **Tasks** | See [Part 4](#part-4--tasks-issues--projects). |
-| Management | **Settings**: Business settings (with Business tools), Tax rates, Payment methods, Number series, Locations, Units & pack sizes, Staff & rooms (*Doctors & rooms* in a clinic), and Pharmacy settings or Clinic & lab settings | Legal name, GSTIN, prices with or without GST, rounding, financial year, the most a manager may take off a bill at the counter (with a reason; the owner is not limited), whether a walk-in may leave a bill unpaid, and the shared till's PIN rule. Number series give each location its own bill numbers per financial year, with no gaps and no duplicates. A pack size turns "3 boxes" into 72 pieces exactly. A location holding stock cannot be closed. |
+| Management | **Settings**: Business settings (with Business tools), Tax rates, Payment methods, Number series, Locations, Units & pack sizes, Staff & rooms (*Doctors & rooms* in a clinic), Licences (with Licences & registrations on), and Pharmacy settings, Clinic & lab settings or Farm input checks | Legal name, GSTIN, prices with or without GST, rounding, financial year, the most a manager may take off a bill at the counter (with a reason; the owner is not limited), whether a walk-in may leave a bill unpaid, and the shared till's PIN rule. Number series give each location its own bill numbers per financial year, with no gaps and no duplicates. A pack size turns "3 boxes" into 72 pieces exactly. A location holding stock cannot be closed. |
 | Management | **Staff & access**, with Roles & permissions | Give a person from your staff list a role in this business, change it or switch it off. |
 
 **Two rules people notice:** prices, tax and totals are always worked out by the
@@ -2347,6 +2351,41 @@ general store, an optical shop, a jeweller and a wholesaler. It is under
 Who does what: a cashier makes, revises, prints and bills quotations; a
 manager also cancels them; an accountant and a viewer see them (the
 accountant prints them too).
+
+### Licences
+
+The licences and registrations a business must hold, kept for each location
+with the dates they are valid. Every type but a restaurant can switch on
+**Licences & registrations** (Settings › Business tools); a seeds,
+fertilisers & pesticides shop starts with it, and it is recommended for an
+optical shop (the MD-42 registration for contact lenses), a jeweller (the BIS
+registration), a fuel station (the PESO licence) and a pharmacy (its trade
+licence, FSSAI and other registrations; drug licences stay in Pharmacy
+settings). It is under *Settings › Licences*.
+
+- **Add a licence** — the location that holds it, its kind (the trade's own
+  first: a fertiliser authorisation letter, a seed dealer licence or an
+  insecticide sale licence at a farm-input shop; then a trade licence, a
+  shops & establishments registration, FSSAI, or another licence), its name
+  as issued, its number, the issuing authority, *Valid from* and *Valid
+  until*, or *It does not run out*. At a farm-input shop, *What it lets this
+  location sell* ticks fertilisers, seeds or insecticides: bills of those at
+  that location need the licence in force. One number is kept once for a kind
+  of licence.
+- **The list** shows each licence's number, location, dates, the days it has
+  left and where it stands: *Valid*, *No expiry*, *Runs out soon* (60 days or
+  fewer), *Run out*, *Not yet valid* or *Switched off*. The location filter
+  narrows it; *Show switched-off licences* brings back those switched off.
+- **Renew** — *Edit* the licence and give its new *Valid until*; the activity
+  log keeps the dates before and after. A licence keeps its location and
+  kind: a licence for another location is added on its own.
+- **Switch off** — untick *In use* once a licence is surrendered or
+  cancelled. It is never deleted, and stays in the list with the filter.
+- **The bell** warns 60 days before an active licence runs out, and again,
+  in red, once it has.
+
+Who does what: a manager adds and changes licences; an accountant and a
+viewer see them.
 
 ## Retail counter (grocery / kirana, supermarket, books & stationery)
 
@@ -2950,7 +2989,7 @@ Eleven more types run on the shared screens from the day they are created: *Quic
 | --- | --- | --- |
 | General store & other shops | Quick bill and retail reports; prices including GST; packs, dozens, pairs, rolls and sets | **Variants** (sizes and colours), **Offers**, batches, loyalty, exchanges, serials and warranties, repairs, weight, wastage, price lists |
 | Hardware, paints & building materials | Its own screens: see [Hardware, paints & building materials](#hardware-paints--building-materials) below | See the same section |
-| Seeds, fertilisers & pesticides | Quick bill and retail reports; batches on (lot and expiry on every sale); bags, packets, bottles, quintals and tonnes | **Wholesale price lists** (dealer rates), weight, offers |
+| Seeds, fertilisers & pesticides | Its own screens: see [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) below | See the same section |
 | Optical shops | Quick bill and retail reports; pairs, packs and bottles | **Batches** (contact-lens expiry), **Variants** (frame colours and sizes), **Appointments** (eye tests with the optometrist), offers, loyalty, exchanges |
 | Vehicle service & auto parts | Quick bill and retail reports for the parts counter; pairs and sets | **Appointments** (service bookings by bay and mechanic), **Wholesale price lists** (mechanic and retailer rates), batches, serials and warranties, offers |
 | Jewellery & gold | Quick bill and retail reports; prices before GST, rounded to the rupee; GST 3% by default, with 0.25% (rough and loose stones), 1.5% (cut and polished diamonds), 5% (job work), 18% (repairs and services) and nil; weights in grams and carats | Serials (a tag number per piece), exchanges, stock transfers, offers, loyalty |
@@ -3067,6 +3106,115 @@ painters, plumbers, electricians, masons and carpenters who bring customers.
 - **Report** (*Reports › Fitters' commission*) — for the dates chosen, each
   fitter's bills and their value before GST, commission earned, taken back
   and paid, and what each is due now.
+
+## Seeds, fertilisers & pesticides
+
+A krishi kendra bills at **Quick bill** with prices including GST rounded to
+the rupee, keeps udhaar for named farmers, and sells in bags, packets,
+bottles, quintals and tonnes as well as pieces, kilos and litres. Every sale
+names its batch (lot and expiry). A new shop starts with **Seeds,
+fertilisers & pesticides** (the farm-input tools) and **Licences &
+registrations** on; **Wholesale price lists** (dealer rates) is recommended,
+and weight, offers and quotations can be switched on too. Its own screens
+are under **Farm inputs**, and its checks under *Settings › Farm input
+checks*.
+
+**Before the first bill:**
+
+1. **Licences** (*Settings › Licences*) — add the location's fertiliser
+   authorisation letter, seed dealer licence and insecticide sale licence,
+   each with its number and dates and what it lets the location sell
+   ([Licences](#licences)). While Licences & registrations is on, a bill of a
+   fertiliser, seed or pesticide is refused at a location without one in
+   force; *Settings › Farm input checks* shows what each location holds.
+2. **Items** (*Seeds, fertilisers & pesticides*, add or edit an item) — with
+   the farm-input tools on, the item form asks *Kind of farm input*:
+   - *Fertiliser*, and *Subsidised* when it is sold through the government's
+     PoS device (its bills then need the PoS receipt number);
+   - *Seed*, with its class (certified or truthfully labelled), crop and
+     variety. A seed is kept by batch: each lot's expiry is its validity date,
+     the test date on its tag plus 9 months;
+   - *Pesticide*, with its active molecules as on the label (type each and
+     *Add*; the molecule list's names are offered) and its formulation. A
+     pesticide is kept by batch too. A banned molecule is refused, and a
+     molecule barred on some crops is marked;
+   - *Bio-input* or *Other item* (sprayers, tools).
+   *Weight of one unit in kg* (50 for a 50 kg bag, 0.45 for a 450 g packet)
+   lets the registers show quintals. The kind can be changed later; the
+   activity log keeps what it was.
+3. **Receiving seed** — a seed lot comes in with its validity date as its
+   expiry; a purchase line of a seed without one is refused.
+
+**At Quick bill**, the *Farm inputs* card asks for what the bill needs, and
+the bill is not taken until it is given:
+
+- **A subsidised fertiliser** — the *PoS receipt number* the PoS device
+  printed after the farmer's thumb check (one for the bill; never the Aadhaar
+  number, which is not asked for or kept).
+- **A pesticide barred on some crops** — *Crop it is for*; the card says
+  which crops it must not be used on, and a barred crop stops the bill (jowar
+  counts as sorghum). For any other farm input the crop is optional and is
+  kept with the line.
+- **A walk-in buying farm inputs** — the farmer's name and village, optional,
+  for the insecticide register.
+- **On udhaar, for a farmer** — *Season credit*: kharif, rabi or zaid of a
+  year, and the harvest date it falls due. That date becomes the bill's due
+  date, so Udhaar, the bell and the dues by village count it from then.
+
+A quotation's *Make the bill* asks for the PoS receipt and the crop too.
+Whichever screen bills them, the same checks apply, and the server refuses
+with the reason: a molecule banned in India, no licence in force at the location, a
+seed lot past its validity or a pesticide batch past its expiry (keep it
+apart, marked not for sale), a barred crop, a missing PoS receipt. The bill's
+A4 invoice and till receipt print each line's PoS receipt and crop, the
+licences the location sold under, the farmer's village, father's or
+husband's name and Farmer ID, and the season of a credit bill.
+
+**Farm inputs:**
+
+- **Farmers & village dues** — *Add a farmer*: a new customer (name and
+  phone) or one already saved, with their village, father's or husband's
+  name, land in acres, crops and Farmer ID from the Agri Stack farmer
+  registry. The list filters by village and by those owing; *Dues* on a row
+  shows the farmer's bills still to collect, each with its season and due
+  date. The *Village dues* tab shows, for each village, its farmers, how many
+  owe and what (as Udhaar counts it), what is overdue, what is on season
+  credit and the next harvest date one falls due, with customers without
+  farmer details who owe on one row; a village opens its farmers. Payments
+  are taken on Udhaar. What farmers owe (the amounts, *Owing only* and
+  *Village dues*) shows only to a role that also sees sales or udhaar.
+- **Subsidy PoS reconciliation** — for a location and dates, day by day and
+  fertiliser: the bags billed, the bills and PoS receipts, what came back,
+  and the PoS device's stock typed in against the shop's own stock then.
+  *Type the PoS stock* lists each subsidised fertiliser with the shop's stock
+  now: read the PoS device and type what it shows; the difference shows at
+  once and in the list (the last entry of a day counts). Entries are never
+  changed.
+- **Registers & board** —
+  - *Stock & price board*: each fertiliser's and seed's opening stock on a
+    day (and its closing stock for a day gone by), its price at that location
+    and its MRP. *Print the board* prints it large for display, with the
+    location's licence numbers.
+  - *Seed stock return*: for a month, each seed's crop, variety and class,
+    the stock on the first, what was bought and sold (net of goods returned),
+    other changes (corrections, counts, transfers) and the closing stock, in
+    quintals where the item's weight is known. Due to the licensing authority
+    by the 5th of the next month; *Print the return*.
+  - *Insecticide sale register*: every pesticide sold in the dates, with the
+    bill, the farmer and village, the product and its molecules, the batch,
+    the manufacturer, the quantity, what came back, the expiry and the crop.
+    *Print the register*.
+  Each is worked out from the bills, purchases and stock movements, and
+  exports to CSV for someone who exports reports.
+- **Molecules** — the list the bills are checked against: each banned,
+  restricted or crop-restricted molecule, the crops it must not be used on,
+  its rule and the order it comes from. The platform keeps it; it cannot be
+  changed here.
+
+Who does what: a cashier adds farmers, bills with the checks and types the
+PoS stock; a stock keeper types the PoS stock and sees the farm-input
+screens without customers' dues; a manager does all of it and keeps the
+licences; an accountant and a viewer see the screens and the dues.
 
 ---
 

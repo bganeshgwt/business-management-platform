@@ -2,7 +2,7 @@
 // has switched on and what this person's role allows. The server checks the
 // same two things on every request; the menu only hides what would be refused.
 
-import { CLINIC, GOODS, HARDWARE, PHARMACY, RETAIL, SALON, WEIGHED } from './businessTypes.js';
+import { AGRI, CLINIC, GOODS, HARDWARE, PHARMACY, RETAIL, SALON, WEIGHED } from './businessTypes.js';
 import { dailyWorkspaces, WORKSPACES, workspaceLabel, workspaceSections } from './businessWorkspace.js';
 
 export { GOODS };
@@ -140,6 +140,17 @@ export function businessSections(type) {
       ],
     },
     {
+      // A seeds, fertilisers & pesticides shop's farmers and village dues, the
+      // subsidy PoS reconciliation, the registers and the molecule list.
+      title: "Farm inputs",
+      links: [
+        { section: "farmers", label: "Farmers & village dues", icon: "customers", need: "agri.view", types: AGRI },
+        { section: "agri-subsidy", label: "Subsidy PoS reconciliation", icon: "counts", need: "agri.view", types: AGRI },
+        { section: "agri-registers", label: "Registers & board", icon: "logbook", need: "agri.view", types: AGRI },
+        { section: "molecules", label: "Molecules", icon: "categories", need: "agri.view", types: AGRI },
+      ],
+    },
+    {
       title: "Purchases",
       links: [
         { section: "purchases", label: "Purchases", icon: "purchaseOrders", need: "purchasing.view" },
@@ -221,6 +232,10 @@ export function businessSections(type) {
         { section: "number-series", label: "Number series", icon: "numbering", need: "settings.view" },
         { section: "locations", label: "Locations", icon: "locations", need: "settings.view" },
         { section: "health-settings", label: type === "pharmacy" ? "Pharmacy settings" : "Clinic & lab settings", icon: "serviceSettings", need: "settings.view", types: [...PHARMACY, ...CLINIC] },
+        // Licences & registrations (every type but a restaurant): each location's licences and their dates.
+        { section: "licences", label: "Licences", icon: "logbook", need: "licences.view", except: ['restaurant'] },
+        // What a farm-input shop's bills are checked for, and whether the licence check is on.
+        { section: "agri-settings", label: "Farm input checks", icon: "serviceSettings", need: "agri.view", types: AGRI },
       ],
     },
     {
@@ -247,8 +262,9 @@ export function businessMenu(businessId, type, can, has) {
       // Every page of the area, for quick access and "Jump to…" (the menu shows the area once).
       const pages = available.map((item) => ({ to: businessPath(businessId, item.section), label: workspaceLabel(item.section, type, item.label), icon: item.icon, end: item.end }));
       // Settings keeps its name whoever looks (a stock keeper's first page there is
-      // Units & pack sizes), so a hint can say "Settings › Units & pack sizes".
-      return { to: businessPath(businessId, link.section), label: key === 'tasks' ? 'Tasks' : key === 'settings' ? 'Settings' : workspaceLabel(link.section, type, link.label),
+      // Units & pack sizes), so a hint can say "Settings › Units & pack sizes";
+      // so does a farm-input shop's Farm inputs area ("Farm inputs › Molecules").
+      return { to: businessPath(businessId, link.section), label: key === 'tasks' ? 'Tasks' : key === 'settings' ? 'Settings' : key === 'farm' ? 'Farm inputs' : workspaceLabel(link.section, type, link.label),
         icon: link.icon, end: link.end, section: link.section, activeSections: available.map((item) => item.section), pages };
     }).filter(Boolean),
   })).filter((group) => group.links.length);

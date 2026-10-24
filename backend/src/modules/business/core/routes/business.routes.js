@@ -226,6 +226,10 @@ require('../../health/routes/businessHealth.routes')(router, { context, send, b 
 require('../../quotations/routes/businessQuotations.routes')(router, { context, send, b });
 // Hardware, paints & building materials: sites, today's rates, fitters' commission.
 require('../../hardware/routes/businessHardware.routes')(router, { context, send, b });
+// Licences & registrations (every type but a restaurant): each location's licences and their dates.
+require('../../licences/routes/businessLicences.routes')(router, { context, send, b });
+// Seeds, fertilisers & pesticides: molecules, farmers and village dues, the subsidy PoS reconciliation, registers.
+require('../../agri/routes/businessAgri.routes')(router, { context, send, b });
 
 // Per-staff PIN at the counter, kits / bundles, EMI & finance.
 require('./businessCounter.routes')(router, { context, send, b });

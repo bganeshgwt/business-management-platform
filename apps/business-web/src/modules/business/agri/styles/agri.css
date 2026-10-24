@@ -1,0 +1,109 @@
+/* Seeds, fertilisers & pesticides: the farm-input screens, the item form's
+   farm-input details and the counter's farm-input card. Colours come from
+   the theme's tokens only. */
+
+/* A farmer's details, as label and value. */
+.agri-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+.agri-facts dt {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.agri-facts dd {
+  margin: 0;
+  font-weight: var(--weight-medium);
+}
+
+/* What each location holds, on the farm-input checks page; the PoS stock form. */
+.agri-licence-table,
+.agri-pos-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.agri-licence-table th,
+.agri-licence-table td,
+.agri-pos-table th,
+.agri-pos-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+}
+.agri-licence-table thead th,
+.agri-pos-table thead th {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+.agri-pos-table .r {
+  text-align: right;
+}
+.agri-pos-table input {
+  width: 7rem;
+}
+
+/* The PoS stock against the shop's. */
+.agri-match {
+  color: var(--success-text);
+}
+.agri-differ {
+  color: var(--warning-text);
+  font-weight: var(--weight-medium);
+}
+
+/* A pesticide's molecules on the item form, each with what the master says of it. */
+.agri-molecules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.agri-molecules li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+}
+.agri-add {
+  display: flex;
+  gap: var(--space-2);
+}
+.agri-add input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* What the counter will ask for, and why. */
+.agri-note {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--info-border);
+  border-radius: var(--radius-md);
+  background: var(--info-bg);
+  color: var(--info-text);
+  font-size: var(--text-sm);
+}
+.agri-stop {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-md);
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: var(--text-sm);
+}
+.agri-bill-facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+}

@@ -62,7 +62,7 @@ function invoiceFacts(doc) {
     const listValue = extra && !free && Number(extra.discount_percent) > 0 && doc.tax_mode !== "inclusive" ? Math.round(Number(extra.list_unit_price) * Number(line.quantity) * 100) : 0;
     const discount = discounts.filter((d) => d.line_id === line.id).reduce((s, d) => s + p(d.amount), 0) + Math.max(0, listValue - p(line.net));
     return {
-      n: index + 1, label: line.label, lot: [line.lot_code, pharmacyLine(doc, line)].filter(Boolean).join(" · "), kit: line.kit_label || "", hsn: line.hsn_code || "", mrp: line.mrp ? p(line.mrp) : null,
+      n: index + 1, label: line.label, lot: [line.lot_code, pharmacyLine(doc, line), agriLine(doc, line)].filter(Boolean).join(" · "), kit: line.kit_label || "", hsn: line.hsn_code || "", mrp: line.mrp ? p(line.mrp) : null,
       quantity: line.entered_unit ? `${qty(line.entered_quantity)} ${line.entered_unit}` : `${qty(line.quantity)} ${line.unit}`,
       rate: Number(line.entered_unit_price || line.unit_price), discount, taxable: p(line.net), gstRate: Number(line.tax_rate),
       cgst, sgst, igst: interstate ? tax : 0, tax, amount: p(line.net) + tax, free, exempt: Number(line.tax_rate) === 0 && tax === 0,
@@ -123,6 +123,36 @@ function pharmacyBlock(doc) {
   return `<div class="small">${licences ? `D.L. No. ${licences}` : ""}${ph.pharmacist ? `${licences ? "<br>" : ""}Registered pharmacist: ${escapeHtml(ph.pharmacist.name)} (Reg. ${escapeHtml(ph.pharmacist.registration_no)})` : ""}${rx ? `<br>Rx: ${escapeHtml(rx.doctor_name)} (Reg. ${escapeHtml(rx.doctor_reg_no)}), ${escapeHtml(String(rx.prescribed_on).slice(0, 10))} · Patient ${escapeHtml(rx.patient_name)}` : ""}</div>`;
 }
 
+// A farm-input shop's bill: each line's PoS receipt and the crop it was
+// bought for; the licences the location sold under; the farmer (a customer's
+// village, father's or husband's name and Farmer ID, or a walk-in's name and
+// village) and the season of a credit bill.
+function agriLine(doc, line) {
+  const x = (doc.agri?.lines || []).find((l) => l.line_id === line.id);
+  if (!x) return "";
+  return [x.pos_receipt && `PoS receipt ${x.pos_receipt}`, x.crop && `For ${x.crop}`].filter(Boolean).join(" · ");
+}
+function agriBlock(doc) {
+  const licences = doc.agri?.licences || [];
+  if (!licences.length) return "";
+  return `<div class="small">${licences.map((l) => `${escapeHtml(l.name)}: ${escapeHtml(l.licence_no)}`).join(" · ")}</div>`;
+}
+const SEASON_WORDS = { kharif: "Kharif", rabi: "Rabi", zaid: "Zaid" };
+function agriFacts(doc, date) {
+  const a = doc.agri;
+  if (!a) return [];
+  const farmer = a.farmer;
+  return [
+    farmer && [farmer.village && `Village ${farmer.village}`, farmer.relative_name && `Father's or husband's name ${farmer.relative_name}`, farmer.farmer_id && `Farmer ID ${farmer.farmer_id}`].filter(Boolean).map(escapeHtml).join(" · "),
+    a.bill?.buyer_name || a.bill?.village ? escapeHtml([a.bill.buyer_name, a.bill.village].filter(Boolean).join(", ")) : "",
+    a.bill?.season ? `Season credit ${escapeHtml(`${SEASON_WORDS[a.bill.season] || a.bill.season} ${a.bill.season_year}`)}${doc.due_on ? `, due ${date(doc.due_on)}` : ""}` : "",
+  ].filter(Boolean);
+}
+function farmerBox(doc, date) {
+  const facts = agriFacts(doc, date);
+  return facts.length ? `<div class="box" style="margin-bottom:6px"><b>Farmer</b>${facts.join("<br>")}</div>` : "";
+}
+
 function a4(doc, biz, f) {
   const { seller } = f;
   const money = (paise) => escapeHtml(moneyExact(r(paise), biz.symbol));
@@ -145,7 +175,7 @@ function a4(doc, biz, f) {
       ${seller.branch_name ? `<div class="muted">${escapeHtml(seller.branch_name)}</div>` : ""}
       <div>${address([seller.address_line1, seller.address_line2, seller.city, seller.postal_code])}</div>
       <div>${[seller.gstin && `GSTIN <strong>${escapeHtml(seller.gstin)}</strong>`, seller.state_code && `State ${escapeHtml(stateName(seller.state_code))}`].filter(Boolean).join(" · ")}</div>
-      ${pharmacyBlock(doc)}
+      ${pharmacyBlock(doc)}${agriBlock(doc)}
       <div class="muted">${[seller.phone && `Ph ${seller.phone}`, seller.email].filter(Boolean).map(escapeHtml).join(" · ")}</div></div>
     <div class="right"><h2>${escapeHtml(f.title)}</h2><div>No. <strong>${escapeHtml(doc.document_no)}</strong></div><div>Date ${date(doc.created_at)}</div>
       ${f.sale && doc.contact_id && doc.due_on && f.due > 0 ? `<div>Due ${date(doc.due_on)}</div>` : ""}
@@ -159,6 +189,7 @@ function a4(doc, biz, f) {
       <div>${escapeHtml(doc.location_name || "")}</div>${doc.tax_mode === "inclusive" && f.sale ? '<div class="muted">Prices include GST</div>' : ""}</div></div>
   ${transportBox(doc, date)}
   ${siteBox(doc)}
+  ${farmerBox(doc, date)}
   <table><thead><tr><th>#</th><th>Item</th><th>HSN/SAC</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Discount</th><th class="r">Taxable value</th><th class="r">GST</th>${taxHead}<th class="r">Amount</th></tr></thead>
     <tbody>${rows}</tbody></table>
   <div class="totals"><div>
@@ -232,12 +263,13 @@ function till(doc, biz, f, { change = 0, udhaar = null } = {}) {
   const savings = Number(doc.retail?.savings || 0);
   return `<h1>${escapeHtml(seller.display_name || seller.legal_name || biz.business.name)}</h1>
     ${seller.branch_name ? `<div class="c small">${escapeHtml(seller.branch_name)}</div>` : ""}
-    <div class="c small">${[seller.address_line1, seller.city, seller.postal_code].filter(Boolean).map(escapeHtml).join(", ")}${seller.phone ? `<br>Ph ${escapeHtml(seller.phone)}` : ""}${seller.gstin ? `<br>GSTIN ${escapeHtml(seller.gstin)}` : ""}</div>${pharmacyBlock(doc)}
+    <div class="c small">${[seller.address_line1, seller.city, seller.postal_code].filter(Boolean).map(escapeHtml).join(", ")}${seller.phone ? `<br>Ph ${escapeHtml(seller.phone)}` : ""}${seller.gstin ? `<br>GSTIN ${escapeHtml(seller.gstin)}` : ""}</div>${pharmacyBlock(doc)}${agriBlock(doc)}
     <div class="c"><strong>${escapeHtml(f.title.toUpperCase())}</strong></div>
     <hr><div class="row"><span>${escapeHtml(doc.document_no)}</span><span>${escapeHtml(businessDate(doc.created_at, seller.date_format, biz.business.timezone))} ${escapeHtml(new Date(doc.created_at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }))}</span></div>
     ${doc.contact_name ? `<div>${escapeHtml(doc.contact_name)}${doc.contact_phone ? ` · ${escapeHtml(doc.contact_phone)}` : ""}</div>` : ""}
     ${doc.contact_gstin ? `<div class="small">GSTIN ${escapeHtml(doc.contact_gstin)}</div>` : ""}
     ${doc.hardware?.site ? `<div class="small">Site ${escapeHtml(doc.hardware.site.name)}${doc.hardware.site.address ? `, ${escapeHtml(doc.hardware.site.address)}` : ""}</div>` : ""}
+    ${agriFacts(doc, (value) => escapeHtml(businessDate(value, seller.date_format, biz.business.timezone))).map((fact) => `<div class="small">${fact}</div>`).join("")}
     ${doc.buyer_pan ? `<div class="small">PAN ${escapeHtml(doc.buyer_pan)}</div>` : doc.pan_declaration ? '<div class="small">No PAN: Form 97 declaration held</div>' : ""}
     ${f.interstate ? `<div class="small">Place of supply ${escapeHtml(stateName(f.pos))}</div>` : ""}<hr>
     ${lineRows}
