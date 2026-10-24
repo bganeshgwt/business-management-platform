@@ -25,3 +25,5 @@ export const HARDWARE = ["hardware"];
 export const AGRI = ["agri_inputs"];
 // Optical shops: prescriptions, spectacle orders, the recall list.
 export const OPTICAL = ["optical"];
+// Vehicle service & auto parts: vehicles, job cards, the service-due list.
+export const GARAGE = ["garage"];

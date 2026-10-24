@@ -1,0 +1,236 @@
+/* Garages: the job card board, the estimate's line editor, a vehicle's facts
+   and the small notes the job card screens share. Colours come from the
+   theme's tokens only. */
+
+/* The board: a column per open status, scrolling sideways on a narrow screen. */
+.gar-board {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(230px, 1fr));
+  gap: var(--space-3);
+  overflow-x: auto;
+  padding: var(--space-3);
+}
+.gar-col {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  min-height: 160px;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+.gar-col-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.gar-col-estimate_sent .gar-col-head,
+.gar-col-waiting_parts .gar-col-head {
+  color: var(--warning-text);
+}
+.gar-col-ready .gar-col-head {
+  color: var(--success-text);
+}
+.gar-col-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gar-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+.gar-card.is-late {
+  border-color: var(--danger-border);
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+.gar-card-open {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: var(--space-3);
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.gar-card-open:hover {
+  background: var(--surface-hover);
+}
+.gar-plate {
+  font-family: var(--font-mono);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.04em;
+}
+.gar-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.gar-card-meta .is-late {
+  color: var(--danger);
+  font-weight: var(--weight-medium);
+}
+.gar-empty {
+  padding: var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+/* The estimate editor: one row per line, the item first. */
+.gar-line {
+  display: grid;
+  grid-template-columns: 8rem minmax(12rem, 2fr) 6rem 7rem 8rem auto;
+  gap: var(--space-2);
+  align-items: end;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+.gar-line > .field {
+  margin: 0;
+}
+.gar-line-more {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.gar-line-more > .field {
+  flex: 1 1 12rem;
+  margin: 0;
+}
+.gar-line-figure {
+  padding-bottom: var(--space-2);
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+@media (max-width: 800px) {
+  .gar-line {
+    grid-template-columns: 1fr 1fr;
+  }
+  .gar-line-more {
+    grid-column: 1 / -1;
+  }
+}
+
+/* The money of an estimate or bill being worked out. */
+.gar-total {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.gar-total strong {
+  color: var(--text);
+}
+
+/* A short line that needs attention (a reading lower than the last, a part not in stock). */
+.gar-note {
+  margin: 0;
+  color: var(--warning-text);
+  font-size: var(--text-sm);
+}
+
+/* The complaints, as a list in the job card's facts. */
+.gar-list {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+/* The complaints list on the job card form. */
+.gar-complaints {
+  display: grid;
+  gap: var(--space-2);
+}
+.gar-complaint {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+.gar-complaint input {
+  flex: 1 1 auto;
+}
+
+/* Choices ticked in a row (the mechanics on a job card). */
+.gar-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.gar-checks legend {
+  margin-bottom: var(--space-1);
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+/* A manager's approval of a lower odometer reading, inside a form. */
+.gar-approval {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-md);
+  background: var(--warning-bg);
+}
+.gar-approval legend {
+  padding: 0 var(--space-1);
+  color: var(--warning-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+.gar-approval .field {
+  margin: 0;
+}
+
+/* The garage's settings, in a row. */
+.gar-setting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2) var(--space-3);
+}
+.gar-setting .field {
+  margin: 0;
+}
+
+/* A short history in a card (a vehicle's owners, the reminders given). */
+.gar-history {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gar-history li {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+}

@@ -6,7 +6,7 @@
 // one thing no request can make: an order taken on an earlier day.
 import crypto from "node:crypto";
 
-import { AGRI, BUSINESSES, GROCERY, HARDWARE, MEAT, OPTICAL, PLATFORM, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
+import { AGRI, BUSINESSES, GARAGE, GROCERY, HARDWARE, MEAT, OPTICAL, PLATFORM, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
 
 // Every call names the status it expects, so a set-up that goes wrong stops
 // at the first wrong answer, with the API's own message, rather than leaving
@@ -384,6 +384,36 @@ export async function buildTestData({ api, logins, sql }) {
       supplier: { id: supplier.id, name: supplier.name },
       frame: { id: frame.id, name: frame.label }, lens: { id: lens.id, name: lens.label }, fitting: { id: fitting.id, name: fitting.label },
       customer: { id: customer.id, name: customer.name }, due: { id: due.id, name: due.name }, prescription: { id: prescription.id },
+    });
+  }
+
+  // The garage: engine oil and an oil filter in stock, service labour, a
+  // customer's car with its last reading, and a scooter due for its service.
+  {
+    const B = at("garage");
+    const day = (days) => new Date(Date.now() + days * 86400000).toLocaleDateString("en-CA", { timeZone: TIMEZONE });
+    const supplier = await owner("POST", B("contacts"), { kind: "supplier", name: GARAGE.supplier }, 201);
+    const goods = (item) => owner("POST", B("catalog"), {
+      name: item.name, code: item.code, kind: "goods", unit: item.unit, tracking: "quantity", price: String(item.price), mrp: String(item.mrp), hsnCode: item.hsn, taxRate: "18",
+    }, 201);
+    const oil = await goods(GARAGE.oil);
+    const filter = await goods(GARAGE.filter);
+    const labour = await owner("POST", B("catalog"), {
+      name: GARAGE.labour.name, code: GARAGE.labour.code, kind: "service", unit: "service", price: String(GARAGE.labour.price), hsnCode: GARAGE.labour.sac, taxRate: "18",
+    }, 201);
+    await owner("POST", B("documents"), {
+      kind: "purchase", requestKey: requestKey(), locationId: businesses.garage.locationId, contactId: supplier.id,
+      lines: [{ skuId: oil.id, quantity: "20", unitPrice: "300" }, { skuId: filter.id, quantity: "5", unitPrice: "220" }],
+    }, 201);
+    const { odometerKm, insuranceInDays, ...car } = GARAGE.car;
+    const swift = await owner("POST", B("garage/vehicles"), { ...car, owner: GARAGE.owner, odometerKm: String(odometerKm), insuranceExpiresOn: day(insuranceInDays) }, 201);
+    const { serviceInDays, ...scooter } = GARAGE.scooter;
+    const activa = await owner("POST", B("garage/vehicles"), { ...scooter, owner: GARAGE.scooterOwner, nextServiceOn: day(serviceInDays) }, 201);
+    Object.assign(businesses.garage, {
+      supplier: { id: supplier.id, name: supplier.name },
+      oil: { id: oil.id, name: oil.label }, filter: { id: filter.id, name: filter.label }, labour: { id: labour.id, name: labour.label },
+      car: { id: swift.id, registrationNo: swift.registration_no, owner: swift.owner_name },
+      scooter: { id: activa.id, registrationNo: activa.registration_no, owner: activa.owner_name },
     });
   }
 

@@ -10,7 +10,7 @@ import process from "node:process";
 
 import { TIMEZONE } from "./test-data.mjs";
 
-export { AGRI, BUSINESSES, GROCERY, HARDWARE, LOGINS, MEAT, OPTICAL, PLATFORM, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
+export { AGRI, BUSINESSES, GARAGE, GROCERY, HARDWARE, LOGINS, MEAT, OPTICAL, PLATFORM, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
 
 let data = null;
 

@@ -171,6 +171,21 @@ export const OPTICAL = {
   lab: "Crystal Lens Lab",
 };
 
+// The garage: engine oil and an oil filter kept in stock, received from the
+// spares dealer, and service labour; a customer's car with its last reading
+// (its insurance running out within the month), and a scooter due for its
+// service in a few days.
+export const GARAGE = {
+  supplier: "Sri Sai Auto Spares, Kukatpally",
+  oil: { name: "Engine oil 5W-30", code: "OIL-5W30", unit: "litre", price: 449.9, mrp: 480, hsn: "27101980" },
+  filter: { name: "Oil filter (Swift)", code: "FLT-SW", unit: "each", price: 380, mrp: 400, hsn: "84212300" },
+  labour: { name: "General service labour", code: "LAB-GEN", price: 1000, sac: "998714" },
+  car: { registrationNo: "TS09EA4521", make: "Maruti Suzuki", model: "Swift", variant: "VXi", fuel: "petrol", odometerKm: 41250, insuranceInDays: 20 },
+  owner: { name: "Lakshmi Prasad", phone: "9876501234" },
+  scooter: { registrationNo: "TS10EV0042", make: "Honda", model: "Activa 6G", fuel: "petrol", serviceInDays: 3 },
+  scooterOwner: { name: "Kiran Reddy", phone: "9123456780" },
+};
+
 // The salon: one stylist and one service.
 export const SALON = {
   stylist: { name: "Priya Sharma", role: "Senior stylist" },

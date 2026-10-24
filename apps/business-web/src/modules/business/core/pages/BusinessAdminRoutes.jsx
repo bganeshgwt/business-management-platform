@@ -123,6 +123,14 @@ const PrescriptionHistoryPage = lazy(() => import("../../optical/pages/Prescript
 const SpectacleOrdersPage = lazy(() => import("../../optical/pages/SpectacleOrdersPage"));
 const SpectacleOrderPage = lazy(() => import("../../optical/pages/SpectacleOrderPage"));
 const RecallPage = lazy(() => import("../../optical/pages/RecallPage"));
+// Garages.
+const JobCardsPage = lazy(() => import("../../garage/pages/JobCardsPage"));
+const JobCardPage = lazy(() => import("../../garage/pages/JobCardPage"));
+const VehiclesPage = lazy(() => import("../../garage/pages/VehiclesPage"));
+const VehiclePage = lazy(() => import("../../garage/pages/VehiclePage"));
+const StatementPage = lazy(() => import("../../garage/pages/StatementPage"));
+const ServiceDuePage = lazy(() => import("../../garage/pages/ServiceDuePage"));
+const GarageSettingsPage = lazy(() => import("../../garage/pages/GarageSettingsPage"));
 
 function Notice({ title, children }) {
   return (
@@ -254,6 +262,10 @@ function screens(type) {
     "prescriptions": <PrescriptionsPage />,
     "spectacle-orders": <SpectacleOrdersPage />,
     "recall": <RecallPage />,
+    "job-cards": <JobCardsPage />,
+    "vehicles": <VehiclesPage />,
+    "service-due": <ServiceDuePage />,
+    "garage-settings": <GarageSettingsPage />,
   };
 }
 
@@ -326,6 +338,9 @@ export default function BusinessAdminRoutes() {
         <Route path="lab-orders/:orderId" element={page("lab-orders", <LabOrderPage />)} />
         <Route path="prescriptions/:contactId" element={page("prescriptions", <PrescriptionHistoryPage />)} />
         <Route path="spectacle-orders/:orderId" element={page("spectacle-orders", <SpectacleOrderPage />)} />
+        <Route path="job-cards/:jobId" element={page("job-cards", <JobCardPage />)} />
+        <Route path="vehicles/:vehicleId" element={page("vehicles", <VehiclePage />)} />
+        <Route path="vehicles/owner/:contactId" element={page("vehicles", <StatementPage />)} />
         <Route path="tasks/*" element={page("tasks", <TasksRoutes />)} />
         <Route path="*" element={<Notice title="Page not found"><p>Use the menu on the left to find the screen you need.</p></Notice>} />
       </Routes>

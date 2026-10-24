@@ -14,6 +14,7 @@ const access = require('./businessAccess.service');
 //   promises           promised to pay today, or a promise broken
 //   repairs            ready to collect, or past the promised date
 //   spectacle orders   ready to collect, or past the promised day (optical shops)
+//   job cards          ready to deliver, or past the promised time (garages)
 //   appointments       still to come today
 //   licences           running out within 60 days, or run out
 //   wholesale overdue  (same overdue query, worded as invoices)
@@ -124,6 +125,10 @@ async function feed(business) {
   // An optical shop's spectacle orders: ready to collect, or past their promised day.
   if (has('optical') && can('optical.view') && business.business_type === 'optical') {
     items.push(...await require('../../optical/services/opticalOrders.service').bell(business, base, LIMIT));
+  }
+  // A garage's job cards: ready to deliver, or past their promised time.
+  if (has('garage') && can('garage.view') && business.business_type === 'garage') {
+    items.push(...await require('../../garage/services/garageJobCards.service').bell(business, base, LIMIT));
   }
   // Licences & registrations: a licence running out within 60 days (warning), or run out (critical).
   if (has('licences') && can('licences.view')) {

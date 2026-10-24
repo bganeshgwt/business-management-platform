@@ -71,6 +71,9 @@ function firstActions(biz) {
   // An optical shop's day: spectacle orders to book, and the prescriptions from its eye tests.
   if (biz.type === "optical" && biz.has("optical") && can("optical.create") && can("sales.create")) list.push({ to: "spectacle-orders?new=1", icon: "clipboard", label: "Book a spectacle order" });
   if (biz.type === "optical" && biz.has("optical") && can("optical.create")) list.push({ to: "prescriptions?new=1", icon: "eye", label: "Record a prescription" });
+  // A garage's day: job cards to open for the vehicles coming in, and their vehicles.
+  if (biz.type === "garage" && biz.has("garage") && can("garage.create")) list.push({ to: "job-cards?new=1", icon: "clipboard", label: "Open a job card" });
+  if (biz.type === "garage" && biz.has("garage") && can("garage.create")) list.push({ to: "vehicles?new=1", icon: "truck", label: "Add a vehicle" });
   if (biz.has("receivables") && can("receivables.create")) list.push({ to: goods ? "udhaar" : "collections?new=1", icon: "wallet", label: goods ? "Collect udhaar" : "Record a collection" });
   if (!goods && biz.type !== "salon" && can("sales.create")) list.push({ to: "sales?new=1", icon: "receipt", label: "New sale (invoice)" });
   if (biz.type !== "salon" && biz.type !== "healthcare" && can("appointments.create") && biz.has("appointments")) list.push({ to: "appointments?new=1", icon: "calendar", label: "Book an appointment" });

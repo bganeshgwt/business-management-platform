@@ -26,6 +26,7 @@ The everyday numbers, such as expiring-soon days, voucher validity, credit age g
 - [Hardware, paints & building materials](#hardware-paints--building-materials)
 - [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides)
 - [Optical shops](#optical-shops)
+- [Vehicle service & auto parts](#vehicle-service--auto-parts)
 - [Restaurant and food formats](#restaurant-and-food-formats)
 
 ## Fixed on purpose
@@ -405,7 +406,7 @@ These rules apply to every business type but the restaurant. The goods rules app
 
 ### Roles by business type
 
-- **Rule:** some roles belong to one type of business: Pharmacist to a pharmacy; Doctor, Lab technician and Pathologist to a clinic & lab; Optometrist to an optical shop. A business of that type starts with them, and other types do not get them.
+- **Rule:** some roles belong to one type of business: Pharmacist to a pharmacy; Doctor, Lab technician and Pathologist to a clinic & lab; Optometrist to an optical shop; Mechanic to a garage. A business of that type starts with them, and other types do not get them.
 - **Why:** a kirana should not see a "Doctor" role.
 - **Change it:** they are ordinary roles, editable in *Roles & permissions*.
 
@@ -576,6 +577,64 @@ An optical shop sells as every goods shop does ([Shops and the shared core](#sho
 - **Rule:** the medical device sale registration (MD-42) is kept under *Settings › Licences* with its number and dates; the bell warns before a date it is given runs out. Contact-lens bills are not refused without it.
 - **Why:** anyone selling contact lenses without a licence for them needs the MD-42 registration (G.S.R. 754(E) of 30 September 2022); keeping it where every licence is kept shows it with its dates.
 - **Change it:** *Settings › Licences*.
+
+## Vehicle service & auto parts
+
+A garage sells parts as every goods shop does ([Shops and the shared core](#shops-and-the-shared-core)); with *Vehicles & job cards* on it also keeps its customers' vehicles and works on them with job cards, from the estimate the owner approves to the bills. Each rule below is checked by the server, and the ones about records that must not change are held by the database too.
+
+### A vehicle is its registration number
+
+- **Rule:** a registration number is kept as it is on the plate: capital letters and digits only (spaces, dashes and dots are left out), 4 to 15 of them with at least one letter and one digit. A business has one vehicle per number and one per chassis number. Its owner is a customer; a change of owner keeps every owner it has had, with when and who recorded it, and the database writes that history and refuses to change it. A vehicle is never deleted: one sold or scrapped is switched off, once no job card of it is open.
+- **Why:** a plate is typed many ways (*TS 09 EA-4521*, *ts09ea4521*); kept one way, it finds the vehicle however it is typed. A vehicle's history stays with it when it changes hands.
+- **Change it:** nothing to set.
+
+### A reading lower than the last needs a manager
+
+- **Rule:** every odometer reading is kept (in and out of a job card, or typed on the vehicle), and the vehicle's latest reading is the newest one. A reading lower than the last is refused unless someone whose role holds `garage.approve` approves it with the reason: they give only the reason themselves; anyone else names them and they type their PIN. The database refuses a lower reading without that approval, and an approval on a reading that is not lower. Readings are never changed or deleted. The kilometres a vehicle runs in a day are worked out from its readings since the last approved lower one.
+- **Why:** an odometer only goes up. A lower reading is a typing mistake, or a meter replaced or reset, and a manager says which; reminders by kilometres depend on the readings.
+- **Change it:** who may approve is the role's `garage.approve` (the owner and a manager by default).
+
+### The estimate has versions, and the owner approves what they pay
+
+- **Rule:** each change to the estimate saved is a new version, kept as it was: who, when, the lines, the total and the insurer's lines. An approval records who approved, how (in person, by phone or on WhatsApp), when (never in the future), and the amount: the total of the version approved. A version that comes to more than the owner last approved, a revision or parts a mechanic adds, sends the job card back to *Estimate sent* until they approve again; one that comes to less keeps the approval. A received job card may go straight to work (a quick job) without one. Versions and approvals are never changed or deleted.
+- **Why:** a workshop does not bill more than the owner agreed to, and the record shows who agreed to what, and how.
+- **Change it:** nothing to set; who sends estimates and records approvals is a role holding both `garage.view` and `garage.edit` (the owner, a manager and a cashier by default).
+
+### Parts are priced as a sale would be, and leave stock when the job is billed
+
+- **Rule:** a part is an item kept in stock; labour and outside work are service items, and outside work needs its charge and the workshop that did it. A part is priced at the customer's price for it (their price list, the branch's price or the item's price) unless a rate is typed: a lower rate is a discount and needs `sales.discount`, and no part is charged above its MRP. Nothing leaves stock until the job is billed; then each part leaves stock at the job card's location (a serial-numbered part by its numbers, a batch by the oldest expiry first), and a part not in usable stock there stops the billing until it is received. The bill keeps the job card's prices with GST at each item's rate on the day of the bill: a price that includes GST keeps its total, a price before GST its taxable value; a part charged above its MRP that day stops the billing.
+- **Why:** the stock and the bill move together, so a job card cancelled before it is billed leaves the stock as it was; the customer agreed the estimate's prices, and GST is the rate of the day of the invoice.
+- **Change it:** nothing to set; GST is each item's slab (parts and labour 18%, the tractor parts the GST Council listed 5%).
+
+### A job card's steps
+
+- **Rule:** a job card goes from received to estimate sent, approved, in progress, waiting for parts and ready in the order the work needs (a received job card may start straight away); *Estimate sent* waits for the owner's approval of the version sent; a ready vehicle goes back to work only with the reason; *Ready* goes to delivered by billing the job. The database refuses any other move. A job card with lines is delivered only with its bill. Cancelling needs a reason. A delivered or cancelled job card never changes, nor do its lines, mechanics and claim. Every step is kept in the history with who made it.
+- **Why:** the board shows where every vehicle is, and the history who did what.
+- **Change it:** who cancels is the role's `garage.cancel` (the owner and a manager by default).
+
+### A mechanic works on the job cards assigned to them
+
+- **Rule:** someone whose role holds `garage.edit` but not `garage.view` (the Mechanic) sees only the job cards they are put on: they record the work done, add the parts they used (at the customer's price, as a new version) and move the job along (in progress, waiting for parts, ready), and print its copies. They see no prices, totals, bills or advances unless their role also holds `sales.view`. Sending the estimate, recording approvals and claims, taking an advance, and billing and delivering are the desk's. Only active members whose role holds `garage.edit` (or full access) can be put on a job card.
+- **Why:** the mechanic does the work; the money and the owner's say-so are the desk's.
+- **Change it:** *Roles & permissions*.
+
+### A cashless claim is two bills that add up to the job
+
+- **Rule:** a job card's claim names the insurer (a customer, never the job card's own), cashless or reimbursement, the policy number, the claim number, the surveyor, the amount the insurer approved (more than 0; in whole rupees where the business rounds its bills to the rupee), the deductible and the depreciation. Each line is paid by the customer or, on a claim, by the insurer. A cashless claim is billed as two bills: one to the insurer for exactly the approved amount, spread over its lines in proportion to their value and rounded on the running total so the parts add up to the paisa; and one to the customer for their own lines and the owner's share of the claim (the insurer's lines less the approved amount: the deductible, the depreciation and what was not allowed), billed as one line of the claim-share item. The two bills come to the job's total exactly. Billing waits until the approved amount and the claim number are in, the approved amount (and the approved amount with the deductible and the depreciation) is not more than the insurer's lines, and the claim-share item is set. A reimbursement claim is billed to the customer for the whole job, naming the claim. The claim is taken off only by making its lines the customer's (*Take the claim off* does both); the claim of a delivered job card never changes.
+- **Why:** CBIC Circular 217/11/2024-GST describes the garage issuing two invoices on a claim, one to the insurance company for the approved claim cost and one to the customer for the repair in excess of it (the compulsory deductible, depreciation, what the cover leaves out); the insurer may take input tax credit on the invoice in its own name. On reimbursement the insured pays the garage and the insurer repays them up to the approved claim cost.
+- **Change it:** the claim-share item in *Settings › Garage settings*. The owner's share is billed at that item's GST slab, whatever the slabs of the insurer's lines: have an accountant confirm it where those lines carry another slab (tractor parts at 5%).
+
+### The advance is the customer's money on account
+
+- **Rule:** an advance on an open job card (one, when it is opened or later) is a numbered collection receipt in the customer's name, by cash, UPI, card or bank, and never more than the job's total once there is an estimate. It pays first when the job is billed. On a cancelled job card it stays the customer's: it is handed back from the job card (all that is left, or part, by cash, UPI or bank, with a reason and a manager's PIN), or it stays on their account for a later bill. The cash limit counts it like any collection.
+- **Why:** until the job is billed the money is the customer's; money leaving the drawer needs a second person's say-so.
+- **Change it:** who may take an advance is a role holding `garage.view`, `garage.edit` and `sales.edit` (the owner, a manager and a cashier by default); who may approve handing it back, `sales.refund`.
+
+### The next service, and who is due
+
+- **Rule:** billing a job sets the vehicle's next service: by date, the garage's months after the bill, and by reading, its kilometres after the reading out (or in), to start with; or the day and reading typed (a day after today within five years, a reading above the vehicle's), or none. A job card with nothing on it, delivered with no bill, leaves the vehicle's next service as it was. *Service due* holds every vehicle in use whose next service falls within 7 days, by its date or by the day its kilometres a day will take it to the reading due, and every one whose insurance or PUC runs out within 30 days or has run out. Each reminder given (WhatsApp, a call) is kept; one in the last 30 days counts as recent.
+- **Why:** a service falls due by months or by kilometres, whichever comes first; the reading is projected from the odometer log, so the reminder goes before the reading is reached.
+- **Change it:** the months (1 to 36, 6 to start with) and kilometres (500 to 100,000, 5,000 to start with) in *Settings › Garage settings*, by a role that holds `settings.edit`; each job's own on its bill.
 
 ## Restaurant and food formats
 

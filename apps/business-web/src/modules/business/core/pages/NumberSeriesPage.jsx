@@ -18,7 +18,9 @@ const KINDS = { sale: "Sale invoices", purchase: "Purchase receipts", sales_retu
   // Estimates (not GST documents).
   quotation: "Quotations",
   // An optical shop's spectacle orders (job cards; not GST documents).
-  spectacle_order: "Spectacle orders" };
+  spectacle_order: "Spectacle orders",
+  // A garage's job cards (not GST documents).
+  job_card: "Job cards" };
 const fiscalLabel = (year) => `${year}-${String((Number(year) + 1) % 100).padStart(2, "0")}`;
 const sample = (s) => `${s.prefix}${String(s.next_number).padStart(s.padding, "0")}`;
 

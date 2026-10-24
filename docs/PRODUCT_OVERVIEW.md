@@ -202,6 +202,15 @@ Pharmacy and clinic rules follow standard Indian practice. A pharmacist, a docto
 
 The GST rates of an optical shop's goods and how to set it up: [ADMIN_GUIDE.md › Optical shops](ADMIN_GUIDE.md#optical-shops).
 
+### Vehicle service and auto parts
+
+- **Vehicles:** each customer's vehicles by their registration number, found however it is typed, with make, model, fuel, and chassis and engine numbers; every owner a vehicle has had; and an odometer log where a reading lower than the last needs a manager's approval and the reason. A customer with many vehicles (a fleet) gets one statement of the jobs on each.
+- **Job cards:** a vehicle's visit from its arrival to its delivery: the reading and fuel in, what the customer says, inspection notes, the bay, the promised time and the mechanics. The estimate of parts, labour and outside work is priced exactly as the bill will be and kept in versions; the owner's approval records who gave it, how (in person, by phone or on WhatsApp) and when, and work that comes to more goes back to them. The board shows every vehicle in the workshop by where its job stands; a mechanic sees the job cards assigned to them, records the work done and the parts used, and sees no money. The customer copy prints the estimate to sign, and the workshop copy the work without prices.
+- **Billing and insurance claims:** the job is billed at the job card's prices, with the advance taken off; the parts leave stock then. On a cashless insurance claim the insurer is billed for exactly what it approved and the owner for the rest (the deductible, the depreciation and what was not allowed), as CBIC Circular 217/11/2024-GST describes, and the two bills add up to the job to the paisa; on a reimbursement claim the owner is billed for the whole job.
+- **Service reminders:** the next service by date and by kilometres, set at each bill (6 months or 5,000 km unless the garage sets others), and a service-due list that projects each vehicle's reading from how far it runs in a day, with insurance and PUC running out; reminders go on WhatsApp and are kept.
+
+The GST rates of a garage's parts and labour and how to set it up: [ADMIN_GUIDE.md › Vehicle service & auto parts](ADMIN_GUIDE.md#vehicle-service--auto-parts).
+
 ### The newer trades
 
 General stores, hardware and building-material shops, seeds and fertiliser shops, opticians, garages, jewellers, fuel stations, gyms and coaching centres, laundries, rental businesses, and hotels and lodges run on the shared core from their first day:
@@ -210,7 +219,7 @@ General stores, hardware and building-material shops, seeds and fertiliser shops
 - **Their trade's tools to switch on:** contractor rates and site orders with challans for hardware; dealer rates and batch tracking for seeds and pesticides; eye-test and service bookings for opticians and garages; personal-training bookings for gyms.
 - **Their own checklists:** nozzle tests and density checks at a fuel station, room turnover and the guest register at a lodge, the day-end tally at a jeweller, and more.
 
-Each trade's own screens (job cards, memberships, gold rates, rooms and others) come in the order set out in [BACKLOG.md › New business types](BACKLOG.md#10-new-business-types).
+Each trade's own screens (memberships, gold rates, rooms and others) come in the order set out in [BACKLOG.md › New business types](BACKLOG.md#10-new-business-types).
 
 ## Several locations
 
@@ -235,7 +244,7 @@ A business can run several shops, counters, godowns, clinics or outlets. Each is
 Every action needs two keys: the business must have that module switched on, and the person's role must allow the action. The server checks both on every request.
 
 - **One login, many businesses**, each with its own role.
-- **Ready-made roles:** Owner, Manager, Cashier / sales, Stock keeper, Accountant and Viewer in every business; a pharmacy adds a Pharmacist, a clinic adds a Doctor, a Lab technician and a Pathologist, and an optical shop adds an Optometrist. A restaurant has its own set: Restaurant Admin, Manager, Cashier, Captain / Waiter, Kitchen staff, Accountant, Store keeper and a Collection display for the pickup screen. An owner can add roles of their own, and a manager can never give more than they hold.
+- **Ready-made roles:** Owner, Manager, Cashier / sales, Stock keeper, Accountant and Viewer in every business; a pharmacy adds a Pharmacist, a clinic adds a Doctor, a Lab technician and a Pathologist, an optical shop adds an Optometrist, and a garage adds a Mechanic. A restaurant has its own set: Restaurant Admin, Manager, Cashier, Captain / Waiter, Kitchen staff, Accountant, Store keeper and a Collection display for the pickup screen. An owner can add roles of their own, and a manager can never give more than they hold.
 - **Staff logins with a branch and a department.**
 - **Sign-in protection:** passwords never stored in readable form, two-step sign-in, lockout after repeated wrong attempts, PINs for shared tills, PIN sign-off for pathologists and pharmacists.
 - **Data kept apart:** each business sees only its own data. The server checks it on every request, and the database refuses any record that points at another business's data.
@@ -313,7 +322,8 @@ Automated tests cover the admin side and the guests' site; the integration tests
 Where a mistake would lose money, stock or medical records, the database refuses it as well as the program. For example:
 - a duplicate bill number;
 - stock below zero in a shop (a restaurant bill never waits for stock: its stock may go below zero, and the stock screens then ask for a count);
-- editing a posted bill, a signed lab report, or a prescription that spectacles were ordered on;
+- editing a posted bill, a signed lab report, a prescription that spectacles were ordered on, or a delivered job card;
+- an odometer reading lower than a vehicle's last without a manager's approval;
 - a banned pesticide on a bill, or, with Licences on, a fertiliser, seed or pesticide sold where the branch holds no licence in force;
 - changing a QC run;
 - a record that points at another business's data.

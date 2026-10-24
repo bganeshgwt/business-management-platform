@@ -2,7 +2,7 @@
 // has switched on and what this person's role allows. The server checks the
 // same two things on every request; the menu only hides what would be refused.
 
-import { AGRI, CLINIC, GOODS, HARDWARE, OPTICAL, PHARMACY, RETAIL, SALON, WEIGHED } from './businessTypes.js';
+import { AGRI, CLINIC, GARAGE, GOODS, HARDWARE, OPTICAL, PHARMACY, RETAIL, SALON, WEIGHED } from './businessTypes.js';
 import { dailyWorkspaces, WORKSPACES, workspaceLabel, workspaceSections } from './businessWorkspace.js';
 
 export { GOODS };
@@ -162,6 +162,17 @@ export function businessSections(type) {
       ],
     },
     {
+      // A garage's job cards (a daily entry of their own; a mechanic sees the ones
+      // assigned to them), and its vehicles and service-due list (with its customers).
+      title: "Garage",
+      links: [
+        { section: "job-cards", label: "Job cards", icon: "repair", module: "garage", types: GARAGE },
+        { section: "vehicles", label: "Vehicles", icon: "deliveries", need: "garage.view", types: GARAGE },
+        // Vehicles due for a service, and insurance and PUC running out, with a reminder ready to send.
+        { section: "service-due", label: "Service due", icon: "reservations", need: "garage.view", types: GARAGE },
+      ],
+    },
+    {
       title: "Purchases",
       links: [
         { section: "purchases", label: "Purchases", icon: "purchaseOrders", need: "purchasing.view" },
@@ -247,6 +258,8 @@ export function businessSections(type) {
         { section: "licences", label: "Licences", icon: "logbook", need: "licences.view", except: ['restaurant'] },
         // What a farm-input shop's bills are checked for, and whether the licence check is on.
         { section: "agri-settings", label: "Farm input checks", icon: "serviceSettings", need: "agri.view", types: AGRI },
+        // A garage's months and kilometres to the next service, and the item that bills the owner's share of a claim.
+        { section: "garage-settings", label: "Garage settings", icon: "serviceSettings", need: "garage.view", types: GARAGE },
       ],
     },
     {

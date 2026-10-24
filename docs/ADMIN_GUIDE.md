@@ -91,6 +91,7 @@ on record.
 - [Hardware, paints & building materials](#hardware-paints--building-materials)
 - [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides)
 - [Optical shops](#optical-shops)
+- [Vehicle service & auto parts](#vehicle-service--auto-parts)
 
 **[Part 4 — Tasks, issues & projects](#part-4--tasks-issues--projects)**
 
@@ -2118,8 +2119,8 @@ panel over it.
 | Menu | Entry, and the tabs inside it | What they are for |
 | --- | --- | --- |
 | Daily work | **Overview** | Up to four headline figures — sales today (against the same weekday last week by this time), money in today, what customers owe (less advances, the same figure as Udhaar / Outstanding) and what is owed to suppliers — then *Needs doing today* (low stock, batches expiring soon, transfers on the way, counts open, broken promises, repairs ready, orders to dispatch…), *Start here* (the things done most often in this type), sales over the last 14 days, hour by hour and the best sellers, the day's bookings for a salon or clinic, and *What this business uses*. You see only the figures your role may see. |
-| Daily work | The type's own counter and day: a shop's **Quick bill**, a pharmacy's **Prescription sale**, a salon's **New bill** and **Appointments** (the calendar), a clinic's **Today's patients**, a wholesaler's **Sales orders** | Described with each type below. |
-| Daily work | **Sales history** (*Bill history* in a salon or clinic), with Quotations, Exchanges, Warranties and Orders for pickup where the type has them; **Customers** (*Clients*; a clinic's *Patients*), with Loyalty points | Post a sale at the server's prices, take payment with it or leave it on credit, return goods, refund. Customers carry a GSTIN, a credit limit and credit days; a customer over the limit cannot be given more credit. |
+| Daily work | The type's own counter and day: a shop's **Quick bill**, a pharmacy's **Prescription sale**, a salon's **New bill** and **Appointments** (the calendar), a clinic's **Today's patients**, a wholesaler's **Sales orders**, a garage's **Job cards** | Described with each type below. |
+| Daily work | **Sales history** (*Bill history* in a salon or clinic), with Quotations, Exchanges, Warranties and Orders for pickup where the type has them; **Customers** (*Clients*; a clinic's *Patients*), with Loyalty points (and a garage's Vehicles and Service due) | Post a sale at the server's prices, take payment with it or leave it on credit, return goods, refund. Customers carry a GSTIN, a credit limit and credit days; a customer over the limit cannot be given more credit. |
 | Daily work | **Udhaar** (*Customer dues* outside a kirana, a meat or weight-based shop, a general store, a hardware shop or a seeds and fertiliser shop), with *Payments received*; **Daily money**, with Expenses (and EMI & financiers) | What customers owe and what they paid; the day's money and paid expenses (below). |
 | Business | **Products & services** (named for the type: *Medicines & products*, *Books & stationery*…), with Categories, Barcode labels, Kits & bundles, Offers & discounts, price lists and the type's own (Drug master, Book details, Size × colour, Today's rates, Stylists & services) | Items with GST slab, unit, how they are tracked (quantity, batch and expiry, or serial number), reorder level. Categories nest up to five levels. |
 | Business | **Purchases**, with Suppliers, Purchase orders (every business that keeps stock) and, for a wholesaler, Claims on suppliers | Record what was bought; stock goes up at once at its cost. |
@@ -2127,7 +2128,7 @@ panel over it.
 | Business | The type's own records: **Registers & prescriptions** (pharmacy), **Booklists & orders** (books), **Repairs** (electronics), **Packages** (salon), **Lab orders** (clinic), **Farm inputs** (seeds, fertilisers & pesticides) | Described with each type below. |
 | Management | **Reports**, with the type's own reports, Staff commissions and Activity log | Money by day, locations compared, departments; who did what. |
 | Management | **Tasks** | See [Part 4](#part-4--tasks-issues--projects). |
-| Management | **Settings**: Business settings (with Business tools), Tax rates, Payment methods, Number series, Locations, Units & pack sizes, Staff & rooms (*Doctors & rooms* in a clinic), Licences (with Licences & registrations on), and Pharmacy settings, Clinic & lab settings or Farm input checks | Legal name, GSTIN, prices with or without GST, rounding, financial year, the most a manager may take off a bill at the counter (with a reason; the owner is not limited), whether a walk-in may leave a bill unpaid, and the shared till's PIN rule. Number series give each location its own bill numbers per financial year, with no gaps and no duplicates. A pack size turns "3 boxes" into 72 pieces exactly. A location holding stock cannot be closed. |
+| Management | **Settings**: Business settings (with Business tools), Tax rates, Payment methods, Number series, Locations, Units & pack sizes, Staff & rooms (*Doctors & rooms* in a clinic), Licences (with Licences & registrations on), and Pharmacy settings, Clinic & lab settings, Farm input checks or Garage settings | Legal name, GSTIN, prices with or without GST, rounding, financial year, the most a manager may take off a bill at the counter (with a reason; the owner is not limited), whether a walk-in may leave a bill unpaid, and the shared till's PIN rule. Number series give each location its own bill numbers per financial year, with no gaps and no duplicates. A pack size turns "3 boxes" into 72 pieces exactly. A location holding stock cannot be closed. |
 | Management | **Staff & access**, with Roles & permissions | Give a person from your staff list a role in this business, change it or switch it off. |
 
 **Two rules people notice:** prices, tax and totals are always worked out by the
@@ -2992,7 +2993,7 @@ Eleven more types run on the shared screens from the day they are created: *Quic
 | Hardware, paints & building materials | Its own screens: see [Hardware, paints & building materials](#hardware-paints--building-materials) below | See the same section |
 | Seeds, fertilisers & pesticides | Its own screens: see [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) below | See the same section |
 | Optical shops | Its own screens: see [Optical shops](#optical-shops) below | See the same section |
-| Vehicle service & auto parts | Quick bill and retail reports for the parts counter; pairs and sets | **Appointments** (service bookings by bay and mechanic), **Wholesale price lists** (mechanic and retailer rates), batches, serials and warranties, offers |
+| Vehicle service & auto parts | Its own screens: see [Vehicle service & auto parts](#vehicle-service--auto-parts) below | See the same section |
 | Jewellery & gold | Quick bill and retail reports; prices before GST, rounded to the rupee; GST 3% by default, with 0.25% (rough and loose stones), 1.5% (cut and polished diamonds), 5% (job work), 18% (repairs and services) and nil; weights in grams and carats | Serials (a tag number per piece), exchanges, stock transfers, offers, loyalty |
 | Fuel stations | Quick bill and retail reports for lubricants and the shop; customer credit for fleets; litres and cases | **Tasks** (daily nozzle tests, density checks and safety rounds), batches, price lists |
 | Gyms, studios & coaching | Plans and fees as services; *Bill history*; members' dues | **Appointments** (personal-training sessions and trials), offers, loyalty, stock for a shop counter |
@@ -3367,6 +3368,183 @@ stock keeper moves the work along (the lab, the workshop) and sees no money;
 a manager does all of it, cancels orders and gives discounts; an accountant
 and a viewer see the screens.
 
+## Vehicle service & auto parts
+
+A garage bills parts at **Quick bill** (the parts counter) with prices
+including GST rounded to the rupee, keeps customer dues for named customers,
+and sells in pairs and sets as well as pieces and litres. A new garage starts
+with **Vehicles & job cards** on. Recommended in Settings › Business tools:
+**Appointments** (service bookings by day, bay and mechanic, under *Service
+bookings*), **Wholesale price lists** (mechanic and retailer rates on the parts
+counter) and **Quotations**; batches, serials, warranties and offers can be
+switched on too. Job cards have a daily entry of their own, *Job cards*; the
+vehicles and the service-due list are under *Customers*, and the garage's
+settings under *Settings › Garage settings*.
+
+**Before trading:**
+
+1. **GST slabs** — from 22 September 2025, parts and accessories of motor
+   vehicles and motorcycles are at 18%, and so is repair and maintenance
+   labour (SAC 998714); the tractor parts the GST Council listed, and rear
+   tractor tyres and tubes, are at 5%. Give each item its slab when adding it
+   (a new garage has nil, 5%, 18% and 40%): the slab decides the GST at the
+   parts counter and on every job card. Have an accountant confirm them.
+2. **Items** — parts as goods kept by quantity (or by serial number, with
+   Serials on, for batteries and tyres whose warranty goes by it); labour as
+   service items with SAC 998714 (*General service labour*, *Wheel
+   alignment*); work done at another workshop (denting, painting, machining)
+   as a service item too, charged on each job card as agreed.
+3. **Insurance companies** — each one a customer with its GSTIN (and PAN), so
+   the bills to it carry them; and, for cashless claims, the item that bills
+   the owner's share (*Settings › Garage settings*, *Make the item*).
+4. **Mechanics** — a staff login for each with the **Mechanic** role (*Staff &
+   access*), so they can be put on job cards and see the ones assigned to
+   them.
+
+**The screens:**
+
+- **Job cards** (*Job cards*) — the board: a column for each open status
+  (*Received*, *Estimate sent*, *Approved*, *In progress*, *Waiting for
+  parts*, *Ready*), each card with the plate, the vehicle, the customer and
+  the job card's number, the promised time (marked late once it has passed),
+  how long it has been at that step, the mechanics, how much of the work is
+  done, the insurer on a claim and the total. *All job cards by date* lists
+  every job card of the dates chosen, with its status, reading in, mechanics,
+  claim, total and bills. A mechanic sees *My job cards*: only the ones
+  assigned to them.
+- **Opening a job card** — *Open a job card* (on *Job cards*, or on a
+  vehicle's page): type the registration number as it is on the plate
+  (spaces and dashes are left out) and the vehicle comes up with its owner
+  and last reading; a number not seen before is added there (*Add the
+  vehicle*). The owner pays, unless *Another customer pays* (a company or a
+  fleet) names who does. Then the odometer in (a reading lower than the last
+  needs a manager: see *The odometer log*), the fuel level, what the customer
+  says (one complaint a line, up to 20), inspection notes (dents and
+  scratches, what was left in the vehicle), the bay, the promised time
+  (within a year), the mechanics, and an advance (cash, UPI, card or bank: a
+  numbered receipt in the customer's name, taken off their bill). When the
+  vehicle already has a job card open, the form says so and links to it. Job
+  cards are numbered *JC/2627/0001* (Settings › Number series).
+- **The estimate** — *Write the estimate* on the job card: parts (items kept
+  in stock, at the customer's price unless a rate is typed: a lower rate is a
+  discount, for those who may give one, and no part is charged above its
+  MRP), labour (a service item, at its price or as agreed) and outside work
+  (a service item with its charge, the workshop that did it and its bill
+  number), each with its quantity and, on a job card with a claim, who pays
+  it. Every figure is the server's, with GST at each item's slab and the
+  round-off. Each change saved is a new version, kept as it was (*Versions
+  and approvals*). Parts leave stock when the job is billed, not before: the job
+  card shows a part not in usable stock at its location, and billing waits
+  until it is received.
+- **The owner's approval** — *Send the estimate* (with a note, say *Sent on
+  WhatsApp*) puts the job card at *Estimate sent*; *Record the owner's
+  approval* keeps who approved, how (in person, on the phone or on WhatsApp),
+  when, and the amount: the estimate's total as it stands. A version that
+  comes to more than the owner last approved (a revision, or parts a mechanic
+  adds) sends the job card back to *Estimate sent* until they approve again;
+  one that comes to less keeps the approval. A quick job may start without an
+  estimate (*Start work* on a received job card).
+- **The work** — *Start work*, *Waiting for parts* and *Work done: ready*,
+  each with a note kept in the history (sending a ready vehicle back to work
+  needs the reason). *Record the work done* ticks each line as done; *Add
+  parts used* puts the parts a mechanic fitted on the estimate at the
+  customer's price, as a new version. *Mechanics* names who works on it;
+  *Change details* changes the complaints, inspection notes, bay, promised
+  time, fuel level and notes while the job card is open.
+- **Insurance claim** — *Insurance claim* on the job card: the insurer (one of
+  the customers, never the job card's own), cashless (the insurer pays the
+  garage) or reimbursement (the owner pays the garage and claims from the
+  insurer), the policy number, the claim number, the surveyor and their phone
+  and, once the surveyor has passed it, the amount the insurer approved (in
+  whole rupees), the deductible and the depreciation. Mark on the estimate the
+  lines the insurer pays. The approved amount, and the approved amount with
+  the deductible and the depreciation added, are never more than the
+  insurer's lines.
+  *Take the claim off* makes every line the customer's, in a new version.
+- **Customer copy and workshop copy** — *Customer copy* prints, on A5 or A4,
+  the vehicle, the reading and fuel in, what the customer says, the estimate
+  with its prices, the advance and the claim, with a place for the customer
+  to sign; it says it is not a tax invoice, as the bill is made at delivery.
+  *Workshop copy* prints the work to do with a box to tick for each line and
+  the mechanics; never the prices.
+- **Tell the customer** — WhatsApp opens with the message for the stage
+  (vehicle received, the estimate for approval, ready to collect with the
+  amount to pay, running late, a collect reminder), or *Call*; each is noted
+  in the history.
+- **Billing and delivery** — *Bill and deliver*, once the job card is
+  *Ready*. The bills are posted at the job card's prices, with GST at each
+  item's rate on the day (a price that includes GST keeps its total when a
+  rate changes; *The bill at delivery* shows the figures as they would be
+  posted today). A job with no claim, or with a reimbursement claim, makes one
+  bill to the customer for the whole job (a reimbursement claim's bill names
+  the claim and the insurer). A cashless claim makes two bills, as CBIC
+  Circular 217/11/2024-GST describes: one to the insurer for exactly the
+  amount it approved, spread over its lines, which waits on the insurer's
+  dues; and one to the customer for their own lines and the owner's share of
+  the claim (the deductible, the depreciation and what the surveyor did not
+  allow), billed as one line of the claim-share item. The two bills come to
+  the job's total to the paisa. The parts leave stock now (serial-numbered
+  parts by the numbers typed, batches by the oldest expiry first). The advance pays the customer's bill first; the rest is
+  collected now (cash, UPI, card or bank) or goes on the customer's dues. The
+  odometer at delivery (optional) goes into the vehicle's log, and the next
+  service is set on the vehicle: 6 months and 5,000 km after this job to
+  start with (*Settings › Garage settings*), or the day and reading typed. A
+  job card with nothing on it is delivered with no bill and leaves the
+  vehicle's next service as it was. A bill over ₹2,00,000 asks for the
+  buyer's PAN or their declaration, as every bill does.
+- **Cancelling** — *Cancel the job card*, with a reason. Nothing is billed and
+  nothing leaves stock. The advance stays the customer's: *Hand back the
+  advance* (cash, UPI or bank, a reason and a manager's PIN; a receipt
+  prints), or it stays on their account for a later bill (*Customer dues*).
+- **Vehicles** (*Customers › Vehicles*) — every vehicle with its owner, last
+  reading, next service, insurance and PUC dates (in red once due) and a job
+  card open in the workshop; the search finds a plate however it is typed, a
+  make or model, an owner, a phone or a chassis number. *Add a vehicle*: the
+  registration number, make, model, variant, fuel, year, chassis and engine
+  numbers (a chassis number belongs to one vehicle), the owner (a customer,
+  or a new one by name and phone), the odometer, the insurance and PUC dates
+  and the next service. A vehicle's page has its readings, job cards, owners
+  and the reminders given; *Change owner* keeps every owner it has had; a
+  vehicle sold or scrapped is switched off (*Change*, untick *In use*) once no
+  job card of it is open, and is never deleted.
+- **The odometer log** — every reading: in and out of each job card, or typed
+  on the vehicle (*Odometer reading*). A reading lower than the last is
+  refused unless a manager approves it with the reason (a meter replaced or
+  reset): a manager gives only the reason; anyone else chooses the manager,
+  who types their PIN. The kilometres a day since the meter was last changed
+  give the reading the vehicle has probably reached.
+- **Service due** (*Customers › Service due*) — every vehicle whose next
+  service falls within a week, by its date or by the reading it will
+  probably reach, and every one whose insurance or PUC runs out within 30
+  days or has run out; the soonest first, with the owner's phone, when they
+  were last reminded and how often. *WhatsApp* opens the reminder ready to
+  send and *Call* dials; each reminder is kept. *Service*, *Insurance* and
+  *PUC* narrow the list, and *Not reminded in the last 30 days* leaves out
+  those reminded lately.
+- **A customer's statement** (*The owner's statement* on a vehicle's page) —
+  each of the customer's vehicles (a fleet's too) with its job cards: the
+  date, the reading, the work, the bills, and what was billed, paid and is
+  still due; for every date or the dates chosen, and printed with *Print the
+  statement*.
+- **Garage settings** (*Settings › Garage settings*) — the months and
+  kilometres to the next service after a job (6 and 5,000 to start with), and
+  the claim-share item: the service item that bills the owner's share of a
+  cashless claim. *Make the item* makes one (*Insurance claim: owner's
+  share*, SAC 998714, at 18%). The owner's share is billed at that item's
+  slab whatever the slabs of the lines it comes from: have an accountant
+  confirm it for claims on tractor parts (5%).
+- **The bell** — vehicles ready to deliver, and job cards past their promised
+  time.
+
+Who does what: a cashier adds vehicles, opens job cards, writes and sends
+estimates, records approvals and claims, takes advances and bills the job;
+the **Mechanic**, a garage's own role, sees the job cards assigned to them,
+records the work done and the parts used, moves the job along and prints its
+copies, and sees no prices and takes no money; a stock keeper, an accountant
+and a viewer see the job cards, vehicles and the service-due list; a manager
+does all of it, approves a lower odometer reading, cancels job cards and
+gives discounts.
+
 ---
 
 # Part 4 — Tasks, issues & projects
@@ -3586,10 +3764,10 @@ roles that must use two-step sign-in.
 Each business has its own copies of the standard roles — Owner, Manager,
 Cashier / sales, Stock keeper, Accountant and Viewer; a pharmacy also gets
 **Pharmacist**, a clinic **Doctor**, **Lab technician** and **Pathologist**,
-and an optical shop **Optometrist** — plus any roles its owner makes, edited
-on a module × action grid. You cannot give what you do not have, nor change,
-or set a new password for, someone whose role can do more than yours; the
-Owner role cannot be handed out or changed.
+an optical shop **Optometrist** and a garage **Mechanic** — plus any roles
+its owner makes, edited on a module × action grid. You cannot give what you
+do not have, nor change, or set a new password for, someone whose role can
+do more than yours; the Owner role cannot be handed out or changed.
 
 | Role | May do |
 | --- | --- |
@@ -3604,6 +3782,7 @@ Owner role cannot be handed out or changed.
 | Lab technician (clinic only) | Samples and results; see patients |
 | Pathologist (clinic only) | As the lab technician, plus approving reports and exporting |
 | Optometrist (optical shops only) | Record and correct prescriptions; pass or fail spectacles at the quality check; book and complete eye tests; see customers, products and spectacle orders without their money; no money |
+| Mechanic (garages only) | See the job cards assigned to them; record the work done and the parts used, and move the job along; print its copies; see products, stock and service bookings; no prices and no money |
 
 A permission also needs its **module** switched on for the business
 (Settings › Business tools; for example `repairs.create` needs *Repairs &

@@ -22,7 +22,9 @@ const SHORT = { sale: 'SI', purchase: 'PR', sales_return: 'CN', purchase_return:
   // Quotations (estimates; not GST documents).
   quotation: 'QT',
   // An optical shop's spectacle orders (job cards; not GST documents).
-  spectacle_order: 'SPO' };
+  spectacle_order: 'SPO',
+  // A garage's job cards (not GST documents).
+  job_card: 'JC' };
 const KINDS = Object.keys(SHORT);
 // Kinds printed as GST documents: their numbers must fit in 16 characters.
 const GST_KINDS = new Set(['sale', 'sales_return', 'purchase_return']);

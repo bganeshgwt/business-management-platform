@@ -232,6 +232,8 @@ require('../../licences/routes/businessLicences.routes')(router, { context, send
 require('../../agri/routes/businessAgri.routes')(router, { context, send, b });
 // Optical shops: prescriptions, spectacle orders through the lab and the quality check, the recall list, contact-lens power grids.
 require('../../optical/routes/businessOptical.routes')(router, { context, send, b });
+// Garages: vehicles and their owners, the odometer log, job cards from the estimate to the bills (the insurer's and the owner's), service reminders.
+require('../../garage/routes/businessGarage.routes')(router, { context, send, b });
 
 // Per-staff PIN at the counter, kits / bundles, EMI & finance.
 require('./businessCounter.routes')(router, { context, send, b });

@@ -8,7 +8,7 @@ export const WORKSPACES = {
   stock: ['stock', 'weight-stock', 'movements', 'counts', 'near-expiry', 'pharmacy-batches', 'transfers', 'serials', 'processing', 'wastage'],
   purchases: ['purchases', 'suppliers', 'purchase-orders', 'claims'],
   dues: ['udhaar', 'outstanding', 'collections'],
-  customers: ['customers', 'loyalty', 'sites', 'fitters', 'prescriptions', 'recall'],
+  customers: ['customers', 'loyalty', 'sites', 'fitters', 'prescriptions', 'recall', 'vehicles', 'service-due'],
   sales: ['sales', 'quotations', 'exchanges', 'warranties', 'pickup-orders'],
   orders: ['sales-orders', 'back-orders', 'dispatch', 'price-groups', 'pricing', 'routes'],
   appointments: ['salon-calendar', 'appointments'],
@@ -16,11 +16,13 @@ export const WORKSPACES = {
   patients: ['patients', 'customers'],
   laboratory: ['lab-orders', 'lab-tests', 'lab-qc'],
   reports: ['reports', 'retail-reports', 'wholesale-reports', 'variant-reports', 'weight-reports', 'salon-reports', 'commissions', 'fitter-reports', 'activity'],
-  settings: ['settings', 'tax-rates', 'payment-methods', 'number-series', 'locations', 'units', 'resources', 'health-settings', 'licences', 'agri-settings'],
+  settings: ['settings', 'tax-rates', 'payment-methods', 'number-series', 'locations', 'units', 'resources', 'health-settings', 'licences', 'agri-settings', 'garage-settings'],
   // A seeds, fertilisers & pesticides shop's own area.
   farm: ['farmers', 'agri-subsidy', 'agri-registers', 'molecules'],
   // An optical shop's spectacle orders, in its daily menu.
   spectacles: ['spectacle-orders'],
+  // A garage's job cards, in its daily menu.
+  jobCards: ['job-cards'],
   staff: ['staff', 'roles'],
   money: ['day-close', 'expenses', 'emi-finance'],
   repairs: ['repairs', 'appointments'],
@@ -90,6 +92,7 @@ export function dailyWorkspaces(type) {
     ['wholesale', 'hardware'].includes(type) ? 'orders' : null,
     ['salon', 'optical', 'garage', 'memberships'].includes(type) ? 'appointments' : null,
     type === 'optical' ? 'spectacles' : null,
+    type === 'garage' ? 'jobCards' : null,
     'sales', type === 'healthcare' ? 'patients' : 'customers', 'dues', 'money'].filter(Boolean);
   const business = ['products', 'purchases', 'stock'];
   if (type === 'pharmacy') business.push('pharmacy-registers');

@@ -94,6 +94,23 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   assert.ok(!menu('optical',m=>m!=='optical').some(l=>l.section==='spectacle-orders'),'no spectacle orders while the module is off');
   assert.ok(!pages('optical',m=>m!=='optical').some(p=>/\/(prescriptions|recall)$/.test(p.to)),'no prescriptions or recall while the module is off');
   for(const type of ['grocery','pharmacy','garage'])for(const section of ['spectacle-orders','prescriptions','recall'])assert.ok(!typeAllows(sectionRule(section,type),type),`${type}: no ${section}`);
+  // A garage's job cards are a daily entry of their own; its vehicles and service-due list sit with its customers, its settings under Settings.
+  const jobCards=menu('garage').find(l=>l.section==='job-cards');
+  assert.equal(jobCards.label,'Job cards');
+  assert.ok(businessMenu(33,'garage',()=>true,()=>true).find(g=>g.title==='Daily work').links.some(l=>l.section==='job-cards'),'garage: job cards in the daily menu');
+  assert.deepEqual(menu('garage').find(l=>l.section==='customers').pages.map(p=>p.to.split('/').pop()).filter(s=>['vehicles','service-due'].includes(s)),['vehicles','service-due']);
+  assert.equal(workspaceFor('vehicles','garage'),'customers');
+  assert.equal(workspaceFor('job-cards','garage'),'jobCards');
+  assert.equal(workspaceFor('garage-settings','garage'),'settings');
+  assert.ok(pages('garage').some(p=>p.to.endsWith('/garage-settings')),'garage: its settings under Settings');
+  assert.ok(!menu('garage',m=>m!=='garage').some(l=>l.section==='job-cards'),'no job cards while the module is off');
+  assert.ok(!pages('garage',m=>m!=='garage').some(p=>/\/(vehicles|service-due|garage-settings)$/.test(p.to)),'no vehicles, service due or garage settings while the module is off');
+  // A mechanic (works on job cards, without garage.view) finds the job cards and none of the desk's garage pages.
+  const mechanic=new Set(['garage.edit','garage.print','catalog.view','inventory.view','appointments.view']);
+  const bench=businessMenu(33,'garage',p=>mechanic.has(p),()=>true).flatMap(g=>g.links);
+  assert.ok(bench.some(l=>l.section==='job-cards'),'a mechanic finds the job cards');
+  assert.ok(!bench.flatMap(l=>l.pages).some(p=>/\/(vehicles|service-due|garage-settings)$/.test(p.to)),'a mechanic has no vehicles, service due or garage settings');
+  for(const type of ['grocery','optical','hardware'])for(const section of ['job-cards','vehicles','service-due','garage-settings'])assert.ok(!typeAllows(sectionRule(section,type),type),`${type}: no ${section}`);
 });
 test('restricted roles get a permitted destination even when the first workspace page is unavailable',()=>{
   const permissions=new Set(['purchasing.view','contacts.view','inventory.view','catalog.view']);

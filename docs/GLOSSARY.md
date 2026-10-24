@@ -27,7 +27,7 @@ Inside Business Admin a restaurant is simply the restaurant business's own admin
 | **Location / outlet** | A shop, counter or warehouse of a business, with its own stock and document numbers. Restaurants call theirs *outlets*; other businesses call them *locations*. A person can be tied to one location and then works there only. | `business_locations`, `business_memberships.location_id`; restaurant: `outlets` |
 | **Module / business tool** | A part of the product a business can use: Sales, Stock, Stock transfers, Appointments… *Core* modules (Business settings, Staff & access, Reports, Activity log) are always on. The others are the business's *business tools*, switched on in Settings › Business tools. A restaurant calls its modules *features* (Settings › Features). | `platform_modules` |
 | **Capability** | A module switched on for one business: what the business may use. Later decided by its plan. | `business_capabilities` |
-| **Role** | A named set of permissions inside one business. Every business starts with Owner, Manager, Cashier / sales, Stock keeper, Accountant and Viewer; a pharmacy adds Pharmacist, a clinic adds Doctor, Lab technician and Pathologist, and an optical shop adds Optometrist. An owner can add roles of the business's own, and each business has its own copies. A restaurant has its own built-in roles, such as Restaurant Admin, Captain / Waiter and Kitchen staff. | `business_roles`; restaurant: `roles` |
+| **Role** | A named set of permissions inside one business. Every business starts with Owner, Manager, Cashier / sales, Stock keeper, Accountant and Viewer; a pharmacy adds Pharmacist, a clinic adds Doctor, Lab technician and Pathologist, an optical shop adds Optometrist, and a garage adds Mechanic. An owner can add roles of the business's own, and each business has its own copies. A restaurant has its own built-in roles, such as Restaurant Admin, Captain / Waiter and Kitchen staff. | `business_roles`; restaurant: `roles` |
 | **Permission** | One action on one module, written `module.action` (for example `sales.refund`): what a person may do. The actions are view, create, edit, approve, cancel, refund, export and print, and for some modules discount, assign, review, manage, or see and write clinical records. | `business_permissions`, `business_role_permissions`; restaurant: `permissions` |
 | **Membership** | A person's access to one business, with their role there. One login can have many memberships. Inside a business the header shows the person's role there. | `business_memberships` |
 | **Business code** | A business's short code, fixed when the business is created. Staff who sign in with a staff code type their restaurant's code too, and so does someone whose mobile number signs in to more than one restaurant. A restaurant's code is its business code. | `restaurants.code`, `businesses.code` |
@@ -205,6 +205,36 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Base curve and diameter** | A contact lens's curve and width in mm; one lens product has one of each. |
 | **MD-42** | The registration certificate for selling medical devices such as contact lenses, kept as a licence. |
 | **Optometrist** | The professional who tests eyes and writes prescriptions; in an optical shop, the role that records prescriptions and passes the quality check, and takes no money. |
+
+### Vehicle service & auto parts
+
+| Word | Meaning |
+|---|---|
+| **Registration number** | The number on a vehicle's plate (TS09EA4521), kept in capital letters and digits only; a business has one vehicle per number. |
+| **Chassis and engine numbers** | The numbers on a vehicle's frame and engine; a chassis number belongs to one vehicle. |
+| **Odometer log** | Every reading of a vehicle's meter, in kilometres: in and out of each job card, or typed on the vehicle. A reading lower than the last needs a manager's approval and the reason. |
+| **Kilometres a day** | How far a vehicle runs in a day on average, from its readings; it gives the reading the vehicle has probably reached. |
+| **Job card** | A vehicle's visit to the workshop, from its arrival to its delivery: the reading and fuel in, what the customer says, the estimate, the mechanics, the work done and the bills (JC/2627/0001). |
+| **Complaint** | What the customer says is wrong, or the service they asked for; one a line on the job card. |
+| **Estimate** | The parts, labour and outside work a job card needs, with their prices; each change saved is a new version. |
+| **Approval** | The owner's agreement to the estimate: who, how (in person, by phone or on WhatsApp), when and the amount. A version that comes to more goes back to them. |
+| **Labour** | Work done in the workshop, billed as a service item (SAC 998714, maintenance and repair services of transport machinery and equipment). |
+| **Outside work (sublet)** | Work another workshop does for the job (denting, painting, machining), on the job card with its charge, the workshop's name and its bill number. |
+| **Bay** | The place in the workshop where the vehicle is worked on. |
+| **Promised time** | When the customer was told the vehicle would be ready; a job card past it shows late. |
+| **Workshop copy, customer copy** | The job card printed for the mechanics (the work to do, never the prices) and for the customer (the estimate with its prices, to sign). |
+| **Cashless claim** | An insurance claim where the insurer pays the garage the amount it approved: the insurer is billed for that, and the customer for the rest. |
+| **Reimbursement claim** | An insurance claim where the owner pays the garage and claims the approved amount back from the insurer. |
+| **Surveyor** | The surveyor or loss assessor who assesses the repair for the insurer and approves its cost. |
+| **Approved amount** | The repair cost the insurer agreed to pay (the approved claim cost). |
+| **Deductible** | The compulsory deductible: the part of a claim the policy leaves to the owner. |
+| **Depreciation** | What the insurer takes off the price of the parts it replaces, for their age; the owner pays it. |
+| **Owner's share** | The insurer's lines less the approved amount: the deductible, the depreciation and what was not allowed, billed to the owner as one line of the claim-share item. |
+| **Claim-share item** | The service item that bills the owner's share of a cashless claim (*Insurance claim: owner's share*), set in *Settings › Garage settings*. |
+| **PUC** | A vehicle's Pollution Under Control certificate, kept with the day it runs out. |
+| **Service due** | The vehicles whose next service falls within a week, by date or by the reading they will probably reach, and those whose insurance or PUC runs out within 30 days. |
+| **Statement** | A customer's vehicles with the job cards on each, and what was billed, paid and is still due. |
+| **Mechanic** | Someone who works on vehicles; in a garage, the role that sees the job cards assigned to it, records the work done and the parts used, and sees no money. |
 
 ### Clinic and lab
 

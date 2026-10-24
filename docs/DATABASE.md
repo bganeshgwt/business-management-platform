@@ -11,7 +11,7 @@ PostgreSQL 15 or newer (built and tested on 18). One database holds the whole pl
 | [Business platform](#business-platform) | platform catalogue, business access, business core, shared core, one extension group per business type, and tasks, issues & projects | `business_id` on every row, with composite foreign keys |
 | [Catalogues](#business-types) | business types, platform module codes, business and restaurant permission codes | — |
 
-**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Licences](#licences) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) · [Optical shops](#optical-shops) · [Tasks, issues & projects](#tasks-issues--projects). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
+**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Licences](#licences) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) · [Optical shops](#optical-shops) · [Vehicle service & auto parts](#vehicle-service--auto-parts) · [Tasks, issues & projects](#tasks-issues--projects). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
 
 The business platform's design (its five layers, the rules every table follows, and why) is explained in [BUSINESS_PLATFORM_DATA_MODEL.md](BUSINESS_PLATFORM_DATA_MODEL.md). This file gives the table-by-table reference and links there instead of repeating it. A restaurant also appears on the platform as one `businesses` row whose `legacy_restaurant_id` points at it; its own tables are unchanged.
 
@@ -1087,13 +1087,13 @@ Linked sections: [data model §1](BUSINESS_PLATFORM_DATA_MODEL.md#1-platform) an
 Purpose: the permission catalogue. Each row is one `<module>.<action>` pair; the codes are listed under [Business permission codes](#business-permission-codes).
 Key columns: `code` (TEXT PK), `module_code` -> `platform_modules`, `action` (view, create, edit, approve, cancel, refund, export, print, discount, assign, review, manage, view_clinical, edit_clinical), `name`, `sort_order`.
 Rules: UNIQUE (`module_code`, `action`). CHECK `code = module_code || '.' || action`. The action CHECK lists every value, so a migration that adds an action rewrites the whole list.
-Added by: 1791300000001 business-roles-and-permissions; codes also from 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791540000000, 1791580000000, 1791620000000, 1791620001000, 1791620002000, 1791620004000, 1791950400000, 1791961000000, 1791962000000 and 1791963000000.
+Added by: 1791300000001 business-roles-and-permissions; codes also from 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791540000000, 1791580000000, 1791620000000, 1791620001000, 1791620002000, 1791620004000, 1791950400000, 1791961000000, 1791962000000, 1791963000000 and 1791964000000.
 
 #### `business_role_templates`
-Purpose: the standard roles the platform defines once: owner, manager, cashier, stock_keeper, accountant and viewer for every type, plus pharmacist for a pharmacy, doctor, lab_technician and pathologist for healthcare, and optometrist for an optical shop.
+Purpose: the standard roles the platform defines once: owner, manager, cashier, stock_keeper, accountant and viewer for every type, plus pharmacist for a pharmacy, doctor, lab_technician and pathologist for healthcare, optometrist for an optical shop, and mechanic for a garage.
 Key columns: `code` (TEXT PK, same pattern as module codes), `name`, `description`, `full_access`, `sort_order`, `business_types` (TEXT[], the types the template is for; NULL = every type).
 Rules: at most one template has full access (partial unique index `business_role_templates_one_full`). That template is `owner`. `business_seed_roles()` copies only the templates of the business's type.
-Added by: 1791300000001; 1791620004000 (`business_types` and the four type templates); 1791963000000 (`optometrist`).
+Added by: 1791300000001; 1791620004000 (`business_types` and the four type templates); 1791963000000 (`optometrist`); 1791964000000 (`mechanic`).
 
 #### `business_role_template_permissions`
 Purpose: the permissions each template grants. These rows are copied into every business's own roles.
@@ -1165,7 +1165,7 @@ Added by: 1791300000002.
 #### `business_number_series`
 Purpose: document numbering, one series per business, location, document kind and fiscal year. A number is taken with `UPDATE … next_number + 1` inside the posting transaction.
 Key columns: `location_id`, `document_kind`, `fiscal_year` (the year the fiscal year starts in), `prefix`, `next_number`, `padding`.
-`document_kind`: sale, purchase, sales_return, purchase_return, stock_transfer, stock_count, sales_order, collection, repair_job, processing, supplier_payment, purchase_order (PO/…), delivery_challan (DC/…), quotation (QT/…; not a GST document) and spectacle_order (SPO/…).
+`document_kind`: sale, purchase, sales_return, purchase_return, stock_transfer, stock_count, sales_order, collection, repair_job, processing, supplier_payment, purchase_order (PO/…), delivery_challan (DC/…), quotation (QT/…; not a GST document), spectacle_order (SPO/…) and job_card (JC/…; not a GST document).
 Rules:
 - UNIQUE (business, location, kind, year) and UNIQUE (business, prefix).
 - A prefix may contain only letters, digits, `/` and `-`, and must not end in a digit.
@@ -1174,7 +1174,7 @@ Rules:
   - `next_number` never decreases;
   - prefix and padding are fixed once a number has been used;
   - business, location, kind and year never change.
-Added by: 1791300000002; kinds from 1791410000000 (sales_order, collection), 1791420000001 (repair_job), 1791430000001 (processing), 1791540000000 (supplier_payment), 1791620003000 (purchase_order, delivery_challan), 1791961000000 (quotation) and 1791963000000 (spectacle_order).
+Added by: 1791300000002; kinds from 1791410000000 (sales_order, collection), 1791420000001 (repair_job), 1791430000001 (processing), 1791540000000 (supplier_payment), 1791620003000 (purchase_order, delivery_challan), 1791961000000 (quotation), 1791963000000 (spectacle_order) and 1791964000000 (job_card).
 
 #### `business_capabilities`
 Purpose: the optional modules switched on for a business ([§1](BUSINESS_PLATFORM_DATA_MODEL.md#1-platform)).
@@ -1499,9 +1499,9 @@ Added by: 1791580000000.
 
 #### `business_collection_refunds`
 Purpose: money paid in advance (a `business_collections` receipt) handed back.
-Key columns: `collection_id`, `contact_id`, `refund_no` (`<receipt no>-R<n>`), `amount` (> 0), `method` (cash, upi, bank), `method_name`, `reference`, `reason` (not blank), `source` (`salon`, `repair` or `optical`; a repair refund names its `repair_job_id`, and a spectacle order's is found through the order's `advance_collection_id`), `approved_by` (the manager whose PIN was typed), `request_key`, `request_hash`, `created_by`.
+Key columns: `collection_id`, `contact_id`, `refund_no` (`<receipt no>-R<n>`), `amount` (> 0), `method` (cash, upi, bank), `method_name`, `reference`, `reason` (not blank), `source` (`salon`, `repair`, `optical` or `garage`; a repair refund names its `repair_job_id`, and a spectacle order's or a job card's is found through its `advance_collection_id`), `approved_by` (the manager whose PIN was typed), `request_key`, `request_hash`, `created_by`.
 Rules: append-only. Constraint trigger `business_collection_refunds_rules`: the same customer, and payments plus refunds never pass the receipt's amount. The shared balances subtract these refunds (`contactBalanceSql` in the core repository, and `collectionAllocatedSql` in the receivables lists), so a refunded advance does not show as the customer's advance; the customer statement lists each refund.
-Added by: 1791620001000; 1791640000000 (`method_name`); 1791963000000 (`optical`).
+Added by: 1791620001000; 1791640000000 (`method_name`); 1791963000000 (`optical`); 1791964000000 (`garage`).
 
 #### `business_supplier_payments`
 Purpose: one payment made to a supplier. The part that settles purchase bills is written as `business_payments` rows with `supplier_payment_id`; the rest is an advance with the supplier ([data model §4](BUSINESS_PLATFORM_DATA_MODEL.md#4-shared-core)).
@@ -2697,6 +2697,107 @@ Key columns: `contact_id`, `channel` (whatsapp, call, sms), `created_by`, `creat
 Rules: index `optical_recall_reminders_contact`; trigger `optical_recall_reminders_customer` (function `business_contact_is_customer`); trigger `optical_recall_reminders_append_only` (function `optical_append_only`): never changed or deleted.
 Added by: 1791963000000.
 
+## Vehicle service & auto parts
+
+A garage's own tables (type `garage`), added by 1791964000000 garage. Module `garage` ("Vehicles & job cards", optional, garage only, on) needs catalog, contacts and sales; permissions `garage.view`, `garage.create` (add vehicles, open job cards), `garage.edit` (work on job cards), `garage.approve` (an odometer reading lower than the last), `garage.cancel` and `garage.print`. The role template `mechanic` is given to garages only (`business_role_templates.business_types`). Job cards are numbered in the series kind `job_card` (prefix `JC`); the advance of a cancelled job card is handed back as a `business_collection_refunds` row with `source` garage. A job card's bills are ordinary sales (`business_documents`): the customer's, and on a cashless claim the insurer's. How they are used: [BUSINESS_PLATFORM_DATA_MODEL.md › Vehicle service & auto parts](BUSINESS_PLATFORM_DATA_MODEL.md#vehicle-service--auto-parts).
+
+#### `garage_settings`
+Purpose: a garage's months and kilometres to the next service after a job, and the item that bills the owner's share of a cashless claim.
+Key columns: PK `business_id`, `service_months` (1-36, default 6), `service_km` (500-100,000, default 5,000), `claim_share_sku_id`, `updated_by`, `updated_at`. 6 months and 5,000 km are used until the row is made.
+Relations: (`business_id`, `claim_share_sku_id`) -> `catalog_skus`.
+Added by: 1791964000000.
+
+#### `garage_vehicles`
+Purpose: a customer's vehicle.
+Key columns: `registration_no` (`^[A-Z0-9]{4,15}$` with a letter and a digit), `make`, `model`, `variant`, `fuel` (petrol, diesel, cng, petrol_cng, lpg, electric, hybrid), `year` (1950-2100), `contact_id` (the owner now), `chassis_no` (5-30 letters and digits), `engine_no` (3-30), `odometer_km` and `odometer_at` (the latest reading; both or neither), `insurance_expires_on`, `puc_expires_on`, `next_service_on`, `next_service_km`, `notes`, `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, `contact_id`) -> `business_contacts`.
+Rules:
+- UNIQUE (business, registration number); unique index `garage_vehicles_chassis` (business, chassis number, where given); index `garage_vehicles_owner`.
+- Trigger `garage_vehicles_customer` (function `business_contact_is_customer`): the owner is a customer.
+- Trigger `garage_vehicles_owner_history` (function `garage_vehicle_owner_history`): writes `garage_vehicle_owners` when a vehicle is added and whenever its owner changes.
+- Trigger `garage_vehicles_guard`: never deleted (switched off instead); keeps who added it and when; its latest reading is only ever the last row of its odometer log.
+Added by: 1791964000000.
+
+#### `garage_vehicle_owners`
+Purpose: every owner a vehicle has had, from the moment they became its owner.
+Key columns: `vehicle_id`, `contact_id`, `since`, `recorded_by`.
+Relations: (`business_id`, `vehicle_id`) -> `garage_vehicles`; (`business_id`, `contact_id`) -> `business_contacts`.
+Rules: indexes `garage_vehicle_owners_vehicle` and `garage_vehicle_owners_contact`; trigger `garage_vehicle_owners_append_only` (function `garage_append_only`): never changed or deleted.
+Added by: 1791964000000.
+
+#### `garage_odometer_readings`
+Purpose: a vehicle's odometer log.
+Key columns: `vehicle_id`, `reading_km` (0-9,999,999), `source` (job_in, job_out, vehicle), `job_card_id` (exactly when read at a job card), `lower_approved_by` and `lower_reason` (together: the manager who approved a reading lower than the last, and why), `recorded_by`, `recorded_at`.
+Relations: (`business_id`, `vehicle_id`) -> `garage_vehicles`; (`business_id`, `job_card_id`) -> `garage_job_cards`.
+Rules:
+- Index `garage_odometer_readings_vehicle`.
+- Trigger `garage_odometer_readings_check` (function `garage_odometer_check`): never changed or deleted; a reading lower than the vehicle's last is refused without the approval, and only a lower reading carries one.
+- Trigger `garage_odometer_readings_latest` (function `garage_odometer_latest`): the vehicle's `odometer_km` and `odometer_at` follow the new reading.
+Added by: 1791964000000.
+
+#### `garage_job_cards`
+Purpose: a job card: a vehicle's visit from its arrival to its delivery.
+Key columns: `location_id`, `job_no` (series kind `job_card`), `series_id`, `vehicle_id`, `registration_no` and `vehicle_name` (as they were), `contact_id`, `customer_name` and `customer_phone` (as they were), `odometer_in`, `fuel_level` (empty, quarter, half, three_quarters, full), `complaints` (TEXT[], 1-20), `inspection_notes`, `bay`, `promised_at`, `status` (received, estimate_sent, approved, in_progress, waiting_parts, ready, delivered, cancelled), `estimate_version` (0 before the first), `approved_version`, `tax_mode`, `subtotal`, `tax`, `round_off`, `total`, `notes`, `advance_collection_id`, `document_id` (the customer's bill), `insurer_document_id` (the insurer's bill), `bill_key`, `next_service_on`, `next_service_km`, `delivered_by`/`delivered_at`, `cancel_reason`, `cancelled_by`/`cancelled_at`, `request_key`, `request_hash`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, ...) -> `business_locations`, `business_number_series`, `garage_vehicles`, `business_contacts`, `business_collections` (`advance_collection_id`) and `business_documents` (`document_id`, `insurer_document_id`).
+Rules:
+- CHECK total = subtotal + tax + round-off (round-off under 1 either way); no total before the first version; the approved version not above the current one; estimate sent and approved only with an estimate, approved only with an approved version; delivered exactly with its delivery and bill key, and bills only when delivered; the next service only when delivered; cancelled exactly with its reason, who and when.
+- UNIQUE (business, job number), (business, request key), (business, customer's bill), (business, insurer's bill) and (business, advance). Indexes `garage_job_cards_period`, `garage_job_cards_vehicle`, `garage_job_cards_contact` and the partial `garage_job_cards_open` (open job cards by status).
+- Trigger `garage_job_cards_customer` (function `business_contact_is_customer`).
+- Trigger `garage_job_cards_insert_check`: a new job card is received with no estimate, for a vehicle in use.
+- Trigger `garage_job_cards_guard`: never deleted; a delivered or cancelled job card never changes; an open one keeps its number, location, vehicle, customer, odometer in, price terms, advance and request; the estimate goes up one version at a time and an approval is of the version it stands at; status moves received → estimate_sent, approved, in_progress, waiting_parts or ready; estimate_sent → approved; approved, in_progress and waiting_parts → estimate_sent, in_progress, waiting_parts or ready; ready → estimate_sent, in_progress, waiting_parts or delivered; any open → cancelled; approved only with the estimate as it stands approved; delivered with lines only with a bill.
+Added by: 1791964000000.
+
+#### `garage_job_card_mechanics`
+Purpose: the members working on a job card.
+Key columns: PK (`business_id`, `job_card_id`, `user_id`), `assigned_by`, `assigned_at`.
+Relations: (`business_id`, `job_card_id`) -> `garage_job_cards`.
+Rules: index `garage_job_card_mechanics_user`; trigger `garage_job_card_mechanics_guard` (function `garage_job_card_parts_guard`): changed only while the job card is open, and a mechanic is an active member of the business.
+Added by: 1791964000000.
+
+#### `garage_job_card_lines`
+Purpose: a job card's estimate as it stands.
+Key columns: `job_card_id`, `kind` (part, labour, sublet), `payer` (customer, insurer), `sku_id`, `label`, `unit`, `quantity`, `unit_price` (the rate for one unit in the job card's price terms), `amount`, `tax_rate`, `net`, `tax`, `price_rule_id`, `hsn_code`, `mrp`, `description`, `vendor_name` and `vendor_bill_no` (outside work's workshop and its bill), `done`, `done_by`/`done_at`, `added_by`/`added_at`.
+Relations: (`business_id`, `job_card_id`) -> `garage_job_cards`; (`business_id`, `sku_id`) -> `catalog_skus`; (`business_id`, `unit`) -> `business_units`; (`business_id`, `price_rule_id`) -> `business_price_rules`.
+Rules:
+- CHECK a workshop's name exactly on outside work, and its bill number only there; net + tax = amount (GST included) or net = amount (before GST); done exactly with who and when.
+- Index `garage_job_card_lines_job`.
+- Trigger `garage_job_card_lines_guard` (function `garage_job_card_parts_guard`): changed only while the job card is open; keeps who added it and when; a part is goods and labour or outside work a service; a line is the insurer's only on a job card with a claim.
+Added by: 1791964000000.
+
+#### `garage_claims`
+Purpose: a job card's insurance claim.
+Key columns: PK (`business_id`, `job_card_id`), `insurer_id`, `mode` (cashless, reimbursement), `policy_no`, `claim_no`, `surveyor_name`, `surveyor_phone`, `approved_amount` (> 0), `deductible`, `depreciation`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, `job_card_id`) -> `garage_job_cards`; (`business_id`, `insurer_id`) -> `business_contacts`.
+Rules: index `garage_claims_insurer`; trigger `garage_claims_guard` (function `garage_job_card_parts_guard`): changed only while the job card is open; the insurer is a customer, not the job card's own; not removed while a line is the insurer's.
+Added by: 1791964000000.
+
+#### `garage_estimate_versions`
+Purpose: every version of a job card's estimate, as it was saved.
+Key columns: `job_card_id`, `version` (1-999), `subtotal`, `tax`, `round_off`, `total`, `insurer_lines`, `lines` (JSONB array: the lines as they were), `source` (estimate, parts, claim), `note`, `request_key`, `request_hash`, `created_by`, `created_at`.
+Relations: (`business_id`, `job_card_id`) -> `garage_job_cards`.
+Rules: CHECK total = subtotal + tax + round-off; UNIQUE (business, job card, version) and (business, request key); trigger `garage_estimate_versions_append_only` (function `garage_append_only`): never changed or deleted.
+Added by: 1791964000000.
+
+#### `garage_estimate_approvals`
+Purpose: the owner's approval of a version of the estimate.
+Key columns: `job_card_id`, `version`, `amount` (the version's total), `approved_by` (a name), `channel` (in_person, phone, whatsapp), `approved_at` (at most 5 minutes after it is recorded), `note`, `request_key`, `request_hash`, `recorded_by`, `recorded_at`.
+Relations: (`business_id`, `job_card_id`, `version`) -> `garage_estimate_versions`.
+Rules: UNIQUE (business, request key); index `garage_estimate_approvals_job`; trigger `garage_estimate_approvals_check`: the job card is open, the version is the one it stands at, and the amount is that version's total; trigger `garage_estimate_approvals_append_only` (function `garage_append_only`): never changed or deleted.
+Added by: 1791964000000.
+
+#### `garage_job_card_events`
+Purpose: a job card's history: every change of status, and every note with none.
+Key columns: `job_card_id`, `from_status`, `to_status`, `note`, `created_by`, `created_at`.
+Rules: index `garage_job_card_events_job`; trigger `garage_job_card_events_append_only` (function `garage_append_only`): never changed or deleted.
+Added by: 1791964000000.
+
+#### `garage_reminders`
+Purpose: each reminder given to a vehicle's owner.
+Key columns: `vehicle_id`, `kind` (service, insurance, puc), `channel` (whatsapp, call, sms), `created_by`, `created_at`.
+Relations: (`business_id`, `vehicle_id`) -> `garage_vehicles`.
+Rules: index `garage_reminders_vehicle`; trigger `garage_reminders_append_only` (function `garage_append_only`): never changed or deleted.
+Added by: 1791964000000.
+
 ## Tasks, issues & projects
 
 Linked sections: [data model](BUSINESS_PLATFORM_DATA_MODEL.md#tasks-issues--projects) and [ARCHITECTURE.md §4.3](ARCHITECTURE.md#43-tasks-issues--projects-one-model-for-both-worlds). Migration `1791620000000_tasks-issues-projects.sql`; module code `backend/src/modules/tasks/`.
@@ -2891,6 +2992,7 @@ Core modules are always on and never stored per business; every other module is 
 | `licences` | optional | — | every type but restaurant; on for agri_inputs; recommended for fuel_station, jewellery, optical, pharmacy | 1791962000000 |
 | `agri` | optional | catalog, contacts, sales, inventory, batches | agri_inputs; on (item attributes `inputKind`, `subsidised`, `seedClass`, `seedCrop`, `seedVariety`, `molecules`, `formulation`, `netKg`) | 1791962000000 |
 | `optical` | optional | catalog, contacts, sales | optical; on (item attributes `power`, `baseCurve`, `diameter` for contact lenses) | 1791963000000 |
+| `garage` | optional | catalog, contacts, sales | garage; on | 1791964000000 |
 | `guests` | optional | restaurant | restaurant; on | 1791470000000 |
 | `guest_loyalty` | optional | restaurant, guests | restaurant; off | 1791470000000 |
 | `reservations` | optional | restaurant | restaurant; on | 1791470000000 |
@@ -2957,6 +3059,7 @@ Each code is a `<module>.<action>` row of `business_permissions`, listed here by
 | licences | `licences.view`, `licences.edit` (add, renew, change and switch off licences) | 1791962000000 |
 | agri | `agri.view` (farmers, village dues, the subsidy reconciliation, the registers and the molecule list), `agri.create` (type the PoS device's stock), `agri.edit` (farmers' details) | 1791962000000 |
 | optical | `optical.view` (prescriptions, spectacle orders and the recall list), `optical.create` (record and correct prescriptions; book spectacle orders), `optical.edit` (the lab and workshop steps, an order's details, delivery), `optical.approve` (pass or fail the quality check), `optical.cancel`, `optical.print` (job cards, customer slips and prescriptions) | 1791963000000 |
+| garage | `garage.view` (every vehicle and job card, the service-due list and customers' statements), `garage.create` (add vehicles, open job cards), `garage.edit` (work on job cards: the estimate, mechanics, the work done and parts used, the claim, the advance and billing), `garage.approve` (an odometer reading lower than the last), `garage.cancel`, `garage.print` (job cards and customers' statements) | 1791964000000 |
 
 ## Restaurant permission codes
 
