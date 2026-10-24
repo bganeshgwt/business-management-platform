@@ -27,7 +27,7 @@ Inside Business Admin a restaurant is simply the restaurant business's own admin
 | **Location / outlet** | A shop, counter or warehouse of a business, with its own stock and document numbers. Restaurants call theirs *outlets*; other businesses call them *locations*. A person can be tied to one location and then works there only. | `business_locations`, `business_memberships.location_id`; restaurant: `outlets` |
 | **Module / business tool** | A part of the product a business can use: Sales, Stock, Stock transfers, Appointments… *Core* modules (Business settings, Staff & access, Reports, Activity log) are always on. The others are the business's *business tools*, switched on in Settings › Business tools. A restaurant calls its modules *features* (Settings › Features). | `platform_modules` |
 | **Capability** | A module switched on for one business: what the business may use. Later decided by its plan. | `business_capabilities` |
-| **Role** | A named set of permissions inside one business. Every business starts with Owner, Manager, Cashier / sales, Stock keeper, Accountant and Viewer; a pharmacy adds Pharmacist, a clinic adds Doctor, Lab technician and Pathologist, an optical shop adds Optometrist, and a garage adds Mechanic. An owner can add roles of the business's own, and each business has its own copies. A restaurant has its own built-in roles, such as Restaurant Admin, Captain / Waiter and Kitchen staff. | `business_roles`; restaurant: `roles` |
+| **Role** | A named set of permissions inside one business. Every business starts with Owner, Manager, Cashier / sales, Stock keeper, Accountant and Viewer; a pharmacy adds Pharmacist, a clinic adds Doctor, Lab technician and Pathologist, an optical shop adds Optometrist, a garage adds Mechanic, and a gym, studio or coaching centre adds Trainer. An owner can add roles of the business's own, and each business has its own copies. A restaurant has its own built-in roles, such as Restaurant Admin, Captain / Waiter and Kitchen staff. | `business_roles`; restaurant: `roles` |
 | **Permission** | One action on one module, written `module.action` (for example `sales.refund`): what a person may do. The actions are view, create, edit, approve, cancel, refund, export and print, and for some modules discount, assign, review, manage, or see and write clinical records. | `business_permissions`, `business_role_permissions`; restaurant: `permissions` |
 | **Membership** | A person's access to one business, with their role there. One login can have many memberships. Inside a business the header shows the person's role there. | `business_memberships` |
 | **Business code** | A business's short code, fixed when the business is created. Staff who sign in with a staff code type their restaurant's code too, and so does someone whose mobile number signs in to more than one restaurant. A restaurant's code is its business code. | `restaurants.code`, `businesses.code` |
@@ -235,6 +235,30 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Service due** | The vehicles whose next service falls within a week, by date or by the reading they will probably reach, and those whose insurance or PUC runs out within 30 days. |
 | **Statement** | A customer's vehicles with the job cards on each, and what was billed, paid and is still due. |
 | **Mechanic** | Someone who works on vehicles; in a garage, the role that sees the job cards assigned to it, records the work done and the parts used, and sees no money. |
+
+### Gyms, studios & coaching
+
+| Word | Meaning |
+|---|---|
+| **Member** | A customer who holds a membership; the screens call customers members. Each has a member code. |
+| **Member code** | The code on a member's card (M0001, or the number of a card they already hold), typed or scanned from its QR at the desk. |
+| **Plan** | What the gym, studio or coaching centre sells: by days or months, a pack of sessions, or sessions within a time, sold as a service item of its own with its GST and SAC. |
+| **Membership** | A plan sold to a member, with its terms kept as sold, from its first day to its last (MS/2627/0001). A coaching student's enrolment in a course is one too. |
+| **Session pack** | A plan of so many visits or classes (Yoga 10 classes), with or without a time to use them in; a check-in uses one session a day. |
+| **Joining fee** | A one-time fee billed with a member's first membership, as a service item of its own. |
+| **Terms as sold** | What a membership keeps from the day it is sold: the price as billed, the refund policy's version, its freezes, grace days and whether it can be passed on. |
+| **Refund policy** | A plan's words on what comes back when a member cancels; every version is kept, and a membership keeps the one it was sold with. |
+| **Freeze** | A pause of a membership for some days (travel, illness), within what its plan allows; its last day moves on by the days frozen. |
+| **Grace days** | Days after a membership's last day on which the member is still let in. |
+| **Check-in** | A member arriving at the desk: let in on a membership that runs that day, or turned away with the reason; every one is kept. |
+| **Renewal** | A new membership for the same member, starting the day after the one renewed ends. |
+| **Upgrade** | A membership moved to another plan from today: the part not used comes back as a credit note that pays the new bill first. |
+| **Transfer (passing on)** | What is left of a membership given to another member, on the first member's bill, when its plan allows it. |
+| **Pro-rata refund** | What comes back when a membership is cancelled: the part of its price not used, by the days or sessions left, to the paisa. |
+| **Instalments** | A fee split into parts with their due days, adding up to the bill; payments on the bill cover them in order. |
+| **Fees due** | The instalments falling due or overdue, with what is left of each to pay. |
+| **Trainer** | Someone who trains members; in a gym, studio or coaching centre, the role that sees members, their plans and check-ins, checks members in and sees no money. |
+| **5% without input tax credit** | The GST on the services of a gym, health club, fitness centre or yoga centre from 22 September 2025: 5%, with no credit for what was bought for them, and no choice of 18% with credit. |
 
 ### Clinic and lab
 

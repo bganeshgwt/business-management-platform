@@ -51,8 +51,12 @@ async function createReturn(business, user, documentId, body) {
 }
 // Posts a return against a document already locked inside the caller's
 // transaction (exchanges post a return and a new sale together). The caller
-// checks permissions.
-async function postReturn(db, business, user, doc, { reason, requestKey, hash, lines }) {
+// checks permissions. `values` (callers inside the server only): a service
+// line credited by value instead of quantity, as lineId → paise with GST
+// (a membership cancelled part way through its days or sessions). Such a
+// line is credited once, with nothing returned on it before, and is then
+// closed: the rest of it was used.
+async function postReturn(db, business, user, doc, { reason, requestKey, hash, lines, values = null }) {
   {
     const previous = await repo.one(db, 'SELECT * FROM business_returns WHERE business_id=$1 AND request_key=$2', [business.id, requestKey]);
     if (previous) {
@@ -67,6 +71,18 @@ async function postReturn(db, business, user, doc, { reason, requestKey, hash, l
        LEFT JOIN business_units u ON u.business_id=l.business_id AND u.code=l.unit
        WHERE l.business_id=$1 AND l.document_id=$2 AND l.id=$3`, [business.id, doc.id, id(input.lineId)]);
       if (!line) fail('Original document line not found', 404);
+      const credit = values?.get(Number(line.id));
+      if (credit !== undefined) {
+        const gross = cents(line.net) + cents(line.tax);
+        if (line.tracking !== 'none') fail(`${line.label} is goods: it comes back by quantity`);
+        if (!Number.isSafeInteger(credit) || credit <= 0 || credit > gross) fail(`${line.label} can be credited at most ${(gross / 100).toFixed(2)}`);
+        const earlier = await repo.one(db, 'SELECT 1 FROM business_return_lines WHERE business_id=$1 AND line_id=$2 LIMIT 1', [business.id, line.id]);
+        if (earlier) fail(`${line.label} on ${doc.document_no} has already been credited`, 409);
+        // GST in the line's own proportion; the two add up to the credit exactly.
+        const net = signedRound(BigInt(cents(line.net)) * BigInt(credit), BigInt(gross));
+        prepared.push({ line, quantity: Number(line.quantity), net, tax: credit - net, restock: false }); total += credit;
+        continue;
+      }
       const quantity = decimal(input.quantity, 'Return quantity', 3, 0.001, 100000);
       // The line's unit decides: whole units (each, tablet, strip, box…) come back whole.
       const decimals = line.unit_decimals ?? (line.unit === 'each' ? 0 : 3);
@@ -134,53 +150,62 @@ async function postReturn(db, business, user, doc, { reason, requestKey, hash, l
     return saved;
   }
 }
-async function refund(business, user, documentId, body) {
+// A refund never goes out by cheque. `methodId`: one of the business's own methods.
+const REFUND_KINDS = ['cash', 'card', 'upi', 'bank'];
+function readRefund(body) {
   const amount = decimal(body.amount, 'Refund amount', 2, 0.01);
-  // A refund never goes out by cheque. `methodId`: one of the business's own methods.
-  const refundKinds = ['cash', 'card', 'upi', 'bank'];
-  const choice = paymentMethods.readChoice(body, 'Refund method', refundKinds);
+  const choice = paymentMethods.readChoice(body, 'Refund method', REFUND_KINDS);
   const reason = v.requiredString(body.reason, 'Refund reason', 300);
-  const requestKey = key(body.requestKey);
+  return { amount, choice, reason, requestKey: key(body.requestKey) };
+}
+async function refund(business, user, documentId, body) {
+  const input = readRefund(body);
   return repo.transaction(async (db) => {
     const doc = await lockDocument(db, business, documentId, 'refund');
-    const previous = await repo.one(db, 'SELECT * FROM business_refunds WHERE business_id=$1 AND request_key=$2', [business.id, requestKey]);
-    if (previous) {
-      if (previous.document_id !== doc.id || cents(previous.amount) !== cents(amount) || (choice.method && previous.method !== choice.method) || previous.reason !== reason) fail('Refund key already used', 409);
-      return previous;
-    }
-    const { method, methodName } = await paymentMethods.settle(db, business.id, choice, 'Refund method', refundKinds);
-    const sums = await repo.one(db, `SELECT
-      COALESCE((SELECT sum(amount) FROM business_payments WHERE business_id=$1 AND document_id=$2),0) AS paid,
-      COALESCE((SELECT sum(total) FROM business_returns WHERE business_id=$1 AND document_id=$2),0) AS returned,
-      COALESCE((SELECT sum(amount) FROM business_refunds WHERE business_id=$1 AND document_id=$2),0) AS refunded`, [business.id, doc.id]);
-    const available = cents(sums.paid) - cents(sums.refunded) - (cents(doc.total) - cents(sums.returned));
-    if (cents(amount) > available) fail('Refund exceeds the credit available after returns', 409);
-    // Loyalty points from this sale that the customer had already spent are
-    // paid for out of the refund (their value was recorded with the return).
-    const held = await retailOffers.heldBack(db, business.id, doc.id);
-    if (held && cents(amount) > available - held) {
-      fail(`${(held / 100).toFixed(2)} is kept back for loyalty points this bill earned that were already spent; at most ${(Math.max(0, available - held) / 100).toFixed(2)} can be refunded`, 409);
-    }
-    // Never more than was actually paid, less what was already refunded.
-    if (cents(amount) > cents(sums.paid) - cents(sums.refunded)) fail('Refund exceeds what was paid on this document, less earlier refunds', 409);
-    // An EMI bill: the customer gets back only what they paid
-    // themselves; the financed part goes back to the financier when the loan
-    // is cancelled (EMI & finance › cancel).
-    const own = await repo.one(db, `SELECT
-      COALESCE((SELECT sum(amount) FROM business_payments WHERE business_id=$1 AND document_id=$2 AND method='finance'),0) AS financed,
-      COALESCE((SELECT sum(amount) FROM business_refunds WHERE business_id=$1 AND document_id=$2 AND method='finance'),0) AS reversed`, [business.id, doc.id]);
-    if (cents(own.financed) > 0) {
-      const customerPaid = cents(sums.paid) - cents(own.financed) - (cents(sums.refunded) - cents(own.reversed));
-      if (cents(amount) > customerPaid) {
-        fail(`The customer paid ${(Math.max(0, customerPaid) / 100).toFixed(2)} themselves on this EMI bill; the financed part goes back to the financier when the loan is cancelled.`, 409);
-      }
-    }
-    const result = await repo.one(db, `INSERT INTO business_refunds(business_id,document_id,amount,method,reason,request_key,created_by,method_name)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`, [business.id, doc.id, amount, method, reason, requestKey, user.id, methodName]);
-    await repo.audit(db, business.id, user.id, `${doc.kind}.refunded`, result.id, { documentId: doc.id, amount, ...(methodName ? { method, methodName } : {}) });
-    await repo.event(db, business.id, user.id, `${doc.kind}.refunded`, 'refund', result.id, { documentId: doc.id, documentNo: doc.document_no, amount: result.amount, method });
-    return result;
+    return postRefund(db, business, user, doc, input);
   });
+}
+// Posts a refund on a document already locked inside the caller's
+// transaction (a membership cancelled with its refund). The caller checks
+// permissions; `input` is what readRefund makes of a request.
+async function postRefund(db, business, user, doc, { amount, choice, reason, requestKey }) {
+  const previous = await repo.one(db, 'SELECT * FROM business_refunds WHERE business_id=$1 AND request_key=$2', [business.id, requestKey]);
+  if (previous) {
+    if (previous.document_id !== doc.id || cents(previous.amount) !== cents(amount) || (choice.method && previous.method !== choice.method) || previous.reason !== reason) fail('Refund key already used', 409);
+    return previous;
+  }
+  const { method, methodName } = await paymentMethods.settle(db, business.id, choice, 'Refund method', REFUND_KINDS);
+  const sums = await repo.one(db, `SELECT
+    COALESCE((SELECT sum(amount) FROM business_payments WHERE business_id=$1 AND document_id=$2),0) AS paid,
+    COALESCE((SELECT sum(total) FROM business_returns WHERE business_id=$1 AND document_id=$2),0) AS returned,
+    COALESCE((SELECT sum(amount) FROM business_refunds WHERE business_id=$1 AND document_id=$2),0) AS refunded`, [business.id, doc.id]);
+  const available = cents(sums.paid) - cents(sums.refunded) - (cents(doc.total) - cents(sums.returned));
+  if (cents(amount) > available) fail('Refund exceeds the credit available after returns', 409);
+  // Loyalty points from this sale that the customer had already spent are
+  // paid for out of the refund (their value was recorded with the return).
+  const held = await retailOffers.heldBack(db, business.id, doc.id);
+  if (held && cents(amount) > available - held) {
+    fail(`${(held / 100).toFixed(2)} is kept back for loyalty points this bill earned that were already spent; at most ${(Math.max(0, available - held) / 100).toFixed(2)} can be refunded`, 409);
+  }
+  // Never more than was actually paid, less what was already refunded.
+  if (cents(amount) > cents(sums.paid) - cents(sums.refunded)) fail('Refund exceeds what was paid on this document, less earlier refunds', 409);
+  // An EMI bill: the customer gets back only what they paid
+  // themselves; the financed part goes back to the financier when the loan
+  // is cancelled (EMI & finance › cancel).
+  const own = await repo.one(db, `SELECT
+    COALESCE((SELECT sum(amount) FROM business_payments WHERE business_id=$1 AND document_id=$2 AND method='finance'),0) AS financed,
+    COALESCE((SELECT sum(amount) FROM business_refunds WHERE business_id=$1 AND document_id=$2 AND method='finance'),0) AS reversed`, [business.id, doc.id]);
+  if (cents(own.financed) > 0) {
+    const customerPaid = cents(sums.paid) - cents(own.financed) - (cents(sums.refunded) - cents(own.reversed));
+    if (cents(amount) > customerPaid) {
+      fail(`The customer paid ${(Math.max(0, customerPaid) / 100).toFixed(2)} themselves on this EMI bill; the financed part goes back to the financier when the loan is cancelled.`, 409);
+    }
+  }
+  const result = await repo.one(db, `INSERT INTO business_refunds(business_id,document_id,amount,method,reason,request_key,created_by,method_name)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`, [business.id, doc.id, amount, method, reason, requestKey, user.id, methodName]);
+  await repo.audit(db, business.id, user.id, `${doc.kind}.refunded`, result.id, { documentId: doc.id, amount, ...(methodName ? { method, methodName } : {}) });
+  await repo.event(db, business.id, user.id, `${doc.kind}.refunded`, 'refund', result.id, { documentId: doc.id, documentNo: doc.document_no, amount: result.amount, method });
+  return result;
 }
 // A signed quantity: "-0.200" for a shortage, "1.5" for a surplus.
 function signedQuantity(value) {
@@ -226,4 +251,4 @@ async function adjust(business, user, lotId, body) {
     return adjustment;
   });
 }
-module.exports = { createReturn, postReturn, lockDocument, refund, adjust, applyAdjustment, lockLot };
+module.exports = { createReturn, postReturn, lockDocument, refund, readRefund, postRefund, adjust, applyAdjustment, lockLot };

@@ -130,6 +130,10 @@ async function feed(business) {
   if (has('garage') && can('garage.view') && business.business_type === 'garage') {
     items.push(...await require('../../garage/services/garageJobCards.service').bell(business, base, LIMIT));
   }
+  // A gym's, studio's or coaching centre's memberships ending or in their grace days, and instalments overdue.
+  if (has('member_plans') && can('member_plans.view') && business.business_type === 'memberships') {
+    items.push(...await require('../../memberships/services/memberRenewals.service').bell(business, base, LIMIT));
+  }
   // Licences & registrations: a licence running out within 60 days (warning), or run out (critical).
   if (has('licences') && can('licences.view')) {
     const licences = require('../../licences/services/businessLicences.service');

@@ -24,7 +24,9 @@ const SHORT = { sale: 'SI', purchase: 'PR', sales_return: 'CN', purchase_return:
   // An optical shop's spectacle orders (job cards; not GST documents).
   spectacle_order: 'SPO',
   // A garage's job cards (not GST documents).
-  job_card: 'JC' };
+  job_card: 'JC',
+  // A gym's, studio's or coaching centre's memberships (not GST documents).
+  membership: 'MS' };
 const KINDS = Object.keys(SHORT);
 // Kinds printed as GST documents: their numbers must fit in 16 characters.
 const GST_KINDS = new Set(['sale', 'sales_return', 'purchase_return']);

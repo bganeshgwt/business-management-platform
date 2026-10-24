@@ -186,6 +186,20 @@ export const GARAGE = {
   scooterOwner: { name: "Kiran Reddy", phone: "9123456780" },
 };
 
+// The gym: a monthly plan at 5% GST with a joining fee, two freezes and grace
+// days; a pack of yoga classes; and a three-day trial. A member holds the
+// monthly plan (paid; their card's code is checked in at the desk) and
+// another the trial, which ends in two days.
+export const MEMBERSHIPS = {
+  joining: { name: "Joining fee", code: "GYM-JOIN", price: 500, sac: "999723" },
+  monthly: { name: "Gym monthly", price: 1500, freezes: 2, freezeDays: 15, grace: 3 },
+  yoga: { name: "Yoga 10 classes", price: 2000, sessions: 10 },
+  trial: { name: "Three-day trial", price: 300, days: 3 },
+  policy: "If you cancel, the fee for the days (or sessions) you have not used is refunded pro rata. The joining fee is not refunded.",
+  member: { name: "Deepa Menon", phone: "9876500101" },
+  trialMember: { name: "Rahul Verma", phone: "9876500102" },
+};
+
 // The salon: one stylist and one service.
 export const SALON = {
   stylist: { name: "Priya Sharma", role: "Senior stylist" },

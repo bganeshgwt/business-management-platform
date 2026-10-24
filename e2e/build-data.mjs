@@ -6,7 +6,7 @@
 // one thing no request can make: an order taken on an earlier day.
 import crypto from "node:crypto";
 
-import { AGRI, BUSINESSES, GARAGE, GROCERY, HARDWARE, MEAT, OPTICAL, PLATFORM, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
+import { AGRI, BUSINESSES, GARAGE, GROCERY, HARDWARE, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
 
 // Every call names the status it expects, so a set-up that goes wrong stops
 // at the first wrong answer, with the API's own message, rather than leaving
@@ -414,6 +414,31 @@ export async function buildTestData({ api, logins, sql }) {
       oil: { id: oil.id, name: oil.label }, filter: { id: filter.id, name: filter.label }, labour: { id: labour.id, name: labour.label },
       car: { id: swift.id, registrationNo: swift.registration_no, owner: swift.owner_name },
       scooter: { id: activa.id, registrationNo: activa.registration_no, owner: activa.owner_name },
+    });
+  }
+
+  // The gym: its joining fee, its plans (each sold as its own service item at
+  // 5% GST), a member with a paid monthly membership and one on the trial.
+  {
+    const B = at("memberships");
+    const gst5 = (await owner("GET", B("tax-rates?limit=100"), undefined, 200)).items.find((r) => Number(r.rate) === 5);
+    const joining = await owner("POST", B("catalog"), {
+      name: MEMBERSHIPS.joining.name, code: MEMBERSHIPS.joining.code, kind: "service", unit: "service", price: String(MEMBERSHIPS.joining.price), hsnCode: MEMBERSHIPS.joining.sac, taxRateId: gst5.id,
+    }, 201);
+    const plan = (body) => owner("POST", B("member-plans/plans"), { policy: MEMBERSHIPS.policy, ...body }, 201);
+    const item = (price) => ({ price: String(price), taxRateId: gst5.id, hsnCode: "999723" });
+    const monthly = await plan({ name: MEMBERSHIPS.monthly.name, kind: "duration", durationUnit: "months", duration: "1", item: item(MEMBERSHIPS.monthly.price), joiningSkuId: joining.id,
+      maxFreezes: String(MEMBERSHIPS.monthly.freezes), maxFreezeDays: String(MEMBERSHIPS.monthly.freezeDays), graceDays: String(MEMBERSHIPS.monthly.grace), transferable: true });
+    const yoga = await plan({ name: MEMBERSHIPS.yoga.name, kind: "sessions", sessions: String(MEMBERSHIPS.yoga.sessions), item: item(MEMBERSHIPS.yoga.price) });
+    const trial = await plan({ name: MEMBERSHIPS.trial.name, kind: "duration", durationUnit: "days", duration: String(MEMBERSHIPS.trial.days), item: item(MEMBERSHIPS.trial.price) });
+    const sell = (planId, member) => owner("POST", B("member-plans/memberships"), { requestKey: requestKey(), locationId: businesses.memberships.locationId, planId, member,
+      payments: [{ amount: "full", method: "cash" }] }, 201);
+    const sold = await sell(monthly.id, MEMBERSHIPS.member);
+    const tried = await sell(trial.id, MEMBERSHIPS.trialMember);
+    Object.assign(businesses.memberships, {
+      monthly: { id: monthly.id, name: monthly.name }, yoga: { id: yoga.id, name: yoga.name }, trial: { id: trial.id, name: trial.name },
+      member: { id: sold.contact_id, name: sold.member_name, code: sold.member_code, membershipId: sold.id, membershipNo: sold.membership_no },
+      trialMember: { id: tried.contact_id, name: tried.member_name, code: tried.member_code, membershipId: tried.id, membershipNo: tried.membership_no },
     });
   }
 

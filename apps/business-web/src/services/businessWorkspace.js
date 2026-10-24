@@ -16,13 +16,16 @@ export const WORKSPACES = {
   patients: ['patients', 'customers'],
   laboratory: ['lab-orders', 'lab-tests', 'lab-qc'],
   reports: ['reports', 'retail-reports', 'wholesale-reports', 'variant-reports', 'weight-reports', 'salon-reports', 'commissions', 'fitter-reports', 'activity'],
-  settings: ['settings', 'tax-rates', 'payment-methods', 'number-series', 'locations', 'units', 'resources', 'health-settings', 'licences', 'agri-settings', 'garage-settings'],
+  settings: ['settings', 'tax-rates', 'payment-methods', 'number-series', 'locations', 'units', 'resources', 'health-settings', 'licences', 'agri-settings', 'garage-settings', 'member-plans'],
   // A seeds, fertilisers & pesticides shop's own area.
   farm: ['farmers', 'agri-subsidy', 'agri-registers', 'molecules'],
   // An optical shop's spectacle orders, in its daily menu.
   spectacles: ['spectacle-orders'],
   // A garage's job cards, in its daily menu.
   jobCards: ['job-cards'],
+  // A gym's, studio's or coaching centre's front desk, and its members (in place of customers).
+  checkIn: ['check-in'],
+  members: ['members', 'renewals', 'customers', 'loyalty'],
   staff: ['staff', 'roles'],
   money: ['day-close', 'expenses', 'emi-finance'],
   repairs: ['repairs', 'appointments'],
@@ -40,6 +43,7 @@ export function workspaceFor(section, type) {
   if (section === 'appointments') return type === 'healthcare' ? 'care' : type === 'electronics' ? 'repairs' : 'appointments';
   if (section === 'pricing') return type === 'wholesale' ? 'orders' : 'products';
   if (section === 'customers' && type === 'healthcare') return 'patients';
+  if ((section === 'customers' || section === 'loyalty') && type === 'memberships') return 'members';
   return Object.keys(WORKSPACES).find((key) => WORKSPACES[key].includes(section)) || null;
 }
 
@@ -78,6 +82,8 @@ export function workspaceLabel(section, type, fallback) {
   if (section === 'weight-reports') return type === 'weight_retail' ? 'Repacking & wastage' : 'Cutting & wastage';
   if (section === 'salon-calendar') return 'Appointments';
   if (section === 'products' && type === 'healthcare') return 'Services & charges';
+  // A gym's members are its Members page; the contacts behind them keep their details and dues.
+  if (section === 'customers' && type === 'memberships') return 'Member contacts';
   if (section === 'settings') return 'Settings';
   if (section === 'staff') return 'Staff & access';
   return fallback;
@@ -88,12 +94,12 @@ export function workspaceLabel(section, type, fallback) {
 export function dailyWorkspaces(type) {
   const checkout = type === 'salon' ? 'salon-bill' : type === 'pharmacy' ? 'pharmacyBilling' : GOODS.includes(type) ? 'counter' : null;
   // Orders: a wholesaler's beat orders, or a hardware shop's site orders (with Sales orders on).
-  const daily = [checkout, type === 'healthcare' ? 'care' : null,
+  const daily = [checkout, type === 'memberships' ? 'checkIn' : null, type === 'healthcare' ? 'care' : null,
     ['wholesale', 'hardware'].includes(type) ? 'orders' : null,
     ['salon', 'optical', 'garage', 'memberships'].includes(type) ? 'appointments' : null,
     type === 'optical' ? 'spectacles' : null,
     type === 'garage' ? 'jobCards' : null,
-    'sales', type === 'healthcare' ? 'patients' : 'customers', 'dues', 'money'].filter(Boolean);
+    'sales', type === 'healthcare' ? 'patients' : type === 'memberships' ? 'members' : 'customers', 'dues', 'money'].filter(Boolean);
   const business = ['products', 'purchases', 'stock'];
   if (type === 'pharmacy') business.push('pharmacy-registers');
   if (type === 'books') business.push('bookOrders');

@@ -2,7 +2,7 @@
 // has switched on and what this person's role allows. The server checks the
 // same two things on every request; the menu only hides what would be refused.
 
-import { AGRI, CLINIC, GARAGE, GOODS, HARDWARE, OPTICAL, PHARMACY, RETAIL, SALON, WEIGHED } from './businessTypes.js';
+import { AGRI, CLINIC, GARAGE, GOODS, HARDWARE, MEMBERSHIPS, OPTICAL, PHARMACY, RETAIL, SALON, WEIGHED } from './businessTypes.js';
 import { dailyWorkspaces, WORKSPACES, workspaceLabel, workspaceSections } from './businessWorkspace.js';
 
 export { GOODS };
@@ -173,6 +173,18 @@ export function businessSections(type) {
       ],
     },
     {
+      // A gym's, studio's or coaching centre's front desk (a daily entry of its
+      // own), and its members with their plans and the renewal calls (with its
+      // members' details).
+      title: "Memberships",
+      links: [
+        { section: "check-in", label: "Check-in", icon: "attendance", need: "member_plans.view", types: MEMBERSHIPS },
+        { section: "members", label: "Members", icon: "customers", need: "member_plans.view", types: MEMBERSHIPS },
+        // Memberships ending soon or ended lately, and fees falling due, with a reminder ready to send.
+        { section: "renewals", label: "Renewals", icon: "recurring", need: "member_plans.view", types: MEMBERSHIPS },
+      ],
+    },
+    {
       title: "Purchases",
       links: [
         { section: "purchases", label: "Purchases", icon: "purchaseOrders", need: "purchasing.view" },
@@ -260,6 +272,8 @@ export function businessSections(type) {
         { section: "agri-settings", label: "Farm input checks", icon: "serviceSettings", need: "agri.view", types: AGRI },
         // A garage's months and kilometres to the next service, and the item that bills the owner's share of a claim.
         { section: "garage-settings", label: "Garage settings", icon: "serviceSettings", need: "garage.view", types: GARAGE },
+        // A gym's, studio's or coaching centre's plans, and when overdue fees turn a member away at check-in.
+        { section: "member-plans", label: "Membership plans", icon: "package", need: "member_plans.view", types: MEMBERSHIPS },
       ],
     },
     {

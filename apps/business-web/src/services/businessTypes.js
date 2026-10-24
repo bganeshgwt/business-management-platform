@@ -27,3 +27,5 @@ export const AGRI = ["agri_inputs"];
 export const OPTICAL = ["optical"];
 // Vehicle service & auto parts: vehicles, job cards, the service-due list.
 export const GARAGE = ["garage"];
+// Gyms, studios & coaching: check-in, members and their plans, renewals.
+export const MEMBERSHIPS = ["memberships"];

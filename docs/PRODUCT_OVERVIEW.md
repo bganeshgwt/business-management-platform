@@ -211,6 +211,16 @@ The GST rates of an optical shop's goods and how to set it up: [ADMIN_GUIDE.md �
 
 The GST rates of a garage's parts and labour and how to set it up: [ADMIN_GUIDE.md › Vehicle service & auto parts](ADMIN_GUIDE.md#vehicle-service--auto-parts).
 
+### Gyms, studios and coaching
+
+- **Plans:** by days or months, a pack of sessions, or sessions to use within a time; each sold as a service item of its own with its GST slab and SAC (5% without input tax credit for a gym, yoga or fitness centre; 18% for coaching and tuition, and for dance, music or art classes), a joining fee, how many days it may be frozen in how many freezes, grace days after it ends, whether it can be passed to another member, and a refund policy kept in versions.
+- **Memberships:** sold on an ordinary bill, paid now or left on the member's dues, with the plan's terms and the policy version kept as sold; each member gets a code for their card. Renewals start the day after the last day; an upgrade credits the part not used against the new plan's bill; a freeze moves the last day on; a membership can be passed to another member when its plan allows it; and a cancellation gives back the part not used, by days or sessions, to the paisa, as a credit note and a refund that a manager approves with their PIN. The membership slip prints the member's code as a QR and the refund policy as sold.
+- **Check-in:** the front desk types or scans the member's code, or finds them by name or phone, and sees at once whether they are let in, or why not: no membership, not started, over, frozen, no sessions left, or fees overdue for too long. A pack loses one session a day. A trainer checks members in and sees no money.
+- **Fees in instalments:** a course fee split into instalments with their due days, adding up to the bill; each payment is a numbered receipt that covers them in order, and the overdue ones are listed. This way a coaching centre gives a receipt for every payment, keeps a course's fee as sold, and refunds the part not used when a student leaves.
+- **Renewal calls:** memberships ending in the next 7 or 15 days and those ended in the last 30, with a WhatsApp message ready and every reminder kept.
+
+The GST rates of a gym's, studio's or coaching centre's services and how to set it up: [ADMIN_GUIDE.md › Gyms, studios & coaching](ADMIN_GUIDE.md#gyms-studios--coaching).
+
 ### The newer trades
 
 General stores, hardware and building-material shops, seeds and fertiliser shops, opticians, garages, jewellers, fuel stations, gyms and coaching centres, laundries, rental businesses, and hotels and lodges run on the shared core from their first day:
@@ -219,7 +229,7 @@ General stores, hardware and building-material shops, seeds and fertiliser shops
 - **Their trade's tools to switch on:** contractor rates and site orders with challans for hardware; dealer rates and batch tracking for seeds and pesticides; eye-test and service bookings for opticians and garages; personal-training bookings for gyms.
 - **Their own checklists:** nozzle tests and density checks at a fuel station, room turnover and the guest register at a lodge, the day-end tally at a jeweller, and more.
 
-Each trade's own screens (memberships, gold rates, rooms and others) come in the order set out in [BACKLOG.md › New business types](BACKLOG.md#10-new-business-types).
+Each trade's own screens (gold rates, rooms and others) come in the order set out in [BACKLOG.md › New business types](BACKLOG.md#10-new-business-types).
 
 ## Several locations
 

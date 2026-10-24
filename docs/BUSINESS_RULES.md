@@ -27,6 +27,7 @@ The everyday numbers, such as expiring-soon days, voucher validity, credit age g
 - [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides)
 - [Optical shops](#optical-shops)
 - [Vehicle service & auto parts](#vehicle-service--auto-parts)
+- [Gyms, studios & coaching](#gyms-studios--coaching)
 - [Restaurant and food formats](#restaurant-and-food-formats)
 
 ## Fixed on purpose
@@ -406,7 +407,7 @@ These rules apply to every business type but the restaurant. The goods rules app
 
 ### Roles by business type
 
-- **Rule:** some roles belong to one type of business: Pharmacist to a pharmacy; Doctor, Lab technician and Pathologist to a clinic & lab; Optometrist to an optical shop; Mechanic to a garage. A business of that type starts with them, and other types do not get them.
+- **Rule:** some roles belong to one type of business: Pharmacist to a pharmacy; Doctor, Lab technician and Pathologist to a clinic & lab; Optometrist to an optical shop; Mechanic to a garage; Trainer to a gym, studio or coaching centre. A business of that type starts with them, and other types do not get them.
 - **Why:** a kirana should not see a "Doctor" role.
 - **Change it:** they are ordinary roles, editable in *Roles & permissions*.
 
@@ -635,6 +636,88 @@ A garage sells parts as every goods shop does ([Shops and the shared core](#shop
 - **Rule:** billing a job sets the vehicle's next service: by date, the garage's months after the bill, and by reading, its kilometres after the reading out (or in), to start with; or the day and reading typed (a day after today within five years, a reading above the vehicle's), or none. A job card with nothing on it, delivered with no bill, leaves the vehicle's next service as it was. *Service due* holds every vehicle in use whose next service falls within 7 days, by its date or by the day its kilometres a day will take it to the reading due, and every one whose insurance or PUC runs out within 30 days or has run out. Each reminder given (WhatsApp, a call) is kept; one in the last 30 days counts as recent.
 - **Why:** a service falls due by months or by kilometres, whichever comes first; the reading is projected from the odometer log, so the reminder goes before the reading is reached.
 - **Change it:** the months (1 to 36, 6 to start with) and kilometres (500 to 100,000, 5,000 to start with) in *Settings › Garage settings*, by a role that holds `settings.edit`; each job's own on its bill.
+
+## Gyms, studios & coaching
+
+A gym, a studio or a coaching centre sells its plans as services on bills of the shared core ([Shops and the shared core](#shops-and-the-shared-core)); with *Plans & memberships* on it also keeps each member's memberships, checks members in at the desk and splits fees into instalments. Each rule below is checked by the server, and the ones about records that must not change are held by the database too.
+
+### A plan is its own service item, and its GST is the item's
+
+- **Rule:** a plan is sold as a service item of the catalogue, its own (no other plan's, and never a joining fee), made with the plan from the price, GST slab and SAC typed, or an existing service chosen. A joining fee is another service item. The bill takes each line's GST from its item's slab. A plan keeps its item for good (its price changes on the item) and is switched off, never deleted.
+- **Why:** from 22 September 2025, the services of a gym, health club, fitness centre or yoga centre (SAC group 99972) are at 5% without input tax credit, and the 5% is mandatory: CBIC says the provider cannot charge 18% with credit instead. Coaching and tuition (999293) and dance, music and art classes (999291) stay at 18%. A studio selling both bills each plan under its own slab.
+- **Change it:** each plan's slab and SAC on the plan (*Settings › Membership plans*) or on its item; have an accountant confirm them.
+
+### A membership keeps its terms as sold
+
+- **Rule:** a membership keeps, from the day it is sold: the plan's name and kind, its days or months and sessions, the price as billed (the plan's line: its taxable value, GST and rate), the joining fee billed with it, the refund policy's version, the freezes and days it may be frozen, its grace days and whether it can be passed on. Its first day and its last day as sold never change; its last day moves only by its freezes. A later change to the plan applies to memberships sold from then on. The database refuses any other change, and a membership is never deleted.
+- **Why:** what a member bought, and the policy they were given, are what count if they cancel or complain. The coaching-centre guidelines of the Ministry of Education (2024, as reported) also ask that a course's fee is not raised while it runs.
+- **Change it:** nothing to set.
+
+### The refund policy is kept in versions
+
+- **Rule:** every plan has a refund policy, written when the plan is made. A changed policy is the plan's next version; every version is kept as it was written, and a membership keeps the version it was sold with, which prints on its membership slip.
+- **Why:** a district consumer commission has held a membership's blanket "no refund under any circumstances" term unfair, noting that the terms had never been given to the member; a policy stated, given and kept as sold is the business's answer to a complaint.
+- **Change it:** the policy on the plan (*Settings › Membership plans*).
+
+### When a membership runs, and renewals
+
+- **Rule:** a membership starts today or on a later day within 180 days. By days, its last day is so many days later counting the first; by months, the day before the same date so many months on (the month's last day when it has fewer). A pack of sessions has no last day: it runs until its sessions are used, unless it is sessions within a time. A renewal starts the day after the membership it renews ends, while it runs or within its grace days, and from today once they are past; a membership is renewed once. Two memberships of one plan with a last day never overlap for a member (packs of one plan may: the oldest is used first). A membership closed by a cancellation, a transfer or an upgrade ends on its last day counted.
+- **Why:** a member who renews on time keeps the days they paid for, without a gap or two plans paid for the same days.
+- **Change it:** nothing to set; the plan's days, months and grace days on the plan.
+
+### Freezes stay within the plan's limits
+
+- **Rule:** a membership with a last day is frozen from today or a day within 60 days, between its first and its last day, for at most the days and in at most the freezes its plan allowed when it was sold (both or neither); freezes of a membership never overlap. Its last day moves on by the days frozen. When the member comes back early, the freeze ends that day and counts only the days up to it; a freeze ended before it began (called off) counts no days and no freeze. A frozen membership lets no one in. A membership followed by its renewal is not frozen. Freezes are never deleted.
+- **Why:** a member away for a while keeps the days they paid for, within what the plan promised; a renewal already sold starts on its own day.
+- **Change it:** the freezes and days on the plan; who freezes is the role's `member_plans.edit` (the owner, a manager and a cashier by default).
+
+### Who is let in at the desk
+
+- **Rule:** a member is found by their code (typed or scanned from the QR on their slip) or by a search, and let in on a membership that runs that day: started, not closed, not frozen, within its last day or its grace days after it, with a session left on a pack. Otherwise they are turned away with the reason: no membership, not started yet, over (grace days past), frozen, no sessions left, or fees overdue. A pack loses one session a day: a second visit the same day uses none. The membership used is the one asked for, else one by time before a pack (no session is used then), the pack ending first before the others. Every check-in is kept, let in or not, on the business's date, and never changed.
+- **Why:** the desk knows at once whether to let a member in and why not; the record shows who came, when and on what.
+- **Change it:** the grace days on the plan; who checks members in is the role's `member_plans.create` (the owner, a manager, a cashier and a trainer by default).
+
+### Fees overdue turn a member away
+
+- **Rule:** a member whose fees are overdue by more than the business's days is turned away at check-in, even with a membership running: a bill past its due day, or for a fee in instalments an instalment past its own, not yet paid. The desk sees how much; a trainer does not.
+- **Why:** a member with fees long unpaid is asked to pay before training on.
+- **Change it:** *Fees overdue at check-in* in *Settings › Membership plans* (7 days to start with; 0 to 365, or *Never turn a member away for fees*), by a role that holds `settings.edit`.
+
+### What a cancellation gives back
+
+- **Rule:** a running membership is cancelled with a reason. Its days used are counted from its first day to the day of cancelling, both counted, less the days frozen (none when it has not begun); a pack's are its sessions used. What may come back is the part not used of the price as billed: the days left over the days sold, the sessions left over the sessions sold, or for sessions within a time the smaller of the two, worked out to the paisa (halves up). Less may be given back, and the joining fee may be given back in full too. What comes back is a credit note on the membership's bill (its GST in the line's own proportion, adding up exactly); what the member paid beyond what is then due on the bill is refunded by cash, UPI, card or bank, and what they had not paid is simply owed less. Anything given back needs `member_plans.refund` and a manager's approval with their PIN (`member_plans.approve`; their own PIN when they cancel it themselves). A membership passed on by another member gives nothing back. The bill lines that sold a membership come back only on its own credit note: the database refuses a return of them made any other way.
+- **Why:** the member pays for what they used; the coaching-centre guidelines (2024, as reported) ask for a pro-rata refund within 10 days when a student leaves midway, and the refund here is paid on the day. Money leaving the drawer needs a second person's say-so.
+- **Change it:** who cancels is the role's `member_plans.cancel`, who gives back `member_plans.refund`, and who approves `member_plans.approve` (the owner and a manager by default).
+
+### An upgrade's credit pays the new bill first
+
+- **Rule:** a running membership is upgraded to another plan from today; its last day counted is yesterday (the day before its first day when it has not begun). The part not used, worked out as for a cancellation, comes back as a credit note on its bill, and what the member paid beyond what is now due on it pays the new plan's bill first: a refund by credit note on the old bill and a payment by credit note on the new one, so no money moves. A credit bigger than the new plan's bill is refused (a cancellation with its refund, then a new sale, moves a member to a cheaper plan). A membership passed on by another member is not upgraded.
+- **Why:** the member keeps the value of what they did not use, and the two bills add up to what they paid.
+- **Change it:** who upgrades is a role holding `member_plans.edit` and `sales.create` (the owner, a manager and a cashier by default).
+
+### A membership passed on keeps its bill
+
+- **Rule:** a membership is passed on to another member only when its plan allows it, it is not frozen and has no freeze to come, and nothing is left to pay on its bill. It closes as transferred, and the other member's membership carries on from today (or its first day, when it has not begun) to its last day, with its sessions and freezes left, on the same bill and policy version. Nothing comes back from it later: the bill is the first member's.
+- **Why:** the first member paid for it; what is left passes on, not the money.
+- **Change it:** *Can be passed on* on the plan.
+
+### Instalments add up to the bill
+
+- **Rule:** a fee in instalments has 2 to 36 of them, each with its due day (the first today or later, the last within three years, each after the one before) and amount, adding up to the bill exactly; they are set with the sale and never changed, and the bill falls due on the last of them. Payments on the bill, less refunds, cover the instalments in order; one past its day not fully covered is overdue. A cancelled or upgraded membership's instalments no longer fall due.
+- **Why:** a coaching fee paid in parts has its days agreed at enrolment, and each payment is a numbered receipt.
+- **Change it:** nothing to set.
+
+### A plan's item is sold only with its membership
+
+- **Rule:** a bill with a plan's item is posted only by Members & plans, which writes the membership with it; the core refuses that item on any other bill of the business while the tool is on.
+- **Why:** every plan sold has its membership, so the desk, the renewals and the dues agree with the bills.
+- **Change it:** nothing to set.
+
+### A trainer sees no money
+
+- **Rule:** the Trainer sees members, their plans and check-ins, checks members in, and sees personal-training sessions and marks them done or missed. Memberships show without prices, bills or dues to anyone whose role does not hold `sales.view`, and the fees due list is for those who do. Selling a membership also needs `sales.create`.
+- **Why:** the floor staff train members; the money is the desk's.
+- **Change it:** *Roles & permissions*.
 
 ## Restaurant and food formats
 

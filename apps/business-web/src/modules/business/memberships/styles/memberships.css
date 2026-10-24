@@ -1,0 +1,206 @@
+/* Gyms, studios and coaching centres: the check-in desk's answer, a member's
+   membership cards, the sale dialog's bill and instalments, and the small
+   notes these screens share. Colours come from the theme's tokens only. */
+
+/* The check-in desk: one big box for the code, name or phone. */
+.mem-checkin {
+  display: flex;
+  gap: var(--space-2);
+  align-items: stretch;
+}
+.mem-checkin-input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-xl);
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+.mem-found {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.mem-found-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.mem-found-row:hover,
+.mem-found-row:focus-visible {
+  background: var(--surface-hover);
+}
+.mem-answer {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.mem-answer.is-in {
+  border-color: var(--success-border);
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+.mem-answer.is-out {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.mem-answer-head {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+.mem-answer-head small {
+  display: block;
+  color: var(--text-2);
+}
+.mem-answer-title {
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  line-height: 1.2;
+}
+.mem-answer-words {
+  margin: 0;
+  font-size: var(--text-lg);
+  color: var(--text);
+}
+
+/* A member's memberships, one card each. */
+.mem-cards {
+  display: grid;
+  gap: var(--space-3);
+}
+.mem-card {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.mem-card-frozen {
+  border-color: var(--warning-border);
+}
+.mem-card-cancelled,
+.mem-card-transferred,
+.mem-card-upgraded,
+.mem-card-expired,
+.mem-card-used_up {
+  background: var(--surface-2);
+}
+.mem-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+.mem-card-head h3 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+.mem-card-head h3 .mono {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-regular);
+}
+.mem-history summary {
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: var(--text-sm);
+}
+.mem-history ol {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-5);
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+/* The sale dialog's bill, instalments and notes. */
+.mem-bill {
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.mem-instalments {
+  display: grid;
+  gap: var(--space-1);
+}
+.mem-instalment {
+  display: grid;
+  grid-template-columns: 2ch minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: center;
+}
+.mem-note {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-md);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: var(--text-sm);
+}
+.mem-note-danger {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.mem-policy {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--border-strong);
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  white-space: pre-wrap;
+}
+.mem-approval {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.mem-approval legend {
+  padding: 0 var(--space-1);
+  color: var(--text-2);
+  font-size: var(--text-sm);
+}
+
+/* The check-in rule on the plans screen. */
+.mem-setting {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+.mem-setting .field {
+  min-width: 160px;
+}
+
+@media (max-width: 640px) {
+  .mem-checkin {
+    flex-direction: column;
+  }
+  .mem-found-row {
+    grid-template-columns: 1fr;
+  }
+  .mem-card-head {
+    flex-direction: column;
+  }
+}

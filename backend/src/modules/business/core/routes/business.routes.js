@@ -234,6 +234,8 @@ require('../../agri/routes/businessAgri.routes')(router, { context, send, b });
 require('../../optical/routes/businessOptical.routes')(router, { context, send, b });
 // Garages: vehicles and their owners, the odometer log, job cards from the estimate to the bills (the insurer's and the owner's), service reminders.
 require('../../garage/routes/businessGarage.routes')(router, { context, send, b });
+// Gyms, studios and coaching: plans, memberships with their pro-rata credits and refunds, check-ins, instalments, renewals.
+require('../../memberships/routes/businessMemberships.routes')(router, { context, send, b });
 
 // Per-staff PIN at the counter, kits / bundles, EMI & finance.
 require('./businessCounter.routes')(router, { context, send, b });

@@ -648,6 +648,8 @@ const hardwareSales = () => require('../../hardware/services/hardwareSales.servi
 // the licence, molecule, crop and seed-lot checks, PoS receipts and season credit.
 const agriItems = () => require('../../agri/services/agriItems.service');
 const agriSales = () => require('../../agri/services/agriSales.service');
+// A gym's, studio's or coaching centre's plans: their items are sold from Members & plans.
+const memberPlans = () => require('../../memberships/services/memberCommon');
 const named = (value) => value !== undefined && value !== null && value !== '';
 // Posts a sale or purchase inside the caller's transaction. Permissions and
 // the request are checked by the caller. `fixed` (used by wholesale
@@ -660,6 +662,9 @@ const named = (value) => value !== undefined && value !== null && value !== '';
 // several units on one line.
 // `paidNow`: null, one payment { amount, method, reference } or a list of them
 // (split payment). `finance`: an EMI sale's financier part.
+// `membership`: the bill is posted by Members & plans with the membership it
+// sells (a plan's item goes on no other bill). `dueDay`: the day the bill
+// falls due when the caller sets it (a fee in instalments: the last one).
 // Free units and trade discount on a purchase line, in the line's own unit
 // (packs when it is entered in packs). null when neither is given.
 function readScheme(input) {
@@ -672,7 +677,8 @@ function readScheme(input) {
   return { free: free > 0, freeEntered: free, discount, discountBasis: Math.round(discount * 100), paidMilli, totalMilli, totalText: String(totalMilli / 1000) };
 }
 
-async function postDocument(db, business, user, body, { kind, requestKey, hash, lines: inputLines, paidNow, fixed = null, quote = false, walkInPays = false, voucher = null, finance = null }) {
+async function postDocument(db, business, user, body, { kind, requestKey, hash, lines: inputLines, paidNow, fixed = null, quote = false, walkInPays = false, voucher = null, finance = null,
+  membership = false, dueDay = null }) {
   {
     // Serializes document posting within a business: one lock order for every
     // posting (business, then document, then stock lots).
@@ -812,6 +818,8 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     const agri = kind === 'sale' && agriSales().applies(business) ? await agriSales().checkSale(db, business, { prepared, body, location, contact }) : null;
     if (!agri && agriSales().given(body)) fail('Crops, PoS receipts and season credit go on the sales of a seeds, fertilisers & pesticides shop with its tools switched on');
     if (kind === 'purchase' && agriSales().applies(business)) agriSales().checkPurchase(prepared);
+    // A plan's item is sold from Members & plans, which makes the membership with its bill.
+    if (kind === 'sale' && !membership && business.modules.includes('member_plans')) await memberPlans().checkLooseSale(db, business, prepared);
     // A credit voucher pays first; "full" is then what is left.
     const voucherUse = voucher ? await exchangeVouchers().prepare(db, business, voucher, rounded) : null;
     const prepaid = voucherUse?.amount || 0;
@@ -843,7 +851,7 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     }
     const today = await repo.one(db, 'SELECT (now() AT TIME ZONE $1)::date AS day', [business.timezone]);
     // A season credit bill falls due at the harvest date given on it.
-    const dueOn = agri?.dueOn ? { day: agri.dueOn }
+    const dueOn = agri?.dueOn ? { day: agri.dueOn } : dueDay ? { day: dueDay }
       : contact?.credit_days ? await repo.one(db, 'SELECT ($1::date + $2::int)::text AS day', [today.day, contact.credit_days]) : today;
     const bill = supplierBill(body, kind, today.day);
     if (bill.number) {

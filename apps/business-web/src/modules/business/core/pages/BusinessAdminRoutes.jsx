@@ -131,6 +131,12 @@ const VehiclePage = lazy(() => import("../../garage/pages/VehiclePage"));
 const StatementPage = lazy(() => import("../../garage/pages/StatementPage"));
 const ServiceDuePage = lazy(() => import("../../garage/pages/ServiceDuePage"));
 const GarageSettingsPage = lazy(() => import("../../garage/pages/GarageSettingsPage"));
+// Gyms, studios and coaching centres.
+const CheckInPage = lazy(() => import("../../memberships/pages/CheckInPage"));
+const MembersPage = lazy(() => import("../../memberships/pages/MembersPage"));
+const MemberPage = lazy(() => import("../../memberships/pages/MemberPage"));
+const RenewalsPage = lazy(() => import("../../memberships/pages/RenewalsPage"));
+const PlansPage = lazy(() => import("../../memberships/pages/PlansPage"));
 
 function Notice({ title, children }) {
   return (
@@ -266,6 +272,10 @@ function screens(type) {
     "vehicles": <VehiclesPage />,
     "service-due": <ServiceDuePage />,
     "garage-settings": <GarageSettingsPage />,
+    "check-in": <CheckInPage />,
+    "members": <MembersPage />,
+    "renewals": <RenewalsPage />,
+    "member-plans": <PlansPage />,
   };
 }
 
@@ -341,6 +351,7 @@ export default function BusinessAdminRoutes() {
         <Route path="job-cards/:jobId" element={page("job-cards", <JobCardPage />)} />
         <Route path="vehicles/:vehicleId" element={page("vehicles", <VehiclePage />)} />
         <Route path="vehicles/owner/:contactId" element={page("vehicles", <StatementPage />)} />
+        <Route path="members/:contactId" element={page("members", <MemberPage />)} />
         <Route path="tasks/*" element={page("tasks", <TasksRoutes />)} />
         <Route path="*" element={<Notice title="Page not found"><p>Use the menu on the left to find the screen you need.</p></Notice>} />
       </Routes>

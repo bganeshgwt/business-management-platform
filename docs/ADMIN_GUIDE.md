@@ -92,6 +92,7 @@ on record.
 - [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides)
 - [Optical shops](#optical-shops)
 - [Vehicle service & auto parts](#vehicle-service--auto-parts)
+- [Gyms, studios & coaching](#gyms-studios--coaching)
 
 **[Part 4 — Tasks, issues & projects](#part-4--tasks-issues--projects)**
 
@@ -2119,8 +2120,8 @@ panel over it.
 | Menu | Entry, and the tabs inside it | What they are for |
 | --- | --- | --- |
 | Daily work | **Overview** | Up to four headline figures — sales today (against the same weekday last week by this time), money in today, what customers owe (less advances, the same figure as Udhaar / Outstanding) and what is owed to suppliers — then *Needs doing today* (low stock, batches expiring soon, transfers on the way, counts open, broken promises, repairs ready, orders to dispatch…), *Start here* (the things done most often in this type), sales over the last 14 days, hour by hour and the best sellers, the day's bookings for a salon or clinic, and *What this business uses*. You see only the figures your role may see. |
-| Daily work | The type's own counter and day: a shop's **Quick bill**, a pharmacy's **Prescription sale**, a salon's **New bill** and **Appointments** (the calendar), a clinic's **Today's patients**, a wholesaler's **Sales orders**, a garage's **Job cards** | Described with each type below. |
-| Daily work | **Sales history** (*Bill history* in a salon or clinic), with Quotations, Exchanges, Warranties and Orders for pickup where the type has them; **Customers** (*Clients*; a clinic's *Patients*), with Loyalty points (and a garage's Vehicles and Service due) | Post a sale at the server's prices, take payment with it or leave it on credit, return goods, refund. Customers carry a GSTIN, a credit limit and credit days; a customer over the limit cannot be given more credit. |
+| Daily work | The type's own counter and day: a shop's **Quick bill**, a pharmacy's **Prescription sale**, a salon's **New bill** and **Appointments** (the calendar), a clinic's **Today's patients**, a wholesaler's **Sales orders**, a garage's **Job cards**, a gym's **Check-in** | Described with each type below. |
+| Daily work | **Sales history** (*Bill history* in a salon or clinic), with Quotations, Exchanges, Warranties and Orders for pickup where the type has them; **Customers** (*Clients*; a clinic's *Patients*), with Loyalty points (and a garage's Vehicles and Service due; a gym's **Members**, with Renewals and Member contacts) | Post a sale at the server's prices, take payment with it or leave it on credit, return goods, refund. Customers carry a GSTIN, a credit limit and credit days; a customer over the limit cannot be given more credit. |
 | Daily work | **Udhaar** (*Customer dues* outside a kirana, a meat or weight-based shop, a general store, a hardware shop or a seeds and fertiliser shop), with *Payments received*; **Daily money**, with Expenses (and EMI & financiers) | What customers owe and what they paid; the day's money and paid expenses (below). |
 | Business | **Products & services** (named for the type: *Medicines & products*, *Books & stationery*…), with Categories, Barcode labels, Kits & bundles, Offers & discounts, price lists and the type's own (Drug master, Book details, Size × colour, Today's rates, Stylists & services) | Items with GST slab, unit, how they are tracked (quantity, batch and expiry, or serial number), reorder level. Categories nest up to five levels. |
 | Business | **Purchases**, with Suppliers, Purchase orders (every business that keeps stock) and, for a wholesaler, Claims on suppliers | Record what was bought; stock goes up at once at its cost. |
@@ -2128,7 +2129,7 @@ panel over it.
 | Business | The type's own records: **Registers & prescriptions** (pharmacy), **Booklists & orders** (books), **Repairs** (electronics), **Packages** (salon), **Lab orders** (clinic), **Farm inputs** (seeds, fertilisers & pesticides) | Described with each type below. |
 | Management | **Reports**, with the type's own reports, Staff commissions and Activity log | Money by day, locations compared, departments; who did what. |
 | Management | **Tasks** | See [Part 4](#part-4--tasks-issues--projects). |
-| Management | **Settings**: Business settings (with Business tools), Tax rates, Payment methods, Number series, Locations, Units & pack sizes, Staff & rooms (*Doctors & rooms* in a clinic), Licences (with Licences & registrations on), and Pharmacy settings, Clinic & lab settings, Farm input checks or Garage settings | Legal name, GSTIN, prices with or without GST, rounding, financial year, the most a manager may take off a bill at the counter (with a reason; the owner is not limited), whether a walk-in may leave a bill unpaid, and the shared till's PIN rule. Number series give each location its own bill numbers per financial year, with no gaps and no duplicates. A pack size turns "3 boxes" into 72 pieces exactly. A location holding stock cannot be closed. |
+| Management | **Settings**: Business settings (with Business tools), Tax rates, Payment methods, Number series, Locations, Units & pack sizes, Staff & rooms (*Doctors & rooms* in a clinic), Licences (with Licences & registrations on), and Pharmacy settings, Clinic & lab settings, Farm input checks, Garage settings or Membership plans | Legal name, GSTIN, prices with or without GST, rounding, financial year, the most a manager may take off a bill at the counter (with a reason; the owner is not limited), whether a walk-in may leave a bill unpaid, and the shared till's PIN rule. Number series give each location its own bill numbers per financial year, with no gaps and no duplicates. A pack size turns "3 boxes" into 72 pieces exactly. A location holding stock cannot be closed. |
 | Management | **Staff & access**, with Roles & permissions | Give a person from your staff list a role in this business, change it or switch it off. |
 
 **Two rules people notice:** prices, tax and totals are always worked out by the
@@ -2996,7 +2997,7 @@ Eleven more types run on the shared screens from the day they are created: *Quic
 | Vehicle service & auto parts | Its own screens: see [Vehicle service & auto parts](#vehicle-service--auto-parts) below | See the same section |
 | Jewellery & gold | Quick bill and retail reports; prices before GST, rounded to the rupee; GST 3% by default, with 0.25% (rough and loose stones), 1.5% (cut and polished diamonds), 5% (job work), 18% (repairs and services) and nil; weights in grams and carats | Serials (a tag number per piece), exchanges, stock transfers, offers, loyalty |
 | Fuel stations | Quick bill and retail reports for lubricants and the shop; customer credit for fleets; litres and cases | **Tasks** (daily nozzle tests, density checks and safety rounds), batches, price lists |
-| Gyms, studios & coaching | Plans and fees as services; *Bill history*; members' dues | **Appointments** (personal-training sessions and trials), offers, loyalty, stock for a shop counter |
+| Gyms, studios & coaching | Its own screens: see [Gyms, studios & coaching](#gyms-studios--coaching) below | See the same section |
 | Laundry & dry cleaning | The price list as services; *Bill history*; monthly accounts | Offers, loyalty, stock |
 | Rentals & hire | Items and charges as services; hire by the day | Stock |
 | Hotels, lodges & guest houses | Rooms and extras as services, sold by the room night; company billing | **Tasks** (housekeeping rounds, maintenance and safety checks), issues, stock |
@@ -3545,6 +3546,153 @@ and a viewer see the job cards, vehicles and the service-due list; a manager
 does all of it, approves a lower odometer reading, cancels job cards and
 gives discounts.
 
+## Gyms, studios & coaching
+
+A gym, a yoga, dance or fitness studio, or a coaching centre sells its plans
+and fees as services, with prices before GST, and keeps members' dues for named
+members. A new one starts with **Plans & memberships** on. Recommended in
+Settings › Business tools: **Appointments** (personal-training sessions and
+trial classes, under *Sessions & trials*); offers, loyalty and stock for a shop
+counter can be switched on too. The front desk's **Check-in** is a daily entry
+of its own; **Members** holds the members with their memberships, the renewal
+calls (*Renewals*) and the contacts behind them (*Member contacts*); the plans
+are under *Settings › Membership plans*.
+
+**Before trading:**
+
+1. **GST slabs and SAC codes** — from 22 September 2025, the services of a gym,
+   health club, fitness centre or yoga centre, personal training included (SAC
+   group 99972, 999723), are at 5% without input tax credit, and charging 18%
+   with credit instead is not allowed; coaching and tuition (999293) and dance,
+   music and art classes (999291) stay at 18%. Each plan is sold as a service
+   item with its own slab and SAC, so a studio that sells yoga and dance gives
+   each plan its own. Credit on what is bought only for the 5% services is not
+   taken. Have an accountant confirm the slabs before trading.
+2. **The joining fee** — a service item (*Joining fee*, with its price and
+   slab) in *Products & services*, named on the plans that charge it.
+3. **The plans** — *Settings › Membership plans*, *Add a plan*: see the
+   screens below. Each plan says, in plain words, what comes back when a
+   member cancels (its refund policy): it prints on the membership slip, and
+   every membership keeps the version it was sold with. A district consumer
+   commission has held a membership's "no refund under any circumstances"
+   term unfair, noting that the terms were never given to the member: state the
+   policy and give it to them.
+4. **The check-in rule** — a member whose fees are overdue by more than 7 days
+   is turned away at the desk; change the days, or switch it off, on the same
+   screen.
+5. **Trainers** — a staff login for each with the **Trainer** role (*Staff &
+   access*): they check members in and see personal-training sessions, and
+   see no money.
+6. **A coaching centre** — the Ministry of Education's Guidelines for
+   Registration and Regulation of Coaching Centre 2024 (advisory: each state
+   puts them in force) ask, as reported, for a receipt for every fee paid, a
+   course fee that is not raised while the course runs, and a pro-rata refund
+   within 10 days for a student who leaves midway. Sell each course as a plan
+   by months, with its fee in instalments if paid in parts (each payment is a
+   numbered receipt); its price is kept as sold for the whole course; and
+   cancel a student's membership on the day they leave, with its refund. A
+   state's own law can add more (Rajasthan's Assembly passed a coaching
+   centres bill in September 2025, and Assam's cabinet approved one in March
+   2025): check with an adviser where the centre works.
+
+**The screens:**
+
+- **Check-in** (*Check-in*) — one big box: type or scan the member's code (the
+  QR on their membership slip; a scanner types it and presses Enter), or find
+  them by name or phone. The answer comes in large type: *is in*, with the
+  plan, its last day or the sessions left, and grace days or a second visit
+  today said; or turned away, with the reason: no membership, not started
+  yet, membership over (its grace days past too), frozen, no sessions left, or
+  fees overdue. A pack loses one session a day: coming back the same day uses
+  none. A member who also holds a pack can use a session of it instead (*Use
+  …*). Every check-in is kept, let in or not: *Today's check-ins* below.
+- **Members** (*Members*) — every member with their current membership (a
+  plan by time before a pack, the one ending first), its status today
+  (*Active*, *Frozen*, *Not started yet*, *In grace days*, *Over*, *Used up*,
+  *Cancelled*, *Transferred*, *Upgraded*), its last day or the sessions left,
+  what they owe and their last check-in, with the day's figures above.
+  *Sell a membership*: a member already saved, or *A new member* (name and
+  phone); the plan; the day it starts (today or later, within 180 days); the
+  joining fee, ticked for a member's first membership; a discount, for those
+  who may give one; what is paid now, the rest staying on the member's dues;
+  and *The fee in instalments*. The bill is worked out by the server as it
+  will be posted (the plan's price, the member's own prices, offers, GST) and
+  shown as it changes. A member gets a code (*M0001*) with their first
+  membership; *Member code*, on their page, changes it to the number on a card
+  they already hold. Memberships are numbered *MS/2627/0001* (Settings ›
+  Number series). A plan's item goes on a bill only from here: a bill made
+  elsewhere with it is refused, so every plan sold has its membership.
+- **A member's page** — each membership as a card: its plan and number, when
+  it runs and what is left, its terms as sold (the price as billed, the
+  joining fee, grace days, the freezes left, whether it can be passed on), its
+  bill and what is still to pay, where it came from (a renewal, an upgrade or
+  a transfer) and what followed it, its refund policy (the version sold), its
+  instalments and its history. The steps, each shown to those who may take it:
+  - *Renew* — a new membership, of the same plan or another, from the day
+    after this one ends (while it runs or within its grace days; once they
+    are past, from today).
+  - *Upgrade* — to another plan from today: the part of this membership not
+    used comes back as a credit note on its bill, and what the member paid
+    beyond what is now due on it pays the new bill first; the figures show
+    before anything is posted. A credit bigger than the new plan's bill is
+    refused: that is a cancellation with its refund, then a new sale.
+  - *Freeze* — from today or a day within 60 days, for some days, within the
+    freezes and the days in all its plan allows; its last day moves on by
+    them. *End the freeze* when the member comes back early gives the days
+    back, and a freeze still to come can be called off (it does not count). A
+    membership followed by its renewal is not frozen.
+  - *Pass on* — when its plan allows it, it is not frozen and its bill is
+    paid: what is left (to its last day, its sessions and its freezes) goes to
+    another member from today, on the same bill; this membership closes as
+    transferred.
+  - *Cancel* — with a reason. What comes back is worked out on the screen: the
+    days used (from its first day to today, less the days frozen) or the
+    sessions used, and the part of the price as billed that was not used (for
+    sessions within a time, the smaller of the two parts left), or less if the
+    policy keeps a part; the joining fee too if chosen. It comes back as a
+    credit note on its bill, and what the member paid beyond what is then due
+    is refunded (cash, UPI, card or bank); what they had not paid yet is
+    simply owed less. A manager approves it with their PIN. A membership
+    passed on by another member gives nothing back: its bill is theirs.
+  - *Membership slip* prints the member's code as a QR, the plan and its terms
+    and the refund policy of the version sold, for the member to sign;
+    *The bill* prints its invoice; *WhatsApp* opens a renewal message.
+- **Renewals** (*Members › Renewals*) — the calls to make: memberships ending
+  in the next 7 or 15 days, and those that ended in the last 30, not yet
+  renewed and with nothing else running after them (a renewal not started yet
+  is listed too when it ends within those days). WhatsApp opens with the
+  message ready (or a call), and each reminder is kept with how many were
+  given; *Renew* sells the renewal from the row. *Fees due* lists each
+  instalment falling due or overdue with what is left of it to pay; *Collect*
+  takes it as a numbered receipt set against its bill (the shared
+  collections).
+- **Fees in instalments** — on a sale, *The fee in instalments* splits the bill
+  into 2 to 36 parts, one a month from a day, each part's day and amount
+  editable; they must add up to the bill exactly, and the bill falls due on
+  the last of them. Payments on the bill (at the sale, by *Collect*, or under
+  *Payments received*) cover the instalments in order; an instalment past its
+  day not fully covered is overdue, and counts for the check-in rule.
+- **Membership plans** (*Settings › Membership plans*) — *Add a plan*: its name;
+  by days or months, a pack of sessions, or sessions within a time; its price
+  before GST with its GST slab and SAC (the plan is made as a service item of
+  its own, named as the plan), or an existing service item; the joining fee
+  item; how many freezes and how many days in all (none for a pack with no end
+  date); grace days after the last day; whether it can be passed on; and its
+  refund policy. A change applies to memberships sold from then on; a changed
+  policy becomes its next version. A plan is switched off (*Sold* unticked),
+  never deleted. *Fees overdue at check-in*: the days (7 to start with), or
+  *Never turn a member away for fees*.
+- **The bell** — memberships ending in the next three days or in their grace
+  days, and instalments overdue.
+
+Who does what: a cashier at the front desk checks members in, sells and
+renews memberships, freezes, passes on and upgrades them; the **Trainer**, a
+gym's, studio's or coaching centre's own role, sees members, their plans and
+check-ins, checks members in, and sees personal-training sessions and marks
+them done or missed, with no prices and no money; a manager does all of it,
+cancels memberships and approves with their PIN what a cancellation gives
+back; an accountant and a viewer see the screens and export them.
+
 ---
 
 # Part 4 — Tasks, issues & projects
@@ -3764,7 +3912,7 @@ roles that must use two-step sign-in.
 Each business has its own copies of the standard roles — Owner, Manager,
 Cashier / sales, Stock keeper, Accountant and Viewer; a pharmacy also gets
 **Pharmacist**, a clinic **Doctor**, **Lab technician** and **Pathologist**,
-an optical shop **Optometrist** and a garage **Mechanic** — plus any roles
+an optical shop **Optometrist**, a garage **Mechanic** and a gym, studio or coaching centre **Trainer** — plus any roles
 its owner makes, edited on a module × action grid. You cannot give what you
 do not have, nor change, or set a new password for, someone whose role can
 do more than yours; the Owner role cannot be handed out or changed.
@@ -3783,6 +3931,7 @@ do more than yours; the Owner role cannot be handed out or changed.
 | Pathologist (clinic only) | As the lab technician, plus approving reports and exporting |
 | Optometrist (optical shops only) | Record and correct prescriptions; pass or fail spectacles at the quality check; book and complete eye tests; see customers, products and spectacle orders without their money; no money |
 | Mechanic (garages only) | See the job cards assigned to them; record the work done and the parts used, and move the job along; print its copies; see products, stock and service bookings; no prices and no money |
+| Trainer (gyms, studios & coaching only) | See members, their plans and check-ins; check members in; see personal-training sessions and mark them done or missed; no prices and no money |
 
 A permission also needs its **module** switched on for the business
 (Settings › Business tools; for example `repairs.create` needs *Repairs &

@@ -111,6 +111,28 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   assert.ok(bench.some(l=>l.section==='job-cards'),'a mechanic finds the job cards');
   assert.ok(!bench.flatMap(l=>l.pages).some(p=>/\/(vehicles|service-due|garage-settings)$/.test(p.to)),'a mechanic has no vehicles, service due or garage settings');
   for(const type of ['grocery','optical','hardware'])for(const section of ['job-cards','vehicles','service-due','garage-settings'])assert.ok(!typeAllows(sectionRule(section,type),type),`${type}: no ${section}`);
+  // A gym's check-in desk is a daily entry of its own; its members (with their renewals and the contacts behind them)
+  // take the place of customers; its plans sit under Settings.
+  const checkIn=menu('memberships').find(l=>l.section==='check-in');
+  assert.equal(checkIn.label,'Check-in');
+  assert.ok(businessMenu(33,'memberships',()=>true,()=>true).find(g=>g.title==='Daily work').links.some(l=>l.section==='check-in'),'memberships: check-in in the daily menu');
+  const members=menu('memberships').find(l=>l.section==='members');
+  assert.equal(members.label,'Members');
+  assert.deepEqual(members.pages.slice(0,3).map(p=>[p.to.split('/').pop(),p.label]),[['members','Members'],['renewals','Renewals'],['customers','Member contacts']]);
+  assert.ok(!menu('memberships').some(l=>l.section==='customers'),'memberships: members in place of customers');
+  assert.equal(workspaceFor('customers','memberships'),'members');
+  assert.equal(workspaceFor('renewals','memberships'),'members');
+  assert.equal(workspaceFor('check-in','memberships'),'checkIn');
+  assert.equal(workspaceFor('member-plans','memberships'),'settings');
+  assert.ok(pages('memberships').some(p=>p.to.endsWith('/member-plans')),'memberships: its plans under Settings');
+  assert.ok(!menu('memberships',m=>m!=='member_plans').some(l=>['check-in','members'].includes(l.section)),'no check-in or members while the module is off');
+  assert.equal(menu('memberships',m=>m!=='member_plans').find(l=>l.section==='customers').label,'Member contacts');
+  // A trainer (members, their plans and check-ins; no money) finds the desk and the members, and no money screens.
+  const trainer=new Set(['member_plans.view','member_plans.create','appointments.view','appointments.edit']);
+  const floor=businessMenu(33,'memberships',p=>trainer.has(p),()=>true).flatMap(g=>g.links);
+  assert.ok(floor.some(l=>l.section==='check-in')&&floor.some(l=>l.section==='members'),'a trainer finds the desk and the members');
+  assert.ok(!floor.some(l=>['sales','udhaar','outstanding','day-close'].includes(l.section)),'a trainer has no money screens');
+  for(const type of ['grocery','salon','garage'])for(const section of ['check-in','members','renewals','member-plans'])assert.ok(!typeAllows(sectionRule(section,type),type),`${type}: no ${section}`);
 });
 test('restricted roles get a permitted destination even when the first workspace page is unavailable',()=>{
   const permissions=new Set(['purchasing.view','contacts.view','inventory.view','catalog.view']);
