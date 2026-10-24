@@ -9,6 +9,7 @@ const guestAddressService = require("../../online/services/guestAddress.service"
 const restaurantRepository = require("../../setup/repositories/restaurant.repository");
 const outletRepository = require("../../setup/repositories/outlet.repository");
 const businessDayRepository = require("../../business-day/repositories/businessDay.repository");
+const { restaurantToday } = require("../../business-day/services/tradingDay");
 const crmRepository = require("../../crm/repositories/crm.repository");
 const kitchenRepository = require("../../kitchen/repositories/kitchen.repository");
 const serviceSettingsRepository = require("../../setup/repositories/serviceSettings.repository");
@@ -2517,7 +2518,8 @@ const cancellations = async (restaurantId, filters) => {
 
   if (!from || !to) {
     const day = await businessDayRepository.findOpen(restaurantId);
-    const today = day ? day.business_date : new Date().toISOString().slice(0, 10);
+    // With no day open: today on the restaurant's clock, not the server's.
+    const today = day ? day.business_date : await restaurantToday(restaurantId);
 
     from = from || today;
     to = to || today;

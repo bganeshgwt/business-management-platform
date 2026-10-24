@@ -99,6 +99,7 @@ written down.
 | **Audit and events** | Every business change writes an audit row (`business_audit`) and, for money, stock and appointments, an outbox event (`business_events`), **in the same transaction**. Restaurant actions write `audit_logs` (§5.1 explains the difference). |
 | **Rules in the database** | Where a bug would lose money or stock, a CHECK, a partial unique index or a trigger refuses it too, with a sentence a person can read (SQL state 23514, answered as HTTP 409). |
 | **Today-only live screens** | Live screens (dashboard, kitchen, deliveries, table requests, the bell) show the current *trading day* in the business's time zone. Between midnight and the day cut-off (5 am by default) last night's day is still today. Anything older that is still open is only counted or flagged, never mixed in with today's. |
+| **Dates on the business's clock** | "Today", a bill's date and "not in the future" are the restaurant's or business's date in its own time zone, never the server's: a server on UTC is still on yesterday until 05:30 in India. Restaurant code takes the date from `restaurantToday()` and `todayOf()` in `modules/restaurant/business-day/services/tradingDay.js`; the business core from `now() AT TIME ZONE businesses.timezone`. |
 | **Data grid everywhere** | Every list is the shared `DataGrid` component: S.No., paging, search, column choice, export and cards on a phone. |
 
 **How the code is organised.**

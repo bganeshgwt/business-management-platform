@@ -238,6 +238,13 @@ const updateCashRules = async (restaurantId, data, userId) => {
   );
 };
 
+// The restaurant's time zone, from its settings (null when it has none yet).
+const findTimezone = async (restaurantId, db = pool) => {
+  const { rows } = await db.query("SELECT timezone FROM restaurant_settings WHERE restaurant_id = $1", [restaurantId]);
+
+  return rows[0] ? rows[0].timezone : null;
+};
+
 module.exports = {
   findOpen,
   findRecent,
@@ -246,6 +253,7 @@ module.exports = {
   findByDate,
   findById,
   findLatest,
+  findTimezone,
   open,
   close,
   keepFirstCount,

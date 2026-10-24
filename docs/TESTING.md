@@ -134,7 +134,9 @@ A date taken from the UTC clock, or from the database's own date, is a day
 behind India's between midnight and 05:30 India time, and a test built on it
 fails then. The tests take their dates on the business's clock, most of them
 through `dates.js`, so the suite passes at any hour; a new test does the
-same.
+same. The server must do the same: `restaurant-clock.test.js` runs its server
+on UTC−12 against a restaurant on Kiritimati time (UTC+14), so a date the
+server takes from its own clock fails that test at any hour.
 
 ### Settings for a run
 
@@ -596,7 +598,7 @@ Integration tests are in `backend/tests/integration/`, browser specs in
 | Restaurant: floor, service, kitchen and the live screens | `floor-and-service.test.js`, `front-of-house.test.js`, `service-deliveries-captains.test.js`, `kitchen-names.test.js`, `cutoff-window.test.js` | `floor-actions.spec.js`, `dashboard-panels.spec.js` |
 | Restaurant: bills, payments, GST and branches | `billing-payments.test.js`, `billing-gst-accounts.test.js`, `restaurant-money-paths.test.js`, `branch-reports.test.js` | `printing.spec.js` |
 | Restaurant: cash, the day's close, reports and the dashboard | `cash-drawers-and-loyalty.test.js`, `day-close-roles.test.js`, `reports-dayend.test.js`, `dashboard-panels.test.js` | `dashboard-panels.spec.js`, `ui-motion.spec.js`, `scroll-layout.spec.js` |
-| Restaurant: stock, purchasing and imports | `restaurant-stock.test.js`, `stock-purchasing-imports.test.js`, `stock-cost-and-guest-privacy.test.js` | `visual-density.spec.js` (reorder), `combos-and-production.spec.js` (production, batch write-off) |
+| Restaurant: stock, purchasing and imports | `restaurant-stock.test.js`, `stock-purchasing-imports.test.js`, `stock-cost-and-guest-privacy.test.js`, `restaurant-clock.test.js` (bills, orders, payments, a guest's birthday and the stock date on the restaurant's clock, never the server's) | `visual-density.spec.js` (reorder), `combos-and-production.spec.js` (production, batch write-off) |
 | Restaurant: set-up, features and rules | `restaurant-setup.test.js`, `restaurant-features.test.js`, `restaurant-rule-settings.test.js` | `screens.spec.js`, `guest-book.spec.js` |
 | Restaurant: staff, sign-in and approvals | `staff-and-sign-in.test.js`, `two-step-and-tied-approvals.test.js`, `payroll-expenses-guests.test.js` | `quick-access.spec.js`, `sign-in-return.spec.js` |
 | Restaurant: guests, online ordering and booking | `online-ordering.test.js`, `online-booking.test.js`, `restaurant-pickup-advances.test.js`, `payroll-expenses-guests.test.js` (the guest book) | `guest-pages.spec.js` (the guests' site), `guest-redirect.spec.js`, `guest-book.spec.js`, `visual-density.spec.js` (guest insights) |

@@ -6,8 +6,8 @@ const { logAction } = require("../../../../utils/audit");
 const v = require("../../../../utils/validate");
 const AppError = require("../../../../utils/AppError");
 const { readDate, readMoment } = require("../../../../utils/calendarDate");
-
-const todayText = () => new Date().toLocaleDateString("en-CA");
+// "Today" is the restaurant's date, not the server's (see tradingDay.js).
+const { restaurantToday } = require("../../business-day/services/tradingDay");
 
 // A blind count keeps the expected figures from the people counting. Whoever
 // can post the sheet (and so correct stock) sees them — on the sheet, and on
@@ -493,7 +493,7 @@ const listBalances = async (req, res) => {
 // --- Closing stock ---
 
 const valuation = async (req, res) => {
-  const date = readDate(req.query.date, "Date", todayText());
+  const date = readDate(req.query.date, "Date", await restaurantToday(req.user.restaurantId));
 
   res.json({
     success: true,
@@ -692,7 +692,7 @@ const cancelCount = async (req, res) => {
 };
 
 const varianceReport = async (req, res) => {
-  const to = readDate(req.query.to, "To", todayText());
+  const to = readDate(req.query.to, "To", await restaurantToday(req.user.restaurantId));
   const from = readDate(req.query.from, "From", to);
 
   res.json({

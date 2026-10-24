@@ -4,8 +4,9 @@ const { logAction } = require("../../../../utils/audit");
 const v = require("../../../../utils/validate");
 const AppError = require("../../../../utils/AppError");
 const { readDate } = require("../../../../utils/calendarDate");
-
-const todayText = () => new Date().toLocaleDateString("en-CA");
+// "Today" is the restaurant's date, not the server's: a server on UTC is
+// still on yesterday until 05:30 in India.
+const { restaurantToday } = require("../../business-day/services/tradingDay");
 
 // GST slabs a supplier bill can carry. 0 covers fresh produce, milk and
 // anything bought from an unregistered vendor.
@@ -56,11 +57,11 @@ const readSettlement = (req, body) => {
   };
 };
 
-const readBillHeader = (body) => {
-  const billDate = readDate(body.billDate, "Bill date", todayText());
+const readBillHeader = (body, today) => {
+  const billDate = readDate(body.billDate, "Bill date", today);
   const receivedDate = readDate(body.receivedDate, "Received date", billDate);
 
-  if (billDate > todayText() || receivedDate > todayText()) {
+  if (billDate > today || receivedDate > today) {
     throw new AppError(400, "A bill cannot be dated in the future");
   }
 
@@ -121,10 +122,10 @@ const getById = async (req, res) => {
   res.json({ success: true, data: await purchaseService.getById(req.user.restaurantId, id) });
 };
 
-const readOrderBody = (body) => {
+const readOrderBody = (body, today) => {
   const data = {
     supplierId: v.requiredId(body.supplierId, "Supplier"),
-    orderDate: readDate(body.orderDate, "Order date", todayText()),
+    orderDate: readDate(body.orderDate, "Order date", today),
     expectedDate: readDate(body.expectedDate, "Expected date"),
     notes: v.optionalString(body.notes, "Notes", 500),
     // In packs when a pack is chosen: quantity is packs, price is per pack.
@@ -147,7 +148,7 @@ const create = async (req, res) => {
   const body = req.body || {};
 
   const data = {
-    ...readOrderBody(body),
+    ...readOrderBody(body, await restaurantToday(req.user.restaurantId)),
     poStatus: v.optionalEnum(body.poStatus, "Status", ["draft", "ordered"], "draft"),
     // Goods for this order go to the store of the outlet it was raised in.
     outletId: req.outletId || null,
@@ -222,7 +223,7 @@ const update = async (req, res) => {
   const order = await purchaseService.updateDraft(
     req.user.restaurantId,
     id,
-    readOrderBody(req.body || {}),
+    readOrderBody(req.body || {}, await restaurantToday(req.user.restaurantId)),
     req.user.id
   );
 
@@ -348,7 +349,7 @@ const receive = async (req, res) => {
     }
   }
 
-  const header = readBillHeader(body);
+  const header = readBillHeader(body, await restaurantToday(req.user.restaurantId));
 
   // Goods for an order go into the store of the outlet it was raised in (or,
   // for an order raised without one, the outlet receiving it). Someone tied
@@ -451,7 +452,7 @@ const createReceipt = async (req, res) => {
 
   const data = {
     supplierId: v.requiredId(body.supplierId, "Supplier"),
-    ...readBillHeader(body),
+    ...readBillHeader(body, await restaurantToday(req.user.restaurantId)),
     ...readSettlement(req, body),
     lines,
     outletId:
@@ -510,7 +511,7 @@ const voidReceipt = async (req, res) => {
 };
 
 const register = async (req, res) => {
-  const to = readDate(req.query.to, "To", todayText());
+  const to = readDate(req.query.to, "To", await restaurantToday(req.user.restaurantId));
   const from = readDate(req.query.from, "From", `${to.slice(0, 8)}01`);
 
   res.json({

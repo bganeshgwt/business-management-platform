@@ -6,15 +6,23 @@ const { logAction } = require("../../../../utils/audit");
 const v = require("../../../../utils/validate");
 const AppError = require("../../../../utils/AppError");
 const { readDate } = require("../../../../utils/calendarDate");
+// "Today" is the restaurant's date, not the server's (see tradingDay.js).
+const { restaurantToday } = require("../../business-day/services/tradingDay");
 
-const todayText = () => new Date().toLocaleDateString("en-CA");
-
-const notFuture = (date, field) => {
-  if (date && date > todayText()) {
+const notFuture = (date, field, today) => {
+  if (date && date > today) {
     throw new AppError(400, `${field} cannot be in the future`);
   }
 
   return date;
+};
+
+// A return's date, today on the restaurant's clock when it is left out (a new
+// return) or kept as it was (an edit), never in the future.
+const readReturnDate = async (req, value, defaultToday) => {
+  const today = await restaurantToday(req.user.restaurantId);
+
+  return notFuture(readDate(value, "Return date", defaultToday ? today : undefined), "Return date", today);
 };
 
 const PAYMENT_METHODS = ["cash", "card", "upi", "bank", "cheque", "other"];
@@ -94,7 +102,7 @@ const create = async (req, res) => {
     supplierId: v.requiredId(body.supplierId, "Supplier"),
     purchaseOrderId: v.optionalNumber(body.purchaseOrderId, "Purchase order", { min: 1 }),
     goodsReceiptId: v.optionalNumber(body.goodsReceiptId, "Purchase bill", { min: 1 }),
-    returnDate: notFuture(readDate(body.returnDate, "Return date", todayText()), "Return date"),
+    returnDate: await readReturnDate(req, body.returnDate, true),
     reason: v.requiredString(body.reason, "Reason", 200),
     notes: v.optionalString(body.notes, "Notes", 500),
     // The store the goods leave from, when the return is not tied to a bill.
@@ -166,7 +174,7 @@ const update = async (req, res) => {
   await requireOwnReturn(req, id);
 
   const data = {
-    returnDate: notFuture(readDate(body.returnDate, "Return date"), "Return date"),
+    returnDate: await readReturnDate(req, body.returnDate, false),
     reason: v.optionalString(body.reason, "Reason", 200),
     notes: body.notes === undefined ? undefined : v.optionalString(body.notes, "Notes", 500),
     lines: (body.lines === undefined ? [] : v.requiredArray(body.lines, "Lines")).map((line) => ({
@@ -229,8 +237,8 @@ const listPayments = async (req, res) => {
   });
 };
 
-const readPaymentBody = (body, { partial = false } = {}) => ({
-  paymentDate: notFuture(readDate(body.paymentDate, "Payment date", partial ? null : todayText()), "Payment date"),
+const readPaymentBody = (body, today, { partial = false } = {}) => ({
+  paymentDate: notFuture(readDate(body.paymentDate, "Payment date", partial ? null : today), "Payment date", today),
   amount: partial && body.amount === undefined
     ? undefined
     : v.requiredNumber(body.amount, "Amount", { min: 0.01, max: 99999999 }),
@@ -249,7 +257,7 @@ const createPayment = async (req, res) => {
     supplierId: v.requiredId(body.supplierId, "Supplier"),
     purchaseOrderId: v.optionalNumber(body.purchaseOrderId, "Purchase order", { min: 1 }),
     goodsReceiptId: v.optionalNumber(body.goodsReceiptId, "Purchase bill", { min: 1 }),
-    ...readPaymentBody(body),
+    ...readPaymentBody(body, await restaurantToday(req.user.restaurantId)),
     // Cash from the till comes out of the drawer where this person works.
     tillOutletId: req.outletId || null,
   };
@@ -282,7 +290,7 @@ const updatePayment = async (req, res) => {
   const { before, after } = await purchaseReturnService.updatePayment(
     req.user.restaurantId,
     id,
-    { ...readPaymentBody(body, { partial: true }), tillOutletId: req.outletId || null },
+    { ...readPaymentBody(body, await restaurantToday(req.user.restaurantId), { partial: true }), tillOutletId: req.outletId || null },
     req.user.id
   );
 
@@ -320,7 +328,7 @@ const outstanding = async (req, res) => {
 
 const statement = async (req, res) => {
   const supplierId = v.requiredId(req.query.supplierId, "Supplier");
-  const to = readDate(req.query.to, "To", todayText());
+  const to = readDate(req.query.to, "To", await restaurantToday(req.user.restaurantId));
   const from = readDate(req.query.from, "From", `${to.slice(0, 8)}01`);
 
   res.json({

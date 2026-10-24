@@ -100,7 +100,7 @@ const readTags = (value) => {
 // that sends name and mobile alone no longer wipes the guest's email, address
 // or birthday, or makes an inactive guest active again. A field sent empty is
 // cleared. A new guest is active unless the request says otherwise.
-const readCustomerBody = (body = {}) => {
+const readCustomerBody = (body = {}, today) => {
   const data = {
     name: v.requiredString(body.name, "Name", 150),
     mobile: has(body, "mobile") ? readMobile(body.mobile, "Mobile") : undefined,
@@ -111,7 +111,8 @@ const readCustomerBody = (body = {}) => {
     status: has(body, "status") ? v.optionalEnum(body.status, "Status", ["active", "inactive"], "active") : undefined,
   };
 
-  if (data.dateOfBirth && data.dateOfBirth > new Date().toISOString().slice(0, 10)) {
+  // Today on the restaurant's clock (a server on UTC is still on yesterday until 05:30 in India).
+  if (data.dateOfBirth && data.dateOfBirth > today) {
     throw new AppError(400, "Date of birth cannot be in the future");
   }
 
@@ -120,7 +121,7 @@ const readCustomerBody = (body = {}) => {
   if (has(body, "anniversaryDate")) {
     data.anniversaryDate = readDate(body.anniversaryDate, "Anniversary");
 
-    if (data.anniversaryDate && data.anniversaryDate > new Date().toISOString().slice(0, 10)) {
+    if (data.anniversaryDate && data.anniversaryDate > today) {
       throw new AppError(400, "The anniversary is the wedding date, so it cannot be in the future");
     }
   }
@@ -247,7 +248,7 @@ const exportGuestBook = async (req, res) => {
 const createCustomer = async (req, res) => {
   const customer = await crmService.createCustomer(
     req.user.restaurantId,
-    readCustomerBody(req.body),
+    readCustomerBody(req.body, await crmService.todayFor(req.user.restaurantId)),
     req.user.id
   );
 
@@ -264,7 +265,7 @@ const updateCustomer = async (req, res) => {
   const { before, after } = await crmService.editCustomer(
     req.user.restaurantId,
     id,
-    readCustomerBody(req.body),
+    readCustomerBody(req.body, await crmService.todayFor(req.user.restaurantId)),
     req.user.id,
     // A form that could not show the number sends its box back empty.
     { reveal, keepHiddenContact: !reveal }

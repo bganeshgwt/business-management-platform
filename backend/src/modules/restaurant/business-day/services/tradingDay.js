@@ -117,9 +117,16 @@ const currentDateOf = async (restaurantId, outletId, settings, at = new Date()) 
   return open ? String(open.business_date).slice(0, 10) : dateWithNoDayOpenAt(restaurantId, outletId, settings, at);
 };
 
+// Today's date on a restaurant's clock, read from its settings: what "today"
+// means for a supplier's bill, a return, a payment or a stock date, whatever
+// time zone the server itself keeps.
+const restaurantToday = async (restaurantId) =>
+  todayOf({ timezone: await businessDayRepository.findTimezone(restaurantId) });
+
 module.exports = {
   zoneOf,
   todayOf,
+  restaurantToday,
   sayDate,
   openableDates,
   dateWithNoDayOpen,
