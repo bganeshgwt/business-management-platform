@@ -27,7 +27,7 @@ Inside Business Admin a restaurant is simply the restaurant business's own admin
 | **Location / outlet** | A shop, counter or warehouse of a business, with its own stock and document numbers. Restaurants call theirs *outlets*; other businesses call them *locations*. A person can be tied to one location and then works there only. | `business_locations`, `business_memberships.location_id`; restaurant: `outlets` |
 | **Module / business tool** | A part of the product a business can use: Sales, Stock, Stock transfers, Appointments… *Core* modules (Business settings, Staff & access, Reports, Activity log) are always on. The others are the business's *business tools*, switched on in Settings › Business tools. A restaurant calls its modules *features* (Settings › Features). | `platform_modules` |
 | **Capability** | A module switched on for one business: what the business may use. Later decided by its plan. | `business_capabilities` |
-| **Role** | A named set of permissions inside one business. Every business starts with Owner, Manager, Cashier / sales, Stock keeper, Accountant and Viewer; a pharmacy adds Pharmacist, and a clinic adds Doctor, Lab technician and Pathologist. An owner can add roles of the business's own, and each business has its own copies. A restaurant has its own built-in roles, such as Restaurant Admin, Captain / Waiter and Kitchen staff. | `business_roles`; restaurant: `roles` |
+| **Role** | A named set of permissions inside one business. Every business starts with Owner, Manager, Cashier / sales, Stock keeper, Accountant and Viewer; a pharmacy adds Pharmacist, a clinic adds Doctor, Lab technician and Pathologist, and an optical shop adds Optometrist. An owner can add roles of the business's own, and each business has its own copies. A restaurant has its own built-in roles, such as Restaurant Admin, Captain / Waiter and Kitchen staff. | `business_roles`; restaurant: `roles` |
 | **Permission** | One action on one module, written `module.action` (for example `sales.refund`): what a person may do. The actions are view, create, edit, approve, cancel, refund, export and print, and for some modules discount, assign, review, manage, or see and write clinical records. | `business_permissions`, `business_role_permissions`; restaurant: `permissions` |
 | **Membership** | A person's access to one business, with their role there. One login can have many memberships. Inside a business the header shows the person's role there. | `business_memberships` |
 | **Business code** | A business's short code, fixed when the business is created. Staff who sign in with a staff code type their restaurant's code too, and so does someone whose mobile number signs in to more than one restaurant. A restaurant's code is its business code. | `restaurants.code`, `businesses.code` |
@@ -179,6 +179,32 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Stock and price board** | The daily display of the opening stock and price of each fertiliser and seed, printed for the shop. |
 | **Seed stock return** | The monthly return of each seed's opening stock, purchases, sales and closing stock in quintals, due by the 5th of the next month (Form D). |
 | **Insecticide sale register** | The record of every pesticide sold: date, bill, farmer, product, batch, manufacturer, quantity and expiry. |
+
+### Optical shops
+
+| Word | Meaning |
+|---|---|
+| **Prescription (Rx)** | The powers from an eye test, per eye (R right, L left) and vision (distance, near, intermediate), with who examined, the PD and the day it is valid until. |
+| **SPH** | The sphere: the eye's main power in dioptres, minus for short sight, plus for long sight, in steps of 0.25. |
+| **Plano** | A power of 0.00. |
+| **CYL and AXIS** | The cylinder (the extra power for astigmatism) and the direction it lies in, in degrees from 1 to 180 (a horizontal axis is 180). A CYL other than 0 always has its AXIS. |
+| **ADD** | The addition: the extra power for reading (and for intermediate vision), added to the distance power, from +0.25 to +4.00. |
+| **Prism and base** | A power that shifts the image, in prism dioptres, and the way its base points: in, out, up or down. |
+| **Transpose** | Rewriting a cylinder in the other form (plus or minus cylinder): the same prescription, written another way. |
+| **Visual acuity** | How clearly the eye sees, as written on the test (6/6, 6/9, N6). |
+| **PD** | The pupillary distance in mm: between the pupils (both eyes), or from each pupil to the middle of the nose (each eye, monocular PD). |
+| **Fitting height** | How high the centre of the pupil sits above the bottom of the lens in the chosen frame, in mm; a bifocal or progressive lens is placed by it. |
+| **Single vision, bifocal, progressive** | A lens with one power; with a reading segment below; with powers that change smoothly from distance at the top to reading at the bottom. |
+| **Lens index** | How strongly the lens material bends light (1.50, 1.56, 1.60, 1.67, 1.74): a higher index makes a thinner lens. |
+| **Spectacle order (job card)** | An order to make spectacles from a prescription: the frame, the right and left lens, the fitting, the lab or the workshop, the promised day and the advance (SPO/2627/0001). |
+| **Lab order number** | The number the outside lab gives the order it makes the lenses for. |
+| **Quality check** | Checking finished spectacles against the prescription (on the lensometer) before they are ready to collect: passed, or sent back with what was wrong. |
+| **Remake** | A spectacle order made again for a delivered one, with the reason and who bears the cost: the lab, the shop or the customer. |
+| **Recall list** | The customers due for an eye test: their last test was the set months ago or more. |
+| **Power grid** | Making a contact lens's powers as its items in one go: one item for each power of the ranges given. |
+| **Base curve and diameter** | A contact lens's curve and width in mm; one lens product has one of each. |
+| **MD-42** | The registration certificate for selling medical devices such as contact lenses, kept as a licence. |
+| **Optometrist** | The professional who tests eyes and writes prescriptions; in an optical shop, the role that records prescriptions and passes the quality check, and takes no money. |
 
 ### Clinic and lab
 

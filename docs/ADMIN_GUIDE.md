@@ -90,6 +90,7 @@ on record.
 - [Newer trades on the shared core](#newer-trades-on-the-shared-core)
 - [Hardware, paints & building materials](#hardware-paints--building-materials)
 - [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides)
+- [Optical shops](#optical-shops)
 
 **[Part 4 — Tasks, issues & projects](#part-4--tasks-issues--projects)**
 
@@ -2990,7 +2991,7 @@ Eleven more types run on the shared screens from the day they are created: *Quic
 | General store & other shops | Quick bill and retail reports; prices including GST; packs, dozens, pairs, rolls and sets | **Variants** (sizes and colours), **Offers**, batches, loyalty, exchanges, serials and warranties, repairs, weight, wastage, price lists |
 | Hardware, paints & building materials | Its own screens: see [Hardware, paints & building materials](#hardware-paints--building-materials) below | See the same section |
 | Seeds, fertilisers & pesticides | Its own screens: see [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) below | See the same section |
-| Optical shops | Quick bill and retail reports; pairs, packs and bottles | **Batches** (contact-lens expiry), **Variants** (frame colours and sizes), **Appointments** (eye tests with the optometrist), offers, loyalty, exchanges |
+| Optical shops | Its own screens: see [Optical shops](#optical-shops) below | See the same section |
 | Vehicle service & auto parts | Quick bill and retail reports for the parts counter; pairs and sets | **Appointments** (service bookings by bay and mechanic), **Wholesale price lists** (mechanic and retailer rates), batches, serials and warranties, offers |
 | Jewellery & gold | Quick bill and retail reports; prices before GST, rounded to the rupee; GST 3% by default, with 0.25% (rough and loose stones), 1.5% (cut and polished diamonds), 5% (job work), 18% (repairs and services) and nil; weights in grams and carats | Serials (a tag number per piece), exchanges, stock transfers, offers, loyalty |
 | Fuel stations | Quick bill and retail reports for lubricants and the shop; customer credit for fleets; litres and cases | **Tasks** (daily nozzle tests, density checks and safety rounds), batches, price lists |
@@ -3216,6 +3217,156 @@ PoS stock; a stock keeper types the PoS stock and sees the farm-input
 screens without customers' dues; a manager does all of it and keeps the
 licences; an accountant and a viewer see the screens and the dues.
 
+## Optical shops
+
+An optical shop bills frames, sunglasses, contact lenses and solutions at
+**Quick bill** with prices including GST rounded to the rupee, keeps customer
+dues for named customers, and sells in pairs, packs, boxes and bottles as well
+as pieces. A new shop starts with **Prescriptions & spectacle orders** on.
+Recommended in Settings › Business tools: **Batches** (contact-lens expiry),
+**Variants** (frame colours and sizes, and contact-lens powers),
+**Appointments** (eye tests with the optometrist), **Quotations** and
+**Licences & registrations**; offers, loyalty and exchanges can be switched on
+too. Spectacle orders have a daily entry of their own, *Spectacle orders*; the
+prescriptions and the recall list are under *Customers*.
+
+**Before trading:**
+
+1. **GST slabs** — spectacles, frames, spectacle lenses and contact lenses are
+   at 5%, and sunglasses (and goggles not for correcting vision) at 18%, as
+   from 22 September 2025. Give each item its slab when adding it: the slab
+   decides the GST at the counter and on every spectacle order. Have an
+   accountant confirm them.
+2. **The MD-42 registration** — selling contact lenses needs the medical
+   device sale registration (MD-42). Keep it under *Settings › Licences*
+   (kind *Medical device sale registration (MD-42)*) with its number and the
+   date it was issued, and note when its retention fee falls due
+   ([Licences](#licences)).
+3. **Items** — frames as goods kept by quantity; lenses as items too, either
+   stock lenses kept by quantity or a lens made to order by the lab (a
+   service item, or goods received with the lab's bill); the fitting charge as
+   a service.
+
+**The screens:**
+
+- **Prescriptions** (*Customers › Prescriptions*) — *Record a prescription*:
+  the customer (found by name or phone, or added there), the day of the eye
+  test, who examined (a member of the shop, or an outside doctor or
+  optometrist, whose registration number is then required; a member's is
+  optional and comes back on their next one), and the powers. Each eye has a
+  distance row, a near row and, ticked, an intermediate row: SPH and CYL in
+  steps of 0.25 from -30 to +30 (plano is 0.00), AXIS 1 to 180 (with a CYL,
+  and only then), ADD +0.25 to +4.00 on the near or intermediate row, a prism
+  with its base (in, out, up or down) and the visual acuity as written. *Left
+  eye same as right* copies the right eye; *Transpose the cylinder* turns
+  plus-cylinder powers into minus-cylinder ones, or back. The PD is both eyes
+  together or each eye. *Valid until* is a year after the test unless you
+  change it. The server checks every power and says which one is wrong. The
+  list shows each customer's latest prescription (untick *Latest of each
+  customer only* to see all), with the powers in one line and lapsed ones
+  greyed; *Print* prints it (A5) with the examiner's registration number.
+- **Correcting a prescription** — *Correct* is offered while no spectacle
+  order uses it: anything can be put right, its customer too, and the
+  activity log keeps what was and what is. Once an order uses it, it never
+  changes: record a new prescription instead.
+- **A customer's prescriptions** (a customer's name in the list) — the eye
+  tests side by side, newest first: each eye's SPH, CYL, AXIS, ADD and acuity,
+  with how each power changed since the test before; the PD; when the next
+  eye test is due (with *Remind on WhatsApp* once it is); each prescription in
+  full with the orders made on it; *Book a spectacle order* on the latest.
+- **Spectacle orders** (*Spectacle orders*) — the open orders, with chips for
+  *Due today*, *Ready to collect*, *Overdue* and each step (*Booked*, *At the
+  lab*, *In the workshop*, *Quality check*), each row with *WhatsApp*; *All
+  orders by date* shows every order of the dates chosen. An order opens its
+  job card on screen.
+- **Booking an order** — *Book an order* on *Spectacle orders* or on a
+  prescription (on a customer's prescriptions, *Book a spectacle order* takes
+  the latest): the customer and their prescription (the latest to start
+  with), copied onto the order as it is; the frame, from stock or the
+  customer's own (say what it is); the right and the left lens (untick one to
+  make only the other), each with its type (single vision, bifocal or
+  progressive), *Billed as* a lens item or left empty when the lens is billed
+  on another line, its index, material, coatings, tint and brand; *Same as the
+  right lens*. A lens item sold by the pair goes on the right lens only. *Add
+  an item* puts a case, the fitting charge or the lab's lens charge on the
+  order. Each eye's fitting PD comes from the prescription (half of the PD of
+  both eyes) and can be changed; a bifocal or progressive lens needs that
+  eye's fitting height, and its near power (ADD) on the prescription. *Made*:
+  at a lab (its name, and its order number when known) or in our workshop.
+  *Promised for*. A manager's discount with its reason. The advance (cash,
+  UPI, card or bank): a numbered receipt in the customer's name, never more
+  than the total. Every figure is the server's, priced as a sale of the items
+  would be now (customer and slab prices, offers, the discount, GST and
+  round-off), and the order keeps those prices. Nothing leaves stock at
+  booking. Orders are numbered *SPO/2627/0001* (Settings › Number series).
+- **The work** — the next step is the main button on the order: *Send to the
+  lab* (with the lab's order number), *Into the workshop* (lenses back for
+  fitting), *Ready for the quality check*. At the quality check, someone who
+  may pass it (the owner, a manager or the optometrist) checks the spectacles
+  against the prescription: *Passed the quality check*, stamped with who and
+  when, or *Failed: back to the workshop* (or *the lab*) with what was wrong.
+  Spectacles found wrong once ready go back the same way, with the reason.
+  Steps are never skipped, and each is kept in the history with who did it.
+  *Change details* changes the promised day, the fitting, the lab and the
+  notes while the order is open; the frame, the lenses and the prices stay
+  as booked.
+- **Job card and customer slip** — *Job card* prints, on A5 or A4, what the
+  lab or the workshop needs: the prescription as booked, each eye's fitting
+  PD and height, the frame, both lenses, the lab and its order number, and
+  lines for who made the spectacles and who passed the quality check; never
+  the prices. *Customer slip* prints the order, the day it is ready by, the
+  items and their prices, the advance and what is left to pay; it says it is
+  not a tax invoice, as the bill is made at delivery.
+- **Tell the customer** — WhatsApp opens with the message for the stage
+  (booked, ready to collect with the amount to pay, running late, a collect
+  reminder), or *Call*; each is noted in the history.
+- **Delivery** — *Deliver and bill*, once the spectacles passed the quality
+  check: the bill is posted at the booked prices, with GST at each item's
+  rate on the day (a price that includes GST keeps its total when a rate
+  changes; *The bill at delivery* on an open order shows the figures as they
+  would be posted today). The frame and other goods leave stock now: an item
+  not in usable stock at the order's location stops the delivery until it is
+  received, and the order shows it. The advance pays first; the rest is
+  collected now (cash, UPI, card or bank) or goes on the customer's dues. A
+  bill over ₹2,00,000 asks for the buyer's PAN or their declaration, as every
+  bill does.
+- **Cancelling** — *Cancel the order*, with a reason. Nothing is billed and
+  nothing leaves stock. The advance stays the customer's: *Hand back the
+  advance* (cash, UPI or bank, a reason and a manager's PIN; a receipt
+  prints), or it stays on their account for a later bill (*Customer dues*).
+- **Remakes** — on a delivered order, *Book a remake*: a new order linked to
+  it, with the reason (power changed, could not get used to them, measurement
+  or fitting error, lab defect, breakage, coating peeled, other) and who bears
+  the cost (the lab, the shop or the customer). When the lab or the shop bears
+  it the customer pays nothing: no discount and no advance, and its bill (when
+  it takes a frame or lenses from stock) comes to ₹0.
+- **Recall list** (*Customers › Recall list*) — every customer whose last eye
+  test was 12 months ago or more (an owner sets the months, 1 to 60, on the
+  list), longest due first, with their phone, when they were last reminded
+  and their last order. *WhatsApp* opens the reminder ready to send and *Call*
+  dials; each reminder is kept. *Not reminded in the last 30 days* narrows the
+  list.
+- **Contact lenses** (*Frames, lenses & products*, *Add item*, with Variants
+  on) — tick *Contact lenses: one item for each power*. The lens's name, unit
+  (a box), price, MRP, GST slab and stock tracking (batch and expiry with
+  Batches on) go for every power; give the base curve and the diameter, and
+  the powers from and to in steps of 0.25 or 0.50 (up to four ranges, from
+  -20.00 to +20.00). Each power becomes an item (*Acuvue Oasys · -2.50*, code
+  *AO6-M250*) that keeps its power, base curve and diameter. Choosing the lens
+  under *Variant of* adds the powers it does not have yet. Each power is
+  received and sold like any other item.
+- **The bell** — spectacles ready to collect, and orders past their promised
+  day.
+
+Who does what: a cashier records prescriptions (from a doctor's slip, say),
+books and delivers orders, takes advances and moves the work along; the
+**Optometrist**, an optical shop's own role, records and corrects
+prescriptions, sees customers, appointments and spectacle orders (without
+their money) and passes or fails the quality check, and takes no money; a
+stock keeper moves the work along (the lab, the workshop) and sees no money;
+a manager does all of it, cancels orders and gives discounts; an accountant
+and a viewer see the screens.
+
 ---
 
 # Part 4 — Tasks, issues & projects
@@ -3434,11 +3585,11 @@ roles that must use two-step sign-in.
 
 Each business has its own copies of the standard roles — Owner, Manager,
 Cashier / sales, Stock keeper, Accountant and Viewer; a pharmacy also gets
-**Pharmacist**, and a clinic **Doctor**, **Lab technician** and
-**Pathologist** — plus any roles its owner makes, edited on a module × action
-grid. You cannot give what you do not have, nor change, or set a new
-password for, someone whose role can do more than yours; the Owner role
-cannot be handed out or changed.
+**Pharmacist**, a clinic **Doctor**, **Lab technician** and **Pathologist**,
+and an optical shop **Optometrist** — plus any roles its owner makes, edited
+on a module × action grid. You cannot give what you do not have, nor change,
+or set a new password for, someone whose role can do more than yours; the
+Owner role cannot be handed out or changed.
 
 | Role | May do |
 | --- | --- |
@@ -3452,6 +3603,7 @@ cannot be handed out or changed.
 | Doctor (clinic only) | Patients with their clinical records (see and write), appointments, lab orders; see bills |
 | Lab technician (clinic only) | Samples and results; see patients |
 | Pathologist (clinic only) | As the lab technician, plus approving reports and exporting |
+| Optometrist (optical shops only) | Record and correct prescriptions; pass or fail spectacles at the quality check; book and complete eye tests; see customers, products and spectacle orders without their money; no money |
 
 A permission also needs its **module** switched on for the business
 (Settings › Business tools; for example `repairs.create` needs *Repairs &

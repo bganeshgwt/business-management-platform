@@ -16,6 +16,9 @@ import { inPacks, packOf } from "../../wholesale/pages/tradeFormat";
 // A farm-input shop's items: what kind of input each is (seeds, fertilisers & pesticides).
 import AgriItemFields from "../../agri/pages/AgriItemFields";
 import { agriBody, agriFormOf, classOf, kindWord } from "../../agri/pages/agri";
+// An optical shop's contact lenses: one item for each power (with Variants on).
+import PowerGridFields from "../../optical/pages/PowerGridFields";
+import { emptyGrid, gridBody, usesOptical } from "../../optical/pages/optical";
 
 // Extra details a product may carry, by the module that allows them.
 const ATTRIBUTES = {
@@ -127,6 +130,7 @@ function CatalogDialog({ sku, onClose, onSaved }) {
     internalUse: Boolean(sku.internal_use),
     ...Object.fromEntries(FIGURES.map((key) => [key, sku.attributes?.[key] ? String(sku.attributes[key]) : ""])),
     agri: agriFormOf(sku),
+    lensGrid: emptyGrid(),
     // Stock already on the shelf when the item is added.
     openingQuantity: "", openingCost: "", openingLocation: String(biz.locations.find((l) => l.active)?.id || ""), openingLot: "", openingExpiry: "",
   }));
@@ -146,9 +150,14 @@ function CatalogDialog({ sku, onClose, onSaved }) {
   // A farm-input shop's goods carry what kind of input they are (the whole classification, every save).
   const agri = biz.has("agri") && form.kind === "goods";
   const agriAttributes = agri ? agriBody(form.agri) : {};
-  const { agri: _agriForm, ...fields } = form;
+  const { agri: _agriForm, lensGrid: _lensGrid, ...fields } = form;
+  // A contact lens made as one item for each power (an optical shop with Variants on).
+  const lensGridOffered = !editing && form.kind === "goods" && usesOptical(biz) && biz.has("variants");
+  const grid = lensGridOffered && form.lensGrid.on;
 
-  const submit = () => (editing
+  const submit = () => (grid
+    ? businessWrite(biz.id, "optical/power-grid", gridBody(form, taxRateId)).then((r) => ({ ...r, label: `${r.product.name}: ${r.created} ${r.created === 1 ? "power" : "powers"}` }))
+    : editing
     ? businessWrite(biz.id, `catalog/${sku.id}`, { label: form.label, price: form.price, taxRateId: taxRateId || undefined, taxRate: taxRateId ? undefined : sku.tax_rate,
       categoryId: form.categoryId || null, reorderLevel: form.reorderLevel || 0, active: form.active, mrp: form.mrp, hsnCode: form.hsnCode, barcode: form.barcode,
       shelfLocation: form.shelfLocation, ...(biz.has("loyalty") ? { memberPrice: form.memberPrice } : {}), ...(usedInServices ? { internalUse: form.internalUse } : {}),
@@ -177,9 +186,12 @@ function CatalogDialog({ sku, onClose, onSaved }) {
               </select>
             </Field>
           )}
-          <Field label="Name on the bill (optional)" hint="For a variant: e.g. “Blue / M”."><input maxLength={150} value={form.label} onChange={set("label")} /></Field>
-          <Field label="SKU code"><input required maxLength={60} value={form.code} onChange={set("code")} className="mono" /></Field>
-          <Field label="Barcode (optional)"><input maxLength={80} value={form.barcode} onChange={set("barcode")} className="mono" /></Field>
+          {lensGridOffered && <PowerGridFields value={form.lensGrid} adding={Boolean(form.productId)} onChange={(next) => setForm((f) => ({ ...f, lensGrid: next }))} />}
+          {!grid && <Field label="Name on the bill (optional)" hint="For a variant: e.g. “Blue / M”."><input maxLength={150} value={form.label} onChange={set("label")} /></Field>}
+          {grid
+            ? <Field label="Code prefix" hint="Each power's code: the prefix and the power (AO6-M250 for -2.50)."><input required={!form.productId} maxLength={20} value={form.code} onChange={set("code")} className="mono" /></Field>
+            : <Field label="SKU code"><input required maxLength={60} value={form.code} onChange={set("code")} className="mono" /></Field>}
+          {!grid && <Field label="Barcode (optional)"><input maxLength={80} value={form.barcode} onChange={set("barcode")} className="mono" /></Field>}
           <Field label="Kind">
             <select value={form.kind} onChange={set("kind")}>
               {biz.has("inventory") && <option value="goods">Goods (kept in stock)</option>}
@@ -244,7 +256,7 @@ function CatalogDialog({ sku, onClose, onSaved }) {
           <input type="number" min="0" step="0.01" value={form.memberPrice} onChange={set("memberPrice")} />
         </Field>
       )}
-      {canOpening && form.kind === "goods" && form.tracking !== "serial" && (
+      {canOpening && form.kind === "goods" && form.tracking !== "serial" && !grid && (
         <div className="bz-opening" role="group" aria-labelledby="opening-stock-title">
           <p className="bz-opening-title" id="opening-stock-title"><strong>Opening stock</strong> <span className="muted">(optional)</span></p>
           <p className="muted small">What is already on the shelf. It goes into stock at once, with “Opening stock” as the reason in the stock movements.</p>
@@ -268,7 +280,7 @@ function CatalogDialog({ sku, onClose, onSaved }) {
         </div>
       )}
       {agri && <AgriItemFields biz={biz} value={form.agri} onChange={(next) => setForm((f) => ({ ...f, agri: next }))} tracking={editing ? sku.tracking : form.tracking} />}
-      {(editing ? figureFields : attributeFields).map(([key, label]) => (
+      {(editing ? figureFields : grid ? [] : attributeFields).map(([key, label]) => (
         <Field key={key} label={label}>
           {FIGURES.includes(key)
             ? <input type="number" inputMode="decimal" min="0.01" step="0.01" value={form[key] || ""} onChange={set(key)} />

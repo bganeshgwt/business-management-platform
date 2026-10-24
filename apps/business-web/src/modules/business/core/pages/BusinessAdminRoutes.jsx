@@ -117,6 +117,12 @@ const SubsidyPage = lazy(() => import("../../agri/pages/SubsidyPage"));
 const AgriRegistersPage = lazy(() => import("../../agri/pages/AgriRegistersPage"));
 const MoleculesPage = lazy(() => import("../../agri/pages/MoleculesPage"));
 const AgriSettingsPage = lazy(() => import("../../agri/pages/AgriSettingsPage"));
+// Optical shops.
+const PrescriptionsPage = lazy(() => import("../../optical/pages/PrescriptionsPage"));
+const PrescriptionHistoryPage = lazy(() => import("../../optical/pages/PrescriptionHistoryPage"));
+const SpectacleOrdersPage = lazy(() => import("../../optical/pages/SpectacleOrdersPage"));
+const SpectacleOrderPage = lazy(() => import("../../optical/pages/SpectacleOrderPage"));
+const RecallPage = lazy(() => import("../../optical/pages/RecallPage"));
 
 function Notice({ title, children }) {
   return (
@@ -245,6 +251,9 @@ function screens(type) {
     "agri-registers": <AgriRegistersPage />,
     "molecules": <MoleculesPage />,
     "agri-settings": <AgriSettingsPage />,
+    "prescriptions": <PrescriptionsPage />,
+    "spectacle-orders": <SpectacleOrdersPage />,
+    "recall": <RecallPage />,
   };
 }
 
@@ -315,6 +324,8 @@ export default function BusinessAdminRoutes() {
         <Route path="patients/:contactId" element={page("patients", <PatientPage />)} />
         <Route path="visits/:visitId" element={page("visits", <VisitPage />)} />
         <Route path="lab-orders/:orderId" element={page("lab-orders", <LabOrderPage />)} />
+        <Route path="prescriptions/:contactId" element={page("prescriptions", <PrescriptionHistoryPage />)} />
+        <Route path="spectacle-orders/:orderId" element={page("spectacle-orders", <SpectacleOrderPage />)} />
         <Route path="tasks/*" element={page("tasks", <TasksRoutes />)} />
         <Route path="*" element={<Notice title="Page not found"><p>Use the menu on the left to find the screen you need.</p></Notice>} />
       </Routes>

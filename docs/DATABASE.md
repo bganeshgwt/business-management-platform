@@ -11,7 +11,7 @@ PostgreSQL 15 or newer (built and tested on 18). One database holds the whole pl
 | [Business platform](#business-platform) | platform catalogue, business access, business core, shared core, one extension group per business type, and tasks, issues & projects | `business_id` on every row, with composite foreign keys |
 | [Catalogues](#business-types) | business types, platform module codes, business and restaurant permission codes | — |
 
-**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Licences](#licences) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) · [Tasks, issues & projects](#tasks-issues--projects). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
+**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Licences](#licences) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) · [Optical shops](#optical-shops) · [Tasks, issues & projects](#tasks-issues--projects). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
 
 The business platform's design (its five layers, the rules every table follows, and why) is explained in [BUSINESS_PLATFORM_DATA_MODEL.md](BUSINESS_PLATFORM_DATA_MODEL.md). This file gives the table-by-table reference and links there instead of repeating it. A restaurant also appears on the platform as one `businesses` row whose `legacy_restaurant_id` points at it; its own tables are unchanged.
 
@@ -1087,13 +1087,13 @@ Linked sections: [data model §1](BUSINESS_PLATFORM_DATA_MODEL.md#1-platform) an
 Purpose: the permission catalogue. Each row is one `<module>.<action>` pair; the codes are listed under [Business permission codes](#business-permission-codes).
 Key columns: `code` (TEXT PK), `module_code` -> `platform_modules`, `action` (view, create, edit, approve, cancel, refund, export, print, discount, assign, review, manage, view_clinical, edit_clinical), `name`, `sort_order`.
 Rules: UNIQUE (`module_code`, `action`). CHECK `code = module_code || '.' || action`. The action CHECK lists every value, so a migration that adds an action rewrites the whole list.
-Added by: 1791300000001 business-roles-and-permissions; codes also from 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791540000000, 1791580000000, 1791620000000, 1791620001000, 1791620002000, 1791620004000, 1791950400000, 1791961000000 and 1791962000000.
+Added by: 1791300000001 business-roles-and-permissions; codes also from 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791540000000, 1791580000000, 1791620000000, 1791620001000, 1791620002000, 1791620004000, 1791950400000, 1791961000000, 1791962000000 and 1791963000000.
 
 #### `business_role_templates`
-Purpose: the standard roles the platform defines once: owner, manager, cashier, stock_keeper, accountant and viewer for every type, plus pharmacist for a pharmacy, and doctor, lab_technician and pathologist for healthcare.
+Purpose: the standard roles the platform defines once: owner, manager, cashier, stock_keeper, accountant and viewer for every type, plus pharmacist for a pharmacy, doctor, lab_technician and pathologist for healthcare, and optometrist for an optical shop.
 Key columns: `code` (TEXT PK, same pattern as module codes), `name`, `description`, `full_access`, `sort_order`, `business_types` (TEXT[], the types the template is for; NULL = every type).
 Rules: at most one template has full access (partial unique index `business_role_templates_one_full`). That template is `owner`. `business_seed_roles()` copies only the templates of the business's type.
-Added by: 1791300000001; 1791620004000 (`business_types` and the four type templates).
+Added by: 1791300000001; 1791620004000 (`business_types` and the four type templates); 1791963000000 (`optometrist`).
 
 #### `business_role_template_permissions`
 Purpose: the permissions each template grants. These rows are copied into every business's own roles.
@@ -1165,7 +1165,7 @@ Added by: 1791300000002.
 #### `business_number_series`
 Purpose: document numbering, one series per business, location, document kind and fiscal year. A number is taken with `UPDATE … next_number + 1` inside the posting transaction.
 Key columns: `location_id`, `document_kind`, `fiscal_year` (the year the fiscal year starts in), `prefix`, `next_number`, `padding`.
-`document_kind`: sale, purchase, sales_return, purchase_return, stock_transfer, stock_count, sales_order, collection, repair_job, processing, supplier_payment, purchase_order (PO/…), delivery_challan (DC/…) and quotation (QT/…; not a GST document).
+`document_kind`: sale, purchase, sales_return, purchase_return, stock_transfer, stock_count, sales_order, collection, repair_job, processing, supplier_payment, purchase_order (PO/…), delivery_challan (DC/…), quotation (QT/…; not a GST document) and spectacle_order (SPO/…).
 Rules:
 - UNIQUE (business, location, kind, year) and UNIQUE (business, prefix).
 - A prefix may contain only letters, digits, `/` and `-`, and must not end in a digit.
@@ -1174,7 +1174,7 @@ Rules:
   - `next_number` never decreases;
   - prefix and padding are fixed once a number has been used;
   - business, location, kind and year never change.
-Added by: 1791300000002; kinds from 1791410000000 (sales_order, collection), 1791420000001 (repair_job), 1791430000001 (processing), 1791540000000 (supplier_payment), 1791620003000 (purchase_order, delivery_challan) and 1791961000000 (quotation).
+Added by: 1791300000002; kinds from 1791410000000 (sales_order, collection), 1791420000001 (repair_job), 1791430000001 (processing), 1791540000000 (supplier_payment), 1791620003000 (purchase_order, delivery_challan), 1791961000000 (quotation) and 1791963000000 (spectacle_order).
 
 #### `business_capabilities`
 Purpose: the optional modules switched on for a business ([§1](BUSINESS_PLATFORM_DATA_MODEL.md#1-platform)).
@@ -1499,9 +1499,9 @@ Added by: 1791580000000.
 
 #### `business_collection_refunds`
 Purpose: money paid in advance (a `business_collections` receipt) handed back.
-Key columns: `collection_id`, `contact_id`, `refund_no` (`<receipt no>-R<n>`), `amount` (> 0), `method` (cash, upi, bank), `method_name`, `reference`, `reason` (not blank), `source` (`salon` or `repair`; a repair refund names its `repair_job_id`), `approved_by` (the manager whose PIN was typed), `request_key`, `request_hash`, `created_by`.
+Key columns: `collection_id`, `contact_id`, `refund_no` (`<receipt no>-R<n>`), `amount` (> 0), `method` (cash, upi, bank), `method_name`, `reference`, `reason` (not blank), `source` (`salon`, `repair` or `optical`; a repair refund names its `repair_job_id`, and a spectacle order's is found through the order's `advance_collection_id`), `approved_by` (the manager whose PIN was typed), `request_key`, `request_hash`, `created_by`.
 Rules: append-only. Constraint trigger `business_collection_refunds_rules`: the same customer, and payments plus refunds never pass the receipt's amount. The shared balances subtract these refunds (`contactBalanceSql` in the core repository, and `collectionAllocatedSql` in the receivables lists), so a refunded advance does not show as the customer's advance; the customer statement lists each refund.
-Added by: 1791620001000; 1791640000000 (`method_name`).
+Added by: 1791620001000; 1791640000000 (`method_name`); 1791963000000 (`optical`).
 
 #### `business_supplier_payments`
 Purpose: one payment made to a supplier. The part that settles purchase bills is written as `business_payments` rows with `supplier_payment_id`; the rest is an advance with the supplier ([data model §4](BUSINESS_PLATFORM_DATA_MODEL.md#4-shared-core)).
@@ -2634,6 +2634,69 @@ Relations: (`business_id`, `check_id`) -> `agri_pos_checks`; (`business_id`, `sk
 Rules: trigger `agri_pos_check_lines_append_only`: never changed or deleted.
 Added by: 1791962000000.
 
+## Optical shops
+
+An optical shop's own tables (type `optical`), added by 1791963000000 optical. Module `optical` ("Prescriptions & spectacle orders", optional, optical only, on) needs catalog, contacts and sales; permissions `optical.view`, `optical.create` (record and correct prescriptions; book spectacle orders), `optical.edit` (the lab and workshop steps, an order's details, delivery), `optical.approve` (the quality check), `optical.cancel` and `optical.print`. The role template `optometrist` is given to optical shops only (`business_role_templates.business_types`). Spectacle orders are numbered in the series kind `spectacle_order` (prefix `SPO`); the advance of a cancelled order is handed back as a `business_collection_refunds` row with `source` optical. A contact lens's powers are items of one product, each keeping `power`, `baseCurve` and `diameter` in `catalog_skus.attributes` (no table). How they are used: [BUSINESS_PLATFORM_DATA_MODEL.md › Optical shops](BUSINESS_PLATFORM_DATA_MODEL.md#optical-shops).
+
+#### `optical_settings`
+Purpose: how many months after the last eye test a shop's customer is due for another.
+Key columns: PK `business_id`, `recall_months` (1-60, default 12; 12 is used until the row is made), `updated_by`, `updated_at`.
+Added by: 1791963000000.
+
+#### `optical_prescriptions`
+Purpose: a customer's eye prescription.
+Key columns: `contact_id`, `examined_on`, `examiner_kind` (staff, outside), `examiner_user_id` (a staff examiner), `examiner_name` (as it was), `registration_no` (an outside examiner's), `pd_binocular` (40-85 mm) or `pd_right` and `pd_left` (20-45 mm each), `notes`, `valid_until`, `request_key`, `request_hash`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, `contact_id`) -> `business_contacts`.
+Rules:
+- CHECK a staff examiner names the user, and only a staff one does; an outside examiner has a registration number; the PD of both eyes or of each eye, never both, and each eye's together; valid until on or after the day of the test.
+- UNIQUE (business, request key); indexes `optical_prescriptions_contact` (business, customer, newest test first) and `optical_prescriptions_period`.
+- Trigger `optical_prescriptions_customer` (function `business_contact_is_customer`): the contact is a customer.
+- Trigger `optical_prescriptions_guard`: never deleted; once a spectacle order uses it, it never changes (a correction is a new prescription); the request and who recorded it never change.
+Added by: 1791963000000.
+
+#### `optical_prescription_rows`
+Purpose: a prescription's powers, one row per eye and vision.
+Key columns: PK (`business_id`, `prescription_id`, `eye`, `zone`), `eye` (right, left), `zone` (distance, near, intermediate), `sph` and `cyl` (-30 to +30 in steps of 0.25), `axis` (1-180), `add_power` (+0.25 to +4.00 in steps of 0.25), `prism` (over 0, at most 20, in steps of 0.25) with `prism_base` (in, out, up, down), `acuity` (as written: 6/6, N6).
+Relations: (`business_id`, `prescription_id`) -> `optical_prescriptions`.
+Rules:
+- CHECK a CYL only with an SPH; an AXIS exactly when the CYL is given and is not 0; no ADD on distance; a prism with its base; at least an SPH, an ADD, a prism or the acuity.
+- Trigger `optical_prescription_rows_guard`: no row is added, changed or removed once a spectacle order uses the prescription.
+Added by: 1791963000000.
+
+#### `optical_orders`
+Purpose: a spectacle order, the job card.
+Key columns: `location_id`, `order_no` (series kind `spectacle_order`), `series_id`, `contact_id`, `customer_name` and `customer_phone` (as booked), `prescription_id`, `rx` (JSONB: the prescription and its rows as booked), `pd_right` and `pd_left` (20-45 mm), `fitting_height_right` and `fitting_height_left` (5-45 mm), `made_at` (in_house, lab), `lab_name`, `lab_order_no`, `promised_on`, `status` (booked, at_lab, in_workshop, quality_check, ready, delivered, cancelled), `remake_of`, `remake_reason` (power_change, non_adaptation, measurement, lab_defect, breakage, coating, other), `remake_cost_by` (shop, lab, customer), `remake_note`, `tax_mode`, `subtotal`, `tax`, `round_off` (between -1 and 1), `total`, `savings`, `discount_amount` or `discount_percent` with `discount_reason`, `notes`, `advance_collection_id`, `checked_by`/`checked_at` (the quality check last passed), `document_id` (the bill), `delivery_key`, `delivered_by`/`delivered_at`, `cancel_reason`, `cancelled_by`/`cancelled_at`, `request_key`, `request_hash`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, ...) -> `business_locations`, `business_number_series`, `business_contacts`, `optical_prescriptions`, `optical_orders` (`remake_of`), `business_collections` (`advance_collection_id`) and `business_documents` (`document_id`).
+Rules:
+- CHECK total = subtotal + tax + round-off; a discount by amount or by percent, with its reason; a lab's name exactly when made at a lab, and a lab order number only then; a remake has its reason and who bears the cost; a remake the shop or the lab bears has a total of 0; ready or delivered only with the quality check stamped; the delivery's and the cancellation's columns exactly with their status, and a bill only once delivered.
+- UNIQUE (business, order number), (business, request key), (business, bill) and (business, advance). Indexes `optical_orders_period`, `optical_orders_contact`, `optical_orders_prescription`, the partial `optical_orders_open` (business, promised day) and `optical_orders_remake`.
+- Trigger `optical_orders_customer` (function `business_contact_is_customer`).
+- Trigger `optical_orders_insert_check`: the prescription is the customer's; a new order is booked; a remake is of a delivered order of the same customer.
+- Trigger `optical_orders_guard`: never deleted; a delivered or cancelled order never changes; an open one keeps its number, location, customer, prescription, prices, discount, remake and advance, and the request and who booked it; status moves booked → at_lab or in_workshop, at_lab and in_workshop to each other or to quality_check, quality_check → ready, at_lab or in_workshop, ready → at_lab, in_workshop or delivered, and any open status → cancelled; it becomes ready only when the same change stamps the quality check.
+Added by: 1791963000000.
+
+#### `optical_order_lines`
+Purpose: an order's frame, lenses and other items, as booked.
+Key columns: `order_id`, `part` (frame, lens, item), `eye` (a lens's: right, left), `sku_id`, `own_frame`, `description`; a lens's `lens_type` (single_vision, bifocal, progressive), `lens_index` (1.40-2.00), `material` (cr39, polycarbonate, trivex, glass, other), `coatings` (TEXT[]: anti_reflective, blue_cut, uv, photochromic, scratch_resistant), `tint` and `brand`; an item line's `label`, `unit`, `quantity`, `unit_price`, `amount`, `discount`, `tax_rate`, `net`, `tax`, `price_rule_id`, `entered_unit`, `entered_quantity`, `entered_unit_price`, `unit_factor`, `hsn_code`, `mrp` and `offers` (JSONB array).
+Relations: (`business_id`, `order_id`) -> `optical_orders`; (`business_id`, `sku_id`) -> `catalog_skus`; (`business_id`, `unit`) -> `business_units`; (`business_id`, `price_rule_id`) -> `business_price_rules`.
+Rules:
+- CHECK a lens has its eye and type, and only a lens has lens details; the customer's own frame has a description and no item; any other frame, and every other item line, names an item; `optical_order_lines_priced_with_item` (the priced columns all present with an item, none without); the discount at most the amount; `optical_order_lines_entered_all_or_none`.
+- Unique indexes `optical_order_lines_one_frame` and `optical_order_lines_one_lens_an_eye`; index `optical_order_lines_order`.
+- Trigger `optical_order_lines_guard`: a line goes in only while its order is booked, and is never changed or deleted.
+Added by: 1791963000000.
+
+#### `optical_order_events`
+Purpose: an order's history: every change of status, and every note with none.
+Key columns: `order_id`, `from_status`, `to_status`, `note`, `created_by`, `created_at`.
+Rules: index `optical_order_events_order`; trigger `optical_order_events_append_only` (function `optical_append_only`): never changed or deleted.
+Added by: 1791963000000.
+
+#### `optical_recall_reminders`
+Purpose: each reminder given to a customer due for an eye test.
+Key columns: `contact_id`, `channel` (whatsapp, call, sms), `created_by`, `created_at`.
+Rules: index `optical_recall_reminders_contact`; trigger `optical_recall_reminders_customer` (function `business_contact_is_customer`); trigger `optical_recall_reminders_append_only` (function `optical_append_only`): never changed or deleted.
+Added by: 1791963000000.
+
 ## Tasks, issues & projects
 
 Linked sections: [data model](BUSINESS_PLATFORM_DATA_MODEL.md#tasks-issues--projects) and [ARCHITECTURE.md §4.3](ARCHITECTURE.md#43-tasks-issues--projects-one-model-for-both-worlds). Migration `1791620000000_tasks-issues-projects.sql`; module code `backend/src/modules/tasks/`.
@@ -2827,6 +2890,7 @@ Core modules are always on and never stored per business; every other module is 
 | `fitter_commission` | optional | catalog, sales | hardware; off; recommended for hardware | 1791961000000 |
 | `licences` | optional | — | every type but restaurant; on for agri_inputs; recommended for fuel_station, jewellery, optical, pharmacy | 1791962000000 |
 | `agri` | optional | catalog, contacts, sales, inventory, batches | agri_inputs; on (item attributes `inputKind`, `subsidised`, `seedClass`, `seedCrop`, `seedVariety`, `molecules`, `formulation`, `netKg`) | 1791962000000 |
+| `optical` | optional | catalog, contacts, sales | optical; on (item attributes `power`, `baseCurve`, `diameter` for contact lenses) | 1791963000000 |
 | `guests` | optional | restaurant | restaurant; on | 1791470000000 |
 | `guest_loyalty` | optional | restaurant, guests | restaurant; off | 1791470000000 |
 | `reservations` | optional | restaurant | restaurant; on | 1791470000000 |
@@ -2892,6 +2956,7 @@ Each code is a `<module>.<action>` row of `business_permissions`, listed here by
 | fitter_commission | `fitter_commission.view`, `fitter_commission.create` (name a fitter on a bill; add fitters), `fitter_commission.edit` (change fitters and rules), `fitter_commission.approve` (pay fitters) | 1791961000000 |
 | licences | `licences.view`, `licences.edit` (add, renew, change and switch off licences) | 1791962000000 |
 | agri | `agri.view` (farmers, village dues, the subsidy reconciliation, the registers and the molecule list), `agri.create` (type the PoS device's stock), `agri.edit` (farmers' details) | 1791962000000 |
+| optical | `optical.view` (prescriptions, spectacle orders and the recall list), `optical.create` (record and correct prescriptions; book spectacle orders), `optical.edit` (the lab and workshop steps, an order's details, delivery), `optical.approve` (pass or fail the quality check), `optical.cancel`, `optical.print` (job cards, customer slips and prescriptions) | 1791963000000 |
 
 ## Restaurant permission codes
 

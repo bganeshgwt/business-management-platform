@@ -14,6 +14,10 @@ const attributes = {
   // checks them (agri/services/agriItems.service.js), and they may change
   // after the item is made.
   agri: ['inputKind', 'subsidised', 'seedClass', 'seedCrop', 'seedVariety', 'molecules', 'formulation', 'netKg'],
+  // An optical shop's contact lenses: each power of a lens product is its own
+  // item, keeping its power, base curve and diameter (the power grid,
+  // optical/services/opticalLenses.service.js, writes them).
+  optical: ['power', 'baseCurve', 'diameter'],
 };
 // Attributes that hold a figure (more than 0, up to two decimals), by the
 // words a refusal uses. They may also be changed after the item is made.

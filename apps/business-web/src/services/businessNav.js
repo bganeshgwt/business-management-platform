@@ -2,7 +2,7 @@
 // has switched on and what this person's role allows. The server checks the
 // same two things on every request; the menu only hides what would be refused.
 
-import { AGRI, CLINIC, GOODS, HARDWARE, PHARMACY, RETAIL, SALON, WEIGHED } from './businessTypes.js';
+import { AGRI, CLINIC, GOODS, HARDWARE, OPTICAL, PHARMACY, RETAIL, SALON, WEIGHED } from './businessTypes.js';
 import { dailyWorkspaces, WORKSPACES, workspaceLabel, workspaceSections } from './businessWorkspace.js';
 
 export { GOODS };
@@ -148,6 +148,17 @@ export function businessSections(type) {
         { section: "agri-subsidy", label: "Subsidy PoS reconciliation", icon: "counts", need: "agri.view", types: AGRI },
         { section: "agri-registers", label: "Registers & board", icon: "logbook", need: "agri.view", types: AGRI },
         { section: "molecules", label: "Molecules", icon: "categories", need: "agri.view", types: AGRI },
+      ],
+    },
+    {
+      // An optical shop's spectacle orders (a daily entry of its own), and its
+      // eye prescriptions (with its customers).
+      title: "Optical",
+      links: [
+        { section: "spectacle-orders", label: "Spectacle orders", icon: "orders", need: "optical.view", types: OPTICAL },
+        { section: "prescriptions", label: "Prescriptions", icon: "logbook", need: "optical.view", types: OPTICAL },
+        // Customers due for an eye test, with a reminder ready to send.
+        { section: "recall", label: "Recall list", icon: "reservations", need: "optical.view", types: OPTICAL },
       ],
     },
     {

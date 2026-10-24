@@ -623,7 +623,7 @@ workspaces; the backend has its own install.
 │   │   │   ├── business/     core (directory, catalogue, documents, stock, appointments, payment
 │   │   │   │                 methods, expenses, shifts, the counter), retail, wholesale (+ receivables),
 │   │   │   │                 fashion-electronics, salon-weight, health, quotations and licences (every
-│   │   │   │                 type but the restaurant), hardware, agri
+│   │   │   │                 type but the restaurant), hardware, agri, optical
 │   │   │   └── tasks/        tasks, issues & projects for every business (+ library/ of built-in templates)
 │   │   ├── config/           env.js (reads and checks .env), database.js (pg pool + DB_POOL_GUARD)
 │   │   ├── middlewares/      authenticate, authorize, authorizeOrApprove, resolveOutlet, requireFeature,
@@ -652,7 +652,7 @@ workspaces; the backend has its own install.
 │   │   │   │   ├── restaurant/  the same areas as the backend (except imports/), plus dashboard/
 │   │   │   │   ├── business/ core/ (Business Admin, BusinessAdminRoutes.jsx, hooks.js, ui.jsx) and one
 │   │   │   │   │             folder per type: retail, wholesale, receivables, fashion, electronics, salon,
-│   │   │   │   │             weight, health, hardware, agri; and quotations and licences (every type but
+│   │   │   │   │             weight, health, hardware, agri, optical; and quotations and licences (every type but
 │   │   │   │   │             the restaurant)
 │   │   │   │   └── tasks/    the task screens, shared by the restaurant (/tasks) and Business Admin (…/tasks)
 │   │   │   ├── layouts/      AppLayout.jsx (header, switchers, bell, side menu), NotFoundPage, PlannedPage,
@@ -849,6 +849,7 @@ file behind an index file with the module's name, which callers import:
 | Licences & registrations (every type but the restaurant) | `business/licences`: `businessLicences.routes` (mounted from `business.routes.js`), `businessLicences.service` (licences per location; `standing` and `holds`, which other modules ask whether a location holds a licence in force; `expiring`, which the bell reads) | `licences/` (Licences) | `business_licences` |
 | Hardware, paints & building materials | `business/hardware`: `businessHardware.routes` (mounted from `business.routes.js`), `hardwareSites.service` (sites, a site's ledger, the site of a bill, quotation or order), `hardwareSales.service` (the sale hook: site and fitter; invoice extras), `hardwareFitters.service` (fitters, rules, commission on a bill, payouts through the expense book, statement, report), `hardwareRates.service` (today's rates through the core catalogue update), `hardwareCalculators.service` (the items with a coverage) | `hardware/` (Sites, `SiteField`, Fitters, `FitterField`, Fitters' commission report, Today's rates, `CalculatorDialog`; helpers in `hardware.js` and `calculators.js`) | `hardware_*` |
 | Seeds, fertilisers & pesticides | `business/agri`: `businessAgri.routes` (mounted from `business.routes.js`), `agriCommon` (the type and module guard, an item's classification, the molecule list read once per process), `agriItems.service` (classification inside the catalogue's own transaction; the molecule list), `agriSales.service` (the sale hooks: the checks before saving, season credit, the lines after; a purchase's seed lots; invoice extras), `agriFarmers.service` (farmers, a farmer's bills, village dues), `agriSubsidy.service` (the PoS reconciliation and the PoS stock typed in), `agriRegisters.service` (the board, the seed stock return, the insecticide register) | `agri/` (Farmers & village dues, Subsidy PoS reconciliation, Registers & board, Molecules, Farm input checks; `AgriItemFields` on the item form, `AgriBillFields` on Quick bill, `AgriBillFacts` on a bill; helpers in `agri.js` and `agriPrint.js`) | `agri_*` |
+| Optical shops | `business/optical`: `businessOptical.routes` (mounted from `business.routes.js`), `opticalCommon` (the type and module guard, reading powers and dates), `opticalPrescriptions.service` (prescriptions, corrections until an order uses one, a customer's history, the examiners), `opticalOrders.service` (spectacle orders priced by the quotations' `priceIn`, the advance as a collection receipt, the lab, workshop and quality check, delivery through `postDocument` at `fixed` prices with the advance paid first, cancelling and the advance handed back through `businessAdvanceRefunds`, the chips and the bell), `opticalRecall.service` (the recall list, its months and the reminders), `opticalLenses.service` (a contact lens's power grid as items of one product) | `optical/` (Prescriptions, `PrescriptionDialog`, `PrescriptionHistoryPage`, `RxGrid`, Spectacle orders, `SpectacleOrderDialog`, `SpectacleOrderPage`, Recall list, `PowerGridFields` on the item form; helpers in `optical.js` and `opticalPrint.js`) | `optical_*` |
 
 **Modules for every business, the restaurant included:**
 

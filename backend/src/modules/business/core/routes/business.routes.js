@@ -230,6 +230,8 @@ require('../../hardware/routes/businessHardware.routes')(router, { context, send
 require('../../licences/routes/businessLicences.routes')(router, { context, send, b });
 // Seeds, fertilisers & pesticides: molecules, farmers and village dues, the subsidy PoS reconciliation, registers.
 require('../../agri/routes/businessAgri.routes')(router, { context, send, b });
+// Optical shops: prescriptions, spectacle orders through the lab and the quality check, the recall list, contact-lens power grids.
+require('../../optical/routes/businessOptical.routes')(router, { context, send, b });
 
 // Per-staff PIN at the counter, kits / bundles, EMI & finance.
 require('./businessCounter.routes')(router, { context, send, b });

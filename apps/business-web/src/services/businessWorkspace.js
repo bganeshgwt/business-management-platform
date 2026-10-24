@@ -8,7 +8,7 @@ export const WORKSPACES = {
   stock: ['stock', 'weight-stock', 'movements', 'counts', 'near-expiry', 'pharmacy-batches', 'transfers', 'serials', 'processing', 'wastage'],
   purchases: ['purchases', 'suppliers', 'purchase-orders', 'claims'],
   dues: ['udhaar', 'outstanding', 'collections'],
-  customers: ['customers', 'loyalty', 'sites', 'fitters'],
+  customers: ['customers', 'loyalty', 'sites', 'fitters', 'prescriptions', 'recall'],
   sales: ['sales', 'quotations', 'exchanges', 'warranties', 'pickup-orders'],
   orders: ['sales-orders', 'back-orders', 'dispatch', 'price-groups', 'pricing', 'routes'],
   appointments: ['salon-calendar', 'appointments'],
@@ -19,6 +19,8 @@ export const WORKSPACES = {
   settings: ['settings', 'tax-rates', 'payment-methods', 'number-series', 'locations', 'units', 'resources', 'health-settings', 'licences', 'agri-settings'],
   // A seeds, fertilisers & pesticides shop's own area.
   farm: ['farmers', 'agri-subsidy', 'agri-registers', 'molecules'],
+  // An optical shop's spectacle orders, in its daily menu.
+  spectacles: ['spectacle-orders'],
   staff: ['staff', 'roles'],
   money: ['day-close', 'expenses', 'emi-finance'],
   repairs: ['repairs', 'appointments'],
@@ -87,6 +89,7 @@ export function dailyWorkspaces(type) {
   const daily = [checkout, type === 'healthcare' ? 'care' : null,
     ['wholesale', 'hardware'].includes(type) ? 'orders' : null,
     ['salon', 'optical', 'garage', 'memberships'].includes(type) ? 'appointments' : null,
+    type === 'optical' ? 'spectacles' : null,
     'sales', type === 'healthcare' ? 'patients' : 'customers', 'dues', 'money'].filter(Boolean);
   const business = ['products', 'purchases', 'stock'];
   if (type === 'pharmacy') business.push('pharmacy-registers');

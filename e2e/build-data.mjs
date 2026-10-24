@@ -6,7 +6,7 @@
 // one thing no request can make: an order taken on an earlier day.
 import crypto from "node:crypto";
 
-import { AGRI, BUSINESSES, GROCERY, HARDWARE, MEAT, PLATFORM, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
+import { AGRI, BUSINESSES, GROCERY, HARDWARE, MEAT, OPTICAL, PLATFORM, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
 
 // Every call names the status it expects, so a set-up that goes wrong stops
 // at the first wrong answer, with the API's own message, rather than leaving
@@ -354,6 +354,36 @@ export async function buildTestData({ api, logins, sql }) {
       pesticide: { id: pesticide.id, name: pesticide.label },
       seed: { id: seed.id, name: seed.label },
       farmer: { id: farmer.contact_id, name: farmer.name },
+    });
+  }
+
+  // The optical shop: its frame and lens in stock, the fitting charge, a
+  // customer with today's prescription and one due for an eye test.
+  {
+    const B = at("optical");
+    const locationId = businesses.optical.locationId;
+    const day = (days) => new Date(Date.now() + days * 86400000).toLocaleDateString("en-CA", { timeZone: TIMEZONE });
+    const supplier = await owner("POST", B("contacts"), { kind: "supplier", name: OPTICAL.supplier }, 201);
+    const goods = (item, extra = {}) => owner("POST", B("catalog"), {
+      name: item.name, code: item.code, kind: "goods", unit: "each", tracking: "quantity", price: String(item.price), hsnCode: item.hsn, taxRate: "5", ...extra,
+    }, 201);
+    const frame = await goods(OPTICAL.frame, { mrp: String(OPTICAL.frame.mrp) });
+    const lens = await goods(OPTICAL.lens);
+    const fitting = await owner("POST", B("catalog"), { name: OPTICAL.fitting.name, code: OPTICAL.fitting.code, kind: "service", unit: "service", price: String(OPTICAL.fitting.price), taxRate: "18" }, 201);
+    await owner("POST", B("documents"), {
+      kind: "purchase", requestKey: requestKey(), locationId, contactId: supplier.id,
+      lines: [{ skuId: frame.id, quantity: "3", unitPrice: "1200" }, { skuId: lens.id, quantity: "10", unitPrice: "400" }],
+    }, 201);
+    const customer = await owner("POST", B("contacts"), { kind: "customer", ...OPTICAL.customer }, 201);
+    const due = await owner("POST", B("contacts"), { kind: "customer", name: OPTICAL.due.name, phone: OPTICAL.due.phone }, 201);
+    const prescription = await owner("POST", B("optical/prescriptions"), { requestKey: requestKey(), contactId: customer.id, pdBinocular: "63", rows: [
+      { eye: "right", zone: "distance", sph: "-2.25", cyl: "-0.75", axis: "180" }, { eye: "left", zone: "distance", sph: "-2.00", cyl: "-0.50", axis: "90" }] }, 201);
+    await owner("POST", B("optical/prescriptions"), { requestKey: requestKey(), contactId: due.id, examinedOn: day(-OPTICAL.due.daysAgo), rows: [
+      { eye: "right", zone: "distance", sph: "+1.25" }, { eye: "left", zone: "distance", sph: "+1.50" }] }, 201);
+    Object.assign(businesses.optical, {
+      supplier: { id: supplier.id, name: supplier.name },
+      frame: { id: frame.id, name: frame.label }, lens: { id: lens.id, name: lens.label }, fitting: { id: fitting.id, name: fitting.label },
+      customer: { id: customer.id, name: customer.name }, due: { id: due.id, name: due.name }, prescription: { id: prescription.id },
     });
   }
 

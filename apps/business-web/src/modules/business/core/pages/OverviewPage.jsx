@@ -68,6 +68,9 @@ function firstActions(biz) {
   // A farm-input shop's day: the PoS device's stock against the shop's, and its farmers.
   if (biz.has("agri") && can("agri.create")) list.push({ to: "agri-subsidy?check=1", icon: "scale", label: "Type the PoS stock" });
   if (biz.has("agri") && can("agri.edit")) list.push({ to: "farmers?new=1", icon: "user-plus", label: "Add a farmer" });
+  // An optical shop's day: spectacle orders to book, and the prescriptions from its eye tests.
+  if (biz.type === "optical" && biz.has("optical") && can("optical.create") && can("sales.create")) list.push({ to: "spectacle-orders?new=1", icon: "clipboard", label: "Book a spectacle order" });
+  if (biz.type === "optical" && biz.has("optical") && can("optical.create")) list.push({ to: "prescriptions?new=1", icon: "eye", label: "Record a prescription" });
   if (biz.has("receivables") && can("receivables.create")) list.push({ to: goods ? "udhaar" : "collections?new=1", icon: "wallet", label: goods ? "Collect udhaar" : "Record a collection" });
   if (!goods && biz.type !== "salon" && can("sales.create")) list.push({ to: "sales?new=1", icon: "receipt", label: "New sale (invoice)" });
   if (biz.type !== "salon" && biz.type !== "healthcare" && can("appointments.create") && biz.has("appointments")) list.push({ to: "appointments?new=1", icon: "calendar", label: "Book an appointment" });

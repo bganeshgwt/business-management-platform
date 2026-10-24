@@ -25,6 +25,7 @@ The everyday numbers, such as expiring-soon days, voucher validity, credit age g
 - [Pharmacy, clinic and lab](#pharmacy-clinic-and-lab)
 - [Hardware, paints & building materials](#hardware-paints--building-materials)
 - [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides)
+- [Optical shops](#optical-shops)
 - [Restaurant and food formats](#restaurant-and-food-formats)
 
 ## Fixed on purpose
@@ -404,7 +405,7 @@ These rules apply to every business type but the restaurant. The goods rules app
 
 ### Roles by business type
 
-- **Rule:** some roles belong to one type of business: Pharmacist to a pharmacy; Doctor, Lab technician and Pathologist to a clinic & lab. A business of that type starts with them, and other types do not get them.
+- **Rule:** some roles belong to one type of business: Pharmacist to a pharmacy; Doctor, Lab technician and Pathologist to a clinic & lab; Optometrist to an optical shop. A business of that type starts with them, and other types do not get them.
 - **Why:** a kirana should not see a "Doctor" role.
 - **Change it:** they are ordinary roles, editable in *Roles & permissions*.
 
@@ -499,6 +500,82 @@ A farm-input shop sells as every goods shop does ([Shops and the shared core](#s
 - **Rule:** the stock and price board (each fertiliser's and seed's opening stock on a day, and its closing stock once the day is over), the monthly seed stock return and the insecticide sale register are worked out from the bills, purchases, returns and stock movements of the location, on the business's own clock; nothing is typed twice. The board shows today's price and MRP. The seed return gives quintals where an item's unit is a weight or its weight of one is given; its other changes are corrections, counts and transfers. It is due by the 5th of the next month.
 - **Why:** the Fertiliser (Control) Order and the Seeds (Control) Order require a daily display of stock and prices, the Seeds (Control) Order a monthly return, and the Insecticides Rules a record of insecticide sales with their batches; working them out from the same records keeps them true to the books.
 - **Change it:** nothing to set.
+
+## Optical shops
+
+An optical shop sells as every goods shop does ([Shops and the shared core](#shops-and-the-shared-core)); with *Prescriptions & spectacle orders* on it also keeps its customers' prescriptions and makes spectacles to order through a lab or its own workshop. Each rule below is checked by the server, and the ones about records that must not change are held by the database too.
+
+### A prescription's powers are checked as they are written
+
+- **Rule:** each eye has at most one row for distance, near and intermediate vision. SPH and CYL go in steps of 0.25 from -30 to +30 (plano is 0.00). AXIS is a whole number of degrees from 1 to 180, given with a CYL other than 0 and only then. ADD goes from +0.25 to +4.00, on the near or intermediate row only. A prism (0.25 to 20 prism dioptres, in steps of 0.25) has its base: in, out, up or down. A row needs at least one of them or the visual acuity, and a prescription at least one row. The PD is of both eyes together or of each eye, never both. The test is never on a day still to come. A refusal names the eye, the vision and the power.
+- **Why:** a spectacle prescription is written per eye and vision in quarter-dioptre steps, with the axis of a cylinder; a power typed wrong makes the wrong lenses.
+- **Change it:** nothing to set.
+
+### The examiner is named, with a registration number from outside
+
+- **Rule:** a prescription is examined by a member of the business, named as they are, or by an outside doctor or optometrist, named with the registration number on their prescription (required). A member's registration number is optional; the form offers the one on their latest prescription. Both print on the prescription.
+- **Why:** optometrists are a listed profession under the National Commission for Allied and Healthcare Professions Act, 2021, so who examined, and their registration, belongs with the powers.
+- **Change it:** nothing to set.
+
+### A prescription on a spectacle order never changes
+
+- **Rule:** a prescription can be corrected, its customer included, until a spectacle order uses it; the activity log keeps what was and what is. From then on it and its powers never change, and the database refuses it: a correction is a new prescription. A spectacle order keeps a copy of the prescription as it was when booked. A prescription is never deleted.
+- **Why:** the spectacles were made from those powers; what the lab was given must stay as it was.
+- **Change it:** nothing to set.
+
+### Valid a year, due for a test after the recall months
+
+- **Rule:** a prescription is valid until a year after its test unless another day is given (on or after the test, at most five years after it). The recall list holds every active customer whose latest test was the recall months ago or more: 12 to start with, any whole number from 1 to 60.
+- **Why:** no rule was found that sets how long a prescription stays valid or how often to test again, so the year is a starting value each shop changes.
+- **Change it:** *Valid until* on each prescription; the months on *Customers › Recall list*, by a role that holds `settings.edit`.
+
+### An order is priced at booking, and billed with the day's GST
+
+- **Rule:** an order's items (the frame from stock, the lens items, other items) are priced when it is booked exactly as a sale of them would be then: customer and slab prices, branch prices, running offers, the discount (with its reason, within the counter's limit), GST and round-off. The order keeps those prices; the frame, the lenses and the prices never change once booked. Delivery posts the bill at them, with GST at each item's rate on the day of the bill: a price that includes GST keeps its total and its GST is worked out again from it; a price before GST keeps its taxable value. Delivery is refused when an item is switched off, its pack size changed, or what the bill would charge for one unit is above its MRP now.
+- **Why:** the customer agreed the price when they ordered; GST is the rate of the day of the invoice, and nothing is sold above its MRP.
+- **Change it:** nothing to set; GST is each item's slab (spectacles, frames, spectacle and contact lenses 5%, sunglasses 18%).
+
+### Stock leaves at delivery
+
+- **Rule:** nothing leaves stock when an order is booked. The frame and the other goods leave stock at delivery, from the order's location: a batch item oldest expiry first, and an item not in usable stock there (or past its expiry) stops the delivery until it is received. Stock is not held for an order: Quick bill can sell the same frame meanwhile, and the order then shows it short.
+- **Why:** the bill and the stock move together, when the customer takes the spectacles.
+- **Change it:** nothing to set.
+
+### The advance is the customer's money on account
+
+- **Rule:** an advance taken at booking is a numbered collection receipt in the customer's name, by cash, UPI, card or bank, and never more than the order's total. It pays first when the order is billed. On a cancelled order it stays the customer's: it is handed back from the order (all that is left, or part, by cash, UPI or bank, with a reason and a manager's PIN), or it stays on their account for a later bill. The cash limit counts it like any collection.
+- **Why:** until the spectacles are billed the money is the customer's; money leaving the drawer needs a second person's say-so.
+- **Change it:** who may take an advance is the role's `sales.edit`; who may approve handing it back, `sales.refund`.
+
+### The work goes one step at a time, and the quality check is signed
+
+- **Rule:** an order goes from booked to the lab or the workshop, between the two, to the quality check, and from the quality check to ready (passed) or back to the lab or the workshop (failed, with what was wrong); ready spectacles found wrong go back the same way, with the reason; ready goes to delivered. Steps are never skipped and the database refuses any other move. Passing or failing the quality check needs `optical.approve`, and a pass is stamped with who and when; an order is ready only after a pass. Cancelling needs a reason. A delivered or cancelled order never changes, and nothing about an order is deleted; every step is kept with who made it.
+- **Why:** finished spectacles are checked against the prescription before the customer gets them, and the job's history shows who did what.
+- **Change it:** who passes the quality check is the role's `optical.approve` (the owner, a manager and the optometrist by default).
+
+### A lens needs its fitting, and a multifocal its near power
+
+- **Rule:** each lens on an order needs powers for its eye on the prescription and that eye's fitting PD. A bifocal or progressive lens also needs the near power (an ADD, or a near SPH) for its eye on the prescription and that eye's fitting height.
+- **Why:** a lens is centred on the eye's PD, and a bifocal or progressive lens is placed by its fitting height and made with the reading power.
+- **Change it:** nothing to set.
+
+### A remake is linked to its order, and costs the customer nothing unless they bear it
+
+- **Rule:** only a delivered order is made again, for its own customer: a new order linked to it, with the reason and who bears the cost (the lab, the shop or the customer). When the lab or the shop bears it, the order costs the customer nothing (the database holds its total at 0): no discount, no advance, and a bill of 0 when it takes stock at delivery. When the customer bears it, it is priced as any order.
+- **Why:** a lab's mistake, a breakage under the shop's promise or a customer who cannot get used to the lenses is not the customer's cost, and the link keeps the job's whole story.
+- **Change it:** nothing to set.
+
+### Each contact-lens power is an item
+
+- **Rule:** with Variants on, the power grid makes one item for each power of the ranges given (from -20.00 to +20.00, in steps of 0.25 or 0.50; at most 200 at a time and 300 for one product), all of one product with one base curve (7 to 10 mm) and one diameter (12 to 16 mm), each keeping its power, base curve and diameter. A power the product already has is left as it is; another base curve or diameter is another product. Each power then has its own price, stock and batches like any item.
+- **Why:** contact lenses are stocked and sold power by power.
+- **Change it:** each power's price and details on the item.
+
+### The MD-42 registration is kept as a licence
+
+- **Rule:** the medical device sale registration (MD-42) is kept under *Settings › Licences* with its number and dates; the bell warns before a date it is given runs out. Contact-lens bills are not refused without it.
+- **Why:** anyone selling contact lenses without a licence for them needs the MD-42 registration (G.S.R. 754(E) of 30 September 2022); keeping it where every licence is kept shows it with its dates.
+- **Change it:** *Settings › Licences*.
 
 ## Restaurant and food formats
 

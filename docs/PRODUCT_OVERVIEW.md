@@ -192,6 +192,16 @@ Pharmacy and clinic rules follow standard Indian practice. A pharmacist, a docto
 - **Farmers and season credit:** each farmer's village, father's or husband's name, land, crops and Agri Stack Farmer ID (never an Aadhaar number); dues by village; a credit bill for the kharif, rabi or zaid season falls due at the harvest date given.
 - **Registers:** the daily stock and price board to print, the month's seed stock return in quintals and the insecticide sale register, all worked out from the bills and the stock.
 
+### Optical shops
+
+- **Prescriptions:** each customer's eye tests, typed per eye for distance, intermediate and near (SPH, CYL, AXIS, ADD, prism and visual acuity), with who examined (one of the shop's optometrists, or an outside doctor or optometrist with their registration number), the PD and the day the prescription is valid until. Every test is kept: a customer's history sets them side by side with how each power moved. Once spectacles are ordered on a prescription, it never changes.
+- **Spectacle orders:** the job card holds the prescription, the frame (from stock, or the customer's own), each lens (its type, index, material, coatings, tint and brand), each eye's fitting PD and height, where it is made (the shop's workshop or a lab, with the lab's order number) and the day promised. It is priced exactly as the bill will be, and an advance goes on a numbered receipt. Each order goes through the lab or the workshop and a quality check, passed or failed by an optometrist or a manager, before it is ready; the job card for the lab prints the prescription and no prices. Delivery posts the bill at the booked prices, with the advance taken off. The daily screen shows the orders due today, ready to collect and overdue, and messages go to the customer on WhatsApp.
+- **Remakes:** a new order linked to the delivered one, with why it is made again and who bears the cost; the customer pays nothing unless it is them.
+- **The recall list:** the customers due for an eye test (12 months after their last unless the shop sets another interval), with their phone and a reminder ready on WhatsApp; each reminder given is kept.
+- **Contact lenses:** with Variants on, a lens product's powers are made in one go, one item for each power of the range, each with its own stock.
+
+The GST rates of an optical shop's goods and how to set it up: [ADMIN_GUIDE.md › Optical shops](ADMIN_GUIDE.md#optical-shops).
+
 ### The newer trades
 
 General stores, hardware and building-material shops, seeds and fertiliser shops, opticians, garages, jewellers, fuel stations, gyms and coaching centres, laundries, rental businesses, and hotels and lodges run on the shared core from their first day:
@@ -200,7 +210,7 @@ General stores, hardware and building-material shops, seeds and fertiliser shops
 - **Their trade's tools to switch on:** contractor rates and site orders with challans for hardware; dealer rates and batch tracking for seeds and pesticides; eye-test and service bookings for opticians and garages; personal-training bookings for gyms.
 - **Their own checklists:** nozzle tests and density checks at a fuel station, room turnover and the guest register at a lodge, the day-end tally at a jeweller, and more.
 
-Each trade's own screens (job cards, prescriptions, memberships, gold rates, rooms and others) come in the order set out in [BACKLOG.md › New business types](BACKLOG.md#10-new-business-types).
+Each trade's own screens (job cards, memberships, gold rates, rooms and others) come in the order set out in [BACKLOG.md › New business types](BACKLOG.md#10-new-business-types).
 
 ## Several locations
 
@@ -225,7 +235,7 @@ A business can run several shops, counters, godowns, clinics or outlets. Each is
 Every action needs two keys: the business must have that module switched on, and the person's role must allow the action. The server checks both on every request.
 
 - **One login, many businesses**, each with its own role.
-- **Ready-made roles:** Owner, Manager, Cashier / sales, Stock keeper, Accountant and Viewer in every business; a pharmacy adds a Pharmacist, and a clinic adds a Doctor, a Lab technician and a Pathologist. A restaurant has its own set: Restaurant Admin, Manager, Cashier, Captain / Waiter, Kitchen staff, Accountant, Store keeper and a Collection display for the pickup screen. An owner can add roles of their own, and a manager can never give more than they hold.
+- **Ready-made roles:** Owner, Manager, Cashier / sales, Stock keeper, Accountant and Viewer in every business; a pharmacy adds a Pharmacist, a clinic adds a Doctor, a Lab technician and a Pathologist, and an optical shop adds an Optometrist. A restaurant has its own set: Restaurant Admin, Manager, Cashier, Captain / Waiter, Kitchen staff, Accountant, Store keeper and a Collection display for the pickup screen. An owner can add roles of their own, and a manager can never give more than they hold.
 - **Staff logins with a branch and a department.**
 - **Sign-in protection:** passwords never stored in readable form, two-step sign-in, lockout after repeated wrong attempts, PINs for shared tills, PIN sign-off for pathologists and pharmacists.
 - **Data kept apart:** each business sees only its own data. The server checks it on every request, and the database refuses any record that points at another business's data.
@@ -303,7 +313,7 @@ Automated tests cover the admin side and the guests' site; the integration tests
 Where a mistake would lose money, stock or medical records, the database refuses it as well as the program. For example:
 - a duplicate bill number;
 - stock below zero in a shop (a restaurant bill never waits for stock: its stock may go below zero, and the stock screens then ask for a count);
-- editing a posted bill or a signed lab report;
+- editing a posted bill, a signed lab report, or a prescription that spectacles were ordered on;
 - a banned pesticide on a bill, or, with Licences on, a fertiliser, seed or pesticide sold where the branch holds no licence in force;
 - changing a QC run;
 - a record that points at another business's data.

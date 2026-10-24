@@ -13,6 +13,7 @@ const access = require('./businessAccess.service');
 //   overdue udhaar     customers with bills past their due date
 //   promises           promised to pay today, or a promise broken
 //   repairs            ready to collect, or past the promised date
+//   spectacle orders   ready to collect, or past the promised day (optical shops)
 //   appointments       still to come today
 //   licences           running out within 60 days, or run out
 //   wholesale overdue  (same overdue query, worded as invoices)
@@ -119,6 +120,10 @@ async function feed(business) {
         detail: `Next at ${new Date(left.next).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: business.timezone || 'Asia/Kolkata' })}`,
         at: new Date(left.next).toISOString(), link: `${base}/${business.business_type === 'salon' ? 'salon-calendar' : 'appointments'}` });
     }
+  }
+  // An optical shop's spectacle orders: ready to collect, or past their promised day.
+  if (has('optical') && can('optical.view') && business.business_type === 'optical') {
+    items.push(...await require('../../optical/services/opticalOrders.service').bell(business, base, LIMIT));
   }
   // Licences & registrations: a licence running out within 60 days (warning), or run out (critical).
   if (has('licences') && can('licences.view')) {

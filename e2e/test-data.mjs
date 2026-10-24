@@ -157,6 +157,20 @@ export const HARDWARE = {
   fitter: { name: "Ramesh Kumar", trade: "painter", phone: "9845098450", upiId: "ramesh@okicici", perBag: 2 },
 };
 
+// The optical shop: a frame and a single-vision lens kept in stock and the
+// fitting charge as a service, received from the distributor; a customer with
+// today's prescription, and one whose last eye test is over a year old (on the
+// recall list).
+export const OPTICAL = {
+  supplier: "Vision Distributors, Abids",
+  frame: { name: "Titan Eye+ TE-1001 black", code: "FR-TE1001", price: 2499, mrp: 2499, hsn: "90031100" },
+  lens: { name: "Single vision 1.56 anti-reflective lens", code: "LN-SV156", price: 1250, hsn: "90015000" },
+  fitting: { name: "Fitting charges", code: "SV-FIT", price: 99.5 },
+  customer: { name: "Anitha Reddy", phone: "9876543210" },
+  due: { name: "Lakshmi Devi", phone: "9000012345", daysAgo: 400 },
+  lab: "Crystal Lens Lab",
+};
+
 // The salon: one stylist and one service.
 export const SALON = {
   stylist: { name: "Priya Sharma", role: "Senior stylist" },

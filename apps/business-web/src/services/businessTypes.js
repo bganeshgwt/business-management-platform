@@ -23,3 +23,5 @@ export const UDHAAR = ["grocery", "meat", "weight_retail", "general_retail", "ha
 export const HARDWARE = ["hardware"];
 // Seeds, fertilisers & pesticides: farmers, the subsidy PoS reconciliation, registers, molecules.
 export const AGRI = ["agri_inputs"];
+// Optical shops: prescriptions, spectacle orders, the recall list.
+export const OPTICAL = ["optical"];

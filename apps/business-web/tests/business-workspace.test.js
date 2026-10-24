@@ -84,6 +84,16 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   assert.ok(!pages('optical',m=>m!=='licences').some(p=>p.to.endsWith('/licences')),'no licences page while the tool is off');
   assert.ok(pages('agri_inputs').some(p=>p.to.endsWith('/agri-settings')),'agri_inputs: its checks under Settings');
   assert.ok(!pages('hardware').some(p=>p.to.endsWith('/agri-settings')),'hardware: no farm input checks');
+  // An optician's spectacle orders are a daily entry of their own; its prescriptions and recall list sit with its customers.
+  const spectacles=menu('optical').find(l=>l.section==='spectacle-orders');
+  assert.equal(spectacles.label,'Spectacle orders');
+  assert.ok(businessMenu(33,'optical',()=>true,()=>true).find(g=>g.title==='Daily work').links.some(l=>l.section==='spectacle-orders'),'optical: spectacle orders in the daily menu');
+  assert.deepEqual(menu('optical').find(l=>l.section==='customers').pages.map(p=>p.to.split('/').pop()).filter(s=>['prescriptions','recall'].includes(s)),['prescriptions','recall']);
+  assert.equal(workspaceFor('prescriptions','optical'),'customers');
+  assert.equal(workspaceFor('spectacle-orders','optical'),'spectacles');
+  assert.ok(!menu('optical',m=>m!=='optical').some(l=>l.section==='spectacle-orders'),'no spectacle orders while the module is off');
+  assert.ok(!pages('optical',m=>m!=='optical').some(p=>/\/(prescriptions|recall)$/.test(p.to)),'no prescriptions or recall while the module is off');
+  for(const type of ['grocery','pharmacy','garage'])for(const section of ['spectacle-orders','prescriptions','recall'])assert.ok(!typeAllows(sectionRule(section,type),type),`${type}: no ${section}`);
 });
 test('restricted roles get a permitted destination even when the first workspace page is unavailable',()=>{
   const permissions=new Set(['purchasing.view','contacts.view','inventory.view','catalog.view']);

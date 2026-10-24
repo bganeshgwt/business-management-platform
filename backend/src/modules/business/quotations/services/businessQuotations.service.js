@@ -533,4 +533,6 @@ async function order(business, user, quotationId, body) {
   });
 }
 
-module.exports = { preview, detail, create, revise, cancel, bill, order };
+// priceIn, readDiscount, readStockChoices, stockPieces and pricePieces also price
+// and bill an optical shop's spectacle orders (optical/services/opticalOrders.service.js).
+module.exports = { preview, detail, create, revise, cancel, bill, order, priceIn, readDiscount, readStockChoices, stockPieces, pricePieces };

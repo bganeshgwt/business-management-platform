@@ -20,7 +20,9 @@ const SHORT = { sale: 'SI', purchase: 'PR', sales_return: 'CN', purchase_return:
   // Wholesale purchase orders to suppliers, delivery challans.
   purchase_order: 'PO', delivery_challan: 'DC',
   // Quotations (estimates; not GST documents).
-  quotation: 'QT' };
+  quotation: 'QT',
+  // An optical shop's spectacle orders (job cards; not GST documents).
+  spectacle_order: 'SPO' };
 const KINDS = Object.keys(SHORT);
 // Kinds printed as GST documents: their numbers must fit in 16 characters.
 const GST_KINDS = new Set(['sale', 'sales_return', 'purchase_return']);
