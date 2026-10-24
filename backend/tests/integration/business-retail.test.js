@@ -340,7 +340,8 @@ test('retail: offers, loyalty, udhaar, barcodes, books and reports', { timeout: 
     const count = async () => one(`SELECT (SELECT count(*) FROM retail_sale_discounts WHERE business_id=$1)::int AS d,
       (SELECT count(*) FROM retail_loyalty_entries WHERE business_id=$1)::int AS l,(SELECT count(*) FROM business_events WHERE business_id=$1)::int AS e`, [grocery.id]);
     const before = await count();
-    await request('POST', root(grocery, 'documents'), { kind: 'sale', locationId: location.id, contactId: ramesh.id, requestKey: key(),
+    // Refused for the ghee in stock (the buyer's PAN lets this bill over ₹2,00,000 get that far).
+    await request('POST', root(grocery, 'documents'), { kind: 'sale', locationId: location.id, contactId: ramesh.id, requestKey: key(), buyer: { pan: 'ABCDE1234F' },
       lines: [{ skuId: rice.id, quantity: '5' }, { skuId: ghee.id, quantity: '5000' }] }, 409);
     assert.deepEqual(await count(), before);
   });

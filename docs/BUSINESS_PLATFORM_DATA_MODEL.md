@@ -66,6 +66,7 @@ The restaurant module keeps its own tables (`restaurants`, `restaurant_*`, `outl
 | Posted records are never edited | Append-only and one-way-status triggers on lines, discounts, loyalty entries, commissions, wastage, repairs, expenses, cash checks, cashier shifts, signed lab reports, QC runs and more. Several of them let `created_at` alone be corrected. |
 | Outbox rows are only ever stamped once | A trigger on `business_events` allows only setting `published_at`, once; unpublished rows cannot be deleted |
 | A serial number is in one place at a time | Constraint trigger `electronics_serial_lot_rules`, with an advisory lock ([Electronics](#electronics)) |
+| No ₹2,00,000 in cash for one bill, or from one customer in a day | Triggers `business_payments_cash_limit` and `business_collections_cash_limit` ([Documents](#documents)) |
 
 ### What only the code checks
 
@@ -209,6 +210,7 @@ The tables every type shares. A type adds its own tables beside them ([§5](#5-t
 - **The supplier's bill.** A purchase keeps `supplier_bill_no` and `supplier_bill_date`; the same bill number from the same supplier cannot be received twice (ignoring case). A purchase line keeps the bill as printed: `free_quantity` (free units on a scheme, included in the quantity and always fewer than it) and `discount_percent` (a trade discount). The line's net is what was charged, so the stock cost of each unit received is the net over the whole quantity.
 - **Payments.** A bill takes up to eight payments in one posting. A payment's `method` is a kind (cash, card, upi, bank, cheque, credit_note, finance), and `method_name` keeps the business's own name for it. `tendered` is what the customer handed over for a cash payment; the change is `tendered − amount`. A payment comes from a collection (`collection_id`), from a supplier payment (`supplier_payment_id`) or from neither, never both.
 - **Walk-ins.** A goods shop's sale with no customer is paid in full when it is posted, unless `business_settings.walk_in_credit` allows credit.
+- **Large bills.** A sale over ₹2,00,000 keeps the buyer's PAN (`buyer_pan`: typed on the bill, saved with the customer in `business_contacts.pan`, or read from their GSTIN or wholesale details) or `pan_declaration` (they have none and signed Form 97); the API refuses it with neither. Cash of ₹2,00,000 or more is refused for one bill, and from one customer in one business day across their bills and collection receipts (Income-tax Act 2025, section 186).
 - **Counter discount.** A discount given at the counter is a `retail_sale_discounts` row with source `manual` (permission `sales.discount`). It is applied after offers and before points, and spread over the lines like a bill offer, so GST is on what is left. It may not pass `max_bill_discount_percent` of the bill unless the person has full access.
 - **Counter PIN.** `business_settings.counter_pin_every_bill` asks for the biller's PIN on every Quick bill at a shared till.
 - **Warranty at the sale.** Selling a serial unit can register its warranty in the same transaction ([Electronics](#electronics)).

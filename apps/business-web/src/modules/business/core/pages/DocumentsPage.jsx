@@ -185,7 +185,7 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
   // `form.method`: one of the business's own methods (paymentMethods.js).
   const methods = usePaymentMethods();
   const [form, setForm] = useState({ locationId: String(locations[0]?.id || ""), contactId: "", notes: "", paidNow: "", method: "cash", reference: "",
-    supplierBillNo: "", supplierBillDate: businessToday(biz.business.timezone) });
+    supplierBillNo: "", supplierBillDate: businessToday(biz.business.timezone), buyerPan: "", panDeclaration: false });
   const [lines, setLines] = useState([emptyLine()]);
   const [repricing, setRepricing] = useState(false);
   const [scan, setScan] = useState("");
@@ -258,10 +258,14 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
     return biz.settings.tax_mode === "inclusive" && sale ? amount : amount * (1 + Number(sku.tax_rate) / 100);
   };
   const estimate = lines.reduce((sum, l) => sum + preview(l), 0);
+  // A sale over ₹2,00,000 records the buyer's PAN, unless the customer has their PAN or GSTIN saved.
+  const chosen = contacts.find((c) => String(c.id) === form.contactId);
+  const panNeeded = sale && estimate > 200000 && !(chosen?.pan || chosen?.gstin);
 
   const submit = async () => {
     const doc = await businessWrite(biz.id, "documents", {
       kind, locationId: form.locationId, contactId: form.contactId || null, notes: form.notes || undefined, requestKey,
+      ...(panNeeded ? { buyer: form.panDeclaration ? { panDeclaration: true } : { pan: form.buyerPan.trim().toUpperCase() || undefined } } : {}),
       ...(walkInPays ? { payment: { amount: "full", ...methods.body(form.method, PAY_KINDS), reference: form.reference || undefined } }
         : Number(form.paidNow) > 0 ? { payment: { amount: form.paidNow, ...methods.body(form.method, PAY_KINDS), reference: form.reference || undefined } } : {}),
       ...(sale ? {} : { supplierBillNo: form.supplierBillNo, supplierBillDate: form.supplierBillDate || undefined }),
@@ -427,6 +431,16 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
               {methods.options(PAY_KINDS).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}
             </select>
           </Field>
+        </>
+      )}
+      {panNeeded && (
+        <>
+          <Field label="Buyer's PAN" hint="A bill over ₹2,00,000 records the buyer's PAN; save it with the customer to skip this.">
+            <input maxLength={10} className="mono" placeholder="ABCDE1234F" disabled={form.panDeclaration} value={form.buyerPan}
+              onChange={(e) => setForm((f) => ({ ...f, buyerPan: e.target.value.toUpperCase() }))} />
+          </Field>
+          <label className="checkbox bz-check"><input type="checkbox" checked={form.panDeclaration}
+            onChange={(e) => setForm((f) => ({ ...f, panDeclaration: e.target.checked, buyerPan: e.target.checked ? "" : f.buyerPan }))} /> The buyer has no PAN and signed a declaration (Form 97)</label>
         </>
       )}
       <Field label="Notes" wide><input value={form.notes} maxLength={500} onChange={set("notes")} /></Field>

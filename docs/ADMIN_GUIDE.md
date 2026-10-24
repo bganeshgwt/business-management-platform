@@ -2405,6 +2405,18 @@ left unpaid.
   the take-payment button never leave the screen. On a phone each line is one
   compact row, and a bar at the foot shows *To pay* with *Take payment*.
 
+**Large bills.**
+- **Cash limit:** no bill takes ₹2,00,000 or more in cash, and no customer
+  pays that much in cash in one day across their bills and udhaar
+  collections (Income-tax Act 2025, section 186). The payment that would
+  reach it is refused with what to do: take the rest by UPI, card, bank
+  transfer or cheque.
+- **Buyer's PAN:** a bill over ₹2,00,000 needs the buyer's PAN. A customer
+  with their PAN or GSTIN saved needs nothing more; otherwise a *Buyer's PAN*
+  card asks for it, or for a tick that the buyer has no PAN and signed a
+  declaration (Form 97). The invoice prints it under the buyer. Save a
+  regular customer's PAN in *Customers* (Edit › PAN) to skip the card.
+
 **Keys.** F2 find an item · F4 customer · F6 cash · F7 UPI · F8 card · F9
 udhaar · F10 hold the bill · F12 or Ctrl+Enter take the payment. Each has an
 Alt twin for laptops and browsers that keep the F-keys: Alt+S, Alt+C, Alt+1 to

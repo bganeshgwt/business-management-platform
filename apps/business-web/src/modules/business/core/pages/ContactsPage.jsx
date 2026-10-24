@@ -32,6 +32,7 @@ export default function ContactsPage({ kind }) {
     { key: "name", header: "Name", value: (c) => c.name, mobile: "title", pin: true },
     { key: "phone", header: "Phone", value: (c) => c.phone || "", mobile: "subtitle" },
     { key: "gstin", header: "GSTIN", value: (c) => c.gstin || "", className: "mono" },
+    { key: "pan", header: "PAN", value: (c) => c.pan || "", className: "mono", defaultHidden: true },
     customer && { key: "credit_limit", header: "Credit limit", type: "money", value: (c) => (c.credit_limit === null ? null : Number(c.credit_limit)), render: (c) => (c.credit_limit === null ? <span className="muted">No limit</span> : biz.amount(c.credit_limit)) },
     { key: "credit_days", header: "Credit days", type: "number", value: (c) => c.credit_days },
     { key: "balance", header: customer ? "Owes you" : "You owe", type: "money", exact: true, value: (c) => Number(c.balance), total: "sum", mobile: "show" },
@@ -63,7 +64,7 @@ function ContactDialog({ kind, contact, singular, onClose, onSaved }) {
   const biz = useOpenBusiness();
   const editing = Boolean(contact.id);
   const [form, setForm] = useState({
-    name: contact.name || "", phone: contact.phone || "", email: contact.email || "", address: contact.address || "", gstin: contact.gstin || "",
+    name: contact.name || "", phone: contact.phone || "", email: contact.email || "", address: contact.address || "", gstin: contact.gstin || "", pan: contact.pan || "",
     creditLimit: contact.credit_limit ?? "", creditDays: String(contact.credit_days ?? 0), openingBalance: contact.opening_balance && Number(contact.opening_balance) ? contact.opening_balance : "",
     openingBalanceOn: contact.opening_balance_on || "", active: contact.active ?? true,
   });
@@ -81,6 +82,9 @@ function ContactDialog({ kind, contact, singular, onClose, onSaved }) {
       <Field label="Phone"><input maxLength={30} value={form.phone} onChange={set("phone")} /></Field>
       <Field label="Email"><input type="email" maxLength={150} value={form.email} onChange={set("email")} /></Field>
       <Field label="GSTIN" hint="For B2B invoices; checked for typing mistakes."><input maxLength={20} value={form.gstin} onChange={set("gstin")} className="mono" /></Field>
+      <Field label="PAN" hint={kind === "customer" ? "Printed on a bill over ₹2,00,000, which needs the buyer's PAN." : "The supplier's PAN, as on their card."}>
+        <input maxLength={10} value={form.pan} onChange={(e) => setForm((f) => ({ ...f, pan: e.target.value.toUpperCase() }))} className="mono" placeholder="ABCDE1234F" />
+      </Field>
       <Field label="Address"><input maxLength={500} value={form.address} onChange={set("address")} /></Field>
       {kind === "customer" && <Field label="Credit limit" hint="Leave empty for no limit. Sales over it are refused unless paid."><input type="number" min="0" step="0.01" value={form.creditLimit} onChange={set("creditLimit")} /></Field>}
       <Field label="Credit days" hint="Days until an unpaid bill is due."><input type="number" min="0" max="365" step="1" value={form.creditDays} onChange={set("creditDays")} /></Field>

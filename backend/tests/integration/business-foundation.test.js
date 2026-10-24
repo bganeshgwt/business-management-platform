@@ -260,8 +260,9 @@ test('business platform foundation: access, numbering, stock control and events'
     assert.deepEqual(posts.map((p) => p.status), Array(12).fill(201));
     const numbers = posts.map((p) => Number(p.body.data.document_no.match(/(\d+)$/)[1])).sort((a, b) => a - b);
     assert.deepEqual(numbers, Array.from({ length: 12 }, (_, i) => Number(before.next_number) + i));
-    // A refused posting gives its number back: the next sale takes it.
-    await request('POST', root(grocery, 'documents'), { kind: 'sale', locationId: location.id, requestKey: key(), lines: [{ skuId: rice.id, quantity: '9999', lotCode: 'R-01' }] }, 409);
+    // A refused posting gives its number back: the next sale takes it. (The
+    // buyer's PAN lets this bill over ₹2,00,000 reach the stock check.)
+    await request('POST', root(grocery, 'documents'), { kind: 'sale', locationId: location.id, requestKey: key(), buyer: { pan: 'ABCDE1234F' }, lines: [{ skuId: rice.id, quantity: '9999', lotCode: 'R-01' }] }, 409);
     const next = await request('POST', root(grocery, 'documents'), { kind: 'sale', locationId: location.id, requestKey: key(), lines: [{ skuId: rice.id, quantity: '0.5', lotCode: 'R-01' }] }, 201);
     assert.equal(Number(next.document_no.match(/(\d+)$/)[1]), numbers.at(-1) + 1);
     assert.equal(next.document_no.length <= 16, true);

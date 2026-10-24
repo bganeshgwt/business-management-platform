@@ -152,7 +152,8 @@ function a4(doc, biz, f) {
   ${f.sale && !seller.gstin ? '<div class="warn">This business has no GSTIN in Business settings, so this is not a GST tax invoice. Add the GSTIN to print tax invoices.</div>' : ""}
   <div class="parties"><div class="box"><b>${f.sale ? "Bill to" : "Supplier"}</b><strong>${escapeHtml(doc.contact_name || "Walk-in customer")}</strong>
       ${doc.contact_address ? `<div>${escapeHtml(doc.contact_address)}</div>` : ""}${doc.contact_phone ? `<div>Ph ${escapeHtml(doc.contact_phone)}</div>` : ""}
-      ${doc.contact_gstin ? `<div>GSTIN <strong>${escapeHtml(doc.contact_gstin)}</strong></div>` : f.sale ? '<div class="muted">Unregistered (no GSTIN)</div>' : ""}</div>
+      ${doc.contact_gstin ? `<div>GSTIN <strong>${escapeHtml(doc.contact_gstin)}</strong></div>` : f.sale ? '<div class="muted">Unregistered (no GSTIN)</div>' : ""}
+      ${doc.buyer_pan ? `<div>PAN <strong>${escapeHtml(doc.buyer_pan)}</strong></div>` : doc.pan_declaration ? '<div>No PAN: the buyer\'s declaration (Form 97) is held</div>' : ""}</div>
     <div class="box"><b>${f.sale ? "Place of supply" : "Received at"}</b>${f.sale ? `<strong>${escapeHtml(stateName(f.pos) || "—")}</strong><div>${f.interstate ? "Inter-state supply: IGST" : "Within the state: CGST + SGST"}</div>` : ""}
       <div>${escapeHtml(doc.location_name || "")}</div>${doc.tax_mode === "inclusive" && f.sale ? '<div class="muted">Prices include GST</div>' : ""}</div></div>
   ${transportBox(doc, date)}
@@ -227,6 +228,7 @@ function till(doc, biz, f, { change = 0, udhaar = null } = {}) {
     <hr><div class="row"><span>${escapeHtml(doc.document_no)}</span><span>${escapeHtml(businessDate(doc.created_at, seller.date_format, biz.business.timezone))} ${escapeHtml(new Date(doc.created_at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }))}</span></div>
     ${doc.contact_name ? `<div>${escapeHtml(doc.contact_name)}${doc.contact_phone ? ` · ${escapeHtml(doc.contact_phone)}` : ""}</div>` : ""}
     ${doc.contact_gstin ? `<div class="small">GSTIN ${escapeHtml(doc.contact_gstin)}</div>` : ""}
+    ${doc.buyer_pan ? `<div class="small">PAN ${escapeHtml(doc.buyer_pan)}</div>` : doc.pan_declaration ? '<div class="small">No PAN: Form 97 declaration held</div>' : ""}
     ${f.interstate ? `<div class="small">Place of supply ${escapeHtml(stateName(f.pos))}</div>` : ""}<hr>
     ${lineRows}
     <div class="row small"><span>Taxable value</span><span>${money(f.taxable)}</span></div>${gstRows}

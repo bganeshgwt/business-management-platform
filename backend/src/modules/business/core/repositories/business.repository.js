@@ -146,7 +146,7 @@ const lists = {
     JOIN business_locations l ON l.business_id=n.business_id AND l.id=n.location_id WHERE n.business_id=$1`,
   search: ['prefix', 'location_name', 'document_kind'], filters: { kind: 'document_kind', location: 'location_id' }, order: 'fiscal_year DESC,location_name,document_kind' },
   contacts: { sql: `SELECT c.*,${contactBalanceSql('c')} AS balance FROM business_contacts c WHERE c.business_id=$1`,
-    search: ['name', 'phone', 'email', 'gstin'], filters: { kind: 'kind', active: 'active' }, order: 'id DESC' },
+    search: ['name', 'phone', 'email', 'gstin', 'pan'], filters: { kind: 'kind', active: 'active' }, order: 'id DESC' },
   locations: { sql: 'SELECT * FROM business_locations WHERE business_id=$1', search: ['name', 'code'], filters: { active: 'active' }, order: 'id' },
   resources: { sql: 'SELECT r.*,l.name AS location_name FROM business_resources r JOIN business_locations l ON l.business_id=r.business_id AND l.id=r.location_id WHERE r.business_id=$1',
     search: ['name', 'role_label', 'location_name'], filters: { location: 'location_id' }, order: 'id DESC' },

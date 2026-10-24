@@ -199,6 +199,14 @@ async function updateLocation(business, user, locationId, body) {
     return row;
   });
 }
+// A PAN as printed on the card (any case typed): five letters, four digits, a letter. Empty clears it.
+function readPan(value, name = 'PAN') {
+  const text = v.optionalString(value, name, 10);
+  if (!text) return null;
+  const pan = text.toUpperCase();
+  if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan)) fail(`${name} must look like ABCDE1234F: five letters, four digits and a letter`);
+  return pan;
+}
 function contactFields(body, kind) {
   const creditLimit = body.creditLimit === undefined || body.creditLimit === null || body.creditLimit === '' ? null : decimal(body.creditLimit, 'Credit limit');
   const opening = body.openingBalance === undefined || body.openingBalance === null || body.openingBalance === '' ? 0 : signedDecimal(body.openingBalance, 'Opening balance');
@@ -208,7 +216,7 @@ function contactFields(body, kind) {
   return {
     name: v.requiredString(body.name, 'Name', 150), phone: v.optionalString(body.phone, 'Phone', 30),
     email: v.optionalString(body.email, 'Email', 150), address: v.optionalString(body.address, 'Address', 500),
-    gstin: readGstin(body.gstin), creditLimit, creditDays, opening, openingOn,
+    gstin: readGstin(body.gstin), pan: readPan(body.pan), creditLimit, creditDays, opening, openingOn,
   };
 }
 async function createContact(business, user, body) {
@@ -216,9 +224,9 @@ async function createContact(business, user, body) {
   const kind = v.requiredEnum(body.kind, 'Contact type', ['customer', 'supplier']);
   const f = contactFields(body, kind);
   return repo.transaction(async (db) => {
-    const contact = await repo.one(db, `INSERT INTO business_contacts(business_id,kind,name,phone,email,address,gstin,credit_limit,credit_days,opening_balance,opening_balance_on)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-    [business.id, kind, f.name, f.phone, f.email, f.address, f.gstin, f.creditLimit, f.creditDays, f.opening, f.openingOn]);
+    const contact = await repo.one(db, `INSERT INTO business_contacts(business_id,kind,name,phone,email,address,gstin,credit_limit,credit_days,opening_balance,opening_balance_on,pan)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+    [business.id, kind, f.name, f.phone, f.email, f.address, f.gstin, f.creditLimit, f.creditDays, f.opening, f.openingOn, f.pan]);
     await repo.audit(db, business.id, user.id, 'contact.created', contact.id);
     return contact;
   });
@@ -230,11 +238,11 @@ async function updateContact(business, user, contactId, body) {
     if (!current) fail('Contact not found', 404);
     // Older clients send only name/phone/email/address/active: keep the credit terms then.
     const merged = { creditLimit: current.credit_limit, creditDays: current.credit_days, openingBalance: current.opening_balance,
-      openingBalanceOn: current.opening_balance_on, gstin: current.gstin, ...body };
+      openingBalanceOn: current.opening_balance_on, gstin: current.gstin, pan: current.pan, ...body };
     const f = contactFields(merged, current.kind);
     const row = await repo.one(db, `UPDATE business_contacts SET name=$3,phone=$4,email=$5,address=$6,active=$7,gstin=$8,credit_limit=$9,
-      credit_days=$10,opening_balance=$11,opening_balance_on=$12,updated_at=now() WHERE business_id=$1 AND id=$2 RETURNING *`,
-    [business.id, current.id, f.name, f.phone, f.email, f.address, v.requiredBoolean(body.active, 'Active', true), f.gstin, f.creditLimit, f.creditDays, f.opening, f.openingOn]);
+      credit_days=$10,opening_balance=$11,opening_balance_on=$12,pan=$13,updated_at=now() WHERE business_id=$1 AND id=$2 RETURNING *`,
+    [business.id, current.id, f.name, f.phone, f.email, f.address, v.requiredBoolean(body.active, 'Active', true), f.gstin, f.creditLimit, f.creditDays, f.opening, f.openingOn, f.pan]);
     await repo.audit(db, business.id, user.id, 'contact.updated', row.id);
     return row;
   });
@@ -576,6 +584,16 @@ function readBuyer(body) {
   const phone = v.optionalString(body.buyer.phone, 'Buyer phone', 30);
   return name || phone ? { name, phone } : null;
 }
+// The buyer's PAN typed on a bill, or that they have none and made a declaration (Form 97).
+function readBuyerPan(body) {
+  const buyer = body.buyer && typeof body.buyer === 'object' && !Array.isArray(body.buyer) ? body.buyer : {};
+  const pan = readPan(buyer.pan, 'Buyer PAN');
+  const declaration = v.requiredBoolean(buyer.panDeclaration, 'PAN declaration', false);
+  if (pan && declaration) fail('Give the buyer\'s PAN or record their declaration, not both');
+  return { pan, declaration };
+}
+// A sale over ₹2,00,000 records the buyer's PAN (income-tax rules on quoting PAN).
+const PAN_ABOVE_PAISE = 20000000;
 // Electronics: a sold serial unit's warranty is registered with the sale.
 const electronicsWarranties = () => require('../../fashion-electronics/services/businessElectronics.service');
 // Wholesale invoice extras (loaded when first needed: it requires this file).
@@ -780,13 +798,30 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     // otherwise the business's: a branch in another state supplies from there).
     const buyerGstin = kind === 'sale' ? contact?.gstin || null : null;
     const placeOfSupply = kind === 'sale' ? (buyerGstin ? buyerGstin.slice(0, 2) : location.state_code || settings?.state_code || null) : null;
+    // The buyer's PAN: typed on the bill or saved with the customer. A sale
+    // over ₹2,00,000 must have one (or the PAN inside the customer's GSTIN, or
+    // on their wholesale profile), or the buyer's declaration that they have none.
+    let buyerPan = null, panDeclaration = false;
+    if (kind === 'sale') {
+      const typed = readBuyerPan(body);
+      buyerPan = typed.pan || contact?.pan || null;
+      if (rounded > PAN_ABOVE_PAISE && !buyerPan) {
+        const inGstin = buyerGstin ? buyerGstin.slice(2, 12) : null;
+        buyerPan = inGstin && /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(inGstin) ? inGstin : null;
+        if (!buyerPan && contact) buyerPan = (await repo.one(db, 'SELECT pan FROM wholesale_customer_profiles WHERE business_id=$1 AND contact_id=$2', [business.id, contact.id]))?.pan || null;
+      }
+      panDeclaration = !buyerPan && typed.declaration;
+      if (rounded > PAN_ABOVE_PAISE && !buyerPan && !panDeclaration) {
+        fail('A bill over ₹2,00,000 needs the buyer\'s PAN: type it on the bill, or choose the customer with their PAN or GSTIN saved. A buyer who has no PAN signs a declaration (Form 97): record it on the bill instead.');
+      }
+    }
     const number = await numbering.nextNumber(db, business.id, location.id, kind, user.id);
     const saved = await repo.one(db, `INSERT INTO business_documents(business_id,location_id,kind,document_no,series_id,contact_id,contact_name,subtotal,tax,round_off,total,tax_mode,due_on,request_key,request_hash,notes,created_by,
-      place_of_supply,buyer_gstin,buyer_address,supplier_bill_no,supplier_bill_date)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22) RETURNING *`,
+      place_of_supply,buyer_gstin,buyer_address,supplier_bill_no,supplier_bill_date,buyer_pan,pan_declaration)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24) RETURNING *`,
     [business.id, location.id, kind, number.number, number.seriesId, contact?.id || null, contact?.name || null,
       money(subtotal), money(tax), money(roundOff), money(rounded), taxMode, dueOn.day, requestKey, hash, v.optionalString(body.notes, 'Notes', 500), user.id,
-      placeOfSupply, buyerGstin, kind === 'sale' ? contact?.address || null : null, bill.number, bill.date]);
+      placeOfSupply, buyerGstin, kind === 'sale' ? contact?.address || null : null, bill.number, bill.date, buyerPan, panDeclaration]);
     for (const line of prepared) {
       const savedLine = await repo.one(db, `INSERT INTO business_document_lines(business_id,document_id,sku_id,label,unit,quantity,unit_price,tax_rate,net,tax,lot_code,price_rule_id,
         entered_unit,entered_quantity,entered_unit_price,unit_factor,hsn_code,mrp,kit_sku_id,kit_label,kit_group,free_quantity,discount_percent)

@@ -1274,12 +1274,12 @@ Added by: 1791300000003.
 
 #### `business_contacts`
 Purpose: customers and suppliers, with credit terms ([shared receivables](BUSINESS_PLATFORM_DATA_MODEL.md#shared-receivables)).
-Key columns: `kind` (customer or supplier), `name`, `phone`, `email`, `address`, `gstin`, `credit_limit` (NULL = no limit), `credit_days` (0–365), `opening_balance`, `opening_balance_on`, `active`.
+Key columns: `kind` (customer or supplier), `name`, `phone`, `email`, `address`, `gstin`, `pan` (CHECK: five letters, four digits, a letter), `credit_limit` (NULL = no limit), `credit_days` (0–365), `opening_balance`, `opening_balance_on`, `active`.
 Rules:
 - GSTIN is unique per business and kind (partial unique index `business_contacts_gstin`).
 - CHECK: a non-zero opening balance needs a date.
 - Function `business_contact_is_customer()` is used as a trigger on the tables that need a customer.
-Added by: 1791280000000; 1791300000003 (the credit-term columns).
+Added by: 1791280000000; 1791300000003 (the credit-term columns); 1791960001000 (`pan`).
 
 #### `business_price_rules`
 Purpose: quantity-slab and customer-specific prices, optionally per pack ([wholesale](BUSINESS_PLATFORM_DATA_MODEL.md#wholesale--fmcg)).
@@ -1299,13 +1299,14 @@ Added by: 1791950404000 retail-completion.
 
 #### `business_documents`
 Purpose: a sale or purchase invoice.
-Key columns: `kind` (sale or purchase), `document_no`, `series_id`, `location_id`, `contact_id`, `contact_name` (snapshot), `subtotal`, `tax`, `round_off`, `total`, `tax_mode`, `due_on`, `place_of_supply` (two-digit state code), `buyer_gstin`, `buyer_address`, a purchase's `supplier_bill_no` and `supplier_bill_date`, `request_key`, `request_hash`, `notes`.
+Key columns: `kind` (sale or purchase), `document_no`, `series_id`, `location_id`, `contact_id`, `contact_name` (snapshot), `subtotal`, `tax`, `round_off`, `total`, `tax_mode`, `due_on`, `place_of_supply` (two-digit state code), `buyer_gstin`, `buyer_address`, `buyer_pan` and `pan_declaration` (the buyer has no PAN and signed Form 97; a sale over ₹2,00,000 needs one or the other, checked by the API), a purchase's `supplier_bill_no` and `supplier_bill_date`, `request_key`, `request_hash`, `notes`.
 Rules:
 - CHECK `business_documents_total_adds_up`: `total = subtotal + tax + round_off`.
 - CHECK: `round_off` lies strictly between -1 and 1.
 - `document_no` and `request_key` are each unique per business.
+- CHECK `business_documents_pan_or_declaration`: a PAN or the declaration, never both.
 - CHECK `business_documents_supplier_bill_on_purchases`: only a purchase carries a supplier bill number and date. Unique index `business_documents_supplier_bill` (business, supplier, bill number ignoring case) refuses the same supplier bill twice.
-Added by: 1791280000000; 1791300000002 (the series, tax mode, round-off, due date and total CHECK); 1791540000000 (place of supply, buyer, supplier bill).
+Added by: 1791280000000; 1791300000002 (the series, tax mode, round-off, due date and total CHECK); 1791540000000 (place of supply, buyer, supplier bill); 1791960001000 (`buyer_pan`, `pan_declaration`).
 
 #### `business_document_lines`
 Purpose: a snapshot of each invoice line.
@@ -1343,8 +1344,9 @@ Rules:
 - CHECK `business_payments_one_source`: a collection or a supplier payment, not both.
 - Constraint trigger `business_payments_collection_rules`: a collection pays only sales of the customer who paid it, and the payments drawn from one collection, with its refunds, never add up to more than its amount.
 - Constraint trigger `business_payments_supplier_rules`: a supplier payment settles only that supplier's purchases, and never more than was paid.
+- Trigger `business_payments_cash_limit` (function `business_cash_limit_payment()`): a cash payment on a sale is refused (23514, a sentence citing section 186 of the Income-tax Act 2025) when the bill's cash would reach ₹2,00,000, or, for a payment not drawn from a collection, when the customer's cash that business day would (function `business_cash_from_customer()`: cash on their sales outside collections plus their cash collection receipts, by the business's time zone).
 - UNIQUE (`business_id`, `id`) for composite keys.
-Added by: 1791280000000; 1791410000000 (`collection_id`, the collection trigger, `cheque`); 1791420000000 (`credit_note`); 1791540000000 (`supplier_payment_id`, the supplier rules); 1791620002000 (`finance`, `tendered`); 1791640000000 (`method_name`).
+Added by: 1791280000000; 1791410000000 (`collection_id`, the collection trigger, `cheque`); 1791420000000 (`credit_note`); 1791540000000 (`supplier_payment_id`, the supplier rules); 1791620002000 (`finance`, `tendered`); 1791640000000 (`method_name`); 1791960001000 (the cash limit).
 
 #### `business_returns`
 Purpose: a credit note (on a sale) or a debit note (on a purchase).
@@ -1486,7 +1488,8 @@ Key columns: `collection_no` (unique), `series_id`, `location_id`, `contact_id`,
 Rules:
 - Trigger `business_collections_customer` checks that the contact is a customer.
 - Trigger `business_collections_fixed` refuses any update or delete.
-Added by: 1791410000000 shared-receivables; 1791420000002 (`credit_note`); 1791640000000 (`method_name`).
+- Trigger `business_collections_cash_limit` (function `business_cash_limit_collection()`): a cash receipt is refused when the customer's cash that business day would reach ₹2,00,000.
+Added by: 1791410000000 shared-receivables; 1791420000002 (`credit_note`); 1791640000000 (`method_name`); 1791960001000 (the cash limit).
 
 #### `business_collection_cheques`
 Purpose: a cheque receipt's own details and state.

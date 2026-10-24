@@ -96,7 +96,7 @@ export default function CounterPage() {
   });
   const [lines, setLines] = useState(() => carried?.lines || []);
   const [customer, setCustomer] = useState(() => carried?.customer || null);
-  const [buyer, setBuyer] = useState({ name: "", phone: "" });
+  const [buyer, setBuyer] = useState({ name: "", phone: "", pan: "", panDeclaration: false });
   const [redeem, setRedeem] = useState(() => carried?.redeem || "");
   const [discount, setDiscount] = useState(() => carried?.discount || { mode: "amount", value: "", reason: "" });
   const [quote, setQuote] = useState(null);
@@ -319,7 +319,7 @@ export default function CounterPage() {
 
   const reset = useCallback(() => {
     setLines([]); setCustomer(null); setRedeem(""); setReceived(""); setPartPaid(""); setMethod("cash"); setFinance(emptyFinance()); setAskPin(null);
-    setDiscount({ mode: "amount", value: "", reason: "" }); setBuyer({ name: "", phone: "" });
+    setDiscount({ mode: "amount", value: "", reason: "" }); setBuyer({ name: "", phone: "", pan: "", panDeclaration: false });
     setQuote(null); setPosted(null); setPostError(""); setScanError(""); setRequestKey(newKey()); setVoucher(null); setVoucherCode(""); setVoucherError(""); setCoupon(""); setCouponText("");
     setTimeout(() => scanRef.current?.focus(), 0);
   }, []);
@@ -366,7 +366,12 @@ export default function CounterPage() {
   // The buyer's name and phone: for a warranty, and an EMI needs them too.
   const needsBuyer = ((warranties && (serialLines.length > 0 || kitSerials)) || emi) && !customer;
   const emiOk = !emi || (financeReady(finance, toPay) && (customer || (buyer.name.trim() && buyer.phone.trim())));
-  const ready = !posted && bill && !stale && !problem && !posting && !waiting.length && (!udhaar || customer) && !short && !walkInUnpaid && emiOk;
+  // A bill over ₹2,00,000 records the buyer's PAN, unless the customer has
+  // their PAN or GSTIN saved; a buyer with no PAN signs a declaration (Form 97).
+  const panNeeded = total > 200000 && !(customer?.pan || customer?.gstin);
+  const panText = buyer.pan.trim().toUpperCase();
+  const panOk = !panNeeded || buyer.panDeclaration || /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(panText);
+  const ready = !posted && bill && !stale && !problem && !posting && !waiting.length && (!udhaar || customer) && !short && !walkInUnpaid && emiOk && panOk;
 
   async function applyVoucher() {
     setVoucherError("");
@@ -396,9 +401,14 @@ export default function CounterPage() {
     try {
       const body = JSON.parse(payload);
       const before = risk ? risk.owes : 0;
+      const buyerBody = {
+        ...(needsBuyer && buyer.name.trim() ? { name: buyer.name.trim() } : {}),
+        ...(needsBuyer && buyer.phone.trim() ? { phone: buyer.phone.trim() } : {}),
+        ...(panNeeded && buyer.panDeclaration ? { panDeclaration: true } : panNeeded && panText ? { pan: panText } : {}),
+      };
       const doc = await businessWrite(biz.id, "documents", {
         ...body, kind: "sale", requestKey, channel: "counter", ...(pin ? { counterPin: pin } : {}),
-        ...(needsBuyer && (buyer.name.trim() || buyer.phone.trim()) ? { buyer: { name: buyer.name.trim(), phone: buyer.phone.trim() } } : {}),
+        ...(Object.keys(buyerBody).length ? { buyer: buyerBody } : {}),
         ...(voucher && fromVoucher > 0 ? { voucher: { code: voucher.voucher_no } } : {}),
         ...payBody(),
       });
@@ -641,6 +651,16 @@ export default function CounterPage() {
                 <Field label="Name"><input maxLength={150} value={buyer.name} onChange={(e) => setBuyer((b) => ({ ...b, name: e.target.value }))} /></Field>
                 <Field label="Phone"><input maxLength={30} inputMode="tel" value={buyer.phone} onChange={(e) => setBuyer((b) => ({ ...b, phone: e.target.value }))} /></Field>
               </div>
+            </SectionCard>
+          )}
+          {panNeeded && (
+            <SectionCard icon="shield" title="Buyer's PAN" description="A bill over ₹2,00,000 records the buyer's PAN. Save it with the customer to skip this next time.">
+              <div className="rt-inline">
+                <Field label="PAN"><input maxLength={10} className="mono" placeholder="ABCDE1234F" disabled={buyer.panDeclaration} value={buyer.pan}
+                  onChange={(e) => setBuyer((b) => ({ ...b, pan: e.target.value.toUpperCase() }))} /></Field>
+              </div>
+              <label className="checkbox"><input type="checkbox" checked={buyer.panDeclaration}
+                onChange={(e) => setBuyer((b) => ({ ...b, panDeclaration: e.target.checked, pan: e.target.checked ? "" : b.pan }))} /> The buyer has no PAN and signed a declaration (Form 97)</label>
             </SectionCard>
           )}
           {bill?.loyalty && (

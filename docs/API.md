@@ -4286,13 +4286,13 @@ Errors: 404 "Active price rule not found".
 
 #### `POST /api/businesses/:businessId/contacts`
 Permission: `contacts.create`
-Query/Body: `kind` (`customer`/`supplier`), `name` (required), `phone`, `email`, `address`, `gstin`, `creditLimit` (customers only), `creditDays` (0-365), `openingBalance` (signed), `openingBalanceOn` (date, required when there is an opening balance)
+Query/Body: `kind` (`customer`/`supplier`), `name` (required), `phone`, `email`, `address`, `gstin`, `pan` (five letters, four digits and a letter, any case), `creditLimit` (customers only), `creditDays` (0-365), `openingBalance` (signed), `openingBalanceOn` (date, required when there is an opening balance)
 Returns: 201, the contact.
-Errors: 400 a credit limit on a supplier, or an invalid GSTIN.
+Errors: 400 a credit limit on a supplier, an invalid GSTIN or an invalid PAN.
 
 #### `PATCH /api/businesses/:businessId/contacts/:id`
 Permission: `contacts.edit`
-Query/Body: the same fields as create, plus `active`. Fields left out keep their current credit terms, opening balance and GSTIN. The kind cannot change.
+Query/Body: the same fields as create, plus `active`. Fields left out keep their current credit terms, opening balance, GSTIN and PAN. The kind cannot change.
 Returns: the updated contact.
 Errors: 404 not found.
 
@@ -4305,7 +4305,7 @@ Query/Body:
 - `lines[1..100]` of `{ skuId, quantity, unit? (a pack or related unit), lotCode (batch/serial items), expiresOn }`. Purchase lines also take `unitPrice`; `freeQuantity?` and `discountPercent?` (free units on a scheme, "10 + 1 free", and a trade discount of up to 99.99% on the rate, in the line's own unit); and `sellingPrice?` / `mrp?` (the item's new shelf price and MRP from this bill; needs `catalog.edit`; audited as `catalog.price_changed`). A sale line whose item is a kit takes `components[]` of `{ skuId, lotCode }`, naming the serial (required) or batch (optional; the earliest expiry otherwise) of a part.
 - Money taken now: `payment` `{ amount, method (cash/card/upi/bank/cheque) or methodId, reference, tendered? }`, or `payments[1..8]` of the same shape for a bill paid in several ways (sending both is a 400). An `amount` of `"full"` (on at most one part) is the rest of the bill. `tendered` (the cash handed over) is for cash only and is at least that part's amount; the answer then carries `change`.
 - A purchase: `supplierBillNo` and `supplierBillDate` (the supplier's own bill; a date needs the number and is not in the future).
-- A sale: `buyer: { name, phone }` (a walk-in who is not saved as a customer, used for a warranty); `discount: { amount | percent, reason }` (a counter discount: an amount or a percent with up to 2 decimals, not both, and a reason of up to 120 characters; needs `sales.discount`; at most the business's *Most discount at the counter*, `maxBillDiscountPercent`, unless the caller is an Owner); `voucher: { code }` (an exchange credit voucher; it pays first, as a `credit_note` payment with the voucher number as reference, never more than its balance or the bill, and `"full"` is then what is left); `finance: { financierId, loanNo, doNo?, tenureMonths?, amount (a number, or "rest") }` (an EMI through a financier: needs module `finance` and `finance.create`; the financed amount becomes a payment of method `finance`); `channel: "counter"` with `counterPin` (Quick bill: when Business settings ask for the PIN on every bill, `counter_pin_every_bill`, it is the PIN of the person the session belongs to; the PIN is left out of the request hash and never stored).
+- A sale: `buyer: { name, phone, pan, panDeclaration }` (a walk-in who is not saved as a customer, used for a warranty; `pan` the buyer's PAN, or `panDeclaration: true` when they have none and signed Form 97, not both); `discount: { amount | percent, reason }` (a counter discount: an amount or a percent with up to 2 decimals, not both, and a reason of up to 120 characters; needs `sales.discount`; at most the business's *Most discount at the counter*, `maxBillDiscountPercent`, unless the caller is an Owner); `voucher: { code }` (an exchange credit voucher; it pays first, as a `credit_note` payment with the voucher number as reference, never more than its balance or the bill, and `"full"` is then what is left); `finance: { financierId, loanNo, doNo?, tenureMonths?, amount (a number, or "rest") }` (an EMI through a financier: needs module `finance` and `finance.create`; the financed amount becomes a payment of method `finance`); `channel: "counter"` with `counterPin` (Quick bill: when Business settings ask for the PIN on every bill, `counter_pin_every_bill`, it is the PIN of the person the session belongs to; the PIN is left out of the request hash and never stored).
 - Retail sales also take `loyalty: { redeemPoints }` (needs `loyalty.create`) and `coupon` (a code typed at the counter; needs the Offers module); salon sales take the salon fields. See `businessOffers.js` and `businessSalonSales.js`.
 
 Returns: 201, the document row (`document_no`, `subtotal`, `tax`, `round_off`, `total`, `due_on`, ...), plus `change` when cash was handed over, `financeCase` for an EMI sale, and `warranties` when serial units are sold with the Warranties module on. The server works out sale prices (customer price, quantity slabs, pack prices, the selling branch's own price, a loyalty customer's member price, offers, the counter discount) and GST from the business tax mode and rounding. A sale's place of supply is the buyer's GSTIN state, else the selling location's own state, else the business's. Each line keeps the item's HSN code and MRP. A purchase line with free units takes in paid + free units and is charged for the paid ones, less the trade discount; it keeps `free_quantity` and `discount_percent`. Each payment part is its own `business_payments` row (`tendered` kept on the cash row).
@@ -4314,6 +4314,8 @@ Rules:
 - Nothing is sold, or given a new shelf price on a receipt, above its MRP; with prices before GST the GST is added before comparing.
 - The parts paid, plus any voucher and financed amount, may not come to more than the total.
 - A customer's credit limit counts what they would owe after this sale, less what they pay now.
+- A sale over ₹2,00,000 records the buyer's PAN: `buyer.pan`, else the customer's saved PAN, else the PAN inside their GSTIN or on their wholesale details; or `buyer.panDeclaration`. Otherwise 400. The document keeps `buyer_pan` and `pan_declaration`.
+- Cash of ₹2,00,000 or more is refused (409, a sentence citing section 186 of the Income-tax Act 2025) for one bill, and from one customer in one business day across their bills and collection receipts. Other methods are not limited.
 - A supplier's bill number already received from that supplier is refused.
 - A kit sells as its parts, each at its share of the kit's price; a serial-numbered part makes it one kit per line. Saved lines carry `kit_sku_id`, `kit_label` and `kit_group`.
 - An EMI needs the customer named (a contact, or `buyer` with name and phone), and a loan number is used once per financier.
@@ -4330,7 +4332,7 @@ Errors: 403 another location's document for a person tied to one; 404 not found.
 Permission: `sales.edit` or `purchasing.edit` (the one matching the document's kind)
 Query/Body: `amount` (at least 0.01), `method` (`cash`/`card`/`upi`/`bank`/`cheque`) or `methodId`, `requestKey`, `reference`
 Returns: 201, the payment row (with `method_name` when a named method was used).
-Errors: 404 document not found; 409 "Payment exceeds the outstanding amount", or the key was reused with different data.
+Errors: 404 document not found; 409 "Payment exceeds the outstanding amount", the key was reused with different data, or the cash limit (₹2,00,000 on one bill or from one customer in a day) would be reached.
 
 #### `POST /api/businesses/:businessId/documents/:id/returns`
 Permission: `sales.refund` or `purchasing.refund` (the one matching the document's kind)
@@ -4675,7 +4677,7 @@ Permission: `receivables.create`
 Query/Body: `requestKey`, `locationId`, `contactId` (customer), `amount` (at least 0.01), `method` (`cash`/`upi`/`bank`/`cheque`/`card`; `cheque` needs a `reference`), `reference`, `notes`, `allocations?` (an array of up to 200 `{ documentId, amount }` entries; leave it out to settle the oldest due bills first, or send `[]` to keep the whole amount as an advance), `salespersonId?`, `routeId?` (both need the `sales_orders` module)
 A cheque also takes `chequeDate` (its date: up to 180 days ahead for a post-dated cheque, no more than 90 days old; default today) and `bank`; both go with `method: 'cheque'` only.
 Returns: 201, `{ ...collection (collection_no, amount, method, ...), allocated, opening_applied, unallocated, cheque_date?, bank?, cheque_status? }`. With automatic allocation, any opening balance not yet covered is reserved before bills are settled; that part is `opening_applied`, and `unallocated` is only the true advance.
-Errors: 404 location, customer, bill, salesperson or route not found; 400 when the allocations add up to more than the amount; 403 salesperson or route sent without Sales orders; 409 "Payment exceeds the outstanding amount", or the key was reused.
+Errors: 404 location, customer, bill, salesperson or route not found; 400 when the allocations add up to more than the amount; 403 salesperson or route sent without Sales orders; 409 "Payment exceeds the outstanding amount", the key was reused, or a cash receipt would take the customer's cash that day, or a bill's cash, to ₹2,00,000 (Income-tax Act 2025, section 186).
 
 #### `GET /api/businesses/:businessId/collections/:id`
 Permission: `receivables.view`

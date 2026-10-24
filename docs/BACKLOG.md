@@ -139,12 +139,11 @@ Eleven more business types work on the shared core from the day they are created
 
 A general store needs nothing of its own: it is the shared counter with tools to switch on.
 
-**Rules every type needs.** These are built once, in the shared core, with the first type that needs them:
+**Rules every type needs.** These are built once, in the shared core, with the first type that needs them. The cash limit and PAN on bills over ₹2,00,000 are built for every business on the shared core ([BUSINESS_RULES.md › PAN on a bill over ₹2,00,000](BUSINESS_RULES.md#pan-on-a-bill-over-200000)); what is left:
 
 | Rule | What to build | By when |
 | --- | --- | --- |
-| Cash limit (Income-tax Act 2025, section 186; section 269ST before April 2026) | Refuse ₹2,00,000 or more in cash from one person in a day, for one bill or for one event | Now |
-| PAN on large bills | A bill over ₹2,00,000 records the buyer's PAN, or that a Form 97 declaration was taken | Now |
+| The cash limit and PAN at a restaurant | The restaurant engine's own bills take the two rules the shared core already has ([BUSINESS_RULES.md › Cash of ₹2,00,000 or more](BUSINESS_RULES.md#cash-of-200000-or-more)): no ₹2,00,000 in cash for one bill or from one guest in a day, and the buyer's PAN on a bill over ₹2,00,000 | With plan E (the restaurant onto the shared core), or sooner for a banquet business |
 | Licences | Licences per location with their expiry, alerts in the bell, read by the trades that need them | With seeds and fertilisers |
 | Quotations | An estimate with a validity date that becomes a bill or an order | With hardware |
 | Personal data (DPDP Act 2023 and Rules 2025) | A phone number stays optional; consent per purpose and per business for WhatsApp bills, reminders and offers; requests to see, correct or erase answered within 90 days; a breach reported within 72 hours | 13 May 2027 |
