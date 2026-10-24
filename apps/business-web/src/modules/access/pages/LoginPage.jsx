@@ -46,12 +46,24 @@ export default function LoginPage() {
   // A refused sign-in shakes the card once, gently, beside the message.
   const [cardRef, shake] = useShake();
 
-  const redirectTo = location.state?.from?.pathname || "/";
+  // Back to the page the person was on, or was opening, when asked to sign
+  // in; but only the person who was signed in there (or anyone, on a fresh
+  // visit). After someone else signed out, the next one starts at their own
+  // home page: a restaurant admin is never sent to the platform's screens.
+  const backTo = (signedIn) => {
+    const { from, forUser } = location.state || {};
+    const samePerson = forUser == null || String(forUser) === String(signedIn?.id);
+    return from?.pathname && samePerson ? from.pathname : "/";
+  };
   const staffCode = looksLikeStaffCode(identifier);
   const needsCode = staffCode || codeAsked;
 
+  // Marks the page as reached straight from signing in: one the person may
+  // not open then sends them home instead of saying "Access denied" (see
+  // ProtectedRoute), e.g. a platform page restored in a tab nobody was
+  // signed in to.
   if (user) {
-    return <Navigate to={after ? after.to : redirectTo} state={after ? after.state : undefined} replace />;
+    return <Navigate to={after ? after.to : backTo(user)} state={after ? after.state : { afterSignIn: true }} replace />;
   }
 
   const handleSubmit = async (event) => {
@@ -76,7 +88,7 @@ export default function LoginPage() {
         return;
       }
 
-      navigate(redirectTo, { replace: true });
+      navigate(backTo(result.user), { replace: true, state: { afterSignIn: true } });
     } catch (err) {
       if (err.response?.data?.data?.reason === "restaurant_code_required") {
         setCodeAsked(true);

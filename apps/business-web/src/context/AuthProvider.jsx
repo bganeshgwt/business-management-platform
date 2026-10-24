@@ -41,6 +41,11 @@ export default function AuthProvider({ children }) {
   // over the till). A reload is not a sign-in, so it stays 0 then.
   const [signIns, setSignIns] = useState(0);
   const lastActivity = useRef(0);
+  // Who was signed in when the session ended (signed out, or ended by the
+  // server). The sign-in page sends only that same person back to the page
+  // they were on; anyone else starts at their own home page.
+  const currentUserId = useRef(null);
+  const [previousUserId, setPreviousUserId] = useState(null);
 
   // A user tied to one outlet never sends an outlet choice: a value left on
   // this device by someone else would only be refused by the server.
@@ -53,6 +58,7 @@ export default function AuthProvider({ children }) {
       rememberRestaurantCode(next.restaurantCode);
     }
 
+    currentUserId.current = next?.id ?? null;
     setUser(next);
   }, []);
 
@@ -90,6 +96,8 @@ export default function AuthProvider({ children }) {
   // changed, "sign out everywhere", or the account was switched off.
   useEffect(() => {
     const handleLogout = (event) => {
+      setPreviousUserId(currentUserId.current);
+      currentUserId.current = null;
       setUser(null);
       setLocked(false);
       writeFlag(LOCK_KEY, false);
@@ -138,6 +146,8 @@ export default function AuthProvider({ children }) {
     outletStorage.clear();
     writeFlag(LOCK_KEY, false);
     setLocked(false);
+    setPreviousUserId(currentUserId.current);
+    currentUserId.current = null;
     setUser(null);
   }, []);
 
@@ -244,8 +254,9 @@ export default function AuthProvider({ children }) {
       unlock,
       switchUser,
       signedOutReason,
+      previousUserId,
     }),
-    [user, loading, login, acceptSession, logout, hasPermission, hasFeature, refreshUser, replaceToken, locked, lock, unlock, switchUser, signedOutReason],
+    [user, loading, login, acceptSession, logout, hasPermission, hasFeature, refreshUser, replaceToken, locked, lock, unlock, switchUser, signedOutReason, previousUserId],
   );
 
   // Someone who keeps the log book, just signed in: what the last shift
