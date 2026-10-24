@@ -8,6 +8,7 @@ import { businessRead } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
 import { count } from "@bmp/shared/format";
 import { GOODS, word } from "../../../../services/businessNav";
+import { WEIGHED as WEIGHED_TYPES } from "../../../../services/businessTypes";
 import { BusinessHeader } from "./ui";
 import { useOpenBusiness } from "./hooks";
 import useAuth from "../../../../hooks/useAuth";
@@ -18,7 +19,6 @@ import { overviewLink } from "./overviewLink";
 const WholesaleToday = lazy(() => import("../../wholesale/pages/WholesaleToday"));
 // A meat or weight shop's day: kg sold, cut, wasted, use-by, rates, pickups.
 const WeightToday = lazy(() => import("../../weight/pages/WeightToday"));
-const WEIGHED_TYPES = ["meat", "weight_retail"];
 
 // The owner's first screen: today at the counter in four figures, what needs
 // doing today for this type of business (each line opens its screen), and the
@@ -39,10 +39,10 @@ function paceWords(sales) {
 }
 const greet = (date) => (date.getHours() < 12 ? "Good morning" : date.getHours() < 17 ? "Good afternoon" : "Good evening");
 // Who a business with appointments books: stylists, doctors, technicians.
-const PEOPLE = { salon: "Stylists", healthcare: "Doctors", electronics: "Technicians" };
+const PEOPLE = { salon: "Stylists", healthcare: "Doctors", electronics: "Technicians", optical: "Optometrists", garage: "Mechanics", memberships: "Trainers" };
 
 // The singular of each type's customer word ("Add a customer").
-const CUSTOMER_ONE = { salon: "client", healthcare: "patient" };
+const CUSTOMER_ONE = { salon: "client", healthcare: "patient", memberships: "member", lodging: "guest" };
 
 function firstActions(biz) {
   const can = (p) => biz.can(p);

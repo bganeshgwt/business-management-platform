@@ -46,12 +46,18 @@ async function inBatches(items, size, work) {
 // pharmacy, a clinic).
 const TOOLS = ["offers", "loyalty", "stock_transfers", "repairs", "finance", "packages", "commissions", "lab", "processing"];
 const TEAM_TOOLS = ["tasks", "issues", "projects"];
+// The trades added later (migration 1791960000000) also switch on the tools
+// that migration recommends for them.
+const TYPE_TOOLS = {
+  general_retail: ["variants"], hardware: ["wholesale", "sales_orders"], agri_inputs: ["wholesale"],
+  optical: ["batches", "variants", "appointments"], garage: ["appointments", "wholesale"], memberships: ["appointments"],
+};
 
-async function switchOnTools(owner, businessId) {
+async function switchOnTools(owner, businessId, type) {
   const modules = await owner("GET", `/businesses/${businessId}/modules`);
   const offered = new Map(modules.filter((module) => module.kind !== "core").map((module) => [module.code, module]));
   const on = new Set(modules.filter((module) => module.enabled || module.kind === "core").map((module) => module.code));
-  const wanted = [...TOOLS, ...(offered.get("tasks")?.recommended ? TEAM_TOOLS : [])];
+  const wanted = [...TOOLS, ...(TYPE_TOOLS[type] || []), ...(offered.get("tasks")?.recommended ? TEAM_TOOLS : [])];
   let waiting = wanted.filter((code) => offered.has(code) && !on.has(code));
 
   while (waiting.length) {
@@ -183,8 +189,8 @@ export async function buildTestData({ api, logins, sql }) {
       businessType: type, name: business.name, code: business.code, timezone: TIMEZONE, owner: { email: admin.email },
     }, 201)).business;
   }
-  for (const business of Object.values(created)) {
-    await switchOnTools(owner, business.id);
+  for (const [type, business] of Object.entries(created)) {
+    await switchOnTools(owner, business.id, type);
   }
 
   const directory = (await owner("GET", "/businesses")).businesses;

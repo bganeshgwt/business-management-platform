@@ -4,7 +4,7 @@ For owners, management and prospective customers: what the product does for each
 
 ## Summary
 
-Business Admin, the staff application of the Business Management Platform, runs many kinds of independent business from a single login: restaurants and three food formats (café, bakery and cloud kitchen), shops and distributors, salons, and pharmacies, clinics and diagnostic labs.
+Business Admin, the staff application of the Business Management Platform, runs many kinds of independent business from a single login: restaurants and three food formats (café, bakery and cloud kitchen), shops and distributors, salons, pharmacies, clinics and diagnostic labs, and eleven more trades on the shared core: general stores, hardware and building materials, seeds and fertilisers, opticians, garages, jewellers, fuel stations, gyms and coaching, laundries, rentals, and hotels and lodges.
 
 - **Who it is for:** owners, managers and staff of small and mid-sized Indian businesses, including chains with several branches and kitchens that sell under several brands.
 - **What it covers:** selling, buying, stock, customer credit, staff and access, daily money, reports and daily tasks, plus the special work of each business type.
@@ -18,15 +18,18 @@ Business Admin, the staff application of the Business Management Platform, runs 
 
 ## How it is organised
 
-One application serves twelve business types:
+One application serves twenty-three business types:
 
 | Group | Business types |
 | --- | --- |
 | Food | Restaurant |
-| Shops | Grocery / kirana, supermarket, books and stationery |
+| Shops | Grocery / kirana, supermarket, books and stationery, general store and other shops |
 | Trade | Wholesale / FMCG |
-| Speciality retail | Fashion, electronics |
-| Services | Salon and spa |
+| Speciality retail | Fashion, electronics, optical shops, jewellery and gold |
+| Building and farm | Hardware, paints and building materials; seeds, fertilisers and pesticides |
+| Vehicles and fuel | Vehicle service and auto parts, fuel stations |
+| Services | Salon and spa; gyms, studios and coaching; laundry and dry cleaning; rentals and hire |
+| Stays | Hotels, lodges and guest houses |
 | Health | Pharmacy, clinics and labs |
 | Weight-based | Meat and seafood, other weight-based shops |
 
@@ -169,6 +172,16 @@ Each business type adds only what is truly its own on top of the shared core. Th
   - quality control: each morning's control runs are judged by the standard Westgard rules, a failed control holds that test's reports until QC passes again, and a chart shows the control's trend.
 
 Pharmacy and clinic rules follow standard Indian practice. A pharmacist, a doctor and a legal adviser should review them before real use; [BUSINESS_RULES.md › Pharmacy, clinic and lab](BUSINESS_RULES.md#pharmacy-clinic-and-lab) sets them out.
+
+### The newer trades
+
+General stores, hardware and building-material shops, seeds and fertiliser shops, opticians, garages, jewellers, fuel stations, gyms and coaching centres, laundries, rental businesses, and hotels and lodges run on the shared core from their first day:
+
+- **Their trade's units and GST:** bags, coils, sheets, feet and tonnes for hardware; packets and quintals for seeds and fertilisers; carats and a 3% default slab for a jeweller; room nights for a lodge; hire by the day.
+- **Their trade's tools to switch on:** contractor rates and site orders with challans for hardware; dealer rates and batch tracking for seeds and pesticides; eye-test and service bookings for opticians and garages; personal-training bookings for gyms.
+- **Their own checklists:** nozzle tests and density checks at a fuel station, room turnover and the guest register at a lodge, the day-end tally at a jeweller, and more.
+
+Each trade's own screens (job cards, prescriptions, memberships, gold rates, rooms and others) come in the order set out in [BACKLOG.md › New business types](BACKLOG.md#10-new-business-types).
 
 ## Several locations
 

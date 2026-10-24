@@ -14,6 +14,7 @@ What [ADMIN_GUIDE.md](ADMIN_GUIDE.md) and [API.md](API.md) describe is built. Th
 | Plans and subscriptions | Paid plans that decide which modules a business gets ([§3](#3-the-platform-layer)) | Plan names and prices |
 | Separate apps | Offline POS, captain (waiter) app, clinic and lab workspaces, guests' pages for shops, appointments and their own account, salesperson app ([§4](#4-applications-beyond-the-admin)) | Priority and go-ahead |
 | Expert review | The pharmacy, clinic and lab rules ([BUSINESS_RULES.md](BUSINESS_RULES.md#pharmacy-clinic-and-lab)); the GST reports and the Tally export | A pharmacist, a doctor, a legal adviser and an accountant |
+| New business types | Eleven more types work on the shared core; their own screens come in order, and with them a few rules every type needs: the cash limit, PAN on large bills, licences and quotations ([§10](#10-new-business-types)) | Code; an accountant's and a legal adviser's check where §10 says so |
 
 **Recommended order:** run the pilot first, with one restaurant (or café) and one shop; then add the payment gateway and WhatsApp; then plans and pricing. Before the pilot come the items in [§8](#8-needed-in-the-code-before-go-live) and the steps in [GO_LIVE.md](GO_LIVE.md).
 
@@ -118,3 +119,35 @@ The production settings, backups, serving the two web apps and the expert review
 ## 9. Known problems
 
 None is open. A problem found in the code is listed here, with what it needs, until it is fixed.
+
+## 10. New business types
+
+Eleven more business types work on the shared core from the day they are created: billing at the counter or by invoice, stock, customers with udhaar or dues, purchases, expenses, daily money, reports and tasks, each with its trade's units, GST slabs, tools and checklists ([ADMIN_GUIDE.md › Newer trades on the shared core](ADMIN_GUIDE.md#newer-trades-on-the-shared-core)). Their own screens are built in the order below. The order comes from research into how each trade works in India and the rules it must follow (October 2026), and puts reuse first: each type builds what a later one needs (units and site orders, licences and registers, job cards, instalments, bookings over time).
+
+| Order | Type | Its own screens | Needs |
+| --- | --- | --- | --- |
+| 1 | Hardware, paints & building materials | Quotations; sites, with a ledger per site; commission for painters, plumbers and electricians; a daily rate board for cement and steel; tile and paint calculators | Code only |
+| 2 | Seeds, fertilisers & pesticides | Licences that stop a category's sales when they lapse; banned and crop-restricted pesticide checks; seed lot validity; farmers with village and crops, and credit until harvest; the subsidised-fertiliser PoS receipt on each sale, reconciled daily; the stock and price board and the statutory registers | The banned and restricted pesticide list, kept current by the platform; whether the digital register formats of the Insecticides (Amendment) Rules 2026 cover retail dealers |
+| 3 | Optical shops | Prescriptions per eye; spectacle orders through the lab (job card, promised date, advance, quality check, delivery); contact-lens power grids; recall reminders; the MD-42 sale registration | Code only |
+| 4 | Vehicle service & auto parts | Vehicles; job cards with complaints, estimates, approvals, parts and labour; insurance claims billed to the insurer and the owner (CBIC Circular 217/11/2024); reminders by date and kilometres; parts by vehicle fitment | Code only |
+| 5 | Gyms, studios & coaching | Plans; memberships with freeze, transfer and renewal; check-in; class timetables with capacity; coaching fees in instalments, with pro-rata refunds | The state's rules for coaching centres where the customer works |
+| 6 | Laundry & dry cleaning | Garment orders with tags, defects and photos; wash, press, ready and delivery; racks; pickup and delivery; packages; unclaimed garments | Code only |
+| 7 | Jewellery & gold | The day's rates by purity; pieces by tag and weight; making, wastage and stones; the HUID and the invoice details BIS asks for (guidelines of 2 July 2026); old gold bought and exchanged, with PAN; custom orders and karigar job work; gold schemes closed within 365 days; the PMLA cash report | An accountant's view on GST for old-gold exchange and repairs; a licence for the IBJA rate feed |
+| 8 | Rentals & hire | Items, single and pooled, with availability; bookings out and back; deposits held, applied and refunded; late, damage and cleaning charges; the hirer's ID | Code only; vehicle hire also needs the state transport licence's fields |
+| 9 | Fuel stations | The dealer's back office: tanks and nozzles, shift meter readings, attendant settlement, the daily stock and density registers, fleet credit by vehicle, fuel bills under state VAT | Never the forecourt: dispensers and tank gauges stay with the oil company |
+| 10 | Hotels, lodges & guest houses | Rooms and nightly inventory; reservations; check-in with every occupant's ID; the Form-III report of foreign guests within 24 hours; folios with restaurant charges; the night audit with each night's GST slab; housekeeping | A channel-manager partner for the online travel sites |
+
+A general store needs nothing of its own: it is the shared counter with tools to switch on.
+
+**Rules every type needs.** These are built once, in the shared core, with the first type that needs them:
+
+| Rule | What to build | By when |
+| --- | --- | --- |
+| Cash limit (Income-tax Act 2025, section 186; section 269ST before April 2026) | Refuse ₹2,00,000 or more in cash from one person in a day, for one bill or for one event | Now |
+| PAN on large bills | A bill over ₹2,00,000 records the buyer's PAN, or that a Form 97 declaration was taken | Now |
+| Licences | Licences per location with their expiry, alerts in the bell, read by the trades that need them | With seeds and fertilisers |
+| Quotations | An estimate with a validity date that becomes a bill or an order | With hardware |
+| Personal data (DPDP Act 2023 and Rules 2025) | A phone number stays optional; consent per purpose and per business for WhatsApp bills, reminders and offers; requests to see, correct or erase answered within 90 days; a breach reported within 72 hours | 13 May 2027 |
+| An owner's GST thresholds | Turnover added across one owner's businesses under one PAN, with a warning before e-invoicing (₹5 crore), 6-digit HSN codes and the 30-day IRP limit (₹10 crore) | Before a customer nears ₹5 crore |
+| Bills outside GST | Lines under state VAT for fuel and liquor, with their own bucket in the GST export | With fuel stations |
+| GST rates by date | Each rate with the date it starts, and an update every year before 1 April (the GST Council now sets rates once a year) | Before 1 April 2027 |

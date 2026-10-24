@@ -17,7 +17,8 @@ const access = require('./businessAccess.service');
 //   wholesale overdue  (same overdue query, worded as invoices)
 
 const LIMIT = 15;
-const RETAIL_WORDS = ['grocery', 'supermarket', 'books', 'pharmacy', 'fashion', 'electronics', 'meat', 'weight_retail'];
+// Goods shops call customer credit udhaar and have its screen (businessTypes.js).
+const { GOODS_TYPES: RETAIL_WORDS } = require('./businessTypes');
 const money = (value) => `₹${Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const qty = (value, unit) => `${Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${unit}`;
 const dayWord = (n) => (n === 0 ? 'today' : n === 1 ? 'tomorrow' : n === -1 ? 'yesterday' : n < 0 ? `${-n} days ago` : `in ${n} days`);

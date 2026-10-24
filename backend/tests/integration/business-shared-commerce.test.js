@@ -4,7 +4,9 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+const { pathToFileURL } = require('node:url');
 const { createBusinesses } = require('./helpers/businesses');
+const { GOODS_TYPES } = require('../../src/modules/business/core/services/businessTypes');
 
 // Business shared commerce: GST-inclusive shelf prices
 // by default, MRP and HSN, the tax invoice's buyer and place of supply, a
@@ -70,8 +72,8 @@ test('business core: prices, invoice, counter, suppliers, day close', { timeout:
   const key = () => crypto.randomUUID();
   const paise = (value) => Math.round(Number(value) * 100);
 
-  // Every goods shop type, and a salon and a wholesaler that price before GST.
-  const businesses = await createBusinesses(request, 'OWNER', ['grocery', 'supermarket', 'books', 'pharmacy', 'fashion', 'electronics', 'meat', 'weight_retail', 'salon', 'wholesale']);
+  // Every goods shop type, and a salon, a wholesaler and a gym that price before GST.
+  const businesses = await createBusinesses(request, 'OWNER', [...GOODS_TYPES, 'salon', 'wholesale', 'memberships']);
   const byType = (type) => businesses.find((b) => b.business_type === type);
   const grocery = byType('grocery'), electronics = byType('electronics'), salon = byType('salon'), wholesale = byType('wholesale');
   const [otherGrocery] = await createBusinesses(other, 'OTHER', ['grocery']);
@@ -96,17 +98,21 @@ test('business core: prices, invoice, counter, suppliers, day close', { timeout:
   };
 
   await t.test('goods shops start with prices including GST, rounded to the rupee; others before GST', async () => {
-    for (const type of ['grocery', 'supermarket', 'books', 'pharmacy', 'fashion', 'electronics', 'meat', 'weight_retail']) {
+    // The staff app's goods shops (Quick bill, udhaar) are the server's.
+    const types = await import(pathToFileURL(path.resolve(__dirname, '../../../apps/business-web/src/services/businessTypes.js')).href);
+    assert.deepEqual([...types.GOODS].sort(), [...GOODS_TYPES].sort());
+    for (const type of GOODS_TYPES) {
       const s = await request('GET', `/businesses/${byType(type).id}/settings`);
-      assert.equal(s.tax_mode, 'inclusive', type);
+      // A jeweller prices before GST (metal, making and stones, then 3%), still rounded to the rupee.
+      assert.equal(s.tax_mode, type === 'jewellery' ? 'exclusive' : 'inclusive', type);
       assert.equal(s.rounding, 'nearest_rupee', type);
       assert.equal(s.walk_in_credit, false, type);
       assert.equal(Number(s.max_bill_discount_percent), 10, type);
     }
-    for (const business of [salon, wholesale]) {
+    for (const business of [salon, wholesale, byType('memberships')]) {
       const s = await request('GET', `/businesses/${business.id}/settings`);
-      assert.equal(s.tax_mode, 'exclusive');
-      assert.equal(s.rounding, 'none');
+      assert.equal(s.tax_mode, 'exclusive', business.business_type);
+      assert.equal(s.rounding, 'none', business.business_type);
     }
     // Every goods counter can collect what it gives on credit.
     for (const type of ['meat', 'fashion', 'electronics']) assert.ok(byType(type).capabilities.includes('receivables'), type);

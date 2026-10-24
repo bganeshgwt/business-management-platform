@@ -76,7 +76,8 @@ test('menu names retired when the menus were regrouped do not come back', () => 
 const layout = read('layouts/AppLayout.jsx');
 const listStart = layout.indexOf('[', layout.indexOf('const NAV_SECTIONS = ['));
 const NAV_SECTIONS = vm.runInNewContext(layout.slice(listStart, layout.indexOf('\n];', listStart) + 2));
-const SHOP_TYPES = ['grocery', 'supermarket', 'wholesale', 'fashion', 'electronics', 'pharmacy', 'books', 'salon', 'healthcare', 'meat', 'weight_retail'];
+const SHOP_TYPES = ['grocery', 'supermarket', 'wholesale', 'fashion', 'electronics', 'pharmacy', 'books', 'salon', 'healthcare', 'meat', 'weight_retail',
+  'general_retail', 'hardware', 'agri_inputs', 'optical', 'garage', 'jewellery', 'fuel_station', 'memberships', 'laundry', 'rentals', 'lodging'];
 const placesOf = (groups, pagesOf) => groups.map((group) => ({
   title: group.title,
   areas: group.links.map((link) => ({ label: link.label, pages: pagesOf(link) })),

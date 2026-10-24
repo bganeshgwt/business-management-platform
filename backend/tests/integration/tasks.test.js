@@ -96,7 +96,7 @@ test('tasks, issues and projects', { timeout: 900000 }, async (t) => {
 
   await t.test('the three modules start on for the restaurant and are an owner\'s choice for every other type, with their permissions', async () => {
     const types = await pool.query("SELECT business_type, count(*)::int AS n, count(*) FILTER (WHERE enabled_by_default)::int AS on_ FROM platform_module_business_types WHERE module_code IN ('tasks','issues','projects') GROUP BY 1");
-    assert.equal(types.rows.length, 12);
+    assert.equal(types.rows.length, 23);
     assert.ok(types.rows.every((r) => r.n === 3 && r.on_ === (r.business_type === 'restaurant' ? 3 : 0)));
     const me = await O('GET', '/auth/me');
     for (const code of ['tasks', 'issues', 'projects']) assert.ok(me.features.includes(code), code);

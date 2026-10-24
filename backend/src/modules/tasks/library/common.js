@@ -1,4 +1,4 @@
-// Templates every kind of business can use. `types: "*"` = all twelve.
+// Templates every kind of business can use. `types: "*"` = every business type.
 // The item lines are explained in parse.js.
 
 module.exports = [

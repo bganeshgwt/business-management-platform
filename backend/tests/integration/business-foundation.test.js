@@ -87,7 +87,9 @@ test('business platform foundation: access, numbering, stock control and events'
         (SELECT count(*)::int FROM business_units WHERE business_id=$1) AS units`, [business.id]);
       // The six shared roles, plus the type's own (pharmacist; doctor, lab technician, pathologist).
       const ownRoles = (await one('SELECT count(*)::int AS n FROM business_role_templates WHERE $1 = ANY(business_types)', [business.business_type])).n;
-      assert.deepEqual([counts.roles, counts.settings, counts.taxes], [6 + ownRoles, 1, 4], business.business_type);
+      // GST nil, 5, 18 and 40; a jeweller nil, 0.25, 1.5, 3, 5 and 18.
+      const slabs = business.business_type === 'jewellery' ? 6 : 4;
+      assert.deepEqual([counts.roles, counts.settings, counts.taxes], [6 + ownRoles, 1, slabs], business.business_type);
       assert.ok(counts.units >= 8, `${business.business_type} has its units`);
       const expected = (await rows(`SELECT module_code FROM platform_module_business_types WHERE business_type=$1 AND enabled_by_default ORDER BY 1`, [business.business_type])).map((r) => r.module_code);
       assert.deepEqual([...business.capabilities].sort(), expected, business.business_type);
@@ -97,6 +99,20 @@ test('business platform foundation: access, numbering, stock control and events'
     assert.ok(grocery.capabilities.includes('stock_counts') && !grocery.capabilities.includes('stock_transfers'));
     assert.ok(!electronics.capabilities.includes('stock_transfers') && electronics.capabilities.includes('serials'));
     assert.ok(!salon.capabilities.includes('stock_transfers'));
+    // Each trade's own units: hardware sells by the bag, coil, sheet and foot; a
+    // jeweller weighs stones in carats; a lodge sells room nights; hire is by the day.
+    const unitsOf = async (business) => new Set((await rows('SELECT code FROM business_units WHERE business_id=$1', [business.id])).map((r) => r.code));
+    const hardwareUnits = await unitsOf(byType('hardware'));
+    for (const code of ['bag', 'coil', 'roll', 'sheet', 'set', 'dozen', 'ft', 'quintal', 'tonne']) assert.ok(hardwareUnits.has(code), `hardware has ${code}`);
+    assert.equal(Number((await one("SELECT factor_to_base FROM business_units WHERE business_id=$1 AND code='ft'", [byType('hardware').id])).factor_to_base), 0.3048);
+    assert.ok((await unitsOf(byType('agri_inputs'))).has('packet') && (await unitsOf(byType('jewellery'))).has('ct'));
+    assert.ok((await unitsOf(byType('lodging'))).has('night') && (await unitsOf(byType('rentals'))).has('day'));
+    assert.ok(!(await unitsOf(byType('grocery'))).has('coil'), 'a kirana has no hardware units');
+    // A jeweller bills at 3% unless an item says otherwise; seeds and pesticides
+    // are sold by batch; a gym keeps no stock until it chooses to, but collects dues.
+    assert.equal(Number((await one('SELECT rate FROM business_tax_rates WHERE business_id=$1 AND is_default', [byType('jewellery').id])).rate), 3);
+    assert.ok(byType('agri_inputs').capabilities.includes('batches'));
+    assert.ok(!byType('memberships').capabilities.includes('inventory') && byType('memberships').capabilities.includes('receivables'));
   });
 
   await t.test('the module catalogue is enforced by the database', async () => {

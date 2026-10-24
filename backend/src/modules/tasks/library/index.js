@@ -4,9 +4,10 @@
 
 const { parseItems } = require("./parse");
 
-const RAW = [...require("./common"), ...require("./restaurant"), ...require("./retail"), ...require("./trade")];
+const RAW = [...require("./common"), ...require("./restaurant"), ...require("./retail"), ...require("./trade"), ...require("./shops-and-services")];
 
-const ALL_TYPES = ["restaurant", "grocery", "supermarket", "wholesale", "fashion", "electronics", "pharmacy", "books", "salon", "healthcare", "meat", "weight_retail"];
+const ALL_TYPES = ["restaurant", "grocery", "supermarket", "wholesale", "fashion", "electronics", "pharmacy", "books", "salon", "healthcare", "meat", "weight_retail",
+  "general_retail", "hardware", "agri_inputs", "optical", "garage", "jewellery", "fuel_station", "memberships", "laundry", "rentals", "lodging"];
 
 const TEMPLATES = RAW.map((raw) => ({
   code: raw.code,

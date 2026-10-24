@@ -166,7 +166,7 @@ How the switches work:
 **Provisioning.** An `AFTER INSERT` trigger on `businesses` (`businesses_provision_defaults`) sets up every new business, whichever path created it: Platform › Businesses, an owner's *Add a business*, or linking a restaurant. It gives the business:
 
 - its roles (`business_seed_roles`: copies of the shared templates and of its type's own);
-- its settings row (`business_seed_settings`). Goods shops (grocery, supermarket, books, pharmacy, fashion, electronics, meat and other weight-based shops) start with prices including GST, rounded to the rupee; every other type starts with prices before GST and no rounding;
+- its settings row (`business_seed_settings`). Goods shops (grocery, supermarket, books, pharmacy, fashion, electronics, meat and other weight-based shops, general stores, hardware, seeds and fertilisers, opticians, garages and fuel stations) start with prices including GST, rounded to the rupee; a jeweller starts with prices before GST, rounded to the rupee; every other type starts with prices before GST and no rounding;
 - its GST slabs (`business_seed_tax_rates`) and units (`business_seed_units`);
 - its type's default modules.
 
@@ -184,7 +184,7 @@ The tables every type shares. A type adds its own tables beside them ([§5](#5-t
   - `shelf_location` (where it sits), `member_price` (what a loyalty member pays when it is lower than the price) and `internal_use` (kept in stock to be used up inside services and never sold; the bill screens leave it out).
 - **Branch prices.** `business_sku_location_prices` gives a location its own price for an item. With no row, the item's price applies.
 - **Kits.** `catalog_skus.is_kit` and `catalog_kit_components`: a kit sells at its own price but is posted as its components, so the stock, GST and HSN lines are theirs. Each line remembers the kit (`business_document_lines.kit_sku_id`, `kit_label`, `kit_group`). A kit itself is not stock-tracked (CHECK).
-- **Units.** `business_units` per business: `kind` (count, weight, volume, length, time, service), `decimals` (count units are whole) and an optional conversion to a base unit of the same kind (`g` → `kg` × 0.001). An item's `unit` is a foreign key to its business's units. A new business starts with each, kg, g, litre, ml, metre, hour and service, plus its trade's packs: pack and box for every type but the clinic and the restaurant, case for wholesale and supermarkets, dozen for grocery, wholesale and books, strip, tablet and bottle for a pharmacy, and pair for fashion.
+- **Units.** `business_units` per business: `kind` (count, weight, volume, length, time, service), `decimals` (count units are whole) and an optional conversion to a base unit of the same kind (`g` → `kg` × 0.001). An item's `unit` is a foreign key to its business's units. A new business starts with each, kg, g, litre, ml, metre, hour and service, plus its trade's packs: pack and box for every goods shop, a wholesaler and a salon; case for wholesale, supermarkets and fuel stations; dozen for grocery, wholesale, books, general stores and hardware; strip and tablet for a pharmacy; bottle for a pharmacy, an optician and a seeds and fertiliser shop; pair for fashion, general stores, opticians, garages, jewellers and laundries; bag (hardware, seeds and fertilisers), coil and sheet (hardware), roll (hardware, general stores), set (general stores, hardware, garages, jewellers, laundries) and packet (seeds and fertilisers). Trade measures convert to a base unit: quintal and tonne to the kg (hardware, seeds and fertilisers), foot to the metre (hardware), carat to the kg (jewellery) and day to the hour (rentals); a lodge counts room nights.
 - **Pack sizes.** `catalog_sku_units` says how many stock units one pack holds for one item (1 strip = 10 tablets, 1 box = 24). A document line entered in a pack keeps what was typed (`entered_unit`, `entered_quantity`, `entered_unit_price`, `unit_factor`: all or none) next to the stock-unit quantity it became. The conversion must be exact, or the line is refused.
 
 ### Contacts and balances
@@ -223,7 +223,7 @@ Exchanges are shared `business_*` tables: fashion and electronics use them, and 
 
 | Module | Applies to (starts on) | Needs | Permissions |
 |---|---|---|---|
-| `exchanges` "Exchanges" | fashion and electronics (on); supermarket, books, grocery (off) | sales, inventory | `exchanges.view / create / export` |
+| `exchanges` "Exchanges" | fashion and electronics (on); supermarket, books, grocery, general stores, hardware, opticians, jewellers (off) | sales, inventory | `exchanges.view / create / export` |
 
 Template grants: Manager everything; Cashier view and create; Accountant and Viewer view and export.
 
@@ -289,7 +289,7 @@ Customer credit, collections and outstanding. Retail udhaar and wholesale outsta
 
 | Table / column | What it holds |
 |---|---|
-| Module `receivables` | "Collections & outstanding". It applies to every type but the restaurant, and starts on for wholesale and every goods shop (grocery, supermarket, books, pharmacy, fashion, electronics, meat and other weight-based shops); a salon and a clinic start without it. Needs `sales` and `contacts`. Permissions `receivables.view / create / approve / export / print`; `approve` is credit control (bounce a cheque, settle a salesperson's cash, let an order through a credit hold). |
+| Module `receivables` | "Collections & outstanding". It applies to every type but the restaurant, and starts on for wholesale, every goods shop (grocery, supermarket, books, pharmacy, fashion, electronics, meat and other weight-based shops, general stores, hardware, seeds and fertilisers, opticians, garages, jewellers and fuel stations), gyms and coaching, laundries, rentals and lodges; a salon and a clinic start without it. Needs `sales` and `contacts`. Permissions `receivables.view / create / approve / export / print`; `approve` is credit control (bounce a cheque, settle a salesperson's cash, let an order through a credit hold). |
 | `business_collections` | One receipt of money from a customer: `collection_no` (series kind `collection`, prefix `RC`), location, customer (`contact_id`, which must be a customer: trigger), `amount`, `method` (cash, card, upi, bank, cheque, credit_note) and `method_name`, `reference`, `notes`, request key + hash, who and when. Immutable once posted. |
 | `business_payments.collection_id` | The money from a collection that settles a particular sale is an ordinary `business_payments` row pointing back at its collection, so every balance, refund and report rule works unchanged. A trigger keeps Σ payments of a collection ≤ its amount. |
 | Unallocated part | `amount − Σ allocated payments` is the customer's **advance / on-account credit**. It lowers the customer's balance and can later be applied to bills, oldest first. |
@@ -316,8 +316,8 @@ Retail uses the shared core for everything it can (catalogue, units, sales docum
 
 | Module | Applies to (starts) | Needs | Permissions |
 |---|---|---|---|
-| `offers` "Offers & discounts" | grocery, supermarket, books, fashion, electronics (off; recommended for a supermarket and a garment shop) | sales, catalog | `offers.view / create / edit` |
-| `loyalty` "Loyalty points" | grocery, supermarket, books, fashion (off; recommended for a supermarket and a garment shop) | sales, contacts | `loyalty.view / create` (redeem on a bill) `/ edit` (rules, corrections) `/ export` |
+| `offers` "Offers & discounts" | grocery, supermarket, books, fashion, electronics, general stores, hardware, seeds and fertilisers, opticians, garages, jewellers, gyms and coaching, laundries (off; recommended for a supermarket, a garment shop and a general store) | sales, catalog | `offers.view / create / edit` |
+| `loyalty` "Loyalty points" | grocery, supermarket, books, fashion, general stores, opticians, jewellers, gyms and coaching, laundries (off; recommended for a supermarket and a garment shop) | sales, contacts | `loyalty.view / create` (redeem on a bill) `/ edit` (rules, corrections) `/ export` |
 
 Udhaar is the shared `receivables` module ([Shared receivables](#shared-receivables)), on from the start for every goods shop. Scale codes belong to the core `weight` module and book details to the core `books` module. Template grants: Manager everything; Cashier `offers.view`, `loyalty.view` and `loyalty.create`; Accountant and Viewer view and export.
 
@@ -367,8 +367,8 @@ Orders from trade customers, dispatched in part or in full with an invoice each 
 
 | Module | Applies to (starts) | Needs | Permissions |
 |---|---|---|---|
-| `sales_orders` "Sales orders & dispatch" | wholesale (on) | sales, contacts, inventory | `sales_orders.view / create / edit / approve / cancel / export / print` |
-| `wholesale` "Wholesale price lists" (core) | wholesale (on); grocery, supermarket, pharmacy, meat and other weight-based shops (off) | sales, contacts | `wholesale.view / edit` (price rules) |
+| `sales_orders` "Sales orders & dispatch" | wholesale (on); hardware (off; recommended: site orders delivered in parts) | sales, contacts, inventory | `sales_orders.view / create / edit / approve / cancel / export / print` |
+| `wholesale` "Wholesale price lists" (core) | wholesale (on); grocery, supermarket, pharmacy, meat and other weight-based shops, general stores, hardware, seeds and fertilisers, garages, fuel stations (off; recommended for hardware, seeds and fertilisers and garages) | sales, contacts | `wholesale.view / edit` (price rules) |
 
 For `sales_orders`: *create* takes and changes orders, *edit* sets up routes, beats and salespeople, *approve* dispatches (raises the invoice and moves stock), and *cancel* cancels an order, closes a line or closes an order's back-order. Template grants: Manager all; Cashier / sales view, create and print; Stock keeper view, approve (dispatch) and print; Accountant view, export and print; Viewer view and export. Credit control is `receivables.approve` ([Shared receivables](#shared-receivables)); claims need `purchasing.edit`.
 
@@ -429,8 +429,8 @@ An electronics shop sells serial-numbered units through the core: the serial reg
 
 | Module | Applies to (starts) | Needs | Permissions |
 |---|---|---|---|
-| `warranties` "Warranties" | electronics (on), supermarket (off) | serials, sales | `warranties.view / create / cancel / export / print` |
-| `repairs` "Repairs & service" | electronics (off; recommended) | sales, inventory | `repairs.view / create / edit / approve / cancel / export / print` |
+| `warranties` "Warranties" | electronics (on); supermarket, general stores, garages (off) | serials, sales | `warranties.view / create / cancel / export / print` |
+| `repairs` "Repairs & service" | electronics (off; recommended), general stores (off) | sales, inventory | `repairs.view / create / edit / approve / cancel / export / print` |
 | `finance` "EMI & finance" | electronics (off; recommended) | sales | `finance.view / create / edit` |
 
 Template grants: Manager everything; Cashier warranties view, create and print, repairs view, create, approve (deliver) and print, and finance view and create (sell on EMI); Stock keeper warranties view and repairs view and edit (fits parts, moves status); Accountant view, export and print, and finance edit (payouts); Viewer view and export. Faulty units use `inventory.view` / `inventory.edit`; warranty claims use `repairs.view` / `repairs.edit`.
@@ -529,7 +529,7 @@ A meat, fish or other weight-based shop sells through the core: items stocked in
 | Module | Applies to (starts) | Needs | Permissions |
 |---|---|---|---|
 | `processing` "Cutting & yield" | meat, other weight-based shops (off; recommended) | inventory, weight | `processing.view / create` (batches) `/ edit` (yield templates) `/ export` |
-| `wastage` "Daily wastage" | meat, other weight-based shops (on); grocery, supermarket (off; recommended for a supermarket) | inventory | `wastage.view / create / export` |
+| `wastage` "Daily wastage" | meat, other weight-based shops (on); grocery, supermarket, general stores (off; recommended for a supermarket) | inventory | `wastage.view / create / export` |
 
 The core `weight` and `batches` modules are on for both types. A meat or weight shop may switch on the core `wholesale` module for customer rates per kg (a hotel's own rate), through the shared price lists. Template grants: Manager everything; Cashier `wastage.view` and `wastage.create`; Stock keeper `processing.view / create / export` and `wastage.view / create / export`; Accountant and Viewer view and export.
 

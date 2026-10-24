@@ -584,6 +584,7 @@ Integration tests are in `backend/tests/integration/`, browser specs in
 | Fashion and electronics | `business-fashion-electronics.test.js`, `business-fashion-electronics-sales-service.test.js` | `business-counter.spec.js` (their counters) |
 | Salon & spa, meat and weight-based shops | `business-salon-weight.test.js`, `business-salon-weight-daily.test.js`, `business-salon-back-office.test.js` | `business-salon-weight.spec.js` |
 | Pharmacy, clinic and lab | `business-health.test.js` | `business-workspaces.spec.js` (prescription sale, batches) |
+| The newer trades on the shared core (general store, hardware, seeds and fertilisers, optical, garage, jewellery, fuel station, gyms and coaching, laundry, rentals, lodging) | `business-foundation.test.js` (what each starts with: units, slabs, modules), `business-shared-commerce.test.js` (goods-shop settings, and the staff app's goods list matching the server's) | `business-workspaces.spec.js` |
 | Tasks, issues & projects | `tasks.test.js` | `tasks.spec.js` |
 | Menus and the shared screen parts | the unit tests `menu-paths.test.js`, `business-workspace.test.js` and `shared.test.js` | `data-grid.spec.js`, `shared-components.spec.js`, `business-workspaces.spec.js` |
 

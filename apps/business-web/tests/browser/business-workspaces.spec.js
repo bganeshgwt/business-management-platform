@@ -12,10 +12,10 @@ test.beforeEach(async({page})=>{
 });
 
 test('every local business presents a small menu and accessible stock, settings and report workspaces',async({page})=>{
-  test.setTimeout(300000);
+  test.setTimeout(600000);
   const errors=[];
   page.on('pageerror',e=>errors.push(e.message));
-  const types=['grocery','supermarket','wholesale','fashion','electronics','pharmacy','books','salon','healthcare','meat','weight_retail'];
+  const types=['grocery','supermarket','wholesale','fashion','electronics','pharmacy','books','salon','healthcare','meat','weight_retail','general_retail','hardware','agri_inputs','optical','garage','jewellery','fuel_station','memberships','laundry','rentals','lodging'];
   for(const type of types){
     const business=businessOf(type);
     await page.goto(`/business-admin/${business.id}/settings`);
@@ -266,7 +266,7 @@ test('Quick bill clears a failed search when the input changes and adds the sele
   await expect(page.getByText(/Nothing on the bill yet/)).toBeVisible();
 });
 
-for(const type of ['grocery','supermarket','wholesale','fashion','electronics','pharmacy','books','salon','healthcare','meat','weight_retail'])test(`enabled related pages for ${type} show their selection and successful API reads`,async({page})=>{
+for(const type of ['grocery','supermarket','wholesale','fashion','electronics','pharmacy','books','salon','healthcare','meat','weight_retail','general_retail','hardware','agri_inputs','optical','garage','jewellery','fuel_station','memberships','laundry','rentals','lodging'])test(`enabled related pages for ${type} show their selection and successful API reads`,async({page})=>{
   test.setTimeout(180000);
   await page.setViewportSize({width:1440,height:900});
   const failures=[];

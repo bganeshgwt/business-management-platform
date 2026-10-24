@@ -2,7 +2,10 @@
 // has switched on and what this person's role allows. The server checks the
 // same two things on every request; the menu only hides what would be refused.
 
+import { CLINIC, GOODS, PHARMACY, RETAIL, SALON, WEIGHED } from './businessTypes.js';
 import { dailyWorkspaces, WORKSPACES, workspaceLabel, workspaceSections } from './businessWorkspace.js';
+
+export { GOODS };
 
 export const businessPath = (id, section = "") => `/business-admin/${id}${section ? `/${section}` : ""}`;
 
@@ -37,6 +40,16 @@ const TYPE_WORDS = {
   // A meat shop's customer rates; a dry-fruit shop sorts and repacks.
   meat: { pricing: "Customer rates" },
   weight_retail: { pricing: "Customer rates", processing: "Sorting & repacking" },
+  hardware: { customers: "Customers & contractors", pricing: "Contractor & dealer rates", variants: "Sizes & shades" },
+  agri_inputs: { customers: "Farmers & customers", products: "Seeds, fertilisers & pesticides", pricing: "Dealer rates" },
+  optical: { products: "Frames, lenses & products", variants: "Frame colours & sizes", appointments: "Eye tests", resources: "Optometrists & rooms" },
+  garage: { products: "Parts & services", pricing: "Mechanic & retailer rates", appointments: "Service bookings", resources: "Mechanics & bays" },
+  jewellery: { products: "Jewellery & items" },
+  fuel_station: { customers: "Customers & fleets", products: "Fuels, lubricants & items" },
+  memberships: { customers: "Members", products: "Plans & services", sales: "Bills", appointments: "Sessions & trials", resources: "Trainers & studios" },
+  laundry: { products: "Services & price list", sales: "Bills" },
+  rentals: { customers: "Hirers", products: "Rental items & services", sales: "Bills" },
+  lodging: { customers: "Guests & companies", products: "Rooms, services & extras", sales: "Bills" },
 };
 export const word = (type, key, fallback) => TYPE_WORDS[type]?.[key] || fallback;
 
@@ -45,19 +58,9 @@ export const TYPE_ICONS = {
   restaurant: "utensils", grocery: "store", supermarket: "grid", wholesale: "truck", fashion: "tag",
   electronics: "zap", pharmacy: "heart", books: "book", salon: "sparkles", healthcare: "activity",
   meat: "scale", weight_retail: "scale",
+  general_retail: "box", hardware: "layers", agri_inputs: "leaf", optical: "eye", garage: "settings", jewellery: "star",
+  fuel_station: "fire", memberships: "users", laundry: "refresh", rentals: "key", lodging: "home",
 };
-
-// Retail screens (Quick bill, Udhaar, Retail reports) belong to these types.
-const RETAIL = ["grocery", "supermarket", "books"];
-// Weight-based shops bill loose weighed goods at the same counter.
-const WEIGHED = ["meat", "weight_retail"];
-const SALON = ["salon"];
-// The health module: pharmacy rules, and patients and the lab of a clinic.
-const PHARMACY = ["pharmacy"];
-const CLINIC = ["healthcare"];
-// Every goods shop bills at the counter (Quick bill), keeps udhaar
-// for named customers and closes its day there.
-export const GOODS = [...RETAIL, "pharmacy", "fashion", "electronics", ...WEIGHED];
 
 // section: the URL piece under /business-admin/<id>/; need: the permission
 // (its module must be on too); module: an extra module the screen needs;

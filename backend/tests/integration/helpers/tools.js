@@ -2,9 +2,16 @@
 // them on (Settings › Business tools). Tests written for those tools turn
 // them on first, through the same API an owner uses.
 
-// The specialist tools of each type, as the Down section of migration
-// 1791950400000 lists them.
+// The specialist tools of each type: for the first twelve, as the Down section
+// of migration 1791950400000 lists them; for the trades added by 1791960000000,
+// the tools it marks recommended.
 const SPECIALIST = {
+  general_retail: ['variants', 'offers'],
+  hardware: ['wholesale', 'sales_orders', 'stock_transfers'],
+  agri_inputs: ['wholesale'],
+  optical: ['batches', 'variants', 'appointments'],
+  garage: ['appointments', 'wholesale'],
+  memberships: ['appointments'],
   electronics: ['repairs', 'finance', 'stock_transfers'],
   salon: ['packages', 'commissions'],
   healthcare: ['lab'],

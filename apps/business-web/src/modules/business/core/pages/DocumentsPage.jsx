@@ -172,7 +172,6 @@ export default function DocumentsPage({ kind }) {
 }
 
 const emptyLine = () => ({ key: newKey(), skuId: "", unit: "", quantity: "1", unitPrice: "", freeQuantity: "", discountPercent: "", lotCode: "", expiresOn: "", sellingPrice: "", mrp: "" });
-const GOODS = ["grocery", "supermarket", "books", "pharmacy", "fashion", "electronics", "meat", "weight_retail"];
 
 function NewDocumentDialog({ kind, onClose, onSaved }) {
   const biz = useOpenBusiness();
@@ -193,7 +192,7 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
   const [scanError, setScanError] = useState("");
   const canReprice = !sale && biz.can("catalog.edit");
   // A goods shop's walk-in pays the whole bill (the server holds to it too).
-  const walkInPays = sale && GOODS.includes(biz.type) && !form.contactId && !biz.settings.walk_in_credit;
+  const walkInPays = sale && GOODS_TYPES.includes(biz.type) && !form.contactId && !biz.settings.walk_in_credit;
   const set = (name) => (event) => setForm((f) => ({ ...f, [name]: event.target.value }));
   const items = (options?.["catalog?active=true"] || []).filter((s) => sale || s.kind === "goods");
   const [added, setAdded] = useState([]);

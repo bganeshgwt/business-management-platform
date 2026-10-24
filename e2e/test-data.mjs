@@ -81,6 +81,17 @@ export const BUSINESSES = {
   healthcare: { name: "Lifeline Family Clinic & Diagnostics", code: "E2E-HEALTHCARE" },
   meat: { name: "Fresh Catch Chicken, Mutton & Fish", code: "E2E-MEAT" },
   weight_retail: { name: "Bansal Dry Fruits & Spices", code: "E2E-WEIGHT-RETAIL" },
+  general_retail: { name: "Lakshmi General Stores & Gifts", code: "E2E-GENERAL-RETAIL" },
+  hardware: { name: "Shree Ram Hardware & Paints", code: "E2E-HARDWARE" },
+  agri_inputs: { name: "Kisan Agro Seeds & Fertilisers", code: "E2E-AGRI-INPUTS" },
+  optical: { name: "Clear Vision Opticals", code: "E2E-OPTICAL" },
+  garage: { name: "Speed Auto Garage & Spares", code: "E2E-GARAGE" },
+  jewellery: { name: "Swarna Lakshmi Jewellers", code: "E2E-JEWELLERY" },
+  fuel_station: { name: "Highway Fuel Station", code: "E2E-FUEL-STATION" },
+  memberships: { name: "Fit Zone Gym & Yoga Studio", code: "E2E-MEMBERSHIPS" },
+  laundry: { name: "Sparkle Laundry & Dry Cleaners", code: "E2E-LAUNDRY" },
+  rentals: { name: "Sai Tent House & Rentals", code: "E2E-RENTALS" },
+  lodging: { name: "Green Park Lodge & Guest House", code: "E2E-LODGING" },
 };
 
 // The grocery: rice sold loose by weight and in 1 kg packs, both received

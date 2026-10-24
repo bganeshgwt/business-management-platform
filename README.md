@@ -9,10 +9,12 @@ which explains how it is built, where everything lives and how to extend it;
 owners and management at [docs/PRODUCT_OVERVIEW.md](docs/PRODUCT_OVERVIEW.md),
 the product on a few pages.
 
-One platform for independent businesses of twelve types: restaurants,
+One platform for independent businesses of twenty-three types: restaurants,
 grocery / kirana, supermarkets, wholesale / FMCG, fashion, electronics,
 pharmacy, books & stationery, salons & spas, clinics & labs, meat & seafood,
-and other weight-based shops. Each business's data is kept apart, and one
+other weight-based shops, general stores, hardware and building materials,
+seeds and fertilisers, optical shops, garages and auto parts, jewellers, fuel
+stations, gyms and coaching, laundries, rentals, and hotels and lodges. Each business's data is kept apart, and one
 person can belong to several businesses. What each type gets, from the
 restaurant (which also runs as a café, a bakery or a cloud kitchen) to the
 pharmacy's registers and the clinic's lab, and what is not built yet, is in

@@ -7,7 +7,7 @@ import SectionCard from "../../../../components/SectionCard";
 import StatTile from "../../../../components/StatTile";
 import { ErrorMessage } from "../../../../components/Feedback";
 import { businessRead } from "../../../../services/business.service";
-import { businessPath } from "../../../../services/businessNav";
+import { businessPath, GOODS } from "../../../../services/businessNav";
 import { getErrorMessage } from "../../../../services/api";
 import { escapeHtml, printDocument } from "../../../../services/print";
 import { dateLong } from "@bmp/shared/format";
@@ -94,7 +94,7 @@ export default function DayClosePage() {
       <BusinessHeader icon="clock" title="Daily money"
         description="Sales, collections, refunds, supplier payments and daily expenses. Check cash for a single day and location."
         primary={data && biz.can("sales.print") && <button type="button" className="button" onClick={() => printSlip(data, biz, locations)}><Icon name="print" size={16} /> Print end-of-day slip</button>}
-        secondary={biz.can("sales.create") && ["grocery","supermarket","fashion","electronics","pharmacy","books","meat","weight_retail"].includes(biz.type) && <Link className="button button-secondary" to={businessPath(biz.id, "counter")}><Icon name="receipt" size={15} /> Quick bill</Link>} />
+        secondary={biz.can("sales.create") && GOODS.includes(biz.type) &&<Link className="button button-secondary" to={businessPath(biz.id, "counter")}><Icon name="receipt" size={15} /> Quick bill</Link>} />
       <ErrorMessage message={error} />
       <SectionCard icon="calendar" title={oneDay ? dateLong(range.from) : `${dateLong(range.from)} to ${dateLong(range.to)}`}
         actions={<DateRangeFilter from={range.from} to={range.to} anchor={anchor} label="day close dates" onChange={(next) => { if (next.from && next.to) setRange(next); }} />}>

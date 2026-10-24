@@ -69,7 +69,10 @@ lives, and how to extend it.
 independent businesses: restaurants (run as a restaurant, café, bakery or
 cloud kitchen), grocery / kirana shops, supermarkets, wholesale / FMCG
 distributors, fashion, electronics, pharmacies, books & stationery, salons &
-spas, clinics & labs, meat & seafood shops and other weight-based shops. One
+spas, clinics & labs, meat & seafood shops, other weight-based shops, general
+stores, hardware and building materials, seeds and fertilisers, optical shops,
+garages and auto parts, jewellers, fuel stations, gyms and coaching, laundries,
+rentals, and hotels and lodges. One
 PostgreSQL database holds every business. Each business sees only its own
 data and only the parts (modules) it has switched on. One person can belong
 to several businesses, with a different role in each.
@@ -954,7 +957,12 @@ inside the right `ProtectedRoute`, a link in `NAV_SECTIONS`
 
 1. **Migration:** `INSERT INTO business_types (code, name)`, and rows in
    `platform_module_business_types` for each module it may use and which are
-   on by default. The `AFTER INSERT` triggers on `businesses` then give each
+   on by default, listed explicitly: a module that an older migration gave to
+   "every type" reached only the types that existed then (catalog, contacts,
+   sales, inventory, purchasing, stock counts and transfers, receivables,
+   expenses, tasks, issues and projects). A goods shop also goes into
+   `business_seed_settings()`, and a trade's own pack words and measures
+   into `business_seed_units()` (pattern: 1791960000000 more-business-types). The `AFTER INSERT` triggers on `businesses` then give each
    new business of that type its roles, settings, GST slabs, units, payment
    methods and default modules. A role only this type has (as a pharmacy's
    Pharmacist) is a role template with the type in
@@ -971,13 +979,19 @@ inside the right `ProtectedRoute`, a link in `NAV_SECTIONS`
    `routes/business<Type>.routes.js` mounted at the end of
    `modules/business/core/routes/business.routes.js` (before the error
    mapper) like the others, or routes in an existing type's file.
-5. **Staff app:** `TYPE_WORDS` and `TYPE_ICONS` in `services/businessNav.js`,
-   links with `types: [...]`, its menu in `dailyWorkspaces()` in
+5. **Staff app:** the type's groups in `services/businessTypes.js` (goods
+   shop, retail reports, service, udhaar; the server's goods list in
+   `modules/business/core/services/businessTypes.js` must match, and
+   `business-shared-commerce.test.js` checks it), `TYPE_WORDS` and
+   `TYPE_ICONS` in `services/businessNav.js`, links with `types: [...]`, its menu in `dailyWorkspaces()` in
    `services/businessWorkspace.js`, and pages in
    `modules/business/<type>/pages/`.
 6. **Tests:** add the type to `NAMES` in
-   `tests/integration/helpers/businesses.js`, so tests can create one, and
-   write `tests/integration/business-<type>.test.js`. For the browser tests,
+   `tests/integration/helpers/businesses.js`, so tests can create one, its
+   specialist tools to `SPECIALIST` in `helpers/tools.js`, the type count in
+   `tasks.test.js`, and to `ALL_TYPES` in `modules/tasks/library/index.js`
+   (or it gets no common checklists); then write
+   `tests/integration/business-<type>.test.js`. For the browser tests,
    add it to `BUSINESSES` in `e2e/test-data.mjs` and to the type lists of
    `business-workspaces.spec.js` and `business-workspace.test.js`
    ([TESTING › Adding data](TESTING.md#adding-data)).

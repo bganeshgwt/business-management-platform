@@ -21,6 +21,17 @@ const NAMES = {
   healthcare: 'Lifeline Family Clinic & Diagnostics',
   meat: 'Fresh Catch Chicken, Mutton & Fish',
   weight_retail: 'Bansal Dry Fruits & Spices',
+  general_retail: 'Lakshmi General Stores & Gifts',
+  hardware: 'Shree Ram Hardware & Paints',
+  agri_inputs: 'Kisan Agro Seeds & Fertilisers',
+  optical: 'Clear Vision Opticals',
+  garage: 'Speed Auto Garage & Spares',
+  jewellery: 'Swarna Lakshmi Jewellers',
+  fuel_station: 'Highway Fuel Station',
+  memberships: 'Fit Zone Gym & Yoga Studio',
+  laundry: 'Sparkle Laundry & Dry Cleaners',
+  rentals: 'Sai Tent House & Rentals',
+  lodging: 'Green Park Lodge & Guest House',
 };
 const ALL_TYPES = Object.keys(NAMES);
 

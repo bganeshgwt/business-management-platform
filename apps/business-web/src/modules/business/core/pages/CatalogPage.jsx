@@ -8,6 +8,7 @@ import { businessRead, businessWrite } from "../../../../services/business.servi
 import Modal from "../../../../components/Modal";
 import { getErrorMessage } from "../../../../services/api";
 import { word } from "../../../../services/businessNav";
+import { SERVICES } from "../../../../services/businessTypes";
 import FormDialog from "./FormDialog";
 import { ActiveBadge, BusinessHeader, Field, FormError } from "./ui";
 import { quantity, useOpenBusiness, useOptions, useServerList } from "./hooks";
@@ -46,7 +47,7 @@ export default function CatalogPage() {
     { key: "barcode", header: "Barcode", value: (s) => s.barcode || "", className: "mono", defaultHidden: true },
     { key: "category", header: "Category", value: (s) => s.category || "" },
     { key: "price", header: biz.settings.tax_mode === "inclusive" ? "Price (incl. tax)" : "Price", type: "money", exact: true, value: (s) => Number(s.price), mobile: "show" },
-    { key: "mrp", header: "MRP", type: "money", exact: true, value: (s) => (s.mrp === null || s.mrp === undefined ? null : Number(s.mrp)), defaultHidden: biz.type === "salon" || biz.type === "healthcare" },
+    { key: "mrp", header: "MRP", type: "money", exact: true, value: (s) => (s.mrp === null || s.mrp === undefined ? null : Number(s.mrp)), defaultHidden: SERVICES.includes(biz.type) },
     biz.has("loyalty") && { key: "member_price", header: "Member price", type: "money", exact: true, value: (s) => (s.member_price === null || s.member_price === undefined ? null : Number(s.member_price)) },
     { key: "tax", header: "GST", value: (s) => s.tax_rate_name || `${Number(s.tax_rate)}%` },
     biz.has("inventory") && { key: "shelf", header: "Shelf", value: (s) => s.shelf_location || "", render: (s) => s.shelf_location || <span className="muted">—</span> },
@@ -108,7 +109,8 @@ function CatalogDialog({ sku, onClose, onSaved }) {
   const services = biz.type === "healthcare" || !biz.has("inventory");
   const [form, setForm] = useState(() => ({
     name: "", productId: "", label: sku.label || "", code: "", barcode: sku.barcode || "", kind: sku.kind || (services ? "service" : "goods"), unit: services ? "service" : "each",
-    tracking: biz.type === "pharmacy" ? "batch" : "quantity", price: sku.price || "", taxRateId: sku.tax_rate_id ? String(sku.tax_rate_id) : "",
+    // Medicines, seeds and pesticides are sold by batch (lot, expiry).
+    tracking: ["pharmacy", "agri_inputs"].includes(biz.type) ? "batch" : "quantity", price: sku.price || "", taxRateId: sku.tax_rate_id ? String(sku.tax_rate_id) : "",
     categoryId: sku.category_id ? String(sku.category_id) : "", brand: "", reorderLevel: sku.reorder_level ? String(Number(sku.reorder_level)) : "", active: sku.active ?? true,
     mrp: sku.mrp ? String(Number(sku.mrp)) : "", hsnCode: sku.hsn_code || "",
     shelfLocation: sku.shelf_location || "", memberPrice: sku.member_price ? String(Number(sku.member_price)) : "",

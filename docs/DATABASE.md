@@ -1149,11 +1149,11 @@ Added by: 1791280000000; triggers from 1791300000000, 1791300000005 business-eve
 Purpose: one row per business with its legal and display details, tax mode, rounding and fiscal year.
 Key columns: PK `business_id`, `display_name`, `legal_name`, `gstin` (GSTIN-pattern CHECK), address fields, `state_code`, `postal_code` (6 digits), `phone`, `email`, `logo_path`, `tax_mode` (exclusive or inclusive), `rounding` (none or nearest_rupee), `fiscal_year_start_month` (default 4), `invoice_footer`, `receipt_footer`, `date_format`, `max_bill_discount_percent` (0–100, default 10: the cap on a counter discount), `walk_in_credit` (default false: a walk-in pays the whole bill), `counter_pin_every_bill` (default false: Quick bill asks the biller's PIN for every bill).
 Business rules (Business settings › Rules; default, then range): `voucher_valid_days` (90; 1–3650), `ageing_days` (three increasing limits, the first at least 1 and the last at most 3650, `{30,60,90}`), `near_expiry_days` (30; 1–365), `weight_buttons_grams` (1–8 values of 1–100,000, `{250,500,1000,2000}`), `receipt_width_mm` (58 or 80; 80), `day_cutoff_hour` (0–12; 5; read by tasks: a due time before it belongs to the day before).
-Rules: CHECK: the first two characters of the GSTIN must equal `state_code`. `business_seed_settings()` makes the row with the business: goods types (grocery, supermarket, books, pharmacy, fashion, electronics, meat, weight_retail) start with prices that include GST, rounded to the rupee; the other types start exclusive, with no rounding.
+Rules: CHECK: the first two characters of the GSTIN must equal `state_code`. `business_seed_settings()` makes the row with the business: goods types (grocery, supermarket, books, pharmacy, fashion, electronics, meat, weight_retail, general_retail, hardware, agri_inputs, optical, garage, fuel_station) start with prices that include GST, rounded to the rupee; a jeweller starts exclusive, rounded to the rupee; the other types start exclusive, with no rounding.
 Added by: 1791300000002 business-settings-tax-rates-number-series; 1791540000000 business-core-gst-mrp-supplier-payments (`max_bill_discount_percent`, `walk_in_credit`, the goods-type start); 1791620002000 (`counter_pin_every_bill`); 1791640002000 business-rule-settings (the six business rules).
 
 #### `business_tax_rates`
-Purpose: named GST slabs. A new business other than a restaurant starts with GST nil / exempt, GST 5%, GST 18% (the default) and GST 40% (`business_seed_tax_rates()`); a restaurant's rates are its own `tax_rates`.
+Purpose: named GST slabs. A new business other than a restaurant starts with GST nil / exempt, GST 5%, GST 18% (the default) and GST 40% (`business_seed_tax_rates()`); a jeweller starts with GST nil / exempt, 0.25%, 1.5%, 3% (the default), 5% and 18%; a restaurant's rates are its own `tax_rates`.
 Key columns: `name`, `rate` (0–100), `is_default`, `active`. Referenced by `catalog_skus.tax_rate_id`.
 Rules:
 - Names are unique per business, ignoring case.
@@ -1267,7 +1267,7 @@ Rules:
 - CHECK: `base_unit_code` and `factor_to_base` are both set or both NULL.
 - CHECK: a unit is not its own base.
 - CHECK: count units have 0 decimals.
-- A new business gets its units from `business_seed_units()`: the base units, g and ml, and the pack words its type uses. A restaurant without SKUs gets none.
+- A new business gets its units from `business_seed_units()`: the base units, g and ml, the pack words its type uses (bag, coil, roll, sheet, set and packet among them), and its trade's measures: quintal and tonne (hardware, seeds and fertilisers), foot (hardware), carat (jewellery), day (rentals) and room night (lodging). A restaurant without SKUs gets none.
 Added by: 1791300000003.
 
 ### Contacts and prices
@@ -2541,7 +2541,7 @@ Added by: 1791620000000.
 
 ## Business types
 
-The rows of `business_types`, created by 1791280000000 multi-business-admin.
+The rows of `business_types`: the first twelve created by 1791280000000 multi-business-admin, the other eleven by 1791960000000 more-business-types.
 
 | Code | Name |
 |---|---|
@@ -2557,6 +2557,17 @@ The rows of `business_types`, created by 1791280000000 multi-business-admin.
 | `healthcare` | Clinics & diagnostic labs |
 | `meat` | Meat & seafood |
 | `weight_retail` | Other weight-based shops |
+| `general_retail` | General store & other shops |
+| `hardware` | Hardware, paints & building materials |
+| `agri_inputs` | Seeds, fertilisers & pesticides |
+| `optical` | Optical shops |
+| `garage` | Vehicle service & auto parts |
+| `jewellery` | Jewellery & gold |
+| `fuel_station` | Fuel stations |
+| `memberships` | Gyms, studios & coaching |
+| `laundry` | Laundry & dry cleaning |
+| `rentals` | Rentals & hire |
+| `lodging` | Hotels, lodges & guest houses |
 
 ## Platform module codes
 
@@ -2571,25 +2582,25 @@ Core modules are always on and never stored per business; every other module is 
 | `catalog` | optional | — | every type but restaurant; on for all | 1791300000000 |
 | `contacts` | optional | — | every type but restaurant; on for all | 1791300000000 |
 | `sales` | optional | catalog | every type but restaurant; on for all | 1791300000000 |
-| `purchasing` | optional | inventory, contacts | every type but restaurant; on except for healthcare | 1791300000000 |
-| `inventory` | optional | catalog | every type but restaurant; on except for healthcare | 1791300000000 |
-| `stock_counts` | optional | inventory | every type but restaurant; on except for healthcare | 1791300000000 |
-| `stock_transfers` | optional | inventory | every type but restaurant; off; recommended for fashion, supermarket, wholesale | 1791300000000 |
-| `batches` | optional | inventory | grocery, healthcare, meat, pharmacy, salon, supermarket, weight_retail, wholesale; on except for healthcare, salon | 1791300000000 |
-| `serials` | optional | inventory | electronics, supermarket; on for electronics | 1791300000000 |
-| `variants` | optional | catalog | books, electronics, fashion, salon, supermarket; on for fashion, supermarket | 1791300000000 |
-| `weight` | optional | catalog | fashion, grocery, meat, supermarket, weight_retail, wholesale; on except for fashion, wholesale | 1791300000000 |
-| `wholesale` | optional | sales, contacts | grocery, meat, pharmacy, supermarket, weight_retail, wholesale; on for wholesale | 1791300000000 |
+| `purchasing` | optional | inventory, contacts | every type but restaurant; on except for healthcare, laundry, lodging, memberships, rentals | 1791300000000 |
+| `inventory` | optional | catalog | every type but restaurant; on except for healthcare, laundry, lodging, memberships, rentals | 1791300000000 |
+| `stock_counts` | optional | inventory | every type but restaurant; on except for healthcare, laundry, lodging, memberships, rentals | 1791300000000 |
+| `stock_transfers` | optional | inventory | agri_inputs, books, electronics, fashion, fuel_station, garage, general_retail, grocery, hardware, healthcare, jewellery, meat, optical, pharmacy, salon, supermarket, weight_retail, wholesale; off; recommended for fashion, hardware, supermarket, wholesale | 1791300000000 |
+| `batches` | optional | inventory | agri_inputs, fuel_station, garage, general_retail, grocery, hardware, healthcare, meat, optical, pharmacy, salon, supermarket, weight_retail, wholesale; on for agri_inputs, grocery, meat, pharmacy, supermarket, weight_retail, wholesale; recommended for optical | 1791300000000 |
+| `serials` | optional | inventory | electronics, garage, general_retail, jewellery, supermarket; on for electronics | 1791300000000 |
+| `variants` | optional | catalog | books, electronics, fashion, general_retail, hardware, optical, salon, supermarket; on for fashion, supermarket; recommended for general_retail, optical | 1791300000000 |
+| `weight` | optional | catalog | agri_inputs, fashion, general_retail, grocery, hardware, meat, supermarket, weight_retail, wholesale; on for grocery, meat, supermarket, weight_retail | 1791300000000 |
+| `wholesale` | optional | sales, contacts | agri_inputs, fuel_station, garage, general_retail, grocery, hardware, meat, pharmacy, supermarket, weight_retail, wholesale; on for wholesale; recommended for agri_inputs, garage, hardware | 1791300000000 |
 | `books` | optional | catalog | books, supermarket; on for books | 1791300000000 |
-| `appointments` | optional | catalog, contacts | electronics, healthcare, salon; on except for electronics | 1791300000000 |
+| `appointments` | optional | catalog, contacts | electronics, garage, healthcare, memberships, optical, salon; on for healthcare, salon; recommended for garage, memberships, optical | 1791300000000 |
 | `restaurant` | optional | — | restaurant; on | 1791300000000 |
-| `offers` | optional | sales, catalog | books, electronics, fashion, grocery, supermarket; off; recommended for fashion, supermarket | 1791400000000 |
-| `loyalty` | optional | sales, contacts | books, fashion, grocery, supermarket; off; recommended for fashion, supermarket | 1791400000000 |
+| `offers` | optional | sales, catalog | agri_inputs, books, electronics, fashion, garage, general_retail, grocery, hardware, jewellery, laundry, memberships, optical, supermarket; off; recommended for fashion, general_retail, supermarket | 1791400000000 |
+| `loyalty` | optional | sales, contacts | books, fashion, general_retail, grocery, jewellery, laundry, memberships, optical, supermarket; off; recommended for fashion, supermarket | 1791400000000 |
 | `receivables` | optional | sales, contacts | every type but restaurant; on except for healthcare, salon | 1791410000000 |
-| `sales_orders` | optional | sales, contacts, inventory | wholesale; on | 1791410000001 |
-| `exchanges` | optional | sales, inventory | books, electronics, fashion, grocery, supermarket; on for electronics, fashion | 1791420000000 |
-| `warranties` | optional | serials, sales | electronics, supermarket; on for electronics | 1791420000001 |
-| `repairs` | optional | sales, inventory | electronics; off; recommended for electronics | 1791420000001 |
+| `sales_orders` | optional | sales, contacts, inventory | hardware, wholesale; on for wholesale; recommended for hardware | 1791410000001 |
+| `exchanges` | optional | sales, inventory | books, electronics, fashion, general_retail, grocery, hardware, jewellery, optical, supermarket; on for electronics, fashion | 1791420000000 |
+| `warranties` | optional | serials, sales | electronics, garage, general_retail, supermarket; on for electronics | 1791420000001 |
+| `repairs` | optional | sales, inventory | electronics, general_retail; off; recommended for electronics | 1791420000001 |
 | `finance` | optional | sales | electronics; off; recommended for electronics | 1791620002000 |
 | `packages` | optional | sales, contacts | salon; off; recommended for salon | 1791430000000 |
 | `commissions` | optional | sales, appointments | salon; off; recommended for salon | 1791430000000 |
@@ -2597,7 +2608,7 @@ Core modules are always on and never stored per business; every other module is 
 | `patients` | optional | contacts, appointments | healthcare; on | 1791620004000 |
 | `lab` | optional | patients, sales | healthcare; off; recommended for healthcare | 1791620004000 |
 | `processing` | optional | inventory, weight | meat, weight_retail; off; recommended for meat, weight_retail | 1791430000001 |
-| `wastage` | optional | inventory | grocery, meat, supermarket, weight_retail; on for meat, weight_retail; recommended for supermarket | 1791430000001 |
+| `wastage` | optional | inventory | general_retail, grocery, meat, supermarket, weight_retail; on for meat, weight_retail; recommended for supermarket | 1791430000001 |
 | `expenses` | optional | — | every type but restaurant; on for all | 1791950400000 |
 | `guests` | optional | restaurant | restaurant; on | 1791470000000 |
 | `guest_loyalty` | optional | restaurant, guests | restaurant; off | 1791470000000 |
@@ -2615,7 +2626,7 @@ Core modules are always on and never stored per business; every other module is 
 | `coupons` | optional | restaurant | restaurant; on | 1791470000000 |
 | `stock_recipes` | optional | restaurant | restaurant; on | 1791470000000 |
 | `staff_payroll` | optional | restaurant | restaurant; on | 1791470000000 |
-| `tasks` | optional | — | every type; on for restaurant; recommended for healthcare, pharmacy, supermarket | 1791620000000 |
+| `tasks` | optional | — | every type; on for restaurant; recommended for fuel_station, healthcare, lodging, pharmacy, supermarket | 1791620000000 |
 | `issues` | optional | tasks | every type; on for restaurant; recommended for pharmacy, supermarket | 1791620000000 |
 | `projects` | optional | tasks | every type; on for restaurant | 1791620000000 |
 

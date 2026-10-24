@@ -49,10 +49,8 @@ const lineTax = (net, rate) => roundedDivide(BigInt(net) * BigInt(paise(rate)), 
 // Tax worked out of a tax-inclusive amount: net = gross × 100 / (100 + rate).
 const inclusiveNet = (gross, rate) => roundedDivide(BigInt(gross) * 10000n, 10000n + BigInt(paise(rate)));
 const methods = ['cash', 'card', 'upi', 'bank', 'cheque'];
-// Goods shops: what the shelf says is what the customer pays (GST inside,
-// rounded to the rupee by default), a walk-in pays the whole bill, and the
-// counter (Quick bill) serves them.
-const GOODS_TYPES = ['grocery', 'supermarket', 'books', 'pharmacy', 'fashion', 'electronics', 'meat', 'weight_retail'];
+// Goods shops: a walk-in pays the whole bill (businessTypes.js).
+const { GOODS_TYPES } = require('./businessTypes');
 
 // --- Shelf prices: HSN and MRP ---------------------------------------------------
 

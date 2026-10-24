@@ -11,6 +11,7 @@ import { businessRead, createBusiness, linkRestaurant } from "../../../../servic
 import { AddBusinessDialog } from "./NewBusinessForm";
 import { moneyShort } from "@bmp/shared/format";
 import { businessPath, TYPE_ICONS } from "../../../../services/businessNav";
+import { UDHAAR } from "../../../../services/businessTypes";
 import "../styles/business-admin.css";
 
 // /business-admin with no business chosen: go to the one this person last
@@ -107,7 +108,7 @@ function BusinessCard({ business, onOpen }) {
   const alerts = summary ? ["low_stock", "expiring_soon", "promises_broken", "repairs_ready", "orders_to_dispatch"].reduce((n, key) => n + Number(summary[key] || 0), 0) : 0;
   const figures = summary ? [
     "sales_today" in summary && `Today ${moneyShort(summary.sales_today)}`,
-    "receivables_owed" in summary && Number(summary.receivables_owed) > 0 && `${["grocery", "supermarket", "books"].includes(business.business_type) ? "Udhaar" : "Owed"} ${moneyShort(summary.receivables_owed)}`,
+    "receivables_owed" in summary && Number(summary.receivables_owed) > 0 && `${UDHAAR.includes(business.business_type) ? "Udhaar" : "Owed"}${moneyShort(summary.receivables_owed)}`,
     alerts > 0 && `${alerts} to look at`,
   ].filter(Boolean) : [];
   return (

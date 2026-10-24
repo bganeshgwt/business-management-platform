@@ -1,3 +1,5 @@
+import { GOODS, SERVICES, UDHAAR, WEIGHED } from './businessTypes.js';
+
 // Presentation groups share the existing route permissions and module guards.
 // A capability being available does not make it a daily sidebar destination.
 export const WORKSPACES = {
@@ -25,8 +27,8 @@ export const WORKSPACES = {
   tasks: ['tasks', 'tasks/issues', 'tasks/projects', 'tasks/board', 'tasks/calendar', 'tasks/templates', 'tasks/recurring', 'tasks/reports'],
 };
 
-const GOODS = ['grocery', 'supermarket', 'fashion', 'electronics', 'pharmacy', 'books', 'meat', 'weight_retail'];
-const WEIGHED = ['meat', 'weight_retail'];
+// Businesses that book people's time (stylists, doctors, technicians, optometrists, mechanics, trainers).
+const BOOKS_APPOINTMENTS = ['salon', 'healthcare', 'electronics', 'optical', 'garage', 'memberships'];
 
 export function workspaceFor(section, type) {
   if (section === 'appointments') return type === 'healthcare' ? 'care' : type === 'electronics' ? 'repairs' : 'appointments';
@@ -42,25 +44,25 @@ export function workspaceSections(key, type) {
     // A wholesaler's price lists sit with its orders; any other shop that switches
     // the price lists on finds them with its products.
     if (section === 'pricing') return key === 'orders' ? type === 'wholesale' : type !== 'wholesale';
-    if (section === 'kits') return ['electronics', 'fashion', 'books', 'supermarket'].includes(type);
+    if (section === 'kits') return ['electronics', 'fashion', 'books', 'supermarket', 'general_retail', 'hardware', 'agri_inputs', 'garage'].includes(type);
     if (section === 'weight-stock') return WEIGHED.includes(type);
     if (section === 'processing') return WEIGHED.includes(type);
-    if (section === 'wastage') return [...WEIGHED,'grocery','supermarket'].includes(type);
+    if (section === 'wastage') return [...WEIGHED,'grocery','supermarket','general_retail'].includes(type);
     if (section === 'pharmacy-batches' || section === 'drug-master') return type === 'pharmacy';
     if (section === 'near-expiry') return type !== 'pharmacy';
     // Weighed stock is checked on the weight screens, not by counting pieces.
     if (section === 'counts') return !WEIGHED.includes(type);
     if (section === 'salon-setup') return type === 'salon';
-    if (section === 'appointments') return ['salon', 'healthcare', 'electronics'].includes(type);
+    if (section === 'appointments') return BOOKS_APPOINTMENTS.includes(type);
     if (section === 'day-close' || section === 'expenses') return type !== 'restaurant';
     return true;
   });
 }
 
 export function workspaceLabel(section, type, fallback) {
-  if (section === 'sales') return ['salon', 'healthcare'].includes(type) ? 'Bill history' : 'Sales history';
+  if (section === 'sales') return SERVICES.includes(type) ? 'Bill history' : 'Sales history';
   if (section === 'collections') return 'Payments received';
-  if (section === 'udhaar') return ['meat', 'grocery', 'weight_retail'].includes(type) ? 'Udhaar' : 'Customer dues';
+  if (section === 'udhaar') return UDHAAR.includes(type) ? 'Udhaar' : 'Customer dues';
   if (section === 'outstanding') return 'Customer dues';
   if (section === 'day-close') return 'Daily money';
   if (section === 'stock') return type === 'salon' ? 'Product stock' : 'Stock';
@@ -77,8 +79,10 @@ export function workspaceLabel(section, type, fallback) {
 // This keeps accountant and stock-keeper menus usable without cashier access.
 export function dailyWorkspaces(type) {
   const checkout = type === 'salon' ? 'salon-bill' : type === 'pharmacy' ? 'pharmacyBilling' : GOODS.includes(type) ? 'counter' : null;
+  // Orders: a wholesaler's beat orders, or a hardware shop's site orders (with Sales orders on).
   const daily = [checkout, type === 'healthcare' ? 'care' : null,
-    type === 'wholesale' ? 'orders' : null, type === 'salon' ? 'appointments' : null,
+    ['wholesale', 'hardware'].includes(type) ? 'orders' : null,
+    ['salon', 'optical', 'garage', 'memberships'].includes(type) ? 'appointments' : null,
     'sales', type === 'healthcare' ? 'patients' : 'customers', 'dues', 'money'].filter(Boolean);
   const business = ['products', 'purchases', 'stock'];
   if (type === 'pharmacy') business.push('pharmacy-registers');

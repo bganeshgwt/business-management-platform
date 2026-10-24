@@ -12,7 +12,9 @@ One application, **Business Admin**, runs every business you belong to. A
 restaurant gets the full restaurant admin (menu, tables, POS, kitchen,
 billing, stock, staff, reports); a café, a bakery and a cloud kitchen run on
 it too. Every other business type — grocery, supermarket, wholesale, fashion,
-electronics, pharmacy, books, salon, clinic, meat and weight-based shops —
+electronics, pharmacy, books, salon, clinic, meat and weight-based shops,
+general store, hardware, seeds and fertilisers, optical, garage, jewellery,
+fuel station, gym and coaching, laundry, rentals, and hotel and lodge —
 gets the Business Admin screens its business tools switch on. Guests never
 sign in: they order and book on the **guests' site**, the pages a
 restaurant's QR codes and links open.
@@ -83,6 +85,7 @@ on record.
 - [Meat, fish and weight-based shops](#meat-fish-and-weight-based-shops)
 - [Pharmacy](#pharmacy)
 - [Clinic & lab](#clinic--lab)
+- [Newer trades on the shared core](#newer-trades-on-the-shared-core)
 
 **[Part 4 — Tasks, issues & projects](#part-4--tasks-issues--projects)**
 
@@ -250,7 +253,8 @@ or GSTIN, and filter by type and status.
 A restaurant is created only in **Platform › Restaurants**, and so is a café,
 a bakery or a cloud kitchen, which run on the restaurant. A business of any
 other type (shops, wholesale, fashion, electronics, salon, meat and weight
-shops, pharmacy, clinic) is created in one of two ways:
+shops, pharmacy, clinic, and the trades in [Newer trades](#newer-trades-on-the-shared-core))
+is created in one of two ways:
 
 - **Platform › Businesses** (the platform's Super Admin), with the owner's
   login, as above.
@@ -440,8 +444,8 @@ business*, by name, type or code) and pick from **Restaurants & food** and
 - **All businesses** opens the *Your businesses* page
   (`/business-admin?all=1`): every business you belong to as a card with its
   type and your role and, for what your role may see, today's sales, what
-  customers owe (*Udhaar* in a grocery, supermarket or bookshop, *Owed*
-  elsewhere) and how many things need a look (low stock, expiring batches,
+  customers owe (*Udhaar* in a kirana, a meat or weight-based shop, a general
+  store, a hardware shop or a seeds and fertiliser shop, *Owed* elsewhere) and how many things need a look (low stock, expiring batches,
   broken promises, repairs ready, orders to dispatch). With more than six
   businesses a *Find a business* box narrows the cards.
   - The owner of a business, or a restaurant's admin, starts another business
@@ -2109,7 +2113,7 @@ panel over it.
 | Daily work | **Overview** | Up to four headline figures — sales today (against the same weekday last week by this time), money in today, what customers owe (less advances, the same figure as Udhaar / Outstanding) and what is owed to suppliers — then *Needs doing today* (low stock, batches expiring soon, transfers on the way, counts open, broken promises, repairs ready, orders to dispatch…), *Start here* (the things done most often in this type), sales over the last 14 days, hour by hour and the best sellers, the day's bookings for a salon or clinic, and *What this business uses*. You see only the figures your role may see. |
 | Daily work | The type's own counter and day: a shop's **Quick bill**, a pharmacy's **Prescription sale**, a salon's **New bill** and **Appointments** (the calendar), a clinic's **Today's patients**, a wholesaler's **Sales orders** | Described with each type below. |
 | Daily work | **Sales history** (*Bill history* in a salon or clinic), with Exchanges, Warranties and Orders for pickup where the type has them; **Customers** (*Clients*; a clinic's *Patients*), with Loyalty points | Post a sale at the server's prices, take payment with it or leave it on credit, return goods, refund. Customers carry a GSTIN, a credit limit and credit days; a customer over the limit cannot be given more credit. |
-| Daily work | **Udhaar** (*Customer dues* outside a kirana, a meat shop or another weight-based shop), with *Payments received*; **Daily money**, with Expenses (and EMI & financiers) | What customers owe and what they paid; the day's money and paid expenses (below). |
+| Daily work | **Udhaar** (*Customer dues* outside a kirana, a meat or weight-based shop, a general store, a hardware shop or a seeds and fertiliser shop), with *Payments received*; **Daily money**, with Expenses (and EMI & financiers) | What customers owe and what they paid; the day's money and paid expenses (below). |
 | Business | **Products & services** (named for the type: *Medicines & products*, *Books & stationery*…), with Categories, Barcode labels, Kits & bundles, Offers & discounts, price lists and the type's own (Drug master, Book details, Size × colour, Today's rates, Stylists & services) | Items with GST slab, unit, how they are tracked (quantity, batch and expiry, or serial number), reorder level. Categories nest up to five levels. |
 | Business | **Purchases**, with Suppliers, Purchase orders (every business that keeps stock) and, for a wholesaler, Claims on suppliers | Record what was bought; stock goes up at once at its cost. |
 | Business | **Stock** (*Stock on hand*), with Stock movements, Stock counts, Expiring soon, Transfers and the type's own (Serial / IMEI register, Stock by weight, Cutting & processing, Wastage, Expiry, returns & recalls) | Stock by location and batch with its value; every change has a line in the movements ledger with its reason. A transfer is sent, is *on the way*, then is received (or cancelled). A count is entered over time and **approved** by someone allowed to; only then does stock change, and the differences become reasoned corrections. |
@@ -2878,6 +2882,35 @@ For a business of type Clinics & diagnostic labs, with the business tools **Pati
 - 1-3s, 2-2s, R-4s, 4-1s and 10x reject the run.
 
 While a parameter's latest QC today is failed, its patient reports cannot be approved. The order page shows the QC state, and approval says which rule failed. Note the corrective action and run QC again. *Chart* shows the Levey-Jennings chart (±1/2/3 SD) of the last runs.
+
+## Newer trades on the shared core
+
+Eleven more types run on the shared screens from the day they are created: *Quick bill* (a goods shop) or *Sales* (a service business), products, customers, udhaar or customer dues, purchases, stock, expenses, *Daily money* and reports. Each starts with its trade's units, GST slabs and tools, and its own checklists in the tasks library (*Tasks › Templates*). Their own screens are being added in the order in [BACKLOG.md › New business types](BACKLOG.md#10-new-business-types).
+
+| Type | Starts with | Tools to switch on (recommended in bold) |
+| --- | --- | --- |
+| General store & other shops | Quick bill and retail reports; prices including GST; packs, dozens, pairs, rolls and sets | **Variants** (sizes and colours), **Offers**, batches, loyalty, exchanges, serials and warranties, repairs, weight, wastage, price lists |
+| Hardware, paints & building materials | Quick bill and retail reports; bags, coils, rolls, sheets, sets, feet, quintals and tonnes | **Wholesale price lists** (contractor and dealer rates), **Sales orders** (site orders delivered in parts, with challans), **Stock transfers** (shop and godown), batches, variants, weight, offers, exchanges |
+| Seeds, fertilisers & pesticides | Quick bill and retail reports; batches on (lot and expiry on every sale); bags, packets, bottles, quintals and tonnes | **Wholesale price lists** (dealer rates), weight, offers |
+| Optical shops | Quick bill and retail reports; pairs, packs and bottles | **Batches** (contact-lens expiry), **Variants** (frame colours and sizes), **Appointments** (eye tests with the optometrist), offers, loyalty, exchanges |
+| Vehicle service & auto parts | Quick bill and retail reports for the parts counter; pairs and sets | **Appointments** (service bookings by bay and mechanic), **Wholesale price lists** (mechanic and retailer rates), batches, serials and warranties, offers |
+| Jewellery & gold | Quick bill and retail reports; prices before GST, rounded to the rupee; GST 3% by default, with 0.25% (rough and loose stones), 1.5% (cut and polished diamonds), 5% (job work), 18% (repairs and services) and nil; weights in grams and carats | Serials (a tag number per piece), exchanges, stock transfers, offers, loyalty |
+| Fuel stations | Quick bill and retail reports for lubricants and the shop; customer credit for fleets; litres and cases | **Tasks** (daily nozzle tests, density checks and safety rounds), batches, price lists |
+| Gyms, studios & coaching | Plans and fees as services; *Bill history*; members' dues | **Appointments** (personal-training sessions and trials), offers, loyalty, stock for a shop counter |
+| Laundry & dry cleaning | The price list as services; *Bill history*; monthly accounts | Offers, loyalty, stock |
+| Rentals & hire | Items and charges as services; hire by the day | Stock |
+| Hotels, lodges & guest houses | Rooms and extras as services, sold by the room night; company billing | **Tasks** (housekeeping rounds, maintenance and safety checks), issues, stock |
+
+**GST slabs to check.** The starting slabs follow the rates in force from 22 September 2025, but several items in these trades have a rate of their own:
+
+- cement 18%;
+- spectacles, frames and lenses 5% (sunglasses 18%);
+- fertilisers 5% and chemical pesticides 18%;
+- a gym's, yoga studio's or salon's services 5%, without input tax credit;
+- coaching 18%;
+- a hotel room 5% at ₹7,500 a night or less, 18% above.
+
+Set each item's slab when adding it, and have an accountant confirm them before trading.
 
 ---
 
