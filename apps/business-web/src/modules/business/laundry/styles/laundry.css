@@ -1,0 +1,270 @@
+/* Laundries and dry cleaners: the intake screen's garment buttons and lines,
+   the price grid's cells, the search box of the racks, the order page's
+   facts, and the small notes these screens share. Colours come from the
+   theme's tokens only. */
+
+.ldy-note {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: var(--text-sm);
+}
+.ldy-warn {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+.ldy-grow {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+/* The price grid: a price and how it is priced, side by side in a cell. */
+.ldy-price {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  min-width: 0;
+}
+.ldy-price input {
+  flex: 1 1 80px;
+  min-width: 64px;
+}
+.ldy-price select {
+  flex: 0 0 auto;
+}
+
+/* The intake screen. */
+.ldy-customer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+.ldy-garment-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.ldy-garment-button {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+.ldy-garment-button:hover,
+.ldy-garment-button:focus-visible {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.ldy-lines {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ldy-line {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.ldy-line-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: flex-end;
+}
+.ldy-line-main > .field {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+.ldy-line-no {
+  align-self: center;
+  min-width: 1.6rem;
+  color: var(--muted);
+  font-weight: var(--weight-bold);
+}
+.ldy-line-amount {
+  align-self: center;
+  min-width: 6rem;
+  text-align: right;
+  font-weight: var(--weight-medium);
+}
+.ldy-line-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+  align-self: center;
+}
+.ldy-line-actions .is-marked {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+.ldy-line-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  align-items: flex-end;
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--border);
+}
+.ldy-line-details > .field {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.ldy-line-details > .field-wide {
+  flex-basis: 100%;
+}
+.ldy-defects,
+.ldy-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.ldy-defects {
+  flex-basis: 100%;
+}
+.ldy-picks {
+  flex-direction: column;
+}
+.ldy-defects legend,
+.ldy-picks legend {
+  padding: 0 var(--space-1);
+  color: var(--text-2);
+  font-size: var(--text-sm);
+}
+.ldy-total {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.ldy-total strong {
+  font-size: var(--text-lg);
+}
+.ldy-total .form-actions {
+  margin: 0;
+}
+
+/* A manager's approval inside a form. */
+.ldy-approval {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.ldy-approval > .field {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.ldy-approval legend {
+  padding: 0 var(--space-1);
+  color: var(--text-2);
+  font-size: var(--text-sm);
+}
+
+/* The order page's money facts: each row's term and value sit in the list's grid. */
+.ldy-fact-row {
+  display: contents;
+}
+.ldy-refunds {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ldy-refunds li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+}
+
+/* Ready & racks: one box for a tag, a phone or an order number. */
+.ldy-find {
+  display: flex;
+  gap: var(--space-2);
+  align-items: stretch;
+}
+.ldy-find-input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-xl);
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+.ldy-found {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ldy-found-row {
+  display: grid;
+  grid-template-columns: minmax(4rem, auto) minmax(0, 1.2fr) minmax(0, 1.2fr) auto auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.ldy-found-tag {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+}
+.ldy-found-rack {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+.ldy-found-rack input {
+  width: 7rem;
+}
+@media (max-width: 760px) {
+  .ldy-found-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .ldy-find-input {
+    font-size: var(--text-lg);
+  }
+}

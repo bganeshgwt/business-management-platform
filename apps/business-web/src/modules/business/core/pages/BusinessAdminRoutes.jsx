@@ -137,6 +137,13 @@ const MembersPage = lazy(() => import("../../memberships/pages/MembersPage"));
 const MemberPage = lazy(() => import("../../memberships/pages/MemberPage"));
 const RenewalsPage = lazy(() => import("../../memberships/pages/RenewalsPage"));
 const PlansPage = lazy(() => import("../../memberships/pages/PlansPage"));
+// Laundries and dry cleaners.
+const IntakePage = lazy(() => import("../../laundry/pages/IntakePage"));
+const GarmentOrdersPage = lazy(() => import("../../laundry/pages/GarmentOrdersPage"));
+const GarmentOrderPage = lazy(() => import("../../laundry/pages/GarmentOrderPage"));
+const ReadyRacksPage = lazy(() => import("../../laundry/pages/ReadyRacksPage"));
+const UnclaimedPage = lazy(() => import("../../laundry/pages/UnclaimedPage"));
+const PriceListPage = lazy(() => import("../../laundry/pages/PriceListPage"));
 
 function Notice({ title, children }) {
   return (
@@ -276,6 +283,11 @@ function screens(type) {
     "members": <MembersPage />,
     "renewals": <RenewalsPage />,
     "member-plans": <PlansPage />,
+    "laundry-new": <IntakePage />,
+    "garment-orders": <GarmentOrdersPage />,
+    "ready-racks": <ReadyRacksPage />,
+    "unclaimed": <UnclaimedPage />,
+    "laundry-prices": <PriceListPage />,
   };
 }
 
@@ -352,6 +364,7 @@ export default function BusinessAdminRoutes() {
         <Route path="vehicles/:vehicleId" element={page("vehicles", <VehiclePage />)} />
         <Route path="vehicles/owner/:contactId" element={page("vehicles", <StatementPage />)} />
         <Route path="members/:contactId" element={page("members", <MemberPage />)} />
+        <Route path="garment-orders/:orderId" element={page("garment-orders", <GarmentOrderPage />)} />
         <Route path="tasks/*" element={page("tasks", <TasksRoutes />)} />
         <Route path="*" element={<Notice title="Page not found"><p>Use the menu on the left to find the screen you need.</p></Notice>} />
       </Routes>

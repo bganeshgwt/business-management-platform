@@ -28,6 +28,7 @@ The everyday numbers, such as expiring-soon days, voucher validity, credit age g
 - [Optical shops](#optical-shops)
 - [Vehicle service & auto parts](#vehicle-service--auto-parts)
 - [Gyms, studios & coaching](#gyms-studios--coaching)
+- [Laundry & dry cleaning](#laundry--dry-cleaning)
 - [Restaurant and food formats](#restaurant-and-food-formats)
 
 ## Fixed on purpose
@@ -717,6 +718,76 @@ A gym, a studio or a coaching centre sells its plans as services on bills of the
 
 - **Rule:** the Trainer sees members, their plans and check-ins, checks members in, and sees personal-training sessions and marks them done or missed. Memberships show without prices, bills or dues to anyone whose role does not hold `sales.view`, and the fees due list is for those who do. Selling a membership also needs `sales.create`.
 - **Why:** the floor staff train members; the money is the desk's.
+- **Change it:** *Roles & permissions*.
+
+## Laundry & dry cleaning
+
+A laundry or dry cleaner bills its services on bills of the shared core ([Shops and the shared core](#shops-and-the-shared-core)); with *Garment orders* on it also takes garments in on orders with a tag on each, moves them through the work to the racks, hands them over with their bills, keeps the orders not collected and settles damage claims. Each rule below is checked by the server, and the ones about records that must not change are held by the database too. Every day the rules count (today, overdue, the promised day, days ready) is the business's own date, in its time zone.
+
+### A service is a service item, and its GST is the item's
+
+- **Rule:** each service on the price list is billed as a service item of the catalogue (never goods or a kit): an existing one chosen, or one made with the service from the name, GST slab and SAC typed (its own price stays nil: the price list prices it by garment). The bill takes each line's name, GST slab and SAC from the item. A service keeps its item for good and is switched off, never deleted.
+- **Why:** laundry, dry cleaning, pressing and dyeing are in SAC group 99971 (dry cleaning 999712), at 18% with input tax credit, unchanged since GST began; the cut to 5% without credit from 22 September 2025 is for group 99972 (beauty and physical well-being), not for laundry. The price list warns about a service at another slab.
+- **Change it:** each service's slab and SAC on its item (*Services & items*); have an accountant confirm them.
+
+### A garment's price, and the express surcharge
+
+- **Rule:** a garment kind is counted as a piece, a pair (two pieces) or a set of 2 to 20 pieces, and its name is used once (whatever the capitals). A garment and a service have one price, above nil: for each one (as the garment is counted) or by the kilo. A garment is priced at its price times how many (whole), or its price a kilo times the kilos (to three places), rounded to the paisa, halves up. An express order adds the business's express surcharge to every garment: that percentage of its price, rounded to the paisa, halves up. GST goes on each garment's price (prices before GST) or comes out of it (prices including GST), as on any bill; the order's total rounds to the rupee when the business rounds its bills. An order keeps every garment's price, surcharge and GST as taken in, and the express percentage as it was then; a later change to the price list applies to orders taken in after it. Every price change, and a price taken off the list, is in the activity log. A garment kind is switched off, never deleted.
+- **Why:** the customer agreed the price at the counter, and the receipt shows it; a weighed bundle is priced exactly by its weight.
+- **Change it:** the prices and the express surcharge (0 to 200%, none to start with) on *Services & items › Price list*; the surcharge by a role that holds `settings.edit`, the prices by one that holds `catalog.edit`.
+
+### One tag, one garment in the shop
+
+- **Rule:** every garment (or several of a kind under one tag, or a bundle by the kilo) has a tag: the next number of the business's own count, or one typed (capital letters, digits, `/` and `-`, up to 20, starting with a letter or a digit). No two garments in the shop (received, in process or ready) hold the same tag; a tag is free again once its garment is delivered or cancelled. A garment is re-tagged only while it is in the shop, or when a delivered one is taken back in for reprocessing. Each piece gets its own tag label.
+- **Why:** the tag finds the garment on the racks and at the handover; numbers reused only once the garment has left keep every tag in the shop unique.
+- **Change it:** nothing to set.
+
+### What was noted at intake stays on the garment
+
+- **Rule:** at intake a garment may have its defects (stain, tear, hole, missing button, colour bleed, fading, shrinkage, burn mark, worn, loose threads) and a note on them, the customer's instructions, what the customer was told about the risk to it, whether they acknowledged it (only when something is noted), and a value they declared. All of it, and the garment, service and price, is kept as taken in: the database refuses any change, and a garment is never deleted. The acknowledgement records what the customer was told; it never limits a claim, and nothing here caps what a claim may be.
+- **Why:** consumer commissions hold a laundry liable for its own negligence even when its receipt says it takes no responsibility, and claims turn on proof: what was noted and acknowledged at intake is that proof.
+- **Change it:** nothing to set; the shop's own terms on *Services & items › Price list* print on every receipt.
+
+### A garment's steps, and the order's status
+
+- **Rule:** a garment goes from received into the work (in process) and to ready on a rack, or straight from received to ready (a quick press); a ready one goes back into the work only with the reason, or is handed over. A garment in the shop is cancelled with a reason. A delivered garment comes back only for reprocessing under a damage claim decided at that moment. The database refuses any other move, and a cancelled garment never changes. The order's status is worked out from its garments: received, in process, partly ready, ready to collect, partly delivered, delivered (nothing left in the shop), or cancelled (every garment cancelled). An order is late when its promised day has passed with garments not ready. Garments go on an order only when it is taken in: more garments are a new order. An order keeps its number, customer, rules, prices and terms; only its promised day (not one that has passed, within 90 days) and notes change. Every step is kept in the history, with who made it, and never changed.
+- **Why:** the board shows where every garment is, and the history who did what.
+- **Change it:** who moves garments is the role's `laundry.edit` (the owner, a manager, a cashier and a stock keeper by default); who cancels, `laundry.cancel` (the owner and a manager).
+
+### Billed at intake or at delivery
+
+- **Rule:** an order is billed as the business's rule says when it is taken in, and keeps that rule. Billed at delivery: nothing is billed at intake; an advance may be taken, a numbered collection receipt in the customer's name, at most the order's total; each handover posts a bill through the core, one line a garment at the price taken in with GST at its service item's rate of the day, and the advance pays it first. Billed at intake: the bill is posted with the order, one line a garment, paid then or later. Each bill line names the service, the garment (with the kilos and pieces of a bundle), express when it carried the surcharge, and the tag. A garment is delivered only with its bill line.
+- **Why:** most shops bill when the customer collects, against the advance taken; some bill at the counter. GST is worked out at the rate of the day of the invoice.
+- **Change it:** *Billed* in the order settings (*Services & items › Price list*; at delivery to start with), by a role that holds `settings.edit`.
+
+### Garments are held until paid
+
+- **Rule:** a handover is refused while money is owed as the order's rule says: the whole order (what is due on all its bills, after this handover's bill and payment) or, when each handover pays for its own, the garments handed over. A customer with an account with the shop (credit days or a credit limit on their customer record) may take them with money still owed, on the account; the handover records it. Someone else may collect them, named on the handover.
+- **Why:** a bailee who has done work on goods (labour or skill) may keep them until paid, unless agreed otherwise (Indian Contract Act, section 170); credit agreed with the customer sets that aside.
+- **Change it:** *Part of an order handed over* in the order settings (the whole order to start with); the customer's credit days and credit limit on their record.
+
+### Cancelling gives a credit note, and money back with a PIN
+
+- **Rule:** cancelling garments still in the shop needs a reason. A garment not billed is simply cancelled. A billed one is credited in full: one credit note on each bill (its GST in the line's own proportion), and what the customer paid beyond what is then due on the bill is refunded only when asked, with `laundry.refund` and a manager's PIN; otherwise it stays to their credit on the bill. A garment with a damage claim waiting, or one already credited on a claim, is not cancelled. An advance on an order billed at delivery is handed back from the order (all that is left or part, by cash, UPI or bank, with a reason and a manager's PIN for `sales.refund`) only once nothing is left on it to bill; otherwise it pays the next bill. A bill line that charges a garment is credited only from its order: the database refuses a credit note on it made any other way.
+- **Why:** the bill, the order and the garments agree; money leaving the drawer needs a second person's say-so.
+- **Change it:** who cancels is the role's `laundry.cancel`, who gives money back `laundry.refund`, and who approves handing an advance back `sales.refund` (the owner and a manager by default).
+
+### Damage claims are decided once, within the garment's charge
+
+- **Rule:** a claim is recorded on a garment of the order that is not cancelled: what is wrong, what the customer says and an amount they ask for. It keeps when it was reported (and how many days after the handover), and one claim at a time waits on a garment. A manager decides it once, and it never changes after: money back (a credit note on the garment's bill line for the amount given, and what the customer paid beyond what is then due refunded with the manager's PIN), a credit note only, reprocessing at no charge (a ready garment goes back into the work; a delivered one is taken back in under its tag or a new one), or rejected with a note why. Money back and a credit note need the garment billed, are at most its charge on the bill, and are given once. Claims are never deleted.
+- **Why:** a credit note can only take back what was billed; compensation beyond the charge (the garment's value) is agreed and paid outside the bill. A customer who collects and pays without protest weakens a later claim, so the claim keeps when it was reported.
+- **Change it:** who records claims is the role's `laundry.edit`; who decides them `laundry.refund` (the owner and a manager by default).
+
+### Orders not collected are kept, not disposed of
+
+- **Rule:** an order whose garments still in the shop are all ready, the last of them for the business's days or more, is listed as unclaimed, the longest waiting first. Each reminder sent (WhatsApp or a call) is kept, with how many. The garments stay held until paid; nothing here disposes of a garment.
+- **Why:** no Indian rule was found that lets a shop dispose of garments not collected; the reminders sent are the shop's record.
+- **Change it:** *Unclaimed after (days ready)* in the order settings (30 to start with; 1 to 365).
+
+### Someone who does not see sales sees no money
+
+- **Rule:** orders, garments, handovers and claims show without prices, totals, bills or dues to anyone whose role does not hold `sales.view` (a stock keeper pressing the garments, say), and the order's history names bills and receipts, never amounts. Taking orders in needs `laundry.create` (with `sales.create` when they are billed at intake), and taking money `sales.edit`.
+- **Why:** the work is the floor's; the money is the counter's.
 - **Change it:** *Roles & permissions*.
 
 ## Restaurant and food formats

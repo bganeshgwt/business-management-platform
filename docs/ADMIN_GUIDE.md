@@ -93,6 +93,7 @@ on record.
 - [Optical shops](#optical-shops)
 - [Vehicle service & auto parts](#vehicle-service--auto-parts)
 - [Gyms, studios & coaching](#gyms-studios--coaching)
+- [Laundry & dry cleaning](#laundry--dry-cleaning)
 
 **[Part 4 — Tasks, issues & projects](#part-4--tasks-issues--projects)**
 
@@ -2120,10 +2121,10 @@ panel over it.
 | Menu | Entry, and the tabs inside it | What they are for |
 | --- | --- | --- |
 | Daily work | **Overview** | Up to four headline figures — sales today (against the same weekday last week by this time), money in today, what customers owe (less advances, the same figure as Udhaar / Outstanding) and what is owed to suppliers — then *Needs doing today* (low stock, batches expiring soon, transfers on the way, counts open, broken promises, repairs ready, orders to dispatch…), *Start here* (the things done most often in this type), sales over the last 14 days, hour by hour and the best sellers, the day's bookings for a salon or clinic, and *What this business uses*. You see only the figures your role may see. |
-| Daily work | The type's own counter and day: a shop's **Quick bill**, a pharmacy's **Prescription sale**, a salon's **New bill** and **Appointments** (the calendar), a clinic's **Today's patients**, a wholesaler's **Sales orders**, a garage's **Job cards**, a gym's **Check-in** | Described with each type below. |
+| Daily work | The type's own counter and day: a shop's **Quick bill**, a pharmacy's **Prescription sale**, a salon's **New bill** and **Appointments** (the calendar), a clinic's **Today's patients**, a wholesaler's **Sales orders**, a garage's **Job cards**, a gym's **Check-in**, a laundry's **New order** and **Orders** (with Ready & racks and Unclaimed) | Described with each type below. |
 | Daily work | **Sales history** (*Bill history* in a salon or clinic), with Quotations, Exchanges, Warranties and Orders for pickup where the type has them; **Customers** (*Clients*; a clinic's *Patients*), with Loyalty points (and a garage's Vehicles and Service due; a gym's **Members**, with Renewals and Member contacts) | Post a sale at the server's prices, take payment with it or leave it on credit, return goods, refund. Customers carry a GSTIN, a credit limit and credit days; a customer over the limit cannot be given more credit. |
 | Daily work | **Udhaar** (*Customer dues* outside a kirana, a meat or weight-based shop, a general store, a hardware shop or a seeds and fertiliser shop), with *Payments received*; **Daily money**, with Expenses (and EMI & financiers) | What customers owe and what they paid; the day's money and paid expenses (below). |
-| Business | **Products & services** (named for the type: *Medicines & products*, *Books & stationery*…), with Categories, Barcode labels, Kits & bundles, Offers & discounts, price lists and the type's own (Drug master, Book details, Size × colour, Today's rates, Stylists & services) | Items with GST slab, unit, how they are tracked (quantity, batch and expiry, or serial number), reorder level. Categories nest up to five levels. |
+| Business | **Products & services** (named for the type: *Medicines & products*, *Books & stationery*…), with Categories, Barcode labels, Kits & bundles, Offers & discounts, price lists and the type's own (Drug master, Book details, Size × colour, Today's rates, Stylists & services, a laundry's Price list) | Items with GST slab, unit, how they are tracked (quantity, batch and expiry, or serial number), reorder level. Categories nest up to five levels. |
 | Business | **Purchases**, with Suppliers, Purchase orders (every business that keeps stock) and, for a wholesaler, Claims on suppliers | Record what was bought; stock goes up at once at its cost. |
 | Business | **Stock** (*Stock on hand*), with Stock movements, Stock counts, Expiring soon, Transfers and the type's own (Serial / IMEI register, Stock by weight, Cutting & processing, Wastage, Expiry, returns & recalls) | Stock by location and batch with its value; every change has a line in the movements ledger with its reason. A transfer is sent, is *on the way*, then is received (or cancelled). A count is entered over time and **approved** by someone allowed to; only then does stock change, and the differences become reasoned corrections. |
 | Business | The type's own records: **Registers & prescriptions** (pharmacy), **Booklists & orders** (books), **Repairs** (electronics), **Packages** (salon), **Lab orders** (clinic), **Farm inputs** (seeds, fertilisers & pesticides) | Described with each type below. |
@@ -2998,7 +2999,7 @@ Eleven more types run on the shared screens from the day they are created: *Quic
 | Jewellery & gold | Quick bill and retail reports; prices before GST, rounded to the rupee; GST 3% by default, with 0.25% (rough and loose stones), 1.5% (cut and polished diamonds), 5% (job work), 18% (repairs and services) and nil; weights in grams and carats | Serials (a tag number per piece), exchanges, stock transfers, offers, loyalty |
 | Fuel stations | Quick bill and retail reports for lubricants and the shop; customer credit for fleets; litres and cases | **Tasks** (daily nozzle tests, density checks and safety rounds), batches, price lists |
 | Gyms, studios & coaching | Its own screens: see [Gyms, studios & coaching](#gyms-studios--coaching) below | See the same section |
-| Laundry & dry cleaning | The price list as services; *Bill history*; monthly accounts | Offers, loyalty, stock |
+| Laundry & dry cleaning | Its own screens: see [Laundry & dry cleaning](#laundry--dry-cleaning) below | See the same section |
 | Rentals & hire | Items and charges as services; hire by the day | Stock |
 | Hotels, lodges & guest houses | Rooms and extras as services, sold by the room night; company billing | **Tasks** (housekeeping rounds, maintenance and safety checks), issues, stock |
 
@@ -3008,6 +3009,7 @@ Eleven more types run on the shared screens from the day they are created: *Quic
 - spectacles, frames and lenses 5% (sunglasses 18%);
 - fertilisers 5% and chemical pesticides 18%;
 - a gym's, yoga studio's or salon's services 5%, without input tax credit;
+- laundry, dry cleaning, pressing and dyeing 18%, with input tax credit (not the 5% of a gym's or salon's services);
 - coaching 18%;
 - a hotel room 5% at ₹7,500 a night or less, 18% above.
 
@@ -3692,6 +3694,181 @@ check-ins, checks members in, and sees personal-training sessions and marks
 them done or missed, with no prices and no money; a manager does all of it,
 cancels memberships and approves with their PIN what a cancellation gives
 back; an accountant and a viewer see the screens and export them.
+
+## Laundry & dry cleaning
+
+A laundry or dry cleaner takes garments in on a garment order, with a tag on
+every garment, and bills its services with prices before GST. A new one starts
+with **Garment orders** on; offers, loyalty and stock for what it sells over
+the counter can be switched on in Settings › Business tools. **New order** (the
+intake screen) and **Orders** are daily entries of their own; *Orders* holds
+*Ready & racks* and *Unclaimed*; the price list and the order settings are
+under *Services & items › Price list*.
+
+**Before trading:**
+
+1. **The services and their GST** — *Services & items › Price list*, *Add a
+   service*: each service the shop offers (wash and fold, wash and iron, dry
+   cleaning, steam press, stain removal…) is billed as a service item, an
+   existing one or one made with the service (its name, GST slab and SAC).
+   Its name on the bill, its GST slab and its SAC come from the item.
+   Laundry, dry cleaning, pressing and dyeing (SAC group 99971; dry cleaning
+   999712) are at 18% with input tax credit: the cut to 5% from 22 September
+   2025 is for group 99972 (beauty and physical well-being), not for
+   laundry. The price list warns about a service at another slab. Have an
+   accountant confirm each code before trading.
+2. **The garments** — *Add a garment*: its name and how one is counted: a
+   piece, a pair (two pieces: socks, shoes) or a set of pieces (a two-piece
+   suit). Each piece gets its own tag label.
+3. **The prices** — in the grid, each garment's price for each service, for
+   each one (piece, pair or set) or by the kilo (a bundle weighed at the
+   counter). An empty box: that garment does not take that service. *Save*
+   keeps the prices changed; the activity log keeps every change, and an
+   order keeps the prices it was taken in at. A garment or a service is
+   switched off, never deleted.
+4. **Order settings** (the same screen, for those who may change settings):
+   - *Billed*: at delivery (to start with: the bill is made when the garments
+     are handed over, and an advance may be taken at intake), or at intake
+     (the bill is made when the order is taken in, paid then or later);
+   - *Part of an order handed over*: the whole order paid before any garment
+     leaves (to start with), or each handover paying for its own garments;
+   - *Express surcharge (%)*: added to each garment's price on an express
+     order (none until set);
+   - the days to the promised day (3), and for express (1);
+   - *Unclaimed after (days ready)* (30);
+   - *Terms printed on every receipt*: the shop's terms in its own words.
+
+   Orders keep the rules they were taken in under.
+5. **What the receipt says** — a printed "no responsibility" disclaimer does
+   not protect a laundry from its own negligence: a district consumer
+   commission has held so over a silk saree returned with stains. Claims turn
+   on proof: consumer commissions accept a shop's own WhatsApp messages as
+   evidence, and a customer who collects and pays without protest weakens a
+   later claim. Note each garment's defects and the risk explained to the
+   customer at intake, and have them acknowledge it (below).
+6. **The tag labels** — a label roll of 50 × 25 mm, or an A4 sheet of 40
+   labels: chosen on an order's page (*Roll* or *A4*).
+
+**The screens:**
+
+- **New order** (*New order*) — the counter's intake screen. The customer,
+  found by name or phone, or *New customer* (name and phone). A button for
+  each garment on the price list: each tap adds a line with its service (the
+  one last used for that garment, or its first). On each line: the service
+  with its price; how many (pairs or sets) under one tag, or for a bundle by
+  the kilo its weight and the pieces counted in it; colour and brand.
+  *Noted* opens what was seen at intake: the defects (stain, tear, hole,
+  missing button, colour bleed, fading, shrinkage, burn mark, worn, loose
+  threads) with a note, the customer's instructions, what the customer was
+  told about the risk to it, *The customer saw and acknowledged this*, a value
+  they declared, and a tag typed by hand (empty: the next number). The risk
+  note records what was said and acknowledged; it never limits a claim.
+  *Another* adds one more of the same with its own tag. *Express* adds the
+  surcharge to every garment. The promised day is suggested from the days
+  set, today to 90 days ahead. Billed at delivery, an *Advance taken* (cash,
+  UPI, card or bank) is a numbered receipt that comes off the bill at the
+  handover; billed at intake, *Paid now* goes on the bill and the rest stays
+  on the customer's dues. The figures are the server's, as the order will be
+  kept (before GST, GST, total). *Take in the order* numbers it
+  (*LO/2627/0001*, Settings › Number series) and opens it with *Print the
+  receipt*, *Print the tags*, *WhatsApp the order* and *Next order*.
+- **Orders** (*Orders*) — the open orders, with a chip and its count for each:
+  all open, due today, overdue, ready to collect, received, in process, partly
+  ready, partly delivered, express and claims waiting. Each row has its
+  garments, status, promised day, racks, what is to pay and *WhatsApp*. *All
+  orders by date* lists every order, delivered and cancelled ones too. Search
+  by order, customer, phone, tag or rack.
+- **An order's page** — the customer, when and where it was taken in, its
+  status worked out from its garments (received, in process, partly ready,
+  ready to collect, partly delivered, delivered, or cancelled when every
+  garment is), the promised day (late once it has passed with garments not
+  ready), the total and what is to pay. The steps, each shown to those who
+  may take it:
+  - *Into the work* — received garments, all or those chosen;
+  - *Ready on a rack* — garments received or in the work, onto a rack and
+    slot (*B-7*) where they hang;
+  - *Back into the work* — a ready garment, saying why;
+  - *Hand over* and *Cancel garments* — below;
+  - *Promised day* — a new day, and the order's notes.
+
+  *Tell the customer* opens WhatsApp with the message ready (taken in, ready
+  to collect, running late, a reminder to collect) or calls them, and notes it
+  in the history. The garments show each tag, garment and service, colour and
+  brand, what was noted at intake, the status and rack, and the charge with
+  its bill; *Re-tag* gives a garment in the shop another tag (no two garments
+  in the shop hold the same tag), *Tag or rack* moves a ready one, and *Tag*
+  prints its label again. *Bills and money* shows each bill with what was
+  credited, paid and is still due (its number prints the tax invoice), what
+  the garments not billed yet come to today, and the advance with what is
+  left of it. *Handovers*, *Damage claims* and the *History* of every step
+  follow. *Receipt* prints the order receipt for the customer: every garment
+  with its tag, what was noted and acknowledged, the prices (for those who
+  see money), the shop's terms and the hold until paid, with a line to sign.
+  *Tags* prints a label for every piece of the garments in the shop, with its
+  tag number as a barcode.
+- **Handing over** (*Hand over*) — the ready garments, all or those chosen.
+  Billed at delivery, the bill is posted now: one line a garment, at the price
+  it was taken in at, with GST at its service's rate of the day (every garment
+  of the order still in the shop when the whole order is paid first; only the
+  garments handed over when each handover pays for its own); the advance pays
+  it first. Billed at intake, what is paid now goes on the order's bill.
+  *Collected now* is what is left to pay, by cash, UPI, card or bank; a bill
+  over ₹2,00,000 asks for the buyer's PAN unless it is saved with the
+  customer. The garments are held until paid as the order's rule says: a
+  bailee who has done work on goods may keep them until paid (Indian Contract
+  Act, section 170), unless agreed otherwise. A customer with an account with
+  the shop (credit days or a credit limit on their customer record) may take
+  them with money still owed, *On the customer's account*. *Collected by*
+  names someone else who collected them.
+- **Cancelling** (*Cancel garments*) — garments still in the shop, all or
+  those chosen, with a reason. Not billed yet: they are cancelled, and an
+  advance stays the customer's: *Hand back the advance* (with a manager's
+  PIN) once nothing is left on the order to bill, or keep it on their
+  account. Billed: each garment's bill line is credited in full, on one
+  credit note for each bill; what the customer paid beyond what is then due
+  goes back when *Give the money back now* is ticked, by cash, UPI, card or
+  bank, with a manager's PIN; otherwise it stays to their credit on the bill.
+  A garment with a damage claim waiting is decided first.
+- **Ready & racks** (*Orders › Ready & racks*) — one box finds a garment by its
+  tag (a scanner types it and presses Enter), the customer's phone or the
+  order number, those in the shop first, with its status and rack. *Ready*
+  puts a finished garment on the rack typed; *Move* moves a ready one. Below:
+  every garment ready on the racks, rack by rack, with how long it has waited.
+- **Unclaimed** (*Orders › Unclaimed*) — orders whose garments are all ready
+  and not collected for the shop's days or more (30 to start with), the
+  longest waiting first, with the garments and racks, what is to pay and the
+  reminders sent. *WhatsApp* opens a reminder with the amount to pay, *Call*
+  calls; each is kept, with how many were sent. The garments stay held until
+  paid; nothing here disposes of a garment, and no Indian rule was found that
+  lets a shop dispose of garments not collected.
+- **Damage claims** (*Damage claim* on an order's page) — the garment, what is
+  wrong (damage, stain, shrinkage, colour run, lost, missing part, other),
+  what the customer says and an amount they ask for. One claim at a time
+  waits on a garment, and a manager decides it once:
+  - *Money back* — part or all of the garment's charge comes back as a credit
+    note on its bill line, and what the customer paid beyond what is then due
+    is refunded (cash, UPI, card or bank), with the manager's PIN;
+  - *Credit note* — a credit note only: it lowers what the customer owes, or
+    stays to their credit on the bill;
+  - *Reprocess* — the work is done again at no charge: a ready garment goes
+    back into the work, and a delivered one is taken back in under its tag
+    or a new one;
+  - *Rejected* — with a note why.
+
+  A credit note or a refund is at most the garment's charge on the bill, and
+  only once it is billed; compensation beyond it (the garment's value) is paid
+  outside the bill. What was noted and acknowledged at intake stays on the
+  garment, and each claim keeps when it was reported.
+- **The bell** — orders past their promised day with garments not ready, and
+  the orders ready and not collected for the shop's days.
+
+Who does what: a cashier at the counter takes orders in, moves garments
+through the work and onto the racks, hands them over with their bills and
+money, records damage claims and prints receipts and tags; a stock keeper
+(the presser, say) moves garments through the work and onto the racks and
+sees the orders without their money; a manager does all of it, cancels
+garments and decides damage claims, approving money back with their PIN; an
+accountant sees and prints, and a viewer sees.
 
 ---
 

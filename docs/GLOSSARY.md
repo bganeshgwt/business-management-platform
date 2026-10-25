@@ -260,6 +260,31 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Trainer** | Someone who trains members; in a gym, studio or coaching centre, the role that sees members, their plans and check-ins, checks members in and sees no money. |
 | **5% without input tax credit** | The GST on the services of a gym, health club, fitness centre or yoga centre from 22 September 2025: 5%, with no credit for what was bought for them, and no choice of 18% with credit. |
 
+### Laundry & dry cleaning
+
+| Word | Meaning |
+|---|---|
+| **Garment order** | Garments taken in from a customer at the counter, each with its tag and service, from intake to the handover (LO/2627/0001). Not a GST document: its bill is. |
+| **Tag** | The number on a garment (or on several of a kind under one tag, or on a bundle by the kilo) from intake until it leaves; printed as a label for every piece, with its barcode. No two garments in the shop hold the same tag. |
+| **Price list** | Each garment's price for each service: for each piece, pair or set, or by the kilo. |
+| **Per piece, per pair, per set** | How a garment is counted and priced: a shirt is a piece, socks a pair, a two-piece suit a set of two pieces. |
+| **By the kilo** | A bundle (wash and fold, say) weighed at the counter and priced by its weight, with its pieces counted too. |
+| **Express** | An order done sooner, at a surcharge: the shop's percentage added to every garment's price. |
+| **Promised day** | The day the customer is told the garments will be ready; an order is late once it has passed with garments not ready. |
+| **Defects noted at intake** | What was seen on a garment when it came in (a stain, a tear, a missing button, colour bleed…), kept on the order and printed on the receipt. |
+| **Owner's risk** | What the customer was told about the risk to a delicate garment (old silk, loose colour) and acknowledged at intake: a record of what was said, never a limit on a claim. |
+| **Declared value** | What the customer says a garment is worth, noted at intake. |
+| **In process** | A garment in the work: washing, cleaning or pressing. |
+| **Rack** | Where a finished garment hangs to be collected, with its slot (B-7). |
+| **Ready to collect** | Every garment of an order still in the shop is ready; *partly ready* when some are. |
+| **Handover** | Garments given to the customer (or someone they send), with their bill when billed at delivery; *partly delivered* when some are still in the shop. |
+| **Billed at intake / at delivery** | When a laundry's orders are billed: when taken in, or when the garments are handed over (an advance may be taken first). |
+| **Lien (held until paid)** | A laundry's right to keep garments it has worked on until it is paid (Indian Contract Act, section 170), unless agreed otherwise, as with a customer given credit. |
+| **Unclaimed** | An order ready and not collected for the shop's days (30 to start with); the reminders sent are kept, and nothing is disposed of. |
+| **Damage claim** | A customer's complaint that a garment came back damaged, stained, shrunk, with its colour run, lost or missing a part; a manager decides it: money back, a credit note, reprocessing or rejected. |
+| **Reprocess** | The work done again at no charge, the garment taken back in under a damage claim. |
+| **SAC 99971** | The GST group of laundry, dry cleaning, pressing and dyeing (dry cleaning 999712): 18% with input tax credit. |
+
 ### Clinic and lab
 
 | Word | Meaning |

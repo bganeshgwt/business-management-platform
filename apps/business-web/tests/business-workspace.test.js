@@ -133,6 +133,20 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   assert.ok(floor.some(l=>l.section==='check-in')&&floor.some(l=>l.section==='members'),'a trainer finds the desk and the members');
   assert.ok(!floor.some(l=>['sales','udhaar','outstanding','day-close'].includes(l.section)),'a trainer has no money screens');
   for(const type of ['grocery','salon','garage'])for(const section of ['check-in','members','renewals','member-plans'])assert.ok(!typeAllows(sectionRule(section,type),type),`${type}: no ${section}`);
+  // A laundry's counter: New order and its Orders (with Ready & racks and Unclaimed) are daily entries of their own; its price list sits with its services.
+  const daily=businessMenu(33,'laundry',()=>true,()=>true).find(g=>g.title==='Daily work').links;
+  assert.deepEqual(daily.slice(1,3).map(l=>[l.section,l.label]),[['laundry-new','New order'],['garment-orders','Orders']]);
+  assert.deepEqual(daily.find(l=>l.section==='garment-orders').pages.map(p=>p.label),['Orders','Ready & racks','Unclaimed']);
+  assert.equal(workspaceFor('ready-racks','laundry'),'garmentOrders');
+  assert.equal(workspaceFor('laundry-prices','laundry'),'products');
+  assert.equal(menu('laundry').find(l=>l.section==='products').label,'Services & items');
+  assert.ok(pages('laundry').some(p=>p.to.endsWith('/laundry-prices')&&p.label==='Price list'),'laundry: its price list with its services');
+  assert.ok(!menu('laundry',m=>m!=='laundry').some(l=>['laundry-new','garment-orders'].includes(l.section)),'no garment orders while the module is off');
+  // The presser (a stock keeper) finds the orders and the racks, and no counter.
+  const press=new Set(['laundry.view','laundry.edit','catalog.view','inventory.view']);
+  const work=businessMenu(33,'laundry',p=>press.has(p),()=>true).flatMap(g=>g.links);
+  assert.ok(work.some(l=>l.section==='garment-orders')&&!work.some(l=>l.section==='laundry-new'),'a presser finds the orders, not the counter');
+  for(const type of ['grocery','salon','memberships'])for(const section of ['laundry-new','garment-orders','ready-racks','unclaimed','laundry-prices'])assert.ok(!typeAllows(sectionRule(section,type),type),`${type}: no ${section}`);
 });
 test('restricted roles get a permitted destination even when the first workspace page is unavailable',()=>{
   const permissions=new Set(['purchasing.view','contacts.view','inventory.view','catalog.view']);

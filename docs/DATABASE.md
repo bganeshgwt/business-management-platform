@@ -11,7 +11,7 @@ PostgreSQL 15 or newer (built and tested on 18). One database holds the whole pl
 | [Business platform](#business-platform) | platform catalogue, business access, business core, shared core, one extension group per business type, and tasks, issues & projects | `business_id` on every row, with composite foreign keys |
 | [Catalogues](#business-types) | business types, platform module codes, business and restaurant permission codes | — |
 
-**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Licences](#licences) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) · [Optical shops](#optical-shops) · [Vehicle service & auto parts](#vehicle-service--auto-parts) · [Gyms, studios & coaching](#gyms-studios--coaching) · [Tasks, issues & projects](#tasks-issues--projects). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
+**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Licences](#licences) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) · [Optical shops](#optical-shops) · [Vehicle service & auto parts](#vehicle-service--auto-parts) · [Gyms, studios & coaching](#gyms-studios--coaching) · [Laundry & dry cleaning](#laundry--dry-cleaning) · [Tasks, issues & projects](#tasks-issues--projects). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
 
 The business platform's design (its five layers, the rules every table follows, and why) is explained in [BUSINESS_PLATFORM_DATA_MODEL.md](BUSINESS_PLATFORM_DATA_MODEL.md). This file gives the table-by-table reference and links there instead of repeating it. A restaurant also appears on the platform as one `businesses` row whose `legacy_restaurant_id` points at it; its own tables are unchanged.
 
@@ -1087,7 +1087,7 @@ Linked sections: [data model §1](BUSINESS_PLATFORM_DATA_MODEL.md#1-platform) an
 Purpose: the permission catalogue. Each row is one `<module>.<action>` pair; the codes are listed under [Business permission codes](#business-permission-codes).
 Key columns: `code` (TEXT PK), `module_code` -> `platform_modules`, `action` (view, create, edit, approve, cancel, refund, export, print, discount, assign, review, manage, view_clinical, edit_clinical), `name`, `sort_order`.
 Rules: UNIQUE (`module_code`, `action`). CHECK `code = module_code || '.' || action`. The action CHECK lists every value, so a migration that adds an action rewrites the whole list.
-Added by: 1791300000001 business-roles-and-permissions; codes also from 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791540000000, 1791580000000, 1791620000000, 1791620001000, 1791620002000, 1791620004000, 1791950400000, 1791961000000, 1791962000000, 1791963000000, 1791964000000 and 1791965000000.
+Added by: 1791300000001 business-roles-and-permissions; codes also from 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791540000000, 1791580000000, 1791620000000, 1791620001000, 1791620002000, 1791620004000, 1791950400000, 1791961000000, 1791962000000, 1791963000000, 1791964000000, 1791965000000 and 1791966000000.
 
 #### `business_role_templates`
 Purpose: the standard roles the platform defines once: owner, manager, cashier, stock_keeper, accountant and viewer for every type, plus pharmacist for a pharmacy, doctor, lab_technician and pathologist for healthcare, optometrist for an optical shop, mechanic for a garage, and trainer for a gym, studio or coaching centre.
@@ -1165,7 +1165,7 @@ Added by: 1791300000002.
 #### `business_number_series`
 Purpose: document numbering, one series per business, location, document kind and fiscal year. A number is taken with `UPDATE … next_number + 1` inside the posting transaction.
 Key columns: `location_id`, `document_kind`, `fiscal_year` (the year the fiscal year starts in), `prefix`, `next_number`, `padding`.
-`document_kind`: sale, purchase, sales_return, purchase_return, stock_transfer, stock_count, sales_order, collection, repair_job, processing, supplier_payment, purchase_order (PO/…), delivery_challan (DC/…), quotation (QT/…; not a GST document), spectacle_order (SPO/…), job_card (JC/…; not a GST document) and membership (MS/…; not a GST document).
+`document_kind`: sale, purchase, sales_return, purchase_return, stock_transfer, stock_count, sales_order, collection, repair_job, processing, supplier_payment, purchase_order (PO/…), delivery_challan (DC/…), quotation (QT/…; not a GST document), spectacle_order (SPO/…), job_card (JC/…; not a GST document), membership (MS/…; not a GST document) and laundry_order (LO/…; not a GST document).
 Rules:
 - UNIQUE (business, location, kind, year) and UNIQUE (business, prefix).
 - A prefix may contain only letters, digits, `/` and `-`, and must not end in a digit.
@@ -1174,7 +1174,7 @@ Rules:
   - `next_number` never decreases;
   - prefix and padding are fixed once a number has been used;
   - business, location, kind and year never change.
-Added by: 1791300000002; kinds from 1791410000000 (sales_order, collection), 1791420000001 (repair_job), 1791430000001 (processing), 1791540000000 (supplier_payment), 1791620003000 (purchase_order, delivery_challan), 1791961000000 (quotation), 1791963000000 (spectacle_order), 1791964000000 (job_card) and 1791965000000 (membership).
+Added by: 1791300000002; kinds from 1791410000000 (sales_order, collection), 1791420000001 (repair_job), 1791430000001 (processing), 1791540000000 (supplier_payment), 1791620003000 (purchase_order, delivery_challan), 1791961000000 (quotation), 1791963000000 (spectacle_order), 1791964000000 (job_card), 1791965000000 (membership) and 1791966000000 (laundry_order).
 
 #### `business_capabilities`
 Purpose: the optional modules switched on for a business ([§1](BUSINESS_PLATFORM_DATA_MODEL.md#1-platform)).
@@ -1359,8 +1359,10 @@ Key columns: `return_id`, `line_id` -> `business_document_lines`, `quantity`, `n
 Rules:
 - UNIQUE (`return_id`, `line_id`).
 - Trigger `business_return_lines_salon_plan` (function `salon_plan_line_return`) refuses to return a line that sold a salon package or membership while that plan is still active.
+- Trigger `business_return_lines_member_plan` (function `member_plan_line_return`) refuses to return a line that sold a gym's membership (its plan or its joining fee) unless the return is the credit note the membership made (its `credit_key`): a cancellation or an upgrade.
+- Trigger `business_return_lines_laundry` (function `laundry_line_return`) refuses to return a line that charges a laundry garment unless the return is the credit note its order made (the garment's `credit_key`): a cancelled garment, or a damage claim settled with money back or a credit note.
 - Index `business_return_lines_line` (business, line) lets the bills lists read a line's returns without scanning the table.
-Added by: 1791280000001; 1791430000000 (the trigger); 1791950412000 (the index).
+Added by: 1791280000001; 1791430000000 (the trigger); 1791950412000 (the index); 1791966000000 (the laundry trigger).
 
 #### `business_refunds`
 Purpose: money paid back on a document.
@@ -1499,9 +1501,9 @@ Added by: 1791580000000.
 
 #### `business_collection_refunds`
 Purpose: money paid in advance (a `business_collections` receipt) handed back.
-Key columns: `collection_id`, `contact_id`, `refund_no` (`<receipt no>-R<n>`), `amount` (> 0), `method` (cash, upi, bank), `method_name`, `reference`, `reason` (not blank), `source` (`salon`, `repair`, `optical` or `garage`; a repair refund names its `repair_job_id`, and a spectacle order's or a job card's is found through its `advance_collection_id`), `approved_by` (the manager whose PIN was typed), `request_key`, `request_hash`, `created_by`.
+Key columns: `collection_id`, `contact_id`, `refund_no` (`<receipt no>-R<n>`), `amount` (> 0), `method` (cash, upi, bank), `method_name`, `reference`, `reason` (not blank), `source` (`salon`, `repair`, `optical`, `garage` or `laundry`; a repair refund names its `repair_job_id`, and a spectacle order's, a job card's or a garment order's is found through its `advance_collection_id`), `approved_by` (the manager whose PIN was typed), `request_key`, `request_hash`, `created_by`.
 Rules: append-only. Constraint trigger `business_collection_refunds_rules`: the same customer, and payments plus refunds never pass the receipt's amount. The shared balances subtract these refunds (`contactBalanceSql` in the core repository, and `collectionAllocatedSql` in the receivables lists), so a refunded advance does not show as the customer's advance; the customer statement lists each refund.
-Added by: 1791620001000; 1791640000000 (`method_name`); 1791963000000 (`optical`); 1791964000000 (`garage`).
+Added by: 1791620001000; 1791640000000 (`method_name`); 1791963000000 (`optical`); 1791964000000 (`garage`); 1791966000000 (`laundry`).
 
 #### `business_supplier_payments`
 Purpose: one payment made to a supplier. The part that settles purchase bills is written as `business_payments` rows with `supplier_payment_id`; the rest is an advance with the supplier ([data model §4](BUSINESS_PLATFORM_DATA_MODEL.md#4-shared-core)).
@@ -2887,6 +2889,95 @@ Relations: (`business_id`, `membership_id`) -> `member_memberships`.
 Rules: index `member_reminders_membership`; trigger `member_reminders_append_only` (function `member_append_only`).
 Added by: 1791965000000.
 
+## Laundry & dry cleaning
+
+A laundry's and dry cleaner's own tables (type `laundry`), added by 1791966000000 laundry. Module `laundry` ("Garment orders", optional, laundry only, on) needs catalog, contacts and sales; permissions `laundry.view`, `laundry.create` (take orders in), `laundry.edit` (the work, the racks, handovers, damage claims recorded), `laundry.cancel` (cancel garments), `laundry.print` (order receipts and tag labels) and `laundry.refund` (decide damage claims; money back). Garment orders are numbered in the series kind `laundry_order` (prefix `LO`; not a GST document). A service is billed as a service item (`catalog_skus`); a garment order's bill is an ordinary sale (`business_documents`, one line a garment), its advance an ordinary receipt (`business_collections`) handed back as a `business_collection_refunds` row of source `laundry`, and what a cancellation or a damage claim gives back an ordinary credit note (`business_returns`) with an ordinary refund (`business_refunds`). The trigger `business_return_lines_laundry` (function `laundry_line_return`) on `business_return_lines` refuses a return of a bill line that charges a garment unless the return's request key is the garment's own `credit_key`.
+
+#### `laundry_settings`
+Purpose: how a laundry bills and hands over its orders, and its tag count.
+Key columns: PK `business_id`, `bill_at` (delivery, intake; default delivery), `part_delivery` (whole_order, garments; default whole_order), `express_percent` (0-200, default 0), `ready_days` (0-60, default 3), `express_days` (0-60, default 1), `unclaimed_days` (1-365, default 30), `receipt_terms` (up to 2,000 characters), `last_tag_no`, `updated_by`, `updated_at`. The defaults are used until the row is made (on first save, or with the first tag given).
+Added by: 1791966000000.
+
+#### `laundry_services`
+Purpose: a service on the price list, billed as a service item.
+Key columns: `sku_id`, `sort_order`, `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, `sku_id`) -> `catalog_skus`.
+Rules: UNIQUE (business, item). Trigger `laundry_services_check`: never deleted; keeps its item, who made it and when; the item is a service of the business, not a kit.
+Added by: 1791966000000.
+
+#### `laundry_garment_types`
+Purpose: a kind of garment taken in, and how one is counted.
+Key columns: `name` (unique index `laundry_garment_types_name` on the business and the name in any case), `counted_as` (piece, pair, set), `pieces` (1-20), `sort_order`, `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Rules: CHECK a piece is 1 piece, a pair 2 and a set 2 or more. Trigger `laundry_garment_types_guard`: never deleted; keeps who added it and when.
+Added by: 1791966000000.
+
+#### `laundry_prices`
+Purpose: the price list: a garment and a service at a price.
+Key columns: PK (`business_id`, `garment_type_id`, `service_id`), `per` (item, kg), `price` (> 0), `updated_by`, `updated_at`.
+Relations: (`business_id`, `garment_type_id`) -> `laundry_garment_types`; (`business_id`, `service_id`) -> `laundry_services`.
+Rules: index `laundry_prices_service`. Changed in place or taken off; each change is in `business_audit` (`laundry_price.changed`).
+Added by: 1791966000000.
+
+#### `laundry_orders`
+Purpose: a garment order, as it was taken in.
+Key columns: `location_id`, `order_no` (series kind `laundry_order`), `series_id`, `contact_id`, `customer_name`, `customer_phone`, `promised_on`, `express`, `express_percent` (0-200), `bill_at`, `part_delivery`, `tax_mode`, `subtotal`, `tax`, `round_off` (between -1 and 1), `total`, `terms`, `notes`, `advance_collection_id`, `document_id`, `request_key`, `request_hash`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, ...) -> `business_locations`, `business_number_series`, `business_contacts`, `business_collections` (the advance) and `business_documents` (the bill made at intake).
+Rules:
+- CHECK `total` = `subtotal` + `tax` + `round_off`; an express percentage only when express; a bill exactly when billed at intake; an advance only when billed at delivery.
+- UNIQUE (business, order number), (business, request key), (business, bill) and (business, advance); indexes `laundry_orders_period`, `laundry_orders_contact` and `laundry_orders_promised`.
+- Trigger `laundry_orders_customer` (function `business_contact_is_customer`).
+- Trigger `laundry_orders_guard`: never deleted; only `promised_on`, `notes`, `updated_by` and `updated_at` change.
+Added by: 1791966000000.
+
+#### `laundry_order_items`
+Purpose: each garment of an order (or several of a kind under one tag, or a bundle by the kilo), from intake to the handover.
+Key columns: `order_id`, `seq` (1-200), `tag_no` (`^[A-Z0-9][A-Z0-9/-]{0,19}$`), `garment_type_id`, `service_id`, `garment_name`, `service_name`, `sku_id`, `counted_as`, `per` (item, kg), `quantity` (above 0, under 1,000; whole unless by the kilo), `pieces` (1-999), `rate`, `base`, `surcharge`, `amount`, `tax_rate`, `net`, `tax`, `colour`, `brand`, `defects` (TEXT[] of stain, tear, hole, missing_button, colour_bleed, fading, shrinkage, burn, worn, loose_thread), `defect_note`, `instructions`, `risk_note`, `acknowledged`, `declared_value` (> 0), `status` (received, in_process, ready, delivered, cancelled), `rack` (`^[A-Z0-9][A-Z0-9 /-]{0,19}$`), `ready_at`, `ready_by`, `delivered_at`, `delivered_by`, `cancel_reason`, `cancelled_by`, `cancelled_at`, `cancel_key`, `document_id`, `line_id`, `credit_key`, `created_at`.
+Relations: (`business_id`, ...) -> `laundry_orders`, `laundry_garment_types`, `laundry_services`, `catalog_skus`, `business_documents` and `business_document_lines`.
+Rules:
+- CHECK `amount` = `base` + `surcharge`; `net` = `amount` (prices before GST) or `net` + `tax` = `amount` (including GST); acknowledged only with defects, a note on them or a risk note; a rack only when ready or delivered; ready and delivered times, who and when, and the cancellation's reason, who and when exactly with their status; a cancel key only when cancelled; a bill and a line together; a credit key only with a line.
+- UNIQUE (business, order, seq) and (business, line); unique index `laundry_order_items_open_tag` (a tag on one garment received, in process or ready at a time); indexes `laundry_order_items_order`, `laundry_order_items_tag`, the partial `laundry_order_items_open` and `laundry_order_items_document`.
+- Trigger `laundry_order_items_insert_check`: written only in the transaction that takes its order in; starts received with nothing delivered, cancelled or credited; its item is its service's and its counting its garment's; on an order billed at intake, on a line of the order's own bill, of its item.
+- Trigger `laundry_order_items_guard`: never deleted; keeps what was noted and priced; a cancelled one never changes; moves only received → in_process, ready or cancelled; in_process → ready or cancelled; ready → in_process, delivered or cancelled; delivered → received only with a damage claim decided `reprocess` in the same transaction; delivered only with its bill line and in a handover made in the same transaction; a billed one cancelled only once its line has a return; its line (of its own item, on a sale to the order's customer) and its credit key given once; re-tagged only while in the shop or when taken back in.
+Added by: 1791966000000.
+
+#### `laundry_deliveries`
+Purpose: each handover of an order's garments.
+Key columns: `order_id`, `document_id` (the bill posted with it, when billed at delivery), `on_account`, `collected_by`, `note`, `request_key`, `request_hash`, `created_by`, `created_at`.
+Relations: (`business_id`, `order_id`) -> `laundry_orders`; (`business_id`, `document_id`) -> `business_documents`.
+Rules: UNIQUE (business, request key) and (business, bill); index `laundry_deliveries_order`; trigger `laundry_deliveries_append_only` (function `laundry_append_only`).
+Added by: 1791966000000.
+
+#### `laundry_delivery_items`
+Purpose: the garments of each handover.
+Key columns: PK (`business_id`, `delivery_id`, `item_id`), `order_id`.
+Relations: (`business_id`, `delivery_id`) -> `laundry_deliveries`; (`business_id`, `order_id`, `item_id`) -> `laundry_order_items`.
+Rules: index `laundry_delivery_items_item`; trigger `laundry_delivery_items_check`: of the handover's own order; trigger `laundry_delivery_items_append_only` (function `laundry_append_only`).
+Added by: 1791966000000.
+
+#### `laundry_order_events`
+Purpose: everything that happened to an order or one of its garments.
+Key columns: `order_id`, `item_id` (none for the order), `from_status`, `to_status`, `note`, `created_by`, `created_at`.
+Relations: (`business_id`, `order_id`) -> `laundry_orders`; (`business_id`, `order_id`, `item_id`) -> `laundry_order_items`.
+Rules: CHECK a status or a note; a from status only with a to status. Index `laundry_order_events_order`; trigger `laundry_order_events_append_only` (function `laundry_append_only`).
+Added by: 1791966000000.
+
+#### `laundry_notices`
+Purpose: each message or call to the customer about an order.
+Key columns: `order_id`, `kind` (received, ready, delayed, reminder), `channel` (whatsapp, call, sms), `created_by`, `created_at`.
+Relations: (`business_id`, `order_id`) -> `laundry_orders`.
+Rules: index `laundry_notices_order`; trigger `laundry_notices_append_only` (function `laundry_append_only`).
+Added by: 1791966000000.
+
+#### `laundry_claims`
+Purpose: a damage claim on a garment, and a manager's decision on it.
+Key columns: `order_id`, `item_id`, `issue` (damage, stain, shrinkage, colour_run, lost, missing_part, other), `description`, `asked_amount` (> 0), `reported_by`, `reported_at`, `request_key`, `request_hash`, `decision` (refund, credit, reprocess, rejected), `amount` (> 0), `decision_note`, `decided_by`, `decided_at`, `decide_key`, `decide_hash`, `return_id`, `refund_id`, `refunded` (> 0).
+Relations: (`business_id`, `order_id`) -> `laundry_orders`; (`business_id`, `order_id`, `item_id`) -> `laundry_order_items`; (`business_id`, `return_id`) -> `business_returns`; `refund_id` -> `business_refunds`.
+Rules:
+- CHECK nothing decided without a decision; the decision exactly with who, when and its request (key and hash); an amount and a credit note exactly on money back or a credit note; a refund only on money back, with its amount; a note when rejected.
+- UNIQUE (business, request key) and (business, decide key); unique index `laundry_claims_one_open` (one claim waiting a garment); indexes `laundry_claims_order` and the partial `laundry_claims_open`.
+- Trigger `laundry_claims_check`: never deleted; on a garment not cancelled; starts waiting; decided once, then never changes; keeps what was reported.
+Added by: 1791966000000.
+
 ## Tasks, issues & projects
 
 Linked sections: [data model](BUSINESS_PLATFORM_DATA_MODEL.md#tasks-issues--projects) and [ARCHITECTURE.md §4.3](ARCHITECTURE.md#43-tasks-issues--projects-one-model-for-both-worlds). Migration `1791620000000_tasks-issues-projects.sql`; module code `backend/src/modules/tasks/`.
@@ -3083,6 +3174,7 @@ Core modules are always on and never stored per business; every other module is 
 | `optical` | optional | catalog, contacts, sales | optical; on (item attributes `power`, `baseCurve`, `diameter` for contact lenses) | 1791963000000 |
 | `garage` | optional | catalog, contacts, sales | garage; on | 1791964000000 |
 | `member_plans` | optional | catalog, contacts, sales | memberships; on | 1791965000000 |
+| `laundry` | optional | catalog, contacts, sales | laundry; on | 1791966000000 |
 | `guests` | optional | restaurant | restaurant; on | 1791470000000 |
 | `guest_loyalty` | optional | restaurant, guests | restaurant; off | 1791470000000 |
 | `reservations` | optional | restaurant | restaurant; on | 1791470000000 |
@@ -3151,6 +3243,7 @@ Each code is a `<module>.<action>` row of `business_permissions`, listed here by
 | optical | `optical.view` (prescriptions, spectacle orders and the recall list), `optical.create` (record and correct prescriptions; book spectacle orders), `optical.edit` (the lab and workshop steps, an order's details, delivery), `optical.approve` (pass or fail the quality check), `optical.cancel`, `optical.print` (job cards, customer slips and prescriptions) | 1791963000000 |
 | garage | `garage.view` (every vehicle and job card, the service-due list and customers' statements), `garage.create` (add vehicles, open job cards), `garage.edit` (work on job cards: the estimate, mechanics, the work done and parts used, the claim, the advance and billing), `garage.approve` (an odometer reading lower than the last), `garage.cancel`, `garage.print` (job cards and customers' statements) | 1791964000000 |
 | member_plans | `member_plans.view` (plans, members and their memberships, check-ins, renewals; the fees due with `sales.view`), `member_plans.create` (check members in; sell and renew memberships, with `sales.create`), `member_plans.edit` (set up plans; freeze, transfer and upgrade memberships), `member_plans.approve` (approve with a PIN what a cancelled membership gives back), `member_plans.cancel`, `member_plans.refund` (give back the unused part of a cancelled membership), `member_plans.export` | 1791965000000 |
+| laundry | `laundry.view` (garment orders, the racks, orders not collected, damage claims and the price list), `laundry.create` (take garment orders in), `laundry.edit` (the work and the racks, re-tagging, the promised day, handovers, record damage claims), `laundry.cancel` (cancel garments), `laundry.print` (order receipts and tag labels), `laundry.refund` (decide damage claims; money back for them and for cancelled garments) | 1791966000000 |
 
 ## Restaurant permission codes
 

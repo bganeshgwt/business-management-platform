@@ -134,6 +134,10 @@ async function feed(business) {
   if (has('member_plans') && can('member_plans.view') && business.business_type === 'memberships') {
     items.push(...await require('../../memberships/services/memberRenewals.service').bell(business, base, LIMIT));
   }
+  // A laundry's garment orders past their promised day, and those ready and not collected.
+  if (has('laundry') && can('laundry.view') && business.business_type === 'laundry') {
+    items.push(...await require('../../laundry/services/laundryOrders.service').bell(business, base, LIMIT));
+  }
   // Licences & registrations: a licence running out within 60 days (warning), or run out (critical).
   if (has('licences') && can('licences.view')) {
     const licences = require('../../licences/services/businessLicences.service');

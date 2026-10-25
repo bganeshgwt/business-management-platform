@@ -236,6 +236,8 @@ require('../../optical/routes/businessOptical.routes')(router, { context, send, 
 require('../../garage/routes/businessGarage.routes')(router, { context, send, b });
 // Gyms, studios and coaching: plans, memberships with their pro-rata credits and refunds, check-ins, instalments, renewals.
 require('../../memberships/routes/businessMemberships.routes')(router, { context, send, b });
+// Laundries and dry cleaners: the price list, garment orders with a tag on each garment from intake to the racks and the handover, unclaimed orders, damage claims.
+require('../../laundry/routes/businessLaundry.routes')(router, { context, send, b });
 
 // Per-staff PIN at the counter, kits / bundles, EMI & finance.
 require('./businessCounter.routes')(router, { context, send, b });

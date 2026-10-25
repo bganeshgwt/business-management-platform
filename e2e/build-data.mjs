@@ -6,7 +6,7 @@
 // one thing no request can make: an order taken on an earlier day.
 import crypto from "node:crypto";
 
-import { AGRI, BUSINESSES, GARAGE, GROCERY, HARDWARE, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
+import { AGRI, BUSINESSES, GARAGE, GROCERY, HARDWARE, LAUNDRY, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
 
 // Every call names the status it expects, so a set-up that goes wrong stops
 // at the first wrong answer, with the API's own message, rather than leaving
@@ -439,6 +439,34 @@ export async function buildTestData({ api, logins, sql }) {
       monthly: { id: monthly.id, name: monthly.name }, yoga: { id: yoga.id, name: yoga.name }, trial: { id: trial.id, name: trial.name },
       member: { id: sold.contact_id, name: sold.member_name, code: sold.member_code, membershipId: sold.id, membershipNo: sold.membership_no },
       trialMember: { id: tried.contact_id, name: tried.member_name, code: tried.member_code, membershipId: tried.id, membershipNo: tried.membership_no },
+    });
+  }
+
+  // The laundry: its services (each made as its own service item at the
+  // default 18% slab), its garments and their prices, express and the terms on
+  // the receipt; a customer's order taken in, billed when handed over.
+  {
+    const B = at("laundry");
+    const service = (body) => owner("POST", B("laundry/services"), body, 201);
+    await service({ item: { name: LAUNDRY.dryCleaning.name, hsnCode: LAUNDRY.dryCleaning.sac } });
+    await service({ item: { name: LAUNDRY.washIron.name } });
+    let list = await service({ item: { name: LAUNDRY.washFold.name } });
+    for (const garment of [LAUNDRY.shirt, LAUNDRY.saree, LAUNDRY.mixed]) list = await owner("POST", B("laundry/garments"), { name: garment.name }, 201);
+    const serviceId = (name) => list.services.find((s) => s.name === name).id;
+    const garmentId = (name) => list.garments.find((g) => g.name === name).id;
+    const price = (garment, service, value, per = "item") => ({ garmentTypeId: garmentId(garment), serviceId: serviceId(service), per, price: String(value) });
+    await owner("PUT", B("laundry/prices"), { prices: [price(LAUNDRY.shirt.name, LAUNDRY.washIron.name, LAUNDRY.shirt.washIron),
+      price(LAUNDRY.shirt.name, LAUNDRY.dryCleaning.name, LAUNDRY.shirt.dryCleaning), price(LAUNDRY.saree.name, LAUNDRY.dryCleaning.name, LAUNDRY.saree.dryCleaning),
+      price(LAUNDRY.mixed.name, LAUNDRY.washFold.name, LAUNDRY.mixed.washFoldKg, "kg")] }, 200);
+    await owner("PUT", B("laundry/settings"), { expressPercent: String(LAUNDRY.express), receiptTerms: LAUNDRY.terms }, 200);
+    const customer = await owner("POST", B("contacts"), { kind: "customer", name: LAUNDRY.customer.name, phone: LAUNDRY.customer.phone }, 201);
+    const day = (days) => new Date(Date.now() + days * 86400000).toLocaleDateString("en-CA", { timeZone: TIMEZONE });
+    const order = await owner("POST", B("laundry/orders"), { requestKey: requestKey(), locationId: businesses.laundry.locationId, contactId: customer.id, promisedOn: day(2),
+      items: [{ garmentTypeId: garmentId(LAUNDRY.shirt.name), serviceId: serviceId(LAUNDRY.washIron.name), quantity: "2" },
+        { garmentTypeId: garmentId(LAUNDRY.saree.name), serviceId: serviceId(LAUNDRY.dryCleaning.name), defects: ["stain"], riskNote: "Silk: colour may run", acknowledged: true }] }, 201);
+    Object.assign(businesses.laundry, {
+      customer: { id: customer.id, name: customer.name },
+      order: { id: order.id, orderNo: order.order_no, total: order.total, tags: order.items.map((item) => item.tag_no) },
     });
   }
 

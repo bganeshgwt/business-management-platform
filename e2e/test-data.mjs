@@ -200,6 +200,24 @@ export const MEMBERSHIPS = {
   trialMember: { name: "Rahul Verma", phone: "9876500102" },
 };
 
+// The laundry: dry cleaning (SAC 999712), wash and iron, and wash and fold by
+// the kilo, each its own service item at 18% GST; shirts, sarees and mixed
+// clothes on the price list; express at 50% on each garment, and the terms
+// printed on every receipt. A customer has an order taken in, billed when it
+// is handed over: two shirts for wash and iron under one tag, and a saree for
+// dry cleaning with a stain noted and acknowledged.
+export const LAUNDRY = {
+  dryCleaning: { name: "Dry cleaning", sac: "999712" },
+  washIron: { name: "Wash & iron" },
+  washFold: { name: "Wash & fold" },
+  shirt: { name: "Shirt", washIron: 40, dryCleaning: 120 },
+  saree: { name: "Saree", dryCleaning: 350 },
+  mixed: { name: "Mixed clothes", washFoldKg: 89.9 },
+  express: 50,
+  terms: "Please check your garments when you collect them, and tell us of any problem the same day.",
+  customer: { name: "Sunita Kapoor", phone: "9876500201" },
+};
+
 // The salon: one stylist and one service.
 export const SALON = {
   stylist: { name: "Priya Sharma", role: "Senior stylist" },

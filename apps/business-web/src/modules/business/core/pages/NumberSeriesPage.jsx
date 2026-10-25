@@ -22,7 +22,9 @@ const KINDS = { sale: "Sale invoices", purchase: "Purchase receipts", sales_retu
   // A garage's job cards (not GST documents).
   job_card: "Job cards",
   // A gym's, studio's or coaching centre's memberships (not GST documents).
-  membership: "Memberships" };
+  membership: "Memberships",
+  // A laundry's garment orders (not GST documents).
+  laundry_order: "Garment orders" };
 const fiscalLabel = (year) => `${year}-${String((Number(year) + 1) % 100).padStart(2, "0")}`;
 const sample = (s) => `${s.prefix}${String(s.next_number).padStart(s.padding, "0")}`;
 

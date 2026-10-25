@@ -221,6 +221,16 @@ The GST rates of a garage's parts and labour and how to set it up: [ADMIN_GUIDE.
 
 The GST rates of a gym's, studio's or coaching centre's services and how to set it up: [ADMIN_GUIDE.md › Gyms, studios & coaching](ADMIN_GUIDE.md#gyms-studios--coaching).
 
+### Laundry and dry cleaning
+
+- **Price list:** each garment's price for each service (wash and fold, wash and iron, dry cleaning, steam press…), for each piece, pair or set or by the kilo; each service billed as a service item of its own with its GST slab and SAC (laundry, dry cleaning, pressing and dyeing at 18% with input tax credit); an express surcharge as a percentage on every garment.
+- **Garment orders:** a fast intake screen at the counter: the customer, a tap for each garment, and for each its tag (the next number, or the one already on it), colour and brand, the defects seen, the customer's instructions, the risk explained to them and their acknowledgement, and a declared value; a bundle by the kilo is weighed and its pieces counted. The prices, the express surcharge and GST are worked out to the paisa and kept as taken in. The order receipt prints every garment with its tag, what was noted and the shop's terms, and a tag label prints for every piece.
+- **The work and the racks:** each garment from received through the work to ready on a rack and slot, the order's status following its garments; any garment found by its tag, the customer's phone or the order number; WhatsApp messages ready for each step.
+- **Billing and the handover:** billed when the garments are handed over (an advance taken at intake comes off first) or at intake, as the shop chooses; the garments are held until paid, for the whole order or for the garments handed over, unless the customer has an account with the shop. Cancelled garments are credited on their bill, with any money back approved by a manager's PIN.
+- **Unclaimed and claims:** orders ready and not collected for the shop's days (30 to start with), with every reminder kept and nothing disposed of; damage claims decided by a manager: money back or a credit note up to the garment's charge, the work done again, or rejected.
+
+The GST rate of a laundry's services and how to set it up: [ADMIN_GUIDE.md › Laundry & dry cleaning](ADMIN_GUIDE.md#laundry--dry-cleaning).
+
 ### The newer trades
 
 General stores, hardware and building-material shops, seeds and fertiliser shops, opticians, garages, jewellers, fuel stations, gyms and coaching centres, laundries, rental businesses, and hotels and lodges run on the shared core from their first day:

@@ -29,3 +29,5 @@ export const OPTICAL = ["optical"];
 export const GARAGE = ["garage"];
 // Gyms, studios & coaching: check-in, members and their plans, renewals.
 export const MEMBERSHIPS = ["memberships"];
+// Laundry & dry cleaning: garment orders, the racks, unclaimed orders, the price list.
+export const LAUNDRY = ["laundry"];

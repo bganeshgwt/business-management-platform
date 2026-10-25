@@ -654,7 +654,8 @@ const named = (value) => value !== undefined && value !== null && value !== '';
 // Posts a sale or purchase inside the caller's transaction. Permissions and
 // the request are checked by the caller. `fixed` (used by wholesale
 // dispatch) gives each line's prices already worked out: { price (stock unit,
-// rupees), net, tax, enteredPrice (paise), priceRuleId } — the order's prices.
+// rupees), net, tax, enteredPrice (paise), priceRuleId } — the order's prices —
+// and may give the line's own words for the bill, `label` (a laundry garment's service, garment and tag).
 // `quote` (retail counter): work out the bill exactly as posting would —
 // prices, offers, points, tax, round-off — and return it without saving.
 // `quote: 'estimate'` (a quotation) does the same before any batch or serial
@@ -891,7 +892,7 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     for (const line of prepared) {
       const savedLine = await repo.one(db, `INSERT INTO business_document_lines(business_id,document_id,sku_id,label,unit,quantity,unit_price,tax_rate,net,tax,lot_code,price_rule_id,
         entered_unit,entered_quantity,entered_unit_price,unit_factor,hsn_code,mrp,kit_sku_id,kit_label,kit_group,free_quantity,discount_percent)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) RETURNING id`, [business.id, saved.id, line.sku.id, line.sku.label, line.sku.unit,
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) RETURNING id`, [business.id, saved.id, line.sku.id, line.preset?.label || line.sku.label, line.sku.unit,
         line.quantity, rateText(line.price, Boolean(line.preset || line.kit)), line.sku.tax_rate, money(line.net), money(line.tax), line.lotCode, line.priceRule?.id || null,
         line.entered?.unit || null, line.entered?.quantity ?? null, line.entered ? money(line.enteredPrice) : null, line.entered ? (line.factorMicro / 1e6).toFixed(6) : null,
         line.sku.hsn_code || null, line.kit ? null : line.sku.mrp ?? null, line.kit?.skuId || null, line.kit?.label || null, line.kit?.group || null,

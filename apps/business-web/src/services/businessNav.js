@@ -2,7 +2,7 @@
 // has switched on and what this person's role allows. The server checks the
 // same two things on every request; the menu only hides what would be refused.
 
-import { AGRI, CLINIC, GARAGE, GOODS, HARDWARE, MEMBERSHIPS, OPTICAL, PHARMACY, RETAIL, SALON, WEIGHED } from './businessTypes.js';
+import { AGRI, CLINIC, GARAGE, GOODS, HARDWARE, LAUNDRY, MEMBERSHIPS, OPTICAL, PHARMACY, RETAIL, SALON, WEIGHED } from './businessTypes.js';
 import { dailyWorkspaces, WORKSPACES, workspaceLabel, workspaceSections } from './businessWorkspace.js';
 
 export { GOODS };
@@ -47,7 +47,7 @@ const TYPE_WORDS = {
   jewellery: { products: "Jewellery & items" },
   fuel_station: { customers: "Customers & fleets", products: "Fuels, lubricants & items" },
   memberships: { customers: "Members", products: "Plans & services", sales: "Bills", appointments: "Sessions & trials", resources: "Trainers & studios" },
-  laundry: { products: "Services & price list", sales: "Bills" },
+  laundry: { products: "Services & items", sales: "Bills" },
   rentals: { customers: "Hirers", products: "Rental items & services", sales: "Bills" },
   lodging: { customers: "Guests & companies", products: "Rooms, services & extras", sales: "Bills" },
 };
@@ -185,6 +185,19 @@ export function businessSections(type) {
       ],
     },
     {
+      // A laundry's counter: a new order taken in (a daily entry of its own),
+      // and its orders with the racks and those not collected.
+      title: "Laundry",
+      links: [
+        { section: "laundry-new", label: "New order", icon: "pos", need: "laundry.create", types: LAUNDRY },
+        { section: "garment-orders", label: "Orders", icon: "orders", need: "laundry.view", types: LAUNDRY },
+        // Garments found by tag, phone or order, and what hangs on each rack.
+        { section: "ready-racks", label: "Ready & racks", icon: "pickup", need: "laundry.view", types: LAUNDRY },
+        // Orders ready and not collected for the shop's days, with the reminders sent.
+        { section: "unclaimed", label: "Unclaimed", icon: "hours", need: "laundry.view", types: LAUNDRY },
+      ],
+    },
+    {
       title: "Purchases",
       links: [
         { section: "purchases", label: "Purchases", icon: "purchaseOrders", need: "purchasing.view" },
@@ -210,6 +223,8 @@ export function businessSections(type) {
         { section: "rates", label: "Today's rates", icon: "priceList", need: "catalog.view", module: "weight", types: WEIGHED },
         // A hardware shop's board of the items whose price moves every day.
         { section: "rates", label: "Today's rates", icon: "priceList", need: "catalog.view", module: "hardware_rates", types: HARDWARE },
+        // A laundry's prices by garment and service, and how its orders are billed and handed over.
+        { section: "laundry-prices", label: "Price list", icon: "priceList", need: "laundry.view", types: LAUNDRY },
       ],
     },
     {

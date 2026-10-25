@@ -77,6 +77,9 @@ function firstActions(biz) {
   // A gym's, studio's or coaching centre's day: members checking in at the desk, and memberships to sell.
   if (biz.type === "memberships" && biz.has("member_plans") && can("member_plans.create")) list.push({ to: "check-in", icon: "check", label: "Check a member in" });
   if (biz.type === "memberships" && biz.has("member_plans") && can("member_plans.create") && can("sales.create")) list.push({ to: "members?new=1", icon: "user-plus", label: "Sell a membership" });
+  // A laundry's day: garment orders to take in at the counter, and the ready garments on the racks.
+  if (biz.type === "laundry" && biz.has("laundry") && can("laundry.create")) list.push({ to: "laundry-new", icon: "clipboard", label: "Take in an order" });
+  if (biz.type === "laundry" && biz.has("laundry") && can("laundry.view")) list.push({ to: "ready-racks", icon: "tag", label: "Find a garment" });
   if (biz.has("receivables") && can("receivables.create")) list.push({ to: goods ? "udhaar" : "collections?new=1", icon: "wallet", label: goods ? "Collect udhaar" : "Record a collection" });
   if (!goods && biz.type !== "salon" && can("sales.create")) list.push({ to: "sales?new=1", icon: "receipt", label: "New sale (invoice)" });
   if (biz.type !== "salon" && biz.type !== "healthcare" && can("appointments.create") && biz.has("appointments")) list.push({ to: "appointments?new=1", icon: "calendar", label: "Book an appointment" });

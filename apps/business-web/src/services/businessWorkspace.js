@@ -4,7 +4,7 @@ import { GOODS, SERVICES, UDHAAR, WEIGHED } from './businessTypes.js';
 // A capability being available does not make it a daily sidebar destination.
 export const WORKSPACES = {
   pharmacyBilling: ['rx-sale','counter'],
-  products: ['products', 'rates', 'variants', 'books', 'drug-master', 'salon-setup', 'categories', 'kits', 'labels', 'offers', 'pricing'],
+  products: ['products', 'rates', 'variants', 'books', 'drug-master', 'salon-setup', 'categories', 'kits', 'labels', 'offers', 'pricing', 'laundry-prices'],
   stock: ['stock', 'weight-stock', 'movements', 'counts', 'near-expiry', 'pharmacy-batches', 'transfers', 'serials', 'processing', 'wastage'],
   purchases: ['purchases', 'suppliers', 'purchase-orders', 'claims'],
   dues: ['udhaar', 'outstanding', 'collections'],
@@ -26,6 +26,9 @@ export const WORKSPACES = {
   // A gym's, studio's or coaching centre's front desk, and its members (in place of customers).
   checkIn: ['check-in'],
   members: ['members', 'renewals', 'customers', 'loyalty'],
+  // A laundry's counter (a new order taken in), and its orders with the racks and those not collected.
+  laundryNew: ['laundry-new'],
+  garmentOrders: ['garment-orders', 'ready-racks', 'unclaimed'],
   staff: ['staff', 'roles'],
   money: ['day-close', 'expenses', 'emi-finance'],
   repairs: ['repairs', 'appointments'],
@@ -94,7 +97,8 @@ export function workspaceLabel(section, type, fallback) {
 export function dailyWorkspaces(type) {
   const checkout = type === 'salon' ? 'salon-bill' : type === 'pharmacy' ? 'pharmacyBilling' : GOODS.includes(type) ? 'counter' : null;
   // Orders: a wholesaler's beat orders, or a hardware shop's site orders (with Sales orders on).
-  const daily = [checkout, type === 'memberships' ? 'checkIn' : null, type === 'healthcare' ? 'care' : null,
+  const daily = [checkout, type === 'memberships' ? 'checkIn' : null, type === 'laundry' ? 'laundryNew' : null, type === 'laundry' ? 'garmentOrders' : null,
+    type === 'healthcare' ? 'care' : null,
     ['wholesale', 'hardware'].includes(type) ? 'orders' : null,
     ['salon', 'optical', 'garage', 'memberships'].includes(type) ? 'appointments' : null,
     type === 'optical' ? 'spectacles' : null,
