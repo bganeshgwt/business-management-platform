@@ -21,6 +21,8 @@ export const LOGINS = [
   { role: "CAPTAIN", name: "Suresh Nair", email: "captain@bistro.e2e.invalid" },
   { role: "KITCHEN", name: "Meena Iyer", email: "kitchen@bistro.e2e.invalid" },
   { role: "SHOP_MANAGER", name: "Kavya Reddy", email: "manager@shops.e2e.invalid", businesses: ["books", "grocery", "pharmacy", "wholesale", "salon"] },
+  // The tent house's manager, who approves money handed back from a deposit with a PIN of their own.
+  { role: "RENTALS_MANAGER", name: "Arjun Menon", email: "manager@rentals.e2e.invalid", businesses: ["rentals"] },
 ];
 
 // The restaurant the RESTAURANT_ADMIN runs. Tables 1-3 are free; table 4
@@ -254,6 +256,29 @@ export const JEWELLERY = {
     terms: "Pay the same amount each month for 11 months. With all 11 paid, one month's amount comes off your jewellery bill as a discount, from a month after the last instalment. The scheme is turned into jewellery within the year and is never paid back in money.",
   },
   member: { name: "Padmavathi Rao", phone: "9876500302", instalment: 5000, instalmentsPaid: 3, nominee: "Suresh Rao", relation: "Son" },
+};
+
+// The tent house: a 15 kVA generator hired one by one (two units, each with
+// its hour meter), plastic chairs from a pool of 200, and a sound system hired
+// by the day with a late fee by the day; each billed as its own service item
+// at 18% GST, before GST. Three bookings: the first generator booked for
+// tomorrow; a sound system handed over with its deposit a day ago and now three
+// hours past its due back time; and the other generator with 100 chairs, going
+// out now and not handed over yet.
+export const RENTALS = {
+  sac: "997329",
+  generator: { name: "Generator 15 kVA", code: "RNT-GEN15", rates: { hour: "400", day: "2500" }, deposit: 5000, minHours: 4, turnaround: 60, grace: 30,
+    units: [{ label: "Gen A", serialNo: "GX-101", meter: "1200.0" }, { label: "Gen B", serialNo: "GX-102", meter: "850.0" }] },
+  chairs: { name: "Plastic chair", code: "RNT-CHAIR", rates: { day: "10" }, deposit: 5, pool: 200 },
+  sound: { name: "Sound system", code: "RNT-SOUND", rates: { day: "2000" }, deposit: 5000, lateRate: 1000, grace: 30,
+    units: [{ label: "Sound 1", serialNo: "SND-01" }, { label: "Sound 2", serialNo: "SND-02" }] },
+  terms: "The hirer looks after everything hired and returns it by the due back time, in the condition noted at the handover.",
+  // The first generator, tomorrow on the business's clock.
+  booked: { hirer: { name: "Venkat Rao", phone: "9876500401" }, from: "09:00", until: "21:00" },
+  // The sound system: out for a day from a day and three hours ago.
+  late: { hirer: { name: "Lalitha Devi", phone: "9876500402" }, idKind: "voter_id", idRef: "TSV7654321", minutesPastDue: 180 },
+  // The other generator and the chairs, out now for 26 hours.
+  going: { hirer: { name: "Srinivas Naidu", phone: "9876500403" }, chairs: 100, hours: 26 },
 };
 
 // The salon: one stylist and one service.

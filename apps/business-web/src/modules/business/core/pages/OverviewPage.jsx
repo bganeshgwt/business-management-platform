@@ -83,6 +83,9 @@ function firstActions(biz) {
   // A jeweller's day starts with the day's rates; then pieces are billed at them.
   if (biz.type === "jewellery" && biz.has("jewellery") && can("jewellery.approve")) list.push({ to: "gold-rates", icon: "tag", label: "Set today's rates" });
   if (biz.type === "jewellery" && biz.has("jewellery") && can("jewellery.create") && can("sales.create")) list.push({ to: "jewellery-bill", icon: "receipt", label: "Make a jewellery bill" });
+  // A rental business's day: bookings to make, and what goes out and comes back, on the board.
+  if (biz.type === "rentals" && biz.has("rentals") && can("rentals.create")) list.push({ to: "rental-bookings?new=1", icon: "calendar", label: "Make a booking" });
+  if (biz.type === "rentals" && biz.has("rentals") && can("rentals.view")) list.push({ to: "rental-bookings", icon: "clock", label: "What is due back" });
   if (biz.has("receivables") && can("receivables.create")) list.push({ to: goods ? "udhaar" : "collections?new=1", icon: "wallet", label: goods ? "Collect udhaar" : "Record a collection" });
   if (!goods && biz.type !== "salon" && can("sales.create")) list.push({ to: "sales?new=1", icon: "receipt", label: "New sale (invoice)" });
   if (biz.type !== "salon" && biz.type !== "healthcare" && can("appointments.create") && biz.has("appointments")) list.push({ to: "appointments?new=1", icon: "calendar", label: "Book an appointment" });

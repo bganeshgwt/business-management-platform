@@ -361,6 +361,11 @@ async function applyAdvance(business, user, contactId, body) {
       const held = await require('../../jewellery/services/jewellerySchemes.service').heldReceipts(db, business, contact.id);
       receipts = receipts.filter((receipt) => !held.has(Number(receipt.id)));
     }
+    // A rental booking's advances and deposits pay its own bill, and what is left goes back from the booking.
+    if (business.modules.includes('rentals')) {
+      const held = await require('../../rentals/services/rentalsBookings.service').heldReceipts(db, business, contact.id);
+      receipts = receipts.filter((receipt) => !held.has(Number(receipt.id)));
+    }
     let n = 0, applied = 0;
     const payments = [];
     // The part that covers the opening balance stays where it is (on the oldest receipts).

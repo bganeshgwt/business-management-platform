@@ -175,6 +175,20 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   assert.ok(businessMenu(33,'jewellery',p=>goldsmith.has(p),()=>true).flatMap(g=>g.links).some(l=>l.section==='pieces'),'a karigar finds the pieces');
   assert.ok(menu('electronics').some(l=>l.pages.some(p=>p.to.endsWith('/serials'))),'others keep the serial register');
   for(const type of ['grocery','electronics'])assert.ok(!typeAllows(sectionRule('pieces',type),type),`${type}: no pieces`);
+  // A rental business's day: Bookings (with the availability week and the deposits held) is a daily entry of its own; its products open on its rental items.
+  const rdaily=businessMenu(33,'rentals',()=>true,()=>true).find(g=>g.title==='Daily work').links;
+  assert.deepEqual(rdaily.slice(1,2).map(l=>[l.section,l.label]),[['rental-bookings','Bookings']]);
+  assert.deepEqual(rdaily.find(l=>l.section==='rental-bookings').pages.map(p=>p.label),['Bookings','Availability','Deposits held']);
+  assert.equal(workspaceFor('rental-availability','rentals'),'rentalBookings');
+  assert.equal(workspaceFor('rental-items','rentals'),'products');
+  const rproducts=menu('rentals').find(l=>l.section==='rental-items');
+  assert.ok(rproducts&&rproducts.label==='Rental items'&&rproducts.pages.some(p=>p.to.endsWith('/products')),'rentals: rental items first in products');
+  assert.ok(!menu('rentals',m=>m!=='rentals').some(l=>['rental-bookings','rental-items'].includes(l.section)),'no bookings while the module is off');
+  // The yard (a stock keeper) finds the bookings and the week, and no money.
+  const yard=new Set(['rentals.view','rentals.edit','rentals.print','catalog.view','inventory.view']);
+  const yardLinks=businessMenu(33,'rentals',p=>yard.has(p),()=>true).flatMap(g=>g.links);
+  assert.ok(yardLinks.some(l=>l.section==='rental-bookings'&&!l.pages.some(p=>p.to.endsWith('/rental-deposits'))),'the yard finds the bookings, not the deposits');
+  for(const type of ['grocery','laundry','garage'])for(const section of ['rental-bookings','rental-availability','rental-deposits','rental-items'])assert.ok(!typeAllows(sectionRule(section,type),type),`${type}: no ${section}`);
 });
 test('restricted roles get a permitted destination even when the first workspace page is unavailable',()=>{
   const permissions=new Set(['purchasing.view','contacts.view','inventory.view','catalog.view']);

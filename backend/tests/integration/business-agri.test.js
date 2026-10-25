@@ -87,7 +87,7 @@ test('licences and the seeds, fertilisers & pesticides shop', { timeout: 300000 
     assert.equal((await request('GET', `/businesses/${grocery.id}/modules`)).find((m) => m.code === 'licences').recommended, false);
     // Every recommended licences row starts off and says why; no restaurant row.
     const recommended = await rows("SELECT business_type FROM platform_module_business_types WHERE module_code='licences' AND recommended AND NOT enabled_by_default AND recommended_note IS NOT NULL ORDER BY 1");
-    assert.deepEqual(recommended.map((r) => r.business_type), ['fuel_station', 'jewellery', 'optical', 'pharmacy']);
+    assert.deepEqual(recommended.map((r) => r.business_type), ['fuel_station', 'jewellery', 'optical', 'pharmacy', 'rentals']);
     assert.equal((await one("SELECT count(*)::int AS n FROM platform_module_business_types WHERE module_code='licences' AND business_type='restaurant'")).n, 0);
     // A grocery may keep its licences, never the farm-input tools.
     await request('PUT', `/businesses/${grocery.id}/modules/licences`, { enabled: true });

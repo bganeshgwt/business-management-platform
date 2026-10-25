@@ -340,6 +340,34 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Cash transactions worksheet** | The cash report's list, for a month, of each customer whose cash was above ₹10 lakh, with every cash transaction: what the monthly report is made from. |
 | **Linked transactions** | Several cash transactions with one customer that appear connected; together they count towards ₹10 lakh. |
 
+### Rentals & hire
+
+| Word | Meaning |
+|---|---|
+| **Hirer** | The customer who hires something; a rental business's customers are its hirers. |
+| **Rental item** | Something hired out (a generator, a chair, a car), billed as a service item of its own with its rates, deposit and late fee. |
+| **Unit** | One of an item hired one by one, with its own name and registration or serial number (*Gen A*, *TS09AB1234*). |
+| **Pool** | An item hired by how many, from the number the shop has (200 chairs). |
+| **Booking** | Items hired for a time, from the out time to the due back time (RN/2627/0001). Not a GST document: its bill is. |
+| **Quote** | A booking priced and not reserved: it holds nothing until it is reserved. |
+| **Reserved** | A booking that holds what it books from its out time to its due back time and the turnaround time. |
+| **Out / handover** | Items handed to the hirer, with their condition, meter and fuel noted and the hirer's ID; the booking is then out. |
+| **Due back** | The time a booking is to come back, on the shop's clock; *overdue* once it has passed with something still out. |
+| **Return (take back)** | Items coming back, all at once or in parts; the bill is made when the last of them is back. |
+| **Turnaround time** | The time kept free after each hire of an item, for cleaning and checks, before it can go out again. |
+| **Best price** | The cheapest mix of an item's month, week, day and hour rates that covers the hours booked. |
+| **Minimum hire** | The fewest hours a booking of an item is charged for. |
+| **Grace time** | The minutes after the due back time with no late fee. |
+| **Late fee** | What a booking late past its grace time pays: each hour or day late, or part of one, at the booked rate, for each one still out. |
+| **Refundable deposit (security deposit)** | Money held for a booking, with no GST, apart from sales: it pays only what the shop keeps (billed as a charge) when the booking is back, and the rest goes back. |
+| **Applied** | Of a deposit or an advance: the part that paid the booking's bill. |
+| **Damage charge** | A charge for damage, missing pieces, cleaning or fuel, billed with GST at the slab of the item it is for. |
+| **Cancellation charge** | What the shop keeps when a booking is cancelled, billed as a charge with its GST. |
+| **Self-drive** | A car or motorcycle hired without the shop's driver: it goes out on the hirer's driving licence, and needs the location's rent-a-cab or rent-a-motorcycle licence. |
+| **Rent-a-cab / rent-a-motorcycle licence** | The State Transport Authority's licence to hire out self-drive cars or motorcycles. |
+| **Like goods' rate** | The GST on renting goods without an operator: the rate of a sale of the goods hired out (40% for goods that attract 40%). |
+| **SAC 9973** | The GST heading of leasing or rental services without an operator (997329 for other goods); a passenger vehicle with a driver is in 9966. |
+
 ### Clinic and lab
 
 | Word | Meaning |

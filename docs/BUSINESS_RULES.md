@@ -30,6 +30,7 @@ The everyday numbers, such as expiring-soon days, voucher validity, credit age g
 - [Gyms, studios & coaching](#gyms-studios--coaching)
 - [Laundry & dry cleaning](#laundry--dry-cleaning)
 - [Jewellery & gold](#jewellery--gold)
+- [Rentals & hire](#rentals--hire)
 - [Restaurant and food formats](#restaurant-and-food-formats)
 
 ## Fixed on purpose
@@ -919,6 +920,76 @@ A jeweller sells as every goods shop does ([Shops and the shared core](#shops-an
 
 - **Rule:** pieces and items show without making charges, wastage, hallmarking charges, stone values, cost or price to anyone whose role does not hold `sales.view` (a stock keeper, the karigar), and a piece they tag takes its item's making charge and wastage and the shop's hallmarking charge; a stone they change keeps its value. Bringing a new piece into stock needs `inventory.edit` too (the karigar tags units already in stock). Old gold, its values and its payouts, and gold schemes, need `sales.view` too.
 - **Why:** the work is the floor's; the prices are the counter's.
+- **Change it:** *Roles & permissions*.
+
+## Rentals & hire
+
+A rental or hire business bills on bills of the shared core ([Shops and the shared core](#shops-and-the-shared-core)); with *Hire items & bookings* on it also books what it hires out, hands it over and takes it back, bills the hire when it is back, and keeps the deposits it holds apart from sales. Each rule below is checked by the server, and the ones about records that must not change, and about what is free, are held by the database too. Every time the rules count (today, now, overdue, due back) is on the business's own clock, in its time zone: a booking's times are instants, typed and shown on that clock.
+
+### A rental item is a service item, and its GST is the like goods'
+
+- **Rule:** each rental item is billed as a service item of the catalogue counted in services (never goods or a kit): an existing one chosen, or one made with the item from the name, GST slab and SAC typed (its own price stays nil: the item's rates price it). The bill takes each line's GST slab from the item on the day of the bill. A rental item keeps its service item, how it is hired out (one by one or from a pool) and whether it is a vehicle; it is switched off, never deleted. Its service item is billed only from a booking: any other bill (*New sale*, a quotation's bill) refuses it.
+- **Why:** renting goods without an operator (heading 9973) is taxed at the rate of a sale of the like goods (entry 17(viia) of Notification 11/2017-CT(R)): from 22 September 2025 renting goods that attract 40% is 40%. A passenger vehicle hired with a driver (heading 9966, fuel included) is 5% with input tax credit only of input services in the same line of business, or 18% with full credit. A hire billed outside its booking would escape its late fee, charges and deposit.
+- **Change it:** each item's slab and SAC on its service item; have an accountant confirm them.
+
+### The hire is the cheapest mix of the rates
+
+- **Rule:** an item has rates for one by the hour, the day (24 hours), the week (7 days) and the month (30 days), any of them, at least one. A booking's hours are its time from out to due back, each hour or part of one counted, never less than the item's minimum hire and never less than one. The hire of one is the cheapest mix of months, weeks, days and hours that covers those hours (a mix that runs over is allowed: a day can cover 20 hours); between two mixes at the same price, the one with the larger blocks. The line is that times how many, and the database checks it: the price is the blocks times their rates, the blocks cover the hours charged, and the line is the price times how many. GST goes on each line (prices before GST) or comes out of it (prices including GST); the booking keeps its figures, rates and rules as booked, and a change to the item applies to bookings made after it. Extending a booking or changing its times prices it again at the rates it was booked at.
+- **Why:** the hirer is charged no more than the best way to hire for the time asked: ten days as a week and three days when that is cheaper than ten days.
+- **Change it:** the rates and the minimum hire on *Rental items* (`catalog.edit`).
+
+### Nothing is booked twice
+
+- **Rule:** a reserved booking holds each unit it books, and how many of each pool, from its out time to its due back time and the item's turnaround time; a booking out holds what is still out until it is due back (or until now, while it is late) and the turnaround time, and what came back until it came back and the turnaround time. A unit is held by one booking at a time, and a pool never by more than it has at any moment. A quote holds nothing. The server checks it when a booking is made, reserved, changed or extended, and the database checks every booking it saves, one after another for each item, so two counters booking the same unit at the same moment cannot both have it. A retired unit is not booked; a unit in maintenance is booked but not handed over; a unit booked or out is not retired, and a pool is not set below what bookings hold at their busiest.
+- **Why:** a unit promised to two hirers fails one of them; the turnaround time keeps a unit free for cleaning and checks between hires.
+- **Change it:** the turnaround time on *Rental items*.
+
+### A booking's times
+
+- **Rule:** a booking goes out today or later and is due back after it goes out, at most 90 days after; times are kept to the minute. It is a quote, reserved, out, returned or cancelled: a quote is reserved; a reserved booking is handed over (out) once its out time has come and before its due back time; an out booking is returned when the last of it is back. A quote or a reserved booking changes its times and lines; an out booking only its due back time (an extension) and notes. A returned or cancelled booking never changes. Every step is kept in the history, with who made it.
+- **Why:** the board shows where each booking is, and the history who did what.
+- **Change it:** who books is `rentals.create`, who hands over, takes back and extends `rentals.edit` (the owner, a manager, a cashier and a stock keeper by default), who cancels `rentals.cancel`.
+
+### The hirer's ID and driving licence at the handover
+
+- **Rule:** the handover records the hirer's photo ID (Aadhaar, voter ID, driving licence, passport, PAN card or another), its kind and number; of an Aadhaar card only the last four digits are kept, and the database refuses more. With the business's setting on (on to start with) a handover without it is refused. A self-drive vehicle (a car or a motorcycle hired without the shop's driver) goes out only on the hirer's driving licence, its number and the date it is valid until, refused once that date has passed; and only while the location holds the State Transport Authority's rent-a-cab (cars) or rent-a-motorcycle licence in force, kept with *Licences & registrations*. Each line's condition, meter and a vehicle's fuel are noted; a meter reading never goes below the unit's last one.
+- **Why:** the shop must be able to trace the hirer, and keeps no more of an Aadhaar number than the last four digits; a vehicle is not handed to someone without a valid licence; self-drive hire needs the rent-a-cab or rent-a-motorcycle licence; what was noted at the handover is the proof of a later damage charge.
+- **Change it:** *Record the hirer's photo ID at every handover* on *Rental items* (`settings.edit`); the location's licences under *Settings › Licences*.
+
+### A deposit is held apart, not a payment for the hire
+
+- **Rule:** a refundable deposit (for each one hired, as the item says when booked) is a collection receipt in the hirer's name, with no GST, held for its booking. It pays nothing until the booking comes back or is cancelled. Whatever the shop keeps of it (damage, missing pieces, cleaning, fuel, a late fee, a cancellation charge) is billed as a charge with its GST, at the slab of the item it is for, and the deposit then pays that bill as part of its payment; what is left goes back as a numbered refund of the receipt, by cash, UPI or bank, with a reason and a manager's PIN. A deposit is never simply kept. The handover takes the deposit asked; less only with a manager's say-so and the reason (their PIN when someone else asks). The ledger of deposits held (collected, applied to bills, handed back, held) is worked out from the receipts' own payments and refunds.
+- **Why:** a deposit is not consideration for the hire until it is applied to it (CGST Act, section 2(31), proviso): the GST is on what the shop keeps, billed as a charge. The shop owes what it holds to its hirers.
+- **Change it:** each item's deposit on *Rental items*; who hands money back is `rentals.refund`, who agrees to less deposit `rentals.approve` (the owner and a manager by default).
+
+### An advance is money on account for the hire
+
+- **Rule:** an advance taken on a reserved or out booking is a collection receipt in the hirer's name, at most the hire, and pays the booking's bill before the deposit. A booking's advances and deposits pay only that booking's bill: the customer's dues leave them alone. What is left of an advance goes back as a deposit does.
+- **Why:** money taken for a hire belongs to that hire.
+- **Change it:** who takes money is the role's `sales.edit`.
+
+### The late fee
+
+- **Rule:** a line back by its due back time and its grace time pays no late fee. After the grace time, each hour or day late (as the item's late fee is set when booked), or part of one, counted from the due back time, at the booked late rate (the item's own, or its hour or day rate), for each one still out. A line returned in parts pays each part's late fee as it comes back; the database works the fee out again from the time it was saved and the due back time. The late fee is billed on the line's own service item, with its GST.
+- **Why:** the hirer agreed the late fee with the booking; the shop's clock decides when it was late.
+- **Change it:** each item's late fee and grace time on *Rental items*; bookings made keep theirs.
+
+### One bill, when the last of it is back
+
+- **Rule:** things come back in parts; the bill is posted through the core when the last of the booking is back (or will not come back): each line's hire, the late fees and the charges noted on every part, each at its item's GST slab of the day, the advance paying first, then the deposit; what is not paid stays on the hirer's dues. A unit that will not come back is retired, and pieces of a pool that will not come back leave the pool. Retries give the same return, and the same request with other data is refused.
+- **Why:** one tax invoice for the hire; GST is worked out at the rate of the day of the invoice.
+- **Change it:** nothing to set.
+
+### Cancelling
+
+- **Rule:** a quote or a reserved booking is cancelled with a reason. A cancellation charge on any line is billed with its GST at that line's slab, and what is held pays it first; what is left goes back, now or later, with a manager's PIN.
+- **Why:** what the shop keeps is billed, as with any deposit.
+- **Change it:** who cancels is `rentals.cancel` (the owner and a manager by default).
+
+### Someone who does not see sales sees no money
+
+- **Rule:** bookings, the board, the lines and the returns show without rates, hire, deposits, charges, bills or money to anyone whose role does not hold `sales.view` (the yard's stock keeper, say), and the deposits held need it. Taking a deposit or an advance needs `sales.edit`, and the return that posts the bill `sales.create`.
+- **Why:** the yard hands things over and takes them back; the money is the counter's.
 - **Change it:** *Roles & permissions*.
 
 ## Restaurant and food formats

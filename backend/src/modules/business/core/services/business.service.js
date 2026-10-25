@@ -653,6 +653,8 @@ const memberPlans = () => require('../../memberships/services/memberCommon');
 // A jeweller's tagged pieces: their items are sold on the jewellery bill, priced by weight.
 const jewelleryItems = () => require('../../jewellery/services/jewelleryPieces.service');
 const jewelleryBills = () => require('../../jewellery/services/jewelleryBills.service');
+// A rental business's hire items: their hire is billed from the booking, when it comes back.
+const rentalItems = () => require('../../rentals/services/rentalsItems.service');
 const named = (value) => value !== undefined && value !== null && value !== '';
 // Posts a sale or purchase inside the caller's transaction. Permissions and
 // the request are checked by the caller. `fixed` (used by wholesale
@@ -674,6 +676,8 @@ const named = (value) => value !== undefined && value !== null && value !== '';
 // own service takes as payment before any money, no money moving for it (a
 // jeweller's old gold taken in exchange): [{ amount (paise), methodName,
 // reference, key }], each a credit-note payment; "full" is then what is left.
+// `rental`: the bill is a rental booking's, posted by Bookings when it comes
+// back or is cancelled with a charge (a rental item's hire goes on no other bill).
 // Free units and trade discount on a purchase line, in the line's own unit
 // (packs when it is entered in packs). null when neither is given.
 function readScheme(input) {
@@ -687,7 +691,7 @@ function readScheme(input) {
 }
 
 async function postDocument(db, business, user, body, { kind, requestKey, hash, lines: inputLines, paidNow, fixed = null, quote = false, walkInPays = false, voucher = null, finance = null,
-  membership = false, dueDay = null, jewellery = false, tenders = [] }) {
+  membership = false, dueDay = null, jewellery = false, tenders = [], rental = false }) {
   {
     // Serializes document posting within a business: one lock order for every
     // posting (business, then document, then stock lots).
@@ -831,6 +835,8 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     if (kind === 'sale' && !membership && business.modules.includes('member_plans')) await memberPlans().checkLooseSale(db, business, prepared);
     // A jeweller's tagged pieces are sold on the jewellery bill, priced by weight at the day's rate.
     if (kind === 'sale' && !jewellery && business.modules.includes('jewellery')) await jewelleryItems().checkLooseSale(db, business, prepared);
+    // A rental item's hire is billed from its booking, with its late fees, charges and deposit.
+    if (kind === 'sale' && !rental && business.modules.includes('rentals')) await rentalItems().checkLooseSale(db, business, prepared);
     // A credit voucher pays first; "full" is then what is left.
     const voucherUse = voucher ? await exchangeVouchers().prepare(db, business, voucher, rounded) : null;
     const prepaid = (voucherUse?.amount || 0) + tenders.reduce((sum, tender) => sum + tender.amount, 0);

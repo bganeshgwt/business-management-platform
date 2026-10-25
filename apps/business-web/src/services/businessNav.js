@@ -2,7 +2,7 @@
 // has switched on and what this person's role allows. The server checks the
 // same two things on every request; the menu only hides what would be refused.
 
-import { AGRI, CLINIC, GARAGE, GOODS, HARDWARE, JEWELLERY, LAUNDRY, MEMBERSHIPS, OPTICAL, PHARMACY, RETAIL, SALON, WEIGHED } from './businessTypes.js';
+import { AGRI, CLINIC, GARAGE, GOODS, HARDWARE, JEWELLERY, LAUNDRY, MEMBERSHIPS, OPTICAL, PHARMACY, RENTALS, RETAIL, SALON, WEIGHED } from './businessTypes.js';
 import { dailyWorkspaces, WORKSPACES, workspaceLabel, workspaceSections } from './businessWorkspace.js';
 
 export { GOODS };
@@ -215,6 +215,18 @@ export function businessSections(type) {
       ],
     },
     {
+      // A rental business's bookings (a daily entry of their own): the board of
+      // what goes out, is out and is due back, the availability week, and the
+      // deposits held (money: for those who see sales).
+      title: "Rentals",
+      links: [
+        { section: "rental-bookings", label: "Bookings", icon: "reservations", need: "rentals.view", types: RENTALS },
+        // What is free day by day: each unit and pool over the week.
+        { section: "rental-availability", label: "Availability", icon: "calendar", need: "rentals.view", types: RENTALS },
+        { section: "rental-deposits", label: "Deposits held", icon: "wallet", need: "sales.view", module: "rentals", types: RENTALS },
+      ],
+    },
+    {
       title: "Purchases",
       links: [
         { section: "purchases", label: "Purchases", icon: "purchaseOrders", need: "purchasing.view" },
@@ -242,6 +254,8 @@ export function businessSections(type) {
         { section: "rates", label: "Today's rates", icon: "priceList", need: "catalog.view", module: "hardware_rates", types: HARDWARE },
         // A laundry's prices by garment and service, and how its orders are billed and handed over.
         { section: "laundry-prices", label: "Price list", icon: "priceList", need: "laundry.view", types: LAUNDRY },
+        // A rental business's items with their rates, units and deposits, and the handover settings.
+        { section: "rental-items", label: "Rental items", icon: "box", need: "rentals.view", types: RENTALS },
       ],
     },
     {

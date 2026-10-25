@@ -154,6 +154,13 @@ const OldGoldPage = lazy(() => import("../../jewellery/pages/OldGoldPage"));
 const SchemesPage = lazy(() => import("../../jewellery/pages/SchemesPage"));
 const SchemePlansPage = lazy(() => import("../../jewellery/pages/SchemePlansPage"));
 const CashReportPage = lazy(() => import("../../jewellery/pages/CashReportPage"));
+// Rental and hire businesses.
+const RentalBookingsPage = lazy(() => import("../../rentals/pages/BookingsPage"));
+const RentalBookingPage = lazy(() => import("../../rentals/pages/BookingPage"));
+const RentalBookingFormPage = lazy(() => import("../../rentals/pages/BookingFormPage"));
+const RentalAvailabilityPage = lazy(() => import("../../rentals/pages/AvailabilityPage"));
+const RentalDepositsPage = lazy(() => import("../../rentals/pages/DepositsPage"));
+const RentalItemsPage = lazy(() => import("../../rentals/pages/RentalItemsPage"));
 
 function Notice({ title, children }) {
   return (
@@ -307,6 +314,10 @@ function screens(type) {
     "gold-schemes": <SchemesPage />,
     "scheme-plans": <SchemePlansPage />,
     "cash-report": <CashReportPage />,
+    "rental-bookings": <RentalBookingsPage />,
+    "rental-availability": <RentalAvailabilityPage />,
+    "rental-deposits": <RentalDepositsPage />,
+    "rental-items": <RentalItemsPage />,
   };
 }
 
@@ -384,6 +395,8 @@ export default function BusinessAdminRoutes() {
         <Route path="vehicles/owner/:contactId" element={page("vehicles", <StatementPage />)} />
         <Route path="members/:contactId" element={page("members", <MemberPage />)} />
         <Route path="garment-orders/:orderId" element={page("garment-orders", <GarmentOrderPage />)} />
+        <Route path="rental-bookings/new" element={page("rental-bookings", <RentalBookingFormPage />)} />
+        <Route path="rental-bookings/:bookingId" element={page("rental-bookings", <RentalBookingPage />)} />
         <Route path="tasks/*" element={page("tasks", <TasksRoutes />)} />
         <Route path="*" element={<Notice title="Page not found"><p>Use the menu on the left to find the screen you need.</p></Notice>} />
       </Routes>

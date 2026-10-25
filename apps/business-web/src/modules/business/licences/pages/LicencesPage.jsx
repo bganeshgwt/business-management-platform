@@ -26,6 +26,9 @@ const KINDS = [
   { value: "md42", name: "Medical device sale registration (MD-42)", types: ["optical"] },
   { value: "bis", name: "BIS registration (hallmarking)", types: ["jewellery"] },
   { value: "peso", name: "PESO licence (Form XIV)", types: ["fuel_station"] },
+  // Self-drive cars and motorcycles go out only while the location holds one in force.
+  { value: "rent_a_cab", name: "Rent-a-cab licence (State Transport Authority)", types: ["rentals"] },
+  { value: "rent_a_motorcycle", name: "Rent-a-motorcycle licence (State Transport Authority)", types: ["rentals"] },
   { value: "trade", name: "Trade licence" },
   { value: "shop", name: "Shops & establishments registration" },
   { value: "fssai", name: "FSSAI registration or licence" },

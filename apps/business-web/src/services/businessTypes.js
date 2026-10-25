@@ -33,3 +33,5 @@ export const MEMBERSHIPS = ["memberships"];
 export const LAUNDRY = ["laundry"];
 // Jewellery & gold: today's rates and the rate board.
 export const JEWELLERY = ["jewellery"];
+// Rentals & hire: bookings on a board, the availability week, deposits held, rental items.
+export const RENTALS = ["rentals"];

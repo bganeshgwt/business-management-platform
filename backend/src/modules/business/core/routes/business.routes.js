@@ -240,6 +240,8 @@ require('../../memberships/routes/businessMemberships.routes')(router, { context
 require('../../laundry/routes/businessLaundry.routes')(router, { context, send, b });
 // Jewellery shops: today's rates with the rate board, tagged pieces, the jewellery bill with the HUID check, old gold, gold schemes, the cash report.
 require('../../jewellery/routes/businessJewellery.routes')(router, { context, send, b });
+// Rental and hire businesses: items hired one by one or from a pool, bookings checked against what is free, the handover, returns with late fees and charges, deposits held.
+require('../../rentals/routes/businessRentals.routes')(router, { context, send, b });
 
 // Per-staff PIN at the counter, kits / bundles, EMI & finance.
 require('./businessCounter.routes')(router, { context, send, b });

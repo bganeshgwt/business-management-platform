@@ -2,11 +2,11 @@
 // way people make it: the platform admin sets up the restaurants and the
 // businesses, their owner sets up everything inside them. Returns what the
 // specs need to find it again: ids, the table QR codes, document numbers.
-// `sql(text, values)` runs one statement on the run's own database, for the
-// one thing no request can make: an order taken on an earlier day.
+// `sql(text, values)` runs one statement on the run's own database, for what
+// no request can make: an order taken, or a hire handed over, on an earlier day.
 import crypto from "node:crypto";
 
-import { AGRI, BUSINESSES, GARAGE, GROCERY, HARDWARE, JEWELLERY, LAUNDRY, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
+import { AGRI, BUSINESSES, GARAGE, GROCERY, HARDWARE, JEWELLERY, LAUNDRY, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, RENTALS, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
 
 // Every call names the status it expects, so a set-up that goes wrong stops
 // at the first wrong answer, with the API's own message, rather than leaving
@@ -31,6 +31,15 @@ function caller(base, token) {
 }
 
 const requestKey = () => crypto.randomUUID();
+
+// A PIN as a person picks one, made fresh for every run like the passwords:
+// six digits, never a run (123456) or a repeat (111111), which the API refuses.
+function freshPin() {
+  for (;;) {
+    const pin = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+    if (!/^(\d)\1+$/.test(pin) && !"01234567890".includes(pin) && !"09876543210".includes(pin)) return pin;
+  }
+}
 
 // Runs `work` for every item, `size` at a time.
 async function inBatches(items, size, work) {
@@ -527,6 +536,64 @@ export async function buildTestData({ api, logins, sql }) {
     });
   }
 
+  // The tent house: a hirer's photo ID at every handover and its terms; a
+  // generator hired one by one (two units, each with its hour meter), plastic
+  // chairs from a pool and a sound system by the day, each its own service
+  // item at 18%; the first generator booked for tomorrow; a sound system
+  // handed over with its deposit, then moved back in the database (the way
+  // the API's own tests move one) so that it is past its due back time now;
+  // and the other generator with chairs, going out now.
+  {
+    const B = at("rentals");
+    const locationId = businesses.rentals.locationId;
+    const gst18 = (await owner("GET", B("tax-rates?limit=100"))).items.find((r) => Number(r.rate) === 18);
+    await owner("PUT", B("rentals/settings"), { idRequired: true, terms: RENTALS.terms });
+    const item = async (made, body) => (await owner("POST", B("rentals/items"), { item: { name: made.name, code: made.code, taxRateId: gst18.id, hsnCode: RENTALS.sac },
+      rates: made.rates, deposit: String(made.deposit), ...body }, 201)).items.find((i) => i.name === made.name);
+    const units = (made) => made.units.map((u) => ({ label: u.label, serialNo: u.serialNo, ...(u.meter ? { meterReading: u.meter } : {}) }));
+    const generator = await item(RENTALS.generator, { kind: "unit", meter: "hours", minHours: RENTALS.generator.minHours, bufferMinutes: RENTALS.generator.turnaround,
+      graceMinutes: RENTALS.generator.grace, latePer: "hour", units: units(RENTALS.generator) });
+    const chairs = await item(RENTALS.chairs, { kind: "pool", poolQuantity: RENTALS.chairs.pool, latePer: "day" });
+    const sound = await item(RENTALS.sound, { kind: "unit", latePer: "day", lateRate: String(RENTALS.sound.lateRate), graceMinutes: RENTALS.sound.grace,
+      units: units(RENTALS.sound) });
+    const unitOf = (made, label) => made.units.find((u) => u.label === label);
+    const hirer = (person) => owner("POST", B("contacts"), { kind: "customer", name: person.name, phone: person.phone }, 201);
+    const book = (contact, times, lines) => owner("POST", B("rentals/bookings"), { requestKey: requestKey(), locationId, status: "reserved", contactId: contact.id, ...times, lines }, 201);
+    const tomorrow = new Date(Date.now() + 86400000).toLocaleDateString("en-CA", { timeZone: TIMEZONE });
+    const bookedTimes = { outAt: `${tomorrow}T${RENTALS.booked.from}`, dueAt: `${tomorrow}T${RENTALS.booked.until}` };
+    const bookedHirer = await hirer(RENTALS.booked.hirer);
+    const booked = await book(bookedHirer, bookedTimes, [{ itemId: generator.id, unitId: unitOf(generator, "Gen A").id }]);
+    const start = Date.now();
+    const after = (minutes) => new Date(start + minutes * 60000).toISOString();
+    const lateHirer = await hirer(RENTALS.late.hirer);
+    const late = await book(lateHirer, { outAt: after(0), dueAt: after(24 * 60) }, [{ itemId: sound.id, unitId: unitOf(sound, "Sound 1").id }]);
+    await owner("POST", B(`rentals/bookings/${late.id}/checkout`), { requestKey: requestKey(), idKind: RENTALS.late.idKind, idRef: RENTALS.late.idRef,
+      deposit: { amount: late.deposit_due, method: "cash" } });
+    // A booking handed over keeps its times (a database guard), so the guard
+    // is lifted for this one statement; the availability check still runs.
+    const minutes = 24 * 60 + RENTALS.late.minutesPastDue;
+    await sql("ALTER TABLE rental_bookings DISABLE TRIGGER rental_bookings_guard");
+    try {
+      await sql(`UPDATE rental_bookings SET out_at=out_at-make_interval(mins => $3::int),due_at=due_at-make_interval(mins => $3::int),
+        checked_out_at=checked_out_at-make_interval(mins => $3::int) WHERE business_id=$1 AND id=$2`, [businesses.rentals.id, late.id, minutes]);
+    } finally {
+      await sql("ALTER TABLE rental_bookings ENABLE TRIGGER rental_bookings_guard");
+    }
+    if (!(await owner("GET", B(`rentals/bookings/${late.id}`))).overdue) {
+      throw new Error(`Test data: booking ${late.booking_no} could not be moved back ${minutes} minutes.`);
+    }
+    const goingHirer = await hirer(RENTALS.going.hirer);
+    const going = await book(goingHirer, { outAt: after(0), dueAt: after(RENTALS.going.hours * 60) },
+      [{ itemId: generator.id, unitId: unitOf(generator, "Gen B").id }, { itemId: chairs.id, quantity: String(RENTALS.going.chairs) }]);
+    Object.assign(businesses.rentals, {
+      items: { generator: { id: generator.id, name: generator.name }, chairs: { id: chairs.id, name: chairs.name }, sound: { id: sound.id, name: sound.name } },
+      units: Object.fromEntries([...generator.units, ...sound.units].map((u) => [u.label, u.id])),
+      booked: { id: booked.id, bookingNo: booked.booking_no, hirer: bookedHirer.name, ...bookedTimes },
+      late: { id: late.id, bookingNo: late.booking_no, hirer: lateHirer.name, deposit: late.deposit_due },
+      going: { id: going.id, bookingNo: going.booking_no, hirer: goingHirer.name, dueAt: going.due_at, deposit: going.deposit_due },
+    });
+  }
+
   // The salon's stylist and service.
   {
     const B = at("salon");
@@ -552,6 +619,15 @@ export async function buildTestData({ api, logins, sql }) {
     for (const business of others) {
       await owner("POST", `/businesses/${business.id}/members`, { userId: made.user_id, role: "manager" }, 201);
     }
+  }
+
+  // The tent house's manager approves money handed back from a deposit with a
+  // PIN of their own, set the way My profile › Personal PIN sets one.
+  {
+    const manager = login("RENTALS_MANAGER");
+    const pin = freshPin();
+    await caller(api, await signIn("RENTALS_MANAGER"))("PUT", "/auth/me/pin", { password: manager.password, pin, confirmPin: pin });
+    businesses.rentals.manager = { name: manager.name, pin };
   }
 
   return {

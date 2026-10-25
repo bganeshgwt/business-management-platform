@@ -4,7 +4,8 @@ import { GOODS, SERVICES, UDHAAR, WEIGHED } from './businessTypes.js';
 // A capability being available does not make it a daily sidebar destination.
 export const WORKSPACES = {
   pharmacyBilling: ['rx-sale','counter'],
-  products: ['products', 'rates', 'variants', 'books', 'drug-master', 'salon-setup', 'categories', 'kits', 'labels', 'offers', 'pricing', 'laundry-prices'],
+  // A rental business's products open on its rental items.
+  products: ['rental-items', 'products', 'rates', 'variants', 'books', 'drug-master', 'salon-setup', 'categories', 'kits', 'labels', 'offers', 'pricing', 'laundry-prices'],
   // A jeweller's stock opens on its tagged pieces.
   stock: ['pieces', 'stock', 'weight-stock', 'movements', 'counts', 'near-expiry', 'pharmacy-batches', 'transfers', 'serials', 'processing', 'wastage'],
   purchases: ['purchases', 'suppliers', 'purchase-orders', 'claims'],
@@ -36,6 +37,8 @@ export const WORKSPACES = {
   // Old gold bought from customers or taken in exchange, and gold schemes.
   oldGold: ['old-gold'],
   goldSchemes: ['gold-schemes'],
+  // A rental business's bookings: the board, the availability week and the deposits held.
+  rentalBookings: ['rental-bookings', 'rental-availability', 'rental-deposits'],
   staff: ['staff', 'roles'],
   money: ['day-close', 'expenses', 'emi-finance'],
   repairs: ['repairs', 'appointments'],
@@ -108,6 +111,7 @@ export function dailyWorkspaces(type) {
   // Orders: a wholesaler's beat orders, or a hardware shop's site orders (with Sales orders on).
   const daily = [checkout, type === 'memberships' ? 'checkIn' : null, type === 'laundry' ? 'laundryNew' : null, type === 'laundry' ? 'garmentOrders' : null,
     type === 'jewellery' ? 'goldRates' : null, type === 'jewellery' ? 'oldGold' : null, type === 'jewellery' ? 'goldSchemes' : null,
+    type === 'rentals' ? 'rentalBookings' : null,
     type === 'healthcare' ? 'care' : null,
     ['wholesale', 'hardware'].includes(type) ? 'orders' : null,
     ['salon', 'optical', 'garage', 'memberships'].includes(type) ? 'appointments' : null,

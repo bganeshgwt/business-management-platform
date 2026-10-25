@@ -244,6 +244,16 @@ The GST rate of a laundry's services and how to set it up: [ADMIN_GUIDE.md › L
 
 How to set a jeweller up: [ADMIN_GUIDE.md › Jewellery & gold](ADMIN_GUIDE.md#jewellery--gold).
 
+### Rentals and hire
+
+- **Rental items:** each thing hired out (a generator, chairs, a sound system, a car) billed as a service item of its own at the GST slab of the like goods, hired one by one (each unit with its registration or serial number and its meter) or from a pool of how many the shop has; a deposit for each one; rates by the hour, day, week and month, the cheapest mix charged for the hours booked; a minimum hire, a turnaround time between hires, and a late fee after a grace time; a vehicle self-drive or with the shop's driver.
+- **Bookings and availability:** quotes and bookings on the shop's clock, each unit or piece held from its out time to its due back time and the turnaround time, and never booked twice, even when two counters book at the same moment; a board of what is overdue, due back today, out, reserved and quoted; the week by unit and pool; WhatsApp messages ready for the booking, the due back reminder and a late return.
+- **The handover:** the hirer's photo ID (of an Aadhaar only the last four digits), each item's condition, meter and fuel; for a self-drive vehicle the hirer's driving licence and its date (refused once run out) and the State Transport Authority's licence; the deposit asked, or less with a manager's say-so; a handover slip for the hirer to sign.
+- **The return and the bill:** all at once or in parts, with damage, missing, cleaning and fuel charges; the late fee by the hour or day; one GST bill through the core when the last of it is back, the advance and then the deposit paying it, the rest of the deposit handed back with a manager's PIN; cancellation charges billed the same way.
+- **Deposits held:** each booking's deposit collected, applied to its bill, handed back and held, kept apart from sales, and what the shop holds in all.
+
+How to set a rental business up: [ADMIN_GUIDE.md › Rentals & hire](ADMIN_GUIDE.md#rentals--hire).
+
 ### The newer trades
 
 General stores, hardware and building-material shops, seeds and fertiliser shops, opticians, garages, jewellers, fuel stations, gyms and coaching centres, laundries, rental businesses, and hotels and lodges run on the shared core from their first day:

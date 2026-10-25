@@ -15,6 +15,7 @@ const access = require('./businessAccess.service');
 //   repairs            ready to collect, or past the promised date
 //   spectacle orders   ready to collect, or past the promised day (optical shops)
 //   job cards          ready to deliver, or past the promised time (garages)
+//   bookings           past their due back time, or past their out time and not handed over (rentals)
 //   appointments       still to come today
 //   licences           running out within 60 days, or run out
 //   wholesale overdue  (same overdue query, worded as invoices)
@@ -141,6 +142,10 @@ async function feed(business) {
   // A jeweller's day's rates not set, a location's hallmarking district not said, old gold still to settle.
   if (has('jewellery') && can('jewellery.view') && business.business_type === 'jewellery') {
     items.push(...await require('../../jewellery/services/jewelleryBell.service').bell(business, base, LIMIT));
+  }
+  // A rental business's bookings past their due back time, and those past their out time not handed over.
+  if (has('rentals') && can('rentals.view') && business.business_type === 'rentals') {
+    items.push(...await require('../../rentals/services/rentalsBookings.service').bell(business, base, LIMIT));
   }
   // Licences & registrations: a licence running out within 60 days (warning), or run out (critical).
   if (has('licences') && can('licences.view')) {

@@ -1,0 +1,475 @@
+/* Rental and hire businesses: the bookings board, the booking form's item
+   buttons and lines, the booking page's facts, the dialogs' line blocks and
+   bill, the rental items' rows, the availability week and the small notes
+   these screens share. Colours come from the theme's tokens only. */
+
+.rnt-note {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: var(--text-sm);
+}
+.rnt-warn {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+.rnt-grow {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.rnt-empty {
+  padding: var(--space-3);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  list-style: none;
+}
+
+/* The board: a column for each stage, side by side, scrolling sideways on a phone. */
+.rnt-board {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(170px, 1fr);
+  gap: var(--space-3);
+  overflow-x: auto;
+  padding: var(--space-3);
+}
+.rnt-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+.rnt-col-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+.rnt-col-head span {
+  min-width: 1.6rem;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-2);
+  text-align: center;
+  font-weight: var(--weight-medium);
+}
+.rnt-col-overdue .rnt-col-head {
+  color: var(--danger);
+}
+.rnt-col-due_today .rnt-col-head {
+  color: var(--warning-text);
+}
+.rnt-col-list {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2);
+  list-style: none;
+}
+.rnt-card {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.rnt-card.is-late {
+  border-color: var(--danger-border);
+}
+.rnt-card-open {
+  display: grid;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  padding-right: 2.4rem;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.rnt-card-open:hover,
+.rnt-card-open:focus-visible {
+  background: var(--surface-hover);
+}
+/* The hirer's name on its own line (it may wrap), the booking number under it. */
+.rnt-card-top {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+.rnt-card-top strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.rnt-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  color: var(--text-2);
+  font-size: var(--text-xs);
+}
+.rnt-card-meta .is-late,
+.rnt-card-meta span.is-late {
+  color: var(--danger);
+  font-weight: var(--weight-medium);
+}
+.rnt-card-message {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--success-text);
+}
+.rnt-card-message:hover,
+.rnt-card-message:focus-visible {
+  border-color: var(--success-border);
+  background: var(--success-bg);
+}
+
+/* The booking form. */
+.rnt-customer,
+.rnt-when {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+.rnt-when > .field {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.rnt-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+}
+.rnt-item-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.rnt-item-button {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+.rnt-item-button:hover:not(:disabled),
+.rnt-item-button:focus-visible {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.rnt-item-button:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+.rnt-lines {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rnt-line {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.rnt-line.is-clash {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+}
+.rnt-line-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  align-items: flex-end;
+}
+.rnt-line-main > .field {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.rnt-line-no {
+  align-self: center;
+  min-width: 1.6rem;
+  color: var(--muted);
+  font-weight: var(--weight-bold);
+}
+.rnt-line-item {
+  display: grid;
+  flex: 1 1 200px;
+  align-self: center;
+  min-width: 0;
+}
+.rnt-line-figure {
+  display: grid;
+  align-self: center;
+  min-width: 7rem;
+  text-align: right;
+}
+.rnt-clash {
+  margin: var(--space-2) 0 0;
+  color: var(--danger);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+.rnt-total {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.rnt-total strong {
+  font-size: var(--text-lg);
+}
+.rnt-total .form-actions {
+  margin: 0;
+}
+
+/* The booking page. */
+.rnt-tell {
+  margin-top: var(--space-3);
+}
+.rnt-fact {
+  display: contents;
+}
+.rnt-inline {
+  margin-left: var(--space-2);
+}
+.rnt-refunds {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.rnt-refunds li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+}
+
+/* The dialogs: a block for each line, the charges, the bill as it will be. */
+.rnt-fieldset,
+.rnt-approval {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  align-items: flex-end;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.rnt-fieldset > .field,
+.rnt-approval > .field {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.rnt-fieldset > .field-wide {
+  flex-basis: 100%;
+}
+.rnt-fieldset legend,
+.rnt-approval legend {
+  padding: 0 var(--space-1);
+  color: var(--text-2);
+  font-size: var(--text-sm);
+}
+.rnt-charge,
+.rnt-unit-row {
+  display: flex;
+  flex-wrap: wrap;
+  flex-basis: 100%;
+  gap: var(--space-2) var(--space-3);
+  align-items: flex-end;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px dashed var(--border);
+}
+.rnt-charge > .field,
+.rnt-unit-row > .field {
+  flex: 1 1 150px;
+  min-width: 0;
+}
+.rnt-plan {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.rnt-late {
+  margin: 0 0 var(--space-1);
+  color: var(--warning-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+.rnt-bill {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.rnt-bill td,
+.rnt-bill th {
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font-weight: var(--weight-regular);
+}
+.rnt-bill th {
+  font-weight: var(--weight-bold);
+}
+.rnt-bill .r {
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Rental items: a unit's buttons. */
+.rnt-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+/* Availability: the week, a row for each unit or pool. */
+.rnt-week-tools {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+.rnt-week-wrap {
+  overflow-x: auto;
+}
+.rnt-week {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.rnt-week th,
+.rnt-week td {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+.rnt-week thead th {
+  color: var(--text-2);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+.rnt-week thead th span {
+  color: var(--muted);
+}
+.rnt-week thead th.is-today {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.rnt-week tbody th {
+  min-width: 140px;
+  font-weight: var(--weight-medium);
+}
+.rnt-week-group th {
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: var(--weight-bold);
+}
+.rnt-cell {
+  min-width: 96px;
+}
+.rnt-cell.is-today {
+  background: var(--primary-soft);
+}
+.rnt-cell.is-free small {
+  color: var(--success-text);
+}
+.rnt-cell.is-full > strong {
+  color: var(--danger);
+}
+.rnt-cell.is-off {
+  color: var(--muted);
+}
+.rnt-hold-list {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+.rnt-hold {
+  display: grid;
+  width: 100%;
+  margin-bottom: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--info-border);
+  border-radius: var(--radius-sm);
+  background: var(--info-bg);
+  color: var(--info-text);
+  font: inherit;
+  font-size: var(--text-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.rnt-hold small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rnt-hold-out {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+.rnt-hold-back {
+  border-style: dashed;
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+.rnt-hold:hover,
+.rnt-hold:focus-visible {
+  border-color: var(--primary);
+}
