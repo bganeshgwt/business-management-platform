@@ -655,6 +655,8 @@ const jewelleryItems = () => require('../../jewellery/services/jewelleryPieces.s
 const jewelleryBills = () => require('../../jewellery/services/jewelleryBills.service');
 // A rental business's hire items: their hire is billed from the booking, when it comes back.
 const rentalItems = () => require('../../rentals/services/rentalsItems.service');
+// A fuel station's fuels: sold by a shift's close (its meters), petrol and diesel bought on tanker receipts.
+const fuelProducts = () => require('../../fuel/services/fuelSetup.service');
 const named = (value) => value !== undefined && value !== null && value !== '';
 // Posts a sale or purchase inside the caller's transaction. Permissions and
 // the request are checked by the caller. `fixed` (used by wholesale
@@ -678,6 +680,11 @@ const named = (value) => value !== undefined && value !== null && value !== '';
 // reference, key }], each a credit-note payment; "full" is then what is left.
 // `rental`: the bill is a rental booking's, posted by Bookings when it comes
 // back or is cancelled with a charge (a rental item's hire goes on no other bill).
+// `fuel`: a fuel station's shift close (its fuel bills: the meters' litres at
+// the price in force, exact to the paisa, so no round-off; the shift checks
+// each credit fill against the customer's limit and for the buyer's PAN,
+// a manager allowing credit over a limit) or a tanker receipt's purchase. A
+// fuel goes on no other bill, and petrol or diesel on no other purchase.
 // Free units and trade discount on a purchase line, in the line's own unit
 // (packs when it is entered in packs). null when neither is given.
 function readScheme(input) {
@@ -691,7 +698,7 @@ function readScheme(input) {
 }
 
 async function postDocument(db, business, user, body, { kind, requestKey, hash, lines: inputLines, paidNow, fixed = null, quote = false, walkInPays = false, voucher = null, finance = null,
-  membership = false, dueDay = null, jewellery = false, tenders = [], rental = false }) {
+  membership = false, dueDay = null, jewellery = false, tenders = [], rental = false, fuel = false }) {
   {
     // Serializes document posting within a business: one lock order for every
     // posting (business, then document, then stock lots).
@@ -822,7 +829,7 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
       if (!Number.isSafeInteger(subtotal + tax) || subtotal + tax > 100000000000) fail('Document total exceeds the supported limit');
     }
     const raw = subtotal + tax;
-    const rounded = kind === 'sale' && settings?.rounding === 'nearest_rupee' ? Math.floor((raw + 50) / 100) * 100 : raw;
+    const rounded = kind === 'sale' && !fuel && settings?.rounding === 'nearest_rupee' ? Math.floor((raw + 50) / 100) * 100 : raw;
     const roundOff = rounded - raw;
     if (quote) return retailOffers.quoteOf({ prepared, offers, subtotal, tax, roundOff, rounded, taxMode, contact });
     // A farm-input shop's sale: every fertiliser, seed and pesticide line is
@@ -837,6 +844,9 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     if (kind === 'sale' && !jewellery && business.modules.includes('jewellery')) await jewelleryItems().checkLooseSale(db, business, prepared);
     // A rental item's hire is billed from its booking, with its late fees, charges and deposit.
     if (kind === 'sale' && !rental && business.modules.includes('rentals')) await rentalItems().checkLooseSale(db, business, prepared);
+    // A fuel is sold by a shift's close, at its meters' litres; petrol and diesel come in on tanker receipts, with their dips and density.
+    if (kind === 'sale' && !fuel && business.modules.includes('fuel')) await fuelProducts().checkLooseSale(db, business, prepared);
+    if (kind === 'purchase' && !fuel && business.modules.includes('fuel')) await fuelProducts().checkLoosePurchase(db, business, prepared);
     // A credit voucher pays first; "full" is then what is left.
     const voucherUse = voucher ? await exchangeVouchers().prepare(db, business, voucher, rounded) : null;
     const prepaid = (voucherUse?.amount || 0) + tenders.reduce((sum, tender) => sum + tender.amount, 0);
@@ -859,7 +869,7 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     // Season credit (a farm-input shop): a named customer's bill left on credit.
     if (agri) agriSales().checkCredit(agri, { contact, unpaid: rounded - paidPaise - prepaid - financed });
     // Credit limit: what this customer would owe after this sale, less what they pay now.
-    if (kind === 'sale' && contact?.credit_limit !== null && contact?.credit_limit !== undefined) {
+    if (kind === 'sale' && !fuel && contact?.credit_limit !== null && contact?.credit_limit !== undefined) {
       const owed = await repo.one(db, `SELECT ${repo.contactBalanceSql('c')} AS balance FROM business_contacts c WHERE c.business_id=$1 AND c.id=$2`, [business.id, contact.id]);
       const after = paise(Number(owed.balance)) + rounded - paidPaise - prepaid - financed;
       if (after > paise(Number(contact.credit_limit))) {
@@ -894,7 +904,7 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
         if (!buyerPan && contact) buyerPan = (await repo.one(db, 'SELECT pan FROM wholesale_customer_profiles WHERE business_id=$1 AND contact_id=$2', [business.id, contact.id]))?.pan || null;
       }
       panDeclaration = !buyerPan && typed.declaration;
-      if (rounded > PAN_ABOVE_PAISE && !buyerPan && !panDeclaration) {
+      if (!fuel && rounded > PAN_ABOVE_PAISE && !buyerPan && !panDeclaration) {
         fail('A bill over ₹2,00,000 needs the buyer\'s PAN: type it on the bill, or choose the customer with their PAN or GSTIN saved. A buyer who has no PAN signs a declaration (Form 97): record it on the bill instead.');
       }
     }

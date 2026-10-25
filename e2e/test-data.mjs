@@ -10,7 +10,8 @@ export const TIMEZONE = "Asia/Kolkata";
 // run and are written only to the run's own file under test-results.
 //
 // SHOP_MANAGER works in a few of the owner's businesses (`businesses`, keys
-// of BUSINESSES below), as their manager, and not in the restaurant. Opening
+// of BUSINESSES below), as their manager, and not in the restaurant. A login
+// with a `businessRole` has that role of its trade there instead. Opening
 // a business from the header's switcher changes where a login lands after
 // signing in, so the switcher is tried with this login only: every other
 // login keeps landing where the specs expect it to.
@@ -23,6 +24,8 @@ export const LOGINS = [
   { role: "SHOP_MANAGER", name: "Kavya Reddy", email: "manager@shops.e2e.invalid", businesses: ["books", "grocery", "pharmacy", "wholesale", "salon"] },
   // The tent house's manager, who approves money handed back from a deposit with a PIN of their own.
   { role: "RENTALS_MANAGER", name: "Arjun Menon", email: "manager@rentals.e2e.invalid", businesses: ["rentals"] },
+  // The fuel station's pump attendant, who opens and closes their own shift.
+  { role: "PUMP_ATTENDANT", name: "Mahesh Yadav", email: "attendant@fuel.e2e.invalid", businesses: ["fuel_station"], businessRole: "pump_attendant" },
 ];
 
 // The restaurant the RESTAURANT_ADMIN runs. Tables 1-3 are free; table 4
@@ -279,6 +282,28 @@ export const RENTALS = {
   late: { hirer: { name: "Lalitha Devi", phone: "9876500402" }, idKind: "voter_id", idRef: "TSV7654321", minutesPastDue: 180 },
   // The other generator and the chairs, out now for 26 hours.
   going: { hirer: { name: "Srinivas Naidu", phone: "9876500403" }, chairs: 100, hours: 26 },
+};
+
+// The fuel station: petrol and diesel (outside GST: on the GST nil slab, the
+// price including state VAT), a tank of each with its stock, dispensing unit
+// DU 1 with nozzle 1 for petrol and nozzle 2 for diesel, the 5-litre measure,
+// and the prices from yesterday morning. Yesterday's morning dips at 06:00; a
+// diesel shift opened on nozzle 2 two hours ago and closed an hour ago: 500
+// litres moved, the 5-litre test pumped back, 495 litres sold at ₹95.20 for
+// ₹47,124.00 in cash, a day of the stock register that today's dip ends. A
+// transport company fills its truck on credit; the oil company's fleet card
+// is a payment method; the terminal supplies the tanker loads.
+export const FUEL = {
+  petrol: { name: "Petrol", price: "102.12", tank: { tankNo: "T1", capacity: "15000", stock: "9000" }, nozzle: { nozzleNo: "1", reading: "100000" } },
+  diesel: { name: "Diesel", price: "95.20", tank: { tankNo: "T2", capacity: "20000", stock: "12000" }, nozzle: { nozzleNo: "2", reading: "250000.5" } },
+  unit: { unitNo: "DU 1", make: "Tokheim", stampingInDays: 200 },
+  measure: { name: "5-litre measure", litres: "5", stampingInDays: 150 },
+  // The diesel shift the set-up closes: its closing reading, the test pumped back and the cash, exact.
+  closedShift: { closing: "250500.5", test: "5", cash: "47124" },
+  supplier: "Cherlapally Terminal",
+  fleet: { name: "Sri Balaji Transports", phone: "9848011223", creditDays: "30", creditLimit: "100000",
+    vehicle: { registration: "TS09UB4455", description: "Tata 1613", fillLimit: "300" } },
+  fleetCard: "Fleet card",
 };
 
 // The salon: one stylist and one service.

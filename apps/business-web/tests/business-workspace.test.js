@@ -189,6 +189,20 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   const yardLinks=businessMenu(33,'rentals',p=>yard.has(p),()=>true).flatMap(g=>g.links);
   assert.ok(yardLinks.some(l=>l.section==='rental-bookings'&&!l.pages.some(p=>p.to.endsWith('/rental-deposits'))),'the yard finds the bookings, not the deposits');
   for(const type of ['grocery','laundry','garage'])for(const section of ['rental-bookings','rental-availability','rental-deposits','rental-items'])assert.ok(!typeAllows(sectionRule(section,type),type),`${type}: no ${section}`);
+  // A fuel station's day: Shift & readings, and Tanks & dips (with the tanker receipts and the stock register), after Quick bill; its fleet statements sit with its customers, its pumps and nozzles in Settings.
+  const fdaily=businessMenu(33,'fuel_station',()=>true,()=>true).find(g=>g.title==='Daily work').links;
+  assert.deepEqual(fdaily.slice(1,4).map(l=>[l.section,l.label]),[['counter','Quick bill'],['fuel-shifts','Shift & readings'],['fuel-dips','Tanks & dips']]);
+  assert.deepEqual(fdaily.find(l=>l.section==='fuel-dips').pages.map(p=>p.label),['Tanks & dips','Tanker receipts','Stock register']);
+  assert.equal(workspaceFor('fuel-receipts','fuel_station'),'fuelTanks');
+  assert.ok(menu('fuel_station').find(l=>l.section==='customers').pages.some(p=>p.to.endsWith('/fuel-fleet')),'fuel: fleet statements with the customers');
+  assert.ok(menu('fuel_station').find(l=>l.label==='Settings').pages.some(p=>p.label==='Pumps & nozzles'),'fuel: pumps and nozzles in Settings');
+  assert.ok(!menu('fuel_station',m=>m!=='fuel').some(l=>l.pages.some(p=>/\/fuel-/.test(p.to))),'no fuel screens while the module is off');
+  // The pump attendant: their own shifts and the dips; no fleet money and no settings.
+  const dsm=new Set(['fuel.view','fuel.create']);
+  const dsmLinks=businessMenu(33,'fuel_station',p=>dsm.has(p),()=>true).flatMap(g=>g.links);
+  assert.ok(dsmLinks.some(l=>l.section==='fuel-shifts')&&dsmLinks.some(l=>l.section==='fuel-dips'),'the attendant finds the shifts and the dips');
+  assert.ok(!dsmLinks.flatMap(l=>l.pages).some(p=>/\/(fuel-fleet|fuel-pumps|settings)$/.test(p.to)),'the attendant has no fleet money and no settings');
+  for(const type of ['grocery','garage','rentals'])for(const section of ['fuel-shifts','fuel-dips','fuel-receipts','fuel-register','fuel-fleet','fuel-pumps'])assert.ok(!typeAllows(sectionRule(section,type),type),`${type}: no ${section}`);
 });
 test('restricted roles get a permitted destination even when the first workspace page is unavailable',()=>{
   const permissions=new Set(['purchasing.view','contacts.view','inventory.view','catalog.view']);

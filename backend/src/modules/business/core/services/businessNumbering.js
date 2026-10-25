@@ -32,7 +32,9 @@ const SHORT = { sale: 'SI', purchase: 'PR', sales_return: 'CN', purchase_return:
   // A jeweller's old gold vouchers and gold schemes (not GST documents).
   old_gold: 'OG', gold_scheme: 'GS',
   // A rental business's quotes and bookings (not GST documents: the bill at the return is).
-  rental: 'RN' };
+  rental: 'RN',
+  // A fuel station's shifts (not GST documents: the fuel bills a close posts are).
+  fuel_shift: 'FS' };
 const KINDS = Object.keys(SHORT);
 // Kinds printed as GST documents: their numbers must fit in 16 characters.
 const GST_KINDS = new Set(['sale', 'sales_return', 'purchase_return']);

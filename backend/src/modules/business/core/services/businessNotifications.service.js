@@ -16,6 +16,8 @@ const access = require('./businessAccess.service');
 //   spectacle orders   ready to collect, or past the promised day (optical shops)
 //   job cards          ready to deliver, or past the promised time (garages)
 //   bookings           past their due back time, or past their out time and not handed over (rentals)
+//   fuel               stamping falling due, the stock register beyond the tolerance, loads outside the
+//                      density tolerance, shifts left open, dips not taken, fuels unpriced, fleets over their limit (fuel stations)
 //   appointments       still to come today
 //   licences           running out within 60 days, or run out
 //   wholesale overdue  (same overdue query, worded as invoices)
@@ -146,6 +148,10 @@ async function feed(business) {
   // A rental business's bookings past their due back time, and those past their out time not handed over.
   if (has('rentals') && can('rentals.view') && business.business_type === 'rentals') {
     items.push(...await require('../../rentals/services/rentalsBookings.service').bell(business, base, LIMIT));
+  }
+  // A fuel station's stamping falling due, its stock register beyond the tolerance, loads outside the density tolerance, shifts left open and more.
+  if (has('fuel') && can('fuel.view') && business.business_type === 'fuel_station') {
+    items.push(...await require('../../fuel/services/fuelBell.service').bell(business, base, LIMIT));
   }
   // Licences & registrations: a licence running out within 60 days (warning), or run out (critical).
   if (has('licences') && can('licences.view')) {

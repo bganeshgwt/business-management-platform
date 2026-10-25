@@ -6,7 +6,7 @@
 // no request can make: an order taken, or a hire handed over, on an earlier day.
 import crypto from "node:crypto";
 
-import { AGRI, BUSINESSES, GARAGE, GROCERY, HARDWARE, JEWELLERY, LAUNDRY, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, RENTALS, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
+import { AGRI, BUSINESSES, FUEL, GARAGE, GROCERY, HARDWARE, JEWELLERY, LAUNDRY, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, RENTALS, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
 
 // Every call names the status it expects, so a set-up that goes wrong stops
 // at the first wrong answer, with the API's own message, rather than leaving
@@ -607,17 +607,68 @@ export async function buildTestData({ api, logins, sql }) {
     });
   }
 
+  // The fuel station: its fuels on the GST nil slab, a tank of each with its
+  // stock, a dispensing unit with a nozzle for each, the 5-litre measure, the
+  // prices from yesterday morning and yesterday's morning dips; a diesel shift
+  // opened two hours ago and closed an hour ago, exact in cash; the terminal
+  // as a supplier; a transport company with a truck filled on credit; and the
+  // oil company's fleet card as a payment method.
+  {
+    const B = at("fuel_station");
+    const locationId = businesses.fuel_station.locationId;
+    const day = (n) => new Date(Date.now() + n * 86400000).toLocaleDateString("en-CA", { timeZone: TIMEZONE });
+    // Typed times are read to the minute.
+    const minute = Math.floor(Date.now() / 60000) * 60000;
+    const ago = (minutes) => new Date(minute - minutes * 60000).toISOString();
+    const fuel = async (made, family) => (await owner("POST", B("fuel/products"), { item: { name: made.name }, family }, 201)).products.find((p) => p.name === made.name);
+    const petrol = await fuel(FUEL.petrol, "petrol");
+    const diesel = await fuel(FUEL.diesel, "diesel");
+    const tank = async (made, product) => (await owner("POST", B("fuel/tanks"), { locationId, productId: product.id, tankNo: made.tank.tankNo, capacity: made.tank.capacity,
+      stockNow: { litres: made.tank.stock } }, 201)).tanks.find((t) => t.tank_no === made.tank.tankNo);
+    const petrolTank = await tank(FUEL.petrol, petrol);
+    const dieselTank = await tank(FUEL.diesel, diesel);
+    const unit = (await owner("POST", B("fuel/dispensers"), { locationId, unitNo: FUEL.unit.unitNo, make: FUEL.unit.make, stampingDue: day(FUEL.unit.stampingInDays),
+      nozzles: [{ nozzleNo: FUEL.petrol.nozzle.nozzleNo, tankId: petrolTank.id, reading: FUEL.petrol.nozzle.reading },
+        { nozzleNo: FUEL.diesel.nozzle.nozzleNo, tankId: dieselTank.id, reading: FUEL.diesel.nozzle.reading }] }, 201)).dispensers.find((d) => d.unit_no === FUEL.unit.unitNo);
+    const nozzleOf = (made) => unit.nozzles.find((n) => n.nozzle_no === made.nozzle.nozzleNo);
+    await owner("POST", B("fuel/measures"), { locationId, name: FUEL.measure.name, litres: FUEL.measure.litres, stampingDue: day(FUEL.measure.stampingInDays) }, 201);
+    await owner("POST", B("fuel/prices"), { requestKey: requestKey(), locationId, effectiveFrom: ago(26 * 60),
+      prices: [{ productId: petrol.id, price: FUEL.petrol.price }, { productId: diesel.id, price: FUEL.diesel.price }] }, 201);
+    for (const [made, tankMade] of [[FUEL.petrol, petrolTank], [FUEL.diesel, dieselTank]]) {
+      await owner("POST", B("fuel/dips"), { requestKey: requestKey(), tankId: tankMade.id, dipOn: day(-1), takenAt: `${day(-1)}T06:00`, stock: made.tank.stock }, 201);
+    }
+    const shift = await owner("POST", B("fuel/shifts"), { requestKey: requestKey(), locationId, openedAt: ago(120), nozzles: [nozzleOf(FUEL.diesel).id] }, 201);
+    const closed = await owner("POST", B(`fuel/shifts/${shift.id}/close`), { requestKey: requestKey(), closedAt: ago(60),
+      readings: [{ nozzleId: nozzleOf(FUEL.diesel).id, closing: FUEL.closedShift.closing, test: FUEL.closedShift.test }], cash: FUEL.closedShift.cash });
+    if (Number(closed.close.difference) !== 0) throw new Error(`Test data: shift ${closed.shift_no} closed ${closed.close.difference} out.`);
+    const terminal = await owner("POST", B("contacts"), { kind: "supplier", name: FUEL.supplier }, 201);
+    const fleet = await owner("POST", B("contacts"), { kind: "customer", name: FUEL.fleet.name, phone: FUEL.fleet.phone, creditDays: FUEL.fleet.creditDays,
+      creditLimit: FUEL.fleet.creditLimit }, 201);
+    const truck = await owner("POST", B("fuel/vehicles"), { contactId: fleet.id, registration: FUEL.fleet.vehicle.registration, description: FUEL.fleet.vehicle.description,
+      productId: diesel.id, fillLimit: FUEL.fleet.vehicle.fillLimit }, 201);
+    await owner("POST", B("payment-methods"), { name: FUEL.fleetCard, kind: "card" }, 201);
+    Object.assign(businesses.fuel_station, {
+      fuels: { petrol: { id: petrol.id, name: petrol.name }, diesel: { id: diesel.id, name: diesel.name } },
+      tanks: { petrol: { id: petrolTank.id, tankNo: petrolTank.tank_no }, diesel: { id: dieselTank.id, tankNo: dieselTank.tank_no } },
+      nozzles: { petrol: { id: nozzleOf(FUEL.petrol).id, nozzleNo: FUEL.petrol.nozzle.nozzleNo }, diesel: { id: nozzleOf(FUEL.diesel).id, nozzleNo: FUEL.diesel.nozzle.nozzleNo } },
+      closedShift: { id: closed.id, shiftNo: closed.shift_no },
+      supplier: { id: terminal.id, name: terminal.name },
+      fleet: { id: fleet.id, name: fleet.name },
+      truck: { id: truck.id, registration: truck.registration },
+    });
+  }
+
   // Each login that works in some of the owner's shops: made in the first
   // of them, as Staff & access › New staff login makes one, then given access
-  // to the others; a manager in every one.
+  // to the others; a manager in every one, or the role of its trade it names.
   for (const person of logins.filter((item) => item.businesses)) {
     const [first, ...others] = person.businesses.map((type) => businesses[type]);
-    const manager = (await owner("GET", `/businesses/${first.id}/roles`)).items.find((role) => role.template_code === "manager");
+    const roleIn = async (business) => (await owner("GET", `/businesses/${business.id}/roles`)).items.find((role) => role.template_code === (person.businessRole || "manager"));
     const made = await owner("POST", `/businesses/${first.id}/staff-accounts`, {
-      name: person.name, email: person.email, password: person.password, roleId: manager.id,
+      name: person.name, email: person.email, password: person.password, roleId: (await roleIn(first)).id,
     }, 201);
     for (const business of others) {
-      await owner("POST", `/businesses/${business.id}/members`, { userId: made.user_id, role: "manager" }, 201);
+      await owner("POST", `/businesses/${business.id}/members`, person.businessRole ? { userId: made.user_id, roleId: (await roleIn(business)).id } : { userId: made.user_id, role: "manager" }, 201);
     }
   }
 

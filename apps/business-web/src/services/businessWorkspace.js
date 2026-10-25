@@ -10,7 +10,7 @@ export const WORKSPACES = {
   stock: ['pieces', 'stock', 'weight-stock', 'movements', 'counts', 'near-expiry', 'pharmacy-batches', 'transfers', 'serials', 'processing', 'wastage'],
   purchases: ['purchases', 'suppliers', 'purchase-orders', 'claims'],
   dues: ['udhaar', 'outstanding', 'collections'],
-  customers: ['customers', 'loyalty', 'sites', 'fitters', 'prescriptions', 'recall', 'vehicles', 'service-due'],
+  customers: ['customers', 'loyalty', 'sites', 'fitters', 'prescriptions', 'recall', 'vehicles', 'service-due', 'fuel-fleet'],
   sales: ['sales', 'quotations', 'exchanges', 'warranties', 'pickup-orders'],
   orders: ['sales-orders', 'back-orders', 'dispatch', 'price-groups', 'pricing', 'routes'],
   appointments: ['salon-calendar', 'appointments'],
@@ -18,7 +18,7 @@ export const WORKSPACES = {
   patients: ['patients', 'customers'],
   laboratory: ['lab-orders', 'lab-tests', 'lab-qc'],
   reports: ['reports', 'retail-reports', 'wholesale-reports', 'variant-reports', 'weight-reports', 'salon-reports', 'commissions', 'fitter-reports', 'cash-report', 'activity'],
-  settings: ['settings', 'tax-rates', 'payment-methods', 'number-series', 'locations', 'units', 'resources', 'health-settings', 'licences', 'agri-settings', 'garage-settings', 'member-plans', 'jewellery-settings', 'scheme-plans'],
+  settings: ['settings', 'tax-rates', 'payment-methods', 'number-series', 'locations', 'units', 'resources', 'health-settings', 'licences', 'agri-settings', 'garage-settings', 'member-plans', 'jewellery-settings', 'scheme-plans', 'fuel-pumps'],
   // A seeds, fertilisers & pesticides shop's own area.
   farm: ['farmers', 'agri-subsidy', 'agri-registers', 'molecules'],
   // An optical shop's spectacle orders, in its daily menu.
@@ -39,6 +39,9 @@ export const WORKSPACES = {
   goldSchemes: ['gold-schemes'],
   // A rental business's bookings: the board, the availability week and the deposits held.
   rentalBookings: ['rental-bookings', 'rental-availability', 'rental-deposits'],
+  // A fuel station's shifts, and its tanks with the morning dips, the tanker loads and the stock register.
+  fuelShifts: ['fuel-shifts'],
+  fuelTanks: ['fuel-dips', 'fuel-receipts', 'fuel-register'],
   staff: ['staff', 'roles'],
   money: ['day-close', 'expenses', 'emi-finance'],
   repairs: ['repairs', 'appointments'],
@@ -112,6 +115,7 @@ export function dailyWorkspaces(type) {
   const daily = [checkout, type === 'memberships' ? 'checkIn' : null, type === 'laundry' ? 'laundryNew' : null, type === 'laundry' ? 'garmentOrders' : null,
     type === 'jewellery' ? 'goldRates' : null, type === 'jewellery' ? 'oldGold' : null, type === 'jewellery' ? 'goldSchemes' : null,
     type === 'rentals' ? 'rentalBookings' : null,
+    type === 'fuel_station' ? 'fuelShifts' : null, type === 'fuel_station' ? 'fuelTanks' : null,
     type === 'healthcare' ? 'care' : null,
     ['wholesale', 'hardware'].includes(type) ? 'orders' : null,
     ['salon', 'optical', 'garage', 'memberships'].includes(type) ? 'appointments' : null,

@@ -161,6 +161,15 @@ const RentalBookingFormPage = lazy(() => import("../../rentals/pages/BookingForm
 const RentalAvailabilityPage = lazy(() => import("../../rentals/pages/AvailabilityPage"));
 const RentalDepositsPage = lazy(() => import("../../rentals/pages/DepositsPage"));
 const RentalItemsPage = lazy(() => import("../../rentals/pages/RentalItemsPage"));
+// Fuel stations.
+const FuelShiftsPage = lazy(() => import("../../fuel/pages/ShiftsPage"));
+const FuelShiftPage = lazy(() => import("../../fuel/pages/ShiftPage"));
+const FuelDipsPage = lazy(() => import("../../fuel/pages/DipsPage"));
+const FuelReceiptsPage = lazy(() => import("../../fuel/pages/ReceiptsPage"));
+const FuelRegisterPage = lazy(() => import("../../fuel/pages/RegisterPage"));
+const FuelFleetPage = lazy(() => import("../../fuel/pages/FleetPage"));
+const FuelStatementPage = lazy(() => import("../../fuel/pages/FleetStatementPage"));
+const FuelPumpsPage = lazy(() => import("../../fuel/pages/PumpsPage"));
 
 function Notice({ title, children }) {
   return (
@@ -318,6 +327,12 @@ function screens(type) {
     "rental-availability": <RentalAvailabilityPage />,
     "rental-deposits": <RentalDepositsPage />,
     "rental-items": <RentalItemsPage />,
+    "fuel-shifts": <FuelShiftsPage />,
+    "fuel-dips": <FuelDipsPage />,
+    "fuel-receipts": <FuelReceiptsPage />,
+    "fuel-register": <FuelRegisterPage />,
+    "fuel-fleet": <FuelFleetPage />,
+    "fuel-pumps": <FuelPumpsPage />,
   };
 }
 
@@ -397,6 +412,8 @@ export default function BusinessAdminRoutes() {
         <Route path="garment-orders/:orderId" element={page("garment-orders", <GarmentOrderPage />)} />
         <Route path="rental-bookings/new" element={page("rental-bookings", <RentalBookingFormPage />)} />
         <Route path="rental-bookings/:bookingId" element={page("rental-bookings", <RentalBookingPage />)} />
+        <Route path="fuel-shifts/:shiftId" element={page("fuel-shifts", <FuelShiftPage />)} />
+        <Route path="fuel-fleet/:contactId" element={page("fuel-fleet", <FuelStatementPage />)} />
         <Route path="tasks/*" element={page("tasks", <TasksRoutes />)} />
         <Route path="*" element={<Notice title="Page not found"><p>Use the menu on the left to find the screen you need.</p></Notice>} />
       </Routes>

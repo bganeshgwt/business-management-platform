@@ -254,6 +254,16 @@ How to set a jeweller up: [ADMIN_GUIDE.md › Jewellery & gold](ADMIN_GUIDE.md#j
 
 How to set a rental business up: [ADMIN_GUIDE.md › Rentals & hire](ADMIN_GUIDE.md#rentals--hire).
 
+### Fuel stations
+
+- **The dealer's back office, never the forecourt:** readings, dips and densities are typed in; the dispensers, forecourt controllers and tank gauges stay with the oil company. Lubricants and the shop's items bill at *Quick bill* with their own GST.
+- **Fuels, tanks and pumps:** petrol, diesel and CNG on the GST nil slab, each fuel bill line saying the price includes state VAT; tanks with their stock; dispensing units with their Weights & Measures stamping and their nozzles; the stamped 5-litre measure; the price in force at each outlet from the time it takes effect.
+- **Shifts and the attendant's settlement:** each attendant's shift opened from the nozzles' totalisers and closed with the readings, the 5-litre test pumped back, the credit slips of fleet vehicles, the UPI, card and fleet-card takings and the cash; the meters' litres at the price exact to the paisa, the attendant short or in excess, posted through the core as fuel bills; a closed shift reopened only by a manager, with a reason, before the next one starts.
+- **Tanks and registers:** the morning dips; tanker loads checked against the invoice's density (±3.0 kg/m³) and dipped before and after decanting, bought through the core; the daily stock register against the oil companies' tolerance (4% of the dip, and the evaporation allowance) and the density register, with the bell for a day beyond the tolerance, a stamping falling due and a load accepted outside the density check.
+- **Fleet credit:** fleet customers' vehicles with the fuel they take and the most in a fill, filled on signed slips at the shift's close, and each customer's month vehicle by vehicle; an oil company's fleet card taken as a payment method.
+
+How to set a fuel station up: [ADMIN_GUIDE.md › Fuel stations](ADMIN_GUIDE.md#fuel-stations).
+
 ### The newer trades
 
 General stores, hardware and building-material shops, seeds and fertiliser shops, opticians, garages, jewellers, fuel stations, gyms and coaching centres, laundries, rental businesses, and hotels and lodges run on the shared core from their first day:

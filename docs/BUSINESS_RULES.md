@@ -31,6 +31,7 @@ The everyday numbers, such as expiring-soon days, voucher validity, credit age g
 - [Laundry & dry cleaning](#laundry--dry-cleaning)
 - [Jewellery & gold](#jewellery--gold)
 - [Rentals & hire](#rentals--hire)
+- [Fuel stations](#fuel-stations)
 - [Restaurant and food formats](#restaurant-and-food-formats)
 
 ## Fixed on purpose
@@ -94,7 +95,7 @@ These rules apply to every business type but the restaurant. The goods rules app
 
 ### Cash of ₹2,00,000 or more
 
-- **Rule:** no bill takes ₹2,00,000 or more in cash, counting every cash payment on it whenever it is paid, and no customer pays ₹2,00,000 or more in cash in one business day, counting the cash on their bills and their collection receipts. The payment or receipt that would reach the limit is refused, with what to do: take the rest by UPI, card, bank transfer or cheque. Every screen that takes money goes through this rule, and so does anything that writes a payment to the database.
+- **Rule:** no bill takes ₹2,00,000 or more in cash, counting every cash payment on it whenever it is paid, and no customer pays ₹2,00,000 or more in cash in one business day, counting the cash on their bills and their collection receipts. The payment or receipt that would reach the limit is refused, with what to do: take the rest by UPI, card, bank transfer or cheque. Every screen that takes money goes through this rule, and so does anything that writes a payment to the database. A fuel station's walk-in fuel bill sums the fills of a shift's many walk-in buyers, each paying for their own: it is the one bill the limit does not count ([Fuel stations](#fuel-stations)).
 - **Why:** the Income-tax Act 2025 (section 186; section 269ST of the 1961 Act until April 2026) forbids receiving that much in cash from one person in a day or for one transaction, and the penalty equals the cash received.
 - **Change it:** only when the law changes: the limit is in the database triggers `business_payments_cash_limit` and `business_collections_cash_limit`.
 
@@ -410,7 +411,7 @@ These rules apply to every business type but the restaurant. The goods rules app
 
 ### Roles by business type
 
-- **Rule:** some roles belong to one type of business: Pharmacist to a pharmacy; Doctor, Lab technician and Pathologist to a clinic & lab; Optometrist to an optical shop; Mechanic to a garage; Trainer to a gym, studio or coaching centre; Karigar / goldsmith to a jeweller. A business of that type starts with them, and other types do not get them.
+- **Rule:** some roles belong to one type of business: Pharmacist to a pharmacy; Doctor, Lab technician and Pathologist to a clinic & lab; Optometrist to an optical shop; Mechanic to a garage; Trainer to a gym, studio or coaching centre; Karigar / goldsmith to a jeweller; Pump attendant (DSM) to a fuel station. A business of that type starts with them, and other types do not get them.
 - **Why:** a kirana should not see a "Doctor" role.
 - **Change it:** they are ordinary roles, editable in *Roles & permissions*.
 
@@ -990,6 +991,88 @@ A rental or hire business bills on bills of the shared core ([Shops and the shar
 
 - **Rule:** bookings, the board, the lines and the returns show without rates, hire, deposits, charges, bills or money to anyone whose role does not hold `sales.view` (the yard's stock keeper, say), and the deposits held need it. Taking a deposit or an advance needs `sales.edit`, and the return that posts the bill `sales.create`.
 - **Why:** the yard hands things over and takes them back; the money is the counter's.
+- **Change it:** *Roles & permissions*.
+
+## Fuel stations
+
+A fuel station bills lubricants and its shop's items on bills of the shared core ([Shops and the shared core](#shops-and-the-shared-core)); with *Tanks, nozzles & shifts* on it also keeps the back office of the forecourt: each attendant's shift from the nozzles' totalisers, the fuel bills its close posts, the morning dips, the tanker loads, the stock and density registers, and its fleet customers' credit. Readings are typed in from the totalisers, the dip rod and the hydrometer: nothing controls or talks to a dispenser, a forecourt controller or a tank gauge, which at an automated outlet are the oil company's. Each rule below is checked by the server, and the ones about readings, money and records that must not change are held by the database too. Every day and time the rules count (a shift's readings, a dip's day, today, a price's effect) is on the business's own clock.
+
+### A fuel is outside GST, its price including state VAT
+
+- **Rule:** each fuel (petrol, diesel, a premium grade, CNG) is a goods item counted in litres (CNG in kilos), kept in stock by quantity and on the GST nil slab; the database keeps a fuel's item there. Each fuel bill line names the fuel and says *price includes state VAT*, and a fuel bill has no round-off. A fuel is sold only by a shift's close (any other bill refuses it), and petrol or diesel is bought only by a tanker receipt (CNG, by pipeline, on a purchase). Lubricants and the shop's items are ordinary products at their own GST slab.
+- **Why:** petrol, diesel and CNG are outside GST: their retail price carries the state's VAT or sales tax and the central excise (PPAC's statement of state taxes on petroleum products). The meters sell the fuel, not a counter: litres billed outside a shift would be missing from the stock register.
+- **Change it:** nothing to set; the proper non-GST fuel invoice and the VAT return are in [BACKLOG.md](BACKLOG.md#7-left-inside-built-modules).
+
+### The price in force
+
+- **Rule:** a fuel's price at an outlet takes effect from a time: now, or one typed within a week before and a month ahead. A price is never changed or deleted; a new one is set. A shift sells each fuel at the price in force when it opened; a shift open when a price changes is closed with the readings taken at the change, and the next one opens at the new price. A new price never takes effect back into a closed shift that sold the fuel.
+- **Why:** the oil company revises its prices; a shift's money is reckoned at one price.
+- **Change it:** *Settings › Pumps & nozzles › Set the prices* (`catalog.edit`).
+
+### A nozzle opens where it last closed
+
+- **Rule:** a nozzle's totaliser reading moves only when a shift closes (to its closing reading), when a manager reopens a shift (back to its opening) or with a meter change a manager records with the reason; the database checks it. A shift opens each nozzle from its reading, and another opening is refused. A nozzle is on one open shift at a time, an attendant has one open shift at an outlet at a time, and only a unit in use has its nozzles used.
+- **Why:** what a nozzle sold is its totaliser's difference; a gap or an overlap between two shifts would hide litres.
+- **Change it:** who records a meter change is `fuel.approve` (the owner and a manager by default).
+
+### What a shift sold, to the paisa
+
+- **Rule:** each nozzle sold its closing reading less its opening less the test pumped back; the test is not a sale, and the database checks each figure. Each credit slip is its quantity at the price, to the paisa; each fuel's walk-in quantity is what its nozzles sold less its credit slips, at the price. The money expected is the credit and the walk-in sales; the attendant's difference is the cash counted and the UPI, card and fleet-card takings less the walk-in sales: below nothing they are short, above it in excess. The takings are at most the walk-in sales, and a fuel's credit slips at most what its nozzles sold.
+- **Why:** sales are measured by the totaliser difference of each nozzle for each shift and settled with each attendant (DSM) across cash, card, UPI, fleet cards and credit slips; every nozzle is tested daily with the stamped 5-litre measure and the test quantity recorded (Marketing Discipline Guidelines 2024, 1.4.2).
+- **Change it:** the test measure's litres under *Tolerances* on *Pumps & nozzles* (`settings.edit`).
+
+### The close posts the fuel bills through the core
+
+- **Rule:** closing a shift posts one walk-in fuel bill (a line for each fuel sold to walk-in buyers, with no buyer named), paid by the takings and then the cash up to what it comes to, and a fuel bill to each fleet customer with a line for each fill (its vehicle and slip number), due by the customer's credit days. A short is left due on the walk-in bill; an excess stays with the shift. Retries give the same close, and the same request with other data is refused. The bills' lines are credited only by a manager reopening the shift: a return on them is refused. The walk-in bill sums the fills of many buyers, each paying for their own, so it is not counted against the ₹2,00,000 cash limit of one bill or one customer and asks for no PAN ([Cash of ₹2,00,000 or more](#cash-of-200000-or-more)).
+- **Why:** the stock and the money stay in the core, with the fuel's own bills.
+- **Change it:** nothing to set.
+
+### Credit over a limit needs a manager
+
+- **Rule:** a credit fill over its vehicle's fill limit, or credit that takes a customer over their credit limit, closes the shift only with a manager's say-so (`fuel.approve`), kept on the close and on its slips. A credit fill over ₹2,00,000 needs the customer's PAN (or a GSTIN that carries it) kept with them. A customer's slip number is entered once.
+- **Why:** the fill limit is the fleet owner's control over each vehicle; the buyer quotes their PAN on a purchase over ₹2,00,000 ([PAN on a bill over ₹2,00,000](#pan-on-a-bill-over-200000)).
+- **Change it:** each vehicle's fill limit on *Fleet statements*, the customer's credit limit with the customer.
+
+### A closed shift never changes
+
+- **Rule:** a closed shift changes only by a manager reopening it with the reason, and only before another shift has opened on any of its nozzles. Its bills are credited (the litres back in stock until it closes again), the walk-in bill's takings handed back, and its nozzles read again from the shift's opening; it is then closed again, as a new close. Every close stays, with who closed it, who reopened it and why.
+- **Why:** the next shift opens from the readings it closed with.
+- **Change it:** who reopens is `fuel.approve` (the owner and a manager by default).
+
+### The morning dips
+
+- **Rule:** a tank has one dip a day, on the business's day it was taken, typed within a week, never more than the tank holds; a dip of an earlier day needs the time it was taken. It keeps the litres by the dip chart, and may keep the dip read, the water dip, the morning density at 15 °C and the temperature. A manager corrects a dip with the reason, kept with it; the activity log keeps what it said before.
+- **Why:** the guidelines' daily stock register takes the product and water dips of each tank in the morning, and the morning opening density at 15 °C from a nozzle sample before sales (1.3, 1.4.1).
+- **Change it:** who corrects a dip is `fuel.approve`.
+
+### A tanker load: the density check and the dips
+
+- **Rule:** for each tank a load goes into: the invoice's litres, value and density at 15 °C, and the lorry's density at 15 °C, within the tolerance of the invoice's either way (3.0 kg/m³ until changed); outside it the load is refused, unless a manager accepts it with a note (shown on the bell for a week). An accepted load needs the dips before and after decanting (what came in by the dips; a short receipt is the invoice's litres less that), never more than the tank holds, and is a purchase of the fuel at the invoice's litres and value, without GST, made by someone who may make purchases. A load is written within a week of its decanting. The density after decanting and 50 litres dispensed is written once. A manager cancels an accepted load entered wrongly, while the stock still holds its litres: its purchase is credited and its litres go out of stock; the purchase's lines are credited only that way.
+- **Why:** the guidelines check the density at 15 °C within ±3.0 kg/m³ of the invoice density before decanting, dip every compartment, and record the density after decanting and dispensing at least 50 litres in the density register (1.2, Annexure 1).
+- **Change it:** the density tolerance under *Tolerances* (`settings.edit`); who accepts a load outside it is `fuel.approve`.
+
+### The stock register against the tolerance
+
+- **Rule:** a tank's day runs from its morning dip to the next. The book stock is the opening dip, plus the loads received (accepted, by the invoice's litres), less the meters' sales (closed shifts, the test pumped back taken out). The variation is the next dip less the book stock, also as a share of the next dip. It is within the tolerance from a loss of 4% of the dip plus the allowance on what was sold (petrol 0.75%, diesel 0.25%; 0.60% and 0.20% when the station's annual average is beyond 600 KL) up to a gain of 4% of the dip. The bell names a tank whose latest day is beyond it: a gain as critical, a loss as a warning.
+- **Why:** the guidelines allow a normal operational variation of 4% of the tank stock, plus evaporation and handling losses of what was sold; a positive variation beyond the limits leads to sampling and the suspension of sales, a negative one to the dealer explaining it (5.1.11, Annexure 9).
+- **Change it:** the variation and the allowances under *Tolerances* (`settings.edit`). The shrinkage and temperature allowances on the invoice are not in the book stock yet ([BACKLOG.md](BACKLOG.md#7-left-inside-built-modules)).
+
+### Stamping
+
+- **Rule:** each dispensing unit and each measure keeps the date its Weights & Measures stamping falls due; the bell warns from 30 days before it and once it has fallen due. A unit is suspended or retired with the reason, and its nozzles are not used while it is.
+- **Why:** the guidelines check the Weights & Measures seals and certification of each unit daily, suspend a unit whose seals are tampered with, and test with a W&M-verified 5-litre measure (1.4.2).
+- **Change it:** the warning days under *Tolerances* (`settings.edit`); the dates on *Pumps & nozzles*.
+
+### Fleet customers and fleet cards
+
+- **Rule:** a fleet customer is a customer of the business, with their credit days and credit limit. Each vehicle is kept by its registration (in use with one customer at a time), with the fuel it takes on credit and the most it takes in one fill; it keeps its customer and registration, and is switched off, never deleted. An oil company's fleet or loyalty card is a payment method of the business, taken with a shift's takings: it is not the station's credit.
+- **Why:** fleet cards are run and settled by the oil company; the station's own credit is the customer's account, filled vehicle by vehicle on signed slips.
+- **Change it:** *Customers & fleets › Fleet statements* (`fuel.edit`); the fleet cards under *Settings › Payment methods*.
+
+### Who sees what
+
+- **Rule:** someone whose role does not hold `sales.view` (a pump attendant) sees and closes only their own shifts and no other attendant's money; a tanker load's value is for those who see purchases; the fleet statements are for those who see sales.
+- **Why:** an attendant's settlement is theirs and the manager's to see.
 - **Change it:** *Roles & permissions*.
 
 ## Restaurant and food formats

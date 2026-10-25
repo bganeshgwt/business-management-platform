@@ -27,7 +27,7 @@ Inside Business Admin a restaurant is simply the restaurant business's own admin
 | **Location / outlet** | A shop, counter or warehouse of a business, with its own stock and document numbers. Restaurants call theirs *outlets*; other businesses call them *locations*. A person can be tied to one location and then works there only. | `business_locations`, `business_memberships.location_id`; restaurant: `outlets` |
 | **Module / business tool** | A part of the product a business can use: Sales, Stock, Stock transfers, Appointments… *Core* modules (Business settings, Staff & access, Reports, Activity log) are always on. The others are the business's *business tools*, switched on in Settings › Business tools. A restaurant calls its modules *features* (Settings › Features). | `platform_modules` |
 | **Capability** | A module switched on for one business: what the business may use. Later decided by its plan. | `business_capabilities` |
-| **Role** | A named set of permissions inside one business. Every business starts with Owner, Manager, Cashier / sales, Stock keeper, Accountant and Viewer; a pharmacy adds Pharmacist, a clinic adds Doctor, Lab technician and Pathologist, an optical shop adds Optometrist, a garage adds Mechanic, a gym, studio or coaching centre adds Trainer, and a jeweller adds Karigar / goldsmith. An owner can add roles of the business's own, and each business has its own copies. A restaurant has its own built-in roles, such as Restaurant Admin, Captain / Waiter and Kitchen staff. | `business_roles`; restaurant: `roles` |
+| **Role** | A named set of permissions inside one business. Every business starts with Owner, Manager, Cashier / sales, Stock keeper, Accountant and Viewer; a pharmacy adds Pharmacist, a clinic adds Doctor, Lab technician and Pathologist, an optical shop adds Optometrist, a garage adds Mechanic, a gym, studio or coaching centre adds Trainer, a jeweller adds Karigar / goldsmith, and a fuel station adds Pump attendant (DSM). An owner can add roles of the business's own, and each business has its own copies. A restaurant has its own built-in roles, such as Restaurant Admin, Captain / Waiter and Kitchen staff. | `business_roles`; restaurant: `roles` |
 | **Permission** | One action on one module, written `module.action` (for example `sales.refund`): what a person may do. The actions are view, create, edit, approve, cancel, refund, export and print, and for some modules discount, assign, review, manage, or see and write clinical records. | `business_permissions`, `business_role_permissions`; restaurant: `permissions` |
 | **Membership** | A person's access to one business, with their role there. One login can have many memberships. Inside a business the header shows the person's role there. | `business_memberships` |
 | **Business code** | A business's short code, fixed when the business is created. Staff who sign in with a staff code type their restaurant's code too, and so does someone whose mobile number signs in to more than one restaurant. A restaurant's code is its business code. | `restaurants.code`, `businesses.code` |
@@ -367,6 +367,43 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Rent-a-cab / rent-a-motorcycle licence** | The State Transport Authority's licence to hire out self-drive cars or motorcycles. |
 | **Like goods' rate** | The GST on renting goods without an operator: the rate of a sale of the goods hired out (40% for goods that attract 40%). |
 | **SAC 9973** | The GST heading of leasing or rental services without an operator (997329 for other goods); a passenger vehicle with a driver is in 9966. |
+
+### Fuel stations
+
+| Word | Meaning |
+|---|---|
+| **Retail outlet (RO), petrol pump** | A fuel station; each of its outlets is a location of the business. |
+| **Dealer** | Whoever runs the outlet for an oil company; the platform is the dealer's back office, never the forecourt's automation. |
+| **MS, HSD** | Motor spirit (petrol) and high-speed diesel; with CNG (sold by the kg), the fuels on the meters. |
+| **State VAT** | The state's value added tax (or sales tax) on petrol and diesel, which are outside GST; the fuel's price includes it, and each fuel bill line says so. |
+| **Dispensing unit (DU, MPD)** | A pump with its nozzles, stamped by the Legal Metrology department. |
+| **Nozzle** | Where a fuel is dispensed, with its own number at the outlet and its totaliser; it draws from one tank. |
+| **Totaliser** | A nozzle's meter of everything it has ever dispensed; a shift's sale is its closing reading less its opening. |
+| **Stamping (W&M)** | The Weights & Measures (Legal Metrology) verification of a dispensing unit or a measure, with the date the next one falls due. |
+| **5-litre test** | Fuel drawn from each nozzle into the stamped 5-litre measure to check it, and poured back into the tank: not a sale. |
+| **Meter change** | A totaliser replaced or reset, recorded by a manager with its new reading and the reason. |
+| **DSM, pump attendant** | The person who runs nozzles on a shift and hands in the money; the *Pump attendant (DSM)* role. |
+| **Shift** | One attendant's turn on their nozzles, from the opening readings to the closing ones (FS/2627/0001); not a GST document: the fuel bills its close posts are. |
+| **Settlement** | What an attendant hands in at a shift's close (cash, UPI, cards, fleet cards and credit slips) against what the meters sold. |
+| **Short, excess** | An attendant's money less (short) or more (excess) than the walk-in sales; a short is left due on the walk-in fuel bill. |
+| **Walk-in fuel bill** | The bill of a shift's sales to buyers not named, a line for each fuel. |
+| **Credit slip (indent)** | The slip a fleet customer's driver signs for a fill on credit, with its number, the vehicle and the quantity. |
+| **Fleet customer** | A transporter, school or contractor whose vehicles fill on credit, billed on a fuel bill of each shift. |
+| **Fill limit** | The most a vehicle takes in one fill on credit; a fill over it needs a manager. |
+| **Fleet card, loyalty card** | An oil company's card a fleet pays with (IndianOil's XTRAPOWER, say): a payment method taken with the shift's takings and settled by the oil company, not the station's credit. |
+| **Dip, dip chart** | The fuel's depth in a tank read on the dip rod each morning, turned into litres by the tank's dip chart. |
+| **Water dip** | Water found at the bottom of a tank with water-finding paste. |
+| **Tank lorry (TL), tanker** | The lorry that brings a load from the oil company's depot or terminal, with its invoice and seals. |
+| **Decanting** | Emptying a tank lorry's load into the outlet's tanks. |
+| **Density at 15 °C** | A fuel's density corrected to 15 °C (from the hydrometer, the thermometer and the table); a load's must be within ±3.0 kg/m³ of its invoice's. |
+| **Short receipt** | A load that came in, by the dips before and after decanting, at less than its invoice's litres. |
+| **MDG** | The public-sector oil companies' Marketing Discipline Guidelines (2024): the dealer's registers, checks and tolerances. |
+| **Stock register** | Each tank's day: the opening dip, the loads, the meters' sales, the book stock and the next morning's dip. |
+| **Book stock** | What a tank should hold: the opening dip plus the loads received less the meters' sales. |
+| **Variation** | The next dip less the book stock, in litres and as a share of the dip. |
+| **Tolerance** | The variation allowed: 4% of the dip either way, and on a loss also the evaporation and handling allowance (petrol 0.75%, diesel 0.25% of what was sold; 0.60% and 0.20% beyond 600 KL a year). |
+| **Density register** | Each tank's month of densities: the morning's, and each load's by invoice, at receipt and after decanting. |
+| **PESO licence (Form XIV)** | The Petroleum and Explosives Safety Organisation's licence to store petroleum at a retail outlet, kept with the business's licences. |
 
 ### Clinic and lab
 

@@ -242,6 +242,8 @@ require('../../laundry/routes/businessLaundry.routes')(router, { context, send, 
 require('../../jewellery/routes/businessJewellery.routes')(router, { context, send, b });
 // Rental and hire businesses: items hired one by one or from a pool, bookings checked against what is free, the handover, returns with late fees and charges, deposits held.
 require('../../rentals/routes/businessRentals.routes')(router, { context, send, b });
+// Fuel stations: fuels under state VAT, tanks, dispensing units and nozzles, the price in force, shifts with their readings and settlement posted as fuel bills, dips, tanker receipts, the stock and density registers, fleet statements.
+require('../../fuel/routes/businessFuel.routes')(router, { context, send, b });
 
 // Per-staff PIN at the counter, kits / bundles, EMI & finance.
 require('./businessCounter.routes')(router, { context, send, b });

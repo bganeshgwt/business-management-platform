@@ -2,7 +2,7 @@
 // has switched on and what this person's role allows. The server checks the
 // same two things on every request; the menu only hides what would be refused.
 
-import { AGRI, CLINIC, GARAGE, GOODS, HARDWARE, JEWELLERY, LAUNDRY, MEMBERSHIPS, OPTICAL, PHARMACY, RENTALS, RETAIL, SALON, WEIGHED } from './businessTypes.js';
+import { AGRI, CLINIC, FUEL, GARAGE, GOODS, HARDWARE, JEWELLERY, LAUNDRY, MEMBERSHIPS, OPTICAL, PHARMACY, RENTALS, RETAIL, SALON, WEIGHED } from './businessTypes.js';
 import { dailyWorkspaces, WORKSPACES, workspaceLabel, workspaceSections } from './businessWorkspace.js';
 
 export { GOODS };
@@ -227,6 +227,20 @@ export function businessSections(type) {
       ],
     },
     {
+      // A fuel station's day (daily entries of their own): the shifts with their
+      // readings and takings; the tanks with the morning dips, the tanker loads
+      // and the stock register; and its fleet customers' statements (money: for
+      // those who see sales).
+      title: "Fuel station",
+      links: [
+        { section: "fuel-shifts", label: "Shift & readings", icon: "shifts", need: "fuel.view", types: FUEL },
+        { section: "fuel-dips", label: "Tanks & dips", icon: "stock", need: "fuel.view", types: FUEL },
+        { section: "fuel-receipts", label: "Tanker receipts", icon: "deliveries", need: "fuel.view", types: FUEL },
+        { section: "fuel-register", label: "Stock register", icon: "logbook", need: "fuel.view", types: FUEL },
+        { section: "fuel-fleet", label: "Fleet statements", icon: "bills", need: "sales.view", module: "fuel", types: FUEL },
+      ],
+    },
+    {
       title: "Purchases",
       links: [
         { section: "purchases", label: "Purchases", icon: "purchaseOrders", need: "purchasing.view" },
@@ -325,6 +339,8 @@ export function businessSections(type) {
         // A jeweller's tags and the hallmarking charge a new piece starts with.
         { section: "jewellery-settings", label: "Jewellery settings", icon: "serviceSettings", need: "jewellery.view", types: JEWELLERY },
         { section: "scheme-plans", label: "Gold scheme plans", icon: "recurring", need: "sales.view", module: "jewellery", types: JEWELLERY },
+        // A fuel station's fuels and prices, tanks, dispensing units and nozzles, stamped measures and tolerances.
+        { section: "fuel-pumps", label: "Pumps & nozzles", icon: "serviceSettings", need: "settings.view", module: "fuel", types: FUEL },
       ],
     },
     {

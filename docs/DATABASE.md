@@ -11,7 +11,7 @@ PostgreSQL 15 or newer (built and tested on 18). One database holds the whole pl
 | [Business platform](#business-platform) | platform catalogue, business access, business core, shared core, one extension group per business type, and tasks, issues & projects | `business_id` on every row, with composite foreign keys |
 | [Catalogues](#business-types) | business types, platform module codes, business and restaurant permission codes | — |
 
-**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Licences](#licences) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) · [Optical shops](#optical-shops) · [Vehicle service & auto parts](#vehicle-service--auto-parts) · [Gyms, studios & coaching](#gyms-studios--coaching) · [Laundry & dry cleaning](#laundry--dry-cleaning) · [Jewellery & gold](#jewellery--gold) · [Rentals & hire](#rentals--hire) · [Tasks, issues & projects](#tasks-issues--projects). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
+**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Licences](#licences) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) · [Optical shops](#optical-shops) · [Vehicle service & auto parts](#vehicle-service--auto-parts) · [Gyms, studios & coaching](#gyms-studios--coaching) · [Laundry & dry cleaning](#laundry--dry-cleaning) · [Jewellery & gold](#jewellery--gold) · [Rentals & hire](#rentals--hire) · [Fuel stations](#fuel-stations) · [Tasks, issues & projects](#tasks-issues--projects). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
 
 The business platform's design (its five layers, the rules every table follows, and why) is explained in [BUSINESS_PLATFORM_DATA_MODEL.md](BUSINESS_PLATFORM_DATA_MODEL.md). This file gives the table-by-table reference and links there instead of repeating it. A restaurant also appears on the platform as one `businesses` row whose `legacy_restaurant_id` points at it; its own tables are unchanged.
 
@@ -1087,13 +1087,13 @@ Linked sections: [data model §1](BUSINESS_PLATFORM_DATA_MODEL.md#1-platform) an
 Purpose: the permission catalogue. Each row is one `<module>.<action>` pair; the codes are listed under [Business permission codes](#business-permission-codes).
 Key columns: `code` (TEXT PK), `module_code` -> `platform_modules`, `action` (view, create, edit, approve, cancel, refund, export, print, discount, assign, review, manage, view_clinical, edit_clinical), `name`, `sort_order`.
 Rules: UNIQUE (`module_code`, `action`). CHECK `code = module_code || '.' || action`. The action CHECK lists every value, so a migration that adds an action rewrites the whole list.
-Added by: 1791300000001 business-roles-and-permissions; codes also from 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791540000000, 1791580000000, 1791620000000, 1791620001000, 1791620002000, 1791620004000, 1791950400000, 1791961000000, 1791962000000, 1791963000000, 1791964000000, 1791965000000, 1791966000000, 1791967000000 and 1791968000000.
+Added by: 1791300000001 business-roles-and-permissions; codes also from 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791540000000, 1791580000000, 1791620000000, 1791620001000, 1791620002000, 1791620004000, 1791950400000, 1791961000000, 1791962000000, 1791963000000, 1791964000000, 1791965000000, 1791966000000, 1791967000000, 1791968000000 and 1791969000000.
 
 #### `business_role_templates`
-Purpose: the standard roles the platform defines once: owner, manager, cashier, stock_keeper, accountant and viewer for every type, plus pharmacist for a pharmacy, doctor, lab_technician and pathologist for healthcare, optometrist for an optical shop, mechanic for a garage, trainer for a gym, studio or coaching centre, and karigar for a jeweller.
+Purpose: the standard roles the platform defines once: owner, manager, cashier, stock_keeper, accountant and viewer for every type, plus pharmacist for a pharmacy, doctor, lab_technician and pathologist for healthcare, optometrist for an optical shop, mechanic for a garage, trainer for a gym, studio or coaching centre, karigar for a jeweller, and pump_attendant for a fuel station.
 Key columns: `code` (TEXT PK, same pattern as module codes), `name`, `description`, `full_access`, `sort_order`, `business_types` (TEXT[], the types the template is for; NULL = every type).
 Rules: at most one template has full access (partial unique index `business_role_templates_one_full`). That template is `owner`. `business_seed_roles()` copies only the templates of the business's type.
-Added by: 1791300000001; 1791620004000 (`business_types` and the four type templates); 1791963000000 (`optometrist`); 1791964000000 (`mechanic`); 1791965000000 (`trainer`); 1791967000000 (`karigar`).
+Added by: 1791300000001; 1791620004000 (`business_types` and the four type templates); 1791963000000 (`optometrist`); 1791964000000 (`mechanic`); 1791965000000 (`trainer`); 1791967000000 (`karigar`); 1791969000000 (`pump_attendant`).
 
 #### `business_role_template_permissions`
 Purpose: the permissions each template grants. These rows are copied into every business's own roles.
@@ -1165,7 +1165,7 @@ Added by: 1791300000002.
 #### `business_number_series`
 Purpose: document numbering, one series per business, location, document kind and fiscal year. A number is taken with `UPDATE … next_number + 1` inside the posting transaction.
 Key columns: `location_id`, `document_kind`, `fiscal_year` (the year the fiscal year starts in), `prefix`, `next_number`, `padding`.
-`document_kind`: sale, purchase, sales_return, purchase_return, stock_transfer, stock_count, sales_order, collection, repair_job, processing, supplier_payment, purchase_order (PO/…), delivery_challan (DC/…), quotation (QT/…; not a GST document), spectacle_order (SPO/…), job_card (JC/…; not a GST document), membership (MS/…; not a GST document), laundry_order (LO/…; not a GST document), old_gold (OG/…, a jeweller's old gold vouchers; not a GST document), gold_scheme (GS/…, a jeweller's gold schemes; not a GST document) and rental (RN/…, a rental business's bookings; not a GST document).
+`document_kind`: sale, purchase, sales_return, purchase_return, stock_transfer, stock_count, sales_order, collection, repair_job, processing, supplier_payment, purchase_order (PO/…), delivery_challan (DC/…), quotation (QT/…; not a GST document), spectacle_order (SPO/…), job_card (JC/…; not a GST document), membership (MS/…; not a GST document), laundry_order (LO/…; not a GST document), old_gold (OG/…, a jeweller's old gold vouchers; not a GST document), gold_scheme (GS/…, a jeweller's gold schemes; not a GST document) rental (RN/…, a rental business's bookings; not a GST document) and fuel_shift (FS/…, a fuel station's shifts; not a GST document).
 Rules:
 - UNIQUE (business, location, kind, year) and UNIQUE (business, prefix).
 - A prefix may contain only letters, digits, `/` and `-`, and must not end in a digit.
@@ -1174,7 +1174,7 @@ Rules:
   - `next_number` never decreases;
   - prefix and padding are fixed once a number has been used;
   - business, location, kind and year never change.
-Added by: 1791300000002; kinds from 1791410000000 (sales_order, collection), 1791420000001 (repair_job), 1791430000001 (processing), 1791540000000 (supplier_payment), 1791620003000 (purchase_order, delivery_challan), 1791961000000 (quotation), 1791963000000 (spectacle_order), 1791964000000 (job_card), 1791965000000 (membership), 1791966000000 (laundry_order) and 1791968000000 (rental).
+Added by: 1791300000002; kinds from 1791410000000 (sales_order, collection), 1791420000001 (repair_job), 1791430000001 (processing), 1791540000000 (supplier_payment), 1791620003000 (purchase_order, delivery_challan), 1791961000000 (quotation), 1791963000000 (spectacle_order), 1791964000000 (job_card), 1791965000000 (membership), 1791966000000 (laundry_order), 1791968000000 (rental) and 1791969000000 (fuel_shift).
 
 #### `business_capabilities`
 Purpose: the optional modules switched on for a business ([§1](BUSINESS_PLATFORM_DATA_MODEL.md#1-platform)).
@@ -1244,8 +1244,8 @@ Added by: 1791280000000; 1791300000003 (`category_id`).
 Purpose: the sellable and stocked item: a variant, a pack or a service.
 Key columns: `product_id` -> `catalog_products`, `code`, `barcode`, `label`, `unit`, `price`, `tax_rate`, `tax_rate_id` -> `business_tax_rates`, `tracking` (none, quantity, batch or serial), `reorder_level`, `attributes` (a JSONB object), `active`, `hsn_code` (4, 6 or 8 digits), `mrp`, `is_kit` (a kit; its parts are `catalog_kit_components`), `shelf_location` (where it sits, "Aisle 3 · Shelf B"; not blank when set), `member_price` (> 0, what a loyalty customer pays when it is below the list price), `internal_use` (kept in stock only to be used up inside services, a salon's back-bar colour or a clinic's gloves: never sold on a bill, and the bill screens leave it out).
 Relations: (`business_id`, `unit`) -> `business_units(business_id, code)`. A branch's own price is in `business_sku_location_prices`.
-Rules: `code` and `barcode` are each unique per business. `tax_rate` stays the rate actually charged. CHECK `catalog_skus_price_within_mrp`: the price is never above the MRP. CHECK `catalog_skus_kit_untracked`: a kit is tracked `none`, so it has no stock of its own. Trigger `catalog_skus_agri_molecules` (function `agri_item_molecules_check`, on insert and on a change of `attributes` that holds `molecules`): the molecules are a list, and none is banned in `agri_molecules`.
-Added by: 1791280000000; 1791300000002 (`tax_rate_id`); 1791300000003 (the unit FK); 1791540000000 (`hsn_code`, `mrp`); 1791620002000 (`is_kit`); 1791950404000 (`shelf_location`, `member_price`); 1791950406000 catalog-internal-use (`internal_use`); 1791962000000 (trigger `catalog_skus_agri_molecules`).
+Rules: `code` and `barcode` are each unique per business. `tax_rate` stays the rate actually charged. CHECK `catalog_skus_price_within_mrp`: the price is never above the MRP. CHECK `catalog_skus_kit_untracked`: a kit is tracked `none`, so it has no stock of its own. Trigger `catalog_skus_agri_molecules` (function `agri_item_molecules_check`, on insert and on a change of `attributes` that holds `molecules`): the molecules are a list, and none is banned in `agri_molecules`. Trigger `catalog_skus_fuel_item` (function `fuel_item_guard`, on a change of `tax_rate`, `unit` or `tracking`): a fuel station's fuel stays on the GST nil slab, in its unit and kept by quantity.
+Added by: 1791280000000; 1791300000002 (`tax_rate_id`); 1791300000003 (the unit FK); 1791540000000 (`hsn_code`, `mrp`); 1791620002000 (`is_kit`); 1791950404000 (`shelf_location`, `member_price`); 1791950406000 catalog-internal-use (`internal_use`); 1791962000000 (trigger `catalog_skus_agri_molecules`); 1791969000000 (trigger `catalog_skus_fuel_item`).
 
 #### `catalog_sku_units`
 Purpose: pack sizes per SKU, for example 1 box = 24 stock units.
@@ -1345,9 +1345,9 @@ Rules:
 - Constraint trigger `business_payments_collection_rules`: a collection pays only sales of the customer who paid it, and the payments drawn from one collection, with its refunds, never add up to more than its amount.
 - Constraint trigger `business_payments_supplier_rules`: a supplier payment settles only that supplier's purchases, and never more than was paid.
 - Trigger `business_payments_jewellery_scheme` (function `jewellery_scheme_payment_check`, for a payment drawn from a collection): a jeweller's gold scheme instalment's receipt pays only the jewellery bill that redeems the scheme.
-- Trigger `business_payments_cash_limit` (function `business_cash_limit_payment()`): a cash payment on a sale is refused (23514, a sentence citing section 186 of the Income-tax Act 2025) when the bill's cash would reach ₹2,00,000, or, for a payment not drawn from a collection, when the customer's cash that business day would (function `business_cash_from_customer()`: cash on their sales outside collections plus their cash collection receipts, by the business's time zone).
+- Trigger `business_payments_cash_limit` (function `business_cash_limit_payment()`): a cash payment on a sale is refused (23514, a sentence citing section 186 of the Income-tax Act 2025) when the bill's cash would reach ₹2,00,000, or, for a payment not drawn from a collection, when the customer's cash that business day would (function `business_cash_from_customer()`: cash on their sales outside collections plus their cash collection receipts, by the business's time zone). A fuel station's walk-in fuel bill (no customer, and its request key a close's `walk_in_key` in `fuel_shift_closes`) is left alone: it sums the fills of a shift's many walk-in buyers.
 - UNIQUE (`business_id`, `id`) for composite keys.
-Added by: 1791280000000; 1791410000000 (`collection_id`, the collection trigger, `cheque`); 1791420000000 (`credit_note`); 1791540000000 (`supplier_payment_id`, the supplier rules); 1791620002000 (`finance`, `tendered`); 1791640000000 (`method_name`); 1791960001000 (the cash limit).
+Added by: 1791280000000; 1791410000000 (`collection_id`, the collection trigger, `cheque`); 1791420000000 (`credit_note`); 1791540000000 (`supplier_payment_id`, the supplier rules); 1791620002000 (`finance`, `tendered`); 1791640000000 (`method_name`); 1791960001000 (the cash limit); 1791969000000 (the walk-in fuel bill left out of the cash limit).
 
 #### `business_returns`
 Purpose: a credit note (on a sale) or a debit note (on a purchase).
@@ -1362,9 +1362,10 @@ Rules:
 - Trigger `business_return_lines_salon_plan` (function `salon_plan_line_return`) refuses to return a line that sold a salon package or membership while that plan is still active.
 - Trigger `business_return_lines_member_plan` (function `member_plan_line_return`) refuses to return a line that sold a gym's membership (its plan or its joining fee) unless the return is the credit note the membership made (its `credit_key`): a cancellation or an upgrade.
 - Trigger `business_return_lines_laundry` (function `laundry_line_return`) refuses to return a line that charges a laundry garment unless the return is the credit note its order made (the garment's `credit_key`): a cancelled garment, or a damage claim settled with money back or a credit note.
+- Trigger `business_return_lines_fuel` (function `fuel_line_return`) refuses to return a line of a fuel bill a shift's close posted, unless its shift is being reopened at that moment, and a line of a tanker load's purchase, unless the load is being cancelled at that moment.
 - Index `business_return_lines_line` (business, line) lets the bills lists read a line's returns without scanning the table.
 - Trigger `business_return_lines_jewellery` (function `jewellery_line_return`) refuses to return a line that sells a jeweller's tagged piece unless it goes back to stock; trigger `business_return_lines_jewellery_returned` (function `jewellery_line_returned`, after the row) brings the piece back into stock with its history.
-Added by: 1791280000001; 1791430000000 (the trigger); 1791950412000 (the index); 1791966000000 (the laundry trigger); 1791967000000 (the jewellery triggers).
+Added by: 1791280000001; 1791430000000 (the trigger); 1791950412000 (the index); 1791966000000 (the laundry trigger); 1791967000000 (the jewellery triggers); 1791969000000 (the fuel trigger).
 
 #### `business_refunds`
 Purpose: money paid back on a document.
@@ -3200,6 +3201,137 @@ Added by: 1791968000000.
 
 **What is free** (functions, no table): `rental_holds(business, item)` (the stretches of time a booking holds an item's units or pool: booked, out, back, each with the line's turnaround time), `rental_unit_clash(business, item, unit, from, until, except booking, except line)`, `rental_pool_peak(business, item, from, until, except booking, except line)`, `rental_check_line(business, line)` (locks the item's row, raises a sentence when a unit is held by another booking or a pool would be held beyond what it has), `rental_check_booking(business, booking)` and `rental_time_words(instant, time zone)`.
 
+## Fuel stations
+
+A fuel station's own tables (type `fuel_station`), added by 1791969000000 fuel-station. Module `fuel` ("Tanks, nozzles & shifts", optional, fuel_station only, on) needs catalog, contacts, sales, inventory and purchasing; permissions `fuel.view`, `fuel.create` (one's own shift, the morning dips, tanker loads), `fuel.edit` (any attendant's shift, fleet vehicles), `fuel.approve` (reopening a shift, credit over a limit, a load outside the density tolerance, correcting a dip, a meter change, cancelling a load), `fuel.export`, `fuel.print`. Role template `pump_attendant` (Pump attendant (DSM), fuel_station only): `fuel.view` and `fuel.create`. Number series kind `fuel_shift` (FS/…; not a GST document). How they are used: [BUSINESS_PLATFORM_DATA_MODEL.md › Fuel stations](BUSINESS_PLATFORM_DATA_MODEL.md#fuel-stations); the code is in `backend/src/modules/business/fuel/`. Functions: `fuel_append_only()` (refuses changing or deleting a price, a meter change and a close's rows), `fuel_time_words(instant, time zone)` (an instant in words on the business's clock, for the sentences raised), `fuel_price_at(business, location, fuel, instant)` (the price in force: the latest effective by then), `fuel_nozzle_open_shift(business, nozzle)` (the open shift a nozzle is on, with its number and attendant).
+
+#### `fuel_settings`
+Purpose: the tolerances the stock register checks against, the test measure and the bell's warning days.
+Key columns: PK `business_id`, `density_tolerance` (0-20, default 3.0), `variation_percent` (0-20, default 4.00), `petrol_loss_percent` (default 0.75), `petrol_loss_above_percent` (0.60), `diesel_loss_percent` (0.25), `diesel_loss_above_percent` (0.20), each 0-5, `above_600_kl`, `test_litres` (0-100, default 5.000), `stamping_warn_days` (1-180, default 30), `updated_by`, `updated_at`. The defaults are used until the row is made (on first save).
+Added by: 1791969000000.
+
+#### `fuel_products`
+Purpose: each fuel and the goods item it is sold and bought as.
+Key columns: `sku_id`, `family` (petrol, diesel, cng), `sort_order`, `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, `sku_id`) -> `catalog_skus`.
+Rules: UNIQUE (business, item). Trigger `fuel_products_guard`: the item is a goods item of the business, kept by quantity with no batches, serials or kit, counted in litres (CNG in kilos), on a 0% slab; the fuel keeps its item and family; never deleted.
+Added by: 1791969000000.
+
+#### `fuel_tanks`
+Purpose: each tank of an outlet and the fuel it holds.
+Key columns: `location_id`, `product_id`, `tank_no`, `capacity` (litres, up to 1,000,000), `sort_order`, `active`.
+Relations: (`business_id`, `location_id`) -> `business_locations`; (`business_id`, `product_id`) -> `fuel_products`.
+Rules: unique index `fuel_tanks_number` (business, outlet, number in any case). Trigger `fuel_tanks_guard`: no CNG; keeps its outlet and fuel; its capacity never below its latest dip; never deleted.
+Added by: 1791969000000.
+
+#### `fuel_dispensers`
+Purpose: each dispensing unit with its Weights & Measures stamping.
+Key columns: `location_id`, `unit_no`, `make`, `serial_no`, `stamped_on`, `stamping_due`, `status` (in_use, suspended, retired), `status_note`, `sort_order`.
+Rules: CHECK the due date after the stamping; a note unless in use. Unique index `fuel_dispensers_number` (business, outlet, number in any case). Trigger `fuel_dispensers_guard`: keeps its outlet; out of use only while no shift is open on its nozzles; never deleted.
+Added by: 1791969000000.
+
+#### `fuel_nozzles`
+Purpose: each nozzle, its tank and its totaliser.
+Key columns: `location_id`, `dispenser_id`, `nozzle_no` (capital letters, digits, `/` and `-`, up to 10), `product_id`, `tank_id` (none for CNG), `reading` (>= 0, three places), `sort_order`, `active`.
+Relations: (`business_id`, `location_id`, `dispenser_id`) -> `fuel_dispensers`; (`business_id`, `location_id`, `tank_id`) -> `fuel_tanks`; (`business_id`, `product_id`) -> `fuel_products`.
+Rules: unique index `fuel_nozzles_number` (business, outlet, number); index `fuel_nozzles_dispenser`. Trigger `fuel_nozzles_guard`: a petrol or diesel nozzle draws from a tank of its fuel, a CNG nozzle from none; it keeps its unit, fuel and tank; it is switched off only while on no open shift; its reading changes only in the moment of a shift's close or reopening or a meter change (`created_at` = now()); never deleted.
+Added by: 1791969000000.
+
+#### `fuel_meter_changes`
+Purpose: a manager's meter change of a nozzle.
+Key columns: `nozzle_id`, `from_reading`, `to_reading` (not the same), `reason`, `created_by`, `created_at`.
+Rules: index `fuel_meter_changes_nozzle`. Trigger `fuel_meter_changes_check`: from the nozzle's reading now, while no shift is open on it, when written. Trigger `fuel_meter_changes_append_only` (function `fuel_append_only`).
+Added by: 1791969000000.
+
+#### `fuel_measures`
+Purpose: the stamped measures of an outlet (the 5-litre measure of the nozzle test).
+Key columns: `location_id`, `name`, `litres` (0-100), `serial_no`, `stamped_on`, `stamping_due`, `active`.
+Rules: CHECK the due date after the stamping. Trigger `fuel_measures_guard`: keeps its outlet; never deleted.
+Added by: 1791969000000.
+
+#### `fuel_prices`
+Purpose: each fuel's price at an outlet from the time it takes effect.
+Key columns: `location_id`, `product_id`, `price` (> 0, VAT included), `effective_from`, `note`, `request_key`, `request_hash`, `created_by`, `created_at`.
+Rules: UNIQUE (business, outlet, fuel, effective from) and (business, request key, outlet, fuel); index `fuel_prices_lookup`. Trigger `fuel_prices_check`: a fuel in use, written when set, taking effect within a week back and a month ahead, never before the latest close that sold the fuel at the outlet. Trigger `fuel_prices_append_only` (function `fuel_append_only`).
+Added by: 1791969000000.
+
+#### `fuel_vehicles`
+Purpose: a fleet customer's vehicles filled on credit.
+Key columns: `contact_id`, `registration` (capital letters and digits, 4-15), `description`, `product_id` (the fuel it takes on credit; none: any), `fill_limit` (> 0), `active`.
+Relations: (`business_id`, `contact_id`) -> `business_contacts`; (`business_id`, `product_id`) -> `fuel_products`.
+Rules: unique index `fuel_vehicles_registration` (business, registration, while in use); index `fuel_vehicles_contact`. Trigger `fuel_vehicles_customer` (function `business_contact_is_customer`). Trigger `fuel_vehicles_guard`: keeps its customer and registration; never deleted.
+Added by: 1791969000000.
+
+#### `fuel_shifts`
+Purpose: an attendant's shift at an outlet.
+Key columns: `location_id`, `shift_no` (series kind `fuel_shift`), `series_id`, `attendant_id` -> `users`, `attendant_name`, `status` (open, closed), `opened_at`, `notes`, `request_key`, `request_hash`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, `location_id`) -> `business_locations`; (`business_id`, `series_id`) -> `business_number_series`.
+Rules: CHECK opened no later than written. UNIQUE (business, number), (business, request key); unique index `fuel_shifts_one_open` (business, outlet, attendant, while open); indexes `fuel_shifts_period` and `fuel_shifts_open`. Trigger `fuel_shifts_insert_check`: starts open, from readings taken within the last 24 hours, for a member of the business's staff. Trigger `fuel_shifts_guard`: keeps its number, outlet, attendant and opening; closes only with a close in force; reopens only when its close is reopened, before another shift has opened on its nozzles; never deleted.
+Added by: 1791969000000.
+
+#### `fuel_shift_nozzles`
+Purpose: the nozzles a shift runs, from their opening readings.
+Key columns: PK (`business_id`, `shift_id`, `nozzle_id`), `nozzle_no`, `product_id`, `tank_id`, `opening`, `added_by`, `added_at`.
+Relations: (`business_id`, `shift_id`) -> `fuel_shifts`; (`business_id`, `nozzle_id`) -> `fuel_nozzles`.
+Rules: index `fuel_shift_nozzles_nozzle`. Trigger `fuel_shift_nozzles_check`: onto an open shift of the nozzle's outlet, the nozzle switched on and its unit in use, on no other open shift, opening from its reading, after the last close on it; keeps its opening; stays on a shift it was closed on.
+Added by: 1791969000000.
+
+#### `fuel_shift_closes`
+Purpose: each close of a shift, and a manager's reopening of it.
+Key columns: `shift_id`, `seq` (1-100), `closed_at`, `expected`, `credit`, `walk_in`, `cash`, `other`, `difference`, `note`, `document_id` (the walk-in fuel bill), `walk_in_key`, `approved_by`, `request_key`, `request_hash`, `closed_by`, `created_at`, `reopened_at`, `reopened_by`, `reopen_reason`, `reopen_key`, `reopen_hash`.
+Relations: (`business_id`, `shift_id`) -> `fuel_shifts`; (`business_id`, `document_id`) -> `business_documents`.
+Rules: CHECK `expected` = `credit` + `walk_in`; `other` <= `walk_in`; `difference` = `cash` + `other` − `walk_in`; closed no later than written; the reopening's columns together. UNIQUE (business, shift, seq), (business, request key), (business, walk-in key), (business, bill), (business, reopen key); unique index `fuel_shift_closes_current` (one close in force a shift); index `fuel_shift_closes_period`. Trigger `fuel_shift_closes_check`: of an open shift, when written, from readings after its opening, numbered in turn; keeps its figures and its bill; reopened when written, and then no longer changes; never deleted. Constraint trigger `fuel_shift_closes_adds_up` (deferred; function `fuel_close_adds_up`): a closing reading for every nozzle of the shift; the fuels' litres are the nozzles' and their credit litres and money the slips'; each at the price in force through the shift (a price changed while it was open raises a sentence); the close adds up to its fuels and takings; the walk-in sales are on a walk-in fuel bill to no one by name, paid by the takings and then the cash; no takings without walk-in sales.
+Added by: 1791969000000.
+
+#### `fuel_close_readings`
+Purpose: each nozzle's readings at a close.
+Key columns: PK (`business_id`, `close_id`, `nozzle_id`), `shift_id`, `product_id`, `tank_id`, `opening`, `closing`, `test`, `litres`.
+Relations: (`business_id`, `shift_id`, `close_id`) -> `fuel_shift_closes`; (`business_id`, `shift_id`, `nozzle_id`) -> `fuel_shift_nozzles`.
+Rules: CHECK `closing` >= `opening`, at most 1,000,000 apart; `litres` = `closing` − `opening` − `test` (>= 0). Indexes `fuel_close_readings_nozzle` and `fuel_close_readings_tank`. Trigger `fuel_close_readings_check`: from the shift's opening of the nozzle, written with the close. Trigger `fuel_close_readings_append_only`.
+Added by: 1791969000000.
+
+#### `fuel_close_products`
+Purpose: each fuel a close sold, on credit and to walk-in buyers.
+Key columns: PK (`business_id`, `close_id`, `product_id`), `shift_id`, `price`, `litres`, `credit_litres`, `walk_in_litres`, `credit_amount`, `walk_in_amount`, `amount`, `line_id`.
+Relations: (`business_id`, `line_id`) -> `business_document_lines`.
+Rules: CHECK `walk_in_litres` = `litres` − `credit_litres`; `walk_in_amount` = round(`walk_in_litres` × `price`, 2); `amount` = `credit_amount` + `walk_in_amount`; a bill line exactly when some went to walk-in buyers. UNIQUE (business, bill line); index `fuel_close_products_product`. Trigger `fuel_close_products_check`: written with the close; the line is the walk-in bill's, of the fuel's item, for its litres and money. Trigger `fuel_close_products_append_only`.
+Added by: 1791969000000.
+
+#### `fuel_credit_slips`
+Purpose: each credit fill of a fleet vehicle at a close.
+Key columns: `close_id`, `shift_id`, `seq` (1-500), `contact_id`, `vehicle_id`, `registration`, `product_id`, `litres` (> 0), `price`, `amount`, `slip_no`, `over_limit`, `document_id`, `line_id`.
+Relations: (`business_id`, `contact_id`, `vehicle_id`) -> `fuel_vehicles`; (`business_id`, `document_id`) -> `business_documents`; (`business_id`, `line_id`) -> `business_document_lines`.
+Rules: CHECK `amount` = round(`litres` × `price`, 2). UNIQUE (business, close, seq), (business, bill line); indexes `fuel_credit_slips_contact` and `fuel_credit_slips_vehicle`. Trigger `fuel_credit_slips_check`: written with the close; a vehicle of the customer in use, the fuel it takes, within its fill limit unless the close's approver allowed it; its line its own on the customer's fuel bill, of the fuel's item, for its litres and money. Trigger `fuel_credit_slips_append_only`.
+Added by: 1791969000000.
+
+#### `fuel_close_payments`
+Purpose: a close's takings other than cash (UPI, cards, fleet cards).
+Key columns: PK (`business_id`, `close_id`, `seq`), `method` (upi, card, bank), `method_name`, `amount` (> 0), `reference`, `payment_id`.
+Relations: (`business_id`, `payment_id`) -> `business_payments`.
+Rules: UNIQUE (business, payment). Trigger `fuel_close_payments_check`: the payment on the walk-in bill as handed in, written with the close. Trigger `fuel_close_payments_append_only`.
+Added by: 1791969000000.
+
+#### `fuel_dips`
+Purpose: each tank's morning dip.
+Key columns: `location_id`, `tank_id`, `dip_on`, `taken_at`, `dip_cm`, `stock` (litres), `water_cm`, `density` (600-1,100), `temperature` (−20 to 70), `note`, `request_key`, `request_hash`, `created_by`/`created_at`, `corrected_by`, `corrected_at`, `correction_reason`.
+Relations: (`business_id`, `location_id`, `tank_id`) -> `fuel_tanks`.
+Rules: CHECK a correction's columns together. UNIQUE (business, tank, day), (business, request key); index `fuel_dips_location`. Trigger `fuel_dips_check`: of a tank in use, written when typed, within a week of its day, taken on that day by the business's clock and no later than now, at most the tank's capacity; keeps its tank and day; changes only as a correction made now with the reason; never deleted.
+Added by: 1791969000000.
+
+#### `fuel_receipts`
+Purpose: each tanker load: accepted (a purchase), refused, or cancelled by a manager.
+Key columns: `location_id`, `contact_id`, `supplier_name`, `invoice_no`, `invoice_date`, `lorry_no` (capital letters and digits), `received_at`, `seals_ok`, `status` (accepted, refused, cancelled), `refuse_reason`, `density_approved_by`, `density_note`, `document_id` (the purchase), `notes`, `request_key`, `request_hash`, `created_by`/`created_at`, `cancelled_at`, `cancelled_by`, `cancel_reason`, `cancel_key`.
+Relations: (`business_id`, `location_id`) -> `business_locations`; (`business_id`, `contact_id`) -> `business_contacts`; (`business_id`, `document_id`) -> `business_documents`.
+Rules: CHECK a reason exactly when refused, a purchase unless refused, the cancellation's columns exactly when cancelled, a manager's density acceptance with its note and never on a refused load, decanted no later than written. UNIQUE (business, request key), (business, purchase), (business, cancel key); index `fuel_receipts_period`. Trigger `fuel_receipts_supplier` (function `business_contact_is_supplier`). Trigger `fuel_receipts_check`: accepted or refused when written, within a week of its decanting; an accepted load's purchase is from its supplier at the outlet under the invoice's number; only an accepted load is cancelled, and a refused or cancelled one no longer changes; never deleted.
+Added by: 1791969000000.
+
+#### `fuel_receipt_lines`
+Purpose: each tank a load went into, with the density check and the dips.
+Key columns: PK (`business_id`, `receipt_id`, `seq`), `tank_id`, `product_id`, `invoice_litres` (> 0), `invoice_amount`, `invoice_density`, `receipt_density` (600-1,100), `tolerance`, `dip_before`, `dip_after`, `decant_density`, `decant_by`, `decant_at`, `line_id`.
+Relations: (`business_id`, `receipt_id`) -> `fuel_receipts`; (`business_id`, `tank_id`) -> `fuel_tanks`; (`business_id`, `line_id`) -> `business_document_lines`.
+Rules: CHECK both dips or neither, the dip after no less than the one before; the decant density with who and when. UNIQUE (business, purchase line); unique index `fuel_receipt_lines_tank` (a tank once a load); index `fuel_receipt_lines_tank_time`. Trigger `fuel_receipt_lines_check`: written with the load, of a tank in use at the outlet for its fuel; a refused load neither decanted nor bought; an accepted load's tanks dipped before and after, at most their capacity, its density within the tolerance unless a manager accepted it, each a line of its purchase of the fuel's item for the invoice's litres and value; the decant density written once; never deleted.
+Added by: 1791969000000.
+
 ## Tasks, issues & projects
 
 Linked sections: [data model](BUSINESS_PLATFORM_DATA_MODEL.md#tasks-issues--projects) and [ARCHITECTURE.md §4.3](ARCHITECTURE.md#43-tasks-issues--projects-one-model-for-both-worlds). Migration `1791620000000_tasks-issues-projects.sql`; module code `backend/src/modules/tasks/`.
@@ -3399,6 +3531,7 @@ Core modules are always on and never stored per business; every other module is 
 | `laundry` | optional | catalog, contacts, sales | laundry; on | 1791966000000 |
 | `jewellery` | optional | catalog, contacts, sales, inventory, serials | jewellery; on | 1791967000000 |
 | `rentals` | optional | catalog, contacts, sales | rentals; on | 1791968000000 |
+| `fuel` | optional | catalog, contacts, sales, inventory, purchasing | fuel_station; on | 1791969000000 |
 | `guests` | optional | restaurant | restaurant; on | 1791470000000 |
 | `guest_loyalty` | optional | restaurant, guests | restaurant; off | 1791470000000 |
 | `reservations` | optional | restaurant | restaurant; on | 1791470000000 |
@@ -3470,6 +3603,7 @@ Each code is a `<module>.<action>` row of `business_permissions`, listed here by
 | laundry | `laundry.view` (garment orders, the racks, orders not collected, damage claims and the price list), `laundry.create` (take garment orders in), `laundry.edit` (the work and the racks, re-tagging, the promised day, handovers, record damage claims), `laundry.cancel` (cancel garments), `laundry.print` (order receipts and tag labels), `laundry.refund` (decide damage claims; money back for them and for cancelled garments) | 1791966000000 |
 | jewellery | `jewellery.view` (today's rates with `sales.view`; pieces, items and the shop's metal; the bills, old gold and gold schemes, with `sales.view`), `jewellery.create` (the jewellery bill; old gold taken in, used on a bill and put back; customers enrolled in schemes and their instalments), `jewellery.edit` (tag and change pieces, send them out and back; jewellery items), `jewellery.approve` (set the day's rates; melt pieces; pay out old gold; scheme plans; approve stopping a scheme), `jewellery.cancel` (cancel old gold; stop a scheme), `jewellery.print` (tags, old gold vouchers, scheme passbooks), `jewellery.export` (the money held for schemes) | 1791967000000 |
 | rentals | `rentals.view` (bookings, the board, availability, rental items and the handover settings; money and the deposits held with `sales.view`), `rentals.create` (quotes and bookings; reserve a quote), `rentals.edit` (change and extend bookings, hand over and take back with charges, units in and out of service), `rentals.approve` (a handover with less deposit than asked), `rentals.cancel` (cancel quotes and bookings, with a cancellation charge), `rentals.refund` (hand back deposits and advances held), `rentals.print` (booking and handover slips, deposit receipts) | 1791968000000 |
+| fuel | `fuel.view` (the board, shifts, tanks and dips, tanker loads, the registers, vehicles and prices; other attendants' shifts and their money with `sales.view`, a load's value with `purchasing.view`, the fleet statements with `sales.view`), `fuel.create` (open and close one's own shift, take the morning dips, record tanker loads; accepting one with `purchasing.create`), `fuel.edit` (open and close any attendant's shift; fleet vehicles and their fill limits), `fuel.approve` (reopen a shift, allow credit over a limit, accept a load outside the density tolerance, correct a dip, record a meter change, cancel a load), `fuel.export`, `fuel.print` | 1791969000000 |
 
 ## Restaurant permission codes
 

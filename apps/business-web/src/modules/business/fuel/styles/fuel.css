@@ -1,0 +1,322 @@
+/* Fuel stations: the shift board's prices, dispensing units and nozzles, the
+   open shifts, the close's tables and rows, the tanker load's tank rows, the
+   facts lists and the small notes these screens share. Colours come from the
+   theme's tokens only. */
+
+.fuel-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+.fuel-outlet {
+  min-width: 180px;
+  margin: 0;
+}
+.fuel-note {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: var(--text-sm);
+}
+.fuel-note ul {
+  margin: var(--space-1) 0;
+  padding-left: var(--space-4);
+}
+.fuel-warn {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+.fuel-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+.fuel-plain {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fuel-plain li + li {
+  margin-top: var(--space-1);
+}
+
+/* The prices in force: a tile for each fuel. */
+.fuel-prices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fuel-prices li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.fuel-prices li strong {
+  color: var(--text);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+}
+.fuel-prices li.is-missing {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+}
+.fuel-prices li.is-missing strong {
+  color: var(--warning-text);
+}
+
+/* The dispensing units on the board, each with its nozzles. */
+.fuel-units {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-3);
+}
+.fuel-unit {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+.fuel-unit.is-off {
+  opacity: 0.75;
+}
+.fuel-unit-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+.fuel-nozzle-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2);
+  list-style: none;
+}
+.fuel-nozzle {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.fuel-nozzle.is-busy {
+  border-color: var(--info-border);
+  background: var(--info-bg);
+}
+.fuel-nozzle-top {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+/* The open shifts. */
+.fuel-shift-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fuel-shift-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.fuel-shift-top {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+/* Tables of readings, sales and loads. */
+.fuel-table-wrap {
+  overflow-x: auto;
+}
+.fuel-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.fuel-table th,
+.fuel-table td {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+}
+.fuel-table thead th {
+  color: var(--muted);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+.fuel-table tbody th {
+  color: var(--text);
+  font-weight: var(--weight-medium);
+}
+.fuel-table th small,
+.fuel-table td small {
+  display: block;
+  font-weight: var(--weight-regular);
+}
+.fuel-table .r {
+  text-align: right;
+}
+.fuel-table td.mono {
+  white-space: nowrap;
+}
+.fuel-table input {
+  width: 100%;
+  min-width: 120px;
+}
+.fuel-inline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.fuel-inline input {
+  min-width: 90px;
+}
+.fuel-small-input {
+  width: 110px;
+}
+
+/* Rows of fields in a form: a credit slip, a taking, a tank of a load, a nozzle of a unit. */
+.fuel-fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.fuel-fieldset legend {
+  padding: 0 var(--space-1);
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+.fuel-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  align-items: end;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.fuel-row-wide {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+.fuel-row .field {
+  margin: 0;
+}
+.fuel-line-check {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.fuel-pick-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 220px);
+  align-items: end;
+  gap: var(--space-2);
+}
+
+/* Facts as a list of label and value. */
+.fuel-facts {
+  display: grid;
+  grid-template-columns: minmax(150px, max-content) 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+}
+.fuel-facts dt {
+  color: var(--muted);
+}
+.fuel-facts dd {
+  margin: 0;
+  color: var(--text);
+}
+
+/* Pumps & nozzles: each dispensing unit with its nozzles. */
+.fuel-unit-card {
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.fuel-unit-card.is-off {
+  border-color: var(--warning-border);
+}
+.fuel-unit-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-2);
+}
+.fuel-details summary {
+  margin-top: var(--space-3);
+  color: var(--primary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.fuel-peso {
+  margin: 0 0 var(--space-2);
+}
+.fuel-history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+.fuel-history li {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+@media (max-width: 640px) {
+  .fuel-pick-row,
+  .fuel-facts {
+    grid-template-columns: 1fr;
+  }
+}

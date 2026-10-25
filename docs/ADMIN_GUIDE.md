@@ -96,6 +96,7 @@ on record.
 - [Laundry & dry cleaning](#laundry--dry-cleaning)
 - [Jewellery & gold](#jewellery--gold)
 - [Rentals & hire](#rentals--hire)
+- [Fuel stations](#fuel-stations)
 
 **[Part 4 — Tasks, issues & projects](#part-4--tasks-issues--projects)**
 
@@ -2123,8 +2124,8 @@ panel over it.
 | Menu | Entry, and the tabs inside it | What they are for |
 | --- | --- | --- |
 | Daily work | **Overview** | Up to four headline figures — sales today (against the same weekday last week by this time), money in today, what customers owe (less advances, the same figure as Udhaar / Outstanding) and what is owed to suppliers — then *Needs doing today* (low stock, batches expiring soon, transfers on the way, counts open, broken promises, repairs ready, orders to dispatch…), *Start here* (the things done most often in this type), sales over the last 14 days, hour by hour and the best sellers, the day's bookings for a salon or clinic, and *What this business uses*. You see only the figures your role may see. |
-| Daily work | The type's own counter and day: a shop's **Quick bill**, a pharmacy's **Prescription sale**, a salon's **New bill** and **Appointments** (the calendar), a clinic's **Today's patients**, a wholesaler's **Sales orders**, a garage's **Job cards**, a gym's **Check-in**, a laundry's **New order** and **Orders** (with Ready & racks and Unclaimed), a jeweller's **Jewellery bill** (with Quick bill) and **Today's rates** (with the Rate board), a rental business's **Bookings** (with Availability and Deposits held) | Described with each type below. |
-| Daily work | **Sales history** (*Bill history* in a salon or clinic), with Quotations, Exchanges, Warranties and Orders for pickup where the type has them; **Customers** (*Clients*; a clinic's *Patients*), with Loyalty points (and a garage's Vehicles and Service due; a gym's **Members**, with Renewals and Member contacts) | Post a sale at the server's prices, take payment with it or leave it on credit, return goods, refund. Customers carry a GSTIN, a credit limit and credit days; a customer over the limit cannot be given more credit. |
+| Daily work | The type's own counter and day: a shop's **Quick bill**, a pharmacy's **Prescription sale**, a salon's **New bill** and **Appointments** (the calendar), a clinic's **Today's patients**, a wholesaler's **Sales orders**, a garage's **Job cards**, a gym's **Check-in**, a laundry's **New order** and **Orders** (with Ready & racks and Unclaimed), a jeweller's **Jewellery bill** (with Quick bill) and **Today's rates** (with the Rate board), a rental business's **Bookings** (with Availability and Deposits held), a fuel station's **Shift & readings** and **Tanks & dips** (with Tanker receipts and the Stock register) | Described with each type below. |
+| Daily work | **Sales history** (*Bill history* in a salon or clinic), with Quotations, Exchanges, Warranties and Orders for pickup where the type has them; **Customers** (*Clients*; a clinic's *Patients*), with Loyalty points (and a garage's Vehicles and Service due; a gym's **Members**, with Renewals and Member contacts; a fuel station's Fleet statements) | Post a sale at the server's prices, take payment with it or leave it on credit, return goods, refund. Customers carry a GSTIN, a credit limit and credit days; a customer over the limit cannot be given more credit. |
 | Daily work | **Udhaar** (*Customer dues* outside a kirana, a meat or weight-based shop, a general store, a hardware shop or a seeds and fertiliser shop), with *Payments received*; **Daily money**, with Expenses (and EMI & financiers) | What customers owe and what they paid; the day's money and paid expenses (below). |
 | Business | **Products & services** (named for the type: *Medicines & products*, *Books & stationery*…), with Categories, Barcode labels, Kits & bundles, Offers & discounts, price lists and the type's own (Drug master, Book details, Size × colour, Today's rates, Stylists & services, a laundry's Price list; a rental business's area opens on its Rental items) | Items with GST slab, unit, how they are tracked (quantity, batch and expiry, or serial number), reorder level. Categories nest up to five levels. |
 | Business | **Purchases**, with Suppliers, Purchase orders (every business that keeps stock) and, for a wholesaler, Claims on suppliers | Record what was bought; stock goes up at once at its cost. |
@@ -2132,7 +2133,7 @@ panel over it.
 | Business | The type's own records: **Registers & prescriptions** (pharmacy), **Booklists & orders** (books), **Repairs** (electronics), **Packages** (salon), **Lab orders** (clinic), **Farm inputs** (seeds, fertilisers & pesticides) | Described with each type below. |
 | Management | **Reports**, with the type's own reports, Staff commissions and Activity log | Money by day, locations compared, departments; who did what. |
 | Management | **Tasks** | See [Part 4](#part-4--tasks-issues--projects). |
-| Management | **Settings**: Business settings (with Business tools), Tax rates, Payment methods, Number series, Locations, Units & pack sizes, Staff & rooms (*Doctors & rooms* in a clinic), Licences (with Licences & registrations on), and Pharmacy settings, Clinic & lab settings, Farm input checks, Garage settings or Membership plans | Legal name, GSTIN, prices with or without GST, rounding, financial year, the most a manager may take off a bill at the counter (with a reason; the owner is not limited), whether a walk-in may leave a bill unpaid, and the shared till's PIN rule. Number series give each location its own bill numbers per financial year, with no gaps and no duplicates. A pack size turns "3 boxes" into 72 pieces exactly. A location holding stock cannot be closed. |
+| Management | **Settings**: Business settings (with Business tools), Tax rates, Payment methods, Number series, Locations, Units & pack sizes, Staff & rooms (*Doctors & rooms* in a clinic), Licences (with Licences & registrations on), and Pharmacy settings, Clinic & lab settings, Farm input checks, Garage settings, Membership plans or Pumps & nozzles | Legal name, GSTIN, prices with or without GST, rounding, financial year, the most a manager may take off a bill at the counter (with a reason; the owner is not limited), whether a walk-in may leave a bill unpaid, and the shared till's PIN rule. Number series give each location its own bill numbers per financial year, with no gaps and no duplicates. A pack size turns "3 boxes" into 72 pieces exactly. A location holding stock cannot be closed. |
 | Management | **Staff & access**, with Roles & permissions | Give a person from your staff list a role in this business, change it or switch it off. |
 
 **Two rules people notice:** prices, tax and totals are always worked out by the
@@ -2999,7 +3000,7 @@ Eleven more types run on the shared screens from the day they are created: *Quic
 | Optical shops | Its own screens: see [Optical shops](#optical-shops) below | See the same section |
 | Vehicle service & auto parts | Its own screens: see [Vehicle service & auto parts](#vehicle-service--auto-parts) below | See the same section |
 | Jewellery & gold | Its own screens: see [Jewellery & gold](#jewellery--gold) below | See the same section |
-| Fuel stations | Quick bill and retail reports for lubricants and the shop; customer credit for fleets; litres and cases | **Tasks** (daily nozzle tests, density checks and safety rounds), batches, price lists |
+| Fuel stations | Its own screens: see [Fuel stations](#fuel-stations) below | See the same section |
 | Gyms, studios & coaching | Its own screens: see [Gyms, studios & coaching](#gyms-studios--coaching) below | See the same section |
 | Laundry & dry cleaning | Its own screens: see [Laundry & dry cleaning](#laundry--dry-cleaning) below | See the same section |
 | Rentals & hire | Its own screens: see [Rentals & hire](#rentals--hire) below | See the same section |
@@ -3013,6 +3014,7 @@ Eleven more types run on the shared screens from the day they are created: *Quic
 - a gym's, yoga studio's or salon's services 5%, without input tax credit;
 - laundry, dry cleaning, pressing and dyeing 18%, with input tax credit (not the 5% of a gym's or salon's services);
 - renting goods without an operator at the rate of a sale of the like goods (40% for goods that attract 40%), and a passenger vehicle hired with a driver 5% (input tax credit only of input services in the same line of business) or 18% with full credit;
+- petrol, diesel and CNG outside GST (on the nil slab, the price including the state's VAT), and lubricants and the shop's items at their own slab;
 - coaching 18%;
 - a hotel room 5% at ₹7,500 a night or less, 18% above.
 
@@ -4371,6 +4373,177 @@ bills. A manager does all of it, cancels bookings, agrees to less deposit
 and approves money handed back with their PIN; an accountant sees and prints,
 and a viewer sees.
 
+## Fuel stations
+
+A petrol pump's back office: the shifts its pump attendants (DSMs) run on the
+nozzles, each settled against what the meters sold; the tanks with the
+morning dips, the tanker loads and the daily stock register the oil
+companies' Marketing Discipline Guidelines ask for; and its fleet customers'
+credit. A new fuel station starts with **Tanks, nozzles & shifts** on;
+*Licences & registrations* is recommended to it (the PESO licence, Form XIV).
+**Shift & readings** and **Tanks & dips** (with *Tanker receipts* and the
+*Stock register*) are its daily entries, after *Quick bill*, which bills
+lubricants and the shop's items with their own GST; *Fleet statements* sit
+with its customers (*Customers & fleets*), and the set-up is *Settings › Pumps
+& nozzles*. Every reading is typed in from the totalisers, the dip rod and the
+hydrometer: the software never controls or talks to a dispenser, a forecourt
+controller or a tank gauge (at an automated outlet those are the oil
+company's). Every time on these screens (a shift's readings, a dip's day,
+today) is on the business's own clock.
+
+**Before trading** (*Settings › Pumps & nozzles*):
+
+1. **The fuels** — *Add a fuel*: petrol, diesel, a premium grade, CNG. Each is
+   a goods item of the catalogue counted in litres (CNG in kilos), kept in
+   stock by quantity and on the GST nil slab: petrol, diesel and CNG are
+   outside GST, their price including the state's VAT, and each fuel bill
+   line says *price includes state VAT*. A fuel's item keeps the nil slab; it
+   is sold only by a shift's close (*Quick bill* and *New sale* refuse it) and
+   bought only by a tanker receipt (CNG, which comes by pipeline, is bought on
+   a purchase). Lubricants and the shop's items are ordinary products at
+   their own GST slab, billed at *Quick bill*; have an accountant confirm
+   each slab.
+2. **The prices** — *Set the prices*: a litre of each fuel (CNG a kg) at the
+   outlet, including VAT, as the oil company revises it, from now or from a
+   time typed. A shift keeps the prices it opened at; a shift open when a
+   price changes closes at the change (below). A price never takes effect
+   back into a shift that has closed.
+3. **The tanks** — *Add a tank*: its number, the fuel it holds, its capacity,
+   and the stock in it now by this morning's dip (with the cost of a litre),
+   brought into stock as an opening correction. CNG has no tank.
+4. **The dispensing units and nozzles** — *Add a dispensing unit*: its number,
+   make and serial number, when the Legal Metrology department stamped it and
+   when the stamping falls due; its nozzles, each with its number (one number
+   an outlet), the tank it draws from (a CNG nozzle: its fuel) and its
+   totaliser now. A unit is *Suspended* (its seals broken, under repair) or
+   *Retired*, with the reason; its nozzles are not used while it is. A
+   nozzle's totaliser moves only with a shift's close; a meter replaced or
+   reset is recorded by a manager (*Meter change*, with the reason).
+5. **The measures** — *Add a measure*: the stamped 5-litre measure of the
+   daily nozzle test, with its stamping dates. The bell warns of a unit's or a
+   measure's stamping 30 days before it falls due (changed under
+   *Tolerances*), and once it has.
+6. **The tolerances** — what the stock register checks against, the
+   guidelines' figures until changed: a tanker's density within 3.0 kg/m³ of
+   its invoice's either way; a day's variation within 4% of the dip, and a
+   loss also within the evaporation and handling allowance on what was sold
+   (petrol 0.75%, diesel 0.25%; 0.60% and 0.20% when the station sells more
+   than 600 KL a year on average); the test measure (5 litres).
+7. **The PESO licence** — each outlet's licence (Form XIV) with its dates,
+   under *Settings › Licences* (with *Licences & registrations* on); *Pumps &
+   nozzles* shows where it stands.
+8. **The people and the money** — a login for each pump attendant with the
+   role *Pump attendant (DSM)* (*Staff & access*); a payment method for each
+   oil company's fleet card (*Settings › Payment methods*, of the kind
+   *Card*); the fleet customers with their credit days and credit limit, and
+   their vehicles (below). Shifts are numbered *FS/2627/0001* (*Settings ›
+   Number series*, *Fuel shifts*); the fuel bills a close posts are numbered
+   as the business's sales are.
+
+**The screens:**
+
+- **Shift & readings** — the day's board at an outlet: the prices in force
+  (and the next one set), each dispensing unit with its stamping and its
+  nozzles, each with its totaliser and the shift it is on; the shifts open;
+  and those closed today with what they sold, the money expected and the
+  attendant's short or excess. *Every shift* lists them all by date. An
+  attendant sees their own shifts only.
+- **Opening a shift** (*Open a shift*) — the attendant (an attendant opens
+  their own; a cashier or a manager opens one for any attendant), the nozzles
+  they run (each on one open shift at a time), each from its totaliser as its
+  last shift closed it: check it against the meter, since another reading is
+  refused (a manager records a meter change first). *Readings taken at* is
+  typed when they were taken earlier. An attendant has one open shift at an
+  outlet at a time; a nozzle is added to an open shift, or taken off one it
+  went on by mistake.
+- **Closing a shift** (the shift's page) — each nozzle's closing reading and
+  the test pumped back (*5 L test* fills it in); the credit slips: for each
+  fill of a fleet vehicle on credit, the customer, the vehicle, the quantity
+  and the number of the slip the driver signed; the UPI, card and fleet-card
+  takings from the machines' settlement slips, each by its payment method
+  with its reference; the cash counted; and a note. As it is typed, the
+  server works out what each nozzle sold (the closing reading less the
+  opening less the test), each fuel's litres at the price in force (on
+  credit and to walk-in buyers), the money expected, and the attendant's
+  short or excess: the takings and the cash against the walk-in sales, to the
+  paisa. A fill over its vehicle's fill limit, or credit taking a customer
+  over their credit limit, needs a manager (*I allow the credit over the
+  limit*); a credit fill over ₹2,00,000 needs the customer's PAN; the meters
+  never sell more than the stock holds. *Close the shift* posts the sales
+  through the core: one walk-in fuel bill (a line for each fuel, paid by the
+  takings and then the cash, a short left due on it) and a fuel bill to each
+  fleet customer (a line for each slip, with its vehicle and slip number),
+  exact to the paisa with no round-off. An excess stays with the shift. When
+  a price changed while the shift was open, it is closed with the readings
+  taken at the change (*Readings taken at*), and the next shift opens at the
+  new price.
+- **A closed shift** — the settlement: expected, credit, walk-in, takings,
+  cash and the attendant's short or excess; the readings; the sales at the
+  price; the credit slips and the fuel bills (each opens for those who see
+  sales). *Print the settlement* prints it for the attendant and the manager
+  to sign. A closed shift never changes: a manager reopens it (*Reopen the
+  shift*), with the reason, before another shift opens on its nozzles. Its bills are
+  credited (the litres back in stock), the walk-in bill's takings handed back
+  and its nozzles read again from its opening; it is closed again with the
+  right readings. The page keeps every close that was reopened.
+- **Tanks & dips** — each tank with the day's dip: the litres by the dip
+  chart (with the dip read, the water dip, the morning density at 15 °C of a
+  nozzle sample and its temperature), who took it and when, the dip before,
+  and today its stock by the book: the last dip, plus the loads received
+  since, less the meters' sales since. *Take the dip*: one a tank a day,
+  before the first shift, typed within the week (an earlier day's with the
+  time it was taken); a manager corrects one (*Correct*) with the reason. From
+  10 am the bell says when today's dips are not all taken.
+- **Tanker receipts** (*Tanks & dips › Tanker receipts*) — every load with
+  its invoice, lorry, tanks, short receipt and density check. *Record a
+  tanker load*: the supplier, the invoice number and date, the tank lorry, the
+  seals, and for each tank it goes into the invoice's litres, value and
+  density at 15 °C, the lorry's density at 15 °C, the dips before and after
+  decanting, and the density after decanting and 50 litres dispensed. The
+  density check shows as it is typed: within 3.0 kg/m³ either way, or outside,
+  when the load is refused (*Refused: sent back undecanted*, with the reason)
+  or a manager accepts it saying why (the bell shows it for a week). An
+  accepted load is a purchase of the fuel at the invoice's value through the
+  core, made by someone who makes purchases; what came in by the dips, and how
+  short of the invoice, stays with it. The density after decanting is written
+  once. A manager cancels a load entered wrongly (*Cancel the load*): its
+  purchase is credited and its litres go out of stock.
+- **Stock register** (*Tanks & dips › Stock register*) — each tank day by day,
+  from one morning's dip to the next, as the guidelines' Annexure 9 works it
+  out: the opening dip, the loads received, the meters' sales with the test
+  pumped back, the book stock, the next morning's dip, and the variation in
+  litres and as a share of the dip, against what is allowed: *Within
+  tolerance*, *Loss beyond tolerance* or *Gain beyond tolerance* (a day whose
+  next dip is to come waits for it). The bell names a tank whose latest day is
+  beyond the tolerance, a gain before a loss (the guidelines stop sales on a
+  gain beyond the limits until a sample passes). *Density register*: each
+  tank's month, the morning densities and each load's by invoice, at receipt
+  and after decanting (the guidelines' Annexure 1). *Export* gives either as
+  a spreadsheet.
+- **Fleet statements** (*Customers & fleets › Fleet statements*, for those
+  who see sales) — each fleet customer with their vehicles, the month's fills
+  and quantity, what was filled, what they owe and their credit limit (over it
+  in red). *Add a vehicle*: the customer, its registration, the fuel it takes
+  on credit and the most it takes in one fill; a vehicle keeps its customer
+  and registration, and is switched off, never deleted. A customer's
+  statement for a month lists each vehicle's fills (the day, the slip, the
+  fuel, the quantity, the price, the amount and the bill), the month's totals
+  by fuel, and the account: owed at the start, billed, paid or credited, owed
+  at the end. *Print the statement* prints it. An oil company's fleet or
+  loyalty card is not the station's credit: it is a payment method, taken
+  with the shift's takings and settled by the oil company.
+
+Who does what: a pump attendant opens and closes their own shift with its
+readings and takings and takes the morning dips, and sees their own shifts
+and money only, with no settings; a cashier opens and closes any attendant's
+shift and keeps the fleet's vehicles; a stock keeper takes the dips and
+records the tanker loads; a manager does all of it, reopens shifts, allows
+credit over a limit, accepts a load outside the density tolerance, corrects
+dips, records meter changes and cancels loads; an accountant sees, exports and
+prints, and a viewer sees. The fuels and their prices are set by those who
+keep the catalogue; the tanks, units, nozzles, measures and tolerances by
+those who keep the settings.
+
 ---
 
 # Part 4 — Tasks, issues & projects
@@ -4590,7 +4763,7 @@ roles that must use two-step sign-in.
 Each business has its own copies of the standard roles — Owner, Manager,
 Cashier / sales, Stock keeper, Accountant and Viewer; a pharmacy also gets
 **Pharmacist**, a clinic **Doctor**, **Lab technician** and **Pathologist**,
-an optical shop **Optometrist**, a garage **Mechanic**, a gym, studio or coaching centre **Trainer** and a jeweller **Karigar / goldsmith** — plus any roles
+an optical shop **Optometrist**, a garage **Mechanic**, a gym, studio or coaching centre **Trainer**, a jeweller **Karigar / goldsmith** and a fuel station **Pump attendant (DSM)** — plus any roles
 its owner makes, edited on a module × action grid. You cannot give what you
 do not have, nor change, or set a new password for, someone whose role can
 do more than yours; the Owner role cannot be handed out or changed.
@@ -4611,6 +4784,7 @@ do more than yours; the Owner role cannot be handed out or changed.
 | Mechanic (garages only) | See the job cards assigned to them; record the work done and the parts used, and move the job along; print its copies; see products, stock and service bookings; no prices and no money |
 | Trainer (gyms, studios & coaching only) | See members, their plans and check-ins; check members in; see personal-training sessions and mark them done or missed; no prices and no money |
 | Karigar / goldsmith (jewellery shops only) | See the pieces with their weights, stones and HUIDs; tag pieces already in stock, record their weights, stones and HUIDs, and send them on approval or to the karigar and take them back; see products and stock; no prices and no money |
+| Pump attendant (DSM) (fuel stations only) | Open and close their own shift: the nozzle readings, the 5-litre test, the credit slips, the UPI, card and fleet-card takings and the cash; take the morning dips; see the tanks, the tanker loads and the registers, and only their own shifts and money; no settings |
 
 A permission also needs its **module** switched on for the business
 (Settings › Business tools; for example `repairs.create` needs *Repairs &

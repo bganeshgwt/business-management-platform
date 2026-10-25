@@ -86,6 +86,11 @@ function firstActions(biz) {
   // A rental business's day: bookings to make, and what goes out and comes back, on the board.
   if (biz.type === "rentals" && biz.has("rentals") && can("rentals.create")) list.push({ to: "rental-bookings?new=1", icon: "calendar", label: "Make a booking" });
   if (biz.type === "rentals" && biz.has("rentals") && can("rentals.view")) list.push({ to: "rental-bookings", icon: "clock", label: "What is due back" });
+  // A fuel station's day: the morning dips, shifts opened on the nozzles and closed with their takings, the tanker loads, the day's prices.
+  if (biz.type === "fuel_station" && biz.has("fuel") && can("fuel.create")) list.push({ to: "fuel-shifts?open=1", icon: "clock", label: "Open a shift" });
+  if (biz.type === "fuel_station" && biz.has("fuel") && can("fuel.create")) list.push({ to: "fuel-dips", icon: "layers", label: "Take the morning dips" });
+  if (biz.type === "fuel_station" && biz.has("fuel") && can("fuel.create") && can("contacts.view")) list.push({ to: "fuel-receipts", icon: "truck", label: "Record a tanker load" });
+  if (biz.type === "fuel_station" && biz.has("fuel") && can("catalog.edit") && can("settings.view")) list.push({ to: "fuel-pumps", icon: "tag", label: "Set today's prices" });
   if (biz.has("receivables") && can("receivables.create")) list.push({ to: goods ? "udhaar" : "collections?new=1", icon: "wallet", label: goods ? "Collect udhaar" : "Record a collection" });
   if (!goods && biz.type !== "salon" && can("sales.create")) list.push({ to: "sales?new=1", icon: "receipt", label: "New sale (invoice)" });
   if (biz.type !== "salon" && biz.type !== "healthcare" && can("appointments.create") && biz.has("appointments")) list.push({ to: "appointments?new=1", icon: "calendar", label: "Book an appointment" });

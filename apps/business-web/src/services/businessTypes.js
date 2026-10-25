@@ -35,3 +35,5 @@ export const LAUNDRY = ["laundry"];
 export const JEWELLERY = ["jewellery"];
 // Rentals & hire: bookings on a board, the availability week, deposits held, rental items.
 export const RENTALS = ["rentals"];
+// Fuel stations: shifts and readings, tanks and dips, tanker receipts, the stock register, fleet statements, pumps & nozzles.
+export const FUEL = ["fuel_station"];
