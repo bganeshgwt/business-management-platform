@@ -238,6 +238,8 @@ require('../../garage/routes/businessGarage.routes')(router, { context, send, b 
 require('../../memberships/routes/businessMemberships.routes')(router, { context, send, b });
 // Laundries and dry cleaners: the price list, garment orders with a tag on each garment from intake to the racks and the handover, unclaimed orders, damage claims.
 require('../../laundry/routes/businessLaundry.routes')(router, { context, send, b });
+// Jewellery shops: today's rates with the rate board, tagged pieces, the jewellery bill with the HUID check, old gold, gold schemes, the cash report.
+require('../../jewellery/routes/businessJewellery.routes')(router, { context, send, b });
 
 // Per-staff PIN at the counter, kits / bundles, EMI & finance.
 require('./businessCounter.routes')(router, { context, send, b });

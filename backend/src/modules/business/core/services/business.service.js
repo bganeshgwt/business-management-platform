@@ -650,6 +650,9 @@ const agriItems = () => require('../../agri/services/agriItems.service');
 const agriSales = () => require('../../agri/services/agriSales.service');
 // A gym's, studio's or coaching centre's plans: their items are sold from Members & plans.
 const memberPlans = () => require('../../memberships/services/memberCommon');
+// A jeweller's tagged pieces: their items are sold on the jewellery bill, priced by weight.
+const jewelleryItems = () => require('../../jewellery/services/jewelleryPieces.service');
+const jewelleryBills = () => require('../../jewellery/services/jewelleryBills.service');
 const named = (value) => value !== undefined && value !== null && value !== '';
 // Posts a sale or purchase inside the caller's transaction. Permissions and
 // the request are checked by the caller. `fixed` (used by wholesale
@@ -666,6 +669,11 @@ const named = (value) => value !== undefined && value !== null && value !== '';
 // `membership`: the bill is posted by Members & plans with the membership it
 // sells (a plan's item goes on no other bill). `dueDay`: the day the bill
 // falls due when the caller sets it (a fee in instalments: the last one).
+// `jewellery`: the bill is a jeweller's, of its tagged pieces priced by
+// weight (a piece's item goes on no other bill). `tenders`: what the caller's
+// own service takes as payment before any money, no money moving for it (a
+// jeweller's old gold taken in exchange): [{ amount (paise), methodName,
+// reference, key }], each a credit-note payment; "full" is then what is left.
 // Free units and trade discount on a purchase line, in the line's own unit
 // (packs when it is entered in packs). null when neither is given.
 function readScheme(input) {
@@ -679,7 +687,7 @@ function readScheme(input) {
 }
 
 async function postDocument(db, business, user, body, { kind, requestKey, hash, lines: inputLines, paidNow, fixed = null, quote = false, walkInPays = false, voucher = null, finance = null,
-  membership = false, dueDay = null }) {
+  membership = false, dueDay = null, jewellery = false, tenders = [] }) {
   {
     // Serializes document posting within a business: one lock order for every
     // posting (business, then document, then stock lots).
@@ -821,9 +829,11 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     if (kind === 'purchase' && agriSales().applies(business)) agriSales().checkPurchase(prepared);
     // A plan's item is sold from Members & plans, which makes the membership with its bill.
     if (kind === 'sale' && !membership && business.modules.includes('member_plans')) await memberPlans().checkLooseSale(db, business, prepared);
+    // A jeweller's tagged pieces are sold on the jewellery bill, priced by weight at the day's rate.
+    if (kind === 'sale' && !jewellery && business.modules.includes('jewellery')) await jewelleryItems().checkLooseSale(db, business, prepared);
     // A credit voucher pays first; "full" is then what is left.
     const voucherUse = voucher ? await exchangeVouchers().prepare(db, business, voucher, rounded) : null;
-    const prepaid = voucherUse?.amount || 0;
+    const prepaid = (voucherUse?.amount || 0) + tenders.reduce((sum, tender) => sum + tender.amount, 0);
     // The payments taken now (one or several), and an EMI's financed part.
     let parts = (Array.isArray(paidNow) ? paidNow : paidNow ? [paidNow] : []).map((part) => ({ ...part }));
     parts = await paymentMethods.settleParts(db, business.id, parts);
@@ -945,6 +955,9 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
       lines: prepared.map((l) => ({ skuId: l.sku.id, quantity: l.quantity, lotCode: l.lotCode || null })),
     });
     if (voucherUse) await exchangeVouchers().spend(db, business, user, saved, voucherUse, recordPayment);
+    for (const tender of tenders) {
+      await recordPayment(db, business, user, saved, { amount: money(tender.amount), method: 'credit_note', methodName: tender.methodName, reference: tender.reference, key: tender.key });
+    }
     let change = 0;
     for (const part of parts) {
       await recordPayment(db, business, user, saved, { ...part, key: crypto.randomUUID() });
@@ -993,7 +1006,9 @@ async function detail(business, documentId) {
   const hardware = doc.kind === 'sale' && business.business_type === 'hardware' ? await hardwareSales().invoiceExtras(repo.pool, business, doc.id) : null;
   // A farm-input shop's bill: PoS receipts, crops, the season, the farmer and the licences it prints.
   const agri = doc.kind === 'sale' && business.business_type === 'agri_inputs' ? await agriSales().invoiceExtras(repo.pool, business, doc) : null;
-  return { ...doc, ...buyer, finance, pharmacy, hardware, agri, lines: lines.map((line) => ({ ...line, returned_quantity: returnedLines.find((r) => r.line_id === line.id)?.quantity || '0' })), payments, returns, refunds, seller: branchSeller(settings, doc.location), retail, wholesale };
+  // A jeweller's bill: each piece's BIS details and price build-up, and the purity statement the invoice prints.
+  const jewellery = doc.kind === 'sale' && business.business_type === 'jewellery' ? await jewelleryBills().invoiceExtras(repo.pool, business, doc) : null;
+  return { ...doc, ...buyer, finance, pharmacy, hardware, agri, jewellery, lines: lines.map((line) => ({ ...line, returned_quantity: returnedLines.find((r) => r.line_id === line.id)?.quantity || '0' })), payments, returns, refunds, seller: branchSeller(settings, doc.location), retail, wholesale };
 }
 // The seller as a bill prints it: Business settings, with the selling
 // location's own address, phone, state and GSTIN where it has them (a

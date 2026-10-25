@@ -11,7 +11,7 @@ PostgreSQL 15 or newer (built and tested on 18). One database holds the whole pl
 | [Business platform](#business-platform) | platform catalogue, business access, business core, shared core, one extension group per business type, and tasks, issues & projects | `business_id` on every row, with composite foreign keys |
 | [Catalogues](#business-types) | business types, platform module codes, business and restaurant permission codes | — |
 
-**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Licences](#licences) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) · [Optical shops](#optical-shops) · [Vehicle service & auto parts](#vehicle-service--auto-parts) · [Gyms, studios & coaching](#gyms-studios--coaching) · [Laundry & dry cleaning](#laundry--dry-cleaning) · [Tasks, issues & projects](#tasks-issues--projects). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
+**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Licences](#licences) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) · [Optical shops](#optical-shops) · [Vehicle service & auto parts](#vehicle-service--auto-parts) · [Gyms, studios & coaching](#gyms-studios--coaching) · [Laundry & dry cleaning](#laundry--dry-cleaning) · [Jewellery & gold](#jewellery--gold) · [Tasks, issues & projects](#tasks-issues--projects). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
 
 The business platform's design (its five layers, the rules every table follows, and why) is explained in [BUSINESS_PLATFORM_DATA_MODEL.md](BUSINESS_PLATFORM_DATA_MODEL.md). This file gives the table-by-table reference and links there instead of repeating it. A restaurant also appears on the platform as one `businesses` row whose `legacy_restaurant_id` points at it; its own tables are unchanged.
 
@@ -1090,10 +1090,10 @@ Rules: UNIQUE (`module_code`, `action`). CHECK `code = module_code || '.' || act
 Added by: 1791300000001 business-roles-and-permissions; codes also from 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791540000000, 1791580000000, 1791620000000, 1791620001000, 1791620002000, 1791620004000, 1791950400000, 1791961000000, 1791962000000, 1791963000000, 1791964000000, 1791965000000 and 1791966000000.
 
 #### `business_role_templates`
-Purpose: the standard roles the platform defines once: owner, manager, cashier, stock_keeper, accountant and viewer for every type, plus pharmacist for a pharmacy, doctor, lab_technician and pathologist for healthcare, optometrist for an optical shop, mechanic for a garage, and trainer for a gym, studio or coaching centre.
+Purpose: the standard roles the platform defines once: owner, manager, cashier, stock_keeper, accountant and viewer for every type, plus pharmacist for a pharmacy, doctor, lab_technician and pathologist for healthcare, optometrist for an optical shop, mechanic for a garage, trainer for a gym, studio or coaching centre, and karigar for a jeweller.
 Key columns: `code` (TEXT PK, same pattern as module codes), `name`, `description`, `full_access`, `sort_order`, `business_types` (TEXT[], the types the template is for; NULL = every type).
 Rules: at most one template has full access (partial unique index `business_role_templates_one_full`). That template is `owner`. `business_seed_roles()` copies only the templates of the business's type.
-Added by: 1791300000001; 1791620004000 (`business_types` and the four type templates); 1791963000000 (`optometrist`); 1791964000000 (`mechanic`); 1791965000000 (`trainer`).
+Added by: 1791300000001; 1791620004000 (`business_types` and the four type templates); 1791963000000 (`optometrist`); 1791964000000 (`mechanic`); 1791965000000 (`trainer`); 1791967000000 (`karigar`).
 
 #### `business_role_template_permissions`
 Purpose: the permissions each template grants. These rows are copied into every business's own roles.
@@ -1165,7 +1165,7 @@ Added by: 1791300000002.
 #### `business_number_series`
 Purpose: document numbering, one series per business, location, document kind and fiscal year. A number is taken with `UPDATE … next_number + 1` inside the posting transaction.
 Key columns: `location_id`, `document_kind`, `fiscal_year` (the year the fiscal year starts in), `prefix`, `next_number`, `padding`.
-`document_kind`: sale, purchase, sales_return, purchase_return, stock_transfer, stock_count, sales_order, collection, repair_job, processing, supplier_payment, purchase_order (PO/…), delivery_challan (DC/…), quotation (QT/…; not a GST document), spectacle_order (SPO/…), job_card (JC/…; not a GST document), membership (MS/…; not a GST document) and laundry_order (LO/…; not a GST document).
+`document_kind`: sale, purchase, sales_return, purchase_return, stock_transfer, stock_count, sales_order, collection, repair_job, processing, supplier_payment, purchase_order (PO/…), delivery_challan (DC/…), quotation (QT/…; not a GST document), spectacle_order (SPO/…), job_card (JC/…; not a GST document), membership (MS/…; not a GST document), laundry_order (LO/…; not a GST document), old_gold (OG/…, a jeweller's old gold vouchers; not a GST document) and gold_scheme (GS/…, a jeweller's gold schemes; not a GST document).
 Rules:
 - UNIQUE (business, location, kind, year) and UNIQUE (business, prefix).
 - A prefix may contain only letters, digits, `/` and `-`, and must not end in a digit.
@@ -1344,6 +1344,7 @@ Rules:
 - CHECK `business_payments_one_source`: a collection or a supplier payment, not both.
 - Constraint trigger `business_payments_collection_rules`: a collection pays only sales of the customer who paid it, and the payments drawn from one collection, with its refunds, never add up to more than its amount.
 - Constraint trigger `business_payments_supplier_rules`: a supplier payment settles only that supplier's purchases, and never more than was paid.
+- Trigger `business_payments_jewellery_scheme` (function `jewellery_scheme_payment_check`, for a payment drawn from a collection): a jeweller's gold scheme instalment's receipt pays only the jewellery bill that redeems the scheme.
 - Trigger `business_payments_cash_limit` (function `business_cash_limit_payment()`): a cash payment on a sale is refused (23514, a sentence citing section 186 of the Income-tax Act 2025) when the bill's cash would reach ₹2,00,000, or, for a payment not drawn from a collection, when the customer's cash that business day would (function `business_cash_from_customer()`: cash on their sales outside collections plus their cash collection receipts, by the business's time zone).
 - UNIQUE (`business_id`, `id`) for composite keys.
 Added by: 1791280000000; 1791410000000 (`collection_id`, the collection trigger, `cheque`); 1791420000000 (`credit_note`); 1791540000000 (`supplier_payment_id`, the supplier rules); 1791620002000 (`finance`, `tendered`); 1791640000000 (`method_name`); 1791960001000 (the cash limit).
@@ -1362,13 +1363,14 @@ Rules:
 - Trigger `business_return_lines_member_plan` (function `member_plan_line_return`) refuses to return a line that sold a gym's membership (its plan or its joining fee) unless the return is the credit note the membership made (its `credit_key`): a cancellation or an upgrade.
 - Trigger `business_return_lines_laundry` (function `laundry_line_return`) refuses to return a line that charges a laundry garment unless the return is the credit note its order made (the garment's `credit_key`): a cancelled garment, or a damage claim settled with money back or a credit note.
 - Index `business_return_lines_line` (business, line) lets the bills lists read a line's returns without scanning the table.
-Added by: 1791280000001; 1791430000000 (the trigger); 1791950412000 (the index); 1791966000000 (the laundry trigger).
+- Trigger `business_return_lines_jewellery` (function `jewellery_line_return`) refuses to return a line that sells a jeweller's tagged piece unless it goes back to stock; trigger `business_return_lines_jewellery_returned` (function `jewellery_line_returned`, after the row) brings the piece back into stock with its history.
+Added by: 1791280000001; 1791430000000 (the trigger); 1791950412000 (the index); 1791966000000 (the laundry trigger); 1791967000000 (the jewellery triggers).
 
 #### `business_refunds`
 Purpose: money paid back on a document.
 Key columns: `document_id`, `amount` (> 0), `method` (cash, card, upi, bank, credit_note, finance; no cheque; `finance` reverses the financed part of an EMI bill when the loan is cancelled), `method_name`, `reason`, `request_key` (unique per business).
-Rules: index `business_refunds_document` (business, document) serves the bills lists.
-Added by: 1791280000001; 1791420000000 (`credit_note`); 1791620002000 (`finance`); 1791640000000 (`method_name`); 1791950412000 (the index).
+Rules: index `business_refunds_document` (business, document) serves the bills lists; trigger `business_refunds_jewellery` (function `jewellery_bill_refund_check`): on a jeweller's jewellery bill, money goes back (any method but credit_note and finance) only as far as money was paid on it at the counter (a gold scheme's receipts not counted), what old gold paid going back on its voucher by credit note.
+Added by: 1791280000001; 1791420000000 (`credit_note`); 1791620002000 (`finance`); 1791640000000 (`method_name`); 1791950412000 (the index); 1791967000000 (the jewellery trigger).
 
 ### Exchanges and vouchers
 
@@ -1525,7 +1527,8 @@ Rules:
 - CHECK `business_expenses_void_shape`: the three reversal columns are all NULL, or all set with a non-blank reason.
 - Trigger `business_expenses_immutable` (function `guard_business_expense`): never deleted; the only change is one reversal.
 - Indexes `business_expenses_day` (business, day, location) and partial `business_expenses_void`. The service allows a date up to 30 days back and never in the future.
-Added by: 1791950400000 business-workspaces-and-expenses; 1791950401000 expense-and-cash-reason-guards; 1791950413000 shop-guards-check-violation (the guard's error code).
+- Trigger `business_expenses_jewellery` (function `jewellery_payout_expense_guard`): the expense of money paid out for a jeweller's old gold is never reversed.
+Added by: 1791950400000 business-workspaces-and-expenses; 1791950401000 expense-and-cash-reason-guards; 1791950413000 shop-guards-check-violation (the guard's error code); 1791967000000 jewellery (the old gold guard).
 
 #### `business_cash_checks`
 Purpose: a daily cash check at one location: the opening cash, the cash counted, and what the day's cash movements say should be there. A check is a permanent snapshot; a correction is a new check.
@@ -2978,6 +2981,137 @@ Rules:
 - Trigger `laundry_claims_check`: never deleted; on a garment not cancelled; starts waiting; decided once, then never changes; keeps what was reported.
 Added by: 1791966000000.
 
+## Jewellery & gold
+
+A jeweller's own tables (type `jewellery`), added by 1791967000000 jewellery. Module `jewellery` ("Gold rates & jewellery", optional, jewellery only, on) needs catalog, contacts, sales, inventory and serials (serial numbers start on for a jeweller); permissions `jewellery.view`, `jewellery.create`, `jewellery.edit`, `jewellery.approve` (set the day's rates; pay out old gold; set up scheme plans; approve stopping a scheme), `jewellery.cancel` (cancel old gold; stop a scheme), `jewellery.print` and `jewellery.export`; the type-only role template `karigar`. The function `jewellery_fineness(metal, purity)` gives the fineness of each purity a jeweller deals in (NULL for any other), `jewellery_current_rate(business, metal, purity)` the rate of the latest sheet of the business's date that rates it, and `jewellery_money(numerator, denominator)` a quotient in rupees to the paisa, halves up, worked out exactly. A piece is a serial-numbered unit of its jewellery item: a `business_stock_lots` row of the item with the tag as its `lot_code` and quantity 1, received on a purchase or brought in as a `business_stock_adjustments` row of +1 with its reason (the core's `receiveSerial`), and taken out by a −1 correction when it is melted. `jewellery_plain_words(text)` is false for text with "lab grown", "lab created", "lab diamond" or "LGD" in it.
+
+#### `jewellery_rate_sheets`
+Purpose: each sheet of rates a manager sets.
+Key columns: `rate_date` (the business's date when it was set), `session` (morning, evening), `source` (shop, association, ibja), `note`, `request_key`, `request_hash`, `created_by`, `created_at`.
+Rules: UNIQUE (business, request key); index `jewellery_rate_sheets_day`; trigger `jewellery_rate_sheets_day` sets `rate_date` from `created_at` in the business's time zone; trigger `jewellery_rate_sheets_append_only` (function `jewellery_append_only`).
+Added by: 1791967000000.
+
+#### `jewellery_rates`
+Purpose: each purity's rates on a sheet.
+Key columns: PK (`business_id`, `sheet_id`, `metal`, `purity`), `metal` (gold, silver, platinum), `purity` (24K, 22K, 18K, 14K; 999, 925; 950), `sell_rate` (per gram, > 0), `buy_rate` (per gram for old metal, > 0 or NULL).
+Relations: (`business_id`, `sheet_id`) -> `jewellery_rate_sheets`.
+Rules: CHECK `jewellery_fineness(metal, purity)` is not NULL; index `jewellery_rates_purity`; trigger `jewellery_rates_check`: only in the transaction that sets its sheet; trigger `jewellery_rates_append_only` (function `jewellery_append_only`).
+Added by: 1791967000000.
+
+#### `jewellery_settings`
+Purpose: how a jeweller's tags are numbered, and the hallmarking charge a new piece starts with.
+Key columns: PK `business_id`, `tag_prefix` (0 to 6 letters; default T), `last_tag_no`, `hallmark_charge` (0-10,000; default 0), `old_gold_deduction` (0 to below 100; default 0), `old_gold_cash_limit` (the shop's own limit on cash paid out for old gold to one seller in a day: above 0 and below 2,00,000, or none), `cash_watch_level` (the cash report's own alert level: above 0 and below 10,00,000, or none), `reporting_entity`, `reporting_entity_by`, `reporting_entity_at` (CHECK: said by someone, at a time), `updated_by`, `updated_at`. The defaults are used until the row is made (on first save, or with the first tag given).
+Added by: 1791967000000.
+
+#### `jewellery_items`
+Purpose: a catalogue item sold as tagged pieces priced by weight, and what a new piece of it starts with.
+Key columns: PK (`business_id`, `sku_id`), `metal`, `purity`, `wastage_percent` (0-100), `making_mode` (per_gram, percent, flat), `making_value` (≥ 0; at most 100 as a percentage), `created_by`, `updated_by`.
+Relations: (`business_id`, `sku_id`) -> `catalog_skus`.
+Rules: CHECK a purity of the metal; trigger `jewellery_items_check`: goods counted in pieces (a unit of kind count), serial-numbered, at the 3% slab, a name free of the disallowed words for a man-made diamond; keeps its item; never deleted.
+Added by: 1791967000000.
+
+#### `jewellery_pieces`
+Purpose: a tagged piece: a serial-numbered unit of its jewellery item in stock, its tag the serial number.
+Key columns: `sku_id`, `tag_no` (letters, digits, / and -, up to 20), `description`, `metal`, `purity`, `gross_weight` (> 0), `stone_weight` (≥ 0, below the gross), `net_weight` (generated: gross less stones), `wastage_percent`, `making_mode`, `making_value`, `hallmarked`, `hallmark_charge` (0 when not hallmarked), `exemption` (gold only), `status` (in_stock, on_approval, at_karigar, sold, melted), `with_whom` (exactly while on approval or at the karigar), `notes`, `request_key`, `request_hash`, `created_by`, `updated_by`.
+Relations: (`business_id`, `sku_id`) -> `jewellery_items`.
+Rules: UNIQUE (business, tag) and (business, request key); CHECK words free of the disallowed terms (`jewellery_plain_words`); indexes `jewellery_pieces_item`, `jewellery_pieces_status`; trigger `jewellery_pieces_guard`: tagged on a unit of its item in stock, starts in stock; keeps its item and tag; never deleted; in stock → on approval, at the karigar or melted, and back; melted once its unit has left stock; a sold or melted piece keeps what it was; hallmarked while it has a HUID.
+Added by: 1791967000000.
+
+#### `jewellery_piece_huids`
+Purpose: each HUID of a piece's hallmark.
+Key columns: PK (`business_id`, `huid` — 6 letters and digits), `piece_id`, `created_by`, `created_at`.
+Relations: (`business_id`, `piece_id`) -> `jewellery_pieces`.
+Rules: index `jewellery_piece_huids_piece`; trigger `jewellery_piece_huids_check` (function `jewellery_piece_parts_check`): only on a hallmarked piece in the shop; never changed.
+Added by: 1791967000000.
+
+#### `jewellery_piece_stones`
+Purpose: each stone line of a piece.
+Key columns: PK (`business_id`, `piece_id`, `seq`), `kind`, `description`, `pieces` (1-10,000), `carat` (> 0), `grade`, `certificate`, `treatment`, `value` (≥ 0).
+Relations: (`business_id`, `piece_id`) -> `jewellery_pieces`.
+Rules: CHECK words free of the disallowed terms, and a diamond's description never "fake" or "artificial"; trigger `jewellery_piece_stones_check` (function `jewellery_piece_parts_check`): only while the piece is in the shop.
+Added by: 1791967000000.
+
+#### `jewellery_piece_events`
+Purpose: everything that happened to a piece, as written.
+Key columns: `piece_id`, `kind` (tagged, changed, sent, back, sold, returned, melted), `from_status`, `to_status`, `note`, `details` (JSON object), `request_key` (a change of status), `created_by`, `created_at`.
+Rules: UNIQUE (business, request key); index `jewellery_piece_events_piece`; trigger `jewellery_piece_events_append_only` (function `jewellery_append_only`).
+Added by: 1791967000000.
+
+#### `jewellery_locations`
+Purpose: whether a location's district is under mandatory hallmarking, as the owner says.
+Key columns: PK (`business_id`, `location_id`), `district`, `mandatory_hallmarking`, `confirmed_by`, `confirmed_at`. A location with no row is taken as under mandatory hallmarking. `jewellery_settings` also has `turnover_exempt` with `turnover_confirmed_by` and `turnover_confirmed_at` (CHECK: an exemption is said by someone).
+Relations: (`business_id`, `location_id`) -> `business_locations`.
+Added by: 1791967000000.
+
+#### `jewellery_scheme_plans`
+Purpose: a gold scheme the shop offers.
+Key columns: `name` (UNIQUE per business, ignoring case), `instalments` (2-11), `min_instalment` (100 to 10,00,000, whole rupees), `discount_percent` (0-100, of one instalment), `terms` (up to 4,000 characters), `active`, `request_key`, `request_hash`, `created_by`, `created_at`, `updated_by`, `updated_at`.
+Rules: CHECKs (no "interest" in the name or terms); UNIQUE (business, request key); index `jewellery_scheme_plans_name`; trigger `jewellery_scheme_plans_guard`: never deleted; only `active` changes.
+Added by: 1791967000000.
+
+#### `jewellery_schemes`
+Purpose: a customer's gold scheme.
+Key columns: `location_id`, `scheme_no` (UNIQUE per business; number series kind gold_scheme), `series_id`, `contact_id`, `member_name`, `member_phone`, `plan_id`, `plan_name`, `instalments`, `instalment` (whole rupees), `discount_percent`, `terms`, `nominee_name`, `nominee_relation`, `terms_accepted_at`, `started_on`, `maturity_on`, `close_by`, `status` (active, stopped, redeemed), `stop_reason`, `stopped_by`, `stop_approved_by`, `stopped_at`, `redeemed_document_id`, `redeemed_at`, `discount`, `notes`, `request_key`, `request_hash`, `created_by`, `created_at`.
+Relations: location; contact; (`business_id`, `plan_id`) -> `jewellery_scheme_plans`; series; (`business_id`, `redeemed_document_id`) -> `business_documents`.
+Rules: CHECKs (maturity = start + instalments months; close by = start + 364 days; the stop's four columns together; redeemed with its bill, time and discount); UNIQUE (business, request key); indexes `jewellery_schemes_contact`, partial `jewellery_schemes_open`; trigger `jewellery_schemes_customer` (function `business_contact_is_customer`); trigger `jewellery_schemes_check`: joined today, active, on an active plan with its terms as they are and at least its smallest instalment; trigger `jewellery_schemes_guard`: keeps what it was joined with; never deleted; stopped once from active; redeemed once by a jewellery bill of its member made with it, with the discount earned (every instalment paid, not stopped, on or after maturity); constraint trigger `jewellery_schemes_redeemed` (deferred to the end of the transaction): its instalments' receipts all pay that bill.
+Added by: 1791967000000.
+
+#### `jewellery_scheme_instalments`
+Purpose: each instalment of a gold scheme, paid.
+Key columns: PK (`business_id`, `scheme_id`, `seq` 1-11), `due_on`, `collection_id` (UNIQUE: the core collection receipt), `amount`, `paid_on`, `created_by`, `created_at`.
+Relations: scheme; (`business_id`, `collection_id`) -> `business_collections`.
+Rules: trigger `jewellery_scheme_instalments_check`: the next of an active scheme before its maturity, its monthly amount and due day, on the business's date, the member's own receipt (not a credit note) made with it, and the cash into the scheme under ₹2,00,000 (a sentence citing section 186 of the Income-tax Act 2025); trigger `jewellery_scheme_instalments_append_only` (function `jewellery_append_only`). On `business_collection_refunds`, trigger `business_collection_refunds_jewellery_scheme` (function `jewellery_scheme_refund_check`) refuses to refund a scheme instalment's receipt.
+Added by: 1791967000000.
+
+#### `jewellery_bills`
+Purpose: a sale of tagged pieces posted by the jewellery bill, with the rules it was billed under.
+Key columns: `document_id` (the core sale), `location_id`, `contact_id` (none for a walk-in), `rate_date`, `hallmark_mandatory`, `turnover_exempt`, `scheme_id` (the gold scheme it redeems; UNIQUE per business), `scheme_discount` (≥ 0; nil without a scheme), `notes`, `request_key`, `request_hash`, `created_by`, `created_at`.
+Relations: (`business_id`, `document_id`) -> `business_documents`; location; contact; (`business_id`, `scheme_id`) -> `jewellery_schemes`.
+Rules: UNIQUE (business, sale) and (business, request key); index `jewellery_bills_period`; trigger `jewellery_bills_check`: its own sale posted in the same transaction at its location to its customer, the business's date, the location's hallmarking rule and the turnover exemption as they are, a scheme of its own customer not yet redeemed; constraint trigger `jewellery_bills_discount` (deferred to the end of the transaction): its lines carry its scheme's discount and no other; trigger `jewellery_bills_append_only` (function `jewellery_append_only`).
+Added by: 1791967000000.
+
+#### `jewellery_bill_lines`
+Purpose: each piece on a jewellery bill as it was billed.
+Key columns: PK (`business_id`, `line_id` — the sale's line), `bill_id`, `piece_id`, `tag_no`, `description`, `metal`, `purity`, `gross_weight`, `stone_weight`, `net_weight`, `rate_sheet_id`, `rate`, `metal_value`, `wastage_percent`, `wastage_weight`, `wastage_value`, `making_mode`, `making_value`, `making_charge`, `stone_value`, `stones` (JSON array), `hallmarked`, `hallmark_charge`, `huids` (TEXT[]), `hallmark_basis` (huid, not_gold, under_2g, turnover, district, or an exemption), `value`, `discount`, `taxable`, `tax_rate` (3), `tax`.
+Relations: bill; (`business_id`, `line_id`) -> `business_document_lines`; piece; (`business_id`, `rate_sheet_id`) -> `jewellery_rate_sheets`.
+Rules: CHECKs on every figure (net = gross − stones; metal = round(net × rate, 2); wastage weight = round(net × wastage% ÷ 100, 3); wastage = round(net × rate × wastage% ÷ 100, 2); making per mode; value = metal + wastage + making + stones + hallmarking; discount within the value; taxable = value − discount; GST = round(taxable × 3 ÷ 100, 2); no hallmarking charge or HUID on a piece not hallmarked); indexes `jewellery_bill_lines_bill`, `jewellery_bill_lines_piece`; trigger `jewellery_bill_lines_check`: on a line of the bill's sale (the piece's item and tag, one unit, at the line's taxable value and GST), the piece in stock as it is, the latest rate of the day for its purity, and the HUID check; trigger `jewellery_bill_lines_append_only` (function `jewellery_append_only`).
+Added by: 1791967000000.
+
+#### `jewellery_old_gold`
+Purpose: an old gold voucher: gold, silver or platinum a customer sells to the shop or gives in exchange.
+Key columns: `location_id`, `voucher_no` (UNIQUE per business; number series kind old_gold), `series_id`, `contact_id`, `seller_name`, `seller_phone`, `id_kind` (aadhaar, voter_id, driving_licence, passport, pan_card, other), `id_ref` (2 to 30 letters, digits, / and -; of an Aadhaar card its last four digits only), `pan`, `pan_declaration`, `owner_declared` (always true), `rate_date`, `net_weight` (> 0), `fine_weight`, `round_off` (−0.49 to 0.50, leaving whole rupees), `value` (> 0), `notes`, `request_key`, `request_hash`, `created_by`, `created_at`, `cancelled_at`, `cancelled_by`, `cancel_reason`.
+Relations: location; (`business_id`, `contact_id`) -> `business_contacts`; series -> `business_number_series`.
+Rules: CHECKs (a PAN or a Form 97 declaration over ₹2,00,000, not both; the cancellation's three columns together); UNIQUE (business, request key); indexes `jewellery_old_gold_period`, `jewellery_old_gold_contact`; trigger `jewellery_old_gold_customer` (function `business_contact_is_customer`); trigger `jewellery_old_gold_check`: made now, on the business's date; trigger `jewellery_old_gold_guard`: never deleted, only cancelled, once, while nothing is paid out or used on it; constraint trigger `jewellery_old_gold_totals` (deferred to the end of the transaction): its weights and value are its lines'.
+Added by: 1791967000000.
+
+#### `jewellery_old_gold_lines`
+Purpose: each article on an old gold voucher, as tested and valued.
+Key columns: PK (`business_id`, `old_gold_id`, `seq` 1-30), `description`, `pieces`, `metal`, `purity`, `test_method` (xrf, touchstone, acid, fire_assay), `tested_fineness` (> 0, below 1,000), `gross_weight`, `less_weight`, `net_weight` (generated), `fine_weight`, `huid`, `rate_sheet_id`, `buy_rate`, `deduction_percent` (0 to below 100), `value`.
+Relations: voucher; (`business_id`, `rate_sheet_id`) -> `jewellery_rate_sheets`.
+Rules: CHECKs (stones and dirt below the gross weight; fine weight = round(net × fineness found ÷ 1,000, 3); value = `jewellery_money`(net × buy rate × fineness found × (100 − deduction), the purity's fineness × 100)); trigger `jewellery_old_gold_lines_check`: on its voucher when it is made, at the latest buy rate of the day for its purity; trigger `jewellery_old_gold_lines_append_only` (function `jewellery_append_only`).
+Added by: 1791967000000.
+
+#### `jewellery_old_gold_uses`
+Purpose: an old gold voucher's value used on a jewellery bill, or put back from it when the bill was returned.
+Key columns: `old_gold_id`, `document_id`, `payment_id` (a use: the bill's credit-note payment; `amount` > 0), `refund_id` (a put-back: the bill's credit-note refund; `amount` < 0), `created_by`, `created_at`.
+Relations: voucher; document; (`business_id`, `payment_id`) -> `business_payments`; `refund_id` -> `business_refunds`.
+Rules: UNIQUE payment and refund; indexes `jewellery_old_gold_uses_voucher`, `jewellery_old_gold_uses_document`; trigger `jewellery_old_gold_uses_check`: a voucher not cancelled, on a jewellery bill of the customer who brought it in; a use is the bill's credit-note payment of the same amount with the voucher's number, made with it; a put-back the bill's credit-note refund of the amount, made with it, never more than the voucher paid on the bill; no more used and paid out than the voucher is worth; trigger `jewellery_old_gold_uses_append_only` (function `jewellery_append_only`).
+Added by: 1791967000000.
+
+#### `jewellery_old_gold_payouts`
+Purpose: an old gold voucher's value paid out in money.
+Key columns: `old_gold_id`, `expense_id`, `amount` (> 0), `method` (cash, upi, bank), `reference`, `request_key`, `request_hash`, `created_by`, `created_at`.
+Relations: voucher; (`business_id`, `expense_id`) -> `business_expenses`.
+Rules: UNIQUE expense and (business, request key); indexes `jewellery_old_gold_payouts_voucher`, partial `jewellery_old_gold_payouts_day` (cash); trigger `jewellery_old_gold_payouts_check`: a voucher not cancelled; its own expense of the same amount and method at the voucher's location, made with it, not reversed; no more used and paid out than the voucher is worth; cash to the seller in a business day, and on the voucher, under ₹2,00,000 (a sentence citing section 186 of the Income-tax Act 2025), and within the shop's own limit; trigger `jewellery_old_gold_payouts_append_only` (function `jewellery_append_only`).
+Added by: 1791967000000.
+
+#### `jewellery_metal_movements`
+Purpose: the shop's own metal by purity at a location, for melting and refining.
+Key columns: `location_id`, `metal`, `purity`, `net_weight` (> 0 in, < 0 out), `fine_weight` (the same sign, or 0), `source` (melted_piece; old_gold; old_gold_cancelled), `piece_id`, `old_gold_id` and `old_gold_seq`, `note`, `created_by`, `created_at`.
+Relations: (`business_id`, `location_id`) -> `business_locations`; (`business_id`, `piece_id`) -> `jewellery_pieces`; (`business_id`, `old_gold_id`, `old_gold_seq`) -> `jewellery_old_gold_lines`.
+Rules: CHECKs (a melted piece's movement names it, old gold's names its line; only a voucher's cancellation goes out); index `jewellery_metal_movements_stock`; unique indexes `jewellery_metal_movements_piece` (a melted piece's metal once) and `jewellery_metal_movements_old_gold` (each line in once and out once); trigger `jewellery_metal_movements_check`: a melted piece's own purity, net weight and fine weight (net × fineness ÷ 1,000, to three places); old gold's line's own purity, weights and location, in when its voucher is made and out when it is cancelled; trigger `jewellery_metal_movements_append_only` (function `jewellery_append_only`).
+Added by: 1791967000000.
+
 ## Tasks, issues & projects
 
 Linked sections: [data model](BUSINESS_PLATFORM_DATA_MODEL.md#tasks-issues--projects) and [ARCHITECTURE.md §4.3](ARCHITECTURE.md#43-tasks-issues--projects-one-model-for-both-worlds). Migration `1791620000000_tasks-issues-projects.sql`; module code `backend/src/modules/tasks/`.
@@ -3141,7 +3275,7 @@ Core modules are always on and never stored per business; every other module is 
 | `stock_counts` | optional | inventory | every type but restaurant; on except for healthcare, laundry, lodging, memberships, rentals | 1791300000000 |
 | `stock_transfers` | optional | inventory | agri_inputs, books, electronics, fashion, fuel_station, garage, general_retail, grocery, hardware, healthcare, jewellery, meat, optical, pharmacy, salon, supermarket, weight_retail, wholesale; off; recommended for fashion, hardware, supermarket, wholesale | 1791300000000 |
 | `batches` | optional | inventory | agri_inputs, fuel_station, garage, general_retail, grocery, hardware, healthcare, meat, optical, pharmacy, salon, supermarket, weight_retail, wholesale; on for agri_inputs, grocery, meat, pharmacy, supermarket, weight_retail, wholesale; recommended for optical | 1791300000000 |
-| `serials` | optional | inventory | electronics, garage, general_retail, jewellery, supermarket; on for electronics | 1791300000000 |
+| `serials` | optional | inventory | electronics, garage, general_retail, jewellery, supermarket; on for electronics and jewellery | 1791300000000; on for jewellery 1791967000000 |
 | `variants` | optional | catalog | books, electronics, fashion, general_retail, hardware, optical, salon, supermarket; on for fashion, supermarket; recommended for general_retail, optical | 1791300000000 |
 | `weight` | optional | catalog | agri_inputs, fashion, general_retail, grocery, hardware, meat, supermarket, weight_retail, wholesale; on for grocery, meat, supermarket, weight_retail | 1791300000000 |
 | `wholesale` | optional | sales, contacts | agri_inputs, fuel_station, garage, general_retail, grocery, hardware, meat, pharmacy, supermarket, weight_retail, wholesale; on for wholesale; recommended for agri_inputs, garage, hardware | 1791300000000 |
@@ -3175,6 +3309,7 @@ Core modules are always on and never stored per business; every other module is 
 | `garage` | optional | catalog, contacts, sales | garage; on | 1791964000000 |
 | `member_plans` | optional | catalog, contacts, sales | memberships; on | 1791965000000 |
 | `laundry` | optional | catalog, contacts, sales | laundry; on | 1791966000000 |
+| `jewellery` | optional | catalog, contacts, sales, inventory, serials | jewellery; on | 1791967000000 |
 | `guests` | optional | restaurant | restaurant; on | 1791470000000 |
 | `guest_loyalty` | optional | restaurant, guests | restaurant; off | 1791470000000 |
 | `reservations` | optional | restaurant | restaurant; on | 1791470000000 |
@@ -3244,6 +3379,7 @@ Each code is a `<module>.<action>` row of `business_permissions`, listed here by
 | garage | `garage.view` (every vehicle and job card, the service-due list and customers' statements), `garage.create` (add vehicles, open job cards), `garage.edit` (work on job cards: the estimate, mechanics, the work done and parts used, the claim, the advance and billing), `garage.approve` (an odometer reading lower than the last), `garage.cancel`, `garage.print` (job cards and customers' statements) | 1791964000000 |
 | member_plans | `member_plans.view` (plans, members and their memberships, check-ins, renewals; the fees due with `sales.view`), `member_plans.create` (check members in; sell and renew memberships, with `sales.create`), `member_plans.edit` (set up plans; freeze, transfer and upgrade memberships), `member_plans.approve` (approve with a PIN what a cancelled membership gives back), `member_plans.cancel`, `member_plans.refund` (give back the unused part of a cancelled membership), `member_plans.export` | 1791965000000 |
 | laundry | `laundry.view` (garment orders, the racks, orders not collected, damage claims and the price list), `laundry.create` (take garment orders in), `laundry.edit` (the work and the racks, re-tagging, the promised day, handovers, record damage claims), `laundry.cancel` (cancel garments), `laundry.print` (order receipts and tag labels), `laundry.refund` (decide damage claims; money back for them and for cancelled garments) | 1791966000000 |
+| jewellery | `jewellery.view` (today's rates with `sales.view`; pieces, items and the shop's metal; the bills, old gold and gold schemes, with `sales.view`), `jewellery.create` (the jewellery bill; old gold taken in, used on a bill and put back; customers enrolled in schemes and their instalments), `jewellery.edit` (tag and change pieces, send them out and back; jewellery items), `jewellery.approve` (set the day's rates; melt pieces; pay out old gold; scheme plans; approve stopping a scheme), `jewellery.cancel` (cancel old gold; stop a scheme), `jewellery.print` (tags, old gold vouchers, scheme passbooks), `jewellery.export` (the money held for schemes) | 1791967000000 |
 
 ## Restaurant permission codes
 

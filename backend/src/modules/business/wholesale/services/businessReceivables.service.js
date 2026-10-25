@@ -354,8 +354,13 @@ async function applyAdvance(business, user, contactId, body) {
     if (!contact) fail('Customer not found', 404);
     const done = await repo.one(db, 'SELECT id FROM business_payments WHERE business_id=$1 AND request_key=$2', [business.id, derivedKey(requestKey, 0)]);
     if (done) return { applied: '0.00', repeated: true };
-    const receipts = await repo.all(db, `SELECT k.*,k.amount-${collectionAllocatedSql} AS free FROM business_collections k
+    let receipts = await repo.all(db, `SELECT k.*,k.amount-${collectionAllocatedSql} AS free FROM business_collections k
       WHERE k.business_id=$1 AND k.contact_id=$2 AND k.amount>${collectionAllocatedSql} AND ${liveSql('k')} ORDER BY k.id`, [business.id, contact.id]);
+    // A jeweller's gold scheme instalments are held for the jewellery bill that redeems the scheme.
+    if (business.modules.includes('jewellery')) {
+      const held = await require('../../jewellery/services/jewellerySchemes.service').heldReceipts(db, business, contact.id);
+      receipts = receipts.filter((receipt) => !held.has(Number(receipt.id)));
+    }
     let n = 0, applied = 0;
     const payments = [];
     // The part that covers the opening balance stays where it is (on the oldest receipts).

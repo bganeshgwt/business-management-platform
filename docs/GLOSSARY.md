@@ -27,7 +27,7 @@ Inside Business Admin a restaurant is simply the restaurant business's own admin
 | **Location / outlet** | A shop, counter or warehouse of a business, with its own stock and document numbers. Restaurants call theirs *outlets*; other businesses call them *locations*. A person can be tied to one location and then works there only. | `business_locations`, `business_memberships.location_id`; restaurant: `outlets` |
 | **Module / business tool** | A part of the product a business can use: Sales, Stock, Stock transfers, Appointments… *Core* modules (Business settings, Staff & access, Reports, Activity log) are always on. The others are the business's *business tools*, switched on in Settings › Business tools. A restaurant calls its modules *features* (Settings › Features). | `platform_modules` |
 | **Capability** | A module switched on for one business: what the business may use. Later decided by its plan. | `business_capabilities` |
-| **Role** | A named set of permissions inside one business. Every business starts with Owner, Manager, Cashier / sales, Stock keeper, Accountant and Viewer; a pharmacy adds Pharmacist, a clinic adds Doctor, Lab technician and Pathologist, an optical shop adds Optometrist, a garage adds Mechanic, and a gym, studio or coaching centre adds Trainer. An owner can add roles of the business's own, and each business has its own copies. A restaurant has its own built-in roles, such as Restaurant Admin, Captain / Waiter and Kitchen staff. | `business_roles`; restaurant: `roles` |
+| **Role** | A named set of permissions inside one business. Every business starts with Owner, Manager, Cashier / sales, Stock keeper, Accountant and Viewer; a pharmacy adds Pharmacist, a clinic adds Doctor, Lab technician and Pathologist, an optical shop adds Optometrist, a garage adds Mechanic, a gym, studio or coaching centre adds Trainer, and a jeweller adds Karigar / goldsmith. An owner can add roles of the business's own, and each business has its own copies. A restaurant has its own built-in roles, such as Restaurant Admin, Captain / Waiter and Kitchen staff. | `business_roles`; restaurant: `roles` |
 | **Permission** | One action on one module, written `module.action` (for example `sales.refund`): what a person may do. The actions are view, create, edit, approve, cancel, refund, export and print, and for some modules discount, assign, review, manage, or see and write clinical records. | `business_permissions`, `business_role_permissions`; restaurant: `permissions` |
 | **Membership** | A person's access to one business, with their role there. One login can have many memberships. Inside a business the header shows the person's role there. | `business_memberships` |
 | **Business code** | A business's short code, fixed when the business is created. Staff who sign in with a staff code type their restaurant's code too, and so does someone whose mobile number signs in to more than one restaurant. A restaurant's code is its business code. | `restaurants.code`, `businesses.code` |
@@ -284,6 +284,61 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Damage claim** | A customer's complaint that a garment came back damaged, stained, shrunk, with its colour run, lost or missing a part; a manager decides it: money back, a credit note, reprocessing or rejected. |
 | **Reprocess** | The work done again at no charge, the garment taken back in under a damage claim. |
 | **SAC 99971** | The GST group of laundry, dry cleaning, pressing and dyeing (dry cleaning 999712): 18% with input tax credit. |
+
+### Jewellery & gold
+
+| Word | Meaning |
+|---|---|
+| **Purity** | How much pure metal a piece holds: gold in carats with its fineness (24K 999, 22K 916, 18K 750, 14K 585), silver and platinum by their fineness (999, 925; 950). |
+| **Fineness** | The parts of pure metal in a thousand: 916 is 91.6% gold. |
+| **22K916** | A purity as a hallmark writes it: 22 carat, 916 fineness. |
+| **Rate sheet** | The day's rates a manager sets: for each purity, the selling rate per gram and the rate paid for old metal, morning or evening. Never changed: a correction is a new sheet. |
+| **Today's rate** | For a purity, the rate of the latest sheet of the day that rates it; a bill takes it. |
+| **Old metal rate** | What the shop pays per gram for old gold or silver of a purity. |
+| **IBJA rate** | The India Bullion and Jewellers Association's benchmark rates for gold, silver and platinum, published twice a day, before GST and making charges. |
+| **Rate board** | The day's rates in large type on a screen in the showroom. |
+| **Karigar** | A goldsmith: makes, repairs and finishes pieces; the Karigar role sees pieces and weights, never prices. |
+| **Jewellery item** | A catalogue item sold as tagged pieces priced by weight (a gold necklace, silver anklets): goods counted in pieces, serial-numbered, at 3% GST. |
+| **Piece** | One tagged article of a jewellery item: a serial-numbered unit in stock with its own weights, stones, charges and hallmark. |
+| **Tag** | A piece's number (T00012), printed on its tag label with a barcode; the serial number of its unit in stock. |
+| **Gross, stone and net weight** | The whole piece; its stones, beads and thread; and its metal, gross less stones. In grams to the milligram. |
+| **Fine weight** | The pure metal in a weight: net weight × fineness ÷ 1,000. |
+| **Wastage (VA)** | Value addition: a percentage of a piece's net weight added at the day's rate. |
+| **Making charge** | The charge for making a piece: per gram of net weight, a percentage of the metal's value, or flat. |
+| **Hallmark** | BIS's marks on an article of gold or silver: the BIS standard mark, the purity in carat and fineness, and a HUID. |
+| **HUID** | Hallmark Unique ID: the 6 letters and digits of an article's hallmark; one article each, several on a set. |
+| **Laboratory-grown diamond** | A man-made diamond, also laboratory-created; never "lab grown" or "LGD". A "diamond" alone is natural. |
+| **On approval (jangad)** | A piece a customer takes to show at home before buying; still the shop's stock. |
+| **Melted** | A piece taken out of stock for good, its metal kept as the shop's own for melting and refining. |
+| **Jewellery bill** | The counter's bill of tagged pieces, each priced at the day's rate for its purity with its wastage, making, stones and hallmarking, then 3% GST; an ordinary sale. |
+| **Mandatory hallmarking district** | A district notified under the Hallmarking Order, where gold jewellery of 2 g or more is sold only with its BIS hallmark and HUID. |
+| **HUID check** | The jewellery bill's refusal of a gold piece of 2 g or more without its HUID, unless the article, the turnover or the district leaves it out. |
+| **BIS-recognised assaying and hallmarking centre** | A centre where a buyer may have the purity of hallmarked jewellery checked; every jewellery invoice says so. |
+| **Old gold** | Gold, silver or platinum a customer sells to the shop or gives in exchange for new jewellery. |
+| **Old gold voucher** | The record of old gold taken in (OG/2627/0001): the seller, the photo ID seen, each article as tested and valued, and the seller's declaration; its value is paid out, used on their bill, or both. |
+| **Exchange** (old gold) | Old gold set off against a new jewellery bill: it pays first, as a payment by old gold, and the customer pays the rest. |
+| **Karatmeter (XRF)** | A machine that reads a piece's purity without harming it, by X-ray fluorescence. |
+| **Touchstone** | The traditional test: the piece is rubbed on a dark stone and its streak is compared with streaks of known purity. |
+| **Fineness found** | The purity a test shows, in parts of pure metal in a thousand (912.5); old gold is valued by it. |
+| **Deduction** (old gold) | The percentage taken off old gold's value for melting loss or by the shop's own rule. |
+| **Payment by old gold** | The part of a bill old gold pays: a credit note on the sale with the voucher's number; no money moves. |
+| **Put back** (old gold) | What old gold paid on a bill that was returned, going back on its voucher to be paid out or used again. |
+| **Form 97** | The declaration a person without a PAN signs where a PAN is asked for (it replaced Form 60). |
+| **Gold scheme** (gold savings scheme) | A customer's plan of fixed monthly instalments (at most 11), turned into jewellery on one jewellery bill within the year; never paid back in money. |
+| **Scheme plan** | A scheme the shop offers: so many instalments, the smallest monthly amount, the discount and the terms. Its terms never change. |
+| **Maturity** (scheme) | The day a scheme gives its discount from: the plan's instalments in months after the first one. |
+| **Close day** (scheme) | A scheme's day 364 after the first instalment, by which it is billed. |
+| **Scheme discount** | The plan's percentage of one instalment, taken off the pieces before GST on the bill that redeems a scheme with every instalment paid, from its maturity; never called interest. |
+| **Redeem** (scheme) | Use all that was paid into a scheme on a jewellery bill of its customer. |
+| **Stopped** (scheme) | A scheme cancelled with a manager's approval: no more instalments and no discount; what was paid is still used on a jewellery bill. |
+| **Passbook** | A scheme's printed record: the member, the terms, the nominee, and each instalment due and paid. |
+| **Nominee** | The person a scheme's member names to receive its jewellery if they cannot. |
+| **Credit from a returned bill** | What is left of a returned jewellery bill after any money went back: it pays the customer's next jewellery bill. |
+| **PMLA** | The Prevention of Money-laundering Act: a jeweller with cash transactions of ₹10 lakh or more with a customer is a reporting entity under it. |
+| **Reporting entity** | A dealer who reports to FIU-IND under the PMLA: the monthly cash transactions report, and suspicious transactions. |
+| **FIU-IND** | The Financial Intelligence Unit – India, to whom a reporting entity reports. |
+| **Cash transactions worksheet** | The cash report's list, for a month, of each customer whose cash was above ₹10 lakh, with every cash transaction: what the monthly report is made from. |
+| **Linked transactions** | Several cash transactions with one customer that appear connected; together they count towards ₹10 lakh. |
 
 ### Clinic and lab
 

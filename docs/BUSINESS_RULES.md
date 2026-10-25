@@ -29,6 +29,7 @@ The everyday numbers, such as expiring-soon days, voucher validity, credit age g
 - [Vehicle service & auto parts](#vehicle-service--auto-parts)
 - [Gyms, studios & coaching](#gyms-studios--coaching)
 - [Laundry & dry cleaning](#laundry--dry-cleaning)
+- [Jewellery & gold](#jewellery--gold)
 - [Restaurant and food formats](#restaurant-and-food-formats)
 
 ## Fixed on purpose
@@ -408,7 +409,7 @@ These rules apply to every business type but the restaurant. The goods rules app
 
 ### Roles by business type
 
-- **Rule:** some roles belong to one type of business: Pharmacist to a pharmacy; Doctor, Lab technician and Pathologist to a clinic & lab; Optometrist to an optical shop; Mechanic to a garage; Trainer to a gym, studio or coaching centre. A business of that type starts with them, and other types do not get them.
+- **Rule:** some roles belong to one type of business: Pharmacist to a pharmacy; Doctor, Lab technician and Pathologist to a clinic & lab; Optometrist to an optical shop; Mechanic to a garage; Trainer to a gym, studio or coaching centre; Karigar / goldsmith to a jeweller. A business of that type starts with them, and other types do not get them.
 - **Why:** a kirana should not see a "Doctor" role.
 - **Change it:** they are ordinary roles, editable in *Roles & permissions*.
 
@@ -788,6 +789,136 @@ A laundry or dry cleaner bills its services on bills of the shared core ([Shops 
 
 - **Rule:** orders, garments, handovers and claims show without prices, totals, bills or dues to anyone whose role does not hold `sales.view` (a stock keeper pressing the garments, say), and the order's history names bills and receipts, never amounts. Taking orders in needs `laundry.create` (with `sales.create` when they are billed at intake), and taking money `sales.edit`.
 - **Why:** the work is the floor's; the money is the counter's.
+- **Change it:** *Roles & permissions*.
+
+## Jewellery & gold
+
+A jeweller sells as every goods shop does ([Shops and the shared core](#shops-and-the-shared-core)), with prices before GST rounded to the rupee, and with *Gold rates & jewellery* on it rates its metals by purity every day. Each rule below is checked by the server, and the ones about records that must not change are held by the database too. Every day the rules count (today's rates) is the business's own date, in its time zone.
+
+### The purities a jeweller deals in
+
+- **Rule:** gold is rated, sold and bought at 24 carat (999 fineness), 22 carat (916), 18 carat (750) and 14 carat (585); silver at 999 and 925; platinum at 950. Fineness is the parts of pure metal in a thousand, and a purity is written as a hallmark writes it: 22K916 for gold, 925 for silver.
+- **Why:** these are the purities the IBJA rates and the BIS hallmark grades in use cover; the fineness of 23, 20 and 9 carat gold was not confirmed, so they are not offered.
+- **Change it:** the list is fixed (a code change).
+
+### A rate sheet is never changed; a bill takes the latest rate of its day
+
+- **Rule:** a manager sets a rate sheet: for each purity, the selling rate per gram (more than nil, to the paisa) and the rate per gram the shop pays for old metal of it (none: the shop does not buy it), the session (morning or evening) and where the rates come from (the shop's own, the local association's, the IBJA rate typed in). The sheet is for the business's own date when it is set, whatever a client sends. It is never changed or deleted, and a rate goes on its sheet only when the sheet is set. For each purity the latest sheet of the day that rates it is in use, and a purity with no sheet today has no rate: bills and old gold wait for it.
+- **Why:** a rate once used on a bill must never change under it; a correction stays in the record as a new sheet beside the one it corrects.
+- **Change it:** who sets rates is the role's `jewellery.approve` (the owner and a manager by default); who sees them needs `jewellery.view` with `sales.view` (prices are money).
+
+### A piece is a serial-numbered unit of a jewellery item, and is sold only on the jewellery bill
+
+- **Rule:** a jewellery item is a catalogue item of goods counted in pieces, with serial numbers, at the 3% slab (the database refuses any other). Each of its pieces is one unit in stock, its tag the unit's serial number: tagged on a unit received on a purchase with that number, or brought into stock with its tag (a stock correction with its reason: opening stock, made by our karigar, other, at its cost), never on a number the item has had in stock before. A tag is letters, digits, / and - (up to 20), one piece each. *Quick bill*, a sale and a quotation's bill refuse a jewellery item's line: its pieces are billed on the jewellery bill, priced by weight at the day's rate. A jewellery item is never deleted (its catalogue item is switched off instead).
+- **Why:** a piece's price is its weight at the day's rate, never a fixed price; as a serial-numbered unit it moves through stock, transfers and counts like any other stock, by its tag.
+- **Change it:** which items are jewellery items and what a new piece of each starts with, on *Pieces & tags* (`jewellery.edit`; a new catalogue item also `catalog.create`, an existing one `catalog.edit`).
+
+### Weights to the milligram, and what is charged on a piece
+
+- **Rule:** a piece's gross weight is above nil, its stones' (and beads' and thread's) weight is below the gross weight, and its net weight is the gross weight less the stones, to the milligram (three decimals; more are refused). Its wastage is a percentage of the net weight (0 to 100), priced at the day's rate; its making charge is per gram of net weight, a percentage of the metal's value (up to 100%), or flat for the piece. A new piece starts with its item's making charge and wastage, and a hallmarked one with the shop's hallmarking charge; each piece keeps its own. A piece not hallmarked has no hallmarking charge.
+- **Why:** the customer may check the weight on the shop's scale; a jeweller prices metal by the gram, with making and wastage on top.
+- **Change it:** the item's defaults on *Pieces & tags*; the shop's hallmarking charge on *Settings › Jewellery settings* (`settings.edit`).
+
+### HUIDs and diamonds' words
+
+- **Rule:** a HUID is 6 letters and digits, on a hallmarked piece only, and belongs to one article: no two pieces share one. A set may carry several. A HUID is never changed: it is taken off and the right one given. A man-made diamond is a *laboratory-grown diamond* (or laboratory-created): the words "lab grown", "lab created", "lab diamond" and "LGD" are refused in an item's name, a piece's words and a stone's details (the database refuses them too), and a diamond, natural or laboratory-grown, is never described as fake or artificial. A "diamond" alone is a natural diamond.
+- **Why:** the BIS hallmark carries a six-character HUID for each article; IS 19469:2025 allows only "laboratory-grown diamond" and "laboratory-created diamond" for man-made diamonds and disallows the abbreviations.
+- **Change it:** fixed (the law and the standard set them).
+
+### Where a piece is, and melting
+
+- **Rule:** a piece starts in stock. From stock it goes on approval (with the customer who has it) or to the karigar (with the karigar's name) and comes back into stock; it is not sold while it is out. While it is in the shop (in stock, on approval or at the karigar) its words, purity, weights, charges, hallmark, HUIDs and stones may be changed, and each change is in its history with what it was; its item and tag never change. A manager melts a piece in stock with a reason: its unit leaves stock (a stock correction of one) and its metal (its purity, net weight and fine weight, net weight × fineness ÷ 1,000 to the milligram) joins the shop's own metal at its location. A sold or melted piece keeps what it was, and a piece is never deleted.
+- **Why:** a piece out of the shop must not be sold twice; melted metal is the shop's own, for melting and refining, and is never billed.
+- **Change it:** who moves and changes pieces is the role's `jewellery.edit` (the owner, a manager, a cashier, a stock keeper and the karigar by default); who melts, `jewellery.approve` (the owner and a manager).
+
+### A jewellery bill's price, to the paisa
+
+- **Rule:** each piece is priced at the latest rate of the business's day for its purity: the metal is the net weight × the rate per gram; the wastage is the net weight × the wastage percentage × the rate (its grams are the net weight × the percentage, to the milligram); the making charge is the net weight × the charge per gram, the metal's value × its percentage, or the flat charge; then the stones' values and the hallmarking charge. Each part is rounded to the paisa once, halves up, and the piece's value is their sum. GST is 3% of it, to the paisa; the bill's total rounds to the rupee when the business rounds its bills. A piece is billed only while it is in stock at the selling location, in the books, and its item is at 3%. The bill is an ordinary sale posted at those prices (the cash limit, the PAN rule, payments, dues and returns are the core's), and keeps every piece's figures, rate and sheet as billed; the database checks each figure and refuses any other rate than the day's latest for the purity.
+- **Why:** jewellery of precious metal, with its making and stones, is one supply at 3% (Notification 9/2025, heading 7113); the price a customer is quoted at the counter is the price billed.
+- **Change it:** the rates on *Today's rates*; a piece's charges on *Pieces & tags*; rounding in Business settings.
+
+### The HUID check
+
+- **Rule:** a gold piece of 2 g or more is billed only with its BIS hallmark's HUID, unless the article is left out of the hallmarking order (Kundan, Polki or Jadau; a gold watch or fountain pen; gold thread; bullion; a medical, dental, veterinary, scientific or industrial article; semi-finished; for export), the owner marked the business exempt by its turnover, or the owner said the selling location's district is not under mandatory hallmarking. A location the owner has not said about is taken as under mandatory hallmarking. Each bill line keeps why the check let it through, and the bill keeps the rules it was billed under; the database makes the same check on every line. Silver and platinum are not checked (hallmarking them is voluntary).
+- **Why:** gold jewellery and artefacts of 2 g or more sold by registered jewellers in the districts notified under the Hallmarking Order must carry the BIS hallmark with a HUID; jewellers with an annual turnover up to ₹40 lakh and the listed articles are left out (BIS).
+- **Change it:** *Settings › Jewellery settings* (the districts and the turnover exemption, `settings.edit`); a piece's exemption on the piece.
+
+### What a jewellery bill's invoice says
+
+- **Rule:** the invoice of a jewellery bill prints, for each article: its description (the line's words), net weight, purity in carat and fineness, its hallmarking charge, its HUID where it has one, and how its price was made; and the statement that the buyer may get the purity of the hallmarked jewellery checked at any BIS-recognised assaying and hallmarking centre, with the location's BIS registration (*Settings › Licences*) while it is in force.
+- **Why:** BIS's guidelines of 2 July 2026 ask every invoice for hallmarked articles, retail or between jewellers, to show each article's description, net weight of precious metal, purity in carat and fineness and hallmarking charges, and that statement; the HUID on the invoice is voluntary.
+- **Change it:** fixed (the guidelines set it).
+
+### A piece taken back comes back into stock
+
+- **Rule:** a jewellery bill's line is returned on the bill (*Sales history*) only back to stock: the database refuses a return that leaves the piece out of stock, and the piece comes back into stock with its history saying which credit note took it back. It is then billed again at the day's rate. A jewellery bill and its lines are never changed.
+- **Why:** a piece is either in stock or sold; a piece that cannot be sold again is melted afterwards.
+- **Change it:** fixed.
+
+### Old gold is valued at the day's buy rate for its purity, to the paisa
+
+- **Rule:** an old gold voucher is made for a customer of the shop (the seller), with the photo ID seen (its kind and number; of an Aadhaar card, only its last four digits are kept) and the seller's declaration that the metal is their own to sell. Each article (up to 30 a voucher) is tested (karatmeter (XRF), touchstone, acid test or fire assay), with the fineness found (above nil and below 1,000, to one decimal; its purity's own when none is typed), and weighed: the gross weight is above nil, the stones and dirt taken off are below it, and the net weight is the difference, to the milligram; its fine weight is the net weight × the fineness found ÷ 1,000, to the milligram. It is valued at the latest buy rate of the business's day for the purity it is valued as: the net weight × the buy rate × the fineness found ÷ that purity's fineness, less the deduction (0 to 99.99%), to the paisa, halves up. A purity with no buy rate today is not bought. The voucher's value is its lines' added up, rounded to the rupee when the business rounds its bills; the database checks every figure and the rate. Its metal joins the shop's own metal at the voucher's location when it is made.
+- **Why:** old gold is tested, valued at the tested purity × the net weight × the day's buying rate less any deduction, and then paid out or set off against a new bill; the shop keeps its own metal by purity, in grams of metal and of fine metal, for melting and refining.
+- **Change it:** the buy rates on *Today's rates*; the deduction a new line starts with on *Settings › Jewellery settings* (`settings.edit` with `sales.view`); each line's own deduction on the voucher.
+
+### The seller's PAN on old gold over ₹2,00,000
+
+- **Rule:** a voucher worth more than ₹2,00,000 records the seller's PAN (typed, a PAN card's number when that is the ID seen, or the one saved with the customer; a new customer keeps the one they give), or that they have none and signed a declaration (Form 97). The database refuses such a voucher without one.
+- **Why:** PAN is quoted for a sale or purchase of goods above ₹2,00,000 a transaction (the Income-tax Rules 2026, Rule 159 item 16, as drafted), the jeweller buying old gold as well as selling; Form 97 is the declaration of someone who has no PAN.
+- **Change it:** fixed.
+
+### Old gold paid out: never ₹2,00,000 or more in cash to a seller
+
+- **Rule:** a voucher's value is paid out by UPI, bank transfer or cash, in one payout or several, never more than is left on it. A seller is not paid ₹2,00,000 or more in cash for old gold in one business day (all their vouchers) or for one voucher; the shop may keep a lower limit of its own for cash to one seller in a day. Each payout is written in the expense book at the voucher's location (category Other, "Old gold bought: OG/… from …"), so the day's money and the drawer show it; it is never reversed there. The database holds the same limits.
+- **Why:** a seller may not receive ₹2,00,000 or more in cash (Income-tax Act 2025, section 186, counted per person per day, per transaction or per event); UPI or a bank transfer is the better way to pay. A lower limit is the shop's own choice.
+- **Change it:** the shop's own limit on *Settings › Jewellery settings* (`settings.edit` with `sales.view`); who pays out is the role's `jewellery.approve` (the owner and a manager by default).
+
+### Old gold on the jewellery bill, and such a bill taken back
+
+- **Rule:** old gold pays only the jewellery bills of the customer who brought it in (who becomes the bill's customer): up to five vouchers on a bill, in the order chosen, each up to what is left on it and what the bill still needs. Each is a payment by *Old gold* on the sale (a credit note: no money moves) with the voucher's number, recorded with the voucher; the money taken is the rest, and the sale keeps its full value. When such a bill is returned, money goes back on it only as far as money was paid on it (the database refuses more), and what old gold paid goes back on its voucher (*Put back*, by someone who may refund: a credit-note refund, no more than old gold paid on that bill or the bill's credit after the return), from where it is paid out or used again.
+- **Why:** the old gold is how the customer pays, not a discount on the jewellery; and handing its value back in cash on a returned bill would get round the limits on cash paid out for old gold.
+- **Change it:** fixed.
+
+### Cancelling old gold
+
+- **Rule:** a voucher nothing was paid out or used on (or whose use was all put back) is cancelled with the reason, once; its metal then goes back out of the shop's metal. A voucher is never deleted or changed otherwise, and its lines, uses and payouts are kept as written.
+- **Why:** old gold handed back to the customer leaves the shop's metal; a voucher that was paid out or used is part of the money's record.
+- **Change it:** who cancels is the role's `jewellery.cancel` (the owner and a manager by default).
+
+### Gold scheme plans: up to 11 instalments, and a discount, never interest
+
+- **Rule:** a plan has 2 to 11 monthly instalments, a smallest monthly amount in whole rupees (at least ₹100), and a discount of 0 to 100% of one instalment given on the jewellery bill that redeems a scheme with every instalment paid, from its maturity, with its terms as printed. The word "interest" is refused in a plan's name and terms (the database refuses it too). A plan's terms never change and it is never deleted: it is switched off, and a new plan made for other terms; a plan switched off takes no one new. Each plan shows its discount as a yearly figure on the money held (the discount × 24 ÷ (n × (n + 1)) % for n instalments, maturity a month after the last).
+- **Why:** a scheme's money is an advance against jewellery, and its benefit is described only as a discount; the jewellery trade federation's guidance for companies' schemes (GJF, 2014) also keeps the discount within 12% a year (shown, not refused: it was written for companies).
+- **Change it:** plans on *Settings › Gold scheme plans* (`jewellery.approve`).
+
+### A gold scheme: its terms kept, turned into jewellery within the year
+
+- **Rule:** a customer joins an active plan with their monthly amount (in whole rupees, at least the plan's smallest), their acceptance of the terms (with the time), a nominee if they give one, and the first instalment, taken that day. The scheme keeps the plan's terms as they were. It matures the plan's instalments in months after the first instalment (one month after the last falls due) and closes by its day 364. Each instalment is the scheme's monthly amount, taken one at a time while it is active and before it matures, as a collection receipt of the customer's money by cash, UPI, card or bank transfer (not a credit note). Cash into one scheme stays under ₹2,00,000. Every date is the business's own.
+- **Why:** the industry guidance is to close a scheme and bill it by day 364, so the money becomes a sale within 365 days (under the Companies (Acceptance of Deposits) Rules 2014 an advance for goods not appropriated within 365 days is a deposit, and under the BUDS Act 2019, which binds proprietors and partnerships too, an advance that becomes refundable is deemed one); a scheme's instalments pay one bill, and one bill takes less than ₹2,00,000 in cash (Income-tax Act 2025, section 186).
+- **Change it:** fixed; who enrols and takes instalments is `jewellery.create` with `sales.edit` (the owner, a manager and a cashier by default).
+
+### Redeeming a scheme, and its discount
+
+- **Rule:** a scheme is redeemed once, on a jewellery bill of its own customer, and all that was paid into it pays that bill (each instalment's receipt, as it was paid): the bill must come to at least that. When every instalment was paid, the scheme was not stopped and the bill's day is on or after its maturity, the plan's percentage of one instalment, to the paisa, comes off the pieces before GST, spread over them by their value; otherwise there is no discount. A scheme's instalments pay no other bill, and are never paid back in money: on a returned bill, money goes back only as far as money was paid at the counter, and what the scheme paid stays as the customer's credit, used on their next jewellery bill (*Credit from returned bills*). The database holds each of these.
+- **Why:** a scheme must end in a sale, with no cash returned in any event (GJF guidance); the benefit is a discount on the jewellery.
+- **Change it:** fixed.
+
+### Stopping a scheme
+
+- **Rule:** an active scheme is stopped (cancelled) with the reason and a manager's approval (a role with `jewellery.approve`: their PIN when someone else asks; a manager approving their own step gives the reason alone), once. A stopped scheme takes no more instalments and gives no discount; what was paid is still redeemed on a jewellery bill, by its close day. The bell warns of schemes closing within 30 days and of any past the close day.
+- **Why:** earlier instalments are not refundable when a customer stops paying, and an amount that becomes refundable can turn into a deposit.
+- **Change it:** who stops is `jewellery.cancel` (the owner and a manager by default).
+
+### The cash report: ₹10 lakh in cash with a customer
+
+- **Rule:** the cash report adds up each customer's cash with the shop on the business's dates: cash paid on their bills (not through a receipt, which counts itself), their cash receipts (dues, advances, gold scheme instalments), cash refunded to them, advances handed back in cash, and cash paid out for their old gold; customers with the same PAN are one person, and a walk-in's bill with the buyer's PAN is theirs. Over the month to today (or any period of up to a year), a person whose cash in and out comes to ₹10 lakh or more is flagged, and one at or above the shop's own alert level (below ₹10 lakh, where it keeps one) is marked. The monthly worksheet lists, for a calendar month, each person whose cash that month was above ₹10 lakh, in one transaction or several, with every cash transaction, and the 15th of the next month as its due day. Nothing is filed. The bell flags a person at ₹10 lakh, those past the shop's level, and, when the owner says the shop is a reporting entity, last month's report until the 15th.
+- **Why:** a dealer in precious metals and stones carrying out cash transactions with a customer of ₹10 lakh or more, in one operation or several that appear linked, is a reporting entity under the PMLA (G.S.R. 799(E), 28 December 2020); a reporting entity keeps records of cash transactions above ₹10 lakh and of linked ones within a month adding up to more (PMLR Rule 3) and reports them to FIU-IND monthly, by the 15th of the next month. The filing itself is the shop's officer's, on FIU-IND's own system.
+- **Change it:** the shop's alert level and the reporting entity on *Settings › Jewellery settings* (`settings.edit` with `sales.view`); who sees the report is `jewellery.export` with `sales.view` (the owner, a manager and an accountant by default).
+
+### The karigar and anyone who does not see sales see no prices
+
+- **Rule:** pieces and items show without making charges, wastage, hallmarking charges, stone values, cost or price to anyone whose role does not hold `sales.view` (a stock keeper, the karigar), and a piece they tag takes its item's making charge and wastage and the shop's hallmarking charge; a stone they change keeps its value. Bringing a new piece into stock needs `inventory.edit` too (the karigar tags units already in stock). Old gold, its values and its payouts, and gold schemes, need `sales.view` too.
+- **Why:** the work is the floor's; the prices are the counter's.
 - **Change it:** *Roles & permissions*.
 
 ## Restaurant and food formats

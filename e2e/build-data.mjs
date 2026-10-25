@@ -6,7 +6,7 @@
 // one thing no request can make: an order taken on an earlier day.
 import crypto from "node:crypto";
 
-import { AGRI, BUSINESSES, GARAGE, GROCERY, HARDWARE, LAUNDRY, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
+import { AGRI, BUSINESSES, GARAGE, GROCERY, HARDWARE, JEWELLERY, LAUNDRY, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
 
 // Every call names the status it expects, so a set-up that goes wrong stops
 // at the first wrong answer, with the API's own message, rather than leaving
@@ -467,6 +467,63 @@ export async function buildTestData({ api, logins, sql }) {
     Object.assign(businesses.laundry, {
       customer: { id: customer.id, name: customer.name },
       order: { id: order.id, orderNo: order.order_no, total: order.total, tags: order.items.map((item) => item.tag_no) },
+    });
+  }
+
+  // The jeweller: today's rates on its own date; the hallmarking charge and
+  // its location's district under mandatory hallmarking; its BIS registration,
+  // kept with the licences tool (switched on for it); its rings and chains as
+  // jewellery items, and pieces tagged into stock as opening stock; a
+  // customer's old gold taken in; and a gold scheme plan with a customer
+  // enrolled in it, three instalments paid.
+  {
+    const B = at("jewellery");
+    const locationId = businesses.jewellery.locationId;
+    const day = (days) => new Date(Date.now() + days * 86400000).toLocaleDateString("en-CA", { timeZone: TIMEZONE });
+    await owner("POST", B("jewellery/rates"), { requestKey: requestKey(), session: "morning", source: "association",
+      rates: JEWELLERY.rates.map((r) => ({ metal: r.metal, purity: r.purity, sellRate: String(r.sell), buyRate: String(r.buy) })) }, 201);
+    await owner("PUT", B("jewellery/settings"), { hallmarkCharge: String(JEWELLERY.hallmarkCharge),
+      locations: [{ locationId, mandatory: true, district: JEWELLERY.district }] }, 200);
+    await owner("PUT", B("modules/licences"), { enabled: true });
+    await owner("POST", B("licences"), { locationId, kind: "bis", name: JEWELLERY.bis.name, licenceNo: JEWELLERY.bis.licenceNo, authority: JEWELLERY.bis.authority,
+      validFrom: day(-400) }, 201);
+    const item = async (made) => (await owner("POST", B("jewellery/items"), { item: { name: made.name, hsnCode: "7113", code: made.code }, metal: "gold", purity: "22K",
+      wastagePercent: String(made.wastage), makingMode: "per_gram", makingValue: String(made.makingPerGram) }, 201)).items.find((i) => i.label === made.name);
+    const ring = await item(JEWELLERY.ring);
+    const chain = await item(JEWELLERY.chain);
+    // Each piece takes its item's purity, making and wastage; a hallmarked one the settings' hallmarking charge.
+    const tag = async (sku, made, extra = {}) => {
+      const piece = await owner("POST", B("jewellery/pieces"), { requestKey: requestKey(), skuId: sku.sku_id, comesIn: "new", locationId, reason: "opening",
+        description: made.description, grossWeight: made.gross, stoneWeight: made.stones || "0", ...(made.huid ? { hallmarked: true, huids: [made.huid] } : {}), ...extra }, 201);
+      return { id: piece.id, tag: piece.tag_no, description: made.description, huid: made.huid || null };
+    };
+    const counterRing = await tag(ring, JEWELLERY.counterRing, {
+      stones: [{ kind: "ruby", pieces: "1", carat: JEWELLERY.counterRing.ruby.carat, value: String(JEWELLERY.counterRing.ruby.value) }] });
+    const exchangeRing = await tag(ring, JEWELLERY.exchangeRing);
+    const schemeRing = await tag(ring, JEWELLERY.schemeRing);
+    const unmarkedChain = await tag(chain, JEWELLERY.unmarkedChain);
+    const customer = (person) => owner("POST", B("contacts"), { kind: "customer", name: person.name, phone: person.phone }, 201);
+    const seller = await customer(JEWELLERY.oldGold.seller);
+    const { line } = JEWELLERY.oldGold;
+    const voucher = await owner("POST", B("jewellery/old-gold"), { requestKey: requestKey(), locationId, contactId: seller.id, idKind: JEWELLERY.oldGold.idKind,
+      idRef: JEWELLERY.oldGold.idRef, ownerDeclared: true, lines: [{ description: line.description, metal: "gold", purity: "22K", testMethod: "xrf",
+        testedFineness: line.tested, grossWeight: line.gross, lessWeight: line.less, deductionPercent: line.deduction }] }, 201);
+    const { plan: terms } = JEWELLERY;
+    const plan = (await owner("POST", B("jewellery/scheme-plans"), { requestKey: requestKey(), name: terms.name, instalments: terms.instalments,
+      minInstalment: String(terms.minInstalment), discountPercent: String(terms.discountPercent), terms: terms.terms }, 201)).items.find((p) => p.name === terms.name);
+    const member = await customer(JEWELLERY.member);
+    let scheme = await owner("POST", B("jewellery/schemes"), { requestKey: requestKey(), locationId, planId: plan.id, contactId: member.id,
+      instalment: String(JEWELLERY.member.instalment), nomineeName: JEWELLERY.member.nominee, nomineeRelation: JEWELLERY.member.relation, termsAccepted: true,
+      payment: { method: "upi" } }, 201);
+    for (let paid = 1; paid < JEWELLERY.member.instalmentsPaid; paid++) {
+      scheme = await owner("POST", B(`jewellery/schemes/${scheme.id}/instalments`), { requestKey: requestKey(), method: "upi" }, 201);
+    }
+    Object.assign(businesses.jewellery, {
+      items: { ring: { skuId: ring.sku_id, name: ring.label }, chain: { skuId: chain.sku_id, name: chain.label } },
+      counterRing, exchangeRing, schemeRing, unmarkedChain,
+      oldGold: { id: voucher.id, voucherNo: voucher.voucher_no, value: voucher.value, seller: { id: seller.id, name: seller.name } },
+      plan: { id: plan.id, name: plan.name },
+      scheme: { id: scheme.id, schemeNo: scheme.scheme_no, paid: scheme.paid, member: { id: member.id, name: member.name } },
     });
   }
 

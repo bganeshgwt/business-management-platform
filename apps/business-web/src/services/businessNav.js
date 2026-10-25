@@ -2,7 +2,7 @@
 // has switched on and what this person's role allows. The server checks the
 // same two things on every request; the menu only hides what would be refused.
 
-import { AGRI, CLINIC, GARAGE, GOODS, HARDWARE, LAUNDRY, MEMBERSHIPS, OPTICAL, PHARMACY, RETAIL, SALON, WEIGHED } from './businessTypes.js';
+import { AGRI, CLINIC, GARAGE, GOODS, HARDWARE, JEWELLERY, LAUNDRY, MEMBERSHIPS, OPTICAL, PHARMACY, RETAIL, SALON, WEIGHED } from './businessTypes.js';
 import { dailyWorkspaces, WORKSPACES, workspaceLabel, workspaceSections } from './businessWorkspace.js';
 
 export { GOODS };
@@ -198,6 +198,23 @@ export function businessSections(type) {
       ],
     },
     {
+      // A jeweller's day: today's rates (prices: for those who see sales), with
+      // the rate board for a showroom screen; its tagged pieces (the first page
+      // of its stock).
+      title: "Jewellery",
+      links: [
+        // Its counter: tagged pieces priced by weight at the day's rate (Quick bill beside it for everything else).
+        { section: "jewellery-bill", label: "Jewellery bill", icon: "pos", need: "jewellery.create", types: JEWELLERY },
+        { section: "gold-rates", label: "Today's rates", icon: "priceList", need: "sales.view", module: "jewellery", types: JEWELLERY },
+        { section: "rate-board", label: "Rate board", icon: "dashboard", need: "sales.view", module: "jewellery", types: JEWELLERY },
+        { section: "pieces", label: "Pieces & tags", icon: "numbering", need: "jewellery.view", types: JEWELLERY },
+        // Old gold bought from customers or taken in exchange (money: for those who see sales).
+        { section: "old-gold", label: "Old gold", icon: "collection", need: "sales.view", module: "jewellery", types: JEWELLERY },
+        // Gold schemes: monthly instalments turned into jewellery within the year (money: for those who see sales).
+        { section: "gold-schemes", label: "Gold schemes", icon: "recurring", need: "sales.view", module: "jewellery", types: JEWELLERY },
+      ],
+    },
+    {
       title: "Purchases",
       links: [
         { section: "purchases", label: "Purchases", icon: "purchaseOrders", need: "purchasing.view" },
@@ -269,6 +286,8 @@ export function businessSections(type) {
         { section: "salon-reports", label: "Service profitability", icon: "inventoryInsights", need: "reports.view", types: SALON },
         { section: "commissions", label: "Staff commissions", icon: "payroll", need: "commissions.view" },
         { section: "fitter-reports", label: "Fitters' commission", icon: "payroll", need: "fitter_commission.view", types: HARDWARE },
+        // A jeweller's cash with each customer, flagged at ₹10 lakh, and the monthly worksheet.
+        { section: "cash-report", label: "Cash report", icon: "reports", need: "jewellery.export", module: "jewellery", types: JEWELLERY },
         { section: "activity", label: "Activity log", icon: "activity", need: "audit.view" },
       ],
     },
@@ -289,6 +308,9 @@ export function businessSections(type) {
         { section: "garage-settings", label: "Garage settings", icon: "serviceSettings", need: "garage.view", types: GARAGE },
         // A gym's, studio's or coaching centre's plans, and when overdue fees turn a member away at check-in.
         { section: "member-plans", label: "Membership plans", icon: "package", need: "member_plans.view", types: MEMBERSHIPS },
+        // A jeweller's tags and the hallmarking charge a new piece starts with.
+        { section: "jewellery-settings", label: "Jewellery settings", icon: "serviceSettings", need: "jewellery.view", types: JEWELLERY },
+        { section: "scheme-plans", label: "Gold scheme plans", icon: "recurring", need: "sales.view", module: "jewellery", types: JEWELLERY },
       ],
     },
     {

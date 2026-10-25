@@ -138,6 +138,10 @@ async function feed(business) {
   if (has('laundry') && can('laundry.view') && business.business_type === 'laundry') {
     items.push(...await require('../../laundry/services/laundryOrders.service').bell(business, base, LIMIT));
   }
+  // A jeweller's day's rates not set, a location's hallmarking district not said, old gold still to settle.
+  if (has('jewellery') && can('jewellery.view') && business.business_type === 'jewellery') {
+    items.push(...await require('../../jewellery/services/jewelleryBell.service').bell(business, base, LIMIT));
+  }
   // Licences & registrations: a licence running out within 60 days (warning), or run out (critical).
   if (has('licences') && can('licences.view')) {
     const licences = require('../../licences/services/businessLicences.service');

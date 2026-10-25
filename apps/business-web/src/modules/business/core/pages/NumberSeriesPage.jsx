@@ -24,7 +24,9 @@ const KINDS = { sale: "Sale invoices", purchase: "Purchase receipts", sales_retu
   // A gym's, studio's or coaching centre's memberships (not GST documents).
   membership: "Memberships",
   // A laundry's garment orders (not GST documents).
-  laundry_order: "Garment orders" };
+  laundry_order: "Garment orders",
+  // A jeweller's old gold vouchers and gold schemes (not GST documents).
+  old_gold: "Old gold vouchers", gold_scheme: "Gold schemes" };
 const fiscalLabel = (year) => `${year}-${String((Number(year) + 1) % 100).padStart(2, "0")}`;
 const sample = (s) => `${s.prefix}${String(s.next_number).padStart(s.padding, "0")}`;
 

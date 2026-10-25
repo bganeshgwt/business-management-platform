@@ -44,8 +44,37 @@ const RATE = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumF
 // Half of a line's GST to each of CGST and SGST; the odd paisa goes to CGST.
 const halves = (taxPaise) => [taxPaise - Math.floor(taxPaise / 2), Math.floor(taxPaise / 2)];
 
+// A jeweller's bill: for each article what BIS asks the invoice to show (the
+// line's words are its description; then its net weight, purity in carat and
+// fineness, hallmarking charge and HUID), and how its price was made: the
+// metal at the day's rate, wastage, making, stones.
+const grams = (value) => `${Number(value || 0).toFixed(3)} g`;
+function jewelleryLine(doc, line, symbol) {
+  const x = (doc.jewellery?.lines || []).find((l) => l.line_id === line.id);
+  if (!x) return "";
+  const money = (value) => moneyExact(Number(value), symbol);
+  const stones = (x.stones || []).map((s) => [s.kindWords, s.carat ? `${Number(s.carat).toFixed(3)} ct` : "", s.certificate].filter(Boolean).join(" ")).join(", ");
+  return [
+    `Net weight ${grams(x.net_weight)} (gross ${grams(x.gross_weight)}${Number(x.stone_weight) ? `, stones ${grams(x.stone_weight)}` : ""})`,
+    `Purity ${x.mark} (${x.purity_long})`,
+    x.huids?.length ? `HUID ${x.huids.join(", ")}` : x.basis_words,
+    x.hallmarked ? `Hallmarking ${money(x.hallmark_charge)}` : "",
+    `Metal ${money(x.metal_value)} at ${money(x.rate)}/g`,
+    Number(x.wastage_value) ? `Wastage ${Number(x.wastage_percent)}% (${grams(x.wastage_weight)}) ${money(x.wastage_value)}` : "",
+    Number(x.making_charge) ? `Making ${money(x.making_charge)}` : "",
+    Number(x.stone_value) ? `Stones ${money(x.stone_value)}${stones ? ` (${stones})` : ""}` : "",
+    Number(x.discount) ? `Gold scheme discount ${money(x.discount)}` : "",
+  ].filter(Boolean).join(" · ");
+}
+// The purity statement, the BIS registration the shop sells under, and the gold scheme the bill redeems.
+function jewelleryNote(doc) {
+  const j = doc.jewellery;
+  if (!j) return "";
+  return `<p class="small"><strong>${escapeHtml(j.statement)}</strong>${j.bis ? ` ${escapeHtml(j.bis.name)}: ${escapeHtml(j.bis.licenceNo)}.` : ""}${j.scheme ? ` Redeems gold scheme ${escapeHtml(j.scheme.schemeNo)}${Number(j.scheme.discount) ? `, its discount ${escapeHtml(moneyExact(Number(j.scheme.discount)))} taken off the pieces before GST` : ""}.` : ""}</p>`;
+}
+
 // Everything both papers print, worked out once.
-function invoiceFacts(doc) {
+function invoiceFacts(doc, symbol = "₹") {
   const seller = doc.seller || {};
   const sale = doc.kind === "sale";
   const pos = doc.place_of_supply || (doc.contact_gstin ? String(doc.contact_gstin).slice(0, 2) : seller.state_code) || null;
@@ -62,7 +91,7 @@ function invoiceFacts(doc) {
     const listValue = extra && !free && Number(extra.discount_percent) > 0 && doc.tax_mode !== "inclusive" ? Math.round(Number(extra.list_unit_price) * Number(line.quantity) * 100) : 0;
     const discount = discounts.filter((d) => d.line_id === line.id).reduce((s, d) => s + p(d.amount), 0) + Math.max(0, listValue - p(line.net));
     return {
-      n: index + 1, label: line.label, lot: [line.lot_code, pharmacyLine(doc, line), agriLine(doc, line)].filter(Boolean).join(" · "), kit: line.kit_label || "", hsn: line.hsn_code || "", mrp: line.mrp ? p(line.mrp) : null,
+      n: index + 1, label: line.label, lot: [doc.jewellery ? "" : line.lot_code, pharmacyLine(doc, line), agriLine(doc, line), jewelleryLine(doc, line, symbol)].filter(Boolean).join(" · "), kit: line.kit_label || "", hsn: line.hsn_code || "", mrp: line.mrp ? p(line.mrp) : null,
       quantity: line.entered_unit ? `${qty(line.entered_quantity)} ${line.entered_unit}` : `${qty(line.quantity)} ${line.unit}`,
       rate: Number(line.entered_unit_price || line.unit_price), discount, taxable: p(line.net), gstRate: Number(line.tax_rate),
       cgst, sgst, igst: interstate ? tax : 0, tax, amount: p(line.net) + tax, free, exempt: Number(line.tax_rate) === 0 && tax === 0,
@@ -201,10 +230,11 @@ function a4(doc, biz, f) {
       ${f.interstate ? (f.igst ? `<tr><td>IGST</td><td class="r">${money(f.igst)}</td></tr>` : "") : `${f.cgst ? `<tr><td>CGST</td><td class="r">${money(f.cgst)}</td></tr>` : ""}${f.sgst ? `<tr><td>SGST</td><td class="r">${money(f.sgst)}</td></tr>` : ""}`}
       ${f.roundOff ? `<tr><td>Round-off</td><td class="r">${money(f.roundOff)}</td></tr>` : ""}
       <tr class="grand"><td>Total</td><td class="r">${money(f.total)}</td></tr>
-      ${doc.payments.length > 1 ? doc.payments.map((x) => `<tr><td>${x.method === "finance" ? `On EMI · ${escapeHtml(financeWords(doc))}` : `Paid · ${escapeHtml(METHOD_WORDS[x.method] || x.method)}`}</td><td class="r">${money(p(x.amount))}</td></tr>`).join("")
-        : f.paid ? `<tr><td>${doc.payments[0]?.method === "finance" ? `On EMI · ${escapeHtml(financeWords(doc))}` : "Paid"}</td><td class="r">${money(f.paid)}</td></tr>` : ""}
+      ${doc.payments.length > 1 ? doc.payments.map((x) => `<tr><td>${x.method === "finance" ? `On EMI · ${escapeHtml(financeWords(doc))}` : `Paid · ${escapeHtml(paidWords(x))}`}</td><td class="r">${money(p(x.amount))}</td></tr>`).join("")
+        : f.paid ? `<tr><td>${doc.payments[0]?.method === "finance" ? `On EMI · ${escapeHtml(financeWords(doc))}` : doc.payments[0]?.method_name && doc.payments[0]?.method === "credit_note" ? `Paid · ${escapeHtml(paidWords(doc.payments[0]))}` : "Paid"}</td><td class="r">${money(f.paid)}</td></tr>` : ""}
       ${f.due > 0 ? `<tr><td><strong>Balance due</strong></td><td class="r"><strong>${money(f.due)}</strong></td></tr>` : ""}
     </tbody></table></div>
+  ${jewelleryNote(doc)}
   ${seller.invoice_footer ? `<p><small>${escapeHtml(seller.invoice_footer)}</small></p>` : ""}
   <div class="sign"><small>Certified that the particulars given above are true and correct.${f.sale ? " Goods once sold are subject to the shop's exchange policy." : ""}</small>
     <div class="r">For ${escapeHtml(sellerName)}<br><br><br>Authorised signatory</div></div>`;
@@ -277,7 +307,7 @@ function till(doc, biz, f, { change = 0, udhaar = null } = {}) {
     ${f.roundOff ? `<div class="row small"><span>Round-off</span><span>${money(f.roundOff)}</span></div>` : ""}
     <div class="row tot"><span>TOTAL</span><span>${money(f.total)}</span></div>
     <div class="words">${escapeHtml(amountInWords(r(f.total)))}</div>
-    ${doc.payments.map((x) => `<div class="row small"><span>${x.method === "finance" ? `On EMI · ${escapeHtml(financeWords(doc))}` : `Paid · ${escapeHtml(METHOD_WORDS[x.method] || x.method)}`}</span><span>${money(p(x.amount))}</span></div>`).join("")}
+    ${doc.payments.map((x) => `<div class="row small"><span>${x.method === "finance" ? `On EMI · ${escapeHtml(financeWords(doc))}` : `Paid · ${escapeHtml(paidWords(x))}`}</span><span>${money(p(x.amount))}</span></div>`).join("")}
     ${changeBack(doc, change) > 0 ? `<div class="row small"><span>Change returned (cash)</span><span>${money(changeBack(doc, change))}</span></div>` : ""}
     ${udhaar ? `<hr><div class="row small"><span>Earlier udhaar</span><span>${money(p(udhaar.earlier))}</span></div>
       <div class="row small"><span>This bill on udhaar</span><span>${money(p(udhaar.thisBill))}</span></div>
@@ -287,10 +317,14 @@ function till(doc, biz, f, { change = 0, udhaar = null } = {}) {
     ${redeemed ? `<div class="row small"><span>Points redeemed</span><span>${escapeHtml(String(-redeemed.points))}</span></div>` : ""}
     ${earned ? `<div class="row small"><span>Points earned</span><span>${escapeHtml(String(earned.points))}</span></div>` : ""}
     ${(doc.warranties || []).map((w) => `<div class="small">Warranty ${escapeHtml(w.serial)} until ${escapeHtml(businessDate(w.ends_on, seller.date_format))}</div>`).join("")}
+    ${jewelleryNote(doc)}
     <hr><div class="c small">${escapeHtml(seller.receipt_footer || "Thank you, visit again!")}</div>`;
 }
 
 const METHOD_WORDS = { cash: "Cash", upi: "UPI", card: "Card", bank: "Bank transfer", cheque: "Cheque", credit_note: "Credit note", finance: "EMI" };
+// A payment's words on the bill: a credit note with a name of its own says it
+// and what it came from ("Old gold OG/2627/0001").
+const paidWords = (x) => (x.method === "credit_note" && x.method_name ? [x.method_name, x.reference].filter(Boolean).join(" ") : METHOD_WORDS[x.method] || x.method);
 // An EMI bill's financier and loan.
 const financeWords = (doc) => (doc.finance || []).map((f) => `${f.financier_name} ${f.loan_no}`).join(", ") || "financier";
 // Change given back: what the counter says, or (a reprint) cash handed over less the cash part (paise).
@@ -301,12 +335,12 @@ export function printTaxInvoices(docs, biz) {
   printDocument({
     title: docs.length === 1 ? docs[0].document_no : `${docs.length} invoices`,
     styles: `${A4_STYLES} .invoice-page{page-break-after:always} .invoice-page:last-child{page-break-after:auto}`,
-    body: docs.map((doc) => `<section class="invoice-page">${a4(doc, biz, invoiceFacts(doc))}</section>`).join(""),
+    body: docs.map((doc) => `<section class="invoice-page">${a4(doc, biz, invoiceFacts(doc, biz.symbol))}</section>`).join(""),
   });
 }
 
 export function printTaxInvoice(doc, biz, { paper = "a4", ...extra } = {}) {
-  const facts = invoiceFacts(doc);
+  const facts = invoiceFacts(doc, biz.symbol);
   printDocument({
     title: doc.document_no,
     styles: paper === "80mm" ? tillStyles(biz) : A4_STYLES,

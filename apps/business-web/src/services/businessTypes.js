@@ -31,3 +31,5 @@ export const GARAGE = ["garage"];
 export const MEMBERSHIPS = ["memberships"];
 // Laundry & dry cleaning: garment orders, the racks, unclaimed orders, the price list.
 export const LAUNDRY = ["laundry"];
+// Jewellery & gold: today's rates and the rate board.
+export const JEWELLERY = ["jewellery"];

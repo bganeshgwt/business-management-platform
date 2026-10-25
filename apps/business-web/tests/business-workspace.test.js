@@ -43,7 +43,10 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   assert.ok(menu('hardware').some(l=>l.section==='sales-orders'),'hardware: site orders');
   assert.ok(!menu('hardware',m=>m!=='sales_orders').some(l=>l.section==='sales-orders'),'hardware: no orders while Sales orders is off');
   for(const type of ['memberships','laundry','rentals','lodging'])assert.ok(!menu(type).some(l=>l.section==='counter'),`${type}: no Quick bill`);
-  for(const type of ['general_retail','hardware','agri_inputs','optical','garage','jewellery','fuel_station'])assert.ok(menu(type).some(l=>l.section==='counter'),`${type}: Quick bill`);
+  for(const type of ['general_retail','hardware','agri_inputs','optical','garage','fuel_station'])assert.ok(menu(type).some(l=>l.section==='counter'),`${type}: Quick bill`);
+  // A jeweller's counter is the jewellery bill, with Quick bill beside it for everything else.
+  assert.ok(menu('jewellery').some(l=>l.section==='jewellery-bill'&&l.pages.some(p=>p.to.endsWith('/counter'))),'jewellery: the jewellery bill with Quick bill');
+  assert.ok(menu('jewellery',m=>m!=='jewellery').some(l=>l.section==='counter'),'jewellery: Quick bill while its tools are off');
   assert.equal(menu('hardware').find(l=>l.section==='udhaar').label,'Udhaar');
   assert.equal(menu('optical').find(l=>l.section==='udhaar').label,'Customer dues');
   assert.equal(menu('lodging').find(l=>l.section==='sales').label,'Bill history');
@@ -147,6 +150,31 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   const work=businessMenu(33,'laundry',p=>press.has(p),()=>true).flatMap(g=>g.links);
   assert.ok(work.some(l=>l.section==='garment-orders')&&!work.some(l=>l.section==='laundry-new'),'a presser finds the orders, not the counter');
   for(const type of ['grocery','salon','memberships'])for(const section of ['laundry-new','garment-orders','ready-racks','unclaimed','laundry-prices'])assert.ok(!typeAllows(sectionRule(section,type),type),`${type}: no ${section}`);
+  // A jeweller's day: today's rates (with the rate board) are a daily entry; prices are for those who see sales.
+  const jdaily=businessMenu(33,'jewellery',()=>true,()=>true).find(g=>g.title==='Daily work').links;
+  assert.ok(jdaily.some(l=>l.section==='gold-rates'&&l.label==="Today's rates"&&l.pages.some(p=>p.to.endsWith('/rate-board'))),'jewellery: today\'s rates with the board');
+  assert.equal(workspaceFor('rate-board','jewellery'),'goldRates');
+  const goldsmith=new Set(['jewellery.view','jewellery.edit','catalog.view','inventory.view']);
+  assert.ok(!businessMenu(33,'jewellery',p=>goldsmith.has(p),()=>true).flatMap(g=>g.links).some(l=>['gold-rates','old-gold','sales','day-close'].includes(l.section)),'a karigar sees no rates and no money');
+  for(const type of ['grocery','laundry','optical'])for(const section of ['gold-rates','rate-board','old-gold'])assert.ok(!typeAllows(sectionRule(section,type),type),`${type}: no ${section}`);
+  // Old gold bought or taken in exchange, and gold schemes, are daily entries of their own; the scheme plans are in Settings.
+  assert.ok(jdaily.some(l=>l.section==='old-gold'&&l.label==='Old gold'),'jewellery: old gold in its day');
+  assert.equal(workspaceFor('old-gold','jewellery'),'oldGold');
+  assert.ok(jdaily.some(l=>l.section==='gold-schemes'&&l.label==='Gold schemes'),'jewellery: gold schemes in its day');
+  assert.ok(pages('jewellery').some(p=>p.to.endsWith('/scheme-plans')),'jewellery: its scheme plans in Settings');
+  assert.ok(!businessMenu(33,'jewellery',p=>goldsmith.has(p),()=>true).flatMap(g=>g.links).some(l=>['gold-schemes','old-gold'].includes(l.section)),'a karigar sees no schemes');
+  for(const type of ['grocery','laundry'])for(const section of ['gold-schemes','scheme-plans','cash-report'])assert.ok(!typeAllows(sectionRule(section,type),type),`${type}: no ${section}`);
+  // The cash report sits with the reports, for whoever may export it.
+  assert.equal(workspaceFor('cash-report','jewellery'),'reports');
+  assert.ok(pages('jewellery').some(p=>p.to.endsWith('/cash-report')),'jewellery: the cash report');
+  assert.ok(!businessMenu(33,'jewellery',p=>p!=='jewellery.export',()=>true).flatMap(g=>g.links).flatMap(l=>l.pages).some(p=>p.to.endsWith('/cash-report')),'no export, no cash report');
+  // Its stock opens on Pieces & tags (its serial numbers are its tags); its settings have a page of their own.
+  const jstock=menu('jewellery').find(l=>l.section==='pieces');
+  assert.ok(jstock&&jstock.label==='Pieces & tags'&&jstock.pages.some(p=>p.to.endsWith('/movements'))&&!jstock.pages.some(p=>p.to.endsWith('/serials')),'jewellery: pieces first in stock');
+  assert.ok(pages('jewellery').some(p=>p.to.endsWith('/jewellery-settings')),'jewellery: its settings');
+  assert.ok(businessMenu(33,'jewellery',p=>goldsmith.has(p),()=>true).flatMap(g=>g.links).some(l=>l.section==='pieces'),'a karigar finds the pieces');
+  assert.ok(menu('electronics').some(l=>l.pages.some(p=>p.to.endsWith('/serials'))),'others keep the serial register');
+  for(const type of ['grocery','electronics'])assert.ok(!typeAllows(sectionRule('pieces',type),type),`${type}: no pieces`);
 });
 test('restricted roles get a permitted destination even when the first workspace page is unavailable',()=>{
   const permissions=new Set(['purchasing.view','contacts.view','inventory.view','catalog.view']);

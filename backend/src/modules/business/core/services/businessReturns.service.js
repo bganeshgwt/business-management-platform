@@ -225,6 +225,27 @@ async function applyAdjustment(db, business, user, lot, quantity, reason, reques
   await db.query(`INSERT INTO business_stock_movements(business_id,lot_id,adjustment_id,quantity,balance_after) VALUES($1,$2,$3,$4,$5)`, [business.id, lot.id, adjustment.id, quantity, (balance / 1000).toFixed(3)]);
   return adjustment;
 }
+// A serial-numbered unit the business brings into stock without a purchase
+// (a jeweller's piece made by its own goldsmith, or one it holds when it
+// starts), inside the caller's transaction (the business row locked): a new
+// lot at the location with this one unit, at the cost given, as a correction
+// with its reason. Never a number this item has had in stock before. The
+// caller checks permissions and writes the activity log. Returns { lot, adjustment }.
+async function receiveSerial(db, business, user, { skuId, locationId, serial, unitCost = 0, reason, requestKey }) {
+  const sku = await repo.one(db, `SELECT s.id,s.label,s.tracking,p.kind FROM catalog_skus s JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id
+    WHERE s.business_id=$1 AND s.id=$2`, [business.id, id(skuId)]);
+  if (!sku || sku.kind !== 'goods' || sku.tracking !== 'serial') fail('Only a serial-numbered item takes a unit into stock this way');
+  if (await repo.one(db, 'SELECT id FROM business_stock_lots WHERE business_id=$1 AND sku_id=$2 AND lot_code=$3', [business.id, sku.id, serial])) {
+    fail(`${sku.label} number ${serial} has been in stock before: give a new number`, 409);
+  }
+  const lot = await repo.one(db, `INSERT INTO business_stock_lots(business_id,location_id,sku_id,lot_code,quantity,unit_cost) VALUES($1,$2,$3,$4,0,$5) RETURNING *`,
+    [business.id, id(locationId), sku.id, serial, Number(unitCost).toFixed(4)]);
+  const adjustment = await repo.one(db, `INSERT INTO business_stock_adjustments(business_id,lot_id,quantity,reason,request_key,created_by) VALUES($1,$2,1,$3,$4,$5) RETURNING *`,
+    [business.id, lot.id, reason, key(requestKey), user.id]);
+  await db.query('UPDATE business_stock_lots SET quantity=1 WHERE business_id=$1 AND id=$2', [business.id, lot.id]);
+  await db.query('INSERT INTO business_stock_movements(business_id,lot_id,adjustment_id,quantity,balance_after) VALUES($1,$2,$3,1,1)', [business.id, lot.id, adjustment.id]);
+  return { lot: { ...lot, quantity: '1.000' }, adjustment };
+}
 const lockLot = (db, businessId, lotId) => repo.one(db, `SELECT l.*,s.tracking,s.unit,s.label,u.decimals AS unit_decimals FROM business_stock_lots l
   JOIN catalog_skus s ON s.business_id=l.business_id AND s.id=l.sku_id
   JOIN business_units u ON u.business_id=s.business_id AND u.code=s.unit
@@ -251,4 +272,4 @@ async function adjust(business, user, lotId, body) {
     return adjustment;
   });
 }
-module.exports = { createReturn, postReturn, lockDocument, refund, readRefund, postRefund, adjust, applyAdjustment, lockLot };
+module.exports = { createReturn, postReturn, lockDocument, refund, readRefund, postRefund, adjust, applyAdjustment, receiveSerial, lockLot };

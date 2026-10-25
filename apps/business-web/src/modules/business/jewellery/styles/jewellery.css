@@ -1,0 +1,413 @@
+/* Jewellery shops: the rates tables and the rate sheet form, the rate board
+   for a showroom screen, and the small notes these screens share. Colours
+   come from the theme's tokens only. */
+
+.jw-note {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: var(--text-sm);
+}
+.jw-warn {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+.jw-danger {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+/* Today's rates and the rate sheet form. */
+.jw-rates,
+.jw-rate-form {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.jw-rates th,
+.jw-rates td,
+.jw-rate-form th,
+.jw-rate-form td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+}
+.jw-rates thead th,
+.jw-rate-form thead th {
+  color: var(--text-2);
+  font-weight: var(--weight-medium);
+  background: var(--surface-2);
+}
+.jw-rate-form input {
+  width: 100%;
+  max-width: 180px;
+}
+.jw-rate-form {
+  margin-top: var(--space-3);
+}
+.jw-sheet-rates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+}
+
+/* The rate board: large type, readable across a showroom. */
+.jw-board {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+}
+.jw-board:fullscreen {
+  justify-content: center;
+  padding: var(--space-8);
+  border: 0;
+  border-radius: 0;
+  background: var(--bg);
+}
+.jw-board-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-3);
+  align-items: baseline;
+}
+.jw-board-shop {
+  font-size: clamp(1.5rem, 3.5vw, 3rem);
+  font-weight: var(--weight-heavy);
+}
+.jw-board-day {
+  font-size: clamp(1.1rem, 2.2vw, 2rem);
+  color: var(--text-2);
+}
+.jw-board-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.jw-board-table th,
+.jw-board-table td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.jw-board-table thead th {
+  font-size: clamp(0.9rem, 1.4vw, 1.25rem);
+  color: var(--text-2);
+  font-weight: var(--weight-medium);
+}
+.jw-board-table tbody th {
+  font-size: clamp(1.3rem, 3vw, 2.6rem);
+  font-weight: var(--weight-bold);
+}
+.jw-board-gold th {
+  color: var(--colour-amber);
+}
+.jw-board-rate {
+  display: block;
+  font-size: clamp(1.8rem, 4.5vw, 4.25rem);
+  font-weight: var(--weight-heavy);
+  font-variant-numeric: tabular-nums;
+}
+.jw-board-ten {
+  display: block;
+  font-size: clamp(0.95rem, 1.6vw, 1.4rem);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.jw-board-buy {
+  font-size: clamp(1.2rem, 2.8vw, 2.5rem);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+.jw-board-none,
+.jw-board-empty {
+  color: var(--text-2);
+}
+.jw-board-empty {
+  font-size: clamp(1.2rem, 2.5vw, 2rem);
+}
+.jw-board-foot {
+  font-size: clamp(0.9rem, 1.4vw, 1.2rem);
+  color: var(--text-2);
+}
+
+@media (max-width: 640px) {
+  .jw-board {
+    padding: var(--space-4);
+  }
+  .jw-board-table th,
+  .jw-board-table td {
+    padding: var(--space-2);
+  }
+}
+
+/* Pieces & tags: the piece form's net weight and stones, the piece's panel. */
+.jw-output {
+  display: block;
+  padding: var(--space-2) 0;
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+.jw-stones-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.jw-stones {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.jw-stones th,
+.jw-stones td {
+  padding: var(--space-1);
+  text-align: left;
+  vertical-align: middle;
+}
+.jw-stones input,
+.jw-stones select {
+  width: 100%;
+  min-width: 64px;
+}
+.jw-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+.jw-print {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+.jw-piece-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+.jw-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+.jw-facts dt {
+  color: var(--text-2);
+  font-size: var(--text-sm);
+}
+.jw-facts dd {
+  margin: 0;
+  font-weight: var(--weight-medium);
+}
+.jw-price {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  align-items: baseline;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  font-variant-numeric: tabular-nums;
+}
+.jw-subhead {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-md);
+}
+.jw-history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+.jw-history li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--border);
+}
+.jw-history li span:first-child {
+  color: var(--text-2);
+}
+
+/* The jewellery bill: the customer row, the scan box, each piece's build-up, the money. */
+.jw-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+.jw-grow {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.jw-scan {
+  display: flex;
+  gap: var(--space-2);
+}
+.jw-scan input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.jw-bill-lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+.jw-bill-line {
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.jw-bill-line.is-problem {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+}
+.jw-bill-line-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  align-items: baseline;
+}
+.jw-bill-amount {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.jw-bill-build {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin-top: var(--space-2);
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.jw-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  align-items: baseline;
+  margin-bottom: var(--space-3);
+  font-variant-numeric: tabular-nums;
+}
+.jw-totals strong {
+  font-size: var(--text-lg);
+}
+.jw-parts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.jw-pan {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-md);
+  background: var(--warning-bg);
+}
+.jw-pan legend {
+  padding: 0 var(--space-1);
+  font-weight: var(--weight-medium);
+}
+.jw-left {
+  justify-content: flex-start;
+}
+
+/* Old gold: the articles of a voucher as they are typed and valued, and the
+   customer's vouchers on the jewellery bill. */
+.jw-og-lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.jw-og-line {
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.jw-og-line legend {
+  padding: 0 var(--space-1);
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+.jw-og-value {
+  margin: var(--space-2) 0 0;
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.jw-og-choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Gold schemes: a plan's terms as the customer reads them, the passbook's
+   late instalments, and a manager's approval inside a form. */
+.jw-scheme-terms {
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  font-size: var(--text-sm);
+}
+.jw-scheme-terms p {
+  margin: 0 0 var(--space-2);
+}
+.jw-scheme-terms pre,
+.jw-terms {
+  margin: 0;
+  white-space: pre-wrap;
+  font: inherit;
+  color: var(--text-2);
+}
+.jw-late td {
+  color: var(--warning-text);
+}
+.jw-approval {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.jw-approval legend {
+  padding: 0 var(--space-1);
+  font-weight: var(--weight-medium);
+}
+
+/* The cash report: a customer at ₹10 lakh or more. */
+.jw-flag th,
+.jw-flag td {
+  background: var(--danger-bg);
+}

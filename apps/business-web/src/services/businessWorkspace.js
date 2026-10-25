@@ -5,7 +5,8 @@ import { GOODS, SERVICES, UDHAAR, WEIGHED } from './businessTypes.js';
 export const WORKSPACES = {
   pharmacyBilling: ['rx-sale','counter'],
   products: ['products', 'rates', 'variants', 'books', 'drug-master', 'salon-setup', 'categories', 'kits', 'labels', 'offers', 'pricing', 'laundry-prices'],
-  stock: ['stock', 'weight-stock', 'movements', 'counts', 'near-expiry', 'pharmacy-batches', 'transfers', 'serials', 'processing', 'wastage'],
+  // A jeweller's stock opens on its tagged pieces.
+  stock: ['pieces', 'stock', 'weight-stock', 'movements', 'counts', 'near-expiry', 'pharmacy-batches', 'transfers', 'serials', 'processing', 'wastage'],
   purchases: ['purchases', 'suppliers', 'purchase-orders', 'claims'],
   dues: ['udhaar', 'outstanding', 'collections'],
   customers: ['customers', 'loyalty', 'sites', 'fitters', 'prescriptions', 'recall', 'vehicles', 'service-due'],
@@ -15,8 +16,8 @@ export const WORKSPACES = {
   care: ['clinic-today', 'clinic-queue', 'visits', 'appointments', 'doctors'],
   patients: ['patients', 'customers'],
   laboratory: ['lab-orders', 'lab-tests', 'lab-qc'],
-  reports: ['reports', 'retail-reports', 'wholesale-reports', 'variant-reports', 'weight-reports', 'salon-reports', 'commissions', 'fitter-reports', 'activity'],
-  settings: ['settings', 'tax-rates', 'payment-methods', 'number-series', 'locations', 'units', 'resources', 'health-settings', 'licences', 'agri-settings', 'garage-settings', 'member-plans'],
+  reports: ['reports', 'retail-reports', 'wholesale-reports', 'variant-reports', 'weight-reports', 'salon-reports', 'commissions', 'fitter-reports', 'cash-report', 'activity'],
+  settings: ['settings', 'tax-rates', 'payment-methods', 'number-series', 'locations', 'units', 'resources', 'health-settings', 'licences', 'agri-settings', 'garage-settings', 'member-plans', 'jewellery-settings', 'scheme-plans'],
   // A seeds, fertilisers & pesticides shop's own area.
   farm: ['farmers', 'agri-subsidy', 'agri-registers', 'molecules'],
   // An optical shop's spectacle orders, in its daily menu.
@@ -29,6 +30,12 @@ export const WORKSPACES = {
   // A laundry's counter (a new order taken in), and its orders with the racks and those not collected.
   laundryNew: ['laundry-new'],
   garmentOrders: ['garment-orders', 'ready-racks', 'unclaimed'],
+  // A jeweller's counter (the jewellery bill, with Quick bill beside it), and today's rates with the rate board.
+  jewelleryBilling: ['jewellery-bill', 'counter'],
+  goldRates: ['gold-rates', 'rate-board'],
+  // Old gold bought from customers or taken in exchange, and gold schemes.
+  oldGold: ['old-gold'],
+  goldSchemes: ['gold-schemes'],
   staff: ['staff', 'roles'],
   money: ['day-close', 'expenses', 'emi-finance'],
   repairs: ['repairs', 'appointments'],
@@ -63,6 +70,8 @@ export function workspaceSections(key, type) {
     if (section === 'wastage') return [...WEIGHED,'grocery','supermarket','general_retail'].includes(type);
     if (section === 'pharmacy-batches' || section === 'drug-master') return type === 'pharmacy';
     if (section === 'near-expiry') return type !== 'pharmacy';
+    // A jeweller's serial numbers are its tags, on Pieces & tags.
+    if (section === 'serials') return type !== 'jewellery';
     // Weighed stock is checked on the weight screens, not by counting pieces.
     if (section === 'counts') return !WEIGHED.includes(type);
     if (section === 'salon-setup') return type === 'salon';
@@ -95,9 +104,10 @@ export function workspaceLabel(section, type, fallback) {
 // Each entry is a workspace: the first accessible page becomes its destination.
 // This keeps accountant and stock-keeper menus usable without cashier access.
 export function dailyWorkspaces(type) {
-  const checkout = type === 'salon' ? 'salon-bill' : type === 'pharmacy' ? 'pharmacyBilling' : GOODS.includes(type) ? 'counter' : null;
+  const checkout = type === 'salon' ? 'salon-bill' : type === 'pharmacy' ? 'pharmacyBilling' : type === 'jewellery' ? 'jewelleryBilling' : GOODS.includes(type) ? 'counter' : null;
   // Orders: a wholesaler's beat orders, or a hardware shop's site orders (with Sales orders on).
   const daily = [checkout, type === 'memberships' ? 'checkIn' : null, type === 'laundry' ? 'laundryNew' : null, type === 'laundry' ? 'garmentOrders' : null,
+    type === 'jewellery' ? 'goldRates' : null, type === 'jewellery' ? 'oldGold' : null, type === 'jewellery' ? 'goldSchemes' : null,
     type === 'healthcare' ? 'care' : null,
     ['wholesale', 'hardware'].includes(type) ? 'orders' : null,
     ['salon', 'optical', 'garage', 'memberships'].includes(type) ? 'appointments' : null,

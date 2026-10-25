@@ -284,7 +284,7 @@ for(const type of ['grocery','supermarket','wholesale','fashion','electronics','
     const allowed=rule=>rule&&nav.typeAllows(rule,type)&&(!rule.need||context.permissions.includes(rule.need)&&context.modules.includes(rule.need.split('.')[0]))&&(!rule.module||context.modules.includes(rule.module));
     const rules=nav.businessSections(type).flatMap(group=>group.links);
     const names=workspace.dailyWorkspaces(type).flatMap(group=>group.keys).flatMap(key=>workspace.WORKSPACES[key]?workspace.workspaceSections(key,type):[key]);
-    return [...new Set(names)].filter(name=>!['','counter','rx-sale','salon-bill','dispatch','routes'].includes(name)&&allowed(rules.find(rule=>rule.section===name&&nav.typeAllows(rule,type))));
+    return [...new Set(names)].filter(name=>!['','counter','rx-sale','salon-bill','jewellery-bill','dispatch','routes'].includes(name)&&allowed(rules.find(rule=>rule.section===name&&nav.typeAllows(rule,type))));
   },{id:business.id,type});
   for(const section of sections){
     const url=`/business-admin/${business.id}/${section}`;

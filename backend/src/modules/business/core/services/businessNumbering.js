@@ -28,7 +28,9 @@ const SHORT = { sale: 'SI', purchase: 'PR', sales_return: 'CN', purchase_return:
   // A gym's, studio's or coaching centre's memberships (not GST documents).
   membership: 'MS',
   // A laundry's garment orders (not GST documents).
-  laundry_order: 'LO' };
+  laundry_order: 'LO',
+  // A jeweller's old gold vouchers and gold schemes (not GST documents).
+  old_gold: 'OG', gold_scheme: 'GS' };
 const KINDS = Object.keys(SHORT);
 // Kinds printed as GST documents: their numbers must fit in 16 characters.
 const GST_KINDS = new Set(['sale', 'sales_return', 'purchase_return']);

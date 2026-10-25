@@ -218,6 +218,44 @@ export const LAUNDRY = {
   customer: { name: "Sunita Kapoor", phone: "9876500201" },
 };
 
+// The jeweller: the morning's rates from the local association, set on the
+// business's own date; a gold ring and a gold chain as jewellery items (22K,
+// HSN 7113, making by the gram and wastage), and the hallmarking charge a new
+// hallmarked piece starts with; its location's district under mandatory
+// hallmarking, and its BIS registration. In stock as opening stock: three 22K
+// rings, each hallmarked with its HUID (one for each bill the specs make: at
+// the counter, against old gold, and for a gold scheme), and a 22K chain of
+// 8.2 g with no hallmark, which the bill refuses. A customer brought in an old
+// 22K chain, valued at the day's buy rate and not paid out; another is
+// enrolled in an 11-month gold scheme with three instalments paid by UPI.
+export const JEWELLERY = {
+  rates: [
+    { metal: "gold", purity: "24K", sell: 12850, buy: 12600 },
+    { metal: "gold", purity: "22K", sell: 11780, buy: 11500 },
+    { metal: "gold", purity: "18K", sell: 9640, buy: 9350 },
+    { metal: "silver", purity: "999", sell: 165, buy: 158 },
+  ],
+  hallmarkCharge: 45,
+  district: "Hyderabad",
+  bis: { name: "BIS registration (hallmarking)", licenceNo: "HM/C-7190047651", authority: "Bureau of Indian Standards" },
+  ring: { name: "Gold ring", code: "JWL-RING", wastage: 8, makingPerGram: 450 },
+  chain: { name: "Gold chain", code: "JWL-CHAIN", wastage: 6, makingPerGram: 350 },
+  counterRing: { description: "Ruby ring", gross: "4.400", stones: "0.150", huid: "JR4A01", ruby: { carat: "0.750", value: 1200 } },
+  exchangeRing: { description: "Plain band", gross: "3.800", huid: "JR4B02" },
+  schemeRing: { description: "Ladies ring", gross: "2.500", huid: "JR4C03" },
+  unmarkedChain: { description: "Rope chain", gross: "8.200" },
+  oldGold: {
+    seller: { name: "Meenakshi Sundaram", phone: "9876500301" },
+    idKind: "voter_id", idRef: "TSV1234567",
+    line: { description: "Old chain", gross: "3.050", less: "0.050", tested: "916.0", deduction: "2" },
+  },
+  plan: {
+    name: "Swarna 11", instalments: 11, minInstalment: 1000, discountPercent: 100,
+    terms: "Pay the same amount each month for 11 months. With all 11 paid, one month's amount comes off your jewellery bill as a discount, from a month after the last instalment. The scheme is turned into jewellery within the year and is never paid back in money.",
+  },
+  member: { name: "Padmavathi Rao", phone: "9876500302", instalment: 5000, instalmentsPaid: 3, nominee: "Suresh Rao", relation: "Son" },
+};
+
 // The salon: one stylist and one service.
 export const SALON = {
   stylist: { name: "Priya Sharma", role: "Senior stylist" },

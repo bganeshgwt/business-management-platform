@@ -144,6 +144,16 @@ const GarmentOrderPage = lazy(() => import("../../laundry/pages/GarmentOrderPage
 const ReadyRacksPage = lazy(() => import("../../laundry/pages/ReadyRacksPage"));
 const UnclaimedPage = lazy(() => import("../../laundry/pages/UnclaimedPage"));
 const PriceListPage = lazy(() => import("../../laundry/pages/PriceListPage"));
+// Jewellery shops.
+const GoldRatesPage = lazy(() => import("../../jewellery/pages/RatesPage"));
+const RateBoardPage = lazy(() => import("../../jewellery/pages/RateBoardPage"));
+const PiecesPage = lazy(() => import("../../jewellery/pages/PiecesPage"));
+const JewelleryBillPage = lazy(() => import("../../jewellery/pages/JewelleryBillPage"));
+const JewellerySettingsPage = lazy(() => import("../../jewellery/pages/JewellerySettingsPage"));
+const OldGoldPage = lazy(() => import("../../jewellery/pages/OldGoldPage"));
+const SchemesPage = lazy(() => import("../../jewellery/pages/SchemesPage"));
+const SchemePlansPage = lazy(() => import("../../jewellery/pages/SchemePlansPage"));
+const CashReportPage = lazy(() => import("../../jewellery/pages/CashReportPage"));
 
 function Notice({ title, children }) {
   return (
@@ -288,6 +298,15 @@ function screens(type) {
     "ready-racks": <ReadyRacksPage />,
     "unclaimed": <UnclaimedPage />,
     "laundry-prices": <PriceListPage />,
+    "gold-rates": <GoldRatesPage />,
+    "rate-board": <RateBoardPage />,
+    "pieces": <PiecesPage />,
+    "jewellery-bill": <JewelleryBillPage />,
+    "jewellery-settings": <JewellerySettingsPage />,
+    "old-gold": <OldGoldPage />,
+    "gold-schemes": <SchemesPage />,
+    "scheme-plans": <SchemePlansPage />,
+    "cash-report": <CashReportPage />,
   };
 }
 
