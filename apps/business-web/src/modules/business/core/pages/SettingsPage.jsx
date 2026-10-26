@@ -264,9 +264,9 @@ function ModulesCard() {
   const groups = restaurant
     ? [...new Set(optional.map((m) => m.feature_group || "Other"))].map((title) => ({ title, list: optional.filter((m) => (m.feature_group || "Other") === title) }))
     : [
-      {title:'Everyday work',list:optional.filter(m=>['catalog','contacts','sales','purchasing','inventory','expenses','appointments','patients','pharmacy','receivables','hardware_sites','hardware_rates','hardware_calculators','agri','optical','garage','member_plans','laundry','jewellery','rentals','fuel'].includes(m.code))},
+      {title:'Everyday work',list:optional.filter(m=>['catalog','contacts','sales','purchasing','inventory','expenses','appointments','patients','pharmacy','receivables','hardware_sites','hardware_rates','hardware_calculators','agri','optical','garage','member_plans','laundry','jewellery','rentals','fuel','lodging'].includes(m.code))},
       // Tools recommended for this trade come first, so an owner sees them before the rest.
-      {title:'Optional workflows',list:optional.filter(m=>!['catalog','contacts','sales','purchasing','inventory','expenses','appointments','patients','pharmacy','receivables','hardware_sites','hardware_rates','hardware_calculators','agri','optical','garage','member_plans','laundry','jewellery','rentals','fuel'].includes(m.code))
+      {title:'Optional workflows',list:optional.filter(m=>!['catalog','contacts','sales','purchasing','inventory','expenses','appointments','patients','pharmacy','receivables','hardware_sites','hardware_rates','hardware_calculators','agri','optical','garage','member_plans','laundry','jewellery','rentals','fuel','lodging'].includes(m.code))
         .sort((a,b)=>Number(Boolean(b.recommended&&!b.enabled))-Number(Boolean(a.recommended&&!a.enabled)))},
     ].filter(group=>group.list.length);
   const card = (m) => {

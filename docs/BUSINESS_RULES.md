@@ -32,6 +32,7 @@ The everyday numbers, such as expiring-soon days, voucher validity, credit age g
 - [Jewellery & gold](#jewellery--gold)
 - [Rentals & hire](#rentals--hire)
 - [Fuel stations](#fuel-stations)
+- [Hotels, lodges & guest houses](#hotels-lodges--guest-houses)
 - [Restaurant and food formats](#restaurant-and-food-formats)
 
 ## Fixed on purpose
@@ -411,7 +412,7 @@ These rules apply to every business type but the restaurant. The goods rules app
 
 ### Roles by business type
 
-- **Rule:** some roles belong to one type of business: Pharmacist to a pharmacy; Doctor, Lab technician and Pathologist to a clinic & lab; Optometrist to an optical shop; Mechanic to a garage; Trainer to a gym, studio or coaching centre; Karigar / goldsmith to a jeweller; Pump attendant (DSM) to a fuel station. A business of that type starts with them, and other types do not get them.
+- **Rule:** some roles belong to one type of business: Pharmacist to a pharmacy; Doctor, Lab technician and Pathologist to a clinic & lab; Optometrist to an optical shop; Mechanic to a garage; Trainer to a gym, studio or coaching centre; Karigar / goldsmith to a jeweller; Pump attendant (DSM) to a fuel station; Front desk and Housekeeping to a hotel, lodge or guest house. A business of that type starts with them, and other types do not get them.
 - **Why:** a kirana should not see a "Doctor" role.
 - **Change it:** they are ordinary roles, editable in *Roles & permissions*.
 
@@ -1073,6 +1074,88 @@ A fuel station bills lubricants and its shop's items on bills of the shared core
 
 - **Rule:** someone whose role does not hold `sales.view` (a pump attendant) sees and closes only their own shifts and no other attendant's money; a tanker load's value is for those who see purchases; the fleet statements are for those who see sales.
 - **Why:** an attendant's settlement is theirs and the manager's to see.
+- **Change it:** *Roles & permissions*.
+
+## Hotels, lodges & guest houses
+
+A hotel, lodge or guest house bills on bills of the shared core ([Shops and the shared core](#shops-and-the-shared-core)); with *Rooms & stays* on it also keeps its rooms and their housekeeping status, takes reservations, checks guests in with every occupant, keeps its foreign guests' Form-III reports, posts its room nights night by night and bills the folio at check-out. Each rule below is checked by the server, and the ones about a night's rate and slab, a room never booked twice and records that must not change are held by the database too. Every day the rules count (a stay's nights, today, the check-in and the check-out) is on the business's own clock: a night belongs to the date it starts on, the arrival date is the first night, and the departure date is the morning the guest leaves.
+
+### A room night's GST slab is decided night by night
+
+- **Rule:** the settings name two slabs of a room night and the limit between them (5% at or below ₹7,500 a night before GST, 18% above it). Each night of a stay is valued before GST: the night's rate (the agreed rate when the stay has one, else the weekend rate on a weekend night, else the rack rate), plus each adult beyond those in the rate, each child and each extra bed at their rates. A night valued at or below the limit is billed at the lower slab, one above it at the higher, the GST worked out to the paisa. The database checks each room night's rate, value and slab as it is posted. Nothing is reserved or billed until the two slabs are set, and the lower is below the higher.
+- **Why:** from 22 September 2025 accommodation valued at ₹7,500 or less per unit per day is taxed at 5% without input tax credit, and above it at 18% with credit (Notification 15/2025-Central Tax (Rate), on the 56th GST Council's recommendation). The slab follows the value actually charged for each room each day, so a stay whose rate crosses the limit on some nights (a weekend rate) carries both slabs, night by night.
+- **Change it:** the slabs, the limit and the weekend nights under *Settings › Room types & rates* (`settings.edit`). No official rule says whether extra-adult, child and extra-bed charges count in the value: here they do, and an accountant's view is asked in [BACKLOG.md](BACKLOG.md#7-left-inside-built-modules).
+
+### Room rates are before GST
+
+- **Rule:** a room type's rates (rack, weekend, each extra adult, each child, each extra bed) and a stay's agreed rate are each a night before GST, whatever the business's setting for prices with or without GST; the GST is added on the bill. A stay keeps the rates it was booked at, and a change to a room type's rates applies to stays booked after it. An agreed rate (an OTA's price, a company's rate) takes the place of the rack and weekend rates for every night. A room type takes more adults than its rate is for only when it has an extra-adult rate, and extra beds only when it has an extra-bed rate; it never takes more guests than its most.
+- **Why:** the limit is on the value of the supply, before tax; a guest is charged the rates they were quoted.
+- **Change it:** the rates under *Settings › Room types & rates* (`catalog.edit`); the agreed rate of a guest in the house is changed by `lodging.approve` (the owner and a manager by default).
+
+### A room is never booked twice
+
+- **Rule:** a stay holds its room from its arrival night to the night before its departure while it is reserved or in the house, and a room is held by one stay a night: the database refuses a second (an exclusion constraint on the room and the nights), even for two stays saved at the same moment, and the server says which stay holds it. A room type never holds more reservations and stays on a night than it has rooms in use at the location, with a room chosen or not: checked when the work is saved, one stay after another for each room type. A stay arrives today or later and runs one night at least and 180 at most.
+- **Why:** a room promised to two guests fails one of them, and a reservation with no room yet still needs one on the night.
+- **Change it:** nothing to set; the rooms under *Settings › Room types & rates*.
+
+### Every occupant, with their photo ID
+
+- **Rule:** a reservation checks in from its arrival day to the night before its departure, to a room of its type that is vacant and clean and free over its nights. Every occupant is recorded, as many adults and children as the stay is for (the database checks it when the check-in is saved), each with their name and nationality, and an adult with the photo ID seen, its kind and its number. Of an Aadhaar card only the last four digits are kept, and the database refuses more. A foreign national (an OCI cardholder too) is recorded with their passport as the photo ID, their visa's type and number (or their OCI card's), the date they arrived in India (today or before) and their next destination. An occupant's details are corrected while they are in the house; their record is kept, never deleted.
+- **Why:** police orders require verifying every guest's government photo ID and recording all the occupants of a room, not only the one who booked (Hyderabad's of July 2026 among them); a foreigner's particulars go on Form-III. Gujarat's PATHIK verifies Aadhaar without storing its number: the business keeps no more of it than the last four digits.
+- **Change it:** nothing to set.
+
+### Form-III within 24 hours of arrival and of departure
+
+- **Rule:** each foreign occupant has two reports: the arrival's, due 24 hours after their check-in, and the departure's, due 24 hours after the check-out. Staff make each on the portal and mark it here with the portal's acknowledgement number (3 to 40 letters, digits, `/` or `-`), written once; the departure's once the guest has left. The countdowns show on *Foreign guests (Form-III)* and the bell, an overdue report first. Nothing is sent from here.
+- **Why:** under the Immigration and Foreigners Act 2025, in force from 1 September 2025, every accommodation keeper reports every foreigner, now including OCI cardholders, on Form-III (which replaced Form C) within 24 hours of arrival and of departure, through indianfrro.gov.in or its app, and keeps the records electronically for at least a year. The portal is web-only, behind a CAPTCHA, with no public API.
+- **Change it:** nothing to set.
+
+### The night audit posts each night once
+
+- **Rule:** the night audit posts, for every stay in the house, each of its nights from the arrival to tonight (or to the night before its departure) not posted yet, at the stay's rate for that night and the slab its value decides. A night is posted once it has come, and once only: run again, or from two screens at once, the audit posts nothing twice (the database keeps one room night a night). A night posted by mistake is voided by a manager with the reason before it is billed, and posted again at the stay's rates as they now are. The check-out posts any night still to post. Charges are kept as posted, never deleted.
+- **Why:** each night is charged and its slab decided as it is stayed; the folio shows the guest what is owed so far.
+- **Change it:** who runs it is `lodging.create`; who voids `lodging.approve` (the owner and a manager by default).
+
+### Extras on the folio
+
+- **Rule:** an extra is a service item (laundry, food, a pickup) at its item's price and GST slab, charged on the day it is posted while the guest is in the house; a room type's item is never an extra, and goods kept in stock are sold on a bill of their own.
+- **Why:** each folio line carries its own GST; a room night is posted only by the audit or the check-out.
+- **Change it:** the items and their slabs in the catalogue (`catalog.edit`).
+
+### One bill at check-out, to the guest or the company
+
+- **Rule:** a guest checks out on the business's date, on the departure day or earlier; a guest past the departure day is extended to today first. The stay then ends today (one night at least): nights posted ahead and not stayed are voided, the nights up to last night are posted, and the folio (every night and extra not billed) is billed on one sale through the core, each line at its own slab and price, nothing priced again. The bill is to the company billed (a customer of the business, its GSTIN on the invoice) or to the guest, its place of supply the property's state whoever the buyer is. The stay's advances and then its deposits pay it first; what is still due on a company's bill stays on its dues, and on a guest's own bill only when someone with `lodging.approve` checks them out. The occupants are marked gone and the room left vacant dirty. When the check-out is saved, the database checks that every night from arrival to departure is billed and every charge billed or voided. Retries give the same check-out.
+- **Why:** one tax invoice for the stay, with the buyer's GSTIN when a company pays; a guest leaves with the bill settled unless a manager says otherwise. A hotel's accommodation is supplied where the property is (IGST Act section 12(3), not checked: an accountant's view is in [BACKLOG.md](BACKLOG.md#7-left-inside-built-modules)).
+- **Change it:** who checks out is `lodging.create` with `sales.create`; who leaves a guest's bill due is `lodging.approve`.
+
+### Advances and deposits are held for the stay
+
+- **Rule:** an advance (money on account, at most the room nights booked and the extras posted) or a refundable deposit is a collection receipt in the guest's name, by cash, card, UPI or bank, taken while the stay is reserved or in the house. It pays only that stay's bill, advances first, then deposits; the customer's dues leave it alone. What is left goes back from the stay, deposits first, as a numbered refund of each receipt by cash, UPI or bank, with a reason and a manager's PIN, and a slip prints for the guest to sign. A receipt stays with its stay.
+- **Why:** money taken for a stay belongs to that stay, and the business owes what it holds to its guests.
+- **Change it:** who takes money is the role's `sales.edit`; who hands it back `lodging.refund` (the owner and a manager by default).
+
+### Cancellations and no-shows
+
+- **Rule:** a reservation is cancelled with a reason; once its arrival day has come it may be marked a no-show instead. A cancellation or no-show charge, before GST, is billed on a sale to the guest as the room type's nights at the slab of the first night booked, paid first by what is held; what is left goes back, now or later, with a manager's PIN. A cancelled stay or a no-show never changes.
+- **Why:** what the property keeps is billed with its GST. A cancellation charge is treated as part of the room's supply (CBIC Circular 178/10/2022-GST, not checked: an accountant's view is in [BACKLOG.md](BACKLOG.md#7-left-inside-built-modules)).
+- **Change it:** who cancels is `lodging.cancel` (the owner, a manager and the front desk by default).
+
+### Housekeeping and the rooms
+
+- **Rule:** a room is vacant clean, vacant dirty, occupied or out of order (with the reason). It is occupied only while a guest is checked in to it, and is left vacant dirty when they check out or move; housekeeping marks it clean once made up, or dirty again, puts it out of order and back (to be made up). Only a vacant clean room is checked in to or moved into. Every change of status is kept with who made it and when. A room keeps its location and is never deleted; its type changes, and it goes out of use, only while no stay is reserved for it or in it and its type's reservations still fit in the rooms left.
+- **Why:** a guest is given a room that is ready, and the history shows who made up each room.
+- **Change it:** who marks rooms is `lodging.edit` (housekeeping, the front desk, a cashier and a manager by default).
+
+### A stay keeps its record
+
+- **Rule:** a stay keeps its number, its guest and where it was made. It goes reserved → in the house → checked out, or is cancelled or marked a no-show while reserved, and then never changes; the check-in, the check-out and a cancellation are each written once, with it, and its bill once. A guest in the house keeps a room, the stay's adults and children are the occupants recorded, and its departure is never before a night already posted. The history keeps every step with who made it.
+- **Why:** the register and the bills stay as they were made.
+- **Change it:** nothing to set.
+
+### Who sees the money and the IDs
+
+- **Rule:** someone whose role does not hold `sales.view` (housekeeping) sees the desk, the stays and the folio without rates, charges, money held or bills. Only those who check guests in (`lodging.create`) or print the register (`lodging.print`) see the occupants' ID details, phones, addresses and visas.
+- **Why:** housekeeping makes up rooms; the guests' IDs are for the desk and the police register.
 - **Change it:** *Roles & permissions*.
 
 ## Restaurant and food formats

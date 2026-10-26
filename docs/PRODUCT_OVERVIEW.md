@@ -264,6 +264,16 @@ How to set a rental business up: [ADMIN_GUIDE.md › Rentals & hire](ADMIN_GUIDE
 
 How to set a fuel station up: [ADMIN_GUIDE.md › Fuel stations](ADMIN_GUIDE.md#fuel-stations).
 
+### Hotels, lodges and guest houses
+
+- **Rooms and their status:** room types with their occupancy, extra beds and rates a night before GST (rack, weekend, extra adult, child, extra bed), and rooms that housekeeping marks clean or dirty, out of order and back, with every change kept; only a vacant clean room is given to a guest.
+- **Reservations never booked twice:** walk-ins, phone bookings and OTA bookings typed in with their booking id, each night priced at its own rate with the GST slab its value decides (5% at ₹7,500 a night or less, 18% above), an agreed rate for an OTA or a company, an advance on account; a room never held by two stays over a night, and a room type never by more stays than it has rooms, even for two bookings saved at the same moment; a two-week calendar of the rooms.
+- **Check-in with every occupant:** each adult and child recorded with the photo ID seen (only the last four digits of an Aadhaar), a foreign guest with their passport, visa or OCI card and travel; the registration card to sign; the guest register for the local police.
+- **Form-III:** each foreign guest's arrival and departure report counted down from 24 hours, made on the FRRO portal and marked here with its acknowledgement, on the bell until it is marked.
+- **The folio and the bill:** the night audit posting each room night once at its own slab, extras at their own slabs, voids by a manager; the check-out billing the folio through the core to the guest or to a company with its GSTIN, paid first by the advance and the deposit, the rest handed back with a manager's PIN; cancellation and no-show charges.
+
+How to set a hotel, lodge or guest house up: [ADMIN_GUIDE.md › Hotels, lodges & guest houses](ADMIN_GUIDE.md#hotels-lodges--guest-houses).
+
 ### The newer trades
 
 General stores, hardware and building-material shops, seeds and fertiliser shops, opticians, garages, jewellers, fuel stations, gyms and coaching centres, laundries, rental businesses, and hotels and lodges run on the shared core from their first day:
@@ -272,7 +282,7 @@ General stores, hardware and building-material shops, seeds and fertiliser shops
 - **Their trade's tools to switch on:** contractor rates and site orders with challans for hardware; dealer rates and batch tracking for seeds and pesticides; eye-test and service bookings for opticians and garages; personal-training bookings for gyms.
 - **Their own checklists:** nozzle tests and density checks at a fuel station, room turnover and the guest register at a lodge, the day-end tally at a jeweller, and more.
 
-Each trade's own screens (gold rates, rooms and others) come in the order set out in [BACKLOG.md › New business types](BACKLOG.md#10-new-business-types).
+Every one but the general store also has screens of its own, described above; what each still lacks is in [BACKLOG.md › New business types](BACKLOG.md#10-new-business-types).
 
 ## Several locations
 

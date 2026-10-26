@@ -244,6 +244,8 @@ require('../../jewellery/routes/businessJewellery.routes')(router, { context, se
 require('../../rentals/routes/businessRentals.routes')(router, { context, send, b });
 // Fuel stations: fuels under state VAT, tanks, dispensing units and nozzles, the price in force, shifts with their readings and settlement posted as fuel bills, dips, tanker receipts, the stock and density registers, fleet statements.
 require('../../fuel/routes/businessFuel.routes')(router, { context, send, b });
+// Hotels, lodges and guest houses: room types and rates, rooms and housekeeping, reservations and stays with every occupant, Form-III, the night audit, the folio billed at check-out, the guest register.
+require('../../lodging/routes/businessLodging.routes')(router, { context, send, b });
 
 // Per-staff PIN at the counter, kits / bundles, EMI & finance.
 require('./businessCounter.routes')(router, { context, send, b });

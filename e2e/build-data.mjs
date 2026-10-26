@@ -6,7 +6,7 @@
 // no request can make: an order taken, or a hire handed over, on an earlier day.
 import crypto from "node:crypto";
 
-import { AGRI, BUSINESSES, FUEL, GARAGE, GROCERY, HARDWARE, JEWELLERY, LAUNDRY, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, RENTALS, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
+import { AGRI, BUSINESSES, FUEL, GARAGE, GROCERY, HARDWARE, JEWELLERY, LAUNDRY, LODGING, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, RENTALS, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
 
 // Every call names the status it expects, so a set-up that goes wrong stops
 // at the first wrong answer, with the API's own message, rather than leaving
@@ -655,6 +655,57 @@ export async function buildTestData({ api, logins, sql }) {
       supplier: { id: terminal.id, name: terminal.name },
       fleet: { id: fleet.id, name: fleet.name },
       truck: { id: truck.id, registration: truck.registration },
+    });
+  }
+
+  // The lodge: the two GST slabs of a room night (5% and 18%), the weekend
+  // nights and its terms; Deluxe rooms 101 and 102 and a Suite, 201, with their
+  // rates; a family in the Suite with an advance, checked in and then moved
+  // back a day in the database (the way the API's own tests move one), so that
+  // they came yesterday and leave today; and a phone reservation for tonight
+  // in room 102.
+  {
+    const B = at("lodging");
+    const locationId = businesses.lodging.locationId;
+    const slabs = (await owner("GET", B("tax-rates?limit=100"))).items;
+    const gst5 = slabs.find((r) => Number(r.rate) === 5), gst18 = slabs.find((r) => Number(r.rate) === 18);
+    await owner("PUT", B("lodging/settings"), { lowTaxRateId: gst5.id, highTaxRateId: gst18.id, weekendNights: LODGING.weekendNights, terms: LODGING.terms });
+    const roomType = async (made) => (await owner("POST", B("lodging/room-types"), { item: { name: made.name, hsnCode: LODGING.sac }, baseOccupancy: made.baseOccupancy,
+      maxOccupancy: made.maxOccupancy, maxExtraBeds: made.extraBeds || 0, rates: made.rates }, 201)).roomTypes.find((t) => t.name === made.name);
+    const deluxe = await roomType(LODGING.deluxe);
+    const suite = await roomType(LODGING.suite);
+    await owner("POST", B("lodging/rooms"), { locationId, roomTypeId: deluxe.id, rooms: LODGING.deluxe.rooms.map((roomNo) => ({ roomNo, floor: "1" })) }, 201);
+    const rooms = (await owner("POST", B("lodging/rooms"), { locationId, roomTypeId: suite.id, rooms: LODGING.suite.rooms.map((roomNo) => ({ roomNo, floor: "2" })) }, 201)).rooms;
+    const roomOf = (no) => rooms.find((r) => r.room_no === no);
+    // Dates on the lodge's own clock.
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: TIMEZONE });
+    const day = (n) => new Date(Date.parse(`${today}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+    const family = await owner("POST", B("lodging/stays"), { requestKey: requestKey(), locationId, guest: LODGING.inHouse.guest, source: "phone", arrival: today, departure: day(1),
+      roomTypeId: suite.id, roomId: roomOf("201").id, adults: LODGING.inHouse.adults, advance: { amount: LODGING.inHouse.advance, method: "cash" } }, 201);
+    await owner("POST", B(`lodging/stays/${family.id}/check-in`), { requestKey: requestKey(), guests: LODGING.inHouse.occupants });
+    // A stay in the house keeps its arrival (a database guard), so the guards
+    // are lifted for these statements; the room and room type checks still run.
+    await sql("ALTER TABLE lodging_stays DISABLE TRIGGER lodging_stays_guard");
+    await sql("ALTER TABLE lodging_stay_guests DISABLE TRIGGER lodging_stay_guests_guard");
+    try {
+      await sql("UPDATE lodging_stays SET arrival=arrival-1,departure=departure-1,checked_in_at=checked_in_at-interval '1 day' WHERE business_id=$1 AND id=$2",
+        [businesses.lodging.id, family.id]);
+      await sql("UPDATE lodging_stay_guests SET arrived_at=arrived_at-interval '1 day',created_at=created_at-interval '1 day' WHERE business_id=$1 AND stay_id=$2",
+        [businesses.lodging.id, family.id]);
+    } finally {
+      await sql("ALTER TABLE lodging_stay_guests ENABLE TRIGGER lodging_stay_guests_guard");
+      await sql("ALTER TABLE lodging_stays ENABLE TRIGGER lodging_stays_guard");
+    }
+    if ((await owner("GET", B(`lodging/stays/${family.id}`))).arrival !== day(-1)) {
+      throw new Error(`Test data: stay ${family.stay_no} could not be moved back a day.`);
+    }
+    const booked = await owner("POST", B("lodging/stays"), { requestKey: requestKey(), locationId, guest: LODGING.booked.guest, source: "phone", arrival: today, departure: day(1),
+      roomTypeId: deluxe.id, roomId: roomOf("102").id, adults: LODGING.booked.adults }, 201);
+    Object.assign(businesses.lodging, {
+      roomTypes: { deluxe: { id: deluxe.id, name: deluxe.name }, suite: { id: suite.id, name: suite.name } },
+      rooms: Object.fromEntries(rooms.map((r) => [r.room_no, r.id])),
+      inHouse: { id: family.id, stayNo: family.stay_no, guest: family.guest_name, arrival: day(-1) },
+      booked: { id: booked.id, stayNo: booked.stay_no, guest: booked.guest_name },
     });
   }
 

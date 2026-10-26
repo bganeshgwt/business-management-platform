@@ -97,6 +97,7 @@ on record.
 - [Jewellery & gold](#jewellery--gold)
 - [Rentals & hire](#rentals--hire)
 - [Fuel stations](#fuel-stations)
+- [Hotels, lodges & guest houses](#hotels-lodges--guest-houses)
 
 **[Part 4 — Tasks, issues & projects](#part-4--tasks-issues--projects)**
 
@@ -2124,7 +2125,7 @@ panel over it.
 | Menu | Entry, and the tabs inside it | What they are for |
 | --- | --- | --- |
 | Daily work | **Overview** | Up to four headline figures — sales today (against the same weekday last week by this time), money in today, what customers owe (less advances, the same figure as Udhaar / Outstanding) and what is owed to suppliers — then *Needs doing today* (low stock, batches expiring soon, transfers on the way, counts open, broken promises, repairs ready, orders to dispatch…), *Start here* (the things done most often in this type), sales over the last 14 days, hour by hour and the best sellers, the day's bookings for a salon or clinic, and *What this business uses*. You see only the figures your role may see. |
-| Daily work | The type's own counter and day: a shop's **Quick bill**, a pharmacy's **Prescription sale**, a salon's **New bill** and **Appointments** (the calendar), a clinic's **Today's patients**, a wholesaler's **Sales orders**, a garage's **Job cards**, a gym's **Check-in**, a laundry's **New order** and **Orders** (with Ready & racks and Unclaimed), a jeweller's **Jewellery bill** (with Quick bill) and **Today's rates** (with the Rate board), a rental business's **Bookings** (with Availability and Deposits held), a fuel station's **Shift & readings** and **Tanks & dips** (with Tanker receipts and the Stock register) | Described with each type below. |
+| Daily work | The type's own counter and day: a shop's **Quick bill**, a pharmacy's **Prescription sale**, a salon's **New bill** and **Appointments** (the calendar), a clinic's **Today's patients**, a wholesaler's **Sales orders**, a garage's **Job cards**, a gym's **Check-in**, a laundry's **New order** and **Orders** (with Ready & racks and Unclaimed), a jeweller's **Jewellery bill** (with Quick bill) and **Today's rates** (with the Rate board), a rental business's **Bookings** (with Availability and Deposits held), a fuel station's **Shift & readings** and **Tanks & dips** (with Tanker receipts and the Stock register), a hotel's **Front desk** (with Rooms & housekeeping, Reservations and Stays) and **Foreign guests (Form-III)** (with the Guest register) | Described with each type below. |
 | Daily work | **Sales history** (*Bill history* in a salon or clinic), with Quotations, Exchanges, Warranties and Orders for pickup where the type has them; **Customers** (*Clients*; a clinic's *Patients*), with Loyalty points (and a garage's Vehicles and Service due; a gym's **Members**, with Renewals and Member contacts; a fuel station's Fleet statements) | Post a sale at the server's prices, take payment with it or leave it on credit, return goods, refund. Customers carry a GSTIN, a credit limit and credit days; a customer over the limit cannot be given more credit. |
 | Daily work | **Udhaar** (*Customer dues* outside a kirana, a meat or weight-based shop, a general store, a hardware shop or a seeds and fertiliser shop), with *Payments received*; **Daily money**, with Expenses (and EMI & financiers) | What customers owe and what they paid; the day's money and paid expenses (below). |
 | Business | **Products & services** (named for the type: *Medicines & products*, *Books & stationery*…), with Categories, Barcode labels, Kits & bundles, Offers & discounts, price lists and the type's own (Drug master, Book details, Size × colour, Today's rates, Stylists & services, a laundry's Price list; a rental business's area opens on its Rental items) | Items with GST slab, unit, how they are tracked (quantity, batch and expiry, or serial number), reorder level. Categories nest up to five levels. |
@@ -2133,7 +2134,7 @@ panel over it.
 | Business | The type's own records: **Registers & prescriptions** (pharmacy), **Booklists & orders** (books), **Repairs** (electronics), **Packages** (salon), **Lab orders** (clinic), **Farm inputs** (seeds, fertilisers & pesticides) | Described with each type below. |
 | Management | **Reports**, with the type's own reports, Staff commissions and Activity log | Money by day, locations compared, departments; who did what. |
 | Management | **Tasks** | See [Part 4](#part-4--tasks-issues--projects). |
-| Management | **Settings**: Business settings (with Business tools), Tax rates, Payment methods, Number series, Locations, Units & pack sizes, Staff & rooms (*Doctors & rooms* in a clinic), Licences (with Licences & registrations on), and Pharmacy settings, Clinic & lab settings, Farm input checks, Garage settings, Membership plans or Pumps & nozzles | Legal name, GSTIN, prices with or without GST, rounding, financial year, the most a manager may take off a bill at the counter (with a reason; the owner is not limited), whether a walk-in may leave a bill unpaid, and the shared till's PIN rule. Number series give each location its own bill numbers per financial year, with no gaps and no duplicates. A pack size turns "3 boxes" into 72 pieces exactly. A location holding stock cannot be closed. |
+| Management | **Settings**: Business settings (with Business tools), Tax rates, Payment methods, Number series, Locations, Units & pack sizes, Staff & rooms (*Doctors & rooms* in a clinic), Licences (with Licences & registrations on), and Pharmacy settings, Clinic & lab settings, Farm input checks, Garage settings, Membership plans, Pumps & nozzles or Room types & rates | Legal name, GSTIN, prices with or without GST, rounding, financial year, the most a manager may take off a bill at the counter (with a reason; the owner is not limited), whether a walk-in may leave a bill unpaid, and the shared till's PIN rule. Number series give each location its own bill numbers per financial year, with no gaps and no duplicates. A pack size turns "3 boxes" into 72 pieces exactly. A location holding stock cannot be closed. |
 | Management | **Staff & access**, with Roles & permissions | Give a person from your staff list a role in this business, change it or switch it off. |
 
 **Two rules people notice:** prices, tax and totals are always worked out by the
@@ -2990,7 +2991,7 @@ While a parameter's latest QC today is failed, its patient reports cannot be app
 
 ## Newer trades on the shared core
 
-Eleven more types run on the shared screens from the day they are created: *Quick bill* (a goods shop) or *Sales* (a service business), products, customers, udhaar or customer dues, purchases, stock, expenses, *Daily money* and reports. Each starts with its trade's units, GST slabs and tools, and its own checklists in the tasks library (*Tasks › Templates*). Their own screens are being added in the order in [BACKLOG.md › New business types](BACKLOG.md#10-new-business-types).
+Eleven more types run on the shared screens from the day they are created: *Quick bill* (a goods shop) or *Sales* (a service business), products, customers, udhaar or customer dues, purchases, stock, expenses, *Daily money* and reports. Each starts with its trade's units, GST slabs and tools, and its own checklists in the tasks library (*Tasks › Templates*). Every one but the general store also has screens of its own, described in its section below; what each still lacks is in [BACKLOG.md › New business types](BACKLOG.md#10-new-business-types).
 
 | Type | Starts with | Tools to switch on (recommended in bold) |
 | --- | --- | --- |
@@ -3004,7 +3005,7 @@ Eleven more types run on the shared screens from the day they are created: *Quic
 | Gyms, studios & coaching | Its own screens: see [Gyms, studios & coaching](#gyms-studios--coaching) below | See the same section |
 | Laundry & dry cleaning | Its own screens: see [Laundry & dry cleaning](#laundry--dry-cleaning) below | See the same section |
 | Rentals & hire | Its own screens: see [Rentals & hire](#rentals--hire) below | See the same section |
-| Hotels, lodges & guest houses | Rooms and extras as services, sold by the room night; company billing | **Tasks** (housekeeping rounds, maintenance and safety checks), issues, stock |
+| Hotels, lodges & guest houses | Its own screens: see [Hotels, lodges & guest houses](#hotels-lodges--guest-houses) below | See the same section |
 
 **GST slabs to check.** The starting slabs follow the rates in force from 22 September 2025, but several items in these trades have a rate of their own:
 
@@ -3016,7 +3017,7 @@ Eleven more types run on the shared screens from the day they are created: *Quic
 - renting goods without an operator at the rate of a sale of the like goods (40% for goods that attract 40%), and a passenger vehicle hired with a driver 5% (input tax credit only of input services in the same line of business) or 18% with full credit;
 - petrol, diesel and CNG outside GST (on the nil slab, the price including the state's VAT), and lubricants and the shop's items at their own slab;
 - coaching 18%;
-- a hotel room 5% at ₹7,500 a night or less, 18% above.
+- a hotel room 5% (without input tax credit) at ₹7,500 a night or less, 18% (with credit) above, night by night on the room night's own value.
 
 Set each item's slab when adding it, and have an accountant confirm them before trading.
 
@@ -4544,6 +4545,185 @@ prints, and a viewer sees. The fuels and their prices are set by those who
 keep the catalogue; the tanks, units, nozzles, measures and tolerances by
 those who keep the settings.
 
+## Hotels, lodges & guest houses
+
+A hotel's, lodge's or guest house's front office: its rooms and their
+housekeeping status, reservations from walk-ins, the phone and the online
+travel sites (OTAs), the check-in with every occupant recorded, the foreign
+guests' Form-III reports, the room nights posted night by night at their own
+GST slab, and the folio billed at check-out to the guest or to a company. A
+new one starts with **Rooms & stays** on; *Tasks* is recommended to it
+(housekeeping rounds, maintenance and safety checks). **Front desk** (with
+*Rooms & housekeeping*, *Reservations* and *Stays*) and **Foreign guests
+(Form-III)** (with the *Guest register*) are its daily entries, and the set-up
+is *Settings › Room types & rates*. Nothing here talks to an online travel
+site, a channel manager, a door lock or the FRRO portal: an OTA's booking is
+typed in with its booking id, and a Form-III report is made on the portal and
+marked here. Every date and time on these screens is on the business's own
+clock: a night belongs to the date it starts on, the arrival date is the first
+night, and the departure date is the morning the guest leaves.
+
+**Before taking guests** (*Settings › Room types & rates*):
+
+1. **The GST slabs of a room night** — the slab of a room night at or below
+   the limit and the slab of one above it, chosen from the business's tax
+   rates, and the limit a room a night before GST. From 22 September 2025 a
+   room night valued at ₹7,500 or less is taxed at 5% without input tax
+   credit, and one above ₹7,500 at 18% with credit (Notification
+   15/2025-Central Tax (Rate)): choose the 5% and the 18% slab and keep the
+   limit at ₹7,500. Each night is billed at the slab its own value decides, so
+   a weekend night above the limit is billed at 18% and the weekday nights
+   round it at 5%. Nothing is reserved or billed until the two slabs are saved;
+   have an accountant confirm them before trading.
+2. **The weekend nights** — the nights the weekend rate is for: Friday and
+   Saturday to start with (a night is the date it starts on).
+3. **The terms** — the property's own (the check-out time, the house rules),
+   printed on every registration card.
+4. **The room types** — *Add a room type*: its name (Deluxe, Suite, Standard
+   non-AC) and its SAC; the adults its rate is for, the most guests the room
+   takes and its extra beds; and its rates, each a night before GST: the rack
+   rate, a weekend rate, each extra adult beyond those in the rate (none set:
+   the room takes no more adults), each child (none set: children stay free)
+   and each extra bed. A room type's nights are billed as a service item
+   counted in nights, made with it, and only from a stay's folio: any other
+   bill refuses it. A change of rates applies to stays booked after
+   it; a stay keeps the rates it was booked at. A room type is switched off
+   (it takes no new reservations), never deleted, and not while stays of it
+   are reserved or in the house.
+5. **The rooms** — *Add rooms*: room numbers of one type (101, 102, G-02),
+   separated by commas or one on each line, with their floor, at a property
+   (one of the business's locations). A room is taken out of use, never
+   deleted; it keeps its type and stays in use while a stay is reserved for it
+   or in it, or while its type's reservations would not fit in the rooms left.
+6. **The people and the money** — a login for each receptionist with the role
+   *Front desk*, and for each housekeeper with *Housekeeping* (*Staff &
+   access*); the payment methods advances and bills are taken by (*Settings ›
+   Payment methods*); a company that pays for its staff's stays is a customer
+   with its GSTIN. Stays are numbered *ST/2627/0001* (*Settings › Number
+   series*, *Stays*); the bills are numbered as the business's sales are.
+
+**The screens:**
+
+- **Front desk** — the day at the property: how many arrive, are in the
+  house and leave today, and the rooms to make up; *Arrivals* (reserved for
+  tonight, and those past their arrival day not checked in yet, each with
+  *Check in*), *In the house* (each with the nights still to post) and
+  *Departures* (leaving today, and those past their departure day: extend the
+  stay or *Check out*). *New reservation* starts one, and *Run the night
+  audit* posts the room nights (below).
+- **A reservation** (*New reservation*) — the guest (found among *Guests &
+  companies*, or *New guest* with a name and phone), *Booked by* (a walk-in,
+  the phone, or an OTA with its name and booking id) and a company billed
+  instead (optional: a customer with its GSTIN);
+  the arrival and departure (or a number of nights), the room type and the
+  room (now, or at check-in); the adults, children and extra beds, within what
+  the room type takes; and, for an OTA's price or a company's rate, an *Agreed
+  rate a night* in place of the rack and weekend rates. As it is typed, the
+  server prices each night at its own rate (rack, weekend or agreed) with the
+  GST slab its value decides, and says whether the room and the room type are
+  free. A room is never booked twice over the same night, and a room type
+  never holds more reservations on a night than it has rooms in use: both are
+  refused with who holds it ("Room 102 is booked by ST/2627/0007 (Kiran Desai)
+  for the night of 26 Oct: choose another room"), even for two reservations
+  saved at the same moment. *Advance taken* takes money on account with it, at
+  most the room nights booked: a numbered receipt in the guest's name, held for
+  the stay's bill. *Change* changes a reservation's dates, room type, room,
+  guests, beds, rate and company (priced again); *Take an advance* takes more.
+- **Check-in** (*Check in*, from the arrival day to the night before the
+  departure) — the room (one of the stay's type that is vacant and clean and
+  free over its nights), and every occupant, adults and children, not only the
+  one who booked: the full name, gender and age, phone and address, the
+  nationality, and the photo ID seen with its number (an Aadhaar card, a
+  driving licence, a voter ID, a passport, a PAN card or another; of an
+  Aadhaar card only the last four digits are typed and kept); a foreign
+  national (an OCI cardholder too) with their passport as the photo ID, their
+  visa's type and number (or *OCI card* and the card's number), the date they
+  arrived in India and their next destination. The occupants match the stay's
+  adults and children (change the stay first when more or fewer came).
+  *Coming from*, *Going to* and *Purpose of the visit* go on the register; a
+  refundable deposit may be taken with it (*Deposit taken now*). The room
+  becomes occupied, and each foreign guest's Form-III countdown starts.
+  *Registration card* prints the card for the guest to sign: the stay, the
+  rate, every occupant with their ID, and the terms.
+- **A stay in the house** (the stay's page) — the occupants with their IDs
+  and Form-III reports, the folio (every night at its rate and slab, posted or
+  still to post, and the extras), the money held and the history. *Add a
+  charge*: laundry, food, a pickup or another service from *Rooms, services &
+  extras*, at its item's GST slab (goods kept in stock are sold on a bill of
+  their own). *Extend or move*: a new departure (the nights to come priced at
+  the stay's rates), a move to another room that is vacant and clean (the room
+  left is marked dirty), extra beds, the company billed and (a manager) an
+  agreed rate for the nights to come. *Take an advance* and *Take a deposit*
+  take more money for the stay. A manager voids a charge posted by mistake (*Void*, with the reason)
+  before it is billed; a room night is posted again at the stay's rates. An
+  occupant's details are corrected while they are in the house.
+- **Night audit** (*Front desk › Run the night audit*) — posts every room
+  night of the guests in the house up to tonight that is not posted yet, each
+  at its rate and slab, and lists what it posted. Run it at the end of each
+  day; run again, it posts nothing twice. The bell warns of nights before
+  today still to post.
+- **Check-out** (*Check out*, on the departure day or earlier) — the bill as
+  the server works it out: every night up to last night (one at least) and the
+  extras, with the nights posted ahead and not stayed voided when the guest
+  leaves early; the advances and then the deposits pay it first, and the rest
+  is paid now (*Paid now*, *Paid by*). A guest past the departure day is
+  extended to today first. *Check out and post the bill* posts one tax invoice
+  through the core: to the guest, or to the company billed with its GSTIN on
+  it, the place of supply the property's state. A company's bill may stay on
+  its dues; a guest's own bill is paid in full unless a manager checks them
+  out with it left on their dues. What is left of the advance and deposit goes
+  back now or later (*Hand back*), by cash, UPI or bank, with a manager's PIN;
+  a slip prints for the guest to sign. The room is left vacant dirty for
+  housekeeping, and each foreign guest's Form-III departure countdown starts.
+- **Cancel** (a reservation) — with the reason; once its arrival day has come
+  it may be marked a no-show instead. A cancellation or no-show charge, before
+  GST, is billed as the room type's nights at the slab of the first night
+  booked and paid first from the advance; what is left goes back with a
+  manager's PIN.
+- **Rooms & housekeeping** — every room by its status: vacant dirty (to make
+  up, first), vacant clean (ready for a guest), occupied (with the guest and
+  when they leave) and out of order (with why). *Mark clean* once made up,
+  *Mark dirty* again, *Out of order* with the reason, and *Back in order* (to
+  be made up). A room is occupied only while a guest is checked in, and only a
+  vacant clean room is given to a guest. Every change is kept with who made it
+  and when.
+- **Reservations** — a calendar of a week or two weeks (*Today*, earlier and
+  later): for each room type, its rooms night by night with the stay in each,
+  the reservations with no room yet, and the rooms left each night.
+- **Stays** — every reservation and stay by its arrival date with where it
+  stands (reserved, arriving today, not arrived, in the house, leaving today,
+  past departure, to settle, checked out, cancelled or a no-show), its room
+  nights, what is held and what is due; a row opens the stay.
+- **Foreign guests (Form-III)** — each foreign national who stayed, with the
+  report due next and its countdown: within 24 hours of arrival, and again
+  within 24 hours of departure (Immigration and Foreigners Act 2025, in force
+  from 1 September 2025; Form-III replaced Form C, and OCI cardholders are
+  reported too). Make the report on the portal (indianfrro.gov.in) or its app,
+  then *Mark reported* with the acknowledgement number: nothing is sent from
+  here. *To report* shows the reports still to make, overdue first; *The last
+  90 days* every foreign guest. The bell lists each report still to make, and
+  marks it overdue once its 24 hours have passed.
+- **Guest register** (*Foreign guests (Form-III) › Guest register*) — every
+  occupant of the rooms between two dates (up to 92 days), with when they
+  arrived and left, their address and phone, nationality and photo ID (of an
+  Aadhaar, the last four digits), the room, where they came from and go next,
+  and a foreign guest's Form-III acknowledgements. *Print the register* prints
+  it for the local police.
+
+Who does what: the front desk takes reservations and advances, checks guests
+in and out with every occupant, posts charges, runs the night audit, marks
+the Form-III reports, prints registration cards and the register, marks rooms
+and cancels reservations; housekeeping sees the rooms and marks them clean or
+dirty, out of order and back, and sees no money and no guest's ID; a cashier
+does the front desk's work but cancelling; a manager does all of it, changes
+the rate of a guest in the house, voids charges, checks a guest out with the
+bill left to pay and hands money back with their PIN; an accountant sees and
+prints, and a stock keeper and a viewer see. Only those who check guests in or
+print the register see the guests' ID details, and only those who see sales
+see the money. The room types, their rates and the rooms are set by those who
+keep the catalogue; the slabs, the weekend nights and the terms by those who
+keep the settings.
+
 ---
 
 # Part 4 — Tasks, issues & projects
@@ -4763,7 +4943,7 @@ roles that must use two-step sign-in.
 Each business has its own copies of the standard roles — Owner, Manager,
 Cashier / sales, Stock keeper, Accountant and Viewer; a pharmacy also gets
 **Pharmacist**, a clinic **Doctor**, **Lab technician** and **Pathologist**,
-an optical shop **Optometrist**, a garage **Mechanic**, a gym, studio or coaching centre **Trainer**, a jeweller **Karigar / goldsmith** and a fuel station **Pump attendant (DSM)** — plus any roles
+an optical shop **Optometrist**, a garage **Mechanic**, a gym, studio or coaching centre **Trainer**, a jeweller **Karigar / goldsmith**, a fuel station **Pump attendant (DSM)**, and a hotel, lodge or guest house **Front desk** and **Housekeeping** — plus any roles
 its owner makes, edited on a module × action grid. You cannot give what you
 do not have, nor change, or set a new password for, someone whose role can
 do more than yours; the Owner role cannot be handed out or changed.
@@ -4785,6 +4965,8 @@ do more than yours; the Owner role cannot be handed out or changed.
 | Trainer (gyms, studios & coaching only) | See members, their plans and check-ins; check members in; see personal-training sessions and mark them done or missed; no prices and no money |
 | Karigar / goldsmith (jewellery shops only) | See the pieces with their weights, stones and HUIDs; tag pieces already in stock, record their weights, stones and HUIDs, and send them on approval or to the karigar and take them back; see products and stock; no prices and no money |
 | Pump attendant (DSM) (fuel stations only) | Open and close their own shift: the nozzle readings, the 5-litre test, the credit slips, the UPI, card and fleet-card takings and the cash; take the morning dips; see the tanks, the tanker loads and the registers, and only their own shifts and money; no settings |
+| Front desk (hotels, lodges & guest houses only) | Take reservations and advances; check guests in with every occupant and their photo ID, and out with the bill; post charges on the folio; run the night audit; mark the Form-III reports; print registration cards and the guest register; mark rooms; cancel reservations and mark no-shows; add customers and take their payments; no settings, and no money handed back |
+| Housekeeping (hotels, lodges & guest houses only) | See the rooms and mark them clean or dirty, out of order and back in order; see the reservations and stays without money or the guests' IDs |
 
 A permission also needs its **module** switched on for the business
 (Settings › Business tools; for example `repairs.create` needs *Repairs &

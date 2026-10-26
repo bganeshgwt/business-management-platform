@@ -26,6 +26,8 @@ export const LOGINS = [
   { role: "RENTALS_MANAGER", name: "Arjun Menon", email: "manager@rentals.e2e.invalid", businesses: ["rentals"] },
   // The fuel station's pump attendant, who opens and closes their own shift.
   { role: "PUMP_ATTENDANT", name: "Mahesh Yadav", email: "attendant@fuel.e2e.invalid", businesses: ["fuel_station"], businessRole: "pump_attendant" },
+  // The lodge's housekeeping, who makes the rooms up after the guests leave.
+  { role: "HOUSEKEEPER", name: "Lakshmi Bai", email: "housekeeping@lodge.e2e.invalid", businesses: ["lodging"], businessRole: "housekeeping" },
 ];
 
 // The restaurant the RESTAURANT_ADMIN runs. Tables 1-3 are free; table 4
@@ -304,6 +306,34 @@ export const FUEL = {
   fleet: { name: "Sri Balaji Transports", phone: "9848011223", creditDays: "30", creditLimit: "100000",
     vehicle: { registration: "TS09UB4455", description: "Tata 1613", fillLimit: "300" } },
   fleetCard: "Fleet card",
+};
+
+// The lodge: Deluxe rooms 101 and 102 and a Suite, room 201 (rates a night
+// before GST, Friday and Saturday nights at the weekend rate), the two GST
+// slabs of a room night (5% at or below ₹7,500, 18% above it) and its terms. In
+// the house since yesterday: a family of three adults in the Suite (the third
+// an extra adult, so the night is above ₹7,500: 18%) who paid ₹5,000 in
+// advance, leaving today. Reserved by phone for tonight: room 102. A guest who
+// walks in books a Deluxe room for two nights and checks in with a foreign
+// national, who is reported on Form-III.
+export const LODGING = {
+  sac: "996311",
+  deluxe: { name: "Deluxe", baseOccupancy: 2, maxOccupancy: 3, extraBeds: 1, rates: { rack: "4500", weekend: "5200", extraAdult: "1000", child: "500", extraBed: "800" },
+    rooms: ["101", "102"] },
+  suite: { name: "Suite", baseOccupancy: 2, maxOccupancy: 4, rates: { rack: "7000", weekend: "8500", extraAdult: "1500" }, rooms: ["201"] },
+  weekendNights: [5, 6],
+  terms: "Check-out by 11 am. Every guest shows a photo ID at check-in.",
+  // In the house since yesterday, leaving today.
+  inHouse: { guest: { name: "Vikram Shah", phone: "9820012345" }, adults: 3, advance: "5000",
+    occupants: [{ fullName: "Vikram Shah", idKind: "pan_card", idRef: "ABCPS1234K" }, { fullName: "Neha Shah", idKind: "voter_id", idRef: "MHV1234567" },
+      { fullName: "Rohan Shah", idKind: "driving_licence", idRef: "MH0120190012345" }] },
+  // Reserved by phone for tonight, in room 102.
+  booked: { guest: { name: "Kiran Desai", phone: "9820054321" }, adults: 2 },
+  // The walk-in the spec books and checks in: two nights in a Deluxe room, an advance, and a foreign national.
+  walkIn: { guest: { name: "Rahul Mehta", phone: "9811122233" }, advance: "2000", aadhaarLast4: "4321",
+    foreigner: { fullName: "Emma Clarke", nationality: "British", passport: "GB7766554", visaType: "e-Tourist visa", visaNo: "ETV445566", nextDestination: "Jaipur, India",
+      inIndiaDaysAgo: 3 },
+    acknowledgement: "FRRO/HYD/2026/004512" },
 };
 
 // The salon: one stylist and one service.

@@ -37,3 +37,5 @@ export const JEWELLERY = ["jewellery"];
 export const RENTALS = ["rentals"];
 // Fuel stations: shifts and readings, tanks and dips, tanker receipts, the stock register, fleet statements, pumps & nozzles.
 export const FUEL = ["fuel_station"];
+// Hotels, lodges & guest houses: the front desk, rooms and housekeeping, reservations and stays, Form-III, the guest register, room types & rates.
+export const LODGING = ["lodging"];

@@ -18,6 +18,8 @@ const access = require('./businessAccess.service');
 //   bookings           past their due back time, or past their out time and not handed over (rentals)
 //   fuel               stamping falling due, the stock register beyond the tolerance, loads outside the
 //                      density tolerance, shifts left open, dips not taken, fuels unpriced, fleets over their limit (fuel stations)
+//   stays              Form-III reports overdue or due, reservations past their arrival day, guests past their departure
+//                      day, room nights the night audit has still to post (hotels, lodges and guest houses)
 //   appointments       still to come today
 //   licences           running out within 60 days, or run out
 //   wholesale overdue  (same overdue query, worded as invoices)
@@ -152,6 +154,10 @@ async function feed(business) {
   // A fuel station's stamping falling due, its stock register beyond the tolerance, loads outside the density tolerance, shifts left open and more.
   if (has('fuel') && can('fuel.view') && business.business_type === 'fuel_station') {
     items.push(...await require('../../fuel/services/fuelBell.service').bell(business, base, LIMIT));
+  }
+  // A lodging business's foreign guests' Form-III reports, its late arrivals and overstays, and room nights not posted.
+  if (has('lodging') && can('lodging.view') && business.business_type === 'lodging') {
+    items.push(...await require('../../lodging/services/lodgingGuests.service').bell(business, base, LIMIT));
   }
   // Licences & registrations: a licence running out within 60 days (warning), or run out (critical).
   if (has('licences') && can('licences.view')) {

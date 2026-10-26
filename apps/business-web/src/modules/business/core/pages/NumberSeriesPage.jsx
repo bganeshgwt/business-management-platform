@@ -30,7 +30,9 @@ const KINDS = { sale: "Sale invoices", purchase: "Purchase receipts", sales_retu
   // A rental business's bookings (not GST documents: the bill at the return is).
   rental: "Rental bookings",
   // A fuel station's shifts (not GST documents: the fuel bills a close posts are).
-  fuel_shift: "Fuel shifts" };
+  fuel_shift: "Fuel shifts",
+  // A hotel's, lodge's or guest house's reservations and stays (not GST documents: the bill at check-out is).
+  stay: "Stays" };
 const fiscalLabel = (year) => `${year}-${String((Number(year) + 1) % 100).padStart(2, "0")}`;
 const sample = (s) => `${s.prefix}${String(s.next_number).padStart(s.padding, "0")}`;
 

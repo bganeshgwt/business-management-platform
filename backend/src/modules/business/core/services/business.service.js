@@ -657,12 +657,15 @@ const jewelleryBills = () => require('../../jewellery/services/jewelleryBills.se
 const rentalItems = () => require('../../rentals/services/rentalsItems.service');
 // A fuel station's fuels: sold by a shift's close (its meters), petrol and diesel bought on tanker receipts.
 const fuelProducts = () => require('../../fuel/services/fuelSetup.service');
+// A lodging business's room types: their nights are billed from the stay's folio, at check-out.
+const lodgingRooms = () => require('../../lodging/services/lodgingSetup.service');
 const named = (value) => value !== undefined && value !== null && value !== '';
 // Posts a sale or purchase inside the caller's transaction. Permissions and
 // the request are checked by the caller. `fixed` (used by wholesale
 // dispatch) gives each line's prices already worked out: { price (stock unit,
 // rupees), net, tax, enteredPrice (paise), priceRuleId } — the order's prices —
-// and may give the line's own words for the bill, `label` (a laundry garment's service, garment and tag).
+// and may give the line's own words for the bill, `label` (a laundry garment's service, garment and tag),
+// and its own GST rate, `taxRate` (a room night, at the slab its value decides).
 // `quote` (retail counter): work out the bill exactly as posting would —
 // prices, offers, points, tax, round-off — and return it without saving.
 // `quote: 'estimate'` (a quotation) does the same before any batch or serial
@@ -685,6 +688,9 @@ const named = (value) => value !== undefined && value !== null && value !== '';
 // each credit fill against the customer's limit and for the buyer's PAN,
 // a manager allowing credit over a limit) or a tanker receipt's purchase. A
 // fuel goes on no other bill, and petrol or diesel on no other purchase.
+// `lodging`: the bill is a stay's, posted at check-out or with a cancellation
+// charge (a room type's nights go on no other bill); it is supplied where the
+// property is, whoever the buyer is.
 // Free units and trade discount on a purchase line, in the line's own unit
 // (packs when it is entered in packs). null when neither is given.
 function readScheme(input) {
@@ -698,7 +704,7 @@ function readScheme(input) {
 }
 
 async function postDocument(db, business, user, body, { kind, requestKey, hash, lines: inputLines, paidNow, fixed = null, quote = false, walkInPays = false, voucher = null, finance = null,
-  membership = false, dueDay = null, jewellery = false, tenders = [], rental = false, fuel = false }) {
+  membership = false, dueDay = null, jewellery = false, tenders = [], rental = false, fuel = false, lodging = false }) {
   {
     // Serializes document posting within a business: one lock order for every
     // posting (business, then document, then stock lots).
@@ -847,6 +853,8 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     // A fuel is sold by a shift's close, at its meters' litres; petrol and diesel come in on tanker receipts, with their dips and density.
     if (kind === 'sale' && !fuel && business.modules.includes('fuel')) await fuelProducts().checkLooseSale(db, business, prepared);
     if (kind === 'purchase' && !fuel && business.modules.includes('fuel')) await fuelProducts().checkLoosePurchase(db, business, prepared);
+    // A room type's nights are billed from the stay's folio, at check-out.
+    if (kind === 'sale' && !lodging && business.modules.includes('lodging')) await lodgingRooms().checkLooseSale(db, business, prepared);
     // A credit voucher pays first; "full" is then what is left.
     const voucherUse = voucher ? await exchangeVouchers().prepare(db, business, voucher, rounded) : null;
     const prepaid = (voucherUse?.amount || 0) + tenders.reduce((sum, tender) => sum + tender.amount, 0);
@@ -890,7 +898,9 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     // (the buyer's GSTIN state, otherwise the selling location's own state,
     // otherwise the business's: a branch in another state supplies from there).
     const buyerGstin = kind === 'sale' ? contact?.gstin || null : null;
-    const placeOfSupply = kind === 'sale' ? (buyerGstin ? buyerGstin.slice(0, 2) : location.state_code || settings?.state_code || null) : null;
+    // A stay is supplied where the property stands, whoever the buyer is.
+    const placeOfSupply = kind !== 'sale' ? null : lodging ? location.state_code || settings?.state_code || (buyerGstin ? buyerGstin.slice(0, 2) : null)
+      : buyerGstin ? buyerGstin.slice(0, 2) : location.state_code || settings?.state_code || null;
     // The buyer's PAN: typed on the bill or saved with the customer. A sale
     // over ₹2,00,000 must have one (or the PAN inside the customer's GSTIN, or
     // on their wholesale profile), or the buyer's declaration that they have none.
@@ -919,7 +929,7 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
       const savedLine = await repo.one(db, `INSERT INTO business_document_lines(business_id,document_id,sku_id,label,unit,quantity,unit_price,tax_rate,net,tax,lot_code,price_rule_id,
         entered_unit,entered_quantity,entered_unit_price,unit_factor,hsn_code,mrp,kit_sku_id,kit_label,kit_group,free_quantity,discount_percent)
        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) RETURNING id`, [business.id, saved.id, line.sku.id, line.preset?.label || line.sku.label, line.sku.unit,
-        line.quantity, rateText(line.price, Boolean(line.preset || line.kit)), line.sku.tax_rate, money(line.net), money(line.tax), line.lotCode, line.priceRule?.id || null,
+        line.quantity, rateText(line.price, Boolean(line.preset || line.kit)), line.preset?.taxRate ?? line.sku.tax_rate, money(line.net), money(line.tax), line.lotCode, line.priceRule?.id || null,
         line.entered?.unit || null, line.entered?.quantity ?? null, line.entered ? money(line.enteredPrice) : null, line.entered ? (line.factorMicro / 1e6).toFixed(6) : null,
         line.sku.hsn_code || null, line.kit ? null : line.sku.mrp ?? null, line.kit?.skuId || null, line.kit?.label || null, line.kit?.group || null,
         line.freeQuantity || 0, line.discountPercent || 0]);

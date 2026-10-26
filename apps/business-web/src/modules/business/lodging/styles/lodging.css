@@ -1,0 +1,361 @@
+/* Hotels, lodges and guest houses: the front desk's lists, the rooms board by
+   status, the reservations calendar, a stay's facts, folio and dialogs, the
+   occupants' blocks, the Form-III countdowns and the small notes these screens
+   share. Colours come from the theme's tokens only. */
+
+.ldg-note {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: var(--text-sm);
+}
+.ldg-warn {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+.ldg-empty {
+  padding: var(--space-3);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  list-style: none;
+}
+.ldg-late {
+  color: var(--danger);
+  font-weight: var(--weight-medium);
+}
+
+/* The front desk: arrivals, guests in the house and departures, each a list of rows. */
+.ldg-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3);
+  list-style: none;
+}
+.ldg-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.ldg-row.is-late {
+  border-color: var(--danger-border);
+}
+.ldg-row-main {
+  display: grid;
+  flex: 1 1 260px;
+  gap: 2px;
+  min-width: 0;
+}
+.ldg-row-main strong {
+  color: var(--text);
+}
+.ldg-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  color: var(--text-2);
+  font-size: var(--text-sm);
+}
+.ldg-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* The rooms board: a column for each status, side by side, scrolling sideways on a phone. */
+.ldg-board {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(200px, 1fr);
+  gap: var(--space-3);
+  overflow-x: auto;
+  padding: var(--space-3);
+}
+.ldg-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+.ldg-col-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+.ldg-col-head span {
+  min-width: 1.6rem;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-2);
+  text-align: center;
+  font-weight: var(--weight-medium);
+}
+.ldg-col-vacant_dirty .ldg-col-head {
+  color: var(--warning-text);
+}
+.ldg-col-out_of_order .ldg-col-head {
+  color: var(--danger);
+}
+.ldg-col-list {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2);
+  list-style: none;
+}
+.ldg-room {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.ldg-room-top {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+.ldg-room-no {
+  color: var(--text);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+}
+.ldg-room small {
+  color: var(--text-2);
+}
+.ldg-room-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+/* The reservations calendar: a row for each room, a column for each night. */
+.ldg-cal-tools {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+.ldg-cal-wrap {
+  overflow-x: auto;
+}
+.ldg-cal {
+  width: 100%;
+  min-width: 860px;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.ldg-cal th,
+.ldg-cal td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+.ldg-cal thead th {
+  color: var(--text-2);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+.ldg-cal thead th span {
+  display: block;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.ldg-cal thead th.is-today,
+.ldg-cal td.is-today {
+  background: var(--primary-soft);
+}
+.ldg-cal tbody th {
+  min-width: 120px;
+  font-weight: var(--weight-medium);
+}
+.ldg-cal-group th {
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: var(--weight-bold);
+}
+.ldg-cal-left {
+  color: var(--text-2);
+  font-size: var(--text-xs);
+}
+.ldg-cal-left.is-full {
+  color: var(--danger);
+  font-weight: var(--weight-medium);
+}
+.ldg-cell {
+  min-width: 72px;
+}
+.ldg-hold {
+  display: grid;
+  width: 100%;
+  padding: 2px var(--space-1);
+  border: 1px solid var(--info-border);
+  border-radius: var(--radius-sm);
+  background: var(--info-bg);
+  color: var(--info-text);
+  font: inherit;
+  font-size: var(--text-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.ldg-hold small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ldg-hold-in_house {
+  border-color: var(--success-border);
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+.ldg-hold-checked_out {
+  border-style: dashed;
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+.ldg-hold:hover,
+.ldg-hold:focus-visible {
+  border-color: var(--primary);
+}
+
+/* A stay: its facts, the nights priced, the folio's totals, the occupants' blocks in the check-in. */
+.ldg-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+.ldg-fact dt {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.ldg-fact dd {
+  margin: 0;
+  color: var(--text);
+}
+.ldg-fieldset {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.ldg-fieldset legend {
+  padding: 0 var(--space-1);
+  color: var(--text);
+  font-weight: var(--weight-medium);
+}
+.ldg-fieldset .field-wide,
+.ldg-fieldset .ldg-wide {
+  grid-column: 1 / -1;
+}
+.ldg-occupant-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+.ldg-bill {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.ldg-bill td,
+.ldg-bill th {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.ldg-bill .r {
+  text-align: right;
+  white-space: nowrap;
+}
+.ldg-bill th {
+  color: var(--text);
+  font-weight: var(--weight-bold);
+}
+.ldg-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  align-items: baseline;
+  padding: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+.ldg-totals strong {
+  color: var(--text);
+  font-size: var(--text-lg);
+}
+.ldg-clash {
+  margin: var(--space-1) 0 0;
+  color: var(--danger);
+  font-size: var(--text-sm);
+}
+.ldg-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: flex-end;
+}
+.ldg-weekdays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+}
+.ldg-due {
+  color: var(--warning-text);
+  font-weight: var(--weight-medium);
+}
+.ldg-overdue {
+  color: var(--danger);
+  font-weight: var(--weight-bold);
+}
+.ldg-done {
+  color: var(--success-text);
+}
+.ldg-refunds {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+.ldg-refunds li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: space-between;
+  align-items: center;
+}
+.ldg-audit {
+  margin: 0;
+  padding: var(--space-3);
+}

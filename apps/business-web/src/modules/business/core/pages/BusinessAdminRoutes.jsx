@@ -170,6 +170,16 @@ const FuelRegisterPage = lazy(() => import("../../fuel/pages/RegisterPage"));
 const FuelFleetPage = lazy(() => import("../../fuel/pages/FleetPage"));
 const FuelStatementPage = lazy(() => import("../../fuel/pages/FleetStatementPage"));
 const FuelPumpsPage = lazy(() => import("../../fuel/pages/PumpsPage"));
+// Hotels, lodges and guest houses.
+const LodgingDeskPage = lazy(() => import("../../lodging/pages/FrontDeskPage"));
+const LodgingRoomsPage = lazy(() => import("../../lodging/pages/RoomsPage"));
+const LodgingReservationsPage = lazy(() => import("../../lodging/pages/ReservationsPage"));
+const LodgingStaysPage = lazy(() => import("../../lodging/pages/StaysPage"));
+const LodgingStayPage = lazy(() => import("../../lodging/pages/StayPage"));
+const LodgingStayFormPage = lazy(() => import("../../lodging/pages/StayFormPage"));
+const LodgingFormIIIPage = lazy(() => import("../../lodging/pages/ForeignGuestsPage"));
+const LodgingRegisterPage = lazy(() => import("../../lodging/pages/GuestRegisterPage"));
+const LodgingRatesPage = lazy(() => import("../../lodging/pages/RoomTypesPage"));
 
 function Notice({ title, children }) {
   return (
@@ -333,6 +343,13 @@ function screens(type) {
     "fuel-register": <FuelRegisterPage />,
     "fuel-fleet": <FuelFleetPage />,
     "fuel-pumps": <FuelPumpsPage />,
+    "lodging-desk": <LodgingDeskPage />,
+    "lodging-rooms": <LodgingRoomsPage />,
+    "lodging-reservations": <LodgingReservationsPage />,
+    "lodging-stays": <LodgingStaysPage />,
+    "lodging-form-iii": <LodgingFormIIIPage />,
+    "lodging-register": <LodgingRegisterPage />,
+    "lodging-rates": <LodgingRatesPage />,
   };
 }
 
@@ -414,6 +431,8 @@ export default function BusinessAdminRoutes() {
         <Route path="rental-bookings/:bookingId" element={page("rental-bookings", <RentalBookingPage />)} />
         <Route path="fuel-shifts/:shiftId" element={page("fuel-shifts", <FuelShiftPage />)} />
         <Route path="fuel-fleet/:contactId" element={page("fuel-fleet", <FuelStatementPage />)} />
+        <Route path="lodging-stays/new" element={page("lodging-stays", <LodgingStayFormPage />)} />
+        <Route path="lodging-stays/:stayId" element={page("lodging-stays", <LodgingStayPage />)} />
         <Route path="tasks/*" element={page("tasks", <TasksRoutes />)} />
         <Route path="*" element={<Notice title="Page not found"><p>Use the menu on the left to find the screen you need.</p></Notice>} />
       </Routes>

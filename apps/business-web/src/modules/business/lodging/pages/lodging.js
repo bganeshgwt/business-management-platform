@@ -1,0 +1,85 @@
+import { atFull, atWords } from "../../rentals/pages/rentals";
+
+// Hotels, lodges and guest houses: the words, stages, dates and countdowns the
+// front desk, rooms, reservations, stays, Form-III, register and settings
+// screens share. The server checks every step again (lodging/services); these
+// only show and prepare them. A stay's nights are dates on the business's clock
+// (a night belongs to the date it starts on); times are instants shown on the
+// business's clock, never the browser's.
+
+export { atFull, atWords };
+
+// A lodging business with its tools on.
+export const usesLodging = (biz) => biz.type === "lodging" && biz.has("lodging");
+
+// Where a stay stands: its status, its dates and its money.
+export const STAGES = {
+  reserved: { label: "Reserved", tone: "info" }, arriving: { label: "Arriving today", tone: "info" }, late_arrival: { label: "Not arrived", tone: "warning" },
+  in_house: { label: "In the house", tone: "success" }, due_out: { label: "Leaving today", tone: "warning" }, overstay: { label: "Past departure", tone: "danger" },
+  to_settle: { label: "To settle", tone: "warning" }, checked_out: { label: "Checked out", tone: "neutral" }, cancelled: { label: "Cancelled", tone: "neutral" },
+  no_show: { label: "No-show", tone: "neutral" },
+};
+export const STATUS_WORDS = { reserved: "Reserved", in_house: "In the house", checked_out: "Checked out", cancelled: "Cancelled", no_show: "No-show" };
+export const ROOM_STATUS = {
+  vacant_dirty: { label: "Vacant dirty", tone: "warning" }, vacant_clean: { label: "Vacant clean", tone: "success" }, occupied: { label: "Occupied", tone: "info" },
+  out_of_order: { label: "Out of order", tone: "danger" },
+};
+export const SOURCES = [{ value: "walk_in", label: "Walk-in" }, { value: "phone", label: "Phone" }, { value: "ota", label: "OTA" }];
+export const ID_KINDS = [
+  { value: "aadhaar", label: "Aadhaar card" }, { value: "driving_licence", label: "Driving licence" }, { value: "voter_id", label: "Voter ID" },
+  { value: "passport", label: "Passport" }, { value: "pan_card", label: "PAN card" }, { value: "other", label: "Other photo ID" },
+];
+export const GENDERS = [{ value: "", label: "Not said" }, { value: "female", label: "Female" }, { value: "male", label: "Male" }, { value: "other", label: "Other" }];
+export const RATE_KINDS = { rack: "Rack rate", weekend: "Weekend rate", agreed: "Agreed rate" };
+// The days of the week as the settings keep them (1 Monday … 7 Sunday).
+export const WEEKDAYS = [[1, "Mon"], [2, "Tue"], [3, "Wed"], [4, "Thu"], [5, "Fri"], [6, "Sat"], [7, "Sun"]];
+export const wordOf = (list, value) => list.find((x) => x.value === value)?.label || value || "";
+
+// The photo ID kept: "Aadhaar ending 1234", "Passport GB5544332".
+export const idWords = (kind, ref) => (!kind ? "" : !ref ? wordOf(ID_KINDS, kind) : kind === "aadhaar" ? `Aadhaar ending ${ref}` : `${wordOf(ID_KINDS, kind)} ${ref}`);
+
+// --- Dates (calendar days, no clock: the business's dates come from the server) -------------------
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+export const addDays = (day, n) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+export const nightCount = (arrival, departure) => Math.round((Date.parse(`${departure}T00:00:00Z`) - Date.parse(`${arrival}T00:00:00Z`)) / 86400000);
+// "26 Oct", "26 Oct 2026", "Mon 26 Oct".
+export const dayWords = (day) => { const [, m, d] = String(day).slice(0, 10).split("-"); return `${Number(d)} ${MONTHS[Number(m) - 1]}`; };
+export const dateWords = (day) => { const [y, m, d] = String(day).slice(0, 10).split("-"); return `${Number(d)} ${MONTHS[Number(m) - 1]} ${y}`; };
+export const weekdayWords = (day) => `${DAYS[new Date(`${String(day).slice(0, 10)}T00:00:00Z`).getUTCDay()]} ${dayWords(day)}`;
+// "the night of 26 Oct", "the nights of 26 to 28 Oct".
+export function nightsWords(arrival, departure) {
+  const last = addDays(departure, -1);
+  return last === arrival ? `the night of ${dayWords(arrival)}` : `the nights of ${dayWords(arrival)} to ${dayWords(last)}`;
+}
+// "2 nights · 26 to 28 Oct".
+export const stayWords = (arrival, departure) => {
+  const n = nightCount(arrival, departure);
+  return `${n} ${n === 1 ? "night" : "nights"} · ${dayWords(arrival)} to ${dayWords(departure)}`;
+};
+// "2 adults, 1 child".
+export const partyWords = (adults, children) => [`${adults} ${Number(adults) === 1 ? "adult" : "adults"}`,
+  Number(children) ? `${children} ${Number(children) === 1 ? "child" : "children"}` : null].filter(Boolean).join(", ");
+
+// A Form-III countdown as people read it: "due in 23 h 40 min", "overdue by 2 h 5 min".
+export function countdownWords(minutes) {
+  const m = Math.abs(Math.round(Number(minutes || 0)));
+  const text = m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`;
+  return Number(minutes) >= 0 ? `due in ${text}` : `overdue by ${text}`;
+}
+
+// A manager's say-so as the API takes it (LodgingApproval.jsx): who approves and their PIN,
+// with "Me" made explicit when no one else was chosen, and the reason when asked.
+export const emptyApproval = () => ({ reason: "", approverId: "", pin: "" });
+export function approvalBody(value, userId) {
+  const approverId = value.approverId || String(userId || "");
+  return { ...(value.reason ? { reason: value.reason } : {}), ...(approverId ? { approverId } : {}), ...(value.pin ? { pin: value.pin } : {}) };
+}
+
+// The GST slabs of a room night, as the settings and the reservation say them (Notification 15/2025-Central Tax (Rate)).
+export const SLAB_NOTE = "From 22 September 2025 a room night valued at ₹7,500 or less is taxed at 5% without input tax credit, and above ₹7,500 at 18% with credit. "
+  + "Each night is billed at the slab its own value decides, so a weekend night above the limit is billed at 18% and the weekday nights round it at 5%. Room rates are before GST.";
+// Form-III, as the screens say it (Immigration and Foreigners Act 2025, in force from 1 September 2025).
+export const FORM_III_NOTE = "Every foreign national who stays, OCI cardholders included, is reported on Form-III within 24 hours of arrival and again within 24 hours of departure. "
+  + "Report on the portal (indianfrro.gov.in) or its app, then mark it here with the acknowledgement number: nothing is sent from here.";

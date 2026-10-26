@@ -34,7 +34,9 @@ const SHORT = { sale: 'SI', purchase: 'PR', sales_return: 'CN', purchase_return:
   // A rental business's quotes and bookings (not GST documents: the bill at the return is).
   rental: 'RN',
   // A fuel station's shifts (not GST documents: the fuel bills a close posts are).
-  fuel_shift: 'FS' };
+  fuel_shift: 'FS',
+  // A hotel's, lodge's or guest house's reservations and stays (not GST documents: the bill at check-out is).
+  stay: 'ST' };
 const KINDS = Object.keys(SHORT);
 // Kinds printed as GST documents: their numbers must fit in 16 characters.
 const GST_KINDS = new Set(['sale', 'sales_return', 'purchase_return']);

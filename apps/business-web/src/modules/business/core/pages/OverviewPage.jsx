@@ -91,6 +91,10 @@ function firstActions(biz) {
   if (biz.type === "fuel_station" && biz.has("fuel") && can("fuel.create")) list.push({ to: "fuel-dips", icon: "layers", label: "Take the morning dips" });
   if (biz.type === "fuel_station" && biz.has("fuel") && can("fuel.create") && can("contacts.view")) list.push({ to: "fuel-receipts", icon: "truck", label: "Record a tanker load" });
   if (biz.type === "fuel_station" && biz.has("fuel") && can("catalog.edit") && can("settings.view")) list.push({ to: "fuel-pumps", icon: "tag", label: "Set today's prices" });
+  // A lodging business's day: reservations to take, guests to check in and out at the front desk, rooms to make up.
+  if (biz.type === "lodging" && biz.has("lodging") && can("lodging.create")) list.push({ to: "lodging-stays/new", icon: "calendar", label: "Take a reservation" });
+  if (biz.type === "lodging" && biz.has("lodging") && can("lodging.create")) list.push({ to: "lodging-desk", icon: "home", label: "Arrivals and departures" });
+  if (biz.type === "lodging" && biz.has("lodging") && can("lodging.edit")) list.push({ to: "lodging-rooms", icon: "check", label: "Rooms to make up" });
   if (biz.has("receivables") && can("receivables.create")) list.push({ to: goods ? "udhaar" : "collections?new=1", icon: "wallet", label: goods ? "Collect udhaar" : "Record a collection" });
   if (!goods && biz.type !== "salon" && can("sales.create")) list.push({ to: "sales?new=1", icon: "receipt", label: "New sale (invoice)" });
   if (biz.type !== "salon" && biz.type !== "healthcare" && can("appointments.create") && biz.has("appointments")) list.push({ to: "appointments?new=1", icon: "calendar", label: "Book an appointment" });

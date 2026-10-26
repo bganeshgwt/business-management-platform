@@ -203,6 +203,25 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   assert.ok(dsmLinks.some(l=>l.section==='fuel-shifts')&&dsmLinks.some(l=>l.section==='fuel-dips'),'the attendant finds the shifts and the dips');
   assert.ok(!dsmLinks.flatMap(l=>l.pages).some(p=>/\/(fuel-fleet|fuel-pumps|settings)$/.test(p.to)),'the attendant has no fleet money and no settings');
   for(const type of ['grocery','garage','rentals'])for(const section of ['fuel-shifts','fuel-dips','fuel-receipts','fuel-register','fuel-fleet','fuel-pumps'])assert.ok(!typeAllows(sectionRule(section,type),type),`${type}: no ${section}`);
+  // A lodging business's day: the Front desk (with the rooms, the reservations calendar and every stay) and the foreign guests (with the guest register); its room types and rates in Settings.
+  const ldaily=businessMenu(33,'lodging',()=>true,()=>true).find(g=>g.title==='Daily work').links;
+  assert.deepEqual(ldaily.slice(1,3).map(l=>[l.section,l.label]),[['lodging-desk','Front desk'],['lodging-form-iii','Foreign guests (Form-III)']]);
+  assert.deepEqual(ldaily.find(l=>l.section==='lodging-desk').pages.map(p=>p.label),['Front desk','Rooms & housekeeping','Reservations','Stays']);
+  assert.deepEqual(ldaily.find(l=>l.section==='lodging-form-iii').pages.map(p=>p.label),['Foreign guests (Form-III)','Guest register']);
+  assert.equal(workspaceFor('lodging-reservations','lodging'),'lodgingDesk');
+  assert.equal(workspaceFor('lodging-register','lodging'),'lodgingGuests');
+  assert.ok(menu('lodging').find(l=>l.label==='Settings').pages.some(p=>p.label==='Room types & rates'),'lodging: room types and rates in Settings');
+  assert.ok(!menu('lodging',m=>m!=='lodging').some(l=>l.pages.some(p=>/\/lodging-/.test(p.to))),'no lodging screens while the module is off');
+  // Housekeeping: the rooms board first; no front desk, no guests' IDs, no money.
+  const keeping=new Set(['lodging.view','lodging.edit']);
+  const keepingLinks=businessMenu(33,'lodging',p=>keeping.has(p),()=>true).flatMap(g=>g.links);
+  assert.equal(keepingLinks.find(l=>l.section==='lodging-rooms')?.label,'Rooms & housekeeping');
+  assert.ok(!keepingLinks.flatMap(l=>l.pages).some(p=>/\/(lodging-desk|lodging-form-iii|lodging-register|sales|day-close)$/.test(p.to)),'housekeeping: the rooms only');
+  // The front desk: the desk, the stays and Form-III, the register; no settings to change.
+  const desk=new Set(['lodging.view','lodging.create','lodging.edit','lodging.cancel','lodging.print','catalog.view','contacts.view','contacts.create','sales.view','sales.create','sales.edit']);
+  const deskPages=businessMenu(33,'lodging',p=>desk.has(p),()=>true).flatMap(g=>g.links).flatMap(l=>l.pages);
+  for(const section of ['lodging-desk','lodging-rooms','lodging-reservations','lodging-stays','lodging-form-iii','lodging-register'])assert.ok(deskPages.some(p=>p.to.endsWith(`/${section}`)),`the front desk finds ${section}`);
+  for(const type of ['grocery','rentals','fuel_station'])for(const section of ['lodging-desk','lodging-rooms','lodging-reservations','lodging-stays','lodging-form-iii','lodging-register','lodging-rates'])assert.ok(!typeAllows(sectionRule(section,type),type),`${type}: no ${section}`);
 });
 test('restricted roles get a permitted destination even when the first workspace page is unavailable',()=>{
   const permissions=new Set(['purchasing.view','contacts.view','inventory.view','catalog.view']);

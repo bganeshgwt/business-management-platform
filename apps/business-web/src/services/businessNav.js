@@ -2,7 +2,7 @@
 // has switched on and what this person's role allows. The server checks the
 // same two things on every request; the menu only hides what would be refused.
 
-import { AGRI, CLINIC, FUEL, GARAGE, GOODS, HARDWARE, JEWELLERY, LAUNDRY, MEMBERSHIPS, OPTICAL, PHARMACY, RENTALS, RETAIL, SALON, WEIGHED } from './businessTypes.js';
+import { AGRI, CLINIC, FUEL, GARAGE, GOODS, HARDWARE, JEWELLERY, LAUNDRY, LODGING, MEMBERSHIPS, OPTICAL, PHARMACY, RENTALS, RETAIL, SALON, WEIGHED } from './businessTypes.js';
 import { dailyWorkspaces, WORKSPACES, workspaceLabel, workspaceSections } from './businessWorkspace.js';
 
 export { GOODS };
@@ -241,6 +241,21 @@ export function businessSections(type) {
       ],
     },
     {
+      // A lodging business's day (daily entries of their own): the front desk with
+      // the rooms and housekeeping, the reservations calendar and every stay; its
+      // foreign guests' Form-III reports and the guest register (guests' ID
+      // details: for those who check guests in, or print the register).
+      title: "Rooms & stays",
+      links: [
+        { section: "lodging-desk", label: "Front desk", icon: "reservations", need: "lodging.create", types: LODGING },
+        { section: "lodging-rooms", label: "Rooms & housekeeping", icon: "floors", need: "lodging.view", types: LODGING },
+        { section: "lodging-reservations", label: "Reservations", icon: "calendar", need: "lodging.view", types: LODGING },
+        { section: "lodging-stays", label: "Stays", icon: "hours", need: "lodging.view", types: LODGING },
+        { section: "lodging-form-iii", label: "Foreign guests (Form-III)", icon: "profile", need: "lodging.create", types: LODGING },
+        { section: "lodging-register", label: "Guest register", icon: "logbook", need: "lodging.print", types: LODGING },
+      ],
+    },
+    {
       title: "Purchases",
       links: [
         { section: "purchases", label: "Purchases", icon: "purchaseOrders", need: "purchasing.view" },
@@ -341,6 +356,8 @@ export function businessSections(type) {
         { section: "scheme-plans", label: "Gold scheme plans", icon: "recurring", need: "sales.view", module: "jewellery", types: JEWELLERY },
         // A fuel station's fuels and prices, tanks, dispensing units and nozzles, stamped measures and tolerances.
         { section: "fuel-pumps", label: "Pumps & nozzles", icon: "serviceSettings", need: "settings.view", module: "fuel", types: FUEL },
+        // A lodging business's room types with their rates and rooms, the GST slabs of a room night, the weekend nights.
+        { section: "lodging-rates", label: "Room types & rates", icon: "serviceSettings", need: "lodging.view", types: LODGING },
       ],
     },
     {

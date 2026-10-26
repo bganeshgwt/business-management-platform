@@ -18,7 +18,7 @@ export const WORKSPACES = {
   patients: ['patients', 'customers'],
   laboratory: ['lab-orders', 'lab-tests', 'lab-qc'],
   reports: ['reports', 'retail-reports', 'wholesale-reports', 'variant-reports', 'weight-reports', 'salon-reports', 'commissions', 'fitter-reports', 'cash-report', 'activity'],
-  settings: ['settings', 'tax-rates', 'payment-methods', 'number-series', 'locations', 'units', 'resources', 'health-settings', 'licences', 'agri-settings', 'garage-settings', 'member-plans', 'jewellery-settings', 'scheme-plans', 'fuel-pumps'],
+  settings: ['settings', 'tax-rates', 'payment-methods', 'number-series', 'locations', 'units', 'resources', 'health-settings', 'licences', 'agri-settings', 'garage-settings', 'member-plans', 'jewellery-settings', 'scheme-plans', 'fuel-pumps', 'lodging-rates'],
   // A seeds, fertilisers & pesticides shop's own area.
   farm: ['farmers', 'agri-subsidy', 'agri-registers', 'molecules'],
   // An optical shop's spectacle orders, in its daily menu.
@@ -42,6 +42,9 @@ export const WORKSPACES = {
   // A fuel station's shifts, and its tanks with the morning dips, the tanker loads and the stock register.
   fuelShifts: ['fuel-shifts'],
   fuelTanks: ['fuel-dips', 'fuel-receipts', 'fuel-register'],
+  // A lodging business's front desk (with the rooms, the reservations calendar and every stay), and its foreign guests with the guest register.
+  lodgingDesk: ['lodging-desk', 'lodging-rooms', 'lodging-reservations', 'lodging-stays'],
+  lodgingGuests: ['lodging-form-iii', 'lodging-register'],
   staff: ['staff', 'roles'],
   money: ['day-close', 'expenses', 'emi-finance'],
   repairs: ['repairs', 'appointments'],
@@ -116,6 +119,7 @@ export function dailyWorkspaces(type) {
     type === 'jewellery' ? 'goldRates' : null, type === 'jewellery' ? 'oldGold' : null, type === 'jewellery' ? 'goldSchemes' : null,
     type === 'rentals' ? 'rentalBookings' : null,
     type === 'fuel_station' ? 'fuelShifts' : null, type === 'fuel_station' ? 'fuelTanks' : null,
+    type === 'lodging' ? 'lodgingDesk' : null, type === 'lodging' ? 'lodgingGuests' : null,
     type === 'healthcare' ? 'care' : null,
     ['wholesale', 'hardware'].includes(type) ? 'orders' : null,
     ['salon', 'optical', 'garage', 'memberships'].includes(type) ? 'appointments' : null,

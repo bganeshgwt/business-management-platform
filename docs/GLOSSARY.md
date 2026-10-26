@@ -27,7 +27,7 @@ Inside Business Admin a restaurant is simply the restaurant business's own admin
 | **Location / outlet** | A shop, counter or warehouse of a business, with its own stock and document numbers. Restaurants call theirs *outlets*; other businesses call them *locations*. A person can be tied to one location and then works there only. | `business_locations`, `business_memberships.location_id`; restaurant: `outlets` |
 | **Module / business tool** | A part of the product a business can use: Sales, Stock, Stock transfers, Appointments… *Core* modules (Business settings, Staff & access, Reports, Activity log) are always on. The others are the business's *business tools*, switched on in Settings › Business tools. A restaurant calls its modules *features* (Settings › Features). | `platform_modules` |
 | **Capability** | A module switched on for one business: what the business may use. Later decided by its plan. | `business_capabilities` |
-| **Role** | A named set of permissions inside one business. Every business starts with Owner, Manager, Cashier / sales, Stock keeper, Accountant and Viewer; a pharmacy adds Pharmacist, a clinic adds Doctor, Lab technician and Pathologist, an optical shop adds Optometrist, a garage adds Mechanic, a gym, studio or coaching centre adds Trainer, a jeweller adds Karigar / goldsmith, and a fuel station adds Pump attendant (DSM). An owner can add roles of the business's own, and each business has its own copies. A restaurant has its own built-in roles, such as Restaurant Admin, Captain / Waiter and Kitchen staff. | `business_roles`; restaurant: `roles` |
+| **Role** | A named set of permissions inside one business. Every business starts with Owner, Manager, Cashier / sales, Stock keeper, Accountant and Viewer; a pharmacy adds Pharmacist, a clinic adds Doctor, Lab technician and Pathologist, an optical shop adds Optometrist, a garage adds Mechanic, a gym, studio or coaching centre adds Trainer, a jeweller adds Karigar / goldsmith, a fuel station adds Pump attendant (DSM), and a hotel, lodge or guest house adds Front desk and Housekeeping. An owner can add roles of the business's own, and each business has its own copies. A restaurant has its own built-in roles, such as Restaurant Admin, Captain / Waiter and Kitchen staff. | `business_roles`; restaurant: `roles` |
 | **Permission** | One action on one module, written `module.action` (for example `sales.refund`): what a person may do. The actions are view, create, edit, approve, cancel, refund, export and print, and for some modules discount, assign, review, manage, or see and write clinical records. | `business_permissions`, `business_role_permissions`; restaurant: `permissions` |
 | **Membership** | A person's access to one business, with their role there. One login can have many memberships. Inside a business the header shows the person's role there. | `business_memberships` |
 | **Business code** | A business's short code, fixed when the business is created. Staff who sign in with a staff code type their restaurant's code too, and so does someone whose mobile number signs in to more than one restaurant. A restaurant's code is its business code. | `restaurants.code`, `businesses.code` |
@@ -404,6 +404,45 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Tolerance** | The variation allowed: 4% of the dip either way, and on a loss also the evaporation and handling allowance (petrol 0.75%, diesel 0.25% of what was sold; 0.60% and 0.20% beyond 600 KL a year). |
 | **Density register** | Each tank's month of densities: the morning's, and each load's by invoice, at receipt and after decanting. |
 | **PESO licence (Form XIV)** | The Petroleum and Explosives Safety Organisation's licence to store petroleum at a retail outlet, kept with the business's licences. |
+
+### Hotels, lodges & guest houses
+
+| Word | Meaning |
+|---|---|
+| **Property** | A hotel, lodge or guest house; each of its properties is a location of the business. |
+| **Room type** | A kind of room (Deluxe, Suite, Standard non-AC) with its occupancy, extra beds and rates; its nights are billed as a service item counted in nights. |
+| **Room night** | One room for one night: what a stay is charged by, and what its GST slab is decided on. A night belongs to the date it starts on. |
+| **Rack rate** | A room type's published rate a night, before GST. |
+| **Weekend rate** | A room type's rate on the weekend nights (Friday and Saturday unless changed). |
+| **Agreed rate** | One rate a night agreed for a stay (an OTA's price, a company's rate), in place of the rack and weekend rates. |
+| **Base occupancy, extra adult** | The adults a room type's rate is for; each adult beyond them pays the extra-adult rate. |
+| **Extra bed** | A bed added to a room for a stay, at the room type's extra-bed rate a night. |
+| **Reservation** | A stay booked ahead, with its nights, room type and (now or at check-in) its room. |
+| **Stay** | A reservation and what it becomes: reserved, in the house, checked out, or cancelled or a no-show (ST/2627/0001). Not a GST document: its bill is. |
+| **Walk-in** | A guest who comes to the desk without a booking; with the phone and OTAs, where a booking came from. |
+| **OTA** | An online travel agent or site (MakeMyTrip, Booking.com…); its bookings are typed in with its booking id. |
+| **Channel manager** | Software that keeps a property's rooms and rates in step on the OTAs and pulls their bookings; the platform has none. |
+| **Arrival, departure** | The date of a stay's first night, and the morning the guest leaves (the night before it is the last). |
+| **In the house** | A stay checked in and not yet checked out; its guest is *in house*. |
+| **Occupant** | Each person staying in a room, adult or child, recorded at check-in with their photo ID. |
+| **Registration card** | The card a guest signs at check-in: the stay, the rate, every occupant with their ID, and the property's terms. |
+| **Guest register** | Every occupant of the rooms between two dates with their ID details, printed for the local police. |
+| **Form-III** | The report of a foreign guest (OCI cardholders too) on the FRRO portal within 24 hours of arrival and again of departure, under the Immigration and Foreigners Act 2025; it replaced Form C. |
+| **FRRO portal, acknowledgement** | The portal where Form-III is filed (indianfrro.gov.in, or its app), and the number it gives a report, marked on the guest here. |
+| **OCI cardholder** | An Overseas Citizen of India: reported on Form-III like any foreign guest, with the OCI card in place of a visa. |
+| **Folio** | A stay's account while the guest is in the house: its room nights and extras, billed at check-out. |
+| **Extra (folio charge)** | A service charged to a stay (laundry, food, a pickup) at its item's GST slab. |
+| **Night audit** | The day's closing step at the desk: every night of the guests in the house up to tonight posted to their folios, each at its rate and slab. |
+| **Advance** | Money taken on account for a stay, held for its bill. |
+| **Deposit (security deposit)** | Refundable money held for a stay: it pays the bill only if needed, and the rest goes back. |
+| **Bill to (company billing)** | A stay billed to a company instead of its guest, with the company's GSTIN on the invoice. |
+| **No-show** | A reservation whose guest did not come on the arrival day, marked so with an optional charge. |
+| **Vacant clean, vacant dirty** | A room ready for a guest, and one left by a guest and not yet made up. |
+| **Occupied** | A room a guest is checked in to. |
+| **Out of order** | A room not given to guests (under repair, say), with the reason. |
+| **Make up (a room)** | Clean and prepare a room for the next guest; housekeeping then marks it clean. |
+| **Room move** | A guest in the house moved to another room, which must be vacant and clean; the room left is marked dirty. |
+| **Overstay** | A guest still in the house after the departure day: the stay is extended before the check-out. |
 
 ### Clinic and lab
 
