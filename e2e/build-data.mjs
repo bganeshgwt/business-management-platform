@@ -151,6 +151,12 @@ export async function buildTestData({ api, logins, sql }) {
   }
   const modifier = await owner("POST", "/menu/modifiers", RESTAURANT.modifier, 201);
   const expenseCategory = await owner("POST", "/expenses/categories", { name: RESTAURANT.expenseCategory }, 201);
+  // The banquet's dish, and the caterer it is for in the guest book.
+  const banquetDish = await owner("POST", "/menu/products", {
+    categoryId: categories.find((category) => category.name === RESTAURANT.banquet.dish.category).id,
+    name: RESTAURANT.banquet.dish.name, price: RESTAURANT.banquet.dish.price, foodType: RESTAURANT.banquet.dish.foodType, isAvailable: true,
+  }, 201);
+  const banquetGuest = await owner("POST", "/crm/customers", RESTAURANT.banquet.guest, 201);
 
   const unit = await owner("POST", "/inventory/units", RESTAURANT.stockUnit, 201);
   const stockItems = [];
@@ -775,6 +781,7 @@ export async function buildTestData({ api, logins, sql }) {
       paidBill: { id: bill.id, number: bill.billNumber, orderId: takeaway.id, total: bill.totalAmount },
       runningOrder: { id: running.id, number: running.orderNumber, tableId: busyTable.id, tableNo: busyTable.tableNo },
       leftOpenOrder: { id: leftOpen.id, number: leftOpen.orderNumber, tableId: leftOpenTable.id, tableNo: leftOpenTable.tableNo },
+      banquet: { dishId: banquetDish.id, guestId: banquetGuest.id, guestName: banquetGuest.name },
     },
     platform: { restaurants: PLATFORM.restaurants },
     businesses,

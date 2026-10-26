@@ -54,6 +54,8 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Bill** | What the guest is charged. Raised from an order, it closes the order to changes. |
 | **Payment type** | A name the owner gives a way of paying, such as a meal card, PhonePe or a cheque, under one of the till's methods (Cash, Card, UPI or Other). The till offers it under its method, and the reports total it apart. Other businesses call theirs *payment methods*. |
 | **Void** | The bill should never have existed. Possible only while no money is held on it and it is not settled. |
+| **Cash limit** | Cash of ₹2,00,000 or more is never taken for one bill, or from one guest on one day of the restaurant's calendar (Income-tax Act 2025, section 186). The bill window says how much more cash the bill, and its guest today, can take. |
+| **Buyer's PAN** | The PAN a bill over ₹2,00,000 records before it takes a payment, or the buyer's declaration that they have none (Form 97). It prints on the bill. |
 | **Refund** | Money was taken and is going back. Recorded against the bill and visible in reports. |
 | **Gross sales** | Menu value of what was sold, before tax. |
 | **Net sales** | What the guest actually paid: after discount, including tax. |

@@ -7,6 +7,7 @@ const AppError = require("../../../../../utils/AppError");
 const { round2, toPaise, fromPaise, splitGst } = require("../../../../../utils/money");
 const { maskMobile, formatMobile } = require("../../../../../utils/phone");
 const { gstinState } = require("../../../../../utils/gstin");
+const { cashLimitOf, panInGstin, panNeeded } = require("../cashAndPan");
 
 // Restaurant service is SAC 996331; it heads every tax invoice.
 const RESTAURANT_SAC = "996331";
@@ -378,6 +379,17 @@ const toBill = (row, { reveal = false } = {}) => {
           state: gstinState(row.buyer_gstin) ? `${String(row.buyer_gstin).slice(0, 2)}-${gstinState(row.buyer_gstin)}` : null,
         }
       : null,
+    // A bill over ₹2,00,000 takes no payment until the buyer's PAN, or their
+    // declaration that they have none (Form 97), is on it. With none typed,
+    // the PAN inside the buyer's GSTIN on the bill is written on it with the
+    // first payment (panInGstin; the full read only).
+    buyerPan: row.buyer_pan || null,
+    panDeclaration: Boolean(row.pan_declaration),
+    panNeeded: panNeeded(row.total_amount),
+    panInGstin: row.buyer_pan ? null : panInGstin(row.buyer_gstin),
+    // The cash limit: the cash taken for this bill and from its guest today,
+    // and how much more of each can be taken (the full read only).
+    cashLimit: row.cash_on_bill === undefined ? undefined : cashLimitOf(row),
     // The guest's or company's account the bill was put on (dues).
     accountCustomerId: row.account_customer_id || null,
     accountName: row.account_customer_id ? row.account_company || row.account_name || null : null,
@@ -420,6 +432,7 @@ const withoutPayments = (bill) => ({
   corrections: [],
   refunds: [],
   tipTotal: null,
+  cashLimit: bill.cashLimit === undefined ? undefined : null,
   creditNotes: bill.creditNotes.map((note) => ({ ...note, refundMethod: null })),
   accountCustomerId: null,
   accountName: null,

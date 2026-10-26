@@ -73,6 +73,17 @@ export const RESTAURANT = {
   // table of its own: the dashboard flags it as left open, and a cashier
   // may bill or cancel it.
   leftOpen: { tableNo: "5", daysAgo: 2, items: [{ product: "Chicken 65", quantity: 1 }] },
+  // A banquet over ₹2,00,000 for a caterer from the guest book: its bill asks
+  // for the buyer's PAN, refuses cash of ₹2,00,000 or more, and takes the
+  // rest by UPI. The dish is on the menu and the caterer in the guest book;
+  // the spec places the order itself.
+  banquet: {
+    dish: { name: "Banquet thali", category: "Main course", price: 1500, foodType: "veg" },
+    thalis: 150,
+    guest: { name: "Lakshmi Caterers", mobile: "9845098450" },
+    pan: "AAACL1234K",
+    cash: 150000,
+  },
 };
 
 // The platform holds this many restaurants in all (E2E Bistro and the rest

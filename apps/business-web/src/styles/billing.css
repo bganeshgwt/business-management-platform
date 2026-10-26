@@ -302,6 +302,45 @@
   font-size: 15px;
 }
 
+/* The cash limit (₹2,00,000 for one bill or from one guest in a day): how
+   much more cash the bill and its guest can take, above the amount. */
+.bill-cash-limit {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  font-size: 13px;
+}
+
+.bill-cash-limit strong {
+  color: var(--warning-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The buyer's PAN on a bill over ₹2,00,000, or their Form 97 declaration. */
+.bill-pan {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.bill-pan legend {
+  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.bill-pan-on {
+  margin: 0;
+}
+
 .bill-history h3 {
   margin: 0 0 6px;
   font-size: 12px;

@@ -117,7 +117,8 @@ test("a password someone else set is changed at the next sign-in", { timeout: 60
   });
 
   await t.test("the Down half takes the rule away and Up brings it back", async () => {
-    await migrate({ direction: "down", count: 1 });
+    // This migration's Down half, after those of every newer one.
+    await migrate({ direction: "down", count: 1791971000000, timestamp: true });
     const left = await first(
       `SELECT (SELECT count(*)::int FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'password_must_change') AS columns,
               (SELECT count(*)::int FROM pg_trigger WHERE tgname = 'users_password_must_change') AS triggers,

@@ -3,6 +3,7 @@ const restaurantRepository = require("../../setup/repositories/restaurant.reposi
 const crmRepository = require("../../crm/repositories/crm.repository");
 const paymentTypeService = require("../../setup/services/paymentType.service");
 const tradingDay = require("../../business-day/services/tradingDay");
+const { ruleRefusal } = require("./cashAndPan");
 const AppError = require("../../../../utils/AppError");
 const { toPaise, fromPaise, splitGst } = require("../../../../utils/money");
 const { formatMobile, maskMobile } = require("../../../../utils/phone");
@@ -175,12 +176,20 @@ const create = async (restaurantId, data, userId, ctx = {}) => {
 
   const type = await paymentTypeService.forPayment(restaurantId, data.paymentMethod, data.paymentTypeId, data.transactionRef);
 
-  // The till taking it: the outlet in the top bar, or the main counter.
-  const result = await customerAdvanceRepository.create(
-    restaurantId,
-    { ...data, paymentTypeId: type ? type.id : null, outletId: ctx.outletId || null },
-    userId
-  );
+  // The till taking it: the outlet in the top bar, or the main counter. An
+  // advance in cash that would take the guest's cash today to ₹2,00,000 is
+  // refused by the database (cashAndPan.js), with a sentence that says so.
+  let result;
+
+  try {
+    result = await customerAdvanceRepository.create(
+      restaurantId,
+      { ...data, paymentTypeId: type ? type.id : null, outletId: ctx.outletId || null },
+      userId
+    );
+  } catch (error) {
+    throw ruleRefusal(error) || error;
+  }
 
   if (result.error === "NO_DAY") {
     throw new AppError(409, "Open the business day first. An advance goes into the day's drawer, and no day is open.");

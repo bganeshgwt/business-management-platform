@@ -235,6 +235,9 @@ export const receiptModel = (bill, { settings = {}, currency = "₹", restaurant
     billedAt: bill.billedAt,
     guest: bill.customerName ? { name: bill.customerName, mobile: bill.customerMobile || null } : null,
     buyer: bill.buyer || null,
+    // The buyer's PAN on a bill over ₹2,00,000, or their declaration that
+    // they have none (Form 97): printed with the buyer.
+    pan: bill.buyerPan ? { number: bill.buyerPan } : bill.panDeclaration ? { declaration: true } : null,
     duplicate: bill.copy === "duplicate" || num(bill.printCount) > 1,
     copyNumber: Math.max(0, num(bill.printCount) - 1),
     isVoid: bill.billStatus === "void",
@@ -332,7 +335,8 @@ export const buildReceipt = (bill, options = {}) => {
   ].join("");
 
   // A tax invoice to a registered buyer carries the buyer's name, GSTIN,
-  // address and state, and the place of supply (Rule 46).
+  // address and state, and the place of supply (Rule 46). A bill over
+  // ₹2,00,000 carries the buyer's PAN, or that they declared they have none.
   const meta = [
     detail("Bill No", model.billNumber),
     detail("Date", when(model.billedAt, timezone)),
@@ -343,6 +347,7 @@ export const buildReceipt = (bill, options = {}) => {
     model.buyer ? detail("Buyer GSTIN", model.buyer.gstin) : "",
     model.buyer && model.buyer.address ? detail("Buyer address", model.buyer.address) : "",
     model.buyer && model.buyer.state ? detail("Buyer state", model.buyer.state) : "",
+    model.pan ? detail("Buyer PAN", model.pan.number || "None: Form 97 declaration held") : "",
     model.placeOfSupply && seller.gstin ? detail("Place of supply", model.placeOfSupply) : "",
     model.sac ? detail("SAC", `${model.sac} (restaurant service)`) : "",
   ].join("");

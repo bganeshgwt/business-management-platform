@@ -21,6 +21,14 @@ const withApprovalNote = (req, message, details) => {
 
 // Express recognises an error handler by its four arguments, so `next` must stay.
 const errorHandler = (error, req, res, next) => {
+  // A rule the database keeps, refusing with a sentence for people (a
+  // trigger's 23514 that names no constraint, such as the cash limit): a 409
+  // with that sentence, whichever path wrote the row. A CHECK constraint's own
+  // refusal names the constraint and is no sentence for people.
+  if (error && error.code === "23514" && !error.constraint && error.message) {
+    error = new AppError(409, error.message);
+  }
+
   if (error instanceof AppError) {
     const { message, details } = withApprovalNote(req, error.message, error.details);
 

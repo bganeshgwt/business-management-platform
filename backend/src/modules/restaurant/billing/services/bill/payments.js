@@ -14,13 +14,18 @@ const { findInScope, getById } = require("./raise");
 // ------------------------------------------------------------------ money
 
 // data: { paymentMethod, amount, tenderedAmount, transactionRef, tipAmount,
-//         paymentTypeId, advanceId }
+//         paymentTypeId, advanceId, buyer }
 //
 // A tip is on top of the amount: it never counts toward the bill, its GST,
 // the sales, the discount base or the points. A cash tip is part of the cash
 // handed over, so the change is what is left after the bill and the tip.
 // Paying from an advance ("advance", naming the guest's advance) uses money
 // received earlier; it carries no tip and gives no change.
+//
+// buyer: { pan, declaration } typed on the payment screen, written on the
+// bill with the payment. The database refuses cash of ₹2,00,000 or more for
+// the bill or from its guest in a day, and a payment on a bill over
+// ₹2,00,000 without the buyer's PAN (cashAndPan.js): a 409 with its sentence.
 const addPayment = async (restaurantId, billId, data, userId, ctx = {}) => {
   requireRestaurantId(restaurantId);
 
@@ -71,6 +76,7 @@ const addPayment = async (restaurantId, billId, data, userId, ctx = {}) => {
     tipAmount: tip,
     paymentTypeId: type ? type.id : null,
     advanceId: advance ? data.advanceId : null,
+    buyer: data.buyer || null,
   };
 
   const result = await billRepository.addPayment(restaurantId, billId, outletOf(ctx), payment, userId);
@@ -138,7 +144,8 @@ const correctionError = (result) => (CORRECTION_ERRORS[result.error] || (() => n
 // data: { paymentId, method, paymentTypeId, reference, reason }. Everything
 // is checked before anyone is asked for a PIN: the payment is on this bill,
 // went through, is on a day still open, did not give change if it is to
-// leave cash, and the type (with its reference) suits the new method.
+// leave cash, the type (with its reference) suits the new method, and as cash
+// it keeps within the cash limit for the bill and its guest's day.
 // Returns what the manager's approval is tied to.
 const checkCorrection = async (restaurantId, bill, data) => {
   if (bill.bill_status === "void") {
@@ -158,6 +165,17 @@ const checkCorrection = async (restaurantId, bill, data) => {
   }
 
   await paymentTypeService.forPayment(restaurantId, data.method, data.paymentTypeId, data.reference);
+
+  // Cash of ₹2,00,000 or more for one bill, or from one guest in a day, is
+  // refused by the database: asked now, so no manager's approval is spent on
+  // a correction it would refuse.
+  if (data.method === "cash" && payment.payment_method !== "cash") {
+    const refusal = await billRepository.cashCorrectionRefusal(restaurantId, payment.id, data.method);
+
+    if (refusal) {
+      throw new AppError(409, refusal);
+    }
+  }
 
   return {
     payment,
@@ -229,9 +247,36 @@ const correctPayment = async (restaurantId, billId, data, who, ctx = {}) => {
   return { result, bill: await getById(restaurantId, billId, ctx) };
 };
 
+// --- The buyer's PAN -------------------------------------------------------------
+
+// The buyer's PAN, or their declaration that they have none (Form 97), on a
+// bill not yet settled: what a bill over ₹2,00,000 needs before it takes a
+// payment. buyer: { pan, declaration }, one of the two. Returns the bill, and
+// what the bill carried before.
+const setBuyerPan = async (restaurantId, billId, buyer, userId, ctx = {}) => {
+  requireRestaurantId(restaurantId);
+
+  const result = await billRepository.setBuyerPan(restaurantId, billId, outletOf(ctx), buyer, userId);
+
+  if (result.error === "NOT_FOUND") {
+    throw new AppError(404, "Bill not found");
+  }
+
+  if (result.error === "VOID") {
+    throw new AppError(409, "This bill has been voided");
+  }
+
+  if (result.error === "SETTLED") {
+    throw new AppError(409, "This bill is settled: it keeps the buyer's PAN it was paid with");
+  }
+
+  return { before: result.before, bill: await getById(restaurantId, billId, ctx) };
+};
+
 module.exports = {
   addPayment,
   checkCorrection,
   listCorrections,
   correctPayment,
+  setBuyerPan,
 };

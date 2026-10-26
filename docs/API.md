@@ -106,7 +106,7 @@ the two that the change needs use `authenticate.duringPasswordChange`.
 | 401 | No token, a bad or expired token, wrong credentials, a session signed out elsewhere. |
 | 403 | The role lacks the permission (`You do not have permission to perform this action`), the account or restaurant is inactive, the outlet (or a business's location) is not yours, a Business Admin module is switched off, a restaurant feature is switched off (below), a manager's approval is needed (below), or the person must first choose their own password (`password_change_required`, see [Authentication](#authentication)). |
 | 404 | Unknown route (`Route not found: METHOD /path`), or a record that does not exist **or belongs to another restaurant, outlet or business** — the API never says which. |
-| 409 | A rule refused the change (a closed day, a paid bill, a duplicate code, a posted count) or `{ reason: "conflict_retry" }` when two tills changed the same rows at the same instant and PostgreSQL rolled one back: nothing was saved, try again. |
+| 409 | A rule refused the change (a closed day, a paid bill, a duplicate code, a posted count, the cash limit), or `{ reason: "conflict_retry" }` when two tills changed the same rows at the same instant and PostgreSQL rolled one back: nothing was saved, try again. A rule a database trigger keeps (SQL state 23514 naming no constraint, such as a restaurant's cash limit or a missing buyer's PAN) answers 409 with the trigger's own sentence on every route. |
 | 423 | An account, device or PIN is locked after too many wrong tries (`account_locked`, `device_locked`, `pin_locked`, with `lockedUntil`). |
 | 429 | Too many failed sign-ins / PIN tries from one address in 15 minutes (`LOGIN_ATTEMPT_LIMIT`, default 30; the PIN limiter allows at least 30), or a public guest page called too often. |
 | 500 | `Internal server error` — logged on the server. |
@@ -1671,7 +1671,7 @@ Errors: 404 pre-order not found, or (for staff tied to an outlet) another outlet
 #### `POST /api/preorders`
 Permission: `orders.create` (an advance also needs `payments.manage`)
 Body: `customerId`, or `customerMobile` (20) with `customerName` (150), which finds the guest or adds them to the guest book; `dueAt` (required, date and time, later today or a later day); `fulfilment` (`pickup` default, `delivery`); `deliveryAddress` (300; required for delivery); `notes` (500); `items[]` (required, 1-30; each `{ productId, productVariantId?, quantity (0.01-9999; kg for a dish sold by weight), notes? (300, the message on the cake) }`); `advance` (optional: `{ amount (1-10,000,000), paymentMethod (cash, card, upi, online, wallet, other), paymentTypeId?, transactionRef? (100) }`). Items are priced from the menu (a size adds its difference). The outlet is the request's.
-Returns: 201, `data` = the pre-order. The advance's payment type is checked before anything is saved. If the till then refuses the advance (no business day open, for instance), the pre-order is booked all the same: `data.advanceRefused` is the reason, the message says the advance was not taken, and it is taken later with `POST /api/preorders/:id/advance`.
+Returns: 201, `data` = the pre-order. The advance's payment type is checked before anything is saved. If the till then refuses the advance (no business day open, or cash that would take the guest to ₹2,00,000 that day), the pre-order is booked all the same: `data.advanceRefused` is the reason, the message says the advance was not taken, and it is taken later with `POST /api/preorders/:id/advance`.
 Errors: 400 no due time, or a time already past; 400 not 1-30 items; 400 no guest and no mobile; 400 the advance is more than the order; 400 the advance's payment type is not found, is for another method, is switched off or needs its reference (nothing is saved); 403 an advance without `payments.manage`; 403 `feature_off` (`feature: "advances"`) an advance while Advances & deposits is switched off (nothing is saved: no pre-order, no new guest, no number used; without an advance, or with an amount of 0, the pre-order is booked); 404 guest not found; 404 a dish or size not on the menu. The till's other refusals of the advance come back in `advanceRefused`, not as an error.
 
 #### `POST /api/preorders/:id/advance`
@@ -1926,7 +1926,7 @@ Errors: 404 rider not found.
 Permission: `orders.manage` and `payments.manage`
 Body: `bills[]` (required, 1-200, each `{ billId, method (cash, upi), upiRef? (60) }`, each bill once), `cashHanded` (required, 0-10000000), `shortfallReason` (200; required when the cash is short).
 Returns: 201, `data` = `{ id, outletId, businessDate, riderId, riderName, billCount, cashExpected, cashHanded, upiAmount, shortfall, shortfallAction (none, owed), shortfallReason, settledAt, settledByName, bills[] }`. Every bill is paid in one transaction, into the cashier's drawer for the open day. A shortfall is recorded as owed by the rider.
-Errors: 400 the cash counted is more than the cash bills come to; 400 the cash is short and no reason was given; 409 a bill is not waiting for this rider (paid at another till meanwhile), or the bills were settled at another till; 409 no business day is open; 404 rider not found.
+Errors: 400 the cash counted is more than the cash bills come to; 400 the cash is short and no reason was given; 409 a bill is not waiting for this rider (paid at another till meanwhile), or the bills were settled at another till; 409 no business day is open; 409 cash that would reach the cash limit for a bill or for the named guest's day, or a bill over ₹2,00,000 with no buyer's PAN (nothing is settled); 404 rider not found.
 
 #### `POST /api/deliveries/riders/:riderId/settle-write-off`
 Permission: `orders.manage` and `payments.manage`, and `deliveries.write_off_shortfall` or manager approval (the scope is `{ amount }`, the shortfall worked out from the bills before any PIN is asked for)
@@ -3560,6 +3560,14 @@ Several money steps use the shared manager-approval flow (`X-Approval-Token`, se
 
 **Payment methods.** `cash`, `card`, `upi`, `online`, `wallet`, `other`. Bills also accept `advance` (paid from a guest's advance). A named payment type (`paymentTypeId`) must belong to the same method and be active. If the type needs a reference, `transactionRef` is required. Otherwise 400 "That payment type was not found…", "<type> is a Card type, not UPI", "<type> is switched off…" or "Write the <type> reference…".
 
+**The cash limit and the buyer's PAN** (Income-tax Act 2025, section 186, and the rules on quoting PAN; migration 1791972000000). The database refuses, whichever route writes the row:
+
+- cash of ₹2,00,000 or more for one bill: its cash payments with their tips, and what it took from an advance paid in cash. 409 "Cash of ₹2,00,000 or more cannot be taken for one bill (Income-tax Act 2025, section 186): <bill> would reach ₹N. Take the rest by UPI, card, bank transfer or cheque.";
+- cash of ₹2,00,000 or more from one guest on one day of the restaurant's calendar: cash on the bills that name them (the guest or company whose account a bill is on, else the order's guest), with the tips, and their advances in cash. A payment from an advance is not counted again, and a walk-in bill (no guest) is limited per bill only. 409 "Cash of ₹2,00,000 or more cannot be taken from one guest in a day (Income-tax Act 2025, section 186): today's cash from <guest> would reach ₹N. Take the rest by UPI, card, bank transfer or cheque.";
+- any payment on a bill over ₹2,00,000 without `buyerPan` or `panDeclaration` on it. 409 "A bill over ₹2,00,000 needs the buyer's PAN before it takes a payment: <bill> has none…". The PAN inside the bill's buyer GSTIN is written on the bill with its first payment instead.
+
+The paths are a payment, a correction to cash, a collection on an account, a rider's settlement, an advance (a pre-order's included) and a payment from an advance. Nothing of the refused request is kept.
+
 ---
 
 ### Bills
@@ -3576,14 +3584,16 @@ Errors: 400 end date before start date; 400 bad page size; 400 `businessDays` no
 #### `GET /api/bills/:id`
 Permission: `orders.view`
 Query/Body: none
-Returns: `data` = the bill: `{ id, billNumber, orderId, orderType, brandName, outletId, businessDayId, businessDate, customerId, subtotal, couponDiscount, manualDiscount, itemDiscountAmount, discountReason, taxAmount, serviceCharge, serviceChargeWaived, deliveryCharge, roundOff, totalAmount, paidAmount, refundedAmount, creditedAmount, heldAmount, dueAmount, billStatus, isComplimentary, loyaltyPointsUsed, printCount, isSplit, items[], payments[], tipTotal, corrections[], refunds[], creditNotes[], accountCustomerId, accountName, invoice, pointsEarned, pointsTakenBack, pointsBalance }` and more (`bill.service.js` `toBill`). Mobiles are masked without `customers.contact`.
+Returns: `data` = the bill: `{ id, billNumber, orderId, orderType, brandName, outletId, businessDayId, businessDate, customerId, subtotal, couponDiscount, manualDiscount, itemDiscountAmount, discountReason, taxAmount, serviceCharge, serviceChargeWaived, deliveryCharge, roundOff, totalAmount, paidAmount, refundedAmount, creditedAmount, heldAmount, dueAmount, billStatus, isComplimentary, loyaltyPointsUsed, printCount, isSplit, items[], payments[], tipTotal, corrections[], refunds[], creditNotes[], accountCustomerId, accountName, invoice, pointsEarned, pointsTakenBack, pointsBalance, buyerPan, panDeclaration, panNeeded, panInGstin, cashLimit }` and more (`bill.service.js` `toBill`). Mobiles are masked without `customers.contact`.
+The buyer's PAN: `buyerPan` (the PAN on the bill, or null), `panDeclaration` (the buyer's Form 97 declaration that they have none), `panNeeded` (the bill is over ₹2,00,000, so a payment needs one of the two), `panInGstin` (with no PAN on the bill, the PAN inside the buyer's GSTIN, which the first payment writes on it). The list (`GET /api/bills`) carries these too, without `panInGstin`.
+The cash limit (this read only): `cashLimit` = `{ limit: 200000, bill: { taken, left }, guest: { customerId, name, taken, left } | null, left }`: the cash taken for the bill (cash payments with their tips, and payments from advances paid in cash), the cash taken today on the restaurant's clock from the guest it names (null for a walk-in), what more each can take in cash (₹1,99,999.99 less what was taken, at least 0), and `left`, the smaller. Someone who sees bills as the guest does (`orders.view` without `sales.view` or `payments.manage`) gets `cashLimit: null`.
 Errors: 404 not found or another outlet's bill.
 
 #### `POST /api/bills`
 Permission: `billing.manage`
-Query/Body: `orderId` (required). `items` (optional `[{ orderItemId, quantity }]`): when left out, everything still unbilled is billed. A subset splits the order across bills (`isSplit`). Also `discountCode` (≤30), `loyaltyPoints` (1 to 1,000,000), `serviceCharge` (`{ waive: true, reason }` needs the reason).
-Returns: status 201, `data` = the new bill. A delivery charge goes on the order's first bill only. The bill takes the outlet's GSTIN when the outlet has one.
-Errors: 404 order not found or another outlet's; 409 order not open; 400 no items, "Only N of X is left to bill", nothing left to bill; 400 coupon refused (not found, inactive, dates, usage limit, minimum order, order type, weekdays or hours, once per guest, chosen dishes only); 400 points refused (switched off, no guest, too few, under the minimum, over the per-bill limit `reason: "points_limit"`); 400 no service charge to take off; 409 part of the order billed a moment ago.
+Query/Body: `orderId` (required). `items` (optional `[{ orderItemId, quantity }]`): when left out, everything still unbilled is billed. A subset splits the order across bills (`isSplit`); each bill is checked on its own total for the buyer's PAN and on its own cash for the cash limit. Also `discountCode` (≤30), `loyaltyPoints` (1 to 1,000,000), `serviceCharge` (`{ waive: true, reason }` needs the reason), `buyer` (`{ pan }`, any case, or `{ panDeclaration: true }`: the buyer's PAN, or their Form 97 declaration, given before the bill is raised; it is recorded on the bill and in the activity log as `buyer_pan`).
+Returns: status 201, `data` = the new bill. A delivery charge goes on the order's first bill only. The bill takes the outlet's GSTIN when the outlet has one. A bill over ₹2,00,000 is raised without a PAN too; it takes no payment until one is on it.
+Errors: 404 order not found or another outlet's; 409 order not open; 400 no items, "Only N of X is left to bill", nothing left to bill; 400 "Buyer PAN must look like ABCDE1234F: five letters, four digits and a letter", or both a PAN and the declaration; 400 coupon refused (not found, inactive, dates, usage limit, minimum order, order type, weekdays or hours, once per guest, chosen dishes only); 400 points refused (switched off, no guest, too few, under the minimum, over the per-bill limit `reason: "points_limit"`); 400 no service charge to take off; 409 part of the order billed a moment ago.
 
 #### `GET /api/bills/billable/:orderId`
 Permission: `billing.manage`
@@ -3605,15 +3615,21 @@ Errors: 400 nothing to change or bad input; 404 bill not in scope.
 
 #### `POST /api/bills/:id/payments`
 Permission: `payments.manage`
-Query/Body: `paymentMethod` (required, the six methods or `advance`), `amount` (required, 0.01 and up), `tenderedAmount` (cash given), `transactionRef` (≤100), `tipAmount` (0 to 999,999, on top of the amount), `paymentTypeId`, `advanceId` (required for `advance`).
+Query/Body: `paymentMethod` (required, the six methods or `advance`), `amount` (required, 0.01 and up), `tenderedAmount` (cash given), `transactionRef` (≤100), `tipAmount` (0 to 999,999, on top of the amount), `paymentTypeId`, `advanceId` (required for `advance`), `buyer` (`{ pan }` or `{ panDeclaration: true }`: typed on the payment screen, written on the bill with the payment, and logged as `buyer_pan` when it changes what the bill carried).
 Returns: status 201, `data` = the bill with the new payment. Change = tendered − amount − tip, given only in cash. A tip never counts toward sales, GST, discount base or points. Points are earned when the bill is paid in full.
-Errors: 409 voided; 409 "This bill is already paid in full"; 409 no business day open; 400 "Only N is still due…" (extra money is a tip); 400 cash given less than payment plus tip; 400 no advance picked or a tip on an advance payment; 404 advance not found; 400 advance has only N left; 400 payment-type errors.
+Errors: 409 voided; 409 "This bill is already paid in full"; 409 no business day open; 400 "Only N is still due…" (extra money is a tip); 400 cash given less than payment plus tip; 400 no advance picked or a tip on an advance payment; 404 advance not found; 400 advance has only N left; 400 payment-type errors; 400 the buyer's PAN not like ABCDE1234F, or both a PAN and the declaration; 409 the cash limit for the bill or for its guest's day, or a bill over ₹2,00,000 with no buyer's PAN (see [the cash limit and the buyer's PAN](#approvals-and-money-rules-in-this-section)); nothing of the refused payment, or of the PAN sent with it, is kept.
+
+#### `PUT /api/bills/:id/pan`
+Permission: `billing.manage` or `payments.manage`
+Query/Body: `pan` (any case, like ABCDE1234F), or `panDeclaration: true` (the buyer has no PAN and signed Form 97); one of the two.
+Returns: `data` = the bill with `buyerPan` and `panDeclaration`. Message: "<bill> records the buyer's PAN …" or "…their declaration that they have no PAN (Form 97)". For a bill over ₹2,00,000 before it is paid, as on the payment screen, or before it is collected on an account. It replaces what the bill carried while the bill is not settled; the activity log keeps the change (`buyer_pan`, `{ changes: { pan: [before, after] } }`). The same again changes nothing.
+Errors: 400 neither given ("Type the buyer's PAN, or record their declaration…"), a PAN not like ABCDE1234F, or both; 403 neither permission; 404 not found or another outlet's bill; 409 voided; 409 settled ("…it keeps the buyer's PAN it was paid with").
 
 #### `PATCH /api/bills/:id/payments/:paymentId`
 Permission: `payments.manage` and (`bills.payment_correct` or manager approval)
 Query/Body: `paymentMethod` (required, the six methods; not `advance`), `paymentTypeId`, `transactionRef`, `reason` (required, ≤200)
 Returns: `data` = the bill. Message: "The N payment is now recorded as UPI". Only the method, type and reference change. The amount stays the same. Each correction is kept in `payment_corrections`.
-Errors: 404 payment not on this bill; 409 voided; 409 payment did not go through; 409 the payment's business day is closed (refund and take it again instead); 400 advance payments cannot change method; 400 change was given in cash, so it must stay cash; 400 nothing would change; 400 payment-type errors; 403 approval scope mismatch.
+Errors: 404 payment not on this bill; 409 voided; 409 payment did not go through; 409 the payment's business day is closed (refund and take it again instead); 400 advance payments cannot change method; 400 change was given in cash, so it must stay cash; 400 nothing would change; 400 payment-type errors; 409 as cash it would reach the cash limit for the bill or for its guest's day (the database's own answer, asked before any approval, so none is spent); 403 approval scope mismatch.
 
 #### `PATCH /api/bills/:id/account`
 Permission: `billing.manage` and (`customers.credit` or manager approval)
@@ -3636,7 +3652,7 @@ Errors: 400 no reason; 409 already void; 409 still holds money paid (refund firs
 #### `POST /api/bills/:id/print`
 Permission: `orders.view`. The first print is free. Any later print needs `bills.reprint` or manager approval `{ billId }`
 Query/Body: none
-Returns: `data` = the bill plus `copy` (`original` | `duplicate`) and `printCount`. Message: "Print recorded" or "Duplicate copy N recorded". Every print is counted, and reprints are written to the activity log. If another till printed the first copy a moment earlier, the request is treated as a reprint.
+Returns: `data` = the bill plus `copy` (`original` | `duplicate`) and `printCount`. Message: "Print recorded" or "Duplicate copy N recorded". Every print is counted, and reprints are written to the activity log. If another till printed the first copy a moment earlier, the request is treated as a reprint. The paper prints `buyerPan` (*Buyer PAN*), or that the buyer's Form 97 declaration is held.
 Errors: 403 `approval_required` for a reprint; 404 not found.
 
 #### `GET /api/bills/day-summary`
@@ -3693,8 +3709,8 @@ Errors: 404 guest not found; 400 guest not active; 400 days not a whole number.
 #### `POST /api/bills/accounts/:customerId/collect`
 Permission: `payments.manage`
 Query/Body: `amount` (required), `paymentMethod` (required, the six methods), `transactionRef`, `billIds` (optional; otherwise oldest bills first)
-Returns: status 201, `data` = `{ customerName, method, businessDayId, till, allocations[{ billId, billNumber, amount }] }`. The money goes into the open day of the till taking it.
-Errors: 404 guest not found; 400 owes nothing (on those bills); 400 "owes ₹N. Collect that much at most"; 409 `{ reason: "no_day", outletId }` when the till's day is not open.
+Returns: status 201, `data` = `{ customerName, method, businessDayId, till, allocations[{ billId, billNumber, amount }] }`. The money goes into the open day of the till taking it. Cash collected is the account holder's: it counts toward their cash today and toward each bill it pays.
+Errors: 404 guest not found; 400 owes nothing (on those bills); 400 "owes ₹N. Collect that much at most"; 409 `{ reason: "no_day", outletId }` when the till's day is not open; 409 the cash limit for a bill or for the account holder's day, or a bill over ₹2,00,000 with no buyer's PAN (record it with `PUT /api/bills/:id/pan` first): nothing of the collection is kept.
 
 ---
 
@@ -3733,7 +3749,7 @@ Errors: 404 not found or another outlet's.
 Permission: `payments.manage`
 Query/Body: `customerId` (required), `amount` (required, 1 to 9,999,999), `paymentMethod` (required, the six methods), `paymentTypeId`, `transactionRef`, `purpose` (≤200), and one of `reservationId` or `orderId`. `orderId` names an open takeaway of this restaurant that has no bill yet; the advance's guest must be the order's, and an order without a guest takes this one. Its purpose defaults to "Pickup order <number>".
 Returns: status 201, `data` = the advance with its receipt number. It goes into the open day of the till taking it.
-Errors: 400 both `reservationId` and `orderId`; 404 guest or order not found; 400 guest record erased; 409 the order is not a takeaway, is already billed, or is not open; 409 the order is another guest's; 409 no business day open; 400 payment-type errors.
+Errors: 400 both `reservationId` and `orderId`; 404 guest or order not found; 400 guest record erased; 409 the order is not a takeaway, is already billed, or is not open; 409 the order is another guest's; 409 no business day open; 400 payment-type errors; 409 an advance in cash that would take the guest's cash today to ₹2,00,000 (the cash limit).
 
 #### `POST /api/bills/advances/:id/refunds`
 Permission: `payments.manage` and (`advances.refund` or manager approval `{ advanceId, amount }`)

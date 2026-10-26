@@ -54,6 +54,11 @@ router.post("/:id/adjust/check", authorize("billing.manage"), billController.bil
 
 router.post("/:id/payments", authorize("payments.manage"), billController.billInScope, billController.addPayment);
 
+// The buyer's PAN, or their declaration that they have none (Form 97), on a
+// bill not yet settled: a bill over ₹2,00,000 takes no payment without one.
+// For whoever raises the bill or takes its payment.
+router.put("/:id/pan", authorize.any("billing.manage", "payments.manage"), billController.billInScope, billController.setBuyerPan);
+
 // Correcting how a payment was taken (keyed as cash, paid by UPI) while its
 // day is open: bills.payment_correct, or a manager's PIN tied to this bill,
 // this payment, its amount and the two methods. The payment and its day are

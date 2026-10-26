@@ -6,7 +6,7 @@
 
 const { COMPLIMENTARY_REASONS, DISCOUNT_REASONS } = require("./bill/shape");
 const { adjust, billableItems, createForOrder, findInScope, getById, list, planAdjust, registerPrint } = require("./bill/raise");
-const { addPayment, checkCorrection, correctPayment, listCorrections } = require("./bill/payments");
+const { addPayment, checkCorrection, correctPayment, listCorrections, setBuyerPan } = require("./bill/payments");
 const { addRefund, checkRefund, checkVoid, voidBill } = require("./bill/refunds");
 const { daySummary, listCreditNotes, tillOptions } = require("./bill/summaries");
 
@@ -25,6 +25,7 @@ module.exports = {
   checkCorrection,
   correctPayment,
   listCorrections,
+  setBuyerPan,
   checkRefund,
   addRefund,
   checkVoid,

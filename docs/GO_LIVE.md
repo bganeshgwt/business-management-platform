@@ -286,7 +286,9 @@ training run does not count as a real-service sign-off. Take a verified backup
    takeaway and delivery orders; the kitchen acknowledges and completes them.
 3. Change quantities, add a second round, pay one bill in two ways, void an
    unpaid bill and refund a paid one. Check the approvals and the activity-log
-   entries with a cashier and a manager.
+   entries with a cashier and a manager. Where the restaurant takes banquets or
+   parties, bill one over ₹2,00,000: check that it asks for the buyer's PAN,
+   refuses cash at ₹2,00,000 and prints the PAN.
 4. Receive a purchase with batch and expiry, transfer stock, count a shelf, and
    record expired goods as wastage. Check that the batches picked from the
    shelf match the app's first-expiry-first allocation.

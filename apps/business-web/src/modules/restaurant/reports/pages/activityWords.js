@@ -78,6 +78,7 @@ const PHRASES = {
   "on_account:bill": "Put a bill on a guest's account",
   "gst_recipient_set:bill": "Put a buyer's GSTIN on an invoice",
   "gst_recipient_cleared:bill": "Took the buyer's GSTIN off an invoice",
+  "buyer_pan:bill": "Recorded the buyer's PAN on a bill",
   "service_charge_waived:bill": "Took the service charge off a bill",
   "service_charge_restored:bill": "Put the service charge back on a bill",
   // Kitchen.
@@ -184,7 +185,7 @@ const rupees = (value) =>
 const KIND_WORDS = { advance: "Advance to recover", arrears: "Pay still owed", bonus: "Bonus", deduction: "Deduction" };
 
 // Field names an owner writes differently from the code ("Gstin").
-const FIELD_WORDS = { gstin: "GSTIN", creditNote: "Credit note", upiId: "UPI ID", hsnCode: "HSN code", sku: "SKU" };
+const FIELD_WORDS = { gstin: "GSTIN", creditNote: "Credit note", upiId: "UPI ID", hsnCode: "HSN code", sku: "SKU", pan: "PAN", panDeclaration: "Form 97 declaration" };
 const fieldName = (key) => FIELD_WORDS[key] || readable(key);
 
 // Fields logged as [before, after] at the top level (a guest's company and

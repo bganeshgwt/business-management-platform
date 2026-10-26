@@ -820,6 +820,24 @@ under UPI, Cheque under Other), pick the type; some require a reference.
   account and put the amount on it. Needs `customers.credit` or a PIN; refused
   for a guest with no account, an account on hold, or one that would go over
   its limit. The table is freed.
+- **A bill over ₹2,00,000** (a banquet, a party, a caterer's order) shows
+  *Buyer's PAN needed* and asks for the buyer's PAN in the payment form, or a
+  tick that they have no PAN and signed a declaration (Form 97). No payment
+  goes through without one: the PAN goes on the bill with the payment, or
+  press *Record on the bill* to record it alone, for a bill to be collected
+  later on an account. A company's GSTIN on the bill carries its PAN, and
+  that PAN goes on the bill with its first payment. *Change* replaces a PAN
+  until the bill is settled; the bill prints it.
+- **The cash limit** — no bill takes ₹2,00,000 or more in cash, and no guest
+  pays that much in cash in a day (Income-tax Act 2025, section 186). On a
+  bill over ₹2,00,000, or one owing more than cash may still pay, the payment
+  form says *In cash, at most ₹… more*: for this bill, and from its guest
+  today (their cash on other bills and their cash advances count). A cash tip
+  counts with its payment. Typing more cash shows *More cash than the limit
+  allows* with a button to take the most allowed; a cash payment that would
+  reach the limit is refused, and the reason shows above *Take*. Take the
+  rest by UPI, card, bank transfer or cheque. A walk-in bill with no guest
+  chosen is limited bill by bill.
 - When the bill is fully paid the guest earns points, and it can print by
   itself (Settings → Printing).
 
@@ -829,12 +847,14 @@ under UPI, Cheque under Other), pick the type; some require a reference.
 need `bills.reprint` (cashiers have it) or a PIN; reprints are on theft control.
 The heading is *Tax Invoice* with a GSTIN, otherwise *Bill*, or *Bill of
 Supply* for a composition restaurant (*Document type* in Settings → Printing).
+A bill carrying the buyer's PAN prints it (*Buyer PAN*), or that their Form 97
+declaration is held.
 
 ### Corrections, refunds and voids
 
 | | When | Needs |
 | --- | --- | --- |
-| **Correct** a payment | Keyed as cash, really UPI — only while that payment's business day is open. Only the method, type and reference change; the bill, GST and sales do not. A cash payment that gave change stays cash; advance payments cannot be switched | `bills.payment_correct` or a PIN tied to that payment, amount and the two methods, plus a reason |
+| **Correct** a payment | Keyed as cash, really UPI — only while that payment's business day is open. Only the method, type and reference change; the bill, GST and sales do not. A cash payment that gave change stays cash; advance payments cannot be switched. A correction to cash that would reach the cash limit (₹2,00,000 for the bill, or from its guest that day) is refused before anyone is asked for a PIN | `bills.payment_correct` or a PIN tied to that payment, amount and the two methods, plus a reason |
 | **Refund** (Bills & payments only) | Money was taken and is going back. On a settled bill it is a **credit note** — an amount, or dishes returned — that takes the value and its GST off the sale (and, if ticked, the points earned). On an unsettled bill it hands a payment back and the guest owes it again | `bills.refund` or a PIN for that bill and amount, a reason, an open day |
 | **Void** (Bills & payments only) | The bill should never have existed: only an unsettled bill with **no money held** and not on an account. The order opens again; the coupon use and points go back | `bills.void` or a PIN, **every time**, plus a reason |
 
@@ -861,7 +881,10 @@ book with a **credit limit**, **days to pay** (default 30) and a status
   with **Statement** (debit, credit, running balance; print or download) and
   **Collect** (`payments.manage`): money goes onto the oldest bills first, into
   the open business day of the till taking it; you cannot collect more than is
-  owed.
+  owed. Cash collected is the account holder's cash for the day: a collection
+  that would take it to ₹2,00,000, or a bill to ₹2,00,000 in cash, is refused
+  whole. A bill over ₹2,00,000 is collected only once the buyer's PAN (or
+  their declaration) is on it: open the bill and *Record on the bill* first.
 - **Unpaid, no account** — bills guests left owing and bills carried over at a
   day close.
 - **Advances** — below.
@@ -871,11 +894,13 @@ book with a **credit limit**, **days to pay** (default 30) and a status
 Money taken ahead for a party, a bulk order or a booking: **not a sale yet**;
 it becomes one on the bill it pays. **Take an advance** (`payments.manage`, an
 open day): guest or company, amount, how it was paid, what it is for; each gets
-a receipt number (ADV-0001). Use it by choosing **Advance** when taking
-payment. **Hand back** needs `advances.refund` or a PIN for that advance and
-amount, a reason and an open day. The *For the GST return* card gives GSTR-1
-tables 11A (received, not yet billed) and 11B (billed this period, received
-earlier) for the accountant.
+a receipt number (ADV-0001). An advance in cash counts toward the guest's cash
+limit on the day it is taken (₹2,00,000 from one guest in a day), and toward
+the cash of the bill it pays; it is not counted again when used. Use it by
+choosing **Advance** when taking payment. **Hand back** needs
+`advances.refund` or a PIN for that advance and amount, a reason and an open
+day. The *For the GST return* card gives GSTR-1 tables 11A (received, not yet
+billed) and 11B (billed this period, received earlier) for the accountant.
 
 **Pickup orders paid ahead**: on *Orders*, an open takeaway not yet
 billed has *More › Take advance…*. The guest on the order (or the guest you
@@ -1085,6 +1110,10 @@ cashier's drawer.
   200 bills.
 - The cash may be **less** than expected, never more (count again, or check
   which bills were paid by UPI).
+- Cash on delivery counts toward the cash limit like any other cash: cash
+  that would take a bill, or a named guest's cash that day, to ₹2,00,000 is
+  refused and nothing is settled. Mark that bill **UPI** if the guest paid
+  that way, or take it another way.
 - A shortfall needs a reason and a choice: **He owes it** (stays on *Still owed
   by riders* until a cashier clicks **Handed over**) or **Write it off
   (manager)** (*Write off a rider's cash shortfall*,
@@ -2093,7 +2122,7 @@ A café, a bakery and a cloud kitchen run on the restaurant: the same POS, menu,
 **Selling by weight** (bakery cookies, sweets). Set the menu item to *Sold: by weight* and the price is per kg. On the POS it asks for the grams on the scale (or offers 100 g to 1 kg). The line shows the kg, and ± changes it 50 g at a time.
 
 **Pre-orders & cakes** (*Daily work → Pre-orders & cakes*, feature *Pre-orders & cakes*).
-- **Booking:** *New pre-order* takes the guest (name and mobile), when it is due, pickup or delivery, the items with each cake's message or flavour, and an advance. An item is counted in whole pieces, or in kg in steps of 50 g when it is sold by weight. The advance is an ordinary advance (*Dues & accounts → Advances*), in the day's cash. If the till cannot take it (no business day open, say), the pre-order is still booked and a warning says so: take it later with *Take advance* on the pre-order.
+- **Booking:** *New pre-order* takes the guest (name and mobile), when it is due, pickup or delivery, the items with each cake's message or flavour, and an advance. An item is counted in whole pieces, or in kg in steps of 50 g when it is sold by weight. The advance is an ordinary advance (*Dues & accounts → Advances*), in the day's cash. If the till cannot take it (no business day open, or cash that would take the guest to the ₹2,00,000 cash limit for the day), the pre-order is still booked and a warning says so: take it later with *Take advance* on the pre-order.
 - **Advances:** taking one needs *Advances & deposits* (*Settings → Features*; on for a new restaurant, and choosing the Bakery format switches it on). While it is off, *New pre-order* has no advance: whoever takes payments sees a line saying so instead, with a link to *Settings → Features* for those who can open Settings. Pre-orders have no *Take advance*, and *Advances held* is hidden, on the page and in the dashboard's Pre-orders block. If it is switched off while the dialog is open, booking with an advance is refused, the advance field goes, and booking again goes through without it.
 - **Outlets:** a pre-order is booked at the outlet picked in the top bar (yours, when you are tied to one), or at the main counter under *All outlets*, and its row names the outlet after its number (*PRE-0004 · Kondapur*). Staff tied to an outlet see only that outlet's pre-orders, in the lists, the tiles and the dashboard's Pre-orders block, and cannot open, move along, hand over, cancel or take an advance on another outlet's or the main counter's. Everyone else sees every outlet's, whichever outlet is picked; with an outlet picked, the dashboard's Pre-orders block says *All outlets*. An outlet with open pre-orders can be neither closed nor deleted ([Outlets](#restaurant--profile-outlets-hours-settings-payment-types)).
 - **Baking:** the **Bake list** adds up what is due on a day by item, with every message, and can be printed for the kitchen. Each outlet, and the main counter, has its own list of the pre-orders booked there: the screen shows the list of the outlet picked in the top bar (yours, when you are tied to one), or the main counter's under *All outlets*, with its name beside the date and on the print. A restaurant without outlets has one list. It opens on tomorrow; pick any day. *Start baking*, then *Ready*.

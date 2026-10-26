@@ -16,6 +16,7 @@ import {
   putBillOnAccount,
   returnValueOf,
   setBillBuyer,
+  setBillPan,
   voidBill,
 } from "../../billing/services/bill.service";
 import { listPaymentTypes } from "../../setup/services/restaurant.service";
@@ -35,6 +36,13 @@ import "../../../../styles/billing.css";
 // guest declining service charge, a no-charge bill, a company's GSTIN for a
 // B2B invoice, payments, and on the Bills screen refunds, credit notes and
 // voids.
+//
+// The Income-tax rules on large bills: a bill over ₹2,00,000 takes no payment
+// until the buyer's PAN, or their declaration that they have none (Form 97),
+// is on it (typed with the payment, or recorded on its own); and cash of
+// ₹2,00,000 or more is never taken for one bill or from one guest in a day.
+// The payment form says how much more cash each can take, and the server's
+// refusal is shown as it comes.
 //
 // Nothing here voids a bill and raises it again: every change re-prices the
 // same bill (PATCH /bills/:id/adjust). A change that needs a manager — a
@@ -110,6 +118,9 @@ export default function BillModal({
   const [panel, setPanel] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // Where the last refusal is shown: "pay" puts a refused payment (the cash
+  // limit, the buyer's PAN) next to the button that was pressed.
+  const [errorIn, setErrorIn] = useState(null);
   const [notice, setNotice] = useState("");
 
   const [payment, setPayment] = useState(() => ({
@@ -134,6 +145,10 @@ export default function BillModal({
   const [comp, setComp] = useState({ reason: "", note: "" });
   const [scReason, setScReason] = useState("");
   const [buyer, setBuyer] = useState({ gstin: "", legalName: "", address: "" });
+  // The buyer's PAN on a bill over ₹2,00,000, or their Form 97 declaration;
+  // `editingPan` reopens the fields for a PAN already on the bill.
+  const [pan, setPan] = useState({ number: "", declaration: false });
+  const [editingPan, setEditingPan] = useState(false);
   // Guest and company accounts the bill can go on, read when the panel opens.
   const [accounts, setAccounts] = useState(null);
   const [accountsError, setAccountsError] = useState("");
@@ -191,6 +206,13 @@ export default function BillModal({
   const settled = bill.billStatus === "paid";
   const held = n(bill.heldAmount ?? n(bill.paidAmount) - n(bill.refundedAmount));
   const status = STATUS[bill.billStatus] || STATUS.unpaid;
+  // A bill over ₹2,00,000 has what it needs when the buyer's PAN is on it
+  // (typed, or the PAN inside the buyer's GSTIN, which its first payment
+  // records) or their declaration. The fields show until then, or while a
+  // PAN on it is being changed.
+  const panOnBill = Boolean(bill.buyerPan || bill.panDeclaration || bill.panInGstin);
+  const panAsked = unsettled && Boolean(bill.panNeeded) && (!panOnBill || editingPan);
+  const panBody = () => (pan.declaration ? { panDeclaration: true } : { pan: pan.number.trim() });
   // The bill sent to the guest's WhatsApp (wa.me: no API, the till's own
   // WhatsApp sends it) when their whole number is on the bill.
   const guestDigits = String(bill.customerMobile || "").replace(/\D/g, "");
@@ -246,9 +268,11 @@ export default function BillModal({
   };
 
   // Runs a change; whatever comes back is the bill as it now stands.
-  const run = async (work, success) => {
+  // `where`: "pay" for the payment form's own actions.
+  const run = async (work, success, where = null) => {
     setBusy(true);
     setError("");
+    setErrorIn(where);
     setNotice("");
 
     try {
@@ -457,11 +481,14 @@ export default function BillModal({
           tipAmount: !fromAdvance && tipsOn && Number(payment.tip) > 0 ? Number(payment.tip) : 0,
           paymentTypeId: !fromAdvance && payment.typeId ? Number(payment.typeId) : null,
           advanceId: fromAdvance ? Number(payment.advanceId) : null,
+          // The buyer's PAN typed here goes on the bill with the payment.
+          ...(panAsked ? { buyer: panBody() } : {}),
         }),
       (updated) =>
         updated && updated.billStatus === "paid"
           ? `${updated.billNumber} settled · ${money(updated.totalAmount)}`
-          : "Payment recorded"
+          : "Payment recorded",
+      "pay"
     ).then((updated) => {
       if (updated) {
         setPayment({
@@ -473,6 +500,8 @@ export default function BillModal({
           typeId: "",
           advanceId: "",
         });
+        setPan({ number: "", declaration: false });
+        setEditingPan(false);
 
         if (updated.billStatus === "paid" && onPaid) {
           onPaid(updated);
@@ -480,6 +509,24 @@ export default function BillModal({
       }
     });
   };
+
+  // The buyer's PAN (or their Form 97 declaration) recorded on the bill
+  // without taking money: before the guest pays, or for a bill collected
+  // later on an account.
+  const savePan = () =>
+    run(
+      () => setBillPan(bill.id, panBody()),
+      (updated) =>
+        updated && updated.buyerPan
+          ? `The buyer's PAN ${updated.buyerPan} is on the bill`
+          : "The buyer's declaration that they have no PAN (Form 97) is on the bill",
+      "pay"
+    ).then((done) => {
+      if (done) {
+        setPan({ number: "", declaration: false });
+        setEditingPan(false);
+      }
+    });
 
   // Corrects how a payment was taken. The server checks the payment and its
   // day first; a cashier is then asked for a manager's PIN tied to this
@@ -1124,6 +1171,14 @@ export default function BillModal({
     payment.method === "upi" && bill.upi
       ? upiPayLink({ vpa: bill.upi.vpa, payeeName: bill.upi.payeeName, amount: payment.amount, note: bill.billNumber })
       : null;
+  // The cash limit (Income-tax Act 2025, section 186): how much more cash this
+  // bill, and the guest it names, can take today. Shown where it can stop a
+  // payment: on a bill over ₹2,00,000, or one owing more than cash may still
+  // pay. A cash tip counts with the payment it rides on.
+  const cashLimit = bill.cashLimit || null;
+  const cashShown = Boolean(cashLimit) && (Boolean(bill.panNeeded) || n(cashLimit.left) + 0.005 < n(bill.dueAmount));
+  const cashRoom = cashLimit ? Math.max(0, Math.round((n(cashLimit.left) - tip) * 100) / 100) : 0;
+  const cashOver = Boolean(cashLimit) && payment.method === "cash" && Number(payment.amount || 0) > cashRoom + 0.005;
   const pickMethod = (method) =>
     setPayment((current) => ({
       ...current,
@@ -1157,6 +1212,21 @@ export default function BillModal({
           </button>
         ))}
       </div>
+      {cashShown && (
+        <div className="bill-cash-limit" role="note" aria-label="Cash still allowed">
+          <strong>In cash, at most {money(cashLimit.left)} more</strong>
+          <span>For this bill: {money(cashLimit.bill.left)} more</span>
+          {cashLimit.guest && (
+            <span>
+              From {cashLimit.guest.name || "this guest"} today: {money(cashLimit.guest.left)} more
+            </span>
+          )}
+          <span className="muted">
+            Cash of ₹2,00,000 or more cannot be taken for one bill, or from one guest in a day (Income-tax Act 2025,
+            section 186). Take the rest by UPI, card, bank transfer or cheque.
+          </span>
+        </div>
+      )}
       {fromAdvance && (
         <label className="field">
           <span>Pay from *</span>
@@ -1280,6 +1350,92 @@ export default function BillModal({
           </label>
         )}
       </div>
+      {cashOver && (
+        <p className="small text-danger">
+          More cash than the limit allows.{" "}
+          {cashRoom > 0 ? (
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => setPayment({ ...payment, amount: String(cashRoom) })}
+            >
+              Take {money(cashRoom)} in cash{tip > 0 ? " with the tip" : ""}
+            </button>
+          ) : (
+            "Take it by UPI, card, bank transfer or cheque."
+          )}
+        </p>
+      )}
+      {panAsked && (
+        <fieldset className="bill-pan">
+          <legend>A bill over ₹2,00,000 records the buyer&apos;s PAN</legend>
+          <label className="field">
+            <span>Buyer&apos;s PAN{pan.declaration ? "" : " *"}</span>
+            <input
+              className="mono"
+              maxLength={10}
+              placeholder="ABCDE1234F"
+              autoComplete="off"
+              value={pan.number}
+              disabled={pan.declaration}
+              required={!pan.declaration}
+              onChange={(event) => setPan({ ...pan, number: event.target.value.toUpperCase() })}
+            />
+          </label>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={pan.declaration}
+              onChange={(event) =>
+                setPan({ number: event.target.checked ? "" : pan.number, declaration: event.target.checked })
+              }
+            />
+            <span>The buyer has no PAN and signed a declaration (Form 97)</span>
+          </label>
+          <div className="bill-panel-row">
+            <span className="muted small">It goes on the bill with this payment, and prints on it.</span>
+            <button
+              type="button"
+              className="button button-secondary button-sm"
+              onClick={savePan}
+              disabled={busy || !(pan.declaration || pan.number.trim())}
+            >
+              Record on the bill
+            </button>
+            {editingPan && (
+              <button type="button" className="button button-ghost button-sm" onClick={() => setEditingPan(false)}>
+                Keep it as it is
+              </button>
+            )}
+          </div>
+        </fieldset>
+      )}
+      {bill.panNeeded && panOnBill && !editingPan && (
+        <p className="small bill-pan-on">
+          {bill.buyerPan ? (
+            <>
+              Buyer&apos;s PAN <span className="mono">{bill.buyerPan}</span> is on the bill.
+            </>
+          ) : bill.panDeclaration ? (
+            "The buyer's declaration that they have no PAN (Form 97) is on the bill."
+          ) : (
+            <>
+              The PAN in the buyer&apos;s GSTIN, <span className="mono">{bill.panInGstin}</span>, goes on the bill with
+              this payment.
+            </>
+          )}{" "}
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => {
+              setPan({ number: bill.buyerPan || "", declaration: false });
+              setEditingPan(true);
+            }}
+          >
+            Change
+          </button>
+        </p>
+      )}
       {upiLink && (
         <div className="bill-upi">
           <div className="bill-upi-code" dangerouslySetInnerHTML={{ __html: qrSvg(upiLink, { label: "UPI QR code" }) }} />
@@ -1295,6 +1451,7 @@ export default function BillModal({
       {payment.method === "upi" && !bill.upi && (
         <p className="muted small">Add the restaurant&apos;s UPI ID in Settings to show a QR code here.</p>
       )}
+      {errorIn === "pay" && <ErrorMessage message={error} />}
       <button
         type="submit"
         className="button bill-pay-button"
@@ -1565,6 +1722,9 @@ export default function BillModal({
             <span className="badge badge-outline">Not printed</span>
           )}
           {bill.buyer && <span className="badge badge-info">B2B · {bill.buyer.gstin}</span>}
+          {bill.buyerPan && <span className="badge badge-info">PAN · {bill.buyerPan}</span>}
+          {!bill.buyerPan && bill.panDeclaration && <span className="badge badge-info">No PAN · Form 97</span>}
+          {unsettled && bill.panNeeded && !panOnBill && <span className="badge badge-warning">Buyer&apos;s PAN needed</span>}
           {bill.accountCustomerId && <span className="badge badge-warning">On account · {bill.accountName}</span>}
           {bill.creditNotes && bill.creditNotes.length > 0 && (
             <span className="badge badge-danger">
@@ -1573,7 +1733,7 @@ export default function BillModal({
           )}
         </div>
 
-        <ErrorMessage message={error} />
+        <ErrorMessage message={errorIn === "pay" ? "" : error} />
         <SuccessMessage message={notice} />
 
         <div className="bill-grid">
@@ -1596,6 +1756,17 @@ export default function BillModal({
                   </>
                 ) : (
                   <>Guest: {model.guest.name}</>
+                )}
+              </p>
+            )}
+            {model.pan && (
+              <p className="bill-paper-to small">
+                {model.pan.number ? (
+                  <>
+                    PAN <span className="mono">{model.pan.number}</span>
+                  </>
+                ) : (
+                  "No PAN: the buyer's declaration (Form 97) is held"
                 )}
               </p>
             )}

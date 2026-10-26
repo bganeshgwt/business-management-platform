@@ -21,7 +21,7 @@ const BILL_COLUMNS = `b.id, b.bill_number, b.order_id, b.outlet_id, b.business_d
                       b.discount_given_by, b.discount_approved_by, b.complimentary_by, b.complimentary_approved_by,
                       b.account_customer_id, b.delivery_charge, b.delivery_charge_tax, b.delivery_charge_waived,
                       b.delivery_charge_waive_reason, b.delivery_charge_waived_by, b.delivery_charge_approved_by,
-                      b.seller_fssai`;
+                      b.seller_fssai, b.buyer_pan, b.pan_declaration`;
 
 // Staff pinned to one outlet see and act on that outlet's bills only — not
 // another branch's, and not a bill raised with no outlet at all (the owner
@@ -171,7 +171,18 @@ const findById = async (restaurantId, id, outletId = null) => {
                  END AS buyer_address,
             b.account_customer_id, b.account_at, b.account_note,
             ac.name AS account_name, NULLIF(BTRIM(ac.company_name), '') AS account_company,
-            abu.name AS account_by_name, aap.name AS account_approved_by_name
+            abu.name AS account_by_name, aap.name AS account_approved_by_name,
+            -- The cash limit (Income-tax Act 2025, section 186), counted by the
+            -- functions the database's own triggers use: the cash this bill has
+            -- taken, and the cash today, on the restaurant's clock, from the
+            -- guest it names (the account's guest or company, else the order's).
+            restaurant_bill_cash(b.id) AS cash_on_bill,
+            cg.id AS cash_guest_id,
+            COALESCE(NULLIF(BTRIM(cg.company_name), ''), cg.name) AS cash_guest_name,
+            CASE WHEN cg.id IS NOT NULL
+                 THEN restaurant_cash_from_guest(b.restaurant_id, cg.id, COALESCE(s.timezone, 'Asia/Kolkata'),
+                                                 (NOW() AT TIME ZONE COALESCE(s.timezone, 'Asia/Kolkata'))::date)
+                 END AS cash_from_guest_today
      FROM bills b
      JOIN orders o ON o.id = b.order_id
      JOIN restaurants r ON r.id = b.restaurant_id
@@ -192,6 +203,7 @@ const findById = async (restaurantId, id, outletId = null) => {
      LEFT JOIN users dw ON dw.id = b.delivery_charge_waived_by
      LEFT JOIN users dap ON dap.id = b.delivery_charge_approved_by
      LEFT JOIN service_settings ss ON ss.restaurant_id = b.restaurant_id
+     LEFT JOIN customers cg ON cg.id = COALESCE(b.account_customer_id, o.customer_id)
      WHERE b.restaurant_id = $1 AND b.id = $2 AND ${outletScope("$3")}`,
     [restaurantId, id, outletId]
   );
@@ -672,7 +684,8 @@ const moveRedeemedPoints = async (client, restaurantId, customerId, billId, bill
 // data: { orderId, outletId, businessDayId, invoicePrefix, sellerGstin,
 //         discountId, discountCode, priced, lines (billing quantities),
 //         serviceChargeWaived, waiveReason, consumeStock, customerId, isSplit,
-//         taxMode, tableId }
+//         taxMode, tableId, buyer ({ pan, declaration }: the buyer's PAN or
+//         their Form 97 declaration, typed before the bill is raised) }
 const create = async (restaurantId, data, userId) => {
   const client = await pool.connect();
 
@@ -729,9 +742,9 @@ const create = async (restaurantId, data, userId) => {
                           service_charge, round_off, total_amount, is_split,
                           loyalty_points_used, loyalty_discount, consume_stock, tax_mode, seller_gstin,
                           service_charge_waived, service_charge_waive_reason, created_by, updated_by,
-                          seller_fssai)
+                          seller_fssai, buyer_pan, pan_declaration)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19,
-               $20, $21, $22, $22, $23)
+               $20, $21, $22, $22, $23, $24, $25)
        RETURNING id`,
       [
         restaurantId,
@@ -757,6 +770,8 @@ const create = async (restaurantId, data, userId) => {
         data.serviceChargeWaived ? data.waiveReason : null,
         userId,
         data.sellerFssai || null,
+        data.buyer ? data.buyer.pan : null,
+        Boolean(data.buyer && data.buyer.declaration),
       ]
     );
 
@@ -1180,6 +1195,10 @@ const dueOf = (bill) =>
 // The payment belongs to the business day open NOW, not to the day the bill
 // was raised: a due from last week collected today is in today's drawer, and
 // a day already closed and counted is never changed.
+//
+// The database refuses cash of ₹2,00,000 or more for the bill or from its
+// guest in a day, and a payment on a bill over ₹2,00,000 without the buyer's
+// PAN (migration 1791972000000): the error says so in a sentence.
 const addPayment = async (restaurantId, billId, outletId, payment, userId) => {
   const client = await pool.connect();
 
@@ -1211,6 +1230,16 @@ const addPayment = async (restaurantId, billId, outletId, payment, userId) => {
     if (bill.bill_status === "paid") {
       await client.query("ROLLBACK");
       return { error: "ALREADY_PAID" };
+    }
+
+    // The buyer's PAN, or their Form 97 declaration, typed with the payment:
+    // on the bill first, so the database checks the payment with it (a bill
+    // over ₹2,00,000 takes none without one), and gone again if it is refused.
+    if (payment.buyer) {
+      await client.query(
+        "UPDATE bills SET buyer_pan = $3, pan_declaration = $4, updated_by = $5 WHERE restaurant_id = $1 AND id = $2",
+        [restaurantId, billId, payment.buyer.pan, payment.buyer.declaration, userId]
+      );
     }
 
     const applied = await applyPayment(client, restaurantId, bill, payment, userId);
@@ -1608,6 +1637,75 @@ const findPayment = async (restaurantId, billId, paymentId) => {
   );
 
   return result.rows[0] || null;
+};
+
+// Whether the database's cash limit would refuse this payment taken as
+// `method` (a correction to cash): the change is made in a transaction that is
+// always rolled back, so the answer is the one the correction itself would
+// get. Returns the refusal's sentence, or null.
+const cashCorrectionRefusal = async (restaurantId, paymentId, method) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+    await client.query("UPDATE payments SET payment_method = $3 WHERE restaurant_id = $1 AND id = $2", [
+      restaurantId,
+      paymentId,
+      method,
+    ]);
+    return null;
+  } catch (error) {
+    if (error.code === "23514" && !error.constraint) {
+      return error.message;
+    }
+
+    throw error;
+  } finally {
+    await client.query("ROLLBACK").catch(() => {});
+    client.release();
+  }
+};
+
+// The buyer's PAN, or their declaration that they have none (Form 97), on a
+// bill not yet settled, with the bill locked: { pan, declaration }, one of
+// the two. Returns { error } or { ok, before: { pan, declaration } }.
+const setBuyerPan = async (restaurantId, billId, outletId, buyer, userId) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const locked = await client.query(
+      `SELECT b.id, b.bill_status, b.buyer_pan, b.pan_declaration FROM bills b
+       WHERE b.restaurant_id = $1 AND b.id = $2 AND ${outletScope("$3")}
+       FOR UPDATE OF b`,
+      [restaurantId, billId, outletId]
+    );
+    const bill = locked.rows[0];
+
+    if (!bill) {
+      await client.query("ROLLBACK");
+      return { error: "NOT_FOUND" };
+    }
+
+    if (bill.bill_status === "void" || bill.bill_status === "paid") {
+      await client.query("ROLLBACK");
+      return { error: bill.bill_status === "void" ? "VOID" : "SETTLED" };
+    }
+
+    await client.query(
+      "UPDATE bills SET buyer_pan = $3, pan_declaration = $4, updated_by = $5 WHERE restaurant_id = $1 AND id = $2",
+      [restaurantId, billId, buyer.pan, buyer.declaration, userId]
+    );
+
+    await client.query("COMMIT");
+    return { ok: true, before: { pan: bill.buyer_pan || null, declaration: Boolean(bill.pan_declaration) } };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 // Money given back.
@@ -2265,6 +2363,8 @@ module.exports = {
   addRefund,
   correctPayment,
   correctionProblem,
+  cashCorrectionRefusal,
+  setBuyerPan,
   findPayment,
   findCorrections,
   voidBill,

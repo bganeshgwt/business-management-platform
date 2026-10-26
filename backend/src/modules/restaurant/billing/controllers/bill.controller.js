@@ -4,6 +4,7 @@ const restaurantRepository = require("../../setup/repositories/restaurant.reposi
 const authorizeOrApprove = require("../../../../middlewares/authorizeOrApprove");
 const approvalService = require("../../../access/services/approval.service");
 const customerAccountService = require("../services/customerAccount.service");
+const { readBuyerPan } = require("../services/cashAndPan");
 const { logAction } = require("../../../../utils/audit");
 const { readDate } = require("../../../../utils/calendarDate");
 const AppError = require("../../../../utils/AppError");
@@ -245,6 +246,9 @@ const create = async (req, res) => {
       orderItemId: v.requiredId(item.orderItemId, "Order item"),
       quantity: v.requiredNumber(item.quantity, "Quantity", { min: 0.01, max: 9999 }),
     })),
+    // { pan } or { panDeclaration: true }: what a bill over ₹2,00,000 needs
+    // before its first payment, given before it is raised.
+    buyer: readBuyerPan(body.buyer),
   };
 
   await checkBillFeatures(req, data);
@@ -254,6 +258,14 @@ const create = async (req, res) => {
   }
 
   const bill = await billService.createForOrder(req.user.restaurantId, data, req.user.id, ctxOf(req));
+
+  if (data.buyer) {
+    await logAction(req, "buyer_pan", "bill", {
+      id: bill.id,
+      label: bill.billNumber,
+      details: { changes: panChanges({ pan: null, declaration: false }, data.buyer) },
+    });
+  }
 
   if (bill.serviceChargeWaived) {
     await logAction(req, "service_charge_waived", "bill", {
@@ -487,6 +499,9 @@ const addPayment = async (req, res) => {
     tipAmount: v.optionalNumber(body.tipAmount, "Tip", { min: 0, max: 999999 }) ?? 0,
     paymentTypeId: body.paymentTypeId ? v.requiredId(body.paymentTypeId, "Payment type") : null,
     advanceId: body.advanceId ? v.requiredId(body.advanceId, "Advance") : null,
+    // The buyer's PAN, or their Form 97 declaration, typed on the payment
+    // screen: written on the bill with the payment.
+    buyer: readBuyerPan(body.buyer),
   };
 
   // A tip needs Tips; paying from a guest's advance needs Advances & deposits.
@@ -500,6 +515,11 @@ const addPayment = async (req, res) => {
 
   const bill = await billService.addPayment(req.user.restaurantId, req.bill.id, data, req.user.id, ctxOf(req));
   const taken = bill.payments[bill.payments.length - 1] || null;
+  const panChanged = data.buyer ? panChanges({ pan: req.bill.buyer_pan, declaration: req.bill.pan_declaration }, data.buyer) : null;
+
+  if (panChanged) {
+    await logAction(req, "buyer_pan", "bill", { id: bill.id, label: bill.billNumber, details: { changes: panChanged } });
+  }
 
   await logAction(req, "payment", "bill", {
     id: bill.id,
@@ -514,6 +534,51 @@ const addPayment = async (req, res) => {
   });
 
   res.status(201).json({ success: true, message: "Payment recorded", data: bill });
+};
+
+// --- The buyer's PAN ---------------------------------------------------------------
+
+// What recording the buyer's PAN changed on a bill, for the activity log:
+// { pan: [before, after] } and { panDeclaration: [before, after] } where they
+// moved, or null when nothing did.
+const panChanges = (before, buyer) => {
+  const changes = {};
+
+  if ((before.pan || null) !== (buyer.pan || null)) {
+    changes.pan = [before.pan || null, buyer.pan || null];
+  }
+
+  if (Boolean(before.declaration) !== Boolean(buyer.declaration)) {
+    changes.panDeclaration = [Boolean(before.declaration), Boolean(buyer.declaration)];
+  }
+
+  return Object.keys(changes).length > 0 ? changes : null;
+};
+
+// The buyer's PAN on a bill not yet settled, or their declaration that they
+// have none (Form 97): { pan } or { panDeclaration: true }. A bill over
+// ₹2,00,000 takes no payment until one is on it.
+const setBuyerPan = async (req, res) => {
+  const buyer = readBuyerPan(req.body || {});
+
+  if (!buyer) {
+    throw new AppError(400, "Type the buyer's PAN, or record their declaration that they have none (Form 97)");
+  }
+
+  const { before, bill } = await billService.setBuyerPan(req.user.restaurantId, req.bill.id, buyer, req.user.id, ctxOf(req));
+  const changes = panChanges(before, buyer);
+
+  if (changes) {
+    await logAction(req, "buyer_pan", "bill", { id: bill.id, label: bill.billNumber, details: { changes } });
+  }
+
+  res.json({
+    success: true,
+    message: buyer.pan
+      ? `${bill.billNumber} records the buyer's PAN ${buyer.pan}`
+      : `${bill.billNumber} records the buyer's declaration that they have no PAN (Form 97)`,
+    data: bill,
+  });
 };
 
 // --- Correcting how a payment was taken ----------------------------------------
@@ -805,6 +870,7 @@ module.exports = {
   checkAdjust,
   adjust,
   addPayment,
+  setBuyerPan,
   checkCorrection,
   correctionScope,
   correctPayment,

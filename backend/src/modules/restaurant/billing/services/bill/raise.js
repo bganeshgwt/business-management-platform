@@ -256,6 +256,9 @@ const createForOrder = async (restaurantId, data, userId, ctx = {}) => {
       customerId: order.customer_id,
       tableId: order.table_id,
       isSplit,
+      // The buyer's PAN or their Form 97 declaration, when given before the
+      // bill is raised: a bill over ₹2,00,000 takes no payment without one.
+      buyer: data.buyer || null,
     },
     userId
   );

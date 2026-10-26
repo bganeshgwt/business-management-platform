@@ -251,7 +251,7 @@ The code has two request paths, one per data world (§5 explains why).
 | Branch | The `X-Outlet-Id` header, checked by `resolveOutlet` | `locationId` in the body or query, checked against that business's `business_locations`. A person tied to one location (`business_memberships.location_id`) works there only. For anyone else, the branch picked in the top bar (sent as `X-Business-Location`) fills in a location the request leaves out. |
 | Permissions | `users` → `user_roles` → `roles` → `role_permissions` → `permissions` ([the codes](DATABASE.md#restaurant-permission-codes)) | `business_memberships` → `business_roles` → `business_role_permissions` → `business_permissions` ([the codes](DATABASE.md#business-permission-codes)) |
 | Module gate | Restaurant features (`requireFeature`, §4.2) | `business_capabilities` (`businessAccess.service.js`) |
-| Errors | `AppError` → `errorHandler.js` | `AppError`; database codes 23505 / 23503 / 23514 become 409 / 400 at the end of `business.routes.js` ([API › Conventions](API.md#conventions)) |
+| Errors | `AppError` → `errorHandler.js`; a trigger's refusal (23514 naming no constraint, such as the cash limit) becomes a 409 with its sentence there | `AppError`; database codes 23505 / 23503 / 23514 become 409 / 400 at the end of `business.routes.js` ([API › Conventions](API.md#conventions)) |
 
 ### 3.2 The business switcher
 
@@ -780,7 +780,7 @@ the guests' pages are in `apps/customer-web/src/modules/<area>/pages/`.
 | `restaurant/reservations` | `reservation.*`, `publicBooking.*` | reservations (page + parts), online booking settings (the guests' booking page: `apps/customer-web/src/modules/booking`) | `reservations`, `waitlist_entries` |
 | `restaurant/online` | `onlineOrder`, `publicOnline.routes`, `guestAddress.*` | none (services only: the ordering links for Service settings; the guests' ordering page: `apps/customer-web/src/modules/online-order`) | `online_*`, `customer_addresses` |
 | `restaurant/deliveries` | `delivery.*`, `riderSettlement.*`, `deliveryCharge`, `salesChannel` | deliveries (page + tabs), rider cash | `sales_channels`, `rider_settlements` |
-| `restaurant/billing` | `bill.*` (split, see below), `billPricing`, `gstBreakdown`, `serviceChargeShare`, `discount.*`, `customerAccount.*`, `customerAdvance.*` | discounts and offers, loyalty programme, dues, advances | `bills`, `bill_items`, `bill_taxes`, `payments`, `refunds`, `credit_notes` |
+| `restaurant/billing` | `bill.*` (split, see below), `billPricing`, `gstBreakdown`, `serviceChargeShare`, `cashAndPan` (the cash limit's figures and the buyer's PAN, kept by the database's triggers), `discount.*`, `customerAccount.*`, `customerAdvance.*` | discounts and offers, loyalty programme, dues, advances | `bills`, `bill_items`, `bill_taxes`, `payments`, `refunds`, `credit_notes` |
 | `restaurant/business-day` | `businessDay.*`, `cashDrawer.*`, `tillRules`, `tradingDay` | business day, cash count, drawers, past days, X report | `business_days`, `cash_drawers` |
 | `restaurant/crm` | `crm.*`, `loyalty.*`, `guestInsight.*`, `guestImport` | guests, feedback, complaints, guest insights | `customers`, `loyalty_transactions`, `feedback`, `complaints` |
 | `restaurant/inventory` | `inventory.*`, `advancedInventory`, `batch`, `stockTransfer`, `stockSettings`, `dishWaste`, `inventoryInsight.*`, `writeoffControl`, `stockImport`; middleware `writeoffApproval` | stock items, ledger, transfers, insights, day-end unsold, settings | `inventory_items`, `stock_transactions`, `stock_balances`, `inventory_batches` |
@@ -812,8 +812,9 @@ file behind an index file with the module's name, which callers import:
   `dayEnd.js`, `dashboard.js`, `profitLoss.js`, `dayBook.js`, `theft.js`.
 - `restaurant/billing/services/bill.service.js` gathers `services/bill/`:
   `shape.js` (a bill as the screens see it), `offers.js` (coupons, loyalty),
-  `rules.js`, `raise.js` (list, raise, adjust, print), `payments.js`,
-  `refunds.js` (credit notes, refunds, voids), `summaries.js`.
+  `rules.js`, `raise.js` (list, raise, adjust, print), `payments.js`
+  (payments, corrections, the buyer's PAN), `refunds.js` (credit notes,
+  refunds, voids), `summaries.js`.
 - Staff app: `ReportsPage.jsx` is the shell, and each tab is its own file
   (`SalesReport`, `ItemReport`, `ProfitabilityReport`, `OutletReport`,
   `CancellationReport`, `ConsumptionReport`, `DiscountReport`, `GstReport`,
@@ -879,7 +880,7 @@ Where each area's tests are: [TESTING.md](TESTING.md).
 | Convention | Where | Rule |
 | --- | --- | --- |
 | Expected errors | `backend/src/utils/AppError.js` | `throw new AppError(status, "sentence for a person", details?)`. `details` goes to the client as `data` (for example, what blocks closing a day). Anything else is a 500 with no detail. |
-| Error responses | `middlewares/errorHandler.js` | `{ success: false, message, data? }`. Deadlocks and serialization failures (40P01, 40001) become a 409 "try again". A note is added when a manager's approval was spent. What each status means to a caller: [API › Conventions](API.md#conventions). |
+| Error responses | `middlewares/errorHandler.js` | `{ success: false, message, data? }`. Deadlocks and serialization failures (40P01, 40001) become a 409 "try again". A rule a database trigger keeps (23514 naming no constraint) becomes a 409 with the trigger's own sentence. A note is added when a manager's approval was spent. What each status means to a caller: [API › Conventions](API.md#conventions). |
 | Success responses | every controller and route | `{ success: true, data }` |
 | Input validation | `backend/src/utils/validate.js` | Small checkers (`requiredString`, `requiredId`, …) that throw `AppError(400)` naming the field. Business services also have local `decimal`, `uuid` and `dateText` helpers in `business.service.js`. No schema library. |
 | Permissions (restaurant) | `middlewares/authorize.js` | `authorize("x.y")`, `authorize.any(…)`, and `authorize.noteEnforced(…)` for checks made inside a handler. The role editor shows which codes are really enforced: besides the routes, it reads the source of `routes/`, `middlewares/` and every file under `modules/` for quoted codes, so keep new code inside `modules/`. |

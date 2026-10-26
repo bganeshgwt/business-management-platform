@@ -33,7 +33,16 @@ export const checkAdjust = async (billId, payload) =>
 export const putBillOnAccount = async (billId, payload, headers = {}) =>
   (await api.patch(`/bills/${billId}/account`, payload, { headers })).data.data;
 
+// payload: { paymentMethod, amount, tenderedAmount?, transactionRef?, tipAmount?,
+// paymentTypeId?, advanceId?, buyer?: { pan } | { panDeclaration: true } }.
+// Cash of ₹2,00,000 or more for one bill, or from one guest in a day, and a
+// payment on a bill over ₹2,00,000 without the buyer's PAN, answer 409 with
+// the sentence to show.
 export const addPayment = async (billId, payload) => (await api.post(`/bills/${billId}/payments`, payload)).data.data;
+
+// The buyer's PAN on a bill not yet settled, { pan }, or their declaration
+// that they have none, { panDeclaration: true } (Form 97).
+export const setBillPan = async (billId, payload) => (await api.put(`/bills/${billId}/pan`, payload)).data.data;
 
 // Refund and void may need a manager's approval: `headers` carries the
 // one-time approval token when withApproval (services/approval.js) retries.

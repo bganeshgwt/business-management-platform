@@ -82,6 +82,7 @@ Each business type adds only what is truly its own on top of the shared core. Th
   - dine-in, takeaway and delivery orders;
   - one bill paid in several ways;
   - a UPI QR for the exact amount;
+  - large bills: no ₹2,00,000 in cash for one bill or from one guest in a day, and the buyer's PAN on a bill over ₹2,00,000, printed on it;
   - the kinds of order offered depend on the format.
 - **Kitchen display and KOT:** orders reach the right kitchen station; dishes can be marked sold out.
 - **Tables and QR ordering:** floors and tables, guest QR ordering, captain sections.
