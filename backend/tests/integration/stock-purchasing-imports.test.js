@@ -16,6 +16,7 @@ const { Client } = require("pg");
 const bcrypt = require("bcrypt");
 
 const { today, daysFrom } = require("./helpers/dates");
+const { signIn } = require("./helpers/signIn");
 // Opened for today on the restaurant's clock, not left to the server's
 // before-the-cut-off suggestion of last night's day.
 const TODAY = today();
@@ -110,7 +111,7 @@ test("back office: limits, expiry, transfers, imports, dish waste, menu card, gu
     assert.equal(result.status, expected, `${method} ${url}: ${JSON.stringify(result.body)}`);
     return result.body.data;
   }
-  const login = async (email) => (await request("POST", "/auth/login", { identifier: email, password }, 200)).token;
+  const login = async (email) => (await signIn(base, email, password)).token;
   const owner = await login("owner@swback.invalid");
   const manager = await login("meena@swback.invalid");
   const cook = await login("ravi@swback.invalid");

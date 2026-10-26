@@ -7,6 +7,7 @@ const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const { withTools } = require('./helpers/tools');
 const dates = require('./helpers/dates');
+const { signIn } = require('./helpers/signIn');
 
 // Salon back office: salon stylist weeks, holidays and the
 // manager's override; back-bar products taken from stock when a service is
@@ -54,10 +55,7 @@ test('salon, weight shops and repairs', { timeout: 300000 }, async (t) => {
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(30000) });
     return { status: response.status, body: await response.json() };
   }
-  const login = async (email) => {
-    const response = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: email, password }) });
-    return (await response.json()).data.token;
-  };
+  const login = async (email) => (await signIn(base, email, password)).token;
   const ownerUser = await owner('r2svc-owner');
   const as = (auth) => async (method, route, body, expected = 200) => {
     const result = await call(method, route, body, auth);

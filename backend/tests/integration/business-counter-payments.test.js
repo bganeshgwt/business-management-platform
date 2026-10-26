@@ -7,6 +7,7 @@ const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const { withTools } = require('./helpers/tools');
 const { today } = require('./helpers/dates');
+const { signIn, passwordOf } = require('./helpers/signIn');
 
 // Counter payments in the shared core, retail & electronics: split
 // payment on shop bills (cash + UPI + card + udhaar, change from cash only,
@@ -51,10 +52,7 @@ test('counter payments: split payment, counter PIN, points on returns, EMI, kits
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(20000) });
     return { status: response.status, body: await response.json() };
   }
-  const login = async (email) => {
-    const response = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: email, password }) });
-    return (await response.json()).data.token;
-  };
+  const login = async (email) => (await signIn(base, email, password)).token;
   const as = (auth) => async (method, route, body, expected = 200) => {
     const result = await call(method, route, body, auth);
     assert.equal(result.status, expected, `${method} ${route}: ${JSON.stringify(result.body)}`);
@@ -142,8 +140,9 @@ test('counter payments: split payment, counter PIN, points on returns, EMI, kits
 
   // --- 2. Per-staff PIN at the counter ---------------------------------------------------
   await t.test('counter PIN: switch who is billing, and the PIN for every bill', async () => {
-    await call('PUT', '/auth/me/pin', { password, pin: '4826', confirmPin: '4826' }, staff.ravi.token);
-    await call('PUT', '/auth/me/pin', { password, pin: '7391', confirmPin: '7391' }, staff.sita.token);
+    // Their own passwords, chosen when they first signed in.
+    await call('PUT', '/auth/me/pin', { password: passwordOf(base, 'counter-ravi@test.invalid', password), pin: '4826', confirmPin: '4826' }, staff.ravi.token);
+    await call('PUT', '/auth/me/pin', { password: passwordOf(base, 'counter-sita@test.invalid', password), pin: '7391', confirmPin: '7391' }, staff.sita.token);
     const list = await staff.ravi.call('GET', G('counter/staff'));
     assert.equal(list.current, staff.ravi.id);
     const sita = list.people.find((p) => p.id === staff.sita.id);

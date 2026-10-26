@@ -72,7 +72,7 @@ const findByEmployeeCode = async (restaurantCode, employeeCode) => {
 const findProfileById = async (id) => {
   const result = await pool.query(
     `SELECT u.id, u.restaurant_id, u.outlet_id, u.name, u.email, u.mobile, u.status,
-            u.token_version, u.pin_set_at, u.pin_locked_until, u.two_factor_enabled_at,
+            u.token_version, u.pin_set_at, u.pin_locked_until, u.two_factor_enabled_at, u.password_must_change,
             r.name AS restaurant_name, r.code AS restaurant_code, r.status AS restaurant_status, r.format AS restaurant_format,
             o.name AS outlet_name, o.status AS outlet_status,
             COALESCE(ras.idle_lock_minutes, 0) AS idle_lock_minutes,
@@ -743,15 +743,16 @@ const findCredentialsById = async (id) => {
   return result.rows[0] || null;
 };
 
-// Their other sessions end; the caller issues a fresh token for this device.
-const updateOwnPassword = async (id, passwordHash) => {
-  const result = await pool.query(
-    `UPDATE users SET password_hash = $2, updated_by = $1, token_version = token_version + 1
-     WHERE id = $1 RETURNING id, token_version`,
-    [id, passwordHash]
-  );
+// The person's own new password, through the one database function that
+// clears the must-change mark (every other way of writing a password sets
+// it). It replaces only the password they just proved: null when it changed
+// in the meantime. Their other sessions end; the caller issues a fresh token
+// for this device.
+const updateOwnPassword = async (id, currentHash, passwordHash) => {
+  const result = await pool.query("SELECT users_set_own_password($1, $2, $3) AS token_version", [id, currentHash, passwordHash]);
+  const version = result.rows[0] ? result.rows[0].token_version : null;
 
-  return result.rows[0] || null;
+  return version === null ? null : { id, token_version: version };
 };
 
 // Only the details that are nobody else's business to set: not email, which is

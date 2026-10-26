@@ -11,6 +11,7 @@ const crypto = require("node:crypto");
 const path = require("node:path");
 const { Client } = require("pg");
 const bcrypt = require("bcrypt");
+const { signIn } = require("./helpers/signIn");
 
 test("billing, reports and guest accounts", { timeout: 600000 }, async (t) => {
   require("dotenv").config({ quiet: true });
@@ -103,7 +104,7 @@ test("billing, reports and guest accounts", { timeout: 600000 }, async (t) => {
     assert.equal(response.status, expected, `${method} ${url}: ${JSON.stringify(result)}`);
     return result.data;
   }
-  const login = async (email) => (await request("POST", "/auth/login", { identifier: email, password })).token;
+  const login = async (email) => (await signIn(base, email, password)).token;
   const owner = await login("owner@cash.invalid");
   const O = (method, url, body, expected = 200, headers = {}) => request(method, url, body, expected, owner, headers);
   const H = (id) => (id ? { "X-Outlet-Id": String(id) } : {});

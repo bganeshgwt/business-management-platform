@@ -6,6 +6,7 @@ const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const dates = require('./helpers/dates');
+const { signIn } = require('./helpers/signIn');
 
 // Wholesale / FMCG distribution: receipts split between bills, opening
 // balance and advance; cheques (date, bank, deposit, clear, bounce with
@@ -57,10 +58,7 @@ test('wholesale: cheques, settlement, schemes, hold, edits, delivery', { timeout
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(30000) });
     return { status: response.status, body: await response.json() };
   }
-  const login = async (email) => {
-    const response = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: email, password }) });
-    return (await response.json()).data.token;
-  };
+  const login = async (email) => (await signIn(base, email, password)).token;
   const ownerUser = await owner('wspro-owner');
   await owner('wspro-other');
   const token = await login('wspro-owner@test.invalid');

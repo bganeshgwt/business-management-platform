@@ -4,6 +4,7 @@ const crypto = require("node:crypto");
 const path = require("node:path");
 const { Client } = require("pg");
 const bcrypt = require("bcrypt");
+const { signIn } = require("./helpers/signIn");
 
 // Kitchen names (any Indian script) for dishes, sizes and add-ons on
 // KOTs, the kitchen board and change slips; the kitchen settings choose menu,
@@ -70,7 +71,7 @@ test("kitchen names on KOTs", { timeout: 600000 }, async (t) => {
     assert.equal(response.status, expected, `${method} ${url}: ${JSON.stringify(result)}`);
     return result;
   }
-  const login = async (email) => (await request("POST", "/auth/login", { identifier: email, password })).data.token;
+  const login = async (email) => (await signIn(base, email, password)).token;
   const owner = await login("owner@test.invalid");
   const cook = await login("cook@test.invalid");
   const foreign = await login("other@test.invalid");

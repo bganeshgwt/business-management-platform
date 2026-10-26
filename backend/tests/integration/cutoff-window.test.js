@@ -26,6 +26,7 @@ const path = require("node:path");
 const { Client } = require("pg");
 const bcrypt = require("bcrypt");
 const { today, addDays, hourNow, zoneWithHour } = require("./helpers/dates");
+const { signIn } = require("./helpers/signIn");
 
 // A zone and a cut-off with the current hour at least two hours inside the
 // window (the cut-off can be at most 12): Asia/Kolkata whenever its hour
@@ -120,7 +121,7 @@ test("the cut-off window: last night's day is still the trading day", { timeout:
     assert.equal(result.status, expected, `${method} ${url}: ${JSON.stringify(result.body).slice(0, 400)}`);
     return result.body.data;
   }
-  const login = async (email) => (await request("POST", "/auth/login", { identifier: email, password }, 200)).token;
+  const login = async (email) => (await signIn(base, email, password)).token;
   const owner = await login("owner@cutoff.invalid");
   const cook = await login("cook@cutoff.invalid");
   const manager = await login("manager@cutoff.invalid");

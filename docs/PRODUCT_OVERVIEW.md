@@ -309,7 +309,7 @@ Every action needs two keys: the business must have that module switched on, and
 - **One login, many businesses**, each with its own role.
 - **Ready-made roles:** Owner, Manager, Cashier / sales, Stock keeper, Accountant and Viewer in every business; a pharmacy adds a Pharmacist, a clinic adds a Doctor, a Lab technician and a Pathologist, an optical shop adds an Optometrist, and a garage adds a Mechanic. A restaurant has its own set: Restaurant Admin, Manager, Cashier, Captain / Waiter, Kitchen staff, Accountant, Store keeper and a Collection display for the pickup screen. An owner can add roles of their own, and a manager can never give more than they hold.
 - **Staff logins with a branch and a department.**
-- **Sign-in protection:** passwords never stored in readable form, two-step sign-in, lockout after repeated wrong attempts, PINs for shared tills, PIN sign-off for pathologists and pharmacists.
+- **Sign-in protection:** passwords never stored in readable form, a password someone else set changed by its person at the first sign-in, two-step sign-in, lockout after repeated wrong attempts, PINs for shared tills, PIN sign-off for pathologists and pharmacists.
 - **Data kept apart:** each business sees only its own data. The server checks it on every request, and the database refuses any record that points at another business's data.
 - **Activity log:** a record of who did what; posted bills are never edited.
 - **Clinical privacy:** only doctors (and the owner) see clinical notes, and every view is logged.

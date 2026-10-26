@@ -17,6 +17,7 @@ const { Client } = require("pg");
 const bcrypt = require("bcrypt");
 
 const { daysFrom } = require("./helpers/dates");
+const { signIn: signInAs } = require("./helpers/signIn");
 
 test("access and back-office rules: sign-in tickets, lock words, tied approvals, branch bell", { timeout: 600000 }, async (t) => {
   require("dotenv").config({ quiet: true });
@@ -122,8 +123,10 @@ test("access and back-office rules: sign-in tickets, lock words, tied approvals,
     assert.equal(result.status, expected, `${method} ${url}: ${JSON.stringify(result.body)}`);
     return result.body.data;
   }
+  // The password step alone (the two-step tests take it from there), and a
+  // whole sign-in that has chosen the login's own password.
   const signIn = (email) => request("POST", "/auth/login", { identifier: email, password }, 200);
-  const login = async (email) => (await signIn(email)).token;
+  const login = async (email) => (await signInAs(base, email, password)).token;
   const owner = await login("owner@test.invalid");
   const O = (method, url, body, expected = 200, headers) => request(method, url, body, expected, owner, headers);
 

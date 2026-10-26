@@ -7,6 +7,7 @@ const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const { withTools } = require('./helpers/tools');
 const { daysFrom, weekdayOf, momentAt, zoneWithHour } = require('./helpers/dates');
+const { signIn } = require('./helpers/signIn');
 
 // Salon & spa and weight shops, day to day: moving a booking
 // (never a late-cancel charge), stylist hours / weekly off / leave, arrival,
@@ -55,10 +56,7 @@ test('salon & weight shops, day to day', { timeout: 300000 }, async (t) => {
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(30000) });
     return { status: response.status, body: await response.json() };
   }
-  const login = async (email) => {
-    const response = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: email, password }) });
-    return (await response.json()).data.token;
-  };
+  const login = async (email) => (await signIn(base, email, password)).token;
   const ownerUser = await owner('swpro-owner');
   await owner('swpro-other');
   const as = (auth) => async (method, route, body, expected = 200) => {

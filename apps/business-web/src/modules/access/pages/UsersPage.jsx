@@ -235,7 +235,7 @@ export default function UsersPage() {
         done(`${form.name} updated`);
       } else {
         await createUser({ ...payload, password: form.password });
-        done(`${form.name} added. They can sign in now${form.mobile ? " with their mobile number" : ""}.`);
+        done(`${form.name} added. They can sign in now${form.mobile ? " with their mobile number" : ""}, and choose their own password then.`);
       }
 
       setEditing(null);
@@ -645,7 +645,8 @@ export default function UsersPage() {
                   <Icon name="refresh" size={16} />
                 </span>
                 <span>
-                  <strong>Changing or resetting a password</strong> signs that person out everywhere else at once.
+                  <strong>Changing or resetting a password</strong> signs that person out everywhere else at once. A
+                  password you set for someone is replaced by their own at their next sign-in.
                 </span>
               </li>
               <li>
@@ -1051,7 +1052,7 @@ export default function UsersPage() {
                   required
                   autoComplete="new-password"
                 />
-                <small className="muted">At least 8 characters</small>
+                <small className="muted">At least 8 characters. They choose their own when they first sign in.</small>
               </label>
             )}
 
@@ -1163,7 +1164,7 @@ export default function UsersPage() {
                 autoComplete="new-password"
               />
               <small className="muted">
-                At least 8 characters. Tell them their new password; it cannot be read later.
+                At least 8 characters. Tell them this password: they sign in with it once and then choose their own.
               </small>
             </label>
 

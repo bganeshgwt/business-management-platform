@@ -260,9 +260,14 @@ export default function AuthProvider({ children }) {
   );
 
   // Someone who keeps the log book, just signed in: what the last shift
-  // handed over that they have not read (see LogbookHandoverNotice).
+  // handed over that they have not read (see LogbookHandoverNotice). Not
+  // before they have chosen their own password, when nothing else opens.
   const showHandover =
-    signIns > 0 && Boolean(user?.restaurantId) && !locked && Boolean(user?.permissions.includes("logbook.view"));
+    signIns > 0 &&
+    Boolean(user?.restaurantId) &&
+    !locked &&
+    !user?.passwordChangeRequired &&
+    Boolean(user?.permissions.includes("logbook.view"));
 
   return (
     <AuthContext.Provider value={value}>

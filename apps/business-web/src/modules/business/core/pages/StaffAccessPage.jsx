@@ -63,9 +63,9 @@ export default function StaffAccessPage() {
       {editing && <AccessDialog member={editing} onClose={() => setEditing(null)}
         onSaved={(m) => { setEditing(null); setNotice(`Access saved: ${m.role_name}${m.active ? "" : " (switched off)"}.`); list.reload(); }} />}
       {newLogin && <NewLoginDialog onClose={() => setNewLogin(false)}
-        onSaved={(m) => { setNewLogin(false); setNotice(`${m.name} can now sign in with ${m.email} and the password you set (${m.role_name}).`); list.reload(); }} />}
+        onSaved={(m) => { setNewLogin(false); setNotice(`${m.name} can now sign in with ${m.email} and the password you set (${m.role_name}), then choose their own.`); list.reload(); }} />}
       {password && <PasswordDialog member={password} onClose={() => setPassword(null)}
-        onSaved={(m) => { setPassword(null); setNotice(`New password set for ${m.name}. Their open sessions have ended.`); }} />}
+        onSaved={(m) => { setPassword(null); setNotice(`New password set for ${m.name}. Their open sessions have ended; they choose their own password at their next sign-in.`); }} />}
     </div>
   );
 }
@@ -138,7 +138,7 @@ function NewLoginDialog({ onClose, onSaved }) {
   const departments = useDepartmentChoices(biz, form.workDepartmentId);
   return (
     <FormDialog title="New staff login" icon="user-plus" width={600} onClose={onClose} onSaved={onSaved} disabled={!options} submitLabel="Create login"
-      description="For someone who has no login yet. Tell them their email and this password; they can change it in My profile."
+      description="For someone who has no login yet. Tell them their email and this password; they choose their own when they first sign in."
       onSubmit={() => businessWrite(biz.id, "staff-accounts", { ...form, name: form.name.trim(), email: form.email.trim(), mobile: form.mobile.trim(),
         ...(departments.length || pinnedDepartment ? {} : { workDepartmentId: undefined }) })}>
       <FormError message={error} />
@@ -204,7 +204,7 @@ function PasswordDialog({ member, onClose, onSaved }) {
   const [password, setPasswordValue] = useState("");
   return (
     <FormDialog title={`New password for ${member.name}`} icon="key" width={480} onClose={onClose} onSaved={onSaved} submitLabel="Set password"
-      description="Their open sessions end; they sign in again with this password."
+      description="Their open sessions end; they sign in with this password once and then choose their own."
       onSubmit={() => businessWrite(biz.id, `staff-accounts/${member.id}/password`, { password })}>
       <Field label="New password" wide><input type="password" autoComplete="new-password" required minLength={8} maxLength={72} value={password} onChange={(e) => setPasswordValue(e.target.value)} /></Field>
     </FormDialog>

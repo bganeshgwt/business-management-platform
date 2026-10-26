@@ -91,7 +91,9 @@ they never meet.
 3. It starts the API inside the test process on a free port of 127.0.0.1,
    with `NODE_ENV=test`, and works through HTTP as the apps do. A few files
    call the services directly instead, and `server-start.test.js` starts
-   `src/server.js` itself. Each test makes the data it needs.
+   `src/server.js` itself. Each test makes the data it needs. Its logins sign
+   in through `helpers/signIn.js`, which chooses each one's own password at
+   its first sign-in, as a person must after a password someone else set.
 4. It drops its database at the end, passed or failed.
 
 Two things work differently under `NODE_ENV=test`:
@@ -128,6 +130,7 @@ In `backend/tests/integration/helpers/`. The first two take
 | --- | --- |
 | `businesses.js` | `createBusinesses(request, prefix, types)` makes businesses the way an owner adds one (*Add a business*, `POST /businesses`), so each starts with its roles, settings, GST slabs, units, its type's default modules, a first location and the owner's membership. It returns them as `GET /businesses` lists them, with their capabilities and the owner's role. Codes are `<PREFIX>-<TYPE>`, so each person in a test passes a prefix of their own. `ALL_TYPES` lists every type but the restaurant. |
 | `tools.js` | `withTools(request, businesses, { work })` switches on each type's specialist tools (`PUT /businesses/:id/modules/:code`), as an owner does in *Settings › Business tools*: a new business starts without them. `work: true` adds tasks, issues and projects. |
+| `signIn.js` | `signIn(base, identifier, password)` signs in as a login the test made and returns the session (or the two-step challenge), or `null` when the sign-in is refused. Every such login has a password someone else set, so its first sign-in chooses a password of its own, fresh and kept in the test's memory only, and goes on; signing in again with the password the test gave uses the login's own. `chooseOwnPassword(base, identifier, password, session)` does that step for a session the test finished itself (after two-step sign-in), and `passwordOf(base, identifier, password)` is the login's password now, for the routes that ask for it (a PIN, two-step set-up, a change). |
 | `dates.js` | Dates on the business's clock (Asia/Kolkata unless another zone is given): `today`, `daysFrom`, `addDays`, `daysBetween`, `monthStart`, `weekdayOf`; `tradingToday`, the trading date as the server works it out, which runs to the 05:00 cut-off; `hourNow`; `momentAt`, a wall-clock time on a date as a moment; `zoneWithHour(from, to)`, a time zone whose clock reads such an hour, for a test that needs the business open, or in the small hours, whatever the time of the run. |
 
 A date taken from the UTC clock, or from the database's own date, is a day
@@ -342,7 +345,11 @@ them.
   `PUMP_ATTENDANT`, the fuel station's pump attendant, made there the same
   way with the *Pump attendant (DSM)* role; and `HOUSEKEEPER`, the lodge's
   housekeeper, made there the same way with the *Housekeeping* role. The
-  restaurant has no manager login.
+  restaurant has no manager login. Each login signs in once while the data
+  is made and chooses a password of its own, also made fresh for the run, as
+  everyone must after a password someone else set; the run's file keeps that
+  one, so a spec meets the *Choose your own password* step only with a login
+  it makes itself.
 - **The restaurant, E2E Bistro** (Asia/Kolkata): two outlets; one floor with
   tables 1 to 5, none tied to an outlet, each cleaned for five minutes after
   its bill is paid; two menu categories, four dishes at the restaurant's
@@ -469,6 +476,7 @@ Project `staff`, in `apps/business-web/tests/browser/`:
 | `guest-book.spec.js` | `RESTAURANT_ADMIN` | With Loyalty points switched off, as a new restaurant starts, the guest book's reports show guest sales only: no points tab, no error, and no request for the points report. | Nothing |
 | `guest-redirect.spec.js` | — | Old guest links on the staff app's address (`/order`, `/online`, `/book`) land on the guests' site with path, query and hash kept; the guest data old pages kept in the browser is cleared, and the staff's own settings stay. | Nothing |
 | `preorders.spec.js` | `RESTAURANT_ADMIN`, `KITCHEN` | At 1440 px (light) and 390 px (dark). With *Advances & deposits* off, *New pre-order* books 1 cake and 0.5 kg of cookies sold by weight: it shows no advance fields, only the line saying why, and there is no *Advances held* on the page or in the dashboard's Pre-orders block. With Advances on, a second is booked with a ₹500 advance by UPI, and the dashboard shows ₹500 held; with an outlet picked, the block says *All outlets* and still counts every outlet's. Each booking is checked against the API. The bake list for tomorrow (the main counter's) adds them up, 2 × cake and 1 kg of cookies, with each pre-order and its message. `KITCHEN` finds *Pre-orders & cakes* in its menu and gets the bake list alone, with no *New pre-order*, tabs, tiles or row actions, and none of its pre-order requests is refused. Nothing scrolls sideways; saves screenshots for review. | Switches Pre-orders on, and Advances off and on, through the API, then back as they were. Adds a cake and cookies named for the run, two guests and two pre-orders (cancelled at the end), and a UPI advance taken and handed back on the main counter's day |
+| `password-must-change.spec.js` | `RESTAURANT_ADMIN`, then the login it makes | In the grocery's *Staff & access*, *New staff login* says the person chooses their own password when they first sign in, and makes a cashier login (`NEW_STAFF`). On a browser of its own, the cashier opens Quick bill from its address, is sent to sign in, signs in with the password they were given and meets *Choose your own password* before anything else: the password they were given is refused as their own, then a new one is saved, and they land on Quick bill, still there after a reload. Their own password then signs them in with nothing more to do, and the one they were given no longer does. | Adds a cashier login named for the run in the grocery, with a password of its own |
 | `printing.spec.js` | — | [Receipt printing checks](#receipt-printing-checks). | Nothing |
 | `quick-access.spec.js` | `RESTAURANT_ADMIN`, `KITCHEN` | Quick access: five shortcuts chosen, reordered and saved, kept over a reload, unchanged by *Cancel*, and still in place while the menu scrolls. Each person has their own, and a stored page the person may not open, or no page at all, is never shown. Keyboard focus in the editor, a phone, and a short landscape screen. | Nothing: shortcuts live in the browser |
 | `screens.spec.js` | `RESTAURANT_ADMIN` | Every route in the staff app's `src/App.jsx` that takes no parameter, at 1440 px and 390 px, opens with no script error, no server error and no request to a switched-off feature; the platform's pages turn a restaurant admin away. A dish's *Prices & outlets*, *Serving times & combo choices* and *Sizes & add-ons* open, and, with Stock & recipes on, an add-on's *Ingredient recipe* and the production tab. | Nothing |
@@ -581,6 +589,11 @@ When a spec needs data the run does not make:
    the platform (raise it with every restaurant you add) and exactly the
    restaurant's outlets on *Outlets*.
 
+A new login goes into `LOGINS` in `e2e/test-data.mjs` and is made in
+`buildTestData` as people make one; the set-up then signs it in once, so it
+chooses its own password like everyone whose password someone else set, and
+the run's file keeps that one.
+
 A new business type goes into `BUSINESSES` in `e2e/test-data.mjs`, and the
 run then makes one; add it also to the lists of types in
 `business-workspaces.spec.js` and in the unit test
@@ -667,6 +680,7 @@ Integration tests are in `backend/tests/integration/`, browser specs in
 | Restaurant: stock, purchasing and imports | `restaurant-stock.test.js`, `stock-purchasing-imports.test.js`, `stock-cost-and-guest-privacy.test.js`, `restaurant-clock.test.js` (bills, orders, payments, a guest's birthday and the stock date on the restaurant's clock, never the server's) | `visual-density.spec.js` (reorder), `combos-and-production.spec.js` (production, batch write-off) |
 | Restaurant: set-up, features and rules | `restaurant-setup.test.js`, `restaurant-features.test.js`, `restaurant-rule-settings.test.js` | `screens.spec.js`, `guest-book.spec.js` |
 | Restaurant: staff, sign-in and approvals | `staff-and-sign-in.test.js`, `two-step-and-tied-approvals.test.js`, `payroll-expenses-guests.test.js` | `quick-access.spec.js`, `sign-in-return.spec.js` |
+| A password someone else set, changed at the first sign-in (every business) | `password-must-change.test.js` (the database rule and its Down half, logins made before it unmarked; every way a password is set for someone marks it; the 403 on every router, however the session began, and the two routes open; the password rules, the given one refused, a wrong one counted; the mark cleared, other sessions ended and a fresh one given; a retry and two at once; two-step first; My profile never marked; the audit rows) | `password-must-change.spec.js` |
 | Restaurant: guests, online ordering and booking | `online-ordering.test.js`, `online-booking.test.js`, `restaurant-pickup-advances.test.js`, `payroll-expenses-guests.test.js` (the guest book) | `guest-pages.spec.js` (the guests' site), `guest-redirect.spec.js`, `guest-book.spec.js`, `visual-density.spec.js` (guest insights) |
 | Café, bakery and cloud kitchen; brands | `food-formats.test.js` (with pre-orders kept to the outlet of staff tied to one, the kitchen's read-only bake list, and an outlet with open pre-orders neither closed nor deleted), and the unit test `brandReport.test.js` | `preorders.spec.js` (booking, the bake list, the kitchen's view) |
 | Business platform: set-up, roles, numbering, stock control and events | `business-foundation.test.js`, `business-foundation-edge-cases.test.js`, `business-admin.test.js`, `business-onboarding.test.js`, `business-bookings-overview.test.js` | `business-workspaces.spec.js`, `business-staff-access.spec.js`, `business-admin.spec.js` (the switcher, unsaved forms) |

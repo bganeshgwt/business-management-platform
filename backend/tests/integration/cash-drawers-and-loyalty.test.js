@@ -12,6 +12,7 @@ const crypto = require("node:crypto");
 const path = require("node:path");
 const { Client } = require("pg");
 const bcrypt = require("bcrypt");
+const { signIn } = require("./helpers/signIn");
 
 test("cash drawers, the day's close, expenses and loyalty", { timeout: 600000 }, async (t) => {
   require("dotenv").config({ quiet: true });
@@ -104,7 +105,7 @@ test("cash drawers, the day's close, expenses and loyalty", { timeout: 600000 },
     assert.equal(result.status, expected, `${method} ${url}: ${JSON.stringify(result.body)}`);
     return result.body.data;
   }
-  const login = async (email) => (await request("POST", "/auth/login", { identifier: email, password }, 200)).token;
+  const login = async (email) => (await signIn(base, email, password)).token;
   const owner = await login("owner@cashb.invalid");
   const cashier = await login("ravi@cashb.invalid");
   const manager = await login("meena@cashb.invalid");

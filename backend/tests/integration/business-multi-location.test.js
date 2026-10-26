@@ -7,6 +7,7 @@ const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const { withTools } = require('./helpers/tools');
 const { daysFrom } = require('./helpers/dates');
+const { signIn } = require('./helpers/signIn');
 
 // Multi-location for every business type: a location's own
 // address and GSTIN on its bills, staff tied to one location (they bill,
@@ -50,10 +51,7 @@ test('multi-location: branch details, staff tied to a branch, top-bar branch, co
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(20000) });
     return { status: response.status, body: await response.json() };
   }
-  const login = async (email) => {
-    const response = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: email, password }) });
-    return (await response.json()).data.token;
-  };
+  const login = async (email) => (await signIn(base, email, password)).token;
   const as = (auth, headers) => async (method, route, body, expected = 200) => {
     const result = await call(method, route, body, auth, headers);
     assert.equal(result.status, expected, `${method} ${route}: ${JSON.stringify(result.body)}`);

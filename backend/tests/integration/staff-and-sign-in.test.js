@@ -14,6 +14,7 @@ const bcrypt = require("bcrypt");
 // also checked against another restaurant (it must answer "not found").
 
 const { today, daysFrom } = require("./helpers/dates");
+const { signIn: signInAs, passwordOf } = require("./helpers/signIn");
 const TODAY = today();
 const daysFromToday = (n) => daysFrom(n);
 const datesOf = (from, to) => {
@@ -124,11 +125,13 @@ test("access features: two-step, tips, leave, statutory pay, register, roster, l
     assert.equal(result.status, expected, `${method} ${url}: ${JSON.stringify(result.body).slice(0, 400)}`);
     return result.body.data;
   }
-  const signIn = (email) => call("POST", "/auth/login", { identifier: email, password });
+  // The password step alone, with the login's password as it is now (its own
+  // once it has signed in), and a whole sign-in that has chosen its own.
+  const signIn = (email) => call("POST", "/auth/login", { identifier: email, password: passwordOf(base, email, password) });
   const tokenOf = async (email) => {
-    const result = await signIn(email);
-    assert.ok(result.body.data && result.body.data.token, `${email}: ${JSON.stringify(result.body)}`);
-    return result.body.data.token;
+    const session = await signInAs(base, email, password);
+    assert.ok(session && session.token, `${email} could not sign in`);
+    return session.token;
   };
 
   // Authenticator codes: each 30-second step works once and must be later
@@ -151,7 +154,7 @@ test("access features: two-step, tips, leave, statutory pay, register, roster, l
   // ---------------------------------------------------------------------------
   await t.test("two-step sign-in", async () => {
     // Switching it on from My profile: password first, then the first code.
-    const setup = await request("POST", "/auth/two-factor/setup", { password }, 200, ownerToken);
+    const setup = await request("POST", "/auth/two-factor/setup", { password: passwordOf(base, owner.email, password) }, 200, ownerToken);
     assert.match(setup.otpauthUrl, /^otpauth:\/\/totp\//);
     const ownerKey = setup.secret;
     const enabled = await request("POST", "/auth/two-factor/enable", { code: await nextCode(ownerKey) }, 200, ownerToken);
@@ -226,7 +229,7 @@ test("access features: two-step, tips, leave, statutory pay, register, roster, l
     await request("POST", "/auth/login/two-factor", { challengeToken: back.body.data.twoFactor.challengeToken, code: await nextCode(managerKey) }, 200);
 
     // Five wrong tries lock the account, in words about the codes.
-    const cashierSetup = await request("POST", "/auth/two-factor/setup", { password }, 200, cashierToken);
+    const cashierSetup = await request("POST", "/auth/two-factor/setup", { password: passwordOf(base, cashier.email, password) }, 200, cashierToken);
     await request("POST", "/auth/two-factor/enable", { code: await nextCode(cashierSetup.secret) }, 200, cashierToken);
     const lockTicket = (await signIn(cashier.email)).body.data.twoFactor.challengeToken;
     let locked = null;

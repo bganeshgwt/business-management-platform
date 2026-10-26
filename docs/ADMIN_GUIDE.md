@@ -135,6 +135,17 @@ number has logins at more than one business. A sign-in lasts 8 hours without
 use and is renewed while you work, so a long shift is never cut off.
 Passwords are 8 to 72 characters.
 
+**A password someone else set.** The first password of a new login, and a
+new one an admin or the platform sets for you, works for one sign-in only.
+After it (and after the two-step code, if you use one) the sign-in shows
+**Choose your own password**: type the password you were given, then your new
+one twice, and **Save and continue**. Nothing else opens until you do, and
+the new password cannot be the one you were given. Then you carry on to the
+page you were opening, and every other device signed in as you is signed out.
+**Not you? Sign out** goes back to the sign-in form. The login made with
+`npm run user:create` does the same at its first sign-in
+([BUSINESS_RULES.md › A password someone else set is changed at the first sign-in](BUSINESS_RULES.md#a-password-someone-else-set-is-changed-at-the-first-sign-in)).
+
 **Two-step sign-in.** After a correct password, people who use it type the
 6-digit code from an authenticator app (Google or Microsoft Authenticator);
 they have 10 minutes to do so. Turn it on yourself from your name (top right)
@@ -186,8 +197,9 @@ A new installation is empty: no restaurant, business, product or staff login
 exists until someone makes it. Whoever installs the platform makes the first
 login once, on the server: `npm run user:create` in `backend`, with the
 restaurant code left empty, makes the platform's **Super Admin**
-([README › The first login](../README.md#3-the-first-login)). Everything else
-is made on the screens.
+([README › The first login](../README.md#3-the-first-login)). Its first
+sign-in asks for a password of its own, as every new login's does. Everything
+else is made on the screens.
 
 The Super Admin belongs to no restaurant. It opens on **Platform ›
 Restaurants**, and only the platform's own logins see the **Platform** group
@@ -215,7 +227,7 @@ or code, show all, active or switched-off restaurants, and *Export CSV*.
     prefix** (ORD);
   - **the owner's login**: full name, email, mobile (optional) and a first
     password of 8 to 72 characters. The owner becomes the restaurant's
-    **Restaurant Admin** and changes the password under My profile.
+    **Restaurant Admin** and chooses their own password at the first sign-in.
 - **What a new restaurant starts with:** four GST rates (Exempt; GST 5 % for
   restaurant service, SAC 996331, the default for new dishes; GST 18 %; GST
   40 %), its settings (time zone Asia/Kolkata and the two prefixes), five
@@ -232,7 +244,8 @@ or code, show all, active or switched-off restaurants, and *Export CSV*.
 - **Admins** lists the people who manage the restaurant's users and roles,
   with their last sign-in and whether they are locked out. **New password**
   gives one of them a new password: they are signed out everywhere and any
-  lockout is lifted. Tell them the password; they change it under My profile.
+  lockout is lifted. Tell them the password; they choose their own at their
+  next sign-in.
 
 ### Platform › Businesses
 
@@ -249,7 +262,8 @@ or GSTIN, and filter by type and status.
   in bill numbers; *Main store* and MAIN when left empty), and **the owner's
   login**. The owner is an existing login, found by its email (the business
   is added to it and appears in its switcher), or a new login with a name, a
-  mobile (optional) and a password of 8 to 72 characters.
+  mobile (optional) and a password of 8 to 72 characters; the owner chooses
+  their own password at the first sign-in.
 - The owner signs in and finds the business ready: its roles, GST slabs,
   units, payment methods and its type's everyday business tools are set up.
   It has no products, customers, suppliers, staff or stock yet ([First steps
@@ -258,7 +272,8 @@ or GSTIN, and filter by type and status.
   to them until it is switched on again. Nothing is deleted. **Switch on**
   opens it again.
 - **Owner password** sets a new password for an owner locked out of their
-  own business; their open sessions end.
+  own business; their open sessions end, and they choose their own password
+  at their next sign-in.
 
 ## Starting a business
 
@@ -300,7 +315,9 @@ in a business with departments, which department; a manager tied to a
 department makes logins in that department only); *Give access* adds someone
 who already has a login (your restaurant's staff, or people working in
 another business you own). *Password* sets a new password for a member of
-staff whose login is used only in this business; their open sessions end. You
+staff whose login is used only in this business; their open sessions end.
+After a new login's first password, or a new password set here, the person
+chooses their own at their next sign-in. You
 can change someone (*Change*, the same form as *Give access*), or set their
 password, only when you manage them: if you are tied to a location or a
 department, they are tied to that same one (not to every location or every
@@ -4935,8 +4952,10 @@ role in use cannot be deleted.
 inactive or locked), one or more roles, and optionally the outlet they are
 tied to. An admin can reset a password but never read one, set or remove a
 PIN, unlock sign-in, sign someone out everywhere and reset their two-step
-sign-in. The tab **Till lock & sign-in** sets the automatic till lock and the
-roles that must use two-step sign-in.
+sign-in. A new user's first password, and a password an admin resets, works
+for one sign-in: the person then chooses their own. The tab
+**Till lock & sign-in** sets the automatic till lock and the roles that must
+use two-step sign-in.
 
 ## Business Admin roles
 
@@ -5050,10 +5069,11 @@ the link you were sent).
   the tax, document type and logo they were issued with.
 - **There is no self-service password reset.** An admin sets a new password:
   Users in a restaurant, Staff & access › *Password* in a business, and the
-  platform screens for a restaurant's admin or a business's owner. Nothing
-  makes the person change a password someone else set, a new login's first
-  one included, at their next sign-in: ask them to change it under My profile
-  straight away.
+  platform screens for a restaurant's admin or a business's owner. The person
+  signs in with it once and then chooses their own.
+- **A PIN an admin sets is not changed by itself.** A PIN set for someone in
+  Users (⋯ › *Set PIN*) stays until they change it under My profile › Personal
+  PIN: ask them to straight away.
 - **Business Admin has no CSV import.** A shop types in its products,
   customers and suppliers ([First steps in a new
   business](#first-steps-in-a-new-business)).

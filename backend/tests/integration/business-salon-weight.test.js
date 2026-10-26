@@ -6,6 +6,7 @@ const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const { daysFrom, momentAt, zoneWithHour } = require('./helpers/dates');
+const { signIn } = require('./helpers/signIn');
 
 // Salon & spa (service times, stylist skills, rooms, the
 // calendar with deposits and the no-show / late-cancel rule, packages,
@@ -53,10 +54,7 @@ test('salon & spa and weight-based shops', { timeout: 300000 }, async (t) => {
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(30000) });
     return { status: response.status, body: await response.json() };
   }
-  const login = async (email) => {
-    const response = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: email, password }) });
-    return (await response.json()).data.token;
-  };
+  const login = async (email) => (await signIn(base, email, password)).token;
   const ownerUser = await owner('salon-owner');
   await owner('salon-other');
   const as = (auth) => async (method, route, body, expected = 200) => {

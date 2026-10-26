@@ -27,6 +27,13 @@ export default function ProtectedRoute({ permission, permissionAny, feature, fea
     return <Navigate to="/login" replace state={{ from: location, forUser: previousUserId }} />;
   }
 
+  // Someone else set this person's password (a new login, a reset): the sign-in
+  // screen asks for their own before anything else opens, then sends them on
+  // to where they were going.
+  if (user.passwordChangeRequired) {
+    return <Navigate to="/login" replace state={{ from: location, forUser: user.id }} />;
+  }
+
   const required = Array.isArray(permission) ? permission : permission ? [permission] : [];
 
   if (required.some((code) => !hasPermission(code)) || (permissionAny && !permissionAny.some((code) => hasPermission(code)))) {

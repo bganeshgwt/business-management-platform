@@ -90,7 +90,12 @@ Import them by name: `import Icon from "@bmp/ui/Icon"`,
    `useAuth()` (an e-mail or a mobile; with two-step sign-in on, the answer asks
    for the code first).
 2. `AuthProvider` stores the returned token in `localStorage` and keeps the
-   user in state.
+   user in state. When someone else set the password (`user.passwordChangeRequired`),
+   `LoginPage` shows `ChoosePassword` instead of moving on, and
+   `ProtectedRoute` sends every page back to it, until the person has chosen
+   their own (`POST /auth/change-password`, which returns a fresh session);
+   then the page they were opening loads. The API refuses everything else
+   until then.
 3. `api.js` attaches `Authorization: Bearer <token>` to every request, with the
    chosen outlet (`X-Outlet-Id`) and, in a business, the chosen location
    (`X-Business-Location`).

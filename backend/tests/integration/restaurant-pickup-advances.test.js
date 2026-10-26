@@ -9,6 +9,7 @@ const crypto = require("node:crypto");
 const path = require("node:path");
 const { Client } = require("pg");
 const bcrypt = require("bcrypt");
+const { signIn } = require("./helpers/signIn");
 
 test("restaurant: pickup advances, task audit, people search", { timeout: 300000 }, async (t) => {
   require("dotenv").config({ quiet: true });
@@ -70,7 +71,7 @@ test("restaurant: pickup advances, task audit, people search", { timeout: 300000
     assert.equal(result.status, expected, `${method} ${url}: ${JSON.stringify(result.body)}`);
     return result.body.data;
   }
-  const login = async (email) => (await request("POST", "/auth/login", { identifier: email, password }, 200)).token;
+  const login = async (email) => (await signIn(base, email, password)).token;
   const owner = await login("owner@pickr2.invalid");
   const cashier = await login("ravi@pickr2.invalid");
   const other = await login("other@pickr2.invalid");

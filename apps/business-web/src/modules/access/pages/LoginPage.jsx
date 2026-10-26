@@ -5,6 +5,7 @@ import useShake from "../../../hooks/useShake";
 import { getErrorMessage } from "../../../services/api";
 import { beginLoginTwoFactorSetup, rememberedRestaurantCode } from "../../../services/auth.service";
 import Icon, { BrandMark } from "@bmp/ui/Icon";
+import ChoosePassword from "./ChoosePassword";
 import TwoStepSignIn from "./TwoStepSignIn";
 import "../../../styles/staff.css";
 
@@ -22,7 +23,7 @@ const looksLikeStaffCode = (value) => {
 };
 
 export default function LoginPage() {
-  const { user, login, acceptSession, signedOutReason } = useAuth();
+  const { user, login, acceptSession, logout, replaceToken, refreshUser, signedOutReason } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   // With two-step sign-in, a right password leads here instead of a session:
@@ -61,8 +62,9 @@ export default function LoginPage() {
   // Marks the page as reached straight from signing in: one the person may
   // not open then sends them home instead of saying "Access denied" (see
   // ProtectedRoute), e.g. a platform page restored in a tab nobody was
-  // signed in to.
-  if (user) {
+  // signed in to. Someone whose password was set by someone else stays here
+  // until they have chosen their own (below).
+  if (user && !user.passwordChangeRequired) {
     return <Navigate to={after ? after.to : backTo(user)} state={after ? after.state : { afterSignIn: true }} replace />;
   }
 
@@ -127,6 +129,20 @@ export default function LoginPage() {
     acceptSession(session);
   };
 
+  // Their own password is chosen: the fresh session replaces this one, and
+  // the "already signed in" redirect above takes them where they were going.
+  const chosen = (session) => {
+    replaceToken(session.token);
+    refreshUser(session.user);
+  };
+
+  // Not now, or not this person: back to an empty sign-in form.
+  const signOut = () => {
+    setSecond(null);
+    setAfter(null);
+    logout();
+  };
+
   return (
     <div className="login-page">
       {/* The brand side: what this is, before anyone has to read a form. On
@@ -181,7 +197,9 @@ export default function LoginPage() {
       </aside>
 
       <main className="login-main">
-        {second ? (
+        {user ? (
+          <ChoosePassword user={user} onChosen={chosen} onSignOut={signOut} />
+        ) : second ? (
           <TwoStepSignIn second={second} onRestart={restart} onSignedIn={signedIn} />
         ) : (
           <form className="card login-card" onSubmit={handleSubmit} aria-busy={submitting} ref={cardRef}>
@@ -289,8 +307,8 @@ export default function LoginPage() {
               <div id="login-forgot-help" className="alert alert-notice login-forgot-help" role="region" aria-label="Forgot password">
                 <span>
                   <strong>Staff:</strong> ask the owner or a manager to set a new password for you in{" "}
-                  <em>Users</em> (restaurant) or <em>Staff &amp; access</em> (business). Your PIN for the lock screen
-                  stays the same.
+                  <em>Users</em> (restaurant) or <em>Staff &amp; access</em> (business); you sign in with it once and
+                  then choose your own. Your PIN for the lock screen stays the same.
                   <br />
                   <strong>Owner:</strong> another admin of your business can reset it the same way. If you are the
                   only admin, contact your platform support with your business code.

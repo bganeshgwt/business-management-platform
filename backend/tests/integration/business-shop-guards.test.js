@@ -6,6 +6,7 @@ const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const { today } = require('./helpers/dates');
+const { signIn } = require('./helpers/signIn');
 
 // The database guards on a shop's expenses, daily cash checks and cashier
 // shifts. Each refuses a change the services never make, as a check violation
@@ -45,7 +46,7 @@ test('shop guards: expenses, cash checks and cashier shifts refuse changes as ch
   const app = require('../../src/app');
   server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
   const base = `http://127.0.0.1:${server.address().port}/api`;
-  const token = (await (await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: 'guards-owner@test.invalid', password }) })).json()).data.token;
+  const token = (await signIn(base, 'guards-owner@test.invalid', password)).token;
   async function request(method, route, body, expected = 200) {
     const response = await fetch(base + route, { method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(20000) });

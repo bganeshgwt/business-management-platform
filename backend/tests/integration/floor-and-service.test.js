@@ -30,6 +30,7 @@ const path = require("node:path");
 const { Client } = require("pg");
 const bcrypt = require("bcrypt");
 const { momentAt, tradingToday } = require("./helpers/dates");
+const { signIn, passwordOf } = require("./helpers/signIn");
 
 test("floor and service", { timeout: 600000 }, async (t) => {
   require("dotenv").config({ quiet: true });
@@ -126,7 +127,7 @@ test("floor and service", { timeout: 600000 }, async (t) => {
     assert.equal(result.status, expected, `${method} ${url}: ${JSON.stringify(result.body)}`);
     return result.body.data;
   };
-  const login = async (email) => (await expect("POST", "/auth/login", { identifier: email, password }, 200)).token;
+  const login = async (email) => (await signIn(base, email, password)).token;
   const owner = await login("owner@test.invalid");
   const captain = await login("captain@test.invalid");
   const captainA = await login("captaina@test.invalid");
@@ -314,7 +315,7 @@ test("floor and service", { timeout: 600000 }, async (t) => {
   for (let i = 1; i <= 24; i += 1) rushTables.push(await table(`R${i}`, { floorId: rushFloor.id }));
   const timedLogin = async () => {
     const started = Date.now();
-    const result = await send("POST", "/auth/login", { identifier: "owner@test.invalid", password });
+    const result = await send("POST", "/auth/login", { identifier: "owner@test.invalid", password: passwordOf(base, "owner@test.invalid", password) });
     return { status: result.status, ms: Date.now() - started };
   };
 

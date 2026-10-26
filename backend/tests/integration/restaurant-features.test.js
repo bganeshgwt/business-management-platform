@@ -4,6 +4,7 @@ const crypto = require("node:crypto");
 const path = require("node:path");
 const { Client } = require("pg");
 const bcrypt = require("bcrypt");
+const { signIn } = require("./helpers/signIn");
 
 // Restaurant features (Settings -> Features; migration 1791470000000): each
 // feature switched off refuses its endpoints with a 403 naming it, keeps its
@@ -69,7 +70,7 @@ test("restaurant features switch on and off", { timeout: 600000 }, async (t) => 
     return expected >= 400 ? result : result.data;
   }
   for (const [who, email] of [["owner", "owner@feat.invalid"], ["manager", "manager@feat.invalid"], ["other", "owner@other.invalid"]]) {
-    tokens[who] = (await request("POST", "/auth/login", { identifier: email, password }, 200, null)).token;
+    tokens[who] = (await signIn(base, email, password)).token;
   }
   const O = (method, url, body, expected = 200) => request(method, url, body, expected, "owner");
   const setFeature = (code, enabled, expected = 200, who = "owner") =>

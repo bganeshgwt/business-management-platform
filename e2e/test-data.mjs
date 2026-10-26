@@ -30,6 +30,11 @@ export const LOGINS = [
   { role: "HOUSEKEEPER", name: "Lakshmi Bai", email: "housekeeping@lodge.e2e.invalid", businesses: ["lodging"], businessRole: "housekeeping" },
 ];
 
+// The staff login a spec makes in the grocery's Staff & access, as the owner
+// makes one: a cashier, who chooses their own password at the first sign-in.
+// The spec makes its e-mail address and both passwords fresh on each run.
+export const NEW_STAFF = { name: "Nisha Verma", emailName: "nisha", role: "Cashier / sales" };
+
 // The restaurant the RESTAURANT_ADMIN runs. Tables 1-3 are free; table 4
 // has a running order; table 5 (leftOpen) has an order left open from an
 // earlier day. Every table belongs to no outlet, so "All outlets" sees them

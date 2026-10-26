@@ -6,6 +6,7 @@ const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const { daysFrom } = require('./helpers/dates');
+const { signIn } = require('./helpers/signIn');
 
 // Licences & registrations (every type but a restaurant) and the seeds,
 // fertilisers & pesticides shop's own tools: the item classification, the
@@ -54,10 +55,7 @@ test('licences and the seeds, fertilisers & pesticides shop', { timeout: 300000 
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(30000) });
     return { status: response.status, body: await response.json().catch(() => ({})) };
   }
-  const login = async (email) => {
-    const response = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: email, password }) });
-    return (await response.json()).data.token;
-  };
+  const login = async (email) => (await signIn(base, email, password)).token;
   await owner('agri-owner');
   await owner('agri-other');
   const as = (auth) => async (method, route, body, expected = 200) => {

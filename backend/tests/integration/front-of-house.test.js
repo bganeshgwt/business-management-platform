@@ -18,6 +18,7 @@ const path = require("node:path");
 const { Client } = require("pg");
 
 const { today } = require("./helpers/dates");
+const { signIn } = require("./helpers/signIn");
 
 test("front of house: earlier days flagged, live screens today-only", { timeout: 600000 }, async (t) => {
   require("dotenv").config({ quiet: true });
@@ -84,7 +85,7 @@ test("front of house: earlier days flagged, live screens today-only", { timeout:
     }
     return expected === null ? { status: response.status, ...result } : result.data;
   }
-  const login = async (email) => (await request("POST", "/auth/login", { identifier: email, password })).token;
+  const login = async (email) => (await signIn(base, email, password)).token;
   const owner = await login("owner@front.invalid");
   const O = (method, url, body, expected = 200) => request(method, url, body, expected, owner);
 

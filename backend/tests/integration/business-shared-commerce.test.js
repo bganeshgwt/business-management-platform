@@ -7,6 +7,7 @@ const bcrypt = require('bcrypt');
 const { pathToFileURL } = require('node:url');
 const { createBusinesses } = require('./helpers/businesses');
 const { GOODS_TYPES } = require('../../src/modules/business/core/services/businessTypes');
+const { signIn } = require('./helpers/signIn');
 
 // Business shared commerce: GST-inclusive shelf prices
 // by default, MRP and HSN, the tax invoice's buyer and place of supply, a
@@ -54,10 +55,7 @@ test('business core: prices, invoice, counter, suppliers, day close', { timeout:
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(20000) });
     return { status: response.status, body: await response.json() };
   }
-  const login = async (email) => {
-    const response = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: email, password }) });
-    return (await response.json()).data.token;
-  };
+  const login = async (email) => (await signIn(base, email, password)).token;
   const ownerUser = await owner('core-owner');
   await owner('core-other');
   const token = await login('core-owner@test.invalid');

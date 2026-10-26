@@ -7,6 +7,7 @@ const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const dates = require('./helpers/dates');
 const { withTools } = require('./helpers/tools');
+const { signIn } = require('./helpers/signIn');
 
 // Each case reproduces a problem in the business platform and pins its fix.
 // Own throwaway database, all migrations.
@@ -42,7 +43,7 @@ test('business platform: round-off returns, whole units, overview figures, demot
   const app = require('../../src/app');
   server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
   const base = `http://127.0.0.1:${server.address().port}/api`;
-  const login = async (name) => (await (await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: `${name}@test.invalid`, password }) })).json()).data.token;
+  const login = async (name) => (await signIn(base, `${name}@test.invalid`, password)).token;
   const as = (auth) => async (method, route, body, expected = 200) => {
     const response = await fetch(base + route, { method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth}` }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
     const result = await response.json();

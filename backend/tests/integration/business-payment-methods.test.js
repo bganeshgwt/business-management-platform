@@ -5,6 +5,7 @@ const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
+const { signIn } = require('./helpers/signIn');
 
 // Payment methods the owner manages (Settings › Payment methods): the five
 // defaults every business starts with, the owner's own (PhonePe, Sodexo) each
@@ -49,10 +50,7 @@ test('payment methods: defaults, owner-managed names, kind + name on payments, d
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(20000) });
     return { status: response.status, body: await response.json() };
   }
-  const login = async (email) => {
-    const response = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: email, password }) });
-    return (await response.json()).data.token;
-  };
+  const login = async (email) => (await signIn(base, email, password)).token;
   const as = (auth) => async (method, route, body, expected = 200) => {
     const result = await call(method, route, body, auth);
     assert.equal(result.status, expected, `${method} ${route}: ${JSON.stringify(result.body)}`);

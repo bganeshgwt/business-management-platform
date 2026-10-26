@@ -14,6 +14,7 @@ const { Client } = require("pg");
 const bcrypt = require("bcrypt");
 
 const { today, daysFrom, addDays } = require("./helpers/dates");
+const { signIn } = require("./helpers/signIn");
 
 const TODAY = today();
 
@@ -123,7 +124,7 @@ test("payroll, bank sheet, expenses, guests, complaints, activity log, bell", { 
     assert.equal(result.status, expected, `${method} ${url}: ${JSON.stringify(result.body)}`);
     return result.body.data;
   }
-  const login = async (email) => (await request("POST", "/auth/login", { identifier: email, password }, 200)).token;
+  const login = async (email) => (await signIn(base, email, password)).token;
   const owner = await login("owner@probppl.invalid");
   const cook = await login("cook@probppl.invalid");
   const sita = await login("sita@probppl.invalid");

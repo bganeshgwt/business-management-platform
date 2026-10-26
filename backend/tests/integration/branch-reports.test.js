@@ -28,6 +28,7 @@ const { Client } = require("pg");
 const bcrypt = require("bcrypt");
 
 const { today, daysFrom } = require("./helpers/dates");
+const { signIn } = require("./helpers/signIn");
 const TODAY = today();
 const daysFromToday = (n) => daysFrom(n);
 
@@ -117,7 +118,7 @@ test("branch accounting and reports", { timeout: 600000 }, async (t) => {
     }
     return expected === null ? { status: response.status, ...result } : result.data;
   }
-  const login = async (email) => (await request("POST", "/auth/login", { identifier: email, password })).token;
+  const login = async (email) => (await signIn(base, email, password)).token;
   const owner = await login("owner@branch.invalid");
   const O = (method, url, body, expected = 200, headers = {}) => request(method, url, body, expected, owner, headers);
   const H = (id) => (id ? { "X-Outlet-Id": String(id) } : {});

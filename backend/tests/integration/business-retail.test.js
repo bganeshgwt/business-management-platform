@@ -6,6 +6,7 @@ const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const { withTools } = require('./helpers/tools');
+const { signIn } = require('./helpers/signIn');
 
 // Retail (grocery / kirana, supermarket, books & stationery):
 // offers applied by the server, loyalty points, udhaar on the shared
@@ -52,10 +53,7 @@ test('retail: offers, loyalty, udhaar, barcodes, books and reports', { timeout: 
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(20000) });
     return { status: response.status, body: await response.json() };
   }
-  const login = async (email) => {
-    const response = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: email, password }) });
-    return (await response.json()).data.token;
-  };
+  const login = async (email) => (await signIn(base, email, password)).token;
   const ownerUser = await owner('retail-owner');
   await owner('retail-other');
   const token = await login('retail-owner@test.invalid');

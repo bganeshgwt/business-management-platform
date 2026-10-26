@@ -16,12 +16,14 @@ router.post("/login/two-factor", loginLimiter, authController.loginTwoFactor);
 router.post("/login/two-factor/setup", loginLimiter, authController.loginTwoFactorSetup);
 router.post("/login/two-factor/enable", loginLimiter, authController.loginTwoFactorEnable);
 
-router.get("/me", authenticate, authController.me);
+// Who am I and changing the password are the only routes open to someone
+// whose password was set by someone else: they choose their own here first.
+router.get("/me", authenticate.duringPasswordChange, authController.me);
 router.put("/me", authenticate, authController.updateMe);
 router.post(
   "/change-password",
   passwordChangeLimiter,
-  authenticate,
+  authenticate.duringPasswordChange,
   authController.changePassword
 );
 

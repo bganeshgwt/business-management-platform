@@ -6,6 +6,7 @@ const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const { withTools } = require('./helpers/tools');
+const { signIn } = require('./helpers/signIn');
 
 // Fashion and electronics, sales and service: markdowns on a
 // whole style through Offers, apparel GST by the value of each piece, the
@@ -54,10 +55,7 @@ test('fashion and electronics: sales and service', { timeout: 300000 }, async (t
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(20000) });
     return { status: response.status, body: await response.json() };
   }
-  const login = async (email) => {
-    const response = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: email, password }) });
-    return (await response.json()).data.token;
-  };
+  const login = async (email) => (await signIn(base, email, password)).token;
   const ownerUser = await owner('fe-owner');
   await owner('fe-other');
   const token = await login('fe-owner@test.invalid');

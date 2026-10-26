@@ -6,6 +6,7 @@ const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const { daysFrom } = require('./helpers/dates');
+const { signIn } = require('./helpers/signIn');
 
 // Business rules: the owner sets the customer-credit age groups,
 // "expiring soon", credit-voucher validity, the quick weight buttons, the
@@ -41,7 +42,7 @@ test('business rules: defaults, validation, age groups and expiring soon follow 
   const app = require('../../src/app');
   server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
   const base = `http://127.0.0.1:${server.address().port}/api`;
-  const token = (await (await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: 'rules-owner@test.invalid', password }) })).json()).data.token;
+  const token = (await signIn(base, 'rules-owner@test.invalid', password)).token;
   async function request(method, route, body, expected = 200) {
     const response = await fetch(base + route, { method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(20000) });

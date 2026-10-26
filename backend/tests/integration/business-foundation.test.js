@@ -6,6 +6,7 @@ const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses, ALL_TYPES } = require('./helpers/businesses');
 const dates = require('./helpers/dates');
+const { signIn } = require('./helpers/signIn');
 
 // The foundation: module catalogue, per-business roles and permissions,
 // settings, GST slabs, number series, categories, units, credit terms,
@@ -51,10 +52,7 @@ test('business platform foundation: access, numbering, stock control and events'
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(20000) });
     return { status: response.status, body: await response.json() };
   }
-  const login = async (email) => {
-    const response = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: email, password }) });
-    return (await response.json()).data.token;
-  };
+  const login = async (email) => (await signIn(base, email, password)).token;
   const ownerUser = await owner('foundation-owner');
   await owner('foundation-other');
   const token = await login('foundation-owner@test.invalid');

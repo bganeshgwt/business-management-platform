@@ -7,6 +7,7 @@ const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const { withTools } = require('./helpers/tools');
 const dates = require('./helpers/dates');
+const { signIn } = require('./helpers/signIn');
 
 // Tasks, issues & projects (migration 1791620000000, backend/src/modules/tasks):
 // one data model keyed on business_id, two front doors (/api/tasks for the
@@ -75,8 +76,7 @@ test('tasks, issues and projects', { timeout: 900000 }, async (t) => {
   const base = `http://127.0.0.1:${server.address().port}/api`;
   const tokens = {};
   for (const who of Object.keys(ids)) {
-    const response = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: `${who}@tasks.invalid`, password }) });
-    tokens[who] = (await response.json()).data.token;
+    tokens[who] = (await signIn(base, `${who}@tasks.invalid`, password)).token;
   }
   const call = async (who, method, route, body, expected = 200) => {
     const isForm = body instanceof FormData;

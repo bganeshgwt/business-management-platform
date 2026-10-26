@@ -5,6 +5,7 @@ const path = require("node:path");
 const { Client } = require("pg");
 const bcrypt = require("bcrypt");
 const { today, daysFrom } = require("./helpers/dates");
+const { signIn } = require("./helpers/signIn");
 
 // Back office and guests: stock cost after returns and voided bills, staff
 // tied to one outlet kept to its stock, the guest book's erase against an edit
@@ -72,7 +73,7 @@ test("stock cost, outlet stock and guest privacy", { timeout: 600000 }, async (t
     return result.data;
   }
   for (const [who, email] of [["owner", "owner@bo.invalid"], ["managerA", "manager.a@bo.invalid"], ["cookA", "cook.a@bo.invalid"], ["cashier", "cashier@bo.invalid"]]) {
-    tokens[who] = (await request("POST", "/auth/login", { identifier: email, password }, 200, null)).token;
+    tokens[who] = (await signIn(base, email, password)).token;
   }
   const average = async (id) => Number((await one("SELECT average_cost FROM inventory_items WHERE id=$1", [id])).average_cost);
   const bill = (itemId, quantity, unitPrice, billNumber, headers = {}) =>
@@ -267,7 +268,7 @@ test("stock cost, outlet stock and guest privacy", { timeout: 600000 }, async (t
     await pool.query("INSERT INTO role_permissions (role_id, permission_id) SELECT $1, id FROM permissions WHERE code IN ('customers.view','customers.export')", [role.id]);
     const marketer = await one("INSERT INTO users (restaurant_id,name,email,password_hash) VALUES ($1,'Marketer','marketer@bo.invalid',$2) RETURNING id", [rid, hash]);
     await pool.query("INSERT INTO user_roles(user_id, role_id) VALUES ($1, $2)", [marketer.id, role.id]);
-    tokens.marketer = (await request("POST", "/auth/login", { identifier: "marketer@bo.invalid", password }, 200, null)).token;
+    tokens.marketer = (await signIn(base, "marketer@bo.invalid", password)).token;
     const exported = await request("POST", "/guest-insights/segments/birthdays/export", { format: "csv" }, 200, "marketer");
     const row = exported.items.find((item) => Number(item.id) === Number(guest.id));
     assert.ok(row, "the guest is on the birthdays list");

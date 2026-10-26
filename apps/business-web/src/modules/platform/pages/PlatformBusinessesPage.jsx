@@ -90,9 +90,9 @@ export default function PlatformBusinessesPage() {
           empty="No businesses yet" emptyHint="Add the first one for a customer." emptyIcon="store" />
       </SectionCard>
       {creating && <CreateBusinessDialog types={data?.types || []} onClose={() => setCreating(false)}
-        onSaved={(result) => { setCreating(false); setNotice(`${result.business.name} created. ${result.owner.created ? `${result.owner.name} can now sign in with the email and password you set.` : `${result.owner.name} will find it in their business switcher.`}`); load(); }} />}
+        onSaved={(result) => { setCreating(false); setNotice(`${result.business.name} created. ${result.owner.created ? `${result.owner.name} can now sign in with the email and password you set, then choose their own.` : `${result.owner.name} will find it in their business switcher.`}`); load(); }} />}
       {resetting && <OwnerPasswordDialog business={resetting} onClose={() => setResetting(null)}
-        onSaved={(owner) => { setResetting(null); setNotice(`New password set for ${owner.name}. Their open sessions have ended.`); }} />}
+        onSaved={(owner) => { setResetting(null); setNotice(`New password set for ${owner.name}. Their open sessions have ended; they choose their own password at their next sign-in.`); }} />}
     </div>
   );
 }
@@ -110,7 +110,7 @@ function CreateBusinessDialog({ types, onClose, onSaved }) {
       <Field label="Owner's email"><input type="email" required maxLength={150} value={owner.email} onChange={setO("email")} /></Field>
       <Field label="Owner's name"><input maxLength={150} value={owner.name} onChange={setO("name")} /></Field>
       <Field label="Owner's mobile"><input maxLength={20} value={owner.mobile} onChange={setO("mobile")} /></Field>
-      <Field label="Owner's password" hint="8 to 72 characters; they can change it in My profile."><input type="password" autoComplete="new-password" minLength={8} maxLength={72} value={owner.password} onChange={setO("password")} /></Field>
+      <Field label="Owner's password" hint="8 to 72 characters; they choose their own when they first sign in."><input type="password" autoComplete="new-password" minLength={8} maxLength={72} value={owner.password} onChange={setO("password")} /></Field>
     </FormDialog>
   );
 }
@@ -120,7 +120,7 @@ function OwnerPasswordDialog({ business, onClose, onSaved }) {
   const [password, setPassword] = useState("");
   return (
     <FormDialog title={`Owner's password: ${business.name}`} icon="key" width={520} onClose={onClose} onSaved={onSaved} submitLabel="Set password"
-      description="For an owner locked out of their own business. Their open sessions end."
+      description="For an owner locked out of their own business. Their open sessions end, and they choose their own password at their next sign-in."
       onSubmit={() => resetPlatformBusinessOwner(business.id, Number(userId), password)}>
       <Field label="Owner" wide>
         <select value={userId} onChange={(e) => setUserId(e.target.value)}>

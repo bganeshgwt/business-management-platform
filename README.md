@@ -142,11 +142,12 @@ made in the terminal by `backend/scripts/create-user.js`.
 
 1. Run `npm --prefix backend run user:create` and leave the restaurant code
    empty. Then give a name, an email, a mobile (optional) and a password of 8
-   to 72 characters; the password shows as you type it. This login runs the
-   whole platform, so give it a strong password.
+   to 72 characters; the password shows as you type it, and it works for the
+   first sign-in only.
 2. Start the apps ([Run](#run)) and sign in to the staff app,
-   http://localhost:5173, with that login. The Super Admin opens on
-   **Platform › Restaurants**.
+   http://localhost:5173, with that login. The sign-in then asks for a
+   password of your own: this login runs the whole platform, so make it a
+   strong one. The Super Admin opens on **Platform › Restaurants**.
 3. Create each restaurant in **Platform › Restaurants** (*Add restaurant*: a
    restaurant, café, bakery or cloud kitchen, with its admin's login), and each
    business of another type in **Platform › Businesses** (*Add a business*,

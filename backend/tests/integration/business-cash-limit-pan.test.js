@@ -5,6 +5,7 @@ const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
+const { signIn } = require('./helpers/signIn');
 
 // Two Income-tax rules at the counter of every business. Cash of ₹2,00,000 or
 // more cannot be taken for one bill or from one customer in a day (Income-tax
@@ -45,10 +46,7 @@ test('cash limit and PAN on large bills', { timeout: 300000 }, async (t) => {
   const app = require('../../src/app');
   server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
   const base = `http://127.0.0.1:${server.address().port}/api`;
-  const login = async (email) => {
-    const response = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: email, password }) });
-    return (await response.json()).data.token;
-  };
+  const login = async (email) => (await signIn(base, email, password)).token;
   const token = await login('cash-owner@test.invalid');
   async function request(method, route, body, expected = 200) {
     const response = await fetch(base + route, { method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },

@@ -44,6 +44,9 @@ const toProfile = (user) => ({
   hasPin: Boolean(user.pin_set_at),
   // On or off only: the secret behind it is never sent anywhere.
   twoFactorEnabled: Boolean(user.two_factor_enabled_at),
+  // Someone else set the password (a new login, a reset): the person chooses
+  // their own before anything else (authenticate refuses every other route).
+  passwordChangeRequired: Boolean(user.password_must_change),
   // Minutes a shared till may sit untouched before it locks. 0 = never.
   idleLockMinutes: Number(user.idle_lock_minutes || 0),
 });
@@ -776,25 +779,48 @@ const verifyOwnPassword = async (user, password, wrongMessage) => {
 // Changing your own password always proves you know the current one, even
 // though you are already logged in: a borrowed, unlocked screen should not be
 // enough to lock the real owner out. Every other session ends; this device
-// gets a fresh token so the person who changed it is not signed out too.
+// gets a fresh session so the person who changed it is not signed out too.
+//
+// It is also how someone whose password was set by someone else (a new
+// login, a reset) chooses their own at their next sign-in, and the only
+// change that clears the must-change mark. The new password must differ from
+// the one it replaces, compared with the stored hash as well as the typed
+// text, since bcrypt reads only a password's first 72 bytes.
 const changeOwnPassword = async (user, currentPassword, newPassword, deviceTokens = []) => {
-  await verifyOwnPassword(user, currentPassword, "Your current password is not right");
+  const given = user.passwordChangeRequired;
+  const credentials = await verifyOwnPassword(
+    user,
+    currentPassword,
+    given ? "The password you were given is not right" : "Your current password is not right"
+  );
 
-  if (currentPassword === newPassword) {
-    throw new AppError(400, "The new password must be different from the current one");
+  if (currentPassword === newPassword || (await bcrypt.compare(newPassword, credentials.password_hash))) {
+    throw new AppError(
+      400,
+      given ? "Choose a password of your own, not the one you were given" : "The new password must be different from the current one"
+    );
   }
 
   const updated = await userRepository.updateOwnPassword(
     user.id,
+    credentials.password_hash,
     await bcrypt.hash(newPassword, BCRYPT_ROUNDS)
   );
+
+  // Changed by another request since it was checked (a second tap, a reset).
+  if (!updated) {
+    throw new AppError(409, "Your password was changed a moment ago, so this one was not saved. Sign in again.", {
+      reason: "password_changed",
+    });
+  }
+
   // Other devices are forgotten with the version bump; this one stays, but
   // its 30-day two-step trust ends like everyone else's.
   await userRepository.restampDevice(user.id, deviceHashes(deviceTokens));
   await twoFactorRepository.endDeviceTrust(user.id);
   const token = issueToken({ id: user.id, restaurantId: user.restaurantId }, updated.token_version);
 
-  return { token, expiresAt: sessionOf(token) };
+  return { token, expiresAt: sessionOf(token), user: toProfile(await userRepository.findProfileById(user.id)) };
 };
 
 const updateOwnProfile = async (userId, data, restaurantId = null) => {

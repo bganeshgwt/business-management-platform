@@ -7,6 +7,7 @@ const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { withTools } = require('./helpers/tools');
 const { createBusinesses } = require('./helpers/businesses');
+const { signIn } = require('./helpers/signIn');
 
 // Business Admin rules for the non-restaurant types:
 //   - the overview's "customers owe" is the receivables balance (owed − advances);
@@ -56,10 +57,7 @@ test('business admin: bookings, overview figures, member candidates, page guard'
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(30000) });
     return { status: response.status, body: await response.json() };
   }
-  const login = async (email) => {
-    const response = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: email, password }) });
-    return (await response.json()).data.token;
-  };
+  const login = async (email) => (await signIn(base, email, password)).token;
   const as = (auth) => async (method, route, body, expected = 200) => {
     const result = await call(method, route, body, auth);
     assert.equal(result.status, expected, `${method} ${route}: ${JSON.stringify(result.body)}`);

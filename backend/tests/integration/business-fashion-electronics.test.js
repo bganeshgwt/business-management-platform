@@ -7,6 +7,7 @@ const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const dates = require('./helpers/dates');
 const { withTools } = require('./helpers/tools');
+const { signIn } = require('./helpers/signIn');
 
 // Fashion and electronics: the size × colour matrix, variant
 // reports, exchanges (return + new sale, difference paid or refunded), the
@@ -52,10 +53,7 @@ test('fashion and electronics: variants, exchanges, serials, warranties, repairs
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(30000) });
     return { status: response.status, body: await response.json() };
   }
-  const login = async (email) => {
-    const response = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: email, password }) });
-    return (await response.json()).data.token;
-  };
+  const login = async (email) => (await signIn(base, email, password)).token;
   const ownerUser = await owner('fe-owner');
   await owner('fe-other');
   const token = await login('fe-owner@test.invalid');

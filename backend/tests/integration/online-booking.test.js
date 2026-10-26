@@ -9,6 +9,7 @@ const bcrypt = require("bcrypt");
 // request, the host's answer and the guest's own status link, on a throwaway
 // database of its own.
 const { daysFrom, weekdayOf } = require("./helpers/dates");
+const { signIn } = require("./helpers/signIn");
 const daysFromToday = (n) => daysFrom(n);
 const weekday = weekdayOf;
 
@@ -73,7 +74,7 @@ test("online table booking", { timeout: 600000 }, async (t) => {
     assert.equal(response.status, expected, `${method} ${url}: ${JSON.stringify(result)}`);
     return result;
   }
-  const login = async (email) => (await request("POST", "/auth/login", { identifier: email, password })).data.token;
+  const login = async (email) => (await signIn(base, email, password)).token;
   const ownerToken = await login("owner@test.invalid");
   const captainToken = await login("captain@test.invalid");
   const foreignToken = await login("other@test.invalid");

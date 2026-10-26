@@ -52,7 +52,7 @@ const create = async (req, res) => {
 
   res.status(201).json({
     success: true,
-    message: `${created.name} is set up. Its admin can sign in now with ${String(admin.email).trim().toLowerCase()}.`,
+    message: `${created.name} is set up. Its admin signs in with ${String(admin.email).trim().toLowerCase()} and then chooses their own password.`,
     data: created,
   });
 };
@@ -100,7 +100,7 @@ const resetAdminPassword = async (req, res) => {
 
   res.json({
     success: true,
-    message: `New password set for ${admin.name} at ${restaurant.name}. They were signed out everywhere.`,
+    message: `New password set for ${admin.name} at ${restaurant.name}. They were signed out everywhere and choose their own password at the next sign-in.`,
     data: { id: admin.id, name: admin.name },
   });
 };

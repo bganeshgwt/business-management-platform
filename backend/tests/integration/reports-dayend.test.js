@@ -25,6 +25,7 @@ const crypto = require("node:crypto");
 const path = require("node:path");
 const { Client } = require("pg");
 const bcrypt = require("bcrypt");
+const { signIn } = require("./helpers/signIn");
 
 test("reports, day-end and dashboard", { timeout: 600000 }, async (t) => {
   require("dotenv").config({ quiet: true });
@@ -107,7 +108,7 @@ test("reports, day-end and dashboard", { timeout: 600000 }, async (t) => {
     }
     return expected === null ? { status: response.status, ...result } : result.data;
   }
-  const login = async (email) => (await request("POST", "/auth/login", { identifier: email, password })).token;
+  const login = async (email) => (await signIn(base, email, password)).token;
   const owner = await login("owner@reports.invalid");
   const foreign = await login("other@reports.invalid");
   const O = (method, url, body, expected = 200, headers = {}) => request(method, url, body, expected, owner, headers);

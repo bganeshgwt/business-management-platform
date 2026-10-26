@@ -5,6 +5,7 @@ const path = require("node:path");
 const { Client } = require("pg");
 const bcrypt = require("bcrypt");
 const { addDays } = require("./helpers/dates");
+const { signIn } = require("./helpers/signIn");
 
 // "Today" is the restaurant's date, wherever the server runs. This server
 // keeps UTC−12 and the restaurant keeps Kiritimati time (UTC+14): at every
@@ -58,7 +59,7 @@ test("dates follow the restaurant's clock, not the server's", { timeout: 300000 
     assert.equal(response.status, expected, `${method} ${url}: ${JSON.stringify(result)}`);
     return result.data;
   }
-  token = (await request("POST", "/auth/login", { identifier: "owner@island.invalid", password })).token;
+  token = (await signIn(base, "owner@island.invalid", password)).token;
 
   const islandDay = (n = 0) => addDays(new Date().toLocaleDateString("en-CA", { timeZone: "Pacific/Kiritimati" }), n);
   const serverDay = new Date().toLocaleDateString("en-CA");

@@ -7,6 +7,7 @@ const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const { withTools } = require('./helpers/tools');
 const { daysFrom } = require('./helpers/dates');
+const { signIn } = require('./helpers/signIn');
 
 // Retail stock and books: opening stock and barcode editing
 // on items, the Sales list's biller / payment / location, the stock ledger in
@@ -54,10 +55,7 @@ test('retail: items, sales list, expiry, books, bell', { timeout: 300000 }, asyn
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(20000) });
     return { status: response.status, body: await response.json() };
   }
-  const login = async (email) => {
-    const response = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: email, password }) });
-    return (await response.json()).data.token;
-  };
+  const login = async (email) => (await signIn(base, email, password)).token;
   const ownerUser = await owner('retail-owner');
   await owner('retail-other');
   const token = await login('retail-owner@test.invalid');

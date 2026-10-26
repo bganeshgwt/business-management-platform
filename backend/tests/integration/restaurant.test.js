@@ -8,6 +8,7 @@ const bcrypt = require("bcrypt");
 // The restaurant's own calendar date (Asia/Kolkata). Only today's business day
 // can be opened, so dated steps use today and days counted from it.
 const { today, daysFrom } = require("./helpers/dates");
+const { signIn, passwordOf } = require("./helpers/signIn");
 const TODAY = today();
 const daysFromToday = (n) => daysFrom(n);
 
@@ -83,13 +84,13 @@ test("isolated restaurant workflows", { timeout: 600000 }, async (t) => {
   }
   await t.test("password login and authentication enforcement", async () => {
     await request("GET", "/users", undefined, 401, null);
-    const session = await request("POST", "/auth/login", { identifier: "owner@test.invalid", password });
+    const session = await signIn(base, "owner@test.invalid", password);
     token = session.token;
     assert.ok(token);
     await request("GET", "/auth/me");
   });
   await t.test("kitchen role cannot read financial reports", async () => {
-    const session = await request("POST", "/auth/login", { identifier: "cook@test.invalid", password });
+    const session = await signIn(base, "cook@test.invalid", password);
     await request("GET", "/reports/profit-loss", undefined, 403, session.token);
   });
   await t.test("invalid day inputs do not write business days", async () => {
@@ -112,9 +113,9 @@ test("isolated restaurant workflows", { timeout: 600000 }, async (t) => {
     const branchRule = await request("PUT",path,{outletId:outlet.id,price:175});
     await request("PUT",path,{outletId:foreignOutlet.id,price:1},400);
     await request("PUT",path,{price:1},400);
-    const cook = await request("POST","/auth/login",{identifier:"cook@test.invalid",password});
+    const cook = await signIn(base,"cook@test.invalid",password);
     await request("PUT",path,{orderType:"takeaway",price:1},403,cook.token);
-    const foreign = await request("POST","/auth/login",{identifier:"other@test.invalid",password});
+    const foreign = await signIn(base,"other@test.invalid",password);
     await request("DELETE",`/menu/selling-rules/${channelRule.id}`,undefined,404,foreign.token);
     const preview = async (query, headers={}) => (await request("GET",`/orders/offers?${query}`,undefined,200,token,headers)).find(r=>Number(r.productId)===Number(dish.id)&&Number(r.productVariantId)===Number(variant.id));
     assert.equal((await preview("orderType=takeaway")).price,140);
@@ -167,7 +168,7 @@ test("isolated restaurant workflows", { timeout: 600000 }, async (t) => {
     const balance=await one("SELECT SUM(quantity) AS total FROM inventory_batch_balances WHERE batch_id IN (SELECT id FROM inventory_batches WHERE inventory_item_id=$1)",[item.id]);
     assert.equal(Number(balance.total),1);
     assert.equal(Number((await one("SELECT current_stock FROM inventory_items WHERE id=$1",[item.id])).current_stock),1);
-    const foreign=await request("POST","/auth/login",{identifier:"other@test.invalid",password});
+    const foreign=await signIn(base,"other@test.invalid",password);
     assert.equal((await request("GET","/inventory/batches",undefined,200,foreign.token)).length,0);
   });
   await t.test("add-on groups enforce required and maximum choices without repricing saved lines",async()=>{
@@ -190,9 +191,9 @@ test("isolated restaurant workflows", { timeout: 600000 }, async (t) => {
     const b=await request("POST","/bills",{orderId:o.id},201);
     assert.equal(b.totalAmount,110);
     await request("POST",`/bills/${b.id}/payments`,{paymentMethod:"cash",amount:110},201);
-    const cook=await request("POST","/auth/login",{identifier:"cook@test.invalid",password});
+    const cook=await signIn(base,"cook@test.invalid",password);
     await request("PUT",url,{groups:[]},403,cook.token);
-    const foreign=await request("POST","/auth/login",{identifier:"other@test.invalid",password});
+    const foreign=await signIn(base,"other@test.invalid",password);
     await request("GET",url,undefined,404,foreign.token);
     await request("PUT",url,{groups:[]});
   });
@@ -262,7 +263,7 @@ test("isolated restaurant workflows", { timeout: 600000 }, async (t) => {
     await request("POST", "/business-day/close", { closingCash: 500 }, 409);
   });
   await t.test("another restaurant cannot read the order", async () => {
-    const session = await request("POST", "/auth/login", { identifier: "other@test.invalid", password });
+    const session = await signIn(base, "other@test.invalid", password);
     await request("GET", `/orders/${order.id}`, undefined, 404, session.token);
   });
   await t.test("billing prices from menu and consumes the recipe once", async () => {
@@ -344,7 +345,7 @@ test("isolated restaurant workflows", { timeout: 600000 }, async (t) => {
     await request("PATCH",route,{status:"ready",confirmPacked:true});
     await request("PATCH",route,{status:"out_for_delivery"},400);
     await request("PATCH",route,{status:"out_for_delivery",partnerRiderName:"Test rider"});
-    const foreign=await request("POST","/auth/login",{identifier:"other@test.invalid",password});
+    const foreign=await signIn(base,"other@test.invalid",password);
     await request("GET",`/deliveries/${o.id}`,undefined,404,foreign.token);
     await request("PATCH",route,{status:"delivered"});
     const b=await request("POST","/bills",{orderId:o.id},201);
@@ -364,9 +365,9 @@ test("isolated restaurant workflows", { timeout: 600000 }, async (t) => {
     assert.equal(paid.amountPaid,550);
     await request("POST","/staff/payroll/payments",payment,409);
     await request("POST","/staff/payroll/adjustments",{employeeId:employee.id,date:TODAY,kind:"bonus",amount:50,note:"Late bonus"},409);
-    const cook=await request("POST","/auth/login",{identifier:"cook@test.invalid",password});
+    const cook=await signIn(base,"cook@test.invalid",password);
     await request("GET","/staff/payroll",undefined,403,cook.token);
-    const foreign=await request("POST","/auth/login",{identifier:"other@test.invalid",password});
+    const foreign=await signIn(base,"other@test.invalid",password);
     await request("POST","/staff/payroll/payments",payment,400,foreign.token);
   });
   const loadSeconds=Number(process.env.RMP_LOAD_SECONDS||0);
@@ -414,7 +415,7 @@ test("isolated restaurant workflows", { timeout: 600000 }, async (t) => {
   await t.test("password change invalidates old sessions and accepts the new password", async () => {
     const newPassword = crypto.randomBytes(16).toString("hex");
     const oldToken = token;
-    const session = await request("POST", "/auth/change-password", { currentPassword: password, newPassword });
+    const session = await request("POST", "/auth/change-password", { currentPassword: passwordOf(base, "owner@test.invalid", password), newPassword });
     await request("GET", "/auth/me", undefined, 401, oldToken);
     await request("GET", "/auth/me", undefined, 200, session.token);
     await request("POST", "/auth/login", { identifier: "owner@test.invalid", password }, 401, null);

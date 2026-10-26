@@ -6,6 +6,7 @@ const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const { addDays, daysFrom, momentAt } = require('./helpers/dates');
+const { signIn } = require('./helpers/signIn');
 
 // A fuel station's back office: fuels under state VAT (GST nil), tanks,
 // dispensing units and nozzles with their stamping dates, the price in force;
@@ -59,10 +60,7 @@ test('fuel stations', { timeout: 300000 }, async (t) => {
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(30000) });
     return { status: response.status, body: await response.json().catch(() => ({})) };
   }
-  const login = async (email) => {
-    const response = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: email, password }) });
-    return (await response.json()).data.token;
-  };
+  const login = async (email) => (await signIn(base, email, password)).token;
   const ownerUser = await owner('fuel-owner');
   await owner('fuel-other');
   const as = (auth) => async (method, route, body, expected = 200) => {

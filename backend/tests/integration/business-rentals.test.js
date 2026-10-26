@@ -6,6 +6,7 @@ const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const { addDays, daysFrom, momentAt } = require('./helpers/dates');
+const { signIn } = require('./helpers/signIn');
 
 // A rental and hire business's own tools: rental items hired one by one (each
 // unit with its number and meter) or from a pool, their rates billed at the
@@ -58,10 +59,7 @@ test('rentals and hire', { timeout: 300000 }, async (t) => {
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(30000) });
     return { status: response.status, body: await response.json().catch(() => ({})) };
   }
-  const login = async (email) => {
-    const response = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: email, password }) });
-    return (await response.json()).data.token;
-  };
+  const login = async (email) => (await signIn(base, email, password)).token;
   const ownerUser = await owner('hire-owner');
   await owner('hire-other');
   const as = (auth) => async (method, route, body, expected = 200) => {

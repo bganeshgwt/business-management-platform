@@ -4,6 +4,10 @@
 // The same rules are exported as createUser(db, details) for code that makes
 // a login itself: the browser tests make their platform admin with it, in
 // their own database (e2e/global-setup.mjs).
+//
+// The password typed here is one someone else set, as every new login's is:
+// the database marks it (migration 1791971000000), and the person chooses
+// their own when they first sign in.
 const readline = require("readline");
 const bcrypt = require("bcrypt");
 
@@ -106,6 +110,7 @@ async function main() {
 
     const user = await createUser(pool, { restaurantCode, name, email, mobile, password, roleCode });
     console.log(`\nCreated user #${user.id} (${user.email}) with role ${user.roleCode}.`);
+    console.log("They choose their own password the first time they sign in.");
   } finally {
     rl.close();
     await pool.end();

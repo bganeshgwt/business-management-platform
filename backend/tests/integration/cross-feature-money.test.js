@@ -7,6 +7,7 @@ const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const dates = require('./helpers/dates');
 const { withTools } = require('./helpers/tools');
+const { signIn } = require('./helpers/signIn');
 
 // Money and permissions across features: the combinations no single
 // feature's test covers, end to end on a throwaway database with every
@@ -65,10 +66,9 @@ test('cross-feature money and permissions', { timeout: 300000 }, async (t) => {
     return { status: response.status, body: await response.json().catch(() => ({})) };
   }
   const login = async (email) => {
-    const response = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: email, password }) });
-    const body = await response.json();
-    assert.ok(body.data?.token, `login ${email}: ${JSON.stringify(body)}`);
-    return body.data.token;
+    const session = await signIn(base, email, password);
+    assert.ok(session?.token, `login ${email} was refused`);
+    return session.token;
   };
   const as = (auth) => async (method, route, body, expected = 200) => {
     const result = await call(method, route, body, auth);

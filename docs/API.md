@@ -79,6 +79,16 @@ The token lasts `JWT_EXPIRES_IN` (default 8 h) without use and is renewed by
 on every request, so switching someone off, signing them out or changing a
 role takes effect at once.
 
+**A password someone else set.** A new login's first password, and a new one
+an admin or the platform sets for someone, works for one sign-in. That
+session's `user.passwordChangeRequired` is `true` (after the two-step code,
+where the person uses one), and until they choose their own with
+`POST /api/auth/change-password`, every endpoint answers **403**
+`{ reason: "password_change_required" }` except that one and
+`GET /api/auth/me`. Signing out needs no request: the client forgets its
+token. The check is in `middlewares/authenticate.js`, so every route has it;
+the two that the change needs use `authenticate.duringPasswordChange`.
+
 ### Request headers the API reads
 
 | Header | Meaning |
@@ -94,7 +104,7 @@ role takes effect at once.
 | --- | --- |
 | 400 | Missing or invalid field (the message names it), invalid JSON (`Invalid JSON in request body`), invalid paging, a date range ending before it starts, an upload that is too large (images: 2 MB). |
 | 401 | No token, a bad or expired token, wrong credentials, a session signed out elsewhere. |
-| 403 | The role lacks the permission (`You do not have permission to perform this action`), the account or restaurant is inactive, the outlet (or a business's location) is not yours, a Business Admin module is switched off, a restaurant feature is switched off (below), or a manager's approval is needed (below). |
+| 403 | The role lacks the permission (`You do not have permission to perform this action`), the account or restaurant is inactive, the outlet (or a business's location) is not yours, a Business Admin module is switched off, a restaurant feature is switched off (below), a manager's approval is needed (below), or the person must first choose their own password (`password_change_required`, see [Authentication](#authentication)). |
 | 404 | Unknown route (`Route not found: METHOD /path`), or a record that does not exist **or belongs to another restaurant, outlet or business** — the API never says which. |
 | 409 | A rule refused the change (a closed day, a paid bill, a duplicate code, a posted count) or `{ reason: "conflict_retry" }` when two tills changed the same rows at the same instant and PostgreSQL rolled one back: nothing was saved, try again. |
 | 423 | An account, device or PIN is locked after too many wrong tries (`account_locked`, `device_locked`, `pin_locked`, with `lockedUntil`). |
@@ -225,12 +235,12 @@ Two-step flow:
    `step: "setup"` (role requires it, not yet set up): `POST /api/auth/login/two-factor/setup` (QR + key), then `POST /api/auth/login/two-factor/enable` with the first code.
 The `challengeToken` is signed with a separate key (never usable as a session), lasts 10 minutes, is bound to step, user, token version and remembered device, and works once. Ticket errors: 401 `challenge_expired` (missing, expired, password changed since); 400 `challenge_mismatch` (wrong step's ticket); 409 `challenge_used` (already spent). Codes accept `123 456` / `123-456`. Code tries count in the same lockout as the password (the password's try stays counted until the code is right).
 
-Session shape (`data`): `{ token, expiresAt, user, deviceToken? }`. `user` = `{ id, name, email, mobile, restaurantId, restaurantName, restaurantCode, restaurantFormat, outletId, outletName, employeeId, employeeCode, roles, roleNames, permissions[], features[], hasPin, twoFactorEnabled, idleLockMinutes }`. `restaurantFormat` is `restaurant`, `cafe`, `bakery` or `cloud_kitchen` (see `GET /api/restaurants/current/format`); `features` are the restaurant features switched on. `deviceToken` appears only when this browser was not yet remembered; the client stores it and sends it back in `deviceTokens`.
+Session shape (`data`): `{ token, expiresAt, user, deviceToken? }`. `user` = `{ id, name, email, mobile, restaurantId, restaurantName, restaurantCode, restaurantFormat, outletId, outletName, employeeId, employeeCode, roles, roleNames, permissions[], features[], hasPin, twoFactorEnabled, passwordChangeRequired, idleLockMinutes }`. `restaurantFormat` is `restaurant`, `cafe`, `bakery` or `cloud_kitchen` (see `GET /api/restaurants/current/format`); `features` are the restaurant features switched on. `passwordChangeRequired` is `true` when someone else set the password the person signed in with: the session then reaches only `GET /api/auth/me` and `POST /api/auth/change-password`, which gives a fresh session (see [Authentication](#authentication)). `deviceToken` appears only when this browser was not yet remembered; the client stores it and sends it back in `deviceTokens`.
 
 #### `POST /api/auth/login`
 Permission: public, rate limited (`loginLimiter`)
 Query/Body: `identifier` (string, required, <=150; email, 10-digit mobile in any common format, or staff/employee code; `email` accepted as an alias), `password` (string, required, <=72), `restaurantCode` (string, <=30; required with a staff code, or when one mobile signs in to two restaurants), `deviceTokens` (string[])
-Returns: a session (above), or `{ twoFactor: {...} }` when the code or setup step is next. Every attempt on a real account is written to that user's sign-in history.
+Returns: a session (above), or `{ twoFactor: {...} }` when the code or setup step is next. With `user.passwordChangeRequired: true` the person chooses their own password next (`POST /api/auth/change-password`). Every attempt on a real account is written to that user's sign-in history.
 Errors: 400 missing fields; 400 `restaurant_code_required`; 401 wrong sign-in (same message whether the login exists or not, same timing); 403 `account_inactive` / `restaurant_inactive` (only after a right password); 423 `account_locked` / `device_locked`; 429 `too_many_attempts` or IP limiter.
 
 #### `POST /api/auth/login/two-factor`
@@ -255,7 +265,7 @@ Errors: ticket errors; 400 `wrong_code` `{ attemptsLeft }`; 409 `no_setup` (call
 All need a session (`Authorization: Bearer`). Only the caller's own record is touched; no permission needed.
 
 #### `GET /api/auth/me`
-Permission: login only
+Permission: login only, also while the password must change
 Query/Body: none
 Returns: `data` = the `user` profile shape above, fresh from the database.
 Errors: none beyond 401.
@@ -267,10 +277,10 @@ Returns: the updated profile.
 Errors: 400 bad mobile; 400 removing the mobile from a login with no email; 409 mobile used by another login in the restaurant.
 
 #### `POST /api/auth/change-password`
-Permission: login only, rate limited (`passwordChangeLimiter`)
-Query/Body: `currentPassword` (required), `newPassword` (8-72 chars, must differ), `deviceTokens` (keeps this browser remembered)
-Returns: `{ token, expiresAt }` (new token). All other sessions end, other remembered devices are forgotten, 30-day two-step trust ends everywhere.
-Errors: 400 missing current; 400 `wrong_password` `{ attemptsLeft }`; 400 new = current / length; 423 `account_locked`; 429.
+Permission: login only, also while the password must change; rate limited (`passwordChangeLimiter`)
+Query/Body: `currentPassword` (required; after a password someone else set, the one given), `newPassword` (8-72 chars, must differ), `deviceTokens` (keeps this browser remembered)
+Returns: a fresh session `{ token, expiresAt, user }`. All other sessions end, this device's old token included, other remembered devices are forgotten, 30-day two-step trust ends everywhere. It is the person's own password from now on: `user.passwordChangeRequired` is `false`. The password is replaced only if it is still the one just checked.
+Errors: 400 missing current; 400 `wrong_password` `{ attemptsLeft }` ("The password you were given is not right" after a password someone else set); 400 new = current, compared with the stored password too ("Choose a password of your own, not the one you were given" after a password someone else set); 400 length; 409 `password_changed` (another request changed it meanwhile; nothing saved); 423 `account_locked`; 429.
 
 #### `POST /api/auth/refresh`
 Permission: login only
@@ -358,7 +368,7 @@ Errors: none specific.
 #### `POST /api/auth/pin-login`
 Permission: login only, rate limited (`pinLimiter`)
 Query/Body: `userId` (id, required), `pin` (string, required), `deviceTokens` (string[])
-Returns: a new session for that person `{ token, expiresAt, user }` (the till carries on as them). Written to their sign-in history (method `pin`).
+Returns: a new session for that person `{ token, expiresAt, user }` (the till carries on as them). Written to their sign-in history (method `pin`). When someone else set their password, `user.passwordChangeRequired` is `true` and the session reaches no more than a sign-in's would until they choose their own.
 Errors: 400 caller not linked to a restaurant; 400 `wrong_pin` `{ attemptsLeft }`; 403 `account_inactive` / `restaurant_inactive`; 403 `two_factor_device` (person uses or needs two-step and has not passed it on this device); 404 person not in this restaurant; 409 `no_pin`; 423 `pin_locked`, or `account_locked` (password lockout, unless this device is remembered for them); 429.
 
 #### `POST /api/auth/unlock`
@@ -408,7 +418,7 @@ Errors: 404 user not found.
 #### `POST /api/users`
 Permission: `users.manage`
 Query/Body: `name` (required, <=150), `email` (valid email) and/or `mobile` (10-digit; at least one required), `password` (8-72, required), `roleIds` (id[], required, >=1), `outletId` (id), `status` (`active | inactive | locked`, default `active`)
-Returns: 201, the new user.
+Returns: 201, the new user. The password works for their first sign-in, when they choose their own.
 Errors: 400 no email or mobile; 400 bad mobile; 400 no role / role not assignable here (Super Admin never is); 400 outlet does not exist; 403 role grants permissions you do not hold; 409 mobile already used in this restaurant / email or mobile exists.
 
 #### `PUT /api/users/:id`
@@ -420,7 +430,7 @@ Errors: 400 deactivating yourself; 400 removing your own `users.manage`; 400 rol
 #### `PATCH /api/users/:id/password`
 Permission: `users.manage`
 Query/Body: `password` (8-72, required)
-Returns: no `data`; message says the person was signed out everywhere (token version bumped, 30-day two-step trust ended).
+Returns: no `data`; message says the person was signed out everywhere (token version bumped, 30-day two-step trust ended) and chooses their own password at the next sign-in.
 Errors: 400 length; 403 target stronger than you; 404.
 
 #### `PUT /api/users/:id/pin`
@@ -509,7 +519,7 @@ Errors: 403 restaurant user.
 #### `POST /api/users/platform/restaurants`
 Permission: `platform.restaurants.manage`
 Query/Body: `name` (required, <=150), `code` (required, 2-30 letters/digits/`_-`, stored upper case), `contact`, `email`, `address`, `timezone` (default `Asia/Kolkata`), `invoicePrefix` (default `INV`, `A-Z0-9/-`, <=10), `orderPrefix` (default `ORD`), `format` (`restaurant` default, `cafe`, `bakery`, `cloud_kitchen`), `admin: { name, email, mobile?, password (8-72) }` (required)
-Returns: 201, `{ id, adminId, code, name, defaults, format }`. One transaction: GST rates, settings, delivery channels, kitchen station and the first Restaurant Admin. A café, bakery or cloud kitchen then gets its format's starting setup, as `PUT /api/restaurants/current/format` gives it.
+Returns: 201, `{ id, adminId, code, name, defaults, format }`. One transaction: GST rates, settings, delivery channels, kitchen station and the first Restaurant Admin, who chooses their own password at the first sign-in. A café, bakery or cloud kitchen then gets its format's starting setup, as `PUT /api/restaurants/current/format` gives it.
 Errors: 400 validation (code, prefixes, timezone); 403 restaurant user; 409 code taken; 409 admin email taken.
 
 #### `PUT /api/users/platform/restaurants/:id/status`
@@ -527,7 +537,7 @@ Errors: 403; 404 restaurant not found.
 #### `POST /api/users/platform/restaurants/:id/admin-password`
 Permission: `platform.restaurants.manage`
 Query/Body: `userId` (id, required; one of that restaurant's admins), `password` (8-72, required)
-Returns: `{ id, name }`. Their sessions end, lockout lifted, 30-day two-step trust ended (two-step stays on).
+Returns: `{ id, name }`. Their sessions end, lockout lifted, 30-day two-step trust ended (two-step stays on); they choose their own password at their next sign-in.
 Errors: 403; 404 restaurant not found; 404 not an admin of that restaurant.
 
 #### `GET /api/users/platform/businesses`
@@ -538,7 +548,7 @@ Errors: 403 restaurant user.
 
 #### `POST /api/users/platform/businesses`
 Permission: `platform.restaurants.manage`
-Query/Body: `businessType` (required; any type but `restaurant`, which is set up from `POST /api/users/platform/restaurants`), `name` (required, <=150), `code` (required, 2-40 letters, digits and dashes, spaces become dashes, stored upper case), `legalName`, `gstin` (validated), `stateCode` (2 digits; defaults to the GSTIN's and must match it), `addressLine1`, `addressLine2`, `city`, `postalCode` (6 digits), `phone`, `email`, `currency` (ISO code, default `INR`), `timezone` (default `Asia/Kolkata`), `locationName` (default "Main store"), `locationCode` (default `MAIN`), `owner: { email (required), name, password (8-72), mobile? }`. An email that already has an active login makes that person the owner; otherwise `name` and `password` are required and a new login is made.
+Query/Body: `businessType` (required; any type but `restaurant`, which is set up from `POST /api/users/platform/restaurants`), `name` (required, <=150), `code` (required, 2-40 letters, digits and dashes, spaces become dashes, stored upper case), `legalName`, `gstin` (validated), `stateCode` (2 digits; defaults to the GSTIN's and must match it), `addressLine1`, `addressLine2`, `city`, `postalCode` (6 digits), `phone`, `email`, `currency` (ISO code, default `INR`), `timezone` (default `Asia/Kolkata`), `locationName` (default "Main store"), `locationCode` (default `MAIN`), `owner: { email (required), name, password (8-72), mobile? }`. An email that already has an active login makes that person the owner; otherwise `name` and `password` are required and a new login is made, which chooses its own password at its first sign-in.
 Returns: 201, `{ business, owner: { id, name, created } }`. One transaction: the business with its roles, settings, GST slabs, units, default modules and payment methods, its first location, and the owner's membership.
 Errors: 400 validation (unknown type, a restaurant, code, GSTIN, state code, PIN code, currency, time zone); 403 restaurant user; 409 the business code is taken; 409 the owner's login is not active; 409 the mobile already has a login.
 
@@ -551,7 +561,7 @@ Errors: 403; 404 business not found.
 #### `POST /api/users/platform/businesses/:id/owner-password`
 Permission: `platform.restaurants.manage`
 Query/Body: `userId` (id, required; one of that business's owners), `password` (8-72, required)
-Returns: `{ id, name }`. Their sessions end on their next request and their sign-in lockout is lifted.
+Returns: `{ id, name }`. Their sessions end on their next request, their sign-in lockout is lifted, and they choose their own password at their next sign-in.
 Errors: 403; 404 "That person is not an owner of this business".
 
 ### Roles and permissions
@@ -4205,13 +4215,13 @@ Errors: 404 staff member or role not found; 404 location not found or closed; 40
 #### `POST /api/businesses/:businessId/staff-accounts`
 Permission: `access.edit`
 Query/Body: `name` (required, up to 150), `email` (required), `password` (8-72, required), `mobile` (optional), `roleId` (required), `workLocationId` (optional), `workDepartmentId` (optional; a giver tied to a department must name their own)
-Returns: 201, the membership row plus `role_name`, `name`, `email`: a login of their own for a member of staff, with no restaurant behind it (a restaurant business's staff stay with that restaurant). The role, location and department go through the checks of `POST /members`; when those refuse, the new login is removed again.
+Returns: 201, the membership row plus `role_name`, `name`, `email`: a login of their own for a member of staff, with no restaurant behind it (a restaurant business's staff stay with that restaurant). The password works for their first sign-in, when they choose their own. The role, location and department go through the checks of `POST /members`; when those refuse, the new login is removed again.
 Errors: 400 validation; 409 "That email already has a login. Give that person access with "Give access" instead."; 409 the mobile number already has a login; plus the errors of `POST /members`.
 
 #### `POST /api/businesses/:businessId/staff-accounts/:userId/password`
 Permission: `access.edit`
 Query/Body: `password` (8-72, required)
-Returns: `{ id, name }`. The person is signed out everywhere and their sign-in lockout is lifted.
+Returns: `{ id, name }`. The person is signed out everywhere, their sign-in lockout is lifted, and they choose their own password at their next sign-in.
 Errors, in the order they are checked: 400 validation; 404 "That person has no access to this business"; 403 an owner's password (changed by the owner or the platform); 400 your own password (change it from My profile); 403 "This person does not work at your location" (you are tied to a location, and they are tied to another or work at every location); 403 "This person does not work in your department" (you are tied to a department, and they are in another or in every department); 403 "This person's role can do things yours cannot (…), so you cannot change their access or password" (their role holds a permission yours lacks, up to three named; never for an Owner); 409 the login is also used in another business or a restaurant (its password is changed there).
 
 ### Catalogue, categories, units, pack sizes, pricing rules

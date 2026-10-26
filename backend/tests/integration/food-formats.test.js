@@ -4,6 +4,7 @@ const crypto = require("node:crypto");
 const path = require("node:path");
 const { Client } = require("pg");
 const bcrypt = require("bcrypt");
+const { signIn } = require("./helpers/signIn");
 
 // Food formats on the restaurant engine: a bakery (counter-first, sold by
 // weight, cake pre-orders with an advance billed on collection, a bake list
@@ -65,7 +66,7 @@ test("food formats: café, bakery and cloud kitchen", { timeout: 600000 }, async
     assert.equal(response.status, expected, `${method} ${url}: ${JSON.stringify(result)}`);
     return result;
   }
-  const login = async (email) => (await request("POST", "/auth/login", { identifier: email, password })).data.token;
+  const login = async (email) => (await signIn(base, email, password)).token;
   let owner = await login("owner@test.invalid");
   const cook = await login("cook@test.invalid");
   const O = (method, url, body, expected, headers) => request(method, url, body, expected, owner, headers);

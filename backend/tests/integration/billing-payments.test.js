@@ -14,6 +14,7 @@ const path = require("node:path");
 const { Client } = require("pg");
 const bcrypt = require("bcrypt");
 const { today: todayIst, weekdayOf } = require("./helpers/dates");
+const { signIn } = require("./helpers/signIn");
 
 test("billing and payments", { timeout: 600000 }, async (t) => {
   require("dotenv").config({ quiet: true });
@@ -103,7 +104,7 @@ test("billing and payments", { timeout: 600000 }, async (t) => {
     assert.equal(result.status, expected, `${method} ${url}: ${JSON.stringify(result.body)}`);
     return result.body.data;
   }
-  const login = async (email) => (await request("POST", "/auth/login", { identifier: email, password }, 200)).token;
+  const login = async (email) => (await signIn(base, email, password)).token;
   const owner = await login("owner@moneyr4.invalid");
   const cashier = await login("ravi@moneyr4.invalid");
   const other = await login("other@moneyr4.invalid");

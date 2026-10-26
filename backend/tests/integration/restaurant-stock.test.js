@@ -13,6 +13,7 @@ const { Client } = require("pg");
 const bcrypt = require("bcrypt");
 
 const { today, addDays } = require("./helpers/dates");
+const { signIn } = require("./helpers/signIn");
 const TODAY = today();
 
 test("stock list, counts, production, dish food cost", { timeout: 600000 }, async (t) => {
@@ -100,7 +101,7 @@ test("stock list, counts, production, dish food cost", { timeout: 600000 }, asyn
     assert.equal(result.status, expected, `${method} ${url}: ${JSON.stringify(result.body)}`);
     return result.body.data;
   }
-  const login = async (email) => (await request("POST", "/auth/login", { identifier: email, password }, 200)).token;
+  const login = async (email) => (await signIn(base, email, password)).token;
   const owner = await login("owner@prob.invalid");
   const other = await login("other@prob.invalid");
   const cashier = await login("asha@prob.invalid");

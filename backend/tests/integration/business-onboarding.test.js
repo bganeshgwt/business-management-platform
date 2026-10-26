@@ -5,6 +5,7 @@ const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { daysFrom } = require('./helpers/dates');
+const { signIn } = require('./helpers/signIn');
 
 // Onboarding: the platform creates a business of any type
 // for a customer with the owner's new login; the owner signs in, adds staff
@@ -44,10 +45,7 @@ test('onboarding: platform creates a business, owner signs in, staff logins, loc
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(20000) });
     return { status: response.status, body: await response.json() };
   }
-  const login = async (email, secret = password) => {
-    const result = await call('POST', '/auth/login', { identifier: email, password: secret });
-    return result.body.data?.token || null;
-  };
+  const login = async (email, secret = password) => (await signIn(base, email, secret))?.token || null;
   const as = (auth) => async (method, route, body, expected = 200) => {
     const result = await call(method, route, body, auth);
     assert.equal(result.status, expected, `${method} ${route}: ${JSON.stringify(result.body)}`);

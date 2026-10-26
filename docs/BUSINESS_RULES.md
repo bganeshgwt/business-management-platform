@@ -55,6 +55,12 @@ These are not settings. Changing one means changing the code; the PIN lockout is
 - **Why:** a shop's staff should never see the restaurant dashboard.
 - **Change it:** nothing to set. The business switcher moves between businesses.
 
+### A password someone else set is changed at the first sign-in
+
+- **Rule:** a password someone else sets for a person works for one sign-in only. That covers a new login's first password (made in a restaurant's *Users*, in *Staff & access*, on the platform screens with a new restaurant or business, or with `npm run user:create`) and every new password an admin or the platform sets for someone. After it, and after the two-step code where the person uses one, they choose their own password before anything else opens: the server refuses every other request until they have. The new password follows the usual rules (8 to 72 characters) and must differ from the one they were given. Choosing it signs them out on every other device, and they carry on to the page they were opening. A person who changes their own password in *My profile* is not asked again.
+- **Why:** whoever set the password knows it, and until the person changed it they could sign in as that person and do whatever their role allows.
+- **Change it:** nothing to set. The database marks every password written by anyone but the person themselves, so no screen or script can leave one out.
+
 ### One till, many cashiers: the per-staff PIN
 
 - **Rule:** a shop's till stays signed in. A cashier taps *Switch* on Quick bill, picks their name and types their own PIN, and the till carries on as them. The bill being built stays. Every bill records the person the till was switched to. With *Ask the biller's PIN for every bill* on, Quick bill asks that person's PIN before each bill, and the server refuses a counter bill without it. The PIN is the person's own personal PIN (*My profile › Personal PIN*, or set by an admin), with the usual lockout, the account lock and the two-step device rule. Only people whose role may create sales are offered. *Prescription sale* has the same *Switch* and PIN rule; a Schedule X sale still needs the registered pharmacist's own PIN, whoever is billing.

@@ -17,6 +17,7 @@ const { Client } = require("pg");
 const bcrypt = require("bcrypt");
 
 const { today, daysFrom, addDays, tradingToday } = require("./helpers/dates");
+const { signIn } = require("./helpers/signIn");
 
 test("business day, close, day-end, cancellations, roles, purchasing access", { timeout: 600000 }, async (t) => {
   require("dotenv").config({ quiet: true });
@@ -98,7 +99,7 @@ test("business day, close, day-end, cancellations, roles, purchasing access", { 
     assert.equal(result.status, expected, `${method} ${url}: ${JSON.stringify(result.body).slice(0, 400)}`);
     return result.body.data;
   }
-  const login = async (email) => (await request("POST", "/auth/login", { identifier: email, password }, 200)).token;
+  const login = async (email) => (await signIn(base, email, password)).token;
   const owner = await login("owner@prob.invalid");
   const O = (method, url, body, expected = 200, headers) => request(method, url, body, expected, owner, headers);
 

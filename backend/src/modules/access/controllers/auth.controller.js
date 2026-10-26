@@ -261,6 +261,8 @@ const changePassword = async (req, res) => {
   }
 
   const newPassword = v.requiredPassword(body.newPassword, "New password");
+  // A password someone else set, replaced by the person's own at sign-in.
+  const given = req.user.passwordChangeRequired;
 
   const session = await authService.changeOwnPassword(req.user, currentPassword, newPassword, body.deviceTokens);
 
@@ -268,12 +270,14 @@ const changePassword = async (req, res) => {
   logAction(req, "password_change", "user", {
     id: req.user.id,
     label: req.user.name,
-    details: { otherSessionsEnded: true },
+    details: { otherSessionsEnded: true, ...(given ? { replacedGivenPassword: true } : {}) },
   });
 
   res.json({
     success: true,
-    message: "Password changed. You were signed out on every other device, and they are no longer remembered.",
+    message: given
+      ? "Your own password is set. Sign in with it from now on."
+      : "Password changed. You were signed out on every other device, and they are no longer remembered.",
     data: session,
   });
 };

@@ -10,6 +10,7 @@ const path = require("node:path");
 const { Client } = require("pg");
 
 const { today } = require("./helpers/dates");
+const { signIn } = require("./helpers/signIn");
 
 const TODAY = today();
 
@@ -86,7 +87,7 @@ test("restaurant set-up: next bill numbers, shared series, feature switch-off pr
     assert.equal(result.status, expected, `${method} ${url}: ${JSON.stringify(result.body)}`);
     return result.body.data;
   }
-  const login = async (email) => (await request("POST", "/auth/login", { identifier: email, password }, 200)).token;
+  const login = async (email) => (await signIn(base, email, password)).token;
   const owner = await login("owner@probset.invalid");
   const other = await login("other@probset.invalid");
   const O = (method, url, body, expected = 200) => request(method, url, body, expected, owner);

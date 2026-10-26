@@ -5,6 +5,7 @@ const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
+const { signIn } = require('./helpers/signIn');
 
 test('multi-business admin: isolation, weighted stock, idempotency and appointments', { timeout: 180000 }, async (t) => {
   require('dotenv').config({ quiet: true });
@@ -49,8 +50,8 @@ test('multi-business admin: isolation, weighted stock, idempotency and appointme
     assert.equal(response.status, expected, `${method} ${route}: ${JSON.stringify(result)}`);
     return result.data;
   }
-  token = (await request('POST', '/auth/login', { identifier: 'business-owner@test.invalid', password })).token;
-  const otherToken = (await request('POST', '/auth/login', { identifier: 'business-other@test.invalid', password })).token;
+  token = (await signIn(base, 'business-owner@test.invalid', password)).token;
+  const otherToken = (await signIn(base, 'business-other@test.invalid', password)).token;
   let businesses, grocery, electronics, pharmacy, salon;
   const root = (b, suffix) => `/businesses/${b.id}/${suffix}`;
   await t.test('businesses an owner adds are restricted to that owner', async () => {
@@ -218,7 +219,7 @@ test('multi-business admin: isolation, weighted stock, idempotency and appointme
   await t.test('owners grant only eligible staff access; viewers cannot elevate themselves and revocation is immediate', async () => {
     const original = await one('SELECT restaurant_id FROM users WHERE id=$1', [user.id]);
     const staff = await one('INSERT INTO users(restaurant_id,name,email,password_hash) VALUES($1,$2,$3,$4) RETURNING id', [original.restaurant_id, 'Business staff', 'business-staff@test.invalid', hash]);
-    const staffToken = (await request('POST', '/auth/login', { identifier: 'business-staff@test.invalid', password })).token;
+    const staffToken = (await signIn(base, 'business-staff@test.invalid', password)).token;
     await request('GET', root(salon, 'summary'), undefined, 404, staffToken);
     await request('POST', root(salon, 'members'), { userId: stranger.id, role: 'viewer' }, 404);
     await request('POST', root(salon, 'members'), { userId: user.id, role: 'viewer' }, 409);

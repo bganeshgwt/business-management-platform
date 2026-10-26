@@ -19,6 +19,7 @@ const { Client } = require("pg");
 const bcrypt = require("bcrypt");
 
 const { today, daysFrom } = require("./helpers/dates");
+const { signIn } = require("./helpers/signIn");
 
 test("dashboard panel list filters", { timeout: 600000 }, async (t) => {
   require("dotenv").config({ quiet: true });
@@ -94,7 +95,7 @@ test("dashboard panel list filters", { timeout: 600000 }, async (t) => {
     }
     return expected === null ? { status: response.status, ...result } : result.data;
   }
-  const login = async (email) => (await request("POST", "/auth/login", { identifier: email, password })).token;
+  const login = async (email) => (await signIn(base, email, password)).token;
   const owner = await login("owner@panel.invalid");
   const other = await login("other@panel.invalid");
   const O = (method, url, body, expected = 200, headers = {}) => request(method, url, body, expected, owner, headers);

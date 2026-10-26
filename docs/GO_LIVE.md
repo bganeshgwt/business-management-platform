@@ -163,10 +163,11 @@ calls (`/api/public/…`) from any address, so such a domain needs no
    ([README › The first login](../README.md#3-the-first-login)). This login runs
    the whole platform: give it a strong password and keep it to the people who
    run the platform.
-2. Sign in to the staff app with it. Create the customer's restaurant in
-   **Platform › Restaurants**, or a business of another type in
-   **Platform › Businesses**, each with its owner's login.
-3. The owner signs in and works through
+2. Sign in to the staff app with it, and choose its own password when the
+   sign-in asks: the one typed in the terminal works once. Create the
+   customer's restaurant in **Platform › Restaurants**, or a business of
+   another type in **Platform › Businesses**, each with its owner's login.
+3. The owner signs in, chooses their own password, and works through
    [ADMIN_GUIDE › First steps in a new business](ADMIN_GUIDE.md#first-steps-in-a-new-business).
 4. Before real trading, two reviews:
    - **The accountant** confirms the tax settings and, in a restaurant, the GST

@@ -460,7 +460,7 @@ function AddRestaurantModal({ onClose, onCreated }) {
         <label className="field">
           <span>Password *</span>
           <input type="password" value={form.adminPassword} onChange={change("adminPassword")} required minLength={8} maxLength={72} autoComplete="new-password" />
-          <small className="muted">At least 8 characters; they change it under My profile</small>
+          <small className="muted">At least 8 characters; they choose their own when they first sign in</small>
         </label>
         <div className="form-actions field-wide">
           <button type="button" className="button button-secondary" onClick={onClose}>
@@ -521,7 +521,7 @@ function AdminsModal({ restaurant, onClose, onDone }) {
         <form className="form-grid" onSubmit={reset}>
           <p className="field-wide">
             A new password for <strong>{resetting.name}</strong> ({resetting.email || resetting.mobile}). They are signed out
-            everywhere and any lockout is lifted. Tell them the password; they change it under My profile.
+            everywhere and any lockout is lifted. Tell them the password; they choose their own at their next sign-in.
           </p>
           <label className="field field-wide">
             <span>New password *</span>

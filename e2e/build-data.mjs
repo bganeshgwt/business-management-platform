@@ -87,9 +87,23 @@ async function switchOnTools(owner, businessId, type) {
 
 export async function buildTestData({ api, logins, sql }) {
   const login = (role) => logins.find((item) => item.role === role);
+  // Every login here starts with a password someone else set (the platform
+  // admin's from npm run user:create, the rest from the screens that make
+  // logins), so its first sign-in chooses one of its own, made fresh for the
+  // run like the first. The login keeps its own from then on, and so does the
+  // run's file (accounts, below): the specs sign in with it.
+  const signedIn = new Set();
   const signIn = async (role) => {
-    const { email, password } = login(role);
-    return (await caller(api)("POST", "/auth/login", { identifier: email, password })).token;
+    const person = login(role);
+    const session = await caller(api)("POST", "/auth/login", { identifier: person.email, password: person.password });
+    signedIn.add(role);
+    if (!session.user.passwordChangeRequired) {
+      return session.token;
+    }
+    const own = crypto.randomBytes(12).toString("base64url");
+    const chosen = await caller(api, session.token)("POST", "/auth/change-password", { currentPassword: person.password, newPassword: own });
+    person.password = own;
+    return chosen.token;
   };
 
   // --- The restaurant, its admin and staff ----------------------------------
@@ -730,6 +744,12 @@ export async function buildTestData({ api, logins, sql }) {
     const pin = freshPin();
     await caller(api, await signIn("RENTALS_MANAGER"))("PUT", "/auth/me/pin", { password: manager.password, pin, confirmPin: pin });
     businesses.rentals.manager = { name: manager.name, pin };
+  }
+
+  // The logins nothing above signed in as choose their own password now, so
+  // a spec signing in as any of them meets no first-sign-in step.
+  for (const person of logins.filter((item) => !signedIn.has(item.role))) {
+    await signIn(person.role);
   }
 
   return {

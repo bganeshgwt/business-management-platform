@@ -18,6 +18,7 @@ const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
 const path = require("node:path");
 const { Client } = require("pg");
+const { signIn } = require("./helpers/signIn");
 
 test("restaurant rule settings", { timeout: 600000 }, async (t) => {
   require("dotenv").config({ quiet: true });
@@ -87,7 +88,7 @@ test("restaurant rule settings", { timeout: 600000 }, async (t) => {
     assert.equal(response.status, expected, `${method} ${url}: ${JSON.stringify(result)}`);
     return expected < 300 ? result.data : result;
   }
-  const owner = (await request("POST", "/auth/login", { identifier: "owner@rules.invalid", password })).token;
+  const owner = (await signIn(base, "owner@rules.invalid", password)).token;
   const O = (method, url, body, expected = 200) => request(method, url, body, expected, owner);
 
   // Saves rules the way the settings screen does: the whole form, with the

@@ -79,7 +79,10 @@ const resetPassword = async (req, res) => {
     details: { otherSessionsEnded: true },
   });
 
-  res.json({ success: true, message: `Password updated. ${target.name} was signed out everywhere.` });
+  res.json({
+    success: true,
+    message: `Password updated. ${target.name} was signed out everywhere and chooses their own password at the next sign-in.`,
+  });
 };
 
 const setPin = async (req, res) => {
