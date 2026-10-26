@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import usePresence from "../hooks/usePresence";
 import useLiveChange from "../hooks/useLiveChange";
+import useLiveRefresh from "../hooks/useLiveRefresh";
 import { play } from "./motion";
 import {
   SEVERITY,
@@ -12,7 +13,6 @@ import {
   markNotificationsRead,
   onNotificationsChanged,
   pickForDropdown,
-  pollWhileVisible,
   relativeTime,
   topUnreadSeverity,
   withReadState,
@@ -183,18 +183,18 @@ export default function NotificationBell({ feed = null }) {
   useEffect(() => {
     refresh();
 
-    const stopPolling = pollWhileVisible(refresh);
-    const stopListening = onNotificationsChanged(({ source }) => {
+    return onNotificationsChanged(({ source }) => {
       if (source !== SOURCE) {
         refresh();
       }
     });
-
-    return () => {
-      stopPolling();
-      stopListening();
-    };
   }, [refresh]);
+
+  // Live: a change in the restaurant (or the business a feed belongs to,
+  // feed.live) has the bell ask again within a few seconds (live updates), at
+  // most once every 20 seconds however busy it is. As a safety net it also
+  // asks every minute while the screen is seen, and at once on coming back.
+  useLiveRefresh(feed ? feed.live || null : { restaurant: true }, ["*"], refresh, { debounceMs: 1000, minIntervalMs: 20000 });
 
   // Closes on a click anywhere else, or on Escape — which also hands focus
   // back to the bell, so a keyboard user is not dropped at the top of the page.

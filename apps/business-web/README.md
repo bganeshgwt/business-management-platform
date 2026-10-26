@@ -130,6 +130,12 @@ Import them by name: `import Icon from "@bmp/ui/Icon"`,
    workspace of `services/businessWorkspace.js`.
 4. Put API calls in the module's `services/<area>.service.js`, never directly
    in the page.
+5. A screen that shows what other devices change keeps itself current with
+   `useLiveRefresh(scope, areas, refresh)` (`hooks/useLiveRefresh.js`; the
+   areas are in [API.md › Live updates](../../docs/API.md#live-updates)) and
+   shows `<LiveIndicator status={…} />`; any timer of its own stays only as a
+   safety net of a minute. A table it reads that no live trigger covers gets
+   one in its migration ([ARCHITECTURE §3.5](../../docs/ARCHITECTURE.md#35-live-updates)).
 
 A workspace that is planned but not built gets its route at once, with a
 `PlannedPage` entry in `services/plannedWorkspaces.js`, never a "Page not

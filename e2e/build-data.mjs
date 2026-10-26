@@ -6,7 +6,7 @@
 // no request can make: an order taken, or a hire handed over, on an earlier day.
 import crypto from "node:crypto";
 
-import { AGRI, BUSINESSES, FUEL, GARAGE, GROCERY, GST_CHANGE, HARDWARE, JEWELLERY, LAUNDRY, LODGING, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, RENTALS, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
+import { AGRI, BUSINESSES, CLINIC, FUEL, GARAGE, GROCERY, GST_CHANGE, HARDWARE, JEWELLERY, LAUNDRY, LODGING, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, RENTALS, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
 
 // Every call names the status it expects, so a set-up that goes wrong stops
 // at the first wrong answer, with the API's own message, rather than leaving
@@ -621,6 +621,14 @@ export async function buildTestData({ api, logins, sql }) {
       late: { id: late.id, bookingNo: late.booking_no, hirer: lateHirer.name, deposit: late.deposit_due },
       going: { id: going.id, bookingNo: going.booking_no, hirer: goingHirer.name, dueAt: going.due_at, deposit: going.deposit_due },
     });
+  }
+
+  // The clinic's patient, registered at the front desk with consent for treatment.
+  {
+    const patient = await owner("POST", at("healthcare")("clinic/patients"), {
+      ...CLINIC.patient, consent: { purposes: ["treatment"], method: "signed_form", givenBy: "Self" },
+    }, 201);
+    businesses.healthcare.patient = { contactId: patient.contact_id, name: CLINIC.patient.name };
   }
 
   // The salon's stylist and service.

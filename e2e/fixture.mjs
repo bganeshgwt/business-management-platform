@@ -10,7 +10,7 @@ import process from "node:process";
 
 import { TIMEZONE } from "./test-data.mjs";
 
-export { AGRI, BUSINESSES, FUEL, GARAGE, GROCERY, GST_CHANGE, HARDWARE, JEWELLERY, LAUNDRY, LODGING, LOGINS, MEAT, MEMBERSHIPS, NEW_STAFF, OPTICAL, PLATFORM, RENTALS, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
+export { AGRI, BUSINESSES, CLINIC, FUEL, GARAGE, GROCERY, GST_CHANGE, HARDWARE, JEWELLERY, LAUNDRY, LODGING, LOGINS, MEAT, MEMBERSHIPS, NEW_STAFF, OPTICAL, PLATFORM, RENTALS, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
 
 let data = null;
 
@@ -58,6 +58,68 @@ export function business(type) {
 export function localDate(days = 0) {
   const [year, month, day] = new Date().toLocaleDateString("en-CA", { timeZone: TIMEZONE }).split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+// Waiting for a page to finish loading. A live screen holds its live updates
+// stream open (GET /api/live, /api/businesses/:id/live) for as long as it is
+// shown, so Playwright's "networkidle" never comes on one. networkQuiet waits
+// for what it meant: half a second with nothing else in flight. Call
+// watchNetwork(page) once, before the page loads anything.
+const LIVE_STREAM = /\/api\/(?:live|businesses\/\d+\/live)(?:\?|$)/;
+const watched = new WeakMap();
+
+export function watchNetwork(page) {
+  if (watched.has(page)) {
+    return;
+  }
+
+  const state = { open: new Set(), last: Date.now() };
+  const settle = (request) => {
+    if (state.open.delete(request)) {
+      state.last = Date.now();
+    }
+  };
+
+  watched.set(page, state);
+  // A new document: what the last one still had in flight went with it, and
+  // Playwright reports nothing more about it.
+  page.on("framenavigated", (frame) => {
+    if (frame === page.mainFrame()) {
+      for (const request of state.open) {
+        if (!request.isNavigationRequest()) {
+          state.open.delete(request);
+        }
+      }
+
+      state.last = Date.now();
+    }
+  });
+  page.on("request", (request) => {
+    if (!LIVE_STREAM.test(request.url())) {
+      state.open.add(request);
+      state.last = Date.now();
+    }
+  });
+  page.on("requestfinished", settle);
+  page.on("requestfailed", settle);
+}
+
+export async function networkQuiet(page, { quietMs = 500, timeout = 30_000 } = {}) {
+  const state = watched.get(page);
+
+  if (!state) {
+    throw new Error("Call watchNetwork(page) before networkQuiet(page).");
+  }
+
+  const until = Date.now() + timeout;
+
+  while (state.open.size > 0 || Date.now() - state.last < quietMs) {
+    if (Date.now() > until) {
+      throw new Error(`Still loading after ${timeout} ms: ${[...state.open].map((request) => request.url()).join(", ")}`);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
 }
 
 // Signs in through the staff app's own form and waits until it has left the

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import PageHeader from "../../../components/PageHeader";
+import LiveIndicator from "../../../components/LiveIndicator";
+import useLiveRefresh from "../../../hooks/useLiveRefresh";
 import Icon from "@bmp/ui/Icon";
 import { EmptyState, ErrorMessage } from "../../../components/Feedback";
 import { dateLong, dateShort, timeOnly } from "@bmp/shared/format";
@@ -54,7 +56,7 @@ function TaskCard({ task }) {
 }
 
 export default function MyTasksPage() {
-  const { api, can, link } = useTasks();
+  const { api, can, link, businessId } = useTasks();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   // null until someone picks a tab: it then opens on the first one with work (overdue first).
@@ -62,13 +64,10 @@ export default function MyTasksPage() {
 
   const load = useCallback(() => api.mine().then((value) => { setData(value); setError(""); }).catch((err) => setError(getErrorMessage(err))), [api]);
   useEffect(() => { load(); }, [load]);
-  // Live enough for a shift: every minute, and when the tab comes back.
-  useEffect(() => {
-    const timer = setInterval(load, 60000);
-    const onFocus = () => document.visibilityState === "visible" && load();
-    document.addEventListener("visibilitychange", onFocus);
-    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", onFocus); };
-  }, [load]);
+  // A task given to me, or one done on another phone, shows within a second
+  // (live updates); the list also reads itself every minute, and at once when
+  // the tab comes back.
+  const live = useLiveRefresh(businessId ? { business: businessId } : { restaurant: true }, ["task"], load);
 
   const groups = useMemo(() => {
     const out = { today: [], overdue: [], upcoming: [], done: [] };
@@ -85,6 +84,7 @@ export default function MyTasksPage() {
   return (
     <div className="stack tk-page tk-my">
       <PageHeader title="My tasks" icon="check" description={data ? dateLong(data.today) : "What is yours to do"}
+        actions={<LiveIndicator status={live} />}
         primary={<CreateMenu onCreated={load} />} />
       <ErrorMessage message={error} />
       <section className="card tk-my-summary" aria-label="Today at a glance">

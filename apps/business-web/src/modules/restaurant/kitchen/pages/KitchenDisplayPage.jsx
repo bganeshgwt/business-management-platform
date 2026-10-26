@@ -9,6 +9,7 @@ import DataGrid from "../../../../components/DataGrid/DataGrid";
 import { EmptyState, ErrorMessage, Loading } from "../../../../components/Feedback";
 import useAuth from "../../../../hooks/useAuth";
 import useQueryFilter from "../../../../hooks/useQueryFilter";
+import useLiveRefresh from "../../../../hooks/useLiveRefresh";
 import { getErrorMessage } from "../../../../services/api";
 import { count } from "@bmp/shared/format";
 import {
@@ -53,10 +54,6 @@ import {
 } from "../../../../services/kot";
 import KitchenSoldOut from "./KitchenSoldOut";
 import "../styles/kitchen.css";
-
-// The board refreshes this often while it is on screen. Ten seconds is as
-// quick as a waiter walks from the till to the pass.
-const REFRESH_EVERY = 10000;
 
 // How long a ticket that just arrived keeps its glow.
 const FRESH_FOR = 15000;
@@ -370,28 +367,11 @@ function Board({ canManage, canClear, canOpenDay, canMarkSoldOut }) {
     again.current = refresh;
   }, [refresh]);
 
-  // Nothing is fetched while the screen is hidden; coming back refreshes at
-  // once rather than showing a board ten minutes stale.
-  useEffect(() => {
-    const timer = setInterval(() => {
-      if (document.visibilityState === "visible") {
-        refresh();
-      }
-    }, REFRESH_EVERY);
-
-    const onVisible = () => {
-      if (document.visibilityState === "visible") {
-        refresh();
-      }
-    };
-
-    document.addEventListener("visibilitychange", onVisible);
-
-    return () => {
-      clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [refresh]);
+  // Live: a ticket sent from a till, a change to one, or a slip for a
+  // cancelled dish shows within a second (live updates). As a safety net the
+  // board also reads itself every minute. Nothing is read while the screen is
+  // hidden; coming back reads at once.
+  const stream = useLiveRefresh({ restaurant: true }, ["kot", "kot_slip"], refresh);
 
   // On a phone the chips scroll sideways; the station being shown is brought
   // into view, so a tablet opened on ?station=… says which station it is.
@@ -887,13 +867,20 @@ function Board({ canManage, canClear, canOpenDay, canMarkSoldOut }) {
 
           <button
             type="button"
-            className={`kds-live ${offline ? "is-offline" : ""}`}
+            className={`kds-live ${offline || stream === "reconnecting" ? "is-offline" : ""}`}
             onClick={refresh}
-            title={offline ? "Cannot reach the server — retrying. Tap to try now." : "Refresh now"}
+            data-live={stream}
+            title={
+              offline
+                ? "Cannot reach the server — retrying. Tap to try now."
+                : stream === "live"
+                  ? "New tickets appear here by themselves. Tap to read the board now."
+                  : "Live updates are reconnecting; the board still reads itself every minute. Tap to read it now."
+            }
           >
             <span className={`live-dot ${refreshing ? "is-busy" : ""}`} aria-hidden="true" />
             <span className="kds-tool-label">
-              {offline ? "Offline" : "Live"}
+              {offline ? "Offline" : stream === "live" ? "Live" : stream === "reconnecting" ? "Reconnecting" : stream === "off" ? "Not live" : "Connecting"}
               <span className="kds-tool-more">
                 {offline ? " — retrying" : ` · ${ago(now - (updatedAt || now))}`}
               </span>

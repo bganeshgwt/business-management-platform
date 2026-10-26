@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import LiveValue from "../../../../components/LiveValue";
 import Modal from "../../../../components/Modal";
 import useAuth from "../../../../hooks/useAuth";
+import useLiveRefresh from "../../../../hooks/useLiveRefresh";
 import { getErrorMessage } from "../../../../services/api";
 import { getCollectionBoard, markTokenCollected } from "../services/order.service";
 import { chimeReady, playChime, timeOfDay, unlockChime } from "../../../../services/kot";
@@ -15,10 +16,6 @@ import "../styles/collection.css";
 // A TV signs in with the "Collection display" role, which can open nothing
 // else. Counter staff (who take orders) can open it too, on a tablet, and
 // tap a ready token to mark it handed over.
-
-// Often enough that a token turns up within a few seconds of the kitchen
-// marking it ready, and cheap: one small request.
-const POLL_MS = 4000;
 
 export default function CollectionDisplayPage() {
   const { user, hasPermission, logout } = useAuth();
@@ -76,18 +73,15 @@ export default function CollectionDisplayPage() {
   useEffect(() => {
     load();
 
-    const poll = setInterval(() => {
-      if (document.visibilityState === "visible") {
-        load();
-      }
-    }, POLL_MS);
     const tick = setInterval(() => setNow(Date.now()), 1000);
 
-    return () => {
-      clearInterval(poll);
-      clearInterval(tick);
-    };
+    return () => clearInterval(tick);
   }, [load]);
+
+  // Live: a token turns up within a second of the kitchen marking it ready,
+  // and goes when it is handed over (live updates). As a safety net the
+  // screen also reads itself every minute.
+  const live = useLiveRefresh({ restaurant: true }, ["order", "kot", "business_day"], load);
 
   // A browser plays no sound until someone has touched the page.
   const turnOnSound = () => {
@@ -141,6 +135,9 @@ export default function CollectionDisplayPage() {
             </button>
           )}
           {sound && chimeReady() && <span className="col-tool is-on">Chime on</span>}
+          <span className="col-tool is-quiet" data-live={live} title="Whether tokens appear here by themselves">
+            {live === "live" ? "Live" : live === "reconnecting" ? "Reconnecting…" : live === "off" ? "Not live" : "Connecting…"}
+          </span>
           {!staff && (
             <button type="button" className="col-tool is-quiet" onClick={logout}>
               Sign out

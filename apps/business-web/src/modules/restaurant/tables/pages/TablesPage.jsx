@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import PageHeader from "../../../../components/PageHeader";
+import LiveIndicator from "../../../../components/LiveIndicator";
 import Modal from "../../../../components/Modal";
 import ConfirmDialog from "../../../../components/ConfirmDialog";
 import StatusBadge from "../../../../components/StatusBadge";
@@ -26,6 +27,7 @@ import { getErrorMessage, outletStorage } from "../../../../services/api";
 import { listOutlets } from "../../../../services/outlet.service";
 import { printDocument } from "../../../../services/print";
 import useAuth from "../../../../hooks/useAuth";
+import useLiveRefresh from "../../../../hooks/useLiveRefresh";
 import useQueryFilter from "../../../../hooks/useQueryFilter";
 import { Link } from "react-router-dom";
 import { count, dateShort, money } from "@bmp/shared/format";
@@ -39,10 +41,6 @@ import "../../../../styles/reservations.css";
 import "../styles/tables.css";
 
 const EMPTY = { floorId: "", areaId: "", outletId: "", tableNo: "", capacity: 4, status: "active" };
-
-// The floor is a live board: a table settled at the till should turn to
-// Cleaning on the host's screen without anyone pressing refresh.
-const REFRESH_MS = 30000;
 
 // What a table is actually doing, which is not the same as the status column.
 //
@@ -527,16 +525,11 @@ export default function TablesPage() {
     load();
   }, [load]);
 
-  // Kept live while the page is on screen; a hidden tab does not poll.
-  useEffect(() => {
-    const refresh = setInterval(() => {
-      if (document.visibilityState === "visible") {
-        load();
-      }
-    }, REFRESH_MS);
-
-    return () => clearInterval(refresh);
-  }, [load]);
+  // The floor is a live board: a table settled at the till turns to Cleaning
+  // on the host's screen within a second, without anyone pressing refresh
+  // (live updates). As a safety net it also reads itself every minute while
+  // the page is on screen; a hidden tab reads nothing.
+  const live = useLiveRefresh({ restaurant: true }, ["table", "order", "reservation", "bill"], load);
 
   // The filter uses the same states the floor plan colours, so "Reserved"
   // also means held for a booking due within the hour, and "Free" never
@@ -799,6 +792,7 @@ export default function TablesPage() {
         description="The live floor: who is seated, who is waiting to pay, and which tables are free."
         action={
           <>
+            <LiveIndicator status={live} />
             {captainsOn && (
               <button type="button" className="button button-secondary" onClick={() => setPlanOpen(true)}>
                 <Icon name="users" size={16} /> Captain sections

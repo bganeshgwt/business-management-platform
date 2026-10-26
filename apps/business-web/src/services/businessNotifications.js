@@ -12,6 +12,7 @@ import { businessPath } from "./businessNav";
 //   markRead(ids)   → remembers them as read
 //   markAll(ids)    → the same for every alert shown
 //   allLink, moreLink(severity), allLabel
+//   live            the business whose changes have the bell ask again (live updates)
 
 const READ_LIMIT = 500;
 const readKey = (businessId, userId) => `bell-read-${userId || "me"}-${businessId}`;
@@ -54,6 +55,7 @@ export function businessFeed(businessId, userId) {
     markAll: mark,
     allLink: businessPath(businessId),
     allLabel: "Open the overview",
+    live: { business: businessId },
     moreLink: () => businessPath(businessId),
   };
 }

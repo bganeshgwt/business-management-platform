@@ -37,12 +37,16 @@ with these differences.
   development: it restarts on every file change. Run the API under the server's
   service manager, so it starts again after a crash or a reboot.
 - **Run one API process.** The dashboard and the bell keep short-lived answers
-  in the process's memory, and a change clears them only in the process that
-  made it. With several processes, each keeps its own, so a screen can show a
-  figure from before a change made through another process until that answer
-  runs out.
+  in the process's memory. A change the live screens hear of (an order, a
+  bill, a booking …) clears them in every process, but any other write (an
+  expense, a purchase, stock) only in the process that made it. With several
+  processes, a screen can then show a figure from before such a change made
+  through another process until that answer runs out (at most a few minutes).
+  Live updates themselves work with several processes: each listens for every
+  change.
 - **HTTPS** sits in front of the API and both web apps, usually in the hosting
-  proxy. Set `TRUST_PROXY` to match (§2).
+  proxy. Set `TRUST_PROXY` to match (§2), and set the proxy up for live
+  updates (below).
 - **Build the web apps** with their production addresses, and serve the builds
   (§3).
 
@@ -55,6 +59,70 @@ with these differences.
 4. Build the web apps again (`npm run build` at the root) and put the new
    builds in place.
 5. Restart the API.
+
+### Live updates through the proxy
+
+Every open staff screen holds one connection open to the API for its live
+updates ([ARCHITECTURE › Live updates](ARCHITECTURE.md#35-live-updates)):
+`GET /api/live` and `GET /api/businesses/<id>/live`, a stream of server-sent
+events that lasts as long as the screen is open. The proxy (or load balancer)
+in front of the API must pass it on as it comes:
+
+- **Buffering off** for those two paths. The API already says so to nginx
+  (`X-Accel-Buffering: no`) and to every proxy (`Cache-Control: no-cache,
+  no-transform`); a proxy that ignores both needs it set by hand. No
+  compression on them either.
+- **Timeouts longer than the keep-alive.** A stream is never silent for more
+  than 25 seconds (a comment line keeps it open), so an idle or read timeout
+  of 60 seconds or more is enough; 120 seconds leaves room. A proxy that ends
+  every request after a fixed time cuts the streams off: the screens reconnect
+  by themselves and read again, but only an idle timeout is right here.
+- **HTTP/2 to the browsers.** Over HTTP/1.1 a browser opens at most six
+  connections to one address, and each open staff tab holds one for its
+  stream; seven tabs on one computer would leave nothing for the rest. Every
+  HTTPS proxy serves HTTP/2 when it is switched on; the API behind it may stay
+  on HTTP/1.1.
+
+With nginx, for example:
+
+```
+location ~ ^/api/(live|businesses/[0-9]+/live)$ {
+    proxy_pass http://127.0.0.1:5000;
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_buffering off;
+    proxy_cache off;
+    gzip off;
+    proxy_read_timeout 120s;
+}
+```
+
+To check it after go-live: open the kitchen display and the POS on two
+devices; the kitchen display says **Live**, and a KOT placed at the POS shows
+on it within a second or two. A screen that stays on **Connecting** or
+**Reconnecting** has a proxy holding its stream back; most screens still read
+on their own every minute meanwhile.
+
+**Connection counts.**
+
+- **Browsers to the proxy and the API:** one open connection per open staff
+  tab (its page and its bell share it). The proxy's connection limit (nginx's `worker_connections`)
+  and the server's open-file limit must allow for every tab open at the busiest
+  hour, plus the ordinary requests. Each API process holds at most
+  `LIVE_STREAMS_MAX` streams (2,000 unless set) and one login at most
+  `LIVE_STREAMS_PER_PERSON` in it (20 unless set: one kitchen login on several
+  screens); a screen refused tries again a minute later.
+- **API processes to PostgreSQL:** each process holds one connection of its
+  own for live updates (`application_name` "live updates"), besides its pool
+  (`DB_POOL_MAX`, 10 unless set): processes × (pool + 1), plus the tools and
+  backups, must stay under PostgreSQL's `max_connections` (100 by default).
+- **Several processes behind a load balancer** need no sticky sessions for live
+  updates: each process listens for every change and passes it to its own
+  streams. On a stop (SIGTERM) a process tells its streams it is restarting,
+  and the screens reconnect within a few seconds, to whichever process the
+  load balancer picks.
 
 ## 2. Production settings
 
@@ -77,8 +145,10 @@ The other settings are optional, and each falls back to the default
 `.env.example` shows: `DB_POOL_MAX`, `DB_CONNECT_TIMEOUT_MS`,
 `DB_IDLE_TIMEOUT_MS`, `JWT_EXPIRES_IN`, `LOGIN_ATTEMPT_LIMIT`,
 `ACCOUNT_LOCK_ATTEMPTS`, `ACCOUNT_LOCK_WINDOW_MINUTES`, `ACCOUNT_LOCK_MINUTES`,
-`APPROVAL_TTL_SECONDS` and `NOTIFICATIONS_CACHE`. Every API process and tool
-shares PostgreSQL's own connection limit, so raise `DB_POOL_MAX` with care.
+`APPROVAL_TTL_SECONDS`, `NOTIFICATIONS_CACHE`, and `LIVE_STREAMS_MAX` and
+`LIVE_STREAMS_PER_PERSON` (the live screens' streams, §1). Every API process
+and tool shares PostgreSQL's own connection limit, so raise `DB_POOL_MAX` with
+care: each API process also holds one connection for live updates.
 
 **Set `TWO_FACTOR_KEY` once and never change it.** It encrypts the
 authenticator-app secrets of two-step sign-in. Left empty, it is derived from
@@ -284,6 +354,11 @@ training run does not count as a real-service sign-off. Take a verified backup
    role permissions.
 2. The manager opens the day with counted cash. A captain takes dine-in,
    takeaway and delivery orders; the kitchen acknowledges and completes them.
+   Every live screen (the kitchen display, table requests, the POS, deliveries,
+   the dashboard) says **Live**, and an order placed at one till shows on the
+   kitchen display and the other tills within a second or two. Switch a
+   device's Wi-Fi off and on: it says **Reconnecting**, then **Live**, and shows
+   what changed meanwhile.
 3. Change quantities, add a second round, pay one bill in two ways, void an
    unpaid bill and refund a paid one. Check the approvals and the activity-log
    entries with a cashier and a manager. Where the restaurant takes banquets or
@@ -331,7 +406,9 @@ training run does not count as a real-service sign-off. Take a verified backup
    front desk), Doctor, Lab technician and Pathologist.
 2. The front desk registers a patient with their consent and gives a token.
 3. The doctor calls the patient from the **Token queue**, completes the visit
-   and prints the prescription. The front desk bills the visit.
+   and prints the prescription. The front desk bills the visit. With the token
+   queue open on the waiting room's screen too, a token given or called at the
+   desk shows there within a second or two.
 4. The lab records the day's quality-control run first (**Lab orders ›
    Quality control**): while a parameter's run has failed, its reports cannot
    be approved. Then a test is ordered, the sample is collected and received,

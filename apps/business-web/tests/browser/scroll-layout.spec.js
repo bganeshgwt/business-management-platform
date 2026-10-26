@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-import { localDate, signIn } from "../../../../e2e/fixture.mjs";
+import { localDate, networkQuiet, signIn, watchNetwork } from "../../../../e2e/fixture.mjs";
 
 for (const viewport of [
   { width: 1920, height: 900 },
@@ -10,6 +10,7 @@ for (const viewport of [
 ]) {
   test(`dashboard and report scrolling stay inside the app at ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
     await page.setViewportSize(viewport);
+    watchNetwork(page);
     await signIn(page, "RESTAURANT_ADMIN");
     await expect(page.locator(".dash-page")).toBeVisible();
 
@@ -22,10 +23,10 @@ for (const viewport of [
       await expect(page.locator(route === "/" ? ".dash-page" : ".trend-chart").first()).toBeAttached();
       // The dashboard's live blocks arrive in a request of their own after its
       // figures, and the page grows when they replace their placeholders. The
-      // sign-in reached the dashboard without loading a page, so "networkidle"
-      // may be long past: wait for the blocks themselves.
+      // sign-in reached the dashboard without loading a page, so the network
+      // may have gone quiet long before: wait for the blocks themselves.
       if (route === "/") await expect(page.locator(".dash-page .dash-skeleton")).toHaveCount(0);
-      await page.waitForLoadState("networkidle");
+      await networkQuiet(page);
       const before = await page.evaluate(() => ({
         height: innerHeight,
         documentHeight: document.documentElement.scrollHeight,

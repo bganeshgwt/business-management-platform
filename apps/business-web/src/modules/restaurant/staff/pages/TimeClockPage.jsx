@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import PageHeader from "../../../../components/PageHeader";
+import LiveIndicator from "../../../../components/LiveIndicator";
+import useLiveRefresh from "../../../../hooks/useLiveRefresh";
 import Modal from "../../../../components/Modal";
 import ActionMenu from "../../../../components/ActionMenu";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
@@ -36,7 +38,6 @@ const PIN_MAX = 6;
 const DONE_SECONDS = 5;
 const IDLE_SECONDS = 20;
 const LONG_BREAK_MINUTES = 45;
-const BOARD_REFRESH_MS = 30000;
 const HOUR = 3600000;
 
 // --- icons -------------------------------------------------------------------
@@ -359,9 +360,11 @@ function KioskTab({ canView, canManage }) {
 
   useEffect(() => {
     load();
-    const id = setInterval(load, BOARD_REFRESH_MS);
-    return () => clearInterval(id);
   }, [load]);
+
+  // Live: a punch on another tablet, or one a manager adds, shows within a
+  // second (live updates); the board also reads itself every minute.
+  const live = useLiveRefresh({ restaurant: true }, ["timeclock"], load);
 
   // The clock ticks every second; everything live on the board (break
   // timers, "late by") is worked out from this one value.
@@ -411,7 +414,7 @@ function KioskTab({ canView, canManage }) {
   return (
     <div className={`tc-area ${fullscreen ? "is-fullscreen" : ""} ${picking ? "" : "is-focused"}`} ref={areaRef}>
       <ErrorMessage message={error} />
-      <Hero board={board} now={now} fullscreen={fullscreen} onFullscreen={toggleFullscreen} compact={!picking} />
+      <Hero board={board} now={now} fullscreen={fullscreen} onFullscreen={toggleFullscreen} compact={!picking} live={live} />
       {picking && <Tiles board={board} now={now} />}
       <div className="tc-main">
         <Kiosk board={board} now={now} onPunched={load} step={step} setStep={setStep} />
@@ -424,7 +427,7 @@ function KioskTab({ canView, canManage }) {
 // The big clock while people are choosing their name; a slim bar with the
 // same live time while someone is at the keypad, so the keypad and the
 // buttons sit at the top of the screen on a tablet.
-function Hero({ board, now, fullscreen, onFullscreen, compact }) {
+function Hero({ board, now, fullscreen, onFullscreen, compact, live }) {
   const timezone = board.timezone;
   const p = partsOf(now, timezone);
   const hour12 = p.hour % 12 || 12;
@@ -457,6 +460,7 @@ function Hero({ board, now, fullscreen, onFullscreen, compact }) {
             <strong>{board.counts.onDuty}</strong> on duty now
           </span>
         </span>
+        <LiveIndicator status={live} />
         {fullscreenButton}
       </section>
     );
@@ -498,6 +502,7 @@ function Hero({ board, now, fullscreen, onFullscreen, compact }) {
             )}
           </span>
         </div>
+        <LiveIndicator status={live} />
         {fullscreenButton}
       </div>
     </section>
@@ -1526,14 +1531,10 @@ function DayTab({ canManage }) {
     return () => clearInterval(id);
   }, []);
 
-  useEffect(() => {
-    if (!data || data.date !== data.today) {
-      return undefined;
-    }
-
-    const id = setInterval(load, 60000);
-    return () => clearInterval(id);
-  }, [data, load]);
+  // Today's day keeps up with the punches: within a second of one on a
+  // tablet (live updates), and every minute as a safety net. A past day does
+  // not change by itself.
+  const live = useLiveRefresh({ restaurant: true }, ["timeclock"], load, { enabled: Boolean(data && data.date === data.today) });
 
   const timezone = data?.timezone || "Asia/Kolkata";
   const serverOffset = data ? Date.parse(data.now) - data.receivedAt : 0;
@@ -1685,6 +1686,7 @@ function DayTab({ canManage }) {
               Today
             </button>
           )}
+          {isToday && <LiveIndicator status={live} />}
         </div>
         <ul className="tc-legend" aria-label="Legend">
           <li>

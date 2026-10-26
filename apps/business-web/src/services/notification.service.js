@@ -4,7 +4,7 @@ import { dayMonth } from "@bmp/shared/dates";
 // The bell and the notifications page each keep their own copy of the list.
 // When one of them marks something read, it says so here, and the other
 // refreshes — otherwise the badge would go on counting an alert the page has
-// just cleared until its next poll.
+// just cleared until its next check.
 const channel = new EventTarget();
 
 const announce = (source) =>
@@ -41,31 +41,6 @@ export const markAllNotificationsRead = async (ids, source) => {
   const response = (await api.post("/notifications/read-all", { ids })).data;
   announce(source);
   return response;
-};
-
-export const POLL_MS = 30000;
-
-// Asks again every 30 seconds — but only while someone can see the screen.
-// A tab left open in the background all evening would otherwise run every
-// alert query twice a minute for nobody. Coming back to the tab refreshes at
-// once, so what they see is never older than the moment they looked.
-//
-// `refresh` is not called straight away: the caller does its first load
-// itself. Returns the function that stops it.
-export const pollWhileVisible = (refresh, interval = POLL_MS) => {
-  const tick = () => {
-    if (document.visibilityState === "visible") {
-      refresh();
-    }
-  };
-
-  const timer = window.setInterval(tick, interval);
-  document.addEventListener("visibilitychange", tick);
-
-  return () => {
-    window.clearInterval(timer);
-    document.removeEventListener("visibilitychange", tick);
-  };
 };
 
 export const SEVERITY_ORDER = ["critical", "warning", "info"];

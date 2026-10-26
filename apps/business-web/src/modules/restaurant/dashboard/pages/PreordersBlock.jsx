@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { count, money } from "@bmp/shared/format";
 import useAuth from "../../../../hooks/useAuth";
+import useLiveRefresh from "../../../../hooks/useLiveRefresh";
 import { outletStorage } from "../../../../services/api";
 import { listPreorders } from "../../preorders/services/preorder.service";
 import LiveBlock, { Facts, Figures } from "./LiveBlock";
@@ -11,7 +12,9 @@ import LiveBlock, { Facts, Figures } from "./LiveBlock";
 // else gets every outlet's, and with one outlet picked at the top the block
 // says "All outlets", as Staff and Stock do. The advances they hold show
 // while Advances & deposits is on, as on the Pre-orders page; with it off,
-// none is taken.
+// none is taken. A pre-order booked, started, made ready or collected on
+// another device shows within a second (live updates); the card has no timer
+// of its own.
 const TZ = "Asia/Kolkata";
 const dayOf = (date) => new Date(date).toLocaleDateString("en-CA", { timeZone: TZ });
 const time = (date) => new Date(date).toLocaleTimeString("en-IN", { timeZone: TZ, hour: "numeric", minute: "2-digit" });
@@ -21,11 +24,17 @@ export default function PreordersBlock({ currency }) {
   const advancesOn = hasFeature("advances");
   const scope = !user.outletId && outletStorage.get() ? "All outlets" : undefined;
   const [entry, setEntry] = useState(null);
+  const shown = useRef(true);
+  const load = useCallback(
+    () => listPreorders({ status: "open" }).then((rows) => { if (shown.current) setEntry({ data: { rows, at: Date.now() } }); }).catch(() => { if (shown.current) setEntry({ data: null }); }),
+    []
+  );
   useEffect(() => {
-    let live = true;
-    listPreorders({ status: "open" }).then((rows) => { if (live) setEntry({ data: { rows, at: Date.now() } }); }).catch(() => { if (live) setEntry({ data: null }); });
-    return () => { live = false; };
-  }, []);
+    shown.current = true;
+    load();
+    return () => { shown.current = false; };
+  }, [load]);
+  useLiveRefresh({ restaurant: true }, ["preorder"], load, { every: 0 });
   return (
     <LiveBlock icon="calendar" tone="warning" title="Pre-orders" to="/preorders" openLabel="Open pre-orders" entry={entry} scope={scope}
       summary={({ rows, at }) => {

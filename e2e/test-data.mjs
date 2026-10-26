@@ -365,6 +365,13 @@ export const LODGING = {
     acknowledgement: "FRRO/HYD/2026/004512" },
 };
 
+// The clinic's front desk (live-updates.spec.js): a patient registered with
+// consent, given a token on one screen while the token queue is open on
+// another.
+export const CLINIC = {
+  patient: { name: "Lakshmi Narayanan", phone: "9000012345", sex: "female", ageYears: 52 },
+};
+
 // The salon: one stylist and one service.
 export const SALON = {
   stylist: { name: "Priya Sharma", role: "Senior stylist" },

@@ -133,7 +133,9 @@ Rules:
 - **Be specific.** "2 items at or below reorder level" beats "Inventory alert".
 - **Severity means something.** `critical` = money or a guest is waiting now;
   `warning` = will become a problem today; `info` = worth knowing.
-- **Cheap queries only.** The bell polls; a provider must not scan history.
+- **Cheap queries only.** The bell asks again whenever something changes in
+  the restaurant (at most every 20 seconds, through live updates) and every
+  minute; a provider must not scan history.
 - **Keep the list short.** The bell takes a provider's first 100 alerts; past
   a handful, use a summary alert.
 - **Never throw.** A provider that fails, or takes longer than four seconds,

@@ -9,6 +9,7 @@ import { EmptyState, ErrorMessage, Loading } from "../../../../components/Feedba
 import TruncationNotice from "../../../../components/TruncationNotice";
 import useAuth from "../../../../hooks/useAuth";
 import useQueryFilter from "../../../../hooks/useQueryFilter";
+import useLiveRefresh from "../../../../hooks/useLiveRefresh";
 import { getErrorMessage } from "../../../../services/api";
 import { count, money, moneyExact } from "@bmp/shared/format";
 import { dayMonth, today } from "@bmp/shared/dates";
@@ -23,8 +24,6 @@ import RiderModal from "./RiderModal";
 import { confirmAction } from "../../../../services/confirm";
 
 // ---------------------------------------------------------------- the board
-
-const REFRESH_EVERY = 15000;
 
 export default function BoardTab() {
   const { hasPermission } = useAuth();
@@ -106,28 +105,11 @@ export default function BoardTab() {
     getDeliveryBoard(dayParam || undefined).then(apply).catch(fail);
   }, [apply, fail, dayParam]);
 
-  // Every 15 seconds while the screen is being looked at; at once on coming
-  // back to it, rather than showing a board ten minutes stale.
-  useEffect(() => {
-    const timer = setInterval(() => {
-      if (document.visibilityState === "visible") {
-        refresh();
-      }
-    }, REFRESH_EVERY);
-
-    const onVisible = () => {
-      if (document.visibilityState === "visible") {
-        refresh();
-      }
-    };
-
-    document.addEventListener("visibilitychange", onVisible);
-
-    return () => {
-      clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [refresh]);
+  // Live: an online order arriving, an order packed, a rider sent out, a
+  // bill paid shows within a second (live updates). As a safety net the board
+  // also reads itself every minute, and at once on coming back to it rather
+  // than showing a board ten minutes stale.
+  const live = useLiveRefresh({ restaurant: true }, ["order", "bill", "table_request"], refresh);
 
   // The clocks on the cards.
   useEffect(() => {
@@ -505,10 +487,16 @@ export default function BoardTab() {
             type="button"
             className="button button-secondary live-badge dlv-live"
             onClick={refresh}
-            title="Refreshes by itself every 15 seconds"
+            data-live={live}
+            title={
+              live === "live"
+                ? "Orders change here by themselves as they move. Tap to read the board now."
+                : "Live updates are reconnecting; the board still reads itself every minute. Tap to read it now."
+            }
           >
             <span className={`live-dot ${refreshing ? "is-busy" : ""}`} aria-hidden="true" />
-            Live · {secondsAgo === null || secondsAgo < 5 ? "just now" : `${secondsAgo}s ago`}
+            {live === "live" ? "Live" : live === "reconnecting" ? "Reconnecting" : live === "off" ? "Not live" : "Connecting"} ·{" "}
+            {secondsAgo === null || secondsAgo < 5 ? "just now" : `${secondsAgo}s ago`}
           </button>
         </div>
       </div>

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { moneyExact } from "@bmp/shared/format";
 import PageHeader from "../../../../components/PageHeader";
+import LiveIndicator from "../../../../components/LiveIndicator";
+import useLiveRefresh from "../../../../hooks/useLiveRefresh";
 import Modal from "../../../../components/Modal";
 import Icon from "@bmp/ui/Icon";
 import ActionMenu from "../../../../components/ActionMenu";
@@ -509,6 +511,20 @@ export default function PosPage() {
     );
   }, [canSeeRequests, canSeeBookings]);
 
+  // Read through the orders API, which every order-taker may read. The
+  // business-day screen's own endpoint needs business_day.view, which a
+  // captain does not have.
+  const loadDay = useCallback(
+    () =>
+      getServiceDay()
+        .then((data) => {
+          setDayOpen(Boolean(data.current));
+          setBusinessDate(data.current ? data.current.businessDate : null);
+        })
+        .catch(() => undefined),
+    []
+  );
+
   useEffect(() => {
     if (!window.matchMedia) {
       return undefined;
@@ -527,15 +543,62 @@ export default function PosPage() {
     return () => clearInterval(tick);
   }, []);
 
+  // The offers' prices follow the clock (a happy hour starts and ends), which
+  // no change announces: they are read every minute, as they always were.
   useEffect(() => {
-    const refresh = setInterval(() => {
-      loadOffers();
-      loadAvailability();
-      loadBadges();
-    }, 60000);
+    const timer = setInterval(loadOffers, 60000);
 
-    return () => clearInterval(refresh);
-  }, [loadOffers, loadAvailability, loadBadges]);
+    return () => clearInterval(timer);
+  }, [loadOffers]);
+
+  // The open order on screen, read again by live updates when it changes
+  // elsewhere (set by the effect that keeps it up with the floor, below).
+  const openOrderRead = useRef(null);
+
+  // Live: another till's order, the kitchen's progress, a guest's QR order or
+  // call, a bill paid that frees a table, a booking, a dish sold out, the day
+  // opened or closed: the running orders, the tables, the badges, the menu's
+  // availability and the open order follow within a second (live updates).
+  // As a safety net everything is also read by itself every two minutes.
+  const live = useLiveRefresh(
+    { restaurant: true },
+    ["order", "table", "bill", "table_request", "reservation", "waitlist", "sold_out", "business_day"],
+    (batch) => {
+      const areas = new Set(batch.changes.map((change) => change.area));
+      // A reconnection, the safety net's read or coming back to the tab reads
+      // everything; changes alone, what they touch.
+      const everything = batch.reasons.some((reason) => reason !== "change");
+      const work = [];
+      const shown = openOrderRead.current;
+
+      if (everything || ["order", "bill", "table", "business_day"].some((area) => areas.has(area))) {
+        work.push(loadOpenOrders(), refreshTables());
+      }
+
+      if (everything || ["table_request", "reservation", "waitlist"].some((area) => areas.has(area))) {
+        work.push(loadBadges());
+      }
+
+      if (everything || areas.has("sold_out")) {
+        work.push(loadAvailability());
+      }
+
+      if (everything || areas.has("business_day")) {
+        work.push(loadDay());
+      }
+
+      if (batch.reasons.includes("reconnect") || batch.reasons.includes("visible")) {
+        work.push(loadOffers());
+      }
+
+      if (shown && (everything || batch.changes.some((change) => change.area === "order" && change.id === shown.id))) {
+        work.push(shown.read());
+      }
+
+      return Promise.all(work);
+    },
+    { every: 120000 }
+  );
 
   // Every open order, not the first fifty: a big hall with its takeaways can
   // have more, and a table that drops off this strip is a table forgotten. So
@@ -605,15 +668,7 @@ export default function PosPage() {
       })
       .catch(() => undefined);
 
-    // Read through the orders API, which every order-taker may read. The
-    // business-day screen's own endpoint needs business_day.view, which a
-    // captain does not have.
-    getServiceDay()
-      .then((data) => {
-        setDayOpen(Boolean(data.current));
-        setBusinessDate(data.current ? data.current.businessDate : null);
-      })
-      .catch(() => undefined);
+    loadDay();
 
     listChannels()
       .then((rows) => setChannels(rows.filter((row) => row.status === "active")))
@@ -622,7 +677,7 @@ export default function PosPage() {
     loadOpenOrders();
     loadAvailability();
     loadBadges();
-  }, [loadOpenOrders, loadAvailability, loadBadges]);
+  }, [loadOpenOrders, loadAvailability, loadBadges, loadDay]);
 
   // On opening, and whenever the order or table the prices are for changes.
   useEffect(() => {
@@ -768,14 +823,16 @@ export default function PosPage() {
   // An open table on this screen keeps up with the floor while nobody here is
   // changing it: the kitchen's progress, a dish another till or a guest's QR
   // order added, a dish a manager took off, a note or a guest another device
-  // put on it.
+  // put on it. Live updates read it as soon as it changes; every minute it is
+  // also read by itself, as a safety net.
   useEffect(() => {
     if (!editingOrder || unsaved || saving) {
+      openOrderRead.current = null;
       return undefined;
     }
 
     let current = true;
-    const refresh = setInterval(() => {
+    const read = () =>
       getOrder(editingOrder.id)
         .then((fresh) => {
           if (current && fresh.orderStatus === "open") {
@@ -784,11 +841,13 @@ export default function PosPage() {
           }
         })
         .catch(() => undefined);
-    }, 30000);
+    openOrderRead.current = { id: editingOrder.id, read };
+    const refresh = setInterval(read, 60000);
 
     return () => {
       current = false;
       clearInterval(refresh);
+      openOrderRead.current = null;
     };
     // showOrder is recreated on every render; the refresh is re-armed
     // whenever the order, or whether it is being changed, changes.
@@ -1800,6 +1859,7 @@ export default function PosPage() {
   );
   const topActions = (
     <span className="pos-strip-actions">
+      <LiveIndicator status={live} />
       {badgeLinks}
       <button type="button" className="button button-secondary button-sm" onClick={resetCart}>
         <Icon name="plus" size={15} />
@@ -2484,6 +2544,7 @@ export default function PosPage() {
           title="POS"
           action={
             <div className="pos-head-actions">
+              <LiveIndicator status={live} />
               <button type="button" className="button button-secondary" onClick={resetCart}>
                 <Icon name="plus" size={16} />
                 New order

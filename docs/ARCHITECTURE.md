@@ -28,7 +28,8 @@ lives, and how to extend it.
    - [3.1 The two entry paths](#31-the-two-entry-paths) ·
      [3.2 The business switcher](#32-the-business-switcher) ·
      [3.3 Manager approval](#33-manager-approval) ·
-     [3.4 Events, audit and the bell](#34-events-audit-and-the-bell)
+     [3.4 Events, audit and the bell](#34-events-audit-and-the-bell) ·
+     [3.5 Live updates](#35-live-updates)
 4. [The database](#4-the-database)
    - [4.1 The business platform in five layers](#41-the-business-platform-in-five-layers) ·
      [4.2 The restaurant module's own tables and the bridge](#42-the-restaurant-modules-own-tables-and-the-bridge) ·
@@ -100,6 +101,7 @@ written down.
 | **Audit and events** | Every business change writes an audit row (`business_audit`) and, for money, stock and appointments, an outbox event (`business_events`), **in the same transaction**. Restaurant actions write `audit_logs` (§5.1 explains the difference). |
 | **Rules in the database** | Where a bug would lose money or stock, a CHECK, a partial unique index or a trigger refuses it too, with a sentence a person can read (SQL state 23514, answered as HTTP 409). |
 | **Today-only live screens** | Live screens (dashboard, kitchen, deliveries, table requests, the bell) show the current *trading day* in the business's time zone. Between midnight and the day cut-off (5 am by default) last night's day is still today. Anything older that is still open is only counted or flagged, never mixed in with today's. |
+| **Live screens hear of every change** | A change committed on one screen reaches every other open screen that shows it within about a second (§3.5). The database announces it: a trigger on each table those screens read calls `pg_notify`, so no code path can forget, and only a committed change is ever announced. A notification says where and what changed, never the data; the screen reads again through its normal API call, which checks the person's permissions. A screen's own timer stays only as a slow safety net (a minute or more). |
 | **Dates on the business's clock** | "Today", a bill's date and "not in the future" are the restaurant's or business's date in its own time zone, never the server's: a server on UTC is still on yesterday until 05:30 in India. Restaurant code takes the date from `restaurantToday()` and `todayOf()` in `modules/restaurant/business-day/services/tradingDay.js`; the business core from `now() AT TIME ZONE businesses.timezone`. A GST rate change takes effect on that date too, and a bill uses the rate in force on its own (§4.5). |
 | **Data grid everywhere** | Every list is the shared `DataGrid` component: S.No., paging, search, column choice, export and cards on a phone. |
 
@@ -313,11 +315,13 @@ The business side asks for a manager's PIN in its own ways (§5.1).
 - **Business side:** `repo.audit()` and `repo.event()` in
   `modules/business/core/repositories/business.repository.js` are always
   called with the transaction's own client. If the change rolls back, so do
-  they. `business_events` is an outbox that nothing reads; §8.8 shows how to
+  they. `business_events` is an outbox: live updates hear of each event as
+  it commits (§3.5), and nothing publishes it outside yet; §8.8 shows how to
   add the publisher.
 - **Restaurant side:** `utils/audit.js › logAction(req, …)` writes
   `audit_logs` from the controller, best-effort, after the action. Restaurant
-  postings write no `business_events` (§9.3, plan E, step 3 adds them).
+  postings write no `business_events` (§9.3, plan E, step 3 adds them);
+  their live screens hear of changes from triggers on their tables (§3.5).
 - **Notifications (the bell)** are *derived*, not stored. Each file in
   `backend/src/notifications/providers/` works out its alerts from live data
   when asked ([its README](../backend/src/notifications/README.md)). Only
@@ -327,6 +331,114 @@ The business side asks for a manager's PIN in its own ways (§5.1).
   derived. Its read marks are kept in the browser
   (`apps/business-web/src/services/businessNotifications.js`, passed to
   `NotificationBell` as `feed`).
+
+### 3.5 Live updates
+
+A screen that shows what other devices change keeps itself current without
+asking the server every few seconds. A KOT sent from the POS reaches the
+kitchen display, a guest's QR call reaches table requests, an online order
+reaches the deliveries board, a paid bill frees the table on the floor and at
+the POS, a token called at a clinic moves its token queue: each within about a
+second.
+
+```
+ POS (any device)              PostgreSQL                         each API process (modules/live)   other screens
+ POST /api/orders ─► service   INSERT orders, order_items, kots
+                               trigger: pg_notify('live_change',
+                                 {"restaurant":12,"outlet":3,
+                                  "area":"order","id":456})
+                               COMMIT ─► every LISTEN connection ─► liveListener ─► liveHub
+                                                                    clears restaurant 12's kept
+                                                                    dashboard and bell answers
+                                                                    event: change ─► its streams ─► GET /api/live (fetch)
+                                                                                                    liveClient gathers a burst
+                                                                                                    └─ the screen's own API call
+```
+
+- **The database announces every change.** Migration 1791974000000 puts a
+  trigger on every table a live screen reads: the restaurant's orders and
+  their dishes, KOTs and their lines, change slips, table requests, tables,
+  bills with their payments and refunds, reservations and the tables they
+  hold, the waitlist, sold-out marks, time-clock punches and attendance,
+  pre-orders and business days; the shared core's outbox (`business_events`);
+  and the business tables live screens read that write no event of their own
+  (tokens, appointments, salon walk-ins, tasks and issues, jewellery rate
+  sheets). Each calls `pg_notify`, which PostgreSQL delivers only when the
+  transaction commits, in commit order. A change that rolls back (or a
+  savepoint rolled back) is never announced, an update that changes nothing is
+  skipped, and identical notifications of one transaction (ten dishes on one
+  order) reach the listeners once.
+- **A notification says where and what, never the data**: the restaurant
+  (and outlet) or the business (and location), the area, and the row's id. A
+  dish is announced as its order, a payment as its bill, a KOT's line as its
+  KOT; a business that is a restaurant's own (its tasks) as that restaurant.
+  The screen reads again through its normal API call, which checks what the
+  person may see. A second channel, `live_session`, announces what may end a
+  stream: a login's token version, status, restaurant, outlet or must-change
+  mark, a restaurant's or business's status, a membership or role switched off.
+- **Each API process listens on one connection of its own**
+  (`services/liveListener.js`, shown as "live updates" in
+  `pg_stat_activity`), never a pool client: LISTEN belongs to its session. It
+  reconnects after a drop (after 1, 2, 5, 10 and then every 30 seconds), finds
+  a drop the socket missed by asking `SELECT 1` every 30 seconds, and on every
+  connection has the open screens read again once, since what was announced
+  meanwhile is lost. Several processes behind a load balancer work: each
+  listens, and each passes every change on to its own streams.
+- **The streams** (`services/liveHub.js`, `routes/live.routes.js`):
+  `GET /api/live` for the signed-in person's restaurant and
+  `GET /api/businesses/:id/live` for a business they are a member of
+  ([API › Live updates](API.md#live-updates)). Server-sent events, which the
+  staff app reads with `fetch`, so the token travels in the `Authorization`
+  header as on every request and never in an address. Someone tied to an
+  outlet or location hears only of theirs, and of what belongs to none. A
+  comment goes out whenever a stream has been quiet for 20 seconds. Each stream
+  is checked again every minute, and at once on a `live_session` signal, with
+  the checks it opened with: it ends, saying why, when the session ends
+  (signed out everywhere, a new password, the token run out, the login or its
+  restaurant switched off) or the access does (the membership, role or
+  business switched off). Limits: `LIVE_STREAMS_MAX` per process and
+  `LIVE_STREAMS_PER_PERSON` per login in a process
+  ([GO_LIVE §2](GO_LIVE.md#2-production-settings)). A stream whose client stops
+  reading (64 KB waiting) is cut off, and one that closes is forgotten at once.
+  On SIGTERM or Ctrl+C the process tells every stream it is restarting and
+  closes it, then its listening connection and the pool (`server.js`).
+- **Every restaurant change also clears that restaurant's kept dashboard and
+  bell answers in every process** (`utils/dashboardCache.js`,
+  `notifications/index.js`), so a screen reading again never gets an answer
+  from before the change, whichever process made it.
+- **The staff app** keeps one stream per restaurant or business in a tab,
+  shared by the bell and the page (`services/liveClient.js`, wired in
+  `services/live.js`). It reconnects after 1, 2, 4, 8, 16 and then 30 seconds
+  (±25%), has every screen read once after each (re)connection, treats a stream
+  silent for 70 seconds as dropped, and gathers a burst: a screen reads once
+  for the changes of 250 ms, at most once a second (the dashboard every ten
+  seconds, the bell every twenty), never twice at once, and nothing while its
+  tab is hidden. A screen uses `hooks/useLiveRefresh.js` with the areas it
+  shows; its old timer stays as a safety net of a minute (the POS's every two),
+  never the main path, and a screen that had none (the salon's calendar, the
+  dashboard's pre-orders card) has none now.
+  `components/LiveIndicator.jsx` (or the screen's own Live control) says Live,
+  Connecting, Reconnecting or Not live. Signing out, or another person taking
+  over the till, closes the streams at once.
+
+**Why triggers, not a restaurant outbox.** The restaurant's postings write no
+events (§9.3, plan E, step 3), and the paths that change what its live screens
+show are many: orders, KOTs, table moves, bills, payments, refunds, the QR and
+online pages, the kitchen's own taps. Writing an event in each of their
+transactions would have touched every one of them, and a path that forgot
+would leave a screen stale. A trigger on each table a screen reads announces
+every committed change whichever code wrote it, needs no worker, and costs one
+`pg_notify` per row changed. The shared core already writes an event in every
+posting's transaction, so a trigger on `business_events` announces those. The
+events stay what §8.8 says, the outbox for outside messages (WhatsApp, SMS,
+webhooks), which need provider accounts and come later through a publisher.
+
+**The guests' site keeps asking** (a table's QR page every 6 or 20 seconds, an
+online order's status every 8 or 20, a booking request every 20): a guest has
+no session to scope a stream by. A table's QR code is printed on the table and
+shared by everyone at it, and an order's or booking's link is its only key; a
+stream held open for every guest's phone, with no login to count it against,
+is a change of its own ([BACKLOG §5](BACKLOG.md#5-live-updates-and-the-outbox)).
 
 ---
 
@@ -700,6 +812,7 @@ workspaces; the backend has its own install.
 │   │   │   │                 type but the restaurant), hardware, agri, optical, garage, memberships,
 │   │   │   │                 laundry, jewellery, rentals, fuel, lodging
 │   │   │   ├── tax-changes/  GST rates by date for every business: a shop's items and a restaurant's dishes
+│   │   │   ├── live/         live updates for every business: the LISTEN connection and the screens' streams
 │   │   │   └── tasks/        tasks, issues & projects for every business (+ library/ of built-in templates)
 │   │   ├── config/           env.js (reads and checks .env), database.js (pg pool + DB_POOL_GUARD)
 │   │   ├── middlewares/      authenticate, authorize, authorizeOrApprove, resolveOutlet, requireFeature,
@@ -737,10 +850,12 @@ workspaces; the backend has its own install.
 │   │   │   ├── layouts/      AppLayout.jsx (header, switchers, bell, side menu), NotFoundPage, PlannedPage,
 │   │   │   │                 GuestSiteRedirect
 │   │   │   ├── context/      AuthProvider (user, permissions, features), BusinessProvider (open business)
-│   │   │   ├── hooks/        useAuth, useBusiness, useLiveChange, useQueryFilter, motion hooks …
+│   │   │   ├── hooks/        useAuth, useBusiness, useLiveRefresh (live updates), useLiveChange (a figure's
+│   │   │   │                 motion), useQueryFilter, motion hooks …
 │   │   │   ├── routes/ProtectedRoute.jsx   login + permission + restaurant feature guard; someone whose
 │   │   │   │                 password someone else set goes to the sign-in's Choose your own password step
-│   │   │   ├── services/     shared: api.js, queryClient, approval, features, csv, print, customerWeb,
+│   │   │   ├── services/     shared: api.js, queryClient, live and liveClient (live updates), approval, features,
+│   │   │   │                 csv, print, customerWeb,
 │   │   │   │                 plannedWorkspaces, the menus (businessNav, businessWorkspace,
 │   │   │   │                 restaurantWorkspace) …, and the API services shared code uses (auth,
 │   │   │   │                 outlet, notification, business)
@@ -944,6 +1059,7 @@ file behind an index file with the module's name, which callers import:
 | Module | Backend | Frontend (`modules/<module>/pages/`) | Tables |
 | --- | --- | --- | --- |
 | Tasks, issues & projects (`modules/tasks`) | `routes/tasks.routes.js` (both front doors), `controllers/tasks.controller.js`, `services/` (`scope`, `common`, `people`, `templates`, `recurrence`, `tasks`, `issues`, `projects`, `files`, `reports`, `notifications`), `repositories/tasks.repository.js`, `library/`; bell provider `notifications/providers/tasks.js` | `TasksRoutes`, `TasksScope`, `MyTasksPage`, `TaskRunPage`, `BoardPage`, `CalendarPage`, `IssuesPage`, `IssueDetailPage`, `ProjectsPage`, `ProjectDetailPage`, `TemplatesPage`, `RecurringPage`, `TaskReportsPage`, `forms`, `ItemsEditor`, `ScheduleForm`, `parts`, `taskWords`, `useTasks`, `useServerGrid`; API calls `services/tasks.service.js`; styles `styles/tasks.css` | `business_task*`, `business_issues`, `business_project*`, `platform_task_categories` |
+| Live updates (`modules/live`) | `routes/live.routes.js` (both front doors, mounted in `routes/index.js` before `/businesses`), `services/liveListener.js` (the process's one LISTEN connection), `services/liveHub.js` (the streams, their checks and limits, clearing the kept dashboard and bell answers); started and stopped by `server.js` | `services/liveClient.js` (the stream, reconnecting, gathering bursts), `services/live.js` (the app's client), `hooks/useLiveRefresh.js`, `components/LiveIndicator.jsx`; used by the live screens and the bell | none: triggers on the tables the live screens read (migration 1791974000000) |
 | GST rates by date (`modules/tax-changes`) | `routes/taxChanges.routes.js` (both front doors: `businessRoutes`, mounted from `business.routes.js`, and `menuHandlers`, mounted from the restaurant's `menu.routes.js`), `services/` (`taxChanges.service` the shared flows, `taxChangesShop` and `taxChangesMenu` the two worlds with their gates, `taxChangesMoney` the arithmetic and dates); the gates are called from `businessAccess.open`, `postDocument`, the menu router, `tableRequest.service`, `preorder.service` and `order.service`'s `priceLines` | `BusinessTaxChangesPage`, `MenuTaxChangesPage`, `TaxChangesView`, `TaxChangeTool` (the new change with its preview), `TaxChangeDialog`, `TaxHistoryDialog` (an item's GST history, from the catalogue and the menu's products); words in `taxChanges.js`; API calls `services/taxChanges.service.js`; styles `styles/tax-changes.css` | `business_tax_changes`, `business_tax_change_items` |
 
 Where each area's tests are: [TESTING.md](TESTING.md).
@@ -968,7 +1084,8 @@ Where each area's tests are: [TESTING.md](TESTING.md).
 | Trading day | `modules/restaurant/business-day/services/tradingDay.js`, `businessDay.service.js`; reports: `modules/restaurant/reports/services/report/scope.js`; live screens: `modules/restaurant/orders/repositories/tradingClock.js` | Dates in the business's time zone (Asia/Kolkata by default), with the day cut-off. |
 | Start-up check | `utils/migrationStatus.js` | The API refuses to start with a pending migration. |
 | HTTP client | `apps/business-web/src/services/api.js` (the guests' site uses its own client per page, with no token) | Adds the token, `X-Outlet-Id` and `X-Business-Location`; refreshes the token past half its life; signs out on 401; sends the request again after an approval; reloads the features on `feature_off`. |
-| Browser storage | `apps/business-web/src/services/api.js` | The session token is `rmp_token`, the outlet picked on this device `rmp_outlet`, and a business's picked branch `bz_location_<businessId>`. Leave these names alone: renaming `rmp_token` signs everyone out once. Every read and write is guarded, so blocked storage only means the session ends when the tab closes. |
+| Browser storage | `apps/business-web/src/services/api.js` | The session token is `rmp_token`, the outlet picked on this device `rmp_outlet`, and a business's picked branch `bz_location_<businessId>`. `rmp_live_poll_ms` lengthens (never shortens) a device's live-screen safety net; the browser tests set it. Leave these names alone: renaming `rmp_token` signs everyone out once. Every read and write is guarded, so blocked storage only means the session ends when the tab closes. |
+| Live screens | `hooks/useLiveRefresh.js`, `components/LiveIndicator.jsx` (§3.5) | A screen that shows what other devices change subscribes to the areas it shows and reads again on a change; its own timer, if it keeps one, is a safety net of a minute at least (`safetyNetMs`), never the main path; it shows `LiveIndicator` (or its own Live control). A new table such a screen reads gets a live trigger in its migration. |
 | Server data cache | `apps/business-web/src/services/queryClient.js` | TanStack Query: 30 s stale time, 10 minutes in memory. `sessionScope()` (user, restaurant, outlet) belongs in every key. Cleared on sign-out. The restaurant dashboard and its panels use it; other pages load with `useEffect` and service calls. |
 | Lists | `apps/business-web/src/components/DataGrid/` | The usage comment at the top of `DataGrid.jsx` is the manual. Business lists use `useServerList()` from `modules/business/core/pages/hooks.js` for server paging and search. |
 | Overview panels | `modules/business/core/pages/BusinessAdminRoutes.jsx` (`screens()`, `OverviewSheet`), `overviewLink.js` | An action on a business's Overview opens the real screen in a wide panel over it (`?open=<section>`, with *Open full page*). The panel and the route use the same `screens()` map, so they cannot drift apart. |
@@ -1234,7 +1351,9 @@ money from posted documents, with each return on its own day.
 
 The outbox holds every money, stock and appointment change
 (`business_events`: `business_id`, `kind`, `entity_type`, `entity_id`,
-`payload`, `actor_id`, `created_at`, `published_at`). To connect SMS,
+`payload`, `actor_id`, `created_at`, `published_at`). Live screens already
+hear of each event as it commits (a trigger announces it, §3.5) but read
+nothing back and stamp nothing: that is for staff screens only. To connect SMS,
 WhatsApp, a webhook or accounting:
 
 1. Write a **publisher** process (for example `backend/src/workers/publisher.js`
@@ -1253,7 +1372,8 @@ WhatsApp, a webhook or accounting:
 5. Write a new kind of event with `repo.event(db, …)` inside the posting's
    transaction, never after the commit.
 6. Restaurant postings write no events. Add them inside their transactions
-   first (§9.3, plan E, step 3).
+   first (§9.3, plan E, step 3); the restaurant's live screens do not need
+   them (they hear of changes from triggers on its tables, §3.5).
 
 ### 8.9 Turn a planned screen into a real one
 
@@ -1280,8 +1400,8 @@ shape of the code and the data.
 | --- | --- | --- |
 | **Very large files** | `PosPage.jsx` (about 3,000 lines, nearly all one component: it needs a real refactor, not a move), `order.service.js` (about 2,600), `InventoryInsightsPage.jsx` (about 2,500), `order.repository.js` and `TimeClockPage.jsx` (about 2,400 each), `bill.repository.js` (about 2,300), `KitchenDisplayPage.jsx` (about 2,200), and `base.css` in `packages/ui` (about 3,200). | Slow to read and risky to change. |
 | **Migrations** | Many files fix earlier ones, and a fresh database replays them all. | A baseline before go-live (plan F) makes new installs simple. |
-| **Live updates** | Screens poll. The outbox is written, and nothing reads it. | §8.8 describes the publisher; plan E, step 3 adds the restaurant's events. |
-| **Dashboard cache** | Kept per API process (`utils/dashboardCache.js`). | Several API processes need a shared cache or sticky sessions. |
+| **Outside messages** | Staff screens are live (§3.5), but nothing publishes the outbox outside: no WhatsApp, SMS or webhook. The guests' pages still ask every few seconds. | §8.8 describes the publisher; plan E, step 3 adds the restaurant's events. |
+| **Kept answers** | The dashboard's and the bell's answers are kept per API process (`utils/dashboardCache.js`, `notifications/index.js`). A change the database announces clears them in every process (§3.5); any other write (an expense, a purchase, stock) only in the one that made it. | Several API processes need a shared cache, or sticky sessions, for those. |
 
 ### 9.2 Target structure
 

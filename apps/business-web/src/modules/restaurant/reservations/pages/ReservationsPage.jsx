@@ -4,6 +4,7 @@ import PageHeader from "../../../../components/PageHeader";
 import { ErrorMessage, Loading } from "../../../../components/Feedback";
 import useAuth from "../../../../hooks/useAuth";
 import useQueryFilter from "../../../../hooks/useQueryFilter";
+import useLiveRefresh from "../../../../hooks/useLiveRefresh";
 import { getErrorMessage } from "../../../../services/api";
 import { acceptReservation, cancelReservation, completeReservation, confirmReservation, declineReservation, getReservationBoard, markReservationNoShow, markWaitlistLeft, notifyWaitlistEntry, removeWaitlistEntry, seatReservation, seatWaitlistEntry } from "../services/reservation.service";
 import { OnlineBookingDialog, OnlineRequestsPanel } from "./OnlineBooking";
@@ -73,28 +74,11 @@ export default function ReservationsPage() {
     fetchBoard();
   }, [fetchBoard]);
 
-  // The host stand is left open all service: keep the book current while the
-  // tab is visible, and catch up the moment someone looks at it again.
-  useEffect(() => {
-    const timer = setInterval(() => {
-      if (document.visibilityState === "visible") {
-        fetchBoard();
-      }
-    }, 30000);
-
-    const onVisible = () => {
-      if (document.visibilityState === "visible") {
-        fetchBoard();
-      }
-    };
-
-    document.addEventListener("visibilitychange", onVisible);
-
-    return () => {
-      clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [fetchBoard]);
+  // The host stand is left open all service: a booking made, a guest seated
+  // or a table freed on another device shows within a second (live updates).
+  // As a safety net the book also reads itself every minute while the tab is
+  // visible, and catches up the moment someone looks at it again.
+  const live = useLiveRefresh({ restaurant: true }, ["reservation", "waitlist", "table"], fetchBoard);
 
   // Waiting times and "12 min late" age by the minute.
   useEffect(() => {
@@ -226,10 +210,11 @@ export default function ReservationsPage() {
               className="button button-secondary live-badge"
               onClick={refresh}
               disabled={refreshing}
-              title="Refresh now"
+              data-live={live}
+              title={live === "live" ? "Bookings change here by themselves. Refresh now." : "Live updates are reconnecting; the book still reads itself every minute. Refresh now."}
             >
               <span className={`live-dot ${refreshing ? "is-busy" : ""}`} aria-hidden="true" />
-              Live · {timeLabel(clock.minutes)}
+              {live === "live" ? "Live" : live === "reconnecting" ? "Reconnecting" : live === "off" ? "Not live" : "Connecting"} · {timeLabel(clock.minutes)}
             </button>
             <button
               type="button"

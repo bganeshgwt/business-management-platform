@@ -5,6 +5,8 @@ import SearchPicker from "../../../../components/SearchPicker";
 import SectionCard from "../../../../components/SectionCard";
 import StatTile from "../../../../components/StatTile";
 import StatusBadge from "../../../../components/StatusBadge";
+import LiveIndicator from "../../../../components/LiveIndicator";
+import useLiveRefresh from "../../../../hooks/useLiveRefresh";
 import { ErrorMessage, Loading } from "../../../../components/Feedback";
 import { businessRead, businessWrite } from "../../../../services/business.service";
 import { businessPath } from "../../../../services/businessNav";
@@ -22,7 +24,6 @@ import "../styles/health.css";
 // the visit is completed. "Display board" is the waiting-room screen.
 const TOKEN_WORDS = { waiting: ["warning", "Waiting"], called: ["info", "Called"], in_consultation: ["success", "With the doctor"], done: ["neutral", "Done"],
   skipped: ["neutral", "Skipped"], cancelled: ["neutral", "Cancelled"] };
-const REFRESH_MS = 15000;
 
 function useQueue(bizId) {
   const [data, setData] = useState(null);
@@ -31,20 +32,21 @@ function useQueue(bizId) {
   const reload = useCallback(() => setVersion((n) => n + 1), []);
   useEffect(() => {
     const controller = new AbortController();
-    const load = () => businessRead(bizId, "clinic/queue", undefined, controller.signal).then((d) => { setData(d); setError(""); })
+    businessRead(bizId, "clinic/queue", undefined, controller.signal).then((d) => { setData(d); setError(""); })
       .catch((err) => { if (!controller.signal.aborted) setError(getErrorMessage(err)); });
-    load();
-    // The queue moves at the desk and in the cabins: kept fresh.
-    const timer = setInterval(load, REFRESH_MS);
-    return () => { controller.abort(); clearInterval(timer); };
+    return () => controller.abort();
   }, [bizId, version]);
-  return { data, error, reload };
+  // The queue moves at the desk and in the cabins: a token given or called
+  // anywhere shows within a second (live updates), and the queue also reads
+  // itself every minute as a safety net.
+  const live = useLiveRefresh({ business: bizId }, ["token", "visit"], reload);
+  return { data, error, reload, live };
 }
 
 export default function TokenQueuePage() {
   const biz = useOpenBusiness();
   const navigate = useNavigate();
-  const { data, error, reload } = useQueue(biz.id);
+  const { data, error, reload, live } = useQueue(biz.id);
   const [issuing, setIssuing] = useState(false);
   const [board, setBoard] = useState(false);
   const canAct = biz.can("patients.create") || biz.can("patients.edit_clinical");
@@ -69,6 +71,7 @@ export default function TokenQueuePage() {
     <div className="stack">
       <BusinessHeader icon="users" title="Token queue" description={data ? `${dateLong(data.day)}: give a token on arrival; doctors call the next patient.` : "Today's queue"}
         primary={biz.can("patients.create") && <button type="button" className="button" onClick={() => setIssuing(true)}><Icon name="plus" size={16} /> Give a token</button>}
+        actions={<LiveIndicator status={live} />}
         secondary={<button type="button" className="button button-secondary" onClick={() => setBoard(true)}><Icon name="grid" size={16} /> Display board</button>} />
       <ErrorMessage message={error} />
       <div className="stat-grid bz-stat-grid">
@@ -134,9 +137,9 @@ function IssueDialog({ onClose, onSaved }) {
   const [form, setForm] = useState({ resourceId: "", priority: false, note: "" });
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
   return (
-    <FormDialog title="Give a token" icon="users" width={560} onClose={onClose} onSaved={onSaved} submitLabel="Give token" disabled={!patient}
+    <FormDialog title="Give a token" icon="users" width={560} onClose={onClose} onSaved={onSaved} submitLabel="Give token"
       description="Patients with an appointment today can be checked in from Today's patients."
-      onSubmit={() => businessWrite(biz.id, "clinic/tokens", { contactId: patient.contact_id, resourceId: form.resourceId || undefined, priority: form.priority, note: form.note || undefined })}>
+      onSubmit={() => businessWrite(biz.id, "clinic/tokens", { contactId: patient?.contact_id, resourceId: form.resourceId || undefined, priority: form.priority, note: form.note || undefined })}>
       <div className="field-wide">
         <SearchPicker label="Patient" minChars={1} onChange={setPatient} autoFocus value={patient}
           search={(q, { signal }) => businessRead(biz.id, "clinic/patients", { q, limit: 20 }, signal).then((r) => r.items)}

@@ -1,10 +1,11 @@
 import {test,expect} from '@playwright/test';
 
-import {business,signIn} from '../../../../e2e/fixture.mjs';
+import {business,networkQuiet,signIn,watchNetwork} from '../../../../e2e/fixture.mjs';
 
 // The screenshots for the visual review go to each test's own folder under
 // test-results, which every run starts afresh.
 test.beforeEach(async({page})=>{
+  watchNetwork(page);
   await signIn(page,'RESTAURANT_ADMIN');
   await expect(page.locator('main.content-scroll')).toBeVisible();
 });
@@ -69,7 +70,7 @@ test('capture other dense work areas for a visual review',async({page},testInfo)
   for(const [name,url]of routes){
     await page.goto(url);
     await expect(page.locator('main.content-scroll h1').first(),url).toBeVisible({timeout:30000});
-    await page.waitForLoadState('networkidle');
+    await networkQuiet(page);
     await expect(page.locator('main.content-scroll [aria-busy="true"]')).toHaveCount(0,{timeout:30000});
     await page.evaluate(()=>Promise.all(document.getAnimations().filter(animation=>animation.effect?.getComputedTiming().iterations!==Infinity).map(animation=>animation.finished.catch(()=>{}))));
     await page.screenshot({path:testInfo.outputPath(`${name}.png`)});

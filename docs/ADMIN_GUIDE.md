@@ -530,13 +530,24 @@ pages you may use. In this guide an arrow goes one level down the menu:
   out, a day left open, late deliveries, purchase orders waiting for approval,
   log-book follow-ups and, for owners and managers, **theft control** (voids,
   refunds, big discounts, reprints, dishes taken off after the KOT, a drawer
-  closed short). It checks every 30 seconds while the tab is visible, you see
-  only alerts from screens you can open, and an alert disappears once its
-  cause is fixed. **See all notifications** opens the full list with filters.
+  closed short). It checks again as soon as something changes in the
+  restaurant (at most every 20 seconds) and at least every minute while the
+  tab is visible; you see only alerts from screens you can open, and an alert
+  disappears once its cause is fixed. **See all notifications** opens the full list with filters.
   Where the bell draws its lines (a large discount, a late delivery or
   booking, a long break) is set in Settings → Alerts and timings.
 - **On a phone** the sidebar becomes a menu button in the top bar; tap
   outside the menu to close it.
+- **Live screens.** The kitchen display, the POS, table requests, the pickup
+  screen, deliveries, the dashboard, reservations, *Tables & QR*, the time
+  clock, *My tasks* and the bell change by themselves within a second or two
+  of a change made on any device: a KOT sent from a till, a guest's call, an
+  online order, a paid bill freeing its table. A small **Live** beside the
+  title (or on the screen's own Live button) says so. **Reconnecting** means
+  the device lost its connection to the server for a moment: it comes back by
+  itself and catches up, and most screens still read again every minute
+  meanwhile. If a screen stays on *Reconnecting* or *Not live*, check the
+  device's Wi-Fi, then ask whoever runs the server.
 
 ## Lists: the data grid
 
@@ -580,8 +591,10 @@ everywhere:
 
 ## Dashboard
 
-The screen a manager leaves open all day. It refreshes itself every 30
-seconds while the tab is visible (click **Updated … ago** to refresh now) and
+The screen a manager leaves open all day. Its figures update by themselves as
+the day's business happens (within about ten seconds of a bill, an order or a
+booking on any device, **Live** beside **Updated … ago**), and at least every
+minute while the tab is visible; click **Updated … ago** to refresh now. It
 works in **business days**, not calendar days — a kitchen still serving at
 00:30 is on yesterday's sheet, and the header says so.
 
@@ -693,7 +706,9 @@ Theft control**, and the kitchen gets a **CANCEL** slip.
 ### Kitchen display
 
 **Daily work → Kitchen display** shows every ticket by station with a running
-clock, refreshed every 10 seconds. Cooks move tickets on — **Start cooking →
+clock. A ticket appears within a second or two of a till or a captain sending
+it, and a change or cancellation just as quickly; **Live** on the toolbar says
+so (tap it to read the board now). Cooks move tickets on — **Start cooking →
 Mark ready → Served** (and back if tapped by mistake) — with `kot.manage`; a
 screen with only `kds.view` watches without buttons. The toolbar has
 **All-day** (how many of each dish are still to cook), **Recall** (the last
@@ -747,7 +762,8 @@ can take orders is offered as a captain, so cashiers and managers appear too.
 and calls (waiter, bill, water) from the QR code on each table, and orders
 from the restaurant's own **online ordering page**. **Nothing is cooked until
 someone accepts it.** Waiting requests come first, oldest first, with a clock
-that turns amber and then red.
+that turns amber and then red. A guest's order or call appears within a second
+or two (**Live** in the header), with a chime when the sound is on.
 
 Its **QR ordering** window (the settings button) switches *Guests can order
 from the table* and *Guests can call staff* on or off, sets a note shown at
@@ -916,7 +932,8 @@ from Dues & accounts › Advances like any other.
 **Operations → Reservations** holds bookings, the walk-in waitlist and online
 booking requests. View it as a **Timeline** (one row per table) or an
 **Agenda** (filters: All, Online requests, To arrive, Seated, Completed,
-No-show / cancelled).
+No-show / cancelled). A booking made, a guest seated or a table freed on another
+device shows by itself.
 
 A booking moves *Booked → Confirmed → Seated → Completed*, or ends as
 No-show, Cancelled or (for an online request) Declined.
@@ -1062,8 +1079,8 @@ Changing it needs `tables.manage`.
 token number** gives each takeaway, delivery or online order a short number,
 restarting at 1 every business day and per outlet, printed large on the KOT.
 **Orders → Pickup screen** shows two columns, *Preparing* and *Ready for
-pickup* (token numbers only — no names or prices), refreshing every few
-seconds with an optional chime. Staff tap a ready token → **Yes, collected**
+pickup* (token numbers only — no names or prices); a token turns up within a
+second or two of the kitchen marking it ready, with an optional chime. Staff tap a ready token → **Yes, collected**
 to clear it, or it leaves by itself after the minutes set. For a TV by the
 counter, create a user with the **Collection display** role: it opens straight
 on the pickup screen and can open nothing else. Website orders come in as
@@ -1074,8 +1091,9 @@ whether they get a token.
 
 **Orders → Deliveries** follows every delivery from the pass to the door —
 your own riders, Swiggy / Zomato and website orders — on a **Live board** in
-three columns, *To dispatch*, *Out for delivery* and *Delivered today*; each
-delivery moves *Placed, Cooking, Packed, On the road, Delivered* (or
+three columns, *To dispatch*, *Out for delivery* and *Delivered today*, which
+change by themselves as orders arrive and move on any device; each delivery
+moves *Placed, Cooking, Packed, On the road, Delivered* (or
 Cancelled, with a reason). Moving orders, assigning riders (active employees
 in the delivery department, up to 12 orders a run; for an aggregator pickup
 type the partner's rider name) and editing addresses need `orders.manage`.
@@ -1858,7 +1876,8 @@ marked from their rostered shift.
 **Time clock** (**Staff → Time clock**, `staff.clock` — cashiers have it, so the
 entrance tablet can run on a cashier's login). Staff tap their name (or type
 their code), enter their PIN and **Clock in**, **Start break**, **End break**,
-**Clock out**; *Full screen for the tablet* hides everything else.
+**Clock out**; *Full screen for the tablet* hides everything else. A punch on
+another tablet, or one a manager adds, shows on the board by itself.
 
 - The clock opens 60 minutes before the rostered start; overtime counts only
   when someone stays 15 minutes or more past the shift end (both set in
@@ -2879,7 +2898,9 @@ what is still to refund.
 - **Calendar** (the *Appointments* entry, beside *Appointment history*) — the
   **Day** view has one column per stylist and per room, each booking drawn at
   its time and length (service plus clean-up) and coloured by service
-  category, with a red line at now; the day opens on now. A ₹ mark shows a
+  category, with a red line at now; the day opens on now. A booking made,
+  moved or finished on another device shows by itself, and so does the walk-in
+  list. A ₹ mark shows a
   deposit and ★ a member; *Late — not here yet* shows in amber and *Here since
   …* in green, and a stylist's leave, weekly day off and hours outside their
   shift are hatched. The **Week** view shows each stylist's bookings and busy
@@ -3082,7 +3103,7 @@ For a business of type Clinics & diagnostic labs, with the business tools **Pati
 
 *Add leave* blocks appointments and tokens on those days and says how many patients are already booked. A doctor with timings can only be booked inside them. *Book appointment* then shows the free slots, and the doctor's fee is filled in. *Bill this visit* shows whether it is a consultation, a paid follow-up or a free follow-up. A free follow-up is recorded without a bill. The **Earnings** tab shows each doctor's patients, fees and share for a period.
 
-**Token queue** (*Today's patients › Token queue*). *Give a token* when a patient arrives: each doctor counts from 1 each day, and *Priority* is for the elderly or unwell. On *Today's patients*, *Arrived: token* does the same for a booked patient. Each doctor has a card:
+**Token queue** (*Today's patients › Token queue*). *Give a token* when a patient arrives: each doctor counts from 1 each day, and *Priority* is for the elderly or unwell. On *Today's patients*, *Arrived: token* does the same for a booked patient. The queue, and its *Display board* for the waiting room, change by themselves within a second or two of a token given or called on any screen. Each doctor has a card:
 - **Next patient** marks the previous patient done, skips a called patient who did not come in, and calls the next (priority first).
 - **Start** opens the consultation.
 - Completing the visit finishes the token.
@@ -4217,7 +4238,8 @@ item's slab and HSN before trading.
   ready to send. *Every rate sheet* lists the sheets by date, with the ones a
   later sheet of the same day replaced.
 - **Rate board** (*Today's rates › Rate board*) — the rates in use in large
-  type for a screen in the showroom, read again every minute; *Full screen*
+  type for a screen in the showroom; a new sheet of rates shows on it as soon
+  as it is saved; *Full screen*
   fills the screen with the board alone. Sign the screen in with a login that
   only views (the Viewer role).
 - **Pieces & tags** (*Pieces & tags*) — every tagged piece: its tag, its words
@@ -4887,6 +4909,7 @@ Tabs **Today** (open now or due today), **Overdue**, **Upcoming** (next 7 days)
 and **Done** (today), with a count each; the page opens on Overdue when
 something is late. The bar at the top says how many of today's tasks are done,
 and a reviewer sees how many wait for them. Tap a card to open the checklist.
+A task given to you, or done on another phone, shows by itself.
 
 ## Doing a task
 
@@ -5184,7 +5207,8 @@ the link you were sent).
 - **Without the internet.** Business Admin and the guests' site are web pages
   that talk to the platform's server. When the server sits in the restaurant,
   tills on its own Wi-Fi keep working without an internet line. The kitchen display
-  says *Cannot reach the server — retrying* and recovers by itself, and a
+  says *Cannot reach the server — retrying* and recovers by itself, every live
+  screen says *Reconnecting* and catches up once the server answers, and a
   guest's cart on the QR menu survives a reload. A till cut off from the
   server cannot bill: there is no offline billing.
 

@@ -3,6 +3,7 @@ import { AuthContext } from "./auth-context";
 import { outletStorage, tokenStorage } from "../services/api";
 import { getCurrentUser, loginRequest, rememberRestaurantCode } from "../services/auth.service";
 import { setApprovalPermissions } from "../services/approval";
+import { closeLive } from "../services/live";
 import LogbookHandoverNotice from "../modules/restaurant/logbook/pages/LogbookHandoverNotice";
 
 const LOCK_KEY = "rmp_locked";
@@ -142,6 +143,8 @@ export default function AuthProvider({ children }) {
   );
 
   const logout = useCallback(() => {
+    // The screens' live streams end with the session.
+    closeLive();
     tokenStorage.clear();
     outletStorage.clear();
     writeFlag(LOCK_KEY, false);
@@ -179,6 +182,10 @@ export default function AuthProvider({ children }) {
   // Someone else took over the till with their PIN.
   const switchUser = useCallback(
     (result) => {
+      // The live streams were the last person's: the screens open their own.
+      if (result.user?.id !== currentUserId.current) {
+        closeLive();
+      }
       tokenStorage.set(result.token);
       outletStorage.clear();
       writeFlag(LOCK_KEY, false);

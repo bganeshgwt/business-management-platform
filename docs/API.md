@@ -2,7 +2,7 @@
 
 For developers of the staff app, the guests' site and future apps, and for integrators: every endpoint of the API, and the conventions every caller follows.
 
-The list comes from the routers themselves. Every route mounted by `backend/src/app.js` and `backend/src/routes/index.js` (including the routers each of those mounts) is listed below: the routers are loaded without starting the server and their stacks walked, and each group is described from its controller, service, validator and repository. The tasks module's routes exist under two prefixes (`/api/tasks` and `/api/businesses/:businessId/tasks`) and are listed once.
+The list comes from the routers themselves. Every route mounted by `backend/src/app.js` and `backend/src/routes/index.js` (including the routers each of those mounts) is listed below: the routers are loaded without starting the server and their stacks walked, and each group is described from its controller, service, validator and repository. The tasks module's routes exist under two prefixes (`/api/tasks` and `/api/businesses/:businessId/tasks`) and are listed once; so do live updates' (`/api/live` and `/api/businesses/:businessId/live`).
 
 Base URL (development): `http://localhost:5010/api` (the `PORT` in `backend/.env`). Uploaded pictures (menu and product photos, in the folder `UPLOADS_DIR` names, `backend/uploads` when it is not set) are served read-only at `http://localhost:5010/uploads/...`.
 
@@ -47,8 +47,9 @@ The tables behind these endpoints are in [DATABASE.md](DATABASE.md), and how a r
 35. [Fuel stations](#fuel-stations)
 36. [Hotels, lodges & guest houses](#hotels-lodges--guest-houses)
 37. [Tasks, issues & projects](#tasks-issues--projects)
+38. [Live updates](#live-updates)
 
-Sections 2 to 19 are the restaurant module's API, with the sign-in and platform routes every app uses. Sections 20 to 36 are the Business Admin's, under `/api/businesses`. Section 37 serves both.
+Sections 2 to 19 are the restaurant module's API, with the sign-in and platform routes every app uses. Sections 20 to 36 are the Business Admin's, under `/api/businesses`. Sections 37 and 38 serve both.
 
 ## Conventions
 
@@ -6775,3 +6776,66 @@ Generation is lazy and idempotent: the task list (`GET /`), My tasks, the calend
 ### Notifications
 
 The restaurant bell has a `tasks` provider (`backend/src/notifications/providers/tasks.js`, permission `tasks.view`, feature `tasks`): overdue tasks, tasks waiting for review, serious open issues, fixed issues to close. The Business Admin bell (`GET /api/businesses/:id/notifications`) adds your own overdue tasks and the issues assigned to you, and the team's when you may see them.
+
+## Live updates
+
+A screen's stream of what changes in its restaurant or business, so it reads again as soon as something it shows changes, instead of asking every few seconds ([ARCHITECTURE.md › Live updates](ARCHITECTURE.md#35-live-updates)). The database announces every committed change; a message says only where and what changed, and the screen reads the change itself through the routes above, which check what the person may see. Both front doors are mounted by `modules/live/routes/live.routes.js`, before the `/businesses` router.
+
+| Method and path | What is checked | What it carries |
+| --- | --- | --- |
+| `GET /api/live` | `authenticate` (a login with a restaurant); `resolveOutlet` (the outlet picked, as `X-Outlet-Id`) | The signed-in person's restaurant. Someone tied to an outlet, or with one picked, hears that outlet's changes and those that belong to no outlet. |
+| `GET /api/businesses/:businessId/live` | `authenticate`; the membership, opened as every business route opens a business | The business. Someone tied to a location hears that location's changes and those that belong to none. |
+
+**Request.** `Accept: text/event-stream` and `Authorization: Bearer <token>`, as for any request; a token in the address is never read. Browsers read the stream with `fetch`, since `EventSource` cannot send the header. No permission is needed beyond belonging to the restaurant or business.
+
+**Response.** `200` with `Content-Type: text/event-stream; charset=utf-8`, `Cache-Control: no-cache, no-transform` (never compressed) and `X-Accel-Buffering: no`, then server-sent events:
+
+| Event | Data | Meaning |
+| --- | --- | --- |
+| `ready` | `{ scope: "restaurant" \| "business", keepAliveSeconds: 25, outlet? \| location? }` | Listening. Read the screen once: what changed before this moment was not heard. |
+| `change` | `{ area, id?, outlet? \| location? }` | A committed change. Read the screen again if it shows that area. Each carries an `id:` line, a number rising within the API process, in commit order. |
+| `resync` | `{}` | The API process lost its connection to the database for a moment and has it again: read the screen once. |
+| `end` | `{ reason, message }` | The stream ends. `session_ended`: signed out everywhere, a new password, the token run out, the login or its restaurant switched off. `access_ended`: no longer a member, the business or role switched off, or the person must choose a password of their own. `changed`: the outlet or location they work at changed; open a new stream. `restarting`: the API process is stopping; reconnect in a moment. |
+| comment `: keep-alive` | | Whenever the stream has been quiet for 20 seconds. |
+
+A stream is checked again every minute, and at once when the database announces a change to its login, restaurant, business, membership or role. One whose client stops reading (64 KB waiting) is cut off.
+
+**Restaurant areas** (the id is the row's own, or the one in brackets):
+
+| Area | Changes to |
+| --- | --- |
+| `order` | orders, their dishes and the tables joined to them (the order's) |
+| `kot` | kitchen tickets and their lines (the ticket's) |
+| `kot_slip` | change slips for a station |
+| `table_request` | guests' QR and online orders and calls |
+| `table` | dining tables: seated, billed, cleaning, ready |
+| `bill` | bills, their payments and refunds (the bill's) |
+| `reservation` | reservations and the tables they hold (the reservation's) |
+| `waitlist` | the walk-in waitlist |
+| `sold_out` | dishes marked sold out or put back |
+| `timeclock` | time-clock punches and attendance |
+| `preorder` | pre-orders |
+| `business_day` | business days opened or closed |
+| `task`, `issue` | the restaurant's tasks (with their lines and assignees) and issues |
+
+**Business areas:**
+
+| Area | Changes to |
+| --- | --- |
+| an event's kind up to its dot: `sale`, `purchase`, `payment`, `collection`, `appointment`, `repair`, `stock`, `visit`, `jewellery_rates`, … | every event the shared core writes in a posting's transaction (`business_events`), with its entity's id and, when its payload names one, its location |
+| `token` | a clinic's token queue |
+| `appointment` | appointments |
+| `walk_in` | a salon's walk-in list |
+| `task`, `issue` | tasks (with their lines and assignees) and issues |
+| `jewellery_rates` | a jeweller's rate sheets |
+
+**Errors** (JSON, before the stream starts):
+
+| Status | When |
+| --- | --- |
+| 400 | An outlet id or a business id that is not one |
+| 401 | No token (a token in the address alone is no token), or a session that has ended |
+| 403 | The person must choose a password of their own (`reason: "password_change_required"`); tied to an outlet and asking for another; an outlet of another restaurant |
+| 404 | A login with no restaurant (`/api/live`); not a member of the business |
+| 429 | `reason: "live_limit"`: the login already holds `LIVE_STREAMS_PER_PERSON` streams in this API process (20 unless set); `reason: "live_full"`: the process holds `LIVE_STREAMS_MAX` (2,000 unless set). The staff app tries again a minute later. |
+| 503 | `reason: "restarting"`: the API process is stopping |

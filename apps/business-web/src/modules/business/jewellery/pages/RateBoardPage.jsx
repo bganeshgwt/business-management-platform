@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Icon from "@bmp/ui/Icon";
 import { ErrorMessage, Loading } from "../../../../components/Feedback";
+import LiveIndicator from "../../../../components/LiveIndicator";
+import useLiveRefresh from "../../../../hooks/useLiveRefresh";
 import { businessRead } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
 import { dateShort } from "@bmp/shared/format";
@@ -10,17 +12,18 @@ import { useOpenBusiness } from "../../core/pages/hooks";
 import { SESSION_WORDS, perGram } from "./jewellery";
 import "../styles/jewellery.css";
 
-// The rate board: today's rates in large type for a screen in the showroom,
-// read again every minute. "Full screen" fills the screen with the board
-// alone; the rates are the latest sheet of the day for each purity.
-
-const EVERY_MS = 60000;
+// The rate board: today's rates in large type for a screen in the showroom.
+// A new sheet shows within a second of being saved (live updates); the board
+// also reads itself every minute, which turns it to the next day's rates
+// after midnight. "Full screen" fills the screen with the board alone; the
+// rates are the latest sheet of the day for each purity.
 
 export default function RateBoardPage() {
   const biz = useOpenBusiness();
   const [board, setBoard] = useState(null);
   const [error, setError] = useState("");
   const area = useRef(null);
+  const reader = useRef(null);
   useEffect(() => {
     let controller = null;
     const read = () => {
@@ -31,18 +34,20 @@ export default function RateBoardPage() {
         .then((d) => { setBoard(d); setError(""); })
         .catch((err) => { if (!signal.aborted) setError(getErrorMessage(err)); });
     };
+    reader.current = read;
     read();
-    const timer = setInterval(read, EVERY_MS);
-    return () => { clearInterval(timer); controller?.abort(); };
+    return () => { reader.current = null; controller?.abort(); };
   }, [biz.id]);
+  const live = useLiveRefresh({ business: biz.id }, ["jewellery_rates"], () => reader.current?.());
   const fullScreen = () => area.current?.requestFullscreen?.().catch(() => {});
 
-  if (!board) return <div className="stack"><BusinessHeader icon="grid" title="Rate board" /><ErrorMessage message={error} />{!error && <Loading />}</div>;
+  if (!board) return <div className="stack"><BusinessHeader icon="grid" title="Rate board" actions={<LiveIndicator status={live} />} /><ErrorMessage message={error} />{!error && <Loading />}</div>;
   const shop = board.seller?.display_name || biz.settings.display_name || biz.business.name;
   const latest = board.rates.reduce((at, r) => (!at || r.set_at > at.set_at ? r : at), null);
   return (
     <div className="stack">
-      <BusinessHeader icon="grid" title="Rate board" description="Today's rates in large type for a screen in the showroom. It reads the rates again every minute."
+      <BusinessHeader icon="grid" title="Rate board" description="Today's rates in large type for a screen in the showroom. A new sheet of rates shows here as soon as it is saved."
+        actions={<LiveIndicator status={live} />}
         primary={<button type="button" className="button" onClick={fullScreen}><Icon name="external" size={16} /> Full screen</button>}
         secondary={<Link className="button button-secondary" to={biz.path("gold-rates")}><Icon name="tag" size={15} /> Today's rates</Link>} />
       <ErrorMessage message={error} />

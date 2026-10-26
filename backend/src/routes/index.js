@@ -39,6 +39,8 @@ router.use("/auth", authRoutes);
 router.use(require("../modules/tasks/routes/tasks.routes"));
 // Prescription scans (multipart) for pharmacies, before the JSON-only /businesses router.
 router.use(require("../modules/business/health/routes/healthUploads.routes"));
+// Live updates: a screen's stream for its restaurant (/live) or a business (/businesses/:id/live), before the /businesses router.
+router.use(require("../modules/live/routes/live.routes"));
 router.use("/businesses", require("../modules/business/core/routes/business.routes"));
 router.use("/restaurants", restaurantRoutes);
 router.use("/outlets", outletRoutes);

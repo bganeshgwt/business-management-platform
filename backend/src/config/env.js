@@ -257,6 +257,14 @@ module.exports = {
   trustProxy: intFrom("TRUST_PROXY", 0, { min: 0, max: 10 }),
   // A manager approval token lives this long before it must be used.
   approvalTtlSeconds: intFrom("APPROVAL_TTL_SECONDS", 120, { min: 15, max: 900 }),
+  // Live updates (modules/live): the screens' streams this API process holds
+  // at most, and how many of them one login may hold in it. A screen refused
+  // tries again a minute later. Each stream is an open connection to the
+  // process (and through the proxy in front of it).
+  live: {
+    maxStreams: intFrom("LIVE_STREAMS_MAX", 2000, { min: 1, max: 100000 }),
+    perPerson: intFrom("LIVE_STREAMS_PER_PERSON", 20, { min: 1, max: 1000 }),
+  },
   // The public uploads folder (UPLOADS_DIR), served at /uploads, and the
   // private one (PRIVATE_UPLOADS_DIR), sent only through the API: above.
   uploadsDir: uploadFolders.uploads,

@@ -12,8 +12,9 @@
 // Kept in this process's memory. Each key starts with the restaurant, and the
 // rest of the key is everything the answer depends on (the outlet, what the
 // person may see), so one restaurant's figures can never answer another's
-// question. Running more than one API process would give each its own memory;
-// the 15-second limit is then the most any answer can lag.
+// question. Each API process has its own memory: a change the database
+// announces (modules/live) clears every process's answers for its restaurant,
+// and after any other write the 15-second limit is the most an answer can lag.
 const TTL_MS = 15000;
 // A safety cap: the keys are few (restaurants × outlets × kinds of viewer), but
 // a memory with no limit is a leak waiting for an unusual day.
@@ -155,4 +156,4 @@ const clearOnWrite = (req, res, next) => {
   next();
 };
 
-module.exports = { remember, clearOnWrite };
+module.exports = { remember, clearOnWrite, invalidate, invalidateAll };

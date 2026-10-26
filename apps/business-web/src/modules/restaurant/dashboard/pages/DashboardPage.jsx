@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import PageHeader from "../../../../components/PageHeader";
+import LiveIndicator from "../../../../components/LiveIndicator";
 import StatTile from "../../../../components/StatTile";
 import DashboardPanels, { PanelStatTile } from "./panels/DashboardPanels";
 import DashboardLogbook from "./DashboardLogbook";
@@ -13,6 +14,9 @@ import { queryClient, sessionScope } from "../../../../services/queryClient";
 import { getErrorMessage, outletStorage } from "../../../../services/api";
 import { count, money } from "@bmp/shared/format";
 import useAuth from "../../../../hooks/useAuth";
+import useLiveRefresh from "../../../../hooks/useLiveRefresh";
+import { safetyNetMs } from "../../../../services/live";
+import { refreshDashboard } from "./panels/panelData";
 // "19 Sep" for the chart labels, spelt the app's way (some browsers say "Sept").
 import { plural, shortDate } from "../../reports/pages/reportFormat";
 import { agoLabel, floorCounts, greeting, longDate, minutesFrom, waitText } from "./liveFormat";
@@ -58,7 +62,8 @@ const compareWith = (current, previous, label, currency) => {
   return { delta: Math.round(((current - previous) / previous) * 100), deltaLabel: `vs ${label}` };
 };
 
-const REFRESH_EVERY = 30000;
+// How long the figures count as fresh when the dashboard is opened again.
+const FRESH_FOR = 30000;
 
 // Worst first. Money the restaurant is owed outranks a delivery that is merely
 // on its way, and the grid reads left to right, so the order is the priority.
@@ -142,14 +147,16 @@ export default function DashboardPage() {
   // The day's figures. Kept in the shared memory (services/queryClient.js):
   // coming back to the dashboard shows the last figures at once and reads
   // again in the background only when they are older than 30 seconds. While
-  // the screen is open they are read every 30 seconds — never while the tab is
-  // in the background (a dashboard nobody is looking at has no reason to ask)
-  // and at once when it comes back to the front, if they are old by then.
+  // the screen is open they are read again as the day's business happens
+  // (live updates, below) and, as a safety net, every minute — never while the
+  // tab is in the background (a dashboard nobody is looking at has no reason
+  // to ask) and at once when it comes back to the front, if they are old by
+  // then.
   const report = useQuery({
     queryKey: ["dashboard", ...scope],
     queryFn: getDashboard,
-    staleTime: REFRESH_EVERY,
-    refetchInterval: REFRESH_EVERY,
+    staleTime: FRESH_FOR,
+    refetchInterval: safetyNetMs(),
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
   });
@@ -191,8 +198,8 @@ export default function DashboardPage() {
     queryKey: liveKey,
     queryFn: async () => mergeFeed(queryClient.getQueryData(liveKey), await getDashboardLive(liveKeys)),
     enabled: liveKeys.length > 0,
-    staleTime: REFRESH_EVERY,
-    refetchInterval: REFRESH_EVERY,
+    staleTime: FRESH_FOR,
+    refetchInterval: safetyNetMs(),
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     placeholderData: keepPreviousData,
@@ -212,6 +219,18 @@ export default function DashboardPage() {
     () => Promise.all([refetchReport(), hasLive ? refetchLive() : null]),
     [refetchReport, refetchLive, hasLive]
   );
+
+  // Live: a bill paid, an order or a ticket, a table seated, a booking or a
+  // guest's request has the figures, the live blocks and any panel open read
+  // again within a few seconds (live updates). However busy the restaurant,
+  // at most once every ten seconds: each read is the dashboard's own twenty
+  // or so questions.
+  const liveStatus = useLiveRefresh({ restaurant: true }, ["*"], () => refreshDashboard(), {
+    every: 0,
+    refreshOnVisible: false,
+    debounceMs: 1000,
+    minIntervalMs: 10000,
+  });
 
   // What the detail panels read: the same figures and live blocks the
   // dashboard draws, and the same permissions. Kept in one object so a panel
@@ -494,12 +513,13 @@ export default function DashboardPage() {
         }
         action={
           <>
+            <LiveIndicator status={liveStatus} />
             <button
               type="button"
               className="button button-secondary live-badge"
               onClick={refresh}
               disabled={refreshing}
-              title="Refresh now. Updates automatically every 30 seconds."
+              title="Refresh now. The figures also update by themselves as the day's business happens."
             >
               <span className={`live-dot ${refreshing ? "is-busy" : ""}`} aria-hidden="true" />
               {updatedAt ? `Updated ${agoLabel(updatedAt, Math.max(now, updatedAt))}` : "Updating…"}

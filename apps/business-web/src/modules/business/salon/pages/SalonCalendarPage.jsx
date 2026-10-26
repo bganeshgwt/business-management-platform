@@ -6,6 +6,8 @@ import Modal from "../../../../components/Modal";
 import SectionCard from "../../../../components/SectionCard";
 import SidePanel from "../../../../components/SidePanel";
 import { ErrorMessage } from "../../../../components/Feedback";
+import LiveIndicator from "../../../../components/LiveIndicator";
+import useLiveRefresh from "../../../../hooks/useLiveRefresh";
 import useConfirm from "../../../../hooks/useConfirm";
 import { toast } from "../../../../services/toast";
 import { businessRead, businessWrite } from "../../../../services/business.service";
@@ -66,6 +68,12 @@ export default function SalonCalendarPage() {
   const [reminders, setReminders] = useState(false);
   const [walkIn, setWalkIn] = useState(() => params.get("walkin") === "1");
   const reload = useCallback(() => setVersion((n) => n + 1), []);
+  // A booking made, moved, started or finished on another device shows
+  // within a second (live updates); the calendar had no timer of its own, and
+  // has none now. Only the calendar reads again: the walk-in list follows its
+  // own changes, keeping a stylist being picked there.
+  const [heard, setHeard] = useState(0);
+  const live = useLiveRefresh({ business: biz.id }, ["appointment"], () => setHeard((n) => n + 1), { every: 0 });
   const days = view === "week" ? 7 : 1;
   const from = view === "week" ? startOfWeek(day) : day;
 
@@ -75,7 +83,7 @@ export default function SalonCalendarPage() {
       .then((result) => { setData(result); setError(""); })
       .catch((err) => { if (!controller.signal.aborted) setError(getErrorMessage(err)); });
     return () => controller.abort();
-  }, [biz.id, from, days, location, version]);
+  }, [biz.id, from, days, location, version, heard]);
   // A booking asked for in the address (?book=1&contact=…) is opened once.
   useEffect(() => {
     if (params.get("book") || params.get("walkin")) setParams((p) => { const next = new URLSearchParams(p); ["book", "contact", "sku", "staff", "walkin"].forEach((k) => next.delete(k)); return next; }, { replace: true });
@@ -135,6 +143,7 @@ export default function SalonCalendarPage() {
     <div className="stack sw-cal-page">
       <BusinessHeader icon="calendar" title="Calendar"
         description="Each stylist's and room's day. Drag a booking to move it; a booking blocks its service time plus clean-up."
+        actions={<LiveIndicator status={live} />}
         primary={canBook && fresh && <button type="button" className="button" onClick={() => setBooking({})}><Icon name="plus" size={16} /> Book</button>}
         secondary={canBook && <button type="button" className="button button-secondary" onClick={() => setWalkIn(true)}><Icon name="user-plus" size={16} /> Walk-in</button>}
         more={[
@@ -402,11 +411,14 @@ function WalkIns({ biz, staff, onChanged }) {
   const [rows, setRows] = useState(null);
   const [busy, setBusy] = useState(null);
   const [pick, setPick] = useState({});
+  const [heard, setHeard] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
     businessRead(biz.id, "salon/walk-ins", { status: "waiting", from: today, to: today, limit: 50 }, controller.signal).then((r) => setRows(r.items)).catch(() => setRows([]));
     return () => controller.abort();
-  }, [biz.id, today]);
+  }, [biz.id, today, heard]);
+  // Someone joining or leaving the list on another device (live updates).
+  useLiveRefresh({ business: biz.id }, ["walk_in"], () => setHeard((n) => n + 1), { every: 0 });
   if (!rows?.length) return null;
   const act = async (w, action) => {
     setBusy(w.id);

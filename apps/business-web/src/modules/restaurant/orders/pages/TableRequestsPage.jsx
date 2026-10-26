@@ -8,6 +8,7 @@ import DateRangeFilter from "../../../../components/DateRangeFilter";
 import { EmptyState, ErrorMessage, Loading } from "../../../../components/Feedback";
 import useAuth from "../../../../hooks/useAuth";
 import useQueryFilter from "../../../../hooks/useQueryFilter";
+import useLiveRefresh from "../../../../hooks/useLiveRefresh";
 import { getErrorMessage, outletStorage } from "../../../../services/api";
 import { count, durationMinutes, money, moneyExact } from "@bmp/shared/format";
 import { dayMonth, daysAgo, today } from "@bmp/shared/dates";
@@ -38,9 +39,6 @@ import "../styles/online-inbox.css";
 // longest, so waiting requests come first, oldest first, with a clock that
 // turns amber and then red.
 
-// How often the inbox refreshes itself. Ten seconds is a waiter's walk from
-// the pass to a table.
-const REFRESH_EVERY = 10000;
 // A card that just arrived keeps its glow this long.
 const FRESH_FOR = 20000;
 const SOUND_KEY = "rmp_table_requests_sound";
@@ -1170,10 +1168,12 @@ export default function TableRequestsPage() {
 
   useEffect(() => {
     load();
-    const timer = setInterval(load, REFRESH_EVERY);
-
-    return () => clearInterval(timer);
   }, [load]);
+
+  // Live: a guest's order or call, and every answer to one from another
+  // device, shows within a second (live updates). As a safety net the inbox
+  // also reads itself every minute, and at once on coming back to the tab.
+  const live = useLiveRefresh({ restaurant: true }, ["table_request", "order"], load);
 
   useEffect(() => {
     const tick = setInterval(() => setNow(Date.now()), 1000);
@@ -1336,9 +1336,13 @@ export default function TableRequestsPage() {
         description="Orders and calls from guests' phones — table QR codes and your online ordering page. Nothing is cooked until you accept an order."
         action={
           <div className="tr-header-actions">
-            <span className={`tr-live ${error ? "is-down" : ""}`} role="status">
+            <span className={`tr-live ${error || live === "reconnecting" ? "is-down" : ""}`} role="status" data-live={live}>
               <span className="tr-live-dot" />
-              {error ? "Offline — retrying" : secondsAgo === null ? "Connecting…" : `Live · ${secondsAgo}s ago`}
+              {error
+                ? "Offline — retrying"
+                : secondsAgo === null
+                  ? "Connecting…"
+                  : `${live === "live" ? "Live" : live === "reconnecting" ? "Reconnecting" : live === "off" ? "Not live" : "Connecting"} · ${secondsAgo}s ago`}
             </span>
             <button
               type="button"
@@ -1485,10 +1489,10 @@ export default function TableRequestsPage() {
           {activeView === "history"
             ? "Earlier business days, newest first · today's are under Waiting and Today"
             : activeView === "today"
-              ? "Since the day opened · waiting ones first · refreshes every 10 seconds"
+              ? "Since the day opened · waiting ones first · new ones appear by themselves"
               : total > items.length
                 ? `Longest waiting first · ${count(items.length)} of ${count(total)} waiting shown`
-                : "Longest waiting first · refreshes every 10 seconds"}
+                : "Longest waiting first · new ones appear by themselves"}
         </p>
       </div>
 

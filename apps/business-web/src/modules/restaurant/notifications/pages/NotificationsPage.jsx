@@ -6,9 +6,9 @@ import SectionCard from "../../../../components/SectionCard";
 import Icon from "@bmp/ui/Icon";
 import { EmptyState, ErrorMessage, Loading, SuccessMessage } from "../../../../components/Feedback";
 import { NotificationIcon } from "../../../../components/NotificationBell";
+import useLiveRefresh from "../../../../hooks/useLiveRefresh";
 import { getErrorMessage } from "../../../../services/api";
 import {
-  POLL_MS,
   SEVERITY,
   SEVERITY_ORDER,
   exactTime,
@@ -17,7 +17,6 @@ import {
   markNotificationsRead,
   markNotificationsUnread,
   onNotificationsChanged,
-  pollWhileVisible,
   relativeTime,
   withReadState,
 } from "../../../../services/notification.service";
@@ -25,7 +24,7 @@ import "../../../../styles/notifications.css";
 
 const SOURCE = "page";
 
-// The "checked 20 s ago" line ticks on its own between polls, so it never
+// The "checked 20 s ago" line ticks on its own between checks, so it never
 // sits frozen on "just now" while the list quietly ages.
 const CLOCK_MS = 10000;
 
@@ -122,7 +121,6 @@ export default function NotificationsPage() {
   useEffect(() => {
     load();
 
-    const stopPolling = pollWhileVisible(load);
     const stopListening = onNotificationsChanged(({ source: from }) => {
       if (from !== SOURCE) {
         load();
@@ -131,11 +129,16 @@ export default function NotificationsPage() {
     const clock = window.setInterval(() => setNow(Date.now()), CLOCK_MS);
 
     return () => {
-      stopPolling();
       stopListening();
       window.clearInterval(clock);
     };
   }, [load]);
+
+  // Live: something changing in the restaurant has the page check again
+  // within a few seconds (live updates), at most once every 20 seconds
+  // however busy it is. As a safety net it also checks every minute while it
+  // is seen, and at once on coming back to it.
+  useLiveRefresh({ restaurant: true }, ["*"], load, { debounceMs: 1000, minIntervalMs: 20000 });
 
   const refresh = () => {
     setRefreshing(true);
@@ -394,8 +397,8 @@ export default function NotificationsPage() {
                   <h2>Nothing needs you right now</h2>
                   <p className="muted">
                     Bills, stock, guests and everything else you look after are in hand. This page
-                    checks again every {POLL_MS / 1000} seconds — anything new appears here and on
-                    the bell.
+                    checks again as things change, and at least every minute — anything new appears
+                    here and on the bell.
                   </p>
                 </div>
               ) : visible.length === 0 ? (
@@ -509,7 +512,7 @@ export default function NotificationsPage() {
               icon="activity"
               tone="info"
               title="What the bell watches"
-              description={`Checked every ${POLL_MS / 1000} seconds for your role. Click an area with alerts to see only those.`}
+              description="Checked again as things change, and at least every minute, for your role. Click an area with alerts to see only those."
             >
 
               <ul className="ntf-sources">
