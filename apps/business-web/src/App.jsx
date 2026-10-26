@@ -22,6 +22,8 @@ const CategoriesPage = lazy(() => import("./modules/restaurant/menu/pages/Catego
 const ProductsPage = lazy(() => import("./modules/restaurant/menu/pages/ProductsPage"));
 const ModifiersPage = lazy(() => import("./modules/restaurant/menu/pages/ModifiersPage"));
 const TaxRatesPage = lazy(() => import("./modules/restaurant/menu/pages/TaxRatesPage"));
+// GST rate changes by date for the menu's dishes (modules/tax-changes, shared with Business Admin).
+const MenuTaxChangesPage = lazy(() => import("./modules/tax-changes/pages/MenuTaxChangesPage"));
 const PriceWindowsPage = lazy(() => import("./modules/restaurant/menu/pages/PriceWindowsPage"));
 const FloorsPage = lazy(() => import("./modules/restaurant/tables/pages/FloorsPage"));
 const TablesPage = lazy(() => import("./modules/restaurant/tables/pages/TablesPage"));
@@ -274,6 +276,7 @@ export default function App() {
             <Route path="menu/products" element={<ProductsPage />} />
             <Route path="menu/modifiers" element={<ModifiersPage />} />
             <Route path="menu/tax-rates" element={<TaxRatesPage />} />
+            <Route path="menu/tax-changes" element={<MenuTaxChangesPage />} />
             <Route path="menu/happy-hour" element={<PriceWindowsPage />} />
           </Route>
 

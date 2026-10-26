@@ -42,8 +42,9 @@ router.post('/', async (req, res) => send(res, await onboarding.ownerCreate(req.
 router.post('/link-restaurant', async (req, res) => send(res, await service.linkRestaurant(req.user)));
 
 // permission: one code, a list (any of them), or none (any member).
+// Opening the business lets GST rate changes whose date has come take effect first.
 const context = (permission) => async (req, res, next) => {
-  req.business = await access.load(req.user, req.params.businessId);
+  req.business = await access.open(req.user, req.params.businessId);
   // A person tied to one location works there only; a branch picked in the top bar fills in the location a request leaves out.
   access.scope(req, req.business);
   if (Array.isArray(permission)) await access.requireAny(req.business, permission);
@@ -249,6 +250,8 @@ require('../../lodging/routes/businessLodging.routes')(router, { context, send, 
 
 // Per-staff PIN at the counter, kits / bundles, EMI & finance.
 require('./businessCounter.routes')(router, { context, send, b });
+// GST rate changes by date (every type but a restaurant, whose menu has its own): the yearly change, an item's GST history.
+require('../../../tax-changes/routes/taxChanges.routes').businessRoutes(router, { context, send, b });
 
 // Scoped constraint failures are the person's conflict, not a server fault.
 router.use((error, req, res, next) => {

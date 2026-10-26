@@ -57,7 +57,7 @@ Every business except the restaurant runs on the same core. It is built once, so
 | Sell | Returns and refunds | Goods back against the original bill, each return and refund numbered, stock back automatically |
 | Sell | Customers and udhaar | GSTIN, credit limit and days, what each owes, ageing, reminders, numbered collection receipts |
 | Buy | Purchases and suppliers | Supplier bills with free quantity and discount, purchase orders, reorder suggestions, supplier payments and statements |
-| Products | Products, categories, units | GST rate, HSN, MRP, shelf location, member price, departments, batch / expiry / serial tracking, pack sizes, opening stock when an item is added |
+| Products | Products, categories, units | GST rate, HSN, MRP, shelf location, member price, departments, batch / expiry / serial tracking, pack sizes, opening stock when an item is added; the yearly GST rate change entered ahead, in force on its date by itself, with each item's GST history |
 | Stock | Stock, transfers, counts | Stock by branch and batch with its value; transfers in transit; counts approved before stock changes |
 | Time | Appointments | Staff and rooms without double booking; done, no-show and cancel rules |
 | Money | Daily money and expenses | Takings by method, person and counter matched with cash, with a cash check and each cashier's shift; expenses paid out, corrected only by a reversal with a reason |
@@ -91,7 +91,7 @@ Each business type adds only what is truly its own on top of the shared core. Th
   - the restaurant's own ordering page and pickup tokens;
   - riders and rider cash;
   - Swiggy and Zomato channels with channel prices and commission (their orders are typed in).
-- **Menu:** dishes, modifiers, combos, happy-hour prices, and recipes that drive stock use.
+- **Menu:** dishes, modifiers, combos, happy-hour prices, and recipes that drive stock use; the yearly GST rate change entered ahead, in force on the restaurant's own day by itself.
 - **Back office:**
   - the business day, opened before service and closed after;
   - cash drawers, X and Z reports;

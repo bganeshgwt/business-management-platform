@@ -54,9 +54,12 @@ const list = async (userId) => (await pool.query(`
 // Membership, role, permissions and enabled modules in one statement: what
 // the server checks on every business request.
 // member_location_id: the one location this person works at (NULL = all);
-// member_department_id: the one department whose products and stock they handle (NULL = all).
+// member_department_id: the one department whose products and stock they handle (NULL = all);
+// tax_changes_due: a GST rate change of its items is due on the business's date (tax-changes module).
 const access = (id, userId) => one(pool, `SELECT b.*,t.name AS type_name,m.role_id,r.name AS role_name,r.full_access,
  ${capabilitiesSql} AS capabilities,m.location_id AS member_location_id,m.department_id AS member_department_id,
+ EXISTS (SELECT 1 FROM business_tax_change_items x WHERE x.business_id=b.id AND x.status='scheduled' AND x.sku_id IS NOT NULL
+  AND x.starts_on <= (now() AT TIME ZONE b.timezone)::date) AS tax_changes_due,
  (SELECT name FROM business_departments WHERE business_id=b.id AND id=m.department_id) AS member_department_name,
  (SELECT name FROM business_locations WHERE business_id=b.id AND id=m.location_id) AS member_location_name,
  COALESCE((SELECT json_agg(id ORDER BY id) FROM business_locations WHERE business_id=b.id AND active),'[]') AS active_location_ids,
@@ -123,7 +126,12 @@ const lists = {
         FROM catalog_kit_components k WHERE k.business_id=s.business_id AND k.kit_sku_id=s.id),0)
       ELSE COALESCE((SELECT SUM(quantity) FROM business_stock_lots l WHERE l.business_id=s.business_id AND l.sku_id=s.id),0) END AS stock,
     COALESCE((SELECT json_agg(json_build_object('id',x.id,'unit_code',x.unit_code,'quantity_in_base',x.quantity_in_base) ORDER BY x.quantity_in_base)
-      FROM catalog_sku_units x WHERE x.business_id=s.business_id AND x.sku_id=s.id AND x.active),'[]') AS pack_sizes
+      FROM catalog_sku_units x WHERE x.business_id=s.business_id AND x.sku_id=s.id AND x.active),'[]') AS pack_sizes,
+    -- Its next scheduled GST rate change, if it has one.
+    (SELECT json_build_object('startsOn',i.starts_on::text,'name',ct.name,'rate',c.rate) FROM business_tax_change_items i
+      JOIN business_tax_changes c ON c.business_id=i.business_id AND c.id=i.change_id
+      JOIN business_tax_rates ct ON ct.business_id=c.business_id AND ct.id=c.tax_rate_id
+      WHERE i.business_id=s.business_id AND i.sku_id=s.id AND i.status='scheduled' ORDER BY i.starts_on LIMIT 1) AS tax_change
     FROM catalog_skus s JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id
     LEFT JOIN catalog_categories cat ON cat.business_id=p.business_id AND cat.id=p.category_id
     LEFT JOIN business_tax_rates t ON t.business_id=s.business_id AND t.id=s.tax_rate_id

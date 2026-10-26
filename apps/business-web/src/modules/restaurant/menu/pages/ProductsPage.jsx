@@ -38,6 +38,10 @@ import SheetImportModal from "../../inventory/pages/SheetImportModal";
 import { getRecipeImportGuide, importRecipes } from "../services/recipe.service";
 import PriceRevisionModal from "./PriceRevisionModal";
 import ProductHistoryModal from "./ProductHistoryModal";
+// A dish's GST history: its GST rate changes by date (modules/tax-changes).
+import TaxHistoryDialog from "../../../tax-changes/pages/TaxHistoryDialog";
+import { menuChanges } from "../../../tax-changes/services/taxChanges.service";
+import { WORDS } from "../../../tax-changes/taxChanges";
 import { EMPTY_FORM, buildPatch, formToPayload, productToForm, rebaseForm, withPhoto } from "./productForm";
 import "../../../../styles/menu.css";
 import "../../inventory/styles/inventory.css";
@@ -138,6 +142,8 @@ export default function ProductsPage() {
   const [recipeFor, setRecipeFor] = useState(null);
   const [comboFor, setComboFor] = useState(null);
   const [historyFor, setHistoryFor] = useState(null);
+  const [gstFor, setGstFor] = useState(null);
+  const taxChanges = useMemo(() => menuChanges(), []);
 
   // Every list request gets a number; only the answer to the newest one is
   // shown. The search box asks once per key typed and a slow answer can land
@@ -723,6 +729,7 @@ export default function ProductsPage() {
                 ...(recipesOn ? [{ label: "Recipe", icon: "book", onClick: () => setRecipeFor(product) }] : []),
                 { label: "Combo", icon: "cloche", onClick: () => setComboFor(product) },
                 ...(canSeeHistory ? [{ label: "Change history", icon: "history", onClick: () => setHistoryFor(product) }] : []),
+                { label: "GST history", icon: "percent", onClick: () => setGstFor(product) },
                 { separator: true },
                 archived
                   ? { label: "Bring back to the menu", icon: "undo", onClick: () => changeStatus(product, "active") }
@@ -1210,6 +1217,11 @@ export default function ProductsPage() {
       )}
 
       {historyFor && <ProductHistoryModal product={historyFor} onClose={() => setHistoryFor(null)} />}
+
+      {gstFor && (
+        <TaxHistoryDialog api={taxChanges} words={WORDS.menu} itemId={gstFor.id} label={gstFor.name} canEdit={canManage} currency={currency}
+          onClose={() => setGstFor(null)} onChanged={() => load()} />
+      )}
 
       {importing && (
         <MenuImportModal

@@ -8,10 +8,10 @@ PostgreSQL 15 or newer (built and tested on 18). One database holds the whole pl
 | --- | --- | --- |
 | [Platform and access (restaurant module)](#platform-and-access) | restaurants, outlets, users, roles, permissions, sign-in and approvals | `restaurant_id` |
 | [Restaurant module](#restaurant-module) | settings, menu, tables, orders, kitchen, bills and payments, cash, guests, stock and purchasing, staff and pay | `restaurant_id`, and `outlet_id` where a branch matters |
-| [Business platform](#business-platform) | platform catalogue, business access, business core, shared core, one extension group per business type, and tasks, issues & projects | `business_id` on every row, with composite foreign keys |
+| [Business platform](#business-platform) | platform catalogue, business access, business core, shared core, one extension group per business type, tasks, issues & projects, and GST rates by date | `business_id` on every row, with composite foreign keys |
 | [Catalogues](#business-types) | business types, platform module codes, business and restaurant permission codes | — |
 
-**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Licences](#licences) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) · [Optical shops](#optical-shops) · [Vehicle service & auto parts](#vehicle-service--auto-parts) · [Gyms, studios & coaching](#gyms-studios--coaching) · [Laundry & dry cleaning](#laundry--dry-cleaning) · [Jewellery & gold](#jewellery--gold) · [Rentals & hire](#rentals--hire) · [Fuel stations](#fuel-stations) · [Hotels, lodges & guest houses](#hotels-lodges--guest-houses) · [Tasks, issues & projects](#tasks-issues--projects). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
+**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Licences](#licences) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) · [Optical shops](#optical-shops) · [Vehicle service & auto parts](#vehicle-service--auto-parts) · [Gyms, studios & coaching](#gyms-studios--coaching) · [Laundry & dry cleaning](#laundry--dry-cleaning) · [Jewellery & gold](#jewellery--gold) · [Rentals & hire](#rentals--hire) · [Fuel stations](#fuel-stations) · [Hotels, lodges & guest houses](#hotels-lodges--guest-houses) · [Tasks, issues & projects](#tasks-issues--projects) · [GST rates by date](#gst-rates-by-date). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
 
 The business platform's design (its five layers, the rules every table follows, and why) is explained in [BUSINESS_PLATFORM_DATA_MODEL.md](BUSINESS_PLATFORM_DATA_MODEL.md). This file gives the table-by-table reference and links there instead of repeating it. A restaurant also appears on the platform as one `businesses` row whose `legacy_restaurant_id` points at it; its own tables are unchanged.
 
@@ -279,8 +279,8 @@ Added by: 1790726900000_complete-operations-backlog.
 Purpose: named GST rates with HSN/SAC code and cess, assigned to dishes.
 Key columns: `name`, `percentage`, `hsn_code`, `cess_percentage`, `is_default`, `status`.
 Relations: `restaurant_id` -> `restaurants` (CASCADE); referenced by `products.tax_rate_id`.
-Rules: uq_tax_rates_restaurant_name (case-insensitive); uq_tax_rates_default (one default rate per restaurant, partial unique index); percentages 0 to 100. A new restaurant starts with Exempt, GST 5% (restaurant, the default, SAC 996331), GST 18% and GST 40% (`createRestaurant` in `restaurant.repository.js`).
-Added by: 1789830000000_create-tax-rates.
+Rules: uq_tax_rates_restaurant_name (case-insensitive); uq_tax_rates_default (one default rate per restaurant, partial unique index); percentages 0 to 100. A new restaurant starts with Exempt, GST 5% (restaurant, the default, SAC 996331), GST 18% and GST 40% (`createRestaurant` in `restaurant.repository.js`). Trigger `tax_rates_in_change` (function `business_tax_rates_in_change`): a rate a scheduled GST rate change moves dishes to cannot be switched off before their date ([GST rates by date](#gst-rates-by-date)); a rate a change has named is never deleted.
+Added by: 1789830000000_create-tax-rates; 1791973000000 (trigger `tax_rates_in_change`).
 
 #### `combo_items`
 Purpose: the dishes (and sizes) inside a combo dish.
@@ -1164,7 +1164,8 @@ Rules:
 - One default slab per business (partial unique index `business_tax_rates_one_default`).
 - CHECK: an inactive slab cannot be the default.
 - Trigger `business_tax_rates_rate_fixed` refuses any change to `rate` or `business_id`.
-Added by: 1791300000002.
+- Trigger `business_tax_rates_in_change` refuses switching off a slab a scheduled GST rate change moves items to, before their date ([GST rates by date](#gst-rates-by-date)).
+Added by: 1791300000002; 1791973000000 (trigger `business_tax_rates_in_change`).
 
 #### `business_number_series`
 Purpose: document numbering, one series per business, location, document kind and fiscal year. A number is taken with `UPDATE … next_number + 1` inside the posting transaction.
@@ -3514,6 +3515,34 @@ Key columns: one owner (`task_id`, `issue_id`, `project_id`), `action`, `details
 Relations: each owner ON DELETE CASCADE, so the trail goes with its task, issue or project.
 Rules: **append-only**: trigger `business_task_history_no_update` (function `business_task_history_append_only`) refuses every UPDATE; CHECK `business_task_history_owner`; a partial index per owner.
 Added by: 1791620000000.
+
+## GST rates by date
+
+Linked sections: [data model](BUSINESS_PLATFORM_DATA_MODEL.md#gst-rates-by-date) and [ARCHITECTURE.md §4.5](ARCHITECTURE.md#45-gst-rates-by-date-a-change-that-takes-effect-with-no-job-runner). Migration `1791973000000_gst-rates-by-date.sql`; module code `backend/src/modules/tax-changes/`.
+
+**One data model for both engines, keyed on `business_id`.** A GST rate change moves items to another GST rate from a date: a shop's catalogue items (`sku_id`) to one of its slabs (`business_tax_rates`), a restaurant's dishes (`product_id`) to one of its tax rates (`tax_rates`), through its own business row (`businesses.legacy_restaurant_id`, `restaurant_business_id()`). An item's rate is still read from the item (`catalog_skus.tax_rate`, `tax_rate_id`; `products.tax_percentage`, `tax_rate_id`): the functions below move it there on the change's date, and a posted bill keeps the rate its lines were posted at.
+
+**How a change takes effect, with no job runner.** `business_tax_change_apply(business)` applies, in date order, every scheduled item of a shop whose date has come on the business's clock (`now() AT TIME ZONE businesses.timezone`), under the business row's lock, the lock every posting takes first. The server calls it when a request opens a business (the access statement says whether one is due, `tax_changes_due`) and inside every posting. `business_tax_change_apply_menu(restaurant, day)` does the same for dishes due on `day` (NULL: the restaurant's trading date), under the menu's advisory lock (915001, the lock of the menu's imports and price revisions); the server calls it before the menu screens, the guests' menus and a new pre-order's prices, and for an order's own business day before its dishes are priced. Each item moves in a savepoint of its own: it takes the new rate and, when the change keeps the price before GST, the price that keeps it (a shop's member price and branch prices too; a dish's sizes too), its row records what it was and became, and the activity log gets a row in the name of whoever entered the change (`business_audit` `catalog.tax_changed`; a dish's `audit_logs` row like an edit, with `details.via` "GST rate change of 1 Apr 2027: <reason>"). One the database refuses (a check, 23514) is kept as `refused` with the sentence, and the rest move. A kit's own rate is worked out again from its parts.
+
+Functions:
+- `restaurant_trading_date(restaurant)`: the main counter's open business day, else the restaurant's date less its morning cut-off (as `tradingDay.js`).
+- `business_tax_change_today(business)`: the date a change is measured against: a shop's date in its time zone, a restaurant's trading date.
+- `business_tax_change_price(price, from_rate, to_rate)`: a price that includes GST keeping its part before GST at a new rate, to the paisa, half a paisa up (₹118 at 18% is ₹105 at 5%), as the API's preview works it out.
+- `business_tax_change_apply(business)` and `business_tax_change_apply_menu(restaurant, day)`: above; each returns the ids of the items it moved.
+
+#### `business_tax_changes`
+Purpose: one GST rate change: the rate items move to, from which date, and why. Kept as it was entered.
+Key columns: `starts_on` (the first day of the new rate, on the business's or restaurant's own date), `tax_rate_id` (a shop's slab) or `restaurant_tax_rate_id` -> `tax_rates` (a restaurant's rate), `rate` (its percentage when entered), `keeps` (`total`: a price that includes GST keeps what the customer pays; `net`: it keeps its part before GST and the price moves), `reason` (not blank, up to 300), `request_key` + `request_hash` (the request that scheduled it), `created_by`, `created_at`.
+Relations: `business_id` -> `businesses`; (`business_id`, `tax_rate_id`) -> `business_tax_rates`; `created_by` -> `users`.
+Rules: CHECK exactly one of `tax_rate_id` and `restaurant_tax_rate_id`; UNIQUE (`business_id`, `id`), (`business_id`, `id`, `starts_on`) (the items' key) and (`business_id`, `request_key`); index `business_tax_changes_list`. Trigger `business_tax_changes_world` (function `business_tax_change_world`): a shop's change moves to one of its own slabs, a restaurant's to one of its own tax rates. Trigger `business_tax_changes_kept`: never updated or deleted.
+Added by: 1791973000000.
+
+#### `business_tax_change_items`
+Purpose: each item a change moves, and what happened to it.
+Key columns: `change_id`, `starts_on` (the change's date, here too so what is due is one index away), `sku_id` or `product_id`, `status` (`scheduled`; `applied` on its date; `cancelled` before it; `refused` on its date by the database, with why in `note`), what it was and became when its date came (`from_tax_rate_id` or `from_restaurant_tax_rate_id`, `from_rate`, `to_rate`, `price_before`, `price_after`, `sizes`: a dish's sizes whose price moved, `[{ id, name, before, after }]` as differences from the dish's price), `settled_at` (when it was applied or refused), `note` (why it was refused, or what to put right after it moved), `cancelled_by`, `cancelled_at`, `cancel_reason`.
+Relations: (`business_id`, `change_id`, `starts_on`) -> `business_tax_changes`; (`business_id`, `sku_id`) -> `catalog_skus`; `product_id` -> `products`; (`business_id`, `from_tax_rate_id`) -> `business_tax_rates`; `from_restaurant_tax_rate_id` -> `tax_rates`; `cancelled_by` -> `users`. A dish an item names is never deleted (the menu archives it instead).
+Rules: CHECKs: exactly one of `sku_id` and `product_id`; applied or refused ⇔ settled with both rates; applied ⇔ both prices; refused needs a note; cancelled ⇔ who, when and a reason. Partial unique indexes `business_tax_change_items_one_sku_a_day` and `_one_dish_a_day`: an item has one scheduled move a day. Partial index `business_tax_change_items_due` (business, date, while scheduled), and indexes by change, item and dish. Trigger `business_tax_change_items_world` (function `business_tax_change_world`): a shop's change moves its catalogue items, a restaurant's its own dishes. Trigger `business_tax_change_items_kept` (function `business_tax_change_items_kept`): never deleted; only a scheduled item changes, once, to applied, refused or cancelled, and what it moves and from when never change; a cancel from its date on (`business_tax_change_today`) is refused: it is in force and kept for good.
+Added by: 1791973000000.
 
 ## Business types
 

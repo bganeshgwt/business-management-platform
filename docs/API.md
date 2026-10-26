@@ -194,6 +194,7 @@ All Business Admin routes live under `/api/businesses/:businessId/...`; only the
 - **Locations.** A person's access can be tied to one location (`workLocationId` on `POST …/members`; an owner never is). They then work there only: a location they name in the query (`location`, `locationId`) or the body (`locationId`, `fromLocationId`) must be theirs, a request that names none is answered for theirs (a write with no `locationId` gets theirs), and another location's records answer 403 "You work at <location> only. Ask a manager who works across every location." Anyone else may pick a branch in the top bar (`X-Business-Location`), which only fills in the location a request leaves out. The overview, reports and lists follow the location in effect, and so do the summary's sales, stock, appointment and today figures. The branch comparison (`reports/locations`) is narrowed only for a person tied to a location. Customers' and suppliers' balances stay business-wide.
 - **Departments.** A person can also be tied to one department (`workDepartmentId` on `POST …/members`). They then see and change that department's products and stock only (an item is in its category's department); billing stays open to every item.
 - **Payment methods.** Where a body says how money moved with `method` (`cash`, `upi`, `card`, `bank`, `cheque`), it may name one of the business's own payment methods with `methodId` instead (`GET …/payment-methods`). A financier's payout (`POST …/finance/settlements`), a stylist's tip on a salon bill and a commission payout (`POST …/salon/commission-payouts`) take `method` only. The method's kind counts the money (day close, drawer, cheque register) and its name is recorded with the payment (`method_name`). With both, `method` must be the method's kind (400). A switched-off method answers 409, an unknown one 404, and a kind the step does not take 400 (a refund never goes out by cheque).
+- **GST rates by date.** A GST rate change entered ahead ([GST rate changes](#gst-rate-changes)) takes effect when the first request on or after its date opens the business (its own time zone), before anything is read, and again inside each posting under the business's lock. So every route reads an item's GST slab as it is on the business's date. A posting that a change overtakes around midnight (its fixed prices were worked out at the day before's rate, or it began before another request applied the change) answers **409** `{ reason: "gst_rates_changed" }`; sending it again, with the same request key, posts it at the rates in force.
 
 ---
 
@@ -861,7 +862,7 @@ Errors: 404 product not found.
 #### `GET /api/menu/products/:id/usage`
 Permission: `menu.view`
 Query/Body: none
-Returns: `data` = `{ productId, canDelete, message, reason, canArchive }`; `reason` is `null`, `in_combo` (with `combos[]`) or `has_sales` (with `timesSold`).
+Returns: `data` = `{ productId, canDelete, message, reason, canArchive }`; `reason` is `null`, `in_combo` (with `combos[]`), `has_sales` (with `timesSold`) or `in_tax_change` (a GST rate change names it: its GST history keeps it).
 Errors: 404 product not found.
 
 #### `GET /api/menu/products/:id/history`
@@ -874,7 +875,7 @@ Errors: 404 product not found.
 Permission: `menu.manage`
 Query/Body: none
 Returns: no `data` (message "Product deleted").
-Errors: 404 not found; 409 `{ reason: "in_combo", combos[] }` part of a combo; 409 `{ reason: "has_sales", timesSold, canArchive: true }` already sold (archive instead); 409 `{ reason: "in_use", canArchive: true }` referenced elsewhere.
+Errors: 404 not found; 409 `{ reason: "in_combo", combos[] }` part of a combo; 409 `{ reason: "has_sales", timesSold, canArchive: true }` already sold (archive instead); 409 `{ reason: "in_tax_change", canArchive: true }` named in a GST rate change (archive instead); 409 `{ reason: "in_use", canArchive: true }` referenced elsewhere.
 
 ### Product images
 Multipart upload held in memory, bytes sniffed before saving under `products/` in the public upload folder (`UPLOADS_DIR`, `backend/uploads` when it is not set); one image per dish (the old file is deleted).
@@ -1097,13 +1098,53 @@ Errors: 400 default rate switched off; 409 name already exists.
 Permission: `menu.manage`
 Query/Body: same as create (full body) plus `moveProductsTo` (rate id: move every dish on this rate there first, used when switching it off). A changed percentage reprices its dishes.
 Returns: `data` = the rate plus `movedProducts`, `repricedProducts`.
-Errors: 400 target rate is the same, missing or off; 400 switching off the default rate; 404 not found; 409 dishes still use the rate being switched off (send `moveProductsTo`); 409 duplicate name.
+Errors: 400 target rate is the same, missing or off; 400 switching off the default rate; 404 not found; 409 dishes still use the rate being switched off (send `moveProductsTo`); 409 a scheduled GST rate change moves dishes to the rate being switched off (keep it on, or cancel that change first); 409 duplicate name.
 
 #### `DELETE /api/menu/tax-rates/:id`
 Permission: `menu.manage`
 Query/Body: none
 Returns: no `data`.
 Errors: 404 not found; 409 dishes use this rate / rate still in use.
+
+### GST rate changes on the menu
+A GST rate change moves chosen dishes to another of the restaurant's tax rates from a later date on the restaurant's own clock: its trading date, the main counter's open business day, else today less the morning cut-off. A bill keeps the rate it was made at. How it works: [BUSINESS_RULES.md › GST rates by date at a restaurant](BUSINESS_RULES.md#gst-rates-by-date-at-a-restaurant). The module, `modules/tax-changes/`, also serves Business Admin's [GST rate changes](#gst-rate-changes); a restaurant's changes are kept against its own business row.
+
+Every `/api/menu` request first applies the changes due on the trading date, so the menu screens and the POS read each dish at the rate of the day; the guests' menus (a table's QR menu and online ordering) and a new pre-order's prices do the same. An order prices its dishes at the rates of its own business day (see [Orders](#orders)). A dish moved by a change gets an activity log row like an edit, in the name of whoever entered the change, with `details.via` "GST rate change of 1 Apr 2027: <reason>".
+
+#### `GET /api/menu/tax-changes`
+Permission: `menu.view`
+Query/Body: none
+Returns: `data` = `{ today (the trading date), changes[{ id, starts_on, rate, rate_name, keeps, reason, created_at, created_by_name, items, scheduled, applied, cancelled, refused, state }] }`. `state` is `scheduled` (a dish still to move), `in_force`, `refused` or `cancelled`. Changes still to come are listed first, then by date, the latest first.
+
+#### `POST /api/menu/tax-changes/preview`
+Permission: `menu.manage`
+Query/Body: `startsOn` (YYYY-MM-DD), `taxRateId` (an active tax rate), `keeps` (`total` by default: a price that includes GST keeps what the guest pays; `net`: it keeps its part before GST, and its price and each size's move), and either `items` (1-2,000 dish ids) or `filters: { taxRateId?, categoryId?, hsn? (the first 2-8 digits of the rate's HSN/SAC code), q? (name, code or kitchen name), inactive? (inactive dishes too) }`.
+Returns: `data` = what each dish would become, as Business Admin's preview gives it (`POST …/tax-changes/preview`). A dish's price includes GST or not by its own price mode, else the restaurant's. Nothing is saved.
+Errors: 400 a bad date, rate or filter; 404 tax rate not found or switched off.
+
+#### `POST /api/menu/tax-changes`
+Permission: `menu.manage`
+Query/Body: `requestKey` (a UUID), `startsOn` (later than the trading date, and no later than the same day two years on), `taxRateId`, `keeps`, `items` (1-2,000 dish ids), `reason` (required, up to 300 characters)
+Returns: `data` = the change as `GET /api/menu/tax-changes/:id` gives it; status 201. The activity log records it (`tax_change`, `scheduled`). The same key and body return the same change.
+Errors: 400 a date that is not later than the trading date, or more than two years on; 404 a dish or rate not found; 409 `{ reason: "items_refused", items[{ id, label, problem }] }` (another change already moves a dish that day, or it would sell above its MRP); 409 `{ reason: "already_at_rate", items[] }`; 409 the same key with another body.
+
+#### `GET /api/menu/tax-changes/:id`
+Permission: `menu.view`
+Query/Body: none
+Returns: `data` = the change as the list gives it, with `items[{ id, product_id, label, code, status (scheduled, applied, cancelled, refused), from_name, from_rate, to_rate, price_before, price_after, sizes, settled_at, note, cancelled_at, cancel_reason, cancelled_by_name }]`. Once applied, `sizes` lists each size whose price moved, as `{ id, name, before, after }` (the size's difference from the dish's price).
+Errors: 404 not found.
+
+#### `POST /api/menu/tax-changes/:id/cancel` and `POST /api/menu/tax-changes/:id/items/:itemId/cancel`
+Permission: `menu.manage`
+Query/Body: `reason` (required, up to 300 characters)
+Returns: `data` = the change. Every dish still to move stays where it is (or, by the second path, the one dish). The activity log records it (`cancelled`, `item_cancelled`). Asking again returns the same change.
+Errors: 404 the change or dish not found; 409 the change's date has come: it is in force and kept for good.
+
+#### `GET /api/menu/products/:id/tax-history`
+Permission: `menu.view`
+Query/Body: none
+Returns: `data` = `{ item: { id, label, code, tax_rate, tax_rate_id, slab_name, price, active }, changes[], edits[{ id, created_at, details, actor_name }] }`. `changes` holds each change for the dish, past and to come, with its reason, who entered it and its own state; `edits` holds each time the dish's rate was changed on the dish itself or by an import.
+Errors: 404 product not found.
 
 ### Recipes and recipe import
 Which inventory items one plate (or one size) uses. Costs and margins are shown only to callers holding `menu.manage` or `inventory.view`.
@@ -1449,7 +1490,7 @@ Errors: 400 nothing sent; 400 non-whole minutes; 400 late mark not after the war
 
 ### Orders
 
-Mounted at `/api/orders` (order.routes.js). Every route signs the user in and runs `resolveOutlet`. Any `:id` is checked first: it must be a whole id, and when the request works in an outlet the order must belong to it, else 404 "Order not found in this outlet". Prices always come from the menu: the client sends ids, quantities and notes only. The order shape (`toOrder` in order.service.js) is `{ id, orderNumber, orderType, source, outletId, tableId, tableNo, customerId, customerName, customerMobile, guestCount, orderStatus, kitchenStatus, subtotal, taxAmount, totalAmount, notes, joinedTables[], mergedIntoOrderId, billId, billNumber, billStatus, channelId, brandId, brandName, deliveryStatus, deliveryAddress, tokenNo, tokenCollectedAt, deliveryCharge, deliveryChargeWaived, deliveryChargeWaivedReason, items[] }`. Each item is `{ id, productId, productVariantId, itemName, variantName, quantity, unitPrice, modifierTotal, lineTotal, itemStatus, courseNo, courseName, fireStatus, kitchenQuantity, kitchenStage, cancelledQuantity, modifiers[] }`, plus more fields listed in the service. Cancel reason codes (utils/cancelReasons.js) are `guest_changed_mind`, `wrong_order`, `delay`, `quality` and `other`.
+Mounted at `/api/orders` (order.routes.js). Every route signs the user in and runs `resolveOutlet`. Any `:id` is checked first: it must be a whole id, and when the request works in an outlet the order must belong to it, else 404 "Order not found in this outlet". Prices always come from the menu: the client sends ids, quantities and notes only. A dish's price and GST rate are those in force on the order's business day: before an order is priced, the GST rate changes due on that day take effect, and a dish whose change took effect for a later day (an outlet still on last night's day) is priced as it was before it ([GST rate changes on the menu](#gst-rate-changes-on-the-menu)). The order shape (`toOrder` in order.service.js) is `{ id, orderNumber, orderType, source, outletId, tableId, tableNo, customerId, customerName, customerMobile, guestCount, orderStatus, kitchenStatus, subtotal, taxAmount, totalAmount, notes, joinedTables[], mergedIntoOrderId, billId, billNumber, billStatus, channelId, brandId, brandName, deliveryStatus, deliveryAddress, tokenNo, tokenCollectedAt, deliveryCharge, deliveryChargeWaived, deliveryChargeWaivedReason, items[] }`. Each item is `{ id, productId, productVariantId, itemName, variantName, quantity, unitPrice, modifierTotal, lineTotal, itemStatus, courseNo, courseName, fireStatus, kitchenQuantity, kitchenStage, cancelledQuantity, modifiers[] }`, plus more fields listed in the service. Cancel reason codes (utils/cancelReasons.js) are `guest_changed_mind`, `wrong_order`, `delay`, `quality` and `other`.
 
 Taking off food the kitchen already has (through `PUT /:id/items`, `PATCH /:id/items/:itemId/cancel` or `PATCH /:id/cancel`) needs `orders.cancel_after_kot` or a manager's approval. The service checks this inside, only when such food is involved, and answers like a "permission or approval" route: 403 `approval_required` (the scope names the order, dish, quantity and amount). It can also answer 403 `approval_per_dish`, which means take the dishes off one at a time, or 403 `approval_invalid`, which means the token does not cover this change. When no reason was given it answers 400 `cancel_reason_required` (`data.dishes`, `data.reasons`). Reason `other` with no note gives 400 `cancel_note_required`.
 
@@ -4067,6 +4108,7 @@ All of these follow the paged-list contract above. `documents` lists only the ki
 | `GET /api/businesses/:businessId/categories` | `catalog.view` | `active` | none |
 | `GET /api/businesses/:businessId/units` | `catalog.view` | none | none |
 | `GET /api/businesses/:businessId/pack-sizes` | `catalog.view` | `sku` | none |
+| `GET /api/businesses/:businessId/tax-changes` | `catalog.view` | `state` (`scheduled`, `in_force`, `refused`, `cancelled`) | none |
 | `GET /api/businesses/:businessId/contacts` | `contacts.view` | `kind` (`customer`/`supplier`), `active` | none |
 | `GET /api/businesses/:businessId/pricing` | `wholesale.view` | none | none |
 | `GET /api/businesses/:businessId/locations` | any member | `active` | none |
@@ -4130,7 +4172,7 @@ Returns: 201, the tax rate row.
 Permission: `settings.edit`
 Query/Body: `name` (required), `active` (default true), `isDefault`. A `rate` that differs from the current rate is refused.
 Returns: the updated row.
-Errors: 404 not found; 409 "A tax slab's rate cannot change"; 409 when switching off a slab that active items still use.
+Errors: 404 not found; 409 "A tax slab's rate cannot change"; 409 when switching off a slab that active items still use, or that a scheduled GST rate change moves items to (keep it on, or cancel that change first).
 
 #### `POST /api/businesses/:businessId/number-series`
 Permission: `settings.edit`
@@ -4334,6 +4376,47 @@ Query/Body: the same fields as create, plus `active`. Fields left out keep their
 Returns: the updated contact.
 Errors: 404 not found.
 
+### GST rate changes
+
+A GST rate change moves chosen items to another of the business's GST slabs from a later date on the business's own clock. A bill uses the slab in force on its own date, and a posted bill never changes. How it works: [BUSINESS_RULES.md › GST rates by date](BUSINESS_RULES.md#gst-rates-by-date). Backend module `modules/tax-changes/` (routes `taxChanges.routes.js`), which also serves a restaurant's dishes: [GST rate changes on the menu](#gst-rate-changes-on-the-menu).
+
+A change takes effect when the first request on or after its date opens the business, before anything is read, and again inside each posting under the business's lock; nothing runs on a timer. Each item then takes the new slab and, when the change keeps the price before GST, a new price (its member price and branch prices move with it). The audit log records `catalog.tax_changed` in the name of whoever entered the change. An item the database refuses on the day (a jewellery item off 3%) is kept as `refused`, with why.
+
+#### `GET /api/businesses/:businessId/tax-changes`
+Permission: `catalog.view`
+Query/Body: the paged-list values; search reason, slab and who entered it; filter `state` (`scheduled` (an item still to move), `in_force`, `refused`, `cancelled`)
+Returns: `data = { total, items[{ id, starts_on, rate, rate_name, keeps, reason, created_at, created_by, created_by_name, tax_rate_id, items, scheduled, applied, cancelled, refused, state }] }`. Changes still to come are listed first, then by date, the latest first.
+
+#### `POST /api/businesses/:businessId/tax-changes/preview`
+Permission: `catalog.edit`
+Query/Body: `startsOn` (YYYY-MM-DD), `taxRateId` (a switched-on slab), `keeps` (`total` by default: a price that includes GST keeps what the customer pays; `net`: it keeps its part before GST and the price moves; a price before GST never moves), and either `items` (1-2,000 item ids) or `filters: { taxRateId?, categoryId? (with the categories below it), hsn? (the first 2-8 digits), q? (name, code, barcode or brand), inactive? (switched-off items too) }`. A person tied to a department sees that department's items only.
+Returns: `data = { startsOn, today (the business's own date), keeps, target: { id, name, rate }, dateProblem, items[], more, moving }`. Nothing is saved. Each item is `{ id, code, label, category, hsn, unit, active, pricesIncludeGst, from: { rate, name }, to: { rate, name }, price: { before, after }, gst: { before, after }, total: { before, after }, mrp, same, problem }`, worked out for one unit to the paisa as a bill would. `from` is the item on the day before, after any change it has on an earlier date. `same` means the item is at that rate on the day already. `problem` says why it cannot move: another change moves it that day, it would sell above its MRP, a fuel stays on the nil slab, jewellery is at 3%, or a room type's slab is set by its tariff. A kit is never listed: its GST follows its parts. `dateProblem` says why the date cannot be used. `more` is true when more than 2,000 items fit the filters. `moving` counts the items that can move.
+Errors: 400 a bad date, slab or filter; 404 slab not found or switched off.
+
+#### `POST /api/businesses/:businessId/tax-changes`
+Permission: `catalog.edit`
+Query/Body: `requestKey`, `startsOn` (later than the business's today, and no later than the same day two years on), `taxRateId`, `keeps`, `items` (1-2,000 item ids), `reason` (required, up to 300 characters, such as the notification)
+Returns: 201, the change as `GET …/tax-changes/:changeId` gives it. Audited `tax_change.scheduled`. The same key and body return the same change.
+Errors: 400 a date that is not later than today (the sentence says to change the slab on the item to change it from today), or more than two years on; 403 an item outside the caller's department; 404 an item (a kit) or slab not found; 409 `{ reason: "items_refused", items[{ id, label, problem }] }` (the preview's problems: leave those items out); 409 `{ reason: "already_at_rate", items[] }`; 409 the same key with another body.
+
+#### `GET /api/businesses/:businessId/tax-changes/:changeId`
+Permission: `catalog.view`
+Query/Body: none
+Returns: the change as the list gives it, with `items[{ id, sku_id, label, code, status (scheduled, applied, cancelled, refused), from_name, from_rate, to_rate, price_before, price_after, settled_at, note, cancelled_at, cancel_reason, cancelled_by_name }]`. `note` says why an item was refused, or what to put right after it moved (a price before GST that now sells above its MRP).
+Errors: 404 not found.
+
+#### `POST /api/businesses/:businessId/tax-changes/:changeId/cancel` and `POST /api/businesses/:businessId/tax-changes/:changeId/items/:itemId/cancel`
+Permission: `catalog.edit`
+Query/Body: `reason` (required, up to 300 characters)
+Returns: the change. Every item still to move stays where it is (or, by the second path, the one item). Audited `tax_change.cancelled` or `tax_change.item_cancelled`. Asking again returns the same change.
+Errors: 404 the change or item not found; 409 the change's date has come: it is in force and kept for good (enter another change to move the items again).
+
+#### `GET /api/businesses/:businessId/catalog/:id/tax-history`
+Permission: `catalog.view`
+Query/Body: none
+Returns: `data = { item: { id, label, code, tax_rate, tax_rate_id, slab_name, price, active }, changes[], edits[{ id, created_at, details: { label, from, to, fromRate, toRate }, actor_name }] }`. `changes` holds each change for the item, past and to come, as the change's items with its `reason`, `keeps`, `rate`, `to_name`, `created_at` and `created_by_name`. `edits` holds each time the slab was changed on the item itself (audited `catalog.slab_changed`).
+Errors: 404 item not found.
+
 ### Sales and purchase documents
 
 #### `POST /api/businesses/:businessId/documents`
@@ -4359,6 +4442,7 @@ Rules:
 - A supplier's bill number already received from that supplier is refused.
 - A kit sells as its parts, each at its share of the kit's price; a serial-numbered part makes it one kit per line. Saved lines carry `kit_sku_id`, `kit_label` and `kit_group`.
 - An EMI needs the customer named (a contact, or `buyer` with name and phone), and a loan number is used once per financier.
+- Each line takes its item's GST slab in force on the bill's own date, on the business's clock: changes whose date has come take effect inside the posting first ([GST rate changes](#gst-rate-changes)). A posting a change overtakes around midnight answers 409 `{ reason: "gst_rates_changed" }`: send it again.
 
 Errors: 400 both `payment` and `payments`, more than 8 parts, or two parts of `"full"`; 400 the parts come to more than the total; 400 cash handed over less than its part; 400 free quantity or a trade discount on a sale; 400 a serial-numbered kit part on a line of more than one kit; 400 an EMI amount more than what is left; 400 pharmacy purchases without a batch or expiry, and quantity or unit-precision errors; 403 `{ reason: "pin_required" }` without the counter PIN, 400 `wrong_pin`, 423 `pin_locked`, 429 too many tries; 404 location, contact or item not found; 404 no coupon with that code, or an unknown voucher; 409 not enough usable stock, credit limit exceeded, serial already received, or request key reused with different data; 409 a walk-in not paying in full; 409 a price above the MRP; 409 a supplier bill number already received ("Bill … from … was already received as …"); 409 an item kept for use in services only (`internalUse`); 409 a coupon that cannot be used now (switched off, outside its dates or hours, the bill below its minimum, used up, or already used by this customer as often as allowed); 409 a counter discount over the business's limit, or more than the bill; 409 a voucher expired or used up; 409 buying a kit; 409 an EMI without the customer named, or a loan number already used with that financier.
 

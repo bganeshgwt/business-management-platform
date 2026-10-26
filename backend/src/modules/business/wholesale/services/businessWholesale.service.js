@@ -711,8 +711,9 @@ async function dispatchInTransaction(db, business, user, orderId, body, { reques
   if (!['open', 'part_dispatched'].includes(order.status)) fail(`Order ${order.order_no} is already ${order.status.replace('_', ' ')}`, 409);
   const pieces = [];
   for (const input of inputs) {
-    const line = await repo.one(db, `SELECT x.*,u.decimals AS unit_decimals,u.name AS unit_name FROM wholesale_order_lines x
+    const line = await repo.one(db, `SELECT x.*,u.decimals AS unit_decimals,u.name AS unit_name,s.tax_rate AS tax_rate_now FROM wholesale_order_lines x
       JOIN business_units u ON u.business_id=x.business_id AND u.code=x.unit
+      JOIN catalog_skus s ON s.business_id=x.business_id AND s.id=x.sku_id
       WHERE x.business_id=$1 AND x.order_id=$2 AND x.id=$3 FOR UPDATE OF x`, [business.id, order.id, id(input.orderLineId, 'Order line')]);
     if (!line) fail('Order line not found', 404);
     // The quantity may be typed in the line's pack or in the stock unit.
@@ -739,7 +740,10 @@ async function dispatchInTransaction(db, business, user, orderId, body, { reques
     // unit to four places. With prices before GST the line amounts add up
     // to the order exactly; the GST, rounded per invoice line as the law
     // requires, can differ from the order's estimate by at most 1 paisa
-    // for each extra invoice line the order was split into.
+    // for each extra invoice line the order was split into. GST is at the
+    // item's rate on the day of the invoice: after a GST rate change, a price
+    // including GST keeps its total and one before GST its taxable value.
+    const rate = Number(line.tax_rate_now);
     const invoiced = await repo.one(db, `SELECT COALESCE(sum(bl.net),0) AS net,COALESCE(sum(bl.tax),0) AS tax FROM wholesale_dispatch_lines dl
       JOIN business_document_lines bl ON bl.business_id=dl.business_id AND bl.id=dl.document_line_id
       WHERE dl.business_id=$1 AND dl.order_line_id=$2`, [business.id, line.id]);
@@ -755,15 +759,15 @@ async function dispatchInTransaction(db, business, user, orderId, body, { reques
       if (order.tax_mode === 'inclusive') {
         // The gross (what the customer pays) is shared; GST is inside it.
         const gross = roundedDivide((BigInt(paise(line.net)) + BigInt(paise(line.tax))) * BigInt(upTo), ordered) - (doneNet + doneTax);
-        net = core.inclusiveNet(gross, Number(line.tax_rate)); tax = gross - net;
+        net = core.inclusiveNet(gross, rate); tax = gross - net;
       } else {
-        net = share(line.net, upTo) - doneNet; tax = core.lineTax(net, Number(line.tax_rate));
+        net = share(line.net, upTo) - doneNet; tax = core.lineTax(net, rate);
       }
       doneMilli = upTo; doneNet += net; doneTax += tax;
       // Whole packs keep the pack on the invoice (when the pack size is unchanged).
       const wholePacks = factorMicro && pack && Math.round(Number(pack.quantity_in_base) * 1e6) === factorMicro
         && (BigInt(pick.quantity) * 1000000n) % (BigInt(factorMicro) * 1000n) === 0n;
-      pieces.push({ line, lot: pick.lot, quantityMilli: pick.quantity, net, tax,
+      pieces.push({ line, rate, lot: pick.lot, quantityMilli: pick.quantity, net, tax,
         entered: wholePacks ? { unit: line.entered_unit, quantity: Number((BigInt(pick.quantity) * 1000000n) / BigInt(factorMicro)) / 1000 } : null });
     }
   }
@@ -774,7 +778,7 @@ async function dispatchInTransaction(db, business, user, orderId, body, { reques
     lines: pieces.map((p) => ({ skuId: p.line.sku_id, lotCode: p.lot.lot_code, ...(p.entered ? { unit: p.entered.unit, quantity: String(p.entered.quantity) } : { quantity: qty(p.quantityMilli) }) })),
   };
   // The rate shown on each invoice line is its own value per stock unit (4 places).
-  const fixed = pieces.map((p) => ({ price: Number(((p.net / 100) / (p.quantityMilli / 1000)).toFixed(4)), net: p.net, tax: p.tax,
+  const fixed = pieces.map((p) => ({ price: Number(((p.net / 100) / (p.quantityMilli / 1000)).toFixed(4)), net: p.net, tax: p.tax, taxRate: p.rate.toFixed(2),
     enteredPrice: p.entered ? paise(p.line.entered_unit_price) : null, priceRuleId: p.line.price_rule_id }));
   const document = await core.postDocument(db, business, user, documentBody, { kind: 'sale', requestKey, hash, lines: documentBody.lines, paidNow: null, fixed });
   // Place of supply for a buyer without a GSTIN: their state from the trade details.

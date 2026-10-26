@@ -126,6 +126,19 @@ export const GROCERY = {
   sale: [{ item: "Loose rice", quantity: 2 }, { item: "Basmati rice 1 kg", quantity: 1 }],
 };
 
+// GST rates by date: two biscuits the grocery sells at 18%, which the spec
+// moves to 5% from the next 1 April and then cancels again; and the
+// restaurant's butter naan, moved to its 18% rate the same way.
+export const GST_CHANGE = {
+  items: [
+    { name: "Marie gold biscuit 250 g", code: "MARIE-250", price: 59, hsn: "19053100" },
+    { name: "Cream biscuit 120 g", code: "CREAM-120", price: 35, hsn: "19053200" },
+  ],
+  search: "biscuit",
+  dish: "Butter naan",
+  reason: "GST Council notification of 8 October 2026",
+};
+
 // The meat shop: two cuts sold by weight, received from the supplier.
 export const MEAT = {
   supplier: "Fresh Farms Poultry",

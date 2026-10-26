@@ -26,6 +26,9 @@ const WORDS = {
   "wastage.recorded": "Wastage recorded", "processing.posted": "Cutting batch recorded", "member.added": "Staff access given",
   "catalog.barcode_changed": "Barcode changed", "book.updated": "Book details changed", "book_set.created": "School set added", "book_set.updated": "School set changed",
   "book_order.created": "Book order taken", "book_order.arrived": "Ordered book arrived", "book_order.collected": "Ordered book collected", "book_order.cancelled": "Book order cancelled",
+  // GST rate changes by date: entered ahead, cancelled before their date, or taking effect on it (in the name of who entered them).
+  "tax_change.scheduled": "GST rate change scheduled", "tax_change.cancelled": "GST rate change cancelled", "tax_change.item_cancelled": "GST rate change cancelled for an item",
+  "catalog.tax_changed": "Item's GST changed on its date", "catalog.slab_changed": "Item's GST slab changed",
 };
 const words = (action) => WORDS[action] || action.replace(/[._]/g, " ").replace(/^./, (c) => c.toUpperCase());
 
@@ -36,9 +39,9 @@ const LABELS = {
   reason: "Reason", serial: "Serial", endsOn: "Until", points: "Points", taxMode: "Prices", rounding: "Rounding", module: "Module", name: "Name", rate: "Rate",
   maxBillDiscountPercent: "Most discount %", walkInCredit: "Walk-in may owe", status: "Status",
   barcodeFrom: "Barcode was", barcodeTo: "now", isbn: "ISBN", orderNo: "Order", title: "Book", customer: "Customer", advance: "Advance", advanceKept: "Advance kept on account",
-  code: "Code", items: "Items", quantity: "Quantity",
+  code: "Code", items: "Items", quantity: "Quantity", startsOn: "From", keeps: "Prices kept", fromRate: "Rate was", toRate: "Rate now", priceFrom: "Price was", priceTo: "Price now",
 };
-const MONEY = new Set(["total", "amount", "allocated", "from", "to", "mrpFrom", "mrpTo", "balance", "advance", "advanceKept"]);
+const MONEY = new Set(["total", "amount", "allocated", "from", "to", "mrpFrom", "mrpTo", "balance", "advance", "advanceKept", "priceFrom", "priceTo"]);
 function detailText(details, biz) {
   return Object.entries(details || {})
     .filter(([k, v]) => v !== null && v !== undefined && typeof v !== "object" && LABELS[k])

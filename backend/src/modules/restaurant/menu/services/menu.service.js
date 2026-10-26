@@ -690,6 +690,18 @@ const deleteBlock = async (restaurantId, existing) => {
     };
   }
 
+  // A GST rate change has named it: its GST history keeps it.
+  const gstChange = await require("../../../tax-changes/services/taxChangesMenu").namedIn(existing.id);
+
+  if (gstChange) {
+    return {
+      message:
+        `"${existing.name}" is in a GST rate change (from ${gstChange.words}), so it can't be deleted: its GST history needs it. ` +
+        "Archive it instead. It leaves the POS and the QR menu, and its history stays.",
+      details: { reason: "in_tax_change", canArchive: true },
+    };
+  }
+
   return null;
 };
 

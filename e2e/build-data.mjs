@@ -6,7 +6,7 @@
 // no request can make: an order taken, or a hire handed over, on an earlier day.
 import crypto from "node:crypto";
 
-import { AGRI, BUSINESSES, FUEL, GARAGE, GROCERY, HARDWARE, JEWELLERY, LAUNDRY, LODGING, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, RENTALS, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
+import { AGRI, BUSINESSES, FUEL, GARAGE, GROCERY, GST_CHANGE, HARDWARE, JEWELLERY, LAUNDRY, LODGING, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, RENTALS, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
 
 // Every call names the status it expects, so a set-up that goes wrong stops
 // at the first wrong answer, with the API's own message, rather than leaving
@@ -252,11 +252,20 @@ export async function buildTestData({ api, logins, sql }) {
       lines: GROCERY.sale.map((line) => ({ skuId: items[line.item].id, quantity: String(line.quantity) })),
       payment: { amount: "full", method: "cash" },
     }, 201);
+    // The GST rate changes spec's own items, at 18%, their prices including GST.
+    const biscuits = [];
+    for (const item of GST_CHANGE.items) {
+      const made = await owner("POST", B("catalog"), {
+        name: item.name, code: item.code, kind: "goods", unit: "each", tracking: "quantity", price: String(item.price), hsnCode: item.hsn, taxRate: "18",
+      }, 201);
+      biscuits.push({ id: made.id, name: made.label });
+    }
     Object.assign(businesses.grocery, {
       supplier: { id: supplier.id, name: supplier.name },
       weighedItem: { id: weighed.id, name: weighed.label },
       pieceItem: { id: piece.id, name: piece.label },
       sale: { id: sale.id, number: sale.document_no, total: Number(sale.total) },
+      gstItems: biscuits,
     });
   }
 

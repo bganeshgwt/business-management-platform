@@ -5,7 +5,7 @@ import { GOODS, SERVICES, UDHAAR, WEIGHED } from './businessTypes.js';
 export const WORKSPACES = {
   pharmacyBilling: ['rx-sale','counter'],
   // A rental business's products open on its rental items.
-  products: ['rental-items', 'products', 'rates', 'variants', 'books', 'drug-master', 'salon-setup', 'categories', 'kits', 'labels', 'offers', 'pricing', 'laundry-prices'],
+  products: ['rental-items', 'products', 'rates', 'variants', 'books', 'drug-master', 'salon-setup', 'categories', 'kits', 'labels', 'offers', 'pricing', 'laundry-prices', 'tax-changes'],
   // A jeweller's stock opens on its tagged pieces.
   stock: ['pieces', 'stock', 'weight-stock', 'movements', 'counts', 'near-expiry', 'pharmacy-batches', 'transfers', 'serials', 'processing', 'wastage'],
   purchases: ['purchases', 'suppliers', 'purchase-orders', 'claims'],

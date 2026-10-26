@@ -277,6 +277,8 @@ export function businessSections(type) {
         { section: "variants", label: word(type, "variants", "Variants"), icon: "modifiers", need: "catalog.view", module: "variants" },
         // A kit / bundle sells as its parts (goods shops).
         { section: "kits", label: "Kits & bundles", icon: "box", need: "catalog.view", module: "inventory", types: GOODS },
+        // The yearly GST change, entered ahead: items move to another slab from a date.
+        { section: "tax-changes", label: "GST rate changes", icon: "tax", need: "catalog.view", except: ['restaurant'] },
         { section: "salon-setup", label: "Stylists & services", icon: "hours", need: "appointments.view", types: SALON },
         { section: "rates", label: "Today's rates", icon: "priceList", need: "catalog.view", module: "weight", types: WEIGHED },
         // A hardware shop's board of the items whose price moves every day.

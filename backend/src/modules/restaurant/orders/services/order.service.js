@@ -13,6 +13,7 @@ const { restaurantToday } = require("../../business-day/services/tradingDay");
 const crmRepository = require("../../crm/repositories/crm.repository");
 const kitchenRepository = require("../../kitchen/repositories/kitchen.repository");
 const serviceSettingsRepository = require("../../setup/repositories/serviceSettings.repository");
+const taxChanges = require("../../../tax-changes/services/taxChangesMenu");
 const AppError = require("../../../../utils/AppError");
 const { round2, taxFromExclusive, taxFromInclusive } = require("../../../../utils/money");
 const { abroadTenCountry, normaliseMobile, mobileProblem, tenDigitTwin } = require("../../../../utils/phone");
@@ -218,13 +219,38 @@ const priceLines = async (restaurantId, requestedItems, taxMode, timezone, optio
   }
 
   const merged = mergeRequested(requestedItems);
+  const productIds = [...new Set(merged.map((line) => Number(line.productId)))];
+  // GST rate changes due on the order's own business day (options.businessDayId;
+  // none yet: the trading day) take effect before the dishes are read, so a
+  // line takes the rate in force on the bill's date. A dish whose change took
+  // effect for a later day (an outlet still on last night's day) is priced as
+  // it was before it.
+  const before = await taxChanges.forOrderDay(options.db || require("../../../../config/database"), restaurantId, productIds, {
+    businessDayId: options.businessDayId || null,
+  });
   const menu = await orderRepository.findSellable(
     restaurantId,
-    [...new Set(merged.map((line) => Number(line.productId)))],
+    productIds,
     [...new Set(merged.flatMap((line) => line.modifierIds))],
     options.db,
     options.outletId || null
   );
+
+  for (const product of menu.products) {
+    const was = before.get(Number(product.id));
+
+    if (was) {
+      Object.assign(product, { tax_percentage: was.rate, price: was.price, hsn_code: was.hsn });
+    }
+  }
+
+  for (const variant of menu.variants) {
+    const was = before.get(Number(variant.product_id));
+
+    if (was && was.sizes.has(Number(variant.id))) {
+      variant.price_delta = was.sizes.get(Number(variant.id));
+    }
+  }
 
   const products = new Map(menu.products.map((row) => [Number(row.id), row]));
   const variants = new Map(menu.variants.map((row) => [Number(row.id), row]));
@@ -1032,7 +1058,7 @@ const create = async (restaurantId, data, userId) => {
     data.items,
     settings.tax_mode,
     settings.timezone,
-    { outletId, orderType: data.orderType, channelId: data.channelId, billOfSupply: settings.document_type === "bill_of_supply" }
+    { outletId, orderType: data.orderType, channelId: data.channelId, billOfSupply: settings.document_type === "bill_of_supply", businessDayId: day.id }
   );
 
   // A parcel at a counter that calls orders by token gets the day's next
@@ -1870,7 +1896,7 @@ const planEdit = async ({ restaurantId, order, items, request, settings, stageOf
       ? await priceLines(restaurantId, additions, settings.tax_mode, settings.timezone, {
           outletId: order.outlet_id,
           orderType: order.order_type, channelId: order.channel_id,
-          db, billOfSupply: settings.document_type === "bill_of_supply",
+          db, billOfSupply: settings.document_type === "bill_of_supply", businessDayId: order.business_day_id,
         })
       : { lines: [] };
   // Checked (a detail another device changed meanwhile) before any approval
@@ -2030,7 +2056,7 @@ const appendItems = async (restaurantId, orderId, items, userId, options = {}) =
       const priced = await priceLines(restaurantId, items, settings.tax_mode, settings.timezone, {
         outletId: order.outlet_id,
         orderType: order.order_type, channelId: order.channel_id,
-        db, billOfSupply: settings.document_type === "bill_of_supply",
+        db, billOfSupply: settings.document_type === "bill_of_supply", businessDayId: order.business_day_id,
       });
       added = priced.lines;
 

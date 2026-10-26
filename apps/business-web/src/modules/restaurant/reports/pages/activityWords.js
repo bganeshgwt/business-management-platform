@@ -92,6 +92,10 @@ const PHRASES = {
   "sold_out:product": "Marked a dish sold out",
   "back_on_sale:product": "Put a dish back on sale",
   "price_revision:product": "Changed dish prices",
+  // GST rate changes by date (Menu > GST rate changes).
+  "scheduled:tax_change": "Scheduled a GST rate change",
+  "cancelled:tax_change": "Cancelled a GST rate change",
+  "item_cancelled:tax_change": "Cancelled a GST rate change for a dish",
   "import:product": "Imported dishes",
   // Deliveries.
   "out_for_delivery:delivery": "Sent a delivery out",

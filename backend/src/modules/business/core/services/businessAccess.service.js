@@ -23,6 +23,13 @@ async function load(user, businessId) {
   business.member_user_id = Number(user.id);
   return business;
 }
+// A request opening a business (the routes' context): load it, and let GST
+// rate changes whose date has come take effect before anything reads a slab.
+async function open(user, businessId) {
+  const business = await load(user, businessId);
+  await require('../../../tax-changes/services/taxChangesShop').onOpen(business);
+  return business;
+}
 
 // The module a permission belongs to must be on, and the role must hold it.
 function check(business, permission, catalogue) {
@@ -336,4 +343,4 @@ async function setMember(business, user, body, options = {}) {
   });
 }
 
-module.exports = { load, scope, requireLocation, requireEitherLocation, requireAppointmentLocation, can, require: require_, requireAny, context, permissionCatalogue, createRole, updateRole, requireManages, markManaged, memberCandidates, setMember };
+module.exports = { load, open, scope, requireLocation, requireEitherLocation, requireAppointmentLocation, can, require: require_, requireAny, context, permissionCatalogue, createRole, updateRole, requireManages, markManaged, memberCandidates, setMember };

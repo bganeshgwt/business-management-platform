@@ -33,7 +33,8 @@ lives, and how to extend it.
    - [4.1 The business platform in five layers](#41-the-business-platform-in-five-layers) ·
      [4.2 The restaurant module's own tables and the bridge](#42-the-restaurant-modules-own-tables-and-the-bridge) ·
      [4.3 Tasks, issues & projects](#43-tasks-issues--projects-one-model-for-both-worlds) ·
-     [4.4 How a sale moves money and stock](#44-how-a-sale-moves-money-and-stock)
+     [4.4 How a sale moves money and stock](#44-how-a-sale-moves-money-and-stock) ·
+     [4.5 GST rates by date](#45-gst-rates-by-date-a-change-that-takes-effect-with-no-job-runner)
 5. [Two engines, one direction](#5-two-engines-one-direction)
    - [5.1 Where they differ](#51-where-they-differ) ·
      [5.2 Who owns what](#52-who-owns-what) ·
@@ -99,7 +100,7 @@ written down.
 | **Audit and events** | Every business change writes an audit row (`business_audit`) and, for money, stock and appointments, an outbox event (`business_events`), **in the same transaction**. Restaurant actions write `audit_logs` (§5.1 explains the difference). |
 | **Rules in the database** | Where a bug would lose money or stock, a CHECK, a partial unique index or a trigger refuses it too, with a sentence a person can read (SQL state 23514, answered as HTTP 409). |
 | **Today-only live screens** | Live screens (dashboard, kitchen, deliveries, table requests, the bell) show the current *trading day* in the business's time zone. Between midnight and the day cut-off (5 am by default) last night's day is still today. Anything older that is still open is only counted or flagged, never mixed in with today's. |
-| **Dates on the business's clock** | "Today", a bill's date and "not in the future" are the restaurant's or business's date in its own time zone, never the server's: a server on UTC is still on yesterday until 05:30 in India. Restaurant code takes the date from `restaurantToday()` and `todayOf()` in `modules/restaurant/business-day/services/tradingDay.js`; the business core from `now() AT TIME ZONE businesses.timezone`. |
+| **Dates on the business's clock** | "Today", a bill's date and "not in the future" are the restaurant's or business's date in its own time zone, never the server's: a server on UTC is still on yesterday until 05:30 in India. Restaurant code takes the date from `restaurantToday()` and `todayOf()` in `modules/restaurant/business-day/services/tradingDay.js`; the business core from `now() AT TIME ZONE businesses.timezone`. A GST rate change takes effect on that date too, and a bill uses the rate in force on its own (§4.5). |
 | **Data grid everywhere** | Every list is the shared `DataGrid` component: S.No., paging, search, column choice, export and cards on a phone. |
 
 **How the code is organised.**
@@ -532,6 +533,76 @@ repair delivery and a salon bill all post a normal sale through
 `postDocument`, so numbering, stock, the credit limit, events and audit are
 always the core's.
 
+### 4.5 GST rates by date: a change that takes effect with no job runner
+
+Module `modules/tax-changes/`, on the backend and in the staff app. GST
+rates change once a year, announced ahead and in force from 1 April, so a
+change is entered ahead and must take effect on the business's own date,
+while every bill dated before keeps its rate. It serves both engines the way
+tasks do (§4.3):
+
+- **Data keyed on `business_id` only.** `business_tax_changes` and
+  `business_tax_change_items`; a restaurant reaches them through its business
+  row (`restaurant_business_id()`). Only what moves differs: a catalogue item
+  (`sku_id`, to one of the business's `business_tax_rates`) or a dish
+  (`product_id`, to one of the restaurant's `tax_rates`). The trigger
+  `business_tax_change_world` refuses a pointer outside the business.
+- **Two front doors, one service layer.** `/api/businesses/:id/tax-changes`
+  (membership → `catalog.view` / `catalog.edit`) and `/api/menu/tax-changes`
+  (`menu.view` / `menu.manage`) call `services/taxChanges.service.js` with a
+  small adapter each (`taxChangesShop.js`, `taxChangesMenu.js`), which says
+  what an item is, which rates it may take, its business's date and lock, and
+  where its audit goes. The arithmetic and the dates are pure
+  (`taxChangesMoney.js`). The staff app shares its screens the same way
+  (`modules/tax-changes/pages/`, under *Products & services* and *Menu*).
+
+**How a change takes effect.** Every reader keeps reading the rate from the
+item (`catalog_skus.tax_rate`, `products.tax_percentage`), as it always has.
+Due changes are written onto the items, lazily, by the database, before
+anything reads them:
+
+- `business_tax_change_apply(business)` applies, in date order, every
+  scheduled item whose date has come on the business's clock, under the
+  business row's lock (the lock every posting takes first, so a bill sees
+  all of a change or none of it). The server calls it as a request opens a
+  business (`businessAccess.open` from each router's `context()`; the
+  statement that loads the membership also says whether anything is due, so
+  a request with nothing due costs one `EXISTS`), and again inside
+  `postDocument`, under that lock.
+- `business_tax_change_apply_menu(restaurant, day)` does the same for dishes,
+  for the restaurant's trading date (`restaurant_trading_date()`: the main
+  counter's open business day, else its date less the morning cut-off),
+  under the menu's advisory lock. The menu router calls it before every menu
+  screen (the POS reads its menu there), the guests' menus (a table's QR
+  menu and online ordering, both `menuFor`) and a pre-order's prices call it
+  before they read a dish, and `priceLines` calls it for the
+  order's own business day before it prices dishes, the one place a dish's
+  rate becomes an order line's (bills price from order lines).
+
+An item moves in a savepoint of its own: it takes the new rate (and, when the
+change keeps the price before GST, the price that keeps it, to the paisa as
+the preview works it out), its item row keeps what it was and became, and the
+activity log gets a row in the name of whoever entered the change. One the
+database refuses is kept as refused, with the sentence; the others move.
+
+**Midnight.** A request can meet a change halfway only at the moment its
+date comes. A shop's posting whose fixed prices a type's service worked out
+at the day before's rate, or that began before another request applied a
+change for the day after its own date, is refused (409 `gst_rates_changed`)
+and sent again, rather than billed at the other day's rate. A restaurant
+outlet still on last night's business day while another has opened today's
+prices its dishes as they were before the change (`forOrderDay` lays the
+item rows' `from_*` values over the dish).
+
+**Why this way.** Resolving the rate by date in every query would have
+changed every reader in every business type, the restaurant's billing
+included, and kept a second source of the rate beside the item. Writing the
+change onto the item keeps one place to read, needs no job runner, and
+leaves posted documents as they are: their lines already keep the rate they
+were posted at. `backend/tests/taxChangeReaders.test.js` lists every file
+that reads an item's rate with how it gets the rate of the day, and fails
+when a new one is not listed.
+
 ---
 
 ## 5. Two engines, one direction
@@ -628,6 +699,7 @@ workspaces; the backend has its own install.
 │   │   │   │                 fashion-electronics, salon-weight, health, quotations and licences (every
 │   │   │   │                 type but the restaurant), hardware, agri, optical, garage, memberships,
 │   │   │   │                 laundry, jewellery, rentals, fuel, lodging
+│   │   │   ├── tax-changes/  GST rates by date for every business: a shop's items and a restaurant's dishes
 │   │   │   └── tasks/        tasks, issues & projects for every business (+ library/ of built-in templates)
 │   │   ├── config/           env.js (reads and checks .env), database.js (pg pool + DB_POOL_GUARD)
 │   │   ├── middlewares/      authenticate, authorize, authorizeOrApprove, resolveOutlet, requireFeature,
@@ -659,6 +731,8 @@ workspaces; the backend has its own install.
 │   │   │   │   │             weight, health, hardware, agri, optical, garage, memberships, laundry,
 │   │   │   │   │             jewellery, rentals, fuel, lodging; and
 │   │   │   │   │             quotations and licences (every type but the restaurant)
+│   │   │   │   ├── tax-changes/  the GST rate change screens, shared by the restaurant (/menu/tax-changes)
+│   │   │   │   │             and Business Admin (…/tax-changes)
 │   │   │   │   └── tasks/    the task screens, shared by the restaurant (/tasks) and Business Admin (…/tasks)
 │   │   │   ├── layouts/      AppLayout.jsx (header, switchers, bell, side menu), NotFoundPage, PlannedPage,
 │   │   │   │                 GuestSiteRedirect
@@ -867,9 +941,10 @@ file behind an index file with the module's name, which callers import:
 
 **Modules for every business, the restaurant included:**
 
-| Module | Backend | Frontend (`modules/tasks/pages/`) | Tables |
+| Module | Backend | Frontend (`modules/<module>/pages/`) | Tables |
 | --- | --- | --- | --- |
 | Tasks, issues & projects (`modules/tasks`) | `routes/tasks.routes.js` (both front doors), `controllers/tasks.controller.js`, `services/` (`scope`, `common`, `people`, `templates`, `recurrence`, `tasks`, `issues`, `projects`, `files`, `reports`, `notifications`), `repositories/tasks.repository.js`, `library/`; bell provider `notifications/providers/tasks.js` | `TasksRoutes`, `TasksScope`, `MyTasksPage`, `TaskRunPage`, `BoardPage`, `CalendarPage`, `IssuesPage`, `IssueDetailPage`, `ProjectsPage`, `ProjectDetailPage`, `TemplatesPage`, `RecurringPage`, `TaskReportsPage`, `forms`, `ItemsEditor`, `ScheduleForm`, `parts`, `taskWords`, `useTasks`, `useServerGrid`; API calls `services/tasks.service.js`; styles `styles/tasks.css` | `business_task*`, `business_issues`, `business_project*`, `platform_task_categories` |
+| GST rates by date (`modules/tax-changes`) | `routes/taxChanges.routes.js` (both front doors: `businessRoutes`, mounted from `business.routes.js`, and `menuHandlers`, mounted from the restaurant's `menu.routes.js`), `services/` (`taxChanges.service` the shared flows, `taxChangesShop` and `taxChangesMenu` the two worlds with their gates, `taxChangesMoney` the arithmetic and dates); the gates are called from `businessAccess.open`, `postDocument`, the menu router, `tableRequest.service`, `preorder.service` and `order.service`'s `priceLines` | `BusinessTaxChangesPage`, `MenuTaxChangesPage`, `TaxChangesView`, `TaxChangeTool` (the new change with its preview), `TaxChangeDialog`, `TaxHistoryDialog` (an item's GST history, from the catalogue and the menu's products); words in `taxChanges.js`; API calls `services/taxChanges.service.js`; styles `styles/tax-changes.css` | `business_tax_changes`, `business_tax_change_items` |
 
 Where each area's tests are: [TESTING.md](TESTING.md).
 

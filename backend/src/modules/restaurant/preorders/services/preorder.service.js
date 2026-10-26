@@ -24,6 +24,7 @@ const restaurantFeatures = require("../../setup/services/restaurantFeatures.serv
 const outletRepository = require("../../setup/repositories/outlet.repository");
 const restaurantRepository = require("../../setup/repositories/restaurant.repository");
 const tradingDay = require("../../business-day/services/tradingDay");
+const taxChanges = require("../../../tax-changes/services/taxChangesMenu");
 
 const OPEN = ["booked", "in_production", "ready"];
 const NEXT = { booked: ["in_production", "ready"], in_production: ["ready"], ready: [] };
@@ -211,7 +212,9 @@ const create = async (restaurantId, data, userId, ctx = {}) => {
     throw new AppError(400, "A pre-order is for later today or a later day");
   }
 
-  // Each item at its menu price (a size adds its difference; by weight, per kg).
+  // Each item at its menu price (a size adds its difference; by weight, per kg),
+  // after GST rate changes due on the trading day have taken effect.
+  await taxChanges.onMenu(restaurantId);
   const priced = [];
 
   for (const item of data.items) {

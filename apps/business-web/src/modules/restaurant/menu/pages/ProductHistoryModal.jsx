@@ -17,8 +17,9 @@ const sizeName = (label) => {
   return at >= 0 ? label.slice(at + 3) : label;
 };
 
-// "Menu import (prices.csv)" -> "menu import (prices.csv)", file name intact.
-const lowerFirst = (text) => `${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+// "Menu import (prices.csv)" -> "menu import (prices.csv)", file name intact;
+// a word in capitals ("GST rate change of 1 Apr 2027") stays as it is.
+const lowerFirst = (text) => (/^[A-Z]{2}/.test(text) ? text : `${text.charAt(0).toLowerCase()}${text.slice(1)}`);
 
 const headline = (entry) => {
   const changes = (entry.details && entry.details.changes) || {};

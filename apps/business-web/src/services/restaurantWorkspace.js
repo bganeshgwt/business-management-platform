@@ -11,7 +11,7 @@ const AREAS = {
   kitchen: ['/kitchen'],
   day: ['/business-day'],
   expenses: ['/expenses'],
-  menu: ['/menu/products', '/menu/categories', '/menu/brands', '/menu/modifiers', '/menu/happy-hour', '/menu/tax-rates'],
+  menu: ['/menu/products', '/menu/categories', '/menu/brands', '/menu/modifiers', '/menu/happy-hour', '/menu/tax-rates', '/menu/tax-changes'],
   tables: ['/tables', '/tables/floors'],
   reservations: ['/reservations'],
   inventory: ['/inventory/items', '/inventory/stock', '/inventory/insights', '/inventory/day-end', '/inventory/transfers', '/inventory/settings'],

@@ -458,6 +458,13 @@ async function updateCatalog(business, user, skuId, body, inTransaction = null) 
       decimal(body.reorderLevel ?? current.reorder_level, 'Reorder level', 3), hsn, mrp, barcode, shelf, memberPrice,
       body.internalUse === undefined ? current.internal_use : v.requiredBoolean(body.internalUse, 'For use in services only')]);
     if (barcode !== current.barcode) await repo.audit(db, business.id, user.id, 'catalog.barcode_changed', current.id, { label, barcodeFrom: current.barcode || 'none', barcodeTo: barcode || 'none' });
+    // A slab changed on the item itself, from today: its GST history shows it beside the changes by date.
+    if (Number(current.tax_rate) !== tax.rate || String(current.tax_rate_id ?? '') !== String(tax.taxRateId ?? '')) {
+      const names = await repo.all(db, 'SELECT id,name FROM business_tax_rates WHERE business_id=$1 AND id=ANY($2::bigint[])', [business.id, [current.tax_rate_id, tax.taxRateId].filter(Boolean)]);
+      const nameOf = (slabId, rate) => names.find((t) => String(t.id) === String(slabId))?.name || `${Number(rate)}%`;
+      await repo.audit(db, business.id, user.id, 'catalog.slab_changed', current.id, { label, from: nameOf(current.tax_rate_id, current.tax_rate), to: nameOf(tax.taxRateId, tax.rate),
+        fromRate: Number(current.tax_rate).toFixed(2), toRate: tax.rate.toFixed(2) });
+    }
     const memberText = (x) => (x === null || x === undefined ? null : Number(x).toFixed(2));
     if (Number(current.price) !== price || String(current.mrp ?? '') !== String(mrp ?? '') || memberText(current.member_price) !== memberText(memberPrice)) {
       await repo.audit(db, business.id, user.id, 'catalog.price_changed', current.id, { label, from: current.price, to: price.toFixed(2), mrpFrom: current.mrp, mrpTo: mrp === null ? null : Number(mrp).toFixed(2),
@@ -659,6 +666,8 @@ const rentalItems = () => require('../../rentals/services/rentalsItems.service')
 const fuelProducts = () => require('../../fuel/services/fuelSetup.service');
 // A lodging business's room types: their nights are billed from the stay's folio, at check-out.
 const lodgingRooms = () => require('../../lodging/services/lodgingSetup.service');
+// GST rate changes by date: those due take effect before a posting reads a slab.
+const taxChanges = () => require('../../../tax-changes/services/taxChangesShop');
 const named = (value) => value !== undefined && value !== null && value !== '';
 // Posts a sale or purchase inside the caller's transaction. Permissions and
 // the request are checked by the caller. `fixed` (used by wholesale
@@ -714,6 +723,9 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
       if (old.request_hash !== hash) fail('This request key was already used for different data', 409);
       return old;
     }
+    // GST rate changes whose date has come take effect before a line reads its
+    // slab, so the bill is at the slabs in force on its own date.
+    await taxChanges().onPosting(db, business, inputLines, fixed);
     const settings = await repo.one(db, 'SELECT tax_mode,rounding,state_code,walk_in_credit FROM business_settings WHERE business_id=$1', [business.id]);
     // Purchase costs are always entered before tax; the setting is about selling prices.
     const taxMode = kind === 'sale' ? settings?.tax_mode || 'exclusive' : 'exclusive';

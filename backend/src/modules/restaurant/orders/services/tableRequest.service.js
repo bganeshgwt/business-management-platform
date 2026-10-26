@@ -7,6 +7,7 @@ const crmRepository = require("../../crm/repositories/crm.repository");
 const onlineOrderRepository = require("../../online/repositories/onlineOrder.repository");
 const deliveryRepository = require("../../deliveries/repositories/delivery.repository");
 const orderService = require("./order.service");
+const taxChanges = require("../../../tax-changes/services/taxChangesMenu");
 const AppError = require("../../../../utils/AppError");
 const { round2 } = require("../../../../utils/money");
 
@@ -134,6 +135,9 @@ const orderingState = (settings, day) => {
 // Only what a guest should see: no codes, tax rates, costs, stock or ids of
 // anything but the dishes, sizes and add-ons they can pick.
 const menuFor = async (restaurantId, { outletId = null, orderType = "dine_in", channelId = null, timezone }) => {
+  // GST rate changes whose day has come take effect first: a guest sees the
+  // trading day's prices.
+  await taxChanges.onMenu(restaurantId);
   const [categories, products, variants, modifiers, comboParts, offers, rules, soldOut] =
     await Promise.all([
       tableRequestRepository.findMenuCategories(restaurantId),

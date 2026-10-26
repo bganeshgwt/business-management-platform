@@ -70,6 +70,7 @@ on record.
 - [The screens every type shares](#the-screens-every-type-shares)
   - [Several locations (branches)](#several-locations-branches)
   - [Products, prices and opening stock](#products-prices-and-opening-stock)
+  - [GST rate changes](#gst-rate-changes)
   - [Daily money, expenses and cashier shifts](#daily-money-expenses-and-cashier-shifts)
   - [Payment methods](#payment-methods)
   - [Purchases: receiving, free goods, discounts, purchase orders, paying suppliers](#purchases-receiving-free-goods-discounts-purchase-orders-paying-suppliers)
@@ -1351,6 +1352,21 @@ one marked as the default for new dishes. A new restaurant starts with four: *Ex
 every dish that uses it — but **bills already raised keep the rate they were charged
 at**, so history stays correct. A rate in use cannot be deleted.
 
+**GST rate changes** (Menu) enters the yearly GST change ahead of its day, as a shop
+does ([GST rate changes](#gst-rate-changes)): **New GST rate change**, pick the dishes
+(by their tax rate now, category, HSN / SAC code or a name), the tax rate they move to
+and the first day (the next 1 April to start with), **Preview** each dish's price and
+GST then, give the reason and **Schedule**. A price that includes GST keeps its total
+unless *Keep the price before GST instead* is ticked, which moves the dish's price and
+its sizes with the rate (add-ons, happy-hour prices and the prices set for an outlet
+or a channel stay). It takes effect on the
+restaurant's own trading day: a night past midnight stays on the old rate until its
+business day closes, and an outlet still on yesterday's day sells at yesterday's rates.
+Each order line takes its business day's rate and the bill keeps it. Before the day a
+change can be cancelled, whole or dish by dish, with a reason. A dish's **GST history**
+(*More actions*) shows its changes; *Change history* shows them too, as edits made by
+the person who entered them.
+
 **Happy hour** sets price windows: a different price for selected dishes between certain
 times on certain days, optionally only within a season. The POS applies the window
 automatically when the order is taken.
@@ -2256,6 +2272,55 @@ reorder level.
 - **Barcodes.** Two items never share one. *Edit* changes an item's barcode
   to the one printed on the pack, or clears it; **Barcode labels** gives an
   in-store barcode to items that have none.
+
+### GST rate changes
+
+The GST Council now changes GST rates once a year, announced ahead and in
+force from 1 April. **Products & services › GST rate changes** enters a change
+before its day; on that day it takes effect by itself, on your own date, and
+bills made before keep their rates. Entering and cancelling a change needs
+*Change prices, tax, categories, units and pack sizes* (`catalog.edit`);
+everyone who sees the catalogue sees the changes.
+
+The yearly change, step by step:
+
+1. **New GST rate change**.
+2. **Which items**: pick them by the slab they are at now (*Now at*), a
+   category (its sub-categories come with it), the first digits of their HSN
+   or SAC code, or a name or code; tick *Switched-off items too* to include
+   those.
+3. **The change**: the slab they move to (*Moves to*; add it first under
+   *Settings › Tax rates* if it is new) and the first day of the new rate
+   (*From*, which starts on the next 1 April; any day from tomorrow, within
+   two years). If your prices include GST, they keep their total and the GST
+   inside them is worked out again; tick *Keep the price before GST instead*
+   for the price to move with the rate (its member and branch prices too).
+   Prices before GST always stay as they are.
+4. **Preview**: each item with its slab, price and GST now and from the day,
+   and what the customer pays. An item already at that slab then is not ticked;
+   one that cannot move says why (above its MRP, already moving that day, a
+   fuel, a jewellery item or a room type, which keep their own rates).
+   Untick any item that should stay.
+5. **Reason** (the notification, for example "GST Council notification of 15
+   March 2027"), then **Schedule for N items**. Sent twice, it is still one
+   change.
+
+The list shows the changes still to come first, then those in force and those
+cancelled. **Open** shows a change's items and what happened to each; before
+its day, **Cancel the change**, or **Cancel** on one item, with the reason.
+From its day it is kept for good. On *Products & services*, an item's GST
+column shows a change still to come under its slab, and **GST history** (on
+its row) lists every change that moved it or is to move it, with who entered
+it and why, and each time its slab was changed on the item itself.
+
+- **From the day**, every sale, Quick bill, quotation and price uses the new
+  slab. An order priced before it (a garment order, a spectacle order, a job
+  card, a hire, a sales order) is billed at the rate of the bill's day: a price
+  that includes GST keeps its total, one before GST its value before GST. A
+  quotation made before is revised (its prices again at the day's slab), then
+  billed.
+- **A change for today** is made on the item itself (*Edit*, its GST slab).
+- A kit's own rate follows its parts by itself.
 
 ### Daily money, expenses and cashier shifts
 
@@ -5111,6 +5176,11 @@ the link you were sent).
   The Owner role is given only when a business is created and cannot be
   handed out: give the person who runs it a role in Staff & access (Manager,
   or a role made under Roles & permissions).
+- **A GST rate change moves items and dishes only.** On the change's date,
+  change by hand the rates kept in settings: a fashion shop's *GST by price*,
+  a lodge's two room-night slabs, and a restaurant's default GST rate (its
+  advances' GST). A new rate for jewellery or fuel needs a change to the
+  platform.
 - **Without the internet.** Business Admin and the guests' site are web pages
   that talk to the platform's server. When the server sits in the restaurant,
   tills on its own Wi-Fi keep working without an internet line. The kitchen display

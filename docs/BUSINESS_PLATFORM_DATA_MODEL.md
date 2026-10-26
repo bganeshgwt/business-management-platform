@@ -182,7 +182,7 @@ The tables every type shares. A type adds its own tables beside them ([§5](#5-t
 ### Catalogue and units
 
 - **Categories.** `catalog_categories` is a tree per business: a composite self-reference, at most five levels and no loops (trigger), sibling names unique ignoring case. `catalog_products.category_id` points at it; a product without one shows its free-text `category`.
-- **Products and items.** `catalog_products` holds a product (goods or a service). `catalog_skus` holds each sellable item of it (a variant, a size), with a code and a barcode (each unique in the business), a price, a GST slab, a unit, a reorder level, `tracking` (none, quantity, batch or serial) and free `attributes` (JSON). An item also carries:
+- **Products and items.** `catalog_products` holds a product (goods or a service). `catalog_skus` holds each sellable item of it (a variant, a size), with a code and a barcode (each unique in the business), a price, a GST slab (moved to another on a date by a GST rate change: [GST rates by date](#gst-rates-by-date)), a unit, a reorder level, `tracking` (none, quantity, batch or serial) and free `attributes` (JSON). An item also carries:
   - `hsn_code` (4, 6 or 8 digits) and `mrp` (the printed maximum retail price, GST included), with `CHECK (mrp IS NULL OR price <= mrp)`. When prices are before GST, the API also refuses a price whose GST-inclusive value passes the MRP: on the catalogue, on a receipt's new shelf price and on every sale line. A wholesale dispatch keeps its order's prices.
   - `shelf_location` (where it sits), `member_price` (what a loyalty member pays when it is lower than the price) and `internal_use` (kept in stock to be used up inside services and never sold; the bill screens leave it out).
 - **Branch prices.** `business_sku_location_prices` gives a location its own price for an item. With no row, the item's price applies.
@@ -1051,3 +1051,14 @@ One model for every business type and the restaurant, keyed on `business_id` ([A
 | `business_projects` (+ `_members`, `_milestones`, `_lists`) | Projects, who sees them, their milestones and lists. |
 
 Where and who differ by world: a restaurant's outlet, employee or role; a business's location, resource or business role. A trigger (`business_task_world_check`) refuses a pointer outside the business. The modules are `tasks`, `issues` and `projects`: on from the start for a restaurant ([Restaurant features](#restaurant-features)) and off for every other type. Tasks is recommended for a supermarket, a pharmacy and a clinic, and issues for a supermarket and a pharmacy. Permissions are `tasks.*`, `issues.*` and `projects.*`, with the actions assign, review and manage. A day's tasks follow the day cut-off: the restaurant's own, or `business_settings.day_cutoff_hour`. Events: `task.assigned`, `issue.reported` and `issue.assigned`.
+
+## GST rates by date
+
+One model for every business type and the restaurant, keyed on `business_id`, as tasks are ([ARCHITECTURE.md › 4.5](ARCHITECTURE.md#45-gst-rates-by-date-a-change-that-takes-effect-with-no-job-runner)):
+
+| Table | What it holds |
+|---|---|
+| `business_tax_changes` | One change: the GST rate items move to (a shop's slab, or a restaurant's tax rate), its first day on the business's or restaurant's own date, what a price that includes GST keeps (its total, or its part before GST), the reason, and who entered it. Never changed. |
+| `business_tax_change_items` | Each item (a shop's `catalog_skus` row) or dish (a restaurant's `products` row) it moves: scheduled, then applied or refused on its date, or cancelled before it, with what it was and became. Never deleted. |
+
+An item's GST is still read from the item, by every bill, preview and screen: on a change's date the database moves the item there (`business_tax_change_apply`, `business_tax_change_apply_menu`), lazily, before the first request or posting that reads it, so nothing waits for a job. A posted bill keeps the rate each line was posted at, as it always has. A trigger (`business_tax_change_world`) refuses a change that points outside its business: a shop's moves its own items to its own slabs, a restaurant's its own dishes to its own tax rates. A slab or tax rate items are to move to cannot be switched off before their date (`business_tax_rates_in_change`). The rules a person meets: [BUSINESS_RULES.md › GST rates by date](BUSINESS_RULES.md#gst-rates-by-date); every column: [DATABASE.md › GST rates by date](DATABASE.md#gst-rates-by-date).

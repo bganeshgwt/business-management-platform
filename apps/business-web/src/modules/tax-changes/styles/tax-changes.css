@@ -1,0 +1,168 @@
+/* GST rate changes: the yearly change tool, a change's items and an item's GST history. */
+
+.txc-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+/* A step of the tool: a tinted panel. */
+.txc-panel {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.txc-panel legend {
+  padding: 0 6px;
+  margin-left: -6px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: var(--text);
+}
+
+.txc-note {
+  margin: 0;
+}
+
+.txc-block {
+  display: block;
+  margin-top: 2px;
+}
+
+.txc-go .button {
+  width: 100%;
+}
+
+.txc-stats {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.txc-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.txc-two-line {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.txc-two-line small {
+  font-size: 0.75rem;
+}
+
+/* A change's facts: when, to what, why, by whom. */
+.txc-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px 16px;
+  margin: 0;
+}
+
+.txc-facts div {
+  min-width: 0;
+}
+
+.txc-facts .txc-wide {
+  grid-column: 1 / -1;
+}
+
+.txc-facts dt {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.txc-facts dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+
+/* Cancelling, with its reason, inside the dialog. */
+.txc-cancel {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--danger);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.txc-cancel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* An item's history, newest first. */
+.txc-history {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.txc-entry {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--info);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.txc-entry p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.txc-entry .chip-button {
+  justify-self: start;
+}
+
+.txc-entry.txc-applied {
+  border-left-color: var(--success);
+}
+
+.txc-entry.txc-cancelled,
+.txc-entry.txc-edit {
+  border-left-color: var(--border);
+}
+
+.txc-entry.txc-refused {
+  border-left-color: var(--danger);
+}
+
+.txc-entry-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* The GST column of a list: the next change under the rate. */
+.txc-next {
+  display: block;
+  color: var(--info-text);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 720px) {
+  .txc-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

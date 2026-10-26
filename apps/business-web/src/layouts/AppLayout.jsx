@@ -92,6 +92,7 @@ const NAV_SECTIONS = [
       { to: "/menu/products", label: "Products", icon: "products", permission: "menu.view" },
       { to: "/menu/modifiers", label: "Modifiers", icon: "modifiers", permission: "menu.view" },
       { to: "/menu/tax-rates", label: "Tax rates", icon: "tax", permission: "menu.view" },
+      { to: "/menu/tax-changes", label: "GST rate changes", icon: "calendar", permission: "menu.view" },
       { to: "/menu/happy-hour", label: "Happy hour", icon: "happyHour", permission: "menu.view" },
     ],
   },

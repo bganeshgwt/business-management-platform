@@ -11,10 +11,14 @@ const authenticate = require("../../../../middlewares/authenticate");
 const authorize = require("../../../../middlewares/authorize");
 const requireFeature = require("../../../../middlewares/requireFeature");
 const { productImageUpload } = require("../../../../middlewares/upload");
+const taxChanges = require("../../../tax-changes/routes/taxChanges.routes").menuHandlers;
 
 const router = express.Router();
 
 router.use(authenticate);
+// GST rate changes whose day has come take effect before any menu screen (and
+// the POS's menu) is read: the dishes show the trading day's rates and prices.
+router.use(taxChanges.gate);
 router.get('/products/:productId/service-options', authorize('menu.view'), require('../controllers/menuServiceOptions.controller').get);
 router.put('/products/:productId/service-options', authorize('menu.manage'), require('../controllers/menuServiceOptions.controller').save);
 router.get('/products/:productId/addon-groups', authorize('menu.view'), require('../controllers/addonGroups.controller').get);
@@ -35,6 +39,15 @@ router.get("/tax-rates", authorize("menu.view"), taxRateController.list);
 router.post("/tax-rates", authorize("menu.manage"), taxRateController.create);
 router.put("/tax-rates/:id", authorize("menu.manage"), taxRateController.update);
 router.delete("/tax-rates/:id", authorize("menu.manage"), taxRateController.remove);
+
+// GST rate changes by date (modules/tax-changes): dishes move to another tax
+// rate from a day, entered ahead (the yearly change from 1 April).
+router.get("/tax-changes", authorize("menu.view"), taxChanges.list);
+router.post("/tax-changes/preview", authorize("menu.manage"), taxChanges.preview);
+router.post("/tax-changes", authorize("menu.manage"), taxChanges.schedule);
+router.get("/tax-changes/:id", authorize("menu.view"), taxChanges.detail);
+router.post("/tax-changes/:id/cancel", authorize("menu.manage"), taxChanges.cancel);
+router.post("/tax-changes/:id/items/:itemId/cancel", authorize("menu.manage"), taxChanges.cancelItem);
 
 // Modifiers come before "/products/:id" style routes that could shadow them.
 router.get("/modifiers", authorize("menu.view"), menuExtrasController.listModifiers);
@@ -136,6 +149,8 @@ router.patch("/products/:id/status", authorize("menu.manage"), menuController.se
 router.get("/products/:id/usage", authorize("menu.view"), menuController.productUsage);
 // Who changed this dish's price, sizes or availability, and when.
 router.get("/products/:id/history", authorize("audit.view"), menuController.productHistory);
+// Its GST rates: the changes by date that moved it or are to move it, and its rate changed on the dish.
+router.get("/products/:id/tax-history", authorize("menu.view"), taxChanges.history);
 router.post(
   "/products/:id/image",
   authorize("menu.manage"),

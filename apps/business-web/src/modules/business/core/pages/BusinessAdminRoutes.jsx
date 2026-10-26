@@ -104,6 +104,8 @@ const LabQcPage = lazy(() => import("../../health/pages/LabQcPage"));
 const TasksRoutes = lazy(() => import("../../../tasks/pages/TasksRoutes"));
 // Quotations (every type but a restaurant).
 const QuotationsPage = lazy(() => import("../../quotations/pages/QuotationsPage"));
+// GST rate changes by date (every type but a restaurant, whose menu has its own).
+const BusinessTaxChangesPage = lazy(() => import("../../../tax-changes/pages/BusinessTaxChangesPage"));
 // Hardware, paints & building materials.
 const SitesPage = lazy(() => import("../../hardware/pages/SitesPage"));
 const FittersPage = lazy(() => import("../../hardware/pages/FittersPage"));
@@ -243,6 +245,7 @@ function screens(type) {
     "categories": <CategoriesPage />,
     "units": <UnitsPage />,
     "kits": <KitsPage />,
+    "tax-changes": <BusinessTaxChangesPage />,
     "emi-finance": <FinancePage />,
     "stock": <StockPage />,
     "movements": <MovementsPage />,

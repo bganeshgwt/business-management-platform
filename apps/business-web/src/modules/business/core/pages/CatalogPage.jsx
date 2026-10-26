@@ -19,6 +19,10 @@ import { agriBody, agriFormOf, classOf, kindWord } from "../../agri/pages/agri";
 // An optical shop's contact lenses: one item for each power (with Variants on).
 import PowerGridFields from "../../optical/pages/PowerGridFields";
 import { emptyGrid, gridBody, usesOptical } from "../../optical/pages/optical";
+// An item's GST history: its GST rate changes by date (modules/tax-changes).
+import TaxHistoryDialog from "../../../tax-changes/pages/TaxHistoryDialog";
+import { shopChanges } from "../../../tax-changes/services/taxChanges.service";
+import { WORDS, onDate } from "../../../tax-changes/taxChanges";
 
 // Extra details a product may carry, by the module that allows them.
 const ATTRIBUTES = {
@@ -44,6 +48,8 @@ export default function CatalogPage() {
   const [editing, setEditing] = useState(() => (params.get("new") === "1" && biz.can("catalog.create") ? {} : null));
   const [notice, setNotice] = useState("");
   const [pricing, setPricing] = useState(null);
+  const [history, setHistory] = useState(null);
+  const taxChanges = useMemo(() => shopChanges(biz.id), [biz.id]);
   // A branch may sell at its own price once there is more than one.
   const branches = biz.locations.filter((l) => l.active).length > 1;
   const title = word(biz.type, "products", "Products & services");
@@ -60,7 +66,9 @@ export default function CatalogPage() {
     { key: "price", header: biz.settings.tax_mode === "inclusive" ? "Price (incl. tax)" : "Price", type: "money", exact: true, value: (s) => Number(s.price), mobile: "show" },
     { key: "mrp", header: "MRP", type: "money", exact: true, value: (s) => (s.mrp === null || s.mrp === undefined ? null : Number(s.mrp)), defaultHidden: SERVICES.includes(biz.type) },
     biz.has("loyalty") && { key: "member_price", header: "Member price", type: "money", exact: true, value: (s) => (s.member_price === null || s.member_price === undefined ? null : Number(s.member_price)) },
-    { key: "tax", header: "GST", value: (s) => s.tax_rate_name || `${Number(s.tax_rate)}%` },
+    // Its slab now, and a GST rate change still to come.
+    { key: "tax", header: "GST", value: (s) => s.tax_rate_name || `${Number(s.tax_rate)}%`,
+      render: (s) => <>{s.tax_rate_name || `${Number(s.tax_rate)}%`}{s.tax_change && <small className="txc-next">{s.tax_change.name} from {onDate(s.tax_change.startsOn)}</small>}</> },
     biz.has("agri") && { key: "input_kind", header: "Farm input", value: (s) => kindWord(classOf(s).kind),
       render: (s) => (classOf(s).kind ? `${kindWord(classOf(s).kind)}${classOf(s).subsidised ? " · subsidised" : ""}` : <span className="muted">—</span>) },
     biz.has("inventory") && { key: "shelf", header: "Shelf", value: (s) => s.shelf_location || "", render: (s) => s.shelf_location || <span className="muted">—</span> },
@@ -74,10 +82,11 @@ export default function CatalogPage() {
     { key: "in_packs", header: "In packs", defaultHidden: !biz.has("sales_orders"), value: (s) => (packOf(s) ? inPacks(s.stock, s.unit, packOf(s).unit, packOf(s).factor) : ""),
       render: (s) => (packOf(s) && s.kind !== "service" ? inPacks(s.stock, s.unit, packOf(s).unit, packOf(s).factor) : <span className="muted">—</span>) },
     { key: "active", header: "Status", type: "status", value: (s) => (s.active ? "active" : "inactive"), render: (s) => <ActiveBadge active={s.active} /> },
-    biz.can("catalog.edit") && { key: "actions", header: "", label: "Actions", type: "actions", render: (s) => (
+    { key: "actions", header: "", label: "Actions", type: "actions", render: (s) => (
       <span className="bz-row-actions">
-        <button type="button" className="chip-button" onClick={() => setEditing(s)}>Edit</button>
-        {branches && <button type="button" className="chip-button" onClick={() => setPricing(s)}>Branch prices</button>}
+        {biz.can("catalog.edit") && <button type="button" className="chip-button" onClick={() => setEditing(s)}>Edit</button>}
+        {biz.can("catalog.edit") && branches && <button type="button" className="chip-button" onClick={() => setPricing(s)}>Branch prices</button>}
+        {!s.is_kit && <button type="button" className="chip-button" onClick={() => setHistory(s)}>GST history</button>}
       </span>
     ) },
   ], [biz, branches]);
@@ -108,6 +117,8 @@ export default function CatalogPage() {
         onSaved={(s) => { setEditing(null); setNotice(`${s.label} saved.`); list.reload(); }} />}
       {pricing && <BranchPricesDialog sku={pricing} onClose={() => setPricing(null)}
         onSaved={(n) => { setPricing(null); setNotice(n ? `${pricing.label}: ${n === 1 ? "one branch price" : `${n} branch prices`} changed.` : "No branch price changed."); }} />}
+      {history && <TaxHistoryDialog api={taxChanges} words={WORDS.shop} itemId={history.id} label={history.label} canEdit={biz.can("catalog.edit")} currency={biz.symbol}
+        onClose={() => setHistory(null)} onChanged={() => list.reload()} />}
     </div>
   );
 }
