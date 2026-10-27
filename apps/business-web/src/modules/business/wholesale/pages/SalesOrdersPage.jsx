@@ -23,6 +23,8 @@ import { ChallanDialog, DeliveryDialog, TransportDialog, TransportFields } from 
 import { DELIVERY, emptyTransport, transportBody } from "./deliveryFormat";
 // A hardware shop's order goes to one of the customer's sites.
 import { OrderSite } from "../../hardware/pages/SiteField";
+// A hardware shop's order may name the fitter its invoices earn commission for.
+import { OrderFitter } from "../../hardware/pages/BillExtras";
 import { usesSites } from "../../hardware/pages/hardware";
 
 // Sales orders of a wholesale business. An order fixes the prices; each
@@ -383,6 +385,7 @@ function OrderDetail({ orderId, startDispatch, onClose, onChanged }) {
               {order.salesperson_name && <span className="bz-chip"><Icon name="user" size={13} /> {order.salesperson_name}</span>}
               {order.route_name && <span className="bz-chip"><Icon name="map-pin" size={13} /> {order.route_name}{order.beat_name ? ` · ${order.beat_name}` : ""}</span>}
               {usesSites(biz) && <OrderSite biz={biz} order={order} onChanged={onChanged} />}
+              <OrderFitter biz={biz} order={order} onChanged={onChanged} />
               {biz.can("receivables.view") && <button type="button" className="chip-button" onClick={() => setAction({ kind: "account" })}><Icon name="wallet" size={13} /> Customer account</button>}
               {order.expected_on && <span className="muted small">Wanted by {dateShort(order.expected_on)}</span>}
               {order.closed_at && <span className="muted small">{order.status === "cancelled" ? "Cancelled" : "Closed"} {dateTime(order.closed_at)} — {order.close_reason}</span>}

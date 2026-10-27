@@ -164,14 +164,17 @@ async function feed(business) {
   if (has('lodging') && can('lodging.view') && business.business_type === 'lodging') {
     items.push(...await require('../../lodging/services/lodgingGuests.service').bell(business, base, LIMIT));
   }
-  // Licences & registrations: a licence running out within 60 days (warning), or run out (critical).
+  // Licences & registrations: a licence running out within 60 days (warning), or run out (critical);
+  // one run out that stays in force while its renewal is pending warns until the renewed date is typed.
   if (has('licences') && can('licences.view')) {
     const licences = require('../../licences/services/businessLicences.service');
     for (const row of await licences.expiring(business, LIMIT)) {
       const days = Number(row.days);
-      items.push({ id: `licence:${row.id}:${row.valid_until}:${days < 0 ? 'x' : 'soon'}`, severity: days < 0 ? 'critical' : 'warning', category: 'Licences',
-        title: days < 0 ? `${row.name} has run out` : `${row.name} runs out ${dayWord(days)}`,
-        detail: `No. ${row.licence_no} · ${row.location_name} · ${days < 0 ? 'ran out' : 'valid until'} ${licences.dateWords(row.valid_until)}`,
+      const pending = days < 0 && row.in_force;
+      items.push({ id: `licence:${row.id}:${row.valid_until}:${pending ? 'pending' : days < 0 ? 'x' : 'soon'}`, severity: days < 0 && !pending ? 'critical' : 'warning', category: 'Licences',
+        title: pending ? `${row.name} is in force only while its renewal is pending` : days < 0 ? `${row.name} has run out` : `${row.name} runs out ${dayWord(days)}`,
+        detail: `No. ${row.licence_no} · ${row.location_name} · ${days < 0 ? 'ran out' : 'valid until'} ${licences.dateWords(row.valid_until)}`
+          + (row.renewal_applied_on ? ` · renewal applied for on ${licences.dateWords(row.renewal_applied_on)} (${row.renewal_reference})` : ''),
         at: `${row.valid_until}T00:00:00.000Z`, link: `${base}/licences` });
     }
   }

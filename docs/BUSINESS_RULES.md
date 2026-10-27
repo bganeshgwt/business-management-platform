@@ -330,13 +330,31 @@ These rules apply to every business type but the restaurant. The goods rules app
 
 ### A licence belongs to one location
 
-- **Rule:** with *Licences & registrations* on, each licence is kept for the one location that holds it, with its kind, number, issuing authority and the dates it is valid (no end date: it does not run out). It keeps its location and kind for good, and one number is kept once for a kind of licence in the business. A licence is renewed by changing its *Valid until*, and switched off once surrendered or cancelled; it is never deleted (the database refuses both). The activity log keeps each change with the values before and after. A licence is *in force* on a day when it is on, that day is on or after *Valid from*, and on or before *Valid until*.
+- **Rule:** with *Licences & registrations* on, each licence is kept for the one location that holds it, with its kind, number, issuing authority and the dates it is valid (no end date: it does not run out). It keeps its location and kind for good, and one number is kept once for a kind of licence in the business. A licence is renewed by changing its *Valid until*, and switched off once surrendered or cancelled; it is never deleted (the database refuses both). The activity log keeps each change with the values before and after. A licence is *in force* on a day when it is on, that day is on or after *Valid from*, and on or before *Valid until*, or past *Valid until* while a renewal applied for keeps it in force ([A renewal applied for](#a-renewal-applied-for)). A licence that covers fertilisers, seeds or insecticides is for retail sales, wholesale sales or both: a new one takes its kind's usual mark (a fertiliser authorisation retail, a seed or an insecticide licence both), and the shop changes it to what the licence says.
 - **Why:** the licences a shop must show are issued for each place of business, and an inspector asks for the one held on a given day.
-- **Change it:** the licence itself, under *Settings › Licences*; who may change licences is the role's `licences.edit`.
+- **Change it:** the licence itself, under *Settings › Licences*; who may change licences is the role's `licences.edit`. The kinds of licence and their usual marks are platform data (`platform_licence_kinds`), changed by a migration.
+
+### A renewal applied for
+
+- **Rule:** a licence with an end date may be marked *renewal applied for*, with the date it was applied for (not ahead of the business's today) and the application's reference. What the mark does once the licence is past its date is its kind's rule, kept as platform data: an insecticide sale licence stays in force while the renewal is pending, from the day it was applied for (Insecticides Rules 1971, rule 11); a fertiliser authorisation stays in force only when the renewal was applied for within one month of its date (Fertiliser (Control) Order 1985, clause 11), and lapses otherwise; every other kind lapses on its date, a seed licence too (the Seeds (Control) Order 1983 allows a late renewal within a month, but the sources read say nothing of the licence staying in force meanwhile). A licence in force only through its renewal bills with a warning at the counter, and the bell warns about it until the renewed date is typed; typing a later *Valid until* ends the mark. A licence past its date that the mark does not keep in force refuses the bill as before, saying why.
+- **Why:** a licence whose renewal is pending must not stop a lawful sale, nor keep an unlawful one going; the rules differ by licence and are kept where they can change without code.
+- **Change it:** the mark on the licence, under *Settings › Licences*; the rule of a kind is platform data, changed by a migration.
+
+### A licence's scanned copies
+
+- **Rule:** a licence keeps its scanned copies (a PDF or a photo, up to 5 MB, as the platform's other private files), each kept with the dates the licence had when it was added, so a renewal's copy is added beside the earlier ones. The bytes are checked: a renamed file is refused. A copy is opened only through the API, by someone who may see licences, at the licence's own location; only someone who may change licences adds one; a copy is never changed or deleted.
+- **Why:** an inspector asks to see the licence held on a day, and the shop must display the current one.
+- **Change it:** nothing to set.
+
+### A licence names its qualified person, as written
+
+- **Rule:** a licence may name the qualified person it was granted on: their name, with their qualification and its certificate's number, or the reason they are exempt. A name needs one or the other. Nothing checks which qualification is valid.
+- **Why:** the rules on who qualifies to deal in fertilisers and insecticides change often and the sources disagree (a six-month or a 15-day course; exemptions for older dealers), so they are kept as data, not as code.
+- **Change it:** the licence itself.
 
 ### The bell before a licence runs out
 
-- **Rule:** the bell warns about an active licence 60 days before its *Valid until*, and again, as critical, once that date has passed. A licence switched off is not warned about.
+- **Rule:** the bell warns about an active licence 60 days before its *Valid until*, and again, as critical, once that date has passed; a licence past its date that stays in force while its renewal is pending warns (not critical), with the renewal's date and reference, until the renewed date is typed. A licence switched off is not warned about.
 - **Why:** a renewal takes weeks; a shop selling under a lapsed licence sells without one.
 - **Change it:** the 60 days is a code change (`WARN_DAYS` in `businessLicences.service.js`).
 
@@ -593,9 +611,15 @@ A hardware shop sells as every goods shop does ([Shops and the shared core](#sho
 
 ### A fitter's commission is fixed with the bill
 
-- **Rule:** a bill names at most one fitter, when it is posted (Quick bill, New sale, or the bill made from a quotation); a fitter switched off cannot be named. Each line earns by one rule: the item's own, else the nearest category's up the tree, else the rule for every item; one rule of each is on at a time. A percent is of the line's value before GST, after discounts; an amount per unit is for each stock unit of that one item, and never more than the line's value. The commission is worked out in paise when the bill is posted and kept with it: changing or switching off a rule later never changes it, and the database refuses any change to it. Goods taken back on the bill take back the line's commission in proportion to what has come back so far, so a line returned in parts gives back exactly what it earned.
+- **Rule:** a bill names at most one fitter, when it is posted (Quick bill, New sale, or the bill made from a quotation), or afterwards ([A fitter named afterwards](#a-fitter-named-afterwards)); a fitter switched off cannot be named. Each line earns by one rule: the item's own, else the nearest category's up the tree, else the rule for every item; one rule of each is on at a time. A percent is of the line's value before GST, after discounts; an amount per unit is for each stock unit of that one item, and never more than the line's value. The commission is worked out in paise when the bill is posted and kept with it: changing or switching off a rule later never changes it, and the database refuses any change to it. Goods taken back on the bill take back the line's commission in proportion to what has come back so far, so a line returned in parts gives back exactly what it earned.
 - **Why:** a fitter is owed what the bill earned when it was made; rates change, the bills behind them do not. A return undoes the sale it belongs to, and the commission with it.
 - **Change it:** the rules on *Customers & contractors › Fitters › Commission rules*; who may change them is the role's `fitter_commission.edit`.
+
+### A fitter named afterwards
+
+- **Rule:** a posted bill made without a fitter may have one named afterwards by someone who may change commission rules (`fitter_commission.edit`): its lines earn by the rules in force then, and goods already back take back their share, as a return afterwards would. Its fitter may be changed, with an activity log row, until the commission on it is paid; payouts settle a fitter's commission oldest bill first (less what returns took back), and a bill whose commission they cover keeps its fitter (the database refuses the change). A sales order may name a fitter while it is still to send: every invoice its dispatches raise earns them their commission as a bill naming them would, and naming one then names them on the order's invoices already raised without a fitter, for someone who may also name a fitter afterwards.
+- **Why:** a painter often comes for his commission after the bill was made; once paid, the commission must stay with the fitter who was paid it.
+- **Change it:** who may name a fitter afterwards is the role's `fitter_commission.edit`.
 
 ### A fitter is paid what is due, through the expense book
 
@@ -603,15 +627,51 @@ A hardware shop sells as every goods shop does ([Shops and the shared core](#sho
 - **Why:** money paid to a fitter leaves the drawer or the bank like any other expense, and the books must show it once.
 - **Change it:** who may pay is the role's `fitter_commission.approve`.
 
+### A tinted line is made to order
+
+- **Rule:** with *Paint tinting* on, a bill or quotation line of a base item kept in stock (by quantity or batch) may be tinted to a shade that is on; an item that says which base it is takes only shades needing that base. The tinting charge is a service item of the shop's, billed at its own GST slab, one for each tin. Each tinted line of a bill is a job on the tinting board: queued, then tinted (the base leaves stock then, through the core, from the line's own batch), then handed over, one step at a time. Billing keeps the base free: what is in stock at the location, less what waits on the board, must cover the line. A tinted line is never taken back on a return (the database refuses it): it is taken back from the board, whole, on the PIN of someone who may take goods back (`sales.refund`), as a return that puts nothing back in stock, with the activity log row naming who approved it; its money goes back by a refund on the bill. A quotation's tinted line is billed tinted, from one batch; a quotation with a tinted line is not made into a sales order. Nothing here drives the tinting machine: the maker's own software does.
+- **Why:** a tinted tin has no second buyer, and its base is in stock until the tinter takes it.
+- **Change it:** the tinting charge under *Sales history › Paint tinting*; who may take a tinted tin back is the role's `sales.refund`.
+
+### Shades are kept per maker
+
+- **Rule:** a shade is kept once for its maker and code, with its name, card, the base it needs and an optional formula (colourants and their millilitres for one litre of base). Shades are typed, or imported from a spreadsheet with the platform's import safety: a check first, all or nothing, only what the file says changes, the same file twice changes nothing. A shade is switched off, never deleted; a job keeps its shade.
+- **Why:** each maker numbers its own shades, and a shop keeps hundreds.
+- **Change it:** the shades under *Sales history › Paint tinting* (the role's `hardware_tinting.edit`).
+
+### The calculators give estimates, and keep their workings
+
+- **Rule:** the material calculators work out, on the server, bricks and mortar for a wall (its size and thickness, less openings), cement, sand and aggregate for concrete or plaster (an area and a thickness, or a volume, and a mix), and steel by bar diameter and length, as well as tiles and paint. Every assumption is shown and may be changed for the job: the brick size and joint, the mix and its dry-volume factor, the wastage, a bag's kilograms and cement's density, steel's weight of one metre (diameter² ÷ 162 kg, from steel's density) and a bar's length. Results are rounded up to what a shop sells: whole bags, bricks and kilograms, whole cubic feet; an item's own unit then takes the quantity where it can (a quintal of steel, a cubic foot of sand), and says where it cannot (sand sold by the tonne). The working (what was typed, the assumptions and the result) is kept with the quotation, with the revision it was added in, or with the bill, and printed on the quotation. These are estimates for the customer, not engineering.
+- **Why:** a contractor buys by the job; the shop shows how it arrived at the quantities.
+- **Change it:** the assumptions in the calculator, for each job.
+
+### The rate board keeps each item's history
+
+- **Rule:** the rate board lists each item's earlier rate changes, newest first, as the activity log keeps every price change from any screen (the board, the item, a purchase that set a new selling price): the day and time, the rate before and after, who changed it, and the purchase that set it. A change of the MRP alone is not a rate change.
+- **Why:** a customer or the owner asks what cement cost last week.
+- **Change it:** nothing to set.
+
 ## Seeds, fertilisers & pesticides
 
 A farm-input shop sells as every goods shop does ([Shops and the shared core](#shops-and-the-shared-core)), and with its tools on (*Seeds, fertilisers & pesticides*) each item says what kind of farm input it is: fertiliser (subsidised or not), seed, pesticide, bio-input or another item. These rules follow from that. Each is checked by the server before the bill is saved, and again by the database where the bill's farm-input lines are kept. Review them with an agriculture officer of the state before trading: licence validity and dealer rules differ by state.
 
 ### A fertiliser, seed or pesticide sells only under a licence in force
 
-- **Rule:** while *Licences & registrations* is on, a bill line of a fertiliser, a seed or a pesticide is refused unless the selling location holds, that day, a licence in force that covers fertilisers, seeds or insecticides respectively. The refusal says which licence is missing, switched off, run out (and when) or not yet valid. With *Licences & registrations* off, bills are not checked against licences, and *Settings › Farm input checks* says so. Bio-inputs and other items need no licence here.
+- **Rule:** while *Licences & registrations* is on, a bill line of a fertiliser, a seed or a pesticide is refused unless the selling location holds, that day, a licence in force that covers fertilisers, seeds or insecticides respectively, for the kind of sale: a sale to a buyer with a GSTIN (a B2B invoice) is a wholesale sale and needs a licence for wholesale sales; any other sale needs one for retail sales. The refusal says which licence is missing, switched off, run out (and when, and why a renewal applied for did not keep it), not yet valid, or for the other kind of sale. A licence in force only while its renewal is pending bills with a warning ([A renewal applied for](#a-renewal-applied-for)). With *Licences & registrations* off, bills are not checked against licences, and *Settings › Farm input checks* says so. Bio-inputs and other items need no licence here. The counter asks the same checks ahead as the lines are typed.
 - **Why:** the Fertiliser (Control) Order 1985, the Seeds (Control) Order 1983 and the Insecticides Rules 1971 each require the dealer to hold an authorisation or licence for each place of business; selling without one is selling unlicensed.
 - **Change it:** keep each location's licences under *Settings › Licences*; switch the check off by switching *Licences & registrations* off in *Settings › Business tools*.
+
+### An insecticide needs its endorsement and its principal's certificate
+
+- **Rule:** at the counter, a pesticide whose item (or its brand) is not endorsed on the location's insecticide licence in force, or whose manufacturer (the item's manufacturer, else its brand) has no principal certificate on that licence in force that day (none, withdrawn on or before the day, not yet valid or run out), is billed with a warning that says which, or refused with that reason, as the shop's setting says: warn, to start with. The warning is kept with the bill in the activity log. The database does not repeat this check.
+- **Why:** the Insecticides Rules 1971 allow a dealer to sell only the insecticides endorsed on the licence (rule 10(4)), each backed by its manufacturer's principal certificate (rule 10(4A)), which the manufacturer can withdraw.
+- **Change it:** the endorsements and certificates on the licence, under *Settings › Licences*; warn or stop under *Settings › Farm input checks* (the role's `licences.edit`).
+
+### Fertiliser from a source without Form O warns
+
+- **Rule:** a purchase of fertiliser at a location is received with a warning, kept in the activity log, when the location's fertiliser authorisation in force has no certificate of source (Form O) that is on and names that supplier (by the supplier chosen on it, or by the source's name as on the certificate); or when the location holds no authorisation in force. The purchase is not refused.
+- **Why:** the Fertiliser (Control) Order 1985 asks for a Form O from each source the fertiliser comes from (clause 8); a missing one is for the shop to obtain, not a reason to leave stock unrecorded.
+- **Change it:** the certificates on the authorisation, under *Settings › Licences*.
 
 ### A banned molecule is never sold
 

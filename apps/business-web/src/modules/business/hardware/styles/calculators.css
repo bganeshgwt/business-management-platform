@@ -1,0 +1,114 @@
+/* The material calculators (pages/CalculatorDialog.jsx): a job's figures,
+   the shop's items for its materials, the answer, and the assumptions behind
+   it. Colours come from the theme's tokens only. */
+
+/* The items and the assumptions: each a framed group under its own name. */
+.hwc-set {
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-2) var(--space-4) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.hwc-set > legend {
+  padding: 0 var(--space-1);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+.hwc-set > .hwc-note {
+  margin: 0 0 var(--space-3);
+}
+.hwc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  align-items: start;
+  gap: var(--space-3);
+}
+.hwc-items {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+/* A label of the calculators' own, in the form's label colour. */
+.field > .hwc-label {
+  color: var(--text-2);
+}
+
+/* A figure with its unit beside it. */
+.hwc-measure {
+  display: flex;
+  gap: var(--space-2);
+}
+.field .hwc-measure input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.field .hwc-measure select {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+/* The wall's thickness, and the usual walls beside it. */
+.hwc-thickness {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.field .hwc-thickness input {
+  flex: 0 1 9rem;
+  min-width: 6rem;
+}
+.hwc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.hwc-chips .chip-button[aria-pressed="true"] {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+
+/* The steel's bars: a row for each size, with a remove button at the end. */
+.hwc-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) 2.25rem;
+  align-items: center;
+  gap: var(--space-2);
+}
+.hwc-bar-head {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.hwc-bars > .button {
+  align-self: flex-start;
+  margin-top: var(--space-1);
+}
+
+/* The answer: dimmed while the next one is worked out, red when the server
+   cannot work it out. */
+.hw-calc-result.hwc-waiting {
+  opacity: 0.6;
+}
+.hw-calc-result.hwc-failed {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+}
+.hwc-problem {
+  color: var(--danger);
+  font-weight: var(--weight-medium);
+}
+.hwc-lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hw-calc-result {
+    transition: opacity var(--motion-fast) ease;
+  }
+}

@@ -37,9 +37,12 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const dateWords = (day) => { const [y, m, d] = String(day).slice(0, 10).split('-'); return `${Number(d)} ${MONTHS[Number(m) - 1]} ${y}`; };
 const daysBetween = (from, to) => (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000;
 
-// A hardware shop's site on a quotation and on what it becomes (hardware
-// module), required when first needed: that module requires this one.
+// A hardware shop's site on a quotation and on what it becomes, its tinted
+// lines and the calculators' workings (hardware module), required when first
+// needed: that module requires this one.
 const sites = () => require('../../hardware/services/hardwareSites.service');
+const tinting = () => require('../../hardware/services/hardwareTinting.service');
+const calculations = () => require('../../hardware/services/hardwareCalculations.service');
 const wholesale = () => require('../../wholesale/services/businessWholesale.service');
 const credit = () => require('../../wholesale/services/businessWholesaleCredit.service');
 
@@ -78,6 +81,14 @@ function readLines(body) {
     if (!line || typeof line !== 'object' || Array.isArray(line)) fail('Each line must be an object');
     return { skuId: id(line.skuId, 'Item'), quantity: line.quantity, ...(line.unit ? { unit: String(line.unit).slice(0, 20) } : {}) };
   });
+}
+
+// A hardware shop's workings sent with a quotation (each worked out again by
+// the server); any other business sends none.
+function readWorkings(business, body) {
+  if (body.calculations === undefined || body.calculations === null) return [];
+  if (business.business_type !== 'hardware') fail('Calculator workings belong to hardware shops');
+  return calculations().read(body.calculations);
 }
 
 function readPhone(value) {
@@ -176,8 +187,11 @@ async function load(db, business, quotationId) {
   const revisions = await repo.all(db, `SELECT r.id,r.revision,r.total_before,r.total_after,r.lines_before,r.created_at,u.name AS created_by_name FROM business_quotation_revisions r
     JOIN users u ON u.id=r.created_by WHERE r.business_id=$1 AND r.quotation_id=$2 ORDER BY r.revision`, [business.id, q.id]);
   const settings = await repo.one(db, 'SELECT * FROM business_settings WHERE business_id=$1', [business.id]);
-  const site = business.business_type === 'hardware' ? await sites().siteOfQuotation(db, business, q.id) : null;
-  return { ...q, state: q.expired ? 'expired' : q.status, lines, revisions, seller: core.branchSeller(settings, q.location), site };
+  const hardware = business.business_type === 'hardware';
+  const site = hardware ? await sites().siteOfQuotation(db, business, q.id) : null;
+  const tints = hardware ? await tinting().quotationTints(db, business, q.id) : [];
+  const workings = hardware ? await calculations().ofQuotation(db, business, q.id) : [];
+  return { ...q, state: q.expired ? 'expired' : q.status, lines, revisions, seller: core.branchSeller(settings, q.location), site, tints, calculations: workings };
 }
 
 async function detail(business, quotationId) {
@@ -188,12 +202,14 @@ async function detail(business, quotationId) {
 // --- Making and revising ----------------------------------------------------------------------
 
 // body: { requestKey, locationId, contactId? | customerName (+ customerPhone?), validUntil,
-//   lines: [{ skuId, quantity, unit? }], discount?: { amount | percent, reason }, notes?, siteId? }
+//   lines: [{ skuId, quantity, unit?, tint?: { shadeId } }], discount?: { amount | percent, reason }, notes?, siteId?,
+//   calculations? (a hardware shop's calculator workings) }
 async function create(business, user, body) {
   await access.require(business, 'quotations.create');
   const requestKey = core.uuid(body.requestKey);
   const hash = hashOf(body);
   const lines = readLines(body);
+  const workings = readWorkings(business, body);
   const locationId = id(body.locationId, 'Location');
   access.requireLocation(business, locationId);
   return repo.transaction(async (db) => {
@@ -217,6 +233,8 @@ async function create(business, user, body) {
     await insertLines(db, business, saved.id, quoted);
     if (business.business_type === 'hardware') await sites().setQuotationSite(db, business, user, saved, body.siteId);
     else if (body.siteId) fail('Sites belong to hardware shops');
+    await tinting().saveQuotationTints(db, business, saved, body.lines);
+    if (workings.length) await calculations().saveForQuotation(db, business, user, saved, workings);
     await repo.audit(db, business.id, user.id, 'quotation.created', saved.id, { quotationNo: saved.quotation_no, customer: saved.customer_name, total: saved.total, validUntil });
     await repo.event(db, business.id, user.id, 'quotation.created', 'quotation', saved.id, {
       quotationNo: saved.quotation_no, contactId: saved.contact_id, total: saved.total, validUntil,
@@ -233,6 +251,7 @@ async function revise(business, user, quotationId, body) {
   const requestKey = core.uuid(body.requestKey);
   const hash = hashOf({ ...body, quotationId: String(quotationId) });
   const lines = readLines(body);
+  const workings = readWorkings(business, body);
   return repo.transaction(async (db) => {
     await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
     const done = await repo.one(db, 'SELECT * FROM business_quotation_revisions WHERE business_id=$1 AND request_key=$2', [business.id, requestKey]);
@@ -261,6 +280,8 @@ async function revise(business, user, quotationId, body) {
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [business.id, current.id, saved.revision, current.total, saved.total, JSON.stringify(before), requestKey, hash, user.id]);
     if (business.business_type === 'hardware') await sites().setQuotationSite(db, business, user, saved, body.siteId);
     else if (body.siteId) fail('Sites belong to hardware shops');
+    await tinting().saveQuotationTints(db, business, saved, body.lines);
+    if (workings.length) await calculations().saveForQuotation(db, business, user, saved, workings);
     await repo.audit(db, business.id, user.id, 'quotation.revised', saved.id, { quotationNo: saved.quotation_no, revision: saved.revision,
       totalBefore: current.total, totalAfter: saved.total, validUntil });
     await repo.event(db, business.id, user.id, 'quotation.revised', 'quotation', saved.id, { quotationNo: saved.quotation_no, revision: saved.revision,
@@ -431,6 +452,7 @@ function pricePieces(q, line, picks) {
 
 // body: { requestKey, payment? | payments?, buyer?: { pan?, panDeclaration? }, lines?: [{ lineId, lots | serials }],
 //   notes?, fitterId? (hardware), agri? (a farm-input shop's PoS receipt, crop and season: agriSales.service.js) }
+// A hardware shop's tinted line goes on the bill tinted (a job on the tinting board).
 async function bill(business, user, quotationId, body) {
   await access.require(business, 'quotations.edit');
   await access.require(business, 'sales.create');
@@ -454,8 +476,15 @@ async function bill(business, user, quotationId, body) {
     await readyToClose(db, business, q, 'the bill');
     const lines = await checkedLines(db, business, q);
     for (const lineId of choices.keys()) if (!lines.some((l) => Number(l.id) === lineId)) fail('That line is not on this quotation', 404);
+    // A tinted line goes on the bill tinted, from one batch.
+    const tints = business.business_type === 'hardware' ? new Map((await tinting().quotationTints(db, business, q.id)).map((t) => [Number(t.line_id), t])) : new Map();
     const pieces = [];
-    for (const line of lines) pieces.push(...pricePieces(q, line, await stockPieces(db, business, q, line, choices.get(Number(line.id)))));
+    for (const line of lines) {
+      const picks = await stockPieces(db, business, q, line, choices.get(Number(line.id)));
+      const tint = tints.get(Number(line.id));
+      if (tint && picks.length > 1) fail(`${line.label} is tinted to ${tint.maker} shade ${tint.code}: its tins come from one batch. Choose the batch for it.`);
+      pieces.push(...pricePieces(q, line, picks).map((piece) => (tint ? { ...piece, input: { ...piece.input, tint: { shadeId: tint.shade_id } } } : piece)));
+    }
     const site = business.business_type === 'hardware' ? await sites().siteOfQuotation(db, business, q.id) : null;
     const buyer = body.buyer && typeof body.buyer === 'object' && !Array.isArray(body.buyer) ? body.buyer : {};
     const documentBody = {
@@ -505,6 +534,8 @@ async function order(business, user, quotationId, body) {
     await readyToClose(db, business, q, 'a sales order');
     if (!q.contact_id) fail(`A sales order is for a saved customer. Save ${q.customer_name} as a customer and revise the quotation for them, or make the bill instead.`, 409);
     const lines = await checkedLines(db, business, q);
+    const tinted = business.business_type === 'hardware' ? (await tinting().quotationTints(db, business, q.id))[0] : null;
+    if (tinted) fail(`Paint tinted to ${tinted.maker} shade ${tinted.code} is made to order and billed: make the bill instead, or revise the quotation without it.`, 409);
     const service = lines.find((l) => l.sku.kind !== 'goods');
     if (service) fail(`${service.label} is a service; sales orders are for goods. Make the bill instead, or revise the quotation without it.`, 409);
     const inclusive = q.tax_mode === 'inclusive';

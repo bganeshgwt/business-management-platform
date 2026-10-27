@@ -41,6 +41,8 @@ export const LOGINS = [
   // GST_THRESHOLDS below.
   { role: "GST_OWNER", name: "Prakash Rao", email: "owner@thresholds.e2e.invalid", gstOwner: true },
   { role: "GST_MANAGER", name: "Kiran Kumar", email: "manager@thresholds.e2e.invalid", gstOwner: true },
+  // The hardware shop's manager, who lets a tinted tin come back with a PIN of their own.
+  { role: "HARDWARE_MANAGER", name: "Prakash Shetty", email: "manager@hardware.e2e.invalid", businesses: ["hardware"] },
 ];
 
 // The staff login a spec makes in the grocery's Staff & access, as the owner
@@ -241,6 +243,14 @@ export const AGRI = {
     { kind: "insecticide", name: "Insecticide sale licence (Form VIII)", licenceNo: "INS/RR/0457", covers: ["insecticide"] },
   ],
   farmer: { name: "Ramaiah Goud", phone: "9848012345", village: "Kothur", relativeName: "Venkaiah Goud", landAcres: "3.5", crops: "Paddy, cotton" },
+  // The insecticide licence endorses the chlorpyrifos and holds its maker's
+  // principal certificate; the fertiliser authorisation holds the supplier's
+  // certificate of source (Form O). A thiamethoxam pesticide, kept by batch
+  // and received, is on neither.
+  principal: { manufacturer: "Dhanuka Agritech", registrationNo: "CIR-26,842/2006-Chlorpyrifos (EC)", manufacturingLicenceNo: "HR/ML/2011/042", formulations: ["EC"] },
+  source: { certificateNo: "FO/IFFCO/2025/311" },
+  unendorsed: { name: "Thiamethoxam 25% WG 100 g", code: "THM-100", unit: "packet", price: 210, mrp: 230, hsn: "3808", molecule: "Thiamethoxam", formulation: "25% WG",
+    lot: "TM-07", manufacturer: "Syngenta India" },
 };
 
 // The hardware shop: cement by the bag and binding wire by the kilo in 25 kg
@@ -258,6 +268,13 @@ export const HARDWARE = {
   packSize: 25,
   // A painter who brings customers, earning 2 rupees on every bag of cement.
   fitter: { name: "Ramesh Kumar", trade: "painter", phone: "9845098450", upiId: "ramesh@okicici", perBag: 2 },
+  // Paint tinting: a Pastel base in 4 L tins, received; the tinting charge for
+  // each tin, a service at 18%; and a shade on the Pastel base.
+  base: { name: "Apex Ultima base Pastel 4 L", code: "APX-P4", unit: "each", price: 1725, mrp: 1890, hsn: "3209", paintBase: "Pastel", litres: 4 },
+  tintCharge: { name: "Tinting charge", code: "TINT", price: 30, sac: "9988" },
+  shade: { maker: "Asian Paints", code: "7974", name: "Sunset Glow", card: "Colour Spectra", base: "Pastel", formula: "XR 1.25; YE 0.4" },
+  // Red bricks by the piece, received, for the brickwork calculator.
+  bricks: { name: "Red clay bricks 9 x 4 in", code: "BRICK-RED", unit: "each", price: 9, hsn: "6901" },
 };
 
 // The optical shop: a frame and a single-vision lens kept in stock and the

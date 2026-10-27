@@ -2731,19 +2731,64 @@ settings). It is under *Settings › Licences*.
   as issued, its number, the issuing authority, *Valid from* and *Valid
   until*, or *It does not run out*. At a farm-input shop, *What it lets this
   location sell* ticks fertilisers, seeds or insecticides: bills of those at
-  that location need the licence in force. One number is kept once for a kind
-  of licence.
+  that location need the licence in force. Such a licence says who it
+  *Sells to*: *Retail*, *Wholesale* or *Both*, as the licence says (a new
+  fertiliser authorisation starts as retail, a seed or insecticide licence as
+  both). A sale to a buyer with a GSTIN (a B2B invoice) is a wholesale sale
+  and needs a licence for wholesale sales. *Qualified person (optional)*
+  keeps the person the licence names, with their qualification (and its
+  certificate's number) or why they are exempt, as written on it. One number
+  is kept once for a kind of licence.
 - **The list** shows each licence's number, location, dates, the days it has
-  left and where it stands: *Valid*, *No expiry*, *Runs out soon* (60 days or
-  fewer), *Run out*, *Not yet valid* or *Switched off*. The location filter
-  narrows it; *Show switched-off licences* brings back those switched off.
+  left, its scanned copies and where it stands: *Valid*, *No expiry*, *Runs
+  out soon* (60 days or fewer), *In force: renewal pending*, *Run out*, *Not
+  yet valid* or *Switched off*. The location filter narrows it; *Show
+  switched-off licences* brings back those switched off. A licence's name, or
+  *Open*, opens it.
+- **A licence, opened** — its *Summary* (with *Edit*), *Renewal applied
+  for*, *Scanned copies* and, by what it covers, an insecticide licence's
+  *Endorsements* and *Principal certificates*, and a fertiliser
+  authorisation's *Certificates of source (Form O)*. A record that no longer
+  stands is switched off (a principal certificate is withdrawn); none is
+  deleted.
+- **Scanned copies** — *Add a copy*: a PDF or a photo (JPG, PNG or WebP) of
+  the licence, up to 5 MB. Each copy is kept with the dates the licence had
+  when it was added, so each renewal's copy stays beside the earlier ones.
+  *Open* shows it; only someone who may see the licences of that location
+  can open one, and a copy is never changed or deleted.
+- **Renewal applied for** — once the renewal is applied for, *Record the
+  renewal applied for* with the date and the application's reference. What
+  it does once the licence is past its date is the kind's rule, which the
+  window says: an insecticide sale licence stays in force while the renewal
+  is pending; a fertiliser authorisation only when the renewal was applied
+  for within one month of its date; any other licence, a seed licence too,
+  runs out on its date. Bills under a licence kept in force this way carry a
+  warning at the counter, and the bell warns until the renewed licence comes.
+  *Take the mark off* if it was recorded by mistake.
 - **Renew** — *Edit* the licence and give its new *Valid until*; the activity
-  log keeps the dates before and after. A licence keeps its location and
-  kind: a licence for another location is added on its own.
+  log keeps the dates before and after, and a renewal applied for ends. Then
+  add the renewed copy. A licence keeps its location and kind: a licence for
+  another location is added on its own.
+- **Endorsements** (an insecticide licence) — each item, every pack of it, or
+  each brand endorsed on the licence: *Add the endorsement*. Selling an
+  insecticide that is not endorsed warns or stops the bill, as *Settings ›
+  Farm input checks* says.
+- **Principal certificates** (an insecticide licence) — *Add a certificate*
+  for each manufacturer: its name, spelt as the items name their
+  manufacturer, the registration and manufacturing licence numbers, the
+  formulations it authorises and its dates. *Record the withdrawal* when the
+  manufacturer withdraws it: from that day its insecticides are not covered,
+  and a new certificate is added on its own.
+- **Certificates of source (Form O)** (a fertiliser authorisation) — *Add a
+  certificate* for each source: the supplier whose deliveries it covers (or
+  the source as the certificate names it), its number and date. Fertiliser
+  received from a supplier with none comes in with a warning.
 - **Switch off** — untick *In use* once a licence is surrendered or
   cancelled. It is never deleted, and stays in the list with the filter.
 - **The bell** warns 60 days before an active licence runs out, and again,
-  in red, once it has.
+  in red, once it has; a licence past its date and in force only while its
+  renewal is pending is warned about, with the renewal's date and reference,
+  until its new date is typed.
 
 Who does what: a manager adds and changes licences; an accountant and a
 viewer see them.
@@ -3491,8 +3536,9 @@ A hardware, paint and building-material shop bills at **Quick bill** with
 prices including GST rounded to the rupee, keeps udhaar for named customers,
 and sells in bags, coils, rolls, sheets, sets, feet, quintals and tonnes as
 well as pieces, kilos and metres. A new shop starts with **Quotations**,
-**Sites**, **Today's rates** and the **Tile & paint calculators** on.
+**Sites**, **Today's rates** and the **Material calculators** on.
 Recommended in Settings › Business tools: **Fitters' commission**,
+**Paint tinting**,
 **Wholesale price lists** (contractor and dealer rates), **Sales orders**
 (site orders delivered in parts, each load with a delivery challan) and
 **Stock transfers** (between the shop and the godown); batches, variants,
@@ -3500,7 +3546,9 @@ weight, offers and exchanges can be switched on too.
 
 - **Quotations** — the estimate for a site, valid until a date, billed or
   made into a sales order at its prices ([Quotations](#quotations)). A
-  quotation for a saved customer can go to one of their sites.
+  quotation for a saved customer can go to one of their sites. Its paint
+  lines can be tinted to a shade, and the calculators' workings are kept
+  with it and printed on it.
 - **Sites** (*Customers & contractors › Sites*) — each contractor's or
   builder's sites: the site's name, address, the person at the site and their
   phone. A site belongs to one customer and stays with them; close it when
@@ -3531,19 +3579,68 @@ weight, offers and exchanges can be switched on too.
   the board, saving yours is refused: open it again. *Share today's rates*
   sends the list on WhatsApp, and *More › Print the rate list (A5)* prints it
   for the counter. *Take off the board* leaves the item and its price as
-  they are.
-- **Tile & paint calculators** (on Quick bill, and in a quotation next to
-  the scan box) — *Tiles*: pick the tiles, type the area (sq ft or m²) and
-  the wastage (10% to start); the calculator gives the boxes to sell and
-  *Add … to the bill* (or the quotation) puts them on. *Paint*: pick the
-  paint, type the area, the coats and (if the paint has none) what one litre
-  covers; it gives the litres and the packs to buy: the least paint, in the
-  fewest tins, from the paint's own tins or the usual 1, 4, 10 and 20 L.
-  The figures live on the items: with the calculators on, the item form
-  (*Products & services*, add or edit) has *Tiles: one unit covers (sq ft)*,
-  *Paint: one litre covers, one coat (sq ft)* and *Paint: litres in one
-  unit*. Give each paint tin its litres (and the paint's coverage) and the
-  calculator can add the tins to the bill.
+  they are. *History* on an item's row lists every earlier change of its
+  rate, newest first: when, the rate before and after, who changed it, and
+  the purchase that set it.
+- **Material calculators** (*Calculators* on Quick bill, and in a
+  quotation next to the scan box) — *Tiles*: pick the tiles, type the area
+  (sq ft or m²) and the wastage (10% to start); the calculator gives the
+  boxes to sell and *Add … to the bill* (or the quotation) puts them on.
+  *Paint*: pick the paint, type the area, the coats and (if the paint has
+  none) what one litre covers; it gives the litres and the packs to buy: the
+  least paint, in the fewest tins, from the paint's own tins or the usual 1,
+  4, 10 and 20 L. *Bricks*: a wall's length, height and thickness (half a
+  brick or one brick to choose), less its doors and windows, gives the
+  bricks and the cement and sand of the mortar. *Concrete & plaster*: an
+  area and a thickness, or a volume, gives the bags of cement and the cubic
+  feet of sand (and aggregate, for concrete). *Steel*: each bar size's
+  diameter, length and how many gives the kilograms and the bars. For these
+  three, choose the shop's item for each material: the server works out
+  what goes on in the unit each item is sold in (bags, quintals, pieces,
+  kilograms), and says which item cannot take it (sand sold by the tonne,
+  say: add it by hand). *Assumptions* shows every figure used (the brick
+  size and joint, the mix and its dry-volume factor, the wastage, a bag's
+  kilograms, one metre of each bar's weight) once the job is typed; change
+  any for this job, or *Use the usual figures*. What was typed, the
+  assumptions and the result are kept with the bill or the quotation (with
+  its revision), and a quotation shows and prints them. These are estimates
+  for the customer, not engineering. The tile and paint figures live on the
+  items: with the calculators on, the item form (*Products & services*, add
+  or edit) has *Tiles: one unit covers (sq ft)*, *Paint: one litre covers,
+  one coat (sq ft)* and *Paint: litres in one unit*. Give each paint tin its
+  litres (and the paint's coverage) and the calculator can add the tins to
+  the bill.
+
+**Paint tinting** (switched on in Settings › Business tools) bills paint
+tinted to a shade on the paint maker's machine; the maker's own software
+runs the machine.
+
+- **Shades** (*Sales history › Paint tinting*, the *Shades* tab) — each
+  maker's shades: the code, the name, the card, the base it needs and, if
+  kept, its formula (each colourant's millilitres for one litre of base,
+  typed like XR 1.25; YE 0.4). *Add a shade*, or *Import shades* from a
+  spreadsheet: a check first shows what would be added and changed, then the
+  import, all or nothing; the same file twice changes nothing. A maker's
+  code is kept once; a shade no longer used is switched off, never deleted.
+- **The bases and the charge** — give each base item its *Tinting: the base
+  it is* (Pastel, Deep and the like, by its maker's names) on the item form:
+  only those items offer a shade, and only the shades that need their base.
+  On the *Shades* tab, choose the *Tinting charge*: a service item priced for
+  one tin, at its own GST slab.
+- **A tinted line** — on Quick bill, a base's line offers *Shade for …*:
+  choosing one puts the tinting charge on the bill too, one for each tin. A
+  quotation's lines offer the same in their *Shade* column, and its bill is
+  tinted the same way. The base must be free at the location: what is in
+  stock, less what waits on the board.
+- **The tinting board** (the *Tinting board* tab) — each tinted line of a
+  bill, those waiting first: *Tinted* when the machine has made it (the base
+  leaves stock then), then *Handed over*. It changes by itself as others move
+  the jobs.
+- **Taking a tinted tin back** — a tinted line does not come back with *Take
+  back items* on the bill. On the board, *Take back* asks why, and the PIN of
+  a manager who may take goods back. The whole line comes back as a return,
+  nothing goes back into stock, and the money goes back with *Refund
+  customer* on the bill.
 
 **Fitters' commission** (switched on in Settings › Business tools) pays the
 painters, plumbers, electricians, masons and carpenters who bring customers.
@@ -3564,6 +3661,12 @@ painters, plumbers, electricians, masons and carpenters who bring customers.
   value, and kept with the bill; the bill shows who fitted it and what it
   earned. Goods taken back on the bill take back the commission in
   proportion, exactly all of it once everything has come back.
+- **Naming the fitter afterwards** — on a posted bill, *Name the fitter*
+  (for someone who may change commission rules): its lines earn by the
+  rules in force now, less what has come back. *Change the fitter* moves the
+  commission to another fitter until it is paid; payouts settle each
+  fitter's oldest commission first. On a sales order still to send, *Name
+  the fitter* names one for every invoice its dispatches raise.
 - **Paying a fitter** — *Pay* on a fitter's row or statement records a
   payout of no more than is due: the amount, how it was paid and a reference.
   The payout is a paid expense of the shop (category *Other*, "Fitter's
@@ -3598,10 +3701,16 @@ checks*.
 
 1. **Licences** (*Settings › Licences*) — add the location's fertiliser
    authorisation letter, seed dealer licence and insecticide sale licence,
-   each with its number and dates and what it lets the location sell
-   ([Licences](#licences)). While Licences & registrations is on, a bill of a
+   each with its number and dates, what it lets the location sell and
+   whether for retail or wholesale sales ([Licences](#licences)); then, on
+   the insecticide licence, its endorsements and each manufacturer's
+   principal certificate, and on the fertiliser authorisation each source's
+   certificate (Form O). While Licences & registrations is on, a bill of a
    fertiliser, seed or pesticide is refused at a location without one in
-   force; *Settings › Farm input checks* shows what each location holds.
+   force for the kind of sale; *Settings › Farm input checks* shows what each
+   location holds, and whether an insecticide not endorsed (or without its
+   principal certificate) warns or stops the bill: *Warn and bill it* to
+   start with, or *Stop the bill*.
 2. **Items** (*Seeds, fertilisers & pesticides*, add or edit an item) — with
    the farm-input tools on, the item form asks *Kind of farm input*:
    - *Fertiliser*, and *Subsidised* when it is sold through the government's
@@ -3618,7 +3727,9 @@ checks*.
    lets the registers show quintals. The kind can be changed later; the
    activity log keeps what it was.
 3. **Receiving seed** — a seed lot comes in with its validity date as its
-   expiry; a purchase line of a seed without one is refused.
+   expiry; a purchase line of a seed without one is refused. Fertiliser
+   received from a supplier with no certificate of source (Form O) on the
+   location's authorisation comes in with a warning.
 
 **At Quick bill**, the *Farm inputs* card asks for what the bill needs, and
 the bill is not taken until it is given:
@@ -3635,10 +3746,17 @@ the bill is not taken until it is given:
 - **On udhaar, for a farmer** — *Season credit*: kharif, rabi or zaid of a
   year, and the harvest date it falls due. That date becomes the bill's due
   date, so Udhaar, the bell and the dues by village count it from then.
+- **What the licences say** — as the lines are typed, the card shows what
+  the location's licences say of them: a line the bill would be refused for
+  (no licence in force for the kind of sale: a customer with a GSTIN buys
+  wholesale), a licence in force only while its renewal is pending, and an
+  insecticide not endorsed on the licence or without its manufacturer's
+  principal certificate in force, which is billed with the warning or
+  stopped, as *Settings › Farm input checks* says.
 
 A quotation's *Make the bill* asks for the PoS receipt and the crop too.
 Whichever screen bills them, the same checks apply, and the server refuses
-with the reason: a molecule banned in India, no licence in force at the location, a
+with the reason: a molecule banned in India, no licence in force at the location for the kind of sale, a
 seed lot past its validity or a pesticide batch past its expiry (keep it
 apart, marked not for sale), a barred crop, a missing PoS receipt. The bill's
 A4 invoice and till receipt print each line's PoS receipt and crop, the

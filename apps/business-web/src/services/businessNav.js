@@ -85,6 +85,8 @@ export function businessSections(type) {
         { section: "sales", label: word(type, "sales", "Sales"), icon: "bills", need: "sales.view" },
         // Estimates with a validity date that become bills or sales orders.
         { section: "quotations", label: "Quotations", icon: "logbook", need: "quotations.view", except: ['restaurant'] },
+        // A paint shop's tinting board (each tinted line of a bill, queued to handed over) and its shades.
+        { section: "tinting", label: "Paint tinting", icon: "board", need: "hardware_tinting.view", types: HARDWARE },
         { section: "customers", label: word(type, "customers", "Customers"), icon: "customers", need: "contacts.view" },
         // A hardware shop's contractors' and builders' sites, each with its ledger.
         { section: "sites", label: "Sites", icon: "locations", need: "hardware_sites.view", types: HARDWARE },

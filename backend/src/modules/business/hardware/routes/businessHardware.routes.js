@@ -6,6 +6,9 @@ const sites = require('../services/hardwareSites.service');
 const fitters = require('../services/hardwareFitters.service');
 const rates = require('../services/hardwareRates.service');
 const calculators = require('../services/hardwareCalculators.service');
+const calculations = require('../services/hardwareCalculations.service');
+const tinting = require('../services/hardwareTinting.service');
+const pins = require('../../salon-weight/services/businessManagerPin');
 
 // Hardware, paints & building materials, added to the Business Admin router
 // so they share its login, membership, module and permission checks
@@ -18,8 +21,13 @@ const calculators = require('../services/hardwareCalculators.service');
 //   /:businessId/hardware/fitter-rules…   commission rules
 //   /:businessId/hardware/fitter-payouts  every payout
 //   /:businessId/hardware/fitter-report   earned, taken back, paid and due by fitter
-//   /:businessId/hardware/rates…          today's rates: the board, its items and saving them
-//   /:businessId/hardware/calculator-items the items with a coverage, for the calculators
+//   /:businessId/hardware/bills/:id/fitter a fitter named on a bill afterwards, or changed until paid
+//   /:businessId/hardware/orders/:id/fitter a sales order's fitter, carried by its invoices
+//   /:businessId/hardware/rates…          today's rates: the board, its items, saving them, an item's history
+//   /:businessId/hardware/calculator-items the items with a coverage, for the tile and paint calculators
+//   /:businessId/hardware/calculate       a calculator worked out by the server, in the units items are sold in
+//   /:businessId/hardware/shades…         the shade master: typed, changed, imported from a spreadsheet
+//   /:businessId/hardware/tinting…        the tinting charge, the board, and each job tinted, handed over or taken back
 // Another type of business never has these modules, so `context` refuses it
 // (today's rates and the calculators: the service, after `context` checks the
 // catalogue permission); the services repeat every check and answer 404 for
@@ -60,13 +68,43 @@ module.exports = function hardwareRoutes(router, { context, send, b }) {
   router.patch(b('/hardware/fitter-rules/:id'), context('fitter_commission.edit'), async (req, res) => send(res, await fitters.updateRule(req.business, req.user, req.params.id, req.body)));
   list('/hardware/fitter-payouts', 'hardware-fitter-payouts', 'fitter_commission.view', fitters.requireFitters);
   router.get(b('/hardware/fitter-report'), context('fitter_commission.view'), async (req, res) => send(res, await fitters.report(req.business, req.query)));
+  router.put(b('/hardware/bills/:id/fitter'), context('fitter_commission.edit'), async (req, res) => send(res, await fitters.setBillFitter(req.business, req.user, req.params.id, req.body)));
+  router.get(b('/hardware/orders/:id/fitter'), context('fitter_commission.view'), async (req, res) => send(res, await fitters.orderFitter(req.business, req.params.id)));
+  router.put(b('/hardware/orders/:id/fitter'), context('fitter_commission.create'), async (req, res) => send(res, await fitters.setOrderFitter(req.business, req.user, req.params.id, req.body)));
 
   // Today's rates (the module is checked by the service).
   router.get(b('/hardware/rates'), context('catalog.view'), async (req, res) => send(res, await rates.board(req.business)));
   router.put(b('/hardware/rates'), context('catalog.edit'), async (req, res) => send(res, await rates.save(req.business, req.user, req.body)));
   router.post(b('/hardware/rates/items'), context('catalog.edit'), async (req, res) => send(res, await rates.add(req.business, req.user, req.body), 201));
   router.delete(b('/hardware/rates/items/:skuId'), context('catalog.edit'), async (req, res) => send(res, await rates.remove(req.business, req.user, req.params.skuId)));
+  router.get(b('/hardware/rates/items/:skuId/history'), context('catalog.view'), async (req, res) => send(res, await rates.history(req.business, req.params.skuId, req.query)));
 
-  // Tile & paint calculators (the module is checked by the service).
+  // Material calculators (the module is checked by the service).
   router.get(b('/hardware/calculator-items'), context('catalog.view'), async (req, res) => send(res, await calculators.items(req.business)));
+  router.post(b('/hardware/calculate'), context('catalog.view'), async (req, res) => send(res, await calculations.calculate(req.business, req.body)));
+
+  // Paint tinting: shades, the charge, the board.
+  list('/hardware/shades', 'hardware-shades', 'hardware_tinting.view', tinting.requireTinting);
+  router.post(b('/hardware/shades'), context('hardware_tinting.edit'), async (req, res) => send(res, await tinting.createShade(req.business, req.user, req.body), 201));
+  router.get(b('/hardware/shades/import-guide'), context('hardware_tinting.edit'), async (req, res) => { tinting.requireTinting(req.business); send(res, tinting.importGuide()); });
+  // A check that finds problems still worked: the dry run answers 200 with them; a real import of such a file is refused.
+  router.post(b('/hardware/shades/import'), context('hardware_tinting.edit'), async (req, res) => {
+    const result = await tinting.importShades(req.business, req.user, req.body);
+    const dryRun = req.body.dryRun === true;
+    const many = (n, one, more) => `${n} ${n === 1 ? one : more}`;
+    if (!result.ok) {
+      return res.status(dryRun ? 200 : 400).json({ success: dryRun, data: result,
+        message: `${many(result.problems.length, 'problem', 'problems')} in the file. ${dryRun ? 'Fix them and check the file again.' : 'Nothing was imported.'}` });
+    }
+    return res.json({ success: true, data: result, message: dryRun ? `Ready: ${result.created} new shades, ${result.updated} to update, ${result.unchanged} unchanged`
+      : `Imported: ${many(result.created, 'shade', 'shades')} added, ${result.updated} updated` });
+  });
+  router.patch(b('/hardware/shades/:id'), context('hardware_tinting.edit'), async (req, res) => send(res, await tinting.updateShade(req.business, req.user, req.params.id, req.body)));
+  router.get(b('/hardware/tinting/settings'), context('hardware_tinting.view'), async (req, res) => send(res, await tinting.settings(req.business)));
+  router.put(b('/hardware/tinting/settings'), context('hardware_tinting.edit'), async (req, res) => send(res, await tinting.saveSettings(req.business, req.user, req.body)));
+  list('/hardware/tinting', 'hardware-tint-jobs', 'hardware_tinting.view', tinting.requireTinting);
+  router.get(b('/hardware/tinting/approvers'), context('hardware_tinting.create'), async (req, res) => { tinting.requireTinting(req.business); send(res, await pins.approvers(req.business, 'sales.refund')); });
+  router.post(b('/hardware/tinting/:id/tinted'), context('hardware_tinting.create'), async (req, res) => send(res, await tinting.tinted(req.business, req.user, req.params.id)));
+  router.post(b('/hardware/tinting/:id/handed-over'), context('hardware_tinting.create'), async (req, res) => send(res, await tinting.handedOver(req.business, req.user, req.params.id)));
+  router.post(b('/hardware/tinting/:id/take-back'), context('hardware_tinting.create'), async (req, res) => send(res, await tinting.takeBack(req.business, req.user, req.params.id, req.body), 201));
 };

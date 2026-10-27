@@ -14,6 +14,8 @@ import SiteField from "../../hardware/pages/SiteField";
 import { usesSites } from "../../hardware/pages/hardware";
 import CalculatorDialog from "../../hardware/pages/CalculatorDialog";
 import { usesCalculators } from "../../hardware/pages/calculators";
+import TintField from "../../hardware/pages/TintField";
+import { useTintCharge, usesTinting } from "../../hardware/pages/hardware";
 import "../styles/quotations.css";
 
 // A new quotation, or a revision of an open one. Lines are entered as on New
@@ -21,8 +23,9 @@ import "../styles/quotations.css";
 // figure shown is the server's: the same calculation that prices a sale of
 // these lines now (customer and slab prices, offers, the discount, GST and
 // round-off). A revision keeps the number and the location. A hardware
-// shop's quotation may go to one of the customer's sites. `initial` starts a
-// new one for a customer (and site).
+// shop's quotation may go to one of the customer's sites, tint a paint line
+// to a shade (with the tinting charge beside it) and keep the calculators'
+// workings. `initial` starts a new one for a customer (and site).
 export default function QuotationDialog({ quotation, initial, onClose, onSaved }) {
   const biz = useOpenBusiness();
   const editing = Boolean(quotation);
@@ -39,8 +42,12 @@ export default function QuotationDialog({ quotation, initial, onClose, onSaved }
     discountReason: quotation?.discount_reason || "",
   }));
   const [lines, setLines] = useState(() => (quotation
-    ? [...quotation.lines.map((l) => emptyLine({ skuId: String(l.sku_id), unit: l.entered_unit || l.unit, quantity: String(Number(l.entered_quantity || l.quantity)) })), emptyLine()]
+    ? [...quotation.lines.map((l) => emptyLine({ skuId: String(l.sku_id), unit: l.entered_unit || l.unit, quantity: String(Number(l.entered_quantity || l.quantity)),
+      tint: String((quotation.tints || []).find((t) => String(t.line_id) === String(l.id))?.shade_id || "") })), emptyLine()]
     : [emptyLine()]));
+  // The calculators' workings added while this dialog is open (those kept before stay with the quotation).
+  const [workings, setWorkings] = useState([]);
+  const tintCharge = useTintCharge(biz);
   const [scan, setScan] = useState("");
   const [scanError, setScanError] = useState("");
   const [calculating, setCalculating] = useState(false);
@@ -67,7 +74,7 @@ export default function QuotationDialog({ quotation, initial, onClose, onSaved }
       ? { discount: { [form.discountMode]: form.discountValue, reason: form.discountReason.trim() } } : {};
     return JSON.stringify({
       locationId: form.locationId, ...(form.contactId ? { contactId: form.contactId } : {}),
-      lines: filled.map((l) => ({ skuId: l.skuId, quantity: l.quantity, ...(l.unit && l.unit !== skuOf(l)?.unit ? { unit: l.unit } : {}) })), ...discount,
+      lines: filled.map((l) => ({ skuId: l.skuId, quantity: l.quantity, ...(l.unit && l.unit !== skuOf(l)?.unit ? { unit: l.unit } : {}), ...(l.tint ? { tint: { shadeId: l.tint } } : {}) })), ...discount,
     });
     // skuOf reads items, which `filled` already follows.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -109,15 +116,32 @@ export default function QuotationDialog({ quotation, initial, onClose, onSaved }
     }
   }
 
-  // From a hardware shop's tile and paint calculator: each item, with its quantity in its own unit.
-  const addCalculated = (picks) => setLines((all) => {
-    let next = all;
-    for (const { sku, quantity: count } of picks) {
-      const skuId = String(sku.id);
-      const same = next.find((l) => l.skuId === skuId && !l.unit);
+  // From a hardware shop's calculators: each item, with its quantity in its own unit; the working goes with the quotation.
+  const addCalculated = (picks, working) => {
+    if (working) setWorkings((all) => [...all, working]);
+    setLines((all) => {
+      let next = all;
+      for (const { sku, quantity: count } of picks) {
+        const skuId = String(sku.id);
+        const same = next.find((l) => l.skuId === skuId && !l.unit && !l.tint);
+        const blank = next.find((l) => !l.skuId);
+        next = same ? next.map((l) => (l === same ? { ...l, quantity: String(Math.round((Number(l.quantity || 0) + count) * 1000) / 1000) } : l))
+          : blank ? next.map((l) => (l === blank ? { ...l, skuId, unit: "", quantity: String(count) } : l)) : [...next, emptyLine({ skuId, quantity: String(count) })];
+      }
+      return next.some((l) => !l.skuId) ? next : [...next, emptyLine()];
+    });
+  };
+  // A line tinted to a shade (or the tint taken off). Tinting a line puts its
+  // tins' tinting charge on too: the charge line, or more on it.
+  const tintLine = (line, shade) => setLines((all) => {
+    let next = all.map((l) => (l.key === line.key ? { ...l, tint: shade ? String(shade.id) : "" } : l));
+    if (shade && !line.tint && tintCharge) {
+      const tins = !line.unit && Number(line.quantity) > 0 ? Number(line.quantity) : 1;
+      const on = next.find((l) => l.skuId === String(tintCharge.id) && !l.unit);
       const blank = next.find((l) => !l.skuId);
-      next = same ? next.map((l) => (l === same ? { ...l, quantity: String(Math.round((Number(l.quantity || 0) + count) * 1000) / 1000) } : l))
-        : blank ? next.map((l) => (l === blank ? { ...l, skuId, unit: "", quantity: String(count) } : l)) : [...next, emptyLine({ skuId, quantity: String(count) })];
+      const charge = { skuId: String(tintCharge.id), unit: "", quantity: String(tins) };
+      next = on ? next.map((l) => (l === on ? { ...l, quantity: String(Math.round((Number(l.quantity || 0) + tins) * 1000) / 1000) } : l))
+        : blank ? next.map((l) => (l === blank ? { ...l, ...charge } : l)) : [...next, emptyLine(charge)];
     }
     return next.some((l) => !l.skuId) ? next : [...next, emptyLine()];
   });
@@ -129,7 +153,7 @@ export default function QuotationDialog({ quotation, initial, onClose, onSaved }
     const body = {
       requestKey, ...(editing ? {} : { locationId: form.locationId }), validUntil: form.validUntil,
       ...(form.contactId ? { contactId: form.contactId } : { customerName: form.customerName.trim(), customerPhone: form.customerPhone.trim() || undefined }),
-      lines: JSON.parse(payload).lines, notes: form.notes.trim() || undefined,
+      lines: JSON.parse(payload).lines, notes: form.notes.trim() || undefined, ...(workings.length ? { calculations: workings } : {}),
       ...(usesSites(biz) ? { siteId: form.siteId || (editing ? null : undefined) } : {}),
       ...(canDiscount && Number(form.discountValue) > 0 ? { discount: { [form.discountMode]: form.discountValue, reason: form.discountReason.trim() } } : {}),
     };
@@ -143,6 +167,7 @@ export default function QuotationDialog({ quotation, initial, onClose, onSaved }
         getDescription={(s) => `${s.code} · ${biz.exact(s.price)}${s.mrp ? ` · MRP ${biz.exact(s.mrp)}` : ""}${s.kind === "service" ? " · service" : ` · ${quantity(s.stock, s.unit)} in stock`}`}
         onChange={(s) => setLine(l.key, "skuId", s ? String(s.id) : "")} />
     ) },
+    usesTinting(biz) && { key: "tint", header: "Shade", minWidth: 200, render: (l) => (skuOf(l) ? <TintField biz={biz} sku={skuOf(l)} value={l.tint || ""} onChange={(shade) => tintLine(l, shade)} /> : null) },
     { key: "unit", header: "Unit", width: 130, render: (l, ctx) => {
       const choices = unitChoices(skuOf(l), units);
       return (
@@ -199,11 +224,12 @@ export default function QuotationDialog({ quotation, initial, onClose, onSaved }
         <input aria-label="Scan a barcode to add a line" placeholder="Scan a barcode or type a code, then Enter" value={scan} autoComplete="off"
           onChange={(e) => setScan(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") scanAdd(e); }} />
         <button type="button" className="button button-secondary button-sm" onClick={scanAdd}>Add</button>
-        {usesCalculators(biz) && <button type="button" className="button button-secondary button-sm" onClick={() => setCalculating(true)}><Icon name="grid" size={14} /> Tile & paint calculator</button>}
+        {usesCalculators(biz) && <button type="button" className="button button-secondary button-sm" onClick={() => setCalculating(true)}><Icon name="grid" size={14} /> Calculators</button>}
+        {workings.length > 0 && <small className="muted">{workings.length} calculator working{workings.length === 1 ? "" : "s"} kept with this quotation</small>}
         {scanError && <small className="bz-due">{scanError}</small>}
       </div>
       <div className="field-wide bz-lines">
-        <DataGrid variant="editor" caption="Lines" rows={lines} rowKey={(l) => l.key} columns={columns} currency={biz.symbol} />
+        <DataGrid variant="editor" caption="Lines" rows={lines} rowKey={(l) => l.key} columns={columns.filter(Boolean)} currency={biz.symbol} />
         <div className="bz-lines-foot">
           <button type="button" className="button button-secondary" disabled={lines.length >= 100} onClick={() => setLines((all) => [...all, emptyLine()])}>
             <Icon name="plus" size={15} /> Add line

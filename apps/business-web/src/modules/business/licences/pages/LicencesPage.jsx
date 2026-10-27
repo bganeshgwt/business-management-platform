@@ -8,39 +8,23 @@ import { dateShort } from "@bmp/shared/format";
 import { toast } from "../../../../services/toast";
 import FormDialog from "../../core/pages/FormDialog";
 import { Badge, BusinessHeader, Field } from "../../core/pages/ui";
-import { businessToday, useOpenBusiness, useServerList } from "../../core/pages/hooks";
+import { businessToday, useOpenBusiness, useOptions, useServerList } from "../../core/pages/hooks";
 import { CATEGORY_WORDS, usesAgri } from "../../agri/pages/agri";
+import LicenceDetail from "./LicenceDetail";
+import { SELLS_TO, STATES, daysWords, kindName, offeredKinds, sellsToWords } from "./licences";
+import "../styles/licences.css";
 
 // Licences & registrations: what each location holds, its number, the
 // authority, the dates it is valid and the days it has left. The bell warns
 // 60 days before one runs out. A licence is renewed by giving its new date,
 // and switched off when surrendered or cancelled; it is never deleted.
 // A farm-input shop's bills of fertilisers, seeds and pesticides need a
-// licence in force covering them at the selling location.
-
-// The kinds this screen offers, those of the business's own trade first.
-const KINDS = [
-  { value: "fertiliser", name: "Fertiliser authorisation letter (Form A2)", covers: ["fertiliser"], types: ["agri_inputs"] },
-  { value: "seed", name: "Seed dealer licence (Form B)", covers: ["seed"], types: ["agri_inputs"] },
-  { value: "insecticide", name: "Insecticide sale licence (Form VIII)", covers: ["insecticide"], types: ["agri_inputs"] },
-  { value: "md42", name: "Medical device sale registration (MD-42)", types: ["optical"] },
-  { value: "bis", name: "BIS registration (hallmarking)", types: ["jewellery"] },
-  { value: "peso", name: "PESO licence (Form XIV)", types: ["fuel_station"] },
-  // Self-drive cars and motorcycles go out only while the location holds one in force.
-  { value: "rent_a_cab", name: "Rent-a-cab licence (State Transport Authority)", types: ["rentals"] },
-  { value: "rent_a_motorcycle", name: "Rent-a-motorcycle licence (State Transport Authority)", types: ["rentals"] },
-  { value: "trade", name: "Trade licence" },
-  { value: "shop", name: "Shops & establishments registration" },
-  { value: "fssai", name: "FSSAI registration or licence" },
-  { value: "other", name: "" },
-];
-const kindsFor = (type) => [...KINDS.filter((k) => k.types?.includes(type)), ...KINDS.filter((k) => !k.types)];
-const kindName = (kind) => KINDS.find((k) => k.value === kind)?.name || (kind === "other" ? "Other licence" : kind);
-const STATES = {
-  valid: { label: "Valid", tone: "success" }, no_expiry: { label: "No expiry", tone: "success" }, expiring: { label: "Runs out soon", tone: "warning" },
-  expired: { label: "Run out", tone: "danger" }, not_yet: { label: "Not yet valid", tone: "info" }, off: { label: "Switched off", tone: "neutral" },
-};
-const daysWords = (n) => (n === null || n === undefined ? "" : n < 0 ? `Ran out ${-n} day${n === -1 ? "" : "s"} ago` : n === 0 ? "Last day" : `${n} day${n === 1 ? "" : "s"} left`);
+// licence in force covering them at the selling location, for retail or
+// wholesale sales as the buyer is (a buyer with a GSTIN buys wholesale).
+// The kinds a licence may be, with their rules, come from the server, those
+// of the business's own trade first. A licence's name or Open shows its
+// detail (LicenceDetail.jsx): a renewal applied for, its scanned copies and
+// the records it keeps.
 
 export default function LicencesPage() {
   const biz = useOpenBusiness();
@@ -49,32 +33,49 @@ export default function LicencesPage() {
   const list = useServerList("licences", { gridId: "business-licences", params: { ...(location ? { location } : {}), ...(showOff ? {} : { active: "true" }) } });
   const [editing, setEditing] = useState(null);
   const canEdit = biz.can("licences.edit");
+  const [openId, setOpenId] = useState(null);
+  // Raised when the licence open in the detail is saved in its own form, so the detail reads it again.
+  const [detailVersion, setDetailVersion] = useState(0);
+  // The kinds a new licence may be, with what each covers and who it sells to.
+  const kindList = useOptions(canEdit ? ["licences/kinds"] : []);
+  const kindRows = kindList.options?.["licences/kinds"];
+  const kinds = useMemo(() => (kindRows ? offeredKinds(kindRows) : null), [kindRows]);
   const many = biz.locations.length > 1;
   const agri = usesAgri(biz);
 
   const columns = useMemo(() => [
     { key: "name", header: "Licence", value: (l) => l.name, mobile: "title", pin: true, minWidth: 220,
-      render: (l) => <span className="bz-two-line"><strong>{l.name}</strong><small className="muted">{l.authority || kindName(l.kind)}</small></span> },
+      render: (l) => <span className="bz-two-line"><button type="button" className="link-button lic-open" onClick={() => setOpenId(l.id)}>{l.name}</button><small className="muted">{l.authority || kindName(l)}</small></span> },
     { key: "licence_no", header: "Number", value: (l) => l.licence_no, className: "mono", mobile: "subtitle" },
     many && { key: "location", header: "Location", value: (l) => l.location_name },
     { key: "valid_from", header: "Valid from", type: "date", value: (l) => l.valid_from },
     { key: "valid_until", header: "Valid until", type: "date", value: (l) => l.valid_until,
       render: (l) => (l.valid_until ? dateShort(l.valid_until, { year: true }) : <span className="muted">No expiry</span>) },
     { key: "days_left", header: "Days left", type: "number", value: (l) => (l.days_left === null ? null : Number(l.days_left)),
-      render: (l) => (l.days_left === null || l.state === "off" ? <span className="muted">—</span> : daysWords(Number(l.days_left))), mobile: "show" },
+      render: (l) => (l.days_left === null || l.state === "off" ? <span className="muted">—</span> : daysWords(Number(l.days_left), l.state)), mobile: "show" },
     { key: "state", header: "Status", type: "status", value: (l) => STATES[l.state]?.label || l.state, render: (l) => <Badge tone={STATES[l.state]?.tone} label={STATES[l.state]?.label || l.state} /> },
     agri && { key: "covers", header: "Covers", value: (l) => (l.covers || []).map((c) => CATEGORY_WORDS[c] || c).join(", "),
       render: (l) => (l.covers?.length ? l.covers.map((c) => CATEGORY_WORDS[c] || c).join(", ") : <span className="muted">—</span>) },
+    agri && { key: "sells_to", header: "Sells to", value: (l) => (l.covers?.length ? sellsToWords(l.sells_to) : ""),
+      render: (l) => (l.covers?.length ? sellsToWords(l.sells_to) : <span className="muted">—</span>) },
+    agri && { key: "qualified_person", header: "Qualified person", value: (l) => l.qualified_person || "", defaultHidden: true },
+    { key: "file_count", header: "Copies", type: "number", value: (l) => Number(l.file_count || 0),
+      render: (l) => (Number(l.file_count) ? Number(l.file_count) : <span className="muted">None</span>) },
     { key: "notes", header: "Notes", value: (l) => l.notes || "", defaultHidden: true },
-    canEdit && { key: "actions", header: "", label: "Actions", type: "actions", render: (l) => <button type="button" className="chip-button" onClick={() => setEditing(l)}>Edit</button> },
+    { key: "actions", header: "", label: "Actions", type: "actions", render: (l) => (
+      <span className="bz-row-actions">
+        <button type="button" className="chip-button" onClick={() => setOpenId(l.id)}>Open</button>
+        {canEdit && <button type="button" className="chip-button" onClick={() => setEditing(l)}>Edit</button>}
+      </span>
+    ) },
   ].filter(Boolean), [many, agri, canEdit]);
 
   return (
     <div className="stack">
       <BusinessHeader icon="shield" title="Licences"
-        description={`The licences and registrations each location holds, with their numbers and the dates they are valid. The bell warns 60 days before one runs out.${agri ? " Bills of fertilisers, seeds and pesticides at a location need its licence in force that covers them." : ""}`}
-        primary={canEdit && <button type="button" className="button" onClick={() => setEditing({})}><Icon name="plus" size={16} /> Add a licence</button>} />
-      <ErrorMessage message={list.error} />
+        description={`The licences and registrations each location holds, with their numbers, the dates they are valid and their scanned copies. The bell warns 60 days before one runs out.${agri ? " Bills of fertilisers, seeds and pesticides at a location need its licence in force that covers them, one for wholesale sales when the buyer has a GSTIN." : ""}`}
+        primary={canEdit && <button type="button" className="button" disabled={!kinds} onClick={() => setEditing({})}><Icon name="plus" size={16} /> Add a licence</button>} />
+      <ErrorMessage message={list.error || kindList.error} />
       <SectionCard flush icon="shield" title="Licences & registrations">
         <DataGrid {...list.gridProps} caption="Licences" columns={columns} rowNoun={["licence", "licences"]}
           toolbar={(
@@ -91,42 +92,53 @@ export default function LicencesPage() {
               <label className="checkbox bz-check"><input type="checkbox" checked={showOff} onChange={(e) => setShowOff(e.target.checked)} /> Show switched-off licences</label>
             </>
           )}
-          rowClassName={(l) => (l.state === "off" ? "dg-tone-muted" : l.state === "expired" ? "dg-tone-danger" : l.state === "expiring" ? "dg-tone-warning" : "")}
+          rowClassName={(l) => (l.state === "off" ? "dg-tone-muted" : l.state === "expired" ? "dg-tone-danger" : ["expiring", "renewal_pending"].includes(l.state) ? "dg-tone-warning" : "")}
           exportName={biz.can("reports.export") ? `${biz.business.code}-licences` : undefined}
           empty="No licences kept yet" emptyHint={canEdit ? "Add each licence the location holds, with its number and the date it runs out." : "Licences appear here once they are added."} emptyIcon="shield" />
       </SectionCard>
-      {editing && <LicenceDialog licence={editing} onClose={() => setEditing(null)}
-        onSaved={(l) => { setEditing(null); toast.success(`${l.name} saved.`); list.reload(); }} />}
+      {openId && <LicenceDetail licenceId={openId} version={detailVersion} onClose={() => { if (!editing) setOpenId(null); }} onChanged={list.reload}
+        onEdit={canEdit ? setEditing : undefined} />}
+      {editing && <LicenceDialog licence={editing} kinds={kinds} onClose={() => setEditing(null)}
+        onSaved={(l) => { setEditing(null); toast.success(`${l.name} saved.`); list.reload(); setDetailVersion((n) => n + 1); }} />}
     </div>
   );
 }
 
-function LicenceDialog({ licence, onClose, onSaved }) {
+function LicenceDialog({ licence, kinds, onClose, onSaved }) {
   const biz = useOpenBusiness();
   const editing = Boolean(licence.id);
-  const kinds = kindsFor(biz.type);
+  const choices = kinds || offeredKinds([]);
   const agri = biz.type === "agri_inputs";
-  const first = kinds[0];
+  const first = choices[0];
   const [form, setForm] = useState(() => (editing ? {
     locationId: String(licence.location_id), kind: licence.kind, name: licence.name, licenceNo: licence.licence_no, authority: licence.authority || "",
     validFrom: licence.valid_from, validUntil: licence.valid_until || "", noExpiry: !licence.valid_until, covers: licence.covers || [], notes: licence.notes || "", active: licence.active,
+    sellsTo: licence.sells_to || "both", qualifiedPerson: licence.qualified_person || "", qualification: licence.qualification || "",
+    qualificationCertificate: licence.qualification_certificate || "", qualificationExemption: licence.qualification_exemption || "",
   } : {
-    locationId: String(biz.locations.find((l) => l.active)?.id || ""), kind: first.value, name: first.name, licenceNo: "", authority: "",
+    locationId: String(biz.locations.find((l) => l.active)?.id || ""), kind: first.code, name: first.name, licenceNo: "", authority: "",
     validFrom: businessToday(biz.business.timezone), validUntil: "", noExpiry: false, covers: first.covers || [], notes: "", active: true,
+    sellsTo: first.sells_to || "both", qualifiedPerson: "", qualification: "", qualificationCertificate: "", qualificationExemption: "",
   }));
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
-  // A kind fills in its usual name and what it covers, unless they were changed.
+  // A kind fills in its usual name (unless it was changed), what it covers and who it sells to.
   const pickKind = (e) => {
-    const next = KINDS.find((k) => k.value === e.target.value);
+    const next = choices.find((k) => k.code === e.target.value);
     setForm((f) => {
-      const was = KINDS.find((k) => k.value === f.kind);
-      return { ...f, kind: next.value, name: !f.name || f.name === was?.name ? next.name : f.name, covers: next.covers || [] };
+      const was = choices.find((k) => k.code === f.kind);
+      return { ...f, kind: next.code, name: !f.name || f.name === was?.name ? next.name : f.name, covers: next.covers || [], sellsTo: next.sells_to || "both" };
     });
   };
   const toggleCover = (category) => setForm((f) => ({ ...f, covers: f.covers.includes(category) ? f.covers.filter((c) => c !== category) : [...f.covers, category] }));
+  // A licence that covers farm inputs says who it sells to, and names its qualified person.
+  const covering = form.covers.length > 0;
+  const [person, qualification, certificate, exemption] = [form.qualifiedPerson, form.qualification, form.qualificationCertificate, form.qualificationExemption].map((v) => v.trim());
+  const showQualified = covering || Boolean(person || qualification || certificate || exemption);
   const submit = () => {
     const body = { name: form.name.trim(), licenceNo: form.licenceNo.trim(), authority: form.authority.trim() || null, validFrom: form.validFrom,
-      validUntil: form.noExpiry ? null : form.validUntil, covers: form.covers, notes: form.notes.trim() || null };
+      validUntil: form.noExpiry ? null : form.validUntil, covers: form.covers, notes: form.notes.trim() || null,
+      ...(covering ? { sellsTo: form.sellsTo } : {}), qualifiedPerson: person || null, qualification: qualification || null,
+      qualificationCertificate: certificate || null, qualificationExemption: exemption || null };
     return editing ? businessWrite(biz.id, `licences/${licence.id}`, { ...body, active: form.active }, "patch")
       : businessWrite(biz.id, "licences", { ...body, locationId: form.locationId, kind: form.kind });
   };
@@ -144,7 +156,7 @@ function LicenceDialog({ licence, onClose, onSaved }) {
       {!editing && (
         <Field label="Kind">
           <select value={form.kind} onChange={pickKind}>
-            {kinds.map((k) => <option key={k.value} value={k.value}>{k.value === "other" ? "Another licence or registration" : k.name}</option>)}
+            {choices.map((k) => <option key={k.code} value={k.code}>{k.code === "other" ? "Another licence or registration" : k.name}</option>)}
           </select>
         </Field>
       )}
@@ -165,7 +177,24 @@ function LicenceDialog({ licence, onClose, onSaved }) {
           <small className="muted">Bills of these at this location need this licence in force.</small>
         </fieldset>
       )}
-      <Field label="Notes (optional)" wide><input maxLength={500} value={form.notes} onChange={set("notes")} placeholder="e.g. renewal applied for on the state portal" /></Field>
+      {covering && (
+        <Field label="Sells to" hint="A sale to a buyer with a GSTIN (a B2B invoice) is a wholesale sale; any other sale is retail.">
+          <select value={form.sellsTo} onChange={set("sellsTo")}>
+            {SELLS_TO.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+        </Field>
+      )}
+      {showQualified && (
+        <fieldset className="bz-fieldset">
+          <legend>Qualified person (optional)</legend>
+          <Field label="Name"><input maxLength={150} required={Boolean(qualification || certificate || exemption)} value={form.qualifiedPerson} onChange={set("qualifiedPerson")} /></Field>
+          <Field label="Qualification"><input maxLength={200} required={Boolean(person) && !exemption} value={form.qualification} onChange={set("qualification")} placeholder="e.g. B.Sc. (Agriculture)" /></Field>
+          <Field label="Its certificate number (optional)"><input maxLength={80} className="mono" value={form.qualificationCertificate} onChange={set("qualificationCertificate")} /></Field>
+          <Field label="Or why they are exempt"><input maxLength={300} value={form.qualificationExemption} onChange={set("qualificationExemption")} /></Field>
+          <small className="muted field-wide">The person the licence names, with their qualification or why they are exempt. The rules on who qualifies change often, so these are kept as written on the licence.</small>
+        </fieldset>
+      )}
+      <Field label="Notes (optional)" wide><input maxLength={500} value={form.notes} onChange={set("notes")} placeholder="e.g. the original is kept at the head office" /></Field>
       {editing && <label className="checkbox bz-check field-wide"><input type="checkbox" checked={form.active} onChange={set("active")} /> In use (switch it off when it is surrendered or cancelled)</label>}
     </FormDialog>
   );

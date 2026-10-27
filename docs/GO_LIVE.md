@@ -286,7 +286,7 @@ folder `backend/.local/backups/<time>-<id>/` that holds:
 - a copy of the two upload folders, wherever `UPLOADS_DIR` and
   `PRIVATE_UPLOADS_DIR` put them: `uploads/` (photos of the menu's dishes)
   and `private_uploads/` (bills attached to expenses and purchase bills,
-  prescription scans, task files);
+  prescription scans, task files, licences' scanned copies);
 - `manifest.json`: the database, the time, what was copied, and whether the
   restore was checked.
 

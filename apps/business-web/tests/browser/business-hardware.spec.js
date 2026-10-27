@@ -5,7 +5,9 @@ import { business, HARDWARE, signIn } from "../../../../e2e/fixture.mjs";
 // The hardware shop's screens. Signs in as the test restaurant's admin, who
 // owns the test hardware shop (e2e/test-data.mjs): it sells cement by the bag
 // and binding wire by the kilo in 25 kg coils, and has a contractor with a
-// site and a painter who earns commission on cement.
+// site and a painter who earns commission on cement. With Paint tinting on,
+// it keeps a Pastel base in 4 L tins, a shade on that base and the tinting
+// charge; it has red bricks, and a manager who approves with a PIN.
 let shop = null;
 test.beforeEach(async ({ page }) => {
   shop = business("hardware");
@@ -180,6 +182,8 @@ test("today's rates are typed on one board, saved together and shared", async ({
   const add = page.getByRole("dialog", { name: "Put items on the board" });
   await pick(page, add.getByRole("combobox", { name: "Item" }), HARDWARE.cement.name);
   await pick(page, add.getByRole("combobox", { name: "Item" }), HARDWARE.wire.name);
+  // The list stays open for another item: leaving the box closes it.
+  await add.getByRole("combobox", { name: "Item" }).press("Tab");
   await add.getByRole("button", { name: "Put 2 items on the board" }).click();
   await expect(add).toHaveCount(0, { timeout: 15_000 });
 
@@ -202,6 +206,16 @@ test("today's rates are typed on one board, saved together and shared", async ({
   await cement.getByRole("spinbutton").fill(String(HARDWARE.cement.price));
   await page.getByRole("button", { name: "Save 1 rate" }).click();
   await expect(cement).toContainText("▼ ₹10.00", { timeout: 15_000 });
+
+  // Each change stays in the item's history, newest first, with who made it.
+  await cement.getByRole("button", { name: `Rate history of ${HARDWARE.cement.name}` }).click();
+  const history = page.getByRole("dialog", { name: `Rate history: ${HARDWARE.cement.name}` });
+  const changes = history.getByRole("table", { name: "Rate changes" });
+  await expect(changes).toContainText("₹405.00", { timeout: 15_000 });
+  await expect(changes.getByRole("row").nth(1)).toContainText("▼ ₹10.00");
+  await expect(changes).toContainText("Asha Rao");
+  await page.screenshot({ path: testInfo.outputPath("rate-history.png"), fullPage: true });
+  await page.keyboard.press("Escape");
   expect(errors).toEqual([]);
 });
 
@@ -209,8 +223,8 @@ test("the tile calculator puts the boxes an area needs on a Quick bill; the pain
   const errors = errorsOf(page);
   await page.goto(`/business-admin/${shop.id}/counter`);
   await expect(page.getByRole("heading", { level: 1, name: "Quick bill", exact: true })).toBeVisible({ timeout: 30_000 });
-  await page.getByRole("button", { name: "Tile & paint calculator" }).click();
-  const calculator = page.getByRole("dialog", { name: "Tile & paint calculator" });
+  await page.getByRole("button", { name: "Calculators", exact: true }).click();
+  const calculator = page.getByRole("dialog", { name: "Calculators" });
   await pick(page, calculator.getByRole("combobox", { name: "Tiles" }), HARDWARE.tiles.name);
   await calculator.getByLabel("Area").fill("200");
   // 200 sq ft and 10% for wastage is 220 sq ft: 14 boxes of 16 sq ft.
@@ -223,7 +237,7 @@ test("the tile calculator puts the boxes an area needs on a Quick bill; the pain
   await expect(page.getByRole("button", { name: /^Take ₹16,800\.00/ }).first()).toBeVisible({ timeout: 15_000 });
 
   // Paint by its coverage typed in: 600 sq ft, two coats, 55 sq ft a litre.
-  await page.getByRole("button", { name: "Tile & paint calculator" }).click();
+  await page.getByRole("button", { name: "Calculators", exact: true }).click();
   await calculator.getByRole("radio", { name: "Paint" }).click();
   await calculator.getByLabel("Area").fill("600");
   await calculator.getByLabel("One litre covers (sq ft, one coat)").fill("55");
@@ -231,5 +245,106 @@ test("the tile calculator puts the boxes an area needs on a Quick bill; the pain
   await expect(calculator.getByRole("status")).toContainText("Buy 1 × 20 L + 2 × 1 L = 22 L.");
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Clear", exact: true }).click();
+  expect(errors).toEqual([]);
+});
+
+test("a tinted tin is billed with its charge, made on the tinting board, and comes back only on a manager's PIN", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  await page.goto(`/business-admin/${shop.id}/counter`);
+  await expect(page.getByRole("heading", { level: 1, name: "Quick bill", exact: true })).toBeVisible({ timeout: 30_000 });
+  const scan = page.getByLabel("Scan or type an item");
+  await scan.fill(HARDWARE.base.code);
+  await scan.press("Enter");
+  await expect(page.locator(".rt-grand")).toContainText("1 item", { timeout: 15_000 });
+  // Only the shades that need the Pastel base; choosing one puts the tinting charge on too.
+  await pick(page, page.getByRole("combobox", { name: `Shade for ${HARDWARE.base.name}` }), HARDWARE.shade.code);
+  await expect(page.locator(".rt-grand")).toContainText("2 items", { timeout: 15_000 });
+  // 1,725 for the tin and 30 for tinting it, GST included.
+  await expect(page.locator(".rt-post")).toHaveText(/Take ₹1,755\.00/, { timeout: 15_000 });
+  await page.screenshot({ path: testInfo.outputPath("tinted-line.png"), fullPage: true });
+  await page.locator(".rt-post").click();
+  const saved = page.getByRole("dialog", { name: /^Bill \S+ saved$/ });
+  await expect(saved).toBeVisible({ timeout: 15_000 });
+  const number = (await saved.getByRole("heading", { level: 2 }).innerText()).replace(/^Bill (\S+) saved$/, "$1");
+  await saved.getByRole("button", { name: /^Next bill/ }).click();
+
+  // The job waits on the board with the formula for one 4 L tin; tinted, then handed over.
+  await page.goto(`/business-admin/${shop.id}/tinting`);
+  await expect(page.getByRole("heading", { level: 1, name: "Paint tinting", exact: true })).toBeVisible({ timeout: 30_000 });
+  const row = page.getByRole("table", { name: "Tinting board" }).getByRole("row").filter({ hasText: number });
+  await expect(row).toContainText(`${HARDWARE.shade.maker} ${HARDWARE.shade.code} ${HARDWARE.shade.name}`, { timeout: 15_000 });
+  await expect(row).toContainText("Queued");
+  await expect(row).toContainText("XR 5 ml · YE 1.6 ml for one 4 L tin");
+  await row.getByRole("button", { name: "Tinted", exact: true }).click();
+  await expect(page.getByText(`${HARDWARE.base.name} on ${number} is tinted. Its base has left stock.`)).toBeVisible({ timeout: 15_000 });
+  await row.getByRole("button", { name: "Handed over", exact: true }).click();
+  await expect(row.getByRole("button", { name: "Handed over", exact: true })).toHaveCount(0, { timeout: 15_000 });
+  await expect(row).toContainText("Handed over");
+  await page.screenshot({ path: testInfo.outputPath("tinting-board.png"), fullPage: true });
+
+  // The customer brings it back: only a manager's PIN takes a tinted tin back, and none of it goes back into stock.
+  await row.getByRole("button", { name: "Take back", exact: true }).click();
+  const back = page.getByRole("dialog", { name: "Take back the tinted line" });
+  await back.getByLabel("Why it is taken back").fill("The customer chose another shade");
+  await back.getByLabel("Approved by").selectOption({ label: shop.manager.name });
+  await back.getByLabel("Their PIN").fill(shop.manager.pin);
+  await back.getByRole("button", { name: "Take it back" }).click();
+  await expect(back).toHaveCount(0, { timeout: 15_000 });
+  await expect(row).toContainText("Taken back", { timeout: 15_000 });
+  await expect(row).toContainText(`approved by ${shop.manager.name}`);
+  await row.getByRole("button", { name: number, exact: true }).click();
+  const bill = page.getByRole("dialog", { name: `Sale ${number}` });
+  await expect(bill.getByRole("list", { name: "Tinted lines" }))
+    .toContainText(`tinted to ${HARDWARE.shade.maker} ${HARDWARE.shade.code} ${HARDWARE.shade.name} (${HARDWARE.base.paintBase} base) · taken back`, { timeout: 15_000 });
+  expect(errors).toEqual([]);
+});
+
+test("the brickwork calculator puts a wall's bricks and cement on a quotation that keeps its working; its bill gets its fitter afterwards", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  await page.goto(`/business-admin/${shop.id}/quotations?new=1`);
+  const dialog = page.getByRole("dialog", { name: "New quotation" });
+  await expect(dialog).toBeVisible({ timeout: 30_000 });
+  await dialog.getByLabel("Customer", { exact: true }).selectOption({ label: `${HARDWARE.contractor.name} · ${HARDWARE.contractor.phone}` });
+  await dialog.getByRole("button", { name: "Calculators", exact: true }).click();
+  const calculator = page.getByRole("dialog", { name: "Calculators" });
+  await calculator.getByRole("radio", { name: "Bricks", exact: true }).click();
+  await calculator.getByLabel("Wall length").fill("10");
+  await calculator.getByLabel("Wall height").fill("10");
+  // A one-brick wall, 230 mm thick, to start with; the server's own figures.
+  await expect(calculator.getByRole("status")).toContainText("1,122 bricks, 3 bags of cement and 21 cft of sand for a 2.137 m³ wall.", { timeout: 15_000 });
+  await pick(page, calculator.getByRole("combobox", { name: "Bricks", exact: true }), HARDWARE.bricks.name);
+  await pick(page, calculator.getByRole("combobox", { name: "Cement", exact: true }), HARDWARE.cement.name);
+  await expect(calculator.getByRole("status")).toContainText(`3 bags of ${HARDWARE.cement.name}`, { timeout: 15_000 });
+  await page.screenshot({ path: testInfo.outputPath("brickwork-calculator.png"), fullPage: true });
+  await calculator.getByRole("button", { name: "Add these to the quotation" }).click();
+  await expect(calculator).toHaveCount(0);
+  await expect(dialog.getByText("1 calculator working kept with this quotation")).toBeVisible();
+  // 1,122 bricks at 9 and 3 bags at 395, GST included.
+  await expect(dialog.getByText(/total ₹11,283\.00/)).toBeVisible({ timeout: 15_000 });
+  await dialog.getByRole("button", { name: "Save quotation" }).click();
+
+  const detail = page.getByRole("dialog", { name: /^Quotation QT\// });
+  await expect(detail).toBeVisible({ timeout: 15_000 });
+  await expect(detail).toContainText("How the quantities were worked out");
+  await expect(detail).toContainText("These are estimates for the customer, not engineering.");
+  await expect(detail).toContainText("Brickwork: a wall 10 ft long and 10 ft high, 230 mm thick; bricks of 190 × 90 × 90 mm with a 10 mm joint");
+  await detail.getByRole("button", { name: "Print (A4)" }).click();
+  await expect(page.locator("#print-root")).toContainText("1,122 bricks, 3 bags of cement, 21 cft of sand");
+  await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+
+  // Billed at the quoted prices, then the painter who brought the contractor is named on the bill afterwards.
+  await detail.getByRole("button", { name: "Make the bill" }).click();
+  const make = page.getByRole("dialog", { name: /^Make the bill for QT\// });
+  await make.getByRole("button", { name: "Make the bill · ₹11,283.00" }).click();
+  const sale = page.getByRole("dialog", { name: /^Sale SI/ });
+  await expect(sale).toBeVisible({ timeout: 15_000 });
+  await sale.getByRole("button", { name: "Name the fitter" }).click();
+  const fitter = page.getByRole("dialog", { name: /^Fitter of SI/ });
+  await fitter.getByLabel("Fitted by").selectOption({ label: `${HARDWARE.fitter.name} · Painter · ${HARDWARE.fitter.phone}` });
+  await fitter.getByRole("button", { name: "Save" }).click();
+  await expect(fitter).toHaveCount(0, { timeout: 15_000 });
+  // Two rupees on each of the 3 bags of cement.
+  await expect(sale.getByText(/Fitted by Ramesh Kumar \(painter\) · commission ₹6\.00/)).toBeVisible({ timeout: 15_000 });
+  await expect(sale.getByRole("button", { name: "Change the fitter" })).toBeVisible();
   expect(errors).toEqual([]);
 });

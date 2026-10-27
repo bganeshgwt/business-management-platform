@@ -11,7 +11,7 @@ export const WORKSPACES = {
   purchases: ['purchases', 'suppliers', 'purchase-orders', 'claims'],
   dues: ['udhaar', 'outstanding', 'collections'],
   customers: ['customers', 'loyalty', 'sites', 'fitters', 'prescriptions', 'recall', 'vehicles', 'service-due', 'fuel-fleet'],
-  sales: ['sales', 'quotations', 'exchanges', 'warranties', 'pickup-orders'],
+  sales: ['sales', 'quotations', 'tinting', 'exchanges', 'warranties', 'pickup-orders'],
   orders: ['sales-orders', 'back-orders', 'dispatch', 'price-groups', 'pricing', 'routes'],
   appointments: ['salon-calendar', 'appointments'],
   care: ['clinic-today', 'clinic-queue', 'visits', 'appointments', 'doctors'],

@@ -78,6 +78,7 @@ const TABLES = {
   business_privacy_requests: { label: 'Requests', own: true },
   business_privacy_breach_people: { label: 'Breaches affecting them', own: true },
   business_privacy_breach_notices: { label: 'Breach notices sent', own: true },
+  business_licence_sources: { label: 'Certificates of source (Form O)', party: 'supplier' },
 };
 
 // Children of the rows above that the export also shows: the lines of each bill.

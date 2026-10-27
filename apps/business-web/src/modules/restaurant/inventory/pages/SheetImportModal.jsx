@@ -82,6 +82,8 @@ const DETAIL_WORDS = {
   packs: "Packs",
   opening: "Opening stock",
   store: "Store",
+  base: "Base",
+  formula: "Formula (ml per litre)",
 };
 
 const detailText = (details) =>

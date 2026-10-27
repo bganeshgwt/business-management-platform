@@ -41,6 +41,7 @@ const READERS = {
   "modules/business/garage/services/garageJobCards.service.js": "gate",
   "modules/business/garage/services/garageMoney.js": "gate",
   "modules/business/hardware/services/hardwareRates.service.js": "gate",
+  "modules/business/hardware/services/hardwareTinting.service.js": "gate",
   "modules/business/health/services/businessPharmacy.service.js": "gate",
   "modules/business/jewellery/services/jewelleryBills.service.js": "gate",
   "modules/business/jewellery/services/jewelleryPieces.service.js": "gate",

@@ -32,12 +32,15 @@ import SiteField from "../../hardware/pages/SiteField";
 import { usesFitters, usesSites } from "../../hardware/pages/hardware";
 // A hardware shop's bill may name the fitter who brought the customer.
 import FitterField from "../../hardware/pages/FitterField";
-// A hardware shop's tile and paint calculator adds what an area needs.
+// A hardware shop's calculators add what a job needs; their workings go with the bill.
 import CalculatorDialog from "../../hardware/pages/CalculatorDialog";
 import { usesCalculators } from "../../hardware/pages/calculators";
+// A paint shop's tinted line: a base, its pack and a shade, with the tinting charge beside it.
+import TintField from "../../hardware/pages/TintField";
+import { useTintCharge, usesTinting } from "../../hardware/pages/hardware";
 // A farm-input shop's bill: the PoS receipt, the crop, a walk-in farmer and season credit.
 import AgriBillFields from "../../agri/pages/AgriBillFields";
-import { agriBillBody, agriNeedsOf, agriProblem, emptyAgriBill, useMolecules, usesAgri } from "../../agri/pages/agri";
+import { agriBillBody, agriNeedsOf, agriProblem, emptyAgriBill, useLicenceNotes, useMolecules, usesAgri } from "../../agri/pages/agri";
 
 // Quick bill: the counter of every goods shop (grocery, supermarket, books,
 // pharmacy, fashion, electronics, meat and other weight shops). Scan a
@@ -156,6 +159,9 @@ export default function CounterPage() {
   const [held, setHeld] = useState(() => readHeld(biz.id));
   const [picking, setPicking] = useState(false);
   const [calculating, setCalculating] = useState(false);
+  // What the calculators worked out for this bill, kept with it.
+  const [workings, setWorkings] = useState([]);
+  const tintCharge = useTintCharge(biz);
   const [lastOpen, setLastOpen] = useState(null);
   const [returning, setReturning] = useState(false);
   const [returnId, setReturnId] = useState(null);
@@ -190,6 +196,7 @@ export default function CounterPage() {
     return JSON.stringify({
       locationId, contactId: customer?.id || null,
       lines: usable.map((l) => ({ skuId: l.sku.id, quantity: l.quantity, ...(l.unit && l.unit !== l.sku.unit ? { unit: l.unit } : {}), ...(l.lotCode ? { lotCode: l.lotCode } : {}),
+        ...(l.tint ? { tint: { shadeId: l.tint } } : {}),
         ...(l.kit ? { components: l.kit.filter((c) => l.picks?.[c.skuId]).map((c) => ({ skuId: c.skuId, lotCode: l.picks[c.skuId] })) } : {}) })),
       ...(Number(redeem) > 0 ? { loyalty: { redeemPoints: redeem } } : {}),
       ...(coupon ? { coupon } : {}),
@@ -261,7 +268,8 @@ export default function CounterPage() {
       }
       // Earliest expiry first; the next batch takes over once one runs out.
       const lot = lots?.find((l) => Number(l.quantity) > 0);
-      const same = all.find((l) => l.sku.id === sku.id && !scaleQuantity && !weighed && (!lot || l.lotCode === lot.lot_code));
+      // A tin tinted to a shade is its own line: another of the same base is added beside it.
+      const same = all.find((l) => l.sku.id === sku.id && !l.tint && !scaleQuantity && !weighed && (!lot || l.lotCode === lot.lot_code));
       if (same) {
         const next = String(Number(same.quantity || 0) + many);
         const fits = !same.lots?.length || Number(same.lots.find((x) => x.lot_code === same.lotCode)?.quantity || 0) >= Number(next);
@@ -307,11 +315,23 @@ export default function CounterPage() {
       return false;
     }
   }
-  // From the tile and paint calculator: each item as if scanned, with its quantity.
-  async function addCalculated(picks) {
+  // From the calculators: each item as if scanned, with its quantity; the working goes with the bill.
+  async function addCalculated(picks, working) {
     setScanError("");
     try {
       for (const { sku, quantity: count } of picks) addScanned(await businessRead(biz.id, "retail/scan", { code: sku.barcode || sku.code, locationId }), count);
+      if (working) setWorkings((all) => [...all, working]);
+    } catch (err) {
+      setScanError(getErrorMessage(err));
+    }
+  }
+  // A line tinted to a shade (or the tint taken off). Tinting a line puts the
+  // tinting charge on the bill too, one for each tin, as a line of its own.
+  async function tintLine(line, shade) {
+    setLine(line.key, { tint: shade ? String(shade.id) : "" });
+    if (!shade || line.tint || !tintCharge) return;
+    try {
+      addScanned(await businessRead(biz.id, "retail/scan", { code: tintCharge.barcode || tintCharge.code, locationId }), Number(line.quantity) > 0 ? Number(line.quantity) : 1);
     } catch (err) {
       setScanError(getErrorMessage(err));
     }
@@ -345,7 +365,7 @@ export default function CounterPage() {
   const reset = useCallback(() => {
     setLines([]); setCustomer(null); setRedeem(""); setReceived(""); setPartPaid(""); setMethod("cash"); setFinance(emptyFinance()); setAskPin(null);
     setDiscount({ mode: "amount", value: "", reason: "" }); setBuyer({ name: "", phone: "", pan: "", panDeclaration: false }); setSiteId(""); setFitterId("");
-    setAgriBill(emptyAgriBill());
+    setAgriBill(emptyAgriBill()); setWorkings([]);
     setQuote(null); setPosted(null); setPostError(""); setScanError(""); setRequestKey(newKey()); setVoucher(null); setVoucherCode(""); setVoucherError(""); setCoupon(""); setCouponText("");
     setTimeout(() => scanRef.current?.focus(), 0);
   }, []);
@@ -401,7 +421,9 @@ export default function CounterPage() {
   // A farm-input shop's bill: what its fertilisers, seeds and pesticides need first (agri).
   const agriNeeds = usesAgri(biz) ? agriNeedsOf(lines, agriMaster) : null;
   const agriCredit = udhaar && Boolean(customer) && onCredit > 0;
-  const agriStop = agriProblem(agriNeeds, agriBill, agriMaster, { credit: agriCredit, today: businessToday(biz.business.timezone) });
+  // The licences the location holds for these farm inputs, asked ahead: what stops the bill, what it is billed with a warning about.
+  const licenceNotes = useLicenceNotes(biz, { locationId, contactId: customer?.id || null, skuIds: agriNeeds?.any ? lines.map((l) => l.sku.id) : [] });
+  const agriStop = agriProblem(agriNeeds, agriBill, agriMaster, { credit: agriCredit, today: businessToday(biz.business.timezone) }) || licenceNotes.stop?.message || "";
   const ready = !posted && bill && !stale && !problem && !posting && !waiting.length && (!udhaar || customer) && !short && !walkInUnpaid && emiOk && panOk && !agriStop;
 
   async function applyVoucher() {
@@ -446,6 +468,7 @@ export default function CounterPage() {
         ...(siteId && customer ? { siteId } : {}),
         ...(fitterId && usesFitters(biz) ? { fitterId } : {}),
         ...agriBillBody(agriNeeds, agriBill, { customer, credit: agriCredit }),
+        ...(workings.length ? { calculations: workings } : {}),
         ...payBody(),
       });
       setAskPin(null);
@@ -455,7 +478,7 @@ export default function CounterPage() {
       const udhaarLines = customer && (thisBill > 0.004 || before > 0.004) ? { earlier: before, thisBill, total: before + thisBill } : null;
       writeLast(biz.id, doc.id);
       weightTools.current?.posted(doc.id);
-      setPosted({ doc: { ...detail, warranties: doc.warranties || [] }, change: doc.change !== undefined ? Number(doc.change) : change, udhaar: udhaarLines });
+      setPosted({ doc: { ...detail, warranties: doc.warranties || [] }, change: doc.change !== undefined ? Number(doc.change) : change, udhaar: udhaarLines, warnings: doc.warnings || [] });
       setSold({ skuIds: [...new Set(lines.flatMap((l) => [l.sku.id, ...(l.kit || []).map((c) => c.skuId)]).map(String))] });
     } catch (err) {
       const reason = err?.response?.data?.data?.reason;
@@ -530,6 +553,7 @@ export default function CounterPage() {
               {q?.parts && <small className="muted">GST on each part: {q.parts.map((x) => `${Number(x.taxRate)}%`).join(" + ")}</small>}
             </span>
           )}
+          {usesTinting(biz) && <TintField biz={biz} sku={l.sku} value={l.tint || ""} onChange={(shade) => tintLine(l, shade)} />}
           {l.lots?.length > 1 && !isWeighed(l.sku) && !isSerial(l.sku) && (
             <select aria-label={`Batch for ${l.sku.label}`} value={l.lotCode} onChange={(e) => setLine(l.key, { lotCode: e.target.value })}>
               {l.lots.map((lot) => <option key={lot.id} value={lot.lot_code}>{lot.expires_on ? `Use by ${dateShort(lot.expires_on)}` : "Batch"} · {qtyText(lot.quantity, l.sku.unit)} left · {lot.lot_code}</option>)}
@@ -627,6 +651,7 @@ export default function CounterPage() {
             {earned && <div><span className="muted">Points earned</span><strong>{earned.points}</strong></div>}
             {posted.doc.warranties.map((w) => <div key={w.id}><span className="muted">Warranty registered</span><strong>{w.serial} · until {dateShort(w.ends_on, { year: true })}</strong></div>)}
           </div>
+          {posted.warnings?.length > 0 && <div className="rt-warn" role="alert"><Icon name="alert" size={14} /> {posted.warnings.join(" ")}</div>}
           <div className="form-actions bz-start">
             <button type="button" className="button" data-autofocus onClick={reset}><Icon name="plus" size={15} /> Next bill <kbd>Enter</kbd></button>
             {biz.can("sales.print") && <button type="button" className="button button-secondary" onClick={printPosted}><Icon name="print" size={15} /> Print receipt <kbd>P</kbd></button>}
@@ -643,7 +668,7 @@ export default function CounterPage() {
           <SectionCard icon="search" title="1 · Add items" description="Click an item below, type part of its name, or scan its barcode." actions={(fashion || usesCalculators(biz)) && (
             <>
               {fashion && <button type="button" className="button button-secondary button-sm" onClick={() => setPicking(true)}><Icon name="tag" size={14} /> Size & colour</button>}
-              {usesCalculators(biz) && <button type="button" className="button button-secondary button-sm" onClick={() => setCalculating(true)}><Icon name="grid" size={14} /> Tile & paint calculator</button>}
+              {usesCalculators(biz) && <button type="button" className="button button-secondary button-sm" onClick={() => setCalculating(true)}><Icon name="grid" size={14} /> Calculators</button>}
             </>
           )}>
             <ScanBox biz={biz} inputRef={scanRef} onCode={lookUp} onPick={(sku) => lookUp(sku.barcode || sku.code)} onQuery={changeSearch}
@@ -696,7 +721,7 @@ export default function CounterPage() {
               <FitterField biz={biz} value={fitterId} onChange={setFitterId} label="Fitter who brought the customer" />
             </SectionCard>
           )}
-          {agriNeeds && <AgriBillFields biz={biz} needs={agriNeeds} value={agriBill} onChange={setAgriBill} master={agriMaster} customer={customer} credit={agriCredit} />}
+          {agriNeeds && <AgriBillFields biz={biz} needs={agriNeeds} value={agriBill} onChange={setAgriBill} master={agriMaster} customer={customer} credit={agriCredit} notes={licenceNotes.notes} />}
           {needsBuyer && (
             <SectionCard icon="shield" title={emi ? "Buyer" : "Warranty for"} description={emi ? "Name and phone of the buyer, for the financier and the warranty." : "Name and phone of the buyer, so the warranty is registered with this bill."}>
               <div className="rt-inline">

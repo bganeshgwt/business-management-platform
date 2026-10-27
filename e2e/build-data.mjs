@@ -384,6 +384,33 @@ export async function buildTestData({ api, logins, sql }) {
       name: HARDWARE.fitter.name, trade: HARDWARE.fitter.trade, phone: HARDWARE.fitter.phone, upiId: HARDWARE.fitter.upiId,
     }, 201);
     await owner("POST", B("hardware/fitter-rules"), { skuId: cement.id, perUnit: String(HARDWARE.fitter.perBag) }, 201);
+    // Paint tinting, switched on as the trade is recommended it: the Pastel
+    // base, the tinting charge and a shade; and red bricks, both received.
+    await owner("PUT", B("modules/hardware_tinting"), { enabled: true });
+    const base = await owner("POST", B("catalog"), {
+      name: HARDWARE.base.name, code: HARDWARE.base.code, kind: "goods", unit: HARDWARE.base.unit, tracking: "quantity", price: String(HARDWARE.base.price),
+      mrp: String(HARDWARE.base.mrp), hsnCode: HARDWARE.base.hsn, taxRate: "18", attributes: { paintBase: HARDWARE.base.paintBase, litresPerUnit: String(HARDWARE.base.litres) },
+    }, 201);
+    const tintCharge = await owner("POST", B("catalog"), {
+      name: HARDWARE.tintCharge.name, code: HARDWARE.tintCharge.code, kind: "service", unit: "service", tracking: "none", price: String(HARDWARE.tintCharge.price),
+      hsnCode: HARDWARE.tintCharge.sac, taxRate: "18",
+    }, 201);
+    await owner("PUT", B("hardware/tinting/settings"), { chargeSkuId: tintCharge.id });
+    const shade = await owner("POST", B("hardware/shades"), HARDWARE.shade, 201);
+    const bricks = await owner("POST", B("catalog"), {
+      name: HARDWARE.bricks.name, code: HARDWARE.bricks.code, kind: "goods", unit: HARDWARE.bricks.unit, tracking: "quantity", price: String(HARDWARE.bricks.price),
+      hsnCode: HARDWARE.bricks.hsn, taxRate: "5",
+    }, 201);
+    await owner("POST", B("documents"), {
+      kind: "purchase", requestKey: requestKey(), locationId: businesses.hardware.locationId, contactId: supplier.id, supplierBillNo: "ACD-1002",
+      lines: [{ skuId: base.id, quantity: "12", unitPrice: "1400" }, { skuId: bricks.id, quantity: "5000", unitPrice: "6" }],
+    }, 201);
+    Object.assign(businesses.hardware, {
+      base: { id: base.id, name: base.label },
+      tintCharge: { id: tintCharge.id, name: tintCharge.label },
+      shade: { id: shade.id, code: shade.code, name: shade.name },
+      bricks: { id: bricks.id, name: bricks.label },
+    });
     Object.assign(businesses.hardware, {
       fitter: { id: fitter.id, name: fitter.name },
       supplier: { id: supplier.id, name: supplier.name },
@@ -407,6 +434,9 @@ export async function buildTestData({ api, logins, sql }) {
       await owner("POST", B("licences"), { ...licence, locationId, authority: "Agriculture Officer, Rangareddy", validFrom: day(-300), validUntil: day(700) }, 201);
     }
     const supplier = await owner("POST", B("contacts"), { kind: "supplier", name: AGRI.supplier }, 201);
+    // The fertiliser authorisation holds the supplier's certificate of source (Form O).
+    const held = Object.fromEntries((await owner("GET", B("licences?limit=10"))).items.map((licence) => [licence.kind, licence]));
+    await owner("POST", B(`licences/${held.fertiliser.id}/sources`), { contactId: supplier.id, certificateNo: AGRI.source.certificateNo, certificateDate: day(-200) }, 201);
     const urea = await owner("POST", B("catalog"), {
       name: AGRI.urea.name, code: "UREA-45", kind: "goods", unit: AGRI.urea.unit, tracking: "quantity", price: String(AGRI.urea.price), mrp: String(AGRI.urea.mrp),
       hsnCode: AGRI.urea.hsn, taxRate: "5", attributes: { inputKind: "fertiliser", subsidised: true, netKg: "45" },
@@ -426,6 +456,23 @@ export async function buildTestData({ api, logins, sql }) {
         { skuId: seed.id, quantity: "200", unitPrice: "45", lotCode: AGRI.seed.lot, expiresOn: day(120) }],
     }, 201);
     const farmer = await owner("POST", B("agri/farmers"), AGRI.farmer, 201);
+    // The insecticide licence endorses the chlorpyrifos and holds its maker's
+    // principal certificate; the thiamethoxam, received too, is on neither.
+    await owner("POST", B(`licences/${held.insecticide.id}/endorsements`), { productId: pesticide.product_id, endorsedOn: day(-250) }, 201);
+    await owner("POST", B(`licences/${held.insecticide.id}/principals`), { ...AGRI.principal, validFrom: day(-300), validUntil: day(700) }, 201);
+    const unendorsed = await owner("POST", B("catalog"), {
+      name: AGRI.unendorsed.name, code: AGRI.unendorsed.code, kind: "goods", unit: AGRI.unendorsed.unit, tracking: "batch", price: String(AGRI.unendorsed.price),
+      mrp: String(AGRI.unendorsed.mrp), hsnCode: AGRI.unendorsed.hsn, taxRate: "18",
+      attributes: { inputKind: "pesticide", molecules: [AGRI.unendorsed.molecule], formulation: AGRI.unendorsed.formulation, manufacturer: AGRI.unendorsed.manufacturer },
+    }, 201);
+    await owner("POST", B("documents"), {
+      kind: "purchase", requestKey: requestKey(), locationId, contactId: supplier.id, supplierBillNo: "IF-2202",
+      lines: [{ skuId: unendorsed.id, quantity: "20", unitPrice: "150", lotCode: AGRI.unendorsed.lot, expiresOn: day(400) }],
+    }, 201);
+    Object.assign(businesses.agri_inputs, {
+      licences: Object.fromEntries(Object.entries(held).map(([kind, licence]) => [kind, { id: licence.id, name: licence.name, licenceNo: licence.licence_no }])),
+      unendorsed: { id: unendorsed.id, name: unendorsed.label },
+    });
     Object.assign(businesses.agri_inputs, {
       supplier: { id: supplier.id, name: supplier.name },
       urea: { id: urea.id, name: urea.label },
@@ -893,6 +940,15 @@ export async function buildTestData({ api, logins, sql }) {
     const pin = freshPin();
     await caller(api, await signIn("RENTALS_MANAGER"))("PUT", "/auth/me/pin", { password: manager.password, pin, confirmPin: pin });
     businesses.rentals.manager = { name: manager.name, pin };
+  }
+
+  // The hardware shop's manager lets a tinted tin come back with a PIN of
+  // their own, set the way My profile › Personal PIN sets one.
+  {
+    const manager = login("HARDWARE_MANAGER");
+    const pin = freshPin();
+    await caller(api, await signIn("HARDWARE_MANAGER"))("PUT", "/auth/me/pin", { password: manager.password, pin, confirmPin: pin });
+    businesses.hardware.manager = { name: manager.name, pin };
   }
 
   // The logins nothing above signed in as choose their own password now, so

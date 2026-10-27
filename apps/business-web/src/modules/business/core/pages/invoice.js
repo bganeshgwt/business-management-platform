@@ -92,7 +92,7 @@ function invoiceFacts(doc, symbol = "₹") {
     const listValue = extra && !free && Number(extra.discount_percent) > 0 && doc.tax_mode !== "inclusive" ? Math.round(Number(extra.list_unit_price) * Number(line.quantity) * 100) : 0;
     const discount = discounts.filter((d) => d.line_id === line.id).reduce((s, d) => s + p(d.amount), 0) + Math.max(0, listValue - p(line.net));
     return {
-      n: index + 1, label: line.label, lot: [doc.jewellery ? "" : line.lot_code, pharmacyLine(doc, line), agriLine(doc, line), jewelleryLine(doc, line, symbol)].filter(Boolean).join(" · "), kit: line.kit_label || "", hsn: line.hsn_code || "", mrp: line.mrp ? p(line.mrp) : null,
+      n: index + 1, label: line.label, lot: [doc.jewellery ? "" : line.lot_code, pharmacyLine(doc, line), agriLine(doc, line), jewelleryLine(doc, line, symbol), tintLine(doc, line)].filter(Boolean).join(" · "), kit: line.kit_label || "", hsn: line.hsn_code || "", mrp: line.mrp ? p(line.mrp) : null,
       quantity: line.entered_unit ? `${qty(line.entered_quantity)} ${line.entered_unit}` : `${qty(line.quantity)} ${line.unit}`,
       rate: Number(line.entered_unit_price || line.unit_price), discount, taxable: p(line.net), gstRate: Number(line.tax_rate),
       cgst, sgst, igst: interstate ? tax : 0, tax, amount: p(line.net) + tax, free, exempt: Number(line.tax_rate) === 0 && tax === 0,
@@ -161,6 +161,11 @@ function agriLine(doc, line) {
   const x = (doc.agri?.lines || []).find((l) => l.line_id === line.id);
   if (!x) return "";
   return [x.pos_receipt && `PoS receipt ${x.pos_receipt}`, x.crop && `For ${x.crop}`].filter(Boolean).join(" · ");
+}
+// A hardware shop's tinted line: the shade its base is tinted to.
+function tintLine(doc, line) {
+  const tint = (doc.hardware?.tints || []).find((t) => String(t.line_id) === String(line.id));
+  return tint ? `Tinted to ${tint.maker} ${tint.code} ${tint.name}` : "";
 }
 function agriBlock(doc) {
   const licences = doc.agri?.licences || [];

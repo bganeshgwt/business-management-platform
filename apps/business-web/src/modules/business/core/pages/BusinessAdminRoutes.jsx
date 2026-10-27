@@ -111,6 +111,7 @@ const SitesPage = lazy(() => import("../../hardware/pages/SitesPage"));
 const FittersPage = lazy(() => import("../../hardware/pages/FittersPage"));
 const FitterReportPage = lazy(() => import("../../hardware/pages/FitterReportPage"));
 const HardwareRatesPage = lazy(() => import("../../hardware/pages/HardwareRatesPage"));
+const TintingPage = lazy(() => import("../../hardware/pages/TintingPage"));
 // Licences & registrations (every type but a restaurant).
 const LicencesPage = lazy(() => import("../../licences/pages/LicencesPage"));
 // Personal data: requests, breaches, the privacy notice (every type but a restaurant, which has its own).
@@ -317,6 +318,7 @@ function screens(type) {
     "sites": <SitesPage />,
     "fitters": <FittersPage />,
     "fitter-reports": <FitterReportPage />,
+    "tinting": <TintingPage />,
     "licences": <LicencesPage />,
     "privacy": <BusinessPrivacyPage />,
     "farmers": <FarmersPage />,

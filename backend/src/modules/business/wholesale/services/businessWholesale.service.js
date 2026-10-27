@@ -781,6 +781,8 @@ async function dispatchInTransaction(db, business, user, orderId, body, { reques
   const fixed = pieces.map((p) => ({ price: Number(((p.net / 100) / (p.quantityMilli / 1000)).toFixed(4)), net: p.net, tax: p.tax, taxRate: p.rate.toFixed(2),
     enteredPrice: p.entered ? paise(p.line.entered_unit_price) : null, priceRuleId: p.line.price_rule_id }));
   const document = await core.postDocument(db, business, user, documentBody, { kind: 'sale', requestKey, hash, lines: documentBody.lines, paidNow: null, fixed });
+  // A hardware shop's order may name a fitter: each invoice earns them their commission.
+  if (business.business_type === 'hardware') await require('../../hardware/services/hardwareFitters.service').orderInvoice(db, business, user, order.id, document);
   // Place of supply for a buyer without a GSTIN: their state from the trade details.
   const state = await repo.one(db, 'SELECT state_code FROM wholesale_customer_profiles WHERE business_id=$1 AND contact_id=$2', [business.id, order.contact_id]);
   if (state?.state_code && !document.buyer_gstin && document.place_of_supply !== state.state_code) {

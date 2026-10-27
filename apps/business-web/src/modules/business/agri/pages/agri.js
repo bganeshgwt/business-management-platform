@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import api from "../../../../services/api";
 import { businessRead } from "../../../../services/business.service";
 
 // Seeds, fertilisers & pesticides: the words and checks the farm-input
@@ -134,6 +135,46 @@ export function agriProblem(needs, value, master, { credit, today }) {
   if (pair) return `${pair.name} must not be used on ${crop.name.toLowerCase()}: take it off the bill, or give another crop.`;
   if (credit && value.season && (!value.seasonYear || !value.dueOn || value.dueOn < today)) return "Give the harvest date the season credit falls due (today or later).";
   return "";
+}
+
+// The counter's licence checks of the lines being typed, as the bill will
+// make them (POST agri/licence-check): `notes`, each { skuId, label, level:
+// "stop" | "warn", message }, and `stop`, the first note the bill would be
+// refused for (null: none). Asked a moment after the till, the customer (a
+// buyer with a GSTIN buys wholesale) or the items change; a newer question
+// cancels the older one, and a question that fails gives no notes. Asked only
+// by a farm-input shop with Licences & registrations on. skuIds: the bill's items.
+const NO_NOTES = Object.freeze({ notes: Object.freeze([]), stop: null });
+export function useLicenceNotes(biz, { locationId, contactId, skuIds }) {
+  const on = usesAgri(biz) && biz.has("licences");
+  const ids = on ? [...new Set((skuIds || []).map(Number).filter((id) => Number.isSafeInteger(id) && id > 0))].sort((a, b) => a - b).slice(0, 100) : [];
+  // The question as one string, so a new render with the same lines asks nothing again.
+  const scope = JSON.stringify([biz.id, locationId ? String(locationId) : "", contactId ? String(contactId) : ""]);
+  const key = on && locationId && ids.length ? JSON.stringify([scope, ids]) : "";
+  const [answer, setAnswer] = useState({ key: "", scope: "", notes: NO_NOTES.notes });
+  useEffect(() => {
+    if (!key) return undefined;
+    const [asked, lines] = JSON.parse(key);
+    const [businessId, location, contact] = JSON.parse(asked);
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      api.post(`/businesses/${businessId}/agri/licence-check`, { locationId: location, ...(contact ? { contactId: contact } : {}), lines: lines.map((skuId) => ({ skuId })) },
+        { signal: controller.signal })
+        .then((response) => { if (!controller.signal.aborted) setAnswer({ key, scope: asked, notes: response.data.data?.notes || NO_NOTES.notes }); })
+        .catch(() => { if (!controller.signal.aborted) setAnswer({ key, scope: asked, notes: NO_NOTES.notes }); });
+    }, 300);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [key]);
+  return useMemo(() => {
+    if (!key) return NO_NOTES;
+    const [asked, lines] = JSON.parse(key);
+    // Until the new answer comes, the last one's notes for the lines still on the bill, at the same till for the same customer.
+    const notes = answer.key === key ? answer.notes : answer.scope === asked ? answer.notes.filter((n) => lines.includes(Number(n.skuId))) : NO_NOTES.notes;
+    return { notes, stop: notes.find((n) => n.level === "stop") || null };
+  }, [key, answer]);
 }
 
 // The bill's farm-input details as the server takes them.

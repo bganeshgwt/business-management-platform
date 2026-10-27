@@ -15,7 +15,11 @@ const expenses = require('../../core/services/businessExpenses.service');
 //   amount per stock unit of one item; the most specific wins)
 //   → "Fitted by" on a bill: each line's commission worked out in paise when
 //     the bill is posted and frozen with it (a later rule change never
-//     changes it)
+//     changes it); a bill made without a fitter may have one named later
+//     (by the rules in force then), and its fitter changed until the
+//     commission on it is paid (payouts settle a fitter's oldest commission
+//     first; a database trigger holds this); a sales order may name a fitter,
+//     and every invoice its dispatches raise earns them their commission
 //   → goods back on the bill take the commission back in proportion
 //     (a database trigger on the return's lines)
 //   → payouts, each an expense in the expense book (so Daily money and the
@@ -216,15 +220,26 @@ function lineCommission(rule, line) {
   return Math.min(line.net, roundedDivide(BigInt(paise(rule.per_unit)) * BigInt(milli(line.quantity)), 1000n));
 }
 
+// A fitter who may be named on a bill: this business's, and switched on.
+async function activeFitter(db, business, fitterId) {
+  const fitter = await repo.one(db, 'SELECT * FROM hardware_fitters WHERE business_id=$1 AND id=$2', [business.id, id(fitterId, 'Fitter')]);
+  if (!fitter) fail('Fitter not found', 404);
+  if (!fitter.active) fail(`${fitter.name} is switched off. Switch them on again under Fitters to name them on a bill.`, 409);
+  return fitter;
+}
+
 // saved: the sale just inserted; prepared: its lines (with ids, quantity in
 // stock units, net in paise). A bill whose lines earn nothing still records
 // its fitter.
 async function recordBill(db, business, user, saved, prepared, fitterId) {
   if (!business.modules.includes('fitter_commission')) fail(MODULE_OFF, 403);
   await access.require(business, 'fitter_commission.create');
-  const fitter = await repo.one(db, 'SELECT * FROM hardware_fitters WHERE business_id=$1 AND id=$2', [business.id, id(fitterId, 'Fitter')]);
-  if (!fitter) fail('Fitter not found', 404);
-  if (!fitter.active) fail(`${fitter.name} is switched off. Switch them on again under Fitters to name them on a bill.`, 409);
+  await earn(db, business, user, saved, prepared, await activeFitter(db, business, fitterId));
+}
+
+// The commission each line earns by the rules in force, recorded with the
+// bill and its fitter (inside the caller's transaction).
+async function earn(db, business, user, saved, prepared, fitter) {
   const rules = await repo.all(db, 'SELECT * FROM hardware_fitter_rules WHERE business_id=$1 AND active', [business.id]);
   const paths = await categoryPaths(db, business.id, [...new Set(prepared.map((l) => Number(l.sku.id)))]);
   const earned = [];
@@ -242,6 +257,124 @@ async function recordBill(db, business, user, saved, prepared, fitterId) {
   await repo.audit(db, business.id, user.id, 'fitter_commission.earned', saved.id, { documentNo: saved.document_no, fitter: fitter.name, commission: rupees(total) });
   await repo.event(db, business.id, user.id, 'fitter_commission.earned', 'document', saved.id, { documentNo: saved.document_no, fitterId: fitter.id, commission: rupees(total),
     lines: earned.map((e) => ({ lineId: e.line.id, ruleId: e.rule.id, commission: rupees(e.commission) })) });
+  return earned;
+}
+
+// --- A fitter named on a bill afterwards, and on a sales order ----------------------------------
+
+// A posted bill's lines as a new bill's would be (ids, items, stock-unit quantity, net in paise).
+async function billLines(db, business, documentId) {
+  const rows = await repo.all(db, 'SELECT id,sku_id,quantity,net FROM business_document_lines WHERE business_id=$1 AND document_id=$2 ORDER BY id', [business.id, documentId]);
+  return rows.map((r) => ({ id: r.id, sku: { id: r.sku_id }, quantity: Number(r.quantity), net: paise(r.net) }));
+}
+
+// A fitter named on a bill already posted: its lines earn by the rules in
+// force now, and what came back on the bill before takes back its share, as
+// a return after naming them would (the database's own formula, in order).
+async function nameLater(db, business, user, doc, fitter) {
+  const earned = await earn(db, business, user, doc, await billLines(db, business, doc.id), fitter);
+  for (const { line, commission } of earned) {
+    const back = await repo.all(db, 'SELECT id,return_id,quantity FROM business_return_lines WHERE business_id=$1 AND line_id=$2 ORDER BY id', [business.id, line.id]);
+    let returned = 0, reversed = 0;
+    for (const r of back) {
+      returned += milli(r.quantity);
+      const share = roundedDivide(BigInt(commission) * BigInt(Math.min(returned, milli(line.quantity))), BigInt(milli(line.quantity)));
+      const amount = Math.max(0, share - reversed);
+      reversed += amount;
+      await db.query(`INSERT INTO hardware_fitter_reversals(business_id,return_line_id,return_id,line_id,document_id,quantity,amount) VALUES($1,$2,$3,$4,$5,$6,$7)`,
+        [business.id, r.id, r.return_id, line.id, doc.id, r.quantity, rupees(amount)]);
+    }
+  }
+}
+
+// body: { fitterId } — names the fitter on a bill made without one (the
+// commission worked out now), or changes it while the commission on it is
+// not paid. Someone who may manage commission does it; the activity log keeps it.
+async function setBillFitter(business, user, documentId, body) {
+  requireFitters(business);
+  await access.require(business, 'fitter_commission.edit');
+  return repo.transaction(async (db) => {
+    await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
+    const doc = await repo.one(db, 'SELECT * FROM business_documents WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(documentId, 'Bill')]);
+    if (!doc) fail('Bill not found', 404);
+    access.requireLocation(business, doc.location_id);
+    if (doc.kind !== 'sale') fail('A fitter is named on a sale');
+    const fitter = await activeFitter(db, business, body.fitterId);
+    const current = await repo.one(db, 'SELECT b.*,f.name AS fitter_name FROM hardware_fitter_bills b JOIN hardware_fitters f ON f.business_id=b.business_id AND f.id=b.fitter_id WHERE b.business_id=$1 AND b.document_id=$2 FOR UPDATE OF b',
+      [business.id, doc.id]);
+    if (current && String(current.fitter_id) === String(fitter.id)) return billExtras(db, business, doc.id);
+    if (!current) {
+      await nameLater(db, business, user, doc, fitter);
+      await repo.audit(db, business.id, user.id, 'fitter_commission.named_later', doc.id, { documentNo: doc.document_no, fitter: fitter.name });
+    } else {
+      // The database refuses once the commission on the bill is paid (hardware_fitter_bills_guard).
+      await db.query('UPDATE hardware_fitter_bills SET fitter_id=$3,changed_by=$4,changed_at=now() WHERE business_id=$1 AND document_id=$2', [business.id, doc.id, fitter.id, user.id]);
+      await repo.audit(db, business.id, user.id, 'fitter_commission.fitter_changed', doc.id, { documentNo: doc.document_no, from: current.fitter_name, to: fitter.name,
+        commission: current.commission });
+      await repo.event(db, business.id, user.id, 'fitter_commission.moved', 'document', doc.id, { documentNo: doc.document_no, fromFitterId: current.fitter_id,
+        toFitterId: fitter.id, commission: current.commission });
+    }
+    return billExtras(db, business, doc.id);
+  });
+}
+
+async function orderFitter(business, orderId) {
+  requireFitters(business);
+  await access.require(business, 'fitter_commission.view');
+  const row = await repo.one(repo.pool, `SELECT f.id,f.name,f.trade,f.phone,f.active FROM hardware_order_fitters o JOIN hardware_fitters f ON f.business_id=o.business_id AND f.id=o.fitter_id
+    WHERE o.business_id=$1 AND o.order_id=$2`, [business.id, id(orderId, 'Sales order')]);
+  return { fitter: row || null };
+}
+
+// body: { fitterId } (null takes it off) — while the order is still to send.
+// Its invoices from now on earn the fitter their commission; those already
+// raised without a fitter are named now when the person may also name a
+// fitter on a bill afterwards (manage commission).
+async function setOrderFitter(business, user, orderId, body) {
+  requireFitters(business);
+  await access.require(business, 'fitter_commission.create');
+  return repo.transaction(async (db) => {
+    await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
+    const order = await repo.one(db, 'SELECT * FROM wholesale_orders WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(orderId, 'Sales order')]);
+    if (!order) fail('Sales order not found', 404);
+    access.requireLocation(business, order.location_id);
+    if (['closed', 'cancelled'].includes(order.status) || order.status === 'dispatched') fail(`Sales order ${order.order_no} is ${order.status}; its fitter no longer changes`, 409);
+    const current = await repo.one(db, 'SELECT o.fitter_id,f.name FROM hardware_order_fitters o JOIN hardware_fitters f ON f.business_id=o.business_id AND f.id=o.fitter_id WHERE o.business_id=$1 AND o.order_id=$2',
+      [business.id, order.id]);
+    if (!given(body.fitterId)) {
+      if (current) {
+        await db.query('DELETE FROM hardware_order_fitters WHERE business_id=$1 AND order_id=$2', [business.id, order.id]);
+        await repo.audit(db, business.id, user.id, 'sales_order.fitter_cleared', order.id, { orderNo: order.order_no, fitter: current.name });
+      }
+      return { fitter: null };
+    }
+    const fitter = await activeFitter(db, business, body.fitterId);
+    if (!current || String(current.fitter_id) !== String(fitter.id)) {
+      await db.query(`INSERT INTO hardware_order_fitters(business_id,order_id,fitter_id,set_by) VALUES($1,$2,$3,$4)
+        ON CONFLICT (business_id,order_id) DO UPDATE SET fitter_id=EXCLUDED.fitter_id,set_by=EXCLUDED.set_by,set_at=now()`, [business.id, order.id, fitter.id, user.id]);
+      await repo.audit(db, business.id, user.id, 'sales_order.fitter_set', order.id, { orderNo: order.order_no, fitter: fitter.name, ...(current ? { from: current.name } : {}) });
+    }
+    const raised = !access.can(business, 'fitter_commission.edit') ? [] : await repo.all(db, `SELECT d.* FROM wholesale_dispatches w
+      JOIN business_documents d ON d.business_id=w.business_id AND d.id=w.document_id
+      WHERE w.business_id=$1 AND w.order_id=$2 AND NOT EXISTS (SELECT 1 FROM hardware_fitter_bills b WHERE b.business_id=w.business_id AND b.document_id=w.document_id)
+      ORDER BY d.id`, [business.id, order.id]);
+    for (const doc of raised) {
+      await nameLater(db, business, user, doc, fitter);
+      await repo.audit(db, business.id, user.id, 'fitter_commission.named_later', doc.id, { documentNo: doc.document_no, fitter: fitter.name, orderNo: order.order_no });
+    }
+    return { fitter: { id: fitter.id, name: fitter.name, trade: fitter.trade, phone: fitter.phone, active: fitter.active } };
+  });
+}
+
+// An invoice a sales order's dispatch raised (inside the dispatch's own
+// transaction): it earns the order's fitter their commission, when the order
+// names one who is still on.
+async function orderInvoice(db, business, user, orderId, doc) {
+  if (business.business_type !== 'hardware' || !business.modules.includes('fitter_commission')) return;
+  const named = await repo.one(db, `SELECT f.* FROM hardware_order_fitters o JOIN hardware_fitters f ON f.business_id=o.business_id AND f.id=o.fitter_id
+    WHERE o.business_id=$1 AND o.order_id=$2`, [business.id, orderId]);
+  if (!named?.active) return;
+  await earn(db, business, user, doc, await billLines(db, business, doc.id), named);
 }
 
 // The fitter of a bill and, for those who see commission, what it earned,
@@ -356,4 +489,5 @@ async function report(business, query) {
   return { from, to, rows: shown, totals: { bills: shown.reduce((n, r) => n + r.bills, 0), sales: sum('sales'), earned: sum('earned'), takenBack: sum('taken_back'), paid: sum('paid'), due: sum('due') } };
 }
 
-module.exports = { TRADES, requireFitters, create, update, createRule, updateRule, recordBill, billExtras, statement, payout, report };
+module.exports = { TRADES, requireFitters, create, update, createRule, updateRule, recordBill, billExtras, statement, payout, report, setBillFitter, orderFitter, setOrderFitter,
+  orderInvoice };

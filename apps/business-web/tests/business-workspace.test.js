@@ -64,6 +64,11 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   for(const type of ['grocery','wholesale','garage'])assert.ok(!typeAllows(sectionRule('sites',type),type),`${type}: no sites`);
   // Its fitters sit with its customers too, and their commission with the reports.
   assert.equal(workspaceFor('fitters','hardware'),'customers');
+  // A paint shop's tinting board sits with its sales while Paint tinting is on; no other trade has it.
+  assert.equal(workspaceFor('tinting','hardware'),'sales');
+  assert.ok(pages('hardware').some(p=>p.to.endsWith('/tinting')),'hardware: paint tinting under Sales');
+  assert.ok(!pages('hardware',m=>m!=='hardware_tinting').some(p=>p.to.endsWith('/tinting')),'no tinting while the module is off');
+  assert.ok(!pages('grocery').some(p=>p.to.endsWith('/tinting')),'grocery: no paint tinting');
   assert.equal(workspaceFor('fitter-reports','hardware'),'reports');
   for(const end of ['/fitters','/fitter-reports'])assert.ok(pages('hardware').some(p=>p.to.endsWith(end)),`hardware: ${end}`);
   assert.ok(!pages('hardware',m=>m!=='fitter_commission').some(p=>/\/fitter/.test(p.to)),'no fitters while the module is off');

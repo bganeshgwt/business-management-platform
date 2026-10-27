@@ -5,6 +5,7 @@ const items = require('../services/agriItems.service');
 const farmers = require('../services/agriFarmers.service');
 const subsidy = require('../services/agriSubsidy.service');
 const registers = require('../services/agriRegisters.service');
+const sales = require('../services/agriSales.service');
 
 // Seeds, fertilisers & pesticides, added to the Business Admin router so
 // they share its login, membership, module and permission checks (context)
@@ -18,6 +19,8 @@ const registers = require('../services/agriRegisters.service');
 //   /:businessId/agri/board              the daily stock and price board
 //   /:businessId/agri/seed-return        the seed stock return of a month
 //   /:businessId/agri/insecticide-register  the insecticide sale register
+//   /:businessId/agri/licence-check      the counter's licence checks of the lines being typed
+//   /:businessId/agri/settings           whether an insecticide not endorsed warns or stops the bill
 // Another type of business never has the module, so `context` refuses it
 // (the molecule list: the service, after `context` checks the membership);
 // the services repeat every check and answer 404 for another type.
@@ -55,4 +58,9 @@ module.exports = function agriRoutes(router, { context, send, b }) {
   router.get(b('/agri/board'), context('agri.view'), async (req, res) => send(res, await registers.board(req.business, req.query)));
   router.get(b('/agri/seed-return'), context('agri.view'), async (req, res) => send(res, await registers.seedReturn(req.business, req.query)));
   router.get(b('/agri/insecticide-register'), context('agri.view'), async (req, res) => send(res, await registers.insecticideRegister(req.business, req.query)));
+
+  // The counter's licence checks, asked ahead as the lines are typed; the shop's setting for endorsements.
+  router.post(b('/agri/licence-check'), context('sales.create'), async (req, res) => send(res, await sales.counterCheck(req.business, req.user, req.body)));
+  router.get(b('/agri/settings'), context('agri.view'), async (req, res) => send(res, await sales.settings(req.business)));
+  router.put(b('/agri/settings'), context('licences.edit'), async (req, res) => send(res, await sales.saveSettings(req.business, req.user, req.body)));
 };

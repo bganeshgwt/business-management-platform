@@ -18,6 +18,8 @@ import { businessToday, newKey, quantity, useOpenBusiness, useOptions, useServer
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import { Segmented } from "../../wholesale/pages/shared";
 import { whatsappLink } from "../../retail/pages/retail";
+// A hardware shop's tinted lines and the calculators' workings kept with the quotation.
+import { TintedLines, Workings } from "../../hardware/pages/BillExtras";
 import FitterField from "../../hardware/pages/FitterField";
 import { usesAgri } from "../../agri/pages/agri";
 import QuotationDialog from "./QuotationDialog";
@@ -172,6 +174,8 @@ export function QuotationDetail({ quotationId, onClose, onChanged }) {
               <span>Total <strong>{biz.exact(q.total)}</strong></span>
             </div>
             {q.discount_reason && <p className="small muted">Discount: {q.discount_amount ? biz.exact(q.discount_amount) : `${Number(q.discount_percent)}%`} · {q.discount_reason}</p>}
+            <TintedLines tints={q.tints} lines={q.lines} />
+            <Workings workings={q.calculations} />
             {q.notes && <p className="small">{q.notes}</p>}
             {q.revisions.length > 0 && (
               <ul className="bz-history">

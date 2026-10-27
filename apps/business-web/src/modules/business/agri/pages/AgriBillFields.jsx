@@ -9,9 +9,11 @@ import "../styles/agri.css";
 // crop-restricted pesticide is bought for, a walk-in farmer's name and
 // village (for the insecticide register), and, on udhaar, the season the
 // credit is for and the harvest date it falls due. It says ahead what the
-// server will refuse; the server checks it all again.
+// server will refuse; the server checks it all again. `notes`: the server's
+// licence checks of the lines (useLicenceNotes in agri.js), a stop the bill
+// will be refused for or a warning it is billed with.
 
-export default function AgriBillFields({ biz, needs, value, onChange, master, customer, credit }) {
+export default function AgriBillFields({ biz, needs, value, onChange, master, customer, credit, notes }) {
   const set = (name) => (e) => onChange({ ...value, [name]: e.target.value });
   const today = businessToday(biz.business.timezone);
   const year = Number(today.slice(0, 4));
@@ -22,6 +24,9 @@ export default function AgriBillFields({ biz, needs, value, onChange, master, cu
   if (!needs.any && !seasonCredit) return null;
   return (
     <SectionCard icon="leaf" title="Farm inputs">
+      {(notes || []).map((n, i) => (n.level === "stop"
+        ? <p key={`${n.skuId}-${i}`} className="agri-stop" role="alert">{n.message}</p>
+        : <p key={`${n.skuId}-${i}`} className="agri-warn">{n.message}</p>))}
       {needs.banned.map((b) => <p key={b.label} className="agri-stop">{b.label} contains {b.molecule.name}, banned in India ({b.molecule.source}): it cannot be sold.</p>)}
       {needs.subsidised.length > 0 && (
         <Field label="PoS receipt number" hint={`For ${listWords(needs.subsidised)}: the receipt the PoS device printed after the farmer's thumb check. Never the Aadhaar number.`}>

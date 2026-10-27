@@ -5,7 +5,7 @@ const v = require('../../../../utils/validate');
 const { readGstin } = require('../../../../utils/gstin');
 const access = require('./businessAccess.service');
 const numbering = require('./businessNumbering');
-const { attributes, figures } = require('./businessModules');
+const { attributes, figures, texts } = require('./businessModules');
 const pricing = require('./businessPricing');
 const retailOffers = require('../../retail/services/businessOffers');
 const books = require('../../retail/services/businessBooks');
@@ -314,17 +314,18 @@ async function readTax(db, business, body, fallbackRate) {
 // 0, up to two decimals; empty is none.
 const readFigure = (value, name) => (value === undefined || value === null || value === '' ? null : String(decimal(value, name, 2, 0.01, 100000)));
 // The figures of an item that may change after it is made (the calculators'
-// coverage): those its business's modules allow; an empty one is removed.
+// coverage), and its short texts that may (a paint's base): those its
+// business's modules allow; an empty one is removed.
 async function updateFigures(db, business, current, given) {
   if (!given || typeof given !== 'object' || Array.isArray(given)) fail('Attributes must be an object');
-  const allowed = business.capabilities.flatMap((cap) => attributes[cap] || []).filter((key) => figures[key]);
+  const allowed = business.capabilities.flatMap((cap) => attributes[cap] || []).filter((key) => figures[key] || texts[key]);
   // A farm-input shop's classification is changed by its own service (updateCatalog).
   const classified = business.capabilities.includes('agri') ? attributes.agri : [];
   const next = { ...(current.attributes || {}) };
   for (const [key, value] of Object.entries(given)) {
     if (classified.includes(key)) continue;
     if (!allowed.includes(key)) fail(`Unsupported attribute: ${key}`);
-    const figure = readFigure(value, figures[key]);
+    const figure = texts[key] ? v.optionalString(value, texts[key], 40) : readFigure(value, figures[key]);
     if (figure === null) delete next[key];
     else next[key] = figure;
   }
@@ -379,7 +380,7 @@ async function createCatalog(business, user, body, extend) {
     if (!allowed.includes(key)) fail(`Unsupported attribute: ${key}`);
     // A farm-input shop's classification is read by its own service (below).
     if (attributes.agri.includes(key)) continue;
-    const text = figures[key] ? readFigure(value, figures[key]) : v.optionalString(value, key, 150);
+    const text = figures[key] ? readFigure(value, figures[key]) : v.optionalString(value, texts[key] || key, texts[key] ? 40 : 150);
     if (text) extra[key] = text;
   }
   const opening = readOpeningStock(body, tracking);
@@ -603,8 +604,12 @@ async function document(business, user, body) {
   if (!lines.length || lines.length > 100) fail('Add between 1 and 100 lines');
   const parts = readPayments(body);
   if (parts.length) await access.require(business, kindPermission(kind, 'edit'));
-  // Sites and fitters are a hardware shop's; its own service checks them with the bill.
-  if ((named(body.siteId) || named(body.fitterId)) && (kind !== 'sale' || business.business_type !== 'hardware')) fail('Sites and fitters belong to a hardware shop\'s sales');
+  // Sites, fitters and calculator workings are a hardware shop's; its own service checks them with the bill.
+  if ((named(body.siteId) || named(body.fitterId) || named(body.calculations)) && (kind !== 'sale' || business.business_type !== 'hardware')) {
+    fail('Sites, fitters and calculator workings belong to a hardware shop\'s sales');
+  }
+  // A tinted line is made to order on a sale (hardwareTinting.service.js checks it with the bill).
+  if (kind !== 'sale' && lines.some((line) => named(line?.tint))) fail('Tinted paint is made to order on a sale: a purchase line is not tinted');
   // A goods shop's walk-in pays the whole bill now: udhaar needs a named customer.
   const walkInPays = kind === 'sale' && GOODS_TYPES.includes(business.business_type);
   // An exchange credit voucher spent on this sale (fashion / electronics).
@@ -665,6 +670,8 @@ const kits = () => require('./businessKits.service');
 const counterPins = () => require('./businessCounter.service');
 // A hardware shop's bill: the site it goes to and the fitter who brought it.
 const hardwareSales = () => require('../../hardware/services/hardwareSales.service');
+// A hardware shop's tinted paint: its base leaves stock when its job is tinted.
+const hardwareTinting = () => require('../../hardware/services/hardwareTinting.service');
 // A seeds, fertilisers & pesticides shop's items and bills: classification,
 // the licence, molecule, crop and seed-lot checks, PoS receipts and season credit.
 const agriItems = () => require('../../agri/services/agriItems.service');
@@ -864,12 +871,19 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     const rounded = kind === 'sale' && !fuel && settings?.rounding === 'nearest_rupee' ? Math.floor((raw + 50) / 100) * 100 : raw;
     const roundOff = rounded - raw;
     if (quote) return retailOffers.quoteOf({ prepared, offers, subtotal, tax, roundOff, rounded, taxMode, contact });
+    // A hardware shop's tinted paint (a base, its pack and a shade): its base
+    // stays in stock, kept for its job, until the job is tinted.
+    const tinted = kind === 'sale' ? await hardwareTinting().checkTints(db, business, { inputLines, prepared, location }) : null;
     // A farm-input shop's sale: every fertiliser, seed and pesticide line is
     // checked before anything is saved (licence, molecules, crop, seed lot,
-    // PoS receipt); its receipts bring seed lots in with their validity.
+    // PoS receipt); its receipts bring seed lots in with their validity, and
+    // fertiliser from a supplier with no Form O on the location's
+    // authorisation is received with a warning.
     const agri = kind === 'sale' && agriSales().applies(business) ? await agriSales().checkSale(db, business, { prepared, body, location, contact }) : null;
     if (!agri && agriSales().given(body)) fail('Crops, PoS receipts and season credit go on the sales of a seeds, fertilisers & pesticides shop with its tools switched on');
-    if (kind === 'purchase' && agriSales().applies(business)) agriSales().checkPurchase(prepared);
+    const purchaseWarnings = kind === 'purchase' && agriSales().applies(business) ? await agriSales().checkPurchase(db, business, { prepared, contact, location }) : [];
+    // What the bill or receipt is posted with but warned of: with it in the activity log and the answer.
+    const warnings = [...(agri?.warnings || []), ...purchaseWarnings];
     // A plan's item is sold from Members & plans, which makes the membership with its bill.
     if (kind === 'sale' && !membership && business.modules.includes('member_plans')) await memberPlans().checkLooseSale(db, business, prepared);
     // A jeweller's tagged pieces are sold on the jewellery bill, priced by weight at the day's rate.
@@ -961,6 +975,8 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
         line.freeQuantity || 0, line.discountPercent || 0]);
       line.id = savedLine.id;
       if (line.sku.tracking === 'none') continue;
+      // A tinted line's base leaves stock when its job is tinted (deliverLine).
+      if (tinted?.has(line)) continue;
       if (kind === 'purchase') {
         if (line.sku.tracking === 'serial') {
           const exists = await repo.one(db, 'SELECT id FROM business_stock_lots WHERE business_id=$1 AND sku_id=$2 AND lot_code=$3', [business.id, line.sku.id, line.lotCode]);
@@ -988,7 +1004,7 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     }
     if (offers) await retailOffers.recordSale(db, business, user, saved, prepared, offers);
     if (offers) await salonSales.recordSale(db, business, user, saved, prepared, offers);
-    if (kind === 'sale' && (named(body.siteId) || named(body.fitterId))) await hardwareSales().recordSale(db, business, user, saved, prepared, body);
+    if (kind === 'sale' && (named(body.siteId) || named(body.fitterId) || tinted || named(body.calculations))) await hardwareSales().recordSale(db, business, user, saved, prepared, body, tinted);
     // A farm-input shop's lines as billed (input, PoS receipt, crop) and its season or walk-in farmer.
     if (agri) await agriSales().recordSale(db, business, user, saved, agri);
     // New shelf prices from this receipt (the person may change the catalogue).
@@ -1001,7 +1017,7 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
           mrpFrom: update.sku.mrp, mrpTo: update.mrp === null || update.mrp === undefined ? null : Number(update.mrp).toFixed(2), documentNo: saved.document_no });
       }
     }
-    await repo.audit(db, business.id, user.id, `${kind}.posted`, saved.id, { total: saved.total, documentNo: saved.document_no });
+    await repo.audit(db, business.id, user.id, `${kind}.posted`, saved.id, { total: saved.total, documentNo: saved.document_no, ...(warnings.length ? { warnings } : {}) });
     await repo.event(db, business.id, user.id, `${kind}.posted`, 'document', saved.id, {
       documentNo: saved.document_no, locationId: location.id, contactId: contact?.id || null, total: saved.total,
       lines: prepared.map((l) => ({ skuId: l.sku.id, quantity: l.quantity, lotCode: l.lotCode || null })),
@@ -1016,7 +1032,7 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
       if (part.tendered !== null && part.tendered !== undefined) change += paise(part.tendered) - paise(part.amount);
     }
     const financeCase = financeUse ? await financeSales().record(db, business, user, saved, financeUse, { downPayment: paidPaise + prepaid, recordPayment }) : null;
-    const extras = { ...(change > 0 ? { change: money(change) } : {}), ...(financeCase ? { financeCase } : {}) };
+    const extras = { ...(change > 0 ? { change: money(change) } : {}), ...(financeCase ? { financeCase } : {}), ...(warnings.length ? { warnings } : {}) };
     if (kind === 'sale' && business.modules.includes('warranties') && prepared.some((l) => l.sku.tracking === 'serial')) {
       const warranties = await electronicsWarranties().registerOnSale(db, business, user, saved, prepared, { contact, buyer });
       return { ...saved, ...extras, warranties };
@@ -1026,6 +1042,29 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
 }
 async function movement(db, businessId, lotId, documentId, quantity, balance) {
   await db.query('INSERT INTO business_stock_movements(business_id,lot_id,document_id,quantity,balance_after) VALUES($1,$2,$3,$4,$5)', [businessId, lotId, documentId, quantity, balance]);
+}
+// A sale line whose goods leave stock after the bill was made (a hardware
+// shop's tinted paint leaves when its job is tinted): the line's own item and
+// batch at the bill's location, less what came back on the bill since, with
+// its movement on the bill and its stock cost, as the bill's other lines
+// had theirs. Inside the caller's transaction, the business locked first.
+// Returns the quantity taken (stock units).
+async function deliverLine(db, business, documentId, lineId) {
+  const line = await repo.one(db, `SELECT l.*,d.location_id,d.kind,d.document_no,s.tracking FROM business_document_lines l
+    JOIN business_documents d ON d.business_id=l.business_id AND d.id=l.document_id JOIN catalog_skus s ON s.business_id=l.business_id AND s.id=l.sku_id
+    WHERE l.business_id=$1 AND l.document_id=$2 AND l.id=$3`, [business.id, id(documentId), id(lineId)]);
+  if (!line || line.kind !== 'sale') fail('Bill line not found', 404);
+  if (line.tracking === 'none') return 0;
+  const back = await repo.one(db, 'SELECT COALESCE(sum(quantity),0) AS quantity FROM business_return_lines WHERE business_id=$1 AND line_id=$2', [business.id, line.id]);
+  const quantity = (milli(Number(line.quantity)) - milli(Number(back.quantity))) / 1000;
+  if (quantity <= 0) return 0;
+  const lot = await repo.one(db, `SELECT * FROM business_stock_lots WHERE business_id=$1 AND location_id=$2 AND sku_id=$3 AND lot_code=$4
+    AND (expires_on IS NULL OR expires_on >= (now() AT TIME ZONE $5)::date) FOR UPDATE`, [business.id, line.location_id, line.sku_id, line.lot_code, business.timezone]);
+  if (!lot || milli(Number(lot.quantity)) < milli(quantity)) fail(`Not enough usable stock of ${line.label}${line.lot_code ? ` (batch ${line.lot_code})` : ''} for ${line.document_no}: receive it first`, 409);
+  const updated = await repo.one(db, 'UPDATE business_stock_lots SET quantity=quantity-$3 WHERE business_id=$1 AND id=$2 RETURNING *', [business.id, lot.id, quantity]);
+  await movement(db, business.id, lot.id, line.document_id, -quantity, updated.quantity);
+  await db.query('UPDATE business_document_lines SET stock_unit_cost=$3 WHERE business_id=$1 AND id=$2', [business.id, line.id, lot.unit_cost]);
+  return quantity;
 }
 async function detail(business, documentId) {
   const doc = await repo.one(repo.pool, `SELECT d.*,l.name AS location_name,l.code AS location_code,c.gstin AS contact_gstin,c.phone AS contact_phone,c.address AS contact_address,
@@ -1244,4 +1283,4 @@ async function reports(business, filters) {
 module.exports = { statusAllowed, list, linkRestaurant, createLocation, updateLocation, updateContact, reports, createCatalog, updateCatalog, createContact,
   createPriceRule, disablePriceRule, document, detail, payment, resource, appointment, appointmentStatus, decimal, dateText, uuid,
   lineNet, lineTax, inclusiveNet, kindPermission, readUnit, postDocument, recordPayment, conversion, requiredDecimals, readPayments,
-  readMrp, checkMrp, branchSeller, requireDepartmentItem };
+  readMrp, checkMrp, branchSeller, requireDepartmentItem, deliverLine };

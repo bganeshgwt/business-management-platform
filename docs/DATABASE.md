@@ -1092,7 +1092,7 @@ Linked sections: [data model §1](BUSINESS_PLATFORM_DATA_MODEL.md#1-platform) an
 Purpose: the permission catalogue. Each row is one `<module>.<action>` pair; the codes are listed under [Business permission codes](#business-permission-codes).
 Key columns: `code` (TEXT PK), `module_code` -> `platform_modules`, `action` (view, create, edit, approve, cancel, refund, export, print, discount, assign, review, manage, view_clinical, edit_clinical), `name`, `sort_order`.
 Rules: UNIQUE (`module_code`, `action`). CHECK `code = module_code || '.' || action`. The action CHECK lists every value, so a migration that adds an action rewrites the whole list.
-Added by: 1791300000001 business-roles-and-permissions; codes also from 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791540000000, 1791580000000, 1791620000000, 1791620001000, 1791620002000, 1791620004000, 1791950400000, 1791961000000, 1791962000000, 1791963000000, 1791964000000, 1791965000000, 1791966000000, 1791967000000, 1791968000000, 1791969000000, 1791970000000 and 1791977000000.
+Added by: 1791300000001 business-roles-and-permissions; codes also from 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791540000000, 1791580000000, 1791620000000, 1791620001000, 1791620002000, 1791620004000, 1791950400000, 1791961000000, 1791962000000, 1791963000000, 1791964000000, 1791965000000, 1791966000000, 1791967000000, 1791968000000, 1791969000000, 1791970000000, 1791977000000 and 1791979050000.
 
 #### `business_role_templates`
 Purpose: the standard roles the platform defines once: owner, manager, cashier, stock_keeper, accountant and viewer for every type, plus pharmacist for a pharmacy, doctor, lab_technician and pathologist for healthcare, optometrist for an optical shop, mechanic for a garage, trainer for a gym, studio or coaching centre, karigar for a jeweller, pump_attendant for a fuel station, and front_desk and housekeeping for a hotel, lodge or guest house.
@@ -1593,14 +1593,51 @@ Module `licences` ("Licences & registrations", optional, for every type except t
 
 #### `business_licences`
 Purpose: a licence or registration one location holds, with the dates it is valid.
-Key columns: `location_id`, `kind` (a short code: lower-case letters, digits and `_`), `name`, `licence_no`, `authority`, `valid_from`, `valid_until` (NULL: it does not run out), `covers` (TEXT[]: fertiliser, seed, insecticide), `notes`, `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Key columns: `location_id`, `kind` (a short code: lower-case letters, digits and `_`), `name`, `licence_no`, `authority`, `valid_from`, `valid_until` (NULL: it does not run out), `covers` (TEXT[]: fertiliser, seed, insecticide), `sells_to` (retail, wholesale, both), `qualified_person`, `qualification`, `qualification_certificate`, `qualification_exemption`, `renewal_applied_on`, `renewal_reference`, `notes`, `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
 Relations: (`business_id`, `location_id`) -> `business_locations`.
 Rules:
 - CHECK `valid_until` not before `valid_from`; CHECK `covers` within (fertiliser, seed, insecticide); name and number not blank.
+- CHECK `business_licences_qualified_person`: a qualification, certificate or exemption only with a qualified person; `business_licences_qualification`: a qualified person with a qualification or an exemption; `business_licences_renewal`: the renewal's date and reference together; `business_licences_renewal_dated`: a renewal only on a licence that runs out, dated on or after `valid_from`.
 - Unique index `business_licences_number` (business, kind, lower(`licence_no`)); index `business_licences_location` (active ones).
 - Trigger `business_licences_guard`: never deleted; the location, the kind and who made it never change.
-- Function `business_licence_held(business, location, category, day)`: whether the location holds, that day, an active licence covering the category with the day inside its dates. Used by trigger `agri_sale_lines_check`.
-Added by: 1791962000000 licences-and-agri-inputs.
+- Function `business_licence_in_force(licence, day)`: on, valid from on or before the day, and not past `valid_until`, or past it with a renewal applied for on or before the day that keeps it in force by its kind's `renewal_rule` (`platform_licence_kinds`).
+- Function `business_licence_covering(business, location, category, day, trade)`: whether the location holds, that day, a licence in force covering the category, for `trade` (retail or wholesale; NULL: either) when given. Used by trigger `agri_sale_lines_check`.
+- Function `business_licence_held(business, location, category, day)`: the same for either kind of sale.
+Added by: 1791962000000 licences-and-agri-inputs; 1791979050000 licences-hardware (`sells_to`, existing licences taking their kind's mark; the qualified person; the renewal applied for; `business_licence_in_force`, `business_licence_covering`; `business_licence_held` made to ask `business_licence_covering`).
+
+#### `platform_licence_kinds`
+Purpose: what each kind of licence is. Platform data: no `business_id`, the same for every business, changed only by migrations.
+Key columns: `code` (primary key, the `kind` of `business_licences`), `name` (its usual name), `business_types` (TEXT[], the trades a screen offers it to first; NULL: every trade), `covers`, `sells_to` (a new licence's usual mark), `renewal_rule` (lapses, while_pending, applied_within), `renewal_grace` (INTERVAL, applied_within only), `renewal_source` (the rule's source in words; not for lapses), `sort_order`.
+Rules: CHECK the grace exactly for applied_within, and a source exactly when the rule is not lapses. The rows: fertiliser (Form A2; retail; applied within one month, Fertiliser (Control) Order 1985, clause 11), seed (Form B; lapses), insecticide (Form VIII; in force while pending, Insecticides Rules 1971, rule 11), md42, bis, peso, rent_a_cab, rent_a_motorcycle, trade, shop and fssai (all lapse).
+Added by: 1791979050000.
+
+#### `business_licence_files`
+Purpose: a licence's scanned copies, each with the dates the licence had when it was added.
+Key columns: `licence_id`, `stored_name` (32 hex characters and the extension, in `licences/<business>/` of the private uploads folder), `file_name`, `mime_type` (image/jpeg, image/png, image/webp, application/pdf), `size_bytes` (up to 5 MB), `valid_from`, `valid_until`, `uploaded_by`, `created_at`.
+Relations: (`business_id`, `licence_id`) -> `business_licences`.
+Rules: index `business_licence_files_licence`; trigger `business_licence_files_fixed`: never changed or deleted.
+Added by: 1791979050000.
+
+#### `business_licence_endorsements`
+Purpose: an item (every pack of it) or a brand endorsed on an insecticide licence.
+Key columns: `licence_id`, `product_id` or `brand` (exactly one), `endorsed_on`, `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, `licence_id`) -> `business_licences`; (`business_id`, `product_id`) -> `catalog_products`.
+Rules: unique indexes `business_licence_endorsements_product` (business, licence, item) and `business_licence_endorsements_brand` (business, licence, lower(brand)); trigger `business_licence_endorsements_guard` (function `business_licence_records_guard`): never deleted; the licence, the item or brand and who added it never change.
+Added by: 1791979050000.
+
+#### `business_licence_principals`
+Purpose: a manufacturer's principal certificate on an insecticide licence.
+Key columns: `licence_id`, `manufacturer`, `registration_no`, `manufacturing_licence_no`, `formulations` (TEXT[], 1-20), `valid_from`, `valid_until`, `withdrawn_on`, `withdrawn_note`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, `licence_id`) -> `business_licences`.
+Rules: CHECK `valid_until` not before `valid_from`; a note only with a withdrawal; index `business_licence_principals_licence` (business, licence, lower(manufacturer)); trigger `business_licence_principals_guard` (function `business_licence_records_guard`): never deleted; the licence, the manufacturer and who added it never change, and a withdrawal stands once recorded.
+Added by: 1791979050000.
+
+#### `business_licence_sources`
+Purpose: a certificate of source (Form O) on a fertiliser authorisation.
+Key columns: `licence_id`, `name` (the source as the certificate names it), `contact_id` (the supplier it covers purchases from), `certificate_no`, `certificate_date`, `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, `licence_id`) -> `business_licences`; (`business_id`, `contact_id`) -> `business_contacts`.
+Rules: unique index `business_licence_sources_number` (business, licence, lower(certificate number)); index `business_licence_sources_contact`; trigger `business_licence_sources_supplier` (function `business_contact_is_supplier`): the contact is a supplier; trigger `business_licence_sources_guard` (function `business_licence_records_guard`): never deleted; the licence and who added it never change.
+Added by: 1791979050000.
 
 ## Retail
 
@@ -2480,7 +2517,7 @@ Added by: 1791950409000.
 
 ## Hardware
 
-A hardware, paint and building-material shop's own tables (type `hardware`), added by 1791961000000 quotations-and-hardware. How they are used: [BUSINESS_PLATFORM_DATA_MODEL.md › Hardware, paints & building materials](BUSINESS_PLATFORM_DATA_MODEL.md#hardware-paints--building-materials).
+A hardware, paint and building-material shop's own tables (type `hardware`), added by 1791961000000 quotations-and-hardware; paint tinting, the calculators' workings and a sales order's fitter by 1791979050000 licences-hardware. How they are used: [BUSINESS_PLATFORM_DATA_MODEL.md › Hardware, paints & building materials](BUSINESS_PLATFORM_DATA_MODEL.md#hardware-paints--building-materials).
 
 ### Sites
 
@@ -2531,9 +2568,11 @@ Relations: (`business_id`, `sku_id`) -> `catalog_skus`.
 Rules: CHECK `previous_price` and `price_changed_at` are both set or both empty; trigger `catalog_skus_hardware_rate` on `catalog_skus` (function `hardware_rate_item_changed`), after a change of `price`, stamps the price before and the time.
 Added by: 1791961000000.
 
+An item's earlier rates are its `catalog.price_changed` rows of `business_audit`, read through the partial index `business_audit_price_changes` (business, entity, id DESC) (1791979050000).
+
 ### Fitters' commission
 
-Module `fitter_commission` ("Fitters' commission", optional, hardware only, off and recommended) needs catalog and sales; permissions `fitter_commission.view`, `.create`, `.edit` and `.approve` (pay). Commission records and payouts are append-only: trigger function `hardware_append_only` refuses any update or delete (SQL state 23514).
+Module `fitter_commission` ("Fitters' commission", optional, hardware only, off and recommended) needs catalog and sales; permissions `fitter_commission.view`, `.create`, `.edit` and `.approve` (pay). Commission lines, reversals and payouts are append-only: trigger function `hardware_append_only` refuses any update or delete (SQL state 23514); a bill's commission row changes only its fitter, until the commission is paid (`hardware_fitter_bills_guard`).
 
 #### `hardware_fitters`
 Purpose: a painter, plumber, electrician, mason or carpenter who brings customers.
@@ -2550,10 +2589,10 @@ Added by: 1791961000000.
 
 #### `hardware_fitter_bills`
 Purpose: the fitter of a bill and the commission it earned when it was posted.
-Key columns: `document_id` (primary key with the business), `fitter_id`, `commission` (0 or more), `created_by`, `created_at`.
+Key columns: `document_id` (primary key with the business), `fitter_id`, `commission` (0 or more), `created_by`, `created_at`, `changed_by`/`changed_at` (the fitter last changed).
 Relations: (`business_id`, `document_id`) -> `business_documents`; (`business_id`, `fitter_id`) -> `hardware_fitters`.
-Rules: append-only (trigger `hardware_fitter_bills_append_only`); index `hardware_fitter_bills_fitter` (business, fitter, date).
-Added by: 1791961000000.
+Rules: trigger `hardware_fitter_bills_guard`: never deleted; only the fitter changes (with `changed_by` and `changed_at`), and not once the commission on the bill is paid (function `hardware_fitter_bill_paid(business, document)`: payouts not reversed settle a fitter's commission oldest bill first, less what returns took back). CHECK `hardware_fitter_bills_changed`: who and when together. Index `hardware_fitter_bills_fitter` (business, fitter, date).
+Added by: 1791961000000; 1791979050000 (`changed_by`, `changed_at`, `hardware_fitter_bill_paid`; `hardware_fitter_bills_guard` replaces trigger `hardware_fitter_bills_append_only`).
 
 #### `hardware_fitter_lines`
 Purpose: each bill line that earned commission, with the rule's rate as it was.
@@ -2575,6 +2614,57 @@ Key columns: `fitter_id`, `expense_id` (unique), `amount` (more than 0), `notes`
 Relations: (`business_id`, `fitter_id`) -> `hardware_fitters`; (`business_id`, `expense_id`) -> `business_expenses`.
 Rules: append-only (trigger `hardware_fitter_payouts_append_only`); a payout counts while its expense is not reversed; index `hardware_fitter_payouts_fitter` (business, fitter, date).
 Added by: 1791961000000.
+
+#### `hardware_order_fitters`
+Purpose: the fitter a sales order names; every invoice its dispatches raise earns them their commission.
+Key columns: `order_id` (primary key with the business), `fitter_id`, `set_by`, `set_at`.
+Relations: (`business_id`, `order_id`) -> `wholesale_orders`; (`business_id`, `fitter_id`) -> `hardware_fitters`.
+Added by: 1791979050000.
+
+### Material calculators
+
+Module `hardware_calculators` ("Material calculators", optional, hardware only, on) needs catalog; no permissions of its own (`catalog.view`). The arithmetic is the server's (`hardwareCalculatorMaths.js`).
+
+#### `hardware_calculations`
+Purpose: a calculator's working kept with a quotation (with the revision it was added in) or a bill: what was typed, the assumptions, the result, the materials and the lines it put on.
+Key columns: `quotation_id` and `revision`, or `document_id` (exactly one), `kind` (tiles, paint, brickwork, concrete, plaster, steel), `working` (JSONB object: `inputs`, `assumptions`, `result`, `materials`, `added`), `created_by`, `created_at`.
+Relations: (`business_id`, `quotation_id`) -> `business_quotations`; (`business_id`, `document_id`) -> `business_documents`.
+Rules: partial indexes `hardware_calculations_quotation` and `hardware_calculations_document`; trigger `hardware_calculations_fixed`: never changed or deleted.
+Added by: 1791979050000.
+
+### Paint tinting
+
+Module `hardware_tinting` ("Paint tinting", optional, hardware only, off and recommended) needs catalog, sales and inventory; permissions `hardware_tinting.view`, `.create` (tinted lines; moving jobs on the board) and `.edit` (shades and the charge). An item's base is kept in `catalog_skus.attributes` (key `paintBase`; no table).
+
+#### `hardware_tint_settings`
+Purpose: the tinting charge: the service item billed beside a tinted line, one for each tin.
+Key columns: `business_id` (primary key), `charge_sku_id` (NULL: none), `updated_by`, `updated_at`.
+Relations: (`business_id`, `charge_sku_id`) -> `catalog_skus`.
+Added by: 1791979050000.
+
+#### `hardware_shades`
+Purpose: a paint maker's shade.
+Key columns: `maker`, `code`, `name`, `card`, `base`, `formula` (JSONB array of `{ colourant, ml }` for one litre of base), `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Rules: unique index `hardware_shades_code` (business, lower(maker), upper(code)); trigger `hardware_shades_guard`: never deleted; who added it never changes.
+Added by: 1791979050000.
+
+#### `hardware_quotation_tints`
+Purpose: the shade a quotation's line is tinted to.
+Key columns: PK (`business_id`, `line_id`), `quotation_id`, `shade_id`.
+Relations: (`business_id`, `line_id`) -> `business_quotation_lines` (deleted with it when an open quotation's lines are replaced); (`business_id`, `quotation_id`) -> `business_quotations`; (`business_id`, `shade_id`) -> `hardware_shades`.
+Rules: index `hardware_quotation_tints_quotation`.
+Added by: 1791979050000.
+
+#### `hardware_tint_jobs`
+Purpose: a bill's tinted line on the tinting board.
+Key columns: `location_id`, `document_id`, `line_id` (unique), `sku_id` (the base), `shade_id`, `quantity` (stock units), `status` (queued, tinted, handed_over, taken_back), `tinted_by`/`tinted_at`, `handed_over_by`/`handed_over_at`, `take_back_key` (the take-back return's request key), `approved_by`, `take_back_reason`, `taken_back_by`/`taken_back_at`, `created_by`, `created_at`.
+Relations: (`business_id`, …) -> `business_locations`, `business_documents`, `business_document_lines`, `catalog_skus`, `hardware_shades`.
+Rules:
+- CHECKs: each step's who and when together; handed over only once tinted; each status with its own stamps; a take-back's key, approver, reason, who and when together.
+- Indexes `hardware_tint_jobs_board` (business, status, date) and `hardware_tint_jobs_document`.
+- Trigger `hardware_tint_jobs_guard`: never deleted; the bill, line, base, shade, quantity and who made it never change; queued to tinted to handed over one step at a time, or taken back; a job taken back no longer changes; the time it was tinted stays.
+- Trigger `business_return_lines_hardware_tint` on `business_return_lines` (function `hardware_tint_line_return`): a return line of a tinted line is refused unless its return carries the job's take-back key and puts nothing back in stock.
+Added by: 1791979050000.
 
 ## Seeds, fertilisers & pesticides
 
@@ -2624,8 +2714,8 @@ Relations: (`business_id`, `line_id`) -> `business_document_lines`; (`business_i
 Rules:
 - CHECK subsidised exactly when there is a PoS receipt; subsidised only for a fertiliser; a matched crop only with the crop said.
 - Indexes `agri_sale_lines_document` and the partial `agri_sale_lines_subsidised` (business, item).
-- Trigger `agri_sale_lines_check` (function `agri_sale_line_check`): never changed or deleted; on insert, the document is a sale, no molecule is banned, the matched crop is not barred for any molecule, a fertiliser, seed or pesticide line has a licence in force covering it at the sale's location that day while the business has `licences` on (`business_licence_held`), and a seed line's lot is not past its validity.
-Added by: 1791962000000.
+- Trigger `agri_sale_lines_check` (function `agri_sale_line_check`): never changed or deleted; on insert, the document is a sale, no molecule is banned, the matched crop is not barred for any molecule, a fertiliser, seed or pesticide line has a licence in force covering it at the sale's location that day, for wholesale sales when the buyer has a GSTIN and retail sales otherwise, while the business has `licences` on (`business_licence_covering`), and a seed line's lot is not past its validity.
+Added by: 1791962000000; 1791979050000 (`agri_sale_line_check`: the licence for the kind of sale, and in force by a renewal applied for).
 
 #### `agri_pos_checks`
 Purpose: the PoS device's stock typed in at a location on a business day.
@@ -2640,6 +2730,11 @@ Key columns: PK (`business_id`, `check_id`, `sku_id`), `pos_stock` (>= 0), `app_
 Relations: (`business_id`, `check_id`) -> `agri_pos_checks`; (`business_id`, `sku_id`) -> `catalog_skus`.
 Rules: trigger `agri_pos_check_lines_append_only`: never changed or deleted.
 Added by: 1791962000000.
+
+#### `agri_settings`
+Purpose: a farm-input shop's setting: a pesticide not endorsed on the location's insecticide licence, or whose manufacturer has no principal certificate on it in force, is billed with a warning (warn) or refused (block). No row: warn.
+Key columns: `business_id` (primary key), `endorsement_check` (warn, block), `updated_by`, `updated_at`.
+Added by: 1791979050000.
 
 ## Optical shops
 
@@ -3762,7 +3857,7 @@ Core modules are always on and never stored per business; every other module is 
 | `quotations` | optional | catalog, contacts, sales | every type but restaurant; on for hardware; recommended for garage, general_retail, jewellery, optical, wholesale | 1791961000000 |
 | `hardware_sites` | optional | contacts, sales | hardware; on | 1791961000000 |
 | `hardware_rates` | optional | catalog | hardware; on | 1791961000000 |
-| `hardware_calculators` | optional | catalog | hardware; on (item attributes `coverageSqftPerUnit`, `coverageSqftPerLitre`, `litresPerUnit`; no table) | 1791961000000 |
+| `hardware_calculators` | optional | catalog | hardware; on (item attributes `coverageSqftPerUnit`, `coverageSqftPerLitre`, `litresPerUnit`; workings in `hardware_calculations`) | 1791961000000; named Material calculators 1791979050000 |
 | `fitter_commission` | optional | catalog, sales | hardware; off; recommended for hardware | 1791961000000 |
 | `licences` | optional | — | every type but restaurant; on for agri_inputs; recommended for fuel_station, jewellery, optical, pharmacy, rentals | 1791962000000; recommended for rentals 1791968000000 |
 | `agri` | optional | catalog, contacts, sales, inventory, batches | agri_inputs; on (item attributes `inputKind`, `subsidised`, `seedClass`, `seedCrop`, `seedVariety`, `molecules`, `formulation`, `netKg`) | 1791962000000 |
@@ -3793,6 +3888,7 @@ Core modules are always on and never stored per business; every other module is 
 | `tasks` | optional | — | every type; on for restaurant; recommended for fuel_station, healthcare, lodging, pharmacy, supermarket | 1791620000000 |
 | `issues` | optional | tasks | every type; on for restaurant; recommended for pharmacy, supermarket | 1791620000000 |
 | `projects` | optional | tasks | every type; on for restaurant | 1791620000000 |
+| `hardware_tinting` | optional | catalog, sales, inventory | hardware; off; recommended for hardware (item attribute `paintBase`) | 1791979050000 |
 
 These modules have no permission codes: `restaurant`, `batches`, `serials`, `variants`, `weight` and `books`. Access to them comes from the capability check alone. The restaurant features have none either: the restaurant's own permissions (`roles`, `permissions`) decide who may do what, and the feature decides whether anyone may (see [Restaurant features](#restaurant-features)).
 
@@ -3848,6 +3944,7 @@ Each code is a `<module>.<action>` row of `business_permissions`, listed here by
 | fuel | `fuel.view` (the board, shifts, tanks and dips, tanker loads, the registers, vehicles and prices; other attendants' shifts and their money with `sales.view`, a load's value with `purchasing.view`, the fleet statements with `sales.view`), `fuel.create` (open and close one's own shift, take the morning dips, record tanker loads; accepting one with `purchasing.create`), `fuel.edit` (open and close any attendant's shift; fleet vehicles and their fill limits), `fuel.approve` (reopen a shift, allow credit over a limit, accept a load outside the density tolerance, correct a dip, record a meter change, cancel a load), `fuel.export`, `fuel.print` | 1791969000000 |
 | lodging | `lodging.view` (rooms and their status, the desk, the calendar, reservations, stays and their folios; money with `sales.view`, the occupants' ID details with `lodging.create` or `lodging.print`), `lodging.create` (take and change reservations, check guests in with every occupant and out with the bill, post charges, run the night audit, mark Form-III reports; an advance or a deposit with `sales.edit`), `lodging.edit` (mark rooms clean or dirty, out of order and back), `lodging.approve` (change a guest in the house's rate, void a charge, check a guest out with the bill left to pay), `lodging.cancel` (cancel reservations and mark no-shows, with a charge), `lodging.refund` (hand back advances and deposits held), `lodging.print` (registration cards and the guest register) | 1791970000000 |
 | privacy | `privacy.view` (the privacy notice and its versions, the requests and the breach register), `privacy.manage` (publish the notice, log and answer requests, erase a person's data, keep the breach register), `privacy.export` (see or export everything held about one person). Granted to the Manager template and every Manager role | 1791977000000 |
+| hardware_tinting | `hardware_tinting.view` (shades and the tinting board), `hardware_tinting.create` (tinted paint on bills and quotations; tinted and handed over on the board; taking a tinted line back, with the PIN of someone with `sales.refund`), `hardware_tinting.edit` (add, import and change shades; the tinting charge). Granted to Manager (all), Cashier and Stock keeper (view, create), Accountant and Viewer (view) | 1791979050000 |
 
 ## Restaurant permission codes
 

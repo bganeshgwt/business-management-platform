@@ -1,7 +1,8 @@
-// Tile & paint calculators (module "hardware_calculators"): plain arithmetic
-// on the figures kept on the items (backend core/services/businessModules.js
-// › figures), with no screen in it, so it is tested on its own
-// (tests/hardware-calculators.test.js).
+// The tile and paint calculators of Material calculators (module
+// "hardware_calculators"): plain arithmetic on the figures kept on the items
+// (backend core/services/businessModules.js › figures), with no screen in it,
+// so it is tested on its own (tests/hardware-calculators.test.js). Bricks,
+// concrete, plaster and steel are worked out by the server.
 
 export const SQFT_PER_SQM = 10.7639;
 // The paint packs a shop usually stocks, in litres.

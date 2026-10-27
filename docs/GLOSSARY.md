@@ -164,7 +164,12 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Quotation** | An estimate at today's prices with a date it is valid until (numbered QT/…). It moves no stock and is not a tax invoice. Once the customer agrees it becomes a bill, or a sales order, at the quoted prices. |
 | **Revision** (of a quotation) | The quotation priced again with changed lines, keeping its number; the lines it replaced are kept with the revision. |
 | **Expired quotation** | An open quotation past its *Valid until* date. Its prices must be revised before it is billed. |
-| **Licence** (Licences & registrations) | A licence or registration one location holds (a trade licence, FSSAI, a fertiliser authorisation letter…), with its number, the authority and the dates it is valid. *In force* on a day when it is on and the day falls within its dates. The bell warns 60 days before one runs out. |
+| **Licence** (Licences & registrations) | A licence or registration one location holds (a trade licence, FSSAI, a fertiliser authorisation letter…), with its number, the authority and the dates it is valid. *In force* on a day when it is on and the day falls within its dates, or, past its date, while a renewal applied for keeps it in force by its kind's rule. The bell warns 60 days before one runs out. |
+| **Licence kind** | What a licence is (fertiliser authorisation, seed licence, insecticide licence, trade licence…), kept by the platform with its usual name, what it covers, whether a new one is for retail or wholesale sales, and what a renewal applied for does once its date passes. |
+| **Renewal applied for** | A licence's renewal applied for but not yet granted, with the date applied and the application's reference, until the renewed date is typed. It keeps an insecticide licence in force past its date, a fertiliser authorisation only when applied for within one month of its date, and no other kind. |
+| **Retail / wholesale licence** | Whether a licence lets its location sell to farmers and other buyers (retail), to dealers (wholesale) or both. A sale to a buyer with a GSTIN is a wholesale sale. |
+| **Qualified person** | The person a dealer's licence names as qualified, kept as written: their name, their qualification and its certificate's number, or why they are exempt. |
+| **Scanned copy** (of a licence) | A PDF or photo of a licence, kept with the dates the licence had when it was added; each renewal's copy is kept beside the earlier ones. |
 
 ### Hardware, paints & building materials
 
@@ -175,10 +180,22 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Coverage** | What one unit of an item covers: the sq ft a box of tiles lays, or the sq ft a litre of paint covers in one coat. Kept on the item for the calculators. |
 | **Today's rates** | A hardware shop's board of the items whose price changes every day: today's prices typed and saved together, shared on WhatsApp. |
 | **Fitter** | A painter, plumber, electrician, mason or carpenter who brings customers to the shop and earns commission on their bills. |
-| **Fitted by** | The fitter named on a bill when it is posted; the bill's commission goes to them. |
+| **Fitted by** | The fitter named on a bill when it is posted, or afterwards until the commission on it is paid, or on a sales order for the invoices its dispatches raise; the bill's commission goes to them. |
 | **Commission rule** | What a bill line earns its fitter: a percent of its value before GST for every item, a category or one item, or an amount per unit of one item. The most specific rule wins. |
 | **Taken back** | Commission a return undoes: a returned line's commission in proportion to the quantity back. |
-| **Payout** | Money paid to a fitter, recorded as a paid expense of the shop; reversing the expense takes it back. |
+| **Payout** | Money paid to a fitter, recorded as a paid expense of the shop; reversing the expense takes it back. Payouts settle a fitter's oldest commission first. |
+| **Tinting** | Mixing colourants into a base paint, on the paint maker's own machine, to make a shade. |
+| **Base** (paint) | The untinted paint a shade is made from (Pastel, Deep, Clear and the like, by each maker's names). An item may say which base it is. |
+| **Shade** | A paint maker's colour: its code and name on the maker's shade card, the base it needs and, if kept, its formula. |
+| **Shade card** | A paint maker's card or collection of shades. |
+| **Formula** (tinting) | The colourants a shade takes and their millilitres for one litre of base. |
+| **Tinted line** | A bill or quotation line of a base item in its pack, tinted to a shade; the tinting charge goes beside it as a line of its own. Made to order: it comes back only on a manager's PIN, never into stock. |
+| **Tinting charge** | The service item billed for tinting, one for each tin, at its own GST slab. |
+| **Tinting job** | A bill's tinted line on the tinting board: queued, tinted (its base leaves stock then), handed over, or taken back. |
+| **Material calculators** | The calculators on Quick bill and on quotations: tiles, paint, brickwork, concrete and plaster, and steel. Their figures are estimates for the customer, not engineering. |
+| **Working** (of a calculator) | What a calculator was given, its assumptions and what it worked out, kept with the quotation or the bill it added lines to. |
+| **Mix** | The parts of cement, sand and aggregate by volume: 1:6 for brickwork mortar, 1:4 for plaster, 1:1.5:3 for concrete. |
+| **Dry-volume factor** | How much more dry material a wet volume of mortar or concrete takes (1.33 for mortar, 1.27 for plaster, 1.54 for concrete to start with). |
 
 ### Seeds, fertilisers & pesticides
 
@@ -189,6 +206,9 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Fertiliser authorisation letter** | A fertiliser dealer's licence under the Fertiliser (Control) Order 1985: the acknowledgement (Form A2) of the dealer's intimation (Form A1), for one place of business. |
 | **Seed dealer licence** | A seed dealer's licence (Form B) under the Seeds (Control) Order 1983, for one place of business. |
 | **Insecticide sale licence** | The licence (Form VIII) to sell, stock or distribute insecticides under the Insecticides Rules 1971, for one place of business. |
+| **Endorsement** | An insecticide, or a brand of insecticides, entered on an insecticide licence: selling another insecticide needs an endorsement (Insecticides Rules 1971, rule 10(4)). |
+| **Principal certificate** | A manufacturer's certificate that comes with an insecticide licence's grant or renewal: its registration and manufacturing licence numbers and the formulations it authorises. The manufacturer can withdraw it. |
+| **Form O** (certificate of source) | A fertiliser source's certificate on a dealer's authorisation: one from each source the fertiliser comes from (Fertiliser (Control) Order 1985, clause 8). |
 | **Subsidised fertiliser** | A fertiliser (urea, DAP and the like) sold at the government's subsidised price, through the PoS device as well as on the bill. |
 | **PoS device** | The Department of Fertilizers' point-of-sale machine at the shop. Each subsidised sale is made on it after the farmer's thumb (Aadhaar) check, and it prints a receipt; the bill keeps that receipt's number, never the Aadhaar number. |
 | **iFMS** | The government's integrated fertiliser management system, which records every PoS sale and the stock the PoS shows for the shop. |

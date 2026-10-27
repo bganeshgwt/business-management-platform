@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
 import Icon from "@bmp/ui/Icon";
+import Modal from "../../../../components/Modal";
 import SearchPicker from "../../../../components/SearchPicker";
 import SectionCard from "../../../../components/SectionCard";
-import { ErrorMessage } from "../../../../components/Feedback";
+import { ErrorMessage, Loading } from "../../../../components/Feedback";
 import { businessRead, businessWrite } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
 import { dateLong, dateTime, relative } from "@bmp/shared/format";
@@ -19,7 +20,8 @@ import "../styles/hardware.css";
 // pipes, cable) on one board. Type today's rates and save them together:
 // each goes through the item's own price change (MRP checked, kept in the
 // activity log), and bills and new quotations use it at once. Share the list
-// on WhatsApp or print it for the counter.
+// on WhatsApp or print it for the counter. Each item's history lists every
+// earlier rate change: when, the rate before and after, and who changed it.
 
 const cents = (value) => Math.round(Number(value) * 100);
 
@@ -31,6 +33,7 @@ export default function HardwareRatesPage() {
   const [draft, setDraft] = useState({});
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [history, setHistory] = useState(null);
   const reload = useCallback(() => setVersion((n) => n + 1), []);
   useEffect(() => {
     const controller = new AbortController();
@@ -111,7 +114,12 @@ export default function HardwareRatesPage() {
       render: (r) => (r.price_changed_at ? <span title={dateTime(r.price_changed_at)}>{relative(r.price_changed_at)}</span> : <span className="muted" title="Not changed since it was put on the board">Not yet</span>) },
     { key: "mrp", header: "MRP", type: "money", exact: true, value: (r) => (r.mrp === null ? null : Number(r.mrp)), defaultHidden: !items.some((r) => r.mrp !== null),
       render: (r) => (r.mrp === null ? <span className="muted">—</span> : biz.exact(r.mrp)) },
-    canEdit && { key: "actions", header: "", label: "Actions", type: "actions", render: (r) => <button type="button" className="chip-button" onClick={() => takeOff(r)}>Take off the board</button> },
+    { key: "actions", header: "", label: "Actions", type: "actions", render: (r) => (
+      <span className="bz-inline">
+        <button type="button" className="chip-button" onClick={() => setHistory(r)} aria-label={`Rate history of ${r.label}`}>History</button>
+        {canEdit && <button type="button" className="chip-button" onClick={() => takeOff(r)}>Take off the board</button>}
+      </span>
+    ) },
   ].filter(Boolean);
 
   return (
@@ -133,7 +141,46 @@ export default function HardwareRatesPage() {
       </SectionCard>
       {adding && <AddItems onBoard={new Set(items.map((r) => String(r.id)))} most={data?.most || 300} onClose={() => setAdding(false)}
         onSaved={(r) => { setAdding(false); toast.success(r.added ? `${r.added} item${r.added === 1 ? "" : "s"} put on the board.` : "Those items were on the board already."); reload(); }} />}
+      {history && <RateHistory item={history} onClose={() => setHistory(null)} />}
     </div>
+  );
+}
+
+// An item's earlier rate changes, newest first, as the activity log keeps
+// them from every screen: the board, the item itself, or a purchase that set
+// a new selling price.
+function RateHistory({ item, onClose }) {
+  const biz = useOpenBusiness();
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    businessRead(biz.id, `hardware/rates/items/${item.id}/history`, { limit: 100 }, controller.signal)
+      .then((r) => { setData(r); setError(""); })
+      .catch((err) => { if (!controller.signal.aborted) setError(getErrorMessage(err)); });
+    return () => controller.abort();
+  }, [biz.id, item.id]);
+  const columns = [
+    { key: "changed_at", header: "When", type: "datetime", value: (c) => c.changed_at, mobile: "title", render: (c) => dateTime(c.changed_at) },
+    { key: "from_price", header: "Rate before", type: "money", exact: true, value: (c) => Number(c.from_price) },
+    { key: "to_price", header: "Rate after", type: "money", exact: true, value: (c) => Number(c.to_price), mobile: "subtitle" },
+    { key: "change", header: "Change", type: "number", value: (c) => Number(c.to_price) - Number(c.from_price), render: (c) => {
+      const diff = Number(c.to_price) - Number(c.from_price);
+      return <span className={diff > 0 ? "hw-up" : diff < 0 ? "hw-down" : "muted"}>{diff > 0 ? "▲ " : diff < 0 ? "▼ " : ""}{biz.exact(Math.abs(diff))}</span>;
+    } },
+    { key: "changed_by_name", header: "Changed by", value: (c) => c.changed_by_name, mobile: "show" },
+    { key: "document_no", header: "From", value: (c) => c.document_no || "", render: (c) => (c.document_no ? `Purchase ${c.document_no}` : <span className="muted">—</span>) },
+  ];
+  return (
+    <Modal title={`Rate history: ${item.label}`} icon="history" width={760} onClose={onClose}
+      description={`Every change of its rate, newest first, whichever screen made it. Today: ${biz.exact(item.price)} per ${item.unit}.`}>
+      <ErrorMessage message={error} />
+      {!data && !error && <Loading />}
+      {data && (
+        <DataGrid id="hardware-rate-history" variant="compact" caption="Rate changes" columns={columns} rows={data.changes} rowKey={(c) => c.id} currency={biz.symbol}
+          rowNoun={["change", "changes"]} empty="No rate change yet" emptyHint="Its rate has stayed the same since it was added." emptyIcon="history" />
+      )}
+    </Modal>
   );
 }
 

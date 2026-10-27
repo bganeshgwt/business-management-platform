@@ -106,4 +106,23 @@ async function save(business, user, body) {
   });
 }
 
-module.exports = { requireRates, board, add, remove, save };
+// An item's rate changes, newest first, as the activity log keeps every
+// price change from any screen: the day and time, the rate before and after,
+// who changed it, and the receipt that set it (a purchase's new selling price).
+// query: { limit? } (up to 200).
+async function history(business, skuId, query = {}) {
+  requireRates(business);
+  await access.require(business, 'catalog.view');
+  const limit = query.limit === undefined ? 50 : Math.min(200, id(query.limit, 'How many'));
+  const item = await repo.one(repo.pool, `SELECT s.id,s.label,s.unit,s.price,s.mrp,(r.sku_id IS NOT NULL) AS on_board FROM catalog_skus s
+    LEFT JOIN hardware_rate_items r ON r.business_id=s.business_id AND r.sku_id=s.id WHERE s.business_id=$1 AND s.id=$2`, [business.id, id(skuId, 'Item')]);
+  if (!item) fail('Item not found', 404);
+  const changes = await repo.all(repo.pool, `SELECT a.id,a.created_at AS changed_at,u.name AS changed_by_name,a.details->>'from' AS from_price,a.details->>'to' AS to_price,
+      a.details->>'documentNo' AS document_no
+    FROM business_audit a JOIN users u ON u.id=a.actor_id
+    WHERE a.business_id=$1 AND a.entity_id=$2 AND a.action='catalog.price_changed' AND (a.details->>'from')::numeric IS DISTINCT FROM (a.details->>'to')::numeric
+    ORDER BY a.id DESC LIMIT $3`, [business.id, item.id, limit]);
+  return { item, changes };
+}
+
+module.exports = { requireRates, board, add, remove, save, history };

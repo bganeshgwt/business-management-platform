@@ -35,9 +35,13 @@ const ATTRIBUTES = {
   // A hardware shop's tile & paint calculators read these.
   hardware_calculators: [["coverageSqftPerUnit", "Tiles: one unit covers (sq ft)"], ["coverageSqftPerLitre", "Paint: one litre covers, one coat (sq ft)"],
     ["litresPerUnit", "Paint: litres in one unit"]],
+  // A paint shop's tinting: the base a paint is, which a shade must need.
+  hardware_tinting: [["paintBase", "Tinting: the base it is (Pastel, Deep…)"]],
 };
 // Attributes that are figures; they can also be changed after the item is made.
 const FIGURES = ["coverageSqftPerUnit", "coverageSqftPerLitre", "litresPerUnit"];
+// Short texts that can also be changed after the item is made.
+const CHANGEABLE_TEXTS = ["paintBase"];
 const TRACKING = { none: "Not stocked", quantity: "Quantity", batch: "Batch & expiry", serial: "Serial / IMEI" };
 
 export default function CatalogPage() {
@@ -144,7 +148,7 @@ function CatalogDialog({ sku, onClose, onSaved }) {
     mrp: sku.mrp ? String(Number(sku.mrp)) : "", hsnCode: sku.hsn_code || "",
     shelfLocation: sku.shelf_location || "", memberPrice: sku.member_price ? String(Number(sku.member_price)) : "",
     internalUse: Boolean(sku.internal_use),
-    ...Object.fromEntries(FIGURES.map((key) => [key, sku.attributes?.[key] ? String(sku.attributes[key]) : ""])),
+    ...Object.fromEntries([...FIGURES, ...CHANGEABLE_TEXTS].map((key) => [key, sku.attributes?.[key] ? String(sku.attributes[key]) : ""])),
     agri: agriFormOf(sku),
     lensGrid: emptyGrid(),
     // Stock already on the shelf when the item is added.
@@ -160,7 +164,8 @@ function CatalogDialog({ sku, onClose, onSaved }) {
   const defaultSlab = slabs.find((t) => t.is_default);
   const taxRateId = form.taxRateId || (editing ? "" : String(defaultSlab?.id || ""));
   const attributeFields = biz.context.capabilities.flatMap((cap) => ATTRIBUTES[cap] || []);
-  const figureFields = attributeFields.filter(([key]) => FIGURES.includes(key));
+  // The details that may change after the item is made: figures and a few short texts.
+  const figureFields = attributeFields.filter(([key]) => FIGURES.includes(key) || CHANGEABLE_TEXTS.includes(key));
   const unitChoices = units.filter((u) => (form.kind === "service" ? ["time", "service"].includes(u.kind) : !["time", "service"].includes(u.kind)));
   const products = [...new Map((options?.catalog || []).map((s) => [s.product_id, s.product_name])).entries()];
   // A farm-input shop's goods carry what kind of input they are (the whole classification, every save).

@@ -26,6 +26,7 @@ import { DELIVERY } from "../../wholesale/pages/deliveryFormat";
 import SiteField, { SiteDialog } from "../../hardware/pages/SiteField";
 import FitterField from "../../hardware/pages/FitterField";
 import { tradeWord, usesSites } from "../../hardware/pages/hardware";
+import { FitterButton, FitterDialog, TintedLines, Workings } from "../../hardware/pages/BillExtras";
 // A farm-input shop's bill: season credit, the farmer, PoS receipts, crops and licences.
 import AgriBillFacts from "../../agri/pages/AgriBillFacts";
 
@@ -181,6 +182,8 @@ export default function DocumentsPage({ kind }) {
             if (!sale && doc.labels?.length && biz.has("inventory") && biz.can("catalog.print")) {
               toast.success(`${doc.document_no} saved.`, { duration: 12000, action: { label: `Print ${doc.labels.reduce((n, l) => n + Number(l.copies), 0)} labels`, onClick: () => navigate(businessPath(biz.id, "labels"), { state: { labels: doc.labels } }) } });
             } else toast.success(`${doc.document_no} saved.`);
+            // Posted with a warning (fertiliser from a supplier with no Form O; an insecticide not endorsed).
+            if (doc.warnings?.length) toast.warning(doc.warnings.join(" "), { duration: 15000 });
           }} />
       )}
       {openId && <DocumentDetail documentId={openId} onClose={() => setOpenId(null)} onChanged={list.reload} />}
@@ -523,6 +526,8 @@ export function DocumentDetail({ documentId, onClose, onChanged, initialAction =
               } },
           ].filter(Boolean)} />
           {doc.hardware?.site && <p className="small">Site <strong>{doc.hardware.site.name}</strong>{doc.hardware.site.address ? ` · ${doc.hardware.site.address}` : ""}</p>}
+          <TintedLines tints={doc.hardware?.tints} lines={doc.lines} />
+          <Workings workings={doc.hardware?.calculations} />
           {doc.agri && <AgriBillFacts doc={doc} />}
           {doc.hardware?.fitter && (
             <p className="small">Fitted by <strong>{doc.hardware.fitter.name}</strong> ({tradeWord(doc.hardware.fitter.trade).toLowerCase()})
@@ -555,6 +560,7 @@ export function DocumentDetail({ documentId, onClose, onChanged, initialAction =
             {biz.can(`${area}.print`) && <button type="button" className="button button-secondary" onClick={() => printTaxInvoice(doc, biz)}><Icon name="print" size={15} /> {doc.kind === "sale" ? "Print invoice (A4)" : "Print"}</button>}
             {biz.can(`${area}.print`) && doc.kind === "sale" && GOODS_TYPES.includes(biz.type) && <button type="button" className="button button-secondary" onClick={() => printReceipt(doc, biz)}><Icon name="receipt" size={15} /> Till receipt (80 mm)</button>}
             {doc.kind === "sale" && doc.contact_id && usesSites(biz) && biz.can("hardware_sites.edit") && <button type="button" className="button button-secondary" onClick={() => setAction("site")}><Icon name="map-pin" size={15} /> {doc.hardware?.site ? "Change the site" : "Set the site"}</button>}
+            <FitterButton biz={biz} doc={doc} onClick={() => setAction("fitter")} />
           </div>
         </div>
       )}
@@ -563,7 +569,9 @@ export function DocumentDetail({ documentId, onClose, onChanged, initialAction =
       onSaved={(c) => { toast.success(`Receipt ${c.collection_no} saved for ${biz.exact(c.amount)}`); changed(); }} />}
     {action === "site" && doc && <SiteDialog biz={biz} title={`Site of ${doc.document_no}`} contactId={doc.contact_id} current={doc.hardware?.site} path={`hardware/bills/${doc.id}/site`}
       onClose={() => setAction(null)} onSaved={(r) => { toast.success(r.site ? `${doc.document_no} goes to ${r.site.name}.` : `${doc.document_no} has no site now.`); changed(); }} />}
-    {action && !["collect", "site"].includes(action) && doc && <DocumentAction doc={doc} action={action} balance={balance} onClose={() => setAction(null)} onSaved={changed} />}
+    {action === "fitter" && doc && <FitterDialog biz={biz} doc={doc} onClose={() => setAction(null)}
+      onSaved={(f) => { toast.success(`${doc.document_no} is fitted by ${f.name}.`); changed(); }} />}
+    {action && !["collect", "site", "fitter"].includes(action) && doc && <DocumentAction doc={doc} action={action} balance={balance} onClose={() => setAction(null)} onSaved={changed} />}
     </>
   );
 }

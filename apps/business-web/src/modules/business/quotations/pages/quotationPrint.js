@@ -2,6 +2,7 @@ import { escapeHtml, printDocument } from "../../../../services/print";
 import { amountInWords, moneyExact } from "@bmp/shared/format";
 import { A4_STYLES, GST_STATES, businessDate } from "../../core/pages/invoice";
 import { privacyLine } from "../../../personal-data/printLine";
+import { ESTIMATE_NOTE, workingLine } from "../../hardware/pages/workings";
 
 // A quotation on A4 under the business's own header, laid out like its bills,
 // and the same quotation as a WhatsApp message. Everything on it is what the
@@ -41,8 +42,10 @@ export function printQuotation(q, biz) {
   });
   const sum = (key) => lines.reduce((s, l) => s + l[key], 0);
   const taxHead = interstate ? '<th class="r">IGST</th>' : '<th class="r">CGST</th><th class="r">SGST</th>';
+  // A hardware shop's tinted line names its shade.
+  const tintOf = (l) => (q.tints || []).find((t) => String(t.line_id) === String(l.id));
   const rows = lines.map((l) => `<tr><td>${l.n}</td>
-    <td>${escapeHtml(l.label)}${l.mrp ? `<br><small>MRP ${money(p(l.mrp))}</small>` : ""}${(l.offers || []).length ? `<br><small>${escapeHtml(l.offers.map((o) => o.label).join(", "))}</small>` : ""}</td>
+    <td>${escapeHtml(l.label)}${tintOf(l) ? `<br><small>Tinted to ${escapeHtml(`${tintOf(l).maker} ${tintOf(l).code} ${tintOf(l).name}`)}</small>` : ""}${l.mrp ? `<br><small>MRP ${money(p(l.mrp))}</small>` : ""}${(l.offers || []).length ? `<br><small>${escapeHtml(l.offers.map((o) => o.label).join(", "))}</small>` : ""}</td>
     <td>${escapeHtml(l.hsn_code || "—")}</td><td class="r">${escapeHtml(lineQuantity(l))}</td><td class="r">${escapeHtml(`${biz.symbol}${RATE.format(lineRate(l))}`)}</td>
     <td class="r">${l.discount ? money(l.discount) : "—"}</td><td class="r">${money(l.taxable)}</td><td class="r">${l.exempt ? "Exempt" : `${Number(l.tax_rate)}%`}</td>
     ${interstate ? `<td class="r">${money(l.igst)}</td>` : `<td class="r">${money(l.cgst)}</td><td class="r">${money(l.sgst)}</td>`}
@@ -67,7 +70,8 @@ export function printQuotation(q, biz) {
   <div class="totals"><div>
       <p class="words"><strong>Amount in words:</strong> ${escapeHtml(amountInWords(r(p(q.total))))}</p>
       ${p(q.savings) > 0 ? `<p>Offers and discount on this quotation: ${money(p(q.savings))}</p>` : ""}
-      ${q.notes ? `<p>${escapeHtml(q.notes)}</p>` : ""}</div>
+      ${q.notes ? `<p>${escapeHtml(q.notes)}</p>` : ""}
+      ${(q.calculations || []).length ? `<p><strong>How the quantities were worked out</strong> <small>(${escapeHtml(ESTIMATE_NOTE)})</small></p><ul>${q.calculations.map((w) => `<li><small>${escapeHtml(workingLine(w.kind, w.working))}</small></li>`).join("")}</ul>` : ""}</div>
     <table><tbody>
       <tr><td>Taxable value</td><td class="r">${money(sum("taxable"))}</td></tr>
       ${interstate ? `<tr><td>IGST</td><td class="r">${money(sum("igst"))}</td></tr>` : `<tr><td>CGST</td><td class="r">${money(sum("cgst"))}</td></tr><tr><td>SGST</td><td class="r">${money(sum("sgst"))}</td></tr>`}

@@ -1,0 +1,75 @@
+/* Licences & registrations: the list's licence names and one licence's
+   detail (what it says, its short forms, its scanned copies). Colours come
+   from the theme's tokens only. */
+
+/* A licence's name opens it: left-aligned like the text around it. */
+.lic-open {
+  text-align: left;
+}
+
+/* What the licence says, as label and value. */
+.lic-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--space-3) var(--space-4);
+  margin: 0;
+}
+.lic-facts dt {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.lic-facts dd {
+  margin: 0;
+  font-weight: var(--weight-medium);
+  overflow-wrap: anywhere;
+}
+.lic-facts .lic-wide {
+  grid-column: 1 / -1;
+}
+
+/* A status badge with a line under it (a principal certificate's withdrawal note). */
+.lic-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* A short form inside a card: its fields in a row that wraps, the button last. */
+.lic-row-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+.lic-row-form > .field,
+.lic-row-form > .lic-grow {
+  flex: 1 1 11rem;
+  min-width: 0;
+}
+.lic-row-form > .lic-grow {
+  flex-basis: 18rem;
+}
+.lic-row-form > .button {
+  flex: none;
+}
+
+/* A file chosen through a button: the input covers the button, unseen. */
+.lic-file {
+  position: relative;
+  overflow: hidden;
+}
+.lic-file input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.lic-file:focus-within {
+  box-shadow: var(--ring);
+}
+.lic-file.is-busy {
+  pointer-events: none;
+  opacity: 0.7;
+}

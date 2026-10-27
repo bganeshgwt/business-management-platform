@@ -101,6 +101,44 @@
   color: var(--danger);
   font-size: var(--text-sm);
 }
+/* A licence check the bill goes through with (a renewal pending, an endorsement the shop warns on). */
+.agri-warn {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-md);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: var(--text-sm);
+}
+
+/* The insecticide setting on the farm-input checks page: two choices, each with what it does. */
+.agri-setting {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+}
+.agri-choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.agri-choices legend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+  font-weight: var(--weight-medium);
+}
+.agri-choices .checkbox {
+  align-items: flex-start;
+}
+.agri-choices input[type="radio"] {
+  margin-top: 3px;
+}
 .agri-bill-facts {
   display: flex;
   flex-direction: column;
