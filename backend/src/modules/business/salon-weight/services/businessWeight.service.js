@@ -7,6 +7,7 @@ const numbering = require('../../core/services/businessNumbering');
 const core = require('../../core/services/business.service');
 const { applyAdjustment, lockLot } = require('../../core/services/businessReturns.service');
 const { split } = require('../../retail/services/businessOffers');
+const { isOffcut } = require('./weightOffcuts');
 
 // Meat, seafood and other weight-based shops: cutting /
 // processing with yield, yield templates, daily wastage, stock by weight and
@@ -96,7 +97,7 @@ repo.addLists({
       (SELECT sum(o.expected_percent) FROM weight_yield_template_outputs o WHERE o.business_id=pb.business_id AND o.template_id=pb.template_id) AS expected_yield,
       CASE WHEN pb.output_kg>0 THEN round(pb.input_value/pb.output_kg,2) END AS cost_per_usable_kg,
       COALESCE((SELECT json_agg(json_build_object('sku_id',o.output_sku_id,'label',o.label,'unit',o.unit,'quantity',o.quantity,'kg',o.kg,'cost_share',o.cost_share,
-        'unit_cost',o.unit_cost,'expected_percent',o.expected_percent,'lot_id',o.lot_id) ORDER BY o.kg DESC)
+        'unit_cost',o.unit_cost,'expected_percent',o.expected_percent,'lot_id',o.lot_id,'offcut',o.offcut) ORDER BY o.kg DESC)
         FROM weight_processing_outputs o WHERE o.business_id=pb.business_id AND o.batch_id=pb.id),'[]') AS outputs
       FROM weight_processing_batches pb JOIN business_locations loc ON loc.business_id=pb.business_id AND loc.id=pb.location_id
       JOIN users u ON u.id=pb.created_by
@@ -236,6 +237,12 @@ async function processBatch(business, user, body) {
     const values = outputs.map((o) => Number(BigInt(o.quantityMilli) * BigInt(paise(o.sku.price))));
     const weights = values.some((x) => x > 0) ? values : outputs.map((o) => o.kgMilli);
     split(inputValue, weights).forEach((share, i) => { outputs[i].share = share; });
+    // A cut priced below what the whole item cost a kilo is an offcut (weightOffcuts.js).
+    const inclusive = (await repo.one(db, 'SELECT tax_mode FROM business_settings WHERE business_id=$1', [business.id]))?.tax_mode === 'inclusive';
+    for (const o of outputs) {
+      o.offcut = isOffcut({ pricePaise: paise(o.sku.price), taxRate: o.sku.tax_rate, inclusive, quantityMilli: o.quantityMilli, kgMilli: o.kgMilli,
+        inputValuePaise: inputValue, inputKgMilli: inputKg });
+    }
 
     // The supplier of the input: the purchase that brought this batch in (latest).
     const supplier = await repo.one(db, `SELECT d.contact_id FROM business_stock_movements m JOIN business_documents d ON d.business_id=m.business_id AND d.id=m.document_id
@@ -265,9 +272,9 @@ async function processBatch(business, user, body) {
       }
       const locked = await lockLot(db, business.id, target.id);
       const adjustment = await applyAdjustment(db, business, user, locked, o.quantityMilli / 1000, `Cut from ${input.label} (${number.number})`.slice(0, 300), derivedKey(requestKey, `output-${n}`));
-      await db.query(`INSERT INTO weight_processing_outputs(business_id,batch_id,output_sku_id,label,unit,lot_id,quantity,kg,cost_share,unit_cost,expected_percent,adjustment_id)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`, [business.id, batch.id, o.sku.id, o.sku.label, o.sku.unit, target.id, qty(o.quantityMilli), qty(o.kgMilli),
-        rupees(o.share), unitCost.toFixed(4), o.expected, adjustment.id]);
+      await db.query(`INSERT INTO weight_processing_outputs(business_id,batch_id,output_sku_id,label,unit,lot_id,quantity,kg,cost_share,unit_cost,expected_percent,adjustment_id,offcut)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`, [business.id, batch.id, o.sku.id, o.sku.label, o.sku.unit, target.id, qty(o.quantityMilli), qty(o.kgMilli),
+        rupees(o.share), unitCost.toFixed(4), o.expected, adjustment.id, o.offcut]);
     }
     await repo.audit(db, business.id, user.id, 'processing.posted', batch.id, { batchNo: batch.batch_no, inputKg: batch.input_kg, outputKg: batch.output_kg, lossKg: batch.loss_kg,
       ...(cutBy ? { cutBy } : {}), ...(cutToOrder ? { cutToOrder } : {}) });
@@ -418,12 +425,51 @@ async function yieldReport(business, query) {
   }
   const sum = (rows, key) => rows.reduce((s, r) => s + milli(r[key] || 0), 0);
   const inputKg = sum(inputs, 'input_kg'), outputKg = sum(inputs, 'output_kg');
+  const offcuts = await offcutsRecovered(values.slice(0, 4));
   return {
-    from, to, inputs, cuts, days, cutters: cutters.map((c) => c.cut_by), suppliers, bySupplier,
+    from, to, inputs, cuts, days, offcuts, cutters: cutters.map((c) => c.cut_by), suppliers, bySupplier,
     shortValue: rupees(inputs.reduce((s, r) => s + paise(r.short_value), 0)),
     totals: { batches: inputs.reduce((s, r) => s + r.batches, 0), inputKg: qty(inputKg), outputKg: qty(outputKg), lossKg: qty(inputKg - outputKg),
       yieldPercent: inputKg ? (Math.round((outputKg * 10000) / inputKg) / 100).toFixed(2) : null,
       inputValue: rupees(inputs.reduce((s, r) => s + paise(r.input_value), 0)) },
+  };
+}
+
+// What offcuts brought in, from the bills: each sale line of an item whose
+// latest cut at the bill's location, before the bill, was an offcut, at its
+// value before GST less what was returned of it; by item (with what was cut
+// as offcuts in the dates) and by the day billed, on the business's clock.
+// values: [business, from, to, location].
+async function offcutsRecovered(values) {
+  const sold = `WITH sold AS (
+      SELECT dl.sku_id,dl.label,dl.unit,d.id AS document_id,(d.created_at AT TIME ZONE b.timezone)::date AS day,
+        dl.quantity-COALESCE(r.quantity,0) AS quantity,dl.net-COALESCE(r.net,0) AS value
+      FROM business_document_lines dl JOIN business_documents d ON d.business_id=dl.business_id AND d.id=dl.document_id JOIN businesses b ON b.id=d.business_id
+      LEFT JOIN LATERAL (SELECT sum(rl.quantity) AS quantity,sum(rl.net) AS net FROM business_return_lines rl WHERE rl.business_id=dl.business_id AND rl.line_id=dl.id) r ON true
+      WHERE ${IN_PERIOD('d')} AND d.kind='sale'
+        AND (SELECT o.offcut FROM weight_processing_outputs o JOIN weight_processing_batches pb ON pb.business_id=o.business_id AND pb.id=o.batch_id
+          WHERE o.business_id=dl.business_id AND o.output_sku_id=dl.sku_id AND pb.location_id=d.location_id AND pb.created_at<=d.created_at
+          ORDER BY pb.created_at DESC,pb.id DESC LIMIT 1))`;
+  const [items, cut, days] = await Promise.all([
+    repo.all(repo.pool, `${sold} SELECT sku_id,max(label) AS label,max(unit) AS unit,count(DISTINCT document_id)::int AS bills,sum(quantity) AS quantity,sum(value) AS recovered
+      FROM sold GROUP BY sku_id`, values),
+    repo.all(repo.pool, `SELECT o.output_sku_id AS sku_id,max(o.label) AS label,max(o.unit) AS unit,sum(o.quantity) AS cut_quantity,sum(o.kg) AS cut_kg
+      FROM weight_processing_outputs o JOIN weight_processing_batches pb ON pb.business_id=o.business_id AND pb.id=o.batch_id JOIN businesses b ON b.id=pb.business_id
+      WHERE ${IN_PERIOD('pb')} AND o.offcut GROUP BY o.output_sku_id`, values),
+    repo.all(repo.pool, `${sold} SELECT day::text AS day,count(DISTINCT document_id)::int AS bills,sum(value) AS recovered FROM sold GROUP BY day ORDER BY day DESC`, values),
+  ]);
+  const bySku = new Map();
+  for (const row of cut) bySku.set(Number(row.sku_id), { sku_id: Number(row.sku_id), label: row.label, unit: row.unit, cut_quantity: row.cut_quantity, cut_kg: row.cut_kg,
+    bills: 0, quantity: '0.000', recovered: '0.00' });
+  for (const row of items) {
+    const was = bySku.get(Number(row.sku_id)) || { sku_id: Number(row.sku_id), label: row.label, unit: row.unit, cut_quantity: '0.000', cut_kg: '0.000' };
+    bySku.set(Number(row.sku_id), { ...was, bills: row.bills, quantity: qty(milli(row.quantity)), recovered: rupees(paise(row.recovered)) });
+  }
+  const list = [...bySku.values()].sort((a, b) => paise(b.recovered) - paise(a.recovered) || String(a.label).localeCompare(String(b.label)));
+  return {
+    items: list,
+    days: days.map((d) => ({ day: d.day, bills: d.bills, recovered: rupees(paise(d.recovered)) })),
+    recovered: rupees(list.reduce((s, r) => s + paise(r.recovered), 0)),
   };
 }
 

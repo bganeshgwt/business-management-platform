@@ -43,6 +43,9 @@ export const LOGINS = [
   { role: "GST_MANAGER", name: "Kiran Kumar", email: "manager@thresholds.e2e.invalid", gstOwner: true },
   // The hardware shop's manager, who lets a tinted tin come back with a PIN of their own.
   { role: "HARDWARE_MANAGER", name: "Prakash Shetty", email: "manager@hardware.e2e.invalid", businesses: ["hardware"] },
+  // The general store's cashier, with a PIN of their own, whom its shared till
+  // is switched to (small-items.spec.js).
+  { role: "TILL_CASHIER", name: "Deepak Rao", email: "cashier@general.e2e.invalid", businesses: ["general_retail"], businessRole: "cashier" },
 ];
 
 // The staff login a spec makes in the grocery's Staff & access, as the owner
@@ -487,4 +490,18 @@ export const CLINIC = {
 export const SALON = {
   stylist: { name: "Priya Sharma", role: "Senior stylist" },
   service: { name: "Haircut", price: 300 },
+};
+
+// Small rules (small-items.spec.js): the general store asks the biller's PIN
+// for every bill and sells a tiffin box from stock, and the spec renames it
+// for a moment (then back); the meat shop takes orders for pickup for a hotel;
+// the salon has a client whose usual stylist is the salon's stylist; and a
+// guest web address of the restaurant's own, which the spec answers for the
+// restaurant in the browser only.
+export const SMALL_ITEMS = {
+  storeItem: { name: "Steel tiffin box", code: "TIFFIN-3", price: 450 },
+  renamed: "Lakshmi Stores, Main Road",
+  hotel: { name: "Hotel Annapurna", phone: "9845033333" },
+  salonClient: { name: "Meera Iyer", phone: "9845044444" },
+  guestAddress: "https://order.bistro.e2e.invalid",
 };

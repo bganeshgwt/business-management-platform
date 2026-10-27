@@ -136,6 +136,7 @@ need a production value:
 | `JWT_SECRET` | A fresh random value of at least 32 characters, used nowhere else: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`. Anyone who knows it can sign in as any user. |
 | `TWO_FACTOR_KEY` | A fresh random value made the same way, set once (see below). |
 | `CORS_ORIGIN` | The staff app's address, such as `https://app.example.com`; separate several with commas. Left out, only `http://localhost:5173` may call the API. The guests' site needs no entry. |
+| `GUEST_WEB_URL` | The guests' site's own address, the same one the staff app is built with in `VITE_CUSTOMER_WEB_URL` (§3), such as `https://order.example.com`; with one address for both apps, that address. Every link the API builds to a guest's page (a table booking's) starts there unless the restaurant has set a guest web address of its own. A live server refuses to start without it, or with one that is not https, or one guests' phones cannot reach (`localhost`, a local network). |
 | `TRUST_PROXY` | How many proxies or load balancers stand in front of the API, usually `1`. The sign-in limits then count each client's own address; at `0` behind a proxy, every client shares one limit. |
 | `PORT` | The port the proxy forwards to (5000 when left out). |
 | `UPLOADS_DIR`, `PRIVATE_UPLOADS_DIR` | The two upload folders, on storage that survives a redeploy (a disk or volume outside the code's folder). `UPLOADS_DIR` holds the public pictures, served at `/uploads`; `PRIVATE_UPLOADS_DIR` the files only ever sent through the API. Left empty, they are `backend/uploads` and `backend/private_uploads`; a relative path is taken from `backend/`. Both are user data (§5). |
@@ -222,7 +223,8 @@ There are two ways to serve the apps.
 the guests' address before any QR code is printed.
 
 A restaurant that sets its own guest web address (Service settings) has its
-QR codes and guest links point there instead. The API answers the public guest
+QR codes and guest links point there instead. The links the API builds itself
+follow the same rule, from the API's `GUEST_WEB_URL` (§2). The API answers the public guest
 calls (`/api/public/…`) from any address, so such a domain needs no
 `CORS_ORIGIN` change.
 

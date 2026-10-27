@@ -593,12 +593,15 @@ function readPayments(body) {
   return read;
 }
 
-async function document(business, user, body) {
+// meta.session: the request's own session (businessCounter.sessionOf), which a
+// till switch's proof must come from.
+async function document(business, user, body, meta = {}) {
   const kind = v.requiredEnum(body.kind, 'Document type', ['sale', 'purchase']);
   await access.require(business, kindPermission(kind, 'create'));
   const requestKey = uuid(body.requestKey);
-  // The biller's PIN (counter) is checked, never stored, not even in the hash.
-  const { counterPin, ...hashed } = body;
+  // The biller's PIN (counter), or the proof of the till switch made with it,
+  // is checked, never stored, not even in the hash.
+  const { counterPin, counterProof, ...hashed } = body;
   const hash = crypto.createHash('sha256').update(JSON.stringify(hashed)).digest('hex');
   const lines = v.requiredArray(body.lines, 'Lines');
   if (!lines.length || lines.length > 100) fail('Add between 1 and 100 lines');
@@ -621,10 +624,20 @@ async function document(business, user, body) {
     await access.require(business, 'finance.create');
     await access.require(business, kindPermission(kind, 'edit'));
   }
+  // A meat or weight shop's order for pickup, closed by this bill: its advance pays first.
+  if (named(body.pickupOrderId) && kind !== 'sale') fail('An order for pickup is closed by a sale');
+  const pickupId = named(body.pickupOrderId) ? id(body.pickupOrderId, 'Order for pickup') : null;
   // Quick bill on a shared till: the biller's PIN for every bill, when the
-  // business asks for it (per-staff PIN).
-  if (kind === 'sale' && body.channel === 'counter') await counterPins().checkBill(business, user, counterPin);
-  return repo.transaction((db) => postDocument(db, business, user, body, { kind, requestKey, hash, lines, paidNow: parts, walkInPays, voucher, finance }));
+  // business asks for it (per-staff PIN), or the proof their switch gave.
+  const billCheck = kind === 'sale' && body.channel === 'counter'
+    ? await counterPins().checkBill(business, user, { pin: counterPin, proof: counterProof, session: meta.session }) : null;
+  return repo.transaction(async (db) => {
+    if (billCheck) await billCheck.spend(db, requestKey);
+    const pickup = pickupId ? await pickupOrders().forBill(db, business, pickupId, requestKey, body.contactId) : null;
+    const saved = await postDocument(db, business, user, body, { kind, requestKey, hash, lines, paidNow: parts, walkInPays, voucher, finance, advance: pickup?.advance || null });
+    if (pickup) await pickupOrders().closeWithBill(db, business, user, pickup, saved);
+    return saved;
+  });
 }
 // Optional on a purchase: the supplier's own bill number and date.
 function supplierBill(body, kind, today) {
@@ -668,6 +681,8 @@ const fashionPricing = () => require('../../fashion-electronics/services/busines
 const financeSales = () => require('../../fashion-electronics/services/businessFinance.service');
 const kits = () => require('./businessKits.service');
 const counterPins = () => require('./businessCounter.service');
+// A meat or weight shop's orders for pickup: the bill that closes one, its advance paying first.
+const pickupOrders = () => require('../../salon-weight/services/businessWeightDaily.service');
 // A hardware shop's bill: the site it goes to and the fitter who brought it.
 const hardwareSales = () => require('../../hardware/services/hardwareSales.service');
 // A hardware shop's tinted paint: its base leaves stock when its job is tinted.
@@ -725,6 +740,10 @@ const named = (value) => value !== undefined && value !== null && value !== '';
 // service: a jeweller's karigar labour and hallmarking charges (services
 // bought), and metal fixed to money on its metal account (kept in grams in the
 // jeweller's own books).
+// `advance`: a receipt held for this bill (an order for pickup's advance):
+// { collectionId, free (paise), method, reference, key }. It pays after any
+// voucher and tenders, up to what is left of the bill, as a payment from the
+// receipt; "full" is then what is left.
 // Free units and trade discount on a purchase line, in the line's own unit
 // (packs when it is entered in packs). null when neither is given.
 function readScheme(input) {
@@ -738,7 +757,7 @@ function readScheme(input) {
 }
 
 async function postDocument(db, business, user, body, { kind, requestKey, hash, lines: inputLines, paidNow, fixed = null, quote = false, walkInPays = false, voucher = null, finance = null,
-  membership = false, dueDay = null, jewellery = false, tenders = [], rental = false, fuel = false, lodging = false, noStock = false }) {
+  membership = false, dueDay = null, jewellery = false, tenders = [], rental = false, fuel = false, lodging = false, noStock = false, advance = null }) {
   {
     // Serializes document posting within a business: one lock order for every
     // posting (business, then document, then stock lots).
@@ -901,7 +920,10 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     if (kind === 'sale' && !lodging && business.modules.includes('lodging')) await lodgingRooms().checkLooseSale(db, business, prepared);
     // A credit voucher pays first; "full" is then what is left.
     const voucherUse = voucher ? await exchangeVouchers().prepare(db, business, voucher, rounded) : null;
-    const prepaid = (voucherUse?.amount || 0) + tenders.reduce((sum, tender) => sum + tender.amount, 0);
+    const tendersUse = tenders.reduce((sum, tender) => sum + tender.amount, 0);
+    // A receipt held for this bill (an order for pickup's advance) pays next, up to what is left.
+    const advanceUse = advance ? Math.min(advance.free, Math.max(0, rounded - (voucherUse?.amount || 0) - tendersUse)) : 0;
+    const prepaid = (voucherUse?.amount || 0) + tendersUse + advanceUse;
     // The payments taken now (one or several), and an EMI's financed part.
     let parts = (Array.isArray(paidNow) ? paidNow : paidNow ? [paidNow] : []).map((part) => ({ ...part }));
     parts = await paymentMethods.settleParts(db, business.id, parts);
@@ -923,7 +945,8 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     // Credit limit: what this customer would owe after this sale, less what they pay now.
     if (kind === 'sale' && !fuel && contact?.credit_limit !== null && contact?.credit_limit !== undefined) {
       const owed = await repo.one(db, `SELECT ${repo.contactBalanceSql('c')} AS balance FROM business_contacts c WHERE c.business_id=$1 AND c.id=$2`, [business.id, contact.id]);
-      const after = paise(Number(owed.balance)) + rounded - paidPaise - prepaid - financed;
+      // A held advance is already off what they owe (money on account), so it is not taken off twice.
+      const after = paise(Number(owed.balance)) + rounded - paidPaise - prepaid - financed + advanceUse;
       if (after > paise(Number(contact.credit_limit))) {
         fail(`This sale would take ${contact.name} to ${money(after)} owed, over their credit limit of ${Number(contact.credit_limit).toFixed(2)}. Take a payment now or raise the limit.`, 409);
       }
@@ -1029,6 +1052,9 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     if (voucherUse) await exchangeVouchers().spend(db, business, user, saved, voucherUse, recordPayment);
     for (const tender of tenders) {
       await recordPayment(db, business, user, saved, { amount: money(tender.amount), method: 'credit_note', methodName: tender.methodName, reference: tender.reference, key: tender.key });
+    }
+    if (advanceUse > 0) {
+      await recordPayment(db, business, user, saved, { amount: money(advanceUse), method: advance.method, reference: advance.reference, key: advance.key, collectionId: advance.collectionId });
     }
     let change = 0;
     for (const part of parts) {

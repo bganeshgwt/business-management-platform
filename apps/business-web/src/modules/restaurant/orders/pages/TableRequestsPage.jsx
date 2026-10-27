@@ -14,7 +14,8 @@ import { count, durationMinutes, money, moneyExact } from "@bmp/shared/format";
 import { dayMonth, daysAgo, today } from "@bmp/shared/dates";
 import { playChime, unlockChime } from "../../../../services/kot";
 import { getSettings } from "../../setup/services/restaurant.service";
-import { listTables } from "../../tables/services/table.service";
+import { getQrSettings, listTables } from "../../tables/services/table.service";
+import { guestBase, guestOrderUrl } from "../../../../services/qrSheet";
 import {
   acceptTableRequest,
   acknowledgeTableRequest,
@@ -992,6 +993,11 @@ function SettingsModal({ onClose, onSaved, canManage, canPreview }) {
   const [form, setForm] = useState(null);
   const [tables, setTables] = useState([]);
   const [tableToken, setTableToken] = useState("");
+  // The restaurant's own guest web address (Service settings), which its QR
+  // codes open; null means the guests' site's own address.
+  const [guestAddress, setGuestAddress] = useState(null);
+  const { hasFeature } = useAuth();
+  const qrOn = hasFeature("qr_ordering");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -1018,8 +1024,13 @@ function SettingsModal({ onClose, onSaved, canManage, canPreview }) {
           setTableToken(usable[0] ? usable[0].qrToken : "");
         })
         .catch(() => setTables([]));
+      if (qrOn) {
+        getQrSettings()
+          .then((qr) => setGuestAddress(qr.guestWebAddress || null))
+          .catch(() => setGuestAddress(null));
+      }
     }
-  }, [canPreview]);
+  }, [canPreview, qrOn]);
 
   const save = async () => {
     setSaving(true);
@@ -1116,7 +1127,7 @@ function SettingsModal({ onClose, onSaved, canManage, canPreview }) {
                     </option>
                   ))}
                 </select>
-                <a className="button button-secondary" href={`${customerWebOrigin()}/order/${tableToken}`} target="_blank" rel="noreferrer">
+                <a className="button button-secondary" href={guestOrderUrl(guestBase(guestAddress, customerWebOrigin()), tableToken)} target="_blank" rel="noreferrer">
                   <Icon name="external" size={15} /> Open guest menu
                 </a>
               </div>

@@ -15,6 +15,7 @@ import { printTaxInvoice } from "../../core/pages/invoice";
 import { BusinessHeader, Field } from "../../core/pages/ui";
 import { businessToday, newKey, quantity, useDirtyGuard, useOpenBusiness } from "../../core/pages/hooks";
 import useAuth from "../../../../hooks/useAuth";
+import { billProofFor, dropBillProof } from "../../../../services/billProof";
 import { BillerButton, BillerDialog } from "../../retail/pages/counterPay";
 import { PART_KINDS, takeCarry, writeCarry } from "../../retail/pages/counterPayState";
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
@@ -33,7 +34,7 @@ const emptyRx = { patientName: "", patientPhone: "", patientAge: "", patientAddr
 
 export default function PharmacyCounterPage() {
   const biz = useOpenBusiness();
-  const { switchUser } = useAuth();
+  const { user, switchUser } = useAuth();
   // The bill being built survives a switch of biller (Quick bill's rule).
   const [carried] = useState(() => takeCarry(`${biz.id}-rx`));
   const counters = biz.locations.filter((l) => l.active && l.sells_at_counter !== false);
@@ -105,11 +106,13 @@ export default function PharmacyCounterPage() {
   }
   async function sell(event, pin = null) {
     event?.preventDefault();
-    // The biller's PIN for every bill, when the business asks for it.
-    if (pinEveryBill && !pin) { setAskPin({ error: "" }); return; }
+    // The biller's PIN for every bill, when the business asks for it; the PIN
+    // typed to switch the till counts for the next bill (its proof).
+    const proof = pinEveryBill && !pin ? billProofFor(biz.id, user.id) : null;
+    if (pinEveryBill && !pin && !proof) { setAskPin({ error: "" }); return; }
     setBusy(true); setError("");
     const body = {
-      requestKey, locationId: Number(locationId), channel: "counter", ...(pin ? { counterPin: pin } : {}), ...payBody(),
+      requestKey, locationId: Number(locationId), channel: "counter", ...(pin ? { counterPin: pin } : proof ? { counterProof: proof } : {}), ...payBody(),
       lines: lines.map((l) => ({ skuId: l.drug.id, quantity: String(l.quantity), ...(l.unit !== l.drug.unit ? { unit: l.unit } : {}) })),
       ...(needsRx ? { prescription: { ...rx, patientAge: rx.patientAge === "" ? null : Number(rx.patientAge), fileId: file?.id || null } } : {}),
       ...(needsSign ? { signoff: { signatoryId: Number(signoff.signatoryId), pin: signoff.pin } } : {}),
@@ -117,6 +120,7 @@ export default function PharmacyCounterPage() {
     try {
       const result = await businessWrite(biz.id, "pharmacy/sales", body);
       setAskPin(null);
+      if (proof) dropBillProof();
       setLast(result);
       setLines([]); setRx({ ...emptyRx, prescribedOn: businessToday(biz.business.timezone) }); setFile(null); setSignoff({});
       setRequestKey(newKey());
@@ -124,6 +128,8 @@ export default function PharmacyCounterPage() {
         { action: { label: "Print", onClick: () => printBill(result.document.id) } });
     } catch (err) {
       const reason = err?.response?.data?.data?.reason;
+      // A switch's proof refused (used, run out): from now on the PIN is asked.
+      if (reason === "pin_required") dropBillProof();
       if (reason === "pin_required" || (pin && ["wrong_pin", "pin_locked", "too_many_attempts", "no_pin"].includes(reason))) setAskPin((was) => ({ error: getErrorMessage(err), n: (was?.n || 0) + 1 }));
       else { setAskPin(null); setError(getErrorMessage(err)); }
     } finally {

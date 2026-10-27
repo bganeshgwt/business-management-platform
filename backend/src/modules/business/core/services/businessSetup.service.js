@@ -51,11 +51,22 @@ async function readRules(db, businessId, body) {
 async function getSettings(business) {
   await access.require(business, 'settings.view');
   const settings = await repo.one(repo.pool, 'SELECT * FROM business_settings WHERE business_id=$1', [business.id]);
-  // The business's currency and time zone live on the business itself.
-  return { ...settings, currency: business.currency, timezone: business.timezone };
+  // The business's name (the switcher's), currency and time zone live on the business itself.
+  return { ...settings, name: business.name, currency: business.currency, timezone: business.timezone };
+}
+// The business's own name, as the switcher, the header and every screen show
+// it: the create rule's limits (Business name, up to 150 characters). Older
+// clients do not send it (null) and keep the name. A restaurant's business
+// takes its restaurant's name (Profile), so it is not renamed here.
+function readName(business, body) {
+  if (body.name === undefined) return null;
+  const name = v.requiredString(body.name, 'Business name', 150);
+  if (name !== business.name && business.business_type === 'restaurant') fail('A restaurant is renamed on its own Profile page; its business takes the same name.', 409);
+  return name;
 }
 async function updateSettings(business, user, body) {
   await access.require(business, 'settings.edit');
+  const name = readName(business, body);
   const gstin = readGstin(body.gstin);
   const stateCode = optionalPattern(body.stateCode, 'State code', /^\d{2}$/, 'must be the two-digit GST state code', 2) || (gstin ? gstin.slice(0, 2) : null);
   if (gstin && stateCode && gstin.slice(0, 2) !== stateCode) fail('The state code must match the first two digits of the GSTIN');
@@ -120,6 +131,14 @@ async function updateSettings(business, user, body) {
       await repo.audit(db, business.id, user.id, 'business.locale_updated', business.id, { currency, timezone });
     }
     Object.assign(saved, { currency, timezone });
+    // A new name for the business itself, with the old one in the audit (read
+    // under the settings row's lock, so two renames at once each name the one before).
+    const was = (await repo.one(db, 'SELECT name FROM businesses WHERE id=$1', [business.id])).name;
+    if (name !== null && name !== was) {
+      await db.query('UPDATE businesses SET name=$2,updated_at=now() WHERE id=$1', [business.id, name]);
+      await repo.audit(db, business.id, user.id, 'business.renamed', business.id, { from: was, to: name });
+    }
+    saved.name = name ?? was;
     await repo.audit(db, business.id, user.id, 'settings.updated', business.id, { taxMode: saved.tax_mode, rounding: saved.rounding,
       maxBillDiscountPercent: saved.max_bill_discount_percent, walkInCredit: saved.walk_in_credit, counterPinEveryBill: saved.counter_pin_every_bill });
     return saved;

@@ -14,7 +14,7 @@ import { toast } from "../../../../services/toast";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const fromRow = (s) => ({
-  displayName: s.display_name || "", legalName: s.legal_name || "", gstin: s.gstin || "", addressLine1: s.address_line1 || "", addressLine2: s.address_line2 || "",
+  name: s.name || "", displayName: s.display_name || "", legalName: s.legal_name || "", gstin: s.gstin || "", addressLine1: s.address_line1 || "", addressLine2: s.address_line2 || "",
   city: s.city || "", stateCode: s.state_code || "", postalCode: s.postal_code || "", phone: s.phone || "", email: s.email || "", logoPath: s.logo_path || "",
   taxMode: s.tax_mode, rounding: s.rounding, fiscalYearStartMonth: String(s.fiscal_year_start_month), dateFormat: s.date_format,
   invoiceFooter: s.invoice_footer || "", receiptFooter: s.receipt_footer || "",
@@ -81,6 +81,8 @@ export default function SettingsPage() {
       setNotice("");
       toast.success("Settings saved. New sales use them from now on; posted bills keep what they were.");
       biz.reloadContext();
+      // A new business name shows in the switcher and the header at once.
+      if (saved.name !== biz.business.name) biz.reloadDirectory();
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -98,9 +100,12 @@ export default function SettingsPage() {
         <SettingsLayout sections={SECTIONS}>
         <form className="stack" onSubmit={save}>
           <fieldset className="bz-plain-fieldset" disabled={!editable || busy}>
-            <SectionCard id="bz-settings-details" icon="store" title="Business details" description="Printed at the top of invoices and receipts.">
+            <SectionCard id="bz-settings-details" icon="store" title="Business details" description="The business's own name, and what invoices and receipts print at the top.">
               <div className="form-grid">
-                <Field label="Name shown in the app"><input required maxLength={150} value={form.displayName} onChange={set("displayName")} /></Field>
+                <Field label="Business name" hint="As the business switcher, the header and every screen show it.">
+                  <input required maxLength={150} value={form.name} onChange={set("name")} />
+                </Field>
+                <Field label="Name shown in the app" hint="Printed on till receipts, slips and cards."><input required maxLength={150} value={form.displayName} onChange={set("displayName")} /></Field>
                 <Field label="Legal name (on invoices)"><input maxLength={200} value={form.legalName} onChange={set("legalName")} /></Field>
                 <Field label="GSTIN" hint="Its first two digits set the state."><input maxLength={20} className="mono" value={form.gstin} onChange={set("gstin")} /></Field>
                 <Field label="GST state code"><input maxLength={2} inputMode="numeric" className="mono" value={form.stateCode} onChange={set("stateCode")} placeholder="e.g. 27" /></Field>

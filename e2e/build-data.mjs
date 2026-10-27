@@ -7,7 +7,7 @@
 // an earlier day.
 import crypto from "node:crypto";
 
-import { AGRI, BUSINESSES, CLINIC, FUEL, GARAGE, GROCERY, GST_CHANGE, GST_THRESHOLDS, HARDWARE, JEWELLERY, LAUNDRY, LODGING, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, PRIVACY, RENTALS, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
+import { AGRI, BUSINESSES, CLINIC, FUEL, GARAGE, GROCERY, GST_CHANGE, GST_THRESHOLDS, HARDWARE, JEWELLERY, LAUNDRY, LODGING, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, PRIVACY, RENTALS, RESTAURANT, SALON, SMALL_ITEMS, TIMEZONE, WHOLESALE } from "./test-data.mjs";
 
 // Every call names the status it expects, so a set-up that goes wrong stops
 // at the first wrong answer, with the API's own message, rather than leaving
@@ -978,6 +978,33 @@ export async function buildTestData({ api, logins, sql }) {
     const pin = freshPin();
     await caller(api, await signIn("HARDWARE_MANAGER"))("PUT", "/auth/me/pin", { password: manager.password, pin, confirmPin: pin });
     businesses.hardware.manager = { name: manager.name, pin };
+  }
+
+  // Small rules (small-items.spec.js): the general store's tiffin box in
+  // stock and its Shared till set to ask the biller's PIN for every bill, as
+  // Business settings sets it, with its cashier's own PIN; the meat shop's
+  // hotel customer; the salon's client with their usual stylist.
+  {
+    const B = at("general_retail");
+    const supplier = await owner("POST", B("contacts"), { kind: "supplier", name: "Kitchenware wholesale" }, 201);
+    const item = await owner("POST", B("catalog"), {
+      name: SMALL_ITEMS.storeItem.name, code: SMALL_ITEMS.storeItem.code, kind: "goods", unit: "each", tracking: "quantity", price: String(SMALL_ITEMS.storeItem.price), taxRate: "18",
+    }, 201);
+    await owner("POST", B("documents"), {
+      kind: "purchase", requestKey: requestKey(), locationId: businesses.general_retail.locationId, contactId: supplier.id, lines: [{ skuId: item.id, quantity: "40", unitPrice: "300" }],
+    }, 201);
+    const settings = await owner("GET", B("settings"));
+    await owner("PUT", B("settings"), { displayName: settings.display_name, taxMode: settings.tax_mode, rounding: settings.rounding,
+      fiscalYearStartMonth: settings.fiscal_year_start_month, dateFormat: settings.date_format, counterPinEveryBill: true });
+    const cashier = login("TILL_CASHIER");
+    const pin = freshPin();
+    await caller(api, await signIn("TILL_CASHIER"))("PUT", "/auth/me/pin", { password: cashier.password, pin, confirmPin: pin });
+    Object.assign(businesses.general_retail, { storeItem: { id: item.id, name: item.label }, cashier: { name: cashier.name, pin } });
+    const hotel = await owner("POST", at("meat")("contacts"), { kind: "customer", name: SMALL_ITEMS.hotel.name, phone: SMALL_ITEMS.hotel.phone }, 201);
+    businesses.meat.hotel = { id: hotel.id, name: hotel.name };
+    const client = await owner("POST", at("salon")("contacts"), { kind: "customer", name: SMALL_ITEMS.salonClient.name, phone: SMALL_ITEMS.salonClient.phone }, 201);
+    await owner("PUT", at("salon")(`salon/clients/${client.id}/profile`), { preferredResourceId: businesses.salon.stylist.id });
+    businesses.salon.client = { id: client.id, name: client.name };
   }
 
   // The logins nothing above signed in as choose their own password now, so

@@ -57,8 +57,8 @@ cash limit and buyer's PAN do (`middlewares/errorHandler.js`).
 Purpose: the tenant. Every restaurant-module row hangs off one restaurant.
 Key columns: `name` (varchar 150), `code` (varchar 30, globally unique short code; also asked for when signing in by mobile across restaurants), `contact`, `email`, `address`, `status` (`active` / `inactive` / `suspended`), `format` (`restaurant` / `cafe` / `bakery` / `cloud_kitchen`, default `restaurant`: full service, counter first, production and pre-orders, or delivery only). Choosing a format also sets the POS order types and tokens in `service_settings` and switches features once; that is code (`restaurantFormat.service.js`), and the owner can change each afterwards.
 Relations: `created_by`, `updated_by` -> `users` (FKs fk_restaurants_created_by / fk_restaurants_updated_by, added once `users` existed).
-Rules: `code` UNIQUE; status and format CHECKs.
-Added by: 1789636492039_create-restaurants-and-outlets; FKs in 1789636494559_create-users-roles-permissions; 1791950410000_food-formats (format); 1791974000000_live-updates (live updates: `trg_restaurants_live_session`).
+Rules: `code` UNIQUE; status and format CHECKs. AFTER UPDATE OF `name` trigger `restaurants_business_name` (function `restaurant_business_name()`): the restaurant's business (`businesses.legacy_restaurant_id`) takes the new name in the same statement, with a `business_audit` row `business.renamed` (`from`, `to`) by `updated_by` when it is set.
+Added by: 1789636492039_create-restaurants-and-outlets; FKs in 1789636494559_create-users-roles-permissions; 1791950410000_food-formats (format); 1791974000000_live-updates (live updates: `trg_restaurants_live_session`); 1791979112000_small-items (`restaurants_business_name`).
 
 #### `outlets`
 Purpose: a branch of a restaurant. Business days, orders, KOTs, counters and stock can be per outlet.
@@ -1140,7 +1140,7 @@ Linked section: [data model §3](BUSINESS_PLATFORM_DATA_MODEL.md#3-business-tena
 
 #### `businesses`
 Purpose: the tenant root. A restaurant appears here as one row whose `legacy_restaurant_id` points to `restaurants` ([five layers](BUSINESS_PLATFORM_DATA_MODEL.md#the-five-layers)).
-Key columns: `name`, `code` (unique), `business_type` -> `business_types`, `legacy_restaurant_id` (unique, -> `restaurants`), `status` (active or inactive), `currency` (default INR; the owner changes it in Business settings until the first document), `timezone` (default Asia/Kolkata; editable), `is_demo` (boolean, default false; no application code reads it), `created_by`.
+Key columns: `name` (the switcher's and every screen's; changed in Business settings, audited `business.renamed`; a restaurant's row keeps its restaurant's, through trigger `restaurants_business_name` on `restaurants`), `code` (unique), `business_type` -> `business_types`, `legacy_restaurant_id` (unique, -> `restaurants`), `status` (active or inactive), `currency` (default INR; the owner changes it in Business settings until the first document), `timezone` (default Asia/Kolkata; editable), `is_demo` (boolean, default false; no application code reads it), `created_by`.
 Created by: Platform › Businesses (the platform console) or an owner's *Add a business*, both in `businessOnboarding.service.js`. A restaurant's row comes from *Link my restaurant* (`linkRestaurant` in `business.service.js`) or from `restaurant_business_id()` (see [Restaurant features](#restaurant-features)).
 Rules:
 - CHECK: `legacy_restaurant_id` may be set only when the type is `restaurant`.
@@ -1148,7 +1148,7 @@ Rules:
 - AFTER INSERT trigger `businesses_provision_defaults` runs `business_provision_defaults()`. It gives the business the roles of its type (`business_seed_roles()`), its settings row (`business_seed_settings()`), GST slabs (`business_seed_tax_rates()`; none for a restaurant), units (`business_seed_units()`; none for a restaurant without SKUs) and its type's default modules.
 - AFTER INSERT trigger `businesses_default_payment_methods` (function `business_default_payment_methods`) gives every business except a restaurant the five usual payment methods (`business_payment_methods`); a restaurant keeps its own `payment_types`.
 - AFTER INSERT trigger `businesses_default_financiers` (function `electronics_default_financiers`) gives an electronics shop its four financiers (see [`electronics_financiers`](#electronics_financiers)).
-Added by: 1791280000000; triggers from 1791300000000, 1791300000005 business-events-and-provisioning, 1791620002000 (financiers) and 1791640000000 (payment methods); 1791974000000 (live updates: `businesses_live_session`).
+Added by: 1791280000000; triggers from 1791300000000, 1791300000005 business-events-and-provisioning, 1791620002000 (financiers) and 1791640000000 (payment methods); 1791974000000 (live updates: `businesses_live_session`); 1791979112000 (a restaurant's row given its restaurant's name once, where the two differed).
 
 #### `business_settings`
 Purpose: one row per business with its legal and display details, tax mode, rounding and fiscal year.
@@ -1512,10 +1512,10 @@ Added by: 1791580000000.
 
 #### `business_collection_refunds`
 Purpose: money paid in advance (a `business_collections` receipt) handed back.
-Key columns: `collection_id`, `contact_id`, `refund_no` (`<receipt no>-R<n>`), `amount` (> 0), `method` (cash, upi, bank), `method_name`, `reference`, `reason` (not blank), `source` (`salon`, `repair`, `optical`, `garage`, `laundry`, `rentals` or `lodging`; a repair refund names its `repair_job_id`, a spectacle order's, a job card's or a garment order's is found through its `advance_collection_id`, a rental booking's through `rental_receipts`, and a stay's through `lodging_receipts`), `approved_by` (the manager whose PIN was typed), `request_key`, `request_hash`, `created_by`.
+Key columns: `collection_id`, `contact_id`, `refund_no` (`<receipt no>-R<n>`), `amount` (> 0), `method` (cash, upi, bank), `method_name`, `reference`, `reason` (not blank), `source` (`salon`, `repair`, `optical`, `garage`, `laundry`, `rentals`, `lodging` or `pickup`; a repair refund names its `repair_job_id`, a spectacle order's, a job card's, a garment order's or an order for pickup's is found through its `advance_collection_id`, a rental booking's through `rental_receipts`, and a stay's through `lodging_receipts`), `approved_by` (the manager whose PIN was typed), `request_key`, `request_hash`, `created_by`.
 Rules: append-only. Constraint trigger `business_collection_refunds_rules`: the same customer, and payments plus refunds never pass the receipt's amount. The shared balances subtract these refunds (`contactBalanceSql` in the core repository, and `collectionAllocatedSql` in the receivables lists), so a refunded advance does not show as the customer's advance; the customer statement lists each refund.
 Trigger `business_collection_refunds_jewellery_order` (function `jewellery_order_payment_check`): an open custom order's advance receipt is not handed back.
-Added by: 1791620001000; 1791640000000 (`method_name`); 1791963000000 (`optical`); 1791964000000 (`garage`); 1791966000000 (`laundry`); 1791968000000 (`rentals`); 1791970000000 (`lodging`); jewellery-work (the custom order trigger).
+Added by: 1791620001000; 1791640000000 (`method_name`); 1791963000000 (`optical`); 1791964000000 (`garage`); 1791966000000 (`laundry`); 1791968000000 (`rentals`); 1791970000000 (`lodging`); jewellery-work (the custom order trigger); small-items (`pickup`, added to the list the database holds then).
 
 #### `business_supplier_payments`
 Purpose: one payment made to a supplier. The part that settles purchase bills is written as `business_payments` rows with `supplier_payment_id`; the rest is an advance with the supplier ([data model §4](BUSINESS_PLATFORM_DATA_MODEL.md#4-shared-core)).
@@ -1560,6 +1560,13 @@ Rules:
 - One open shift per person and location (partial unique index `business_counter_shifts_one_open`); index `business_counter_shifts_day`.
 - Trigger `business_counter_shifts_immutable` (function `guard_business_counter_shift`): never deleted; only the closing count may be written, once.
 Added by: 1791950404000 retail-completion; 1791950413000 shop-guards-check-violation (the guard's error code).
+
+#### `business_counter_bill_proofs`
+Purpose: the proof a shared till's switch gives when the business asks the biller's PIN for every bill: the PIN typed to switch counts for the switched-to person's next counter bill ([BUSINESS_RULES.md](BUSINESS_RULES.md#the-switchs-pin-counts-for-the-next-bill)).
+Key columns: `user_id` (the person the till was switched to), `switched_by` (who was on it), `proof_hash` (SHA-256 of the proof, unique; the proof itself is never stored), `session_hash` (SHA-256 of the session token the switch began), `expires_at` (2 minutes after the switch), `used_at` and `used_request_key` (the bill it paid for: the same bill asked again is answered with it).
+Relations: `business_id` -> `businesses`; `user_id`, `switched_by` -> `users`.
+Rules: CHECK `expires_at > created_at`; CHECK `used_at` and `used_request_key` both set or both empty. A bill spends a proof by one guarded UPDATE inside its own posting (unused, not run out, the same person, business and session). The API deletes a business's proofs a day past their time at its next switch. Index `business_counter_bill_proofs_expiry` (business, expiry).
+Added by: 1791979112000 small-items.
 
 ### Quotations
 
@@ -2240,11 +2247,11 @@ Added by: 1791430000001; 1791600000000 (`cut_by`, `supplier_id`, `cut_to_order`)
 
 #### `weight_processing_outputs`
 Purpose: each cut produced by a batch.
-Key columns: `batch_id`, `output_sku_id`, `label`, `unit`, `lot_id`, `quantity`, `kg`, `cost_share`, `unit_cost`, `expected_percent`, `adjustment_id`.
+Key columns: `batch_id`, `output_sku_id`, `label`, `unit`, `lot_id`, `quantity`, `kg`, `cost_share`, `unit_cost`, `expected_percent`, `adjustment_id`, `offcut` (default false: the cut's price for a kilo, before GST, was below what the input cost a kilo when it was cut; worked out by the API, `weightOffcuts.js`; what offcuts recover is read from the bills, never stored).
 Rules:
 - UNIQUE (`batch_id`, `output_sku_id`).
 - Append-only.
-Added by: 1791430000001.
+Added by: 1791430000001; 1791979112000 (`offcut`).
 
 #### `weight_wastage_entries`
 Purpose: a stock write-off, valued at the lot's cost.
@@ -2272,10 +2279,10 @@ Added by: 1791600000000.
 
 #### `weight_pickup_orders`
 Purpose: an order taken on the phone or WhatsApp for pickup at a time.
-Key columns: `location_id`, `contact_id` (optional), `customer_name` (not blank), `phone`, `pickup_at`, `status` (open, ready, collected, cancelled), `notes`, `document_id` (the bill), `ready_at`, `closed_at`, `cancel_reason`, `request_key`, `request_hash`, `created_by`, `updated_by`.
-Relations: composite FKs to `business_locations`, `business_contacts` and `business_documents`.
-Rules: CHECKs collected ⇔ bill, cancelled ⇔ reason, and closed ⇔ collected or cancelled; idempotent by `request_key` (unique per business); partial index `weight_pickup_orders_open` (open and ready orders by pickup time).
-Added by: 1791600000000.
+Key columns: `location_id`, `contact_id` (optional), `customer_name` (not blank), `phone`, `pickup_at`, `status` (open, ready, collected, cancelled), `notes`, `document_id` (the bill), `ready_at`, `closed_at`, `cancel_reason`, `advance_collection_id` (the order's advance: a `business_collections` receipt in its customer's name, held for the order's bill, which it pays first), `request_key`, `request_hash`, `created_by`, `updated_by`.
+Relations: composite FKs to `business_locations`, `business_contacts`, `business_documents` and (`weight_pickup_orders_advance`) `business_collections`.
+Rules: CHECKs collected ⇔ bill, cancelled ⇔ reason, and closed ⇔ collected or cancelled; idempotent by `request_key` (unique per business); partial index `weight_pickup_orders_open` (open and ready orders by pickup time). An advance: one order per receipt (UNIQUE `weight_pickup_orders_advance_once`), only on an order with its customer (CHECK `weight_pickup_orders_advance_customer`), and kept once set (trigger `weight_pickup_orders_advance_kept`, function `weight_pickup_advance_kept()`; what is left of it goes back as a `business_collection_refunds` row with `source` `pickup`).
+Added by: 1791600000000; 1791979112000 (`advance_collection_id`).
 
 #### `weight_pickup_order_lines`
 Purpose: the items on a pickup order, by weight or by amount ("₹200 worth"); the counter weighs them.

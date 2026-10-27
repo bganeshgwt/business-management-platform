@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { matchPath, useLocation, useNavigate } from "react-router-dom";
 import { BusinessContext } from "./business-context";
 import useAuth from "../hooks/useAuth";
 import { businessContext, listBusinesses, openBusiness } from "../services/business.service";
 import { getErrorMessage } from "../services/api";
-import { businessPath, isRestaurantStaff, landingBusiness } from "../services/businessNav";
+import { arrivalLanding, businessPath, isRestaurantStaff } from "../services/businessNav";
 import { confirmAction } from "../services/confirm";
 
 // One Business Admin, many businesses. This provider knows:
@@ -37,12 +37,50 @@ export default function BusinessProvider({ children, businessId: openId = null, 
   const inAdmin = Boolean(match && /^\d+$/.test(match.params.businessId));
   const businessId = openId || (inAdmin ? Number(match.params.businessId) : null);
 
-  const loadDirectory = useCallback(() => listBusinesses()
-    .then((result) => { setDirectory(result); setDirectoryError(""); return result; })
-    .catch((error) => { setDirectoryError(getErrorMessage(error)); return null; }), []);
+  // Landing on the home screen goes back to the business this person last
+  // opened, when that was not their restaurant: decided once, as their list
+  // first arrives and before it is set, so the screen goes from the loading
+  // screen straight to the business (layouts/AppLayout.jsx › HomeGate waits for
+  // the list on the home screen). Staff with no restaurant role are sent on by
+  // HomeGate itself, whenever they reach the home screen.
+  // The loader keeps one identity (it runs again only for another person), so
+  // it reads the router's navigate and the person's kind from here.
+  // `current()` says whether a load still counts: one started for the list's
+  // first arrival is dropped once another has started in its place (React
+  // starts the provider twice in development; the person changed), so only
+  // one decides where the person lands, and none sets the list at the home
+  // screen while the move to their business is still on its way.
+  const latest = useRef({ navigate, restaurantStaff: isRestaurantStaff(user) });
+  useEffect(() => {
+    latest.current = { navigate, restaurantStaff: isRestaurantStaff(user) };
+  });
+  const loadDirectory = useCallback((current = () => true) => listBusinesses()
+    .then((result) => {
+      if (!current()) return result;
+      const target = landed.current ? null : arrivalLanding(result.businesses, latest.current.restaurantStaff, window.location.pathname);
+      landed.current = true;
+      const show = () => { setDirectory(result); setDirectoryError(""); };
+      if (target) {
+        // The router moves to an address in a transition: the list joins it,
+        // so the home screen is never drawn with the list before the move.
+        startTransition(() => {
+          latest.current.navigate(target, { replace: true });
+          show();
+        });
+      } else {
+        show();
+      }
+      return result;
+    })
+    .catch((error) => {
+      if (current()) { landed.current = true; setDirectoryError(getErrorMessage(error)); }
+      return null;
+    }), []);
 
   useEffect(() => {
-    loadDirectory();
+    let current = true;
+    loadDirectory(() => current);
+    return () => { current = false; };
   }, [loadDirectory, user.id]);
 
   // The open business's modules, permissions and settings.
@@ -61,25 +99,6 @@ export default function BusinessProvider({ children, businessId: openId = null, 
     return () => controller.abort();
     // A till switched to another person (PIN) reloads what their role allows.
   }, [businessId, reloadKey, user.id]);
-
-  // Landing on the home screen goes back to the business this person last
-  // opened, when that was not their restaurant. Only on arrival, never later.
-  // Staff with no restaurant role are sent on by the home screen itself
-  // (App.jsx › Home), whenever they reach it.
-  const restaurantStaff = isRestaurantStaff(user);
-  useEffect(() => {
-    if (!directory || landed.current) {
-      return;
-    }
-    landed.current = true;
-    if (pathname !== "/" || !restaurantStaff) {
-      return;
-    }
-    const pick = landingBusiness(directory.businesses, true);
-    if (pick) {
-      navigate(businessPath(pick.id), { replace: true });
-    }
-  }, [directory, navigate, pathname, restaurantStaff]);
 
   const businesses = useMemo(() => directory?.businesses || [], [directory]);
   const restaurantBusiness = businesses.find((b) => b.is_signed_in_restaurant) || null;
@@ -127,7 +146,7 @@ export default function BusinessProvider({ children, businessId: openId = null, 
       has: (module) => modules.has(module),
       // A permission counts only when its module is on, exactly as the server decides.
       can: (permission) => permissions.has(permission) && modules.has(permission.split(".")[0]),
-      reloadDirectory: loadDirectory,
+      reloadDirectory: () => loadDirectory(),
       reloadContext: () => setReloadKey((n) => n + 1),
       switchTo, confirmLeave, setDirty,
       path: (section) => (paths && paths(section)) || businessPath(businessId, section),

@@ -7,6 +7,7 @@ import useAuth from "../../../../hooks/useAuth";
 import { businessRead, businessWrite } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
 import { deviceTokens } from "../../../../services/auth.service";
+import { keepBillProof } from "../../../../services/billProof";
 import { Field } from "../../core/pages/ui";
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import { newPart, PART_KINDS, partsSummary, round2 } from "./counterPayState";
@@ -124,7 +125,9 @@ export function BillerButton({ biz, onSwitch }) {
 }
 
 // mode "switch": pick a person and type their PIN (the till carries on as
-// them). mode "confirm": the PIN of the person billing, for this bill.
+// them). mode "confirm": the PIN of the person billing, for this bill. With
+// the PIN asked for every bill, the PIN typed to switch counts for the next
+// bill: the switch's proof is kept for it (services/billProof.js).
 export function BillerDialog({ biz, mode, onClose, onSwitched, onConfirm, error: outerError = "" }) {
   const { user } = useAuth();
   const [people, setPeople] = useState(null);
@@ -155,6 +158,7 @@ export function BillerDialog({ biz, mode, onClose, onSwitched, onConfirm, error:
     setBusy(true);
     try {
       const session = await businessWrite(biz.id, "counter/switch", { userId: person.id, pin, deviceTokens: deviceTokens() });
+      keepBillProof(biz.id, session);
       onSwitched(session);
     } catch (err) {
       setPin(""); setError(getErrorMessage(err)); setRefusals((n) => n + 1);

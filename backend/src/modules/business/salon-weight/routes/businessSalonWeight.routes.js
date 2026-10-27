@@ -125,6 +125,10 @@ module.exports = function salonWeightRoutes(router, { context, send, b }) {
   list('/weight/pickup-orders', 'weight-pickup-orders', 'sales.view', weighs);
   router.post(b('/weight/pickup-orders'), context('sales.create'), async (req, res) => send(res, await daily.createPickup(req.business, req.user, req.body), 201));
   router.post(b('/weight/pickup-orders/:orderId/status'), context('sales.create'), async (req, res) => send(res, await daily.setPickupStatus(req.business, req.user, req.params.orderId, req.body)));
+  // An order's advance (taken later than the order), and what is left of it handed back once the order is closed.
+  router.post(b('/weight/pickup-orders/:orderId/advance'), context('sales.edit'), async (req, res) => send(res, await daily.pickupAdvance(req.business, req.user, req.params.orderId, req.body), 201));
+  router.post(b('/weight/pickup-orders/:orderId/advance-refund'), context('sales.edit'), async (req, res) =>
+    send(res, await daily.refundPickupAdvance(req.business, req.user, req.params.orderId, req.body), 201));
   router.get(b('/weight/today'), context('inventory.view'), async (req, res) => send(res, await daily.today(req.business)));
 
   // Salon back office: the stylist's week, holidays, back-bar products,
@@ -133,8 +137,9 @@ module.exports = function salonWeightRoutes(router, { context, send, b }) {
   list('/salon/holidays', 'salon-holidays', 'appointments.view', isSalon);
   router.post(b('/salon/holidays'), context('settings.edit'), async (req, res) => send(res, await backOffice.addHoliday(req.business, req.user, req.body), 201));
   router.post(b('/salon/holidays/:holidayId/cancel'), context('settings.edit'), async (req, res) => send(res, await backOffice.cancelHoliday(req.business, req.user, req.params.holidayId)));
+  // Who may approve: a salon's bookings and refunds, a repair's refund, a weight shop's advance handed back.
   router.get(b('/service-approvers'), context(['appointments.create', 'sales.edit', 'repairs.view']), async (req, res) => {
-    if (req.business.business_type !== 'salon' && !req.business.modules.includes('repairs')) throw new AppError(404, 'Not found');
+    if (req.business.business_type !== 'salon' && !req.business.modules.includes('repairs') && !req.business.modules.includes('weight')) throw new AppError(404, 'Not found');
     send(res, await pins.approvers(req.business, String(req.query.permission || '')));
   });
   router.get(b('/salon/services/:skuId/products'), context('catalog.view'), async (req, res) => send(res, await backOffice.recipe(req.business, req.params.skuId)));

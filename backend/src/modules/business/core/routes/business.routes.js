@@ -17,6 +17,7 @@ const branchPrices = require('../services/businessLocationPrices.service');
 const departments = require('../services/businessDepartments.service');
 const shifts = require('../services/businessShifts.service');
 const overviewData = require('../services/businessOverview.service');
+const counter = require('../services/businessCounter.service');
 const repo = require('../repositories/business.repository');
 const v = require('../../../../utils/validate');
 const AppError = require('../../../../utils/AppError');
@@ -182,8 +183,10 @@ router.delete(b('/pricing/:id'), context('wholesale.edit'), async (req, res) => 
 router.post(b('/contacts'), context('contacts.create'), async (req, res) => send(res, await service.createContact(req.business, req.user, req.body), 201));
 router.patch(b('/contacts/:id'), context('contacts.edit'), async (req, res) => send(res, await service.updateContact(req.business, req.user, req.params.id, req.body)));
 
-// Sales and purchases (the service checks sales.* or purchasing.* by kind).
-router.post(b('/documents'), context(['sales.create', 'purchasing.create']), async (req, res) => send(res, await service.document(req.business, req.user, req.body), 201));
+// Sales and purchases (the service checks sales.* or purchasing.* by kind). A
+// counter bill may carry its till switch's proof, good only in its own session.
+router.post(b('/documents'), context(['sales.create', 'purchasing.create']), async (req, res) =>
+  send(res, await service.document(req.business, req.user, req.body, { session: counter.sessionOf(req.get('authorization')) }), 201));
 router.get(b('/documents/:id'), context(['sales.view', 'purchasing.view']), async (req, res) => send(res, await service.detail(req.business, req.params.id)));
 router.post(b('/documents/:id/payments'), context(['sales.edit', 'purchasing.edit']), async (req, res) => send(res, await service.payment(req.business, req.user, req.params.id, req.body), 201));
 router.post(b('/documents/:id/returns'), context(['sales.refund', 'purchasing.refund']), async (req, res) => send(res, await returns.createReturn(req.business, req.user, req.params.id, req.body), 201));

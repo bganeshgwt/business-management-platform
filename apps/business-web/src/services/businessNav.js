@@ -25,6 +25,32 @@ export function landingBusiness(businesses, restaurantStaff) {
   return pick;
 }
 
+// Where the home address (/) sends a person, decided before any layout is
+// drawn, so a shop never opens under the restaurant's header: "wait" while
+// their businesses are not known yet; an address to go to; or null for the
+// restaurant's own home screen.
+//   - The platform's own account: null (the home screen sends it to its console).
+//   - Staff with no restaurant role: always to a business (the last they
+//     used, else their first), or to the list when they have none.
+//   - Restaurant staff: null once the list is known (or could not be read);
+//     arrivalLanding has sent them on by then if they were going.
+export function homeLanding({ restaurantStaff, platform = false, directory, failed = false }) {
+  if (platform) return null;
+  if (!directory && !failed) return "wait";
+  if (restaurantStaff) return null;
+  const pick = landingBusiness(directory?.businesses, false);
+  return pick ? businessPath(pick.id) : "/business-admin?all";
+}
+
+// Restaurant staff arriving on the home screen go back to the business they
+// used last, when that was not their restaurant: decided once, as their list
+// first arrives, before it is shown. Its address, or null to stay.
+export function arrivalLanding(businesses, restaurantStaff, pathname) {
+  if (!restaurantStaff || pathname !== "/") return null;
+  const pick = landingBusiness(businesses, true);
+  return pick ? businessPath(pick.id) : null;
+}
+
 // Words a business of each type uses for the same screens.
 const TYPE_WORDS = {
   salon: { customers: "Clients", products: "Services & products", resources: "Stylists & rooms", sales: "Bills", appointments: "Appointment history" },

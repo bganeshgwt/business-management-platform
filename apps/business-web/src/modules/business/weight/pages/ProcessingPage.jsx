@@ -9,7 +9,7 @@ import { ErrorMessage, SuccessMessage } from "../../../../components/Feedback";
 import { businessWrite } from "../../../../services/business.service";
 import { dateShort, dateTime } from "@bmp/shared/format";
 import FormDialog from "../../core/pages/FormDialog";
-import { ActiveBadge, BusinessHeader, Field, FormError, PeriodFilter } from "../../core/pages/ui";
+import { ActiveBadge, Badge, BusinessHeader, Field, FormError, PeriodFilter } from "../../core/pages/ui";
 import { newKey, useOpenBusiness, useOptions, useServerList } from "../../core/pages/hooks";
 import { Segmented } from "../../wholesale/pages/shared";
 import { kg, percentText, processWords, weightOf, yieldTone } from "./weight";
@@ -94,7 +94,9 @@ function BatchDialog({ batch, onClose }) {
   const biz = useOpenBusiness();
   const words = processWords(biz.type);
   const columns = [
-    { key: "label", header: words.outputsLabel.replace(/s$/, ""), value: (o) => o.label, mobile: "title" },
+    // An offcut: priced below what the whole item cost a kilo when it was cut (WeightReportsPage shows what offcuts bring in).
+    { key: "label", header: words.outputsLabel.replace(/s$/, ""), value: (o) => o.label, mobile: "title",
+      render: (o) => <span>{o.label}{o.offcut && <> <Badge tone="neutral" label="Offcut" /></>}</span> },
     { key: "quantity", header: "Weight", type: "number", value: (o) => Number(o.kg), render: (o) => (o.unit === "kg" || o.unit === "g" ? weightOf(o.quantity, o.unit) : `${Number(o.quantity)} ${o.unit} (${kg(o.kg)})`), total: "sum" },
     { key: "share", header: "Of the input", type: "percent", value: (o) => (100 * Number(o.kg)) / Number(batch.input_kg) },
     { key: "expected", header: "Expected", type: "percent", value: (o) => (o.expected_percent === null ? null : Number(o.expected_percent)) },

@@ -3,14 +3,26 @@ const v = require('../../../../utils/validate');
 const AppError = require('../../../../utils/AppError');
 const access = require('../../core/services/businessAccess.service');
 const core = require('../../core/services/business.service');
+const numbering = require('../../core/services/businessNumbering');
+const paymentMethods = require('../../core/services/businessPaymentMethods.service');
 const { applyAdjustment, lockLot } = require('../../core/services/businessReturns.service');
 const weight = require('./businessWeight.service');
+// Handing money back and a manager's PIN (shared with the salon, repairs, opticians, garages and laundries).
+const refunds = () => require('./businessAdvanceRefunds');
+const pins = () => require('./businessManagerPin');
 
 // Meat, fish and other weight shops, day to day: the daily
 // rate board (bulk change, history), stock by weight for today (opening,
 // received, cut, sold, wasted), the end-of-day weigh-up, wastage for many
 // items in one go, cutting to order at the counter, orders for pickup, and
 // today's figures for the overview. Quantities are thousandths, money paise.
+//
+// An order for pickup may take an advance: a numbered collection receipt in
+// its customer's name, held for the order's bill (the receivables' "apply
+// advance" leaves it alone while the order is open). The bill that closes the
+// order is made at Quick bill (POST /documents with pickupOrderId): the
+// advance pays it first, through the core. What is left of it once the order
+// is cancelled (or billed for less) goes back with a manager's PIN.
 
 const fail = (message, status = 400) => { throw new AppError(status, message); };
 const id = (value, name = 'Record ID') => v.requiredId(value, name);
@@ -23,6 +35,11 @@ const weighs = (business) => {
   if (!business.modules.includes('weight')) fail('Sold by weight is not switched on for this business. An owner can turn it on in Settings › Business tools.', 403);
 };
 const TODAY_START = `(date_trunc('day', now() AT TIME ZONE b.timezone) AT TIME ZONE b.timezone)`;
+// What is left of a receipt: less the bills it paid and what was handed back.
+const LEFT_SQL = (k) => `${k}.amount-COALESCE((SELECT sum(p.amount) FROM business_payments p WHERE p.business_id=${k}.business_id AND p.collection_id=${k}.id),0)
+  -COALESCE((SELECT sum(f.amount) FROM business_collection_refunds f WHERE f.business_id=${k}.business_id AND f.collection_id=${k}.id),0)`;
+// How an advance is paid (no cheques: the order is picked up within days).
+const ADVANCE_KINDS = ['cash', 'card', 'upi', 'bank'];
 
 repo.addLists({
   'weight-rate-history': {
@@ -30,16 +47,21 @@ repo.addLists({
       JOIN catalog_skus s ON s.business_id=h.business_id AND s.id=h.sku_id JOIN users u ON u.id=h.changed_by WHERE h.business_id=$1`,
     search: ['label', 'code', 'changed_by_name'], date: 'changed_at', filters: { sku: 'sku_id' }, order: 'changed_at DESC,id DESC',
   },
+  // The advance: its receipt, what was taken, what is left of it, and whether
+  // it waits to be handed back (the order closed with some of it left).
   'weight-pickup-orders': {
     sql: `SELECT o.*,loc.name AS location_name,d.document_no,d.total AS bill_total,u.name AS created_by_name,
       (o.pickup_at AT TIME ZONE b.timezone)::date::text AS pickup_day,
       ((o.pickup_at AT TIME ZONE b.timezone)::date = (now() AT TIME ZONE b.timezone)::date) AS today,
       (o.status IN ('open','ready') AND o.pickup_at < now()) AS late,(o.status IN ('open','ready')) AS active,
+      k.collection_no AS advance_no,k.amount AS advance,CASE WHEN k.id IS NULL THEN NULL ELSE ${LEFT_SQL('k')} END AS advance_left,
+      (k.id IS NOT NULL AND o.status IN ('collected','cancelled') AND ${LEFT_SQL('k')} > 0) AS advance_to_hand_back,
       COALESCE((SELECT json_agg(json_build_object('id',l.id,'sku_id',l.sku_id,'label',l.label,'unit',l.unit,'quantity',l.quantity,'amount',l.amount,'note',l.note,
         'code',s.code) ORDER BY l.id) FROM weight_pickup_order_lines l JOIN catalog_skus s ON s.business_id=l.business_id AND s.id=l.sku_id
         WHERE l.business_id=o.business_id AND l.order_id=o.id),'[]') AS lines
       FROM weight_pickup_orders o JOIN businesses b ON b.id=o.business_id JOIN business_locations loc ON loc.business_id=o.business_id AND loc.id=o.location_id
-      JOIN users u ON u.id=o.created_by LEFT JOIN business_documents d ON d.business_id=o.business_id AND d.id=o.document_id WHERE o.business_id=$1`,
+      JOIN users u ON u.id=o.created_by LEFT JOIN business_documents d ON d.business_id=o.business_id AND d.id=o.document_id
+      LEFT JOIN business_collections k ON k.business_id=o.business_id AND k.id=o.advance_collection_id WHERE o.business_id=$1`,
     search: ['customer_name', 'phone', 'notes', 'document_no'], date: 'pickup_at', filters: { status: 'status', id: 'id', today: 'today', active: 'active', location: 'location_id' }, order: 'pickup_at,id',
   },
   'weight-day-closes': {
@@ -294,7 +316,50 @@ function readPickupLines(body) {
   });
 }
 
-// body: { locationId, contactId? | customerName, phone?, pickupAt, notes?, lines: [{ skuId, quantity? | amount?, note? }], requestKey }
+// The advance as typed: { amount, method | methodId, reference? } (sales.edit). null when none.
+async function readAdvance(db, business, value) {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value !== 'object' || Array.isArray(value)) fail('The advance must be an amount and how it was paid');
+  const amount = paise(core.decimal(value.amount ?? 0, 'Advance', 2, 0, 10000000));
+  if (amount <= 0) return null;
+  await access.require(business, 'sales.edit');
+  return { amount, ...await paymentMethods.pick(db, business.id, value, 'Advance paid by', ADVANCE_KINDS), reference: v.optionalString(value.reference, 'Reference', 100) };
+}
+
+// What an order comes to at today's rates (paise), the most its advance may
+// be: each weight at the item's shelf price (GST included), each "₹ worth" as
+// it is. The bill weighs it again at pickup.
+async function orderValue(db, business, orderId) {
+  const row = await repo.one(db, `SELECT COALESCE(sum(CASE WHEN l.amount IS NOT NULL THEN l.amount
+      WHEN st.tax_mode='inclusive' THEN l.quantity*s.price ELSE l.quantity*s.price*(1+s.tax_rate/100) END),0) AS value
+    FROM weight_pickup_order_lines l JOIN catalog_skus s ON s.business_id=l.business_id AND s.id=l.sku_id
+    JOIN business_settings st ON st.business_id=l.business_id WHERE l.business_id=$1 AND l.order_id=$2`, [business.id, orderId]);
+  return Math.ceil(Number(row.value) - 1e-9) * 100;
+}
+
+// An open order's advance: a numbered receipt in its customer's name, kept
+// with the order. Inside the caller's transaction (the business row locked).
+async function takeAdvance(db, business, user, order, advance, { requestKey, hash }) {
+  if (!['open', 'ready'].includes(order.status)) fail(`This order is already ${order.status}`, 409);
+  if (order.advance_collection_id) fail(`${order.customer_name}'s order already has its advance`, 409);
+  if (!order.contact_id) fail('An advance is taken in a saved customer\'s name: choose the customer on the order (or add them) to take one', 409);
+  const most = await orderValue(db, business, order.id);
+  if (advance.amount > most) fail(`The advance is part of the order: at most ${rupees(most)} at today's rates`);
+  const contact = await repo.one(db, "SELECT id,name FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind='customer'", [business.id, order.contact_id]);
+  const receipt = await numbering.nextNumber(db, business.id, order.location_id, 'collection', user.id);
+  const collection = await repo.one(db, `INSERT INTO business_collections(business_id,location_id,collection_no,series_id,contact_id,contact_name,amount,method,reference,notes,request_key,request_hash,created_by,method_name)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`, [business.id, order.location_id, receipt.number, receipt.seriesId, contact.id, contact.name,
+    rupees(advance.amount), advance.method, advance.reference, `Advance on order for pickup #${order.id}`, requestKey, hash, user.id, advance.methodName || null]);
+  const row = await repo.one(db, 'UPDATE weight_pickup_orders SET advance_collection_id=$3,updated_by=$4 WHERE business_id=$1 AND id=$2 RETURNING *',
+    [business.id, order.id, collection.id, user.id]);
+  await repo.audit(db, business.id, user.id, 'collection.recorded', collection.id, { amount: collection.amount, method: collection.method, pickupOrderId: order.id });
+  await repo.event(db, business.id, user.id, 'collection.recorded', 'collection', collection.id, {
+    collectionNo: collection.collection_no, contactId: contact.id, amount: collection.amount, method: collection.method, pickupOrderId: order.id });
+  return row;
+}
+
+// body: { locationId, contactId? | customerName, phone?, pickupAt, notes?, lines: [{ skuId, quantity? | amount?, note? }],
+//   advance?: { amount, method | methodId, reference? } (a saved customer's order only), requestKey }
 async function createPickup(business, user, body) {
   weighs(business);
   await access.require(business, 'sales.create');
@@ -306,11 +371,13 @@ async function createPickup(business, user, body) {
   const lines = readPickupLines(body);
   const notes = v.optionalString(body.notes, 'Notes', 300);
   return repo.transaction(async (db) => {
+    await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
     const old = await repo.one(db, 'SELECT * FROM weight_pickup_orders WHERE business_id=$1 AND request_key=$2', [business.id, requestKey]);
     if (old) {
       if (old.request_hash !== hash) fail('This request key was already used for different data', 409);
       return old;
     }
+    const advance = await readAdvance(db, business, body.advance);
     const location = await repo.one(db, 'SELECT id FROM business_locations WHERE business_id=$1 AND id=$2 AND active', [business.id, id(body.locationId, 'Location')]);
     if (!location) fail('Location not found', 404);
     let contact = null;
@@ -320,7 +387,7 @@ async function createPickup(business, user, body) {
     }
     const name = contact?.name || v.requiredString(body.customerName, 'Customer name', 150);
     const phone = v.optionalString(body.phone, 'Phone', 30) || contact?.phone || null;
-    const order = await repo.one(db, `INSERT INTO weight_pickup_orders(business_id,location_id,contact_id,customer_name,phone,pickup_at,notes,request_key,request_hash,created_by)
+    let order = await repo.one(db, `INSERT INTO weight_pickup_orders(business_id,location_id,contact_id,customer_name,phone,pickup_at,notes,request_key,request_hash,created_by)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`, [business.id, location.id, contact?.id || null, name, phone, pickupAt, notes, requestKey, hash, user.id]);
     for (const l of lines) {
       const sku = await repo.one(db, `SELECT s.id,s.label,s.unit FROM catalog_skus s JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id
@@ -329,9 +396,36 @@ async function createPickup(business, user, body) {
       await db.query('INSERT INTO weight_pickup_order_lines(business_id,order_id,sku_id,label,unit,quantity,amount,note) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
         [business.id, order.id, sku.id, sku.label, sku.unit, l.quantity, l.amount, l.note]);
     }
-    await repo.audit(db, business.id, user.id, 'pickup_order.created', order.id, { customer: name, pickupAt, items: lines.length });
-    await repo.event(db, business.id, user.id, 'pickup_order.created', 'pickup_order', order.id, { contactId: contact?.id || null, pickupAt, lines });
+    if (advance) order = await takeAdvance(db, business, user, order, advance, { requestKey: weight.derivedKey(requestKey, 'advance'), hash });
+    await repo.audit(db, business.id, user.id, 'pickup_order.created', order.id, { customer: name, pickupAt, items: lines.length,
+      ...(advance ? { advance: rupees(advance.amount) } : {}) });
+    await repo.event(db, business.id, user.id, 'pickup_order.created', 'pickup_order', order.id, { contactId: contact?.id || null, pickupAt, lines,
+      advanceCollectionId: order.advance_collection_id || null });
     return order;
+  });
+}
+
+// An advance on an order already taken (the customer paid on the phone later).
+// body: { amount, method | methodId, reference?, requestKey }
+async function pickupAdvance(business, user, orderId, body) {
+  weighs(business);
+  await access.require(business, 'sales.create');
+  await access.require(business, 'sales.edit');
+  const requestKey = core.uuid(body.requestKey);
+  const hash = weight.hashOf({ ...body, orderId: String(orderId) });
+  return repo.transaction(async (db) => {
+    await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
+    const order = await repo.one(db, 'SELECT * FROM weight_pickup_orders WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(orderId, 'Order')]);
+    if (!order) fail('Order not found', 404);
+    // Asking again gives the same receipt; the same key with other data is refused.
+    const old = await repo.one(db, 'SELECT id,request_hash FROM business_collections WHERE business_id=$1 AND request_key=$2', [business.id, requestKey]);
+    if (old) {
+      if (old.request_hash !== hash || String(old.id) !== String(order.advance_collection_id)) fail('This request key was already used for different data', 409);
+      return order;
+    }
+    const advance = await readAdvance(db, business, body);
+    if (!advance) fail('Enter the amount of the advance');
+    return takeAdvance(db, business, user, order, advance, { requestKey, hash });
   });
 }
 
@@ -347,6 +441,8 @@ async function setPickupStatus(business, user, orderId, body) {
     if (['collected', 'cancelled'].includes(order.status)) fail(`This order is already ${order.status}`, 409);
     let row;
     if (status === 'collected') {
+      // An advance comes off the order's own bill, made with the order on it.
+      if (order.advance_collection_id) fail(`${order.customer_name}'s order has an advance: bill it from Quick bill with the order on the bill (Bill on the order), and the advance comes off that bill`, 409);
       const doc = await repo.one(db, "SELECT id,document_no,created_at,contact_id FROM business_documents WHERE business_id=$1 AND id=$2 AND kind='sale'", [business.id, id(body.documentId, 'Bill')]);
       if (!doc) fail('Bill not found', 404);
       if (new Date(doc.created_at) < new Date(order.created_at)) fail('That bill is older than the order', 409);
@@ -365,6 +461,76 @@ async function setPickupStatus(business, user, orderId, body) {
     await repo.audit(db, business.id, user.id, `pickup_order.${status}`, order.id, status === 'collected' ? { documentId: row.document_id } : {});
     await repo.event(db, business.id, user.id, `pickup_order.${status}`, 'pickup_order', order.id, { status, documentId: row.document_id || null });
     return row;
+  });
+}
+
+// The bill that closes an order (POST /documents with pickupOrderId), inside
+// its transaction and before it is posted: the order, locked after the
+// business, and its advance to pay the bill first ({ collectionId, free
+// (paise), method, reference, key }), or none. The same bill asked again finds
+// its order closed with it (repeated).
+async function forBill(db, business, orderId, requestKey, contactId) {
+  weighs(business);
+  await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
+  const order = await repo.one(db, 'SELECT * FROM weight_pickup_orders WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, orderId]);
+  if (!order) fail('Order for pickup not found', 404);
+  if (order.status === 'collected') {
+    const same = await repo.one(db, 'SELECT id FROM business_documents WHERE business_id=$1 AND id=$2 AND request_key=$3', [business.id, order.document_id, requestKey]);
+    if (same) return { order, advance: null, repeated: true };
+  }
+  if (!['open', 'ready'].includes(order.status)) fail(`This order is already ${order.status}`, 409);
+  if (!order.advance_collection_id) return { order, advance: null, repeated: false };
+  if (String(contactId || '') !== String(order.contact_id)) {
+    fail(`${order.customer_name}'s advance pays only a bill in their name: choose ${order.customer_name} as the customer on this bill`, 409);
+  }
+  const receipt = await repo.one(db, `SELECT k.id,k.collection_no,k.method,${LEFT_SQL('k')} AS free FROM business_collections k
+    WHERE k.business_id=$1 AND k.id=$2 FOR UPDATE OF k`, [business.id, order.advance_collection_id]);
+  const free = Math.max(0, paise(receipt.free));
+  return { order, repeated: false, advance: free > 0 ? { collectionId: receipt.id, free, method: receipt.method, reference: receipt.collection_no, key: weight.derivedKey(requestKey, 'advance') } : null };
+}
+
+// Closes the order with the bill just posted (forBill's answer).
+async function closeWithBill(db, business, user, pickup, doc) {
+  if (pickup.repeated) return;
+  const { order } = pickup;
+  await db.query(`UPDATE weight_pickup_orders SET status='collected',document_id=$3,closed_at=now(),updated_by=$4 WHERE business_id=$1 AND id=$2`,
+    [business.id, order.id, doc.id, user.id]);
+  const used = pickup.advance ? await repo.one(db, 'SELECT COALESCE(sum(amount),0) AS amount FROM business_payments WHERE business_id=$1 AND document_id=$2 AND collection_id=$3',
+    [business.id, doc.id, pickup.advance.collectionId]) : null;
+  await repo.audit(db, business.id, user.id, 'pickup_order.collected', order.id, { documentId: doc.id, ...(used ? { advanceUsed: used.amount } : {}) });
+  await repo.event(db, business.id, user.id, 'pickup_order.collected', 'pickup_order', order.id, { status: 'collected', documentId: doc.id,
+    advanceUsed: used ? used.amount : null });
+}
+
+// A customer's receipts held for their open orders: the receivables' "apply
+// advance" leaves them for the orders' own bills.
+async function heldReceipts(db, business, contactId) {
+  const rows = await repo.all(db, `SELECT advance_collection_id FROM weight_pickup_orders WHERE business_id=$1 AND contact_id=$2
+    AND advance_collection_id IS NOT NULL AND status IN ('open','ready')`, [business.id, contactId]);
+  return new Set(rows.map((r) => Number(r.advance_collection_id)));
+}
+
+// What is left of a closed order's advance (cancelled, or billed for less),
+// handed back by cash, UPI or bank with a reason and a manager's PIN
+// (sales.refund): a numbered refund of its receipt.
+// body: { amount? (all that is left), method | methodId, reference?, reason, approverId?, pin?, requestKey }
+async function refundPickupAdvance(business, user, orderId, body) {
+  weighs(business);
+  await access.require(business, 'sales.view');
+  await access.require(business, 'sales.edit');
+  const input = refunds().readRefund(body);
+  const approval = await pins().readApproval(business, user, body, 'sales.refund', { reasonLabel: 'Reason for the refund' });
+  return repo.transaction(async (db) => {
+    await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
+    const order = await repo.one(db, 'SELECT * FROM weight_pickup_orders WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(orderId, 'Order')]);
+    if (!order) fail('Order not found', 404);
+    if (!order.advance_collection_id) fail(`${order.customer_name}'s order has no advance`, 409);
+    if (['open', 'ready'].includes(order.status)) {
+      fail(`${order.customer_name}'s order is still open: its advance comes off its bill at pickup. Cancel the order first to hand the advance back.`, 409);
+    }
+    const { refund, repeated } = await refunds().refundCollection(db, business, user, { collectionId: order.advance_collection_id, contactId: order.contact_id, input, approval,
+      source: 'pickup', label: `Order for pickup #${order.id}` });
+    return { ...refund, order_id: order.id, repeated };
   });
 }
 
@@ -412,4 +578,8 @@ async function today(business) {
   return { sold, cut, wasted, useSoon, rates: rateRow, pickups: pickups ? { total: pickups.total, items: pickups.items } : null };
 }
 
-module.exports = { rates, saveRates, stockToday, wastageBatch, closeDay, createPickup, setPickupStatus, cutToOrder, today };
+module.exports = {
+  rates, saveRates, stockToday, wastageBatch, closeDay, createPickup, pickupAdvance, setPickupStatus, refundPickupAdvance, cutToOrder, today,
+  // Used by the core's bill (business.service.js document) and the receivables' "apply advance".
+  forBill, closeWithBill, heldReceipts,
+};

@@ -103,6 +103,7 @@ const READERS = {
   "modules/tax-changes/services/taxChanges.service.js": "module",
   "modules/tax-changes/services/taxChangesMenu.js": "module",
   "modules/tax-changes/services/taxChangesShop.js": "module",
+  "modules/business/salon-weight/services/businessWeight.service.js": "gate",
 };
 
 function* sourceFiles(dir) {

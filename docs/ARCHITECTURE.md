@@ -289,6 +289,27 @@ The code has two request paths, one per data world (§5 explains why).
   Arriving at `/` sends a restaurant's staff to that business when it was not
   their restaurant. Someone with no restaurant role always lands on the
   business they used last, or on their first one.
+- **Which header is drawn is decided before any is drawn.** A business's own
+  address draws the business layout from the first frame. At `/`, `HomeGate`
+  (`layouts/AppLayout.jsx`, with `homeLanding()` in `services/businessNav.js`)
+  shows the shared loading screen, with no header or menu, until the person's
+  businesses are known, then sends someone with no restaurant role on to
+  their business. A restaurant's staff member arriving back at a shop they
+  used last is moved there by `BusinessProvider` as the list arrives
+  (`arrivalLanding()`), in the same transition that hands the list over, so
+  the restaurant's dashboard never shows first; a load replaced by another
+  before it answers (React starts the provider twice in development) decides
+  nothing and sets nothing. The router moves in a
+  transition, which keeps a screen already shown until the next is ready;
+  the content area is keyed by the business, so opening another business
+  draws its header at once with the loading screen, instead of keeping the
+  last one's screen and header while the new one's screens load. The header
+  says whose it is (`data-layout`: business, chooser or restaurant), which the
+  browser tests watch.
+- A business renamed in its settings (`PUT …/settings`, `name`) is read again
+  by the switcher and the header at once (`reloadDirectory` and
+  `reloadContext`); a restaurant's business takes the restaurant's name from
+  the database (trigger `restaurants_business_name`).
 - The menu for a business is `businessMenu()` in `services/businessNav.js`.
   Each link (`businessSections()`) names a permission (`need`), optionally a
   module, and the business types it belongs to. `services/businessWorkspace.js`
@@ -946,7 +967,7 @@ workspaces; the backend has its own install.
 │   │   ├── middlewares/      authenticate, authorize, authorizeOrApprove, resolveOutlet, requireFeature,
 │   │   │                     reportOutlet, writeoffApproval, rateLimiters, upload, notFound, errorHandler
 │   │   ├── notifications/    the bell: index.js + one provider file per module
-│   │   └── utils/            AppError, validate, money, audit, docNumber, gstin, phone, totp, calendarDate …
+│   │   └── utils/            AppError, validate, money, audit, docNumber, gstin, phone, totp, calendarDate, guestLinks …
 │   ├── migrations/           node-pg-migrate SQL files (the only definition of the schema)
 │   ├── scripts/              migrate, first login, backup
 │   ├── tests/                *.test.js unit tests; integration/ (each file builds its own database)
@@ -1079,6 +1100,15 @@ shared tab components (`components/ContentTabs.jsx`,
 - It never sends a staff token. Its pages use their own API clients, with no
   login.
 - Its browser tests check this on every run.
+
+**Links to the guests' site** start at the restaurant's own guest web address
+(*Service settings*) when it has one, else at the guests' site's own address,
+and are built in one place on each side, never with a host in the code: the
+API's `utils/guestLinks.js` (else `GUEST_WEB_URL`, read and checked by
+`config/env.js` with `utils/webAddress.js`; a live server does not start
+without it) and the staff app's `services/qrSheet.js` (`guestBase`,
+`guestOrderUrl`; else `VITE_CUSTOMER_WEB_URL`), which the QR sheets and Table
+requests' *Open guest menu* share.
 
 **What a person sees.** The pages a business offers come from its
 switched-on modules (a restaurant's features, read by `services/features.js`;

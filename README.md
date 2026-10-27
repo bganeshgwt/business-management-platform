@@ -120,7 +120,10 @@ the API on `PORT=5010`, as `backend/.env.example` sets it:
 
 Each app's dev server and build refuse to start without them. The backend's
 `CORS_ORIGIN` lists the staff app's address; the guests' site needs no entry,
-because the public guest API answers any address. The production values are in
+because the public guest API answers any address. The backend's
+`GUEST_WEB_URL` is the guests' site's own address, where the links the API
+builds to a guest's page start; a developer's machine may leave it out, a live
+server needs it. The production values are in
 [GO_LIVE › Production settings](docs/GO_LIVE.md#2-production-settings).
 
 Then install, and build the tables:

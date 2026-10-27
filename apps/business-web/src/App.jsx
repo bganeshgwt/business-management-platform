@@ -4,8 +4,6 @@ import useAuth from "./hooks/useAuth";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import AppLayout from "./layouts/AppLayout";
 import { ScreenLoading } from "./components/Feedback";
-import useBusiness from "./hooks/useBusiness";
-import { businessPath, isRestaurantStaff, landingBusiness } from "./services/businessNav";
 const LoginPage = lazy(() => import("./modules/access/pages/LoginPage"));
 const BusinessAdminPage = lazy(() => import("./modules/business/core/pages/BusinessAdminPage"));
 const BusinessAdminRoutes = lazy(() => import("./modules/business/core/pages/BusinessAdminRoutes"));
@@ -107,18 +105,14 @@ const LabQcPage = lazy(() => import("./modules/business/health/pages/LabQcPage")
 const LabTestsPage = lazy(() => import("./modules/business/health/pages/LabTestsPage"));
 
 // The platform's own super admin has no restaurant, so no dashboard: home is
-// the platform console.
+// the platform console. Staff of a shop, wholesaler, salon… (no restaurant
+// role) never reach this screen: the layout sends them on to the business
+// they used last, or their first one (layouts/AppLayout.jsx › HomeGate).
 function Home() {
   const { user, hasPermission } = useAuth();
 
   if (!user.restaurantId && hasPermission("platform.restaurants.manage")) {
     return <Navigate to="/platform/restaurants" replace />;
-  }
-
-  // Staff of a shop, wholesaler, salon… (no restaurant role): straight to the
-  // business they used last, or their first one; never the restaurant dashboard.
-  if (!isRestaurantStaff(user)) {
-    return <BusinessLanding />;
   }
 
   // A TV signed in with the Collection display role has one screen.
@@ -129,17 +123,6 @@ function Home() {
   return (
     <DashboardPage />
   );
-}
-
-function BusinessLanding() {
-  const { directory, directoryError, businesses } = useBusiness();
-
-  if (!directory && !directoryError) {
-    return <ScreenLoading label="Opening your business…" />;
-  }
-
-  const pick = landingBusiness(businesses, false);
-  return <Navigate to={pick ? businessPath(pick.id) : "/business-admin?all"} replace />;
 }
 
 export default function App() {

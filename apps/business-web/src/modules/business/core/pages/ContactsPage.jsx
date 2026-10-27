@@ -1,11 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
 import Icon from "@bmp/ui/Icon";
 import SectionCard from "../../../../components/SectionCard";
 import { ErrorMessage, SuccessMessage } from "../../../../components/Feedback";
-import { businessWrite } from "../../../../services/business.service";
+import { businessRead, businessWrite } from "../../../../services/business.service";
+import { getErrorMessage } from "../../../../services/api";
 import { word } from "../../../../services/businessNav";
+import { toast } from "../../../../services/toast";
+// A salon's clients are booked from the list, as from their client card.
+import { bookVisitPath } from "../../salon/pages/salonLinks";
 import FormDialog from "./FormDialog";
 import { ActiveBadge, BusinessHeader, Field } from "./ui";
 import { useOpenBusiness, useServerList } from "./hooks";
@@ -29,9 +33,24 @@ export default function ContactsPage({ kind }) {
   const list = useServerList("contacts", { gridId: `business-${kind}s`, params: { kind } });
   const [editing, setEditing] = useState(() => (params.get("new") === "1" && biz.can("contacts.create") ? {} : null));
   const [notice, setNotice] = useState("");
+  const navigate = useNavigate();
   useEffect(() => {
     if (params.get("new")) setParams((p) => new URLSearchParams(p.get("open") ? { open: p.get("open") } : {}), { replace: true });
   }, [params, setParams]);
+  // A salon's client: Book opens the calendar's booking with them chosen and
+  // their usual stylist, exactly as Book a visit on their client card does.
+  const canBook = customer && biz.type === "salon" && biz.can("appointments.create") && biz.can("appointments.view");
+  const canEdit = biz.can("contacts.edit");
+  const [booking, setBooking] = useState(null);
+  const book = useCallback(async (contact) => {
+    setBooking(contact.id);
+    try {
+      navigate(bookVisitPath(biz.id, await businessRead(biz.id, `salon/clients/${contact.id}`)));
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+      setBooking(null);
+    }
+  }, [biz.id, navigate]);
 
   const columns = useMemo(() => [
     { key: "name", header: "Name", value: (c) => c.name, mobile: "title", pin: true },
@@ -42,8 +61,15 @@ export default function ContactsPage({ kind }) {
     { key: "credit_days", header: "Credit days", type: "number", value: (c) => c.credit_days },
     { key: "balance", header: customer ? "Owes you" : "You owe", type: "money", exact: true, value: (c) => Number(c.balance), total: "sum", mobile: "show" },
     { key: "active", header: "Status", type: "status", value: (c) => (c.active ? "active" : "inactive"), render: (c) => <ActiveBadge active={c.active} /> },
-    biz.can("contacts.edit") && { key: "actions", header: "", label: "Actions", type: "actions", render: (c) => <button type="button" className="chip-button" onClick={() => setEditing(c)}>Edit</button> },
-  ], [biz, customer]);
+    (canEdit || canBook) && { key: "actions", header: "", label: "Actions", type: "actions", render: (c) => (
+      <div className="row-actions">
+        {canBook && c.active && (
+          <button type="button" className="chip-button" disabled={booking === c.id} onClick={() => book(c)} aria-label={`Book ${c.name}`}>Book</button>
+        )}
+        {canEdit && <button type="button" className="chip-button" onClick={() => setEditing(c)}>Edit</button>}
+      </div>
+    ) },
+  ], [biz, customer, canBook, canEdit, booking, book]);
 
   return (
     <div className="stack">

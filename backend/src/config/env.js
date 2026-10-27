@@ -101,6 +101,54 @@ if (problem) {
   );
 }
 
+// --- The guests' site's address --------------------------------------------------
+//
+// GUEST_WEB_URL is the guests' site's own address (apps/customer-web): where
+// a link the API builds to a guest's page leads (utils/guestLinks.js) when the
+// restaurant has set no guest web address of its own (Service settings). It
+// is read as that address is (utils/webAddress.js). Links go to guests'
+// phones, so a live server refuses to start without one they can open: https,
+// and not this computer or a local network. On a developer's machine it may
+// be left out (links are then built only from a restaurant's own address),
+// and a mistyped one is reported and left out.
+const { readWebAddress, isLocalAddress } = require("../utils/webAddress");
+
+const WEB_ADDRESS_PROBLEMS = {
+  too_long: "it is longer than 200 characters",
+  not_an_address: "it is not a web address",
+  not_http: "it does not start with https://",
+  extra: "it has a part after a ? or #, or a login",
+};
+
+const guestWebUrl = (() => {
+  const raw = process.env.GUEST_WEB_URL;
+  const { address, problem } = readWebAddress(raw);
+  const fix = "Set it to the guests' site's address, such as https://order.example.com.";
+  const why = problem
+    ? `GUEST_WEB_URL "${String(raw).trim()}" cannot be used: ${WEB_ADDRESS_PROBLEMS[problem]}`
+    : !isLive
+      ? null
+      : !address
+        ? "GUEST_WEB_URL is not set, and links sent to guests need it"
+        : !address.startsWith("https://")
+          ? `GUEST_WEB_URL (${address}) is not an https address`
+          : isLocalAddress(address)
+            ? `GUEST_WEB_URL (${address}) is a local address guests' phones cannot reach`
+            : null;
+
+  if (why && isLive) {
+    console.error(`Refusing to start (NODE_ENV=${nodeEnv}): ${why}. ${fix}`);
+    process.exit(1);
+  }
+
+  if (why) {
+    console.warn(`${why}; it is left out. ${fix}`);
+    return null;
+  }
+
+  return address;
+})();
+
 // A whole number from the environment, or the default when unset or invalid.
 const intFrom = (name, fallback, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) => {
   const value = Number(process.env[name]);
@@ -188,6 +236,8 @@ const uploadFolders = (() => {
 
 module.exports = {
   port: Number(process.env.PORT) || 5000,
+  // The guests' site's own address (GUEST_WEB_URL, above), or null.
+  guestWebUrl,
   // The staff app's address (apps/business-web), or several separated by
   // commas. The guests' site needs no entry: the public guest API answers any
   // address (app.js).

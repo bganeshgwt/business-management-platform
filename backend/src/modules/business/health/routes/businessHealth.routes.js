@@ -2,6 +2,7 @@ const repo = require('../../core/repositories/business.repository');
 const v = require('../../../../utils/validate');
 const AppError = require('../../../../utils/AppError');
 const core = require('../../core/services/business.service');
+const counter = require('../../core/services/businessCounter.service');
 const common = require('../services/healthCommon');
 const pharmacy = require('../services/businessPharmacy.service');
 const clinic = require('../services/businessClinic.service');
@@ -53,7 +54,8 @@ module.exports = function healthRoutes(router, { context, send, b }) {
   router.get(b('/pharmacy/drugs/:skuId'), context(['pharmacy.view', 'sales.create']), async (req, res) => send(res, await pharmacy.drug(req.business, req.params.skuId)));
   router.put(b('/pharmacy/drugs/:skuId'), context('pharmacy.edit'), async (req, res) => send(res, await pharmacy.saveDrug(req.business, req.user, req.params.skuId, req.body)));
   router.get(b('/pharmacy/drugs/:skuId/substitutes'), context(['pharmacy.view', 'sales.create']), async (req, res) => send(res, await pharmacy.substitutes(req.business, req.params.skuId)));
-  router.post(b('/pharmacy/sales'), context('sales.create'), async (req, res) => send(res, await pharmacy.sell(req.business, req.user, req.body), 201));
+  router.post(b('/pharmacy/sales'), context('sales.create'), async (req, res) =>
+    send(res, await pharmacy.sell(req.business, req.user, req.body, { session: counter.sessionOf(req.get('authorization')) }), 201));
   list('/pharmacy/prescriptions', 'pharmacy-prescriptions', 'pharmacy.view', isPharmacy);
   router.get(b('/pharmacy/prescriptions/:id'), context('pharmacy.view'), async (req, res) => send(res, await pharmacy.prescription(req.business, req.user, req.params.id)));
   list('/pharmacy/registers/h1', 'pharmacy-register', 'pharmacy.view', isPharmacy, { register: 'H1' });

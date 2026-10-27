@@ -53,9 +53,15 @@ These are not settings. Changing one means changing the code; the PIN lockout is
 
 ### Where staff land after signing in
 
-- **Rule:** someone with no restaurant role (a kirana cashier, say) lands straight on their business: the one they opened last, else the first in their list. Restaurant staff land on their restaurant's dashboard, or on the business they opened last when that is another business. A platform Super Admin lands on *Platform › Restaurants*.
-- **Why:** a shop's staff should never see the restaurant dashboard.
+- **Rule:** someone with no restaurant role (a kirana cashier, say) lands straight on their business: the one they opened last, else the first in their list. Restaurant staff land on their restaurant's dashboard, or on the business they opened last when that is another business. A platform Super Admin lands on *Platform › Restaurants*. Until a person's businesses are known, the home address shows the loading screen with no header or menu, so a business never opens under the restaurant's header first; opening another business from the switcher draws its header with its loading screen at once.
+- **Why:** a shop's staff should never see the restaurant dashboard, and a header that says the restaurant while a shop opens sends people to the wrong menu.
 - **Change it:** nothing to set. The business switcher moves between businesses.
+
+### A business's name
+
+- **Rule:** a business's name (the one the switcher, the header and every screen show) is changed in *Business settings › Business details › Business name* by the owner or anyone whose role may change the settings (*settings.edit*): trimmed, 1 to 150 characters, as when the business is created. Another business of the same owner may have the same name, as at creation. Each rename is written to the business's activity log with the old and the new name. The name printed on bills (*Name shown in the app*) is its own setting. A restaurant's business takes its restaurant's name: the restaurant is renamed on its *Profile*, and the database renames its business with it (and logs it); the business's settings refuse a name of their own for it.
+- **Why:** a shop renamed in real life must not keep its old name on every screen; the type and the code stay, so bills and reports keep their numbers.
+- **Change it:** nothing to set.
 
 ### A password someone else set is changed at the first sign-in
 
@@ -68,6 +74,12 @@ These are not settings. Changing one means changing the code; the PIN lockout is
 - **Rule:** a shop's till stays signed in. A cashier taps *Switch* on Quick bill, picks their name and types their own PIN, and the till carries on as them. The bill being built stays. Every bill records the person the till was switched to. With *Ask the biller's PIN for every bill* on, Quick bill asks that person's PIN before each bill, and the server refuses a counter bill without it. The PIN is the person's own personal PIN (*My profile › Personal PIN*, or set by an admin), with the usual lockout, the account lock and the two-step device rule. Only people whose role may create sales are offered. *Prescription sale* has the same *Switch* and PIN rule; a Schedule X sale still needs the registered pharmacist's own PIN, whoever is billing.
 - **Why:** several people run a shared till in Indian shops. A quick PIN switch keeps each bill's biller on record without signing out in a rush, and it reuses the restaurant till's PIN rules.
 - **Change it:** *Business settings › Prices, totals and numbering › Shared till* (default: ask the PIN only to switch). The PIN is never stored with the bill.
+
+### The switch's PIN counts for the next bill
+
+- **Rule:** with *Ask the biller's PIN for every bill* on, the PIN typed to switch the till also counts for the next bill: the switch gives the till a proof (random, never shown) that is good for one counter bill (Quick bill or *Prescription sale*), within 2 minutes of the switch, by the person the till was switched to, in that business, from the session the switch began. The server keeps only its SHA-256 and spends it inside the bill's own posting: a bill refused for another reason (stock, a credit limit) leaves it for the next try, and the same bill sent again (its answer lost) is answered with it. Used, run out, or after a page reload, the PIN is asked as before. The screen keeps the proof in memory only and never keeps or sends the PIN again.
+- **Why:** a cashier who has just switched the till to themselves with their PIN should not type it again for the bill in hand; anything wider (a time window per person, a remembered PIN) would let a colleague bill under their name.
+- **Change it:** the 2 minutes are the code's (`businessCounter.service.js`).
 
 ### Nothing is posted twice: request keys
 
@@ -450,6 +462,18 @@ These rules apply to every business type but the restaurant. The goods rules app
 - **Rule:** average yield is the total usable kg divided by the total whole kg (weighted by weight), per supplier and whole item over the chosen dates, set against the item's average over all suppliers. A batch's supplier is the one recorded when it was cut, otherwise the supplier of the purchase that brought its input batch in, so older batches count too. Opening stock with no purchase shows as "No purchase".
 - **Why:** a weighted average is what the money sees. The simple average of the batches is shown as the worst-to-best range.
 - **Change it:** nothing to set.
+
+### An order for pickup's advance is held for its bill
+
+- **Rule:** an order for pickup takes one advance, when it is taken or later while it is open, from someone who may take payments (*sales.edit*): a numbered collection receipt in the order's saved customer's name (a walk-in's order takes none), by cash, UPI, card or bank, up to what the order comes to at today's rates (each weight at its item's shelf price, each "₹ worth" as it is). The order keeps it for good. While the order is open, the receivables' *Apply advance* leaves it alone. The bill that closes the order is made at Quick bill with the order on it, in the customer's name: the advance pays it first (after a credit voucher), as a payment from the receipt, and the rest is taken as usual; the bill and the order's closing are one posting. Once the order is closed, what is left of the advance (a cancelled order's, or a bill smaller than it) is the customer's money: it can go on their other bills, or go back by cash, UPI or bank with a reason and a manager's PIN (*sales.refund*), as a numbered refund of the receipt. An order with an advance is not closed by marking another bill.
+- **Why:** a phone order paid partly in advance must have its advance on record and taken off its own bill, never applied by itself to another bill or lost in a note.
+- **Change it:** nothing to set.
+
+### Offcuts and what they recover
+
+- **Rule:** a cut is an offcut when its price for a kilo, before GST, is below what its whole item cost a kilo, as both stood when it was cut (bones, skin, fish heads; a cut priced ₹0 is one). The batch marks each cut when it is saved. What offcuts recovered is worked out from the bills, never typed in: each sale line of an item whose latest cut at the bill's location, before the bill, was an offcut, at its value before GST less what was returned of it; by the day billed (the business's clock) and by item, with what was cut as offcuts in the dates.
+- **Why:** offcuts sold cheap bring back some of what the whole item cost; the figure shows how much, next to the cutting loss.
+- **Change it:** nothing to set: a cut is priced as the shop prices it on the rate board, and its price when cut decides.
 
 ## Pharmacy, clinic and lab
 
@@ -1530,3 +1554,9 @@ A hotel, lodge or guest house bills on bills of the shared core ([Shops and the 
 - **Rule:** a guest's call, a QR order or food at the pass at the tables shown reaches the captain app by itself within a second or two, with a message naming the table. The phone buzzes (where the browser can) and chimes only once the waiter has switched alerts on with the bell in the app's header, on that phone. Nothing rings for what was already waiting when the app opened.
 - **Why:** a browser lets a page vibrate or play a sound only after a tap on it, and the waiter decides whether their phone may buzz.
 - **Change it:** the bell in the captain app's header, phone by phone.
+
+### Links to the guests' site
+
+- **Rule:** every link to a guest's page starts at the restaurant's own guest web address when it has one, else at the guests' site's own address: the server's `GUEST_WEB_URL` for the links the server builds (the online booking link), the staff app's `VITE_CUSTOMER_WEB_URL` for those its screens build (table QR codes, *Open guest menu*, the online ordering link). No link names a host of its own. A live server does not start without a `GUEST_WEB_URL` that guests' phones can open: https, and not a local address.
+- **Why:** a link that leads to the wrong site, or to a computer phones cannot reach, fails the guest at the table or at home.
+- **Change it:** *Settings › Service settings › Guest ordering web address* for the restaurant; `GUEST_WEB_URL` on the server ([GO_LIVE.md](GO_LIVE.md)).

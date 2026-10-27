@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 import useMotionScope from "../hooks/useMotionScope";
 import useSidebarMotion from "../hooks/useSidebarMotion";
@@ -13,7 +13,7 @@ import BusinessSwitcher from "../components/BusinessSwitcher";
 import BusinessLocationSwitcher from "../components/BusinessLocationSwitcher";
 import BusinessProvider from "../context/BusinessProvider";
 import useBusiness from "../hooks/useBusiness";
-import { businessMenu, businessPath } from "../services/businessNav";
+import { businessMenu, businessPath, homeLanding, isRestaurantStaff } from "../services/businessNav";
 import { restaurantMenu } from '../services/restaurantWorkspace';
 import RestaurantWorkspaceNav from '../components/RestaurantWorkspaceNav';
 import NavIcon from "../components/NavIcon";
@@ -242,9 +242,37 @@ const initials = (name) =>
 export default function AppLayout() {
   return (
     <BusinessProvider>
-      <AppShell />
+      <HomeGate>
+        <AppShell />
+      </HomeGate>
     </BusinessProvider>
   );
+}
+
+// The home address (/) is the restaurant's screen only for someone who stays
+// there. Until their businesses are known, it shows the shared loading screen
+// with no header or menu; someone it sends on to a business goes straight
+// there, so the restaurant's header and dashboard never show for a moment
+// first: staff with no restaurant role (here), and restaurant staff arriving
+// back at a shop they used last (BusinessProvider, as the list arrives).
+function HomeGate({ children }) {
+  const { user, hasPermission } = useAuth();
+  const { pathname } = useLocation();
+  const { directory, directoryError } = useBusiness();
+  if (pathname !== "/") {
+    return children;
+  }
+  const target = homeLanding({
+    restaurantStaff: isRestaurantStaff(user),
+    platform: !user.restaurantId && hasPermission("platform.restaurants.manage"),
+    directory,
+    failed: Boolean(directoryError),
+  });
+  if (target === "wait") {
+    return <ScreenLoading label="Opening your business…" />;
+  }
+  // The move is a transition: the loading screen stays until the business shows.
+  return target ? <><ScreenLoading label="Opening your business…" /><Navigate to={target} replace /></> : children;
 }
 
 function AppShell() {
@@ -404,7 +432,9 @@ function AppShell() {
       }}>
         Skip to content
       </a>
-      <header className="topbar">
+      {/* data-layout says whose header this is (a business's, the business
+          chooser's, or the restaurant's own); the browser tests watch it. */}
+      <header className="topbar" data-layout={businessMode ? "business" : chooser ? "chooser" : "restaurant"}>
         <button
           type="button"
           className="icon-button menu-toggle topbar-icon-button"
@@ -642,9 +672,14 @@ function AppShell() {
             edge of the screen while the page itself stays centred. Keyed by
             the person, so when someone else takes over a shared till every
             page starts fresh instead of showing the last person's half-typed
-            order. */}
+            order; and by the business, so opening another one (a shop from
+            the restaurant) draws its header at once with the loading screen,
+            instead of keeping the last business's screen, header and all,
+            while the new one's screens load (the router moves in a
+            transition, which keeps a screen already shown until the next is
+            ready, but shows a new one's loading screen). */}
         <main className="content-scroll" ref={scrollRef} id="main-content" tabIndex={-1}>
-          <div className="content" key={user.id} ref={contentRef}>
+          <div className="content" key={`${user.id}:${businessMode ? `business:${businessId}` : chooser ? "chooser" : "restaurant"}`} ref={contentRef}>
             <Suspense fallback={<ScreenLoading />}>
               {!businessMode && user.restaurantId && <RestaurantWorkspaceNav sections={availableSections} pathname={pathname} />}
               <Outlet />

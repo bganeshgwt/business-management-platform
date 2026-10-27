@@ -294,12 +294,18 @@ is created in one of two ways:
   restaurant's admin): the same details without an owner's login; whoever
   adds it becomes its owner.
 
-The type, the code and the name in the business switcher are fixed once the
-business is created. The rest can change later: the business's details in
-Business settings, and its locations in Settings › Locations. In Business
-settings, **Name shown in the app** is the name printed on till receipts,
-slips and cards; the A4 invoice prints the legal name, with this name under
-it when the two differ.
+The type and the code are fixed once the business is created. The rest can
+change later: the business's name and details in Business settings, and its
+locations in Settings › Locations. In Business settings, **Business name** is
+the name the business switcher, the header and every screen show; the owner,
+or anyone whose role may change the settings, renames the business there (up
+to 150 characters; the same name as another of your businesses is allowed),
+and the switcher and the header show the new name at once, other devices at
+their next read. Each rename is kept in the activity log with the old and the
+new name. A restaurant is renamed on its own Profile, and its business in the
+switcher takes the same name. **Name shown in the app** is the name printed
+on till receipts, slips and cards; the A4 invoice prints the legal name, with
+this name under it when the two differ.
 
 **Business tools** (*Settings › Business tools*, at the foot of Business
 settings) are the parts of Business Admin a business uses, in two groups:
@@ -359,7 +365,8 @@ allows.
 
 ### A shop, wholesaler, salon, pharmacy or clinic
 
-1. **Business settings.** Under *Business details*: *Name shown in the app*
+1. **Business settings.** Under *Business details*: the *Business name* (the
+   switcher's), *Name shown in the app*
    (printed on receipts), the legal name (printed on the A4 invoice), GSTIN,
    address, phone and logo. Under *Prices, totals and numbering*: whether
    selling prices include GST (a goods shop starts with prices including GST,
@@ -480,7 +487,10 @@ business*, by name, type or code) and pick from **Restaurants & food** and
 - **Another restaurant** is greyed out ("This restaurant opens when you sign
   in to it"): sign in to that restaurant to manage it.
 - The last business you opened is **remembered on the server**, so your next
-  sign-in, on any device, returns you there.
+  sign-in, on any device, returns you there: the loading screen shows until
+  your businesses are known, then that business opens with its own header
+  (never the restaurant's first). Opening another business from the switcher
+  shows its header and its loading screen at once.
 - **All businesses** opens the *Your businesses* page
   (`/business-admin?all=1`): every business you belong to as a card with its
   type and your role and, for what your role may see, today's sales, what
@@ -858,7 +868,9 @@ or two (**Live** in the header), with a chime when the sound is on.
 
 Its **QR ordering** window (the settings button) switches *Guests can order
 from the table* and *Guests can call staff* on or off, sets a note shown at
-the top of the guest menu, and opens *See what guests see* for any table;
+the top of the guest menu, and opens *See what guests see* for any table
+(*Open guest menu* opens it where the table's QR code does: at the
+restaurant's own [guest web address](#guest-web-address) when it has one);
 changing it needs `orders.manage`. With ordering paused, guests can still
 read the menu and call staff.
 
@@ -1346,7 +1358,9 @@ Set up once, changed rarely. In the menu these are tabs of **Settings**
 (Management).
 
 **Profile** holds the restaurant's name, contact number, email and address.
-The restaurant code is fixed once created. Its **Set-up checklist** ticks off
+A new name shows in the top bar and the business switcher at once (the
+restaurant's business takes the same name, kept in its activity log). The
+restaurant code is fixed once created. Its **Set-up checklist** ticks off
 what a first bill needs — name, GSTIN, FSSAI number, logo, business hours,
 payment types and a default tax rate — each linked to where it is filled in.
 
@@ -3009,6 +3023,10 @@ receipt.
 switches the till to another cashier: pick the name, type that person's PIN;
 the bill being built stays and every bill records who billed it. In Business
 settings › *Shared till* you can ask the biller's PIN for **every** bill.
+Then the PIN typed to switch the till counts for the next bill, so the
+cashier who has just switched to themselves is not asked again: for that one
+bill, within 2 minutes of the switch, on that screen. After it, or a page
+reload, the PIN is asked as usual.
 PINs are each person's own (My profile, or set by an admin under Users); five
 wrong tries lock a PIN.
 
@@ -3282,6 +3300,10 @@ what is still to refund.
   history: allergies in red, membership, advance, no-shows, visits and spend,
   usual stylist and birthday; tabs *Visits*, *Notes & formula* (dated and
   kept), *Packages*, *Advance* and *Profile*; call, WhatsApp or book a visit.
+- **Clients** (the customers list, as a salon shows it) — **Book** on a client
+  opens the calendar's booking with them chosen and their usual stylist, as
+  *Book a visit* on their card does; it shows to someone who may book
+  appointments.
 - **New bill** — services and products on one bill, each line with its stylist
   (for commission). Type a service or product (name, code or barcode) or tap a
   quick chip; the line takes the client's usual stylist, and their package if
@@ -3379,8 +3401,22 @@ what is still to refund.
   time, and the items by weight or by ₹ worth, each with a note ("curry cut,
   no skin"), listed in pickup order. **Ready** prints a packing slip and
   offers *Tell them* on WhatsApp; **Bill** opens Quick bill with the order's
-  items to weigh (an amount in ₹ becomes a weight at today's rate), and the
-  order closes with that bill. An order is cancelled with a reason.
+  items to weigh (an amount in ₹ becomes a weight at today's rate) and its
+  customer, and the bill closes the order. An order is cancelled with a
+  reason.
+  - **An advance.** A saved customer's order takes an advance when it is
+    taken (*Advance*, with how it was paid) or later (⋯ › *Take an advance*),
+    up to what the order comes to at today's rates. It is a numbered receipt
+    in the customer's name, shown in the list's *Advance* column and printed
+    on the packing slip. At Quick bill the order's chip names the advance,
+    and the bill takes it off first (*Advance … −₹*) and asks only for the
+    rest; the bill must be in the customer's name. *Apply advance* on the
+    customer's dues leaves it alone while the order is open.
+  - **Handing it back.** A cancelled order keeps its advance as the
+    customer's money (it can go on their other bills); **Hand back the
+    advance** returns what is left of it by cash, UPI or bank, with the
+    reason and a manager's PIN (*sales.refund*). An order billed for less
+    than its advance shows the rest to hand back the same way.
 - **Stock by weight** — every item kept in kg or g per location. It opens on
   **Today**: what each item opened with, what was received, cut in and cut
   out, sold and wasted, and what should be on the counter now, with the
@@ -3396,7 +3432,9 @@ what is still to refund.
   template's cuts are offered (*Add other* for the rest), and *Cut by* records
   who cut it. The screen shows the loss and the yield live. Cutting moves
   stock the moment it is saved, and the cuts carry the whole cost of the
-  input, so the cost per usable kg is honest. A dry-fruit shop can also
+  input, so the cost per usable kg is honest. A cut priced below what the
+  whole item cost a kilo (bones, skin, fish heads) is marked **Offcut** on its
+  batch. A dry-fruit shop can also
   **repack into pouches** sold by the piece (packs × the pack weight, which is
   remembered).
 - **Wastage** — record trimming, spoiled, unsold, drip / moisture loss,
@@ -3410,6 +3448,11 @@ what is still to refund.
   supplier* gives each whole item's average yield from each supplier it was
   bought from in the dates (total usable ÷ total whole weight), its worst and
   best batch, and how far it is from that item's average over all suppliers.
+  **Recovered from offcuts** is what the offcuts sold cheap brought in, worked
+  out from the bills (before GST, less what came back): in the tile, in *By
+  day*, and by item in *Offcuts* with what was cut as offcuts in the dates. A
+  bill counts for an item whose latest cut at its location, before the bill,
+  was an offcut; the cutter and supplier filters do not apply to bills.
 - **Cut to order** (Quick bill) — weigh the whole bird or fish, choose the
   cuts (curry cut, boneless, fillet), weigh each; the screen shows the yield
   and the loss. Saving takes the whole weight out of stock and puts the cuts
@@ -3423,7 +3466,7 @@ For a business of type Pharmacy, with the business tool **Pharmacy rules** on (S
 
 **Drug master** (*Medicines & products › Drug master*). For each medicine: salt / composition, strength, form, maker, schedule (OTC, G, H, H1, X, narcotic), tablets per strip and strips per box, whether a strip may be cut and sold loose, cold chain and storage. Filter by schedule, or "No details yet" to finish the list. Items with the same salt and strength are substitutes.
 
-**Prescription sale** (Daily work; Quick bill opens from the Overview or *Jump to…*). Find a medicine by name, salt or maker. Each line sells by the strip (or loose tablets when allowed); the batch shown is the first to expire, and the server takes batches first-to-expire, never an expired or recalled one. *Substitutes* opens the same salt and strength, cheapest in stock first, with *Use this*. When a line is Schedule H, H1 or X the **Prescription** box appears: patient, phone (for recalls), age, address, doctor, registration number, clinic, date and a photo or scan (*Take photo / choose file*). For Schedule X the registered pharmacist chooses their name and types their PIN. *Save bill*; print 80 mm or A4. Quick bill still sells OTC medicines; a prescription medicine there is refused with a message pointing here. One payment method pays the whole bill. *Switch* (top right) hands the till to another person by their PIN, as on Quick bill, and with *Ask the biller's PIN for every bill* on, Save bill asks that PIN; Schedule X still needs the pharmacist's own PIN. The H1 and X registers show a *Returned* column when goods on an entry came back (the entry itself never changes).
+**Prescription sale** (Daily work; Quick bill opens from the Overview or *Jump to…*). Find a medicine by name, salt or maker. Each line sells by the strip (or loose tablets when allowed); the batch shown is the first to expire, and the server takes batches first-to-expire, never an expired or recalled one. *Substitutes* opens the same salt and strength, cheapest in stock first, with *Use this*. When a line is Schedule H, H1 or X the **Prescription** box appears: patient, phone (for recalls), age, address, doctor, registration number, clinic, date and a photo or scan (*Take photo / choose file*). For Schedule X the registered pharmacist chooses their name and types their PIN. *Save bill*; print 80 mm or A4. Quick bill still sells OTC medicines; a prescription medicine there is refused with a message pointing here. One payment method pays the whole bill. *Switch* (top right) hands the till to another person by their PIN, as on Quick bill, and with *Ask the biller's PIN for every bill* on, Save bill asks that PIN (except on the first bill within 2 minutes of the switch, as on Quick bill); Schedule X still needs the pharmacist's own PIN. The H1 and X registers show a *Returned* column when goods on an entry came back (the entry itself never changes).
 
 **Registers & prescriptions** (its own entry, under Business): the **H1 register**, the **Schedule X register**, the **prescription log** (click a row to see it and *Open the scan*) and the **expiry returns** with their credit status. Each opens on this month with the dates visible; *Print* gives the register as an inspector expects; *Export CSV*.
 
@@ -5784,8 +5827,7 @@ the link you were sent).
 - **Business Admin has no CSV import.** A shop types in its products,
   customers and suppliers ([First steps in a new
   business](#first-steps-in-a-new-business)).
-- **A business other than a restaurant cannot be renamed or handed over.**
-  The name in the switcher stays as it was created; *Name shown in the app* is what receipts print.
+- **A business cannot be handed over.**
   The Owner role is given only when a business is created and cannot be
   handed out: give the person who runs it a role in Staff & access (Manager,
   or a role made under Roles & permissions).

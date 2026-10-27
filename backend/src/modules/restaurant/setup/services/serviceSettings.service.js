@@ -3,6 +3,7 @@
 // service features that keep their switches here).
 const serviceSettingsRepository = require("../repositories/serviceSettings.repository");
 const AppError = require("../../../../utils/AppError");
+const webAddress = require("../../../../utils/webAddress");
 
 const TOKEN_ORDER_TYPES = ["takeaway", "delivery", "online"];
 const POS_ORDER_TYPES = ["dine_in", "takeaway", "delivery"];
@@ -58,40 +59,25 @@ const updateTokens = async (restaurantId, input, userId) => {
 };
 
 // The guest pages' web address, as a QR code will carry it: http(s), a host,
-// at most a path in front of /order/<token>, no query and no trailing slash.
-// Empty clears it (the staff screens then use the guests' site's own address,
-// and warn when that is one guests' phones cannot reach).
+// at most a path in front of /order/<token>, no query and no trailing slash
+// (utils/webAddress.js, which reads GUEST_WEB_URL the same way). Empty clears
+// it (the guests' site's own address is used then, and the staff screens
+// warn when that is one guests' phones cannot reach).
+const WEB_ADDRESS_PROBLEMS = {
+  too_long: () => `The guest ordering web address can be at most ${webAddress.MAX_LENGTH} characters.`,
+  not_an_address: (text) => `"${text}" is not a web address. Type it like https://order.myrestaurant.in`,
+  not_http: () => "The guest ordering web address must start with https:// (or http://).",
+  extra: () => "Type only the address itself, like https://order.myrestaurant.in — without anything after a ? or #.",
+};
+
 const readWebAddress = (value) => {
-  const text = String(value === undefined || value === null ? "" : value).trim();
+  const { address, problem } = webAddress.readWebAddress(value);
 
-  if (!text) {
-    return null;
+  if (problem) {
+    throw new AppError(400, WEB_ADDRESS_PROBLEMS[problem](String(value).trim()));
   }
 
-  if (text.length > 200) {
-    throw new AppError(400, "The guest ordering web address can be at most 200 characters.");
-  }
-
-  let url;
-
-  try {
-    url = new URL(/^[a-z]+:\/\//i.test(text) ? text : `https://${text}`);
-  } catch {
-    throw new AppError(400, `"${text}" is not a web address. Type it like https://order.myrestaurant.in`);
-  }
-
-  if (!["http:", "https:"].includes(url.protocol) || !url.hostname) {
-    throw new AppError(400, "The guest ordering web address must start with https:// (or http://).");
-  }
-
-  if (url.search || url.hash || url.username || url.password) {
-    throw new AppError(
-      400,
-      "Type only the address itself, like https://order.myrestaurant.in — without anything after a ? or #."
-    );
-  }
-
-  return `${url.origin}${url.pathname.replace(/\/+$/, "")}`;
+  return address;
 };
 
 const updateWebAddress = async (restaurantId, value, userId) => {

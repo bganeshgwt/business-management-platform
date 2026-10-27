@@ -11,7 +11,9 @@ import "../styles/setup.css";
 import { ErrorMessage, Loading, SuccessMessage } from "../../../../components/Feedback";
 import { getRestaurant, updateRestaurant } from "../services/restaurant.service";
 import { getErrorMessage } from "../../../../services/api";
+import { getCurrentUser } from "../../../../services/auth.service";
 import useAuth from "../../../../hooks/useAuth";
+import useBusiness from "../../../../hooks/useBusiness";
 import "../../../../styles/reports.css";
 
 const EMPTY = { name: "", contact: "", email: "", address: "" };
@@ -41,7 +43,8 @@ const ELSEWHERE = [
 ];
 
 export default function RestaurantProfilePage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, refreshUser } = useAuth();
+  const { reloadDirectory } = useBusiness();
   const canEdit = hasPermission("restaurant.settings.manage");
 
   const [form, setForm] = useState(EMPTY);
@@ -80,6 +83,11 @@ export default function RestaurantProfilePage() {
 
     try {
       await updateRestaurant(form);
+      // A new name: the header and the business switcher (whose restaurant takes it too) show it at once.
+      if (form.name.trim() !== saved.name.trim()) {
+        reloadDirectory();
+        getCurrentUser().then(refreshUser).catch(() => {});
+      }
       setSaved(form);
       setSavedAt(new Date());
       toast.success("Restaurant details saved");

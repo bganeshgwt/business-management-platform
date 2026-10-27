@@ -57,6 +57,7 @@ Inside Business Admin a restaurant is simply the restaurant business's own admin
 | **Warning level** | The share of a GST threshold (80% to start with, 50 to 99) from which a PAN's turnover is *nearing* it: the owner's own setting. | `owner_gst_settings.warn_percent` |
 | **IRP, e-invoicing** | The Invoice Registration Portal, to which a taxpayer whose aggregate turnover passed ₹5 crore in the year before reports its invoices as e-invoices; at ₹10 crore or more, within 30 days of their date. The platform warns when they apply; it makes and reports none. | `platform_gst_thresholds` |
 | **Breach register** | The record of each personal data breach: when it was found, what happened, its impact, the steps taken, the people affected and each notice sent to them, and when the Data Protection Board was told and sent the detailed report, due 72 hours after the breach was found. The platform files nothing itself. | `business_privacy_breaches` (+ `_people`, `_notices`) |
+| **Business name** | A business's own name: the one the switcher, the header and every screen show, changed in *Business settings › Business details*. *Name shown in the app* is a setting of its own, printed on till receipts, slips and cards. A restaurant's business always has its restaurant's name, changed on the restaurant's *Profile*. | `businesses.name`; the printed one `business_settings.display_name` |
 
 A request is allowed only when **both** hold: the business has the module switched on, and the person's role in that business has the permission.
 
@@ -133,6 +134,8 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Cutting batch** | Cutting or cleaning one weighed input into the cuts that are sold (numbered CP/…). |
 | **Yield** | The weight of the cuts as a % of the input; **process loss** is the rest. A **yield template** says what an input normally gives. |
 | **Wastage** | Weight written off (trimming, spoiled, unsold, drip loss, damaged), taken out of stock at its cost. |
+| **Order for pickup** | A phone or WhatsApp order, weighed and billed at Quick bill when it is picked up. Its **advance** is a numbered receipt in the customer's name, held for the order's bill, which it pays first; what is left once the order is closed goes back with a manager's PIN. |
+| **Offcut** | A cut priced, before GST, below what its whole item cost a kilo when it was cut: bones, skin, fish heads. **Recovered from offcuts** is what the bills brought in for them, before GST, less returns. |
 
 ### Café, bakery and cloud kitchen
 
@@ -156,6 +159,7 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Daily money** | What the counter sold and the money that came in and went out on a day, by payment method, person and counter. |
 | **Cash check** | The drawer counted against what it should hold. A difference needs a reason; the check is kept as it was saved. |
 | **Cashier shift** | One cashier's float and closing count at one counter, checked against their own cash in and out. A closed shift is a permanent record. |
+| **Shared till** | One Quick bill used by several people, each switching it to themselves with their own PIN (*Who is billing?*). With *Ask the biller's PIN for every bill* on, each bill asks for the biller's PIN, except the first bill within 2 minutes of a switch: the PIN typed to switch counts for it. |
 | **Kit** | Items sold together at one price ("mobile + cover + screen guard"). On the bill the price is split over the parts, and each part's stock goes down. |
 | **Credit voucher** | Credit from an exchange or a return, printed as a numbered voucher and spent at the counter. It can be spent for the number of days set in Business settings › Rules. |
 | **Markdown** | A fashion shop's % off every size and colour of one style, until an end date. It runs as an offer; the shelf price never changes, so it goes back by itself. |

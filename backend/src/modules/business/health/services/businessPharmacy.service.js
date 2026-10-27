@@ -281,13 +281,15 @@ async function allocate(db, business, locationId, inputs) {
   return lines;
 }
 
-// POST /pharmacy/sales — see the top of this file.
-async function sell(business, user, body) {
+// POST /pharmacy/sales — see the top of this file. meta.session: the
+// request's own session, which a till switch's proof must come from.
+async function sell(business, user, body, meta = {}) {
   requirePharmacy(business);
   await access.require(business, 'sales.create');
   const key = h.requestKey(body.requestKey);
-  // The biller's counter PIN is checked, never stored, not even in the hash.
-  const { counterPin, ...hashed } = body;
+  // The biller's counter PIN, or the proof of the till switch made with it,
+  // is checked, never stored, not even in the hash.
+  const { counterPin, counterProof, ...hashed } = body;
   const hash = h.hashOf(hashed);
   const inputs = v.requiredArray(body.lines, 'Lines');
   if (!inputs.length || inputs.length > 60) fail('Add between 1 and 60 lines');
@@ -295,7 +297,7 @@ async function sell(business, user, body) {
   if (paidNow.length) await access.require(business, 'sales.edit');
   // A shared till that asks the biller's PIN for every bill: the
   // pharmacy counter is a counter bill, like Quick bill.
-  if (body.channel === 'counter') await counterPins.checkBill(business, user, counterPin);
+  const billCheck = body.channel === 'counter' ? await counterPins.checkBill(business, user, { pin: counterPin, proof: counterProof, session: meta.session }) : null;
   const settings = await h.settings(repo.pool, business.id);
   const todayDay = await h.today(repo.pool, business);
   // What the bill holds decides what is needed (read again inside the transaction).
@@ -314,6 +316,7 @@ async function sell(business, user, body) {
   const signer = needsSign ? await h.verifySignature(business, 'pharmacist', body.signoff, 'A Schedule X medicine')
     : body.signoff ? await h.verifySignature(business, 'pharmacist', body.signoff, 'The sign-off') : null;
   return repo.transaction(async (db) => {
+    if (billCheck) await billCheck.spend(db, key);
     await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
     const old = await repo.one(db, 'SELECT * FROM business_documents WHERE business_id=$1 AND request_key=$2', [business.id, key]);
     if (old) {

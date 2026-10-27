@@ -12,6 +12,7 @@ const crmRepository = require("../../crm/repositories/crm.repository");
 const tableRepository = require("../../tables/repositories/table.repository");
 const orderService = require("../../orders/services/order.service");
 const AppError = require("../../../../utils/AppError");
+const { guestPageUrl } = require("../../../../utils/guestLinks");
 const ruleSettings = require("../../setup/services/ruleSettings.service");
 
 const DUPLICATE = "23505";
@@ -961,6 +962,8 @@ const toOnlineSettings = (row, room, hours) => ({
   // The public address guests' pages live at (Service settings), shared with
   // the table QR codes; empty means "the guest site's own address".
   guestWebAddress: row.guest_web_address || null,
+  // The whole link: at that address, else the guests' site's own (GUEST_WEB_URL); null when neither is set.
+  url: guestPageUrl(`/book/${row.token}`, row.guest_web_address),
   isEnabled: row.is_enabled,
   maxPartySize: row.max_party_size,
   seatSharePercent: row.seat_share_percent,

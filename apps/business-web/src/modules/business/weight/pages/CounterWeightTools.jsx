@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import ActionMenu from "../../../../components/ActionMenu";
 import Icon from "@bmp/ui/Icon";
-import { businessRead, businessWrite } from "../../../../services/business.service";
+import { businessRead } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
 import { businessPath } from "../../../../services/businessNav";
 import { toast } from "../../../../services/toast";
@@ -17,9 +17,12 @@ import "../styles/weight.css";
 //    that batch. If the bill is not taken, the cut stays in stock.
 //  - Orders for pickup: ?pickup=<id> fills the bill with the order's items
 //    (weights, or "₹200 worth" turned into a weight at today's rate) and
-//    its customer; the order is closed with the bill once it is taken.
-// toolsRef.current.posted(documentId) is called by the counter after a bill.
-export default function CounterWeightTools({ biz, locationId, onAdd, onCustomer, toolsRef, additionalActions = [] }) {
+//    its customer, and hands the order to the counter (onPickup): its bill
+//    carries the order, which the server closes with it, its advance paying
+//    first.
+// toolsRef.current.posted(documentId) is called by the counter after a bill,
+// and toolsRef.current.cancel() when it starts another.
+export default function CounterWeightTools({ biz, locationId, onAdd, onCustomer, onPickup, toolsRef, additionalActions = [] }) {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [cutting, setCutting] = useState(false);
@@ -49,7 +52,8 @@ export default function CounterWeightTools({ biz, locationId, onAdd, onCustomer,
           if (contact) onCustomer(contact);
         }
         setPickup(order);
-        toast.info(`${order.customer_name}'s order is on the bill. Weigh each item and check the weights.`, { duration: 6000 });
+        toast.info(`${order.customer_name}'s order is on the bill. Weigh each item and check the weights.${Number(order.advance_left) > 0
+          ? ` Its advance of ${biz.exact(order.advance_left)} comes off the bill.` : ""}`, { duration: 6000 });
       } catch (err) {
         toast.error(getErrorMessage(err));
       } finally {
@@ -58,25 +62,24 @@ export default function CounterWeightTools({ biz, locationId, onAdd, onCustomer,
     })();
   }, [biz, locationId, onAdd, onCustomer, params, setParams]);
 
-  // After the counter takes the bill: close the order with it.
+  // The counter bills the order with it on the bill.
+  useEffect(() => {
+    onPickup?.(pickup);
+  }, [pickup, onPickup]);
+
+  // After the counter takes the bill: the server closed the order with it.
   useEffect(() => {
     if (!toolsRef) return undefined;
     toolsRef.current = {
-      posted: async (documentId) => {
+      posted: () => {
         if (!pickup) return;
-        try {
-          await businessWrite(biz.id, `weight/pickup-orders/${pickup.id}/status`, { status: "collected", documentId });
-          toast.success(`${pickup.customer_name}'s order is collected.`);
-        } catch (err) {
-          toast.error(getErrorMessage(err));
-        } finally {
-          setPickup(null);
-        }
+        toast.success(`${pickup.customer_name}'s order is collected.`);
+        setPickup(null);
       },
       cancel: () => setPickup(null),
     };
     return () => { toolsRef.current = null; };
-  }, [biz.id, pickup, toolsRef]);
+  }, [pickup, toolsRef]);
 
   const added = async (batch) => {
     setCutting(false);
@@ -95,7 +98,11 @@ export default function CounterWeightTools({ biz, locationId, onAdd, onCustomer,
 
   return (
     <>
-      {pickup && <span className="rt-pickup-chip" title="The bill closes this order when it is taken"><Icon name="clipboard" size={14} /> Order: {pickup.customer_name}</span>}
+      {pickup && (
+        <span className="rt-pickup-chip" title="The bill closes this order when it is taken">
+          <Icon name="clipboard" size={14} /> Order: {pickup.customer_name}{Number(pickup.advance_left) > 0 ? ` · advance ${biz.exact(pickup.advance_left)}` : ""}
+        </span>
+      )}
       <ActionMenu text="More" label="More counter actions" items={[
         ...additionalActions,
         ...(biz.can("sales.view") ? [{ label: "Pickup orders", icon: "clipboard", onClick: () => navigate(businessPath(biz.id, "pickup-orders")) }] : []),

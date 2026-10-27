@@ -374,6 +374,11 @@ async function applyAdvance(business, user, contactId, body) {
       const held = await require('../../lodging/services/lodgingStays.service').heldReceipts(db, business, contact.id);
       receipts = receipts.filter((receipt) => !held.has(Number(receipt.id)));
     }
+    // An open order for pickup's advance pays that order's bill at pickup.
+    if (business.modules.includes('weight')) {
+      const held = await require('../../salon-weight/services/businessWeightDaily.service').heldReceipts(db, business, contact.id);
+      receipts = receipts.filter((receipt) => !held.has(Number(receipt.id)));
+    }
     let n = 0, applied = 0;
     const payments = [];
     // The part that covers the opening balance stays where it is (on the oldest receipts).

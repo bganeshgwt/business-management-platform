@@ -18,6 +18,7 @@ import { CustomerBox, PayBar, PhoneLines, ReturnFinder, VariantPicker } from "./
 import { BillerButton, BillerDialog, FinanceFields } from "./counterPay";
 import { emptyFinance, financeBody, financeReady, partsSummary, takeCarry, writeCarry } from "./counterPayState";
 import useAuth from "../../../../hooks/useAuth";
+import { billProofFor, dropBillProof } from "../../../../services/billProof";
 import { toast } from "../../../../services/toast";
 import useConfirm from "../../../../hooks/useConfirm";
 import { HELD_LIMIT, readHeld, readLast, udhaarRisk, useCustomerAccount, useNarrow, writeHeld, writeLast } from "./counterState";
@@ -27,6 +28,7 @@ import CounterShelf from "./counterShelf";
 import ShiftButton from "./counterShift";
 // Cut to order and orders for pickup at a meat / weight shop.
 import CounterWeightTools from "../../weight/pages/CounterWeightTools";
+import { advanceOnBill } from "../../weight/pages/pickupMoney";
 // A hardware shop's bill goes to one of the customer's sites.
 import SiteField from "../../hardware/pages/SiteField";
 import { usesFitters, usesSites } from "../../hardware/pages/hardware";
@@ -92,7 +94,7 @@ function cashChips(total) {
 
 export default function CounterPage() {
   const biz = useOpenBusiness();
-  const { switchUser } = useAuth();
+  const { user, switchUser } = useAuth();
   // A bill carried over from before the till was switched to this person.
   const [carried] = useState(() => takeCarry(biz.id));
   const confirm = useConfirm();
@@ -176,6 +178,8 @@ export default function CounterPage() {
   useDirtyGuard(lines.length > 0 && !posted);
   const account = useCustomerAccount(biz, customer);
   const weightTools = useRef(null);
+  // A meat or weight shop's order for pickup on this bill (CounterWeightTools): the bill closes it, its advance paying first.
+  const [pickupOrder, setPickupOrder] = useState(null);
 
   const canPay = biz.can("sales.edit");
   const canEmi = canPay && biz.has("finance") && biz.can("finance.create");
@@ -367,6 +371,8 @@ export default function CounterPage() {
     setDiscount({ mode: "amount", value: "", reason: "" }); setBuyer({ name: "", phone: "", pan: "", panDeclaration: false }); setSiteId(""); setFitterId("");
     setAgriBill(emptyAgriBill()); setWorkings([]);
     setQuote(null); setPosted(null); setPostError(""); setScanError(""); setRequestKey(newKey()); setVoucher(null); setVoucherCode(""); setVoucherError(""); setCoupon(""); setCouponText("");
+    // Another bill is not the order's.
+    weightTools.current?.cancel?.();
     setTimeout(() => scanRef.current?.focus(), 0);
   }, []);
 
@@ -391,9 +397,10 @@ export default function CounterPage() {
   // --- Paying ------------------------------------------------------------------
   const udhaar = method === "udhaar";
   const emi = method === "emi";
-  // What the voucher covers, and what is left to pay by cash, UPI or card.
+  // What the voucher covers, then an order for pickup's advance, and what is
+  // left to pay by cash, UPI or card.
   const fromVoucher = voucher ? Math.min(Number(voucher.balance), total) : 0;
-  const toPay = Math.round((total - fromVoucher) * 100) / 100;
+  const { fromAdvance, toPay } = advanceOnBill(total, fromVoucher, pickupOrder?.advance_left);
   const downSum = partsSummary(finance.down);
   const paidNow = !canPay ? 0 : udhaar ? Number(partPaid || 0) : toPay;
   const change = emi ? downSum.change : method === "cash" && Number(received) > toPay ? Number(received) - toPay : 0;
@@ -447,8 +454,10 @@ export default function CounterPage() {
   }
   async function post(pin = null) {
     if (!ready) return;
-    // The biller's PIN for every bill, when the business asks for it.
-    if (pinEveryBill && !pin) { setAskPin({ error: "" }); return; }
+    // The biller's PIN for every bill, when the business asks for it; the PIN
+    // typed to switch the till counts for the next bill (its proof).
+    const proof = pinEveryBill && !pin ? billProofFor(biz.id, user.id) : null;
+    if (pinEveryBill && !pin && !proof) { setAskPin({ error: "" }); return; }
     setPosting(true);
     setPostError("");
     try {
@@ -462,9 +471,10 @@ export default function CounterPage() {
         ...(panNeeded && buyer.panDeclaration ? { panDeclaration: true } : panNeeded && panText ? { pan: panText } : {}),
       };
       const doc = await businessWrite(biz.id, "documents", {
-        ...body, kind: "sale", requestKey, channel: "counter", ...(pin ? { counterPin: pin } : {}),
+        ...body, kind: "sale", requestKey, channel: "counter", ...(pin ? { counterPin: pin } : proof ? { counterProof: proof } : {}),
         ...(Object.keys(buyerBody).length ? { buyer: buyerBody } : {}),
         ...(voucher && fromVoucher > 0 ? { voucher: { code: voucher.voucher_no } } : {}),
+        ...(pickupOrder ? { pickupOrderId: pickupOrder.id } : {}),
         ...(siteId && customer ? { siteId } : {}),
         ...(fitterId && usesFitters(biz) ? { fitterId } : {}),
         ...agriBillBody(agriNeeds, agriBill, { customer, credit: agriCredit }),
@@ -472,6 +482,7 @@ export default function CounterPage() {
         ...payBody(),
       });
       setAskPin(null);
+      if (proof) dropBillProof();
       const detail = await businessRead(biz.id, `documents/${doc.id}`);
       const paid = detail.payments.reduce((s, p) => s + Number(p.amount), 0);
       const thisBill = Math.max(0, Number(detail.total) - paid);
@@ -482,6 +493,8 @@ export default function CounterPage() {
       setSold({ skuIds: [...new Set(lines.flatMap((l) => [l.sku.id, ...(l.kit || []).map((c) => c.skuId)]).map(String))] });
     } catch (err) {
       const reason = err?.response?.data?.data?.reason;
+      // A switch's proof refused (used, run out): from now on the PIN is asked.
+      if (reason === "pin_required") dropBillProof();
       // Asked for the PIN (the setting was just switched on), or a wrong one: ask again.
       if (reason === "pin_required" || (pin && ["wrong_pin", "pin_locked", "too_many_attempts", "no_pin"].includes(reason))) setAskPin((was) => ({ error: getErrorMessage(err), n: (was?.n || 0) + 1 }));
       else { setAskPin(null); setPostError(getErrorMessage(err)); }
@@ -629,7 +642,7 @@ export default function CounterPage() {
       {lastId && <button type="button" className="button button-secondary" onClick={() => setLastOpen(lastId)}><Icon name="receipt" size={15} /> Last bill</button>}
       {biz.can("sales.view") && <Link className="button button-secondary" to={businessPath(biz.id, "day-close")}><Icon name="clock" size={15} /> Daily money</Link>}
       {biz.has("weight")
-        ? <CounterWeightTools biz={biz} locationId={locationId} onAdd={addScanned} onCustomer={setCustomer} toolsRef={weightTools} additionalActions={moreActions} />
+        ? <CounterWeightTools biz={biz} locationId={locationId} onAdd={addScanned} onCustomer={setCustomer} onPickup={setPickupOrder} toolsRef={weightTools} additionalActions={moreActions} />
         : <ActionMenu text="More" label="More counter actions" items={moreActions} />}
     </>
   );
@@ -818,7 +831,13 @@ export default function CounterPage() {
                 {voucherError && <small className="rt-warn">{voucherError}</small>}
               </details>
             )}
-            {voucher && fromVoucher > 0 && <div className="rt-totals"><div><span>Voucher {voucher.voucher_no}</span><span>−{biz.exact(fromVoucher)}</span></div><div className="rt-grand"><span>Left to pay</span><strong>{biz.exact(toPay)}</strong></div></div>}
+            {(fromVoucher > 0 || fromAdvance > 0) && (
+              <div className="rt-totals">
+                {voucher && fromVoucher > 0 && <div><span>Voucher {voucher.voucher_no}</span><span>−{biz.exact(fromVoucher)}</span></div>}
+                {fromAdvance > 0 && <div><span>Advance {pickupOrder.advance_no}</span><span>−{biz.exact(fromAdvance)}</span></div>}
+                <div className="rt-grand"><span>Left to pay</span><strong>{biz.exact(toPay)}</strong></div>
+              </div>
+            )}
             {problem && <ErrorMessage message={problem} />}
             {waiting.length > 0 && <p className="small rt-warn">Enter the weight of {waiting.map((l) => l.sku.label).join(", ")}.</p>}
             {agriStop && lines.length > 0 && <p className="small rt-warn" role="status">{agriStop}</p>}
@@ -881,6 +900,7 @@ export default function CounterPage() {
               <ErrorMessage message={postError} />
               <button type="submit" className="button rt-post" disabled={!ready}>
                 {posting ? "Saving…" : udhaar ? `Put ${biz.exact(onCredit)} on udhaar` : toPay <= 0 && fromVoucher > 0 ? "Pay with the voucher"
+                  : toPay <= 0 && fromAdvance > 0 ? "Pay from the advance"
                   : emi ? `Take ${biz.exact(downSum.paid)} · ${biz.exact(Math.max(0, toPay - downSum.paid))} on EMI`
                   : `Take ${biz.exact(toPay)}${method !== "cash" ? ` by ${methods.name(methodKeys[method] || method, [method])}` : ""}`} <kbd>F12</kbd>
               </button>

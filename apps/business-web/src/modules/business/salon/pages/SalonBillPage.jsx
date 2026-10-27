@@ -18,6 +18,7 @@ import { BusinessHeader, Field, FormError } from "../../core/pages/ui";
 import { newKey, useDirtyGuard, useOpenBusiness, useOptions } from "../../core/pages/hooks";
 import { printReceipt } from "../../retail/pages/retail";
 import ClientPanel from "./ClientPanel";
+import { bookVisitPath } from "./salonLinks";
 import { ClientPicker } from "./salonParts";
 import { timeOfDay, whatsappLink } from "./salon";
 // The bill on WhatsApp needs the client's consent to bills on WhatsApp (asked first, in one tap).
@@ -501,8 +502,7 @@ export default function SalonBillPage() {
           </SectionCard>
         </div>
       </div>
-      <ClientPanel contactId={card} onClose={() => setCard(null)}
-        onBook={(c) => navigate(`${businessPath(biz.id, "salon-calendar")}?book=1&contact=${c.contact.id}${c.profile?.preferred_resource_id ? `&staff=${c.profile.preferred_resource_id}` : ""}`)} />
+      <ClientPanel contactId={card} onClose={() => setCard(null)} onBook={(c) => navigate(bookVisitPath(biz.id, c))} />
       {/* The saved bill opens over the page (as at Quick bill); closing it starts the next bill. */}
       {posted && <BillDone biz={biz} posted={posted} onNext={reset} onOpen={() => setDocId(posted.document.id)} docId={docId} onCloseDoc={() => setDocId(null)}
         onBookNext={() => navigate(`${businessPath(biz.id, "salon-calendar")}?book=1&contact=${posted.client?.id || ""}${posted.next ? `&sku=${posted.next.sku}&staff=${posted.next.staff}` : ""}`)} />}
