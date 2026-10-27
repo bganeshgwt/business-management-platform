@@ -149,12 +149,14 @@ const deviceHashes = (tokens) =>
 
 // The token version (tv) ties a token to the password it was issued under:
 // changing or resetting the password, or "sign out everywhere", bumps the
-// version and every older token stops working.
+// version and every older token stops working. Each token has a random id
+// (jti), so two sign-ins in the same second are still two sessions (a till
+// switch's PIN proof is good only in the session it was given to).
 const issueToken = (user, tokenVersion) =>
   jwt.sign(
     { restaurantId: user.restaurant_id ?? user.restaurantId ?? null, tv: tokenVersion ?? user.token_version ?? 0 },
     config.jwt.secret,
-    { subject: String(user.id), expiresIn: config.jwt.expiresIn }
+    { subject: String(user.id), expiresIn: config.jwt.expiresIn, jwtid: crypto.randomBytes(12).toString("base64url") }
   );
 
 const sessionOf = (token) => {

@@ -288,6 +288,8 @@ test('small rules inside built modules', { timeout: 600000 }, async (t) => {
     assert.equal((await refusal('POST', M('documents'), { ...meatBill, counterProof: session.billProof }, session.token, 403)).reason, 'pin_required');
     // Ravi signed in on another device.
     const elsewhere = await login('ravi@small.invalid');
+    // Another sign-in is another session, even within the same second.
+    assert.notEqual(elsewhere, session.token);
     assert.equal((await refusal('POST', G('documents'), { ...bill(), counterProof: session.billProof }, elsewhere, 403)).reason, 'pin_required');
     // None of those spent it: the till it was given to still uses it.
     assert.equal((await proofRow(session.billProof)).used_at, null);

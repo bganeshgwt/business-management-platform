@@ -230,7 +230,7 @@ Per-account lockout (modules/access/services/auth.service.js, config `accountLoc
 - Wrong but not yet locked: 400 `{ reason: "wrong_password" | "wrong_code" | "wrong_pin", attemptsLeft }` (sign-in password: 401 with no count).
 A user manager can lift all three counters early with `POST /api/users/:id/unlock`.
 
-Tokens: `token` is an HS256 JWT (`JWT_EXPIRES_IN`, default 8h) carrying a token version; changing/resetting the password or "sign out everywhere" bumps the version and older tokens get 401 `{ reason: "session_revoked" }`. Status, roles and permissions are re-read from the database on every request; an inactive user or restaurant gets 401 `{ reason: "account_inactive" | "restaurant_inactive" }`. `deviceTokens` (array of up to 20 strings, `[A-Za-z0-9_-]{20,100}`, malformed ones ignored) is the browser's remembered-device tokens, sent on sign-in and on routes that keep this device remembered. Device memory lasts 120 days.
+Tokens: `token` is an HS256 JWT (`JWT_EXPIRES_IN`, default 8h) carrying a token version and a random id of its own (two sign-ins in the same second are still two sessions); changing/resetting the password or "sign out everywhere" bumps the version and older tokens get 401 `{ reason: "session_revoked" }`. Status, roles and permissions are re-read from the database on every request; an inactive user or restaurant gets 401 `{ reason: "account_inactive" | "restaurant_inactive" }`. `deviceTokens` (array of up to 20 strings, `[A-Za-z0-9_-]{20,100}`, malformed ones ignored) is the browser's remembered-device tokens, sent on sign-in and on routes that keep this device remembered. Device memory lasts 120 days.
 
 ### Auth: sign-in and two-step sign-in
 Two-step flow:
