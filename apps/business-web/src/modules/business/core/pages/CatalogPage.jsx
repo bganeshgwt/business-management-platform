@@ -23,6 +23,8 @@ import { emptyGrid, gridBody, usesOptical } from "../../optical/pages/optical";
 import TaxHistoryDialog from "../../../tax-changes/pages/TaxHistoryDialog";
 import { shopChanges } from "../../../tax-changes/services/taxChanges.service";
 import { WORDS, onDate } from "../../../tax-changes/taxChanges";
+// The HSN / SAC codes to fix once 6-digit codes apply to the business's PAN (modules/gst-thresholds).
+import HsnToFix from "../../../gst-thresholds/pages/HsnToFix";
 
 // Extra details a product may carry, by the module that allows them.
 const ATTRIBUTES = {
@@ -49,6 +51,8 @@ export default function CatalogPage() {
   const [notice, setNotice] = useState("");
   const [pricing, setPricing] = useState(null);
   const [history, setHistory] = useState(null);
+  // Counts the items saved, so the codes to fix follow the fixes.
+  const [saved, setSaved] = useState(0);
   const taxChanges = useMemo(() => shopChanges(biz.id), [biz.id]);
   // A branch may sell at its own price once there is more than one.
   const branches = biz.locations.filter((l) => l.active).length > 1;
@@ -98,6 +102,7 @@ export default function CatalogPage() {
         actions={biz.can("catalog.create") && <button type="button" className="button" onClick={() => setEditing({})}><Icon name="plus" size={16} /> Add item</button>} />
       <SuccessMessage message={notice} />
       <ErrorMessage message={list.error} />
+      <HsnToFix onEdit={setEditing} refreshKey={saved} />
       <SectionCard flush icon="list" title="All items">
         <DataGrid {...list.gridProps} caption={title} columns={columns.filter(Boolean)} currency={biz.symbol}
           toolbar={categories.length > 0 && (
@@ -114,7 +119,7 @@ export default function CatalogPage() {
           empty="Nothing in the catalogue yet" emptyIcon="tag" />
       </SectionCard>
       {editing && <CatalogDialog sku={editing} onClose={() => setEditing(null)}
-        onSaved={(s) => { setEditing(null); setNotice(`${s.label} saved.`); list.reload(); }} />}
+        onSaved={(s) => { setEditing(null); setNotice(`${s.label} saved.`); list.reload(); setSaved((n) => n + 1); }} />}
       {pricing && <BranchPricesDialog sku={pricing} onClose={() => setPricing(null)}
         onSaved={(n) => { setPricing(null); setNotice(n ? `${pricing.label}: ${n === 1 ? "one branch price" : `${n} branch prices`} changed.` : "No branch price changed."); }} />}
       {history && <TaxHistoryDialog api={taxChanges} words={WORDS.shop} itemId={history.id} label={history.label} canEdit={biz.can("catalog.edit")} currency={biz.symbol}

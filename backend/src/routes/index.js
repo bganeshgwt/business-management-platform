@@ -75,6 +75,8 @@ router.use("/availability", availabilityRoutes);
 router.use("/preorders", require("../modules/restaurant/preorders/routes/preorder.routes"));
 // Personal data for the signed-in restaurant's guests (the module serves businesses under /businesses too).
 router.use("/privacy", require("../modules/personal-data/routes/personalData.routes").restaurantRouter);
+// An owner's GST thresholds: the signed-in restaurant's HSN / SAC codes to fix (the module serves businesses under /businesses too).
+router.use("/gst-thresholds", require("../modules/gst-thresholds/routes/gstThresholds.routes").restaurantRouter);
 
 // The one mount with no login in front of it: a guest at a table, holding a
 // QR code. Everything behind it is scoped by that code and rate limited.

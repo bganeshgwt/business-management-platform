@@ -252,9 +252,10 @@ function AppShell() {
   const { pathname } = useLocation();
   const business = useBusiness();
   const businessMode = business.inBusinessAdmin;
-  // The business chooser (/business-admin) stands on its own: no restaurant
-  // menu, outlet switcher or restaurant bell around it.
-  const chooser = pathname === "/business-admin";
+  // The business chooser (/business-admin), and the owner's GST thresholds
+  // across their businesses beside it, stand on their own: no restaurant
+  // menu, outlet switcher or restaurant bell around them.
+  const chooser = pathname === "/business-admin" || pathname === "/business-admin/gst-thresholds";
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [pinned, setPinned] = useState(readPinned);
@@ -432,7 +433,7 @@ function AppShell() {
             <BrandMark size={34} />
             <span className="brand-text">
               <span className="brand-name">Business Admin</span>
-              <span className="brand-restaurant">Choose a business to open</span>
+              <span className="brand-restaurant">{pathname === "/business-admin" ? "Choose a business to open" : "Across your businesses"}</span>
             </span>
           </span>
         ) : (

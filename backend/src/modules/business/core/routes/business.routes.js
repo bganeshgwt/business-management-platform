@@ -40,6 +40,8 @@ router.get('/', async (req, res) => send(res, await service.list(req.user)));
 // An owner adds another business of their own (any type but restaurant).
 router.post('/', async (req, res) => send(res, await onboarding.ownerCreate(req.user, req.body), 201));
 router.post('/link-restaurant', async (req, res) => send(res, await service.linkRestaurant(req.user)));
+// An owner's GST thresholds across their businesses (modules/gst-thresholds): the owner's view and its warning level.
+require('../../../gst-thresholds/routes/gstThresholds.routes').ownerRoutes(router, { send });
 
 // permission: one code, a list (any of them), or none (any member).
 // Opening the business lets GST rate changes whose date has come take effect first.
@@ -254,6 +256,8 @@ require('./businessCounter.routes')(router, { context, send, b });
 require('../../../tax-changes/routes/taxChanges.routes').businessRoutes(router, { context, send, b });
 // Personal data (one module for both engines): the notice, consents, requests and breaches.
 require('../../../personal-data/routes/personalData.routes').businessRoutes(router, { context, send, b });
+// An owner's GST thresholds (one module for both engines): the PAN an owner records, the HSN / SAC codes to fix.
+require('../../../gst-thresholds/routes/gstThresholds.routes').businessRoutes(router, { context, send, b });
 
 // Scoped constraint failures are the person's conflict, not a server fault.
 router.use((error, req, res, next) => {

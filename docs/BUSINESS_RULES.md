@@ -17,6 +17,7 @@ The everyday numbers, such as expiring-soon days, voucher validity, credit age g
 - [Fixed on purpose](#fixed-on-purpose)
 - [Every business](#every-business)
 - [Personal data](#personal-data)
+- [An owner's GST thresholds](#an-owners-gst-thresholds)
 - [Shops and the shared core](#shops-and-the-shared-core)
 - [Money and the day](#money-and-the-day)
 - [Wholesale](#wholesale)
@@ -153,6 +154,64 @@ The DPDP Act 2023 and the DPDP Rules 2025, for every business: a shop's customer
 
 - **Rule:** a restaurant guest's consent to offers is a consent like any other: the guest book's earlier yes was brought over as one, and the *Offers* column and WhatsApp chat in the guest book follow it. The mobiles copied from Guest insights for a broadcast are only the guests who agreed to offers and are not marked as a child; the rest are counted as left out. A call from its lists asks for that consent first, except to an unhappy guest about their complaint. On the guests' site an online order can tick *my bill on WhatsApp* and *offers*, on the notice the page shows; they are recorded, given online, when the restaurant accepts the order. The site says the guest's details are kept on their phone for the next order, with a way to forget them.
 - **Why:** one record per purpose: a consent kept in two places would drift apart.
+- **Change it:** nothing to set.
+
+## An owner's GST thresholds
+
+For every business and the restaurant. What applies to a taxpayer's invoices in a financial year follows its aggregate turnover in the year before: e-invoicing and 6-digit HSN / SAC codes above ₹5 crore, and, from 1 April 2025, at ₹10 crore or more no invoice or credit note reported to the IRP more than 30 days after its date. The researchers read aggregate turnover as counting every GSTIN under one PAN, so several small businesses of one owner can cross ₹5 crore together; a platform holding all of them can see that coming. The screens are in [ADMIN_GUIDE.md › GST thresholds across your businesses](ADMIN_GUIDE.md#gst-thresholds-across-your-businesses); what is left, with the accountant's check of that reading, is in [BACKLOG.md §10](BACKLOG.md#10-new-business-types).
+
+### A business's PAN comes from its GSTIN, and is never guessed
+
+- **Rule:** a business trades under the PAN its GSTIN carries (characters 3 to 12): its own GSTIN and its locations' (a restaurant: its GST number and its outlets'), a branch registered in another state included. A business with no GSTIN counts under the PAN its owner records for it on *GST thresholds*, and only its owner records or clears it; while it has a GSTIN none can be recorded. A business whose GSTINs carry different PANs, or that has neither a GSTIN nor a recorded PAN (a GST number that is not a valid GSTIN is none), is listed as not linked, with the reason, and counts under no PAN. Recording, changing and clearing a PAN are written to the activity log with the PAN masked.
+- **Why:** a PAN guessed from a name or a phone would add up businesses that are not one taxpayer's, or leave out one that is.
+- **Change it:** the business's GSTIN, in its settings (a restaurant: *Settings › GST and invoice*); a recorded PAN, on *GST thresholds*.
+
+### One owner's businesses add up under one PAN
+
+- **Rule:** a PAN's turnover is the sum of the businesses one owner login owns under it (the Owner role of each, in an active business; a restaurant once it is linked to the platform). Each owner's view adds up their own businesses only: another login that typed a GSTIN of the same PAN on a business of theirs never adds to it, and never sees it. A business's bell takes the more serious of its owners' sums.
+- **Why:** a GSTIN is typed, not checked with the GST portal, so adding up every business on the platform under a PAN would show one owner's turnover to anyone who typed their GSTIN.
+- **Change it:** nothing to set. An owner who wants businesses counted together owns them with one login.
+
+### Turnover is sales less returns before GST, on each business's own dates
+
+- **Rule:** a business's turnover is its sales less what came back, at their value before GST: a shop's sale bills (every line, nil-rated and exempt ones included) less its sale returns, each on its own posting date in the business's time zone, as Reports count them; a restaurant's bills (not voided) at their value of supply (the dishes after discounts, the service and delivery charges) less its credit notes, each on its business day (else its date on the restaurant's clock), as the GST pack counts them. Purchases, advances, deposits and the money taken are not sales. Only what is billed on the platform counts: a business's sales from before it came onto the platform, and those of a GSTIN under the PAN that is not on the platform, are not in the sums. The financial year runs from 1 April to 31 March: a bill at 23:30 on 31 March is last year's, one at 00:30 on 1 April this year's, and a restaurant's bill on the night of 31 March's business day still open is last year's. *At this pace* is each business's turnover this year so far, from 1 April (or the day it came onto the platform, if later), spread over the whole year to 31 March.
+- **Why:** GST is the government's money, not a sale; and each business's day ends on its own clock, not the server's. Whether this is how the law counts turnover is part of the accountant's check.
+- **Change it:** nothing to set.
+
+### Exempt and non-taxable supplies count, fuel included
+
+- **Rule:** sales on the GST nil slab count like any other, and so do a fuel station's walk-in and fleet fuel bills, which are outside GST, at the price billed (state VAT included).
+- **Why:** the researchers read aggregate turnover as including exempt and non-taxable supplies, a fuel station's petrol and diesel among them. They did not re-verify that reading: an accountant checks it ([BACKLOG.md §10](BACKLOG.md#10-new-business-types)).
+- **Change it:** a code change, once the accountant has said otherwise.
+
+### The figures are the platform's, with their sources
+
+- **Rule:** each figure (₹5 crore, ₹10 crore, the 30 days, the 6 digits) is a row of the platform's reference data, with what applies at it, how it is measured (above it, or at it and above), the date it applies from and its source, and every screen and bell reads it from there: none is written in the code. A figure applies from its date; a later one for the same rule takes over on its own date. *GST thresholds* lists them with their sources.
+- **Why:** the figures change with notifications, and each needs its source for the accountant who checks it.
+- **Change it:** the platform changes a figure, or adds one from a later date, by a migration (`platform_gst_thresholds`), after an accountant's check. No screen changes them.
+
+### The warnings, at the owner's own level
+
+- **Rule:** a figure applies for a financial year when the year before passed it (above ₹5 crore; ₹10 crore or more). So for each figure a PAN is *nearing* it once this year's turnover so far reaches the owner's warning level (80% of it until the owner changes it, a whole percent from 50 to 99); what applies there *applies from* the next 1 April once this year's turnover so far has passed it, and *applies now*, for this year, once the whole of last year's had. The owner sees each figure's standing on *GST thresholds*, with the year at this pace; the bell of each business under the PAN shows a warning for each figure nearing, and a critical line for each one passed (*Applies now*, or *Applies from* the next 1 April), a restaurant's on its own bell. A bell's standing may be up to five minutes old: a PAN recorded or cleared, or a warning level saved, shows at once.
+- **Why:** the research reads the notifications so: e-invoicing applies from 1 April 2026 to a taxpayer whose turnover passed ₹5 crore in 2025-26, and the 6-digit codes and the IRP's 30 days are measured on the year's turnover too. The warning comes before a figure is passed, and passing it this year is the moment to prepare for 1 April. The researcher's own unverified understanding that any year since 2017-18 counts, not only the last, is not built: it is part of the accountant's check. The bells' standing is kept because each sums two years of every business under the PAN, and the bells ask every minute.
+- **Change it:** the warning level, under *GST thresholds › When to warn*, by the owner.
+
+### Who sees the warning, the sums and the PAN
+
+- **Rule:** a business's bell shows the warning to whoever may see its money (reports: the Owner, Manager, Accountant and Viewer roles, and a restaurant's roles with reports). The sums are shown only to someone who may see the money of every business they add up; anyone else is told where the PAN stands, without them. The PAN shows in full to the business's owners only, and to everyone else as its last four characters (••••••234K); a restaurant's bell, which everyone there shares, always masks it. *GST thresholds* is the owner's alone: anyone else is told so.
+- **Why:** a manager of one business may not see another business's turnover; and where the owner is a person, the PAN is their personal data.
+- **Change it:** who holds reports, in *Roles & permissions*.
+
+### Once 6-digit codes apply, the catalogue lists the codes to fix
+
+- **Rule:** once 6-digit HSN / SAC codes apply to a business's PAN, now or from the next 1 April, its catalogue lists its items whose code is shorter, or missing (active items billed under their own code: not a kit, whose parts are billed, nor an item kept for use in services), to fix one by one, and says which: *now*, or *from 1 April*; a restaurant's *Tax rates* names its rates with a shorter code and a dish on them, since a dish prints its rate's code. Whoever may see the catalogue sees the list, never the turnover. *GST thresholds* counts them business by business.
+- **Why:** above ₹5 crore the HSN on invoices runs to 6 digits, and a bill copies its item's code; listed before 1 April, the codes are fixed before the first invoice that needs them.
+- **Change it:** each item's *HSN / SAC* code in its edit form; a restaurant's on its tax rate.
+
+### Nothing files or makes an e-invoice
+
+- **Rule:** the warnings say when e-invoicing and the IRP's 30 days apply; the platform makes no e-invoice, reports nothing to an IRP and files no return. E-invoices are made outside the platform.
+- **Why:** e-invoicing goes through an IRP, an outside integration ([BACKLOG.md §1](BACKLOG.md#1-outside-integrations)).
 - **Change it:** nothing to set.
 
 ## Shops and the shared core

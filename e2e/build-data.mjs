@@ -3,10 +3,11 @@
 // businesses, their owner sets up everything inside them. Returns what the
 // specs need to find it again: ids, the table QR codes, document numbers.
 // `sql(text, values)` runs one statement on the run's own database, for what
-// no request can make: an order taken, or a hire handed over, on an earlier day.
+// no request can make: an order taken, a hire handed over, or a sale made, on
+// an earlier day.
 import crypto from "node:crypto";
 
-import { AGRI, BUSINESSES, CLINIC, FUEL, GARAGE, GROCERY, GST_CHANGE, HARDWARE, JEWELLERY, LAUNDRY, LODGING, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, PRIVACY, RENTALS, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
+import { AGRI, BUSINESSES, CLINIC, FUEL, GARAGE, GROCERY, GST_CHANGE, GST_THRESHOLDS, HARDWARE, JEWELLERY, LAUNDRY, LODGING, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, PRIVACY, RENTALS, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
 
 // Every call names the status it expects, so a set-up that goes wrong stops
 // at the first wrong answer, with the API's own message, rather than leaving
@@ -118,10 +119,11 @@ export async function buildTestData({ api, logins, sql }) {
   const owner = caller(api, await signIn("RESTAURANT_ADMIN"));
 
   // The restaurant's own staff. A login with businesses of its own works in
-  // those shops only, and is made with them further down.
+  // those shops only, and is made with them further down; so is the GST
+  // owner's and their manager's.
   const roles = await owner("GET", "/roles");
   const staffIds = {};
-  for (const person of logins.filter((item) => !["SUPER_ADMIN", "RESTAURANT_ADMIN"].includes(item.role) && !item.businesses)) {
+  for (const person of logins.filter((item) => !["SUPER_ADMIN", "RESTAURANT_ADMIN"].includes(item.role) && !item.businesses && !item.gstOwner)) {
     const role = roles.find((item) => item.code === person.role && item.isSystem);
     const made = await owner("POST", "/users", { name: person.name, email: person.email, password: person.password, roleIds: [role.id] }, 201);
     staffIds[person.role] = made.id;
@@ -800,6 +802,54 @@ export async function buildTestData({ api, logins, sql }) {
     });
   }
 
+  // An owner's GST thresholds: the GST owner's own businesses, made by the
+  // platform with their login (the first) and then for it; the contract
+  // supplies sold today, paid by bank transfer to a buyer with a PAN, the
+  // firm's then moved back into the last financial year; and the hardware
+  // shop's manager, a login made in its Staff & access.
+  const gstThresholds = {};
+  {
+    const person = login("GST_OWNER");
+    for (const key of ["hardware", "supplies", "firm", "kirana"]) {
+      const shop = GST_THRESHOLDS[key];
+      const made = (await platform("POST", "/users/platform/businesses", {
+        businessType: shop.type, name: shop.name, code: shop.code, timezone: TIMEZONE, ...(shop.gstin ? { gstin: shop.gstin } : {}),
+        owner: key === "hardware" ? { name: person.name, email: person.email, password: person.password } : { email: person.email },
+      }, 201)).business;
+      gstThresholds[key] = { id: made.id, name: made.name, code: made.code };
+    }
+    const gstOwner = caller(api, await signIn("GST_OWNER"));
+    for (const key of ["hardware", "supplies", "firm"]) {
+      const shop = GST_THRESHOLDS[key];
+      const B = (route) => `/businesses/${gstThresholds[key].id}/${route}`;
+      const nil = (await gstOwner("GET", B("tax-rates?limit=100"))).items.find((rate) => Number(rate.rate) === 0);
+      const locationId = (await gstOwner("GET", B("locations"))).items[0].id;
+      const item = await gstOwner("POST", B("catalog"), {
+        name: shop.item.name, code: shop.item.code, kind: "service", unit: "service", price: shop.item.price, taxRateId: nil.id, hsnCode: shop.item.sac,
+      }, 201);
+      const buyer = await gstOwner("POST", B("contacts"), { kind: "customer", name: GST_THRESHOLDS.buyer.name, pan: GST_THRESHOLDS.buyer.pan }, 201);
+      const sale = await gstOwner("POST", B("documents"), {
+        kind: "sale", requestKey: requestKey(), locationId, contactId: buyer.id,
+        lines: [{ skuId: item.id, quantity: String(shop.quantity) }], payment: { method: "bank", amount: "full" },
+      }, 201);
+      if (shop.lastYear) {
+        // Sold last financial year: on 1 October of it, at noon on the shop's clock.
+        const [moved] = await sql(`UPDATE business_documents SET created_at =
+            (make_date(extract(year FROM (now() AT TIME ZONE $3) - interval '3 months')::int - 1, 10, 1) + time '12:00') AT TIME ZONE $3
+          WHERE business_id = $1 AND id = $2 RETURNING id`, [gstThresholds[key].id, sale.id, TIMEZONE]);
+        if (!moved) {
+          throw new Error(`Test data: ${shop.name}'s sale could not be moved into the last financial year.`);
+        }
+      }
+      gstThresholds[key].item = { id: item.id, name: item.label };
+    }
+    const manager = login("GST_MANAGER");
+    const managerRole = (await gstOwner("GET", `/businesses/${gstThresholds.hardware.id}/roles`)).items.find((role) => role.template_code === "manager");
+    await gstOwner("POST", `/businesses/${gstThresholds.hardware.id}/staff-accounts`, {
+      name: manager.name, email: manager.email, password: manager.password, roleId: managerRole.id,
+    }, 201);
+  }
+
   // Each login that works in some of the owner's shops: made in the first
   // of them, as Staff & access › New staff login makes one, then given access
   // to the others; a manager in every one, or the role of its trade it names.
@@ -889,5 +939,6 @@ export async function buildTestData({ api, logins, sql }) {
     },
     platform: { restaurants: PLATFORM.restaurants },
     businesses,
+    gstThresholds,
   };
 }

@@ -17,6 +17,8 @@ import {
 } from "../services/menu.service";
 import { getErrorMessage } from "../../../../services/api";
 import useAuth from "../../../../hooks/useAuth";
+// The rates whose HSN / SAC code is shorter, once 6-digit codes apply to the restaurant's PAN (modules/gst-thresholds).
+import MenuHsnNotice from "../../../gst-thresholds/pages/MenuHsnNotice";
 import "../../../../styles/billing.css";
 
 const EMPTY = {
@@ -176,6 +178,7 @@ export default function TaxRatesPage() {
 
       <ErrorMessage message={error} />
       <SuccessMessage message={success} />
+      <MenuHsnNotice rates={rates} />
 
       {strandedDishes > 0 && (
         <div className="alert alert-notice">

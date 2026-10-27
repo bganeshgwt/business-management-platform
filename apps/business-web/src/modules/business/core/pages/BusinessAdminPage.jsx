@@ -12,6 +12,8 @@ import { AddBusinessDialog } from "./NewBusinessForm";
 import { moneyShort } from "@bmp/shared/format";
 import { businessPath, TYPE_ICONS } from "../../../../services/businessNav";
 import { UDHAAR } from "../../../../services/businessTypes";
+// An owner's turnover under each PAN (modules/gst-thresholds).
+import OwnerThresholdsCard from "../../../gst-thresholds/pages/OwnerThresholdsCard";
 import "../styles/business-admin.css";
 
 // /business-admin with no business chosen: go to the one this person last
@@ -87,6 +89,7 @@ export default function BusinessAdminPage() {
           )}
         </div>
       </SectionCard>
+      {businesses.some((b) => b.full_access) && <OwnerThresholdsCard />}
       {adding && <AddBusinessDialog types={types} onClose={() => setAdding(false)} submit={createBusiness}
         onSaved={async (business) => { setAdding(false); await reloadDirectory(); switchTo(business); }} />}
     </div>

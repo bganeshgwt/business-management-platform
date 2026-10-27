@@ -49,8 +49,9 @@ The tables behind these endpoints are in [DATABASE.md](DATABASE.md), and how a r
 37. [Tasks, issues & projects](#tasks-issues--projects)
 38. [Live updates](#live-updates)
 39. [Personal data](#personal-data)
+40. [Owner's GST thresholds](#owners-gst-thresholds)
 
-Sections 2 to 19 are the restaurant module's API, with the sign-in and platform routes every app uses. Sections 20 to 36 are the Business Admin's, under `/api/businesses`. Sections 37 to 39 serve both.
+Sections 2 to 19 are the restaurant module's API, with the sign-in and platform routes every app uses. Sections 20 to 36 are the Business Admin's, under `/api/businesses`. Sections 37 to 40 serve both.
 
 ## Conventions
 
@@ -4021,7 +4022,7 @@ All routes are mounted at `/api/businesses` (`backend/src/modules/business/core/
 
 ### Directory
 
-These three routes have no `:businessId`, so they skip the membership check.
+These three routes have no `:businessId`, so they skip the membership check. Nor do an owner's GST thresholds, `GET /api/businesses/gst-thresholds` and `PUT /api/businesses/gst-thresholds/warning-level`: each answers for the signed-in person's own businesses ([Owner's GST thresholds](#owners-gst-thresholds)).
 
 #### `GET /api/businesses`
 Permission: login only
@@ -4105,7 +4106,7 @@ Errors: 400 a future date; 400 "Give a reason for the cash difference"; 404 loca
 #### `GET /api/businesses/:businessId/notifications`
 Permission: any member (each alert also needs its own view permission)
 Query/Body: none
-Returns: `{ items[{ id, severity (critical, warning, info), category, title, detail, at, link }], counts, generatedAt }`. Worked out from live data when asked; nothing is stored. The alerts: items at or below their reorder level (`inventory.view`); batches expired or expiring within the business's Expiring soon days (30 until changed; `inventory.view`, `batches`); customers with bills past due, and promises to pay due today or broken (`receivables.view`); repairs ready or late (`repairs.view`); appointments still to come today (`appointments.view`); licences that run out within 60 days or have run out (`licences.view`; see [Licences & registrations](#licences--registrations)); and the tasks and issues described under [Tasks, issues & projects](#tasks-issues--projects). Ids are stable per alert, so the browser remembers which were read. At most 15 per kind.
+Returns: `{ items[{ id, severity (critical, warning, info), category, title, detail, at, link }], counts, generatedAt }`. Worked out from live data when asked; nothing is stored. The alerts: items at or below their reorder level (`inventory.view`); batches expired or expiring within the business's Expiring soon days (30 until changed; `inventory.view`, `batches`); customers with bills past due, and promises to pay due today or broken (`receivables.view`); repairs ready or late (`repairs.view`); appointments still to come today (`appointments.view`); licences that run out within 60 days or have run out (`licences.view`; see [Licences & registrations](#licences--registrations)); and the tasks and issues described under [Tasks, issues & projects](#tasks-issues--projects); and, for `reports.view`, the business's PAN nearing or past a GST threshold (category `GST`, id `gst-threshold:<financial year>:<figure in rupees>:<near|crossed:this_year|crossed:last_year>`; see [Owner's GST thresholds](#owners-gst-thresholds)). Ids are stable per alert, so the browser remembers which were read. At most 15 per kind.
 
 ### Paged lists (core)
 
@@ -6913,3 +6914,35 @@ A restaurant's audit rows go to its activity log (`audit_logs`): a guest's conse
 - The guests' pages carry `privacy: { id, version, notice, billsText, offersText, contact } | null`: the online ordering and table QR menus, and the booking page. `POST /api/public/online/:token/orders` takes `consents` (`bills_digital`, `offers`) with `privacyNoticeId` (the notice the page showed; 400 when it is not this restaurant's); they are recorded, given online, when the order is accepted.
 - `POST /api/guest-insights/segments/:key/export` with `format: "mobiles"` gives only the guests who agreed to offers and are not marked as a child, with `leftOut` counting the rest.
 - A phone number is never required: a repair intake, a warranty, an EMI walk-in buyer and a restaurant pre-order (`POST /api/preorders`, its mobile matched the one way the guest book keeps it) need a name only.
+
+## Owner's GST thresholds
+
+An owner's turnover across their businesses under one PAN, for both engines, through one module (`backend/src/modules/gst-thresholds`), against the figures the platform keeps (`platform_gst_thresholds`: e-invoicing and 6-digit HSN / SAC codes above ₹5 crore, the IRP's 30 days at ₹10 crore or more, each with its source and the date it applies from). Three doors:
+
+- `/api/businesses/gst-thresholds…` — the owner's view: no `:businessId`, each answer the signed-in person's own businesses. Mounted from `business.routes.js` before its `/:businessId` routes.
+- `/api/businesses/:businessId/…` — one business: the PAN its owner records, its HSN / SAC codes to fix. The Business Admin checks as on every business route.
+- `/api/gst-thresholds/…` — the signed-in restaurant's HSN / SAC codes to fix. `authenticate`, then the permission named.
+
+How the rules work: [BUSINESS_RULES.md › An owner's GST thresholds](BUSINESS_RULES.md#an-owners-gst-thresholds).
+
+**A PAN group** is the businesses one owner login owns (the Owner role, in an active business; a linked restaurant while it is active) under one PAN. A business's PAN is the one its GSTINs carry (its own and its active locations'; a restaurant's GST number and its active outlets'), else the one its owner recorded (`business_gst_pans`); one whose GSTINs carry different PANs, or that has neither, is not linked. **Turnover** is a business's sales less returns before GST, on its own dates and clock: a shop's sale documents' `subtotal` less its sale returns' line values, by posting date in `businesses.timezone`; a restaurant's bills (not void) at `taxable_amount` less its credit notes' `taxable_value`, by business day (else the date on its clock), as the GST pack counts them. The financial year is April to March, from the latest of the group's dates (`business_tax_change_today`: a restaurant's trading date). A figure applies for a year when the year before passed it (`above`, or `at_or_above`): a step is `crossed` `by: last_year` when the whole of last year passed it (its rules apply now), `crossed` `by: this_year` when this year so far has (they apply from the next 1 April, `appliesFrom`), `near` when this year so far reached the owner's warning level of it, else `below`. Money is a decimal string of rupees.
+
+| Method and path | Permission | Body | Returns |
+| --- | --- | --- | --- |
+| `GET /api/businesses/gst-thresholds` | login | — | `{ owner, warnPercent, today, year: { label, from, to }, lastYear, thresholds[], groups[], notLinked[] }`. `owner` false (and no groups) for someone who owns no business. `thresholds[]`: `{ code, name, applies, turnover, comparison, hsnDigits, reportWithinDays, appliesFrom (null: its first date not recorded), source, inForce }`. `groups[]`, most turnover first: `{ pan, thisYear, lastYear, projected, steps[], hsn: { applies, from, digits }, businesses[] }` (`hsn.applies` once 6-digit codes apply now or from the next 1 April, `from` that day while it is to come, else null); a step is `{ turnover, comparison, state (below, near, crossed), by (last_year, this_year, null), appliesFrom (the next 1 April when crossed by this year, else null), share (this year so far as a % of the figure, one decimal), warnAt, onPace, words, rules[] }`. A business is `{ id, name, code, businessType, typeName, restaurant, source (gstin, recorded), gstins[], recordedPan, recordedAt, today, startedOn, thisYear, lastYear, projected, hsnToFix (a count once 6-digit codes apply or are coming, else null) }`; a business not linked adds `reason` (`no_gstin`, `gstin_invalid`, `gstins_differ`) and `pans[]` |
+| `PUT /api/businesses/gst-thresholds/warning-level` | login, as the owner of a business | `warnPercent` (a whole percent from 50 to 99) | `{ warnPercent }`; the same again changes nothing |
+| `PUT /api/businesses/:businessId/gst-pan` | any member; the service lets only the business's owners through | `pan` (`ABCDE1234F`; spaces and small letters are tidied; empty clears it) | `{ businessId, pan, recordedAt, changed }`; the same PAN again is `changed: false`. A change is audited with the PAN masked: `gst_pan.recorded` or `gst_pan.cleared` in `business_audit`, or for a restaurant `gst_pan_recorded` or `gst_pan_cleared` in its activity log (`entity_type` `restaurant`) |
+| `GET /api/businesses/:businessId/gst-thresholds/hsn` | catalog.view | — | `{ applies, from, digits, count, rule }`: whether the HSN rule applies to the business's PAN, now (`from` null) or from the next 1 April (`from` that day), its digits, how many items print a shorter code or none (active items billed under their own code: not a kit, nor one kept for use in services), and the rule. No sums |
+| `GET /api/businesses/:businessId/gst-thresholds/hsn-items` | catalog.view | the paged-list contract (`limit` up to 100, `offset`, `q` on the name, code and HSN) | `{ total, items }`: those items, each a catalogue row (`label`, `code`, `hsn_code`, `hsn_length`, `kind`, `tax_rate_id`, `category_id`, `pack_sizes`…) by name |
+| `GET /api/gst-thresholds/hsn` | menu.view (the restaurant) | — | `{ applies, from, digits, rule, rates[] }`: once the rule applies to the restaurant's PAN, now (`from` null) or from the next 1 April (`from`), its tax rates with a shorter code (or none) that a dish on the menu is charged at, `{ id, name, percentage, hsn_code, dishes }` |
+
+**The bells.** A business's bell (`GET /api/businesses/:businessId/notifications`, for `reports.view`) and a restaurant's (`GET /api/notifications`, provider `gstThresholds`, for `reports.view`) carry one line for each figure the PAN is near (`warning`) or past (`critical`, whether its rules apply now or from the next 1 April): the most serious of the business's owners' groups, `id` `gst-threshold:` (a restaurant's `gstThresholds:`) then the year, the figure in rupees and the standing (`near`, `crossed:this_year`, `crossed:last_year`), `title` the step's words, `detail` the PAN (in full for the business's owners, else its last four characters, and always masked on a restaurant's bell) with the sums only when the person may see the money of every business they add up (the Owner role or `reports.view` in each), category `GST`. The link opens the owner's view for an owner; for anyone else, once 6-digit codes apply or are coming, the catalogue (`…/products`), or a restaurant's tax rates (`/menu/tax-rates`). The standing behind them is kept five minutes for everyone in the API process (`standingCache.js`, the bell's `NOTIFICATIONS_CACHE` switch) and thrown away when a PAN is recorded or cleared or a warning level saved; the PAN, the sums and the link are worked out for each person on every call.
+
+**Errors**
+
+| Status | When |
+| --- | --- |
+| 400 | A warning level that is not a whole percent from 50 to 99; a PAN not in its shape; a page larger than 100 |
+| 403 | The warning level set by someone who owns no business; a PAN recorded by someone who is not the business's owner; the permission is missing |
+| 404 | A business the person is not a member of |
+| 409 | A PAN recorded for a business that takes its PAN from its GSTIN, or whose GSTINs carry different PANs; the codes to fix asked for a business whose PAN the HSN rule does not apply to, now or from the next 1 April |

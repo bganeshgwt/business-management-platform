@@ -66,6 +66,7 @@ Every business except the restaurant runs on the same core. It is built once, so
 | Settings | Licences & registrations | Each branch's licences and registrations with their numbers, issuing authority and dates; the bell warns 60 days before one runs out |
 | People | Staff and access | Role, branch and department for each person |
 | Insight | Reports and activity log | Money by day, branch comparison, department sales, and who did what |
+| Insight | GST thresholds (for an owner) | The turnover of every business one owner has under one PAN, the restaurant's included, added up for the financial year (this year so far, last year, the year at this pace), with a warning on the owner's view and on each business's bell before e-invoicing and 6-digit HSN codes apply (₹5 crore) and before the IRP's 30 days (₹10 crore), and the HSN / SAC codes to fix |
 
 Two rules hold everywhere:
 - Prices, tax and totals are always worked out by the server.

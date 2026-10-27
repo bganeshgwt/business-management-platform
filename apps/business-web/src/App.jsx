@@ -9,6 +9,8 @@ import { businessPath, isRestaurantStaff, landingBusiness } from "./services/bus
 const LoginPage = lazy(() => import("./modules/access/pages/LoginPage"));
 const BusinessAdminPage = lazy(() => import("./modules/business/core/pages/BusinessAdminPage"));
 const BusinessAdminRoutes = lazy(() => import("./modules/business/core/pages/BusinessAdminRoutes"));
+// An owner's GST thresholds across their businesses, beside Your businesses (modules/gst-thresholds).
+const GstThresholdsPage = lazy(() => import("./modules/gst-thresholds/pages/GstThresholdsPage"));
 const DashboardPage = lazy(() => import("./modules/restaurant/dashboard/pages/DashboardPage"));
 const ProfilePage = lazy(() => import("./modules/access/pages/ProfilePage"));
 const NotFoundPage = lazy(() => import("./layouts/NotFoundPage"));
@@ -207,6 +209,8 @@ export default function App() {
               restaurant: the switcher in the header opens them here, and the
               business's own menu replaces the restaurant's. */}
           <Route path="business-admin" element={<BusinessAdminPage />} />
+          {/* An owner's turnover under each PAN, across their businesses. */}
+          <Route path="business-admin/gst-thresholds" element={<GstThresholdsPage />} />
           <Route path="business-admin/:businessId/*" element={<BusinessAdminRoutes />} />
 
           {/* Your own name, mobile and password. This sat inside the menu block,

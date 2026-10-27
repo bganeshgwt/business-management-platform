@@ -42,6 +42,7 @@ on record.
   - [A shop, wholesaler, salon, pharmacy or clinic](#a-shop-wholesaler-salon-pharmacy-or-clinic)
   - [A restaurant](#a-restaurant)
 - [The business switcher](#the-business-switcher)
+  - [GST thresholds across your businesses](#gst-thresholds-across-your-businesses)
 - [Getting around the restaurant admin](#getting-around-the-restaurant-admin)
 - [Lists: the data grid](#lists-the-data-grid)
 
@@ -472,8 +473,10 @@ business*, by name, type or code) and pick from **Restaurants & food** and
   another business the outlet picker gives way to that business's
   **location picker**, and the bell and Quick access are its own: the bell
   warns about low stock, expiring batches, overdue udhaar (outstanding) and
-  promises to pay, repairs, appointments, licences running out, and tasks
-  and issues.
+  promises to pay, repairs, appointments, licences running out, tasks
+  and issues, and, for whoever may see the business's money, its PAN's
+  turnover nearing or past a GST threshold
+  ([GST thresholds across your businesses](#gst-thresholds-across-your-businesses)).
 - **Another restaurant** is greyed out ("This restaurant opens when you sign
   in to it"): sign in to that restaurant to manage it.
 - The last business you opened is **remembered on the server**, so your next
@@ -491,7 +494,82 @@ business*, by name, type or code) and pick from **Restaurants & food** and
     restaurant**, which adds it, with them as its owner.
   - Someone who belongs to no business yet is told so, and asks a business's
     owner for access.
+  - The owner of a business sees a **GST thresholds** card: each PAN's
+    turnover this financial year so far and the most serious figure it nears
+    or has passed (what applies there applying now, or from the next
+    1 April), with *Open GST thresholds*.
+- **GST thresholds**, under *All businesses* in the switcher (for the owner
+  of a business), opens the owner's view of their businesses' turnover by PAN
+  (below).
 - Leaving a form you have not saved asks first.
+
+### GST thresholds across your businesses
+
+What applies to a taxpayer's invoices in a financial year (April to March)
+follows its aggregate turnover in the year before: e-invoicing and 6-digit
+HSN / SAC codes on invoices above ₹5 crore, and at ₹10 crore or more no
+invoice or credit note reported to the IRP more than 30 days after its date.
+Several businesses of one owner trade under one PAN, and their turnover adds
+up.
+**GST thresholds** (`/business-admin/gst-thresholds`, from the switcher or the
+*GST thresholds* card on *Your businesses*) is the owner's own: anyone else is
+told it is for a business's owner.
+
+- **One card for each PAN**, with the businesses you own under it: each
+  business's PAN comes from its GSTIN (its own or a location's; a restaurant's
+  GST number or an outlet's), a branch registered in another state included.
+  The card shows the turnover **this year so far**, **last year**, and **at
+  this pace** by 31 March (each business's pace since 1 April, or since the
+  day it came onto the platform), and, for each figure, where the PAN stands:
+  *Below*, *Nearing* (from your warning level), *Applies from* the next
+  1 April (passed this year so far) or *Applies now* (passed last year), with
+  a bar to the figure and a mark at your warning level, what applies there,
+  and *at this pace it passes by 31 March* when the pace says so. Each
+  business's row gives its PAN's source, its turnover and *Open*.
+- **Turnover** is each business's sales less what came back, before GST, on
+  its own dates and clock: a shop's bills and returns on their days, a
+  restaurant's bills (not voided) and credit notes on their business days.
+  Nil-rated and exempt sales count, and so do a fuel station's fuel bills,
+  outside GST: that is how the platform's research reads aggregate turnover,
+  and an accountant has still to check it. Purchases, advances and deposits
+  are not sales. Only what is billed on the platform counts: a business's
+  sales from before it came onto the platform, and those of a GSTIN under the
+  PAN that is not on the platform, are yours to add.
+- **Not linked to a PAN** lists a business with no GSTIN and no PAN
+  recorded, one whose GST number is not a valid GSTIN, and one whose GSTINs
+  carry different PANs, each with why and what it sold this year. **Record
+  PAN** gives a business with no GSTIN the PAN it trades under (*Change PAN*
+  later, or clear it); it then counts with your other businesses under that
+  PAN. A business with a GSTIN takes its PAN from it: correct the GSTIN in its
+  settings instead. Nothing is guessed.
+- **When to warn**: the share of each figure (80% to start with, a whole
+  percent from 50 to 99) from which this page and the bell of each of your
+  businesses under the PAN say the turnover is *nearing* it.
+- **HSN / SAC to fix**, once 6-digit codes apply, now or from the next
+  1 April: how many items of each business print a shorter code, or none,
+  with a link to them (a restaurant's tax rates), to fix before they are
+  needed.
+- **The figures, and how turnover is counted**: each figure with what
+  applies, the turnover it is measured against, the date it applies from and
+  its source. The platform keeps them; an accountant checks them.
+
+**The bell.** Each business under the PAN warns on its bell (a restaurant on
+its own), one line for each figure: nearing it as a warning; passed as
+critical, saying whether what applies there applies now (passed last year)
+or from the next 1 April (passed this year so far: the time to prepare).
+Only people who may see the business's money (its reports) get it. The PAN
+shows in full to the business's owners and as its last four characters
+(••••••234K) to everyone else; the sums show only to someone who may see the
+money of every business they add up. The line opens *GST thresholds* for an
+owner, and the catalogue's codes to fix for anyone else once 6-digit codes
+apply or are coming (a restaurant: *Menu › Tax rates*). A bell's figures may
+be up to five minutes behind the sales; a PAN recorded or a warning level
+saved shows at once.
+
+A business's turnover adds up with the other businesses the same owner login
+owns under its PAN: a business someone else owns, even under the same PAN,
+is in their view, not yours. Nothing here files a return or makes an
+e-invoice: e-invoices are made through the IRP outside the platform.
 
 ## Getting around the restaurant admin
 
@@ -1494,7 +1572,12 @@ one marked as the default for new dishes. A new restaurant starts with four: *Ex
 (0 %), *GST 5% (restaurant)* with SAC 996331, which is the default, *GST 18%* and
 *GST 40%*; rename them, switch them off or add others here. Changing a rate reprices
 every dish that uses it — but **bills already raised keep the rate they were charged
-at**, so history stays correct. A rate in use cannot be deleted.
+at**, so history stays correct. A rate in use cannot be deleted. A dish prints its
+rate's code: once 6-digit HSN / SAC codes apply to the restaurant's invoices (its
+PAN's turnover has passed ₹5 crore, [GST thresholds across your
+businesses](#gst-thresholds-across-your-businesses)), now or from the next 1 April, a note
+at the top says which and names each rate with a shorter code, or none, that a dish on
+the menu is charged at, to edit.
 
 **GST rate changes** (Menu) enters the yearly GST change ahead of its day, as a shop
 does ([GST rate changes](#gst-rate-changes)): **New GST rate change**, pick the dishes
@@ -2424,6 +2507,13 @@ reorder level.
 - **Barcodes.** Two items never share one. *Edit* changes an item's barcode
   to the one printed on the pack, or clears it; **Barcode labels** gives an
   in-store barcode to items that have none.
+- **HSN / SAC codes to fix.** Once 6-digit codes apply to the business's
+  invoices (its PAN's turnover has passed ₹5 crore,
+  [GST thresholds across your businesses](#gst-thresholds-across-your-businesses)),
+  now or from the next 1 April, a card above the items says which and lists
+  every item that prints a shorter code, or none (not a kit, nor an item used
+  in services only), with *Edit* to give it its full code. It shows no
+  turnover, and goes once every item has one.
 
 ### GST rate changes
 
@@ -5411,6 +5501,12 @@ the link you were sent).
 - **The day book is a CSV for an Excel-to-Tally import**, not a live link.
 - **Tax settings need your accountant's review** before go-live. Bills keep
   the tax, document type and logo they were issued with.
+- **No e-invoices are made here.** *GST thresholds* warns as a PAN's
+  turnover nears ₹5 crore, where e-invoicing applies, and ₹10 crore, where the
+  IRP's 30 days apply, and once it passes them (what applies there applying
+  from the next 1 April, or now when last year passed them); the e-invoices
+  themselves are made on the IRP, directly or through your GST software,
+  outside the platform.
 - **There is no self-service password reset.** An admin sets a new password:
   Users in a restaurant, Staff & access › *Password* in a business, and the
   platform screens for a restaurant's admin or a business's owner. The person

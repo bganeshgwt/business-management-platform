@@ -8,11 +8,11 @@ PostgreSQL 15 or newer (built and tested on 18). One database holds the whole pl
 | --- | --- | --- |
 | [Platform and access (restaurant module)](#platform-and-access) | restaurants, outlets, users, roles, permissions, sign-in and approvals | `restaurant_id` |
 | [Restaurant module](#restaurant-module) | settings, menu, tables, orders, kitchen, bills and payments, cash, guests, stock and purchasing, staff and pay | `restaurant_id`, and `outlet_id` where a branch matters |
-| [Business platform](#business-platform) | platform catalogue, business access, business core, shared core, one extension group per business type, tasks, issues & projects, GST rates by date, and personal data (both engines) | `business_id` on every row, with composite foreign keys |
+| [Business platform](#business-platform) | platform catalogue, business access, business core, shared core, one extension group per business type, tasks, issues & projects, GST rates by date, personal data, and an owner's GST thresholds (both engines) | `business_id` on every row, with composite foreign keys (an owner's own settings by `user_id`; the platform's figures by none) |
 | [Live updates](#live-updates) | no tables: the triggers that announce each committed change to the live screens, for both engines | the restaurant or business named in each notification |
 | [Catalogues](#business-types) | business types, platform module codes, business and restaurant permission codes | — |
 
-**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Licences](#licences) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) · [Optical shops](#optical-shops) · [Vehicle service & auto parts](#vehicle-service--auto-parts) · [Gyms, studios & coaching](#gyms-studios--coaching) · [Laundry & dry cleaning](#laundry--dry-cleaning) · [Jewellery & gold](#jewellery--gold) · [Rentals & hire](#rentals--hire) · [Fuel stations](#fuel-stations) · [Hotels, lodges & guest houses](#hotels-lodges--guest-houses) · [Tasks, issues & projects](#tasks-issues--projects) · [GST rates by date](#gst-rates-by-date) · [Live updates](#live-updates) · [Personal data](#personal-data). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
+**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Licences](#licences) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) · [Optical shops](#optical-shops) · [Vehicle service & auto parts](#vehicle-service--auto-parts) · [Gyms, studios & coaching](#gyms-studios--coaching) · [Laundry & dry cleaning](#laundry--dry-cleaning) · [Jewellery & gold](#jewellery--gold) · [Rentals & hire](#rentals--hire) · [Fuel stations](#fuel-stations) · [Hotels, lodges & guest houses](#hotels-lodges--guest-houses) · [Tasks, issues & projects](#tasks-issues--projects) · [GST rates by date](#gst-rates-by-date) · [Live updates](#live-updates) · [Personal data](#personal-data) · [Owner's GST thresholds](#owners-gst-thresholds). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
 
 The business platform's design (its five layers, the rules every table follows, and why) is explained in [BUSINESS_PLATFORM_DATA_MODEL.md](BUSINESS_PLATFORM_DATA_MODEL.md). This file gives the table-by-table reference and links there instead of repeating it. A restaurant also appears on the platform as one `businesses` row whose `legacy_restaurant_id` points at it; its own tables are unchanged.
 
@@ -3660,6 +3660,32 @@ Rules: UNIQUE (`business_id`, `request_key`); CHECK `business_privacy_breach_not
 Added by: 1791977000000.
 
 Also in 1791977000000: `customers_offers_consent_copy` (trigger and function on `customers`, BEFORE INSERT OR UPDATE OF the three `marketing_opt_in` columns) refuses any write of the copy but the consent trigger's; the platform module `privacy` and the permission codes `privacy.view`, `privacy.manage`, `privacy.export` in both engines; `business_contacts.erased_at` and `erased_by`; the customer's phone optional on `electronics_repair_jobs` and `electronics_warranties`; `table_requests.privacy_consents` and `privacy_notice_id`. Its Down half gives the clinic `health_consents` back with its patients' rows only (the other consents, and the columns that held them, go), leaves the guest book's copy of the offers consent on `customers` as the consents last had it, and restores the fourteen guards' bodies as they were; it refuses to make the phone required again while a repair job or warranty has none.
+
+## Owner's GST thresholds
+
+Linked sections: [BUSINESS_RULES.md › An owner's GST thresholds](BUSINESS_RULES.md#an-owners-gst-thresholds), [ARCHITECTURE.md §4.7](ARCHITECTURE.md#47-an-owners-gst-thresholds-one-pan-across-both-engines) and [API.md › Owner's GST thresholds](API.md#owners-gst-thresholds). Migration `1791978000000_owner-gst-thresholds.sql`; module code `backend/src/modules/gst-thresholds/`.
+
+**No turnover is stored.** A PAN's turnover is read from each business's own records when asked: a shop's `business_documents` (kind sale, their `subtotal`) less its `business_returns` (their lines' `net`), by `created_at` in `businesses.timezone`; a restaurant's `bills` (not void, their `taxable_amount`) less its `credit_notes` (their `taxable_value`; a refund of kind `credit_note` from before credit notes were written at its bill's share), by `business_days.business_date`, else the date on `restaurant_settings.timezone`. A business's own date is `business_tax_change_today`; its PAN is characters 3 to 12 of its GSTINs (`business_settings.gstin` and its active `business_locations.gstin`; a restaurant's `restaurant_settings.gst_number` when it is a valid GSTIN, and its active `outlets.gst_number`), else `business_gst_pans.pan`. Its owners are its active memberships of the full-access role.
+
+#### `platform_gst_thresholds`
+Purpose: platform reference data: each figure that decides what applies to a taxpayer's invoices in a financial year once its aggregate turnover in the year before passed it, with its source. The platform keeps it current by migration, never in the code; no API writes it.
+Key columns: `code` (`e_invoicing`, `hsn_digits`, `irp_reporting_days`), `name` and `applies` (in words for people), `turnover` (rupees: 5,00,00,000 or 10,00,00,000), `comparison` (`above`, `at_or_above`), `hsn_digits` (6, for `hsn_digits`), `report_within_days` (30, for `irp_reporting_days`), `applies_from` (the first day it applies; NULL: in force, its first date not recorded, as for `e_invoicing`), `source` (the source and what it says).
+Relations: none (no `business_id`: it is the platform's).
+Rules: CHECKs on the code's shape, `turnover > 0`, the comparison, `hsn_digits` (4, 6 or 8) and `report_within_days > 0`; UNIQUE NULLS NOT DISTINCT (`code`, `applies_from`) (`platform_gst_thresholds_once`): a later figure for a rule is a row of its own, from its date. Seeded with the three figures and their sources (ClearTax; GSTHero, from 1 April 2021; Taxmann, from 1 April 2025).
+Added by: 1791978000000.
+
+#### `business_gst_pans`
+Purpose: the PAN an owner records for one of their businesses that has no GSTIN, so its turnover counts with their businesses under that PAN. A business with a GSTIN takes its PAN from it and gets none here. Where the owner is a person, the PAN is personal data: it is shown in full to the business's owners only, and the activity log keeps it masked.
+Key columns: `business_id` (the key), `pan` (`^[A-Z]{5}[0-9]{4}[A-Z]$`), `recorded_by`, `recorded_at`.
+Relations: `business_id` -> `businesses`; `recorded_by` -> `users`.
+Rules: one per business; cleared by deleting the row.
+Added by: 1791978000000.
+
+#### `owner_gst_settings`
+Purpose: each owner's own warning level: the share of a figure from which their view and the bells of their businesses say the PAN's turnover is nearing it (80% for an owner with no row). Keyed by the owner's login, not by a business: it spans every business they own.
+Key columns: `user_id` (the key), `warn_percent` (a whole percent, 50 to 99, default 80), `updated_at`.
+Relations: `user_id` -> `users`.
+Added by: 1791978000000.
 
 ## Business types
 

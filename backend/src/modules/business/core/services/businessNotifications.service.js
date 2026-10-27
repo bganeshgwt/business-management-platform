@@ -24,6 +24,9 @@ const access = require('./businessAccess.service');
 //   licences           running out within 60 days, or run out
 //   personal data      requests due within 15 days or past their 90 days, a breach's 72 hours
 //                      for the Board's report, the privacy notice not yet published
+//   GST thresholds     the turnover of the owner's businesses under this business's PAN nearing or
+//                      past a figure (e-invoicing and 6-digit HSN / SAC codes, the IRP's 30 days),
+//                      for whoever may see the business's money (reports.view)
 //   wholesale overdue  (same overdue query, worded as invoices)
 
 const LIMIT = 15;
@@ -179,6 +182,9 @@ async function feed(business) {
     const link = (tab, id) => `${base}/privacy?tab=${tab}${id ? `&${tab === 'requests' ? 'request' : 'breach'}=${id}` : ''}`;
     items.push(...await require('../../../personal-data/services/privacyRegister.service').bell(world, link));
   }
+  // An owner's GST thresholds (modules/gst-thresholds): the turnover under this business's PAN nearing or past a figure.
+  // (A restaurant's are on the restaurant's own bell.)
+  items.push(...await require('../../../gst-thresholds/services/gstThresholds.service').bell(business, base));
   // Tasks & issues (modules/tasks): your overdue tasks, the team's, reviews, serious issues.
   items.push(...await require('../../../tasks/services/notifications').forBusiness(business));
   const counts = { critical: 0, warning: 0, info: 0 };

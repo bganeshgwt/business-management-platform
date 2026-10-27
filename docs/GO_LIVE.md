@@ -242,7 +242,12 @@ calls (`/api/public/…`) from any address, so such a domain needs no
 4. Before real trading, two reviews:
    - **The accountant** confirms the tax settings and, in a restaurant, the GST
      filing export and the day book for Tally. In the other types, Reports is
-     an operational register, not a GST filing pack.
+     an operational register, not a GST filing pack. For an owner with several
+     businesses, the accountant also checks *GST thresholds*: each business's
+     GSTIN or recorded PAN, the figures with their sources, and the reading of
+     aggregate turnover they are measured on
+     ([BACKLOG §10](BACKLOG.md#10-new-business-types)). Above ₹5 crore,
+     e-invoices are made outside the platform.
    - **A pharmacy or a clinic:** the owner reviews its rules with a pharmacist,
      a doctor and a legal adviser. The rules follow standard Indian practice;
      [BUSINESS_RULES › Pharmacy, clinic and lab](BUSINESS_RULES.md#pharmacy-clinic-and-lab)

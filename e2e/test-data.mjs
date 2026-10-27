@@ -35,6 +35,12 @@ export const LOGINS = [
   { role: "DOCTOR", name: "Ravi Shankar", email: "doctor@clinic.e2e.invalid", businesses: ["healthcare"], businessRole: "doctor" },
   { role: "LAB_TECH", name: "Imran Sheikh", email: "lab@clinic.e2e.invalid", businesses: ["healthcare"], businessRole: "lab_technician" },
   { role: "PATHOLOGIST", name: "Anitha Rao", email: "pathologist@clinic.e2e.invalid", businesses: ["healthcare"], businessRole: "pathologist" },
+  // An owner of businesses of their own, apart from the restaurant's
+  // (gst-thresholds.spec.js), made with them by the platform; and the manager
+  // of one of them, made in its Staff & access. Both are made with
+  // GST_THRESHOLDS below.
+  { role: "GST_OWNER", name: "Prakash Rao", email: "owner@thresholds.e2e.invalid", gstOwner: true },
+  { role: "GST_MANAGER", name: "Kiran Kumar", email: "manager@thresholds.e2e.invalid", gstOwner: true },
 ];
 
 // The staff login a spec makes in the grocery's Staff & access, as the owner
@@ -174,6 +180,30 @@ export const GST_CHANGE = {
   search: "biscuit",
   dish: "Butter naan",
   reason: "GST Council notification of 8 October 2026",
+};
+
+// An owner's GST thresholds (gst-thresholds.spec.js): the GST_OWNER's own
+// businesses. The hardware shop and the building supplies store in another
+// state trade under one PAN (their GSTINs carry it) and sold ₹5.1 crore of
+// contract supplies today on the GST nil slab: past ₹5 crore this year, so
+// e-invoicing and 6-digit HSN / SAC codes apply from the next 1 April; the
+// hardware shop's contract supply has a 4-digit SAC code to fix. The firm,
+// under its own PAN, sold ₹6 crore last financial year (moved there by SQL)
+// and nothing this year: they apply to its invoices now, and its supply's
+// 4-digit SAC code is to fix. The kirana has no GSTIN: it counts under no PAN
+// until the spec records its PAN. The GST_MANAGER manages the hardware shop.
+export const GST_THRESHOLDS = {
+  pan: "ABCPR1234K",
+  hardware: { type: "hardware", name: "Rao Hardware & Paints", code: "E2E-GST-HARDWARE", gstin: "36ABCPR1234K1ZO",
+    item: { name: "Site supply contract", code: "SITE-SUPPLY", price: "10000000", sac: "9954" }, quantity: 3 },
+  supplies: { type: "general_retail", name: "Rao Building Supplies", code: "E2E-GST-SUPPLIES", gstin: "29ABCPR1234K1ZJ",
+    item: { name: "Bulk cement supply", code: "BULK-CEMENT", price: "21000000", sac: "995411" }, quantity: 1 },
+  firm: { type: "general_retail", name: "Rao & Sons Traders", code: "E2E-GST-FIRM", gstin: "36AAFFR1234L1Z6", pan: "AAFFR1234L",
+    item: { name: "Institutional supply", code: "INST-SUPPLY", price: "60000000", sac: "9963" }, quantity: 1, lastYear: true },
+  kirana: { type: "grocery", name: "Rao Kirana Stores", code: "E2E-GST-KIRANA" },
+  buyer: { name: "Ravi Constructions", pan: "AABCR1234Q" },
+  // The full code the spec gives the hardware shop's contract supply.
+  fixedSac: "995411",
 };
 
 // The meat shop: two cuts sold by weight, received from the supplier.

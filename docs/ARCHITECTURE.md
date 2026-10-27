@@ -36,7 +36,8 @@ lives, and how to extend it.
      [4.3 Tasks, issues & projects](#43-tasks-issues--projects-one-model-for-both-worlds) ·
      [4.4 How a sale moves money and stock](#44-how-a-sale-moves-money-and-stock) ·
      [4.5 GST rates by date](#45-gst-rates-by-date-a-change-that-takes-effect-with-no-job-runner) ·
-     [4.6 Personal data](#46-personal-data-one-model-for-both-engines)
+     [4.6 Personal data](#46-personal-data-one-model-for-both-engines) ·
+     [4.7 An owner's GST thresholds](#47-an-owners-gst-thresholds-one-pan-across-both-engines)
 5. [Two engines, one direction](#5-two-engines-one-direction)
    - [5.1 Where they differ](#51-where-they-differ) ·
      [5.2 Who owns what](#52-who-owns-what) ·
@@ -146,6 +147,7 @@ written down.
 | `/orders`, `/menu/…`, `/reports`, `/tasks/…` … | The restaurant admin's screens, one per menu link | Built |
 | `/login`, `/profile`, `/notifications` | Everyone: signing in, their own profile, every alert | Built |
 | `/business-admin` | The person's businesses: with `?all` the list itself, otherwise the one opened last | Built |
+| `/business-admin/gst-thresholds` | An owner: their businesses' turnover by PAN against the GST thresholds (from the switcher and *Your businesses*) | Built |
 | `/business-admin/:id/…` | Every business type's admin: sales, stock, customers and the type's own screens | Built |
 | `/pos` | Cashiers and captains | Built |
 | `/kitchen` | Kitchen staff: the kitchen display | Built |
@@ -785,6 +787,59 @@ was found. The bell (`businessNotifications.service.js` and
 Board report still to record, and a notice not yet published. Nothing is
 filed from here: the business tells the Board and records when.
 
+### 4.7 An owner's GST thresholds: one PAN across both engines
+
+Module `modules/gst-thresholds/`, on the backend and in the staff app. What
+applies to a taxpayer's invoices follows its aggregate turnover, which the
+researchers read as counting every GSTIN under one PAN: several businesses
+of one owner, on both engines, can cross a figure together. The module adds
+them up; it stores no turnover.
+
+- **Read from each business's own records, on its own clock.** A shop's sale
+  documents less its sale returns, before GST, by posting date in its time
+  zone (as Reports count them); a restaurant's bills less its credit notes,
+  by business day (as the GST pack counts them), reached through its business
+  row. A business's own date is `business_tax_change_today`. Each engine's
+  readers stay where they are: `services/gstTurnover.js` only reads their
+  tables, as a report does.
+- **A PAN group is one owner login's businesses under one PAN.** A
+  business's PAN is read from its GSTINs (its own and its locations', a
+  restaurant's and its outlets'), else the one its owner recorded
+  (`business_gst_pans`); a PAN is never guessed. Groups are per owner, never
+  across the platform: a GSTIN is typed, not checked with the GST portal, so
+  adding up every business under a PAN would show one owner's turnover to
+  anyone who typed their GSTIN. A business's bell takes the most serious of
+  its owners' groups.
+- **The figures are data.** `platform_gst_thresholds` holds each figure, how
+  it is measured, the date it applies from and its source; `stepsOn` in the
+  pure `services/gstThresholdsRules.js` takes the ones in force on the day
+  and groups them by turnover, and `standing` says below, near (the owner's
+  warning level, `owner_gst_settings`) or crossed: by the whole of last year
+  (its rules apply now) or by this year so far (they apply from the next
+  1 April), since a figure applies for a year when the year before passed
+  it. The platform changes a figure by migration; no code holds one.
+- **Three doors, two bells.** The owner's view (`/api/businesses/gst-thresholds`,
+  no business in the address, each answer the person's own), one business
+  (its recorded PAN, its HSN / SAC codes to fix) and the restaurant's codes
+  to fix (`/api/gst-thresholds`). The business bell
+  (`businessNotifications.service.js`) and the restaurant's
+  (`notifications/providers/gstThresholds.js`) take their lines from the same
+  service: for whoever may see the business's money, the PAN masked for all
+  but its owners, the sums only for someone who may see every business's
+  money in the group. Nothing files or makes an e-invoice.
+- **The bells' standing is kept five minutes.** A business's standing (its
+  owners' groups, their sums and steps) is the same for whoever asks, and
+  each reading sums two financial years of every business under the PAN,
+  while the bells ask every 20 to 60 seconds on every screen; so
+  `services/standingCache.js` keeps it per business in the API process for
+  five minutes, two asking at once sharing one reading, and the service
+  shapes it for each person (the PAN, the sums, the link) on every call.
+  Recording or clearing a PAN and saving a warning level throw it all away
+  (in the process that made the change); a sale shows within the five
+  minutes. It follows the bell's switch (`utils/keptAnswers.js`,
+  `NOTIFICATIONS_CACHE`; off in tests unless asked for). The owner's view
+  is not kept: it adds up afresh.
+
 ---
 
 ## 5. Two engines, one direction
@@ -884,6 +939,7 @@ workspaces; the backend has its own install.
 │   │   │   ├── tax-changes/  GST rates by date for every business: a shop's items and a restaurant's dishes
 │   │   │   ├── live/         live updates for every business: the LISTEN connection and the screens' streams
 │   │   │   ├── personal-data/  personal data for every business: the privacy notice, consents, requests, breaches
+│   │   │   ├── gst-thresholds/  an owner's GST thresholds: turnover under one PAN across their businesses, the warnings
 │   │   │   └── tasks/        tasks, issues & projects for every business (+ library/ of built-in templates)
 │   │   ├── config/           env.js (reads and checks .env), database.js (pg pool + DB_POOL_GUARD)
 │   │   ├── middlewares/      authenticate, authorize, authorizeOrApprove, resolveOutlet, requireFeature,
@@ -920,6 +976,8 @@ workspaces; the backend has its own install.
 │   │   │   │   │             and Business Admin (…/tax-changes)
 │   │   │   │   ├── personal-data/  the personal data screens, shared by the restaurant (/privacy) and Business
 │   │   │   │   │             Admin (…/privacy); the consent choices, the ask before a message, the line bills print
+│   │   │   │   ├── gst-thresholds/  the owner's GST thresholds (/business-admin/gst-thresholds), its card on Your
+│   │   │   │   │             businesses, the codes to fix on a catalogue and on the restaurant's Tax rates
 │   │   │   │   └── tasks/    the task screens, shared by the restaurant (/tasks) and Business Admin (…/tasks)
 │   │   │   ├── workspaces/   what one role works in, a layout and screens gathered from the modules:
 │   │   │   │                 captain/ (the captain app: its layout, tables, calls, food at the pass, the POS's
@@ -1160,6 +1218,7 @@ file behind an index file with the module's name, which callers import:
 | Live updates (`modules/live`) | `routes/live.routes.js` (both front doors, mounted in `routes/index.js` before `/businesses`), `services/liveListener.js` (the process's one LISTEN connection), `services/liveHub.js` (the streams, their checks and limits, clearing the kept dashboard and bell answers); started and stopped by `server.js` | `services/liveClient.js` (the stream, reconnecting, gathering bursts), `services/live.js` (the app's client), `hooks/useLiveRefresh.js`, `components/LiveIndicator.jsx`; used by the live screens and the bell | none: triggers on the tables the live screens read (migrations 1791974000000, and 1791976000000 for the lab) |
 | GST rates by date (`modules/tax-changes`) | `routes/taxChanges.routes.js` (both front doors: `businessRoutes`, mounted from `business.routes.js`, and `menuHandlers`, mounted from the restaurant's `menu.routes.js`), `services/` (`taxChanges.service` the shared flows, `taxChangesShop` and `taxChangesMenu` the two worlds with their gates, `taxChangesMoney` the arithmetic and dates); the gates are called from `businessAccess.open`, `postDocument`, the menu router, `tableRequest.service`, `preorder.service` and `order.service`'s `priceLines` | `BusinessTaxChangesPage`, `MenuTaxChangesPage`, `TaxChangesView`, `TaxChangeTool` (the new change with its preview), `TaxChangeDialog`, `TaxHistoryDialog` (an item's GST history, from the catalogue and the menu's products); words in `taxChanges.js`; API calls `services/taxChanges.service.js`; styles `styles/tax-changes.css` | `business_tax_changes`, `business_tax_change_items` |
 | Personal data (`modules/personal-data`) | `routes/personalData.routes.js` (both front doors: `businessRoutes`, mounted from `business.routes.js`, and `restaurantRouter`, at `/api/privacy` in `routes/index.js`), `services/` (`personalData.service` the notice, consents and a child's mark; `privacyRegister.service` requests, the access export, erasure and breaches; `personalDataShop` and `personalDataRestaurant` the two worlds; `personalDataRegistry` where a customer's data lives, table by table; `consents` what every module uses to record and check a consent; `privacyNotice` the starter notice); bell provider `notifications/providers/privacy.js`, and a business's bell in `businessNotifications.service.js` | `BusinessPrivacyPage`, `RestaurantPrivacyPage`, `PrivacyView` (the three tabs), `RequestsTab`, `BreachesTab`, `NoticeTab`, `usePagedList`; components `ConsentChoices` (+ `NewCustomerConsents`), `ConsentLink`, `AskConsentDialog`, `ChildMark`; `useConsentGate`, `usePrivacy`, `consentStore.js`, `printLine.js`; words in `personalData.js`; API calls `services/privacy.service.js`; styles `styles/personal-data.css`; the guests' site's `modules/privacy/GuestPrivacy.jsx` | `business_privacy_notices`, `business_consents`, `business_children`, `business_privacy_requests`, `business_privacy_breaches`, `business_privacy_breach_people`, `business_privacy_breach_notices` |
+| An owner's GST thresholds (`modules/gst-thresholds`) | `routes/gstThresholds.routes.js` (three doors: `ownerRoutes` and `businessRoutes`, mounted from `business.routes.js`, and `restaurantRouter`, at `/api/gst-thresholds` in `routes/index.js`), `services/` (`gstThresholds.service` the owner's view, the warning level, the recorded PAN, the codes to fix and the bells' lines; `gstTurnover` what each business's records say: its owners, PAN sources, date, sales less returns, HSN / SAC codes; `gstThresholdsRules` the pure part: a PAN from a GSTIN, the financial year, the projection, the figures in force and where a PAN stands, the words; `standingCache` a business's standing kept five minutes for the bells); bell provider `notifications/providers/gstThresholds.js`, and a business's bell in `businessNotifications.service.js` | `GstThresholdsPage` (`/business-admin/gst-thresholds`), `OwnerThresholdsCard` (on Your businesses), `HsnToFix` (on a catalogue), `MenuHsnNotice` (on the restaurant's Tax rates); words in `gstThresholds.js`; API calls `services/gstThresholds.service.js`; styles `styles/gst-thresholds.css` | `platform_gst_thresholds`, `business_gst_pans`, `owner_gst_settings`; reads the core's documents and returns, and the restaurant's bills and credit notes |
 
 Where each area's tests are: [TESTING.md](TESTING.md).
 
@@ -1531,7 +1590,7 @@ shape of the code and the data.
 | **Very large files** | `PosPage.jsx` (about 3,000 lines, nearly all one component: it needs a real refactor, not a move), `order.service.js` (about 2,600), `InventoryInsightsPage.jsx` (about 2,500), `order.repository.js` and `TimeClockPage.jsx` (about 2,400 each), `bill.repository.js` (about 2,300), `KitchenDisplayPage.jsx` (about 2,200), and `base.css` in `packages/ui` (about 3,200). | Slow to read and risky to change. |
 | **Migrations** | Many files fix earlier ones, and a fresh database replays them all. | A baseline before go-live (plan F) makes new installs simple. |
 | **Outside messages** | Staff screens are live (§3.5), but nothing publishes the outbox outside: no WhatsApp, SMS or webhook. The guests' pages still ask every few seconds. | §8.8 describes the publisher; plan E, step 3 adds the restaurant's events. |
-| **Kept answers** | The dashboard's and the bell's answers are kept per API process (`utils/dashboardCache.js`, `notifications/index.js`). A change the database announces clears them in every process (§3.5); any other write (an expense, a purchase, stock) only in the one that made it. | Several API processes need a shared cache, or sticky sessions, for those. |
+| **Kept answers** | The dashboard's and the bell's answers are kept per API process (`utils/dashboardCache.js`, `notifications/index.js`), and so is the standing behind an owner's GST thresholds (`gst-thresholds/services/standingCache.js`, five minutes). A change the database announces clears the first two in every process (§3.5); any other write (an expense, a purchase, stock) only in the one that made it, and a PAN recorded or a warning level saved clears the GST standing only there. | Several API processes need a shared cache, or sticky sessions, for those. |
 
 ### 9.2 Target structure
 

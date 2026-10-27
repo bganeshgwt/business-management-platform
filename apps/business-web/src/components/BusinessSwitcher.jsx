@@ -132,6 +132,12 @@ export default function BusinessSwitcher() {
           <Link className="bsw-all" to="/business-admin?all=1" onClick={() => setOpen(false)}>
             <Icon name="grid" size={15} /> All businesses
           </Link>
+          {/* An owner's turnover under each PAN, across their businesses. */}
+          {businesses.some((business) => business.full_access) && (
+            <Link className="bsw-all" to="/business-admin/gst-thresholds" onClick={() => setOpen(false)}>
+              <Icon name="trend-up" size={15} /> GST thresholds
+            </Link>
+          )}
         </div>
       )}
     </div>

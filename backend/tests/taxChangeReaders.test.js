@@ -70,6 +70,8 @@ const READERS = {
   "modules/business/wholesale/services/businessWholesale.service.js": "gate",
   "modules/business/wholesale/services/businessWholesaleDelivery.service.js": "stored",
   "modules/business/wholesale/services/businessWholesalePurchase.service.js": "gate",
+  "modules/gst-thresholds/services/gstThresholds.service.js": "gate",
+  "modules/gst-thresholds/services/gstTurnover.js": "menu",
   "modules/personal-data/services/personalDataRegistry.js": "stored",
   "modules/restaurant/billing/repositories/bill.repository.js": "stored",
   "modules/restaurant/billing/services/bill/refunds.js": "stored",

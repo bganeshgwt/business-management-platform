@@ -33,6 +33,7 @@ const fs = require("fs");
 const path = require("path");
 const pool = require("../config/database");
 const notificationRepository = require("../modules/restaurant/notifications/repositories/notification.repository");
+const { keptAnswersOn } = require("../utils/keptAnswers");
 
 const PROVIDER_DIR = path.join(__dirname, "providers");
 
@@ -215,15 +216,8 @@ const featureOn = (provider, features) => {
 const cache = new Map();
 const MAX_CACHED = 5000;
 
-const cacheOn = () => {
-  const setting = String(process.env.NOTIFICATIONS_CACHE || "").trim().toLowerCase();
-
-  if (setting === "off") {
-    return false;
-  }
-
-  return setting === "on" || String(process.env.NODE_ENV || "").trim().toLowerCase() !== "test";
-};
+// The switch is shared with the standing behind an owner's GST thresholds.
+const cacheOn = () => keptAnswersOn();
 
 const cacheKey = (provider, context) =>
   [provider.key, context.restaurantId, context.outletId || "", context.businessDate || "", context.today, context.timezone, context.currency].join("|");
