@@ -43,6 +43,8 @@ router.use(require("../modules/business/health/routes/healthUploads.routes"));
 router.use(require("../modules/business/licences/routes/licenceUploads.routes"));
 // Live updates: a screen's stream for its restaurant (/live) or a business (/businesses/:id/live), before the /businesses router.
 router.use(require("../modules/live/routes/live.routes"));
+// A jeweller's piece photos and custom order designs (multipart), before the JSON-only /businesses router.
+router.use(require("../modules/business/jewellery/routes/jewelleryUploads.routes"));
 router.use("/businesses", require("../modules/business/core/routes/business.routes"));
 router.use("/restaurants", restaurantRoutes);
 router.use("/outlets", outletRoutes);

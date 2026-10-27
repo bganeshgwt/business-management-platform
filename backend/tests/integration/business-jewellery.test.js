@@ -290,19 +290,24 @@ test('jewellery and gold', { timeout: 300000 }, async (t) => {
     assert.deepEqual([seen.making_value, seen.wastage_percent], ['300.00', '8.00'], 'the karigar\'s piece takes its item\'s charges');
     const list = await karigar.call('GET', J('jewellery/pieces?status=in_stock'));
     assert.ok(list.items.length >= 3 && list.items.every((p) => p.making_value === null && p.stone_value === null && p.cost === null));
-    // On approval with a customer, back; to the karigar and back weighed again.
-    let now = await cashier.call('POST', J(`jewellery/pieces/${tagged.id}/status`), { requestKey: key(), status: 'on_approval', withWhom: 'Lakshmi Iyer, to show at home' });
-    assert.deepEqual([now.status, now.with_whom], ['on_approval', 'Lakshmi Iyer, to show at home']);
-    assert.match((await refused('POST', J(`jewellery/pieces/${tagged.id}/status`), { requestKey: key(), status: 'at_karigar', withWhom: 'Ramesh' }, cashier.token)).message, /on approval/);
-    now = await cashier.call('POST', J(`jewellery/pieces/${tagged.id}/status`), { requestKey: key(), status: 'in_stock' });
-    const sent = { requestKey: key(), status: 'at_karigar', withWhom: 'Ramesh Soni (polish)' };
-    now = await karigar.call('POST', J(`jewellery/pieces/${tagged.id}/status`), sent);
-    assert.equal((await karigar.call('POST', J(`jewellery/pieces/${tagged.id}/status`), sent)).status, 'at_karigar', 'a retry changes nothing more');
-    now = await karigar.call('PUT', J(`jewellery/pieces/${tagged.id}`), { grossWeight: '7.990', hallmarked: true, huids: ['NK55ZX'] });
-    assert.deepEqual([now.gross_weight, now.net_weight, now.huids], ['7.990', '7.990', 'NK55ZX']);
-    now = await karigar.call('POST', J(`jewellery/pieces/${tagged.id}/status`), { requestKey: key(), status: 'in_stock' });
-    const changed = now.events.find((e) => e.kind === 'changed');
-    assert.deepEqual([changed.details.from.grossWeight, changed.details.to.grossWeight], ['8.005', '7.990']);
+    // On approval with a customer on a challan, and back; to a karigar on an issue challan, and back on their receipt weighed again.
+    const approval = await cashier.call('POST', J('jewellery/approvals'), { requestKey: key(), locationId: shop.id, customer: { name: 'Lakshmi Iyer' }, dueOn: today, tags: ['NK-55'] }, 201);
+    let now = await request('GET', J(`jewellery/pieces/${tagged.id}`));
+    assert.deepEqual([now.status, now.out_no, now.out_with], ['on_approval', approval.approval_no, 'Lakshmi Iyer']);
+    const smith = await request('POST', J('jewellery/karigars'), { supplier: { name: 'Ramesh Soni' } }, 201);
+    const sent = { requestKey: key(), contactId: smith.contact_id, locationId: shop.id, lines: [{ kind: 'piece', tag: 'NK-55', description: 'Polish' }] };
+    assert.match((await refused('POST', J('jewellery/karigars/issues'), sent, karigar.token)).message, /is on approval: only a piece in stock goes to a karigar/);
+    await cashier.call('POST', J(`jewellery/approvals/${approval.id}/returns`), { requestKey: key(), tags: ['NK-55'] }, 201);
+    const issue = await karigar.call('POST', J('jewellery/karigars/issues'), sent, 201);
+    assert.equal((await karigar.call('POST', J('jewellery/karigars/issues'), sent, 201)).id, issue.id, 'a retry changes nothing more');
+    now = await karigar.call('PUT', J(`jewellery/pieces/${tagged.id}`), { hallmarked: true, huids: ['NK55ZX'] });
+    assert.deepEqual([now.status, now.huids], ['at_karigar', 'NK55ZX']);
+    await karigar.call('POST', J('jewellery/karigars/receipts'), { requestKey: key(), contactId: smith.contact_id, locationId: shop.id, issueId: issue.id,
+      lines: [{ kind: 'repaired', tag: 'NK-55', grossWeight: '7.990' }] }, 201);
+    now = await karigar.call('GET', J(`jewellery/pieces/${tagged.id}`));
+    assert.deepEqual([now.status, now.gross_weight, now.net_weight], ['in_stock', '7.990', '7.990']);
+    const back = now.events[now.events.length - 1];
+    assert.deepEqual([back.details.from.grossWeight, back.details.to.grossWeight], ['8.005', '7.990']);
     assert.deepEqual(now.events.map((e) => e.kind), ['tagged', 'sent', 'back', 'sent', 'changed', 'back']);
     // Melted by a manager: the unit leaves stock, and its metal (net and fine weight) joins the shop's metal.
     assert.equal((await refused('POST', J(`jewellery/pieces/${tagged.id}/melt`), { requestKey: key(), reason: 'Broken' }, cashier.token)).status, 403);
@@ -430,9 +435,9 @@ test('jewellery and gold', { timeout: 300000 }, async (t) => {
     assert.ok((await one('SELECT turnover_confirmed_by FROM jewellery_settings WHERE business_id=$1', [jeweller.id])).turnover_confirmed_by);
     // A walk-in pays in full; a piece on approval, a purity with no rate today and an unknown tag are refused.
     assert.equal((await refused('POST', J('jewellery/bills'), { ...sale([kundan.tag_no]), payments: [{ method: 'cash', amount: '100' }] }, cashier.token)).status, 409);
-    await cashier.call('POST', J(`jewellery/pieces/${kundan.id}/status`), { requestKey: key(), status: 'on_approval', withWhom: 'Rani' });
+    const lent = await cashier.call('POST', J('jewellery/approvals'), { requestKey: key(), locationId: shop.id, customer: { name: 'Rani' }, dueOn: today, tags: [kundan.tag_no] }, 201);
     assert.match((await cashier.call('POST', J('jewellery/bills/preview'), { locationId: shop.id, tags: [kundan.tag_no, 'NOPE-1'] })).problems.join(' | '), /on approval.*\| No piece has the tag NOPE-1/);
-    await cashier.call('POST', J(`jewellery/pieces/${kundan.id}/status`), { requestKey: key(), status: 'in_stock' });
+    await cashier.call('POST', J(`jewellery/approvals/${lent.id}/returns`), { requestKey: key(), tags: [kundan.tag_no] }, 201);
     const silverItem = (await request('POST', J('jewellery/items'), { item: { name: 'Silver anklets' }, metal: 'silver', purity: '925', makingMode: 'per_gram', makingValue: '20' }, 201))
       .items.find((i) => i.label === 'Silver anklets');
     const anklets = await request('POST', J('jewellery/pieces'), { requestKey: key(), skuId: silverItem.sku_id, comesIn: 'new', locationId: shop.id, grossWeight: '58.200' }, 201);

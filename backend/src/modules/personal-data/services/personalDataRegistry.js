@@ -79,6 +79,11 @@ const TABLES = {
   business_privacy_breach_people: { label: 'Breaches affecting them', own: true },
   business_privacy_breach_notices: { label: 'Breach notices sent', own: true },
   business_licence_sources: { label: 'Certificates of source (Form O)', party: 'supplier' },
+  jewellery_karigars: { label: 'Karigars', party: 'supplier' },
+  jewellery_orders: { label: 'Custom orders', keep: 'A custom order is part of the jewellery bill that delivered it, or was cancelled; it names the customer only through the erased record.' },
+  jewellery_approvals: { label: 'Approval challans', keep: 'An approval challan records pieces that went out and came back or were sold; it names the customer only through the erased record.' },
+  jewellery_hallmark_consignments: { label: 'Hallmarking consignments', party: 'supplier' },
+  jewellery_supplier_metal: { label: 'Metal with suppliers', party: 'supplier' },
 };
 
 // Children of the rows above that the export also shows: the lines of each bill.

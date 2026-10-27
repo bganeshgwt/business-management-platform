@@ -7,7 +7,10 @@ import { privacyLine } from "../../../personal-data/printLine";
 // Printing for a jeweller: the tag labels of pieces, each with its tag as a
 // barcode, its item, purity, gross and net weight, stones and HUIDs, on a label
 // roll or an A4 sheet (no price is printed on a tag: a piece's price follows
-// the day's rate); and an old gold voucher for the seller to sign and keep.
+// the day's rate); an old gold voucher for the seller to sign and keep; and
+// the challans of the shop's work: a karigar's issue challan (a delivery
+// challan for job work), an approval challan, a hallmarking consignment's
+// list for the centre, and a custom order's slip for the customer.
 
 const bars = (code, height = 30) => { try { return barcodeSvg(code, { height }).svg; } catch { return ""; } };
 const g = (value) => Number(value || 0).toFixed(3);
@@ -118,5 +121,87 @@ export function printSchemePassbook(biz, s) {
       <h2>Terms</h2><div class="declare">${escapeHtml(s.terms)}</div>
       ${privacyLine(biz) ? `<p><small>${escapeHtml(privacyLine(biz))}</small></p>` : ""}
       <div class="sign"><span>Member: ${escapeHtml(s.member_name)}</span><span>For ${escapeHtml(shop.display_name || biz.business.name)}</span></div>`,
+  });
+}
+
+// The shop's heading on a challan, and its title with its number and day.
+function challanHead(biz, title, number, at, more = "") {
+  const s = biz.settings || {};
+  return `<div class="head"><div><h1>${escapeHtml(s.legal_name || s.display_name || biz.business.name)}</h1>
+    <small>${escapeHtml([s.address_line1, s.address_line2, s.city, s.postal_code].filter(Boolean).join(", "))}${s.phone ? ` · ${escapeHtml(s.phone)}` : ""}${s.gstin ? ` · GSTIN ${escapeHtml(s.gstin)}` : ""}</small></div>
+    <div><h1>${escapeHtml(title)} ${escapeHtml(number)}</h1><small>${escapeHtml(dateShort(at, { year: true }))}${more ? ` · ${escapeHtml(more)}` : ""}</small></div></div>`;
+}
+const signs = (biz, other) => `<div class="sign"><span>${escapeHtml(other)}</span><span>For ${escapeHtml(biz.settings?.display_name || biz.business.name)}</span></div>`;
+
+// A karigar's issue challan: what went out for job work (metal by purity with
+// its fine weight, pieces to repair, stones), to come back by its day.
+export function printIssueChallan(biz, issue) {
+  const rows = issue.lines.map((l) => `<tr><td>${l.seq}</td><td>${escapeHtml(l.kind_words)}${l.tag_no ? ` ${escapeHtml(l.tag_no)}` : ""}${l.description ? `<br><small>${escapeHtml(l.description)}</small>` : ""}</td>
+    <td>${l.mark ? escapeHtml(l.mark) : ""}</td><td class="r">${l.net_weight === null ? "" : g(l.net_weight)}</td><td class="r">${l.fine_weight === null ? "" : g(l.fine_weight)}</td>
+    <td class="r">${l.pieces ?? ""}${l.carat ? ` · ${Number(l.carat).toFixed(3)} ct` : ""}</td><td class="r">${l.value === null || l.value === undefined ? "" : escapeHtml(biz.exact(l.value))}</td></tr>`).join("");
+  printDocument({
+    title: issue.issue_no,
+    styles: VOUCHER_STYLES,
+    body: `${challanHead(biz, "Delivery challan for job work", issue.issue_no, issue.created_at, issue.due_on ? `due back ${dateShort(issue.due_on, { year: true })}` : "")}
+      <dl><dt>Karigar</dt><dd><strong>${escapeHtml(issue.karigar_name)}</strong>${issue.karigar_phone ? ` · ${escapeHtml(issue.karigar_phone)}` : ""}</dd>
+      <dt>GSTIN</dt><dd>${escapeHtml(issue.karigar_gstin || "Not registered")}</dd>${issue.karigar_address ? `<dt>Address</dt><dd>${escapeHtml(issue.karigar_address)}</dd>` : ""}
+      ${issue.order_no ? `<dt>For order</dt><dd>${escapeHtml(issue.order_no)}</dd>` : ""}<dt>Purpose</dt><dd>Job work: goods sent to be worked on and returned (not a sale)</dd></dl>
+      <table><thead><tr><th>No.</th><th>Goods</th><th>Purity</th><th class="r">Weight g</th><th class="r">Fine g</th><th class="r">Pieces · carats</th><th class="r">Value</th></tr></thead>
+      <tbody>${rows}</tbody><tfoot><tr><td colspan="3">Metal</td><td class="r">${g(issue.metal_net)}</td><td class="r">${g(issue.metal_fine)}</td><td></td><td></td></tr></tfoot></table>
+      ${issue.notes ? `<p><small>${escapeHtml(issue.notes)}</small></p>` : ""}
+      ${signs(biz, `Received by ${issue.karigar_name}`)}`,
+  });
+}
+
+// An approval (jangad) challan: the pieces lent, as they went out, and the day they are due back.
+export function printApprovalChallan(biz, approval) {
+  const rows = approval.lines.map((l) => `<tr><td class="mono">${escapeHtml(l.tag_no)}</td><td>${escapeHtml(l.description)}</td><td>${escapeHtml(l.mark)}</td>
+    <td class="r">${g(l.gross_weight)}</td><td class="r">${g(l.net_weight)}</td><td>${escapeHtml(l.huid || "")}</td><td>${l.outcome === "out" ? "" : escapeHtml(l.outcome === "sold" ? `Sold${l.document_no ? ` · ${l.document_no}` : ""}` : "Returned")}</td></tr>`).join("");
+  printDocument({
+    title: approval.approval_no,
+    styles: VOUCHER_STYLES,
+    body: `${challanHead(biz, "Approval challan", approval.approval_no, approval.created_at, `due back ${dateShort(approval.due_on, { year: true })}`)}
+      <dl><dt>${approval.party === "jeweller" ? "Jeweller" : "Customer"}</dt><dd><strong>${escapeHtml(approval.party_name)}</strong>${approval.party_phone ? ` · ${escapeHtml(approval.party_phone)}` : ""}${approval.party_gstin ? ` · GSTIN ${escapeHtml(approval.party_gstin)}` : ""}</dd>
+      <dt>Purpose</dt><dd>Goods sent on approval: the shop's own until they are bought, to be returned by the day due</dd></dl>
+      <table><thead><tr><th>Tag</th><th>Piece</th><th>Purity</th><th class="r">Gross g</th><th class="r">Net g</th><th>HUID</th><th>Closed</th></tr></thead><tbody>${rows}</tbody></table>
+      ${approval.notes ? `<p><small>${escapeHtml(approval.notes)}</small></p>` : ""}
+      ${signs(biz, `Received by ${approval.party_name}`)}`,
+  });
+}
+
+// A hallmarking consignment's list for the centre (its request form is HM/JWLR/F 1.3).
+export function printConsignment(biz, consignment) {
+  const rows = consignment.lines.map((l, index) => `<tr><td>${index + 1}</td><td class="mono">${escapeHtml(l.tag_no)}</td><td>${escapeHtml(l.description)}</td><td>${escapeHtml(l.mark)}</td>
+    <td class="r">${g(l.gross_weight)}</td><td class="r">${g(l.net_weight)}</td><td>${l.result === "out" ? "" : escapeHtml(l.result === "hallmarked" ? (l.huids || []).join(", ") : "Rejected")}</td></tr>`).join("");
+  printDocument({
+    title: consignment.consignment_no,
+    styles: VOUCHER_STYLES,
+    body: `${challanHead(biz, "Hallmarking consignment", consignment.consignment_no, consignment.created_at, consignment.request_ref ? `request ${consignment.request_ref}` : "")}
+      <dl><dt>Centre</dt><dd><strong>${escapeHtml(consignment.centre_name)}</strong></dd><dt>Request form</dt><dd>${escapeHtml(consignment.form)} (filled at the centre)</dd>
+      <dt>Articles</dt><dd>${consignment.pieces} · ${g(consignment.net_weight)} g net</dd></dl>
+      <table><thead><tr><th>No.</th><th>Tag</th><th>Article</th><th>Purity</th><th class="r">Gross g</th><th class="r">Net g</th><th>HUID</th></tr></thead><tbody>${rows}</tbody></table>
+      ${consignment.notes ? `<p><small>${escapeHtml(consignment.notes)}</small></p>` : ""}
+      ${signs(biz, `Received by ${consignment.centre_name}`)}`,
+  });
+}
+
+// A custom order's slip for the customer: what is made, by when, the advances and the rate fixed.
+export function printOrderSlip(biz, order) {
+  const weight = [order.weight_from, order.weight_to].filter(Boolean).map(g).join(" to ");
+  const advances = (order.advance_list || []).map((a) => `${escapeHtml(a.collection_no || a.voucher_no || "")}: ${escapeHtml(biz.exact(a.amount))}${a.fixes_rate ? " (fixes the rate)" : ""}`);
+  printDocument({
+    title: order.order_no,
+    styles: VOUCHER_STYLES,
+    body: `${challanHead(biz, "Custom order", order.order_no, order.created_at, order.promised_on ? `promised for ${dateShort(order.promised_on, { year: true })}` : "")}
+      <dl><dt>Customer</dt><dd><strong>${escapeHtml(order.customer_name)}</strong>${order.customer_phone ? ` · ${escapeHtml(order.customer_phone)}` : ""}</dd>
+      <dt>To make</dt><dd>${escapeHtml(order.description)}${order.item_label ? ` (${escapeHtml(order.item_label)})` : ""}</dd>
+      ${order.design_ref ? `<dt>Design</dt><dd>${escapeHtml(order.design_ref)}</dd>` : ""}<dt>Purity</dt><dd>${escapeHtml(order.purity_words || purityMark(order.metal, order.purity))}</dd>
+      ${weight ? `<dt>Weight</dt><dd>${weight} g</dd>` : ""}${order.size ? `<dt>Size</dt><dd>${escapeHtml(order.size)}</dd>` : ""}${order.stones ? `<dt>Stones</dt><dd>${escapeHtml(order.stones)}</dd>` : ""}
+      ${advances.length ? `<dt>Advances</dt><dd>${advances.join("<br>")}</dd>` : ""}
+      ${order.fixed_rate ? `<dt>Rate fixed</dt><dd>${escapeHtml(biz.exact(order.fixed_rate))} a gram for ${g(order.fixed_weight)} g; the rest at the day's rate when it is billed</dd>` : "<dt>Rate</dt><dd>The day's rate when it is billed</dd>"}</dl>
+      ${order.notes ? `<p><small>${escapeHtml(order.notes)}</small></p>` : ""}
+      <p><small>The final bill is priced by weight as the piece comes out, with making, stones, hallmarking and GST; the advances are taken off it.</small></p>
+      ${privacyLine(biz) ? `<p><small>${escapeHtml(privacyLine(biz))}</small></p>` : ""}
+      ${signs(biz, `Customer: ${order.customer_name}`)}`,
   });
 }

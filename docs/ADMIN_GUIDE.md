@@ -4470,9 +4470,11 @@ bill* beside it for loose stones, coins at a fixed price, imitation jewellery,
 repairs and everything else); **Today's rates** is a daily entry of its own,
 with the *Rate board* beside it, and so are **Old gold** and **Gold schemes**;
 the stock area opens on **Pieces & tags** (with Stock, Movements, Counts and
-Transfers beside it); *Reports* has the **Cash report**; and *Settings ›
-Jewellery settings* and *Settings › Gold scheme plans* hold the jeweller's own
-settings.
+Transfers beside it, and **Karigar work**, **Hallmarking** and **Fine
+weight**); *Sales history* has **Custom orders** and **Approvals** beside it,
+and *Purchases* the **Metal account**; *Reports* has the **Cash report**; and
+*Settings › Jewellery settings* and *Settings › Gold scheme plans* hold the
+jeweller's own settings.
 
 A jeweller starts with these GST slabs: 3% (the default: gold, silver and
 platinum, jewellery and articles of them, coins and imitation jewellery), 0.25%
@@ -4694,10 +4696,11 @@ item's slab and HSN before trading.
   only views (the Viewer role).
 - **Pieces & tags** (*Pieces & tags*) — every tagged piece: its tag, its words
   and item, purity, gross and net weight, stones and HUIDs, and its status,
-  with a chip for each: in the shop, in stock, on approval, at the karigar,
-  not hallmarked, not in the books (a unit a stock count wrote off), sold,
-  melted, all. The search finds a piece by its tag, a HUID, its item or its
-  words. *Tag a piece*:
+  with a chip for each: in the shop, in stock, on approval, at a karigar, at
+  the centre, not hallmarked, to re-hallmark, not in the books (a unit a stock
+  count wrote off), sold, melted, all. The search finds a piece by its tag, a
+  HUID, its item, its words, its design code, the challan it is out on or its
+  custom order. *Tag a piece*:
   - the item, and how it comes in: *Into stock now, with its tag* (where, why
     — opening stock, made by our karigar, other — and its cost; the tag is the
     next number unless one is typed) or *A unit already in stock* (the serial
@@ -4706,9 +4709,11 @@ item's slab and HSN before trading.
     gross weight and the weight of its stones, beads and thread, to the
     milligram (the net weight is gross less stones);
   - the making charge and wastage (from the item, changed for the piece);
+  - its design code (the shop's own, like NK-2041), when it has one;
   - *Hallmarked by BIS*, with its HUIDs (the 6 letters and digits of each
     hallmark; a set may carry several, and a HUID belongs to one article) and
-    its hallmarking charge;
+    its hallmarking charge; or *The old hallmark, without a HUID* for stock
+    hallmarked before HUIDs, which waits to be re-hallmarked (below);
   - for gold, whether the hallmarking order leaves the article out: Kundan,
     Polki or Jadau jewellery; a gold watch or fountain pen; gold thread;
     bullion (a bar, plate, sheet, foil, rod, wire, strip, tube or coin); a
@@ -4721,22 +4726,155 @@ item's slab and HSN before trading.
     anywhere in a piece's words), how many, carats, colour, clarity and cut,
     the certificate (lab and number), any treatment, and its value on the bill.
 
-  A piece opens in a panel with its weights, stones, hallmark, where it is,
-  its price at today's rate (metal, wastage, making, stones, hallmarking,
-  before and with GST) and its history. From there: *Change* (while it is in
-  the shop: its item and tag stay), *On approval* (with the customer who has
-  it to show at home) and *To the karigar* (with the karigar's name), *Back in
-  stock* (weigh it again and change it if its weight changed), *Print the tag*
-  (a label roll of 50 × 25 mm or an A4 sheet of 40; the tag carries its
-  number as a barcode, the purity, gross and net weight, the stones' weight
-  and the HUIDs, and never a price), and, for a manager, *Melt* (with the
-  reason): its unit leaves stock for good and its metal joins the shop's
-  metal. *Print these tags* prints the tags of the pieces in the shop on the
-  page.
+  A piece opens in a panel with its weights, stones, hallmark, design code,
+  photo, where it is (and the challan it is out on), its custom order, the
+  pieces it was made from or into, its price at today's rate (metal, wastage,
+  making, stones, hallmarking, before and with GST) and its history. From
+  there: *Change* (while it is in the shop: its item and tag stay; out on a
+  challan, its weight and purity change only when it comes back on it), *Add
+  a photo* (JPG, PNG or WebP up to 5 MB; a new one takes the old one's place),
+  *On approval*, *To a karigar* and *For hallmarking* (each opens its screen's
+  challan with the piece on it), *Receive it back* or *Open its challan* for a
+  piece out, *Split* and *A new tag* (below), *Print the tag* (a label roll of
+  50 × 25 mm or an A4 sheet of 40; the tag carries its number as a barcode,
+  the purity, gross and net weight, the stones' weight and the HUIDs, and
+  never a price), and, for a manager, *Melt* (with the reason): its unit
+  leaves stock for good and its metal joins the shop's metal. *Print these
+  tags* prints the tags of the pieces in the shop on the page.
+- **Splitting, merging and new tags** (on *Pieces & tags*, for someone who
+  may tag pieces and correct stock) — *Split* a set into its articles (2 to
+  10): each with its gross and stone weight (together they come to the
+  piece's own), the HUIDs it carries (each of the piece's HUIDs goes with one
+  article) and the stone lines set in it, a tag of its own (the next numbers
+  unless typed) and its words; the piece's cost and a flat making charge are
+  shared by net weight. *Merge pieces* makes one piece of 2 to 10 pieces of
+  one metal and purity at one location: their weights, HUIDs, stones and cost
+  added up (a piece waiting to be re-hallmarked is not merged with pieces that
+  carry HUIDs; pieces charged differently need the merged piece's making
+  charge). *A new tag* gives a piece, after a repair or with its tag worn out,
+  a new tag with everything it had (HUIDs, stones, cost, photo, custom
+  order). Each goes through the stock: each unit taken out with its reason,
+  each new one in at the cost; the old pieces keep their history (*Split*,
+  *Merged*, *Given a new tag*) and the fine-weight book is as it was.
 - **The shop's own metal** (under the jewellery items on *Pieces & tags*) —
-  what melted pieces left and old gold taken in, by purity at each location,
-  in grams of metal and of fine metal (net weight × fineness ÷ 1,000; for old
-  gold, the fineness found), for melting and refining: it is never billed.
+  by purity at each location, in grams of metal and of fine metal (net weight
+  × fineness ÷ 1,000): melted pieces, old gold taken in (at the fineness
+  found), scrap and metal back from karigars and metal received from
+  suppliers, less what went to karigars and to suppliers. It is never billed.
+- **Karigar work** (*Pieces & tags › Karigar work*) — the goldsmiths the shop
+  gives job work to. *A karigar* (a manager): one of the suppliers, or a new
+  one with their phone, GSTIN (empty: not registered for GST) and PAN, and the
+  wastage allowed on the pieces they make (a percentage, 0 to 25). *Labour
+  rates* (for those who see purchases): for each jewellery item, per gram of
+  net weight or per piece. *Issue to a karigar* makes an issue challan
+  (KI/2627/0001): the karigar, where from, a custom order it is for (or the
+  shop's own work), the day it is due back, and its lines: metal (its purity
+  and weight; its fineness is the purity's own unless typed) out of the
+  shop's metal, which never goes below nothing; a piece to repair (by its
+  tag, with the work to do), which goes to the karigar and is not sold until
+  it is back; and stones. *Receive from a karigar* makes a receipt
+  (KR/2627/0001), against a challan or their running account: a piece made
+  (its item, tag, weights, design code, hallmark and the work, jewellery or
+  diamond) is tagged into stock at its labour's cost, with the karigar's
+  wastage allowed on it; a piece repaired is weighed again (its weight as it
+  was sent and as it is now are kept); scrap and metal come back into the
+  shop's metal; stones come back. The labour on a line is the karigar's rate
+  for the item unless someone who sees costs types another; a repair's labour
+  is typed. A karigar opens in a panel with their metal in fine weight by
+  purity: issued, back in pieces, scrap and metal, repairs, the wastage
+  allowed, written off, held now, and the actual wastage (what the pieces,
+  scrap and repairs do not account for); the pieces with them; their labour
+  rates; and their labour and money. *Write off* (a manager, with the reason)
+  takes all they still hold of a purity off the book. *Labour invoice* posts
+  all their labour not invoiced yet as a purchase from them (a service: no
+  stock): 5% GST on jewellery work and 1.5% on diamond work from a karigar
+  registered for GST, none from one who is not, with their bill's number and
+  date. *ITC-04 data* (for whoever may export) lists, for a period, the goods
+  sent to job workers (table 4) and received back (table 5A, with the wastage
+  allowed), from the challans and receipts, to download: how often ITC-04 is
+  filed was not checked, and nothing is filed from here. The bell tells
+  whoever sees the pieces about challans with pieces still out past their day.
+- **Custom orders** (*Sales history › Custom orders*) — pieces made to a
+  customer's order (CO/2627/0001), with chips for open, past the day
+  promised, ready, delivered, cancelled and all. *Book an order*: the
+  customer (or *New customer*), what to make, the jewellery item, the design
+  (a catalogue reference or design code; a photo of it is added on the
+  order), the metal and purity, the weight it should come to, the size, the
+  stones, the day promised, and an advance (for those who may take money): a
+  receipt (RC/…) by cash, UPI, card or bank transfer, and whether it fixes the
+  rate (bhav cut): the latest selling rate of the day for the purity, for the
+  grams the advance buys (to the milligram, rounded down), kept on the order.
+  More advances: money, or the customer's old gold (a voucher with value
+  left: all of it), and either may fix the rate if it is not fixed yet. An
+  order's advances are held for its own bill: no other bill takes them, *Apply
+  advance* leaves them out, and they are not handed back while it is open. Its
+  path: issued to a karigar (*To a karigar* opens the issue challan for it),
+  received (the karigar's piece made for it, or *A piece in stock* made its
+  own: while the order is open its pieces go on no other bill), at the
+  hallmarking centre and hallmarked (*For hallmarking*), *It is ready*, and
+  delivered: *Bill it* opens the jewellery bill with the order's
+  pieces and customer; the grams fixed are priced at the order's rate and the
+  rest at the day's, and its advances pay first (its receipts, then its old
+  gold). *Cancel* (a manager, not while it is at the centre): its advances
+  are the customer's again. *Print the slip* gives the customer what was
+  ordered, the advances and the rate. The bell tells whoever sees its money
+  about orders past the day promised.
+- **Approvals** (*Sales history › Approvals*) — pieces lent on an approval
+  (jangad) challan (AP/2627/0001) to a customer to choose at home, or to
+  another jeweller for its counter, with the day they are due back. *Send on
+  approval*: who takes them, from where, the day due and the pieces' tags.
+  Out on approval a piece stays the shop's stock and is never billed to
+  anyone else, sent elsewhere or written off in a stock count. The challan
+  shows the days out; *Take back* brings some or all back into stock; *Bill
+  what they keep* opens the jewellery bill with the pieces still out, billed
+  to the challan's customer (take off those they return). *Remind* opens a
+  WhatsApp message, with the customer's consent to reminders. A challan past
+  its day is listed under *Past their day*, and the bell tells whoever sees
+  the money. The GST time limit for goods sent on approval was not checked:
+  the days out are shown, and no limit is enforced.
+- **Hallmarking** (*Pieces & tags › Hallmarking*) — *Send for hallmarking*:
+  gold and silver pieces in stock go to an assaying and hallmarking centre
+  (one of the suppliers, or a new one) on a consignment (HM/2627/0001), with
+  the centre's request number; *Print the list* to fill its request form
+  (HM/JWLR/F 1.3). At the centre a piece is not sold, sent elsewhere or
+  written off; a custom order with a piece there is at the centre. *Back from
+  the centre* (someone who may post purchases), once for the whole consignment: each piece hallmarked, with its
+  HUIDs typed or scanned (a set may carry several), or rejected; each piece's
+  charge (the shop's hallmarking charge unless typed), posted as a purchase
+  from the centre at the GST on its bill (18%, or none) with its number. A
+  hallmarked piece then carries its HUIDs and its charge, recovered on its
+  jewellery bill, and is no longer waiting to be re-hallmarked. *Waiting to
+  be re-hallmarked* lists the pieces with the old hallmark: where a HUID is
+  needed they are not billed until they come back with one (*Send these*).
+  *HUID list* (for whoever may export): every HUID with its piece and status
+  (in stock, sold to a consumer, sold to a jeweller, returned by the
+  customer, melted) and since when, to download for Manak Online's HUID
+  Transfer module; its file format was not checked, so it is a plain list.
+- **Fine weight** (*Pieces & tags › Fine weight*) — each purity's metal, in
+  grams and fine grams, wherever it is: pieces in stock, on approval, at
+  karigars and at the centre, the shop's own metal, and metal with karigars.
+  For the days chosen (the month to today to start with): what it held at the
+  start, each movement that changed it (pieces tagged in, sold, taken back on
+  credit notes, old gold, metal received from and given to suppliers, the
+  karigars' wastage allowed and written off, weights corrected), what it holds
+  at the end, and where it is; the moves inside the shop (metal to karigars
+  and back, pieces made, repairs, pieces moved, melted, split, merged or given
+  a new tag) are listed apart: they leave the total as it was. *Count against
+  the book*: at a location, purity by purity, scan the tags of the pieces
+  found and weigh its metal; the count shows the pieces the book has that
+  were not found, those found that the book has elsewhere (sold, out, another
+  location), and the difference in fine weight of the pieces and of the
+  metal. A count changes nothing: correct stock in the usual way.
+- **Metal account** (*Purchases › Metal account*, for those who see
+  purchases) — metal from bullion dealers and wholesalers on a metal balance.
+  *Metal received or given* makes a metal voucher (MV/2627/0001): metal
+  received comes into the shop's metal and the shop owes it in grams; metal
+  given (old gold or scrap against what is owed) goes out of it. Each
+  supplier's balance shows by purity, in grams and fine grams, beside the
+  money owed to them. *Fix the rate* (a manager): grams owed turned into
+  money owed, all or part of them, at the rate typed or today's selling rate,
+  as a purchase from the supplier at 3% GST (the metal is kept in grams in
+  these books, so the purchase takes no stock).
 - **Jewellery settings** (*Settings › Jewellery settings*) — the tags and the
   hallmarking charge, the hallmarking rules, old gold's deduction and cash
   limit (above), and the cash report's own alert level and whether the shop is
@@ -4766,26 +4904,37 @@ item's slab and HSN before trading.
   bell also flags a customer at ₹10 lakh, and those past the shop's level.
 
 A jewellery item's pieces are sold only on the jewellery bill: *Quick bill*,
-*New sale* and a quotation's bill refuse its item. A piece on approval or at
-the karigar is the shop's stock and is not sold while it is out. With *Stock
+*New sale* and a quotation's bill refuse its item, and the items the
+jeweller's own purchases are booked under (karigar labour, hallmarking
+charges, metal fixed on the metal account) are never sold. A piece on
+approval, at a karigar or at the hallmarking centre is the shop's stock and is
+not sold, sent elsewhere or written off while it is out. With *Stock
 transfers* switched on, a transfer moves a piece between locations by its
-tag.
+tag (not while it is out).
 
 Who does what: a manager sets the day's rates, melts pieces, pays out, puts
 back and cancels old gold, sets up gold scheme plans and stops schemes (or
-approves a stop with their PIN); a cashier makes jewellery bills and takes
+approves a stop with their PIN), makes karigars and sets their labour rates,
+writes off what is left with a karigar, cancels custom orders and fixes the
+rate on a supplier's metal balance; a cashier makes jewellery bills and takes
 their money, sees the rates at the counter, takes in old gold and uses it on
 the customer's bill, enrols customers in gold schemes and takes their
-instalments, tags pieces and sends them out and back; a stock keeper tags and
-weighs pieces and sees them without prices; an accountant and a viewer see
-the rates, their sheets, the pieces, the old gold and the schemes with the
-money held for them; the owner, a manager and an accountant see the cash
-report, and export it and the money held for schemes. The **Karigar /
-goldsmith**, a jeweller's own role, sees the pieces and their weights, with no
-prices and no money: they tag units already in stock (not new stock), record
-weights, stones and HUIDs, and send pieces out and take them back; a new
-piece they tag takes its item's making charge and wastage. The rates, old
-gold and gold schemes are not on their menu.
+instalments, books custom orders and takes their advances, sends pieces on
+approval and takes them back, tags pieces, sends them to karigars and takes
+them back, and sends them for hallmarking; a stock keeper tags and weighs pieces, sees
+them without prices, works the karigars' challans and the hallmarking
+consignments, and splits, merges and re-tags pieces; an accountant and a
+viewer see the rates, their sheets, the pieces, the old gold, the schemes with
+the money held for them, the orders and the challans; the owner, a manager and
+an accountant see the cash report, export it, the money held for schemes, the
+ITC-04 data and the HUID list. Labour and the metal account are for those who
+see purchases. The **Karigar / goldsmith**, a jeweller's own role, sees the
+pieces and their weights, with no prices and no money: they tag units already
+in stock (not new stock), record weights, stones and HUIDs, make issue
+challans and receipts of repairs and metal (not of new pieces, which come into
+stock), send pieces for hallmarking, and count against the fine-weight book; a new piece they tag takes its item's making charge and
+wastage. The rates, old gold, gold schemes, approvals and the metal account
+are not on their menu.
 
 ## Rentals & hire
 

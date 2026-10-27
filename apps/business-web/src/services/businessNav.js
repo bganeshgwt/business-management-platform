@@ -220,6 +220,16 @@ export function businessSections(type) {
         { section: "old-gold", label: "Old gold", icon: "collection", need: "sales.view", module: "jewellery", types: JEWELLERY },
         // Gold schemes: monthly instalments turned into jewellery within the year (money: for those who see sales).
         { section: "gold-schemes", label: "Gold schemes", icon: "recurring", need: "sales.view", module: "jewellery", types: JEWELLERY },
+        // Pieces made to a customer's order: booked with an advance that may fix the rate, made, hallmarked, billed (with its sales).
+        { section: "custom-orders", label: "Custom orders", icon: "orders", need: "jewellery.view", types: JEWELLERY },
+        // Pieces out on approval (jangad) to customers and other jewellers (with its sales; money: for those who see sales).
+        { section: "approvals", label: "Approvals", icon: "returns", need: "sales.view", module: "jewellery", types: JEWELLERY },
+        // Karigars' job work, the hallmarking centre and the fine-weight book (with its pieces).
+        { section: "karigar-work", label: "Karigar work", icon: "repair", need: "jewellery.view", types: JEWELLERY },
+        { section: "hallmarking", label: "Hallmarking", icon: "logbook", need: "jewellery.view", types: JEWELLERY },
+        { section: "fine-weight", label: "Fine weight", icon: "inventoryInsights", need: "jewellery.view", types: JEWELLERY },
+        // Metal with bullion suppliers in grams, and its rate fixed (with its purchases; for those who see purchases).
+        { section: "metal-account", label: "Metal account", icon: "suppliers", need: "purchasing.view", module: "jewellery", types: JEWELLERY },
       ],
     },
     {

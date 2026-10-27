@@ -35,9 +35,13 @@ export const perGram = (biz, value) => `${biz.exact(value).replace(/\.00$/, "")}
 // A piece's status, as the screens show it.
 export const PIECE_STATUSES = {
   in_stock: { label: "In stock", tone: "success" }, on_approval: { label: "On approval", tone: "warning" }, at_karigar: { label: "At the karigar", tone: "info" },
-  sold: { label: "Sold", tone: "neutral" }, melted: { label: "Melted", tone: "neutral" },
+  at_centre: { label: "At the hallmarking centre", tone: "info" }, sold: { label: "Sold", tone: "neutral" }, melted: { label: "Melted", tone: "neutral" },
+  split: { label: "Split", tone: "neutral" }, merged: { label: "Merged", tone: "neutral" }, retagged: { label: "Given a new tag", tone: "neutral" },
 };
-export const OPEN_STATUSES = ["in_stock", "on_approval", "at_karigar"];
+export const OPEN_STATUSES = ["in_stock", "on_approval", "at_karigar", "at_centre"];
+// Where a piece out of the shop is, and the screen its challan opens on.
+export const OUT_SCREENS = { approval: { screen: "approvals", param: "challan" }, karigar: { screen: "karigar-work", param: "receive" },
+  centre: { screen: "hallmarking", param: "consignment" } };
 export const MAKING_MODES = [{ value: "per_gram", label: "Per gram" }, { value: "percent", label: "% of the metal's value" }, { value: "flat", label: "Flat for the piece" }];
 // "₹300/g", "12% of metal", "₹6,500 flat".
 export function makingWords(biz, mode, value) {
@@ -84,6 +88,27 @@ export function schemeReminder(biz, s) {
     : `instalment ${Number(s.paid_count) + 1} of ${s.instalments} (${biz.exact(s.instalment)}) of your gold scheme ${s.scheme_no} is due on ${dateShort(s.next_due || s.next_due_on, { year: true })}.`;
   return whatsappLink(s.member_phone || "", `${shop}: Dear ${s.member_name}, ${words}`);
 }
+
+// Custom orders: where an order stands on its path.
+export const ORDER_STATUSES = {
+  booked: { label: "Booked", tone: "info" }, issued: { label: "With the karigar", tone: "info" }, received: { label: "Received", tone: "warning" },
+  at_centre: { label: "At the hallmarking centre", tone: "info" }, hallmarked: { label: "Hallmarked", tone: "warning" }, ready: { label: "Ready", tone: "success" },
+  delivered: { label: "Delivered", tone: "neutral" }, cancelled: { label: "Cancelled", tone: "neutral" },
+};
+// Approval challans and hallmarking consignments: where each stands.
+export const APPROVAL_STATES = { out: { label: "Out", tone: "info" }, overdue: { label: "Past its day", tone: "danger" }, closed: { label: "Closed", tone: "neutral" } };
+export const CONSIGNMENT_STATES = { at_centre: { label: "At the centre", tone: "info" }, returned: { label: "Back", tone: "success" } };
+// A karigar's labour: jewellery work at 5% GST, diamond work at 1.5% (none from a karigar not registered for GST).
+export const WORK_KINDS = [{ value: "jewellery", label: "Jewellery work (5%)" }, { value: "diamond", label: "Diamond work (1.5%)" }];
+export const LABOUR_BASES = [{ value: "per_gram", label: "Per gram" }, { value: "per_piece", label: "Per piece" }];
+// What a karigar holds, in fine weight by metal: "gold 2.638 g · silver 12.000 g".
+export const karigarHeldWords = (k) => [Number(k.gold_fine) ? `gold ${grams(k.gold_fine)}` : null, Number(k.silver_fine) ? `silver ${grams(k.silver_fine)}` : null,
+  Number(k.platinum_fine) ? `platinum ${grams(k.platinum_fine)}` : null].filter(Boolean).join(" · ") || "—";
+// "gold:22K" ↔ { metal, purity }, as the purity pickers hold them.
+export const purityKey = (metal, purity) => `${metal}:${purity}`;
+export const splitPurity = (key) => { const [metal, purity] = String(key).split(":"); return { metal, purity }; };
+// Tags typed or scanned with spaces, commas or new lines between them.
+export const readTags = (text) => [...new Set(String(text || "").toUpperCase().split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean))];
 
 export const SESSION_WORDS = { morning: "Morning", evening: "Evening" };
 // The session a rate sheet set now is most likely for (the shop can change it).

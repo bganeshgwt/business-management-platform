@@ -8,6 +8,8 @@ const rates = require('./jewelleryRates.service');
 const pieces = require('./jewelleryPieces.service');
 const oldGold = require('./jewelleryOldGold.service');
 const schemes = require('./jewellerySchemes.service');
+const orders = require('./jewelleryOrders.service');
+const approvals = require('./jewelleryApprovals.service');
 
 // The jewellery bill (module "jewellery"): tagged pieces scanned or typed at
 // the counter, each priced at the latest rate of the business's day for its
@@ -23,6 +25,13 @@ const schemes = require('./jewellerySchemes.service');
 // payments by old gold); the money taken is what is left. A scheme's
 // instalments, old gold and a returned bill's credit are the customer's own:
 // they pay only that customer's bills.
+//
+// A bill may deliver a custom order that is ready: its pieces go on the bill,
+// the grams fixed on the order (bhav cut) at the order's rate and the rest at
+// the day's, and its advances pay after a scheme: its receipts as they were
+// taken, then its old gold, each as far as the bill still needs (what is left
+// is the customer's again). A bill may sell pieces from an approval challan:
+// they come back into stock from the challan and are billed to its customer.
 //
 // The HUID check: a gold piece of 2 g or more is sold only with its BIS
 // hallmark's HUID, unless the article is left out of the hallmarking order
@@ -88,9 +97,13 @@ function readTags(value) {
 }
 
 // Each tag priced as the bill would be now, with the problem that would stop it (if any).
-async function priceTags(db, business, { locationId, tags, rules, lock = false }) {
+// onApproval: the pieces out on the approval challan the bill sells from (they come back to be billed);
+// fixed: { pieceIds, mg, rate, sheetId }: a custom order's pieces and the grams fixed on it, given out in the bill's order;
+// orderId: the custom order the bill delivers (a piece made for an open order is billed only on its own order's bill).
+async function priceTags(db, business, { locationId, tags, rules, lock = false, onApproval = new Set(), fixed = null, orderId = null }) {
   const now = await rates.ratesNow(db, business);
   const lines = [];
+  let fixedLeft = fixed ? fixed.mg : 0;
   for (const tag of tags) {
     const found = await repo.one(db, 'SELECT id FROM jewellery_pieces WHERE business_id=$1 AND tag_no=$2', [business.id, tag]);
     if (!found) { lines.push({ tag, problem: `No piece has the tag ${tag}` }); continue; }
@@ -103,17 +116,32 @@ async function priceTags(db, business, { locationId, tags, rules, lock = false }
       hallmarked: piece.hallmarked, stones: stones.map((s) => ({ kind: s.kind, kindWords: pieces.STONE_KINDS[s.kind], description: s.description, pieces: s.pieces,
         carat: s.carat, grade: s.grade, certificate: s.certificate, treatment: s.treatment, value: s.value })) };
     let problem = null;
-    if (piece.status !== 'in_stock') problem = `Piece ${tag} is ${pieces.STATUS_WORDS[piece.status]}${piece.with_whom ? ` (${piece.with_whom})` : ''}: only a piece in stock is billed`;
-    else if (!piece.in_books) problem = `Piece ${tag} is not in stock in the books (written off in a stock count?)`;
+    const fromApproval = piece.status === 'on_approval' && onApproval.has(Number(piece.id));
+    if (piece.status !== 'in_stock' && !fromApproval) {
+      problem = `Piece ${tag} is ${pieces.STATUS_WORDS[piece.status]}${piece.out_no ? ` (${piece.out_no}${piece.out_with ? `, ${piece.out_with}` : ''})` : ''}: only a piece in stock is billed`;
+    } else if (piece.order_id && !['delivered', 'cancelled'].includes(piece.order_status) && Number(piece.order_id) !== Number(orderId)) {
+      problem = `Piece ${tag} was made for custom order ${piece.order_no}: it is billed on the order's own bill (Sales history › Custom orders)`;
+    } else if (!piece.in_books) problem = `Piece ${tag} is not in stock in the books (written off in a stock count?)`;
     else if (Number(piece.location_id) !== Number(locationId)) problem = `Piece ${tag} is at ${piece.location_name}: bill it there, or move it here first`;
     else if (Number(piece.tax_rate) !== 3) problem = `${piece.item_label} is at ${Number(piece.tax_rate)}% GST in the catalogue: jewellery is billed at 3%`;
     const rate = now.byPurity.get(`${piece.metal}:${piece.purity}`);
     if (!problem && !rate) problem = `${c.purityWords(piece.metal, piece.purity)} has no rate today: set today's rates first`;
     const basis = basisOf(piece, huids, rules);
-    if (!problem && !basis) problem = `Piece ${tag} (gold, ${c.grams(c.mg(piece.gross_weight))} g) needs its BIS hallmark with a HUID before it is sold here: add the HUID under Pieces & tags`;
+    if (!problem && !basis) {
+      problem = piece.old_hallmark
+        ? `Piece ${tag} (gold, ${c.grams(c.mg(piece.gross_weight))} g) carries the old hallmark without a HUID: it is re-hallmarked before it is sold here (Pieces & tags › Hallmarking)`
+        : `Piece ${tag} (gold, ${c.grams(c.mg(piece.gross_weight))} g) needs its BIS hallmark with a HUID before it is sold here: add the HUID under Pieces & tags`;
+    }
     if (problem || !rate) { lines.push({ ...base, problem }); continue; }
-    const p = money.piecePrice({ ...piece, stones }, rate.sell_rate);
-    lines.push({ ...base, piece, rate, basis, basisWords: BASIS_WORDS[basis], price: p, problem: null });
+    // A custom order's piece takes the grams fixed on the order that are left, at the order's rate.
+    let fixedPart = null;
+    if (fixed && fixed.pieceIds.has(Number(piece.id)) && fixedLeft > 0) {
+      const lineMg = Math.min(c.mg(piece.net_weight), fixedLeft);
+      fixedLeft -= lineMg;
+      fixedPart = { mg: lineMg, rate: fixed.rate, sheetId: fixed.sheetId };
+    }
+    const p = money.piecePrice({ ...piece, stones }, rate.sell_rate, fixedPart);
+    lines.push({ ...base, piece, rate, basis, basisWords: BASIS_WORDS[basis], price: p, fixedPart, problem: null });
   }
   return { day: now.day, lines };
 }
@@ -134,7 +162,8 @@ function billFigures(lines, rounding) {
 const lineText = (l) => (l.price ? {
   tag: l.tag, pieceId: l.pieceId, description: l.description, metal: l.metal, purity: l.purity, mark: l.mark, purityLong: l.purityLong, grossWeight: l.grossWeight,
   stoneWeight: l.stoneWeight, netWeight: l.netWeight, huids: l.huids, hallmarked: l.hallmarked, stones: l.stones, basis: l.basis, basisWords: l.basisWords,
-  rate: Number(l.rate.sell_rate).toFixed(2), metalValue: c.rupees(l.price.metal), wastagePercent: Number(l.piece.wastage_percent).toFixed(2),
+  rate: Number(l.rate.sell_rate).toFixed(2), fixedWeight: c.grams(l.price.fixedMg || 0), fixedRate: l.fixedPart ? Number(l.fixedPart.rate).toFixed(2) : null,
+  metalValue: c.rupees(l.price.metal), wastagePercent: Number(l.piece.wastage_percent).toFixed(2),
   wastageWeight: c.grams(l.price.wastageMg), wastage: c.rupees(l.price.wastage), makingMode: l.piece.making_mode, makingValue: Number(l.piece.making_value).toFixed(2),
   making: c.rupees(l.price.making), stoneValue: c.rupees(l.price.stones), hallmarkCharge: c.rupees(l.price.hallmark), value: c.rupees(l.price.value),
   discount: c.rupees(l.discount || 0), taxable: c.rupees(l.taxable), taxRate: '3.00', tax: c.rupees(l.tax), total: c.rupees(l.taxable + l.tax), problem: null,
@@ -148,9 +177,27 @@ function readBill(body) {
   const vouchers = oldGold.readForBill(body.oldGold);
   const scheme = c.given(body.scheme) ? id(body.scheme, 'Gold scheme') : null;
   const credits = readCredits(body.credits);
-  if ((vouchers.length || scheme || credits.length) && newCustomer) fail('Old gold, a gold scheme and a returned bill\'s credit pay the bills of their own customer: choose them as the customer');
-  return { locationId: id(body.locationId, 'Location'), tags: readTags(body.tags), contactId, newCustomer, oldGold: vouchers, scheme, credits,
+  // A custom order it delivers, and an approval challan it sells from.
+  const order = c.given(body.order) ? id(body.order, 'Custom order') : null;
+  const approval = c.given(body.approval) ? id(body.approval, 'Approval challan') : null;
+  if ((vouchers.length || scheme || credits.length || order || approval) && newCustomer) {
+    fail('Old gold, a gold scheme, a returned bill\'s credit, a custom order and an approval challan are their own customer\'s: choose them as the customer');
+  }
+  // A custom order's pieces come on its bill by themselves: the tags may be left out.
+  const tags = order && (body.tags === undefined || body.tags === null || (Array.isArray(body.tags) && !body.tags.length)) ? [] : readTags(body.tags);
+  return { locationId: id(body.locationId, 'Location'), tags, contactId, newCustomer, oldGold: vouchers, scheme, credits, order, approval,
     notes: c.optionalText(body.notes, 'Notes', 300) };
+}
+
+// The custom order and the approval challan on a bill: the order's pieces join the tags, and what each brings.
+async function orderAndApproval(db, business, input, { lock = false } = {}) {
+  const order = input.order ? await orders.forBill(db, business, input.order, { lock }) : null;
+  const tags = [...input.tags];
+  if (order) for (const p of order.made) if (!tags.includes(p.tag_no)) tags.push(p.tag_no);
+  if (tags.length > MAX_PIECES) fail(`A jewellery bill takes at most ${MAX_PIECES} pieces`);
+  const approval = input.approval ? await approvals.forBill(db, business, input.approval, tags, { lock }) : null;
+  const vouchers = order ? await oldGold.vouchersFor(db, business, order.voucherIds.filter((g) => !input.oldGold.map(String).includes(String(g))), { lock, held: true }) : [];
+  return { order, approval, tags, orderVouchers: vouchers };
 }
 
 // --- What pays a bill before money ------------------------------------------------------------------
@@ -190,40 +237,54 @@ async function creditsFor(db, business, ids, { lock = false } = {}) {
   return found;
 }
 
-// The bill's customer: the one chosen, or the one whose scheme, credit or old gold it uses (all one customer's).
-function customerOf(input, { scheme, credits: notes, vouchers }) {
-  const owners = [scheme && { id: scheme.contact_id, words: `Scheme ${scheme.scheme_no} is ${scheme.member_name}'s` },
-    ...notes.map((n) => ({ id: n.contact_id, words: `The credit on ${n.document_no} is another customer's` })),
-    ...vouchers.map((g) => ({ id: g.contact_id, words: `Old gold ${g.voucher_no} was brought in by ${g.seller_name}` }))].filter(Boolean);
+// The bill's customer: the one chosen, or the one whose scheme, order, approval challan, credit or old gold it uses (all one customer's).
+function customerOf(input, { scheme, credits: notes, vouchers, order = null, approval = null }) {
+  const owners = [scheme && { id: scheme.contact_id, words: `Scheme ${scheme.scheme_no} is ${scheme.member_name}'s: it pays only their bills` },
+    order && { id: order.contact_id, words: `Order ${order.order_no} is another customer's: it is billed to the customer who ordered it` },
+    approval && { id: approval.contact_id, words: `Approval challan ${approval.approval_no} went out to ${approval.party_name}: its pieces are billed to them` },
+    ...notes.map((n) => ({ id: n.contact_id, words: `The credit on ${n.document_no} is another customer's: it pays only their bills` })),
+    ...vouchers.map((g) => ({ id: g.contact_id, words: `Old gold ${g.voucher_no} was brought in by ${g.seller_name}: it pays only their bills` }))].filter(Boolean);
   const chosen = input.contactId || owners[0]?.id || null;
   const other = owners.find((o) => Number(o.id) !== Number(chosen));
-  if (other) fail(`${other.words}: it pays only their bills`, 409);
+  if (other) fail(other.words, 409);
   return chosen;
 }
 
 // What pays the bill (paise) before money, in this order: all that was paid
-// into the scheme it redeems, the credit on the customer's returned bills,
-// then their old gold, each up to what the bill still needs.
-function settle(total, { scheme, credits: notes, vouchers }, { strict = true } = {}) {
+// into the scheme it redeems, the advances of the custom order it delivers
+// (its receipts, as far as the bill needs them), the credit on the customer's
+// returned bills, then their old gold (the order's first, as far as needed),
+// each up to what the bill still needs.
+function settle(total, { scheme, credits: notes, vouchers, orderReceipts = [], orderVouchers = [] }, { strict = true } = {}) {
   let left = total;
   const schemePays = scheme ? scheme.paidPaise : 0;
   if (scheme && schemePays > total && strict) {
     fail(`The bill comes to ${c.rupees(total)}: choose jewellery worth at least the ${c.rupees(schemePays)} paid into scheme ${scheme.scheme_no}`, 409);
   }
   left -= Math.min(schemePays, left);
+  const receiptUses = orderReceipts.map((receipt) => {
+    const amount = Math.max(0, Math.min(receipt.freePaise, left));
+    left -= amount;
+    return { receipt, amount };
+  }).filter((u) => u.amount > 0);
   const creditUses = notes.map((note) => {
     const amount = Math.min(c.paise(note.credit), left);
     if (amount <= 0 && strict) fail(`The bill is paid in full before the credit on ${note.document_no}: take it off the bill`, 409);
     left -= Math.max(0, amount);
     return { note, amount: Math.max(0, amount) };
   });
+  const heldUses = orderVouchers.map((voucher) => {
+    const amount = Math.max(0, Math.min(c.paise(voucher.balance), left));
+    left -= amount;
+    return { voucher, amount };
+  }).filter((u) => u.amount > 0);
   const goldUses = strict ? oldGold.applyTo(vouchers, left) : vouchers.map((voucher) => {
     const amount = Math.max(0, Math.min(c.paise(voucher.balance), left));
     left -= amount;
     return { voucher, amount };
   });
   if (strict) left -= goldUses.reduce((s, u) => s + u.amount, 0);
-  return { schemePays, creditUses, goldUses, toPay: left };
+  return { schemePays, receiptUses, creditUses, goldUses: [...heldUses, ...goldUses], toPay: left };
 }
 // The scheme's discount spread over the pieces by their value, to the paisa.
 function withDiscount(lines, discount) {
@@ -237,37 +298,52 @@ const creditText = (uses) => uses.map((u) => ({ documentId: u.note.document_id, 
 const schemeText = (scheme, pays) => (scheme ? { id: scheme.id, schemeNo: scheme.scheme_no, memberName: scheme.member_name, plan: scheme.plan_name, status: scheme.status,
   stage: scheme.stage, paid: Number(scheme.paid).toFixed(2), paidCount: scheme.paid_count, instalments: scheme.instalments, maturityOn: scheme.maturity_on, closeBy: scheme.close_by,
   discount: c.rupees(scheme.discount), pays: c.rupees(pays) } : null);
+// The pieces of an approval challan the bill sells, and a custom order's grams fixed at its rate.
+const approvalSet = (approval) => new Set((approval?.selling || []).map((l) => Number(l.piece_id)));
+const fixedOf = (order) => (order?.fixed ? { pieceIds: new Set(order.made.map((p) => Number(p.id))), mg: order.fixed.mg, rate: order.fixed.rate, sheetId: order.fixed.sheetId } : null);
+const orderText = (order, paidFirst) => (order ? { id: order.id, orderNo: order.order_no, fixedRate: order.fixed ? Number(order.fixed.rate).toFixed(2) : null,
+  fixedWeight: order.fixed ? c.grams(order.fixed.mg) : null, tags: order.made.map((p) => p.tag_no),
+  receipts: paidFirst.receiptUses.map((u) => ({ collectionNo: u.receipt.collection_no, free: c.rupees(u.receipt.freePaise), amount: c.rupees(u.amount) })),
+  pays: c.rupees(paidFirst.receiptUses.reduce((s, u) => s + u.amount, 0)) } : null);
+const approvalText = (approval) => (approval ? { id: approval.id, approvalNo: approval.approval_no, partyName: approval.party_name, tags: approval.selling.map((l) => l.tag_no) } : null);
 
 // The bill as it would be posted now, nothing saved: each piece priced, its problem if it cannot be billed, the totals,
-// what the customer's scheme, credit and old gold pay, and what is left to pay.
+// what the customer's scheme, order, credit and old gold pay, and what is left to pay.
 async function preview(business, user, body) {
   c.requireJewellery(business);
   await access.require(business, 'jewellery.create');
   await c.requireMoney(business);
   const input = readBill(body);
   access.requireLocation(business, input.locationId);
+  const extra = await orderAndApproval(repo.pool, business, input);
+  if (!extra.tags.length) fail('Scan or type the pieces\' tags');
   const rules = await rulesAt(repo.pool, business, input.locationId);
-  const priced = await priceTags(repo.pool, business, { locationId: input.locationId, tags: input.tags, rules });
+  const priced = await priceTags(repo.pool, business, { locationId: input.locationId, tags: extra.tags, rules, onApproval: approvalSet(extra.approval), fixed: fixedOf(extra.order),
+    orderId: extra.order?.id });
   const settings = await repo.one(repo.pool, 'SELECT rounding FROM business_settings WHERE business_id=$1', [business.id]);
   const scheme = input.scheme ? await schemes.forBill(repo.pool, business, input.scheme) : null;
   const notes = await creditsFor(repo.pool, business, input.credits);
-  const vouchers = await oldGold.vouchersFor(repo.pool, business, input.oldGold);
-  const contactId = customerOf(input, { scheme, credits: notes, vouchers });
+  const vouchers = await oldGold.vouchersFor(repo.pool, business, input.oldGold, { orderId: input.order });
+  const contactId = customerOf(input, { scheme, credits: notes, vouchers, order: extra.order, approval: extra.approval });
   const ok = withDiscount(priced.lines.filter((l) => !l.problem), scheme?.discount || 0);
   const f = billFigures(ok, settings?.rounding);
   const textOf = new Map(f.lines.map((l) => [l.tag, lineText(l)]));
   const problems = priced.lines.filter((l) => l.problem).map((l) => l.problem);
-  const paidFirst = settle(f.total, { scheme, credits: notes, vouchers }, { strict: !problems.length && f.total > 0 });
-  const before = paidFirst.creditUses.reduce((s, u) => s + u.amount, 0) + paidFirst.goldUses.reduce((s, u) => s + u.amount, 0);
+  const paidFirst = settle(f.total, { scheme, credits: notes, vouchers, orderReceipts: extra.order?.receipts || [], orderVouchers: extra.orderVouchers },
+    { strict: !problems.length && f.total > 0 });
+  const before = paidFirst.receiptUses.reduce((s, u) => s + u.amount, 0) + paidFirst.creditUses.reduce((s, u) => s + u.amount, 0)
+    + paidFirst.goldUses.reduce((s, u) => s + u.amount, 0);
   return { day: priced.day, rules, lines: priced.lines.map((l) => textOf.get(l.tag) || lineText(l)), problems,
     subtotal: c.rupees(f.subtotal), tax: c.rupees(f.tax), roundOff: c.rupees(f.roundOff), total: c.rupees(f.total), panNeeded: f.total > 20000000, statement: STATEMENT,
     contactId, scheme: schemeText(scheme, paidFirst.schemePays), schemeDiscount: c.rupees(scheme?.discount || 0), schemePaid: c.rupees(paidFirst.schemePays),
+    order: orderText(extra.order, paidFirst), orderPaid: c.rupees(paidFirst.receiptUses.reduce((s, u) => s + u.amount, 0)), approval: approvalText(extra.approval),
     credits: creditText(paidFirst.creditUses), oldGold: oldGoldText(paidFirst.goldUses), oldGoldPaid: c.rupees(paidFirst.goldUses.reduce((s, u) => s + u.amount, 0)),
     paidBefore: c.rupees(paidFirst.schemePays + before), toPay: c.rupees(paidFirst.toPay) };
 }
 
-// body: { requestKey, locationId, tags: [..], contactId? | customer?: { name, phone?, pan? }, scheme?: scheme id, credits?: [returned bill ids],
-//   oldGold?: [voucher ids], payment? | payments?, buyer?: { pan?, panDeclaration? }, notes? }
+// body: { requestKey, locationId, tags: [..], contactId? | customer?: { name, phone?, pan? }, scheme?: scheme id, order?: custom order id (its pieces come on the bill),
+//   approval?: approval challan id (its pieces on the bill are sold from it), credits?: [returned bill ids], oldGold?: [voucher ids], payment? | payments?,
+//   buyer?: { pan?, panDeclaration? }, notes? }
 async function post(business, user, body) {
   c.requireJewellery(business);
   await access.require(business, 'jewellery.create');
@@ -277,7 +353,7 @@ async function post(business, user, body) {
   const input = readBill(body);
   if (input.newCustomer) await access.require(business, 'contacts.create');
   const parts = core.readPayments(body);
-  if (parts.length || input.oldGold.length || input.scheme || input.credits.length) await access.require(business, 'sales.edit');
+  if (parts.length || input.oldGold.length || input.scheme || input.credits.length || input.order) await access.require(business, 'sales.edit');
   access.requireLocation(business, input.locationId);
   const buyer = body.buyer && typeof body.buyer === 'object' && !Array.isArray(body.buyer) ? body.buyer : {};
   return repo.transaction(async (db) => {
@@ -289,10 +365,12 @@ async function post(business, user, body) {
     }
     const location = await repo.one(db, 'SELECT id FROM business_locations WHERE business_id=$1 AND id=$2 AND active', [business.id, input.locationId]);
     if (!location) fail('Location not found', 404);
+    const extra = await orderAndApproval(db, business, input, { lock: true });
+    if (!extra.tags.length) fail('Scan or type the pieces\' tags');
     const scheme = input.scheme ? await schemes.forBill(db, business, input.scheme, { lock: true }) : null;
     const notes = await creditsFor(db, business, input.credits, { lock: true });
-    const vouchers = await oldGold.vouchersFor(db, business, input.oldGold, { lock: true });
-    const contactId = customerOf(input, { scheme, credits: notes, vouchers });
+    const vouchers = await oldGold.vouchersFor(db, business, input.oldGold, { lock: true, orderId: input.order });
+    const contactId = customerOf(input, { scheme, credits: notes, vouchers, order: extra.order, approval: extra.approval });
     let contact = null;
     if (contactId) {
       contact = await repo.one(db, "SELECT * FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind='customer'", [business.id, contactId]);
@@ -301,15 +379,20 @@ async function post(business, user, body) {
     } else if (input.newCustomer) {
       contact = await core.createContact(business, user, input.newCustomer, db);
     }
+    // Pieces sold from an approval challan come back into stock from it, to go on the bill.
+    if (extra.approval) {
+      if (Number(extra.approval.location_id) !== Number(location.id)) fail(`Approval challan ${extra.approval.approval_no} went out from another location: bill it there`, 409);
+      await approvals.sellFrom(db, business, user, extra.approval);
+    }
     const rules = await rulesAt(db, business, location.id);
-    const priced = await priceTags(db, business, { locationId: location.id, tags: input.tags, rules, lock: true });
+    const priced = await priceTags(db, business, { locationId: location.id, tags: extra.tags, rules, lock: true, fixed: fixedOf(extra.order), orderId: extra.order?.id });
     const problem = priced.lines.find((l) => l.problem);
     if (problem) fail(problem.problem, 409);
     const settings = await repo.one(db, 'SELECT tax_mode,rounding FROM business_settings WHERE business_id=$1', [business.id]);
     const discount = scheme?.discount || 0;
     const f = billFigures(withDiscount(priced.lines, discount), settings?.rounding);
-    // The scheme, the credit and the old gold pay first; what is paid now is on top, and "full" is the rest of the bill.
-    const paidFirst = settle(f.total, { scheme, credits: notes, vouchers });
+    // The scheme, the order's advances, the credit and the old gold pay first; what is paid now is on top, and "full" is the rest of the bill.
+    const paidFirst = settle(f.total, { scheme, credits: notes, vouchers, orderReceipts: extra.order?.receipts || [], orderVouchers: extra.orderVouchers });
     const toPay = paidFirst.toPay;
     const fixedPaid = parts.filter((p) => p.amount !== 'full').reduce((s, p) => s + c.paise(p.amount), 0);
     if (fixedPaid > toPay) fail(toPay < f.total ? `The payments come to more than the ${c.rupees(toPay)} left to pay` : `The payments come to more than the bill's ${c.rupees(f.total)}`);
@@ -323,7 +406,8 @@ async function post(business, user, body) {
     const fixed = f.lines.map((l) => ({ price: Number(c.rupees(l.taxable + (inclusive ? l.tax : 0))), net: l.taxable, tax: l.tax, priceRuleId: null, enteredPrice: null,
       label: `${l.description} · ${l.mark} · tag ${l.tag}`.slice(0, 150) }));
     const documentBody = { kind: 'sale', locationId: location.id, contactId: contact?.id || null, lines,
-      notes: ['Jewellery bill', `rates of ${c.dateWords(priced.day)}`, scheme ? `gold scheme ${scheme.scheme_no}` : null, input.notes].filter(Boolean).join(' · ').slice(0, 500),
+      notes: ['Jewellery bill', `rates of ${c.dateWords(priced.day)}`, scheme ? `gold scheme ${scheme.scheme_no}` : null, extra.order ? `custom order ${extra.order.order_no}` : null,
+        extra.approval ? `approval ${extra.approval.approval_no}` : null, input.notes].filter(Boolean).join(' · ').slice(0, 500),
       buyer: { name: contact ? undefined : buyer.name, phone: contact ? undefined : buyer.phone, pan: buyer.pan, panDeclaration: buyer.panDeclaration } };
     const document = await core.postDocument(db, business, user, documentBody, { kind: 'sale', requestKey: c.derivedKey(requestKey, 'bill'), hash: c.hashOf(documentBody),
       lines, paidNow, fixed, walkInPays: true, jewellery: true, tenders });
@@ -331,23 +415,25 @@ async function post(business, user, body) {
     const docLines = await repo.all(db, 'SELECT id FROM business_document_lines WHERE business_id=$1 AND document_id=$2 ORDER BY id', [business.id, document.id]);
     if (docLines.length !== f.lines.length) fail('The bill does not have a line for each piece. Try again.', 409);
     const bill = await repo.one(db, `INSERT INTO jewellery_bills(business_id,document_id,location_id,contact_id,rate_date,hallmark_mandatory,turnover_exempt,scheme_id,scheme_discount,
-        notes,request_key,request_hash,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
+        notes,request_key,request_hash,created_by,order_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id`,
     [business.id, document.id, location.id, contact?.id || null, priced.day, rules.mandatory, rules.turnoverExempt, scheme?.id || null, c.rupees(discount),
-      input.notes, requestKey, hash, user.id]);
+      input.notes, requestKey, hash, user.id, extra.order?.id || null]);
     for (const [index, l] of f.lines.entries()) {
       const x = l.piece;
       await db.query(`INSERT INTO jewellery_bill_lines(business_id,bill_id,line_id,piece_id,tag_no,description,metal,purity,gross_weight,stone_weight,net_weight,rate_sheet_id,rate,
           metal_value,wastage_percent,wastage_weight,wastage_value,making_mode,making_value,making_charge,stone_value,stones,hallmarked,hallmark_charge,huids,hallmark_basis,
-          value,discount,taxable,tax_rate,tax)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,3,$30)`,
+          value,discount,taxable,tax_rate,tax,fixed_weight,fixed_rate,fixed_sheet_id)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,3,$30,$31,$32,$33)`,
       [business.id, bill.id, docLines[index].id, x.id, x.tag_no, l.description, x.metal, x.purity, x.gross_weight, x.stone_weight, x.net_weight, l.rate.sheet_id, l.rate.sell_rate,
         c.rupees(l.price.metal), x.wastage_percent, c.grams(l.price.wastageMg), c.rupees(l.price.wastage), x.making_mode, x.making_value, c.rupees(l.price.making),
         c.rupees(l.price.stones), JSON.stringify(l.stones), x.hallmarked, x.hallmark_charge, l.huids, l.basis, c.rupees(l.price.value), c.rupees(l.discount || 0),
-        c.rupees(l.taxable), c.rupees(l.tax)]);
+        c.rupees(l.taxable), c.rupees(l.tax), c.grams(l.fixedPart?.mg || 0), l.fixedPart ? Number(l.fixedPart.rate).toFixed(2) : null, l.fixedPart?.sheetId || null]);
       await db.query("UPDATE jewellery_pieces SET status='sold',updated_by=$3,updated_at=now() WHERE business_id=$1 AND id=$2", [business.id, x.id, user.id]);
       await pieces.history(db, business, user, x.id, 'sold', { from: 'in_stock', to: 'sold', note: `Sold on ${document.document_no}` });
     }
     if (scheme) await schemes.redeem(db, business, user, document, scheme, discount, (receipt) => c.derivedKey(requestKey, `scheme-${receipt.seq}`));
+    // The order's receipts pay as far as the bill needs them, and the order is delivered on it.
+    if (extra.order) await orders.deliver(db, business, user, document, extra.order, paidFirst.receiptUses, (receipt) => c.derivedKey(requestKey, `order-${receipt.collection_id}`));
     // The credit moves off each returned bill (a credit-note refund: no money moves).
     for (const use of paidFirst.creditUses) {
       const moved = await repo.one(db, `INSERT INTO business_refunds(business_id,document_id,amount,method,reason,request_key,created_by)
@@ -358,9 +444,13 @@ async function post(business, user, body) {
         method: 'credit_note' });
     }
     await oldGold.recordUses(db, business, user, document, paidFirst.goldUses, goldKey);
+    if (extra.approval) await approvals.sold(db, business, user, extra.approval, document);
     const figures = { documentNo: document.document_no, pieces: f.lines.length, tags: f.lines.map((l) => l.tag), total: document.total, rateDate: priced.day,
       netWeight: c.grams(f.lines.reduce((s, l) => s + c.mg(l.netWeight), 0)), hallmarkMandatory: rules.mandatory, turnoverExempt: rules.turnoverExempt,
       ...(scheme ? { scheme: { schemeNo: scheme.scheme_no, paid: c.rupees(paidFirst.schemePays), discount: c.rupees(discount) } } : {}),
+      ...(extra.order ? { order: { orderNo: extra.order.order_no, advances: c.rupees(paidFirst.receiptUses.reduce((s, u) => s + u.amount, 0)),
+        fixedWeight: c.grams(f.lines.reduce((s, l) => s + (l.fixedPart?.mg || 0), 0)), fixedRate: extra.order.fixed ? Number(extra.order.fixed.rate).toFixed(2) : null } } : {}),
+      ...(extra.approval ? { approval: { approvalNo: extra.approval.approval_no, tags: extra.approval.selling.map((l) => l.tag_no) } } : {}),
       ...(paidFirst.creditUses.length ? { credits: paidFirst.creditUses.map((u) => ({ documentNo: u.note.document_no, amount: c.rupees(u.amount) })) } : {}),
       ...(paidFirst.goldUses.length ? { oldGold: paidFirst.goldUses.map((u) => ({ voucherNo: u.voucher.voucher_no, amount: c.rupees(u.amount) })) } : {}) };
     await repo.audit(db, business.id, user.id, 'jewellery_bill.posted', bill.id, figures);
@@ -382,7 +472,8 @@ async function view(db, business, billId) {
     JOIN jewellery_old_gold g ON g.business_id=u.business_id AND g.id=u.old_gold_id WHERE u.business_id=$1 AND u.document_id=$2
     GROUP BY u.old_gold_id,g.voucher_no ORDER BY u.old_gold_id`, [business.id, bill.document_id]);
   const scheme = bill.scheme_id ? await repo.one(db, 'SELECT id,scheme_no,plan_name,discount FROM jewellery_schemes WHERE business_id=$1 AND id=$2', [business.id, bill.scheme_id]) : null;
-  return { ...bill, lines, old_gold: used, scheme };
+  const order = bill.order_id ? await repo.one(db, 'SELECT id,order_no,fixed_rate,fixed_weight FROM jewellery_orders WHERE business_id=$1 AND id=$2', [business.id, bill.order_id]) : null;
+  return { ...bill, lines, old_gold: used, scheme, order };
 }
 async function detail(business, billId) {
   c.requireJewellery(business);
@@ -397,8 +488,9 @@ async function detail(business, billId) {
 // details and price build-up, the statement, and the BIS registration the
 // location sells under (licences), for the invoice. null for a bill that is not a jewellery bill.
 async function invoiceExtras(db, business, doc) {
-  const bill = await repo.one(db, `SELECT b.id,b.rate_date::text AS rate_date,b.hallmark_mandatory,b.turnover_exempt,b.scheme_discount,s.scheme_no FROM jewellery_bills b
-    LEFT JOIN jewellery_schemes s ON s.business_id=b.business_id AND s.id=b.scheme_id WHERE b.business_id=$1 AND b.document_id=$2`, [business.id, doc.id]);
+  const bill = await repo.one(db, `SELECT b.id,b.rate_date::text AS rate_date,b.hallmark_mandatory,b.turnover_exempt,b.scheme_discount,s.scheme_no,o.order_no,o.fixed_rate,o.fixed_weight
+    FROM jewellery_bills b LEFT JOIN jewellery_schemes s ON s.business_id=b.business_id AND s.id=b.scheme_id
+    LEFT JOIN jewellery_orders o ON o.business_id=b.business_id AND o.id=b.order_id WHERE b.business_id=$1 AND b.document_id=$2`, [business.id, doc.id]);
   if (!bill) return null;
   const lines = await repo.all(db, 'SELECT * FROM jewellery_bill_lines WHERE business_id=$1 AND bill_id=$2 ORDER BY line_id', [business.id, bill.id]);
   let bis = null;
@@ -409,6 +501,7 @@ async function invoiceExtras(db, business, doc) {
   }
   return { billId: bill.id, rateDate: bill.rate_date, statement: STATEMENT, bis,
     scheme: bill.scheme_no ? { schemeNo: bill.scheme_no, discount: bill.scheme_discount } : null,
+    order: bill.order_no ? { orderNo: bill.order_no, fixedRate: bill.fixed_rate, fixedWeight: bill.fixed_weight } : null,
     lines: lines.map((l) => ({ ...l, mark: c.purityMark(l.metal, l.purity), purity_long: c.purityLong(l.metal, l.purity), basis_words: BASIS_WORDS[l.hallmark_basis] })) };
 }
 

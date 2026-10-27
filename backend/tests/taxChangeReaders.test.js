@@ -45,6 +45,8 @@ const READERS = {
   "modules/business/health/services/businessPharmacy.service.js": "gate",
   "modules/business/jewellery/services/jewelleryBills.service.js": "gate",
   "modules/business/jewellery/services/jewelleryPieces.service.js": "gate",
+  "modules/business/jewellery/services/jewelleryAccounts.js": "writes",
+  "modules/business/jewellery/services/jewelleryKarigars.service.js": "stored",
   "modules/business/laundry/services/laundryMoney.js": "gate",
   "modules/business/laundry/services/laundryOrders.service.js": "gate",
   "modules/business/laundry/services/laundryPrices.service.js": "gate",

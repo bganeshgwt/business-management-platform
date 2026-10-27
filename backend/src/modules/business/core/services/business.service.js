@@ -721,6 +721,10 @@ const named = (value) => value !== undefined && value !== null && value !== '';
 // `lodging`: the bill is a stay's, posted at check-out or with a cancellation
 // charge (a room type's nights go on no other bill); it is supplied where the
 // property is, whoever the buyer is.
+// `noStock`: a purchase whose lines take no stock, posted by a type's own
+// service: a jeweller's karigar labour and hallmarking charges (services
+// bought), and metal fixed to money on its metal account (kept in grams in the
+// jeweller's own books).
 // Free units and trade discount on a purchase line, in the line's own unit
 // (packs when it is entered in packs). null when neither is given.
 function readScheme(input) {
@@ -734,7 +738,7 @@ function readScheme(input) {
 }
 
 async function postDocument(db, business, user, body, { kind, requestKey, hash, lines: inputLines, paidNow, fixed = null, quote = false, walkInPays = false, voucher = null, finance = null,
-  membership = false, dueDay = null, jewellery = false, tenders = [], rental = false, fuel = false, lodging = false }) {
+  membership = false, dueDay = null, jewellery = false, tenders = [], rental = false, fuel = false, lodging = false, noStock = false }) {
   {
     // Serializes document posting within a business: one lock order for every
     // posting (business, then document, then stock lots).
@@ -779,7 +783,7 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
        JOIN business_units u ON u.business_id=s.business_id AND u.code=s.unit
        WHERE s.business_id=$1 AND s.id=$2 AND s.active AND p.active`, [business.id, id(input.skuId)]);
       if (!sku) fail('Item not found', 404);
-      if (kind === 'purchase' && sku.kind === 'service') fail('Services cannot be received into stock');
+      if (kind === 'purchase' && sku.kind === 'service' && !noStock) fail('Services cannot be received into stock');
       if (kind === 'sale' && sku.internal_use) fail(`${sku.label} is kept for use in services only and is not sold. Untick "For use in services only" on the item to sell it.`, 409);
       const baseUnit = { decimals: sku.unit_decimals, name: sku.unit_name };
       let quantity, entered = null, factorMicro = 1000000;
@@ -974,7 +978,7 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
         line.sku.hsn_code || null, line.kit ? null : line.sku.mrp ?? null, line.kit?.skuId || null, line.kit?.label || null, line.kit?.group || null,
         line.freeQuantity || 0, line.discountPercent || 0]);
       line.id = savedLine.id;
-      if (line.sku.tracking === 'none') continue;
+      if (line.sku.tracking === 'none' || noStock) continue;
       // A tinted line's base leaves stock when its job is tinted (deliverLine).
       if (tinted?.has(line)) continue;
       if (kind === 'purchase') {

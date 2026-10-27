@@ -1043,8 +1043,8 @@ A jeweller sells as every goods shop does ([Shops and the shared core](#shops-an
 
 ### Where a piece is, and melting
 
-- **Rule:** a piece starts in stock. From stock it goes on approval (with the customer who has it) or to the karigar (with the karigar's name) and comes back into stock; it is not sold while it is out. While it is in the shop (in stock, on approval or at the karigar) its words, purity, weights, charges, hallmark, HUIDs and stones may be changed, and each change is in its history with what it was; its item and tag never change. A manager melts a piece in stock with a reason: its unit leaves stock (a stock correction of one) and its metal (its purity, net weight and fine weight, net weight × fineness ÷ 1,000 to the milligram) joins the shop's own metal at its location. A sold or melted piece keeps what it was, and a piece is never deleted.
-- **Why:** a piece out of the shop must not be sold twice; melted metal is the shop's own, for melting and refining, and is never billed.
+- **Rule:** a piece starts in stock. From stock it goes on approval on an approval challan, to a karigar on an issue challan, or to the hallmarking centre on a consignment, and comes back into stock only on the same (a return of the challan or a sale from it, the karigar's receipt, the consignment's return); the database refuses any other move. Out of the shop it is not sold, sent anywhere else, moved to another location by a transfer or taken out of stock by a correction. While it is in the shop (in stock or out on a challan) its words, charges, hallmark, HUIDs, stones and design code may be changed, and each change is in its history with what it was; its weights and purity change only in stock, or as it comes back from a karigar weighed again. Its item and tag never change. A manager melts a piece in stock with a reason: its unit leaves stock (a stock correction of one) and its metal (its purity, net weight and fine weight, net weight × fineness ÷ 1,000 to the milligram) joins the shop's own metal at its location. A sold, melted, split, merged or re-tagged piece keeps what it was, and a piece is never deleted.
+- **Why:** a piece out of the shop must not be sold twice, and its weight is what the challan that brings it back says; melted metal is the shop's own, for melting and refining, and is never billed.
 - **Change it:** who moves and changes pieces is the role's `jewellery.edit` (the owner, a manager, a cashier, a stock keeper and the karigar by default); who melts, `jewellery.approve` (the owner and a manager).
 
 ### A jewellery bill's price, to the paisa
@@ -1136,6 +1136,84 @@ A jeweller sells as every goods shop does ([Shops and the shared core](#shops-an
 - **Rule:** pieces and items show without making charges, wastage, hallmarking charges, stone values, cost or price to anyone whose role does not hold `sales.view` (a stock keeper, the karigar), and a piece they tag takes its item's making charge and wastage and the shop's hallmarking charge; a stone they change keeps its value. Bringing a new piece into stock needs `inventory.edit` too (the karigar tags units already in stock). Old gold, its values and its payouts, and gold schemes, need `sales.view` too.
 - **Why:** the work is the floor's; the prices are the counter's.
 - **Change it:** *Roles & permissions*.
+
+### A karigar's challans, receipts and metal in fine weight
+
+- **Rule:** a karigar is one of the shop's suppliers, made a karigar by a manager with the wastage allowed on the pieces they make (0 to 25%). An issue challan (KI/…) takes metal out of the shop's own metal at a location, at its purity's fineness unless another is typed, never below nothing; pieces to repair go out of stock to the karigar; stones go too. A receipt (KR/…) answers a challan of the same karigar or their running account: a piece made is tagged into stock at the receipt's location with its own weights, at its labour's cost; a piece repaired comes back from the karigar it was sent to, weighed again, its weight as sent and as back kept; scrap and metal go into the shop's metal. Every gram is kept in fine weight (net × fineness ÷ 1,000, to the milligram) in the fine-weight book, written by the database: the karigar holds what was issued, less the pieces made, the scrap and metal back, the change in the repaired pieces' weight and the wastage allowed. Challans, receipts and their lines are never changed or deleted.
+- **Why:** metal handed to a karigar is the shop's until it comes back as pieces or scrap; fine weight is how the trade counts it whatever the purity.
+- **Change it:** `jewellery.approve` makes karigars and sets their wastage and rates (with `purchasing.view`); `jewellery.edit` makes challans and receipts (a piece made needs `inventory.edit` too).
+
+### The wastage allowed, against the actual
+
+- **Rule:** on each piece made, the karigar is allowed their percentage of its net weight and of its fine weight (to the milligram), written off their account as it comes in. What they still hold after the work is the rest of the actual wastage; a manager writes off all they hold of a purity, with the reason. A karigar's account shows, by purity, what was issued, back in pieces and as scrap, the repairs, the wastage allowed, what was written off and what is held, and the actual wastage: the wastage allowed, what was written off and what is still held.
+- **Why:** the agreed wastage is the karigar's due; anything beyond it is a loss the shop sees and decides on.
+- **Change it:** the wastage on the karigar (*Karigar work*); writing off is `jewellery.approve`.
+
+### A karigar's labour invoice
+
+- **Rule:** the labour on a receipt's line is the karigar's rate for the item (per gram of net weight or per piece) unless someone who sees costs types another; a repair's labour is typed. The labour not invoiced yet is posted as one purchase from the karigar (a service bought: no stock), each line at 5% GST for jewellery work and 1.5% for diamond work when the karigar has a GSTIN, and at no GST when they have none; a line is invoiced once. The database checks each line's rate against the karigar's GSTIN and the work.
+- **Why:** job work on another's goods of Chapter 71 is 5% (and was not changed in September 2025), on diamonds 1.5%; a karigar not registered for GST charges none.
+- **Change it:** `jewellery.edit` with `purchasing.create` posts it; the slab is the law's.
+
+### The ITC-04 data
+
+- **Rule:** for any period of up to a year, the goods sent to job workers (table 4: each challan's lines, with their weight, fine weight and value) and received back (table 5A: each receipt's lines with the original challan, and the wastage allowed) are listed from the challans and receipts, to download. Nothing is filed.
+- **Why:** a principal sending goods to a job worker on a challan reports them on ITC-04; how often it is filed was not checked, so the shop files it from this data.
+- **Change it:** `jewellery.export` (the owner, a manager and an accountant).
+
+### A custom order's path and its advances
+
+- **Rule:** an order (CO/…) is booked for a customer, its metal and purity fixed; it goes booked → issued to a karigar → received → at the hallmarking centre → hallmarked → ready → delivered, or is cancelled (never while it is at the centre, nor once delivered). Its pieces are those the karigar makes for it and those in stock made its own, of its purity (a piece made on its challan after it was cancelled, or of another purity, is the shop's own); while it is open they are billed only on its own bill (the database refuses another bill's line). Its advances are core collection receipts (money) or the customer's old gold vouchers with all their value; while it is open they pay only its own bill (the database refuses another bill, a refund of the receipt, a payout or another use of the voucher, and *Apply advance* leaves them out). Cancelled, they are the customer's again. It is delivered on a jewellery bill made with it, which takes its pieces and its customer; its receipts pay first as far as the bill needs them, then its old gold, and what is left stays the customer's.
+- **Why:** an advance is given for the order, and must not pay another bill or go back while the piece is being made.
+- **Change it:** `jewellery.create` with `sales.edit` books and takes advances; `jewellery.cancel` cancels.
+
+### The rate fixed on an advance (bhav cut)
+
+- **Rule:** an advance may fix the order's rate once: the latest selling rate of the business's day for the order's purity, for the grams the advance buys (the advance ÷ the rate, to the milligram, rounded down), kept on the order with its rate sheet. The order's bill prices those grams at the fixed rate and the rest of its pieces' net weight at the day's rate, in the bill's order of pieces; the database checks each line's grams and rate.
+- **Why:** a customer who pays ahead takes the day's rate for what they paid, and the shop knows what it owes in metal.
+- **Change it:** *Fix the rate on it* when taking the advance; a rate fixed is never changed.
+
+### An approval (jangad) challan
+
+- **Rule:** pieces in stock at a location go on an approval challan (AP/…) to a customer or another jeweller, due back on a day not before today. Out on approval they are never billed to anyone else; they come back in part or all on a return of the challan, or are sold from it on a jewellery bill to its customer, which closes each one with the sale. The challan shows the days out, and one with pieces out past its day is listed and in the bell; no time limit is enforced.
+- **Why:** goods sent on approval stay the sender's until they are taken; the GST time limit for them was not checked, so the days out are shown and nothing is refused for it.
+- **Change it:** `jewellery.edit` (with `sales.view`) sends and takes back.
+
+### Hallmarking consignments, and old-mark stock
+
+- **Rule:** gold and silver pieces in stock go to an assaying and hallmarking centre (a supplier) on a consignment (HM/…); a custom order with a piece there is at the centre. A consignment comes back once, every piece hallmarked with its HUIDs (a HUID belongs to one article) or rejected, with each piece's charge (the shop's hallmarking charge unless typed): the charges are posted as a purchase from the centre at the GST on its bill (18% or none), and a hallmarked piece takes its charge, recovered on its bill. A piece with the old hallmark (from before HUIDs) waits to be re-hallmarked: where a HUID is needed it is not billed (and the database refuses its line) until it comes back hallmarked with one; it carries no HUID while it waits.
+- **Why:** hallmarking charges are a cost the shop recovers on the sale (BIS asks the invoice to show them); old-mark stock cannot be sold where a HUID is mandatory.
+- **Change it:** `jewellery.edit` sends and brings back (with `purchasing.create` to post the charges).
+
+### The HUID list for Manak Online
+
+- **Rule:** every HUID the shop's pieces carry is listed with its piece and its status (in stock, sold to a consumer, sold to a jeweller — a buyer with a GSTIN, returned by the customer, melted) and since when, to download. Nothing is uploaded.
+- **Why:** Manak Online's HUID Transfer module takes these statuses; its file format was not checked, so the list is plain.
+- **Change it:** `jewellery.export`.
+
+### Splitting, merging and new tags keep the metal and the cost
+
+- **Rule:** a piece in stock is split into 2 to 10 pieces whose gross and stone weights come to its own, each of its HUIDs and stone lines going with one of them, its cost (and a flat making charge) shared by net weight to the paisa's hundredth; 2 to 10 pieces of one metal and purity at one location are merged into one with their weights, HUIDs, stones and cost added up; a piece is given a new tag with everything it had. Each goes through the core's stock (each unit out with its reason, each new one in at the cost), keeps a custom order it was made for, and is checked by the database when the transaction ends: one purity, the same gross and stone weight, the same cost. The old pieces keep their history and links.
+- **Why:** reshaping stock must never make or lose metal or value.
+- **Change it:** `jewellery.edit` with `inventory.edit`.
+
+### A piece's photo, and a custom order's design
+
+- **Rule:** a photo (JPG, PNG or WebP, up to 5 MB, its bytes checked) is kept in the private uploads, read only through the API by someone who sees the pieces; a piece has one photo and an order one design, a new one taking the old one's place (the old one is kept). A piece given a new tag keeps its photo.
+- **Why:** a photo shows the piece without handing it round; a design shows the karigar what to make.
+- **Change it:** `jewellery.edit` for a piece's photo, `jewellery.create` for an order's design.
+
+### The fine-weight book, and a count against it
+
+- **Rule:** the database writes every change to the metal of each purity, wherever it is (pieces in stock, on approval, at karigars and at the centre; the shop's own metal; metal with karigars), as pieces and metal move, so the book for any period reads: what it held at the start, each movement that changed the total (pieces tagged in, sold, taken back, old gold, metal with suppliers, the karigars' wastage allowed and written off, weights corrected), the moves inside the shop that leave it as it was (to karigars and back, pieces made, repairs, moves, melting, splits, merges and new tags), what it holds at the end and where. A count of a location, purity by purity, scans the tags found and weighs the metal, and is kept with the book as it stood: the pieces in the book not found, those found that the book has elsewhere, and the difference in fine weight. A count changes nothing.
+- **Why:** a jeweller's stock is its metal: pieces and metal must reconcile in fine weight, and any difference must be explained by a movement.
+- **Change it:** `jewellery.edit` counts; the book is written by the database.
+
+### The metal account with suppliers, and fixing the rate
+
+- **Rule:** metal received from a supplier on a metal balance (MV/…) comes into the shop's metal and is owed in grams of its purity; metal given (old gold or scrap against what is owed) goes out of the shop's metal, never below nothing. A manager fixes the rate on the grams owed, all or part of them and never more, at the rate typed or the day's selling rate: a purchase from the supplier of the grams at the rate, at 3% GST, booked under the metal's own item without stock (the metal is in the jeweller's books in grams already). Each step is audited, and the balance shows beside the money owed to the supplier.
+- **Why:** bullion bought on a metal balance is owed in grams until its rate is fixed (bhav cut); then it is money owed like any purchase.
+- **Change it:** `jewellery.edit` with `purchasing.create` moves metal; `jewellery.approve` with `purchasing.create` fixes the rate.
 
 ## Rentals & hire
 

@@ -180,6 +180,14 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   assert.ok(businessMenu(33,'jewellery',p=>goldsmith.has(p),()=>true).flatMap(g=>g.links).some(l=>l.section==='pieces'),'a karigar finds the pieces');
   assert.ok(menu('electronics').some(l=>l.pages.some(p=>p.to.endsWith('/serials'))),'others keep the serial register');
   for(const type of ['grocery','electronics'])assert.ok(!typeAllows(sectionRule('pieces',type),type),`${type}: no pieces`);
+  // Its karigars' work, the hallmarking centre and the fine-weight book are pages of its stock; custom orders and approvals of its sales; the metal account of its purchases.
+  assert.ok(['/karigar-work','/hallmarking','/fine-weight'].every(end=>jstock.pages.some(p=>p.to.endsWith(end))),'jewellery: karigar work, hallmarking and fine weight with the pieces');
+  const jsales=menu('jewellery').find(l=>l.section==='sales');
+  assert.ok(jsales&&['/custom-orders','/approvals'].every(end=>jsales.pages.some(p=>p.to.endsWith(end))),'jewellery: custom orders and approvals with its sales');
+  assert.ok(menu('jewellery').find(l=>l.section==='purchases').pages.some(p=>p.to.endsWith('/metal-account')),'jewellery: the metal account with its purchases');
+  const smith=businessMenu(33,'jewellery',p=>goldsmith.has(p),()=>true).flatMap(g=>g.links).flatMap(l=>l.pages);
+  assert.ok(smith.some(p=>p.to.endsWith('/karigar-work'))&&!smith.some(p=>/\/(approvals|metal-account)$/.test(p.to)),'a karigar finds the karigar work, not the approvals or the metal account');
+  for(const type of ['grocery','electronics','optical'])for(const section of ['custom-orders','approvals','karigar-work','hallmarking','fine-weight','metal-account'])assert.ok(!typeAllows(sectionRule(section,type),type),`${type}: no ${section}`);
   // A rental business's day: Bookings (with the availability week and the deposits held) is a daily entry of its own; its products open on its rental items.
   const rdaily=businessMenu(33,'rentals',()=>true,()=>true).find(g=>g.title==='Daily work').links;
   assert.deepEqual(rdaily.slice(1,2).map(l=>[l.section,l.label]),[['rental-bookings','Bookings']]);

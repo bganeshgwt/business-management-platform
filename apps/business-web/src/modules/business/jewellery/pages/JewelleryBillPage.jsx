@@ -13,7 +13,7 @@ import { newKey, useDirtyGuard, useOpenBusiness } from "../../core/pages/hooks";
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import { DocumentDetail } from "../../core/pages/DocumentsPage";
 import { printTaxInvoice } from "../../core/pages/invoice";
-import { SCHEME_STAGES, grams, perGram } from "./jewellery";
+import { SCHEME_STAGES, grams, perGram, readTags } from "./jewellery";
 import { OldGoldForm } from "./OldGoldDialogs";
 import "../styles/jewellery.css";
 import { NewCustomerConsents } from "../../../personal-data/components/ConsentChoices";
@@ -29,7 +29,11 @@ import { consentChanges } from "../../../personal-data/personalData";
 // and the old gold they brought in (or take in here); the payments for the
 // rest (one or several); and the buyer's PAN or a Form 97 declaration on a
 // bill over ₹2,00,000. Posted as an ordinary sale, so cash is limited as on
-// every bill; the invoice prints what BIS asks for each article.
+// every bill; the invoice prints what BIS asks for each article. Opened from a
+// custom order that is ready (?order=…) it delivers the order: its pieces at
+// the rate fixed on it for the grams fixed and today's for the rest, its
+// advances paying first; from an approval challan (?approval=…&tags=…) it
+// sells the pieces the customer keeps.
 
 const PAY_KINDS = ["cash", "upi", "card", "bank", "cheque"];
 let seq = 0;
@@ -65,7 +69,10 @@ export default function JewelleryBillPage() {
   const [scheme, setScheme] = useState("");
   const [creditList, setCreditList] = useState([]);
   const [credits, setCredits] = useState([]);
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
+  // A custom order the bill delivers (?order=…), or an approval challan it sells from (?approval=…&tags=…): their customer is the bill's.
+  const [order, setOrder] = useState(null);
+  const [approval, setApproval] = useState(null);
   const scanRef = useRef(null);
   const canPay = biz.can("sales.edit");
   const canOldGold = canPay && biz.can("jewellery.view");
@@ -90,6 +97,31 @@ export default function JewelleryBillPage() {
   const shownSchemes = customer?.id ? schemes.filter((s) => String(s.contact_id) === String(customer.id)) : [];
   const shownCredits = customer?.id ? creditList : [];
   // Opened from a scheme's panel (?scheme=…): its member is the customer and it is redeemed here.
+  const fromOrder = params.get("order");
+  const fromApproval = params.get("approval");
+  const approvalTags = params.get("tags");
+  useEffect(() => {
+    if (!fromOrder) return undefined;
+    const controller = new AbortController();
+    businessRead(biz.id, `jewellery/orders/${fromOrder}`, undefined, controller.signal).then((o) => {
+      setOrder(o);
+      setCustomer({ id: o.contact_id, name: o.customer_name, phone: o.customer_phone });
+      setTags(o.made.filter((p) => p.status === "in_stock").map((p) => p.tag_no));
+    }).catch((err) => { if (!controller.signal.aborted) toast.error(getErrorMessage(err)); });
+    return () => controller.abort();
+  }, [biz.id, fromOrder]);
+  useEffect(() => {
+    if (!fromApproval) return undefined;
+    const controller = new AbortController();
+    businessRead(biz.id, `jewellery/approvals/${fromApproval}`, undefined, controller.signal).then((a) => {
+      setApproval(a);
+      setCustomer({ id: a.contact_id, name: a.party_name, phone: a.party_phone });
+      const out = a.lines.filter((l) => l.outcome === "out").map((l) => l.tag_no);
+      const wanted = readTags(approvalTags);
+      setTags(wanted.length ? out.filter((t) => wanted.includes(t)) : out);
+    }).catch((err) => { if (!controller.signal.aborted) toast.error(getErrorMessage(err)); });
+    return () => controller.abort();
+  }, [biz.id, fromApproval, approvalTags]);
   const fromScheme = params.get("scheme");
   useEffect(() => {
     if (!fromScheme || !canOldGold) return undefined;
@@ -103,7 +135,8 @@ export default function JewelleryBillPage() {
 
   // Every change asks the server for the bill as it would be posted now.
   const payload = useMemo(() => (tags.length && locationId ? JSON.stringify({ locationId, tags, ...(customer ? { contactId: customer.id } : {}),
-    ...(scheme ? { scheme } : {}), ...(credits.length ? { credits } : {}), ...(oldGold.length ? { oldGold } : {}) }) : null), [tags, locationId, customer, scheme, credits, oldGold]);
+    ...(order ? { order: order.id } : {}), ...(approval ? { approval: approval.id } : {}),
+    ...(scheme ? { scheme } : {}), ...(credits.length ? { credits } : {}), ...(oldGold.length ? { oldGold } : {}) }) : null), [tags, locationId, customer, order, approval, scheme, credits, oldGold]);
   useEffect(() => {
     if (!payload) return undefined;
     const timer = setTimeout(() => {
@@ -146,6 +179,8 @@ export default function JewelleryBillPage() {
   const reset = () => {
     setTags([]); setCustomer(null); setTypedCustomer(null); setQuote(null); setParts([blankPart()]); setPan(""); setDeclared(false); setNotes("");
     setOldGold([]); setVouchers([]); setScheme(""); setSchemes([]); setCredits([]); setCreditList([]); setRequestKey(newKey()); setPosted(null); setDocOpen(false); setError("");
+    setOrder(null); setApproval(null);
+    if (fromOrder || fromApproval) setParams(new URLSearchParams(), { replace: true });
   };
   // What is left to pay after the scheme, the credit and the old gold.
   const toPay = Number(figures?.toPay ?? figures?.total ?? 0);
@@ -163,6 +198,7 @@ export default function JewelleryBillPage() {
       const bill = await businessWrite(biz.id, "jewellery/bills", {
         requestKey, locationId, tags, ...(customer ? { contactId: customer.id } : typedCustomer?.name?.trim() ? { customer: { name: typedCustomer.name.trim(), phone: typedCustomer.phone?.trim() || undefined,
           consents: consentChanges(typedCustomer.consents, []) || undefined } } : {}),
+        ...(order ? { order: order.id } : {}), ...(approval ? { approval: approval.id } : {}),
         ...(scheme ? { scheme } : {}), ...(credits.length ? { credits } : {}), ...(oldGold.length ? { oldGold } : {}), ...(payments.length ? { payments } : {}), ...(figures.panNeeded ? { buyer: declared ? { panDeclaration: true } : { pan: pan.trim() } } : {}),
         notes: notes.trim() || undefined,
       });
@@ -208,9 +244,16 @@ export default function JewelleryBillPage() {
             {biz.can("sales.view") && <Link className="button button-secondary" to={biz.path("gold-rates")}><Icon name="tag" size={15} /> Today's rates</Link>}
             <Link className="button button-secondary" to={biz.path("pieces")}><Icon name="list" size={15} /> Pieces & tags</Link>
           </>} />
+        {(order || approval) && (
+          <SectionCard icon="clipboard" title={order ? `Custom order ${order.order_no}` : `Approval challan ${approval.approval_no}`}
+            description={order ? (order.fixed_rate ? `${grams(order.fixed_weight)} fixed at ${perGram(biz, order.fixed_rate)} on its advance (bhav cut): those grams are priced at it, the rest at today's rate. Its advances pay first.` : "Priced at today's rate; its advances pay first.")
+              : `Pieces sold from the challan come back from ${approval.party_name} and are billed to them; the rest stay out on it.`} />
+        )}
         <SectionCard icon="user" title="Customer">
           <div className="jw-row">
-            {typedCustomer ? (
+            {order || approval ? (
+              <Field label={order ? "The order's customer" : "The challan's customer"}><input readOnly value={customer?.name || ""} /></Field>
+            ) : typedCustomer ? (
               <>
                 <Field label="Name"><input required maxLength={150} autoFocus value={typedCustomer.name} onChange={(e) => setTypedCustomer((c) => ({ ...c, name: e.target.value }))} /></Field>
                 <Field label="Phone"><input inputMode="tel" maxLength={30} value={typedCustomer.phone} onChange={(e) => setTypedCustomer((c) => ({ ...c, phone: e.target.value }))} /></Field>
@@ -299,7 +342,7 @@ export default function JewelleryBillPage() {
                     <div className="jw-bill-build">
                       <span>Net {grams(l.netWeight)} <small className="muted">(gross {grams(l.grossWeight)}{Number(l.stoneWeight) ? `, stones ${grams(l.stoneWeight)}` : ""})</small></span>
                       <span>{l.purityLong}</span>
-                      <span>Metal {biz.exact(l.metalValue)} <small className="muted">at {perGram(biz, l.rate)}</small></span>
+                      <span>Metal {biz.exact(l.metalValue)} <small className="muted">at {perGram(biz, l.rate)}{Number(l.fixedWeight) > 0 ? `; ${grams(l.fixedWeight)} of it at ${perGram(biz, l.fixedRate)}, fixed on the order` : ""}</small></span>
                       {Number(l.wastage) > 0 && <span>Wastage {Number(l.wastagePercent)}% ({grams(l.wastageWeight)}) {biz.exact(l.wastage)}</span>}
                       <span>Making {biz.exact(l.making)}</span>
                       {Number(l.stoneValue) > 0 && <span>Stones {biz.exact(l.stoneValue)}</span>}
@@ -323,6 +366,7 @@ export default function JewelleryBillPage() {
               {Number(figures.schemeDiscount) > 0 && <span>Scheme discount {biz.exact(figures.schemeDiscount)} (taken off before GST)</span>}
               {Number(figures.schemePaid) > 0 && <span>Gold scheme {biz.exact(figures.schemePaid)}</span>}
               {(figures.credits || []).some((x) => Number(x.amount) > 0) && <span>Credit {biz.exact(figures.credits.reduce((s, x) => s + Number(x.amount), 0))}</span>}
+              {Number(figures.orderPaid) > 0 && <span>Order advances {biz.exact(figures.orderPaid)}</span>}
               {Number(figures.oldGoldPaid) > 0 && <span>Old gold {biz.exact(figures.oldGoldPaid)}</span>}
               {Number(figures.paidBefore) > 0 && <strong>To pay {biz.exact(figures.toPay)}</strong>}
             </div>

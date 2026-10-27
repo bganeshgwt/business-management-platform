@@ -159,6 +159,12 @@ const OldGoldPage = lazy(() => import("../../jewellery/pages/OldGoldPage"));
 const SchemesPage = lazy(() => import("../../jewellery/pages/SchemesPage"));
 const SchemePlansPage = lazy(() => import("../../jewellery/pages/SchemePlansPage"));
 const CashReportPage = lazy(() => import("../../jewellery/pages/CashReportPage"));
+const CustomOrdersPage = lazy(() => import("../../jewellery/pages/CustomOrdersPage"));
+const ApprovalsPage = lazy(() => import("../../jewellery/pages/ApprovalsPage"));
+const KarigarWorkPage = lazy(() => import("../../jewellery/pages/KarigarWorkPage"));
+const HallmarkingPage = lazy(() => import("../../jewellery/pages/HallmarkingPage"));
+const FineWeightPage = lazy(() => import("../../jewellery/pages/FineWeightPage"));
+const MetalAccountPage = lazy(() => import("../../jewellery/pages/MetalAccountPage"));
 // Rental and hire businesses.
 const RentalBookingsPage = lazy(() => import("../../rentals/pages/BookingsPage"));
 const RentalBookingPage = lazy(() => import("../../rentals/pages/BookingPage"));
@@ -351,6 +357,12 @@ function screens(type) {
     "gold-schemes": <SchemesPage />,
     "scheme-plans": <SchemePlansPage />,
     "cash-report": <CashReportPage />,
+    "custom-orders": <CustomOrdersPage />,
+    "approvals": <ApprovalsPage />,
+    "karigar-work": <KarigarWorkPage />,
+    "hallmarking": <HallmarkingPage />,
+    "fine-weight": <FineWeightPage />,
+    "metal-account": <MetalAccountPage />,
     "rental-bookings": <RentalBookingsPage />,
     "rental-availability": <RentalAvailabilityPage />,
     "rental-deposits": <RentalDepositsPage />,

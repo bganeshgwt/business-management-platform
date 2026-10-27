@@ -411,3 +411,71 @@
 .jw-flag td {
   background: var(--danger-bg);
 }
+
+/* Karigar work, custom orders, hallmarking and the fine-weight book: a
+   piece's photo or an order's design beside its facts, the book's two tables
+   side by side, and the moves inside the shop folded away. */
+.jw-order-top {
+  align-items: flex-start;
+}
+.jw-photo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 180px;
+  margin: 0;
+}
+.jw-photo img {
+  width: 180px;
+  height: 180px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.jw-photo-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  width: 180px;
+  height: 120px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.jw-photo figcaption {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+.jw-photo .is-busy {
+  opacity: 0.6;
+  pointer-events: none;
+}
+.jw-book {
+  align-items: flex-start;
+}
+.jw-rates .jw-total th,
+.jw-rates .jw-total td {
+  font-weight: var(--weight-bold);
+  border-top: 2px solid var(--border-strong);
+}
+.jw-within {
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+}
+.jw-within summary {
+  cursor: pointer;
+  color: var(--text-2);
+}
+@media (max-width: 640px) {
+  .jw-photo,
+  .jw-photo img,
+  .jw-photo-empty {
+    width: 100%;
+  }
+}

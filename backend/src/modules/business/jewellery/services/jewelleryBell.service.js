@@ -6,8 +6,11 @@ const c = require('./jewelleryCommon');
 // rates not set (for whoever sets them), a location whose hallmarking district
 // has not been said (for whoever changes settings), old gold taken in before
 // today with value still to pay out or use (for whoever pays out), gold
-// schemes past or near their close day (for whoever sees their money), and
-// the cash report's flags (for whoever sees it).
+// schemes past or near their close day (for whoever sees their money), the
+// cash report's flags (for whoever sees it), custom orders past the day
+// promised and approval challans past the day due back (for whoever sees
+// their money), and issue challans with pieces still at a karigar past the day
+// due back (for whoever sees the pieces).
 
 async function bell(business, base) {
   const items = [];
@@ -30,6 +33,9 @@ async function bell(business, base) {
   items.push(...await require('./jewelleryOldGold.service').bell(business, base));
   items.push(...await require('./jewellerySchemes.service').bell(business, base));
   items.push(...await require('./jewelleryCash.service').bell(business, base));
+  items.push(...await require('./jewelleryOrders.service').bell(business, base));
+  items.push(...await require('./jewelleryApprovals.service').bell(business, base));
+  items.push(...await require('./jewelleryKarigars.service').bell(business, base));
   return items;
 }
 

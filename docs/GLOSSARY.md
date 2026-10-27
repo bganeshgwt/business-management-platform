@@ -344,18 +344,18 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Old metal rate** | What the shop pays per gram for old gold or silver of a purity. |
 | **IBJA rate** | The India Bullion and Jewellers Association's benchmark rates for gold, silver and platinum, published twice a day, before GST and making charges. |
 | **Rate board** | The day's rates in large type on a screen in the showroom. |
-| **Karigar** | A goldsmith: makes, repairs and finishes pieces; the Karigar role sees pieces and weights, never prices. |
+| **Karigar** | A goldsmith the shop gives job work to (one of its suppliers), with the wastage allowed on their work and a labour rate for each item; also the Karigar / goldsmith role, which sees pieces and weights, never prices. |
 | **Jewellery item** | A catalogue item sold as tagged pieces priced by weight (a gold necklace, silver anklets): goods counted in pieces, serial-numbered, at 3% GST. |
 | **Piece** | One tagged article of a jewellery item: a serial-numbered unit in stock with its own weights, stones, charges and hallmark. |
 | **Tag** | A piece's number (T00012), printed on its tag label with a barcode; the serial number of its unit in stock. |
 | **Gross, stone and net weight** | The whole piece; its stones, beads and thread; and its metal, gross less stones. In grams to the milligram. |
-| **Fine weight** | The pure metal in a weight: net weight × fineness ÷ 1,000. |
+| **Fine weight** | The pure metal in a weight: net weight × fineness ÷ 1,000, to the milligram. The trade counts metal in it whatever the purity: the fine-weight book keeps each purity's metal in it wherever it is. |
 | **Wastage (VA)** | Value addition: a percentage of a piece's net weight added at the day's rate. |
 | **Making charge** | The charge for making a piece: per gram of net weight, a percentage of the metal's value, or flat. |
 | **Hallmark** | BIS's marks on an article of gold or silver: the BIS standard mark, the purity in carat and fineness, and a HUID. |
 | **HUID** | Hallmark Unique ID: the 6 letters and digits of an article's hallmark; one article each, several on a set. |
 | **Laboratory-grown diamond** | A man-made diamond, also laboratory-created; never "lab grown" or "LGD". A "diamond" alone is natural. |
-| **On approval (jangad)** | A piece a customer takes to show at home before buying; still the shop's stock. |
+| **On approval (jangad)** | A piece a customer takes to show at home, or another jeweller for its counter, before buying, on an approval (jangad) challan; still the shop's stock, never sold to anyone else while it is out. |
 | **Melted** | A piece taken out of stock for good, its metal kept as the shop's own for melting and refining. |
 | **Jewellery bill** | The counter's bill of tagged pieces, each priced at the day's rate for its purity with its wastage, making, stones and hallmarking, then 3% GST; an ordinary sale. |
 | **Mandatory hallmarking district** | A district notified under the Hallmarking Order, where gold jewellery of 2 g or more is sold only with its BIS hallmark and HUID. |
@@ -386,6 +386,21 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **FIU-IND** | The Financial Intelligence Unit – India, to whom a reporting entity reports. |
 | **Cash transactions worksheet** | The cash report's list, for a month, of each customer whose cash was above ₹10 lakh, with every cash transaction: what the monthly report is made from. |
 | **Linked transactions** | Several cash transactions with one customer that appear connected; together they count towards ₹10 lakh. |
+| **Jangad** | An approval challan (AP/2627/0001): pieces lent to a customer or another jeweller, due back by a day, returned in part or all, or sold from it. |
+| **Issue challan** | What goes to a karigar for job work (KI/2627/0001): metal by purity and its fine weight, pieces to repair, stones; a delivery challan for job work. |
+| **Karigar's receipt** | What a karigar brings back (KR/2627/0001): pieces made (tagged as they come in), pieces repaired (weighed again), scrap and metal, stones, with the labour. |
+| **Wastage allowed** (karigar) | The karigar's agreed percentage of the weight and fine weight of each piece they make, written off their account; the **actual wastage** is that, what was written off and what they still hold. |
+| **ITC-04** | The GST return of goods sent to and received back from job workers; here, the data for it from the challans and receipts. |
+| **Custom order** | A piece to be made to a customer's order (CO/2627/0001): what to make, the design, the purity and weight, the day promised and the advances, through the karigar and the hallmarking centre to its bill. |
+| **Bhav cut** | Fixing the rate: on a custom order's advance, the day's rate for the grams the advance buys; on a supplier's metal balance, grams owed turned into money owed at a rate. |
+| **AHC** | An assaying and hallmarking centre recognised by BIS: it tests and hallmarks pieces and gives each its HUID. |
+| **Hallmarking consignment** | Pieces sent to an AHC (HM/2627/0001), at the centre until they come back hallmarked with their HUIDs, or rejected, with the centre's charges. |
+| **Old hallmark** | A hallmark from before HUIDs: such a piece is re-hallmarked before it is sold where a HUID is needed. |
+| **Split, merge, new tag** | A set made into its articles, articles made into a set, or a piece given a new tag: weight, fine weight and cost kept, through the stock. |
+| **Design code** | The shop's own code for a design (NK-2041), kept on a piece or an order. |
+| **Fine-weight book** | Each purity's metal in grams and fine grams, in stock, on approval, at karigars, at the centre, as the shop's metal and with karigars, with every movement; a count is held against it. |
+| **Metal account** | Metal received from a supplier on a metal balance and owed in grams of its purity, or given back, until its rate is fixed (bhav cut). |
+| **Metal voucher** | A record of metal received from or given to a supplier on the metal account (MV/2627/0001). |
 
 ### Rentals & hire
 

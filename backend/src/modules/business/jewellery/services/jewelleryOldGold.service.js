@@ -399,14 +399,22 @@ function readForBill(value) {
 }
 
 // The vouchers a bill takes old gold from (locked when posting): each open, with value left, all brought in by one customer.
-async function vouchersFor(db, business, ids, { lock = false } = {}) {
+// held: the vouchers a custom order holds, on its own bill (one with nothing left is passed over);
+// orderId: the order the bill delivers (a voucher held for another open order pays only that order's bill).
+async function vouchersFor(db, business, ids, { lock = false, held = false, orderId = null } = {}) {
   const found = [];
   for (const voucherId of ids) {
     if (lock) await repo.one(db, 'SELECT id FROM jewellery_old_gold WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, voucherId]);
     const row = await repo.one(db, `SELECT * FROM (${VOUCHERS_SQL}) w WHERE w.id=$2`, [business.id, voucherId]);
     if (!row) fail('Old gold voucher not found', 404);
     if (row.state === 'cancelled') fail(`Old gold ${row.voucher_no} is cancelled`, 409);
+    if (held && c.paise(row.balance) <= 0) continue;
     if (c.paise(row.balance) <= 0) fail(`Old gold ${row.voucher_no} has nothing left on it`, 409);
+    if (!held) {
+      const order = await repo.one(db, `SELECT o.id,o.order_no FROM jewellery_order_advances a JOIN jewellery_orders o ON o.business_id=a.business_id AND o.id=a.order_id
+        WHERE a.business_id=$1 AND a.old_gold_id=$2 AND o.status NOT IN ('delivered','cancelled')`, [business.id, row.id]);
+      if (order && Number(order.id) !== Number(orderId)) fail(`Old gold ${row.voucher_no} is held for custom order ${order.order_no}: it pays that order's bill`, 409);
+    }
     if (found.length && Number(found[0].contact_id) !== Number(row.contact_id)) fail(`Old gold ${row.voucher_no} was brought in by ${row.seller_name}, not ${found[0].seller_name}: a bill takes one customer's old gold`, 409);
     found.push(row);
   }

@@ -357,10 +357,12 @@ async function applyAdvance(business, user, contactId, body) {
     if (done) return { applied: '0.00', repeated: true };
     let receipts = await repo.all(db, `SELECT k.*,k.amount-${collectionAllocatedSql} AS free FROM business_collections k
       WHERE k.business_id=$1 AND k.contact_id=$2 AND k.amount>${collectionAllocatedSql} AND ${liveSql('k')} ORDER BY k.id`, [business.id, contact.id]);
-    // A jeweller's gold scheme instalments are held for the jewellery bill that redeems the scheme.
+    // A jeweller's gold scheme instalments are held for the jewellery bill that redeems the scheme,
+    // and a custom order's advances for the order's own bill while it is open.
     if (business.modules.includes('jewellery')) {
       const held = await require('../../jewellery/services/jewellerySchemes.service').heldReceipts(db, business, contact.id);
-      receipts = receipts.filter((receipt) => !held.has(Number(receipt.id)));
+      const forOrders = await require('../../jewellery/services/jewelleryOrders.service').heldReceipts(db, business, contact.id);
+      receipts = receipts.filter((receipt) => !held.has(Number(receipt.id)) && !forOrders.has(Number(receipt.id)));
     }
     // A rental booking's advances and deposits pay its own bill, and what is left goes back from the booking.
     if (business.modules.includes('rentals')) {

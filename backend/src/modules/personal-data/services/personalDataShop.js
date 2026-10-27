@@ -60,6 +60,9 @@ async function openItems(db, business, contactId) {
     ["SELECT count(*)::int AS n FROM business_appointments WHERE business_id=$1 AND contact_id=$2 AND status = 'booked' AND starts_at > now()", 'appointment still to come'],
     ["SELECT count(*)::int AS n FROM business_quotations WHERE business_id=$1 AND contact_id=$2 AND status = 'open'", 'quotation still open'],
     ["SELECT count(*)::int AS n FROM wholesale_orders WHERE business_id=$1 AND contact_id=$2 AND status IN ('open','part_dispatched','dispatched')", 'sales order not closed'],
+    ["SELECT count(*)::int AS n FROM jewellery_orders WHERE business_id=$1 AND contact_id=$2 AND status NOT IN ('delivered','cancelled')", 'custom order not delivered'],
+    [`SELECT count(*)::int AS n FROM jewellery_approvals a WHERE a.business_id=$1 AND a.contact_id=$2
+       AND EXISTS (SELECT 1 FROM jewellery_approval_lines l WHERE l.business_id=a.business_id AND l.approval_id=a.id AND l.outcome = 'out')`, 'approval challan with pieces still out'],
   ];
   for (const [sql, what] of checks) {
     const n = (await repo.one(db, sql, [b, contactId])).n;

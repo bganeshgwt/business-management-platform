@@ -17,16 +17,20 @@ const { settingsOf } = require('./jewellerySettings.service');
 //   (the net weight is gross less stones, to the milligram), the wastage
 //   percentage and the making charge (per gram, a percentage of the metal's
 //   value, or flat), its stones (kind, carats, certificate, value), whether it
-//   is hallmarked with its HUIDs and hallmarking charge, an exemption from
-//   mandatory hallmarking where one applies, and its status: in stock, on
-//   approval with a customer, at the karigar, sold or melted.
+//   is hallmarked with its HUIDs and hallmarking charge (or carries the old
+//   hallmark, from before HUIDs, and waits to be re-hallmarked), an exemption
+//   from mandatory hallmarking where one applies, its design code and photo,
+//   and its status: in stock, on approval (on an approval challan), at a
+//   karigar (on an issue challan), at the hallmarking centre (on a
+//   consignment), sold, melted, or split, merged or given a new tag.
 // Its price is never stored: a bill works it out from the day's rate.
 // Someone whose role does not hold sales.view sees no prices or charges.
 
 const { fail, id } = c;
-const STATUSES = ['in_stock', 'on_approval', 'at_karigar', 'sold', 'melted'];
-const STATUS_WORDS = { in_stock: 'in stock', on_approval: 'on approval', at_karigar: 'at the karigar', sold: 'sold', melted: 'melted' };
-const OPEN = ['in_stock', 'on_approval', 'at_karigar'];
+const STATUSES = ['in_stock', 'on_approval', 'at_karigar', 'at_centre', 'sold', 'melted', 'split', 'merged', 'retagged'];
+const STATUS_WORDS = { in_stock: 'in stock', on_approval: 'on approval', at_karigar: 'at the karigar', at_centre: 'at the hallmarking centre', sold: 'sold',
+  melted: 'melted', split: 'split', merged: 'merged', retagged: 'given a new tag' };
+const OPEN = ['in_stock', 'on_approval', 'at_karigar', 'at_centre'];
 const MAKING_MODES = ['per_gram', 'percent', 'flat'];
 // The articles the hallmarking order leaves out (BIS), and the words for them.
 const EXEMPTIONS = {
@@ -58,34 +62,63 @@ function readTag(value, name = 'Tag number') {
   if (!/^[A-Z0-9][A-Z0-9/-]{0,19}$/.test(text)) fail(`${name} must be 1 to 20 letters, digits, / or -, like T00012 or GN-104`);
   return text;
 }
+// A design code as the shop writes its designs (upper case, letters, digits, spaces, / . -). Empty is none.
+function readDesign(value, name = 'Design code') {
+  if (!c.given(value)) return null;
+  const text = String(value).toUpperCase().trim().replace(/\s+/g, ' ');
+  if (!/^[A-Z0-9][A-Z0-9/ .-]{0,39}$/.test(text)) fail(`${name} is 1 to 40 letters, digits, spaces, / . or -, like NK-2041`);
+  return text;
+}
 
 // --- Lists ----------------------------------------------------------------------------------------
 
-// Every piece with its item, HUIDs and stones counted, and where its unit is
-// in stock (none once sold or melted, or written off in a stock count).
-const PIECES_SQL = `SELECT p.id,p.sku_id,s.label AS item_label,s.code AS item_code,s.hsn_code,s.tax_rate,p.tag_no,p.description,p.metal,p.purity,
-    p.gross_weight,p.stone_weight,p.net_weight,p.wastage_percent,p.making_mode,p.making_value,p.hallmarked,p.hallmark_charge,p.exemption,
-    p.status,p.with_whom,p.notes,p.created_at,p.updated_at,CASE WHEN p.status IN ('sold','melted') THEN 'out' ELSE 'in' END AS stage,
+// Every piece with its item, HUIDs and stones counted, where its unit is in
+// stock (none once it has left the shop, or written off in a stock count),
+// the challan it is out on (approval, a karigar's issue, a hallmarking
+// consignment) with whom and when it is due back, the custom order it was
+// made for, and its photo.
+const PIECES_SQL = `SELECT p.id,p.sku_id,s.label AS item_label,s.code AS item_code,s.hsn_code,s.tax_rate,p.tag_no,p.description,p.design_code,p.metal,p.purity,
+    p.gross_weight,p.stone_weight,p.net_weight,p.wastage_percent,p.making_mode,p.making_value,p.hallmarked,p.old_hallmark,p.hallmark_charge,p.exemption,
+    p.status,p.with_whom,p.notes,p.created_at,p.updated_at,CASE WHEN p.status IN ('in_stock','on_approval','at_karigar','at_centre') THEN 'in' ELSE 'out' END AS stage,
     COALESCE((SELECT string_agg(h.huid,' ' ORDER BY h.huid) FROM jewellery_piece_huids h WHERE h.business_id=p.business_id AND h.piece_id=p.id),'') AS huids,
     COALESCE((SELECT sum(st.value) FROM jewellery_piece_stones st WHERE st.business_id=p.business_id AND st.piece_id=p.id),0) AS stone_value,
     COALESCE((SELECT sum(st.carat) FROM jewellery_piece_stones st WHERE st.business_id=p.business_id AND st.piece_id=p.id),0) AS stone_carat,
     (SELECT count(*)::int FROM jewellery_piece_stones st WHERE st.business_id=p.business_id AND st.piece_id=p.id) AS stone_lines,
-    l.location_id,loc.name AS location_name,(l.id IS NOT NULL) AS in_books,l.unit_cost AS cost
+    l.location_id,loc.name AS location_name,(l.id IS NOT NULL) AS in_books,l.unit_cost AS cost,
+    w.out_kind,w.out_id,w.out_no,w.out_with,w.out_due::text AS out_due,op.order_id,o.order_no,o.status AS order_status,
+    (SELECT f.id FROM jewellery_files f WHERE f.business_id=p.business_id AND f.piece_id=p.id AND f.removed_at IS NULL ORDER BY f.id DESC LIMIT 1) AS photo_id
   FROM jewellery_pieces p JOIN catalog_skus s ON s.business_id=p.business_id AND s.id=p.sku_id
   LEFT JOIN LATERAL (SELECT x.id,x.location_id,x.unit_cost FROM business_stock_lots x
     WHERE x.business_id=p.business_id AND x.sku_id=p.sku_id AND x.lot_code=p.tag_no AND x.quantity>0 LIMIT 1) l ON TRUE
   LEFT JOIN business_locations loc ON loc.business_id=p.business_id AND loc.id=l.location_id
+  LEFT JOIN LATERAL (SELECT y.* FROM (
+      SELECT 'approval'::text AS out_kind,a.id AS out_id,a.approval_no AS out_no,ct.name AS out_with,a.due_on AS out_due,a.created_at AS out_at
+        FROM jewellery_approval_lines al JOIN jewellery_approvals a ON a.business_id=al.business_id AND a.id=al.approval_id
+        JOIN business_contacts ct ON ct.business_id=a.business_id AND ct.id=a.contact_id
+        WHERE p.status='on_approval' AND al.business_id=p.business_id AND al.piece_id=p.id AND al.outcome='out'
+      UNION ALL SELECT 'karigar',i.id,i.issue_no,ct.name,i.due_on,i.created_at
+        FROM jewellery_karigar_issue_lines il JOIN jewellery_karigar_issues i ON i.business_id=il.business_id AND i.id=il.issue_id
+        JOIN business_contacts ct ON ct.business_id=i.business_id AND ct.id=i.contact_id
+        WHERE p.status='at_karigar' AND il.business_id=p.business_id AND il.piece_id=p.id
+      UNION ALL SELECT 'centre',h.id,h.consignment_no,ct.name,NULL::date,h.created_at
+        FROM jewellery_hallmark_lines hl JOIN jewellery_hallmark_consignments h ON h.business_id=hl.business_id AND h.id=hl.consignment_id
+        JOIN business_contacts ct ON ct.business_id=h.business_id AND ct.id=h.contact_id
+        WHERE p.status='at_centre' AND hl.business_id=p.business_id AND hl.piece_id=p.id AND hl.result='out') y
+    ORDER BY y.out_at DESC LIMIT 1) w ON TRUE
+  LEFT JOIN jewellery_order_pieces op ON op.business_id=p.business_id AND op.piece_id=p.id
+  LEFT JOIN jewellery_orders o ON o.business_id=op.business_id AND o.id=op.order_id
   WHERE p.business_id=$1`;
 // Every jewellery item with the defaults a new piece of it starts with.
 const ITEMS_SQL = `SELECT i.sku_id,s.label,s.code,s.hsn_code,s.tax_rate,(s.active AND pr.active) AS active,i.metal,i.purity,i.wastage_percent,i.making_mode,i.making_value,i.created_at,
-    (SELECT count(*)::int FROM jewellery_pieces p WHERE p.business_id=i.business_id AND p.sku_id=i.sku_id AND p.status IN ('in_stock','on_approval','at_karigar')) AS pieces
+    (SELECT count(*)::int FROM jewellery_pieces p WHERE p.business_id=i.business_id AND p.sku_id=i.sku_id AND p.status IN ('in_stock','on_approval','at_karigar','at_centre')) AS pieces
   FROM jewellery_items i JOIN catalog_skus s ON s.business_id=i.business_id AND s.id=i.sku_id JOIN catalog_products pr ON pr.business_id=s.business_id AND pr.id=s.product_id
   WHERE i.business_id=$1`;
 
 repo.addLists({
-  // Pieces newest first; those in the shop (in stock, on approval, at the karigar) or out (sold, melted).
-  'jewellery-pieces': { sql: PIECES_SQL, search: ['tag_no', 'huids', 'item_label', 'item_code', 'description', 'with_whom'], date: 'created_at',
-    filters: { status: 'status', stage: 'stage', metal: 'metal', purity: 'purity', item: 'sku_id', location: 'location_id', hallmarked: 'hallmarked', in_books: 'in_books' },
+  // Pieces newest first; those in the shop (in stock, on approval, at a karigar, at the centre) or out (sold, melted, split, merged, given a new tag).
+  'jewellery-pieces': { sql: PIECES_SQL, search: ['tag_no', 'huids', 'item_label', 'item_code', 'description', 'design_code', 'out_no', 'out_with', 'order_no'],
+    date: 'created_at', filters: { status: 'status', stage: 'stage', metal: 'metal', purity: 'purity', item: 'sku_id', location: 'location_id', hallmarked: 'hallmarked',
+      old_hallmark: 'old_hallmark', in_books: 'in_books', order: 'order_id' },
     order: 'id DESC' },
   'jewellery-items': { sql: ITEMS_SQL, search: ['label', 'code', 'hsn_code'], filters: { active: 'active', metal: 'metal' }, order: 'label,sku_id' },
 });
@@ -239,11 +272,15 @@ function readFigures(body, { seesMoney, current, defaults, hallmarkCharge }) {
   let charge = keep(body.hallmarkCharge, 'hallmark_charge', (x) => c.decimal(x, 'Hallmarking charge', 2, 0, 10000));
   if (!current && hallmarked && !(seesMoney && c.given(body.hallmarkCharge))) charge = Number(hallmarkCharge);
   if (!hallmarked) charge = 0;
+  // Hallmarked under the old marks, before HUIDs: it waits to be re-hallmarked.
+  const oldHallmark = hallmarked && v.requiredBoolean(body.oldHallmark ?? base.old_hallmark ?? false, 'Old hallmark, to be re-hallmarked', false);
   const exemption = body.exemption === undefined ? (current?.exemption ?? null) : c.given(body.exemption) ? v.requiredEnum(body.exemption, 'Exemption', Object.keys(EXEMPTIONS)) : null;
   if (exemption && metal !== 'gold') fail('The exemptions from mandatory hallmarking are for gold');
   const description = body.description === undefined ? (current?.description ?? null) : plainWords(c.optionalText(body.description, 'Description', 150), 'Description');
+  const designCode = body.designCode === undefined ? (current?.design_code ?? null) : readDesign(body.designCode);
   const notes = body.notes === undefined ? (current?.notes ?? null) : c.optionalText(body.notes, 'Notes', 300);
-  return { metal, purity, grossWeight, stoneWeight, wastagePercent, makingMode, makingValue, hallmarked, hallmarkCharge: charge, exemption, description, notes };
+  return { metal, purity, grossWeight, stoneWeight, wastagePercent, makingMode, makingValue, hallmarked, oldHallmark, hallmarkCharge: charge, exemption, description,
+    designCode, notes };
 }
 
 // --- Reading a piece --------------------------------------------------------------------------------
@@ -271,14 +308,20 @@ async function load(db, business, pieceId) {
   const huids = await huidsOf(db, business, piece.id);
   const events = await repo.all(db, `SELECT e.id,e.kind,e.from_status,e.to_status,e.note,e.details,e.created_at,u.name AS by_name FROM jewellery_piece_events e
     JOIN users u ON u.id=e.created_by WHERE e.business_id=$1 AND e.piece_id=$2 ORDER BY e.id`, [business.id, piece.id]);
+  // The pieces it was made from (a split, merge or new tag) and those made from it.
+  const links = await repo.all(db, `SELECT k.kind,k.from_piece_id,f.tag_no AS from_tag,k.to_piece_id,t.tag_no AS to_tag,k.created_at FROM jewellery_piece_links k
+    JOIN jewellery_pieces f ON f.business_id=k.business_id AND f.id=k.from_piece_id JOIN jewellery_pieces t ON t.business_id=k.business_id AND t.id=k.to_piece_id
+    WHERE k.business_id=$1 AND (k.from_piece_id=$2 OR k.to_piece_id=$2) ORDER BY k.created_at,f.tag_no,t.tag_no`, [business.id, piece.id]);
   let price = null;
   if (c.seesMoney(business) && OPEN.includes(piece.status)) {
     const now = await rates.ratesNow(db, business);
     price = priceToday(piece, stones, now.byPurity.get(`${piece.metal}:${piece.purity}`));
   }
   return { ...piece, mark: c.purityMark(piece.metal, piece.purity), purity_words: c.purityWords(piece.metal, piece.purity),
-    exemption_words: piece.exemption ? EXEMPTIONS[piece.exemption] : null, huid_list: huids,
-    stones: stones.map((s) => ({ ...s, kind_words: STONE_KINDS[s.kind] })), events, price };
+    exemption_words: piece.exemption ? EXEMPTIONS[piece.exemption] : null, huid_list: huids, status_words: STATUS_WORDS[piece.status],
+    stones: stones.map((s) => ({ ...s, kind_words: STONE_KINDS[s.kind] })), events, price,
+    made_from: links.filter((k) => Number(k.to_piece_id) === Number(piece.id)).map((k) => ({ kind: k.kind, pieceId: k.from_piece_id, tag: k.from_tag })),
+    made_into: links.filter((k) => Number(k.from_piece_id) === Number(piece.id)).map((k) => ({ kind: k.kind, pieceId: k.to_piece_id, tag: k.to_tag })) };
 }
 
 async function detail(business, pieceId) {
@@ -336,7 +379,33 @@ async function history(db, business, user, pieceId, kind, { from = null, to = nu
     [business.id, pieceId, kind, from, to, note ? String(note).slice(0, 500) : null, JSON.stringify(details), requestKey, user.id]);
 }
 const figuresOf = (f) => ({ metal: f.metal, purity: f.purity, grossWeight: f.grossWeight.toFixed(3), stoneWeight: f.stoneWeight.toFixed(3),
-  netWeight: ((c.mg(f.grossWeight) - c.mg(f.stoneWeight)) / 1000).toFixed(3), hallmarked: f.hallmarked, exemption: f.exemption });
+  netWeight: ((c.mg(f.grossWeight) - c.mg(f.stoneWeight)) / 1000).toFixed(3), hallmarked: f.hallmarked, oldHallmark: Boolean(f.oldHallmark), exemption: f.exemption,
+  designCode: f.designCode ?? null });
+
+// A new piece brought into stock with its tag, inside the caller's
+// transaction (the business is locked): its unit comes in through the core's
+// stock (a correction of one, with the reason, at its cost), then the piece
+// with its figures, HUIDs and stones, its history, the audit and the events.
+// f: the figures (readFigures); requestKey: the piece's own (derived from the caller's);
+// event: { note, details } for its history.
+async function insertPiece(db, business, user, { skuId, label, tag, locationId, cost = 0, reasonWords, requestKey, hash, f, huids = [], stones = [], event }) {
+  const { lot, adjustment } = await require('../../core/services/businessReturns.service').receiveSerial(db, business, user, {
+    skuId, locationId, serial: tag, unitCost: cost, reason: reasonWords.slice(0, 300), requestKey: c.derivedKey(requestKey, 'stock') });
+  await repo.audit(db, business.id, user.id, 'stock.adjusted', adjustment.id, { reason: reasonWords.slice(0, 300), quantity: 1, label, serial: tag });
+  await repo.event(db, business.id, user.id, 'stock.adjusted', 'stock_adjustment', adjustment.id, { lotId: lot.id, skuId, locationId, quantity: 1, reason: reasonWords.slice(0, 300) });
+  const row = await repo.one(db, `INSERT INTO jewellery_pieces(business_id,sku_id,tag_no,description,design_code,metal,purity,gross_weight,stone_weight,wastage_percent,making_mode,
+      making_value,hallmarked,old_hallmark,hallmark_charge,exemption,notes,request_key,request_hash,created_by,updated_by)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$20) RETURNING id`,
+  [business.id, skuId, tag, f.description, f.designCode, f.metal, f.purity, f.grossWeight.toFixed(3), f.stoneWeight.toFixed(3), f.wastagePercent.toFixed(2), f.makingMode,
+    f.makingValue.toFixed(2), f.hallmarked, Boolean(f.oldHallmark), f.hallmarkCharge.toFixed(2), f.exemption, f.notes, requestKey, hash, user.id]);
+  await writeHuids(db, business, user, row.id, huids);
+  await writeStones(db, business, row.id, stones);
+  const figures = { tag, item: label, ...figuresOf(f), huids, stones: stones.length, ...(event.details || {}) };
+  await history(db, business, user, row.id, 'tagged', { to: 'in_stock', note: event.note, details: figures });
+  await repo.audit(db, business.id, user.id, 'jewellery_piece.tagged', row.id, figures);
+  await repo.event(db, business.id, user.id, 'jewellery_piece.tagged', 'jewellery_piece', row.id, { ...figures, skuId, locationId });
+  return row.id;
+}
 
 // body: { requestKey, skuId, tagNo?, comesIn: 'stock' (a unit of the item already in stock with that number) | 'new' (brought into stock
 //   now: locationId, reason (opening, made, other), cost?), description?, metal?, purity?, grossWeight, stoneWeight?, wastagePercent?,
@@ -371,35 +440,29 @@ async function create(business, user, body) {
     const settings = await settingsOf(db, business.id);
     const f = readFigures(body, { seesMoney, current: null, defaults: item, hallmarkCharge: settings.hallmark_charge });
     if (huids.length && !f.hallmarked) fail('A piece with a HUID is hallmarked: tick Hallmarked');
+    if (huids.length && f.oldHallmark) fail('A piece with the old hallmark has no HUID yet: it gets one when it is re-hallmarked');
     const tag = typedTag || await nextTag(db, business);
     if (await repo.one(db, 'SELECT 1 FROM jewellery_pieces WHERE business_id=$1 AND tag_no=$2', [business.id, tag])) fail(`Tag ${tag} is on another piece`, 409);
-    let location;
-    if (comesIn === 'stock') {
-      const lot = await repo.one(db, 'SELECT id,location_id FROM business_stock_lots WHERE business_id=$1 AND sku_id=$2 AND lot_code=$3 AND quantity>0', [business.id, sku.id, tag]);
-      if (!lot) fail(`No unit of ${sku.label} numbered ${tag} is in stock: receive it on a purchase with that number, or bring it in as a new piece`, 409);
-      location = lot.location_id;
-    } else {
-      location = id(body.locationId, 'Location');
-      const place = await repo.one(db, 'SELECT id FROM business_locations WHERE business_id=$1 AND id=$2 AND active', [business.id, location]);
-      if (!place) fail('Location not found', 404);
-      const words = `${COME_IN[reason]}: piece ${tag}`;
-      const { lot, adjustment } = await require('../../core/services/businessReturns.service').receiveSerial(db, business, user, {
-        skuId: sku.id, locationId: location, serial: tag, unitCost: cost, reason: words, requestKey: c.derivedKey(requestKey, 'stock') });
-      await repo.audit(db, business.id, user.id, 'stock.adjusted', adjustment.id, { reason: words, quantity: 1, label: sku.label, serial: tag });
-      await repo.event(db, business.id, user.id, 'stock.adjusted', 'stock_adjustment', adjustment.id, { lotId: lot.id, skuId: sku.id, locationId: location, quantity: 1, reason: words });
+    if (comesIn === 'new') {
+      const place = await c.locationRow(db, business, body.locationId);
+      const pieceId = await insertPiece(db, business, user, { skuId: sku.id, label: sku.label, tag, locationId: place.id, cost, reasonWords: `${COME_IN[reason]}: piece ${tag}`,
+        requestKey, hash, f, huids, stones, event: { note: COME_IN[reason], details: { comesIn, reason } } });
+      return shape(business, await load(db, business, pieceId));
     }
-    access.requireLocation(business, location);
-    const row = await repo.one(db, `INSERT INTO jewellery_pieces(business_id,sku_id,tag_no,description,metal,purity,gross_weight,stone_weight,wastage_percent,making_mode,making_value,
-        hallmarked,hallmark_charge,exemption,notes,request_key,request_hash,created_by,updated_by)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$18) RETURNING id`,
-    [business.id, sku.id, tag, f.description, f.metal, f.purity, f.grossWeight.toFixed(3), f.stoneWeight.toFixed(3), f.wastagePercent.toFixed(2), f.makingMode,
-      f.makingValue.toFixed(2), f.hallmarked, f.hallmarkCharge.toFixed(2), f.exemption, f.notes, requestKey, hash, user.id]);
+    const lot = await repo.one(db, 'SELECT id,location_id FROM business_stock_lots WHERE business_id=$1 AND sku_id=$2 AND lot_code=$3 AND quantity>0', [business.id, sku.id, tag]);
+    if (!lot) fail(`No unit of ${sku.label} numbered ${tag} is in stock: receive it on a purchase with that number, or bring it in as a new piece`, 409);
+    access.requireLocation(business, lot.location_id);
+    const row = await repo.one(db, `INSERT INTO jewellery_pieces(business_id,sku_id,tag_no,description,design_code,metal,purity,gross_weight,stone_weight,wastage_percent,making_mode,
+        making_value,hallmarked,old_hallmark,hallmark_charge,exemption,notes,request_key,request_hash,created_by,updated_by)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$20) RETURNING id`,
+    [business.id, sku.id, tag, f.description, f.designCode, f.metal, f.purity, f.grossWeight.toFixed(3), f.stoneWeight.toFixed(3), f.wastagePercent.toFixed(2), f.makingMode,
+      f.makingValue.toFixed(2), f.hallmarked, f.oldHallmark, f.hallmarkCharge.toFixed(2), f.exemption, f.notes, requestKey, hash, user.id]);
     await writeHuids(db, business, user, row.id, huids);
     await writeStones(db, business, row.id, stones);
-    const figures = { tag, item: sku.label, ...figuresOf(f), huids, stones: stones.length, comesIn, ...(reason ? { reason } : {}) };
-    await history(db, business, user, row.id, 'tagged', { to: 'in_stock', note: comesIn === 'new' ? COME_IN[reason] : 'Tagged on a unit in stock', details: figures });
+    const figures = { tag, item: sku.label, ...figuresOf(f), huids, stones: stones.length, comesIn };
+    await history(db, business, user, row.id, 'tagged', { to: 'in_stock', note: 'Tagged on a unit in stock', details: figures });
     await repo.audit(db, business.id, user.id, 'jewellery_piece.tagged', row.id, figures);
-    await repo.event(db, business.id, user.id, 'jewellery_piece.tagged', 'jewellery_piece', row.id, { ...figures, skuId: sku.id, locationId: location });
+    await repo.event(db, business.id, user.id, 'jewellery_piece.tagged', 'jewellery_piece', row.id, { ...figures, skuId: sku.id, locationId: lot.location_id });
     return shape(business, await load(db, business, row.id));
   });
 }
@@ -420,18 +483,25 @@ async function update(business, user, pieceId, body) {
     const currentStones = await stonesOf(db, business, current.id);
     const stones = readStones(body.stones, { seesMoney, current: currentStones });
     const f = readFigures(body, { seesMoney, current, defaults: null, hallmarkCharge: 0 });
-    const before = { ...figuresOf({ ...current, grossWeight: Number(current.gross_weight), stoneWeight: Number(current.stone_weight) }), huids: await huidsOf(db, business, current.id) };
+    const before = { ...figuresOf({ ...current, grossWeight: Number(current.gross_weight), stoneWeight: Number(current.stone_weight), oldHallmark: current.old_hallmark,
+      designCode: current.design_code }), huids: await huidsOf(db, business, current.id) };
+    // Out of the shop, a piece keeps its metal: it is weighed again when it comes back on its challan.
+    if (current.status !== 'in_stock' && (f.metal !== current.metal || f.purity !== current.purity || c.mg(f.grossWeight) !== c.mg(current.gross_weight)
+      || c.mg(f.stoneWeight) !== c.mg(current.stone_weight))) {
+      fail(`Piece ${current.tag_no} is ${STATUS_WORDS[current.status]}: its weight and purity change when it comes back on its challan`, 409);
+    }
     const nextHuids = huids === null ? before.huids : huids;
     if (nextHuids.length && !f.hallmarked) fail('A piece with a HUID is hallmarked: take its HUIDs off first, or keep it hallmarked');
+    if (nextHuids.length && f.oldHallmark) fail('A piece with a HUID is not waiting to be re-hallmarked: untick the old hallmark');
     // HUIDs taken off before the piece changes (a piece not hallmarked holds none).
     if (huids !== null) {
       const gone = before.huids.filter((h) => !huids.includes(h));
       if (gone.length) await db.query('DELETE FROM jewellery_piece_huids WHERE business_id=$1 AND piece_id=$2 AND huid=ANY($3::text[])', [business.id, current.id, gone]);
     }
     await db.query(`UPDATE jewellery_pieces SET description=$3,metal=$4,purity=$5,gross_weight=$6,stone_weight=$7,wastage_percent=$8,making_mode=$9,making_value=$10,
-        hallmarked=$11,hallmark_charge=$12,exemption=$13,notes=$14,updated_by=$15,updated_at=now() WHERE business_id=$1 AND id=$2`,
+        hallmarked=$11,hallmark_charge=$12,exemption=$13,notes=$14,updated_by=$15,updated_at=now(),design_code=$16,old_hallmark=$17 WHERE business_id=$1 AND id=$2`,
     [business.id, current.id, f.description, f.metal, f.purity, f.grossWeight.toFixed(3), f.stoneWeight.toFixed(3), f.wastagePercent.toFixed(2), f.makingMode,
-      f.makingValue.toFixed(2), f.hallmarked, f.hallmarkCharge.toFixed(2), f.exemption, f.notes, user.id]);
+      f.makingValue.toFixed(2), f.hallmarked, f.hallmarkCharge.toFixed(2), f.exemption, f.notes, user.id, f.designCode, f.oldHallmark]);
     if (huids !== null) await writeHuids(db, business, user, current.id, huids.filter((h) => !before.huids.includes(h)));
     if (stones !== null) {
       await db.query('DELETE FROM jewellery_piece_stones WHERE business_id=$1 AND piece_id=$2', [business.id, current.id]);
@@ -453,31 +523,19 @@ async function update(business, user, pieceId, body) {
   });
 }
 
-// body: { requestKey, status (on_approval, at_karigar, in_stock), withWhom? (on approval or at the karigar: who has it), note? }
-async function setStatus(business, user, pieceId, body) {
-  c.requireJewellery(business);
-  await access.require(business, 'jewellery.edit');
-  const requestKey = core.uuid(body.requestKey);
-  const status = v.requiredEnum(body.status, 'Status', ['on_approval', 'at_karigar', 'in_stock']);
-  const withWhom = status === 'in_stock' ? null : v.requiredString(body.withWhom, status === 'on_approval' ? 'Who has it on approval' : 'Which karigar has it', 150);
-  const note = c.optionalText(body.note, 'Note', 300);
-  return repo.transaction(async (db) => {
-    await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
-    const piece = await pieceRow(db, business, id(pieceId, 'Piece'), { lock: true });
-    const done = await repo.one(db, 'SELECT piece_id FROM jewellery_piece_events WHERE business_id=$1 AND request_key=$2', [business.id, requestKey]);
-    if (done) {
-      if (Number(done.piece_id) !== Number(piece.id)) fail('This request key was already used for different data', 409);
-      return shape(business, await load(db, business, piece.id));
-    }
-    if (piece.location_id) access.requireLocation(business, piece.location_id);
-    const allowed = status === 'in_stock' ? ['on_approval', 'at_karigar'].includes(piece.status) : piece.status === 'in_stock';
-    if (!allowed) fail(`Piece ${piece.tag_no} is ${STATUS_WORDS[piece.status]}: it cannot go ${status === 'in_stock' ? 'back into stock from there' : STATUS_WORDS[status]}`, 409);
-    await db.query('UPDATE jewellery_pieces SET status=$3,with_whom=$4,updated_by=$5,updated_at=now() WHERE business_id=$1 AND id=$2', [business.id, piece.id, status, withWhom, user.id]);
-    const words = status === 'in_stock' ? `Back in stock from ${piece.with_whom}` : `${status === 'on_approval' ? 'On approval with' : 'At the karigar:'} ${withWhom}`;
-    await history(db, business, user, piece.id, status === 'in_stock' ? 'back' : 'sent', { from: piece.status, to: status, note: [words, note].filter(Boolean).join(' · '), requestKey });
-    await repo.audit(db, business.id, user.id, 'jewellery_piece.moved', piece.id, { tag: piece.tag_no, from: piece.status, to: status, withWhom: withWhom || piece.with_whom, note });
-    return shape(business, await load(db, business, piece.id));
-  });
+// A piece goes out of stock on its challan, or comes back on it, inside the
+// caller's transaction (the challan's row is written first: the database
+// checks it). to: on_approval, at_karigar, at_centre or in_stock; words: what
+// the piece shows while it is out (the challan's number); note: its history.
+async function moveOnChallan(db, business, user, piece, to, { words = null, note, details = {}, weights = null }) {
+  const sets = ['status=$3', 'with_whom=$4', 'updated_by=$5', 'updated_at=now()'];
+  const values = [business.id, piece.id, to, to === 'in_stock' ? null : words, user.id];
+  if (weights) {
+    values.push(weights.grossWeight, weights.stoneWeight);
+    sets.push(`gross_weight=$${values.length - 1}`, `stone_weight=$${values.length}`);
+  }
+  await db.query(`UPDATE jewellery_pieces SET ${sets.join(',')} WHERE business_id=$1 AND id=$2`, values);
+  await history(db, business, user, piece.id, to === 'in_stock' ? 'back' : 'sent', { from: piece.status, to, note, details });
 }
 
 // body: { requestKey, reason }. A piece in stock is melted: its unit leaves stock and its metal goes into the metal stock.
@@ -518,13 +576,18 @@ async function melt(business, user, pieceId, body) {
 }
 
 // A jewellery item's pieces are sold on the jewellery bill, priced by weight at
-// the day's rate (the core asks this of every other sale of a jeweller).
+// the day's rate (the core asks this of every other sale of a jeweller); the
+// items the jeweller's own purchases are booked under are never sold.
 async function checkLooseSale(db, business, lines) {
   const skuIds = [...new Set(lines.map((line) => Number(line.sku.id)))];
   const item = await repo.one(db, `SELECT s.label FROM jewellery_items i JOIN catalog_skus s ON s.business_id=i.business_id AND s.id=i.sku_id
     WHERE i.business_id=$1 AND i.sku_id=ANY($2::bigint[]) ORDER BY s.label LIMIT 1`, [business.id, skuIds]);
   if (item) fail(`${item.label} is a jewellery item: its pieces are sold on the jewellery bill, priced by weight at the day's rate`, 409);
+  const booked = await repo.one(db, `SELECT s.label FROM jewellery_account_items a JOIN catalog_skus s ON s.business_id=a.business_id AND s.id=a.sku_id
+    WHERE a.business_id=$1 AND a.sku_id=ANY($2::bigint[]) ORDER BY s.label LIMIT 1`, [business.id, skuIds]);
+  if (booked) fail(`${booked.label} is what the jeweller's own purchases are booked under: it is never sold`, 409);
 }
 
-module.exports = { STATUSES, STATUS_WORDS, OPEN, EXEMPTIONS, STONE_KINDS, COME_IN, readTag, plainWords, PIECES_SQL, listShape, shape, withoutMoney,
-  items, createItem, updateItem, detail, find, create, update, setStatus, melt, checkLooseSale, load, pieceRow, stonesOf, huidsOf, history, priceToday };
+module.exports = { STATUSES, STATUS_WORDS, OPEN, EXEMPTIONS, STONE_KINDS, COME_IN, readTag, readDesign, plainWords, PIECES_SQL, listShape, shape, withoutMoney,
+  items, createItem, updateItem, detail, find, create, update, melt, checkLooseSale, load, pieceRow, stonesOf, huidsOf, history, priceToday, readFigures, readHuids,
+  readStones, writeHuids, writeStones, figuresOf, insertPiece, nextTag, moveOnChallan };

@@ -268,3 +268,117 @@ test("old gold and a gold scheme pay jewellery bills: the voucher as a payment b
   await expect(schemeRow).toContainText("Redeemed", { timeout: 15_000 });
   expect(errors).toEqual([]);
 });
+
+test("karigar work and a custom order: the karigar's metal in fine weight, and the order delivered on its bill with its rate fixed and its advance first", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  // The karigar's account: 6 g of 22K issued (5.496 g fine); the 5.000 g ring back (4.580 g) and 0.800 g of scrap (0.733 g);
+  // 2% wastage allowed on the ring (0.092 g fine); 0.091 g still with them; the actual wastage is both (0.183 g).
+  await page.goto(`/business-admin/${shop.id}/karigar-work`);
+  await expect(page.getByRole("heading", { name: "Karigar work", level: 1 })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("table", { name: "Issue challans" }).getByRole("row").filter({ hasText: shop.karigar.issueNo })).toContainText(shop.order.orderNo);
+  await page.getByRole("button", { name: shop.karigar.name, exact: true }).click();
+  const karigar = page.getByRole("dialog", { name: shop.karigar.name });
+  await expect(karigar).toBeVisible({ timeout: 15_000 });
+  await expect(karigar.getByText("Not registered: no GST on their labour")).toBeVisible();
+  const account = karigar.getByRole("row", { name: /^22K916/ });
+  for (const figure of ["5.496 g", "4.580 g", "0.733 g", "0.092 g", "0.091 g", "0.183 g"]) await expect(account).toContainText(figure);
+  await page.screenshot({ path: testInfo.outputPath("karigar.png"), fullPage: true });
+  await karigar.getByRole("button", { name: "Close" }).click();
+
+  // The order, ready: ₹20,000 at ₹11,780 a gram fixed 1.697 g of it (bhav cut).
+  await page.goto(`/business-admin/${shop.id}/custom-orders`);
+  await expect(page.getByRole("heading", { name: "Custom orders", level: 1 })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("table", { name: "Custom orders" }).getByRole("row").filter({ hasText: shop.order.orderNo }).click();
+  const order = page.getByRole("dialog", { name: `Order ${shop.order.orderNo}` });
+  await expect(order).toBeVisible({ timeout: 15_000 });
+  await expect(order.getByText(`Fixed at ₹11,780/g for ${shop.order.fixedWeight} g (bhav cut); the rest at the day's rate`)).toBeVisible();
+  await expect(order.getByText(`HUID ${JEWELLERY.order.huid}`)).toBeVisible();
+  await order.getByRole("link", { name: "Bill it" }).click();
+
+  // Its bill: the ring of 5.000 g, ₹58,900.00 of metal (the grams fixed at the order's rate, the rest at the day's, both ₹11,780),
+  // 8% wastage ₹4,712.00, making ₹2,250.00, hallmarking ₹45.00: ₹65,907.00 and 3% GST ₹1,977.21, ₹67,884 rounded. The advance pays first.
+  await expect(page.getByRole("heading", { name: "Jewellery bill", level: 1 })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("heading", { name: `Custom order ${shop.order.orderNo}` })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByLabel("The order's customer")).toHaveValue(shop.order.customer.name);
+  await expect(page.getByText(`Metal ₹58,900.00 at ₹11,780/g; ${shop.order.fixedWeight} g of it at ₹11,780/g, fixed on the order`)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Total ₹67,884.00")).toBeVisible();
+  await expect(page.getByText("Order advances ₹20,000.00")).toBeVisible();
+  await expect(page.getByText("To pay ₹47,884.00")).toBeVisible();
+  await page.getByRole("heading", { name: "Money" }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath("bill-order.png"), fullPage: true });
+  await page.getByRole("button", { name: "Post the bill · ₹67,884.00" }).click();
+  await expect(page.getByRole("heading", { name: /^Bill SI\/\S+ posted$/ })).toBeVisible({ timeout: 15_000 });
+
+  // Delivered; and the fine-weight book shows the purity's metal wherever it is.
+  await page.goto(`/business-admin/${shop.id}/custom-orders`);
+  await page.getByRole("group", { name: "Orders" }).getByRole("button", { name: "Delivered", exact: true }).click();
+  await expect(page.getByRole("table", { name: "Custom orders" }).getByRole("row").filter({ hasText: shop.order.orderNo })).toContainText("Delivered", { timeout: 15_000 });
+  await page.goto(`/business-admin/${shop.id}/fine-weight`);
+  await expect(page.getByRole("heading", { name: "Fine weight", level: 1 })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: "Gold 22K916" })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("table", { name: "Gold 22K916: where it is" })).toContainText("Metal with karigars");
+  await page.screenshot({ path: testInfo.outputPath("fine-weight.png"), fullPage: true });
+  expect(errors).toEqual([]);
+});
+
+test("an approval challan: the piece out is not billed to anyone else, and what the customer keeps is billed from the challan", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  const ring = shop.approvalRing;
+  // Out on approval, the ring is refused on any other bill.
+  await page.goto(`/business-admin/${shop.id}/jewellery-bill`);
+  await expect(page.getByRole("heading", { name: "Jewellery bill", level: 1 })).toBeVisible({ timeout: 30_000 });
+  await scan(page, ring.tag);
+  await expect(page.getByRole("alert").filter({ hasText: `Piece ${ring.tag} is on approval (${shop.approval.approvalNo}, ${shop.approval.customer.name}): only a piece in stock is billed` }))
+    .toBeVisible({ timeout: 15_000 });
+
+  await page.goto(`/business-admin/${shop.id}/approvals`);
+  await expect(page.getByRole("heading", { name: "Approvals", level: 1 })).toBeVisible({ timeout: 30_000 });
+  const row = page.getByRole("table", { name: "Approval challans" }).getByRole("row").filter({ hasText: shop.approval.approvalNo });
+  await expect(row).toContainText("1 of 1");
+  await row.click();
+  const challan = page.getByRole("dialog", { name: `Approval ${shop.approval.approvalNo}` });
+  await expect(challan).toBeVisible({ timeout: 15_000 });
+  await expect(challan.getByText("The GST time limit for goods sent on approval was not checked: the days out are shown, and no limit is enforced.")).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("approval.png"), fullPage: true });
+  await challan.getByRole("link", { name: "Bill what they keep" }).click();
+
+  // The twisted band of 3.200 g: ₹37,696.00 of metal, 8% wastage ₹3,015.68, making ₹1,440.00, hallmarking ₹45.00: ₹42,196.68
+  // and 3% GST ₹1,265.90, ₹43,463 rounded, billed to the challan's customer.
+  await expect(page.getByRole("heading", { name: `Approval challan ${shop.approval.approvalNo}` })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByLabel("The challan's customer")).toHaveValue(shop.approval.customer.name);
+  await expect(page.getByText("Total ₹43,463.00")).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Post the bill · ₹43,463.00" }).click();
+  await expect(page.getByRole("heading", { name: /^Bill SI\/\S+ posted$/ })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(new RegExp(`for ${literally(shop.approval.customer.name)}: ₹43,463\\.00\\.$`))).toBeVisible();
+
+  // Every piece of it is closed: the challan is.
+  await page.goto(`/business-admin/${shop.id}/approvals`);
+  await page.getByRole("group", { name: "Approval challans" }).getByRole("button", { name: "Closed", exact: true }).click();
+  await expect(page.getByRole("table", { name: "Approval challans" }).getByRole("row").filter({ hasText: shop.approval.approvalNo })).toContainText("Closed", { timeout: 15_000 });
+  expect(errors).toEqual([]);
+});
+
+test("a custom order booked with an advance that fixes the rate", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  await page.goto(`/business-admin/${shop.id}/custom-orders`);
+  await expect(page.getByRole("heading", { name: "Custom orders", level: 1 })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Book an order" }).click();
+  const form = page.getByRole("dialog", { name: "Book a custom order" });
+  await expect(form).toBeVisible();
+  await form.getByRole("button", { name: "New customer" }).click();
+  await form.getByLabel("Customer's name").fill("Lakshmi Prasad");
+  await form.getByLabel("What to make").fill("Bangles, a pair");
+  await form.getByLabel("Amount (₹)").fill("10000");
+  await form.getByLabel("Fix the rate on it (bhav cut)").check();
+  await page.screenshot({ path: testInfo.outputPath("book-order.png"), fullPage: true });
+  await form.getByRole("button", { name: "Book the order" }).click();
+  const booked = page.getByText(/^Order CO\/\S+ booked\.$/);
+  await expect(booked).toBeVisible({ timeout: 15_000 });
+  const orderNo = (await booked.textContent()).match(/^Order (\S+) booked\.$/)[1];
+  // ₹10,000 at today's ₹11,780 a gram fixes 0.848 g (to the milligram, rounded down).
+  const panel = page.getByRole("dialog", { name: `Order ${orderNo}` });
+  await expect(panel).toBeVisible({ timeout: 15_000 });
+  await expect(panel.getByText("Fixed at ₹11,780/g for 0.848 g (bhav cut); the rest at the day's rate")).toBeVisible();
+  await expect(panel.getByText("₹10,000.00", { exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});

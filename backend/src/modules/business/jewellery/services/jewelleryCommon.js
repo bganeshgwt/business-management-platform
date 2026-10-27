@@ -117,6 +117,38 @@ async function requireMoney(business) {
   if (!seesMoney(business)) await access.require(business, 'sales.view');
 }
 
+// The business locked for a posting: one lock order for every posting (business, then its records).
+const lockBusiness = (db, business) => db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
+// An active location of the business that the person may work at.
+async function locationRow(db, business, value, name = 'Location') {
+  const locationId = id(value, name);
+  access.requireLocation(business, locationId);
+  const row = await repo.one(db, 'SELECT id,name FROM business_locations WHERE business_id=$1 AND id=$2 AND active', [business.id, locationId]);
+  if (!row) fail('Location not found', 404);
+  return row;
+}
+// A contact of the business of a kind (customer or supplier), switched on.
+async function contactRow(db, business, value, kind, name) {
+  const row = await repo.one(db, 'SELECT * FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind=$3', [business.id, id(value, name), kind]);
+  if (!row) fail(`${name} not found`, 404);
+  if (!row.active) fail(`${row.name} is switched off: switch them on again first`, 409);
+  return row;
+}
+// The fineness metal is taken at (parts in a thousand, one decimal): its purity's own unless typed.
+function readFineness(value, metal, purity, name) {
+  return given(value) ? decimal(value, name, 1, 0.1, 999.9) : purityOf(metal, purity).fineness;
+}
+// Fine metal in a weight: milligrams × fineness ÷ 1,000, to the milligram (fineness to one decimal).
+const fineMg = (weightMg, fineness) => roundedDivide(BigInt(weightMg) * BigInt(Math.round(Number(fineness) * 10)), 10000);
+// The business's date of a moment, as YYYY-MM-DD.
+const dayOf = (business, at) => new Intl.DateTimeFormat('en-CA', { timeZone: business.timezone || 'Asia/Kolkata' }).format(new Date(at));
+// Reads one after another (a transaction's client runs one query at a time): the results in order.
+async function inTurn(...steps) {
+  const out = [];
+  for (const step of steps) out.push(await step());
+  return out;
+}
+
 module.exports = { fail, id, requireJewellery, PURITIES, METALS, METAL_WORDS, ALL_PURITIES, purityOf, purityMark, purityWords, purityLong, sortKey, readPurity,
   given, optionalText, decimal, paise, rupees, mg, grams, roundedDivide, readRate, readWeight, hashOf, derivedKey, readDate, addDays, addMonths, daysBetween,
-  dateWords, today, plural, seesMoney, requireMoney };
+  dateWords, today, plural, seesMoney, requireMoney, lockBusiness, locationRow, contactRow, readFineness, fineMg, dayOf, inTurn };

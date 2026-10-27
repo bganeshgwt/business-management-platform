@@ -650,6 +650,35 @@ export async function buildTestData({ api, logins, sql }) {
       plan: { id: plan.id, name: plan.name },
       scheme: { id: scheme.id, schemeNo: scheme.scheme_no, paid: scheme.paid, member: { id: member.id, name: member.name } },
     });
+    // Its work: a karigar with a rate for the ring, metal on a bullion dealer's balance, a custom order with its rate
+    // fixed on the advance, made by the karigar, hallmarked and ready; and a ring out on approval.
+    const karigar = await owner("POST", B("jewellery/karigars"), { supplier: { name: JEWELLERY.karigar.name, phone: JEWELLERY.karigar.phone },
+      wastagePercent: String(JEWELLERY.karigar.wastage) }, 201);
+    await owner("PUT", B(`jewellery/karigars/${karigar.contact_id}/rates`), { rates: [{ skuId: ring.sku_id, basis: "per_gram", rate: String(JEWELLERY.karigar.labourPerGram) }] }, 200);
+    const bullion = await owner("POST", B("contacts"), { kind: "supplier", name: JEWELLERY.bullion.name, gstin: JEWELLERY.bullion.gstin }, 201);
+    await owner("POST", B("jewellery/metal-account/entries"), { requestKey: requestKey(), kind: "received", contactId: bullion.id, locationId, metal: "gold", purity: "22K",
+      netWeight: JEWELLERY.bullion.grams }, 201);
+    const made = JEWELLERY.order;
+    const orderCustomer = await customer(made.customer);
+    let order = await owner("POST", B("jewellery/orders"), { requestKey: requestKey(), locationId, contactId: orderCustomer.id, skuId: ring.sku_id, description: made.description,
+      metal: "gold", purity: "22K", advance: { amount: String(made.advance), method: "upi", fixRate: true } }, 201);
+    const issue = await owner("POST", B("jewellery/karigars/issues"), { requestKey: requestKey(), contactId: karigar.contact_id, locationId, orderId: order.id,
+      lines: [{ kind: "metal", metal: "gold", purity: "22K", netWeight: made.issued }] }, 201);
+    const receipt = await owner("POST", B("jewellery/karigars/receipts"), { requestKey: requestKey(), contactId: karigar.contact_id, locationId, issueId: issue.id,
+      lines: [{ kind: "made", skuId: ring.sku_id, grossWeight: made.gross, description: made.description }, { kind: "metal", metal: "gold", purity: "22K", netWeight: made.scrap }] }, 201);
+    const orderTag = receipt.lines[0].tag_no;
+    const consignment = await owner("POST", B("jewellery/hallmarking"), { requestKey: requestKey(), locationId, centre: { name: JEWELLERY.centre.name }, tags: [orderTag] }, 201);
+    await owner("POST", B(`jewellery/hallmarking/${consignment.id}/return`), { requestKey: requestKey(), lines: [{ tag: orderTag, result: "hallmarked", huids: [made.huid] }] }, 201);
+    order = await owner("POST", B(`jewellery/orders/${order.id}/ready`), {}, 200);
+    const lent = await tag(ring, JEWELLERY.approvalRing);
+    const borrower = await customer(JEWELLERY.approvalRing.customer);
+    const approval = await owner("POST", B("jewellery/approvals"), { requestKey: requestKey(), locationId, contactId: borrower.id, party: "customer", dueOn: day(3), tags: [lent.tag] }, 201);
+    Object.assign(businesses.jewellery, {
+      karigar: { id: karigar.contact_id, name: karigar.name, issueNo: issue.issue_no, receiptNo: receipt.receipt_no },
+      order: { id: order.id, orderNo: order.order_no, tag: orderTag, fixedWeight: order.fixed_weight, customer: { id: orderCustomer.id, name: orderCustomer.name } },
+      consignment: { id: consignment.id, consignmentNo: consignment.consignment_no },
+      approvalRing: lent, approval: { id: approval.id, approvalNo: approval.approval_no, customer: { id: borrower.id, name: borrower.name } },
+    });
   }
 
   // The tent house: a hirer's photo ID at every handover and its terms; a

@@ -374,6 +374,18 @@ export const JEWELLERY = {
     terms: "Pay the same amount each month for 11 months. With all 11 paid, one month's amount comes off your jewellery bill as a discount, from a month after the last instalment. The scheme is turned into jewellery within the year and is never paid back in money.",
   },
   member: { name: "Padmavathi Rao", phone: "9876500302", instalment: 5000, instalmentsPaid: 3, nominee: "Suresh Rao", relation: "Son" },
+  // Its work: a karigar not registered for GST (2% wastage allowed, ₹450 a
+  // gram for a ring); 50 g of 22K on a bullion dealer's metal balance; a
+  // custom order for a ring with a ₹20,000 advance by UPI that fixed the rate
+  // (bhav cut), the karigar's 5.000 g ring made from 6 g issued (0.800 g of
+  // scrap back), hallmarked at the centre with its HUID and ready to bill; and
+  // a hallmarked ring out on an approval challan with a customer.
+  karigar: { name: "Ramesh Soni", phone: "9876500401", wastage: 2, labourPerGram: 450 },
+  bullion: { name: "Mehta Bullion", gstin: "36AABCB1234F1Z9", grams: "50" },
+  centre: { name: "Sri Sai Hallmarking Centre" },
+  order: { customer: { name: "Kavitha Reddy", phone: "9876500402" }, description: "Ring with a lotus design", advance: 20000, issued: "6", gross: "5.000", scrap: "0.800",
+    huid: "JR5D04" },
+  approvalRing: { description: "Twisted band", gross: "3.200", huid: "JR4E05", customer: { name: "Anitha Kumar", phone: "9876500403" } },
 };
 
 // The tent house: a 15 kVA generator hired one by one (two units, each with

@@ -8,22 +8,23 @@ import { getErrorMessage } from "../../../../services/api";
 import { Badge, BusinessHeader } from "../../core/pages/ui";
 import { useOpenBusiness, useServerList } from "../../core/pages/hooks";
 import { PIECE_STATUSES, grams, makingWords, purityMark } from "./jewellery";
-import { ItemForm, PieceForm, PiecePanel } from "./PieceDialogs";
+import { ItemForm, MergeForm, PieceForm, PiecePanel } from "./PieceDialogs";
 import { TAG_LAYOUTS, printPieceTags } from "./jewelleryPrint";
 import "../styles/jewellery.css";
 
 // Pieces & tags: every tagged piece by its tag, item, purity and weights,
 // its stones and HUIDs, where it is and what it is doing (in stock, on
-// approval, at the karigar, sold, melted). A piece is found by its tag or a
-// HUID; it opens in a panel with its price at today's rate and its history.
+// approval, at a karigar, at the hallmarking centre, sold, melted, split,
+// merged or given a new tag). A piece is found by its tag or a HUID; it opens
+// in a panel with its photo, its price at today's rate and its history.
 // Below: the jewellery items (what a new piece of each starts with) and the
-// shop's own metal from melted pieces. No prices or charges for a role that
-// does not see sales.
+// shop's own metal. No prices or charges for a role that does not see sales.
 
 const CHIPS = [
   ["in", "In the shop", { stage: "in" }], ["in_stock", "In stock", { status: "in_stock" }], ["on_approval", "On approval", { status: "on_approval" }],
-  ["at_karigar", "At the karigar", { status: "at_karigar" }], ["unmarked", "Not hallmarked", { stage: "in", hallmarked: "false" }],
-  ["missing", "Not in the books", { stage: "in", in_books: "false" }], ["sold", "Sold", { status: "sold" }], ["melted", "Melted", { status: "melted" }], ["all", "All", {}],
+  ["at_karigar", "At a karigar", { status: "at_karigar" }], ["at_centre", "At the centre", { status: "at_centre" }], ["unmarked", "Not hallmarked", { stage: "in", hallmarked: "false" }],
+  ["old_mark", "To re-hallmark", { stage: "in", old_hallmark: "true" }], ["missing", "Not in the books", { stage: "in", in_books: "false" }], ["sold", "Sold", { status: "sold" }],
+  ["melted", "Melted", { status: "melted" }], ["all", "All", {}],
 ];
 
 export default function PiecesPage() {
@@ -77,7 +78,9 @@ export default function PiecesPage() {
     money && { key: "making", header: "Making", value: (p) => makingWords(biz, p.making_mode, p.making_value), defaultHidden: true },
     { key: "status", header: "Status", type: "status", value: (p) => PIECE_STATUSES[p.status]?.label || p.status, mobile: "show",
       render: (p) => <span className="bz-two-line"><Badge tone={PIECE_STATUSES[p.status]?.tone} label={PIECE_STATUSES[p.status]?.label || p.status} />
-        {(p.with_whom || (!p.in_books && p.stage === "in")) && <small className={p.in_books ? "muted" : "bz-minus"}>{p.in_books ? p.with_whom : "not in stock in the books"}</small>}</span> },
+        {(p.out_no || (!p.in_books && p.stage === "in")) && <small className={p.in_books ? "muted" : "bz-minus"}>{p.in_books ? `${p.out_no} · ${p.out_with}` : "not in stock in the books"}</small>}</span> },
+    { key: "design_code", header: "Design", value: (p) => p.design_code || "", className: "mono", defaultHidden: true },
+    { key: "order", header: "Order", value: (p) => p.order_no || "", defaultHidden: true },
     { key: "location", header: "Location", value: (p) => p.location_name || "", defaultHidden: !many },
     { key: "created_at", header: "Tagged", type: "datetime", value: (p) => p.created_at, defaultHidden: true },
   ].filter(Boolean), [biz, money, many]);
@@ -89,12 +92,15 @@ export default function PiecesPage() {
       <BusinessHeader icon="tag" title="Pieces & tags"
         description="Each piece is a serial-numbered unit of its jewellery item, its tag the number: weighed to the milligram, priced by the day's rate when it is billed."
         primary={biz.can("jewellery.edit") && <button type="button" className="button" onClick={() => setDialog({ kind: "piece" })}><Icon name="plus" size={16} /> Tag a piece</button>}
-        secondary={biz.can("jewellery.print") && shown.length > 0 && (
-          <span className="jw-print">
-            <select aria-label="Tag layout" value={layout} onChange={(e) => setLayout(e.target.value)}>{Object.entries(TAG_LAYOUTS).map(([value, l]) => <option key={value} value={value}>{l.label}</option>)}</select>
-            <button type="button" className="button button-secondary" onClick={() => printPieceTags(biz, shown.filter((p) => p.stage === "in"), layout)}><Icon name="print" size={15} /> Print these tags</button>
-          </span>
-        )} />
+        secondary={<>
+          {biz.can("jewellery.edit") && biz.can("inventory.edit") && <button type="button" className="button button-secondary" onClick={() => setDialog({ kind: "merge" })}><Icon name="layers" size={15} /> Merge pieces</button>}
+          {biz.can("jewellery.print") && shown.length > 0 && (
+            <span className="jw-print">
+              <select aria-label="Tag layout" value={layout} onChange={(e) => setLayout(e.target.value)}>{Object.entries(TAG_LAYOUTS).map(([value, l]) => <option key={value} value={value}>{l.label}</option>)}</select>
+              <button type="button" className="button button-secondary" onClick={() => printPieceTags(biz, shown.filter((p) => p.stage === "in"), layout)}><Icon name="print" size={15} /> Print these tags</button>
+            </span>
+          )}
+        </>} />
       <ErrorMessage message={error || list.error} />
       <SectionCard flush icon="tag" title="Pieces">
         <div className="fe-chips" role="group" aria-label="Pieces">
@@ -122,7 +128,7 @@ export default function PiecesPage() {
         )}
       </SectionCard>
       {metal.length > 0 && (
-        <SectionCard icon="scale" title="The shop's own metal" description="What melted pieces left, by purity: for melting and refining, never billed.">
+        <SectionCard icon="scale" title="The shop's own metal" description="By purity: melted pieces, old gold, scrap back from karigars and metal from suppliers, for karigars' work, melting and refining; never billed.">
           <table className="jw-rates">
             <thead><tr><th scope="col">Purity</th>{many && <th scope="col">Location</th>}<th scope="col">Metal</th><th scope="col">Fine metal</th></tr></thead>
             <tbody>{metal.map((m) => <tr key={`${m.location_id}:${m.metal}:${m.purity}`}><th scope="row">{m.label}</th>{many && <td>{m.location_name}</td>}<td>{grams(m.net_weight)}</td><td>{grams(m.fine_weight)}</td></tr>)}</tbody>
@@ -131,7 +137,8 @@ export default function PiecesPage() {
       )}
       {dialog?.kind === "piece" && <PieceForm biz={biz} settings={settings} items={items} onClose={() => setDialog(null)} onSaved={(p) => { setDialog(null); reload(); setOpenId(p.id); }} />}
       {dialog?.kind === "item" && <ItemForm biz={biz} item={dialog.item} catalogue={catalogue} onClose={() => setDialog(null)} onSaved={() => { setDialog(null); reload(); }} />}
-      {openId && <PiecePanel biz={biz} pieceId={openId} settings={settings} items={items} onClose={() => setOpenId(null)} onChanged={reload} />}
+      {dialog?.kind === "merge" && <MergeForm biz={biz} items={items} onClose={() => setDialog(null)} onSaved={(p) => { setDialog(null); reload(); setOpenId(p.id); }} />}
+      {openId && <PiecePanel key={openId} biz={biz} pieceId={openId} settings={settings} items={items} onClose={() => setOpenId(null)} onChanged={reload} onOpen={setOpenId} />}
     </div>
   );
 }

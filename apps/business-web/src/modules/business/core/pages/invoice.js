@@ -60,18 +60,19 @@ function jewelleryLine(doc, line, symbol) {
     `Purity ${x.mark} (${x.purity_long})`,
     x.huids?.length ? `HUID ${x.huids.join(", ")}` : x.basis_words,
     x.hallmarked ? `Hallmarking ${money(x.hallmark_charge)}` : "",
-    `Metal ${money(x.metal_value)} at ${money(x.rate)}/g`,
+    Number(x.fixed_weight) ? `Metal ${money(x.metal_value)}: ${grams(x.fixed_weight)} at ${money(x.fixed_rate)}/g fixed on the order, the rest at ${money(x.rate)}/g`
+      : `Metal ${money(x.metal_value)} at ${money(x.rate)}/g`,
     Number(x.wastage_value) ? `Wastage ${Number(x.wastage_percent)}% (${grams(x.wastage_weight)}) ${money(x.wastage_value)}` : "",
     Number(x.making_charge) ? `Making ${money(x.making_charge)}` : "",
     Number(x.stone_value) ? `Stones ${money(x.stone_value)}${stones ? ` (${stones})` : ""}` : "",
     Number(x.discount) ? `Gold scheme discount ${money(x.discount)}` : "",
   ].filter(Boolean).join(" · ");
 }
-// The purity statement, the BIS registration the shop sells under, and the gold scheme the bill redeems.
+// The purity statement, the BIS registration the shop sells under, the gold scheme the bill redeems and the custom order it delivers.
 function jewelleryNote(doc) {
   const j = doc.jewellery;
   if (!j) return "";
-  return `<p class="small"><strong>${escapeHtml(j.statement)}</strong>${j.bis ? ` ${escapeHtml(j.bis.name)}: ${escapeHtml(j.bis.licenceNo)}.` : ""}${j.scheme ? ` Redeems gold scheme ${escapeHtml(j.scheme.schemeNo)}${Number(j.scheme.discount) ? `, its discount ${escapeHtml(moneyExact(Number(j.scheme.discount)))} taken off the pieces before GST` : ""}.` : ""}</p>`;
+  return `<p class="small"><strong>${escapeHtml(j.statement)}</strong>${j.bis ? ` ${escapeHtml(j.bis.name)}: ${escapeHtml(j.bis.licenceNo)}.` : ""}${j.scheme ? ` Redeems gold scheme ${escapeHtml(j.scheme.schemeNo)}${Number(j.scheme.discount) ? `, its discount ${escapeHtml(moneyExact(Number(j.scheme.discount)))} taken off the pieces before GST` : ""}.` : ""}${j.order ? ` Delivers custom order ${escapeHtml(j.order.orderNo)}.` : ""}</p>`;
 }
 
 // Everything both papers print, worked out once.

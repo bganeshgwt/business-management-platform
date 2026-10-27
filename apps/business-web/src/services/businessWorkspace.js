@@ -7,11 +7,11 @@ export const WORKSPACES = {
   // A rental business's products open on its rental items.
   products: ['rental-items', 'products', 'rates', 'variants', 'books', 'drug-master', 'salon-setup', 'categories', 'kits', 'labels', 'offers', 'pricing', 'laundry-prices', 'tax-changes'],
   // A jeweller's stock opens on its tagged pieces.
-  stock: ['pieces', 'stock', 'weight-stock', 'movements', 'counts', 'near-expiry', 'pharmacy-batches', 'transfers', 'serials', 'processing', 'wastage'],
-  purchases: ['purchases', 'suppliers', 'purchase-orders', 'claims'],
+  stock: ['pieces', 'stock', 'weight-stock', 'movements', 'counts', 'near-expiry', 'pharmacy-batches', 'transfers', 'serials', 'processing', 'wastage', 'karigar-work', 'hallmarking', 'fine-weight'],
+  purchases: ['purchases', 'suppliers', 'purchase-orders', 'claims', 'metal-account'],
   dues: ['udhaar', 'outstanding', 'collections'],
   customers: ['customers', 'loyalty', 'sites', 'fitters', 'prescriptions', 'recall', 'vehicles', 'service-due', 'fuel-fleet'],
-  sales: ['sales', 'quotations', 'tinting', 'exchanges', 'warranties', 'pickup-orders'],
+  sales: ['sales', 'quotations', 'tinting', 'exchanges', 'warranties', 'pickup-orders', 'custom-orders', 'approvals'],
   orders: ['sales-orders', 'back-orders', 'dispatch', 'price-groups', 'pricing', 'routes'],
   appointments: ['salon-calendar', 'appointments'],
   care: ['clinic-today', 'clinic-queue', 'visits', 'appointments', 'doctors'],
