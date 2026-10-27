@@ -645,12 +645,28 @@ export async function buildTestData({ api, logins, sql }) {
     });
   }
 
-  // The clinic's patient, registered at the front desk with consent for treatment.
+  // The clinic's patient, registered at the front desk with consent for
+  // treatment; the doctor's calendar (their queue of tokens), and a
+  // haemoglobin test billed as a service of its own, GST nil.
   {
-    const patient = await owner("POST", at("healthcare")("clinic/patients"), {
+    const B = at("healthcare");
+    const patient = await owner("POST", B("clinic/patients"), {
       ...CLINIC.patient, consent: { purposes: ["treatment"], method: "signed_form", givenBy: "Self" },
     }, 201);
-    businesses.healthcare.patient = { contactId: patient.contact_id, name: CLINIC.patient.name };
+    const doctor = await owner("POST", B("resources"), { name: CLINIC.doctor.resource, roleLabel: "General physician", locationId: businesses.healthcare.locationId }, 201);
+    const service = await owner("POST", B("catalog"), {
+      name: CLINIC.test.service, code: "SVC-HB", kind: "service", unit: "service", tracking: "none", price: String(CLINIC.test.price), taxRate: "0",
+    }, 201);
+    const test = await owner("POST", B("lab/tests"), {
+      code: CLINIC.test.code, name: CLINIC.test.name, sampleType: "blood", container: "EDTA (purple top)", skuId: service.id, parameters: [
+        { name: CLINIC.test.name, unit: CLINIC.test.unit, decimals: 1, ranges: [{ sex: "female", ageFrom: 13, low: CLINIC.test.low, high: CLINIC.test.high, criticalLow: CLINIC.test.criticalLow }] },
+      ],
+    }, 201);
+    Object.assign(businesses.healthcare, {
+      patient: { contactId: patient.contact_id, name: CLINIC.patient.name },
+      doctor: { resourceId: doctor.id, name: doctor.name },
+      test: { id: test.id, code: test.code, name: test.name },
+    });
   }
 
   // The salon's stylist and service.
@@ -771,15 +787,37 @@ export async function buildTestData({ api, logins, sql }) {
   // Each login that works in some of the owner's shops: made in the first
   // of them, as Staff & access › New staff login makes one, then given access
   // to the others; a manager in every one, or the role of its trade it names.
+  const staffAccounts = {};
   for (const person of logins.filter((item) => item.businesses)) {
     const [first, ...others] = person.businesses.map((type) => businesses[type]);
     const roleIn = async (business) => (await owner("GET", `/businesses/${business.id}/roles`)).items.find((role) => role.template_code === (person.businessRole || "manager"));
     const made = await owner("POST", `/businesses/${first.id}/staff-accounts`, {
       name: person.name, email: person.email, password: person.password, roleId: (await roleIn(first)).id,
     }, 201);
+    staffAccounts[person.role] = made.user_id;
     for (const business of others) {
       await owner("POST", `/businesses/${business.id}/members`, person.businessRole ? { userId: made.user_id, roleId: (await roleIn(business)).id } : { userId: made.user_id, role: "manager" }, 201);
     }
+  }
+
+  // The clinic's doctor and pathologist, registered with their councils as
+  // Settings › Clinic & lab settings registers them: the doctor with their
+  // calendar (so its tokens are their own queue), the pathologist with a PIN
+  // of their own to approve reports, set as My profile › Personal PIN sets one.
+  {
+    const B = at("healthcare");
+    await owner("POST", B("health/signatories"), {
+      kind: "doctor", userId: staffAccounts.DOCTOR, name: CLINIC.doctor.signedName, qualification: CLINIC.doctor.qualification,
+      registrationNo: CLINIC.doctor.registrationNo, council: "Telangana State Medical Council", resourceId: businesses.healthcare.doctor.resourceId,
+    }, 201);
+    const pathologist = await owner("POST", B("health/signatories"), {
+      kind: "pathologist", userId: staffAccounts.PATHOLOGIST, name: CLINIC.pathologist.signedName, qualification: CLINIC.pathologist.qualification,
+      registrationNo: CLINIC.pathologist.registrationNo,
+    }, 201);
+    const person = login("PATHOLOGIST");
+    const pin = freshPin();
+    await caller(api, await signIn("PATHOLOGIST"))("PUT", "/auth/me/pin", { password: person.password, pin, confirmPin: pin });
+    businesses.healthcare.pathologist = { signatoryId: pathologist.id, name: pathologist.name, pin };
   }
 
   // The tent house's manager approves money handed back from a deposit with a

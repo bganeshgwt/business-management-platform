@@ -6,7 +6,6 @@ import SectionCard from "../../../../components/SectionCard";
 import StatusBadge from "../../../../components/StatusBadge";
 import { ErrorMessage, Loading } from "../../../../components/Feedback";
 import { businessRead, businessWrite } from "../../../../services/business.service";
-import { businessPath } from "../../../../services/businessNav";
 import { getErrorMessage } from "../../../../services/api";
 import { dateShort, dateTime } from "@bmp/shared/format";
 import { toast } from "../../../../services/toast";
@@ -41,7 +40,7 @@ export default function PatientPage() {
   async function startVisit() {
     try {
       const visit = await businessWrite(biz.id, "clinic/visits", { contactId: Number(contactId) });
-      navigate(businessPath(biz.id, `visits/${visit.id}`));
+      navigate(biz.path(`visits/${visit.id}`));
     } catch (err) { toast.error(getErrorMessage(err)); }
   }
 
@@ -51,7 +50,7 @@ export default function PatientPage() {
     <div className="stack">
       <BusinessHeader icon="user" title={p.name} description={`${patientLine(p)}${p.phone ? ` · ${p.phone}` : ""}`}
         primary={p.consent_active && (biz.can("patients.edit_clinical") || biz.can("patients.create")) && <button type="button" className="button" onClick={startVisit}><Icon name="plus" size={16} /> Start a visit</button>}
-        secondary={<Link className="button button-secondary" to={businessPath(biz.id, "patients")}>All patients</Link>}
+        secondary={<Link className="button button-secondary" to={biz.path("patients")}>All patients</Link>}
         more={[biz.can("patients.edit") && { label: "Edit details", icon: "edit", onClick: () => setDialog("edit") }, biz.can("patients.create") && { label: "Add consent", icon: "shield", onClick: () => setDialog("consent") }].filter(Boolean)} />
       {!p.consent_active && <p className="hl-note hl-note-warning">No active consent for treatment: the record is kept for the retention period, but no new visit or test can be started until consent is given again.</p>}
       <div className="hl-two">
@@ -93,7 +92,7 @@ export default function PatientPage() {
         ].filter(Boolean)} />
       </SectionCard>
       <SectionCard flush icon="clipboard" title="Visits">
-        <DataGrid id="clinic-patient-visits" caption="Visits" variant="compact" rows={p.visits} onRowClick={(v) => navigate(businessPath(biz.id, `visits/${v.id}`))} columns={[
+        <DataGrid id="clinic-patient-visits" caption="Visits" variant="compact" rows={p.visits} onRowClick={(v) => navigate(biz.path(`visits/${v.id}`))} columns={[
           { key: "no", header: "Visit", value: (v) => v.visit_no, className: "mono", mobile: "title" },
           { key: "date", header: "Date", type: "datetime", value: (v) => v.created_at, mobile: "subtitle" },
           { key: "doctor", header: "Doctor", value: (v) => v.doctor_name || "" },
@@ -104,7 +103,7 @@ export default function PatientPage() {
       </SectionCard>
       {biz.has("lab") && biz.can("lab.view") && (
         <SectionCard flush icon="activity" title="Lab orders">
-          <DataGrid id="clinic-patient-lab" caption="Lab orders" variant="compact" rows={p.lab_orders} onRowClick={(o) => navigate(businessPath(biz.id, `lab-orders/${o.id}`))} columns={[
+          <DataGrid id="clinic-patient-lab" caption="Lab orders" variant="compact" rows={p.lab_orders} onRowClick={(o) => navigate(biz.path(`lab-orders/${o.id}`))} columns={[
             { key: "no", header: "Order", value: (o) => o.order_no, className: "mono", mobile: "title" },
             { key: "date", header: "Ordered", type: "datetime", value: (o) => o.created_at, mobile: "subtitle" },
             { key: "status", header: "Status", value: (o) => o.status, render: (o) => <LabStatus status={o.status} />, mobile: "show" },
@@ -142,7 +141,9 @@ function EditDialog({ p, onClose, onSaved }) {
   );
 }
 
-function ClinicalDialog({ p, onClose, onSaved }) {
+// The clinical card (blood group, allergies, conditions, current medicines),
+// written by clinical roles: here, and from a consultation in the clinic workspace.
+export function ClinicalDialog({ p, onClose, onSaved }) {
   const biz = useOpenBusiness();
   const [form, setForm] = useState({ bloodGroup: p.clinical.blood_group || "", allergies: p.clinical.allergies || "", conditions: p.clinical.conditions || "", currentMedicines: p.clinical.current_medicines || "" });
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));

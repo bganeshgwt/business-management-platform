@@ -335,6 +335,12 @@ async function saveVisit(business, user, visitId, body) {
       sets.resource_id = resourceId;
       sets.doctor_signatory_id = resourceId ? (await repo.one(db, "SELECT id FROM health_signatories WHERE business_id=$1 AND resource_id=$2 AND kind='doctor' AND active", [business.id, resourceId]))?.id || null : null;
     }
+    // A referral: to whom the doctor sends the patient (a specialist, a hospital) and why.
+    if (body.referredTo !== undefined) sets.referred_to = text(body.referredTo, 'Referred to', 200);
+    if (body.referralReason !== undefined) sets.referral_reason = text(body.referralReason, 'Reason for the referral', 1000);
+    if (!('referred_to' in sets ? sets.referred_to : visit.referred_to) && ('referral_reason' in sets ? sets.referral_reason : visit.referral_reason)) {
+      fail('Say whom the patient is referred to');
+    }
     const keys = Object.keys(sets);
     if (keys.length) {
       await db.query(`UPDATE health_visits SET ${keys.map((k, i) => `${k}=$${i + 3}`).join(',')},updated_by=$${keys.length + 3},updated_at=now() WHERE business_id=$1 AND id=$2`,
@@ -418,7 +424,7 @@ async function visit(business, visitId) {
   await logClinicalView(business, row.contact_id, 'consultation', { visitNo: row.visit_no });
   const pick = (keys) => Object.fromEntries(keys.map((k) => [k, row[k]]));
   return { ...front, ...pick(['bp_systolic', 'bp_diastolic', 'pulse', 'temperature_c', 'spo2', 'resp_rate', 'weight_kg', 'height_cm', 'complaints', 'examination', 'diagnosis',
-    'icd10_code', 'advice', 'doctor_signed_name', 'doctor_qualification', 'doctor_reg_no', 'doctor_council', 'patient_address']),
+    'icd10_code', 'advice', 'referred_to', 'referral_reason', 'doctor_signed_name', 'doctor_qualification', 'doctor_reg_no', 'doctor_council', 'patient_address']),
   prescription: items, notes, lab_results: results, patient_clinical: clinical || {} };
 }
 
@@ -514,5 +520,23 @@ async function today(business, query) {
   return { day, appointments: rows, walk_ins: walkIns };
 }
 
+// The medicines this clinic's doctors have prescribed, the most used first,
+// each with its most used strength, dose, timing, duration and instructions:
+// what the prescription offers as a doctor types. A clinic keeps no drug
+// master of its own (that is a pharmacy's), so a medicine is still written by
+// its generic name; this only saves typing it again. No patient is named.
+async function medicines(business, query = {}) {
+  requireClinic(business);
+  await access.require(business, 'patients.edit_clinical');
+  const search = typeof query.q === 'string' && query.q.trim() ? `%${query.q.trim().slice(0, 60).replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null;
+  return repo.all(repo.pool, `WITH lines AS (
+      SELECT drug_name,strength,dose,frequency,duration,instructions,count(*)::int AS line_times,max(created_at) AS line_last FROM health_prescription_items
+      WHERE business_id=$1 AND ($2::text IS NULL OR drug_name ILIKE $2) GROUP BY drug_name,strength,dose,frequency,duration,instructions),
+    best AS (SELECT DISTINCT ON (lower(drug_name)) drug_name,strength,dose,frequency,duration,instructions,
+        sum(line_times) OVER (PARTITION BY lower(drug_name))::int AS times,max(line_last) OVER (PARTITION BY lower(drug_name)) AS last_at
+      FROM lines ORDER BY lower(drug_name),line_times DESC,line_last DESC)
+    SELECT drug_name,strength,dose,frequency,duration,instructions,times FROM best ORDER BY times DESC,last_at DESC,drug_name LIMIT 200`, [business.id, search]);
+}
+
 module.exports = { requireClinic, register, updatePatient, patient, saveClinical, addConsent, withdrawConsent, requireConsent, openVisit, saveVisit, addVisitNote,
-  visit, billVisit, today, logClinicalView };
+  visit, billVisit, today, medicines, logClinicalView };

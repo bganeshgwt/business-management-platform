@@ -132,7 +132,7 @@ written down.
 | POS app (an offline-capable till) | Planned. The POS *screen* is in the staff app (`/pos`). |
 | Captain / waiter app | Built, as part of the staff app (`/captain`): a route group with a layout of its own (`src/workspaces/captain`), phone first, on the POS's own order screen and the order, KOT, table-request and captain-section APIs, with live updates. |
 | Kitchen display app | Planned as a separate app. The screen is in the staff app (`/kitchen`). |
-| Clinic and lab workspaces | Planned. `/clinic` and `/lab` answer and link to the clinic's screens in Business Admin. |
+| Clinic and lab workspaces | Built, as part of the staff app (`/clinic`, `/lab`): route groups with layouts of their own (`src/workspaces/clinic`, `src/workspaces/lab`, both in `src/layouts/BusinessWorkspace.jsx`), for the front desk's computer, a doctor's tablet and the lab bench, on the health module's own pages and APIs, with live updates. |
 | Platform admin and subscriptions | Planned. A platform Super Admin runs the platform console in the staff app (`/platform/restaurants`, `/platform/businesses`). There are no plans or subscriptions; their shape is set in [DATA_MODEL › Commercial plans](BUSINESS_PLATFORM_DATA_MODEL.md#commercial-plans). |
 
 ### 2.2 Every address
@@ -151,8 +151,8 @@ written down.
 | `/collection` | The pickup counter's TV | Built |
 | `/platform/restaurants`, `/platform/businesses` | The platform Super Admin | Built; moves to its own app later |
 | `/captain`, `/captain/calls`, `/captain/ready`, `/captain/order` | Waiters, on a phone: the captain app (their tables, guests' calls, food at the pass, taking an order) | Built |
-| `/clinic` | Reception and doctors | **Planned.** Until then: the clinic's token queue and patients in Business Admin |
-| `/lab` | Lab staff | **Planned.** Until then: the clinic's lab orders and tests in Business Admin |
+| `/clinic`, `/clinic/:id/…` | Reception and doctors: the clinic workspace (the desk with the queue by doctor, the consultation, today, patients, visits). `/clinic` opens the clinic chosen last, or asks which | Built |
+| `/lab`, `/lab/:id/…` | Lab staff and pathologists: the lab workspace (collection, worklist, approval, released reports, every order, quality control, tests). `/lab` opens the clinic chosen last, or asks which | Built |
 | `/order/…`, `/online/…`, `/book/…` | Old guest links and printed QR codes | Sent on to the guests' site, path and query kept |
 
 **Guests' site** (`apps/customer-web`)
@@ -167,13 +167,15 @@ written down.
 | `/account` | A returning guest's orders, bookings and points | **Planned** |
 | Anything else | A link with part missing, or the bare address | A page that says how to open the right link |
 
-On the staff app, a planned address opens a page marked *Planned · not built
-yet*: what it will do, then what to use until then, with buttons to go there.
-On the guests' site, it opens a page marked *Coming soon* that says what is
-coming and what to do until then. A bookmark or a tablet set up on it keeps
-working when the screen arrives. The planned pages are listed in
-`apps/business-web/src/services/plannedWorkspaces.js` and
-`apps/customer-web/src/plannedPages.js`.
+On the guests' site, a planned address opens a page marked *Coming soon* that
+says what is coming and what to do until then. A bookmark or a tablet set up
+on it keeps working when the screen arrives. The guests' planned pages are
+listed in `apps/customer-web/src/plannedPages.js`. Every staff app address is
+built; a planned one is listed in
+`apps/business-web/src/services/plannedWorkspaces.js` and opens the staff
+app's planned page (`layouts/PlannedPage.jsx`, marked *Planned · not built
+yet*: what it will do, then what to use until then, with buttons to go there)
+(§8.9).
 
 ### 2.3 Running them locally
 
@@ -339,7 +341,9 @@ asking the server every few seconds. A KOT sent from the POS reaches the
 kitchen display, a guest's QR call reaches table requests and the captain
 app, food marked ready reaches the captain's phone, an online order reaches
 the deliveries board, a paid bill frees the table on the floor and at the POS,
-a token called at a clinic moves its token queue: each within about a second.
+a token called at a clinic moves its token queue, a sample received or a
+result approved moves the lab's worklists and reaches the doctor's
+consultation: each within about a second.
 
 ```
  POS (any device)              PostgreSQL                         each API process (modules/live)   other screens
@@ -363,8 +367,10 @@ a token called at a clinic moves its token queue: each within about a second.
   pre-orders and business days; the shared core's outbox (`business_events`);
   and the business tables live screens read that write no event of their own
   (tokens, appointments, salon walk-ins, tasks and issues, jewellery rate
-  sheets). Each calls `pg_notify`, which PostgreSQL delivers only when the
-  transaction commits, in commit order. A change that rolls back (or a
+  sheets). Migration 1791976000000 adds the lab's orders, samples and results,
+  a sample or a result announced as its order, at the order's location. Each
+  calls `pg_notify`, which PostgreSQL delivers only when the transaction
+  commits, in commit order. A change that rolls back (or a
   savepoint rolled back) is never announced, an update that changes nothing is
   skipped, and identical notifications of one transaction (ten dishes on one
   order) reach the listeners once.
@@ -416,7 +422,8 @@ a token called at a clinic moves its token queue: each within about a second.
   tab is hidden. A screen uses `hooks/useLiveRefresh.js` with the areas it
   shows; its old timer stays as a safety net of a minute (the POS's every two),
   never the main path, and a screen that had none (the salon's calendar, the
-  dashboard's pre-orders card) has none now.
+  dashboard's pre-orders card) has none now, nor does a screen whose every
+  read is logged as a look at clinical data (a visit, a lab order).
   `components/LiveIndicator.jsx` (or the screen's own Live control) says Live,
   Connecting, Reconnecting or Not live. Signing out, or another person taking
   over the till, closes the streams at once.
@@ -833,9 +840,9 @@ workspaces; the backend has its own install.
 │   │   ├── src/
 │   │   │   ├── main.jsx      the shared look (@bmp/ui/styles.css); providers: QueryClient, Router, AuthProvider;
 │   │   │   │                 ApprovalDialog, ConfirmHost, Toaster
-│   │   │   ├── App.jsx       every restaurant route (lazy imports from modules/) + /business-admin; the planned
-│   │   │   │                 workspaces (/clinic, /lab); the captain app (/captain/*); old guest links
-│   │   │   │                 → GuestSiteRedirect
+│   │   │   ├── App.jsx       every restaurant route (lazy imports from modules/) + /business-admin; the clinic
+│   │   │   │                 and lab workspaces (/clinic/*, /lab/*); the captain app (/captain/*); old guest
+│   │   │   │                 links → GuestSiteRedirect
 │   │   │   ├── modules/      one folder per module, each with pages/ (+ services/, styles/ where it has its own)
 │   │   │   │   ├── access/   sign-in, profile, users, roles, two-step
 │   │   │   │   ├── platform/ the platform console
@@ -850,16 +857,21 @@ workspaces; the backend has its own install.
 │   │   │   │   └── tasks/    the task screens, shared by the restaurant (/tasks) and Business Admin (…/tasks)
 │   │   │   ├── workspaces/   what one role works in, a layout and screens gathered from the modules:
 │   │   │   │                 captain/ (the captain app: its layout, tables, calls, food at the pass, the POS's
-│   │   │   │                 order screen in its phone layout; its floor rules in captainFloor.js)
-│   │   │   ├── layouts/      AppLayout.jsx (header, switchers, bell, side menu), NotFoundPage, PlannedPage,
-│   │   │   │                 GuestSiteRedirect
+│   │   │   │                 order screen in its phone layout; its floor rules in captainFloor.js);
+│   │   │   │                 clinic/ (the clinic workspace: its layout, the desk, the consultation with the
+│   │   │   │                 patient's history; its desk rules in clinicDesk.js); lab/ (the lab workspace:
+│   │   │   │                 its layout, collection, worklist, approval, released reports; its bench rules
+│   │   │   │                 in labBench.js)
+│   │   │   ├── layouts/      AppLayout.jsx (header, switchers, bell, side menu), BusinessWorkspace and
+│   │   │   │                 WorkspaceStart (a clinic's workspace: its frame, and the clinic it opens),
+│   │   │   │                 NotFoundPage, PlannedPage, GuestSiteRedirect
 │   │   │   ├── context/      AuthProvider (user, permissions, features), BusinessProvider (open business)
 │   │   │   ├── hooks/        useAuth, useBusiness, useLiveRefresh (live updates), useLiveChange (a figure's
-│   │   │   │                 motion), useQueryFilter, motion hooks …
+│   │   │   │                 motion), useServerNow (the server's clock), useQueryFilter, motion hooks …
 │   │   │   ├── routes/ProtectedRoute.jsx   login + permission + restaurant feature guard; someone whose
 │   │   │   │                 password someone else set goes to the sign-in's Choose your own password step
 │   │   │   ├── services/     shared: api.js, queryClient, live and liveClient (live updates), approval, features,
-│   │   │   │                 csv, print, customerWeb,
+│   │   │   │                 csv, print, customerWeb, healthWorkspaces (the clinic a workspace opens),
 │   │   │   │                 plannedWorkspaces, the menus (businessNav, businessWorkspace,
 │   │   │   │                 restaurantWorkspace) …, and the API services shared code uses (auth,
 │   │   │   │                 outlet, notification, business)
@@ -950,7 +962,14 @@ its order screen is the POS page itself in its phone layout (`PosPage`'s
 `captain` mode), its tables the POS's `TableGrid`, its calls Table requests'
 own cards, its bill the POS's `BillModal`, and its table actions the
 dashboard floor's `useFloorActions`. The planned offline POS app will reuse
-them the same way.
+them the same way. The clinic and lab workspaces (`workspaces/clinic`,
+`workspaces/lab`) are built from `modules/business/health` alike: their other
+screens are the health module's own pages, opened for the clinic in the
+address (`BusinessProvider`'s `businessId`, with the workspace's addresses in
+its `paths`); the desk is the Token queue's cards and dialogs on its
+`useQueue`; the consultation is `VisitPage` itself beside the doctor's queue
+and the patient's history; collection takes a sample's steps through the lab
+order's `sampleStep`.
 
 Adding a page, step by step:
 [apps/business-web/README.md › Adding a page](../apps/business-web/README.md#adding-a-page).
@@ -1050,7 +1069,9 @@ file behind an index file with the module's name, which callers import:
 | Electronics | the same module and routes file: `businessElectronics.service`, `businessRepairs.service`, `businessElectronicsSuppliers.service` (scan-in receipts, faulty units, warranty claims), `businessFinance.service` (EMI and financiers; its routes are in `core/routes/businessCounter.routes.js`) | `electronics/` (Serials, Warranties, Repairs, RepairJob, Finance) | `electronics_*` |
 | Salon & spa | `business/salon-weight`: `businessSalonWeight.routes`, `businessSalon.service`, `businessSalonSales` (pricing, commission on sessions and plan sales), `businessSalonDesk.service` (the front desk: move, arrival, walk-ins, messages, client card, leave, plan extension, history), `businessSalonBackOffice.service` (a stylist's week and salon holidays, back-bar products, handing back advances, monthly target commission plans), `businessManagerPin` (a manager's PIN say-so; repairs use it too), `businessAdvanceRefunds` (an advance handed back; repairs too) | `salon/` (Calendar, New bill, `ClientPanel`, the `salonParts` client picker, Packages, Commissions, `CommissionPlans`, Stylists & services, Service profitability, `ManagerApproval`, `SalonAppointmentsPage`; the back office's parts (a stylist's week, holidays, back-bar, advances) in `salonBackOfficeParts.jsx`, with helpers in `salonBackOffice.js`; styles in `salon/styles/salon.css`) | `salon_*` |
 | Meat and weight shops | the same module and routes file: `businessWeight.service`, `businessWeightDaily.service` (rates, stock today, day close, wastage in one go, cut to order, pickup orders, today) | `weight/` (Rates, Pickup orders, Stock by weight, Cutting & yield, Wastage, Yield & wastage, `WeightToday` on the Overview, `CounterWeightTools` mounted by Quick bill) | `weight_*` |
-| Pharmacy, clinics & labs | `business/health`: `businessHealth.routes` (mounted from `business.routes.js`), `healthUploads.routes` (prescription scans, mounted in `routes/index.js` before `/businesses`), `healthCommon` (settings, signatories and PIN sign-off, counters, private files), `businessPharmacy.service` (drug master, prescription sale, registers, recalls, near expiry, debit notes, invoice extras), `businessClinic.service` (patients, consent, visits, billing a visit), `businessClinicDesk.service` (doctors' fees and follow-ups, OPD sessions and leave, the token queue), `businessLab.service` (tests, orders, samples, results, approval, report), `businessLabQuality.service` (signed report versions and amendments, QC) | `health/` (PharmacyCounter, DrugMaster, PharmacyRegisters, PharmacyBatches, HealthSettings, ClinicToday, TokenQueue, Doctors, Patients, Patient, Visits, Visit, LabOrders, LabOrder, LabTests, LabQc; `healthFormat.js`, `healthParts.jsx`, `healthPrint.js`) | `pharmacy_*`, `health_*`, `lab_*` |
+| Pharmacy, clinics & labs | `business/health`: `businessHealth.routes` (mounted from `business.routes.js`), `healthUploads.routes` (prescription scans, mounted in `routes/index.js` before `/businesses`), `healthCommon` (settings, signatories and PIN sign-off, counters, private files), `businessPharmacy.service` (drug master, prescription sale, registers, recalls, near expiry, debit notes, invoice extras), `businessClinic.service` (patients, consent, visits with their referral, billing a visit, the medicines the clinic prescribes), `businessClinicDesk.service` (doctors' fees and follow-ups, OPD sessions and leave, the token queue), `businessLab.service` (tests, orders, samples, results, approval, report, the lab's bench), `businessLabQuality.service` (signed report versions and amendments, QC) | `health/` (PharmacyCounter, DrugMaster, PharmacyRegisters, PharmacyBatches, HealthSettings, ClinicToday, TokenQueue, Doctors, Patients, Patient, Visits, Visit, LabOrders, LabOrder, LabTests, LabQc; `healthFormat.js`, `healthParts.jsx`, `healthPrint.js`, the queue's reading and actions in `tokenQueue.js`, a sample's steps in `labSamples.js`) | `pharmacy_*`, `health_*`, `lab_*` |
+| Clinic workspace (`workspaces/clinic`; staff app only) | none of its own: the health module's queue, token, patient, visit, medicines and lab order routes | `ClinicLayout` (in `layouts/BusinessWorkspace.jsx`), `ClinicDeskPage` with `PatientAtDesk`, `ClinicVisitPage` (the health module's `VisitPage` beside the queue) with `PatientHistory`; the health module's Today, Patients, Patient and Visits; the desk in `useClinicDesk` and `clinicDesk.js`; styles `styles/clinic.css` | reads `health_*`, `business_resources`, `lab_orders` |
+| Lab workspace (`workspaces/lab`; staff app only) | none of its own: the health module's lab routes, the bench (`GET …/lab/bench`) first | `LabLayout` (in `layouts/BusinessWorkspace.jsx`), `LabCollectionPage`, `LabWorklistPage`, `LabApprovalPage`, `LabReleasedPage`; the health module's Lab orders, Lab order, Quality control and Tests; the bench in `useLabBench` and `labBench.js`; styles `styles/lab.css` | reads `lab_*` |
 | Quotations (every type but the restaurant) | `business/quotations`: `businessQuotations.routes` (mounted from `business.routes.js`), `businessQuotations.service` (priced by `postDocument`'s estimate mode; the bill at `fixed` prices; a sales order through `placeOrder`) | `quotations/` (Quotations, `QuotationDialog`, `quotation.js`, `quotationPrint.js`) | `business_quotations` (+ lines, revisions) |
 | Licences & registrations (every type but the restaurant) | `business/licences`: `businessLicences.routes` (mounted from `business.routes.js`), `businessLicences.service` (licences per location; `standing` and `holds`, which other modules ask whether a location holds a licence in force; `expiring`, which the bell reads) | `licences/` (Licences) | `business_licences` |
 | Hardware, paints & building materials | `business/hardware`: `businessHardware.routes` (mounted from `business.routes.js`), `hardwareSites.service` (sites, a site's ledger, the site of a bill, quotation or order), `hardwareSales.service` (the sale hook: site and fitter; invoice extras), `hardwareFitters.service` (fitters, rules, commission on a bill, payouts through the expense book, statement, report), `hardwareRates.service` (today's rates through the core catalogue update), `hardwareCalculators.service` (the items with a coverage) | `hardware/` (Sites, `SiteField`, Fitters, `FitterField`, Fitters' commission report, Today's rates, `CalculatorDialog`; helpers in `hardware.js` and `calculators.js`) | `hardware_*` |
@@ -1069,7 +1090,7 @@ file behind an index file with the module's name, which callers import:
 | Module | Backend | Frontend (`modules/<module>/pages/`) | Tables |
 | --- | --- | --- | --- |
 | Tasks, issues & projects (`modules/tasks`) | `routes/tasks.routes.js` (both front doors), `controllers/tasks.controller.js`, `services/` (`scope`, `common`, `people`, `templates`, `recurrence`, `tasks`, `issues`, `projects`, `files`, `reports`, `notifications`), `repositories/tasks.repository.js`, `library/`; bell provider `notifications/providers/tasks.js` | `TasksRoutes`, `TasksScope`, `MyTasksPage`, `TaskRunPage`, `BoardPage`, `CalendarPage`, `IssuesPage`, `IssueDetailPage`, `ProjectsPage`, `ProjectDetailPage`, `TemplatesPage`, `RecurringPage`, `TaskReportsPage`, `forms`, `ItemsEditor`, `ScheduleForm`, `parts`, `taskWords`, `useTasks`, `useServerGrid`; API calls `services/tasks.service.js`; styles `styles/tasks.css` | `business_task*`, `business_issues`, `business_project*`, `platform_task_categories` |
-| Live updates (`modules/live`) | `routes/live.routes.js` (both front doors, mounted in `routes/index.js` before `/businesses`), `services/liveListener.js` (the process's one LISTEN connection), `services/liveHub.js` (the streams, their checks and limits, clearing the kept dashboard and bell answers); started and stopped by `server.js` | `services/liveClient.js` (the stream, reconnecting, gathering bursts), `services/live.js` (the app's client), `hooks/useLiveRefresh.js`, `components/LiveIndicator.jsx`; used by the live screens and the bell | none: triggers on the tables the live screens read (migration 1791974000000) |
+| Live updates (`modules/live`) | `routes/live.routes.js` (both front doors, mounted in `routes/index.js` before `/businesses`), `services/liveListener.js` (the process's one LISTEN connection), `services/liveHub.js` (the streams, their checks and limits, clearing the kept dashboard and bell answers); started and stopped by `server.js` | `services/liveClient.js` (the stream, reconnecting, gathering bursts), `services/live.js` (the app's client), `hooks/useLiveRefresh.js`, `components/LiveIndicator.jsx`; used by the live screens and the bell | none: triggers on the tables the live screens read (migrations 1791974000000, and 1791976000000 for the lab) |
 | GST rates by date (`modules/tax-changes`) | `routes/taxChanges.routes.js` (both front doors: `businessRoutes`, mounted from `business.routes.js`, and `menuHandlers`, mounted from the restaurant's `menu.routes.js`), `services/` (`taxChanges.service` the shared flows, `taxChangesShop` and `taxChangesMenu` the two worlds with their gates, `taxChangesMoney` the arithmetic and dates); the gates are called from `businessAccess.open`, `postDocument`, the menu router, `tableRequest.service`, `preorder.service` and `order.service`'s `priceLines` | `BusinessTaxChangesPage`, `MenuTaxChangesPage`, `TaxChangesView`, `TaxChangeTool` (the new change with its preview), `TaxChangeDialog`, `TaxHistoryDialog` (an item's GST history, from the catalogue and the menu's products); words in `taxChanges.js`; API calls `services/taxChanges.service.js`; styles `styles/tax-changes.css` | `business_tax_changes`, `business_tax_change_items` |
 
 Where each area's tests are: [TESTING.md](TESTING.md).
@@ -1398,6 +1419,15 @@ WhatsApp, a webhook or accounting:
   context) and its screens as child routes, behind the same `ProtectedRoute`
   as the POS. A screen it shares with an area (the POS's order screen) takes
   a prop for the role's layout rather than being copied.
+- A business's role screen works the same way for the business in its
+  address. The clinic and lab workspaces: `/clinic` and `/lab` open the
+  clinic chosen last or ask which (`layouts/WorkspaceStart.jsx`), and
+  `/clinic/:businessId/…` and `/lab/:businessId/…` have their layouts
+  (`layouts/BusinessWorkspace.jsx`: the bar, the tabs, the lock screen, and
+  the business opened through `BusinessProvider`'s `businessId`, with the
+  workspace's addresses in its `paths`, so a Business Admin page it shows
+  links within the workspace). Business Admin's menu links to them through a
+  link's `href` in `businessNav.js`, shown only to those who may open them.
 
 **Something new and planned:** add the route and an entry in the planned
 list first, so the address works from day one.

@@ -64,7 +64,9 @@ export const TYPE_ICONS = {
 
 // section: the URL piece under /business-admin/<id>/; need: the permission
 // (its module must be on too); module: an extra module the screen needs;
-// types: only for these business types; except: not for these types.
+// types: only for these business types; except: not for these types;
+// href(id): the address of a workspace of its own outside Business Admin
+// (the clinic's, the lab's), which the menu link opens instead.
 export function businessSections(type) {
   return [
     { title: "Overview", links: [{ section: "", label: "Overview", icon: "dashboard", end: true }] },
@@ -129,6 +131,10 @@ export function businessSections(type) {
     {
       title: "Clinic",
       links: [
+        // The clinic's own workspaces, each a screen of its own: the front desk
+        // and the doctors (/clinic), sample collection and the lab (/lab).
+        { section: "clinic-workspace", label: "Clinic workspace", icon: "clinic", need: "patients.view", types: CLINIC, href: (id) => `/clinic/${id}` },
+        { section: "lab-workspace", label: "Lab workspace", icon: "lab", need: "lab.view", types: CLINIC, href: (id) => `/lab/${id}` },
         { section: "clinic-today", label: "Today's patients", icon: "reservations", need: "patients.view", types: CLINIC },
         { section: "clinic-queue", label: "Token queue", icon: "collection", need: "patients.view", types: CLINIC },
         { section: "patients", label: "Patients", icon: "customers", need: "patients.view", types: CLINIC },
@@ -383,12 +389,13 @@ export function businessMenu(businessId, type, can, has) {
       const available = names.map((name) => rules.find((link) => link.section === name && typeAllows(link, type))).filter(allowed);
       const link = available[0];
       if (!link) return null;
+      const to = (item) => (item.href ? item.href(businessId) : businessPath(businessId, item.section));
       // Every page of the area, for quick access and "Jump to…" (the menu shows the area once).
-      const pages = available.map((item) => ({ to: businessPath(businessId, item.section), label: workspaceLabel(item.section, type, item.label), icon: item.icon, end: item.end }));
+      const pages = available.map((item) => ({ to: to(item), label: workspaceLabel(item.section, type, item.label), icon: item.icon, end: item.end }));
       // Settings keeps its name whoever looks (a stock keeper's first page there is
       // Units & pack sizes), so a hint can say "Settings › Units & pack sizes";
       // so does a farm-input shop's Farm inputs area ("Farm inputs › Molecules").
-      return { to: businessPath(businessId, link.section), label: key === 'tasks' ? 'Tasks' : key === 'settings' ? 'Settings' : key === 'farm' ? 'Farm inputs' : workspaceLabel(link.section, type, link.label),
+      return { to: to(link), label: key === 'tasks' ? 'Tasks' : key === 'settings' ? 'Settings' : key === 'farm' ? 'Farm inputs' : workspaceLabel(link.section, type, link.label),
         icon: link.icon, end: link.end, section: link.section, activeSections: available.map((item) => item.section), pages };
     }).filter(Boolean),
   })).filter((group) => group.links.length);

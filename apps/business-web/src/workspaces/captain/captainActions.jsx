@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { getErrorMessage } from "../../services/api";
 import { toast } from "../../services/toast";
 import {
@@ -17,17 +17,7 @@ import { RejectDialog } from "../../modules/restaurant/orders/pages/TableRequest
 // the floor read again.
 
 // The time on the server's clock, moving every `every` ms: the waiting clocks.
-export function useServerNow(offset, every = 1000) {
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    const tick = setInterval(() => setNow(Date.now()), every);
-
-    return () => clearInterval(tick);
-  }, [every]);
-
-  return now + offset;
-}
+export { default as useServerNow } from "../../hooks/useServerNow";
 
 const without = (map, key) => {
   const next = { ...map };

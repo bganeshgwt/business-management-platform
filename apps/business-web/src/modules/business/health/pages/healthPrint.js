@@ -3,9 +3,10 @@ import { dateShort, dateTime } from "@bmp/shared/format";
 import { barcodeSvg } from "../../retail/services/barcode";
 import { FLAG_WORDS, SEX_WORDS, isFlagged, resultText } from "./healthFormat";
 
-// Printouts of the health module: the doctor's prescription (A5), the lab
-// report (A4 with the lab's details, signature line and approval time),
-// sample barcode labels, the H1 / Schedule X registers and a debit note.
+// Printouts of the health module: the doctor's prescription and referral
+// letter (A5), the lab report (A4 with the lab's details, signature line and
+// approval time), sample barcode labels, the H1 / Schedule X registers and a
+// debit note.
 
 const e = escapeHtml;
 const A4 = `@page{size:A4;margin:14mm} body{font-family:Arial,Helvetica,sans-serif;font-size:11.5px;color:#111}
@@ -42,7 +43,39 @@ export function printPrescription(visit, seller, businessName) {
       ${items ? `<table><thead><tr><th>#</th><th>Medicine (generic)</th><th>Dose</th><th>When</th><th>For</th><th>Instructions</th></tr></thead><tbody>${items}</tbody></table>` : '<p class="muted">No medicines.</p>'}
       ${visit.advice ? `<p><strong>Advice:</strong> ${e(visit.advice)}</p>` : ""}
       ${visit.follow_up_on ? `<p><strong>Review on:</strong> ${e(dateShort(visit.follow_up_on, { year: true }))}</p>` : ""}
+      ${visit.referred_to ? `<p><strong>Referred to:</strong> ${e(visit.referred_to)}</p>` : ""}
       <div class="sign"><span></span><span class="r">${e(visit.doctor_signed_name || visit.doctor_name || "")}<br>Signature</span></div>`,
+  });
+}
+
+// The doctor's letter to whom the patient is referred: why, what was found,
+// the diagnosis, the medicines and allergies, and approved lab results.
+export function printReferral(visit, seller, businessName) {
+  const doctor = visit.doctor_signed_name || visit.doctor_name || "";
+  const clinical = visit.patient_clinical || {};
+  const medicines = (visit.prescription || []).map((p) => [p.drug_name, p.strength, p.frequency, p.duration].filter(Boolean).map(e).join(" "));
+  const results = (visit.lab_results || []).map((r) => `<tr><td>${e(r.test_name)}</td><td>${e(r.parameter)}</td><td>${e(resultText(r))} ${e(r.unit || "")}${isFlagged(r.flag) ? ` (${e(FLAG_WORDS[r.flag])})` : ""}</td>
+    <td>${e(r.range_text || "")}</td></tr>`).join("");
+  printDocument({
+    title: `Referral ${visit.visit_no}`,
+    styles: A4.replace("size:A4;margin:14mm", "size:A5;margin:10mm"),
+    body: `<div class="top"><div><h1>${e(doctor)}</h1><div>${e(visit.doctor_qualification || "")}</div>
+        <div>${visit.doctor_reg_no ? `Reg. No. <strong>${e(visit.doctor_reg_no)}</strong>${visit.doctor_council ? `, ${e(visit.doctor_council)}` : ""}` : '<span class="muted">Registration number not set up</span>'}</div></div>
+      <div class="r"><strong>${e(seller?.display_name || businessName)}</strong><div class="small">${address(seller)}</div><div class="small">${e(seller?.phone || "")}</div></div></div>
+      <h2>REFERRAL LETTER</h2>
+      <p><strong>To:</strong> ${e(visit.referred_to || "")}</p>
+      <div class="facts"><div>Patient: <strong>${e(visit.patient_name)}</strong></div><div>${e(visit.patient_no)} · ${e(SEX_WORDS[visit.sex] || "")} · ${e(String(visit.age ?? ""))} y</div>
+        <div>Date: ${e(dateShort(visit.created_at, { year: true }))} · ${e(visit.visit_no)}</div></div>
+      ${visit.referral_reason ? `<p><strong>Reason for the referral:</strong> ${e(visit.referral_reason)}</p>` : ""}
+      ${visit.complaints ? `<p><strong>Complaints:</strong> ${e(visit.complaints)}</p>` : ""}
+      ${visit.examination ? `<p><strong>Examination:</strong> ${e(visit.examination)}</p>` : ""}
+      ${vitalsOf(visit) ? `<p class="small">${e(vitalsOf(visit))}</p>` : ""}
+      ${visit.diagnosis ? `<p><strong>Diagnosis:</strong> ${e(visit.diagnosis)}${visit.icd10_code ? ` (ICD-10 ${e(visit.icd10_code)})` : ""}</p>` : ""}
+      <p><strong>Allergies:</strong> ${e(clinical.allergies || "None known")}</p>
+      ${clinical.conditions ? `<p><strong>Long-term conditions:</strong> ${e(clinical.conditions)}</p>` : ""}
+      ${medicines.length || clinical.current_medicines ? `<p><strong>Medicines:</strong> ${[...medicines, ...(clinical.current_medicines ? [e(clinical.current_medicines)] : [])].join("; ")}</p>` : ""}
+      ${results ? `<table><thead><tr><th>Test</th><th>Parameter</th><th>Result</th><th>Reference</th></tr></thead><tbody>${results}</tbody></table>` : ""}
+      <div class="sign"><span></span><span class="r">${e(doctor)}<br>Signature</span></div>`,
   });
 }
 

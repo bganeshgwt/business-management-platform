@@ -368,13 +368,13 @@ These rules apply to every business type but the restaurant. The goods rules app
 
 #### Who sees clinical data
 
-- **Rule:** two permissions guard clinical data: `patients.view_clinical` (vitals, complaints, diagnoses, prescriptions, lab results, the clinical card) and `patients.edit_clinical` (writing them). Only the Doctor role and the Owner have them. The front desk (Cashier) sees the patient's details, consent, appointments, visits, bills and "report ready". Lab technicians and pathologists see results through `lab.edit` and `lab.approve`. Every read of clinical data is written to the activity log (`patient.clinical_viewed`, with what was seen). The Manager role gets no clinical access.
+- **Rule:** two permissions guard clinical data: `patients.view_clinical` (vitals, complaints, diagnoses, prescriptions, referrals, lab results, the clinical card) and `patients.edit_clinical` (writing them). Only the Doctor role and the Owner have them. The front desk (Cashier) sees the patient's details, consent, appointments, visits, bills and "report ready", and where each sample is; never how many results are out of range or why a signed report was reopened. Lab technicians and pathologists see results through `lab.edit` and `lab.approve`. Every read of clinical data is written to the activity log (`patient.clinical_viewed`, with what was seen). The Manager role gets no clinical access.
 - **Why:** the DPDP Act's "reasonable security safeguards": access only for those who need it, with a log of access.
 - **Change it:** *Roles & permissions* (the columns *See clinical* and *Write clinical*).
 
 #### Consultation records
 
-- **Rule:** once a consultation is completed, the database keeps it as it is; a correction is a dated note added below it. The prescription is written by generic name and printed (A5) with the doctor's registration number and council; an ICD-10 code is optional. A visit opened from an appointment completes that appointment.
+- **Rule:** once a consultation is completed, the database keeps it as it is; a correction is a dated note added below it. The prescription is written by generic name and printed (A5) with the doctor's registration number and council; an ICD-10 code is optional. A referral names whom the patient is referred to (a reason needs someone to refer to) and prints as a referral letter (A5) with the patient's findings, medicines and approved results, signed like the prescription. A visit opened from an appointment completes that appointment.
 - **Why:** the IMC Regulations (1.3.1) ask for records kept three years and not altered, and for the doctor's registration number on prescriptions. Generic names are what the NMC asks for.
 - **Change it:** *Clinic & lab settings › Doctors and pathologists* (registration numbers).
 
@@ -393,6 +393,12 @@ These rules apply to every business type but the restaurant. The goods rules app
 
 - **Rule:** each doctor's tokens start at 1 every day, and *Priority* goes first. *Next patient* finishes the patient being seen and skips one who was called and did not come in. A patient holds one token per doctor at a time.
 - **Change it:** nothing to set.
+
+#### The clinic and lab workspaces
+
+- **Rule:** the clinic workspace (`/clinic`) opens for a role that sees patients (`patients.view`) at a clinic with the business tool *Patient records* on; the lab workspace (`/lab`), for a role that sees lab orders (`lab.view`) with *Laboratory* on. Business Admin's menu shows each only to those it opens for. In them each person does what their role allows in Business Admin: the front desk registers, gives tokens and follows samples without clinical data; a doctor with a calendar of their own sees their queue first and consults beside it.
+- **Why:** one screen for each person's day, with the same safeguards as Business Admin.
+- **Change it:** *Roles & permissions* (*See* on *Patient records* and on *Laboratory*); *Settings › Business tools*.
 
 #### A visit's branch
 

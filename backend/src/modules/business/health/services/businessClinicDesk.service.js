@@ -318,7 +318,8 @@ async function issueToken(business, user, body) {
 }
 
 // The day's queue at a branch: every token, and per doctor who is being seen
-// now, how many wait and the next few.
+// now, how many wait and the next few. server_time lets a screen count how
+// long each patient has waited on the server's clock, not the device's.
 async function queue(business, query = {}) {
   clinic.requireClinic(business);
   await access.require(business, 'patients.view');
@@ -337,7 +338,7 @@ async function queue(business, query = {}) {
     if (t.status === 'waiting') { d.waiting += 1; if (d.next.length < 3) d.next.push({ id: t.id, token_no: t.token_no, priority: t.priority }); }
     if (t.status === 'done') d.done += 1;
   }
-  return { day, doctors: [...byDoctor.values()], tokens };
+  return { day, server_time: new Date().toISOString(), doctors: [...byDoctor.values()], tokens };
 }
 
 const TRANSITIONS = {

@@ -120,6 +120,8 @@ export function dailyWorkspaces(type) {
     type === 'rentals' ? 'rentalBookings' : null,
     type === 'fuel_station' ? 'fuelShifts' : null, type === 'fuel_station' ? 'fuelTanks' : null,
     type === 'lodging' ? 'lodgingDesk' : null, type === 'lodging' ? 'lodgingGuests' : null,
+    // A clinic's two workspaces (screens of their own: /clinic and /lab), then its day in Business Admin.
+    type === 'healthcare' ? 'clinic-workspace' : null, type === 'healthcare' ? 'lab-workspace' : null,
     type === 'healthcare' ? 'care' : null,
     ['wholesale', 'hardware'].includes(type) ? 'orders' : null,
     ['salon', 'optical', 'garage', 'memberships'].includes(type) ? 'appointments' : null,

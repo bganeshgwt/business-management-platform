@@ -2387,10 +2387,10 @@ Added by: 1791950408000; 1791974000000 (live updates: `health_tokens_live`).
 
 #### `health_visits`
 Purpose: a consultation, the medical record of one visit.
-Key columns: `visit_no` (`OP00001`, unique per business), `contact_id` (the patient), `appointment_id` (one visit each), `resource_id` (the doctor's calendar), `doctor_signatory_id`, `location_id` (the branch: the doctor's, else the branch the reception works at), `status` (open, completed); vitals `bp_systolic` (40–300), `bp_diastolic` (20–200), `pulse` (20–250), `temperature_c` (30–45), `spo2` (50–100), `resp_rate` (4–80), `weight_kg` (0.5–400), `height_cm` (20–250); `complaints`, `examination`, `diagnosis`, `icd10_code` (ICD-10 shape), `advice`, `follow_up_on`, `document_id` (the bill); how the consultation was charged, written once when the visit is billed (a free follow-up with nothing else to bill is recorded with no bill): `fee_kind` (consultation, follow_up, free_follow_up) and `fee_sku_id` (so the doctor's earnings stay as billed when fees change); `created_by`, `updated_by`, `completed_by`, `completed_at`.
+Key columns: `visit_no` (`OP00001`, unique per business), `contact_id` (the patient), `appointment_id` (one visit each), `resource_id` (the doctor's calendar), `doctor_signatory_id`, `location_id` (the branch: the doctor's, else the branch the reception works at), `status` (open, completed); vitals `bp_systolic` (40–300), `bp_diastolic` (20–200), `pulse` (20–250), `temperature_c` (30–45), `spo2` (50–100), `resp_rate` (4–80), `weight_kg` (0.5–400), `height_cm` (20–250); `complaints`, `examination`, `diagnosis`, `icd10_code` (ICD-10 shape), `advice`, `follow_up_on`, `referred_to` (to whom the doctor refers the patient: a specialist, a hospital; up to 200) and `referral_reason` (up to 1000), `document_id` (the bill); how the consultation was charged, written once when the visit is billed (a free follow-up with nothing else to bill is recorded with no bill): `fee_kind` (consultation, follow_up, free_follow_up) and `fee_sku_id` (so the doctor's earnings stay as billed when fees change); `created_by`, `updated_by`, `completed_by`, `completed_at`.
 Relations: composite FKs to `health_patients`, `business_appointments`, `business_resources`, `health_signatories`, `business_documents`, `business_locations` (`health_visits_location_fk`) and `catalog_skus` (`health_visits_fee_sku_fk`).
-Rules: CHECK completed ⇔ completed_at; trigger `health_visit_fixed`: a consultation is never deleted, and once completed it is fixed: only its bill and its fee may be added, each once (a correction is a note in `health_visit_notes`). Indexes `health_visits_patient`, `health_visits_follow_up` (partial) and `health_visits_location` (business, location, newest first).
-Added by: 1791620004000; 1791950407000 visit-location (`location_id`); 1791950408000 (`fee_kind`, `fee_sku_id`; the trigger lets the fee be written once).
+Rules: CHECK completed ⇔ completed_at; CHECK `health_visits_referral` (a referral's reason only with someone it is to); trigger `health_visit_fixed`: a consultation is never deleted, and once completed it is fixed: only its bill and its fee may be added, each once (a correction is a note in `health_visit_notes`). Indexes `health_visits_patient`, `health_visits_follow_up` (partial) and `health_visits_location` (business, location, newest first).
+Added by: 1791620004000; 1791950407000 visit-location (`location_id`); 1791950408000 (`fee_kind`, `fee_sku_id`; the trigger lets the fee be written once); 1791976000000 clinic-lab-workspaces (`referred_to`, `referral_reason`, `health_visits_referral`).
 
 #### `health_visit_notes`
 Purpose: dated notes added to a consultation after it was completed.
@@ -2440,14 +2440,14 @@ Purpose: a lab order for a patient, from ordering to the approved report.
 Key columns: `order_no` (`LAB00001`, unique per business), `location_id`, `contact_id` (the patient), `visit_id`, `referred_by`, `priority` (routine, urgent), `status` (ordered → collected → received → in_process → resulted → approved, or cancelled), `document_id` (the bill), an outside lab's `outside_lab`, `outside_ref_no`, `outside_sent_at`, `outside_charge` and `referral_commission` (what it pays back, when the setting allows), `approved_by`, `approved_signatory_id`, `approved_at`, `cancel_reason`, `notes`, `request_key` (unique per business), `request_hash`, `created_by`; amendment `version` (how many times the report has been signed; 0 before the first), `amend_reason`, `amend_requested_by`, `amend_requested_at`.
 Relations: composite FKs to `business_locations`, `health_patients`, `health_visits`, `business_documents` and `health_signatories`; `amend_requested_by` -> `users`.
 Rules: CHECKs approved ⇔ approved_at, a cancelled order has a reason, the outside-lab columns only with an outside lab, and `lab_orders_amending` (an amendment reason is held only while the report is reopened, not approved). Indexes `lab_orders_time`, `lab_orders_visit` and `lab_orders_open` (orders not yet approved or cancelled).
-Added by: 1791620004000; 1791950409000 lab-report-versions-qc (the amendment columns).
+Added by: 1791620004000; 1791950409000 lab-report-versions-qc (the amendment columns); 1791976000000 (live updates: `lab_orders_live`).
 
 #### `lab_samples`
 Purpose: one sample per sample type of an order, with its barcode.
 Key columns: `order_id`, `barcode` (`^[A-Z0-9-]{4,20}$`, unique per business), `sample_type`, `container`, `status` (awaited, collected, received, rejected), `collected_at` / `collected_by`, `received_at` / `received_by`, `reject_reason`.
 Relations: (`business_id`, `order_id`) -> `lab_orders`.
 Rules: UNIQUE (business, order, sample type); CHECKs a collected or received sample has `collected_at`, a received one `received_at`, a rejected one a reason.
-Added by: 1791620004000.
+Added by: 1791620004000; 1791976000000 (live updates: `lab_samples_live`).
 
 #### `lab_order_tests`
 Purpose: a test on an order, the sample it is run on, and the profile it came with, if any.
@@ -2460,7 +2460,7 @@ Purpose: one value per parameter of an ordered test, with its flag and the unit 
 Key columns: `order_id`, `order_test_id`, `parameter_id`, `value_numeric` or `value_text` (exactly one), `unit`, `range_text`, `flag` (normal, low, high, critical_low, critical_high, abnormal, none), `entered_by`, `updated_at`.
 Relations: composite FKs to `lab_orders`, `lab_order_tests` and `lab_parameters`.
 Rules: UNIQUE (business, ordered test, parameter); trigger `lab_results_open` refuses any change once the order is approved or cancelled.
-Added by: 1791620004000.
+Added by: 1791620004000; 1791976000000 (live updates: `lab_results_live`).
 
 #### `lab_report_versions`
 Purpose: every signed report, kept as it was printed (results, ranges, flags, who signed), numbered 1, 2, …. A correction after signing is an amendment: the pathologist reopens the report with a reason, corrects it and signs again; the earlier version can still be printed, marked superseded.
@@ -3547,7 +3547,7 @@ Added by: 1791973000000.
 
 ## Live updates
 
-Linked section: [ARCHITECTURE.md §3.5](ARCHITECTURE.md#35-live-updates); the stream routes are in [API.md › Live updates](API.md#live-updates). Migration `1791974000000_live-updates.sql`; module code `backend/src/modules/live/`. No tables: a trigger on each table a live screen reads calls `pg_notify`, which PostgreSQL delivers to every listening connection only when the transaction commits, in commit order. A change that rolls back, or a savepoint rolled back, is never announced, and identical notifications of one transaction reach the listeners once. Each API process listens on one connection of its own (`application_name` "live updates").
+Linked section: [ARCHITECTURE.md §3.5](ARCHITECTURE.md#35-live-updates); the stream routes are in [API.md › Live updates](API.md#live-updates). Migrations `1791974000000_live-updates.sql` and `1791976000000_clinic-lab-workspaces.sql` (the lab's); module code `backend/src/modules/live/`. No tables: a trigger on each table a live screen reads calls `pg_notify`, which PostgreSQL delivers to every listening connection only when the transaction commits, in commit order. A change that rolls back, or a savepoint rolled back, is never announced, and identical notifications of one transaction reach the listeners once. Each API process listens on one connection of its own (`application_name` "live updates").
 
 **Channel `live_change`**, what changed: compact JSON with the restaurant (and `outlet`) or the business (and `location`), the `area` and the row's `id`, e.g. `{"restaurant":12,"outlet":3,"area":"order","id":456}` or `{"business":7,"location":2,"area":"sale","id":1001}`; what is not known is left out. Never the row's data.
 
@@ -3559,6 +3559,7 @@ Functions:
 - `live_restaurant_row()` (trigger, arguments: the area and the column holding the id): a restaurant row with its own `restaurant_id` and, when it has one, `outlet_id`. An update that changes nothing but `updated_at` is no change; a row moved to another outlet is announced at both.
 - `live_restaurant_part()` (trigger, arguments: the parent's area and the column pointing at it): a row announced as its parent (`orders`, `kots`, `bills` or `reservations`), with the parent's restaurant, outlet and id; moved from one parent to another, for both. A parent removed in the same statement announced itself.
 - `live_business_row()` (trigger, arguments: the area and the column holding the id): a business row with its `business_id` and, when it has them, `location_id` and `outlet_id`.
+- `live_lab_order_part()` (trigger): a lab sample or result announced as its order (`lab`, the order's id), at the order's location. An update that changes nothing but `updated_at` is no change.
 - `live_business_event()` (trigger): an event of the outbox, in the area its `kind` starts with (`sale.posted` is `sale`), for its `entity_id`, at the location its payload's `locationId` names.
 - `live_session()` (trigger, arguments: pairs of a key and the column holding its id): sends a `live_session` notification.
 
@@ -3584,6 +3585,8 @@ Triggers (all `AFTER … FOR EACH ROW`):
 | `trg_business_days_live` | `business_days` | insert, update, delete | `business_day` |
 | `business_events_live` | `business_events` | insert | the kind's area (`live_business_event()`) |
 | `health_tokens_live` | `health_tokens` | insert, update, delete | `token` |
+| `lab_orders_live` | `lab_orders` | insert, update, delete | `lab`, the order |
+| `lab_samples_live`, `lab_results_live` | `lab_samples`, `lab_results` | insert, update, delete | `lab`, the order they belong to (`live_lab_order_part()`) |
 | `business_appointments_live` | `business_appointments` | insert, update, delete | `appointment` |
 | `salon_walk_ins_live` | `salon_walk_ins` | insert, update, delete | `walk_in` |
 | `business_tasks_live`, `business_task_assignees_live`, `business_task_items_live` | `business_tasks`, `business_task_assignees`, `business_task_items` | insert, update, delete | `task`, the task |
@@ -3596,7 +3599,7 @@ Triggers (all `AFTER … FOR EACH ROW`):
 | `business_memberships_live_session_gone` | `business_memberships` | delete | `live_session` `{user, business}` |
 | `business_roles_live_session` | `business_roles` | update of `active` (when it changes) | `live_session` `{business}` |
 
-The Down half drops the 34 triggers and the 7 functions.
+1791974000000's Down half drops its 34 triggers and 7 functions; 1791976000000's drops the lab's three triggers and `live_lab_order_part()`.
 
 ## Business types
 

@@ -81,8 +81,26 @@ const CaptainTablesPage = lazy(() => import("./workspaces/captain/CaptainTablesP
 const CaptainCallsPage = lazy(() => import("./workspaces/captain/CaptainCallsPage"));
 const CaptainReadyPage = lazy(() => import("./workspaces/captain/CaptainReadyPage"));
 const CaptainOrderPage = lazy(() => import("./workspaces/captain/CaptainOrderPage"));
-// Workspaces planned but not built yet (services/plannedWorkspaces.js).
-const PlannedPage = lazy(() => import("./layouts/PlannedPage"));
+// The clinic's and the lab's workspaces: route groups with layouts of their
+// own, built from the clinic's and the lab's screens (workspaces/clinic,
+// workspaces/lab); /clinic and /lab open the clinic chosen last.
+const WorkspaceStart = lazy(() => import("./layouts/WorkspaceStart"));
+const ClinicLayout = lazy(() => import("./workspaces/clinic/ClinicLayout"));
+const ClinicDeskPage = lazy(() => import("./workspaces/clinic/ClinicDeskPage"));
+const ClinicVisitPage = lazy(() => import("./workspaces/clinic/ClinicVisitPage"));
+const ClinicTodayPage = lazy(() => import("./modules/business/health/pages/ClinicTodayPage"));
+const PatientsPage = lazy(() => import("./modules/business/health/pages/PatientsPage"));
+const PatientPage = lazy(() => import("./modules/business/health/pages/PatientPage"));
+const VisitsPage = lazy(() => import("./modules/business/health/pages/VisitsPage"));
+const LabLayout = lazy(() => import("./workspaces/lab/LabLayout"));
+const LabCollectionPage = lazy(() => import("./workspaces/lab/LabCollectionPage"));
+const LabWorklistPage = lazy(() => import("./workspaces/lab/LabWorklistPage"));
+const LabApprovalPage = lazy(() => import("./workspaces/lab/LabApprovalPage"));
+const LabReleasedPage = lazy(() => import("./workspaces/lab/LabReleasedPage"));
+const LabOrdersPage = lazy(() => import("./modules/business/health/pages/LabOrdersPage"));
+const LabOrderPage = lazy(() => import("./modules/business/health/pages/LabOrderPage"));
+const LabQcPage = lazy(() => import("./modules/business/health/pages/LabQcPage"));
+const LabTestsPage = lazy(() => import("./modules/business/health/pages/LabTestsPage"));
 
 // The platform's own super admin has no restaurant, so no dashboard: home is
 // the platform console.
@@ -151,6 +169,34 @@ export default function App() {
         </Route>
       </Route>
 
+      {/* The clinic's and the lab's workspaces: screens of their own, no
+          Business Admin menu, for the clinic in the address (/clinic and
+          /lab open the clinic chosen last, or ask which). The clinic's own
+          roles decide who may open each; every screen asks the API only
+          what the person may read. */}
+      <Route element={<ProtectedRoute />}>
+        <Route path="/clinic" element={<WorkspaceStart kind="clinic" />} />
+        <Route path="/clinic/:businessId" element={<ClinicLayout />}>
+          <Route index element={<ClinicDeskPage />} />
+          <Route path="/clinic/:businessId/today" element={<ClinicTodayPage />} />
+          <Route path="/clinic/:businessId/patients" element={<PatientsPage />} />
+          <Route path="/clinic/:businessId/patients/:contactId" element={<PatientPage />} />
+          <Route path="/clinic/:businessId/visits" element={<VisitsPage />} />
+          <Route path="/clinic/:businessId/visits/:visitId" element={<ClinicVisitPage />} />
+        </Route>
+        <Route path="/lab" element={<WorkspaceStart kind="lab" />} />
+        <Route path="/lab/:businessId" element={<LabLayout />}>
+          <Route index element={<LabCollectionPage />} />
+          <Route path="/lab/:businessId/worklist" element={<LabWorklistPage />} />
+          <Route path="/lab/:businessId/approval" element={<LabApprovalPage />} />
+          <Route path="/lab/:businessId/released" element={<LabReleasedPage />} />
+          <Route path="/lab/:businessId/orders" element={<LabOrdersPage />} />
+          <Route path="/lab/:businessId/orders/:orderId" element={<LabOrderPage />} />
+          <Route path="/lab/:businessId/qc" element={<LabQcPage />} />
+          <Route path="/lab/:businessId/tests" element={<LabTestsPage />} />
+        </Route>
+      </Route>
+
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route index element={<Home />} />
@@ -168,12 +214,6 @@ export default function App() {
 
           {/* Every alert the bell knows about, for whoever is signed in. */}
           <Route path="notifications" element={<NotificationsPage />} />
-
-          {/* Workspaces that are planned but not built yet: the address works
-              already and says what is coming and what to use until then,
-              instead of "Page not found". A built one replaces its line. */}
-          <Route path="clinic" element={<PlannedPage workspace="clinic" />} />
-          <Route path="lab" element={<PlannedPage workspace="lab" />} />
 
           {/* Your own shifts, attendance and payslips (through your staff record). */}
           <Route element={<ProtectedRoute feature="staff_payroll" />}>

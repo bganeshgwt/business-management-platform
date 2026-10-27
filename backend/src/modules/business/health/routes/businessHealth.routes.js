@@ -14,13 +14,14 @@ const quality = require('../services/businessLabQuality.service');
 // (context) and its database-error translation:
 //   /:businessId/health/…     settings and the people who sign (pharmacist, doctor, pathologist)
 //   /:businessId/pharmacy/…   drug master, prescription sales, registers, recalls, expiry returns
-//   /:businessId/clinic/…     patients, consent, consultations, today's patients
-//   /:businessId/lab/…        tests and panels, orders, samples, results, approval, reports
+//   /:businessId/clinic/…     patients, consent, consultations, today's patients, the token queue
+//   /:businessId/lab/…        tests and panels, orders, samples, results, approval, reports, the bench
 // Services repeat every permission check. The prescription scan upload
 // (multipart) is mounted before the JSON-only business router: healthUploads.routes.js.
 
 module.exports = function healthRoutes(router, { context, send, b }) {
-  const list = (path, name, permission, check, fixed = {}) => router.get(b(path), context(permission), async (req, res) => {
+  // shape(row, business): what of each row this person may read, where that is less than the row.
+  const list = (path, name, permission, check, fixed = {}, shape = null) => router.get(b(path), context(permission), async (req, res) => {
     if (check) check(req.business);
     const limit = req.query.limit === undefined ? 25 : v.requiredId(req.query.limit, 'Page size');
     const offset = req.query.offset === undefined ? 0 : Number(req.query.offset);
@@ -31,7 +32,8 @@ module.exports = function healthRoutes(router, { context, send, b }) {
     const date = (value, label) => (value === undefined || value === '' ? null : core.dateText(value, label));
     const from = date(req.query.from, 'From date'), to = date(req.query.to, 'To date');
     if (from && to && to < from) throw new AppError(400, 'The end date is before the start date');
-    send(res, await repo.page(req.business.id, name, limit, offset, { search, from, to, timezone: req.business.timezone, filters }));
+    const page = await repo.page(req.business.id, name, limit, offset, { search, from, to, timezone: req.business.timezone, filters });
+    send(res, shape ? { ...page, items: page.items.map((row) => shape(row, req.business)) } : page);
   });
   const isPharmacy = (business) => pharmacy.requirePharmacy(business);
   const isClinic = (business) => clinic.requireClinic(business);
@@ -76,6 +78,7 @@ module.exports = function healthRoutes(router, { context, send, b }) {
   router.post(b('/clinic/patients/:contactId/consents'), context('patients.create'), async (req, res) => send(res, await clinic.addConsent(req.business, req.user, req.params.contactId, req.body), 201));
   router.post(b('/clinic/consents/:id/withdraw'), context('patients.edit'), async (req, res) => send(res, await clinic.withdrawConsent(req.business, req.user, req.params.id, req.body)));
   router.get(b('/clinic/today'), context('patients.view'), async (req, res) => send(res, await clinic.today(req.business, req.query)));
+  router.get(b('/clinic/medicines'), context('patients.edit_clinical'), async (req, res) => send(res, await clinic.medicines(req.business, req.query)));
   list('/clinic/visits', 'health-visits', 'patients.view', isClinic);
   list('/clinic/follow-ups', 'health-follow-ups', 'patients.view', isClinic);
   router.post(b('/clinic/visits'), context(['patients.edit_clinical', 'patients.create']), async (req, res) => send(res, await clinic.openVisit(req.business, req.user, req.body), 201));
@@ -102,8 +105,10 @@ module.exports = function healthRoutes(router, { context, send, b }) {
   router.get(b('/lab/tests/:id'), context('lab.view'), async (req, res) => send(res, await lab.test(req.business, req.params.id)));
   router.post(b('/lab/tests'), context('lab.edit'), async (req, res) => send(res, await lab.saveTest(req.business, req.user, null, req.body), 201));
   router.put(b('/lab/tests/:id'), context('lab.edit'), async (req, res) => send(res, await lab.saveTest(req.business, req.user, req.params.id, req.body)));
-  list('/lab/orders', 'lab-orders', 'lab.view', isLab);
+  // How many of an order's values are out of range is for those who see the results.
+  list('/lab/orders', 'lab-orders', 'lab.view', isLab, {}, (row, business) => (lab.seesResults(business) ? row : { ...row, flagged: null }));
   router.get(b('/lab/worklist'), context('lab.view'), async (req, res) => send(res, await lab.worklist(req.business)));
+  router.get(b('/lab/bench'), context('lab.view'), async (req, res) => send(res, await lab.bench(req.business, req.query)));
   router.post(b('/lab/orders'), context('lab.create'), async (req, res) => send(res, await lab.createOrder(req.business, req.user, req.body), 201));
   router.get(b('/lab/orders/:id'), context('lab.view'), async (req, res) => send(res, await lab.order(req.business, req.params.id)));
   router.get(b('/lab/orders/:id/report'), context('lab.print'), async (req, res) => send(res, await lab.report(req.business, req.params.id, req.query)));

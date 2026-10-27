@@ -15,8 +15,13 @@ import { confirmAction } from "../services/confirm";
 //     role allows (the server checks both again on every request).
 // The choice is remembered on the server per person (last opened), so a
 // reload or another device lands in the same business.
+//
+// A workspace outside Business Admin (the clinic's, the lab's) opens one
+// business by itself: it passes that business's id as `businessId`, and as
+// `paths(section)` where a screen's links lead there instead (null: to the
+// screen in Business Admin, as always).
 
-export default function BusinessProvider({ children }) {
+export default function BusinessProvider({ children, businessId: openId = null, paths = null }) {
   const { user } = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -29,7 +34,8 @@ export default function BusinessProvider({ children }) {
   const landed = useRef(false);
 
   const match = matchPath("/business-admin/:businessId/*", pathname);
-  const businessId = match && /^\d+$/.test(match.params.businessId) ? Number(match.params.businessId) : null;
+  const inAdmin = Boolean(match && /^\d+$/.test(match.params.businessId));
+  const businessId = openId || (inAdmin ? Number(match.params.businessId) : null);
 
   const loadDirectory = useCallback(() => listBusinesses()
     .then((result) => { setDirectory(result); setDirectoryError(""); return result; })
@@ -117,16 +123,16 @@ export default function BusinessProvider({ children }) {
     const modules = new Set(context?.modules || []);
     return {
       directory, directoryError, businesses, businessId, current, context, error,
-      restaurantBusiness, inBusinessAdmin: Boolean(businessId),
+      restaurantBusiness, inBusinessAdmin: inAdmin && !openId,
       has: (module) => modules.has(module),
       // A permission counts only when its module is on, exactly as the server decides.
       can: (permission) => permissions.has(permission) && modules.has(permission.split(".")[0]),
       reloadDirectory: loadDirectory,
       reloadContext: () => setReloadKey((n) => n + 1),
       switchTo, confirmLeave, setDirty,
-      path: (section) => businessPath(businessId, section),
+      path: (section) => (paths && paths(section)) || businessPath(businessId, section),
     };
-  }, [directory, directoryError, businesses, businessId, current, context, error, restaurantBusiness, loadDirectory, switchTo, confirmLeave, setDirty]);
+  }, [directory, directoryError, businesses, businessId, current, context, error, restaurantBusiness, inAdmin, openId, paths, loadDirectory, switchTo, confirmLeave, setDirty]);
 
   return <BusinessContext.Provider value={value}>{children}</BusinessContext.Provider>;
 }

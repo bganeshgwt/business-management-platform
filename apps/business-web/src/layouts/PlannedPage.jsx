@@ -10,12 +10,7 @@ import "../styles/planned.css";
 export default function PlannedPage({ workspace }) {
   const { businesses } = useBusiness();
   const plan = PLANNED_WORKSPACES[workspace];
-  // The clinic the links open: the one this person opened last.
-  const clinic =
-    businesses
-      .filter((business) => business.business_type === "healthcare")
-      .sort((a, b) => String(b.last_opened_at || "").localeCompare(String(a.last_opened_at || "")))[0] || null;
-  const pick = (value) => (typeof value === "function" ? value({ clinic }) : value);
+  const pick = (value) => (typeof value === "function" ? value({ businesses }) : value);
 
   return (
     <section className="planned" aria-labelledby="planned-title">

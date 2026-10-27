@@ -3,11 +3,11 @@
 For developers of the staff app: what it covers, its settings and commands,
 how its code is laid out, how sign-in works, and how to add a page.
 
-React 19 + Vite. Where owners, managers, cashiers, captains and kitchen staff
-work, for every business type: Business Admin, the restaurant admin, the POS,
-the captain app, the kitchen display, the pickup screen and the platform
-console. It talks to
-the Express API in `../../backend`. The guests' pages (table QR ordering,
+React 19 + Vite. Where owners, managers, cashiers, captains, kitchen staff,
+clinic front desks, doctors and lab staff work, for every business type:
+Business Admin, the restaurant admin, the POS, the captain app, the kitchen
+display, the pickup screen, the clinic and lab workspaces and the platform
+console. It talks to the Express API in `../../backend`. The guests' pages (table QR ordering,
 online ordering, booking) are their own app, `../customer-web`.
 
 The project setup is in [../../README.md](../../README.md).
@@ -62,20 +62,23 @@ tests need. See [../../docs/TESTING.md](../../docs/TESTING.md).
 src/
 ├── main.jsx            The shared look (@bmp/ui/styles.css) → QueryClientProvider → BrowserRouter →
 │                       AuthProvider → App (+ ApprovalDialog, ConfirmHost, Toaster)
-├── App.jsx             Routes, including the captain app (/captain/*), the planned workspaces
-│                       (/clinic, /lab) and guest links opened on this app (/order, /online,
-│                       /book), which go on to the guests' site
-├── context/            AuthProvider (user, permissions, features), BusinessProvider (open business)
-├── hooks/              useAuth, useBusiness, motion hooks …
+├── App.jsx             Routes, including the captain app (/captain/*), the clinic and lab
+│                       workspaces (/clinic/*, /lab/*) and guest links opened on this app (/order,
+│                       /online, /book), which go on to the guests' site
+├── context/            AuthProvider (user, permissions, features), BusinessProvider (open business,
+│                       or the one a workspace's address names)
+├── hooks/              useAuth, useBusiness, useLiveRefresh, useServerNow, motion hooks …
 ├── routes/ProtectedRoute.jsx  Requires login, optionally a permission or a feature
-├── layouts/            AppLayout (header, switchers, side menu), NotFoundPage,
-│                       PlannedPage (a planned workspace), GuestSiteRedirect
+├── layouts/            AppLayout (header, switchers, side menu), BusinessWorkspace and
+│                       WorkspaceStart (a clinic's workspaces: their frame, the clinic they open),
+│                       NotFoundPage, PlannedPage (a planned screen), GuestSiteRedirect
 ├── modules/            access (sign-in, profile, users, roles), platform (the platform console),
 │                       restaurant/<area>, business/<core, a type or a shared area>, tasks.
 │                       Each holds pages/ (one file per screen), and the services/ and
 │                       styles/ it alone uses
 ├── workspaces/         What one role works in: a layout of its own and screens built from the
-│                       modules. captain/ is the captain app, the waiters' phone screens
+│                       modules. captain/ is the captain app, the waiters' phone screens;
+│                       clinic/ and lab/ the clinic's front desk and doctors' screen and the lab's
 ├── components/         Shared UI (DataGrid, Modal, PageHeader …)
 ├── services/           Shared services: api.js (axios, token, outlet, approvals),
 │                       customerWeb.js (where the guests' site is), businessNav …
@@ -141,7 +144,7 @@ Import them by name: `import Icon from "@bmp/ui/Icon"`,
    one in its migration ([ARCHITECTURE §3.5](../../docs/ARCHITECTURE.md#35-live-updates)).
 
 A workspace that is planned but not built gets its route at once, with a
-`PlannedPage` entry in `services/plannedWorkspaces.js`, never a "Page not
-found". Use `hasPermission("menu.manage")` from `useAuth()` (in Business Admin,
+`PlannedPage` entry in `services/plannedWorkspaces.js` (empty while every
+workspace is built), never a "Page not found". Use `hasPermission("menu.manage")` from `useAuth()` (in Business Admin,
 `can("sales.refund")` from `useBusiness()`) to show or hide buttons. The
 backend checks permissions as well, so hiding is only for convenience.

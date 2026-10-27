@@ -163,6 +163,11 @@ Each business type adds only what is truly its own on top of the shared core. Th
 
 ### Clinics and diagnostic labs
 
+- **Clinic workspace** (`/clinic`): one screen for the front desk and the doctors, on a computer, a tablet or a phone:
+  - the front desk finds or registers the patient, with their consent, and gives a token; beside it, each doctor's queue with how long everyone has waited, live;
+  - a doctor sees their own queue first, calls the next patient and starts the consultation, which keeps the queue and the patient's history (allergies, current medicines, earlier visits) beside it;
+  - the front desk never sees clinical data.
+- **Lab workspace** (`/lab`): one screen for sample collection and the lab: samples to collect (with their labels), received or rejected with the reason; worklists by test; reports waiting for the pathologist; reports released today, to print. Every list changes by itself within a second.
 - **Today's patients and the token queue:**
   - each patient gets a token on arrival, and priority patients are called first;
   - the doctor calls the next patient and starts the consultation from the token;
@@ -173,7 +178,7 @@ Each business type adds only what is truly its own on top of the shared core. Th
   - appointments are booked only into a doctor's free slots;
   - the bill picks the right fee;
   - an earnings report shows each doctor's patients, fees and share.
-- **Patients and consent, consultations:** registration with recorded consent; vitals, diagnosis, prescription and follow-up (doctors only).
+- **Patients and consent, consultations:** registration with recorded consent; vitals, diagnosis, prescription (the clinic's earlier medicines offered as the doctor types), follow-up and a referral with its printed letter (doctors only).
 - **Lab:**
   - orders, sample barcodes, results and pathologist approval;
   - amended reports keep every signed version and print as "amended", with the reason; older versions print as "superseded";

@@ -5,7 +5,6 @@ import Icon from "@bmp/ui/Icon";
 import SectionCard from "../../../../components/SectionCard";
 import StatusBadge from "../../../../components/StatusBadge";
 import { businessRead, businessWrite } from "../../../../services/business.service";
-import { businessPath } from "../../../../services/businessNav";
 import FormDialog from "../../core/pages/FormDialog";
 import { BusinessHeader, Field } from "../../core/pages/ui";
 import { businessToday, useOpenBusiness, useServerList } from "../../core/pages/hooks";
@@ -36,7 +35,7 @@ export default function PatientsPage() {
       <BusinessHeader icon="users" title="Patients" description="Registered with consent. Clinical notes open only for doctors; every look is logged."
         primary={biz.can("patients.create") && <button type="button" className="button" onClick={() => setAdding(true)}><Icon name="plus" size={16} /> Register patient</button>} />
       <SectionCard flush icon="list" title="All patients">
-        <DataGrid {...list.gridProps} caption="Patients" columns={columns} rowNoun={["patient", "patients"]} onRowClick={(p) => navigate(businessPath(biz.id, `patients/${p.contact_id}`))}
+        <DataGrid {...list.gridProps} caption="Patients" columns={columns} rowNoun={["patient", "patients"]} onRowClick={(p) => navigate(biz.path(`patients/${p.contact_id}`))}
           toolbar={(
             <div className="segmented" role="group" aria-label="Consent">
               {[["", "All"], ["true", "Consent given"], ["false", "Withdrawn"]].map(([v, l]) => <button key={v || "all"} type="button" className={`segment ${consent === v ? "is-active" : ""}`} aria-pressed={consent === v} onClick={() => setConsent(v)}>{l}</button>)}
@@ -45,7 +44,7 @@ export default function PatientsPage() {
           exportName={biz.can("patients.export") ? `${biz.business.code}-patients` : undefined}
           empty="No patients yet" emptyHint="Register a patient at their first visit." emptyIcon="users" />
       </SectionCard>
-      {adding && <RegisterDialog onClose={() => setAdding(false)} onSaved={(p) => { setAdding(false); navigate(businessPath(biz.id, `patients/${p.contact_id}`)); }} />}
+      {adding && <RegisterDialog onClose={() => setAdding(false)} onSaved={(p) => { setAdding(false); navigate(biz.path(`patients/${p.contact_id}`)); }} />}
     </div>
   );
 }

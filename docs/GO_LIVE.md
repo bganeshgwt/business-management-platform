@@ -403,21 +403,28 @@ training run does not count as a real-service sign-off. Take a verified backup
 ### A clinic
 
 1. The owner checks the clinic and lab settings, each doctor's fees and OPD
-   timings, the tests and their reference ranges, and the roles: Cashier (the
-   front desk), Doctor, Lab technician and Pathologist.
-2. The front desk registers a patient with their consent and gives a token.
-3. The doctor calls the patient from the **Token queue**, completes the visit
-   and prints the prescription. The front desk bills the visit. With the token
-   queue open on the waiting room's screen too, a token given or called at the
-   desk shows there within a second or two.
-4. The lab records the day's quality-control run first (**Lab orders ›
-   Quality control**): while a parameter's run has failed, its reports cannot
-   be approved. Then a test is ordered, the sample is collected and received,
-   and the results are entered.
-5. The pathologist approves the report with their PIN, and the front desk
-   prints it.
-6. Check that the front desk never sees clinical notes, and that each look at
-   clinical data is in the activity log.
+   timings, each doctor's appointment calendar on their registration (so the
+   clinic workspace shows them their own queue), the tests and their reference
+   ranges, and the roles: Cashier (the front desk), Doctor, Lab technician and
+   Pathologist.
+2. The front desk opens the **clinic workspace** (`/clinic`) on the desk's
+   computer, registers a patient with their consent and gives a token.
+3. The doctor opens the clinic workspace on their tablet or computer, calls
+   the patient with **Next patient**, starts the consultation, orders a test,
+   completes the visit and prints the prescription. The front desk bills the
+   visit, and the test on *Sales*. With the display board open on the waiting
+   room's screen too, a token given or called at the desk shows there within a
+   second or two.
+4. The lab opens the **lab workspace** (`/lab`) and records the day's
+   quality-control run first (*Quality control*): while a parameter's run has
+   failed, its reports cannot be approved. Then the doctor's test is collected
+   (with its labels) and received, and the results are entered from the
+   *Worklist*; each step shows on the other screens within a second.
+5. The pathologist approves the report with their PIN from *Approval*; it
+   appears on the doctor's open consultation, and the front desk prints it
+   from *Released*.
+6. Check that the front desk never sees clinical notes or results in either
+   workspace, and that each look at clinical data is in the activity log.
 
 ### Recording problems and signing off
 

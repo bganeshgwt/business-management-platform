@@ -88,6 +88,8 @@ on record.
 - [Meat, fish and weight-based shops](#meat-fish-and-weight-based-shops)
 - [Pharmacy](#pharmacy)
 - [Clinic & lab](#clinic--lab)
+  - [Clinic workspace](#clinic-workspace)
+  - [Lab workspace](#lab-workspace)
 - [Newer trades on the shared core](#newer-trades-on-the-shared-core)
 - [Hardware, paints & building materials](#hardware-paints--building-materials)
 - [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides)
@@ -382,7 +384,9 @@ allows.
    licence numbers, *Licences by branch* for a branch with its own, and the
    **registered pharmacists**, chosen from the staff logins. A clinic
    (*Clinic & lab settings*): the lab's name and registration, and the
-   **doctors** and the **pathologist** with their registration numbers.
+   **doctors** and the **pathologist** with their registration numbers; a
+   doctor's appointment calendar makes its tokens their own queue in the
+   clinic workspace.
 8. **Products.** Add each item with its price, GST slab, HSN code and MRP
    ([Products, prices and opening stock](#products-prices-and-opening-stock)).
    Then the type's own set-up, described with each type in Part 3: a
@@ -3189,9 +3193,9 @@ For a business of type Pharmacy, with the business tool **Pharmacy rules** on (S
 
 ## Clinic & lab
 
-For a business of type Clinics & diagnostic labs, with the business tools **Patient records** (on by default) and **Laboratory** (a new clinic switches it on in Settings › Business tools, where it is marked *Recommended*). In the menu, **Today's patients** (Daily work) holds the clinic's day — its tabs are Token queue, Visits & follow-ups, Appointments and Doctors, fees & OPD — **Patients** sits beside it, and **Lab orders** (Business) holds Tests & panels and Quality control.
+For a business of type Clinics & diagnostic labs, with the business tools **Patient records** (on by default) and **Laboratory** (a new clinic switches it on in Settings › Business tools, where it is marked *Recommended*). In the menu, **Clinic workspace** and **Lab workspace** (Daily work) open the clinic's two screens of their own, for the front desk and the doctors and for the lab ([Clinic workspace](#clinic-workspace), [Lab workspace](#lab-workspace)); **Today's patients** (Daily work) holds the clinic's day in Business Admin — its tabs are Token queue, Visits & follow-ups, Appointments and Doctors, fees & OPD — **Patients** sits beside it, and **Lab orders** (Business) holds Tests & panels and Quality control.
 
-**Who sees what.** The **Doctor** role reads and writes clinical notes (vitals, diagnoses, prescriptions, results). The front desk (**Cashier**) registers patients, records consent, books and starts visits, bills and orders tests, and sees whether a report is ready — never the notes. The **Lab technician** collects and receives samples and enters results; the **Pathologist** approves reports with their PIN. Every look at clinical data is in the activity log (`patient.clinical_viewed`).
+**Who sees what.** The **Doctor** role reads and writes clinical notes (vitals, diagnoses, prescriptions, referrals, results). The front desk (**Cashier**) registers patients, records consent, books and starts visits, bills and orders tests, and sees whether a report is ready — never the notes, nor how many of a report's values are out of range or why a signed report is being amended. The **Lab technician** collects and receives samples and enters results; the **Pathologist** approves reports with their PIN. Every look at clinical data is in the activity log (`patient.clinical_viewed`).
 
 **Set up once** (*Settings › Clinic & lab settings*): the lab's name and registration for reports, the report footer, the consent notice (changing it makes a new version), how long clinical records are kept (3 years), the referral commission switch (off: an ethical and legal question). Under **Doctors and pathologists** add each doctor (registration number, council, their appointment calendar) and the pathologist.
 
@@ -3199,7 +3203,7 @@ For a business of type Clinics & diagnostic labs, with the business tools **Pati
 
 **Patients**: *Register patient* — name, mobile, sex, date of birth or age, guardian, emergency phone, then the consent notice: treatment and records (required), reports on WhatsApp / e-mail and reminders (optional), how it was given and by whom; tick that it was shown. A patient's page shows details, the **clinical card** (doctors only: blood group, allergies, conditions, medicines), consents (*Withdraw* records the reason; no new visit or test starts without treatment consent, the record is kept), visits and lab orders.
 
-**A visit** (*Today's patients › Visits & follow-ups*, or from Today's patients): the doctor fills vitals (BMI is worked out), complaints, examination, diagnosis and an optional ICD-10 code, advice, the prescription by generic name, and the follow-up date. *Save draft*, then *Complete consultation* (the appointment is marked done; the record is then fixed — *Add a note* to correct it). *More › Print prescription* (A5 with the doctor's registration number), *Bill this visit*, *Order tests*. *Follow-ups due* lists who should come back, with their phone.
+**A visit** (*Today's patients › Visits & follow-ups*, or from Today's patients): the doctor fills vitals (BMI is worked out), complaints, examination, diagnosis and an optional ICD-10 code, advice, the prescription by generic name, the follow-up date and a referral: **Referred to** (a specialist or a hospital) and the **Reason for the referral**. As a medicine is typed, the medicines this clinic's doctors have prescribed before are offered; choosing one fills its usual strength, dose, timing and duration on an empty line. *Save draft*, then *Complete consultation* (the appointment is marked done; the record is then fixed — *Add a note* to correct it). *More › Print prescription* (A5 with the doctor's registration number, and whom the patient is referred to), *Print referral letter* (A5: to whom and why, what was found, the diagnosis, the medicines, allergies and conditions, and approved results, signed by the doctor), *Bill this visit*, *Order tests* (billed as they are ordered only by someone who bills: a doctor's order is billed at the desk, on *Sales*). The visit changes by itself when its lab report is approved. *Follow-ups due* lists who should come back, with their phone.
 
 **Doctors, fees & OPD** (*Today's patients › Doctors, fees & OPD*). For each doctor:
 - **Consultation fee**: a service on the bill.
@@ -3218,7 +3222,7 @@ For a business of type Clinics & diagnostic labs, with the business tools **Pati
 
 *Display board* is the full-screen waiting-room view: each doctor's current number and who is next.
 
-**Lab** (*Lab orders*): the worklist (to collect, to receive, in process, awaiting approval), today's orders with the dates visible, a *Sample barcode* box that opens the order when scanned, and *New order* (patient, tests, bill now). On an order: *More › Print sample labels*; *Collected*, *Received in lab* or *Reject* (with the reason, then *Collect again*); type results (out-of-range values are flagged as you type); *Save results*. When all are in, the pathologist presses *Approve report* and types their PIN; the visit shows **Report ready** and *Print report* gives the A4 report with the lab's details, ranges, flags, the pathologist's name and registration and the approval time. *Send to an outside lab* records the lab, reference and charge (the results are typed in when they come). *Tests & panels* keeps the catalogue: parameters, units, reference ranges by sex and age, critical limits, and profiles.
+**Lab** (*Lab orders*): the worklist (to collect, to receive, in process, awaiting approval), today's orders with the dates visible, a *Sample barcode* box that opens the order when scanned, and *New order* (patient, tests, bill now). The list and an open order change by themselves within a second when a sample is collected, a result typed or a report approved on another screen (an order being typed into waits until it is saved); *Out of range* shows only to the lab and the doctors. On an order: *More › Print sample labels*; *Collected*, *Received in lab* or *Reject* (with the reason, then *Collect again*); type results (out-of-range values are flagged as you type); *Save results*. When all are in, the pathologist presses *Approve report* and types their PIN; the visit shows **Report ready** and *Print report* gives the A4 report with the lab's details, ranges, flags, the pathologist's name and registration and the approval time. *Send to an outside lab* records the lab, reference and charge (the results are typed in when they come). *Tests & panels* keeps the catalogue: parameters, units, reference ranges by sex and age, critical limits, and profiles.
 
 **Amended reports** (*Lab order › More*). Every signed report is kept as signed. To correct one, the pathologist uses *Amend the report*, gives the reason and types their PIN. The order reopens; correct the results and approve it again. The new report prints as **AMENDED REPORT (version 2)**, saying which version it replaces and why. *Report versions* lists each version; an older one prints marked **SUPERSEDED**.
 
@@ -3227,6 +3231,31 @@ For a business of type Clinics & diagnostic labs, with the business tools **Pati
 - 1-3s, 2-2s, R-4s, 4-1s and 10x reject the run.
 
 While a parameter's latest QC today is failed, its patient reports cannot be approved. The order page shows the QC state, and approval says which rule failed. Note the corrective action and run QC again. *Chart* shows the Levey-Jennings chart (±1/2/3 SD) of the last runs.
+
+### Clinic workspace
+
+**Daily work → Clinic workspace** (the address `/clinic`) is one screen for the front desk and the doctors: the clinic's own screens gathered for their day, with no Business Admin menu around them. It is part of the staff app, not something to install: open it on the desk's computer, a doctor's tablet or a phone, and a bookmark or a tablet set up on `/clinic` keeps working. `/clinic` opens your clinic, or, if you work in several, the one you chose last; *⋯ › Another clinic* lists them to choose another. Its bar shows the clinic and its branch, **Live**, the branch picker (for a clinic with several branches), the lock and a **⋯** menu (the lab workspace, Business Admin, your profile, lock or switch user, sign out). Its tabs:
+
+- **Queue** — the front desk's **Patient at the desk**: find them by name, mobile or patient ID, or *Register a new patient* (or *Register "…"* when the search finds no one) with their consent; their consent and any token they hold today show beside them, with *Give a token* (for their doctor, or the clinic's queue), *Order tests* and *Patient's page*. Beside it, the day's figures and each doctor's queue: who is with the doctor or was called, then everyone waiting with how long they have waited (priority first), *Call*, *Call back* for a skipped patient, *Cancel*, **Next patient** (finishes the patient being seen, skips one who was called and did not come in, and calls the next) and *Not here*. *Display board* is the waiting room's screen. A token given or called on any screen shows on every other within a second.
+- **Your queue** — a doctor whose registration names their appointment calendar (*Settings › Clinic & lab settings*) sees their own queue first, the width of the screen: **Next patient**, then **Start** opens the consultation. Giving a token is under *More*.
+- **The consultation** (from *Start* or *Open visit*): the clinic's own visit screen ([A visit](#clinic--lab) above: vitals, notes, the diagnosis, the prescription, the follow-up date and the referral, *Print prescription* and *Print referral letter*), with the doctor's queue beside it, so the next patient is called and started without leaving it, and the patient's **History**: the clinical card (allergies, current medicines, long-term conditions, blood group; *Edit card*) and each earlier visit, opened in place to read what was found, the diagnosis, the medicines, the advice, the referral and the approved results. *Order tests* stays on the consultation, and the order reaches the lab at once. When the lab approves the report, its results appear on the open consultation by themselves. On a phone the queue comes first, then the consultation, then the history.
+- **Today** — *Today's patients*: the day's appointments, *Arrived: token*, *Start visit*, changing by themselves.
+- **Patients** — *Patients* and each patient's page.
+- **Visits** — *Visits & follow-ups*.
+
+**Who opens it.** Anyone whose role in the clinic sees patients (`patients.view`): the front desk (Cashier / sales), doctors, the lab, the manager and the owner; the menu link shows only to them, and anyone else who opens the address is told their role does not include it. Each does there what their role allows in Business Admin. The front desk never sees clinical data: a consultation shows them who, when, the bill and whether the report is ready, and no history.
+
+### Lab workspace
+
+**Daily work → Lab workspace** (the address `/lab`) is one screen for sample collection and the lab, opened as the clinic workspace is, with the same bar and a **Scan a sample** box that opens the order of a barcode scanned or typed. The first four tabs count what waits in each:
+
+- **Collection** — **To collect**: each sample awaited, or rejected and to be taken again (with the reason), urgent orders first, then the oldest; *Labels* prints the order's sample labels (the sample's barcode, the patient and the tests) and *Collected* marks it collected. **Collected, to receive in the lab**: *Received in lab*, or *Reject* with the reason, which puts it back to collect. *New order* orders tests for a registered patient.
+- **Worklist** — each test whose sample is in the lab (or that went to an outside lab) and whose results are not all typed, with how many are typed; choose one test, or all. A tap opens the order: type each value against the patient's range (flagged low, high or critical as you type) and *Save results*.
+- **Approval** — the reports with every result typed, and signed reports reopened for an amendment; for the lab and the doctors, how many values are out of range and how many are critical. A tap opens the order for the pathologist's *Approve report* with their PIN; a report waits while today's quality control of one of its parameters has failed.
+- **Released** — the reports approved today, the latest first: on the doctor's visit at once (*Report ready*, and the results on an open consultation) and printed for the patient with *Print report*, as signed (an amended one as amended). Every earlier version stays on the order (*More › Report versions*).
+- **All orders**, **Quality control** and **Tests & panels** — the lab's screens of Business Admin.
+
+Every list changes by itself within a second when a sample is collected, a result typed or a report approved on another screen. **Who opens it.** Anyone whose role sees lab orders (`lab.view`): the lab technician, the pathologist, doctors, the front desk and the manager. Results show only to the lab and the doctors; the front desk follows where each sample and report is.
 
 ## Newer trades on the shared core
 
@@ -5200,8 +5229,8 @@ do more than yours; the Owner role cannot be handed out or changed.
 | Accountant | See everything, record payments and collections, export and print; no stock changes |
 | Viewer | See and export everything; change nothing |
 | Pharmacist (pharmacy only) | Sell and refund at the counter, prescriptions and the H1 / Schedule X registers, the sign-off for Schedule X, recalls and expiry returns, the drug master; see stock and purchases |
-| Doctor (clinic only) | Patients with their clinical records (see and write), appointments, lab orders; see bills |
-| Lab technician (clinic only) | Samples and results; see patients |
+| Doctor (clinic only) | Patients with their clinical records (see and write), appointments, lab orders; see bills; their own queue and the consultation in the clinic workspace |
+| Lab technician (clinic only) | Samples and results, in the lab workspace or Business Admin; see patients |
 | Pathologist (clinic only) | As the lab technician, plus approving reports and exporting |
 | Optometrist (optical shops only) | Record and correct prescriptions; pass or fail spectacles at the quality check; book and complete eye tests; see customers, products and spectacle orders without their money; no money |
 | Mechanic (garages only) | See the job cards assigned to them; record the work done and the parts used, and move the job along; print its copies; see products, stock and service bookings; no prices and no money |
@@ -5251,20 +5280,6 @@ last night's takings land on today's sheet.
 
 ## Not built yet: what to do meanwhile
 
-**Workspaces still to come.** Two addresses of Business Admin are kept for
-workspaces that are planned and not built yet. Each opens a page marked
-*Planned · not built yet*: **What it will do**, then **Until then** with where
-that work is done today and buttons to go there. A bookmark or a tablet
-set up on one of them keeps working when the workspace arrives.
-
-| Address | Planned | Until then |
-| --- | --- | --- |
-| `/clinic` | **Clinic workspace**: one screen for the reception desk and the doctors — registration and the token queue, the consultation (history, notes, prescription and tests) and follow-ups and referrals without leaving the queue | The clinic's own Business Admin menu: **Token queue**, **Today's patients**, **Patients** |
-| `/lab` | **Lab workspace**: one screen for the people who collect samples and run the tests — where each sample is, worklists, result entry and approval, and reports released to the doctor and the patient with every version kept | The clinic's Business Admin: **Lab orders**, **Tests & panels** |
-
-The clinic and lab buttons open the clinic you opened last; someone with no
-clinic gets **Open Business Admin**.
-
 **Guest pages still to come.** Three pages of the guests' site answer with
 *Coming soon* and what to do until then: `/shop` (ordering from a shop: call
 or message the shop), `/appointments` (salon and clinic bookings: call to
@@ -5310,6 +5325,11 @@ the link you were sent).
   a lodge's two room-night slabs, and a restaurant's default GST rate (its
   advances' GST). A new rate for jewellery or fuel needs a change to the
   platform.
+- **A clinic prescribes from no drug list.** The doctor types each medicine
+  by its generic name (the clinic's earlier medicines are offered), and
+  nothing checks it against the patient's allergies, other medicines or the
+  dose: the doctor does. Tests a doctor orders reach the lab unbilled: the
+  front desk bills them on *Sales*, and the order still says *Not billed*.
 - **Without the internet.** Business Admin and the guests' site are web pages
   that talk to the platform's server. When the server sits in the restaurant,
   tills on its own Wi-Fi keep working without an internet line. The kitchen display

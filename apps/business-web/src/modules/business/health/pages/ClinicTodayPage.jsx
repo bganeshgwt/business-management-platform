@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
 import SectionCard from "../../../../components/SectionCard";
 import StatTile from "../../../../components/StatTile";
 import StatusBadge from "../../../../components/StatusBadge";
+import LiveIndicator from "../../../../components/LiveIndicator";
+import useLiveRefresh from "../../../../hooks/useLiveRefresh";
 import { ErrorMessage } from "../../../../components/Feedback";
 import { businessRead, businessWrite } from "../../../../services/business.service";
-import { businessPath } from "../../../../services/businessNav";
 import { getErrorMessage } from "../../../../services/api";
 import { dateLong, timeOnly } from "@bmp/shared/format";
 import { toast } from "../../../../services/toast";
@@ -19,7 +20,9 @@ import "../styles/health.css";
 // Today's patients: the day's appointments by time with their visit (not
 // started, in consultation, done), whether they are registered with consent,
 // billed, and whether their lab report is ready. The front desk registers and
-// starts the visit; the doctor opens it to write the consultation.
+// starts the visit; the doctor opens it to write the consultation. Live: an
+// appointment booked, a token given, a visit started or billed, a report
+// ready anywhere shows here within a second.
 export default function ClinicTodayPage() {
   const biz = useOpenBusiness();
   const navigate = useNavigate();
@@ -30,6 +33,8 @@ export default function ClinicTodayPage() {
   const [version, setVersion] = useState(0);
   const [registering, setRegistering] = useState(null);
   const { options } = useOptions(["resources"]);
+  const reload = useCallback(() => setVersion((n) => n + 1), []);
+  const live = useLiveRefresh({ business: biz.id }, ["appointment", "token", "visit", "lab", "sale"], reload);
   useEffect(() => {
     const controller = new AbortController();
     businessRead(biz.id, "clinic/today", { day, ...(doctor ? { doctor } : {}) }, controller.signal)
@@ -42,13 +47,13 @@ export default function ClinicTodayPage() {
     try {
       const token = await businessWrite(biz.id, "clinic/tokens", { appointmentId: row.appointment_id });
       toast.success(`Token ${token.token_no} for ${token.patient_name}`);
-      setVersion((n) => n + 1);
+      reload();
     } catch (err) { toast.error(getErrorMessage(err)); }
   }
   async function start(row) {
     try {
       const visit = await businessWrite(biz.id, "clinic/visits", { appointmentId: row.appointment_id });
-      navigate(businessPath(biz.id, `visits/${visit.id}`));
+      navigate(biz.path(`visits/${visit.id}`));
     } catch (err) { toast.error(getErrorMessage(err)); }
   }
   const rows = data?.appointments || [];
@@ -66,7 +71,7 @@ export default function ClinicTodayPage() {
     { key: "actions", header: "", label: "Actions", type: "actions", width: 230, render: (r) => {
       if (["cancelled", "no_show"].includes(r.appointment_status)) return null;
       if (!r.registered) return biz.can("patients.create") && <button type="button" className="chip-button" onClick={() => setRegistering(r)}>Register</button>;
-      if (r.visit_id) return <button type="button" className="chip-button" onClick={() => navigate(businessPath(biz.id, `visits/${r.visit_id}`))}>Open visit</button>;
+      if (r.visit_id) return <button type="button" className="chip-button" onClick={() => navigate(biz.path(`visits/${r.visit_id}`))}>Open visit</button>;
       if (!r.consent_active) return <small className="muted">No consent</small>;
       return (
         <span className="bz-inline">
@@ -80,7 +85,7 @@ export default function ClinicTodayPage() {
   const seen = rows.filter((r) => r.visit_status === "completed").length;
   return (
     <div className="stack">
-      <BusinessHeader icon="calendar" title="Today's patients" description={`${dateLong(day)}: appointments by time, their visit, bill and lab report.`} />
+      <BusinessHeader icon="calendar" title="Today's patients" description={`${dateLong(day)}: appointments by time, their visit, bill and lab report.`} actions={<LiveIndicator status={live} />} />
       <ErrorMessage message={error} />
       <div className="stat-grid bz-stat-grid">
         <StatTile icon="calendar" label="Appointments" value={data ? String(rows.length) : ""} loading={!data} />
@@ -102,7 +107,7 @@ export default function ClinicTodayPage() {
       </SectionCard>
       {data?.walk_ins?.length > 0 && (
         <SectionCard flush icon="users" title="Walk-in visits">
-          <DataGrid id="clinic-today-walk-ins" caption="Walk-in visits" variant="compact" rows={data.walk_ins} rowKey={(w) => w.visit_id} onRowClick={(w) => navigate(businessPath(biz.id, `visits/${w.visit_id}`))} columns={[
+          <DataGrid id="clinic-today-walk-ins" caption="Walk-in visits" variant="compact" rows={data.walk_ins} rowKey={(w) => w.visit_id} onRowClick={(w) => navigate(biz.path(`visits/${w.visit_id}`))} columns={[
             { key: "time", header: "Came in", value: (w) => w.created_at, render: (w) => timeOnly(w.created_at), mobile: "subtitle" },
             { key: "patient", header: "Patient", value: (w) => w.patient_name, mobile: "title" },
             { key: "doctor", header: "Doctor", value: (w) => w.doctor_name || "" },
@@ -110,7 +115,7 @@ export default function ClinicTodayPage() {
           ]} />
         </SectionCard>
       )}
-      {registering && <RegisterDialog prefill={{ contactId: registering.contact_id, name: registering.patient_name }} onClose={() => setRegistering(null)} onSaved={() => { setRegistering(null); setVersion((n) => n + 1); }} />}
+      {registering && <RegisterDialog prefill={{ contactId: registering.contact_id, name: registering.patient_name }} onClose={() => setRegistering(null)} onSaved={() => { setRegistering(null); reload(); }} />}
     </div>
   );
 }

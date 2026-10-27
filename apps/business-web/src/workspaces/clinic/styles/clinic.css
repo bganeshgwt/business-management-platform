@@ -1,0 +1,145 @@
+/* The clinic workspace (workspaces/clinic): the desk and the consultation, for
+   the front desk's computer, a doctor's tablet (1024 px and up) or a desktop,
+   and still usable on a phone. Colours from the tokens only, so dark mode
+   follows by itself. The queue's cards are the Token queue's own (health.css). */
+
+/* --- The desk: the patient at the desk beside the queue from 1000 px ------- */
+
+.cw-desk {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (min-width: 1000px) {
+  .cw-desk.has-desk {
+    grid-template-columns: minmax(300px, 340px) minmax(0, 1fr);
+  }
+}
+
+.cw-queue {
+  min-width: 0;
+}
+
+/* A doctor's own queue, the full width above the other doctors'. */
+.cw-queue .hl-queue-card.is-mine {
+  grid-column: 1 / -1;
+}
+
+.cw-patient {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.cw-patient-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cw-register {
+  align-self: flex-start;
+}
+
+/* --- The consultation: the visit, with the queue and the history beside it
+   from 1000 px; on a narrower screen the queue first, then the visit, then
+   the history. --------------------------------------------------------------- */
+
+.cw-consult {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "queue" "main" "history";
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.cw-consult-queue {
+  grid-area: queue;
+  min-width: 0;
+}
+
+.cw-consult-main {
+  grid-area: main;
+  min-width: 0;
+}
+
+/* Beside the queue the consultation's cards (vitals, the consultation, the
+   prescription) run one under the other, each the column's full width. */
+.cw-consult-main .bz-fieldset {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cw-consult-history {
+  grid-area: history;
+  min-width: 0;
+}
+
+@media (min-width: 1000px) {
+  .cw-consult {
+    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "main queue" "main history";
+  }
+}
+
+/* --- The patient's history ---------------------------------------------- */
+
+.cw-visits {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cw-visit-head {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cw-visit-head:hover {
+  background: var(--chip-bg);
+}
+
+.cw-visit-head:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.cw-visit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--text-2);
+}
+
+.cw-visit p {
+  margin: 0;
+}
+
+.cw-lines {
+  margin: 0;
+  padding-left: var(--space-5);
+}

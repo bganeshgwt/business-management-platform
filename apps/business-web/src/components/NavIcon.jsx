@@ -39,6 +39,21 @@ const PATHS = {
       <path d="M11 18h2M10 7h4M10 11h4" />
     </>
   ),
+  // A stethoscope: the clinic workspace.
+  clinic: (
+    <>
+      <path d="M5 3v5a4 4 0 0 0 8 0V3" />
+      <path d="M9 12v2a5 5 0 0 0 10 0v-2" />
+      <circle cx="19" cy="10" r="2" />
+    </>
+  ),
+  // A flask: the lab workspace.
+  lab: (
+    <>
+      <path d="M9 3h6M10 3v6l-5 9.5A1.7 1.7 0 0 0 6.5 21h11a1.7 1.7 0 0 0 1.5-2.5L14 9V3" />
+      <path d="M7.5 15h9" />
+    </>
+  ),
   orders: (
     <>
       <path d="M6 2h12a1 1 0 0 1 1 1v18l-3-2-3 2-3-2-3 2V3a1 1 0 0 1 1-1Z" />

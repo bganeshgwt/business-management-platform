@@ -1,0 +1,34 @@
+/* The lab workspace (workspaces/lab): the collection desk, the worklist, the
+   approval list and the reports released, for the lab's computer, a tablet at
+   the collection desk (1024 px and up) or a desktop, and still usable on a
+   phone. Colours from the tokens only, so dark mode follows by itself. The
+   order's own screen keeps health.css. */
+
+/* A sample's barcode, scanned or typed, in the bar (hidden on a phone, where
+   All orders has the same box). */
+.lw-scan {
+  display: flex;
+  min-width: 0;
+}
+
+.lw-scan input {
+  width: 11rem;
+  min-height: 40px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A rejected sample says why, under its barcode. */
+.lw-rejected {
+  margin-top: 2px;
+}
+
+/* The worklist's tests: one choice each, wrapping on a narrow screen. */
+.lw-tests {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.lw-tests .segment {
+  min-height: 40px;
+  font-variant-numeric: tabular-nums;
+}

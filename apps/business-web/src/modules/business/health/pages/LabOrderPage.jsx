@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
 import Icon from "@bmp/ui/Icon";
 import SectionCard from "../../../../components/SectionCard";
 import StatusBadge from "../../../../components/StatusBadge";
+import LiveIndicator from "../../../../components/LiveIndicator";
+import useLiveRefresh from "../../../../hooks/useLiveRefresh";
 import { ErrorMessage, Loading } from "../../../../components/Feedback";
 import { businessRead, businessWrite } from "../../../../services/business.service";
-import { businessPath } from "../../../../services/businessNav";
 import { getErrorMessage } from "../../../../services/api";
 import { dateTime } from "@bmp/shared/format";
 import { toast } from "../../../../services/toast";
@@ -17,14 +18,16 @@ import { useDirtyGuard, useOpenBusiness } from "../../core/pages/hooks";
 import { FlagBadge, LabStatus, SignOff } from "./healthParts";
 import { SEX_WORDS, resultText, useSignatories } from "./healthFormat";
 import { printLabReport, printSampleLabels } from "./healthPrint";
+import { SAMPLE_WORDS, sampleStep } from "./labSamples";
 import "../styles/health.css";
 
 // One lab order: its samples with barcode labels (collected, received or
 // rejected), result entry against the patient's reference ranges (out of
 // range values flagged as typed), the pathologist's approval by PIN, an
-// outside-lab referral, and the printed report once approved.
+// outside-lab referral, and the printed report once approved. Live: a change
+// to this order on another screen shows within a second, except while
+// results are being typed here (nothing typed is lost; saving reads it again).
 const QC_WORDS = { accepted: ["success", "in control"], warning: ["warning", "1-2s warning"], rejected: ["danger", "QC failed"], not_run: ["neutral", "not run yet"] };
-const SAMPLE_WORDS = { awaited: ["warning", "To collect"], collected: ["info", "Collected"], received: ["success", "In the lab"], rejected: ["danger", "Rejected"] };
 
 // The flag a value would get, judged on the screen the same way the server does.
 function previewFlag(p, value) {
@@ -50,6 +53,14 @@ export default function LabOrderPage() {
   const [dialog, setDialog] = useState(null);
   const dirty = Object.keys(values).length > 0;
   useDirtyGuard(dirty);
+  const typing = useRef(false);
+  useEffect(() => { typing.current = dirty; }, [dirty]);
+  const reload = useCallback((batch) => {
+    const ours = !batch || batch.reasons.some((reason) => reason !== "change") || batch.changes.some((change) => String(change.id) === String(orderId));
+    if (ours && !typing.current) setVersion((n) => n + 1);
+  }, [orderId]);
+  // No minute's safety net: every read of the results is logged as a look at clinical data.
+  const live = useLiveRefresh({ business: biz.id }, ["lab"], reload, { every: 0, refreshOnVisible: false });
   useEffect(() => {
     const controller = new AbortController();
     businessRead(biz.id, `lab/orders/${orderId}`, undefined, controller.signal).then((o) => { setOrder(o); setValues({}); setError(""); })
@@ -59,8 +70,7 @@ export default function LabOrderPage() {
   const refresh = (message) => { setDialog(null); if (message) toast.success(message); setVersion((n) => n + 1); };
   const sampleAction = async (sample, action, reason) => {
     try {
-      await businessWrite(biz.id, `lab/samples/${sample.id}`, { action, reason });
-      refresh(action === "collect" ? `Sample ${sample.barcode} collected` : action === "receive" ? `Sample ${sample.barcode} received in the lab` : `Sample ${sample.barcode} rejected`);
+      refresh(await sampleStep(biz.id, sample, action, reason));
     } catch (err) { toast.error(getErrorMessage(err)); }
   };
   async function saveResults() {
@@ -99,7 +109,7 @@ export default function LabOrderPage() {
         description={`${order.patient_no} · ${SEX_WORDS[order.sex]} · ${order.age} y · ordered ${dateTime(order.created_at)}${order.referred_by ? ` · by ${order.referred_by}` : ""}`}
         primary={order.status === "approved" && biz.can("lab.print") ? <button type="button" className="button" onClick={() => printReport()}><Icon name="print" size={16} /> Print report</button>
           : order.status === "resulted" && biz.can("lab.approve") ? <button type="button" className="button" onClick={() => setDialog("approve")}><Icon name="shield" size={16} /> Approve report</button> : undefined}
-        secondary={<Link className="button button-secondary" to={businessPath(biz.id, "lab-orders")}>All orders</Link>}
+        secondary={<Link className="button button-secondary" to={biz.path("lab-orders")}>All orders</Link>} actions={<LiveIndicator status={live} />}
         more={[{ label: "Print sample labels", icon: "print", onClick: () => printSampleLabels(order) },
           order.status === "approved" && biz.can("lab.approve") && { label: "Amend the report", icon: "edit", onClick: () => setDialog("amend") },
           Number(order.version) > 0 && (biz.can("lab.print") || biz.can("lab.approve")) && { label: "Report versions", icon: "history", onClick: () => setDialog("versions") },
@@ -109,7 +119,7 @@ export default function LabOrderPage() {
         <LabStatus status={order.status} />
         {order.priority === "urgent" && <StatusBadge tone="danger" label="Urgent" />}
         {order.document_no ? <StatusBadge status="paid" label={`Billed ${order.document_no}`} /> : <StatusBadge tone="warning" label="Not billed" />}
-        {order.visit_no && <Link to={businessPath(biz.id, `visits/${order.visit_id}`)} className="chip-button">Visit {order.visit_no}</Link>}
+        {order.visit_no && <Link to={biz.path(`visits/${order.visit_id}`)} className="chip-button">Visit {order.visit_no}</Link>}
         {order.outside_lab && <StatusBadge tone="info" label={`Outside lab: ${order.outside_lab}${order.outside_ref_no ? ` (${order.outside_ref_no})` : ""}`} />}
         {order.status === "approved" && <StatusBadge status="approved" label={`Approved ${dateTime(order.approved_at)} · ${order.pathologist_name}`} />}
         {Number(order.version) > 1 && order.status === "approved" && <StatusBadge tone="info" label={`Amended report · version ${order.version}`} />}
@@ -121,7 +131,7 @@ export default function LabOrderPage() {
         <div className="hl-strip" aria-label="Quality control today">
           <span className="muted">QC today:</span>
           {order.qc.map((q) => <StatusBadge key={q.parameter_id} tone={QC_WORDS[q.status][0]} label={`${q.name}: ${QC_WORDS[q.status][1]}`} />)}
-          {order.qc.some((q) => q.status === "rejected") && <Link className="chip-button" to={businessPath(biz.id, "lab-qc")}>Open quality control</Link>}
+          {order.qc.some((q) => q.status === "rejected") && <Link className="chip-button" to={biz.path("lab-qc")}>Open quality control</Link>}
         </div>
       )}
       <SectionCard flush icon="box" title="Samples">

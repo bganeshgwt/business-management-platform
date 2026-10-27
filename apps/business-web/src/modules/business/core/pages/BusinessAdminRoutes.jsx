@@ -219,6 +219,14 @@ function Guard({ section, children, nav = true }) {
 
 const page = (section, element) => <Guard section={section}>{element}</Guard>;
 
+// The clinic's and the lab's workspaces are screens of their own outside
+// Business Admin (workspaces/clinic, workspaces/lab): their menu links open
+// them, and so do their sections' addresses here.
+function OpenWorkspace({ address }) {
+  const { businessId } = useBusiness();
+  return <Navigate to={`/${address}/${businessId}`} replace />;
+}
+
 // Every screen of a business at /business-admin/<id>/<section>, by section.
 // The same screens open in a wide panel over the Overview (?open=<section>),
 // so the routes and the panel can never drift apart.
@@ -293,6 +301,8 @@ function screens(type) {
     "pharmacy-registers": <PharmacyRegistersPage />,
     "pharmacy-batches": <PharmacyBatchesPage />,
     "health-settings": <HealthSettingsPage />,
+    "clinic-workspace": <OpenWorkspace address="clinic" />,
+    "lab-workspace": <OpenWorkspace address="lab" />,
     "clinic-today": <ClinicTodayPage />,
     "clinic-queue": <TokenQueuePage />,
     doctors: <DoctorsPage />,

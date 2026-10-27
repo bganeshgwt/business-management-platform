@@ -28,6 +28,13 @@ export const LOGINS = [
   { role: "PUMP_ATTENDANT", name: "Mahesh Yadav", email: "attendant@fuel.e2e.invalid", businesses: ["fuel_station"], businessRole: "pump_attendant" },
   // The lodge's housekeeping, who makes the rooms up after the guests leave.
   { role: "HOUSEKEEPER", name: "Lakshmi Bai", email: "housekeeping@lodge.e2e.invalid", businesses: ["lodging"], businessRole: "housekeeping" },
+  // The clinic's people (clinic-lab.spec.js): the front desk, a doctor with
+  // their own queue, the lab technician and the pathologist who signs with a
+  // PIN of their own.
+  { role: "RECEPTION", name: "Divya Menon", email: "desk@clinic.e2e.invalid", businesses: ["healthcare"], businessRole: "cashier" },
+  { role: "DOCTOR", name: "Ravi Shankar", email: "doctor@clinic.e2e.invalid", businesses: ["healthcare"], businessRole: "doctor" },
+  { role: "LAB_TECH", name: "Imran Sheikh", email: "lab@clinic.e2e.invalid", businesses: ["healthcare"], businessRole: "lab_technician" },
+  { role: "PATHOLOGIST", name: "Anitha Rao", email: "pathologist@clinic.e2e.invalid", businesses: ["healthcare"], businessRole: "pathologist" },
 ];
 
 // The staff login a spec makes in the grocery's Staff & access, as the owner
@@ -379,9 +386,24 @@ export const LODGING = {
 
 // The clinic's front desk (live-updates.spec.js): a patient registered with
 // consent, given a token on one screen while the token queue is open on
-// another.
+// another. The clinic and lab workspaces (clinic-lab.spec.js): the DOCTOR's
+// calendar (their queue) and registration, the PATHOLOGIST's registration, a
+// haemoglobin test billed as a service, with its range for a woman and the
+// critical low; and the patient the front desk registers there, whom the
+// doctor sees and sends for the test.
 export const CLINIC = {
   patient: { name: "Lakshmi Narayanan", phone: "9000012345", sex: "female", ageYears: 52 },
+  doctor: { resource: "Dr. Ravi Shankar", signedName: "Dr. Ravi Shankar", qualification: "MBBS, MD (General Medicine)", registrationNo: "TSMC 31248" },
+  pathologist: { signedName: "Dr. Anitha Rao", qualification: "MD (Pathology)", registrationNo: "TSMC 40266" },
+  test: { code: "HB", name: "Haemoglobin", service: "Haemoglobin test", price: 150, unit: "g/dL", low: 12, high: 15.5, criticalLow: 7 },
+  walkIn: {
+    name: "Meera Krishnan", phone: "9000054321", ageYears: 38,
+    consultation: { bpSystolic: "150", bpDiastolic: "96", complaints: "Tiredness and breathlessness for two weeks", diagnosis: "Anaemia, to be confirmed" },
+    medicine: { drugName: "Ferrous sulphate", strength: "200 mg", frequency: "1-0-1", duration: "30 days" },
+    referral: { referredTo: "Dr. S. Rao, haematologist, City Hospital", reason: "Anaemia not explained by diet; please evaluate" },
+    // Low, not critical: 12 to 15.5 g/dL for a woman.
+    haemoglobin: "9.2",
+  },
 };
 
 // The salon: one stylist and one service.

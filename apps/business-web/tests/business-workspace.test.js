@@ -247,3 +247,17 @@ test('restaurant tools remain reachable within a permission-filtered area',()=>{
   assert.equal(restaurantRelated(menu,'/inventory/stock').length,2);
   assert.equal(restaurantRelated(menu,'/collection').length,2);
 });
+test('a clinic\'s menu opens its two workspaces, each only for a role that may open it',()=>{
+  // A permission counts only while its module is on, as the business context reports it.
+  const menu=(perms,has=()=>true)=>businessMenu(33,'healthcare',p=>perms.includes(p)&&has(p.split('.')[0]),has).flatMap(g=>g.links);
+  const daily=businessMenu(33,'healthcare',()=>true,()=>true).find(g=>g.title==='Daily work').links;
+  assert.deepEqual(daily.slice(1,3).map(l=>[l.section,l.label,l.to]),[['clinic-workspace','Clinic workspace','/clinic/33'],['lab-workspace','Lab workspace','/lab/33']]);
+  assert.deepEqual(daily.find(l=>l.section==='lab-workspace').pages.map(p=>p.to),['/lab/33']);
+  const sections=(perms,has)=>menu(perms,has).map(l=>l.section).filter(s=>s.endsWith('-workspace'));
+  assert.deepEqual(sections(['patients.view','patients.create','lab.view','lab.create']),['clinic-workspace','lab-workspace'],'the front desk');
+  assert.deepEqual(sections(['patients.view','patients.view_clinical','patients.edit_clinical','lab.view']),['clinic-workspace','lab-workspace'],'a doctor');
+  assert.deepEqual(sections(['lab.view','lab.edit']),['lab-workspace'],'the lab alone');
+  assert.deepEqual(sections(['sales.view','reports.view']),[],'neither for a role with no patients or lab');
+  assert.deepEqual(sections(['patients.view','lab.view'],m=>m!=='lab'),['clinic-workspace'],'no lab workspace while the lab is off');
+  for(const type of ['grocery','pharmacy','salon','lodging'])for(const section of ['clinic-workspace','lab-workspace'])assert.ok(!typeAllows(sectionRule(section,type),type),`${type}: no ${section}`);
+});

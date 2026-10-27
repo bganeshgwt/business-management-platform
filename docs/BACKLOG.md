@@ -12,7 +12,7 @@ What [ADMIN_GUIDE.md](ADMIN_GUIDE.md) and [API.md](API.md) describe is built. Th
 | Outside services | Online payment confirmation, live Swiggy / Zomato orders and menus per brand, SMS and WhatsApp messages, maps ([§1](#1-outside-integrations)) | Provider accounts and contracts; the go-ahead for maps |
 | Hardware | Silent receipt and kitchen printing, the cash drawer, a live weighing scale ([§2](#2-hardware)) | The printer and scale models in use |
 | Plans and subscriptions | Paid plans that decide which modules a business gets ([§3](#3-the-platform-layer)) | Plan names and prices |
-| Separate apps | Offline POS, clinic and lab workspaces, guests' pages for shops, appointments and their own account, salesperson app ([§4](#4-applications-beyond-the-admin)) | Priority and go-ahead |
+| Separate apps | Offline POS, guests' pages for shops, appointments and their own account, salesperson app ([§4](#4-applications-beyond-the-admin)) | Priority and go-ahead |
 | Expert review | The pharmacy, clinic and lab rules ([BUSINESS_RULES.md](BUSINESS_RULES.md#pharmacy-clinic-and-lab)); the GST reports and the Tally export | A pharmacist, a doctor, a legal adviser and an accountant |
 | New business types | Eleven more types work on the shared core, each but the general store with screens of its own; what is left inside them is in [§7](#7-left-inside-built-modules), and the rules every type still needs (personal data, an owner's GST thresholds, bills outside GST, the time of supply across a GST rate change) in [§10](#10-new-business-types) | Code; an accountant's and a legal adviser's check where §7 and §10 say so |
 
@@ -54,20 +54,19 @@ None of this can be finished without the equipment on a desk.
 
 ## 4. Applications beyond the admin
 
-The staff app (`apps/business-web`) covers every screen staff use, including the POS, the kitchen display and the captain app (`/captain`, a waiter's phone screen: [ADMIN_GUIDE.md › Captain app](ADMIN_GUIDE.md#captain-app); what is left of it is under Restaurant in [§7](#7-left-inside-built-modules)). The guests' pages (QR table ordering, online ordering and table booking) are an app of their own, the guests' site (`apps/customer-web`). Planned screens have their addresses, each with a page that says what is coming and what to use meanwhile: `/clinic` and `/lab` on the staff app, and `/shop`, `/appointments` and `/account` (*Coming soon*) on the guests' site.
+The staff app (`apps/business-web`) covers every screen staff use, including the POS, the kitchen display, the captain app (`/captain`, a waiter's phone screen: [ADMIN_GUIDE.md › Captain app](ADMIN_GUIDE.md#captain-app); what is left of it is under Restaurant in [§7](#7-left-inside-built-modules)) and a clinic's two workspaces (`/clinic` for the front desk and the doctors, `/lab` for sample collection and the lab: [ADMIN_GUIDE.md › Clinic workspace](ADMIN_GUIDE.md#clinic-workspace) and [Lab workspace](ADMIN_GUIDE.md#lab-workspace); what is left of them is under Clinic & lab in [§7](#7-left-inside-built-modules)). The guests' pages (QR table ordering, online ordering and table booking) are an app of their own, the guests' site (`apps/customer-web`). Planned screens have their addresses, each with a page that says what is coming and what to use meanwhile: `/shop`, `/appointments` and `/account` (*Coming soon*) on the guests' site.
 
 Still to build as separate apps:
 
 | App | What it needs |
 | --- | --- |
 | **POS app** (an offline-capable till) | A decision on offline: which actions may work without the network and how they reconcile (the server issues bill numbers); a device list. |
-| **Clinic and lab workspaces** (`/clinic` and `/lab` say what is coming) | One screen for the front desk and the doctors, and one for sample collection and the lab, built from the clinic and lab screens of Business Admin; the owner's go-ahead. |
 | **Customer website**: shop, appointments, account | The guests' site has the restaurant's ordering and booking pages, at the restaurant's own address when it sets one (*Service settings › Guest ordering web address*). The rest needs branding, hosting for each business's own address, the payment gateway (§1) and guest sign-in. |
 | **Salesperson app (wholesale)** | Order taking on the beat, offline, using the sales-order APIs. |
 
 ## 5. Live updates and the outbox
 
-The staff screens are live: a change made on one screen appears on every other open screen that shows it within about a second, and no screen asks the server every few seconds any more; most keep a slow safety net of a minute ([ARCHITECTURE.md › Live updates](ARCHITECTURE.md#35-live-updates)). That covers the restaurant's kitchen display, table requests, the POS, the captain app, deliveries, the collection display, the dashboard, reservations, the floor, the bell and notifications and the time clock, and in the other businesses the token queue, the salon calendar, my tasks, the jeweller's rate board and the bell. What is left:
+The staff screens are live: a change made on one screen appears on every other open screen that shows it within about a second, and no screen asks the server every few seconds any more; most keep a slow safety net of a minute ([ARCHITECTURE.md › Live updates](ARCHITECTURE.md#35-live-updates)). That covers the restaurant's kitchen display, table requests, the POS, the captain app, deliveries, the collection display, the dashboard, reservations, the floor, the bell and notifications and the time clock, and in the other businesses the token queue, the clinic and lab workspaces with the lab's orders, the salon calendar, my tasks, the jeweller's rate board and the bell. What is left:
 
 | Item | Where it stands | What it needs |
 | --- | --- | --- |
@@ -121,6 +120,9 @@ Known gaps, not defects. The owner decides when each is built.
 | **Salon** | Client online booking (the guests' site's `/appointments` page says *Coming soon*). Reminders sent by themselves by SMS or WhatsApp; staff open a prepared WhatsApp reminder. A *Book* button on the general Clients list; the client card, with *Book a visit*, opens from the calendar, the bill and the history. | Online booking can follow the restaurant's online booking; reminders need §1; the *Book* button is code only. |
 | **Meat / weight shops** | A live scale (§2). Pickup orders take no advance; note it on the order. Offcuts sold cheap have no "recovered ₹" figure. | The scale and its protocol (§2); the rest is code only. |
 | **Pharmacy** | An NDPS licence holder's own narcotic forms. Narcotic sales go into the Schedule X register. | The NDPS licence details. |
+| **Clinic & lab** | A prescription is typed by generic name against no drug list: a clinic has no drug master (a pharmacy's is its own), so the consultation offers the medicines the clinic's doctors have prescribed before, each as written most often, and nothing checks a medicine against the patient's allergies, their other medicines or its dose. | The owner's choice of a drug list for clinics (a drug master of the clinic's own, or a licensed drug database) and a doctor's review of the checks it should make; then code. |
+| **Clinic & lab** | The lab workspace's worklists are by test: a test has no department (haematology, biochemistry, microbiology) to gather them by. | Code only: a department on each test (*Tests & panels*), and a worklist by department. |
+| **Clinic & lab** | A test a doctor orders from the consultation reaches the lab unbilled, since a doctor's role does not bill: the front desk bills it on *Sales*, and the order still says *Not billed*, as a bill cannot be linked to an order afterwards. | Code only: billing an order's tests later, from the order or with the visit's bill. |
 | **Guests' site** | It loads the whole shared stylesheet, staff-only rules included. Trimming them out of `@bmp/ui` is a change of its own, checked screen by screen. | Code only. |
 | **Guests' site** | The backend has no default guest address (a `GUEST_WEB_URL` setting): only the staff app knows the guests' site's address. One is needed before the first SMS, WhatsApp or e-mail link is sent. | Code only. |
 | **Staff app** | The restaurant's header shows for a moment while a shop opens. | Code only. |

@@ -4,7 +4,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
 import SectionCard from "../../../../components/SectionCard";
 import StatusBadge from "../../../../components/StatusBadge";
-import { businessPath } from "../../../../services/businessNav";
 import { BusinessHeader, PeriodFilter } from "../../core/pages/ui";
 import { useOpenBusiness, useServerList } from "../../core/pages/hooks";
 import { ReportReady } from "./healthParts";
@@ -43,7 +42,7 @@ function VisitList({ biz, navigate }) {
   return (
     <SectionCard flush icon="list" title="Visits">
       <DataGrid {...list.gridProps} caption="Visits" columns={columns} currency={biz.symbol} toolbar={<PeriodFilter list={list} />} rowNoun={["visit", "visits"]}
-        onRowClick={(v) => navigate(businessPath(biz.id, `visits/${v.id}`))} exportName={biz.can("patients.export") ? `${biz.business.code}-visits` : undefined}
+        onRowClick={(v) => navigate(biz.path(`visits/${v.id}`))} exportName={biz.can("patients.export") ? `${biz.business.code}-visits` : undefined}
         empty="No visits in this period" emptyHint="Start a visit from Today's patients." emptyIcon="clipboard" />
     </SectionCard>
   );
@@ -62,7 +61,7 @@ function FollowUps({ biz, navigate }) {
   return (
     <SectionCard flush icon="calendar" title="Follow-ups due">
       <DataGrid {...list.gridProps} caption="Follow-ups" columns={columns} toolbar={<PeriodFilter list={list} />} rowNoun={["follow-up", "follow-ups"]}
-        onRowClick={(v) => navigate(businessPath(biz.id, `visits/${v.id}`))} empty="No follow-ups due in this period" emptyIcon="calendar" />
+        onRowClick={(v) => navigate(biz.path(`visits/${v.id}`))} empty="No follow-ups due in this period" emptyIcon="calendar" />
     </SectionCard>
   );
 }

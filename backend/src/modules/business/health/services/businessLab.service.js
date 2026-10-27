@@ -453,7 +453,7 @@ async function refer(business, user, orderId, body) {
       WHERE business_id=$1 AND id=$2 RETURNING *`, [business.id, order.id, outsideLab, text(body.referenceNo, 'Outside lab reference', 60), charge === null ? null : charge.toFixed(2),
       commission === null ? null : commission.toFixed(2)]);
     await repo.audit(db, business.id, user.id, 'lab.order_referred', order.id, { orderNo: order.order_no, outsideLab, charge, commission });
-    return row;
+    return seesResults(business) ? row : { ...row, amend_reason: null };
   });
 }
 
@@ -491,7 +491,9 @@ async function orderDetail(db, business, orderId, { log = true, forceResults = f
     if (log) await clinic.logClinicalView(business, order.contact_id, 'lab results', { orderNo: order.order_no });
   }
   const qc = ['received', 'in_process', 'resulted'].includes(order.status) ? await quality.orderQc(db, business, order.id) : [];
-  return { ...order, age, samples, tests, results_visible: results, qc };
+  // Why a signed report is being amended often quotes its values ("95 entered
+  // for 105"): it is for those who see the results.
+  return { ...order, ...(results ? {} : { amend_reason: null }), age, samples, tests, results_visible: results, qc };
 }
 async function order(business, orderId) {
   requireLab(business);
@@ -550,4 +552,39 @@ async function worklist(business) {
     (SELECT count(*)::int FROM lab_orders WHERE business_id=$1 AND outside_lab IS NOT NULL AND status NOT IN ('approved','cancelled')) AS outside_open`, [business.id]);
 }
 
-module.exports = { requireLab, saveTest, test, createOrder, sampleAction, sampleByBarcode, enterResults, approve, cancelOrder, refer, order, report, worklist };
+// The lab's bench (the lab workspace): every open order, whatever its day,
+// and those reported today, at the branch in view: each with its samples and
+// where they are (to collect, collected, in the lab, rejected and why) and its
+// tests with how many of their results are typed. Never a result: how many
+// values are out of range (and critical) only for those who see results.
+// Urgent orders first, then the oldest; reported ones last.
+const BENCH_LIMIT = 300;
+async function bench(business, query = {}) {
+  requireLab(business);
+  await access.require(business, 'lab.view');
+  const location = optionalId(query.location, 'Location');
+  const rows = await repo.all(repo.pool, `SELECT o.id,o.order_no,o.location_id,o.contact_id,o.visit_id,o.status,o.priority,o.referred_by,o.created_at,o.approved_at,o.version,
+      o.outside_lab,(o.amend_reason IS NOT NULL) AS amending,c.name AS patient_name,p.patient_no,p.sex,v.visit_no,d.document_no,
+      COALESCE((SELECT json_agg(json_build_object('id',s.id,'barcode',s.barcode,'sample_type',s.sample_type,'container',s.container,'status',s.status,
+          'reject_reason',s.reject_reason,'collected_at',s.collected_at,'collected_by_name',cu.name,'received_at',s.received_at,'received_by_name',ru.name) ORDER BY s.id)
+        FROM lab_samples s LEFT JOIN users cu ON cu.id=s.collected_by LEFT JOIN users ru ON ru.id=s.received_by
+        WHERE s.business_id=o.business_id AND s.order_id=o.id),'[]') AS samples,
+      COALESCE((SELECT json_agg(json_build_object('id',ot.id,'test_id',ot.test_id,'code',t.code,'name',t.name,'sample_id',ot.sample_id,'profile_name',pt.name,
+          'parameters',(SELECT count(*) FROM lab_parameters pm WHERE pm.business_id=ot.business_id AND pm.test_id=ot.test_id AND pm.active),
+          'entered',(SELECT count(*) FROM lab_results r WHERE r.business_id=ot.business_id AND r.order_test_id=ot.id)) ORDER BY ot.id)
+        FROM lab_order_tests ot JOIN lab_tests t ON t.business_id=ot.business_id AND t.id=ot.test_id
+        LEFT JOIN lab_tests pt ON pt.business_id=ot.business_id AND pt.id=ot.profile_id WHERE ot.business_id=o.business_id AND ot.order_id=o.id),'[]') AS tests,
+      (SELECT count(*)::int FROM lab_results r WHERE r.business_id=o.business_id AND r.order_id=o.id AND r.flag IN ('low','high','critical_low','critical_high','abnormal')) AS flagged,
+      (SELECT count(*)::int FROM lab_results r WHERE r.business_id=o.business_id AND r.order_id=o.id AND r.flag IN ('critical_low','critical_high')) AS critical
+    FROM lab_orders o JOIN businesses b ON b.id=o.business_id
+    JOIN business_contacts c ON c.business_id=o.business_id AND c.id=o.contact_id JOIN health_patients p ON p.business_id=o.business_id AND p.contact_id=o.contact_id
+    LEFT JOIN health_visits v ON v.business_id=o.business_id AND v.id=o.visit_id LEFT JOIN business_documents d ON d.business_id=o.business_id AND d.id=o.document_id
+    WHERE o.business_id=$1 AND ($2::bigint IS NULL OR o.location_id=$2)
+      AND (o.status NOT IN ('approved','cancelled') OR (o.status='approved' AND (o.approved_at AT TIME ZONE b.timezone)::date=(now() AT TIME ZONE b.timezone)::date))
+    ORDER BY (o.status='approved'),(o.priority='urgent') DESC,o.created_at,o.id LIMIT $3`, [business.id, location, BENCH_LIMIT + 1]);
+  const results = seesResults(business);
+  const orders = rows.slice(0, BENCH_LIMIT).map(({ flagged, critical, ...row }) => (results ? { ...row, flagged, critical } : row));
+  return { day: await h.today(repo.pool, business), server_time: new Date().toISOString(), results_visible: results, orders, more: rows.length > BENCH_LIMIT };
+}
+
+module.exports = { requireLab, seesResults, saveTest, test, createOrder, sampleAction, sampleByBarcode, enterResults, approve, cancelOrder, refer, order, report, worklist, bench };

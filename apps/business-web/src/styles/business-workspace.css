@@ -1,0 +1,118 @@
+/* A clinic's workspace (layouts/BusinessWorkspace.jsx, layouts/WorkspaceStart.jsx):
+   the app's own shell (.app-shell, .topbar, .content-scroll) with no side
+   menu: the workspace's bar, its tabs under it, and the screen below,
+   scrolling on its own. Made for a reception desk's computer, a tablet held
+   either way (1024 × 768) and a desktop, and still usable on a 390 px phone.
+   Colours from the tokens only, so dark mode follows by itself. */
+
+.ws-bar {
+  gap: 12px;
+}
+
+.ws-bar-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.ws-bar-tools .live-indicator {
+  flex-shrink: 0;
+}
+
+.ws-more .action-menu-trigger {
+  width: 40px;
+  height: 40px;
+}
+
+/* The tabs: a strip of their own under the bar, edge to edge (Business
+   Admin's related-pages tabs, flat). */
+.ws-tabs {
+  flex-shrink: 0;
+  padding: 0 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.ws-tabs .bz-workspace-nav {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.ws-main:focus {
+  outline: none;
+}
+
+/* The bar says whether the workspace is live; the screens' own marks (the
+   same stream) would say it twice. */
+.ws-content .page-header-actions .live-indicator {
+  display: none;
+}
+
+/* Choosing the clinic, and why a workspace does not open. */
+.ws-start,
+.ws-notice {
+  max-width: 760px;
+}
+
+.ws-start h1,
+.ws-notice h1 {
+  margin: 0 0 var(--space-2);
+}
+
+.ws-choices {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ws-choice {
+  width: 100%;
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ws-choice:hover {
+  border-color: var(--primary);
+  background: var(--chip-bg);
+}
+
+.ws-choice:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* A phone: the branch picker and a workspace's own tools give way to the
+   clinic's name and the person's menu (Business Admin has the picker too). */
+@media (max-width: 640px) {
+  .ws-bar {
+    padding: 8px 12px;
+  }
+
+  .ws-bar-tools .outlet-switcher,
+  .ws-bar-tools .ws-tool {
+    display: none;
+  }
+
+  .ws-tabs {
+    padding: 0 6px;
+  }
+}

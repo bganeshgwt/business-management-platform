@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
 import Icon from "@bmp/ui/Icon";
 import SectionCard from "../../../../components/SectionCard";
 import StatusBadge from "../../../../components/StatusBadge";
+import LiveIndicator from "../../../../components/LiveIndicator";
+import useLiveRefresh from "../../../../hooks/useLiveRefresh";
 import { ErrorMessage, Loading } from "../../../../components/Feedback";
 import { businessRead, businessWrite } from "../../../../services/business.service";
-import { businessPath } from "../../../../services/businessNav";
 import { getErrorMessage } from "../../../../services/api";
 import { dateShort, dateTime } from "@bmp/shared/format";
 import { toast } from "../../../../services/toast";
@@ -18,21 +19,34 @@ import { usePaymentMethods } from "../../core/pages/paymentMethods";
 const PAY_KINDS = ["upi", "cash", "card"];
 import { FlagBadge, LabStatus, ReportReady } from "./healthParts";
 import { SEX_WORDS, resultText } from "./healthFormat";
-import { printPrescription } from "./healthPrint";
+import { printPrescription, printReferral } from "./healthPrint";
 import "../styles/health.css";
 
 // One visit. The doctor writes the consultation: vitals, complaints,
 // examination, diagnosis (free text and an optional ICD-10 code), advice, the
-// prescription by generic name and the follow-up date; completing it closes
-// the record (a later correction is a dated note) and marks the appointment
-// done. The front desk sees only who, when, the bill and whether the report
-// is ready, and bills the visit or orders tests from here.
+// prescription by generic name, the follow-up date and a referral (to whom
+// and why, with its letter); completing it closes the record (a later
+// correction is a dated note) and marks the appointment done. As a doctor
+// types a medicine, the ones this clinic has prescribed before are offered,
+// each with its usual strength, dose and timing. The front desk sees only
+// who, when, the bill and whether the report is ready, and bills the visit or
+// orders tests from here.
+//
+// Live: the visit's own changes and those of its lab orders (a sample taken,
+// a report approved) show within a second, unless something is being typed
+// here. It has no minute's safety net: every read of a consultation is
+// logged as a look at clinical data.
+//
+// The clinic workspace opens it beside the doctor's queue: onLoaded(visit)
+// says whose visit it is, and onOrdered(order) keeps the consultation open
+// after tests are ordered (Business Admin goes on to the lab order).
 const VITALS = [["bpSystolic", "bp_systolic", "BP systolic", "mmHg", 40, 300, 1], ["bpDiastolic", "bp_diastolic", "BP diastolic", "mmHg", 20, 200, 1],
   ["pulse", "pulse", "Pulse", "/min", 20, 250, 1], ["temperatureC", "temperature_c", "Temperature", "°C", 30, 45, 0.1], ["spo2", "spo2", "SpO₂", "%", 50, 100, 1],
   ["respRate", "resp_rate", "Breathing", "/min", 4, 80, 1], ["weightKg", "weight_kg", "Weight", "kg", 0.5, 400, 0.1], ["heightCm", "height_cm", "Height", "cm", 20, 250, 0.1]];
 const blankItem = () => ({ key: newKey(), drugName: "", strength: "", dose: "", frequency: "", duration: "", instructions: "" });
+const RX_FIELDS = ["strength", "dose", "frequency", "duration", "instructions"];
 
-export default function VisitPage() {
+export default function VisitPage({ onLoaded, onOrdered }) {
   const biz = useOpenBusiness();
   const { visitId } = useParams();
   const navigate = useNavigate();
@@ -44,19 +58,54 @@ export default function VisitPage() {
   const [busy, setBusy] = useState(false);
   const [version, setVersion] = useState(0);
   const [dialog, setDialog] = useState(null);
+  const [medicines, setMedicines] = useState([]);
+  const medicineList = useId();
+  const loaded = useRef(onLoaded);
+  const typing = useRef(false);
+  const orderIds = useRef([]);
   useDirtyGuard(dirty);
+  useEffect(() => { loaded.current = onLoaded; });
+  useEffect(() => { typing.current = dirty; }, [dirty]);
   useEffect(() => {
     const controller = new AbortController();
     businessRead(biz.id, `clinic/visits/${visitId}`, undefined, controller.signal).then((v) => {
       setVisit(v); setError(""); setDirty(false);
       setForm(Object.fromEntries([...VITALS.map(([key, col]) => [key, v[col] ?? ""]), ["complaints", v.complaints || ""], ["examination", v.examination || ""], ["diagnosis", v.diagnosis || ""],
-        ["icd10Code", v.icd10_code || ""], ["advice", v.advice || ""], ["followUpOn", v.follow_up_on ? String(v.follow_up_on).slice(0, 10) : ""]]));
+        ["icd10Code", v.icd10_code || ""], ["advice", v.advice || ""], ["followUpOn", v.follow_up_on ? String(v.follow_up_on).slice(0, 10) : ""],
+        ["referredTo", v.referred_to || ""], ["referralReason", v.referral_reason || ""]]));
       setItems((v.prescription || []).map((p) => ({ key: String(p.id), drugName: p.drug_name, strength: p.strength || "", dose: p.dose || "", frequency: p.frequency || "", duration: p.duration || "", instructions: p.instructions || "" })));
+      orderIds.current = (v.lab_orders || []).map((o) => String(o.id));
+      if (loaded.current) loaded.current(v);
     }).catch((err) => { if (!controller.signal.aborted) setError(getErrorMessage(err)); });
     return () => controller.abort();
   }, [biz.id, visitId, version]);
+  const reload = useCallback((batch) => {
+    const ours = batch.reasons.some((reason) => reason !== "change") || batch.changes.some((change) =>
+      (change.area === "visit" && String(change.id) === String(visitId)) || (change.area === "lab" && orderIds.current.includes(String(change.id))));
+    if (ours && !typing.current) setVersion((n) => n + 1);
+  }, [visitId]);
+  const live = useLiveRefresh({ business: biz.id }, ["visit", "lab"], reload, { every: 0, refreshOnVisible: false });
+  // The medicines offered as a doctor types: only while they may write this consultation.
+  const writing = Boolean(visit?.clinical_access && visit.status === "open" && biz.can("patients.edit_clinical"));
+  useEffect(() => {
+    if (!writing) return undefined;
+    const controller = new AbortController();
+    businessRead(biz.id, "clinic/medicines", undefined, controller.signal).then(setMedicines).catch(() => {});
+    return () => controller.abort();
+  }, [biz.id, writing]);
   const set = (key) => (e) => { setForm((f) => ({ ...f, [key]: e.target.value })); setDirty(true); };
   const setItem = (key, patch) => { setItems((all) => all.map((i) => (i.key === key ? { ...i, ...patch } : i))); setDirty(true); };
+  // A medicine this clinic has prescribed before fills its usual strength,
+  // dose, timing and duration, on a line that has none of them yet.
+  const setMedicine = (key, value) => {
+    const known = medicines.find((m) => m.drug_name.toLowerCase() === value.trim().toLowerCase());
+    setItems((all) => all.map((i) => {
+      if (i.key !== key) return i;
+      const blank = RX_FIELDS.every((field) => !i[field]);
+      return known && blank ? { ...i, drugName: value, ...Object.fromEntries(RX_FIELDS.map((field) => [field, known[field] || ""])) } : { ...i, drugName: value };
+    }));
+    setDirty(true);
+  };
 
   async function save(complete) {
     setBusy(true); setError("");
@@ -71,9 +120,18 @@ export default function VisitPage() {
       setError(getErrorMessage(err));
     } finally { setBusy(false); }
   }
-  const printRx = async () => {
+  const withSeller = (print) => async () => {
     const settings = await businessRead(biz.id, "health/settings").catch(() => ({}));
-    printPrescription(visit, settings.seller, biz.business.name);
+    print(visit, settings.seller, biz.business.name);
+  };
+  // Tests ordered: Business Admin goes on to the lab order; the clinic
+  // workspace stays on the consultation, the order added to it.
+  const ordered = (order) => {
+    if (!onOrdered) { navigate(biz.path(`lab-orders/${order.id}`)); return; }
+    setDialog(null);
+    orderIds.current = [...orderIds.current, String(order.id)];
+    setVisit((v) => ({ ...v, lab_status: "pending", lab_orders: [...(v.lab_orders || []), { id: order.id, order_no: order.order_no, status: order.status, approved_at: order.approved_at }] }));
+    onOrdered(order);
   };
 
   if (!visit || !form) return <div className="stack"><BusinessHeader icon="clipboard" title="Visit" /><ErrorMessage message={error} />{!error && <Loading />}</div>;
@@ -85,9 +143,11 @@ export default function VisitPage() {
     <div className="stack">
       <BusinessHeader icon="clipboard" title={`${visit.patient_name} · ${visit.visit_no}`}
         description={`${visit.patient_no} · ${SEX_WORDS[visit.sex]} · ${visit.age} y · ${visit.doctor_name || "No doctor"} · ${dateTime(visit.created_at)}`}
+        actions={<LiveIndicator status={live} />}
         primary={canWrite && <button type="button" className="button" disabled={busy} onClick={() => save(true)}><Icon name="check" size={16} /> Complete consultation</button>}
-        secondary={<Link className="button button-secondary" to={businessPath(biz.id, `patients/${visit.contact_id}`)}>Patient</Link>}
-        more={[clinical && biz.can("patients.print") && { label: "Print prescription", icon: "print", onClick: printRx },
+        secondary={<Link className="button button-secondary" to={biz.path(`patients/${visit.contact_id}`)}>Patient</Link>}
+        more={[clinical && biz.can("patients.print") && { label: "Print prescription", icon: "print", onClick: withSeller(printPrescription) },
+          clinical && visit.referred_to && biz.can("patients.print") && { label: "Print referral letter", icon: "print", onClick: withSeller(printReferral) },
           !visit.document_id && biz.can("sales.create") && { label: "Bill this visit", icon: "receipt", onClick: () => setDialog("bill") },
           biz.has("lab") && biz.can("lab.create") && { label: "Order tests", icon: "activity", onClick: () => setDialog("lab") }].filter(Boolean)} />
       <div className="hl-strip">
@@ -95,6 +155,7 @@ export default function VisitPage() {
         {visit.document_no ? <StatusBadge status="paid" label={`Billed ${visit.document_no} · ${biz.exact(visit.bill_total)}`} /> : <StatusBadge tone="warning" label="Not billed" />}
         <ReportReady status={visit.lab_status} />
         {visit.follow_up_on && <StatusBadge tone="info" label={`Follow-up ${dateShort(visit.follow_up_on, { year: true })}`} />}
+        {clinical && visit.referred_to && <StatusBadge tone="info" label={`Referred to ${visit.referred_to}`} />}
       </div>
       <ErrorMessage message={error} />
       {!clinical ? (
@@ -118,13 +179,24 @@ export default function VisitPage() {
                 <Field label="ICD-10 code (optional)" hint="e.g. J06.9, E11.9, I10"><input maxLength={10} pattern="[A-Za-z][0-9][0-9A-Za-z](\.[0-9A-Za-z]{1,4})?" title="A letter, two characters, then an optional . and up to four" value={form.icd10Code} onChange={set("icd10Code")} /></Field>
                 <Field label="Advice" wide><textarea rows={2} maxLength={2000} value={form.advice} onChange={set("advice")} /></Field>
                 <Field label="Follow-up on"><input type="date" min={businessToday(biz.business.timezone)} value={form.followUpOn} onChange={set("followUpOn")} /></Field>
+                <Field label="Referred to" hint="A specialist or a hospital, e.g. Dr. S. Rao, cardiologist, City Hospital"><input maxLength={200} value={form.referredTo} onChange={set("referredTo")} /></Field>
+                <Field label="Reason for the referral" wide><textarea rows={2} maxLength={1000} value={form.referralReason} onChange={set("referralReason")} /></Field>
               </div>
             </SectionCard>
-            <SectionCard flush icon="file" title="Prescription" description="By generic name. Printed with the doctor's registration number."
+            <SectionCard flush icon="file" title="Prescription"
+              description={canWrite && medicines.length ? "By generic name; the medicines this clinic has prescribed before are offered as you type. Printed with the doctor's registration number."
+                : "By generic name. Printed with the doctor's registration number."}
               actions={canWrite && <button type="button" className="button button-secondary" onClick={() => { setItems((all) => [...all, blankItem()]); setDirty(true); }}><Icon name="plus" size={15} /> Add medicine</button>}>
+              {canWrite && medicines.length > 0 && (
+                <datalist id={medicineList}>
+                  {medicines.map((m) => <option key={m.drug_name} value={m.drug_name} label={[m.strength, m.dose, m.frequency, m.duration].filter(Boolean).join(" · ")} />)}
+                </datalist>
+              )}
               <DataGrid id="clinic-visit-prescription" caption="Prescription" variant="editor" rows={items} rowKey={(i) => i.key} pageSize={false} columns={[
                 ["drugName", "Medicine (generic)", 150], ["strength", "Strength", 60], ["dose", "Dose", 60], ["frequency", "When (1-0-1)", 60], ["duration", "For", 60], ["instructions", "Instructions", 200],
-              ].map(([key, header, max]) => ({ key, header, value: (i) => i[key], render: (i, ctx) => <input aria-label={ctx.label} maxLength={max} required={key === "drugName"} value={i[key]} onChange={(e) => setItem(i.key, { [key]: e.target.value })} /> }))
+              ].map(([key, header, max]) => ({ key, header, value: (i) => i[key], render: (i, ctx) => (key === "drugName"
+                ? <input aria-label={ctx.label} maxLength={max} required list={canWrite && medicines.length ? medicineList : undefined} autoComplete="off" value={i[key]} onChange={(e) => setMedicine(i.key, e.target.value)} />
+                : <input aria-label={ctx.label} maxLength={max} value={i[key]} onChange={(e) => setItem(i.key, { [key]: e.target.value })} />) }))
                 .concat(canWrite ? [{ key: "actions", header: "", label: "Actions", type: "actions", render: (i) => <button type="button" className="link-button danger" onClick={() => { setItems((all) => all.filter((x) => x.key !== i.key)); setDirty(true); }}>Remove</button> }] : [])}
                 empty="No medicines" emptyHint={canWrite ? "Add each medicine by its generic name." : undefined} />
             </SectionCard>
@@ -154,7 +226,7 @@ export default function VisitPage() {
       )}
       {visit.lab_orders?.length > 0 && (
         <SectionCard flush icon="activity" title="Lab orders">
-          <DataGrid id="clinic-visit-lab" caption="Lab orders" variant="compact" rows={visit.lab_orders} onRowClick={(o) => navigate(businessPath(biz.id, `lab-orders/${o.id}`))} columns={[
+          <DataGrid id="clinic-visit-lab" caption="Lab orders" variant="compact" rows={visit.lab_orders} onRowClick={(o) => navigate(biz.path(`lab-orders/${o.id}`))} columns={[
             { key: "no", header: "Order", value: (o) => o.order_no, className: "mono", mobile: "title" },
             { key: "status", header: "Status", value: (o) => o.status, render: (o) => <LabStatus status={o.status} />, mobile: "show" },
             { key: "approved", header: "Reported", type: "datetime", value: (o) => o.approved_at },
@@ -163,7 +235,7 @@ export default function VisitPage() {
       )}
       {dialog === "note" && <NoteDialog visitId={visit.id} onClose={() => setDialog(null)} onSaved={() => { setDialog(null); setVersion((n) => n + 1); }} />}
       {dialog === "bill" && <BillDialog visit={visit} onClose={() => setDialog(null)} onSaved={() => { setDialog(null); setVersion((n) => n + 1); }} />}
-      {dialog === "lab" && <OrderTestsDialog visit={visit} onClose={() => setDialog(null)} onSaved={(o) => navigate(businessPath(biz.id, `lab-orders/${o.id}`))} />}
+      {dialog === "lab" && <OrderTestsDialog visit={visit} onClose={() => setDialog(null)} onSaved={ordered} />}
     </div>
   );
 }
@@ -210,12 +282,15 @@ function BillDialog({ visit, onClose, onSaved }) {
   );
 }
 
+// Tests for a visit or a patient. Billed now only by someone who bills (a
+// doctor's order is billed at the desk); the order reaches the lab either way.
 export function OrderTestsDialog({ visit, patient, onClose, onSaved }) {
   const biz = useOpenBusiness();
   const { options, error } = useOptions(["lab/tests?active=true"]);
+  const canBill = biz.can("sales.create");
   const [chosen, setChosen] = useState([]);
   const [priority, setPriority] = useState("routine");
-  const [bill, setBill] = useState(true);
+  const [bill, setBill] = useState(canBill);
   const [method, setMethod] = useState("upi");
   const methods = usePaymentMethods();
   const [key] = useState(newKey);
@@ -235,7 +310,7 @@ export function OrderTestsDialog({ visit, patient, onClose, onSaved }) {
         {!tests.length && <p className="muted">No tests set up yet (Lab orders › Tests & panels).</p>}
       </div>
       <Field label="Priority"><select value={priority} onChange={(e) => setPriority(e.target.value)}><option value="routine">Routine</option><option value="urgent">Urgent</option></select></Field>
-      <label className="hl-check"><input type="checkbox" checked={bill} onChange={(e) => setBill(e.target.checked)} /> Bill the tests now{bill && total ? ` (${biz.exact(total)})` : ""}</label>
+      {canBill && <label className="hl-check"><input type="checkbox" checked={bill} onChange={(e) => setBill(e.target.checked)} /> Bill the tests now{bill && total ? ` (${biz.exact(total)})` : ""}</label>}
       {bill && <Field label="Paid by"><select value={methods.resolve(method, PAY_KINDS)} onChange={(e) => setMethod(e.target.value)}>{methods.options(PAY_KINDS).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}</select></Field>}
     </FormDialog>
   );
