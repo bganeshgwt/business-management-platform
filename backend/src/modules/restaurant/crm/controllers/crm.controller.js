@@ -4,6 +4,8 @@ const v = require("../../../../utils/validate");
 const AppError = require("../../../../utils/AppError");
 const { readMobile } = require("../../../../utils/phone");
 const { readGstin } = require("../../../../utils/gstin");
+const consents = require("../../../personal-data/services/consents");
+const personalData = require("../../../personal-data/services/personalDataRestaurant");
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -146,6 +148,11 @@ const readCustomerBody = (body = {}, today) => {
     data.marketingOptIn = v.requiredBoolean(body.marketingOptIn, "Offers consent", false);
   }
 
+  // Consent per purpose, each yes or no: bills on WhatsApp or SMS, reminders, offers.
+  if (has(body, "consents")) {
+    data.consents = consents.readChoices(body.consents) || undefined;
+  }
+
   // "This is a different number" after the form was told another guest holds
   // the same ten digits in the other form (+9598473967 and 9598473967).
   if (has(body, "sameDigitsConfirmed")) {
@@ -245,16 +252,15 @@ const exportGuestBook = async (req, res) => {
   res.json({ success: true, data: result });
 };
 
+// A consent given or withdrawn on the form is logged with the consent itself,
+// in the same transaction (modules/personal-data).
 const createCustomer = async (req, res) => {
   const customer = await crmService.createCustomer(
     req.user.restaurantId,
     readCustomerBody(req.body, await crmService.todayFor(req.user.restaurantId)),
-    req.user.id
+    req.user.id,
+    { userName: req.user.name }
   );
-
-  if (customer.marketingOptIn) {
-    logAction(req, "consent_given", "customer", { id: customer.id, label: customer.name });
-  }
 
   res.status(201).json({ success: true, message: "Customer created", data: customer });
 };
@@ -268,17 +274,8 @@ const updateCustomer = async (req, res) => {
     readCustomerBody(req.body, await crmService.todayFor(req.user.restaurantId)),
     req.user.id,
     // A form that could not show the number sends its box back empty.
-    { reveal, keepHiddenContact: !reveal }
+    { reveal, keepHiddenContact: !reveal, userName: req.user.name }
   );
-
-  // Consent is what the law asks a restaurant to be able to show, so every
-  // change to it is on the activity log with who recorded it.
-  if (before.marketingOptIn !== after.marketingOptIn) {
-    logAction(req, after.marketingOptIn ? "consent_given" : "consent_withdrawn", "customer", {
-      id,
-      label: after.name,
-    });
-  }
 
   if (before.gstin !== after.gstin || before.companyName !== after.companyName) {
     logAction(req, "update_business", "customer", {
@@ -309,10 +306,14 @@ const removeCustomer = async (req, res) => {
 
 // "Delete my data". The activity log names the record by number only: writing
 // the guest's name there would keep exactly what they asked to have removed.
+// The erasure is kept in the requests register (Settings › Personal data) as
+// a request received and done today, with the reason as what was asked.
 const eraseCustomer = async (req, res) => {
   const id = v.requiredId(req.params.id, "Customer id");
   const reason = v.requiredString(req.body?.reason, "Reason", 200);
-  const result = await crmService.eraseCustomer(req.user.restaurantId, id, req.user.id);
+  const result = await crmService.eraseCustomer(req.user.restaurantId, id, req.user.id, {
+    within: (client, erased) => personalData.recordGuestBookErasure(client, req.user, id, reason, erased),
+  });
 
   logAction(req, "erase", "customer", {
     id,

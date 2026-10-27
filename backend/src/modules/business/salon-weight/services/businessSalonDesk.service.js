@@ -4,6 +4,7 @@ const AppError = require('../../../../utils/AppError');
 const access = require('../../core/services/businessAccess.service');
 const core = require('../../core/services/business.service');
 const salon = require('./businessSalon.service');
+const consents = require('../../../personal-data/services/consents');
 
 // Salon & spa front desk: moving a booking, arrival, the
 // walk-in waiting list, WhatsApp confirmations and reminders (recorded),
@@ -169,6 +170,11 @@ async function messageSent(business, user, appointmentId, body) {
     await access.requireAppointmentLocation(db, business, appointment);
     if (!appointment) fail('Appointment not found', 404);
     if (appointment.status !== 'booked') fail('Only a booking still to come gets a confirmation or reminder', 409);
+    // A reminder needs the client's consent to reminders; a confirmation is of the booking they asked for.
+    if (kind === 'reminder') {
+      const client = await repo.one(db, 'SELECT name FROM business_contacts WHERE business_id=$1 AND id=$2', [business.id, appointment.contact_id]);
+      await consents.requireReminder(db, business.id, appointment.contact_id, 'whatsapp', client?.name);
+    }
     const column = kind === 'confirmation' ? 'confirmation_sent_at' : 'reminder_sent_at';
     const row = await repo.one(db, `UPDATE salon_appointment_details SET ${column}=now() WHERE business_id=$1 AND appointment_id=$2 RETURNING ${column} AS sent_at`, [business.id, appointment.id]);
     if (!row) fail('This booking was made outside the salon calendar', 409);

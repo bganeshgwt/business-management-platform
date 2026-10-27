@@ -6,6 +6,7 @@ const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const { withTools } = require('./helpers/tools');
+const { publishNotice, giveConsent } = require('./helpers/privacy');
 const { daysFrom, momentAt } = require('./helpers/dates');
 const { signIn } = require('./helpers/signIn');
 
@@ -552,7 +553,11 @@ test('the garage', { timeout: 300000 }, async (t) => {
     assert.deepEqual([row(swift.id, 'insurance').due_by, row(tractor.id, 'puc').due_by, row(tractor.id, 'puc').days_left], [daysFrom(20), daysFrom(-3), -3]);
     assert.ok(!row(swift.id, 'service'), 'the Swift was serviced: its next service is months away');
     assert.ok(due.items.every((x, i, all) => i === 0 || String(all[i - 1].due_by) <= String(x.due_by)), 'the soonest due first');
-    // A reminder is kept and shows as recent for that reason only.
+    // A reminder is kept and shows as recent for that reason only. On WhatsApp,
+    // by SMS or by a call it needs the owner's consent to reminders.
+    await viewer.call('POST', G(`garage/vehicles/${city.id}/reminders`), { kind: 'service', channel: 'whatsapp' }, 409);
+    await publishNotice(request, `/businesses/${garage.id}`);
+    await giveConsent(request, `/businesses/${garage.id}`, ravi.id, ['reminders']);
     await viewer.call('POST', G(`garage/vehicles/${city.id}/reminders`), { kind: 'service', channel: 'whatsapp' }, 201);
     const reminded = await viewer.call('GET', G('garage/service-due?reminded=true'));
     assert.deepEqual(reminded.items.map((x) => [Number(x.vehicle_id), x.kind, x.reminders]), [[city.id, 'service', 1]]);

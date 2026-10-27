@@ -6,6 +6,7 @@ const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const { withTools } = require('./helpers/tools');
+const { publishNotice, giveConsent } = require('./helpers/privacy');
 const { daysFrom, weekdayOf, momentAt, zoneWithHour } = require('./helpers/dates');
 const { signIn } = require('./helpers/signIn');
 
@@ -180,6 +181,10 @@ test('salon & weight shops, day to day', { timeout: 300000 }, async (t) => {
     assert.equal(row.late, false);
     assert.ok(row.arrived_at);
     assert.equal(cal.totals.arrived, 1);
+    // A reminder needs the client's consent to reminders (a confirmation of the booking does not).
+    await request('POST', S(`salon/appointments/${booking.id}/messages`), { kind: 'reminder' }, 409);
+    await publishNotice(request, `/businesses/${salon.id}`);
+    await giveConsent(request, `/businesses/${salon.id}`, ananya.id, ['reminders']);
     const sent = await request('POST', S(`salon/appointments/${booking.id}/messages`), { kind: 'reminder' });
     assert.ok(sent.sentAt);
     await request('POST', S(`salon/appointments/${booking.id}/messages`), { kind: 'sms' }, 400);

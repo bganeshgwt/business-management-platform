@@ -5,6 +5,7 @@ const access = require('../../core/services/businessAccess.service');
 const service = require('../../core/services/business.service');
 const receivables = require('../../wholesale/services/businessReceivables.service');
 const offers = require('./businessOffers');
+const consents = require('../../../personal-data/services/consents');
 
 // Udhaar and loyalty for retail customers.
 //
@@ -79,6 +80,8 @@ async function remind(business, user, contactId, body) {
       const today = await repo.one(db, 'SELECT (now() AT TIME ZONE $1)::date::text AS day', [business.timezone]);
       if (promisedOn < today.day) fail('The promised date has already passed: choose today or a later date');
     }
+    // A reminder on WhatsApp, by SMS or by a call needs their consent to reminders; a visit does not.
+    await consents.requireReminder(db, business.id, contact.id, channel, contact.name);
     const row = await repo.one(db, `INSERT INTO retail_credit_reminders(business_id,contact_id,channel,balance,promised_on,note,created_by)
       VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [business.id, contact.id, channel, contact.balance, promisedOn, note, user.id]);
     await repo.audit(db, business.id, user.id, 'udhaar.reminded', row.id, { contactId: contact.id, channel, balance: contact.balance, promisedOn });

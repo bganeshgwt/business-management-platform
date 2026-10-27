@@ -28,6 +28,8 @@ import { getErrorMessage } from "../../../../services/api";
 import { moneyExact } from "@bmp/shared/format";
 import { BILL_PAYMENT_OPTIONS, orderTypeLabel, paymentMethodLabel } from "../../../../services/labels";
 import useAuth from "../../../../hooks/useAuth";
+import ConsentLink from "../../../personal-data/components/ConsentLink";
+import { useRestaurantPrivacy } from "../../../personal-data/usePrivacy";
 import "../../../../styles/billing.css";
 
 // One bill, the same on the POS and on the Bills screen: the bill as it will
@@ -103,6 +105,7 @@ export default function BillModal({
   onPaid,
 }) {
   const { user, hasPermission, hasFeature } = useAuth();
+  const privacy = useRestaurantPrivacy();
   const canBill = hasPermission("billing.manage");
   // Restaurant features (Settings -> Features): no tip box without Tips, no
   // "From advance" without Advances, no coupon without Coupons, no points
@@ -214,7 +217,8 @@ export default function BillModal({
   const panAsked = unsettled && Boolean(bill.panNeeded) && (!panOnBill || editingPan);
   const panBody = () => (pan.declaration ? { panDeclaration: true } : { pan: pan.number.trim() });
   // The bill sent to the guest's WhatsApp (wa.me: no API, the till's own
-  // WhatsApp sends it) when their whole number is on the bill.
+  // WhatsApp sends it) when their whole number is on the bill, and only with
+  // their consent to bills on WhatsApp (asked and recorded in one tap first).
   const guestDigits = String(bill.customerMobile || "").replace(/\D/g, "");
   const whatsAppLink =
     guestDigits.length >= 10 && !/x/i.test(bill.customerMobile || "")
@@ -1970,9 +1974,10 @@ export default function BillModal({
             Close
           </button>
           {whatsAppLink && (
-            <a className="button button-secondary" href={whatsAppLink} target="_blank" rel="noreferrer">
+            <ConsentLink privacy={privacy} purpose="bills_digital" person={bill.customerId ? { id: bill.customerId, name: bill.customerName } : null}
+              href={whatsAppLink} className="button button-secondary">
               <Icon name="phone" size={16} /> Send on WhatsApp
-            </a>
+            </ConsentLink>
           )}
           {/* One main button at a time: while money is still to be taken,
               "Take ₹…" above is it and printing is secondary. */}

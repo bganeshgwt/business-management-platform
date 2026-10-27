@@ -21,7 +21,7 @@ const AREAS = {
   customers: ['/crm/customers', '/crm/feedback', '/crm/complaints', '/crm/insights'],
   staff: ['/staff', '/staff/shifts', '/staff/attendance', '/staff/timeclock', '/staff/payroll', '/staff/tips', '/my-work'],
   reports: ['/reports', '/activity-log', '/logbook'],
-  settings: ['/restaurant/settings', '/restaurant/profile', '/restaurant/hours', '/restaurant/features', '/restaurant/outlets', '/service/settings', '/discounts'],
+  settings: ['/restaurant/settings', '/restaurant/profile', '/restaurant/hours', '/restaurant/features', '/restaurant/outlets', '/service/settings', '/discounts', '/privacy'],
   access: ['/users', '/roles'],
   // Tasks draws its own tabs (TasksNav); the menu opens the first page this person may use.
   tasks: ['/tasks', '/tasks/issues', '/tasks/projects', '/tasks/board', '/tasks/calendar', '/tasks/templates', '/tasks/recurring', '/tasks/reports'],

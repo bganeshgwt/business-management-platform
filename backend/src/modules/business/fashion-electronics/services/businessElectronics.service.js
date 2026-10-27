@@ -23,8 +23,10 @@ function requireModule(business, code, name) {
   if (!business.modules.includes(code)) fail(`${name} is not switched on for this business. An owner can turn it on in Settings › Business tools.`, 403);
 }
 // The last ten digits of a phone number: "+91 98450-12345" → "9845012345".
+// A phone's last 10 digits, to find a warranty or a repair by; null when no phone was given.
 function phoneDigits(phone, name = 'Phone') {
-  const digits = String(phone ?? '').replace(/\D/g, '').slice(-10);
+  if (phone === undefined || phone === null || !String(phone).trim()) return null;
+  const digits = String(phone).replace(/\D/g, '').slice(-10);
   if (digits.length < 6) fail(`${name} needs at least 6 digits`);
   return digits;
 }
@@ -244,8 +246,8 @@ async function register(business, user, body) {
     if (!months) fail('Set the warranty months (this model has none set)');
     const customerName = v.optionalString(body.customerName, 'Customer name', 150) || line.contact_name;
     if (!customerName) fail('Enter the customer\'s name');
-    const customerPhone = v.optionalString(body.customerPhone, 'Customer phone', 30) || line.contact_phone;
-    if (!customerPhone) fail('Enter the customer\'s phone number, so the warranty can be found by it');
+    // The phone is optional: the serial and the bill find a warranty too.
+    const customerPhone = v.optionalString(body.customerPhone, 'Customer phone', 30) || line.contact_phone || null;
     const terms = body.terms === undefined ? line.warranty_terms : v.optionalString(body.terms, 'Warranty terms', 1000);
     const row = await repo.one(db, `INSERT INTO electronics_warranties(business_id,document_id,line_id,sku_id,serial,item_label,contact_id,customer_name,customer_phone,phone_digits,
         starts_on,ends_on,months,terms,request_key,request_hash,created_by)
@@ -312,15 +314,16 @@ const lists = {
 
 // A sale of serial-numbered units registers each unit's warranty at once:
 // the model's months and terms, from the day of the sale,
-// to the customer on the bill (or the walk-in's name and phone given at the
-// counter). Inside the sale's own transaction. A unit whose model has no
-// warranty, or a sale with no name and phone, is left for Warranties ›
-// Register (it shows there as sold without a warranty).
+// to the customer on the bill (or the walk-in's name, and phone if given, at
+// the counter). Inside the sale's own transaction. A unit whose model has no
+// warranty, or a sale with no name, is left for Warranties › Register (it
+// shows there as sold without a warranty).
 async function registerOnSale(db, business, user, sale, lines, { contact, buyer }) {
   const name = contact?.name || buyer?.name || null;
   const phone = contact?.phone || buyer?.phone || null;
-  const digits = String(phone ?? '').replace(/\D/g, '').slice(-10);
-  if (!name || digits.length < 6) return [];
+  const raw = String(phone ?? '').replace(/\D/g, '').slice(-10);
+  const digits = raw.length >= 6 ? raw : null;
+  if (!name) return [];
   const registered = [];
   for (const line of lines) {
     if (line.sku.tracking !== 'serial' || !line.lotCode || !line.id) continue;

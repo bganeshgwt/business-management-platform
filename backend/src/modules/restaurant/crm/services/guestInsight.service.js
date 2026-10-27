@@ -4,6 +4,7 @@ const { round2 } = require("../../../../utils/money");
 const { maskMobile, mobileSearchDigits, normaliseMobile } = require("../../../../utils/phone");
 const { maskEmail } = require("./crm.service");
 const ruleSettings = require("../../setup/services/ruleSettings.service");
+const personalData = () => require("../../../personal-data/services/personalDataRestaurant");
 
 // Guest insights: who comes back, who stopped, who to thank.
 //
@@ -791,11 +792,15 @@ const segmentList = async (
 // far. The caller logs it. With reveal false the contacts are masked and the
 // search finds numbers only as the list itself does (last 4 digits or the
 // whole number), so an export cannot be used to probe a hidden number either.
-const segmentExport = async (restaurantId, key, { search = null, reveal = true } = {}, now = new Date()) => {
+// forOffers (the mobiles for a broadcast of offers): only the guests who
+// agreed to offers and are not marked as a child; leftOut counts the rest.
+const segmentExport = async (restaurantId, key, { search = null, reveal = true, forOffers = false } = {}, now = new Date()) => {
   const segment = findSegment(key);
   const { guests, context } = await load(restaurantId, now);
   const members = membersOf(segment, guests, context);
-  const matching = members.filter((guest) => matchesSearch(guest, search, reveal));
+  const searched = members.filter((guest) => matchesSearch(guest, search, reveal));
+  const audience = forOffers ? await personalData().offersAudience(restaurantId) : null;
+  const matching = audience ? searched.filter((guest) => audience.has(Number(guest.id))) : searched;
 
   if (matching.length > MAX_LIMIT) {
     const size = new Intl.NumberFormat("en-IN").format(matching.length);
@@ -821,6 +826,8 @@ const segmentExport = async (restaurantId, key, { search = null, reveal = true }
     // Guests with a mobile on file, whether or not this person may read it.
     withMobile: rows.filter((row) => row.mobile || row.mobileMasked).length,
     contactHidden: !reveal,
+    // Guests on the list left out of a broadcast of offers: no consent to offers, or a child.
+    leftOut: searched.length - matching.length,
   };
 };
 

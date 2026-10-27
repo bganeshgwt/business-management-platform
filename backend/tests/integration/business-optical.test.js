@@ -6,6 +6,7 @@ const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const { withTools } = require('./helpers/tools');
+const { publishNotice, giveConsent } = require('./helpers/privacy');
 const { daysFrom } = require('./helpers/dates');
 const { signIn } = require('./helpers/signIn');
 
@@ -504,6 +505,10 @@ test('the optical shop', { timeout: 300000 }, async (t) => {
     const setting = await one("SELECT details FROM business_audit WHERE business_id=$1 AND action='optical_settings.updated' ORDER BY id LIMIT 1", [optical.id]);
     assert.deepEqual(setting.details, { from: { recallMonths: 12 }, to: { recallMonths: 24 } });
     // A reminder is kept and shows as recent; a customer never tested here is not reminded.
+    // On WhatsApp the reminder needs her consent to reminders.
+    await viewer('POST', O(`optical/recall/${lakshmi.id}/reminders`), { channel: 'whatsapp' }, 409);
+    await publishNotice(request, `/businesses/${optical.id}`);
+    await giveConsent(request, `/businesses/${optical.id}`, lakshmi.id, ['reminders']);
     await viewer('POST', O(`optical/recall/${lakshmi.id}/reminders`), { channel: 'whatsapp' }, 201);
     recall = await viewer('GET', O('optical/recall?reminded=true'));
     assert.deepEqual(recall.items.map((r) => [r.name, r.reminded_recently, Boolean(r.reminded_at), r.reminders]), [['Lakshmi Devi', true, true, 1]]);

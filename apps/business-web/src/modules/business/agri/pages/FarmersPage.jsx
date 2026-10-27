@@ -18,6 +18,8 @@ import { useOpenBusiness, useOptions, useServerList } from "../../core/pages/hoo
 import { DocumentDetail } from "../../core/pages/DocumentsPage";
 import { seasonWord } from "./agri";
 import "../styles/agri.css";
+import { NewCustomerConsents } from "../../../personal-data/components/ConsentChoices";
+import { consentChanges } from "../../../personal-data/personalData";
 
 // Farmers & village dues: each farmer (a customer with their village,
 // father's or husband's name, land, crops and Agri Stack Farmer ID; never an
@@ -222,7 +224,8 @@ function FarmerDialog({ farmer, villages, onClose, onSaved }) {
     const details = { village: form.village.trim(), relativeName: form.relativeName.trim() || null, landAcres: form.landAcres || null, crops: form.crops.trim() || null,
       farmerId: form.farmerId.trim() || null, notes: form.notes.trim() || null };
     if (editing) return businessWrite(biz.id, `agri/farmers/${farmer.contact_id}`, details, "put");
-    return businessWrite(biz.id, "agri/farmers", form.contactId ? { ...details, contactId: form.contactId } : { ...details, name: form.name.trim(), phone: form.phone.trim() || null });
+    return businessWrite(biz.id, "agri/farmers", form.contactId ? { ...details, contactId: form.contactId }
+      : { ...details, name: form.name.trim(), phone: form.phone.trim() || null, consents: consentChanges(form.consents, []) || undefined });
   };
   return (
     <FormDialog title={editing ? `${farmer.name}'s details` : "Add a farmer"} icon="user-plus" width={640} onClose={onClose} onSaved={onSaved} onSubmit={submit}
@@ -240,6 +243,7 @@ function FarmerDialog({ farmer, villages, onClose, onSaved }) {
         <>
           <Field label="Name"><input required maxLength={150} value={form.name} onChange={set("name")} /></Field>
           <Field label="Phone (optional)"><input maxLength={30} inputMode="tel" value={form.phone} onChange={set("phone")} /></Field>
+          <NewCustomerConsents value={form.consents} onChange={(consents) => setForm((f) => ({ ...f, consents }))} />
         </>
       )}
       <Field label="Village">

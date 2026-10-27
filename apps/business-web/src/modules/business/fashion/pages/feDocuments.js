@@ -3,6 +3,7 @@ import { businessRead } from "../../../../services/business.service";
 import { dateShort } from "@bmp/shared/format";
 import { barcodeSvg } from "../../retail/services/barcode";
 import { printTaxInvoice } from "../../core/pages/invoice";
+import { privacyLine } from "../../../personal-data/printLine";
 
 // Printed papers of the fashion and electronics screens:
 // the new bill of an exchange, the credit voucher, small helpers.
@@ -36,7 +37,8 @@ function printVoucher(voucher, biz) {
       ${voucher.customer_name || voucher.contact_name ? `<dt>For</dt><dd>${escapeHtml(voucher.customer_name || voucher.contact_name)}${voucher.customer_phone ? ` · ${escapeHtml(voucher.customer_phone)}` : ""}</dd>` : ""}
       <dt>From bill</dt><dd>${escapeHtml(voucher.source_no || "")}</dd>
       <dt>Issued</dt><dd>${escapeHtml(dateShort(voucher.created_at, { year: true }))}</dd></dl>
-      <hr><small>Use against any purchase in this shop before the date above. Not exchangeable for cash. Part-used vouchers keep their balance.</small>`,
+      <hr><small>Use against any purchase in this shop before the date above. Not exchangeable for cash. Part-used vouchers keep their balance.</small>
+      ${privacyLine(biz) ? `<div class="c"><small>${escapeHtml(privacyLine(biz))}</small></div>` : ""}`,
   });
 }
 

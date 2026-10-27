@@ -64,7 +64,8 @@ const exportSegment = async (req, res) => {
     );
   }
 
-  const result = await guestInsightService.segmentExport(req.user.restaurantId, key, { search, reveal });
+  // Numbers for a broadcast are for offers: only the guests who agreed to them.
+  const result = await guestInsightService.segmentExport(req.user.restaurantId, key, { search, reveal, forOffers: format === "mobiles" });
 
   // Awaited, unlike most log entries: the record of who took the list is
   // written before the list leaves. Writing it never throws, so a logging
@@ -79,6 +80,7 @@ const exportSegment = async (req, res) => {
       search: result.search,
       guests: result.total,
       mobiles: result.withMobile,
+      leftOut: result.leftOut || undefined,
       ...(reveal ? {} : { contacts: "masked" }),
     },
   });

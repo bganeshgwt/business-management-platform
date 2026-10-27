@@ -15,6 +15,9 @@ import { businessToday, useOpenBusiness, useOptions, useServerList } from "../..
 import { Segmented } from "../../wholesale/pages/shared";
 import { AccountDialog, CollectionDialog, FollowUpDialog } from "./receivablesParts";
 import { printStatements, reminderText, whatsappLink } from "./receivablesFormat";
+// A reminder needs the customer's consent to reminders (asked first, in one tap).
+import ConsentLink from "../../../personal-data/components/ConsentLink";
+import { useShopPrivacy } from "../../../personal-data/usePrivacy";
 
 // Who owes what, and how old it is: 0–30, 31–60, 61–90 and over 90 days from
 // the bill date, with what is past its due date. Advances are applied to the
@@ -31,6 +34,7 @@ const SHOW = [
 
 export default function OutstandingPage() {
   const biz = useOpenBusiness();
+  const privacy = useShopPrivacy();
   const [params, setParams] = useSearchParams();
   const [show, setShow] = useState("owing");
   const [sort, setSort] = useState("outstanding");
@@ -76,13 +80,13 @@ export default function OutstandingPage() {
       return (
         <div className="row-actions">
           {biz.can("receivables.create") && Number(r.balance) > 0 && <button type="button" className="chip-button" onClick={() => setCollecting(r.contact_id)}>Collect</button>}
-          {wa && <a className="chip-button" href={wa} target="_blank" rel="noreferrer" title="Send a WhatsApp reminder">WhatsApp</a>}
+          {wa && <ConsentLink privacy={privacy} purpose="reminders" person={{ id: r.contact_id, name: r.name }} href={wa} title="Send a WhatsApp reminder">WhatsApp</ConsentLink>}
           {biz.can("receivables.create") && Number(r.balance) > 0 && <button type="button" className="chip-button" onClick={() => setFollowing(r)}>Promise</button>}
           <button type="button" className="chip-button" onClick={() => setAccount(r.contact_id)}>Account</button>
         </div>
       );
     } },
-  ], [biz, show, today]);
+  ], [biz, show, today, privacy]);
 
   // Every overdue customer's statement from their oldest unpaid bill, one per page.
   const printOverdue = async () => {

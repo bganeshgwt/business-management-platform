@@ -48,8 +48,9 @@ The tables behind these endpoints are in [DATABASE.md](DATABASE.md), and how a r
 36. [Hotels, lodges & guest houses](#hotels-lodges--guest-houses)
 37. [Tasks, issues & projects](#tasks-issues--projects)
 38. [Live updates](#live-updates)
+39. [Personal data](#personal-data)
 
-Sections 2 to 19 are the restaurant module's API, with the sign-in and platform routes every app uses. Sections 20 to 36 are the Business Admin's, under `/api/businesses`. Sections 37 and 38 serve both.
+Sections 2 to 19 are the restaurant module's API, with the sign-in and platform routes every app uses. Sections 20 to 36 are the Business Admin's, under `/api/businesses`. Sections 37 to 39 serve both.
 
 ## Conventions
 
@@ -2928,9 +2929,9 @@ Errors: 400 bad limit.
 
 #### `POST /api/crm/customers`
 Permission: `customers.manage`
-Body: `name` (string, required, <=150), `mobile` (normalised to one format), `email`, `address` (<=500), `dateOfBirth` / `anniversaryDate` (YYYY-MM-DD, not in the future), `notes` (<=500), `status` (`active`|`inactive`, default active), `companyName` (<=150), `gstin`, `tags` (array or comma list of `vip`,`allergy`,`jain`,`vegan`,`corporate`,`family`,`blogger`), `allergies` (<=300), `marketingOptIn` (bool), `sameDigitsConfirmed` (bool)
+Body: `name` (string, required, <=150), `mobile` (normalised to one format), `email`, `address` (<=500), `dateOfBirth` / `anniversaryDate` (YYYY-MM-DD, not in the future), `notes` (<=500), `status` (`active`|`inactive`, default active), `companyName` (<=150), `gstin`, `tags` (array or comma list of `vip`,`allergy`,`jain`,`vegan`,`corporate`,`family`,`blogger`), `allergies` (<=300), `consents` (`{ bills_digital?, reminders?, offers? }`, each yes or no: recorded, or withdrawn, as the guest's consents on the restaurant's privacy notice; see [Personal data](#personal-data)), `marketingOptIn` (bool: the consent to offers, when `consents` leaves it out), `sameDigitsConfirmed` (bool)
 Returns: 201, `data` = the customer.
-Errors: 400 GSTIN without `companyName`; 400 tag `allergy` without `allergies`; 409 mobile already held (`data: { existingId, existingName }`); 409 same ten digits in the other form (`data.reason: "same_digits"`, resend with `sameDigitsConfirmed: true` if genuinely different).
+Errors: 400 GSTIN without `companyName`; 400 tag `allergy` without `allergies`; 409 mobile already held (`data: { existingId, existingName }`); 409 same ten digits in the other form (`data.reason: "same_digits"`, resend with `sameDigitsConfirmed: true` if genuinely different); 409 `data.reason: "no_privacy_notice"` for a consent before the restaurant publishes its notice, and 409 for offers to a guest marked as a child (nothing is saved).
 
 #### `GET /api/crm/guest-book`
 Permission: `customers.view`
@@ -2992,8 +2993,8 @@ Errors: 404 guest is not marked as a possible duplicate.
 #### `POST /api/crm/customers/:id/erase`
 Permission: `customers.erase`
 Body: `reason` (string, required, <=200)
-Returns: `data` = `{ customer, pointsCancelled, cleared, detached }`. Personal details are removed everywhere (feedback, complaints, orders, bookings); bills stay; owed points are cancelled; open orders/bookings carry on as walk-ins. The log names the record by number only.
-Errors: 400 missing reason; 404 not found; 409 already erased.
+Returns: `data` = `{ customer, pointsCancelled, cleared, detached }`. Personal details are removed everywhere (feedback, complaints, orders, bookings, an online order's delivery address); bills stay; owed points are cancelled; the guest's consents are withdrawn and kept; open orders/bookings carry on as walk-ins. The log names the record by number only. The erasure is kept in the requests register ([Personal data](#personal-data)) as an erasure request received and done today, with the reason as what was asked.
+Errors: 400 missing reason; 404 not found; 409 already erased; 409 `data: { reason: "erasure_blocked", open[] }` while money is still between the guest and the restaurant (dues on account, an advance left, a pre-order to collect).
 
 #### `PUT /api/crm/customers/:id`
 Permission: `customers.manage`
@@ -4374,7 +4375,7 @@ Errors: 404 "Active price rule not found".
 
 #### `POST /api/businesses/:businessId/contacts`
 Permission: `contacts.create`
-Query/Body: `kind` (`customer`/`supplier`), `name` (required), `phone`, `email`, `address`, `gstin`, `pan` (five letters, four digits and a letter, any case), `creditLimit` (customers only), `creditDays` (0-365), `openingBalance` (signed), `openingBalanceOn` (date, required when there is an opening balance)
+Query/Body: `kind` (`customer`/`supplier`), `name` (required), `phone` (optional; one of only spaces counts as none), `email`, `address`, `gstin`, `pan` (five letters, four digits and a letter, any case), `creditLimit` (customers only), `creditDays` (0-365), `openingBalance` (signed), `openingBalanceOn` (date, required when there is an opening balance), `consents` (a customer's: `{ bills_digital?, reminders?, offers? }`, each `true` to record that consent on the privacy notice in force or `false` to withdraw it, a purpose left out staying as it is; 409 `no_privacy_notice` before the business publishes one, 409 for offers to a child; see [Personal data](#personal-data)). `PATCH` refuses an erased customer (409)
 Returns: 201, the contact.
 Errors: 400 a credit limit on a supplier, an invalid GSTIN or an invalid PAN.
 
@@ -4449,7 +4450,7 @@ Rules:
 - Cash of ₹2,00,000 or more is refused (409, a sentence citing section 186 of the Income-tax Act 2025) for one bill, and from one customer in one business day across their bills and collection receipts. Other methods are not limited.
 - A supplier's bill number already received from that supplier is refused.
 - A kit sells as its parts, each at its share of the kit's price; a serial-numbered part makes it one kit per line. Saved lines carry `kit_sku_id`, `kit_label` and `kit_group`.
-- An EMI needs the customer named (a contact, or `buyer` with name and phone), and a loan number is used once per financier.
+- An EMI needs the customer named (a contact, or `buyer` with a name; a phone is optional), and a loan number is used once per financier.
 - Each line takes its item's GST slab in force on the bill's own date, on the business's clock: changes whose date has come take effect inside the posting first ([GST rate changes](#gst-rate-changes)). A posting a change overtakes around midnight answers 409 `{ reason: "gst_rates_changed" }`: send it again.
 
 Errors: 400 both `payment` and `payments`, more than 8 parts, or two parts of `"full"`; 400 the parts come to more than the total; 400 cash handed over less than its part; 400 free quantity or a trade discount on a sale; 400 a serial-numbered kit part on a line of more than one kit; 400 an EMI amount more than what is left; 400 pharmacy purchases without a batch or expiry, and quantity or unit-precision errors; 403 `{ reason: "pin_required" }` without the counter PIN, 400 `wrong_pin`, 423 `pin_locked`, 429 too many tries; 404 location, contact or item not found; 404 no coupon with that code, or an unknown voucher; 409 not enough usable stock, credit limit exceeded, serial already received, or request key reused with different data; 409 a walk-in not paying in full; 409 a price above the MRP; 409 a supplier bill number already received ("Bill … from … was already received as …"); 409 an item kept for use in services only (`internalUse`); 409 a coupon that cannot be used now (switched off, outside its dates or hours, the bill below its minimum, used up, or already used by this customer as often as allowed); 409 a counter discount over the business's limit, or more than the bill; 409 a voucher expired or used up; 409 buying a kit; 409 an EMI without the customer named, or a loan number already used with that financier.
@@ -5447,7 +5448,7 @@ While a unit is `awaiting_supplier`, the database refuses a sale line for it (40
 
 ### Warranties
 
-A warranty is registered from a sold serial line. Its start defaults to the sale date; its months and terms come from the model; the customer's name and phone come from the sale or the body. Each sold unit can have one live warranty. A warranty cannot be edited or deleted, only cancelled. The Warranties module depends on `serials` and `sales`.
+A warranty is registered from a sold serial line. Its start defaults to the sale date; its months and terms come from the model; the customer's name, and phone when given (it is optional), come from the sale or the body. Each sold unit can have one live warranty. A warranty cannot be edited or deleted, only cancelled. The Warranties module depends on `serials` and `sales`.
 
 #### `GET /api/businesses/:businessId/warranties`
 Permission: `warranties.view`.
@@ -5467,7 +5468,7 @@ Returns: `data` = up to 50 sold serial lines with no live warranty that are not 
 
 #### `POST /api/businesses/:businessId/warranties`
 Permission: `warranties.create`.
-Query/Body: `requestKey` (UUID, required); `lineId` (the sold line, required); `startsOn` (`YYYY-MM-DD`; defaults to the sale date; it cannot be before the sale or in the future); `months` (1-120; defaults to the model's months); `customerName`; `customerPhone` (required when the sale has no contact phone); `terms`.
+Query/Body: `requestKey` (UUID, required); `lineId` (the sold line, required); `startsOn` (`YYYY-MM-DD`; defaults to the sale date; it cannot be before the sale or in the future); `months` (1-120; defaults to the model's months); `customerName` (required when the sale has no contact); `customerPhone` (optional: a phone is never a condition; when given, the warranty is found by it); `terms`.
 Returns: `data` = the warranty row, with `ends_on` = start + months - 1 day; status 201.
 Errors: 400 the line has no serial, the months are not set, a start date is out of range, or the name or phone is missing; 404 sold item not found; 409 the unit was returned, or a warranty is already registered for it.
 
@@ -5499,7 +5500,7 @@ Returns: `{ open, received, diagnosing, waiting_parts, in_repair, awaiting_appro
 
 #### `POST /api/businesses/:businessId/repairs`
 Permission: `repairs.create`; an advance also needs `sales.edit`.
-Query/Body: `requestKey` (UUID, required); `locationId` (required); `problem` (required, up to 1000); `contactId` or `customerName` + `customerPhone` (both are needed in the end); `skuId` or `device` (one is required); `serial`; `accessories`; `conditionNotes`; `estimate`; `promisedOn` (`YYYY-MM-DD`); `technician`; `passcode` (the screen lock, up to 60; kept only while the job is open); `checklist` (an object of condition ticks such as `screen_cracked`, `water_damage`; at most 20); `advance` (`{ amount, method: cash|card|upi|bank, reference? }`: recorded as a customer collection, a customer record being found by phone or made, and paid onto the bill at delivery); `warrantyOwnerConfirmed` (noted in the history when someone other than the warranty's owner brings the device).
+Query/Body: `requestKey` (UUID, required); `locationId` (required); `problem` (required, up to 1000); `contactId` or `customerName`, with `customerPhone` optional (for the ready message; the job card's number finds the job); `skuId` or `device` (one is required); `serial`; `accessories`; `conditionNotes`; `estimate`; `promisedOn` (`YYYY-MM-DD`); `technician`; `passcode` (the screen lock, up to 60; kept only while the job is open); `checklist` (an object of condition ticks such as `screen_cracked`, `water_damage`; at most 20); `advance` (`{ amount, method: cash|card|upi|bank, reference? }`: recorded as a customer collection, a customer record being found by phone or made, and paid onto the bill at delivery); `warrantyOwnerConfirmed` (noted in the history when someone other than the warranty's owner brings the device).
 Returns: `data` = the new job row (status `received`); status 201.
 Errors: 400 missing problem, name, phone (at least 6 digits) or device; 404 location, customer or model not found; 409 request key reused.
 
@@ -6849,3 +6850,66 @@ A stream is checked again every minute, and at once when the database announces 
 | 404 | A login with no restaurant (`/api/live`); not a member of the business |
 | 429 | `reason: "live_limit"`: the login already holds `LIVE_STREAMS_PER_PERSON` streams in this API process (20 unless set); `reason: "live_full"`: the process holds `LIVE_STREAMS_MAX` (2,000 unless set). The staff app tries again a minute later. |
 | 503 | `reason: "restarting"`: the API process is stopping |
+
+## Personal data
+
+The DPDP Act 2023 and Rules 2025, for both engines, through one module (`backend/src/modules/personal-data`): the privacy notice and its contact, consent per purpose and per business, a child's mark, requests from a person, and the breach register. The same paths under two front doors:
+
+- `/api/businesses/:businessId/privacy/…` — a business on the shared core; a person is a customer contact (`business_contacts`, kind customer). Mounted from `business.routes.js`; the membership and permission are checked as on every business route.
+- `/api/privacy/…` — the signed-in restaurant; a person is a guest of its guest book (`customers`). `authenticate`, then the permission named; a `POST` or `PATCH` without a JSON object body answers 400. The restaurant's rows are kept against its own business row, made when first needed.
+
+`:personId` is a contact id at a business and a guest id at a restaurant; another business's or restaurant's person is 404. How the rules work: [BUSINESS_RULES.md › Personal data](BUSINESS_RULES.md#personal-data).
+
+**Permissions.** `privacy.view` reads the registers, `privacy.manage` keeps them, publishes the notice and erases, `privacy.export` sees or exports a person's whole data. Recording or withdrawing a consent and marking a child need the right to take customers: `contacts.create` or `contacts.edit` (a clinic patient's: `patients.create` or `patients.edit`) at a business, `customers.manage` at a restaurant. Reading one person's consents needs `contacts.view`, `patients.view` or `privacy.view` (a restaurant's `customers.view` or `privacy.view`). The notice in force and the consent lookup are read by any member.
+
+**Request keys.** Publishing a notice, logging a request, erasing, recording a breach and recording a notice sent take `requestKey` (a UUID): the same key with the same body gives the same answer; with another body, 409.
+
+| Method and path | Permission | Body | Returns |
+| --- | --- | --- | --- |
+| `GET …/notice` | any member | — | `{ current, starter }`: the notice in force (`{ id, version, label, notice, bills_text, reminders_text, offers_text, contact_name, contact_phone, contact_email, published_at, published_by_name, print_line }`) or null, and while none is published the starter text `{ notice, billsText, remindersText, offersText }` for the business's type |
+| `GET …/notices` | privacy.view | — | every version, newest first |
+| `POST …/notices` | privacy.manage | `requestKey`, `notice` (200-8000), `billsText`, `remindersText`, `offersText` (20-600 each), `contactName` (150), `contactPhone` (30) and/or `contactEmail` (one is required) | 201 the new version, numbered on from the last; audited `privacy_notice.published` |
+| `GET …/consents?people=1,2,3` | any member | at most 200 ids | `{ notice: { id, version, bills_text, reminders_text, offers_text } \| null, people: { id: { purposes[], child, erased } } }`: what each person has agreed to now |
+| `GET …/people/:personId` | contacts.view, patients.view or privacy.view (customers.view at a restaurant) | — | `{ person, consents[] (newest first, withdrawn ones included, with who recorded and withdrew each), child (the mark in force) \| null, active[] }` |
+| `POST …/people/:personId/consents` | contacts.create or contacts.edit (patients.create or patients.edit; customers.manage at a restaurant) | `purposes[]` (`bills_digital`, `reminders`, `offers`), `channel` (`counter` default, `guests_site`, `phone`), `method` (`verbal` default, `signed_form`, `digital`), `givenBy`, `note` | 201 `{ consents[], active[] }`; a purpose already given is the same record. Audited `consent.given` |
+| `POST …/consents/:consentId/withdraw` | as above | `reason` (300; "Asked to stop" when left out), `channel` | `{ consent, active[] }`; audited `consent.withdrawn` |
+| `POST …/people/:personId/child` | as above | `guardianName` (required), `guardianRelation`, `consentMethod`, `verifiedHow` (300), `purposes[]` the guardian agrees to (`bills_digital`, `reminders`) | 201 `{ child, active[] }`; any consent to offers is withdrawn first. Audited `person.marked_child` |
+| `POST …/children/:childId/end` | as above | `reason` (required) | the mark, ended; audited `person.child_mark_ended` |
+| `GET …/people?q=` | privacy.view | — | up to 20 people by name, phone or e-mail (not erased) |
+| `GET …/everyone?limit=&offset=` | privacy.view | — | `{ total, items }`: every customer (or guest), for a breach that touches them all |
+| `GET …/people/:personId/data?requestId=` | privacy.export | — | `{ filename, data }` as below; audited `personal_data.viewed` |
+| `GET …/people/:personId/export?requestId=` | privacy.export | — | `{ filename: "personal-data-<customer\|guest>-<id>-<day>.json", data: { business, exportedOn, exportedBy, request, person, consents, child, requests, sections: [{ heading, rows }] } }`: the person's record and every row of theirs, table by table, request keys left out; audited `personal_data.exported` |
+| `GET …/requests` | privacy.view | the paged-list contract; `status` (`open`, `done`, `refused`), `kind`; `q` searches the name, details, reply-to and number | `{ total, items }`, open ones first by due date, each with `received_on`, `due_on`, `days_left` (on the business's clock) and `person_now` |
+| `POST …/requests` | privacy.manage | `requestKey`, `kind` (`access`, `correction`, `erasure`, `grievance`), `personId` or `personName`, `channel` (`counter`, `phone`, `email`, `letter`), `details` (2000), `replyTo` (150), `receivedOn` (YYYY-MM-DD; today on the business's clock when left out; never a day to come) | 201 the request, numbered, due 90 days after it was received; audited `privacy_request.logged` |
+| `GET …/requests/:requestId` | privacy.view | — | the request with `person`, `consents` and, for an erasure still to do, `open[]`: what holds it back |
+| `POST …/requests/:requestId/person` | privacy.manage | `personId` | the request linked to the person (an open one); audited `privacy_request.linked` |
+| `POST …/requests/:requestId/close` | privacy.manage | `status` (`done`, `refused`), `reply` (2000) | the request, closed for good; audited `privacy_request.closed` |
+| `POST …/requests/:requestId/erase` | privacy.manage | `requestKey`, `reply` (optional; when left out, a reply saying the details were erased and tax records keep what tax law needs) | the request, done, with `erasure: { erased[{ heading, rows }], kept[] }`. A shop's contact becomes *Erased customer #id*, its copies on other records are blanked (closed records included), points left cancelled, consents withdrawn; a restaurant's goes through the guest book's own erasure (*Erased guest #id*). Audited `personal_data.erased` |
+| `GET …/breaches` | privacy.view | the paged-list contract; `status` | `{ total, items }` with `board_due_at` (72 hours from `found_at`), `people`, `notices` |
+| `POST …/breaches` | privacy.manage | `requestKey`, `foundAt` (a moment, not in the future), `whatHappened` (10-4000), `impact`, `stepsTaken` (3-4000), `affected` (`all`, `chosen`), `people[]` (when chosen) | 201 the breach, numbered; audited `breach.recorded` |
+| `GET …/breaches/:breachId` | privacy.view | — | the breach with `people[]` (each `notified`), `notices[]`, `affected_count`, `hours_left` and `people_notice_text` (the notice to the people, filled from the record with the privacy contact unless edited) |
+| `PATCH …/breaches/:breachId` | privacy.manage | any of `whatHappened`, `impact`, `stepsTaken`, `affected`, `peopleNotice` (50-4000, or empty for the filled one), `boardInformedAt`, `boardReportAt` (not before `foundAt`, not in the future), `boardReference` | the breach; audited `breach.updated` |
+| `POST …/breaches/:breachId/people` | privacy.manage | `personIds[]` | `{ added }`; only for a breach of chosen people; audited `breach.people_added` |
+| `DELETE …/breaches/:breachId/people/:personId` | privacy.manage | — | `{ removed: true }`; not once a notice went to them, nor on a closed breach; audited `breach.person_removed` |
+| `POST …/breaches/:breachId/notices` | privacy.manage | `requestKey`, `personId`, `channel` (`whatsapp`, `sms`, `email`, `letter`, `in_person`, `phone`), `text` (50-4000; the breach's notice when left out) | 201 the notice sent, kept with its words; audited `breach.notice_sent` |
+| `POST …/breaches/:breachId/close` | privacy.manage | — | the breach, closed for good; audited `breach.closed` |
+
+A restaurant's audit rows go to its activity log (`audit_logs`): a guest's consents, child's mark, view, export and erasure against the guest (`entity_type` `customer`, labelled by number only: *Guest #id*), the rest by the action's own kind (`privacy_notice`, `privacy_request`, `breach`).
+
+**Errors**
+
+| Status | When |
+| --- | --- |
+| 400 | A field missing or wrong; a purpose that is not one; offers among a guardian's purposes; a request received on a day still to come; a breach found in the future, or reported to the Board before it was found; more than 200 people in a lookup |
+| 403 | The permission is missing |
+| 404 | The person, request, breach, consent or mark is not this business's or restaurant's |
+| 409 | A request key used for another body; `reason: "no_privacy_notice"` (no notice published yet: a consent cannot be recorded); `reason: "child"` (offers for a child); a consent withdrawn or a mark ended twice; a person already marked; an erased person (no consent, no change); `reason: "erasure_blocked"` with `open[]` (something still open with the person); `reason: "no_person"` (an erasure request not linked to anyone); `reason: "not_erased"` (an erasure request answered done before the erasure); a request or breach already closed; `reason: "board_report"` (a breach closed before the report to the Board is recorded); a notice to someone not on the breach; a person a notice went to taken off |
+
+**Elsewhere in the API**
+
+- Reminders on WhatsApp, by SMS or by a call need the person's consent to reminders, or answer 409 `{ reason: "consent_required", purpose: "reminders" }` saying who has not agreed: `POST …/udhaar/:contactId/reminders`, `POST …/receivables/customers/:id/follow-ups`, `POST …/optical/recall/:contactId/reminders`, `POST …/garage/vehicles/:id/reminders`, `POST …/member-plans/memberships/:id/reminders` and a salon's `POST …/salon/appointments/:id/messages` with `kind: "reminder"`. A visit, and a confirmation of a booking, need none.
+- `consents` (`{ bills_digital?, reminders?, offers? }`, each yes or no) is taken with a new or edited customer: `POST` and `PATCH …/contacts` (a business), `POST /api/crm/customers` and `PUT /api/crm/customers/:id` (a restaurant; the older `marketingOptIn` is the offers consent), and with the new customer of a type's own intake (`member`, `toMember`, `customer`, `guest`, `owner`, a farmer's body). `customers.marketing_opt_in` is a copy the database keeps from the offers consent; writing it directly is refused.
+- `GET …/context` carries `privacy: { version, line } | null`, and `GET /api/restaurants/current/settings` carries `privacyLine`: the line bills and receipts print. An advance (`GET /api/bills/advances/:id`) carries `seller.privacyLine` for its receipt.
+- The guests' pages carry `privacy: { id, version, notice, billsText, offersText, contact } | null`: the online ordering and table QR menus, and the booking page. `POST /api/public/online/:token/orders` takes `consents` (`bills_digital`, `offers`) with `privacyNoticeId` (the notice the page showed; 400 when it is not this restaurant's); they are recorded, given online, when the order is accepted.
+- `POST /api/guest-insights/segments/:key/export` with `format: "mobiles"` gives only the guests who agreed to offers and are not marked as a child, with `leftOut` counting the rest.
+- A phone number is never required: a repair intake, a warranty, an EMI walk-in buyer and a restaurant pre-order (`POST /api/preorders`, its mobile matched the one way the guest book keeps it) need a name only.

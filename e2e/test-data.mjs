@@ -145,6 +145,24 @@ export const GROCERY = {
   sale: [{ item: "Loose rice", quantity: 2 }, { item: "Basmati rice 1 kg", quantity: 1 }],
 };
 
+// Personal data: every shop's privacy notice is published from its starter
+// text, with one privacy contact for them all. In the grocery
+// (personal-data.spec.js): a customer the counter takes with what they agree
+// to be sent, a customer who asks to see their data and then to erase it,
+// and one whose details were on the laptop of a breach.
+export const PRIVACY = {
+  contact: { name: "Shalini Nair", phone: "98450 11111" },
+  counterCustomer: { name: "Kamala Devi", phone: "9845500021" },
+  requester: { name: "Arif Khan", phone: "9845500022", asked: "Send me what the shop keeps about me, and then erase it" },
+  affected: { name: "Farida Begum", phone: "9845500023" },
+  breach: {
+    whatHappened: "The counter laptop with the customer list was stolen from the shop",
+    impact: "Customers' names and phone numbers may be seen by others",
+    stepsTaken: "Changed every password and told the police",
+    boardReference: "DPB/2026/0042",
+  },
+};
+
 // GST rates by date: two biscuits the grocery sells at 18%, which the spec
 // moves to 5% from the next 1 April and then cancels again; and the
 // restaurant's butter naan, moved to its 18% rate the same way.

@@ -148,19 +148,18 @@ const lockMobile = async (client, restaurantId, mobile) => {
   ]);
 };
 
-// client: optional, to write inside the caller's transaction.
+// client: optional, to write inside the caller's transaction. A guest's
+// consent to offers is a consent record (modules/personal-data), written by
+// the service; marketing_opt_in is the database's copy of it.
 const createCustomer = async (restaurantId, data, userId, client = pool) => {
-  const optIn = data.marketingOptIn === true;
   const result = await client.query(
     `INSERT INTO customers (restaurant_id, name, mobile, email, address, date_of_birth,
                             notes, status, created_by, updated_by,
                             company_name, gstin, tags, allergies,
-                            marketing_opt_in, marketing_opt_in_at, marketing_opt_in_by,
                             anniversary_date)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9,
              $10, $11, COALESCE($12::text[], '{}'), $13,
-             $14, CASE WHEN $14 THEN NOW() END, CASE WHEN $14 THEN $9::bigint END,
-             $15)
+             $14)
      RETURNING ${CUSTOMER_COLUMNS}`,
     [
       restaurantId,
@@ -176,7 +175,6 @@ const createCustomer = async (restaurantId, data, userId, client = pool) => {
       data.gstin ?? null,
       data.tags ?? null,
       data.allergies ?? null,
-      optIn,
       data.anniversaryDate ?? null,
     ]
   );
@@ -228,22 +226,8 @@ const updateCustomer = async (restaurantId, id, data, userId, client = pool) => 
     }
   }
 
-  // Consent keeps who recorded it and when; saving the same answer again
-  // leaves that alone.
-  if (typeof data.marketingOptIn === "boolean") {
-    values.push(data.marketingOptIn);
-    const at = `$${values.length}::boolean`;
-    sets.push(
-      `marketing_opt_in = ${at}`,
-      `marketing_opt_in_at = CASE WHEN ${at} IS DISTINCT FROM marketing_opt_in THEN
-                               CASE WHEN ${at} THEN NOW() END
-                             ELSE marketing_opt_in_at END`,
-      `marketing_opt_in_by = CASE WHEN ${at} IS DISTINCT FROM marketing_opt_in THEN
-                               CASE WHEN ${at} THEN $10::bigint END
-                             ELSE marketing_opt_in_by END`
-    );
-  }
-
+  // Consent is a consent record, written by the service (crm.service
+  // editCustomer); marketing_opt_in is the database's copy of it.
   const result = await client.query(
     `UPDATE customers
      SET ${sets.join(", ")}
@@ -500,7 +484,10 @@ const historyCounts = async (restaurantId, customerId) => {
     `SELECT (SELECT COUNT(*) FROM orders WHERE restaurant_id = $1 AND customer_id = $2)::int AS orders,
             (SELECT COUNT(*) FROM feedback WHERE restaurant_id = $1 AND customer_id = $2)::int AS feedback,
             (SELECT COUNT(*) FROM complaints WHERE restaurant_id = $1 AND customer_id = $2)::int AS complaints,
-            (SELECT COUNT(*) FROM loyalty_transactions WHERE restaurant_id = $1 AND customer_id = $2)::int AS points`,
+            (SELECT COUNT(*) FROM loyalty_transactions WHERE restaurant_id = $1 AND customer_id = $2)::int AS points,
+            (SELECT COUNT(*) FROM business_consents WHERE customer_id = $2)::int
+              + (SELECT COUNT(*) FROM business_privacy_requests WHERE customer_id = $2)::int
+              + (SELECT COUNT(*) FROM business_children WHERE customer_id = $2)::int AS consents`,
     [restaurantId, customerId]
   );
 
@@ -652,7 +639,7 @@ const absorbCustomer = async (client, restaurantId, keep, merged, userId, option
     .filter(Boolean)
     .join("\n");
   const business = options.business || null;
-  const takeConsent = !keep.marketing_opt_in && merged.marketing_opt_in;
+  // Consents are records of their own: the merge moves them (modules/personal-data).
 
   // The merged record gives up its number first, so the kept one can take it.
   await client.query("UPDATE customers SET mobile = NULL WHERE restaurant_id = $1 AND id = $2", [
@@ -666,18 +653,16 @@ const absorbCustomer = async (client, restaurantId, keep, merged, userId, option
          email = COALESCE(email, $4),
          address = COALESCE(address, $5),
          date_of_birth = COALESCE(date_of_birth, $6),
-         anniversary_date = COALESCE(anniversary_date, $18::date),
-         company_name = CASE WHEN $17::boolean THEN $7 ELSE COALESCE(company_name, $7) END,
-         gstin = CASE WHEN $17::boolean THEN $8 ELSE COALESCE(gstin, $8) END,
+         anniversary_date = COALESCE(anniversary_date, $16::date),
+         company_name = CASE WHEN $15::boolean THEN $7 ELSE COALESCE(company_name, $7) END,
+         gstin = CASE WHEN $15::boolean THEN $8 ELSE COALESCE(gstin, $8) END,
          allergies = COALESCE(allergies, $9),
          tags = ARRAY(SELECT DISTINCT UNNEST(tags || $10::text[]) ORDER BY 1),
          notes = NULLIF($11, ''),
          loyalty_points = loyalty_points + $12,
-         marketing_opt_in = marketing_opt_in OR $13,
-         marketing_opt_in_at = CASE WHEN $13 AND NOT marketing_opt_in THEN $14 ELSE marketing_opt_in_at END,
-         status = CASE WHEN status = 'active' OR $15 = 'active' THEN 'active' ELSE status END,
+         status = CASE WHEN status = 'active' OR $13 = 'active' THEN 'active' ELSE status END,
          duplicate_of = NULL,
-         updated_by = $16
+         updated_by = $14
      WHERE restaurant_id = $1 AND id = $2
      RETURNING ${CUSTOMER_COLUMNS}`,
     [
@@ -693,8 +678,6 @@ const absorbCustomer = async (client, restaurantId, keep, merged, userId, option
       merged.tags || [],
       notes,
       Number(merged.loyalty_points) || 0,
-      takeConsent,
-      merged.marketing_opt_in_at,
       merged.status,
       userId,
       Boolean(business),
@@ -859,7 +842,7 @@ const eraseCustomer = async (client, restaurantId, customer, userId) => {
   );
   await run(
     "tableRequests",
-    `UPDATE table_requests SET guest_name = NULL, guest_mobile = NULL
+    `UPDATE table_requests SET guest_name = NULL, guest_mobile = NULL, delivery_address = NULL, delivery_landmark = NULL
      WHERE restaurant_id = $1 AND $2::text IS NOT NULL AND ${MOBILE_KEY("guest_mobile")} = $2`,
     [restaurantId, ten]
   );
@@ -879,7 +862,6 @@ const eraseCustomer = async (client, restaurantId, customer, userId) => {
      SET name = 'Erased guest #' || id,
          mobile = NULL, email = NULL, address = NULL, date_of_birth = NULL, anniversary_date = NULL, notes = NULL,
          company_name = NULL, gstin = NULL, tags = '{}', allergies = NULL,
-         marketing_opt_in = FALSE, marketing_opt_in_at = NULL, marketing_opt_in_by = NULL,
          duplicate_of = NULL, status = 'inactive',
          erased_at = NOW(), erased_by = $3, updated_by = $3
      WHERE restaurant_id = $1 AND id = $2

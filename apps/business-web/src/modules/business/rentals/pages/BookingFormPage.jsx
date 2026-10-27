@@ -12,6 +12,8 @@ import { newKey, useDirtyGuard, useOpenBusiness } from "../../core/pages/hooks";
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import { addHours, nowInput, rateWords, unitWords, zonedInput } from "./rentals";
 import "../styles/rentals.css";
+import { NewCustomerConsents } from "../../../personal-data/components/ConsentChoices";
+import { consentChanges } from "../../../personal-data/personalData";
 
 // A booking made at the counter, or a quote: the hirer (found by name or
 // phone, or typed new), when it goes out and when it is due back (typed on
@@ -112,7 +114,7 @@ export default function BookingFormPage() {
     event.preventDefault();
     if (busy) return;
     setError("");
-    if (!existing && !customer && !typed?.name?.trim()) return setError("Choose the hirer, or type the new hirer's name and phone");
+    if (!existing && !customer && !typed?.name?.trim()) return setError("Choose the hirer, or type the new hirer's name");
     if (!body.length) return setError("Add what is hired out");
     if (!timesValid) return setError("The due back time is after the out time");
     const advance = canPay && !form.quote && Number(form.advance) > 0 ? form.advance : null;
@@ -122,7 +124,7 @@ export default function BookingFormPage() {
         ? await businessWrite(biz.id, `rentals/bookings/${existing.id}`, { outAt: form.outAt, dueAt: form.dueAt, lines: body, notes: form.notes.trim() || null }, "patch")
         : await businessWrite(biz.id, "rentals/bookings", {
           requestKey, locationId: form.locationId, status: form.quote ? "quote" : "reserved", outAt: form.outAt, dueAt: form.dueAt, lines: body, notes: form.notes.trim() || undefined,
-          ...(customer ? { contactId: customer.id } : { customer: { name: typed.name.trim(), phone: typed.phone?.trim() || undefined } }),
+          ...(customer ? { contactId: customer.id } : { customer: { name: typed.name.trim(), phone: typed.phone?.trim() || undefined, consents: consentChanges(typed.consents, []) || undefined } }),
           ...(advance ? { advance: { amount: advance, ...methods.body(form.method, PAY_KINDS), reference: form.reference.trim() || undefined } } : {}),
         });
       toast.success(existing ? `Booking ${booking.booking_no} changed.` : `${booking.status === "quote" ? "Quote" : "Booking"} ${booking.booking_no} saved.`);
@@ -152,6 +154,7 @@ export default function BookingFormPage() {
               <>
                 <Field label="Name"><input required maxLength={150} autoFocus value={typed.name} onChange={(e) => setTyped((c) => ({ ...c, name: e.target.value }))} /></Field>
                 <Field label="Phone"><input inputMode="tel" maxLength={30} value={typed.phone} onChange={(e) => setTyped((c) => ({ ...c, phone: e.target.value }))} /></Field>
+                <NewCustomerConsents value={typed.consents} onChange={(consents) => setTyped((c) => ({ ...c, consents }))} />
                 <button type="button" className="link-button" onClick={() => setTyped(null)}>Find a hirer instead</button>
               </>
             ) : (

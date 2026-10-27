@@ -7,6 +7,7 @@ const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const dates = require('./helpers/dates');
 const { signIn } = require('./helpers/signIn');
+const { publishNotice, giveConsent } = require('./helpers/privacy');
 
 // Wholesale / FMCG distribution: receipts split between bills, opening
 // balance and advance; cheques (date, bank, deposit, clear, bounce with
@@ -197,6 +198,10 @@ test('wholesale: cheques, settlement, schemes, hold, edits, delivery', { timeout
 
   await t.test('a promise is kept in the reminder book and shown on the outstanding list', async () => {
     await request('POST', W(`receivables/customers/${kirana.id}/follow-ups`), { channel: 'call', promisedOn: day(-1) }, 400);
+    // A WhatsApp needs the customer's consent to reminders.
+    await staff.cashier('POST', W(`receivables/customers/${kirana.id}/follow-ups`), { channel: 'whatsapp', promisedOn: day(3) }, 409);
+    await publishNotice(request, `/businesses/${ws.id}`);
+    await giveConsent(request, `/businesses/${ws.id}`, kirana.id, ['reminders']);
     const promise = await staff.cashier('POST', W(`receivables/customers/${kirana.id}/follow-ups`), { channel: 'whatsapp', promisedOn: day(3), promisedAmount: '500', note: 'Will pay on Friday' }, 201);
     assert.match(promise.note, /Promised 500.00/);
     const out = await request('GET', W('outstanding?q=Balaji'));

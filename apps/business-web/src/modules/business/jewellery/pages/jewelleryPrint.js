@@ -2,6 +2,7 @@ import { escapeHtml, printDocument } from "../../../../services/print";
 import { dateShort } from "@bmp/shared/format";
 import { barcodeSvg } from "../../retail/services/barcode";
 import { ID_KINDS, TEST_METHODS, purityMark } from "./jewellery";
+import { privacyLine } from "../../../personal-data/printLine";
 
 // Printing for a jeweller: the tag labels of pieces, each with its tag as a
 // barcode, its item, purity, gross and net weight, stones and HUIDs, on a label
@@ -88,6 +89,7 @@ export function printOldGoldVoucher(biz, g) {
       ${settled.length ? `<h2>Settled</h2><div>${settled.join("<br>")}</div>` : ""}
       ${g.notes ? `<p><small>${escapeHtml(g.notes)}</small></p>` : ""}
       <div class="declare">${escapeHtml(g.declaration)}</div>
+      ${privacyLine(biz) ? `<p><small>${escapeHtml(privacyLine(biz))}</small></p>` : ""}
       <div class="sign"><span>Seller: ${escapeHtml(g.seller_name)}</span><span>For ${escapeHtml(s.display_name || biz.business.name)}</span></div>`,
   });
 }
@@ -114,6 +116,7 @@ export function printSchemePassbook(biz, s) {
       <dt>Close by</dt><dd>${day(s.close_by)}: the scheme is turned into jewellery by then</dd></dl>
       <table><thead><tr><th>No.</th><th>Due</th><th>Paid on</th><th>Receipt</th><th class="r">Amount</th><th>Signed</th></tr></thead><tbody>${rows}</tbody></table>
       <h2>Terms</h2><div class="declare">${escapeHtml(s.terms)}</div>
+      ${privacyLine(biz) ? `<p><small>${escapeHtml(privacyLine(biz))}</small></p>` : ""}
       <div class="sign"><span>Member: ${escapeHtml(s.member_name)}</span><span>For ${escapeHtml(shop.display_name || biz.business.name)}</span></div>`,
   });
 }

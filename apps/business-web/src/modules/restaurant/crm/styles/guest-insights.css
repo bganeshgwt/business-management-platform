@@ -871,6 +871,15 @@
   text-decoration: underline;
 }
 
+/* A call that asks for the guest's consent to offers first. */
+button.gi-phone {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
 .gi-more {
   display: flex;
   align-items: center;

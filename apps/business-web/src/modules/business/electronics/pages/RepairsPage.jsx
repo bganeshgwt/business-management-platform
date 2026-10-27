@@ -187,12 +187,12 @@ function IntakeDialog({ onClose, onSaved }) {
       <div className="field-wide">
         <SearchPicker label="Customer on file (optional)" placeholder="Name or phone" value={customer} onChange={setCustomer} minChars={2}
           search={(q, { signal }) => businessRead(biz.id, "contacts", { kind: "customer", active: "true", q, limit: 15 }, signal).then((page) => page.items)}
-          getLabel={(c) => c.name} getDescription={(c) => c.phone || ""} hint="Leave empty for a walk-in and type the name and phone below." />
+          getLabel={(c) => c.name} getDescription={(c) => c.phone || ""} hint="Leave empty for a walk-in and type their name below." />
       </div>
       {!customer && (
         <>
           <Field label="Customer name"><input required maxLength={150} value={form.customerName} onChange={set("customerName")} /></Field>
-          <Field label="Phone" hint="For the ready message on WhatsApp."><input required maxLength={30} inputMode="tel" value={form.customerPhone} onChange={set("customerPhone")} /></Field>
+          <Field label="Phone (optional)" hint="Only if they want the ready message on WhatsApp: the job card's number finds the job."><input maxLength={30} inputMode="tel" value={form.customerPhone} onChange={set("customerPhone")} /></Field>
         </>
       )}
       <Field label="Model sold here (optional)">

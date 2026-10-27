@@ -28,6 +28,9 @@ import {
 import ManagerApproval from "./ManagerApproval";
 import { approvalFor, emptyApproval } from "./approval";
 import useAuth from "../../../../hooks/useAuth";
+// A reminder needs the client's consent to reminders (asked first, in one tap).
+import { useConsentGate } from "../../../personal-data/useConsentGate";
+import { useShopPrivacy } from "../../../personal-data/usePrivacy";
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import "../styles/salon.css";
 
@@ -621,6 +624,7 @@ function MoveDialog({ appointment: a, data, onClose, onSaved }) {
 // Tomorrow's bookings, each with WhatsApp; a sent reminder is marked.
 function Reminders({ open, onClose, day }) {
   const biz = useOpenBusiness();
+  const gate = useConsentGate(useShopPrivacy());
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [version, setVersion] = useState(0);
@@ -647,17 +651,19 @@ function Reminders({ open, onClose, day }) {
             <li key={a.id}>
               <span><strong>{timeOfDay(a.starts_at, tz)}</strong> {a.contact_name} · {a.service_name} with {a.resource_name}{!a.contact_phone && <small className="muted"> · no phone</small>}</span>
               {a.reminder_sent_at ? <Badge tone="success" label="Sent" />
-                : can && a.contact_phone && <button type="button" className="button button-sm" onClick={() => sendMessage(biz, "reminder", a).then(() => setVersion((n) => n + 1))}><Icon name="message" size={14} /> Send</button>}
+                : can && a.contact_phone && <button type="button" className="button button-sm" onClick={() => sendMessage(biz, "reminder", a, gate).then(() => setVersion((n) => n + 1))}><Icon name="message" size={14} /> Send</button>}
             </li>
           ))}
         </ul>
       )}
+      {gate.dialog}
     </SidePanel>
   );
 }
 
 function AppointmentDialog({ appointment: a, timezone, onClose, onChanged, onOpenDocument, onClient, onMove, onBookNext, onRefresh }) {
   const biz = useOpenBusiness();
+  const gate = useConsentGate(useShopPrivacy());
   const navigate = useNavigate();
   const [asking, setAsking] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -729,9 +735,10 @@ function AppointmentDialog({ appointment: a, timezone, onClose, onChanged, onOpe
           {a.bill_document_id && <button type="button" className="chip-button" onClick={() => onOpenDocument(a.bill_document_id)}>Bill {a.bill_no} · {biz.exact(a.bill_total)}</button>}
           {a.fee_document_id && <button type="button" className="chip-button" onClick={() => onOpenDocument(a.fee_document_id)}>Charge {a.fee_no} · {biz.exact(a.fee_total)}</button>}
           <button type="button" className="chip-button" onClick={onClient}><Icon name="user" size={13} /> Client card</button>
-          {canMessage && <button type="button" className="chip-button" onClick={() => sendMessage(biz, isToday || a.confirmation_sent_at ? "reminder" : "confirmation", a).then(onRefresh)}>
+          {canMessage && <button type="button" className="chip-button" onClick={() => sendMessage(biz, isToday || a.confirmation_sent_at ? "reminder" : "confirmation", a, gate).then(onRefresh)}>
             <Icon name="message" size={13} /> {isToday || a.confirmation_sent_at ? "WhatsApp reminder" : "WhatsApp confirmation"}</button>}
         </div>
+        {gate.dialog}
         {asking ? (
           <div className="sw-stack">
             <p>

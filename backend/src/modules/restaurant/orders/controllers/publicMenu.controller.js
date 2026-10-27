@@ -320,6 +320,24 @@ const readGuestMobile = (value) => {
   return mobile;
 };
 
+// What the guest agreed to on the page (bills on WhatsApp, offers), with the
+// notice it showed them; recorded once the restaurant accepts the order.
+const GUEST_CONSENTS = ["bills_digital", "offers"];
+const readGuestConsents = (body) => {
+  const list = body.consents === undefined || body.consents === null ? [] : v.requiredArray(body.consents, "Consents");
+  const consents = [...new Set(list)];
+
+  for (const purpose of consents) {
+    v.requiredEnum(purpose, "Consent", GUEST_CONSENTS);
+  }
+
+  if (!consents.length) {
+    return { privacyConsents: [], privacyNoticeId: null };
+  }
+
+  return { privacyConsents: consents, privacyNoticeId: v.requiredId(body.privacyNoticeId, "The privacy notice shown") };
+};
+
 const placeOnlineOrder = async (req, res) => {
   const body = req.body || {};
   const items = v.requiredArray(body.items, "Items");
@@ -363,6 +381,7 @@ const placeOnlineOrder = async (req, res) => {
     guestMobile: readGuestMobile(body.guestMobile),
     address: body.service === "delivery" ? readText(body.address, "Delivery address", 500) : null,
     landmark: body.service === "delivery" ? readText(body.landmark, "Landmark", 200) : null,
+    ...readGuestConsents(body),
   };
 
   if (input.address && input.address.length < 10) {

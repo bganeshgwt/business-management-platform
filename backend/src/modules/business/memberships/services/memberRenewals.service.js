@@ -3,6 +3,7 @@ const v = require('../../../../utils/validate');
 const access = require('../../core/services/businessAccess.service');
 const c = require('./memberCommon');
 const ms = require('./memberships.service');
+const consents = require('../../../personal-data/services/consents');
 
 // The lists the desk works from (module "member_plans"):
 //
@@ -65,6 +66,9 @@ async function remind(business, user, membershipId, body) {
   return repo.transaction(async (db) => {
     const m = await repo.one(db, 'SELECT id,membership_no,contact_id FROM member_memberships WHERE business_id=$1 AND id=$2', [business.id, id(membershipId, 'Membership')]);
     if (!m) fail('Membership not found', 404);
+    // A reminder on WhatsApp, by SMS or a renewal call needs the member's consent to reminders.
+    const member = await repo.one(db, 'SELECT name FROM business_contacts WHERE business_id=$1 AND id=$2', [business.id, m.contact_id]);
+    await consents.requireReminder(db, business.id, m.contact_id, channel, member?.name);
     const row = await repo.one(db, 'INSERT INTO member_reminders(business_id,membership_id,kind,channel,created_by) VALUES($1,$2,$3,$4,$5) RETURNING *', [business.id, m.id, kind, channel, user.id]);
     await repo.audit(db, business.id, user.id, 'member.reminded', m.id, { membershipNo: m.membership_no, kind, channel });
     return row;

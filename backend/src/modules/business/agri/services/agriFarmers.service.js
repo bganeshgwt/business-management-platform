@@ -95,7 +95,7 @@ async function create(business, user, body) {
       }
     } else {
       // A new customer, made the way Customers makes one (and with its permission).
-      contact = await core.createContact(business, user, { kind: 'customer', name: body.name, phone: body.phone, address: body.address }, db);
+      contact = await core.createContact(business, user, { kind: 'customer', name: body.name, phone: body.phone, address: body.address, consents: body.consents }, db);
     }
     await write(db, business, user, contact, f);
     return farmerOf(db, business, contact.id);

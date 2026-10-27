@@ -119,14 +119,14 @@ async function intake(business, user, body) {
     }
     const customerName = v.optionalString(body.customerName, 'Customer name', 150) || contact?.name;
     if (!customerName) fail('Enter the customer\'s name');
-    const customerPhone = v.optionalString(body.customerPhone, 'Customer phone', 30) || contact?.phone;
-    if (!customerPhone) fail('Enter the customer\'s phone number, to call them when it is ready');
+    // The phone is optional: given, it is for the ready message; the job card's number finds the job.
+    const customerPhone = v.optionalString(body.customerPhone, 'Customer phone', 30) || contact?.phone || null;
     // An advance is the customer's money on account: a customer record is
-    // needed (found by phone, or made from the name and phone).
+    // needed (found by phone, or made from the name and any phone).
     if (advance && !contact) {
       const digits = phoneDigits(customerPhone, 'Customer phone');
-      contact = await repo.one(db, `SELECT * FROM business_contacts WHERE business_id=$1 AND kind='customer' AND active
-        AND right(regexp_replace(COALESCE(phone,''),'\\D','','g'),10)=$2 ORDER BY id LIMIT 1`, [business.id, digits]);
+      contact = digits ? await repo.one(db, `SELECT * FROM business_contacts WHERE business_id=$1 AND kind='customer' AND active
+        AND right(regexp_replace(COALESCE(phone,''),'\\D','','g'),10)=$2 ORDER BY id LIMIT 1`, [business.id, digits]) : null;
       if (!contact) {
         contact = await repo.one(db, "INSERT INTO business_contacts(business_id,kind,name,phone) VALUES($1,'customer',$2,$3) RETURNING *", [business.id, customerName, customerPhone]);
         await repo.audit(db, business.id, user.id, 'contact.created', contact.id, { name: contact.name, from: 'repair_intake' });

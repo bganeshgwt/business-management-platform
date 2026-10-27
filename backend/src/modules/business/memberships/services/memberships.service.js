@@ -214,8 +214,9 @@ async function changeCode(business, user, contactId, body) {
 // A member typed with the sale: { name, phone?, email? } (made a customer).
 function readNewMember(value) {
   if (value === undefined || value === null) return null;
-  if (typeof value !== 'object' || Array.isArray(value)) fail('A new member is a name and a phone');
-  return { kind: 'customer', name: value.name, phone: value.phone, email: value.email };
+  if (typeof value !== 'object' || Array.isArray(value)) fail('A new member is a name, with a phone and an e-mail if they give them');
+  // consents: what the member agrees to as they join (bills, reminders, offers), recorded with the contact.
+  return { kind: 'customer', name: value.name, phone: value.phone, email: value.email, consents: value.consents };
 }
 // Instalments: [{ dueOn, amount }], two or more, each later than the one before.
 function readInstalments(value) {
@@ -388,7 +389,7 @@ async function sell(business, user, body) {
   const requestKey = core.uuid(body.requestKey);
   const hash = c.hashOf(body);
   const input = readSale(body);
-  if (!input.contactId && !input.newMember) fail('Choose the member, or type the new member\'s name and phone');
+  if (!input.contactId && !input.newMember) fail('Choose the member, or type the new member\'s name');
   if (input.contactId && input.newMember) fail('Choose the member or type a new one, not both');
   if (input.newMember) await access.require(business, 'contacts.create');
   const parts = core.readPayments(body);

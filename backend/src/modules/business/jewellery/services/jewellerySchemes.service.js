@@ -202,7 +202,7 @@ async function enrol(business, user, body) {
   const hash = c.hashOf(body);
   const contactId = c.given(body.contactId) ? id(body.contactId, 'Customer') : null;
   const typed = body.customer && typeof body.customer === 'object' && !Array.isArray(body.customer) && c.given(body.customer.name)
-    ? { kind: 'customer', name: body.customer.name, phone: body.customer.phone } : null;
+    ? { kind: 'customer', name: body.customer.name, phone: body.customer.phone, consents: body.customer.consents } : null;
   if (contactId && typed) fail('Choose the customer or type a new one, not both');
   if (!contactId && !typed) fail('Choose the customer who joins, or add them');
   if (typed) await access.require(business, 'contacts.create');

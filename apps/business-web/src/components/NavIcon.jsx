@@ -423,6 +423,14 @@ const PATHS = {
       <path d="m9 12 2 2 4-4" />
     </>
   ),
+  // Personal data: a shield with a person in it.
+  privacy: (
+    <>
+      <path d="M12 3 4 6v6c0 5 3.4 8.3 8 9 4.6-.7 8-4 8-9V6Z" />
+      <circle cx="12" cy="10" r="2.2" />
+      <path d="M8.6 16.2a3.6 3.6 0 0 1 6.8 0" />
+    </>
+  ),
 
   // --- platform ---
   // A globe: every restaurant on the platform.

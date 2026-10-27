@@ -113,6 +113,8 @@ const FitterReportPage = lazy(() => import("../../hardware/pages/FitterReportPag
 const HardwareRatesPage = lazy(() => import("../../hardware/pages/HardwareRatesPage"));
 // Licences & registrations (every type but a restaurant).
 const LicencesPage = lazy(() => import("../../licences/pages/LicencesPage"));
+// Personal data: requests, breaches, the privacy notice (every type but a restaurant, which has its own).
+const BusinessPrivacyPage = lazy(() => import("../../../personal-data/pages/BusinessPrivacyPage"));
 // Seeds, fertilisers & pesticides.
 const FarmersPage = lazy(() => import("../../agri/pages/FarmersPage"));
 const SubsidyPage = lazy(() => import("../../agri/pages/SubsidyPage"));
@@ -316,6 +318,7 @@ function screens(type) {
     "fitters": <FittersPage />,
     "fitter-reports": <FitterReportPage />,
     "licences": <LicencesPage />,
+    "privacy": <BusinessPrivacyPage />,
     "farmers": <FarmersPage />,
     "agri-subsidy": <SubsidyPage />,
     "agri-registers": <AgriRegistersPage />,

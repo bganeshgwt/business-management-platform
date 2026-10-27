@@ -74,7 +74,7 @@ repo.addLists({
 function readSeller(body) {
   const contactId = c.given(body.contactId) ? id(body.contactId, 'Customer') : null;
   const typed = body.customer && typeof body.customer === 'object' && !Array.isArray(body.customer) && c.given(body.customer.name)
-    ? { kind: 'customer', name: body.customer.name, phone: body.customer.phone } : null;
+    ? { kind: 'customer', name: body.customer.name, phone: body.customer.phone, consents: body.customer.consents } : null;
   if (contactId && typed) fail('Choose the customer or type a new one, not both');
   if (!contactId && !typed) fail('Old gold is bought from a customer: choose them, or add them');
   const idKind = v.requiredEnum(body.idKind, 'Photo ID seen', Object.keys(ID_KINDS));

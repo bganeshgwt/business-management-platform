@@ -575,6 +575,7 @@ const printReceipt = (advance, currency) => {
       </table>
       <div class="c" style="margin-top:8px">Bring this receipt; the amount is taken off your final bill.</div>
       <div class="c" style="margin-top:4px">Received by ${escapeHtml(advance.createdByName || "")}</div>
+      ${advance.seller.privacyLine ? `<div class="c" style="margin-top:4px">${escapeHtml(advance.seller.privacyLine)}</div>` : ""}
     `,
   });
 };

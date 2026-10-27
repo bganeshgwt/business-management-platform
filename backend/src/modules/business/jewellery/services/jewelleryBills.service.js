@@ -143,7 +143,7 @@ const lineText = (l) => (l.price ? {
 function readBill(body) {
   const contactId = c.given(body.contactId) ? id(body.contactId, 'Customer') : null;
   const newCustomer = body.customer && typeof body.customer === 'object' && !Array.isArray(body.customer) && c.given(body.customer.name)
-    ? { kind: 'customer', name: body.customer.name, phone: body.customer.phone, pan: body.customer.pan } : null;
+    ? { kind: 'customer', name: body.customer.name, phone: body.customer.phone, pan: body.customer.pan, consents: body.customer.consents } : null;
   if (contactId && newCustomer) fail('Choose the customer or type a new one, not both');
   const vouchers = oldGold.readForBill(body.oldGold);
   const scheme = c.given(body.scheme) ? id(body.scheme, 'Gold scheme') : null;

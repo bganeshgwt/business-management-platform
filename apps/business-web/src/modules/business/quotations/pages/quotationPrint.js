@@ -1,6 +1,7 @@
 import { escapeHtml, printDocument } from "../../../../services/print";
 import { amountInWords, moneyExact } from "@bmp/shared/format";
 import { A4_STYLES, GST_STATES, businessDate } from "../../core/pages/invoice";
+import { privacyLine } from "../../../personal-data/printLine";
 
 // A quotation on A4 under the business's own header, laid out like its bills,
 // and the same quotation as a WhatsApp message. Everything on it is what the
@@ -74,6 +75,7 @@ export function printQuotation(q, biz) {
       <tr class="grand"><td>Total</td><td class="r">${money(p(q.total))}</td></tr>
     </tbody></table></div>
   <p><small>This is a quotation, not a tax invoice. The prices hold until ${date(q.valid_until)}; goods are kept aside only once the bill is made.</small></p>
+  ${privacyLine(biz) ? `<p><small>${escapeHtml(privacyLine(biz))}</small></p>` : ""}
   <div class="sign"><small>Thank you for the enquiry.</small><div class="r">For ${escapeHtml(sellerName)}<br><br><br>Authorised signatory</div></div>`;
   printDocument({ title: q.quotation_no, styles: A4_STYLES, body });
 }

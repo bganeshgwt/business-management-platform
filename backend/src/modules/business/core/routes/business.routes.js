@@ -252,6 +252,8 @@ require('../../lodging/routes/businessLodging.routes')(router, { context, send, 
 require('./businessCounter.routes')(router, { context, send, b });
 // GST rate changes by date (every type but a restaurant, whose menu has its own): the yearly change, an item's GST history.
 require('../../../tax-changes/routes/taxChanges.routes').businessRoutes(router, { context, send, b });
+// Personal data (one module for both engines): the notice, consents, requests and breaches.
+require('../../../personal-data/routes/personalData.routes').businessRoutes(router, { context, send, b });
 
 // Scoped constraint failures are the person's conflict, not a server fault.
 router.use((error, req, res, next) => {

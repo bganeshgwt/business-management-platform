@@ -17,8 +17,10 @@ const requiredString = (value, field, maxLength = 255) => {
   return trimmed;
 };
 
+// A box left blank, spaces and all, is not given: an optional phone typed as
+// a space is no phone, never "Phone is required".
 const optionalString = (value, field, maxLength = 255) => {
-  if (value === undefined || value === null || value === "") {
+  if (value === undefined || value === null || (typeof value === "string" && !value.trim())) {
     return null;
   }
 

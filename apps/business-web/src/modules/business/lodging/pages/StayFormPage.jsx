@@ -12,6 +12,8 @@ import { businessToday, newKey, useDirtyGuard, useOpenBusiness } from "../../cor
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import { RATE_KINDS, ROOM_STATUS, SLAB_NOTE, SOURCES, addDays, nightCount, weekdayWords } from "./lodging";
 import "../styles/lodging.css";
+import { NewCustomerConsents } from "../../../personal-data/components/ConsentChoices";
+import { consentChanges } from "../../../personal-data/personalData";
 
 // A reservation taken at the desk or on the phone, or an OTA's booking typed
 // in: the guest (found by name or phone, or typed new), a company billed
@@ -102,7 +104,7 @@ export default function StayFormPage() {
     event.preventDefault();
     if (busy) return;
     setError("");
-    if (!existing && !guest && !typed?.name?.trim()) return setError("Choose the guest, or type the new guest's name and phone");
+    if (!existing && !guest && !typed?.name?.trim()) return setError("Choose the guest, or type the new guest's name");
     if (!datesValid) return setError("The departure is after the arrival: a stay is one night at least");
     setBusy(true);
     try {
@@ -114,7 +116,7 @@ export default function StayFormPage() {
         : await businessWrite(biz.id, "lodging/stays", {
           requestKey, locationId: form.locationId, ...common, roomId: form.roomId || undefined, agreedRate: form.agreedRate || undefined, billToContactId: billTo?.id || undefined,
           notes: form.notes.trim() || undefined,
-          ...(guest ? { contactId: guest.id } : { guest: { name: typed.name.trim(), phone: typed.phone?.trim() || undefined } }),
+          ...(guest ? { contactId: guest.id } : { guest: { name: typed.name.trim(), phone: typed.phone?.trim() || undefined, consents: consentChanges(typed.consents, []) || undefined } }),
           ...(canPay && Number(form.advance) > 0 ? { advance: { amount: form.advance, ...methods.body(form.method, PAY_KINDS), reference: form.reference.trim() || undefined } } : {}),
         });
       toast.success(existing ? `${stay.stay_no} changed.` : `Reservation ${stay.stay_no} saved.`);
@@ -146,6 +148,7 @@ export default function StayFormPage() {
             <>
               <Field label="Name"><input required maxLength={150} autoFocus value={typed.name} onChange={(e) => setTyped((c) => ({ ...c, name: e.target.value }))} /></Field>
               <Field label="Phone"><input inputMode="tel" maxLength={30} value={typed.phone} onChange={(e) => setTyped((c) => ({ ...c, phone: e.target.value }))} /></Field>
+              <NewCustomerConsents value={typed.consents} onChange={(consents) => setTyped((c) => ({ ...c, consents }))} />
               <button type="button" className="link-button" onClick={() => setTyped(null)}>Find a guest instead</button>
             </>
           ) : (

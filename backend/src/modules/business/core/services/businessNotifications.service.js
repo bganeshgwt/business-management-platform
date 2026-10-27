@@ -22,6 +22,8 @@ const access = require('./businessAccess.service');
 //                      day, room nights the night audit has still to post (hotels, lodges and guest houses)
 //   appointments       still to come today
 //   licences           running out within 60 days, or run out
+//   personal data      requests due within 15 days or past their 90 days, a breach's 72 hours
+//                      for the Board's report, the privacy notice not yet published
 //   wholesale overdue  (same overdue query, worded as invoices)
 
 const LIMIT = 15;
@@ -169,6 +171,13 @@ async function feed(business) {
         detail: `No. ${row.licence_no} · ${row.location_name} · ${days < 0 ? 'ran out' : 'valid until'} ${licences.dateWords(row.valid_until)}`,
         at: `${row.valid_until}T00:00:00.000Z`, link: `${base}/licences` });
     }
+  }
+  // Personal data: requests nearing their 90 days, a breach's report to the Board, a notice not yet published.
+  // (A restaurant's are on the restaurant's own bell.)
+  if (can('privacy.view') && business.business_type !== 'restaurant') {
+    const world = require('../../../personal-data/services/personalDataShop').world(business, { id: business.member_user_id });
+    const link = (tab, id) => `${base}/privacy?tab=${tab}${id ? `&${tab === 'requests' ? 'request' : 'breach'}=${id}` : ''}`;
+    items.push(...await require('../../../personal-data/services/privacyRegister.service').bell(world, link));
   }
   // Tasks & issues (modules/tasks): your overdue tasks, the team's, reviews, serious issues.
   items.push(...await require('../../../tasks/services/notifications').forBusiness(business));

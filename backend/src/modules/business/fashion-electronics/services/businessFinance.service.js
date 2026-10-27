@@ -51,7 +51,8 @@ async function prepare(db, business, input, { contact, buyer, left, hasFull }) {
   if (!business.modules.includes('finance')) fail('EMI & finance is not switched on for this business. An owner can turn it on in Settings › Business tools.', 403);
   const financier = await repo.one(db, 'SELECT * FROM electronics_financiers WHERE business_id=$1 AND id=$2 AND active', [business.id, input.financierId]);
   if (!financier) fail('Financier not found', 404);
-  if (!contact && !(buyer?.name && buyer?.phone)) fail('An EMI sale needs the customer: choose them, or give the buyer\'s name and phone', 409);
+  // The financier's case names the buyer; a phone is never a condition of the sale.
+  if (!contact && !buyer?.name) fail('An EMI sale needs the customer: choose them, or give the buyer\'s name', 409);
   const same = await repo.one(db, 'SELECT d.document_no FROM electronics_finance_cases c JOIN business_documents d ON d.business_id=c.business_id AND d.id=c.document_id WHERE c.business_id=$1 AND c.financier_id=$2 AND lower(c.loan_no)=lower($3)',
     [business.id, financier.id, input.loanNo]);
   if (same) fail(`Loan ${input.loanNo} with ${financier.name} is already on bill ${same.document_no}`, 409);

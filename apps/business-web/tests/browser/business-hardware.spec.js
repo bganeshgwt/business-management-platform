@@ -62,8 +62,12 @@ test("a quotation is priced as a sale would be, printed, sent and billed at its 
   await expect(printed).toHaveCount(0);
 
   await detail.getByRole("button", { name: "Share on WhatsApp" }).click();
+  // A quotation on WhatsApp needs the customer's consent to bills on WhatsApp: asked first, recorded in one tap.
+  const ask = page.getByRole("dialog", { name: `Ask ${HARDWARE.contractor.name} first` });
+  await ask.getByRole("button", { name: "They agree: send it" }).click();
+  await expect(ask).toHaveCount(0, { timeout: 15_000 });
+  await expect.poll(() => page.evaluate(() => (window.opened || []).at(-1) || "")).toContain(`wa.me/91${HARDWARE.contractor.phone}`);
   const link = await page.evaluate(() => (window.opened || []).at(-1));
-  expect(link).toContain(`wa.me/91${HARDWARE.contractor.phone}`);
   expect(decodeURIComponent(link)).toContain(`Quotation ${number}`);
 
   await detail.getByRole("button", { name: "Make the bill" }).click();

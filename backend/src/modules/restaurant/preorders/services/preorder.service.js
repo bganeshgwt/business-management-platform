@@ -17,6 +17,7 @@ const pool = require("../../../../config/database");
 const AppError = require("../../../../utils/AppError");
 const crmService = require("../../crm/services/crm.service");
 const crmRepository = require("../../crm/repositories/crm.repository");
+const { readMobile } = require("../../../../utils/phone");
 const advanceService = require("../../billing/services/customerAdvance.service");
 const orderService = require("../../orders/services/order.service");
 const paymentTypeService = require("../../setup/services/paymentType.service");
@@ -178,7 +179,10 @@ const bakeList = async (restaurantId, asked, ctx = {}) => {
   };
 };
 
-// The guest: the one picked, or found (or added) by mobile.
+// The guest: the one picked, found by their mobile (written the one way the
+// guest book keeps it), or added by name. A mobile is never a condition: a
+// pre-order is collected by its number, and the mobile, when given, is for
+// telling the guest it is ready.
 const guestFor = async (restaurantId, data, userId) => {
   if (data.customerId) {
     const guest = await crmRepository.findCustomerById(restaurantId, data.customerId);
@@ -190,17 +194,19 @@ const guestFor = async (restaurantId, data, userId) => {
     return guest.id;
   }
 
-  if (!data.customerMobile) {
-    throw new AppError(400, "Choose the guest, or type their name and mobile");
+  const mobile = data.customerMobile ? readMobile(data.customerMobile, "Guest's mobile") : null;
+
+  if (!mobile && !data.customerName) {
+    throw new AppError(400, "Choose the guest, or type their name (and their mobile, if they want to be told it is ready)");
   }
 
-  const found = await crmRepository.findCustomerByMobile(restaurantId, data.customerMobile);
+  const found = mobile ? await crmRepository.findCustomerByMobile(restaurantId, mobile) : null;
 
   if (found && !found.erased_at) {
     return found.id;
   }
 
-  const created = await crmService.createCustomer(restaurantId, { name: data.customerName || "Guest", mobile: data.customerMobile }, userId);
+  const created = await crmService.createCustomer(restaurantId, { name: data.customerName || "Guest", mobile }, userId);
   return created.id;
 };
 

@@ -639,7 +639,7 @@ Events: `pharmacy.dispensed`, `pharmacy.recall_opened` and `pharmacy.debit_note_
 
 | Table | What it holds |
 |---|---|
-| `health_patients`, `health_consents`, `health_patient_clinical` | A patient on a contact; the consent the DPDP Act asks for (kept as given; only its withdrawal is recorded, once; never deleted); the clinical card. |
+| `health_patients`, `health_patient_clinical` | A patient on a contact, and the clinical card. A patient's consents (treatment, reports, reminders) are rows of `business_consents` ([Personal data](#personal-data)): kept as given, only the withdrawal recorded, once, never deleted. |
 | `health_visits`, `health_visit_notes`, `health_prescription_items` | A consultation (vitals, diagnosis, follow-up, a referral to a specialist or hospital with its reason), its notes (append-only) and its prescription (open only until the visit is completed). A completed visit is kept as written. A visit belongs to one branch (`location_id`): the doctor's, else the one the front desk works at. It records the fee it was billed (`fee_kind`: consultation, follow-up or free follow-up, and `fee_sku_id`). |
 | `health_doctor_profiles` | A doctor's consultation and follow-up services, follow-up days, slot length and share of the fees. |
 | `health_doctor_sessions`, `health_doctor_leave` | OPD sessions by weekday, with the most patients per session; a doctor's leave. A doctor is booked within their sessions and not on leave. |
@@ -1062,3 +1062,17 @@ One model for every business type and the restaurant, keyed on `business_id`, as
 | `business_tax_change_items` | Each item (a shop's `catalog_skus` row) or dish (a restaurant's `products` row) it moves: scheduled, then applied or refused on its date, or cancelled before it, with what it was and became. Never deleted. |
 
 An item's GST is still read from the item, by every bill, preview and screen: on a change's date the database moves the item there (`business_tax_change_apply`, `business_tax_change_apply_menu`), lazily, before the first request or posting that reads it, so nothing waits for a job. A posted bill keeps the rate each line was posted at, as it always has. A trigger (`business_tax_change_world`) refuses a change that points outside its business: a shop's moves its own items to its own slabs, a restaurant's its own dishes to its own tax rates. A slab or tax rate items are to move to cannot be switched off before their date (`business_tax_rates_in_change`). The rules a person meets: [BUSINESS_RULES.md › GST rates by date](BUSINESS_RULES.md#gst-rates-by-date); every column: [DATABASE.md › GST rates by date](DATABASE.md#gst-rates-by-date).
+
+## Personal data
+
+One model for every business type and the restaurant, keyed on `business_id`, as tasks and GST rate changes are ([ARCHITECTURE.md › 4.6](ARCHITECTURE.md#46-personal-data-one-model-for-both-engines)). A person is a shop's customer contact (`contact_id`) or a restaurant's guest (`customer_id`), never both.
+
+| Table | What it holds |
+|---|---|
+| `business_privacy_notices` | The business's privacy notice in versions: what is collected and why, how to see, correct or erase it, how to complain, the privacy contact, and a short consent notice for each purpose. Kept as published; a change is a new version. |
+| `business_consents` | Consent per purpose (bills on WhatsApp or SMS, reminders, offers; a clinic patient's treatment and reports): the notice version shown, where, how and by whom it was given, who recorded it, and its withdrawal, once. Never deleted; a new consent is a new row. |
+| `business_children` | A person marked as a child, with the parent or guardian whose consent stands for theirs. Never sent offers. |
+| `business_privacy_requests` | Requests to see, correct or erase a person's data, and grievances: received on the business's own day, due 90 days later, answered once; an erasure's record. Never deleted. |
+| `business_privacy_breaches` (+ `_people`, `_notices`) | The breach register: when a breach was found, what happened, the impact, the steps taken, the people affected, each notice sent to them with its words, and when the Data Protection Board was told and sent its report. Nothing is filed from here. |
+
+A customer whose data is erased keeps a nameless contact (`business_contacts.erased_at`), so the bills still add up; the copies of their details on other records, closed ones included, are blanked, and the guards of those records let exactly that change through. The guest book's consent to offers (`customers.marketing_opt_in`) is a copy the database keeps of the guest's active consent to offers. The module is `privacy` (always on), with the permissions `privacy.view`, `privacy.manage` and `privacy.export` in both engines. The rules a person meets: [BUSINESS_RULES.md › Personal data](BUSINESS_RULES.md#personal-data); every column: [DATABASE.md › Personal data](DATABASE.md#personal-data).

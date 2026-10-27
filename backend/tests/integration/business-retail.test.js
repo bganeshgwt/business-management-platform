@@ -6,6 +6,7 @@ const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const { withTools } = require('./helpers/tools');
+const { publishNotice, giveConsent } = require('./helpers/privacy');
 const { signIn } = require('./helpers/signIn');
 
 // Retail (grocery / kirana, supermarket, books & stationery):
@@ -360,6 +361,10 @@ test('retail: offers, loyalty, udhaar, barcodes, books and reports', { timeout: 
     await request('POST', root(grocery, `udhaar/${sunita.id}/reminders`), { channel: 'whatsapp', promisedOn: '2020-01-01' }, 400);
     const settled = await request('POST', root(grocery, 'contacts'), { kind: 'customer', name: 'Owes nothing' }, 201);
     await request('POST', root(grocery, `udhaar/${settled.id}/reminders`), { channel: 'call' }, 409);
+    // A WhatsApp reminder needs her consent to reminders, which the cashier records in one tap.
+    await as(staff.cashier.token)('POST', root(grocery, `udhaar/${sunita.id}/reminders`), { channel: 'whatsapp', promisedOn: today }, 409);
+    await publishNotice(request, `/businesses/${grocery.id}`);
+    await giveConsent(as(staff.cashier.token), `/businesses/${grocery.id}`, sunita.id, ['reminders']);
     const reminder = await as(staff.cashier.token)('POST', root(grocery, `udhaar/${sunita.id}/reminders`), { channel: 'whatsapp', promisedOn: today, note: 'After salary' }, 201);
     assert.equal(Number(reminder.balance), Number(row.balance));
     let remind = await request('GET', root(grocery, 'udhaar/reminders'));

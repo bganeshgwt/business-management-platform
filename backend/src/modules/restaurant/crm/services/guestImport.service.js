@@ -3,6 +3,8 @@ const AppError = require("../../../../utils/AppError");
 const { gstinProblem } = require("../../../../utils/gstin");
 const { normaliseMobile, mobileProblem, maskMobile, formatMobile, tenDigitTwin } = require("../../../../utils/phone");
 const sheet = require("../../imports/services/sheetImport");
+const consents = require("../../../personal-data/services/consents");
+const personalData = () => require("../../../personal-data/services/personalDataRestaurant");
 
 // The guest book from a spreadsheet, points balances included: how a
 // restaurant brings its regulars over from Petpooja or an old register
@@ -385,15 +387,11 @@ const apply = async (restaurantId, planned, userId) => {
         const names = CREATE_COLUMNS.filter((column) => fields[column] !== undefined);
         const values = names.map((column) => fields[column]);
         const inserted = await client.query(
-          `INSERT INTO customers (restaurant_id, ${names.join(", ")}, status, marketing_opt_in, marketing_opt_in_at,
-                                  marketing_opt_in_by, created_by, updated_by)
+          `INSERT INTO customers (restaurant_id, ${names.join(", ")}, status, created_by, updated_by)
            VALUES ($1, ${names.map((column, at) => `$${at + 2}${column === "tags" ? "::text[]" : ""}`).join(", ")},
-                   'active', $${names.length + 2}::boolean,
-                   CASE WHEN $${names.length + 2}::boolean THEN COALESCE($${names.length + 3}::date::timestamptz, NOW()) END,
-                   CASE WHEN $${names.length + 2}::boolean THEN $${names.length + 4}::bigint END,
-                   $${names.length + 4}, $${names.length + 4})
+                   'active', $${names.length + 2}, $${names.length + 2})
            RETURNING id`,
-          [restaurantId, ...values, optIn === true, consentAt, userId]
+          [restaurantId, ...values, userId]
         );
         guestId = Number(inserted.rows[0].id);
         result.created.push({ id: guestId, name: row.name });
@@ -404,21 +402,6 @@ const apply = async (restaurantId, planned, userId) => {
         const sets = names.map((column, at) => `${column} = $${at + 3}${column === "tags" ? "::text[]" : ""}`);
         const values = names.map((column) => fields[column]);
 
-        if (optIn !== undefined) {
-          values.push(optIn, consentAt);
-          const flag = `$${values.length + 1}::boolean`;
-          const date = `$${values.length + 2}::date`;
-          sets.push(
-            `marketing_opt_in = ${flag}`,
-            `marketing_opt_in_at = CASE WHEN ${flag} IS DISTINCT FROM marketing_opt_in
-                                        THEN CASE WHEN ${flag} THEN COALESCE(${date}::timestamptz, NOW()) END
-                                        ELSE marketing_opt_in_at END`,
-            `marketing_opt_in_by = CASE WHEN ${flag} IS DISTINCT FROM marketing_opt_in
-                                        THEN CASE WHEN ${flag} THEN $${values.length + 3}::bigint END
-                                        ELSE marketing_opt_in_by END`
-          );
-        }
-
         if (sets.length > 0) {
           await client.query(
             `UPDATE customers SET ${sets.join(", ")}, updated_by = $${values.length + 3}
@@ -428,6 +411,26 @@ const apply = async (restaurantId, planned, userId) => {
         }
 
         result.updated.push({ id: existingId, name: row.name, changes: row.changes.map((change) => change.label) });
+      }
+
+      // The list's offers consent is a consent record brought over from the
+      // restaurant's earlier records: given on the day the list says (no
+      // notice of the restaurant's was shown), or, on a "No", withdrawn.
+      if (optIn !== undefined) {
+        const businessId = await personalData().businessOf(client, restaurantId, true);
+        const person = consents.personOf("customer_id", guestId);
+        const audit = personalData().auditFor(restaurantId, { id: userId, name: null });
+
+        if (optIn) {
+          await consents.record(client, {
+            businessId, person, purposes: ["offers"], channel: "import", userId, givenOn: consentAt, audit,
+            note: "Imported with a guest list",
+          });
+        } else {
+          await consents.withdraw(client, {
+            businessId, person, purpose: "offers", userId, reason: "The imported guest list says no", channel: "counter", audit,
+          });
+        }
       }
 
       if (points) {

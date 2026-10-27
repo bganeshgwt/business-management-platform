@@ -8,6 +8,8 @@ import { Field, FormError } from "../../core/pages/ui";
 import { businessToday, newKey, useOpenBusiness } from "../../core/pages/hooks";
 import { RxEditor } from "./RxGrid";
 import { addMonths, editorRows, editorValue } from "./optical";
+import { NewCustomerConsents } from "../../../personal-data/components/ConsentChoices";
+import { consentChanges } from "../../../personal-data/personalData";
 
 // Recording a prescription, or correcting one no spectacle order uses yet:
 // the customer (found by name or phone, or added here), the day of the test,
@@ -139,9 +141,10 @@ function NewCustomerDialog({ initial, onClose, onSaved }) {
   const [form, setForm] = useState(initial);
   return (
     <FormDialog title="Add a customer" icon="user-plus" width={480} submitLabel="Add the customer" onClose={onClose} onSaved={onSaved}
-      onSubmit={() => businessWrite(biz.id, "contacts", { kind: "customer", name: form.name, phone: form.phone || undefined })}>
+      onSubmit={() => businessWrite(biz.id, "contacts", { kind: "customer", name: form.name, phone: form.phone || undefined, consents: consentChanges(form.consents, []) || undefined })}>
       <Field label="Name"><input required autoFocus maxLength={150} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></Field>
-      <Field label="Phone" hint="For the reminder when the next eye test is due."><input maxLength={30} inputMode="tel" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} /></Field>
+      <Field label="Phone" hint="Only if they want the reminder when the next eye test is due."><input maxLength={30} inputMode="tel" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} /></Field>
+      <NewCustomerConsents value={form.consents} onChange={(consents) => setForm((f) => ({ ...f, consents }))} />
     </FormDialog>
   );
 }

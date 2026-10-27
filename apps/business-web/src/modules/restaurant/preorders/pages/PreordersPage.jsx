@@ -210,7 +210,7 @@ function NewPreorder({ currency, onClose, onSaved }) {
     try {
       const dueAt = new Date(`${form.day}T${form.time}:00+05:30`).toISOString();
       const result = await createPreorder({
-        customerName: form.customerName, customerMobile: form.customerMobile, dueAt, fulfilment: form.fulfilment,
+        customerName: form.customerName, customerMobile: form.customerMobile.trim() || undefined, dueAt, fulfilment: form.fulfilment,
         deliveryAddress: form.fulfilment === "delivery" ? form.deliveryAddress : undefined, notes: form.notes || undefined,
         items: lines.filter((l) => l.productId).map((l) => ({ productId: Number(l.productId), quantity: Number(l.quantity), notes: l.notes || undefined })),
         advance: advance ? { amount: Number(advance), paymentMethod: form.method, transactionRef: form.reference || undefined } : undefined,
@@ -225,7 +225,8 @@ function NewPreorder({ currency, onClose, onSaved }) {
         <ErrorMessage message={error} />
         <div className="po-grid">
           <label className="field"><span>Guest's name</span><input required maxLength={150} value={form.customerName} onChange={set("customerName")} autoFocus /></label>
-          <label className="field"><span>Mobile</span><input required inputMode="tel" maxLength={20} value={form.customerMobile} onChange={set("customerMobile")} placeholder="98765 43210" /></label>
+          <label className="field"><span>Mobile (optional)</span><input aria-label="Mobile (optional)" inputMode="tel" maxLength={20} value={form.customerMobile} onChange={set("customerMobile")} placeholder="98765 43210" />
+            <small className="muted">Only if they want to be told it is ready. The pre-order is collected by its number.</small></label>
           <label className="field"><span>Due on</span><input type="date" required min={todayText()} value={form.day} onChange={set("day")} /></label>
           <label className="field"><span>At</span><input type="time" required value={form.time} onChange={set("time")} /></label>
           <label className="field"><span>Pickup or delivery</span><select value={form.fulfilment} onChange={set("fulfilment")}><option value="pickup">Pickup at the counter</option><option value="delivery">We deliver</option></select></label>

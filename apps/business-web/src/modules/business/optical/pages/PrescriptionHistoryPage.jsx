@@ -14,6 +14,9 @@ import PrescriptionDialog from "./PrescriptionDialog";
 import { RxTable } from "./RxGrid";
 import { printPrescription } from "./opticalPrint";
 import { EYES, STATUSES, pdText, power, recallLink, rowOf } from "./optical";
+// A reminder needs the customer's consent to reminders (asked first, in one tap).
+import { useConsentGate } from "../../../personal-data/useConsentGate";
+import { useShopPrivacy } from "../../../personal-data/usePrivacy";
 import "../styles/optical.css";
 
 // One customer's eye tests side by side, newest first: each power for each
@@ -45,6 +48,7 @@ export default function PrescriptionHistoryPage() {
   const [error, setError] = useState("");
   const [version, setVersion] = useState(0);
   const [dialog, setDialog] = useState(null);
+  const gate = useConsentGate(useShopPrivacy());
   useEffect(() => {
     const controller = new AbortController();
     businessRead(biz.id, `optical/customers/${contactId}`, undefined, controller.signal)
@@ -61,7 +65,8 @@ export default function PrescriptionHistoryPage() {
   const canRecord = biz.can("optical.create");
   const canBook = canRecord && biz.can("sales.create");
   const shown = prescriptions.slice(0, 6);
-  const remind = () => {
+  const remind = async () => {
+    if (!(await gate.ensure("reminders", { id: customer.id, name: customer.name }))) return;
     if (customer.phone) window.open(recallLink(biz, { ...customer, examined_on: latest?.examined_on }), "_blank", "noopener");
     businessWrite(biz.id, `optical/recall/${customer.id}/reminders`, { channel: "whatsapp" }).then(() => setVersion((n) => n + 1)).catch((err) => toast.error(getErrorMessage(err)));
   };
@@ -148,6 +153,7 @@ export default function PrescriptionHistoryPage() {
       {!prescriptions.length && <SectionCard icon="eye" title="No eye test yet"><p className="muted">Record the powers from an eye test, or from a prescription the customer brought.</p></SectionCard>}
       {dialog && <PrescriptionDialog prescription={dialog.prescription || null} customer={dialog.customer || null} onClose={() => setDialog(null)}
         onSaved={() => { setDialog(null); toast.success("Prescription saved."); setVersion((n) => n + 1); }} />}
+      {gate.dialog}
     </div>
   );
 }

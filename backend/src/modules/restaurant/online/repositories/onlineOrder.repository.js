@@ -230,9 +230,9 @@ const createOrderRequest = async (data, items, maxOpen) => {
          (restaurant_id, outlet_id, table_id, business_day_id, request_type, client_key,
           guest_name, guest_mobile, notes, item_count, estimated_total,
           channel, online_link_id, service_type, delivery_address, delivery_landmark,
-          payment_mode, delivery_charge, guest_token)
+          payment_mode, delivery_charge, guest_token, privacy_consents, privacy_notice_id)
        VALUES ($1, $2, NULL, $3, 'order', $4, $5, $6, $7, $8, $9,
-               'website', $10, $11, $12, $13, $14, $15, $16)
+               'website', $10, $11, $12, $13, $14, $15, $16, $17::text[], $18)
        RETURNING id`,
       [
         data.restaurantId,
@@ -251,6 +251,8 @@ const createOrderRequest = async (data, items, maxOpen) => {
         data.paymentMode,
         data.deliveryCharge,
         guestToken,
+        data.privacyConsents || [],
+        data.privacyNoticeId || null,
       ]
     );
 

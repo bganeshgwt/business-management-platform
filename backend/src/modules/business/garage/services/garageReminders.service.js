@@ -3,6 +3,7 @@ const v = require('../../../../utils/validate');
 const access = require('../../core/services/businessAccess.service');
 const c = require('./garageCommon');
 const jobs = require('./garageJobCards.service');
+const consents = require('../../../personal-data/services/consents');
 
 // Service due (module "garage", garages): every vehicle in use whose next
 // service falls within a week, by its date or by the reading it will
@@ -64,9 +65,11 @@ async function remind(business, user, vehicleId, body) {
   const kind = v.requiredEnum(body.kind ?? 'service', 'Reminder for', ['service', 'insurance', 'puc']);
   const channel = v.requiredEnum(body.channel ?? 'whatsapp', 'How', ['whatsapp', 'call', 'sms']);
   return repo.transaction(async (db) => {
-    const vehicle = await repo.one(db, 'SELECT v.id,v.registration_no,k.name AS owner_name FROM garage_vehicles v JOIN business_contacts k ON k.business_id=v.business_id AND k.id=v.contact_id WHERE v.business_id=$1 AND v.id=$2',
+    const vehicle = await repo.one(db, 'SELECT v.id,v.registration_no,v.contact_id,k.name AS owner_name FROM garage_vehicles v JOIN business_contacts k ON k.business_id=v.business_id AND k.id=v.contact_id WHERE v.business_id=$1 AND v.id=$2',
       [business.id, id(vehicleId, 'Vehicle')]);
     if (!vehicle) fail('Vehicle not found', 404);
+    // A reminder on WhatsApp, by SMS or by a call needs the owner's consent to reminders.
+    await consents.requireReminder(db, business.id, vehicle.contact_id, channel, vehicle.owner_name);
     const row = await repo.one(db, 'INSERT INTO garage_reminders(business_id,vehicle_id,kind,channel,created_by) VALUES($1,$2,$3,$4,$5) RETURNING *', [business.id, vehicle.id, kind, channel, user.id]);
     await repo.audit(db, business.id, user.id, 'service_reminder.sent', vehicle.id, { registrationNo: vehicle.registration_no, owner: vehicle.owner_name, kind, channel });
     return row;

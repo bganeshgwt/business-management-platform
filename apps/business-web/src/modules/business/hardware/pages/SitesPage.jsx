@@ -16,6 +16,9 @@ import { ActiveBadge, Badge, BusinessHeader, Field } from "../../core/pages/ui";
 import { useOpenBusiness, useOptions, useServerList } from "../../core/pages/hooks";
 import { whatsappLink } from "../../retail/pages/retail";
 import { STATES } from "../../quotations/pages/quotation";
+// The dues on WhatsApp are a reminder: they need the customer's consent to reminders (asked first, in one tap).
+import { useConsentGate } from "../../../personal-data/useConsentGate";
+import { useShopPrivacy } from "../../../personal-data/usePrivacy";
 import "../styles/hardware.css";
 
 // Sites: a contractor's or builder's sites, each under one customer. Bills,
@@ -123,6 +126,7 @@ function SiteEditDialog({ site, customers, onClose, onSaved }) {
 
 export function SiteLedger({ siteId, onClose, onChanged }) {
   const biz = useOpenBusiness();
+  const gate = useConsentGate(useShopPrivacy());
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [billId, setBillId] = useState(null);
@@ -135,7 +139,8 @@ export function SiteLedger({ siteId, onClose, onChanged }) {
     return () => controller.abort();
   }, [biz.id, siteId, version]);
   const site = data?.site;
-  const share = () => {
+  const share = async () => {
+    if (!(await gate.ensure("reminders", { id: site.contact_id, name: site.customer_name }))) return;
     const t = data.totals;
     const text = [`*${biz.business.name}*`, `${site.customer_name} · site ${site.name}${site.address ? ` (${site.address})` : ""}`,
       `Billed ${biz.exact(t.billed)}${Number(t.returned) ? ` · goods back ${biz.exact(t.returned)}` : ""} · paid ${biz.exact(t.paid)}`,
@@ -200,6 +205,7 @@ export function SiteLedger({ siteId, onClose, onChanged }) {
         )}
       </Modal>
       {billId && <DocumentDetail documentId={billId} onClose={() => setBillId(null)} onChanged={() => { setVersion((n) => n + 1); onChanged?.(); }} />}
+      {gate.dialog}
     </>
   );
 }

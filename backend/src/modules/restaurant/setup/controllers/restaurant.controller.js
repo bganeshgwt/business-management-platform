@@ -4,6 +4,7 @@ const v = require("../../../../utils/validate");
 const AppError = require("../../../../utils/AppError");
 const restaurantFeatures = require("../services/restaurantFeatures.service");
 const ruleSettings = require("../services/ruleSettings.service");
+const personalData = require("../../../personal-data/services/personalData.service");
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
 
@@ -75,6 +76,8 @@ const getSettings = async (req, res) => {
       fssaiNumber: settings.fssai_number,
       gstSplit: settings.gst_split,
       billFooter: settings.bill_footer,
+      // The privacy contact's line, printed on every bill and receipt (Settings › Personal data).
+      privacyLine: (await personalData.restaurantPrintInfo(req.user.restaurantId))?.line || null,
       autoConsumeStock: settings.auto_consume_stock,
       // The Loyalty points feature (Settings -> Features): the switch is the
       // one place loyalty is on or off; the rules below stay here.

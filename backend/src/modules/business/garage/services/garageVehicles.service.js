@@ -77,12 +77,12 @@ function readVehicle(body, current = null) {
 
 // The owner: { contactId } (a saved customer) or { name, phone? } (a new one).
 function readOwner(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) fail('Choose the owner: a saved customer, or a new one\'s name and phone');
+  if (!value || typeof value !== 'object' || Array.isArray(value)) fail('Choose the owner: a saved customer, or a new one\'s name');
   if (c.given(value.contactId)) return { contactId: id(value.contactId, 'Owner') };
   const name = v.requiredString(typeof value.name === 'string' ? value.name : '', 'Owner\'s name', 150);
   const phone = c.optionalText(value.phone, 'Owner\'s phone', 30);
   if (phone && phone.replace(/\D/g, '').length < 10) fail('A phone number has at least 10 digits');
-  return { name, phone };
+  return { name, phone, consents: value.consents };
 }
 
 // A saved customer, or a new one made in the same transaction (needs contacts.create).
@@ -92,7 +92,7 @@ async function ownerContact(db, business, user, owner) {
     if (!contact) fail('Owner not found among the customers', 404);
     return contact;
   }
-  return core.createContact(business, user, { kind: 'customer', name: owner.name, phone: owner.phone }, db);
+  return core.createContact(business, user, { kind: 'customer', name: owner.name, phone: owner.phone, consents: owner.consents }, db);
 }
 
 // A manager's approval of a lower reading: { reason, approverId?, pin? }, read

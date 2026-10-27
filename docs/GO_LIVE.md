@@ -247,6 +247,30 @@ calls (`/api/public/…`) from any address, so such a domain needs no
      a doctor and a legal adviser. The rules follow standard Indian practice;
      [BUSINESS_RULES › Pharmacy, clinic and lab](BUSINESS_RULES.md#pharmacy-clinic-and-lab)
      gives each rule, its legal source and where it is changed.
+5. Personal data, below.
+
+### Personal data
+
+Under the DPDP Act 2023 the business is the data fiduciary for the people it
+serves, and the platform, which holds their data for it, is likely its
+processor. The data fiduciary duties of the DPDP Rules 2025 apply from
+13 May 2027. Before the first real customer:
+
+- **The processor terms, as a contract.** The platform and each business agree
+  in writing on what the platform does with the business's customers' personal
+  data: it processes it only to run the business's screens, and keeps it safe
+  (contracts with data processors must include security safeguards where
+  applicable). This is a contract between the two, drafted by a legal adviser,
+  not code.
+- **The privacy notice and its contact.** The owner checks the starter text in
+  **Settings › Personal data**, changes what does not fit the business, names
+  the privacy contact and publishes it: consent is taken on it, and every bill
+  and receipt prints the contact
+  ([ADMIN_GUIDE › Personal data](ADMIN_GUIDE.md#personal-data)). A restaurant
+  does the same in its own **Settings › Personal data**.
+- **A legal adviser's review** of the notice, the list of what an erasure keeps
+  and why, and the notice to the people a breach affects
+  ([BACKLOG §10](BACKLOG.md#10-new-business-types)).
 
 ## 5. Backups and restore
 
@@ -399,6 +423,10 @@ training run does not count as a real-service sign-off. Take a verified backup
    counted and every payment method's totals, and prints the end-of-day slip.
 7. Repeat on two busy days, with a second till, a lost connection and a
    restart.
+8. Personal data: at **Quick bill**, add a customer who agrees to reminders
+   in one tap, and send them a reminder from **Udhaar**; ask a customer who
+   has not agreed, and record their answer. In **Settings › Personal data**,
+   log a request, save the person's data as a file, and answer it.
 
 ### A clinic
 

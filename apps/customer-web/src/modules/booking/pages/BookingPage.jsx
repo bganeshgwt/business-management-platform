@@ -18,6 +18,7 @@ import {
   rememberMine,
   requestBooking,
 } from "../services/booking.service";
+import { PrivacyNote } from "../../privacy/GuestPrivacy";
 import "../styles/booking.css";
 
 const OCCASIONS = [
@@ -400,6 +401,7 @@ function BookingForm() {
                   placeholder="98765 43210"
                 />
                 <small>We call this number only about your booking.</small>
+                <PrivacyNote privacy={page.privacy} restaurantName={page.place.name} purpose="Your name and number are for this booking." />
               </label>
               <div className="gb-field gb-field-wide">
                 <span>Occasion</span>

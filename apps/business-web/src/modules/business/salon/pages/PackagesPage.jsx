@@ -16,6 +16,9 @@ import { ActiveBadge, Badge, BusinessHeader, Field, FormError, PeriodFilter } fr
 import { newKey, useOpenBusiness, useOptions, useServerList } from "../../core/pages/hooks";
 import { Segmented } from "../../wholesale/pages/shared";
 import { PLAN_STATE, packageMessage, whatsappLink } from "./salon";
+// A reminder needs the client's consent to reminders (asked first, in one tap).
+import { useConsentGate } from "../../../personal-data/useConsentGate";
+import { useShopPrivacy } from "../../../personal-data/usePrivacy";
 
 // Packages (sessions of services, valid for a number of days) and
 // memberships (a discount on services and products) are sold on a bill like
@@ -69,6 +72,7 @@ function ClientPlans({ onNotice }) {
   const list = useServerList("salon/client-plans", { gridId: "salon-client-plans", period: true, params: { ...(state ? { state } : {}), ...(kind ? { kind } : {}) } });
   const [cancelling, setCancelling] = useState(null);
   const canEdit = biz.can("packages.edit");
+  const gate = useConsentGate(useShopPrivacy());
   const bookSession = (p) => {
     const next = p.services.find((s) => Number(s.sessions) > Number(s.used));
     navigate(`${businessPath(biz.id, "salon-calendar")}?book=1&contact=${p.contact_id}${next ? `&sku=${next.sku_id}` : ""}`);
@@ -76,7 +80,8 @@ function ClientPlans({ onNotice }) {
   const unused = (p) => p.status === "active" && (p.kind === "package" ? p.sessions_used === 0 : Number(p.saved) === 0);
   const actions = (p) => [
     p.kind === "package" && p.state === "active" && biz.can("appointments.create") && { label: "Book a session", icon: "calendar", onClick: () => bookSession(p) },
-    p.state === "active" && p.contact_phone && { label: "Remind on WhatsApp", icon: "message", onClick: () => window.open(whatsappLink(p.contact_phone, packageMessage(p, biz)), "_blank", "noopener") },
+    p.state === "active" && p.contact_phone && { label: "Remind on WhatsApp", icon: "message",
+      onClick: async () => { if (await gate.ensure("reminders", { id: p.contact_id, name: p.contact_name })) window.open(whatsappLink(p.contact_phone, packageMessage(p, biz)), "_blank", "noopener"); } },
     canEdit && p.status === "active" && p.state !== "used_up" && { label: "Extend validity", icon: "clock", onClick: () => setExtending(p) },
     { label: "Usage", icon: "list", onClick: () => setUsage(p) },
     canEdit && unused(p) && { separator: true },
@@ -139,6 +144,7 @@ function ClientPlans({ onNotice }) {
       {extending && <ExtendDialog plan={extending} onClose={() => setExtending(null)}
         onSaved={(row) => { setExtending(null); onNotice(`${extending.contact_name}'s ${extending.name} now runs till ${dateShort(row.ends_on, { year: true })}.`); list.reload(); }} />}
       {usage && <UsageDialog plan={usage} onClose={() => setUsage(null)} />}
+      {gate.dialog}
     </>
   );
 }

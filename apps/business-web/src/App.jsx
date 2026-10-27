@@ -24,6 +24,8 @@ const ModifiersPage = lazy(() => import("./modules/restaurant/menu/pages/Modifie
 const TaxRatesPage = lazy(() => import("./modules/restaurant/menu/pages/TaxRatesPage"));
 // GST rate changes by date for the menu's dishes (modules/tax-changes, shared with Business Admin).
 const MenuTaxChangesPage = lazy(() => import("./modules/tax-changes/pages/MenuTaxChangesPage"));
+// Personal data: the guests' requests, the breach register, the privacy notice (modules/personal-data, shared with Business Admin).
+const RestaurantPrivacyPage = lazy(() => import("./modules/personal-data/pages/RestaurantPrivacyPage"));
 const PriceWindowsPage = lazy(() => import("./modules/restaurant/menu/pages/PriceWindowsPage"));
 const FloorsPage = lazy(() => import("./modules/restaurant/tables/pages/FloorsPage"));
 const TablesPage = lazy(() => import("./modules/restaurant/tables/pages/TablesPage"));
@@ -327,6 +329,11 @@ export default function App() {
               link and the activity-log API ask. */}
           <Route element={<ProtectedRoute permission="audit.view" />}>
             <Route path="activity-log" element={<AuditLogPage />} />
+          </Route>
+
+          {/* The registers are privacy.view, as the menu link and the API ask. */}
+          <Route element={<ProtectedRoute permission="privacy.view" />}>
+            <Route path="privacy" element={<RestaurantPrivacyPage />} />
           </Route>
 
           <Route element={<ProtectedRoute permission="menu.view" />}>

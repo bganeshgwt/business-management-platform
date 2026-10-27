@@ -7,6 +7,8 @@ import { Field } from "../../core/pages/ui";
 import { businessToday, newKey, useOpenBusiness, useOptions } from "../../core/pages/hooks";
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import { dayWords, splitInstalments, termWords } from "./memberships";
+import { NewCustomerConsents } from "../../../personal-data/components/ConsentChoices";
+import { consentChanges } from "../../../personal-data/personalData";
 
 // Selling a membership, renewing one or upgrading one to another plan. The
 // bill is worked out by the server as it will be posted (the plan's price as
@@ -76,7 +78,7 @@ export default function MembershipDialog({ mode = "sell", member, membership, on
       ...(big ? { buyer: { pan: form.pan.trim() || undefined, panDeclaration: form.declaration } } : {}), notes: form.notes.trim() || undefined };
     if (mode === "upgrade") return businessWrite(biz.id, `member-plans/memberships/${membership.id}/upgrade`, common);
     return businessWrite(biz.id, "member-plans/memberships", { ...common,
-      ...(form.newMember ? { member: { name: form.name, phone: form.phone || undefined } } : { contactId: chosen.id }),
+      ...(form.newMember ? { member: { name: form.name, phone: form.phone || undefined, consents: consentChanges(form.consents, []) || undefined } } : { contactId: chosen.id }),
       ...(mode === "renew" ? { renewalOf: membership.id } : { startOn: form.startOn }), ...(joiningShown ? { joiningFee: joiningOn } : {}) });
   };
   const titles = { sell: "Sell a membership", renew: `Renew ${membership?.membership_no || ""}`, upgrade: `Upgrade ${membership?.membership_no || ""}` };
@@ -93,6 +95,7 @@ export default function MembershipDialog({ mode = "sell", member, membership, on
             <>
               <Field label="Member's name"><input required maxLength={150} value={form.name} onChange={set("name")} /></Field>
               <Field label="Phone"><input inputMode="tel" maxLength={30} value={form.phone} onChange={set("phone")} /></Field>
+              <NewCustomerConsents value={form.consents} onChange={(consents) => setForm((f) => ({ ...f, consents }))} />
             </>
           ) : (
             <div className="field-wide">

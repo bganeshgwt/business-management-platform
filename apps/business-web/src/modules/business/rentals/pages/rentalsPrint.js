@@ -2,6 +2,7 @@ import { escapeHtml, printDocument } from "../../../../services/print";
 import { dateShort } from "@bmp/shared/format";
 import { barcodeSvg } from "../../retail/services/barcode";
 import { DEPOSIT_NOTE, FUELS, atFull, idWords, lineWords, wordOf } from "./rentals";
+import { privacyLine } from "../../../personal-data/printLine";
 
 // Printing for a rental business: the quote, the booking slip and the
 // handover slip (every line with its unit, period and hire, the deposit asked,
@@ -78,6 +79,7 @@ export function printBookingSlip(biz, booking, kind = "booking") {
       ${kind === "quote" ? `<p class="note">A quote holds nothing: the items are held once it is reserved.</p>` : ""}
       ${booking.notes ? `<p class="note">${escapeHtml(booking.notes)}</p>` : ""}
       ${booking.terms ? `<div class="terms">${escapeHtml(booking.terms)}</div>` : ""}
+      ${privacyLine(biz) ? `<p class="note">${escapeHtml(privacyLine(biz))}</p>` : ""}
       <div class="sign"><span>${handover ? "Hirer: I have received the above in the condition noted" : "Hirer"}</span><span>For ${escapeHtml(shopName(biz))}</span></div>`,
   });
 }
@@ -95,6 +97,7 @@ export function printDepositReceipt(biz, booking, receipt) {
       <dt>Paid by</dt><dd>${methodText(receipt)}</dd>
       <dt>Refundable deposit</dt><dd class="big">${money(biz, receipt.amount)}</dd></dl>
       <p class="note">${escapeHtml(DEPOSIT_NOTE)} No GST is charged on this receipt.</p>
+      ${privacyLine(biz) ? `<p class="note">${escapeHtml(privacyLine(biz))}</p>` : ""}
       <div class="sign"><span>Hirer</span><span>For ${escapeHtml(shopName(biz))}</span></div>`,
   });
 }

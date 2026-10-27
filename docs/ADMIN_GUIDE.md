@@ -77,6 +77,7 @@ on record.
   - [Shop extras: shelf, branch and member prices, coupons, departments](#shop-extras-shelf-branch-and-member-prices-coupons-departments)
   - [Quotations](#quotations)
   - [Licences](#licences)
+  - [Personal data](#personal-data)
 - [Retail counter (grocery / kirana, supermarket, books & stationery)](#retail-counter-grocery--kirana-supermarket-books--stationery)
   - [Quick bill](#quick-bill)
 - [Wholesale / FMCG](#wholesale--fmcg)
@@ -1168,6 +1169,13 @@ and a guest never reaches a staff screen.
   6](#not-built-yet-what-to-do-meanwhile)).
 - A table's QR code or a link that opens on the staff application's address
   is passed on to the guests' site, with the rest of the link kept.
+- Once the restaurant's privacy notice is published (*Settings › Personal
+  data*), each page that takes a guest's name and number says what they are
+  for and whom to ask, with the whole notice a tap away. An online order
+  asks for a mobile for its updates, and lets the guest tick *my bill on
+  WhatsApp* and *offers*; what they tick is recorded as their consent, given
+  online, when the order is accepted. The pages say the guest's details are
+  kept on their phone for the next order, with *Forget them on this phone*.
 
 ### Guest web address
 
@@ -1325,6 +1333,13 @@ off, not deleted. Changes need `restaurant.settings.manage`.
 
 The **delivery charge** is not in Settings: it is set per channel under
 Deliveries → Channels.
+
+**Personal data** (a tab of Settings, for the owner and managers) holds the
+restaurant's privacy notice and contact, printed on every bill, credit note
+and advance receipt and shown on the guests' site where it takes a name and
+number; the guests' requests to see, correct or erase their data; and the
+breach register. It works as a shop's does:
+[Personal data](#personal-data).
 
 ## Features — switching parts of the restaurant on or off
 
@@ -1755,10 +1770,12 @@ and payment with the running balance, open bills with how late they are),
 
 **Customers** is the guest book. Name, mobile, email, birthday, address, notes, tags
 (VIP, allergy, Jain, vegan, corporate, family, blogger), allergies, a company name and
-**GSTIN** for a B2B tax invoice, whether the guest **agreed to receive offers** (the DPDP
-Act 2023 needs that consent, and who recorded it and when is kept), and a loyalty points
-balance. Searchable by name or mobile. A mobile is stored one way (10 digits for an
-Indian number), so the same guest typed three ways is one guest.
+**GSTIN** for a B2B tax invoice, **what they agree to be sent** (bills on WhatsApp,
+reminders, offers: each a consent of its own on the restaurant's privacy notice, tapped
+as they say yes; see [Personal data](#personal-data)), and a loyalty points balance. Only
+the name is needed: a mobile is never a condition. Searchable by name or mobile. A mobile
+is stored one way (10 digits for an Indian number), so the same guest typed three ways is
+one guest.
 
 Attaching a customer to an order at the POS is what makes this useful. Clicking a name
 opens their **history** — visits (what they ordered, when, and the bill) and points.
@@ -1783,7 +1800,10 @@ whole number, and can open one guest's number on purpose — which is logged.
 
 **Erase personal details** (`customers.erase`) is the answer to a guest who asks to be
 forgotten: the name, number, email, address and notes are removed everywhere, but the
-record stays so the bills on it (kept for GST) and the visit counts still add up.
+record stays so the bills on it (kept for GST) and the visit counts still add up. It
+waits for money still between them and the restaurant (dues on account, an advance left,
+a pre-order to collect), and is kept in *Settings › Personal data › Requests* as an
+erasure request received and done that day.
 
 **Loyalty points are a ledger, not a number.** Points earned and redeemed are recorded
 as entries, and the balance is their sum. That means a disputed balance can be explained
@@ -1822,7 +1842,9 @@ numbers, who you know is in the room right now, and lists that turn into phone c
 regulars (3 or more visits in 60 days), new faces worth a second visit, regulars who have
 gone quiet (nothing in 45 days), birthdays, the unhappy, and guests sitting on points.
 Each list says in one line how it is decided; the numbers are set in Settings → Alerts
-and timings → *Guests*.
+and timings → *Guests*. A call from these lists invites the guest back, so a guest's
+number dials straight away only once they have agreed to offers; otherwise it asks for
+their consent first. A call to an unhappy guest about their complaint needs none.
 
 Open and in-progress complaints appear on the Dashboard under Needs attention. The link
 opens the list already filtered to exactly those.
@@ -2268,7 +2290,7 @@ A café, a bakery and a cloud kitchen run on the restaurant: the same POS, menu,
 **Selling by weight** (bakery cookies, sweets). Set the menu item to *Sold: by weight* and the price is per kg. On the POS it asks for the grams on the scale (or offers 100 g to 1 kg). The line shows the kg, and ± changes it 50 g at a time.
 
 **Pre-orders & cakes** (*Daily work → Pre-orders & cakes*, feature *Pre-orders & cakes*).
-- **Booking:** *New pre-order* takes the guest (name and mobile), when it is due, pickup or delivery, the items with each cake's message or flavour, and an advance. An item is counted in whole pieces, or in kg in steps of 50 g when it is sold by weight. The advance is an ordinary advance (*Dues & accounts → Advances*), in the day's cash. If the till cannot take it (no business day open, or cash that would take the guest to the ₹2,00,000 cash limit for the day), the pre-order is still booked and a warning says so: take it later with *Take advance* on the pre-order.
+- **Booking:** *New pre-order* takes the guest (their name, and their mobile if they want to be told it is ready; a mobile typed finds a guest already in the book however it is written), when it is due, pickup or delivery, the items with each cake's message or flavour, and an advance. An item is counted in whole pieces, or in kg in steps of 50 g when it is sold by weight. The advance is an ordinary advance (*Dues & accounts → Advances*), in the day's cash. If the till cannot take it (no business day open, or cash that would take the guest to the ₹2,00,000 cash limit for the day), the pre-order is still booked and a warning says so: take it later with *Take advance* on the pre-order.
 - **Advances:** taking one needs *Advances & deposits* (*Settings → Features*; on for a new restaurant, and choosing the Bakery format switches it on). While it is off, *New pre-order* has no advance: whoever takes payments sees a line saying so instead, with a link to *Settings → Features* for those who can open Settings. Pre-orders have no *Take advance*, and *Advances held* is hidden, on the page and in the dashboard's Pre-orders block. If it is switched off while the dialog is open, booking with an advance is refused, the advance field goes, and booking again goes through without it.
 - **Outlets:** a pre-order is booked at the outlet picked in the top bar (yours, when you are tied to one), or at the main counter under *All outlets*, and its row names the outlet after its number (*PRE-0004 · Kondapur*). Staff tied to an outlet see only that outlet's pre-orders, in the lists, the tiles and the dashboard's Pre-orders block, and cannot open, move along, hand over, cancel or take an advance on another outlet's or the main counter's. Everyone else sees every outlet's, whichever outlet is picked; with an outlet picked, the dashboard's Pre-orders block says *All outlets*. An outlet with open pre-orders can be neither closed nor deleted ([Outlets](#restaurant--profile-outlets-hours-settings-payment-types)).
 - **Baking:** the **Bake list** adds up what is due on a day by item, with every message, and can be printed for the kitchen. Each outlet, and the main counter, has its own list of the pre-orders booked there: the screen shows the list of the outlet picked in the top bar (yours, when you are tied to one), or the main counter's under *All outlets*, with its name beside the date and on the print. A restaurant without outlets has one list. It opens on tomorrow; pick any day. *Start baking*, then *Ready*.
@@ -2636,6 +2658,89 @@ settings). It is under *Settings › Licences*.
 Who does what: a manager adds and changes licences; an accountant and a
 viewer see them.
 
+### Personal data
+
+The DPDP Act 2023 and Rules 2025 make the business answerable for the
+personal data of the people it serves: its customers, members, hirers,
+lodgers and patients, and a restaurant's guests. Every business has the same
+screen, under *Settings › Personal data* (a restaurant's under its own
+*Settings*), and the same habits at the counter. The rules behind it are in
+[BUSINESS_RULES › Personal data](BUSINESS_RULES.md#personal-data).
+
+**First, publish the privacy notice.** *Settings › Personal data › Notice &
+contact* offers a starter text, item by item: what the business collects and
+why, what it sends only with a yes, how to see, correct or erase it, how to
+complain, and whom to contact. Change what does not fit, name the privacy
+contact (a name, and a phone or an e-mail), check the three short consent
+notices (bills on WhatsApp or SMS, reminders, offers) and *Publish*. From then
+on every bill and receipt prints one line with the contact, and the guests'
+site shows the notice where it takes a guest's name and number. A change is
+published as a new version; the earlier ones are kept, and each consent keeps
+the version it was given on. Until it is published, no consent can be taken
+and the bell says so.
+
+**Consent at the counter, in one tap.** Wherever a customer is taken (the
+customer's form, *+ New customer* at Quick bill, a member, hirer, lodger,
+owner, farmer or client added on a type's own screen, a restaurant's guest
+form), three chips ask what they agree to be sent: *Bills on WhatsApp*,
+*Reminders*, *Offers*. Read them the line of the notice for each and tap what
+they say yes to; none is needed for a sale, and a phone number never is. On a
+customer chosen at Quick bill or the restaurant's till, a tap records it at
+once. To withdraw one, let its chip go on the customer's form and save.
+
+**A message asks first.** A WhatsApp bill, a quotation on WhatsApp, a dues,
+renewal, recall, service-due, appointment, package, gold-scheme or site-dues
+reminder, and a reminder call go only to someone who agreed to that purpose;
+at a restaurant, so do a call from Guest insights' lists and the mobiles copied
+there for a broadcast (offers: the copy leaves out whoever has not agreed, and
+a call to an unhappy guest about their complaint needs none). Without it the
+button opens *Ask … first*: read the line shown, and if they
+say yes, *They agree: send it* records it and sends. A walk-in with no record
+is saved as a customer (a guest) first: the consent is kept on their record.
+Messages about what they asked for (ready for collection, a booking confirmed)
+go as before.
+
+**A child.** On a saved customer's form, *Mark as a child* records the parent
+or guardian who gives consent for them, how, and how you saw they are the
+guardian; offers stop and are never taken for them. A gym, a coaching centre,
+a clinic or a laundry meets children most.
+
+**Requests.** When someone asks to see, correct or erase their data, or
+complains, *Log a request* the day it comes: what they ask, who (find them, or
+type the name and link them later), how it came in and where to reply. It is
+due 90 days later on the business's own clock, and the bell warns from 15 days
+before. Open it to answer:
+
+- **See their data:** *Save their data as a file* saves everything held about
+  them, from every screen, to send them; then *Record the answer*.
+- **Correct their data:** change it on their record, then *Record the
+  answer*.
+- **Erase their data:** *Erase their data* removes their personal details
+  wherever no law keeps them, closed records included, and answers the
+  request. Bills and other tax records keep what tax law needs; the request
+  lists what was erased and what is kept, and why, for the accountant. It
+  waits for anything still open with them (money they owe or hold, an order,
+  a booking, a running membership), and says what. A clinic's registered
+  patient stays with the medical records.
+- **Refuse, with the reason,** when it cannot be done.
+
+**A breach.** If personal data is lost, stolen or seen by someone who should
+not see it, *Record a breach* at once: when it was found, what happened, the
+impact, the steps taken, and who is affected (chosen by name, or every
+customer). The breach shows the hours left for the Data Protection Board's
+detailed report, 72 from when it was found, and the bell keeps warning until
+it is recorded. The notice to the people affected is filled from the record
+with the privacy contact; send it to each from the business's own WhatsApp,
+SMS, e-mail or by hand (*Send the notice*), and record each one. Record when
+the Board was told and when the detailed report went, with its reference,
+then *Close the breach*. Nothing is filed from here: the business tells the
+Board and the people itself.
+
+Who does what: the owner and a manager keep the registers and publish the
+notice (`privacy.view`, `privacy.manage`) and alone see or export a person's
+whole data (`privacy.export`), each view and export logged; whoever takes
+customers (a cashier included) records what they agree to.
+
 ## Retail counter (grocery / kirana, supermarket, books & stationery)
 
 - **Quick bill** is the counter ([below](#quick-bill)).
@@ -2948,8 +3053,8 @@ trade or a walk-in customer.
   it comes back into stock but cannot be sold, the replacement is linked to
   it, and the warranty moves to the replacement.
 - **Warranties** — selling a serial unit registers its warranty with the bill
-  (the customer on file, or the walk-in's name and phone typed under
-  *Warranty for*). Look one up by IMEI, serial or phone; register one from a
+  (the customer on file, or the walk-in's name, and their phone if they give
+  it, typed under *Warranty for*). Look one up by IMEI, serial or phone; register one from a
   sold unit (start date, months and terms filled in from the sale and model);
   print the warranty card (in any state, marked expired or cancelled); cancel
   one registered by mistake, with a reason. *Claims with brands* lists parts
@@ -2958,7 +3063,8 @@ trade or a walk-in customer.
   what is due from each brand.
 - **Repairs** — *Take in a device*: scan the IMEI first (the sale, the warranty
   and earlier repairs come up; a person other than the warranty's owner must
-  be confirmed), the customer by name or phone, the device, the problem,
+  be confirmed), the customer by name or phone (a walk-in's phone only if they
+  want the ready message), the device, the problem,
   accessories, a damage checklist, the screen lock (kept only until the job
   closes), the estimate, the promised date and an advance. The job moves
   through its status steps, each with an optional note, and the next step is
@@ -2978,7 +3084,7 @@ trade or a walk-in customer.
   agreement number (and DO number, months if you have them) and the down
   payment the customer makes now (cash, UPI, card — several allowed). The rest
   is financed: the customer owes nothing for it; the financier does. The
-  customer must be picked, or the buyer's name and phone typed.
+  customer must be picked, or the buyer's name typed (a phone is optional).
 - **EMI & financiers** (a tab of Daily money; the tool *EMI & finance*):
   *Owed by financier* — cases waiting for their payout, expected subvention
   and payout, the oldest case, those waiting over 15 days; *EMI cases* — every EMI bill by date and status; *Financiers*
@@ -5223,11 +5329,11 @@ do more than yours; the Owner role cannot be handed out or changed.
 | Role | May do |
 | --- | --- |
 | Owner | Everything, including staff access (and every future permission) |
-| Manager | Everything except staff access and, in a clinic, the clinical notes and printed prescriptions and the lab's results, approval and printed reports (those belong to the doctors, the lab technicians and the pathologist) |
+| Manager | Everything except staff access and, in a clinic, the clinical notes and printed prescriptions and the lab's results, approval and printed reports (those belong to the doctors, the lab technicians and the pathologist); the personal data registers and a person's whole data included |
 | Cashier / sales | Sales, collections, printing; add customers; book and complete appointments; see products, stock and price lists |
 | Stock keeper | Products, receiving purchases, stock corrections, counts (not approving them), transfers |
-| Accountant | See everything, record payments and collections, export and print; no stock changes |
-| Viewer | See and export everything; change nothing |
+| Accountant | See everything but the personal data registers, record payments and collections, export and print; no stock changes |
+| Viewer | See and export everything but the personal data registers; change nothing |
 | Pharmacist (pharmacy only) | Sell and refund at the counter, prescriptions and the H1 / Schedule X registers, the sign-off for Schedule X, recalls and expiry returns, the drug master; see stock and purchases |
 | Doctor (clinic only) | Patients with their clinical records (see and write), appointments, lab orders; see bills; their own queue and the consultation in the clinic workspace |
 | Lab technician (clinic only) | Samples and results, in the lab workspace or Business Admin; see patients |

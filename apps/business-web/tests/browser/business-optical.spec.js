@@ -121,6 +121,10 @@ test("the recall list: who is due for an eye test, with the reminder ready on Wh
   await expect(row).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("row").filter({ hasText: OPTICAL.customer.name })).toHaveCount(0);
   await row.getByRole("button", { name: "WhatsApp" }).click();
+  // A recall reminder needs her consent to reminders: asked first, recorded in one tap.
+  const ask = page.getByRole("dialog", { name: `Ask ${OPTICAL.due.name} first` });
+  await ask.getByRole("button", { name: "They agree: send it" }).click();
+  await expect(ask).toHaveCount(0, { timeout: 15_000 });
   await expect.poll(() => page.evaluate(() => (window.opened || []).join(" "))).toContain(`wa.me/91${OPTICAL.due.phone}`);
   await expect(row).toContainText("1 reminder", { timeout: 15_000 });
   expect(errors).toEqual([]);

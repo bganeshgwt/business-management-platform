@@ -1,0 +1,288 @@
+/* Personal data: consent chips where a customer is taken, the ask-first
+   dialog before a message, and the requests, breaches and notice screens. */
+
+.pd-choices {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pd-choices-label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-2);
+}
+
+.pd-choices-hint {
+  line-height: 1.4;
+}
+
+.pd-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pd-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.pd-chip:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.pd-chip.is-on {
+  border-color: var(--success-border);
+  background: var(--success-bg);
+  color: var(--success-text);
+  font-weight: var(--weight-medium);
+}
+
+.pd-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.pd-chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+/* The ask-first dialog: why, and the notice's own line to read out. */
+.pd-ask p {
+  margin: 0;
+}
+
+.pd-ask-why {
+  font-weight: var(--weight-medium);
+}
+
+.pd-quote {
+  margin: 0;
+  padding: 12px 14px;
+  border-left: 3px solid var(--primary);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.pd-quote figcaption {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.pd-quote blockquote {
+  margin: 0;
+  color: var(--text);
+}
+
+/* The screens. */
+.pd-two-line {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pd-due {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+
+.pd-due-danger {
+  color: var(--danger);
+}
+
+.pd-due-warning {
+  color: var(--warning-text);
+}
+
+.pd-due-info,
+.pd-due-success,
+.pd-due-neutral {
+  color: var(--muted);
+}
+
+.pd-panel h3 {
+  margin: 0 0 6px;
+  font-size: var(--text-md);
+}
+
+.pd-panel h4 {
+  margin: 8px 0 4px;
+  font-size: var(--text-sm);
+}
+
+.pd-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.pd-asked {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.pd-section {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.pd-section p {
+  margin: 0;
+}
+
+.pd-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.pd-blocked {
+  padding: 10px 12px;
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.pd-blocked ul,
+.pd-erasure ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.pd-record {
+  display: grid;
+  grid-template-columns: minmax(120px, max-content) minmax(0, 1fr);
+  gap: 6px 14px;
+  margin: 0;
+}
+
+.pd-record dt {
+  color: var(--muted);
+}
+
+.pd-record dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.pd-consents,
+.pd-people {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pd-consents li,
+.pd-people li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.pd-consents li small {
+  flex: 1 1 260px;
+}
+
+.pd-consents li.is-withdrawn strong {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.pd-people li .pd-two-line {
+  flex: 1 1 200px;
+}
+
+.pd-child {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+
+.pd-inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+}
+
+.pd-notice {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.pd-notice h3 {
+  margin: 12px 0 4px;
+  font-size: var(--text-sm);
+  color: var(--text-2);
+}
+
+.pd-notice h3:first-child {
+  margin-top: 0;
+}
+
+.pd-notice p {
+  margin: 0;
+}
+
+.pd-print-line {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.pd-notice-text {
+  margin: 0;
+  padding: 12px 14px;
+  max-height: 420px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .pd-notice {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pd-record {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -393,8 +393,8 @@ async function create(business, user, body) {
   const locationId = id(body.locationId, 'Location');
   const contactId = c.given(body.contactId) ? id(body.contactId, 'Guest') : null;
   const newGuest = body.guest && typeof body.guest === 'object' && !Array.isArray(body.guest) && c.given(body.guest.name)
-    ? { kind: 'customer', name: body.guest.name, phone: body.guest.phone } : null;
-  if (!contactId && !newGuest) fail('Choose the guest, or type the new guest\'s name and phone');
+    ? { kind: 'customer', name: body.guest.name, phone: body.guest.phone, consents: body.guest.consents } : null;
+  if (!contactId && !newGuest) fail('Choose the guest, or type the new guest\'s name');
   if (contactId && newGuest) fail('Choose the guest or type a new one, not both');
   if (newGuest) await access.require(business, 'contacts.create');
   const nights = readNights(body.arrival, body.departure);

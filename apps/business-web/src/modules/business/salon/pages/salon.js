@@ -115,13 +115,16 @@ export function hoursOn(resource, day) {
   return { off: false, from: resource?.works_from ? String(resource.works_from).slice(0, 5) : null, to: resource?.works_to ? String(resource.works_to).slice(0, 5) : null };
 }
 
-// Opens WhatsApp with the message and records it on the booking.
-export function sendMessage(biz, kind, a) {
+// Opens WhatsApp with the message and records it on the booking. A reminder
+// needs the client's consent to reminders: `gate` (useConsentGate) asks them
+// first; a confirmation is of the booking they asked for, and needs none.
+export async function sendMessage(biz, kind, a, gate = null) {
   const phone = a.contact_phone || a.phone;
   if (!phone) {
     toast.error(`${a.contact_name} has no phone number on their card.`);
-    return Promise.resolve();
+    return;
   }
+  if (kind === "reminder" && gate && !(await gate.ensure("reminders", { id: a.contact_id, name: a.contact_name }))) return;
   window.open(whatsappLink(phone, bookingMessage(kind, a, biz)), "_blank", "noopener");
   return businessWrite(biz.id, `salon/appointments/${a.id}/messages`, { kind })
     .then(() => toast.success(kind === "reminder" ? "Reminder noted as sent" : "Confirmation noted as sent"))

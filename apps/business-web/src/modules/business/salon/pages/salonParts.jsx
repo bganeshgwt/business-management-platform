@@ -7,6 +7,8 @@ import { getErrorMessage } from "../../../../services/api";
 import { balanceText } from "@bmp/shared/format";
 import { Field } from "../../core/pages/ui";
 import { useOpenBusiness } from "../../core/pages/hooks";
+import { NewCustomerConsents } from "../../../personal-data/components/ConsentChoices";
+import { consentChanges } from "../../../personal-data/personalData";
 
 // Pieces the salon screens share: a client picker that finds
 // by name or phone and adds a new client on the spot.
@@ -48,7 +50,7 @@ function NewClientDialog({ text, onClose, onSaved }) {
     setBusy(true);
     setError("");
     try {
-      onSaved(await businessWrite(biz.id, "contacts", { kind: "customer", name: form.name.trim(), phone: form.phone.trim() || null }));
+      onSaved(await businessWrite(biz.id, "contacts", { kind: "customer", name: form.name.trim(), phone: form.phone.trim() || null, consents: consentChanges(form.consents, []) || undefined }));
     } catch (err) {
       setError(getErrorMessage(err));
       setBusy(false);
@@ -59,7 +61,8 @@ function NewClientDialog({ text, onClose, onSaved }) {
       <div className="form-grid" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); save(); } }}>
         <ErrorMessage message={error} />
         <Field label="Name" wide><input maxLength={150} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} data-autofocus /></Field>
-        <Field label="Phone" wide hint="For booking confirmations and reminders on WhatsApp"><input inputMode="tel" maxLength={30} value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} /></Field>
+        <Field label="Phone" wide hint="For booking confirmations, and reminders if they agree to them"><input inputMode="tel" maxLength={30} value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} /></Field>
+        <NewCustomerConsents value={form.consents} onChange={(consents) => setForm((f) => ({ ...f, consents }))} />
         <div className="form-actions field-wide">
           <button type="button" className="button button-secondary" onClick={onClose} disabled={busy}>Cancel</button>
           <button type="button" className="button" disabled={busy} onClick={save}>{busy ? "Saving…" : "Add client"}</button>

@@ -197,7 +197,7 @@ function RegisterDialog({ preset, onClose, onSaved }) {
             {!preset && <button type="button" className="link-button" onClick={() => pick(null)}>Choose another</button>}
           </div>
           <Field label="Customer name"><input required={!line.contact_name} maxLength={150} value={form.customerName || ""} onChange={set("customerName")} /></Field>
-          <Field label="Customer phone" hint="The warranty is found again by this number."><input required maxLength={30} inputMode="tel" value={form.customerPhone || ""} onChange={set("customerPhone")} /></Field>
+          <Field label="Customer phone (optional)" hint="When given, the warranty is found again by this number; the serial number and the bill find it too."><input maxLength={30} inputMode="tel" value={form.customerPhone || ""} onChange={set("customerPhone")} /></Field>
           <Field label="Starts on" hint="Usually the sale date."><input required type="date" min={line.sold_on} max={today} value={form.startsOn || ""} onChange={set("startsOn")} /></Field>
           <Field label="Months"><input required type="number" min="1" max="120" step="1" value={form.months || ""} onChange={set("months")} /></Field>
           <Field label="Terms (printed on the card)" wide><textarea rows={3} maxLength={1000} value={form.terms || ""} onChange={set("terms")} /></Field>

@@ -8,6 +8,7 @@ const { createBusinesses } = require('./helpers/businesses');
 const { withTools } = require('./helpers/tools');
 const { daysFrom } = require('./helpers/dates');
 const { signIn } = require('./helpers/signIn');
+const { publishNotice, giveConsent } = require('./helpers/privacy');
 
 // Retail stock and books: opening stock and barcode editing
 // on items, the Sales list's biller / payment / location, the stock ledger in
@@ -198,6 +199,9 @@ test('retail: items, sales list, expiry, books, bell', { timeout: 300000 }, asyn
     const customer = await request('POST', G('contacts'), { kind: 'customer', name: 'Kiran', phone: '9800000002', creditDays: 1 }, 201);
     const bill = await request('POST', G('documents'), { kind: 'sale', locationId: location.id, contactId: customer.id, requestKey: key(), lines: [{ skuId: low.id, quantity: '1' }] }, 201);
     await pool.query("UPDATE business_documents SET due_on=$3 WHERE business_id=$1 AND id=$2", [grocery.id, bill.id, day(-40)]);
+    // A reminder call needs the customer's consent to reminders.
+    await publishNotice(request, `/businesses/${grocery.id}`);
+    await giveConsent(request, `/businesses/${grocery.id}`, customer.id, ['reminders']);
     await request('POST', G(`udhaar/${customer.id}/reminders`), { channel: 'call', promisedOn: day(0) }, 201);
     await pool.query("UPDATE retail_credit_reminders SET promised_on=$3 WHERE business_id=$1 AND contact_id=$2", [grocery.id, customer.id, day(-2)]);
     const bell = await request('GET', G('notifications'));

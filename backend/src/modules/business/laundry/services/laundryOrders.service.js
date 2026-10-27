@@ -173,7 +173,7 @@ function readOrder(body) {
   if (items.length > MAX_ITEMS) fail(`An order takes at most ${MAX_ITEMS} garments: take in the rest on another order`);
   const contactId = c.given(body.contactId) ? id(body.contactId, 'Customer') : null;
   const newCustomer = body.customer && typeof body.customer === 'object' && !Array.isArray(body.customer)
-    ? { kind: 'customer', name: body.customer.name, phone: body.customer.phone } : null;
+    ? { kind: 'customer', name: body.customer.name, phone: body.customer.phone, consents: body.customer.consents } : null;
   return {
     locationId: id(body.locationId, 'Location'), contactId, newCustomer,
     express: v.requiredBoolean(body.express, 'Express', false), notes: c.optionalText(body.notes, 'Notes', 500),
@@ -294,7 +294,7 @@ async function takeIn(business, user, body) {
   const requestKey = core.uuid(body.requestKey);
   const hash = c.hashOf(body);
   const input = readOrder(body);
-  if (!input.contactId && !input.newCustomer) fail('Choose the customer, or type the new customer\'s name and phone');
+  if (!input.contactId && !input.newCustomer) fail('Choose the customer, or type the new customer\'s name');
   if (input.contactId && input.newCustomer) fail('Choose the customer or type a new one, not both');
   if (input.newCustomer) await access.require(business, 'contacts.create');
   const parts = core.readPayments(body);

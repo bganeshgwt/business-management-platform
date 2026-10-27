@@ -151,7 +151,7 @@ function OrderDialog({ onClose, onSaved }) {
         search={(q, { signal }) => businessRead(biz.id, "contacts", { kind: "customer", active: "true", q, limit: 8 }, signal).then((page) => page.items)}
         minChars={2} getLabel={(c) => c.name} getDescription={(c) => c.phone || ""} hint="Pick a customer on file to take an advance." className="field-wide" />
       {!customer && <Field label="Customer name"><input required maxLength={150} value={form.customerName} onChange={set("customerName")} /></Field>}
-      <Field label={customer ? "Phone (optional)" : "Phone"}><input maxLength={30} inputMode="tel" value={form.phone} onChange={set("phone")} placeholder={customer?.phone || ""} required={!customer} /></Field>
+      <Field label="Phone (optional)" hint={customer ? undefined : "Only if they want to be told the book has arrived."}><input maxLength={30} inputMode="tel" value={form.phone} onChange={set("phone")} placeholder={customer?.phone || ""} /></Field>
       <Field label="Book title" wide><input required maxLength={200} value={form.title} onChange={set("title")} /></Field>
       <Field label="Author (optional)"><input maxLength={200} value={form.author} onChange={set("author")} /></Field>
       <Field label="ISBN (optional)" hint="10 or 13 digits; checked."><input maxLength={17} inputMode="numeric" className="mono" value={form.isbn} onChange={set("isbn")} /></Field>

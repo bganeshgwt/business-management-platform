@@ -21,6 +21,27 @@ const salesChannelRepository = require("../../deliveries/repositories/salesChann
 const { effectiveStatusSql } = require("../../deliveries/repositories/delivery.repository");
 const AppError = require("../../../../utils/AppError");
 const { round2 } = require("../../../../utils/money");
+const personalData = require("../../../personal-data/services/personalData.service");
+const pool = require("../../../../config/database");
+
+// The notice a guest's consents were given on: one of this restaurant's (the
+// page may have loaded the version before the newest). null when they gave none.
+const shownNotice = async (restaurantId, input) => {
+  if (!(input.privacyConsents || []).length) {
+    return null;
+  }
+
+  const result = await pool.query(
+    `SELECT n.id FROM business_privacy_notices n JOIN businesses b ON b.id = n.business_id AND b.legacy_restaurant_id = $1 WHERE n.id = $2`,
+    [restaurantId, input.privacyNoticeId]
+  );
+
+  if (!result.rows[0]) {
+    throw new AppError(400, "The privacy notice on the page has changed: reload the page and choose again");
+  }
+
+  return result.rows[0].id;
+};
 
 // Links are 48 or 64 hex characters (see the repository). Anything else is
 // turned away before it costs a database read.
@@ -260,6 +281,8 @@ const getMenu = async (token, requestedService) => {
       nextOpensAt: context.hours.nextOpensAt,
     },
     offers: menu.offers,
+    // The restaurant's privacy notice, shown where the guest gives their details (null: none published).
+    privacy: await personalData.publicNotice(link.restaurant_id),
     categories: menu.categories,
   };
 };
@@ -550,6 +573,8 @@ const placeOrder = async (token, input) => {
       landmark: input.service === "delivery" ? input.landmark : null,
       paymentMode: input.paymentMode,
       deliveryCharge,
+      privacyConsents: input.privacyConsents || [],
+      privacyNoticeId: await shownNotice(restaurantId, input),
     },
     items,
     link.max_open_per_mobile

@@ -14,6 +14,11 @@ import { KIND_WORDS, usePaymentMethods } from "../../core/pages/paymentMethods";
 import { SCHEME_STAGES, approvalBody, emptyApproval, schemeReminder } from "./jewellery";
 import { printSchemePassbook } from "./jewelleryPrint";
 import JewelleryApproval from "./JewelleryApproval";
+// An instalment reminder needs the member's consent to reminders (asked first, in one tap).
+import ConsentLink from "../../../personal-data/components/ConsentLink";
+import { useShopPrivacy } from "../../../personal-data/usePrivacy";
+import { NewCustomerConsents } from "../../../personal-data/components/ConsentChoices";
+import { consentChanges } from "../../../personal-data/personalData";
 
 // The forms and the panel of Gold schemes: a customer joining a plan (its
 // terms shown for them to accept, their monthly amount, a nominee, and the
@@ -55,7 +60,8 @@ export function EnrolForm({ biz, plans, onClose, onSaved }) {
   const [pay, setPay] = useState({ method: "upi", reference: "" });
   const choosePlan = (value) => { setPlanId(value); const next = open.find((p) => String(p.id) === value); if (next && Number(instalment) < Number(next.min_instalment)) setInstalment(String(Number(next.min_instalment))); };
   const submit = () => businessWrite(biz.id, "jewellery/schemes", {
-    requestKey, locationId, planId, ...(customer ? { contactId: customer.id } : { customer: { name: typed?.name?.trim() || "", phone: typed?.phone?.trim() || undefined } }),
+    requestKey, locationId, planId, ...(customer ? { contactId: customer.id } : { customer: { name: typed?.name?.trim() || "", phone: typed?.phone?.trim() || undefined,
+      consents: consentChanges(typed?.consents, []) || undefined } }),
     instalment, nomineeName: nominee.name.trim() || undefined, nomineeRelation: nominee.relation.trim() || undefined, termsAccepted: accepted,
     payment: { ...methods.body(pay.method, PAY_KINDS), reference: pay.reference.trim() || undefined },
   });
@@ -72,6 +78,7 @@ export function EnrolForm({ biz, plans, onClose, onSaved }) {
             <>
               <Field label="Customer's name"><input required maxLength={150} value={typed.name} onChange={(e) => setTyped((c) => ({ ...c, name: e.target.value }))} /></Field>
               <Field label="Phone"><input inputMode="tel" maxLength={30} value={typed.phone} onChange={(e) => setTyped((c) => ({ ...c, phone: e.target.value }))} /></Field>
+              <NewCustomerConsents value={typed.consents} onChange={(consents) => setTyped((c) => ({ ...c, consents }))} />
               <div className="field-wide"><button type="button" className="link-button" onClick={() => setTyped(null)}>Find a customer instead</button></div>
             </>
           ) : (
@@ -135,6 +142,7 @@ function StopForm({ biz, scheme, onClose, onSaved }) {
 
 // A scheme's panel: the passbook, what it gives, and what can be done.
 export function SchemePanel({ biz, schemeId, onClose, onChanged }) {
+  const privacy = useShopPrivacy();
   const [scheme, setScheme] = useState(null);
   const [error, setError] = useState("");
   const [version, setVersion] = useState(0);
@@ -167,7 +175,10 @@ export function SchemePanel({ biz, schemeId, onClose, onChanged }) {
           {scheme.status !== "redeemed" && biz.can("jewellery.create") && biz.can("sales.edit") && (
             <Link className="button button-secondary" to={`${biz.path("jewellery-bill")}?scheme=${scheme.id}`}><Icon name="receipt" size={15} /> Redeem on a jewellery bill</Link>
           )}
-          {scheme.status !== "redeemed" && scheme.member_phone && <a className="button button-secondary" href={schemeReminder(biz, scheme)} target="_blank" rel="noreferrer">Remind on WhatsApp</a>}
+          {scheme.status !== "redeemed" && scheme.member_phone && (
+            <ConsentLink privacy={privacy} purpose="reminders" person={{ id: scheme.contact_id, name: scheme.member_name }} href={schemeReminder(biz, scheme)}
+              className="button button-secondary">Remind on WhatsApp</ConsentLink>
+          )}
           {biz.can("jewellery.print") && <button type="button" className="button button-secondary" onClick={() => printSchemePassbook(biz, scheme)}><Icon name="print" size={15} /> Print the passbook</button>}
           {scheme.status === "active" && biz.can("jewellery.cancel") && <button type="button" className="button button-secondary danger" onClick={() => setDialog("stop")}>Stop</button>}
         </div>

@@ -5,7 +5,11 @@ import { ErrorMessage } from "../../../../components/Feedback";
 import { createCustomer, listCustomers, updateCustomer } from "../services/crm.service";
 import { getErrorMessage } from "../../../../services/api";
 import { abroadTenCountry, formatMobile, mobileHint, normaliseMobile, tenDigitTwin } from "../../../../services/phone";
-import { GUEST_TAGS, gstinHint, shortDate, tidyGstin } from "../../../../services/guestBook";
+import { GUEST_TAGS, gstinHint, tidyGstin } from "../../../../services/guestBook";
+import ConsentChoices from "../../../personal-data/components/ConsentChoices";
+import { consentChanges } from "../../../personal-data/personalData";
+import { consentStore, useConsent } from "../../../personal-data/consentStore";
+import { useRestaurantPrivacy } from "../../../personal-data/usePrivacy";
 import "../styles/crm.css";
 
 const fromGuest = (guest) => ({
@@ -21,7 +25,8 @@ const fromGuest = (guest) => ({
   gstin: guest?.gstin || "",
   tags: guest?.tags || [],
   allergies: guest?.allergies || "",
-  marketingOptIn: Boolean(guest?.marketingOptIn),
+  // What they agree to, per purpose, as tapped on this form (Personal data).
+  consents: {},
 });
 
 function Hint({ hint, fallback }) {
@@ -34,7 +39,8 @@ function Hint({ hint, fallback }) {
 
 // Adding or editing a guest: who they are, how to reach them, what the floor
 // should know (tags, allergies), the business details for a GST invoice, and
-// whether they agreed to hear about offers.
+// what they agree to be sent (bills, reminders, offers), each a consent of its
+// own on the restaurant's privacy notice (Settings › Personal data).
 //
 // Staff who see a guest's contact details masked (a cashier) get those boxes
 // empty, with the masked value as a hint. Left empty they keep what is on
@@ -55,6 +61,8 @@ export default function GuestFormModal({ guest, onClose, onSaved }) {
   // { name, country } of the guest holding the other form, once found.
   const [twin, setTwin] = useState(null);
   const [differentNumber, setDifferentNumber] = useState(false);
+  const privacy = useRestaurantPrivacy();
+  const { status: consentStatus } = useConsent(privacy.api, editing ? guest.id : null);
 
   const change = (field) => (event) => {
     setForm({ ...form, [field]: event.target.value });
@@ -125,12 +133,13 @@ export default function GuestFormModal({ guest, onClose, onSaved }) {
       gstin: tidyGstin(form.gstin) || null,
       tags: form.tags,
       allergies: form.allergies.trim() || null,
-      marketingOptIn: form.marketingOptIn,
+      ...(consentChanges(form.consents, consentStatus?.purposes || []) ? { consents: consentChanges(form.consents, consentStatus?.purposes || []) } : {}),
       ...(twin && differentNumber ? { sameDigitsConfirmed: true } : {}),
     };
 
     try {
       const saved = editing ? await updateCustomer(guest.id, payload) : await createCustomer(payload);
+      consentStore(privacy.api).forget(saved.id);
       onSaved(saved, editing ? `${saved.name} updated` : `${saved.name} added to the guest book`);
     } catch (err) {
       const details = err.response?.data?.data;
@@ -298,24 +307,10 @@ export default function GuestFormModal({ guest, onClose, onSaved }) {
           </div>
         </fieldset>
 
-        <p className="section-heading field-wide">Offers</p>
+        <p className="section-heading field-wide">What they agree to be sent</p>
 
-        <div className="field field-wide crm-consent">
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={form.marketingOptIn}
-              onChange={(event) => setForm({ ...form, marketingOptIn: event.target.checked })}
-            />
-            <span>
-              <strong>The guest agreed to receive offers by SMS or WhatsApp</strong>
-              <small className="muted">
-                Tick only if they said yes. The DPDP Act 2023 needs a guest's consent before any offer is sent.
-                {editing && guest.marketingOptInAt ? ` Recorded ${shortDate(guest.marketingOptInAt)}.` : ""}
-              </small>
-            </span>
-          </label>
-        </div>
+        <ConsentChoices privacy={privacy} personId={editing ? guest.id : null} value={form.consents}
+          onChange={(consents) => setForm({ ...form, consents })} />
 
         <p className="section-heading field-wide">On their record</p>
 

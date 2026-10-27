@@ -391,7 +391,8 @@ export default function CounterPage() {
   const kitSerials = lines.some((l) => kitHasSerial(l));
   // The buyer's name and phone: for a warranty, and an EMI needs them too.
   const needsBuyer = ((warranties && (serialLines.length > 0 || kitSerials)) || emi) && !customer;
-  const emiOk = !emi || (financeReady(finance, toPay) && (customer || (buyer.name.trim() && buyer.phone.trim())));
+  // The financier needs the buyer: a customer chosen, or a walk-in's name (a phone is never a condition).
+  const emiOk = !emi || (financeReady(finance, toPay) && (customer || buyer.name.trim()));
   // A bill over ₹2,00,000 records the buyer's PAN, unless the customer has
   // their PAN or GSTIN saved; a buyer with no PAN signs a declaration (Form 97).
   const panNeeded = total > 200000 && !(customer?.pan || customer?.gstin);
@@ -700,7 +701,7 @@ export default function CounterPage() {
             <SectionCard icon="shield" title={emi ? "Buyer" : "Warranty for"} description={emi ? "Name and phone of the buyer, for the financier and the warranty." : "Name and phone of the buyer, so the warranty is registered with this bill."}>
               <div className="rt-inline">
                 <Field label="Name"><input maxLength={150} value={buyer.name} onChange={(e) => setBuyer((b) => ({ ...b, name: e.target.value }))} /></Field>
-                <Field label="Phone"><input maxLength={30} inputMode="tel" value={buyer.phone} onChange={(e) => setBuyer((b) => ({ ...b, phone: e.target.value }))} /></Field>
+                <Field label="Phone (optional)"><input maxLength={30} inputMode="tel" value={buyer.phone} onChange={(e) => setBuyer((b) => ({ ...b, phone: e.target.value }))} /></Field>
               </div>
             </SectionCard>
           )}
@@ -843,7 +844,7 @@ export default function CounterPage() {
                 </>
               )}
               {emi && <FinanceFields biz={biz} value={finance} onChange={setFinance} toPay={toPay} />}
-              {emi && !customer && <p className="small muted">The financier needs the customer: pick them, or give the buyer's name and phone below.</p>}
+              {emi && !customer && <p className="small muted">The financier needs the customer: pick them, or give the buyer's name below.</p>}
               {udhaar && customer && (
                 <>
                   <p className="small">The unpaid amount goes on <strong>{customer.name}</strong>'s udhaar.</p>

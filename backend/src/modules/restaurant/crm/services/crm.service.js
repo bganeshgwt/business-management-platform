@@ -337,7 +337,7 @@ const tidyCustomerData = (data) => ({
 // The check and the insert happen under a lock on the number's ten digits, so
 // two saves of one guest in two writings, sent at the same moment, cannot both
 // pass the check. data.sameDigitsConfirmed: see mobileTaken.
-const createCustomer = async (restaurantId, data, userId) => {
+const createCustomer = async (restaurantId, data, userId, options = {}) => {
   requireRestaurantId(restaurantId);
 
   const tidy = tidyCustomerData({ ...data, status: data.status || "active" });
@@ -353,7 +353,18 @@ const createCustomer = async (restaurantId, data, userId) => {
     }
 
     try {
-      return toCustomer(await crmRepository.createCustomer(restaurantId, tidy, userId, client));
+      const row = await crmRepository.createCustomer(restaurantId, tidy, userId, client);
+      const choices = consentChoices(data);
+
+      if (!choices) {
+        return toCustomer(row);
+      }
+
+      // Consent given as the guest is added: a record of its own, with the notice shown.
+      await personalData().applyGuestChoices(client, restaurantId, row.id, choices, { id: userId, name: options.userName || null });
+      const [saved] = await crmRepository.lockCustomers(client, restaurantId, [row.id]);
+
+      return toCustomer(saved);
     } catch (error) {
       if (error.code === DUPLICATE) {
         throw new AppError(409, "A customer with this mobile number already exists");
@@ -362,6 +373,19 @@ const createCustomer = async (restaurantId, data, userId) => {
       throw error;
     }
   });
+};
+
+// What a form says about the guest's consents: data.consents ({ bills_digital,
+// reminders, offers }, each yes or no), or the older offers box alone
+// (data.marketingOptIn). null when it says nothing.
+const consentChoices = (data) => {
+  const choices = { ...(data.consents || {}) };
+
+  if (typeof data.marketingOptIn === "boolean" && choices.offers === undefined) {
+    choices.offers = data.marketingOptIn;
+  }
+
+  return Object.keys(choices).length ? choices : null;
 };
 
 // The contact details a masked edit form cannot show, and so never sends back.
@@ -459,10 +483,18 @@ const editCustomer = async (restaurantId, id, data, userId, options = {}) => {
     }
 
     try {
-      const row = await crmRepository.updateCustomer(restaurantId, id, tidy, userId, client);
+      let row = await crmRepository.updateCustomer(restaurantId, id, tidy, userId, client);
 
       if (!row) {
         throw new AppError(404, "Customer not found");
+      }
+
+      // A change to their consents is a consent given or withdrawn, recorded as such.
+      const choices = consentChoices(data);
+
+      if (choices) {
+        await personalData().applyGuestChoices(client, restaurantId, id, choices, { id: userId, name: options.userName || null });
+        [row] = await crmRepository.lockCustomers(client, restaurantId, [id]);
       }
 
       return { before: toCustomer(existing), after: toCustomer(row, reveal) };
@@ -500,6 +532,8 @@ const removeCustomer = async (restaurantId, id, options = {}) => {
     history.feedback && `${history.feedback} feedback`,
     history.complaints && plural(history.complaints, "complaint"),
     history.points && plural(history.points, "points entry").replace("entrys", "entries"),
+    // Consents and requests are kept as the record of what the guest agreed to and asked.
+    history.consents && plural(history.consents, "consent or request").replace("consent or requests", "consents or requests"),
   ].filter(Boolean);
 
   if (held.length > 0) {
@@ -528,8 +562,14 @@ const removeCustomer = async (restaurantId, id, options = {}) => {
 // cancelled with a ledger entry, so the points liability report drops them.
 // An order still open, a booking not yet seated and a party still waiting
 // carry on as walk-ins, so nothing can earn points for the erased record
-// afterwards (see crm.repository detachLiveRecords).
-const eraseCustomer = async (restaurantId, id, userId) => {
+// afterwards (see crm.repository detachLiveRecords). Money still between the
+// guest and the restaurant (dues on account, an advance, a pre-order to
+// collect) is settled first. Their consents stop and a child's mark ends,
+// both kept as the record (modules/personal-data). options.within(client,
+// result): the caller's own work in the same transaction (the requests
+// register records the erasure).
+const personalData = () => require("../../../personal-data/services/personalDataRestaurant");
+const eraseCustomer = async (restaurantId, id, userId, options = {}) => {
   requireRestaurantId(restaurantId);
 
   const client = await pool.connect();
@@ -552,6 +592,12 @@ const eraseCustomer = async (restaurantId, id, userId) => {
 
     if (customer.erased_at) {
       throw new AppError(409, "This guest's details have already been erased");
+    }
+
+    const open = await personalData().guestOpenItems(client, restaurantId, id);
+
+    if (open.length) {
+      throw new AppError(409, `${customer.name}'s details cannot be erased yet. ${open.join(" ")}`, { reason: "erasure_blocked", open });
     }
 
     // A company guest's tax invoices keep the company and GSTIN they were
@@ -577,6 +623,9 @@ const eraseCustomer = async (restaurantId, id, userId) => {
       );
     }
 
+    // Their consents stop (kept as the record), before the guest's own row is erased.
+    await personalData().onGuestErased(client, restaurantId, id, userId);
+
     // Copies of the name are cleared while everything is still linked, open
     // orders included; then what is still running is let go.
     const { customer: erased, cleared } = await crmRepository.eraseCustomer(
@@ -586,16 +635,21 @@ const eraseCustomer = async (restaurantId, id, userId) => {
       userId
     );
     const detached = await crmRepository.detachLiveRecords(client, restaurantId, id);
-
-    await client.query("COMMIT");
-
-    return {
+    const result = {
       customer: toCustomer(erased),
       formerName: customer.name,
       pointsCancelled: points,
       cleared,
       detached,
     };
+
+    if (options.within) {
+      await options.within(client, result);
+    }
+
+    await client.query("COMMIT");
+
+    return result;
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -615,7 +669,16 @@ const eraseCustomer = async (restaurantId, id, userId) => {
 // not move: they go with the folded record. Carried across, the migration's
 // rollback would have written the folded record's old spelling and notes over
 // the guest that stayed.
-const MERGE_SKIPS = new Set(["customer_mobile_cleanup"]);
+// Consents, a child's mark, requests and breach rows are moved by their own
+// module (personal-data), which keeps one consent per purpose.
+const MERGE_SKIPS = new Set([
+  "customer_mobile_cleanup",
+  "business_consents",
+  "business_children",
+  "business_privacy_requests",
+  "business_privacy_breach_people",
+  "business_privacy_breach_notices",
+]);
 
 // What the guest who stays carries for GST invoices after a merge.
 //
@@ -681,6 +744,7 @@ const mergeCustomers = async (restaurantId, keepId, mergeId, userId, options = {
     const gst = mergedBusiness(keep, merged, ordinaryBills);
 
     const recordsMoved = {};
+    await personalData().onGuestsMerged(client, restaurantId, merged.id, keep.id, userId);
     const references = await crmRepository.findGuestReferences(client);
 
     for (const reference of references) {

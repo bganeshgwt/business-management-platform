@@ -20,6 +20,9 @@ import { printReceipt } from "../../retail/pages/retail";
 import ClientPanel from "./ClientPanel";
 import { ClientPicker } from "./salonParts";
 import { timeOfDay, whatsappLink } from "./salon";
+// The bill on WhatsApp needs the client's consent to bills on WhatsApp (asked first, in one tap).
+import ConsentLink from "../../../personal-data/components/ConsentLink";
+import { useShopPrivacy } from "../../../personal-data/usePrivacy";
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import "../styles/salon.css";
 
@@ -512,6 +515,7 @@ export default function SalonBillPage() {
 function BillDone({ biz, posted, onNext, onOpen, docId, onCloseDoc, onBookNext }) {
   const doc = posted.document;
   const phone = posted.client?.phone;
+  const privacy = useShopPrivacy();
   const print = async () => {
     try {
       printReceipt(await businessRead(biz.id, `documents/${doc.id}`), biz);
@@ -542,7 +546,10 @@ function BillDone({ biz, posted, onNext, onOpen, docId, onCloseDoc, onBookNext }
         <div className="sw-row" style={{ marginTop: "1rem" }}>
           <button type="button" className="button" data-autofocus onClick={onNext}><Icon name="plus" size={15} /> Next bill <kbd>Enter</kbd></button>
           {biz.can("sales.print") && <button type="button" className="button button-secondary" onClick={print}><Icon name="print" size={15} /> Print</button>}
-          {phone && <a className="button button-secondary" href={whatsappLink(phone, text)} target="_blank" rel="noreferrer"><Icon name="message" size={15} /> WhatsApp bill</a>}
+          {phone && (
+            <ConsentLink privacy={privacy} purpose="bills_digital" person={{ id: posted.client.id, name: posted.client.name }} href={whatsappLink(phone, text)}
+              className="button button-secondary"><Icon name="message" size={15} /> WhatsApp bill</ConsentLink>
+          )}
           {posted.client && biz.can("appointments.create") && <button type="button" className="button button-secondary" onClick={onBookNext}><Icon name="calendar" size={15} /> Book next visit</button>}
           <button type="button" className="button button-secondary" onClick={onOpen}>Open the bill</button>
         </div>

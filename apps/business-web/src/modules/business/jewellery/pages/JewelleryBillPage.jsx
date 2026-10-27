@@ -16,6 +16,8 @@ import { printTaxInvoice } from "../../core/pages/invoice";
 import { SCHEME_STAGES, grams, perGram } from "./jewellery";
 import { OldGoldForm } from "./OldGoldDialogs";
 import "../styles/jewellery.css";
+import { NewCustomerConsents } from "../../../personal-data/components/ConsentChoices";
+import { consentChanges } from "../../../personal-data/personalData";
 
 // The jewellery bill: the counter's screen for tagged pieces. Scan or type a
 // tag (or a HUID): each piece is priced by the server at the latest rate of
@@ -159,7 +161,8 @@ export default function JewelleryBillPage() {
       // An empty amount on a part is "the rest of the bill".
       const payments = canPay && toPay > 0 ? parts.map((p) => ({ ...methods.body(p.method, PAY_KINDS), amount: p.amount === "" ? "full" : p.amount })) : [];
       const bill = await businessWrite(biz.id, "jewellery/bills", {
-        requestKey, locationId, tags, ...(customer ? { contactId: customer.id } : typedCustomer?.name?.trim() ? { customer: { name: typedCustomer.name.trim(), phone: typedCustomer.phone?.trim() || undefined } } : {}),
+        requestKey, locationId, tags, ...(customer ? { contactId: customer.id } : typedCustomer?.name?.trim() ? { customer: { name: typedCustomer.name.trim(), phone: typedCustomer.phone?.trim() || undefined,
+          consents: consentChanges(typedCustomer.consents, []) || undefined } } : {}),
         ...(scheme ? { scheme } : {}), ...(credits.length ? { credits } : {}), ...(oldGold.length ? { oldGold } : {}), ...(payments.length ? { payments } : {}), ...(figures.panNeeded ? { buyer: declared ? { panDeclaration: true } : { pan: pan.trim() } } : {}),
         notes: notes.trim() || undefined,
       });
@@ -211,6 +214,7 @@ export default function JewelleryBillPage() {
               <>
                 <Field label="Name"><input required maxLength={150} autoFocus value={typedCustomer.name} onChange={(e) => setTypedCustomer((c) => ({ ...c, name: e.target.value }))} /></Field>
                 <Field label="Phone"><input inputMode="tel" maxLength={30} value={typedCustomer.phone} onChange={(e) => setTypedCustomer((c) => ({ ...c, phone: e.target.value }))} /></Field>
+                <NewCustomerConsents value={typedCustomer.consents} onChange={(consents) => setTypedCustomer((c) => ({ ...c, consents }))} />
                 <button type="button" className="link-button" onClick={() => setTypedCustomer(null)}>Find a customer instead</button>
               </>
             ) : (

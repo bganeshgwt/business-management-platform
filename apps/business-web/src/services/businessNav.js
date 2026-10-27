@@ -353,6 +353,8 @@ export function businessSections(type) {
         { section: "health-settings", label: type === "pharmacy" ? "Pharmacy settings" : "Clinic & lab settings", icon: "serviceSettings", need: "settings.view", types: [...PHARMACY, ...CLINIC] },
         // Licences & registrations (every type but a restaurant): each location's licences and their dates.
         { section: "licences", label: "Licences", icon: "logbook", need: "licences.view", except: ['restaurant'] },
+        // Personal data (every type but a restaurant, which has its own): requests, breaches, the privacy notice and contact.
+        { section: "privacy", label: "Personal data", icon: "privacy", need: "privacy.view", except: ['restaurant'] },
         // What a farm-input shop's bills are checked for, and whether the licence check is on.
         { section: "agri-settings", label: "Farm input checks", icon: "serviceSettings", need: "agri.view", types: AGRI },
         // A garage's months and kilometres to the next service, and the item that bills the owner's share of a claim.

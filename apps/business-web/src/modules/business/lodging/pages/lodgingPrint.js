@@ -1,6 +1,7 @@
 import { escapeHtml, printDocument } from "../../../../services/print";
 import { barcodeSvg } from "../../retail/services/barcode";
 import { RATE_KINDS, atFull, dateWords, idWords, nightCount, partyWords, wordOf, GENDERS } from "./lodging";
+import { privacyLine } from "../../../personal-data/printLine";
 
 // Printing for a lodging business: the registration card a guest signs at
 // check-in (the stay, the room, every occupant with their photo ID — of an
@@ -59,6 +60,7 @@ export function printRegistrationCard(biz, stay) {
       <table><thead><tr><th>#</th><th>Occupant</th><th>Nationality</th><th>Photo ID / passport and visa</th><th>Phone and address</th></tr></thead><tbody>${rows || '<tr><td colspan="5">Recorded at check-in</td></tr>'}</tbody></table>
       ${(stay.guests || []).some((g) => g.foreigner) ? '<p class="note">Foreign nationals (OCI cardholders included) are reported on Form-III within 24 hours of arrival and of departure.</p>' : ""}
       ${stay.terms ? `<div class="terms">${escapeHtml(stay.terms)}</div>` : ""}
+      ${privacyLine(biz) ? `<p class="note">${escapeHtml(privacyLine(biz))}</p>` : ""}
       <div class="sign"><span>Guest: the details above are correct</span><span>For ${escapeHtml(shopName(biz))}</span></div>`,
   });
 }

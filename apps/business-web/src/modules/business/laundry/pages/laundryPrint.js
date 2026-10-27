@@ -2,6 +2,7 @@ import { escapeHtml, printDocument } from "../../../../services/print";
 import { dateShort, dateTime } from "@bmp/shared/format";
 import { barcodeSvg } from "../../retail/services/barcode";
 import { LIEN_NOTE, defectWords, quantityWords } from "./laundry";
+import { privacyLine } from "../../../personal-data/printLine";
 
 // Printing for a laundry: the order receipt for the customer (every garment
 // with its tag, what was noted about it at intake and what the customer
@@ -60,6 +61,7 @@ export function printOrderReceipt(biz, order) {
         <dt>To pay on collection</dt><dd><strong>${escapeHtml(biz.exact(toPay))}</strong></dd></dl>` : ""}
       <p class="note">${escapeHtml(LIEN_NOTE)} Please bring this receipt when you collect your garments.${order.bill_at === "delivery" ? " The bill is made when you collect them." : ""}</p>
       ${order.terms ? `<div class="terms">${escapeHtml(order.terms)}</div>` : ""}
+      ${privacyLine(biz) ? `<p class="note">${escapeHtml(privacyLine(biz))}</p>` : ""}
       <div class="sign"><span>${noted ? "Customer: I have seen what is noted above about my garments" : "Customer"}</span><span>For ${escapeHtml(biz.settings.display_name || biz.business.name)}</span></div>`,
   });
 }

@@ -122,6 +122,8 @@ async function context(business) {
   // `allLocations` is for what names other locations (a transfer's destination).
   const locations = business.location_scope ? allLocations.filter((l) => Number(l.id) === business.location_scope) : allLocations;
   const { permissions, capabilities, modules } = business;
+  // The privacy notice in force and the line every bill and receipt prints with its contact.
+  const privacy = await require('../../../personal-data/services/personalData.service').printInfo(business.id);
   return {
     business: { id: business.id, name: business.name, code: business.code, business_type: business.business_type, type_name: business.type_name,
       legacy_restaurant_id: business.legacy_restaurant_id, currency: business.currency, timezone: business.timezone },
@@ -130,7 +132,7 @@ async function context(business) {
       department_id: business.member_department_id || null, department_name: business.member_department_name || null },
     currentLocationId: business.location_scope || null,
     permissions, capabilities, modules,
-    moduleCatalogue: catalogue.modules, settings, locations, allLocations,
+    moduleCatalogue: catalogue.modules, settings, locations, allLocations, privacy,
   };
 }
 

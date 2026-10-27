@@ -11,6 +11,10 @@ import { toast } from "../../../../services/toast";
 import { BusinessHeader, Field } from "../../core/pages/ui";
 import { useOpenBusiness, useServerList } from "../../core/pages/hooks";
 import { recallLink } from "./optical";
+// A reminder needs the customer's consent to reminders (asked first, in one tap).
+import ConsentLink from "../../../personal-data/components/ConsentLink";
+import { useConsentGate } from "../../../personal-data/useConsentGate";
+import { useShopPrivacy } from "../../../personal-data/usePrivacy";
 import "../styles/optical.css";
 
 // The recall list: every customer whose last eye test was the shop's recall
@@ -44,11 +48,16 @@ export default function RecallPage() {
       list.reload();
     } catch (err) { toast.error(getErrorMessage(err)); } finally { setSaving(false); }
   };
-  const remind = (row, channel) => {
-    if (channel === "whatsapp" && row.phone) window.open(recallLink(biz, row), "_blank", "noopener");
-    businessWrite(biz.id, `optical/recall/${row.contact_id}/reminders`, { channel })
-      .then(() => { toast.success(`Reminder to ${row.name} noted.`); list.reload(); })
-      .catch((err) => toast.error(getErrorMessage(err)));
+  const privacy = useShopPrivacy();
+  const gate = useConsentGate(privacy);
+  const record = (row, channel) => businessWrite(biz.id, `optical/recall/${row.contact_id}/reminders`, { channel })
+    .then(() => { toast.success(`Reminder to ${row.name} noted.`); list.reload(); })
+    .catch((err) => toast.error(getErrorMessage(err)));
+  // With their consent to reminders (asked first): WhatsApp opens with the message, then it is kept.
+  const remind = async (row) => {
+    if (!(await gate.ensure("reminders", { id: row.contact_id, name: row.name }))) return;
+    if (row.phone) window.open(recallLink(biz, row), "_blank", "noopener");
+    record(row, "whatsapp");
   };
 
   const columns = useMemo(() => [
@@ -64,8 +73,11 @@ export default function RecallPage() {
     { key: "last_order_no", header: "Last order", value: (r) => r.last_order_no || "", className: "mono", defaultHidden: true },
     { key: "actions", header: "", label: "Actions", type: "actions", render: (r) => (
       <span className="bz-row-actions">
-        {r.phone && <button type="button" className="chip-button" onClick={() => remind(r, "whatsapp")}><Icon name="message" size={14} /> WhatsApp</button>}
-        {r.phone && <a className="chip-button" href={`tel:${r.phone.replace(/[^\d+]/g, "")}`} onClick={() => remind(r, "call")}><Icon name="phone" size={14} /> Call</a>}
+        {r.phone && <button type="button" className="chip-button" onClick={() => remind(r)}><Icon name="message" size={14} /> WhatsApp</button>}
+        {r.phone && (
+          <ConsentLink privacy={privacy} purpose="reminders" person={{ id: r.contact_id, name: r.name }} href={`tel:${r.phone.replace(/[^\d+]/g, "")}`}
+            onSent={() => record(r, "call")}><Icon name="phone" size={14} /> Call</ConsentLink>
+        )}
       </span>
     ) },
   ], [biz, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -92,6 +104,7 @@ export default function RecallPage() {
           exportName={biz.can("contacts.export") ? `${biz.business.code}-recall` : undefined}
           empty="Nobody is due for an eye test" emptyHint="Customers show here once their last test is old enough." emptyIcon="bell" />
       </SectionCard>
+      {gate.dialog}
     </div>
   );
 }

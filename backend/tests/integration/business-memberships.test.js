@@ -6,6 +6,7 @@ const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const { withTools } = require('./helpers/tools');
+const { publishNotice, giveConsent } = require('./helpers/privacy');
 const { addDays, daysFrom } = require('./helpers/dates');
 const { signIn } = require('./helpers/signIn');
 
@@ -582,6 +583,10 @@ test('gyms, studios and coaching', { timeout: 300000 }, async (t) => {
     assert.ok(!soon.items.some((r) => r.contact_id === asha.id), 'a membership renewed already is not called about');
     const ended = await desk.call('GET', G('member-plans/renewals?ended=true'));
     assert.ok(ended.items.every((r) => r.days_left < 0));
+    // On WhatsApp a reminder needs the member's consent to reminders; the desk records it in one tap.
+    await desk.call('POST', G(`member-plans/memberships/${ravi30.id}/reminders`), { kind: 'renewal', channel: 'whatsapp' }, 409);
+    await publishNotice(request, `/businesses/${gym.id}`);
+    await giveConsent(desk.call, `/businesses/${gym.id}`, ravi.id, ['reminders']);
     await desk.call('POST', G(`member-plans/memberships/${ravi30.id}/reminders`), { kind: 'renewal', channel: 'whatsapp' }, 201);
     assert.equal((await desk.call('GET', G('member-plans/renewals?soon7=true'))).items.find((r) => r.id === ravi30.id).reminders, 1);
     await assert.rejects(pool.query("UPDATE member_reminders SET channel='call'"), /kept as it was given/);

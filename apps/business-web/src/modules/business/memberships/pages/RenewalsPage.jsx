@@ -14,6 +14,10 @@ import { newKey, useOpenBusiness, useServerList } from "../../core/pages/hooks";
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import MembershipDialog from "./MembershipDialog";
 import { INSTALMENT_STATUSES, dayWords, endWords, feesMessage, messageLink, renewalMessage, statusOf } from "./memberships";
+// A renewal reminder (a WhatsApp or a call) needs the member's consent to reminders (asked first, in one tap).
+import ConsentLink from "../../../personal-data/components/ConsentLink";
+import { useConsentGate } from "../../../personal-data/useConsentGate";
+import { useShopPrivacy } from "../../../personal-data/usePrivacy";
 import "../../fashion/styles/business-fashion-electronics.css";
 import "../styles/memberships.css";
 
@@ -37,19 +41,27 @@ export default function RenewalsPage() {
   const fees = tab === "fees";
   const list = useServerList(fees ? "member-plans/instalments" : "member-plans/renewals", { gridId: fees ? "member-fees-due" : "member-renewals",
     params: fees ? { open: "true" } : { [tab]: "true" } });
-  const remind = (row, kind, channel, text) => {
-    if (channel === "whatsapp" && row.member_phone) window.open(messageLink(row.member_phone, text), "_blank", "noopener");
-    businessWrite(biz.id, `member-plans/memberships/${row.membership_id || row.id}/reminders`, { kind, channel })
-      .then(() => { toast.success(`Reminder to ${row.member_name} noted.`); list.reload(); })
-      .catch((err) => toast.error(getErrorMessage(err)));
+  const privacy = useShopPrivacy();
+  const gate = useConsentGate(privacy);
+  const record = (row, kind, channel) => businessWrite(biz.id, `member-plans/memberships/${row.membership_id || row.id}/reminders`, { kind, channel })
+    .then(() => { toast.success(`Reminder to ${row.member_name} noted.`); list.reload(); })
+    .catch((err) => toast.error(getErrorMessage(err)));
+  // With the member's consent to reminders (asked first): WhatsApp opens with the message, then it is kept.
+  const remind = async (row, kind, text) => {
+    if (!(await gate.ensure("reminders", { id: row.contact_id, name: row.member_name }))) return;
+    if (row.member_phone) window.open(messageLink(row.member_phone, text), "_blank", "noopener");
+    record(row, kind, "whatsapp");
   };
   const canRenew = biz.can("member_plans.create") && biz.can("sales.create");
   const canCollect = biz.has("receivables") && biz.can("receivables.create");
   const member = (r) => <Link to={biz.path(`members/${r.contact_id}`)} className="bz-two-line"><span>{r.member_name}</span><small className="muted mono">{r.member_code}</small></Link>;
   const contact = (r, kind, text) => (
     <>
-      {r.member_phone && <button type="button" className="chip-button" onClick={() => remind(r, kind, "whatsapp", text)}><Icon name="message" size={14} /> WhatsApp</button>}
-      {r.member_phone && <a className="chip-button" href={`tel:${r.member_phone.replace(/[^\d+]/g, "")}`} onClick={() => remind(r, kind, "call")}><Icon name="phone" size={14} /> Call</a>}
+      {r.member_phone && <button type="button" className="chip-button" onClick={() => remind(r, kind, text)}><Icon name="message" size={14} /> WhatsApp</button>}
+      {r.member_phone && (
+        <ConsentLink privacy={privacy} purpose="reminders" person={{ id: r.contact_id, name: r.member_name }} href={`tel:${r.member_phone.replace(/[^\d+]/g, "")}`}
+          onSent={() => record(r, kind, "call")}><Icon name="phone" size={14} /> Call</ConsentLink>
+      )}
     </>
   );
   const renewalColumns = useMemo(() => [
@@ -107,6 +119,7 @@ export default function RenewalsPage() {
       {renewing && <MembershipDialog mode="renew" member={{ id: renewing.contact_id, name: renewing.member_name }} membership={renewing} onClose={() => setRenewing(null)}
         onSaved={(m) => { setRenewing(null); toast.success(`Renewed: ${m.membership_no} from ${dayWords(m.start_on)}.`); list.reload(); }} />}
       {collecting && <CollectDialog row={collecting} onClose={() => setCollecting(null)} onSaved={(k) => { setCollecting(null); toast.success(`Receipt ${k.collection_no} for ${biz.exact(k.amount)}.`); list.reload(); }} />}
+      {gate.dialog}
     </div>
   );
 }

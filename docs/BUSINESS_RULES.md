@@ -16,6 +16,7 @@ The everyday numbers, such as expiring-soon days, voucher validity, credit age g
 
 - [Fixed on purpose](#fixed-on-purpose)
 - [Every business](#every-business)
+- [Personal data](#personal-data)
 - [Shops and the shared core](#shops-and-the-shared-core)
 - [Money and the day](#money-and-the-day)
 - [Wholesale](#wholesale)
@@ -78,6 +79,81 @@ These are not settings. Changing one means changing the code; the PIN lockout is
 - **Rule:** in a restaurant, between midnight and the day cut-off (5 am by default), last night's business day is still the trading day everywhere: write-off control, the dashboard, the day book, reports' default dates, the stock screens, deliveries, advances, the log book and captain sections. Until the cut-off, last night's day can also still be opened. In every other business the day is the calendar date in the business's time zone; its *Day cut-off* setting decides only which day a task due after midnight belongs to.
 - **Why:** a restaurant that closes after midnight keeps the night on one business day. Read by the calendar date, its dashboard and day book would jump at midnight to a day with no bills.
 - **Change it:** a restaurant's cut-off hour: *Daily work › Business day › Cash rules* (*Last night's day may be opened until*), set by the owner (`restaurant.settings.manage`). A business's task cut-off: *Business settings › Rules › Day cut-off*.
+
+## Personal data
+
+The DPDP Act 2023 and the DPDP Rules 2025, for every business: a shop's customers (every type's members, hirers, lodgers and patients are its customers) and a restaurant's guests. The business is the data fiduciary for the people it serves; the platform holds their data for it. The data fiduciary duties apply from 13 May 2027. The screens are in [ADMIN_GUIDE.md › Personal data](ADMIN_GUIDE.md#personal-data); what is left (the Consent Manager rule, verifiable parental consent, how long tax records are kept, a legal adviser's review) is in [BACKLOG.md §10](BACKLOG.md#10-new-business-types).
+
+### A phone number is never a condition of a sale
+
+- **Rule:** no bill, order, booking, membership, repair, warranty, stay or other intake needs the customer's phone number, at the counter or on the server: a name is enough wherever a customer is named, and a walk-in needs neither. A phone is asked for only where the person asks for something that needs one, and the screen says why there: a delivery, a reminder they agreed to, the ready message for a repair or a pre-order, and the guests' site's order updates (an online order and a table booking take a mobile for that). A phone typed with only spaces counts as none.
+- **Why:** the Department of Consumer Affairs said in 2023 that making a mobile number a condition of a sale is an unfair trade practice.
+- **Change it:** nothing to set.
+
+### Consent per purpose and per business
+
+- **Rule:** a person agrees, or not, to each of three purposes on its own: *bills on WhatsApp or SMS*, *reminders* (dues, appointments, renewals and service due, on WhatsApp, SMS or a call) and *offers*. Each consent records the purpose, when it was given and when it was withdrawn, where (at the counter, on the guests' site, on the phone), how (said yes, signed a form, ticked it online), the version of the privacy notice it was given on, and who recorded it. A consent belongs to one business: another business of the same owner never sees it. It is given in one tap where the customer is taken (the customer's form, Quick bill, a type's own intake, a restaurant's guest form and till) and withdrawn on the customer's record or from Personal data; a new yes after a withdrawal is a new record. A consent is kept as given: only its withdrawal is recorded, once, with the reason; nothing deletes it. Recording one needs the right to take customers (`contacts.create` or `contacts.edit`, a clinic's `patients.create` or `patients.edit`; a restaurant's `customers.manage`).
+- **Why:** the DPDP Rules ask for a separate, clear consent notice for each specific purpose, and consent is given to one data fiduciary, the business.
+- **Change it:** nothing to set; the consent notices' words, in the privacy notice (below).
+
+### Every message checks its purpose's consent
+
+- **Rule:** every button that opens a message to a customer checks the consent of its purpose first: a bill or a quotation on WhatsApp (*bills on WhatsApp or SMS*); a dues, renewal, recall, service-due, appointment, package, gold-scheme or site-dues reminder on WhatsApp or SMS, and a reminder call (*reminders*); the guest book's WhatsApp chat, a call from Guest insights' lists (except to an unhappy guest about their complaint) and the mobiles copied for a broadcast (*offers*). Without the consent the button says why it cannot go and asks the person first: the staff read them the notice's own line for that purpose and record their yes in one tap, and the message goes. Someone with no record (a walk-in) is saved as a customer or guest first, as a consent is kept on the person's record. The server refuses to record a reminder on WhatsApp, by SMS or by a call without it (409, *consent_required*); a visit is not a message. A message about what the person asked for (their order or repair is ready, their booking is confirmed, a delivery is on its way) needs no consent.
+- **Why:** a consent stands for its purpose only, and a message sent without one is processing without consent.
+- **Change it:** nothing to set.
+
+### The privacy notice and its contact
+
+- **Rule:** each business publishes a privacy notice in versions under *Settings › Personal data*: in plain words, item by item, what is collected and why, what is sent only with a yes, how to see, correct or erase it, how to complain, and whom to contact; with a short consent notice for each purpose and a privacy contact (a name, and a phone or an e-mail). It starts from a starter text the owner edits; the starter states no period of keeping. A published version never changes: a change is a new version, and each consent keeps the version it was given on. No consent is recorded before the first version is published (409, *no_privacy_notice*), except what came from earlier records and a clinic patient's consents on the clinic's own notice. Every bill and receipt prints one line with the contact (*Your personal data: …*): a shop's invoices and till receipts, collection, refund and deposit receipts, credit vouchers, quotations and its types' slips and cards, and a restaurant's bills, credit notes and advance receipts. The guests' site shows the notice where it takes a guest's name and number. The bell asks the owner to publish it until it is.
+- **Why:** the DPDP Rules ask for an itemised, plain-language notice with a contact for personal-data queries, displayed. How long tax law keeps a bill was not verified, so no period is stated.
+- **Change it:** the notice and the contact: *Settings › Personal data › Notice & contact* (`privacy.manage`).
+
+### A child is never sent offers
+
+- **Rule:** a person can be marked as a child, with the parent or guardian who gives consent for them, their relation, how they gave it and how they were seen to be the guardian. Marking a child stops any consent to offers, and no consent to offers is taken for a child, at the counter, on the guests' site or by any other way; what the guardian agrees to (bills, reminders) is recorded as given by them. The mark ends with a reason (they turned 18). A child is left out of every broadcast of offers.
+- **Why:** a child's data needs verifiable parental consent, and offers aimed at children are barred. Gyms, coaching, clinics and laundries meet children most. What "verifiable" asks of a shop is open ([BACKLOG.md §10](BACKLOG.md#10-new-business-types)).
+- **Change it:** the mark, on the customer's form (*Mark as a child*) or from a request in Personal data.
+
+### A request is answered within 90 days of the day it came
+
+- **Rule:** a person's request to see, correct or erase their data, and a grievance, is logged in *Settings › Personal data › Requests* with the day it was received (today unless told otherwise, never a day still to come) on the business's own clock, and is due 90 days after it. An access request is answered with the file of everything held about them; a correction is made on the normal screens; an erasure is carried out from the request. A request is closed once, answered or refused with the reason, and is then kept as it was. The bell warns from 15 days before the due date and once it has passed.
+- **Why:** the DPDP Rules ask that requests and grievances are resolved within 90 days.
+- **Change it:** nothing to set.
+
+### The file of a person's data
+
+- **Rule:** seeing or exporting everything held about one person is its own permission (`privacy.export`), given to the owner and the Manager role (a restaurant's owner and manager). The file holds their record and every record of theirs across the business's modules (bills and their lines, money received, reminders, memberships, garment orders, bookings, stays, job cards, prescriptions and the rest; a restaurant's orders, bookings, advances, feedback and bills), their consents, a child's mark and their requests. Each view and each export is written to the activity log.
+- **Why:** a person may ask to see the data held about them; seeing all of it at once is more than any one screen shows.
+- **Change it:** who holds `privacy.export`, in *Roles & permissions*.
+
+### An erasure keeps the tax records, the consents and the request
+
+- **Rule:** an erasure, done from an erasure request, removes the person's name, phone, e-mail, address, GSTIN and PAN from their record (it becomes *Erased customer #id*, or *Erased guest #id*, and no longer changes), and their copies on the records that hold them, closed ones included: job cards, repair jobs, warranties, garment orders, rental bookings with the ID and licence, stays, spectacle orders, gold schemes, quotations, book and pickup orders, salon notes and the client card, a farmer's details and a site. Bills and other tax records keep what tax law needs (the name, GSTIN, address and PAN they were made out to), and so do money received, returns, the old gold voucher's ID and the lodging guest register; what is kept, and why, is written on the request for the accountant. Points left are cancelled with an entry. Their consents are withdrawn and kept, and so is the request, as the record. The activity log is kept at least a year. A restaurant guest's erasure from the guest book is kept in the register as an erasure request received and done that day.
+- **Why:** the DPDP Act erases data no law requires keeping; tax law requires bills (how long was not verified: it is for the accountant), and the Rules keep processing logs at least a year.
+- **Change it:** nothing to set.
+
+### An erasure waits for what is still open
+
+- **Rule:** an erasure is refused, with the list, while anything still ties the person to the business: money they owe or money of theirs held (an advance, a credit, a credit voucher, old gold not paid out), and an order, booking, stay, job card, repair, membership, gold scheme, salon package, appointment, quotation or sales order still open; a restaurant guest's dues on account, an advance left or a pre-order to collect. A clinic's registered patient is not erased: medical records are kept for the clinic's years, with the patient's details.
+- **Why:** erasing a person while money or goods are still between them and the business would lose track of both.
+- **Change it:** settle or close each item, then erase; a request that cannot be done is refused with the reason.
+
+### The breach register and the Board's 72 hours
+
+- **Rule:** a breach is recorded under *Settings › Personal data › Breaches* with when it was found (never in the future), what happened, the impact and the steps taken, and the people affected: chosen by search, or every customer. It shows the time left for the Data Protection Board's detailed report, 72 hours from when it was found; the bell warns until the report is recorded. The notice to the people affected is filled from the record with the privacy contact, can be edited, and each notice sent is recorded (by WhatsApp, SMS, e-mail, letter, a call or in person), with its words; someone a notice went to stays on the breach. A breach closes only once the report to the Board is recorded, and is then kept as it was. Recording, each notice sent and closing are written to the activity log. The register files nothing itself: the business tells the Board and the people.
+- **Why:** the DPDP Rules ask that the people affected and the Board are told without delay, in plain language (what happened, the impact, the steps taken, a contact), and that the Board gets a detailed report within 72 hours.
+- **Change it:** nothing to set; the register is kept by `privacy.manage`.
+
+### Who keeps the registers
+
+- **Rule:** reading the requests and breaches is `privacy.view`, keeping them and erasing is `privacy.manage`, and seeing or exporting a person's data is `privacy.export`; the three are given to the owner and the Manager role in every business, and in a restaurant to the owner, the manager and any role that already manages users and roles. Any member reads the notice in force, which the counter shows when it asks for a consent.
+- **Change it:** *Roles & permissions*.
+
+### The guest book's consent to offers, and the guests' site
+
+- **Rule:** a restaurant guest's consent to offers is a consent like any other: the guest book's earlier yes was brought over as one, and the *Offers* column and WhatsApp chat in the guest book follow it. The mobiles copied from Guest insights for a broadcast are only the guests who agreed to offers and are not marked as a child; the rest are counted as left out. A call from its lists asks for that consent first, except to an unhappy guest about their complaint. On the guests' site an online order can tick *my bill on WhatsApp* and *offers*, on the notice the page shows; they are recorded, given online, when the restaurant accepts the order. The site says the guest's details are kept on their phone for the next order, with a way to forget them.
+- **Why:** one record per purpose: a consent kept in two places would drift apart.
+- **Change it:** nothing to set.
 
 ## Shops and the shared core
 
@@ -243,7 +319,7 @@ These rules apply to every business type but the restaurant. The goods rules app
 
 ### EMI sales
 
-- **Rule:** at Quick bill, *EMI* takes the financier, the loan or agreement number, an optional DO number and number of months, and the down payment (cash, UPI or card, which may be split). A new electronics shop starts with Bajaj Finserv, HDFC Bank, ICICI Bank and Home Credit; the owner adds others. The rest of the bill is the financed amount. It is a payment of method `finance` on the bill, so the customer owes nothing for it, and an EMI case owed by the financier. The customer must be named (a saved customer, or a buyer's name and phone). A loan number is used once per financier. A payout is recorded on *EMI & financiers*: tick the cases it covers and the subvention the financier kept on each (by default its *dealer subvention %*). The amount received must equal the financed amount less the subvention, to the paisa. It counts as money in (bank, UPI or cheque) on the day it is recorded. If the financier cancels after the goods come back, the case is cancelled and the financed part reversed on the bill; the customer gets back only what they paid themselves.
+- **Rule:** at Quick bill, *EMI* takes the financier, the loan or agreement number, an optional DO number and number of months, and the down payment (cash, UPI or card, which may be split). A new electronics shop starts with Bajaj Finserv, HDFC Bank, ICICI Bank and Home Credit; the owner adds others. The rest of the bill is the financed amount. It is a payment of method `finance` on the bill, so the customer owes nothing for it, and an EMI case owed by the financier. The customer must be named (a saved customer, or a buyer's name; a phone is optional). A loan number is used once per financier. A payout is recorded on *EMI & financiers*: tick the cases it covers and the subvention the financier kept on each (by default its *dealer subvention %*). The amount received must equal the financed amount less the subvention, to the paisa. It counts as money in (bank, UPI or cheque) on the day it is recorded. If the financier cancels after the goods come back, the case is cancelled and the financed part reversed on the bill; the customer gets back only what they paid themselves.
 - **Why:** most phones and TVs in India are sold on consumer-durable finance. The financier pays the dealer days later, net of the scheme's subvention, so the financed part is owed by the financier and is never the customer's udhaar.
 - **Change it:** *Settings › Business tools › EMI & finance* (a new electronics shop starts with it off, marked *Recommended*); the financier list and each one's subvention % in *EMI & financiers › Financiers*; who may sell on EMI (`finance.create`) and record payouts (`finance.edit`) in *Roles & permissions*.
 
@@ -362,7 +438,7 @@ These rules apply to every business type but the restaurant. The goods rules app
 
 #### Patient consent (DPDP)
 
-- **Rule:** registering a patient needs consent for "treatment and medical records", recorded with the version of the notice shown, how it was given (signed form, verbal, digital) and by whom. Reports on WhatsApp or e-mail, and reminders, are separate and optional consents. A withdrawal is recorded once, with the reason. Withdrawing treatment consent stops new visits and lab orders, while the record is kept for the retention period. A changed notice becomes a new version.
+- **Rule:** registering a patient needs consent for "treatment and medical records", recorded with the version of the notice shown, how it was given (signed form, verbal, digital) and by whom. Reports on WhatsApp or e-mail, and reminders, are separate and optional consents. A withdrawal is recorded once, with the reason. Withdrawing treatment consent stops new visits and lab orders, while the record is kept for the retention period. A changed notice becomes a new version. These are the business's consents of [Personal data](#personal-data), given on the clinic's own consent notice: bills on WhatsApp and offers are given on the business's privacy notice.
 - **Why:** the DPDP Act asks for consent for a stated purpose after a clear notice, and for withdrawal as easy as giving it. Medical records must still be kept.
 - **Change it:** *Clinic & lab settings › Consent notice* and *Clinical records kept for (years)* (3).
 

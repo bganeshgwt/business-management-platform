@@ -10,6 +10,10 @@ import { dateShort } from "@bmp/shared/format";
 import { CollectionDialog } from "../../receivables/pages/receivablesParts";
 import { Field } from "../../core/pages/ui";
 import { udhaarRisk } from "./counterState";
+// What the customer agrees to be sent, taken in one tap at the counter.
+import ConsentChoices from "../../../personal-data/components/ConsentChoices";
+import { consentChanges } from "../../../personal-data/personalData";
+import { useShopPrivacy } from "../../../personal-data/usePrivacy";
 
 // Pieces of Quick bill (CounterPage): the customer with their udhaar risk,
 // the size × colour picker, held bills and the small counter discount.
@@ -21,17 +25,19 @@ import { udhaarRisk } from "./counterState";
 // they owe, how much is overdue, the limit left and their last promise.
 export function CustomerBox({ biz, customer, onChange, account }) {
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ name: "", phone: "" });
+  const [form, setForm] = useState({ name: "", phone: "", consents: {} });
   const [error, setError] = useState("");
   const [collecting, setCollecting] = useState(false);
+  const privacy = useShopPrivacy();
 
   async function add(event) {
     event.preventDefault();
     setError("");
     try {
-      const created = await businessWrite(biz.id, "contacts", { kind: "customer", name: form.name, phone: form.phone });
+      const consents = consentChanges(form.consents, []);
+      const created = await businessWrite(biz.id, "contacts", { kind: "customer", name: form.name, phone: form.phone, ...(consents ? { consents } : {}) });
       onChange({ ...created, balance: 0 });
-      setAdding(false); setForm({ name: "", phone: "" });
+      setAdding(false); setForm({ name: "", phone: "", consents: {} });
     } catch (err) {
       setError(getErrorMessage(err));
     }
@@ -63,6 +69,7 @@ export function CustomerBox({ biz, customer, onChange, account }) {
           </div>
         )}
         {collecting && <CollectionDialog contactId={customer.id} onClose={() => setCollecting(false)} onSaved={() => { setCollecting(false); onChange({ ...customer, refresh: Date.now() }); }} />}
+        <ConsentChoices privacy={privacy} personId={customer.id} personName={customer.name} instant wide={false} />
       </SectionCard>
     );
   }
@@ -75,7 +82,7 @@ export function CustomerBox({ biz, customer, onChange, account }) {
             minChars={2} getLabel={(c) => c.name} getKeywords={(c) => c.phone}
             getDescription={(c) => [c.phone, Number(c.balance) > 0.004 ? `owes ${biz.exact(c.balance)}` : null].filter(Boolean).join(" · ")}
             onChange={(c) => c && onChange(c)} clearOnSelect id="counter-customer"
-            onCreate={biz.can("contacts.create") ? (text) => { setAdding(true); setForm({ name: /\d/.test(text) ? "" : text, phone: /\d/.test(text) ? text : "" }); } : undefined}
+            onCreate={biz.can("contacts.create") ? (text) => { setAdding(true); setForm({ name: /\d/.test(text) ? "" : text, phone: /\d/.test(text) ? text : "", consents: {} }); } : undefined}
             createLabel={(text) => `New customer “${text}”`} emptyText="No customer matches" />
           {biz.can("contacts.create") && <button type="button" className="link-button rt-new-link" onClick={() => setAdding(true)}>+ New customer</button>}
         </>
@@ -83,7 +90,8 @@ export function CustomerBox({ biz, customer, onChange, account }) {
         <form className="stack rt-new-customer" onSubmit={add}>
           <ErrorMessage message={error} />
           <Field label="Name"><input required maxLength={150} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></Field>
-          <Field label="Phone"><input maxLength={30} inputMode="tel" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} /></Field>
+          <Field label="Phone (optional)" hint="Never a condition of a sale."><input maxLength={30} inputMode="tel" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} /></Field>
+          <ConsentChoices privacy={privacy} value={form.consents} onChange={(consents) => setForm((f) => ({ ...f, consents }))} wide={false} />
           <div className="form-actions bz-start">
             <button type="submit" className="button button-sm">Add customer</button>
             <button type="button" className="button button-secondary button-sm" onClick={() => setAdding(false)}>Cancel</button>

@@ -2,6 +2,7 @@ import QRCode from "qrcode";
 import { escapeHtml, printDocument } from "../../../../services/print";
 import { dateShort } from "@bmp/shared/format";
 import { runWords } from "./memberships";
+import { privacyLine } from "../../../personal-data/printLine";
 
 // The membership slip: the member, their code as a QR to scan at the desk,
 // the plan and its terms as sold, and the refund policy of the version sold,
@@ -40,6 +41,7 @@ export async function printMembership(biz, m, member) {
       <dt>Sold</dt><dd>${day(m.created_at)}</dd></dl>
       <h2>Refund policy (version ${escapeHtml(m.policy_version)})</h2>
       <div class="policy">${escapeHtml(m.policy)}</div>
+      ${privacyLine(biz) ? `<p><small>${escapeHtml(privacyLine(biz))}</small></p>` : ""}
       <div class="sign"><span>Member</span><span>For ${escapeHtml(s.display_name || biz.business.name)}</span></div>`,
   });
 }

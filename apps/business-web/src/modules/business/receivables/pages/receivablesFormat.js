@@ -1,5 +1,6 @@
 import { escapeHtml, printDocument } from "../../../../services/print";
 import { dateShort, dateTime, moneyExact } from "@bmp/shared/format";
+import { privacyLine } from "../../../personal-data/printLine";
 
 // Plain helpers for the receivables screens (no components here).
 
@@ -60,7 +61,8 @@ export function printReceipt(receipt, biz) {
       ${rows ? `<table><thead><tr><th>Against bill</th><th>Bill date</th><th class="r">Amount</th></tr></thead><tbody>${rows}</tbody></table>` : ""}
       ${opening ? `<p>Against the opening balance: ${money(opening)}</p>` : ""}
       ${advance ? `<p>Kept as advance: ${money(advance)}</p>` : ""}
-      <p style="margin-top:40px;text-align:right">Received by</p>`,
+      <p style="margin-top:40px;text-align:right">Received by</p>
+      ${privacyLine(biz) ? `<p><small>${escapeHtml(privacyLine(biz))}</small></p>` : ""}`,
   });
 }
 

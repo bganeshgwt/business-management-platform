@@ -165,8 +165,8 @@ async function transfer(business, user, membershipId, body) {
   const requestKey = core.uuid(body.requestKey);
   const hash = c.hashOf({ ...body, membershipId: String(membershipId) });
   const toContactId = c.given(body.toContactId) ? id(body.toContactId, 'Member it goes to') : null;
-  const newMember = body.toMember && typeof body.toMember === 'object' && !Array.isArray(body.toMember) ? { kind: 'customer', name: body.toMember.name, phone: body.toMember.phone, email: body.toMember.email } : null;
-  if (!toContactId && !newMember) fail('Choose the member it goes to, or type the new member\'s name and phone');
+  const newMember = body.toMember && typeof body.toMember === 'object' && !Array.isArray(body.toMember) ? { kind: 'customer', name: body.toMember.name, phone: body.toMember.phone, email: body.toMember.email, consents: body.toMember.consents } : null;
+  if (!toContactId && !newMember) fail('Choose the member it goes to, or type the new member\'s name');
   if (toContactId && newMember) fail('Choose the member it goes to or type a new one, not both');
   if (newMember) await access.require(business, 'contacts.create');
   const reason = c.optionalText(body.reason, 'Reason', 300);

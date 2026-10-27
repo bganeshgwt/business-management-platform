@@ -2,6 +2,7 @@
 import { escapeHtml, printDocument } from "../../../../services/print";
 import { dateTime } from "@bmp/shared/format";
 import { WEEKDAYS, methodWord } from "./salon";
+import { privacyLine } from "../../../personal-data/printLine";
 
 const hhmm = (t) => (t ? String(t).slice(0, 5) : "");
 
@@ -27,7 +28,8 @@ export function printRefundReceipt(biz, refund, client) {
         ${refund.left !== undefined ? `<tr><th>Advance left after this</th><td>${money(refund.left)}</td></tr>` : ""}
         <tr><th>Amount refunded</th><td class="big">${money(refund.amount)}</td></tr>
       </tbody></table>
-      <div class="sign"><span>Received by the client</span><span>For ${escapeHtml(biz.business.name)}</span></div></div>`,
+      <div class="sign"><span>Received by the client</span><span>For ${escapeHtml(biz.business.name)}</span></div>
+      ${privacyLine(biz) ? `<p><small>${escapeHtml(privacyLine(biz))}</small></p>` : ""}</div>`,
   });
 }
 

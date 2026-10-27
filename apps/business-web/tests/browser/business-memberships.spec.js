@@ -114,7 +114,13 @@ test("renewal calls: the trial ending in two days, a reminder on WhatsApp and th
   await expect(row).toBeVisible({ timeout: 15_000 });
   await expect(row.getByText("ends in 2 days")).toBeVisible();
   await row.getByRole("button", { name: "WhatsApp" }).click();
+  // A renewal reminder needs the member's consent to reminders: asked first, recorded in one tap.
+  const ask = page.getByRole("dialog", { name: `Ask ${MEMBERSHIPS.trialMember.name} first` });
+  await ask.getByRole("button", { name: "They agree: send it" }).click();
+  await expect(ask).toHaveCount(0, { timeout: 15_000 });
   await expect(page.getByText(`Reminder to ${MEMBERSHIPS.trialMember.name} noted.`)).toBeVisible({ timeout: 15_000 });
+  // From now the call goes straight to the phone: a plain link.
+  await expect(row.getByRole("link", { name: "Call" })).toHaveAttribute("href", "tel:9876500102");
   const opened = await page.evaluate(() => window.opened || []);
   expect(opened.some((url) => url.startsWith("https://wa.me/919876500102?text=") && url.includes(encodeURIComponent(MEMBERSHIPS.trial.name)))).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("renewals.png"), fullPage: true });

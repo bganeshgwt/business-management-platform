@@ -1,5 +1,6 @@
 import { escapeHtml, printDocument } from "../../../../services/print";
 import { amountInWords, moneyExact } from "@bmp/shared/format";
+import { privacyLine } from "../../../personal-data/printLine";
 
 // The one GST tax invoice every Business Admin type prints: A4 for the file
 // and the buyer, 80 mm for the till. Everything on it is what was posted —
@@ -236,6 +237,7 @@ function a4(doc, biz, f) {
     </tbody></table></div>
   ${jewelleryNote(doc)}
   ${seller.invoice_footer ? `<p><small>${escapeHtml(seller.invoice_footer)}</small></p>` : ""}
+  ${privacyLine(biz) ? `<p><small>${escapeHtml(privacyLine(biz))}</small></p>` : ""}
   <div class="sign"><small>Certified that the particulars given above are true and correct.${f.sale ? " Goods once sold are subject to the shop's exchange policy." : ""}</small>
     <div class="r">For ${escapeHtml(sellerName)}<br><br><br>Authorised signatory</div></div>`;
 }
@@ -318,7 +320,8 @@ function till(doc, biz, f, { change = 0, udhaar = null } = {}) {
     ${earned ? `<div class="row small"><span>Points earned</span><span>${escapeHtml(String(earned.points))}</span></div>` : ""}
     ${(doc.warranties || []).map((w) => `<div class="small">Warranty ${escapeHtml(w.serial)} until ${escapeHtml(businessDate(w.ends_on, seller.date_format))}</div>`).join("")}
     ${jewelleryNote(doc)}
-    <hr><div class="c small">${escapeHtml(seller.receipt_footer || "Thank you, visit again!")}</div>`;
+    <hr><div class="c small">${escapeHtml(seller.receipt_footer || "Thank you, visit again!")}</div>
+    ${privacyLine(biz) ? `<div class="c small">${escapeHtml(privacyLine(biz))}</div>` : ""}`;
 }
 
 const METHOD_WORDS = { cash: "Cash", upi: "UPI", card: "Card", bank: "Bank transfer", cheque: "Cheque", credit_note: "Credit note", finance: "EMI" };

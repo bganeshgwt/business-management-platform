@@ -9,6 +9,8 @@ import { EmptyState, ErrorMessage, Loading, SuccessMessage } from "../../../../c
 import { ColumnChart } from "../../../../components/Charts";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
 import CustomerHistoryModal from "./CustomerHistoryModal";
+import ConsentLink from "../../../personal-data/components/ConsentLink";
+import { useRestaurantPrivacy } from "../../../personal-data/usePrivacy";
 import useAuth from "../../../../hooks/useAuth";
 import useQueryFilter from "../../../../hooks/useQueryFilter";
 import { getErrorMessage } from "../../../../services/api";
@@ -564,8 +566,10 @@ function segmentEmpty({ segment, summary, searching }) {
 // The guests on the chosen list. The rows come from the server (search and
 // "Show all" ask it again); the grid sorts and pages what it was given.
 // windowDays: the restaurant's "regular" window (its rules), which a row's
-// recent-visit count is counted over.
-function SegmentRows({ segment, items, loading, error, onRetry, empty, currency, today, loyalty, onOpen, contactsHidden, windowDays = 60 }) {
+// recent-visit count is counted over. A call from these lists invites a
+// guest back, so it waits for their consent to offers (privacy); a call
+// about a complaint does not.
+function SegmentRows({ segment, items, loading, error, onRetry, empty, currency, today, loyalty, onOpen, contactsHidden, privacy, windowDays = 60 }) {
   return (
     <DataGrid
       id="crm-guest-segment"
@@ -596,10 +600,14 @@ function SegmentRows({ segment, items, loading, error, onRetry, empty, currency,
                 ) : (
                   <span className="muted">No mobile</span>
                 )
-              ) : guest.mobile ? (
+              ) : guest.mobile && segment.key === "unhappy" ? (
                 <a className="gi-phone" href={`tel:${guest.mobile}`}>
                   {formatMobile(guest.mobile) || guest.mobile}
                 </a>
+              ) : guest.mobile ? (
+                <ConsentLink privacy={privacy} purpose="offers" person={{ id: guest.id, name: guest.name }} href={`tel:${guest.mobile}`} className="gi-phone">
+                  {formatMobile(guest.mobile) || guest.mobile}
+                </ConsentLink>
               ) : (
                 <span className="muted">No mobile</span>
               )}
@@ -694,6 +702,7 @@ export default function GuestInsightsPage() {
   const canManage = hasPermission("customers.manage");
   const canExport = hasPermission("customers.export");
   const canSeeContacts = hasPermission("customers.contact");
+  const privacy = useRestaurantPrivacy();
 
   const [rawSegment, setSegment] = useQueryFilter("segment", "regulars");
   const segmentKey = SEGMENT_KEYS.includes(rawSegment) ? rawSegment : "regulars";
@@ -873,14 +882,19 @@ export default function GuestInsightsPage() {
     try {
       const data = await exportGuestSegment(segmentKey, format, query || undefined);
 
+      // The numbers are for a broadcast of offers: only guests who agreed to
+      // offers (and no child) come back; `leftOut` counts the rest of the list.
       if (format === "mobiles") {
         const mobiles = [...new Set(data.items.map((guest) => guest.mobile).filter(Boolean))];
+        const leftOut = data.leftOut > 0 ? ` ${plural(data.leftOut, "guest on it has", "guests on it have")} not agreed to offers, so ${data.leftOut === 1 ? "is" : "are"} left out.` : "";
 
         if (mobiles.length === 0) {
           setListError(
-            data.search
-              ? `Nobody matching “${data.search}” on this list has a mobile number on file.`
-              : "Nobody on this list has a mobile number on file."
+            data.leftOut > 0
+              ? `Nobody ${data.search ? `matching “${data.search}” ` : ""}on this list has agreed to offers on WhatsApp or SMS.${leftOut} Record a guest's consent on their record (Customers) when they say yes.`
+              : data.search
+                ? `Nobody matching “${data.search}” on this list has a mobile number on file.`
+                : "Nobody on this list has a mobile number on file."
           );
           return;
         }
@@ -889,16 +903,16 @@ export default function GuestInsightsPage() {
         const text = mobiles.join("\n");
 
         if (!(await copyText(text))) {
-          setManualCopy({ label: data.segment.label, text, count: mobiles.length, missing });
+          setManualCopy({ label: data.segment.label, text, count: mobiles.length, missing, leftOut });
           return;
         }
 
         setNotice(
           `Copied ${plural(mobiles.length, "mobile number", "mobile numbers")} for ${exportedWhat(
             data
-          )} — paste them into a WhatsApp broadcast list or your SMS tool.${
+          )}, the guests who agreed to offers — paste them into a WhatsApp broadcast list or your SMS tool.${
             missing > 0 ? ` ${plural(missing, "guest has", "guests have")} no mobile on file.` : ""
-          }`
+          }${leftOut}`
         );
         return;
       }
@@ -1150,6 +1164,7 @@ export default function GuestInsightsPage() {
             loyalty={summary.loyalty}
             onOpen={openGuest}
             contactsHidden={!canSeeContacts}
+            privacy={privacy}
             windowDays={summary.rules?.regularWindowDays}
           />
 
@@ -1251,6 +1266,7 @@ export default function GuestInsightsPage() {
               {manualCopy.missing > 0
                 ? ` ${manualCopy.missing} ${manualCopy.missing === 1 ? "guest has" : "guests have"} no mobile on file.`
                 : ""}
+              {manualCopy.leftOut || ""}
             </p>
             <textarea
               readOnly

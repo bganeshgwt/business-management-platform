@@ -3,6 +3,7 @@ const v = require('../../../../utils/validate');
 const access = require('../../core/services/businessAccess.service');
 const core = require('../../core/services/business.service');
 const paymentMethods = require('../../core/services/businessPaymentMethods.service');
+const consents = require('../../../personal-data/services/consents');
 const h = require('./healthCommon');
 
 // Clinic: patients, consent and consultations.
@@ -14,7 +15,10 @@ const h = require('./healthCommon');
 //                 more purposes (reports on WhatsApp, reminders) are optional.
 //                 A withdrawal is recorded once and stops new visits and lab
 //                 orders for that purpose; the record itself is kept for the
-//                 retention period the law asks for.
+//                 retention period the law asks for. The consents are the
+//                 general record every business keeps (business_consents,
+//                 modules/personal-data), given here on the clinic's own
+//                 consent notice (Clinic & lab settings).
 //   Clinical      vitals, complaints, examination, diagnosis (+ ICD-10),
 //   record        advice, prescription and follow-up: only for patients.view_
 //                 clinical (read) and patients.edit_clinical (write). Every
@@ -42,7 +46,7 @@ repo.addLists({
       c.name,c.phone,c.email,c.address,c.active,
       CASE WHEN p.date_of_birth IS NOT NULL THEN date_part('year', age((now() AT TIME ZONE b.timezone)::date, p.date_of_birth))::int
         ELSE p.age_years + floor(extract(epoch FROM now()-p.created_at)/31557600)::int END AS age,
-      EXISTS (SELECT 1 FROM health_consents k WHERE k.business_id=p.business_id AND k.contact_id=p.contact_id AND k.purpose='treatment' AND k.withdrawn_at IS NULL) AS consent_active,
+      EXISTS (SELECT 1 FROM business_consents k WHERE k.business_id=p.business_id AND k.contact_id=p.contact_id AND k.purpose='treatment' AND k.withdrawn_at IS NULL) AS consent_active,
       (SELECT max(v.created_at) FROM health_visits v WHERE v.business_id=p.business_id AND v.contact_id=p.contact_id) AS last_visit_at,
       (SELECT count(*)::int FROM health_visits v WHERE v.business_id=p.business_id AND v.contact_id=p.contact_id) AS visits
       FROM health_patients p JOIN businesses b ON b.id=p.business_id JOIN business_contacts c ON c.business_id=p.business_id AND c.id=p.contact_id WHERE p.business_id=$1`,
@@ -93,18 +97,13 @@ function consentInput(body) {
   if (!purposes.includes('treatment')) fail('Consent for treatment and record keeping is needed to register a patient', 409, { reason: 'consent_required' });
   return { purposes, method: v.requiredEnum(body.method, 'How consent was given', ['signed_form', 'verbal', 'digital']), givenBy: v.requiredString(body.givenBy, 'Consent given by', 150) };
 }
+// The clinic's consents, given at its front desk on its own consent notice.
+const clinicAudit = (business, user) => (db, action, contactId, details) =>
+  repo.audit(db, business.id, user.id, action === 'consent.given' ? 'patient.consent_given' : 'patient.consent_withdrawn', contactId, details);
 async function addConsents(db, business, user, contactId, consent) {
   const settings = await h.settings(db, business.id);
-  const rows = [];
-  for (const purpose of consent.purposes) {
-    const active = await repo.one(db, 'SELECT * FROM health_consents WHERE business_id=$1 AND contact_id=$2 AND purpose=$3 AND withdrawn_at IS NULL', [business.id, contactId, purpose]);
-    if (active) { rows.push(active); continue; }
-    const row = await repo.one(db, `INSERT INTO health_consents(business_id,contact_id,purpose,notice_version,method,given_by,recorded_by) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-      [business.id, contactId, purpose, settings.consent_version, consent.method, consent.givenBy, user.id]);
-    await repo.audit(db, business.id, user.id, 'patient.consent_given', contactId, { purpose, version: settings.consent_version, method: consent.method, givenBy: consent.givenBy });
-    rows.push(row);
-  }
-  return rows;
+  return consents.record(db, { businessId: business.id, person: consents.personOf('contact_id', contactId), purposes: consent.purposes, channel: 'counter',
+    method: consent.method, givenBy: consent.givenBy, userId: user.id, clinicVersion: settings.consent_version, audit: clinicAudit(business, user) });
 }
 
 // Registers a patient: a new customer contact (or an existing one) plus the
@@ -171,7 +170,7 @@ async function patient(business, contactId) {
   if (!row) fail('Patient not found', 404);
   const day = await h.today(repo.pool, business);
   const [consents, visits, appointments, labOrders] = await Promise.all([
-    repo.all(repo.pool, `SELECT k.*,u.name AS recorded_by_name,w.name AS withdrawn_by_name FROM health_consents k JOIN users u ON u.id=k.recorded_by
+    repo.all(repo.pool, `SELECT k.*,u.name AS recorded_by_name,w.name AS withdrawn_by_name FROM business_consents k LEFT JOIN users u ON u.id=k.recorded_by
       LEFT JOIN users w ON w.id=k.withdrawn_by WHERE k.business_id=$1 AND k.contact_id=$2 ORDER BY k.created_at DESC,k.id DESC`, [business.id, contact]),
     repo.all(repo.pool, `SELECT v.id,v.visit_no,v.status,v.created_at,v.completed_at,v.follow_up_on,v.document_id,r.name AS doctor_name,d.document_no FROM health_visits v
       LEFT JOIN business_resources r ON r.business_id=v.business_id AND r.id=v.resource_id LEFT JOIN business_documents d ON d.business_id=v.business_id AND d.id=v.document_id
@@ -226,15 +225,15 @@ async function withdrawConsent(business, user, consentId, body) {
   await access.require(business, 'patients.edit');
   const reason = v.requiredString(body.reason, 'Reason (as the patient gave it)', 300);
   return repo.transaction(async (db) => {
-    const row = await repo.one(db, 'SELECT * FROM health_consents WHERE business_id=$1 AND id=$2 AND withdrawn_at IS NULL FOR UPDATE', [business.id, id(consentId, 'Consent')]);
+    const row = await repo.one(db, `SELECT * FROM business_consents WHERE business_id=$1 AND id=$2 AND withdrawn_at IS NULL AND contact_id IS NOT NULL
+      AND EXISTS (SELECT 1 FROM health_patients p WHERE p.business_id=business_consents.business_id AND p.contact_id=business_consents.contact_id) FOR UPDATE`,
+    [business.id, id(consentId, 'Consent')]);
     if (!row) fail('This consent is not active', 409);
-    const saved = await repo.one(db, 'UPDATE health_consents SET withdrawn_at=now(),withdrawn_by=$3,withdrawal_reason=$4 WHERE business_id=$1 AND id=$2 RETURNING *', [business.id, row.id, user.id, reason]);
-    await repo.audit(db, business.id, user.id, 'patient.consent_withdrawn', row.contact_id, { purpose: row.purpose, reason });
-    return saved;
+    return consents.withdraw(db, { businessId: business.id, consentId: row.id, userId: user.id, reason, channel: 'counter', audit: clinicAudit(business, user) });
   });
 }
 async function requireConsent(db, business, contactId) {
-  const ok = await repo.one(db, "SELECT 1 FROM health_consents WHERE business_id=$1 AND contact_id=$2 AND purpose='treatment' AND withdrawn_at IS NULL", [business.id, contactId]);
+  const ok = await repo.one(db, "SELECT 1 FROM business_consents WHERE business_id=$1 AND contact_id=$2 AND purpose='treatment' AND withdrawn_at IS NULL", [business.id, contactId]);
   if (!ok) fail('This patient has no active consent for treatment. Record their consent first (or they withdrew it).', 409, { reason: 'consent_required' });
 }
 
@@ -499,7 +498,7 @@ async function today(business, query) {
   const location = optionalId(query.location, 'Location');
   const rows = await repo.all(repo.pool, `SELECT a.id AS appointment_id,a.starts_at,a.ends_at,a.status AS appointment_status,a.contact_id,a.resource_id,c.name AS patient_name,c.phone AS patient_phone,
       p.patient_no,(p.contact_id IS NOT NULL) AS registered,r.name AS doctor_name,s.label AS service_name,v.id AS visit_id,v.visit_no,v.status AS visit_status,v.document_id,
-      EXISTS (SELECT 1 FROM health_consents k WHERE k.business_id=a.business_id AND k.contact_id=a.contact_id AND k.purpose='treatment' AND k.withdrawn_at IS NULL) AS consent_active,
+      EXISTS (SELECT 1 FROM business_consents k WHERE k.business_id=a.business_id AND k.contact_id=a.contact_id AND k.purpose='treatment' AND k.withdrawn_at IS NULL) AS consent_active,
       (SELECT CASE WHEN count(*)=0 THEN 'none' WHEN bool_and(o.status='approved') THEN 'ready' ELSE 'pending' END FROM lab_orders o
         WHERE o.business_id=v.business_id AND o.visit_id=v.id AND o.status<>'cancelled') AS lab_status,
       tk.id AS token_id,tk.token_no,tk.status AS token_status

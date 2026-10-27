@@ -498,13 +498,13 @@ test('pharmacy and clinic / lab rules', { timeout: 300000 }, async (t) => {
   });
 
   await t.test('withdrawn consent stops new visits and tests; the record stays', async () => {
-    const consent = await one("SELECT id FROM health_consents WHERE business_id=$1 AND contact_id=$2 AND purpose='treatment'", [clinic.id, patient.contact_id]);
+    const consent = await one("SELECT id FROM business_consents WHERE business_id=$1 AND contact_id=$2 AND purpose='treatment'", [clinic.id, patient.contact_id]);
     await desk.call('POST', C(`clinic/consents/${consent.id}/withdraw`), { reason: 'Moving away' });
     await desk.call('POST', C(`clinic/consents/${consent.id}/withdraw`), { reason: 'Again' }, 409);
     const blocked = await call('POST', C('clinic/visits'), { contactId: patient.contact_id }, await login('desk@test.invalid'));
     assert.equal(blocked.body.data.reason, 'consent_required');
     await desk.call('GET', C(`clinic/patients/${patient.contact_id}`));
-    await assert.rejects(pool.query('DELETE FROM health_consents WHERE id=$1', [consent.id]), /cannot be deleted/);
+    await assert.rejects(pool.query('DELETE FROM business_consents WHERE id=$1', [consent.id]), /cannot be deleted/);
     const list = await desk.call('GET', C('clinic/patients?consent=false'));
     assert.equal(list.total, 1);
   });

@@ -6,7 +6,7 @@
 // no request can make: an order taken, or a hire handed over, on an earlier day.
 import crypto from "node:crypto";
 
-import { AGRI, BUSINESSES, CLINIC, FUEL, GARAGE, GROCERY, GST_CHANGE, HARDWARE, JEWELLERY, LAUNDRY, LODGING, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, RENTALS, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
+import { AGRI, BUSINESSES, CLINIC, FUEL, GARAGE, GROCERY, GST_CHANGE, HARDWARE, JEWELLERY, LAUNDRY, LODGING, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, PRIVACY, RENTALS, RESTAURANT, SALON, TIMEZONE, WHOLESALE } from "./test-data.mjs";
 
 // Every call names the status it expects, so a set-up that goes wrong stops
 // at the first wrong answer, with the API's own message, rather than leaving
@@ -253,6 +253,18 @@ export async function buildTestData({ api, logins, sql }) {
   }
   const at = (type) => (route) => `/businesses/${businesses[type].id}/${route}`;
 
+  // Each shop's privacy notice, published as an owner does on Settings ›
+  // Personal data: the starter text, with the shops' privacy contact.
+  // Consent to bills, reminders and offers is taken on it.
+  for (const shop of Object.values(businesses)) {
+    const { current, starter } = await owner("GET", `/businesses/${shop.id}/privacy/notice`);
+    if (!current) {
+      await owner("POST", `/businesses/${shop.id}/privacy/notices`, {
+        ...starter, contactName: PRIVACY.contact.name, contactPhone: PRIVACY.contact.phone, requestKey: requestKey(),
+      }, 201);
+    }
+  }
+
   // The grocery's rice, its stock, and one paid sale today.
   {
     const B = at("grocery");
@@ -282,7 +294,11 @@ export async function buildTestData({ api, logins, sql }) {
       }, 201);
       biscuits.push({ id: made.id, name: made.label });
     }
+    // Personal data: the customer who asks for their data and its erasure, and one a breach affects.
+    const requester = await owner("POST", B("contacts"), { kind: "customer", name: PRIVACY.requester.name, phone: PRIVACY.requester.phone }, 201);
+    const affected = await owner("POST", B("contacts"), { kind: "customer", name: PRIVACY.affected.name, phone: PRIVACY.affected.phone }, 201);
     Object.assign(businesses.grocery, {
+      privacy: { requesterId: requester.id, affectedId: affected.id },
       supplier: { id: supplier.id, name: supplier.name },
       weighedItem: { id: weighed.id, name: weighed.label },
       pieceItem: { id: piece.id, name: piece.label },

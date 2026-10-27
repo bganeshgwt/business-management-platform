@@ -8,6 +8,8 @@ const onlineOrderRepository = require("../../online/repositories/onlineOrder.rep
 const deliveryRepository = require("../../deliveries/repositories/delivery.repository");
 const orderService = require("./order.service");
 const taxChanges = require("../../../tax-changes/services/taxChangesMenu");
+const personalData = require("../../../personal-data/services/personalData.service");
+const personalDataRestaurant = () => require("../../../personal-data/services/personalDataRestaurant");
 const AppError = require("../../../../utils/AppError");
 const { round2 } = require("../../../../utils/money");
 
@@ -258,10 +260,12 @@ const getMenu = async (token) => {
   const restaurantId = table.restaurant_id;
   const timezone = table.timezone || "Asia/Kolkata";
 
-  const [settings, day, menu] = await Promise.all([
+  const [settings, day, menu, privacy] = await Promise.all([
     tableRequestRepository.findSettings(restaurantId),
     tableRequestRepository.findDayWindow(restaurantId, table.outlet_id || null),
     menuFor(restaurantId, { outletId: table.outlet_id || null, orderType: "dine_in", timezone }),
+    // The restaurant's privacy notice, shown where the guest gives their name and number (null: none published).
+    personalData.publicNotice(restaurantId),
   ]);
 
   return {
@@ -285,6 +289,7 @@ const getMenu = async (token) => {
     },
     offers: menu.offers,
     categories: menu.categories,
+    privacy,
   };
 };
 
@@ -1268,6 +1273,13 @@ const acceptOnline = async (restaurantId, row, userId) => {
       },
       userId
     );
+  }
+
+  // What the guest agreed to on the ordering page, recorded now the order names them.
+  const consented = await tableRequestRepository.findPrivacyConsents(restaurantId, row.id);
+
+  if (consented && consented.privacy_consents.length && order.customerId) {
+    await personalDataRestaurant().recordFromGuestsSite(restaurantId, order.customerId, consented.privacy_consents, consented.privacy_notice_id);
   }
 
   return { order, action: "created", links: linkLines(row.items || [], order.items) };

@@ -7,7 +7,10 @@ React 19 + Vite. What a restaurant's guests open, without signing in: the
 menu behind a table's QR code (`/order/:token`), the online ordering page
 (`/online/:token`) and the table booking page (`/book/...`). It calls only
 the API's public endpoints (`/api/public/...`) and never carries a staff
-login.
+login. Where a page takes a guest's name and number, it shows the
+restaurant's privacy notice and contact, and online ordering asks, purpose by
+purpose, for the guest's consent to bills on WhatsApp and to offers (neither
+needed for the order).
 
 Planned pages have their address and say what is coming: `/shop` (order from
 a shop), `/appointments` (salon and clinic bookings) and `/account` (a guest's
@@ -74,6 +77,7 @@ src/
 ├── modules/
 │   ├── table-order/   QR ordering at the table: pages/QrLandingPage, services/tableOrder.service
 │   ├── online-order/  Online ordering and order status: pages/, services/, styles/
-│   └── booking/       Table booking and a booking's status: pages/, services/, styles/
+│   ├── booking/       Table booking and a booking's status: pages/, services/, styles/
+│   └── privacy/       The restaurant's privacy notice and the consent ticks, where a page takes a name and number
 └── styles/guest.css   The guest pages' own look (on top of the shared tokens)
 ```

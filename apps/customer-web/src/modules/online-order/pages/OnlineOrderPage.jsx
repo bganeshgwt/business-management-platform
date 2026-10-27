@@ -12,6 +12,7 @@ import {
   placeOnlineOrder,
 } from "../services/onlineOrder.service";
 import { money } from "@bmp/shared/format";
+import { ForgetDetails, GuestConsents, PrivacyNote } from "../../privacy/GuestPrivacy";
 import "../../../styles/guest.css";
 import "../styles/online-order.css";
 
@@ -467,6 +468,9 @@ function CartPanel({
   placing,
   error,
   inSheet,
+  consents,
+  setConsents,
+  onForget,
 }) {
   const { ordering, delivery, restaurant } = menu;
   const figures = cartFigures(lines, service, delivery);
@@ -581,6 +585,7 @@ function CartPanel({
               placeholder="10-digit mobile"
               onChange={(event) => setProfile({ ...profile, mobile: event.target.value })}
             />
+            <small className="g-muted g-small">For updates on this order and a call if anything changes.</small>
           </label>
         </div>
         {service === "delivery" && (
@@ -627,6 +632,11 @@ function CartPanel({
           />
           <small className="g-count">{note.length}/200</small>
         </label>
+
+        <GuestConsents privacy={menu.privacy} value={consents} onChange={setConsents} />
+        <PrivacyNote privacy={menu.privacy} restaurantName={restaurant.name}
+          purpose={service === "delivery" ? "Your name, mobile and address are for this order." : "Your name and mobile are for this order."} />
+        <ForgetDetails what={service === "delivery" ? "your name, mobile and address" : "your name and mobile"} onForget={onForget} />
 
         <fieldset className="oo-pay">
           <legend>How you'll pay</legend>
@@ -961,6 +971,8 @@ function MenuPage({ token }) {
   }));
   const [placing, setPlacing] = useState(false);
   const [cartError, setCartError] = useState("");
+  // What the guest agrees to with this order (bills on WhatsApp, offers): asked each time, never kept here.
+  const [consents, setConsents] = useState([]);
   const clientKeyRef = useRef(null);
 
   const [tracked] = useState(() => loadTracked(token));
@@ -1251,6 +1263,8 @@ function MenuPage({ token }) {
         guestMobile: profile.mobile.trim(),
         address: currentService === "delivery" ? profile.address.trim() : null,
         landmark: currentService === "delivery" ? profile.landmark.trim() || null : null,
+        // What the guest ticked, on the notice the page showed them.
+        ...(consents.length && menu?.privacy ? { consents, privacyNoticeId: menu.privacy.id } : {}),
       });
 
       writeStore(trackKey(token), [
@@ -1266,7 +1280,7 @@ function MenuPage({ token }) {
     } finally {
       setPlacing(false);
     }
-  }, [token, currentService, cartLines, note, profile, navigate]);
+  }, [token, currentService, cartLines, note, profile, navigate, consents, menu]);
 
   // ---------------------------------------------------------------- render
 
@@ -1331,6 +1345,9 @@ function MenuPage({ token }) {
     onPlace: placeOrder,
     placing,
     error: cartError,
+    consents,
+    setConsents,
+    onForget: () => setProfile({ name: "", mobile: "", address: "", landmark: "" }),
   };
 
   return (

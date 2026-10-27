@@ -15,6 +15,7 @@ const bcrypt = require("bcrypt");
 
 const { today, daysFrom, addDays } = require("./helpers/dates");
 const { signIn } = require("./helpers/signIn");
+const { publishNotice } = require("./helpers/privacy");
 
 const TODAY = today();
 
@@ -321,7 +322,9 @@ test("payroll, bank sheet, expenses, guests, complaints, activity log, bell", { 
     const thali = await O("POST", "/menu/products", { categoryId: menuCategory.id, name: "Veg Thali", price: 200, foodType: "veg" }, 201);
 
     const soon = addDays(TODAY, 3);
-    // Born in a leap year, so the 29th of February is a birthday too.
+    // Born in a leap year, so the 29th of February is a birthday too. Her consent
+    // to offers is given on the restaurant's privacy notice, published first.
+    await publishNotice(O, "");
     const birthday = await O("POST", "/crm/customers", { name: "Birthday Bindu", mobile: "9876511101", dateOfBirth: `1992-${soon.slice(5)}`, marketingOptIn: true }, 201);
     const lapsed = await O("POST", "/crm/customers", { name: "Lapsed Lokesh", mobile: "9876511102" }, 201);
     const regular = await O("POST", "/crm/customers", { name: "Regular Rekha", mobile: "9876511103" }, 201);

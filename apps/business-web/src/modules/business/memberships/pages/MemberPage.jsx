@@ -17,6 +17,9 @@ import MembershipDialog from "./MembershipDialog";
 import { CancelDialog, FreezeDialog, TransferDialog } from "./ChangeDialogs";
 import { printMembership } from "./membershipPrint";
 import { EVENT_WORDS, HOW, INSTALMENT_STATUSES, REASONS, dayWords, endWords, isRunning, messageLink, renewalMessage, runWords, statusOf } from "./memberships";
+// A renewal reminder needs the member's consent to reminders (asked first, in one tap).
+import ConsentLink from "../../../personal-data/components/ConsentLink";
+import { useShopPrivacy } from "../../../personal-data/usePrivacy";
 import "../styles/memberships.css";
 
 // One member on screen: their code and their memberships, the current ones
@@ -117,6 +120,7 @@ export default function MemberPage() {
 
 function MembershipCard({ m, member, onDialog }) {
   const biz = useOpenBusiness();
+  const privacy = useShopPrivacy();
   const status = statusOf(m);
   const running = ["upcoming", "active", "frozen"].includes(m.status);
   const money = m.money !== false;
@@ -155,7 +159,10 @@ function MembershipCard({ m, member, onDialog }) {
         {freezing && canEdit && <button type="button" className="button button-secondary button-sm" onClick={() => onDialog("unfreeze")}>{freezing.current ? "End the freeze" : "Call off the freeze"}</button>}
         {running && canEdit && m.transferable && m.status !== "frozen" && <button type="button" className="button button-secondary button-sm" onClick={() => onDialog("transfer")}><Icon name="users" size={14} /> Pass on</button>}
         {running && biz.can("member_plans.cancel") && <button type="button" className="button button-secondary button-sm" onClick={() => onDialog("cancel")}>Cancel</button>}
-        {member.phone && m.end_on && !m.closed && <a className="button button-secondary button-sm" href={messageLink(member.phone, text)} target="_blank" rel="noopener noreferrer"><Icon name="message" size={14} /> WhatsApp</a>}
+        {member.phone && m.end_on && !m.closed && (
+          <ConsentLink privacy={privacy} purpose="reminders" person={{ id: member.id, name: member.name }} href={messageLink(member.phone, text)}
+            className="button button-secondary button-sm"><Icon name="message" size={14} /> WhatsApp</ConsentLink>
+        )}
         <button type="button" className="button button-secondary button-sm" onClick={() => printMembership(biz, m, member)}><Icon name="print" size={14} /> Membership slip</button>
         {money && m.bill && biz.can("sales.print") && (
           <button type="button" className="button button-secondary button-sm"

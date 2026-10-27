@@ -148,6 +148,11 @@ test("service due: the scooter due for its service and the car's insurance runni
   await expect(scooter).toContainText("in 3 days", { timeout: 15_000 });
   await expect(page.getByRole("row").filter({ hasText: GARAGE.car.registrationNo }).filter({ hasText: "Insurance" })).toBeVisible();
   await scooter.getByRole("button", { name: "WhatsApp" }).click();
+  // A reminder needs the owner's consent to reminders: they are asked first, and their yes recorded in one tap.
+  const ask = page.getByRole("dialog", { name: `Ask ${GARAGE.scooterOwner.name} first` });
+  await expect(ask).toContainText("has not agreed to reminders");
+  await ask.getByRole("button", { name: "They agree: send it" }).click();
+  await expect(ask).toHaveCount(0, { timeout: 15_000 });
   await expect.poll(() => page.evaluate(() => (window.opened || []).join(" "))).toContain(`wa.me/91${GARAGE.scooterOwner.phone}`);
   await expect(scooter).toContainText("1 reminder", { timeout: 15_000 });
   // Only what is due for insurance.

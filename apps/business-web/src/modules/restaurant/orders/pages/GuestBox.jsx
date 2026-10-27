@@ -5,6 +5,9 @@ import { mobileHint, normaliseMobile } from "../../../../services/phone";
 import { dayMonth } from "../../../../services/floorTables";
 import Icon from "@bmp/ui/Icon";
 import GuestOccasion from "../../crm/pages/GuestOccasion";
+// What the guest agrees to be sent, taken in one tap at the till.
+import ConsentChoices from "../../../personal-data/components/ConsentChoices";
+import { useRestaurantPrivacy } from "../../../personal-data/usePrivacy";
 
 const TAG_WORDS = {
   vip: "VIP",
@@ -39,6 +42,7 @@ export default function GuestBox({
   onRepeat = null,
 }) {
   const mobile = normaliseMobile(customerMobile);
+  const privacy = useRestaurantPrivacy();
   const [lookup, setLookup] = useState({ mobile: null, status: "idle" });
   const [byName, setByName] = useState(false);
   const [search, setSearch] = useState("");
@@ -190,6 +194,7 @@ export default function GuestBox({
                 {customer.allergies && <span className="pos-guest-tag pos-tag-allergy">Allergic: {customer.allergies}</span>}
               </span>
             )}
+            {customer.id && <ConsentChoices privacy={privacy} personId={customer.id} personName={customer.name} instant wide={false} showHint={false} />}
           </div>
           <button type="button" className="button button-ghost button-sm pos-guest-remove" onClick={clear}>
             <Icon name="x" size={15} />

@@ -17,6 +17,11 @@ import FormDialog from "../../core/pages/FormDialog";
 import { Badge, BusinessHeader, Field, PeriodFilter } from "../../core/pages/ui";
 import { businessToday, dateTime, newKey, useOpenBusiness, useServerList } from "../../core/pages/hooks";
 import { dateWords, methodWord, udhaarMessage, whatsappLink } from "./retail";
+// A reminder needs the customer's consent to reminders (asked first, in one tap).
+import ConsentLink from "../../../personal-data/components/ConsentLink";
+import { useConsentGate } from "../../../personal-data/useConsentGate";
+import { REMINDER_CHANNELS, notAgreed } from "../../../personal-data/personalData";
+import { useShopPrivacy } from "../../../personal-data/usePrivacy";
 import "../styles/business-retail.css";
 
 // Udhaar: what regular customers owe the shop on credit. The figures are the
@@ -218,9 +223,14 @@ function RemindDialog({ row, onClose, onSaved }) {
   const [form, setForm] = useState({ channel: row.phone ? "whatsapp" : "call", promisedOn: "", note: "" });
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
   const message = udhaarMessage({ name: row.name, shop: biz.settings.display_name || biz.business.name, balance: biz.exact(row.balance), promisedOn: form.promisedOn });
-  const submit = () => {
-    // Opened straight from the click, before waiting on the server, so the
-    // browser does not treat it as a pop-up.
+  const gate = useConsentGate(useShopPrivacy());
+  const { want } = gate;
+  useEffect(() => { want(row.contact_id); }, [want, row.contact_id]);
+  const submit = async () => {
+    // A reminder on WhatsApp, by SMS or by a call needs their consent to reminders.
+    if (REMINDER_CHANNELS.includes(form.channel) && !(await gate.ensure("reminders", { id: row.contact_id, name: row.name }))) throw notAgreed(row.name, "reminders");
+    // Opened straight from the click (or the consent's), before waiting on the
+    // server, so the browser does not treat it as a pop-up.
     if (form.channel === "whatsapp") window.open(whatsappLink(row.phone, message), "_blank", "noopener");
     return businessWrite(biz.id, `udhaar/${row.contact_id}/reminders`, { channel: form.channel, promisedOn: form.promisedOn || undefined, note: form.note || undefined });
   };
@@ -242,12 +252,17 @@ function RemindDialog({ row, onClose, onSaved }) {
           <p className="rt-rule-line small" style={{ whiteSpace: "pre-line" }}>{message}</p>
         </div>
       )}
+      {gate.allowed("reminders", row.contact_id) === false && REMINDER_CHANNELS.includes(form.channel) && (
+        <p className="field-wide small muted">{row.name} has not agreed to reminders yet: saving asks them first.</p>
+      )}
+      {gate.dialog}
     </FormDialog>
   );
 }
 
 function StatementDialog({ row, onClose }) {
   const biz = useOpenBusiness();
+  const privacy = useShopPrivacy();
   const today = businessToday(biz.business.timezone);
   const [range, setRange] = useState({ from: addDays(today, -89), to: today });
   const [data, setData] = useState(null);
@@ -275,7 +290,12 @@ function StatementDialog({ row, onClose }) {
         <div className="rt-statement-head">
           <DateRangeFilter from={range.from} to={range.to} anchor={today} label="statement dates" onChange={(next) => { if (next.from && next.to) setRange(next); }} />
           <div className="row-actions">
-            {data && row.phone && <a className="button button-secondary button-sm" target="_blank" rel="noreferrer" href={whatsappLink(row.phone, udhaarMessage({ name: row.name, shop: biz.settings.display_name || biz.business.name, balance: biz.exact(data.closing) }))}><Icon name="message" size={14} /> WhatsApp</a>}
+            {data && row.phone && (
+              <ConsentLink privacy={privacy} purpose="reminders" person={{ id: row.contact_id, name: row.name }} className="button button-secondary button-sm"
+                href={whatsappLink(row.phone, udhaarMessage({ name: row.name, shop: biz.settings.display_name || biz.business.name, balance: biz.exact(data.closing) }))}>
+                <Icon name="message" size={14} /> WhatsApp
+              </ConsentLink>
+            )}
             {data && biz.can("receivables.print") && <button type="button" className="button button-secondary button-sm" onClick={print}><Icon name="print" size={14} /> Print</button>}
           </div>
         </div>

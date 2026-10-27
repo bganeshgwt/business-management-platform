@@ -8,11 +8,11 @@ PostgreSQL 15 or newer (built and tested on 18). One database holds the whole pl
 | --- | --- | --- |
 | [Platform and access (restaurant module)](#platform-and-access) | restaurants, outlets, users, roles, permissions, sign-in and approvals | `restaurant_id` |
 | [Restaurant module](#restaurant-module) | settings, menu, tables, orders, kitchen, bills and payments, cash, guests, stock and purchasing, staff and pay | `restaurant_id`, and `outlet_id` where a branch matters |
-| [Business platform](#business-platform) | platform catalogue, business access, business core, shared core, one extension group per business type, tasks, issues & projects, and GST rates by date | `business_id` on every row, with composite foreign keys |
+| [Business platform](#business-platform) | platform catalogue, business access, business core, shared core, one extension group per business type, tasks, issues & projects, GST rates by date, and personal data (both engines) | `business_id` on every row, with composite foreign keys |
 | [Live updates](#live-updates) | no tables: the triggers that announce each committed change to the live screens, for both engines | the restaurant or business named in each notification |
 | [Catalogues](#business-types) | business types, platform module codes, business and restaurant permission codes | — |
 
-**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Licences](#licences) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) · [Optical shops](#optical-shops) · [Vehicle service & auto parts](#vehicle-service--auto-parts) · [Gyms, studios & coaching](#gyms-studios--coaching) · [Laundry & dry cleaning](#laundry--dry-cleaning) · [Jewellery & gold](#jewellery--gold) · [Rentals & hire](#rentals--hire) · [Fuel stations](#fuel-stations) · [Hotels, lodges & guest houses](#hotels-lodges--guest-houses) · [Tasks, issues & projects](#tasks-issues--projects) · [GST rates by date](#gst-rates-by-date) · [Live updates](#live-updates). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
+**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Licences](#licences) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) · [Optical shops](#optical-shops) · [Vehicle service & auto parts](#vehicle-service--auto-parts) · [Gyms, studios & coaching](#gyms-studios--coaching) · [Laundry & dry cleaning](#laundry--dry-cleaning) · [Jewellery & gold](#jewellery--gold) · [Rentals & hire](#rentals--hire) · [Fuel stations](#fuel-stations) · [Hotels, lodges & guest houses](#hotels-lodges--guest-houses) · [Tasks, issues & projects](#tasks-issues--projects) · [GST rates by date](#gst-rates-by-date) · [Live updates](#live-updates) · [Personal data](#personal-data). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
 
 The business platform's design (its five layers, the rules every table follows, and why) is explained in [BUSINESS_PLATFORM_DATA_MODEL.md](BUSINESS_PLATFORM_DATA_MODEL.md). This file gives the table-by-table reference and links there instead of repeating it. A restaurant also appears on the platform as one `businesses` row whose `legacy_restaurant_id` points at it; its own tables are unchanged.
 
@@ -484,10 +484,10 @@ Added by: 1790820000001_repair-kitchen-ticket-times.
 
 #### `table_requests`
 Purpose: guest requests from a table QR (order, call waiter, bill, water, other) and website takeaway/delivery orders.
-Key columns: `outlet_id`, `table_id` (NULL for website orders), `business_day_id`, `request_type` (`order` / `call_waiter` / `bill` / `water` / `other`), `status` (`pending` / `processing` / `accepted` / `rejected` / `acknowledged` / `done` / `cancelled`), `client_key` (idempotency key), `guest_name`, `guest_mobile`, `notes`, `item_count`, `estimated_total`, `order_id`, `order_action` (`created` / `added`), `kitchen_reached` (`ready` / `served`), `reject_reason`, `repeat_count`, `last_asked_at`, `acknowledged_at/by`, `resolved_at/by`; online `channel` (`qr` / `website`), `online_link_id`, `service_type` (`takeaway` / `delivery`), `delivery_address`, `delivery_landmark`, `payment_mode` (`pay_at_pickup` / `cash_on_delivery`), `delivery_charge`, `guest_token`.
+Key columns: `outlet_id`, `table_id` (NULL for website orders), `business_day_id`, `request_type` (`order` / `call_waiter` / `bill` / `water` / `other`), `status` (`pending` / `processing` / `accepted` / `rejected` / `acknowledged` / `done` / `cancelled`), `client_key` (idempotency key), `guest_name`, `guest_mobile`, `notes`, `item_count`, `estimated_total`, `order_id`, `order_action` (`created` / `added`), `kitchen_reached` (`ready` / `served`), `reject_reason`, `repeat_count`, `last_asked_at`, `acknowledged_at/by`, `resolved_at/by`; online `channel` (`qr` / `website`), `online_link_id`, `service_type` (`takeaway` / `delivery`), `delivery_address`, `delivery_landmark`, `payment_mode` (`pay_at_pickup` / `cash_on_delivery`), `delivery_charge`, `guest_token`; `privacy_consents` (TEXT[]: what the guest ticked on the ordering page, `bills_digital` and `offers`, recorded as their consents when the order is accepted) and `privacy_notice_id` (the notice the page showed).
 Relations: `restaurant_id` (CASCADE); `outlet_id` -> `outlets`; `table_id` -> `dining_tables` (CASCADE); `business_day_id`, `order_id`, `online_link_id` -> `online_ordering_links` ON DELETE SET NULL.
-Rules: chk_table_requests_flow (order requests use pending/processing/accepted/rejected/cancelled; others use pending/acknowledged/done/cancelled); chk_table_requests_reject_reason; chk_table_requests_client_key (8 to 64 of A-Z, a-z, 0-9, hyphen); chk_table_requests_channel (a QR request has a table and no service type; a website request has no table, is an order, and has service type, payment mode, guest token, name and mobile, plus an address for delivery); uq_table_requests_client_key (per table); uq_table_requests_open_call (one open call_waiter / bill / water per table); uq_table_requests_guest_token; uq_table_requests_online_key (per online link).
-Added by: 1789903000000_create-table-requests; 1791330003000_online-ordering; 1791974000000_live-updates (live updates: `trg_table_requests_live`).
+Rules: chk_table_requests_flow (order requests use pending/processing/accepted/rejected/cancelled; others use pending/acknowledged/done/cancelled); chk_table_requests_reject_reason; chk_table_requests_client_key (8 to 64 of A-Z, a-z, 0-9, hyphen); chk_table_requests_channel (a QR request has a table and no service type; a website request has no table, is an order, and has service type, payment mode, guest token, name and mobile, plus an address for delivery); uq_table_requests_client_key (per table); uq_table_requests_open_call (one open call_waiter / bill / water per table); uq_table_requests_guest_token; uq_table_requests_online_key (per online link); `table_requests_privacy_consents` (only those two, with the notice when any); `privacy_notice_id` -> `business_privacy_notices`.
+Added by: 1789903000000_create-table-requests; 1791330003000_online-ordering; 1791974000000_live-updates (live updates: `trg_table_requests_live`); 1791977000000_personal-data (`privacy_consents`, `privacy_notice_id`).
 
 #### `table_request_items`
 Purpose: dishes in a guest order request, priced as the guest saw them.
@@ -731,10 +731,10 @@ Added by: 1791330000002_rider-cash-settlement.
 
 #### `customers`
 Purpose: The guest book: everyone the restaurant recognises, with loyalty balance, GST details, tags, consent and erasure.
-Key columns: `name`, `mobile` (canonical form: Indian mobile as 10 digits, foreign as `+` and country code), `email`, `address`, `date_of_birth`, `anniversary_date`, `loyalty_points` (INTEGER >= 0, the running balance), `notes`, `status`, `company_name`, `gstin`, `tags` (TEXT[] from a fixed list), `allergies`, `marketing_opt_in` / `_at` / `_by` (DPDP consent), `duplicate_of` (suspected duplicate awaiting merge), `erased_at` / `erased_by`.
+Key columns: `name`, `mobile` (canonical form: Indian mobile as 10 digits, foreign as `+` and country code), `email`, `address`, `date_of_birth`, `anniversary_date`, `loyalty_points` (INTEGER >= 0, the running balance), `notes`, `status`, `company_name`, `gstin`, `tags` (TEXT[] from a fixed list), `allergies`, `marketing_opt_in` / `_at` / `_by` (a copy of the guest's consent to offers, a row of `business_consents`: kept by the trigger `business_consent_guest_copy`, and the trigger `customers_offers_consent_copy` refuses any other write), `duplicate_of` (suspected duplicate awaiting merge), `erased_at` / `erased_by`.
 Relations: `restaurant_id` -> `restaurants` (CASCADE); `duplicate_of` -> `customers` (SET NULL); user columns -> `users`.
 Rules: mobile unique per restaurant when given (`uq_customers_restaurant_mobile`); mobile format CHECK `chk_customers_mobile_format` (10 digits starting 6-9, or `+` non-91 international, rejecting `+` + Indian-looking 10 digits except listed foreign series); GSTIN shape CHECK `chk_customers_gstin_format`; tags limited to `vip`, `allergy`, `jain`, `vegan`, `corporate`, `family`, `blogger` (`chk_customers_tags`). Erased guests: trigger `trg_customers_erased_points` (function `keep_erased_guests_balance`) stops the balance of an erased record from rising; trigger `trg_customers_erased_forget_addresses` (function `forget_erased_guest_addresses`, AFTER UPDATE) deletes their delivery addresses at the moment of erasure; function `keep_erased_guests_unlinked` (triggers on `orders`, `reservations`, `waitlist_entries`, `feedback`, `complaints`) turns any new link to an erased guest into a walk-in (NULL `customer_id`). Merge, erase and full contact view need `customers.merge`, `customers.erase`, `customers.contact`.
-Added by: 1789733008391_create-crm-and-expenses; 1789817853331_create-loyalty (balance used by loyalty); 1789916000000_crm-guest-book-privacy; 1790830000000_erased-guests-earn-no-points; 1790880000000_backoffice-limits-expiry-and-guests (`anniversary_date`); 1791330000001_guest-delivery-addresses (erase trigger).
+Added by: 1789733008391_create-crm-and-expenses; 1789817853331_create-loyalty (balance used by loyalty); 1789916000000_crm-guest-book-privacy; 1790830000000_erased-guests-earn-no-points; 1790880000000_backoffice-limits-expiry-and-guests (`anniversary_date`); 1791330000001_guest-delivery-addresses (erase trigger); 1791977000000_personal-data (the consent to offers moved to `business_consents`, the copy's two triggers).
 
 #### `customer_merges`
 Purpose: One row per merge of two records of the same guest; the merged record is deleted, so it is named rather than referenced.
@@ -1092,7 +1092,7 @@ Linked sections: [data model §1](BUSINESS_PLATFORM_DATA_MODEL.md#1-platform) an
 Purpose: the permission catalogue. Each row is one `<module>.<action>` pair; the codes are listed under [Business permission codes](#business-permission-codes).
 Key columns: `code` (TEXT PK), `module_code` -> `platform_modules`, `action` (view, create, edit, approve, cancel, refund, export, print, discount, assign, review, manage, view_clinical, edit_clinical), `name`, `sort_order`.
 Rules: UNIQUE (`module_code`, `action`). CHECK `code = module_code || '.' || action`. The action CHECK lists every value, so a migration that adds an action rewrites the whole list.
-Added by: 1791300000001 business-roles-and-permissions; codes also from 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791540000000, 1791580000000, 1791620000000, 1791620001000, 1791620002000, 1791620004000, 1791950400000, 1791961000000, 1791962000000, 1791963000000, 1791964000000, 1791965000000, 1791966000000, 1791967000000, 1791968000000, 1791969000000 and 1791970000000.
+Added by: 1791300000001 business-roles-and-permissions; codes also from 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791540000000, 1791580000000, 1791620000000, 1791620001000, 1791620002000, 1791620004000, 1791950400000, 1791961000000, 1791962000000, 1791963000000, 1791964000000, 1791965000000, 1791966000000, 1791967000000, 1791968000000, 1791969000000, 1791970000000 and 1791977000000.
 
 #### `business_role_templates`
 Purpose: the standard roles the platform defines once: owner, manager, cashier, stock_keeper, accountant and viewer for every type, plus pharmacist for a pharmacy, doctor, lab_technician and pathologist for healthcare, optometrist for an optical shop, mechanic for a garage, trainer for a gym, studio or coaching centre, karigar for a jeweller, pump_attendant for a fuel station, and front_desk and housekeeping for a hotel, lodge or guest house.
@@ -1280,12 +1280,12 @@ Added by: 1791300000003.
 
 #### `business_contacts`
 Purpose: customers and suppliers, with credit terms ([shared receivables](BUSINESS_PLATFORM_DATA_MODEL.md#shared-receivables)).
-Key columns: `kind` (customer or supplier), `name`, `phone`, `email`, `address`, `gstin`, `pan` (CHECK: five letters, four digits, a letter), `credit_limit` (NULL = no limit), `credit_days` (0–365), `opening_balance`, `opening_balance_on`, `active`.
+Key columns: `kind` (customer or supplier), `name`, `phone`, `email`, `address`, `gstin`, `pan` (CHECK: five letters, four digits, a letter), `credit_limit` (NULL = no limit), `credit_days` (0–365), `opening_balance`, `opening_balance_on`, `active`, `erased_at` and `erased_by` (a customer whose data was erased at their request: the record stays nameless, CHECK `business_contacts_erased` both or neither).
 Rules:
 - GSTIN is unique per business and kind (partial unique index `business_contacts_gstin`).
 - CHECK: a non-zero opening balance needs a date.
 - Function `business_contact_is_customer()` is used as a trigger on the tables that need a customer.
-Added by: 1791280000000; 1791300000003 (the credit-term columns); 1791960001000 (`pan`).
+Added by: 1791280000000; 1791300000003 (the credit-term columns); 1791960001000 (`pan`); 1791977000000 (`erased_at`, `erased_by`).
 
 #### `business_price_rules`
 Purpose: quantity-slab and customer-specific prices, optionally per pack ([wholesale](BUSINESS_PLATFORM_DATA_MODEL.md#wholesale--fmcg)).
@@ -1407,7 +1407,7 @@ Added by: 1791420000000; 1791420000002 serial-lock-and-exchange-credit (`credit_
 Purpose: exchange credit printed as a numbered voucher (`CV000123`), walk-ins included.
 Key columns: `location_id`, `voucher_no` (`CV` and 6 to 10 digits, unique per business), `contact_id` (optional), `customer_name`, `customer_phone`, `amount`, `used`, `expires_on` (the issue date plus `business_settings.voucher_valid_days`, default 90), `source_document_id` (the sale the credit left as a credit-note refund), `exchange_id`, `request_key` (unique per business).
 Rules: `used <= amount`; trigger `business_exchange_vouchers_rules`: never deleted, only `used` changes and only upwards. Partial index `business_exchange_vouchers_open` lists vouchers with credit left, by expiry.
-Added by: 1791595000000.
+Added by: 1791595000000; 1791977000000 (`business_exchange_vouchers_rules` lets an erasure's change through: `business_privacy_erasing`).
 
 #### `business_exchange_voucher_uses`
 Purpose: each spend of a voucher.
@@ -1572,7 +1572,7 @@ Rules:
 - Trigger `business_quotations_customer`: a contact must be a customer.
 - Trigger `business_quotations_guard`: never deleted; only an open quotation changes; it keeps its number, location, request and maker; the revision goes up one at a time; it becomes billed or ordered only while `valid_until` is not past on the business's own date.
 - Indexes `business_quotations_period`, `business_quotations_contact` and the partial `business_quotations_open` (open ones by date).
-Added by: 1791961000000 quotations-and-hardware.
+Added by: 1791961000000 quotations-and-hardware; 1791977000000 (`business_quotations_guard` lets an erasure's change through: `business_privacy_erasing`).
 
 #### `business_quotation_lines`
 Purpose: a quotation's lines, as sale lines keep them.
@@ -1678,7 +1678,7 @@ Added by: 1791610000000.
 Purpose: a customer's order for a book not on the shelf.
 Key columns: `location_id`, `order_no` (unique per business, BO-0001…), `contact_id`, `customer_name`, `phone`, `title`, `author`, `isbn` (valid ISBN-13 or null), `sku_id`, `quantity`, `advance`, `collection_id` -> `business_collections`, `promised_on`, `notes`, `status` (ordered, arrived, collected, cancelled), `request_key` (unique), `created_by`, `closed_at`.
 Rules: CHECK an advance has its collection and the other way round; CHECK `closed_at` is set exactly for collected / cancelled; trigger `books_customer_order_rules`: never deleted, customer / advance / number / key fixed, a closed order never moves, arrived never goes back to ordered.
-Added by: 1791610000000.
+Added by: 1791610000000; 1791977000000 (`books_customer_order_rules` lets an erasure's change through: `business_privacy_erasing`).
 
 ## Wholesale
 
@@ -1881,7 +1881,7 @@ Added by: 1791420000001.
 
 #### `electronics_warranties`
 Purpose: a warranty registered from a sold serial line.
-Key columns: `document_id`, `line_id`, `sku_id`, `serial`, `item_label`, `contact_id`, `customer_name`, `customer_phone`, `phone_digits` (6–10 digits), `starts_on`, `months` (1–120), `ends_on`, `terms`, `status` (active or cancelled), the cancel fields, `request_key`, `request_hash`.
+Key columns: `document_id`, `line_id`, `sku_id`, `serial`, `item_label`, `contact_id`, `customer_name`, `customer_phone`, `phone_digits` (6–10 digits; both optional), `starts_on`, `months` (1–120), `ends_on`, `terms`, `status` (active or cancelled), the cancel fields, `request_key`, `request_hash`.
 Rules:
 - CHECK: `ends_on = starts_on + months - 1 day`.
 - CHECK: the cancel fields are set exactly when the warranty is cancelled.
@@ -1890,7 +1890,7 @@ Rules:
   - the line must be that sale's line for that SKU and serial;
   - after registration the only change allowed is a one-way cancellation;
   - no deletes.
-Added by: 1791420000001.
+Added by: 1791420000001; 1791977000000 (the phone optional; `electronics_warranties_rules` lets an erasure's change through).
 
 #### `electronics_faulty_units`
 Purpose: a dead-on-arrival or faulty serial unit held for the supplier.
@@ -1908,7 +1908,7 @@ Added by: 1791595000000.
 
 #### `electronics_repair_jobs`
 Purpose: a repair job card.
-Key columns: `job_no` (unique, from `series_id`, series kind `repair_job`), `location_id`, `contact_id`, `customer_name`, `customer_phone` and `phone_digits`, `sku_id`, `device`, `serial`, `warranty_id`, `under_warranty`, `problem`, `accessories`, `condition_notes`, `checklist` (JSON object of condition ticks), `passcode`, `estimate`, `promised_on`, `technician`, `status` (received, diagnosing, waiting_parts, in_repair, awaiting_approval, ready, delivered, cancelled), `advance_collection_id` (-> `business_collections`: the advance, applied to the bill at delivery), `document_id` (unique), `delivered_at`, `delivery_key`, `closed_reason`, `request_key`, `request_hash`.
+Key columns: `job_no` (unique, from `series_id`, series kind `repair_job`), `location_id`, `contact_id`, `customer_name`, `customer_phone` and `phone_digits` (optional: a phone is never a condition), `sku_id`, `device`, `serial`, `warranty_id`, `under_warranty`, `problem`, `accessories`, `condition_notes`, `checklist` (JSON object of condition ticks), `passcode`, `estimate`, `promised_on`, `technician`, `status` (received, diagnosing, waiting_parts, in_repair, awaiting_approval, ready, delivered, cancelled), `advance_collection_id` (-> `business_collections`: the advance, applied to the bill at delivery), `document_id` (unique), `delivered_at`, `delivery_key`, `closed_reason`, `request_key`, `request_hash`.
 Rules:
 - CHECK: a bill exists only on a delivered job.
 - CHECK: a delivered job has `delivered_at` and `delivery_key`.
@@ -1916,7 +1916,7 @@ Rules:
 - CHECK: `under_warranty` needs `warranty_id`.
 - CHECK `electronics_repair_jobs_passcode_cleared`: a delivered or cancelled job keeps no passcode.
 - Trigger `electronics_repair_jobs_closed`: delivered and cancelled jobs never change, and no job is ever deleted.
-Added by: 1791420000001; 1791595000000 (`awaiting_approval`, `passcode`, `checklist`, `advance_collection_id`).
+Added by: 1791420000001; 1791595000000 (`awaiting_approval`, `passcode`, `checklist`, `advance_collection_id`); 1791977000000 (the phone optional; `electronics_repair_jobs_closed` lets an erasure's change through).
 
 #### `electronics_repair_lines`
 Purpose: the parts and labour on a job, at the customer's price.
@@ -2055,7 +2055,7 @@ Purpose: dated notes and colour formulas on the client card, kept as written (a 
 Key columns: `contact_id`, `kind` (note, formula), `body` (varchar 500, not blank), `created_by`, `created_at`.
 Relations: (`business_id`, `contact_id`) -> `business_contacts`.
 Rules: append-only (trigger `salon_client_notes_append_only`); index `salon_client_notes_contact` (newest first).
-Added by: 1791600000000.
+Added by: 1791600000000; 1791977000000 (`salon_append_only` lets an erasure's change through: `business_privacy_erasing`).
 
 ### Packages and memberships
 
@@ -2344,12 +2344,7 @@ Relations: (`business_id`, `contact_id`) -> `business_contacts`; the target of t
 Rules: CHECK a date of birth or an age is given.
 Added by: 1791620004000.
 
-#### `health_consents`
-Purpose: consent under the DPDP Act, per purpose: the notice shown, when and how it was given, and its withdrawal. A new consent is a new row.
-Key columns: `contact_id`, `purpose` (treatment, reports_digital, reminders), `notice_version`, `method` (signed_form, verbal, digital), `given_by` (not blank), `recorded_by`, `created_at`, `withdrawn_at`, `withdrawn_by`, `withdrawal_reason`.
-Relations: (`business_id`, `contact_id`) -> `health_patients`.
-Rules: CHECK withdrawn_at ⇔ withdrawn_by; one active consent per purpose (partial unique index `health_consents_active`); trigger `health_consent_fixed`: never deleted, and only the withdrawal may be set, once.
-Added by: 1791620004000.
+A patient's consents (treatment, reports on WhatsApp or e-mail, reminders, given on the clinic's own consent notice) are rows of [`business_consents`](#business_consents), which 1791977000000 made of the table `health_consents` (1791620004000), its rows kept with their ids.
 
 #### `health_patient_clinical`
 Purpose: the clinical side of a patient, read only by clinical roles (`patients.view_clinical`).
@@ -2499,7 +2494,7 @@ Rules:
 - Unique index `hardware_sites_name` (business, customer, lower(name)).
 - Trigger `hardware_sites_customer` (function `business_contact_is_customer`): the contact is a customer.
 - Trigger `hardware_sites_guard`: never deleted; the customer and who made it never change.
-Added by: 1791961000000.
+Added by: 1791961000000; 1791977000000 (`hardware_sites_guard` lets an erasure's change through: `business_privacy_erasing`).
 
 #### `hardware_document_sites`
 Purpose: the site a sale went to.
@@ -2609,7 +2604,7 @@ Rules:
 - Index `agri_farmers_village` (business, lower(village)); unique index `agri_farmers_farmer_id` (business, upper(Farmer ID)).
 - Trigger `agri_farmers_customer` (function `business_contact_is_customer`): the contact is a customer.
 - Trigger `agri_farmers_guard`: never deleted; the customer and who made it never change.
-Added by: 1791962000000.
+Added by: 1791962000000; 1791977000000 (`agri_farmers_guard` lets an erasure's change through: `business_privacy_erasing`).
 
 #### `agri_bills`
 Purpose: a sale's farm-input details: the season of a credit bill, or a walk-in farmer's name and village.
@@ -2685,7 +2680,7 @@ Rules:
 - Trigger `optical_orders_customer` (function `business_contact_is_customer`).
 - Trigger `optical_orders_insert_check`: the prescription is the customer's; a new order is booked; a remake is of a delivered order of the same customer.
 - Trigger `optical_orders_guard`: never deleted; a delivered or cancelled order never changes; an open one keeps its number, location, customer, prescription, prices, discount, remake and advance, and the request and who booked it; status moves booked → at_lab or in_workshop, at_lab and in_workshop to each other or to quality_check, quality_check → ready, at_lab or in_workshop, ready → at_lab, in_workshop or delivered, and any open status → cancelled; it becomes ready only when the same change stamps the quality check.
-Added by: 1791963000000.
+Added by: 1791963000000; 1791977000000 (`optical_orders_guard` lets an erasure's change through: `business_privacy_erasing`).
 
 #### `optical_order_lines`
 Purpose: an order's frame, lenses and other items, as booked.
@@ -2757,7 +2752,7 @@ Rules:
 - Trigger `garage_job_cards_customer` (function `business_contact_is_customer`).
 - Trigger `garage_job_cards_insert_check`: a new job card is received with no estimate, for a vehicle in use.
 - Trigger `garage_job_cards_guard`: never deleted; a delivered or cancelled job card never changes; an open one keeps its number, location, vehicle, customer, odometer in, price terms, advance and request; the estimate goes up one version at a time and an approval is of the version it stands at; status moves received → estimate_sent, approved, in_progress, waiting_parts or ready; estimate_sent → approved; approved, in_progress and waiting_parts → estimate_sent, in_progress, waiting_parts or ready; ready → estimate_sent, in_progress, waiting_parts or delivered; any open → cancelled; approved only with the estimate as it stands approved; delivered with lines only with a bill.
-Added by: 1791964000000.
+Added by: 1791964000000; 1791977000000 (`garage_job_cards_guard` lets an erasure's change through: `business_privacy_erasing`).
 
 #### `garage_job_card_mechanics`
 Purpose: the members working on a job card.
@@ -2937,7 +2932,7 @@ Rules:
 - UNIQUE (business, order number), (business, request key), (business, bill) and (business, advance); indexes `laundry_orders_period`, `laundry_orders_contact` and `laundry_orders_promised`.
 - Trigger `laundry_orders_customer` (function `business_contact_is_customer`).
 - Trigger `laundry_orders_guard`: never deleted; only `promised_on`, `notes`, `updated_by` and `updated_at` change.
-Added by: 1791966000000.
+Added by: 1791966000000; 1791977000000 (`laundry_orders_guard` lets an erasure's change through: `business_privacy_erasing`).
 
 #### `laundry_order_items`
 Purpose: each garment of an order (or several of a kind under one tag, or a bundle by the kilo), from intake to the handover.
@@ -3061,7 +3056,7 @@ Purpose: a customer's gold scheme.
 Key columns: `location_id`, `scheme_no` (UNIQUE per business; number series kind gold_scheme), `series_id`, `contact_id`, `member_name`, `member_phone`, `plan_id`, `plan_name`, `instalments`, `instalment` (whole rupees), `discount_percent`, `terms`, `nominee_name`, `nominee_relation`, `terms_accepted_at`, `started_on`, `maturity_on`, `close_by`, `status` (active, stopped, redeemed), `stop_reason`, `stopped_by`, `stop_approved_by`, `stopped_at`, `redeemed_document_id`, `redeemed_at`, `discount`, `notes`, `request_key`, `request_hash`, `created_by`, `created_at`.
 Relations: location; contact; (`business_id`, `plan_id`) -> `jewellery_scheme_plans`; series; (`business_id`, `redeemed_document_id`) -> `business_documents`.
 Rules: CHECKs (maturity = start + instalments months; close by = start + 364 days; the stop's four columns together; redeemed with its bill, time and discount); UNIQUE (business, request key); indexes `jewellery_schemes_contact`, partial `jewellery_schemes_open`; trigger `jewellery_schemes_customer` (function `business_contact_is_customer`); trigger `jewellery_schemes_check`: joined today, active, on an active plan with its terms as they are and at least its smallest instalment; trigger `jewellery_schemes_guard`: keeps what it was joined with; never deleted; stopped once from active; redeemed once by a jewellery bill of its member made with it, with the discount earned (every instalment paid, not stopped, on or after maturity); constraint trigger `jewellery_schemes_redeemed` (deferred to the end of the transaction): its instalments' receipts all pay that bill.
-Added by: 1791967000000.
+Added by: 1791967000000; 1791977000000 (`jewellery_schemes_guard` lets an erasure's change through: `business_privacy_erasing`).
 
 #### `jewellery_scheme_instalments`
 Purpose: each instalment of a gold scheme, paid.
@@ -3158,7 +3153,7 @@ Rules:
 - Trigger `rental_bookings_insert_check`: a quote or reserved, out today or later on the business's clock, made when saved.
 - Trigger `rental_bookings_guard`: never deleted; keeps its number, hirer, location and request; quote → reserved or cancelled, reserved → out or cancelled, out → returned; the out time changes only before the handover, never to a day that has passed; what is recorded at the handover is written with it, when every unit is in service, the deposit held (`rental_deposit_held`) is the one asked unless someone agreed to less, and a self-drive vehicle has a driving licence in force that day; billed once, on a sale to the hirer; returned or cancelled, it never changes.
 - Constraint trigger `rental_bookings_available` (deferred): when it is reserved, handed over or its times change, every line that holds something is checked (`rental_check_booking`).
-Added by: 1791968000000.
+Added by: 1791968000000; 1791977000000 (`rental_bookings_guard` lets an erasure's change through: `business_privacy_erasing`).
 
 #### `rental_booking_lines`
 Purpose: each item on a booking, priced and as handed over.
@@ -3373,7 +3368,7 @@ Purpose: a reservation and the stay it becomes.
 Key columns: `location_id`, `stay_no` (series kind `stay`), `series_id`, `contact_id`, `guest_name`, `guest_phone`, `bill_to_contact_id`, `source` (walk_in, phone, ota), `ota_name`, `ota_booking_id`, `status` (reserved, in_house, checked_out, cancelled, no_show), `arrival`, `departure` (DATE), `room_type_id`, `room_id`, `adults` (1-30), `children` (0-30), `extra_beds` (0-5), `base_occupancy`, `rack_rate`, `weekend_rate`, `extra_adult_rate`, `child_rate`, `extra_bed_rate`, `agreed_rate`, `estimate_subtotal`, `estimate_tax`, `estimate_total`, `arrived_from`, `going_to`, `purpose`, `notes`, `checked_in_at`, `checked_in_by`, `checkin_key`, `checkin_hash`, `checked_out_at`, `checked_out_by`, `checkout_key`, `checkout_hash`, `document_id`, `cancelled_at`, `cancelled_by`, `cancel_reason`, `cancel_key`, `cancel_hash`, `request_key`, `request_hash`, `created_by`/`created_at`, `updated_by`/`updated_at`.
 Relations: (`business_id`, `location_id`) -> `business_locations`; (`business_id`, `series_id`) -> `business_number_series`; (`business_id`, `contact_id`) and (`business_id`, `bill_to_contact_id`) -> `business_contacts`; (`business_id`, `room_type_id`) -> `lodging_room_types`; (`business_id`, `room_id`) -> `lodging_rooms`; (`business_id`, `document_id`) -> `business_documents`.
 Rules: CHECK the departure after the arrival, at most 180 nights; an OTA's name and booking id exactly for an OTA; the company billed not the guest; adults beyond the base only with an extra-adult rate, extra beds only with a bed rate; `estimate_total` = `estimate_subtotal` + `estimate_tax`; the check-in's, check-out's and cancellation's columns together and exactly with their status; a room once checked in; a bill when checked out, and only when checked out, cancelled or a no-show. UNIQUE (business, number), (business, request key), (business, bill), (business, check-in key), (business, check-out key), (business, cancel key). Exclusion constraint `lodging_stays_room_free` (GiST: `int8range(room_id, room_id, '[]')` and `daterange(arrival, departure)` overlapping, while a room is given and the stay is reserved or in the house): a room is held by one stay a night. Indexes `lodging_stays_period`, `lodging_stays_status`, `lodging_stays_contact`, `lodging_stays_type` (reserved or in the house), `lodging_stays_room`. Trigger `lodging_stays_customer` (function `business_contact_is_customer`). Trigger `lodging_stays_bill_to`: the company billed is a customer. Trigger `lodging_stays_insert_check`: starts reserved, arriving today or later on the business's clock, written when saved. Trigger `lodging_stays_guard`: keeps its number, guest and location; reserved → in_house, cancelled or no_show (once the arrival day has come), in_house → checked_out; a room in use, at its location and of its type, vacant and clean to check in or move to; checked in from the arrival day to the night before the departure; the arrival changes only while reserved, never to a day passed; a guest in the house keeps a room, the adults and children, and a departure after the last night posted and from today; checked out on the business's date (one night at least); the check-in, check-out and cancellation written once, with their step; billed once, on a sale to the guest or the company billed; an ended stay never changes; never deleted. Constraint trigger `lodging_stays_type_free` (deferred; function `lodging_check_type`): a room type's reservations and stays on a night never outnumber its rooms in use at the location. Constraint trigger `lodging_stays_done` (deferred): a stay checked in has its adults and children recorded as occupants; a stay checked out has every night billed, every charge billed or voided, and its occupants gone.
-Added by: 1791970000000.
+Added by: 1791970000000; 1791977000000 (`lodging_stays_guard` lets an erasure's change through: `business_privacy_erasing`).
 
 #### `lodging_stay_guests`
 Purpose: every occupant of a stay, with their photo ID and Form-III reports.
@@ -3601,6 +3596,71 @@ Triggers (all `AFTER … FOR EACH ROW`):
 
 1791974000000's Down half drops its 34 triggers and 7 functions; 1791976000000's drops the lab's three triggers and `live_lab_order_part()`.
 
+## Personal data
+
+Linked sections: [data model](BUSINESS_PLATFORM_DATA_MODEL.md#personal-data), [ARCHITECTURE.md §4.6](ARCHITECTURE.md#46-personal-data-one-model-for-both-engines), [BUSINESS_RULES.md › Personal data](BUSINESS_RULES.md#personal-data) and [API.md › Personal data](API.md#personal-data). Migration `1791977000000_personal-data.sql`; module code `backend/src/modules/personal-data/`.
+
+**One data model for both engines, keyed on `business_id`.** A person is a shop's customer contact (`contact_id`, with the `business_id` in the foreign key) or a restaurant's guest (`customer_id`, the restaurant reached through its business row, `businesses.legacy_restaurant_id`, made by `restaurant_business_id()` when first needed), never both (`num_nonnulls(contact_id, customer_id) = 1`). A guest's rows move with a guest-book merge to the record that stays; nothing else changes on them.
+
+**Erasure on records kept closed.** A customer whose data is erased keeps a nameless contact (`business_contacts.erased_at`). Fourteen tables' guards keep a closed row as it was; each lets one change through: the erased customer's own copies on the row (the columns the erasure blanks, listed by `personal-data/services/personalDataRegistry.js`) and nothing else. `business_exchange_vouchers_rules`, `business_quotations_guard`, `books_customer_order_rules`, `electronics_repair_jobs_closed`, `electronics_warranties_rules`, `salon_append_only`, `agri_farmers_guard`, `hardware_sites_guard`, `garage_job_cards_guard`, `rental_bookings_guard`, `laundry_orders_guard`, `optical_orders_guard`, `lodging_stays_guard` and `jewellery_schemes_guard` start with that check; the rest of each body is unchanged.
+
+Functions:
+- `business_privacy_erasing(tbl, before, after)` (STABLE): true when an update of `tbl`'s row (as JSON before and after) changes only that table's erasable columns (and `updated_at`, `updated_by`) and the row's contact is erased. The tables and columns: credit vouchers (`customer_name`, `customer_phone`), quotations (the same), book orders (`customer_name`, `phone`, `notes`), repair jobs (`customer_name`, `customer_phone`, `phone_digits`, `passcode`), warranties (`customer_name`, `customer_phone`, `phone_digits`), salon notes (`body`), farmers (`village`, `relative_name`, `land_acres`, `crops`, `farmer_id`, `notes`), sites (`name`, `address`, `contact_person`, `phone`, `active`), job cards and spectacle orders (`customer_name`, `customer_phone`), rental bookings (`customer_name`, `customer_phone`, `id_kind`, `id_ref`, `licence_no`, `licence_valid_until`, `notes`), garment orders (`customer_name`, `customer_phone`, `notes`), stays (`guest_name`, `guest_phone`, `arrived_from`, `going_to`, `purpose`, `notes`) and gold schemes (`member_name`, `member_phone`, `nominee_name`, `nominee_relation`).
+- `business_privacy_person(business, contact, guest)`: refuses a person who is not the business's own (a customer contact of it, or a guest of the restaurant behind it).
+- `business_privacy_erased(business, contact, guest)` (STABLE): whether the person's data was erased.
+- `business_privacy_today(business)` (STABLE): the business's own date; a restaurant's in its `restaurant_settings.timezone`, any other business's in `businesses.timezone`.
+
+#### `business_privacy_notices`
+Purpose: a business's privacy notice, in versions: what is collected and why, how to see, correct or erase it, how to complain and whom to contact, with a short consent notice for each purpose and the privacy contact.
+Key columns: `version` (from 1), `notice` (200–8000 characters), `bills_text`, `reminders_text`, `offers_text` (20–600 each), `contact_name`, `contact_phone`, `contact_email`, `published_by`, `published_at`, `request_key` + `request_hash`.
+Relations: `business_id` -> `businesses`; `published_by` -> `users`. The target of `business_consents.notice_id` and `table_requests.privacy_notice_id`.
+Rules: UNIQUE (`business_id`, `version`), (`business_id`, `id`), (`business_id`, `request_key`); CHECK `business_privacy_notices_contact` (a phone or an e-mail). Trigger `business_privacy_notice_kept` (function of the same name): never changed or deleted; a change is a new version.
+Added by: 1791977000000.
+
+#### `business_consents`
+Purpose: consent per purpose and per business: given (when, where, how, on which notice version, by whom, recorded by whom) and withdrawn once, with the reason and where. A new consent after a withdrawal is a new row. 1791977000000 made it of the clinic's `health_consents` (1791620004000), whose rows keep their ids, and brought the guest book's consent to offers into it (`customers.marketing_opt_in`: one row per guest who had agreed, channel `import`, given when the guest book says).
+Key columns: `contact_id` or `customer_id`, `purpose` (`bills_digital`, `reminders`, `offers`; a clinic patient's `treatment`, `reports_digital`), `notice_id` (the privacy notice shown) and `notice_version` (`v` and its number; a clinic's own consent notice version for a patient's consents given at its desk), `channel` (`counter`, `guests_site`, `phone`, `import`), `method` (`signed_form`, `verbal`, `digital`), `given_by`, `recorded_by` (NULL on the guests' site, and on a consent brought over when the guest book did not say who), `note`, `created_at`, `withdrawn_at`, `withdrawn_by`, `withdrawal_reason`, `withdrawal_channel`.
+Relations: (`business_id`, `contact_id`) -> `business_contacts`; `customer_id` -> `customers`; (`business_id`, `notice_id`) -> `business_privacy_notices`; user columns -> `users`.
+Rules: CHECKs `business_consents_purpose`, `_method`, `_given_by`, `_channel`, `_withdrawal_channel` (the first three channels), `_one_person`, `_notice_shown` (a notice version unless brought over), `_how` (a method unless brought over), `_recorder` (staff record it, but on the guests' site or brought over), `_withdrawn` (withdrawn ⇔ where it was asked), `_patient` (treatment and reports are a contact's), and `business_consents_check` (the clinic's: withdrawn ⇔ who withdrew it). One active consent per purpose and person: `business_consents_active` (a contact's) and `business_consents_guest_active`; indexes `business_consents_contact`, `business_consents_guest`. Trigger `business_consent_fixed` (function of the same name): never deleted; only the withdrawal is set, once, and a guest's row may move to another guest record (a merge). Trigger `business_consent_rules` (BEFORE INSERT OR UPDATE OF `customer_id`): the person is the business's own; not erased; treatment and reports only for a registered patient; never offers for a person marked as a child; a `notice_id` names its own version; without one, only a row brought over (`import`) or a clinic patient's treatment, reports or reminders on the clinic's notice. Trigger `business_consent_guest_copy` (AFTER INSERT OR UPDATE, an offers row of a guest): keeps `customers.marketing_opt_in`, `_at` and `_by` as a copy of the guest's active consent to offers.
+Added by: 1791620004000 (as `health_consents`); 1791977000000.
+
+#### `business_children`
+Purpose: a person marked as a child, with the parent or guardian whose consent stands for theirs.
+Key columns: `contact_id` or `customer_id`, `guardian_name`, `guardian_relation`, `consent_method` (`signed_form`, `verbal`, `digital`), `verified_how` (how the guardian was seen to be the guardian, as told), `marked_by`, `marked_at`, `ended_at`, `ended_by`, `end_reason`.
+Relations: (`business_id`, `contact_id`) -> `business_contacts`; `customer_id` -> `customers`; user columns -> `users`.
+Rules: CHECKs `business_children_one_person`, `business_children_ended` (ended ⇔ who and why). One mark in force per person: `business_children_contact`, `business_children_guest`; index `business_children_guest_all`. Trigger `business_child_kept`: never deleted; only its end is recorded, once (a guest's may move in a merge). Trigger `business_child_rules` (BEFORE INSERT OR UPDATE OF `customer_id`): the person is the business's own, and no consent to offers stands when one is marked.
+Added by: 1791977000000.
+
+#### `business_privacy_requests`
+Purpose: a request from a person to see, correct or erase their data, or a grievance: when it came, the 90 days to answer it, the answer, and an erasure's record.
+Key columns: `request_no` (from 1 per business), `kind` (`access`, `correction`, `erasure`, `grievance`), `contact_id` or `customer_id` (or neither until linked), `person_name`, `reply_to`, `channel` (`counter`, `phone`, `email`, `letter`), `details`, `received_on`, `due_on`, `status` (`open`, `done`, `refused`), `reply`, `closed_at`, `closed_by`, `erased_at`, `erased_by`, `erasure` (JSON: what was erased, what is kept and why, and the erasure's request key), `request_key` + `request_hash`, `created_by`, `created_at`.
+Relations: (`business_id`, `contact_id`) -> `business_contacts`; `customer_id` -> `customers`; user columns -> `users`.
+Rules: UNIQUE (`business_id`, `id`), (`business_id`, `request_no`), (`business_id`, `request_key`); CHECKs `business_privacy_requests_due` (`due_on = received_on + 90`), `_person` (at most one person), `_closed` (open ⇔ not closed; a closed one has its reply), `_erased` (erased ⇔ who and the record; only an erasure request with its person), `_erasure_done` (an erasure is done only once erased). Partial indexes `business_privacy_requests_open` (business, due date) and `business_privacy_requests_guest`. Trigger `business_privacy_request_rules` (BEFORE INSERT, UPDATE or DELETE): never deleted; a closed request never changes (but a merge's `customer_id`); its kind, number, day received and maker never change; an erasure, once done, stays done; the person is the business's own; never received on a day after `business_privacy_today`.
+Added by: 1791977000000.
+
+#### `business_privacy_breaches`
+Purpose: the breach register: when a breach was found, what happened, the impact, the steps taken, who is affected, the notice to them, and when the Data Protection Board was told and sent its detailed report (due 72 hours after it was found).
+Key columns: `breach_no`, `found_at`, `what_happened`, `impact`, `steps_taken`, `affected` (`all`, `chosen`), `people_notice` (the notice as edited; NULL: filled from the record), `board_informed_at`, `board_report_at`, `board_reference`, `status` (`open`, `closed`), `closed_at`, `closed_by`, `request_key` + `request_hash`, `created_by`, `created_at`, `updated_by`, `updated_at`.
+Relations: `business_id` -> `businesses`; user columns -> `users`.
+Rules: UNIQUE (`business_id`, `id`), (`business_id`, `breach_no`), (`business_id`, `request_key`); CHECKs `business_privacy_breaches_closed`, `business_privacy_breaches_board` (the Board told and reported to no earlier than found). Trigger `business_privacy_breach_kept`: never deleted; a closed breach never changes; its number and maker never change.
+Added by: 1791977000000.
+
+#### `business_privacy_breach_people`
+Purpose: the people a breach of chosen people affects.
+Key columns: `breach_id`, `contact_id` or `customer_id`, `added_by`, `added_at`.
+Relations: (`business_id`, `breach_id`) -> `business_privacy_breaches`; (`business_id`, `contact_id`) -> `business_contacts`; `customer_id` -> `customers`.
+Rules: CHECK `business_privacy_breach_people_one_person`; once per breach (`business_privacy_breach_people_contact`, `_guest`); index `business_privacy_breach_people_guest_all`. Trigger `business_privacy_breach_people_rules` (function `business_privacy_breach_person`): the person is the business's own; added or taken off only while the breach is open, and never once a notice went to them; never changed (but a merge's `customer_id`).
+Added by: 1791977000000.
+
+#### `business_privacy_breach_notices`
+Purpose: each notice sent to a person a breach affects, with its words.
+Key columns: `breach_id`, `contact_id` or `customer_id`, `channel` (`whatsapp`, `sms`, `email`, `letter`, `in_person`, `phone`), `notice_text` (50–4000), `sent_by`, `sent_at`, `request_key` + `request_hash`.
+Relations: (`business_id`, `breach_id`) -> `business_privacy_breaches`; (`business_id`, `contact_id`) -> `business_contacts`; `customer_id` -> `customers`.
+Rules: UNIQUE (`business_id`, `request_key`); CHECK `business_privacy_breach_notices_one_person`; indexes `business_privacy_breach_notices_breach`, `_guest`. Trigger `business_privacy_breach_notices_rules` (function `business_privacy_breach_person`): the person is the business's own; a notice sent never changes or goes (but a merge's `customer_id`).
+Added by: 1791977000000.
+
+Also in 1791977000000: `customers_offers_consent_copy` (trigger and function on `customers`, BEFORE INSERT OR UPDATE OF the three `marketing_opt_in` columns) refuses any write of the copy but the consent trigger's; the platform module `privacy` and the permission codes `privacy.view`, `privacy.manage`, `privacy.export` in both engines; `business_contacts.erased_at` and `erased_by`; the customer's phone optional on `electronics_repair_jobs` and `electronics_warranties`; `table_requests.privacy_consents` and `privacy_notice_id`. Its Down half gives the clinic `health_consents` back with its patients' rows only (the other consents, and the columns that held them, go), leaves the guest book's copy of the offers consent on `customers` as the consents last had it, and restores the fourteen guards' bodies as they were; it refuses to make the phone required again while a repair job or warranty has none.
+
 ## Business types
 
 The rows of `business_types`: the first twelve created by 1791280000000 multi-business-admin, the other eleven by 1791960000000 more-business-types.
@@ -3641,6 +3701,7 @@ Core modules are always on and never stored per business; every other module is 
 | `access` | core | — | always on | 1791300000000 |
 | `reports` | core | — | always on | 1791300000000 |
 | `audit` | core | — | always on | 1791300000000 |
+| `privacy` | core | — | always on: personal data (the privacy notice, consents, requests, breaches) | 1791977000000 |
 | `catalog` | optional | — | every type but restaurant; on for all | 1791300000000 |
 | `contacts` | optional | — | every type but restaurant; on for all | 1791300000000 |
 | `sales` | optional | catalog | every type but restaurant; on for all | 1791300000000 |
@@ -3760,6 +3821,7 @@ Each code is a `<module>.<action>` row of `business_permissions`, listed here by
 | rentals | `rentals.view` (bookings, the board, availability, rental items and the handover settings; money and the deposits held with `sales.view`), `rentals.create` (quotes and bookings; reserve a quote), `rentals.edit` (change and extend bookings, hand over and take back with charges, units in and out of service), `rentals.approve` (a handover with less deposit than asked), `rentals.cancel` (cancel quotes and bookings, with a cancellation charge), `rentals.refund` (hand back deposits and advances held), `rentals.print` (booking and handover slips, deposit receipts) | 1791968000000 |
 | fuel | `fuel.view` (the board, shifts, tanks and dips, tanker loads, the registers, vehicles and prices; other attendants' shifts and their money with `sales.view`, a load's value with `purchasing.view`, the fleet statements with `sales.view`), `fuel.create` (open and close one's own shift, take the morning dips, record tanker loads; accepting one with `purchasing.create`), `fuel.edit` (open and close any attendant's shift; fleet vehicles and their fill limits), `fuel.approve` (reopen a shift, allow credit over a limit, accept a load outside the density tolerance, correct a dip, record a meter change, cancel a load), `fuel.export`, `fuel.print` | 1791969000000 |
 | lodging | `lodging.view` (rooms and their status, the desk, the calendar, reservations, stays and their folios; money with `sales.view`, the occupants' ID details with `lodging.create` or `lodging.print`), `lodging.create` (take and change reservations, check guests in with every occupant and out with the bill, post charges, run the night audit, mark Form-III reports; an advance or a deposit with `sales.edit`), `lodging.edit` (mark rooms clean or dirty, out of order and back), `lodging.approve` (change a guest in the house's rate, void a charge, check a guest out with the bill left to pay), `lodging.cancel` (cancel reservations and mark no-shows, with a charge), `lodging.refund` (hand back advances and deposits held), `lodging.print` (registration cards and the guest register) | 1791970000000 |
+| privacy | `privacy.view` (the privacy notice and its versions, the requests and the breach register), `privacy.manage` (publish the notice, log and answer requests, erase a person's data, keep the breach register), `privacy.export` (see or export everything held about one person). Granted to the Manager template and every Manager role | 1791977000000 |
 
 ## Restaurant permission codes
 
@@ -3784,5 +3846,6 @@ The rows of `permissions`, grouped by the `module` column; the migration that ad
 - expenses: `expenses.view`, `expenses.manage` [1789733008391]
 - staff: `staff.view`, `staff.manage` [1789801110144]; `staff.clock` [1789906000000]; `staff.salaries` [1789910000000]
 - reservations: `reservations.view`, `reservations.manage` [1789902000000]; `reservations.online` [1791330001000]
+- privacy: `privacy.view`, `privacy.manage`, `privacy.export` [1791977000000]. Granted to Super Admin, Restaurant Admin and Manager, and to every restaurant role that holds both `users.manage` and `roles.manage`.
 
 Note: `deliveries.write_off_shortfall` is filed under module `orders`, and `audit.view` under `users`.

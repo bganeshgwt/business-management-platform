@@ -23,6 +23,9 @@ import { usesAgri } from "../../agri/pages/agri";
 import QuotationDialog from "./QuotationDialog";
 import { STATES, validityWords } from "./quotation";
 import { printQuotation, quotationMessage } from "./quotationPrint";
+// A quotation on WhatsApp needs the customer's consent to bills on WhatsApp (asked first, in one tap).
+import { useConsentGate } from "../../../personal-data/useConsentGate";
+import { useShopPrivacy } from "../../../personal-data/usePrivacy";
 import "../styles/quotations.css";
 
 // Quotations: estimates with a validity date, priced as a sale of the same
@@ -108,6 +111,7 @@ export function QuotationDetail({ quotationId, onClose, onChanged }) {
   const [action, setAction] = useState(null);
   const [version, setVersion] = useState(0);
   const [billId, setBillId] = useState(null);
+  const gate = useConsentGate(useShopPrivacy());
   useEffect(() => {
     const controller = new AbortController();
     businessRead(biz.id, `quotations/${quotationId}`, undefined, controller.signal)
@@ -120,7 +124,10 @@ export function QuotationDetail({ quotationId, onClose, onChanged }) {
   const live = open && q.state !== "expired";
   const canBill = live && biz.can("quotations.edit") && biz.can("sales.create");
   const canOrder = live && biz.can("quotations.edit") && biz.has("sales_orders") && biz.can("sales_orders.create");
-  const share = () => window.open(whatsappLink(q.customer_phone, quotationMessage(q, biz)), "_blank", "noopener");
+  const share = async () => {
+    if (!(await gate.ensure("bills_digital", q.contact_id ? { id: q.contact_id, name: q.customer_name } : null))) return;
+    window.open(whatsappLink(q.customer_phone, quotationMessage(q, biz)), "_blank", "noopener");
+  };
   const today = businessToday(biz.business.timezone);
 
   return (
@@ -182,6 +189,7 @@ export function QuotationDetail({ quotationId, onClose, onChanged }) {
           </div>
         )}
       </Modal>
+      {gate.dialog}
       {action === "revise" && q && <QuotationDialog quotation={q} onClose={() => setAction(null)}
         onSaved={(saved) => { toast.success(`${saved.quotation_no} revised: ${biz.exact(saved.total)}.`); changed(); }} />}
       {action === "cancel" && q && <ReasonDialog title={`Cancel ${q.quotation_no}`} description="A cancelled quotation stays on the list and is never billed." label="Why"

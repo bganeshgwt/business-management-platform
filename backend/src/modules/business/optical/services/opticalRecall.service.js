@@ -2,6 +2,7 @@ const repo = require('../../core/repositories/business.repository');
 const v = require('../../../../utils/validate');
 const access = require('../../core/services/businessAccess.service');
 const c = require('./opticalCommon');
+const consents = require('../../../personal-data/services/consents');
 
 // The recall list (module "optical", optical shops): every customer whose
 // last eye test was at least the shop's recall months ago (12 until changed,
@@ -79,6 +80,8 @@ async function remind(business, user, contactId, body) {
     if (!customer) fail('Customer not found', 404);
     const last = await repo.one(db, 'SELECT examined_on FROM optical_prescriptions WHERE business_id=$1 AND contact_id=$2 ORDER BY examined_on DESC,id DESC LIMIT 1', [business.id, customer.id]);
     if (!last) fail(`${customer.name} has no eye test here to be reminded of`, 409);
+    // A reminder on WhatsApp, by SMS or by a call needs their consent to reminders.
+    await consents.requireReminder(db, business.id, customer.id, channel, customer.name);
     const row = await repo.one(db, 'INSERT INTO optical_recall_reminders(business_id,contact_id,channel,created_by) VALUES($1,$2,$3,$4) RETURNING *', [business.id, customer.id, channel, user.id]);
     await repo.audit(db, business.id, user.id, 'recall.reminded', customer.id, { customer: customer.name, channel, lastTest: last.examined_on });
     return row;

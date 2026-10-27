@@ -19,6 +19,7 @@ const { logFor } = require("../../../../utils/audit");
 const { maskMobile } = require("../../../../utils/phone");
 const AppError = require("../../../../utils/AppError");
 const ruleSettings = require("../../setup/services/ruleSettings.service");
+const personalData = require("../../../personal-data/services/personalData.service");
 
 const {
   localClock,
@@ -251,6 +252,8 @@ const info = async (token) => {
     durationMinutes: link.duration_minutes,
     today: clock.date,
     days,
+    // The restaurant's privacy notice, shown where the guest gives their details (null: none published).
+    privacy: await personalData.publicNotice(link.restaurant_id),
   };
 };
 

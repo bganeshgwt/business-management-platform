@@ -16,6 +16,7 @@ import {
   sendGuestFeedback,
 } from "../services/tableOrder.service";
 import { money } from "@bmp/shared/format";
+import { ForgetDetails, PrivacyNote } from "../../privacy/GuestPrivacy";
 import "../../../styles/guest.css";
 
 // Where a printed table QR code lands: the restaurant's face to its guests.
@@ -504,6 +505,8 @@ function CartPanel({
   error,
   ordering,
   inSheet,
+  privacy,
+  onForget,
 }) {
   const total = lines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
   const count = lines.reduce((sum, line) => sum + line.quantity, 0);
@@ -596,6 +599,12 @@ function CartPanel({
           />
         </label>
       </div>
+      {(profile.name || profile.mobile || privacy) && (
+        <>
+          <PrivacyNote privacy={privacy} restaurantName={restaurant.name} purpose="Your name and mobile, if you give them, are for this order and your bill." />
+          {(profile.name || profile.mobile) && <ForgetDetails onForget={onForget} />}
+        </>
+      )}
 
       <dl className="g-totals">
         <div>
@@ -1306,6 +1315,8 @@ export default function QrLandingPage() {
     placing,
     error: cartError,
     ordering,
+    privacy: menu.privacy || null,
+    onForget: () => setProfile({ name: "", mobile: "" }),
   };
 
   return (

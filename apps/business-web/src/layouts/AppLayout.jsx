@@ -84,6 +84,8 @@ const NAV_SECTIONS = [
       { to: "/restaurant/hours", label: "Business hours", icon: "hours", permission: "restaurant.settings.view" },
       { to: "/restaurant/settings", label: "Settings", icon: "settings", permission: "restaurant.settings.view" },
       { to: "/restaurant/features", label: "Features", icon: "sliders", permission: "restaurant.settings.view" },
+      // Personal data (modules/personal-data, shared with Business Admin): requests, breaches, the privacy notice.
+      { to: "/privacy", label: "Personal data", icon: "privacy", permission: "privacy.view" },
     ],
   },
   {

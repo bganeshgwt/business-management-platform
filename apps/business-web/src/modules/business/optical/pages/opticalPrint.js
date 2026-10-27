@@ -2,6 +2,7 @@ import { escapeHtml, printDocument } from "../../../../services/print";
 import { dateShort } from "@bmp/shared/format";
 import { barcodeSvg } from "../../retail/services/barcode";
 import { COST_BEARERS, EYES, REMAKE_REASONS, lensWords, power, rowOf, wordOf, zonesOf } from "./optical";
+import { privacyLine } from "../../../personal-data/printLine";
 
 // Printing for an optical shop: a prescription for the customer, the job
 // card for the lab or the workshop (A5 or A4, with the prescription and the
@@ -107,6 +108,7 @@ export function printCustomerSlip(biz, order) {
       ${money ? `<dl><dt>Total</dt><dd><strong>${escapeHtml(biz.exact(order.total))}</strong> including GST</dd>
         ${order.advance ? `<dt>Advance paid</dt><dd>${escapeHtml(biz.exact(advance))} (${escapeHtml(order.advance.collection_no)})</dd>` : ""}
         <dt>To pay on collection</dt><dd><strong>${escapeHtml(biz.exact(Math.max(0, Number(order.total) - advance)))}</strong></dd></dl>` : ""}
-      <p><small>Please bring this slip when you collect your spectacles. This slip is not a tax invoice: the bill is made when you collect them.</small></p>`,
+      <p><small>Please bring this slip when you collect your spectacles. This slip is not a tax invoice: the bill is made when you collect them.</small></p>
+      ${privacyLine(biz) ? `<p><small>${escapeHtml(privacyLine(biz))}</small></p>` : ""}`,
   });
 }

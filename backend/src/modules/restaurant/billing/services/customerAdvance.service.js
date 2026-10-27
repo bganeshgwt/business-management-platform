@@ -129,12 +129,14 @@ const getById = async (restaurantId, id, ctx = {}) => {
       createdByName: back.created_by_name || null,
       approvedByName: back.approved_by_name || null,
     })),
-    // Who issued the receipt, as the paper prints it.
+    // Who issued the receipt, as the paper prints it, with the line every
+    // receipt carries with the privacy contact (Settings › Personal data).
     seller: {
       name: restaurant ? restaurant.name : null,
       address: restaurant ? restaurant.address : null,
       phone: restaurant ? restaurant.contact : null,
       gstin: settings.gst_number || null,
+      privacyLine: (await require("../../../personal-data/services/personalData.service").restaurantPrintInfo(restaurantId))?.line || null,
     },
   };
 };

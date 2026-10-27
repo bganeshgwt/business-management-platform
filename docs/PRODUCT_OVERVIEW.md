@@ -62,6 +62,7 @@ Every business except the restaurant runs on the same core. It is built once, so
 | Time | Appointments | Staff and rooms without double booking; done, no-show and cancel rules |
 | Money | Daily money and expenses | Takings by method, person and counter matched with cash, with a cash check and each cashier's shift; expenses paid out, corrected only by a reversal with a reason |
 | Settings | Business settings | Legal name, GSTIN, address, tax mode, rounding, financial year, opening hours, rules, number series, payment methods |
+| Settings | Personal data | The privacy notice and its contact, a line of which every bill prints; each customer's consent to bills on WhatsApp, reminders and offers, checked before a message goes; their requests to see, correct or erase their data, answered within 90 days; the breach register with the Board's 72 hours. A restaurant has the same |
 | Settings | Licences & registrations | Each branch's licences and registrations with their numbers, issuing authority and dates; the bell warns 60 days before one runs out |
 | People | Staff and access | Role, branch and department for each person |
 | Insight | Reports and activity log | Money by day, branch comparison, department sales, and who did what |
@@ -324,6 +325,7 @@ Every action needs two keys: the business must have that module switched on, and
 - **Data kept apart:** each business sees only its own data. The server checks it on every request, and the database refuses any record that points at another business's data.
 - **Activity log:** a record of who did what; posted bills are never edited.
 - **Clinical privacy:** only doctors (and the owner) see clinical notes, and every view is logged.
+- **Customers' personal data (DPDP Act 2023):** a phone number is never a condition of a sale; a bill, reminder or offer goes only to someone who agreed to it, and offers never to a child; a person's request to see, correct or erase their data is answered within 90 days, and an erasure keeps what tax law needs on the bills ([BUSINESS_RULES.md › Personal data](BUSINESS_RULES.md#personal-data)).
 
 ## What the owner decides
 

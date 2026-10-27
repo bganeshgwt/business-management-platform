@@ -219,25 +219,38 @@ function contactFields(body, kind) {
     gstin: readGstin(body.gstin), pan: readPan(body.pan), creditLimit, creditDays, opening, openingOn,
   };
 }
+// A customer's consents as a form sets them (bills on WhatsApp or SMS,
+// reminders, offers; each yes or no), recorded in the contact's own
+// transaction with the business's privacy notice (modules/personal-data).
+const personalConsents = () => require('../../../personal-data/services/consents');
+async function applyConsents(db, business, user, contact, choices) {
+  if (!choices || contact.kind !== 'customer') return;
+  await personalConsents().apply(db, { businessId: business.id, person: personalConsents().personOf('contact_id', contact.id), choices, userId: user.id,
+    audit: (dbx, action, entityId, details) => repo.audit(dbx, business.id, user.id, action, entityId, details) });
+}
 // `inTransaction`: the caller's own transaction (a farm-input shop adds a farmer and their customer record together).
 async function createContact(business, user, body, inTransaction = null) {
   await access.require(business, 'contacts.create');
   const kind = v.requiredEnum(body.kind, 'Contact type', ['customer', 'supplier']);
   const f = contactFields(body, kind);
+  const choices = personalConsents().readChoices(body.consents);
   const run = inTransaction ? (work) => work(inTransaction) : repo.transaction;
   return run(async (db) => {
     const contact = await repo.one(db, `INSERT INTO business_contacts(business_id,kind,name,phone,email,address,gstin,credit_limit,credit_days,opening_balance,opening_balance_on,pan)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
     [business.id, kind, f.name, f.phone, f.email, f.address, f.gstin, f.creditLimit, f.creditDays, f.opening, f.openingOn, f.pan]);
     await repo.audit(db, business.id, user.id, 'contact.created', contact.id);
+    await applyConsents(db, business, user, contact, choices);
     return contact;
   });
 }
 async function updateContact(business, user, contactId, body) {
   await access.require(business, 'contacts.edit');
+  const choices = personalConsents().readChoices(body.consents);
   return repo.transaction(async (db) => {
     const current = await repo.one(db, 'SELECT * FROM business_contacts WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(contactId)]);
     if (!current) fail('Contact not found', 404);
+    if (current.erased_at) fail('This customer\'s data was erased at their request: the record is kept nameless and no longer changes', 409);
     // Older clients send only name/phone/email/address/active: keep the credit terms then.
     const merged = { creditLimit: current.credit_limit, creditDays: current.credit_days, openingBalance: current.opening_balance,
       openingBalanceOn: current.opening_balance_on, gstin: current.gstin, pan: current.pan, ...body };
@@ -246,6 +259,7 @@ async function updateContact(business, user, contactId, body) {
       credit_days=$10,opening_balance=$11,opening_balance_on=$12,pan=$13,updated_at=now() WHERE business_id=$1 AND id=$2 RETURNING *`,
     [business.id, current.id, f.name, f.phone, f.email, f.address, v.requiredBoolean(body.active, 'Active', true), f.gstin, f.creditLimit, f.creditDays, f.opening, f.openingOn, f.pan]);
     await repo.audit(db, business.id, user.id, 'contact.updated', row.id);
+    await applyConsents(db, business, user, row, choices);
     return row;
   });
 }

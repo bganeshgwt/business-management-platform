@@ -35,7 +35,8 @@ lives, and how to extend it.
      [4.2 The restaurant module's own tables and the bridge](#42-the-restaurant-modules-own-tables-and-the-bridge) ·
      [4.3 Tasks, issues & projects](#43-tasks-issues--projects-one-model-for-both-worlds) ·
      [4.4 How a sale moves money and stock](#44-how-a-sale-moves-money-and-stock) ·
-     [4.5 GST rates by date](#45-gst-rates-by-date-a-change-that-takes-effect-with-no-job-runner)
+     [4.5 GST rates by date](#45-gst-rates-by-date-a-change-that-takes-effect-with-no-job-runner) ·
+     [4.6 Personal data](#46-personal-data-one-model-for-both-engines)
 5. [Two engines, one direction](#5-two-engines-one-direction)
    - [5.1 Where they differ](#51-where-they-differ) ·
      [5.2 Who owns what](#52-who-owns-what) ·
@@ -722,6 +723,68 @@ were posted at. `backend/tests/taxChangeReaders.test.js` lists every file
 that reads an item's rate with how it gets the rate of the day, and fails
 when a new one is not listed.
 
+### 4.6 Personal data: one model for both engines
+
+Module `modules/personal-data/`, on the backend and in the staff app, with
+the guests' site's notice (`apps/customer-web/src/modules/privacy/`). Under
+the DPDP Act 2023 and the DPDP Rules 2025 a shop is the data fiduciary for
+the people it serves, and the platform, which holds their data for it, is
+likely its processor ([GO_LIVE.md › Personal data](GO_LIVE.md#personal-data)).
+It serves both engines the way tasks and GST rate changes do (§4.3, §4.5):
+
+- **Data keyed on `business_id` only.** `business_privacy_notices`,
+  `business_consents` (the clinic's consents, renamed and widened),
+  `business_children`, `business_privacy_requests` and the breach register;
+  a restaurant reaches them through its business row
+  (`restaurant_business_id()`, made when first needed). A person is a
+  shop's customer contact (`contact_id`) or a restaurant's guest
+  (`customer_id`), never both, and the database refuses another business's
+  person (`business_privacy_person`).
+- **Two front doors, one service layer.** `/api/businesses/:id/privacy/…`
+  and `/api/privacy/…` call `services/personalData.service.js` (the notice,
+  consents, a child's mark) and `services/privacyRegister.service.js`
+  (requests, the access export, erasure, breaches) with a world each
+  (`personalDataShop.js`, `personalDataRestaurant.js`): who a person is, how
+  one is found, exported and erased, the business's lock and date, the
+  permission checks, and where audit rows go (`business_audit`, or the
+  restaurant's `audit_logs`). The staff app shares its screens the same way
+  (`modules/personal-data/pages/`, *Settings › Personal data* in both).
+
+**Consent where a customer is taken, checked where a message goes.**
+`services/consents.js` is what every module uses inside its own transaction:
+`apply` records or withdraws the consents ticked with a new or edited
+customer (the contacts, the guest book and each type's own intake), and
+`requireReminder` refuses a reminder on WhatsApp, by SMS or a call to
+someone who has not agreed to reminders (409 `consent_required`). In the
+staff app every message button goes through `useConsentGate`: with the
+person's consent it sends; without it, it asks them and records their yes in
+one tap, on the notice's own line for that purpose. What everyone on a
+screen has agreed to is read once (`consentStore.js`, one request for a whole
+list). A message about what the person asked for (their order is ready,
+their booking is confirmed) is not gated. The guest book's
+`customers.marketing_opt_in` is a copy the database keeps of a guest's
+consent to offers, so its lists and counts read it as before; a trigger
+refuses any other write.
+
+**Erasure that keeps the books.** `personalDataRegistry.js` places every
+table that points at a customer contact: what the access export shows, what
+an erasure blanks, and what it keeps and why (bills and other tax records,
+the activity log, the consents and the request). The integration test reads
+the database's own list of foreign keys and fails on a table the registry
+does not name, so a module added later is placed on purpose. Records whose
+guards keep them as they were once closed (a job card, a booking, a stay)
+let through exactly the erasure's change (`business_privacy_erasing`, whose
+columns match the registry's). A restaurant's guest is erased by the guest
+book's own erasure, which the requests register records.
+
+**Dates on the business's clock.** A request is received on the business's
+own day (`business_privacy_today`: a restaurant's time zone, or the
+business's) and due 90 days later; a breach's 72 hours run from the moment it
+was found. The bell (`businessNotifications.service.js` and
+`notifications/providers/privacy.js`) shows requests nearing their day, a
+Board report still to record, and a notice not yet published. Nothing is
+filed from here: the business tells the Board and records when.
+
 ---
 
 ## 5. Two engines, one direction
@@ -820,6 +883,7 @@ workspaces; the backend has its own install.
 │   │   │   │                 laundry, jewellery, rentals, fuel, lodging
 │   │   │   ├── tax-changes/  GST rates by date for every business: a shop's items and a restaurant's dishes
 │   │   │   ├── live/         live updates for every business: the LISTEN connection and the screens' streams
+│   │   │   ├── personal-data/  personal data for every business: the privacy notice, consents, requests, breaches
 │   │   │   └── tasks/        tasks, issues & projects for every business (+ library/ of built-in templates)
 │   │   ├── config/           env.js (reads and checks .env), database.js (pg pool + DB_POOL_GUARD)
 │   │   ├── middlewares/      authenticate, authorize, authorizeOrApprove, resolveOutlet, requireFeature,
@@ -854,6 +918,8 @@ workspaces; the backend has its own install.
 │   │   │   │   │             quotations and licences (every type but the restaurant)
 │   │   │   │   ├── tax-changes/  the GST rate change screens, shared by the restaurant (/menu/tax-changes)
 │   │   │   │   │             and Business Admin (…/tax-changes)
+│   │   │   │   ├── personal-data/  the personal data screens, shared by the restaurant (/privacy) and Business
+│   │   │   │   │             Admin (…/privacy); the consent choices, the ask before a message, the line bills print
 │   │   │   │   └── tasks/    the task screens, shared by the restaurant (/tasks) and Business Admin (…/tasks)
 │   │   │   ├── workspaces/   what one role works in, a layout and screens gathered from the modules:
 │   │   │   │                 captain/ (the captain app: its layout, tables, calls, food at the pass, the POS's
@@ -884,7 +950,8 @@ workspaces; the backend has its own install.
 │       │   ├── main.jsx      the shared look, Router (no sign-in, no staff providers)
 │       │   ├── App.jsx       /order/:token, /online/:token/*, /book/*; planned /shop, /appointments,
 │       │   │                 /account; any other address → StartPage
-│       │   ├── modules/      table-order/ (pages/, services/); online-order/, booking/ (pages/, services/, styles/)
+│       │   ├── modules/      table-order/ (pages/, services/); online-order/, booking/ (pages/, services/, styles/);
+│       │   │                 privacy/ (the privacy notice and the consent ticks the guests' pages show)
 │       │   ├── pages/        StartPage, PlannedPage
 │       │   ├── plannedPages.js   what each planned guest page says
 │       │   └── styles/       guest.css
@@ -1092,6 +1159,7 @@ file behind an index file with the module's name, which callers import:
 | Tasks, issues & projects (`modules/tasks`) | `routes/tasks.routes.js` (both front doors), `controllers/tasks.controller.js`, `services/` (`scope`, `common`, `people`, `templates`, `recurrence`, `tasks`, `issues`, `projects`, `files`, `reports`, `notifications`), `repositories/tasks.repository.js`, `library/`; bell provider `notifications/providers/tasks.js` | `TasksRoutes`, `TasksScope`, `MyTasksPage`, `TaskRunPage`, `BoardPage`, `CalendarPage`, `IssuesPage`, `IssueDetailPage`, `ProjectsPage`, `ProjectDetailPage`, `TemplatesPage`, `RecurringPage`, `TaskReportsPage`, `forms`, `ItemsEditor`, `ScheduleForm`, `parts`, `taskWords`, `useTasks`, `useServerGrid`; API calls `services/tasks.service.js`; styles `styles/tasks.css` | `business_task*`, `business_issues`, `business_project*`, `platform_task_categories` |
 | Live updates (`modules/live`) | `routes/live.routes.js` (both front doors, mounted in `routes/index.js` before `/businesses`), `services/liveListener.js` (the process's one LISTEN connection), `services/liveHub.js` (the streams, their checks and limits, clearing the kept dashboard and bell answers); started and stopped by `server.js` | `services/liveClient.js` (the stream, reconnecting, gathering bursts), `services/live.js` (the app's client), `hooks/useLiveRefresh.js`, `components/LiveIndicator.jsx`; used by the live screens and the bell | none: triggers on the tables the live screens read (migrations 1791974000000, and 1791976000000 for the lab) |
 | GST rates by date (`modules/tax-changes`) | `routes/taxChanges.routes.js` (both front doors: `businessRoutes`, mounted from `business.routes.js`, and `menuHandlers`, mounted from the restaurant's `menu.routes.js`), `services/` (`taxChanges.service` the shared flows, `taxChangesShop` and `taxChangesMenu` the two worlds with their gates, `taxChangesMoney` the arithmetic and dates); the gates are called from `businessAccess.open`, `postDocument`, the menu router, `tableRequest.service`, `preorder.service` and `order.service`'s `priceLines` | `BusinessTaxChangesPage`, `MenuTaxChangesPage`, `TaxChangesView`, `TaxChangeTool` (the new change with its preview), `TaxChangeDialog`, `TaxHistoryDialog` (an item's GST history, from the catalogue and the menu's products); words in `taxChanges.js`; API calls `services/taxChanges.service.js`; styles `styles/tax-changes.css` | `business_tax_changes`, `business_tax_change_items` |
+| Personal data (`modules/personal-data`) | `routes/personalData.routes.js` (both front doors: `businessRoutes`, mounted from `business.routes.js`, and `restaurantRouter`, at `/api/privacy` in `routes/index.js`), `services/` (`personalData.service` the notice, consents and a child's mark; `privacyRegister.service` requests, the access export, erasure and breaches; `personalDataShop` and `personalDataRestaurant` the two worlds; `personalDataRegistry` where a customer's data lives, table by table; `consents` what every module uses to record and check a consent; `privacyNotice` the starter notice); bell provider `notifications/providers/privacy.js`, and a business's bell in `businessNotifications.service.js` | `BusinessPrivacyPage`, `RestaurantPrivacyPage`, `PrivacyView` (the three tabs), `RequestsTab`, `BreachesTab`, `NoticeTab`, `usePagedList`; components `ConsentChoices` (+ `NewCustomerConsents`), `ConsentLink`, `AskConsentDialog`, `ChildMark`; `useConsentGate`, `usePrivacy`, `consentStore.js`, `printLine.js`; words in `personalData.js`; API calls `services/privacy.service.js`; styles `styles/personal-data.css`; the guests' site's `modules/privacy/GuestPrivacy.jsx` | `business_privacy_notices`, `business_consents`, `business_children`, `business_privacy_requests`, `business_privacy_breaches`, `business_privacy_breach_people`, `business_privacy_breach_notices` |
 
 Where each area's tests are: [TESTING.md](TESTING.md).
 
@@ -1163,7 +1231,13 @@ Example: a new salon screen.
    `business_id BIGINT NOT NULL`, `UNIQUE (business_id, id)`, composite
    foreign keys to the core rows they hang off, and triggers for any rule that
    protects money or stock. If the feature needs its own switch, add a module
-   (§8.3); if it needs its own action, add permissions (§8.4).
+   (§8.3); if it needs its own action, add permissions (§8.4). A table that
+   keeps a customer's details (a foreign key to `business_contacts`) gets its
+   entry in `modules/personal-data/services/personalDataRegistry.js`: what the
+   access export shows, what an erasure blanks, or why it is kept; a guard
+   that keeps closed rows as they were lets the erasure's change through
+   (`business_privacy_erasing`). `personal-data.test.js` fails on a table the
+   registry does not name (§4.6).
 2. **Service:** add functions to
    `modules/business/salon-weight/services/businessSalon.service.js` (or a new
    `businessSalonX.service.js`). The pattern:
@@ -1171,7 +1245,10 @@ Example: a new salon screen.
    permissions with `access.require`; use
    `request_key` + hash for anything that posts; call `repo.audit(db, …)`
    and, for money, stock or appointments, `repo.event(db, …)`. Money goes
-   through `postDocument`: never write `business_documents` directly.
+   through `postDocument`: never write `business_documents` directly. A
+   reminder to a customer checks their consent first
+   (`consents.requireReminder`), and a new customer's consents are taken
+   with them (`consents.apply`, through `createContact`).
 3. **Route:** in
    `modules/business/salon-weight/routes/businessSalonWeight.routes.js`,
    `router.post(b('/salon/…'), context('module.action'), handler)`. A new
@@ -1187,6 +1264,9 @@ Example: a new salon screen.
    section in the right workspace of `services/businessWorkspace.js`
    (`WORKSPACES`), or the menu will not show it. The steps in full:
    [apps/business-web/README.md › Adding a page](../apps/business-web/README.md#adding-a-page).
+   A button that messages a customer goes through `useConsentGate` or
+   `ConsentLink` (`modules/personal-data/`), and a print adds the business's
+   privacy line (`printLine.js`).
 5. **Tests:** extend `tests/integration/business-salon-weight.test.js`:
    allowed and refused roles, the module switched off, ids from another
    business, an idempotent repeat.
@@ -1229,7 +1309,10 @@ inside the right `ProtectedRoute`, a link in `NAV_SECTIONS`
    `business-shared-commerce.test.js` checks it), `TYPE_WORDS` and
    `TYPE_ICONS` in `services/businessNav.js`, links with `types: [...]`, its menu in `dailyWorkspaces()` in
    `services/businessWorkspace.js`, and pages in
-   `modules/business/<type>/pages/`.
+   `modules/business/<type>/pages/`. When the type keeps more about a
+   customer than a name and a number, its line in `KEPT` in
+   `modules/personal-data/services/privacyNotice.js` (the starter privacy
+   notice).
 6. **Tests:** add the type to `NAMES` in
    `tests/integration/helpers/businesses.js`, so tests can create one, its
    specialist tools to `SPECIALIST` in `helpers/tools.js`, the type count in
@@ -1394,8 +1477,9 @@ WhatsApp, a webhook or accounting:
    `business_events_unpublished`), deliver each, `UPDATE … SET published_at =
    now()`, `COMMIT`. The trigger allows only that one stamp, once.
 2. Each **consumer** filters by `business_id` and by the business's
-   capability and consent (for example a customer's marketing consent), and
-   must be idempotent by event id: a crash after delivery and before the
+   capability and the person's consent to the message's purpose
+   (`business_consents`, read through `personal-data/services/consents.js`),
+   and must be idempotent by event id: a crash after delivery and before the
    stamp sends the event again.
 3. Add retries with back-off, and a dead-letter record for events that keep
    failing. Never block the queue on one event.

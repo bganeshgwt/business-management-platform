@@ -12,6 +12,8 @@ import { businessToday, newKey, useDirtyGuard, useOpenBusiness } from "../../cor
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import { DEFECTS, rateWords } from "./laundry";
 import "../styles/laundry.css";
+import { NewCustomerConsents } from "../../../personal-data/components/ConsentChoices";
+import { consentChanges } from "../../../personal-data/personalData";
 
 // Taking in a garment order at the counter, fast: the customer (found by name
 // or phone, or typed new), a button for each garment on the price list, and
@@ -116,7 +118,7 @@ export default function IntakePage() {
     event.preventDefault();
     if (busy) return;
     setError("");
-    if (!customer && !typedCustomer?.name?.trim()) return setError("Choose the customer, or type the new customer's name and phone");
+    if (!customer && !typedCustomer?.name?.trim()) return setError("Choose the customer, or type the new customer's name");
     const items = itemsBody(lines);
     if (!items.length) return setError("Add the garments taken in");
     if (!promisedOn) return setError("Choose the promised day");
@@ -124,7 +126,8 @@ export default function IntakePage() {
     setBusy(true);
     try {
       const order = await businessWrite(biz.id, "laundry/orders", {
-        requestKey, locationId: form.locationId, ...(customer ? { contactId: customer.id } : { customer: { name: typedCustomer.name.trim(), phone: typedCustomer.phone?.trim() || undefined } }),
+        requestKey, locationId: form.locationId, ...(customer ? { contactId: customer.id } : { customer: { name: typedCustomer.name.trim(), phone: typedCustomer.phone?.trim() || undefined,
+          consents: consentChanges(typedCustomer.consents, []) || undefined } }),
         express: form.express, promisedOn, notes: form.notes.trim() || undefined, items,
         ...(amount && billAt === "delivery" ? { advance: { amount, ...methods.body(form.method, PAY_KINDS), reference: form.reference.trim() || undefined } } : {}),
         ...(amount && billAt === "intake" ? { payment: { amount: Math.abs(Number(amount) - Number(figures?.total || 0)) < 0.005 ? "full" : amount, ...methods.body(form.method, PAY_KINDS),
@@ -155,6 +158,7 @@ export default function IntakePage() {
             <>
               <Field label="Name"><input required maxLength={150} autoFocus value={typedCustomer.name} onChange={(e) => setTypedCustomer((c) => ({ ...c, name: e.target.value }))} /></Field>
               <Field label="Phone"><input inputMode="tel" maxLength={30} value={typedCustomer.phone} onChange={(e) => setTypedCustomer((c) => ({ ...c, phone: e.target.value }))} /></Field>
+              <NewCustomerConsents value={typedCustomer.consents} onChange={(consents) => setTypedCustomer((c) => ({ ...c, consents }))} />
               <button type="button" className="link-button" onClick={() => setTypedCustomer(null)}>Find a customer instead</button>
             </>
           ) : (

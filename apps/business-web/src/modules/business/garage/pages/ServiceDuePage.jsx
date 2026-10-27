@@ -11,6 +11,10 @@ import { toast } from "../../../../services/toast";
 import { Badge, BusinessHeader } from "../../core/pages/ui";
 import { useOpenBusiness, useServerList } from "../../core/pages/hooks";
 import { DUE_KINDS, km, reminderLink } from "./garage";
+// A reminder needs the owner's consent to reminders (asked first, in one tap).
+import ConsentLink from "../../../personal-data/components/ConsentLink";
+import { useConsentGate } from "../../../personal-data/useConsentGate";
+import { useShopPrivacy } from "../../../personal-data/usePrivacy";
 import "../../fashion/styles/business-fashion-electronics.css";
 import "../styles/garage.css";
 
@@ -28,11 +32,16 @@ export default function ServiceDuePage() {
   const [kind, setKind] = useState("");
   const [notReminded, setNotReminded] = useState(false);
   const list = useServerList("garage/service-due", { gridId: "garage-service-due", params: { ...(kind ? { kind } : {}), ...(notReminded ? { reminded: "false" } : {}) } });
-  const remind = (row, channel) => {
-    if (channel === "whatsapp" && row.owner_phone) window.open(reminderLink(biz, row), "_blank", "noopener");
-    businessWrite(biz.id, `garage/vehicles/${row.vehicle_id}/reminders`, { kind: row.kind, channel })
-      .then(() => { toast.success(`Reminder to ${row.owner_name} noted.`); list.reload(); })
-      .catch((err) => toast.error(getErrorMessage(err)));
+  const privacy = useShopPrivacy();
+  const gate = useConsentGate(privacy);
+  const record = (row, channel) => businessWrite(biz.id, `garage/vehicles/${row.vehicle_id}/reminders`, { kind: row.kind, channel })
+    .then(() => { toast.success(`Reminder to ${row.owner_name} noted.`); list.reload(); })
+    .catch((err) => toast.error(getErrorMessage(err)));
+  // With the owner's consent to reminders (asked first): WhatsApp opens with the message, then it is kept.
+  const remind = async (row) => {
+    if (!(await gate.ensure("reminders", { id: row.contact_id, name: row.owner_name }))) return;
+    if (row.owner_phone) window.open(reminderLink(biz, row), "_blank", "noopener");
+    record(row, "whatsapp");
   };
   const dueWords = (r) => (r.days_left === null || r.days_left === undefined ? "" : r.days_left < 0 ? `${-r.days_left} days ago` : r.days_left === 0 ? "today" : `in ${r.days_left} days`);
   const columns = useMemo(() => [
@@ -53,8 +62,11 @@ export default function ServiceDuePage() {
     { key: "last_job_no", header: "Last job", value: (r) => r.last_job_no || "", className: "mono", defaultHidden: true },
     { key: "actions", header: "", label: "Actions", type: "actions", render: (r) => (
       <span className="bz-row-actions">
-        {r.owner_phone && <button type="button" className="chip-button" onClick={() => remind(r, "whatsapp")}><Icon name="message" size={14} /> WhatsApp</button>}
-        {r.owner_phone && <a className="chip-button" href={`tel:${r.owner_phone.replace(/[^\d+]/g, "")}`} onClick={() => remind(r, "call")}><Icon name="phone" size={14} /> Call</a>}
+        {r.owner_phone && <button type="button" className="chip-button" onClick={() => remind(r)}><Icon name="message" size={14} /> WhatsApp</button>}
+        {r.owner_phone && (
+          <ConsentLink privacy={privacy} purpose="reminders" person={{ id: r.contact_id, name: r.owner_name }} href={`tel:${r.owner_phone.replace(/[^\d+]/g, "")}`}
+            onSent={() => record(r, "call")}><Icon name="phone" size={14} /> Call</ConsentLink>
+        )}
       </span>
     ) },
   ], [biz, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -77,6 +89,7 @@ export default function ServiceDuePage() {
           exportName={biz.can("contacts.export") ? `${biz.business.code}-service-due` : undefined}
           empty="Nothing is due" emptyHint="Vehicles show here as their service, insurance or PUC comes near." emptyIcon="bell" />
       </SectionCard>
+      {gate.dialog}
     </div>
   );
 }

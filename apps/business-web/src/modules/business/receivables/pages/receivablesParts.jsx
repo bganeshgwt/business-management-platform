@@ -18,6 +18,11 @@ import { CHEQUE_STATUS, STATEMENT_KINDS, chequeWord, printStatements, reminderTe
 import "../../../../styles/business-trade.css";
 import { businessToday, newKey, useOpenBusiness, useOptions } from "../../core/pages/hooks";
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
+// A reminder (a call, a WhatsApp, an SMS) needs the customer's consent to reminders.
+import ConsentLink from "../../../personal-data/components/ConsentLink";
+import { useConsentGate } from "../../../personal-data/useConsentGate";
+import { REMINDER_CHANNELS, notAgreed } from "../../../personal-data/personalData";
+import { useShopPrivacy } from "../../../personal-data/usePrivacy";
 
 // Shared receivables pieces: recording a collection, a customer's account
 // (open bills with their age, advances, cheques, reminders), follow-ups and
@@ -189,12 +194,19 @@ export function FollowUpDialog({ customer, onClose, onSaved }) {
   const today = businessToday(biz.business.timezone);
   const [form, setForm] = useState({ channel: "call", promisedOn: "", promisedAmount: "", note: "" });
   const set = (name) => (event) => setForm((f) => ({ ...f, [name]: event.target.value }));
+  const gate = useConsentGate(useShopPrivacy());
+  const person = { id: customer.contact_id || customer.id, name: customer.name };
+  const submit = async () => {
+    if (REMINDER_CHANNELS.includes(form.channel) && !(await gate.ensure("reminders", person, { sending: false }))) throw notAgreed(customer.name, "reminders");
+    return businessWrite(biz.id, `receivables/customers/${person.id}/follow-ups`, {
+      channel: form.channel, promisedOn: form.promisedOn || undefined, promisedAmount: form.promisedAmount || undefined, note: form.note || undefined });
+  };
   return (
     <FormDialog title={`Follow up · ${customer.name}`} icon="phone" width={560} submitLabel="Save" onClose={onClose} onSaved={onSaved}
       successMessage={(r) => (r.promised_on ? `Promise noted: ${dateShort(r.promised_on)}` : "Follow-up noted")}
       description={`${balanceText(customer.balance)}${Number(customer.overdue) > 0 ? ` · ${biz.exact(customer.overdue)} overdue` : ""}`}
-      onSubmit={() => businessWrite(biz.id, `receivables/customers/${customer.contact_id || customer.id}/follow-ups`, {
-        channel: form.channel, promisedOn: form.promisedOn || undefined, promisedAmount: form.promisedAmount || undefined, note: form.note || undefined })}>
+      onSubmit={submit}>
+      {gate.dialog}
       <Field label="How">
         <select value={form.channel} onChange={set("channel")}>
           <option value="call">Phone call</option><option value="whatsapp">WhatsApp</option><option value="sms">SMS</option><option value="visit">Visit</option><option value="other">Other</option>
@@ -289,6 +301,7 @@ export function AccountDialog({ contactId, onClose, onChanged }) {
       setBusy(false);
     }
   };
+  const privacy = useShopPrivacy();
   const row = account ? { ...s, name: account.contact.name, contact_id: account.contact.id } : null;
   const wa = account ? whatsappLink(account.contact.phone, reminderText(row, biz)) : null;
   return (
@@ -345,8 +358,11 @@ export function AccountDialog({ contactId, onClose, onChanged }) {
               {biz.can("receivables.create") && <button type="button" className="button" onClick={() => setAction("collect")}><Icon name="wallet" size={16} /> Record collection</button>}
               {biz.can("receivables.create") && advance > 0 && account.items.some((i) => i.document_id) && <button type="button" className="button button-secondary" disabled={busy} onClick={applyAdvance}>Put advance against bills</button>}
               <button type="button" className="button button-secondary" onClick={() => setAction("statement")}><Icon name="file" size={15} /> Statement</button>
-              {account.contact.phone && <a className="button button-secondary" href={`tel:${account.contact.phone}`}><Icon name="phone" size={15} /> Call</a>}
-              {wa && <a className="button button-secondary" href={wa} target="_blank" rel="noreferrer">WhatsApp reminder</a>}
+              {account.contact.phone && (
+                <ConsentLink privacy={privacy} purpose="reminders" person={{ id: account.contact.id, name: account.contact.name }} href={`tel:${account.contact.phone}`}
+                  className="button button-secondary"><Icon name="phone" size={15} /> Call</ConsentLink>
+              )}
+              {wa && <ConsentLink privacy={privacy} purpose="reminders" person={{ id: account.contact.id, name: account.contact.name }} href={wa} className="button button-secondary">WhatsApp reminder</ConsentLink>}
               {biz.can("receivables.create") && <button type="button" className="button button-secondary" onClick={() => setAction("follow")}>Note a promise</button>}
             </div>
           </div>

@@ -5,6 +5,8 @@ import FormDialog from "../../core/pages/FormDialog";
 import { Field } from "../../core/pages/ui";
 import { useOpenBusiness } from "../../core/pages/hooks";
 import { FUELS, plateOf } from "./garage";
+import { NewCustomerConsents } from "../../../personal-data/components/ConsentChoices";
+import { consentChanges } from "../../../personal-data/personalData";
 
 // Adding a vehicle (its plate, make, model, variant, fuel, year, chassis and
 // engine numbers, its owner: a saved customer or a new one, its reading,
@@ -32,7 +34,7 @@ export default function VehicleDialog({ vehicle, registration, onClose, onSaved 
     }
     if (!form.newOwner && !owner) throw new Error("Choose the owner, or add them as a new customer");
     return businessWrite(biz.id, "garage/vehicles", { ...details, odometerKm: form.odometerKm || undefined,
-      owner: form.newOwner ? { name: form.ownerName, phone: form.ownerPhone } : { contactId: owner.id } });
+      owner: form.newOwner ? { name: form.ownerName, phone: form.ownerPhone, consents: consentChanges(form.consents, []) || undefined } : { contactId: owner.id } });
   };
   return (
     <FormDialog title={editing ? `Change ${vehicle.registration_no}` : "Add a vehicle"} icon="truck" width={760} onClose={onClose} onSaved={onSaved} onSubmit={submit}
@@ -52,6 +54,7 @@ export default function VehicleDialog({ vehicle, registration, onClose, onSaved 
             <>
               <Field label="Owner's name"><input required maxLength={150} value={form.ownerName} onChange={set("ownerName")} /></Field>
               <Field label="Owner's phone"><input inputMode="tel" maxLength={30} value={form.ownerPhone} onChange={set("ownerPhone")} /></Field>
+              <NewCustomerConsents value={form.consents} onChange={(consents) => setForm((f) => ({ ...f, consents }))} />
             </>
           ) : (
             <div className="field-wide">

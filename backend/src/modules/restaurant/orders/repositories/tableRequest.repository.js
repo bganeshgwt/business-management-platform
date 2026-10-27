@@ -723,6 +723,16 @@ const findAll = async (restaurantId, filters) => {
   return { rows: result.rows, total };
 };
 
+// The consents a guest gave on the ordering page with this request, and the notice shown.
+const findPrivacyConsents = async (restaurantId, id) => {
+  const result = await pool.query(
+    "SELECT privacy_consents, privacy_notice_id FROM table_requests WHERE restaurant_id = $1 AND id = $2",
+    [restaurantId, id]
+  );
+
+  return result.rows[0] || null;
+};
+
 const findById = async (restaurantId, id, outletId = null) => {
   const result = await pool.query(
     `SELECT ${STAFF_COLUMNS}, ${FROM_EARLIER_DAY}
@@ -959,6 +969,7 @@ const findEarlierWaiting = async (restaurantId, outletId = null, channels = ["qr
 
 module.exports = {
   findEarlierWaiting,
+  findPrivacyConsents,
   // "Today" for each request, for the bell (notifications/providers).
   TODAY_FROM,
   DAY_START,

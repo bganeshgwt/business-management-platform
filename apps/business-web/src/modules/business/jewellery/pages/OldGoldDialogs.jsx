@@ -12,6 +12,8 @@ import { dateTime, newKey } from "../../core/pages/hooks";
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import { ALL_PURITIES, ID_KINDS, OLD_GOLD_STATES, TEST_METHODS, finenessOf, grams, perGram, purityWords } from "./jewellery";
 import { printOldGoldVoucher } from "./jewelleryPrint";
+import { NewCustomerConsents } from "../../../personal-data/components/ConsentChoices";
+import { consentChanges } from "../../../personal-data/personalData";
 
 // The forms and the panel of Old gold: old gold taken in on a voucher (the
 // seller, the photo ID seen, each article tested and weighed, valued by the
@@ -66,7 +68,8 @@ export function OldGoldForm({ biz, settings, contact, onClose, onSaved }) {
   const valued = (key) => figures?.lines[ready.findIndex((l) => l.key === key)] || null;
   const chooseCustomer = (next) => { setCustomer(next); if (next?.pan) setPan(next.pan); };
   const submit = () => businessWrite(biz.id, "jewellery/old-gold", {
-    requestKey, locationId, ...(customer ? { contactId: customer.id } : { customer: { name: typed?.name?.trim() || "", phone: typed?.phone?.trim() || undefined } }),
+    requestKey, locationId, ...(customer ? { contactId: customer.id } : { customer: { name: typed?.name?.trim() || "", phone: typed?.phone?.trim() || undefined,
+      consents: consentChanges(typed?.consents, []) || undefined } }),
     idKind, idRef: idRef.trim(), ...(pan.trim() ? { pan: pan.trim() } : declared ? { panDeclaration: true } : {}), ownerDeclared: owner, lines: lines.map(lineBody),
     notes: notes.trim() || undefined,
   });
@@ -78,6 +81,7 @@ export function OldGoldForm({ biz, settings, contact, onClose, onSaved }) {
         <>
           <Field label="Seller's name"><input required maxLength={150} value={typed.name} onChange={(e) => setTyped((c) => ({ ...c, name: e.target.value }))} /></Field>
           <Field label="Phone"><input inputMode="tel" maxLength={30} value={typed.phone} onChange={(e) => setTyped((c) => ({ ...c, phone: e.target.value }))} /></Field>
+          <NewCustomerConsents value={typed.consents} onChange={(consents) => setTyped((c) => ({ ...c, consents }))} />
           <div className="field-wide"><button type="button" className="link-button" onClick={() => setTyped(null)}>Find a customer instead</button></div>
         </>
       ) : (

@@ -88,7 +88,7 @@ const list = (scope, label) => scope.getByRole("combobox", { name: new RegExp(`^
 // (tomorrow, 5 pm), the day the bake list opens on.
 async function fillPreorder(dialog, { guest, mobile, cake, cookies }) {
   await dialog.getByLabel("Guest's name", { exact: true }).fill(guest);
-  await dialog.getByLabel("Mobile", { exact: true }).fill(mobile);
+  await dialog.getByLabel("Mobile (optional)", { exact: true }).fill(mobile);
   const first = dialog.locator(".po-line").nth(0);
   await list(first, "Item").selectOption(String(cake.id));
   await first.getByLabel("Quantity", { exact: true }).fill("1");

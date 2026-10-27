@@ -427,6 +427,7 @@ export const buildReceipt = (bill, options = {}) => {
     ${tableQr}
     ${notes}
     <div class="c foot">${escape((settings && settings.billFooter) || "Thank you, please visit again")}</div>
+    ${settings.privacyLine ? `<div class="c s">${escape(settings.privacyLine)}</div>` : ""}
     </div>
   `;
 };
@@ -549,6 +550,7 @@ const buildCreditNote = (bill, note, options = {}) => {
       ${line("TOTAL CREDITED", moneyExact(note.totalAmount, model.currency), "font-weight:bold;font-size:14px;border-top:1px dashed #000")}
       ${note.refundMethod ? line("Paid back by", METHOD_WORDS[note.refundMethod] || note.refundMethod) : ""}
     </table>
+    ${settings.privacyLine ? `<div class="c s">${escape(settings.privacyLine)}</div>` : ""}
   `;
 };
 

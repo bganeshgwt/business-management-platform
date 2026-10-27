@@ -2,6 +2,7 @@ import { escapeHtml, printDocument } from "../../../../services/print";
 import { dateShort } from "@bmp/shared/format";
 import { barcodeSvg } from "../../retail/services/barcode";
 import { FUEL_LEVELS, LINE_KINDS, PAYERS, atWords, km, lineWords, wordOf } from "./garage";
+import { privacyLine } from "../../../personal-data/printLine";
 
 // Printing for a garage: the job card's customer copy (what was booked in, the
 // estimate with its prices, the advance and the claim, for the owner to sign)
@@ -73,6 +74,7 @@ export function printCustomerCopy(biz, job, size = "A5") {
         ${job.advance ? `<dt>Advance paid</dt><dd>${escapeHtml(biz.exact(job.advance.amount))} (${escapeHtml(job.advance.collection_no)})</dd>` : ""}</dl>` : ""}
       ${claim}
       <p><small>This is not a tax invoice: the bill is made when the vehicle is delivered. Work beyond this estimate is done only with your approval.</small></p>
+      ${privacyLine(biz) ? `<p><small>${escapeHtml(privacyLine(biz))}</small></p>` : ""}
       <div class="sign"><span>Customer's signature</span><span>Service advisor</span></div>`,
   });
 }

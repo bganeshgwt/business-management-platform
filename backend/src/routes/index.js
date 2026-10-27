@@ -73,6 +73,8 @@ router.use("/guest-insights", guestInsightRoutes);
 router.use("/availability", availabilityRoutes);
 // Pre-orders: cakes and party orders for a later day (food formats).
 router.use("/preorders", require("../modules/restaurant/preorders/routes/preorder.routes"));
+// Personal data for the signed-in restaurant's guests (the module serves businesses under /businesses too).
+router.use("/privacy", require("../modules/personal-data/routes/personalData.routes").restaurantRouter);
 
 // The one mount with no login in front of it: a guest at a table, holding a
 // QR code. Everything behind it is scoped by that code and rate limited.

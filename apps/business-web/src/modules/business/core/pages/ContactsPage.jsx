@@ -13,6 +13,11 @@ import { PayablesCard } from "./SupplierPayments";
 // Wholesale trade details on the customer form.
 import TradeDetailsFields from "../../wholesale/pages/TradeDetailsFields";
 import { useTradeDetails } from "../../wholesale/pages/tradeDetails";
+// A customer's consent per purpose, taken in one tap on their form.
+import ConsentChoices from "../../../personal-data/components/ConsentChoices";
+import { consentChanges } from "../../../personal-data/personalData";
+import { consentStore, useConsent } from "../../../personal-data/consentStore";
+import { useShopPrivacy } from "../../../personal-data/usePrivacy";
 
 // Customers or suppliers, with GSTIN, credit terms and what each owes.
 export default function ContactsPage({ kind }) {
@@ -70,16 +75,23 @@ function ContactDialog({ kind, contact, singular, onClose, onSaved }) {
   });
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
   const trade = useTradeDetails(biz, contact.id, kind === "customer" && biz.has("sales_orders") && biz.can("sales_orders.view") && biz.can("contacts.edit"));
+  const privacy = useShopPrivacy();
+  const customer = kind === "customer";
+  const [consents, setConsents] = useState({});
+  const { status: consentStatus } = useConsent(privacy.api, customer && editing ? contact.id : null);
   const submit = async () => {
-    const body = { ...form, kind, creditLimit: kind === "customer" ? form.creditLimit : null, openingBalance: form.openingBalance || 0, openingBalanceOn: form.openingBalance ? form.openingBalanceOn : null };
+    const changes = customer ? consentChanges(consents, consentStatus?.purposes || []) : null;
+    const body = { ...form, kind, creditLimit: kind === "customer" ? form.creditLimit : null, openingBalance: form.openingBalance || 0, openingBalanceOn: form.openingBalance ? form.openingBalanceOn : null,
+      ...(changes ? { consents: changes } : {}) };
     const saved = editing ? await businessWrite(biz.id, `contacts/${contact.id}`, body, "patch") : await businessWrite(biz.id, "contacts", body);
+    if (changes) consentStore(privacy.api).forget(saved.id);
     if (trade.enabled) await trade.save(saved.id);
     return saved;
   };
   return (
     <FormDialog title={editing ? `Edit ${contact.name}` : `Add a ${singular}`} icon={kind === "customer" ? "user-plus" : "truck"} onClose={onClose} onSaved={onSaved} onSubmit={submit}>
       <Field label="Name" wide><input required maxLength={150} value={form.name} onChange={set("name")} /></Field>
-      <Field label="Phone"><input maxLength={30} value={form.phone} onChange={set("phone")} /></Field>
+      <Field label="Phone (optional)" hint={customer ? "Never a condition of a sale: for what they ask to be sent." : undefined}><input maxLength={30} value={form.phone} onChange={set("phone")} /></Field>
       <Field label="Email"><input type="email" maxLength={150} value={form.email} onChange={set("email")} /></Field>
       <Field label="GSTIN" hint="For B2B invoices; checked for typing mistakes."><input maxLength={20} value={form.gstin} onChange={set("gstin")} className="mono" /></Field>
       <Field label="PAN" hint={kind === "customer" ? "Printed on a bill over ₹2,00,000, which needs the buyer's PAN." : "The supplier's PAN, as on their card."}>
@@ -91,6 +103,7 @@ function ContactDialog({ kind, contact, singular, onClose, onSaved }) {
       <Field label="Opening balance" hint={kind === "customer" ? "What they owed when you started (negative if you owed them)." : "What you owed them when you started."}><input type="number" step="0.01" value={form.openingBalance} onChange={set("openingBalance")} /></Field>
       <Field label="Opening balance as of"><input type="date" required={Boolean(Number(form.openingBalance))} value={form.openingBalanceOn} onChange={set("openingBalanceOn")} /></Field>
       {editing && <label className="checkbox bz-check"><input type="checkbox" checked={form.active} onChange={set("active")} /> Active</label>}
+      {customer && <ConsentChoices privacy={privacy} personId={editing ? contact.id : null} personName={contact.name} value={consents} onChange={setConsents} />}
       {trade.enabled && <TradeDetailsFields trade={trade} />}
     </FormDialog>
   );

@@ -121,7 +121,7 @@ function readLines(value) {
 function readBooking(body) {
   const contactId = c.given(body.contactId) ? id(body.contactId, 'Hirer') : null;
   const newCustomer = body.customer && typeof body.customer === 'object' && !Array.isArray(body.customer) && c.given(body.customer.name)
-    ? { kind: 'customer', name: body.customer.name, phone: body.customer.phone } : null;
+    ? { kind: 'customer', name: body.customer.name, phone: body.customer.phone, consents: body.customer.consents } : null;
   return {
     locationId: id(body.locationId, 'Location'), contactId, newCustomer, status: v.requiredEnum(body.status ?? 'reserved', 'Booking', ['quote', 'reserved']),
     outAt: body.outAt, dueAt: body.dueAt, notes: c.optionalText(body.notes, 'Notes', 500), lines: readLines(body.lines),
@@ -378,7 +378,7 @@ async function create(business, user, body) {
   const requestKey = core.uuid(body.requestKey);
   const hash = c.hashOf(body);
   const input = readBooking(body);
-  if (!input.contactId && !input.newCustomer) fail('Choose the hirer, or type the new hirer\'s name and phone');
+  if (!input.contactId && !input.newCustomer) fail('Choose the hirer, or type the new hirer\'s name');
   if (input.contactId && input.newCustomer) fail('Choose the hirer or type a new one, not both');
   if (input.newCustomer) await access.require(business, 'contacts.create');
   access.requireLocation(business, input.locationId);
