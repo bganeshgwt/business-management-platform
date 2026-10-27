@@ -353,9 +353,10 @@ training run does not count as a real-service sign-off. Take a verified backup
 1. The owner checks the outlet, the menu, the recipes, the tax settings and the
    role permissions.
 2. The manager opens the day with counted cash. A captain takes dine-in,
-   takeaway and delivery orders; the kitchen acknowledges and completes them.
-   Every live screen (the kitchen display, table requests, the POS, deliveries,
-   the dashboard) says **Live**, and an order placed at one till shows on the
+   takeaway and delivery orders, and dine-in also on the captain app on their
+   phone; the kitchen acknowledges and completes them. Every live screen (the
+   kitchen display, table requests, the POS, the captain app, deliveries, the
+   dashboard) says **Live**, and an order placed at one till shows on the
    kitchen display and the other tills within a second or two. Switch a
    device's Wi-Fi off and on: it says **Reconnecting**, then **Live**, and shows
    what changed meanwhile.

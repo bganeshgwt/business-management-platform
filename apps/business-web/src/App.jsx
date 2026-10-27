@@ -74,6 +74,13 @@ const DayEndUnsoldPage = lazy(() => import("./modules/restaurant/inventory/pages
 const BrandsPage = lazy(() => import("./modules/restaurant/menu/pages/BrandsPage"));
 // Tasks, issues & projects (modules/tasks): the same screens serve Business Admin.
 const TasksRoutes = lazy(() => import("./modules/tasks/pages/TasksRoutes"));
+// The captain app: a waiter's phone screen, a route group with a layout of
+// its own built from the restaurant's screens (workspaces/captain).
+const CaptainLayout = lazy(() => import("./workspaces/captain/CaptainLayout"));
+const CaptainTablesPage = lazy(() => import("./workspaces/captain/CaptainTablesPage"));
+const CaptainCallsPage = lazy(() => import("./workspaces/captain/CaptainCallsPage"));
+const CaptainReadyPage = lazy(() => import("./workspaces/captain/CaptainReadyPage"));
+const CaptainOrderPage = lazy(() => import("./workspaces/captain/CaptainOrderPage"));
 // Workspaces planned but not built yet (services/plannedWorkspaces.js).
 const PlannedPage = lazy(() => import("./layouts/PlannedPage"));
 
@@ -132,6 +139,18 @@ export default function App() {
         <Route path="/collection" element={<CollectionDisplayPage />} />
       </Route>
 
+      {/* The captain app: a waiter's phone, its own header and tabs, no menus.
+          Whoever may take orders opens it, as the POS; each screen asks the
+          API only what the person may read. */}
+      <Route element={<ProtectedRoute permission="orders.create" />}>
+        <Route path="/captain" element={<CaptainLayout />}>
+          <Route index element={<CaptainTablesPage />} />
+          <Route path="/captain/calls" element={<CaptainCallsPage />} />
+          <Route path="/captain/ready" element={<CaptainReadyPage />} />
+          <Route path="/captain/order" element={<CaptainOrderPage />} />
+        </Route>
+      </Route>
+
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route index element={<Home />} />
@@ -153,7 +172,6 @@ export default function App() {
           {/* Workspaces that are planned but not built yet: the address works
               already and says what is coming and what to use until then,
               instead of "Page not found". A built one replaces its line. */}
-          <Route path="captain" element={<PlannedPage workspace="captain" />} />
           <Route path="clinic" element={<PlannedPage workspace="clinic" />} />
           <Route path="lab" element={<PlannedPage workspace="lab" />} />
 

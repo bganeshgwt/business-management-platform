@@ -62,6 +62,8 @@ const NAV_SECTIONS = [
     title: "Service",
     links: [
       { to: "/pos", label: "POS", icon: "pos", permission: "orders.create" },
+      // The waiters' phone screen, around their own tables (workspaces/captain).
+      { to: "/captain", label: "Captain app", icon: "captain", permission: "orders.create", notFormats: ["cloud_kitchen", "bakery"] },
       { to: "/orders", label: "Orders", icon: "orders", permission: "orders.view" },
       { to: "/bills", label: "Bills & payments", icon: "bills", permission: "orders.view" },
       { to: "/dues", label: "Dues & accounts", icon: "dues", permission: "sales.view" },

@@ -84,6 +84,18 @@ export const RESTAURANT = {
     pan: "AAACL1234K",
     cash: 150000,
   },
+  // The captain app (captain.spec.js): a garden floor whose tables are the
+  // CAPTAIN's section today (Tables & QR → Captain sections), none tied to an
+  // outlet; and a dish in two sizes with an add-on, for an order taken there.
+  captain: {
+    floor: "Garden",
+    tables: ["G1", "G2", "G3"],
+    dish: {
+      name: "Veg biryani", category: "Main course", price: 240, foodType: "veg",
+      sizes: [{ name: "Half", price: 160 }, { name: "Full", price: 240, isDefault: true }],
+      addOn: { name: "Raita", price: 40 },
+    },
+  },
 };
 
 // The platform holds this many restaurants in all (E2E Bistro and the rest

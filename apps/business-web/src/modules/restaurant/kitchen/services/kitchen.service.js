@@ -5,6 +5,11 @@ import api from "../../../../services/api";
 export const getBoard = async (params = {}) =>
   (await api.get("/kitchen/board", { params })).data.data;
 
+// The food at the pass, for the waiters who carry it out (the captain app):
+// { serverTime, passMinutes, tickets }, the tickets marked ready and not yet
+// served, oldest first. Reading it cuts nothing.
+export const getPass = async () => (await api.get("/kitchen/pass")).data.data;
+
 // One order's tickets, cut first if the kitchen has not seen it yet.
 export const getOrderTickets = async (orderId) =>
   (await api.get(`/kitchen/orders/${orderId}/kots`)).data.data;

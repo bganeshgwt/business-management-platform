@@ -126,11 +126,11 @@ written down.
 
 | Application | State |
 | --- | --- |
-| **Staff app** (`apps/business-web`, port 5173 in development) | Built. A switcher in the header opens any business you belong to. For a restaurant (run as a restaurant, café, bakery or cloud kitchen) it is the full restaurant admin, with the POS screen, the kitchen display and the captain's views. For the other types it is Business Admin, whose menu is built from that business's modules. It also holds the platform console. |
+| **Staff app** (`apps/business-web`, port 5173 in development) | Built. A switcher in the header opens any business you belong to. For a restaurant (run as a restaurant, café, bakery or cloud kitchen) it is the full restaurant admin, with the POS screen, the kitchen display and the captain app. For the other types it is Business Admin, whose menu is built from that business's modules. It also holds the platform console. |
 | **Guests' site** (`apps/customer-web`, port 5174) | Built: QR table ordering, online ordering and table booking, with no sign-in. Its planned pages answer already, with what is coming. |
 | **API** (`backend`, port 5010 as `.env.example` sets it) | Built: one Express API and one PostgreSQL database for both apps. |
 | POS app (an offline-capable till) | Planned. The POS *screen* is in the staff app (`/pos`). |
-| Captain / waiter app | Planned: phone-first, on the existing order and KOT APIs. `/captain` answers and says what waiters use until then. |
+| Captain / waiter app | Built, as part of the staff app (`/captain`): a route group with a layout of its own (`src/workspaces/captain`), phone first, on the POS's own order screen and the order, KOT, table-request and captain-section APIs, with live updates. |
 | Kitchen display app | Planned as a separate app. The screen is in the staff app (`/kitchen`). |
 | Clinic and lab workspaces | Planned. `/clinic` and `/lab` answer and link to the clinic's screens in Business Admin. |
 | Platform admin and subscriptions | Planned. A platform Super Admin runs the platform console in the staff app (`/platform/restaurants`, `/platform/businesses`). There are no plans or subscriptions; their shape is set in [DATA_MODEL › Commercial plans](BUSINESS_PLATFORM_DATA_MODEL.md#commercial-plans). |
@@ -150,7 +150,7 @@ written down.
 | `/kitchen` | Kitchen staff: the kitchen display | Built |
 | `/collection` | The pickup counter's TV | Built |
 | `/platform/restaurants`, `/platform/businesses` | The platform Super Admin | Built; moves to its own app later |
-| `/captain` | Waiters, on a phone | **Planned.** Until then: POS and Table requests |
+| `/captain`, `/captain/calls`, `/captain/ready`, `/captain/order` | Waiters, on a phone: the captain app (their tables, guests' calls, food at the pass, taking an order) | Built |
 | `/clinic` | Reception and doctors | **Planned.** Until then: the clinic's token queue and patients in Business Admin |
 | `/lab` | Lab staff | **Planned.** Until then: the clinic's lab orders and tests in Business Admin |
 | `/order/…`, `/online/…`, `/book/…` | Old guest links and printed QR codes | Sent on to the guests' site, path and query kept |
@@ -336,10 +336,10 @@ The business side asks for a manager's PIN in its own ways (§5.1).
 
 A screen that shows what other devices change keeps itself current without
 asking the server every few seconds. A KOT sent from the POS reaches the
-kitchen display, a guest's QR call reaches table requests, an online order
-reaches the deliveries board, a paid bill frees the table on the floor and at
-the POS, a token called at a clinic moves its token queue: each within about a
-second.
+kitchen display, a guest's QR call reaches table requests and the captain
+app, food marked ready reaches the captain's phone, an online order reaches
+the deliveries board, a paid bill frees the table on the floor and at the POS,
+a token called at a clinic moves its token queue: each within about a second.
 
 ```
  POS (any device)              PostgreSQL                         each API process (modules/live)   other screens
@@ -834,7 +834,8 @@ workspaces; the backend has its own install.
 │   │   │   ├── main.jsx      the shared look (@bmp/ui/styles.css); providers: QueryClient, Router, AuthProvider;
 │   │   │   │                 ApprovalDialog, ConfirmHost, Toaster
 │   │   │   ├── App.jsx       every restaurant route (lazy imports from modules/) + /business-admin; the planned
-│   │   │   │                 workspaces (/captain, /clinic, /lab); old guest links → GuestSiteRedirect
+│   │   │   │                 workspaces (/clinic, /lab); the captain app (/captain/*); old guest links
+│   │   │   │                 → GuestSiteRedirect
 │   │   │   ├── modules/      one folder per module, each with pages/ (+ services/, styles/ where it has its own)
 │   │   │   │   ├── access/   sign-in, profile, users, roles, two-step
 │   │   │   │   ├── platform/ the platform console
@@ -847,6 +848,9 @@ workspaces; the backend has its own install.
 │   │   │   │   ├── tax-changes/  the GST rate change screens, shared by the restaurant (/menu/tax-changes)
 │   │   │   │   │             and Business Admin (…/tax-changes)
 │   │   │   │   └── tasks/    the task screens, shared by the restaurant (/tasks) and Business Admin (…/tasks)
+│   │   │   ├── workspaces/   what one role works in, a layout and screens gathered from the modules:
+│   │   │   │                 captain/ (the captain app: its layout, tables, calls, food at the pass, the POS's
+│   │   │   │                 order screen in its phone layout; its floor rules in captainFloor.js)
 │   │   │   ├── layouts/      AppLayout.jsx (header, switchers, bell, side menu), NotFoundPage, PlannedPage,
 │   │   │   │                 GuestSiteRedirect
 │   │   │   ├── context/      AuthProvider (user, permissions, features), BusinessProvider (open business)
@@ -940,8 +944,13 @@ shared tab components (`components/ContentTabs.jsx`,
 **What a person sees.** The pages a business offers come from its
 switched-on modules (a restaurant's features, read by `services/features.js`;
 any other business's modules, read by `services/businessNav.js`) and from the
-person's permissions. The backend checks both again. The planned POS and
-Captain apps will use `modules/restaurant/orders`, with no copy.
+person's permissions. The backend checks both again. The captain app
+(`workspaces/captain`) is built from `modules/restaurant/orders` with no copy:
+its order screen is the POS page itself in its phone layout (`PosPage`'s
+`captain` mode), its tables the POS's `TableGrid`, its calls Table requests'
+own cards, its bill the POS's `BillModal`, and its table actions the
+dashboard floor's `useFloorActions`. The planned offline POS app will reuse
+them the same way.
 
 Adding a page, step by step:
 [apps/business-web/README.md › Adding a page](../apps/business-web/README.md#adding-a-page).
@@ -965,7 +974,8 @@ the guests' pages are in `apps/customer-web/src/modules/<area>/pages/`.
 | `restaurant/tables` | `table.*`, `captainSection.*` | floors, tables, captain plan, QR sheet | `floors`, `dining_tables`, `captain_assignments` |
 | `restaurant/orders` | `order.*`, `tableRequest.*`, `public.routes`, `publicMenu`, `tradingClock` (when today's trading day began, for the live screens) | POS (with the weighing dialog), orders, bills list, bill dialog, table requests, collection display (the guests' QR page: `apps/customer-web/src/modules/table-order`) | `orders`, `order_items`, `table_requests` |
 | `restaurant/preorders` | `preorder.routes`, `preorder.service` | pre-orders and cakes, the bake list | `restaurant_preorders`, `restaurant_preorder_items` |
-| `restaurant/kitchen` | `kitchen.*`, `kitchenSlip` | kitchen display, sold-out | `kots`, `kot_items`, `kitchen_stations` |
+| `restaurant/kitchen` | `kitchen.*` (with the food at the pass the captain app reads), `kitchenSlip` | kitchen display, sold-out | `kots`, `kot_items`, `kitchen_stations` |
+| `workspaces/captain` (the captain app; staff app only) | none of its own: the order, KOT, table, table-request and captain-section routes, and `GET /api/kitchen/pass` | `CaptainLayout`, `CaptainTablesPage` with `TableSheet`, `CaptainCallsPage`, `CaptainReadyPage` with `ReadyTicket`, `CaptainOrderPage` (the POS in its `captain` mode); the floor in `useCaptainFloor` and `captainFloor.js`, the alerts in `captainAlerts.js`; styles `styles/captain.css` | reads `dining_tables`, `captain_assignments`, `orders`, `kots`, `table_requests` |
 | `restaurant/reservations` | `reservation.*`, `publicBooking.*` | reservations (page + parts), online booking settings (the guests' booking page: `apps/customer-web/src/modules/booking`) | `reservations`, `waitlist_entries` |
 | `restaurant/online` | `onlineOrder`, `publicOnline.routes`, `guestAddress.*` | none (services only: the ordering links for Service settings; the guests' ordering page: `apps/customer-web/src/modules/online-order`) | `online_*`, `customer_addresses` |
 | `restaurant/deliveries` | `delivery.*`, `riderSettlement.*`, `deliveryCharge`, `salesChannel` | deliveries (page + tabs), rider cash | `sales_channels`, `rider_settlements` |
@@ -1380,8 +1390,14 @@ WhatsApp, a webhook or accounting:
 - Build it in its module.
 - Point its route at the real page, and delete its entry in
   `plannedWorkspaces.js` or `plannedPages.js`.
-- A role screen such as `/captain` or `/lab` is a route group and a layout in
-  the staff app, reusing the area modules. It is not a new app.
+- A role screen is a route group and a layout in the staff app, in
+  `src/workspaces/<role>/`, reusing the area modules. It is not a new app.
+  The captain app is the first: `App.jsx` mounts `/captain` with its layout
+  (`workspaces/captain/CaptainLayout.jsx`: its own header, the lock screen,
+  tabs at the thumb, the floor read once and shared by its screens through a
+  context) and its screens as child routes, behind the same `ProtectedRoute`
+  as the POS. A screen it shares with an area (the POS's order screen) takes
+  a prop for the role's layout rather than being copied.
 
 **Something new and planned:** add the route and an entry in the planned
 list first, so the address works from day one.
@@ -1539,6 +1555,5 @@ keeping the old tables until the reports agree.
 
 | Folder | What goes in it | Made when |
 | --- | --- | --- |
-| `apps/business-web/src/workspaces/` | The POS, kitchen, collection, captain, clinic and lab layouts, gathered by role | The first planned workspace is built |
 | `backend/src/integrations/` and `backend/src/jobs/` | The payment gateway and SMS / WhatsApp; expiry and low-stock alerts | The first integration is built |
 | `apps/platform-admin/` | The platform console as its own app | The platform team releases on its own |

@@ -1144,6 +1144,26 @@ const findRecentlyServed = async (restaurantId, outletId, stationId = null, limi
   return attachItems(pool, result.rows);
 };
 
+// Food at the pass: tickets the kitchen has marked ready that nobody has
+// served yet, oldest first, for the floor to carry out (the captain app's
+// Ready list). Only tickets still really in the kitchen, by the rules the
+// board clears them by (stillInKitchenSql): a table that has paid, an order
+// cancelled or served from the orders screen is not waited on. Read only:
+// unlike the board, nothing is cut or cleared here.
+const findAtPass = async (restaurantId, outletId) => {
+  const result = await pool.query(
+    `${TICKET_SELECT}
+     WHERE k.restaurant_id = $1
+       AND ($2::bigint IS NULL OR k.outlet_id = $2)
+       AND k.kot_status = 'ready'
+       AND ${stillInKitchenSql("NOW()")}
+     ORDER BY k.ready_at NULLS LAST, k.id`,
+    [restaurantId, outletId || null]
+  );
+
+  return attachItems(pool, result.rows);
+};
+
 const findTicketById = async (restaurantId, id, db = pool) => {
   const result = await db.query(`${TICKET_SELECT} WHERE k.restaurant_id = $1 AND k.id = $2`, [
     restaurantId,
@@ -1752,6 +1772,7 @@ module.exports = {
   clearOld,
   findOpenTickets,
   findRecentlyServed,
+  findAtPass,
   findTicketById,
   findTicketsForOrder,
   orderExists,

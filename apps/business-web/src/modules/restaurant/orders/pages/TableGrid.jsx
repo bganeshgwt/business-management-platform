@@ -28,7 +28,14 @@ const LEGEND = [
 //   reasonOff(table, info) why a table may not be chosen here (null: it may)
 //   myUserId              the signed-in person: a captain with a section today
 //                         sees "My tables" first, and can show all
-export default function TableGrid({ tables: allTables, joinedBy, now, currency, choose, reasonOff, selectedId, compact, myUserId = null }) {
+//   marks(table, info)    what else the tile says, most urgent first: the
+//                         captain app's guests calling, food at the pass
+//                         ([{ key, label, tone }]; tone success, warning,
+//                         danger, info or neutral)
+//   money                 false: no amount on a tile, for someone who may not
+//                         see takings (the captain app)
+//   className             a layout of the caller's own
+export default function TableGrid({ tables: allTables, joinedBy, now, currency, choose, reasonOff, selectedId, compact, myUserId = null, marks = null, money = true, className = "" }) {
   const [onlyMine, setOnlyMine] = useState(true);
   const mine = myUserId ? allTables.filter((table) => table.captain && table.captain.userId === myUserId) : [];
   const tables = mine.length > 0 && onlyMine ? mine : allTables;
@@ -49,7 +56,7 @@ export default function TableGrid({ tables: allTables, joinedBy, now, currency, 
   const legend = LEGEND.filter((item) => onFloor.has(item.state));
 
   return (
-    <div className={`pos-table-groups ${compact ? "is-compact" : ""}`}>
+    <div className={`pos-table-groups ${compact ? "is-compact" : ""} ${className}`.trim()}>
       {mine.length > 0 && (
         <div className="segmented pos-my-tables" role="radiogroup" aria-label="Which tables">
           <button
@@ -92,6 +99,7 @@ export default function TableGrid({ tables: allTables, joinedBy, now, currency, 
               const off = reasonOff ? reasonOff(table, info) : null;
               const why = tileWhy(off, info);
               const live = table.live;
+              const extra = marks ? marks(table, info) : [];
 
               return (
                 <button
@@ -101,7 +109,10 @@ export default function TableGrid({ tables: allTables, joinedBy, now, currency, 
                   onClick={() => choose(table, info)}
                   disabled={Boolean(off)}
                   title={off || (table.captain ? `Captain: ${table.captain.userName}` : undefined)}
-                  aria-label={`Table ${table.tableNo}: ${info.label}${info.note ? `, ${info.note}` : ""}${off ? `. ${off}` : ""}`}
+                  aria-label={`Table ${table.tableNo}: ${info.label}${info.note ? `, ${info.note}` : ""}${off ? `. ${off}` : ""}${extra
+                    .filter((mark) => mark.label !== info.note)
+                    .map((mark) => `. ${mark.label}`)
+                    .join("")}`}
                 >
                   <span className="pos-table-head">
                     <span className="pos-table-no">{table.tableNo}</span>
@@ -116,7 +127,7 @@ export default function TableGrid({ tables: allTables, joinedBy, now, currency, 
                   </span>
                   {live ? (
                     <>
-                      <span className="pos-table-money">{moneyExact(live.orderTotal, currency)}</span>
+                      {money && <span className="pos-table-money">{moneyExact(live.orderTotal, currency)}</span>}
                       <span className="pos-table-label">
                         <span className={`pos-table-dot pos-dot-${info.state}`} aria-hidden="true" />
                         {info.label}
@@ -139,6 +150,15 @@ export default function TableGrid({ tables: allTables, joinedBy, now, currency, 
                     </>
                   )}
                   {why && <span className="pos-table-why">{why}</span>}
+                  {extra.length > 0 && (
+                    <span className="pos-table-marks" aria-hidden="true">
+                      {extra.map((mark) => (
+                        <span key={mark.key} className={`pos-table-mark is-${mark.tone || "neutral"}`}>
+                          {mark.label}
+                        </span>
+                      ))}
+                    </span>
+                  )}
                 </button>
               );
             })}

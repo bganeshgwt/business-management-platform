@@ -1,7 +1,7 @@
 import AddonChoiceRules from "@bmp/ui/menu/AddonChoiceRules";
 import {choiceError} from "@bmp/shared/menu/addonChoices";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { moneyExact } from "@bmp/shared/format";
 import PageHeader from "../../../../components/PageHeader";
 import LiveIndicator from "../../../../components/LiveIndicator";
@@ -58,6 +58,7 @@ import {
   headerOf,
   isDirty,
   lineTotalOf,
+  noteLine,
   offerKey,
   pendingCancellations,
   rebaseCart,
@@ -102,6 +103,14 @@ const STAGE_WORDS = {
 
 // A saved dish of a course held back until someone presses Fire.
 const isHeld = (line) => Boolean(line.holdCourse);
+
+// On the captain's phone, when the dishes being added go to the kitchen: now,
+// or held as a later course until someone presses Fire (dine-in only).
+const COURSE_CHOICES = [
+  { course: 1, hold: false, label: "Now" },
+  { course: 2, hold: true, label: "Course 2 later" },
+  { course: 3, hold: true, label: "Course 3 later" },
+];
 
 // How far the kitchen had got with a dish being taken off, in words.
 const KITCHEN_STAGE_WORDS = {
@@ -168,7 +177,13 @@ const arrivingSoon = (board) => {
 // prices shown are worked out exactly the way the server works them out,
 // from the same happy-hour prices, so what the screen says is what the bill
 // says.
-export default function PosPage() {
+//
+// `captain`: this is the captain app's order screen (workspaces/captain), a
+// waiter's phone at the table: always the phone layout, under the captain
+// app's own header; "Tables" and an order sent go back to its tables
+// (`home`); guests' requests open its calls (`calls`); dishes can be held for
+// a later course, and a dish just added can take a note. null on the POS.
+export default function PosPage({ captain = null }) {
   // The receipt prints the restaurant name from the signed-in session, so the
   // user has to be read here and not merely assumed.
   const { hasPermission, hasFeature, user } = useAuth();
@@ -341,11 +356,18 @@ export default function PosPage() {
   const [soldOutMode, setSoldOutMode] = useState(false);
   const [soldOutPanel, setSoldOutPanel] = useState(false);
 
-  // The phone layout: a captain at the table.
+  // The phone layout: a captain at the table. The captain app keeps it
+  // whatever the width of the screen.
+  const forcedPhone = Boolean(captain);
   const [compact, setCompact] = useState(() =>
-    typeof window !== "undefined" && window.matchMedia ? window.matchMedia(PHONE).matches : false
+    forcedPhone || (typeof window !== "undefined" && window.matchMedia ? window.matchMedia(PHONE).matches : false)
   );
   const [sheetOpen, setSheetOpen] = useState(false);
+  // The captain app: when the dishes being added go to the kitchen (now, or a
+  // later course held until Fire), and the dish whose note is being typed.
+  const [course, setCourse] = useState(COURSE_CHOICES[0]);
+  const [noting, setNoting] = useState(null);
+  const navigate = useNavigate();
 
   // Which outlet this sale is for. Every sale belongs to an outlet once the
   // restaurant trades through outlets: its bill, its GST, its cash drawer and
@@ -526,7 +548,7 @@ export default function PosPage() {
   );
 
   useEffect(() => {
-    if (!window.matchMedia) {
+    if (forcedPhone || !window.matchMedia) {
       return undefined;
     }
 
@@ -535,7 +557,7 @@ export default function PosPage() {
 
     query.addEventListener("change", follow);
     return () => query.removeEventListener("change", follow);
-  }, []);
+  }, [forcedPhone]);
 
   useEffect(() => {
     const tick = setInterval(() => setNow(Date.now()), 60000);
@@ -969,7 +991,15 @@ export default function PosPage() {
     setBusyOrder(null);
     setSheetOpen(false);
     setNotice("");
+    setCourse(COURSE_CHOICES[0]);
     clearDraft(readSession(), storageKey);
+  };
+
+  // The captain app: back to its tables, the screen left as a new order (the
+  // unsaved cart is not kept: its draft goes with it).
+  const backToTables = () => {
+    resetCart();
+    navigate(captain.home);
   };
 
   const variantsOf = useCallback(async (productId) => {
@@ -1045,6 +1075,7 @@ export default function PosPage() {
     // A happy-hour price is for this dish in this size, exactly as the server
     // charges it. Add-ons are still on top.
     const { unitPrice, offer } = unitPriceFor(product, variant, offers);
+    const held = Boolean(captain) && orderType === "dine_in" && course.hold;
 
     setCart((current) =>
       addLine(current, {
@@ -1070,10 +1101,11 @@ export default function PosPage() {
         comboSelections,
         priceWindowName: offer ? offer.windowName : null,
         // Coursing is not offered at the till: every dish goes to the
-        // kitchen when the order is sent.
-        courseNo: 1,
+        // kitchen when the order is sent. The captain's phone may hold a
+        // table's dishes for a later course, sent when someone presses Fire.
+        courseNo: held ? course.course : 1,
         courseName: null,
-        holdCourse: false,
+        holdCourse: held,
       })
     );
   };
@@ -1437,6 +1469,12 @@ export default function PosPage() {
         await printSlipsFor([saved.id]);
       }
 
+      // The captain's phone: the order is with the kitchen, back to the
+      // tables for the next one.
+      if (captain && then === "save") {
+        backToTables();
+      }
+
       return saved;
     } catch (err) {
       const details = err.response?.data?.data || {};
@@ -1777,7 +1815,11 @@ export default function PosPage() {
     setBill(null);
 
     if (bill && bill.billStatus === "paid") {
-      resetCart();
+      if (captain) {
+        backToTables();
+      } else {
+        resetCart();
+      }
     }
   };
 
@@ -1802,7 +1844,7 @@ export default function PosPage() {
   const badgeLinks = (
     <div className="pos-badges">
       {badges.qrOrders > 0 && (
-        <Link to="/table-requests" className="pos-badge pos-badge-qr">
+        <Link to={captain ? captain.calls : "/table-requests"} className="pos-badge pos-badge-qr">
           <Icon name="qr" size={15} />
           <span>
             <strong>{badges.qrOrders}</strong> QR {badges.qrOrders === 1 ? "order" : "orders"} waiting
@@ -1810,7 +1852,7 @@ export default function PosPage() {
         </Link>
       )}
       {badges.calls > 0 && (
-        <Link to="/table-requests" className="pos-badge pos-badge-call">
+        <Link to={captain ? captain.calls : "/table-requests"} className="pos-badge pos-badge-call">
           <Icon name="bell" size={15} />
           <span>
             <strong>{badges.calls}</strong> {badges.calls === 1 ? "table" : "tables"} calling
@@ -2038,6 +2080,35 @@ export default function PosPage() {
 
   const inCart = (productId) =>
     cart.filter((line) => !line.saved && line.productId === productId).reduce((sum, line) => sum + line.quantity, 0);
+
+  // The captain's phone: when the dishes being added go to the kitchen. A
+  // later course waits on the order until Fire is pressed.
+  const courseRow = captain && orderType === "dine_in" && !orderBilled && (
+    <div className="pos-course-row">
+      <span className="pos-course-label" id="pos-course-label">
+        Send to the kitchen
+      </span>
+      <div className="segmented pos-course" role="radiogroup" aria-labelledby="pos-course-label">
+        {COURSE_CHOICES.map((choice) => (
+          <button
+            key={choice.course}
+            type="button"
+            role="radio"
+            aria-checked={course.course === choice.course}
+            className={`segment ${course.course === choice.course ? "is-active" : ""}`}
+            onClick={() => setCourse(choice)}
+          >
+            {choice.label}
+          </button>
+        ))}
+      </div>
+      {course.hold && (
+        <p className="muted small pos-course-hint">
+          Dishes added now wait on the order until you press Fire course {course.course}.
+        </p>
+      )}
+    </div>
+  );
 
   const soldOutModeBar = canSwitchDishes && soldOutMode && (
     <div className="alert alert-notice pos-soldout-mode" role="status">
@@ -2293,6 +2364,15 @@ export default function PosPage() {
                     <div className="muted small">{line.modifiers.map((modifier) => modifier.name).join(", ")}</div>
                   )}
                   {line.notes && <div className="muted small">Note: {line.notes}</div>}
+                  {captain && !line.saved && (
+                    <button
+                      type="button"
+                      className="link-button pos-line-note"
+                      onClick={() => setNoting({ key: line.key, name: line.name, text: line.notes || "" })}
+                    >
+                      {line.notes ? "Change the note" : "Add a note"}
+                    </button>
+                  )}
                   <div className="oc-line-meta">
                     {line.saved && isHeld(line) ? (
                       // Held back, not sent: the kitchen has nothing until
@@ -2309,7 +2389,12 @@ export default function PosPage() {
                         <span className="muted small">{timeOf(line.createdAt)}</span>
                       </>
                     ) : (
-                      <span className="oc-chip oc-chip-new">New</span>
+                      <>
+                        <span className="oc-chip oc-chip-new">New</span>
+                        {line.holdCourse && (
+                          <span className="oc-chip oc-chip-held">Course {line.courseNo || 1} · held</span>
+                        )}
+                      </>
                     )}
                     {line.priceWindowName && <span className="oc-offer-tag">{line.priceWindowName}</span>}
                     {reducing && (
@@ -2537,8 +2622,9 @@ export default function PosPage() {
   // ------------------------------------------------------------ the page
 
   return (
-    <div className={`stack pos-page ${compact ? "is-compact" : ""}`}>
-      {compact ? (
+    <div className={`stack pos-page ${compact ? "is-compact" : ""} ${captain ? "is-captain" : ""}`.trim()}>
+      {/* The captain app has a header of its own, with its live mark. */}
+      {captain ? null : compact ? (
         <PageHeader
           icon="receipt"
           title="POS"
@@ -2660,7 +2746,9 @@ export default function PosPage() {
                 type="button"
                 className="button button-secondary button-sm"
                 onClick={() => {
-                  if (editingOrder) {
+                  if (editingOrder && captain) {
+                    backToTables();
+                  } else if (editingOrder) {
                     resetCart();
                   } else if (orderType === "dine_in") {
                     setTableId("");
@@ -2678,6 +2766,7 @@ export default function PosPage() {
             <section className="card stack pos-menu">
               {searchBox}
               {categoryTabs}
+              {courseRow}
               {soldOutModeBar}
               {dishCards}
             </section>
@@ -2860,6 +2949,43 @@ export default function PosPage() {
             setAvailability(list);
           }}
         />
+      )}
+
+      {noting && (
+        <Modal
+          title={`Note for ${noting.name}`}
+          icon="message"
+          description="The kitchen reads it on the KOT, beside the dish."
+          onClose={() => setNoting(null)}
+          width={460}
+        >
+          <form
+            className="stack"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setCart((current) => noteLine(current, noting.key, noting.text));
+              setNoting(null);
+            }}
+          >
+            <label className="field">
+              <span>Note for the kitchen</span>
+              <input
+                value={noting.text}
+                maxLength={200}
+                placeholder="Less spicy"
+                onChange={(event) => setNoting({ ...noting, text: event.target.value })}
+              />
+            </label>
+            <div className="form-actions">
+              <button type="button" className="button button-secondary" onClick={() => setNoting(null)}>
+                Cancel
+              </button>
+              <button type="submit" className="button">
+                Save the note
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       {weighing && (

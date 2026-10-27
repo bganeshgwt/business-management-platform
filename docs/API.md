@@ -133,7 +133,7 @@ online ordering) answer 403 with a sentence for the guest and the same `data`.
 | `online_ordering` | `/api/orders/service-settings/online-ordering*`; the ordering page `/api/public/online/:token/*`; accepting an online order |
 | `qr_ordering` or `online_ordering` | `/api/table-requests/*` (with only one on, lists and counters show that one's requests only) |
 | `deliveries` | `/api/deliveries/*` except `/api/deliveries/channels*`; `POST /api/orders` with `orderType: "delivery"`; the online ordering page offers takeaway only |
-| `kitchen_display` | `GET /api/kitchen/board`, `POST /api/kitchen/sync`, `POST /api/kitchen/recall`, `POST /api/kitchen/clear-old`, `GET /api/kitchen/kots/:id`, `PATCH /api/kitchen/kots/:id/status`, `PATCH /api/kitchen/kots/:id/items/:itemId`, `POST /api/kitchen/kots/:id/recall`, `GET /api/reports/live/kitchen` (stations, slips, printing and an order's tickets stay) |
+| `kitchen_display` | `GET /api/kitchen/board`, `GET /api/kitchen/pass`, `POST /api/kitchen/sync`, `POST /api/kitchen/recall`, `POST /api/kitchen/clear-old`, `GET /api/kitchen/kots/:id`, `PATCH /api/kitchen/kots/:id/status`, `PATCH /api/kitchen/kots/:id/items/:itemId`, `POST /api/kitchen/kots/:id/recall`, `GET /api/reports/live/kitchen` (stations, slips, printing and an order's tickets stay) |
 | `captain_sections` | `/api/tables/sections*` |
 | `preorders` | `/api/preorders/*` |
 | `brands` | `GET/POST /api/menu/brands`, `PUT /api/menu/brands/:id`, `GET /api/menu/brands/report` |
@@ -1270,12 +1270,12 @@ Returns: no `data`.
 Errors: 403 `room_shared`; 404 not found; 409 area still has tables.
 
 ### Tables
-A table belongs to one outlet or is shared (`outletId: null`). Lists show the caller's outlet plus shared tables; a table object is `{ id, floorId, floorName, areaId, areaName, outletId, tableNo, capacity, qrToken, tableStatus, status, live, booking, inService, outOfServiceReason, turn, readyAt, floorState }` with `floorState` one of `running`, `printed`, `paid`, `out_of_service`, `cleaning`, `reserved`, `free` (see `services/table.service.js`).
+A table belongs to one outlet or is shared (`outletId: null`). Lists show the caller's outlet plus shared tables; a table object is `{ id, floorId, floorName, areaId, areaName, outletId, tableNo, capacity, qrToken, tableStatus, status, live, booking, inService, outOfServiceReason, turn, readyAt, floorState, captain }` with `floorState` one of `running`, `printed`, `paid`, `out_of_service`, `cleaning`, `reserved`, `free` (see `services/table.service.js`), and `captain` the table's captain of the day (`{ userId, userName }`: its own line of the captain plan, else its section's, else its floor's; [Captain sections](#captain-sections)), or null.
 
 #### `GET /api/tables`
 Permission: `tables.view`
 Query/Body: `floorId` (int)
-Returns: `data` = array of tables, with the running order/bill (`live`), due booking and cleaning turn.
+Returns: `data` = array of tables, with the running order/bill (`live`), due booking, cleaning turn and the day's `captain`.
 
 #### `POST /api/tables`
 Permission: `tables.manage`
@@ -1326,7 +1326,7 @@ Query/Body: none
 Returns: `data` = `{ guestWebAddress, restaurantName, logoPath }` for printing table QR cards.
 
 ### Captain sections
-Which captain has which floor, section (area) or table on a business date. The default date is the open business day (main counter first, then the outlet's), else today in the restaurant's timezone.
+Which captain has which floor, section (area) or table on a business date. The default date is the open business day (main counter first, then the outlet's), else today in the restaurant's timezone. These routes need the `captain_sections` feature. While it is switched off, the plans are kept but name nobody: `GET /api/tables` and `GET /api/table-requests` give every table and every request `captain: null`, so every captain sees every table.
 
 #### `GET /api/tables/sections`
 Permission: `tables.view`
@@ -1355,6 +1355,13 @@ Mounted at `/api/kitchen`; login required and `resolveOutlet` runs on every rout
 Permission: `kds.view`
 Query/Body: `stationId` or `station` (int, optional; empty = whole kitchen)
 Returns: `data` = `{ serverTime, businessDay, settings, stationId, stations[], tickets[], recentServed[], newTicketIds[], stats, print: { restaurantName, paperWidth }, changeSlips[] }`.
+
+#### `GET /api/kitchen/pass`
+The food at the pass, for the waiters who carry it out (the captain app's *Ready* list and its tables). Read only: unlike the board it cuts and clears no ticket.
+Permission: `kds.view` or `kot.manage`; feature `kitchen_display`
+Query/Body: none. The outlet the caller works in (`resolveOutlet`), or the whole restaurant.
+Returns: `data` = `{ serverTime, passMinutes, tickets[] }`: the tickets marked ready and not yet served, the oldest at the pass first (`readyAt`), each a ticket object with its order, table and dishes. Only tickets still in the kitchen by the board's own rules are listed: an open business day's, and not those of a cancelled order, a table that has paid or an order served from the orders screen. `passMinutes` is how long plated food may wait (the kitchen timers, 8 by default). A ticket is served with `PATCH /api/kitchen/kots/:id/status` `{ status: "served" }`.
+Errors: 401 not signed in; 403 neither permission; 403 `{ reason: "feature_off", feature: "kitchen_display" }`.
 
 #### `POST /api/kitchen/sync`
 Permission: `kds.view` or `kot.manage`
@@ -1747,7 +1754,7 @@ Mounted at `/api/table-requests` (tableRequest.routes.js). The user must be sign
 #### `GET /api/table-requests`
 Permission: `orders.view`
 Query: `view` (`pending` default, `today`, `history`, `all`), `type` (order, service, online), `limit` (whole number, 1-500, default 200), `offset`, `from`, `to` (YYYY-MM-DD).
-Returns: `data` = `{ items[] (each with `captain`), total, limit, offset, from, to, serverTime, since }`.
+Returns: `data` = `{ items[] (each with `captain`: its table's captain of the day, `{ userId, userName }`, or null, as `GET /api/tables` gives it), total, limit, offset, from, to, serverTime, since }`.
 Errors: 400 a bad filter, or `from` is after `to`.
 
 #### `GET /api/table-requests/summary`

@@ -1,0 +1,430 @@
+/* The captain app (workspaces/captain): a waiter's phone, held in one hand.
+   The header and the tabs stay put while the screen between them scrolls,
+   everything a thumb presses is 44 px or more, and on a wider screen the
+   screen stays a phone's width, in the middle. Colours from the tokens only,
+   so dark mode follows by itself. */
+
+.cpt-shell {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  height: 100vh;
+  height: 100dvh;
+  background: var(--bg);
+}
+
+/* --- The header --------------------------------------------------------------- */
+
+.cpt-top {
+  position: relative;
+  z-index: 30;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px 12px;
+  padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.cpt-brand {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.cpt-brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.cpt-brand-name,
+.cpt-brand-sub {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cpt-brand-name {
+  font-size: 0.9375rem;
+  font-weight: 750;
+}
+
+.cpt-brand-sub {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.cpt-top .live-indicator {
+  flex-shrink: 0;
+}
+
+.cpt-icon-button {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.cpt-icon-button:hover {
+  background: var(--chip-bg);
+  color: var(--text);
+}
+
+.cpt-icon-button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Alerts on: the bell in the brand's colour. Off: struck through. */
+.cpt-icon-button.is-on {
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.cpt-off-slash {
+  position: absolute;
+  width: 24px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  transform: rotate(-45deg);
+}
+
+.cpt-more {
+  flex-shrink: 0;
+}
+
+.cpt-more .action-menu-trigger {
+  width: 44px;
+  height: 44px;
+}
+
+.cpt-day-closed {
+  flex-shrink: 0;
+  margin: 8px 12px 0;
+}
+
+/* --- The screen between them ------------------------------------------------------ */
+
+.cpt-main {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+
+.cpt-main:focus {
+  outline: none;
+}
+
+/* The POS's bar at the thumb (taking an order) reaches the screen's edges by
+   these same sides and foot. */
+.cpt-content {
+  width: 100%;
+  max-width: 680px;
+  margin-inline: auto;
+  padding: 14px 16px 32px;
+}
+
+.cpt-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cpt-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cpt-page-head h1 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.cpt-mine {
+  flex: 1 1 260px;
+  display: flex;
+}
+
+.cpt-mine .segment {
+  flex: 1 1 0;
+  min-height: 44px;
+  justify-content: center;
+}
+
+.cpt-part {
+  gap: 10px;
+}
+
+.cpt-part h2,
+.cpt-sheet-part h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.cpt-elsewhere {
+  margin: 0;
+}
+
+/* --- The tables: two to a row on a phone, three on a wider one, tall
+   enough for a thumb and for what is waiting there. ------------------------- */
+
+.cpt-shell .cpt-tables.is-compact .pos-table-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cpt-shell .cpt-tables.is-compact .pos-table {
+  min-height: 104px;
+  padding: 10px 12px;
+}
+
+@media (min-width: 560px) {
+  .cpt-shell .cpt-tables.is-compact .pos-table-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* --- One table ---------------------------------------------------------------------- */
+
+.cpt-sheet-body {
+  gap: 14px;
+}
+
+.cpt-sheet-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.cpt-sheet-facts {
+  color: var(--text-2);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cpt-sheet-kitchen {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.cpt-sheet-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.cpt-sheet-actions .button {
+  min-height: 48px;
+  justify-content: center;
+}
+
+.cpt-sheet-note {
+  margin: 0;
+}
+
+/* --- Food at the pass ------------------------------------------------------------- */
+
+.cpt-ready {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--success);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.cpt-ready.is-warning {
+  border-left-color: var(--warning);
+}
+
+.cpt-ready.is-late {
+  border-left-color: var(--danger);
+}
+
+.cpt-ready-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cpt-ready-table {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 8px;
+  border-radius: 10px;
+  background: var(--success-bg);
+  color: var(--success-text);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.cpt-ready-title {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.cpt-ready-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  color: var(--success-text);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.cpt-ready-clock.is-warning {
+  color: var(--warning-text);
+}
+
+.cpt-ready-clock.is-late {
+  color: var(--danger);
+}
+
+.cpt-ready-dishes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cpt-ready-dishes li {
+  display: flex;
+  gap: 8px;
+}
+
+.cpt-ready-qty {
+  min-width: 32px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.cpt-ready-note {
+  display: block;
+  color: var(--warning-text);
+  font-size: 0.8125rem;
+  font-style: italic;
+}
+
+.cpt-serve {
+  min-height: 48px;
+  justify-content: center;
+}
+
+.cpt-card-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.875rem;
+}
+
+/* A message ("Table 4: asked for water") shows above the tabs, and above the
+   POS's bar while an order is taken, never over what the thumb presses. */
+body:has(.cpt-shell) .toaster {
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+}
+
+/* --- The tabs at the thumb ------------------------------------------------------- */
+
+.cpt-tabs {
+  position: relative;
+  z-index: 30;
+  flex-shrink: 0;
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.cpt-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 58px;
+  padding: 6px 4px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.cpt-tab:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -4px;
+}
+
+.cpt-tab.is-active {
+  color: var(--primary);
+}
+
+.cpt-tab-icon {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 52px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+}
+
+.cpt-tab.is-active .cpt-tab-icon {
+  background: var(--primary-soft);
+}
+
+.cpt-tab-count {
+  position: absolute;
+  top: -6px;
+  right: 2px;
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--danger-solid);
+  color: var(--brand-on-deep);
+  font-size: 0.75rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}

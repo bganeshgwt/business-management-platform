@@ -41,7 +41,8 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     for (const route of [...restaurantRoutes,"/inventory/items?tab=batches"]) {
       await test.step(route, async () => {
         await page.goto(route);
-        const content = page.locator(route === '/collection' ? 'main.col-screen' : 'main.content-scroll');
+        // The pickup screen and the captain app have layouts of their own.
+        const content = page.locator(route === '/collection' ? 'main.col-screen' : route.startsWith('/captain') ? 'main.cpt-main' : 'main.content-scroll');
         await expect(content).toBeVisible();
         await networkQuiet(page);
         await expect(content).not.toContainText("Loading screen");

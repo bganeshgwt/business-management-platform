@@ -650,8 +650,8 @@ Dish profitability.
 
 ## Service — POS, orders, kitchen, captains, requests
 
-In the menu: **POS**, **Orders** (with Table requests) and **Kitchen display**
-under Daily work; captain sections on **Tables & QR**.
+In the menu: **POS**, **Captain app**, **Orders** (with Table requests) and
+**Kitchen display** under Daily work; captain sections on **Tables & QR**.
 
 ```
 Seat or take order  →  POS: build the cart  →  Save & print KOT
@@ -678,8 +678,10 @@ delivery addresses work.
   created — one slip per station; on a saved order the button reads **Print new
   KOTs**. The till never reprints a ticket the kitchen already has, so nothing
   is cooked twice.
-- **Courses:** a dish can be given a course number and held; held courses stay
-  off the kitchen tickets until **Fire** is pressed on the saved order.
+- **Courses:** on the captain app a dine-in table's dishes can be held as a
+  later course (see Captain app below); held dishes stay off the kitchen
+  tickets until **Fire course 2** (or 3) is pressed on the saved order, here or
+  on the captain app. The till itself sends every dish when the order is sent.
 - **Captains** see *My tables* first when picking a table (see Captain
   sections below); they can still switch to *All tables*.
 - **Moving and joining:** an order can move to another table, be joined with
@@ -710,7 +712,9 @@ clock. A ticket appears within a second or two of a till or a captain sending
 it, and a change or cancellation just as quickly; **Live** on the toolbar says
 so (tap it to read the board now). Cooks move tickets on — **Start cooking →
 Mark ready → Served** (and back if tapped by mistake) — with `kot.manage`; a
-screen with only `kds.view` watches without buttons. The toolbar has
+screen with only `kds.view` watches without buttons. A ticket marked ready
+also shows on the **Captain app**'s *Ready* tab, where the waiter who carries
+it out marks it served. The toolbar has
 **All-day** (how many of each dish are still to cook), **Recall** (the last
 served ticket, up to 3 hours back), **Change slips**, **Sold out** (mark a dish
 sold out for today), a chime, and **Focus** (full screen for a wall TV).
@@ -749,12 +753,16 @@ Priya's). Each place has one captain a day; **Save plan** replaces the whole
 day; **Copy yesterday's plan** starts a new day (refused if today already has
 a plan). Plans do not carry over by themselves.
 
-What it changes: captains see *My tables* first in the POS; **Table requests**
-are tagged *Your table* or *Priya's table* with a captain's own first; the
-tables list gets a *Captain today* column; and Reports → Staff & waiters has
-*By captain section*. Sections never block anyone from serving any table.
-Viewing needs `tables.view`, changing needs `tables.manage`. Anyone whose role
-can take orders is offered as a captain, so cashiers and managers appear too.
+What it changes: captains see *My tables* first in the POS and in the
+**Captain app**, whose calls and food at the pass follow the same tables;
+**Table requests** are tagged *Your table* or *Priya's table* with a captain's
+own first; the tables list gets a *Captain today* column; and Reports → Staff
+& waiters has *By captain section*. Sections never block anyone from serving
+any table. With **Captain sections** switched off (Settings → Features) no
+table is anyone's and every captain sees every table; the plans are kept for
+when it is switched on again. Viewing needs `tables.view`, changing needs
+`tables.manage`. Anyone whose role can take orders is offered as a captain, so
+cashiers and managers appear too.
 
 ### Table requests
 
@@ -770,6 +778,105 @@ from the table* and *Guests can call staff* on or off, sets a note shown at
 the top of the guest menu, and opens *See what guests see* for any table;
 changing it needs `orders.manage`. With ordering paused, guests can still
 read the menu and call staff.
+
+### Captain app
+
+**Daily work → Captain app** (the address `/captain`) is the waiters' own
+screen, made for a phone held in one hand at the table. It is part of the
+staff app, not something to install: a captain signs in on their phone, opens
+it, and adds it to the phone's home screen; the address keeps working as a
+bookmark, and signing in from it comes back to it. It has a header of its own
+(the restaurant, who is signed in, **Live**, the alerts bell, the lock and a
+**⋯** menu) and three tabs at the thumb:
+
+- **Tables** — the tables of the captain's section today (*My tables*, from
+  **Tables & QR → Captain sections**), or every table with *All tables*;
+  someone with no section today sees every table. Each table says at a glance
+  what is happening there (free, eating, bill printed, paid, being cleaned,
+  held for a booking, out of service) and what is waiting: a guest calling
+  (*Wants a waiter*, *Asked for water*, *Needs something*), *Wants the bill*, a
+  *QR order waiting*, *Food ready* (red once it has waited at the pass longer
+  than the kitchen's pass time), the order *Sent* or *Cooking* in the kitchen,
+  and how many guests are seated and for how long. The running total shows
+  only to someone who may see takings (`sales.view`). A tap opens the table:
+  its order, guests and how long they have sat, what the kitchen is doing,
+  the calls, QR orders and food waiting there (each answered on the spot), and
+  what your role may do with the table — **Start order**, **Open order**,
+  **Bill**, **Take payment** or **Open bill**, **Reprint**, **Mark ready**,
+  **Seat booking**, **Seat walk-in** or **No-show**: the same actions, by the
+  same permissions, as the dashboard's Floor panel.
+- **Calls** — guests' calls from the QR codes at those tables, the longest
+  waiting first: **On my way** (the guest's phone shows someone is coming) and
+  **Done**; and their QR orders: **Accept** (to the kitchen and the bill) or
+  **Reject** with a reason the guest reads. Orders from the online ordering
+  page have no table: the counter takes them under Orders → Table requests.
+  The tab shows while QR ordering is on.
+- **Ready** — the food the kitchen has marked ready for those tables, the
+  oldest at the pass first, with how long it has waited. **Served** takes the
+  ticket off the pass in the captain's name, as the kitchen display's *Served*
+  does, and its dishes are served on the order. The tab shows while the
+  kitchen display is on, to roles that handle KOTs (`kot.manage`).
+
+**Taking an order** opens the POS itself in its phone layout, on the table
+tapped: dishes by category or search, sizes, add-ons and combo choices in the
+picker with a note for the kitchen, the guest's mobile, *Guests*, and
+**Send**. Everything the POS checks is checked here: what is on sale and sold
+out, serving times, the price of the hour, a table held for a booking, a dish
+the kitchen already has, the business day. Two things are the captain app's
+own:
+
+- **Send to the kitchen** — *Now*, *Course 2 later* or *Course 3 later*, for
+  a dine-in table. Dishes added under a later course wait on the order, marked
+  *Course 2 · held*, until **Fire course 2** is pressed on it; they then reach
+  the kitchen as a round of their own, in the name of whoever fired them.
+- **Add a note** on a dish just added gives it a note for the kitchen ("less
+  spicy") without opening the dish again. A dish the kitchen already has keeps
+  the note it was sent with.
+
+Moving guests, joining and unjoining tables are in the order's *Move or join
+tables* menu, as on the POS. **Send** saves the order (its KOTs reach the
+kitchen display at once) and goes back to the tables; **Tables** goes back
+without saving.
+
+**The bill** follows the POS's rule. Someone who may raise bills
+(`billing.manage`) presses **Bill** on the table: the order's bill opens in
+the same bill window as the POS, where it prints and, only for someone who
+may take payments (`payments.manage`), takes the payment. A captain without
+the billing permission is told *The counter raises the bill when the guests
+ask for it*; once the counter has raised it, the table shows *Bill printed*
+and **Open bill** shows the bill as the guest sees it, to print at the table
+(the first copy; a second needs `bills.reprint` or a manager's PIN). Taking
+the money stays at the counter.
+
+**Alerts.** Everything arrives by itself within a second or two (**Live** in
+the header), and a message names the table. The bell in the header switches
+alerts on for this phone: from then on a call, a QR order or food at the pass
+at the tables shown also buzzes the phone (where the browser can) and chimes.
+The choice is kept on the phone; the first tap after opening the app lets it
+chime again.
+
+**Lock and PIN** work as on the POS: the lock button, or the idle time set
+under Users (*Till lock & sign-in*), locks the phone; the captain carries on
+with their PIN, or someone else takes over with theirs and the app starts
+fresh for them. The **⋯** menu has *My profile, password & PIN*, *The full
+staff app*, *Lock / switch user* and *Sign out*.
+
+**Giving a waiter the captain app:**
+
+1. Under **Users**, make their login with the **Captain / Waiter** role (take
+   orders, KOTs, the tables and reservations; no billing and no takings), or
+   any role that can take orders (`orders.create`).
+2. Set their PIN under Users (⋯ › *Set PIN*), or let them choose one under
+   *My profile › Personal PIN*: it unlocks the phone and lets another waiter
+   take over a shared phone.
+3. Each day, give them their tables under **Tables & QR → Captain
+   sections** (*Copy yesterday's plan* makes it quick).
+4. On their phone they sign in, open **Daily work → Captain app** and add it
+   to the home screen.
+
+For the bill at the table as well, give their role *Create bills and apply
+discounts* (`billing.manage`); to take the money there too, *Take payments*
+(`payments.manage`).
 
 ## Billing, payments, dues and advances
 
@@ -5045,7 +5152,7 @@ version and change that.
 | **Cashier** | POS, orders, billing and payments, KOTs, opening the day (not closing it), reprints, reports and takings, guests and feedback, reservations, log book, time clock, staff view, reporting issues. Voids, refunds, discounts, comps, payment corrections, cash in/out, dues and closing the day need a manager's PIN |
 | **Accountant** | The books: reports and takings, the business day (to read), expenses, supplier bills and payments, staff and salaries, the activity log; sees tasks, issues and projects. No till and no menu |
 | **Store keeper** | The store: stock, counts, wastage, indents, purchase orders, receiving goods and returns, the supplier list and the menu (to read), reporting issues. No payments, reports or salaries |
-| **Captain / Waiter** | Menu, tables, take orders, KOTs, mark a dish sold out, reservations, pickup screen, reporting issues — no billing and no takings |
+| **Captain / Waiter** | Menu, tables, take orders, KOTs, the captain app, mark a dish sold out, reservations, pickup screen, reporting issues — no billing and no takings |
 | **Kitchen Staff** | Kitchen display and KOTs, sold out, read stock, log wastage, count stock, raise indents, pickup screen, reporting issues, the bake list (*Pre-orders & cakes*, when on) |
 | **Collection display** | The pickup-screen TV (`orders.collection`) and nothing else |
 | Super Admin | The platform's own login ([The first platform login](#the-first-platform-login-and-the-platform-screens)); never shown or assignable in a restaurant |
@@ -5122,7 +5229,7 @@ permission codes](DATABASE.md#business-permission-codes).
 | Before service | Manager | **Kitchen display → Sold out** | Mark anything not available today |
 | Before service | Anyone | **Log book** | Read what the last shift left; close follow-ups dealt with |
 | Service | Host | **Reservations**, **Tables** | Answer online requests, seat bookings and walk-ins |
-| Service | Captain | **POS** | Take orders on *My tables*, send KOTs |
+| Service | Captain | **Captain app** | Take orders at *My tables*, answer guests' calls, serve food from the pass |
 | Service | Cashier | **POS**, **Bills & payments** | Raise bills, apply offers, take payment (and tips), print |
 | Service | Counter | **Table requests** | Accept QR and online orders — nothing is cooked until accepted |
 | Service | Manager | **Dashboard** | Watch takings, live service and *Needs attention* |
@@ -5144,7 +5251,7 @@ last night's takings land on today's sheet.
 
 ## Not built yet: what to do meanwhile
 
-**Workspaces still to come.** Three addresses of Business Admin are kept for
+**Workspaces still to come.** Two addresses of Business Admin are kept for
 workspaces that are planned and not built yet. Each opens a page marked
 *Planned · not built yet*: **What it will do**, then **Until then** with where
 that work is done today and buttons to go there. A bookmark or a tablet
@@ -5152,7 +5259,6 @@ set up on one of them keeps working when the workspace arrives.
 
 | Address | Planned | Until then |
 | --- | --- | --- |
-| `/captain` | **Captain app for waiters**: a phone screen for each waiter built around their own tables — the section's tables at a glance (free, seated, waiting for food, asking for the bill), orders with sizes, add-ons and notes sent straight to the kitchen, and a call on the phone when a dish is ready to serve | Take orders on the **POS** from its tables view (a captain sees their own section first) and answer guests' QR calls in **Orders → Table requests** |
 | `/clinic` | **Clinic workspace**: one screen for the reception desk and the doctors — registration and the token queue, the consultation (history, notes, prescription and tests) and follow-ups and referrals without leaving the queue | The clinic's own Business Admin menu: **Token queue**, **Today's patients**, **Patients** |
 | `/lab` | **Lab workspace**: one screen for the people who collect samples and run the tests — where each sample is, worklists, result entry and approval, and reports released to the doctor and the patient with every version kept | The clinic's Business Admin: **Lab orders**, **Tests & panels** |
 

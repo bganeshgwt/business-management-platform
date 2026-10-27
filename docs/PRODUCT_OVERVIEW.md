@@ -86,6 +86,11 @@ Each business type adds only what is truly its own on top of the shared core. Th
   - the kinds of order offered depend on the format.
 - **Kitchen display and KOT:** orders reach the right kitchen station; dishes can be marked sold out.
 - **Tables and QR ordering:** floors and tables, guest QR ordering, captain sections.
+- **Captain app:** each waiter's phone, in one hand at the table:
+  - their own tables (the day's captain section), each saying at a glance whether it is free or eating, with a guest calling, the bill asked for, a QR order waiting, food ready at the pass or the order with the kitchen, and how many are seated and for how long;
+  - orders taken at the table on the POS's own screen, with sizes, add-ons and notes, and a later course held until the captain fires it, sent straight to the kitchen display;
+  - guests' calls answered and food served from the pass as soon as they arrive, the phone buzzing and chiming once the waiter allows it;
+  - the bill raised and printed at the table, or left to the counter, as the waiter's role allows.
 - **Reservations and online booking:** bookings, the waitlist, and the restaurant's own booking page.
 - **Online ordering and delivery:**
   - the restaurant's own ordering page and pickup tokens;

@@ -10,8 +10,9 @@ For everyone who uses or builds the platform: the words on its screens and in th
 | **Business Admin** | The staff application: one place to run every business you belong to, with a switcher at the top. The technical documents call it the **staff app** (`apps/business-web`). |
 | **Guests' site** | What a restaurant's guests open without signing in (`apps/customer-web`): the menu behind a table's QR code, online ordering and table booking. |
 | **POS and kitchen display** | Restaurant screens inside Business Admin: the POS (`/pos`), where captains also take orders, and the kitchen display (`/kitchen`). |
+| **Captain app** | The waiters' phone screen inside Business Admin (`/captain`): their own tables at a glance, orders taken at the table on the POS's own screen, guests' calls and the food at the pass, live. It is part of the staff app, with a layout of its own; nothing is installed. |
 | **Platform console** | The *Platform* screens inside Business Admin: Platform › Restaurants (`/platform/restaurants`) and Platform › Businesses (`/platform/businesses`). The Super Admin creates restaurants and businesses there with their owners' logins, switches them off and on, and sets a new password for a locked-out owner. It shows no business's bills or customers. A separate platform application, with plans and subscriptions, is planned. |
-| **Planned page** | The address of a screen that is not built yet. It opens a page that says what is coming and what to use meanwhile, never "Page not found". Business Admin has them for a captain app for waiters (`/captain`) and for clinic and lab workspaces (`/clinic`, `/lab`). The guests' site has them for ordering from a shop (`/shop`), booking a salon or clinic appointment (`/appointments`) and a guest's own account (`/account`). |
+| **Planned page** | The address of a screen that is not built yet. It opens a page that says what is coming and what to use meanwhile, never "Page not found". Business Admin has them for clinic and lab workspaces (`/clinic`, `/lab`). The guests' site has them for ordering from a shop (`/shop`), booking a salon or clinic appointment (`/appointments`) and a guest's own account (`/account`). |
 
 Inside Business Admin a restaurant is simply the restaurant business's own admin (its menu, tables, kitchen, POS and reports), not a separate product. A café, a bakery and a cloud kitchen are restaurants too, each in its own *format*.
 
@@ -55,7 +56,9 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Day cut-off** | The hour (5 am by default) until which last night's business day stays the trading day. Other businesses have a day cut-off too, which applies to their tasks only. |
 | **Order** | What the guest asked for. It can still be changed. |
 | **KOT** | Kitchen order ticket: an order's dishes sent to a kitchen station, on the kitchen display or as a printed slip. Taking a dish off after its KOT is a cancellation and needs a reason. |
-| **Captain** | A waiter who takes table orders on the POS. The day's captain sections give each captain a floor, a section or single tables. |
+| **Captain** | A waiter who takes table orders, on the captain app or the POS. The day's captain sections give each captain a floor, a section or single tables: their *My tables*. |
+| **The pass** | Where the kitchen puts plated food for the waiters to carry out. A ticket marked *ready* on the kitchen display is *at the pass* until someone marks it *served*; food waiting there longer than the kitchen's pass time (8 minutes unless the restaurant sets its own) is going cold. |
+| **Course (held, fired)** | A later part of a table's meal. On the captain app a dine-in order's dishes can be held as course 2 or 3: saved on the order but not sent to the kitchen until someone presses *Fire course 2* (or 3), when they go as a round of their own. |
 | **Bill** | What the guest is charged. Raised from an order, it closes the order to changes. |
 | **Payment type** | A name the owner gives a way of paying, such as a meal card, PhonePe or a cheque, under one of the till's methods (Cash, Card, UPI or Other). The till offers it under its method, and the reports total it apart. Other businesses call theirs *payment methods*. |
 | **Void** | The bill should never have existed. Possible only while no money is held on it and it is not settled. |

@@ -5,7 +5,8 @@ how its code is laid out, how sign-in works, and how to add a page.
 
 React 19 + Vite. Where owners, managers, cashiers, captains and kitchen staff
 work, for every business type: Business Admin, the restaurant admin, the POS,
-the kitchen display, the pickup screen and the platform console. It talks to
+the captain app, the kitchen display, the pickup screen and the platform
+console. It talks to
 the Express API in `../../backend`. The guests' pages (table QR ordering,
 online ordering, booking) are their own app, `../customer-web`.
 
@@ -61,9 +62,9 @@ tests need. See [../../docs/TESTING.md](../../docs/TESTING.md).
 src/
 ├── main.jsx            The shared look (@bmp/ui/styles.css) → QueryClientProvider → BrowserRouter →
 │                       AuthProvider → App (+ ApprovalDialog, ConfirmHost, Toaster)
-├── App.jsx             Routes, including the planned workspaces (/captain, /clinic, /lab) and
-│                       guest links opened on this app (/order, /online, /book), which go on to
-│                       the guests' site
+├── App.jsx             Routes, including the captain app (/captain/*), the planned workspaces
+│                       (/clinic, /lab) and guest links opened on this app (/order, /online,
+│                       /book), which go on to the guests' site
 ├── context/            AuthProvider (user, permissions, features), BusinessProvider (open business)
 ├── hooks/              useAuth, useBusiness, motion hooks …
 ├── routes/ProtectedRoute.jsx  Requires login, optionally a permission or a feature
@@ -73,6 +74,8 @@ src/
 │                       restaurant/<area>, business/<core, a type or a shared area>, tasks.
 │                       Each holds pages/ (one file per screen), and the services/ and
 │                       styles/ it alone uses
+├── workspaces/         What one role works in: a layout of its own and screens built from the
+│                       modules. captain/ is the captain app, the waiters' phone screens
 ├── components/         Shared UI (DataGrid, Modal, PageHeader …)
 ├── services/           Shared services: api.js (axios, token, outlet, approvals),
 │                       customerWeb.js (where the guests' site is), businessNav …

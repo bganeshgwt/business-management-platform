@@ -12,7 +12,7 @@ What [ADMIN_GUIDE.md](ADMIN_GUIDE.md) and [API.md](API.md) describe is built. Th
 | Outside services | Online payment confirmation, live Swiggy / Zomato orders and menus per brand, SMS and WhatsApp messages, maps ([§1](#1-outside-integrations)) | Provider accounts and contracts; the go-ahead for maps |
 | Hardware | Silent receipt and kitchen printing, the cash drawer, a live weighing scale ([§2](#2-hardware)) | The printer and scale models in use |
 | Plans and subscriptions | Paid plans that decide which modules a business gets ([§3](#3-the-platform-layer)) | Plan names and prices |
-| Separate apps | Offline POS, captain (waiter) app, clinic and lab workspaces, guests' pages for shops, appointments and their own account, salesperson app ([§4](#4-applications-beyond-the-admin)) | Priority and go-ahead |
+| Separate apps | Offline POS, clinic and lab workspaces, guests' pages for shops, appointments and their own account, salesperson app ([§4](#4-applications-beyond-the-admin)) | Priority and go-ahead |
 | Expert review | The pharmacy, clinic and lab rules ([BUSINESS_RULES.md](BUSINESS_RULES.md#pharmacy-clinic-and-lab)); the GST reports and the Tally export | A pharmacist, a doctor, a legal adviser and an accountant |
 | New business types | Eleven more types work on the shared core, each but the general store with screens of its own; what is left inside them is in [§7](#7-left-inside-built-modules), and the rules every type still needs (personal data, an owner's GST thresholds, bills outside GST, the time of supply across a GST rate change) in [§10](#10-new-business-types) | Code; an accountant's and a legal adviser's check where §7 and §10 say so |
 
@@ -54,21 +54,20 @@ None of this can be finished without the equipment on a desk.
 
 ## 4. Applications beyond the admin
 
-The staff app (`apps/business-web`) covers every screen staff use, including the POS, the kitchen display and the captain views. The guests' pages (QR table ordering, online ordering and table booking) are an app of their own, the guests' site (`apps/customer-web`). Planned screens have their addresses, each with a page that says what is coming and what to use meanwhile: `/captain`, `/clinic` and `/lab` on the staff app, and `/shop`, `/appointments` and `/account` (*Coming soon*) on the guests' site.
+The staff app (`apps/business-web`) covers every screen staff use, including the POS, the kitchen display and the captain app (`/captain`, a waiter's phone screen: [ADMIN_GUIDE.md › Captain app](ADMIN_GUIDE.md#captain-app); what is left of it is under Restaurant in [§7](#7-left-inside-built-modules)). The guests' pages (QR table ordering, online ordering and table booking) are an app of their own, the guests' site (`apps/customer-web`). Planned screens have their addresses, each with a page that says what is coming and what to use meanwhile: `/clinic` and `/lab` on the staff app, and `/shop`, `/appointments` and `/account` (*Coming soon*) on the guests' site.
 
 Still to build as separate apps:
 
 | App | What it needs |
 | --- | --- |
 | **POS app** (an offline-capable till) | A decision on offline: which actions may work without the network and how they reconcile (the server issues bill numbers); a device list. |
-| **Captain / waiter app** (`/captain` says what is coming) | A phone-first order screen using the existing order, KOT and captain-section APIs, with the live updates the staff screens already use (§5). |
 | **Clinic and lab workspaces** (`/clinic` and `/lab` say what is coming) | One screen for the front desk and the doctors, and one for sample collection and the lab, built from the clinic and lab screens of Business Admin; the owner's go-ahead. |
 | **Customer website**: shop, appointments, account | The guests' site has the restaurant's ordering and booking pages, at the restaurant's own address when it sets one (*Service settings › Guest ordering web address*). The rest needs branding, hosting for each business's own address, the payment gateway (§1) and guest sign-in. |
 | **Salesperson app (wholesale)** | Order taking on the beat, offline, using the sales-order APIs. |
 
 ## 5. Live updates and the outbox
 
-The staff screens are live: a change made on one screen appears on every other open screen that shows it within about a second, and no screen asks the server every few seconds any more; most keep a slow safety net of a minute ([ARCHITECTURE.md › Live updates](ARCHITECTURE.md#35-live-updates)). That covers the restaurant's kitchen display, table requests, the POS, deliveries, the collection display, the dashboard, reservations, the floor, the bell and notifications and the time clock, and in the other businesses the token queue, the salon calendar, my tasks, the jeweller's rate board and the bell. What is left:
+The staff screens are live: a change made on one screen appears on every other open screen that shows it within about a second, and no screen asks the server every few seconds any more; most keep a slow safety net of a minute ([ARCHITECTURE.md › Live updates](ARCHITECTURE.md#35-live-updates)). That covers the restaurant's kitchen display, table requests, the POS, the captain app, deliveries, the collection display, the dashboard, reservations, the floor, the bell and notifications and the time clock, and in the other businesses the token queue, the salon calendar, my tasks, the jeweller's rate board and the bell. What is left:
 
 | Item | Where it stands | What it needs |
 | --- | --- | --- |
@@ -82,7 +81,7 @@ The larger changes to the code's structure. Each is described step by step in [A
 - **Plan D, one identity:** one role system per business, with approvals, PIN sign-in, outlet pinning and two-step roles on memberships ([§9.3](ARCHITECTURE.md#93-plans-d-e-and-f)).
 - **Plan E, the restaurant on the shared core:** the restaurant's locations, events, master data, menu, stock and money move onto the shared tables, one area at a time: write both, compare, switch the reads, retire the old tables ([§9.3](ARCHITECTURE.md#93-plans-d-e-and-f)).
 - **Plan F, a migration baseline before go-live:** new installs run one baseline file instead of every migration ([§9.3](ARCHITECTURE.md#93-plans-d-e-and-f)).
-- **Folders that wait for their first piece:** the staff app's `workspaces/` (with the first planned workspace), the backend's `integrations/` and `jobs/` (with the first integration), and `apps/platform-admin` (when the platform team releases on its own) ([§9.4](ARCHITECTURE.md#94-folders-that-wait-for-their-first-piece)).
+- **Folders that wait for their first piece:** the backend's `integrations/` and `jobs/` (with the first integration), and `apps/platform-admin` (when the platform team releases on its own) ([§9.4](ARCHITECTURE.md#94-folders-that-wait-for-their-first-piece)).
 
 ## 7. Left inside built modules
 
@@ -111,6 +110,8 @@ Known gaps, not defects. The owner decides when each is built.
 | **Restaurant** | Kitchen staff read the bake list but cannot mark a pre-order *In production* or *Ready*, which needs `orders.create`. A kitchen login not tied to an outlet always reads the main counter's list. | The owner's rule for who moves pre-orders along; then code. |
 | **Every business type** | *Staff & access* lists everyone to a manager tied to a department (with no buttons on people outside it), and shows *Password* for a person whose login is also used elsewhere, which the server then refuses. | The owner's rule for what a department manager sees; then code. |
 | **Restaurant** | *Table requests › Open guest menu* opens the platform's guests' site, even when the restaurant has its own guest web address. Both serve the same page. | Code only. |
+| **Restaurant** | The captain app ([ADMIN_GUIDE.md › Captain app](ADMIN_GUIDE.md#captain-app)): a captain without the billing permission cannot ask the counter for a table's bill from it; they tell the counter, or the guest presses *Request bill* on the table's QR page. Food is served a whole ticket at a time: a dish the kitchen ticked done on a ticket still cooking is not on the *Ready* list. A later course is course 2 or 3, held; courses have no names of their own (starters, mains), and the first course cannot be held. | Code only. |
+| **Restaurant** | The captain app's alerts reach the phone only while the app is open on its screen: a phone in the pocket, its screen off or the app in the background, hears nothing until it is opened again, and there is no offline mode (an order needs the network, as on the POS). | Web push notifications (a push service, and the owner's go-ahead for messages to staff phones); offline needs the same decision as the offline POS app ([§4](#4-applications-beyond-the-admin)). |
 | **Restaurant** | The cash limit and the buyer's PAN ([BUSINESS_RULES.md › The cash limit at a restaurant](BUSINESS_RULES.md#the-cash-limit-at-a-restaurant)): the guest book keeps no PAN, so a regular's PAN is typed on each of their bills over ₹2,00,000 (a company's GSTIN on the bill carries its own), and a walk-in's cash is limited bill by bill, with no adding up of walk-in bills that carry the same PAN. | Code only. |
 | **Restaurant** | A PIN an admin sets for someone in *Users* (⋯ › *Set PIN*) is not changed by itself, as a password someone else sets is at the first sign-in: whoever set it can unlock or take over a shared till as that person, or approve as them if they are a manager, until they change it under *My profile › Personal PIN*. | The owner's rule for a PIN someone else sets (the person chooses their own at its first use, or only the person sets one); then code. |
 | **Wholesale** | The e-way bill API link: the number is typed in by hand on the dispatch and printed on the invoice and the challan. The salesperson app is in [§4](#4-applications-beyond-the-admin). | GSP / NIC API access. |

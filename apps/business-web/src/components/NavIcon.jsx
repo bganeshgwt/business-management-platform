@@ -32,6 +32,13 @@ const PATHS = {
       <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" />
     </>
   ),
+  // A phone in the hand: the captain app.
+  captain: (
+    <>
+      <rect x="7" y="2" width="10" height="20" rx="2" />
+      <path d="M11 18h2M10 7h4M10 11h4" />
+    </>
+  ),
   orders: (
     <>
       <path d="M6 2h12a1 1 0 0 1 1 1v18l-3-2-3 2-3-2-3 2V3a1 1 0 0 1 1-1Z" />

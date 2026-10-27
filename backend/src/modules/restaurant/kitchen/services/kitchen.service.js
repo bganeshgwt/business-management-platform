@@ -238,6 +238,26 @@ const board = async (restaurantId, { stationId, outletId, includeEarlier = false
   };
 };
 
+// The food at the pass, for the floor: the captain app's Ready list, whose
+// waiters carry it out and mark it served. Read only, so a dozen phones
+// reading it never cut or clear a ticket; the board does that. `passMinutes`
+// is how long plated food may wait before it is going cold (the kitchen
+// timers), and timers on the phone run from the server's clock.
+const pass = async (restaurantId, outletId = null) => {
+  requireRestaurantId(restaurantId);
+
+  const [settings, tickets] = await Promise.all([
+    kitchenRepository.findSettings(restaurantId),
+    kitchenRepository.findAtPass(restaurantId, outletId || null),
+  ]);
+
+  return {
+    serverTime: new Date().toISOString(),
+    passMinutes: settings.pass_minutes ?? PASS_MINUTES,
+    tickets: tickets.map(toTicket),
+  };
+};
+
 const syncNow = async (restaurantId) => {
   requireRestaurantId(restaurantId);
 
@@ -665,6 +685,7 @@ const updateSettings = async (restaurantId, data, userId) => {
 module.exports = {
   STATION_COLORS,
   board,
+  pass,
   syncNow,
   orderTickets,
   getTicket,

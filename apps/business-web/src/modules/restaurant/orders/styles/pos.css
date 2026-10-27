@@ -1437,6 +1437,57 @@
   color: var(--muted);
 }
 
+/* What else a tile says (the captain app: a guest calling, food at the
+   pass), as small chips under its state, the most urgent first. */
+.pos-table-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+  max-width: 100%;
+}
+
+.pos-table-mark {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1.45;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pos-table-mark.is-danger {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.pos-table-mark.is-warning {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.pos-table-mark.is-success {
+  border-color: var(--success-border);
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.pos-table-mark.is-info {
+  border-color: var(--info-border);
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+
 /* --- Moving guests and dishes ------------------------------------------------ */
 
 .pos-move-steps {
@@ -1738,6 +1789,48 @@
 }
 
 /* --- The captain's phone ----------------------------------------------------- */
+
+/* The captain app keeps the phone layout on any screen: the menu alone, the
+   order in its sheet. */
+.pos-page.is-captain .pos-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* When the dishes being added go to the kitchen: now, or a later course. */
+.pos-course-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pos-course-label {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pos-page .pos-course {
+  display: flex;
+  width: 100%;
+}
+
+.pos-page .pos-course .segment {
+  flex: 1 1 0;
+  min-height: 40px;
+  justify-content: center;
+}
+
+.pos-course-hint {
+  margin: 0;
+}
+
+.pos-line-note {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.8125rem;
+}
 
 .pos-table-step {
   gap: 14px;

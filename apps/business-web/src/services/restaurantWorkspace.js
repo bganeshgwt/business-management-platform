@@ -3,6 +3,8 @@
 const AREAS = {
   overview: ['/'],
   pos: ['/pos'],
+  // The captain app: its own screen with its own tabs (workspaces/captain).
+  captain: ['/captain'],
   orders: ['/orders', '/collection', '/table-requests', '/deliveries'],
   // Food formats: a bakery's and café's cake and party orders.
   preorders: ['/preorders'],
@@ -27,7 +29,7 @@ const AREAS = {
 const LABELS = { menu:'Menu',inventory:'Stock',purchasing:'Purchases & suppliers',customers:'Customers',staff:'Staff',settings:'Settings',access:'Users & access',tasks:'Tasks' };
 export function restaurantMenu(sections) {
   const links=sections.flatMap(group=>group.links);
-  const groups=[{title:'Daily work',keys:['overview','pos','orders','preorders','bills','dues','kitchen','expenses','day']},
+  const groups=[{title:'Daily work',keys:['overview','pos','captain','orders','preorders','bills','dues','kitchen','expenses','day']},
     {title:'Operations',keys:['menu','tables','reservations','inventory','purchasing','customers','staff']},
     {title:'Management',keys:['reports','tasks','settings','access']}];
   const result=groups.map(group=>({title:group.title,links:group.keys.map(key=>{

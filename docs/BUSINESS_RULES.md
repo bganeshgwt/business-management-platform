@@ -1227,3 +1227,27 @@ A hotel, lodge or guest house bills on bills of the shared core ([Shops and the 
 - **Rule:** the same changes as a shop's ([GST rates by date](#gst-rates-by-date)) move dishes to another of the restaurant's tax rates, under *Menu › GST rate changes* (`menu.manage`), from a day on the restaurant's own clock: its trading day, so a night that runs past midnight stays on the old rate until its business day ends. A dish takes the rate in force on its order's business day, and the bill keeps it; a bill made before keeps its rates. A price that includes GST (the dish's own setting, or the restaurant's) keeps its total unless the change keeps the price before GST, which then moves the dish's price and its sizes' prices; add-ons, happy-hour prices and the prices set for an outlet, a channel or a kind of order keep theirs. An outlet still on the day before (its own business day not yet closed) prices its orders as before the change. The dish's *GST history* (its *More actions* on *Menu › Products*) and the activity log keep each change with who entered it and why, so a dish a change has named is archived, not deleted. A tax rate dishes are to move to cannot be switched off until then.
 - **Why:** the same yearly change; a restaurant's day is its trading day, not the calendar's.
 - **Change it:** *Menu › GST rate changes*; a dish's rate from today, on the dish itself.
+
+### The captain app follows the waiter's role
+
+- **Rule:** the captain app (*Daily work › Captain app*, the address `/captain`) opens for anyone whose role takes orders (`orders.create`), as the POS does, and asks the server only for what that person may read: guests' calls and QR orders while QR ordering is on, with `orders.view`; the food at the pass while the kitchen display is on, with `kot.manage` or `kds.view`. Its tables are the person's captain section of the day, or every table for someone with none, and *All tables* is one tap away. A table's running total shows only to someone who may see takings (`sales.view`). Orders are taken on the POS's own screen, by every rule of the POS. A bill is raised there only with `billing.manage`, in the POS's own bill window, and paid there only with `payments.manage`; a captain without them prints a bill the counter has raised (a second copy needs `bills.reprint` or a manager's PIN), and the money is taken at the counter. Food is served from the pass with `kot.manage`, exactly as on the kitchen display.
+- **Why:** the captain app is a phone layout over the restaurant's own screens, so a waiter does there exactly what their role allows on the POS, Table requests and the kitchen display, and nothing more. Money on the floor is for those who see takings, as on the dashboard.
+- **Change it:** the person's role (*Users & access › Roles & permissions*); their tables (*Tables & QR › Captain sections*); the *Captain sections*, *QR ordering* and *Kitchen display* features (*Settings › Features*).
+
+### Captain sections switched off
+
+- **Rule:** while *Captain sections* is switched off, no table is anyone's: the POS, the captain app and Table requests show every table to every captain, with no *Your table* marks. The day's plans are kept, and count again when it is switched back on.
+- **Why:** switching it off says so ("Every captain will see every table"), and a plan nobody can see or change should not decide whose tables are whose.
+- **Change it:** *Settings › Features › Captain sections*.
+
+### A later course waits until it is fired
+
+- **Rule:** on the captain app, dishes added to a dine-in order under *Course 2 later* or *Course 3 later* are saved on the order but not sent to the kitchen until someone presses *Fire course 2* (or 3) on it, on the captain app or the POS. They then reach the kitchen as a round of their own, in the name of whoever fired them. Only an open order fires a course. The till itself sends every dish when the order is sent.
+- **Why:** the captain at the table knows when the guests are ready for their mains; the kitchen should not start them with the starters.
+- **Change it:** nothing to set: the choice is made at the table, dish by dish.
+
+### Alerts on the captain's phone
+
+- **Rule:** a guest's call, a QR order or food at the pass at the tables shown reaches the captain app by itself within a second or two, with a message naming the table. The phone buzzes (where the browser can) and chimes only once the waiter has switched alerts on with the bell in the app's header, on that phone. Nothing rings for what was already waiting when the app opened.
+- **Why:** a browser lets a page vibrate or play a sound only after a tap on it, and the waiter decides whether their phone may buzz.
+- **Change it:** the bell in the captain app's header, phone by phone.

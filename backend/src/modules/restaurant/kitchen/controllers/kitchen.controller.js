@@ -70,6 +70,12 @@ const board = async (req, res) => {
   res.json({ success: true, data });
 };
 
+// The food at the pass, for the floor (the captain app): the outlet the
+// person works in, or the whole restaurant.
+const pass = async (req, res) => {
+  res.json({ success: true, data: await kitchenService.pass(req.user.restaurantId, req.outletId) });
+};
+
 const sync = async (req, res) => {
   const data = await kitchenService.syncNow(req.user.restaurantId);
 
@@ -411,6 +417,7 @@ module.exports = {
   listSlips,
   printSlip,
   board,
+  pass,
   sync,
   orderTickets,
   getTicket,

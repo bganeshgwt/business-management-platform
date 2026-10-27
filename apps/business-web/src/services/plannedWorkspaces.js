@@ -21,21 +21,6 @@ const inClinic = (clinic, what) =>
     : `${what} is in Business Admin today, in the clinic's own menu.`;
 
 export const PLANNED_WORKSPACES = {
-  captain: {
-    title: "Captain app for waiters",
-    icon: "utensils",
-    lead: "A phone screen for each waiter, built around their own tables.",
-    coming: [
-      "The section's tables at a glance: free, seated, waiting for food, asking for the bill",
-      "Orders with sizes, add-ons and notes, sent straight to the kitchen",
-      "A call on the phone when a dish is ready to serve",
-    ],
-    today: "Waiters take orders on POS from its tables view (a captain sees their own section) and answer guests' QR calls in Table requests.",
-    links: [
-      { to: "/pos", label: "Open POS", icon: "receipt" },
-      { to: "/table-requests", label: "Table requests", icon: "bell" },
-    ],
-  },
   clinic: {
     title: "Clinic workspace",
     icon: "activity",

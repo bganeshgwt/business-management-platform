@@ -26,6 +26,7 @@ import {
   rejectTableRequest,
   updateTableRequestSettings,
 } from "../services/tableRequest.service";
+import { CALL_META } from "../services/tableRequestWords";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
 import { rememberedPageSize } from "../../../../components/DataGrid/useGridLayout";
 import SectionCard from "../../../../components/SectionCard";
@@ -38,6 +39,9 @@ import "../styles/online-inbox.css";
 // much as from the till — the thing that matters is which table has waited
 // longest, so waiting requests come first, oldest first, with a clock that
 // turns amber and then red.
+//
+// Its cards (OrderCard, CallCard) and the reject dialog (RejectDialog) are the
+// captain app's too (workspaces/captain): one way to answer a guest.
 
 // A card that just arrived keeps its glow this long.
 const FRESH_FOR = 20000;
@@ -62,13 +66,6 @@ const VIEWS = [
   { key: "today", label: "Today" },
   { key: "history", label: "Earlier days" },
 ];
-
-const CALL_META = {
-  call_waiter: { title: "Wants a waiter", icon: "bell" },
-  bill: { title: "Wants the bill", icon: "receipt" },
-  water: { title: "Asked for water", icon: "drop" },
-  other: { title: "Needs something", icon: "message" },
-};
 
 // One tap fills the reason; it can still be edited. Written to the guest,
 // because the guest is who reads it.
@@ -230,7 +227,11 @@ function CaptainTag({ request, myUserId }) {
   );
 }
 
-function OrderCard({ request, now, busy, error, fresh, canAct, canOpenPos, currency, workingOutlet, onAccept, onReject, myUserId = null }) {
+// Where "Open in POS" goes for an order: the POS, or the captain app's own
+// order screen (its `orderLink`).
+const posLink = (orderId) => `/pos?order=${orderId}`;
+
+export function OrderCard({ request, now, busy, error, fresh, canAct, canOpenPos, currency, workingOutlet, onAccept, onReject, myUserId = null, orderLink = posLink }) {
   const open = OPEN.includes(request.status);
   // A table shared by every outlet can have another outlet's order running
   // on it. Only someone working there adds to it (as in the POS), so this
@@ -379,7 +380,7 @@ function OrderCard({ request, now, busy, error, fresh, canAct, canOpenPos, curre
               {request.responseSeconds !== null ? ` · answered in ${took(request.responseSeconds)}` : ""}
             </span>
             {canOpenPos && request.orderId && (
-              <Link to={`/pos?order=${request.orderId}`} className="tr-link">
+              <Link to={orderLink(request.orderId)} className="tr-link">
                 Open in POS <Icon name="external" size={13} />
               </Link>
             )}
@@ -435,7 +436,7 @@ function OrderCard({ request, now, busy, error, fresh, canAct, canOpenPos, curre
   );
 }
 
-function CallCard({ request, now, busy, error, fresh, canOpenPos, onAcknowledge, onDone, myUserId = null }) {
+export function CallCard({ request, now, busy, error, fresh, canOpenPos, onAcknowledge, onDone, myUserId = null, orderLink = posLink }) {
   const meta = CALL_META[request.type] || CALL_META.other;
   const open = ["pending", "acknowledged"].includes(request.status);
 
@@ -494,7 +495,7 @@ function CallCard({ request, now, busy, error, fresh, canOpenPos, onAcknowledge,
       {open && (
         <div className="tr-actions">
           {request.type === "bill" && request.tableOrder && canOpenPos && (
-            <Link to={`/pos?order=${request.tableOrder.id}`} className="button button-secondary tr-bill-link">
+            <Link to={orderLink(request.tableOrder.id)} className="button button-secondary tr-bill-link">
               <Icon name="receipt" size={15} /> {request.tableOrder.orderNumber}
             </Link>
           )}
@@ -516,6 +517,74 @@ function CallCard({ request, now, busy, error, fresh, canOpenPos, onAcknowledge,
         </div>
       )}
     </article>
+  );
+}
+
+// Rejecting a guest's order, with the reason written to the guest, who reads
+// it on their phone. A failed acceptance usually says exactly why ("sold
+// out"), which is the reason the guest needs, so it is offered as the
+// starting text.
+//   request    the order being rejected
+//   failure    what refused accepting it, if anything did
+//   busy       the rejection is being sent
+//   error      the server's refusal of it
+//   onReject(reason), onClose
+export function RejectDialog({ request, failure = "", busy, error, onReject, onClose }) {
+  const [reason, setReason] = useState(() => (failure && /sold out/i.test(failure) ? REJECT_REASONS[0].text : ""));
+
+  return (
+    <Modal
+      title={
+        isOnline(request)
+          ? `Reject ${request.guestName ? `${request.guestName}'s` : "the"} online order`
+          : `Reject the order from table ${request.tableNo}`
+      }
+      description="The guest sees your reason on their phone, so write it to them. Nothing goes to the kitchen."
+      icon="x-circle"
+      onClose={onClose}
+      width={540}
+    >
+      <div className="stack">
+        <p className="small tr-reject-help">Pick a reason, or write your own:</p>
+        <div className="tr-reason-chips">
+          {REJECT_REASONS.map((option) => (
+            <button
+              key={option.label}
+              type="button"
+              className={`chip-button ${reason === option.text ? "is-active" : ""}`}
+              onClick={() => setReason(option.text)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <label className="field">
+          <span>Reason for the guest</span>
+          <textarea
+            rows={3}
+            maxLength={200}
+            value={reason}
+            placeholder="e.g. Sorry — the mutton is finished for tonight."
+            onChange={(event) => setReason(event.target.value)}
+          />
+          <small className="muted">{reason.length}/200</small>
+        </label>
+        <ErrorMessage message={error} />
+        <div className="form-actions">
+          <button type="button" className="button button-secondary" onClick={onClose}>
+            Keep it
+          </button>
+          <button
+            type="button"
+            className="button button-danger"
+            disabled={!reason.trim() || busy}
+            onClick={() => onReject(reason.trim())}
+          >
+            {busy ? "Rejecting…" : "Reject order"}
+          </button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
@@ -1107,7 +1176,6 @@ export default function TableRequestsPage() {
   const [cardErrors, setCardErrors] = useState({});
   const [flash, setFlash] = useState(null);
   const [rejecting, setRejecting] = useState(null);
-  const [reason, setReason] = useState("");
   const [rejectError, setRejectError] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sound, setSound] = useState(readSound);
@@ -1261,19 +1329,15 @@ export default function TableRequestsPage() {
 
   const openReject = (request) => {
     setRejecting(request);
-    // A failed acceptance usually says exactly why ("sold out"), which is the
-    // reason the guest needs, so it is offered as the starting text.
-    const failure = cardErrors[request.id];
-    setReason(failure && /sold out/i.test(failure) ? REJECT_REASONS[0].text : "");
     setRejectError("");
   };
 
-  const confirmReject = async () => {
+  const confirmReject = async (reason) => {
     setRejectError("");
     setCardBusy(rejecting.id, "reject");
 
     try {
-      const response = await rejectTableRequest(rejecting.id, reason.trim());
+      const response = await rejectTableRequest(rejecting.id, reason);
       setFlash({ text: response.message, orderId: null });
       setCardError(rejecting.id, null);
       setRejecting(null);
@@ -1604,58 +1668,15 @@ export default function TableRequestsPage() {
       )}
 
       {rejecting && (
-        <Modal
-          title={
-            isOnline(rejecting)
-              ? `Reject ${rejecting.guestName ? `${rejecting.guestName}'s` : "the"} online order`
-              : `Reject the order from table ${rejecting.tableNo}`
-          }
-          description="The guest sees your reason on their phone, so write it to them. Nothing goes to the kitchen."
-          icon="x-circle"
+        <RejectDialog
+          key={rejecting.id}
+          request={rejecting}
+          failure={cardErrors[rejecting.id]}
+          busy={busy[rejecting.id] === "reject"}
+          error={rejectError}
+          onReject={confirmReject}
           onClose={() => setRejecting(null)}
-          width={540}
-        >
-          <div className="stack">
-            <p className="small tr-reject-help">Pick a reason, or write your own:</p>
-            <div className="tr-reason-chips">
-              {REJECT_REASONS.map((option) => (
-                <button
-                  key={option.label}
-                  type="button"
-                  className={`chip-button ${reason === option.text ? "is-active" : ""}`}
-                  onClick={() => setReason(option.text)}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            <label className="field">
-              <span>Reason for the guest</span>
-              <textarea
-                rows={3}
-                maxLength={200}
-                value={reason}
-                placeholder="e.g. Sorry — the mutton is finished for tonight."
-                onChange={(event) => setReason(event.target.value)}
-              />
-              <small className="muted">{reason.length}/200</small>
-            </label>
-            <ErrorMessage message={rejectError} />
-            <div className="form-actions">
-              <button type="button" className="button button-secondary" onClick={() => setRejecting(null)}>
-                Keep it
-              </button>
-              <button
-                type="button"
-                className="button button-danger"
-                disabled={!reason.trim() || busy[rejecting.id] === "reject"}
-                onClick={confirmReject}
-              >
-                {busy[rejecting.id] === "reject" ? "Rejecting…" : "Reject order"}
-              </button>
-            </div>
-          </div>
-        </Modal>
+        />
       )}
 
       {settingsOpen && (

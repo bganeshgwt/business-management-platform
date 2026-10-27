@@ -345,7 +345,7 @@ Added by: 1789731793649_create-table-management; 1789921000000_floor-plan-turns 
 Purpose: which captain has which floor, section or table on a business date ("My tables", call routing). The most specific assignment wins.
 Key columns: `shift_date`, `user_id`, `floor_id`, `area_id`, `table_id`.
 Relations: `restaurant_id`, `user_id`, `floor_id`, `area_id` -> `dining_areas`, `table_id` -> `dining_tables`, all ON DELETE CASCADE.
-Rules: CHECK exactly one of floor_id, area_id, table_id is set; uq_captain_floor / uq_captain_area / uq_captain_table (one captain per floor, area or table per restaurant and date).
+Rules: CHECK exactly one of floor_id, area_id, table_id is set; uq_captain_floor / uq_captain_area / uq_captain_table (one captain per floor, area or table per restaurant and date). The rows are read only while the restaurant's `captain_sections` part is switched on: while it is off no table has a captain, and the day's rows stay as they were.
 Added by: 1791330000003_captain-sections.
 
 ### Orders and kitchen

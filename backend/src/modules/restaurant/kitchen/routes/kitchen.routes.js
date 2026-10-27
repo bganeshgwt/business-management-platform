@@ -29,6 +29,9 @@ router.use(resolveOutlet);
 
 // The board. Reading it also cuts any tickets the tills have sent since.
 router.get("/board", requireFeature("kitchen_display"), authorize("kds.view"), kitchenController.board);
+// The food at the pass, for the waiters who carry it out (the captain app):
+// whoever may read an order's tickets, as below. Nothing is cut or cleared.
+router.get("/pass", requireFeature("kitchen_display"), authorizeAny("kds.view", "kot.manage"), kitchenController.pass);
 router.post("/sync", requireFeature("kitchen_display"), authorizeAny("kds.view", "kot.manage"), kitchenController.sync);
 router.get(
   "/orders/:orderId/kots",

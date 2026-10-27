@@ -20,7 +20,9 @@ const findForDate = async (restaurantId, date, db = pool) => {
 };
 
 // Each table's captain on a date: its own assignment, else its section's,
-// else its floor's. { tableId: { userId, userName } }
+// else its floor's. { tableId: { userId, userName } }. None while the
+// restaurant has Captain sections switched off: the plans are kept, and every
+// captain sees every table.
 const captainsByTable = async (restaurantId, date) => {
   const result = await pool.query(
     `SELECT t.id AS table_id, pick.user_id, pick.user_name
@@ -34,7 +36,8 @@ const captainsByTable = async (restaurantId, date) => {
        ORDER BY CASE WHEN a.table_id IS NOT NULL THEN 0 WHEN a.area_id IS NOT NULL THEN 1 ELSE 2 END
        LIMIT 1
      ) pick ON TRUE
-     WHERE t.restaurant_id = $1`,
+     WHERE t.restaurant_id = $1
+       AND 'captain_sections' = ANY (restaurant_features($1))`,
     [restaurantId, date]
   );
 

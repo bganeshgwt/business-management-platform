@@ -167,6 +167,30 @@ export const addLine = (cart, candidate) => {
   return [...cart, { ...candidate, key: `new-${Date.now()}-${nextKey}`, saved: false }];
 };
 
+// A note for the kitchen ("less spicy") on a dish added in this edit, typed
+// after it went in. A dish the kitchen already has keeps its note: the
+// kitchen cooks from the note it was sent. When the note makes the line the
+// same dish ordered the same way as another line of this edit, the two
+// become one.
+export const noteLine = (cart, key, notes) => {
+  const line = cart.find((one) => one.key === key);
+
+  if (!line || line.saved) {
+    return cart;
+  }
+
+  const noted = { ...line, notes: String(notes || "").trim().slice(0, 200) };
+  const twin = cart.find((one) => one.key !== key && !one.saved && sameDish(one, noted));
+
+  if (twin) {
+    return cart
+      .filter((one) => one.key !== key)
+      .map((one) => (one.key === twin.key ? { ...one, quantity: round2(one.quantity + line.quantity) } : one));
+  }
+
+  return cart.map((one) => (one.key === key ? noted : one));
+};
+
 // Plus or minus on a line. Returns the new cart, or null for plus on a saved
 // line at its full quantity: that is more of a dish already on the order, and
 // the caller adds it as a new line at today's price (addLine).

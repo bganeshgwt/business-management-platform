@@ -34,8 +34,8 @@ const dayBefore = (date) => {
 
 // Today's captain sections: which captain has which floor, section
 // or table. A table inside someone's floor can be given to another captain:
-// the table's own line wins. Captains then see "My tables" on the POS, and
-// QR calls for their tables come first in their inbox.
+// the table's own line wins. Captains then see "My tables" on the POS and
+// the captain app, and QR calls for their tables come first in their inbox.
 export default function CaptainPlanModal({ floors, areas, tables, canManage, onClose }) {
   const [plan, setPlan] = useState(null);
   const [lines, setLines] = useState([]);

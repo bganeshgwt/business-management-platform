@@ -120,9 +120,11 @@ export async function buildTestData({ api, logins, sql }) {
   // The restaurant's own staff. A login with businesses of its own works in
   // those shops only, and is made with them further down.
   const roles = await owner("GET", "/roles");
+  const staffIds = {};
   for (const person of logins.filter((item) => !["SUPER_ADMIN", "RESTAURANT_ADMIN"].includes(item.role) && !item.businesses)) {
     const role = roles.find((item) => item.code === person.role && item.isSystem);
-    await owner("POST", "/users", { name: person.name, email: person.email, password: person.password, roleIds: [role.id] }, 201);
+    const made = await owner("POST", "/users", { name: person.name, email: person.email, password: person.password, roleIds: [role.id] }, 201);
+    staffIds[person.role] = made.id;
   }
 
   const outlets = [];
@@ -157,6 +159,23 @@ export async function buildTestData({ api, logins, sql }) {
     name: RESTAURANT.banquet.dish.name, price: RESTAURANT.banquet.dish.price, foodType: RESTAURANT.banquet.dish.foodType, isAvailable: true,
   }, 201);
   const banquetGuest = await owner("POST", "/crm/customers", RESTAURANT.banquet.guest, 201);
+  // The captain app's garden floor and its dish in two sizes with an add-on.
+  const { captain: CAPTAIN_DATA } = RESTAURANT;
+  const garden = await owner("POST", "/tables/floors", { name: CAPTAIN_DATA.floor }, 201);
+  const gardenTables = [];
+  for (const tableNo of CAPTAIN_DATA.tables) {
+    gardenTables.push(await owner("POST", "/tables", { floorId: garden.id, tableNo, capacity: 4 }, 201));
+  }
+  const biryani = await owner("POST", "/menu/products", {
+    categoryId: categories.find((category) => category.name === CAPTAIN_DATA.dish.category).id,
+    name: CAPTAIN_DATA.dish.name, price: CAPTAIN_DATA.dish.price, foodType: CAPTAIN_DATA.dish.foodType, isAvailable: true,
+  }, 201);
+  const sizes = [];
+  for (const size of CAPTAIN_DATA.dish.sizes) {
+    sizes.push(await owner("POST", `/menu/products/${biryani.id}/variants`, { name: size.name, price: size.price, isDefault: Boolean(size.isDefault) }, 201));
+  }
+  const raita = await owner("POST", "/menu/modifiers", CAPTAIN_DATA.dish.addOn, 201);
+  await owner("PUT", `/menu/products/${biryani.id}/modifiers`, { modifierIds: [raita.id] });
 
   const unit = await owner("POST", "/inventory/units", RESTAURANT.stockUnit, 201);
   const stockItems = [];
@@ -170,6 +189,9 @@ export async function buildTestData({ api, logins, sql }) {
   // Today's trading, at the main counter (no outlet): the day the till would
   // open on the restaurant's own clock, a paid takeaway and a running table.
   const day = await owner("POST", "/business-day/open", { openingCash: 2000 }, 201);
+  // Today's captain plan, as Tables & QR → Captain sections makes it: the
+  // garden floor is the captain's.
+  await owner("PUT", "/tables/sections", { assignments: [{ userId: staffIds.CAPTAIN, floorId: garden.id }] });
   const lines = (wanted) => wanted.map(({ product, quantity }) => ({ productId: products.find((dish) => dish.name === product).id, quantity }));
   const takeaway = await owner("POST", "/orders", { orderType: "takeaway", items: lines(RESTAURANT.paidTakeaway) }, 201);
   const bill = await owner("POST", "/bills", { orderId: takeaway.id }, 201);
@@ -799,6 +821,17 @@ export async function buildTestData({ api, logins, sql }) {
       runningOrder: { id: running.id, number: running.orderNumber, tableId: busyTable.id, tableNo: busyTable.tableNo },
       leftOpenOrder: { id: leftOpen.id, number: leftOpen.orderNumber, tableId: leftOpenTable.id, tableNo: leftOpenTable.tableNo },
       banquet: { dishId: banquetDish.id, guestId: banquetGuest.id, guestName: banquetGuest.name },
+      captain: {
+        userId: staffIds.CAPTAIN,
+        floor: { id: garden.id, name: garden.name },
+        tables: gardenTables.map((table) => ({ id: table.id, tableNo: table.tableNo, qrToken: table.qrToken })),
+        dish: {
+          id: biryani.id,
+          name: biryani.name,
+          sizes: sizes.map((size) => ({ id: size.id, name: size.name })),
+          addOn: { id: raita.id, name: raita.name, price: Number(raita.price) },
+        },
+      },
     },
     platform: { restaurants: PLATFORM.restaurants },
     businesses,

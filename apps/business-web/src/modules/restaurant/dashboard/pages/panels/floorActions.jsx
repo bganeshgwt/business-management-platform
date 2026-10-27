@@ -14,10 +14,10 @@ import useConfirm from "../../../../../hooks/useConfirm";
 import { useBillDialog } from "./useBillDialog";
 import { refreshDashboard } from "./panelData";
 
-// What a manager can do with a table straight from the dashboard, by the
-// state the floor plan gives it (GET /tables floorState). Each action is
-// offered only to someone whose role allows it, by the same permissions the
-// API checks:
+// What a manager can do with a table straight from the dashboard, and a
+// waiter from the captain app's tables (workspaces/captain), by the state the
+// floor plan gives it (GET /tables floorState). Each action is offered only
+// to someone whose role allows it, by the same permissions the API checks:
 //
 //   free         Start order                      POS (orders.create)
 //   eating       Open order · Bill                POS (orders.create; Bill: billing.manage)
@@ -29,8 +29,13 @@ import { refreshDashboard } from "./panelData";
 //   out of use   Switch on                        Tables screen (tables.manage)
 //
 // The first action of each list is the row's own: clicking the row does it.
+//
+// options  orderPath: the screen an order opens on (the POS, or the captain
+//          app's order screen), which takes ?order=, ?table= and &bill=1 as
+//          the POS does; onChanged: read the caller's screen again after an
+//          action (the dashboard's, by default).
 
-export function useFloorActions(ctx) {
+export function useFloorActions(ctx, { orderPath = "/pos", onChanged = refreshDashboard } = {}) {
   const { hasPermission } = ctx;
   const navigate = useNavigate();
   const settings = useQuery(settingsQuery());
@@ -38,7 +43,7 @@ export function useFloorActions(ctx) {
   const [message, setMessage] = useState(null);
   const confirm = useConfirm();
   const [cancelling, setCancelling] = useState(null);
-  const bills = useBillDialog();
+  const bills = useBillDialog(onChanged === refreshDashboard ? undefined : onChanged);
 
   const can = {
     order: hasPermission("orders.create"),
@@ -71,7 +76,7 @@ export function useFloorActions(ctx) {
     run(`ready-${table.id}`, async () => {
       await markTableReady(table.id);
       toast.success(`Table ${table.tableNo} is ready for the next party.`);
-      await refreshDashboard();
+      await onChanged();
     });
 
   const reprint = (table) =>
@@ -85,11 +90,11 @@ export function useFloorActions(ctx) {
   const seat = (table) =>
     run(`seat-${table.id}`, async () => {
       const result = await seatReservation(table.booking.id, {});
-      await refreshDashboard();
+      await onChanged();
       const order = result.data && result.data.order;
 
       if (order && order.id) {
-        navigate(`/pos?order=${order.id}`);
+        navigate(`${orderPath}?order=${order.id}`);
       } else {
         toast.success(result.message || "Seated.");
       }
@@ -107,7 +112,7 @@ export function useFloorActions(ctx) {
       run(`noshow-${table.id}`, async () => {
         await markReservationNoShow(table.booking.id);
         toast.success(`Booking marked as a no-show. Table ${table.tableNo} is free.`);
-        await refreshDashboard();
+        await onChanged();
       });
     }
   };
@@ -125,18 +130,18 @@ export function useFloorActions(ctx) {
     const openOrder = live && can.order && {
       key: "open",
       label: "Open order",
-      onClick: () => navigate(`/pos?order=${live.orderId}`),
+      onClick: () => navigate(`${orderPath}?order=${live.orderId}`),
     };
 
     if (state === "free") {
-      add(can.order, { key: "start", label: "Start order", primary: true, onClick: () => navigate(`/pos?table=${table.id}`) });
+      add(can.order, { key: "start", label: "Start order", primary: true, onClick: () => navigate(`${orderPath}?table=${table.id}`) });
     } else if (state === "running") {
       if (live.earlierDay && can.bill && !live.joinedTo) {
-        list.push({ key: "bill", label: "Bill", primary: true, onClick: () => navigate(`/pos?order=${live.orderId}&bill=1`) });
+        list.push({ key: "bill", label: "Bill", primary: true, onClick: () => navigate(`${orderPath}?order=${live.orderId}&bill=1`) });
         add(openOrder, openOrder);
       } else {
         add(openOrder, { ...openOrder, primary: true });
-        add(can.bill && !live.joinedTo, { key: "bill", label: "Bill", onClick: () => navigate(`/pos?order=${live.orderId}&bill=1`) });
+        add(can.bill && !live.joinedTo, { key: "bill", label: "Bill", onClick: () => navigate(`${orderPath}?order=${live.orderId}&bill=1`) });
       }
 
       add(live.earlierDay && can.cancel && !live.billId && !live.joinedTo, {
@@ -165,7 +170,7 @@ export function useFloorActions(ctx) {
         add(can.booking, { key: "noshow", label: "No-show", onClick: () => noShow(table) });
       }
 
-      add(can.order, { key: "walkin", label: "Seat walk-in", primary: list.length === 0, onClick: () => navigate(`/pos?table=${table.id}`) });
+      add(can.order, { key: "walkin", label: "Seat walk-in", primary: list.length === 0, onClick: () => navigate(`${orderPath}?table=${table.id}`) });
     } else if (state === "out_of_service") {
       add(can.setup, { key: "setup", label: "Switch on", onClick: () => navigate("/tables") });
     }
@@ -184,7 +189,7 @@ export function useFloorActions(ctx) {
             onCancelled={(updated, slipNote) => {
               setCancelling(null);
               toast.success(`${updated ? updated.orderNumber : "The order"} was cancelled.${slipNote ? ` ${slipNote}` : ""}`);
-              refreshDashboard();
+              onChanged();
             }}
           />,
           document.body
