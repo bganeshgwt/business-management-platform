@@ -16,6 +16,8 @@ import { businessToday, useOpenBusiness } from "./hooks";
 import CashCheck from "./CashCheck";
 import CashierShifts from "./CashierShifts";
 import { KIND_WORDS } from "./paymentMethods";
+// A jeweller's old gold with value left, paid out seller by seller.
+import { OldGoldToPay } from "../../jewellery/pages/OldGoldPayouts";
 
 // Day close: what the counter sold and the money that came
 // in and went out today (or over a few days), by payment method, by the
@@ -116,6 +118,7 @@ export default function DayClosePage() {
       </SectionCard>
       <CashCheck biz={biz} data={data} date={oneDay ? range.from : null} locationId={locationId} onSaved={()=>setVersion(v=>v+1)} />
       <CashierShifts biz={biz} date={oneDay ? range.from : null} locationId={locationId} version={version} />
+      <OldGoldToPay biz={biz} onPaid={() => setVersion((v) => v + 1)} />
       <SectionCard flush icon="wallet" title="By payment method">
         <DataGrid id="business-day-close-methods" caption="Takings by payment method" rows={methodRows} columns={methodColumns} currency={biz.symbol} loading={!data && !error}
           rowNoun={["method", "methods"]} empty="No money moved in these dates" emptyIcon="wallet" />

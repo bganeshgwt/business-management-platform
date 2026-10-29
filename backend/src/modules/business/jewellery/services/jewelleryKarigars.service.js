@@ -245,7 +245,8 @@ async function detail(business, contactId) {
 // body: { requestKey, contactId, locationId, orderId?, dueOn?, notes?, lines: [
 //   { kind: 'metal', metal, purity, netWeight, fineness?, description? } |
 //   { kind: 'piece', pieceId | tag, description? (the work to do) } |
-//   { kind: 'stone', description, pieces?, carat?, value? } ] }
+//   { kind: 'stone', description, pieces?, carat?, value? } ],
+//   oldGold?: [{ voucherId, seq }] (the lines of old gold the metal is: they go to the karigar on this challan) }
 function readIssueLines(value) {
   const list = v.requiredArray(value, 'What is handed over');
   if (!list.length) fail('Add what is handed to the karigar');
@@ -286,6 +287,9 @@ async function issue(business, user, body) {
   const lines = readIssueLines(body.lines);
   const dueOn = c.given(body.dueOn) ? c.readDate(body.dueOn, 'Due back') : null;
   const notes = c.optionalText(body.notes, 'Notes', 500);
+  const oldGold = require('./jewelleryOldGold.service');
+  const refs = oldGold.readRefs(body.oldGold);
+  if (refs.length && !lines.some((l) => l.kind === 'metal')) fail('Old gold goes to a karigar as metal: add the metal to the challan');
   return repo.transaction(async (db) => {
     await c.lockBusiness(db, business);
     const old = await repo.one(db, 'SELECT id,request_hash FROM jewellery_karigar_issues WHERE business_id=$1 AND request_key=$2', [business.id, requestKey]);
@@ -360,7 +364,9 @@ async function issue(business, user, body) {
     if (order && order.status !== 'issued') {
       await db.query("UPDATE jewellery_orders SET status='issued',updated_by=$3,updated_at=now() WHERE business_id=$1 AND id=$2", [business.id, order.id, user.id]);
     }
-    const figures = { issueNo: number.number, karigar: karigar.name, orderNo: order?.order_no || null, dueOn,
+    const linked = await oldGold.linkNext(db, business, user, refs, { next: 'karigar', karigarIssueId: row.id, locationId: location.id,
+      purities: new Set(ready.filter((x) => x.kind === 'metal').map((x) => `${x.metal}:${x.purity}`)) });
+    const figures = { issueNo: number.number, karigar: karigar.name, orderNo: order?.order_no || null, dueOn, ...(linked.length ? { oldGold: linked } : {}),
       lines: ready.map((x) => ({ kind: x.kind, purity: x.metal ? c.purityWords(x.metal, x.purity) : null, netWeight: x.kind === 'stone' ? null : x.netWeight.toFixed(3),
         fineWeight: x.kind === 'stone' ? null : c.grams(c.fineMg(c.mg(x.netWeight), x.fineness)), tag: x.piece?.tag_no || null, description: x.description })) };
     await repo.audit(db, business.id, user.id, 'jewellery_karigar.issued', row.id, figures);
@@ -376,8 +382,13 @@ async function issueView(db, business, issueId) {
   const lines = await repo.all(db, `SELECT l.*,p.tag_no,p.status AS piece_status,p.description AS piece_description FROM jewellery_karigar_issue_lines l
     LEFT JOIN jewellery_pieces p ON p.business_id=l.business_id AND p.id=l.piece_id WHERE l.business_id=$1 AND l.issue_id=$2 ORDER BY l.seq`, [business.id, row.id]);
   const receipts = await repo.all(db, `SELECT id,receipt_no,created_at FROM jewellery_karigar_receipts WHERE business_id=$1 AND issue_id=$2 ORDER BY id`, [business.id, row.id]);
+  // The lines of old gold the challan's metal is.
+  const oldGold = await repo.all(db, `SELECT n.old_gold_id,g.voucher_no,n.seq,l.description,l.metal,l.purity,l.net_weight FROM jewellery_old_gold_next n
+    JOIN jewellery_old_gold g ON g.business_id=n.business_id AND g.id=n.old_gold_id JOIN jewellery_old_gold_lines l ON l.business_id=n.business_id AND l.old_gold_id=n.old_gold_id AND l.seq=n.seq
+    WHERE n.business_id=$1 AND n.karigar_issue_id=$2 ORDER BY g.voucher_no,n.seq`, [business.id, row.id]);
   const shown = c.seesMoney(business) || seesCosts(business);
   return { ...row, karigar_gstin: karigar?.gstin || null, karigar_phone: karigar?.phone || null, karigar_address: karigar?.address || null, receipts,
+    old_gold: oldGold.map((x) => ({ ...x, mark: c.purityMark(x.metal, x.purity) })),
     lines: lines.map((l) => ({ ...l, kind_words: ISSUE_LINE_WORDS[l.kind], mark: l.metal ? c.purityMark(l.metal, l.purity) : null, value: shown ? l.value : null })) };
 }
 

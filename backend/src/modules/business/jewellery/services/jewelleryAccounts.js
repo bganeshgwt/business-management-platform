@@ -10,8 +10,15 @@ const c = require('./jewelleryCommon');
 //                service bought, at the rate of the centre's bill
 //   gold, silver, platinum  metal fixed to money on a supplier's metal account
 //                (bhav cut), at 3%: goods counted in grams, but kept in the
-//                jeweller's own books of metal, so the purchase takes no stock
-// None of them is ever sold: the core refuses them on any sale (checkLooseSale).
+//                jeweller's own books of metal, so the purchase takes no stock;
+//                and the shop's metal sold to a bullion dealer from a refinery
+//                challan (sold the same way, without stock)
+// None of them is ever sold at the counter: the core refuses them on any sale
+// but the one its own service posts (checkLooseSale).
+// And the items a gold scheme closed on its day 364 is billed as: gold, silver
+// or platinum set aside from the shop's metal as a piece held in the
+// customer's safekeeping (a jewellery item of its own, at 3%, its pieces
+// tagged only by the close).
 
 const { fail } = c;
 const PURPOSES = {
@@ -20,6 +27,12 @@ const PURPOSES = {
   gold: { name: 'Gold on the metal account', code: 'JWL-GOLD', kind: 'goods', unit: 'g', tracking: 'quantity', rate: 3, hsn: '7108' },
   silver: { name: 'Silver on the metal account', code: 'JWL-SILVER', kind: 'goods', unit: 'g', tracking: 'quantity', rate: 3, hsn: '7106' },
   platinum: { name: 'Platinum on the metal account', code: 'JWL-PLATINUM', kind: 'goods', unit: 'g', tracking: 'quantity', rate: 3, hsn: '7110' },
+  gold_safekeeping: { name: 'Gold held for gold schemes', code: 'JWL-SAFE-GOLD', kind: 'goods', unit: 'each', tracking: 'serial', rate: 3, hsn: '7108',
+    piece: { metal: 'gold', purity: '24K' } },
+  silver_safekeeping: { name: 'Silver held for gold schemes', code: 'JWL-SAFE-SILVER', kind: 'goods', unit: 'each', tracking: 'serial', rate: 3, hsn: '7106',
+    piece: { metal: 'silver', purity: '999' } },
+  platinum_safekeeping: { name: 'Platinum held for gold schemes', code: 'JWL-SAFE-PLATINUM', kind: 'goods', unit: 'each', tracking: 'serial', rate: 3, hsn: '7110',
+    piece: { metal: 'platinum', purity: '950' } },
 };
 
 // The item for a purpose, inside the caller's transaction (the business is locked).
@@ -39,6 +52,11 @@ async function accountItem(db, business, user, purpose) {
   const sku = await repo.one(db, `INSERT INTO catalog_skus(business_id,product_id,code,label,unit,price,tax_rate,tax_rate_id,tracking,hsn_code)
     VALUES($1,$2,$3,$4,$5,0,$6,$7,$8,$9) RETURNING *`, [business.id, product.id, code, spec.name, spec.unit, slab.rate, slab.id, spec.tracking, spec.hsn]);
   await db.query('INSERT INTO jewellery_account_items(business_id,purpose,sku_id,created_by) VALUES($1,$2,$3,$4)', [business.id, purpose, sku.id, user.id]);
+  // A safekeeping item's pieces are tagged on it: it is a jewellery item of its metal, with no wastage or making.
+  if (spec.piece) {
+    await db.query(`INSERT INTO jewellery_items(business_id,sku_id,metal,purity,wastage_percent,making_mode,making_value,created_by,updated_by)
+      VALUES($1,$2,$3,$4,0,'flat',0,$5,$5)`, [business.id, sku.id, spec.piece.metal, spec.piece.purity, user.id]);
+  }
   await repo.audit(db, business.id, user.id, 'catalog.created', sku.id, { label: spec.name, code, purpose: `Jewellery: ${purpose}` });
   return sku;
 }

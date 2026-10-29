@@ -6,14 +6,16 @@ const c = require('./jewelleryCommon');
 
 // Today's rates (module "jewellery"): a manager sets, for each purity, the
 // selling rate per gram and the rate per gram the shop pays for old metal, as
-// a rate sheet of the day: morning or evening, from the shop's own reckoning,
-// the local association's rate or the IBJA rate typed in. A sheet is never
+// a rate sheet of the day: morning, evening or a session the shop names (a
+// day may have more), from the shop's own reckoning, the local association's
+// rate or the IBJA rate typed in. A sheet is never
 // changed: a correction is a new sheet, and a bill always takes the latest
 // rate of its own day for each purity (the database checks it). The rate
 // board shows the rates in use in large type for a screen in the showroom.
 
 const { fail } = c;
 const SESSIONS = ['morning', 'evening'];
+const { settingsOf } = require('./jewellerySettings.service');
 const SOURCES = ['shop', 'association', 'ibja'];
 const SESSION_WORDS = { morning: 'Morning', evening: 'Evening' };
 const SOURCE_WORDS = { shop: 'The shop\'s own rates', association: 'The local association\'s rates', ibja: 'IBJA rates' };
@@ -21,18 +23,18 @@ const SOURCE_WORDS = { shop: 'The shop\'s own rates', association: 'The local as
 // Every rate sheet with its rates, newest first.
 repo.addLists({
   'jewellery-rate-sheets': {
-    sql: `SELECT s.id,s.rate_date::text AS rate_date,s.session,s.source,s.note,s.created_at,u.name AS set_by_name,
+    sql: `SELECT s.id,s.rate_date::text AS rate_date,s.session,s.session_name,s.source,s.note,s.created_at,u.name AS set_by_name,
         (SELECT json_agg(json_build_object('metal',r.metal,'purity',r.purity,'sell_rate',r.sell_rate,'buy_rate',r.buy_rate) ORDER BY r.metal,r.purity)
           FROM jewellery_rates r WHERE r.business_id=s.business_id AND r.sheet_id=s.id) AS rates,
         EXISTS (SELECT 1 FROM jewellery_rate_sheets n WHERE n.business_id=s.business_id AND n.rate_date=s.rate_date AND (n.created_at,n.id)>(s.created_at,s.id)) AS replaced
       FROM jewellery_rate_sheets s JOIN users u ON u.id=s.created_by WHERE s.business_id=$1`,
-    search: ['note', 'set_by_name', 'session', 'source'], date: 'created_at', filters: { session: 'session', source: 'source', day: 'rate_date' }, order: 'created_at DESC,id DESC',
+    search: ['note', 'set_by_name', 'session', 'session_name', 'source'], date: 'created_at', filters: { session: 'session', source: 'source', day: 'rate_date' }, order: 'created_at DESC,id DESC',
   },
 });
 
 // The rates in use now: for each purity, the latest sheet of the business's
 // day that rates it (none: not set today).
-const CURRENT_SQL = `SELECT DISTINCT ON (r.metal,r.purity) r.metal,r.purity,r.sell_rate,r.buy_rate,r.sheet_id,s.session,s.source,s.note,s.created_at AS set_at,u.name AS set_by_name
+const CURRENT_SQL = `SELECT DISTINCT ON (r.metal,r.purity) r.metal,r.purity,r.sell_rate,r.buy_rate,r.sheet_id,s.session,s.session_name,s.source,s.note,s.created_at AS set_at,u.name AS set_by_name
   FROM jewellery_rates r JOIN jewellery_rate_sheets s ON s.business_id=r.business_id AND s.id=r.sheet_id JOIN users u ON u.id=s.created_by
   WHERE r.business_id=$1 AND s.rate_date=$2::date ORDER BY r.metal,r.purity,s.created_at DESC,s.id DESC`;
 
@@ -56,10 +58,12 @@ async function todayRates(db, business) {
     WHERE r.business_id=$1 AND s.rate_date<$2::date ORDER BY r.metal,r.purity,s.rate_date DESC,s.created_at DESC,s.id DESC`, [business.id, day])).map(shapeRate));
   const sheets = await repo.one(db, 'SELECT count(*)::int AS n,max(created_at) AS last_at FROM jewellery_rate_sheets WHERE business_id=$1 AND rate_date=$2::date', [business.id, day]);
   const seller = await repo.one(db, 'SELECT display_name,legal_name,phone,city FROM business_settings WHERE business_id=$1', [business.id]);
+  const own = (await settingsOf(db, business.id)).rate_sessions || [];
   const rated = new Set(rows.map((r) => `${r.metal}:${r.purity}`));
-  return { day, rates: rows, previous: before, sheets: sheets.n, lastSetAt: sheets.last_at, seller,
+  return { day, rates: rows.map((r) => ({ ...r, session_words: sessionWords(r) })), previous: before, sheets: sheets.n, lastSetAt: sheets.last_at, seller,
     notRated: c.ALL_PURITIES.filter((p) => !rated.has(`${p.metal}:${p.purity}`)).map((p) => ({ metal: p.metal, purity: p.purity, label: p.label })),
-    purities: c.ALL_PURITIES, sessions: SESSIONS.map((s) => ({ value: s, label: SESSION_WORDS[s] })), sources: SOURCES.map((s) => ({ value: s, label: SOURCE_WORDS[s] })) };
+    purities: c.ALL_PURITIES, sessions: [...SESSIONS.map((s) => ({ value: s, label: SESSION_WORDS[s] })), ...own.map((name) => ({ value: name, label: name }))],
+    sources: SOURCES.map((s) => ({ value: s, label: SOURCE_WORDS[s] })) };
 }
 
 async function today(business) {
@@ -69,9 +73,21 @@ async function today(business) {
   return todayRates(repo.pool, business);
 }
 
-// body: { requestKey, session, source, note?, rates: [{ metal, purity, sellRate, buyRate? }] }
+// A sheet's session as the screens say it: Morning, Evening, or the shop's own name for it.
+const sessionWords = (sheet) => (sheet.session === 'own' ? sheet.session_name : SESSION_WORDS[sheet.session] || sheet.session);
+
+// The session as typed: morning, evening, or one the shop named in its settings (its name kept on the sheet).
+function readSession(value, own) {
+  const text = String(value ?? '').trim();
+  if (SESSIONS.includes(text.toLowerCase())) return { session: text.toLowerCase(), name: null };
+  const named = own.find((name) => name.toLowerCase() === text.toLowerCase());
+  if (!named) fail(own.length ? `Session is morning, evening or one of the shop's own: ${own.join(', ')}` : 'Session is morning or evening: name the shop\'s other sessions in Jewellery settings first');
+  return { session: 'own', name: named };
+}
+
+// body: { requestKey, session (morning, evening, or one the shop names), source, note?, rates: [{ metal, purity, sellRate, buyRate? }] }
 function readSheet(body) {
-  const session = v.requiredEnum(body.session, 'Session', SESSIONS);
+  if (!c.given(body.session)) fail('Session is required');
   const source = v.requiredEnum(body.source ?? 'shop', 'Where the rates come from', SOURCES);
   const list = v.requiredArray(body.rates, 'Rates');
   if (!list.length) fail('Give the rate of at least one purity');
@@ -87,7 +103,7 @@ function readSheet(body) {
   const keys = rates.map((r) => `${r.metal}:${r.purity}`);
   const twice = keys.find((k, i) => keys.indexOf(k) !== i);
   if (twice) fail(`${c.purityWords(...twice.split(':'))} is rated twice on this sheet`);
-  return { session, source, note: c.optionalText(body.note, 'Note', 300), rates };
+  return { sessionText: body.session, source, note: c.optionalText(body.note, 'Note', 300), rates };
 }
 
 async function setRates(business, user, body) {
@@ -103,13 +119,14 @@ async function setRates(business, user, body) {
       if (old.request_hash !== hash) fail('This request key was already used for different data', 409);
       return todayRates(db, business);
     }
-    const row = await repo.one(db, `INSERT INTO jewellery_rate_sheets(business_id,session,source,note,request_key,request_hash,created_by)
-      VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id,rate_date::text AS rate_date`, [business.id, sheet.session, sheet.source, sheet.note, requestKey, hash, user.id]);
+    const { session, name } = readSession(sheet.sessionText, (await settingsOf(db, business.id)).rate_sessions || []);
+    const row = await repo.one(db, `INSERT INTO jewellery_rate_sheets(business_id,session,session_name,source,note,request_key,request_hash,created_by)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id,rate_date::text AS rate_date`, [business.id, session, name, sheet.source, sheet.note, requestKey, hash, user.id]);
     for (const r of sheet.rates) {
       await db.query('INSERT INTO jewellery_rates(business_id,sheet_id,metal,purity,sell_rate,buy_rate) VALUES($1,$2,$3,$4,$5,$6)',
         [business.id, row.id, r.metal, r.purity, r.sellRate.toFixed(2), r.buyRate === null ? null : r.buyRate.toFixed(2)]);
     }
-    const figures = { day: row.rate_date, session: sheet.session, source: sheet.source,
+    const figures = { day: row.rate_date, session: name || session, source: sheet.source,
       rates: sheet.rates.map((r) => ({ purity: c.purityWords(r.metal, r.purity), sell: r.sellRate.toFixed(2), buy: r.buyRate === null ? null : r.buyRate.toFixed(2) })) };
     await repo.audit(db, business.id, user.id, 'jewellery_rates.set', row.id, figures);
     await repo.event(db, business.id, user.id, 'jewellery_rates.set', 'jewellery_rate_sheet', row.id, { ...figures,
@@ -118,4 +135,4 @@ async function setRates(business, user, body) {
   });
 }
 
-module.exports = { today, setRates, ratesNow, todayRates, SESSIONS, SOURCES, SESSION_WORDS, SOURCE_WORDS };
+module.exports = { today, setRates, ratesNow, todayRates, sessionWords, SESSIONS, SOURCES, SESSION_WORDS, SOURCE_WORDS };

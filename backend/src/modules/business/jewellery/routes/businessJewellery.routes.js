@@ -20,20 +20,32 @@ const tags = require('../services/jewelleryTags.service');
 const files = require('../services/jewelleryFiles.service');
 const fineWeight = require('../services/jewelleryFineWeight.service');
 const supplierMetal = require('../services/jewellerySupplierMetal.service');
+const refinery = require('../services/jewelleryRefinery.service');
+const offers = require('../services/jewelleryOffers.service');
+const kyc = require('../services/jewelleryKyc.service');
+const str = require('../services/jewelleryStr.service');
 
 // Jewellery shops, added to the Business Admin router so they share its
 // login, membership, module and permission checks (context) and its
 // database-error translation:
 //   /:businessId/jewellery/rates…        today's rates in use (with the board's), a new rate sheet, every sheet
-//   /:businessId/jewellery/settings      how tags are numbered, the hallmarking charge a new piece starts with
+//   /:businessId/jewellery/settings      how tags are numbered, the hallmarking charge a new piece starts with, the rate sessions, the buy-back
+//                                        rules, the cash alert levels, the KYC kinds, a discount on metal, the company's net worth
 //   /:businessId/jewellery/items…        the jewellery items (catalogue items sold as tagged pieces) and their defaults
 //   /:businessId/jewellery/pieces…       pieces by tag or HUID; tagging, changing, splitting, merging, a new tag, melting
 //   /:businessId/jewellery/metal…        the shop's own metal by purity and its movements
 //   /:businessId/jewellery/bills…        the jewellery bill (a preview, then the core's sale at fixed prices), the bills, a customer's credit on returned ones
-//   /:businessId/jewellery/old-gold…     old gold vouchers: valued (a preview), taken in, paid out, cancelled, put back from a returned bill
+//   /:businessId/jewellery/old-gold…     old gold vouchers: valued (a preview), taken in, paid out (several of a seller's at once), cancelled,
+//                                        put back from a returned bill, and what happens to each line's metal next
+//   /:businessId/jewellery/refinery…     the shop's metal sent to a refiner (back refined) or to a bullion dealer (sold)
 //   /:businessId/jewellery/scheme-plans… the gold scheme plans the shop offers
-//   /:businessId/jewellery/schemes…      gold schemes: joining, instalments, stopping one, the schemes and the money held for them
-//   /:businessId/jewellery/cash-report…  the cash with each customer, flagged at ₹10 lakh, and the monthly worksheet (nothing is filed)
+//   /:businessId/jewellery/schemes…      gold schemes: joining, instalments, stopping one, closing one on its day 364 into safekeeping and the
+//                                        customer collecting it, its money put back from a returned bill, the schemes and the money held for them
+//   /:businessId/jewellery/offers…       the shop's offers on making, by dates
+//   /:businessId/jewellery/cash-report…  the cash with each person (linked by PAN, phone or family group), flagged at ₹10 lakh, the monthly
+//                                        worksheet (nothing is filed), and the family groups
+//   /:businessId/jewellery/kyc/:contactId… a customer's KYC documents and a firm's beneficial owners
+//   /:businessId/jewellery/str…          the suspicious transaction case log (its own permission; nothing is filed)
 //   /:businessId/jewellery/karigars…     karigars, their rates, wastage and account; issue challans, receipts, write-offs, labour invoices, ITC-04 data
 //   /:businessId/jewellery/orders…       custom orders: booked, advances (money or old gold, fixing the rate), pieces, ready, cancelled
 //   /:businessId/jewellery/approvals…    approval challans out to customers and jewellers, pieces back (a sale is the jewellery bill)
@@ -96,24 +108,65 @@ module.exports = function jewelleryRoutes(router, { context, send, b }) {
   router.post(b('/jewellery/schemes'), context('jewellery.create'), async (req, res) => send(res, await schemes.enrol(req.business, req.user, req.body), 201));
   list('/jewellery/schemes', 'jewellery-schemes', 'jewellery.view', requireMoney);
   router.get(b('/jewellery/schemes/liability'), context('jewellery.view'), async (req, res) => send(res, await schemes.liability(req.business, req.query)));
-  router.get(b('/jewellery/schemes/approvers'), context('jewellery.cancel'), async (req, res) => send(res, await schemes.approvers(req.business)));
+  // Who may approve: stopping a scheme, or an old gold deduction other than the buy-back rule's.
+  router.get(b('/jewellery/schemes/approvers'), context(['jewellery.create', 'jewellery.cancel']), async (req, res) => send(res, await schemes.approvers(req.business)));
   router.get(b('/jewellery/schemes/:id'), context('jewellery.view'), async (req, res) => send(res, await schemes.detail(req.business, req.params.id)));
   router.post(b('/jewellery/schemes/:id/instalments'), context('jewellery.create'), async (req, res) => send(res, await schemes.payInstalment(req.business, req.user, req.params.id, req.body), 201));
   router.post(b('/jewellery/schemes/:id/stop'), context('jewellery.cancel'), async (req, res) => send(res, await schemes.stop(req.business, req.user, req.params.id, req.body)));
+  // Day 364: what a close comes to, the close into safekeeping, the customer collecting it; and a returned bill's scheme money put back.
+  router.get(b('/jewellery/schemes/:id/close'), context('jewellery.view'), async (req, res) => send(res, await schemes.closePreview(req.business, req.params.id, req.query)));
+  router.post(b('/jewellery/schemes/:id/close'), context('jewellery.approve'), async (req, res) => send(res, await schemes.close(req.business, req.user, req.params.id, req.body), 201));
+  router.post(b('/jewellery/schemes/:id/collect'), context('jewellery.create'), async (req, res) => send(res, await schemes.collect(req.business, req.user, req.params.id, req.body)));
+  router.post(b('/jewellery/schemes/:id/put-back'), context('jewellery.create'), async (req, res) => send(res, await schemes.putBack(req.business, req.user, req.params.id, req.body), 201));
 
-  // The cash report: each customer's cash in and out over a period with the flag at ₹10 lakh, one customer's cash, and the monthly worksheet.
+  // The shop's offers on making, by dates.
+  router.get(b('/jewellery/offers'), context('jewellery.view'), async (req, res) => send(res, await offers.list(req.business)));
+  router.post(b('/jewellery/offers'), context('jewellery.approve'), async (req, res) => send(res, await offers.create(req.business, req.user, req.body), 201));
+  router.put(b('/jewellery/offers/:id'), context('jewellery.approve'), async (req, res) => send(res, await offers.setActive(req.business, req.user, req.params.id, req.body)));
+
+  // The cash report: each person's cash in and out (linked by PAN, phone or family group) with the flag at ₹10 lakh, one person's cash, the
+  // monthly worksheet, and the family groups.
   router.get(b('/jewellery/cash-report'), context('jewellery.export'), async (req, res) => send(res, await cash.report(req.business, req.query)));
   router.get(b('/jewellery/cash-report/person'), context('jewellery.export'), async (req, res) => send(res, await cash.person(req.business, req.query)));
   router.get(b('/jewellery/cash-report/month'), context('jewellery.export'), async (req, res) => send(res, await cash.month(req.business, req.query)));
+  router.get(b('/jewellery/cash-report/families'), context('jewellery.export'), async (req, res) => send(res, await cash.families(req.business)));
+  router.post(b('/jewellery/cash-report/families'), context('jewellery.export'), async (req, res) => send(res, await cash.createFamily(req.business, req.user, req.body), 201));
+  router.put(b('/jewellery/cash-report/families/:id'), context('jewellery.export'), async (req, res) => send(res, await cash.changeFamily(req.business, req.user, req.params.id, req.body)));
 
-  // Old gold: valued as it would be (nothing saved), taken in on a voucher, paid out, cancelled, put back from a returned bill; and the vouchers.
+  // A customer's KYC: their documents (the number in full only to those who may see KYC) and a firm's beneficial owners; kept, set aside never erased.
+  router.get(b('/jewellery/kyc/:contactId'), context('jewellery.view'), async (req, res) => send(res, await kyc.detail(req.business, req.params.contactId)));
+  router.post(b('/jewellery/kyc/:contactId/documents'), context('jewellery.create'), async (req, res) => send(res, await kyc.addDocument(req.business, req.user, req.params.contactId, req.body), 201));
+  router.post(b('/jewellery/kyc/:contactId/documents/:documentId/set-aside'), context('jewellery.manage'), async (req, res) => send(res,
+    await kyc.setAsideDocument(req.business, req.user, req.params.contactId, req.params.documentId, req.body)));
+  router.post(b('/jewellery/kyc/:contactId/owners'), context('jewellery.create'), async (req, res) => send(res, await kyc.addOwner(req.business, req.user, req.params.contactId, req.body), 201));
+  router.post(b('/jewellery/kyc/:contactId/owners/:ownerId/set-aside'), context('jewellery.manage'), async (req, res) => send(res,
+    await kyc.setAsideOwner(req.business, req.user, req.params.contactId, req.params.ownerId)));
+
+  // The suspicious transaction case log: its own permission (the owner's alone until given), never the counter's, and nothing is filed.
+  router.get(b('/jewellery/str'), context('jewellery.review'), async (req, res) => send(res, await str.list(req.business, req.query)));
+  router.post(b('/jewellery/str'), context('jewellery.review'), async (req, res) => send(res, await str.open(req.business, req.user, req.body), 201));
+  router.get(b('/jewellery/str/:id'), context('jewellery.review'), async (req, res) => send(res, await str.detail(req.business, req.user, req.params.id)));
+  router.post(b('/jewellery/str/:id/notes'), context('jewellery.review'), async (req, res) => send(res, await str.note(req.business, req.user, req.params.id, req.body), 201));
+  router.post(b('/jewellery/str/:id/decide'), context('jewellery.review'), async (req, res) => send(res, await str.decide(req.business, req.user, req.params.id, req.body)));
+
+  // Old gold: valued as it would be (nothing saved), taken in on a voucher, paid out (one voucher, or several of one seller's at once), cancelled,
+  // put back from a returned bill, what happens to a line's metal next; and the vouchers.
   router.post(b('/jewellery/old-gold/preview'), context('jewellery.create'), async (req, res) => send(res, await oldGold.preview(req.business, req.user, req.body)));
   router.post(b('/jewellery/old-gold'), context('jewellery.create'), async (req, res) => send(res, await oldGold.create(req.business, req.user, req.body), 201));
+  router.post(b('/jewellery/old-gold/payouts'), context('jewellery.approve'), async (req, res) => send(res, await oldGold.payoutMany(req.business, req.user, req.body), 201));
   list('/jewellery/old-gold', 'jewellery-old-gold', 'jewellery.view', requireMoney);
   router.get(b('/jewellery/old-gold/:id'), context('jewellery.view'), async (req, res) => send(res, await oldGold.detail(req.business, req.params.id)));
   router.post(b('/jewellery/old-gold/:id/payout'), context('jewellery.approve'), async (req, res) => send(res, await oldGold.payout(req.business, req.user, req.params.id, req.body), 201));
   router.post(b('/jewellery/old-gold/:id/cancel'), context('jewellery.cancel'), async (req, res) => send(res, await oldGold.cancel(req.business, req.user, req.params.id, req.body)));
   router.post(b('/jewellery/old-gold/:id/put-back'), context('jewellery.create'), async (req, res) => send(res, await oldGold.putBack(req.business, req.user, req.params.id, req.body), 201));
+  router.post(b('/jewellery/old-gold/:id/next'), context('jewellery.approve'), async (req, res) => send(res, await oldGold.setNext(req.business, req.user, req.params.id, req.body)));
+
+  // Refinery challans: the shop's metal to a refiner (back refined) or to a bullion dealer (sold on a bill).
+  list('/jewellery/refinery', 'jewellery-refinery', 'jewellery.view', requireMoney);
+  router.post(b('/jewellery/refinery'), context('jewellery.approve'), async (req, res) => send(res, await refinery.send(req.business, req.user, req.body), 201));
+  router.get(b('/jewellery/refinery/:id'), context('jewellery.view'), async (req, res) => send(res, await refinery.detail(req.business, req.params.id)));
+  router.post(b('/jewellery/refinery/:id/back'), context('jewellery.approve'), async (req, res) => send(res, await refinery.back(req.business, req.user, req.params.id, req.body)));
+  router.post(b('/jewellery/refinery/:id/sell'), context('jewellery.approve'), async (req, res) => send(res, await refinery.sell(req.business, req.user, req.params.id, req.body)));
 
   // A piece split into several, several merged into one, a new tag after a repair, and a photo taken off.
   router.post(b('/jewellery/pieces/:id/split'), context('jewellery.edit'), async (req, res) => send(res, await tags.split(req.business, req.user, req.params.id, req.body), 201));

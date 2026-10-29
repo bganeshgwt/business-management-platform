@@ -65,14 +65,20 @@ function jewelleryLine(doc, line, symbol) {
     Number(x.wastage_value) ? `Wastage ${Number(x.wastage_percent)}% (${grams(x.wastage_weight)}) ${money(x.wastage_value)}` : "",
     Number(x.making_charge) ? `Making ${money(x.making_charge)}` : "",
     Number(x.stone_value) ? `Stones ${money(x.stone_value)}${stones ? ` (${stones})` : ""}` : "",
-    Number(x.discount) ? `Gold scheme discount ${money(x.discount)}` : "",
+    Number(x.offer_discount) ? `${x.offer_name || "Offer"}: ${Number(x.offer_percent)}% off making ${money(x.offer_discount)}` : "",
+    Number(x.counter_discount) ? `Discount ${money(x.counter_discount)}` : "",
+    Number(x.scheme_discount) ? `Gold scheme discount ${money(x.scheme_discount)}` : "",
   ].filter(Boolean).join(" · ");
 }
-// The purity statement, the BIS registration the shop sells under, the gold scheme the bill redeems and the custom order it delivers.
+// The purity statement, the BIS registration the shop sells under, the gold scheme the bill redeems (or closes into the
+// customer's safekeeping), the custom order it delivers, and the discount at the counter with why.
 function jewelleryNote(doc) {
   const j = doc.jewellery;
   if (!j) return "";
-  return `<p class="small"><strong>${escapeHtml(j.statement)}</strong>${j.bis ? ` ${escapeHtml(j.bis.name)}: ${escapeHtml(j.bis.licenceNo)}.` : ""}${j.scheme ? ` Redeems gold scheme ${escapeHtml(j.scheme.schemeNo)}${Number(j.scheme.discount) ? `, its discount ${escapeHtml(moneyExact(Number(j.scheme.discount)))} taken off the pieces before GST` : ""}.` : ""}${j.order ? ` Delivers custom order ${escapeHtml(j.order.orderNo)}.` : ""}</p>`;
+  const counter = j.discounts && Number(j.discounts.counter) ? ` Discount at the counter ${escapeHtml(moneyExact(Number(j.discounts.counter)))} off making and wastage${j.discounts.onMetal ? " and metal" : ""}${j.discounts.reason ? ` (${escapeHtml(j.discounts.reason)})` : ""}.` : "";
+  const offers = j.discounts && Number(j.discounts.offer) ? ` Offers on making ${escapeHtml(moneyExact(Number(j.discounts.offer)))}.` : "";
+  const held = j.safekeeping ? ` The metal (piece ${escapeHtml(j.safekeeping.tag)}) is held in the buyer's safekeeping until they collect it.` : "";
+  return `<p class="small"><strong>${escapeHtml(j.statement)}</strong>${j.bis ? ` ${escapeHtml(j.bis.name)}: ${escapeHtml(j.bis.licenceNo)}.` : ""}${j.scheme ? ` Redeems gold scheme ${escapeHtml(j.scheme.schemeNo)}${Number(j.scheme.discount) ? `, its discount ${escapeHtml(moneyExact(Number(j.scheme.discount)))} taken off the pieces before GST` : ""}.` : ""}${held}${j.order ? ` Delivers custom order ${escapeHtml(j.order.orderNo)}.` : ""}${offers}${counter}</p>`;
 }
 
 // Everything both papers print, worked out once.

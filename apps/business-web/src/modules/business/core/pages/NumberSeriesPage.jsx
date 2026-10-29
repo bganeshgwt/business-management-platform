@@ -29,7 +29,7 @@ const KINDS = { sale: "Sale invoices", purchase: "Purchase receipts", sales_retu
   old_gold: "Old gold vouchers", gold_scheme: "Gold schemes",
   // A jeweller's karigar challans and receipts, custom orders, approval challans, hallmarking consignments and metal vouchers (not GST documents).
   karigar_issue: "Karigar issue challans", karigar_receipt: "Karigar receipts", custom_order: "Custom orders", approval: "Approval challans",
-  hallmark_consignment: "Hallmarking consignments", metal_voucher: "Metal vouchers",
+  hallmark_consignment: "Hallmarking consignments", metal_voucher: "Metal vouchers", refinery_challan: "Refinery challans",
   // A rental business's bookings (not GST documents: the bill at the return is).
   rental: "Rental bookings",
   // A fuel station's shifts (not GST documents: the fuel bills a close posts are).

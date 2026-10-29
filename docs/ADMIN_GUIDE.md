@@ -4689,9 +4689,10 @@ its purity, bills with prices before GST and rounds to the rupee. A new one
 starts with **Gold rates & jewellery** on, and with serial numbers on (each
 tagged piece is a serial-numbered unit of its catalogue item, its tag the
 number); exchanges, stock transfers, offers and loyalty can be switched on in
-Settings › Business tools. Its counter is the **Jewellery bill** (with *Quick
-bill* beside it for loose stones, coins at a fixed price, imitation jewellery,
-repairs and everything else); **Today's rates** is a daily entry of its own,
+Settings › Business tools. Its counter is the **Jewellery bill** (loose stones
+and coins go on it too, at their own slabs; *Quick bill* is beside it for
+imitation jewellery, repairs and everything else); **Today's rates** is a
+daily entry of its own,
 with the *Rate board* beside it, and so are **Old gold** and **Gold schemes**;
 the stock area opens on **Pieces & tags** (with Stock, Movements, Counts and
 Transfers beside it, and **Karigar work**, **Hallmarking** and **Fine
@@ -4714,8 +4715,9 @@ item's slab and HSN before trading.
    sets a rate sheet under *Today's rates*, *Set today's rates*: for each
    purity the shop deals in (gold 24K 999, 22K 916, 18K 750 and 14K 585;
    silver 999 and 925; platinum 950), the selling rate per gram and the rate
-   per gram the shop pays for old metal of that purity; morning or evening;
-   and where the rates come from (the shop's own, the local association's,
+   per gram the shop pays for old metal of that purity; the session (morning,
+   evening, or one the shop names in *Jewellery settings*, such as Noon); and
+   where the rates come from (the shop's own, the local association's,
    or the IBJA rate typed in). The form starts from the rates in use (or the
    last ones set). A purity left empty keeps its rate in use. The rates are
    per gram before making charges and GST. IBJA publishes gold, silver and
@@ -4725,12 +4727,17 @@ item's slab and HSN before trading.
 2. **Jewellery settings** — *Settings › Jewellery settings*: the letters a new
    tag starts with (T to start with, so T00001, T00002 …; up to 6 letters, or
    none) and the hallmarking charge a new hallmarked piece starts with (each
-   piece keeps its own, and the bill prints it for each article); under *Old
-   gold*, the deduction a new line of old gold starts with, and any lower
-   limit of the shop's own on cash paid out for old gold to one seller in a
-   day; under *Cash report*, the shop's own alert level for cash with one
-   customer in a month, and whether the shop is a reporting entity under the
-   PMLA.
+   piece keeps its own, and the bill prints it for each article); the rate
+   sessions the shop names beyond morning and evening; under *Old gold: the
+   buy-back rules*, the general deduction, the one for the shop's own pieces
+   bought back, one for each purity of outside jewellery where the shop keeps
+   one, and any lower limit of the shop's own on cash paid out for old gold to
+   one seller in a day; under *Cash report*, the shop's own alert levels (up
+   to five) for cash with one person in a month, and whether the shop is a
+   reporting entity under the PMLA; the KYC documents the shop accepts; under
+   *Discounts and gold schemes*, whether a counter discount may come off the
+   metal's value, and a company's net worth with its date; and below, the
+   shop's *Offers on making*.
 3. **Jewellery items** — *Pieces & tags*, *A jewellery item*: each catalogue
    item the shop sells as tagged pieces priced by weight (a gold necklace, a
    pair of silver anklets, an 18K diamond ring), made here (its name, HSN —
@@ -4740,9 +4747,10 @@ item's slab and HSN before trading.
    screen refuses any other. With it, what a new piece of it starts with: the
    metal and purity, the making charge (per gram of net weight, a percentage
    of the metal's value, or flat for the piece) and the wastage (a percentage
-   of the net weight, priced at the day's rate). Loose stones, coins sold at a
-   fixed price, imitation jewellery, repairs and job work stay ordinary
-   catalogue items with their own slabs, billed at *Quick bill*.
+   of the net weight, priced at the day's rate). Loose stones and coins sold at
+   a fixed price stay ordinary catalogue items with their own slabs, billed on
+   the jewellery bill beside the pieces (or at *Quick bill*); imitation
+   jewellery, repairs and job work are billed at *Quick bill*.
 4. **The pieces** — *Pieces & tags*, *Tag a piece*, one piece at a time (see
    below): the pieces in the shop when it starts (*Into stock now, with its
    tag*, as opening stock at their cost), and from then on what the shop's
@@ -4803,11 +4811,22 @@ item's slab and HSN before trading.
   one line a piece in the words BIS asks for (its description, purity and
   tag), and then offers *Print the invoice*, *Till receipt*, *Open the bill*
   (the sale with its payments and returns) and *Next bill*.
+
+  The shop's best offer on making running today comes off each piece by itself
+  (*Settings › Jewellery settings*, *Offers on making*). Someone who may give
+  discounts gives one under *Discount at the counter*, with why: it comes off
+  the pieces' making and wastage (and their metal only where the settings allow
+  it), within the business's most discount on a bill (the owner may give
+  more). *Loose stones and coins* adds catalogue goods that are not tagged
+  pieces, each at its catalogue price and its own GST slab (a batch or serial
+  number where it keeps one).
 - **The invoice** — for each article: its description, net weight (with the
   gross weight and the stones'), purity in carat and fineness (22K916: 22
   carat, 916 fineness), the HUID (or why none was needed), the hallmarking
   charge, and how its price was made (the metal at the rate, wastage, making,
-  stones with their certificates); and the statement that the buyer may get
+  stones with their certificates, then each discount: the offer, the counter's
+  and the gold scheme's); loose stones and coins on lines of their own at
+  their slabs; the counter discount's reason; and the statement that the buyer may get
   the purity of the hallmarked jewellery checked at any BIS-recognised
   assaying and hallmarking centre, with the location's BIS registration
   number. BIS asks every invoice for hallmarked jewellery, retail or to
@@ -4829,9 +4848,13 @@ item's slab and HSN before trading.
   - each article: what it is and how many, the purity it is valued as, how it
     was tested (karatmeter (XRF), touchstone, acid test or fire assay) and the
     fineness found (parts in a thousand; the purity's own until one is typed),
-    the gross weight, the stones and dirt taken off, and the deduction
-    (melting loss or the shop's own rule; *Settings › Jewellery settings* gives
-    the one a new line starts with);
+    the gross weight, the stones and dirt taken off, the shop's tag or the
+    HUID when it is one of the shop's own pieces sold before, and the
+    deduction: empty takes the shop's buy-back rule (its own pieces' deduction,
+    else the purity's, else the general one, as *Settings › Jewellery
+    settings* says); another needs a manager (*Why the deduction is changed*,
+    and the manager's PIN when someone else asks), and is written in the
+    activity log;
   - the server values each line as it is typed, at the latest buy rate of the
     day for its purity: the net weight (gross less stones and dirt) × the buy
     rate × the fineness found ÷ the purity's fineness, less the deduction, to
@@ -4844,16 +4867,35 @@ item's slab and HSN before trading.
     and signed on the printed voucher.
 
   Its metal joins the shop's own metal at once. A voucher opens in a panel
-  with each article as valued and what became of its value; from there: *Pay
+  with each article as valued (its rule, and who approved another deduction),
+  where its metal goes next, photos of what came in (up to ten: *Add a
+  photo*), and what became of its value; from there: *Keep to resell* / *Back
+  to melt* and *Send on a refinery challan* for a line (a manager), *Pay
   out* (a manager: by UPI or bank transfer, or in cash — a seller does not
   receive ₹2,00,000 or more in cash for old gold in a day or for one voucher
   (Income-tax Act 2025, section 186), and the shop may keep a lower limit of
   its own in *Settings › Jewellery settings*; each payout is written in the
   expense book, category Other, so *Daily money* shows it, and it is never
-  reversed there), *Print the voucher* (for the seller to sign and keep), *Put
+  reversed there), *With …'s other vouchers* (below), *Print the voucher* (for the seller to sign and keep), *Put
   back from …* (below), and *Cancel* (a manager, with the reason, while nothing
-  was paid out or used on it: its metal goes back out). The bell tells
-  whoever pays out about vouchers taken in before today with value left.
+  was paid out or used on it, and none of its metal went on: its metal goes
+  back out). The bell tells whoever pays out about vouchers taken in before
+  today with value left.
+- **Old gold paid out at once** — a seller's vouchers with value left are paid
+  together from a voucher's panel (*With …'s other vouchers*), the seller's
+  row in *Customers* (*Pay out old gold*) or *Daily money* (*Old gold to pay
+  out*, seller by seller): tick the vouchers, the amount of each, and how it
+  is paid. Each is its own payout in the expense book, checked against the
+  cash limits as it is paid: when one would go past them, nothing is paid, and
+  the rest goes by UPI or bank transfer.
+- **Refinery challans** (on *Old gold*) — *Send metal*: the shop's metal of one
+  metal, purity by purity, out of what the location holds, to a refiner (a
+  supplier) or a bullion dealer (a customer), numbered RF/2627/0001; sent from
+  a voucher's line it carries that old gold. A challan opens in a panel: *Back
+  refined* (what came back, its purity, weight and fineness assayed, into the
+  shop's metal, with the fine metal lost shown) or *Sold to the dealer* (a sale
+  bill of the fine metal sent at the rate per gram typed, with 3% GST, on the
+  dealer's account). A karigar's issue challan can carry old gold the same way.
 - **Old gold on the jewellery bill** — under *Old gold* on the bill, tick the
   customer's vouchers with value left, or *Take in old gold* there (its seller
   becomes the bill's customer). The old gold pays first, as a payment by *Old
@@ -4865,8 +4907,9 @@ item's slab and HSN before trading.
 - **Gold schemes** (*Gold schemes*) — every customer's scheme, numbered
   (GS/2627/0001), with what was paid in, the next instalment's day, when it
   matures and the day it closes by, and where it stands: paying, an
-  instalment due, matured, stopped, past its close day, redeemed (a chip for
-  each, and *Open* for all not yet redeemed). *Enrol a customer*: the plan,
+  instalment due, matured, stopped, on its day 364 today, past its close day,
+  in safekeeping, redeemed (a chip for each, and *Open* for all not yet
+  redeemed). *Enrol a customer*: the plan,
   the customer (found, or *New customer*), their monthly amount, a nominee
   (with the relation), the plan's terms for them to read and accept (ticked
   here, signed on the passbook), and the first instalment, taken now. The
@@ -4877,16 +4920,29 @@ item's slab and HSN before trading.
   gives; from there: *Take the instalment* (the next one, until all are paid,
   before it matures), *Redeem on a jewellery bill* (opens the bill with the
   customer and the scheme on it), *Remind on WhatsApp*, *Print the passbook*,
-  and *Stop* (with the reason, and a manager's approval: their PIN when someone
-  else asks). Each instalment is a receipt of the customer's money (it shows
+  *Stop* (with the reason, and a manager's approval: their PIN when someone
+  else asks), *Close on day 364* (below), *Collected* and *Put back from SI/…*
+  (below). Each instalment is a receipt of the customer's money (it shows
   under *Payments received* and in the day's money), not a sale: the GST is on
   the jewellery bill that redeems the scheme. Cash into one scheme stays under
   ₹2,00,000: its instalments pay one bill, and one bill takes less than that in
   cash (Income-tax Act 2025, section 186). *Money held for the schemes* below
   the list adds up what customers paid into schemes not yet redeemed (owed to
   them as jewellery), the discounts due now and when complete, by plan, with
-  *Export* for the accountant. The bell warns of schemes within 30 days of
-  their close day, and of any past it.
+  *Export* for the accountant; for a company that gave its net worth in the
+  settings, all of it against 25% of the net worth. The bell warns of schemes
+  within 30 days of their close day, on their day 364, and past it; of metal
+  in safekeeping waiting to be collected; and of scheme money past 25% of a
+  company's net worth.
+- **A scheme on its day 364** — a scheme not redeemed by its day 364 is closed
+  from its panel, *Close on day 364* (a manager; nothing closes by itself):
+  choose the purity; the screen shows the weight its money buys at today's
+  rate, the bill, and the few rupees due when the customer collects.
+  *Close it into safekeeping* bills that metal to the customer (a jewellery
+  bill redeeming the scheme), sets it aside from the shop's metal as a piece
+  of its own, and holds it in their safekeeping: it is never billed or sent
+  for anyone else. When they come, *Collected* takes what is still due and
+  hands it over.
 - **A gold scheme on the jewellery bill** — under *Gold scheme* on the bill,
   choose the customer's scheme. All that was paid into it pays the bill (each
   instalment's receipt as it was paid), so the pieces must come to at least
@@ -4898,7 +4954,11 @@ item's slab and HSN before trading.
   returned and not all of it went back as money (what a gold scheme paid never
   does), the credit left shows under *Credit from returned bills* on their next
   jewellery bill: tick it and it pays first, as a payment by credit note with
-  the returned bill's number.
+  the returned bill's number. What a gold scheme paid on it goes back onto the
+  scheme instead while the scheme is within its tenure (to its day 364): on the
+  scheme's panel, *Put back from SI/…* (with the permission to refund); the
+  scheme is open again, and its next bill takes that money as a payment by
+  *Gold scheme*.
 - **A bill old gold paid, taken back** — return the piece as above; then
   *Refund* gives back in money at most what was paid on the bill in money, and
   the old gold's part goes back on its voucher: on the voucher's panel, *Put
@@ -5100,24 +5160,31 @@ item's slab and HSN before trading.
   as a purchase from the supplier at 3% GST (the metal is kept in grams in
   these books, so the purchase takes no stock).
 - **Jewellery settings** (*Settings › Jewellery settings*) — the tags and the
-  hallmarking charge, the hallmarking rules, old gold's deduction and cash
-  limit (above), and the cash report's own alert level and whether the shop is
-  a reporting entity (below).
+  hallmarking charge, the rate sessions, the hallmarking rules, old gold's
+  buy-back rules and cash limit (above), the cash report's alert levels and
+  whether the shop is a reporting entity (below), the KYC documents the shop
+  accepts, whether a counter discount may come off the metal, a company's net
+  worth, and *Offers on making*: *New offer* (a manager: its name, the
+  percentage off the making charge, the metal or every metal, and its dates),
+  each with the pieces it was given on, and *Switch off*.
 - **Gold scheme plans** (*Settings › Gold scheme plans*) — the plans (above),
   each with its schemes open and in all, and *Switch off* / *Switch on*.
 - **Cash report** (*Reports › Cash report*) — the cash the shop took from and
-  paid to each customer: cash paid on their bills, their cash receipts (dues,
+  paid to each person: cash paid on their bills, their cash receipts (dues,
   advances, gold scheme instalments), cash refunded to them, advances handed
-  back in cash, and cash paid out for their old gold, in the month to today
-  (or the days chosen), with customers who share a PAN taken as one person,
-  largest first. A customer whose cash in and out comes to ₹10 lakh or more
+  back in cash, and cash paid out for their old gold, in the rolling month to
+  today (or the days chosen), with customers who share a PAN or a phone
+  number, or who are in one family group, taken as one person (the row says
+  how they were linked), largest first, and whether each has KYC on file. A customer whose cash in and out comes to ₹10 lakh or more
   is flagged: a jeweller that carries out cash transactions of ₹10 lakh or
   more with a customer, at once or in several that appear linked (paying cash
   for old jewellery is one), is a reporting entity under the PMLA, and from
   then on reports each month's cash transactions above ₹10 lakh (and the
   linked ones adding up to more within a month) to FIU-IND by the 15th of the
-  next month. The shop may keep a lower alert level of its own
-  (*Settings › Jewellery settings*, *Cash report*). A customer's name opens
+  next month. The shop may keep up to five lower alert levels of its own
+  (*Settings › Jewellery settings*, *Cash report*); a person past one is
+  marked with it. *Family groups* makes a group and adds or takes out its
+  customers (each in one group at a time). A customer's name opens
   their cash transactions; walk-ins' cash with no customer or PAN on the bill
   is shown apart. The *Monthly cash transactions worksheet* lists, for a
   month, each customer whose cash was above ₹10 lakh with every cash
@@ -5125,7 +5192,26 @@ item's slab and HSN before trading.
   spreadsheet. Nothing is filed from here: the shop's officer files with
   FIU-IND. Tick *The shop is a reporting entity* in the settings once it is:
   the bell then reminds the shop of the month's report until the 15th. The
-  bell also flags a customer at ₹10 lakh, and those past the shop's level.
+  bell also flags a customer at ₹10 lakh, and those past the shop's levels.
+- **Customers' KYC** (the *KYC* button on a customer's row in *Customers*, and
+  in the cash report) — the customer's documents: *Record a document* (a type
+  the shop accepts, its number — of an Aadhaar card only the last four
+  digits — the name on it and the day it was seen) and its copy (a photo or a
+  PDF); *A beneficial owner* for a firm (name, role, share, PAN). Those who
+  may see KYC (the owner and a manager) see the numbers in full and open the
+  copies, and set a record entered by mistake aside with why; everyone else
+  sees the last four characters. Records are kept at least five years after
+  the customer's last transaction (the panel says until when), whatever an
+  erasure of their personal data does.
+- **Suspicious transaction log** (at the foot of the *Cash report*, for those
+  who keep it: the owner, and whoever the owner gives the permission to in
+  *Settings › Roles*) — *Open a case*: the customer or a name as known, what
+  was seen and the transactions it concerns. A case opens with its history
+  (who opened, read, noted and decided it); *Add the note*, then *Decide*:
+  reported to FIU-IND (the day and the acknowledgement, filed by the shop's
+  principal officer on FIU-IND's own system) or not reported, with why, once.
+  Never tell the customer: the log is not shown at the counter, in the bell,
+  in the activity log, or in a customer's copy of their data.
 
 A jewellery item's pieces are sold only on the jewellery bill: *Quick bill*,
 *New sale* and a quotation's bill refuse its item, and the items the
@@ -5137,7 +5223,10 @@ transfers* switched on, a transfer moves a piece between locations by its
 tag (not while it is out).
 
 Who does what: a manager sets the day's rates, melts pieces, pays out, puts
-back and cancels old gold, sets up gold scheme plans and stops schemes (or
+back and cancels old gold, approves another deduction on old gold, sends the
+shop's metal to refiners and dealers and closes their challans, closes gold
+schemes on their day 364, makes and switches off offers, sees customers' KYC
+in full, sets up gold scheme plans and stops schemes (or
 approves a stop with their PIN), makes karigars and sets their labour rates,
 writes off what is left with a karigar, cancels custom orders and fixes the
 rate on a supplier's metal balance; a cashier makes jewellery bills and takes
@@ -5150,8 +5239,9 @@ them without prices, works the karigars' challans and the hallmarking
 consignments, and splits, merges and re-tags pieces; an accountant and a
 viewer see the rates, their sheets, the pieces, the old gold, the schemes with
 the money held for them, the orders and the challans; the owner, a manager and
-an accountant see the cash report, export it, the money held for schemes, the
-ITC-04 data and the HUID list. Labour and the metal account are for those who
+an accountant see the cash report, export it, set its family groups, the money
+held for schemes, the ITC-04 data and the HUID list; the owner alone keeps the
+suspicious transaction log until they give it to a role. Labour and the metal account are for those who
 see purchases. The **Karigar / goldsmith**, a jeweller's own role, sees the
 pieces and their weights, with no prices and no money: they tag units already
 in stock (not new stock), record weights, stones and HUIDs, make issue

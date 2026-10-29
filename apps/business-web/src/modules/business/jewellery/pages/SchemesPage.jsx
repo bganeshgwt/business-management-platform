@@ -15,12 +15,15 @@ import "../styles/jewellery.css";
 
 // Gold schemes: every customer's scheme with what was paid in, the next
 // instalment's day, its maturity and the day it closes by, and where it
-// stands (paying, an instalment due, matured, stopped, past its close day,
-// redeemed). Below, the money the shop holds for open schemes, to be given as
-// jewellery, with the discounts they give, exported for the accountant.
+// stands (paying, an instalment due, matured, stopped, closing today on its
+// day 364, past its close day, in the customer's safekeeping, redeemed).
+// Below, the money the shop holds for open schemes, to be given as jewellery,
+// with the discounts they give, exported for the accountant; and for a
+// company, all of it against 25% of its net worth (Jewellery settings).
 
 const CHIPS = [["open", "Open", { open: "true" }], ["due", "Instalment due", { stage: "due" }], ["matured", "Matured", { stage: "matured" }], ["stopped", "Stopped", { stage: "stopped" }],
-  ["past_close", "Past the close day", { stage: "past_close" }], ["redeemed", "Redeemed", { stage: "redeemed" }], ["all", "All", {}]];
+  ["closing", "Day 364 today", { stage: "closing" }], ["past_close", "Past the close day", { stage: "past_close" }], ["safekeeping", "In safekeeping", { stage: "safekeeping" }],
+  ["redeemed", "Redeemed", { stage: "redeemed" }], ["all", "All", {}]];
 const csvCell = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
 
 export default function SchemesPage() {
@@ -82,7 +85,7 @@ export default function SchemesPage() {
           {CHIPS.map(([value, label]) => <button key={value} type="button" aria-pressed={chip === value} className={`fe-chip ${chip === value ? "is-active" : ""}`} onClick={() => setChip(value)}>{label}</button>)}
         </div>
         <DataGrid {...list.gridProps} search={{ ...list.gridProps.search, placeholder: "Scheme, member, phone or plan" }} caption="Gold schemes" columns={columns}
-          rowNoun={["scheme", "schemes"]} onRowClick={(s) => setOpenId(s.id)} rowClassName={(s) => (s.stage === "past_close" ? "dg-tone-danger" : s.status === "redeemed" ? "dg-tone-muted" : "")}
+          rowNoun={["scheme", "schemes"]} onRowClick={(s) => setOpenId(s.id)} rowClassName={(s) => (["past_close", "closing"].includes(s.stage) ? "dg-tone-danger" : s.stage === "safekeeping" ? "" : s.status === "redeemed" ? "dg-tone-muted" : "")}
           empty="No schemes here" emptyHint={canEnrol ? "Enrol a customer in a plan to start one." : undefined} emptyIcon="calendar" />
       </SectionCard>
       {money && (
@@ -93,6 +96,7 @@ export default function SchemesPage() {
             <strong>Held {biz.exact(money.totals.paid)}</strong>
             <span>Discounts due now {biz.exact(money.totals.discountNow)}</span>
             <span>When complete {biz.exact(money.totals.discountWhenComplete)}</span>
+            {money.totals.closingToday > 0 && <span className="bz-minus">{money.totals.closingToday} on day 364 today: close each into safekeeping</span>}
             {money.totals.pastClose > 0 && <span className="bz-minus">{money.totals.pastClose} past the close day</span>}
             {money.totals.closingIn30 > 0 && <span>{money.totals.closingIn30} closing within 30 days</span>}
           </div>
@@ -101,6 +105,13 @@ export default function SchemesPage() {
               <thead><tr><th scope="col">Plan</th><th scope="col">Open schemes</th><th scope="col">Held</th></tr></thead>
               <tbody>{money.byPlan.map((p) => <tr key={p.plan}><th scope="row">{p.plan}</th><td>{p.schemes}</td><td>{biz.exact(p.paid)}</td></tr>)}</tbody>
             </table>
+          )}
+          {money.netWorth && (
+            <p className={`jw-note ${money.netWorth.over ? "jw-warn" : ""}`}>
+              A company keeps its gold scheme money within {money.netWorth.sharePercent}% of its net worth: {biz.exact(money.netWorth.held)} held against {biz.exact(money.netWorth.limit)}
+              {" "}({money.netWorth.sharePercent}% of {biz.exact(money.netWorth.netWorth)} as of {dateShort(money.netWorth.on, { year: true })}), {money.netWorth.usedPercent}% of the net worth.
+              {money.netWorth.over ? ` It is ${biz.exact(-Number(money.netWorth.headroom))} past it.` : ` ${biz.exact(money.netWorth.headroom)} left within it.`}
+            </p>
           )}
         </SectionCard>
       )}

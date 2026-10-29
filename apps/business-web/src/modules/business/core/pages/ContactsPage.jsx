@@ -24,6 +24,10 @@ import { consentStore, useConsent } from "../../../personal-data/consentStore";
 import { useShopPrivacy } from "../../../personal-data/usePrivacy";
 // Customers or suppliers from a CSV file, checked row by row first.
 import ImportDialog from "./ImportDialog";
+// A jeweller's customer: their KYC, and their old gold paid out at once.
+import { usesJewellery } from "../../jewellery/pages/jewellery";
+import KycPanel from "../../jewellery/pages/KycPanel";
+import { OldGoldPayoutsDialog } from "../../jewellery/pages/OldGoldPayouts";
 
 // Customers or suppliers, with GSTIN, credit terms and what each owes.
 export default function ContactsPage({ kind }) {
@@ -37,6 +41,10 @@ export default function ContactsPage({ kind }) {
   const [notice, setNotice] = useState("");
   const navigate = useNavigate();
   const [importing, setImporting] = useState(false);
+  const [kyc, setKyc] = useState(null);
+  const [paying, setPaying] = useState(null);
+  const jeweller = customer && usesJewellery(biz);
+  const canPay = jeweller && biz.can("jewellery.approve") && biz.can("sales.view");
   useEffect(() => {
     if (params.get("new")) setParams((p) => new URLSearchParams(p.get("open") ? { open: p.get("open") } : {}), { replace: true });
   }, [params, setParams]);
@@ -64,15 +72,17 @@ export default function ContactsPage({ kind }) {
     { key: "credit_days", header: "Credit days", type: "number", value: (c) => c.credit_days },
     { key: "balance", header: customer ? "Owes you" : "You owe", type: "money", exact: true, value: (c) => Number(c.balance), total: "sum", mobile: "show" },
     { key: "active", header: "Status", type: "status", value: (c) => (c.active ? "active" : "inactive"), render: (c) => <ActiveBadge active={c.active} /> },
-    (canEdit || canBook) && { key: "actions", header: "", label: "Actions", type: "actions", render: (c) => (
+    (canEdit || canBook || jeweller) && { key: "actions", header: "", label: "Actions", type: "actions", render: (c) => (
       <div className="row-actions">
         {canBook && c.active && (
           <button type="button" className="chip-button" disabled={booking === c.id} onClick={() => book(c)} aria-label={`Book ${c.name}`}>Book</button>
         )}
         {canEdit && <button type="button" className="chip-button" onClick={() => setEditing(c)}>Edit</button>}
+        {jeweller && <button type="button" className="chip-button" onClick={() => setKyc(c)}>KYC</button>}
+        {canPay && <button type="button" className="chip-button" onClick={() => setPaying(c)}>Pay out old gold</button>}
       </div>
     ) },
-  ], [biz, customer, canBook, canEdit, booking, book]);
+  ], [biz, customer, canBook, canEdit, booking, book, jeweller, canPay]);
 
   return (
     <div className="stack">
@@ -93,6 +103,8 @@ export default function ContactsPage({ kind }) {
         onSaved={(c) => { setEditing(null); setNotice(`${c.name} saved.`); list.reload(); }} />}
       {importing && <ImportDialog kind={kind} onClose={() => setImporting(false)}
         onImported={(message) => { setImporting(false); setNotice(message); list.reload(); }} />}
+      {kyc && <KycPanel biz={biz} contact={kyc} onClose={() => setKyc(null)} />}
+      {paying && <OldGoldPayoutsDialog biz={biz} seller={paying} onClose={() => setPaying(null)} onSaved={() => { setPaying(null); list.reload(); }} />}
     </div>
   );
 }

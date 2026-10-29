@@ -8,8 +8,9 @@ const pieces = require('./jewelleryPieces.service');
 // The fine-weight book (module "jewellery"): the metal of each purity the
 // shop holds, in grams and in fine (pure) grams, wherever it is: pieces in
 // stock, on approval, at a karigar and at the hallmarking centre; the shop's
-// own metal (melted pieces, old gold, scrap, metal from suppliers); and the
-// metal karigars hold. The database writes every change as pieces and metal
+// own metal (melted pieces, old gold, scrap, metal from suppliers); the metal
+// karigars hold; metal out with refiners and bullion dealers; and customers'
+// metal held in safekeeping (gold schemes closed on their day 364). The database writes every change as pieces and metal
 // move (jewellery_fine_ledger), so for any period the book reads: what it held
 // at the start, each kind of movement (bought or tagged in, sold, taken back,
 // old gold, wastage, metal with suppliers …), and what it holds at the end.
@@ -21,22 +22,25 @@ const pieces = require('./jewelleryPieces.service');
 
 const { fail, id } = c;
 const HOLDER_WORDS = { stock: 'Pieces in stock', approval: 'Pieces on approval', karigar: 'Pieces at karigars', centre: 'Pieces at the hallmarking centre',
-  metal: 'The shop\'s metal', karigar_metal: 'Metal with karigars' };
+  metal: 'The shop\'s metal', karigar_metal: 'Metal with karigars', refinery: 'Metal with refiners and dealers', safekeeping: 'Customers\' metal in safekeeping' };
 const KIND_WORDS = { opening: 'In the book when it began', tagged: 'Pieces tagged into stock', changed: 'Weights corrected', sold: 'Sold', returned: 'Taken back on credit notes',
   old_gold: 'Old gold bought', old_gold_cancelled: 'Old gold handed back (cancelled)', wastage_allowed: 'Karigars\' wastage allowed',
   wastage_written_off: 'Karigars\' metal written off', supplier_in: 'Metal received from suppliers', supplier_out: 'Metal given to suppliers',
   karigar_made: 'Made by karigars', karigar_issue: 'Issued to karigars', karigar_return: 'Brought back by karigars', karigar_repair: 'Repairs', moved: 'Moved within the shop',
-  melted: 'Melted', split: 'Split', merged: 'Merged', retagged: 'Given a new tag' };
+  melted: 'Melted', split: 'Split', merged: 'Merged', retagged: 'Given a new tag', refinery_out: 'Sent to refiners and dealers',
+  refined_out: 'Refined (as it went)', refinery_back: 'Refined metal back', refinery_sold: 'Sold to bullion dealers', safekeeping: 'Set aside for safekeeping' };
 // Kinds that only move metal between holders: the total stays as it is.
-const WITHIN = ['karigar_made', 'karigar_issue', 'karigar_return', 'karigar_repair', 'moved', 'melted', 'split', 'merged', 'retagged'];
+const WITHIN = ['karigar_made', 'karigar_issue', 'karigar_return', 'karigar_repair', 'moved', 'melted', 'split', 'merged', 'retagged', 'refinery_out', 'safekeeping'];
 const MAX_TAGS = 5000;
 
 // Each ledger row's kind as the statement reads it: a piece made by a karigar,
 // split, merged or given a new tag comes in under that kind (not as tagged),
-// a repaired piece's change of weight is the repair, and a melted piece's
-// metal is the melt.
+// a piece set aside from the shop's metal for a customer's safekeeping comes
+// in as that, a repaired piece's change of weight is the repair, and a melted
+// piece's metal is the melt.
 const LEDGER_SQL = `SELECT l.metal,l.purity,l.holder,l.net_weight,l.fine_weight,(l.created_at AT TIME ZONE $2)::date AS day,
     CASE WHEN l.kind='tagged' AND EXISTS (SELECT 1 FROM jewellery_karigar_receipt_lines r WHERE r.business_id=l.business_id AND r.piece_id=l.piece_id AND r.kind='made') THEN 'karigar_made'
+      WHEN l.kind='tagged' AND EXISTS (SELECT 1 FROM jewellery_metal_movements m WHERE m.business_id=l.business_id AND m.piece_id=l.piece_id AND m.source='safekeeping') THEN 'safekeeping'
       WHEN l.kind='tagged' THEN COALESCE((SELECT CASE k.kind WHEN 'split' THEN 'split' WHEN 'merge' THEN 'merged' ELSE 'retagged' END FROM jewellery_piece_links k
         WHERE k.business_id=l.business_id AND k.to_piece_id=l.piece_id LIMIT 1),'tagged')
       WHEN l.kind='changed' AND EXISTS (SELECT 1 FROM jewellery_karigar_receipt_lines r JOIN jewellery_karigar_receipts rr ON rr.business_id=r.business_id AND rr.id=r.receipt_id

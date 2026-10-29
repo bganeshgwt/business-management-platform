@@ -364,7 +364,7 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Purity** | How much pure metal a piece holds: gold in carats with its fineness (24K 999, 22K 916, 18K 750, 14K 585), silver and platinum by their fineness (999, 925; 950). |
 | **Fineness** | The parts of pure metal in a thousand: 916 is 91.6% gold. |
 | **22K916** | A purity as a hallmark writes it: 22 carat, 916 fineness. |
-| **Rate sheet** | The day's rates a manager sets: for each purity, the selling rate per gram and the rate paid for old metal, morning or evening. Never changed: a correction is a new sheet. |
+| **Rate sheet** | The day's rates a manager sets: for each purity, the selling rate per gram and the rate paid for old metal, for a session (morning, evening, or one the shop names, such as Noon). Never changed: a correction is a new sheet. |
 | **Today's rate** | For a purity, the rate of the latest sheet of the day that rates it; a bill takes it. |
 | **Old metal rate** | What the shop pays per gram for old gold or silver of a purity. |
 | **IBJA rate** | The India Bullion and Jewellers Association's benchmark rates for gold, silver and platinum, published twice a day, before GST and making charges. |
@@ -393,6 +393,7 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Touchstone** | The traditional test: the piece is rubbed on a dark stone and its streak is compared with streaks of known purity. |
 | **Fineness found** | The purity a test shows, in parts of pure metal in a thousand (912.5); old gold is valued by it. |
 | **Deduction** (old gold) | The percentage taken off old gold's value for melting loss or by the shop's own rule. |
+| **Buy-back rule** | The deduction a line of old gold takes: the shop's own piece bought back (known by its HUID or tag) its own, outside jewellery its purity's or the general one; another needs a manager. |
 | **Payment by old gold** | The part of a bill old gold pays: a credit note on the sale with the voucher's number; no money moves. |
 | **Put back** (old gold) | What old gold paid on a bill that was returned, going back on its voucher to be paid out or used again. |
 | **Form 97** | The declaration a person without a PAN signs where a PAN is asked for (it replaced Form 60). |
@@ -426,6 +427,19 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Fine-weight book** | Each purity's metal in grams and fine grams, in stock, on approval, at karigars, at the centre, as the shop's metal and with karigars, with every movement; a count is held against it. |
 | **Metal account** | Metal received from a supplier on a metal balance and owed in grams of its purity, or given back, until its rate is fixed (bhav cut). |
 | **Metal voucher** | A record of metal received from or given to a supplier on the metal account (MV/2627/0001). |
+| **Refinery challan** | The shop's metal sent out (RF/2627/0001) to a refiner, who gives it back refined (the fine metal lost shown), or to a bullion dealer, who buys it on a sale bill. |
+| **Refiner** | A supplier who melts and refines the shop's old gold and scrap into pure metal. |
+| **Bullion dealer** | A trader who buys the shop's metal (here, a customer), on a sale bill at a rate per gram of fine metal, with 3% GST. |
+| **Safekeeping** (scheme) | A scheme not redeemed by its day 364, billed as gold or silver equal to its money at that day's rate and held in the shop for the customer until they collect it; never sold to anyone else. |
+| **Rolling month** | The cash report's month to today: from the day after the same date last month. |
+| **Family group** | Customers the shop puts together in the cash report: their cash is one person's. |
+| **Alert level** | A level of cash with one person in a month, below ₹10 lakh, that the shop sets for itself: the cash report marks those past it. |
+| **KYC** | Know your customer: the documents a customer showed (PAN card, Aadhaar card, passport…), with their numbers and copies, kept at least five years after their last transaction. |
+| **Beneficial owner** | A person who owns or controls a firm that is a customer: its partner, director or shareholder, kept with its KYC. |
+| **Suspicious transaction** | A transaction the shop suspects, whatever its amount; a reporting entity reports it to FIU-IND (an STR) and must never tell the customer (tipping off). |
+| **Offer on making** | A percentage off the making charge of a metal's pieces between two days (Dhanteras, a wedding season); the bill gives each piece the best one running. |
+| **Counter discount** (jewellery) | A discount at the counter off the pieces' making and wastage (and the metal only where the shop allows it), within the business's most on a bill, with why. |
+| **Loose stones and coins** | Catalogue goods that are not tagged pieces, billed on the jewellery bill at their own prices and GST slabs. |
 
 ### Rentals & hire
 

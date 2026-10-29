@@ -3,8 +3,8 @@
 // keeps and why. Every table with a foreign key to business_contacts is here
 // (tests/integration/personal-data.test.js reads the database's own list of
 // foreign keys and fails on one this file does not name), so a module added
-// later is placed on purpose: erased, kept with its reason, or not a
-// customer's (a supplier's, an insurer's).
+// later is placed on purpose: erased, kept with its reason, not a
+// customer's (a supplier's, an insurer's), or never shown to them.
 //
 //   label   the export's heading for the table's rows
 //   erase   column -> what it becomes: null, or 'name' for the erased name
@@ -12,6 +12,9 @@
 //   keep    why the rows stay as they are (shown to staff and the accountant)
 //   party   'supplier': the rows are a supplier's or an insurer's, never a customer's
 //   own     this module's own record (consents, requests, breaches): kept as the record
+//   secret  kept, and never in an export nor named by an erasure: the
+//           suspicious transaction log, which the law forbids telling the
+//           person about (the PMLA's tipping off)
 //
 // A table whose guard keeps closed rows as they were lets an erasure's change
 // through only for these columns (business_privacy_erasing, migration
@@ -90,6 +93,11 @@ const TABLES = {
     also: 'The season\'s terms and its bills stay: they are accounting records.' },
   agri_produce_receipts: { label: 'Produce taken against dues', keep: 'Payments received in produce are accounting records.' },
   agri_schemes: { label: 'Company schemes', party: 'supplier' },
+  jewellery_refinery_challans: { label: 'Refinery challans', keep: 'A refinery challan is a trade record of metal sent to a refiner, or sold to a bullion dealer on a bill.' },
+  jewellery_kyc_documents: { label: 'KYC documents', keep: 'KYC records are kept at least five years after the business with the customer ends, as the Prevention of Money-laundering Act asks of a jeweller.' },
+  jewellery_kyc_owners: { label: 'Beneficial owners', keep: 'A firm\'s beneficial owners are part of its KYC, kept at least five years as the Prevention of Money-laundering Act asks.' },
+  jewellery_cash_family_members: { label: 'Family group in the cash report', keep: 'The cash report adds up a family\'s cash for the Income Tax limit; the group names the customer only through the erased record.' },
+  jewellery_str_cases: { label: 'Suspicious transaction log', secret: true },
 };
 
 // Children of the rows above that the export also shows: the lines of each bill.

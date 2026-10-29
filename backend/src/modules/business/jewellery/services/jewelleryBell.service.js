@@ -6,8 +6,10 @@ const c = require('./jewelleryCommon');
 // rates not set (for whoever sets them), a location whose hallmarking district
 // has not been said (for whoever changes settings), old gold taken in before
 // today with value still to pay out or use (for whoever pays out), gold
-// schemes past or near their close day (for whoever sees their money), the
-// cash report's flags (for whoever sees it), custom orders past the day
+// schemes near their close day, on their day 364 or past it, metal held in
+// customers' safekeeping, and a company's scheme money past 25% of its net
+// worth (for whoever sees their money), the cash report's flags (for whoever
+// sees it), custom orders past the day
 // promised and approval challans past the day due back (for whoever sees
 // their money), and issue challans with pieces still at a karigar past the day
 // due back (for whoever sees the pieces).

@@ -626,7 +626,7 @@ test('personal data', { timeout: 900000 }, async (t) => {
     assert.deepEqual(Object.keys(registry.TABLES).filter((name) => !tables.includes(name)), [], 'the registry names only tables that point at a customer contact');
     assert.deepEqual(references.filter((r) => Number(r.columns) !== 2), [], 'every customer reference is (business_id, contact_id), as the export reads it');
     for (const [table, entry] of Object.entries(registry.TABLES)) {
-      assert.equal([entry.erase, entry.keep, entry.party, entry.own].filter(Boolean).length, 1, `${table} is erased, kept, a supplier's, or this module's own`);
+      assert.equal([entry.erase, entry.keep, entry.party, entry.own, entry.secret].filter(Boolean).length, 1, `${table} is erased, kept, a supplier's, this module's own, or never shown`);
       if (!entry.erase) continue;
       const columns = await rows("SELECT column_name, is_nullable FROM information_schema.columns WHERE table_schema='public' AND table_name=$1", [table]);
       for (const [column, value] of Object.entries(entry.erase)) {

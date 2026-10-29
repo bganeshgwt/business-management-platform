@@ -63,6 +63,9 @@ async function openItems(db, business, contactId) {
     ["SELECT count(*)::int AS n FROM jewellery_orders WHERE business_id=$1 AND contact_id=$2 AND status NOT IN ('delivered','cancelled')", 'custom order not delivered'],
     [`SELECT count(*)::int AS n FROM jewellery_approvals a WHERE a.business_id=$1 AND a.contact_id=$2
        AND EXISTS (SELECT 1 FROM jewellery_approval_lines l WHERE l.business_id=a.business_id AND l.approval_id=a.id AND l.outcome = 'out')`, 'approval challan with pieces still out'],
+    [`SELECT count(*)::int AS n FROM jewellery_scheme_closes k JOIN jewellery_schemes s ON s.business_id=k.business_id AND s.id=k.scheme_id
+       JOIN jewellery_pieces p ON p.business_id=k.business_id AND p.id=k.piece_id WHERE k.business_id=$1 AND s.contact_id=$2 AND p.status = 'safekeeping'`,
+    'gold scheme\'s metal in safekeeping, not yet collected'],
   ];
   for (const [sql, what] of checks) {
     const n = (await repo.one(db, sql, [b, contactId])).n;
@@ -81,7 +84,7 @@ async function exportOf(db, business, contactId) {
   const sections = [];
   for (const ref of await contactReferences(db)) {
     const entry = registry.TABLES[ref.table_name];
-    if (entry?.party === 'supplier' || entry?.own) continue;
+    if (entry?.party === 'supplier' || entry?.own || entry?.secret) continue;
     const rows = await repo.all(db, `SELECT * FROM ${quote(ref.table_name)} WHERE business_id=$1 AND ${quote(ref.column_name)}=$2 LIMIT 5000`, [business.id, contactId]);
     if (!rows.length) continue;
     const clean = rows.map((row) => Object.fromEntries(Object.entries(row).filter(([key]) => !registry.HIDDEN.has(key))));
@@ -108,8 +111,8 @@ async function erase(db, business, user, contactId) {
   const kept = new Set();
   for (const ref of await contactReferences(db)) {
     const entry = registry.TABLES[ref.table_name];
-    if (!entry || entry.party === 'supplier' || entry.own) continue;
-    const count = (await repo.one(db, `SELECT count(*)::int AS n FROM ${quote(ref.table_name)} WHERE business_id=$1 AND ${quote(ref.column_name)}=$2`, [b, contactId])).n;
+    if (!entry || entry.party === 'supplier' || entry.own || entry.secret) continue;
+    const count =(await repo.one(db, `SELECT count(*)::int AS n FROM ${quote(ref.table_name)} WHERE business_id=$1 AND ${quote(ref.column_name)}=$2`, [b, contactId])).n;
     if (!count) continue;
     if (entry.keep) { kept.add(`${entry.label}: ${entry.keep}`); continue; }
     if (entry.also) kept.add(entry.also);

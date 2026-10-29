@@ -3,10 +3,11 @@ const authenticate = require('../../../../middlewares/authenticate');
 const access = require('../../core/services/businessAccess.service');
 const files = require('../services/jewelleryFiles.service');
 
-// A jeweller's photos (multipart): a piece's photo and a custom order's
-// design. Mounted in routes/index.js BEFORE the /businesses router, whose
-// JSON-only check would refuse a file upload. A photo is opened only through
-// the API, by someone who may see the pieces.
+// A jeweller's files (multipart): a piece's photo, a custom order's design,
+// photos of old gold as it came in, and the copy of a KYC document. Mounted
+// in routes/index.js BEFORE the /businesses router, whose JSON-only check
+// would refuse a file upload. A file is opened only through the API, by
+// someone who may see it (a KYC copy: someone who may see KYC).
 const router = express.Router();
 const loaded = async (req, res, next) => {
   try {

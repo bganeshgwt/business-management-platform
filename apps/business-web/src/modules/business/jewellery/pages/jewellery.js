@@ -37,6 +37,7 @@ export const PIECE_STATUSES = {
   in_stock: { label: "In stock", tone: "success" }, on_approval: { label: "On approval", tone: "warning" }, at_karigar: { label: "At the karigar", tone: "info" },
   at_centre: { label: "At the hallmarking centre", tone: "info" }, sold: { label: "Sold", tone: "neutral" }, melted: { label: "Melted", tone: "neutral" },
   split: { label: "Split", tone: "neutral" }, merged: { label: "Merged", tone: "neutral" }, retagged: { label: "Given a new tag", tone: "neutral" },
+  safekeeping: { label: "In its buyer's safekeeping", tone: "warning" },
 };
 export const OPEN_STATUSES = ["in_stock", "on_approval", "at_karigar", "at_centre"];
 // Where a piece out of the shop is, and the screen its challan opens on.
@@ -78,6 +79,7 @@ export const approvalBody = (value) => ({ ...(value.approverId ? { approverId: v
 export const SCHEME_STAGES = {
   paying: { label: "Paying", tone: "info" }, due: { label: "Instalment due", tone: "warning" }, matured: { label: "Matured", tone: "success" },
   stopped: { label: "Stopped", tone: "neutral" }, past_close: { label: "Past its close day", tone: "danger" }, redeemed: { label: "Redeemed", tone: "neutral" },
+  closing: { label: "Closes today (day 364)", tone: "danger" }, safekeeping: { label: "In safekeeping", tone: "warning" },
 };
 // A reminder to send a scheme's member on WhatsApp (the shop picks the chat).
 export function schemeReminder(biz, s) {
@@ -111,6 +113,8 @@ export const splitPurity = (key) => { const [metal, purity] = String(key).split(
 export const readTags = (text) => [...new Set(String(text || "").toUpperCase().split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean))];
 
 export const SESSION_WORDS = { morning: "Morning", evening: "Evening" };
+// A rate sheet's session as the screens say it: Morning, Evening, or the shop's own name for it.
+export const sessionWords = (sheet) => (sheet.session === "own" ? sheet.session_name : SESSION_WORDS[sheet.session] || sheet.session);
 // The session a rate sheet set now is most likely for (the shop can change it).
 export const sessionNow = () => (new Date().getHours() < 13 ? "morning" : "evening");
 
@@ -127,3 +131,16 @@ export function ratesMessage(biz, board) {
     "Rates per gram before making charges and GST."].join("\n");
 }
 export const ratesShareLink = (biz, board) => whatsappLink("", ratesMessage(biz, board));
+
+// Old gold's metal next: what each line's metal goes on to.
+export const OLD_GOLD_NEXT = { melt: { label: "With the shop's metal, to melt", tone: "neutral" }, resell: { label: "Kept to resell as it is", tone: "info" },
+  refinery: { label: "Sent to a refiner or dealer", tone: "warning" }, karigar: { label: "Issued to a karigar", tone: "info" } };
+// The buy-back rule a line's deduction came from.
+export const RULE_WORDS = { own_piece: "The shop's own piece", purity: "This purity's deduction", general: "The general deduction" };
+// Refinery challans: to whom, and what became of them.
+export const REFINERY_PARTIES = [{ value: "refiner", label: "Refiner (back refined)" }, { value: "dealer", label: "Bullion dealer (sold)" }];
+export const REFINERY_OUTCOMES = { out: { label: "With them", tone: "warning" }, back: { label: "Refined and back", tone: "success" }, sold: { label: "Sold", tone: "neutral" } };
+// The suspicious transaction log: where a case stands.
+export const STR_STATUSES = { open: { label: "Open", tone: "warning" }, reported: { label: "Reported", tone: "danger" }, not_reported: { label: "Not reported", tone: "neutral" } };
+// How the cash report linked a person's customers.
+export const LINK_WORDS = { pan: "Same PAN", phone: "Same phone number", family: "Family group" };

@@ -89,11 +89,13 @@ test('jewellery and gold', { timeout: 300000 }, async (t) => {
     await request('PUT', J('modules/serials'), { enabled: false }, 409);
     await request('PUT', J('modules/sales'), { enabled: false }, 409);
     const permissions = await rows("SELECT code FROM business_permissions WHERE module_code='jewellery' ORDER BY sort_order");
-    assert.deepEqual(permissions.map((p) => p.code), ['jewellery.view', 'jewellery.create', 'jewellery.edit', 'jewellery.approve', 'jewellery.cancel', 'jewellery.print', 'jewellery.export']);
+    assert.deepEqual(permissions.map((p) => p.code), ['jewellery.view', 'jewellery.create', 'jewellery.edit', 'jewellery.approve', 'jewellery.cancel', 'jewellery.print', 'jewellery.export',
+      'jewellery.manage', 'jewellery.review']);
     const grants = async (business, template) => (await one(`SELECT COALESCE(array_agg(rp.permission_code ORDER BY rp.permission_code),'{}') AS p FROM business_role_permissions rp
       JOIN business_roles r ON r.business_id=rp.business_id AND r.id=rp.role_id WHERE r.business_id=$1 AND r.template_code=$2`, [business.id, template])).p;
     const mine = async (business, template) => (await grants(business, template)).filter((p) => p.startsWith('jewellery.'));
-    assert.deepEqual(await mine(jeweller, 'manager'), ['jewellery.approve', 'jewellery.cancel', 'jewellery.create', 'jewellery.edit', 'jewellery.export', 'jewellery.print', 'jewellery.view']);
+    assert.deepEqual(await mine(jeweller, 'manager'), ['jewellery.approve', 'jewellery.cancel', 'jewellery.create', 'jewellery.edit', 'jewellery.export', 'jewellery.manage',
+      'jewellery.print', 'jewellery.view']);
     assert.deepEqual(await mine(jeweller, 'cashier'), ['jewellery.create', 'jewellery.edit', 'jewellery.print', 'jewellery.view']);
     assert.deepEqual(await mine(jeweller, 'stock_keeper'), ['jewellery.edit', 'jewellery.print', 'jewellery.view']);
     assert.deepEqual(await mine(jeweller, 'accountant'), ['jewellery.export', 'jewellery.print', 'jewellery.view']);
@@ -473,7 +475,8 @@ test('jewellery and gold', { timeout: 300000 }, async (t) => {
   const payout = (voucherId, body, by = manager) => by.call('POST', J(`jewellery/old-gold/${voucherId}/payout`), { requestKey: key(), ...body }, 201);
 
   await t.test('old gold: tested and weighed, valued at the day\'s buy rate to the paisa, with the seller\'s photo ID, PAN and declaration; its metal joins the shop\'s own', async () => {
-    await request('PUT', J('jewellery/settings'), { oldGoldDeduction: '1.5' });
+    // The buy-back rules: 2% off outside 22K, 1.5% off any other purity.
+    await request('PUT', J('jewellery/settings'), { oldGoldDeduction: '1.5', purityDeductions: [{ metal: 'gold', purity: '22K', deductionPercent: '2' }] });
     // Today's latest sheets buy 22K at ₹11,825 a gram and 18K at ₹8,800.
     const preview = await cashier.call('POST', J('jewellery/old-gold/preview'), { lines: goldLines() });
     assert.deepEqual(preview.problems, []);
@@ -509,6 +512,8 @@ test('jewellery and gold', { timeout: 300000 }, async (t) => {
     assert.match(silver.problems[0], /no buy rate for Silver 999 today/);
     assert.ok(await one("SELECT 1 FROM business_audit WHERE business_id=$1 AND action='jewellery_old_gold.taken' AND entity_id=$2", [jeweller.id, voucher.id]));
     assert.ok(await one("SELECT 1 FROM business_events WHERE business_id=$1 AND kind='jewellery_old_gold.taken' AND entity_id=$2", [jeweller.id, voucher.id]));
+    // From here on the shop buys back with no deduction.
+    await request('PUT', J('jewellery/settings'), { oldGoldDeduction: '0', purityDeductions: [] });
   });
 
   await t.test('old gold paid out: cash below ₹2,00,000 to a seller in a day, the rest by UPI or bank, each in the expense book', async () => {
@@ -865,28 +870,28 @@ test('jewellery and gold', { timeout: 300000 }, async (t) => {
     // A walk-in's cash bill, linked to no one.
     const polish = await one("SELECT id FROM catalog_skus WHERE business_id=$1 AND code='POL-1'", [jeweller.id]);
     await request('POST', J('documents'), { kind: 'sale', requestKey: key(), locationId: shop.id, lines: [{ skuId: polish.id, quantity: '1' }], payments: [{ method: 'cash', amount: 'full' }] }, 201);
-    await request('PUT', J('jewellery/settings'), { cashWatchLevel: '100000' });
+    await request('PUT', J('jewellery/settings'), { cashAlertLevels: ['100000'] });
     const report = await request('GET', J('jewellery/cash-report'));
-    assert.deepEqual([report.to, report.from <= report.to, report.reportingLevel, report.watchLevel], [today, true, '1000000.00', '100000.00']);
-    const pan = report.people.find((p) => p.key === 'pan:BCDEF1234G');
+    assert.deepEqual([report.to, report.from <= report.to, report.reportingLevel, report.alertLevels], [today, true, '1000000.00', ['100000.00']]);
+    const pan = report.people.find((p) => p.pan === 'BCDEF1234G');
     assert.deepEqual([pan.contacts.length, pan.cashIn, pan.cashOut, pan.total, pan.largest, pan.level], [6, '0.00', '1135200.00', '1135200.00', '189200.00', 'reporting']);
-    assert.equal(report.people[0].key, 'pan:BCDEF1234G', 'largest first');
+    assert.equal(report.people[0].key, pan.key, 'largest first');
     // Lakshmi: ₹1,50,000 in cash for her old gold and ₹1,000 into her scheme: past the shop's own level. Meera: ₹50,000 out, ₹10,000 of scheme instalments in.
-    const lakshmi = report.people.find((p) => p.key === 'pan:ABCPK1234D');
-    assert.deepEqual([lakshmi.cashIn, lakshmi.cashOut, lakshmi.level], ['1000.00', '150000.00', 'watch']);
-    const meeraRow = report.people.find((p) => p.key === `contact:${meera.id}`);
+    const lakshmi = report.people.find((p) => p.pan === 'ABCPK1234D');
+    assert.deepEqual([lakshmi.cashIn, lakshmi.cashOut, lakshmi.level], ['1000.00', '150000.00', 'alert']);
+    const meeraRow = report.people.find((p) => p.contacts.some((x) => x.id === Number(meera.id)));
     assert.deepEqual([meeraRow.cashIn, meeraRow.cashOut, meeraRow.level], ['10000.00', '50000.00', null]);
     assert.deepEqual([report.unlinked.count, report.unlinked.cashIn], [1, '590.00']);
-    assert.deepEqual([report.totals.reporting, report.totals.watch], [1, 1]);
+    assert.deepEqual([report.totals.reporting, report.totals.alert], [1, 1]);
     // One person's cash, as recorded.
-    const theirs = await request('GET', J('jewellery/cash-report/person?key=pan:BCDEF1234G'));
+    const theirs = await request('GET', J(`jewellery/cash-report/person?key=${pan.key}`));
     assert.deepEqual(theirs.transactions.map((x) => [x.kind, x.cashOut]), Array(6).fill(['old_gold', '189200.00']));
-    const meeraCash = await request('GET', J(`jewellery/cash-report/person?key=contact:${meera.id}`));
+    const meeraCash = await request('GET', J(`jewellery/cash-report/person?key=${meeraRow.key}`));
     assert.deepEqual(meeraCash.transactions.map((x) => x.kind).sort(), ['old_gold', 'scheme', 'scheme']);
     assert.equal((await refused('GET', J('jewellery/cash-report/person?key=nobody'))).status, 400);
     // The month's worksheet: the person above ₹10 lakh with each transaction, reported by the 15th of the next month; nothing is filed.
     const sheet = await request('GET', J(`jewellery/cash-report/month?month=${today.slice(0, 7)}`));
-    assert.deepEqual(sheet.people.map((p) => [p.key, p.total, p.transactions.length]), [['pan:BCDEF1234G', '1135200.00', 6]]);
+    assert.deepEqual(sheet.people.map((p) => [p.key, p.total, p.transactions.length]), [[pan.key, '1135200.00', 6]]);
     assert.match(sheet.dueBy, /^\d{4}-\d{2}-15$/);
     assert.ok(sheet.dueBy > today);
     assert.equal((await refused('GET', J('jewellery/cash-report/month?month=2026-13'))).status, 400);
@@ -897,7 +902,7 @@ test('jewellery and gold', { timeout: 300000 }, async (t) => {
     assert.equal(s.reportingEntity, true);
     assert.ok(s.reportingEntityAt);
     assert.equal((await request('GET', J('jewellery/cash-report'))).reportingEntity, true);
-    assert.equal((await refused('PUT', J('jewellery/settings'), { cashWatchLevel: '1000000' })).status, 400);
+    assert.equal((await refused('PUT', J('jewellery/settings'), { cashAlertLevels: ['1000000'] })).status, 400);
     // Who sees it: the report is for those who may export it.
     assert.equal((await refused('GET', J('jewellery/cash-report'), undefined, cashier.token)).status, 403);
     assert.equal((await refused('GET', J('jewellery/cash-report'), undefined, karigar.token)).status, 403);

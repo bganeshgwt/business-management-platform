@@ -7,16 +7,19 @@ import { businessRead } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
 import { Badge, BusinessHeader } from "../../core/pages/ui";
 import { useOpenBusiness, useServerList } from "../../core/pages/hooks";
-import { OLD_GOLD_STATES, grams, marksOf } from "./jewellery";
+import { OLD_GOLD_STATES, REFINERY_OUTCOMES, grams, marksOf } from "./jewellery";
 import { CASH_RULE, OldGoldForm, OldGoldPanel } from "./OldGoldDialogs";
+import { RefineryPanel, RefinerySendForm } from "./RefineryDialogs";
 import "../styles/jewellery.css";
 
 // Old gold: the gold, silver and platinum customers sell to the shop or give
 // in exchange, each on a voucher with its articles tested, weighed and valued
 // at today's buy rate. A voucher's value is paid out (UPI or bank transfer
-// first; cash is limited), used on the seller's jewellery bill, or both; its
-// metal is the shop's own for melting and refining. Money shows to those who
-// see sales; the server checks every step.
+// first; cash is limited; several of a seller's at once), used on the
+// seller's jewellery bill, or both; its metal is the shop's own, to melt, keep
+// to resell, send to a refiner or bullion dealer on a refinery challan (listed
+// below), or issue to a karigar. Money shows to those who see sales; the
+// server checks every step.
 
 const CHIPS = [["open", "Value left", { state: "open" }], ["settled", "Settled", { state: "settled" }], ["cancelled", "Cancelled", { state: "cancelled" }], ["all", "All", {}]];
 
@@ -27,6 +30,9 @@ export default function OldGoldPage() {
   const [error, setError] = useState("");
   const [taking, setTaking] = useState(false);
   const [openId, setOpenId] = useState(null);
+  const [sending, setSending] = useState(false);
+  const [challanId, setChallanId] = useState(null);
+  const challans = useServerList("jewellery/refinery", { gridId: "jewellery-refinery" });
   const params = useMemo(() => CHIPS.find(([value]) => value === chip)?.[2] || {}, [chip]);
   const list = useServerList("jewellery/old-gold", { gridId: "jewellery-old-gold", params });
   const many = biz.locations.length > 1;
@@ -53,6 +59,17 @@ export default function OldGoldPage() {
     { key: "location", header: "Location", value: (g) => g.location_name || "", defaultHidden: !many },
     { key: "by", header: "Taken in by", value: (g) => g.by_name, defaultHidden: true },
   ], [many]);
+  const challanColumns = useMemo(() => [
+    { key: "challan_no", header: "Challan", value: (c) => c.challan_no, className: "mono", mobile: "title", pin: true },
+    { key: "created_at", header: "Sent", type: "datetime", value: (c) => c.created_at },
+    { key: "party", header: "To", value: (c) => `${c.party_name} ${c.party_words}`, mobile: "subtitle",
+      render: (c) => <span className="bz-two-line"><span>{c.party_name}</span><small className="muted">{c.party_words}</small></span> },
+    { key: "net_weight", header: "Weight", value: (c) => Number(c.net_weight), render: (c) => grams(c.net_weight) },
+    { key: "fine_weight", header: "Fine", value: (c) => Number(c.fine_weight), render: (c) => grams(c.fine_weight) },
+    { key: "outcome", header: "Where it stands", type: "status", value: (c) => REFINERY_OUTCOMES[c.outcome]?.label || c.outcome, mobile: "show",
+      render: (c) => <Badge tone={REFINERY_OUTCOMES[c.outcome]?.tone} label={REFINERY_OUTCOMES[c.outcome]?.label || c.outcome} /> },
+    { key: "document_no", header: "Sale bill", value: (c) => c.document_no || "", defaultHidden: true },
+  ], []);
   return (
     <div className="stack">
       <BusinessHeader icon="scale" title="Old gold"
@@ -67,8 +84,16 @@ export default function OldGoldPage() {
           rowNoun={["voucher", "vouchers"]} onRowClick={(g) => setOpenId(g.id)} rowClassName={(g) => (g.state === "cancelled" ? "dg-tone-muted" : "")}
           empty="No old gold here" emptyHint={biz.can("jewellery.create") ? "Take some in with Take in old gold." : undefined} emptyIcon="scale" />
       </SectionCard>
+      <SectionCard flush icon="truck" title="Refinery challans" description="The shop's metal sent to a refiner (back refined) or to a bullion dealer (sold on a bill)."
+        actions={biz.can("jewellery.approve") && <button type="button" className="button button-secondary" onClick={() => setSending(true)}><Icon name="truck" size={15} /> Send metal</button>}>
+        <ErrorMessage message={challans.error} />
+        <DataGrid {...challans.gridProps} search={{ ...challans.gridProps.search, placeholder: "Challan, refiner, dealer or bill" }} caption="Refinery challans" columns={challanColumns}
+          rowNoun={["challan", "challans"]} onRowClick={(c) => setChallanId(c.id)} empty="No refinery challans yet" emptyIcon="truck" />
+      </SectionCard>
       {taking && <OldGoldForm biz={biz} settings={settings} onClose={() => setTaking(false)} onSaved={(g) => { setTaking(false); list.reload(); setOpenId(g.id); }} />}
-      {openId && <OldGoldPanel biz={biz} voucherId={openId} settings={settings} onClose={() => setOpenId(null)} onChanged={list.reload} />}
+      {openId && <OldGoldPanel biz={biz} voucherId={openId} settings={settings} onClose={() => setOpenId(null)} onChanged={() => { list.reload(); challans.reload(); }} />}
+      {sending && <RefinerySendForm biz={biz} onClose={() => setSending(false)} onSaved={(c) => { setSending(false); challans.reload(); setChallanId(c.id); }} />}
+      {challanId && <RefineryPanel biz={biz} challanId={challanId} onClose={() => setChallanId(null)} onChanged={challans.reload} />}
     </div>
   );
 }

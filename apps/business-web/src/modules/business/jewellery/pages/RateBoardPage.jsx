@@ -9,7 +9,7 @@ import { getErrorMessage } from "../../../../services/api";
 import { dateShort } from "@bmp/shared/format";
 import { BusinessHeader } from "../../core/pages/ui";
 import { useOpenBusiness } from "../../core/pages/hooks";
-import { SESSION_WORDS, perGram } from "./jewellery";
+import { perGram, sessionWords } from "./jewellery";
 import "../styles/jewellery.css";
 
 // The rate board: today's rates in large type for a screen in the showroom.
@@ -54,7 +54,7 @@ export default function RateBoardPage() {
       <section ref={area} className="jw-board" aria-label="Today's rates">
         <header className="jw-board-head">
           <span className="jw-board-shop">{shop}</span>
-          <span className="jw-board-day">{dateShort(board.day, { year: true })}{latest ? ` · ${SESSION_WORDS[latest.session] || ""}` : ""}</span>
+          <span className="jw-board-day">{dateShort(board.day, { year: true })}{latest ? ` · ${sessionWords(latest) || ""}` : ""}</span>
         </header>
         {board.rates.length === 0 ? <p className="jw-board-empty">Today's rates are not set yet.</p> : (
           <table className="jw-board-table">

@@ -32,8 +32,8 @@ const SHORT = { sale: 'SI', purchase: 'PR', sales_return: 'CN', purchase_return:
   // A jeweller's old gold vouchers and gold schemes (not GST documents).
   old_gold: 'OG', gold_scheme: 'GS',
   // A jeweller's karigar issue challans and receipts, custom orders, approval challans, hallmarking
-  // consignments and metal vouchers with suppliers (not GST documents).
-  karigar_issue: 'KI', karigar_receipt: 'KR', custom_order: 'CO', approval: 'AP', hallmark_consignment: 'HM', metal_voucher: 'MV',
+  // consignments, metal vouchers with suppliers and refinery challans (not GST documents).
+  karigar_issue: 'KI', karigar_receipt: 'KR', custom_order: 'CO', approval: 'AP', hallmark_consignment: 'HM', metal_voucher: 'MV', refinery_challan: 'RF',
   // A rental business's quotes and bookings (not GST documents: the bill at the return is).
   rental: 'RN',
   // A fuel station's shifts (not GST documents: the fuel bills a close posts are).

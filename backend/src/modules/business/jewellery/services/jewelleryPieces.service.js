@@ -22,14 +22,15 @@ const { settingsOf } = require('./jewellerySettings.service');
 //   from mandatory hallmarking where one applies, its design code and photo,
 //   and its status: in stock, on approval (on an approval challan), at a
 //   karigar (on an issue challan), at the hallmarking centre (on a
-//   consignment), sold, melted, or split, merged or given a new tag.
+//   consignment), sold, in its buyer's safekeeping (a gold scheme closed on
+//   its day 364), melted, or split, merged or given a new tag.
 // Its price is never stored: a bill works it out from the day's rate.
 // Someone whose role does not hold sales.view sees no prices or charges.
 
 const { fail, id } = c;
-const STATUSES = ['in_stock', 'on_approval', 'at_karigar', 'at_centre', 'sold', 'melted', 'split', 'merged', 'retagged'];
+const STATUSES = ['in_stock', 'on_approval', 'at_karigar', 'at_centre', 'sold', 'safekeeping', 'melted', 'split', 'merged', 'retagged'];
 const STATUS_WORDS = { in_stock: 'in stock', on_approval: 'on approval', at_karigar: 'at the karigar', at_centre: 'at the hallmarking centre', sold: 'sold',
-  melted: 'melted', split: 'split', merged: 'merged', retagged: 'given a new tag' };
+  safekeeping: 'in safekeeping for its buyer', melted: 'melted', split: 'split', merged: 'merged', retagged: 'given a new tag' };
 const OPEN = ['in_stock', 'on_approval', 'at_karigar', 'at_centre'];
 const MAKING_MODES = ['per_gram', 'percent', 'flat'];
 // The articles the hallmarking order leaves out (BIS), and the words for them.
@@ -103,7 +104,10 @@ const PIECES_SQL = `SELECT p.id,p.sku_id,s.label AS item_label,s.code AS item_co
       UNION ALL SELECT 'centre',h.id,h.consignment_no,ct.name,NULL::date,h.created_at
         FROM jewellery_hallmark_lines hl JOIN jewellery_hallmark_consignments h ON h.business_id=hl.business_id AND h.id=hl.consignment_id
         JOIN business_contacts ct ON ct.business_id=h.business_id AND ct.id=h.contact_id
-        WHERE p.status='at_centre' AND hl.business_id=p.business_id AND hl.piece_id=p.id AND hl.result='out') y
+        WHERE p.status='at_centre' AND hl.business_id=p.business_id AND hl.piece_id=p.id AND hl.result='out'
+      UNION ALL SELECT 'safekeeping',s.id,s.scheme_no,s.member_name,NULL::date,k.created_at
+        FROM jewellery_scheme_closes k JOIN jewellery_schemes s ON s.business_id=k.business_id AND s.id=k.scheme_id
+        WHERE p.status='safekeeping' AND k.business_id=p.business_id AND k.piece_id=p.id AND k.collected_at IS NULL) y
     ORDER BY y.out_at DESC LIMIT 1) w ON TRUE
   LEFT JOIN jewellery_order_pieces op ON op.business_id=p.business_id AND op.piece_id=p.id
   LEFT JOIN jewellery_orders o ON o.business_id=op.business_id AND o.id=op.order_id
@@ -577,7 +581,9 @@ async function melt(business, user, pieceId, body) {
 
 // A jewellery item's pieces are sold on the jewellery bill, priced by weight at
 // the day's rate (the core asks this of every other sale of a jeweller); the
-// items the jeweller's own purchases are booked under are never sold.
+// items the jeweller's own purchases are booked under are never sold at the
+// counter (the shop's metal sold to a bullion dealer goes on the bill its
+// refinery challan makes).
 async function checkLooseSale(db, business, lines) {
   const skuIds = [...new Set(lines.map((line) => Number(line.sku.id)))];
   const item = await repo.one(db, `SELECT s.label FROM jewellery_items i JOIN catalog_skus s ON s.business_id=i.business_id AND s.id=i.sku_id
@@ -585,7 +591,7 @@ async function checkLooseSale(db, business, lines) {
   if (item) fail(`${item.label} is a jewellery item: its pieces are sold on the jewellery bill, priced by weight at the day's rate`, 409);
   const booked = await repo.one(db, `SELECT s.label FROM jewellery_account_items a JOIN catalog_skus s ON s.business_id=a.business_id AND s.id=a.sku_id
     WHERE a.business_id=$1 AND a.sku_id=ANY($2::bigint[]) ORDER BY s.label LIMIT 1`, [business.id, skuIds]);
-  if (booked) fail(`${booked.label} is what the jeweller's own purchases are booked under: it is never sold`, 409);
+  if (booked) fail(`${booked.label} is what the jeweller's own purchases are booked under: it is not sold at the counter`, 409);
 }
 
 module.exports = { STATUSES, STATUS_WORDS, OPEN, EXEMPTIONS, STONE_KINDS, COME_IN, readTag, readDesign, plainWords, PIECES_SQL, listShape, shape, withoutMoney,

@@ -5,7 +5,8 @@ import { useOpenBusiness } from "../../core/pages/hooks";
 
 // A manager's say-so inside a jeweller's form: who approves (someone whose
 // role holds jewellery.approve) and their PIN. A manager approving their own
-// action gives only the reason. Used to stop (cancel) a gold scheme.
+// action gives only the reason. Used to stop (cancel) a gold scheme, and for
+// a deduction on old gold other than the shop's buy-back rule.
 //   value: { approverId, pin }; onChange(next). (emptyApproval() and approvalBody(value), the API body, are in jewellery.js.)
 
 export default function JewelleryApproval({ title, value, onChange }) {

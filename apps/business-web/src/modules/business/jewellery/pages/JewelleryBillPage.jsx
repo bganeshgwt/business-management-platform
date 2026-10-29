@@ -33,11 +33,18 @@ import { consentChanges } from "../../../personal-data/personalData";
 // custom order that is ready (?order=…) it delivers the order: its pieces at
 // the rate fixed on it for the grams fixed and today's for the rest, its
 // advances paying first; from an approval challan (?approval=…&tags=…) it
-// sells the pieces the customer keeps.
+// sells the pieces the customer keeps. Loose stones and coins go on the same
+// bill as lines of their own, at their catalogue prices and GST slabs. The
+// shop's best offer on making running today comes off each piece by itself; a
+// discount at the counter (by someone who may give one, with why) comes off
+// the pieces' making and wastage (and the metal only where Jewellery settings
+// allow it), within the business's most discount on a bill. Each prints as
+// such on the invoice.
 
 const PAY_KINDS = ["cash", "upi", "card", "bank", "cheque"];
 let seq = 0;
 const blankPart = (method = "upi") => ({ key: `p${(seq += 1)}`, method, amount: "" });
+const itemLine = (sku) => ({ key: `i${(seq += 1)}`, skuId: sku.id, label: sku.label, tracking: sku.tracking, quantity: "1", lotCode: "" });
 
 export default function JewelleryBillPage() {
   const biz = useOpenBusiness();
@@ -73,6 +80,10 @@ export default function JewelleryBillPage() {
   // A custom order the bill delivers (?order=…), or an approval challan it sells from (?approval=…&tags=…): their customer is the bill's.
   const [order, setOrder] = useState(null);
   const [approval, setApproval] = useState(null);
+  // Loose stones and coins, and a discount at the counter.
+  const [items, setItems] = useState([]);
+  const [discount, setDiscount] = useState({ amount: "", reason: "" });
+  const canDiscount = biz.can("sales.discount");
   const scanRef = useRef(null);
   const canPay = biz.can("sales.edit");
   const canOldGold = canPay && biz.can("jewellery.view");
@@ -134,9 +145,14 @@ export default function JewelleryBillPage() {
   }, [biz.id, fromScheme, canOldGold]);
 
   // Every change asks the server for the bill as it would be posted now.
-  const payload = useMemo(() => (tags.length && locationId ? JSON.stringify({ locationId, tags, ...(customer ? { contactId: customer.id } : {}),
-    ...(order ? { order: order.id } : {}), ...(approval ? { approval: approval.id } : {}),
-    ...(scheme ? { scheme } : {}), ...(credits.length ? { credits } : {}), ...(oldGold.length ? { oldGold } : {}) }) : null), [tags, locationId, customer, order, approval, scheme, credits, oldGold]);
+  const itemsBody = useMemo(() => items.filter((i) => Number(i.quantity) > 0).map((i) => ({ skuId: i.skuId, quantity: i.quantity, ...(i.lotCode.trim() ? { lotCode: i.lotCode.trim() } : {}) })), [items]);
+  const discountBody = Number(discount.amount) > 0 && discount.reason.trim() ? { amount: discount.amount, reason: discount.reason.trim() } : null;
+  const discountKey = discountBody ? `${discountBody.amount}|${discountBody.reason}` : "";
+  const payload = useMemo(() => ((tags.length || itemsBody.length) && locationId ? JSON.stringify({ locationId, tags, ...(itemsBody.length ? { items: itemsBody } : {}),
+    ...(customer ? { contactId: customer.id } : {}), ...(order ? { order: order.id } : {}), ...(approval ? { approval: approval.id } : {}),
+    ...(scheme ? { scheme } : {}), ...(credits.length ? { credits } : {}), ...(oldGold.length ? { oldGold } : {}),
+    ...(discountKey ? { discount: { amount: discountKey.split("|")[0], reason: discountKey.slice(discountKey.indexOf("|") + 1) } } : {}) }) : null),
+  [tags, itemsBody, locationId, customer, order, approval, scheme, credits, oldGold, discountKey]);
   useEffect(() => {
     if (!payload) return undefined;
     const timer = setTimeout(() => {
@@ -179,7 +195,7 @@ export default function JewelleryBillPage() {
   const reset = () => {
     setTags([]); setCustomer(null); setTypedCustomer(null); setQuote(null); setParts([blankPart()]); setPan(""); setDeclared(false); setNotes("");
     setOldGold([]); setVouchers([]); setScheme(""); setSchemes([]); setCredits([]); setCreditList([]); setRequestKey(newKey()); setPosted(null); setDocOpen(false); setError("");
-    setOrder(null); setApproval(null);
+    setOrder(null); setApproval(null); setItems([]); setDiscount({ amount: "", reason: "" });
     if (fromOrder || fromApproval) setParams(new URLSearchParams(), { replace: true });
   };
   // What is left to pay after the scheme, the credit and the old gold.
@@ -196,7 +212,7 @@ export default function JewelleryBillPage() {
       // An empty amount on a part is "the rest of the bill".
       const payments = canPay && toPay > 0 ? parts.map((p) => ({ ...methods.body(p.method, PAY_KINDS), amount: p.amount === "" ? "full" : p.amount })) : [];
       const bill = await businessWrite(biz.id, "jewellery/bills", {
-        requestKey, locationId, tags, ...(customer ? { contactId: customer.id } : typedCustomer?.name?.trim() ? { customer: { name: typedCustomer.name.trim(), phone: typedCustomer.phone?.trim() || undefined,
+        requestKey, locationId, tags, ...(itemsBody.length ? { items: itemsBody } : {}), ...(discountBody ? { discount: discountBody } : {}), ...(customer ? { contactId: customer.id } : typedCustomer?.name?.trim() ? { customer: { name: typedCustomer.name.trim(), phone: typedCustomer.phone?.trim() || undefined,
           consents: consentChanges(typedCustomer.consents, []) || undefined } } : {}),
         ...(order ? { order: order.id } : {}), ...(approval ? { approval: approval.id } : {}),
         ...(scheme ? { scheme } : {}), ...(credits.length ? { credits } : {}), ...(oldGold.length ? { oldGold } : {}), ...(payments.length ? { payments } : {}), ...(figures.panNeeded ? { buyer: declared ? { panDeclaration: true } : { pan: pan.trim() } } : {}),
@@ -348,6 +364,9 @@ export default function JewelleryBillPage() {
                       {Number(l.stoneValue) > 0 && <span>Stones {biz.exact(l.stoneValue)}</span>}
                       {l.hallmarked && <span>Hallmarking {biz.exact(l.hallmarkCharge)}</span>}
                       <span>{l.huids?.length ? `HUID ${l.huids.join(", ")}` : l.basisWords}</span>
+                      {Number(l.offerDiscount) > 0 && <span>{l.offer.name}: {Number(l.offer.makingPercent)}% off making {biz.exact(l.offerDiscount)}</span>}
+                      {Number(l.counterDiscount) > 0 && <span>Counter discount {biz.exact(l.counterDiscount)}</span>}
+                      {Number(l.schemeDiscount) > 0 && <span>Scheme discount {biz.exact(l.schemeDiscount)}</span>}
                       <span>Before GST {biz.exact(l.taxable)} · GST 3% {biz.exact(l.tax)}</span>
                     </div>
                   ) : <p className="muted small">Pricing…</p>}
@@ -357,12 +376,47 @@ export default function JewelleryBillPage() {
           )}
           {problem && <p className="bz-due small" role="alert">{problem}</p>}
         </SectionCard>
+        <SectionCard icon="box" title="Loose stones and coins" description="Catalogue goods that are not tagged pieces: each at its own price and GST slab (a loose diamond at 0.25%, a coin at 3%).">
+          <SearchPicker aria-label="Find a loose stone or coin" placeholder="Type a name or code" clearOnSelect minChars={2}
+            search={(q, { signal }) => businessRead(biz.id, "catalog", { q, limit: 15, kind: "goods", active: "true" }, signal).then((page) => page.items)}
+            getLabel={(s) => s.label} getDescription={(s) => `${s.code} · ${biz.exact(s.price)} · GST ${Number(s.tax_rate)}%`}
+            onChange={(s) => { if (s) setItems((all) => [...all, itemLine(s)]); }} />
+          {items.length > 0 && (
+            <table className="jw-rates">
+              <thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col">Batch or serial</th><th scope="col">GST</th><th scope="col">Amount</th><th scope="col">Action</th></tr></thead>
+              <tbody>{items.map((i, index) => {
+                const priced = figures?.items?.[index];
+                return (
+                  <tr key={i.key}>
+                    <th scope="row">{i.label}{priced?.problem && <small className="bz-due bz-two-line" role="alert">{priced.problem}</small>}</th>
+                    <td><input type="number" min="0.001" step="0.001" aria-label={`${i.label}: quantity`} value={i.quantity} onChange={(e) => setItems((all) => all.map((x) => (x.key === i.key ? { ...x, quantity: e.target.value } : x)))} /></td>
+                    <td>{i.tracking !== "none" && i.tracking !== "quantity" ? <input className="mono" maxLength={100} aria-label={`${i.label}: batch or serial number`} value={i.lotCode}
+                      onChange={(e) => setItems((all) => all.map((x) => (x.key === i.key ? { ...x, lotCode: e.target.value } : x)))} /> : <span className="muted">—</span>}</td>
+                    <td>{priced?.taxRate ? `${Number(priced.taxRate)}%` : ""}</td>
+                    <td>{priced && !priced.problem ? biz.exact(priced.total) : ""}</td>
+                    <td><button type="button" className="link-button danger" onClick={() => setItems((all) => all.filter((x) => x.key !== i.key))}>Remove</button></td>
+                  </tr>
+                );
+              })}</tbody>
+            </table>
+          )}
+        </SectionCard>
+        {canDiscount && tags.length > 0 && (
+          <SectionCard icon="percent" title="Discount at the counter" description={`Off the pieces' making and wastage${figures?.discountOnMetal ? " and metal" : " (never the metal's value)"}, within the business's most discount on a bill; printed as a discount on the invoice.`}>
+            <div className="jw-row">
+              <Field label="Discount before GST (₹)"><input type="number" min="0" step="0.01" value={discount.amount} onChange={(e) => setDiscount((d) => ({ ...d, amount: e.target.value }))} /></Field>
+              <Field label="Why"><input maxLength={300} required={Number(discount.amount) > 0} value={discount.reason} onChange={(e) => setDiscount((d) => ({ ...d, reason: e.target.value }))} placeholder="e.g. Regular customer" /></Field>
+            </div>
+          </SectionCard>
+        )}
         {figures && !figures.problems.length && (
           <SectionCard icon="wallet" title="Money">
             <div className="jw-totals">
               <span>Before GST {biz.exact(figures.subtotal)}</span><span>GST {biz.exact(figures.tax)}</span>
               {Number(figures.roundOff) !== 0 && <span>Round-off {biz.exact(figures.roundOff)}</span>}
               <strong>Total {biz.exact(figures.total)}</strong>
+              {Number(figures.offerDiscount) > 0 && <span>Offers {biz.exact(figures.offerDiscount)} off making</span>}
+              {Number(figures.counterDiscount) > 0 && <span>Counter discount {biz.exact(figures.counterDiscount)}</span>}
               {Number(figures.schemeDiscount) > 0 && <span>Scheme discount {biz.exact(figures.schemeDiscount)} (taken off before GST)</span>}
               {Number(figures.schemePaid) > 0 && <span>Gold scheme {biz.exact(figures.schemePaid)}</span>}
               {(figures.credits || []).some((x) => Number(x.amount) > 0) && <span>Credit {biz.exact(figures.credits.reduce((s, x) => s + Number(x.amount), 0))}</span>}

@@ -357,8 +357,9 @@ export const LAUNDRY = {
 // rings, each hallmarked with its HUID (one for each bill the specs make: at
 // the counter, against old gold, and for a gold scheme), and a 22K chain of
 // 8.2 g with no hallmark, which the bill refuses. A customer brought in an old
-// 22K chain, valued at the day's buy rate and not paid out; another is
-// enrolled in an 11-month gold scheme with three instalments paid by UPI.
+// 22K chain, valued at the day's buy rate less the shop's 2% buy-back
+// deduction and not paid out; another is enrolled in an 11-month gold scheme
+// with three instalments paid by UPI.
 export const JEWELLERY = {
   rates: [
     { metal: "gold", purity: "24K", sell: 12850, buy: 12600 },
@@ -397,6 +398,17 @@ export const JEWELLERY = {
   order: { customer: { name: "Kavitha Reddy", phone: "9876500402" }, description: "Ring with a lotus design", advance: 20000, issued: "6", gross: "5.000", scrap: "0.800",
     huid: "JR5D04" },
   approvalRing: { description: "Twisted band", gross: "3.200", huid: "JR4E05", customer: { name: "Anitha Kumar", phone: "9876500403" } },
+  // Its money: a seller with two old gold vouchers of 22K (4 g and 6 g, less
+  // the shop's 2%: ₹45,080 and ₹67,620), not paid out; a 5 g gold coin of its
+  // own at 3%, two in stock; a hallmarked ring for a bill with a discount at
+  // the counter; and a member's gold scheme on its day 364 (joined 364 days
+  // ago, ₹2,000 paid in), to be closed into their safekeeping.
+  money: {
+    seller: { name: "Ravi Teja", phone: "9876500501", idRef: "TSV7654321", article: "Old bangle", grams: ["4.000", "6.000"] },
+    coin: { name: "Gold coin 5 g 24K", code: "JWL-COIN5", price: 64000, cost: 62000, stock: "2" },
+    discountRing: { description: "Floral ring", gross: "3.000", huid: "JR6F06" },
+    closing: { name: "Lalitha Devi", phone: "9876500502", instalment: 2000 },
+  },
 };
 
 // The tent house: a 15 kVA generator hired one by one (two units, each with

@@ -479,3 +479,17 @@
     width: 100%;
   }
 }
+
+/* Old gold's photos side by side; a customer's KYC documents and a family group's customers, one under another. */
+.jw-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.jw-kyc {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+.jw-family {
+  margin-top: var(--space-3);
+}

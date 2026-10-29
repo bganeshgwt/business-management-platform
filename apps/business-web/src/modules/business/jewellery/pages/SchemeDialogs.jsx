@@ -11,7 +11,7 @@ import FormDialog from "../../core/pages/FormDialog";
 import { Badge, Field } from "../../core/pages/ui";
 import { dateTime, newKey } from "../../core/pages/hooks";
 import { KIND_WORDS, usePaymentMethods } from "../../core/pages/paymentMethods";
-import { SCHEME_STAGES, approvalBody, emptyApproval, schemeReminder } from "./jewellery";
+import { ALL_PURITIES, SCHEME_STAGES, approvalBody, emptyApproval, grams, perGram, schemeReminder, splitPurity } from "./jewellery";
 import { printSchemePassbook } from "./jewelleryPrint";
 import JewelleryApproval from "./JewelleryApproval";
 // An instalment reminder needs the member's consent to reminders (asked first, in one tap).
@@ -25,7 +25,11 @@ import { consentChanges } from "../../../personal-data/personalData";
 // first instalment taken now); a scheme's passbook with each instalment due
 // and paid; taking an instalment; stopping a scheme with a manager's approval
 // (no more instalments, no discount: what was paid is still used on a
-// jewellery bill, never paid back in money); and redeeming it on the jewellery bill.
+// jewellery bill, never paid back in money); redeeming it on the jewellery
+// bill; on its day 364, closing it into the customer's safekeeping (billed as
+// gold or silver equal to its money at that day's rate, the metal set aside
+// for them) and their collecting it later; and, when the bill that redeemed it
+// is returned within its tenure, putting its money back onto the scheme.
 
 const PAY_KINDS = ["upi", "cash", "card", "bank"];
 const CASH_RULE = "Cash into one scheme stays under ₹2,00,000: its instalments pay one jewellery bill, and one bill takes less than that in cash (Income-tax Act 2025, section 186).";
@@ -140,6 +144,66 @@ function StopForm({ biz, scheme, onClose, onSaved }) {
   );
 }
 
+// Day 364: the scheme's money billed as metal at today's rate, held in the customer's safekeeping.
+function CloseForm({ biz, scheme, onClose, onSaved }) {
+  const [requestKey] = useState(newKey);
+  const [purity, setPurity] = useState("gold:22K");
+  const [preview, setPreview] = useState({ key: "", data: null, error: "" });
+  useEffect(() => {
+    const controller = new AbortController();
+    businessRead(biz.id, `jewellery/schemes/${scheme.id}/close`, splitPurity(purity), controller.signal).then((data) => setPreview({ key: purity, data, error: "" }))
+      .catch((err) => { if (!controller.signal.aborted) setPreview({ key: purity, data: null, error: getErrorMessage(err) }); });
+    return () => controller.abort();
+  }, [biz.id, scheme.id, purity]);
+  const shown = preview.key === purity ? preview : { data: null, error: "" };
+  return (
+    <FormDialog title={`Close scheme ${scheme.scheme_no} on its day 364`} icon="calendar" width={720} onClose={onClose} onSaved={onSaved} submitLabel="Close it into safekeeping"
+      disabled={!shown.data?.enough} successMessage="Closed: the metal is held for the customer."
+      description={`${scheme.member_name}'s ${biz.exact(scheme.held)} is billed as metal at today's rate and set aside from the shop's metal, held in their safekeeping (never sold to anyone else) until they collect it.`}
+      onSubmit={() => businessWrite(biz.id, `jewellery/schemes/${scheme.id}/close`, { requestKey, ...splitPurity(purity) })}>
+      <Field label="Billed as"><select value={purity} onChange={(e) => setPurity(e.target.value)}>{ALL_PURITIES.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}</select></Field>
+      <ErrorMessage message={shown.error} />
+      {shown.data && (
+        <div className="field-wide jw-totals">
+          <span>{grams(shown.data.netWeight)} at {perGram(biz, shown.data.rate)}</span><span>Bill {biz.exact(shown.data.total)}</span>
+          <span>Due on collection {biz.exact(shown.data.due)}</span>
+          {!shown.data.enough && <strong className="bz-minus">The shop holds {grams(shown.data.shopHolds)} of it here: bring the metal in first, or choose another purity.</strong>}
+        </div>
+      )}
+    </FormDialog>
+  );
+}
+
+// The customer collects the metal their scheme was closed into, paying the few rupees still due on its bill.
+function CollectForm({ biz, scheme, onClose, onSaved }) {
+  const methods = usePaymentMethods();
+  const [requestKey] = useState(newKey);
+  const [pay, setPay] = useState({ method: "upi", reference: "" });
+  const [note, setNote] = useState("");
+  return (
+    <FormDialog title={`${scheme.member_name} collects ${scheme.close_tag}`} icon="check" onClose={onClose} onSaved={onSaved} submitLabel="Hand it over" successMessage="Collected."
+      description={`${grams(scheme.close_weight)} held in safekeeping since ${dateShort(scheme.closed_at, { year: true })}, sold on ${scheme.redeemed_document_no}. Anything still due on the bill is taken now.`}
+      onSubmit={() => businessWrite(biz.id, `jewellery/schemes/${scheme.id}/collect`, { requestKey, note: note.trim() || undefined,
+        payment: { ...methods.body(pay.method, PAY_KINDS), reference: pay.reference.trim() || undefined } })}>
+      <PaidBy methods={methods} value={pay} onChange={setPay} />
+      <Field label="Note (optional)" wide><input maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Collected by her son with her letter" /></Field>
+    </FormDialog>
+  );
+}
+
+// The bill that redeemed the scheme was returned within its tenure: its money goes back onto the scheme.
+function PutBackForm({ biz, scheme, onClose, onSaved }) {
+  const [requestKey] = useState(newKey);
+  const [amount, setAmount] = useState(scheme.put_back.amount);
+  return (
+    <FormDialog title={`Put the scheme's money back from ${scheme.put_back.documentNo}`} icon="undo" onClose={onClose} onSaved={onSaved} submitLabel="Put it back" successMessage="Back on the scheme."
+      description={`Up to ${biz.exact(scheme.put_back.amount)} of what the scheme paid on the returned bill goes back onto it, to be redeemed on another jewellery bill by ${dateShort(scheme.close_by, { year: true })}. After that it stays on the bill as the customer's credit.`}
+      onSubmit={() => businessWrite(biz.id, `jewellery/schemes/${scheme.id}/put-back`, { requestKey, amount })}>
+      <Field label="Amount"><input required type="number" min="0.01" max={scheme.put_back.amount} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
+    </FormDialog>
+  );
+}
+
 // A scheme's panel: the passbook, what it gives, and what can be done.
 export function SchemePanel({ biz, schemeId, onClose, onChanged }) {
   const privacy = useShopPrivacy();
@@ -165,6 +229,8 @@ export function SchemePanel({ biz, schemeId, onClose, onChanged }) {
     ["Discount", scheme.status === "redeemed" ? `${biz.exact(scheme.discount)} on ${scheme.redeemed_document_no}` : scheme.status === "stopped" ? "None: the scheme was stopped"
       : `${biz.exact(scheme.discount_when_complete)} with every instalment paid, from its maturity (about ${scheme.yearly_rate}% a year)`],
     ["Stopped", scheme.stopped_at ? `${dateTime(scheme.stopped_at)} · ${scheme.stop_reason} · approved by ${scheme.stop_approved_by_name}` : null],
+    ["Safekeeping", scheme.close_id ? `${grams(scheme.close_weight)} as piece ${scheme.close_tag}, closed ${dateTime(scheme.closed_at)}${scheme.collected_at ? ` · collected ${dateTime(scheme.collected_at)} by ${scheme.collected_by_name}` : " · waiting to be collected"}` : null],
+    ["Money put back", (scheme.moves || []).length ? scheme.moves.map((m) => `${m.kind === "back" ? "Back from" : "Used on"} ${m.document_no} ${biz.exact(m.amount)}`).join(" · ") : null],
     ["Location", biz.locations.length > 1 ? scheme.location_name : null],
   ].filter(([, value]) => value) : []), [scheme, biz]);
   return (
@@ -172,6 +238,11 @@ export function SchemePanel({ biz, schemeId, onClose, onChanged }) {
       footer={scheme && (
         <div className="jw-panel-actions">
           {scheme.can_pay && biz.can("jewellery.create") && biz.can("sales.edit") && <button type="button" className="button" onClick={() => setDialog("pay")}><Icon name="wallet" size={15} /> Take the instalment</button>}
+          {scheme.can_close && biz.can("jewellery.approve") && biz.can("sales.create") && <button type="button" className="button" onClick={() => setDialog("close")}><Icon name="calendar" size={15} /> Close on day 364</button>}
+          {scheme.can_collect && biz.can("jewellery.create") && biz.can("sales.edit") && <button type="button" className="button" onClick={() => setDialog("collect")}><Icon name="check" size={15} /> Collected</button>}
+          {scheme.put_back && scheme.put_back.withinTenure && biz.can("jewellery.create") && biz.can("sales.refund") && (
+            <button type="button" className="button button-secondary" onClick={() => setDialog("back")}><Icon name="undo" size={15} /> Put back from {scheme.put_back.documentNo}</button>
+          )}
           {scheme.status !== "redeemed" && biz.can("jewellery.create") && biz.can("sales.edit") && (
             <Link className="button button-secondary" to={`${biz.path("jewellery-bill")}?scheme=${scheme.id}`}><Icon name="receipt" size={15} /> Redeem on a jewellery bill</Link>
           )}
@@ -207,6 +278,9 @@ export function SchemePanel({ biz, schemeId, onClose, onChanged }) {
       )}
       {dialog === "pay" && <PayForm biz={biz} scheme={scheme} onClose={() => setDialog(null)} onSaved={done} />}
       {dialog === "stop" && <StopForm biz={biz} scheme={scheme} onClose={() => setDialog(null)} onSaved={done} />}
+      {dialog === "close" && <CloseForm biz={biz} scheme={scheme} onClose={() => setDialog(null)} onSaved={done} />}
+      {dialog === "collect" && <CollectForm biz={biz} scheme={scheme} onClose={() => setDialog(null)} onSaved={done} />}
+      {dialog === "back" && <PutBackForm biz={biz} scheme={scheme} onClose={() => setDialog(null)} onSaved={done} />}
     </SidePanel>
   );
 }

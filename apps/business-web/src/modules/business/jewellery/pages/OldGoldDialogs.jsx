@@ -10,28 +10,36 @@ import FormDialog from "../../core/pages/FormDialog";
 import { Badge, Field } from "../../core/pages/ui";
 import { dateTime, newKey } from "../../core/pages/hooks";
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
-import { ALL_PURITIES, ID_KINDS, OLD_GOLD_STATES, TEST_METHODS, finenessOf, grams, perGram, purityWords } from "./jewellery";
+import { ALL_PURITIES, ID_KINDS, OLD_GOLD_NEXT, OLD_GOLD_STATES, TEST_METHODS, approvalBody, emptyApproval, finenessOf, grams, perGram, purityWords } from "./jewellery";
 import { printOldGoldVoucher } from "./jewelleryPrint";
+import JewelleryApproval from "./JewelleryApproval";
+import JewelleryPhoto from "./JewelleryPhoto";
+import { OldGoldPayoutsDialog } from "./OldGoldPayouts";
+import { RefinerySendForm } from "./RefineryDialogs";
 import { NewCustomerConsents } from "../../../personal-data/components/ConsentChoices";
 import { consentChanges } from "../../../personal-data/personalData";
 
 // The forms and the panel of Old gold: old gold taken in on a voucher (the
 // seller, the photo ID seen, each article tested and weighed, valued by the
 // server at today's buy rate as it is typed, the PAN or Form 97 over
-// ₹2,00,000, and the seller's declaration); the voucher's panel with its
-// articles, what was used and paid out on it and what is left; paying it out
-// (UPI or bank transfer first; cash is limited), putting it back from a
-// returned bill, and cancelling it while nothing is paid out or used.
+// ₹2,00,000, and the seller's declaration), each line's deduction the shop's
+// buy-back rule (its own pieces by HUID or tag, each purity's, the general
+// one) unless a manager approves another; the voucher's panel with its
+// articles, where each one's metal goes next, its photos, what was used and
+// paid out on it and what is left; paying it out (UPI or bank transfer first;
+// cash is limited), with the seller's other vouchers too, putting it back
+// from a returned bill, and cancelling it while nothing is paid out or used.
 
 const ID_WORDS = Object.fromEntries(ID_KINDS.map((k) => [k.value, k.label]));
 const TEST_WORDS = Object.fromEntries(TEST_METHODS.map((k) => [k.value, k.label]));
 const PAYOUT_KINDS = ["upi", "bank", "cash"];
 const splitKey = (key) => { const [metal, purity] = String(key).split(":"); return { metal, purity }; };
-const blankLine = (deduction) => ({ key: newKey(), description: "", pieces: "1", purity: "gold:22K", testMethod: "xrf", testedFineness: "", grossWeight: "", lessWeight: "",
-  deductionPercent: deduction ?? "0" });
+// A line's deduction left empty takes the shop's buy-back rule.
+const blankLine = () => ({ key: newKey(), description: "", pieces: "1", purity: "gold:22K", testMethod: "xrf", testedFineness: "", grossWeight: "", lessWeight: "",
+  deductionPercent: "", tag: "", huid: "" });
 const lineBody = (l) => ({ description: l.description.trim(), pieces: l.pieces || "1", ...splitKey(l.purity), testMethod: l.testMethod,
   ...(l.testedFineness !== "" ? { testedFineness: l.testedFineness } : {}), grossWeight: l.grossWeight, ...(l.lessWeight !== "" ? { lessWeight: l.lessWeight } : {}),
-  deductionPercent: l.deductionPercent === "" ? "0" : l.deductionPercent });
+  ...(l.deductionPercent !== "" ? { deductionPercent: l.deductionPercent } : {}), ...(l.tag.trim() ? { tag: l.tag.trim() } : {}), ...(l.huid.trim() ? { huid: l.huid.trim() } : {}) });
 // The seller's words, kept the same whoever prints them.
 export const CASH_RULE = "A seller does not receive ₹2,00,000 or more in cash for old gold in a day or for one voucher (Income-tax Act 2025, section 186): pay by UPI or bank transfer.";
 
@@ -48,8 +56,10 @@ export function OldGoldForm({ biz, settings, contact, onClose, onSaved }) {
   const [declared, setDeclared] = useState(false);
   const [owner, setOwner] = useState(false);
   const [notes, setNotes] = useState("");
-  const [lines, setLines] = useState(() => [blankLine(settings?.oldGoldDeduction)]);
+  const [lines, setLines] = useState(() => [blankLine()]);
   const [quote, setQuote] = useState(null);
+  const [approval, setApproval] = useState(emptyApproval);
+  const [reason, setReason] = useState("");
   const set = (key, change) => setLines((all) => all.map((l) => (l.key === key ? { ...l, ...change } : l)));
   // The lines ready to value (what it is and its weight), and the server's valuation of them.
   const ready = useMemo(() => lines.filter((l) => l.description.trim() && Number(l.grossWeight) > 0), [lines]);
@@ -71,12 +81,12 @@ export function OldGoldForm({ biz, settings, contact, onClose, onSaved }) {
     requestKey, locationId, ...(customer ? { contactId: customer.id } : { customer: { name: typed?.name?.trim() || "", phone: typed?.phone?.trim() || undefined,
       consents: consentChanges(typed?.consents, []) || undefined } }),
     idKind, idRef: idRef.trim(), ...(pan.trim() ? { pan: pan.trim() } : declared ? { panDeclaration: true } : {}), ownerDeclared: owner, lines: lines.map(lineBody),
-    notes: notes.trim() || undefined,
+    notes: notes.trim() || undefined, ...(figures?.needsApproval ? { approval: { ...approvalBody(approval), reason: reason.trim() } } : {}),
   });
   return (
     <FormDialog title="Take in old gold" icon="scale" width={940} onClose={onClose} onSubmit={submit} onSaved={onSaved} submitLabel="Make the voucher"
       successMessage={(g) => `Old gold ${g.voucher_no}: ${biz.exact(g.value)}.`}
-      description="Each article tested and weighed, valued at today's buy rate for the purity it is valued as, scaled to the fineness found, less the deduction.">
+      description="Each article tested and weighed, valued at today's buy rate for the purity it is valued as, scaled to the fineness found, less the shop's buy-back deduction (its own pieces known by their HUID or tag).">
       {contact ? <Field label="Seller" wide><input readOnly value={contact.name} /></Field> : typed ? (
         <>
           <Field label="Seller's name"><input required maxLength={150} value={typed.name} onChange={(e) => setTyped((c) => ({ ...c, name: e.target.value }))} /></Field>
@@ -120,17 +130,21 @@ export function OldGoldForm({ biz, settings, contact, onClose, onSaved }) {
               <div className="jw-row">
                 <Field label="Gross weight (g)"><input required type="number" min="0.001" step="0.001" value={l.grossWeight} onChange={(e) => set(l.key, { grossWeight: e.target.value })} /></Field>
                 <Field label="Stones and dirt (g)"><input type="number" min="0" step="0.001" value={l.lessWeight} onChange={(e) => set(l.key, { lessWeight: e.target.value })} /></Field>
-                <Field label="Deduction (%)"><input type="number" min="0" max="99.99" step="0.01" value={l.deductionPercent} onChange={(e) => set(l.key, { deductionPercent: e.target.value })} /></Field>
+                <Field label="Deduction (%)" hint={v && !v.problem ? `Rule: ${Number(v.rulePercent)}% (${v.ruleWords.toLowerCase()})` : "Empty: the shop's rule."}>
+                  <input type="number" min="0" max="99.99" step="0.01" value={l.deductionPercent} placeholder={v && !v.problem ? String(Number(v.rulePercent)) : ""} onChange={(e) => set(l.key, { deductionPercent: e.target.value })} />
+                </Field>
+                <Field label="This shop's tag (if it sold it)"><input className="mono" maxLength={30} value={l.tag} onChange={(e) => set(l.key, { tag: e.target.value.toUpperCase() })} /></Field>
+                <Field label="HUID (if it has one)"><input className="mono" maxLength={6} value={l.huid} onChange={(e) => set(l.key, { huid: e.target.value.toUpperCase() })} /></Field>
                 {lines.length > 1 && <button type="button" className="link-button danger" onClick={() => setLines((all) => all.filter((x) => x.key !== l.key))}>Remove</button>}
               </div>
               {v && (v.problem ? <p className="bz-due small" role="alert">{v.problem}</p> : (
                 <p className="jw-og-value">Net {grams(v.netWeight)} · fine {grams(v.fineWeight)} · {purityWords(metal, purity)} at {perGram(biz, v.buyRate)}
-                  {Number(v.deductionPercent) ? ` less ${Number(v.deductionPercent)}%` : ""}: <strong>{biz.exact(v.value)}</strong></p>
+                  {Number(v.deductionPercent) ? ` less ${Number(v.deductionPercent)}%` : ""}{v.ownTag ? ` (this shop's ${v.ownTag})` : ""}{v.override ? " · not the rule: a manager approves" : ""}: <strong>{biz.exact(v.value)}</strong></p>
               ))}
             </fieldset>
           );
         })}
-        {lines.length < 30 && <button type="button" className="chip-button" onClick={() => setLines((all) => [...all, blankLine(settings?.oldGoldDeduction)])}><Icon name="plus" size={13} /> Another article</button>}
+        {lines.length < 30 && <button type="button" className="chip-button" onClick={() => setLines((all) => [...all, blankLine()])}><Icon name="plus" size={13} /> Another article</button>}
       </div>
       {problem && <div className="field-wide"><p className="bz-due small" role="alert">{problem}</p></div>}
       {figures && !figures.problems.length && (
@@ -139,6 +153,12 @@ export function OldGoldForm({ biz, settings, contact, onClose, onSaved }) {
           {Number(figures.roundOff) !== 0 && <span>Round-off {biz.exact(figures.roundOff)}</span>}
           <strong>Value {biz.exact(figures.value)}</strong>
         </div>
+      )}
+      {figures?.needsApproval && (
+        <>
+          <Field label="Why the deduction is changed" wide><input required maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Long-standing customer" /></Field>
+          <JewelleryApproval title="A deduction other than the shop's rule needs a manager" value={approval} onChange={setApproval} />
+        </>
       )}
       {(figures?.panNeeded || idKind === "pan_card" || pan) && (
         <fieldset className="field-wide jw-row jw-pan">
@@ -216,6 +236,22 @@ export function OldGoldPanel({ biz, voucherId, settings, onClose, onChanged }) {
     return () => controller.abort();
   }, [biz.id, voucherId, version]);
   const done = () => { setDialog(null); setVersion((n) => n + 1); onChanged?.(); };
+  const [busy, setBusy] = useState(false);
+  const [nextError, setNextError] = useState("");
+  // A line kept to resell as it is, or put back with the metal to melt (a manager's say).
+  const setNext = async (line, next) => {
+    if (busy) return;
+    setBusy(true);
+    setNextError("");
+    try {
+      setVoucher(await businessWrite(biz.id, `jewellery/old-gold/${voucher.id}/next`, { seq: line.seq, next }));
+      onChanged?.();
+    } catch (err) {
+      setNextError(getErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
   const state = voucher ? OLD_GOLD_STATES[voucher.state] : null;
   const settlements = useMemo(() => (voucher ? [
     ...voucher.uses.map((u) => ({ key: `u${u.id}`, at: u.created_at, words: Number(u.amount) > 0 ? `Used on bill ${u.document_no}` : `Put back from bill ${u.document_no}`, amount: u.amount, by: u.by_name })),
@@ -226,6 +262,7 @@ export function OldGoldPanel({ biz, voucherId, settings, onClose, onChanged }) {
       footer={voucher && (
         <div className="jw-panel-actions">
           {voucher.state === "open" && biz.can("jewellery.approve") && <button type="button" className="button" onClick={() => setDialog({ kind: "payout" })}><Icon name="wallet" size={15} /> Pay out</button>}
+          {voucher.state === "open" && biz.can("jewellery.approve") && <button type="button" className="button button-secondary" onClick={() => setDialog({ kind: "many" })}>With {voucher.seller_name}&apos;s other vouchers</button>}
           {biz.can("sales.refund") && voucher.putBack.map((p) => <button key={p.documentId} type="button" className="button button-secondary" onClick={() => setDialog({ kind: "back", choice: p })}>Put back from {p.documentNo}</button>)}
           {biz.can("jewellery.print") && <button type="button" className="button button-secondary" onClick={() => printOldGoldVoucher(biz, voucher)}><Icon name="print" size={15} /> Print the voucher</button>}
           {voucher.cancellable && biz.can("jewellery.cancel") && <button type="button" className="button button-secondary danger" onClick={() => setDialog({ kind: "cancel" })}>Cancel</button>}
@@ -248,19 +285,37 @@ export function OldGoldPanel({ biz, voucherId, settings, onClose, onChanged }) {
               .filter(([, value]) => value).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
           </dl>
           <table className="jw-rates">
-            <thead><tr><th scope="col">Article</th><th scope="col">Valued as · tested</th><th scope="col">Gross · less</th><th scope="col">Net · fine</th><th scope="col">Rate · deduction</th><th scope="col">Value</th></tr></thead>
+            <thead><tr><th scope="col">Article</th><th scope="col">Valued as · tested</th><th scope="col">Gross · less</th><th scope="col">Net · fine</th><th scope="col">Rate · deduction</th><th scope="col">Value</th><th scope="col">Next</th></tr></thead>
             <tbody>{voucher.lines.map((l) => (
               <tr key={l.seq}>
                 <th scope="row">{l.description}{Number(l.pieces) > 1 ? ` (${l.pieces})` : ""}{l.huid && <small className="muted"> · HUID {l.huid}{l.own_tag ? `, this shop's ${l.own_tag}` : ""}</small>}</th>
                 <td>{l.mark} · {TEST_WORDS[l.test_method]} {Number(l.tested_fineness).toFixed(1)}</td>
                 <td>{grams(l.gross_weight)} · {grams(l.less_weight)}</td>
                 <td>{grams(l.net_weight)} · {grams(l.fine_weight)}</td>
-                <td>{perGram(biz, l.buy_rate)} · {Number(l.deduction_percent)}%</td>
+                <td>{perGram(biz, l.buy_rate)} · {Number(l.deduction_percent)}%
+                  {l.rule_words && <small className="muted bz-two-line">{l.override_by_name ? `Not the rule (${Number(l.rule_percent)}%): ${l.override_by_name} approved, ${l.override_reason}` : l.rule_words}</small>}</td>
                 <td>{biz.exact(l.value)}</td>
+                <td><span className="bz-two-line"><span>{OLD_GOLD_NEXT[l.next]?.label || l.next_words}{l.refinery_no ? ` · ${l.refinery_no}` : ""}{l.karigar_issue_no ? ` · ${l.karigar_issue_no}` : ""}</span>
+                  {voucher.state !== "cancelled" && biz.can("jewellery.approve") && ["melt", "resell"].includes(l.next) && (
+                    <>
+                      <button type="button" className="link-button" disabled={busy} onClick={() => setNext(l, l.next === "melt" ? "resell" : "melt")}>{l.next === "melt" ? "Keep to resell" : "Back to melt"}</button>
+                      <button type="button" className="link-button" disabled={busy} onClick={() => setDialog({ kind: "refinery", line: l })}>Send on a refinery challan</button>
+                    </>
+                  )}</span></td>
               </tr>
             ))}</tbody>
           </table>
+          <ErrorMessage message={nextError} />
           {Number(voucher.round_off) !== 0 && <p className="muted small">Rounded by {biz.exact(voucher.round_off)} to {biz.exact(voucher.value)}.</p>}
+          <section>
+            <h3 className="jw-subhead">Photos of what came in</h3>
+            <div className="jw-photos">
+              {voucher.photos.map((p) => <JewelleryPhoto key={p.id} biz={biz} fileId={p.id} replaces={false} canChange={biz.can("jewellery.create")} onChanged={() => setVersion((n) => n + 1)} />)}
+              {voucher.state !== "cancelled" && biz.can("jewellery.create") && voucher.photos.length < 10 && (
+                <JewelleryPhoto biz={biz} oldGoldId={voucher.id} canChange onChanged={() => setVersion((n) => n + 1)} />
+              )}
+            </div>
+          </section>
           <section>
             <h3 className="jw-subhead">What became of it</h3>
             {settlements.length === 0 ? <p className="jw-note">Nothing paid out or used yet.</p> : (
@@ -270,6 +325,9 @@ export function OldGoldPanel({ biz, voucherId, settings, onClose, onChanged }) {
         </div>
       )}
       {dialog?.kind === "payout" && <PayoutForm biz={biz} voucher={voucher} settings={settings} onClose={() => setDialog(null)} onSaved={done} />}
+      {dialog?.kind === "refinery" && <RefinerySendForm biz={biz} carries={[{ voucherId: voucher.id, seq: dialog.line.seq, voucherNo: voucher.voucher_no, description: dialog.line.description }]}
+        start={{ locationId: voucher.location_id, purity: `${dialog.line.metal}:${dialog.line.purity}`, netWeight: Number(dialog.line.net_weight).toFixed(3) }} onClose={() => setDialog(null)} onSaved={done} />}
+      {dialog?.kind === "many" && <OldGoldPayoutsDialog biz={biz} seller={{ id: voucher.contact_id, name: voucher.seller_name }} onClose={() => setDialog(null)} onSaved={done} />}
       {dialog?.kind === "cancel" && <CancelForm biz={biz} voucher={voucher} onClose={() => setDialog(null)} onSaved={done} />}
       {dialog?.kind === "back" && <PutBackForm biz={biz} voucher={voucher} choice={dialog.choice} onClose={() => setDialog(null)} onSaved={done} />}
     </SidePanel>

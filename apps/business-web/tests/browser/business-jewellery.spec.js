@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { Buffer } from "node:buffer";
 import { test, expect } from "@playwright/test";
 
 import { JEWELLERY, business, signIn } from "../../../../e2e/fixture.mjs";
@@ -11,7 +12,10 @@ import { JEWELLERY, business, signIn } from "../../../../e2e/fixture.mjs";
 // with no hallmark; a customer's old gold voucher with all its value left,
 // and another customer's gold scheme with three instalments of ₹5,000 paid.
 // The location's district is under mandatory hallmarking, and its BIS
-// registration is in force.
+// registration is in force. The shop deducts 2% on old gold; a seller has two
+// vouchers to pay out at once; a 5 g gold coin is in stock at 3%; a ring waits
+// for a bill with a counter discount; and a member's gold scheme is on its
+// day 364.
 let shop = null;
 test.beforeEach(async ({ page }) => {
   shop = business("jewellery");
@@ -262,7 +266,8 @@ test("old gold and a gold scheme pay jewellery bills: the voucher as a payment b
   await page.goto(`/business-admin/${shop.id}/gold-schemes`);
   await expect(page.getByRole("heading", { name: "Gold schemes", level: 1 })).toBeVisible({ timeout: 30_000 });
   const schemeRow = page.getByRole("table", { name: "Gold schemes" }).getByRole("row").filter({ hasText: shop.scheme.schemeNo });
-  await expect(page.getByText("Held ₹0.00")).toBeVisible({ timeout: 15_000 });
+  // Held: nothing, but for the scheme on its day 364 (₹2,000) until it is closed.
+  await expect(page.getByText(/^Held ₹(0|2,000)\.00$/)).toBeVisible({ timeout: 15_000 });
   await expect(schemeRow).toHaveCount(0);
   await page.getByRole("group", { name: "Schemes" }).getByRole("button", { name: "Redeemed", exact: true }).click();
   await expect(schemeRow).toContainText("Redeemed", { timeout: 15_000 });
@@ -380,5 +385,149 @@ test("a custom order booked with an advance that fixes the rate", async ({ page 
   await expect(panel).toBeVisible({ timeout: 15_000 });
   await expect(panel.getByText("Fixed at ₹11,780/g for 0.848 g (bhav cut); the rest at the day's rate")).toBeVisible();
   await expect(panel.getByText("₹10,000.00", { exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("jewellery settings: a rate session the shop names and the KYC documents it accepts; a customer's KYC recorded from Customers, with its copy", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  await page.goto(`/business-admin/${shop.id}/jewellery-settings`);
+  await expect(page.getByRole("heading", { name: "Jewellery settings", level: 1 })).toBeVisible({ timeout: 30_000 });
+  await page.getByLabel("The shop's own sessions").fill("Noon");
+  await page.getByLabel("Documents the shop accepts").fill("PAN card, Passport, Aadhaar card");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByText("Jewellery settings saved.")).toBeVisible({ timeout: 15_000 });
+  // A new rate sheet can be the shop's own noon session.
+  await page.goto(`/business-admin/${shop.id}/gold-rates`);
+  await page.getByRole("button", { name: "Set today's rates" }).click();
+  await expect(page.getByLabel("Session").getByRole("option", { name: "Noon" })).toHaveCount(1);
+  // The customer's KYC: a passport seen today, its number in full for the owner, and its copy.
+  await page.goto(`/business-admin/${shop.id}/customers`);
+  await expect(page.getByRole("heading", { name: "Customers", level: 1 })).toBeVisible({ timeout: 30_000 });
+  const row = page.getByRole("table", { name: "Customers" }).getByRole("row").filter({ hasText: shop.money.seller.name });
+  await row.getByRole("button", { name: "KYC" }).click();
+  const panel = page.getByRole("dialog", { name: `KYC · ${shop.money.seller.name}` });
+  await expect(panel).toBeVisible({ timeout: 15_000 });
+  await panel.getByRole("button", { name: "Record a document" }).click();
+  await panel.getByLabel("Document").selectOption("Passport");
+  await panel.getByLabel("Its number").fill("z4567890");
+  await panel.getByRole("button", { name: "Record it" }).click();
+  await expect(page.getByText("KYC document recorded.")).toBeVisible({ timeout: 15_000 });
+  await expect(panel.getByText("Z4567890")).toBeVisible();
+  await panel.locator('input[type="file"]').setInputFiles({ name: "passport.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n1 0 obj << >> endobj\ntrailer << >>\n%%EOF\n") });
+  await expect(page.getByText("Copy saved.")).toBeVisible({ timeout: 15_000 });
+  await expect(panel.getByRole("link", { name: "Open the PDF" })).toBeVisible({ timeout: 15_000 });
+  await page.screenshot({ path: testInfo.outputPath("kyc.png"), fullPage: true });
+  expect(errors).toEqual([]);
+});
+
+test("old gold paid out at once from the customer's row within the cash limits, and the shop's metal sent to a refiner and back refined", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  // Two vouchers of 22K, 4 g and 6 g at ₹11,500 a gram less the shop's 2%: ₹45,080 and ₹67,620, paid together by UPI.
+  await page.goto(`/business-admin/${shop.id}/customers`);
+  await expect(page.getByRole("heading", { name: "Customers", level: 1 })).toBeVisible({ timeout: 30_000 });
+  const row = page.getByRole("table", { name: "Customers" }).getByRole("row").filter({ hasText: shop.money.seller.name });
+  await row.getByRole("button", { name: "Pay out old gold" }).click();
+  const dialog = page.getByRole("dialog", { name: `Pay out ${shop.money.seller.name}'s old gold` });
+  await expect(dialog).toBeVisible({ timeout: 15_000 });
+  for (const voucher of shop.money.vouchers) await expect(dialog.getByRole("checkbox", { name: `Pay ${voucher.voucherNo}` })).toBeChecked({ timeout: 15_000 });
+  await page.screenshot({ path: testInfo.outputPath("old-gold-payouts.png"), fullPage: true });
+  await dialog.getByRole("button", { name: "Pay out ₹1,12,700.00" }).click();
+  await expect(page.getByText(`Paid ₹1,12,700.00 to ${shop.money.seller.name}.`)).toBeVisible({ timeout: 15_000 });
+  // Old gold: both settled; 5 g of the shop's 22K to a refiner on a challan, and 4.5 g of 24K back.
+  await page.goto(`/business-admin/${shop.id}/old-gold`);
+  await expect(page.getByRole("heading", { name: "Old gold", level: 1 })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("group", { name: "Vouchers" }).getByRole("button", { name: "Settled", exact: true }).click();
+  for (const voucher of shop.money.vouchers) await expect(page.getByRole("table", { name: "Old gold vouchers" }).getByText(voucher.voucherNo)).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Send metal" }).click();
+  const send = page.getByRole("dialog", { name: "Send metal to a refiner or dealer" });
+  await expect(send).toBeVisible();
+  await pick(page, send.getByRole("combobox", { name: /^The refiner/ }), JEWELLERY.bullion.name);
+  await send.getByLabel("Weight (g)").fill("5");
+  await send.getByRole("button", { name: "Make the challan" }).click();
+  const challan = page.getByRole("dialog", { name: /^Challan RF\// });
+  await expect(challan).toBeVisible({ timeout: 15_000 });
+  await expect(challan.getByText("With them")).toBeVisible();
+  await challan.getByRole("button", { name: "Back refined" }).click();
+  const back = page.getByRole("dialog", { name: `Back from ${JEWELLERY.bullion.name}` });
+  await back.getByLabel("Weight back (g)").fill("4.5");
+  await back.getByRole("button", { name: "Bring it in" }).click();
+  await expect(page.getByText("The refined metal is in the shop's metal.")).toBeVisible({ timeout: 15_000 });
+  await expect(challan.getByText("Refined and back")).toBeVisible({ timeout: 15_000 });
+  await page.screenshot({ path: testInfo.outputPath("refinery-challan.png"), fullPage: true });
+  expect(errors).toEqual([]);
+});
+
+test("a gold scheme on its day 364: billed as metal at the day's rate, held in the customer's safekeeping, and collected", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  await page.goto(`/business-admin/${shop.id}/gold-schemes`);
+  await expect(page.getByRole("heading", { name: "Gold schemes", level: 1 })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("group", { name: "Schemes" }).getByRole("button", { name: "Day 364 today", exact: true }).click();
+  await page.getByRole("table", { name: "Gold schemes" }).getByText(shop.money.closing.member.name).click();
+  const passbook = page.getByRole("dialog", { name: `Gold scheme ${shop.money.closing.schemeNo}` });
+  await expect(passbook).toBeVisible({ timeout: 15_000 });
+  await passbook.getByRole("button", { name: "Close on day 364" }).click();
+  // ₹2,000 at ₹11,780 a gram of 22K: 0.165 g, ₹2,002 with GST; the ₹2 over is due when she collects it.
+  const close = page.getByRole("dialog", { name: `Close scheme ${shop.money.closing.schemeNo} on its day 364` });
+  await expect(close.getByText("0.165 g at ₹11,780/g")).toBeVisible({ timeout: 15_000 });
+  await expect(close.getByText("Bill ₹2,002.00")).toBeVisible();
+  await expect(close.getByText("Due on collection ₹2.00")).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("scheme-close.png"), fullPage: true });
+  await close.getByRole("button", { name: "Close it into safekeeping" }).click();
+  await expect(page.getByText("Closed: the metal is held for the customer.")).toBeVisible({ timeout: 15_000 });
+  await expect(passbook.getByText("In safekeeping", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await passbook.getByRole("button", { name: "Collected" }).click();
+  const collect = page.getByRole("dialog", { name: new RegExp(`^${literally(shop.money.closing.member.name)} collects `) });
+  await collect.getByRole("button", { name: "Hand it over" }).click();
+  await expect(page.getByText("Collected.", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(passbook.getByText("Redeemed", { exact: true })).toBeVisible({ timeout: 15_000 });
+  expect(errors).toEqual([]);
+});
+
+test("the jewellery bill: a gold coin at its own slab beside a piece, and a discount at the counter off making and wastage, printed as such", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  await page.goto(`/business-admin/${shop.id}/jewellery-bill`);
+  await expect(page.getByRole("heading", { name: "Jewellery bill", level: 1 })).toBeVisible({ timeout: 30_000 });
+  // The floral ring: 3.000 g at ₹11,780 a gram with 8% wastage, ₹450 a gram making and ₹45 hallmarking, ₹39,562.20 before GST.
+  await scan(page, shop.money.discountRing.tag);
+  // The ring is on the bill (the scan box takes the focus back once it is found) before the coin is looked up.
+  await expect(page.getByText("Before GST ₹39,562.20", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await pick(page, page.getByRole("combobox", { name: "Find a loose stone or coin" }), shop.money.coin.name);
+  await page.getByLabel("Discount before GST (₹)").fill("500");
+  await page.getByLabel("Why").fill("Festival");
+  // ₹500 off the ring: ₹39,062.20 and ₹1,171.87 GST; the coin ₹64,000 and ₹1,920 GST: ₹1,06,154 rounded.
+  await expect(page.getByText("Counter discount ₹500.00").first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Total ₹1,06,154.00")).toBeVisible();
+  await page.getByRole("heading", { name: "Money" }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath("bill-discount-coin.png"), fullPage: true });
+  await page.getByRole("button", { name: "Post the bill · ₹1,06,154.00" }).click();
+  await expect(page.getByRole("heading", { name: /^Bill SI\/\S+ posted$/ })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Print the invoice", exact: true }).click();
+  const invoice = printed(page);
+  await expect(invoice).toContainText(`${shop.money.discountRing.description} · 22K916 · tag ${shop.money.discountRing.tag}`);
+  await expect(invoice).toContainText("Discount ₹500.00");
+  await expect(invoice).toContainText(shop.money.coin.name);
+  await expect(invoice).toContainText("Discount at the counter ₹500.00 off making and wastage (Festival).");
+  await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+  expect(errors).toEqual([]);
+});
+
+test("the cash report's suspicious transaction log: a case opened, read and noted by the owner who keeps it", async ({ page }) => {
+  const errors = errorsOf(page);
+  await page.goto(`/business-admin/${shop.id}/cash-report`);
+  await expect(page.getByRole("heading", { name: "Cash report", level: 1 })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Open a case" }).click();
+  const open = page.getByRole("dialog", { name: "Open a case" });
+  await open.getByLabel("Who, as known").fill("A man who would not give his name");
+  await open.getByLabel("What was seen").fill("Asked to buy gold bars in cash without a bill");
+  await open.getByRole("button", { name: "Open the case" }).click();
+  const kase = page.getByRole("dialog", { name: /^Case \d+$/ });
+  await expect(kase).toBeVisible({ timeout: 15_000 });
+  const history = kase.getByRole("list");
+  await expect(history.getByText("Opened", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(history.getByText("Read", { exact: true })).toBeVisible();
+  await kase.getByLabel("A note").fill("Spoke to the principal officer");
+  await kase.getByRole("button", { name: "Add the note" }).click();
+  await expect(page.getByText("Note added.")).toBeVisible({ timeout: 15_000 });
+  await expect(kase.getByText("Note: Spoke to the principal officer")).toBeVisible();
   expect(errors).toEqual([]);
 });

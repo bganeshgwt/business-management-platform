@@ -629,7 +629,7 @@ export async function buildTestData({ api, logins, sql }) {
     await owner("POST", B("jewellery/rates"), { requestKey: requestKey(), session: "morning", source: "association",
       rates: JEWELLERY.rates.map((r) => ({ metal: r.metal, purity: r.purity, sellRate: String(r.sell), buyRate: String(r.buy) })) }, 201);
     await owner("PUT", B("jewellery/settings"), { hallmarkCharge: String(JEWELLERY.hallmarkCharge),
-      locations: [{ locationId, mandatory: true, district: JEWELLERY.district }] }, 200);
+      locations: [{ locationId, mandatory: true, district: JEWELLERY.district }], oldGoldDeduction: JEWELLERY.oldGold.line.deduction }, 200);
     await owner("PUT", B("modules/licences"), { enabled: true });
     await owner("POST", B("licences"), { locationId, kind: "bis", name: JEWELLERY.bis.name, licenceNo: JEWELLERY.bis.licenceNo, authority: JEWELLERY.bis.authority,
       validFrom: day(-400) }, 201);
@@ -699,6 +699,38 @@ export async function buildTestData({ api, logins, sql }) {
       order: { id: order.id, orderNo: order.order_no, tag: orderTag, fixedWeight: order.fixed_weight, customer: { id: orderCustomer.id, name: orderCustomer.name } },
       consignment: { id: consignment.id, consignmentNo: consignment.consignment_no },
       approvalRing: lent, approval: { id: approval.id, approvalNo: approval.approval_no, customer: { id: borrower.id, name: borrower.name } },
+    });
+    // Its money: a seller's two old gold vouchers to pay out at once, a gold coin in stock, a ring for a counter discount,
+    // and a gold scheme moved back in the database (the way the API's own tests move one) to its day 364 today.
+    const { money } = JEWELLERY;
+    const twice = await customer(money.seller);
+    const vouchers = [];
+    for (const grams of money.seller.grams) {
+      vouchers.push(await owner("POST", B("jewellery/old-gold"), { requestKey: requestKey(), locationId, contactId: twice.id, idKind: "voter_id", idRef: money.seller.idRef,
+        ownerDeclared: true, lines: [{ description: money.seller.article, metal: "gold", purity: "22K", testMethod: "xrf", grossWeight: grams }] }, 201));
+    }
+    const gst3 = (await owner("GET", B("tax-rates?limit=100"))).items.find((r) => Number(r.rate) === 3);
+    const coin = await owner("POST", B("catalog"), { kind: "goods", tracking: "quantity", unit: "each", name: money.coin.name, code: money.coin.code, price: String(money.coin.price),
+      taxRateId: gst3.id, hsnCode: "7118" }, 201);
+    await owner("POST", B("documents"), { kind: "purchase", requestKey: requestKey(), locationId, contactId: bullion.id,
+      lines: [{ skuId: coin.id, quantity: money.coin.stock, unitPrice: String(money.coin.cost) }] }, 201);
+    const discountRing = await tag(ring, money.discountRing);
+    const closer = await customer(money.closing);
+    const closing = await owner("POST", B("jewellery/schemes"), { requestKey: requestKey(), locationId, planId: plan.id, contactId: closer.id,
+      instalment: String(money.closing.instalment), termsAccepted: true, payment: { method: "upi" } }, 201);
+    await sql("ALTER TABLE jewellery_schemes DISABLE TRIGGER jewellery_schemes_guard");
+    try {
+      await sql(`UPDATE jewellery_schemes SET started_on=started_on-364,maturity_on=(started_on-364+make_interval(months => instalments))::date,close_by=started_on
+        WHERE business_id=$1 AND id=$2`, [businesses.jewellery.id, closing.id]);
+    } finally {
+      await sql("ALTER TABLE jewellery_schemes ENABLE TRIGGER jewellery_schemes_guard");
+    }
+    if ((await owner("GET", B(`jewellery/schemes/${closing.id}`))).stage !== "closing") {
+      throw new Error(`Test data: gold scheme ${closing.scheme_no} could not be moved back to its day 364.`);
+    }
+    Object.assign(businesses.jewellery, {
+      money: { seller: { id: twice.id, name: twice.name }, vouchers: vouchers.map((g) => ({ id: g.id, voucherNo: g.voucher_no, value: g.value })),
+        coin: { skuId: coin.id, name: money.coin.name }, discountRing, closing: { id: closing.id, schemeNo: closing.scheme_no, member: { id: closer.id, name: closer.name } } },
     });
   }
 
