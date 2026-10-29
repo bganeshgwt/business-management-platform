@@ -30,6 +30,7 @@ const READERS = {
   "modules/access/repositories/audit.repository.js": "names",
   "modules/business/core/repositories/business.repository.js": "gate",
   "modules/business/core/services/business.service.js": "posting",
+  "modules/business/core/services/businessImportProducts.js": "gate",
   "modules/business/core/services/businessKits.service.js": "posting",
   "modules/business/core/services/businessLocationPrices.service.js": "gate",
   "modules/business/core/services/businessSetup.service.js": "writes",

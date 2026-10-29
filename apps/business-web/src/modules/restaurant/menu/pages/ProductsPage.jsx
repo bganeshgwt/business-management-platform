@@ -34,7 +34,7 @@ import RecipeModal from "./RecipeModal";
 import ComboModal from "./ComboModal";
 import MenuImportModal from "./MenuImportModal";
 import PrintMenuModal from "./PrintMenuModal";
-import SheetImportModal from "../../inventory/pages/SheetImportModal";
+import SheetImportModal from "../../../../components/SheetImportModal";
 import { getRecipeImportGuide, importRecipes } from "../services/recipe.service";
 import PriceRevisionModal from "./PriceRevisionModal";
 import ProductHistoryModal from "./ProductHistoryModal";

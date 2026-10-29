@@ -1225,6 +1225,17 @@ Rules:
 - Partial index `business_events_unpublished` is the publisher's queue.
 Added by: 1791300000005 business-events-and-provisioning; 1791974000000 (live updates: `business_events_live`).
 
+#### `business_imports`
+Purpose: each confirmed CSV import of a shop's products, customers or suppliers (`businessImports.service.js`): who imported which file, when, and what it did. The records themselves are made and changed through the core's own paths, each with its own audit row; this row keeps the import's request key, so the same import sent twice is done once.
+Key columns: `kind` (products, customers or suppliers), `request_key` (UUID), `request_hash` (SHA-256 of the kind, the update choice and the file's rows), `file_name` (not blank when set), `update_matching` (whether records already here were updated), `rows_read` (more than 0), `created_count`, `updated_count`, `unchanged_count`, `skipped_count`, `refused_count` (each 0 or more), `result` (a JSON object: the answer given, its counts and totals, sent again to a repeated request), `created_by`, `created_at`.
+Rules:
+- UNIQUE (`business_id`, `request_key`).
+- CHECK: the five counts add up to `rows_read`: every row of a file is made, changed, unchanged, left as it was or refused.
+- Trigger `business_imports_fixed` (function `business_imports_fixed`) refuses any change or removal: "An import is kept as it was done: it is never changed or removed".
+- It holds no row of the file, so no one's personal details: names, phones and balances are only on the records made.
+- Index `business_imports_recent` (business, created_at DESC).
+Added by: business-csv-import.
+
 ## Shared core
 
 Linked section: [data model §4](BUSINESS_PLATFORM_DATA_MODEL.md#4-shared-core), unless an entry says otherwise.

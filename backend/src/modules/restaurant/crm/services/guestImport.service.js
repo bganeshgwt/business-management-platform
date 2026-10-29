@@ -2,7 +2,7 @@ const pool = require("../../../../config/database");
 const AppError = require("../../../../utils/AppError");
 const { gstinProblem } = require("../../../../utils/gstin");
 const { normaliseMobile, mobileProblem, maskMobile, formatMobile, tenDigitTwin } = require("../../../../utils/phone");
-const sheet = require("../../imports/services/sheetImport");
+const sheet = require("../../../../utils/sheetImport");
 const consents = require("../../../personal-data/services/consents");
 const personalData = () => require("../../../personal-data/services/personalDataRestaurant");
 

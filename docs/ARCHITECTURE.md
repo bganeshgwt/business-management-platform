@@ -942,7 +942,8 @@ workspaces; the backend has its own install.
 ├── docs/                     the documentation
 ├── backend/
 │   ├── src/
-│   │   ├── app.js            Express app: global middleware, /uploads, /api, 404, error handler
+│   │   ├── app.js            Express app: global middleware (JSON bodies up to 1 MB, 5 MB for a shop's CSV import),
+│   │   │                     /uploads, /api, 404, error handler
 │   │   ├── server.js         checks the database and that every migration is applied, then listens;
 │   │   │                     a port already in use stops it with a clear message
 │   │   ├── routes/index.js   mounts every module's router under /api (the only file in routes/)
@@ -967,7 +968,8 @@ workspaces; the backend has its own install.
 │   │   ├── middlewares/      authenticate, authorize, authorizeOrApprove, resolveOutlet, requireFeature,
 │   │   │                     reportOutlet, writeoffApproval, rateLimiters, upload, notFound, errorHandler
 │   │   ├── notifications/    the bell: index.js + one provider file per module
-│   │   └── utils/            AppError, validate, money, audit, docNumber, gstin, phone, totp, calendarDate, guestLinks …
+│   │   └── utils/            AppError, validate, money, audit, docNumber, gstin, phone, totp, calendarDate, guestLinks,
+│   │                         sheetImport (what every spreadsheet import shares) …
 │   ├── migrations/           node-pg-migrate SQL files (the only definition of the schema)
 │   ├── scripts/              migrate, first login, backup
 │   ├── tests/                *.test.js unit tests; integration/ (each file builds its own database)
@@ -1022,7 +1024,8 @@ workspaces; the backend has its own install.
 │   │   │   │                 plannedWorkspaces, the menus (businessNav, businessWorkspace,
 │   │   │   │                 restaurantWorkspace) …, and the API services shared code uses (auth,
 │   │   │   │                 outlet, notification, business)
-│   │   │   ├── components/   shared UI: DataGrid/, Modal, PageHeader, SectionCard, ActionMenu, motion.js …
+│   │   │   ├── components/   shared UI: DataGrid/, Modal, PageHeader, SectionCard, ActionMenu, motion.js,
+│   │   │   │                 SheetImportModal (every spreadsheet import's screen) …
 │   │   │   └── styles/       sheets used by more than one module (data-grid.css, reservations.css …)
 │   │   ├── tests/            *.test.js (Node); browser/ (Playwright)
 │   │   └── public/
@@ -1166,7 +1169,7 @@ the guests' pages are in `apps/customer-web/src/modules/<area>/pages/`.
 | `restaurant/dashboard` (frontend only) | the dashboard's API is in `restaurant/reports` | `DashboardPage`, blocks, panels | none |
 | `restaurant/logbook` | `logbook.*` | log book, follow-ups, handover notice | `logbook_entries` |
 | `restaurant/notifications` | `notification.*` (the bell's API; the providers are in `src/notifications/providers/`) | `NotificationsPage` (the bell itself is `components/NotificationBell`) | `notification_reads` |
-| `restaurant/imports` | `sheetImport.controller` (one controller for the spreadsheet imports of stock items, suppliers, recipes and guests; the menu has its own, `menuImport`), `sheetImport` (the shared reader) | none | none |
+| `restaurant/imports` | `sheetImport.controller` (one controller for the spreadsheet imports of stock items, suppliers, recipes and guests; the menu has its own, `menuImport`); the reader they share is `utils/sheetImport`, which a hardware shop's shades and a shop's products, customers and suppliers use too | none (the screen is the shared `components/SheetImportModal`) | none |
 | `platform` | `platform.*` (the businesses part calls `business/core`'s `businessOnboarding.service`) | `PlatformRestaurantsPage`, `PlatformBusinessesPage` | `restaurants`, `businesses`, `users` |
 | `health` | `health.*` | none | none |
 
@@ -1207,7 +1210,7 @@ file behind an index file with the module's name, which callers import:
 | Area | Backend | Frontend pages | Main tables |
 | --- | --- | --- | --- |
 | Directory, access, set-up | `business.routes.js`, `businessAccess.service` (membership, location, module, permission), `businessSetup.service`, `business.service` (list, link, locations), `businessOnboarding.service` (a new business, staff logins), `businessNumbering`, `businessDepartments.service`, `business.repository` | `BusinessAdminPage`, `NewBusinessForm`, `SettingsPage`, `TaxRatesPage`, `NumberSeriesPage`, `LocationsPage`, `StaffAccessPage`, `RolesPage`, `ActivityPage`; `WorkspaceNav` (a workspace's tabs) | `businesses`, `business_memberships`, `business_roles`, `business_settings`, `business_tax_rates`, `business_number_series`, `business_capabilities`, `business_locations`, `business_departments`, `business_audit` |
-| Catalogue, contacts, prices | `business.service` (catalog, contacts, price rules), `businessPricing`, `businessModules` (the attributes an item may carry, by module), `businessSetup.service` (categories, units, packs), `businessLocationPrices.service` (a branch's own price), `businessKits.service` (kits and bundles) | `CatalogPage`, `CategoriesPage` (with departments), `UnitsPage`, `ContactsPage`, `PricingPage`, `KitsPage` | `catalog_*`, `business_units`, `business_contacts`, `business_price_rules`, `business_sku_location_prices` |
+| Catalogue, contacts, prices | `business.service` (catalog, contacts, price rules), `businessPricing`, `businessModules` (the attributes an item may carry, by module), `businessSetup.service` (categories, units, packs), `businessLocationPrices.service` (a branch's own price), `businessKits.service` (kits and bundles), `businessImports.service` (products, customers and suppliers from a CSV file: the check, the import through the same service functions in one transaction, the request key), with each kind's plan in `businessImportProducts` and `businessImportContacts` and their cell readers in `businessImportCells` | `CatalogPage`, `CategoriesPage` (with departments), `UnitsPage`, `ContactsPage`, `PricingPage`, `KitsPage`, `ImportDialog` (the import on Products, Customers and Suppliers, on the shared `SheetImportModal`) | `catalog_*`, `business_units`, `business_contacts`, `business_price_rules`, `business_sku_location_prices`, `business_imports` |
 | Sales and purchases | `business.service` (`postDocument`, payments), `businessReturns.service` | `DocumentsPage` | `business_documents` (+ lines, payments, returns, refunds) |
 | The counter, the tax invoice, Daily money, paying suppliers | `businessTakings.service` (the day's close, today's overview figures), `businessPayables.service` (payables, supplier payments, statement), `businessCounter.service` (the shared till's per-staff PIN; routes in `businessCounter.routes.js`, with kits and EMI) | Quick bill is `retail/pages/CounterPage` with `counterParts`, `counterState`, `counterPay`, `counterPayState`, `counterShelf` and `counterShift`, for every goods type; `invoice.js` (the one A4 / 80 mm GST invoice); `DayClosePage` (Daily money); `SupplierPayments.jsx` (on `ContactsPage` for suppliers) | `business_supplier_payments` |
 | Payment methods, expenses, cash checks, cashier shifts | `businessPaymentMethods.service`, `businessExpenses.service`, `businessCashChecks.service`, `businessShifts.service` | `PaymentMethodsPage`, `ExpensesPage`, `CashCheck` and `CashierShifts` (on `DayClosePage`) | `business_payment_methods`, `business_expenses`, `business_cash_checks`, `business_counter_shifts` |

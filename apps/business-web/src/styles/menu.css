@@ -810,9 +810,50 @@
   color: var(--primary);
 }
 
-.mnu-action-unchanged {
+.mnu-action-unchanged,
+.mnu-action-skipped {
   background: var(--chip-bg);
   color: var(--muted);
+}
+
+.mnu-action-refused {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+/* A refused row's reason: the column it is about, then why. */
+.mnu-reason {
+  color: var(--danger);
+}
+
+.mnu-reason .mnu-change-label {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* What an import says about a business type's own items. */
+.mnu-guide-notes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.mnu-guide-notes li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--info-border);
+  border-radius: var(--radius);
+  background: var(--info-bg);
+}
+
+.mnu-guide-notes li > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--info-text);
 }
 
 .mnu-change {

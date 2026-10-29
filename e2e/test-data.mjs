@@ -505,3 +505,29 @@ export const SMALL_ITEMS = {
   salonClient: { name: "Meera Iyer", phone: "9845044444" },
   guestAddress: "https://order.bistro.e2e.invalid",
 };
+
+// A shop's CSV import (business-csv-import.spec.js), in the general store: a
+// products file of three rows, one counted in a unit the shop does not keep,
+// and a customers file of two, one with no phone. The spec makes each file from
+// these rows, checks it, imports it and finds the records on their lists.
+export const CSV_IMPORT = {
+  business: "general_retail",
+  products: {
+    headings: ["Name", "Code", "Barcode", "Category", "Unit", "GST rate", "MRP", "Sale price", "Purchase price", "Opening stock"],
+    rows: [
+      ["Gift wrap roll", "WRAP-01", "8904000000017", "Gift wrap", "each", "18%", "60", "55", "35", "40"],
+      ["Greeting card", "CARD-01", "", "Cards", "pcs", "18%", "", "25", "", ""],
+      ["Scented candle", "CANDLE-01", "", "Candles", "carton", "18%", "", "150", "", ""],
+    ],
+    // The row the check refuses (the file's row 4, under its heading row).
+    refused: { line: 4, name: "Scented candle", reason: "\"carton\" is not one of your units" },
+  },
+  customers: {
+    headings: ["Name", "Phone", "GSTIN", "Opening balance"],
+    rows: [
+      ["Revathi Stores", "98480 22334", "", "1500"],
+      ["Ramu (walk-in regular)", "", "", ""],
+    ],
+    owes: "₹1,500.00",
+  },
+};

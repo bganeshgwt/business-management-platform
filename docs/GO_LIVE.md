@@ -124,6 +124,37 @@ on their own every minute meanwhile.
   and the screens reconnect within a few seconds, to whichever process the
   load balancer picks.
 
+### A shop's CSV import through the proxy
+
+A shop's import of products, customers or suppliers from a CSV file
+([ADMIN_GUIDE › Products, customers and suppliers from a CSV
+file](ADMIN_GUIDE.md#products-customers-and-suppliers-from-a-csv-file)) sends
+a whole file's rows in one request, `POST /api/businesses/<id>/catalog/import`
+or `…/contacts/import`: up to 5,000 rows, a few megabytes. The API takes up to
+5 MB there (1 MB everywhere else), and a file of thousands of products with
+their opening stock takes a minute or two to go in. The proxy in front of the
+API must let both through on those two paths:
+
+- **A body of 5 MB.** nginx takes 1 MB unless told (`client_max_body_size`);
+  a larger file is then refused by the proxy before the API sees it.
+- **A read timeout of a few minutes.** nginx waits 60 seconds by default
+  (`proxy_read_timeout`). A request the proxy cuts off still finishes on the
+  server; the screen says the import failed, and pressing *Import* again
+  answers the import that went in (the same request key), so nothing is
+  imported twice.
+
+With nginx, for example:
+
+```
+location ~ ^/api/businesses/[0-9]+/(catalog|contacts)/import$ {
+    proxy_pass http://127.0.0.1:5000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    client_max_body_size 5m;
+    proxy_read_timeout 300s;
+}
+```
+
 ## 2. Production settings
 
 [`backend/.env.example`](../backend/.env.example) explains every setting. These
@@ -413,7 +444,10 @@ training run does not count as a real-service sign-off. Take a verified backup
 ### A shop
 
 1. The owner checks the business settings, locations, payment methods, tax
-   rates, products and prices, and the staff's roles.
+   rates, products and prices, and the staff's roles. Where the products,
+   customers and suppliers came from the shop's old system by **Import from a
+   CSV file**, check that the stock's value and what customers and suppliers
+   owe add up to the old system's figures for the same day.
 2. Each cashier opens a shift at **Quick bill** with the cash in the drawer.
    Bill by barcode and by name, and by weight where the shop sells loose
    goods. Pay by cash (with change), UPI, card, and udhaar with part paid in

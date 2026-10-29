@@ -57,6 +57,14 @@ const errorHandler = (error, req, res, next) => {
     });
   }
 
+  // A request body larger than its route takes (a file's rows sent at once).
+  if (error.type === "entity.too.large") {
+    return res.status(413).json({
+      success: false,
+      message: "That is more than one request can carry. Send it in smaller parts (split a long file).",
+    });
+  }
+
   // Two tills changing the same rows at the same instant: PostgreSQL picked one
   // of them to give way (deadlock 40P01, serialization failure 40001). Nothing
   // was saved for this request, so pressing the button again is the right fix —

@@ -12,7 +12,7 @@ import useLiveRefresh from "../../../../hooks/useLiveRefresh";
 import { businessRead, businessWrite } from "../../../../services/business.service";
 import api, { getErrorMessage } from "../../../../services/api";
 import { toast } from "../../../../services/toast";
-import SheetImportModal from "../../../restaurant/inventory/pages/SheetImportModal";
+import SheetImportModal from "../../../../components/SheetImportModal";
 import FormDialog from "../../core/pages/FormDialog";
 import { DocumentDetail } from "../../core/pages/DocumentsPage";
 import { Badge, BusinessHeader, Field } from "../../core/pages/ui";

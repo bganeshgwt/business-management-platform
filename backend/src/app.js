@@ -28,6 +28,9 @@ app.use(compression());
 // change here. Everything else answers only the apps listed in CORS_ORIGIN.
 const isPublicGuestApi = (req) => req.path === "/api/public" || req.path.startsWith("/api/public/");
 app.use(cors((req, callback) => callback(null, { origin: isPublicGuestApi(req) ? true : config.corsOrigin })));
+// A shop's CSV import sends a whole file's rows at once: up to 5,000 rows, a
+// few megabytes (modules/business/core/services/businessImports.service.js).
+app.use(/^\/api\/businesses\/\d+\/(?:catalog|contacts)\/import$/, express.json({ limit: "5mb" }));
 app.use(express.json({ limit: "1mb" }));
 app.use(morgan("dev"));
 

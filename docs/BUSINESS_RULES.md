@@ -370,6 +370,30 @@ These rules apply to every business type but the restaurant. The goods rules app
 - **Why:** a renewal takes weeks; a shop selling under a lapsed licence sells without one.
 - **Change it:** the 60 days is a code change (`WARN_DAYS` in `businessLicences.service.js`).
 
+### Products, customers and suppliers from a CSV file
+
+- **Rule:** a CSV file is checked before anything is saved: each row is new, finds a record already here, or is refused with its reason in words. A problem with the whole file (no column to find items by) stops it; a problem in a row refuses that row only, and the rest may go in. What goes in, goes in as one transaction, exactly as checked (a record changed in between sends the file back to be checked), and through the same service functions and permissions as by hand: adding products needs `catalog.create`, customers and suppliers `contacts.create`. The same import sent again (its request key with the same rows) is done once. Up to 5,000 rows a file.
+- **Why:** a shop moving from another system brings thousands of records at once; one bad row should not stop the rest, and nothing should go in that the person has not seen.
+- **Change it:** the row limit is a code change (`MAX_ROWS` in `businessImports.service.js`), with the 5 MB a request may carry (`app.js`).
+
+### How an import finds a record already here
+
+- **Rule:** an item is found by its code, then its barcode; a customer or a supplier by GSTIN, then phone (a mobile however it is written; a phone several share finds the one of the row's name), and a row with neither by its name. A record found is left as it is, unless the person chose to update matching records and may change them (`catalog.edit`, `contacts.edit`): then only what the file gives changes, and an empty cell keeps what is there. An item's kind, unit and stock tracking never change from a file. The same record on two rows of one file refuses the second. A phone is never needed.
+- **Why:** the same file imported twice must change nothing, and a record must never be made twice: the codes, barcodes, GSTINs and phones are what the shop's old system and the platform share.
+- **Change it:** nothing to set; in the file, an empty cell keeps what is there.
+
+### Opening stock and opening balances from a file
+
+- **Rule:** opening stock goes in through the item's own opening-stock path (a lot at the purchase price, *Opening stock* in the stock movements, needing `inventory.edit`), and only for a new item or one with no stock on record: an item with stock keeps it. A serial-numbered item's stock comes in through a purchase. An opening balance is the contact's own, as on its form, dated as the file says (today when empty, never later), and is set only on a contact that has none; Tally's Dr and Cr are read the right way round for a customer and for a supplier. Units and GST slabs are only the business's own (a new item without a rate takes the default slab); a GSTIN is checked as on the contact form, a State must be the GSTIN's and a PAN the one inside it; without a GSTIN the state ends the address.
+- **Why:** stock already on record is corrected by a count, which keeps the difference with its reason; a balance changed by a file could double what is owed. A slab or a unit the business does not keep would bill or count wrongly, and a GSTIN with a typing mistake costs the customer their input credit.
+- **Change it:** a stock count corrects stock; a contact's form changes its opening balance; a new slab or unit is added in *Settings › Tax rates* or *Settings › Units & pack sizes* before the import.
+
+### What a type keeps its own details for is not imported
+
+- **Rule:** a fuel, a jewellery piece with its purity, a rental item (or a hire counted in days), a laundry's priced services, a room type (or room nights) and a membership plan are made on their own screens: a row of one is refused with that screen's name, and such an item already here is not changed from a file. A pharmacy's goods come in kept by batch and expiry, and their drug details are added in the Drug master after; a farm-input shop's items say what kind of input they are on their item form.
+- **Why:** those items carry details and prices a file cannot (a fuel's price at each outlet, a piece's weight and purity, a plan's terms), and a plain catalogue item in their place would be sold around the type's own checks.
+- **Change it:** a code change (`OWN` in `businessImportProducts.js`).
+
 ## Money and the day
 
 ### Daily expenses

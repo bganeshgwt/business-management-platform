@@ -29,6 +29,8 @@ const WORDS = {
   // GST rate changes by date: entered ahead, cancelled before their date, or taking effect on it (in the name of who entered them).
   "tax_change.scheduled": "GST rate change scheduled", "tax_change.cancelled": "GST rate change cancelled", "tax_change.item_cancelled": "GST rate change cancelled for an item",
   "catalog.tax_changed": "Item's GST changed on its date", "catalog.slab_changed": "Item's GST slab changed",
+  // A CSV file of products, customers or suppliers (the rows each made or changed have entries of their own).
+  "catalog.imported": "Products imported from a CSV file", "customers.imported": "Customers imported from a CSV file", "suppliers.imported": "Suppliers imported from a CSV file",
 };
 const words = (action) => WORDS[action] || action.replace(/[._]/g, " ").replace(/^./, (c) => c.toUpperCase());
 
@@ -40,6 +42,8 @@ const LABELS = {
   maxBillDiscountPercent: "Most discount %", walkInCredit: "Walk-in may owe", status: "Status",
   barcodeFrom: "Barcode was", barcodeTo: "now", isbn: "ISBN", orderNo: "Order", title: "Book", customer: "Customer", advance: "Advance", advanceKept: "Advance kept on account",
   code: "Code", items: "Items", quantity: "Quantity", startsOn: "From", keeps: "Prices kept", fromRate: "Rate was", toRate: "Rate now", priceFrom: "Price was", priceTo: "Price now",
+  fileName: "File", rows: "Rows", created: "Added", updated: "Changed", unchanged: "Unchanged", skipped: "Left as they were", refused: "Refused",
+  openingStock: "Items with opening stock", newCategories: "New categories", openingBalances: "Opening balances set",
 };
 const MONEY = new Set(["total", "amount", "allocated", "from", "to", "mrpFrom", "mrpTo", "balance", "advance", "advanceKept", "priceFrom", "priceTo"]);
 function detailText(details, biz) {

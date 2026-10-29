@@ -25,6 +25,8 @@ import { shopChanges } from "../../../tax-changes/services/taxChanges.service";
 import { WORDS, onDate } from "../../../tax-changes/taxChanges";
 // The HSN / SAC codes to fix once 6-digit codes apply to the business's PAN (modules/gst-thresholds).
 import HsnToFix from "../../../gst-thresholds/pages/HsnToFix";
+// The catalogue from a CSV file, checked row by row first.
+import ImportDialog from "./ImportDialog";
 
 // Extra details a product may carry, by the module that allows them.
 const ATTRIBUTES = {
@@ -55,6 +57,7 @@ export default function CatalogPage() {
   const [notice, setNotice] = useState("");
   const [pricing, setPricing] = useState(null);
   const [history, setHistory] = useState(null);
+  const [importing, setImporting] = useState(false);
   // Counts the items saved, so the codes to fix follow the fixes.
   const [saved, setSaved] = useState(0);
   const taxChanges = useMemo(() => shopChanges(biz.id), [biz.id]);
@@ -103,7 +106,8 @@ export default function CatalogPage() {
     <div className="stack">
       <BusinessHeader icon="tag" title={title}
         description="Everything you sell, with its price, GST slab, category and stock. Changing a price never changes a bill already posted."
-        actions={biz.can("catalog.create") && <button type="button" className="button" onClick={() => setEditing({})}><Icon name="plus" size={16} /> Add item</button>} />
+        secondary={biz.can("catalog.create") && <button type="button" className="button button-secondary" onClick={() => setImporting(true)}><Icon name="upload" size={16} /> Import from a CSV file</button>}
+        primary={biz.can("catalog.create") && <button type="button" className="button" onClick={() => setEditing({})}><Icon name="plus" size={16} /> Add item</button>} />
       <SuccessMessage message={notice} />
       <ErrorMessage message={list.error} />
       <HsnToFix onEdit={setEditing} refreshKey={saved} />
@@ -128,6 +132,8 @@ export default function CatalogPage() {
         onSaved={(n) => { setPricing(null); setNotice(n ? `${pricing.label}: ${n === 1 ? "one branch price" : `${n} branch prices`} changed.` : "No branch price changed."); }} />}
       {history && <TaxHistoryDialog api={taxChanges} words={WORDS.shop} itemId={history.id} label={history.label} canEdit={biz.can("catalog.edit")} currency={biz.symbol}
         onClose={() => setHistory(null)} onChanged={() => list.reload()} />}
+      {importing && <ImportDialog kind="products" onClose={() => setImporting(false)}
+        onImported={(message) => { setImporting(false); setNotice(message); list.reload(); setSaved((n) => n + 1); }} />}
     </div>
   );
 }

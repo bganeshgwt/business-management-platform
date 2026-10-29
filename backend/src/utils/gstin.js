@@ -122,6 +122,7 @@ const readGstin = (value, field = "GSTIN") => {
 };
 
 module.exports = {
+  STATES,
   gstinCheckCharacter,
   gstinState,
   gstinProblem,

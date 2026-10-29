@@ -4,7 +4,7 @@ const { pinnedStore } = require("./inventory.service");
 const AppError = require("../../../../utils/AppError");
 const { round2 } = require("../../../../utils/money");
 const { MAX_AMOUNT, MAX_QUANTITY } = require("../../../../utils/amountLimit");
-const sheet = require("../../imports/services/sheetImport");
+const sheet = require("../../../../utils/sheetImport");
 
 // Stock items from a spreadsheet: how a restaurant moving
 // from Petpooja or a paper register loads 300 items, their packs and what is

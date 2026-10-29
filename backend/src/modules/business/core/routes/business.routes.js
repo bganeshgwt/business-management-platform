@@ -18,6 +18,7 @@ const departments = require('../services/businessDepartments.service');
 const shifts = require('../services/businessShifts.service');
 const overviewData = require('../services/businessOverview.service');
 const counter = require('../services/businessCounter.service');
+const imports = require('../services/businessImports.service');
 const repo = require('../repositories/business.repository');
 const v = require('../../../../utils/validate');
 const AppError = require('../../../../utils/AppError');
@@ -178,10 +179,18 @@ router.post(b('/pack-sizes'), context('catalog.edit'), async (req, res) => send(
 router.patch(b('/pack-sizes/:id'), context('catalog.edit'), async (req, res) => send(res, await setup.updatePackSize(req.business, req.user, req.params.id, req.body)));
 router.post(b('/pricing'), context('wholesale.edit'), async (req, res) => send(res, await service.createPriceRule(req.business, req.user, req.body), 201));
 router.delete(b('/pricing/:id'), context('wholesale.edit'), async (req, res) => send(res, await service.disablePriceRule(req.business, req.user, req.params.id)));
+// Products from a CSV file: the columns and a template, then the check (dryRun) and the import (businessImports.service.js).
+const answer = (res, { message, data }) => res.json({ success: true, message, data });
+router.get(b('/catalog/import-guide'), context('catalog.create'), async (req, res) => send(res, await imports.guide(req.business, 'products')));
+router.post(b('/catalog/import'), context('catalog.create'), async (req, res) => answer(res, await imports.importFile(req.business, req.user, 'products', req.body)));
 
 // Contacts.
 router.post(b('/contacts'), context('contacts.create'), async (req, res) => send(res, await service.createContact(req.business, req.user, req.body), 201));
 router.patch(b('/contacts/:id'), context('contacts.edit'), async (req, res) => send(res, await service.updateContact(req.business, req.user, req.params.id, req.body)));
+// Customers or suppliers (kind) from a CSV file, as products are.
+router.get(b('/contacts/import-guide'), context('contacts.create'), async (req, res) => send(res, await imports.guide(req.business, imports.contactKind(req.query.kind))));
+router.post(b('/contacts/import'), context('contacts.create'), async (req, res) =>
+  answer(res, await imports.importFile(req.business, req.user, imports.contactKind(req.body.kind), req.body)));
 
 // Sales and purchases (the service checks sales.* or purchasing.* by kind). A
 // counter bill may carry its till switch's proof, good only in its own session.

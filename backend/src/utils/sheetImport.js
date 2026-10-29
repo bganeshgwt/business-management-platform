@@ -1,8 +1,10 @@
 const crypto = require("crypto");
-const AppError = require("../../../../utils/AppError");
+const AppError = require("./AppError");
 
-// What every spreadsheet import shares (stock items, suppliers, recipes, the
-// guest book), with the same safety the menu import has:
+// What every spreadsheet import shares: the restaurant's (stock items,
+// suppliers, recipes, the guest book), a hardware shop's shades and a shop's
+// products, customers and suppliers (business/core/services/businessImports),
+// with the same safety the menu import has:
 //
 //   * The browser reads the file and posts plain rows (heading -> cell).
 //     Headings are matched ignoring case, spaces and punctuation, so
@@ -155,13 +157,14 @@ const staleError = () =>
     { reason: "stale_preview" }
   );
 
-const checkRows = (rows) => {
+// maxRows: the import's own limit (a shop's imports take more than 2,000).
+const checkRows = (rows, maxRows = MAX_ROWS) => {
   if (!Array.isArray(rows) || rows.length === 0) {
     throw new AppError(400, "The file has no rows");
   }
 
-  if (rows.length > MAX_ROWS) {
-    throw new AppError(400, `That is more than ${MAX_ROWS.toLocaleString("en-IN")} rows. Split the file and import it in parts.`);
+  if (rows.length > maxRows) {
+    throw new AppError(400, `That is more than ${maxRows.toLocaleString("en-IN")} rows. Split the file and import it in parts.`);
   }
 
   for (const row of rows) {
@@ -191,8 +194,8 @@ const summarise = (plan, columns) => {
 };
 
 // The sample sheet and column guide an import screen offers.
-const guideOf = (columns, sample) => ({
-  maxRows: MAX_ROWS,
+const guideOf = (columns, sample, maxRows = MAX_ROWS) => ({
+  maxRows,
   columns: columns.map(({ key, label, need, help, example }) => ({ key, label: label || key, need, help, example })),
   sample,
 });

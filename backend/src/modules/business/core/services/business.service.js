@@ -244,10 +244,12 @@ async function createContact(business, user, body, inTransaction = null) {
     return contact;
   });
 }
-async function updateContact(business, user, contactId, body) {
+// `inTransaction`: the caller's own transaction (a CSV import updates many contacts at once).
+async function updateContact(business, user, contactId, body, inTransaction = null) {
   await access.require(business, 'contacts.edit');
   const choices = personalConsents().readChoices(body.consents);
-  return repo.transaction(async (db) => {
+  const run = inTransaction ? (work) => work(inTransaction) : repo.transaction;
+  return run(async (db) => {
     const current = await repo.one(db, 'SELECT * FROM business_contacts WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(contactId)]);
     if (!current) fail('Contact not found', 404);
     if (current.erased_at) fail('This customer\'s data was erased at their request: the record is kept nameless and no longer changes', 409);
@@ -364,8 +366,9 @@ function readMemberPrice(value, price, label) {
 }
 
 // extend(db, sku): a type module's own rows for the new item (book details),
-// written in the same transaction.
-async function createCatalog(business, user, body, extend) {
+// written in the same transaction. `inTransaction`: the caller's own
+// transaction (a CSV import makes many items at once).
+async function createCatalog(business, user, body, extend, inTransaction = null) {
   await access.require(business, 'catalog.create');
   const caps = business.capabilities;
   const kind = v.requiredEnum(body.kind, 'Item kind', ['goods', 'service']);
@@ -386,7 +389,8 @@ async function createCatalog(business, user, body, extend) {
   const opening = readOpeningStock(body, tracking);
   if (opening) await access.require(business, 'inventory.edit');
   const barcode = readBarcode(body.barcode);
-  return repo.transaction(async (db) => {
+  const run = inTransaction ? (work) => work(inTransaction) : repo.transaction;
+  return run(async (db) => {
     // What kind of farm input it is (seeds, fertilisers & pesticides): checked against the molecule master.
     if (caps.includes('agri')) Object.assign(extra, await agriItems().classify(db, business, body.attributes || {}, { kind, tracking, opening, creating: true }));
     const unit = await readUnit(db, business.id, body.unit);
@@ -424,21 +428,31 @@ async function createCatalog(business, user, body, extend) {
     await repo.audit(db, business.id, user.id, 'catalog.created', sku.id);
     if (opening) {
       if (kind !== 'goods') fail('A service has no stock');
-      const location = await repo.one(db, 'SELECT id FROM business_locations WHERE business_id=$1 AND id=$2 AND active', [business.id, opening.locationId]);
-      if (!location) fail('Location not found', 404);
-      // The opening quantity is a correction with its own reason, on a new
-      // lot at the cost typed: the ledger shows where the stock came from.
-      const lot = await repo.one(db, `INSERT INTO business_stock_lots(business_id,location_id,sku_id,lot_code,expires_on,quantity,unit_cost)
-        VALUES($1,$2,$3,$4,$5,0,$6) RETURNING *`, [business.id, location.id, sku.id, opening.lotCode, opening.expiresOn, opening.unitCost]);
-      // Loaded here: the returns service needs this module first.
-      const { applyAdjustment } = require('./businessReturns.service');
-      const adjustment = await applyAdjustment(db, business, user, { ...lot, tracking, unit_decimals: unit.decimals, label }, opening.quantity, 'Opening stock', crypto.randomUUID());
-      await repo.audit(db, business.id, user.id, 'stock.adjusted', adjustment.id, { reason: 'Opening stock', quantity: opening.quantity, label });
-      await repo.event(db, business.id, user.id, 'stock.adjusted', 'stock_adjustment', adjustment.id,
-        { lotId: lot.id, skuId: sku.id, locationId: location.id, quantity: opening.quantity, reason: 'Opening stock' });
+      await postOpeningStock(db, business, user, { ...sku, unit_decimals: unit.decimals }, opening);
     }
     return sku;
   });
+}
+// Stock already on the shelf when an item comes in: a new item's (above), or
+// an imported item's that has no stock on record yet. The opening quantity
+// is a correction with its own reason, on a new lot at the cost given: the
+// ledger shows where the stock came from. sku: { id, label, tracking,
+// unit_decimals }; opening: { locationId, quantity, unitCost, lotCode,
+// expiresOn }. Inside the caller's transaction; the caller checks
+// inventory.edit.
+async function postOpeningStock(db, business, user, sku, opening) {
+  const location = await repo.one(db, 'SELECT id FROM business_locations WHERE business_id=$1 AND id=$2 AND active', [business.id, opening.locationId]);
+  if (!location) fail('Location not found', 404);
+  const lot = await repo.one(db, `INSERT INTO business_stock_lots(business_id,location_id,sku_id,lot_code,expires_on,quantity,unit_cost)
+    VALUES($1,$2,$3,$4,$5,0,$6) RETURNING *`, [business.id, location.id, sku.id, opening.lotCode, opening.expiresOn, opening.unitCost]);
+  // Loaded here: the returns service needs this module first.
+  const { applyAdjustment } = require('./businessReturns.service');
+  const adjustment = await applyAdjustment(db, business, user, { ...lot, tracking: sku.tracking, unit_decimals: sku.unit_decimals, label: sku.label },
+    opening.quantity, 'Opening stock', crypto.randomUUID());
+  await repo.audit(db, business.id, user.id, 'stock.adjusted', adjustment.id, { reason: 'Opening stock', quantity: opening.quantity, label: sku.label });
+  await repo.event(db, business.id, user.id, 'stock.adjusted', 'stock_adjustment', adjustment.id,
+    { lotId: lot.id, skuId: sku.id, locationId: location.id, quantity: opening.quantity, reason: 'Opening stock' });
+  return adjustment;
 }
 async function updateCatalog(business, user, skuId, body, inTransaction = null) {
   await access.require(business, 'catalog.edit');
@@ -1313,4 +1327,4 @@ async function reports(business, filters) {
 module.exports = { statusAllowed, list, linkRestaurant, createLocation, updateLocation, updateContact, reports, createCatalog, updateCatalog, createContact,
   createPriceRule, disablePriceRule, document, detail, payment, resource, appointment, appointmentStatus, decimal, dateText, uuid,
   lineNet, lineTax, inclusiveNet, kindPermission, readUnit, postDocument, recordPayment, conversion, requiredDecimals, readPayments,
-  readMrp, checkMrp, branchSeller, requireDepartmentItem, deliverLine };
+  readMrp, checkMrp, branchSeller, requireDepartmentItem, deliverLine, readHsn, readBarcode, readPan, signedDecimal, postOpeningStock };

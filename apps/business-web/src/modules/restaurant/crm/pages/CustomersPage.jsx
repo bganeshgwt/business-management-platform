@@ -17,7 +17,7 @@ import GuestDuplicates from "./GuestDuplicates";
 import GuestReports from "./GuestReports";
 import GuestAvatar from "./GuestAvatar";
 import GuestOccasion from "./GuestOccasion";
-import SheetImportModal from "../../inventory/pages/SheetImportModal";
+import SheetImportModal from "../../../../components/SheetImportModal";
 import {
   deleteCustomer,
   exportGuestBook,

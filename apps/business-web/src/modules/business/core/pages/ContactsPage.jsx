@@ -22,6 +22,8 @@ import ConsentChoices from "../../../personal-data/components/ConsentChoices";
 import { consentChanges } from "../../../personal-data/personalData";
 import { consentStore, useConsent } from "../../../personal-data/consentStore";
 import { useShopPrivacy } from "../../../personal-data/usePrivacy";
+// Customers or suppliers from a CSV file, checked row by row first.
+import ImportDialog from "./ImportDialog";
 
 // Customers or suppliers, with GSTIN, credit terms and what each owes.
 export default function ContactsPage({ kind }) {
@@ -34,6 +36,7 @@ export default function ContactsPage({ kind }) {
   const [editing, setEditing] = useState(() => (params.get("new") === "1" && biz.can("contacts.create") ? {} : null));
   const [notice, setNotice] = useState("");
   const navigate = useNavigate();
+  const [importing, setImporting] = useState(false);
   useEffect(() => {
     if (params.get("new")) setParams((p) => new URLSearchParams(p.get("open") ? { open: p.get("open") } : {}), { replace: true });
   }, [params, setParams]);
@@ -75,7 +78,8 @@ export default function ContactsPage({ kind }) {
     <div className="stack">
       <BusinessHeader icon={customer ? "users" : "truck"} title={plural}
         description={customer ? "Who buys from you, their GSTIN for B2B invoices, how much credit they get and what they owe now." : "Who you buy from, their GSTIN, the credit days they give you and what you owe them."}
-        actions={biz.can("contacts.create") && <button type="button" className="button" onClick={() => setEditing({})}><Icon name="plus" size={16} /> Add {singular}</button>} />
+        secondary={biz.can("contacts.create") && <button type="button" className="button button-secondary" onClick={() => setImporting(true)}><Icon name="upload" size={16} /> Import from a CSV file</button>}
+        primary={biz.can("contacts.create") && <button type="button" className="button" onClick={() => setEditing({})}><Icon name="plus" size={16} /> Add {singular}</button>} />
       <SuccessMessage message={notice} />
       <ErrorMessage message={list.error} />
       {!customer && biz.has("purchasing") && biz.can("purchasing.view") && <PayablesCard />}
@@ -87,6 +91,8 @@ export default function ContactsPage({ kind }) {
       </SectionCard>
       {editing && <ContactDialog kind={kind} contact={editing} singular={singular} onClose={() => setEditing(null)}
         onSaved={(c) => { setEditing(null); setNotice(`${c.name} saved.`); list.reload(); }} />}
+      {importing && <ImportDialog kind={kind} onClose={() => setImporting(false)}
+        onImported={(message) => { setImporting(false); setNotice(message); list.reload(); }} />}
     </div>
   );
 }

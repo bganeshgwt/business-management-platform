@@ -289,9 +289,11 @@ const cascadeDepartment = (db, businessId, categoryId, departmentId) => db.query
     UNION ALL SELECT c.id FROM catalog_categories c JOIN sub ON c.business_id=$1 AND c.parent_id=sub.id)
   UPDATE catalog_categories SET department_id=$3 WHERE business_id=$1 AND id IN (SELECT id FROM sub)`, [businessId, categoryId, departmentId]);
 
-async function createCategory(business, user, body) {
+// `inTransaction`: the caller's own transaction (a CSV import of products makes their new categories).
+async function createCategory(business, user, body, inTransaction = null) {
   await access.require(business, 'catalog.create');
-  return repo.transaction(async (db) => {
+  const run = inTransaction ? (work) => work(inTransaction) : repo.transaction;
+  return run(async (db) => {
     const parentId = body.parentId ? id(body.parentId, 'Parent category') : null;
     const parent = parentId ? await repo.one(db, 'SELECT id,department_id FROM catalog_categories WHERE business_id=$1 AND id=$2', [business.id, parentId]) : null;
     if (parentId && !parent) fail('Parent category not found', 404);

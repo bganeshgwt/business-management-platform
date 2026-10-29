@@ -37,7 +37,7 @@ import { qty, storesWorthListing, unitMoney } from "./stockFormat";
 import StockCountPanel from "./StockCountPanel";
 import ClosingStockPanel from "./ClosingStockPanel";
 import WasteReasonMark from "./WasteReasonMark";
-import SheetImportModal from "./SheetImportModal";
+import SheetImportModal from "../../../../components/SheetImportModal";
 import { getStockImportGuide, importStockItems } from "../services/inventory.service";
 import { withApproval } from "../../../../services/approval";
 import StatTile from "../../../../components/StatTile";

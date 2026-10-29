@@ -76,7 +76,7 @@ Two rules hold everywhere:
 
 Each business type adds only what is truly its own on top of the shared core. The restaurant is the exception: it runs its own complete engine, shared by its formats.
 
-**Getting products in.** A restaurant imports its menu, recipes, stock items, suppliers and guests from CSV files. The other business types have no file import: their products, customers and suppliers are entered on screen. A new item can take the stock already on the shelf as opening stock; further stock comes in through purchases.
+**Getting products in.** A restaurant imports its menu, recipes, stock items, suppliers and guests from CSV files, and every other business its products, customers and suppliers, with the stock on the shelf and what each customer owed when it started; each file is checked row by row before anything is saved. A new item can take the stock already on the shelf as opening stock; further stock comes in through purchases.
 
 ### Restaurant, café, bakery and cloud kitchen
 
@@ -394,7 +394,7 @@ The platform's own Super Admin creates a new customer's business in the Platform
 - **Add a business:** an owner, or a restaurant's admin, can start another business of their own and becomes its owner.
 - **Modules on demand:** each business switches modules on or off within what its type allows, in Settings › Business tools. This is ready to be tied to paid plans later.
 
-The owner then enters products, prices, customers, suppliers and staff logins. Shops type these in; a restaurant can import its lists from CSV files. Handing a business over to a new owner is not built yet.
+The owner then enters products, prices, customers, suppliers and staff logins, typed in or imported from CSV files. Handing a business over to a new owner is not built yet.
 
 How the Platform screens work: [ADMIN_GUIDE.md › The first platform login and the platform screens](ADMIN_GUIDE.md#the-first-platform-login-and-the-platform-screens). What a new business fills in first: [ADMIN_GUIDE.md › First steps in a new business](ADMIN_GUIDE.md#first-steps-in-a-new-business).
 

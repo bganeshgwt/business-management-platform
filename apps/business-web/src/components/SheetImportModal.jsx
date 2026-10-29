@@ -1,30 +1,31 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import Modal from "../../../../components/Modal";
+import Modal from "./Modal";
 import Icon from "@bmp/ui/Icon";
-import StatTile from "../../../../components/StatTile";
-import SuccessCheck from "../../../../components/SuccessCheck";
-import { ErrorMessage } from "../../../../components/Feedback";
-import DataGrid from "../../../../components/DataGrid/DataGrid";
-import useShake from "../../../../hooks/useShake";
-import { downloadCsv, parseCsv } from "../../../../services/csv";
-import { getErrorMessage } from "../../../../services/api";
+import StatTile from "./StatTile";
+import SuccessCheck from "./SuccessCheck";
+import { ErrorMessage } from "./Feedback";
+import DataGrid from "./DataGrid/DataGrid";
+import useShake from "../hooks/useShake";
+import { downloadCsv, parseCsv } from "../services/csv";
+import { getErrorMessage } from "../services/api";
 import { count } from "@bmp/shared/format";
-import "../../../../styles/menu.css";
-import "../../../../styles/backoffice.css";
+import "../styles/menu.css";
+import "../styles/backoffice.css";
 
-// One import screen for stock items, suppliers, recipes and the guest book,
-// with the menu import's safety. The file is read here and sent as plain rows
-// (heading → cell); the server checks it first and says, row by row and
-// column by column, what is wrong or what would change. Nothing is written
-// until Import is pressed, and what is imported is exactly what was
-// previewed: if a record changed in between, the server refuses the stale
-// preview and the file is checked again.
+// One import screen for every spreadsheet import: the restaurant's stock
+// items, suppliers, recipes and guest book, a hardware shop's shades, and a
+// shop's products, customers and suppliers. The file is read here with the
+// app's one CSV reader and sent as plain rows (heading → cell); the server
+// checks it first and says, row by row and column by column, what is wrong or
+// what would change. Nothing is written until Import is pressed, and what is
+// imported is exactly what was previewed: if a record changed in between, the
+// server refuses the stale preview and the file is checked again.
 //
 // Props:
 //   title, description          the dialog's heading
 //   noun / nounPlural           "item" / "items", for the buttons and tiles
-//   loadGuide()                 → { maxRows, columns: [{ key, label, need, help, example }], sample }
-//   runImport(payload)          → the API's { message, data } for { rows, dryRun, fileName, fingerprint, ...options }
+//   loadGuide()                 → { maxRows, columns: [{ key, label, need, help, example }], sample, notes? }
+//   runImport(payload)          → the API's { message, data } for { rows, dryRun, fileName, fingerprint, requestKey?, ...options }
 //   sampleName                  the sample file's name
 //   promises                    [{ title, text }] shown before a file is chosen
 //   lead                        how records are matched, one sentence
@@ -32,6 +33,11 @@ import "../../../../styles/backoffice.css";
 //   optionsControl              a control for them, shown above the file box
 //   extraTiles(check)           more tiles for the check (opening stock, points)
 //   describeRow(row)            a line under a row's name (an ingredient, a mobile)
+//   partial                     a row with a problem is refused alone and the rest
+//                               go in (the shops' imports: rows "refused" with
+//                               their reasons); otherwise any problem stops the file
+//   requestKeys                 the import carries a request key, the same for every
+//                               try of one check, so a retry is done once
 //   onClose(), onImported(message)
 
 const NEED_WORDS = {
@@ -40,12 +46,20 @@ const NEED_WORDS = {
   optional: "Optional",
 };
 
+// "Already here" and "Refused" show only when the check has such rows.
 const FILTERS = [
   { key: "changes", label: "Changes" },
   { key: "create", label: "New" },
   { key: "update", label: "Updated" },
+  { key: "skipped", label: "Already here" },
+  { key: "refused", label: "Refused" },
   { key: "unchanged", label: "Unchanged" },
 ];
+const ACTION_WORDS = { create: "New", update: "Changes", skipped: "Already here", refused: "Refused", unchanged: "No change" };
+// A row worth a look: one that changes something, is refused, or carries a note.
+const needsLook = (row) => row.action !== "unchanged" || (row.notes || []).length > 0;
+// An import of thousands of rows takes a while: say so while it runs.
+const LONG_FILE = 500;
 
 // A spreadsheet read into { heading: cell } rows, headings exactly as typed.
 const readSheet = (text) => {
@@ -84,6 +98,18 @@ const DETAIL_WORDS = {
   store: "Store",
   base: "Base",
   formula: "Formula (ml per litre)",
+  kind: "Kind",
+  price: "Sale price",
+  gst: "GST",
+  mrp: "MRP",
+  hsn: "HSN / SAC",
+  cost: "Purchase price",
+  phone: "Phone",
+  email: "Email",
+  state: "State",
+  pan: "PAN",
+  creditLimit: "Credit limit",
+  balance: "Opening balance",
 };
 
 const detailText = (details) =>
@@ -106,6 +132,8 @@ export default function SheetImportModal({
   optionsControl = null,
   extraTiles = null,
   describeRow = null,
+  partial = false,
+  requestKeys = false,
   onClose,
   onImported,
 }) {
@@ -118,8 +146,12 @@ export default function SheetImportModal({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [filter, setFilter] = useState("changes");
   const [done, setDone] = useState(null);
+  // One request key for each check: pressing Import again after a lost answer
+  // sends the same key, and the server answers the first import.
+  const requestKey = useMemo(() => (requestKeys && check ? crypto.randomUUID() : null), [requestKeys, check]);
 
   useEffect(() => {
     loadGuide()
@@ -201,10 +233,11 @@ export default function SheetImportModal({
 
   const confirm = async () => {
     setBusy(true);
+    setImporting(true);
     setError("");
 
     try {
-      const result = await runImport({ rows, dryRun: false, fileName, fingerprint: check.fingerprint, ...options });
+      const result = await runImport({ rows, dryRun: false, fileName, fingerprint: check.fingerprint, ...(requestKey ? { requestKey } : {}), ...options });
       setDone(result.message);
     } catch (err) {
       const response = err.response && err.response.data;
@@ -225,6 +258,7 @@ export default function SheetImportModal({
       shake();
     } finally {
       setBusy(false);
+      setImporting(false);
     }
   };
 
@@ -244,20 +278,25 @@ export default function SheetImportModal({
   const ready = Boolean(check && check.ok && rows.length > 0);
   const work = check ? check.created + check.updated : 0;
 
-  const visible = useMemo(() => {
-    if (filter === "changes") {
-      return planned.filter((row) => row.action !== "unchanged" || (row.notes || []).length > 0);
-    }
-
-    return planned.filter((row) => row.action === filter);
-  }, [planned, filter]);
-
   const counts = {
-    changes: planned.filter((row) => row.action !== "unchanged" || (row.notes || []).length > 0).length,
+    changes: planned.filter(needsLook).length,
     create: check ? check.created : 0,
     update: check ? check.updated : 0,
+    skipped: planned.filter((row) => row.action === "skipped").length,
+    refused: planned.filter((row) => row.action === "refused").length,
     unchanged: check ? check.unchanged : 0,
   };
+  const filters = FILTERS.filter((item) => !["skipped", "refused"].includes(item.key) || counts[item.key] > 0);
+  // A check run again may have no rows left for the tab chosen: show the changes then.
+  const shownFilter = filters.some((item) => item.key === filter) ? filter : "changes";
+
+  const visible = useMemo(() => {
+    if (shownFilter === "changes") {
+      return planned.filter(needsLook);
+    }
+
+    return planned.filter((row) => row.action === shownFilter);
+  }, [planned, shownFilter]);
 
   if (done) {
     return (
@@ -307,6 +346,11 @@ export default function SheetImportModal({
       <div className="stack mnu-import" ref={dropRef}>
         <ErrorMessage message={error} />
         {notice && <div className="alert alert-notice">{notice}</div>}
+        {importing && rows.length >= LONG_FILE && (
+          <div className="alert alert-notice" role="status">
+            Importing {count(rows.length)} rows. A file this long takes a minute or two: keep this window open until it says it is done.
+          </div>
+        )}
         {optionsControl}
 
         {!check && (
@@ -314,7 +358,9 @@ export default function SheetImportModal({
             <ul className="mnu-promises">
               {[
                 { title: "Only what your file says changes.", text: "Columns you leave out, and empty cells, keep what is on file now." },
-                { title: "All or nothing.", text: "If any row has a problem, nothing is imported until it is fixed." },
+                partial
+                  ? { title: "A row with a problem is left out.", text: "You see each one and why first; the rest go in together, or none of them do." }
+                  : { title: "All or nothing.", text: "If any row has a problem, nothing is imported until it is fixed." },
                 { title: "Nothing is saved until you press Import.", text: "You see every change, old and new, first. The same file twice changes nothing." },
                 ...promises,
               ].map((promise) => (
@@ -345,6 +391,15 @@ export default function SheetImportModal({
                 <Icon name="download" size={15} /> Download sample file
               </button>
             </div>
+            {guide && guide.notes && guide.notes.length > 0 && (
+              <ul className="mnu-guide-notes">
+                {guide.notes.map((note) => (
+                  <li key={note} className="small">
+                    <Icon name="info" size={15} /> <span>{note}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
 
             {guide && (
               <details className="mnu-guide">
@@ -409,14 +464,19 @@ export default function SheetImportModal({
               <StatTile size="sm" icon="plus" tone="success" label={`New ${nounPlural}`} value={count(check.created)} />
               <StatTile size="sm" icon="edit" tone="info" label="Changing" value={count(check.updated)} />
               <StatTile size="sm" icon="check" label="Unchanged" value={count(check.unchanged)} />
+              {counts.skipped > 0 && <StatTile size="sm" icon="ban" label="Already here" value={count(counts.skipped)} />}
+              {counts.refused > 0 && <StatTile size="sm" icon="alert" tone="warning" label="Refused" value={count(counts.refused)} />}
               {extraTiles && extraTiles(check)}
-              <StatTile
-                size="sm"
-                icon="x-circle"
-                tone={problems.length > 0 ? "danger" : "neutral"}
-                label="Problems"
-                value={count(problems.length)}
-              />
+              {/* Where a row's problem only refuses that row, the tile is for problems with the whole file. */}
+              {(!partial || problems.length > 0) && (
+                <StatTile
+                  size="sm"
+                  icon="x-circle"
+                  tone={problems.length > 0 ? "danger" : "neutral"}
+                  label="Problems"
+                  value={count(problems.length)}
+                />
+              )}
             </div>
 
             {problems.length > 0 && (
@@ -442,6 +502,13 @@ export default function SheetImportModal({
               </div>
             )}
 
+            {partial && counts.refused > 0 && problems.length === 0 && (
+              <div className="alert alert-notice">
+                {counts.refused === 1 ? "1 row has a problem and is left out" : `${count(counts.refused)} rows have a problem and are left out`}: see why under
+                Refused. Import the rest now, or fix {counts.refused === 1 ? "it" : "them"} in the spreadsheet and choose the file again.
+              </div>
+            )}
+
             <p className="muted small">
               Using columns: <span className="mono">{check.columns.used.map(labelOf).join(", ") || "none"}</span>
               {check.columns.ignored.length > 0 && (
@@ -453,13 +520,13 @@ export default function SheetImportModal({
             </p>
 
             <div className="segmented mnu-filter" role="tablist" aria-label="Show">
-              {FILTERS.map((item) => (
+              {filters.map((item) => (
                 <button
                   key={item.key}
                   type="button"
                   role="tab"
-                  aria-selected={filter === item.key}
-                  className={`segment${filter === item.key ? " is-active" : ""}`}
+                  aria-selected={shownFilter === item.key}
+                  className={`segment${shownFilter === item.key ? " is-active" : ""}`}
                   onClick={() => setFilter(item.key)}
                 >
                   {item.label} <span className="mnu-count">{count(counts[item.key])}</span>
@@ -474,6 +541,7 @@ export default function SheetImportModal({
               rowNoun={["row", "rows"]}
               rows={visible}
               rowKey={(row) => `${row.line}-${row.key}`}
+              rowClassName={(row) => (row.action === "refused" ? "dg-tone-danger" : "")}
               empty="Nothing to show here."
               emptyIcon="info"
               columns={[
@@ -489,9 +557,7 @@ export default function SheetImportModal({
                     <>
                       <div className="mnu-dish">{row.name}</div>
                       {describeRow && <div className="muted small">{describeRow(row)}</div>}
-                      <span className={`mnu-action mnu-action-${row.action}`}>
-                        {row.action === "create" ? "New" : row.action === "update" ? "Changes" : row.action === "skip" ? "Skipped" : "No change"}
-                      </span>
+                      <span className={`mnu-action mnu-action-${row.action}`}>{ACTION_WORDS[row.action] || ACTION_WORDS.unchanged}</span>
                     </>
                   ),
                 },
@@ -501,9 +567,15 @@ export default function SheetImportModal({
                   minWidth: 260,
                   mobile: "show",
                   sortable: false,
-                  value: (row) => [row.action === "create" ? detailText(row.details) : "", ...(row.changes || []).map((change) => change.label), ...(row.notes || [])].filter(Boolean).join(" · "),
+                  value: (row) => [row.action === "create" ? detailText(row.details) : "", ...(row.reasons || []).map((reason) => reason.message),
+                    ...(row.changes || []).map((change) => change.label), ...(row.notes || [])].filter(Boolean).join(" · "),
                   render: (row) => (
                     <>
+                      {(row.reasons || []).map((reason, index) => (
+                        <div key={`${reason.column}-${index}`} className="mnu-change mnu-reason">
+                          <span className="mnu-change-label">{labelOf(reason.column)}</span> {reason.message}
+                        </div>
+                      ))}
                       {row.action === "create" && row.details && detailText(row.details) && <div className="mnu-change">{detailText(row.details)}</div>}
                       {(row.changes || []).map((change, index) => (
                         <div key={`${change.field}-${index}`} className="mnu-change">

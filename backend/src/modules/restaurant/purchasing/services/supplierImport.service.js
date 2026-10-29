@@ -2,7 +2,7 @@ const pool = require("../../../../config/database");
 const AppError = require("../../../../utils/AppError");
 const { gstinProblem } = require("../../../../utils/gstin");
 const { normaliseMobile } = require("../../../../utils/phone");
-const sheet = require("../../imports/services/sheetImport");
+const sheet = require("../../../../utils/sheetImport");
 
 // Suppliers from a spreadsheet: thirty vendors with their
 // numbers, GSTINs and credit terms in one go, with sheetImport's safety (a

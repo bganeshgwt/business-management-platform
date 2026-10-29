@@ -155,7 +155,7 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Payment method** | A way a shop takes money, under the name it chose (PhonePe, Sodexo…), each of one of five fixed kinds: cash, UPI, card, bank, cheque. The accounts count the kind; the day's money shows the name. |
 | **Branch price** | A location's own selling price for an item. A branch without one sells at the item's price. |
 | **Department** | A part of a store (Clothing, Home, Grocery…). Top-level categories belong to one. A person tied to a department sees and changes only its products and stock, and still bills any item. |
-| **Opening stock** | What is already on the shelf when an item is added. It goes into stock at once, with "Opening stock" as the reason in the stock movements. |
+| **Opening stock** | What is already on the shelf when an item is added (or imported). It goes into stock at once, with "Opening stock" as the reason in the stock movements. |
 | **Daily money** | What the counter sold and the money that came in and went out on a day, by payment method, person and counter. |
 | **Cash check** | The drawer counted against what it should hold. A difference needs a reason; the check is kept as it was saved. |
 | **Cashier shift** | One cashier's float and closing count at one counter, checked against their own cash in and out. A closed shift is a permanent record. |
@@ -174,6 +174,8 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Retail / wholesale licence** | Whether a licence lets its location sell to farmers and other buyers (retail), to dealers (wholesale) or both. A sale to a buyer with a GSTIN is a wholesale sale. |
 | **Qualified person** | The person a dealer's licence names as qualified, kept as written: their name, their qualification and its certificate's number, or why they are exempt. |
 | **Scanned copy** (of a licence) | A PDF or photo of a licence, kept with the dates the licence had when it was added; each renewal's copy is kept beside the earlier ones. |
+| **CSV import** | Products, customers or suppliers brought in from a CSV file (a spreadsheet saved as CSV), up to 5,000 rows at a time. The file is checked first: each row is shown as new, changing, already here, unchanged or refused with its reason. Then the rows not refused go in together, or none of them do. |
+| **Opening balance** | What a customer owed the shop, or the shop owed a supplier, when it started on the platform, with the day it was true. It is the first line of their account, so Udhaar, Outstanding and what is owed to suppliers count it. |
 
 ### Hardware, paints & building materials
 

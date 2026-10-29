@@ -9,7 +9,7 @@ import ConfirmDialog from "../../../../components/ConfirmDialog";
 import StatusBadge from "../../../../components/StatusBadge";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
 import { ErrorMessage, SuccessMessage } from "../../../../components/Feedback";
-import SheetImportModal from "../../inventory/pages/SheetImportModal";
+import SheetImportModal from "../../../../components/SheetImportModal";
 import {
   createSupplier,
   deleteSupplier,

@@ -71,6 +71,7 @@ on record.
 - [The screens every type shares](#the-screens-every-type-shares)
   - [Several locations (branches)](#several-locations-branches)
   - [Products, prices and opening stock](#products-prices-and-opening-stock)
+  - [Products, customers and suppliers from a CSV file](#products-customers-and-suppliers-from-a-csv-file)
   - [GST rate changes](#gst-rate-changes)
   - [Daily money, expenses and cashier shifts](#daily-money-expenses-and-cashier-shifts)
   - [Payment methods](#payment-methods)
@@ -397,26 +398,27 @@ allows.
    doctor's appointment calendar makes its tokens their own queue in the
    clinic workspace.
 8. **Products.** Add each item with its price, GST slab, HSN code and MRP
-   ([Products, prices and opening stock](#products-prices-and-opening-stock)).
+   ([Products, prices and opening stock](#products-prices-and-opening-stock)),
+   or import the catalogue from a CSV file
+   ([Products, customers and suppliers from a CSV file](#products-customers-and-suppliers-from-a-csv-file)).
    Then the type's own set-up, described with each type in Part 3: a
    wholesaler's routes, beats, salespeople and price groups; a garment shop's
    sizes and colours; an electronics shop's models and warranty terms; a
    salon's stylists, services and booking rules; a weight shop's cutting
    templates; a pharmacy's drug master; a clinic's doctors' fees and OPD
    timings, tests and panels.
-9. **Customers and suppliers.** Typed in on their screens, or added on the
-   spot: *+ New customer* at Quick bill, *+ New supplier* on a purchase.
-10. **Stock.** It comes in with the item (*Opening stock* on *Add item*) or
-    through a purchase (*Purchases › Receive a purchase*). A stock count
+9. **Customers and suppliers.** Typed in on their screens, added on the
+   spot (*+ New customer* at Quick bill, *+ New supplier* on a purchase), or
+   imported from a CSV file with what each owed when you started.
+10. **Stock.** It comes in with the item (*Opening stock* on *Add item*, or
+    the *Opening stock* column of an import) or through a purchase
+    (*Purchases › Receive a purchase*). A stock count
     corrects stock already on record; it cannot bring in an item that has
     never been stocked at that location. Serial-numbered items such as phones
     come in through a purchase, one number at a time.
 11. **Check the prices.** Each item's price, GST slab and MRP, before the
     first bill.
 
-**Business Admin has no CSV import.** A shop's products, customers and
-suppliers are typed in on their screens. Only the restaurant imports from
-CSV files.
 
 ### A restaurant
 
@@ -2528,6 +2530,88 @@ reorder level.
   every item that prints a shorter code, or none (not a kit, nor an item used
   in services only), with *Edit* to give it its full code. It shows no
   turnover, and goes once every item has one.
+
+### Products, customers and suppliers from a CSV file
+
+A shop that comes to the platform with its catalogue, customers or suppliers
+in another system (Tally, Vyapar, Marg), a spreadsheet or an udhaar book
+brings them in at once. **Import from a CSV file** is on **Products &
+services**, **Customers** and **Suppliers**, beside *Add item*, *Add customer*
+and *Add supplier*, for whoever may add those by hand.
+
+1. **Download sample file** gives the template: its headings are exactly the
+   columns the import reads, and *What each column means* explains each,
+   with this business's own units, GST slabs and locations. Headings are
+   matched whatever their case, spaces or punctuation, and the usual ones of
+   other systems are understood (*Item name*, *SKU*, *GST %*, *Party name*,
+   *Mobile No.*); a heading it does not know is listed as ignored.
+2. **Choose a CSV file** (in Excel: File → Save As → CSV UTF-8), up to 5,000
+   rows. It is checked first, and nothing is saved: each row is shown as
+   **New**, **Changes** (each value old and new), **Already here** (left as it
+   is), **No change**, or **Refused** with the reason in words and the column
+   it is about. A problem with the whole file (no *Code* column for products)
+   stops it; a problem in a row refuses that row only.
+3. **Items / Customers / Suppliers already here**: *Leave them as they are*
+   (the default) or *Update them*, for someone who may change them. Updating
+   changes only what the file gives: a column left out, or an empty cell,
+   keeps what is there.
+4. **Import N products** (or customers, suppliers) brings in the rows not
+   refused, all together: if anything stops the import, none of it is saved.
+   The same import sent twice (an answer lost, a second press) is done once.
+   A file of thousands of rows takes a minute or two: keep the window open
+   until it says it is done.
+
+How a row finds a record already here:
+
+- **Products**: by code (SKU), then by barcode. A new item needs its name,
+  code, unit and sale price; it is a service when its unit is hours or a
+  service, unless the *Kind* column says. An item's kind, unit and stock
+  tracking never change from a file.
+- **Customers and suppliers**: by GSTIN, then by phone, written any way
+  (+91, a leading 0, spaces), and a row with neither by its name. A phone is
+  never needed. One person on two rows of a file is refused the second time.
+
+What goes in, by the same rules as the screens:
+
+- **GST slabs and units** are only the business's own (add one in *Settings ›
+  Tax rates* or *Settings › Units & pack sizes* first). An HSN or SAC code has
+  4, 6 or 8 digits, and nothing is priced above its MRP. A GSTIN is checked
+  character by character; the state follows from it, a *State* column must
+  agree with it and a *PAN* column with the PAN inside it. Without a GSTIN,
+  the state ends the address.
+- **Categories** the file names are made when they do not exist yet; a path
+  such as *Staples › Rice* makes each level.
+- **Opening stock**: the quantity at its location (the first one, unless the
+  *Location* column names another), valued at the *Purchase price*, with its
+  batch and expiry for an item kept by batch. It goes in once, as *Opening
+  stock* in the stock movements, for a new item or one with no stock on
+  record yet; an item that has stock keeps it (a stock count corrects it).
+  Serial-numbered stock comes in through a purchase.
+- **Opening balance**: what a customer owed you when you started, or what you
+  owed a supplier, on the day given (today when empty); *Dr* and *Cr* as Tally
+  writes them are read the right way round. It is the contact's own opening
+  balance, as on their form, so Udhaar, Outstanding and the supplier's
+  account count it. It is set once: a contact who already has one keeps it
+  (change it on their form).
+- **A type's own items** are not made from a file: a fuel (*Settings › Pumps &
+  nozzles*), a jewellery piece with its purity (*Pieces & tags*), a rental
+  item (*Rental items*), a laundry's priced services (*Price list*), a room
+  type (*Settings › Room types & rates*) and a membership plan (*Settings ›
+  Membership plans*). Such a row is refused with the screen to use, and such
+  an item already here is not changed from a file. A pharmacy's medicines
+  come in as items kept by batch, and their drug details are added in the
+  *Drug master*; a farm-input shop says what kind of input each item is on
+  its item form.
+
+**Who may import.** Products need *Add products, services, categories and
+units* (`catalog.create`), updating them `catalog.edit` and opening stock
+`inventory.edit`; customers and suppliers need `contacts.create`, and
+updating them `contacts.edit`. Someone tied to one location brings opening
+stock into that location only, and someone tied to a department imports
+that department's items. Each import is one line of the **Activity log**
+(*Products imported from a CSV file*, with the file's name and what it did),
+and each item or contact it makes or changes has its own line, as when made
+by hand.
 
 ### GST rate changes
 
@@ -5824,10 +5908,14 @@ the link you were sent).
 - **A PIN an admin sets is not changed by itself.** A PIN set for someone in
   Users (⋯ › *Set PIN*) stays until they change it under My profile › Personal
   PIN: ask them to straight away.
-- **Business Admin has no CSV import.** A shop types in its products,
-  customers and suppliers ([First steps in a new
-  business](#first-steps-in-a-new-business)).
+- **A CSV import makes plain items and contacts.** A style's sizes and
+  colours, pack sizes, kits, price lists, shelf places, member prices and a
+  type's own details of an item (a book's, a medicine's drug details, a farm
+  input's kind) are added on their screens after the import, and customers'
+  consents on each customer's form ([Products, customers and suppliers from
+  a CSV file](#products-customers-and-suppliers-from-a-csv-file)).
 - **A business cannot be handed over.**
+
   The Owner role is given only when a business is created and cannot be
   handed out: give the person who runs it a role in Staff & access (Manager,
   or a role made under Roles & permissions).
