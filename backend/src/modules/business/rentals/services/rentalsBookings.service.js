@@ -29,9 +29,20 @@ const pins = () => require('../../salon-weight/services/businessManagerPin');
 //             collection receipt in the hirer's name. A deposit is not a
 //             payment for the hire until the shop applies it to the bill; what
 //             is left of it after the bill goes back, with a manager's PIN.
+//   kits      a kit books its parts (each a line of its own from its pool,
+//             as many as the kit has of each, checked for what is free like
+//             any line); it is billed as its own line or by its parts, as the
+//             kit is set when booked.
+//   discount  a percent off the hire of every line, with its reason: within
+//             the business's most bill discount (the owner, any) and by the
+//             discount permission; kept on the booking and billed.
 //   cancel    a quote or a reserved booking, with a reason; a cancellation
 //             charge is billed with its GST (each at its item's slab) and paid
 //             from the advance and the deposit first; what is left goes back.
+//             With the shop's cancellation slabs set, the charge of a reserved
+//             booking is worked out from the hours left before its out time
+//             (a share of each line's hire), not typed; a manager may waive
+//             it, with the reason (kept and audited).
 // The handover and the return have a file of their own. Money is integer
 // paise; someone who does not see sales sees bookings without money.
 
@@ -39,7 +50,8 @@ const { fail, id } = c;
 // The most a booking may come to (₹100 crore, the core's limit for a bill).
 const MAX_TOTAL = 100000000000;
 const MONEY_FIELDS = ['total', 'subtotal', 'tax', 'round_off', 'deposit_due', 'deposit_collected', 'deposit_held', 'advance', 'advance_left', 'bill_due'];
-const LINE_MONEY = ['rate_hour', 'rate_day', 'rate_week', 'rate_month', 'late_rate', 'deposit_each', 'price', 'amount', 'net', 'tax', 'late_fee_now'];
+const LINE_MONEY = ['rate_hour', 'rate_day', 'rate_week', 'rate_month', 'late_rate', 'deposit_each', 'price', 'amount', 'net', 'tax', 'late_fee_now', 'discount', 'late_cap', 'late_slabs',
+  'extra_km_rate', 'fuel_rate'];
 
 // --- Lists -----------------------------------------------------------------------------------------
 
@@ -68,7 +80,7 @@ const BOOKINGS_SQL = `SELECT y.*,
   LEFT JOIN business_documents d ON d.business_id=b.business_id AND d.id=b.document_id
   CROSS JOIN LATERAL (SELECT count(*)::int AS lines,COALESCE(sum(x.quantity),0)::int AS pieces,
       string_agg(CASE WHEN x.unit_id IS NULL THEN x.quantity||' × '||x.item_name ELSE x.unit_label||COALESCE(' ('||x.serial_no||')','') END,', ' ORDER BY x.seq) AS items
-    FROM rental_booking_lines x WHERE x.business_id=b.business_id AND x.booking_id=b.id) g
+    FROM rental_booking_lines x WHERE x.business_id=b.business_id AND x.booking_id=b.id AND x.kit_line_id IS NULL) g
   LEFT JOIN LATERAL (SELECT sum(k.amount) FILTER (WHERE r.purpose='deposit') AS deposit_collected,sum(${c.FREE_SQL('k')}) FILTER (WHERE r.purpose='deposit') AS deposit_held,
       sum(k.amount) FILTER (WHERE r.purpose='advance') AS advance,sum(${c.FREE_SQL('k')}) FILTER (WHERE r.purpose='advance') AS advance_left
     FROM rental_receipts r JOIN business_collections k ON k.business_id=r.business_id AND k.id=r.collection_id WHERE r.business_id=b.business_id AND r.booking_id=b.id) m ON TRUE
@@ -95,8 +107,8 @@ function withoutMoney(row) {
   for (const key of MONEY_FIELDS) if (key in out) out[key] = null;
   if (Array.isArray(out.lines)) out.lines = out.lines.map((l) => Object.fromEntries(Object.entries(l).map(([k, value]) => [k, LINE_MONEY.includes(k) ? null : value])));
   for (const key of ['receipts', 'charges', 'refunds']) if (Array.isArray(out[key])) out[key] = [];
-  if (Array.isArray(out.returns)) out.returns = out.returns.map((r) => ({ ...r, lines: (r.lines || []).map((x) => ({ ...x, late_fee: null })) }));
-  out.bill = null; out.deposit = null; out.advance_summary = null; out.pending = null;
+  if (Array.isArray(out.returns)) out.returns = out.returns.map((r) => ({ ...r, lines: (r.lines || []).map((x) => ({ ...x, late_fee: null, km_fee: null, fuel_fee: null })) }));
+  out.bill = null; out.deposit = null; out.advance_summary = null; out.pending = null; out.cancellation = out.cancellation ? { ...out.cancellation, worked_out: null, charged: null } : null;
   return out;
 }
 const shape = (business, booking) => (c.seesMoney(business) ? { ...booking, money: true } : { ...withoutMoney(booking), money: false });
@@ -117,6 +129,24 @@ function readLines(value) {
   return lines.map(readLine);
 }
 
+// A discount on the hire as typed: { percent, reason }, or none (null); `{}` or a nil percent takes it off.
+function readDiscount(value) {
+  if (value === undefined) return undefined;
+  if (value === null || typeof value !== 'object' || Array.isArray(value) || !c.given(value.percent) || Number(value.percent) === 0) return null;
+  return { percent: core.decimal(value.percent, 'Discount (percent)', 2, 0.01, 100), reason: v.requiredString(typeof value.reason === 'string' ? value.reason : '', 'Reason for the discount', 300) };
+}
+
+// A discount given: by the discount permission, within the business's most bill discount (the owner, any).
+async function checkDiscount(db, business, discount) {
+  if (!discount) return;
+  await access.require(business, 'sales.discount');
+  const limit = await repo.one(db, 'SELECT max_bill_discount_percent FROM business_settings WHERE business_id=$1', [business.id]);
+  const most = Number(limit?.max_bill_discount_percent ?? 10);
+  if (!business.full_access && discount.percent > most) {
+    fail(`At most ${most}% of a bill can be taken off. The owner can change this in Business settings.`, 409);
+  }
+}
+
 // The booking as asked: what the preview prices and a booking keeps.
 function readBooking(body) {
   const contactId = c.given(body.contactId) ? id(body.contactId, 'Hirer') : null;
@@ -124,7 +154,7 @@ function readBooking(body) {
     ? { kind: 'customer', name: body.customer.name, phone: body.customer.phone, consents: body.customer.consents } : null;
   return {
     locationId: id(body.locationId, 'Location'), contactId, newCustomer, status: v.requiredEnum(body.status ?? 'reserved', 'Booking', ['quote', 'reserved']),
-    outAt: body.outAt, dueAt: body.dueAt, notes: c.optionalText(body.notes, 'Notes', 500), lines: readLines(body.lines),
+    outAt: body.outAt, dueAt: body.dueAt, notes: c.optionalText(body.notes, 'Notes', 500), lines: readLines(body.lines), discount: readDiscount(body.discount) ?? null,
   };
 }
 
@@ -142,22 +172,53 @@ async function readTimes(db, business, { outAt, dueAt }, existing = null) {
 // --- Pricing ---------------------------------------------------------------------------------------
 
 const ratePaise = (value) => (value === null || value === undefined ? null : money.paise(value));
+// The late rate a line keeps: the item's own, or its hour rate (by the hour, or the multiples of slabs) or day rate.
+const lateRateOf = (r) => (r.late_per === 'none' ? null : r.late_rate ?? (r.late_per === 'day' ? r.rate_day : r.rate_hour));
+// An item's rates and rules now (its class's late slabs and cap when it has none of its own).
+const termsOf = (item) => {
+  const slabs = item.late_per === 'slabs' ? item.late_slabs || item.class_slabs || null : null;
+  if (item.late_per === 'slabs' && !slabs) fail(`${item.name}'s late fee is by slabs, and neither it nor its class has them: set them under Rental items`, 409);
+  return { hour: item.rate_hour, day: item.rate_day, week: item.rate_week, month: item.rate_month, minHours: item.min_hours, buffer: item.buffer_minutes, grace: item.grace_minutes,
+    latePer: item.late_per, lateRate: lateRateOf(item), deposit: item.deposit, lateSlabs: slabs, lateCap: item.late_per === 'none' ? null : item.late_cap ?? item.class_cap ?? null,
+    kmAllowance: item.km_allowance, kmPer: item.km_per, extraKmRate: item.extra_km_rate, fuelPer: item.fuel_per, fuelRate: item.fuel_rate, tankLitres: item.tank_litres };
+};
+// A line's rates and rules as booked.
+const termsKept = (row) => ({ hour: row.rate_hour, day: row.rate_day, week: row.rate_week, month: row.rate_month, minHours: row.min_hours, buffer: row.buffer_minutes,
+  grace: row.grace_minutes, latePer: row.late_per, lateRate: row.late_rate, deposit: row.deposit_each, lateSlabs: row.late_slabs, lateCap: row.late_cap, kmAllowance: row.km_allowance,
+  kmPer: row.km_per, extraKmRate: row.extra_km_rate, fuelPer: row.fuel_per, fuelRate: row.fuel_rate, tankLitres: row.tank_litres });
 
 // Each line priced as a bill of the hire would be now: the unit or how many,
 // the rates and rules it is booked at (a line kept on a change keeps its own;
 // a new line takes its item's), the hours charged, the cheapest mix, the line
-// at it and GST at its item's slab now; the deposit for each one hired.
-async function priceBooking(db, business, input, times, existing = null) {
+// at it less the booking's discount, and GST at its item's slab now; the
+// deposit for each one hired. A kit's parts are lines of their own: a kit kept
+// on a change keeps the parts it was booked with, a new one takes its parts
+// now; the kit's line is billed when the kit is billed as itself, the parts'
+// lines when it is billed by its parts.
+async function priceBooking(db, business, input, times, existing = null, discount = null) {
   const settings = await repo.one(db, 'SELECT tax_mode,rounding FROM business_settings WHERE business_id=$1', [business.id]);
   const taxMode = existing ? existing.tax_mode : settings?.tax_mode || 'exclusive';
-  const items = await repo.all(db, `SELECT i.*,s.label AS name,s.tax_rate,(s.active AND p.active) AS sku_active,s.internal_use FROM rental_items i
-    JOIN catalog_skus s ON s.business_id=i.business_id AND s.id=i.sku_id JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id
-    WHERE i.business_id=$1 AND i.id=ANY($2::bigint[])`, [business.id, [...new Set(input.lines.map((l) => l.itemId))]]);
+  const before = existing ? await repo.all(db, 'SELECT * FROM rental_booking_lines WHERE business_id=$1 AND booking_id=$2 ORDER BY seq', [business.id, existing.id]) : [];
+  const asked = [...new Set(input.lines.map((l) => l.itemId))];
+  const recipes = await repo.all(db, 'SELECT kit_id,part_id,quantity FROM rental_kit_parts WHERE business_id=$1 AND kit_id=ANY($2::bigint[])', [business.id, asked]);
+  const ids = [...new Set([...asked, ...recipes.map((r) => Number(r.part_id)), ...before.map((b) => Number(b.item_id))])];
+  const items = await repo.all(db, `SELECT i.*,s.label AS name,s.tax_rate,(s.active AND p.active) AS sku_active,s.internal_use,k.late_slabs AS class_slabs,k.late_cap AS class_cap
+    FROM rental_items i JOIN catalog_skus s ON s.business_id=i.business_id AND s.id=i.sku_id JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id
+    LEFT JOIN rental_classes k ON k.business_id=i.business_id AND k.id=i.class_id WHERE i.business_id=$1 AND i.id=ANY($2::bigint[])`, [business.id, ids]);
   const units = await repo.all(db, 'SELECT * FROM rental_units WHERE business_id=$1 AND id=ANY($2::bigint[])', [business.id, input.lines.map((l) => l.unitId).filter(Boolean)]);
-  const before = existing ? await repo.all(db, 'SELECT * FROM rental_booking_lines WHERE business_id=$1 AND booking_id=$2', [business.id, existing.id]) : [];
+  const itemOf = (itemId) => items.find((i) => Number(i.id) === Number(itemId));
+  const priceOf = (item, terms, quantity, billed) => {
+    const hours = money.chargedHours(times.minutes, terms.minHours);
+    if (!billed) return { hours, best: { months: 0, weeks: 0, days: 0, hours: 0, price: 0 }, amount: 0, discount: 0, net: 0, tax: 0 };
+    const best = money.bestPrice({ hour: ratePaise(terms.hour), day: ratePaise(terms.day), week: ratePaise(terms.week), month: ratePaise(terms.month) }, hours);
+    const amount = best.price * quantity;
+    if (!Number.isSafeInteger(amount) || amount > MAX_TOTAL) fail(`${item.name} would come to more than a bill can hold: book fewer, or for less time`);
+    const off = discount ? money.percentOf(amount, discount.percent) : 0;
+    return { hours, best, amount, discount: off, ...money.split(amount - off, item.tax_rate, taxMode) };
+  };
   const seen = new Set();
   const lines = input.lines.map((line, index) => {
-    const item = items.find((i) => Number(i.id) === line.itemId);
+    const item = itemOf(line.itemId);
     if (!item) fail('Rental item not found', 404);
     if (!item.active) fail(`${item.name} is switched off: switch it on to book it`, 409);
     if (!item.sku_active) fail(`${item.name}, the service it is billed as, is switched off in the catalogue`, 409);
@@ -173,88 +234,143 @@ async function priceBooking(db, business, input, times, existing = null) {
       if (seen.has(`u${unit.id}`)) fail(`${unit.label} is on the booking twice`);
       seen.add(`u${unit.id}`);
     } else {
-      if (line.unitId) fail(`${item.name} is hired from a pool: give how many, not a unit`);
+      if (line.unitId) fail(item.kind === 'kit' ? `${item.name} is a kit: give how many kits, not a unit` : `${item.name} is hired from a pool: give how many, not a unit`);
       if (!line.quantity) fail(`Give how many ${item.name} are hired`);
       quantity = line.quantity;
-      if (quantity > Number(item.pool_quantity)) fail(`The shop has ${item.pool_quantity} of ${item.name}`, 409);
+      if (item.kind === 'pool' && quantity > Number(item.pool_quantity)) fail(`The shop has ${item.pool_quantity} of ${item.name}`, 409);
       if (seen.has(`p${item.id}`)) fail(`${item.name} is on the booking twice: give the total once`);
       seen.add(`p${item.id}`);
     }
-    const kept = before.find((b) => Number(b.item_id) === Number(item.id) && (item.kind === 'pool' || Number(b.unit_id) === Number(unit.id))) || null;
-    const lateRate = (r) => (r.late_per === 'none' ? null : r.late_rate ?? (r.late_per === 'hour' ? r.rate_hour : r.rate_day));
-    const terms = kept
-      ? { hour: kept.rate_hour, day: kept.rate_day, week: kept.rate_week, month: kept.rate_month, minHours: kept.min_hours, buffer: kept.buffer_minutes, grace: kept.grace_minutes,
-        latePer: kept.late_per, lateRate: kept.late_rate, deposit: kept.deposit_each }
-      : { hour: item.rate_hour, day: item.rate_day, week: item.rate_week, month: item.rate_month, minHours: item.min_hours, buffer: item.buffer_minutes, grace: item.grace_minutes,
-        latePer: item.late_per, lateRate: lateRate(item), deposit: item.deposit };
-    const hours = money.chargedHours(times.minutes, terms.minHours);
-    const best = money.bestPrice({ hour: ratePaise(terms.hour), day: ratePaise(terms.day), week: ratePaise(terms.week), month: ratePaise(terms.month) }, hours);
-    const amount = best.price * quantity;
-    if (!Number.isSafeInteger(amount) || amount > MAX_TOTAL) fail(`${item.name} would come to more than a bill can hold: book fewer, or for less time`);
-    const split = money.split(amount, item.tax_rate, taxMode);
-    return { index, item, unit, quantity, terms, hours, best, amount, taxRate: Number(item.tax_rate), ...split, deposit: money.paise(terms.deposit) * quantity, kept };
+    const kept = before.find((b) => !b.kit_line_id && Number(b.item_id) === Number(item.id) && (item.kind !== 'unit' || Number(b.unit_id) === Number(unit.id))) || null;
+    const terms = kept ? termsKept(kept) : termsOf(item);
+    const billed = item.kind === 'kit' ? (kept ? kept.billed : item.kit_billing === 'kit') : true;
+    const entry = { index, item, unit, quantity, terms, kept, billed, ...priceOf(item, terms, quantity, billed), taxRate: Number(item.tax_rate), deposit: money.paise(terms.deposit) * quantity,
+      parts: [] };
+    if (item.kind === 'kit') {
+      const keptParts = kept ? before.filter((b) => Number(b.kit_line_id) === Number(kept.id)) : null;
+      const recipe = keptParts ? keptParts.map((b) => ({ partId: Number(b.item_id), each: Number(b.part_quantity), row: b }))
+        : recipes.filter((r) => Number(r.kit_id) === Number(item.id)).map((r) => ({ partId: Number(r.part_id), each: Number(r.quantity), row: null }));
+      if (!recipe.length) fail(`${item.name} has no parts: add them under Rental items`, 409);
+      for (const r of recipe) {
+        const part = itemOf(r.partId);
+        if (!part.active) fail(`${part.name}, a part of ${item.name}, is switched off: switch it on to book the kit`, 409);
+        const partQuantity = quantity * r.each;
+        if (partQuantity > Number(part.pool_quantity)) fail(`The shop has ${part.pool_quantity} of ${part.name}: ${quantity} × ${item.name} take ${partQuantity}`, 409);
+        const partTerms = r.row ? termsKept(r.row) : { ...termsOf(part), deposit: 0 };
+        entry.parts.push({ item: part, unit: null, quantity: partQuantity, each: r.each, terms: partTerms, kept: r.row, billed: !billed,
+          ...priceOf(part, partTerms, partQuantity, !billed), taxRate: Number(part.tax_rate), deposit: 0 });
+      }
+    }
+    return entry;
   });
-  const figures = money.billFigures(lines, settings?.rounding);
+  const flat = lines.flatMap((l) => [l, ...l.parts]);
+  if (flat.length > c.MAX_LINES) fail(`A booking takes at most ${c.MAX_LINES} lines, a kit's parts counted: split it into more than one booking`);
+  const figures = money.billFigures(flat, settings?.rounding);
   if (figures.total > MAX_TOTAL) fail('The booking would come to more than a bill can hold: split it into more than one booking');
-  return { taxMode, rounding: settings?.rounding || 'none', lines, figures, deposit: lines.reduce((s, l) => s + l.deposit, 0) };
+  return { taxMode, rounding: settings?.rounding || 'none', lines, flat, figures, deposit: lines.reduce((s, l) => s + l.deposit, 0), discount };
 }
 
-const pricedText = (p, timezone) => ({
-  index: p.index, itemId: p.item.id, itemName: p.item.name, kind: p.item.kind, unitId: p.unit?.id || null, unitLabel: p.unit?.label || null, serialNo: p.unit?.serial_no || null,
-  quantity: p.quantity, hours: p.hours, period: money.periodWords(p.best), price: money.rupees(p.best.price), amount: money.rupees(p.amount), taxRate: p.taxRate.toFixed(2),
-  net: money.rupees(p.net), tax: money.rupees(p.tax), deposit: money.rupees(p.deposit), kept: Boolean(p.kept), latePer: p.terms.latePer,
+const lineText = (p) => ({ itemId: p.item.id, itemName: p.item.name, kind: p.item.kind, unitId: p.unit?.id || null, unitLabel: p.unit?.label || null, serialNo: p.unit?.serial_no || null,
+  quantity: p.quantity, hours: p.hours, period: money.periodWords(p.best), price: money.rupees(p.best.price), amount: money.rupees(p.amount), discount: money.rupees(p.discount),
+  taxRate: p.taxRate.toFixed(2), net: money.rupees(p.net), tax: money.rupees(p.tax), deposit: money.rupees(p.deposit), billed: p.billed, kept: Boolean(p.kept), latePer: p.terms.latePer,
   lateRate: p.terms.lateRate === null || p.terms.lateRate === undefined ? null : Number(p.terms.lateRate).toFixed(2), graceMinutes: Number(p.terms.grace),
-  bufferMinutes: Number(p.terms.buffer), timezone,
-});
+  bufferMinutes: Number(p.terms.buffer) });
+const pricedText = (p, timezone) => ({ index: p.index, ...lineText(p), kitBilling: p.item.kind === 'kit' ? (p.billed ? 'kit' : 'parts') : null,
+  parts: p.parts.map((x) => ({ ...lineText(x), each: x.each })), timezone });
 
-// Whether each line's unit or pieces are free over the booking's time (with its
-// turnaround time), leaving out a booking being changed: { free, words }.
-async function availability(db, business, priced, times, exceptBooking = null) {
-  const out = [];
-  for (const p of priced.lines) {
+// Whether each line's unit or pieces are free at the booking's location over
+// its time (with its turnaround time), leaving out a booking being changed: { free, words }.
+// A kit is free when each of its parts is; the pieces of one pool on several lines are counted together.
+async function availability(db, business, priced, times, exceptBooking = null, locationId = null) {
+  const place = locationId ? await repo.one(db, 'SELECT id,name FROM business_locations WHERE business_id=$1 AND id=$2', [business.id, locationId]) : null;
+  const several = Number((await repo.one(db, 'SELECT count(*)::int AS n FROM business_locations WHERE business_id=$1 AND active', [business.id])).n) > 1;
+  const need = {};
+  for (const p of priced.flat) if (!p.unit && p.item.kind === 'pool') need[p.item.id] = (need[p.item.id] || 0) + p.quantity;
+  const check = async (p) => {
     const until = new Date(+times.dueAt + Number(p.terms.buffer) * 60000);
     if (p.unit) {
+      if (place && Number(p.unit.location_id) !== Number(place.id)) {
+        const at = await repo.one(db, 'SELECT name FROM business_locations WHERE business_id=$1 AND id=$2', [business.id, p.unit.location_id]);
+        return { free: false, words: `${p.unit.label} is kept at ${at.name}: book it there, or move it to ${place.name} first` };
+      }
       const clash = await repo.one(db, 'SELECT * FROM rental_unit_clash($1,$2,$3,$4,$5,$6,NULL)', [business.id, p.item.id, p.unit.id, times.outAt, until, exceptBooking]);
-      out.push({ index: p.index, free: !clash, words: clash ? clashWords(p.unit.label, clash, business.timezone) : null });
+      return { free: !clash, words: clash ? clashWords(p.unit.label, clash, business.timezone) : null };
+    }
+    const count = place ? Number((await repo.one(db, 'SELECT quantity FROM rental_pool_counts WHERE business_id=$1 AND item_id=$2 AND location_id=$3',
+      [business.id, p.item.id, place.id]))?.quantity || 0) : Number(p.item.pool_quantity);
+    const peak = place ? (await repo.one(db, 'SELECT rental_location_peak($1,$2,$3,$4,$5,$6,NULL) AS n', [business.id, p.item.id, place.id, times.outAt, until, exceptBooking])).n
+      : (await repo.one(db, 'SELECT rental_pool_peak($1,$2,$3,$4,$5,NULL) AS n', [business.id, p.item.id, times.outAt, until, exceptBooking])).n;
+    const left = Math.max(0, count - peak);
+    const wanted = need[p.item.id] || p.quantity;
+    return { free: wanted <= left, left, words: wanted <= left ? null : `Only ${left} of the ${count} ${p.item.name} are free then${several && place ? ` at ${place.name}` : ''}: ${peak} are booked` };
+  };
+  const out = [];
+  for (const p of priced.lines) {
+    if (p.item.kind === 'kit') {
+      const parts = [];
+      for (const part of p.parts) parts.push(await check(part));
+      const blocked = parts.find((x) => !x.free);
+      out.push({ index: p.index, free: !blocked, words: blocked ? `${p.item.name}: ${blocked.words}` : null, parts });
     } else {
-      const peak = (await repo.one(db, 'SELECT rental_pool_peak($1,$2,$3,$4,$5,NULL) AS n', [business.id, p.item.id, times.outAt, until, exceptBooking])).n;
-      const left = Math.max(0, Number(p.item.pool_quantity) - peak);
-      out.push({ index: p.index, free: p.quantity <= left, left, words: p.quantity <= left ? null : `Only ${left} of the ${p.item.pool_quantity} ${p.item.name} are free then: ${peak} are booked` });
+      out.push({ index: p.index, ...await check(p) });
     }
   }
   return out;
 }
-const clashWords = (label, clash, timezone) => (clash.part === 'out'
-  ? `${label} is out on ${clash.booking_no} with ${clash.customer_name}, due back ${c.timeWords(clash.due_at, timezone)}`
-  : `${label} is booked on ${clash.booking_no} for ${clash.customer_name} from ${c.timeWords(clash.starts_at, timezone)} until it is free again at ${c.timeWords(clash.ends_at, timezone)}`);
+const clashWords = (label, clash, timezone) => (clash.part === 'downtime'
+  ? `${label} is booked for maintenance (${clash.customer_name}) from ${c.timeWords(clash.starts_at, timezone)} to ${c.timeWords(clash.ends_at, timezone)}`
+  : clash.part === 'out'
+    ? `${label} is out on ${clash.booking_no} with ${clash.customer_name}, due back ${c.timeWords(clash.due_at, timezone)}`
+    : `${label} is booked on ${clash.booking_no} for ${clash.customer_name} from ${c.timeWords(clash.starts_at, timezone)} until it is free again at ${c.timeWords(clash.ends_at, timezone)}`);
 
 // The figures of a booking being typed, nothing saved: each line priced, whether it is free, the deposit and the total.
-// body: { locationId, outAt, dueAt, lines, bookingId? (a booking being changed: its own holds left out) }
+// body: { locationId, outAt, dueAt, lines, discount?: { percent, reason }, bookingId? (a booking being changed: its own holds left out) }
 async function preview(business, user, body) {
   c.requireRentals(business);
   await access.require(business, 'rentals.view');
   const lines = readLines(body.lines);
+  const discount = readDiscount(body.discount) ?? null;
   return repo.transaction(async (db) => {
     const existing = c.given(body.bookingId) ? await repo.one(db, 'SELECT * FROM rental_bookings WHERE business_id=$1 AND id=$2', [business.id, id(body.bookingId, 'Booking')]) : null;
     if (c.given(body.bookingId) && !existing) fail('Booking not found', 404);
     const times = await readTimes(db, business, { outAt: body.outAt, dueAt: body.dueAt }, existing);
-    const priced = await priceBooking(db, business, { lines }, times, existing);
-    const free = await availability(db, business, priced, times, existing?.id || null);
-    return { taxMode: priced.taxMode, outAt: times.outAt, dueAt: times.dueAt, minutes: times.minutes, lines: priced.lines.map((p) => ({ ...pricedText(p, business.timezone), ...free.find((f) => f.index === p.index) })),
-      ...money.figuresText(priced.figures), deposit: money.rupees(priced.deposit), free: free.every((f) => f.free) };
+    const priced = await priceBooking(db, business, { lines }, times, existing, discount);
+    const locationId = existing ? existing.location_id : c.given(body.locationId) ? id(body.locationId, 'Location') : null;
+    const free = await availability(db, business, priced, times, existing?.id || null, locationId);
+    return { taxMode: priced.taxMode, outAt: times.outAt, dueAt: times.dueAt, minutes: times.minutes,
+      lines: priced.lines.map((p) => {
+        const f = free.find((x) => x.index === p.index);
+        const text = pricedText(p, business.timezone);
+        return { ...text, ...f, parts: text.parts.map((x, i) => ({ ...x, ...(f.parts?.[i] || {}) })) };
+      }),
+      ...money.figuresText(priced.figures), discount: money.rupees(priced.flat.reduce((s, p) => s + p.discount, 0)), discountPercent: discount ? discount.percent.toFixed(2) : null,
+      deposit: money.rupees(priced.deposit), free: free.every((f) => f.free) };
   });
 }
 
 // --- Saving lines ---------------------------------------------------------------------------------
 
+async function insertLine(db, business, booking, p, seq, kitLineId = null) {
+  return repo.one(db, `INSERT INTO rental_booking_lines(business_id,booking_id,seq,item_id,unit_id,sku_id,item_name,unit_label,serial_no,quantity,rate_hour,rate_day,rate_week,rate_month,
+      min_hours,buffer_minutes,grace_minutes,late_per,late_rate,deposit_each,charged_hours,months,weeks,days,hours,price,amount,tax_rate,net,tax,kit_line_id,part_quantity,billed,
+      discount,late_slabs,late_cap,km_allowance,km_per,extra_km_rate,fuel_per,fuel_rate,tank_litres)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42) RETURNING id`,
+  [business.id, booking.id, seq, p.item.id, p.unit?.id || null, p.item.sku_id, p.item.name, p.unit?.label || null, p.unit?.serial_no || null, p.quantity,
+    p.terms.hour, p.terms.day, p.terms.week, p.terms.month, p.terms.minHours, p.terms.buffer, p.terms.grace, p.terms.latePer, p.terms.lateRate, Number(p.terms.deposit).toFixed(2),
+    p.hours, p.best.months, p.best.weeks, p.best.days, p.best.hours, money.rupees(p.best.price), money.rupees(p.amount), p.taxRate.toFixed(2), money.rupees(p.net), money.rupees(p.tax),
+    kitLineId, kitLineId ? p.each : null, p.billed, money.rupees(p.discount), p.terms.lateSlabs ? JSON.stringify(p.terms.lateSlabs) : null, p.terms.lateCap ?? null,
+    p.terms.kmAllowance ?? null, p.terms.kmPer ?? null, p.terms.extraKmRate ?? null, p.terms.fuelPer ?? null, p.terms.fuelRate ?? null, p.terms.tankLitres ?? null]);
+}
+
 async function insertLines(db, business, booking, priced) {
-  for (const [index, p] of priced.lines.entries()) {
-    await db.query(`INSERT INTO rental_booking_lines(business_id,booking_id,seq,item_id,unit_id,sku_id,item_name,unit_label,serial_no,quantity,rate_hour,rate_day,rate_week,rate_month,
-        min_hours,buffer_minutes,grace_minutes,late_per,late_rate,deposit_each,charged_hours,months,weeks,days,hours,price,amount,tax_rate,net,tax)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)`,
-    [business.id, booking.id, index + 1, p.item.id, p.unit?.id || null, p.item.sku_id, p.item.name, p.unit?.label || null, p.unit?.serial_no || null, p.quantity,
-      p.terms.hour, p.terms.day, p.terms.week, p.terms.month, p.terms.minHours, p.terms.buffer, p.terms.grace, p.terms.latePer, p.terms.lateRate, Number(p.terms.deposit).toFixed(2),
-      p.hours, p.best.months, p.best.weeks, p.best.days, p.best.hours, money.rupees(p.best.price), money.rupees(p.amount), p.taxRate.toFixed(2), money.rupees(p.net), money.rupees(p.tax)]);
+  let seq = 0;
+  for (const p of priced.lines) {
+    seq += 1;
+    const row = await insertLine(db, business, booking, p, seq);
+    for (const part of p.parts) {
+      seq += 1;
+      await insertLine(db, business, booking, part, seq, row.id);
+    }
   }
 }
 
@@ -371,7 +487,8 @@ async function lockBooking(db, business, bookingId) {
 const periodOf = (booking, timezone) => `${c.timeWords(booking.out_at, timezone)} to ${c.timeWords(booking.due_at, timezone)}`;
 
 // body: { requestKey, locationId, contactId | customer: { name, phone? }, status?: quote | reserved (reserved), outAt, dueAt,
-//   lines: [{ itemId, unitId? (one by one), quantity? (a pool) }], notes?, advance?: { amount, method | methodId, reference? } (reserved) }
+//   lines: [{ itemId, unitId? (one by one), quantity? (a pool or a kit) }], discount?: { percent, reason }, notes?,
+//   advance?: { amount, method | methodId, reference? } (reserved) }
 async function create(business, user, body) {
   c.requireRentals(business);
   await access.require(business, 'rentals.create');
@@ -400,32 +517,35 @@ async function create(business, user, body) {
       contact = await core.createContact(business, user, input.newCustomer, db);
     }
     const times = await readTimes(db, business, input);
-    const priced = await priceBooking(db, business, input, times);
+    await checkDiscount(db, business, input.discount);
+    const priced = await priceBooking(db, business, input, times, null, input.discount);
     const advance = await readMoney(db, business, body.advance, 'Advance');
     if (advance && input.status !== 'reserved') fail('An advance is taken on a booking, not a quote: reserve it first');
     if (advance && advance.amount > priced.figures.total) fail(`The advance is part of the hire: at most ${money.rupees(priced.figures.total)}`);
     const number = await numbering.nextNumber(db, business.id, location.id, 'rental', user.id);
     const f = priced.figures;
     const booking = await repo.one(db, `INSERT INTO rental_bookings(business_id,location_id,booking_no,series_id,contact_id,customer_name,customer_phone,status,out_at,due_at,tax_mode,
-        subtotal,tax,round_off,total,deposit_due,notes,request_key,request_hash,created_by,updated_by)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$20) RETURNING *`,
+        subtotal,tax,round_off,total,deposit_due,notes,request_key,request_hash,created_by,updated_by,discount_percent,discount_reason,discount_by)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$20,$21,$22,$23) RETURNING *`,
     [business.id, location.id, number.number, number.seriesId, contact.id, contact.name, contact.phone || null, input.status, times.outAt, times.dueAt, priced.taxMode,
-      money.rupees(f.subtotal), money.rupees(f.tax), money.rupees(f.roundOff), money.rupees(f.total), money.rupees(priced.deposit), input.notes, requestKey, hash, user.id]);
+      money.rupees(f.subtotal), money.rupees(f.tax), money.rupees(f.roundOff), money.rupees(f.total), money.rupees(priced.deposit), input.notes, requestKey, hash, user.id,
+      input.discount ? input.discount.percent.toFixed(2) : '0', input.discount?.reason || null, input.discount ? user.id : null]);
     await insertLines(db, business, booking, priced);
     // A reserved booking holds what it books: checked now (and again by the database when saved).
     if (booking.status === 'reserved') await db.query('SELECT rental_check_booking($1,$2)', [business.id, booking.id]);
     await history(db, business, user, booking, null, booking.status, `${booking.status === 'quote' ? 'Quoted' : 'Booked'}: ${c.plural(priced.lines.length, 'line')} · ${periodOf(booking, business.timezone)}`);
     if (advance) await takeReceipt(db, business, user, booking, { purpose: 'advance', ...advance, requestKey: c.derivedKey(requestKey, 'advance'), hash });
-    const details = { bookingNo: booking.booking_no, status: booking.status, customer: contact.name, outAt: booking.out_at, dueAt: booking.due_at, total: booking.total, depositDue: booking.deposit_due };
+    const details = { bookingNo: booking.booking_no, status: booking.status, customer: contact.name, outAt: booking.out_at, dueAt: booking.due_at, total: booking.total, depositDue: booking.deposit_due,
+      ...(input.discount ? { discount: { percent: input.discount.percent, reason: input.discount.reason } } : {}) };
     await repo.audit(db, business.id, user.id, 'rental_booking.created', booking.id, details);
     await repo.event(db, business.id, user.id, 'rental_booking.created', 'rental_booking', booking.id, { ...details, locationId: location.id, contactId: contact.id,
-      lines: priced.lines.map((p) => ({ itemId: p.item.id, unitId: p.unit?.id || null, quantity: p.quantity })) });
+      lines: priced.flat.map((p) => ({ itemId: p.item.id, unitId: p.unit?.id || null, quantity: p.quantity })) });
     return shape(business, await load(db, business, booking.id));
   });
 }
 
-// body: { outAt?, dueAt?, lines?, notes? } — a quote or a reserved booking changes its times, lines and notes;
-// one handed over its due back time (an extension) and notes. Priced again; what is left out stays.
+// body: { outAt?, dueAt?, lines?, discount?: { percent, reason } | null, notes? } — a quote or a reserved booking changes its times, lines, discount
+// and notes; one handed over its due back time (an extension), discount and notes. Priced again; what is left out stays.
 async function update(business, user, bookingId, body) {
   c.requireRentals(business);
   await access.require(business, 'rentals.edit');
@@ -436,7 +556,11 @@ async function update(business, user, bookingId, body) {
     if (out && (body.outAt !== undefined || body.lines !== undefined)) fail(`Booking ${booking.booking_no} is out: only when it is due back and its notes change`, 409);
     const notes = body.notes === undefined ? booking.notes : c.optionalText(body.notes, 'Notes', 500);
     const before = await repo.all(db, 'SELECT * FROM rental_booking_lines WHERE business_id=$1 AND booking_id=$2 ORDER BY seq', [business.id, booking.id]);
-    if (body.outAt === undefined && body.dueAt === undefined && body.lines === undefined) {
+    const asked = readDiscount(body.discount);
+    const discount = asked === undefined ? (Number(booking.discount_percent) ? { percent: Number(booking.discount_percent), reason: booking.discount_reason } : null) : asked;
+    const discountChanged = asked !== undefined && (Number(asked?.percent || 0) !== Number(booking.discount_percent) || (asked?.reason || null) !== booking.discount_reason);
+    if (discountChanged) await checkDiscount(db, business, asked);
+    if (body.outAt === undefined && body.dueAt === undefined && body.lines === undefined && !discountChanged) {
       if (notes !== booking.notes) {
         await db.query('UPDATE rental_bookings SET notes=$3,updated_by=$4,updated_at=now() WHERE business_id=$1 AND id=$2', [business.id, booking.id, notes, user.id]);
         await history(db, business, user, booking, null, null, 'Notes changed');
@@ -444,33 +568,37 @@ async function update(business, user, bookingId, body) {
       }
       return shape(business, await load(db, business, booking.id));
     }
-    const lines = body.lines === undefined ? before.map((l) => ({ itemId: Number(l.item_id), unitId: l.unit_id ? Number(l.unit_id) : null, quantity: Number(l.quantity) })) : readLines(body.lines);
+    const lines = body.lines === undefined ? before.filter((l) => !l.kit_line_id).map((l) => ({ itemId: Number(l.item_id), unitId: l.unit_id ? Number(l.unit_id) : null, quantity: Number(l.quantity) }))
+      : readLines(body.lines);
     const times = await readTimes(db, business, { outAt: body.outAt ?? booking.out_at.toISOString(), dueAt: body.dueAt ?? booking.due_at.toISOString() }, booking);
-    if (out && times.dueAt <= new Date()) fail(`Booking ${booking.booking_no} is out: it is due back at a time still to come`);
-    const priced = await priceBooking(db, business, { lines }, times, booking);
+    if (out && body.dueAt !== undefined && times.dueAt <= new Date()) fail(`Booking ${booking.booking_no} is out: it is due back at a time still to come`);
+    const priced = await priceBooking(db, business, { lines }, times, booking, discount);
     const advance = (await receiptsOf(db, business, booking.id)).filter((r) => r.purpose === 'advance').reduce((s, r) => s + money.paise(r.amount), 0);
     if (advance > priced.figures.total) fail(`${money.rupees(advance)} was taken as an advance: the hire cannot come to less than that`, 409);
     if (out) {
-      for (const p of priced.lines) {
-        const line = before.find((l) => Number(l.item_id) === Number(p.item.id) && (p.unit ? Number(l.unit_id) === Number(p.unit.id) : !l.unit_id));
-        await db.query(`UPDATE rental_booking_lines SET charged_hours=$3,months=$4,weeks=$5,days=$6,hours=$7,price=$8,amount=$9,tax_rate=$10,net=$11,tax=$12 WHERE business_id=$1 AND id=$2`,
-          [business.id, line.id, p.hours, p.best.months, p.best.weeks, p.best.days, p.best.hours, money.rupees(p.best.price), money.rupees(p.amount), p.taxRate.toFixed(2),
-            money.rupees(p.net), money.rupees(p.tax)]);
+      // Every line (a kit's parts too) is the one booked: priced again at its booked rates.
+      for (const p of priced.flat) {
+        await db.query(`UPDATE rental_booking_lines SET charged_hours=$3,months=$4,weeks=$5,days=$6,hours=$7,price=$8,amount=$9,tax_rate=$10,net=$11,tax=$12,discount=$13
+          WHERE business_id=$1 AND id=$2`, [business.id, p.kept.id, p.hours, p.best.months, p.best.weeks, p.best.days, p.best.hours, money.rupees(p.best.price), money.rupees(p.amount),
+          p.taxRate.toFixed(2), money.rupees(p.net), money.rupees(p.tax), money.rupees(p.discount)]);
       }
     } else {
       await db.query('DELETE FROM rental_booking_lines WHERE business_id=$1 AND booking_id=$2', [business.id, booking.id]);
       await insertLines(db, business, booking, priced);
     }
     const f = priced.figures;
-    await db.query(`UPDATE rental_bookings SET out_at=$3,due_at=$4,subtotal=$5,tax=$6,round_off=$7,total=$8,deposit_due=$9,notes=$10,updated_by=$11,updated_at=now() WHERE business_id=$1 AND id=$2`,
-      [business.id, booking.id, times.outAt, times.dueAt, money.rupees(f.subtotal), money.rupees(f.tax), money.rupees(f.roundOff), money.rupees(f.total), money.rupees(priced.deposit), notes, user.id]);
+    await db.query(`UPDATE rental_bookings SET out_at=$3,due_at=$4,subtotal=$5,tax=$6,round_off=$7,total=$8,deposit_due=$9,notes=$10,updated_by=$11,updated_at=now(),
+        discount_percent=$12,discount_reason=$13,discount_by=$14 WHERE business_id=$1 AND id=$2`,
+      [business.id, booking.id, times.outAt, times.dueAt, money.rupees(f.subtotal), money.rupees(f.tax), money.rupees(f.roundOff), money.rupees(f.total), money.rupees(priced.deposit), notes, user.id,
+        discount ? discount.percent.toFixed(2) : '0', discount?.reason || null, discount ? (discountChanged ? user.id : booking.discount_by) : null]);
     if (['reserved', 'out'].includes(booking.status)) await db.query('SELECT rental_check_booking($1,$2)', [business.id, booking.id]);
     const said = [+times.outAt !== +booking.out_at ? `out from ${c.timeWords(times.outAt, business.timezone)}` : null,
       +times.dueAt !== +booking.due_at ? `due back ${c.timeWords(times.dueAt, business.timezone)}` : null, body.lines !== undefined ? 'what is hired changed' : null,
-      notes !== booking.notes ? 'notes changed' : null].filter(Boolean);
+      discountChanged ? (discount ? `${discount.percent}% off the hire: ${discount.reason}` : 'discount taken off') : null, notes !== booking.notes ? 'notes changed' : null].filter(Boolean);
     await history(db, business, user, booking, null, null, `${out && +times.dueAt > +booking.due_at ? 'Extended' : 'Changed'}: ${c.listWords(said) || 'priced again'}`);
     const details = { bookingNo: booking.booking_no, outAt: { from: booking.out_at, to: times.outAt }, dueAt: { from: booking.due_at, to: times.dueAt },
-      total: { from: booking.total, to: money.rupees(f.total) }, depositDue: { from: booking.deposit_due, to: money.rupees(priced.deposit) }, linesChanged: body.lines !== undefined };
+      total: { from: booking.total, to: money.rupees(f.total) }, depositDue: { from: booking.deposit_due, to: money.rupees(priced.deposit) }, linesChanged: body.lines !== undefined,
+      ...(discountChanged ? { discount: { from: { percent: booking.discount_percent, reason: booking.discount_reason }, to: discount } } : {}) };
     await repo.audit(db, business.id, user.id, 'rental_booking.changed', booking.id, details);
     await repo.event(db, business.id, user.id, 'rental_booking.changed', 'rental_booking', booking.id, details);
     return shape(business, await load(db, business, booking.id));
@@ -565,27 +693,77 @@ async function postBill(db, business, user, booking, { values, parts, buyer, key
   return { document, used, lineIds, figures };
 }
 
-// body: { requestKey, reason, charges?: [{ lineId, amount, note? }] (a cancellation charge, billed), payment? | payments? (the rest of that bill),
-//   refund?: { method | methodId, reference? } (what is left of the advance and deposit, handed back), approval?: { approverId?, pin? } (with a refund), buyer? }
+// The cancellation charge of a reserved booking worked out from the shop's
+// slabs: the hours left before its out time (less than nothing once it has
+// passed: a no-show), the slab they fall in (the one with the most hours that
+// they reach; a no-show at the no-show percent, or the slab from 0 hours), and
+// that share of each billed line's hire as booked (less its discount), in the
+// booking's price terms. null when the shop has no slabs, or for a quote.
+async function workOut(db, business, booking, lines, settings) {
+  if (booking.status !== 'reserved' || !settings.cancel_slabs) return null;
+  const now = (await repo.one(db, 'SELECT now() AS now')).now;
+  const left = booking.out_at - now;
+  const hoursBefore = Math.round(left / 36000) / 100;
+  const slabs = [...settings.cancel_slabs].sort((a, b) => Number(b.hours) - Number(a.hours));
+  const reached = slabs.find((s) => left >= Number(s.hours) * 3600000) || null;
+  const zero = slabs.find((s) => Number(s.hours) === 0) || null;
+  const noShow = left < 0;
+  const percent = noShow ? Number(settings.no_show_percent ?? zero?.percent ?? 0) : Number(reached?.percent ?? 0);
+  const charges = lines.filter((l) => l.billed).map((l) => ({ lineId: Number(l.id), amount: money.percentOf(money.paise(l.amount) - money.paise(l.discount), percent),
+    note: `${percent}% of the hire`, line: l })).filter((x) => x.amount > 0);
+  return { hoursBefore, percent, noShow, slab: noShow ? null : reached, charges, total: charges.reduce((s, x) => s + x.amount, 0) };
+}
+
+const cancelLines = (db, business, booking) => repo.all(db, `SELECT l.*,s.tax_rate AS tax_rate_now FROM rental_booking_lines l JOIN catalog_skus s ON s.business_id=l.business_id AND s.id=l.sku_id
+  WHERE l.business_id=$1 AND l.booking_id=$2 ORDER BY l.seq`, [business.id, booking.id]);
+
+// What cancelling a booking now would charge, nothing saved: the charge worked out from the slabs (each line's share, and the bill
+// with its GST), and what is held for the booking that pays it first.
+async function cancelPreview(business, bookingId) {
+  c.requireRentals(business);
+  await access.require(business, 'rentals.cancel');
+  const db = repo.pool;
+  const booking = await repo.one(db, 'SELECT * FROM rental_bookings WHERE business_id=$1 AND id=$2', [business.id, id(bookingId, 'Booking')]);
+  if (!booking) fail('Booking not found', 404);
+  access.requireLocation(business, booking.location_id);
+  if (!['quote', 'reserved'].includes(booking.status)) fail(`Booking ${booking.booking_no} is ${booking.status}: only a quote or a reserved booking is cancelled`, 409);
+  const settings = await c.settingsOf(db, business.id);
+  const worked = await workOut(db, business, booking, await cancelLines(db, business, booking), settings);
+  const held = (await receiptsOf(db, business, booking.id)).reduce((s, r) => s + Math.max(0, money.paise(r.free)), 0);
+  if (!worked) return { slabs: Boolean(settings.cancel_slabs), worked: false, held: money.rupees(held) };
+  const values = worked.charges.map((x) => billValue(booking, x.line, { amount: x.amount, words: c.CHARGE_WORDS.cancellation }));
+  const store = await repo.one(db, 'SELECT rounding FROM business_settings WHERE business_id=$1', [business.id]);
+  const figures = money.billFigures(values, store?.rounding);
+  const text = { slabs: true, worked: true, hoursBefore: worked.hoursBefore, percent: worked.percent.toFixed(2), noShow: worked.noShow,
+    lines: worked.charges.map((x) => ({ lineId: x.lineId, itemName: x.line.item_name, unitLabel: x.line.unit_label, amount: money.rupees(x.amount) })),
+    charge: money.rupees(worked.total), ...money.figuresText(figures), held: money.rupees(held), toPay: money.rupees(Math.max(0, figures.total - held)),
+    back: money.rupees(Math.max(0, held - figures.total)) };
+  return c.seesMoney(business) ? text : { slabs: true, worked: true, hoursBefore: text.hoursBefore, percent: text.percent, noShow: text.noShow };
+}
+
+// body: { requestKey, reason, charges?: [{ lineId, amount, note? }] (a cancellation charge typed, when the shop has no slabs), waive?: { reason, approverId?, pin? }
+//   (a manager waives the charge worked out from the slabs), payment? | payments? (the rest of that bill), refund?: { method | methodId, reference? } (what is left of the
+//   advance and deposit, handed back), approval?: { approverId?, pin? } (with a refund), buyer? }
 async function cancel(business, user, bookingId, body) {
   c.requireRentals(business);
   await access.require(business, 'rentals.cancel');
   const requestKey = core.uuid(body.requestKey);
   const reason = v.requiredString(typeof body.reason === 'string' ? body.reason : '', 'Reason', 300);
   const list = body.charges === undefined || body.charges === null ? [] : v.requiredArray(body.charges, 'Cancellation charges');
-  const charges = list.map((raw, index) => {
+  const typed = list.map((raw, index) => {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) fail(`Charge ${index + 1} must be an object`);
     const amount = core.decimal(raw.amount ?? 0, `Charge ${index + 1}`, 2, 0, 10000000);
     return { lineId: id(raw.lineId, `Charge ${index + 1}: line`), amount: money.paise(amount), note: c.optionalText(raw.note, `Charge ${index + 1}: note`, 300) };
   }).filter((x) => x.amount > 0);
-  if (charges.length) await access.require(business, 'sales.create');
   const parts = core.readPayments(body);
   if (parts.length) await access.require(business, 'sales.edit');
   const how = body.refund ? readBack(body.refund) : null;
   if (how) await access.require(business, 'rentals.refund');
   // A manager's PIN is checked before the transaction (a PIN check holds no locks).
   const approval = how ? await pins().readApproval(business, user, { ...(body.approval || {}), reason: `Booking cancelled: ${reason}`.slice(0, 300) }, 'rentals.refund', { reasonLabel: 'Reason' }) : null;
-  const hash = c.hashOf({ ...body, approval: undefined, bookingId: String(bookingId) });
+  const waiver = body.waive && c.given(body.waive.reason)
+    ? await pins().readApproval(business, user, body.waive, 'rentals.approve', { reasonLabel: 'Why the cancellation charge is waived', selfWithoutPin: true }) : null;
+  const hash = c.hashOf({ ...body, approval: undefined, waive: body.waive ? { reason: body.waive.reason, approverId: body.waive.approverId } : undefined, bookingId: String(bookingId) });
   return repo.transaction(async (db) => {
     const booking = await lockBooking(db, business, bookingId);
     if (booking.cancel_key) {
@@ -593,8 +771,13 @@ async function cancel(business, user, bookingId, body) {
       return shape(business, await load(db, business, booking.id));
     }
     if (!['quote', 'reserved'].includes(booking.status)) fail(`Booking ${booking.booking_no} is ${booking.status}: ${booking.status === 'out' ? 'what is out comes back first' : 'it no longer changes'}`, 409);
-    const lines = await repo.all(db, `SELECT l.*,s.tax_rate AS tax_rate_now FROM rental_booking_lines l JOIN catalog_skus s ON s.business_id=l.business_id AND s.id=l.sku_id
-      WHERE l.business_id=$1 AND l.booking_id=$2 ORDER BY l.seq`, [business.id, booking.id]);
+    const lines = await cancelLines(db, business, booking);
+    // With the shop's slabs, the charge of a reserved booking is worked out, never typed; a manager may waive it.
+    const worked = await workOut(db, business, booking, lines, await c.settingsOf(db, business.id));
+    if (worked && typed.length) fail('The cancellation charge is worked out from the shop\'s cancellation slabs: it is not typed. A manager may waive it.', 409);
+    if (waiver && !worked?.total) fail('There is no cancellation charge worked out to waive', 409);
+    const charges = worked ? (waiver ? [] : worked.charges) : typed;
+    if (charges.length) await access.require(business, 'sales.create');
     for (const charge of charges) if (!lines.some((l) => Number(l.id) === charge.lineId)) fail(`That line is not on booking ${booking.booking_no}`, 404);
     if (parts.length && !charges.length) fail('A payment goes with a cancellation charge: there is nothing else to pay');
     // What the shop keeps is billed with its GST, each charge at its line's item's slab; the advance and deposit pay it first.
@@ -607,12 +790,24 @@ async function cancel(business, user, bookingId, body) {
     }
     await db.query(`UPDATE rental_bookings SET status='cancelled',cancelled_at=now(),cancelled_by=$3,cancel_reason=$4,cancel_key=$5,cancel_hash=$6,document_id=$7,updated_by=$3,updated_at=now()
       WHERE business_id=$1 AND id=$2`, [business.id, booking.id, user.id, reason, requestKey, hash, bill?.document.id || null]);
+    if (worked) {
+      await db.query(`INSERT INTO rental_cancellations(business_id,booking_id,hours_before,percent,worked_out,charged,waived_by,waiver,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [business.id, booking.id, worked.hoursBefore.toFixed(2), worked.percent.toFixed(2), money.rupees(worked.total), money.rupees(waiver ? 0 : worked.total),
+          waiver ? waiver.approver.id : null, waiver ? waiver.reason : null, user.id]);
+    }
     const back = how ? await refundLeft(db, business, user, booking, { purposes: ['deposit', 'advance'], how, approval, key: requestKey }) : [];
-    await history(db, business, user, booking, booking.status, 'cancelled', [reason, bill ? `cancellation charge billed (${bill.document.document_no})` : null,
+    const slabWords = worked ? `${worked.noShow ? 'a no-show' : `${worked.hoursBefore} hours before the out time`}: ${worked.percent}% of the hire, ${money.rupees(worked.total)}` : null;
+    await history(db, business, user, booking, booking.status, 'cancelled', [reason, slabWords, waiver ? `the charge waived by ${waiver.approver.name}: ${waiver.reason}` : null,
+      bill ? `cancellation charge billed (${bill.document.document_no})` : null,
       back.length ? `${money.rupees(back.reduce((s, r) => s + money.paise(r.amount), 0))} handed back (${back.map((r) => r.refund_no).join(', ')})` : null].filter(Boolean).join(' · '));
     const details = { bookingNo: booking.booking_no, reason, documentNo: bill?.document.document_no || null, charged: bill ? bill.document.total : null,
-      refunded: back.map((r) => ({ refundNo: r.refund_no, amount: r.amount, purpose: r.purpose })), ...(approval ? { approvedBy: approval.approver.name } : {}) };
+      refunded: back.map((r) => ({ refundNo: r.refund_no, amount: r.amount, purpose: r.purpose })), ...(approval ? { approvedBy: approval.approver.name } : {}),
+      ...(worked ? { workedOut: { hoursBefore: worked.hoursBefore, percent: worked.percent, amount: money.rupees(worked.total), noShow: worked.noShow } } : {}) };
     await repo.audit(db, business.id, approval?.approver.id || user.id, 'rental_booking.cancelled', booking.id, details);
+    if (waiver) {
+      await repo.audit(db, business.id, waiver.approver.id, 'rental_booking.cancellation_waived', booking.id, { bookingNo: booking.booking_no, amount: money.rupees(worked.total),
+        percent: worked.percent, reason: waiver.reason, by: user.id });
+    }
     await repo.event(db, business.id, user.id, 'rental_booking.cancelled', 'rental_booking', booking.id, { ...details, documentId: bill?.document.id || null });
     return shape(business, await load(db, business, booking.id));
   });
@@ -648,25 +843,30 @@ async function refundHeld(business, user, bookingId, body) {
 
 async function load(db, business, bookingId) {
   const b = await repo.one(db, `SELECT b.*,l.name AS location_name,to_jsonb(l) AS location,cu.name AS created_by_name,co.name AS checked_out_by_name,
-      dw.name AS deposit_waived_by_name,ca.name AS cancelled_by_name,d.document_no,ct.credit_days,ct.credit_limit,
+      dw.name AS deposit_waived_by_name,ca.name AS cancelled_by_name,dg.name AS discount_by_name,d.document_no,ct.credit_days,ct.credit_limit,ct.address AS contact_address,
       (now() AT TIME ZONE z.timezone)::date::text AS today,(b.status='out' AND b.due_at<now()) AS overdue,
       GREATEST(0,floor(EXTRACT(EPOCH FROM (now()-b.due_at))/60))::int AS late_minutes
     FROM rental_bookings b JOIN businesses z ON z.id=b.business_id JOIN business_locations l ON l.business_id=b.business_id AND l.id=b.location_id
     JOIN users cu ON cu.id=b.created_by LEFT JOIN users co ON co.id=b.checked_out_by LEFT JOIN users dw ON dw.id=b.deposit_waived_by LEFT JOIN users ca ON ca.id=b.cancelled_by
+    LEFT JOIN users dg ON dg.id=b.discount_by
     LEFT JOIN business_documents d ON d.business_id=b.business_id AND d.id=b.document_id JOIN business_contacts ct ON ct.business_id=b.business_id AND ct.id=b.contact_id
     WHERE b.business_id=$1 AND b.id=$2`, [business.id, bookingId]);
   if (!b) fail('Booking not found', 404);
   access.requireLocation(business, b.location_id);
   // One query at a time: `db` may be a transaction's own client.
-  const lines = await repo.all(db, `SELECT l.*,i.kind,i.vehicle,i.with_driver,i.meter,u.status AS unit_status,u.status_note AS unit_status_note,u.meter_reading AS unit_meter,
+  const lines = await repo.all(db, `SELECT l.*,i.kind,i.vehicle,i.with_driver,i.meter,i.kit_billing,u.status AS unit_status,u.status_note AS unit_status_note,u.meter_reading AS unit_meter,
+      u.vehicle_class,u.location_id AS unit_location_id,u.rc_valid_until,u.permit_valid_until,u.insurance_valid_until,u.puc_valid_until,u.fitness_valid_until,
+      COALESCE(k.checklist,'{}') AS checklist,k.name AS class_name,
       s.tax_rate AS tax_rate_now,COALESCE(x.back,0)::int AS back,COALESCE(x.missing,0)::int AS missing,dl.document_id AS line_document_id
     FROM rental_booking_lines l JOIN rental_items i ON i.business_id=l.business_id AND i.id=l.item_id JOIN catalog_skus s ON s.business_id=l.business_id AND s.id=l.sku_id
+    LEFT JOIN rental_classes k ON k.business_id=i.business_id AND k.id=i.class_id
     LEFT JOIN rental_units u ON u.business_id=l.business_id AND u.id=l.unit_id LEFT JOIN business_document_lines dl ON dl.business_id=l.business_id AND dl.id=l.line_id
     LEFT JOIN LATERAL (SELECT sum(rl.quantity) AS back,sum(rl.missing) AS missing FROM rental_return_lines rl WHERE rl.business_id=l.business_id AND rl.line_id=l.id) x ON TRUE
     WHERE l.business_id=$1 AND l.booking_id=$2 ORDER BY l.seq`, [business.id, b.id]);
   const returns = await repo.all(db, `SELECT r.id,r.final,r.document_id,r.note,r.created_at,u.name AS by_name,
       COALESCE((SELECT json_agg(json_build_object('line_id',rl.line_id,'item_name',l.item_name,'unit_label',l.unit_label,'quantity',rl.quantity,'missing',rl.missing,'note',rl.note,
-        'meter_in',rl.meter_in::text,'fuel_in',rl.fuel_in,'late_minutes',rl.late_minutes,'late_units',rl.late_units,'late_fee',rl.late_fee::text,'maintenance',rl.maintenance) ORDER BY l.seq)
+        'meter_in',rl.meter_in::text,'fuel_in',rl.fuel_in,'late_minutes',rl.late_minutes,'late_units',rl.late_units,'late_fee',rl.late_fee::text,'maintenance',rl.maintenance,
+        'extra_km',rl.extra_km,'km_fee',rl.km_fee::text,'fuel_short',rl.fuel_short,'fuel_fee',rl.fuel_fee::text) ORDER BY l.seq)
         FROM rental_return_lines rl JOIN rental_booking_lines l ON l.business_id=rl.business_id AND l.id=rl.line_id WHERE rl.business_id=r.business_id AND rl.return_id=r.id),'[]') AS lines
     FROM rental_returns r JOIN users u ON u.id=r.created_by WHERE r.business_id=$1 AND r.booking_id=$2 ORDER BY r.id`, [business.id, b.id]);
   const charges = await repo.all(db, `SELECT ch.id,ch.return_id,ch.booking_line_id,ch.kind,ch.amount,ch.note,ch.line_id,ch.created_at,l.item_name,l.unit_label,u.name AS by_name
@@ -686,6 +886,14 @@ async function load(db, business, bookingId) {
       COALESCE((SELECT sum(amount) FROM business_payments p WHERE p.business_id=d.business_id AND p.document_id=d.id),0) AS paid,
       COALESCE((SELECT sum(amount) FROM business_refunds f WHERE f.business_id=d.business_id AND f.document_id=d.id),0) AS refunded,${c.DUE_SQL('d')} AS due
     FROM business_documents d WHERE d.business_id=$1 AND d.id=$2`, [business.id, b.document_id]) : null;
+  const hirer = await repo.one(db, `SELECT h.*,rb.name AS original_returned_by_name FROM rental_hirers h LEFT JOIN users rb ON rb.id=h.original_returned_by
+    WHERE h.business_id=$1 AND h.booking_id=$2`, [business.id, b.id]);
+  const conditions = await repo.all(db, `SELECT x.id,x.line_id,x.stage,x.return_id,x.checks,x.created_at,u.name AS by_name FROM rental_conditions x JOIN users u ON u.id=x.created_by
+    WHERE x.business_id=$1 AND x.booking_id=$2 ORDER BY x.id`, [business.id, b.id]);
+  const files = await repo.all(db, `SELECT f.id,f.line_id,f.stage,f.kind,f.signer,f.file_name,f.mime_type,f.created_at,u.name AS by_name FROM rental_files f JOIN users u ON u.id=f.created_by
+    WHERE f.business_id=$1 AND f.booking_id=$2 ORDER BY f.id`, [business.id, b.id]);
+  const cancellation = await repo.one(db, `SELECT x.hours_before,x.percent,x.worked_out,x.charged,x.waiver,x.created_at,w.name AS waived_by_name FROM rental_cancellations x
+    LEFT JOIN users w ON w.id=x.waived_by WHERE x.business_id=$1 AND x.booking_id=$2`, [business.id, b.id]);
   const settings = await repo.one(db, 'SELECT * FROM business_settings WHERE business_id=$1', [business.id]);
   const rental = await c.settingsOf(db, business.id);
   const sum = (list, key) => list.reduce((s, x) => s + money.paise(x[key]), 0);
@@ -694,15 +902,17 @@ async function load(db, business, bookingId) {
     held: money.rupees(sum(of('deposit'), 'free')), due: b.deposit_due };
   const advance = { taken: money.rupees(sum(of('advance'), 'amount')), applied: money.rupees(sum(of('advance'), 'used')), refunded: money.rupees(sum(of('advance'), 'refunded')),
     left: money.rupees(sum(of('advance'), 'free')) };
-  // While it is out: the late fee so far on what is still out, and what the bill would come to if it all came back now.
+  // While it is out: the late fee so far on what is still out, and what the bill would come to if it all came back now
+  // (kilometres and fuel are counted when they come back).
   let pending = null;
   if (b.status === 'out') {
     const values = [];
     let late = 0;
     for (const line of lines) {
-      values.push({ ...money.today(money.paise(line.amount), line.tax_rate_now, b.tax_mode) });
+      values.push({ ...money.today(money.paise(line.amount) - money.paise(line.discount), line.tax_rate_now, b.tax_mode) });
       const left = Number(line.quantity) - Number(line.back) - Number(line.missing);
-      const fee = money.lateFee({ minutes: Number(b.late_minutes), grace: line.grace_minutes, per: line.late_per, rate: line.late_rate, quantity: left });
+      const fee = line.kind === 'kit' ? { units: 0, fee: 0 } : money.lateFee({ minutes: Number(b.late_minutes), grace: line.grace_minutes, per: line.late_per, rate: line.late_rate,
+        quantity: left, slabs: line.late_slabs, cap: line.late_cap });
       line.late_fee_now = money.rupees(fee.fee);
       line.late_units_now = fee.units;
       late += fee.fee;
@@ -710,7 +920,7 @@ async function load(db, business, bookingId) {
     }
     for (const rl of returns.flatMap((r) => r.lines)) {
       const line = lines.find((l) => Number(l.id) === Number(rl.line_id));
-      if (money.paise(rl.late_fee) > 0) values.push({ ...money.today(money.paise(rl.late_fee), line.tax_rate_now, b.tax_mode) });
+      for (const key of ['late_fee', 'km_fee', 'fuel_fee']) if (money.paise(rl[key]) > 0) values.push({ ...money.today(money.paise(rl[key]), line.tax_rate_now, b.tax_mode) });
     }
     for (const charge of charges) {
       const line = lines.find((l) => Number(l.id) === Number(charge.booking_line_id));
@@ -721,11 +931,16 @@ async function load(db, business, bookingId) {
     pending = { ...money.figuresText(figures), late_fee: money.rupees(late), held: money.rupees(held), to_pay: money.rupees(Math.max(0, figures.total - held)),
       back: money.rupees(Math.max(0, held - figures.total)) };
   }
+  const paperState = (until) => (!until ? null : { until: String(until instanceof Date ? until.toISOString() : until).slice(0, 10),
+    lapsed: String(until instanceof Date ? until.toISOString() : until).slice(0, 10) < b.today });
   const { request_hash: _hash, checkout_hash: _checkout, cancel_hash: _cancel, location, ...rest } = b;
   return {
-    ...rest, period: periodOf(b, business.timezone), lines: lines.map((l) => ({ ...l, period: money.periodWords(l), left: Number(l.quantity) - Number(l.back) - Number(l.missing) })),
-    returns, charges, receipts, deposit, advance_summary: advance, bill, events, pending, terms: rental.terms, id_required: rental.id_required,
-    seller: core.branchSeller(settings, location), timezone: business.timezone,
+    ...rest, period: periodOf(b, business.timezone),
+    lines: lines.map((l) => ({ ...l, period: money.periodWords(l), left: l.kind === 'kit' ? 0 : Number(l.quantity) - Number(l.back) - Number(l.missing),
+      papers: l.vehicle ? Object.fromEntries(Object.entries(c.PAPERS).map(([k, words]) => [k, paperState(l[k]) && { ...paperState(l[k]), words }]).filter(([, x]) => x)) : null })),
+    returns, charges, receipts, deposit, advance_summary: advance, bill, events, pending, terms: rental.terms, id_required: rental.id_required, papers_lapsed: rental.papers_lapsed,
+    hirer: hirer ? (({ business_id: _b, ...h }) => h)(hirer) : null, conditions, files, cancellation: cancellation || null, seller: core.branchSeller(settings, location),
+    timezone: business.timezone,
   };
 }
 
@@ -763,7 +978,67 @@ async function bell(business, base, limit) {
       title: `${c.plural(waiting.n, 'booking')} past its out time and not handed over`, detail: 'Hand it over, change its times, or cancel it, on Bookings',
       at: new Date(waiting.first).toISOString(), link: `${base}/rental-bookings` });
   }
+  // The fleet: papers running out and services due.
+  items.push(...await require('./rentalsYard.service').bell(business, base, limit));
   return items;
+}
+
+// A unit's barcode or serial as scanned (a keyboard-wedge scanner types it and Enter): the unit's line on the booking.
+// stage out: a line of the booking; in: a line still out. A unit not on the booking is refused.
+const scanCode = (value) => String(value ?? '').toUpperCase().replace(/\s+/g, '');
+// Codes are compared in letters and digits only ("gs 101" is GS-101).
+const bare = (value) => String(value ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+function findScan(booking, lines, code, stage) {
+  const plain = bare(code);
+  const line = lines.find((l) => l.unit_id && plain && (bare(l.serial_no) === plain || bare(l.unit_label) === plain));
+  if (!line) fail(`${code} is not on booking ${booking.booking_no}: put it aside`, 409);
+  if (stage === 'in' && Number(line.quantity) - Number(line.back || 0) - Number(line.missing || 0) <= 0) fail(`${line.unit_label} is back already on booking ${booking.booking_no}`, 409);
+  return line;
+}
+async function scanLines(db, business, booking) {
+  return repo.all(db, `SELECT l.*,COALESCE((SELECT sum(rl.quantity) FROM rental_return_lines rl WHERE rl.business_id=l.business_id AND rl.line_id=l.id),0)::int AS back,
+      COALESCE((SELECT sum(rl.missing) FROM rental_return_lines rl WHERE rl.business_id=l.business_id AND rl.line_id=l.id),0)::int AS missing
+    FROM rental_booking_lines l WHERE l.business_id=$1 AND l.booking_id=$2 ORDER BY l.seq`, [business.id, booking.id]);
+}
+// Codes scanned with a handover or a return, checked: each a unit on the booking (still out, for a return). Returns the codes, or [].
+async function checkScans(db, business, booking, value, stage) {
+  if (value === undefined || value === null) return [];
+  const codes = [...new Set(v.requiredArray(value, 'Scanned').map(scanCode).filter(Boolean))];
+  if (codes.length > 200) fail('Scan at most 200 units at once');
+  const lines = await scanLines(db, business, booking);
+  for (const code of codes) findScan(booking, lines, code, stage);
+  return codes;
+}
+
+// body: { code, stage?: out | in } — which line of the booking a scanned unit is (rentals.edit).
+async function scan(business, bookingId, body) {
+  c.requireRentals(business);
+  await access.require(business, 'rentals.edit');
+  const code = scanCode(body.code);
+  if (!code) fail('Scan the unit\'s barcode, or type its number');
+  const stage = body.stage === undefined ? 'out' : v.requiredEnum(body.stage, 'Scanned at', ['out', 'in']);
+  const booking = await repo.one(repo.pool, 'SELECT * FROM rental_bookings WHERE business_id=$1 AND id=$2', [business.id, id(bookingId, 'Booking')]);
+  if (!booking) fail('Booking not found', 404);
+  access.requireLocation(business, booking.location_id);
+  const line = findScan(booking, await scanLines(repo.pool, business, booking), code, stage);
+  return { code, lineId: line.id, itemName: line.item_name, unitLabel: line.unit_label, serialNo: line.serial_no };
+}
+
+// The original document held at the handover, handed back to the hirer (rentals.edit): once.
+async function originalBack(business, user, bookingId) {
+  c.requireRentals(business);
+  await access.require(business, 'rentals.edit');
+  return repo.transaction(async (db) => {
+    const booking = await lockBooking(db, business, bookingId);
+    const hirer = await repo.one(db, 'SELECT * FROM rental_hirers WHERE business_id=$1 AND booking_id=$2 FOR UPDATE', [business.id, booking.id]);
+    if (!hirer?.original_held) fail(`No original document was held for booking ${booking.booking_no}`, 409);
+    if (!hirer.original_returned_at) {
+      await db.query('UPDATE rental_hirers SET original_returned_at=now(),original_returned_by=$3 WHERE business_id=$1 AND booking_id=$2', [business.id, booking.id, user.id]);
+      await history(db, business, user, booking, null, null, `Original ${hirer.original_held} handed back to the hirer`);
+      await repo.audit(db, business.id, user.id, 'rental_booking.original_returned', booking.id, { bookingNo: booking.booking_no, document: hirer.original_held });
+    }
+    return shape(business, await load(db, business, booking.id));
+  });
 }
 
 // The receipts a hirer's bookings hold (advances and deposits): they pay only
@@ -789,5 +1064,6 @@ async function approvers(business, query = {}) {
 }
 
 module.exports = { BOOKINGS_SQL, shape, listShape, withoutMoney, readLines, readTimes, priceBooking, availability, clashWords, preview, create, update, confirm, receive, cancel,
+  cancelPreview, workOut, scan, checkScans, scanLines, scanCode, originalBack,
   refundHeld, load, detail, lockBooking, history, receiptsOf, applyReceipts, refundLeft, readBack, readMoney, takeReceipt, billValue, partsAfterHeld, postBill, periodOf, board, bell,
   heldReceipts, approvers };

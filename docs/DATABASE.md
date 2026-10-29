@@ -3665,12 +3665,12 @@ Added by: jewellery-work.
 
 ## Rentals & hire
 
-A rental and hire business's own tables (type `rentals`), added by 1791968000000 rentals. Module `rentals` ("Hire items & bookings", optional, rentals only, on) needs catalog, contacts and sales; permissions `rentals.view`, `rentals.create` (quotes and bookings), `rentals.edit` (change and extend bookings, hand over and take back, units in and out of service), `rentals.approve` (less deposit than asked), `rentals.cancel`, `rentals.refund` (hand back deposits and advances) and `rentals.print`. *Licences & registrations* is recommended to the type. Bookings are numbered in the series kind `rental` (prefix `RN`; not a GST document). A rental item is billed as a service item (`catalog_skus`); a booking's bill is an ordinary sale (`business_documents`), its advances and deposits ordinary receipts (`business_collections`) that pay that bill (`business_payments` with `collection_id`), and what is left of them is handed back as `business_collection_refunds` rows of source `rentals`. How they are used: [BUSINESS_PLATFORM_DATA_MODEL.md › Rentals & hire](BUSINESS_PLATFORM_DATA_MODEL.md#rentals--hire).
+A rental and hire business's own tables (type `rentals`), added by 1791968000000 rentals; kits, classes, pools by location, the hirer register, vehicle papers, kilometres and fuel, late and cancellation slabs, conditions, photos and signatures, maintenance and discounts by the rentals-more migration. Module `rentals` ("Hire items & bookings", optional, rentals only, on) needs catalog, contacts and sales; permissions `rentals.view`, `rentals.create` (quotes and bookings), `rentals.edit` (change and extend bookings, hand over and take back, units in and out of service), `rentals.approve` (less deposit than asked), `rentals.cancel`, `rentals.refund` (hand back deposits and advances) and `rentals.print`. *Licences & registrations* is recommended to the type. Bookings are numbered in the series kind `rental` (prefix `RN`; not a GST document). A rental item is billed as a service item (`catalog_skus`); a booking's bill is an ordinary sale (`business_documents`), its advances and deposits ordinary receipts (`business_collections`) that pay that bill (`business_payments` with `collection_id`), and what is left of them is handed back as `business_collection_refunds` rows of source `rentals`. How they are used: [BUSINESS_PLATFORM_DATA_MODEL.md › Rentals & hire](BUSINESS_PLATFORM_DATA_MODEL.md#rentals--hire).
 
 #### `rental_settings`
 Purpose: whether a hirer's photo ID is recorded at every handover, and the terms on the slips.
 Key columns: PK `business_id`, `id_required` (default true), `terms` (up to 2,000 characters, not blank), `updated_by`, `updated_at`. The defaults are used until the row is made (on first save).
-Added by: 1791968000000.
+Added by: 1791968000000; rentals-more (`papers_warn_days` 1-365, default 30; `papers_urgent_days` 0-365, default 7, fewer than the first; `papers_lapsed` warn or refuse, default refuse; `cancel_slabs` JSONB `[{ hours, percent }]`, checked by `rental_cancel_slabs_ok`, none until set; `no_show_percent`).
 
 #### `rental_items`
 Purpose: each thing hired out, its rates and rules.
@@ -3680,7 +3680,7 @@ Rules:
 - CHECK at least one rate; a pool quantity exactly for a pool; a vehicle and a meter only for a unit item, a vehicle's meter km; with a driver only for a vehicle; no late rate when there is no late fee, and a late fee by the hour or the day has its own rate or the hour or day rate.
 - UNIQUE (business, item); index `rental_items_list`.
 - Trigger `rental_items_guard`: the item is a service of the business counted in services and not a kit; it keeps its item, kind and vehicle, who made it and when; never deleted.
-Added by: 1791968000000.
+Added by: 1791968000000; rentals-more: `kind` also kit with `kit_billing` (kit, parts; a kit only, its late fee none, no rates when billed by parts); `class_id` -> `rental_classes`; `late_per` also slabs, with `late_slabs` (JSONB `[{ from, flat, times }]`, checked by `rental_late_slabs_ok` against the late rate or hour rate) and `late_cap` (> 0); `km_allowance` (0-100,000), `km_per` (day, booking), `extra_km_rate` (all or none, an odometer only); `fuel_per` (eighth, litre), `fuel_rate`, `tank_litres` (a litre charge needs the tank; a vehicle only). `pool_quantity` is the total of `rental_pool_counts`: trigger `rental_items_pool_start` starts a new pool at the first location, and `rental_items_guard` refuses another total.
 
 #### `rental_units`
 Purpose: each unit of an item hired one by one.
@@ -3689,7 +3689,7 @@ Relations: (`business_id`, `item_id`) -> `rental_items`.
 Rules:
 - CHECK a note unless available; unique indexes `rental_units_serial` (business, number) and `rental_units_label` (business, item, name in any case).
 - Trigger `rental_units_guard`: of an item hired one by one; a vehicle's unit has its registration; keeps its item, who made it and when; the meter never goes back; never deleted.
-Added by: 1791968000000.
+Added by: 1791968000000; rentals-more: `location_id` (NOT NULL, the first location unless placed: trigger `rental_units_home`; changed only with a `rental_transfers` row written now, `rental_units_guard`), `vehicle_class` (MC50CC, MCWOG, MCWG, LMV-NT, LMV, TRANS), `engine_cc`, `length_mm`, `fuel_type` (petrol, diesel, cng, lpg, electric), `rc_valid_until`, `permit_valid_until`, `insurance_valid_until`, `puc_valid_until`, `fitness_valid_until`, `service_per` (hours, km, days), `service_every`, `serviced_at`, `serviced_meter` (a schedule with its start).
 
 #### `rental_bookings`
 Purpose: a quote or a booking, from its out time to its due back time.
@@ -3702,7 +3702,7 @@ Rules:
 - Trigger `rental_bookings_insert_check`: a quote or reserved, out today or later on the business's clock, made when saved.
 - Trigger `rental_bookings_guard`: never deleted; keeps its number, hirer, location and request; quote → reserved or cancelled, reserved → out or cancelled, out → returned; the out time changes only before the handover, never to a day that has passed; what is recorded at the handover is written with it, when every unit is in service, the deposit held (`rental_deposit_held`) is the one asked unless someone agreed to less, and a self-drive vehicle has a driving licence in force that day; billed once, on a sale to the hirer; returned or cancelled, it never changes.
 - Constraint trigger `rental_bookings_available` (deferred): when it is reserved, handed over or its times change, every line that holds something is checked (`rental_check_booking`).
-Added by: 1791968000000; 1791977000000 (`rental_bookings_guard` lets an erasure's change through: `business_privacy_erasing`).
+Added by: 1791968000000; 1791977000000 (`rental_bookings_guard` lets an erasure's change through: `business_privacy_erasing`); rentals-more (`discount_percent` 0-100, `discount_reason`, `discount_by`: a reason and who gave it exactly with a discount).
 
 #### `rental_booking_lines`
 Purpose: each item on a booking, priced and as handed over.
@@ -3713,7 +3713,7 @@ Rules:
 - UNIQUE (business, booking, place), (business, bill line); unique indexes `rental_booking_lines_one_unit` and `rental_booking_lines_one_pool` (a unit once a booking, a pool item on one line); indexes `rental_booking_lines_item` and `rental_booking_lines_unit`.
 - Trigger `rental_booking_lines_guard`: added to a quote or a reserved booking, of its item's service item, by its unit (not retired) or how many, its item in use, with nothing handed over or billed; keeps its item and unit; how many changes only before the handover, the prices only until it is back; what is noted at the handover is written once, with the handover; the bill line is given once, a line of its own item on a sale to the hirer; taken off only before the handover.
 - Constraint trigger `rental_booking_lines_available` (deferred, on insert and a change of how many): `rental_check_line`.
-Added by: 1791968000000.
+Added by: 1791968000000; rentals-more: `kit_line_id` (-> the kit's line on the same booking) with `part_quantity`; `billed` (a kit billed as itself bills its line, by its parts their lines: the unbilled line's price, blocks and amount are nil); `discount` (the booking's, on the line's hire: `net` is the amount less it, or `net + tax` is); the rules as booked `late_slabs`, `late_cap`, `km_allowance`, `km_per`, `extra_km_rate`, `fuel_per`, `fuel_rate`, `tank_litres`; `fuel_out` in eighths (`rental_eighths`). Unique indexes `rental_booking_lines_one_pool` (a pool item once on a booking, besides kits' parts) and `rental_booking_lines_one_part` (a part once in a kit). `rental_booking_lines_guard` also checks a part's line against its kit (as many as the kit has of it) and who is billed.
 
 #### `rental_receipts`
 Purpose: the advances and refundable deposits taken for a booking.
@@ -3734,7 +3734,7 @@ Purpose: what came back of each line.
 Key columns: PK (`business_id`, `return_id`, `line_id`), `booking_id`, `quantity`, `missing`, `note`, `meter_in`, `fuel_in`, `late_minutes`, `late_units`, `late_fee`, `late_line_id`, `maintenance`.
 Relations: (`business_id`, `booking_id`, `return_id`) -> `rental_returns`; (`business_id`, `booking_id`, `line_id`) -> `rental_booking_lines`; (`business_id`, `late_line_id`) -> `business_document_lines`.
 Rules: CHECK something back or missing; late units exactly with a late fee; a bill line only with a late fee; UNIQUE (business, bill line); index `rental_return_lines_line`. Trigger `rental_return_lines_guard`: no more than is still out of the line; a meter not below the handover's; the late minutes from the due time to now, the units after the grace time (each hour or day, or part of one) and the fee at the booked late rate for each one back; maintenance for a unit only; written once, its bill line given once (a line of the item's service item on a sale to the hirer); never deleted.
-Added by: 1791968000000.
+Added by: 1791968000000; rentals-more: `extra_km`, `km_fee`, `km_line_id`, `fuel_short` (0-8 eighths), `fuel_fee`, `fuel_line_id` (each bill line once); `fuel_in` in eighths. `rental_return_lines_guard` also refuses a kit's own line, works the late fee out with `rental_late_fee` (slabs and cap), the kilometres beyond the booked allowance and the fuel short at the booked rates, and gives each fee's bill line once (`rental_fee_line_ok`).
 
 #### `rental_charges`
 Purpose: damage, missing, cleaning, fuel and other charges at a return, and a cancellation charge.
@@ -3742,6 +3742,69 @@ Key columns: `booking_id`, `return_id`, `booking_line_id`, `kind` (damage, missi
 Relations: (`business_id`, `booking_id`) -> `rental_bookings`; (`business_id`, `booking_id`, `return_id`) -> `rental_returns`; (`business_id`, `booking_id`, `booking_line_id`) -> `rental_booking_lines`; (`business_id`, `line_id`) -> `business_document_lines`.
 Rules: CHECK a return exactly for the kinds other than cancellation; a note for damage and other; UNIQUE (business, bill line); index `rental_charges_booking`. Trigger `rental_charges_guard`: a cancellation charge on a quote or reserved booking, the others on a booking out; kept as noted, its bill line given once (a line of the item's service item on a sale to the hirer); never deleted.
 Added by: 1791968000000.
+
+#### `rental_classes`
+Purpose: the shop's classes of what it hires out: a checklist and late fee slabs.
+Key columns: `name` (unique in any case), `checklist` (TEXT[], up to 30 points of 1-80 characters), `late_slabs`, `late_cap`, `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Rules: trigger `rental_classes_guard`: the points' lengths; never deleted.
+Added by: rentals-more.
+
+#### `rental_kit_parts`
+Purpose: what a kit is made of.
+Key columns: PK (`business_id`, `kit_id`, `part_id`), `quantity` (1-10,000 in one kit), `created_by`, `created_at`.
+Relations: `kit_id`, `part_id` -> `rental_items`.
+Rules: trigger `rental_kit_parts_guard`: the kit is a kit, the part an item from a pool. Replaced as a set when the kit changes; bookings keep their parts' lines.
+Added by: rentals-more.
+
+#### `rental_pool_counts`
+Purpose: how many of a pool each location has.
+Key columns: PK (`business_id`, `item_id`, `location_id`), `quantity` (0-1,000,000).
+Rules: trigger `rental_pool_counts_guard`: of a pool; set to 0, never deleted. Trigger `rental_pool_counts_total` keeps the item's `pool_quantity` the sum.
+Added by: rentals-more (today's pools at each business's first location).
+
+#### `rental_transfers`
+Purpose: a unit, or pieces of a pool, moved from one location to another.
+Key columns: `item_id`, `unit_id` (a unit, quantity 1), `quantity`, `from_location_id`, `to_location_id` (different), `note`, `request_key`, `request_hash`, `created_by`, `created_at` (when it moved).
+Rules: UNIQUE (business, request key). Trigger `rental_transfers_guard`: a unit of an item hired one by one or pieces of a pool, written when it moves; kept as written.
+Added by: rentals-more.
+
+#### `rental_downtime`
+Purpose: maintenance booked ahead for a unit.
+Key columns: `item_id`, `unit_id`, `starts_at`, `ends_at` (after it, at most 90 days), `reason`, `cancelled_at`, `cancelled_by`, `request_key`, `request_hash`, `created_by`, `created_at`.
+Rules: UNIQUE (business, request key); index `rental_downtime_unit`. Trigger `rental_downtime_guard`: only cancelled, once; never deleted. Deferred constraint trigger `rental_downtime_free`: over free time only (no booking hold, no other maintenance), the item's row the lock. It holds the unit in `rental_holds` (part downtime).
+Added by: rentals-more.
+
+#### `rental_services`
+Purpose: each service done on a unit, with its meter.
+Key columns: `item_id`, `unit_id`, `meter`, `note`, `created_by`, `created_at`.
+Rules: index `rental_services_unit`. Trigger `rental_services_append_only` (function `rental_append_only`).
+Added by: rentals-more.
+
+#### `rental_hirers`
+Purpose: the hirer register of a handover (Forms 5 and 3; 6 and 4 for a foreign national), and the original document held.
+Key columns: PK (`business_id`, `booking_id`), `contact_id` (the hirer, for an erasure), `address`, `licence_authority`, `licence_classes` (TEXT[] of the classes), `licence_issued_on`, `foreigner`, `passport_no`, `passport_authority`, `passport_nation`, `passport_issued_on`, `passport_valid_until`, `birth_date`, `permit_no`, `permit_issued_on`, `permit_classes`, `visa_no`, `visa_valid_until`, `original_held`, `original_returned_at`, `original_returned_by`, `created_by`, `created_at`.
+Rules: CHECK a foreign national's passport, its dates and date of birth; none of a passport, permit or visa otherwise; a permit with its date; the original's return once held. Index `rental_hirers_contact`. Trigger `rental_hirers_guard`: written with the handover (the booking out now) in the hirer's name; each self-drive vehicle's class among the licence's or permit's classes; kept as written but for the original's return, once; an erasure at the hirer's request blanks the personal columns only (`personalDataRegistry.js`).
+Added by: rentals-more.
+
+#### `rental_conditions`
+Purpose: a line's checklist as checked at the handover or a return.
+Key columns: `booking_id`, `line_id`, `stage` (out, in), `return_id` (in only), `checks` (JSONB `[{ point, ok, note }]`, 1-30), `created_by`, `created_at`.
+Rules: unique indexes `rental_conditions_out` (a line's handover once) and `rental_conditions_in` (a line once a return). Trigger `rental_conditions_append_only`.
+Added by: rentals-more.
+
+#### `rental_files`
+Purpose: photos of a handover and a return, and the signatures drawn by the hirer and the shop.
+Key columns: `booking_id`, `contact_id`, `line_id` (a photo of a line), `stage` (out, in), `kind` (photo, signature), `signer` (hirer, shop; a signature only), `stored_name` (generated, under `PRIVATE_UPLOADS_DIR/rentals/<business>/`), `file_name`, `mime_type` (JPEG, PNG, WebP), `size_bytes`, `created_by`, `created_at`.
+Rules: UNIQUE (business, stored name); index `rental_files_booking`. Trigger `rental_files_guard`: in the booking's hirer's name; out while it is reserved or out, in while it is out or back; never changed or deleted. Kept with the booking on an erasure (`personalDataRegistry.js`).
+Added by: rentals-more.
+
+#### `rental_cancellations`
+Purpose: a cancellation charge worked out from the shop's slabs, and a manager's waiver.
+Key columns: PK (`business_id`, `booking_id`), `hours_before` (less than 0: a no-show), `percent`, `worked_out`, `charged`, `waived_by`, `waiver`, `created_by`, `created_at`.
+Rules: CHECK charged as worked out, or nothing with a waiver. Trigger `rental_cancellations_append_only`.
+Added by: rentals-more.
+
+Functions added or replaced by rentals-more: `rental_late_slabs_ok(slabs, hourly)`, `rental_cancel_slabs_ok(slabs)`, `rental_eighths(level)`, `rental_late_fee(per, rate, grace, slabs, cap, minutes, quantity)` (units and fee), `rental_fee_line_ok(business, booking line, bill line)`, `rental_location_peak(business, item, location, from, until, except booking, except line)`; `rental_holds` (with maintenance booked), `rental_unit_clash` (maintenance counted), `rental_check_line` (a kit holds nothing itself; a unit booked where it is kept; a pool by the booking's location), `rental_items_guard`, `rental_units_guard`, `rental_booking_lines_guard`, `rental_return_lines_guard` and `rental_append_only` replaced (the migration's Down restores the 1791968000000 bodies).
 
 #### `rental_booking_events`
 Purpose: everything that happened to a booking.

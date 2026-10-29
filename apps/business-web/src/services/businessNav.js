@@ -277,6 +277,12 @@ export function businessSections(type) {
         // What is free day by day: each unit and pool over the week.
         { section: "rental-availability", label: "Availability", icon: "calendar", need: "rentals.view", types: RENTALS },
         { section: "rental-deposits", label: "Deposits held", icon: "wallet", need: "sales.view", module: "rentals", types: RENTALS },
+        // Where the units and pools are kept, the vehicles' papers and services, maintenance booked ahead and moves between locations.
+        { section: "rental-yard", label: "Yard & fleet", icon: "deliveries", need: "rentals.view", types: RENTALS },
+        // The hirer register of the rent-a-cab and rent-a-motorcycle schemes (Forms 5 and 3; 6 and 4), printed.
+        { section: "rental-register", label: "Hirer register", icon: "logbook", need: "rentals.print", types: RENTALS },
+        // Each unit's days out against its days available, and what each unit and item earned.
+        { section: "rental-reports", label: "Use & earnings", icon: "reports", need: "rentals.view", types: RENTALS },
       ],
     },
     {

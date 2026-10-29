@@ -15,14 +15,16 @@ import "../styles/rentals.css";
 // item in use. Each unit is a row with the bookings that hold it on each day
 // (booked, out, or back and in its turnaround time); each pool is a row with
 // how many are free on each day (of how many it has) at its busiest. A
-// booking opens from its hold. Worked out from the bookings themselves; the
-// database checks every booking again when it is saved.
+// booking opens from its hold; maintenance booked ahead holds a unit too. A
+// business with several locations sees one at a time (each counts its own
+// pools and keeps its own units). Worked out from the bookings themselves;
+// the database checks every booking again when it is saved.
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const shiftDay = (day, n) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 const dayWords = (day) => { const d = new Date(`${day}T00:00:00Z`); return { weekday: WEEKDAYS[d.getUTCDay()], date: `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}` }; };
-const PARTS = { booked: "Booked", out: "Out", back: "Back, turnaround" };
+const PARTS = { booked: "Booked", out: "Out", back: "Back, turnaround", downtime: "Maintenance" };
 
 export default function AvailabilityPage() {
   const biz = useOpenBusiness();
@@ -31,17 +33,19 @@ export default function AvailabilityPage() {
   const [from, setFrom] = useState(today);
   const [days, setDays] = useState("7");
   const [itemId, setItemId] = useState("");
+  const locations = biz.locations.filter((l) => l.active);
+  const [locationId, setLocationId] = useState(String(biz.currentLocationId || biz.member.location_id || locations[0]?.id || ""));
   const [names, setNames] = useState([]);
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   useEffect(() => {
     const controller = new AbortController();
-    businessRead(biz.id, "rentals/availability", { from, days, item: itemId || undefined }, controller.signal)
+    businessRead(biz.id, "rentals/availability", { from, days, item: itemId || undefined, location: locations.length > 1 ? locationId || undefined : undefined }, controller.signal)
       .then((d) => { setData(d); setError(""); if (!itemId) setNames(d.items.map((i) => ({ id: i.itemId, name: i.name }))); })
       .catch((err) => { if (!controller.signal.aborted) setError(getErrorMessage(err)); });
     return () => controller.abort();
-  }, [biz.id, from, days, itemId]);
-  const open = (h) => navigate(biz.path(`rental-bookings/${h.bookingId}`));
+  }, [biz.id, from, days, itemId, locationId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const open = (h) => { if (h.bookingId) navigate(biz.path(`rental-bookings/${h.bookingId}`)); };
   const step = Number(days);
 
   return (
@@ -57,6 +61,9 @@ export default function AvailabilityPage() {
             <button type="button" className="button button-secondary button-sm" onClick={() => setFrom(today)} disabled={from === today}>Today</button>
             <button type="button" className="button button-secondary button-sm" onClick={() => setFrom((d) => shiftDay(d, step))} aria-label="Later"><Icon name="chevron-right" size={14} /></button>
             <Segmented label="Days" options={[{ value: "7", label: "Week" }, { value: "14", label: "Two weeks" }]} value={days} onChange={setDays} />
+            {locations.length > 1 && (
+              <select aria-label="Location" value={locationId} onChange={(e) => setLocationId(e.target.value)}>{locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select>
+            )}
             <select aria-label="Item" value={itemId} onChange={(e) => setItemId(e.target.value)}>
               <option value="">Every item</option>
               {names.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
@@ -100,7 +107,7 @@ export default function AvailabilityPage() {
           </div>
         )}
       </SectionCard>
-      <p className="rnt-note">Booked: reserved and not yet handed over. Out: handed over and not back (past its due time it stays held until it is back). Back, turnaround: returned and being made ready.</p>
+      <p className="rnt-note">Booked: reserved and not yet handed over. Out: handed over and not back (past its due time it stays held until it is back). Back, turnaround: returned and being made ready. Maintenance: booked ahead on Yard &amp; fleet. A kit is free when its parts are.</p>
     </div>
   );
 }
@@ -115,9 +122,9 @@ function UnitRows({ item, today, biz, onOpen }) {
           {unit.days.map((d) => (
             <td key={d.day} className={`rnt-cell ${d.holds.length ? "is-full" : unit.status === "available" ? "is-free" : "is-off"} ${d.day === today ? "is-today" : ""}`}>
               {d.holds.length ? d.holds.map((h) => (
-                <button key={`${h.bookingId}:${h.part}`} type="button" className={`rnt-hold rnt-hold-${h.part}`} onClick={() => onOpen(h)}
+                <button key={`${h.bookingId}:${h.part}:${h.startsAt}`} type="button" className={`rnt-hold rnt-hold-${h.part}`} onClick={() => onOpen(h)}
                   title={`${PARTS[h.part]} · ${atWords(h.startsAt, biz)} to ${atWords(h.endsAt, biz)}`}>
-                  <span>{h.bookingNo}</span><small>{h.customerName}</small>
+                  <span>{h.bookingNo || PARTS[h.part]}</span><small>{h.customerName}</small>
                 </button>
               )) : <small className="muted">{unit.status === "available" ? "Free" : unit.status === "maintenance" ? "Maintenance" : "Retired"}</small>}
             </td>

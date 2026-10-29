@@ -2524,7 +2524,7 @@ panel over it.
 | Menu | Entry, and the tabs inside it | What they are for |
 | --- | --- | --- |
 | Daily work | **Overview** | Up to four headline figures — sales today (against the same weekday last week by this time), money in today, what customers owe (less advances, the same figure as Udhaar / Outstanding) and what is owed to suppliers — then *Needs doing today* (low stock, batches expiring soon, transfers on the way, counts open, broken promises, repairs ready, orders to dispatch…), *Start here* (the things done most often in this type), sales over the last 14 days, hour by hour and the best sellers, the day's bookings for a salon or clinic, and *What this business uses*. You see only the figures your role may see. |
-| Daily work | The type's own counter and day: a shop's **Quick bill**, a pharmacy's **Prescription sale**, a salon's **New bill** and **Appointments** (the calendar), a clinic's **Today's patients**, a wholesaler's **Sales orders**, a garage's **Job cards**, a gym's **Check-in**, a laundry's **New order** and **Orders** (with Ready & racks and Unclaimed), a jeweller's **Jewellery bill** (with Quick bill) and **Today's rates** (with the Rate board), a rental business's **Bookings** (with Availability and Deposits held), a fuel station's **Shift & readings** and **Tanks & dips** (with Tanker receipts and the Stock register), a hotel's **Front desk** (with Rooms & housekeeping, Reservations and Stays) and **Foreign guests (Form-III)** (with the Guest register) | Described with each type below. |
+| Daily work | The type's own counter and day: a shop's **Quick bill**, a pharmacy's **Prescription sale**, a salon's **New bill** and **Appointments** (the calendar), a clinic's **Today's patients**, a wholesaler's **Sales orders**, a garage's **Job cards**, a gym's **Check-in**, a laundry's **New order** and **Orders** (with Ready & racks and Unclaimed), a jeweller's **Jewellery bill** (with Quick bill) and **Today's rates** (with the Rate board), a rental business's **Bookings** (with Availability, Deposits held, Yard & fleet, Hirer register and Use & earnings), a fuel station's **Shift & readings** and **Tanks & dips** (with Tanker receipts and the Stock register), a hotel's **Front desk** (with Rooms & housekeeping, Reservations and Stays) and **Foreign guests (Form-III)** (with the Guest register) | Described with each type below. |
 | Daily work | **Sales history** (*Bill history* in a salon or clinic), with Quotations, Exchanges, Warranties and Orders for pickup where the type has them; **Customers** (*Clients*; a clinic's *Patients*), with Loyalty points (and a garage's Vehicles and Service due; a gym's **Members**, with Renewals and Member contacts; a fuel station's Fleet statements) | Post a sale at the server's prices, take payment with it or leave it on credit, return goods, refund. Customers carry a GSTIN, a credit limit and credit days; a customer over the limit cannot be given more credit. |
 | Daily work | **Udhaar** (*Customer dues* outside a kirana, a meat or weight-based shop, a general store, a hardware shop or a seeds and fertiliser shop), with *Payments received*; **Daily money**, with Expenses (and EMI & financiers) | What customers owe and what they paid; the day's money and paid expenses (below). |
 | Business | **Products & services** (named for the type: *Medicines & products*, *Books & stationery*…), with Categories, Barcode labels, Kits & bundles, Offers & discounts, price lists and the type's own (Drug master, Book details, Size × colour, Today's rates, Stylists & services, a laundry's Price list; a rental business's area opens on its Rental items) | Items with GST slab, unit, how they are tracked (quantity, batch and expiry, or serial number), reorder level. Categories nest up to five levels. |
@@ -5501,8 +5501,9 @@ back, with prices before GST. A new one starts with **Hire items & bookings**
 on; *Licences & registrations* is recommended to it (self-drive cars and
 motorcycles need the State Transport Authority's licence), and quotations and
 stock for what it sells can be switched on in Settings › Business tools.
-**Bookings** is the daily entry, with *Availability* and *Deposits held*
-beside it; the products area opens on **Rental items**. Every time on these
+**Bookings** is the daily entry, with *Availability*, *Deposits held*, *Yard &
+fleet*, *Hirer register* and *Use & earnings* beside it; the products area
+opens on **Rental items**. Every time on these
 screens (out, due back, overdue, today) is on the business's own clock, in its
 time zone, whatever the computer's clock says.
 
@@ -5520,8 +5521,10 @@ time zone, whatever the computer's clock says.
    heading 9973 (997329 for other goods); with a driver, 9966. Have an
    accountant confirm each slab and code before trading. Then:
    - *Hired out*: one by one (a generator, a car: each unit with its own name
-     and its registration or serial number) or from a pool (200 chairs: how
-     many the shop has);
+     and its registration or serial number), from a pool (200 chairs: how
+     many the shop has, at each location), or as a kit of parts from pools (a
+     shamiana set of 8 poles and 2 cloths: *Parts of one kit*), billed as the
+     kit at its own rates or by its parts at theirs;
    - *Vehicle*: a car, a motorcycle or scooter, or another vehicle, hired
      self-drive or with the shop's driver; a vehicle's meter is its odometer,
      and another unit may have an hour meter;
@@ -5531,27 +5534,55 @@ time zone, whatever the computer's clock says.
      and three days when that is cheaper than ten days;
    - *Deposit for each one*, refundable;
    - *Minimum hire* (hours), *Turnaround time* (minutes kept free after each
-     hire for cleaning and checks) and the *Late fee*: by the hour, by the day
-     or none, at its own rate (empty: the hour or day rate), after a *Grace
-     time*.
+     hire for cleaning and checks) and the *Late fee*: by the hour, by the day,
+     *By slabs of hours late* or none, at its own rate (empty: the hour or day
+     rate), after a *Grace time*, with an optional *Most late fee for each
+     one*. Slabs are the shop's own terms, e.g. up to 3 hours a flat ₹100 and
+     twice the hour rate an hour, more than 3 hours five times the hour rate:
+     the slab the hours late fall in prices all of them. An item without slabs
+     of its own takes its class's;
+   - *Class*: its checklist at every handover and return, and its late fee
+     slabs;
+   - for an item read by its odometer, *Kilometres*: so many free a day of the
+     hire or a booking, and *Each kilometre more*; for a vehicle, *Fuel short at
+     the return*: for each eighth of a tank, or for each litre (with the tank's
+     litres).
 
    A booking keeps the rates and rules it was made at; the activity log keeps
    every change. An item is switched off (not booked again), never deleted; a
    pool is not set below what bookings hold at their busiest.
 2. **The units** — on *Rental items*, *Add a unit* (or the units typed with a
    new item): its name, its registration or serial number (a vehicle's
-   registration is kept as letters and digits, however typed) and its meter.
-   A unit sent for maintenance (*Send for maintenance*) is not handed over
-   until it is *Back in service*; a retired one (*Retire*) is not booked, and
-   a unit booked or out is not retired.
-3. **Handover settings** (the same screen, for those who may change
+   registration is kept as letters and digits, however typed), its meter and
+   where it is kept. *Details* keeps a vehicle's class as a driving licence
+   names it (MCWOG, MCWG, LMV…), its engine (cc), length (mm) and fuel, and
+   the dates its registration certificate, permit, insurance, PUC and fitness
+   run until, and any unit's service schedule (every so many running hours,
+   kilometres or days). The engine, length and fuel make the like goods' slab:
+   a unit whose facts make another rate than its item's is shown with a
+   warning (have an accountant check the item's slab, which is the one
+   billed). *Barcode labels* prints a label for each unit with its number, to
+   scan at the handover and the return. A unit sent for maintenance (*Send
+   for maintenance*) is not handed over until it is *Back in service*; a
+   retired one (*Retire*) is not booked, and a unit booked or out is not
+   retired.
+3. **Classes** — on *Rental items*, *Add a class*: its name, its checklist (a
+   point a line: body and paint, tyres, helmet) and its late fee slabs with a
+   cap, for its items.
+4. **Handover settings** (the same screen, for those who may change
    settings): *Record the hirer's photo ID at every handover* (on to start
-   with), and the *Terms printed on the booking and handover slips*.
-4. **Self-drive vehicles** — a self-drive car or motorcycle goes out only
+   with), the *Terms printed on the booking and handover slips*, the days
+   before a vehicle's paper runs out that the bell warns (30, and again 7),
+   whether *A vehicle with a paper run out* is not handed over (to start with)
+   or is handed over with a warning, and the *Cancellation charges*: slabs of
+   hours before the out time with the percent of the hire each charges (none
+   until set; the shop's own terms, e.g. more than 72 hours 10%, 24 to 72
+   hours 25%), and the no-show percent.
+5. **Self-drive vehicles** — a self-drive car or motorcycle goes out only
    while the location holds the State Transport Authority's rent-a-cab or
    rent-a-motorcycle licence in force: switch on *Licences & registrations*
    and add it under Settings › Licences, with its dates.
-5. **The booking numbers** — bookings are numbered *RN/2627/0001* (Settings ›
+6. **The booking numbers** — bookings are numbered *RN/2627/0001* (Settings ›
    Number series, *Rental bookings*); the bill made at the return is the GST
    document, numbered as the business's sales are.
 
@@ -5573,9 +5604,13 @@ time zone, whatever the computer's clock says.
   minute (today or later, at most 90 days), with *4 hours*, *1 day*, *3 days*,
   *1 week* and *Out now*; a button for each rental item: a unit is chosen by
   its number, each marked free or booked over that time (by which booking),
-  and a pool takes how many, with how many are free. Each line shows the
-  server's price for the hours booked and its deposit; the total shows the
-  hire before GST, the GST, the total and the deposit asked. *Save as a
+  a pool takes how many, with how many are free at the booking's location,
+  and a kit how many kits (as many as its scarcest part allows), its parts
+  shown under it. Each line shows the server's price for the hours booked and
+  its deposit; the total shows the hire before GST, the GST, the total and
+  the deposit asked. Someone who may give a discount types *Discount on the
+  hire (%)* and its reason: within the business's most bill discount (the
+  owner, any), taken off every line's hire and billed. *Save as a
   quote* holds nothing; *Book it* reserves it, and the server refuses a unit
   or pieces that are not free (the database checks every booking it saves, so
   two counters booking the same unit at the same moment cannot both have it).
@@ -5609,14 +5644,26 @@ time zone, whatever the computer's clock says.
   with no GST.
 - **Handing over** (*Hand over*) — once its out time has come, and before its
   due back time. The hirer's photo ID (its kind and number; of an Aadhaar
-  card only the last four digits are typed, and kept); for a self-drive
-  vehicle the hirer's driving licence number and the date it is valid until
-  (refused once it has run out) and the location's licence in force; for
-  each line what is noted about its condition, its meter (never lower than
-  its last reading) and a vehicle's fuel. The deposit asked is taken now (or
+  card only the last four digits are typed, and kept), and *An original
+  document is held until the return* with its name (no copy is kept); for a
+  self-drive vehicle the hirer's driving licence number and the date it is
+  valid until (refused once it has run out), the location's licence in force
+  and the *Hirer register*: the full address, *Licence issued by*, *Licence
+  issued on* and the classes of vehicle on the licence (one must be the
+  vehicle's class, or the handover is refused), and for *A foreign national*
+  the passport (number, issued by, nation, dates), the date of birth, the
+  driving permit and the classes it authorises, and the visa. *Scan a unit's
+  barcode or type its number* checks each unit against the booking (a unit
+  not on it is refused). For each line what is noted about its condition, its
+  class's checklist (each point ticked, or what is wrong), its meter (never
+  lower than its last reading) and a vehicle's fuel in eighths. *Take a
+  photo*, *Hirer signs* and *Shop signs* keep the photos and both signatures
+  with the booking. A vehicle with a paper run out is refused, or handed over
+  with a warning, as the settings say. The deposit asked is taken now (or
   was before); less is handed over only with *Hand it over with less deposit
   than asked*, a reason and a manager's say-so (their PIN, unless the person
-  handing over is that manager). A unit in maintenance is not handed over.
+  handing over is that manager). A unit in maintenance is not handed over. A
+  kit goes out as its parts.
 - **Taking back** (*Take back*) — all of it or a part: a unit back (or *Not
   coming back*, which retires it), how many of a pool back and how many will
   not come back (the pool is lowered by them); the meter and fuel back, the
@@ -5624,22 +5671,54 @@ time zone, whatever the computer's clock says.
   missing pieces, cleaning, fuel or anything else, each on the line it is
   for. The late fee is worked out by the server: nothing within the grace
   time; after it, each hour or day late (or part of one) since the due back
-  time, at the booked late rate, for each one still out. When the last of it
-  is back the bill is posted through the core: each line's hire, the late
-  fees and the charges, each at the GST slab of its item on that day. The
+  time, at the booked late rate, or by the booked slabs, never more than the
+  cap, for each one still out. The kilometres beyond the booked allowance and
+  the fuel short of the level it went out with are worked out from the
+  readings and shown before the return is taken. Each line coming back is
+  checked against its class's checklist; units may be scanned; photos and
+  both signatures are kept; *The original … is handed back to the hirer*
+  acknowledges the document held. A kit comes back by its parts. When the
+  last of it is back the bill is posted through the core: each line's hire
+  (less the booking's discount), the late fees, the kilometres, the fuel and
+  the charges, each at the GST slab of its item on that day. The
   advance pays it first, then the deposit; *Paid now* takes the rest (what is
   not paid stays on the hirer's dues). What is left of the deposit goes back
   now (*Hand back what is left of the deposit now*, by cash, UPI or bank,
   with a manager's PIN) or later from the booking's page. A bill over
   ₹2,00,000 asks for the hirer's PAN unless it is saved with them.
 - **Cancelling** (*Cancel*) — a quote or a reserved booking, with a reason.
-  A *Cancellation charge* for any line is billed with its GST at that line's
-  slab, and the money held pays it first; what is left goes back now (with
-  a manager's PIN) or later.
+  With the shop's cancellation slabs set, a reserved booking's charge is
+  worked out and shown (the hours left before its out time, the percent, the
+  charge with its GST); *Waive the charge* takes it off with a manager's
+  say-so and the reason, kept on the booking. With no slabs set, a
+  *Cancellation charge* for any line is typed. The charge is billed with its
+  GST at each line's slab, and the money held pays it first; what is left
+  goes back now (with a manager's PIN) or later.
 - **Availability** (*Bookings › Availability*) — a week (or two) of days on
-  the shop's clock: each unit a row with the bookings holding it on each day
-  (*Booked*, *Out*, or *Back, turnaround*), each pool a row with how many are
-  free on each day at its busiest. A hold opens its booking.
+  the shop's clock, at one location at a time when there are several: each
+  unit kept there a row with the bookings holding it on each day (*Booked*,
+  *Out*, *Back, turnaround* or *Maintenance*), each pool a row with how many
+  of the location's are free on each day at its busiest. A hold opens its
+  booking.
+- **Yard & fleet** (*Bookings › Yard & fleet*) — every unit with where it is
+  kept, its state, its papers (each date, red once run out, amber and blue
+  within the warning days) and its service (due or not); *Move* a unit, or
+  *Move pieces* of a pool, to another location (recorded with when and who;
+  not a unit booked or out, nor pieces its bookings need); *Book maintenance*
+  ahead (it holds the unit as a booking does) and *Cancel* it; *Service
+  done* with the meter (the schedule counts again from it); the moves
+  between locations. The bell names papers running out and services due.
+- **Hirer register** (*Bookings › Hirer register*, for those who print) —
+  for dates (this month to start with) and a vehicle or every one, each hire
+  as the scheme's form lists it: Form 5 for a cab, Form 3 for a motorcycle,
+  Forms 6 and 4 for foreign nationals; *Print the register* prints them for
+  the State Transport Authority.
+- **Use & earnings** (*Bookings › Use & earnings*) — for dates on the shop's
+  calendar, each unit's days out against its days available (less
+  maintenance booked) and the share it was out, its hires, and the hire and
+  fees it earned on bills dated then (before GST; for those who see sales);
+  each item likewise, a pool by piece-days, a kit by its own hire.
+  *Export* gives each table as a spreadsheet.
 - **Deposits held** (*Bookings › Deposits held*, for those who see sales) —
   booking by booking, the deposit asked, collected, applied to the bill,
   handed back and held, with the receipts and the bill; those holding money
@@ -5657,11 +5736,13 @@ bill; it is never simply kept.
 Who does what: a cashier at the counter makes bookings and quotes, hands
 things over and takes them back with the bill and the money, and takes
 advances and deposits; a stock keeper (the yard) hands things over and takes
-them back, sees the bookings without their money, and sends units for
-maintenance; the bill made with the last of a booking is made by someone who
-bills. A manager does all of it, cancels bookings, agrees to less deposit
-and approves money handed back with their PIN; an accountant sees and prints,
-and a viewer sees.
+them back, sees the bookings without their money, sends units for
+maintenance, books maintenance ahead, records services, moves units between
+locations and prints the hirer register; the bill made with the last of a
+booking is made by someone who bills. A manager does all of it, gives
+discounts, cancels bookings, waives a cancellation charge, agrees to less
+deposit and approves money handed back with their PIN; an accountant sees
+and prints, and a viewer sees.
 
 ## Fuel stations
 

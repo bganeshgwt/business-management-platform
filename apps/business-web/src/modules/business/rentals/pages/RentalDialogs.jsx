@@ -1,28 +1,34 @@
 import { useEffect, useMemo, useState } from "react";
 import useAuth from "../../../../hooks/useAuth";
-import { businessWrite } from "../../../../services/business.service";
+import { businessRead, businessWrite } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
 import FormDialog from "../../core/pages/FormDialog";
 import { Field } from "../../core/pages/ui";
 import { businessToday, newKey, useOpenBusiness } from "../../core/pages/hooks";
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import RentalApproval from "./RentalApproval";
-import { CHARGES, DEPOSIT_NOTE, FUELS, ID_KINDS, addHours, approvalBody, atWords, emptyApproval, lateWords, lineWords, zonedInput } from "./rentals";
+import { Checklist, Evidence, ScanBox } from "./RentalEvidence";
+import { CHARGES, DEPOSIT_NOTE, FUELS, ID_KINDS, VEHICLE_CLASSES, addHours, approvalBody, atWords, blankChecks, checksBody, emptyApproval, lateWords, lineWords, zonedInput } from "./rentals";
 
-// The dialogs of a booking: the handover (the hirer's ID, the condition, meter
-// and fuel of each line, the driving licence for a self-drive vehicle, the
-// deposit asked, or less with a manager's say-so), the return (what came back,
-// what will not, what was noted, the charges; the bill when the last of it is
-// back, paid by the advance and deposit first, and the deposit left handed
-// back with a PIN), money taken for a booking (an advance or a deposit), a new
-// due back time, cancelling (with a cancellation charge), and money held
-// handed back. Every rule is the server's; these only ask.
+// The dialogs of a booking: the handover (the hirer's ID, the condition, the
+// checklist, meter and fuel of each line, the units scanned, photos and both
+// signatures, the driving licence and the hirer register for a self-drive
+// vehicle, the original document held, the deposit asked, or less with a
+// manager's say-so), the return (what came back, what will not, what was
+// noted and checked, the units scanned, the charges; the kilometres and fuel
+// worked out; the bill when the last of it is back, paid by the advance and
+// deposit first, and the deposit left handed back with a PIN), money taken for
+// a booking (an advance or a deposit), a new due back time, cancelling (the
+// charge worked out from the shop's slabs, or a manager's waiver), and money
+// held handed back. Every rule is the server's; these only ask.
 
 const PAY_KINDS = ["cash", "upi", "card", "bank"];
 const BACK_KINDS = ["cash", "upi", "bank"];
 const PAN_ABOVE = 200000;
 const vehicleLines = (booking) => booking.lines.filter((l) => l.vehicle);
 const selfDrive = (booking) => booking.lines.some((l) => l.vehicle && !l.with_driver);
+// A kit's own line goes out and comes back by its parts.
+const handled = (booking) => booking.lines.filter((l) => l.kind !== "kit");
 
 // The hand back of money, as asked: how, and a manager's PIN.
 function MoneyBack({ value, onChange, methods }) {
@@ -36,6 +42,58 @@ function MoneyBack({ value, onChange, methods }) {
   );
 }
 
+// Classes of vehicle ticked on a licence or permit.
+function ClassPicks({ label, value, onChange }) {
+  return (
+    <fieldset className="field-wide rnt-classes" aria-label={label}>
+      <legend className="small">{label}</legend>
+      {VEHICLE_CLASSES.map((x) => (
+        <label key={x.value} className="checkbox bz-check"><input type="checkbox" checked={value.includes(x.value)}
+          onChange={(e) => onChange(e.target.checked ? [...value, x.value] : value.filter((c) => c !== x.value))} /> {x.value}</label>
+      ))}
+    </fieldset>
+  );
+}
+
+// The hirer register of the rent-a-cab and rent-a-motorcycle schemes (Forms 5 and 3; 6 and 4 for a foreign national).
+function RegisterFields({ value, onChange, today }) {
+  const set = (name) => (e) => onChange({ ...value, [name]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
+  return (
+    <fieldset className="field-wide rnt-fieldset" aria-label="Hirer register">
+      <legend>Hirer register (the State Transport Authority's form)</legend>
+      <Field label="Full address" wide><input required maxLength={300} value={value.address} onChange={set("address")} /></Field>
+      <Field label="Licence issued by"><input required maxLength={100} value={value.licenceAuthority} onChange={set("licenceAuthority")} placeholder="e.g. RTA Khairatabad" /></Field>
+      <Field label="Licence issued on"><input required type="date" max={today} value={value.licenceIssuedOn} onChange={set("licenceIssuedOn")} /></Field>
+      <ClassPicks label="Classes of vehicle on the licence" value={value.licenceClasses} onChange={(licenceClasses) => onChange({ ...value, licenceClasses })} />
+      <label className="checkbox bz-check field-wide"><input type="checkbox" checked={value.foreigner} onChange={set("foreigner")} /> A foreign national (passport, driving permit and visa)</label>
+      {value.foreigner && (
+        <>
+          <Field label="Passport number"><input required maxLength={20} className="mono" value={value.passportNo} onChange={set("passportNo")} /></Field>
+          <Field label="Passport issued by"><input required maxLength={100} value={value.passportAuthority} onChange={set("passportAuthority")} /></Field>
+          <Field label="Nation"><input required maxLength={60} value={value.passportNation} onChange={set("passportNation")} /></Field>
+          <Field label="Passport issued on"><input required type="date" max={today} value={value.passportIssuedOn} onChange={set("passportIssuedOn")} /></Field>
+          <Field label="Passport valid until"><input required type="date" min={today} value={value.passportValidUntil} onChange={set("passportValidUntil")} /></Field>
+          <Field label="Date of birth"><input required type="date" max={today} value={value.birthDate} onChange={set("birthDate")} /></Field>
+          <Field label="Driving permit number"><input maxLength={30} className="mono" value={value.permitNo} onChange={set("permitNo")} /></Field>
+          <Field label="Driving permit issued on"><input type="date" max={today} value={value.permitIssuedOn} onChange={set("permitIssuedOn")} /></Field>
+          <ClassPicks label="Classes the driving permit authorises" value={value.permitClasses} onChange={(permitClasses) => onChange({ ...value, permitClasses })} />
+          <Field label="Visa number"><input maxLength={30} className="mono" value={value.visaNo} onChange={set("visaNo")} /></Field>
+          <Field label="Visa valid until"><input type="date" min={today} value={value.visaValidUntil} onChange={set("visaValidUntil")} /></Field>
+        </>
+      )}
+    </fieldset>
+  );
+}
+const blankRegister = (booking) => ({ address: booking.contact_address || "", licenceAuthority: "", licenceIssuedOn: "", licenceClasses: [], foreigner: false, passportNo: "",
+  passportAuthority: "", passportNation: "", passportIssuedOn: "", passportValidUntil: "", birthDate: "", permitNo: "", permitIssuedOn: "", permitClasses: [], visaNo: "", visaValidUntil: "" });
+const registerBody = (r) => ({ address: r.address.trim(), licenceAuthority: r.licenceAuthority.trim(), licenceIssuedOn: r.licenceIssuedOn, licenceClasses: r.licenceClasses,
+  foreigner: r.foreigner, ...(r.foreigner ? { passportNo: r.passportNo.trim(), passportAuthority: r.passportAuthority.trim(), passportNation: r.passportNation.trim(),
+    passportIssuedOn: r.passportIssuedOn, passportValidUntil: r.passportValidUntil, birthDate: r.birthDate, permitNo: r.permitNo.trim() || undefined,
+    permitIssuedOn: r.permitIssuedOn || undefined, permitClasses: r.permitClasses, visaNo: r.visaNo.trim() || undefined, visaValidUntil: r.visaValidUntil || undefined } : {}) });
+
+// A vehicle's papers that have run out, as the screen says them.
+const lapsedPapers = (booking) => booking.lines.flatMap((l) => Object.values(l.papers || {}).filter((p) => p.lapsed).map((p) => `${l.unit_label}'s ${p.words} ran out on ${p.until}`));
+
 // The handover: a reserved booking goes out.
 export function CheckoutDialog({ booking, onClose, onSaved }) {
   const biz = useOpenBusiness();
@@ -45,26 +103,36 @@ export function CheckoutDialog({ booking, onClose, onSaved }) {
   const held = Number(booking.deposit?.held || 0);
   const asked = Number(booking.deposit_due || 0);
   const money = booking.money !== false && biz.can("sales.edit");
+  const today = businessToday(biz.business.timezone);
   const [form, setForm] = useState({ idKind: "aadhaar", idRef: "", licenceNo: "", licenceValidUntil: "", deposit: Math.max(0, asked - held) > 0 ? Math.max(0, asked - held).toFixed(2) : "",
-    method: "cash", reference: "", note: "", less: false });
-  const [facts, setFacts] = useState(() => Object.fromEntries(booking.lines.map((l) => [l.id, { note: "", meter: l.unit_meter === null || l.unit_meter === undefined ? "" : String(Number(l.unit_meter)), fuel: l.vehicle ? "full" : "" }])));
+    method: "cash", reference: "", note: "", less: false, holding: false, originalHeld: "" });
+  const lines = handled(booking);
+  const [facts, setFacts] = useState(() => Object.fromEntries(lines.map((l) => [l.id, { note: "", meter: l.unit_meter === null || l.unit_meter === undefined ? "" : String(Number(l.unit_meter)),
+    fuel: l.vehicle ? "full" : "", checks: blankChecks(l.checklist) }])));
+  const [register, setRegister] = useState(() => blankRegister(booking));
+  const [scanned, setScanned] = useState([]);
   const [waiver, setWaiver] = useState(emptyApproval);
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
   const setFact = (lineId, name) => (e) => setFacts((all) => ({ ...all, [lineId]: { ...all[lineId], [name]: e.target.value } }));
   const taking = money ? Number(form.deposit || 0) : 0;
   const short = asked > 0 && held + taking < asked - 0.004;
-  const today = businessToday(biz.business.timezone);
+  const lapsed = lapsedPapers(booking);
   return (
-    <FormDialog title={`Hand over ${booking.booking_no}`} icon="check" width={720} onClose={onClose} onSaved={onSaved} submitLabel="Hand it over"
+    <FormDialog title={`Hand over ${booking.booking_no}`} icon="check" width={760} onClose={onClose} onSaved={onSaved} submitLabel="Hand it over"
       description={`${booking.customer_name} · due back ${atWords(booking.due_at, biz, { today: false })}${asked ? ` · deposit asked ${biz.exact(asked)}${held ? `, ${biz.exact(held)} held` : ""}` : ""}`}
       onSubmit={() => businessWrite(biz.id, `rentals/bookings/${booking.id}/checkout`, {
         requestKey, ...(form.idRef.trim() ? { idKind: form.idKind, idRef: form.idRef.trim() } : {}),
-        ...(selfDrive(booking) ? { licenceNo: form.licenceNo.trim(), licenceValidUntil: form.licenceValidUntil } : {}),
-        lines: booking.lines.map((l) => ({ lineId: l.id, note: facts[l.id].note.trim() || undefined, ...(l.meter && l.unit_id ? { meter: facts[l.id].meter } : {}),
-          ...(l.vehicle ? { fuel: facts[l.id].fuel } : {}) })),
+        ...(selfDrive(booking) ? { licenceNo: form.licenceNo.trim(), licenceValidUntil: form.licenceValidUntil, register: registerBody(register) } : {}),
+        ...(form.holding && form.originalHeld.trim() ? { originalHeld: form.originalHeld.trim() } : {}),
+        lines: lines.map((l) => ({ lineId: l.id, note: facts[l.id].note.trim() || undefined, ...(l.meter && l.unit_id ? { meter: facts[l.id].meter } : {}),
+          ...(l.vehicle ? { fuel: facts[l.id].fuel } : {}), ...(l.checklist?.length ? { checks: checksBody(facts[l.id].checks) } : {}) })),
+        ...(scanned.length ? { scanned: scanned.map((s) => s.code) } : {}),
         ...(taking > 0 ? { deposit: { amount: form.deposit, ...methods.body(form.method, PAY_KINDS), reference: form.reference.trim() || undefined } } : {}),
         ...(short && form.less ? { waiver: { ...approvalBody(waiver, user?.id), reason: waiver.reason } } : {}), note: form.note.trim() || undefined,
       })}>
+      {lapsed.length > 0 && (
+        <p className="field-wide rnt-note rnt-warn" role="alert">{lapsed.join("; ")}. {booking.papers_lapsed === "warn" ? "It goes out with a warning kept on the booking." : "It is not handed over until renewed."}</p>
+      )}
       <fieldset className="field-wide rnt-fieldset">
         <legend>The hirer's photo ID</legend>
         <Field label="Photo ID"><select value={form.idKind} onChange={set("idKind")}>{ID_KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}</select></Field>
@@ -72,22 +140,30 @@ export function CheckoutDialog({ booking, onClose, onSaved }) {
           <input required={booking.id_required} maxLength={form.idKind === "aadhaar" ? 4 : 30} inputMode={form.idKind === "aadhaar" ? "numeric" : undefined}
             pattern={form.idKind === "aadhaar" ? "\\d{4}" : undefined} className="mono" value={form.idRef} onChange={set("idRef")} />
         </Field>
+        <label className="checkbox bz-check field-wide"><input type="checkbox" checked={form.holding} onChange={set("holding")} /> An original document is held until the return (no copy is kept)</label>
+        {form.holding && <Field label="Original document held" wide><input required maxLength={100} value={form.originalHeld} onChange={set("originalHeld")} placeholder="e.g. Driving licence" /></Field>}
       </fieldset>
       {selfDrive(booking) && (
-        <fieldset className="field-wide rnt-fieldset">
-          <legend>Driving licence (a self-drive vehicle)</legend>
-          <Field label="Licence number"><input required maxLength={30} className="mono" value={form.licenceNo} onChange={set("licenceNo")} /></Field>
-          <Field label="Valid until" hint="A vehicle is not handed over on a licence that has run out."><input required type="date" min={today} value={form.licenceValidUntil} onChange={set("licenceValidUntil")} /></Field>
-        </fieldset>
+        <>
+          <fieldset className="field-wide rnt-fieldset">
+            <legend>Driving licence (a self-drive vehicle)</legend>
+            <Field label="Licence number"><input required maxLength={30} className="mono" value={form.licenceNo} onChange={set("licenceNo")} /></Field>
+            <Field label="Valid until" hint="A vehicle is not handed over on a licence that has run out."><input required type="date" min={today} value={form.licenceValidUntil} onChange={set("licenceValidUntil")} /></Field>
+          </fieldset>
+          <RegisterFields value={register} onChange={setRegister} today={today} />
+        </>
       )}
-      {booking.lines.map((l) => (
+      <ScanBox biz={biz} booking={booking} stage="out" scanned={scanned} onScanned={(hit) => setScanned((all) => (all.some((s) => s.lineId === hit.lineId) ? all : [...all, hit]))} />
+      {lines.map((l) => (
         <fieldset key={l.id} className="field-wide rnt-fieldset">
-          <legend>{lineWords(l)}</legend>
+          <legend>{lineWords(l)}{scanned.some((s) => s.lineId === l.id) ? " · scanned" : ""}</legend>
           <Field label="Condition noted (optional)" wide><input maxLength={300} value={facts[l.id].note} onChange={setFact(l.id, "note")} placeholder="e.g. Small scratch on the rear bumper" /></Field>
           {l.meter && l.unit_id && <Field label={l.meter === "km" ? "Odometer (km)" : "Hour meter"}><input required type="number" min="0" step="0.1" value={facts[l.id].meter} onChange={setFact(l.id, "meter")} /></Field>}
           {l.vehicle && <Field label="Fuel"><select value={facts[l.id].fuel} onChange={setFact(l.id, "fuel")}>{FUELS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}</select></Field>}
+          {l.checklist?.length > 0 && <Checklist points={l.checklist} value={facts[l.id].checks} onChange={(checks) => setFacts((all) => ({ ...all, [l.id]: { ...all[l.id], checks } }))} />}
         </fieldset>
       ))}
+      <Evidence biz={biz} booking={booking} stage="out" />
       {money && asked > 0 && (
         <>
           <Field label={held ? "Deposit taken now (the rest)" : "Deposit taken now"} hint="A receipt with no GST: it pays the bill only when the booking comes back."><input type="number" min="0" step="0.01" value={form.deposit} onChange={set("deposit")} /></Field>
@@ -102,7 +178,7 @@ export function CheckoutDialog({ booking, onClose, onSaved }) {
         </>
       )}
       <Field label="Note (optional)" wide><input maxLength={500} value={form.note} onChange={set("note")} /></Field>
-      {vehicleLines(booking).length > 0 && <p className="field-wide rnt-note">Each vehicle's odometer and fuel are kept with the booking; they come back with it.</p>}
+      {vehicleLines(booking).length > 0 && <p className="field-wide rnt-note">Each vehicle's odometer and fuel are kept with the booking; the kilometres beyond the allowance and the fuel short are charged at the return.</p>}
     </FormDialog>
   );
 }
@@ -113,10 +189,13 @@ export function ReturnDialog({ booking, onClose, onSaved }) {
   const { user } = useAuth();
   const methods = usePaymentMethods();
   const [requestKey] = useState(newKey);
-  const out = booking.lines.filter((l) => l.left > 0);
-  const [rows, setRows] = useState(() => Object.fromEntries(out.map((l) => [l.id, { quantity: String(l.left), missing: "0", note: "", meter: "", fuel: "full", maintenance: false }])));
+  const out = handled(booking).filter((l) => l.left > 0);
+  const [rows, setRows] = useState(() => Object.fromEntries(out.map((l) => [l.id, { quantity: String(l.left), missing: "0", note: "", meter: "", fuel: "full", maintenance: false,
+    checks: blankChecks(l.checklist) }])));
   const [charges, setCharges] = useState([]);
-  const [form, setForm] = useState({ pay: "", method: "cash", reference: "", refund: true, back: { method: "cash", reference: "" }, note: "", pan: "", declaration: false });
+  const [scanned, setScanned] = useState([]);
+  const original = booking.hirer?.original_held && !booking.hirer.original_returned_at ? booking.hirer.original_held : null;
+  const [form, setForm] = useState({ pay: "", method: "cash", reference: "", refund: true, back: { method: "cash", reference: "" }, note: "", pan: "", declaration: false, original: Boolean(original) });
   const [approval, setApproval] = useState(emptyApproval);
   const [plan, setPlan] = useState({ key: "", data: null, error: "" });
   const money = booking.money !== false;
@@ -144,27 +223,34 @@ export function ReturnDialog({ booking, onClose, onSaved }) {
   const backLeft = p?.final && money ? Number(p.depositBack) + Number(p.advanceBack) : 0;
   const canBack = biz.can("rentals.refund") && backLeft > 0;
   const big = p?.final && Number(p.total) > PAN_ABOVE;
-  const addCharge = () => setCharges((all) => [...all, { key: newKey(), lineId: String(booking.lines[0].id), kind: "damage", amount: "", note: "" }]);
+  const chargeable = handled(booking);
+  const addCharge = () => setCharges((all) => [...all, { key: newKey(), lineId: String(chargeable[0].id), kind: "damage", amount: "", note: "" }]);
   const setCharge = (k, name) => (e) => setCharges((all) => all.map((x) => (x.key === k ? { ...x, [name]: e.target.value } : x)));
+  const withChecks = lines.map((x) => {
+    const l = out.find((o) => o.id === x.lineId);
+    return Number(x.quantity) > 0 && l.checklist?.length ? { ...x, checks: checksBody(rows[l.id].checks) } : x;
+  });
   return (
-    <FormDialog title={`Take back ${booking.booking_no}`} icon="check" width={760} onClose={onClose} onSaved={onSaved}
+    <FormDialog title={`Take back ${booking.booking_no}`} icon="check" width={780} onClose={onClose} onSaved={onSaved}
       submitLabel={p?.final ? (money ? "Take back and post the bill" : "Take back") : "Take back"}
       description={`${booking.customer_name} · was due back ${atWords(booking.due_at, biz, { today: false })}${booking.overdue ? " · late" : ""}`}
       onSubmit={() => {
         if (!lines.length) throw new Error("Say what came back");
-        return businessWrite(biz.id, `rentals/bookings/${booking.id}/returns`, { requestKey, lines, charges: chargeBody, note: form.note.trim() || undefined,
+        return businessWrite(biz.id, `rentals/bookings/${booking.id}/returns`, { requestKey, lines: withChecks, charges: chargeBody, note: form.note.trim() || undefined,
+          ...(scanned.length ? { scanned: scanned.map((s) => s.code) } : {}), ...(original && form.original ? { originalReturned: true } : {}),
           ...(p?.final && money && biz.can("sales.edit") && Number(pay) > 0 ? { payment: { amount: Math.abs(Number(pay) - due) < 0.005 ? "full" : pay, ...methods.body(form.method, PAY_KINDS),
             reference: form.reference.trim() || undefined } } : {}),
           ...(p?.final && canBack && form.refund ? { refund: { ...methods.body(form.back.method, BACK_KINDS), reference: form.back.reference.trim() || undefined },
             approval: { ...approvalBody(approval, user?.id), reason: approval.reason || "Deposit handed back at the return" } } : {}),
           ...(big ? { buyer: { pan: form.pan.trim() || undefined, panDeclaration: form.declaration } } : {}) }, "post");
       }}>
+      <ScanBox biz={biz} booking={booking} stage="in" scanned={scanned} onScanned={(hit) => setScanned((all) => (all.some((s) => s.lineId === hit.lineId) ? all : [...all, hit]))} />
       {out.map((l) => {
         const r = rows[l.id];
         const back = Number(r.quantity) > 0 && !Number(r.missing);
         return (
           <fieldset key={l.id} className="field-wide rnt-fieldset">
-            <legend>{lineWords(l)}{l.left !== Number(l.quantity) ? ` · ${l.left} still out` : ""}</legend>
+            <legend>{lineWords(l)}{l.left !== Number(l.quantity) ? ` · ${l.left} still out` : ""}{scanned.some((s) => s.lineId === l.id) ? " · scanned" : ""}</legend>
             {l.unit_id ? (
               <>
                 <label className="checkbox bz-check"><input type="checkbox" checked={Number(r.quantity) > 0 && !Number(r.missing)} onChange={(e) => setRows((all) => ({ ...all, [l.id]: { ...all[l.id], quantity: e.target.checked ? "1" : "0", missing: "0" } }))} /> Back now</label>
@@ -178,8 +264,10 @@ export function ReturnDialog({ booking, onClose, onSaved }) {
             )}
             {back && l.meter && l.unit_id && <Field label={l.meter === "km" ? "Odometer (km)" : "Hour meter"} hint={l.meter_out ? `Out at ${Number(l.meter_out)}` : undefined}>
               <input required type="number" min={l.meter_out || 0} step="0.1" value={r.meter} onChange={setRow(l.id, "meter")} /></Field>}
-            {back && l.vehicle && <Field label="Fuel"><select value={r.fuel} onChange={setRow(l.id, "fuel")}>{FUELS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}</select></Field>}
+            {back && l.vehicle && <Field label="Fuel" hint={l.fuel_out ? `Out at ${FUELS.find((f) => f.value === l.fuel_out)?.label.toLowerCase()}` : undefined}>
+              <select value={r.fuel} onChange={setRow(l.id, "fuel")}>{FUELS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}</select></Field>}
             <Field label="Condition noted (optional)" wide><input maxLength={300} value={r.note} onChange={setRow(l.id, "note")} placeholder={l.out_note ? `Out: ${l.out_note}` : "e.g. Clean, no damage"} /></Field>
+            {Number(r.quantity) > 0 && l.checklist?.length > 0 && <Checklist points={l.checklist} value={r.checks} onChange={(checks) => setRows((all) => ({ ...all, [l.id]: { ...all[l.id], checks } }))} />}
             {back && l.unit_id && <label className="checkbox bz-check field-wide"><input type="checkbox" checked={r.maintenance} onChange={setRow(l.id, "maintenance")} /> Send it for maintenance (not handed over until it is back in service)</label>}
           </fieldset>
         );
@@ -188,7 +276,7 @@ export function ReturnDialog({ booking, onClose, onSaved }) {
         <legend>Charges (damage, missing pieces, cleaning, fuel)</legend>
         {charges.map((x) => (
           <div key={x.key} className="rnt-charge">
-            <Field label="For"><select value={x.lineId} onChange={setCharge(x.key, "lineId")}>{booking.lines.map((l) => <option key={l.id} value={l.id}>{lineWords(l)}</option>)}</select></Field>
+            <Field label="For"><select value={x.lineId} onChange={setCharge(x.key, "lineId")}>{chargeable.map((l) => <option key={l.id} value={l.id}>{lineWords(l)}</option>)}</select></Field>
             <Field label="Charge"><select value={x.kind} onChange={setCharge(x.key, "kind")}>{CHARGES.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}</select></Field>
             <Field label={booking.tax_mode === "inclusive" ? "Amount (with GST)" : "Amount (before GST)"}><input type="number" min="0.01" step="0.01" required value={x.amount} onChange={setCharge(x.key, "amount")} /></Field>
             <Field label="What it is for"><input maxLength={300} required={["damage", "other"].includes(x.kind)} value={x.note} onChange={setCharge(x.key, "note")} /></Field>
@@ -196,12 +284,14 @@ export function ReturnDialog({ booking, onClose, onSaved }) {
           </div>
         ))}
         <button type="button" className="chip-button" onClick={addCharge}>Add a charge</button>
-        <small className="muted">Each charge is billed with GST at the slab of the item it is for.</small>
+        <small className="muted">Each charge is billed with GST at the slab of the item it is for. Kilometres beyond the allowance and fuel short are worked out from the readings.</small>
       </fieldset>
       <div className="field-wide rnt-plan" aria-live="polite">
         {plan.key === key && plan.error ? <p className="bz-due small" role="alert">{plan.error}</p> : !p ? <span className="muted small">{lines.length ? "Working it out…" : "Say what came back."}</span> : (
           <>
             {p.lines.filter((x) => x.lateUnits > 0).map((x) => <p key={x.lineId} className="rnt-late">{x.unitLabel || x.itemName}: {lateWords(x.lateUnits, x.latePer)} late{money ? ` · ${biz.exact(x.lateFee)}` : ""}</p>)}
+            {p.lines.filter((x) => x.extraKm > 0).map((x) => <p key={`k${x.lineId}`} className="rnt-late">{x.unitLabel || x.itemName}: {x.extraKm} km over the allowance{money ? ` · ${biz.exact(x.kmFee)}` : ""}</p>)}
+            {p.lines.filter((x) => x.fuelShort > 0).map((x) => <p key={`f${x.lineId}`} className="rnt-late">{x.unitLabel || x.itemName}: fuel {x.fuelShort}/8 short{money ? ` · ${biz.exact(x.fuelFee)}` : ""}</p>)}
             {!p.final && <p className="rnt-note">Part of the booking stays out: the bill is made when the last of it is back.</p>}
             {p.final && money && (
               <table className="rnt-bill" aria-label="The bill">
@@ -218,6 +308,8 @@ export function ReturnDialog({ booking, onClose, onSaved }) {
           </>
         )}
       </div>
+      <Evidence biz={biz} booking={booking} stage="in" />
+      {original && <label className="checkbox bz-check field-wide"><input type="checkbox" checked={form.original} onChange={set("original")} /> The original {original} is handed back to the hirer</label>}
       {p?.final && money && due > 0 && biz.can("sales.edit") && (
         <>
           <Field label="Paid now" hint="What is not paid stays on the hirer's dues."><input type="number" min="0" step="0.01" value={pay} onChange={set("pay")} /></Field>
@@ -285,7 +377,8 @@ export function ExtendDialog({ booking, onClose, onSaved }) {
   );
 }
 
-// Cancelling a quote or a reserved booking: a cancellation charge billed (each at its item's slab), money held handed back.
+// Cancelling a quote or a reserved booking: the charge worked out from the shop's slabs (or waived by a manager),
+// or typed when the shop has none; billed at each item's slab; money held handed back.
 export function CancelDialog({ booking, onClose, onSaved }) {
   const biz = useOpenBusiness();
   const { user } = useAuth();
@@ -293,27 +386,50 @@ export function CancelDialog({ booking, onClose, onSaved }) {
   const [requestKey] = useState(newKey);
   const held = Number(booking.deposit?.held || 0) + Number(booking.advance_summary?.left || 0);
   const money = booking.money !== false;
-  const [form, setForm] = useState({ reason: "", charges: Object.fromEntries(booking.lines.map((l) => [l.id, ""])), refund: held > 0, back: { method: "cash", reference: "" } });
+  const [form, setForm] = useState({ reason: "", charges: Object.fromEntries(booking.lines.map((l) => [l.id, ""])), refund: held > 0, back: { method: "cash", reference: "" }, waive: false });
   const [approval, setApproval] = useState(emptyApproval);
+  const [waiver, setWaiver] = useState(emptyApproval);
+  const [worked, setWorked] = useState(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    businessRead(biz.id, `rentals/bookings/${booking.id}/cancel/preview`, undefined, controller.signal).then(setWorked).catch(() => setWorked({ worked: false }));
+    return () => controller.abort();
+  }, [biz.id, booking.id]);
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
-  const charges = booking.lines.map((l) => ({ lineId: l.id, amount: form.charges[l.id] })).filter((x) => Number(x.amount) > 0);
+  const typed = !worked?.worked && !worked?.slabs;
+  const charges = typed ? booking.lines.filter((l) => l.billed !== false).map((l) => ({ lineId: l.id, amount: form.charges[l.id] })).filter((x) => Number(x.amount) > 0) : [];
   const canCharge = money && biz.can("sales.create");
   const canBack = money && held > 0 && biz.can("rentals.refund");
+  const charge = worked?.worked ? Number(worked.charge || 0) : 0;
   return (
-    <FormDialog title={`Cancel ${booking.booking_no}`} icon="ban" width={640} onClose={onClose} onSaved={onSaved} submitLabel="Cancel it"
+    <FormDialog title={`Cancel ${booking.booking_no}`} icon="ban" width={680} onClose={onClose} onSaved={onSaved} submitLabel="Cancel it"
       description={held > 0 ? `${biz.exact(held)} is held for it: it pays any cancellation charge first; what is left goes back now (a manager's PIN) or later.` : "Nothing is held for it."}
       onSubmit={() => businessWrite(biz.id, `rentals/bookings/${booking.id}/cancel`, { requestKey, reason: form.reason.trim(), ...(charges.length ? { charges } : {}),
+        ...(worked?.worked && charge > 0 && form.waive ? { waive: { ...approvalBody(waiver, user?.id), reason: waiver.reason } } : {}),
         ...(canBack && form.refund ? { refund: { ...methods.body(form.back.method, BACK_KINDS), reference: form.back.reference.trim() || undefined }, approval: approvalBody(approval, user?.id) } : {}) })}>
       <Field label="Reason" wide><input required maxLength={300} autoFocus value={form.reason} onChange={set("reason")} placeholder="e.g. Function postponed" /></Field>
-      {canCharge && (
+      {worked?.worked && (
+        <div className="field-wide rnt-plan" aria-label="The cancellation charge">
+          <p className="rnt-note">{worked.noShow ? "Past its out time and not handed over: a no-show." : `${Math.max(0, worked.hoursBefore)} hours before its out time.`} The shop's slabs charge {Number(worked.percent)}% of the hire
+            {money && worked.total !== undefined ? `: ${biz.exact(worked.charge)}, ${biz.exact(worked.total)} with GST.` : "."}</p>
+          {charge > 0 && biz.can("rentals.cancel") && (
+            <>
+              <label className="checkbox bz-check"><input type="checkbox" checked={form.waive} onChange={set("waive")} /> Waive the charge (a manager agrees, with the reason)</label>
+              {form.waive && <RentalApproval permission="rentals.approve" reasonLabel="Why the charge is waived" reasonPlaceholder="e.g. Hall flooded" pinOptional value={waiver} onChange={setWaiver} />}
+            </>
+          )}
+        </div>
+      )}
+      {worked?.slabs && !worked.worked && <p className="field-wide rnt-note">A quote holds nothing: it is cancelled with no charge.</p>}
+      {typed && canCharge && (
         <fieldset className="field-wide rnt-fieldset">
           <legend>Cancellation charge (optional)</legend>
-          {booking.lines.map((l) => (
+          {booking.lines.filter((l) => l.billed !== false).map((l) => (
             <Field key={l.id} label={`${lineWords(l)} (${booking.tax_mode === "inclusive" ? "with GST" : "before GST"})`}>
               <input type="number" min="0" step="0.01" value={form.charges[l.id]} onChange={(e) => setForm((f) => ({ ...f, charges: { ...f.charges, [l.id]: e.target.value } }))} />
             </Field>
           ))}
-          <small className="muted">What the shop keeps is billed with its GST, at the slab of the item it is for.</small>
+          <small className="muted">What the shop keeps is billed with its GST, at the slab of the item it is for. Cancellation slabs in the handover settings work it out instead.</small>
         </fieldset>
       )}
       {canBack && (

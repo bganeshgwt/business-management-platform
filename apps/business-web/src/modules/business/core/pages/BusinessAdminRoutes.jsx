@@ -180,6 +180,9 @@ const RentalBookingFormPage = lazy(() => import("../../rentals/pages/BookingForm
 const RentalAvailabilityPage = lazy(() => import("../../rentals/pages/AvailabilityPage"));
 const RentalDepositsPage = lazy(() => import("../../rentals/pages/DepositsPage"));
 const RentalItemsPage = lazy(() => import("../../rentals/pages/RentalItemsPage"));
+const RentalYardPage = lazy(() => import("../../rentals/pages/YardPage"));
+const RentalRegisterPage = lazy(() => import("../../rentals/pages/RegisterPage"));
+const RentalReportsPage = lazy(() => import("../../rentals/pages/RentalReportsPage"));
 // Fuel stations.
 const FuelShiftsPage = lazy(() => import("../../fuel/pages/ShiftsPage"));
 const FuelShiftPage = lazy(() => import("../../fuel/pages/ShiftPage"));
@@ -383,6 +386,9 @@ function screens(type) {
     "rental-availability": <RentalAvailabilityPage />,
     "rental-deposits": <RentalDepositsPage />,
     "rental-items": <RentalItemsPage />,
+    "rental-yard": <RentalYardPage />,
+    "rental-register": <RentalRegisterPage />,
+    "rental-reports": <RentalReportsPage />,
     "fuel-shifts": <FuelShiftsPage />,
     "fuel-dips": <FuelDipsPage />,
     "fuel-receipts": <FuelReceiptsPage />,

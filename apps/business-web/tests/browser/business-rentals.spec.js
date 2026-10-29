@@ -5,8 +5,10 @@ import { RENTALS, TIMEZONE, business, localDate, signIn } from "../../../../e2e/
 // The tent house's screens. Signs in as its manager (e2e/test-data.mjs), who
 // approves money handed back with a PIN of their own. In it: the first
 // generator booked for tomorrow; a sound system handed over a day ago with its
-// ₹5,000 deposit, now three hours past its due back time; and the other
-// generator with 100 chairs, going out now and not handed over yet.
+// ₹5,000 deposit, now three hours past its due back time; the other
+// generator with 100 chairs, going out now and not handed over yet; two
+// self-drive cars (the second hired and back once, in the hirer register; the
+// first reserved from now), a shamiana kit, and chairs booked to go out in 30 hours.
 let shop = null;
 test.beforeEach(async ({ page }) => {
   shop = business("rentals");
@@ -175,5 +177,116 @@ test("the lists: the deposits held, what is due back, the week and the rental it
   await expect(page.getByRole("table", { name: "Rental items" })).toContainText(RENTALS.generator.name, { timeout: 15_000 });
   await expect(page.getByRole("table", { name: "Units" })).toContainText(RENTALS.generator.units[0].serialNo);
   await page.screenshot({ path: testInfo.outputPath("rental-items.png"), fullPage: true });
+  expect(errors).toEqual([]);
+});
+
+test("a kit books its parts; the yard and fleet, the hirer register and use and earnings", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  await page.goto(`/business-admin/${shop.id}/rental-items`);
+  await expect(page.getByRole("heading", { name: "Rental items", level: 1 })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("table", { name: "Rental items" })).toContainText(RENTALS.kit.name, { timeout: 15_000 });
+  await expect(page.getByRole("table", { name: "Classes" })).toContainText(RENTALS.carClass.checklist.join(", "));
+  // Two shamiana sets for a day: 16 poles and 4 cloths held; billed as the kit, 2 × ₹2,000 + 18% GST = ₹4,720.00.
+  await page.goto(`/business-admin/${shop.id}/rental-bookings/new`);
+  await expect(page.getByRole("heading", { name: "New booking", level: 1 })).toBeVisible({ timeout: 15_000 });
+  await pick(page, page.getByRole("combobox", { name: "Hirer" }), RENTALS.booked.hirer.name);
+  await page.getByRole("group", { name: "Add an item" }).getByRole("button", { name: RENTALS.kit.name }).click();
+  await page.getByLabel(/^How many kits/).fill("2");
+  await expect(page.getByText(new RegExp(`16 × ${RENTALS.poles.name}`))).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Total ₹4,720.00")).toBeVisible();
+  await page.getByRole("button", { name: "Book it" }).click();
+  await expect(page.getByRole("heading", { name: /^Booking RN\//, level: 1 })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("table", { name: "Lines of this booking" })).toContainText(`${RENTALS.kit.poles} in each ${RENTALS.kit.name}`);
+  await page.screenshot({ path: testInfo.outputPath("kit-booking.png"), fullPage: true });
+  // Yard & fleet: the car's PUC certificate runs out within the week.
+  await page.goto(`/business-admin/${shop.id}/rental-yard`);
+  await expect(page.getByRole("heading", { name: "Yard & fleet", level: 1 })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("table", { name: "Units in the yard" }).getByRole("row").filter({ hasText: RENTALS.car.unit.label })).toContainText(/PUC certificate: \d days? left/,
+    { timeout: 15_000 });
+  await page.screenshot({ path: testInfo.outputPath("yard.png"), fullPage: true });
+  // The hirer register: the car's hire on Form 5, with the licence's authority and the kilometres.
+  await page.goto(`/business-admin/${shop.id}/rental-register`);
+  await expect(page.getByRole("heading", { name: "Hirer register", level: 1 })).toBeVisible({ timeout: 15_000 });
+  const form5 = page.getByRole("table", { name: `Form 5 of ${RENTALS.car.spare.label}` });
+  const hire = form5.getByRole("row").filter({ hasText: RENTALS.driven.hirer.name });
+  await expect(hire).toContainText(RENTALS.register.licenceAuthority, { timeout: 15_000 });
+  await expect(hire).toContainText("120");
+  await page.getByRole("button", { name: "Print the register" }).click();
+  await expect(page.locator("#print-root")).toContainText("Form 5");
+  await expect(page.locator("#print-root")).toContainText(RENTALS.register.address);
+  await page.screenshot({ path: testInfo.outputPath("register.png"), fullPage: true });
+  // Use and earnings: each unit's days out and what it earned.
+  await page.goto(`/business-admin/${shop.id}/rental-reports`);
+  await expect(page.getByRole("heading", { name: "Use & earnings", level: 1 })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("table", { name: "Use by unit" })).toContainText(RENTALS.car.unit.label, { timeout: 15_000 });
+  await page.screenshot({ path: testInfo.outputPath("use-and-earnings.png"), fullPage: true });
+  expect(errors).toEqual([]);
+});
+
+test("the handover of a self-drive car: the hirer register with the licence class checked, the checklist, the plate scanned and the hirer's signature", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  await page.goto(`/business-admin/${shop.id}/rental-bookings/${shop.driving.id}`);
+  await expect(page.getByRole("heading", { name: `Booking ${shop.driving.bookingNo}`, level: 1 })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Hand over", exact: true }).click();
+  const hand = page.getByRole("dialog", { name: `Hand over ${shop.driving.bookingNo}` });
+  await hand.getByLabel("Last 4 digits of the Aadhaar").fill("4321");
+  await hand.getByLabel("Licence number").fill("TS0920190007788");
+  await hand.getByLabel("Valid until", { exact: true }).fill(localDate(900));
+  const register = hand.getByRole("group", { name: "Hirer register" });
+  await register.getByLabel("Full address").fill("Plot 14, KPHB Colony, Hyderabad 500072");
+  await register.getByLabel("Licence issued by").fill("RTA Kukatpally");
+  await register.getByLabel("Licence issued on").fill("2019-01-15");
+  const classes = register.getByRole("group", { name: "Classes of vehicle on the licence" });
+  await classes.getByLabel("MCWG", { exact: true }).check();
+  // The plate scanned: a keyboard-wedge scanner types it, then Enter.
+  const scan = hand.getByLabel("Scan a unit's barcode or type its number");
+  await scan.fill("ts09 ea 1111");
+  await scan.press("Enter");
+  await expect(hand.getByText(`Scanned: ${RENTALS.car.unit.label}`)).toBeVisible({ timeout: 15_000 });
+  // The class's checklist, each point as it should be.
+  await expect(hand.getByRole("group", { name: "Checklist" }).getByLabel(RENTALS.carClass.checklist[0])).toBeChecked();
+  // The hirer signs on the screen.
+  await hand.getByRole("button", { name: "Hirer signs" }).click();
+  const pad = hand.getByLabel("Sign here");
+  const box = await pad.boundingBox();
+  await page.mouse.move(box.x + 20, box.y + 40);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 120, box.y + 90, { steps: 8 });
+  await page.mouse.move(box.x + 220, box.y + 50, { steps: 8 });
+  await page.mouse.up();
+  await hand.getByRole("button", { name: "Save signature" }).click();
+  await expect(hand.getByRole("button", { name: "Hirer signed" })).toBeVisible({ timeout: 15_000 });
+  await page.screenshot({ path: testInfo.outputPath("car-handover-dialog.png"), fullPage: true });
+  // A licence for motorcycles with gear does not cover a car (LMV): the server refuses it.
+  await hand.getByRole("button", { name: "Hand it over" }).click();
+  await expect(hand.getByRole("alert").filter({ hasText: "is a LMV vehicle" })).toBeVisible({ timeout: 15_000 });
+  await classes.getByLabel("LMV", { exact: true }).check();
+  await hand.getByRole("button", { name: "Hand it over" }).click();
+  await expect(hand).toBeHidden({ timeout: 15_000 });
+  // The register, the checklist and the signature stay with the booking.
+  await expect(page.getByText(/issued by RTA Kukatpally/)).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator(".rnt-condition").filter({ hasText: `Out · ${RENTALS.car.name}` })).toContainText(RENTALS.carClass.checklist[0]);
+  await expect(page.getByAltText("Signed by the hirer")).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("car-handed-over.png"), fullPage: true });
+  expect(errors).toEqual([]);
+});
+
+test("a reserved booking cancelled: the charge worked out from the shop's slabs, waived by the manager", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  await page.goto(`/business-admin/${shop.id}/rental-bookings/${shop.cancelling.id}`);
+  await expect(page.getByRole("heading", { name: `Booking ${shop.cancelling.bookingNo}`, level: 1 })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: `Cancel ${shop.cancelling.bookingNo}` });
+  // 20 chairs for a day (₹200), about 30 hours before the out time: 25%, ₹50.00, ₹59.00 with GST.
+  await expect(dialog.getByText(/The shop's slabs charge 25% of the hire: ₹50\.00, ₹59\.00 with GST\./)).toBeVisible({ timeout: 15_000 });
+  await dialog.getByLabel("Reason", { exact: true }).fill("Function called off");
+  await dialog.getByRole("checkbox", { name: /Waive the charge/ }).check();
+  await dialog.getByLabel("Why the charge is waived").fill("Regular customer");
+  await page.screenshot({ path: testInfo.outputPath("cancel-waived-dialog.png"), fullPage: true });
+  await dialog.getByRole("button", { name: "Cancel it" }).click();
+  await expect(dialog).toBeHidden({ timeout: 15_000 });
+  // The booking's cancellation and its history both say who waived it and why.
+  await expect(page.getByRole("definition").filter({ hasText: "waived by Arjun Menon: Regular customer" })).toContainText("25% of the hire worked out", { timeout: 15_000 });
+  await expect(page.getByRole("cell", { name: /the charge waived by Arjun Menon: Regular customer/ })).toBeVisible();
   expect(errors).toEqual([]);
 });

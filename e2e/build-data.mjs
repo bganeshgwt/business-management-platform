@@ -744,7 +744,11 @@ export async function buildTestData({ api, logins, sql }) {
   // item at 18%; the first generator booked for tomorrow; a sound system
   // handed over with its deposit, then moved back in the database (the way
   // the API's own tests move one) so that it is past its due back time now;
-  // and the other generator with chairs, going out now.
+  // and the other generator with chairs, going out now. The fleet and the
+  // kit: a class of cars with its checklist, two self-drive cars with their
+  // papers and the location's rent-a-cab licence (the second hired and back
+  // once, in the hirer register; the first reserved from now), a shamiana kit of poles and cloth,
+  // the shop's cancellation slabs and chairs booked to go out in 30 hours.
   {
     const B = at("rentals");
     const locationId = businesses.rentals.locationId;
@@ -787,6 +791,45 @@ export async function buildTestData({ api, logins, sql }) {
     const goingHirer = await hirer(RENTALS.going.hirer);
     const going = await book(goingHirer, { outAt: after(0), dueAt: after(RENTALS.going.hours * 60) },
       [{ itemId: generator.id, unitId: unitOf(generator, "Gen B").id }, { itemId: chairs.id, quantity: String(RENTALS.going.chairs) }]);
+    // The fleet: a class of cars, a self-drive car with its papers, the location's rent-a-cab licence; a shamiana kit; the cancellation slabs.
+    const day = (days) => new Date(Date.now() + days * 86400000).toLocaleDateString("en-CA", { timeZone: TIMEZONE });
+    const carClass = (await owner("POST", B("rentals/classes"), { name: RENTALS.carClass.name, checklist: RENTALS.carClass.checklist }, 201)).classes
+      .find((k) => k.name === RENTALS.carClass.name);
+    const car = await item(RENTALS.car, { kind: "unit", vehicle: "car", latePer: "none", classId: carClass.id, km: RENTALS.car.km, fuel: RENTALS.car.fuel,
+      units: [{ label: RENTALS.car.unit.label, serialNo: RENTALS.car.unit.serialNo, meterReading: RENTALS.car.unit.meter },
+        { label: RENTALS.car.spare.label, serialNo: RENTALS.car.spare.serialNo, meterReading: RENTALS.car.spare.meter }] });
+    const swift = unitOf(car, RENTALS.car.unit.label);
+    const spare = unitOf(car, RENTALS.car.spare.label);
+    const { vehicleClass, engineCc, lengthMm, fuelType } = RENTALS.car.unit;
+    await owner("PATCH", B(`rentals/units/${swift.id}`), { vehicleClass, engineCc, lengthMm, fuelType, pucValidUntil: day(RENTALS.car.pucInDays),
+      insuranceValidUntil: day(RENTALS.car.insuranceInDays) });
+    await owner("PATCH", B(`rentals/units/${spare.id}`), { vehicleClass, engineCc, lengthMm, fuelType });
+    await owner("PUT", B("modules/licences"), { enabled: true });
+    await owner("POST", B("licences"), { locationId, ...RENTALS.licence, validFrom: day(-30), validUntil: day(1500) }, 201);
+    const poles = await item(RENTALS.poles, { kind: "pool", poolQuantity: RENTALS.poles.pool, latePer: "none" });
+    const cloth = await item(RENTALS.cloth, { kind: "pool", poolQuantity: RENTALS.cloth.pool, latePer: "none" });
+    const kit = await item(RENTALS.kit, { kind: "kit", kitBilling: "kit", parts: [{ itemId: poles.id, quantity: RENTALS.kit.poles }, { itemId: cloth.id, quantity: RENTALS.kit.cloth }] });
+    await owner("PUT", B("rentals/settings"), { cancelSlabs: RENTALS.cancelSlabs, noShowPercent: RENTALS.noShow });
+    // The second car hired and back 120 km later, in the hirer register (Form 5); the first reserved from now.
+    const reg = RENTALS.register;
+    const checks = RENTALS.carClass.checklist.map((point) => ({ point, ok: true }));
+    const drivenHirer = await hirer(RENTALS.driven.hirer);
+    const driven = await book(drivenHirer, { outAt: after(0), dueAt: after(120) }, [{ itemId: car.id, unitId: spare.id }]);
+    await owner("POST", B(`rentals/bookings/${driven.id}/checkout`), { requestKey: requestKey(), idKind: "driving_licence", idRef: reg.licenceNo, licenceNo: reg.licenceNo,
+      licenceValidUntil: day(2000), register: { address: reg.address, licenceAuthority: reg.licenceAuthority, licenceClasses: reg.licenceClasses, licenceIssuedOn: reg.licenceIssuedOn },
+      lines: [{ lineId: driven.lines[0].id, meter: RENTALS.car.spare.meter, fuel: "full", checks }] });
+    await owner("POST", B(`rentals/bookings/${driven.id}/returns`), { requestKey: requestKey(), lines: [{ lineId: driven.lines[0].id, meter: RENTALS.driven.back, fuel: "full", checks }] }, 201);
+    const drivingHirer = await hirer(RENTALS.driving.hirer);
+    const driving = await book(drivingHirer, { outAt: after(0), dueAt: after(RENTALS.driving.hours * 60) }, [{ itemId: car.id, unitId: swift.id }]);
+    const cancellingHirer = await hirer(RENTALS.cancelling.hirer);
+    const cancelling = await book(cancellingHirer, { outAt: after(RENTALS.cancelling.inHours * 60), dueAt: after((RENTALS.cancelling.inHours + 24) * 60) },
+      [{ itemId: chairs.id, quantity: String(RENTALS.cancelling.chairs) }]);
+    Object.assign(businesses.rentals, {
+      car: { id: car.id, name: car.name, unitId: swift.id }, kit: { id: kit.id, name: kit.name },
+      driven: { id: driven.id, bookingNo: driven.booking_no, hirer: drivenHirer.name },
+      driving: { id: driving.id, bookingNo: driving.booking_no, hirer: drivingHirer.name },
+      cancelling: { id: cancelling.id, bookingNo: cancelling.booking_no, hirer: cancellingHirer.name },
+    });
     Object.assign(businesses.rentals, {
       items: { generator: { id: generator.id, name: generator.name }, chairs: { id: chairs.id, name: chairs.name }, sound: { id: sound.id, name: sound.name } },
       units: Object.fromEntries([...generator.units, ...sound.units].map((u) => [u.label, u.id])),

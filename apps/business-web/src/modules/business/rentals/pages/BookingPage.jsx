@@ -13,6 +13,7 @@ import { Badge, BusinessHeader } from "../../core/pages/ui";
 import { useOpenBusiness } from "../../core/pages/hooks";
 import { printTaxInvoice } from "../../core/pages/invoice";
 import { CancelDialog, CheckoutDialog, ExtendDialog, ReceiptDialog, RefundDialog, ReturnDialog } from "./RentalDialogs";
+import { RentalPicture } from "./RentalEvidence";
 import { printBookingSlip, printDepositReceipt, printMoneyBack } from "./rentalsPrint";
 import { CHARGES, FUELS, STAGES, STATUS_WORDS, atWords, idWords, lateFor, lateWords, lineWords, messageLink, nowInput, wordOf } from "./rentals";
 import "../../fashion/styles/business-fashion-electronics.css";
@@ -24,8 +25,10 @@ import "../styles/rentals.css";
 // deposit, cancel, hand money back), every line with its unit, period and
 // price, what was noted at the handover and what came back; the money: the
 // advances and deposits (collected, applied to the bill, handed back, held),
-// the bill and what is due; the returns, the charges and the history; and the
-// booking and handover slips.
+// the bill and what is due; the returns (with the kilometres and fuel), the
+// charges, the checklists, the photos and signatures and the history; the
+// hirer register and the original document held; and the booking and
+// handover slips. A kit's parts are lines under it.
 
 export default function BookingPage() {
   const biz = useOpenBusiness();
@@ -60,6 +63,11 @@ export default function BookingPage() {
   const printBill = () => businessRead(biz.id, `documents/${booking.document_id}`).then((doc) => printTaxInvoice(doc, biz)).catch((err) => toast.error(getErrorMessage(err)));
   const canPrint = can("rentals.print");
   const tell = (kind) => window.open(messageLink(biz, booking, kind), "_blank", "noopener");
+  const originalBack = () => businessWrite(biz.id, `rentals/bookings/${booking.id}/original-back`, {})
+    .then(() => refresh(`The original ${booking.hirer.original_held} handed back.`)).catch((err) => toast.error(getErrorMessage(err)));
+  const kitOf = (l) => booking.lines.find((k) => String(k.id) === String(l.kit_line_id));
+  const lapsed = booking.lines.flatMap((l) => Object.values(l.papers || {}).filter((p) => p.lapsed).map((p) => `${l.unit_label}'s ${p.words} ran out on ${dateShort(p.until, { year: true })}`));
+  const h = booking.hirer;
 
   return (
     <div className="stack">
@@ -78,10 +86,14 @@ export default function BookingPage() {
           note={booking.status === "out" ? (booking.overdue ? `${lateFor(booking.late_minutes)} late` : `due back ${atWords(booking.due_at, biz)}`)
             : booking.status === "reserved" ? `out ${atWords(booking.out_at, biz)}` : booking.returned_at ? `back ${atWords(booking.returned_at, biz)}` : undefined} />
         <StatTile icon="clock" tone={booking.overdue ? "danger" : "neutral"} label="Due back" value={atWords(booking.due_at, biz)} note={`out ${atWords(booking.out_at, biz)}`} />
-        {money && <StatTile icon="money" tone="primary" label="Hire" money={Number(booking.total)} note={`GST ${biz.exact(booking.tax)}`} />}
+        {money && <StatTile icon="money" tone="primary" label="Hire" money={Number(booking.total)}
+          note={`GST ${biz.exact(booking.tax)}${Number(booking.discount_percent) ? ` · ${Number(booking.discount_percent)}% off: ${booking.discount_reason}` : ""}`} />}
         {money && <StatTile icon="wallet" tone={Number(booking.deposit.held) > 0 ? "warning" : "neutral"} label="Deposit held" money={Number(booking.deposit.held)}
           note={Number(booking.deposit_due) > 0 ? `asked ${biz.exact(booking.deposit_due)}` : "none asked"} />}
       </div>
+      {["reserved"].includes(booking.status) && lapsed.length > 0 && (
+        <p className="rnt-note rnt-warn" role="alert">{lapsed.join("; ")}. {booking.papers_lapsed === "warn" ? "It is handed over with a warning." : "It is not handed over until renewed."}</p>
+      )}
       {(["quote", "reserved", "out"].includes(booking.status) || held > 0) && (
         <SectionCard icon="check" title="Next step">
           <div className="form-actions bz-start">
@@ -102,6 +114,9 @@ export default function BookingPage() {
             {["returned", "cancelled"].includes(booking.status) && held > 0 && can("rentals.refund") && (
               <button type="button" className="button" onClick={() => setDialog({ kind: "refund" })}><Icon name="wallet" size={15} /> Hand back {biz.exact(held)}</button>
             )}
+            {h?.original_held && !h.original_returned_at && can("rentals.edit") && (
+              <button type="button" className="button button-secondary" onClick={originalBack}>Original {h.original_held} handed back</button>
+            )}
           </div>
           {booking.customer_phone && ["reserved", "out"].includes(booking.status) && (
             <div className="fe-tell rnt-tell">
@@ -119,17 +134,21 @@ export default function BookingPage() {
         <DataGrid variant="compact" id="rental-booking-lines" caption="Lines of this booking" rows={booking.lines} rowKey={(l) => l.id} currency={biz.symbol} rowNoun={["line", "lines"]}
           rowClassName={(l) => (l.left === 0 && booking.checked_out_at ? "dg-tone-muted" : "")} columns={[
             { key: "item", header: "Item", value: (l) => lineWords(l), mobile: "title", pin: true,
-              render: (l) => <span className="bz-two-line"><span>{l.item_name}</span><small className="muted">{l.unit_id ? `${l.unit_label}${l.serial_no ? ` · ${l.serial_no}` : ""}${l.unit_status !== "available" ? ` · ${l.unit_status}` : ""}` : `${l.quantity} from the pool`}</small></span> },
+              render: (l) => <span className={`bz-two-line ${l.kit_line_id ? "rnt-part" : ""}`}><span>{l.item_name}</span><small className="muted">{l.unit_id
+                ? `${l.unit_label}${l.serial_no ? ` · ${l.serial_no}` : ""}${l.unit_status !== "available" ? ` · ${l.unit_status}` : ""}`
+                : l.kind === "kit" ? `${l.quantity} ${Number(l.quantity) === 1 ? "kit" : "kits"} · billed ${l.billed ? "as the kit" : "by its parts"}`
+                  : l.kit_line_id ? `${l.quantity} from the pool · ${l.part_quantity} in each ${kitOf(l)?.item_name || "kit"}` : `${l.quantity} from the pool`}</small></span> },
             { key: "period", header: "Charged for", value: (l) => l.period, render: (l) => <span className="bz-two-line"><span>{l.period}</span><small className="muted">{l.charged_hours} h</small></span> },
             money && { key: "amount", header: "Hire", type: "money", exact: true, value: (l) => (l.amount === null ? null : Number(l.amount)), total: "sum",
-              render: (l) => <span className="bz-two-line"><span>{biz.exact(l.amount)}</span><small className="muted">{l.quantity > 1 ? `${biz.exact(l.price)} each · ` : ""}GST {Number(l.tax_rate)}%</small></span> },
+              render: (l) => (!l.billed ? <span className="muted small">{l.kind === "kit" ? "By its parts" : "With the kit"}</span>
+                : <span className="bz-two-line"><span>{biz.exact(l.amount)}</span><small className="muted">{l.quantity > 1 ? `${biz.exact(l.price)} each · ` : ""}GST {Number(l.tax_rate)}%{Number(l.discount) ? ` · less ${biz.exact(l.discount)}` : ""}</small></span>) },
             money && { key: "deposit", header: "Deposit", type: "money", exact: true, value: (l) => (l.deposit_each === null ? null : Number(l.deposit_each) * Number(l.quantity)) },
             { key: "out", header: "At the handover", value: (l) => l.out_note || "",
               render: (l) => (booking.checked_out_at ? <span className="bz-two-line"><span>{l.out_note || "Nothing noted"}</span>
                 <small className="muted">{[l.meter_out ? `meter ${Number(l.meter_out)}` : null, l.fuel_out ? `fuel ${wordOf(FUELS, l.fuel_out).toLowerCase()}` : null].filter(Boolean).join(" · ")}</small></span> : <span className="muted">Not out yet</span>) },
             booking.checked_out_at && { key: "back", header: "Back", value: (l) => l.back, mobile: "show",
-              render: (l) => <span className="bz-two-line"><span>{l.back} of {l.quantity}{l.missing ? ` · ${l.missing} missing` : ""}</span>
-                <small className="muted">{l.left ? `${l.left} still out` : "all back"}{money && Number(l.late_fee_now) > 0 ? ` · late ${lateWords(l.late_units_now, l.late_per)} ${biz.exact(l.late_fee_now)}` : ""}</small></span> },
+              render: (l) => (l.kind === "kit" ? <span className="muted small">By its parts</span> : <span className="bz-two-line"><span>{l.back} of {l.quantity}{l.missing ? ` · ${l.missing} missing` : ""}</span>
+                <small className="muted">{l.left ? `${l.left} still out` : "all back"}{money && Number(l.late_fee_now) > 0 ? ` · late ${lateWords(l.late_units_now, l.late_per === "day" ? "day" : "hour")} ${biz.exact(l.late_fee_now)}` : ""}</small></span>) },
           ].filter(Boolean)} />
       </SectionCard>
       {booking.checked_out_at && (
@@ -139,15 +158,49 @@ export default function BookingPage() {
             {booking.id_kind && <div className="rnt-fact"><dt>Photo ID</dt><dd>{idWords(booking.id_kind, booking.id_ref)}</dd></div>}
             {booking.licence_no && <div className="rnt-fact"><dt>Driving licence</dt><dd>{booking.licence_no}, valid until {dateShort(booking.licence_valid_until, { year: true })}</dd></div>}
             {booking.deposit_waiver && <div className="rnt-fact"><dt>Less deposit</dt><dd>{booking.deposit_waived_by_name} agreed: {booking.deposit_waiver}</dd></div>}
+            {h?.original_held && <div className="rnt-fact"><dt>Original held</dt><dd>{h.original_held}{h.original_returned_at ? ` · handed back ${atWords(h.original_returned_at, biz)} by ${h.original_returned_by_name}` : " · still held"}</dd></div>}
           </dl>
+          {h && (h.address || h.licence_authority) && (
+            <dl className="fe-facts rnt-register" aria-label="Hirer register">
+              {h.address && <div className="rnt-fact"><dt>Address</dt><dd>{h.address}</dd></div>}
+              {h.licence_authority && <div className="rnt-fact"><dt>Licence</dt><dd>issued by {h.licence_authority}{h.licence_issued_on ? ` on ${dateShort(h.licence_issued_on, { year: true })}` : ""} · {(h.licence_classes || []).join(", ") || "no class"}</dd></div>}
+              {h.foreigner && <div className="rnt-fact"><dt>Passport</dt><dd>{h.passport_no} · {h.passport_nation} · issued by {h.passport_authority} · valid until {dateShort(h.passport_valid_until, { year: true })}</dd></div>}
+              {h.foreigner && <div className="rnt-fact"><dt>Date of birth</dt><dd>{dateShort(h.birth_date, { year: true })}</dd></div>}
+              {h.permit_no && <div className="rnt-fact"><dt>Driving permit</dt><dd>{h.permit_no} · issued {dateShort(h.permit_issued_on, { year: true })} · {(h.permit_classes || []).join(", ")}</dd></div>}
+              {h.visa_no && <div className="rnt-fact"><dt>Visa</dt><dd>{h.visa_no}{h.visa_valid_until ? ` · valid until ${dateShort(h.visa_valid_until, { year: true })}` : ""}</dd></div>}
+            </dl>
+          )}
         </SectionCard>
       )}
-      {money && (booking.receipts.length > 0 || booking.bill) && (
+      {(booking.conditions.length > 0 || booking.files.length > 0) && (
+        <SectionCard icon="check" title="Condition, photos and signatures">
+          {booking.conditions.map((x) => {
+            const line = booking.lines.find((l) => String(l.id) === String(x.line_id));
+            return (
+              <p key={x.id} className="rnt-condition small"><strong>{x.stage === "out" ? "Out" : "Back"} · {line ? lineWords(line) : ""}:</strong>{" "}
+                {x.checks.map((c) => (c.ok ? c.point : `${c.point} — ${c.note}`)).join(" · ")} <span className="muted">({x.by_name}, {atWords(x.created_at, biz)})</span></p>
+            );
+          })}
+          {booking.files.length > 0 && (
+            <ul className="rnt-pictures">
+              {booking.files.map((f) => (
+                <li key={f.id}><RentalPicture biz={biz} fileId={f.id} alt={f.kind === "signature" ? `Signed by the ${f.signer}` : "Photo"} />
+                  <small className="muted">{f.stage === "out" ? "Handover" : "Return"} · {f.kind === "signature" ? `${f.signer === "hirer" ? "hirer" : "shop"} signed` : "photo"}</small></li>
+              ))}
+            </ul>
+          )}
+        </SectionCard>
+      )}
+      {money && (booking.receipts.length > 0 || booking.bill || booking.cancellation) && (
         <SectionCard icon="receipt" title="Money" description="Advances are money on account for the hire. A deposit is held apart from sales: it pays the bill only when the booking comes back, and what is left goes back.">
           <dl className="fe-facts">
             {booking.bill && (
               <div className="rnt-fact"><dt><button type="button" className="link-button mono" title="Print the tax invoice" onClick={printBill}>{booking.bill.document_no}</button></dt>
                 <dd>{biz.exact(booking.bill.total)}{Number(booking.bill.returned) > 0 ? ` · credited ${biz.exact(booking.bill.returned)}` : ""} · paid {biz.exact(Number(booking.bill.paid) - Number(booking.bill.refunded))} · <strong>due {biz.exact(Math.max(0, Number(booking.bill.due)))}</strong></dd></div>
+            )}
+            {booking.cancellation && (
+              <div className="rnt-fact"><dt>Cancellation</dt><dd>{Number(booking.cancellation.percent)}% of the hire worked out ({Number(booking.cancellation.hours_before) < 0 ? "a no-show" : `${Number(booking.cancellation.hours_before)} hours before`}): {biz.exact(booking.cancellation.worked_out)}
+                {booking.cancellation.waiver ? ` · waived by ${booking.cancellation.waived_by_name}: ${booking.cancellation.waiver}` : ""}</dd></div>
             )}
             {booking.receipts.map((r) => (
               <div key={r.id} className="rnt-fact">
@@ -177,6 +230,9 @@ export default function BookingPage() {
               { key: "item", header: "Item", value: (x) => x.unit_label || x.item_name, mobile: "title" },
               { key: "back", header: "Back", value: (x) => x.quantity, render: (x) => `${x.quantity}${x.missing ? ` · ${x.missing} missing` : ""}${x.maintenance ? " · for maintenance" : ""}` },
               { key: "late", header: "Late", value: (x) => x.late_minutes, render: (x) => (x.late_units ? `${lateFor(x.late_minutes)}${money ? ` · ${biz.exact(x.late_fee)}` : ""}` : <span className="muted">On time</span>) },
+              { key: "km", header: "Kilometres · fuel", value: (x) => `${x.extra_km} ${x.fuel_short}`, defaultHidden: !booking.lines.some((l) => l.vehicle),
+                render: (x) => [x.extra_km ? `${x.extra_km} km over${money ? ` ${biz.exact(x.km_fee)}` : ""}` : null, x.fuel_short ? `fuel ${x.fuel_short}/8 short${money ? ` ${biz.exact(x.fuel_fee)}` : ""}` : null]
+                  .filter(Boolean).join(" · ") || <span className="muted">—</span> },
               { key: "note", header: "Noted", value: (x) => x.note || "", render: (x) => [x.note, x.meter_in ? `meter ${Number(x.meter_in)}` : null, x.fuel_in ? `fuel ${wordOf(FUELS, x.fuel_in).toLowerCase()}` : null].filter(Boolean).join(" · ") || <span className="muted">—</span> },
               { key: "by", header: "By", value: (x) => x.by },
             ]} />

@@ -194,7 +194,8 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   // A rental business's day: Bookings (with the availability week and the deposits held) is a daily entry of its own; its products open on its rental items.
   const rdaily=businessMenu(33,'rentals',()=>true,()=>true).find(g=>g.title==='Daily work').links;
   assert.deepEqual(rdaily.slice(1,2).map(l=>[l.section,l.label]),[['rental-bookings','Bookings']]);
-  assert.deepEqual(rdaily.find(l=>l.section==='rental-bookings').pages.map(p=>p.label),['Bookings','Availability','Deposits held']);
+  assert.deepEqual(rdaily.find(l=>l.section==='rental-bookings').pages.map(p=>p.label),['Bookings','Availability','Deposits held','Yard & fleet','Hirer register','Use & earnings']);
+  assert.equal(workspaceFor('rental-yard','rentals'),'rentalBookings');
   assert.equal(workspaceFor('rental-availability','rentals'),'rentalBookings');
   assert.equal(workspaceFor('rental-items','rentals'),'products');
   const rproducts=menu('rentals').find(l=>l.section==='rental-items');
@@ -204,7 +205,9 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   const yard=new Set(['rentals.view','rentals.edit','rentals.print','catalog.view','inventory.view']);
   const yardLinks=businessMenu(33,'rentals',p=>yard.has(p),()=>true).flatMap(g=>g.links);
   assert.ok(yardLinks.some(l=>l.section==='rental-bookings'&&!l.pages.some(p=>p.to.endsWith('/rental-deposits'))),'the yard finds the bookings, not the deposits');
-  for(const type of ['grocery','laundry','garage'])for(const section of ['rental-bookings','rental-availability','rental-deposits','rental-items'])assert.ok(!typeAllows(sectionRule(section,type),type),`${type}: no ${section}`);
+  assert.ok(yardLinks.find(l=>l.section==='rental-bookings').pages.some(p=>p.to.endsWith('/rental-register')),'the yard prints the hirer register');
+  assert.ok(!businessMenu(33,'rentals',p=>p==='rentals.view',()=>true).flatMap(g=>g.links).find(l=>l.section==='rental-bookings').pages.some(p=>p.to.endsWith('/rental-register')),'a viewer does not print the register');
+  for(const type of ['grocery','laundry','garage'])for(const section of ['rental-bookings','rental-availability','rental-deposits','rental-items','rental-yard','rental-register','rental-reports'])assert.ok(!typeAllows(sectionRule(section,type),type),`${type}: no ${section}`);
   // A fuel station's day: Shift & readings, and Tanks & dips (with the tanker receipts and the stock register), after Quick bill; its fleet statements sit with its customers, its pumps and nozzles in Settings.
   const fdaily=businessMenu(33,'fuel_station',()=>true,()=>true).find(g=>g.title==='Daily work').links;
   assert.deepEqual(fdaily.slice(1,4).map(l=>[l.section,l.label]),[['counter','Quick bill'],['fuel-shifts','Shift & readings'],['fuel-dips','Tanks & dips']]);

@@ -469,7 +469,117 @@
   background: var(--surface-2);
   color: var(--text-2);
 }
+.rnt-hold-downtime {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger);
+}
 .rnt-hold:hover,
 .rnt-hold:focus-visible {
   border-color: var(--primary);
+}
+/* Vehicle papers, the pictures of a handover and a return, scanning and checklists. */
+.rnt-papers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.rnt-evidence,
+.rnt-scan {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+.rnt-scan > .field {
+  flex: 1 1 220px;
+}
+.rnt-evidence .is-done {
+  border-color: var(--success);
+  color: var(--success);
+}
+.rnt-sign {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.rnt-checklist {
+  display: grid;
+  gap: var(--space-2);
+}
+.rnt-check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.rnt-check input:not([type]) {
+  flex: 1 1 200px;
+}
+.rnt-classes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.rnt-classes legend {
+  color: var(--muted);
+  margin-bottom: var(--space-1);
+}
+.rnt-part {
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--border);
+}
+.rnt-parts {
+  margin: var(--space-1) 0 0 var(--space-6);
+}
+.rnt-register {
+  margin-top: var(--space-3);
+}
+.rnt-condition {
+  margin: 0 0 var(--space-2);
+}
+.rnt-pictures {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.rnt-pictures li {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+}
+.rnt-picture {
+  display: block;
+  width: 140px;
+  height: 100px;
+  object-fit: contain;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.rnt-register-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.rnt-register-table caption {
+  text-align: left;
+  font-weight: var(--weight-medium);
+  padding: var(--space-2) var(--space-3);
+}
+.rnt-register-table th,
+.rnt-register-table td {
+  border-top: 1px solid var(--border);
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  vertical-align: top;
+}
+.rnt-register-table .r {
+  text-align: right;
 }

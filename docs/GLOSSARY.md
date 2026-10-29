@@ -475,15 +475,35 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Best price** | The cheapest mix of an item's month, week, day and hour rates that covers the hours booked. |
 | **Minimum hire** | The fewest hours a booking of an item is charged for. |
 | **Grace time** | The minutes after the due back time with no late fee. |
-| **Late fee** | What a booking late past its grace time pays: each hour or day late, or part of one, at the booked rate, for each one still out. |
+| **Late fee** | What a booking late past its grace time pays: each hour or day late, or part of one, at the booked rate, or by the booked slabs, never more than the cap, for each one still out. |
 | **Refundable deposit (security deposit)** | Money held for a booking, with no GST, apart from sales: it pays only what the shop keeps (billed as a charge) when the booking is back, and the rest goes back. |
 | **Applied** | Of a deposit or an advance: the part that paid the booking's bill. |
 | **Damage charge** | A charge for damage, missing pieces, cleaning or fuel, billed with GST at the slab of the item it is for. |
-| **Cancellation charge** | What the shop keeps when a booking is cancelled, billed as a charge with its GST. |
+| **Cancellation charge** | What the shop keeps when a booking is cancelled, billed as a charge with its GST: worked out from the shop's cancellation slabs when it has them, else typed. |
 | **Self-drive** | A car or motorcycle hired without the shop's driver: it goes out on the hirer's driving licence, and needs the location's rent-a-cab or rent-a-motorcycle licence. |
 | **Rent-a-cab / rent-a-motorcycle licence** | The State Transport Authority's licence to hire out self-drive cars or motorcycles. |
 | **Like goods' rate** | The GST on renting goods without an operator: the rate of a sale of the goods hired out (40% for goods that attract 40%). |
 | **SAC 9973** | The GST heading of leasing or rental services without an operator (997329 for other goods); a passenger vehicle with a driver is in 9966. |
+| **Kit** | A set hired whole (a 20×40 shamiana set: poles, cloth, ropes, side walls) made of parts from pools; booking a kit holds its parts, and it is billed as the kit or by its parts. |
+| **Part** | One of a kit's items from a pool, and how many of it are in one kit; it goes out and comes back as a line of its own. |
+| **Class (of rental items)** | The shop's group of items (two-wheelers, cars, tents) with the checklist checked at every handover and return, and late fee slabs for its items. |
+| **Checklist** | The points checked on each item of a class at the handover and the return (body and paint, tyres, helmet); a point not as it should be says what is wrong. |
+| **Late fee slab** | A band of hours late with a flat amount and a multiple of the hour rate: the slab the hours late fall in prices all of them. |
+| **Cap** | The most late fee for each one hired, whatever the slabs come to. |
+| **Cancellation slab** | A share of the hire charged when a booking is cancelled at least so many hours before its out time (the shop's own terms). |
+| **No-show** | A reserved booking not handed over by its out time and then cancelled: charged the no-show percent. |
+| **Waiver** | A manager taking off a cancellation charge worked out from the slabs, with the reason, kept and audited. |
+| **Kilometre allowance** | The kilometres free with a hire (so many a day or a booking); each one beyond is charged at the extra-kilometre rate. |
+| **Fuel short** | The eighths of a tank a vehicle comes back below the level it went out with, charged by the eighth or by the litre. |
+| **Hirer register** | The register the rent-a-cab and rent-a-motorcycle schemes require of each vehicle's hires: Form 5 (a cab) and Form 3 (a motorcycle); Forms 6 and 4 for foreign nationals. |
+| **Licence class** | The class of vehicle a driving licence (or an international driving permit) covers: MCWOG (a scooter), MCWG (a motorcycle with gear), LMV (a car) and others; it must cover the vehicle's class. |
+| **Papers** | A vehicle's registration certificate, permit, insurance, PUC (pollution under control) certificate and fitness certificate, each with the date it runs until. |
+| **Original document held** | An original document (a driving licence, a passport) the shop keeps until the return, with its return acknowledged; no copy is kept. |
+| **Yard & fleet** | Where each unit and pool is kept, the vehicles' papers and services, maintenance booked ahead and the moves between locations. |
+| **Transfer** | A unit or pieces of a pool moved from one location to another, kept with when and who. |
+| **Downtime (maintenance booked)** | A time a unit is held for maintenance, booked ahead: it is not booked over that time. |
+| **Service schedule** | A unit serviced every so many running hours, kilometres or days, counted from its last service; the bell says when it is due. |
+| **Use (of a unit)** | The share of its days available (less maintenance) a unit was out in a period. |
 
 ### Fuel stations
 

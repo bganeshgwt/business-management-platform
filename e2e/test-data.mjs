@@ -439,6 +439,26 @@ export const RENTALS = {
   late: { hirer: { name: "Lalitha Devi", phone: "9876500402" }, idKind: "voter_id", idRef: "TSV7654321", minutesPastDue: 180 },
   // The other generator and the chairs, out now for 26 hours.
   going: { hirer: { name: "Srinivas Naidu", phone: "9876500403" }, chairs: 100, hours: 26 },
+  // A class of cars with its checklist; two self-drive cars with a kilometre allowance and a fuel charge, their class,
+  // engine, length and fuel kept (the first's PUC certificate runs out in 5 days); the location's rent-a-cab licence.
+  carClass: { name: "Cars", checklist: ["Body and paint", "Tyres"] },
+  car: { name: "Swift self-drive", code: "RNT-SWIFT", rates: { day: "1500" }, deposit: 0, km: { allowance: "100", per: "day", rate: "12" }, fuel: { per: "eighth", rate: "300" },
+    unit: { label: "Swift 1", serialNo: "TS09EA1111", meter: "25000.0", vehicleClass: "LMV", engineCc: "1197", lengthMm: "3995", fuelType: "petrol" }, pucInDays: 5, insuranceInDays: 200,
+    spare: { label: "Swift 2", serialNo: "TS09EA2222", meter: "25000.0" } },
+  licence: { kind: "rent_a_cab", name: "Rent a cab licence", licenceNo: "STA/RAC/2026/12", authority: "State Transport Authority, Telangana" },
+  // What the hirer register keeps of a driving licence (Form 5).
+  register: { address: "8-2-293, Road No. 3, Banjara Hills, Hyderabad 500034", licenceAuthority: "RTA Khairatabad", licenceClasses: ["LMV"], licenceIssuedOn: "2018-04-10",
+    licenceNo: "TS0920180004321" },
+  // The second car hired and back 120 km later (in the register); the first reserved from now for a day.
+  driven: { hirer: { name: "Ravi Shankar", phone: "9876500404" }, back: "25120.0" },
+  driving: { hirer: { name: "Meena Kumari", phone: "9876500405" }, hours: 24 },
+  // A shamiana set of 8 poles and 2 cloths from their pools, billed as the kit.
+  poles: { name: "Tent pole", code: "RNT-POLE", rates: { day: "50" }, deposit: 0, pool: 40 },
+  cloth: { name: "Tent cloth", code: "RNT-CLOTH", rates: { day: "400" }, deposit: 0, pool: 10 },
+  kit: { name: "Shamiana 20x40", code: "RNT-SHAM", rates: { day: "2000" }, deposit: 0, poles: 8, cloth: 2 },
+  // The shop's cancellation slabs (its own terms), and 20 chairs booked to go out in 30 hours.
+  cancelSlabs: [{ hours: 72, percent: 10 }, { hours: 24, percent: 25 }, { hours: 6, percent: 50 }, { hours: 0, percent: 75 }], noShow: 100,
+  cancelling: { hirer: { name: "Suresh Babu", phone: "9876500406" }, inHours: 30, chairs: 20 },
 };
 
 // The fuel station: petrol and diesel (outside GST: on the GST nil slab, the

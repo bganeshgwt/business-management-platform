@@ -68,3 +68,48 @@ test("a bill's figures add up to the paisa, rounded as the business rounds", () 
   const [inclusive] = money.billLines([{ skuId: 7, quantity: 1, net: 100000, tax: 18000, label: "x" }], "inclusive");
   assert.equal(inclusive.fixed.price, 1180);
 });
+
+test("late fee slabs: the slab the hours late fall in prices all of them, a flat amount and a multiple of the hourly rate, never more than the cap", () => {
+  const slabs = [{ from: 0, flat: 100, times: 2 }, { from: 3, flat: 0, times: 5 }];
+  const late = (minutes, extra = {}) => money.lateFee({ minutes, grace: 30, per: "slabs", rate: "60.00", quantity: 1, slabs, ...extra });
+  assert.deepEqual(late(30), { units: 0, fee: 0 });
+  // 31 minutes: an hour, the first slab: 100 + 2 × 60.
+  assert.deepEqual(late(31), { units: 1, fee: 22000 });
+  // 3 hours: still the first slab (the second starts beyond 3 hours).
+  assert.deepEqual(late(180), { units: 3, fee: 46000 });
+  // 3 hours and a minute: 4 hours, the second slab: 5 × 60 × 4 = 1,200.
+  assert.deepEqual(late(181), { units: 4, fee: 120000 });
+  assert.deepEqual(late(181, { cap: "1000.00" }), { units: 4, fee: 100000 });
+  assert.deepEqual(late(181, { cap: "1000.00", quantity: 3 }), { units: 4, fee: 300000 });
+  // A multiple of two places, to the paisa: 1.25 × 33.33 × 1 = 41.6625 → 41.66.
+  assert.deepEqual(money.lateFee({ minutes: 50, grace: 0, per: "slabs", rate: "33.33", quantity: 1, slabs: [{ from: 0, flat: 0, times: 1.25 }] }), { units: 1, fee: 4166 });
+  // A cap holds the hour and day fees too.
+  assert.deepEqual(money.lateFee({ minutes: 600, grace: 0, per: "hour", rate: "100.00", quantity: 2, cap: "500.00" }), { units: 10, fee: 100000 });
+});
+
+test("kilometres beyond the allowance and fuel short, to the paisa", () => {
+  // 180.5 km in a day against 100 free: 81 km (each one or part of one) at 12.
+  assert.deepEqual(money.kmFee({ out: "25000.0", back: "25180.5", allowance: 100, per: "day", chargedHours: 24, rate: "12.00" }), { extra: 81, fee: 97200 });
+  // Two days and an hour of hire: 3 days' allowance.
+  assert.deepEqual(money.kmFee({ out: "0", back: "300", allowance: 100, per: "day", chargedHours: 49, rate: "10.00" }), { extra: 0, fee: 0 });
+  assert.deepEqual(money.kmFee({ out: "1000.0", back: "1062.3", allowance: 50, per: "booking", chargedHours: 6, rate: "4.00" }), { extra: 13, fee: 5200 });
+  assert.deepEqual(money.kmFee({ out: null, back: "10", allowance: 0, per: "day", chargedHours: 6, rate: "4.00" }), { extra: 0, fee: 0 });
+  // Full out, five eighths back: 3 eighths at 300; by the litre of a 5.5-litre tank at 101.25, 5 eighths short is 348.046875 → 348.05.
+  assert.deepEqual(money.fuelFee({ out: "full", back: "five_eighths", per: "eighth", rate: "300.00" }), { short: 3, fee: 90000 });
+  assert.deepEqual(money.fuelFee({ out: "full", back: "three_eighths", per: "litre", rate: "101.25", tank: "5.5" }), { short: 5, fee: 34805 });
+  assert.deepEqual(money.fuelFee({ out: "half", back: "full", per: "eighth", rate: "300.00" }), { short: 0, fee: 0 });
+});
+
+test("a percent of a value to the paisa, and the like goods' slab of a vehicle", () => {
+  assert.equal(money.percentOf(120000, 25), 30000);
+  assert.equal(money.percentOf(33333, 10), 3333);
+  assert.equal(money.percentOf(33335, 10), 3334);
+  assert.equal(money.vehicleSlab({ vehicle: "car", fuel: "petrol", cc: 1197, length: 3995 }), 18);
+  assert.equal(money.vehicleSlab({ vehicle: "car", fuel: "petrol", cc: 1199, length: 4001 }), 40);
+  assert.equal(money.vehicleSlab({ vehicle: "car", fuel: "diesel", cc: 1498, length: 3995 }), 18);
+  assert.equal(money.vehicleSlab({ vehicle: "car", fuel: "cng", cc: 1300, length: 3900 }), 40);
+  assert.equal(money.vehicleSlab({ vehicle: "motorcycle", fuel: "petrol", cc: 350 }), 18);
+  assert.equal(money.vehicleSlab({ vehicle: "motorcycle", fuel: "petrol", cc: 411 }), 40);
+  assert.equal(money.vehicleSlab({ vehicle: "car", fuel: "electric" }), 5);
+  assert.equal(money.vehicleSlab({ vehicle: "car", fuel: "petrol", cc: 1197 }), null, "without its length the slab is not worked out");
+});

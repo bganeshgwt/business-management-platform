@@ -1467,9 +1467,21 @@ A rental or hire business bills on bills of the shared core ([Shops and the shar
 
 ### Nothing is booked twice
 
-- **Rule:** a reserved booking holds each unit it books, and how many of each pool, from its out time to its due back time and the item's turnaround time; a booking out holds what is still out until it is due back (or until now, while it is late) and the turnaround time, and what came back until it came back and the turnaround time. A unit is held by one booking at a time, and a pool never by more than it has at any moment. A quote holds nothing. The server checks it when a booking is made, reserved, changed or extended, and the database checks every booking it saves, one after another for each item, so two counters booking the same unit at the same moment cannot both have it. A retired unit is not booked; a unit in maintenance is booked but not handed over; a unit booked or out is not retired, and a pool is not set below what bookings hold at their busiest.
+- **Rule:** a reserved booking holds each unit it books, and how many of each pool, from its out time to its due back time and the item's turnaround time; a booking out holds what is still out until it is due back (or until now, while it is late) and the turnaround time, and what came back until it came back and the turnaround time; maintenance booked ahead holds a unit from its start to its end. A unit is held by one booking (or maintenance) at a time, and a pool never by more than it has at any moment. A quote holds nothing. The server checks it when a booking is made, reserved, changed or extended, and the database checks every booking it saves, one after another for each item, so two counters booking the same unit at the same moment cannot both have it. A retired unit is not booked; a unit in maintenance is booked but not handed over; a unit booked or out is not retired, and a pool is not set below what bookings hold at their busiest.
 - **Why:** a unit promised to two hirers fails one of them; the turnaround time keeps a unit free for cleaning and checks between hires.
 - **Change it:** the turnaround time on *Rental items*.
+
+### A kit books its parts
+
+- **Rule:** a kit (a shamiana set: poles, cloth, ropes, side walls) lists its parts, each an item from a pool, and how many of each are in one kit. Booking so many kits puts a line on the booking for each part, that many times as many, and each part's line is checked for what is free like any other (the database refuses a part's line that is not as many as the kit has of it, and two bookings saved together cannot take the same pieces). The parts go out and come back by their own lines, each with its own late fee; the kit's own line never comes back. A kit is billed as its own line at its own rates, or by its parts at theirs, as it is set when booked; a booking keeps the parts and the billing it was made with.
+- **Why:** a set is hired whole, but its pieces are what the yard counts, lends and loses.
+- **Change it:** the kit's parts and billing on *Rental items* (`catalog.edit`); bookings made keep theirs.
+
+### Pools are counted at each location
+
+- **Rule:** a pool's pieces are counted at each location, and a unit is kept at one location. A booking holds what is at its own location: a pool never more than the location has, and only units kept there (the database refuses a unit kept elsewhere). Units and pieces move between locations by a transfer, recorded with when, who and why: a unit not while it is booked or out from now on, and no more pieces than the location keeps beyond what its bookings hold at their busiest from now on. A new pool starts at the first location unless placed elsewhere; pieces that do not come back leave their booking's location's count. The item's total is the locations' counts added up.
+- **Why:** a chair at the other branch cannot go to this one's function; a transfer kept with its date says where each thing was.
+- **Change it:** *Bookings › Yard & fleet* moves units and pieces (`rentals.edit`); a location's count on *Rental items* (`catalog.edit`).
 
 ### A booking's times
 
@@ -1479,9 +1491,45 @@ A rental or hire business bills on bills of the shared core ([Shops and the shar
 
 ### The hirer's ID and driving licence at the handover
 
-- **Rule:** the handover records the hirer's photo ID (Aadhaar, voter ID, driving licence, passport, PAN card or another), its kind and number; of an Aadhaar card only the last four digits are kept, and the database refuses more. With the business's setting on (on to start with) a handover without it is refused. A self-drive vehicle (a car or a motorcycle hired without the shop's driver) goes out only on the hirer's driving licence, its number and the date it is valid until, refused once that date has passed; and only while the location holds the State Transport Authority's rent-a-cab (cars) or rent-a-motorcycle licence in force, kept with *Licences & registrations*. Each line's condition, meter and a vehicle's fuel are noted; a meter reading never goes below the unit's last one.
-- **Why:** the shop must be able to trace the hirer, and keeps no more of an Aadhaar number than the last four digits; a vehicle is not handed to someone without a valid licence; self-drive hire needs the rent-a-cab or rent-a-motorcycle licence; what was noted at the handover is the proof of a later damage charge.
+- **Rule:** the handover records the hirer's photo ID (Aadhaar, voter ID, driving licence, passport, PAN card or another), its kind and number; of an Aadhaar card only the last four digits are kept, and the database refuses more. With the business's setting on (on to start with) a handover without it is refused. A self-drive vehicle (a car or a motorcycle hired without the shop's driver) goes out only on the hirer's driving licence, its number and the date it is valid until, refused once that date has passed; and only while the location holds the State Transport Authority's rent-a-cab (cars) or rent-a-motorcycle licence in force, kept with *Licences & registrations*. Each line's condition, meter and a vehicle's fuel (in eighths of a tank) are noted; a meter reading never goes below the unit's last one. An original document the shop holds until the return (a driving licence, a passport) is named at the handover and its return acknowledged once; no copy of an ID document is kept.
+- **Why:** the shop must be able to trace the hirer, and keeps no more of an Aadhaar number than the last four digits; a vehicle is not handed to someone without a valid licence; self-drive hire needs the rent-a-cab or rent-a-motorcycle licence; what was noted at the handover is the proof of a later damage charge. Keeping copies of ID documents waits for a legal view under the DPDP Act.
 - **Change it:** *Record the hirer's photo ID at every handover* on *Rental items* (`settings.edit`); the location's licences under *Settings › Licences*.
+
+### The hirer register of the rent-a-cab and rent-a-motorcycle schemes
+
+- **Rule:** a self-drive vehicle's handover writes the hirer register as Forms 5 (a cab) and 3 (a motorcycle) list it: the hirer's name, full address and telephone; the driving licence's number, issuing authority, classes of vehicle, and issue and expiry dates; with the return, the hire and return times and the total kilometres; the hirer's signature; remarks. A foreign national's (Forms 6 and 4) adds the passport's number, issuing authority and nation and its issue and expiry dates (in force), the date of birth, the driving permit's number and issue date and the classes it authorises, and the visa. A vehicle keeps its class as a driving licence names it (MCWOG, MCWG, MC50CC, LMV, LMV-NT, TRANS); the handover is refused when none of the licence's or permit's classes is the vehicle's (the database checks it too). The register is kept as written (an erasure at the hirer's request blanks their details only) and printed vehicle by vehicle for any dates.
+- **Why:** the Rent a Cab Scheme, 1989 and the Rent a Motor Cycle Scheme, 1997 require the licence holder to keep these registers; a licence that does not cover the vehicle is no licence to drive it.
+- **Change it:** each vehicle's class on *Rental items*; the register prints from *Bookings › Hirer register* (`rentals.print`).
+
+### A vehicle's papers and its slab
+
+- **Rule:** a vehicle keeps the dates its registration certificate, permit, insurance, PUC certificate and fitness certificate run until. The bell warns from the shop's warning days before a date (30, until changed), again from its urgent days (7), and once it has run out. A vehicle with a paper run out is not handed over, or is handed over with a warning kept on the booking, as the shop sets it (not handed over, until changed). A vehicle also keeps its engine size, length and fuel; renting it without an operator takes the like goods' rate (an electric vehicle 5%; a motorcycle up to 350 cc, or a car on petrol, LPG or CNG up to 1200 cc or on diesel up to 1500 cc and up to 4000 mm long, 18%; any other car or motorcycle 40%), and a vehicle whose facts make another rate than its item's slab is shown with a warning. The item's slab stays the one billed.
+- **Why:** a vehicle without insurance, PUC or fitness must not be on the road; GST on renting goods without an operator follows the rate of a sale of the like goods (from 22 September 2025).
+- **Change it:** the dates and facts on *Rental items*; the warning days and whether a vehicle with a paper run out goes out, in its handover settings (`settings.edit`); the item's slab, with an accountant.
+
+### Kilometres and fuel
+
+- **Rule:** an item read by its odometer may have kilometres free (so many a day of the hours charged, each 24 or part of them, or so many a booking) and a rate for each kilometre beyond them; a vehicle may have a fuel charge for each eighth of a tank short of the level it went out with, or for each litre (an eighth of the tank's litres, to the paisa). The booking keeps them as booked; at the return the kilometres beyond the allowance (each one or part of one) and the eighths short are worked out from the readings noted (the database works them out again), and each is a line of the bill at the item's slab, as a late fee is.
+- **Why:** a hire's price includes the kilometres and fuel it allows; what goes beyond is part of the hire's value.
+- **Change it:** the allowance and the rates on *Rental items* (`catalog.edit`); bookings made keep theirs.
+
+### Checklists, photos and signatures
+
+- **Rule:** a class of items keeps a checklist; at every handover and every return each point is checked for each line of its items, and a point not as it should be says what is wrong (refused without it). Photos of what goes out and comes back, and the signatures drawn on the screen by the hirer and the shop, are kept with the booking at both; they are pictures (the bytes checked), read only through the API by those who see the booking, never changed or deleted, and never of an ID document. A unit's barcode or serial scanned at the handover or the return must be a unit of the booking (still out, at a return).
+- **Why:** both parties' acknowledgement of the condition is the proof of a damage charge; scanning stops the wrong unit going out or being taken back.
+- **Change it:** a class's checklist on *Rental items* (`catalog.edit`).
+
+### Service schedules and maintenance booked ahead
+
+- **Rule:** a unit may be serviced every so many running hours or kilometres (by its meter) or days, counted from its last service (or from when the schedule was set); the bell says when it is due, and a service done is recorded with its meter. Maintenance booked ahead holds the unit from its start to its end as a booking does: it is booked only over free time, and a booking over it is refused (the database checks both). It is cancelled, never deleted.
+- **Why:** a unit due for its service or booked for repairs must not be promised to a hirer.
+- **Change it:** the schedule on *Rental items*; maintenance and services on *Bookings › Yard & fleet* (`rentals.edit`).
+
+### A discount on a booking
+
+- **Rule:** a booking may take a percent off the hire of every billed line, with its reason, given by someone with `sales.discount` and within the business's most bill discount (the owner, any). It is kept on the booking with who gave it, priced in the booking and on the bill (each hire line less its share), and changes with the booking until it is back.
+- **Why:** the counter's discount limits hold for a hire as for a bill.
+- **Change it:** the most bill discount in *Business settings*; who discounts is `sales.discount`.
 
 ### A deposit is held apart, not a payment for the hire
 
@@ -1497,21 +1545,21 @@ A rental or hire business bills on bills of the shared core ([Shops and the shar
 
 ### The late fee
 
-- **Rule:** a line back by its due back time and its grace time pays no late fee. After the grace time, each hour or day late (as the item's late fee is set when booked), or part of one, counted from the due back time, at the booked late rate (the item's own, or its hour or day rate), for each one still out. A line returned in parts pays each part's late fee as it comes back; the database works the fee out again from the time it was saved and the due back time. The late fee is billed on the line's own service item, with its GST.
-- **Why:** the hirer agreed the late fee with the booking; the shop's clock decides when it was late.
-- **Change it:** each item's late fee and grace time on *Rental items*; bookings made keep theirs.
+- **Rule:** a line back by its due back time and its grace time pays no late fee. After the grace time, each hour or day late (as the item's late fee is set when booked), or part of one, counted from the due back time, at the booked late rate (the item's own, or its hour or day rate), for each one still out. By slabs (the item's own, or its class's): the hours late (each hour or part of one, from the due back time) fall in the slab with the most hours they pass, and that slab's flat amount and its multiple of the hourly rate for each hour price all of them. A cap, when set, is the most for each one. A line returned in parts pays each part's late fee as it comes back; the database works the fee out again from the time it was saved and the due back time. The late fee is billed on the line's own service item, with its GST.
+- **Why:** the hirer agreed the late fee with the booking; the shop's clock decides when it was late. Slabs and caps are each shop's own terms: nothing is set for it.
+- **Change it:** each item's late fee, slabs, cap and grace time on *Rental items*, or its class's slabs; bookings made keep theirs.
 
 ### One bill, when the last of it is back
 
-- **Rule:** things come back in parts; the bill is posted through the core when the last of the booking is back (or will not come back): each line's hire, the late fees and the charges noted on every part, each at its item's GST slab of the day, the advance paying first, then the deposit; what is not paid stays on the hirer's dues. A unit that will not come back is retired, and pieces of a pool that will not come back leave the pool. Retries give the same return, and the same request with other data is refused.
+- **Rule:** things come back in parts; the bill is posted through the core when the last of the booking is back (or will not come back): each billed line's hire (less the booking's discount), the late fees, kilometres, fuel and the charges noted on every part, each at its item's GST slab of the day, the advance paying first, then the deposit; what is not paid stays on the hirer's dues. A unit that will not come back is retired, and pieces of a pool that will not come back leave the pool at the booking's location. Retries give the same return, and the same request with other data is refused.
 - **Why:** one tax invoice for the hire; GST is worked out at the rate of the day of the invoice.
 - **Change it:** nothing to set.
 
 ### Cancelling
 
-- **Rule:** a quote or a reserved booking is cancelled with a reason. A cancellation charge on any line is billed with its GST at that line's slab, and what is held pays it first; what is left goes back, now or later, with a manager's PIN.
-- **Why:** what the shop keeps is billed, as with any deposit.
-- **Change it:** who cancels is `rentals.cancel` (the owner and a manager by default).
+- **Rule:** a quote or a reserved booking is cancelled with a reason. With the shop's cancellation slabs set, a reserved booking's charge is worked out, never typed: from the hours left before its out time, the slab with the most hours they reach gives the percent (past the out time and not handed over, a no-show, the no-show percent, or the slab from 0 hours), that share of each billed line's hire less its discount. A manager may waive it, with the reason (their PIN when someone else asks); the charge worked out, what was charged and the waiver are kept with the booking and audited. With no slabs set a charge may be typed. A quote is cancelled with no charge worked out. A charge is billed with its GST at each line's slab, and what is held pays it first; what is left goes back, now or later, with a manager's PIN.
+- **Why:** what the shop keeps is billed, as with any deposit; slabs agreed with the hirer leave nothing to argue at the counter. The slabs are each shop's own terms: none are set for it.
+- **Change it:** the slabs and the no-show percent in the handover settings on *Rental items* (`settings.edit`); who cancels is `rentals.cancel` (the owner and a manager by default), who waives `rentals.approve`.
 
 ### Someone who does not see sales sees no money
 

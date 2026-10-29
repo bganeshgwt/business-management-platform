@@ -22,16 +22,30 @@ export const ID_KINDS = [
   { value: "aadhaar", label: "Aadhaar card" }, { value: "driving_licence", label: "Driving licence" }, { value: "voter_id", label: "Voter ID" },
   { value: "passport", label: "Passport" }, { value: "pan_card", label: "PAN card" }, { value: "other", label: "Other photo ID" },
 ];
+// Fuel in eighths of a tank.
 export const FUELS = [
-  { value: "empty", label: "Empty" }, { value: "quarter", label: "Quarter" }, { value: "half", label: "Half" }, { value: "three_quarters", label: "Three quarters" },
+  { value: "empty", label: "Empty" }, { value: "one_eighth", label: "1/8" }, { value: "quarter", label: "1/4 (quarter)" }, { value: "three_eighths", label: "3/8" },
+  { value: "half", label: "1/2 (half)" }, { value: "five_eighths", label: "5/8" }, { value: "three_quarters", label: "3/4 (three quarters)" }, { value: "seven_eighths", label: "7/8" },
   { value: "full", label: "Full" },
+];
+// A vehicle's class as a driving licence names it.
+export const VEHICLE_CLASSES = [
+  { value: "MCWOG", label: "MCWOG · motorcycle without gear (scooter)" }, { value: "MCWG", label: "MCWG · motorcycle with gear" }, { value: "MC50CC", label: "MC50CC · up to 50 cc" },
+  { value: "LMV", label: "LMV · light motor vehicle" }, { value: "LMV-NT", label: "LMV-NT · light motor vehicle, non-transport" }, { value: "TRANS", label: "TRANS · transport vehicle" },
+];
+export const FUEL_TYPES = [{ value: "petrol", label: "Petrol" }, { value: "diesel", label: "Diesel" }, { value: "cng", label: "CNG" }, { value: "lpg", label: "LPG" }, { value: "electric", label: "Electric" }];
+// A vehicle's papers, by the date each runs until (the API's keys).
+export const PAPERS = [
+  { column: "rc_valid_until", key: "rcValidUntil", label: "Registration certificate" }, { column: "permit_valid_until", key: "permitValidUntil", label: "Permit" },
+  { column: "insurance_valid_until", key: "insuranceValidUntil", label: "Insurance" }, { column: "puc_valid_until", key: "pucValidUntil", label: "PUC certificate" },
+  { column: "fitness_valid_until", key: "fitnessValidUntil", label: "Fitness certificate" },
 ];
 export const CHARGES = [
   { value: "damage", label: "Damage" }, { value: "missing", label: "Missing" }, { value: "cleaning", label: "Cleaning" }, { value: "fuel", label: "Fuel" },
   { value: "other", label: "Other charge" },
 ];
 export const VEHICLES = [{ value: "", label: "Not a vehicle" }, { value: "car", label: "Car" }, { value: "motorcycle", label: "Motorcycle or scooter" }, { value: "other", label: "Another vehicle" }];
-export const LATE = [{ value: "hour", label: "By the hour" }, { value: "day", label: "By the day" }, { value: "none", label: "No late fee" }];
+export const LATE = [{ value: "hour", label: "By the hour" }, { value: "day", label: "By the day" }, { value: "slabs", label: "By slabs of hours late" }, { value: "none", label: "No late fee" }];
 export const wordOf = (list, value) => list.find((x) => x.value === value)?.label || value || "";
 
 // The ID kept: "Aadhaar ending 9012", "Voter ID TSV1234567".
@@ -43,6 +57,24 @@ export const unitWords = (label, serial) => (serial ? `${label} (${serial})` : l
 // A line in words: "Innova Crysta · Innova 1 (TS09AB1234)", "150 × Plastic chair".
 export const lineWords = (l) => (l.unit_id || l.unitId ? `${l.item_name || l.itemName} · ${unitWords(l.unit_label || l.unitLabel, l.serial_no || l.serialNo)}`
   : `${l.quantity} × ${l.item_name || l.itemName}`);
+// The lines of a booking as the counter sees them: each kit with its parts under it.
+export const kitParts = (booking, kitLine) => booking.lines.filter((l) => String(l.kit_line_id) === String(kitLine.id));
+// "Up to 3 h: ₹100 + 2× the hour rate; from 3 h: 5× the hour rate" for late fee slabs.
+export function slabWords(slabs, exact) {
+  return (slabs || []).map((s, i, all) => {
+    const next = all[i + 1];
+    const span = next ? `${Number(s.from) ? `${s.from}–${next.from}` : `up to ${next.from}`} h late` : `over ${s.from} h late`;
+    const parts = [Number(s.flat) ? exact(s.flat) : null, Number(s.times) ? `${Number(s.times)}× the hour rate an hour` : null].filter(Boolean).join(" + ");
+    return `${span}: ${parts}`;
+  }).join("; ");
+}
+// A paper's date and whether it has run out or runs out soon, on the business's day.
+export function paperState(until, today, warnDays = 30, urgentDays = 7) {
+  if (!until) return null;
+  const left = Math.round((Date.parse(`${String(until).slice(0, 10)}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000);
+  return { until: String(until).slice(0, 10), left, tone: left < 0 ? "danger" : left <= urgentDays ? "warning" : left <= warnDays ? "info" : "success",
+    words: left < 0 ? "run out" : left === 0 ? "runs out today" : `${left} ${left === 1 ? "day" : "days"} left` };
+}
 
 // --- The business's clock -------------------------------------------------------------------
 
@@ -124,3 +156,6 @@ export const DEPOSIT_NOTE = "A refundable deposit is not a payment for the hire 
 // The GST slab a rental item takes, as the item form says it.
 export const SLAB_NOTE = "Renting goods without an operator is taxed at the rate of a sale of the like goods, so choose the slab of what is hired out (40% for goods that attract 40%, "
   + "from 22 September 2025). A passenger vehicle hired with a driver is 5% (input tax credit only of input services in the same line of business) or 18% with full credit.";
+// A line's checklist as the dialogs keep it (each point as it should be until said otherwise), and as the API takes it.
+export const blankChecks = (points) => (points || []).map((point) => ({ point, ok: true, note: "" }));
+export const checksBody = (list) => list.map((x) => ({ point: x.point, ok: x.ok, ...(x.ok ? {} : { note: x.note.trim() }) }));

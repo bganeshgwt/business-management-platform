@@ -549,7 +549,9 @@ test('rentals and hire', { timeout: 300000 }, async (t) => {
       lines: [{ lineId: carBooking.lines[0].id, meter: '25010', fuel: 'full', note: 'Small scratch on the rear bumper' }], ...extra }, ownerToken);
     assert.match((await car({})).body.message, /goes out on the hirer's driving licence/);
     assert.match((await car({ licenceNo: 'TS0920190001234', licenceValidUntil: addDays(today, -1) })).body.message, /ran out on .+: a vehicle is not handed over on it/);
-    const valid = { licenceNo: 'ts09 2019 0001234', licenceValidUntil: addDays(today, 900) };
+    // A self-drive car goes in the hirer register (Form 5): the full address, and the licence's issuing authority, classes and issue date.
+    const valid = { licenceNo: 'ts09 2019 0001234', licenceValidUntil: addDays(today, 900),
+      register: { address: '12-3-45, Ameerpet, Hyderabad 500016', licenceAuthority: 'RTA Khairatabad', licenceClasses: ['LMV', 'MCWG'], licenceIssuedOn: '2019-06-12' } };
     assert.match((await car(valid)).body.message, /needs the State Transport Authority's rent-a-cab licence: switch on Licences & registrations in Settings › Business tools/);
     await request('PUT', R('modules/licences'), { enabled: true });
     assert.match((await car(valid)).body.message, /holds no rent-a-cab licence\. Add or renew it under Settings › Licences/);

@@ -99,6 +99,10 @@ const TABLES = {
   jewellery_kyc_owners: { label: 'Beneficial owners', keep: 'A firm\'s beneficial owners are part of its KYC, kept at least five years as the Prevention of Money-laundering Act asks.' },
   jewellery_cash_family_members: { label: 'Family group in the cash report', keep: 'The cash report adds up a family\'s cash for the Income Tax limit; the group names the customer only through the erased record.' },
   jewellery_str_cases: { label: 'Suspicious transaction log', secret: true },
+  rental_hirers: { label: 'Hirer register', erase: { address: null, licence_authority: null, licence_classes: '{}', licence_issued_on: null, foreigner: false, passport_no: null,
+    passport_authority: null, passport_nation: null, passport_issued_on: null, passport_valid_until: null, birth_date: null, permit_no: null, permit_issued_on: null,
+    permit_classes: '{}', visa_no: null, visa_valid_until: null } },
+  rental_files: { label: 'Handover and return photos and signatures', keep: 'The signed handover and return, with the photos of what was handed over and came back, are the record of the hire and of any damage charged; they stay with the booking. No copy of an ID document is kept.' },
 };
 
 // Children of the rows above that the export also shows: the lines of each bill.

@@ -37,8 +37,8 @@ export const WORKSPACES = {
   // Old gold bought from customers or taken in exchange, and gold schemes.
   oldGold: ['old-gold'],
   goldSchemes: ['gold-schemes'],
-  // A rental business's bookings: the board, the availability week and the deposits held.
-  rentalBookings: ['rental-bookings', 'rental-availability', 'rental-deposits'],
+  // A rental business's bookings: the board, the availability week, the deposits held, the yard and fleet, the hirer register, use and earnings.
+  rentalBookings: ['rental-bookings', 'rental-availability', 'rental-deposits', 'rental-yard', 'rental-register', 'rental-reports'],
   // A fuel station's shifts, and its tanks with the morning dips, the tanker loads and the stock register.
   fuelShifts: ['fuel-shifts'],
   fuelTanks: ['fuel-dips', 'fuel-receipts', 'fuel-register'],

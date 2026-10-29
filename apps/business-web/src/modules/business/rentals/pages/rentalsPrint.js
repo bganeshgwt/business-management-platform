@@ -1,15 +1,17 @@
 import { escapeHtml, printDocument } from "../../../../services/print";
 import { dateShort } from "@bmp/shared/format";
 import { barcodeSvg } from "../../retail/services/barcode";
-import { DEPOSIT_NOTE, FUELS, atFull, idWords, lineWords, wordOf } from "./rentals";
+import { DEPOSIT_NOTE, FUELS, atFull, idWords, lineWords, slabWords, wordOf } from "./rentals";
 import { privacyLine } from "../../../personal-data/printLine";
 
 // Printing for a rental business: the quote, the booking slip and the
 // handover slip (every line with its unit, period and hire, the deposit asked,
 // the late fee rule; at the handover what was noted about each, its meter and
 // fuel, the hirer's photo ID and driving licence, with lines to sign), the
-// deposit receipt (no GST: a refundable deposit is not a payment for the hire)
-// and the slip for money handed back. Times are on the business's clock.
+// deposit receipt (no GST: a refundable deposit is not a payment for the hire),
+// the slip for money handed back, the hirer register of the rent-a-cab and
+// rent-a-motorcycle schemes (Forms 5 and 3; 6 and 4 for foreign nationals) and
+// the units' barcode labels. Times are on the business's clock.
 
 const bars = (code, height = 40) => { try { return barcodeSvg(code, { height }).svg; } catch { return ""; } };
 const BASE = "body{font:12px system-ui;color:#111} h1{font-size:17px;margin:0} h2{font-size:14px;margin:10px 0 4px} small{color:#555}"
@@ -33,9 +35,17 @@ function shopHead(biz, seller, title, code) {
 
 // The late fee rule of a line, as the hirer is told it: "₹400 an hour (or part of one) after 30 minutes".
 function lateRule(biz, line) {
-  if (line.late_per === "none" || !line.late_rate) return null;
   const grace = Number(line.grace_minutes || 0);
-  return `${lineWords(line)}: ${biz.exact(line.late_rate)} ${line.late_per === "hour" ? "an hour" : "a day"} (or part of one) late${line.quantity > 1 ? ", for each one" : ""}${grace ? `, after ${grace} minutes' grace` : ""}`;
+  const cap = line.late_cap ? `, at most ${biz.exact(line.late_cap)}${line.quantity > 1 ? " each" : ""}` : "";
+  if (line.late_per === "slabs") return `${lineWords(line)}: ${slabWords(line.late_slabs, biz.exact)} (an hour or part of one counts; the hour rate ${biz.exact(line.late_rate || 0)})${cap}${grace ? `, after ${grace} minutes' grace` : ""}`;
+  if (line.late_per === "none" || !line.late_rate) return null;
+  return `${lineWords(line)}: ${biz.exact(line.late_rate)} ${line.late_per === "hour" ? "an hour" : "a day"} (or part of one) late${line.quantity > 1 ? ", for each one" : ""}${grace ? `, after ${grace} minutes' grace` : ""}${cap}`;
+}
+// The kilometres and fuel a vehicle's line is charged for at the return.
+function fleetRule(biz, line) {
+  const parts = [line.km_per ? `${line.km_allowance} km free a ${line.km_per === "day" ? "day" : "booking"}, then ${biz.exact(line.extra_km_rate)} a km` : null,
+    line.fuel_per ? `fuel short of the level it went out with at ${biz.exact(line.fuel_rate)} ${line.fuel_per === "eighth" ? "an eighth of a tank" : "a litre"}` : null].filter(Boolean);
+  return parts.length ? `${lineWords(line)}: ${parts.join("; ")}` : null;
 }
 
 // What was noted about a line at the handover: the note, its meter and its fuel.
@@ -55,6 +65,8 @@ export function printBookingSlip(biz, booking, kind = "booking") {
     ${showMoney ? `<td class="r">${money(biz, l.amount)}<br><small>GST ${escapeHtml(Number(l.tax_rate))}%</small></td><td class="r">${Number(l.deposit_each) ? money(biz, Number(l.deposit_each) * Number(l.quantity)) : "—"}</td>` : ""}
     ${handover ? `<td>${handedOver(l)}</td>` : ""}</tr>`).join("");
   const rules = booking.lines.map((l) => lateRule(biz, l)).filter(Boolean);
+  const fleet = booking.lines.map((l) => fleetRule(biz, l)).filter(Boolean);
+  const h = booking.hirer;
   const heldDeposit = showMoney ? Number(booking.deposit?.held || 0) : 0;
   const advance = showMoney ? Number(booking.advance_summary?.left || 0) : 0;
   printDocument({
@@ -66,7 +78,10 @@ export function printBookingSlip(biz, booking, kind = "booking") {
       <dt>Due back by</dt><dd><strong>${escapeHtml(atFull(booking.due_at, biz))}</strong></dd>
       ${handover ? `<dt>Handed over</dt><dd>${escapeHtml(atFull(booking.checked_out_at, biz))}${booking.checked_out_by_name ? ` by ${escapeHtml(booking.checked_out_by_name)}` : ""}</dd>` : ""}
       ${handover && booking.id_kind ? `<dt>Photo ID seen</dt><dd>${escapeHtml(idWords(booking.id_kind, booking.id_ref))}</dd>` : ""}
-      ${handover && booking.licence_no ? `<dt>Driving licence</dt><dd>${escapeHtml(booking.licence_no)}, valid until ${escapeHtml(dateShort(booking.licence_valid_until, { year: true }))}</dd>` : ""}
+      ${handover && booking.licence_no ? `<dt>Driving licence</dt><dd>${escapeHtml(booking.licence_no)}, valid until ${escapeHtml(dateShort(booking.licence_valid_until, { year: true }))}${h?.licence_authority ? `, issued by ${escapeHtml(h.licence_authority)}${h.licence_issued_on ? ` on ${escapeHtml(dateShort(h.licence_issued_on, { year: true }))}` : ""} · ${escapeHtml((h.licence_classes || []).join(", "))}` : ""}</dd>` : ""}
+      ${handover && h?.address ? `<dt>Address</dt><dd>${escapeHtml(h.address)}</dd>` : ""}
+      ${handover && h?.foreigner ? `<dt>Passport</dt><dd>${escapeHtml(`${h.passport_no} · ${h.passport_nation} · valid until ${dateShort(h.passport_valid_until, { year: true })}`)}</dd>` : ""}
+      ${handover && h?.original_held ? `<dt>Original held</dt><dd>${escapeHtml(h.original_held)} (handed back at the return)</dd>` : ""}
       ${booking.location_name && biz.locations.length > 1 ? `<dt>From</dt><dd>${escapeHtml(booking.location_name)}</dd>` : ""}</dl>
       <table><thead><tr><th>Item</th><th>How many</th><th>Charged for</th>${showMoney ? '<th class="r">Hire</th><th class="r">Deposit</th>' : ""}${handover ? "<th>At the handover</th>" : ""}</tr></thead>
       <tbody>${rows}</tbody></table>
@@ -75,12 +90,54 @@ export function printBookingSlip(biz, booking, kind = "booking") {
         ${handover && booking.deposit_waiver ? `<dt>Less deposit</dt><dd>${escapeHtml(booking.deposit_waived_by_name || "")} agreed: ${escapeHtml(booking.deposit_waiver)}</dd>` : ""}
         ${advance ? `<dt>Advance paid</dt><dd>${money(biz, advance)}</dd>` : ""}</dl>` : ""}
       ${rules.length ? `<p class="note"><strong>Late fee:</strong> ${rules.map(escapeHtml).join("; ")}.</p>` : ""}
+      ${fleet.length ? `<p class="note"><strong>Kilometres and fuel:</strong> ${fleet.map(escapeHtml).join("; ")}.</p>` : ""}
+      ${Number(booking.discount_percent) && showMoney ? `<p class="note">${escapeHtml(`${Number(booking.discount_percent)}% off the hire: ${booking.discount_reason}`)}</p>` : ""}
       ${showMoney && Number(booking.deposit_due) ? `<p class="note">${escapeHtml(DEPOSIT_NOTE)}</p>` : ""}
       ${kind === "quote" ? `<p class="note">A quote holds nothing: the items are held once it is reserved.</p>` : ""}
       ${booking.notes ? `<p class="note">${escapeHtml(booking.notes)}</p>` : ""}
       ${booking.terms ? `<div class="terms">${escapeHtml(booking.terms)}</div>` : ""}
       ${privacyLine(biz) ? `<p class="note">${escapeHtml(privacyLine(biz))}</p>` : ""}
       <div class="sign"><span>${handover ? "Hirer: I have received the above in the condition noted" : "Hirer"}</span><span>For ${escapeHtml(shopName(biz))}</span></div>`,
+  });
+}
+
+// The hirer register of each vehicle for a period, as the scheme's forms list it: Form 5 (a cab) or 3 (a motorcycle), and 6 or 4 for foreign nationals.
+export function printRegister(biz, register) {
+  const day = (x) => (x ? escapeHtml(dateShort(x, { year: true })) : "");
+  const licence = (r) => `${escapeHtml(r.licence.number || "")}<br><small>${escapeHtml(r.licence.authority || "")} · ${escapeHtml((r.licence.classes || []).join(", "))}<br>issued ${day(r.licence.issuedOn)} · valid until ${day(r.licence.validUntil)}</small>`;
+  const own = (r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(r.name)}<br><small>${escapeHtml(r.address || "")}</small></td><td>${escapeHtml(r.telephone || "")}</td><td>${licence(r)}</td>
+    <td>${escapeHtml(atFull(r.hiredAt, biz))}</td><td>${escapeHtml(atFull(r.returnedAt, biz))}</td><td class="r">${r.totalKm ?? ""}</td><td>${r.signed ? "Signed at the handover" : ""}</td>
+    <td>${escapeHtml([r.bookingNo, r.remarks].filter(Boolean).join(" · "))}</td></tr>`;
+  const foreign = (r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(r.name)}<br><small>${escapeHtml(r.address || "")}</small></td><td>${escapeHtml(r.telephone || "")}</td>
+    <td>${escapeHtml(r.passport?.number || "")}<br><small>${escapeHtml(r.passport?.authority || "")}, ${escapeHtml(r.passport?.nation || "")}<br>issued ${day(r.passport?.issuedOn)} · valid until ${day(r.passport?.validUntil)}</small></td>
+    <td>${day(r.birthDate)}</td><td>${r.permit ? `${escapeHtml(r.permit.number)}<br><small>issued ${day(r.permit.issuedOn)}</small>` : ""}</td><td>${escapeHtml((r.permit?.classes || r.licence.classes || []).join(", "))}</td>
+    <td>${escapeHtml(atFull(r.hiredAt, biz))}</td><td>${escapeHtml(atFull(r.returnedAt, biz))}</td><td class="r">${r.totalKm ?? ""}</td><td>${r.signed ? "Signed at the handover" : ""}</td>
+    <td>${escapeHtml([r.bookingNo, r.visa ? `visa ${r.visa.number}` : null, r.remarks].filter(Boolean).join(" · "))}</td></tr>`;
+  const sections = register.vehicles.filter((v) => v.rows.length || v.foreignRows.length).map((v) => `
+    ${v.rows.length ? `<h2>${escapeHtml(v.form)} · ${escapeHtml(v.label)} (${escapeHtml(v.registration || "")}) · ${escapeHtml(v.itemName)}</h2>${v.scheme ? `<small>${escapeHtml(v.scheme)}</small>` : ""}
+      <table><thead><tr><th>#</th><th>Name and full address</th><th>Telephone</th><th>Driving licence: number, issuing authority, class, issue and expiry</th><th>Hired</th><th>Returned</th>
+      <th class="r">Total km</th><th>Signature of the hirer</th><th>Remarks</th></tr></thead><tbody>${v.rows.map(own).join("")}</tbody></table>` : ""}
+    ${v.foreignRows.length ? `<h2>${escapeHtml(v.foreignForm)} · ${escapeHtml(v.label)} (${escapeHtml(v.registration || "")}) · foreign nationals</h2>
+      <table><thead><tr><th>#</th><th>Name and full address</th><th>Telephone</th><th>Passport: number, issuing authority and nation, issue and expiry</th><th>Date of birth</th>
+      <th>Driving permit: number and issue date</th><th>Authorised class</th><th>Hired</th><th>Returned</th><th class="r">Total km</th><th>Signature of the hirer</th><th>Remarks</th></tr></thead>
+      <tbody>${v.foreignRows.map(foreign).join("")}</tbody></table>` : ""}`).join("");
+  printDocument({
+    title: `Hirer register ${register.from} to ${register.to}`,
+    styles: `@page{size:A4 landscape;margin:10mm} ${BASE} td,th{font-size:10px}`,
+    body: `${shopHead(biz, null, `Hirer register · ${dateShort(register.from, { year: true })} to ${dateShort(register.to, { year: true })}`)}
+      ${sections || "<p>No vehicle was hired in these dates.</p>"}
+      ${privacyLine(biz) ? `<p class="note">${escapeHtml(privacyLine(biz))}</p>` : ""}
+      <div class="sign"><span>For ${escapeHtml(shopName(biz))}</span></div>`,
+  });
+}
+
+// Barcode labels of units, each with its number (scanned at the handover and the return).
+export function printUnitLabels(biz, units) {
+  const labels = units.map((u) => `<div class="label"><div class="bc">${bars(u.serial_no, 40)}</div><strong>${escapeHtml(u.label)}</strong><small>${escapeHtml(u.serial_no)} · ${escapeHtml(u.item.name)}</small></div>`).join("");
+  printDocument({
+    title: "Unit labels",
+    styles: `@page{size:A4;margin:8mm} ${BASE} .labels{display:grid;grid-template-columns:repeat(3,1fr);gap:6px} .label{border:1px dashed #999;padding:6px;display:grid;gap:2px;justify-items:center}`,
+    body: `<div class="labels">${labels}</div>`,
   });
 }
 

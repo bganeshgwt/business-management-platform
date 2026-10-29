@@ -23,8 +23,10 @@ const STATUS_WORDS = { quote: 'quote', reserved: 'reserved', out: 'out', returne
 const STAGE_WORDS = { quote: 'quote', reserved: 'reserved', out: 'out', due_today: 'due back today', overdue: 'overdue', to_settle: 'back, to settle',
   closed: 'closed', cancelled: 'cancelled' };
 const ID_KINDS = { aadhaar: 'Aadhaar card', voter_id: 'Voter ID', driving_licence: 'Driving licence', passport: 'Passport', pan_card: 'PAN card', other: 'Other photo ID' };
-const FUEL_LEVELS = ['empty', 'quarter', 'half', 'three_quarters', 'full'];
-const FUEL_WORDS = { empty: 'empty', quarter: 'a quarter', half: 'half', three_quarters: 'three quarters', full: 'full' };
+// Fuel in eighths of a tank.
+const FUEL_LEVELS = ['empty', 'one_eighth', 'quarter', 'three_eighths', 'half', 'five_eighths', 'three_quarters', 'seven_eighths', 'full'];
+const FUEL_WORDS = { empty: 'empty', one_eighth: 'an eighth', quarter: 'a quarter', three_eighths: 'three eighths', half: 'half', five_eighths: 'five eighths',
+  three_quarters: 'three quarters', seven_eighths: 'seven eighths', full: 'full' };
 const CHARGE_KINDS = ['damage', 'missing', 'cleaning', 'fuel', 'other'];
 const CHARGE_WORDS = { damage: 'Damage', missing: 'Missing', cleaning: 'Cleaning', fuel: 'Fuel', other: 'Charge', cancellation: 'Cancellation charge' };
 const VEHICLES = ['car', 'motorcycle', 'other'];
@@ -32,7 +34,16 @@ const VEHICLE_WORDS = { car: 'car', motorcycle: 'motorcycle', other: 'vehicle' }
 // The State Transport Authority's licence a self-drive vehicle is hired out under (Settings › Licences).
 const SELF_DRIVE_LICENCES = { car: { kind: 'rent_a_cab', words: 'rent-a-cab licence' }, motorcycle: { kind: 'rent_a_motorcycle', words: 'rent-a-motorcycle licence' } };
 const METERS = ['km', 'hours'];
-const LATE_PER = ['none', 'hour', 'day'];
+const LATE_PER = ['none', 'hour', 'day', 'slabs'];
+// A vehicle's class as a driving licence names it.
+const VEHICLE_CLASSES = { MC50CC: 'Motorcycle up to 50 cc', MCWOG: 'Motorcycle without gear (scooter)', MCWG: 'Motorcycle with gear', 'LMV-NT': 'Light motor vehicle, non-transport',
+  LMV: 'Light motor vehicle', TRANS: 'Transport vehicle' };
+const FUEL_TYPES = ['petrol', 'diesel', 'cng', 'lpg', 'electric'];
+// A vehicle's papers, by the date each runs until.
+const PAPERS = { rc_valid_until: 'registration certificate', permit_valid_until: 'permit', insurance_valid_until: 'insurance', puc_valid_until: 'PUC certificate',
+  fitness_valid_until: 'fitness certificate' };
+const PAPER_KEYS = { rc_valid_until: 'rcValidUntil', permit_valid_until: 'permitValidUntil', insurance_valid_until: 'insuranceValidUntil', puc_valid_until: 'pucValidUntil',
+  fitness_valid_until: 'fitnessValidUntil' };
 // Money taken for a booking and money handed back from it.
 const RECEIPT_KINDS = ['cash', 'card', 'upi', 'bank'];
 const MAX_DAYS = 90;
@@ -132,11 +143,59 @@ function readLicence(value) {
   return text;
 }
 
+// A calendar date as typed, or none.
+const optionalDate = (value, name) => (given(value) ? readDate(value, name) : null);
+// Licence classes as ticked: a list of the classes a driving licence (or permit) names.
+function readClasses(value, name) {
+  if (value === undefined || value === null || value === '') return [];
+  const list = Array.isArray(value) ? value : String(value).split(/[\s,]+/);
+  const classes = [...new Set(list.map((x) => String(x).trim().toUpperCase()).filter(Boolean))];
+  for (const x of classes) if (!VEHICLE_CLASSES[x]) fail(`${name}: ${x} is not a class of vehicle a licence names (${Object.keys(VEHICLE_CLASSES).join(', ')})`);
+  return classes;
+}
+// Late fee slabs as typed: [{ from (hours late), flat, times }] — the first from 0, rising; a flat amount
+// and/or a multiple of the hourly rate. null when none are given.
+function readLateSlabs(value) {
+  if (value === undefined || value === null) return null;
+  const list = v.requiredArray(value, 'Late fee slabs');
+  if (!list.length) return null;
+  if (list.length > 10) fail('Give at most 10 late fee slabs');
+  const slabs = list.map((raw, index) => {
+    const name = `Late fee slab ${index + 1}`;
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) fail(`${name} must be an object`);
+    const from = index === 0 ? 0 : whole(raw.from, `${name}: from hours late`, 1, 2160);
+    const flat = given(raw.flat) ? coreDecimal(raw.flat, `${name}: flat amount`, 0, 1000000) : 0;
+    const times = given(raw.times) ? coreDecimal(raw.times, `${name}: times the hourly rate`, 0, 100) : 0;
+    if (!flat && !times) fail(`${name}: give a flat amount, a multiple of the hourly rate, or both`);
+    return { from, flat, times };
+  });
+  for (let i = 1; i < slabs.length; i += 1) if (slabs[i].from <= slabs[i - 1].from) fail('Each late fee slab starts at more hours late than the one before');
+  return slabs;
+}
+// Cancellation slabs as typed: [{ hours (before the out time), percent }], most hours first. null when none.
+function readCancelSlabs(value) {
+  if (value === undefined || value === null) return null;
+  const list = v.requiredArray(value, 'Cancellation slabs');
+  if (!list.length) return null;
+  if (list.length > 10) fail('Give at most 10 cancellation slabs');
+  const slabs = list.map((raw, index) => {
+    const name = `Cancellation slab ${index + 1}`;
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) fail(`${name} must be an object`);
+    return { hours: whole(raw.hours, `${name}: hours before the out time`, 0, 2160), percent: coreDecimal(raw.percent, `${name}: percent of the hire`, 0, 100) };
+  }).sort((a, b) => b.hours - a.hours);
+  for (let i = 1; i < slabs.length; i += 1) if (slabs[i].hours === slabs[i - 1].hours) fail('Each cancellation slab starts at different hours before the out time');
+  return slabs;
+}
+// A decimal of up to two places, as typed (the core's reader, loaded when first needed).
+const coreDecimal = (value, name, min, max) => require('../../core/services/business.service').decimal(value, name, 2, min, max);
+// The business's first location in use: where a pool or unit is kept unless placed elsewhere.
+const firstLocation = async (db, businessId) => (await repo.one(db, 'SELECT min(id) AS id FROM business_locations WHERE business_id=$1 AND active', [businessId])).id;
+
 // Money is for those who see sales.
 const seesMoney = (business) => access.can(business, 'sales.view');
 
 // The settings as a business has them (the defaults until first saved).
-const DEFAULTS = { id_required: true, terms: null };
+const DEFAULTS = { id_required: true, terms: null, papers_warn_days: 30, papers_urgent_days: 7, papers_lapsed: 'refuse', cancel_slabs: null, no_show_percent: null };
 async function settingsOf(db, businessId) {
   const row = await repo.one(db, 'SELECT * FROM rental_settings WHERE business_id=$1', [businessId]);
   return row ? { ...DEFAULTS, ...row } : { ...DEFAULTS, business_id: businessId, updated_at: null, updated_by: null };
@@ -152,5 +211,6 @@ const DUE_SQL = (d) => `(${d}.total
   +COALESCE((SELECT sum(amount) FROM business_refunds f WHERE f.business_id=${d}.business_id AND f.document_id=${d}.id),0))`;
 
 module.exports = { fail, id, requireRentals, STATUS_WORDS, STAGE_WORDS, ID_KINDS, FUEL_LEVELS, FUEL_WORDS, CHARGE_KINDS, CHARGE_WORDS, VEHICLES, VEHICLE_WORDS,
-  SELF_DRIVE_LICENCES, METERS, LATE_PER, RECEIPT_KINDS, MAX_DAYS, MAX_LINES, given, optionalText, paise, rupees, hashOf, derivedKey, whole, readInstant, readDate, addDays,
-  dateWords, timeWords, today, listWords, plural, readSerial, readMeter, readId, readLicence, seesMoney, DEFAULTS, settingsOf, FREE_SQL, DUE_SQL };
+  SELF_DRIVE_LICENCES, METERS, LATE_PER, VEHICLE_CLASSES, FUEL_TYPES, PAPERS, PAPER_KEYS, RECEIPT_KINDS, MAX_DAYS, MAX_LINES, given, optionalText, paise, rupees, hashOf,
+  derivedKey, whole, readInstant, readDate, optionalDate, addDays, dateWords, timeWords, today, listWords, plural, readSerial, readMeter, readId, readLicence, readClasses,
+  readLateSlabs, readCancelSlabs, firstLocation, seesMoney, DEFAULTS, settingsOf, FREE_SQL, DUE_SQL };
