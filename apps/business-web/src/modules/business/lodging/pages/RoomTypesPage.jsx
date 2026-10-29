@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import ContentTabs from "../../../../components/ContentTabs";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
 import Icon from "@bmp/ui/Icon";
 import SectionCard from "../../../../components/SectionCard";
@@ -10,6 +12,7 @@ import FormDialog from "../../core/pages/FormDialog";
 import { ActiveBadge, Badge, BusinessHeader, Field } from "../../core/pages/ui";
 import { useOpenBusiness } from "../../core/pages/hooks";
 import { ROOM_STATUS, SLAB_NOTE, WEEKDAYS } from "./lodging";
+import { DayUseTab, PoliciesTab, RateCalendarTab, RatePlansTab, SeasonsTab } from "./LodgingRates";
 import "../styles/lodging.css";
 
 // Room types & rates (Settings): the two GST slabs a room night is billed at
@@ -18,7 +21,12 @@ import "../styles/lodging.css";
 // with its occupancy, extra beds and rate plan (rack, weekend, extra adult,
 // child and extra bed, each a night before GST), billed as a service item
 // counted in nights; and the rooms with their numbers, floors and types. A
-// stay keeps the rates it was booked at.
+// stay keeps the rates it was booked at. The other tabs: rate plans with
+// their meal plans, seasons, the rate calendar, day-use prices and policies
+// (LodgingRates.jsx); the check-in and check-out times are with the slabs.
+
+const TABS = [{ value: "rooms", label: "Room types & rooms" }, { value: "plans", label: "Rate plans" }, { value: "seasons", label: "Seasons" }, { value: "calendar", label: "Rate calendar" },
+  { value: "day-use", label: "Day use" }, { value: "policies", label: "Policies" }];
 
 const blankType = { name: "", hsnCode: "", baseOccupancy: "2", maxOccupancy: "2", maxExtraBeds: "0", rack: "", weekend: "", extraAdult: "", child: "", extraBed: "", description: "" };
 const money = (value) => (value === null || value === undefined ? "" : String(Number(value)));
@@ -29,6 +37,9 @@ export default function RoomTypesPage() {
   const [error, setError] = useState("");
   const [version, setVersion] = useState(0);
   const [dialog, setDialog] = useState(null);
+  const [params, setParams] = useSearchParams();
+  const tab = TABS.some((t) => t.value === params.get("tab")) ? params.get("tab") : "rooms";
+  const showTab = (value) => setParams((p) => { if (value === "rooms") p.delete("tab"); else p.set("tab", value); return p; }, { replace: true });
   useEffect(() => {
     const controller = new AbortController();
     businessRead(biz.id, "lodging/setup", undefined, controller.signal).then((s) => { setSetup(s); setError(""); })
@@ -41,8 +52,15 @@ export default function RoomTypesPage() {
   const many = biz.locations.length > 1;
   return (
     <div className="stack">
-      <BusinessHeader icon="settings" title="Room types & rates" description="The GST slabs of a room night, each room type's rates and its rooms. A change of rates applies to stays booked after it: a stay keeps the rates it was booked at." />
+      <BusinessHeader icon="settings" title="Room types & rates" description="The GST slabs of a room night, the check-in and check-out times, each room type's rates and its rooms, rate plans with their meals, seasons, the rate calendar, day-use prices and policies. A change of rates applies to stays booked after it: a stay keeps the rates it was booked at." />
       <ErrorMessage message={error} />
+      <ContentTabs label="Room types & rates" value={tab} options={TABS} onChange={showTab}>
+      {tab === "plans" && <RatePlansTab setup={setup} />}
+      {tab === "seasons" && <SeasonsTab setup={setup} />}
+      {tab === "calendar" && <RateCalendarTab setup={setup} />}
+      {tab === "day-use" && <DayUseTab setup={setup} />}
+      {tab === "policies" && <PoliciesTab />}
+      {tab === "rooms" && <>
       <SlabSettings setup={setup} onSaved={() => done("Saved.")} />
       <SectionCard flush icon="home" title="Room types" actions={canItems && <button type="button" className="button button-sm" onClick={() => setDialog({ kind: "type" })}><Icon name="plus" size={14} /> Add a room type</button>}>
         <DataGrid variant="compact" id="lodging-room-types" caption="Room types" rows={setup.roomTypes} rowKey={(t) => t.id} currency={biz.symbol} rowNoun={["room type", "room types"]}
@@ -72,6 +90,8 @@ export default function RoomTypesPage() {
             canItems && { key: "actions", header: "", type: "actions", render: (r) => <button type="button" className="link-button" onClick={() => setDialog({ kind: "room", room: r })}>Edit</button> },
           ].filter(Boolean)} />
       </SectionCard>
+      </>}
+      </ContentTabs>
       {dialog?.kind === "type" && <RoomTypeDialog type={dialog.type} slabsReady={setup.settings.ready} onClose={() => setDialog(null)} onSaved={() => done(dialog.type ? "Room type saved." : "Room type added.")} />}
       {dialog?.kind === "rooms" && <AddRoomsDialog setup={setup} onClose={() => setDialog(null)} onSaved={() => done("Rooms added.")} />}
       {dialog?.kind === "room" && <RoomDialog setup={setup} room={dialog.room} onClose={() => setDialog(null)} onSaved={() => done(`Room ${dialog.room.room_no} saved.`)} />}
@@ -84,7 +104,8 @@ function SlabSettings({ setup, onSaved }) {
   const biz = useOpenBusiness();
   const s = setup.settings;
   const pick = (rate) => String(setup.slabs.find((x) => Number(x.rate) === rate)?.id || "");
-  const [form, setForm] = useState({ low: String(s.lowTaxRateId || pick(5)), high: String(s.highTaxRateId || pick(18)), limit: String(Number(s.slabLimit)), weekend: s.weekendNights, terms: s.terms || "" });
+  const [form, setForm] = useState({ low: String(s.lowTaxRateId || pick(5)), high: String(s.highTaxRateId || pick(18)), limit: String(Number(s.slabLimit)), weekend: s.weekendNights, terms: s.terms || "",
+    checkIn: s.checkInTime || "12:00", checkOut: s.checkOutTime || "11:00" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const canEdit = biz.can("settings.edit");
@@ -95,7 +116,8 @@ function SlabSettings({ setup, onSaved }) {
     setBusy(true);
     setError("");
     try {
-      await businessWrite(biz.id, "lodging/settings", { lowTaxRateId: form.low, highTaxRateId: form.high, slabLimit: form.limit, weekendNights: form.weekend, terms: form.terms.trim() || null }, "put");
+      await businessWrite(biz.id, "lodging/settings", { lowTaxRateId: form.low, highTaxRateId: form.high, slabLimit: form.limit, weekendNights: form.weekend, terms: form.terms.trim() || null,
+        checkInTime: form.checkIn, checkOutTime: form.checkOut }, "put");
       onSaved();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -104,7 +126,7 @@ function SlabSettings({ setup, onSaved }) {
     }
   };
   return (
-    <SectionCard icon="percent" title="GST slabs of a room night" description={SLAB_NOTE}>
+    <SectionCard icon="percent" title="GST slabs, nights and times" description={SLAB_NOTE}>
       {!s.ready && <p className="ldg-note ldg-warn">Nothing is reserved or billed until the two slabs are saved.</p>}
       <form className="form-grid bz-form" onSubmit={save}>
         <fieldset className="bz-fieldset" disabled={!canEdit || busy}>
@@ -120,10 +142,12 @@ function SlabSettings({ setup, onSaved }) {
             </div>
             <small className="muted">A night belongs to the date it starts on: Friday and Saturday nights are the usual weekend.</small>
           </div>
+          <Field label="Check-in from" hint="The property's own time: before it on the arrival day, the policy's early check-in charge applies."><input required type="time" value={form.checkIn} onChange={set("checkIn")} /></Field>
+          <Field label="Check-out by" hint="After it on the departure day, the policy's late check-out charge applies."><input required type="time" value={form.checkOut} onChange={set("checkOut")} /></Field>
           <Field label="Terms on the registration card (optional)" wide><textarea rows={3} maxLength={2000} value={form.terms} onChange={set("terms")} /></Field>
         </fieldset>
         {error && <div className="field-wide"><ErrorMessage message={error} /></div>}
-        {canEdit && <div className="form-actions field-wide"><button type="submit" className="button" disabled={busy}>{busy ? "Saving…" : "Save the slabs and nights"}</button></div>}
+        {canEdit && <div className="form-actions field-wide"><button type="submit" className="button" disabled={busy}>{busy ? "Saving…" : "Save the slabs, nights and times"}</button></div>}
       </form>
     </SectionCard>
   );

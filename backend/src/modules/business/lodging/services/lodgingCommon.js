@@ -109,7 +109,7 @@ const seesMoney = (business) => access.can(business, 'sales.view');
 const seesIds = (business) => access.can(business, 'lodging.create') || access.can(business, 'lodging.print');
 
 // The settings as a business has them (the defaults until first saved), with its two slabs.
-const DEFAULTS = { low_tax_rate_id: null, high_tax_rate_id: null, slab_limit: '7500.00', weekend_nights: [5, 6], terms: null };
+const DEFAULTS = { low_tax_rate_id: null, high_tax_rate_id: null, slab_limit: '7500.00', weekend_nights: [5, 6], terms: null, check_in_time: '12:00:00', check_out_time: '11:00:00' };
 async function settingsOf(db, businessId) {
   const row = await repo.one(db, `SELECT s.*,lo.name AS low_name,lo.rate AS low_rate,hi.name AS high_name,hi.rate AS high_rate FROM lodging_settings s
     LEFT JOIN business_tax_rates lo ON lo.business_id=s.business_id AND lo.id=s.low_tax_rate_id
@@ -136,6 +136,18 @@ const DUE_SQL = (d) => `(${d}.total
   -COALESCE((SELECT sum(amount) FROM business_payments p WHERE p.business_id=${d}.business_id AND p.document_id=${d}.id),0)
   +COALESCE((SELECT sum(amount) FROM business_refunds f WHERE f.business_id=${d}.business_id AND f.document_id=${d}.id),0))`;
 
+// A time of day as typed (HH:MM, 24-hour), checked.
+function readTime(value, name) {
+  const text = String(value ?? '').trim();
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(text)) fail(`${name} is a time of day like 12:00 or 14:30`);
+  return text;
+}
+const hhmm = (time) => String(time || '').slice(0, 5);
+// Which folio routing rule a charge follows: the room (its nights, a day use, an early check-in or a late check-out,
+// with their tax), meals, extras or goods. A cancellation charge is billed to the guest.
+const CATEGORY = { room_night: 'room', day_use: 'room', early_check_in: 'room', late_check_out: 'room', meal: 'meals', extra: 'extras', goods: 'goods' };
+const CATEGORIES = ['room', 'meals', 'extras', 'goods'];
+
 // The database's own sentence for a room taken twice (the exclusion constraint),
 // when two stays were saved at the same moment and the check before it could not see the other.
 function roomTaken(error) {
@@ -147,4 +159,4 @@ function roomTaken(error) {
 
 module.exports = { fail, id, requireLodging, STATUS_WORDS, ROOM_STATUSES, ROOM_WORDS, SOURCES, SOURCE_WORDS, ID_KINDS, GENDERS, RECEIPT_KINDS, MAX_NIGHTS, MAX_RATE,
   MAX_TOTAL, given, optionalText, paise, rupees, hashOf, derivedKey, whole, readDate, addDays, dateWords, dayWords, dayOf, timeWords, today, listWords, plural,
-  nightsWords, readId, readRate, seesMoney, seesIds, DEFAULTS, settingsOf, slabsOf, FREE_SQL, DUE_SQL, roomTaken };
+  nightsWords, readId, readRate, seesMoney, seesIds, DEFAULTS, settingsOf, slabsOf, FREE_SQL, DUE_SQL, roomTaken, readTime, hhmm, CATEGORY, CATEGORIES };

@@ -39,7 +39,8 @@ export default function StaysPage() {
   return (
     <div className="stack">
       <BusinessHeader icon="home" title="Stays" description="Every reservation and stay by its arrival date, with where it stands: reserved, in the house, checked out, cancelled or a no-show."
-        primary={biz.can("lodging.create") && <Link className="button" to={biz.path("lodging-stays/new")}><Icon name="plus" size={16} /> New reservation</Link>} />
+        primary={biz.can("lodging.create") && <Link className="button" to={biz.path("lodging-stays/new")}><Icon name="plus" size={16} /> New reservation</Link>}
+        secondary={biz.can("lodging.create") && <Link className="button button-secondary" to={biz.path("lodging-groups/new")}><Icon name="users" size={16} /> New group booking</Link>} />
       <DataGrid {...list.gridProps} search={{ ...list.gridProps.search, placeholder: "Stay, guest, phone, room, company or OTA booking" }} caption="Stays" columns={columns}
         currency={biz.symbol} rowNoun={["stay", "stays"]} onRowClick={(s) => navigate(biz.path(`lodging-stays/${s.id}`))} toolbar={<PeriodFilter list={list} />}
         rowClassName={(s) => (s.stage === "overstay" || s.late_arrival ? "dg-tone-danger" : s.stage === "to_settle" ? "dg-tone-warning" : ["checked_out", "cancelled", "no_show"].includes(s.stage) ? "dg-tone-muted" : "")}

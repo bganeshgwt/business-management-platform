@@ -54,7 +54,8 @@ export default function ReservationsPage() {
     <div className="stack">
       <BusinessHeader icon="calendar" title="Reservations"
         description="Each night on the property's clock, room by room: a room is held from the arrival night to the night before the departure. Rooms left counts every reservation, with a room or not."
-        primary={biz.can("lodging.create") && <Link className="button" to={biz.path("lodging-stays/new")}><Icon name="plus" size={16} /> New reservation</Link>} />
+        primary={biz.can("lodging.create") && <Link className="button" to={biz.path("lodging-stays/new")}><Icon name="plus" size={16} /> New reservation</Link>}
+        secondary={biz.can("lodging.create") && <Link className="button button-secondary" to={biz.path("lodging-groups/new")}><Icon name="users" size={16} /> New group booking</Link>} />
       <ErrorMessage message={error} />
       <SectionCard flush icon="calendar" title={data ? `${dayWords(data.from)} to ${dayWords(data.to)}` : "Reservations"}
         actions={(

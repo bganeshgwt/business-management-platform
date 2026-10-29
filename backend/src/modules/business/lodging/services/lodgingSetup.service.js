@@ -38,7 +38,8 @@ const ROOM_ORDER = 'r.active DESC,l.name,r.sort_order,lower(r.floor),length(r.ro
 
 const settingsShape = (s) => ({ lowTaxRateId: s.low_tax_rate_id, highTaxRateId: s.high_tax_rate_id, lowName: s.low_name || null, highName: s.high_name || null,
   lowRate: s.low_rate === undefined || s.low_rate === null ? null : Number(s.low_rate).toFixed(2), highRate: s.high_rate === undefined || s.high_rate === null ? null : Number(s.high_rate).toFixed(2),
-  slabLimit: Number(s.slab_limit).toFixed(2), weekendNights: s.weekend_nights, terms: s.terms, updatedAt: s.updated_at, ready: Boolean(s.low_tax_rate_id) });
+  slabLimit: Number(s.slab_limit).toFixed(2), weekendNights: s.weekend_nights, terms: s.terms, checkInTime: c.hhmm(s.check_in_time), checkOutTime: c.hhmm(s.check_out_time),
+  updatedAt: s.updated_at, ready: Boolean(s.low_tax_rate_id) });
 
 async function load(db, business) {
   const roomTypes = await repo.all(db, `SELECT * FROM (${TYPES_SQL}) x ORDER BY active DESC,sort_order,lower(name),id LIMIT 200`, [business.id]);
@@ -81,14 +82,19 @@ async function saveSettings(business, user, body) {
       weekend_nights: body.weekendNights === undefined ? before.weekend_nights
         : [...new Set(v.requiredArray(body.weekendNights, 'Weekend nights').map((d) => c.whole(d, 'A weekend night', 1, 7)))].sort((a, b) => a - b),
       terms: body.terms === undefined ? before.terms : c.optionalText(body.terms, 'Terms on the registration card', 2000),
+      // The property's check-in and check-out times (its policy: no regulation fixes them).
+      check_in_time: body.checkInTime === undefined ? c.hhmm(before.check_in_time) : c.readTime(body.checkInTime, 'The check-in time'),
+      check_out_time: body.checkOutTime === undefined ? c.hhmm(before.check_out_time) : c.readTime(body.checkOutTime, 'The check-out time'),
     };
     if (next.low_tax_rate_id && Number(next.low_tax_rate_id) === Number(next.high_tax_rate_id)) fail('The two slabs are different slabs: the lower one, and the higher one above the limit');
-    await db.query(`INSERT INTO lodging_settings(business_id,low_tax_rate_id,high_tax_rate_id,slab_limit,weekend_nights,terms,updated_by) VALUES($1,$2,$3,$4,$5,$6,$7)
+    await db.query(`INSERT INTO lodging_settings(business_id,low_tax_rate_id,high_tax_rate_id,slab_limit,weekend_nights,terms,updated_by,check_in_time,check_out_time) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
       ON CONFLICT (business_id) DO UPDATE SET low_tax_rate_id=EXCLUDED.low_tax_rate_id,high_tax_rate_id=EXCLUDED.high_tax_rate_id,slab_limit=EXCLUDED.slab_limit,
-        weekend_nights=EXCLUDED.weekend_nights,terms=EXCLUDED.terms,updated_by=EXCLUDED.updated_by,updated_at=now()`,
-    [business.id, next.low_tax_rate_id, next.high_tax_rate_id, Number(next.slab_limit).toFixed(2), next.weekend_nights, next.terms, user.id]);
-    const was = { lowTaxRateId: before.low_tax_rate_id, highTaxRateId: before.high_tax_rate_id, slabLimit: Number(before.slab_limit).toFixed(2), weekendNights: before.weekend_nights, terms: before.terms };
-    const now = { lowTaxRateId: next.low_tax_rate_id, highTaxRateId: next.high_tax_rate_id, slabLimit: Number(next.slab_limit).toFixed(2), weekendNights: next.weekend_nights, terms: next.terms };
+        weekend_nights=EXCLUDED.weekend_nights,terms=EXCLUDED.terms,updated_by=EXCLUDED.updated_by,updated_at=now(),check_in_time=EXCLUDED.check_in_time,check_out_time=EXCLUDED.check_out_time`,
+    [business.id, next.low_tax_rate_id, next.high_tax_rate_id, Number(next.slab_limit).toFixed(2), next.weekend_nights, next.terms, user.id, next.check_in_time, next.check_out_time]);
+    const was = { lowTaxRateId: before.low_tax_rate_id, highTaxRateId: before.high_tax_rate_id, slabLimit: Number(before.slab_limit).toFixed(2), weekendNights: before.weekend_nights, terms: before.terms,
+      checkInTime: c.hhmm(before.check_in_time), checkOutTime: c.hhmm(before.check_out_time) };
+    const now = { lowTaxRateId: next.low_tax_rate_id, highTaxRateId: next.high_tax_rate_id, slabLimit: Number(next.slab_limit).toFixed(2), weekendNights: next.weekend_nights, terms: next.terms,
+      checkInTime: next.check_in_time, checkOutTime: next.check_out_time };
     const changed = Object.keys(now).filter((k) => JSON.stringify(was[k] ?? null) !== JSON.stringify(now[k] ?? null));
     if (changed.length) {
       await repo.audit(db, business.id, user.id, 'lodging_settings.updated', null, { from: Object.fromEntries(changed.map((k) => [k, was[k]])), to: Object.fromEntries(changed.map((k) => [k, now[k]])) });

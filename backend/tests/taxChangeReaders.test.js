@@ -114,6 +114,9 @@ const READERS = {
   "modules/business/fuel/services/fuelFleet.service.js": "gate",
   // A membership's fees (a freeze, a transfer, a late instalment, a class penalty) are billed at its plan item's slab.
   "modules/business/memberships/services/memberFees.service.js": "gate",
+  // A lodging's rate plans show their meal item's slab; a group's folio is billed at its charges' own stored rates.
+  "modules/business/lodging/services/lodgingRates.service.js": "gate",
+  "modules/business/lodging/services/lodgingGroups.service.js": "stored",
 };
 
 function* sourceFiles(dir) {

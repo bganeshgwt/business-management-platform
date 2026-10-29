@@ -173,6 +173,15 @@ test('hotels, lodges and guest houses', { timeout: 300000 }, async (t) => {
       await db.query('ALTER TABLE lodging_stays DISABLE TRIGGER lodging_stays_guard');
       await db.query('ALTER TABLE lodging_stay_guests DISABLE TRIGGER lodging_stay_guests_guard');
       await db.query(`UPDATE lodging_stays SET arrival=arrival-$2::int,departure=departure-$2::int,checked_in_at=checked_in_at-make_interval(days=>$2::int) WHERE id=$1`, [stayId, days]);
+      // Its nights priced for their new dates, as a booking then would have been: the agreed rate, else the weekend rate on a weekend night, else the rack rate.
+      await db.query('DELETE FROM lodging_stay_nights WHERE stay_id=$1', [stayId]);
+      await db.query(`INSERT INTO lodging_stay_nights(business_id,stay_id,night,rate_kind,room_rate,extra_adult_rate,child_rate,extra_bed_rate)
+        SELECT s.business_id,s.id,n::date,
+          CASE WHEN s.agreed_rate IS NOT NULL THEN 'agreed' WHEN s.weekend_rate IS NOT NULL AND EXTRACT(ISODOW FROM n)::smallint = ANY (st.weekend_nights) THEN 'weekend' ELSE 'rack' END,
+          CASE WHEN s.agreed_rate IS NOT NULL THEN s.agreed_rate WHEN s.weekend_rate IS NOT NULL AND EXTRACT(ISODOW FROM n)::smallint = ANY (st.weekend_nights) THEN s.weekend_rate ELSE s.rack_rate END,
+          s.extra_adult_rate,s.child_rate,s.extra_bed_rate
+        FROM lodging_stays s JOIN lodging_settings st ON st.business_id=s.business_id CROSS JOIN LATERAL generate_series(s.arrival::timestamp,(s.departure-1)::timestamp,interval '1 day') n
+        WHERE s.id=$1`, [stayId]);
       await db.query('UPDATE lodging_stay_guests SET arrived_at=arrived_at-make_interval(days=>$2::int),created_at=created_at-make_interval(days=>$2::int) WHERE stay_id=$1', [stayId, days]);
       await db.query('ALTER TABLE lodging_stay_guests ENABLE TRIGGER lodging_stay_guests_guard');
       await db.query('ALTER TABLE lodging_stays ENABLE TRIGGER lodging_stays_guard');

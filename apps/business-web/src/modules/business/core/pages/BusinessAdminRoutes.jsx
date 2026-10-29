@@ -210,6 +210,8 @@ const LodgingStayFormPage = lazy(() => import("../../lodging/pages/StayFormPage"
 const LodgingFormIIIPage = lazy(() => import("../../lodging/pages/ForeignGuestsPage"));
 const LodgingRegisterPage = lazy(() => import("../../lodging/pages/GuestRegisterPage"));
 const LodgingRatesPage = lazy(() => import("../../lodging/pages/RoomTypesPage"));
+const LodgingGroupFormPage = lazy(() => import("../../lodging/pages/GroupFormPage"));
+const LodgingGroupPage = lazy(() => import("../../lodging/pages/GroupPage"));
 
 function Notice({ title, children }) {
   return (
@@ -501,6 +503,8 @@ export default function BusinessAdminRoutes() {
         <Route path="fuel-fleet/:contactId" element={page("fuel-fleet", <FuelStatementPage />)} />
         <Route path="lodging-stays/new" element={page("lodging-stays", <LodgingStayFormPage />)} />
         <Route path="lodging-stays/:stayId" element={page("lodging-stays", <LodgingStayPage />)} />
+        <Route path="lodging-groups/new" element={page("lodging-stays", <LodgingGroupFormPage />)} />
+        <Route path="lodging-groups/:groupId" element={page("lodging-stays", <LodgingGroupPage />)} />
         <Route path="tasks/*" element={page("tasks", <TasksRoutes />)} />
         <Route path="*" element={<Notice title="Page not found"><p>Use the menu on the left to find the screen you need.</p></Notice>} />
       </Routes>

@@ -602,7 +602,7 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Room night** | One room for one night: what a stay is charged by, and what its GST slab is decided on. A night belongs to the date it starts on. |
 | **Rack rate** | A room type's published rate a night, before GST. |
 | **Weekend rate** | A room type's rate on the weekend nights (Friday and Saturday unless changed). |
-| **Agreed rate** | One rate a night agreed for a stay (an OTA's price, a company's rate), in place of the rack and weekend rates. |
+| **Agreed rate** | One rate a night agreed for a stay (an OTA's price, a company's rate), in place of every other room rate. |
 | **Base occupancy, extra adult** | The adults a room type's rate is for; each adult beyond them pays the extra-adult rate. |
 | **Extra bed** | A bed added to a room for a stay, at the room type's extra-bed rate a night. |
 | **Reservation** | A stay booked ahead, with its nights, room type and (now or at check-in) its room. |
@@ -618,19 +618,37 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Form-III** | The report of a foreign guest (OCI cardholders too) on the FRRO portal within 24 hours of arrival and again of departure, under the Immigration and Foreigners Act 2025; it replaced Form C. |
 | **FRRO portal, acknowledgement** | The portal where Form-III is filed (indianfrro.gov.in, or its app), and the number it gives a report, marked on the guest here. |
 | **OCI cardholder** | An Overseas Citizen of India: reported on Form-III like any foreign guest, with the OCI card in place of a visa. |
-| **Folio** | A stay's account while the guest is in the house: its room nights and extras, billed at check-out. |
+| **Folio** | A stay's account while the guest is in the house: its room nights, meals, extras and goods, billed at check-out. A stay has its main folio and may have more (split folios). |
 | **Extra (folio charge)** | A service charged to a stay (laundry, food, a pickup) at its item's GST slab. |
 | **Night audit** | The day's closing step at the desk: every night of the guests in the house up to tonight posted to their folios, each at its rate and slab. |
 | **Advance** | Money taken on account for a stay, held for its bill. |
 | **Deposit (security deposit)** | Refundable money held for a stay: it pays the bill only if needed, and the rest goes back. |
 | **Bill to (company billing)** | A stay billed to a company instead of its guest, with the company's GSTIN on the invoice. |
-| **No-show** | A reservation whose guest did not come on the arrival day, marked so with an optional charge. |
+| **No-show** | A reservation whose guest did not come on the arrival day, marked so, with the charge its policy works out. |
 | **Vacant clean, vacant dirty** | A room ready for a guest, and one left by a guest and not yet made up. |
 | **Occupied** | A room a guest is checked in to. |
 | **Out of order** | A room not given to guests (under repair, say), with the reason. |
 | **Make up (a room)** | Clean and prepare a room for the next guest; housekeeping then marks it clean. |
 | **Room move** | A guest in the house moved to another room, which must be vacant and clean; the room left is marked dirty. |
 | **Overstay** | A guest still in the house after the departure day: the stay is extended before the check-out. |
+| **EP, CP, MAP, AP (meal plans)** | Room only (European Plan); with breakfast (Continental Plan); half board, breakfast and one main meal (Modified American Plan); full board, every meal (American Plan). The meals are billed as a line of their own, apart from the room. |
+| **Rate plan** | A room type's way of selling it: its meal plan and the meals' price for each adult and child, its own room rates if any, refundable or not, and its policy. |
+| **Non-refundable rate** | A rate plan whose stays cost the full stay whenever they are cancelled. |
+| **Season** | A date range with its own weekday and weekend rates (and extra persons' rates and a minimum stay) for a room type or one of its plans. |
+| **Rate calendar** | Each date's rate for a room type and plan, where it comes from (rack, weekend, season, the date's own), and its restrictions. |
+| **Minimum stay** | The fewest nights a stay arriving on a date may book (the date's, or its season's). |
+| **Closed to arrival** | A date on which no stay arrives; a stay arriving earlier may stay over it. |
+| **Stop-sell** | A night that is not sold: no stay is booked over it. |
+| **Day use** | A room sold for a block of hours (1 to 12) within one day, with no night, at the room type's day-use price. |
+| **Check-in time, check-out time** | The property's own hours (12:00 and 11:00 to start with): a night stay holds its room from the check-in time on its arrival day to the check-out time on its departure day. |
+| **Early check-in, late check-out** | A check-in before the check-in time on the arrival day, and a check-out after the check-out time on the departure day, charged by the stay's policy. |
+| **Policy (cancellation policy)** | A property's terms for an early check-in, a late check-out, a cancellation, a no-show and a deposit, worked out on each stay booked under it; a manager may waive a charge. |
+| **Group booking (block)** | One booking of several rooms for a group or a company (GB/2627/0001), each room a stay of its own. |
+| **Rooming list** | The list naming the guest of each room of a group booking; until named, a room's guest is the organiser. |
+| **Group folio** | A group booking's own folio, billed to its organiser or company once every room has left, taking the kinds of charges the group routes to it from every room. |
+| **Split folio** | A stay's folio beyond its main one, billed to a customer of its own (the company for the room, or the guest for the extras), with its own invoice. |
+| **Routing (of a folio's charges)** | Which folio each kind of a stay's charges goes to: the room and its tax (with early check-in and late check-out), meals, extras, goods. |
+| **Guest profile** | A guest's preferences and the desk's notes, kept with their contact and shown on each of their stays. |
 
 ### Clinic and lab
 

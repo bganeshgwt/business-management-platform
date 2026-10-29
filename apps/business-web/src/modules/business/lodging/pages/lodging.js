@@ -30,7 +30,13 @@ export const ID_KINDS = [
   { value: "passport", label: "Passport" }, { value: "pan_card", label: "PAN card" }, { value: "other", label: "Other photo ID" },
 ];
 export const GENDERS = [{ value: "", label: "Not said" }, { value: "female", label: "Female" }, { value: "male", label: "Male" }, { value: "other", label: "Other" }];
-export const RATE_KINDS = { rack: "Rack rate", weekend: "Weekend rate", agreed: "Agreed rate" };
+export const RATE_KINDS = { rack: "Rack rate", weekend: "Weekend rate", agreed: "Agreed rate", season: "Season rate", override: "Date's own rate", day_use: "Day use" };
+// The meal plans of a rate plan, and the kinds of charges routed to a folio.
+export const MEAL_PLANS = [{ value: "EP", label: "Room only (EP)" }, { value: "CP", label: "With breakfast (CP)" }, { value: "MAP", label: "Half board (MAP)" }, { value: "AP", label: "Full board (AP)" }];
+export const ROUTE_KINDS = [{ value: "room", label: "Room nights, early check-in and late check-out" }, { value: "meals", label: "Meals" }, { value: "extras", label: "Extras" },
+  { value: "goods", label: "Goods (minibar, toiletries)" }];
+export const CHARGE_KINDS = { room_night: "Room night", meal: "Meals", day_use: "Day use", early_check_in: "Early check-in", late_check_out: "Late check-out", extra: "Extra", goods: "Goods",
+  cancellation: "Cancellation charge" };
 // The days of the week as the settings keep them (1 Monday … 7 Sunday).
 export const WEEKDAYS = [[1, "Mon"], [2, "Tue"], [3, "Wed"], [4, "Thu"], [5, "Fri"], [6, "Sat"], [7, "Sun"]];
 export const wordOf = (list, value) => list.find((x) => x.value === value)?.label || value || "";
@@ -76,6 +82,43 @@ export function approvalBody(value, userId) {
   const approverId = value.approverId || String(userId || "");
   return { ...(value.reason ? { reason: value.reason } : {}), ...(approverId ? { approverId } : {}), ...(value.pin ? { pin: value.pin } : {}) };
 }
+
+// A policy's terms in words, one line each. p: the policy in camel case (a stay's), or a policies row (snake case).
+export function policyWords(p, biz) {
+  if (!p) return [];
+  const get = (camel, snake) => (p[camel] !== undefined ? p[camel] : p[snake]);
+  const time = (kind, value, what) => (kind === "percent" ? `${what}: ${Number(value)}% of the night` : kind === "flat" ? `${what}: ${biz.exact(value)}` : kind === "night" ? `${what}: a full night` : null);
+  const cancelKind = get("cancelKind", "cancel_kind"), cancelValue = Number(get("cancelValue", "cancel_value"));
+  const depositKind = get("depositKind", "deposit_kind"), noShow = get("noShowKind", "no_show_kind");
+  return [
+    time(get("earlyKind", "early_kind"), get("earlyValue", "early_value"), "Early check-in"),
+    time(get("lateKind", "late_kind"), get("lateValue", "late_value"), "Late check-out"),
+    cancelKind ? `Cancellation free until ${Number(get("cancelFreeHours", "cancel_free_hours"))} hours before arrival, then ${cancelKind === "nights" ? `${cancelValue} ${cancelValue === 1 ? "night" : "nights"}` : `${cancelValue}% of the stay`}` : null,
+    noShow ? `No-show: ${noShow === "first_night" ? "the first night" : "the full stay"}` : null,
+    depositKind ? `Deposit: ${depositKind === "percent" ? `${Number(get("depositValue", "deposit_value"))}% of the stay` : "the first night"}, ${Number(get("depositDays", "deposit_days"))} days before arrival` : null,
+  ].filter(Boolean);
+}
+
+// An occupant as the check-in form holds them, and as the API takes them.
+export const blankGuest = (child, extra = {}) => ({ fullName: "", child, foreigner: false, nationality: "Indian", idKind: child ? "" : "aadhaar", idRef: "", gender: "", age: "", phone: "",
+  address: "", visaType: "", visaNo: "", arrivedIndiaOn: "", nextDestination: "", ...extra });
+export const guestBody = (g) => ({ fullName: g.fullName.trim(), child: g.child, foreigner: g.foreigner, nationality: g.nationality.trim() || undefined,
+  ...(g.idKind && g.idRef.trim() ? { idKind: g.idKind, idRef: g.idRef.trim() } : {}), gender: g.gender || undefined, age: g.age === "" ? undefined : g.age,
+  phone: g.phone.trim() || undefined, address: g.address.trim() || undefined,
+  ...(g.foreigner ? { visaType: g.visaType.trim(), visaNo: g.visaNo.trim(), arrivedIndiaOn: g.arrivedIndiaOn, nextDestination: g.nextDestination.trim() } : {}) });
+// A policy's charge waived (LodgingDialogs.jsx Waiver): with the reason, the manager's say-so as approvalBody gives it when the user may not waive it.
+export const emptyWaiver = () => ({ on: false, reason: "", approverId: "", pin: "" });
+export function waiverBody(value, biz, userId) {
+  if (!value.on) return {};
+  return { waiver: biz.can("lodging.approve") ? { reason: value.reason.trim() } : { ...approvalBody(value, userId), reason: value.reason.trim() } };
+}
+// What is left to pay on each folio's bill once the advances and deposits paid (the main folio first, as the server applies them).
+export function folioDues(folios, held) {
+  let left = held;
+  return folios.map((f) => { const used = Math.min(left, Number(f.total)); left -= used; return { ...f, due: Math.max(0, Number(f.total) - used) }; });
+}
+// A folio's name as a stay shows it: "Main" for the stay's own.
+export const folioName = (stay, id) => (id ? stay.folios.find((f) => Number(f.id) === Number(id))?.name || "Another folio" : "Main");
 
 // The GST slabs of a room night, as the settings and the reservation say them (Notification 15/2025-Central Tax (Rate)).
 export const SLAB_NOTE = "From 22 September 2025 a room night valued at ₹7,500 or less is taxed at 5% without input tax credit, and above ₹7,500 at 18% with credit. "

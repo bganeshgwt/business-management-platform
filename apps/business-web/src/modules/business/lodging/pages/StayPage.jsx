@@ -13,7 +13,8 @@ import { useOpenBusiness } from "../../core/pages/hooks";
 import { printTaxInvoice } from "../../core/pages/invoice";
 import { CancelDialog, ChangeStayDialog, ChargeDialog, CheckInDialog, CheckOutDialog, ReceiptDialog, RefundDialog, VoidDialog } from "./LodgingDialogs";
 import { printMoneyBack, printRegistrationCard } from "./lodgingPrint";
-import { RATE_KINDS, SOURCES, STAGES, STATUS_WORDS, atWords, dateWords, idWords, partyWords, stayWords, wordOf } from "./lodging";
+import { AddOccupantDialog, FoliosSection, LeaveDialog, MoveChargeDialog, OpenFolioDialog, PolicySection, ProfileDialog, ProfileSection, RoutingDialog } from "./StayParts";
+import { CHARGE_KINDS, MEAL_PLANS, RATE_KINDS, SOURCES, STAGES, STATUS_WORDS, atWords, dateWords, folioName, idWords, partyWords, stayWords, wordOf } from "./lodging";
 import "../styles/lodging.css";
 
 // One stay: where it stands as the headline (its status, its dates on the
@@ -22,6 +23,10 @@ import "../styles/lodging.css";
 // hand money back), the occupants with their IDs and Form-III reports, the
 // folio (every night at its own rate and slab, posted or still to post, and the
 // extras), the money held and the bill, and the history; the registration card.
+// Its rate plan, discount, day use and group; the policy it was booked under
+// with what it charges now; its folios with the routing of its charges and a
+// charge moved; an occupant joining or leaving partway; the guest's profile
+// (StayParts.jsx).
 // ?do=check-in or ?do=check-out opens that step (from the front desk).
 
 export default function StayPage() {
@@ -64,17 +69,19 @@ export default function StayPage() {
   const printBill = () => businessRead(biz.id, `documents/${stay.document_id}`).then((doc) => printTaxInvoice(doc, biz)).catch((err) => toast.error(getErrorMessage(err)));
   const foreigners = stay.guests.filter((g) => g.foreigner);
   const toPost = (stay.nights || []).filter((n) => !n.posted);
+  const split = (stay.folios || []).length > 0;
+  const canMove = stay.status === "in_house" && can("lodging.create") && split;
   const folioRows = [
     ...stay.charges.map((x) => ({ ...x, key: `c${x.id}`, state: x.voided_at ? "voided" : x.line_id ? "billed" : "posted" })),
     ...toPost.map((n) => ({ key: `n${n.night}`, kind: "room_night", night: n.night, label: `${stay.room_type}${stay.room_no ? ` · room ${stay.room_no}` : ""} · night of ${dateWords(n.night)}`,
-      rate_kind: n.rate_kind, amount: n.amount, tax_rate: n.tax_rate, tax: n.tax, net: n.amount, state: "to_post" })),
+      rate_kind: n.rate_kind, amount: n.amount, tax_rate: n.tax_rate, tax: n.tax, net: n.amount, state: "to_post", folio_id: stay.routes?.room || null })),
   ].sort((a, b) => (a.kind === "room_night") === (b.kind === "room_night") ? String(a.night).localeCompare(String(b.night)) : a.kind === "room_night" ? -1 : 1);
   const STATE_WORDS = { posted: ["Posted", "info"], billed: ["Billed", "success"], voided: ["Voided", "neutral"], to_post: ["To post", "warning"] };
 
   return (
     <div className="stack">
       <BusinessHeader icon="home" title={`Stay ${stay.stay_no}`}
-        description={`${stay.guest_name}${stay.guest_phone ? ` · ${stay.guest_phone}` : ""} · ${stayWords(stay.arrival, stay.departure)} · ${stay.room_type}${stay.room_no ? ` · room ${stay.room_no}` : ""}`}
+        description={`${stay.guest_name}${stay.guest_phone ? ` · ${stay.guest_phone}` : ""} · ${stay.day_use ? `day use on ${dateWords(stay.arrival)}` : stayWords(stay.arrival, stay.departure)} · ${stay.room_type}${stay.room_no ? ` · room ${stay.room_no}` : ""}`}
         secondary={(
           <>
             <Link className="button button-secondary" to={biz.path(can("lodging.create") ? "lodging-desk" : "lodging-stays")}><Icon name="arrow-left" size={15} /> {can("lodging.create") ? "Front desk" : "Stays"}</Link>
@@ -121,11 +128,17 @@ export default function StayPage() {
           {stay.checked_in_at && <div className="ldg-fact"><dt>Checked in</dt><dd>{atWords(stay.checked_in_at, biz)} by {stay.checked_in_by_name}</dd></div>}
           {stay.checked_out_at && <div className="ldg-fact"><dt>Checked out</dt><dd>{atWords(stay.checked_out_at, biz)} by {stay.checked_out_by_name}</dd></div>}
           {stay.cancelled_at && <div className="ldg-fact"><dt>{stay.status === "no_show" ? "No-show" : "Cancelled"}</dt><dd>{atWords(stay.cancelled_at, biz)} by {stay.cancelled_by_name} · {stay.cancel_reason}</dd></div>}
+          {stay.group && <div className="ldg-fact"><dt>Group booking</dt><dd><Link to={biz.path(`lodging-groups/${stay.group.id}`)}>{stay.group.group_no} · {stay.group.name}</Link></dd></div>}
+          {stay.plan && <div className="ldg-fact"><dt>Rate plan</dt><dd>{stay.plan.name} · {wordOf(MEAL_PLANS, stay.plan.meal_plan)}{stay.plan.meal_item ? ` (meals billed as ${stay.plan.meal_item})` : ""}{stay.plan.refundable ? "" : " · not refundable"}</dd></div>}
+          {stay.discount_percent && <div className="ldg-fact"><dt>Discount</dt><dd>{Number(stay.discount_percent)}% · {stay.discount_reason}</dd></div>}
+          {stay.day_use && <div className="ldg-fact"><dt>Day use</dt><dd>{atWords(stay.day_from, biz, { today: false })} to {atWords(stay.day_until, biz, { today: false })} ({stay.day_hours} hours)</dd></div>}
           {(stay.arrived_from || stay.going_to || stay.purpose) && <div className="ldg-fact"><dt>From, to, why</dt><dd>{[stay.arrived_from, stay.going_to, stay.purpose].map((x) => x || "—").join(" · ")}</dd></div>}
           {stay.notes && <div className="ldg-fact"><dt>Notes</dt><dd>{stay.notes}</dd></div>}
         </dl>
       </SectionCard>
-      <SectionCard flush icon="users" title="Occupants" description={stay.guests.length ? (stay.ids ? undefined : "Their ID details are for those who check guests in.") : "Recorded at check-in: every occupant, not only the one who booked."}>
+      {["reserved", "in_house"].includes(stay.status) && !stay.day_use && (money || stay.policy) && <PolicySection stay={stay} />}
+      <SectionCard flush icon="users" title="Occupants" description={stay.guests.length ? (stay.ids ? undefined : "Their ID details are for those who check guests in.") : "Recorded at check-in: every occupant, not only the one who booked."}
+        actions={stay.status === "in_house" && can("lodging.create") && <button type="button" className="button button-secondary button-sm" onClick={() => setDialog({ kind: "occupant" })}><Icon name="user-plus" size={14} /> Add an occupant</button>}>
         {stay.guests.length > 0 && (
           <DataGrid variant="compact" id="lodging-stay-guests" caption="Occupants" rows={stay.guests} rowKey={(g) => g.id} rowNoun={["occupant", "occupants"]} columns={[
             { key: "name", header: "Name", value: (g) => g.full_name, mobile: "title", pin: true,
@@ -138,6 +151,9 @@ export default function StayPage() {
               render: (g) => (!g.foreigner ? <span className="muted">—</span> : <span className="bz-two-line"><span className={g.frro_arrival_ack ? "ldg-done" : "ldg-due"}>Arrival: {g.frro_arrival_ack || "to report"}</span>
                 <small className="muted">Departure: {g.frro_departure_ack || (g.departed_at ? "to report" : "after check-out")}</small></span>) },
             { key: "arrived", header: "Arrived", type: "datetime", value: (g) => g.arrived_at, render: (g) => atWords(g.arrived_at, biz), defaultHidden: true },
+            stay.guests.some((g) => g.departed_at) && { key: "left", header: "Left", type: "datetime", value: (g) => g.departed_at, render: (g) => (g.departed_at ? atWords(g.departed_at, biz) : "") },
+            stay.status === "in_house" && can("lodging.create") && { key: "actions", header: "", type: "actions",
+              render: (g) => (g.departed_at ? null : <button type="button" className="link-button" onClick={() => setDialog({ kind: "leave", guest: g })}>Leaves</button>) },
           ].filter(Boolean)} />
         )}
         {foreigners.some((g) => !g.frro_arrival_ack || (g.departed_at && !g.frro_departure_ack)) && can("lodging.create") && (
@@ -149,17 +165,24 @@ export default function StayPage() {
           <DataGrid variant="compact" id="lodging-stay-folio" caption="Folio" rows={folioRows} rowKey={(x) => x.key} currency={biz.symbol} rowNoun={["charge", "charges"]}
             rowClassName={(x) => (x.state === "voided" ? "dg-tone-muted" : x.state === "to_post" ? "dg-tone-warning" : "")} columns={[
               { key: "label", header: "Charge", value: (x) => x.label, mobile: "title", pin: true,
-                render: (x) => <span className="bz-two-line"><span>{x.label}</span><small className="muted">{x.kind === "room_night" ? RATE_KINDS[x.rate_kind] : x.kind === "cancellation" ? "Cancellation charge" : `${Number(x.quantity)} × ${biz.exact(x.unit_price)}`}{x.void_reason ? ` · voided: ${x.void_reason}` : ""}</small></span> },
+                render: (x) => <span className="bz-two-line"><span>{x.label}</span><small className="muted">{x.kind === "room_night" ? RATE_KINDS[x.rate_kind] : ["extra", "goods"].includes(x.kind) ? `${Number(x.quantity)} × ${biz.exact(x.unit_price)}` : CHARGE_KINDS[x.kind] || ""}{Number(x.discount) > 0 ? ` · discount ${biz.exact(x.discount)}` : ""}{x.void_reason ? ` · voided: ${x.void_reason}` : ""}</small></span> },
               { key: "net", header: "Value", type: "money", exact: true, value: (x) => Number(x.net) },
               { key: "tax_rate", header: "GST", value: (x) => `${Number(x.tax_rate)}%`, align: "right" },
               { key: "tax", header: "GST amount", type: "money", exact: true, value: (x) => Number(x.tax) },
               { key: "total", header: "With GST", type: "money", exact: true, value: (x) => (x.state === "voided" ? 0 : Number(x.net) + Number(x.tax)), total: "sum" },
               { key: "state", header: "State", value: (x) => STATE_WORDS[x.state][0], mobile: "show", render: (x) => <Badge tone={STATE_WORDS[x.state][1]} label={STATE_WORDS[x.state][0]} /> },
-              can("lodging.approve") && stay.status === "in_house" && { key: "actions", header: "", type: "actions",
-                render: (x) => (x.state === "posted" ? <button type="button" className="link-button" onClick={() => setDialog({ kind: "void", charge: x })}>Void</button> : null) },
+              split && { key: "folio", header: "Folio", value: (x) => folioName(stay, x.folio_id) },
+              ((can("lodging.approve") && stay.status === "in_house") || canMove) && { key: "actions", header: "", type: "actions",
+                render: (x) => (x.state === "posted" ? (
+                  <span className="ldg-row-actions">
+                    {can("lodging.approve") && <button type="button" className="link-button" onClick={() => setDialog({ kind: "void", charge: x })}>Void</button>}
+                    {canMove && x.kind !== "cancellation" && <button type="button" className="link-button" onClick={() => setDialog({ kind: "move", charge: x })}>Move</button>}
+                  </span>
+                ) : null) },
             ].filter(Boolean)} />
         </SectionCard>
       )}
+      {money && (split || ["reserved", "in_house"].includes(stay.status)) && <FoliosSection stay={stay} onOpen={() => setDialog({ kind: "folio" })} onRoute={() => setDialog({ kind: "routing" })} />}
       {money && (stay.receipts.length > 0 || stay.bill) && (
         <SectionCard icon="wallet" title="Money" description="Advances and deposits are held for the stay's own bill: they pay it first at check-out, and what is left goes back.">
           <dl className="ldg-facts">
@@ -187,6 +210,7 @@ export default function StayPage() {
           )}
         </SectionCard>
       )}
+      <ProfileSection stay={stay} onEdit={() => setDialog({ kind: "profile" })} />
       <SectionCard flush icon="history" title="History">
         <DataGrid variant="compact" id="lodging-stay-history" caption="History of this stay" rows={stay.events} rowKey={(e) => e.id} rowNoun={["change", "changes"]} columns={[
           { key: "created_at", header: "When", type: "datetime", value: (e) => e.created_at, mobile: "subtitle", render: (e) => atWords(e.created_at, biz) },
@@ -197,7 +221,13 @@ export default function StayPage() {
         ]} />
       </SectionCard>
       {dialog?.kind === "checkin" && <CheckInDialog stay={stay} onClose={() => setDialog(null)} onSaved={(s) => refresh(`${s.stay_no}: checked in to room ${s.room_no}.`)} />}
-      {dialog?.kind === "checkout" && <CheckOutDialog stay={stay} onClose={() => setDialog(null)} onSaved={(s) => refresh(`${s.stay_no}: checked out and billed (${s.document_no}).`)} />}
+      {dialog?.kind === "checkout" && <CheckOutDialog stay={stay} onClose={() => setDialog(null)} onSaved={(s) => refresh(s.document_no ? `${s.stay_no}: checked out and billed (${s.document_no}).` : `${s.stay_no}: checked out.`)} />}
+      {dialog?.kind === "folio" && <OpenFolioDialog stay={stay} onClose={() => setDialog(null)} onSaved={() => refresh("Folio opened.")} />}
+      {dialog?.kind === "routing" && <RoutingDialog stay={stay} onClose={() => setDialog(null)} onSaved={() => refresh("Routing saved.")} />}
+      {dialog?.kind === "move" && <MoveChargeDialog stay={stay} charge={dialog.charge} onClose={() => setDialog(null)} onSaved={() => refresh("Charge moved.")} />}
+      {dialog?.kind === "occupant" && <AddOccupantDialog stay={stay} onClose={() => setDialog(null)} onSaved={() => refresh("Occupant added.")} />}
+      {dialog?.kind === "leave" && <LeaveDialog stay={stay} guest={dialog.guest} onClose={() => setDialog(null)} onSaved={() => refresh(`${dialog.guest.full_name} left the stay.`)} />}
+      {dialog?.kind === "profile" && <ProfileDialog stay={stay} onClose={() => setDialog(null)} onSaved={() => refresh("Profile saved.")} />}
       {dialog?.kind === "charge" && <ChargeDialog stay={stay} onClose={() => setDialog(null)} onSaved={() => refresh("Added to the folio.")} />}
       {dialog?.kind === "void" && <VoidDialog stay={stay} charge={dialog.charge} onClose={() => setDialog(null)} onSaved={() => refresh("Charge voided.")} />}
       {dialog?.kind === "change" && <ChangeStayDialog stay={stay} onClose={() => setDialog(null)} onSaved={(s) => refresh(`${s.stay_no} changed.`)} />}

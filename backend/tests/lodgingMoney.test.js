@@ -99,3 +99,63 @@ test("the bill adds its lines up, rounds as the business rounds, and gives each 
   // Prices including GST: a line's price is its value with the GST in it.
   assert.equal(money.billLines([values[1]], "inclusive")[0].fixed.price, 7350);
 });
+
+// 29 Oct 2026 is a Thursday: its night is a weekday; 30 and 31 Oct are weekend nights.
+const type = { rack: 450000, weekend: 520000, extraAdult: 100000, child: 50000, extraBed: 80000 };
+
+test("each night's rates come from the calendar, the most particular first", () => {
+  const plan = { id: 7, room: 400000, weekend: null, mealSkuId: 12, mealAdult: 90000, mealChild: 40000 };
+  const seasons = [{ planId: null, startsOn: "2026-10-30", endsOn: "2026-11-05", weekday: 600000, weekend: 780000, extraAdult: null, child: null, extraBed: null, minStay: 2 }];
+  const days = [{ planId: null, day: "2026-10-31", room: 700000, minStay: null, closedToArrival: true, stopSell: false },
+    { planId: 7, day: "2026-11-01", room: 390000, minStay: null, closedToArrival: false, stopSell: true }];
+  // The room type alone: Thursday at the rack rate, Friday at the season's weekend rate, Saturday at the date's own, Sunday the season's weekday rate.
+  const plain = money.resolveNights("2026-10-29", "2026-11-02", { type, seasons, days, weekendNights: [5, 6] });
+  assert.deepEqual(plain.map((n) => [n.rateKind, n.roomRate]), [["rack", 450000], ["season", 780000], ["override", 700000], ["season", 600000]]);
+  // With the plan: its own room rate outside the season, its own date on Sunday (and the stop-sell with it); the meals kept apart.
+  const planned = money.resolveNights("2026-10-29", "2026-11-02", { type, plan, seasons, days, weekendNights: [5, 6] });
+  assert.deepEqual(planned.map((n) => [n.rateKind, n.roomRate, n.mealAdult, n.stopSell]), [["rack", 400000, 90000, false], ["season", 780000, 90000, false],
+    ["override", 700000, 90000, false], ["override", 390000, 90000, true]]);
+  // One rate agreed for every night wins; the extra persons' rates stay the room type's.
+  assert.deepEqual(money.resolveNights("2026-10-29", "2026-10-31", { type, seasons, days, weekendNights: [5, 6], agreed: 500000 }).map((n) => [n.rateKind, n.roomRate, n.extraAdult]),
+    [["agreed", 500000, 100000], ["agreed", 500000, 100000]]);
+  // The calendar's refusals: a stop-sell night, an arrival on a day closed to arrival, fewer nights than the minimum stay.
+  assert.deepEqual(money.restriction(planned, { arrival: "2026-10-29", nights: 4 }), { reason: "stop_sell", night: "2026-11-01" });
+  const fromSat = money.resolveNights("2026-10-31", "2026-11-01", { type, seasons, days, weekendNights: [5, 6] });
+  assert.equal(money.restriction(fromSat, { arrival: "2026-10-31", nights: 1 }).reason, "closed_to_arrival");
+  const fromFri = money.resolveNights("2026-10-30", "2026-10-31", { type, seasons, days, weekendNights: [5, 6] });
+  assert.deepEqual(money.restriction(fromFri, { arrival: "2026-10-30", nights: 1 }), { reason: "min_stay", night: "2026-10-30", minStay: 2 });
+  // An extension checks only stop-sell, on the nights it adds.
+  assert.equal(money.restriction(planned, { arrival: "2026-10-29", nights: 4, only: ["2026-10-31"] }), null);
+});
+
+test("a discount comes off the room's value, and the value after it decides the slab; the meals are their own", () => {
+  const row = { night: "2026-10-30", rateKind: "weekend", roomRate: 850000, extraAdult: 150000, child: null, extraBed: null, mealSkuId: 12, mealAdult: 90000, mealChild: 40000 };
+  const full = money.priceRow(row, { adults: 2, children: 1, extraBeds: 0, baseOccupancy: 2 }, settings, null, 5);
+  assert.deepEqual([full.value, full.discount, full.amount, full.slab.rate, full.tax, full.meal, full.mealTax], [850000, 0, 850000, 18, 153000, 220000, 11000]);
+  const less = money.priceRow(row, { adults: 2, children: 1, extraBeds: 0, baseOccupancy: 2 }, settings, 15, 5);
+  assert.deepEqual([less.discount, less.amount, less.slab.rate, less.tax], [127500, 722500, 5, 36125]);
+  // A day use is its block's price, at the slab its value would take for a night.
+  const day = money.priceRow({ night: "2026-10-30", rateKind: "day_use", roomRate: 150000, extraAdult: null, child: null, extraBed: null, mealSkuId: null },
+    { adults: 3, children: 0, extraBeds: 0, baseOccupancy: 2 }, settings);
+  assert.deepEqual([day.extraAdults, day.amount, day.slab.rate, day.tax], [0, 150000, 5, 7500]);
+  const stay = money.estimateRows([row, { ...row, night: "2026-10-31" }], { adults: 2, children: 0, extraBeds: 0, baseOccupancy: 2 }, settings, 10, 5);
+  assert.deepEqual([stay.roomSubtotal, stay.subtotal, stay.tax], [1530000, 1530000 + 360000, 2 * 137700 + 2 * 9000], "7,650 a night after 10% off: still above 7,500, 18%");
+});
+
+test("a policy's charges are worked out from the room nights' values", () => {
+  const values = [400000, 520000, 520000];
+  const policy = { refundable: true, cancelFreeHours: 48, cancelKind: "nights", cancelValue: 1, noShowKind: "first_night", earlyKind: "percent", earlyValue: 50,
+    lateKind: "flat", lateValue: 1000, depositKind: "percent", depositValue: 30 };
+  assert.deepEqual(money.cancelCharge(policy, values, 72), { amount: 0, rule: "free" });
+  assert.deepEqual(money.cancelCharge(policy, values, 12), { amount: 400000, rule: "nights" });
+  assert.deepEqual(money.cancelCharge({ ...policy, cancelKind: "percent", cancelValue: 25 }, values, 12), { amount: 360000, rule: "percent" });
+  assert.deepEqual(money.cancelCharge({ ...policy, refundable: false }, values, 500), { amount: 1440000, rule: "not_refundable" });
+  assert.deepEqual(money.noShowCharge(policy, values), { amount: 400000, rule: "first_night" });
+  assert.deepEqual(money.noShowCharge({ ...policy, noShowKind: "full_stay" }, values), { amount: 1440000, rule: "full_stay" });
+  assert.deepEqual(money.noShowCharge(null, values), { amount: 0, rule: null });
+  assert.equal(money.timeCharge("percent", 50, 400000), 200000);
+  assert.equal(money.timeCharge("flat", 1000, 400000), 100000);
+  assert.equal(money.timeCharge("night", null, 400000), 400000);
+  assert.equal(money.depositDue(policy, { total: 1512000, firstNight: 420000 }), 453600);
+  assert.equal(money.depositDue({ depositKind: "first_night" }, { total: 1512000, firstNight: 420000 }), 420000);
+});

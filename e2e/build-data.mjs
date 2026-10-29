@@ -945,8 +945,9 @@ export async function buildTestData({ api, logins, sql }) {
   // nights and its terms; Deluxe rooms 101 and 102 and a Suite, 201, with their
   // rates; a family in the Suite with an advance, checked in and then moved
   // back a day in the database (the way the API's own tests move one), so that
-  // they came yesterday and leave today; and a phone reservation for tonight
-  // in room 102.
+  // they came yesterday and leave today (their nights priced again for their
+  // new dates); a phone reservation for tonight in room 102; a food service item
+  // for a rate plan's meals; and a company billed on a folio of its own.
   {
     const B = at("lodging");
     const locationId = businesses.lodging.locationId;
@@ -973,6 +974,15 @@ export async function buildTestData({ api, logins, sql }) {
     try {
       await sql("UPDATE lodging_stays SET arrival=arrival-1,departure=departure-1,checked_in_at=checked_in_at-interval '1 day' WHERE business_id=$1 AND id=$2",
         [businesses.lodging.id, family.id]);
+      // Its nights priced for their new dates, as a booking then would have been: the agreed rate, else the weekend rate on a weekend night, else the rack rate.
+      await sql("DELETE FROM lodging_stay_nights WHERE stay_id=$1", [family.id]);
+      await sql(`INSERT INTO lodging_stay_nights(business_id,stay_id,night,rate_kind,room_rate,extra_adult_rate,child_rate,extra_bed_rate)
+        SELECT s.business_id,s.id,n::date,
+          CASE WHEN s.agreed_rate IS NOT NULL THEN 'agreed' WHEN s.weekend_rate IS NOT NULL AND EXTRACT(ISODOW FROM n)::smallint = ANY (st.weekend_nights) THEN 'weekend' ELSE 'rack' END,
+          CASE WHEN s.agreed_rate IS NOT NULL THEN s.agreed_rate WHEN s.weekend_rate IS NOT NULL AND EXTRACT(ISODOW FROM n)::smallint = ANY (st.weekend_nights) THEN s.weekend_rate ELSE s.rack_rate END,
+          s.extra_adult_rate,s.child_rate,s.extra_bed_rate
+        FROM lodging_stays s JOIN lodging_settings st ON st.business_id=s.business_id CROSS JOIN LATERAL generate_series(s.arrival::timestamp,(s.departure-1)::timestamp,interval '1 day') n
+        WHERE s.id=$1`, [family.id]);
       await sql("UPDATE lodging_stay_guests SET arrived_at=arrived_at-interval '1 day',created_at=created_at-interval '1 day' WHERE business_id=$1 AND stay_id=$2",
         [businesses.lodging.id, family.id]);
     } finally {
@@ -984,11 +994,15 @@ export async function buildTestData({ api, logins, sql }) {
     }
     const booked = await owner("POST", B("lodging/stays"), { requestKey: requestKey(), locationId, guest: LODGING.booked.guest, source: "phone", arrival: today, departure: day(1),
       roomTypeId: deluxe.id, roomId: roomOf("102").id, adults: LODGING.booked.adults }, 201);
+    const meals = await owner("POST", B("catalog"), { kind: "service", unit: "service", name: LODGING.meals.name, code: LODGING.meals.code, price: LODGING.meals.price, taxRateId: gst5.id }, 201);
+    const company = await owner("POST", B("contacts"), { kind: "customer", name: LODGING.company.name, gstin: LODGING.company.gstin }, 201);
     Object.assign(businesses.lodging, {
       roomTypes: { deluxe: { id: deluxe.id, name: deluxe.name }, suite: { id: suite.id, name: suite.name } },
       rooms: Object.fromEntries(rooms.map((r) => [r.room_no, r.id])),
       inHouse: { id: family.id, stayNo: family.stay_no, guest: family.guest_name, arrival: day(-1) },
       booked: { id: booked.id, stayNo: booked.stay_no, guest: booked.guest_name },
+      meals: { id: meals.id, name: meals.label || LODGING.meals.name },
+      company: { id: company.id, name: company.name },
     });
   }
 

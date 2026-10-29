@@ -113,6 +113,9 @@ const TABLES = {
   member_test_results: { label: 'Test results', erase: { remarks: null } },
   member_leads: { label: 'Enquiries', erase: { name: ERASED_NAME, phone: null, email: null, interest: null, notes: null } },
   member_acceptances: { label: 'Signed acceptance of the refund policy', keep: 'The member\'s signature accepting the refund policy is the record of what they agreed to; it stays with the membership.' },
+  lodging_groups: { label: 'Group bookings', erase: { name: ERASED_NAME, notes: null } },
+  lodging_folios: { label: 'Folios of stays and groups', keep: 'A folio names whom it is billed to only through the erased record; its bill is a tax record.' },
+  lodging_guest_profiles: { label: 'Guest preferences and notes', erase: { preferences: null, notes: null } },
 };
 
 // Children of the rows above that the export also shows: the lines of each bill.

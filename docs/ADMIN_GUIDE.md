@@ -6169,7 +6169,7 @@ A hotel's, lodge's or guest house's front office: its rooms and their
 housekeeping status, reservations from walk-ins, the phone and the online
 travel sites (OTAs), the check-in with every occupant recorded, the foreign
 guests' Form-III reports, the room nights posted night by night at their own
-GST slab, and the folio billed at check-out to the guest or to a company. A
+GST slab, and each folio billed at check-out to the guest or to a company. A
 new one starts with **Rooms & stays** on; *Tasks* is recommended to it
 (housekeeping rounds, maintenance and safety checks). **Front desk** (with
 *Rooms & housekeeping*, *Reservations* and *Stays*) and **Foreign guests
@@ -6218,7 +6218,51 @@ night, and the departure date is the morning the guest leaves.
    access*); the payment methods advances and bills are taken by (*Settings ›
    Payment methods*); a company that pays for its staff's stays is a customer
    with its GSTIN. Stays are numbered *ST/2627/0001* (*Settings › Number
-   series*, *Stays*); the bills are numbered as the business's sales are.
+   series*, *Stays*) and group bookings *GB/2627/0001* (*Group bookings*);
+   the bills are numbered as the business's sales are.
+7. **The check-in and check-out times** — with the slabs (*GST slabs, nights
+   and times*): *Check-in from* (12:00 to start with) and *Check-out by*
+   (11:00), the property's own (no regulation fixes them). A night stay holds
+   its room from the check-in time on its arrival day to the check-out time on
+   its departure day; a guest checking in before the one or out after the
+   other pays the policy's early or late charge.
+8. **Rate plans** (the *Rate plans* tab) — *Add a rate plan* for a room type:
+   its name and meal plan (*Room only (EP)*, *With breakfast (CP)*, *Half
+   board (MAP)* or *Full board (AP)*); with meals, *Meals billed as* (a food
+   service item from the catalogue, at its own GST slab) and the meals' price
+   a night for an adult and for a child, before GST. The meals are billed as a
+   line of their own each night, so the room night's value alone decides its
+   slab. A plan may have its own room and weekend rates (left empty: the room
+   type's), is *Refundable* or not (not refundable: a cancellation costs the
+   full stay), and may name its *Policy* (none: the property's). A plan is
+   switched off (*In use*), never deleted. A stay with no plan takes the room
+   type's rates, room only.
+9. **Seasons and the rate calendar** (the *Seasons* and *Rate calendar* tabs)
+   — *Add a season* for a room type, or for one of its plans, with its dates
+   (*From*, *To (the last night)*), its weekday and weekend rates a night, and
+   if needed its own extra adult, child and extra bed rates and a minimum
+   stay; two seasons of the same room type and plan never cover the same
+   night. The rate calendar shows each date's rate for a room type and plan,
+   where it comes from (the room type's, the weekend's, a season's or the
+   date's own) and its restrictions. *Set dates* changes a range of dates at
+   once (only the days of the week ticked): a room rate of its own, a minimum
+   stay, *Closed to arrival* (no stay arrives that day) and *Stop-sell* (the
+   night is not sold); what is left empty stays as it is, and *Clear these
+   dates' own settings* takes them off. A reservation that breaks them is
+   refused with the reason, as it is typed and when it is saved.
+10. **Day use** (the *Day use* tab) — *Set prices* for a room type: a price
+    before GST for each block of hours (1 to 12) it sells on one day. A room
+    type with none takes no day use.
+11. **Policies** (the *Policies* tab) — *Add a policy*: for one property or
+    every property, and whether it is *The default policy* (for stays whose
+    plan names none); the early check-in and the late check-out charged as a
+    percentage of the night, a flat fee or a full night (or not charged); a
+    cancellation free until so many hours before the arrival, then so many
+    nights or a percentage of the stay; a no-show charged the first night or
+    the full stay; and a deposit asked (a percentage of the stay or the first
+    night), due so many days before the arrival. A stay keeps the policy it
+    was booked under. With no policy nothing is charged for an early or late
+    time, and a cancellation charge is typed.
 
 **The screens:**
 
@@ -6267,8 +6311,8 @@ night, and the departure date is the morning the guest leaves.
   and Form-III reports, the folio (every night at its rate and slab, posted or
   still to post, and the extras), the money held and the history. *Add a
   charge*: laundry, food, a pickup or another service from *Rooms, services &
-  extras*, at its item's GST slab (goods kept in stock are sold on a bill of
-  their own). *Extend or move*: a new departure (the nights to come priced at
+  extras*, at its item's GST slab, or goods from the minibar (below). *Extend
+  or move*: a new departure (the nights to come priced at
   the stay's rates), a move to another room that is vacant and clean (the room
   left is marked dirty), extra beds, the company billed and (a manager) an
   agreed rate for the nights to come. *Take an advance* and *Take a deposit*
@@ -6285,9 +6329,10 @@ night, and the departure date is the morning the guest leaves.
   extras, with the nights posted ahead and not stayed voided when the guest
   leaves early; the advances and then the deposits pay it first, and the rest
   is paid now (*Paid now*, *Paid by*). A guest past the departure day is
-  extended to today first. *Check out and post the bill* posts one tax invoice
-  through the core: to the guest, or to the company billed with its GSTIN on
-  it, the place of supply the property's state. A company's bill may stay on
+  extended to today first. *Check out and post the bill* posts a tax invoice
+  for each folio through the core (below): the main one to the guest, or to
+  the company billed with its GSTIN on it, the place of supply the property's
+  state. A company's bill may stay on
   its dues; a guest's own bill is paid in full unless a manager checks them
   out with it left on their dues. What is left of the advance and deposit goes
   back now or later (*Hand back*), by cash, UPI or bank, with a manager's PIN;
@@ -6295,9 +6340,10 @@ night, and the departure date is the morning the guest leaves.
   housekeeping, and each foreign guest's Form-III departure countdown starts.
 - **Cancel** (a reservation) — with the reason; once its arrival day has come
   it may be marked a no-show instead. A cancellation or no-show charge, before
-  GST, is billed as the room type's nights at the slab of the first night
-  booked and paid first from the advance; what is left goes back with a
-  manager's PIN.
+  GST (the stay's policy's, below; typed only for a stay booked under none),
+  is billed as the room type's nights at the slab of the first night booked
+  and paid first from the advance; what is left goes back with a manager's
+  PIN.
 - **Rooms & housekeeping** — every room by its status: vacant dirty (to make
   up, first), vacant clean (ready for a guest), occupied (with the guest and
   when they leave) and out of order (with why). *Mark clean* once made up,
@@ -6327,6 +6373,80 @@ night, and the departure date is the morning the guest leaves.
   Aadhaar, the last four digits), the room, where they came from and go next,
   and a foreign guest's Form-III acknowledgements. *Print the register* prints
   it for the local police.
+- **The plan, a discount and day use on a reservation** — *Rate plan* chooses
+  one of the room type's plans (none: the room type's rates, room only); the
+  preview shows each night with its rate, discount and value, and the plan's
+  meals as their own line with their GST. *Discount (%, optional)* with the
+  *Reason for the discount* takes a percentage off the room's value (not the
+  meals or extras), within the most a bill takes off (*Business settings*),
+  for those whose role gives discounts; the discounted night's value decides
+  its slab. *Day use (a block of hours on one day, no night)* books a room for
+  a few hours: the *Day*, the room, *From (time)* and *Hours*, at the room
+  type's day-use price. A day use never shares its room's hours with a night
+  stay or another day use, and keeps its day, hours, room and guests (cancel
+  it and book again to change them). The calendar's minimum stay, closed to
+  arrival and stop-sell are shown as the server words them, and the
+  reservation is refused until they are met. For a guest in the house,
+  *Extend or move* changes the discount on the nights not yet billed and (a
+  manager) the rate plan for the nights to come.
+- **The stay's policy** (the *Policy* card on the stay) — the check-in and
+  check-out times, the terms the stay was booked under, and what they charge
+  now: an early check-in, a late check-out, a cancellation, a no-show, and the
+  deposit asked with the day it is due and what is still short. Before the
+  check-in time on the arrival day, *Check in* shows the early check-in charge
+  that goes on the folio; after the check-out time on the departure day,
+  *Check out* shows the late check-out charge; *Cancel* shows the policy's
+  cancellation or no-show charge. Each may be waived with the reason (*Waive
+  the early check-in charge*, *Waive the late check-out charge*, *Waive the
+  charge*): by a manager, or at the desk with a manager's PIN (*A manager
+  waives it*). Every waiver is kept in the stay's history.
+- **Folios and routing** (the *Folios* card on the stay) — every stay has its
+  *Main* folio, billed to the company billed or to the guest. *Open a folio*
+  adds another, named for whom it is (*Company*, *Extras*) and *Billed to* a
+  customer (a company with its GSTIN). *Routing* sends each kind of charge to
+  a folio (*Room nights, early check-in and late check-out*, *Meals*,
+  *Extras*, *Goods (minibar, toiletries)*), and the charges of that kind not
+  yet billed move with it; *Move* on a charge moves that one before it is
+  billed. *Add a charge* posts to the folio its kind is routed to (*As
+  routed*) or to one chosen. At check-out, *Each folio's bill* shows what each
+  folio comes to and what is left to pay on it (*Paid now on folio …*), and
+  each is posted as its own tax invoice. The advances and deposits pay the
+  guest's own bills; they never pay a company's invoice, and what is left
+  goes back.
+- **Goods on the folio** — *Add a charge*, *Service or goods*: goods kept in
+  stock by quantity (the minibar's water and drinks, toiletries) go on the
+  folio at their price and GST slab, never above their MRP, and leave stock
+  when their folio is billed. The desk cannot post more than the property has
+  in stock beyond what is already on folios not yet billed. Goods kept by
+  batch or serial number, and kits, are sold on a bill of their own.
+- **Occupants joining and leaving** (the *Occupants* card) — *Add an
+  occupant* records someone joining the room partway, adult or child, with
+  their ID as at check-in (a foreign guest's Form-III arrival countdown starts
+  then); *Leaves* marks an occupant gone, with an optional reason (a foreign
+  guest's departure report falls due within 24 hours). The register keeps
+  when each came and left. The stay's adults and children follow those in the
+  room, and the nights still to post are priced for them (an extra adult at
+  the night's rate). The last adult does not leave: check the stay out
+  instead.
+- **Guest profile** (the card on the stay) — *Edit* keeps the guest's
+  *Preferences* (a quiet room on a high floor, feather-free pillows) and the
+  desk's *Notes* with the guest, shown on each of their stays.
+- **Group bookings** (*Front desk › Reservations*, *New group booking*; also
+  on *Stays*) — one booking of two rooms or more (up to 50) for a group or a
+  company: the *Group name*, the *Organiser or company* the group's folio is
+  billed to (found, or *New organiser* with a name and phone), the property,
+  the arrival and departure, and each room (*Add a room*) with its room type,
+  rate plan, room (or none yet), adults and children, and *Its own dates* when
+  it comes or goes apart. *Where the charges go* chooses, for each kind of
+  charge, *The group's folio* or *Each room's own folio* (the room nights to
+  the group to start with). *Book N rooms* makes a stay of each room, checked
+  as any reservation, and opens the group's page: its rooms (each opens its
+  stay), *Rooming list* (each reserved room's guest; until named, the
+  organiser), *Check in together* (each room with its room and every
+  occupant), *Check out together* (each room's own bill to its guest) and,
+  once every room has left, *Bill the group's folio*: one tax invoice to the
+  organiser or company with its GSTIN. A room may also be checked in and out
+  on its own from its stay, which shows its *Group booking* with a link back.
 
 Who does what: the front desk takes reservations and advances, checks guests
 in and out with every occupant, posts charges, runs the night audit, marks
@@ -6341,6 +6461,15 @@ print the register see the guests' ID details, and only those who see sales
 see the money. The room types, their rates and the rooms are set by those who
 keep the catalogue; the slabs, the weekend nights and the terms by those who
 keep the settings.
+
+The rate plans, seasons, rate calendar and day-use prices are set by those
+who keep the catalogue, and the policies and the check-in and check-out times
+by those who keep the settings. A discount is given by those whose role gives
+discounts (within the most a bill takes off), and a policy's charge is waived
+by a manager, or at the desk with a manager's PIN. The front desk opens
+folios and routes charges, makes group bookings and their rooming lists, and
+records occupants joining and leaving; housekeeping sees a guest's profile
+but does not change it.
 
 ---
 

@@ -8,6 +8,10 @@ const stays = require('../services/lodgingStays.service');
 const desk = require('../services/lodgingDesk.service');
 const folio = require('../services/lodgingFolio.service');
 const guests = require('../services/lodgingGuests.service');
+const rateCards = require('../services/lodgingRates.service');
+const folios = require('../services/lodgingFolios.service');
+const occupants = require('../services/lodgingOccupants.service');
+const groups = require('../services/lodgingGroups.service');
 
 // Hotels, lodges and guest houses, added to the Business Admin router so they
 // share its login, membership, module and permission checks (context) and its
@@ -22,6 +26,11 @@ const guests = require('../services/lodgingGuests.service');
 //   /:businessId/lodging/form-iii|guests/:id/form-iii foreign guests' Form-III reports and marking one made
 //   /:businessId/lodging/register                    the guest register
 //   /:businessId/lodging/approvers                   who may approve a change, or hand money back
+//   /:businessId/lodging/rates|rate-plans|seasons|rate-days|day-use-rates|policies   rate plans with their meal plans, the rate calendar, day-use prices, policies
+//   /:businessId/lodging/stays/:id/folios|routing|charges/:chargeId/move           a stay's folios beyond the main one, and where its charges go
+//   /:businessId/lodging/stays/:id/guests|guests/:guestId/leave                    an occupant joining or leaving partway
+//   /:businessId/lodging/profiles/:contactId         a guest's preferences, notes and past stays
+//   /:businessId/lodging/groups…                     group bookings: the block, the rooming list, checking in and out together, the group's folio billed
 // Another type of business never has the module, so `context` refuses it (the
 // room types and the settings: the service, after `context` checks the
 // catalogue or settings permission); the services repeat every check and
@@ -84,6 +93,39 @@ module.exports = function lodgingRoutes(router, { context, send, b }) {
   router.get(b('/lodging/form-iii'), context('lodging.create'), async (req, res) => send(res, await guests.formIII(req.business, req.query)));
   router.post(b('/lodging/guests/:id/form-iii'), context('lodging.create'), async (req, res) => send(res, await guests.markReported(req.business, req.user, req.params.id, req.body)));
   router.get(b('/lodging/register'), context('lodging.print'), async (req, res) => send(res, await guests.register(req.business, req.query)));
+
+  // Rate plans, the rate calendar, day-use prices and policies.
+  router.get(b('/lodging/rates'), context('lodging.view'), async (req, res) => send(res, await rateCards.rates(req.business, req.query)));
+  router.post(b('/lodging/rate-plans'), context('catalog.edit'), async (req, res) => send(res, await rateCards.createPlan(req.business, req.user, req.body), 201));
+  router.patch(b('/lodging/rate-plans/:id'), context('catalog.edit'), async (req, res) => send(res, await rateCards.updatePlan(req.business, req.user, req.params.id, req.body)));
+  router.post(b('/lodging/seasons'), context('catalog.edit'), async (req, res) => send(res, await rateCards.createSeason(req.business, req.user, req.body), 201));
+  router.patch(b('/lodging/seasons/:id'), context('catalog.edit'), async (req, res) => send(res, await rateCards.updateSeason(req.business, req.user, req.params.id, req.body)));
+  router.put(b('/lodging/rate-days'), context('catalog.edit'), async (req, res) => send(res, await rateCards.setDays(req.business, req.user, req.body)));
+  router.put(b('/lodging/day-use-rates'), context('catalog.edit'), async (req, res) => send(res, await rateCards.setDayUseRates(req.business, req.user, req.body)));
+  router.post(b('/lodging/policies'), context('settings.edit'), async (req, res) => send(res, await rateCards.createPolicy(req.business, req.user, req.body), 201));
+  router.patch(b('/lodging/policies/:id'), context('settings.edit'), async (req, res) => send(res, await rateCards.updatePolicy(req.business, req.user, req.params.id, req.body)));
+
+  // A stay's folios and routing, occupants joining and leaving, and guest profiles.
+  router.post(b('/lodging/stays/:id/folios'), context('lodging.create'), async (req, res) => send(res, await folios.createFolio(req.business, req.user, req.params.id, req.body), 201));
+  router.patch(b('/lodging/stays/:id/folios/:folioId'), context('lodging.create'),
+    async (req, res) => send(res, await folios.updateFolio(req.business, req.user, req.params.id, req.params.folioId, req.body)));
+  router.put(b('/lodging/stays/:id/routing'), context('lodging.create'), async (req, res) => send(res, await folios.setRouting(req.business, req.user, req.params.id, req.body)));
+  router.post(b('/lodging/stays/:id/charges/:chargeId/move'), context('lodging.create'),
+    async (req, res) => send(res, await folios.moveCharge(req.business, req.user, req.params.id, req.params.chargeId, req.body)));
+  router.post(b('/lodging/stays/:id/guests'), context('lodging.create'), async (req, res) => send(res, await occupants.join(req.business, req.user, req.params.id, req.body), 201));
+  router.post(b('/lodging/stays/:id/guests/:guestId/leave'), context('lodging.create'),
+    async (req, res) => send(res, await occupants.leave(req.business, req.user, req.params.id, req.params.guestId, req.body)));
+  router.get(b('/lodging/profiles/:contactId'), context('lodging.view'), async (req, res) => send(res, await occupants.profile(req.business, req.params.contactId)));
+  router.put(b('/lodging/profiles/:contactId'), context('lodging.create'), async (req, res) => send(res, await occupants.saveProfile(req.business, req.user, req.params.contactId, req.body)));
+
+  // Group bookings.
+  list('/lodging/groups', 'lodging-groups', 'lodging.view');
+  router.post(b('/lodging/groups'), context('lodging.create'), async (req, res) => send(res, await groups.create(req.business, req.user, req.body), 201));
+  router.get(b('/lodging/groups/:id'), context('lodging.view'), async (req, res) => send(res, await groups.detail(req.business, req.params.id)));
+  router.patch(b('/lodging/groups/:id/rooming'), context('lodging.create'), async (req, res) => send(res, await groups.rooming(req.business, req.user, req.params.id, req.body)));
+  router.post(b('/lodging/groups/:id/check-in'), context('lodging.create'), async (req, res) => send(res, await groups.checkIn(req.business, req.user, req.params.id, req.body)));
+  router.post(b('/lodging/groups/:id/check-out'), context('lodging.create'), async (req, res) => send(res, await groups.checkOut(req.business, req.user, req.params.id, req.body)));
+  router.post(b('/lodging/groups/:id/bill'), context('lodging.create'), async (req, res) => send(res, await groups.bill(req.business, req.user, req.params.id, req.body)));
 
   // Who may approve a change for a guest in the house (lodging.approve) or hand money back (lodging.refund).
   router.get(b('/lodging/approvers'), context(['lodging.create', 'lodging.cancel', 'lodging.refund', 'lodging.approve']),

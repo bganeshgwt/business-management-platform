@@ -523,6 +523,14 @@ export const LODGING = {
     foreigner: { fullName: "Emma Clarke", nationality: "British", passport: "GB7766554", visaType: "e-Tourist visa", visaNo: "ETV445566", nextDestination: "Jaipur, India",
       inIndiaDaysAgo: 3 },
     acknowledgement: "FRRO/HYD/2026/004512" },
+  // A food service item a rate plan's meals are billed as, and a company billed on a folio of its own (build-data.mjs).
+  meals: { name: "Breakfast and dinner", code: "LDG-MEALS", price: "0" },
+  company: { name: "Infotech Solutions Pvt Ltd", gstin: "27AAPFU0939F1ZV" },
+  // What the spec makes: a half-board plan of the Suite, a group booking a week ahead, an occupant joining the walk-in's stay, the walk-in's preferences.
+  plan: { name: "Half board", mealAdult: "900", mealChild: "400" },
+  group: { name: "Sharma wedding party", organiser: "Anil Sharma", phone: "9811100011", inDays: 7, roomGuest: "Sunita Sharma" },
+  joining: { fullName: "Aarav Mehta" },
+  preferences: "A quiet room away from the lift; extra pillows",
 };
 
 // The clinic's front desk (live-updates.spec.js): a patient registered with

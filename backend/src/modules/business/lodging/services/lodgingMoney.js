@@ -120,5 +120,140 @@ function billLines(values, mode) {
   });
 }
 
+// --- The calendar --------------------------------------------------------------------------------
+//
+// Each night's rates worked out from the calendar, most particular first:
+//   the room's rate   one rate agreed for every night; else the date's own rate
+//                     (the plan's, then the room type's); else a season's
+//                     (the plan's own season, then the room type's) at its
+//                     weekend rate on a weekend night, else its weekday rate;
+//                     else the plan's own rates; else the room type's (its
+//                     weekend rate on a weekend night, else its rack rate)
+//   extra persons     each extra adult, child and extra bed rate from the date,
+//                     then the season, then the room type
+//   restrictions      the minimum stay (the date's, then the season's), closed
+//                     to arrival and stop-sell (the plan's date or the room type's)
+//   the meals         the plan's meals: their item and their rates for each
+//                     adult and child, kept apart from the room's
+const given = (x) => x !== null && x !== undefined;
+const first = (...values) => values.find(given) ?? null;
+// A rate in rupees (or null) as paise (or null).
+const paiseOrNull = (value) => (given(value) ? paise(value) : null);
+
+// type: { rack, weekend, extraAdult, child, extraBed } (paise or null); plan: null or { id, room, weekend, mealSkuId, mealAdult, mealChild };
+// seasons: [{ planId, startsOn, endsOn, weekday, weekend, extraAdult, child, extraBed, minStay }]; days: [{ planId, day, room, extraAdult, child, extraBed,
+// minStay, closedToArrival, stopSell }]; agreed: paise or null. Returns one row a night.
+function resolveNights(arrival, departure, { type, plan = null, seasons = [], days = [], weekendNights = [], agreed = null }) {
+  const planId = plan ? Number(plan.id) : null;
+  return nightsOf(arrival, departure).map((night) => {
+    const weekend = weekendNights.map(Number).includes(isoDay(night));
+    const covers = (s) => s.startsOn <= night && s.endsOn >= night;
+    const season = (planId && seasons.find((s) => Number(s.planId) === planId && covers(s))) || seasons.find((s) => !given(s.planId) && covers(s)) || null;
+    const dayPlan = planId ? days.find((d) => d.day === night && Number(d.planId) === planId) || null : null;
+    const dayType = days.find((d) => d.day === night && !given(d.planId)) || null;
+    let rateKind, roomRate;
+    if (given(agreed)) { rateKind = 'agreed'; roomRate = agreed; }
+    else if (given(dayPlan?.room) || given(dayType?.room)) { rateKind = 'override'; roomRate = first(dayPlan?.room, dayType?.room); }
+    else if (season) { rateKind = 'season'; roomRate = weekend && given(season.weekend) ? season.weekend : season.weekday; }
+    else if (given(plan?.room)) { const w = weekend && given(plan.weekend); rateKind = w ? 'weekend' : 'rack'; roomRate = w ? plan.weekend : plan.room; }
+    else { const w = weekend && given(type.weekend); rateKind = w ? 'weekend' : 'rack'; roomRate = w ? type.weekend : type.rack; }
+    return {
+      night, weekend, rateKind, roomRate,
+      extraAdult: first(dayPlan?.extraAdult, dayType?.extraAdult, season?.extraAdult, type.extraAdult),
+      child: first(dayPlan?.child, dayType?.child, season?.child, type.child),
+      extraBed: first(dayPlan?.extraBed, dayType?.extraBed, season?.extraBed, type.extraBed),
+      mealSkuId: plan?.mealSkuId ? Number(plan.mealSkuId) : null, mealAdult: plan?.mealSkuId ? plan.mealAdult : null, mealChild: plan?.mealSkuId ? first(plan.mealChild) : null,
+      minStay: first(dayPlan?.minStay, dayType?.minStay, season?.minStay), closedToArrival: Boolean(dayPlan?.closedToArrival || dayType?.closedToArrival),
+      stopSell: Boolean(dayPlan?.stopSell || dayType?.stopSell),
+    };
+  });
+}
+
+// What a stay may not do on the calendar, the first refusal or null: a night not sold (stop-sell), an arrival on a
+// day closed to arrival, or fewer nights than the arrival day's minimum stay. `only`: the nights being added (an
+// extension checks only stop-sell on them).
+function restriction(rows, { arrival, nights, only = null }) {
+  const sold = rows.filter((r) => !only || only.includes(r.night)).find((r) => r.stopSell);
+  if (sold) return { reason: 'stop_sell', night: sold.night };
+  if (only) return null;
+  const arriving = rows.find((r) => r.night === arrival);
+  if (arriving?.closedToArrival) return { reason: 'closed_to_arrival', night: arrival };
+  if (arriving && given(arriving.minStay) && nights < arriving.minStay) return { reason: 'min_stay', night: arrival, minStay: arriving.minStay };
+  return null;
+}
+
+// A night's rates as the database keeps them (rupees) for the counting (paise).
+const nightRow = (row) => ({ night: typeof row.night === 'string' ? row.night.slice(0, 10) : row.night, rateKind: row.rate_kind, roomRate: paise(row.room_rate),
+  extraAdult: paiseOrNull(row.extra_adult_rate), child: paiseOrNull(row.child_rate), extraBed: paiseOrNull(row.extra_bed_rate),
+  mealSkuId: given(row.meal_sku_id) ? Number(row.meal_sku_id) : null, mealAdult: paiseOrNull(row.meal_adult_rate), mealChild: paiseOrNull(row.meal_child_rate) });
+
+// A discount of a percentage off a value, to the paisa (halves up).
+const discountOf = (value, percent) => (given(percent) && Number(percent) > 0 ? roundedDivide(BigInt(value) * BigInt(basis(percent)), 10000n) : 0);
+
+// One night (or a day use) priced from its rates: its value with the extra persons, the discount off it, what is
+// charged, the slab that decides and its GST; and its meals (before GST; their GST at the meal item's rate, `mealRate`).
+// party: { adults, children, extraBeds, baseOccupancy }.
+function priceRow(row, party, settings, percent = null, mealRate = null) {
+  const dayUse = row.rateKind === 'day_use';
+  const extraAdults = dayUse ? 0 : Math.max(0, Number(party.adults) - Number(party.baseOccupancy));
+  const children = dayUse ? 0 : Number(party.children || 0);
+  const extraBeds = dayUse ? 0 : Number(party.extraBeds || 0);
+  const value = row.roomRate + extraAdults * (row.extraAdult || 0) + children * (row.child || 0) + extraBeds * (row.extraBed || 0);
+  const discount = discountOf(value, percent);
+  const amount = value - discount;
+  const slab = slabFor(amount, settings.slabs);
+  const meal = row.mealSkuId ? Number(party.adults) * (row.mealAdult || 0) + Number(party.children || 0) * (row.mealChild || 0) : 0;
+  return { night: row.night, weekend: row.weekend, rateKind: row.rateKind, roomRate: row.roomRate, extraAdults, children, extraBeds, value, discount, amount, slab,
+    net: amount, tax: taxOn(amount, slab.rate), mealSkuId: row.mealSkuId, meal, mealTax: meal && given(mealRate) ? taxOn(meal, mealRate) : 0 };
+}
+
+// Every night of a stay priced, with its meals, and added up: { nights, subtotal, tax, total, roomSubtotal }.
+function estimateRows(rows, party, settings, percent = null, mealRate = null) {
+  const nights = rows.map((row) => priceRow(row, party, settings, percent, mealRate));
+  const subtotal = nights.reduce((sum, n) => sum + n.net + n.meal, 0);
+  const tax = nights.reduce((sum, n) => sum + n.tax + n.mealTax, 0);
+  return { nights, subtotal, tax, total: subtotal + tax, roomSubtotal: nights.reduce((sum, n) => sum + n.net, 0) };
+}
+
+// --- Policies --------------------------------------------------------------------------------------
+//
+// What a policy charges, worked out from the stay's room nights (their values
+// after the discount, before GST; meals and extras are not in them):
+//   early check-in / late check-out   a percentage of the night's value, a flat fee, or a full night
+//   cancellation      free until the policy's hours before the arrival, then so
+//                     many of the first nights or a percentage of the stay; a plan
+//                     that is not refundable: the full stay, whenever cancelled
+//   no-show           the first night, or the full stay (not refundable: the full stay)
+//   deposit           a percentage of the stay's total, or the first night with its GST
+const percentOf = (value, percent) => roundedDivide(BigInt(value) * BigInt(basis(percent)), 10000n);
+function timeCharge(kind, value, nightValue) {
+  if (kind === 'percent') return percentOf(nightValue, value);
+  if (kind === 'flat') return paise(value);
+  if (kind === 'night') return nightValue;
+  return 0;
+}
+// policy: the stay's (camel case, rupees); values: the room nights' values (paise) in order; hoursBefore: the hours left to the arrival.
+function cancelCharge(policy, values, hoursBefore) {
+  const all = values.reduce((s, x) => s + x, 0);
+  if (!policy) return { amount: 0, rule: null };
+  if (policy.refundable === false) return { amount: all, rule: 'not_refundable' };
+  if (!policy.cancelKind) return { amount: 0, rule: null };
+  if (hoursBefore >= Number(policy.cancelFreeHours)) return { amount: 0, rule: 'free' };
+  const amount = policy.cancelKind === 'nights' ? values.slice(0, Number(policy.cancelValue)).reduce((s, x) => s + x, 0) : percentOf(all, policy.cancelValue);
+  return { amount, rule: policy.cancelKind };
+}
+function noShowCharge(policy, values) {
+  const all = values.reduce((s, x) => s + x, 0);
+  if (!policy) return { amount: 0, rule: null };
+  if (policy.refundable === false || policy.noShowKind === 'full_stay') return { amount: all, rule: policy.refundable === false ? 'not_refundable' : 'full_stay' };
+  if (policy.noShowKind === 'first_night') return { amount: values[0] || 0, rule: 'first_night' };
+  return { amount: 0, rule: null };
+}
+// total: the stay's total with GST; firstNight: the first night with its GST.
+function depositDue(policy, { total, firstNight }) {
+  if (!policy?.depositKind) return 0;
+  return policy.depositKind === 'percent' ? percentOf(total, policy.depositValue) : firstNight;
+}
+
 module.exports = { paise, rupees, milli, taxOn, netOf, addDays, nightCount, nightsOf, isoDay, ratesOf, nightValue, slabFor, priceNight, estimate, extraFigures,
-  billFigures, figuresText, billLines };
+  billFigures, figuresText, billLines, resolveNights, restriction, nightRow, discountOf, priceRow, estimateRows, timeCharge, cancelCharge, noShowCharge, depositDue };

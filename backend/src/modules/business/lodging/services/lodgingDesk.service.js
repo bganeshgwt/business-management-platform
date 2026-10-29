@@ -69,7 +69,7 @@ async function calendar(business, query = {}) {
   [business.id, typeId]);
   const rooms = await repo.all(repo.pool, `SELECT r.id,r.room_no,r.floor,r.room_type_id,r.status,r.status_note,r.location_id FROM lodging_rooms r
     WHERE r.business_id=$1 AND r.active AND ($2::bigint IS NULL OR r.location_id=$2) ORDER BY r.sort_order,lower(r.floor),length(r.room_no),lower(r.room_no),r.id`, [business.id, scope]);
-  const held = await repo.all(repo.pool, `SELECT s.id,s.stay_no,s.guest_name,s.status,s.arrival::text AS arrival,s.departure::text AS departure,s.room_type_id,s.room_id,s.adults,s.children,s.source,s.ota_name
+  const held = await repo.all(repo.pool, `SELECT s.id,s.stay_no,s.guest_name,s.status,s.arrival::text AS arrival,s.departure::text AS departure,s.room_type_id,s.room_id,s.adults,s.children,s.source,s.ota_name,s.day_use
     FROM lodging_stays s WHERE s.business_id=$1 AND s.status IN ('reserved','in_house','checked_out') AND s.arrival<$3::date AND s.departure>$2::date
       AND ($4::bigint IS NULL OR s.location_id=$4) ORDER BY s.arrival,s.id`, [business.id, from, until, scope]);
   const on = (stay, day) => stay.arrival <= day && stay.departure > day;
@@ -85,7 +85,7 @@ async function calendar(business, query = {}) {
         id: type.id, name: type.name, rooms: mine.map((room) => ({ id: room.id, roomNo: room.room_no, floor: room.floor, status: room.status, statusNote: room.status_note,
           nights: dayList.map((day) => { const s = held.find((x) => Number(x.room_id) === Number(room.id) && on(x, day)); return { day, stay: s ? stayText(s) : null }; }) })),
         unassigned: unassigned.map((s) => ({ ...stayText(s), nights: dayList.map((day) => on(s, day)) })),
-        left: dayList.map((day) => ({ day, left: Math.max(0, mine.length - stayList.filter((s) => ['reserved', 'in_house'].includes(s.status) && on(s, day)).length) })),
+        left: dayList.map((day) => ({ day, left: Math.max(0, mine.length - stayList.filter((s) => ['reserved', 'in_house'].includes(s.status) && !s.day_use && on(s, day)).length) })),
       };
     }),
   };
@@ -101,7 +101,7 @@ async function free(business, query = {}) {
   const scope = business.location_scope || null;
   const rooms = await repo.all(repo.pool, `SELECT r.id,r.room_no,r.floor,r.room_type_id,k.label AS room_type,r.status,r.status_note,r.location_id,
       (SELECT json_build_object('id',s.id,'stay_no',s.stay_no,'guest_name',s.guest_name,'status',s.status,'arrival',s.arrival,'departure',s.departure)
-        FROM lodging_stays s WHERE s.business_id=r.business_id AND s.room_id=r.id AND s.status IN ('reserved','in_house') AND s.arrival<$3::date AND s.departure>$2::date
+        FROM lodging_stays s WHERE s.business_id=r.business_id AND s.room_id=r.id AND s.status IN ('reserved','in_house') AND NOT s.day_use AND s.arrival<$3::date AND s.departure>$2::date
           AND ($4::bigint IS NULL OR s.id<>$4) ORDER BY s.arrival LIMIT 1) AS clash
     FROM lodging_rooms r JOIN lodging_room_types t ON t.business_id=r.business_id AND t.id=r.room_type_id JOIN catalog_skus k ON k.business_id=t.business_id AND k.id=t.sku_id
     WHERE r.business_id=$1 AND r.active AND ($5::bigint IS NULL OR r.room_type_id=$5) AND ($6::bigint IS NULL OR r.location_id=$6)
