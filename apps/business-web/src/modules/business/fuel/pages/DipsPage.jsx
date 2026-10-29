@@ -11,7 +11,7 @@ import FormDialog from "../../core/pages/FormDialog";
 import { Badge, BusinessHeader, Field } from "../../core/pages/ui";
 import { businessToday, newKey, useOpenBusiness } from "../../core/pages/hooks";
 import { OutletPicker } from "./FuelParts";
-import { atWords, dayWords, densityText, firstOutlet, qty, zonedInput } from "./fuel";
+import { chartLitres, atWords, dayWords, densityText, firstOutlet, qty, zonedInput } from "./fuel";
 import "../styles/fuel.css";
 
 // Tanks & dips: each tank of an outlet with the day's dip (the litres it
@@ -97,7 +97,24 @@ export default function DipsPage() {
 
 const textOf = (value) => (value === null || value === undefined ? "" : String(Number(value)));
 
+// With the tank's chart kept, the dip in cm gives the litres (a straight line between the chart's rows); without it, the litres are read off the paper chart.
 function DipFields({ form, set, tank }) {
+  const charted = tank.chart?.length ? chartLitres(tank.chart, form.dipCm) : null;
+  if (tank.chart?.length) {
+    return (
+      <>
+        <Field label="Dip read (cm)" hint={`Tank ${tank.tank_no}'s chart runs from ${tank.chart[0].cm} to ${tank.chart.at(-1).cm} cm.`}>
+          <input required inputMode="decimal" className="mono" value={form.dipCm} onChange={set("dipCm")} />
+        </Field>
+        <p className="fuel-line-check" role="status">{charted === null ? <span className="muted small">Type the dip to read its litres off the chart.</span>
+          : <span>By the chart: <strong className="mono">{qty(charted, tank.unit)}</strong></span>}</p>
+        <Field label="Water dip (cm, optional)" hint="Water found with water-finding paste."><input inputMode="decimal" className="mono" value={form.waterCm} onChange={set("waterCm")} /></Field>
+        <Field label="Density at 15 °C (kg/m³, optional)" hint="Of a sample drawn from a nozzle, by the hydrometer and the table."><input inputMode="decimal" className="mono" value={form.density} onChange={set("density")} /></Field>
+        <Field label="Temperature (°C, optional)"><input inputMode="decimal" className="mono" value={form.temperature} onChange={set("temperature")} /></Field>
+        <Field label="Note (optional)" wide><input maxLength={300} value={form.note} onChange={set("note")} /></Field>
+      </>
+    );
+  }
   return (
     <>
       <Field label={`Litres in the tank (by the dip chart)`} hint={`Tank ${tank.tank_no} holds at most ${qty(tank.capacity, tank.unit)}.`}>
@@ -117,7 +134,7 @@ function DipDialog({ biz, tank, date, today, onClose, onSaved }) {
   const [key] = useState(newKey);
   const [form, setForm] = useState({ stock: "", dipCm: "", waterCm: "", density: "", temperature: "", note: "", takenAt: date === today ? "" : `${date}T06:00` });
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
-  const submit = () => businessWrite(biz.id, "fuel/dips", { requestKey: key, tankId: tank.id, dipOn: date, stock: form.stock.trim(),
+  const submit = () => businessWrite(biz.id, "fuel/dips", { requestKey: key, tankId: tank.id, dipOn: date, ...(form.stock.trim() ? { stock: form.stock.trim() } : {}),
     ...Object.fromEntries(["dipCm", "waterCm", "density", "temperature", "note"].filter((k) => form[k].trim()).map((k) => [k, form[k].trim()])),
     ...(form.takenAt ? { takenAt: form.takenAt } : {}) });
   return (

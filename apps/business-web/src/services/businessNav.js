@@ -297,6 +297,11 @@ export function businessSections(type) {
         { section: "fuel-receipts", label: "Tanker receipts", icon: "deliveries", need: "fuel.view", types: FUEL },
         { section: "fuel-register", label: "Stock register", icon: "logbook", need: "fuel.view", types: FUEL },
         { section: "fuel-fleet", label: "Fleet statements", icon: "bills", need: "sales.view", module: "fuel", types: FUEL },
+        // The attendants' shorts and excess (money: for those who see sales), the
+        // daily sales register with the inspection log, and every outlet at a glance.
+        { section: "fuel-attendants", label: "Attendants' accounts", icon: "payroll", need: "sales.view", module: "fuel", types: FUEL },
+        { section: "fuel-records", label: "Registers & inspections", icon: "logbook", need: "fuel.view", types: FUEL },
+        { section: "fuel-outlets", label: "Outlets", icon: "outlets", need: "fuel.view", types: FUEL },
       ],
     },
     {

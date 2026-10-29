@@ -96,6 +96,22 @@ export const monthWords = (month) => {
 };
 export const addDays = (day, n) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 
+// The litres a tank's chart gives at a dip (cm), by a straight line between
+// the two rows around it, to the millilitre as the server reads it; null
+// while the dip is not typed or is outside the chart. rows: [{ cm, litres }].
+export function chartLitres(rows, dipCm) {
+  const text = String(dipCm ?? "").trim();
+  if (!/^\d+(\.\d)?$/.test(text) || !rows.length) return null;
+  const tenths = (x) => Math.round(Number(x) * 10);
+  const cm = tenths(text);
+  const chart = rows.map((r) => ({ cm: tenths(r.cm), litres: Math.round(Number(r.litres) * 1000) }));
+  if (cm < chart[0].cm || cm > chart.at(-1).cm) return null;
+  const upper = chart.findIndex((r) => r.cm >= cm);
+  if (chart[upper].cm === cm) return chart[upper].litres / 1000;
+  const low = chart[upper - 1], high = chart[upper];
+  return (low.litres + Math.round(((high.litres - low.litres) * (cm - low.cm)) / (high.cm - low.cm))) / 1000;
+}
+
 export const METHOD_WORDS = { cash: "Cash", upi: "UPI", card: "Card", bank: "Bank transfer", cheque: "Cheque" };
 export const methodName = (row) => row.method_name || row.methodName || METHOD_WORDS[row.method] || row.method || "";
 // The takings a shift hands in besides cash: UPI, cards (an oil company's fleet card is one) and bank transfers.

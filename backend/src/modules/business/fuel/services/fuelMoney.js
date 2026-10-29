@@ -72,38 +72,77 @@ function nozzleFigures({ opening, closing, test = '0' }) {
 //   readings  [{ nozzleId, productId, opening, closing, test }] (text as typed)
 //   prices    { [productId]: price a litre as text }
 //   slips     [{ productId, litres (text), … }]
+//   bigFills  [{ productId, litres (text), … }]: walk-in fills of ₹2,00,000 or
+//             more, each billed on its own (paid there; its cash `bigCash`, paise)
 //   cash      the cash counted (text); payments [{ amount (text), … }]
-// Returns each nozzle's and each fuel's figures, each slip with its price and
-// amount (paise), and the shift's money in paise: expected, credit, walkIn,
-// other, cash, cashPaid (the cash part of the walk-in bill), difference.
+//   dropped   the cash dropped during the shift (paise); goodsWalkIn: the
+//             other sales (lubricants, shop items) to walk-in buyers (paise)
+// Returns each nozzle's and each fuel's figures, each slip and big fill with
+// its price and amount (paise), and the shift's money in paise: expected,
+// credit, walkIn, big, and what the attendant's money pays (settle below).
 // Nothing is refused here: a fuel whose slips exceed its meters has walk-in
 // litres below zero, and other takings above the walk-in sales leave a
 // negative due; the service says why.
-function shiftFigures({ readings, prices, slips = [], cash = '0', payments = [] }) {
+function shiftFigures({ readings, prices, slips = [], bigFills = [], cash = '0', payments = [], dropped = 0, bigCash = 0, goodsWalkIn = 0 }) {
   const nozzles = readings.map((r) => ({ ...r, ...nozzleFigures(r) }));
   const productIds = [...new Set(nozzles.map((n) => String(n.productId)))];
-  const priced = slips.map((s) => {
+  const priceOf = (list) => list.map((s) => {
     const price = paise(prices[String(s.productId)] ?? '0');
     const quantity = milli(s.litres);
     return { ...s, thousandths: quantity, price, amount: amountOf(quantity, price) };
   });
+  const priced = priceOf(slips);
+  const big = priceOf(bigFills);
   const products = productIds.map((productId) => {
     const price = paise(prices[productId] ?? '0');
     const sold = nozzles.filter((n) => String(n.productId) === productId).reduce((sum, n) => sum + n.litres, 0);
     const mine = priced.filter((s) => String(s.productId) === productId);
+    const bigOnes = big.filter((s) => String(s.productId) === productId);
     const creditLitres = mine.reduce((sum, s) => sum + s.thousandths, 0);
     const creditAmount = mine.reduce((sum, s) => sum + s.amount, 0);
-    const walkInLitres = sold - creditLitres;
+    const bigLitres = bigOnes.reduce((sum, s) => sum + s.thousandths, 0);
+    const bigAmount = bigOnes.reduce((sum, s) => sum + s.amount, 0);
+    const walkInLitres = sold - creditLitres - bigLitres;
     const walkInAmount = walkInLitres > 0 ? amountOf(walkInLitres, price) : 0;
-    return { productId, price, litres: sold, creditLitres, walkInLitres, creditAmount, walkInAmount, amount: creditAmount + walkInAmount };
+    return { productId, price, litres: sold, creditLitres, bigLitres, walkInLitres, creditAmount, bigAmount, walkInAmount, amount: creditAmount + bigAmount + walkInAmount };
   });
   const credit = products.reduce((sum, p) => sum + p.creditAmount, 0);
   const walkIn = products.reduce((sum, p) => sum + p.walkInAmount, 0);
-  const other = payments.reduce((sum, p) => sum + paise(p.amount), 0);
-  const counted = paise(cash);
-  const due = walkIn - other;
-  const cashPaid = Math.max(0, Math.min(counted, due));
-  return { nozzles, products, slips: priced, expected: credit + walkIn, credit, walkIn, other, cash: counted, cashPaid, due, difference: counted + other - walkIn };
+  const bigTotal = products.reduce((sum, p) => sum + p.bigAmount, 0);
+  const paid = settle({ walkIn, goodsWalkIn, takings: payments.map((p) => paise(p.amount)), cash: paise(cash), dropped, bigCash });
+  return { nozzles, products, slips: priced, bigFills: big, expected: credit + walkIn + bigTotal, credit, walkIn, big: bigTotal, ...paid };
+}
+
+// What the attendant's money pays, in paise. The takings (UPI, cards, fleet
+// cards) pay the walk-in fuel bill, and what is left of them the other
+// sales' walk-in bill (a taking that crosses over is split); the cash
+// (counted and dropped, less what the big fills took in cash) pays what is
+// left on the fuel bill, then on the other sales' bill. What is still due on
+// the two is the attendant's short, paid from their account; cash left over
+// is their excess.
+//   walkIn, goodsWalkIn  the two walk-in bills; takings [paise …]; cash, dropped, bigCash
+// Returns { fuelParts, goodsParts (each taking's part on each bill), other,
+//   goodsOther, cash, dropped, bigCash, available, cashPaid (cash on the fuel
+//   bill), cashGoods, shortFuel, shortGoods, short, excess, due, difference }.
+function settle({ walkIn, goodsWalkIn = 0, takings = [], cash = 0, dropped = 0, bigCash = 0 }) {
+  let left = walkIn;
+  const fuelParts = [], goodsParts = [];
+  for (const amount of takings) {
+    const onFuel = Math.max(0, Math.min(amount, left));
+    left -= onFuel;
+    fuelParts.push(onFuel);
+    goodsParts.push(amount - onFuel);
+  }
+  const other = fuelParts.reduce((sum, x) => sum + x, 0);
+  const goodsOther = goodsParts.reduce((sum, x) => sum + x, 0);
+  const available = cash + dropped - bigCash;
+  const cashPaid = Math.max(0, Math.min(available, walkIn - other));
+  const cashGoods = Math.max(0, Math.min(available - cashPaid, goodsWalkIn - goodsOther));
+  const shortFuel = Math.max(0, walkIn - other - cashPaid);
+  const shortGoods = Math.max(0, goodsWalkIn - goodsOther - cashGoods);
+  const difference = available + other + goodsOther - walkIn - goodsWalkIn;
+  return { fuelParts, goodsParts, other, goodsOther, cash, dropped, bigCash, available, cashPaid, cashGoods, shortFuel, shortGoods,
+    short: Math.max(0, -difference), excess: Math.max(0, difference), due: walkIn - other, difference };
 }
 
 // The evaporation and handling allowance a fuel takes, as hundredths of a
@@ -120,8 +159,11 @@ function lossAllowance(family, settings) {
 // meter sales and the next morning's dip (null while it is not taken).
 // Returns { book, variation, percent (hundredths, of the closing dip),
 // allowedGain, allowedLoss, flag: within | loss | gain | open }.
-function registerFigures({ opening, receipts, sales, closing, family, settings }) {
-  const book = opening + receipts - sales;
+// `allowance`: the loads' shrinkage and temperature variation allowances
+// (thousandths) taken off the receipts (MDG 2024, Annexure 9: A + B - C = D,
+// D - E = F).
+function registerFigures({ opening, receipts, sales, closing, family, settings, allowance = 0 }) {
+  const book = opening + receipts - allowance - sales;
   if (closing === null || closing === undefined) return { book, variation: null, percent: null, allowedGain: null, allowedLoss: null, flag: 'open' };
   const variation = closing - book;
   const percent = closing > 0 ? rounded(BigInt(variation) * 10000n, closing) : null;
@@ -144,5 +186,34 @@ function receiptFigures({ invoiceLitres, dipBefore, dipAfter }) {
   return { received, short: milli(invoiceLitres) - received };
 }
 
-module.exports = { scaled, milli, paise, basis, tenths, fixed, litres, rupees, percentText, rounded, amountOf, nozzleFigures, shiftFigures, lossAllowance,
-  registerFigures, densityCheck, receiptFigures };
+// A load's allowance on the invoice (₹ a kilolitre) as litres of it and as a
+// percentage: the allowance is money for litres lost at the load's own cost,
+// so its share of the load's value is its share of the litres.
+//   litres (thousandths), amount (paise, the invoice's value), perKl (paise a KL, may be below zero)
+// Returns { litres (thousandths), percent (ten-thousandths of a percent) }.
+function allowanceOf({ litres, amount, perKl }) {
+  if (!perKl || !amount || !litres) return { litres: 0, percent: 0 };
+  // litres × (perKl × litres / 1000) / amount: the allowance's value at the load's cost a litre.
+  const share = rounded(BigInt(perKl) * BigInt(litres) * BigInt(litres), BigInt(amount) * 1000n * 1000n);
+  // percent = perKl × litres / (1000 × amount) × 100, in ten-thousandths of a percent.
+  const percent = rounded(BigInt(perKl) * BigInt(litres) * 1000000n, BigInt(amount) * 1000n * 1000n);
+  return { litres: share, percent };
+}
+
+// Litres from a tank's dip chart at a dip, by a straight line between the
+// chart's two rows around it; exact at a row. rows: [{ cm (tenths), litres
+// (thousandths) }] in rising order. null outside the chart.
+function chartLitres(rows, cm) {
+  if (!rows.length || cm < rows[0].cm || cm > rows.at(-1).cm) return null;
+  const upper = rows.findIndex((r) => r.cm >= cm);
+  const high = rows[upper];
+  if (high.cm === cm) return high.litres;
+  const low = rows[upper - 1];
+  return low.litres + rounded(BigInt(high.litres - low.litres) * BigInt(cm - low.cm), high.cm - low.cm);
+}
+
+// The cash in notes and coins: [{ denomination (₹), pieces }] → paise.
+const countOf = (count) => count.reduce((sum, c) => sum + Number(c.denomination) * 100 * Number(c.pieces), 0);
+
+module.exports = { scaled, milli, paise, basis, tenths, fixed, litres, rupees, percentText, rounded, amountOf, nozzleFigures, shiftFigures, settle, lossAllowance,
+  registerFigures, densityCheck, receiptFigures, allowanceOf, chartLitres, countOf };

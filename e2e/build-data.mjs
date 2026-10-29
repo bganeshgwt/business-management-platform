@@ -916,6 +916,15 @@ export async function buildTestData({ api, logins, sql }) {
     const truck = await owner("POST", B("fuel/vehicles"), { contactId: fleet.id, registration: FUEL.fleet.vehicle.registration, description: FUEL.fleet.vehicle.description,
       productId: diesel.id, fillLimit: FUEL.fleet.vehicle.fillLimit }, 201);
     await owner("POST", B("payment-methods"), { name: FUEL.fleetCard, kind: "card" }, 201);
+    // The engine oil on the 18% slab, bought in; the contractor billed by the month, with their slip book and tipper.
+    const gst18 = (await owner("GET", B("tax-rates?limit=100"))).items.find((r) => Number(r.rate) === 18);
+    const lube = await owner("POST", B("catalog"), { kind: "goods", tracking: "quantity", unit: "each", name: FUEL.lube.name, code: FUEL.lube.code, price: FUEL.lube.price, taxRateId: gst18.id }, 201);
+    const lubes = await owner("POST", B("contacts"), { kind: "supplier", name: FUEL.lube.supplier }, 201);
+    await owner("POST", B("documents"), { kind: "purchase", requestKey: requestKey(), locationId, contactId: lubes.id, lines: [{ skuId: lube.id, quantity: FUEL.lube.stock, unitPrice: "300" }] }, 201);
+    const monthly = await owner("POST", B("contacts"), { kind: "customer", name: FUEL.monthly.name, creditDays: FUEL.monthly.creditDays }, 201);
+    await owner("PUT", B(`fuel/fleet/${monthly.id}/terms`), { billing: "month" });
+    await owner("POST", B("fuel/indent-books"), { contactId: monthly.id, bookNo: FUEL.monthly.book.bookNo, firstSerial: FUEL.monthly.book.first, lastSerial: FUEL.monthly.book.last }, 201);
+    await owner("POST", B("fuel/vehicles"), { contactId: monthly.id, registration: FUEL.monthly.vehicle.registration, productId: diesel.id }, 201);
     Object.assign(businesses.fuel_station, {
       fuels: { petrol: { id: petrol.id, name: petrol.name }, diesel: { id: diesel.id, name: diesel.name } },
       tanks: { petrol: { id: petrolTank.id, tankNo: petrolTank.tank_no }, diesel: { id: dieselTank.id, tankNo: dieselTank.tank_no } },

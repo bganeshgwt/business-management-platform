@@ -5752,11 +5752,12 @@ morning dips, the tanker loads and the daily stock register the oil
 companies' Marketing Discipline Guidelines ask for; and its fleet customers'
 credit. A new fuel station starts with **Tanks, nozzles & shifts** on;
 *Licences & registrations* is recommended to it (the PESO licence, Form XIV).
-**Shift & readings** and **Tanks & dips** (with *Tanker receipts* and the
-*Stock register*) are its daily entries, after *Quick bill*, which bills
-lubricants and the shop's items with their own GST; *Fleet statements* sit
-with its customers (*Customers & fleets*), and the set-up is *Settings › Pumps
-& nozzles*. Every reading is typed in from the totalisers, the dip rod and the
+**Shift & readings** (with *Attendants' accounts*) and **Tanks & dips** (with
+*Tanker receipts*, the *Stock register* and *Registers & inspections*) are its
+daily entries, after *Quick bill*, which bills lubricants and the shop's items
+with their own GST away from a shift; *Fleet statements* sit with its
+customers (*Customers & fleets*), *Outlets* with the reports, and the set-up is
+*Settings › Pumps & nozzles*. Every reading is typed in from the totalisers, the dip rod and the
 hydrometer: the software never controls or talks to a dispenser, a forecourt
 controller or a tank gauge (at an automated outlet those are the oil
 company's). Every time on these screens (a shift's readings, a dip's day,
@@ -5799,7 +5800,9 @@ today) is on the business's own clock.
    its invoice's either way; a day's variation within 4% of the dip, and a
    loss also within the evaporation and handling allowance on what was sold
    (petrol 0.75%, diesel 0.25%; 0.60% and 0.20% when the station sells more
-   than 600 KL a year on average); the test measure (5 litres).
+   than 600 KL a year on average); the test measure (5 litres); the notes and
+   coins the cash is counted in (₹500 down to ₹1); and the service item
+   interest on overdue fleet credit is billed as.
 7. **The PESO licence** — each outlet's licence (Form XIV) with its dates,
    under *Settings › Licences* (with *Licences & registrations* on); *Pumps &
    nozzles* shows where it stands.
@@ -5810,6 +5813,11 @@ today) is on the business's own clock.
    their vehicles (below). Shifts are numbered *FS/2627/0001* (*Settings ›
    Number series*, *Fuel shifts*); the fuel bills a close posts are numbered
    as the business's sales are.
+9. **The tanks' dip charts** — on a tank's row, *Dip chart*: its calibration
+   chart, a dip in cm and the litres a line (typed, or pasted from a
+   spreadsheet). With it kept, *Take the dip* asks for the dip in cm and reads
+   the litres off the chart (a straight line between its two rows around the
+   dip).
 
 **The screens:**
 
@@ -5832,7 +5840,14 @@ today) is on the business's own clock.
   fill of a fleet vehicle on credit, the customer, the vehicle, the quantity
   and the number of the slip the driver signed; the UPI, card and fleet-card
   takings from the machines' settlement slips, each by its payment method
-  with its reference; the cash counted; and a note. As it is typed, the
+  with its reference; the cash counted (or *Count the cash by notes and
+  coins*: how many of each, the count being the cash); the attendant's
+  **other sales** (*Add an item*: a lubricant, an additive or a shop item and
+  its quantity, to a walk-in buyer or on a customer's account), billed on a
+  GST invoice at their own slab, never on the fuel bill; any walk-in buyer's
+  **fill of ₹2,00,000 or more** (*Add a big fill*: the fuel, the litres, the
+  vehicle and buyer when given, the buyer's PAN or their declaration, and how
+  they paid: less than ₹2,00,000 in cash), billed on its own; and a note. As it is typed, the
   server works out what each nozzle sold (the closing reading less the
   opening less the test), each fuel's litres at the price in force (on
   credit and to walk-in buyers), the money expected, and the attendant's
@@ -5842,35 +5857,63 @@ today) is on the business's own clock.
   limit*); a credit fill over ₹2,00,000 needs the customer's PAN; the meters
   never sell more than the stock holds. *Close the shift* posts the sales
   through the core: one walk-in fuel bill (a line for each fuel, paid by the
-  takings and then the cash, a short left due on it) and a fuel bill to each
-  fleet customer (a line for each slip, with its vehicle and slip number),
-  exact to the paisa with no round-off. An excess stays with the shift. When
+  takings and then the cash), the other sales' GST invoices, a bill for each
+  big fill, and a fuel bill to each fleet customer billed per shift (a line
+  for each slip, with its vehicle and slip number), exact to the paisa with
+  no round-off. A customer billed by the month gets no bill: their fills are
+  held on their slips for the month's invoice. A customer with slip books
+  gives each slip's serial: one outside their books, or used before, is
+  refused. What is still short on the walk-in bills is paid from the
+  attendant's account, due from them; an excess is held on it. When
   a price changed while the shift was open, it is closed with the readings
   taken at the change (*Readings taken at*), and the next shift opens at the
   new price.
+- **Cash drops** (the shift's page, while it is open) — *Record a cash
+  drop*: cash handed over during the shift, how much, to whom on the staff
+  and when; the drops count with the cash at the close. A manager cancels one
+  typed wrongly (*Cancel*, with the reason).
 - **A closed shift** — the settlement: expected, credit, walk-in, takings,
-  cash and the attendant's short or excess; the readings; the sales at the
-  price; the credit slips and the fuel bills (each opens for those who see
-  sales). *Print the settlement* prints it for the attendant and the manager
+  cash (with the notes and coins counted and the cash dropped), the other
+  sales and big fills, and the attendant's short or excess on their account;
+  the readings; the sales at the price; the credit slips (a monthly
+  customer's *Held for the month*) and the bills (each opens for those who
+  see sales). *Print the settlement* prints it for the attendant and the manager
   to sign. A closed shift never changes: a manager reopens it (*Reopen the
-  shift*), with the reason, before another shift opens on its nozzles. Its bills are
-  credited (the litres back in stock), the walk-in bill's takings handed back
-  and its nozzles read again from its opening; it is closed again with the
-  right readings. The page keeps every close that was reopened.
+  shift*), with the reason, before another shift opens on its nozzles, while
+  none of its fleet fills is on a month's invoice. Its bills are credited (the
+  litres and other sales back in stock), the walk-in bills' and big fills'
+  money handed back, the attendant's short or excess reversed, and its
+  nozzles read again from its opening; it is closed again with the right
+  readings. The page keeps every close that was reopened.
+- **Attendants' accounts** (*Shift & readings › Attendants' accounts*, for
+  those who see sales) — each attendant for a period: what they owed before,
+  their shorts and excess, what they paid, what was deducted from their wages
+  and what went to income, what they owe now and the excess held. *Paid*: the
+  attendant pays back (cash, UPI, card or bank), on the day's money. *From
+  wages* (a manager): the short kept back from their wages, saying what for,
+  with the wages paid out now in the expense book. *To income* (a manager): an
+  excess taken to other income, saying why, on the day's money. A row opens
+  the attendant's entries, shift by shift.
 - **Tanks & dips** — each tank with the day's dip: the litres by the dip
   chart (with the dip read, the water dip, the morning density at 15 °C of a
   nozzle sample and its temperature), who took it and when, the dip before,
   and today its stock by the book: the last dip, plus the loads received
   since, less the meters' sales since. *Take the dip*: one a tank a day,
   before the first shift, typed within the week (an earlier day's with the
-  time it was taken); a manager corrects one (*Correct*) with the reason. From
-  10 am the bell says when today's dips are not all taken.
+  time it was taken); a manager corrects one (*Correct*) with the reason. With
+  the tank's chart kept, the dip is typed in cm and its litres shown from the
+  chart. From 10 am the bell says when today's dips are not all taken.
 - **Tanker receipts** (*Tanks & dips › Tanker receipts*) — every load with
   its invoice, lorry, tanks, short receipt and density check. *Record a
   tanker load*: the supplier, the invoice number and date, the tank lorry, the
   seals, and for each tank it goes into the invoice's litres, value and
   density at 15 °C, the lorry's density at 15 °C, the dips before and after
-  decanting, and the density after decanting and 50 litres dispensed. The
+  decanting, the density after decanting and 50 litres dispensed, and the
+  invoice's shrinkage and temperature variation (TVA) allowances in ₹ a KL;
+  the lorry's compartments (*A compartment*: the tank it went into, its dip,
+  density and temperature, the water-finding paste, the 20 litres drawn from
+  its manifold and the short made up through the pump); and the retention
+  samples kept (*A sample*: its number and seal). The
   density check shows as it is typed: within 3.0 kg/m³ either way, or outside,
   when the load is refused (*Refused: sent back undecanted*, with the reason)
   or a manager accepts it saying why (the bell shows it for a week). An
@@ -5878,16 +5921,22 @@ today) is on the business's own clock.
   core, made by someone who makes purchases; what came in by the dips, and how
   short of the invoice, stays with it. The density after decanting is written
   once. A manager cancels a load entered wrongly (*Cancel the load*): its
-  purchase is credited and its litres go out of stock.
+  purchase is credited and its litres go out of stock. *Retention samples*
+  lists the samples kept at the outlet: those of the last two loads of each
+  fuel kept, an older load's *Due for disposal* (the bell says so) until
+  marked *Disposed of*.
 - **Stock register** (*Tanks & dips › Stock register*) — each tank day by day,
   from one morning's dip to the next, as the guidelines' Annexure 9 works it
-  out: the opening dip, the loads received, the meters' sales with the test
+  out: the opening dip, the loads received less their shrinkage and TVA (in
+  litres, from each invoice's ₹ a KL), the meters' sales with the test
   pumped back, the book stock, the next morning's dip, and the variation in
   litres and as a share of the dip, against what is allowed: *Within
   tolerance*, *Loss beyond tolerance* or *Gain beyond tolerance* (a day whose
   next dip is to come waits for it). The bell names a tank whose latest day is
   beyond the tolerance, a gain before a loss (the guidelines stop sales on a
-  gain beyond the limits until a sample passes). *Density register*: each
+  gain beyond the limits until a sample passes). A manager who may correct
+  stock posts a closed day to the stock (*Post*, with the reason, once): the
+  stock moves by the dip against the stock by the meters and the invoices. *Density register*: each
   tank's month, the morning densities and each load's by invoice, at receipt
   and after decanting (the guidelines' Annexure 1). *Export* gives either as
   a spreadsheet.
@@ -5902,7 +5951,30 @@ today) is on the business's own clock.
   by fuel, and the account: owed at the start, billed, paid or credited, owed
   at the end. *Print the statement* prints it. An oil company's fleet or
   loyalty card is not the station's credit: it is a payment method, taken
-  with the shift's takings and settled by the oil company.
+  with the shift's takings and settled by the oil company. On the statement:
+  - *Billing and interest* — *Change the terms*: billed per shift or by the
+    month, and the interest on overdue credit (a % a month, from so many days
+    after a bill falls due). A monthly customer's fills not yet billed show
+    *Held for the month*; *Invoice* the month at an outlet bills them on one
+    invoice, a line for each fill, the stock leaving with it. Once a month is
+    over, the bell warns of its fills not invoiced.
+  - *Interest on overdue credit* — worked out to today bill by bill, to the
+    paisa; a manager bills what is due (*Bill*), on the interest item, due at
+    once.
+  - *Slip books* — *Issue a book*: its number and the first and last slip; a
+    book shows its slips used (shift and vehicle) and unused; *Withdraw* one
+    taken back or lost.
+- **Registers & inspections** (*Tanks & dips › Registers & inspections*) —
+  the day's sales register from the shifts closed at the outlet (each shift's
+  nozzles and readings, each fuel's sales at its price), printed with *Print
+  the day's register* (the station's own register: the oil companies' formats
+  are not matched); and the inspection log: *Record an inspection* (when, by
+  whom, for whom, what was found and what was done), kept for good and never
+  changed.
+- **Outlets** (*Reports › Outlets*) — each outlet at a glance: today's shifts,
+  litres and sales, the attendants' shorts and excess, each tank's latest
+  day of the register against the tolerance, what customers owe there, its
+  fleet fills not yet billed, what its attendants owe, and its alerts.
 
 Who does what: a pump attendant opens and closes their own shift with its
 readings and takings and takes the morning dips, and sees their own shifts
@@ -5910,7 +5982,9 @@ and money only, with no settings; a cashier opens and closes any attendant's
 shift and keeps the fleet's vehicles; a stock keeper takes the dips and
 records the tanker loads; a manager does all of it, reopens shifts, allows
 credit over a limit, accepts a load outside the density tolerance, corrects
-dips, records meter changes and cancels loads; an accountant sees, exports and
+dips, records meter changes, cancels loads and cash drops, deducts shorts from
+wages, takes excess to income, bills interest and posts a register day to the
+stock; an accountant sees, exports and
 prints, and a viewer sees. The fuels and their prices are set by those who
 keep the catalogue; the tanks, units, nozzles, measures and tolerances by
 those who keep the settings.

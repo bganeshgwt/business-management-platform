@@ -66,11 +66,17 @@ export default function ReceiptsPage() {
       {dialog?.kind === "new" && <ReceiptDialog biz={biz} outlet={outlet} onClose={() => setDialog(null)}
         onSaved={(r) => { setDialog({ kind: "open", id: r.id }); toast.success(r.status === "accepted" ? `Load ${r.invoice_no} received${r.document_no ? `: purchase ${r.document_no}` : ""}.` : `Load ${r.invoice_no} refused.`); list.reload(); }} />}
       {dialog?.kind === "open" && <ReceiptDetail biz={biz} receiptId={dialog.id} onClose={() => setDialog(null)} onChanged={list.reload} />}
+      <RetentionSamples biz={biz} outlet={outlet} version={list.gridProps.rows?.length || 0} />
     </div>
   );
 }
 
-const blankLine = () => ({ key: newKey(), tankId: "", invoiceLitres: "", invoiceAmount: "", invoiceDensity: "", receiptDensity: "", dipBefore: "", dipAfter: "", decantDensity: "" });
+const blankLine = () => ({ key: newKey(), tankId: "", invoiceLitres: "", invoiceAmount: "", invoiceDensity: "", receiptDensity: "", dipBefore: "", dipAfter: "", decantDensity: "",
+  shrinkagePerKl: "", tvaPerKl: "" });
+const blankCompartment = (n) => ({ key: newKey(), compartmentNo: String(n), tankId: "", dipCm: "", density: "", temperature: "", waterFound: false, waterCm: "", checkLitres: "20",
+  checkDensity: "", checkTemperature: "", shortLitres: "", madeUpLitres: "" });
+const blankSample = () => ({ key: newKey(), tankId: "", sampleNo: "", sealNo: "" });
+const typed = (value) => String(value ?? "").trim();
 
 // A tanker load recorded: the invoice, the lorry, and each tank it goes into with the density check and the dips.
 function ReceiptDialog({ biz, outlet, onClose, onSaved }) {
@@ -90,6 +96,11 @@ function ReceiptDialog({ biz, outlet, onClose, onSaved }) {
   const [form, setForm] = useState({ contactId: "", invoiceNo: "", invoiceDate: businessToday(biz.business.timezone), lorryNo: "", sealsOk: true, receivedAt: "",
     status: "accepted", refuseReason: "", densityNote: "", notes: "" });
   const [lines, setLines] = useState(() => [blankLine()]);
+  const [compartments, setCompartments] = useState([]);
+  const [samples, setSamples] = useState([]);
+  const setRow = (setter) => (k, name) => (e) => setter((all) => all.map((x) => (x.key === k ? { ...x, [name]: e.target.type === "checkbox" ? e.target.checked : e.target.value } : x)));
+  const setCompartment = setRow(setCompartments);
+  const setSample = setRow(setSamples);
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
   const setLine = (k, name) => (e) => setLines((all) => all.map((l) => (l.key === k ? { ...l, [name]: e.target.value } : l)));
   const checks = lines.map((l) => densityCheck(l.invoiceDensity, l.receiptDensity, tolerance));
@@ -105,8 +116,15 @@ function ReceiptDialog({ biz, outlet, onClose, onSaved }) {
     ...(form.notes.trim() ? { notes: form.notes.trim() } : {}),
     lines: lines.map((l) => ({ tankId: l.tankId, invoiceLitres: l.invoiceLitres.trim(), invoiceAmount: l.invoiceAmount.trim() || "0", invoiceDensity: l.invoiceDensity.trim(),
       receiptDensity: l.receiptDensity.trim(), ...(accepted || l.dipBefore.trim() ? { dipBefore: l.dipBefore.trim(), dipAfter: l.dipAfter.trim() } : {}),
-      ...(accepted && l.decantDensity.trim() ? { decantDensity: l.decantDensity.trim() } : {}) })),
+      ...(accepted && l.decantDensity.trim() ? { decantDensity: l.decantDensity.trim() } : {}),
+      ...(l.shrinkagePerKl.trim() ? { shrinkagePerKl: l.shrinkagePerKl.trim() } : {}), ...(l.tvaPerKl.trim() ? { tvaPerKl: l.tvaPerKl.trim() } : {}) })),
+    ...(compartments.length ? { compartments: compartments.map((x) => ({ compartmentNo: x.compartmentNo, tankId: x.tankId, waterFound: x.waterFound,
+      ...Object.fromEntries(["dipCm", "density", "temperature", "waterCm", "checkLitres", "checkDensity", "checkTemperature", "shortLitres", "madeUpLitres"]
+        .filter((k) => typed(x[k])).map((k) => [k, typed(x[k])])) })) } : {}),
+    ...(accepted && samples.some((x) => x.tankId && typed(x.sampleNo)) ? { samples: samples.filter((x) => x.tankId && typed(x.sampleNo))
+      .map((x) => ({ tankId: x.tankId, sampleNo: typed(x.sampleNo), sealNo: typed(x.sealNo) })) } : {}),
   });
+  const tankChoices = lines.map((l) => tanks.find((t) => String(t.id) === l.tankId)).filter(Boolean);
   return (
     <FormDialog title="Record a tanker load" icon="truck" width={900} onClose={onClose} onSaved={onSaved} onSubmit={submit}
       submitLabel={accepted ? "Accept the load" : "Refuse the load"} description={densityNote(tolerance)}>
@@ -145,6 +163,8 @@ function ReceiptDialog({ biz, outlet, onClose, onSaved }) {
                 <input required={accepted} inputMode="decimal" className="mono" value={l.dipAfter} onChange={setLine(l.key, "dipAfter")} />
               </Field>
               {accepted && <Field label="Density after decanting (optional)" hint="After 50 litres are dispensed."><input inputMode="decimal" className="mono" value={l.decantDensity} onChange={setLine(l.key, "decantDensity")} /></Field>}
+              <Field label={`Shrinkage on the invoice (${biz.symbol} a KL, optional)`}><input inputMode="decimal" className="mono" value={l.shrinkagePerKl} onChange={setLine(l.key, "shrinkagePerKl")} /></Field>
+              <Field label={`Temperature variation (${biz.symbol} a KL, optional)`} hint="Below zero when the invoice takes it off."><input inputMode="decimal" className="mono" value={l.tvaPerKl} onChange={setLine(l.key, "tvaPerKl")} /></Field>
               <p className="fuel-line-check" role="status">
                 {check ? <Badge tone={check.within ? "success" : "danger"} label={`${signed(check.difference)} kg/m³ · ${check.within ? "within the tolerance" : "outside the tolerance"}`} />
                   : <span className="muted small">The density check shows once both densities are typed.</span>}
@@ -156,6 +176,52 @@ function ReceiptDialog({ biz, outlet, onClose, onSaved }) {
         })}
         {lines.length < 12 && <button type="button" className="chip-button" onClick={() => setLines((all) => [...all, blankLine()])}><Icon name="plus" size={13} /> Another tank</button>}
       </fieldset>
+      <fieldset className="field-wide fuel-fieldset">
+        <legend>The lorry's compartments (optional)</legend>
+        <p className="muted small">Each compartment checked before decanting: its dip, density and temperature, the water-finding paste, about 20 litres drawn from its manifold, and a short dip made up through the pump.</p>
+        {compartments.map((x) => (
+          <div key={x.key} className="fuel-row fuel-row-wide" role="group" aria-label={`Compartment ${x.compartmentNo}`}>
+            <Field label="Compartment"><input required inputMode="numeric" className="mono" value={x.compartmentNo} onChange={setCompartment(x.key, "compartmentNo")} /></Field>
+            <Field label="Into tank">
+              <select required value={x.tankId} onChange={setCompartment(x.key, "tankId")}>
+                <option value="">Choose</option>
+                {tankChoices.map((t) => <option key={t.id} value={String(t.id)}>Tank {t.tank_no}</option>)}
+              </select>
+            </Field>
+            <Field label="Dip (cm)"><input inputMode="decimal" className="mono" value={x.dipCm} onChange={setCompartment(x.key, "dipCm")} /></Field>
+            <Field label="Density (kg/m³)"><input inputMode="decimal" className="mono" value={x.density} onChange={setCompartment(x.key, "density")} /></Field>
+            <Field label="Temperature (°C)"><input inputMode="decimal" className="mono" value={x.temperature} onChange={setCompartment(x.key, "temperature")} /></Field>
+            <label className="checkbox bz-check"><input type="checkbox" checked={x.waterFound} onChange={setCompartment(x.key, "waterFound")} /> Water found by the paste</label>
+            {x.waterFound && <Field label="Water (cm)"><input inputMode="decimal" className="mono" value={x.waterCm} onChange={setCompartment(x.key, "waterCm")} /></Field>}
+            <Field label="Litres drawn"><input inputMode="decimal" className="mono" value={x.checkLitres} onChange={setCompartment(x.key, "checkLitres")} /></Field>
+            <Field label="Their density"><input inputMode="decimal" className="mono" value={x.checkDensity} onChange={setCompartment(x.key, "checkDensity")} /></Field>
+            <Field label="Their temperature"><input inputMode="decimal" className="mono" value={x.checkTemperature} onChange={setCompartment(x.key, "checkTemperature")} /></Field>
+            <Field label="Short (litres)"><input inputMode="decimal" className="mono" value={x.shortLitres} onChange={setCompartment(x.key, "shortLitres")} /></Field>
+            <Field label="Made up (litres)"><input inputMode="decimal" className="mono" value={x.madeUpLitres} onChange={setCompartment(x.key, "madeUpLitres")} /></Field>
+            <button type="button" className="link-button danger" onClick={() => setCompartments((all) => all.filter((y) => y.key !== x.key))}>Remove</button>
+          </div>
+        ))}
+        {compartments.length < 12 && <button type="button" className="chip-button" onClick={() => setCompartments((all) => [...all, blankCompartment(all.length + 1)])}><Icon name="plus" size={13} /> A compartment</button>}
+      </fieldset>
+      {accepted && (
+        <fieldset className="field-wide fuel-fieldset">
+          <legend>Retention samples (optional)</legend>
+          {samples.map((x) => (
+            <div key={x.key} className="fuel-row" role="group" aria-label="Retention sample">
+              <Field label="Of tank">
+                <select required value={x.tankId} onChange={setSample(x.key, "tankId")}>
+                  <option value="">Choose</option>
+                  {tankChoices.map((t) => <option key={t.id} value={String(t.id)}>Tank {t.tank_no}</option>)}
+                </select>
+              </Field>
+              <Field label="Sample number"><input required maxLength={40} value={x.sampleNo} onChange={setSample(x.key, "sampleNo")} /></Field>
+              <Field label="Seal number"><input required maxLength={40} value={x.sealNo} onChange={setSample(x.key, "sealNo")} /></Field>
+              <button type="button" className="link-button danger" onClick={() => setSamples((all) => all.filter((y) => y.key !== x.key))}>Remove</button>
+            </div>
+          ))}
+          <button type="button" className="chip-button" onClick={() => setSamples((all) => [...all, blankSample()])}><Icon name="plus" size={13} /> A sample</button>
+        </fieldset>
+      )}
       <Field label="The load is" wide>
         <select value={form.status} onChange={set("status")}>
           <option value="accepted" disabled={!canAccept}>Accepted: decanted into the tanks</option>
@@ -226,7 +292,8 @@ function ReceiptDetail({ biz, receiptId, onClose, onChanged }) {
                 {r.lines.map((l) => (
                   <tr key={l.tank_id}>
                     <th scope="row">Tank {l.tank_no}<small className="muted">{l.product_name}</small></th>
-                    <td className="r mono">{qty(l.invoice_litres, "")}{l.invoice_amount !== null ? <small className="muted">{biz.exact(l.invoice_amount)}</small> : null}</td>
+                    <td className="r mono">{qty(l.invoice_litres, "")}{l.invoice_amount !== null ? <small className="muted">{biz.exact(l.invoice_amount)}</small> : null}
+                      {Number(l.allowance_litres) !== 0 && <small className="muted">shrinkage {qty(l.shrinkage_litres, "")} ({l.shrinkage_percent}%) · TVA {qty(l.tva_litres, "")} ({l.tva_percent}%)</small>}</td>
                     <td className="r mono">{densityText(l.invoice_density)}</td>
                     <td className="r mono">{densityText(l.receipt_density)}</td>
                     <td><Badge tone={l.density_within ? "success" : "danger"} label={`${signed(l.density_difference)} · ${l.density_within ? "within" : "outside"} ±${Number(l.tolerance).toFixed(1)}`} /></td>
@@ -240,6 +307,29 @@ function ReceiptDetail({ biz, receiptId, onClose, onChanged }) {
               </tbody>
             </table>
           </div>
+          {r.compartments.length > 0 && (
+            <div className="fuel-table-wrap">
+              <table className="fuel-table" aria-label="Compartments">
+                <thead><tr><th>Compartment</th><th>Tank</th><th className="r">Dip</th><th className="r">Density · °C</th><th>Water</th><th className="r">Drawn</th><th className="r">Short · made up</th></tr></thead>
+                <tbody>
+                  {r.compartments.map((x) => (
+                    <tr key={x.compartment_no}>
+                      <th scope="row">{x.compartment_no}</th><td>{x.tank_no}</td><td className="r mono">{x.dip_cm === null ? "—" : `${x.dip_cm} cm`}</td>
+                      <td className="r mono">{densityText(x.density)}{x.temperature !== null ? ` · ${x.temperature} °C` : ""}</td>
+                      <td>{x.water_found ? `Found${x.water_cm !== null ? ` (${x.water_cm} cm)` : ""}` : "None"}</td>
+                      <td className="r mono">{x.check_litres === null ? "—" : `${qty(x.check_litres, "")}${x.check_density !== null ? ` · ${densityText(x.check_density)}` : ""}`}</td>
+                      <td className="r mono">{qty(x.short_litres, "")} · {qty(x.made_up_litres, "")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {r.samples.length > 0 && (
+            <ul className="fuel-history" aria-label="Retention samples">
+              {r.samples.map((x) => <li key={x.id}>Sample <strong className="mono">{x.sample_no}</strong> · seal {x.seal_no} · tank {x.tank_no}{x.disposed_at ? ` · disposed of ${atWords(x.disposed_at, biz)}` : ""}</li>)}
+            </ul>
+          )}
           <div className="form-actions">
             {waiting.length > 0 && biz.can("fuel.create") && <button type="button" className="button button-secondary" disabled={busy || !Object.values(decants).some((v) => v.trim())} onClick={saveDecants}>Save the density after decanting</button>}
             {open && biz.can("fuel.approve") && <button type="button" className="button button-secondary" onClick={() => setCancelling(true)}><Icon name="ban" size={15} /> Cancel the load</button>}
@@ -254,5 +344,35 @@ function ReceiptDetail({ biz, receiptId, onClose, onChanged }) {
           onSubmit={(reason) => businessWrite(biz.id, `fuel/receipts/${r.id}/cancel`, { requestKey: newKey(), reason })} />
       )}
     </Modal>
+  );
+}
+
+// The retention samples kept at the outlet: the last two loads of each fuel kept, the older ones due for disposal.
+function RetentionSamples({ biz, outlet, version }) {
+  const [data, setData] = useState(null);
+  const [again, setAgain] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController();
+    businessRead(biz.id, "fuel/samples", outlet ? { locationId: outlet } : undefined, controller.signal).then(setData).catch(() => setData(null));
+    return () => controller.abort();
+  }, [biz.id, outlet, version, again]);
+  if (!data || !data.items.length) return null;
+  const dispose = (x) => businessWrite(biz.id, `fuel/samples/${x.id}/dispose`, {})
+    .then(() => { toast.success(`Sample ${x.sample_no} disposed of.`); setAgain((n) => n + 1); }).catch((err) => toast.error(getErrorMessage(err)));
+  return (
+    <SectionCard flush icon="shield" title="Retention samples" description="Kept for the last two loads of each fuel; a sample of an older load is due for disposal.">
+      <DataGrid variant="compact" id="fuel-samples" caption="Retention samples" rows={data.items} rowKey={(x) => x.id} rowNoun={["sample", "samples"]}
+        rowClassName={(x) => (x.due ? "dg-tone-warning" : "")}
+        columns={[
+          { key: "sample", header: "Sample", value: (x) => x.sample_no, className: "mono", mobile: "title" },
+          { key: "seal", header: "Seal", value: (x) => x.seal_no, className: "mono" },
+          { key: "fuel", header: "Fuel", value: (x) => x.product_name, mobile: "subtitle" },
+          { key: "load", header: "Load", value: (x) => `${x.invoice_no} · ${x.lorry_no}` },
+          { key: "received", header: "Received", type: "datetime", value: (x) => x.received_at, render: (x) => atWords(x.received_at, biz) },
+          { key: "due", header: "", value: (x) => (x.due ? "Due for disposal" : "Kept"), render: (x) => <Badge tone={x.due ? "warning" : "success"} label={x.due ? "Due for disposal" : "Kept"} />, mobile: "show" },
+          biz.can("fuel.create") && { key: "actions", header: "", label: "Actions", type: "actions",
+            render: (x) => (x.due ? <button type="button" className="chip-button" onClick={() => dispose(x)}>Disposed of</button> : null) },
+        ].filter(Boolean)} />
+    </SectionCard>
   );
 }

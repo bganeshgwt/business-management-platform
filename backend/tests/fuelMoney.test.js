@@ -106,3 +106,41 @@ test("a tanker load: density within 3.0 kg/m³ of its invoice either way, and wh
   assert.deepEqual(money.receiptFigures({ invoiceLitres: "12000", dipBefore: "3200.000", dipAfter: "15150.000" }), { received: 11950000, short: 50000 });
   assert.deepEqual(money.receiptFigures({ invoiceLitres: "12000", dipBefore: null, dipAfter: null }), { received: null, short: null });
 });
+test("the attendant's money: the takings pay the fuel bill and then the other sales, the cash the rest, the short from their account", () => {
+  // Walk-in fuel ₹50,600.46, other sales ₹900; ₹51,000 by UPI (₹399.54 of it over the fuel), ₹200 counted and ₹300 dropped: ₹0.46 short on the other sales.
+  const s = money.settle({ walkIn: 5060046, goodsWalkIn: 90000, takings: [5100000], cash: 20000, dropped: 30000 });
+  assert.deepEqual([s.fuelParts, s.goodsParts, s.other, s.goodsOther, s.cashPaid, s.cashGoods, s.shortFuel, s.shortGoods, s.difference], [[5060046], [39954], 5060046, 39954, 0, 50000, 0, 46, -46]);
+  // Two takings, the second crossing over: split at the fuel bill's total.
+  assert.deepEqual(money.settle({ walkIn: 10000, goodsWalkIn: 5000, takings: [6000, 6000], cash: 3000 }).goodsParts, [0, 2000]);
+  // Cash beyond both bills is the excess; a big fill's cash comes out of it first.
+  const over = money.settle({ walkIn: 10000, goodsWalkIn: 0, takings: [], cash: 30000, bigCash: 15000 });
+  assert.deepEqual([over.available, over.cashPaid, over.excess, over.short], [15000, 10000, 5000, 0]);
+  // Short on the fuel bill first when the cash does not cover it.
+  const short = money.settle({ walkIn: 10000, goodsWalkIn: 2000, takings: [], cash: 9000 });
+  assert.deepEqual([short.cashPaid, short.cashGoods, short.shortFuel, short.shortGoods, short.short], [9000, 0, 1000, 2000, 3000]);
+  // A fill of ₹2,00,000 or more comes off the walk-in litres of its fuel.
+  const f = money.shiftFigures({ readings: [{ nozzleId: 1, productId: 1, opening: "0", closing: "2200" }], prices: { 1: "95.20" }, bigFills: [{ productId: 1, litres: "2150" }],
+    cash: "59440", bigCash: 5468000 });
+  assert.deepEqual([f.products[0].bigLitres, f.products[0].walkInLitres, f.big, f.walkIn, f.expected, f.difference], [2150000, 50000, 20468000, 476000, 20944000, 0]);
+});
+
+test("a load's shrinkage and temperature variation allowances, from rupees a kilolitre to litres and a percentage", () => {
+  // 4,000 litres at ₹3,66,000 (₹91,500 a KL): ₹180 a KL is 0.1967% (7.869 litres); -₹40 a KL is -0.0437% (-1.749 litres).
+  assert.deepEqual(money.allowanceOf({ litres: 4000000, amount: 36600000, perKl: 18000 }), { litres: 7869, percent: 1967 });
+  assert.deepEqual(money.allowanceOf({ litres: 4000000, amount: 36600000, perKl: -4000 }), { litres: -1749, percent: -437 });
+  assert.deepEqual(money.allowanceOf({ litres: 4000000, amount: 36600000, perKl: 0 }), { litres: 0, percent: 0 });
+  // Annexure 9: A + B - C = D, D - E = F, against G.
+  const day = money.registerFigures({ opening: 9000000, receipts: 4000000, allowance: 6120, sales: 495000, closing: 12000000, family: "petrol", settings: SETTINGS });
+  assert.deepEqual([day.book, day.variation, day.percent, day.allowedLoss, day.flag], [12498880, -498880, -416, 483713, "loss"]);
+});
+
+test("a dip chart: litres by a straight line between the two rows around the dip, exact at a row", () => {
+  const rows = [{ cm: 0, litres: 0 }, { cm: 1000, litres: 5000000 }, { cm: 1500, litres: 9000000 }, { cm: 2000, litres: 14000000 }];
+  assert.equal(money.chartLitres(rows, 1425), 8400000);
+  assert.equal(money.chartLitres(rows, 1000), 5000000);
+  assert.equal(money.chartLitres(rows, 1), 5000, "0.1 cm of the first 100 cm");
+  assert.equal(money.chartLitres(rows, 2001), null, "outside the chart");
+  assert.equal(money.chartLitres([], 10), null);
+  // The count in notes and coins.
+  assert.equal(money.countOf([{ denomination: 500, pieces: 3 }, { denomination: 10, pieces: 7 }]), 157000);
+});

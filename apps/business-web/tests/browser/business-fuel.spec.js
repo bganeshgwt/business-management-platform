@@ -8,8 +8,11 @@ import { FUEL, business, localDate, signIn } from "../../../../e2e/fixture.mjs";
 // whose density is checked against its invoice before it is decanted; the
 // morning dip that ends a day of the stock register, flagged beyond the
 // tolerance; and a fleet customer's truck filled on credit at a shift's
-// close, then on the customer's statement. Readings are typed: the screens
-// never talk to a dispenser or a tank gauge.
+// close, then on the customer's statement. The attendant's other sales and a
+// cash drop with the cash counted by notes and coins, the short due from the
+// attendant and paid back; a contractor billed by the month on their slip
+// book, then invoiced; the records and every outlet at a glance. Readings are
+// typed: the screens never talk to a dispenser or a tank gauge.
 let shop = null;
 test.beforeEach(async ({ page }) => {
   shop = business("fuel_station");
@@ -170,7 +173,7 @@ test("a fleet customer's truck filled on credit at a shift's close, and on the c
   await slip.getByLabel("Customer").selectOption({ label: FUEL.fleet.name });
   await slip.getByLabel("Vehicle").selectOption({ label: `${FUEL.fleet.vehicle.registration} · ${FUEL.diesel.name} · up to ${FUEL.fleet.vehicle.fillLimit}` });
   await slip.getByLabel("Quantity").fill("150");
-  await slip.getByLabel("Slip number (optional)").fill("0012");
+  await slip.getByLabel("Slip number").fill("0012");
   await page.getByLabel(/^Cash counted/).fill("4760");
   const settlement = page.getByLabel("The shift's settlement");
   await expect(settlement).toContainText("₹14,280.00", { timeout: 15_000 });
@@ -195,5 +198,122 @@ test("a fleet customer's truck filled on credit at a shift's close, and on the c
   await expect(page.locator("#print-root")).toContainText("Fleet statement for");
   expect(await page.evaluate(() => window.printed)).toBe(1);
   await page.screenshot({ path: testInfo.outputPath("statement.png"), fullPage: true });
+  expect(errors).toEqual([]);
+});
+
+// Opens a shift on one nozzle from its totaliser as it reads now; gives back that reading.
+async function openShift(page, nozzle, name) {
+  await page.goto(`/business-admin/${shop.id}/fuel-shifts`);
+  await expect(page.getByRole("heading", { name: "Shift & readings", level: 1 })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Open a shift" }).click();
+  const open = page.getByRole("dialog", { name: "Open a shift" });
+  await open.getByRole("checkbox", { name: new RegExp(`^Nozzle ${nozzle} · ${name}`) }).check();
+  const opening = await open.getByLabel(`Nozzle ${nozzle}: totaliser now`).inputValue();
+  await open.getByRole("button", { name: "Open the shift" }).click();
+  await expect(page.getByRole("heading", { name: /^Shift FS/, level: 1 })).toBeVisible({ timeout: 15_000 });
+  return Number(opening);
+}
+
+test("the attendant's other sales on a GST invoice and a cash drop, the cash counted by notes and coins: the short due from the attendant", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  await signIn(page, "PUMP_ATTENDANT");
+  const opening = await openShift(page, FUEL.petrol.nozzle.nozzleNo, FUEL.petrol.name);
+  // ₹500 dropped to the owner during the shift.
+  await page.getByRole("button", { name: "Record a cash drop" }).click();
+  const drop = page.getByRole("dialog", { name: /^Cash drop/ });
+  await drop.getByLabel(/^Amount/).fill("500");
+  await drop.getByLabel("Handed to").selectOption({ label: "Asha Rao" });
+  await drop.getByRole("button", { name: "Record it" }).click();
+  await expect(page.getByRole("region", { name: "Cash drops" })).toContainText("₹500.00 to Asha Rao", { timeout: 15_000 });
+  // 10 litres of petrol (₹1,021.20) and two engine oils (₹900, GST inside); ₹1,420 counted: 2 × ₹500, 4 × ₹100, 1 × ₹20.
+  await page.getByLabel(`Nozzle ${FUEL.petrol.nozzle.nozzleNo}: closing reading`).fill(String(opening + 10));
+  await page.getByRole("button", { name: "Add an item" }).click();
+  const sale = page.getByRole("group", { name: "Other sale 1" });
+  await sale.getByLabel("Item").selectOption({ label: FUEL.lube.name });
+  await sale.getByLabel("Quantity").fill("2");
+  await page.getByRole("checkbox", { name: "Count the cash by notes and coins" }).check();
+  await page.getByLabel("₹500 notes or coins").fill("2");
+  await page.getByLabel("₹100 notes or coins").fill("4");
+  await page.getByLabel("₹20 notes or coins").fill("1");
+  await expect(page.getByLabel("Notes and coins counted")).toContainText("₹1,420.00");
+  const settlement = page.getByLabel("The shift's settlement");
+  await expect(settlement).toContainText("₹900.00", { timeout: 15_000 });
+  await expect(settlement).toContainText("Short ₹1.20");
+  await expect(page.getByText(/short is paid on the bills from the attendant's account/)).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("other-sales.png"), fullPage: true });
+  await page.getByRole("button", { name: "Close the shift" }).click();
+  await expect(page.getByText("Closed", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Due from the attendant").first()).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("the attendants' accounts: the short paid back by the attendant", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  await signIn(page);
+  await page.goto(`/business-admin/${shop.id}/fuel-attendants`);
+  await expect(page.getByRole("heading", { name: "Attendants' accounts", level: 1 })).toBeVisible({ timeout: 30_000 });
+  const row = page.getByRole("table", { name: "Attendants' accounts" }).getByRole("row", { name: /Mahesh Yadav/ });
+  // The ₹10.46 of the first shift and the ₹1.20 of the last.
+  await expect(row).toContainText("₹11.66", { timeout: 15_000 });
+  await row.getByRole("button", { name: "Paid" }).click();
+  const paid = page.getByRole("dialog", { name: "Mahesh Yadav pays" });
+  await expect(paid.getByLabel(/^Amount/)).toHaveValue("11.66");
+  await paid.getByRole("button", { name: "Save" }).click();
+  await expect(paid).toBeHidden({ timeout: 15_000 });
+  await expect(row.getByRole("button", { name: "Paid" })).toHaveCount(0, { timeout: 15_000 });
+  await page.screenshot({ path: testInfo.outputPath("attendants.png"), fullPage: true });
+  expect(errors).toEqual([]);
+});
+
+test("a contractor billed by the month: the fill held on their slip, then the month's invoice", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  await signIn(page);
+  const opening = await openShift(page, FUEL.diesel.nozzle.nozzleNo, FUEL.diesel.name);
+  // 100 litres of diesel into the tipper on slip 1001 of book B-21: held, no bill.
+  await page.getByLabel(`Nozzle ${FUEL.diesel.nozzle.nozzleNo}: closing reading`).fill(String(opening + 100));
+  await page.getByRole("button", { name: "Add a credit slip" }).click();
+  const slip = page.getByRole("group", { name: "Credit slip 1" });
+  await slip.getByLabel("Customer").selectOption({ label: FUEL.monthly.name });
+  await slip.getByLabel("Vehicle").selectOption({ label: `${FUEL.monthly.vehicle.registration} · ${FUEL.diesel.name}` });
+  await slip.getByLabel("Quantity").fill("100");
+  await slip.getByLabel("Slip number").fill(FUEL.monthly.book.first);
+  await page.getByLabel(/^Cash counted/).fill("0");
+  await expect(page.getByLabel("The shift's settlement")).toContainText("₹9,520.00", { timeout: 15_000 });
+  await page.getByRole("button", { name: "Close the shift" }).click();
+  const slips = page.getByRole("table", { name: "Credit slips" });
+  await expect(slips).toContainText("Held for the month", { timeout: 15_000 });
+  // The contractor's statement: the fill not billed yet, then one invoice for the month.
+  await page.goto(`/business-admin/${shop.id}/fuel-fleet`);
+  await page.getByRole("table", { name: "Fleet customers" }).getByRole("row", { name: new RegExp(FUEL.monthly.name) }).click();
+  await expect(page.getByRole("heading", { name: FUEL.monthly.name, level: 1 })).toBeVisible({ timeout: 15_000 });
+  const fills = page.getByRole("table", { name: `Fills of ${FUEL.monthly.vehicle.registration}` });
+  await expect(fills).toContainText("Held for the month");
+  await expect(page.getByRole("table", { name: "Slip books" })).toContainText(FUEL.monthly.book.bookNo);
+  await page.getByRole("button", { name: /^Invoice / }).click();
+  await expect(fills).not.toContainText("Held for the month", { timeout: 15_000 });
+  await expect(page.getByRole("region", { name: "Billing and interest" })).toContainText("1 fill ·");
+  await page.screenshot({ path: testInfo.outputPath("month-invoice.png"), fullPage: true });
+  expect(errors).toEqual([]);
+});
+
+test("the records: the day's sales register and an inspection; every outlet at a glance", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  await signIn(page);
+  await page.goto(`/business-admin/${shop.id}/fuel-records`);
+  await expect(page.getByRole("heading", { name: "Registers & inspections", level: 1 })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("table", { name: "Daily sales register" })).toContainText(FUEL.petrol.name, { timeout: 15_000 });
+  await expect(page.getByText(/oil companies' own formats are not matched/)).toBeVisible();
+  await page.getByRole("button", { name: "Record an inspection" }).click();
+  const inspection = page.getByRole("dialog", { name: "Record an inspection" });
+  await inspection.getByLabel("By whom").fill("R. Sharma, sales officer");
+  await inspection.getByLabel("What was found").fill("Fire extinguishers due for refill");
+  await inspection.getByRole("button", { name: "Record it" }).click();
+  await expect(page.getByRole("table", { name: "Inspection log" })).toContainText("R. Sharma, sales officer", { timeout: 15_000 });
+  await page.getByRole("button", { name: "Print the day's register" }).click();
+  await expect(page.locator("#print-root")).toContainText("Daily sales register");
+  await page.goto(`/business-admin/${shop.id}/fuel-outlets`);
+  await expect(page.getByRole("heading", { name: "Outlets", level: 1 })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByLabel(/^Stock register at /)).toContainText(`Tank ${FUEL.petrol.tank.tankNo}`, { timeout: 15_000 });
+  await page.screenshot({ path: testInfo.outputPath("outlets.png"), fullPage: true });
   expect(errors).toEqual([]);
 });

@@ -1591,31 +1591,31 @@ A fuel station bills lubricants and its shop's items on bills of the shared core
 
 ### What a shift sold, to the paisa
 
-- **Rule:** each nozzle sold its closing reading less its opening less the test pumped back; the test is not a sale, and the database checks each figure. Each credit slip is its quantity at the price, to the paisa; each fuel's walk-in quantity is what its nozzles sold less its credit slips, at the price. The money expected is the credit and the walk-in sales; the attendant's difference is the cash counted and the UPI, card and fleet-card takings less the walk-in sales: below nothing they are short, above it in excess. The takings are at most the walk-in sales, and a fuel's credit slips at most what its nozzles sold.
+- **Rule:** each nozzle sold its closing reading less its opening less the test pumped back; the test is not a sale, and the database checks each figure. Each credit slip and each fill of ₹2,00,000 or more is its quantity at the price, to the paisa; each fuel's walk-in quantity is what its nozzles sold less its credit slips and big fills, at the price. The money expected is the credit, the big fills and the walk-in sales. The attendant's money is the cash counted (by notes and coins when counted so) and the cash dropped during the shift, less the cash the big fills were paid, and the UPI, card and fleet-card takings; their difference is that money less the walk-in fuel sales and the other sales to walk-in buyers: below nothing they are short, above it in excess. The takings are at most the walk-in fuel and other sales, and a fuel's credit slips and big fills at most what its nozzles sold.
 - **Why:** sales are measured by the totaliser difference of each nozzle for each shift and settled with each attendant (DSM) across cash, card, UPI, fleet cards and credit slips; every nozzle is tested daily with the stamped 5-litre measure and the test quantity recorded (Marketing Discipline Guidelines 2024, 1.4.2).
 - **Change it:** the test measure's litres under *Tolerances* on *Pumps & nozzles* (`settings.edit`).
 
 ### The close posts the fuel bills through the core
 
-- **Rule:** closing a shift posts one walk-in fuel bill (a line for each fuel sold to walk-in buyers, with no buyer named), paid by the takings and then the cash up to what it comes to, and a fuel bill to each fleet customer with a line for each fill (its vehicle and slip number), due by the customer's credit days. A short is left due on the walk-in bill; an excess stays with the shift. Retries give the same close, and the same request with other data is refused. The bills' lines are credited only by a manager reopening the shift: a return on them is refused. The walk-in bill sums the fills of many buyers, each paying for their own, so it is not counted against the ₹2,00,000 cash limit of one bill or one customer and asks for no PAN ([Cash of ₹2,00,000 or more](#cash-of-200000-or-more)).
+- **Rule:** closing a shift posts one walk-in fuel bill (a line for each fuel sold to walk-in buyers, with no buyer named), paid by the takings and then the cash, and a fuel bill to each fleet customer billed per shift with a line for each fill (its vehicle and slip number), due by the customer's credit days. What is still short on the walk-in bills is paid from the attendant's account ([The attendant's account](#the-attendants-account)); an excess is held on it. Retries give the same close, and the same request with other data is refused. The bills' lines are credited only by a manager reopening the shift: a return on them is refused. The walk-in bill sums the fills of many buyers, each paying for their own, so it is not counted against the ₹2,00,000 cash limit of one bill or one customer and asks for no PAN ([Cash of ₹2,00,000 or more](#cash-of-200000-or-more)).
 - **Why:** the stock and the money stay in the core, with the fuel's own bills.
 - **Change it:** nothing to set.
 
 ### Credit over a limit needs a manager
 
-- **Rule:** a credit fill over its vehicle's fill limit, or credit that takes a customer over their credit limit, closes the shift only with a manager's say-so (`fuel.approve`), kept on the close and on its slips. A credit fill over ₹2,00,000 needs the customer's PAN (or a GSTIN that carries it) kept with them. A customer's slip number is entered once.
+- **Rule:** a credit fill over its vehicle's fill limit, or credit that takes a customer over their credit limit (their fills held for the month's invoice counted with what they owe), closes the shift only with a manager's say-so (`fuel.approve`), kept on the close and on its slips. A credit fill over ₹2,00,000 needs the customer's PAN (or a GSTIN that carries it) kept with them. A customer's slip number is entered once.
 - **Why:** the fill limit is the fleet owner's control over each vehicle; the buyer quotes their PAN on a purchase over ₹2,00,000 ([PAN on a bill over ₹2,00,000](#pan-on-a-bill-over-200000)).
 - **Change it:** each vehicle's fill limit on *Fleet statements*, the customer's credit limit with the customer.
 
 ### A closed shift never changes
 
-- **Rule:** a closed shift changes only by a manager reopening it with the reason, and only before another shift has opened on any of its nozzles. Its bills are credited (the litres back in stock until it closes again), the walk-in bill's takings handed back, and its nozzles read again from the shift's opening; it is then closed again, as a new close. Every close stays, with who closed it, who reopened it and why.
+- **Rule:** a closed shift changes only by a manager reopening it with the reason, and only before another shift has opened on any of its nozzles, while none of its fleet fills is on a month's invoice and while the excess it left was not taken to income. Its bills are credited (the litres and the other sales back in stock until it closes again), what was paid on its walk-in bills and its big fills handed back the way it came (the attendant's account too), the attendant's short or excess reversed on their account, and its nozzles read again from the shift's opening; it is then closed again, as a new close, its cash drops still counted. Every close stays, with who closed it, who reopened it and why.
 - **Why:** the next shift opens from the readings it closed with.
 - **Change it:** who reopens is `fuel.approve` (the owner and a manager by default).
 
 ### The morning dips
 
-- **Rule:** a tank has one dip a day, on the business's day it was taken, typed within a week, never more than the tank holds; a dip of an earlier day needs the time it was taken. It keeps the litres by the dip chart, and may keep the dip read, the water dip, the morning density at 15 °C and the temperature. A manager corrects a dip with the reason, kept with it; the activity log keeps what it said before.
+- **Rule:** a tank has one dip a day, on the business's day it was taken, typed within a week, never more than the tank holds; a dip of an earlier day needs the time it was taken. It keeps the litres by the dip chart, and may keep the dip read, the water dip, the morning density at 15 °C and the temperature. When the tank's chart is kept ([Dip charts](#dip-charts)), a dip read in cm takes its litres from the chart. A manager corrects a dip with the reason, kept with it; the activity log keeps what it said before.
 - **Why:** the guidelines' daily stock register takes the product and water dips of each tank in the morning, and the morning opening density at 15 °C from a nozzle sample before sales (1.3, 1.4.1).
 - **Change it:** who corrects a dip is `fuel.approve`.
 
@@ -1625,11 +1625,35 @@ A fuel station bills lubricants and its shop's items on bills of the shared core
 - **Why:** the guidelines check the density at 15 °C within ±3.0 kg/m³ of the invoice density before decanting, dip every compartment, and record the density after decanting and dispensing at least 50 litres in the density register (1.2, Annexure 1).
 - **Change it:** the density tolerance under *Tolerances* (`settings.edit`); who accepts a load outside it is `fuel.approve`.
 
+### A load's compartments and its retention samples
+
+- **Rule:** a tanker receipt may keep each compartment of the lorry as checked before decanting: the tank it went into, its dip, density and temperature, whether the water-finding paste found water (and how much), about 20 litres drawn from its manifold with their density and temperature, and a short dip (water removed included) with what was made up through the pump, never more than it was short. They are written with the load and never changed. A load received may keep its retention samples (the sample's number and its seal's); the samples of the last two loads of a fuel at an outlet are kept, and an older load's are due for disposal (the bell says so): a sample is disposed of only then, once, with who and when.
+- **Why:** the guidelines dip each compartment, check it for water with water-finding paste, draw about 20 litres from each manifold for density and temperature, make a short dip up through the pump compartment by compartment, and keep retention samples of the last two loads of each product.
+- **Change it:** nothing to set.
+
+### Dip charts
+
+- **Rule:** each tank may keep its calibration (dip) chart, cm and litres a row, typed or pasted, rising with the dip; a chart saved again takes the place of the one before (the activity log keeps the change). A dip read in cm takes its litres by a straight line between the chart's two rows around it, to the millilitre, exact at a row; a dip outside the chart is refused.
+- **Why:** the litres in a tank are read off its calibration chart from the dip.
+- **Change it:** *Settings › Pumps & nozzles*, a tank's *Dip chart* (`settings.edit`).
+
 ### The stock register against the tolerance
 
-- **Rule:** a tank's day runs from its morning dip to the next. The book stock is the opening dip, plus the loads received (accepted, by the invoice's litres), less the meters' sales (closed shifts, the test pumped back taken out). The variation is the next dip less the book stock, also as a share of the next dip. It is within the tolerance from a loss of 4% of the dip plus the allowance on what was sold (petrol 0.75%, diesel 0.25%; 0.60% and 0.20% when the station's annual average is beyond 600 KL) up to a gain of 4% of the dip. The bell names a tank whose latest day is beyond it: a gain as critical, a loss as a warning.
+- **Rule:** a tank's day runs from its morning dip to the next (Annexure 9). The opening dip (A), plus the loads received (B, accepted, by the invoice's litres), less their shrinkage and temperature variation allowances (C), is D; D less the meters' sales (E, closed shifts, the test pumped back taken out) is the book stock (F). The variation is the next dip (G) less F, also as a share of G. It is within the tolerance from a loss of 4% of the dip plus the allowance on what was sold (petrol 0.75%, diesel 0.25%; 0.60% and 0.20% when the station's annual average is beyond 600 KL) up to a gain of 4% of the dip. The bell names a tank whose latest day is beyond it: a gain as critical, a loss as a warning.
 - **Why:** the guidelines allow a normal operational variation of 4% of the tank stock, plus evaporation and handling losses of what was sold; a positive variation beyond the limits leads to sampling and the suspension of sales, a negative one to the dealer explaining it (5.1.11, Annexure 9).
-- **Change it:** the variation and the allowances under *Tolerances* (`settings.edit`). The shrinkage and temperature allowances on the invoice are not in the book stock yet ([BACKLOG.md](BACKLOG.md#7-left-inside-built-modules)).
+- **Change it:** the variation and the allowances under *Tolerances* (`settings.edit`); a load's shrinkage and TVA on its tanker receipt.
+
+### A load's shrinkage and temperature variation allowance
+
+- **Rule:** each tank line of a tanker receipt may keep the invoice's shrinkage allowance and its temperature variation allowance (TVA, either way) in rupees a kilolitre. Each is turned into a percentage of the load's value at its own cost a kilolitre (allowance ÷ cost a KL), and so into litres of it, to the millilitre: these litres (C) come off the receipts in the stock register.
+- **Why:** the shrinkage and TVA are paid as rupees a kilolitre on the invoice; Annexure 9 takes them off the receipts as litres. TVA is generally revised every quarter, so each load keeps its own.
+- **Change it:** on each tanker receipt, from its invoice.
+
+### A day of the register posted to the stock
+
+- **Rule:** a manager who may correct stock (`fuel.approve` and `inventory.edit`) posts a tank's day to the stock as a correction through the core, with the reason, once, when its next dip has closed it and no shift is open on the tank. The stock moves by the gap between the next dip and the stock by the meters and the invoices (the variation, and the allowances taken in the book): that gap, the variation, the allowance and the reason are kept, never changed, and audited.
+- **Why:** the core's stock moves by the invoices and the meters only; what the dip finds besides is a correction someone answers for.
+- **Change it:** who posts is `fuel.approve` with `inventory.edit`.
 
 ### Stamping
 
@@ -1637,15 +1661,69 @@ A fuel station bills lubricants and its shop's items on bills of the shared core
 - **Why:** the guidelines check the Weights & Measures seals and certification of each unit daily, suspend a unit whose seals are tampered with, and test with a W&M-verified 5-litre measure (1.4.2).
 - **Change it:** the warning days under *Tolerances* (`settings.edit`); the dates on *Pumps & nozzles*.
 
+### The attendant's other sales
+
+- **Rule:** lubricants, additives and the shop's items an attendant sells on the forecourt are entered on the shift's close: the business's items that are not fuels, priced as a sale prices them, billed as a GST invoice through the core at their own slabs, one to walk-in buyers and one to each customer the attendant names (on their account). They never go on a fuel bill. The walk-in invoice is paid what is left of the takings once the walk-in fuel bill is paid, then the cash, then the attendant's account. A reopened shift credits them (a part already returned on its own stays returned).
+- **Why:** lubricants, additives and accessories are GST supplies on a GST invoice; the fuel is outside GST on its own bill.
+- **Change it:** the items' slabs on their item.
+
+### Cash drops and the count
+
+- **Rule:** during an open shift, cash handed over (how much, when, and to whom on the staff other than its attendant) is a cash drop; the attendant records their own, someone with `fuel.edit` anyone's. A manager (`fuel.approve`) cancels one typed wrongly while the shift is open, saying why. The drops not cancelled count with the cash at the close. The cash may be counted by notes and coins, from the station's list; the count is then the cash.
+- **Why:** no rule was found on drops or safe deposits: the station's own practice, so its settings.
+- **Change it:** the notes and coins under *Tolerances* on *Pumps & nozzles* (`settings.edit`).
+
+### A walk-in fill of ₹2,00,000 or more
+
+- **Rule:** a walk-in buyer's single fill of ₹2,00,000 or more is entered on the close and billed on its own: a fuel bill to no one by name with the buyer's PAN or their declaration (Form 97), paid in full as the buyer paid (cash and a method of the business), its vehicle and buyer's name noted when given. Less than ₹2,00,000 of it is in cash, and the cash from the same PAN that day (on bills, less what was handed back) stays under ₹2,00,000. A fill under ₹2,00,000 goes on the walk-in bill. Its line is credited only by reopening the shift.
+- **Why:** the cash limit is for one bill and one person in a day (Income-tax Act 2025, section 186), and a sale over ₹2,00,000 quotes the buyer's PAN; the shift's walk-in bill is many buyers, so a single big buyer is billed on their own, as a fleet customer's credit fill is.
+- **Change it:** nothing to set.
+
+### The attendant's account
+
+- **Rule:** a shift closed short leaves its short due from its attendant: the walk-in bills are paid it from their account (named *Attendant account*), so nothing is left due on them. A shift in excess holds the excess on their account. A short is recovered when the attendant pays (cash, UPI, card or bank, `fuel.edit`), or by a deduction recorded when they are paid their wages (`fuel.approve`, with what it is for; the wages paid out, if any, go in the expense book as wages with `expenses.create`); never more than they owe. An excess goes to other income only when a manager takes it there (`fuel.approve`, saying why), never more than is held. What the attendant pays and the excess taken to income are money in on the day's money, at the outlet where it was handed in. Each entry is kept as written and audited; a reopened shift reverses its short or excess. The accounts are shown per attendant and period to those who see sales.
+- **Why:** the attendant answers for the shortfall of their shift; an excess is not the station's income until someone decides it is.
+- **Change it:** who records each is `fuel.edit` (a payment) and `fuel.approve` (a deduction, an excess to income).
+
 ### Fleet customers and fleet cards
 
 - **Rule:** a fleet customer is a customer of the business, with their credit days and credit limit. Each vehicle is kept by its registration (in use with one customer at a time), with the fuel it takes on credit and the most it takes in one fill; it keeps its customer and registration, and is switched off, never deleted. An oil company's fleet or loyalty card is a payment method of the business, taken with a shift's takings: it is not the station's credit.
 - **Why:** fleet cards are run and settled by the oil company; the station's own credit is the customer's account, filled vehicle by vehicle on signed slips.
 - **Change it:** *Customers & fleets › Fleet statements* (`fuel.edit`); the fleet cards under *Settings › Payment methods*.
 
+### A fleet customer billed by the month
+
+- **Rule:** each fleet customer is billed per shift (until changed) or by the month, a term kept with them (`fuel.edit`). A monthly customer's credit fills get no bill at the shift's close: each is held on its slip, its stock still in the core, counted with what they owe against their limit. One invoice for the month at an outlet bills the fills held for that month there, a line for each fill (its fuel, vehicle, day and slip), with no round-off: the stock leaves with it, once, and the fills are then billed. It is made by someone who keeps the fleet and makes sales (`fuel.edit` and `sales.create`), once the month has begun; a fill billed on it is never billed again, and its lines are not credited on their own. Once the month is over, the bell warns of a month's fills not invoiced. Fills already held stay held when the customer goes back to billing per shift.
+- **Why:** many fleet customers settle monthly. The delivery challans of the wholesale tools go with an invoice already posted (a dispatch is itself the sale), so they cannot carry fills until a later invoice: the fills are held here instead, so that the stock never leaves twice.
+- **Change it:** the customer's terms on their fleet statement.
+
+### Slip books by serial
+
+- **Rule:** slip (indent) books are issued to a fleet customer with their serial range (`fuel.edit`), never overlapping another of theirs, kept for good; a book taken back or lost is withdrawn. A customer with a book in use gives each fill's slip serial: one outside their books in use, or one already used on a fill in force, is refused (the database checks it too). Each book shows its slips used, with their shift and vehicle, and those still unused.
+- **Why:** the indents or credit slips are kept by book and serial number.
+- **Change it:** the customer's slip books on their fleet statement.
+
+### Interest on overdue fleet credit
+
+- **Rule:** a fleet customer's terms may carry interest on overdue credit: a rate a month and a number of days after a bill falls due. On each of their fuel bills (a shift's or a month's invoice), each day after its due date and those days earns a thirtieth of the rate on what is still owed on it at the end of that day, to the paisa, simple interest (never on interest). The interest worked out to today, less what was billed before, is billed when someone confirms the amount they saw (`fuel.approve` and `sales.create`): one bill of the service item chosen for it, exact to the paisa, due at once, on the customer's account whatever their limit; refused when the amount has moved since. The workings are kept with it.
+- **Why:** interest and reminders on fleet credit are the dealer's practice, by the terms agreed with the customer.
+- **Change it:** the rate and days in the customer's terms; the interest item under *Tolerances* (`settings.edit`).
+
+### The records
+
+- **Rule:** the daily sales register prints from the shifts closed on a day at an outlet: each shift's nozzles with their readings, the test and the litres, and each fuel's sales on credit, in big fills and to walk-in buyers, at its price (money for those who see sales). It is the station's own register: the oil companies' own formats are not matched. The inspection log keeps each inspection of an outlet (when, by whom, for whom, what was found and what was done), written by someone with `fuel.edit`, never changed or erased.
+- **Why:** the daily sales register and the density register are kept for the current and previous financial years, and inspection records for the previous five years.
+- **Change it:** nothing to set.
+
+### Every outlet at a glance
+
+- **Rule:** *Outlets* shows each outlet the person works at: today's shifts open and closed, the litres and sales, the attendants' shorts and excess today, each tank's latest day of the register against the tolerance, what customers owe on the outlet's bills, its fleet fills not yet billed and what its attendants owe, and the bell's alerts there. Money is for those who see sales.
+- **Why:** an owner with several outlets sees them side by side.
+- **Change it:** nothing to set.
+
 ### Who sees what
 
-- **Rule:** someone whose role does not hold `sales.view` (a pump attendant) sees and closes only their own shifts and no other attendant's money; a tanker load's value is for those who see purchases; the fleet statements are for those who see sales.
+- **Rule:** someone whose role does not hold `sales.view` (a pump attendant) sees and closes only their own shifts and no other attendant's money; a tanker load's value is for those who see purchases; the fleet statements, the attendants' accounts and the money on *Outlets* and the daily sales register are for those who see sales.
 - **Why:** an attendant's settlement is theirs and the manager's to see.
 - **Change it:** *Roles & permissions*.
 

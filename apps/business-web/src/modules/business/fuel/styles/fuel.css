@@ -320,3 +320,15 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* The cash counted note by note: a cell for each note or coin, and the total. */
+.fuel-count { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+.fuel-count-cell input { width: 100%; }
+.fuel-count-total { grid-column: 1 / -1; margin: 0; color: var(--muted); }
+
+/* Every outlet at a glance: a card each, side by side where there is room. */
+.fuel-outlets { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 16px; }
+
+/* A shift of the day's sales register, opened for its nozzles. */
+.fuel-details { padding: 8px 16px; border-top: 1px solid var(--border); }
+.fuel-details summary { cursor: pointer; font-weight: 600; }

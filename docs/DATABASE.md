@@ -1388,7 +1388,7 @@ Rules:
 - Trigger `business_return_lines_salon_plan` (function `salon_plan_line_return`) refuses to return a line that sold a salon package or membership while that plan is still active.
 - Trigger `business_return_lines_member_plan` (function `member_plan_line_return`) refuses to return a line that sold a gym's membership (its plan or its joining fee) unless the return is the credit note the membership made (its `credit_key`): a cancellation or an upgrade.
 - Trigger `business_return_lines_laundry` (function `laundry_line_return`) refuses to return a line that charges a laundry garment unless the return is the credit note its order made (the garment's `credit_key`): a cancelled garment, or a damage claim settled with money back or a credit note.
-- Trigger `business_return_lines_fuel` (function `fuel_line_return`) refuses to return a line of a fuel bill a shift's close posted, unless its shift is being reopened at that moment, and a line of a tanker load's purchase, unless the load is being cancelled at that moment.
+- Trigger `business_return_lines_fuel` (function `fuel_line_return`, replaced by 1791979600000) refuses to return a line of a fuel bill a shift's close posted (the walk-in bill, a fleet customer's, a big fill's), unless its shift is being reopened at that moment, a line of a tanker load's purchase, unless the load is being cancelled at that moment, and a fleet fill billed on a month's invoice.
 - Index `business_return_lines_line` (business, line) lets the bills lists read a line's returns without scanning the table.
 - Trigger `business_return_lines_jewellery` (function `jewellery_line_return`) refuses to return a line that sells a jeweller's tagged piece unless it goes back to stock; trigger `business_return_lines_jewellery_returned` (function `jewellery_line_returned`, after the row) brings the piece back into stock with its history.
 Added by: 1791280000001; 1791430000000 (the trigger); 1791950412000 (the index); 1791966000000 (the laundry trigger); 1791967000000 (the jewellery triggers); 1791969000000 (the fuel trigger).
@@ -3820,7 +3820,7 @@ A fuel station's own tables (type `fuel_station`), added by 1791969000000 fuel-s
 
 #### `fuel_settings`
 Purpose: the tolerances the stock register checks against, the test measure and the bell's warning days.
-Key columns: PK `business_id`, `density_tolerance` (0-20, default 3.0), `variation_percent` (0-20, default 4.00), `petrol_loss_percent` (default 0.75), `petrol_loss_above_percent` (0.60), `diesel_loss_percent` (0.25), `diesel_loss_above_percent` (0.20), each 0-5, `above_600_kl`, `test_litres` (0-100, default 5.000), `stamping_warn_days` (1-180, default 30), `updated_by`, `updated_at`. The defaults are used until the row is made (on first save).
+Key columns: PK `business_id`, `density_tolerance` (0-20, default 3.0), `variation_percent` (0-20, default 4.00), `petrol_loss_percent` (default 0.75), `petrol_loss_above_percent` (0.60), `diesel_loss_percent` (0.25), `diesel_loss_above_percent` (0.20), each 0-5, `above_600_kl`, `test_litres` (0-100, default 5.000), `stamping_warn_days` (1-180, default 30), `denominations` (INTEGER[] of the ₹ notes and coins the cash is counted in, 1-20 of 1-2,000, default {500,200,100,50,20,10,5,2,1}; 1791979600000), `interest_sku_id` (the service item interest on fleet credit is billed as; (`business_id`, `interest_sku_id`) -> `catalog_skus`; 1791979600000), `updated_by`, `updated_at`. The defaults are used until the row is made (on first save).
 Added by: 1791969000000.
 
 #### `fuel_products`
@@ -3891,9 +3891,9 @@ Added by: 1791969000000.
 
 #### `fuel_shift_closes`
 Purpose: each close of a shift, and a manager's reopening of it.
-Key columns: `shift_id`, `seq` (1-100), `closed_at`, `expected`, `credit`, `walk_in`, `cash`, `other`, `difference`, `note`, `document_id` (the walk-in fuel bill), `walk_in_key`, `approved_by`, `request_key`, `request_hash`, `closed_by`, `created_at`, `reopened_at`, `reopened_by`, `reopen_reason`, `reopen_key`, `reopen_hash`.
+Key columns: `shift_id`, `seq` (1-100), `closed_at`, `expected`, `credit`, `walk_in`, `cash`, `other`, `difference`, `note`, `document_id` (the walk-in fuel bill), `dropped` (the cash drops), `big` and `big_cash` (fills of ₹2,00,000 or more, and their cash), `goods_walk_in`, `goods_other` (the takings on that invoice) and `goods_credit` (the other sales; all from 1791979600000), `walk_in_key`, `approved_by`, `request_key`, `request_hash`, `closed_by`, `created_at`, `reopened_at`, `reopened_by`, `reopen_reason`, `reopen_key`, `reopen_hash`.
 Relations: (`business_id`, `shift_id`) -> `fuel_shifts`; (`business_id`, `document_id`) -> `business_documents`.
-Rules: CHECK `expected` = `credit` + `walk_in`; `other` <= `walk_in`; `difference` = `cash` + `other` − `walk_in`; closed no later than written; the reopening's columns together. UNIQUE (business, shift, seq), (business, request key), (business, walk-in key), (business, bill), (business, reopen key); unique index `fuel_shift_closes_current` (one close in force a shift); index `fuel_shift_closes_period`. Trigger `fuel_shift_closes_check`: of an open shift, when written, from readings after its opening, numbered in turn; keeps its figures and its bill; reopened when written, and then no longer changes; never deleted. Constraint trigger `fuel_shift_closes_adds_up` (deferred; function `fuel_close_adds_up`): a closing reading for every nozzle of the shift; the fuels' litres are the nozzles' and their credit litres and money the slips'; each at the price in force through the shift (a price changed while it was open raises a sentence); the close adds up to its fuels and takings; the walk-in sales are on a walk-in fuel bill to no one by name, paid by the takings and then the cash; no takings without walk-in sales.
+Rules: CHECK `expected` = `credit` + `walk_in` + `big` (`fuel_shift_closes_expected`); `other` <= `walk_in`; `difference` = `cash` + `dropped` − `big_cash` + `other` + `goods_other` − `walk_in` − `goods_walk_in` (`fuel_shift_closes_difference`); `cash` + `dropped` >= `big_cash`; `goods_other` <= `goods_walk_in`; `big_cash` <= `big`; closed no later than written; the reopening's columns together. UNIQUE (business, shift, seq), (business, request key), (business, walk-in key), (business, bill), (business, reopen key); unique index `fuel_shift_closes_current` (one close in force a shift); index `fuel_shift_closes_period`. Trigger `fuel_shift_closes_check`: of an open shift, when written, from readings after its opening, numbered in turn; keeps its figures and its bill; reopened when written, and then no longer changes; never deleted. Constraint trigger `fuel_shift_closes_adds_up` (deferred; function `fuel_close_adds_up`): a closing reading for every nozzle of the shift; the fuels' litres are the nozzles' and their credit litres and money the slips'; each at the price in force through the shift (a price changed while it was open raises a sentence); the close adds up to its fuels and takings; the walk-in sales are on a walk-in fuel bill to no one by name, paid by the takings, then the cash, then the attendant's account (credit-note payments); no takings without walk-in sales. Replaced by 1791979600000 to add: the big fills' litres and money on each fuel, each a bill of its own with the buyer's PAN or declaration, paid in full, its cash `big_cash`; `dropped` the shift's drops not cancelled; the cash the sum of the count when counted; the cash on the walk-in bill the counted and dropped cash less the big fills', up to what is due; the other sales' walk-in invoice paid what is left of the takings, then of the cash, then the attendant's account; `goods_credit` the other sales on account; the short or the excess an entry of the attendant's account.
 Added by: 1791969000000.
 
 #### `fuel_close_readings`
@@ -3905,16 +3905,16 @@ Added by: 1791969000000.
 
 #### `fuel_close_products`
 Purpose: each fuel a close sold, on credit and to walk-in buyers.
-Key columns: PK (`business_id`, `close_id`, `product_id`), `shift_id`, `price`, `litres`, `credit_litres`, `walk_in_litres`, `credit_amount`, `walk_in_amount`, `amount`, `line_id`.
+Key columns: PK (`business_id`, `close_id`, `product_id`), `shift_id`, `price`, `litres`, `credit_litres`, `big_litres`, `walk_in_litres`, `credit_amount`, `big_amount`, `walk_in_amount`, `amount`, `line_id` (`big_litres` and `big_amount` from 1791979600000).
 Relations: (`business_id`, `line_id`) -> `business_document_lines`.
-Rules: CHECK `walk_in_litres` = `litres` − `credit_litres`; `walk_in_amount` = round(`walk_in_litres` × `price`, 2); `amount` = `credit_amount` + `walk_in_amount`; a bill line exactly when some went to walk-in buyers. UNIQUE (business, bill line); index `fuel_close_products_product`. Trigger `fuel_close_products_check`: written with the close; the line is the walk-in bill's, of the fuel's item, for its litres and money. Trigger `fuel_close_products_append_only`.
+Rules: CHECK `walk_in_litres` = `litres` − `credit_litres` − `big_litres` (`fuel_close_products_walk_in`); `walk_in_amount` = round(`walk_in_litres` × `price`, 2); `amount` = `credit_amount` + `walk_in_amount` + `big_amount` (`fuel_close_products_amount`); a bill line exactly when some went to walk-in buyers. UNIQUE (business, bill line); index `fuel_close_products_product`. Trigger `fuel_close_products_check`: written with the close; the line is the walk-in bill's, of the fuel's item, for its litres and money. Trigger `fuel_close_products_append_only`.
 Added by: 1791969000000.
 
 #### `fuel_credit_slips`
 Purpose: each credit fill of a fleet vehicle at a close.
-Key columns: `close_id`, `shift_id`, `seq` (1-500), `contact_id`, `vehicle_id`, `registration`, `product_id`, `litres` (> 0), `price`, `amount`, `slip_no`, `over_limit`, `document_id`, `line_id`.
+Key columns: `close_id`, `shift_id`, `seq` (1-500), `contact_id`, `vehicle_id`, `registration`, `product_id`, `litres` (> 0), `price`, `amount`, `slip_no`, `over_limit`, `document_id`, `line_id` (none while `held`), `held` (a monthly customer's fill held for the month's invoice), `book_id` and `serial` (a slip of the customer's book; the three from 1791979600000).
 Relations: (`business_id`, `contact_id`, `vehicle_id`) -> `fuel_vehicles`; (`business_id`, `document_id`) -> `business_documents`; (`business_id`, `line_id`) -> `business_document_lines`.
-Rules: CHECK `amount` = round(`litres` × `price`, 2). UNIQUE (business, close, seq), (business, bill line); indexes `fuel_credit_slips_contact` and `fuel_credit_slips_vehicle`. Trigger `fuel_credit_slips_check`: written with the close; a vehicle of the customer in use, the fuel it takes, within its fill limit unless the close's approver allowed it; its line its own on the customer's fuel bill, of the fuel's item, for its litres and money. Trigger `fuel_credit_slips_append_only`.
+Rules: CHECK `amount` = round(`litres` × `price`, 2); a bill and line exactly when not held (`fuel_credit_slips_held`); a book with its serial (`fuel_credit_slips_serial`). (`business_id`, `contact_id`, `book_id`) -> `fuel_indent_books`. UNIQUE (business, close, seq), (business, bill line); indexes `fuel_credit_slips_contact`, `fuel_credit_slips_vehicle`, `fuel_credit_slips_book` and `fuel_credit_slips_held`. Trigger `fuel_credit_slips_check` (replaced by 1791979600000): written with the close; a vehicle of the customer in use, the fuel it takes, within its fill limit unless the close's approver allowed it; a customer with a book in use gives a serial of one of their books in use, never one used on another fill in force; unless held, its line its own on the customer's fuel bill, of the fuel's item, for its litres and money. Trigger `fuel_credit_slips_append_only`.
 Added by: 1791969000000.
 
 #### `fuel_close_payments`
@@ -3926,7 +3926,7 @@ Added by: 1791969000000.
 
 #### `fuel_dips`
 Purpose: each tank's morning dip.
-Key columns: `location_id`, `tank_id`, `dip_on`, `taken_at`, `dip_cm`, `stock` (litres), `water_cm`, `density` (600-1,100), `temperature` (−20 to 70), `note`, `request_key`, `request_hash`, `created_by`/`created_at`, `corrected_by`, `corrected_at`, `correction_reason`.
+Key columns: `location_id`, `tank_id`, `dip_on`, `taken_at`, `dip_cm`, `stock` (litres), `from_chart` (the litres read off the tank's chart; 1791979600000), `water_cm`, `density` (600-1,100), `temperature` (−20 to 70), `note`, `request_key`, `request_hash`, `created_by`/`created_at`, `corrected_by`, `corrected_at`, `correction_reason`.
 Relations: (`business_id`, `location_id`, `tank_id`) -> `fuel_tanks`.
 Rules: CHECK a correction's columns together. UNIQUE (business, tank, day), (business, request key); index `fuel_dips_location`. Trigger `fuel_dips_check`: of a tank in use, written when typed, within a week of its day, taken on that day by the business's clock and no later than now, at most the tank's capacity; keeps its tank and day; changes only as a correction made now with the reason; never deleted.
 Added by: 1791969000000.
@@ -3940,10 +3940,107 @@ Added by: 1791969000000.
 
 #### `fuel_receipt_lines`
 Purpose: each tank a load went into, with the density check and the dips.
-Key columns: PK (`business_id`, `receipt_id`, `seq`), `tank_id`, `product_id`, `invoice_litres` (> 0), `invoice_amount`, `invoice_density`, `receipt_density` (600-1,100), `tolerance`, `dip_before`, `dip_after`, `decant_density`, `decant_by`, `decant_at`, `line_id`.
+Key columns: PK (`business_id`, `receipt_id`, `seq`), `tank_id`, `product_id`, `invoice_litres` (> 0), `invoice_amount`, `invoice_density`, `receipt_density` (600-1,100), `tolerance`, `dip_before`, `dip_after`, `decant_density`, `decant_by`, `decant_at`, `line_id`, `shrinkage_per_kl` (0-10,000) and `tva_per_kl` (either way, up to 10,000): the invoice's allowances in ₹ a KL (1791979600000).
 Relations: (`business_id`, `receipt_id`) -> `fuel_receipts`; (`business_id`, `tank_id`) -> `fuel_tanks`; (`business_id`, `line_id`) -> `business_document_lines`.
 Rules: CHECK both dips or neither, the dip after no less than the one before; the decant density with who and when. UNIQUE (business, purchase line); unique index `fuel_receipt_lines_tank` (a tank once a load); index `fuel_receipt_lines_tank_time`. Trigger `fuel_receipt_lines_check`: written with the load, of a tank in use at the outlet for its fuel; a refused load neither decanted nor bought; an accepted load's tanks dipped before and after, at most their capacity, its density within the tolerance unless a manager accepted it, each a line of its purchase of the fuel's item for the invoice's litres and value; the decant density written once; never deleted.
 Added by: 1791969000000.
+
+#### `fuel_close_big_fills`
+Purpose: a walk-in buyer's fill of ₹2,00,000 or more at a close, billed on its own.
+Key columns: PK (`business_id`, `close_id`, `seq`), `shift_id`, `product_id`, `litres`, `price`, `amount` (>= 200000), `registration`, `document_id`, `line_id`.
+Relations: (`business_id`, `shift_id`, `close_id`) -> `fuel_shift_closes`; (`business_id`, `document_id`) -> `business_documents`; (`business_id`, `line_id`) -> `business_document_lines`.
+Rules: CHECK `amount` = round(`litres` × `price`, 2). UNIQUE (business, bill), (business, bill line). Trigger `fuel_close_big_fills_check` (function `fuel_close_parts_check`): written with the close; its bill a sale to no one by name at the outlet, its one line of the fuel's item for its litres and money, no GST; kept as written. The buyer's PAN or declaration is on the bill.
+Added by: 1791979600000 fuel-more.
+
+#### `fuel_close_goods_bills`
+Purpose: a close's other sales (lubricants, additives, shop items): its GST invoices, to walk-in buyers or to a customer on account.
+Key columns: PK (`business_id`, `document_id`), `close_id`, `walk_in`.
+Relations: (`business_id`, `close_id`) -> `fuel_shift_closes`; (`business_id`, `document_id`) -> `business_documents`.
+Rules: unique index `fuel_close_goods_bills_walk_in` (one walk-in invoice a close); index `fuel_close_goods_bills_close`. Trigger `fuel_close_goods_bills_check` (function `fuel_close_parts_check`): written with the close; a sale at the shift's outlet, to no one by name exactly when walk-in, with no fuel on it; kept as written.
+Added by: 1791979600000 fuel-more.
+
+#### `fuel_close_counts`
+Purpose: the cash counted at a close, note by note and coin by coin (₹).
+Key columns: PK (`business_id`, `close_id`, `denomination` (1-2,000)), `pieces` (> 0).
+Rules: Trigger `fuel_close_counts_check` (function `fuel_close_parts_check`): written with the close; kept as written. The close's cash is their sum (`fuel_close_adds_up`).
+Added by: 1791979600000 fuel-more.
+
+#### `fuel_cash_drops`
+Purpose: cash an attendant hands over during an open shift: how much, when and to whom.
+Key columns: `shift_id`, `amount` (> 0), `dropped_at`, `received_by` -> `users`, `received_by_name`, `note`, `request_key`, `request_hash`, `created_by`/`created_at`, `cancelled_at`, `cancelled_by`, `cancel_reason`.
+Relations: (`business_id`, `shift_id`) -> `fuel_shifts`.
+Rules: CHECK a cancellation's columns together. UNIQUE (business, request key); index `fuel_cash_drops_shift`. Trigger `fuel_cash_drops_check`: of an open shift, when written, since its opening and no later than now, to a member of the staff other than its attendant; changes only by a cancellation made now, once, while the shift is open; never deleted.
+Added by: 1791979600000 fuel-more.
+
+#### `fuel_attendant_entries`
+Purpose: each attendant's account: a close's short (due) or excess (held), its reversal on a reopening, a payment, a deduction from the wages, an excess taken to income.
+Key columns: `location_id`, `attendant_id` -> `users`, `attendant_name`, `kind` (short, excess, short_reversed, excess_reversed, paid, deducted, to_income), `amount` (> 0), `close_id`, `method` (cash, upi, card, bank), `method_name`, `expense_id` (the wages paid out with a deduction), `note`, `request_key`, `request_hash`, `created_by`, `created_at`.
+Relations: (`business_id`, `location_id`) -> `business_locations`; (`business_id`, `close_id`) -> `fuel_shift_closes`; (`business_id`, `expense_id`) -> `business_expenses`.
+Rules: CHECK a close exactly for a short, an excess or their reversal; a method exactly for a payment or an excess to income (cash); an expense only with a deduction; a note with a deduction or an excess to income. UNIQUE (business, request key); indexes `fuel_attendant_entries_person` and `fuel_attendant_entries_close`. Function `fuel_attendant_balance(business, attendant)` → (`due`, `held`). Trigger `fuel_attendant_entries_check`: written when it happens; a close's short or excess by its attendant at its outlet, written with the close (a reversal with the reopening); a payment or a deduction no more than is due, an excess to income no more than is held; never changed or deleted.
+Added by: 1791979600000 fuel-more.
+
+#### `fuel_fleet_terms`
+Purpose: a fleet customer's terms with the station: billed per shift or by the month, and the interest on overdue credit.
+Key columns: PK (`business_id`, `contact_id`), `billing` (shift, month; default shift), `interest_rate` (% a month, 0-10; none when null), `interest_after_days` (0-365, default 0), `updated_by`, `updated_at`.
+Relations: (`business_id`, `contact_id`) -> `business_contacts`.
+Rules: Trigger `fuel_fleet_terms_customer` (function `business_contact_is_customer`).
+Added by: 1791979600000 fuel-more.
+
+#### `fuel_indent_books`
+Purpose: slip (indent) books issued to a fleet customer, by serial.
+Key columns: `contact_id`, `book_no`, `first_serial` (> 0), `last_serial` (at most 10,000 slips), `issued_on`, `active`, `note`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, `contact_id`) -> `business_contacts`.
+Rules: UNIQUE (business, id), (business, customer, id); unique index `fuel_indent_books_number` (business, customer, number in any case). Trigger `fuel_indent_books_customer` (function `business_contact_is_customer`). Trigger `fuel_indent_books_guard`: never overlapping another of the customer's books; keeps its customer, number and serials; withdrawn, never deleted.
+Added by: 1791979600000 fuel-more.
+
+#### `fuel_month_invoices` and `fuel_month_invoice_fills`
+Purpose: one invoice billing a monthly customer's fills held for a month at an outlet, and the fills it billed.
+Key columns: `fuel_month_invoices`: `contact_id`, `location_id`, `month` (its first day), `document_id`, `request_key`, `request_hash`, `created_by`, `created_at`. `fuel_month_invoice_fills`: PK (`business_id`, `slip_id`), `invoice_id`, `line_id`.
+Relations: (`business_id`, `contact_id`) -> `business_contacts`; (`business_id`, `document_id`) -> `business_documents`; (`business_id`, `slip_id`) -> `fuel_credit_slips`; (`business_id`, `line_id`) -> `business_document_lines`.
+Rules: UNIQUE (business, bill), (business, request key), (business, bill line); a fill billed once (its slip the key). Trigger `fuel_month_invoices_check` (on both): the invoice a sale to its customer at its outlet, written now; each fill held for the month, on a close in force, of the invoice's customer at its outlet in its month, on a line of its own of the fuel's item for its litres and money, no GST; kept as written.
+Added by: 1791979600000 fuel-more.
+
+#### `fuel_fleet_interest`
+Purpose: interest on a fleet customer's overdue fuel bills, billed when confirmed.
+Key columns: `contact_id`, `document_id` (the interest bill), `worked_to`, `amount` (> 0), `rate`, `workings` (JSONB, bill by bill), `request_key`, `request_hash`, `created_by`, `created_at`.
+Relations: (`business_id`, `contact_id`) -> `business_contacts`; (`business_id`, `document_id`) -> `business_documents`.
+Rules: UNIQUE (business, bill), (business, request key); index `fuel_fleet_interest_contact`. Trigger `fuel_fleet_interest_kept` (function `fuel_kept_as_written`): never changed or deleted.
+Added by: 1791979600000 fuel-more.
+
+#### `fuel_receipt_compartments`
+Purpose: each compartment of a tanker load as checked before decanting.
+Key columns: PK (`business_id`, `receipt_id`, `compartment_no` (1-12)), `seq` (the load's tank line), `dip_cm`, `density`, `temperature`, `water_found`, `water_cm`, `check_litres` (the ~20 litres drawn), `check_density`, `check_temperature`, `short_litres`, `made_up_litres`.
+Relations: (`business_id`, `receipt_id`, `seq`) -> `fuel_receipt_lines`.
+Rules: CHECK water measured only when found; the drawn litres with their density or temperature; no more made up than short. Trigger `fuel_receipt_compartments_check`: written with the load. Trigger `fuel_receipt_compartments_kept` (function `fuel_kept_as_written`).
+Added by: 1791979600000 fuel-more.
+
+#### `fuel_samples`
+Purpose: the retention samples of a load received.
+Key columns: `receipt_id`, `seq`, `product_id`, `sample_no`, `seal_no`, `note`, `created_by`/`created_at`, `disposed_at`, `disposed_by`, `disposal_note`.
+Relations: (`business_id`, `receipt_id`, `seq`) -> `fuel_receipt_lines`; (`business_id`, `product_id`) -> `fuel_products`.
+Rules: UNIQUE (business, load, line, sample number); index `fuel_samples_product` (not disposed of). Function `fuel_later_loads(business, receipt, product)`: the accepted loads of the fuel at the outlet after it. Trigger `fuel_samples_check`: of an accepted load, of its tank's fuel, written now; keeps its numbers; disposed of once, now, when two later loads of its fuel have come in; never deleted.
+Added by: 1791979600000 fuel-more.
+
+#### `fuel_dip_charts`
+Purpose: each tank's calibration (dip) chart.
+Key columns: PK (`business_id`, `tank_id`, `dip_cm`), `litres`.
+Relations: (`business_id`, `tank_id`) -> `fuel_tanks`.
+Rules: replaced whole by the service when saved (rising dips and litres checked there; audited `fuel_tank.chart_set`).
+Added by: 1791979600000 fuel-more.
+
+#### `fuel_stock_corrections`
+Purpose: a day of a tank's stock register posted to the stock as a correction.
+Key columns: `location_id`, `tank_id`, `day`, `litres` (not 0), `variation`, `allowance`, `reason`, `adjustment_id`, `request_key`, `request_hash`, `created_by`, `created_at`.
+Relations: (`business_id`, `location_id`, `tank_id`) -> `fuel_tanks`; (`business_id`, `adjustment_id`) -> `business_stock_adjustments`.
+Rules: CHECK `litres` = `variation` − `allowance`. UNIQUE (business, tank, day), (business, request key). Trigger `fuel_stock_corrections_kept` (function `fuel_kept_as_written`).
+Added by: 1791979600000 fuel-more.
+
+#### `fuel_inspections`
+Purpose: the inspection log of an outlet.
+Key columns: `location_id`, `inspected_on`, `inspected_by`, `authority`, `findings`, `actions`, `created_by`, `created_at`.
+Relations: (`business_id`, `location_id`) -> `business_locations`.
+Rules: index `fuel_inspections_period`. Trigger `fuel_inspections_kept` (function `fuel_kept_as_written`): never changed or erased.
+Added by: 1791979600000 fuel-more.
 
 ## Hotels, lodges & guest houses
 

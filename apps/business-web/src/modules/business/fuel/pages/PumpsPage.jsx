@@ -10,7 +10,7 @@ import { getErrorMessage } from "../../../../services/api";
 import { toast } from "../../../../services/toast";
 import FormDialog from "../../core/pages/FormDialog";
 import { ActiveBadge, Badge, BusinessHeader, Field } from "../../core/pages/ui";
-import { newKey, useOpenBusiness } from "../../core/pages/hooks";
+import { newKey, useOpenBusiness, useOptions } from "../../core/pages/hooks";
 import { OutletPicker } from "./FuelParts";
 import { FAMILIES, UNIT_STATES, VAT_NOTE, atWords, dayWords, dueWords, familyWord, firstOutlet, qty, reading, stampingTone } from "./fuel";
 import "../styles/fuel.css";
@@ -113,7 +113,12 @@ export default function PumpsPage() {
             { key: "capacity", header: "Capacity", value: (t) => Number(t.capacity), className: "mono", render: (t) => qty(t.capacity, "") },
             { key: "dip", header: "Last dip", value: (t) => (t.last_dip ? Number(t.last_dip.stock) : ""), render: (t) => (t.last_dip ? `${qty(t.last_dip.stock, "")} on ${dayWords(t.last_dip.dip_on)}` : "—") },
             { key: "active", header: "In use", value: (t) => (t.active ? "Yes" : "No"), render: (t) => <ActiveBadge active={t.active} /> },
-            canSettings && { key: "actions", header: "", label: "Actions", type: "actions", render: (t) => <button type="button" className="chip-button" onClick={() => setDialog({ kind: "tank", tank: t })}>Change</button> },
+            canSettings && { key: "actions", header: "", label: "Actions", type: "actions", render: (t) => (
+              <span className="fuel-inline">
+                <button type="button" className="chip-button" onClick={() => setDialog({ kind: "tank", tank: t })}>Change</button>
+                <button type="button" className="chip-button" onClick={() => setDialog({ kind: "chart", tank: t })}>Dip chart</button>
+              </span>
+            ) },
           ].filter(Boolean)}
           empty="No tanks at this outlet" emptyHint="Add each tank with the stock in it now, from its dip." emptyIcon="layers" />
       </SectionCard>
@@ -185,6 +190,7 @@ export default function PumpsPage() {
 
       {dialog?.kind === "prices" && <PricesDialog biz={biz} location={location} products={products} current={shown.prices} onClose={() => setDialog(null)} onSaved={() => done("Prices set.")} />}
       {dialog?.kind === "fuel" && <FuelDialog biz={biz} product={dialog.product || null} onClose={() => setDialog(null)} onSaved={() => done(dialog.product ? "Fuel saved." : "Fuel added.")} />}
+      {dialog?.kind === "chart" && <ChartDialog biz={biz} tank={dialog.tank} onClose={() => setDialog(null)} onSaved={(x) => { setDialog(null); toast.success(`Tank ${x.tank.tank_no}'s chart saved: ${x.rows.length} rows.`); }} />}
       {dialog?.kind === "tank" && <TankDialog biz={biz} location={location} products={products} tank={dialog.tank || null} onClose={() => setDialog(null)} onSaved={() => done(dialog.tank ? "Tank saved." : "Tank added.")} />}
       {dialog?.kind === "unit" && <UnitDialog biz={biz} location={location} unit={dialog.unit || null} tanks={shown.tanks.filter((t) => t.active)} products={products}
         onClose={() => setDialog(null)} onSaved={() => done(dialog.unit ? "Dispensing unit saved." : "Dispensing unit added.")} />}
@@ -197,6 +203,29 @@ export default function PumpsPage() {
 }
 
 // The outlet's prices, set together, from now or a time given.
+// A tank's calibration (dip) chart: cm and litres a row, typed or pasted from
+// the chart; it is put in place of the one the tank had. A dip read in cm on
+// Tanks & dips then takes its litres from it.
+function ChartDialog({ biz, tank, onClose, onSaved }) {
+  const [text, setText] = useState("");
+  const [rows, setRows] = useState(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    businessRead(biz.id, `fuel/tanks/${tank.id}/chart`, undefined, controller.signal).then((x) => { setRows(x.rows); setText(x.rows.map((r) => `${r.cm}, ${r.litres}`).join("\n")); })
+      .catch(() => setRows([]));
+    return () => controller.abort();
+  }, [biz.id, tank.id]);
+  return (
+    <FormDialog title={`Tank ${tank.tank_no}'s dip chart`} icon="layers" width={560} onClose={onClose} onSaved={onSaved} submitLabel="Save the chart"
+      description={rows && rows.length ? `${rows.length} rows kept now. Saving puts the rows below in their place.` : "No chart kept yet: the litres of a dip are typed as read off the paper chart."}
+      onSubmit={() => businessWrite(biz.id, `fuel/tanks/${tank.id}/chart`, { text }, "put")}>
+      <Field label="Rows: dip in cm, litres (one a line)" wide hint="As on the calibration chart, e.g. 142.5, 8400. Pasted from a spreadsheet works too.">
+        <textarea required rows={12} className="mono" value={text} onChange={(e) => setText(e.target.value)} />
+      </Field>
+    </FormDialog>
+  );
+}
+
 function PricesDialog({ biz, location, products, current, onClose, onSaved }) {
   const [key] = useState(newKey);
   const [prices, setPrices] = useState(() => Object.fromEntries(products.map((p) => [p.id, (() => { const c = current.find((x) => String(x.product_id) === String(p.id)); return c?.price ? String(Number(c.price).toFixed(2)) : ""; })()])));
@@ -425,7 +454,9 @@ function MeasureDialog({ biz, location, measure, onClose, onSaved }) {
 // The tolerances the stock register checks against (the oil companies' Marketing Discipline Guidelines), the test measure and the bell's warning.
 function Tolerances({ biz, settings, onSaved }) {
   const canEdit = biz.can("settings.edit");
-  const [form, setForm] = useState(() => ({ ...Object.fromEntries(Object.entries(settings).map(([k, v]) => [k, typeof v === "boolean" ? v : String(v ?? "")])) }));
+  const [form, setForm] = useState(() => ({ ...Object.fromEntries(Object.entries(settings).map(([k, v]) => [k, typeof v === "boolean" ? v : Array.isArray(v) ? v.join(", ") : String(v ?? "")])) }));
+  const { options } = useOptions(canEdit ? ["catalog?kind=service&active=true"] : []);
+  const services = options?.["catalog?kind=service&active=true"] || [];
   const [saving, setSaving] = useState(false);
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
   const save = async (event) => {
@@ -433,7 +464,7 @@ function Tolerances({ biz, settings, onSaved }) {
     setSaving(true);
     try {
       const { updatedAt: _updated, ...body } = form;
-      onSaved(await businessWrite(biz.id, "fuel/settings", body, "put"));
+      onSaved(await businessWrite(biz.id, "fuel/settings", { ...body, denominations: String(form.denominations).split(/[\s,]+/).filter(Boolean), interestSkuId: form.interestSkuId || null }, "put"));
       toast.success("Tolerances saved.");
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -454,6 +485,13 @@ function Tolerances({ biz, settings, onSaved }) {
           <label className="checkbox bz-check field-wide"><input type="checkbox" checked={Boolean(form.above600Kl)} onChange={set("above600Kl")} /> The station sells more than 600 KL a year on average (the lower allowances apply)</label>
           <Field label="Test measure (litres)" hint="Filled in by the button on a shift's close."><input inputMode="decimal" className="mono" value={form.testLitres} onChange={set("testLitres")} /></Field>
           <Field label="Warn of a stamping this many days before it falls due"><input type="number" min="1" max="180" step="1" value={form.stampingWarnDays} onChange={set("stampingWarnDays")} /></Field>
+          <Field label={`Notes and coins the cash is counted in (${biz.symbol})`} hint="Largest first, e.g. 500, 200, 100, 50, 20, 10, 5, 2, 1."><input className="mono" value={form.denominations} onChange={set("denominations")} /></Field>
+          <Field label="Interest on overdue fleet credit is billed as" hint="A service item: its GST slab is the bill's.">
+            <select value={form.interestSkuId} onChange={set("interestSkuId")}>
+              <option value="">Not chosen yet</option>
+              {services.map((x) => <option key={x.id} value={String(x.id)}>{x.label}</option>)}
+            </select>
+          </Field>
         </fieldset>
         {canEdit && <div className="form-actions"><button type="submit" className="button" disabled={saving}>{saving ? "Saving…" : "Save the tolerances"}</button></div>}
       </form>

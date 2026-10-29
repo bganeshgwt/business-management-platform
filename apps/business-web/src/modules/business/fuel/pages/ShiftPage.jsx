@@ -17,6 +17,8 @@ import { newKey, useOpenBusiness } from "../../core/pages/hooks";
 import { SettlementBadge } from "./FuelParts";
 import { FLEET_CARD_NOTE, SHIFT_STATES, TAKING_KINDS, TEST_NOTE, VAT_NOTE, atWords, methodName, qty, reading, settlement } from "./fuel";
 import { printShift } from "./fuelPrint";
+import { BigFills, CashCount, CashDrops, OtherSales } from "./ShiftExtras";
+import { BILL_PARTS, bigFillsBody, blankBigFill, blankGoods, countBody } from "./shiftClose";
 import "../styles/fuel.css";
 
 // A shift: the nozzles its attendant runs, each from its opening reading at
@@ -24,8 +26,10 @@ import "../styles/fuel.css";
 // closing reading and the 5-litre test pumped back, the credit slips of fleet
 // vehicles, the UPI, card and fleet-card takings and the cash counted; the
 // server works out what the meters sold, to the paisa, and the attendant's
-// short or excess before anything is saved. Once closed: the settlement and
-// the fuel bills it posted; a manager reopens it, saying why, before the next
+// short or excess before anything is saved; with the cash dropped during the
+// shift, the cash counted note by note, the attendant's other sales (GST
+// invoices) and a walk-in fill of ₹2,00,000 or more on a bill of its own.
+// Once closed: the settlement and the bills it posted; a manager reopens it, saying why, before the next
 // shift starts on its nozzles.
 
 export default function ShiftPage() {
@@ -70,9 +74,10 @@ export default function ShiftPage() {
       {shift.status === "open"
         ? <>
           <ShiftNozzles biz={biz} shift={shift} onChanged={setShift} />
+          <CashDrops biz={biz} shift={shift} onChanged={setShift} />
           {biz.can("fuel.create") && <CloseShift biz={biz} shift={shift} onClosed={(s) => { setShift(s); toast.success(`Shift ${s.shift_no} closed: ${settlement(s.close?.difference ?? 0, biz.exact).label.toLowerCase()}.`); }} />}
         </>
-        : closed && <Settlement biz={biz} shift={shift} close={shift.close} />}
+        : closed && <><Settlement biz={biz} shift={shift} close={shift.close} /><CashDrops biz={biz} shift={shift} onChanged={setShift} /></>}
       {closed && !shift.reopenable && shift.next_shift && biz.can("fuel.approve") && (
         <p className="fuel-note">Shift {shift.next_shift.shift_no} has opened on nozzle {shift.next_shift.nozzle_no} since this one closed: it is no longer reopened.</p>
       )}
@@ -154,6 +159,10 @@ function CloseShift({ biz, shift, onClosed }) {
   const [slips, setSlips] = useState([]);
   const [takings, setTakings] = useState([]);
   const [cash, setCash] = useState("");
+  const [counting, setCounting] = useState(false);
+  const [count, setCount] = useState({});
+  const [goods, setGoods] = useState([]);
+  const [bigFills, setBigFills] = useState([]);
   const [closedAt, setClosedAt] = useState("");
   const [note, setNote] = useState("");
   const [approve, setApprove] = useState(false);
@@ -166,6 +175,9 @@ function CloseShift({ biz, shift, onClosed }) {
     businessRead(biz.id, "fuel/vehicles", undefined, controller.signal).then(setVehicles).catch(() => setVehicles([]));
     return () => controller.abort();
   }, [biz.id]);
+  // The other sales: the business's items that are not fuels.
+  const items = shift.goods_items || [];
+  const fuels = useMemo(() => [...new Map(shift.nozzles.map((n) => [String(n.product_id), { id: n.product_id, name: n.product_name }])).values()], [shift.nozzles]);
   const customers = useMemo(() => {
     const seen = new Map();
     for (const v of vehicles) if (!seen.has(String(v.contact_id))) seen.set(String(v.contact_id), { id: String(v.contact_id), name: v.customer_name });
@@ -177,10 +189,13 @@ function CloseShift({ biz, shift, onClosed }) {
     readings: shift.nozzles.map((n) => ({ nozzleId: n.nozzle_id, closing: readings[n.nozzle_id].closing.trim(), ...(readings[n.nozzle_id].test.trim() ? { test: readings[n.nozzle_id].test.trim() } : {}) })),
     slips: slips.filter((s) => s.vehicleId && s.litres.trim()).map((s) => ({ contactId: s.contactId, vehicleId: s.vehicleId, litres: s.litres.trim(), ...(s.slipNo.trim() ? { slipNo: s.slipNo.trim() } : {}) })),
     payments: takings.filter((t) => t.methodId && t.amount.trim()).map((t) => ({ methodId: t.methodId, amount: t.amount.trim(), ...(t.reference.trim() ? { reference: t.reference.trim() } : {}) })),
-    cash: cash.trim() || "0",
+    ...(counting ? { count: countBody(shift.denominations, count) } : { cash: cash.trim() || "0" }),
+    ...(goods.some((g) => g.skuId && g.quantity.trim())
+      ? { goods: goods.filter((g) => g.skuId && g.quantity.trim()).map((g) => ({ skuId: g.skuId, quantity: g.quantity.trim(), ...(g.contactId ? { contactId: g.contactId } : {}) })) } : {}),
+    ...(bigFills.length ? { bigFills: bigFillsBody(bigFills) } : {}),
     ...(closedAt ? { closedAt } : {}),
     ...(note.trim() ? { note: note.trim() } : {}),
-  }), [shift.nozzles, readings, slips, takings, cash, closedAt, note]);
+  }), [shift.nozzles, shift.denominations, readings, slips, takings, cash, counting, count, goods, bigFills, closedAt, note]);
   // The server's figures, a moment after the typing stops; shown only for the close as it is typed now.
   const bodyKey = JSON.stringify(body);
   useEffect(() => {
@@ -268,10 +283,21 @@ function CloseShift({ biz, shift, onClosed }) {
               </select>
             </Field>
             <Field label="Quantity"><input required inputMode="decimal" className="mono" value={s.litres} onChange={(e) => setSlip(s.key, "litres", e.target.value)} /></Field>
-            <Field label="Slip number (optional)"><input maxLength={30} value={s.slipNo} onChange={(e) => setSlip(s.key, "slipNo", e.target.value)} /></Field>
+            <Field label="Slip number" hint="From the customer's slip book, when they have one."><input maxLength={30} value={s.slipNo} onChange={(e) => setSlip(s.key, "slipNo", e.target.value)} /></Field>
             <button type="button" className="link-button danger" onClick={() => setSlips((all) => all.filter((x) => x.key !== s.key))}>Remove</button>
           </fieldset>
         ))}
+      </SectionCard>
+
+      <SectionCard icon="tag" title="Other sales" description="Lubricants, additives and shop items the attendant sold: a GST invoice at their slabs, never on the fuel bills. Their money is counted with the fuel's."
+        actions={<button type="button" className="button button-secondary button-sm" onClick={() => setGoods((all) => [...all, blankGoods()])} disabled={!items.length}><Icon name="plus" size={14} /> Add an item</button>}>
+        <OtherSales items={items} customers={customers} goods={goods} setGoods={setGoods} />
+      </SectionCard>
+
+      <SectionCard icon="receipt" title={`Fills of ${biz.symbol}2,00,000 or more`}
+        description="A walk-in buyer's single fill of ₹2,00,000 or more is billed on its own, with their PAN (or their declaration), and paid in full: less than ₹2,00,000 of it in cash."
+        actions={<button type="button" className="button button-secondary button-sm" onClick={() => setBigFills((all) => [...all, blankBigFill()])}><Icon name="plus" size={14} /> Add a big fill</button>}>
+        <BigFills biz={biz} fuels={fuels} methods={takingMethods} fills={bigFills} setFills={setBigFills} />
       </SectionCard>
 
       <SectionCard icon="wallet" title="Money handed in" description={`The UPI, card and fleet-card takings from the machines' settlement slips, and the cash counted. ${FLEET_CARD_NOTE}`}
@@ -290,7 +316,9 @@ function CloseShift({ biz, shift, onClosed }) {
           </fieldset>
         ))}
         <div className="form-grid bz-form">
-          <Field label={`Cash counted (${biz.symbol})`}><input inputMode="decimal" className="mono" value={cash} onChange={(e) => setCash(e.target.value)} placeholder="0.00" /></Field>
+          {!counting && <Field label={`Cash counted (${biz.symbol})`}><input inputMode="decimal" className="mono" value={cash} onChange={(e) => setCash(e.target.value)} placeholder="0.00" /></Field>}
+          <label className="checkbox bz-check"><input type="checkbox" checked={counting} onChange={(e) => setCounting(e.target.checked)} /> Count the cash by notes and coins</label>
+          {counting && <div className="field-wide"><CashCount biz={biz} denominations={shift.denominations} count={count} setCount={setCount} /></div>}
           <Field label="Readings taken at (optional)" hint="Left empty: now. When a price changed while the shift was open, close it with the readings taken at the change.">
             <input type="datetime-local" value={closedAt} onChange={(e) => setClosedAt(e.target.value)} />
           </Field>
@@ -346,11 +374,15 @@ function CloseFigures({ biz, preview, unitOf }) {
         <dt>On credit slips</dt><dd className="mono">{biz.exact(preview.credit)}</dd>
         <dt>Walk-in sales</dt><dd className="mono">{biz.exact(preview.walkIn)}</dd>
         <dt>UPI, cards and fleet cards</dt><dd className="mono">{biz.exact(preview.other)}</dd>
+        {Number(preview.big) > 0 && <><dt>Fills of ₹2,00,000 or more</dt><dd className="mono">{biz.exact(preview.big)} ({biz.exact(preview.bigCash)} in cash)</dd></>}
+        {Number(preview.goodsWalkIn) > 0 && <><dt>Other sales, walk-in (GST)</dt><dd className="mono">{biz.exact(preview.goodsWalkIn)}</dd></>}
+        {Number(preview.goodsCredit) > 0 && <><dt>Other sales on account</dt><dd className="mono">{biz.exact(preview.goodsCredit)}</dd></>}
         <dt>Cash counted</dt><dd className="mono">{biz.exact(preview.cash)}</dd>
+        {Number(preview.dropped) > 0 && <><dt>Cash dropped</dt><dd className="mono">{biz.exact(preview.dropped)}</dd></>}
         <dt>The attendant</dt><dd><Badge tone={s.tone} label={s.label} /></dd>
       </dl>
-      {Number(preview.short) > 0 && <p className="fuel-note">The {biz.exact(preview.short)} short is left due on the walk-in fuel bill, against the attendant.</p>}
-      {Number(preview.excess) > 0 && <p className="fuel-note">The {biz.exact(preview.excess)} in excess stays with the shift: the walk-in bill takes only what is due.</p>}
+      {Number(preview.short) > 0 && <p className="fuel-note">The {biz.exact(preview.short)} short is paid on the bills from the attendant's account: it is due from the attendant.</p>}
+      {Number(preview.excess) > 0 && <p className="fuel-note">The {biz.exact(preview.excess)} in excess is held on the attendant's account until a manager takes it to income.</p>}
     </>
   );
 }
@@ -401,7 +433,7 @@ function Settlement({ biz, shift, close }) {
               { key: "litres", header: "Quantity", value: (s) => Number(s.litres), render: (s) => `${qty(s.litres, s.unit)} ${s.product_name}` },
               { key: "amount", header: "Amount", type: "money", exact: true, value: (s) => Number(s.amount), total: "sum" },
               { key: "over", header: "", value: (s) => (s.over_limit ? "Over a limit" : ""), render: (s) => (s.over_limit ? <Badge tone="warning" label="Over a limit" /> : null) },
-              { key: "document_no", header: "Bill", value: (s) => s.document_no, className: "mono" },
+              { key: "document_no", header: "Bill", value: (s) => s.document_no || "Held for the month", className: "mono" },
             ]} />
         </SectionCard>
       )}
@@ -409,16 +441,24 @@ function Settlement({ biz, shift, close }) {
         <dl className="fuel-facts">
           {close.takings.map((t) => <FactRow key={t.seq} label={`${methodName(t)}${t.reference ? ` · ${t.reference}` : ""}`} value={biz.exact(t.amount)} />)}
           <FactRow label="Cash counted" value={biz.exact(close.cash)} />
+          {close.counts.length > 0 && <FactRow label="Notes and coins" value={close.counts.map((x) => `${biz.symbol}${x.denomination} × ${x.pieces}`).join(" · ")} />}
+          {Number(close.dropped) > 0 && <FactRow label="Cash dropped during the shift" value={biz.exact(close.dropped)} />}
           <FactRow label="Cash on the walk-in bill" value={biz.exact(close.cash_paid)} />
+          {Number(close.goods_walk_in) > 0 && <FactRow label="Other sales' walk-in bill (GST)"
+            value={`${biz.exact(close.goods_walk_in)}: ${biz.exact(close.goods_other)} by UPI and cards, ${biz.exact(close.cash_goods)} in cash`} />}
+          {Number(close.big) > 0 && <FactRow label="Fills of ₹2,00,000 or more" value={`${biz.exact(close.big)} (${biz.exact(close.big_cash)} in cash)`} />}
+          {close.account.map((e) => <FactRow key={e.kind + e.created_at} label={e.kind === "short" ? "Due from the attendant" : e.kind === "excess" ? "Held for the attendant" : "Reversed on the attendant's account"}
+            value={biz.exact(e.amount)} />)}
         </dl>
         {close.note && <p className="fuel-note">{close.note}</p>}
       </SectionCard>
       {close.bills.length > 0 && (
-        <SectionCard flush icon="receipt" title="Fuel bills" description="Posted through the sales, exact to the paisa with no round-off; the walk-in bill carries any short as due.">
+        <SectionCard flush icon="receipt" title="Bills" description="Posted through the sales: the fuel bills exact to the paisa with no round-off, the other sales on GST invoices; a short is paid on them from the attendant's account.">
           <DataGrid variant="compact" id="fuel-shift-bills" caption="Fuel bills" rows={close.bills} rowKey={(d) => d.id} currency={biz.symbol} rowNoun={["bill", "bills"]}
             onRowClick={seesBills ? (d) => setBillId(d.id) : undefined}
             columns={[
               { key: "document_no", header: "Bill", value: (d) => d.document_no, className: "mono", mobile: "title" },
+              { key: "part", header: "What", value: (d) => BILL_PARTS[d.part] || "" },
               { key: "contact", header: "To", value: (d) => d.contact_name || "Walk-in buyers", mobile: "subtitle" },
               { key: "total", header: "Total", type: "money", exact: true, value: (d) => Number(d.total) },
               { key: "paid", header: "Paid", type: "money", exact: true, value: (d) => Number(d.paid) },

@@ -3,10 +3,12 @@ import DataGrid from "../../../../components/DataGrid/DataGrid";
 import DateRangeFilter from "../../../../components/DateRangeFilter";
 import SectionCard from "../../../../components/SectionCard";
 import { ErrorMessage, Loading } from "../../../../components/Feedback";
-import { businessRead } from "../../../../services/business.service";
+import { businessRead, businessWrite } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
+import { toast } from "../../../../services/toast";
+import ReasonDialog from "../../core/pages/ReasonDialog";
 import { Badge, BusinessHeader } from "../../core/pages/ui";
-import { businessToday, useOpenBusiness } from "../../core/pages/hooks";
+import { businessToday, newKey, useOpenBusiness } from "../../core/pages/hooks";
 import { Segmented } from "../../fashion/pages/shared";
 import { FlagBadge, OutletPicker } from "./FuelParts";
 import { atWords, dayWords, densityText, firstOutlet, monthWords, qty, signed, variationText } from "./fuel";
@@ -15,10 +17,12 @@ import "../styles/fuel.css";
 // The stock register and the density register of an outlet's tanks (the
 // oil companies' Marketing Discipline Guidelines). The stock register runs
 // from each morning's dip to the next: the opening dip, the loads received,
-// the meters' sales (closed shifts) with the test pumped back, the book
-// stock, the next dip, and the variation against the tolerance: the
+// less their shrinkage and temperature variation allowances (MDG 2024,
+// Annexure 9), the meters' sales (closed shifts) with the test pumped back,
+// the book stock, the next dip, and the variation against the tolerance: the
 // operational variation of the dip stock either way, a loss also within the
-// evaporation and handling allowance on what was sold. The density register
+// evaporation and handling allowance on what was sold. A manager posts a
+// day's gap to the stock as a correction, saying why. The density register
 // keeps each morning's density at 15 °C and each load's by invoice, at
 // receipt and after decanting.
 
@@ -31,6 +35,7 @@ export default function RegisterPage() {
   const [month, setMonth] = useState(today.slice(0, 7));
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  const [version, setVersion] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
     const path = view === "stock" ? "fuel/register" : "fuel/density";
@@ -40,7 +45,7 @@ export default function RegisterPage() {
       .then((d) => { setData({ key, view, ...d }); setError(""); })
       .catch((err) => { if (!controller.signal.aborted) setError(getErrorMessage(err)); });
     return () => controller.abort();
-  }, [biz.id, outlet, view, range, month]);
+  }, [biz.id, outlet, view, range, month, version]);
 
   return (
     <div className="stack">
@@ -58,14 +63,16 @@ export default function RegisterPage() {
       <ErrorMessage message={error} />
       {!data || data.key !== JSON.stringify([view, { ...(outlet ? { locationId: outlet } : {}), ...(view === "stock" ? range : { month }) }]) ? (!error && <Loading />)
         : !data.tanks.length ? <p className="muted">No tanks at this outlet: add them under Settings › Pumps & nozzles.</p>
-          : view === "stock" ? data.tanks.map((t) => <StockTank key={t.id} biz={biz} tank={t} data={data} />)
+          : view === "stock" ? data.tanks.map((t) => <StockTank key={t.id} biz={biz} tank={t} data={data} onPosted={() => setVersion((n) => n + 1)} />)
             : data.tanks.map((t) => <DensityTank key={t.id} biz={biz} tank={t} month={data.month} />)}
     </div>
   );
 }
 
-function StockTank({ biz, tank, data }) {
+function StockTank({ biz, tank, data, onPosted }) {
   const unit = tank.unit;
+  const [posting, setPosting] = useState(null);
+  const canPost = biz.can("fuel.approve") && biz.can("inventory.edit");
   const flagged = tank.rows.filter((r) => ["loss", "gain"].includes(r.flag)).length;
   return (
     <SectionCard flush icon="layers" title={`Tank ${tank.tank_no} · ${tank.product_name}`}
@@ -77,6 +84,8 @@ function StockTank({ biz, tank, data }) {
           { key: "day", header: "Day", value: (r) => r.day, mobile: "title", pin: true, render: (r) => <span className="bz-two-line"><strong>{dayWords(r.day)}</strong><small className="muted">dip {atWords(r.takenAt, biz)}</small></span> },
           { key: "opening", header: "Opening dip", value: (r) => Number(r.opening), className: "mono", render: (r) => qty(r.opening, unit) },
           { key: "receipts", header: "Received", value: (r) => Number(r.receipts), className: "mono", render: (r) => <span title={r.loads.join(", ")}>{qty(r.receipts, unit)}</span> },
+          { key: "allowances", header: "Shrinkage and TVA", value: (r) => Number(r.shrinkage) + Number(r.tva), className: "mono",
+            render: (r) => (Number(r.shrinkage) || Number(r.tva) ? `${qty(r.shrinkage, unit)} · ${qty(r.tva, unit)}` : "—") },
           { key: "meter", header: "Meters", value: (r) => Number(r.meter), className: "mono", render: (r) => qty(r.meter, unit), defaultHidden: true },
           { key: "test", header: "Test pumped back", value: (r) => Number(r.test), className: "mono", render: (r) => qty(r.test, unit), defaultHidden: true },
           { key: "sales", header: "Sold", value: (r) => Number(r.sales), className: "mono", render: (r) => qty(r.sales, unit) },
@@ -87,9 +96,18 @@ function StockTank({ biz, tank, data }) {
           { key: "allowed", header: "Allowed", value: (r) => (r.allowedLoss === null ? "" : Number(r.allowedLoss)), className: "mono",
             render: (r) => (r.allowedLoss === null ? "—" : `+${Number(r.allowedGain).toFixed(3)} / −${Number(r.allowedLoss).toFixed(3)}`) },
           { key: "flag", header: "Tolerance", value: (r) => r.flag, mobile: "show", render: (r) => <FlagBadge flag={r.flag} /> },
+          { key: "posted", header: "To the stock", value: (r) => (r.correction ? Number(r.correction.litres) : ""), mobile: "show",
+            render: (r) => (r.correction ? <Badge tone="neutral" label={`Posted ${signed(r.correction.litres, 3)}`} />
+              : r.gap !== null && Number(r.gap) !== 0 && canPost && !r.openShifts ? <button type="button" className="chip-button" onClick={() => setPosting(r)}>Post {signed(r.gap, 3)}</button> : "—") },
           { key: "water", header: "Water", value: (r) => (r.waterCm === null ? "" : Number(r.waterCm)), render: (r) => (r.waterCm === null ? "—" : `${Number(r.waterCm)} cm`), defaultHidden: true },
         ]}
         empty="No dips in these dates" emptyHint="Each morning's dip starts a day of the register (Tanks & dips)." emptyIcon="clipboard" />
+      {posting && (
+        <ReasonDialog title={`Post tank ${tank.tank_no}'s ${dayWords(posting.day)} to the stock`} icon="layers" label="Why the stock is corrected" submitLabel="Post it"
+          description={`The stock of ${tank.product_name} moves by ${signed(posting.gap, 3)} ${unit === "kg" ? "kg" : "litres"}: the dip against the stock by the meters and the invoices. Once only.`}
+          onClose={() => setPosting(null)} onSaved={() => { setPosting(null); toast.success("Posted to the stock."); onPosted(); }}
+          onSubmit={(reason) => businessWrite(biz.id, "fuel/register/corrections", { requestKey: newKey(), tankId: tank.id, day: posting.day, reason })} />
+      )}
     </SectionCard>
   );
 }

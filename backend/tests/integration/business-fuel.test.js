@@ -525,9 +525,10 @@ test('fuel stations', { timeout: 300000 }, async (t) => {
     assert.deepEqual([walkIn.contact_id, walkIn.total, walkIn.subtotal, walkIn.tax, walkIn.round_off], [null, '97676.86', '97676.86', '0.00', '0.00'], 'exact to the paisa, though the business rounds bills');
     assert.deepEqual(walkIn.lines.map((l) => [l.label, l.quantity, l.unit_price, l.net, l.tax, l.tax_rate]), [
       ['Petrol · price includes state VAT', '495.500', '102.12', '50600.46', '0.00', '0.00'], ['Diesel · price includes state VAT', '494.500', '95.20', '47076.40', '0.00', '0.00']]);
-    assert.deepEqual(walkIn.payments.map((p) => [p.method, p.method_name, p.amount]), [['upi', 'UPI', '30000.00'], ['card', 'Card', '20000.00'], ['card', 'Fleet card', '10000.00'], ['cash', null, '37670.00']]);
+    assert.deepEqual(walkIn.payments.map((p) => [p.method, p.method_name, p.amount]), [['credit_note', 'Attendant account', '6.86'], ['upi', 'UPI', '30000.00'], ['card', 'Card', '20000.00'],
+      ['card', 'Fleet card', '10000.00'], ['cash', null, '37670.00']]);
     const paid = walkIn.payments.reduce((s, p) => s + paise(p.amount), 0);
-    assert.equal(paise(walkIn.total) - paid, 686, 'the attendant\'s short is left due on the walk-in bill');
+    assert.equal(paise(walkIn.total) - paid, 0, 'the attendant\'s short is paid from their account, not left due on the walk-in bill');
     const creditBill = await request('GET', F(`documents/${closed.close.slips[0].document_id}`));
     assert.deepEqual([creditBill.contact_id, creditBill.total, creditBill.round_off, creditBill.due_on, creditBill.buyer_pan], [transports.id, '28607.60', '0.00', addDays(today, 30), 'AAKFS1234B']);
     assert.deepEqual(creditBill.lines.map((l) => [l.label, l.quantity, l.net]), [['Diesel · TS09UB4455 · slip 0012 · price includes state VAT', '200.000', '19040.00'],
@@ -575,8 +576,9 @@ test('fuel stations', { timeout: 300000 }, async (t) => {
     assert.equal((await request('POST', F(`fuel/shifts/${shift1.id}/reopen`), reason)).id, shift1.id, 'asking again is the same reopening');
     const first = reopened.history[0];
     const walkIn = await request('GET', F(`documents/${first.document_id}`));
-    assert.deepEqual([walkIn.returns.length, walkIn.returns[0].total, walkIn.refunds.reduce((s, f) => s + paise(f.amount), 0)], [1, '97676.86', paise('97670.00')]);
-    assert.deepEqual(walkIn.refunds.map((f) => [f.method, f.method_name, f.amount]), [['upi', 'UPI', '30000.00'], ['card', 'Card', '20000.00'], ['card', 'Fleet card', '10000.00'], ['cash', null, '37670.00']]);
+    assert.deepEqual([walkIn.returns.length, walkIn.returns[0].total, walkIn.refunds.reduce((s, f) => s + paise(f.amount), 0)], [1, '97676.86', paise('97676.86')]);
+    assert.deepEqual(walkIn.refunds.map((f) => [f.method, f.method_name, f.amount]), [['credit_note', null, '6.86'], ['upi', 'UPI', '30000.00'], ['card', 'Card', '20000.00'],
+      ['card', 'Fleet card', '10000.00'], ['cash', null, '37670.00']]);
     const creditBill = await request('GET', F(`documents/${first.slips[0].document_id}`));
     assert.equal(creditBill.returns[0].total, '28607.60');
     assert.deepEqual([await stockOf(petrol), await stockOf(diesel)], ['9000.000', '12000.000'], 'the litres are back in stock until the shift closes again');

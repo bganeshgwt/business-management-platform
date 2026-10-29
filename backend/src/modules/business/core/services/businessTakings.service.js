@@ -98,7 +98,7 @@ async function takings(business, query, db = repo.pool) {
 
   const byMethod = () => Object.fromEntries(METHODS.map((m) => [m, 0]));
   const received = byMethod(), refunds = byMethod(), suppliers = byMethod(), bounced = byMethod(), expenses = byMethod();
-  let atSale = 0, laterOnBills = 0, collections = 0, fromFinanciers = 0, fromSuppliers = 0;
+  let atSale = 0, laterOnBills = 0, collections = 0, fromFinanciers = 0, fromSuppliers = 0, fromAttendants = 0, otherIncome = 0;
   const persons = new Map(), places = new Map();
   // { received: Map("upi|PhonePe" -> paise), refunds, suppliers, bounced }
   const named = { received: new Map(), refunds: new Map(), suppliers: new Map(), bounced: new Map(), expenses: new Map() };
@@ -116,13 +116,18 @@ async function takings(business, query, db = repo.pool) {
   };
   const seesExpenses = access.can(business, 'expenses.view');
   money.push(...await require('./businessExpenses.service').moneyRows(business,from,to,locationId,db));
+  // A fuel station's attendants paying their shorts, and their excess taken to other income.
+  if (business.modules.includes('fuel')) money.push(...await require('../../fuel/services/fuelAttendants.service').moneyRows(business, from, to, locationId, db));
   for (const row of money) {
     const amount = paise(row.amount);
     const method = METHODS.includes(row.method) ? row.method : null;
-    if (row.source === 'sale_payment' || row.source === 'collection' || row.source === 'finance_payout' || row.source === 'supplier_refund') {
+    if (row.source === 'sale_payment' || row.source === 'collection' || row.source === 'finance_payout' || row.source === 'supplier_refund' || row.source === 'attendant'
+      || row.source === 'other_income') {
       if (method) { received[method] += amount; addNamed('received', method, row.method_name, amount); }
       if (row.source === 'collection') collections += amount;
       else if (row.source === 'finance_payout') fromFinanciers += amount;
+      else if (row.source === 'attendant') fromAttendants += amount;
+      else if (row.source === 'other_income') otherIncome += amount;
       else if (row.source === 'supplier_refund') { if (method) fromSuppliers += amount; }
       else if (row.at_sale) atSale += amount;
       else laterOnBills += amount;
@@ -162,7 +167,8 @@ async function takings(business, query, db = repo.pool) {
       onCredit: rupees(paise(sales.on_credit)), walkInBills: sales.walk_in_bills, walkInUnpaid: rupees(paise(sales.walk_in_unpaid)),
       offers: rupees(discount('offer')), points: rupees(discount('points')), counterDiscounts: rupees(discount('manual')),
     },
-    received: { ...asMoney(received), total: rupees(sum(received)), atSale: rupees(atSale), laterOnBills: rupees(laterOnBills), collections: rupees(collections), fromFinanciers: rupees(fromFinanciers), fromSuppliers: rupees(fromSuppliers) },
+    received: { ...asMoney(received), total: rupees(sum(received)), atSale: rupees(atSale), laterOnBills: rupees(laterOnBills), collections: rupees(collections), fromFinanciers: rupees(fromFinanciers), fromSuppliers: rupees(fromSuppliers),
+      fromAttendants: rupees(fromAttendants), otherIncome: rupees(otherIncome) },
     // EMI: financed on today's bills (owed by financiers, not in the drawer),
     // loans cancelled, and the subvention financiers kept from their payouts.
     finance: { booked: rupees(paise(finance.booked)), bills: finance.bills, cancelled: rupees(paise(finance.cancelled)), subvention: rupees(paise(finance.subvention)) },

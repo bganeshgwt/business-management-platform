@@ -109,6 +109,8 @@ const READERS = {
   // A farm-input shop's settings show the interest item's slab; season interest is billed at it.
   "modules/business/agri/services/agriSales.service.js": "gate",
   "modules/business/agri/services/agriSeasons.service.js": "gate",
+  // A fuel station's interest on overdue fleet credit is billed at its interest item's slab.
+  "modules/business/fuel/services/fuelFleet.service.js": "gate",
 };
 
 function* sourceFiles(dir) {

@@ -481,6 +481,10 @@ export const FUEL = {
   fleet: { name: "Sri Balaji Transports", phone: "9848011223", creditDays: "30", creditLimit: "100000",
     vehicle: { registration: "TS09UB4455", description: "Tata 1613", fillLimit: "300" } },
   fleetCard: "Fleet card",
+  // An engine oil the attendants sell on the forecourt (GST 18%, price with GST inside), in stock.
+  lube: { name: "Engine oil 1 L", code: "E2E-LUBE-1", price: "450", stock: "24", supplier: "Lube Distributors" },
+  // A contractor billed by the month, with a book of slips 1001 to 1050 and a tipper filled on credit.
+  monthly: { name: "Ramesh Contractors", creditDays: "15", vehicle: { registration: "AP29TB0042" }, book: { bookNo: "B-21", first: "1001", last: "1050" } },
 };
 
 // The lodge: Deluxe rooms 101 and 102 and a Suite, room 201 (rates a night

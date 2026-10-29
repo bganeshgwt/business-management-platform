@@ -211,7 +211,9 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   // A fuel station's day: Shift & readings, and Tanks & dips (with the tanker receipts and the stock register), after Quick bill; its fleet statements sit with its customers, its pumps and nozzles in Settings.
   const fdaily=businessMenu(33,'fuel_station',()=>true,()=>true).find(g=>g.title==='Daily work').links;
   assert.deepEqual(fdaily.slice(1,4).map(l=>[l.section,l.label]),[['counter','Quick bill'],['fuel-shifts','Shift & readings'],['fuel-dips','Tanks & dips']]);
-  assert.deepEqual(fdaily.find(l=>l.section==='fuel-dips').pages.map(p=>p.label),['Tanks & dips','Tanker receipts','Stock register']);
+  assert.deepEqual(fdaily.find(l=>l.section==='fuel-dips').pages.map(p=>p.label),['Tanks & dips','Tanker receipts','Stock register','Registers & inspections']);
+  assert.deepEqual(fdaily.find(l=>l.section==='fuel-shifts').pages.map(p=>p.label),['Shift & readings','Attendants\' accounts']);
+  assert.ok(menu('fuel_station').find(l=>l.section==='reports').pages.some(p=>p.to.endsWith('/fuel-outlets')),'fuel: every outlet at a glance with the reports');
   assert.equal(workspaceFor('fuel-receipts','fuel_station'),'fuelTanks');
   assert.ok(menu('fuel_station').find(l=>l.section==='customers').pages.some(p=>p.to.endsWith('/fuel-fleet')),'fuel: fleet statements with the customers');
   assert.ok(menu('fuel_station').find(l=>l.label==='Settings').pages.some(p=>p.label==='Pumps & nozzles'),'fuel: pumps and nozzles in Settings');
@@ -220,8 +222,8 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   const dsm=new Set(['fuel.view','fuel.create']);
   const dsmLinks=businessMenu(33,'fuel_station',p=>dsm.has(p),()=>true).flatMap(g=>g.links);
   assert.ok(dsmLinks.some(l=>l.section==='fuel-shifts')&&dsmLinks.some(l=>l.section==='fuel-dips'),'the attendant finds the shifts and the dips');
-  assert.ok(!dsmLinks.flatMap(l=>l.pages).some(p=>/\/(fuel-fleet|fuel-pumps|settings)$/.test(p.to)),'the attendant has no fleet money and no settings');
-  for(const type of ['grocery','garage','rentals'])for(const section of ['fuel-shifts','fuel-dips','fuel-receipts','fuel-register','fuel-fleet','fuel-pumps'])assert.ok(!typeAllows(sectionRule(section,type),type),`${type}: no ${section}`);
+  assert.ok(!dsmLinks.flatMap(l=>l.pages).some(p=>/\/(fuel-fleet|fuel-pumps|fuel-attendants|settings)$/.test(p.to)),'the attendant has no fleet money, no one\'s account and no settings');
+  for(const type of ['grocery','garage','rentals'])for(const section of ['fuel-shifts','fuel-dips','fuel-receipts','fuel-register','fuel-fleet','fuel-pumps','fuel-attendants','fuel-records','fuel-outlets'])assert.ok(!typeAllows(sectionRule(section,type),type),`${type}: no ${section}`);
   // A lodging business's day: the Front desk (with the rooms, the reservations calendar and every stay) and the foreign guests (with the guest register); its room types and rates in Settings.
   const ldaily=businessMenu(33,'lodging',()=>true,()=>true).find(g=>g.title==='Daily work').links;
   assert.deepEqual(ldaily.slice(1,3).map(l=>[l.section,l.label]),[['lodging-desk','Front desk'],['lodging-form-iii','Foreign guests (Form-III)']]);

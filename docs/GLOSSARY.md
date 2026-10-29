@@ -522,25 +522,38 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **DSM, pump attendant** | The person who runs nozzles on a shift and hands in the money; the *Pump attendant (DSM)* role. |
 | **Shift** | One attendant's turn on their nozzles, from the opening readings to the closing ones (FS/2627/0001); not a GST document: the fuel bills its close posts are. |
 | **Settlement** | What an attendant hands in at a shift's close (cash, UPI, cards, fleet cards and credit slips) against what the meters sold. |
-| **Short, excess** | An attendant's money less (short) or more (excess) than the walk-in sales; a short is left due on the walk-in fuel bill. |
+| **Short, excess** | An attendant's money less (short) or more (excess) than the walk-in sales; a short is due from the attendant on their account, an excess held on it. |
+| **Attendant's account** | What each attendant owes for shifts closed short (the walk-in bills paid it as *Attendant account*) and the excess held for them; recovered when they pay or from their wages, an excess taken to other income by a manager. |
+| **Cash drop** | Cash an attendant hands over during a shift (to a manager, the cashier or the safe's keeper), counted with the cash at the close. |
+| **Count (denominations)** | The cash counted note by note and coin by coin, from the station's list of notes and coins. |
+| **Other sales** | The lubricants, additives and shop items an attendant sells on the forecourt: entered on the shift's close, billed on a GST invoice at their slabs, never on a fuel bill. |
+| **Big fill** | A walk-in buyer's single fill of ₹2,00,000 or more: billed on its own at the close with the buyer's PAN or declaration (Form 97), less than ₹2,00,000 of it in cash. |
 | **Walk-in fuel bill** | The bill of a shift's sales to buyers not named, a line for each fuel. |
 | **Credit slip (indent)** | The slip a fleet customer's driver signs for a fill on credit, with its number, the vehicle and the quantity. |
-| **Fleet customer** | A transporter, school or contractor whose vehicles fill on credit, billed on a fuel bill of each shift. |
+| **Fleet customer** | A transporter, school or contractor whose vehicles fill on credit, billed on a fuel bill of each shift, or by the month. |
+| **Billed by the month** | A fleet customer's terms: their credit fills are held on their slips, with no bill, until one invoice for the month bills them, the stock leaving with it. |
+| **Slip book (indent book)** | A book of credit slips issued to a fleet customer with its serial numbers; each slip is taken once. |
+| **Interest on overdue credit** | A fleet customer's terms: a % a month on what is still owed on a fuel bill, from so many days after it falls due, billed when confirmed. |
 | **Fill limit** | The most a vehicle takes in one fill on credit; a fill over it needs a manager. |
 | **Fleet card, loyalty card** | An oil company's card a fleet pays with (IndianOil's XTRAPOWER, say): a payment method taken with the shift's takings and settled by the oil company, not the station's credit. |
-| **Dip, dip chart** | The fuel's depth in a tank read on the dip rod each morning, turned into litres by the tank's dip chart. |
+| **Dip, dip chart** | The fuel's depth in a tank read on the dip rod each morning, turned into litres by the tank's dip chart (its calibration chart, cm to litres; kept on the tank, the litres are worked out by a straight line between its rows). |
 | **Water dip** | Water found at the bottom of a tank with water-finding paste. |
 | **Tank lorry (TL), tanker** | The lorry that brings a load from the oil company's depot or terminal, with its invoice and seals. |
 | **Decanting** | Emptying a tank lorry's load into the outlet's tanks. |
 | **Density at 15 °C** | A fuel's density corrected to 15 °C (from the hydrometer, the thermometer and the table); a load's must be within ±3.0 kg/m³ of its invoice's. |
 | **Short receipt** | A load that came in, by the dips before and after decanting, at less than its invoice's litres. |
+| **Compartment** | One of a tank lorry's chambers, each dipped, checked for water with water-finding paste and sampled (about 20 litres from its manifold) before decanting; a short dip is made up through the pump. |
+| **Retention sample** | A sealed sample of a load received, kept until two later loads of the same fuel have come in. |
+| **Shrinkage, TVA** | The allowances on a load's invoice, in rupees a kilolitre, for loss in transit and for the temperature's change of volume (TVA, either way, revised each quarter); the register takes them off the receipts as litres. |
 | **MDG** | The public-sector oil companies' Marketing Discipline Guidelines (2024): the dealer's registers, checks and tolerances. |
 | **Stock register** | Each tank's day: the opening dip, the loads, the meters' sales, the book stock and the next morning's dip. |
-| **Book stock** | What a tank should hold: the opening dip plus the loads received less the meters' sales. |
+| **Book stock** | What a tank should hold: the opening dip plus the loads received, less their shrinkage and TVA, less the meters' sales (Annexure 9: A + B − C = D, D − E = F). |
 | **Variation** | The next dip less the book stock, in litres and as a share of the dip. |
 | **Tolerance** | The variation allowed: 4% of the dip either way, and on a loss also the evaporation and handling allowance (petrol 0.75%, diesel 0.25% of what was sold; 0.60% and 0.20% beyond 600 KL a year). |
 | **Density register** | Each tank's month of densities: the morning's, and each load's by invoice, at receipt and after decanting. |
 | **PESO licence (Form XIV)** | The Petroleum and Explosives Safety Organisation's licence to store petroleum at a retail outlet, kept with the business's licences. |
+| **Daily sales register** | The day's sales printed from the shifts closed: each nozzle's readings and each fuel's sales at its price (the station's own register, not the oil companies' formats). |
+| **Inspection log** | Each inspection of an outlet (when, by whom, what was found and done), kept for good. |
 
 ### Hotels, lodges & guest houses
 

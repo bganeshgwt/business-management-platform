@@ -26,23 +26,45 @@ const money = require('./fuelMoney');
 //             paisa; the attendant is short or in excess against the walk-in
 //             sales. The close posts the sales through the core: one walk-in
 //             fuel bill (a line for each fuel, paid by the other takings and
-//             then the cash, a short left due on it) and a fuel bill to each
+//             then the cash, a short paid from the attendant's account) and a fuel bill to each
 //             fleet customer (a line for each slip, with its vehicle); no
 //             round-off. A fill over a vehicle's fill limit, or credit taking a
 //             customer over their credit limit, is allowed by a manager.
+//             The close also bills the attendant's other sales (lubricants,
+//             additives, shop items) as GST invoices at their slabs, to no one
+//             by name or to a customer on credit, never on the fuel bills; a
+//             walk-in buyer's fill of ₹2,00,000 or more on a bill of its own,
+//             with the buyer's PAN or declaration and the cash limit; and a
+//             fleet customer billed by the month gets no bill: the fill is held
+//             on its slip for the month's invoice. A customer with slip books
+//             gives each fill's slip serial, used once. The cash is the count
+//             (by notes and coins) and the cash dropped during the shift. The
+//             takings pay the walk-in fuel bill, what is left of them the other
+//             sales' bill; the cash pays the rest of the two; a short is paid
+//             on them from the attendant's account (due from the attendant), an
+//             excess is held on it until a manager takes it to income.
+//   drops     cash handed over during the shift: how much, when, to whom; a
+//             manager cancels one typed wrongly while the shift is open.
 //   reopen    a closed shift never changes: a manager reopens it with a
 //             reason, before another shift opens on its nozzles. Its bills are
 //             credited (the litres back in stock until it closes again), the
-//             walk-in bill's takings handed back, and its nozzles read again
-//             from the shift's opening.
+//             walk-in bills' takings handed back, the attendant's short or
+//             excess reversed, and its nozzles read again from the shift's
+//             opening. Not once its fleet fills are on a month's invoice.
 // Someone who does not see sales sees and closes their own shifts only.
 
 const { fail, id } = c;
 const MAX_NOZZLES = 24;
 const MAX_SLIPS = 200;
 const MAX_TAKINGS = 20;
+const MAX_GOODS = 50;
+const MAX_BIG = 10;
 // A sale over ₹2,00,000 records the buyer's PAN: on a fleet bill, each credit fill is its own sale.
 const PAN_ABOVE_PAISE = 20000000;
+// No ₹2,00,000 or more in cash for one bill, or from one person in a day (Income-tax Act 2025, section 186).
+const CASH_LIMIT_PAISE = 20000000;
+// The attendant's account, as the walk-in bills name its payment.
+const ATTENDANT_ACCOUNT = 'Attendant account';
 
 // --- Lists ----------------------------------------------------------------------------------------
 
@@ -165,19 +187,37 @@ async function closeDetail(db, business, close) {
     LEFT JOIN fuel_tanks t ON t.business_id=r.business_id AND t.id=r.tank_id WHERE r.business_id=$1 AND r.close_id=$2 ORDER BY n.nozzle_no`, [business.id, close.id]);
   const products = await repo.all(db, `SELECT p.*,s.label AS product_name,s.unit,f.family FROM fuel_close_products p JOIN fuel_products f ON f.business_id=p.business_id AND f.id=p.product_id
     JOIN catalog_skus s ON s.business_id=f.business_id AND s.id=f.sku_id WHERE p.business_id=$1 AND p.close_id=$2 ORDER BY f.sort_order,s.label`, [business.id, close.id]);
-  const slips = await repo.all(db, `SELECT k.*,ct.name AS customer_name,s.label AS product_name,s.unit,d.document_no FROM fuel_credit_slips k
+  const slips = await repo.all(db, `SELECT k.*,ct.name AS customer_name,s.label AS product_name,s.unit,d.document_no,ib.book_no FROM fuel_credit_slips k
     JOIN business_contacts ct ON ct.business_id=k.business_id AND ct.id=k.contact_id JOIN fuel_products f ON f.business_id=k.business_id AND f.id=k.product_id
-    JOIN catalog_skus s ON s.business_id=f.business_id AND s.id=f.sku_id JOIN business_documents d ON d.business_id=k.business_id AND d.id=k.document_id
+    JOIN catalog_skus s ON s.business_id=f.business_id AND s.id=f.sku_id LEFT JOIN business_documents d ON d.business_id=k.business_id AND d.id=k.document_id
+    LEFT JOIN fuel_indent_books ib ON ib.business_id=k.business_id AND ib.id=k.book_id
     WHERE k.business_id=$1 AND k.close_id=$2 ORDER BY k.seq`, [business.id, close.id]);
   const takings = await repo.all(db, 'SELECT * FROM fuel_close_payments WHERE business_id=$1 AND close_id=$2 ORDER BY seq', [business.id, close.id]);
-  const documentIds = [...new Set([close.document_id, ...slips.map((s) => s.document_id)].filter(Boolean).map(String))];
-  const bills = documentIds.length ? await repo.all(db, `SELECT d.id,d.document_no,d.contact_id,d.contact_name,d.total,d.due_on::text AS due_on,d.created_at,
+  const bigFills = await repo.all(db, `SELECT g.*,s.label AS product_name,s.unit,d.document_no,d.buyer_pan,d.pan_declaration FROM fuel_close_big_fills g
+    JOIN fuel_products f ON f.business_id=g.business_id AND f.id=g.product_id JOIN catalog_skus s ON s.business_id=f.business_id AND s.id=f.sku_id
+    JOIN business_documents d ON d.business_id=g.business_id AND d.id=g.document_id WHERE g.business_id=$1 AND g.close_id=$2 ORDER BY g.seq`, [business.id, close.id]);
+  const goodsBills = await repo.all(db, 'SELECT document_id,walk_in FROM fuel_close_goods_bills WHERE business_id=$1 AND close_id=$2', [business.id, close.id]);
+  const counts = await repo.all(db, 'SELECT denomination,pieces FROM fuel_close_counts WHERE business_id=$1 AND close_id=$2 ORDER BY denomination DESC', [business.id, close.id]);
+  const account = await repo.all(db, 'SELECT kind,amount,created_at FROM fuel_attendant_entries WHERE business_id=$1 AND close_id=$2 ORDER BY id', [business.id, close.id]);
+  const documentIds = [...new Set([close.document_id, ...slips.map((s) => s.document_id), ...bigFills.map((g) => g.document_id), ...goodsBills.map((g) => g.document_id)]
+    .filter(Boolean).map(String))];
+  const bills = documentIds.length ? await repo.all(db, `SELECT d.id,d.document_no,d.contact_id,d.contact_name,d.total,d.tax,d.due_on::text AS due_on,d.created_at,
       COALESCE((SELECT sum(amount) FROM business_payments p WHERE p.business_id=d.business_id AND p.document_id=d.id),0) AS paid,
+      COALESCE((SELECT sum(amount) FROM business_payments p WHERE p.business_id=d.business_id AND p.document_id=d.id AND p.method='credit_note'),0) AS from_account,
       COALESCE((SELECT sum(total) FROM business_returns r WHERE r.business_id=d.business_id AND r.document_id=d.id),0) AS returned,
       ${DUE_SQL('d')} AS due FROM business_documents d WHERE d.business_id=$1 AND d.id=ANY($2::bigint[]) ORDER BY d.id`, [business.id, documentIds]) : [];
+  // What each bill is: the walk-in fuel bill, a fleet customer's fuel bill, a big fill, or other sales (GST).
+  for (const b of bills) {
+    b.part = String(b.id) === String(close.document_id) ? 'walk_in' : bigFills.some((g) => String(g.document_id) === String(b.id)) ? 'big_fill'
+      : goodsBills.some((g) => String(g.document_id) === String(b.id)) ? 'goods' : 'credit';
+  }
   const names = await repo.all(db, 'SELECT id,name FROM users WHERE id=ANY($1::bigint[])', [[close.closed_by, close.reopened_by, close.approved_by].filter(Boolean)]);
   const nameOf = (userId) => names.find((u) => String(u.id) === String(userId))?.name || null;
-  return { ...close, readings, products, slips, takings, bills, cash_paid: money.rupees(Math.max(0, Math.min(money.paise(close.cash), money.paise(close.walk_in) - money.paise(close.other)))),
+  const available = money.paise(close.cash) + money.paise(close.dropped) - money.paise(close.big_cash);
+  const cashPaid = Math.max(0, Math.min(available, money.paise(close.walk_in) - money.paise(close.other)));
+  return { ...close, readings, products, slips, takings, bills, counts, account,
+    big_fills: bigFills.map(({ buyer_pan: pan, ...g }) => ({ ...g, buyer_pan: pan ? `••••••${String(pan).slice(-4)}` : null })),
+    cash_paid: money.rupees(cashPaid), cash_goods: money.rupees(Math.max(0, Math.min(available - cashPaid, money.paise(close.goods_walk_in) - money.paise(close.goods_other)))),
     closed_by_name: nameOf(close.closed_by), reopened_by_name: nameOf(close.reopened_by), approved_by_name: nameOf(close.approved_by) };
 }
 
@@ -203,11 +243,24 @@ async function load(db, business, user, shiftId) {
       JOIN fuel_shifts s ON s.business_id=n2.business_id AND s.id=n2.shift_id WHERE n1.business_id=$1 AND n1.shift_id=$2 AND s.created_at>$3 ORDER BY s.created_at LIMIT 1`,
   [business.id, shift.id, current.created_at]) : null;
   const sees = showsMoney(business, user, shift);
-  const hide = (close) => (sees ? close : { ...withoutMoney(close), products: close.products.map((p) => ({ ...p, price: null, credit_amount: null, walk_in_amount: null, amount: null })),
-    slips: close.slips.map((s) => ({ ...s, price: null, amount: null })), takings: [], bills: [], cash_paid: null });
+  const hide = (close) => (sees ? close : { ...withoutMoney(close), products: close.products.map((p) => ({ ...p, price: null, credit_amount: null, walk_in_amount: null, big_amount: null, amount: null })),
+    slips: close.slips.map((s) => ({ ...s, price: null, amount: null })), big_fills: close.big_fills.map((g) => ({ ...g, price: null, amount: null })), takings: [], bills: [], counts: [],
+    account: [], cash_paid: null, cash_goods: null, dropped: null, big: null, big_cash: null, goods_walk_in: null, goods_other: null, goods_credit: null });
+  // The cash handed over during the shift, and (while it is open) who it may be handed to.
+  const drops = await repo.all(db, `SELECT x.id,x.amount,x.dropped_at,x.received_by,x.received_by_name,x.note,x.created_at,x.cancelled_at,x.cancel_reason,cu.name AS cancelled_by_name
+    FROM fuel_cash_drops x LEFT JOIN users cu ON cu.id=x.cancelled_by WHERE x.business_id=$1 AND x.shift_id=$2 ORDER BY x.dropped_at,x.id`, [business.id, shift.id]);
+  const receivers = shift.status === 'open' ? await repo.all(db, `SELECT u.id,u.name FROM business_memberships m JOIN users u ON u.id=m.user_id AND u.status='active'
+    WHERE m.business_id=$1 AND m.active AND m.user_id<>$2 ORDER BY u.name`, [business.id, shift.attendant_id]) : [];
+  const settings = await c.settingsOf(db, business.id);
+  // What the attendant may sell besides fuel while the shift is open: the business's items that are not fuels (no batches, serials or kits).
+  const goodsItems = shift.status === 'open' ? await repo.all(db, `SELECT s.id,s.label,s.unit,s.price FROM catalog_skus s JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id
+    WHERE s.business_id=$1 AND s.active AND p.active AND NOT s.is_kit AND NOT s.internal_use AND s.tracking IN ('none','quantity')
+      AND NOT EXISTS (SELECT 1 FROM fuel_products f WHERE f.business_id=s.business_id AND f.sku_id=s.id) ORDER BY lower(s.label) LIMIT 500`, [business.id]) : [];
   const { request_hash: _hash, ...rest } = shift;
   return { ...rest, nozzles, close: current ? hide(current) : null, history: detailed.filter((x) => x.reopened_at).map(hide), money: sees,
-    reopenable: Boolean(current) && !next, next_shift: next || null, test_litres: (await c.settingsOf(db, business.id)).test_litres };
+    reopenable: Boolean(current) && !next, next_shift: next || null, test_litres: settings.test_litres, denominations: settings.denominations.map(Number),
+    drops: sees ? drops : drops.map((d) => ({ ...d, amount: null })), dropped: sees ? money.rupees(drops.filter((d) => !d.cancelled_at).reduce((s, d) => s + money.paise(d.amount), 0)) : null,
+    receivers, goods_items: goodsItems };
 }
 
 async function detail(business, user, shiftId) {
@@ -337,11 +390,68 @@ async function updateNotes(business, user, shiftId, body) {
   });
 }
 
+// --- Cash drops ----------------------------------------------------------------------------------
+
+// body: { requestKey, amount, receivedBy (a member of the staff, not the attendant), droppedAt? (now), note? }
+// — cash an attendant hands over during an open shift; counted with the cash at its close.
+async function addDrop(business, user, shiftId, body) {
+  c.requireFuel(business);
+  await access.require(business, 'fuel.create');
+  const requestKey = core.uuid(body.requestKey);
+  const hash = c.hashOf(body);
+  const amount = c.readMoney(body.amount, 'Cash dropped', { min: 0, minExclusive: true, max: 9999999.99 });
+  const receivedBy = id(body.receivedBy, 'Handed to');
+  const note = c.optionalText(body.note, 'Note', 300);
+  return repo.transaction(async (db) => {
+    await c.lockBusiness(db, business);
+    const old = await repo.one(db, 'SELECT shift_id,request_hash FROM fuel_cash_drops WHERE business_id=$1 AND request_key=$2', [business.id, requestKey]);
+    if (old) {
+      if (old.request_hash !== hash) fail('This request key was already used for different data', 409);
+      return load(db, business, user, old.shift_id);
+    }
+    const shift = await shiftRow(db, business, shiftId, { lock: true });
+    await requireKeeper(business, user, shift);
+    if (shift.status !== 'open') fail(`Shift ${shift.shift_no} is closed: a cash drop is made while a shift is open`, 409);
+    const receiver = await repo.one(db, `SELECT u.id,u.name FROM business_memberships m JOIN users u ON u.id=m.user_id AND u.status='active'
+      WHERE m.business_id=$1 AND m.user_id=$2 AND m.active`, [business.id, receivedBy]);
+    if (!receiver) fail('That person is not on this business\'s staff', 404);
+    if (String(receiver.id) === String(shift.attendant_id)) fail('A cash drop is handed to someone other than the shift\'s attendant', 409);
+    const typed = await c.readWhen(db, business, body.droppedAt, 'Dropped at');
+    if (typed && (new Date(typed) < new Date(shift.opened_at) || new Date(typed) > new Date())) fail(`A cash drop of shift ${shift.shift_no} is made after it opened, not later than now`);
+    const row = await repo.one(db, `INSERT INTO fuel_cash_drops(business_id,shift_id,amount,dropped_at,received_by,received_by_name,note,request_key,request_hash,created_by)
+      VALUES($1,$2,$3,COALESCE($4,now()),$5,$6,$7,$8,$9,$10) RETURNING *`, [business.id, shift.id, amount, typed, receiver.id, receiver.name, note, requestKey, hash, user.id]);
+    await repo.audit(db, business.id, user.id, 'fuel_drop.made', row.id, { shiftNo: shift.shift_no, attendant: shift.attendant_name, amount: row.amount, to: receiver.name });
+    await repo.event(db, business.id, user.id, 'fuel_drop.made', 'fuel_cash_drop', row.id, { shiftId: shift.id, locationId: shift.location_id, amount: row.amount, receivedBy: receiver.id });
+    return load(db, business, user, shift.id);
+  });
+}
+
+// body: { reason } — a drop typed wrongly, cancelled by a manager while its shift is open.
+async function cancelDrop(business, user, shiftId, dropId, body) {
+  c.requireFuel(business);
+  await access.require(business, 'fuel.approve');
+  const reason = v.requiredString(typeof body.reason === 'string' ? body.reason : '', 'Why the drop is cancelled', 300);
+  return repo.transaction(async (db) => {
+    await c.lockBusiness(db, business);
+    const shift = await shiftRow(db, business, shiftId, { lock: true });
+    const drop = await repo.one(db, 'SELECT * FROM fuel_cash_drops WHERE business_id=$1 AND shift_id=$2 AND id=$3 FOR UPDATE', [business.id, shift.id, id(dropId, 'Cash drop')]);
+    if (!drop) fail('Cash drop not found', 404);
+    if (drop.cancelled_at) fail('That cash drop is cancelled already', 409);
+    if (shift.status !== 'open') fail(`Shift ${shift.shift_no} is closed: its cash drops are kept as they were closed`, 409);
+    await db.query('UPDATE fuel_cash_drops SET cancelled_at=now(),cancelled_by=$3,cancel_reason=$4 WHERE business_id=$1 AND id=$2', [business.id, drop.id, user.id, reason]);
+    await repo.audit(db, business.id, user.id, 'fuel_drop.cancelled', drop.id, { shiftNo: shift.shift_no, amount: drop.amount, to: drop.received_by_name, reason });
+    return load(db, business, user, shift.id);
+  });
+}
+
 // --- Closing a shift ---------------------------------------------------------------------------
 
 // The close as typed: { closedAt?, readings: [{ nozzleId, closing, test? }],
-// cash, payments?: [{ methodId, amount, reference? }], slips?: [{ contactId,
-// vehicleId, productId?, litres, slipNo? }], note?, approve? }
+// cash, count?: [{ denomination, pieces }], payments?: [{ methodId, amount,
+// reference? }], slips?: [{ contactId, vehicleId, productId?, litres, slipNo? }],
+// goods?: [{ skuId, quantity, unit?, lotCode?, contactId? }], bigFills?:
+// [{ productId, litres, registration?, buyerName?, pan? | panDeclaration,
+// payments: [{ method: 'cash' or methodId, amount, reference? }] }], note?, approve? }
 function readClose(body) {
   const readings = v.requiredArray(body.readings, 'Closing readings').map((r, i) => {
     if (!r || typeof r !== 'object' || Array.isArray(r)) fail(`Reading ${i + 1} must be an object`);
@@ -353,9 +463,51 @@ function readClose(body) {
   if (payments.length > MAX_TAKINGS) fail(`At most ${MAX_TAKINGS} takings other than cash`);
   const slips = body.slips === undefined || body.slips === null ? [] : v.requiredArray(body.slips, 'Credit slips');
   if (slips.length > MAX_SLIPS) fail(`A shift takes at most ${MAX_SLIPS} credit slips`);
+  const goods = body.goods === undefined || body.goods === null ? [] : v.requiredArray(body.goods, 'Other sales');
+  if (goods.length > MAX_GOODS) fail(`A shift's other sales take at most ${MAX_GOODS} lines`);
+  const bigFills = body.bigFills === undefined || body.bigFills === null ? [] : v.requiredArray(body.bigFills, 'Fills of ₹2,00,000 or more');
+  if (bigFills.length > MAX_BIG) fail(`A shift takes at most ${MAX_BIG} fills of ₹2,00,000 or more`);
+  // The cash counted by notes and coins: the count is the cash.
+  const count = body.count === undefined || body.count === null ? null : v.requiredArray(body.count, 'Notes and coins counted').map((x, i) => {
+    if (!x || typeof x !== 'object' || Array.isArray(x)) fail(`Count ${i + 1} must be an object`);
+    return { denomination: c.whole(x.denomination, `Count ${i + 1}: note or coin (₹)`, 1, 2000), pieces: c.whole(x.pieces, `Count ${i + 1}: how many`, 0, 1000000) };
+  }).filter((x) => x.pieces > 0);
+  if (count && new Set(count.map((x) => x.denomination)).size !== count.length) fail('Each note or coin is counted once');
+  let cash = c.readMoney(c.given(body.cash) ? body.cash : '0', 'Cash counted');
+  if (count) {
+    const counted = money.rupees(money.countOf(count));
+    if (c.given(body.cash) && money.paise(cash) !== money.paise(counted)) fail(`The cash counted is ₹${cash}, but the notes and coins come to ₹${counted}`);
+    cash = counted;
+  }
   return {
     readings,
-    cash: c.readMoney(c.given(body.cash) ? body.cash : '0', 'Cash counted'),
+    cash,
+    count,
+    goods: goods.map((g, i) => {
+      if (!g || typeof g !== 'object' || Array.isArray(g)) fail(`Other sale ${i + 1} must be an object`);
+      const quantity = String(g.quantity ?? '').trim();
+      core.decimal(quantity, `Other sale ${i + 1}: quantity`, 3, 0.001, 100000);
+      return { skuId: id(g.skuId, `Other sale ${i + 1}: item`), quantity, unit: c.optionalText(g.unit, `Other sale ${i + 1}: unit`, 20),
+        lotCode: c.optionalText(g.lotCode, `Other sale ${i + 1}: batch`, 100), contactId: c.given(g.contactId) ? id(g.contactId, `Other sale ${i + 1}: customer`) : null };
+    }),
+    bigFills: bigFills.map((b, i) => {
+      const label = `Fill ${i + 1} of ₹2,00,000 or more`;
+      if (!b || typeof b !== 'object' || Array.isArray(b)) fail(`${label} must be an object`);
+      const pan = core.readPan(b.pan, `${label}: the buyer's PAN`);
+      const panDeclaration = v.requiredBoolean(b.panDeclaration, `${label}: the buyer's declaration`, false);
+      if (pan && panDeclaration) fail(`${label}: give the buyer's PAN or record their declaration, not both`);
+      if (!pan && !panDeclaration) fail(`${label}: give the buyer's PAN, or record their declaration (Form 97) that they have none`);
+      const paidBy = v.requiredArray(b.payments, `${label}: how it was paid`);
+      if (!paidBy.length || paidBy.length > 5) fail(`${label}: give how it was paid, in 1 to 5 parts`);
+      return { productId: id(b.productId, `${label}: fuel`), litres: c.readLitres(b.litres, `${label}: litres`, { min: 0, minExclusive: true }),
+        registration: c.given(b.registration) ? c.readPlate(b.registration, `${label}: vehicle`) : null, buyerName: c.optionalText(b.buyerName, `${label}: buyer`, 150),
+        pan, panDeclaration, payments: paidBy.map((p, j) => {
+          if (!p || typeof p !== 'object' || Array.isArray(p)) fail(`${label}: payment ${j + 1} must be an object`);
+          const cashPart = p.method === 'cash';
+          return { method: cashPart ? 'cash' : null, methodId: cashPart ? null : id(p.methodId, `${label}: payment ${j + 1}: how it was paid`),
+            amount: c.readMoney(p.amount, `${label}: payment ${j + 1}: amount`, { min: 0, minExclusive: true }), reference: c.optionalText(p.reference, `${label}: payment ${j + 1}: reference`, 100) };
+        }) };
+    }),
     payments: payments.map((p, i) => {
       if (!p || typeof p !== 'object' || Array.isArray(p)) fail(`Taking ${i + 1} must be an object`);
       return { methodId: id(p.methodId, `Taking ${i + 1}: how it was paid`), amount: c.readMoney(p.amount, `Taking ${i + 1}: amount`, { min: 0, minExclusive: true }),
@@ -425,30 +577,110 @@ async function prepareClose(db, business, user, shift, input, closedAtTyped) {
     if (!productId) fail(`${label}: choose the fuel ${vehicle.registration} took`);
     if (vehicle.product_id && String(vehicle.product_id) !== productId) fail(`${label}: ${vehicle.registration} takes ${(await nameOf(db, business, vehicle.product_id))} on credit`, 409);
     if (!fuels[productId]) fail(`${label}: no nozzle of this shift sells that fuel`, 409);
-    if (s.slipNo) {
+    // A customer with slip books: the slip's serial, in one of their books in use, used once.
+    const books = await repo.all(db, 'SELECT * FROM fuel_indent_books WHERE business_id=$1 AND contact_id=$2 AND active ORDER BY first_serial', [business.id, s.contactId]);
+    let book = null, serial = null;
+    if (books.length) {
+      if (!s.slipNo || !/^\d{1,9}$/.test(s.slipNo)) fail(`${label}: ${vehicle.customer_name}'s fills are on the slips of their books: give the slip's number`);
+      serial = Number(s.slipNo);
+      book = books.find((b) => serial >= b.first_serial && serial <= b.last_serial) || null;
+      if (!book) fail(`${label}: slip ${serial} is not in any of ${vehicle.customer_name}'s slip books in use`, 409);
+      const used = await repo.one(db, `SELECT s.shift_no FROM fuel_credit_slips k JOIN fuel_shift_closes x ON x.business_id=k.business_id AND x.id=k.close_id AND x.reopened_at IS NULL
+        JOIN fuel_shifts s ON s.business_id=x.business_id AND s.id=x.shift_id WHERE k.business_id=$1 AND k.book_id=$2 AND k.serial=$3 LIMIT 1`, [business.id, book.id, serial]);
+      const twice = input.slips.some((other, j) => j !== index && String(other.contactId) === String(s.contactId) && /^\d{1,9}$/.test(other.slipNo || '') && Number(other.slipNo) === serial);
+      if (used || twice) fail(`${label}: slip ${serial} of book ${book.book_no} was used already${used ? `, on shift ${used.shift_no}` : ''}`, 409);
+    } else if (s.slipNo) {
       const dup = await repo.one(db, `SELECT s.shift_no FROM fuel_credit_slips k JOIN fuel_shift_closes x ON x.business_id=k.business_id AND x.id=k.close_id AND x.reopened_at IS NULL
         JOIN fuel_shifts s ON s.business_id=x.business_id AND s.id=x.shift_id WHERE k.business_id=$1 AND k.contact_id=$2 AND lower(k.slip_no)=lower($3) LIMIT 1`, [business.id, s.contactId, s.slipNo]);
       if (dup || input.slips.some((other, j) => j !== index && other.slipNo && String(other.contactId) === String(s.contactId) && other.slipNo.toLowerCase() === s.slipNo.toLowerCase())) {
         fail(`${label}: slip ${s.slipNo} of ${vehicle.customer_name} is entered already${dup ? ` (shift ${dup.shift_no})` : ''}`, 409);
       }
     }
-    slips.push({ ...s, productId, vehicle, overFill: vehicle.fill_limit !== null && money.milli(s.litres) > money.milli(vehicle.fill_limit) });
+    // A customer billed by the month: the fill is held on its slip for the month's invoice.
+    const terms = await repo.one(db, 'SELECT billing FROM fuel_fleet_terms WHERE business_id=$1 AND contact_id=$2', [business.id, s.contactId]);
+    slips.push({ ...s, slipNo: book ? String(serial) : s.slipNo, bookId: book?.id || null, bookNo: book?.book_no || null, serial, held: terms?.billing === 'month',
+      productId, vehicle, overFill: vehicle.fill_limit !== null && money.milli(s.litres) > money.milli(vehicle.fill_limit) });
   }
+  // Fills of ₹2,00,000 or more to walk-in buyers: a fuel of this shift, paid by cash or a method of the business.
+  const bigFills = [];
+  for (const [index, b] of input.bigFills.entries()) {
+    const label = `Fill ${index + 1} of ₹2,00,000 or more`;
+    if (!fuels[String(b.productId)]) fail(`${label}: no nozzle of this shift sells that fuel`, 409);
+    const paidBy = [];
+    for (const p of b.payments) {
+      if (p.method === 'cash') { paidBy.push({ ...p, methodName: null }); continue; }
+      const method = await paymentMethods.settle(db, business.id, { methodId: p.methodId, method: null }, `${label}: how it was paid`, c.TAKING_KINDS);
+      paidBy.push({ ...p, method: method.method, methodName: method.methodName });
+    }
+    bigFills.push({ ...b, productId: String(b.productId), payments: paidBy, cashPaise: paidBy.filter((p) => p.method === 'cash').reduce((sum, p) => sum + money.paise(p.amount), 0) });
+  }
+  // The other sales: goods and services of the business that are not fuel, priced as a sale prices them, one GST invoice per buyer.
+  const goodsBills = [];
+  if (input.goods.length) {
+    const fuelItem = await repo.one(db, `SELECT s.label FROM fuel_products f JOIN catalog_skus s ON s.business_id=f.business_id AND s.id=f.sku_id
+      WHERE f.business_id=$1 AND f.sku_id=ANY($2::bigint[]) LIMIT 1`, [business.id, input.goods.map((g) => g.skuId)]);
+    if (fuelItem) fail(`${fuelItem.label} is sold by the meters: it is not one of the shift's other sales`, 409);
+    const buyers = [...new Set(input.goods.map((g) => (g.contactId ? String(g.contactId) : '')))];
+    for (const buyer of buyers) {
+      const lines = input.goods.filter((g) => (g.contactId ? String(g.contactId) : '') === buyer)
+        .map((g) => ({ skuId: g.skuId, quantity: g.quantity, ...(g.unit ? { unit: g.unit } : {}), ...(g.lotCode ? { lotCode: g.lotCode } : {}) }));
+      const documentBody = { kind: 'sale', locationId: shift.location_id, ...(buyer ? { contactId: Number(buyer) } : {}), lines };
+      const quote = await core.postDocument(db, business, user, documentBody, { kind: 'sale', requestKey: c.derivedKey(shift.id, `goods-quote-${buyer}`), hash: '', lines, paidNow: [], quote: true });
+      const customer = buyer ? await repo.one(db, 'SELECT name FROM business_contacts WHERE business_id=$1 AND id=$2', [business.id, buyer]) : null;
+      goodsBills.push({ contactId: buyer || null, customer: customer?.name || null, body: documentBody, lines: quote.lines, total: money.paise(quote.total), tax: money.paise(quote.tax) });
+    }
+  }
+  const goodsWalkIn = goodsBills.find((g) => !g.contactId)?.total || 0;
+  const goodsCredit = goodsBills.filter((g) => g.contactId).reduce((sum, g) => sum + g.total, 0);
+  // The cash dropped during the shift, and the count's notes and coins against the station's list.
+  const dropped = money.paise((await repo.one(db, 'SELECT COALESCE(sum(amount),0) AS amount FROM fuel_cash_drops WHERE business_id=$1 AND shift_id=$2 AND cancelled_at IS NULL',
+    [business.id, shift.id])).amount);
+  const settings = await c.settingsOf(db, business.id);
+  const strange = (input.count || []).find((x) => !settings.denominations.map(Number).includes(x.denomination));
+  if (strange) fail(`₹${strange.denomination} is not one of the notes and coins the cash is counted in (Settings › Pumps & nozzles)`);
   // The other takings: UPI, cards and fleet cards, each a payment method of the business.
   const takings = [];
   for (const [index, p] of input.payments.entries()) {
     const method = await paymentMethods.settle(db, business.id, { methodId: p.methodId, method: null }, `Taking ${index + 1}`, c.TAKING_KINDS);
     takings.push({ ...p, method: method.method, methodName: method.methodName });
   }
-  const figures = money.shiftFigures({ readings, prices, slips, cash: input.cash, payments: takings });
+  const bigCash = bigFills.reduce((sum, b) => sum + b.cashPaise, 0);
+  const figures = money.shiftFigures({ readings, prices, slips, bigFills, cash: input.cash, payments: takings, dropped, bigCash, goodsWalkIn });
   for (const p of figures.products) {
     if (p.walkInLitres < 0) {
       const f = fuels[p.productId];
-      fail(`The credit slips for ${f.name} come to ${money.litres(p.creditLitres)} ${f.unit === 'kg' ? 'kg' : 'litres'}, more than the ${money.litres(p.litres)} its nozzles gave out on this shift`, 409);
+      fail(`The credit slips${p.bigLitres ? ' and the fills of ₹2,00,000 or more' : ''} for ${f.name} come to ${money.litres(p.creditLitres + p.bigLitres)} ${f.unit === 'kg' ? 'kg' : 'litres'}, more than the ${money.litres(p.litres)} its nozzles gave out on this shift`, 409);
     }
   }
-  if (figures.other > figures.walkIn) {
-    fail(`The UPI, card and fleet-card takings come to ₹${money.rupees(figures.other)}, more than the ₹${money.rupees(figures.walkIn)} of walk-in sales: check them against the credit slips`, 409);
+  const takingsTotal = figures.other + figures.goodsOther;
+  if (takingsTotal > figures.walkIn + goodsWalkIn) {
+    fail(`The UPI, card and fleet-card takings come to ₹${money.rupees(takingsTotal)}, more than the ₹${money.rupees(figures.walkIn)} of walk-in sales${goodsWalkIn ? ` and the ₹${money.rupees(goodsWalkIn)} of other sales` : ''}: check them against the credit slips`, 409);
+  }
+  // Each fill of ₹2,00,000 or more: its own bill, paid in full, less than ₹2,00,000 of it in cash, nor from the buyer's PAN today.
+  for (const [index, b] of figures.bigFills.entries()) {
+    const label = `Fill ${index + 1} of ₹2,00,000 or more`;
+    if (b.amount < CASH_LIMIT_PAISE) fail(`${label} comes to ₹${money.rupees(b.amount)}: a fill under ₹2,00,000 goes on the walk-in fuel bill`, 409);
+    const paid = b.payments.reduce((sum, p) => sum + money.paise(p.amount), 0);
+    if (paid !== b.amount) fail(`${label} comes to ₹${money.rupees(b.amount)} (${money.litres(b.thousandths)} litres at ₹${money.rupees(b.price)}): it is paid ₹${money.rupees(paid)}`);
+    if (b.cashPaise >= CASH_LIMIT_PAISE) {
+      fail(`Cash of ₹2,00,000 or more cannot be taken for one bill (Income-tax Act 2025, section 186): ${label.toLowerCase()} would take ₹${money.rupees(b.cashPaise)} in cash. Take the rest by UPI, card, bank transfer or cheque.`, 409);
+    }
+    if (b.pan && b.cashPaise > 0) {
+      const today = await repo.one(db, `SELECT
+          COALESCE((SELECT sum(p.amount) FROM business_payments p JOIN business_documents d ON d.business_id=p.business_id AND d.id=p.document_id
+            WHERE p.business_id=$1 AND p.method='cash' AND d.kind='sale' AND d.buyer_pan=$2 AND (p.created_at AT TIME ZONE $3)::date=(now() AT TIME ZONE $3)::date),0)
+          - COALESCE((SELECT sum(f.amount) FROM business_refunds f JOIN business_documents d ON d.business_id=f.business_id AND d.id=f.document_id
+            WHERE f.business_id=$1 AND f.method='cash' AND d.kind='sale' AND d.buyer_pan=$2 AND (f.created_at AT TIME ZONE $3)::date=(now() AT TIME ZONE $3)::date),0) AS cash`,
+      [business.id, b.pan, zone]);
+      const earlier = figures.bigFills.slice(0, index).filter((x) => x.pan === b.pan).reduce((sum, x) => sum + x.cashPaise, 0);
+      const from = money.paise(today.cash) + earlier + b.cashPaise;
+      if (from >= CASH_LIMIT_PAISE) {
+        fail(`Cash of ₹2,00,000 or more cannot be taken from one person in a day (Income-tax Act 2025, section 186): today's cash from PAN ${b.pan.slice(0, 2)}••••${b.pan.slice(-4)} would reach ₹${money.rupees(from)}. Take the rest by UPI, card, bank transfer or cheque.`, 409);
+      }
+    }
+  }
+  if (figures.available < 0) {
+    fail(`The cash counted and dropped comes to ₹${money.rupees(figures.cash + figures.dropped)}, less than the ₹${money.rupees(bigCash)} the fills of ₹2,00,000 or more were paid in cash`, 409);
   }
   // Limits: a fill over its vehicle's fill limit; credit taking a customer over their credit limit.
   const limits = [];
@@ -464,23 +696,34 @@ async function prepareClose(db, business, user, shift, input, closedAtTyped) {
   const byCustomer = new Map();
   for (const s of figures.slips) byCustomer.set(String(s.contactId), (byCustomer.get(String(s.contactId)) || 0) + s.amount);
   for (const [contactId, amount] of byCustomer) {
-    const owed = await repo.one(db, `SELECT c.name,c.credit_limit,${repo.contactBalanceSql('c')} AS balance FROM business_contacts c WHERE c.business_id=$1 AND c.id=$2`, [business.id, contactId]);
+    // What they owe on their bills, and their fills held for the month's invoice.
+    const owed = await repo.one(db, `SELECT c.name,c.credit_limit,${repo.contactBalanceSql('c')} + ${HELD_SQL('c')} AS balance FROM business_contacts c WHERE c.business_id=$1 AND c.id=$2`,
+      [business.id, contactId]);
     if (owed.credit_limit !== null && money.paise(owed.balance) + amount > money.paise(owed.credit_limit)) {
       limits.push({ kind: 'credit', customer: owed.name, owed: owed.balance, after: money.rupees(money.paise(owed.balance) + amount), limit: owed.credit_limit, contactId });
     }
   }
   const overLimit = (s) => s.overFill || limits.some((l) => l.kind === 'credit' && String(l.contactId) === String(s.contactId));
-  // What the core holds of each fuel at the outlet: the meters cannot sell more than came in.
+  // What the core holds of each fuel at the outlet, less the fills held for a month's invoice: the meters cannot sell more than came in.
   const stock = [];
   for (const p of figures.products) {
     if (p.litres <= 0) continue;
     const f = fuels[p.productId];
-    const lot = await repo.one(db, `SELECT COALESCE(sum(quantity),0) AS quantity FROM business_stock_lots WHERE business_id=$1 AND location_id=$2 AND sku_id=$3 AND lot_code=''`,
-      [business.id, shift.location_id, f.skuId]);
+    const lot = await repo.one(db, `SELECT COALESCE((SELECT sum(quantity) FROM business_stock_lots WHERE business_id=$1 AND location_id=$2 AND sku_id=$3 AND lot_code=''),0)
+        - (SELECT COALESCE(sum(k.litres),0) FROM fuel_credit_slips k JOIN fuel_shift_closes x ON x.business_id=k.business_id AND x.id=k.close_id AND x.reopened_at IS NULL
+           JOIN fuel_shifts s ON s.business_id=x.business_id AND s.id=x.shift_id JOIN fuel_products fp ON fp.business_id=k.business_id AND fp.id=k.product_id
+           WHERE k.business_id=$1 AND k.held AND s.location_id=$2 AND fp.sku_id=$3
+             AND NOT EXISTS (SELECT 1 FROM fuel_month_invoice_fills b WHERE b.business_id=k.business_id AND b.slip_id=k.id)) AS quantity`,
+    [business.id, shift.location_id, f.skuId]);
     if (money.milli(lot.quantity) < p.litres) stock.push({ name: f.name, unit: f.unit, family: f.family, sold: money.litres(p.litres), stock: lot.quantity });
   }
-  return { readings, prices, fuels, slips: figures.slips.map((s) => ({ ...s, overLimit: overLimit(s) })), takings, figures, limits, stock, closedAt, typedAt: closedAtTyped };
+  return { readings, prices, fuels, slips: figures.slips.map((s) => ({ ...s, overLimit: overLimit(s) })), takings, figures, limits, stock, closedAt, typedAt: closedAtTyped,
+    bigFills: figures.bigFills, goodsBills, goodsWalkIn, goodsCredit, dropped, count: input.count };
 }
+
+// What a fleet customer owes on fills held for a month's invoice and not yet billed.
+const HELD_SQL = (c) => `(SELECT COALESCE(sum(k.amount),0) FROM fuel_credit_slips k JOIN fuel_shift_closes x ON x.business_id=k.business_id AND x.id=k.close_id AND x.reopened_at IS NULL
+  WHERE k.business_id=${c}.business_id AND k.contact_id=${c}.id AND k.held AND NOT EXISTS (SELECT 1 FROM fuel_month_invoice_fills b WHERE b.business_id=k.business_id AND b.slip_id=k.id))`;
 
 // The figures as the screen shows them.
 function previewShape(shift, prepared, input) {
@@ -491,13 +734,21 @@ function previewShape(shift, prepared, input) {
     nozzles: f.nozzles.map((n) => ({ nozzleId: n.nozzleId, nozzleNo: n.nozzle.nozzle_no, productName: n.nozzle.product_name, unit: unitOf(n.productId), opening: n.opening, closing: n.closing,
       test: money.litres(n.test), gross: money.litres(n.gross), litres: money.litres(n.litres) })),
     products: f.products.map((p) => ({ productId: p.productId, name: prepared.fuels[p.productId].name, unit: unitOf(p.productId), price: money.rupees(p.price), litres: money.litres(p.litres),
-      creditLitres: money.litres(p.creditLitres), walkInLitres: money.litres(p.walkInLitres), creditAmount: money.rupees(p.creditAmount), walkInAmount: money.rupees(p.walkInAmount),
-      amount: money.rupees(p.amount) })),
+      creditLitres: money.litres(p.creditLitres), bigLitres: money.litres(p.bigLitres), walkInLitres: money.litres(p.walkInLitres), creditAmount: money.rupees(p.creditAmount),
+      bigAmount: money.rupees(p.bigAmount), walkInAmount: money.rupees(p.walkInAmount), amount: money.rupees(p.amount) })),
     slips: prepared.slips.map((s) => ({ contactId: s.contactId, customer: s.vehicle.customer_name, vehicleId: s.vehicleId, registration: s.vehicle.registration,
-      productId: s.productId, name: prepared.fuels[s.productId].name, litres: s.litres, price: money.rupees(s.price), amount: money.rupees(s.amount), slipNo: s.slipNo, overLimit: s.overLimit })),
-    takings: prepared.takings.map((p) => ({ methodId: p.methodId, method: p.method, methodName: p.methodName, amount: p.amount, reference: p.reference })),
-    expected: money.rupees(f.expected), credit: money.rupees(f.credit), walkIn: money.rupees(f.walkIn), other: money.rupees(f.other), cash: money.rupees(f.cash),
-    cashPaid: money.rupees(f.cashPaid), difference: money.rupees(f.difference), short: money.rupees(Math.max(0, -f.difference)), excess: money.rupees(Math.max(0, f.difference)),
+      productId: s.productId, name: prepared.fuels[s.productId].name, litres: s.litres, price: money.rupees(s.price), amount: money.rupees(s.amount), slipNo: s.slipNo, overLimit: s.overLimit,
+      held: s.held, bookNo: s.bookNo })),
+    bigFills: prepared.bigFills.map((b) => ({ productId: b.productId, name: prepared.fuels[b.productId].name, litres: b.litres, price: money.rupees(b.price), amount: money.rupees(b.amount),
+      cash: money.rupees(b.cashPaise), registration: b.registration })),
+    goods: prepared.goodsBills.map((g) => ({ contactId: g.contactId, customer: g.customer, total: money.rupees(g.total), tax: money.rupees(g.tax),
+      lines: g.lines.map((l) => ({ skuId: l.skuId, label: l.label, quantity: l.quantity, unit: l.unit, net: l.net, tax: l.tax, taxRate: l.taxRate })) })),
+    takings: prepared.takings.map((p, i) => ({ methodId: p.methodId, method: p.method, methodName: p.methodName, amount: p.amount, reference: p.reference,
+      onFuel: money.rupees(f.fuelParts[i]), onGoods: money.rupees(f.goodsParts[i]) })),
+    expected: money.rupees(f.expected), credit: money.rupees(f.credit), walkIn: money.rupees(f.walkIn), big: money.rupees(f.big), bigCash: money.rupees(f.bigCash),
+    goodsWalkIn: money.rupees(prepared.goodsWalkIn), goodsCredit: money.rupees(prepared.goodsCredit), goodsOther: money.rupees(f.goodsOther), cashGoods: money.rupees(f.cashGoods),
+    other: money.rupees(f.other), cash: money.rupees(f.cash), dropped: money.rupees(f.dropped), cashPaid: money.rupees(f.cashPaid),
+    difference: money.rupees(f.difference), short: money.rupees(f.short), excess: money.rupees(f.excess),
     limits: prepared.limits, approvalNeeded: prepared.limits.length > 0, stock: prepared.stock, note: input.note,
   };
 }
@@ -560,31 +811,68 @@ async function close(business, user, shiftId, body) {
     const seq = 1 + (await repo.one(db, 'SELECT count(*)::int AS n FROM fuel_shift_closes WHERE business_id=$1 AND shift_id=$2', [business.id, shift.id])).n;
     const walkInKey = c.derivedKey(requestKey, 'walk-in');
     const closeRow = await repo.one(db, `INSERT INTO fuel_shift_closes(business_id,shift_id,seq,closed_at,expected,credit,walk_in,cash,other,difference,note,walk_in_key,approved_by,
-        request_key,request_hash,closed_by) VALUES($1,$2,$3,COALESCE($4,now()),$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
+        request_key,request_hash,closed_by,dropped,big,big_cash,goods_walk_in,goods_other,goods_credit)
+      VALUES($1,$2,$3,COALESCE($4,now()),$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22) RETURNING *`,
     [business.id, shift.id, seq, prepared.typedAt, money.rupees(f.expected), money.rupees(f.credit), money.rupees(f.walkIn), money.rupees(f.cash), money.rupees(f.other),
-      money.rupees(f.difference), input.note, walkInKey, approvedBy, requestKey, hash, user.id]);
-    // The walk-in fuel bill: a line for each fuel, paid by the other takings and then the cash.
+      money.rupees(f.difference), input.note, walkInKey, approvedBy, requestKey, hash, user.id, money.rupees(f.dropped), money.rupees(f.big), money.rupees(f.bigCash),
+      money.rupees(prepared.goodsWalkIn), money.rupees(f.goodsOther), money.rupees(prepared.goodsCredit)]);
+    for (const x of prepared.count || []) {
+      await db.query('INSERT INTO fuel_close_counts(business_id,close_id,denomination,pieces) VALUES($1,$2,$3,$4)', [business.id, closeRow.id, x.denomination, x.pieces]);
+    }
+    // What is still short on a walk-in bill is paid from the attendant's account (due from them).
+    const fromAccount = (amount, part) => (amount > 0 ? [{ amount, methodName: ATTENDANT_ACCOUNT, reference: `${shift.shift_no} · ${shift.attendant_name}`.slice(0, 100),
+      key: c.derivedKey(requestKey, `account-${part}`) }] : []);
+    // The walk-in fuel bill: a line for each fuel, paid by the takings, then the cash, then the attendant's account.
     const walkInProducts = f.products.filter((p) => p.walkInLitres > 0);
     let walkInDoc = null, walkInLines = [], paymentIds = [];
+    const onFuel = prepared.takings.map((p, i) => ({ ...p, part: f.fuelParts[i] })).filter((p) => p.part > 0);
     if (walkInProducts.length) {
       const lines = walkInProducts.map((p) => fuelLine(prepared.fuels[p.productId].skuId, p.walkInLitres, p.price, p.walkInAmount, `${prepared.fuels[p.productId].name} · ${VAT_WORDS}`));
-      const parts = prepared.takings.map((p) => ({ amount: Number(p.amount), method: p.method, methodId: p.methodId, reference: p.reference, tendered: null }));
+      const parts = onFuel.map((p) => ({ amount: Number(money.rupees(p.part)), method: p.method, methodId: p.methodId, reference: p.reference, tendered: null }));
       if (f.cashPaid > 0) parts.push({ amount: Number(money.rupees(f.cashPaid)), method: 'cash', methodId: null, reference: null, tendered: null });
       const documentBody = { kind: 'sale', locationId: shift.location_id, lines: lines.map((l) => l.input), notes: `Walk-in fuel sales of shift ${shift.shift_no} (${shift.attendant_name})` };
       walkInDoc = await core.postDocument(db, business, user, documentBody, { kind: 'sale', requestKey: walkInKey, hash: c.hashOf(documentBody), lines: documentBody.lines,
-        paidNow: parts, fixed: lines.map((l) => l.fixed), fuel: true });
+        paidNow: parts, fixed: lines.map((l) => l.fixed), fuel: true, tenders: fromAccount(f.shortFuel, 'fuel') });
       if (money.paise(walkInDoc.total) !== f.walkIn) fail(`The walk-in fuel bill would come to ${walkInDoc.total}, not the ${money.rupees(f.walkIn)} the meters sold. Try again.`, 409);
       walkInLines = await repo.all(db, 'SELECT id FROM business_document_lines WHERE business_id=$1 AND document_id=$2 ORDER BY id', [business.id, walkInDoc.id]);
       paymentIds = (await repo.all(db, 'SELECT id,method FROM business_payments WHERE business_id=$1 AND document_id=$2 ORDER BY id', [business.id, walkInDoc.id]))
-        .filter((p) => p.method !== 'cash').map((p) => p.id);
-      if (walkInLines.length !== walkInProducts.length || paymentIds.length !== prepared.takings.length) fail('The walk-in fuel bill does not match the shift. Try again.', 409);
+        .filter((p) => p.method !== 'cash' && p.method !== 'credit_note').map((p) => p.id);
+      if (walkInLines.length !== walkInProducts.length || paymentIds.length !== onFuel.length) fail('The walk-in fuel bill does not match the shift. Try again.', 409);
       await db.query('UPDATE fuel_shift_closes SET document_id=$3 WHERE business_id=$1 AND id=$2', [business.id, closeRow.id, walkInDoc.id]);
     }
-    // A fuel bill to each fleet customer: a line for each credit slip, with its vehicle.
-    const credit = [];
-    const customers = [...new Set(prepared.slips.map((s) => String(s.contactId)))];
+    // The other sales: a GST invoice to walk-in buyers (paid what is left of the takings, then of the cash, then the attendant's account), and one to each customer on credit.
+    const goodsDocs = [];
+    for (const g of prepared.goodsBills) {
+      const walkIn = !g.contactId;
+      const parts = walkIn ? prepared.takings.map((p, i) => ({ amount: Number(money.rupees(f.goodsParts[i])), method: p.method, methodId: p.methodId, reference: p.reference, tendered: null }))
+        .filter((p) => p.amount > 0) : [];
+      if (walkIn && f.cashGoods > 0) parts.push({ amount: Number(money.rupees(f.cashGoods)), method: 'cash', methodId: null, reference: null, tendered: null });
+      const documentBody = { ...g.body, notes: `Other sales of shift ${shift.shift_no} (${shift.attendant_name})` };
+      const doc = await core.postDocument(db, business, user, documentBody, { kind: 'sale', requestKey: c.derivedKey(requestKey, `goods-${g.contactId || 'walk-in'}`), hash: c.hashOf(documentBody),
+        lines: documentBody.lines, paidNow: parts, tenders: walkIn ? fromAccount(f.shortGoods, 'goods') : [] });
+      if (money.paise(doc.total) !== g.total) fail(`The other sales' bill would come to ${doc.total}, not ${money.rupees(g.total)}. Try again.`, 409);
+      goodsDocs.push({ doc, walkIn });
+    }
+    // Each fill of ₹2,00,000 or more: a fuel bill of its own to its buyer, with their PAN or declaration, paid as they paid.
+    const bigDocs = [];
+    for (const [index, b] of prepared.bigFills.entries()) {
+      const fuel = prepared.fuels[b.productId];
+      const line = fuelLine(fuel.skuId, b.thousandths, b.price, b.amount, `${fuel.name}${b.registration ? ` · ${b.registration}` : ''} · ${VAT_WORDS}`);
+      const documentBody = { kind: 'sale', locationId: shift.location_id, lines: [line.input], buyer: { ...(b.pan ? { pan: b.pan } : { panDeclaration: true }) },
+        notes: `Fill of shift ${shift.shift_no}${b.buyerName ? ` to ${b.buyerName}` : ''}${b.registration ? `, vehicle ${b.registration}` : ''}`.slice(0, 500) };
+      const doc = await core.postDocument(db, business, user, documentBody, { kind: 'sale', requestKey: c.derivedKey(requestKey, `big-${index + 1}`), hash: c.hashOf(documentBody),
+        lines: documentBody.lines, paidNow: b.payments.map((p) => ({ amount: Number(p.amount), method: p.method, methodId: p.methodId, reference: p.reference, tendered: null })),
+        fixed: [line.fixed], fuel: true });
+      if (money.paise(doc.total) !== b.amount) fail(`The fill's bill would come to ${doc.total}, not ${money.rupees(b.amount)}. Try again.`, 409);
+      const docLine = await repo.one(db, 'SELECT id FROM business_document_lines WHERE business_id=$1 AND document_id=$2', [business.id, doc.id]);
+      bigDocs.push({ fill: b, doc, lineId: docLine.id });
+    }
+    // A fuel bill to each fleet customer billed per shift: a line for each credit slip, with its vehicle.
+    // A customer billed by the month gets none: the fill is held for the month's invoice.
+    const credit = prepared.slips.filter((s) => s.held).map((slip) => ({ slip, documentId: null, lineId: null }));
+    const customers = [...new Set(prepared.slips.filter((s) => !s.held).map((s) => String(s.contactId)))];
     for (const contactId of customers) {
-      const mine = prepared.slips.filter((s) => String(s.contactId) === contactId);
+      const mine = prepared.slips.filter((s) => !s.held && String(s.contactId) === contactId);
       const lines = mine.map((s) => fuelLine(prepared.fuels[s.productId].skuId, s.thousandths, s.price, s.amount,
         `${prepared.fuels[s.productId].name} · ${s.vehicle.registration}${s.slipNo ? ` · slip ${s.slipNo}` : ''} · ${VAT_WORDS}`));
       const documentBody = { kind: 'sale', locationId: shift.location_id, contactId: Number(contactId), lines: lines.map((l) => l.input), notes: `Fuel on credit, shift ${shift.shift_no}` };
@@ -603,18 +891,34 @@ async function close(business, user, shiftId, body) {
     }
     for (const p of f.products) {
       const lineIndex = walkInProducts.indexOf(p);
-      await db.query(`INSERT INTO fuel_close_products(business_id,close_id,shift_id,product_id,price,litres,credit_litres,walk_in_litres,credit_amount,walk_in_amount,amount,line_id)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`, [business.id, closeRow.id, shift.id, p.productId, money.rupees(p.price), money.litres(p.litres), money.litres(p.creditLitres),
-        money.litres(p.walkInLitres), money.rupees(p.creditAmount), money.rupees(p.walkInAmount), money.rupees(p.amount), lineIndex >= 0 ? walkInLines[lineIndex].id : null]);
+      await db.query(`INSERT INTO fuel_close_products(business_id,close_id,shift_id,product_id,price,litres,credit_litres,walk_in_litres,credit_amount,walk_in_amount,amount,line_id,
+          big_litres,big_amount) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`, [business.id, closeRow.id, shift.id, p.productId, money.rupees(p.price), money.litres(p.litres),
+        money.litres(p.creditLitres), money.litres(p.walkInLitres), money.rupees(p.creditAmount), money.rupees(p.walkInAmount), money.rupees(p.amount),
+        lineIndex >= 0 ? walkInLines[lineIndex].id : null, money.litres(p.bigLitres), money.rupees(p.bigAmount)]);
     }
     for (const [index, { slip, documentId, lineId }] of credit.entries()) {
-      await db.query(`INSERT INTO fuel_credit_slips(business_id,close_id,shift_id,seq,contact_id,vehicle_id,registration,product_id,litres,price,amount,slip_no,over_limit,document_id,line_id)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`, [business.id, closeRow.id, shift.id, index + 1, slip.contactId, slip.vehicleId, slip.vehicle.registration, slip.productId,
-        money.litres(slip.thousandths), money.rupees(slip.price), money.rupees(slip.amount), slip.slipNo, slip.overLimit, documentId, lineId]);
+      await db.query(`INSERT INTO fuel_credit_slips(business_id,close_id,shift_id,seq,contact_id,vehicle_id,registration,product_id,litres,price,amount,slip_no,over_limit,document_id,line_id,
+          held,book_id,serial) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`, [business.id, closeRow.id, shift.id, index + 1, slip.contactId, slip.vehicleId,
+        slip.vehicle.registration, slip.productId, money.litres(slip.thousandths), money.rupees(slip.price), money.rupees(slip.amount), slip.slipNo, slip.overLimit, documentId, lineId,
+        slip.held, slip.bookId, slip.serial]);
     }
-    for (const [index, p] of prepared.takings.entries()) {
+    for (const [index, p] of onFuel.entries()) {
       await db.query('INSERT INTO fuel_close_payments(business_id,close_id,seq,method,method_name,amount,reference,payment_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
-        [business.id, closeRow.id, index + 1, p.method, p.methodName, p.amount, p.reference, paymentIds[index]]);
+        [business.id, closeRow.id, index + 1, p.method, p.methodName, money.rupees(p.part), p.reference, paymentIds[index]]);
+    }
+    for (const { doc, walkIn } of goodsDocs) {
+      await db.query('INSERT INTO fuel_close_goods_bills(business_id,close_id,document_id,walk_in) VALUES($1,$2,$3,$4)', [business.id, closeRow.id, doc.id, walkIn]);
+    }
+    for (const [index, { fill, doc, lineId }] of bigDocs.entries()) {
+      await db.query(`INSERT INTO fuel_close_big_fills(business_id,close_id,shift_id,seq,product_id,litres,price,amount,registration,document_id,line_id)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, [business.id, closeRow.id, shift.id, index + 1, fill.productId, money.litres(fill.thousandths), money.rupees(fill.price),
+        money.rupees(fill.amount), fill.registration, doc.id, lineId]);
+    }
+    // The attendant's short is due from them; an excess is held on their account.
+    if (f.difference !== 0) {
+      await db.query(`INSERT INTO fuel_attendant_entries(business_id,location_id,attendant_id,attendant_name,kind,amount,close_id,request_key,request_hash,created_by)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, [business.id, shift.location_id, shift.attendant_id, shift.attendant_name, f.difference < 0 ? 'short' : 'excess',
+        money.rupees(Math.abs(f.difference)), closeRow.id, c.derivedKey(requestKey, 'attendant'), hash, user.id]);
     }
     // Each nozzle now reads its closing reading: the next shift on it opens from there.
     for (const r of prepared.readings) {
@@ -622,10 +926,13 @@ async function close(business, user, shiftId, body) {
     }
     await db.query("UPDATE fuel_shifts SET status='closed',updated_by=$3,updated_at=now() WHERE business_id=$1 AND id=$2", [business.id, shift.id, user.id]);
     const words = { shiftNo: shift.shift_no, attendant: shift.attendant_name, seq, expected: closeRow.expected, credit: closeRow.credit, walkIn: closeRow.walk_in, cash: closeRow.cash,
-      other: closeRow.other, difference: closeRow.difference, ...(walkInDoc ? { walkInBill: walkInDoc.document_no } : {}), ...(approvedBy ? { creditAllowedOverLimit: prepared.limits } : {}) };
+      other: closeRow.other, difference: closeRow.difference, ...(walkInDoc ? { walkInBill: walkInDoc.document_no } : {}), ...(approvedBy ? { creditAllowedOverLimit: prepared.limits } : {}),
+      ...(f.dropped ? { dropped: closeRow.dropped } : {}), ...(goodsDocs.length ? { otherSales: goodsDocs.map((g) => g.doc.document_no) } : {}),
+      ...(bigDocs.length ? { bigFills: bigDocs.map((g) => g.doc.document_no) } : {}), ...(credit.some((x) => x.slip.held) ? { heldForTheMonth: credit.filter((x) => x.slip.held).length } : {}),
+      ...(f.difference < 0 ? { dueFromAttendant: money.rupees(-f.difference) } : f.difference > 0 ? { heldForAttendant: money.rupees(f.difference) } : {}) };
     await repo.audit(db, business.id, user.id, 'fuel_shift.closed', shift.id, words);
     await repo.event(db, business.id, user.id, 'fuel_shift.closed', 'fuel_shift', shift.id, { ...words, locationId: shift.location_id, closeId: closeRow.id,
-      documentIds: [walkInDoc?.id, ...new Set(credit.map((x) => x.documentId))].filter(Boolean),
+      documentIds: [walkInDoc?.id, ...new Set(credit.map((x) => x.documentId)), ...goodsDocs.map((g) => g.doc.id), ...bigDocs.map((g) => g.doc.id)].filter(Boolean),
       products: f.products.map((p) => ({ productId: p.productId, litres: money.litres(p.litres), price: money.rupees(p.price) })) });
     return load(db, business, user, shift.id);
   });
@@ -667,25 +974,54 @@ async function reopen(business, user, shiftId, body) {
         JOIN fuel_shifts s ON s.business_id=n2.business_id AND s.id=n2.shift_id WHERE n1.business_id=$1 AND n1.shift_id=$2 AND s.created_at>$3 ORDER BY s.created_at LIMIT 1`,
     [business.id, shift.id, current.created_at]);
     if (next) fail(`Shift ${next.shift_no} has opened on nozzle ${next.nozzle_no} since: a shift is reopened only before the next one starts`, 409);
+    // Fleet fills already on a month's invoice stay billed: the shift is no longer reopened.
+    const invoiced = await repo.one(db, `SELECT d.document_no FROM fuel_credit_slips k JOIN fuel_month_invoice_fills b ON b.business_id=k.business_id AND b.slip_id=k.id
+      JOIN fuel_month_invoices i ON i.business_id=b.business_id AND i.id=b.invoice_id JOIN business_documents d ON d.business_id=i.business_id AND d.id=i.document_id
+      WHERE k.business_id=$1 AND k.close_id=$2 LIMIT 1`, [business.id, current.id]);
+    if (invoiced) fail(`This shift's fleet fills are billed on the month's invoice ${invoiced.document_no}: it is no longer reopened`, 409);
+    // The attendant's short or excess goes back off their account; an excess that went to income since stays there.
+    const account = await repo.all(db, "SELECT kind,amount FROM fuel_attendant_entries WHERE business_id=$1 AND close_id=$2 AND kind IN ('short','excess')", [business.id, current.id]);
+    const excess = account.filter((e) => e.kind === 'excess').reduce((sum, e) => sum + money.paise(e.amount), 0);
+    if (excess) {
+      const balance = await repo.one(db, 'SELECT held FROM fuel_attendant_balance($1,$2)', [business.id, shift.attendant_id]);
+      if (money.paise(balance.held) < excess) {
+        fail(`${shift.attendant_name}'s ₹${money.rupees(excess)} excess of this shift was taken to income since: the shift is no longer reopened`, 409);
+      }
+    }
     await db.query('UPDATE fuel_shift_closes SET reopened_at=now(),reopened_by=$3,reopen_reason=$4,reopen_key=$5,reopen_hash=$6 WHERE business_id=$1 AND id=$2',
       [business.id, current.id, user.id, reason, requestKey, hash]);
-    // Its bills credited in full (the litres back in stock); the walk-in bill's takings handed back the way they came.
-    const documentIds = [...new Set([current.document_id, ...(await repo.all(db, 'SELECT document_id FROM fuel_credit_slips WHERE business_id=$1 AND close_id=$2',
-      [business.id, current.id])).map((r) => r.document_id)].filter(Boolean).map(String))];
+    for (const e of account) {
+      await db.query(`INSERT INTO fuel_attendant_entries(business_id,location_id,attendant_id,attendant_name,kind,amount,close_id,note,request_key,request_hash,created_by)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, [business.id, shift.location_id, shift.attendant_id, shift.attendant_name, `${e.kind}_reversed`, e.amount, current.id,
+        `Shift ${shift.shift_no} reopened: ${reason}`.slice(0, 300), c.derivedKey(requestKey, `account-${e.kind}`), hash, user.id]);
+    }
+    // Its bills credited in full (the litres and goods back in stock); the walk-in bills' takings, and a big fill's money, handed back the way they came.
+    const documentIds = [...new Set([current.document_id, ...(await repo.all(db, `SELECT document_id FROM fuel_credit_slips WHERE business_id=$1 AND close_id=$2
+      UNION ALL SELECT document_id FROM fuel_close_big_fills WHERE business_id=$1 AND close_id=$2 UNION ALL SELECT document_id FROM fuel_close_goods_bills WHERE business_id=$1 AND close_id=$2`,
+    [business.id, current.id])).map((r) => r.document_id)].filter(Boolean).map(String))];
     const credited = [];
     const words = `Shift ${shift.shift_no} reopened: ${reason}`.slice(0, 300);
     for (const documentId of documentIds) {
       const doc = await repo.one(db, 'SELECT * FROM business_documents WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, documentId]);
-      const lines = await repo.all(db, 'SELECT id,quantity FROM business_document_lines WHERE business_id=$1 AND document_id=$2 ORDER BY id', [business.id, doc.id]);
-      const input = { reason: words, requestKey: c.derivedKey(requestKey, `return-${doc.id}`), hash: c.hashOf({ reopen: requestKey, document: doc.id }),
-        lines: lines.map((l) => ({ lineId: l.id, quantity: l.quantity, restock: true })) };
-      const returned = await returns.postReturn(db, business, user, doc, input);
-      credited.push({ documentNo: doc.document_no, returnNo: returned.return_no, total: returned.total });
-      if (String(doc.id) === String(current.document_id)) {
-        // Credited in full, every payment on it goes back (the shift's takings, and any short paid on it since).
+      // What is left of each line (other sales may have come back on their own since).
+      const lines = (await repo.all(db, `SELECT l.id,(l.quantity-COALESCE((SELECT sum(r.quantity) FROM business_return_lines r WHERE r.business_id=l.business_id AND r.line_id=l.id),0))::text AS left
+        FROM business_document_lines l WHERE l.business_id=$1 AND l.document_id=$2 ORDER BY l.id`, [business.id, doc.id])).filter((l) => money.milli(l.left) > 0);
+      if (lines.length) {
+        const input = { reason: words, requestKey: c.derivedKey(requestKey, `return-${doc.id}`), hash: c.hashOf({ reopen: requestKey, document: doc.id }),
+          lines: lines.map((l) => ({ lineId: l.id, quantity: l.left, restock: true })) };
+        const returned = await returns.postReturn(db, business, user, doc, input);
+        credited.push({ documentNo: doc.document_no, returnNo: returned.return_no, total: returned.total });
+      }
+      if (!doc.contact_id) {
+        // A walk-in bill credited in full: what was paid on it goes back (the takings, the cash, the attendant's account), less what was handed back already.
         const paid = await repo.all(db, 'SELECT * FROM business_payments WHERE business_id=$1 AND document_id=$2 ORDER BY id', [business.id, doc.id]);
+        const refunded = await repo.one(db, 'SELECT COALESCE(sum(amount),0) AS amount FROM business_refunds WHERE business_id=$1 AND document_id=$2', [business.id, doc.id]);
+        let left = paid.reduce((sum, p) => sum + money.paise(p.amount), 0) - money.paise(refunded.amount);
         for (const p of paid) {
-          await returns.postRefund(db, business, user, doc, { amount: Number(p.amount), choice: await refundChoice(db, business, p), reason: words,
+          const amount = Math.min(money.paise(p.amount), left);
+          if (amount <= 0) break;
+          left -= amount;
+          await returns.postRefund(db, business, user, doc, { amount: Number(money.rupees(amount)), choice: await refundChoice(db, business, p), reason: words,
             requestKey: c.derivedKey(requestKey, `refund-${p.id}`) });
         }
       }
@@ -697,7 +1033,8 @@ async function reopen(business, user, shiftId, body) {
       if (t.reading !== t.opening) await db.query('UPDATE fuel_nozzles SET reading=$3,updated_at=now() WHERE business_id=$1 AND id=$2', [business.id, t.nozzle_id, t.opening]);
     }
     await db.query("UPDATE fuel_shifts SET status='open',updated_by=$3,updated_at=now() WHERE business_id=$1 AND id=$2", [business.id, shift.id, user.id]);
-    await repo.audit(db, business.id, user.id, 'fuel_shift.reopened', shift.id, { shiftNo: shift.shift_no, reason, credited });
+    await repo.audit(db, business.id, user.id, 'fuel_shift.reopened', shift.id, { shiftNo: shift.shift_no, reason, credited,
+      ...(account.length ? { attendantAccount: account.map((e) => ({ reversed: e.kind, amount: e.amount })) } : {}) });
     await repo.event(db, business.id, user.id, 'fuel_shift.reopened', 'fuel_shift', shift.id, { shiftNo: shift.shift_no, locationId: shift.location_id, closeId: current.id, reason,
       documentIds: documentIds.map(Number) });
     return load(db, business, user, shift.id);
@@ -710,4 +1047,5 @@ async function nameOf(db, business, productId) {
     [business.id, productId]))?.label || 'another fuel';
 }
 
-module.exports = { SHIFTS_SQL, list, attendants, day, detail, load, open, addNozzle, removeNozzle, updateNotes, readClose, preview, close, reopen };
+module.exports = { SHIFTS_SQL, HELD_SQL, ATTENDANT_ACCOUNT, list, attendants, day, detail, load, open, addNozzle, removeNozzle, updateNotes, addDrop, cancelDrop, readClose, preview, close,
+  reopen };

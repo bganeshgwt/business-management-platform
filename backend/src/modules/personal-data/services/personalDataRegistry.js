@@ -103,6 +103,10 @@ const TABLES = {
     passport_authority: null, passport_nation: null, passport_issued_on: null, passport_valid_until: null, birth_date: null, permit_no: null, permit_issued_on: null,
     permit_classes: '{}', visa_no: null, visa_valid_until: null } },
   rental_files: { label: 'Handover and return photos and signatures', keep: 'The signed handover and return, with the photos of what was handed over and came back, are the record of the hire and of any damage charged; they stay with the booking. No copy of an ID document is kept.' },
+  fuel_fleet_terms: { label: 'Fleet billing and interest terms', keep: 'Terms of credit hold no personal details beyond the erased record.' },
+  fuel_indent_books: { label: 'Fleet slip books', keep: 'The slip books issued are checked against the fills billed; they name the customer only through the erased record.' },
+  fuel_month_invoices: { label: 'Monthly fuel invoices', keep: 'Part of the tax invoices.' },
+  fuel_fleet_interest: { label: 'Interest on overdue fuel credit', keep: 'Part of the bills that charged it.' },
 };
 
 // Children of the rows above that the export also shows: the lines of each bill.

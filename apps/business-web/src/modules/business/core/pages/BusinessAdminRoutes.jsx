@@ -192,6 +192,9 @@ const FuelRegisterPage = lazy(() => import("../../fuel/pages/RegisterPage"));
 const FuelFleetPage = lazy(() => import("../../fuel/pages/FleetPage"));
 const FuelStatementPage = lazy(() => import("../../fuel/pages/FleetStatementPage"));
 const FuelPumpsPage = lazy(() => import("../../fuel/pages/PumpsPage"));
+const FuelAttendantsPage = lazy(() => import("../../fuel/pages/AttendantsPage"));
+const FuelRecordsPage = lazy(() => import("../../fuel/pages/RecordsPage"));
+const FuelOutletsPage = lazy(() => import("../../fuel/pages/OutletsPage"));
 // Hotels, lodges and guest houses.
 const LodgingDeskPage = lazy(() => import("../../lodging/pages/FrontDeskPage"));
 const LodgingRoomsPage = lazy(() => import("../../lodging/pages/RoomsPage"));
@@ -395,6 +398,9 @@ function screens(type) {
     "fuel-register": <FuelRegisterPage />,
     "fuel-fleet": <FuelFleetPage />,
     "fuel-pumps": <FuelPumpsPage />,
+    "fuel-attendants": <FuelAttendantsPage />,
+    "fuel-records": <FuelRecordsPage />,
+    "fuel-outlets": <FuelOutletsPage />,
     "lodging-desk": <LodgingDeskPage />,
     "lodging-rooms": <LodgingRoomsPage />,
     "lodging-reservations": <LodgingReservationsPage />,

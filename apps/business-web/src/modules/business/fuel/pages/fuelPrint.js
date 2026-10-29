@@ -32,7 +32,7 @@ export function printShift(biz, shift) {
   const products = close.products.map((p) => `<tr><td>${escapeHtml(p.product_name)}</td><td class="r">${money(biz, p.price)}</td><td class="r">${escapeHtml(qty(p.litres, p.unit))}</td>
     <td class="r">${escapeHtml(qty(p.credit_litres, p.unit))}</td><td class="r">${escapeHtml(qty(p.walk_in_litres, p.unit))}</td><td class="r">${money(biz, p.amount)}</td></tr>`).join("");
   const slips = close.slips.map((s) => `<tr><td>${escapeHtml(s.customer_name)}</td><td>${escapeHtml(s.registration)}</td><td>${escapeHtml(s.slip_no || "—")}</td>
-    <td>${escapeHtml(s.product_name)}</td><td class="r">${escapeHtml(qty(s.litres, s.unit))}</td><td class="r">${money(biz, s.amount)}</td><td>${escapeHtml(s.document_no)}</td></tr>`).join("");
+    <td>${escapeHtml(s.product_name)}</td><td class="r">${escapeHtml(qty(s.litres, s.unit))}</td><td class="r">${money(biz, s.amount)}</td><td>${escapeHtml(s.document_no || "Held for the month")}</td></tr>`).join("");
   const takings = close.takings.map((t) => `<tr><td>${escapeHtml(methodName(t))}${t.reference ? ` · ${escapeHtml(t.reference)}` : ""}</td><td class="r">${money(biz, t.amount)}</td></tr>`).join("");
   printDocument({
     title: `Shift ${shift.shift_no}`,

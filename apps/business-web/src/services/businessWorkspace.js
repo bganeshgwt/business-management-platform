@@ -17,7 +17,7 @@ export const WORKSPACES = {
   care: ['clinic-today', 'clinic-queue', 'visits', 'appointments', 'doctors'],
   patients: ['patients', 'customers'],
   laboratory: ['lab-orders', 'lab-tests', 'lab-qc'],
-  reports: ['reports', 'retail-reports', 'wholesale-reports', 'variant-reports', 'weight-reports', 'salon-reports', 'commissions', 'fitter-reports', 'cash-report', 'activity', 'referrals'],
+  reports: ['reports', 'retail-reports', 'wholesale-reports', 'variant-reports', 'weight-reports', 'salon-reports', 'commissions', 'fitter-reports', 'cash-report', 'fuel-outlets', 'activity', 'referrals'],
   settings: ['settings', 'tax-rates', 'payment-methods', 'number-series', 'locations', 'units', 'resources', 'health-settings', 'licences', 'privacy', 'agri-settings', 'garage-settings', 'member-plans', 'jewellery-settings', 'scheme-plans', 'fuel-pumps', 'lodging-rates'],
   // A seeds, fertilisers & pesticides shop's own area.
   farm: ['farmers', 'agri-subsidy', 'agri-registers', 'molecules', 'agri-seasons', 'agri-crops'],
@@ -39,9 +39,9 @@ export const WORKSPACES = {
   goldSchemes: ['gold-schemes'],
   // A rental business's bookings: the board, the availability week, the deposits held, the yard and fleet, the hirer register, use and earnings.
   rentalBookings: ['rental-bookings', 'rental-availability', 'rental-deposits', 'rental-yard', 'rental-register', 'rental-reports'],
-  // A fuel station's shifts, and its tanks with the morning dips, the tanker loads and the stock register.
-  fuelShifts: ['fuel-shifts'],
-  fuelTanks: ['fuel-dips', 'fuel-receipts', 'fuel-register'],
+  // A fuel station's shifts with its attendants' accounts, and its tanks with the morning dips, the tanker loads, the stock register and the records.
+  fuelShifts: ['fuel-shifts', 'fuel-attendants'],
+  fuelTanks: ['fuel-dips', 'fuel-receipts', 'fuel-register', 'fuel-records'],
   // A lodging business's front desk (with the rooms, the reservations calendar and every stay), and its foreign guests with the guest register.
   lodgingDesk: ['lodging-desk', 'lodging-rooms', 'lodging-reservations', 'lodging-stays'],
   lodgingGuests: ['lodging-form-iii', 'lodging-register'],

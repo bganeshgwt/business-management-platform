@@ -519,7 +519,17 @@ async function setPrices(business, user, body) {
 
 const settingsShape = (s) => ({ densityTolerance: s.density_tolerance, variationPercent: s.variation_percent, petrolLossPercent: s.petrol_loss_percent,
   petrolLossAbovePercent: s.petrol_loss_above_percent, dieselLossPercent: s.diesel_loss_percent, dieselLossAbovePercent: s.diesel_loss_above_percent,
-  above600Kl: s.above_600_kl, testLitres: s.test_litres, stampingWarnDays: Number(s.stamping_warn_days), updatedAt: s.updated_at });
+  above600Kl: s.above_600_kl, testLitres: s.test_litres, stampingWarnDays: Number(s.stamping_warn_days), denominations: (s.denominations || []).map(Number),
+  interestSkuId: s.interest_sku_id ? Number(s.interest_sku_id) : null, updatedAt: s.updated_at });
+
+// The notes and coins the cash is counted in (₹): whole rupees, largest first, each once.
+function readDenominations(value) {
+  const list = v.requiredArray(value, 'Notes and coins');
+  if (!list.length || list.length > 20) fail('Give 1 to 20 notes and coins');
+  const read = list.map((x, i) => c.whole(x, `Note or coin ${i + 1} (₹)`, 1, 2000));
+  if (new Set(read).size !== read.length) fail('Each note or coin is given once');
+  return read.sort((a, b) => b - a);
+}
 
 async function settings(business) {
   c.requireFuel(business);
@@ -528,12 +538,24 @@ async function settings(business) {
 }
 
 // body: { densityTolerance?, variationPercent?, petrolLossPercent?, petrolLossAbovePercent?, dieselLossPercent?, dieselLossAbovePercent?, above600Kl?,
-//   testLitres?, stampingWarnDays? } — what is left out stays.
+//   testLitres?, stampingWarnDays?, denominations? (₹ notes and coins the cash is counted in), interestSkuId? (a service item; null: none) }
+// — what is left out stays.
 async function saveSettings(business, user, body) {
   c.requireFuel(business);
   await access.require(business, 'settings.edit');
+  const denominations = body.denominations === undefined ? null : readDenominations(body.denominations);
   return repo.transaction(async (db) => {
     const before = await c.settingsOf(db, business.id);
+    let interestSkuId = before.interest_sku_id ? Number(before.interest_sku_id) : null;
+    if (body.interestSkuId !== undefined) {
+      interestSkuId = c.given(body.interestSkuId) ? id(body.interestSkuId, 'Interest item') : null;
+      if (interestSkuId) {
+        const sku = await repo.one(db, `SELECT s.label,p.kind FROM catalog_skus s JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id
+          WHERE s.business_id=$1 AND s.id=$2 AND s.active`, [business.id, interestSkuId]);
+        if (!sku) fail('Item not found', 404);
+        if (sku.kind !== 'service') fail(`${sku.label} is goods: interest is billed as a service item (its own GST slab)`);
+      }
+    }
     const percent = (name, label, max) => (body[name] === undefined ? before[{ variationPercent: 'variation_percent', petrolLossPercent: 'petrol_loss_percent',
       petrolLossAbovePercent: 'petrol_loss_above_percent', dieselLossPercent: 'diesel_loss_percent', dieselLossAbovePercent: 'diesel_loss_above_percent' }[name]]
       : c.readDecimal(body[name], label, 2, { min: 0, max }));
@@ -547,14 +569,17 @@ async function saveSettings(business, user, body) {
       above_600_kl: v.requiredBoolean(body.above600Kl, 'Annual average beyond 600 KL', before.above_600_kl),
       test_litres: body.testLitres === undefined ? before.test_litres : c.readDecimal(body.testLitres, 'Test measure (litres)', 3, { min: 0, max: 100, minExclusive: true }),
       stamping_warn_days: body.stampingWarnDays === undefined ? Number(before.stamping_warn_days) : c.whole(body.stampingWarnDays, 'Warn this many days before a stamping falls due', 1, 180),
+      denominations: denominations || before.denominations.map(Number),
+      interest_sku_id: interestSkuId,
     };
     await db.query(`INSERT INTO fuel_settings(business_id,density_tolerance,variation_percent,petrol_loss_percent,petrol_loss_above_percent,diesel_loss_percent,diesel_loss_above_percent,
-        above_600_kl,test_litres,stamping_warn_days,updated_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+        above_600_kl,test_litres,stamping_warn_days,denominations,interest_sku_id,updated_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
       ON CONFLICT (business_id) DO UPDATE SET density_tolerance=EXCLUDED.density_tolerance,variation_percent=EXCLUDED.variation_percent,petrol_loss_percent=EXCLUDED.petrol_loss_percent,
         petrol_loss_above_percent=EXCLUDED.petrol_loss_above_percent,diesel_loss_percent=EXCLUDED.diesel_loss_percent,diesel_loss_above_percent=EXCLUDED.diesel_loss_above_percent,
-        above_600_kl=EXCLUDED.above_600_kl,test_litres=EXCLUDED.test_litres,stamping_warn_days=EXCLUDED.stamping_warn_days,updated_by=EXCLUDED.updated_by,updated_at=now()`,
+        above_600_kl=EXCLUDED.above_600_kl,test_litres=EXCLUDED.test_litres,stamping_warn_days=EXCLUDED.stamping_warn_days,denominations=EXCLUDED.denominations,
+        interest_sku_id=EXCLUDED.interest_sku_id,updated_by=EXCLUDED.updated_by,updated_at=now()`,
     [business.id, next.density_tolerance, next.variation_percent, next.petrol_loss_percent, next.petrol_loss_above_percent, next.diesel_loss_percent, next.diesel_loss_above_percent,
-      next.above_600_kl, next.test_litres, next.stamping_warn_days, user.id]);
+      next.above_600_kl, next.test_litres, next.stamping_warn_days, next.denominations, next.interest_sku_id, user.id]);
     const changed = Object.keys(next).filter((k) => String(before[k]) !== String(next[k]));
     if (changed.length) await repo.audit(db, business.id, user.id, 'fuel_settings.updated', null, Object.fromEntries(changed.map((k) => [k, { from: before[k], to: next[k] }])));
     return settingsShape(await c.settingsOf(db, business.id));

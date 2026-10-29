@@ -7,6 +7,8 @@ const setup = require('../services/fuelSetup.service');
 const shifts = require('../services/fuelShifts.service');
 const tanks = require('../services/fuelTanks.service');
 const fleet = require('../services/fuelFleet.service');
+const attendants = require('../services/fuelAttendants.service');
+const records = require('../services/fuelRecords.service');
 
 // Fuel stations, added to the Business Admin router so they share its login,
 // membership, module and permission checks (context) and its database-error
@@ -19,7 +21,13 @@ const fleet = require('../services/fuelFleet.service');
 //                                                                        preview) posting the fuel bills, a manager's reopening
 //   /:businessId/fuel/dips|receipts…|register|density                    the morning dips, tanker receipts with the density check, the
 //                                                                        stock register and the density register
-//   /:businessId/fuel/vehicles|fleet…                                    fleet customers' vehicles, the month's fills, statements
+//   /:businessId/fuel/vehicles|fleet…|indent-books                       fleet customers' vehicles, the month's fills, statements, terms
+//                                                                        (billed per shift or by the month), the month's invoice,
+//                                                                        interest on overdue credit, slip books by serial
+//   /:businessId/fuel/attendant-accounts…                                shorts due from attendants, excess held; payments, deductions,
+//                                                                        excess taken to income
+//   /:businessId/fuel/samples|tanks/:id/chart|register/corrections       retention samples, dip charts, a register day posted to the stock
+//   /:businessId/fuel/inspections|sales-register|outlets                 the inspection log, the daily sales register, every outlet
 // Another type of business never has the module, so `context` refuses it (the
 // set-up behind the catalogue and settings permissions: the service, after
 // `context` checks those); the services repeat every check and answer 404 for
@@ -74,6 +82,18 @@ module.exports = function fuelRoutes(router, { context, send, b }) {
   router.post(b('/fuel/shifts/:id/close/preview'), context('fuel.create'), async (req, res) => send(res, await shifts.preview(req.business, req.user, req.params.id, req.body)));
   router.post(b('/fuel/shifts/:id/close'), context('fuel.create'), async (req, res) => send(res, await shifts.close(req.business, req.user, req.params.id, req.body)));
   router.post(b('/fuel/shifts/:id/reopen'), context('fuel.approve'), async (req, res) => send(res, await shifts.reopen(req.business, req.user, req.params.id, req.body)));
+  router.post(b('/fuel/shifts/:id/drops'), context('fuel.create'), async (req, res) => send(res, await shifts.addDrop(req.business, req.user, req.params.id, req.body), 201));
+  router.post(b('/fuel/shifts/:id/drops/:dropId/cancel'), context('fuel.approve'), async (req, res) =>
+    send(res, await shifts.cancelDrop(req.business, req.user, req.params.id, req.params.dropId, req.body)));
+
+  // The attendants' accounts: shorts due, excess held, what was recovered and what went to income.
+  router.get(b('/fuel/attendant-accounts'), context('fuel.view'), async (req, res) => send(res, await attendants.accounts(req.business, req.query)));
+  router.get(b('/fuel/attendant-accounts/:userId'), context('fuel.view'), async (req, res) => send(res, await attendants.account(req.business, req.params.userId, req.query)));
+  router.post(b('/fuel/attendant-accounts/:userId/pay'), context('fuel.edit'), async (req, res) => send(res, await attendants.pay(req.business, req.user, req.params.userId, req.body), 201));
+  router.post(b('/fuel/attendant-accounts/:userId/deduct'), context('fuel.approve'), async (req, res) =>
+    send(res, await attendants.deduct(req.business, req.user, req.params.userId, req.body), 201));
+  router.post(b('/fuel/attendant-accounts/:userId/to-income'), context('fuel.approve'), async (req, res) =>
+    send(res, await attendants.toIncome(req.business, req.user, req.params.userId, req.body), 201));
 
   // Tanks: the morning dips, tanker receipts, the stock register and the density register.
   router.get(b('/fuel/dips'), context('fuel.view'), async (req, res) => send(res, await tanks.dips(req.business, req.query)));
@@ -84,8 +104,20 @@ module.exports = function fuelRoutes(router, { context, send, b }) {
   router.get(b('/fuel/receipts/:id'), context('fuel.view'), async (req, res) => send(res, await tanks.receipt(req.business, req.params.id)));
   router.post(b('/fuel/receipts/:id/decant'), context('fuel.create'), async (req, res) => send(res, await tanks.decant(req.business, req.user, req.params.id, req.body)));
   router.post(b('/fuel/receipts/:id/cancel'), context('fuel.approve'), async (req, res) => send(res, await tanks.cancel(req.business, req.user, req.params.id, req.body)));
+  router.post(b('/fuel/receipts/:id/samples'), context('fuel.create'), async (req, res) => send(res, await tanks.addSamples(req.business, req.user, req.params.id, req.body), 201));
+  router.get(b('/fuel/samples'), context('fuel.view'), async (req, res) => send(res, await tanks.samples(req.business, req.query)));
+  router.post(b('/fuel/samples/:id/dispose'), context('fuel.create'), async (req, res) => send(res, await tanks.disposeSample(req.business, req.user, req.params.id, req.body)));
   router.get(b('/fuel/register'), context('fuel.view'), async (req, res) => send(res, await tanks.register(req.business, req.query)));
+  router.post(b('/fuel/register/corrections'), context('fuel.approve'), async (req, res) => send(res, await tanks.correctStock(req.business, req.user, req.body), 201));
   router.get(b('/fuel/density'), context('fuel.view'), async (req, res) => send(res, await tanks.density(req.business, req.query)));
+  router.get(b('/fuel/tanks/:id/chart'), context('fuel.view'), async (req, res) => send(res, await tanks.chart(req.business, req.params.id)));
+  router.put(b('/fuel/tanks/:id/chart'), context('settings.edit'), async (req, res) => send(res, await tanks.saveChart(req.business, req.user, req.params.id, req.body)));
+
+  // Records: the inspection log, the daily sales register; every outlet at a glance.
+  router.get(b('/fuel/inspections'), context('fuel.view'), async (req, res) => send(res, await records.inspections(req.business, req.query)));
+  router.post(b('/fuel/inspections'), context('fuel.edit'), async (req, res) => send(res, await records.recordInspection(req.business, req.user, req.body), 201));
+  router.get(b('/fuel/sales-register'), context('fuel.view'), async (req, res) => send(res, await records.salesRegister(req.business, req.query)));
+  router.get(b('/fuel/outlets'), context('fuel.view'), async (req, res) => send(res, await records.outlets(req.business)));
 
   // Fleet customers: their vehicles, the month's fills and statements (money: for those who see sales).
   router.get(b('/fuel/vehicles'), context('fuel.view'), async (req, res) => send(res, await fleet.vehicles(req.business, req.query)));
@@ -93,4 +125,12 @@ module.exports = function fuelRoutes(router, { context, send, b }) {
   router.patch(b('/fuel/vehicles/:id'), context('fuel.edit'), async (req, res) => send(res, await fleet.updateVehicle(req.business, req.user, req.params.id, req.body)));
   router.get(b('/fuel/fleet'), context('fuel.view'), async (req, res) => send(res, await fleet.fleet(req.business, req.query)));
   router.get(b('/fuel/fleet/:contactId/statement'), context('fuel.view'), async (req, res) => send(res, await fleet.statement(req.business, req.params.contactId, req.query)));
+  router.put(b('/fuel/fleet/:contactId/terms'), context('fuel.edit'), async (req, res) => send(res, await fleet.saveTerms(req.business, req.user, req.params.contactId, req.body)));
+  router.post(b('/fuel/fleet/:contactId/invoice'), context('fuel.edit'), async (req, res) => send(res, await fleet.invoiceMonth(req.business, req.user, req.params.contactId, req.body), 201));
+  router.get(b('/fuel/fleet/:contactId/interest'), context('fuel.view'), async (req, res) => send(res, await fleet.interest(req.business, req.params.contactId)));
+  router.post(b('/fuel/fleet/:contactId/interest'), context('fuel.approve'), async (req, res) => send(res, await fleet.chargeInterest(req.business, req.user, req.params.contactId, req.body), 201));
+  router.get(b('/fuel/indent-books'), context('fuel.view'), async (req, res) => send(res, await fleet.books(req.business, req.query)));
+  router.post(b('/fuel/indent-books'), context('fuel.edit'), async (req, res) => send(res, await fleet.issueBook(req.business, req.user, req.body), 201));
+  router.get(b('/fuel/indent-books/:id'), context('fuel.view'), async (req, res) => send(res, await fleet.book(req.business, req.params.id)));
+  router.patch(b('/fuel/indent-books/:id'), context('fuel.edit'), async (req, res) => send(res, await fleet.updateBook(req.business, req.user, req.params.id, req.body)));
 };

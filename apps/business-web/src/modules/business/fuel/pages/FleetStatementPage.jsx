@@ -11,6 +11,7 @@ import { BusinessHeader } from "../../core/pages/ui";
 import { businessToday, useOpenBusiness } from "../../core/pages/hooks";
 import { dayWords, monthWords, qty } from "./fuel";
 import { printStatement } from "./fuelPrint";
+import { FleetInterest, FleetTerms, SlipBooks } from "./FleetParts";
 import "../styles/fuel.css";
 
 // A fleet customer's statement for a month: each vehicle's fills on credit
@@ -27,13 +28,14 @@ export default function FleetStatementPage() {
   const month = /^\d{4}-\d{2}$/.test(params.get("month") || "") ? params.get("month") : today.slice(0, 7);
   const [statement, setStatement] = useState(null);
   const [error, setError] = useState("");
+  const [version, setVersion] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
     businessRead(biz.id, `fuel/fleet/${contactId}/statement`, { month }, controller.signal)
       .then((s) => { setStatement(s); setError(""); })
       .catch((err) => { if (!controller.signal.aborted) setError(getErrorMessage(err)); });
     return () => controller.abort();
-  }, [biz.id, contactId, month]);
+  }, [biz.id, contactId, month, version]);
 
   if (!statement || statement.month !== month) {
     return (
@@ -60,6 +62,9 @@ export default function FleetStatementPage() {
         <StatTile icon="wallet" tone={c.credit_limit !== null && Number(c.balance) > Number(c.credit_limit) ? "danger" : "neutral"} label="Owes now" value={biz.exact(c.balance)}
           note={c.credit_limit !== null ? `credit limit ${biz.exact(c.credit_limit)}${c.credit_days !== null ? ` · ${c.credit_days} days` : ""}` : "no credit limit"} />
       </div>
+      <FleetTerms biz={biz} statement={statement} onChanged={() => setVersion((n) => n + 1)} />
+      <FleetInterest biz={biz} contactId={c.id} version={version} />
+      <SlipBooks biz={biz} customer={c} />
       {statement.vehicles.length ? statement.vehicles.map((v) => (
         <SectionCard key={v.registration} flush icon="truck" title={v.registration} description={`${v.fills.length} ${v.fills.length === 1 ? "fill" : "fills"} · ${biz.exact(v.amount)}`}>
           <DataGrid variant="compact" id="fuel-statement-fills" caption={`Fills of ${v.registration}`} rows={v.fills} rowKey={(f) => f.id} currency={biz.symbol} rowNoun={["fill", "fills"]}
@@ -72,7 +77,7 @@ export default function FleetStatementPage() {
               { key: "price", header: "Price", type: "money", exact: true, value: (f) => Number(f.price) },
               { key: "amount", header: "Amount", type: "money", exact: true, value: (f) => Number(f.amount), total: "sum", mobile: "show" },
               { key: "shift", header: "Shift", value: (f) => f.shift_no, className: "mono", defaultHidden: true },
-              { key: "document_no", header: "Bill", value: (f) => f.document_no, className: "mono" },
+              { key: "document_no", header: "Bill", value: (f) => f.document_no || "Held for the month", className: "mono" },
             ]} />
         </SectionCard>
       )) : <p className="muted">No fills on credit in {monthWords(statement.month)}.</p>}

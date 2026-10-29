@@ -128,7 +128,8 @@ const seesMoney = (business) => access.can(business, 'sales.view');
 
 // The settings as a business has them (MDG 2024's figures until changed).
 const DEFAULTS = { density_tolerance: '3.0', variation_percent: '4.00', petrol_loss_percent: '0.75', petrol_loss_above_percent: '0.60', diesel_loss_percent: '0.25',
-  diesel_loss_above_percent: '0.20', above_600_kl: false, test_litres: '5.000', stamping_warn_days: 30 };
+  diesel_loss_above_percent: '0.20', above_600_kl: false, test_litres: '5.000', stamping_warn_days: 30, denominations: [500, 200, 100, 50, 20, 10, 5, 2, 1],
+  interest_sku_id: null };
 async function settingsOf(db, businessId) {
   const row = await repo.one(db, 'SELECT * FROM fuel_settings WHERE business_id=$1', [businessId]);
   return row ? { ...DEFAULTS, ...row } : { ...DEFAULTS, business_id: businessId, updated_at: null, updated_by: null };

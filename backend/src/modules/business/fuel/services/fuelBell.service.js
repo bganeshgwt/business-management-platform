@@ -18,6 +18,10 @@ const money = require('./fuelMoney');
 //   dips         a tank in use without today's dip, from 10 am (info)
 //   prices       a fuel sold at an outlet with no price set there (warning)
 //   credit       a fleet customer owing more than their credit limit (warning)
+//   unbilled     a monthly fleet customer's fills of a month gone by, not on
+//                its invoice yet (warning)
+//   samples      retention samples of loads older than the last two of their
+//                fuel, due for disposal (info)
 
 const OPEN_HOURS = 16;
 const DIP_HOUR = 10;
@@ -99,6 +103,26 @@ async function bell(business, base, limit) {
   for (const u of unpriced) {
     items.push({ id: `fuel:price:${u.location_name}:${u.label}`, severity: 'warning', category: 'Fuel', title: `${u.label} has no price at ${u.location_name}`,
       detail: 'A shift opens on its nozzles once its price is set', at: nowIso, link: `${base}/fuel-pumps` });
+  }
+  // Fills held for a month's invoice, the month over and the fills not billed.
+  const unbilled = await repo.all(repo.pool, `SELECT k.contact_id,ct.name,l.name AS location_name,to_char(date_trunc('month',x.closed_at AT TIME ZONE $2),'YYYY-MM') AS month,
+      count(*)::int AS fills FROM fuel_credit_slips k JOIN fuel_shift_closes x ON x.business_id=k.business_id AND x.id=k.close_id AND x.reopened_at IS NULL
+    JOIN fuel_shifts s ON s.business_id=x.business_id AND s.id=x.shift_id JOIN business_contacts ct ON ct.business_id=k.business_id AND ct.id=k.contact_id
+    JOIN business_locations l ON l.business_id=s.business_id AND l.id=s.location_id
+    WHERE k.business_id=$1 AND k.held AND NOT EXISTS (SELECT 1 FROM fuel_month_invoice_fills b WHERE b.business_id=k.business_id AND b.slip_id=k.id)
+      AND (x.closed_at AT TIME ZONE $2)::date < date_trunc('month', now() AT TIME ZONE $2)::date AND ($3::bigint IS NULL OR s.location_id=$3)
+    GROUP BY k.contact_id,ct.name,l.name,4 ORDER BY 4,ct.name LIMIT $4`, [business.id, zone, scope, limit]);
+  for (const u of unbilled) {
+    const month = new Date(`${u.month}-01T00:00:00Z`).toLocaleString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    items.push({ id: `fuel:unbilled:${u.contact_id}:${u.month}:${u.location_name}`, severity: 'warning', category: 'Fuel', title: `${u.name}'s fills of ${month} are not invoiced`,
+      detail: `${c.plural(u.fills, 'fill')} held for the month's invoice · ${u.location_name}`, at: nowIso, link: `${base}/fuel-fleet/${u.contact_id}?month=${u.month}` });
+  }
+  // Retention samples of loads older than the last two of their fuel: due for disposal.
+  const samples = await repo.one(repo.pool, `SELECT count(*)::int AS n FROM fuel_samples m JOIN fuel_receipts r ON r.business_id=m.business_id AND r.id=m.receipt_id
+    WHERE m.business_id=$1 AND m.disposed_at IS NULL AND ($2::bigint IS NULL OR r.location_id=$2) AND fuel_later_loads(m.business_id,m.receipt_id,m.product_id) >= 2`, [business.id, scope]);
+  if (samples.n) {
+    items.push({ id: `fuel:samples:${samples.n}`, severity: 'info', category: 'Fuel', title: `${c.plural(samples.n, 'retention sample')} ${samples.n === 1 ? 'is' : 'are'} due for disposal`,
+      detail: 'Two later loads of their fuel have come in', at: nowIso, link: `${base}/fuel-receipts` });
   }
   // Fleet customers over their credit limit (money: for those who see sales).
   if (access.can(business, 'sales.view')) {
