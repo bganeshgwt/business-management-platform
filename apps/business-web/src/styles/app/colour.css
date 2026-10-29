@@ -1,0 +1,113 @@
+/* The staff app's own part of @bmp/ui's colour.css: an area's accent
+   ([data-accent], picked from the page's path by services/pageAccent.js) on
+   the page header, tiles, cards and the side menu, the category bars and the
+   sign-in page's marks. Rules keep their order from that file. */
+
+[data-accent="teal"] { --area-ink: var(--colour-teal); --area-tint: var(--tint-teal); --area-bright: var(--bright-teal); }
+[data-accent="blue"] { --area-ink: var(--colour-blue); --area-tint: var(--tint-blue); --area-bright: var(--bright-blue); }
+[data-accent="amber"] { --area-ink: var(--colour-amber); --area-tint: var(--tint-amber); --area-bright: var(--bright-amber); }
+[data-accent="orange"] { --area-ink: var(--colour-orange); --area-tint: var(--tint-orange); --area-bright: var(--bright-orange); }
+[data-accent="cyan"] { --area-ink: var(--colour-cyan); --area-tint: var(--tint-cyan); --area-bright: var(--bright-cyan); }
+[data-accent="green"] { --area-ink: var(--colour-green); --area-tint: var(--tint-green); --area-bright: var(--bright-green); }
+[data-accent="violet"] { --area-ink: var(--colour-violet); --area-tint: var(--tint-violet); --area-bright: var(--bright-violet); }
+[data-accent="rose"] { --area-ink: var(--colour-rose); --area-tint: var(--tint-rose); --area-bright: var(--bright-rose); }
+[data-accent="indigo"] { --area-ink: var(--colour-indigo); --area-tint: var(--tint-indigo); --area-bright: var(--bright-indigo); }
+
+.tone-area { --tone: var(--area-ink); --tone-bg: var(--area-tint); }
+
+.app-shell .content-scroll {
+  --chart-hue: var(--area-ink);
+  background-image: none;
+}
+
+.app-shell .content .page-header {
+  padding: 14px 18px;
+  border: 1px solid var(--border);
+  border-left: 3px solid color-mix(in srgb, var(--area-ink) 65%, var(--border));
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--area-tint) 25%, var(--surface));
+  box-shadow: none;
+}
+
+.app-shell .page-header-icon {
+  color: var(--area-ink);
+  background: var(--area-tint);
+  box-shadow: none;
+}
+.page-header-eyebrow { color: var(--area-ink); }
+
+.stat-tile:not(.tone-neutral):not(.dash-sales) {
+  background: color-mix(in srgb, var(--tone-bg) 55%, var(--surface));
+  border-color: var(--border);
+  box-shadow: var(--shadow-xs);
+}
+.stat-tile:not(.tone-neutral):not(.dash-sales) .stat-tile-icon {
+  background: var(--tone-bg);
+  box-shadow: none;
+}
+.section-card > .section-card-head {
+  background: color-mix(in srgb, var(--tone-bg) 30%, var(--surface));
+}
+
+/* Coloured marks make the menu scannable; the page name and active marker
+   still carry the meaning when a user cannot distinguish the hues. */
+.sidebar .nav-title > span { display: flex; align-items: center; gap: 9px; }
+.sidebar .nav-title > span::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--area-bright);
+}
+.sidebar .nav-title.is-current { color: var(--area-bright); }
+.sidebar .nav-link { padding-block: 7px; }
+.sidebar .nav-link .nav-icon {
+  width: 28px;
+  height: 28px;
+  padding: 5px;
+  border-radius: 8px;
+  color: var(--area-bright);
+  background: color-mix(in srgb, var(--area-bright) 13%, transparent);
+}
+.sidebar .nav-link:hover .nav-icon { color: var(--area-bright); }
+.sidebar .nav-link.active {
+  color: #f5f8ff;
+  background: color-mix(in srgb, var(--area-bright) 18%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--area-bright) 35%, transparent);
+}
+.sidebar .nav-link.active .nav-icon { color: var(--area-bright); }
+.sidebar .nav-link.active::before { background: var(--area-bright); }
+.quick-editor-root [data-accent] > .nav-icon { color: var(--area-ink); }
+.quick-editor-choice.is-selected { background: var(--area-tint); }
+.quick-editor-selected .quick-editor-position { color: var(--area-ink); background: var(--area-tint); }
+
+/* Category bars use distinct, labelled colours; a time series keeps a single
+   hue so its dates are not mistaken for separate data series. */
+.bar-list li:nth-child(5n + 1) { --bar-colour: var(--colour-blue); }
+.bar-list li:nth-child(5n + 2) { --bar-colour: var(--colour-violet); }
+.bar-list li:nth-child(5n + 3) { --bar-colour: var(--colour-teal); }
+.bar-list li:nth-child(5n + 4) { --bar-colour: var(--colour-orange); }
+.bar-list li:nth-child(5n) { --bar-colour: var(--colour-rose); }
+.bar-list .bar-fill { background: var(--bar-colour); }
+@media (hover: hover) and (pointer: fine) {
+  .bar-list li:hover .bar-fill { background: color-mix(in srgb, var(--bar-colour) 85%, var(--text)); }
+}
+
+/* Sign-in and guest service shortcuts (@bmp/ui's colour.css) belong to the
+   same palette, without changing guest food labels or the meaning of an open
+   request. */
+.login-benefits li:nth-child(4n + 1) { --feature-colour: var(--bright-cyan); }
+.login-benefits li:nth-child(4n + 2) { --feature-colour: var(--bright-orange); }
+.login-benefits li:nth-child(4n + 3) { --feature-colour: var(--bright-green); }
+.login-benefits li:nth-child(4n) { --feature-colour: var(--bright-violet); }
+.login-benefits .login-benefit-icon { color: var(--feature-colour); background: color-mix(in srgb, var(--feature-colour) 14%, transparent); }
+
+@media (max-width: 640px) {
+  .app-shell .content .page-header { padding: 14px; }
+}
+
+@media print {
+  .app-shell .content .page-header { background: none; border: 0; padding: 0; box-shadow: none; }
+  .stat-tile:not(.tone-neutral):not(.dash-sales), .section-card > .section-card-head { background: none; box-shadow: none; }
+}

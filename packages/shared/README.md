@@ -12,6 +12,7 @@ Node test can import it too. Source only.
 | `@bmp/shared/dates` | Dates as the API wants them (`YYYY-MM-DD` in the local calendar, anchored to the open business day), the quick date ranges, month names, how long a table has sat (`elapsed`) |
 | `@bmp/shared/menu/comboChoices` | The rules of a combo's choices (what is missing, what it adds to the price) |
 | `@bmp/shared/menu/addonChoices` | The rules of a dish's add-on groups |
+| `@bmp/shared/pageLoad` | A page whose code fails to load: `isFailedPageLoad(error)` (the browsers' and Vite's words for it) and `afterFailedLoad(storage, address)`, which says "reload" the first time for an address (remembering it in the tab's `sessionStorage`) and "message" when it already reloaded there in the last five minutes, or the tab cannot remember. `PageLoadBoundary` (`@bmp/ui`) uses them |
 
 The server checks the same rules again; these are for the screens.
 
@@ -42,7 +43,8 @@ an empty string for anything empty or unreadable.
 ## Tests
 
 `npm test` (here, or from the root) loads every module in Node by its package
-name and checks a few of the formats (`tests/shared.test.js`).
+name and checks a few of the formats (`tests/shared.test.js`), and the rule
+for a page whose code fails to load (`tests/pageLoad.test.js`).
 
 ## What belongs here
 

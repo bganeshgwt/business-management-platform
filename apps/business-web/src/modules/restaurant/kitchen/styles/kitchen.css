@@ -535,7 +535,7 @@
 
 /* ---------------------------------------------------------------- columns */
 
-/* @bmp/ui's base.css is loaded after this file and gives .segmented its own display,
+/* styles/app/base.css is loaded after this file and gives .segmented its own display,
    so the board's own rules name .kds as well to win regardless of order. */
 .kds .kds-column-switch {
   display: none;

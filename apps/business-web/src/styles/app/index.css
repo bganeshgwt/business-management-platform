@@ -1,0 +1,11 @@
+/* The staff app's part of the look: the rules only its screens use, kept out
+   of @bmp/ui so the guests' site never loads them. main.jsx imports this
+   straight after @bmp/ui/styles.css (the part both apps share), before any
+   page's own stylesheet. Each sheet here holds the staff-only rules of the
+   @bmp/ui sheet of the same name, in their order there. A staff-only rule that
+   must still come before a shared one stays in @bmp/ui, saying why. */
+@import "./base.css";
+@import "./ui.css";
+@import "./motion.css";
+@import "./colour.css";
+@import "./components.css";

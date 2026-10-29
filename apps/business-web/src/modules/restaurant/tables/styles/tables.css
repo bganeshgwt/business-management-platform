@@ -1,6 +1,6 @@
 /* The floor plan (Tables) and Floors & areas.
    ------------------------------------------------------
-   The base card, legend and first six state colours live in @bmp/ui's base.css. This
+   The base card, legend and first six state colours live in styles/app/base.css. This
    file adds what the turn between parties and a table taken out of service
    need, and the page's own look on top of the design system. Every rule is
    scoped to an fp- class or to a state class on the floor plan's own

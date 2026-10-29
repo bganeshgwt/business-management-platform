@@ -1,5 +1,6 @@
 // The motion system's JavaScript half. The CSS half — tokens, keyframes and
-// every rule that animates on its own — is @bmp/ui's styles/motion.css.
+// every rule that animates on its own — is @bmp/ui's styles/motion.css and
+// this app's styles/app/motion.css.
 //
 // Three rules hold everywhere:
 //   * Nothing waits for an animation. Every animation here is decoration on

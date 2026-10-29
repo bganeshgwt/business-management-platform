@@ -120,7 +120,6 @@ Known gaps, not defects. The owner decides when each is built.
 | **Clinic & lab** | A prescription is typed by generic name against no drug list: a clinic has no drug master (a pharmacy's is its own), so the consultation offers the medicines the clinic's doctors have prescribed before, each as written most often, and nothing checks a medicine against the patient's allergies, their other medicines or its dose. | The owner's choice of a drug list for clinics (a drug master of the clinic's own, or a licensed drug database) and a doctor's review of the checks it should make; then code. |
 | **Clinic & lab** | The lab workspace's worklists are by test: a test has no department (haematology, biochemistry, microbiology) to gather them by. | Code only: a department on each test (*Tests & panels*), and a worklist by department. |
 | **Clinic & lab** | A test a doctor orders from the consultation reaches the lab unbilled, since a doctor's role does not bill: the front desk bills it on *Sales*, and the order still says *Not billed*, as a bill cannot be linked to an order afterwards. | Code only: billing an order's tests later, from the order or with the visit's bill. |
-| **Guests' site** | It loads the whole shared stylesheet, staff-only rules included. Trimming them out of `@bmp/ui` is a change of its own, checked screen by screen. | Code only. |
 
 ## 8. Needed in the code before go-live
 

@@ -3,7 +3,7 @@ import Icon from "@bmp/ui/Icon";
 import { dismissToast, subscribeToasts } from "../services/toast";
 
 // The toasts from services/toast.js. Mounted once, in main.jsx. Bottom-right
-// on a desktop, bottom-centre on a phone (@bmp/ui's styles/ui.css .toaster).
+// on a desktop, bottom-centre on a phone (@bmp/ui's styles/components.css .toaster).
 const ICONS = { success: "check", error: "alert", warning: "alert", info: "info" };
 
 function ToastItem({ item }) {

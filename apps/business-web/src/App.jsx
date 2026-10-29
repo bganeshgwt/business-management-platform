@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import PageLoadBoundary from "@bmp/ui/PageLoadBoundary";
 import useAuth from "./hooks/useAuth";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import AppLayout from "./layouts/AppLayout";
@@ -126,7 +127,13 @@ function Home() {
 }
 
 export default function App() {
+  const { pathname } = useLocation();
+
+  // A page whose code fails to load (a new version gone live while this tab
+  // was open) reloads once by itself; any other failure says so with a Reload
+  // button instead of a blank screen (@bmp/ui/PageLoadBoundary).
   return (
+    <PageLoadBoundary resetKey={pathname}>
     <Suspense fallback={<ScreenLoading />}>
     <Routes>
       <Route path="/login" element={<LoginPage />} />
@@ -382,5 +389,6 @@ export default function App() {
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
     </Suspense>
+    </PageLoadBoundary>
   );
 }

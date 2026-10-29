@@ -1,7 +1,7 @@
 /* Menu: categories, products (sizes & add-ons, combos, recipe, history,
    import, price revision), modifiers and happy hour
    --------------------------------------------------------------------------
-   Built on the shared design system (@bmp/ui's base.css, ui.css): page header, stat
+   Built on the shared design system (@bmp/ui and styles/app): page header, stat
    tiles, section cards, badges, tables. This file only adds what the menu
    screens need of their own, every colour a token, so dark mode follows with
    no rule of its own. Page styles load after the shared ones; where a rule

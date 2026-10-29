@@ -6883,7 +6883,11 @@ the link you were sent).
   says *Cannot reach the server — retrying* and recovers by itself, every live
   screen says *Reconnecting* and catches up once the server answers, and a
   guest's cart on the QR menu survives a reload. A till cut off from the
-  server cannot bill: there is no offline billing.
+  server cannot bill: there is no offline billing. A screen (or a guest's
+  page) opened for the first time while the server cannot be reached says
+  *This page could not be loaded*, with a **Reload** button; press it once
+  the connection is back. After a new version of the platform goes live, a
+  screen left open reloads itself once when you next open another page.
 
 Everything still to come, in order, is in [BACKLOG.md](BACKLOG.md).
 

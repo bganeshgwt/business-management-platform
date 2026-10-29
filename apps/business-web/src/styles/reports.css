@@ -1,6 +1,6 @@
 /* Reports (every tab: sales, the GST pack, P&L, day book, theft control…),
    and the restaurant's own pages: profile, outlets and business hours.
-   Built on the tokens and shared classes in @bmp/ui's base.css and ui.css — colours
+   Built on the tokens and shared classes in @bmp/ui and styles/app — colours
    come only from tokens, so dark mode follows by itself. */
 
 /* --- The controls card: which report, and for which dates ---------------- */

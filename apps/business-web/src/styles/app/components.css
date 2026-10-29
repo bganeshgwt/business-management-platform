@@ -1,0 +1,336 @@
+/* The staff app's own part of @bmp/ui's components.css: stat-tile figures,
+   the search picker, the skip link, the page header's "More" menu, the
+   settings layout, the sign-in page's "Forgot password?" and the header.
+   Rules keep their order from that file. */
+
+/* --- Stat tiles: a figure never breaks over two lines ------------------------------- */
+.stat-tile-value {
+  overflow-wrap: normal;
+  white-space: nowrap;
+  overflow-x: clip;
+  min-width: 0;
+}
+
+.stat-tile-skeleton {
+  display: inline-block;
+  width: 70%;
+  height: 0.9em;
+  vertical-align: middle;
+  border-radius: var(--radius-sm);
+}
+
+/* A long note under a figure keeps to two lines, so tiles in a row stay level. */
+.stat-tile-foot .stat-tile-note {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+/* --- Search picker --------------------------------------------------------------------- */
+.search-picker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+}
+
+.search-picker-icon {
+  position: absolute;
+  left: 11px;
+  display: inline-flex;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.search-picker .search-picker-input,
+.field .search-picker .search-picker-input {
+  width: 100%;
+  min-height: 40px;
+  padding-left: 34px;
+  padding-right: 34px;
+}
+
+.search-picker.has-value .search-picker-input {
+  font-weight: var(--weight-medium);
+}
+
+.search-picker-clear {
+  position: absolute;
+  right: 6px;
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.search-picker-clear:hover {
+  background: var(--chip-bg);
+  color: var(--text);
+}
+
+.search-picker-list {
+  position: fixed;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+}
+
+.search-picker-list > ul {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  min-height: 0;
+}
+
+.search-picker-list > ul:empty {
+  display: none;
+}
+
+.search-picker-option {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  padding: 8px 32px 8px 10px;
+  position: relative;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--text-md);
+}
+
+.search-picker-option.is-active {
+  background: var(--primary-soft);
+}
+
+.search-picker-option.is-disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.search-picker-option.is-create {
+  color: var(--primary);
+}
+
+.search-picker-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-weight: var(--weight-medium);
+}
+
+.search-picker-desc {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.search-picker-tick {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  translate: 0 -50%;
+  display: inline-flex;
+  color: var(--primary);
+}
+
+.search-picker-note {
+  margin: 0;
+  padding: 10px 14px;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.search-picker-list > ul:not(:empty) ~ .search-picker-note {
+  border-top: 1px solid var(--border);
+}
+
+/* --- Skip link: the first thing Tab reaches --------------------------------------------- */
+.skip-link {
+  position: fixed;
+  left: 8px;
+  top: -60px;
+  z-index: 90;
+  padding: 10px 14px;
+  background: var(--surface);
+  color: var(--primary);
+  font-weight: var(--weight-bold);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  top: 8px;
+}
+
+/* --- Page header: the "More" menu beside the main button ----------------------------- */
+.action-menu-button {
+  gap: 6px;
+}
+
+.action-menu-button > svg {
+  transition: rotate 160ms var(--ease);
+}
+
+.action-menu-button.is-open > svg {
+  rotate: 180deg;
+}
+
+/* --- Settings layout: section index, the form, a save bar that stays -------------------- */
+.settings-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.settings-index {
+  position: sticky;
+  top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.settings-index-title {
+  margin: 4px 10px 6px;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.settings-index a {
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  font-size: var(--text-md);
+  text-decoration: none;
+}
+
+.settings-index a:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.settings-index a.is-current {
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: var(--weight-medium);
+}
+
+.settings-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.settings-main .form-grid {
+  max-width: none;
+}
+
+.settings-savebar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.settings-savebar-status {
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--text-md);
+}
+
+.settings-savebar.is-dirty .settings-savebar-status {
+  color: var(--warning-text);
+  font-weight: var(--weight-medium);
+}
+
+.settings-savebar.is-saved .settings-savebar-status {
+  color: var(--success-text);
+}
+
+@media (max-width: 860px) {
+  .settings-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-index {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .settings-index-title {
+    display: none;
+  }
+
+  .settings-index a {
+    white-space: nowrap;
+  }
+}
+
+/* --- Sign-in: "Forgot password?" ------------------------------------------------------- */
+.login-forgot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: calc(-1 * var(--space-2));
+}
+
+.login-forgot .link-button {
+  font-size: var(--text-sm);
+}
+
+.login-forgot-help {
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+/* --- Header: the business is named once ------------------------------------------------ */
+/* The switcher names the business; below 1100px the brand keeps only its mark. */
+@media (max-width: 1100px) {
+  .topbar:has(.bsw) .brand-text {
+    display: none;
+  }
+}
+
+/* Deliveries pins its dialogs to the screen width under 860px; on a phone the
+   shared full-screen sheet (base.css) takes over there too. */
+@media (max-width: 640px) {
+  :root .dlv .modal-backdrop .modal {
+    max-width: none !important;
+  }
+}

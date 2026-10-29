@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 // @bmp/shared runs in Node as well as in the apps: every module loads by its
 // package name, with no bundler (so its imports keep their .js extensions).
 test("every module loads in Node by its package name", async () => {
-  for (const name of ["format", "dates", "menu/comboChoices", "menu/addonChoices"]) {
+  for (const name of ["format", "dates", "menu/comboChoices", "menu/addonChoices", "pageLoad"]) {
     const loaded = await import(`@bmp/shared/${name}`);
     assert.ok(Object.keys(loaded).length > 0, `${name} exports nothing`);
   }

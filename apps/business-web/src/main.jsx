@@ -3,10 +3,12 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 // The platform's shared look loads first (@bmp/ui: the tokens and element
-// styles, then the shared components built on them), so each page's own
-// stylesheet (imported by the page, inside App) comes after it and wins where
-// the two disagree.
+// styles, then the shared components built on them), then the staff app's own
+// part of it (the frame, menus, tables, tiles…: styles/app), so each page's
+// own stylesheet (imported by the page, inside App) comes after both and wins
+// where they disagree.
 import "@bmp/ui/styles.css";
+import "./styles/app/index.css";
 import AuthProvider from "./context/AuthProvider";
 import ApprovalDialog from "./components/ApprovalDialog";
 import ConfirmHost from "./components/ConfirmHost";

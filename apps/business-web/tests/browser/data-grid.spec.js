@@ -41,10 +41,11 @@ const ORDERS = Array.from({ length: 60 }, (_, i) => ({
   total: ((i * 37) % 500) * 10 + (i % 2 ? 0.5 : 0),
 }));
 
-const fixtureModule = (reactUrl, clientUrl, stylesUrl) => `
+const fixtureModule = (reactUrl, clientUrl, stylesUrl, appStylesUrl) => `
 const React = (await import(${JSON.stringify(reactUrl)})).default;
 const { createRoot } = (await import(${JSON.stringify(clientUrl)})).default;
 await import(${JSON.stringify(stylesUrl)});
+await import(${JSON.stringify(appStylesUrl)});
 const { default: DataGrid } = await import("/src/components/DataGrid/DataGrid.jsx");
 const h = React.createElement;
 const SUPPLIERS = ${JSON.stringify(SUPPLIERS)};
@@ -151,9 +152,11 @@ const openFixture = async (page) => {
     const original = await route.fetch();
     const text = await original.text();
     const pick = (name) => text.match(new RegExp(`"(/node_modules/\\.vite/deps/${name}\\.js[^"]*)"`))[1];
-    // The shared look (@bmp/ui/styles.css) as main.jsx imports it, resolved by Vite.
+    // The shared look (@bmp/ui/styles.css) and the staff app's part of it, as
+    // main.jsx imports them, resolved by Vite.
     const styles = text.match(/"([^"]*\/packages\/ui\/src\/styles\/index\.css[^"]*)"/)[1];
-    await route.fulfill({ response: original, body: fixtureModule(pick("react"), pick("react-dom_client"), styles) });
+    const appStyles = text.match(/"([^"]*\/src\/styles\/app\/index\.css[^"]*)"/)[1];
+    await route.fulfill({ response: original, body: fixtureModule(pick("react"), pick("react-dom_client"), styles, appStyles) });
   });
   await page.goto("/__data-grid-fixture");
   await expect(page.locator("#fx-list :is(.dg-row, .dg-card)").first()).toBeVisible();

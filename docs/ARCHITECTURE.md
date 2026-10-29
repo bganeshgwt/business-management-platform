@@ -1006,11 +1006,12 @@ workspaces; the backend has its own install.
 ├── apps/
 │   ├── business-web/         the staff app (React + Vite, :5173)
 │   │   ├── src/
-│   │   │   ├── main.jsx      the shared look (@bmp/ui/styles.css); providers: QueryClient, Router, AuthProvider;
+│   │   │   ├── main.jsx      the shared look (@bmp/ui/styles.css), then the staff app's own (styles/app);
+│   │   │   │                 providers: QueryClient, Router, AuthProvider;
 │   │   │   │                 ApprovalDialog, ConfirmHost, Toaster
 │   │   │   ├── App.jsx       every restaurant route (lazy imports from modules/) + /business-admin; the clinic
 │   │   │   │                 and lab workspaces (/clinic/*, /lab/*); the captain app (/captain/*); old guest
-│   │   │   │                 links → GuestSiteRedirect
+│   │   │   │                 links → GuestSiteRedirect; all inside PageLoadBoundary
 │   │   │   ├── modules/      one folder per module, each with pages/ (+ services/, styles/ where it has its own)
 │   │   │   │   ├── access/   sign-in, profile, users, roles, two-step
 │   │   │   │   ├── platform/ the platform console
@@ -1049,14 +1050,16 @@ workspaces; the backend has its own install.
 │   │   │   │                 outlet, notification, business)
 │   │   │   ├── components/   shared UI: DataGrid/, Modal, PageHeader, SectionCard, ActionMenu, motion.js,
 │   │   │   │                 SheetImportModal (every spreadsheet import's screen) …
-│   │   │   └── styles/       sheets used by more than one module (data-grid.css, reservations.css …)
+│   │   │   └── styles/       sheets used by more than one module (data-grid.css, reservations.css …), and app/:
+│   │   │                     the rules of the shared look only staff screens use (the frame, menus, tables,
+│   │   │                     tiles, POS, charts, sign-in), one sheet per @bmp/ui sheet
 │   │   ├── tests/            *.test.js (Node); browser/ (Playwright)
 │   │   └── public/
 │   └── customer-web/         the guests' site (React + Vite, :5174)
 │       ├── src/
 │       │   ├── main.jsx      the shared look, Router (no sign-in, no staff providers)
 │       │   ├── App.jsx       /order/:token, /online/:token/*, /book/*; planned /shop, /appointments,
-│       │   │                 /account; any other address → StartPage
+│       │   │                 /account; any other address → StartPage; all inside PageLoadBoundary
 │       │   ├── modules/      table-order/ (pages/, services/); online-order/, booking/ (pages/, services/, styles/);
 │       │   │                 privacy/ (the privacy notice and the consent ticks the guests' pages show)
 │       │   ├── pages/        StartPage, PlannedPage
@@ -1064,9 +1067,10 @@ workspaces; the backend has its own install.
 │       │   └── styles/       guest.css
 │       └── tests/browser/    Playwright checks
 └── packages/
-    ├── ui/                   @bmp/ui: styles/ (base = tokens and elements, ui, motion, colour, components),
-    │                         Icon, menu/ (ComboChoicePicker, AddonChoiceRules)
-    └── shared/               @bmp/shared: format, dates, menu/ (comboChoices, addonChoices)
+    ├── ui/                   @bmp/ui: styles/ (what both apps use: base = tokens and elements, ui, motion,
+    │                         colour, components), Icon, menu/ (ComboChoicePicker, AddonChoiceRules),
+    │                         PageLoadBoundary
+    └── shared/               @bmp/shared: format, dates, menu/ (comboChoices, addonChoices), pageLoad
 ```
 
 **Why the business types are grouped differently on the two sides.** On the
@@ -1120,6 +1124,31 @@ shared tab components (`components/ContentTabs.jsx`,
   ([its README](../packages/shared/README.md)).
 - Code one app alone uses stays in that app. An app never imports another
   app's files.
+
+**The look of the two apps.** `@bmp/ui/styles.css` holds what both apps use:
+the tokens, the elements, and the kit any page may use (buttons, fields,
+cards, the dialog, messages, loading, toasts), with the guests' few shared
+classes. Each app imports it first. The rules only staff screens use (the
+frame and menus, tables and badges, the dashboard's tiles, the POS, the floor
+plan, charts, the page header, stat tiles and section cards, the sign-in page,
+area colours, and their movement) are the staff app's own
+`src/styles/app/`, one sheet per `@bmp/ui` sheet in the same order, which
+its `main.jsx` imports straight after; the guests' site never loads them. The
+staff app thus sees every shared rule first, then its own. A staff-only rule
+that a later shared rule must still override (its transition, or a field's
+red edge) stays in `@bmp/ui`, before that rule, with a note saying why. A new rule goes in `@bmp/ui` only when the guests' site uses
+it, or it belongs to the kit.
+
+**A page whose code fails to load.** Both apps load each page's code when it
+is first opened. When a new version goes live while a tab is open, the old
+version's files are gone and that load fails. Each app's routes sit inside
+`PageLoadBoundary` (`@bmp/ui`): a failed load reloads the page once by
+itself, remembered for that address in the tab's `sessionStorage` so it
+never loops; a second failure, or any other error while drawing a page,
+shows *This page could not be loaded* (or *could not be shown*) with a
+*Reload* button, never a blank screen. The error is still reported as
+uncaught (`reportError`), so error monitoring and the browser tests' "no
+script errors" checks see it. The rule is `@bmp/shared/pageLoad`.
 
 **Two rules for the guests' site:**
 
@@ -1307,7 +1336,7 @@ Where each area's tests are: [TESTING.md](TESTING.md).
 | Server data cache | `apps/business-web/src/services/queryClient.js` | TanStack Query: 30 s stale time, 10 minutes in memory. `sessionScope()` (user, restaurant, outlet) belongs in every key. Cleared on sign-out. The restaurant dashboard and its panels use it; other pages load with `useEffect` and service calls. |
 | Lists | `apps/business-web/src/components/DataGrid/` | The usage comment at the top of `DataGrid.jsx` is the manual. Business lists use `useServerList()` from `modules/business/core/pages/hooks.js` for server paging and search. |
 | Overview panels | `modules/business/core/pages/BusinessAdminRoutes.jsx` (`screens()`, `OverviewSheet`), `overviewLink.js` | An action on a business's Overview opens the real screen in a wide panel over it (`?open=<section>`, with *Open full page*). The panel and the route use the same `screens()` map, so they cannot drift apart. |
-| Motion | `components/motion.js` + `packages/ui/src/styles/motion.css` | Only transform and opacity move; nothing waits for an animation; `prefers-reduced-motion` turns it off. |
+| Motion | `components/motion.js` + `packages/ui/src/styles/motion.css` (with the staff app's `src/styles/app/motion.css`) | Only transform and opacity move; nothing waits for an animation; `prefers-reduced-motion` turns it off. |
 | Theme tokens | the top of `packages/ui/src/styles/base.css` (`:root`, then a dark-mode block), with `colour.css` beside it. Both apps load them through `@bmp/ui/styles.css` | Pages use `var(--…)` and never restate a hex value. |
 | Words per type | `services/businessNav.js` (`TYPE_WORDS`, `word()`); the menu's own labels in `services/businessWorkspace.js` (`workspaceLabel()`) | A salon says Clients, a kirana says Udhaar. |
 
@@ -1647,7 +1676,7 @@ shape of the code and the data.
 
 | Weak spot | What it is | Why it matters |
 | --- | --- | --- |
-| **Very large files** | `PosPage.jsx` (about 3,000 lines, nearly all one component: it needs a real refactor, not a move), `order.service.js` (about 2,600), `InventoryInsightsPage.jsx` (about 2,500), `order.repository.js` and `TimeClockPage.jsx` (about 2,400 each), `bill.repository.js` (about 2,300), `KitchenDisplayPage.jsx` (about 2,200), and `base.css` in `packages/ui` (about 3,200). | Slow to read and risky to change. |
+| **Very large files** | `PosPage.jsx` (about 3,000 lines, nearly all one component: it needs a real refactor, not a move), `order.service.js` (about 2,600), `InventoryInsightsPage.jsx` (about 2,500), `order.repository.js` and `TimeClockPage.jsx` (about 2,400 each), `bill.repository.js` (about 2,300), `KitchenDisplayPage.jsx` (about 2,200), and `base.css` in the staff app's `src/styles/app` (about 2,100). | Slow to read and risky to change. |
 | **Migrations** | Many files fix earlier ones, and a fresh database replays them all. | A baseline before go-live (plan F) makes new installs simple. |
 | **Outside messages** | Staff screens are live (§3.5), but nothing publishes the outbox outside: no WhatsApp, SMS or webhook. The guests' pages still ask every few seconds. | §8.8 describes the publisher; plan E, step 3 adds the restaurant's events. |
 | **Kept answers** | The dashboard's and the bell's answers are kept per API process (`utils/dashboardCache.js`, `notifications/index.js`), and so is the standing behind an owner's GST thresholds (`gst-thresholds/services/standingCache.js`, five minutes). A change the database announces clears the first two in every process (§3.5); any other write (an expense, a purchase, stock) only in the one that made it, and a PAN recorded or a warning level saved clears the GST standing only there. | Several API processes need a shared cache, or sticky sessions, for those. |

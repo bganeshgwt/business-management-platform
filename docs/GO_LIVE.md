@@ -205,7 +205,12 @@ put a secret in a `VITE_` setting.
 Everything of the guests' site except its `index.html` sits under
 `guest-assets/`, so the two builds never collide. The files under `assets/` and
 `guest-assets/` have content-hashed names and can be cached for a long time;
-`index.html` should not be, so that a new build reaches people.
+`index.html` should not be, so that a new build reaches people. A tab left
+open across a new build still runs the old one: the first page it opens after
+that asks for an old file that is gone, and the app reloads itself once to
+fetch the new build (`PageLoadBoundary`, [ARCHITECTURE.md](ARCHITECTURE.md)).
+Keeping the previous build's files beside the new ones for a day spares
+people even that reload.
 
 What each build needs (the build stops with a sentence when one is missing):
 

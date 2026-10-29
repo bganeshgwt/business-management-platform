@@ -1,8 +1,9 @@
 /* The platform's look, shared by every app: design tokens, element styles and
-   the shared component sheets, in the order the staff app has always loaded
-   them. Each app imports this once, first, in its main.jsx
-   (import "@bmp/ui/styles.css"), so a page's own stylesheet comes after it
-   and wins where the two disagree. */
+   the shared component sheets. Each app imports this once, first, in its
+   main.jsx (import "@bmp/ui/styles.css"), so a page's own stylesheet comes
+   after it and wins where the two disagree. The rules only the staff app's
+   screens use are in that app (apps/business-web/src/styles/app), which it
+   imports straight after this one. */
 @import "./base.css";
 @import "./ui.css";
 @import "./motion.css";

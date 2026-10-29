@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, useLocation } from "react-router-dom";
+import PageLoadBoundary from "@bmp/ui/PageLoadBoundary";
 
 // The guests' site. Every page opens from a restaurant's own link (a table's
 // QR code, the online ordering link, the booking link); nobody signs in.
@@ -12,7 +13,13 @@ const PlannedPage = lazy(() => import("./pages/PlannedPage"));
 const StartPage = lazy(() => import("./pages/StartPage"));
 
 export default function App() {
+  const { pathname } = useLocation();
+
+  // A page whose code fails to load (a new version gone live while the guest
+  // had the page open) reloads once by itself; any other failure says so with
+  // a Reload button instead of a blank screen (@bmp/ui/PageLoadBoundary).
   return (
+    <PageLoadBoundary resetKey={pathname}>
     <Suspense fallback={<div className="guest-app" aria-busy="true" />}>
       <Routes>
         {/* Where a printed table QR code lands. */}
@@ -32,5 +39,6 @@ export default function App() {
         <Route path="*" element={<StartPage />} />
       </Routes>
     </Suspense>
+    </PageLoadBoundary>
   );
 }
