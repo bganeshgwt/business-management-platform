@@ -55,11 +55,13 @@ const list = async (userId) => (await pool.query(`
 // the server checks on every business request.
 // member_location_id: the one location this person works at (NULL = all);
 // member_department_id: the one department whose products and stock they handle (NULL = all);
-// tax_changes_due: a GST rate change of its items is due on the business's date (tax-changes module).
+// tax_changes_due: a GST rate change of its items or of a rate in its settings is due on the business's date (tax-changes module).
 const access = (id, userId) => one(pool, `SELECT b.*,t.name AS type_name,m.role_id,r.name AS role_name,r.full_access,
  ${capabilitiesSql} AS capabilities,m.location_id AS member_location_id,m.department_id AS member_department_id,
- EXISTS (SELECT 1 FROM business_tax_change_items x WHERE x.business_id=b.id AND x.status='scheduled' AND x.sku_id IS NOT NULL
-  AND x.starts_on <= (now() AT TIME ZONE b.timezone)::date) AS tax_changes_due,
+ (EXISTS (SELECT 1 FROM business_tax_change_items x WHERE x.business_id=b.id AND x.status='scheduled' AND x.sku_id IS NOT NULL
+  AND x.starts_on <= (now() AT TIME ZONE b.timezone)::date)
+  OR EXISTS (SELECT 1 FROM business_tax_setting_changes x WHERE x.business_id=b.id AND x.status='scheduled' AND x.setting<>'restaurant_default'
+  AND x.starts_on <= (now() AT TIME ZONE b.timezone)::date)) AS tax_changes_due,
  (SELECT name FROM business_departments WHERE business_id=b.id AND id=m.department_id) AS member_department_name,
  (SELECT name FROM business_locations WHERE business_id=b.id AND id=m.location_id) AS member_location_name,
  COALESCE((SELECT json_agg(id ORDER BY id) FROM business_locations WHERE business_id=b.id AND active),'[]') AS active_location_ids,

@@ -45,6 +45,13 @@ router.delete("/tax-rates/:id", authorize("menu.manage"), taxRateController.remo
 router.get("/tax-changes", authorize("menu.view"), taxChanges.list);
 router.post("/tax-changes/preview", authorize("menu.manage"), taxChanges.preview);
 router.post("/tax-changes", authorize("menu.manage"), taxChanges.schedule);
+// A notification's list of HSN / SAC codes (a dish's code is its tax rate's) and its new rates.
+router.post("/tax-changes/import/preview", authorize("menu.manage"), taxChanges.importPreview);
+router.post("/tax-changes/import", authorize("menu.manage"), taxChanges.importSchedule);
+// The restaurant's default GST rate (its advances' GST), changed by date by whoever changes the settings.
+router.get("/tax-changes/settings", authorize("menu.view"), taxChanges.settings);
+router.post("/tax-changes/settings", authorize("restaurant.settings.manage"), taxChanges.scheduleSetting);
+router.post("/tax-changes/settings/:id/cancel", authorize("restaurant.settings.manage"), taxChanges.cancelSetting);
 router.get("/tax-changes/:id", authorize("menu.view"), taxChanges.detail);
 router.post("/tax-changes/:id/cancel", authorize("menu.manage"), taxChanges.cancel);
 router.post("/tax-changes/:id/items/:itemId/cancel", authorize("menu.manage"), taxChanges.cancelItem);

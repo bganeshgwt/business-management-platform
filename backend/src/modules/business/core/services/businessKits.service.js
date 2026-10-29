@@ -48,22 +48,27 @@ const componentsOf = (db, businessId, kitIds) => repo.all(db, `SELECT k.kit_sku_
   WHERE k.business_id=$1 AND k.kit_sku_id=ANY($2::bigint[]) ORDER BY k.kit_sku_id,k.sort_order,k.id`, [businessId, kitIds]);
 
 // Turns the kit lines of a sale into component lines (inside the posting
-// transaction, after the business is locked). Returns { lines, kitOf } where
+// transaction, after the business is locked). Returns { lines, kitOf, fixed } where
 // kitOf[i] is null for a plain line or { skuId, label, group, share (paise,
 // the document's price terms), inputIndex } for a kit's component, and
 // kitOf.inputIndexes[i] the line of the request each line came from.
-async function expand(db, business, inputLines, { kind, contact, taxMode, locationId, fixed }) {
+// `fixed` (a quotation's bill, its prices worked out before) may give a kit
+// line its parts' prices as quoted: { kitParts: [{ skuId, quantity (a kit's),
+// price, net, tax }] }; each part is then billed at its own, and the fixed
+// prices come back one per component line. `estimate` (a quotation being
+// priced): no batch or serial number is chosen yet.
+async function expand(db, business, inputLines, { kind, contact, taxMode, locationId, fixed, estimate = false }) {
   const skuIds = [...new Set(inputLines.map((line) => Number(line?.skuId)).filter((n) => Number.isSafeInteger(n) && n > 0))];
   const kitRows = skuIds.length ? await repo.all(db, 'SELECT id FROM catalog_skus WHERE business_id=$1 AND id=ANY($2::bigint[]) AND is_kit', [business.id, skuIds]) : [];
-  if (!kitRows.length) return { lines: inputLines, kitOf: [] };
+  if (!kitRows.length) return { lines: inputLines, kitOf: [], fixed };
   if (kind !== 'sale') fail('A kit is bought as its parts: receive each component instead', 409);
-  if (fixed) fail('A kit cannot be on a dispatched order line', 409);
   const kitIds = new Set(kitRows.map((r) => Number(r.id)));
+  if (fixed && inputLines.some((input, index) => kitIds.has(Number(input?.skuId)) && !Array.isArray(fixed[index]?.kitParts))) fail('A kit cannot be on a dispatched order line', 409);
   const components = await componentsOf(db, business.id, [...kitIds]);
-  const lines = [], kitOf = [], inputIndexes = [];
+  const lines = [], kitOf = [], inputIndexes = [], fixedOut = [];
   let group = 0;
   for (const [inputIndex, input] of inputLines.entries()) {
-    if (!kitIds.has(Number(input?.skuId))) { lines.push(input); kitOf.push(null); inputIndexes.push(inputIndex); continue; }
+    if (!kitIds.has(Number(input?.skuId))) { lines.push(input); kitOf.push(null); inputIndexes.push(inputIndex); fixedOut.push(fixed?.[inputIndex] ?? null); continue; }
     const kit = await repo.one(db, `SELECT s.* FROM catalog_skus s JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id
       WHERE s.business_id=$1 AND s.id=$2 AND s.active AND p.active`, [business.id, Number(input.skuId)]);
     if (!kit) fail('Item not found', 404);
@@ -74,20 +79,26 @@ async function expand(db, business, inputLines, { kind, contact, taxMode, locati
     const stopped = parts.find((c) => !c.active);
     if (stopped) fail(`${stopped.label}, a part of ${kit.label}, is no longer sold. Change the kit first.`, 409);
     if (parts.some((c) => c.tracking === 'serial') && quantity !== 1) fail(`${kit.label} has a serial-numbered part: bill one kit per line`);
+    // Its parts' prices as given (a quotation's), the same parts in the same quantities as the kit has now.
+    const quoted = fixed ? fixed[inputIndex].kitParts : null;
+    if (quoted && (quoted.length !== parts.length || parts.some((part) => {
+      const same = quoted.find((q) => Number(q.skuId) === Number(part.id));
+      return !same || milli(same.quantity) !== milli(part.kit_quantity);
+    }))) fail(`The parts of ${kit.label} changed since it was priced. Revise the quotation first.`, 409);
     // The kit's price for this customer and quantity, and its MRP.
-    const priced = await pricing.salePrice(db, business, kit, contact?.id, quantity, null,
+    const priced = quoted ? null : await pricing.salePrice(db, business, kit, contact?.id, quantity, null,
       { locationId, member: Boolean(contact) && business.capabilities.includes('loyalty') });
-    core().checkMrp(kit.label, priced.stockPrice, kit.tax_rate, taxMode, kit.mrp);
+    if (priced) core().checkMrp(kit.label, priced.stockPrice, kit.tax_rate, taxMode, kit.mrp);
     const weights = parts.map((c) => paise(c.price) * milli(c.kit_quantity));
-    const shares = split(priced.net, weights);
+    const shares = priced ? split(priced.net, weights) : [];
     group += 1;
     const named = Array.isArray(input.components) ? input.components : [];
     for (const [index, part] of parts.entries()) {
       const need = Number((quantity * Number(part.kit_quantity)).toFixed(3));
       const given = named.find((x) => Number(x?.skuId) === Number(part.id));
       let lotCode = given?.lotCode ? String(given.lotCode).trim() : '';
-      if (part.tracking === 'serial' && !lotCode) fail(`Scan or choose the serial number of ${part.label} in ${kit.label}`);
-      if (part.tracking === 'batch' && !lotCode) {
+      if (part.tracking === 'serial' && !lotCode && !estimate) fail(`Scan or choose the serial number of ${part.label} in ${kit.label}`);
+      if (part.tracking === 'batch' && !lotCode && !estimate) {
         // The batch that expires first and still covers the line.
         const lot = await repo.one(db, `SELECT l.lot_code FROM business_stock_lots l JOIN businesses b ON b.id=l.business_id
           WHERE l.business_id=$1 AND l.location_id=$2 AND l.sku_id=$3 AND l.quantity>=$4
@@ -97,12 +108,14 @@ async function expand(db, business, inputLines, { kind, contact, taxMode, locati
         lotCode = lot.lot_code;
       }
       lines.push({ skuId: part.id, quantity: String(need), ...(lotCode ? { lotCode } : {}) });
-      kitOf.push({ skuId: Number(kit.id), label: kit.label, group, share: shares[index], inputIndex });
+      const price = quoted ? quoted.find((q) => Number(q.skuId) === Number(part.id)) : null;
+      kitOf.push({ skuId: Number(kit.id), label: kit.label, group, share: price ? null : shares[index], inputIndex });
       inputIndexes.push(inputIndex);
+      fixedOut.push(price ? { price: price.price, net: price.net, tax: price.tax } : null);
     }
   }
   kitOf.inputIndexes = inputIndexes;
-  return { lines, kitOf };
+  return { lines, kitOf, fixed: fixed ? fixedOut : null };
 }
 const inputIndexOf = (kitOf, lineIndex) => (kitOf.inputIndexes ? kitOf.inputIndexes[lineIndex] : lineIndex);
 

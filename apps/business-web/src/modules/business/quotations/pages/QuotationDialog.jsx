@@ -54,8 +54,8 @@ export default function QuotationDialog({ quotation, initial, onClose, onSaved }
   const [quote, setQuote] = useState(null);
   // A site belongs to one customer: choosing another customer takes it off.
   const set = (name) => (event) => setForm((f) => ({ ...f, [name]: event.target.value, ...(name === "contactId" ? { siteId: "" } : {}) }));
-  // Kits sell as their parts and items kept for services are not sold: neither goes on a quotation.
-  const items = useMemo(() => (options?.["catalog?active=true"] || []).filter((s) => !s.is_kit && !s.internal_use), [options]);
+  // A kit is one line, priced as on a bill and billed as its parts; items kept for services are not sold.
+  const items = useMemo(() => (options?.["catalog?active=true"] || []).filter((s) => !s.internal_use), [options]);
   const customers = options?.["contacts?kind=customer&active=true"] || [];
   const units = options?.units || [];
   const skuOf = (line) => items.find((s) => String(s.id) === String(line.skuId));
@@ -164,7 +164,7 @@ export default function QuotationDialog({ quotation, initial, onClose, onSaved }
     { key: "item", header: "Item", minWidth: 250, render: (l, ctx) => (
       <SearchPicker aria-label={ctx.label} required={Boolean(l.skuId) || filled.length === 0} options={items} value={skuOf(l) || null} placeholder="Name, code or barcode"
         getLabel={(s) => s.label} getKeywords={(s) => `${s.code} ${s.barcode || ""} ${s.product_name || ""}`}
-        getDescription={(s) => `${s.code} · ${biz.exact(s.price)}${s.mrp ? ` · MRP ${biz.exact(s.mrp)}` : ""}${s.kind === "service" ? " · service" : ` · ${quantity(s.stock, s.unit)} in stock`}`}
+        getDescription={(s) => `${s.code} · ${biz.exact(s.price)}${s.mrp ? ` · MRP ${biz.exact(s.mrp)}` : ""}${s.kind === "service" ? " · service" : s.is_kit ? " · kit" : ` · ${quantity(s.stock, s.unit)} in stock`}`}
         onChange={(s) => setLine(l.key, "skuId", s ? String(s.id) : "")} />
     ) },
     usesTinting(biz) && { key: "tint", header: "Shade", minWidth: 200, render: (l) => (skuOf(l) ? <TintField biz={biz} sku={skuOf(l)} value={l.tint || ""} onChange={(shade) => tintLine(l, shade)} /> : null) },

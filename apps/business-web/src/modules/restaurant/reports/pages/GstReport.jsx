@@ -380,7 +380,7 @@ function Advances({ data, currency }) {
       icon="wallet"
       tone="info"
       title="Advances received and adjusted"
-      description={`${plural(advances.receivedCount, "advance", "advances")} received in the period (${moneyExact(advances.received, currency)}), ${moneyExact(advances.usedSamePeriod, currency)} of it used on bills in the same period. Rate ${advances.rate}%, place of supply your own state.`}
+      description={`${plural(advances.receivedCount, "advance", "advances")} received in the period (${moneyExact(advances.received, currency)}), ${moneyExact(advances.usedSamePeriod, currency)} of it used on bills in the same period. ${(advances.rates || [advances.rate]).length > 1 ? `Rates ${(advances.rates || []).map((r) => `${r}%`).join(" and ")}, each advance at the default rate of the day it was received` : `Rate ${(advances.rates || [advances.rate])[0]}%`}, place of supply your own state.`}
       flush
     >
       <DataGrid

@@ -3,6 +3,7 @@
 // A quotation's state as people say it, and how it is drawn.
 export const STATES = {
   open: { label: "Open", tone: "info" },
+  part_billed: { label: "Part billed", tone: "warning" },
   expired: { label: "Expired", tone: "danger" },
   billed: { label: "Billed", tone: "success" },
   ordered: { label: "On a sales order", tone: "success" },
@@ -43,6 +44,13 @@ export function unitChoices(sku, units) {
     })),
   ];
 }
+
+// How much of a quotation line, in its stock unit, as it was quoted: its pack
+// ("6 coil" for 150 m in coils of 25) when it was quoted in packs, a kit in kits.
+export const quotedUnits = (line, stockQuantity) => {
+  const factor = line.entered_unit && !line.kit_parts ? Number(line.unit_factor) : 1;
+  return { quantity: Math.round((Number(stockQuantity) / factor) * 1000) / 1000, unit: line.entered_unit && !line.kit_parts ? line.entered_unit : line.unit };
+};
 
 // A line as typed: the item, the unit it is typed in and how many.
 let seq = 0;

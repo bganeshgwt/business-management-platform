@@ -3,6 +3,8 @@ const AppError = require('../../../utils/AppError');
 const v = require('../../../utils/validate');
 const changes = require('./taxChanges.service');
 const money = require('./taxChangesMoney');
+const settingChanges = require('./taxChangesSettings');
+const imports = require('./taxChangesImport');
 
 // GST rate changes for a restaurant's dishes: a dish moves to another of the
 // restaurant's tax rates on the restaurant's own date, its trading day
@@ -70,7 +72,8 @@ const SCHEDULED = `COALESCE((SELECT json_agg(json_build_object('changeId',i.chan
     WHERE i.product_id=p.id AND i.status='scheduled'),'[]')`;
 
 // Dishes to look at for a change: the ones named, or the ones a filter finds
-// (by tax rate, category, HSN / SAC code, a search).
+// (by tax rate, category, HSN / SAC code, a search, or a notification's list
+// of codes: a dish's code is its tax rate's).
 function candidates(db, restaurantId, { ids = null, filters = null, limit = changes.MAX_ITEMS }) {
   const f = filters || {};
   return repo.all(db, `SELECT p.id,p.code,p.name AS label,p.price,p.mrp,p.tax_percentage AS tax_rate,p.tax_rate_id,p.tax_mode,(p.status='active') AS active,
@@ -86,9 +89,10 @@ function candidates(db, restaurantId, { ids = null, filters = null, limit = chan
       AND ($5::text IS NULL OR t.hsn_code LIKE $5 || '%')
       AND ($6::text IS NULL OR concat_ws(' ',p.name,p.code,p.kitchen_name) ILIKE $6)
       AND ($7::boolean OR $2::bigint[] IS NOT NULL OR p.status='active')
+      AND ($9::text[] IS NULL OR t.hsn_code LIKE ANY ($9::text[]))
     ORDER BY lower(p.name),p.id LIMIT $8`,
   [restaurantId, ids, f.taxRateId ?? null, f.categoryId ?? null, f.hsn ?? null, f.q ? `%${f.q.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%` : null,
-    Boolean(f.inactive), limit]);
+    Boolean(f.inactive), limit, f.codes ? f.codes.map((code) => `${code}%`) : null]);
 }
 
 // The world of a restaurant, for taxChanges.service.js. `user` is the signed-in
@@ -98,7 +102,7 @@ function world(user) {
   if (!restaurantId) fail('This account is not linked to a restaurant', 400);
   return {
     kind: 'menu', itemColumn: 'product_id', targetColumn: 'restaurant_tax_rate_id',
-    words: { item: 'dish', Item: 'Dish', items: 'dishes', fromToday: 'To change a dish\'s GST from today, change its tax rate on the dish itself.' },
+    words: { item: 'dish', Item: 'Dish', items: 'dishes', rate: 'tax rate', fromToday: 'To change a dish\'s GST from today, change its tax rate on the dish itself.' },
     // The restaurant's business row holds its changes; it is made when the first change is.
     businessId: async (db, make) => (make
       ? (await repo.one(db, 'SELECT restaurant_business_id($1) AS id', [restaurantId])).id
@@ -118,6 +122,11 @@ function world(user) {
     // A dish's own price mode, or the restaurant's.
     inclusive: (row) => row.tax_mode === 'inclusive' || (row.tax_mode === 'default' && row.restaurant_inclusive),
     typeProblem: () => null,
+    // A restaurant has no quotations or sales orders.
+    documents: async () => [],
+    // The tax rates a notification's list may move dishes to, and where one is added.
+    targets: (db) => repo.all(db, "SELECT id,name,percentage AS rate FROM tax_rates WHERE restaurant_id=$1 AND status='active' ORDER BY is_default DESC,id", [restaurantId]),
+    rateWhere: 'Menu › Tax rates',
     audit: (db, action, entityId, details) => db.query(`INSERT INTO audit_logs(restaurant_id,user_id,user_name,action,entity_type,entity_id,entity_label,details)
       VALUES($1,$2,$3,$4,'tax_change',$5,$6,$7)`, [restaurantId, user.id, user.name || null, action.replace('tax_change.', ''), entityId,
       `GST rate change of ${money.dateWords(details.startsOn)}`, JSON.stringify(details)]),
@@ -134,6 +143,68 @@ function world(user) {
   };
 }
 
+// The restaurant's default GST rate, changed by date (taxChangesSettings.js):
+// its advances' GST is worked out at the rate of the day each was received.
+function settingsWorld(user) {
+  const menu = world(user);
+  const restaurantId = user.restaurantId;
+  return {
+    setting: 'restaurant_default',
+    businessId: menu.businessId,
+    // The routes check menu.view, and restaurant.settings.manage to change it.
+    requireView: async () => {},
+    requireEdit: async () => {},
+    lock: menu.lock, applyDue: menu.applyDue, today: menu.today, audit: menu.audit,
+    current: async (db) => {
+      const row = await repo.one(db, 'SELECT default_tax_percentage FROM restaurant_settings WHERE restaurant_id=$1', [restaurantId]);
+      return row && { rate: Number(row.default_tax_percentage).toFixed(2) };
+    },
+  };
+}
+
+// The default GST rate on each of these days (YYYY-MM-DD): the rate in force
+// before the first change applied after the day, else the rate now.
+async function defaultRates(restaurantId, days) {
+  const now = await repo.one(repo.pool, 'SELECT default_tax_percentage FROM restaurant_settings WHERE restaurant_id=$1', [restaurantId]);
+  const applied = await repo.all(repo.pool, `SELECT c.starts_on::text AS starts_on,(c.before->>'rate')::numeric AS before FROM business_tax_setting_changes c
+    JOIN businesses b ON b.id=c.business_id AND b.legacy_restaurant_id=$1 WHERE c.setting='restaurant_default' AND c.status='applied' ORDER BY c.starts_on,c.id`, [restaurantId]);
+  const current = Number(now?.default_tax_percentage ?? 0);
+  return new Map(days.map((day) => {
+    const after = applied.find((change) => change.starts_on > day);
+    return [day, after ? Number(after.before) : current];
+  }));
+}
+
+// The bell of those who manage the menu (menu.manage): the dishes' changes and
+// the default rate's due within 7 days, 7 days before and again the day before.
+async function bell(restaurantId) {
+  const business = await repo.one(repo.pool, 'SELECT id,restaurant_trading_date($1)::text AS today FROM businesses WHERE legacy_restaurant_id=$1', [restaurantId]);
+  if (!business) return [];
+  const rows = await repo.all(repo.pool, `SELECT c.id,c.starts_on::text AS starts_on,c.reason,t.name AS to_name,(c.starts_on-$2::date) AS days,count(i.id)::int AS items,
+      (SELECT json_agg(json_build_object('name',x.name,'n',x.n) ORDER BY x.n DESC,x.name) FROM (SELECT COALESCE(f.name,p.tax_percentage::text || '%') AS name,count(*)::int AS n
+        FROM business_tax_change_items ii JOIN products p ON p.id=ii.product_id LEFT JOIN tax_rates f ON f.id=p.tax_rate_id
+        WHERE ii.business_id=c.business_id AND ii.change_id=c.id AND ii.status='scheduled' GROUP BY 1) x) AS sources
+    FROM business_tax_changes c JOIN tax_rates t ON t.id=c.restaurant_tax_rate_id
+    JOIN business_tax_change_items i ON i.business_id=c.business_id AND i.change_id=c.id AND i.status='scheduled'
+    WHERE c.business_id=$1 AND c.starts_on>$2::date AND c.starts_on<=$2::date+7
+    GROUP BY c.id,t.name ORDER BY c.starts_on,c.id`, [business.id, business.today]);
+  const when = (days) => (days === 1 ? 'tomorrow' : `in ${days} days`);
+  const items = rows.map((row) => {
+    const days = Number(row.days);
+    return { id: `taxChanges:${row.id}:${days <= 1 ? '1' : '7'}`, severity: days <= 1 ? 'warning' : 'info', category: 'GST rates',
+      title: `${row.items} ${row.items === 1 ? 'dish moves' : 'dishes move'} to ${row.to_name} ${when(days)}`,
+      detail: `From ${money.dateWords(row.starts_on)} · now at ${(row.sources || []).map((x) => `${x.name} (${x.n})`).join(', ')} · ${row.reason}`,
+      at: `${row.starts_on}T00:00:00.000Z`, link: '/menu/tax-changes' };
+  });
+  for (const change of await settingChanges.upcoming(repo.pool, business.id, business.today, 7)) {
+    const days = (Date.parse(`${change.startsOn}T00:00:00Z`) - Date.parse(`${business.today}T00:00:00Z`)) / 86400000;
+    items.push({ id: `taxChanges:setting:${change.id}:${days <= 1 ? '1' : '7'}`, severity: days <= 1 ? 'warning' : 'info', category: 'GST rates',
+      title: `${change.name} changes ${when(days)}`, detail: `From ${money.dateWords(change.startsOn)}: ${change.words} · ${change.reason}`,
+      at: `${change.startsOn}T00:00:00.000Z`, link: '/menu/tax-changes' });
+  }
+  return items;
+}
+
 const list = (user) => changes.listAll(world(user));
 const preview = (user, body) => changes.preview(world(user), body);
 const schedule = (user, body) => changes.schedule(world(user), user, body);
@@ -142,4 +213,11 @@ const history = (user, productId) => changes.history(world(user), productId);
 const cancel = (user, changeId, body) => changes.cancel(world(user), user, changeId, body);
 const cancelItem = (user, changeId, itemId, body) => changes.cancel(world(user), user, changeId, body, itemId);
 
-module.exports = { applyDue, onMenu, forOrderDay, namedIn, list, preview, schedule, detail, history, cancel, cancelItem };
+const importPreview = (user, body) => imports.preview(world(user), body);
+const importSchedule = (user, body) => imports.schedule(world(user), user, body);
+const settings = (user) => settingChanges.read(settingsWorld(user));
+const scheduleSetting = (user, body) => settingChanges.schedule(settingsWorld(user), user, body);
+const cancelSetting = (user, changeId, body) => settingChanges.cancel(settingsWorld(user), user, changeId, body);
+
+module.exports = { applyDue, onMenu, forOrderDay, namedIn, list, preview, schedule, detail, history, cancel, cancelItem, importPreview, importSchedule,
+  settings, scheduleSetting, cancelSetting, defaultRates, bell };

@@ -801,8 +801,9 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     const buyer = kind === 'sale' ? readBuyer(body) : null;
     const estimate = quote === 'estimate';
     // A kit sells as its components: each takes its share of the kit's price.
-    // `lines` are then the component lines; `kitOf[i]` says which.
-    const { lines, kitOf } = await kits().expand(db, business, inputLines, { kind, contact, taxMode, locationId: location.id, fixed });
+    // `lines` are then the component lines; `kitOf[i]` says which, and
+    // `lineFixed[i]` a component's own fixed prices (a quotation's kit).
+    const { lines, kitOf, fixed: lineFixed } = await kits().expand(db, business, inputLines, { kind, contact, taxMode, locationId: location.id, fixed, estimate });
     let subtotal = 0, tax = 0;
     // Purchase lines may also set the item's new selling price and MRP.
     const priceUpdates = [];
@@ -838,16 +839,16 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
       }
       requiredDecimals(quantity, baseUnit, 'Quantity');
       if (sku.tracking === 'serial' && quantity !== 1 && !estimate) fail('Enter each serial number on its own line');
-      const preset = fixed?.[lineIndex] || null;
+      const preset = lineFixed?.[lineIndex] || null;
       const kit = kitOf[lineIndex] || null;
       let priceRule = null, priceKind = null;
       let price, net, enteredPrice = null;
-      if (kit) {
-        // A component's share of the kit's price, in the document's price terms.
-        net = kit.share; price = kit.share / 100 / quantity;
-      } else if (preset) {
+      if (preset) {
         price = preset.price; net = preset.net; enteredPrice = entered ? preset.enteredPrice : null;
         priceRule = preset.priceRuleId ? { id: preset.priceRuleId } : null;
+      } else if (kit) {
+        // A component's share of the kit's price, in the document's price terms.
+        net = kit.share; price = kit.share / 100 / quantity;
       } else if (kind === 'sale') {
         // Customer, slab and pack prices (services/businessPricing.js).
         const priced = await pricing.salePrice(db, business, sku, contact?.id, quantity, entered && { ...entered, factorMicro },

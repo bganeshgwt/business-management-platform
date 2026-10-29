@@ -247,6 +247,30 @@ These rules apply to every business type but the restaurant. The goods rules app
 - **Why:** from the 57th GST Council (8 October 2026) GST rates change once a year, announced ahead and in force from 1 April. A bill must use the rate in force on its own date, and nobody should have to change every item at midnight. The time of supply when an advance or a supply runs across a change (CGST Act, section 14) is not worked out: a bill uses the rate of its own date ([BACKLOG.md](BACKLOG.md#10-new-business-types)).
 - **Change it:** the changes, under *Products & services › GST rate changes*; an item's slab from today, on the item itself. A slab items are to move to stays on until their date.
 
+### GST rates kept in settings, by date
+
+- **Rule:** three GST rates are kept in settings, not on an item: a fashion shop's *GST by price* (the price per piece and its two rates), a lodge's two room-night slabs and the limit between them, and a restaurant's default GST rate (its advances' GST is worked out at it). Each changes by date as an item does: entered ahead in its own card on *GST rate changes* by whoever may change the business's settings (`settings.edit`; a restaurant's `restaurant.settings.manage`), from tomorrow, within two years, with a reason, at most once a day for each rate; sent twice, it is still one change; cancelled before its date with a reason. On its date, on the business's own clock (a restaurant's trading day), it takes effect with nothing running, in the same step that moves the items, and from then on it is kept for good with what the rate was before. It is refused while the rate is not set up yet (*GST by price* never saved, the two room-night slabs not chosen), when it sets what will be in force the day before anyway, and, for room nights, when its lower slab's rate is not below its higher's. A slab room nights are to move to stays on until then. A rate can still be changed by hand from today, where it is kept. A restaurant's advances are split for the GST return at the default rate of the day each was received, so a period across a change shows both rates. A jewellery item's 3% and a fuel's nil slab are rules of GST law kept by the software, not settings: no change moves them, and the screen says so.
+- **Why:** the yearly change can move these rates too (the apparel threshold and the room-night slabs moved with the rates on 22 September 2025), and they must move on the same day as the items, on the business's own date, not by someone at midnight.
+- **Change it:** the rate's card on *Products & services › GST rate changes* (a restaurant's on *Menu › GST rate changes*); from today, where each is kept. A new rule for jewellery or fuel is a code change.
+
+### A notification's list of HSN codes
+
+- **Rule:** a change can be made from a GST notification's list: HSN / SAC codes each with its new rate, pasted or read from a CSV file, up to 5,000 lines. A code of 4 or 6 digits stands for every item whose code starts with it, one of 8 digits for itself; a restaurant's dish is found by its tax rate's code. Each rate must be one of the business's slabs (a restaurant's tax rates). The preview shows what each line finds, the codes that find nothing, the items that stay where they are and why (at that rate already then, moving that day, a fuel, a jewellery item, above its MRP), and the items two lines give different rates. The list is refused until those are put right, and while a line whose rate has no slab finds items. Scheduled, it becomes one change for each new rate, or several of up to 2,000 items each when a rate moves more, all at once and named by the list; each is then a change like any other, and is cancelled the same way. Sent twice, it is still one list.
+- **Why:** a notification lists hundreds of codes; picking the items by hand for each is slow and easy to get wrong, and an item given two rates must be decided by a person, not by the order of the lines.
+- **Change it:** the list itself.
+
+### A reminder before a GST rate change
+
+- **Rule:** the bell of those who manage GST rates (`catalog.edit`; a restaurant's `menu.manage`) shows a change still to come from 7 days before its date, saying what moves (how many items, to which slab, from which slabs) and why, and again on the day before, as new. A change of a rate kept in settings is shown the same way.
+- **Why:** prices, shelf labels and open quotations are checked before the day, not after.
+- **Change it:** nothing to set.
+
+### Open quotations and sales orders before a GST rate change
+
+- **Rule:** a change's preview, and the change while it is still to come, lists the open quotations and sales orders holding an item it moves (a kit's part too; a quotation's line not yet billed, an order's line not yet sent). Each of them shows a notice until the date: "From <date> these items move from x% to y%. A quotation billed after the date asks to be revised first; a sales order is invoiced at the rate of its invoice's day." Nothing on the documents themselves changes.
+- **Why:** the customer was told a price; the shop should know before the date which promises the change touches.
+- **Change it:** nothing to set.
+
 ### The counter discount and walk-in customers
 
 - **Rule:** at Quick bill, someone whose role holds `sales.discount` (the Manager role by default) can take a small discount off the bill, in ₹ or %, with a reason. It comes after offers and before points. It is capped at *Most discount at the counter* (10 % of the bill by default); the owner is not limited. A walk-in pays the whole bill, on the screen and on the server: udhaar needs a named customer, unless *Walk-in customers* is set to *May leave a bill unpaid*.
@@ -324,21 +348,27 @@ These rules apply to every business type but the restaurant. The goods rules app
 
 ### A quotation's prices
 
-- **Rule:** a quotation is priced by the server exactly as a sale of the same lines would be at that moment: customer and slab prices, the branch's price, running offers, a manager's discount within the counter limit, GST and round-off. Never above an item's MRP. A kit cannot go on a quotation (its parts can). A revision prices every line again at that day's prices.
+- **Rule:** a quotation is priced by the server exactly as a sale of the same lines would be at that moment: customer and slab prices, the branch's price, running offers, a manager's discount within the counter limit, GST and round-off. Never above an item's MRP. A kit is one line, priced as on a bill: its price, split over its parts by their list prices, each part at its own GST and HSN; the quotation keeps each part's share. A revision prices every line again at that day's prices.
 - **Why:** what the customer is told must be what the bill says.
 - **Change it:** nothing to set; the prices themselves are set on the items and price lists.
 
 ### A quotation holds its prices until its date
 
-- **Rule:** an open quotation may be billed, or made into a sales order, only up to its *Valid until* date, on the business's own calendar (at most 180 days ahead). After it, it shows as *Expired* and must be revised first. The bill is posted at the quoted prices: each line keeps its quoted taxable value and GST, a line taken from two batches is split in proportion so the bill still adds up to the quotation to the paisa, and the bill's total must equal the quotation's. It is refused, with the reason, while an item's GST rate or pack size differs from the quotation, while its quoted rate (GST included) is above its MRP now, or when the business rounds totals differently now.
+- **Rule:** an open quotation may be billed, or made into a sales order, only up to its *Valid until* date, on the business's own calendar (at most 180 days ahead). After it, it shows as *Expired* and must be revised first. Bills are posted at the quoted prices: every line that is left at once, or the lines and quantities chosen now, up to what is left of each (a line quoted in packs in its packs, a kit in whole kits); the rest stays open. Each bill takes each line's cumulative share of its quoted taxable value and GST, so a line billed in parts, or taken from two batches, still adds up to the quotation to the paisa; a bill of the whole quotation must equal its total. A kit goes on the bill as its parts, at their quoted shares, from their own stock and at their own GST, exactly as if added there directly (*Part of* the kit). It is refused, with the reason, while an item's (or a kit part's) GST rate or pack size differs from the quotation, while a kit's parts changed, while the quoted rate (GST included) is above the MRP now, or when the business rounds totals differently now. Two people billing the same quotation at once are counted one after the other: no line is ever billed beyond what it holds (the database refuses it too).
 - **Why:** cement and steel prices move every week; a shop holds a price only for as long as it promised to, and never bills against the law (MRP) or at a GST rate that is no longer the item's.
 - **Change it:** the date on each quotation (when making or revising it).
 
 ### A quotation that is billed or cancelled
 
-- **Rule:** a billed, ordered or cancelled quotation never changes: its lines, totals, customer and site stay as they were (the database refuses any change). An open one is cancelled with a reason; nothing is deleted. Undoing the sale is a return on the bill. A customer who is not saved pays a goods shop's bill in full when it is made; only a saved customer's quotation becomes a sales order, and only for goods.
+- **Rule:** a billed, ordered or cancelled quotation never changes: its lines, totals, customer and site stay as they were (the database refuses any change). A quotation part billed stays open for what is left, shows what each line has billed and has left, and is *Billed* once nothing is left; it is not revised (cancel what is left and quote it again). What is left can be billed, made into a sales order (a kit as its parts, at what is left of their shares) or cancelled; an open quotation is cancelled with a reason, and what was billed stays billed. Nothing is deleted. Undoing a sale is a return on its bill. A customer who is not saved pays a goods shop's bill in full when it is made; only a saved customer's quotation becomes a sales order, and only for goods. A sales order from a quotation for a customer on credit hold is let through as on *Sales orders*: by someone with credit control, or with a manager's PIN and a reason, kept with the order and in the activity log.
 - **Why:** the quotation is the record of what was offered and accepted.
 - **Change it:** nothing to set.
+
+### A quotation's terms and conditions
+
+- **Rule:** the business's terms and conditions for quotations are kept in *Business settings › Prices, totals and numbering* (*Terms and conditions on quotations*, up to 2,000 characters). A quotation takes them when it is made, prints them under its totals and on WhatsApp, and keeps them for good: a revision keeps them, and the database refuses a change. Changing the setting changes only the quotations made after.
+- **Why:** the terms the customer accepted are the ones printed on what they were given.
+- **Change it:** the setting.
 
 ### A licence belongs to one location
 
@@ -1665,7 +1695,7 @@ A hotel, lodge or guest house bills on bills of the shared core ([Shops and the 
 
 ### GST rates by date at a restaurant
 
-- **Rule:** the same changes as a shop's ([GST rates by date](#gst-rates-by-date)) move dishes to another of the restaurant's tax rates, under *Menu › GST rate changes* (`menu.manage`), from a day on the restaurant's own clock: its trading day, so a night that runs past midnight stays on the old rate until its business day ends. A dish takes the rate in force on its order's business day, and the bill keeps it; a bill made before keeps its rates. A price that includes GST (the dish's own setting, or the restaurant's) keeps its total unless the change keeps the price before GST, which then moves the dish's price and its sizes' prices; add-ons, happy-hour prices and the prices set for an outlet, a channel or a kind of order keep theirs. An outlet still on the day before (its own business day not yet closed) prices its orders as before the change. The dish's *GST history* (its *More actions* on *Menu › Products*) and the activity log keep each change with who entered it and why, so a dish a change has named is archived, not deleted. A tax rate dishes are to move to cannot be switched off until then.
+- **Rule:** the same changes as a shop's ([GST rates by date](#gst-rates-by-date)) move dishes to another of the restaurant's tax rates, under *Menu › GST rate changes* (`menu.manage`), from a day on the restaurant's own clock: its trading day, so a night that runs past midnight stays on the old rate until its business day ends. A dish takes the rate in force on its order's business day, and the bill keeps it; a bill made before keeps its rates. A price that includes GST (the dish's own setting, or the restaurant's) keeps its total unless the change keeps the price before GST, which then moves the dish's price and its sizes' prices; add-ons, happy-hour prices and the prices set for an outlet, a channel or a kind of order keep theirs. An outlet still on the day before (its own business day not yet closed) prices its orders as before the change. The restaurant's default GST rate, which its advances' GST is worked out at, changes by date the same way ([GST rates kept in settings, by date](#gst-rates-kept-in-settings-by-date)). The dish's *GST history* (its *More actions* on *Menu › Products*) and the activity log keep each change with who entered it and why, so a dish a change has named is archived, not deleted. A tax rate dishes are to move to cannot be switched off until then.
 - **Why:** the same yearly change; a restaurant's day is its trading day, not the calendar's.
 - **Change it:** *Menu › GST rate changes*; a dish's rate from today, on the dish itself.
 

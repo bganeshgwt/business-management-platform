@@ -289,6 +289,10 @@ export const HARDWARE = {
   shade: { maker: "Asian Paints", code: "7974", name: "Sunset Glow", card: "Colour Spectra", base: "Pastel", formula: "XR 1.25; YE 0.4" },
   // Red bricks by the piece, received, for the brickwork calculator.
   bricks: { name: "Red clay bricks 9 x 4 in", code: "BRICK-RED", unit: "each", price: 9, hsn: "6901" },
+  // A kit of a bag of cement and a kilo of binding wire at its own price (quoted as one line, billed as its parts),
+  // and the terms and conditions the quotation spec prints on its quotations (set on Business settings by the spec).
+  kit: { name: "Cement and wire pack", code: "HW-PACK", price: 480 },
+  terms: "Prices include delivery within 10 km. 50% advance with the order.",
 };
 
 // The optical shop: a frame and a single-vision lens kept in stock and the

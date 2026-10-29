@@ -26,6 +26,8 @@ const access = require('./businessAccess.service');
 //                      where food or feed is stored or sold (seeds, fertilisers & pesticides shops)
 //   personal data      requests due within 15 days or past their 90 days, a breach's 72 hours
 //                      for the Board's report, the privacy notice not yet published
+//   GST rate changes   a change of items' slabs, or of a rate kept in settings, 7 days before its date and
+//                      again the day before, for those who manage GST rates (catalog.edit)
 //   GST thresholds     the turnover of the owner's businesses under this business's PAN nearing or
 //                      past a figure (e-invoicing and 6-digit HSN / SAC codes, the IRP's 30 days),
 //                      for whoever may see the business's money (reports.view)
@@ -190,6 +192,10 @@ async function feed(business) {
     const world = require('../../../personal-data/services/personalDataShop').world(business, { id: business.member_user_id });
     const link = (tab, id) => `${base}/privacy?tab=${tab}${id ? `&${tab === 'requests' ? 'request' : 'breach'}=${id}` : ''}`;
     items.push(...await require('../../../personal-data/services/privacyRegister.service').bell(world, link));
+  }
+  // GST rate changes (modules/tax-changes) due within 7 days: what moves and how many items, for those who manage GST rates.
+  if (has('catalog') && can('catalog.edit') && business.business_type !== 'restaurant') {
+    items.push(...await require('../../../tax-changes/services/taxChangesShop').bell(business, base));
   }
   // An owner's GST thresholds (modules/gst-thresholds): the turnover under this business's PAN nearing or past a figure.
   // (A restaurant's are on the restaurant's own bell.)

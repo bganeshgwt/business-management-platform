@@ -639,7 +639,10 @@ async function orderDetail(business, orderId) {
     repo.all(repo.pool, `SELECT h.id,h.overdue,h.overdue_days,h.reason,h.created_at,a.name AS released_by_name,q.name AS requested_by_name FROM wholesale_hold_releases h
       JOIN users a ON a.id=h.released_by JOIN users q ON q.id=h.requested_by WHERE h.business_id=$1 AND h.order_id=$2 ORDER BY h.id`, [business.id, order.id]),
   ]);
-  return { ...order, lines, dispatches, edits, hold_releases: releases };
+  // While it is still to send: the GST rate changes to come that move its items (invoiced at the rate of each invoice's day).
+  const waiting = ['open', 'part_dispatched'].includes(order.status) ? lines.filter((l) => Number(l.remaining) > 0).map((l) => l.sku_id) : [];
+  const notices = waiting.length ? await require('../../../tax-changes/services/taxChangesShop').notices(repo.pool, business, waiting) : [];
+  return { ...order, lines, dispatches, edits, hold_releases: releases, tax_notices: notices };
 }
 
 // Batches to send for one order line: the ones named, or oldest expiry

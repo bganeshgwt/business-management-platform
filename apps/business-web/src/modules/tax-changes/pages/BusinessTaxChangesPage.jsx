@@ -18,7 +18,8 @@ export default function BusinessTaxChangesPage() {
   return (
     <>
       <ErrorMessage message={error || list.error} />
-      <TaxChangesView api={api} words={WORDS.shop} canEdit={biz.can("catalog.edit")} gridProps={list.gridProps} reload={list.reload}
+      <TaxChangesView api={api} words={WORDS.shop} canEdit={biz.can("catalog.edit")} canEditSettings={biz.can("settings.edit")} gridProps={list.gridProps} reload={list.reload}
+        help="A jewellery item's 3% and a fuel's nil slab are rules of GST law kept by the software, not settings: no change here moves them."
         rates={rates} categories={categories} pricesInclude={inclusive} today={businessToday(biz.business.timezone)} currency={biz.symbol}
         description={`The yearly GST change, entered ahead of its date: from that day every sale, quotation and bill uses the new slab, and a bill made before keeps its rate. ${inclusive
           ? "Your prices include GST: they keep their total unless a change keeps the price before GST."

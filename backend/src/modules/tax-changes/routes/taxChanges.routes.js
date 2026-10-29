@@ -26,6 +26,14 @@ function businessRoutes(router, { context, send, b }) {
   // What each item would become, before anything is saved.
   router.post(b('/tax-changes/preview'), context('catalog.edit'), async (req, res) => send(res, await shop.preview(req.business, req.user, req.body)));
   router.post(b('/tax-changes'), context('catalog.edit'), async (req, res) => send(res, await shop.schedule(req.business, req.user, req.body), 201));
+  // A notification's list of HSN / SAC codes and their new rates: what it finds, then its changes.
+  router.post(b('/tax-changes/import/preview'), context('catalog.edit'), async (req, res) => send(res, await shop.importPreview(req.business, req.user, req.body)));
+  router.post(b('/tax-changes/import'), context('catalog.edit'), async (req, res) => send(res, await shop.importSchedule(req.business, req.user, req.body), 201));
+  // Rates kept in its settings (a fashion shop's GST by price, a lodge's room-night slabs), changed by date.
+  router.get(b('/tax-changes/settings'), context('catalog.view'), async (req, res) => send(res, await shop.settings(req.business, req.user)));
+  router.post(b('/tax-changes/settings'), context('settings.edit'), async (req, res) => send(res, await shop.scheduleSetting(req.business, req.user, req.body), 201));
+  router.post(b('/tax-changes/settings/:changeId/cancel'), context('settings.edit'), async (req, res) =>
+    send(res, await shop.cancelSetting(req.business, req.user, req.params.changeId, req.body)));
   router.get(b('/tax-changes/:changeId'), context('catalog.view'), async (req, res) => send(res, await shop.detail(req.business, req.user, req.params.changeId)));
   router.post(b('/tax-changes/:changeId/cancel'), context('catalog.edit'), async (req, res) =>
     send(res, await shop.cancel(req.business, req.user, req.params.changeId, req.body)));
@@ -51,6 +59,11 @@ const menuHandlers = {
   cancel: async (req, res) => ok(res, await menu.cancel(req.user, req.params.id, req.body || {})),
   cancelItem: async (req, res) => ok(res, await menu.cancelItem(req.user, req.params.id, req.params.itemId, req.body || {})),
   history: async (req, res) => ok(res, await menu.history(req.user, req.params.id)),
+  importPreview: async (req, res) => ok(res, await menu.importPreview(req.user, req.body || {})),
+  importSchedule: async (req, res) => ok(res, await menu.importSchedule(req.user, req.body || {}), 201),
+  settings: async (req, res) => ok(res, await menu.settings(req.user)),
+  scheduleSetting: async (req, res) => ok(res, await menu.scheduleSetting(req.user, req.body || {}), 201),
+  cancelSetting: async (req, res) => ok(res, await menu.cancelSetting(req.user, req.params.id, req.body || {})),
 };
 
 module.exports = { businessRoutes, menuHandlers };

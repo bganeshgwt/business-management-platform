@@ -373,7 +373,8 @@ allows.
    selling prices include GST (a goods shop starts with prices including GST,
    rounded to the rupee), the financial year (fixed once the first document
    is numbered), *Most discount at the counter*, the *Walk-in customers* rule
-   and the *Shared till* PIN rule. Then the [Rules](#business-settings--rules).
+   and the *Shared till* PIN rule, the footers, and (with Quotations on) the
+   *Terms and conditions on quotations*. Then the [Rules](#business-settings--rules).
 2. **Settings › Locations.** Each location's address and phone, and its GSTIN
    if it is registered on its own. Add the other branches and godowns, and
    untick *Sells at the counter* on a godown so Quick bill does not offer it.
@@ -1151,7 +1152,8 @@ the cash of the bill it pays; it is not counted again when used. Use it by
 choosing **Advance** when taking payment. **Hand back** needs
 `advances.refund` or a PIN for that advance and amount, a reason and an open
 day. The *For the GST return* card gives GSTR-1 tables 11A (received, not yet
-billed) and 11B (billed this period, received earlier) for the accountant.
+billed) and 11B (billed this period, received earlier) for the accountant, each
+advance at the default GST rate of the day it was received.
 
 **Pickup orders paid ahead**: on *Orders*, an open takeaway not yet
 billed has *More › Take advance…*. The guest on the order (or the guest you
@@ -1652,7 +1654,11 @@ business day closes, and an outlet still on yesterday's day sells at yesterday's
 Each order line takes its business day's rate and the bill keeps it. Before the day a
 change can be cancelled, whole or dish by dish, with a reason. A dish's **GST history**
 (*More actions*) shows its changes; *Change history* shows them too, as edits made by
-the person who entered them.
+the person who entered them. **Import a notification's list** works as a shop's: a
+dish is found by its tax rate's HSN / SAC code. The *Default GST rate, by date* card
+changes the restaurant's default rate from a day (whoever may change the settings),
+which its advances' GST is worked out at; the bell of those who manage the menu shows
+a change 7 days before its day and again the day before.
 
 **Happy hour** sets price windows: a different price for selected dishes between certain
 times on certain days, optionally only within a season. The POS applies the window
@@ -2741,6 +2747,38 @@ it and why, and each time its slab was changed on the item itself.
   billed.
 - **A change for today** is made on the item itself (*Edit*, its GST slab).
 - A kit's own rate follows its parts by itself.
+- **Open quotations and sales orders.** The preview, and a change while it is
+  still to come, lists the open quotations and sales orders holding an item
+  that moves. Each of them shows a notice until the date: a quotation billed
+  after it is revised first; a sales order is invoiced at the rate of its
+  invoice's day. Nothing on them changes.
+- **The bell** of everyone who may change the catalogue shows a change 7 days
+  before its date, with how many items move, to what and from what, and
+  again the day before.
+
+**Import a notification's list** (beside *New GST rate change*): paste the
+notification's codes and rates, one a line ("1905 31 00 5%", "4820, 12"), or
+read them from a CSV file; a line that is not a code and a rate (a heading)
+is left out and named. A code of 4 or 6 digits finds every item whose HSN or
+SAC code starts with it. Choose *From* (the next 1 April to start with) and
+**Preview**: what each line finds, the codes that find nothing, the items that
+stay where they are and why, and the items two lines give different rates
+(put the list right first: an item takes one rate). It says what the list
+becomes: one change for each new rate, or more than one when a rate moves
+more than 2,000 items, all scheduled at once. Give the reason and
+**Schedule**. Each change is then listed, opened and cancelled like any other.
+
+**Rates kept in settings.** A fashion shop's *GST by price* and a lodge's
+room-night slabs have a card of their own on this screen (*GST by price, by
+date*; *Room-night slabs, by date*): the values now, and every change of them
+with what they were before. **Change from a date** takes the new values (the
+price per piece and its two rates; the limit and the two slabs), the first
+day and the reason, and needs *Change business settings* (`settings.edit`);
+**Cancel** takes a change back before its date. On its day it takes effect by
+itself, like an item's change. To change them from today, change them where
+they are kept (*Size × colour › More › GST on clothing by price*; *Settings ›
+Room types & rates*). A jewellery item's 3% and a fuel's nil slab are rules
+of GST law, not settings: no change moves them.
 
 ### Daily money, expenses and cashier shifts
 
@@ -2857,15 +2895,20 @@ general store, an optical shop, a jeweller and a wholesaler. It is under
 - **New quotation** — choose a saved customer, or type the name and phone of
   someone who is not one yet; set *Valid until* (a week ahead to start with,
   at most 180 days); add lines as on a new sale (search or scan the item,
-  pick its unit or pack — *Coil of 25* — and the quantity). Every figure is
+  pick its unit or pack — *Coil of 25* — and the quantity). A kit is one
+  line, priced as on a bill; the line shows its parts. Every figure is
   the server's: the same calculation that prices a sale of these lines now,
   with customer and slab prices, branch prices, running offers, GST and
   round-off. A manager may give a discount with a reason, up to the
   business's counter limit. Saving gives it a number (*QT/2627/0001*, in
-  Settings › Number series). Nothing leaves stock.
+  Settings › Number series), and the business's terms and conditions as they
+  are then (*Business settings*, *Terms and conditions on quotations*): the
+  quotation keeps them, whatever the setting says later. Nothing leaves stock.
 - **Print (A4)** and **Share on WhatsApp** — the quotation under the
-  business's own header, laid out like its bills, with HSN, GST and the date
-  it is valid until; or the same as a message to the customer's phone.
+  business's own header, laid out like its bills, with HSN, GST, the date
+  it is valid until and its terms; a kit as its parts, each *Part of* the
+  kit with its own HSN and GST; or the same as a message to the customer's
+  phone.
 - **Revise** — while it is open: the lines are priced again at today's
   prices, the number stays and the revision goes up. Each revision is listed
   on the quotation with the totals before and after.
@@ -2873,7 +2916,12 @@ general store, an optical shop, a jeweller and a wholesaler. It is under
   date, so it cannot be billed until it is revised.
 - **Make the bill** — the customer agreed: the bill is posted at the quoted
   prices, its stock leaves this location, and the quotation shows *Billed*
-  with the bill's number. A customer who is not saved pays the whole bill
+  with the bill's number. To bill only a part now, untick the lines that wait
+  or lower their quantities (each up to what is left; a kit in whole kits):
+  the quotation shows *Part billed*, its bills, and what each line has billed
+  and has left, and **Bill what is left** makes the next bill. A kit goes on
+  the bill as its parts, at their quoted shares, each from its own stock (a
+  serial-numbered part's number is chosen) at its own GST. A customer who is not saved pays the whole bill
   now; a saved customer may pay part or none, and the rest goes on their
   dues. Items kept by batch go out oldest expiry first (a line can go over
   two batches and still adds up to the quotation); serial-numbered items need
@@ -2881,11 +2929,16 @@ general store, an optical shop, a jeweller and a wholesaler. It is under
   GST rate, its pack size or the business's rounding changed since, or when
   the quoted rate is now above the item's MRP: revise the quotation first.
 - **Make a sales order** — with Sales orders on: an order at the quoted
-  prices for a saved customer, sent later in parts, each dispatch with its own
-  bill and delivery challan. A quotation with a service on it is billed
-  instead.
-- **Cancel** — with a reason. A billed, ordered or cancelled quotation never
-  changes.
+  prices for a saved customer (of what is left, once part is billed; a kit
+  as its parts), sent later in parts, each dispatch with its own bill and
+  delivery challan. A quotation with a service on it is billed instead. A
+  customer on credit hold is let through here as on *Sales orders*: someone
+  with credit control gives the reason; anyone else chooses a manager, who
+  types their PIN, and gives the reason.
+- **Cancel** — with a reason (*Cancel what is left* once part is billed: what
+  was billed stays billed). A billed, ordered or cancelled quotation never
+  changes, and one part billed is not revised: cancel what is left and quote
+  it again.
 
 Who does what: a cashier makes, revises, prints and bills quotations; a
 manager also cancels them; an accountant and a viewer see them (the

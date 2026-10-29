@@ -406,7 +406,10 @@ export async function buildTestData({ api, logins, sql }) {
       kind: "purchase", requestKey: requestKey(), locationId: businesses.hardware.locationId, contactId: supplier.id, supplierBillNo: "ACD-1002",
       lines: [{ skuId: base.id, quantity: "12", unitPrice: "1400" }, { skuId: bricks.id, quantity: "5000", unitPrice: "6" }],
     }, 201);
+    const kit = await owner("POST", B("kits"), { name: HARDWARE.kit.name, code: HARDWARE.kit.code, price: String(HARDWARE.kit.price),
+      components: [{ skuId: cement.id, quantity: 1 }, { skuId: wire.id, quantity: 1 }] }, 201);
     Object.assign(businesses.hardware, {
+      kit: { id: kit.id, name: kit.label },
       base: { id: base.id, name: base.label },
       tintCharge: { id: tintCharge.id, name: tintCharge.label },
       shade: { id: shade.id, code: shade.code, name: shade.name },

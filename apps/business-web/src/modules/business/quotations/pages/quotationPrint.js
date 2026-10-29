@@ -5,10 +5,12 @@ import { privacyLine } from "../../../personal-data/printLine";
 import { ESTIMATE_NOTE, workingLine } from "../../hardware/pages/workings";
 
 // A quotation on A4 under the business's own header, laid out like its bills,
-// and the same quotation as a WhatsApp message. Everything on it is what the
-// server worked out when it was made or last revised: lines, HSN, MRP, rates,
-// discounts, GST and round-off. Only the CGST / SGST halves are split here, to
-// the paisa, so they always add up to the GST quoted.
+// with the terms and conditions it was made with, and the same quotation as a
+// WhatsApp message. Everything on it is what the server worked out when it
+// was made or last revised: lines, HSN, MRP, rates, discounts, GST and
+// round-off; a kit as its parts, each with its own HSN and GST, as its bill
+// will show them. Only the CGST / SGST halves are split here, to the paisa,
+// so they always add up to the GST quoted.
 
 const p = (value) => Math.round(Number(value || 0) * 100);
 const r = (paise) => paise / 100;
@@ -35,7 +37,13 @@ export function printQuotation(q, biz) {
   const date = (value) => escapeHtml(businessDate(value, seller.date_format, biz.business.timezone));
   const sellerName = seller.legal_name || seller.display_name || biz.business.name;
   const address = (parts) => parts.filter(Boolean).map(escapeHtml).join(", ");
-  const lines = q.lines.map((l, index) => {
+  // A kit's line prints as its parts, "Part of" the kit, as on its bill.
+  const printed = q.lines.flatMap((l) => (l.kit_parts ? l.kit_parts.map((part) => {
+    const units = Number(part.quantity) * Number(l.quantity);
+    return { label: part.label, kit: l.label, hsn_code: part.hsnCode, quantity: units, unit: part.unit, unit_price: Number(part.amount) / units,
+      discount: part.discount, net: part.net, tax: part.tax, tax_rate: part.taxRate, mrp: null, offers: [] };
+  }) : [l]));
+  const lines = printed.map((l, index) => {
     const tax = p(l.tax);
     const [cgst, sgst] = interstate ? [0, 0] : halves(tax);
     return { ...l, n: index + 1, tax, cgst, sgst, igst: interstate ? tax : 0, taxable: p(l.net), discount: p(l.discount), exempt: Number(l.tax_rate) === 0 && tax === 0 };
@@ -45,7 +53,7 @@ export function printQuotation(q, biz) {
   // A hardware shop's tinted line names its shade.
   const tintOf = (l) => (q.tints || []).find((t) => String(t.line_id) === String(l.id));
   const rows = lines.map((l) => `<tr><td>${l.n}</td>
-    <td>${escapeHtml(l.label)}${tintOf(l) ? `<br><small>Tinted to ${escapeHtml(`${tintOf(l).maker} ${tintOf(l).code} ${tintOf(l).name}`)}</small>` : ""}${l.mrp ? `<br><small>MRP ${money(p(l.mrp))}</small>` : ""}${(l.offers || []).length ? `<br><small>${escapeHtml(l.offers.map((o) => o.label).join(", "))}</small>` : ""}</td>
+    <td>${escapeHtml(l.label)}${l.kit ? `<br><small>Part of ${escapeHtml(l.kit)}</small>` : ""}${tintOf(l) ? `<br><small>Tinted to ${escapeHtml(`${tintOf(l).maker} ${tintOf(l).code} ${tintOf(l).name}`)}</small>` : ""}${l.mrp ? `<br><small>MRP ${money(p(l.mrp))}</small>` : ""}${(l.offers || []).length ? `<br><small>${escapeHtml(l.offers.map((o) => o.label).join(", "))}</small>` : ""}</td>
     <td>${escapeHtml(l.hsn_code || "—")}</td><td class="r">${escapeHtml(lineQuantity(l))}</td><td class="r">${escapeHtml(`${biz.symbol}${RATE.format(lineRate(l))}`)}</td>
     <td class="r">${l.discount ? money(l.discount) : "—"}</td><td class="r">${money(l.taxable)}</td><td class="r">${l.exempt ? "Exempt" : `${Number(l.tax_rate)}%`}</td>
     ${interstate ? `<td class="r">${money(l.igst)}</td>` : `<td class="r">${money(l.cgst)}</td><td class="r">${money(l.sgst)}</td>`}
@@ -78,6 +86,7 @@ export function printQuotation(q, biz) {
       ${p(q.round_off) ? `<tr><td>Round-off</td><td class="r">${money(p(q.round_off))}</td></tr>` : ""}
       <tr class="grand"><td>Total</td><td class="r">${money(p(q.total))}</td></tr>
     </tbody></table></div>
+  ${q.terms ? `<div class="box"><b>Terms and conditions</b><div>${escapeHtml(q.terms).replace(/\n/g, "<br>")}</div></div>` : ""}
   <p><small>This is a quotation, not a tax invoice. The prices hold until ${date(q.valid_until)}; goods are kept aside only once the bill is made.</small></p>
   ${privacyLine(biz) ? `<p><small>${escapeHtml(privacyLine(biz))}</small></p>` : ""}
   <div class="sign"><small>Thank you for the enquiry.</small><div class="r">For ${escapeHtml(sellerName)}<br><br><br>Authorised signatory</div></div>`;
@@ -95,5 +104,6 @@ export function quotationMessage(q, biz) {
     ...q.lines.map((l) => `• ${l.label}: ${lineQuantity(l)} × ${biz.symbol}${RATE.format(lineRate(l))} = ${amount(Number(l.net) + Number(l.tax))}`),
     `Total ${amount(q.total)}${q.tax_mode === "inclusive" ? " (GST included)" : " (with GST)"}`,
     `Valid until ${businessDate(q.valid_until, seller.date_format, biz.business.timezone)}.`,
+    ...(q.terms ? ["", "Terms and conditions:", q.terms] : []),
   ].join("\n");
 }

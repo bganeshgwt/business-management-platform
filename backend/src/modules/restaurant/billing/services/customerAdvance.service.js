@@ -14,6 +14,8 @@ const { formatMobile, maskMobile } = require("../../../../utils/phone");
 // handed back with a reason and a manager's say-so.
 
 const n = (value) => (value === null || value === undefined ? 0 : Number(value));
+// GST rate changes by date (modules/tax-changes): the default rate of a day.
+const taxChangesMenu = () => require("../../../tax-changes/services/taxChangesMenu");
 
 const requireRestaurantId = (restaurantId) => {
   if (!restaurantId) {
@@ -271,11 +273,15 @@ const refund = async (restaurantId, id, data, who, ctx = {}) => {
 
 // For the GST return (GSTR-1 tables 11A and 11B), at the restaurant's usual
 // GST rate (the rate is not known until the bill: a restaurant's food is
-// mostly one rate). 11A: advances received in the period and not invoiced in
-// it; 11B: earlier advances invoiced (used on bills) in the period.
+// mostly one rate): its default rate of the day each advance was received,
+// which changes by date (Menu › GST rate changes). 11A: advances received in
+// the period and not invoiced in it; 11B: earlier advances invoiced (used on
+// bills) in the period.
 const gstSummary = async (restaurantId, { from, to }) => {
   requireRestaurantId(restaurantId);
 
+  // A change of the default rate whose day has come takes effect first.
+  await taxChangesMenu().onMenu(restaurantId);
   const settings = await restaurantRepository.findSettings(restaurantId);
   let start = from;
   let end = to;
@@ -289,23 +295,40 @@ const gstSummary = async (restaurantId, { from, to }) => {
 
   const figures = await customerAdvanceRepository.gstFigures(restaurantId, { from: start, to: end, timezone: settings.timezone });
   const rate = n(settings.default_tax_percentage);
-  const split = (gross) => {
-    const grossPaise = toPaise(gross);
-    const taxable = Math.round((grossPaise * 100) / (100 + rate));
+  // Each day's advances at that day's default rate, added up by rate.
+  const rateOn = await taxChangesMenu().defaultRates(restaurantId, figures.by_day.map((day) => day.received_on));
+  const byRate = new Map();
+  for (const day of figures.by_day) {
+    const dayRate = rateOn.get(day.received_on) ?? rate;
+    const sums = byRate.get(dayRate) || { a: 0, b: 0 };
+    sums.a += Math.max(0, toPaise(n(day.received)) - toPaise(n(day.used_same_period)));
+    sums.b += toPaise(n(day.adjusted));
+    byRate.set(dayRate, sums);
+  }
+  const split = (grossPaise, at) => {
+    const taxable = Math.round((grossPaise * 100) / (100 + at));
     const { cgst, sgst } = splitGst(grossPaise - taxable);
 
-    return { gross: fromPaise(grossPaise), taxable: fromPaise(taxable), cgst: fromPaise(cgst), sgst: fromPaise(sgst) };
+    return { gross: grossPaise, taxable, cgst, sgst };
   };
+  const add = (parts) => parts.reduce((sum, part) => ({ gross: sum.gross + part.gross, taxable: sum.taxable + part.taxable, cgst: sum.cgst + part.cgst, sgst: sum.sgst + part.sgst }),
+    { gross: 0, taxable: 0, cgst: 0, sgst: 0 });
+  const rupees = (part) => ({ gross: fromPaise(part.gross), taxable: fromPaise(part.taxable), cgst: fromPaise(part.cgst), sgst: fromPaise(part.sgst) });
+  const rates = [...byRate.keys()].sort((x, y) => x - y);
+  const parts = rates.map((at) => ({ rate: at, table11A: split(byRate.get(at).a, at), table11B: split(byRate.get(at).b, at) }));
 
   return {
     from: start,
     to: end,
     rate,
+    // The default rates the period's advances were received at (more than one when it changed).
+    rates: rates.length ? rates : [rate],
     receivedCount: figures.received_count,
     received: n(figures.received),
     usedSamePeriod: n(figures.used_same_period),
-    table11A: split(Math.max(0, n(figures.received) - n(figures.used_same_period))),
-    table11B: split(n(figures.adjusted)),
+    table11A: rupees(add(parts.map((part) => part.table11A))),
+    table11B: rupees(add(parts.map((part) => part.table11B))),
+    byRate: parts.map((part) => ({ rate: part.rate, table11A: rupees(part.table11A), table11B: rupees(part.table11B) })),
   };
 };
 

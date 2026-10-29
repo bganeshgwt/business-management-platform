@@ -166,3 +166,38 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* A line of help under the page's header. */
+.txc-help {
+  margin: -4px 0 0;
+}
+
+/* The open quotations and sales orders a change touches, and the notice on each. */
+.txc-documents {
+  display: grid;
+  gap: 6px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.txc-documents p {
+  margin: 0;
+}
+
+.txc-document-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 2px;
+}
+
+.txc-notices {
+  display: grid;
+  gap: 6px;
+}
+
+.txc-notices p {
+  margin: 0;
+}

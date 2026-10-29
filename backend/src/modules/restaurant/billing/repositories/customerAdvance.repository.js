@@ -333,11 +333,11 @@ const refund = async (restaurantId, id, data, who) => {
 //   received  advances received in the period, less what bills in the same
 //             period already used of them (those are invoiced: no 11A entry)
 //   adjusted  advances received BEFORE the period and used on bills in it
-// Gross amounts; the service splits out the tax.
+// Gross amounts; the service splits out the tax. by_day: the same three
+// figures by the day each advance was received (its GST is at that day's rate).
 const gstFigures = async (restaurantId, { from, to, timezone }) => {
   const dateOf = (dayAlias, at) => `COALESCE(${dayAlias}.business_date, (${at} AT TIME ZONE $4)::date)`;
-  const result = await pool.query(
-    `WITH adv AS (
+  const figures = `WITH adv AS (
        SELECT a.id, a.amount, ${dateOf("bd", "a.received_at")} AS received_on
        FROM customer_advances a
        LEFT JOIN business_days bd ON bd.id = a.business_day_id
@@ -347,7 +347,25 @@ const gstFigures = async (restaurantId, { from, to, timezone }) => {
        FROM payments p
        LEFT JOIN business_days pd ON pd.id = p.business_day_id
        WHERE p.restaurant_id = $1 AND p.advance_id IS NOT NULL AND p.payment_status = 'success'
+     )`;
+  const byDay = await pool.query(
+    `${figures}, per_advance AS (
+       SELECT adv.amount, adv.received_on,
+         COALESCE((SELECT SUM(u.amount) FROM used u WHERE u.advance_id = adv.id AND u.used_on BETWEEN $2::date AND $3::date), 0) AS used_in
+       FROM adv WHERE adv.received_on <= $3::date
      )
+     SELECT received_on::text AS received_on,
+       COALESCE(SUM(amount) FILTER (WHERE received_on BETWEEN $2::date AND $3::date), 0) AS received,
+       COALESCE(SUM(used_in) FILTER (WHERE received_on BETWEEN $2::date AND $3::date), 0) AS used_same_period,
+       COALESCE(SUM(used_in) FILTER (WHERE received_on < $2::date), 0) AS adjusted
+     FROM per_advance
+     GROUP BY received_on
+     HAVING SUM(amount) FILTER (WHERE received_on BETWEEN $2::date AND $3::date) > 0 OR SUM(used_in) > 0
+     ORDER BY received_on`,
+    [restaurantId, from, to, timezone || "Asia/Kolkata"]
+  );
+  const result = await pool.query(
+    `${figures}
      SELECT
        COALESCE((SELECT SUM(amount) FROM adv WHERE received_on BETWEEN $2::date AND $3::date), 0) AS received,
        COALESCE((SELECT SUM(u.amount) FROM used u JOIN adv ON adv.id = u.advance_id
@@ -359,7 +377,7 @@ const gstFigures = async (restaurantId, { from, to, timezone }) => {
     [restaurantId, from, to, timezone || "Asia/Kolkata"]
   );
 
-  return result.rows[0];
+  return { ...result.rows[0], by_day: byDay.rows };
 };
 
 // Every advance taken on one order (a pickup order), oldest first.

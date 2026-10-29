@@ -26,6 +26,9 @@ import { OrderSite } from "../../hardware/pages/SiteField";
 // A hardware shop's order may name the fitter its invoices earn commission for.
 import { OrderFitter } from "../../hardware/pages/BillExtras";
 import { usesSites } from "../../hardware/pages/hardware";
+import HoldRelease from "./HoldRelease";
+import { useHoldRelease } from "./useHoldRelease";
+import TaxNotices from "../../../tax-changes/pages/TaxNotices";
 
 // Sales orders of a wholesale business. An order fixes the prices; each
 // dispatch sends part or all of it with its own tax invoice; what is not sent
@@ -147,8 +150,7 @@ function OrderDialog({ order, initialContactId, onClose, onSaved }) {
   const [typed, setTyped] = useState(null);
   const [summary, setSummary] = useState(null);
   const [hold, setHold] = useState(null);
-  const [release, setRelease] = useState({ reason: "", approverId: "", pin: "" });
-  const [releasers, setReleasers] = useState(null);
+  const holdRelease = useHoldRelease(biz, hold);
   const [account, setAccount] = useState(false);
   const items = useMemo(() => options?.["catalog?active=true&kind=goods"] || [], [options]);
   const customers = options?.["customer-beats?trade=trade"] || [];
@@ -175,10 +177,6 @@ function OrderDialog({ order, initialContactId, onClose, onSaved }) {
     businessRead(biz.id, `sales-orders/customer-summary/${form.contactId}`, undefined, controller.signal).then(setSummary).catch(() => {});
     return () => controller.abort();
   }, [biz.id, form.contactId]);
-  useEffect(() => {
-    if (!hold || biz.can("receivables.approve") || releasers) return;
-    businessRead(biz.id, "hold-releasers").then(setReleasers).catch(() => setReleasers([]));
-  }, [biz, hold, releasers]);
 
   const repeatLast = () => {
     const last = summary?.last_order;
@@ -218,7 +216,7 @@ function OrderDialog({ order, initialContactId, onClose, onSaved }) {
         ...(Number(l.free) > 0 ? { freeQuantity: l.free } : {}) };
       return l.orderLineId ? { orderLineId: l.orderLineId, ...base } : { skuId: l.sku.id, ...base };
     });
-    const releaseBody = hold ? { release: { reason: release.reason, ...(release.approverId ? { approverId: release.approverId, pin: release.pin } : {}) } } : {};
+    const releaseBody = holdRelease.body();
     if (editing) return { requestKey, reason: form.reason, lines: out, expectedOn: form.expectedOn || null, notes: form.notes || null, ...releaseBody };
     return { locationId: form.locationId, contactId: form.contactId, requestKey, notes: form.notes || undefined, expectedOn: form.expectedOn || undefined,
       ...(form.salespersonId ? { salespersonId: form.salespersonId } : {}), lines: out, ...releaseBody };
@@ -323,23 +321,7 @@ function OrderDialog({ order, initialContactId, onClose, onSaved }) {
             <span className="muted small">Estimate at list price {biz.exact(estimate)} — group, slab and scheme prices are applied by the server.</span>
           </div>
         </div>
-        {hold && (
-          <div className="field-wide bz-note-card is-warning" role="group" aria-label="Let it through">
-            <strong>Let it through: {hold.holdReason === "bounced_cheques" ? `${hold.bounces} cheques bounced in the last ${hold.bounceDays} days.` : `${biz.exact(hold.overdue)} is ${hold.days} days overdue (limit ${hold.limitDays} days).`}</strong>
-            {!biz.can("receivables.approve") && (
-              <>
-                <label className="field"><span>Manager</span>
-                  <select required value={release.approverId} onChange={(e) => setRelease((r) => ({ ...r, approverId: e.target.value }))}>
-                    <option value="">Choose…</option>
-                    {(releasers || []).map((p) => <option key={p.id} value={p.id} disabled={!p.has_pin}>{p.name}{p.has_pin ? "" : " (no PIN set)"}</option>)}
-                  </select>
-                </label>
-                <label className="field"><span>Their PIN</span><input type="password" inputMode="numeric" autoComplete="off" required minLength={4} maxLength={8} value={release.pin} onChange={(e) => setRelease((r) => ({ ...r, pin: e.target.value }))} /></label>
-              </>
-            )}
-            <label className="field" style={{ flex: "1 1 16rem" }}><span>Reason</span><input required maxLength={300} value={release.reason} onChange={(e) => setRelease((r) => ({ ...r, reason: e.target.value }))} placeholder="e.g. Cheque promised for Friday" /></label>
-          </div>
-        )}
+        <HoldRelease biz={biz} hold={hold} {...holdRelease} />
         <Field label="Wanted by (optional)"><input type="date" value={form.expectedOn || ""} onChange={set("expectedOn")} /></Field>
         <Field label="Notes (optional)"><input maxLength={500} value={form.notes || ""} onChange={set("notes")} placeholder="e.g. Deliver before 10 am" /></Field>
         {editing && <Field label="Why it changed" wide><input required maxLength={300} value={form.reason} onChange={set("reason")} placeholder="e.g. Shop phoned: 2 cases only" /></Field>}
@@ -390,6 +372,8 @@ function OrderDetail({ orderId, startDispatch, onClose, onChanged }) {
               {order.expected_on && <span className="muted small">Wanted by {dateShort(order.expected_on)}</span>}
               {order.closed_at && <span className="muted small">{order.status === "cancelled" ? "Cancelled" : "Closed"} {dateTime(order.closed_at)} — {order.close_reason}</span>}
             </div>
+            {/* A GST rate change still to come that moves an item still to send: invoiced at the rate of each invoice's day. */}
+            <TaxNotices notices={order.tax_notices} />
             {order.hold_releases.map((h) => (
               <p key={h.id} className="bz-note-card is-warning small">Credit hold released by {h.released_by_name} ({dateTime(h.created_at)}): {biz.exact(h.overdue)} was {h.overdue_days} days overdue. Reason: {h.reason}</p>
             ))}

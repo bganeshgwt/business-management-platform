@@ -348,3 +348,84 @@ test("the brickwork calculator puts a wall's bricks and cement on a quotation th
   await expect(sale.getByRole("button", { name: "Change the fitter" })).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test("a kit is quoted as one line, part of the quotation is billed and the rest later, and it prints the terms it was made with", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  // The shop's terms and conditions for quotations, on Business settings.
+  const saveTerms = async (terms) => {
+    await page.goto(`/business-admin/${shop.id}/settings`);
+    const field = page.getByLabel("Terms and conditions on quotations");
+    await expect(field).toBeVisible({ timeout: 30_000 });
+    await field.fill(terms);
+    await page.getByRole("button", { name: "Save settings", exact: true }).click();
+    await expect(page.getByText("All changes saved")).toBeVisible({ timeout: 15_000 });
+  };
+  await saveTerms(HARDWARE.terms);
+
+  await page.goto(`/business-admin/${shop.id}/quotations?new=1`);
+  const dialog = page.getByRole("dialog", { name: "New quotation" });
+  await expect(dialog).toBeVisible({ timeout: 30_000 });
+  await dialog.getByLabel("Customer", { exact: true }).selectOption({ label: `${HARDWARE.contractor.name} · ${HARDWARE.contractor.phone}` });
+  await pick(page, dialog.getByRole("combobox", { name: "Item, line 1" }), HARDWARE.kit.name);
+  await dialog.getByRole("spinbutton", { name: "Qty, line 1" }).fill("2");
+  await pick(page, dialog.getByRole("combobox", { name: "Item, line 2" }), HARDWARE.bricks.name);
+  await dialog.getByRole("spinbutton", { name: "Qty, line 2" }).fill("100");
+  // Two kits at 480 and 100 bricks at 9, GST included: the kit is priced as on a bill.
+  await expect(dialog.getByText(/total ₹1,860\.00/)).toBeVisible({ timeout: 15_000 });
+  await dialog.getByRole("button", { name: "Save quotation" }).click();
+
+  const detail = page.getByRole("dialog", { name: /^Quotation QT\// });
+  await expect(detail).toBeVisible({ timeout: 15_000 });
+  const number = (await detail.getByRole("heading", { level: 2 }).innerText()).replace(/^Quotation /, "");
+  await expect(detail.locator(".bz-totals")).toContainText("₹1,860.00");
+  await expect(detail.getByText(/^Kit: /)).toContainText(HARDWARE.cement.name);
+  await expect(detail.locator(".qt-terms")).toContainText(HARDWARE.terms);
+  // Printed: the kit as its parts, each with its own GST, and the terms it was made with.
+  await detail.getByRole("button", { name: "Print (A4)" }).click();
+  const printed = page.locator("#print-root");
+  await expect(printed).toContainText(`Part of ${HARDWARE.kit.name}`);
+  await expect(printed).toContainText(HARDWARE.wire.name);
+  await expect(printed).toContainText("Terms and conditions");
+  await expect(printed).toContainText(HARDWARE.terms);
+  await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+  await page.screenshot({ path: testInfo.outputPath("quotation-kit-terms.png"), fullPage: true });
+
+  // A part now: 40 of the bricks, not the kits.
+  await detail.getByRole("button", { name: "Make the bill" }).click();
+  const bill = page.getByRole("dialog", { name: `Make the bill for ${number}` });
+  await bill.getByRole("checkbox", { name: HARDWARE.kit.name }).uncheck();
+  await bill.getByRole("spinbutton", { name: `Quantity of ${HARDWARE.bricks.name} to bill` }).fill("40");
+  await page.screenshot({ path: testInfo.outputPath("quotation-part-bill.png"), fullPage: true });
+  await bill.getByRole("button", { name: "Make the bill · about ₹360.00" }).click();
+  const first = page.getByRole("dialog", { name: /^Sale SI/ });
+  await expect(first).toBeVisible({ timeout: 15_000 });
+  await expect(first.locator(".bz-totals")).toContainText("₹360.00");
+  await page.keyboard.press("Escape");
+  await expect(detail.getByText("Part billed", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(detail.getByText(/^Billed so far:/)).toBeVisible();
+  const bricks = detail.getByRole("row").filter({ hasText: HARDWARE.bricks.name });
+  await expect(bricks).toContainText("60");
+  await expect(detail.getByRole("button", { name: "Revise" })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("quotation-part-billed.png"), fullPage: true });
+
+  // The rest: the two kits as their parts, and the 60 bricks left.
+  await detail.getByRole("button", { name: "Bill what is left" }).click();
+  const rest = page.getByRole("dialog", { name: `Make the bill for ${number}` });
+  await rest.getByRole("button", { name: "Make the bill · about ₹1,500.00" }).click();
+  const second = page.getByRole("dialog", { name: /^Sale SI/ });
+  await expect(second).toBeVisible({ timeout: 15_000 });
+  await expect(second.locator(".bz-totals")).toContainText("₹1,500.00");
+  await expect(second).toContainText(HARDWARE.wire.name);
+  await page.keyboard.press("Escape");
+  await expect(detail.getByText("Billed", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(detail.getByRole("button", { name: /Bill what is left|Make the bill/ })).toHaveCount(0);
+
+  // The settings' terms changed afterwards: the quotation keeps its own.
+  await page.keyboard.press("Escape");
+  await saveTerms("");
+  await page.goto(`/business-admin/${shop.id}/quotations`);
+  await page.getByRole("radio", { name: "Billed or ordered" }).click();
+  await page.getByRole("button", { name: number, exact: true }).click();
+  await expect(page.getByRole("dialog", { name: `Quotation ${number}` }).locator(".qt-terms")).toContainText(HARDWARE.terms, { timeout: 15_000 });
+  expect(errors).toEqual([]);
+});

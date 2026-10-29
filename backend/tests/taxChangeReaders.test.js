@@ -103,6 +103,7 @@ const READERS = {
   "modules/restaurant/setup/repositories/taxRate.repository.js": "writes",
   "modules/tax-changes/services/taxChanges.service.js": "module",
   "modules/tax-changes/services/taxChangesMenu.js": "module",
+  "modules/tax-changes/services/taxChangesSettings.js": "module",
   "modules/tax-changes/services/taxChangesShop.js": "module",
   "modules/business/salon-weight/services/businessWeight.service.js": "gate",
   // A farm-input shop's settings show the interest item's slab; season interest is billed at it.

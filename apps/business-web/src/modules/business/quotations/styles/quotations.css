@@ -27,3 +27,42 @@
   flex: 0 0 auto;
   width: auto;
 }
+
+/* A quotation's terms and conditions, as it was made with them. */
+.qt-terms {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.qt-terms p {
+  margin: var(--space-1) 0 0;
+  white-space: pre-line;
+}
+
+.qt-bills {
+  margin: 0;
+}
+
+/* The bill's lines: each with how much of what is left goes on it. */
+.qt-take {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.qt-take-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+}
+
+.qt-take-line .qt-inline {
+  align-items: center;
+}
+
+.qt-take-line input[type="number"] {
+  width: 7rem;
+}

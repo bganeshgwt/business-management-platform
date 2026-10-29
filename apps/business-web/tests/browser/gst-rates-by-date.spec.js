@@ -134,3 +134,70 @@ test("a restaurant schedules a dish's change on its menu screens and sees it in 
   await expect(history.getByText("Cancelled", { exact: true })).toBeVisible({ timeout: 15_000 });
   expect(errors).toEqual([]);
 });
+
+test("a notification's list is imported: each code finds its items, codes that find nothing are named, and it becomes a change", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  const shop = business("grocery");
+  const [marie, cream] = GST_CHANGE.items;
+  const reason = "Notification 9/2027-Central Tax (Rate)";
+  await page.goto(`/business-admin/${shop.id}/tax-changes`);
+  await expect(page.getByRole("heading", { level: 1, name: "GST rate changes" })).toBeVisible({ timeout: 30_000 });
+  // Jewellery's 3% and a fuel's nil slab are rules, not settings: the screen says so.
+  await expect(page.getByText(/A jewellery item's 3% and a fuel's nil slab are rules of GST law/)).toBeVisible();
+  await page.getByRole("button", { name: "Import a notification's list" }).click();
+  const tool = page.getByRole("dialog", { name: "Import a notification's list" });
+  // As a notification prints it: the code with spaces, the rate with its sign; and a code the shop does not stock.
+  await tool.getByLabel("Paste it, one code and rate a line").fill(`HSN code, rate\n${marie.hsn.slice(0, 4)} ${marie.hsn.slice(4, 6)} ${marie.hsn.slice(6)}   5 %\n9999  5`);
+  await expect(tool.getByText(/2 lines with a code and a rate · 1 line left out/)).toBeVisible();
+  await expect(tool.getByLabel("From")).toHaveValue(april);
+  await tool.getByRole("button", { name: "Preview" }).click();
+  const lines = tool.getByRole("table", { name: "What each line finds" });
+  await expect(lines.getByRole("row").filter({ hasText: marie.hsn })).toContainText(marie.name, { timeout: 15_000 });
+  await expect(lines.getByRole("row").filter({ hasText: marie.hsn })).not.toContainText(cream.name);
+  await expect(lines.getByRole("row").filter({ hasText: "9999" })).toContainText("Finds nothing");
+  await expect(tool.locator("p", { hasText: "Codes that find nothing:" })).toContainText("9999");
+  await expect(tool.getByText(/It becomes GST 5% for 1 item\./)).toBeVisible();
+  await tool.getByLabel("Reason").fill(reason);
+  await page.screenshot({ path: testInfo.outputPath("gst-import-preview.png"), fullPage: true });
+  await tool.getByRole("button", { name: "Schedule 1 change for 1 item" }).click();
+  await expect(tool).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByText(`The list is scheduled: GST 5% for 1 item, from ${aprilWords}.`)).toBeVisible();
+
+  // Cancelled again, so nothing moves.
+  const row = page.getByRole("row").filter({ hasText: reason });
+  await expect(row).toContainText("Scheduled");
+  await row.getByRole("button", { name: "Open" }).click();
+  const change = page.getByRole("dialog", { name: `GST rate change from ${aprilWords}` });
+  await change.getByRole("button", { name: "Cancel the change" }).click();
+  await change.getByLabel(/Why the whole change is cancelled/).fill("Imported to try");
+  await change.getByRole("button", { name: "Cancel the change" }).click();
+  await expect(change.getByRole("row").filter({ hasText: marie.name })).toContainText("Cancelled", { timeout: 15_000 });
+  await change.getByRole("button", { name: "Close", exact: true }).last().click();
+  await expect(row).toContainText("Cancelled", { timeout: 15_000 });
+  expect(errors).toEqual([]);
+});
+
+test("a restaurant's default GST rate is changed from a date, kept on its card, and cancelled before it", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  await page.goto("/menu/tax-changes");
+  await expect(page.getByRole("heading", { level: 1, name: "GST rate changes" })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Change from a date" }).click();
+  const dialog = page.getByRole("dialog", { name: "Change the default GST rate from a date" });
+  await expect(dialog.getByLabel("From")).toHaveValue(april);
+  await dialog.getByLabel("Default GST rate (%)").fill("18");
+  await dialog.getByLabel("Reason").fill(GST_CHANGE.reason);
+  await dialog.getByRole("button", { name: `Schedule from ${aprilWords}` }).click();
+  await expect(dialog).toHaveCount(0, { timeout: 15_000 });
+  const changes = page.getByRole("table", { name: "Changes of the default GST rate" });
+  const row = changes.getByRole("row").filter({ hasText: aprilWords });
+  await expect(row).toContainText("18%");
+  await expect(row).toContainText("Scheduled");
+  await page.screenshot({ path: testInfo.outputPath("gst-default-rate.png"), fullPage: true });
+  await row.getByRole("button", { name: "Cancel" }).click();
+  const cancel = page.getByRole("dialog", { name: `Cancel the change of ${aprilWords}` });
+  await cancel.getByLabel("Why").fill("Not notified");
+  await cancel.getByRole("button", { name: "Cancel the change" }).click();
+  await expect(cancel).toHaveCount(0, { timeout: 15_000 });
+  await expect(row).toContainText("Cancelled", { timeout: 15_000 });
+  expect(errors).toEqual([]);
+});

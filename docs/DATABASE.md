@@ -182,6 +182,7 @@ Alerts and timings (Settings → Alerts and timings; each column's default, then
 Relations: `restaurant_id` (PK) -> `restaurants` (CASCADE); `created_by`, `updated_by` -> `users`.
 Rules: percentages 0 to 100; loyalty values positive and bounded; chk_settings_service_charge_types; trigger trg_restaurant_settings_timezone (function check_settings_timezone) refuses a time zone name Postgres does not know or an Etc/posix/SystemV alias. Each alert and timing column has its range CHECK, plus chk_restaurant_settings_huge_discount (the huge discount % is at least the large one), chk_restaurant_settings_delivery_warn (the amber mark comes before the delivery promise) and chk_restaurant_settings_delivery_out (the critical run time is after its warning).
 Loyalty on or off is not a column here: it is the Loyalty points feature (`guest_loyalty`, see [Restaurant features](#restaurant-features)), and `restaurantRepository.findSettings` returns a computed `loyalty_enabled` read from `restaurant_features()`.
+`default_tax_percentage` also changes by date: a change kept in `business_tax_setting_changes` (`restaurant_default`) is written here on its trading day by `business_tax_change_apply_menu` ([GST rates by date](#gst-rates-by-date)).
 Added by: 1789723751286_create-restaurant-settings-and-hours; 1789791748850_create-audit-log-and-gst-settings; 1789817853331_create-loyalty; 1789854000000_add-print-settings; 1789913000000_billing-tax-invoice-and-till-controls; 1790726900000_complete-operations-backlog; 1790810000000_cash-drawers-and-loyalty-rules; 1791340000002_bill-delivery-charge-fssai-upi-and-yearly-numbers; 1791640001000_restaurant-rule-settings (alerts and timings).
 
 #### `business_hours`
@@ -1153,9 +1154,9 @@ Added by: 1791280000000; triggers from 1791300000000, 1791300000005 business-eve
 #### `business_settings`
 Purpose: one row per business with its legal and display details, tax mode, rounding and fiscal year.
 Key columns: PK `business_id`, `display_name`, `legal_name`, `gstin` (GSTIN-pattern CHECK), address fields, `state_code`, `postal_code` (6 digits), `phone`, `email`, `logo_path`, `tax_mode` (exclusive or inclusive), `rounding` (none or nearest_rupee), `fiscal_year_start_month` (default 4), `invoice_footer`, `receipt_footer`, `date_format`, `max_bill_discount_percent` (0–100, default 10: the cap on a counter discount), `walk_in_credit` (default false: a walk-in pays the whole bill), `counter_pin_every_bill` (default false: Quick bill asks the biller's PIN for every bill).
-Business rules (Business settings › Rules; default, then range): `voucher_valid_days` (90; 1–3650), `ageing_days` (three increasing limits, the first at least 1 and the last at most 3650, `{30,60,90}`), `near_expiry_days` (30; 1–365), `weight_buttons_grams` (1–8 values of 1–100,000, `{250,500,1000,2000}`), `receipt_width_mm` (58 or 80; 80), `day_cutoff_hour` (0–12; 5; read by tasks: a due time before it belongs to the day before).
+Business rules (Business settings › Rules; default, then range): `voucher_valid_days` (90; 1–3650), `ageing_days` (three increasing limits, the first at least 1 and the last at most 3650, `{30,60,90}`), `near_expiry_days` (30; 1–365), `weight_buttons_grams` (1–8 values of 1–100,000, `{250,500,1000,2000}`), `receipt_width_mm` (58 or 80; 80), `day_cutoff_hour` (0–12; 5; read by tasks: a due time before it belongs to the day before). `quotation_terms` (up to 2,000, not blank, or NULL): the terms and conditions printed on quotations; each quotation copies them when it is made (`business_quotations.terms`).
 Rules: CHECK: the first two characters of the GSTIN must equal `state_code`. `business_seed_settings()` makes the row with the business: goods types (grocery, supermarket, books, pharmacy, fashion, electronics, meat, weight_retail, general_retail, hardware, agri_inputs, optical, garage, fuel_station) start with prices that include GST, rounded to the rupee; a jeweller starts exclusive, rounded to the rupee; the other types start exclusive, with no rounding.
-Added by: 1791300000002 business-settings-tax-rates-number-series; 1791540000000 business-core-gst-mrp-supplier-payments (`max_bill_discount_percent`, `walk_in_credit`, the goods-type start); 1791620002000 (`counter_pin_every_bill`); 1791640002000 business-rule-settings (the six business rules).
+Added by: 1791300000002 business-settings-tax-rates-number-series; 1791540000000 business-core-gst-mrp-supplier-payments (`max_bill_discount_percent`, `walk_in_credit`, the goods-type start); 1791620002000 (`counter_pin_every_bill`); 1791640002000 business-rule-settings (the six business rules); gst-changes-quotations (`quotation_terms`).
 
 #### `business_tax_rates`
 Purpose: named GST slabs. A new business other than a restaurant starts with GST nil / exempt, GST 5%, GST 18% (the default) and GST 40% (`business_seed_tax_rates()`); a jeweller starts with GST nil / exempt, 0.25%, 1.5%, 3% (the default), 5% and 18%; a restaurant's rates are its own `tax_rates`.
@@ -1165,8 +1166,8 @@ Rules:
 - One default slab per business (partial unique index `business_tax_rates_one_default`).
 - CHECK: an inactive slab cannot be the default.
 - Trigger `business_tax_rates_rate_fixed` refuses any change to `rate` or `business_id`.
-- Trigger `business_tax_rates_in_change` refuses switching off a slab a scheduled GST rate change moves items to, before their date ([GST rates by date](#gst-rates-by-date)).
-Added by: 1791300000002; 1791973000000 (trigger `business_tax_rates_in_change`).
+- Trigger `business_tax_rates_in_change` refuses switching off a slab a scheduled GST rate change moves items to, or a scheduled change of a lodge's room-night slabs names, before their date ([GST rates by date](#gst-rates-by-date)).
+Added by: 1791300000002; 1791973000000 (trigger `business_tax_rates_in_change`); gst-changes-quotations (its function also guards the room-night slabs' changes).
 
 #### `business_number_series`
 Purpose: document numbering, one series per business, location, document kind and fiscal year. A number is taken with `UPDATE … next_number + 1` inside the posting transaction.
@@ -1598,16 +1599,26 @@ Rules:
 - UNIQUE (business, number), (business, request key), (business, bill) and (business, order).
 - CHECK total = subtotal + tax + round_off; an amount or a percent discount, not both, and a reason exactly when there is one; `billed` exactly when there is a bill, `ordered` exactly when there is an order, `cancelled` exactly when there is a reason, and the closing columns set exactly when it is no longer open.
 - Trigger `business_quotations_customer`: a contact must be a customer.
-- Trigger `business_quotations_guard`: never deleted; only an open quotation changes; it keeps its number, location, request and maker; the revision goes up one at a time; it becomes billed or ordered only while `valid_until` is not past on the business's own date.
+- Trigger `business_quotations_guard`: never deleted; only an open quotation changes; it keeps its number, location, request, maker and `terms`; the revision goes up one at a time; it becomes billed or ordered only while `valid_until` is not past on the business's own date.
 - Indexes `business_quotations_period`, `business_quotations_contact` and the partial `business_quotations_open` (open ones by date).
-Added by: 1791961000000 quotations-and-hardware; 1791977000000 (`business_quotations_guard` lets an erasure's change through: `business_privacy_erasing`).
+- `terms` (up to 2,000, or NULL): the business's `quotation_terms` when it was made, printed on it and kept.
+- Billed in parts, it stays open until nothing is left (`business_quotation_billed`); `document_id` is then the last bill.
+Added by: 1791961000000 quotations-and-hardware; 1791977000000 (`business_quotations_guard` lets an erasure's change through: `business_privacy_erasing`); gst-changes-quotations (`terms`, kept by the guard).
 
 #### `business_quotation_lines`
 Purpose: a quotation's lines, as sale lines keep them.
 Key columns: `quotation_id`, `sku_id`, `label`, `unit`, `quantity` (stock unit), `unit_price` (up to four places), `amount`, `discount` (<= amount), `tax_rate`, `net`, `tax`, `price_rule_id`, `entered_unit`, `entered_quantity`, `entered_unit_price`, `unit_factor` (all four or none), `hsn_code`, `mrp`, `offers` (JSON array of the offers given).
 Relations: (`business_id`, `quotation_id`) -> `business_quotations`; (`business_id`, `sku_id`) -> `catalog_skus`; (`business_id`, `unit`) -> `business_units`; (`business_id`, `price_rule_id`) -> `business_price_rules`.
-Rules: trigger `business_quotation_lines_guard`: a line is never updated; lines are added or removed only while the quotation is open (a revision replaces them).
-Added by: 1791961000000.
+`kit_parts` (JSON array, or NULL for an ordinary line): a kit's parts as quoted for the whole line, `[{ skuId, label, unit, quantity (a kit's), hsnCode, taxRate, amount, discount, net, tax }]`; the line's own `net` and `tax` are their sums, `tax_rate` the kit's own.
+Rules: trigger `business_quotation_lines_guard`: a line is never updated; lines are added or removed only while the quotation is open (a revision replaces them; a line some bill took cannot be removed).
+Added by: 1791961000000; gst-changes-quotations (`kit_parts`).
+
+#### `business_quotation_billed`
+Purpose: what each bill made from a quotation took of each line.
+Key columns: `quotation_id`, `line_id`, `document_id` (the sale), `quantity` (> 0, the line's stock unit; a kit's line in kits), `net`, `tax` (the bill's cumulative share of the line's quoted value and GST), `created_by`, `created_at`.
+Relations: (`business_id`, `quotation_id`) -> `business_quotations`; (`business_id`, `line_id`) -> `business_quotation_lines`; (`business_id`, `document_id`) -> `business_documents`.
+Rules: UNIQUE (business, document, line); index (business, quotation, line). Trigger `business_quotation_billed_check` (function of the same name): never updated or deleted; a row goes in only for an open quotation (locked first, so two bills made at once are counted one after the other), on a sale, for a line of that quotation, and never takes a line past its `quantity`.
+Added by: gst-changes-quotations.
 
 #### `business_quotation_revisions`
 Purpose: each revision of a quotation, with the request that made it.
@@ -1924,7 +1935,7 @@ Added by: 1791420000000.
 #### `fashion_gst_price_slabs`
 Purpose: apparel GST by the value of each piece. One row per business.
 Key columns: `active`, `threshold` (per piece before GST, default 2500), `rate_low` (5), `rate_high` (18), `category_ids` (extra categories besides size × colour variants).
-Rules: `rate_high >= rate_low`. Read inside sale posting (`businessFashionMerchandising.applyPriceSlabs`), so quotes and bills agree.
+Rules: `rate_high >= rate_low`. Read inside sale posting (`businessFashionMerchandising.applyPriceSlabs`), so quotes and bills agree. `threshold`, `rate_low` and `rate_high` also change by date: a change kept in `business_tax_setting_changes` (`fashion_price`) is written here on its date by `business_tax_change_apply` ([GST rates by date](#gst-rates-by-date)).
 Added by: 1791595000000.
 
 ## Electronics
@@ -3844,7 +3855,7 @@ A hotel's, lodge's or guest house's own tables (type `lodging`), added by 179197
 #### `lodging_settings`
 Purpose: the two GST slabs of a room night and the limit between them, the weekend nights and the registration card's terms.
 Key columns: PK `business_id`, `low_tax_rate_id` and `high_tax_rate_id` -> `business_tax_rates`, `slab_limit` (> 0, default 7500.00), `weekend_nights` (SMALLINT[] of 1-7, default {5,6}), `terms` (up to 2,000), `updated_by`, `updated_at`.
-Rules: CHECK both slabs or neither, and two different ones. Trigger `lodging_settings_check`: both slabs in use, the lower's rate below the higher's.
+Rules: CHECK both slabs or neither, and two different ones. Trigger `lodging_settings_check`: both slabs in use, the lower's rate below the higher's. The slabs and the limit also change by date: a change kept in `business_tax_setting_changes` (`lodging_slabs`) is written here on its date by `business_tax_change_apply` ([GST rates by date](#gst-rates-by-date)); the trigger checks it then.
 Added by: 1791970000000.
 
 #### `lodging_room_types`
@@ -4018,24 +4029,26 @@ Added by: 1791620000000.
 
 ## GST rates by date
 
-Linked sections: [data model](BUSINESS_PLATFORM_DATA_MODEL.md#gst-rates-by-date) and [ARCHITECTURE.md §4.5](ARCHITECTURE.md#45-gst-rates-by-date-a-change-that-takes-effect-with-no-job-runner). Migration `1791973000000_gst-rates-by-date.sql`; module code `backend/src/modules/tax-changes/`.
+Linked sections: [data model](BUSINESS_PLATFORM_DATA_MODEL.md#gst-rates-by-date) and [ARCHITECTURE.md §4.5](ARCHITECTURE.md#45-gst-rates-by-date-a-change-that-takes-effect-with-no-job-runner). Migrations `1791973000000_gst-rates-by-date.sql` and `…_gst-changes-quotations.sql` (rates kept in settings, a notification's lists); module code `backend/src/modules/tax-changes/`.
 
 **One data model for both engines, keyed on `business_id`.** A GST rate change moves items to another GST rate from a date: a shop's catalogue items (`sku_id`) to one of its slabs (`business_tax_rates`), a restaurant's dishes (`product_id`) to one of its tax rates (`tax_rates`), through its own business row (`businesses.legacy_restaurant_id`, `restaurant_business_id()`). An item's rate is still read from the item (`catalog_skus.tax_rate`, `tax_rate_id`; `products.tax_percentage`, `tax_rate_id`): the functions below move it there on the change's date, and a posted bill keeps the rate its lines were posted at.
 
-**How a change takes effect, with no job runner.** `business_tax_change_apply(business)` applies, in date order, every scheduled item of a shop whose date has come on the business's clock (`now() AT TIME ZONE businesses.timezone`), under the business row's lock, the lock every posting takes first. The server calls it when a request opens a business (the access statement says whether one is due, `tax_changes_due`) and inside every posting. `business_tax_change_apply_menu(restaurant, day)` does the same for dishes due on `day` (NULL: the restaurant's trading date), under the menu's advisory lock (915001, the lock of the menu's imports and price revisions); the server calls it before the menu screens, the guests' menus and a new pre-order's prices, and for an order's own business day before its dishes are priced. Each item moves in a savepoint of its own: it takes the new rate and, when the change keeps the price before GST, the price that keeps it (a shop's member price and branch prices too; a dish's sizes too), its row records what it was and became, and the activity log gets a row in the name of whoever entered the change (`business_audit` `catalog.tax_changed`; a dish's `audit_logs` row like an edit, with `details.via` "GST rate change of 1 Apr 2027: <reason>"). One the database refuses (a check, 23514) is kept as `refused` with the sentence, and the rest move. A kit's own rate is worked out again from its parts.
+**How a change takes effect, with no job runner.** `business_tax_change_apply(business)` applies, in date order, every scheduled item of a shop whose date has come on the business's clock (`now() AT TIME ZONE businesses.timezone`), under the business row's lock, the lock every posting takes first. The server calls it when a request opens a business (the access statement says whether one is due, `tax_changes_due`) and inside every posting. `business_tax_change_apply_menu(restaurant, day)` does the same for dishes due on `day` (NULL: the restaurant's trading date), under the menu's advisory lock (915001, the lock of the menu's imports and price revisions); the server calls it before the menu screens, the guests' menus and a new pre-order's prices, and for an order's own business day before its dishes are priced. Each item moves in a savepoint of its own: it takes the new rate and, when the change keeps the price before GST, the price that keeps it (a shop's member price and branch prices too; a dish's sizes too), its row records what it was and became, and the activity log gets a row in the name of whoever entered the change (`business_audit` `catalog.tax_changed`; a dish's `audit_logs` row like an edit, with `details.via` "GST rate change of 1 Apr 2027: <reason>"). One the database refuses (a check, 23514) is kept as `refused` with the sentence, and the rest move. A kit's own rate is worked out again from its parts. Then each function applies the rates kept in settings whose change is due, in date order, each in a savepoint of its own: `business_tax_change_apply` a fashion shop's GST by price (`fashion_gst_price_slabs`, the row made switched off if there was none) and a lodge's room-night slabs (`lodging_settings`, checked by its own trigger), audited `tax_change.setting_applied`; `business_tax_change_apply_menu` a restaurant's default rate (`restaurant_settings.default_tax_percentage`), in `audit_logs` as an edit of the settings. Each keeps what the setting was (`before`). The access statement's `tax_changes_due` counts a shop's due setting changes too, and a posting started on the day before a setting change another request has just applied is refused as for items (409 `gst_rates_changed`).
 
 Functions:
 - `restaurant_trading_date(restaurant)`: the main counter's open business day, else the restaurant's date less its morning cut-off (as `tradingDay.js`).
 - `business_tax_change_today(business)`: the date a change is measured against: a shop's date in its time zone, a restaurant's trading date.
 - `business_tax_change_price(price, from_rate, to_rate)`: a price that includes GST keeping its part before GST at a new rate, to the paisa, half a paisa up (₹118 at 18% is ₹105 at 5%), as the API's preview works it out.
-- `business_tax_change_apply(business)` and `business_tax_change_apply_menu(restaurant, day)`: above; each returns the ids of the items it moved.
+- `business_tax_change_apply(business)` and `business_tax_change_apply_menu(restaurant, day)`: above; each returns the ids of the items it moved. Replaced by gst-changes-quotations to apply the rates kept in settings too (its Down restores the 1791973000000 bodies).
+- `business_tax_rates_in_change()` (triggers on `business_tax_rates` and `tax_rates`): a slab or tax rate a scheduled change moves items to stays on; gst-changes-quotations adds the slabs a scheduled change of the room-night slabs names.
 
 #### `business_tax_changes`
 Purpose: one GST rate change: the rate items move to, from which date, and why. Kept as it was entered.
 Key columns: `starts_on` (the first day of the new rate, on the business's or restaurant's own date), `tax_rate_id` (a shop's slab) or `restaurant_tax_rate_id` -> `tax_rates` (a restaurant's rate), `rate` (its percentage when entered), `keeps` (`total`: a price that includes GST keeps what the customer pays; `net`: it keeps its part before GST and the price moves), `reason` (not blank, up to 300), `request_key` + `request_hash` (the request that scheduled it), `created_by`, `created_at`.
 Relations: `business_id` -> `businesses`; (`business_id`, `tax_rate_id`) -> `business_tax_rates`; `created_by` -> `users`.
 Rules: CHECK exactly one of `tax_rate_id` and `restaurant_tax_rate_id`; UNIQUE (`business_id`, `id`), (`business_id`, `id`, `starts_on`) (the items' key) and (`business_id`, `request_key`); index `business_tax_changes_list`. Trigger `business_tax_changes_world` (function `business_tax_change_world`): a shop's change moves to one of its own slabs, a restaurant's to one of its own tax rates. Trigger `business_tax_changes_kept`: never updated or deleted.
-Added by: 1791973000000.
+`import_id` -> (`business_id`, `id`) of `business_tax_change_imports`: the notification's list it was made from (NULL: entered by hand); partial index `business_tax_changes_import`. A list's changes take request keys worked out from the list's own key.
+Added by: 1791973000000; gst-changes-quotations (`import_id`).
 
 #### `business_tax_change_items`
 Purpose: each item a change moves, and what happened to it.
@@ -4043,6 +4056,19 @@ Key columns: `change_id`, `starts_on` (the change's date, here too so what is du
 Relations: (`business_id`, `change_id`, `starts_on`) -> `business_tax_changes`; (`business_id`, `sku_id`) -> `catalog_skus`; `product_id` -> `products`; (`business_id`, `from_tax_rate_id`) -> `business_tax_rates`; `from_restaurant_tax_rate_id` -> `tax_rates`; `cancelled_by` -> `users`. A dish an item names is never deleted (the menu archives it instead).
 Rules: CHECKs: exactly one of `sku_id` and `product_id`; applied or refused ⇔ settled with both rates; applied ⇔ both prices; refused needs a note; cancelled ⇔ who, when and a reason. Partial unique indexes `business_tax_change_items_one_sku_a_day` and `_one_dish_a_day`: an item has one scheduled move a day. Partial index `business_tax_change_items_due` (business, date, while scheduled), and indexes by change, item and dish. Trigger `business_tax_change_items_world` (function `business_tax_change_world`): a shop's change moves its catalogue items, a restaurant's its own dishes. Trigger `business_tax_change_items_kept` (function `business_tax_change_items_kept`): never deleted; only a scheduled item changes, once, to applied, refused or cancelled, and what it moves and from when never change; a cancel from its date on (`business_tax_change_today`) is refused: it is in force and kept for good.
 Added by: 1791973000000.
+
+#### `business_tax_setting_changes`
+Purpose: one dated change of a GST rate kept in settings, and what happened to it.
+Key columns: `setting` (`fashion_price`: a fashion shop's GST by price; `lodging_slabs`: a lodge's room-night slabs; `restaurant_default`: a restaurant's default rate), `starts_on`, the new values (`threshold`, `rate_low`, `rate_high`; `low_tax_rate_id`, `high_tax_rate_id`, `slab_limit`; `rate`), `status` (`scheduled`; `applied` on its date; `cancelled` before it; `refused` on its date, with why in `note`), `before` (JSON: what the setting was when it took effect, by the same names as the API's values), `settled_at`, `reason` (not blank, up to 300), `request_key` + `request_hash`, `created_by`, `created_at`, `cancelled_by`, `cancelled_at`, `cancel_reason`.
+Relations: `business_id` -> `businesses`; (`business_id`, `low_tax_rate_id`) and (`business_id`, `high_tax_rate_id`) -> `business_tax_rates`; `created_by`, `cancelled_by` -> `users`.
+Rules: CHECK `business_tax_setting_changes_values`: exactly the values of its setting (the higher rate at least the lower; two different slabs); applied or refused ⇔ settled; applied ⇔ `before`; refused needs a note; cancelled ⇔ who, when and a reason. UNIQUE (`business_id`, `id`), (`business_id`, `request_key`); partial unique index `business_tax_setting_changes_one_a_day` (one scheduled change of a setting a day), partial index `business_tax_setting_changes_due` and index `business_tax_setting_changes_list`. Trigger `business_tax_setting_changes_world` (function `business_tax_setting_change_world`): GST by price is a fashion shop's, the room-night slabs a lodging business's, the default rate a restaurant's business row's. Trigger `business_tax_setting_changes_kept` (function of the same name): never deleted; only a scheduled change is taken up, once, and what it sets and from when never change; a cancel from its date on is refused.
+Added by: gst-changes-quotations.
+
+#### `business_tax_change_imports`
+Purpose: a GST notification's list of HSN / SAC codes and rates, as it was given, and what it became.
+Key columns: `lines` (JSON array of `{ code, rate }`), `items` (how many it moved), `changes` (how many changes it became), `request_key` + `request_hash`, `created_by`, `created_at`.
+Rules: UNIQUE (`business_id`, `id`), (`business_id`, `request_key`). Trigger `business_tax_change_imports_kept` (function of the same name): never updated or deleted.
+Added by: gst-changes-quotations.
 
 ## Live updates
 

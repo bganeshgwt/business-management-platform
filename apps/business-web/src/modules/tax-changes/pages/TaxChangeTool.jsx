@@ -7,6 +7,7 @@ import { ErrorMessage } from "../../../components/Feedback";
 import { getErrorMessage } from "../../../services/api";
 import { moneyExact, count } from "@bmp/shared/format";
 import { addDays, nextApril, onDate, plural } from "../taxChanges";
+import { OpenDocuments } from "./TaxNotices";
 import "../styles/tax-changes.css";
 
 // The yearly GST change, entered ahead: pick the items (by their GST rate,
@@ -199,6 +200,7 @@ export default function TaxChangeTool({ api, words, rates, categories, pricesInc
               rowNoun={[words.item, words.items]} currency={currency} columns={columns}
               rowClassName={(i) => (i.problem ? "dg-tone-danger" : i.same ? "dg-tone-muted" : "")}
               empty={`No ${words.items} match`} emptyIcon="search" />
+            <OpenDocuments documents={preview.documents} words={words} />
             <label className="field field-wide">
               <span>Reason</span>
               <input required maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. GST Council notification of 15 March 2027" />

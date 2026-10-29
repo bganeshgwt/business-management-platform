@@ -18,6 +18,8 @@ const fromRow = (s) => ({
   city: s.city || "", stateCode: s.state_code || "", postalCode: s.postal_code || "", phone: s.phone || "", email: s.email || "", logoPath: s.logo_path || "",
   taxMode: s.tax_mode, rounding: s.rounding, fiscalYearStartMonth: String(s.fiscal_year_start_month), dateFormat: s.date_format,
   invoiceFooter: s.invoice_footer || "", receiptFooter: s.receipt_footer || "",
+  // Printed on quotations; each quotation keeps those it was made with.
+  quotationTerms: s.quotation_terms || "",
   maxBillDiscountPercent: String(Number(s.max_bill_discount_percent ?? 10)), walkInCredit: Boolean(s.walk_in_credit),
   counterPinEveryBill: Boolean(s.counter_pin_every_bill),
   currency: s.currency || "INR", timezone: s.timezone || "Asia/Kolkata",
@@ -167,6 +169,11 @@ export default function SettingsPage() {
                 </Field>
                 <Field label="Invoice footer" wide><input maxLength={500} value={form.invoiceFooter} onChange={set("invoiceFooter")} placeholder="e.g. Goods once sold will be exchanged within 7 days with the bill." /></Field>
                 <Field label="Receipt footer" wide><input maxLength={300} value={form.receiptFooter} onChange={set("receiptFooter")} placeholder="e.g. Thank you! Visit again." /></Field>
+                {biz.has("quotations") && (
+                  <Field label="Terms and conditions on quotations" wide hint="Printed on every new quotation. A quotation keeps the terms it was made with: changing them here does not change quotations already made.">
+                    <textarea rows={4} maxLength={2000} value={form.quotationTerms} onChange={set("quotationTerms")} placeholder="e.g. Prices include delivery within the city. 50% advance with the order. Unloading by the customer." />
+                  </Field>
+                )}
               </div>
             </SectionCard>
             <SectionCard id="bz-settings-rules" icon="sliders" title="Rules" description="How this business works day to day. Each starts at the usual value; change only what you need.">

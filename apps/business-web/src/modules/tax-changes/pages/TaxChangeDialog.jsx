@@ -6,6 +6,7 @@ import { ErrorMessage, Loading } from "../../../components/Feedback";
 import { getErrorMessage } from "../../../services/api";
 import { dateTime, moneyExact } from "@bmp/shared/format";
 import { STATES, STATUSES, keepsWords, onDate, plural, rateText } from "../taxChanges";
+import { OpenDocuments } from "./TaxNotices";
 import "../styles/tax-changes.css";
 
 // One GST rate change: when, to which rate, why and by whom, and what happened
@@ -90,6 +91,7 @@ export default function TaxChangeDialog({ api, words, changeId, canEdit, currenc
                 </div>
               </form>
             )}
+            <OpenDocuments documents={change.documents} words={words} />
             <DataGrid id="tax-change-items" variant="compact" caption={`The ${words.items} it moves`} rows={change.items} rowKey={(i) => i.id}
               rowNoun={[words.item, words.items]} currency={currency} columns={columns}
               rowClassName={(i) => (i.status === "cancelled" ? "dg-tone-muted" : i.status === "refused" ? "dg-tone-danger" : "")} />

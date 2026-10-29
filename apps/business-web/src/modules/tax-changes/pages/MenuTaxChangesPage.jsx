@@ -38,7 +38,7 @@ export default function MenuTaxChangesPage() {
   return (
     <>
       <ErrorMessage message={error} />
-      <TaxChangesView api={api} words={WORDS.menu} canEdit={hasPermission("menu.manage")}
+      <TaxChangesView api={api} words={WORDS.menu} canEdit={hasPermission("menu.manage")} canEditSettings={hasPermission("restaurant.settings.manage")}
         gridProps={{ id: "menu-tax-changes", rows: list?.changes || [], loading: !list && !error, error: list ? "" : error, onRetry: () => load() }}
         reload={() => load()} rates={rates} categories={categories} pricesInclude="mixed" today={list?.today || null}
         currency={currency}

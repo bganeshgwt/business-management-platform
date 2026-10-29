@@ -302,7 +302,7 @@ function AdvanceGst({ currency }) {
       icon="percent"
       tone="neutral"
       title="For the GST return"
-      description={`Advances in GSTR-1 tables 11A and 11B, worked out at your usual rate${data ? ` (${data.rate}%)` : ""}. Give these to your accountant with the GST filing pack.`}
+      description={`Advances in GSTR-1 tables 11A and 11B, worked out at your default GST rate of the day each was received${data ? ` (${(data.rates || [data.rate]).map((r) => `${r}%`).join(" and ")})` : ""}. Give these to your accountant with the GST filing pack.`}
     >
       <div className="filters">
         <DateRangeFilter from={range.from} to={range.to} onChange={setRange} label="return period" />

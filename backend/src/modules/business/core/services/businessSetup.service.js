@@ -20,9 +20,11 @@ const optionalPattern = (value, name, pattern, hint, max) => {
 
 // --- Settings ----------------------------------------------------------------
 
-// Business rules (Business settings › Rules). Returns the columns to change,
-// or null when the client sent none of them (an older client).
-const RULE_FIELDS = ['voucherValidDays', 'ageingDays', 'nearExpiryDays', 'weightButtonsGrams', 'receiptWidthMm', 'dayCutoffHour'];
+// Business rules (Business settings › Rules), and the terms and conditions
+// printed on quotations (each quotation keeps those it was made with).
+// Returns the columns to change, or null when the client sent none of them
+// (an older client).
+const RULE_FIELDS = ['voucherValidDays', 'ageingDays', 'nearExpiryDays', 'weightButtonsGrams', 'receiptWidthMm', 'dayCutoffHour', 'quotationTerms'];
 const wholeNumber = (value, name, min, max) => {
   const n = Number(value);
   if (!Number.isInteger(n) || n < min || n > max) fail(`${name} must be a whole number from ${min} to ${max}`);
@@ -45,6 +47,7 @@ async function readRules(db, businessId, body) {
     if (!grams.length || grams.length > 8) fail('Give 1 to 8 weight buttons');
     rules.weight_buttons_grams = [...new Set(grams)].sort((a, b) => a - b);
   }
+  if (body.quotationTerms !== undefined) rules.quotation_terms = v.optionalString(body.quotationTerms, 'Terms and conditions on quotations', 2000) || null;
   return rules;
 }
 

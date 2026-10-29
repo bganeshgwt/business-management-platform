@@ -8,6 +8,8 @@ import { SuccessMessage } from "../../../components/Feedback";
 import { dateTime } from "@bmp/shared/format";
 import TaxChangeTool from "./TaxChangeTool";
 import TaxChangeDialog from "./TaxChangeDialog";
+import TaxImportTool from "./TaxImportTool";
+import SettingRatesCard from "./SettingRatesCard";
 import { STATES, keepsWords, onDate, plural, rateText } from "../taxChanges";
 import "../styles/tax-changes.css";
 
@@ -16,9 +18,14 @@ import "../styles/tax-changes.css";
 // change is entered here ahead of its date (New GST rate change).
 //
 // gridProps: the DataGrid's rows (a restaurant's list) or server paging (a
-// shop's, useServerList); reload(): fetch them again.
-export default function TaxChangesView({ api, words, canEdit, gridProps, reload, rates, categories, pricesInclude, today, currency = "₹", description }) {
+// shop's, useServerList); reload(): fetch them again. A notification's list of
+// HSN / SAC codes is imported here too, and rates kept in settings (GST by
+// price, room-night slabs, a restaurant's default rate) change by date in
+// their own card. canEditSettings: may change those; help: a line of help
+// under the header.
+export default function TaxChangesView({ api, words, canEdit, canEditSettings = false, gridProps, reload, rates, categories, pricesInclude, today, currency = "₹", description, help }) {
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [open, setOpen] = useState(null);
   const [notice, setNotice] = useState("");
 
@@ -43,7 +50,13 @@ export default function TaxChangesView({ api, words, canEdit, gridProps, reload,
   return (
     <div className="stack">
       <PageHeader icon="percent" title="GST rate changes" description={description}
-        actions={canEdit && <button type="button" className="button" onClick={() => setCreating(true)} disabled={!today}><Icon name="plus" size={16} /> New GST rate change</button>} />
+        actions={canEdit && (
+          <>
+            <button type="button" className="button button-secondary" onClick={() => setImporting(true)} disabled={!today}><Icon name="upload" size={16} /> Import a notification's list</button>
+            <button type="button" className="button" onClick={() => setCreating(true)} disabled={!today}><Icon name="plus" size={16} /> New GST rate change</button>
+          </>
+        )} />
+      {help && <p className="muted small txc-help">{help}</p>}
       <SuccessMessage message={notice} />
       <SectionCard flush icon="calendar" title="Changes by date">
         <DataGrid {...gridProps} caption="GST rate changes" columns={columns} rowNoun={["change", "changes"]}
@@ -60,6 +73,16 @@ export default function TaxChangesView({ api, words, canEdit, gridProps, reload,
             reload();
           }} />
       )}
+      {importing && (
+        <TaxImportTool api={api} words={words} pricesInclude={pricesInclude} today={today}
+          onClose={() => setImporting(false)}
+          onScheduled={(made) => {
+            setImporting(false);
+            setNotice(`The list is scheduled: ${made.changes.map((c) => `${c.rate_name} for ${plural(c.items, words.item, words.items)}`).join("; ")}, from ${onDate(made.changes[0]?.starts_on)}.`);
+            reload();
+          }} />
+      )}
+      <SettingRatesCard api={api} canEdit={canEditSettings} rates={rates} />
       {open && <TaxChangeDialog api={api} words={words} changeId={open} canEdit={canEdit} currency={currency} onClose={() => setOpen(null)} onChanged={() => reload()} />}
     </div>
   );

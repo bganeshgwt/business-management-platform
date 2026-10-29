@@ -58,6 +58,9 @@ const updateCurrent = async (req, res) => {
 };
 
 const getSettings = async (req, res) => {
+  // A change of the default GST rate whose trading day has come takes effect
+  // first (modules/tax-changes): the settings show the rate in force.
+  await require("../../../tax-changes/services/taxChangesMenu").onMenu(req.user.restaurantId);
   const settings = await restaurantService.getSettings(req.user.restaurantId);
 
   res.json({

@@ -23,6 +23,7 @@ const money = require('./taxChangesMoney');
 //                        tax_rate, tax_rate_id, slab_name, active and `scheduled` (their changes still to come)
 //   inclusive(row)       whether the item's price includes GST
 //   typeProblem(row, target)  why a type keeps this item where it is, or null
+//   documents(db, ids)   open quotations and sales orders holding these items (a shop's), or []
 //   audit(db, action, entityId, details)
 
 const fail = (message, status = 400, details) => { throw new AppError(status, message, details); };
@@ -104,9 +105,11 @@ async function preview(world, body) {
     const target = await world.target(db, targetId);
     const rows = await world.candidates(db, { ids, filters, limit: MAX_ITEMS + 1 });
     const items = rows.slice(0, MAX_ITEMS).map((row) => previewOf(world, row, target, startsOn, keeps));
+    // The open quotations and sales orders that hold an item that moves: each says so until its date.
+    const documents = await world.documents(db, items.filter((i) => !i.same && !i.problem).map((i) => i.id));
     return { startsOn, today, keeps, target: { id: target.id, name: target.name, rate: Number(target.rate).toFixed(2) },
       dateProblem: money.startProblem(startsOn, today, world.words.fromToday), items, more: rows.length > MAX_ITEMS,
-      moving: items.filter((i) => !i.same && !i.problem).length };
+      moving: items.filter((i) => !i.same && !i.problem).length, documents };
   });
 }
 
@@ -191,7 +194,10 @@ async function detailIn(db, world, businessId, changeId) {
   if (!change) fail('GST rate change not found', 404);
   const items = await repo.all(db, `SELECT ${ITEM_COLUMNS} FROM business_tax_change_items i ${ITEM_JOINS}
     WHERE i.business_id=$1 AND i.change_id=$2 ORDER BY lower(COALESCE(s.label,p.name)),i.id`, [businessId, change.id]);
-  return { ...change, items };
+  // While items are still to move: the open quotations and sales orders holding them.
+  const waiting = items.filter((i) => i.status === 'scheduled').map((i) => Number(i.sku_id || i.product_id));
+  const documents = waiting.length ? await world.documents(db, waiting) : [];
+  return { ...change, items, documents };
 }
 async function detail(world, changeId) {
   await world.requireView();
@@ -258,4 +264,4 @@ async function cancel(world, user, changeId, body, itemId = null) {
   });
 }
 
-module.exports = { preview, schedule, detail, listAll, history, cancel, previewOf, MAX_ITEMS };
+module.exports = { preview, schedule, detail, detailIn, listAll, history, cancel, previewOf, MAX_ITEMS };
