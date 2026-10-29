@@ -19,7 +19,7 @@ export default function VehicleDialog({ vehicle, registration, onClose, onSaved 
   const [owner, setOwner] = useState(null);
   const [form, setForm] = useState(() => ({
     registrationNo: vehicle?.registration_no || plateOf(registration), make: vehicle?.make || "", model: vehicle?.model || "", variant: vehicle?.variant || "",
-    fuel: vehicle?.fuel || "", year: vehicle?.year ? String(vehicle.year) : "", chassisNo: vehicle?.chassis_no || "", engineNo: vehicle?.engine_no || "",
+    fuel: vehicle?.fuel || "", year: vehicle?.year ? String(vehicle.year) : "", chassisNo: vehicle?.chassis_no || "", engineNo: vehicle?.engine_no || "", engineCode: vehicle?.engine_code || "",
     insuranceExpiresOn: vehicle?.insurance_expires_on || "", pucExpiresOn: vehicle?.puc_expires_on || "", nextServiceOn: vehicle?.next_service_on || "",
     nextServiceKm: vehicle?.next_service_km ? String(vehicle.next_service_km) : "", notes: vehicle?.notes || "", active: vehicle ? vehicle.active : true,
     newOwner: false, ownerName: "", ownerPhone: "", odometerKm: "",
@@ -28,7 +28,7 @@ export default function VehicleDialog({ vehicle, registration, onClose, onSaved 
   const canNewCustomer = biz.can("contacts.create");
   const submit = () => {
     const details = { registrationNo: form.registrationNo, make: form.make, model: form.model, variant: form.variant, fuel: form.fuel || null, year: form.year,
-      chassisNo: form.chassisNo, engineNo: form.engineNo, insuranceExpiresOn: form.insuranceExpiresOn, pucExpiresOn: form.pucExpiresOn, notes: form.notes };
+      chassisNo: form.chassisNo, engineNo: form.engineNo, engineCode: form.engineCode, insuranceExpiresOn: form.insuranceExpiresOn, pucExpiresOn: form.pucExpiresOn, notes: form.notes };
     if (editing) {
       return businessWrite(biz.id, `garage/vehicles/${vehicle.id}`, { ...details, nextServiceOn: form.nextServiceOn, nextServiceKm: form.nextServiceKm, active: form.active }, "patch");
     }
@@ -48,6 +48,7 @@ export default function VehicleDialog({ vehicle, registration, onClose, onSaved 
       <Field label="Year (optional)"><input inputMode="numeric" maxLength={4} value={form.year} onChange={set("year")} placeholder="2019" /></Field>
       <Field label="Chassis number (optional)"><input maxLength={40} className="mono" value={form.chassisNo} onChange={set("chassisNo")} /></Field>
       <Field label="Engine number (optional)"><input maxLength={40} className="mono" value={form.engineNo} onChange={set("engineNo")} /></Field>
+      <Field label="Engine code (optional)" hint="As the maker names the engine; parts fitment and service plans go by it."><input maxLength={30} className="mono" value={form.engineCode} onChange={set("engineCode")} placeholder="e.g. K12M" /></Field>
       {!editing && (
         <>
           {form.newOwner ? (

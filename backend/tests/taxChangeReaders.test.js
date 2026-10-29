@@ -38,6 +38,7 @@ const READERS = {
   "modules/business/fashion-electronics/services/businessFashionMerchandising.service.js": "posting",
   "modules/business/fashion-electronics/services/businessRepairs.service.js": "gate",
   "modules/business/fuel/services/fuelSetup.service.js": "writes",
+  "modules/business/garage/services/garageClaims.service.js": "stored",
   "modules/business/garage/services/garageEstimates.service.js": "gate",
   "modules/business/garage/services/garageJobCards.service.js": "gate",
   "modules/business/garage/services/garageMoney.js": "gate",

@@ -2989,24 +2989,24 @@ Added by: optical-more.
 
 ## Vehicle service & auto parts
 
-A garage's own tables (type `garage`), added by 1791964000000 garage. Module `garage` ("Vehicles & job cards", optional, garage only, on) needs catalog, contacts and sales; permissions `garage.view`, `garage.create` (add vehicles, open job cards), `garage.edit` (work on job cards), `garage.approve` (an odometer reading lower than the last), `garage.cancel` and `garage.print`. The role template `mechanic` is given to garages only (`business_role_templates.business_types`). Job cards are numbered in the series kind `job_card` (prefix `JC`); the advance of a cancelled job card is handed back as a `business_collection_refunds` row with `source` garage. A job card's bills are ordinary sales (`business_documents`): the customer's, and on a cashless claim the insurer's. How they are used: [BUSINESS_PLATFORM_DATA_MODEL.md › Vehicle service & auto parts](BUSINESS_PLATFORM_DATA_MODEL.md#vehicle-service--auto-parts).
+A garage's own tables (type `garage`), added by 1791964000000 garage and garage-more (parts fitment and substitutes, the inspection's photos, parts issued, road tests and gate passes, a claim's progress and settlement, service plans, mechanics' commission). Module `garage` ("Vehicles & job cards", optional, garage only, on) needs catalog, contacts and sales; permissions `garage.view`, `garage.create` (add vehicles, open job cards), `garage.edit` (work on job cards), `garage.approve` (an odometer reading lower than the last), `garage.cancel` and `garage.print`. The role template `mechanic` is given to garages only (`business_role_templates.business_types`). Job cards are numbered in the series kind `job_card` (prefix `JC`); the advance of a cancelled job card is handed back as a `business_collection_refunds` row with `source` garage. A job card's bills are ordinary sales (`business_documents`): the customer's, and on a cashless claim the insurer's. How they are used: [BUSINESS_PLATFORM_DATA_MODEL.md › Vehicle service & auto parts](BUSINESS_PLATFORM_DATA_MODEL.md#vehicle-service--auto-parts).
 
 #### `garage_settings`
 Purpose: a garage's months and kilometres to the next service after a job, and the item that bills the owner's share of a cashless claim.
-Key columns: PK `business_id`, `service_months` (1-36, default 6), `service_km` (500-100,000, default 5,000), `claim_share_sku_id`, `updated_by`, `updated_at`. 6 months and 5,000 km are used until the row is made.
+Key columns: PK `business_id`, `service_months` (1-36, default 6), `service_km` (500-100,000, default 5,000), `claim_share_sku_id`, `issue_parts` (parts leave stock when issued to a mechanic; default false: when the job is billed), `road_test_required` (a passed road test before ready; default false), `updated_by`, `updated_at`. 6 months and 5,000 km are used until the row is made.
 Relations: (`business_id`, `claim_share_sku_id`) -> `catalog_skus`.
-Added by: 1791964000000.
+Added by: 1791964000000; garage-more (`issue_parts`, `road_test_required`).
 
 #### `garage_vehicles`
 Purpose: a customer's vehicle.
-Key columns: `registration_no` (`^[A-Z0-9]{4,15}$` with a letter and a digit), `make`, `model`, `variant`, `fuel` (petrol, diesel, cng, petrol_cng, lpg, electric, hybrid), `year` (1950-2100), `contact_id` (the owner now), `chassis_no` (5-30 letters and digits), `engine_no` (3-30), `odometer_km` and `odometer_at` (the latest reading; both or neither), `insurance_expires_on`, `puc_expires_on`, `next_service_on`, `next_service_km`, `notes`, `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Key columns: `registration_no` (`^[A-Z0-9]{4,15}$` with a letter and a digit), `make`, `model`, `variant`, `fuel` (petrol, diesel, cng, petrol_cng, lpg, electric, hybrid), `year` (1950-2100), `contact_id` (the owner now), `chassis_no` (5-30 letters and digits), `engine_no` (3-30), `engine_code` (2-30 capital letters, digits or dashes: for fitment and service plans), `odometer_km` and `odometer_at` (the latest reading; both or neither), `insurance_expires_on`, `puc_expires_on`, `next_service_on`, `next_service_km`, `notes`, `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
 Relations: (`business_id`, `contact_id`) -> `business_contacts`.
 Rules:
 - UNIQUE (business, registration number); unique index `garage_vehicles_chassis` (business, chassis number, where given); index `garage_vehicles_owner`.
 - Trigger `garage_vehicles_customer` (function `business_contact_is_customer`): the owner is a customer.
 - Trigger `garage_vehicles_owner_history` (function `garage_vehicle_owner_history`): writes `garage_vehicle_owners` when a vehicle is added and whenever its owner changes.
 - Trigger `garage_vehicles_guard`: never deleted (switched off instead); keeps who added it and when; its latest reading is only ever the last row of its odometer log.
-Added by: 1791964000000.
+Added by: 1791964000000; garage-more (`engine_code`).
 
 #### `garage_vehicle_owners`
 Purpose: every owner a vehicle has had, from the moment they became its owner.
@@ -3027,15 +3027,15 @@ Added by: 1791964000000.
 
 #### `garage_job_cards`
 Purpose: a job card: a vehicle's visit from its arrival to its delivery.
-Key columns: `location_id`, `job_no` (series kind `job_card`), `series_id`, `vehicle_id`, `registration_no` and `vehicle_name` (as they were), `contact_id`, `customer_name` and `customer_phone` (as they were), `odometer_in`, `fuel_level` (empty, quarter, half, three_quarters, full), `complaints` (TEXT[], 1-20), `inspection_notes`, `bay`, `promised_at`, `status` (received, estimate_sent, approved, in_progress, waiting_parts, ready, delivered, cancelled), `estimate_version` (0 before the first), `approved_version`, `tax_mode`, `subtotal`, `tax`, `round_off`, `total`, `notes`, `advance_collection_id`, `document_id` (the customer's bill), `insurer_document_id` (the insurer's bill), `bill_key`, `next_service_on`, `next_service_km`, `delivered_by`/`delivered_at`, `cancel_reason`, `cancelled_by`/`cancelled_at`, `request_key`, `request_hash`, `created_by`/`created_at`, `updated_by`/`updated_at`.
-Relations: (`business_id`, ...) -> `business_locations`, `business_number_series`, `garage_vehicles`, `business_contacts`, `business_collections` (`advance_collection_id`) and `business_documents` (`document_id`, `insurer_document_id`).
+Key columns: `location_id`, `job_no` (series kind `job_card`), `series_id`, `vehicle_id`, `registration_no` and `vehicle_name` (as they were), `contact_id`, `customer_name` and `customer_phone` (as they were), `odometer_in`, `fuel_level` (empty, quarter, half, three_quarters, full), `complaints` (TEXT[], 1-20), `inspection_notes`, `bay`, `promised_at`, `status` (received, estimate_sent, approved, in_progress, waiting_parts, ready, delivered, cancelled), `estimate_version` (0 before the first), `approved_version`, `tax_mode`, `subtotal`, `tax`, `round_off`, `total`, `notes`, `advance_collection_id`, `document_id` (the customer's bill), `insurer_document_id` (the insurer's bill), `bill_key`, `next_service_on`, `next_service_km`, `delivered_by`/`delivered_at`, `cancel_reason`, `cancelled_by`/`cancelled_at`, `appointment_id` (the service booking it was opened from), `quotation_id` (the quotation that became its estimate), `request_key`, `request_hash`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, ...) -> `business_locations`, `business_number_series`, `garage_vehicles`, `business_contacts`, `business_collections` (`advance_collection_id`), `business_documents` (`document_id`, `insurer_document_id`), `business_appointments` (`appointment_id`) and `business_quotations` (`quotation_id`).
 Rules:
 - CHECK total = subtotal + tax + round-off (round-off under 1 either way); no total before the first version; the approved version not above the current one; estimate sent and approved only with an estimate, approved only with an approved version; delivered exactly with its delivery and bill key, and bills only when delivered; the next service only when delivered; cancelled exactly with its reason, who and when.
-- UNIQUE (business, job number), (business, request key), (business, customer's bill), (business, insurer's bill) and (business, advance). Indexes `garage_job_cards_period`, `garage_job_cards_vehicle`, `garage_job_cards_contact` and the partial `garage_job_cards_open` (open job cards by status).
+- UNIQUE (business, job number), (business, request key), (business, customer's bill), (business, insurer's bill) and (business, advance); unique partial indexes `garage_job_cards_appointment` and `garage_job_cards_quotation` (a booking or a quotation on one job card at most). Indexes `garage_job_cards_period`, `garage_job_cards_vehicle`, `garage_job_cards_contact` and the partial `garage_job_cards_open` (open job cards by status).
 - Trigger `garage_job_cards_customer` (function `business_contact_is_customer`).
 - Trigger `garage_job_cards_insert_check`: a new job card is received with no estimate, for a vehicle in use.
 - Trigger `garage_job_cards_guard`: never deleted; a delivered or cancelled job card never changes; an open one keeps its number, location, vehicle, customer, odometer in, price terms, advance and request; the estimate goes up one version at a time and an approval is of the version it stands at; status moves received → estimate_sent, approved, in_progress, waiting_parts or ready; estimate_sent → approved; approved, in_progress and waiting_parts → estimate_sent, in_progress, waiting_parts or ready; ready → estimate_sent, in_progress, waiting_parts or delivered; any open → cancelled; approved only with the estimate as it stands approved; delivered with lines only with a bill.
-Added by: 1791964000000; 1791977000000 (`garage_job_cards_guard` lets an erasure's change through: `business_privacy_erasing`).
+Added by: 1791964000000; 1791977000000 (`garage_job_cards_guard` lets an erasure's change through: `business_privacy_erasing`); garage-more (`appointment_id`, `quotation_id`).
 
 #### `garage_job_card_mechanics`
 Purpose: the members working on a job card.
@@ -3046,7 +3046,7 @@ Added by: 1791964000000.
 
 #### `garage_job_card_lines`
 Purpose: a job card's estimate as it stands.
-Key columns: `job_card_id`, `kind` (part, labour, sublet), `payer` (customer, insurer), `sku_id`, `label`, `unit`, `quantity`, `unit_price` (the rate for one unit in the job card's price terms), `amount`, `tax_rate`, `net`, `tax`, `price_rule_id`, `hsn_code`, `mrp`, `description`, `vendor_name` and `vendor_bill_no` (outside work's workshop and its bill), `done`, `done_by`/`done_at`, `added_by`/`added_at`.
+Key columns: `job_card_id`, `kind` (part, labour, sublet), `payer` (customer, insurer), `sku_id`, `label`, `unit`, `quantity`, `unit_price` (the rate for one unit in the job card's price terms), `amount`, `tax_rate`, `net`, `tax`, `price_rule_id`, `hsn_code`, `mrp`, `description`, `vendor_name` and `vendor_bill_no` (outside work's workshop and its bill), `done`, `done_by`/`done_at`, `old_part` (returned, surveyor, scrap: what became of a part's old part; only on a part, CHECK `garage_job_card_lines_old_part`; added by garage-more), `added_by`/`added_at`.
 Relations: (`business_id`, `job_card_id`) -> `garage_job_cards`; (`business_id`, `sku_id`) -> `catalog_skus`; (`business_id`, `unit`) -> `business_units`; (`business_id`, `price_rule_id`) -> `business_price_rules`.
 Rules:
 - CHECK a workshop's name exactly on outside work, and its bill number only there; net + tax = amount (GST included) or net = amount (before GST); done exactly with who and when.
@@ -3056,14 +3056,14 @@ Added by: 1791964000000.
 
 #### `garage_claims`
 Purpose: a job card's insurance claim.
-Key columns: PK (`business_id`, `job_card_id`), `insurer_id`, `mode` (cashless, reimbursement), `policy_no`, `claim_no`, `surveyor_name`, `surveyor_phone`, `approved_amount` (> 0), `deductible`, `depreciation`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Key columns: PK (`business_id`, `job_card_id`), `insurer_id`, `mode` (cashless, reimbursement), `insurer_named` (a reimbursement claim billed in the insurer's name and paid by the customer), `intimated_on`, `policy_no`, `claim_no`, `surveyor_name`, `surveyor_phone`, `approved_amount` (> 0), `deductible`, `depreciation`, `created_by`/`created_at`, `updated_by`/`updated_at`.
 Relations: (`business_id`, `job_card_id`) -> `garage_job_cards`; (`business_id`, `insurer_id`) -> `business_contacts`.
-Rules: index `garage_claims_insurer`; trigger `garage_claims_guard` (function `garage_job_card_parts_guard`): changed only while the job card is open; the insurer is a customer, not the job card's own; not removed while a line is the insurer's.
-Added by: 1791964000000.
+Rules: CHECK `garage_claims_insurer_named` (only a reimbursement claim is billed in the insurer's name); index `garage_claims_insurer`; trigger `garage_claims_guard` (function `garage_job_card_parts_guard`): changed only while the job card is open; the insurer is a customer, not the job card's own; not removed while a line is the insurer's; trigger `garage_claims_moved_on`: not removed once a step is recorded.
+Added by: 1791964000000; garage-more (`insurer_named`, `intimated_on`, `garage_claims_moved_on`).
 
 #### `garage_estimate_versions`
 Purpose: every version of a job card's estimate, as it was saved.
-Key columns: `job_card_id`, `version` (1-999), `subtotal`, `tax`, `round_off`, `total`, `insurer_lines`, `lines` (JSONB array: the lines as they were), `source` (estimate, parts, claim), `note`, `request_key`, `request_hash`, `created_by`, `created_at`.
+Key columns: `job_card_id`, `version` (1-999), `subtotal`, `tax`, `round_off`, `total`, `insurer_lines`, `lines` (JSONB array: the lines as they were), `source` (estimate, parts, claim, quotation; quotation added by garage-more), `note`, `request_key`, `request_hash`, `created_by`, `created_at`.
 Relations: (`business_id`, `job_card_id`) -> `garage_job_cards`.
 Rules: CHECK total = subtotal + tax + round-off; UNIQUE (business, job card, version) and (business, request key); trigger `garage_estimate_versions_append_only` (function `garage_append_only`): never changed or deleted.
 Added by: 1791964000000.
@@ -3087,6 +3087,89 @@ Key columns: `vehicle_id`, `kind` (service, insurance, puc), `channel` (whatsapp
 Relations: (`business_id`, `vehicle_id`) -> `garage_vehicles`.
 Rules: index `garage_reminders_vehicle`; trigger `garage_reminders_append_only` (function `garage_append_only`): never changed or deleted.
 Added by: 1791964000000.
+
+The tables below were added by garage-more. Their records that must not change are kept by the function `garage_kept` (each table's own sentence), and those added to a job card only while it is open by `garage_job_card_is_open`.
+
+#### `garage_part_groups`
+Purpose: a group of parts that do the same job (an interchangeable group), offered for one another.
+Key columns: `name` (unique in the business, any case: index `garage_part_groups_name`), `created_by`, `created_at`.
+
+#### `garage_parts`
+Purpose: a part's newer number and its group.
+Key columns: PK (`business_id`, `sku_id`), `superseded_by_sku_id` (the part that replaces it; never itself), `group_id`, `updated_by`, `updated_at`.
+Relations: (`business_id`, `sku_id`) and (`business_id`, `superseded_by_sku_id`) -> `catalog_skus`; (`business_id`, `group_id`) -> `garage_part_groups`.
+Rules: indexes `garage_parts_group`, `garage_parts_superseded`; trigger `garage_parts_check` (function `garage_part_check`): the part and its newer part are goods, and the chain of newer numbers never leads back to the part.
+
+#### `garage_part_fitments`
+Purpose: a make (and model, variant, fuel, years, engine code) a part fits; an empty field fits any.
+Key columns: `sku_id`, `make`, `model`, `variant`, `fuel`, `year_from`, `year_to` (1950-2100, to not before from), `engine_code`, `created_by`, `created_at`.
+Relations: (`business_id`, `sku_id`) -> `catalog_skus`.
+Rules: unique index `garage_part_fitments_once` (the same fitment once, any case); index `garage_part_fitments_vehicle`; trigger `garage_part_fitments_check` (function `garage_part_check`): the part is goods. Deleted when taken off (a fitment typed wrong).
+
+#### `garage_inspection_items`
+Purpose: an area checked when the vehicle came in, with what was found.
+Key columns: `job_card_id`, `area`, `finding`, `created_by`, `created_at`.
+Relations: (`business_id`, `job_card_id`) -> `garage_job_cards`.
+Rules: index `garage_inspection_items_job`; trigger `garage_inspection_items_open` (function `garage_job_card_is_open`); trigger `garage_inspection_items_guard`: never changed; taken off only while the job card is open and the item has no photo.
+
+#### `garage_job_card_photos`
+Purpose: a photo of an inspection item, or of the work.
+Key columns: `job_card_id`, `inspection_item_id` (none: of the work), `caption`, `stored_name` (a generated name under the private uploads folder's `garage/<business>/`), `file_name`, `mime_type` (image/jpeg, image/png, image/webp), `size_bytes`, `created_by`, `created_at`.
+Relations: (`business_id`, `job_card_id`) -> `garage_job_cards`; (`business_id`, `inspection_item_id`) -> `garage_inspection_items`.
+Rules: UNIQUE (business, stored name); index `garage_job_card_photos_job`; triggers `garage_job_card_photos_open` (function `garage_job_card_is_open`), `garage_job_card_photos_check` (an item's photo is on that item's job card) and `garage_job_card_photos_kept` (function `garage_kept`): never changed or deleted.
+
+#### `garage_part_issues`
+Purpose: parts issued to a mechanic for a job card's part line (they left stock then, held for the job), and parts brought back unused.
+Key columns: `job_card_id`, `line_id`, `sku_id`, `lot_id`, `lot_code`, `kind` (issue, return), `quantity` (> 0), `unit_cost` (the stock's cost when it moved: the bill's stock cost), `mechanic_id` (who it was issued to; required on an issue), `adjustment_id` (the core stock adjustment that moved it), `request_key`, `request_hash`, `created_by`, `created_at`.
+Relations: (`business_id`, ...) -> `garage_job_cards`, `garage_job_card_lines`, `catalog_skus`, `business_stock_lots`, `business_stock_adjustments`.
+Rules: UNIQUE (business, adjustment); indexes `garage_part_issues_job`, `garage_part_issues_request`; triggers `garage_part_issues_open` (function `garage_job_card_is_open`), `garage_part_issues_check` (a part line of its own job card, of that line's item; never more brought back from a lot than was issued from it) and `garage_part_issues_kept` (function `garage_kept`).
+
+#### `garage_road_tests`
+Purpose: a road test of a job card's vehicle.
+Key columns: `job_card_id`, `tested_by` (who drove), `distance_km` (0.1-500), `passed`, `remarks` (required when not passed), `created_by`, `created_at`.
+Relations: (`business_id`, `job_card_id`) -> `garage_job_cards`.
+Rules: index `garage_road_tests_job`; triggers `garage_road_tests_open` (function `garage_job_card_is_open`) and `garage_road_tests_kept` (function `garage_kept`).
+
+#### `garage_gate_passes`
+Purpose: a delivered job card's gate pass, and the vehicle leaving.
+Key columns: PK (`business_id`, `job_card_id`), `issued_by`, `issued_at`, `left_at`, `left_recorded_by` (with `left_at`), `left_note`.
+Relations: (`business_id`, `job_card_id`) -> `garage_job_cards`.
+Rules: trigger `garage_gate_passes_guard`: made only for a delivered job card and before the vehicle leaves; never deleted; the vehicle leaves once, and nothing else changes.
+
+#### `garage_claim_steps`
+Purpose: a claim's progress after it was intimated.
+Key columns: `job_card_id`, `step` (surveyed, approved, work_done, reinspected, invoiced, settled), `on_date`, `note`, `created_by`, `created_at`.
+Relations: (`business_id`, `job_card_id`) -> `garage_claims`.
+Rules: UNIQUE (business, job card, step); trigger `garage_claim_steps_check`: forward only, on or after the step before and the intimation, never after the business's today; invoiced and settled only on a delivered job card, settled only after invoiced, the steps before the bill only while it is open; trigger `garage_claim_steps_kept` (function `garage_kept`).
+
+#### `garage_claim_settlements`
+Purpose: what an insurer did not pay of its bill, settled once.
+Key columns: PK (`business_id`, `job_card_id`), `document_id` (the insurer's bill), `short_amount` (> 0), `how` (written_off, billed), `return_id` (the credit note on the insurer's bill), `customer_document_id` (the bill to the customer, exactly when billed), `reason`, `approved_by`, `request_key`, `request_hash`, `created_by`, `created_at`.
+Relations: (`business_id`, `job_card_id`) -> `garage_claims`; (`business_id`, `document_id`) and (`business_id`, `customer_document_id`) -> `business_documents`; (`business_id`, `return_id`) -> `business_returns`.
+Rules: UNIQUE (business, request key); trigger `garage_claim_settlements_kept` (function `garage_kept`).
+
+#### `garage_service_plans`
+Purpose: the kilometres and days to the next service for a make's model or engine.
+Key columns: `make`, `model`, `engine_code` (a model, an engine or both), `interval_km` (500-100,000), `interval_days` (30-1,100), `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Rules: unique index `garage_service_plans_once` (make, model and engine, any case). Switched off, never deleted.
+
+#### `garage_commission_rates`
+Purpose: a mechanics' commission rate: for a labour item, or for a mechanic.
+Key columns: `sku_id` or `user_id` (exactly one), `percent` (0.01-100), `updated_by`, `updated_at`.
+Relations: (`business_id`, `sku_id`) -> `catalog_skus`.
+Rules: unique partial indexes `garage_commission_rates_item` and `garage_commission_rates_person`; trigger `garage_commission_rates_check`: an item's rate is for a service. Deleted when taken off.
+
+#### `garage_commissions`
+Purpose: the commission a billed labour line earned its mechanic.
+Key columns: `job_card_id`, `line_id`, `user_id`, `base` (the mechanic's part of the line's value before GST), `percent`, `amount`, `earned_on` (the business's date of the bill), `created_at`.
+Relations: (`business_id`, `job_card_id`) -> `garage_job_cards`; (`business_id`, `line_id`) -> `garage_job_card_lines`.
+Rules: UNIQUE (business, line, mechanic); index `garage_commissions_person`; trigger `garage_commissions_kept` (function `garage_kept`).
+
+#### `garage_commission_payouts`
+Purpose: a commission paid to a mechanic, through the expense book.
+Key columns: `user_id`, `expense_id` (the `business_expenses` row: reversing it there makes the amount due again), `amount`, `notes`, `request_key`, `request_hash`, `created_by`, `created_at`.
+Relations: (`business_id`, `expense_id`) -> `business_expenses`.
+Rules: UNIQUE (business, expense) and (business, request key); index `garage_commission_payouts_person`; trigger `garage_commission_payouts_kept` (function `garage_kept`).
 
 ## Gyms, studios & coaching
 

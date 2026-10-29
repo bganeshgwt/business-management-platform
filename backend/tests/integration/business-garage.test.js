@@ -475,10 +475,12 @@ test('the garage', { timeout: 300000 }, async (t) => {
     const insurerLines = await rows('SELECT sku_id,quantity,unit_price,tax_rate,net,tax FROM business_document_lines WHERE document_id=$1 ORDER BY id', [insurerBill.id]);
     assert.deepEqual(insurerLines.map((l) => [Number(l.sku_id), l.tax_rate, l.net, l.tax, l.unit_price]), [[tyre.id, '5.00', '15415.02', '770.75', '16185.77'],
       [clutch.id, '5.00', '1712.78', '85.64', '1798.42'], [labour.id, '18.00', '1284.58', '231.23', '1515.81']]);
-    assert.deepEqual([Number(ownerBill.contact_id), ownerBill.total, ownerBill.subtotal, ownerBill.tax, ownerBill.round_off], [Number(ravi.id), '3770.00', '3194.92', '575.08', '0.00']);
+    assert.deepEqual([Number(ownerBill.contact_id), ownerBill.total, ownerBill.subtotal, ownerBill.tax, ownerBill.round_off], [Number(ravi.id), '3770.00', '3511.35', '258.65', '0.00']);
     assert.equal(ownerBill.notes, `Job card ${claimJob.job_no} · AP39TR7788 · owner's share of claim CLM-2026-88120: deductible ₹1000.00, depreciation ₹2000.00`);
-    const ownerLines = await rows('SELECT sku_id,net,tax FROM business_document_lines WHERE document_id=$1 ORDER BY id', [ownerBill.id]);
-    assert.deepEqual(ownerLines.map((l) => [Number(l.sku_id), l.net, l.tax]), [[alignment.id, '423.73', '76.27'], [share.id, '2771.19', '498.81']]);
+    // The owner's share at the slabs of the insurer's lines it comes from: the tyre and the clutch at 5%, the labour at 18%.
+    const ownerLines = await rows('SELECT sku_id,tax_rate,net,tax FROM business_document_lines WHERE document_id=$1 ORDER BY id', [ownerBill.id]);
+    assert.deepEqual(ownerLines.map((l) => [Number(l.sku_id), l.tax_rate, l.net, l.tax]), [[alignment.id, '18.00', '423.73', '76.27'], [share.id, '5.00', '2872.20', '143.61'],
+      [share.id, '18.00', '215.42', '38.77']]);
     // The two bills are the job, to the paisa; each part left stock once.
     assert.equal(paise(insurerBill.total) + paise(ownerBill.total), paise(ready.total));
     assert.deepEqual([await stock(tyre.id), await stock(clutch.id)], [before[0] - 1, before[1] - 1]);

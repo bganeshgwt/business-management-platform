@@ -12,14 +12,15 @@ import { Badge, BusinessHeader, PeriodFilter } from "../../core/pages/ui";
 import { useOpenBusiness, useServerList } from "../../core/pages/hooks";
 import { Segmented } from "../../fashion/pages/shared";
 import JobCardDialog from "./JobCardDialog";
-import { BOARD, STATUSES, atWords, km } from "./garage";
+import { MechanicBoard } from "./MechanicJobs";
+import { BOARD, STATUSES, atWords, km, mechanicOnly } from "./garage";
 import "../styles/garage.css";
 
 // Job cards: the board of open job cards by status (received, estimate sent,
 // approved, in progress, waiting for parts, ready), each card with its plate,
 // customer, promised time, mechanics and how much of the work is done; every
 // job card by date for the desk; and opening a new one. A mechanic sees the
-// job cards assigned to them.
+// job cards assigned to them, phone first (MechanicJobs.jsx).
 
 export default function JobCardsPage() {
   const biz = useOpenBusiness();
@@ -53,7 +54,8 @@ export default function JobCardsPage() {
       <SectionCard flush icon="clipboard" title={view === "board" ? "In the workshop" : "All job cards"}
         description={view === "board" && board ? `${board.counts.open} open${board.counts.overdue ? ` · ${board.counts.overdue} past the promised time` : ""}` : undefined}
         actions={desk && <Segmented label="Show" options={[{ value: "board", label: "Board" }, { value: "all", label: "All job cards by date" }]} value={view} onChange={setView} />}>
-        {view === "board" ? (board ? <Board biz={biz} board={board} onOpen={(j) => navigate(biz.path(`job-cards/${j.id}`))} /> : !error && <Loading />)
+        {view === "board" ? (board ? (mechanicOnly(biz) ? <MechanicBoard biz={biz} board={board} onOpen={(j) => navigate(biz.path(`job-cards/${j.id}`))} />
+          : <Board biz={biz} board={board} onOpen={(j) => navigate(biz.path(`job-cards/${j.id}`))} />) : !error && <Loading />)
           : <AllJobCards biz={biz} onOpen={(j) => navigate(biz.path(`job-cards/${j.id}`))} />}
       </SectionCard>
       {opening && <JobCardDialog vehicleId={opening.vehicleId || null} onClose={() => setOpening(null)}

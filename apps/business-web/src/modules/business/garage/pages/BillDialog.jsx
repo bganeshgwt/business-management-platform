@@ -52,6 +52,10 @@ export default function BillDialog({ job, onClose, onSaved }) {
   const paying = canCollect && Number(form.amount) > 0;
   const big = customer && Number(customer.total) > PAN_ABOVE;
   const serialLines = job.lines.filter((l) => l.tracking === "serial");
+  // A reimbursement claim billed in the insurer's name: the customer pays that bill in full now.
+  const insurerNamed = Boolean(bill?.insurer_named && bill.insurer);
+  const [insurerMethod, setInsurerMethod] = useState("upi");
+  const [insurerReference, setInsurerReference] = useState("");
   const submit = () => businessWrite(biz.id, `garage/job-cards/${job.id}/bill`, {
     requestKey, note: form.note.trim() || undefined, odometerOutKm: form.odometerOut || undefined, ...(lower ? { odometerApproval: approvalBody(approval, user?.id) } : {}),
     // A job card with nothing on it leaves the vehicle's next service as it is.
@@ -59,13 +63,21 @@ export default function BillDialog({ job, onClose, onSaved }) {
     ...(serialLines.length ? { lines: serialLines.map((l) => ({ lineId: l.id, serials: String(form.serials[l.id] || "").split(/[\s,]+/).filter(Boolean) })) } : {}),
     ...(paying ? { payment: { amount: Math.abs(Number(form.amount) - due) < 0.005 ? "full" : form.amount, ...methods.body(form.method, PAY_KINDS), reference: form.reference.trim() || undefined } } : {}),
     ...(big ? { buyer: { pan: form.pan.trim() || undefined, panDeclaration: form.declaration } } : {}),
+    ...(insurerNamed ? { insurerPayment: { ...methods.body(insurerMethod, PAY_KINDS), reference: insurerReference.trim() || undefined } } : {}),
   });
   const words = !bill ? "Nothing on this job card is billed: the vehicle is handed over and the job card is closed."
+    : insurerNamed ? `A bill in the insurer's name for ${biz.exact(bill.insurer.total)} (what it approved), paid by the customer now${customer ? `, and the customer's own bill of ${biz.exact(customer.total)}` : ""}: ${biz.exact(bill.total)} in all.`
     : bill.insurer ? `The insurer is billed ${biz.exact(bill.insurer.total)} (what it approved)${customer ? ` and the customer ${biz.exact(customer.total)}` : ""}: ${biz.exact(bill.total)} in all.`
       : `The bill comes to ${biz.exact(bill.total)}${Number(bill.advance) > 0 ? `, less the advance of ${biz.exact(bill.advance)}` : ""}.`;
   return (
     <FormDialog title={`Bill and deliver ${job.job_no}`} icon="receipt" width={680} onClose={onClose} onSaved={onSaved} submitLabel={bill ? "Post the bills and deliver" : "Deliver"} disabled={!settings} onSubmit={submit}
-      description={`${words}${paying && Number(form.amount) < due ? ` ${biz.exact(due - Number(form.amount))} goes on the customer's dues.` : ""} The parts leave stock now.`}>
+      description={`${words}${paying && Number(form.amount) < due ? ` ${biz.exact(due - Number(form.amount))} goes on the customer's dues.` : ""} ${job.garage?.issue_parts ? "The parts issued for the job are billed; nothing more leaves stock." : "The parts leave stock now."}`}>
+      {insurerNamed && (
+        <>
+          <Field label={`The insurer's bill (${biz.exact(bill.insurer.total)}) paid by`}><select value={methods.resolve(insurerMethod, PAY_KINDS)} onChange={(e) => setInsurerMethod(e.target.value)}>{methods.options(PAY_KINDS).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}</select></Field>
+          <Field label="Its reference (optional)"><input maxLength={100} value={insurerReference} onChange={(e) => setInsurerReference(e.target.value)} /></Field>
+        </>
+      )}
       {canCollect && (
         <>
           <Field label="Collected now" hint="Leave 0 to put it on the customer's dues."><input type="number" min="0" max={due} step="0.01" value={form.amount} onChange={set("amount")} /></Field>

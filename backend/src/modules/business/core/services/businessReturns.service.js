@@ -55,8 +55,10 @@ async function createReturn(business, user, documentId, body) {
 // line credited by value instead of quantity, as lineId → paise with GST
 // (a membership cancelled part way through its days or sessions). Such a
 // line is credited once, with nothing returned on it before, and is then
-// closed: the rest of it was used.
-async function postReturn(db, business, user, doc, { reason, requestKey, hash, lines, values = null }) {
+// closed: the rest of it was used. `goodsByValue`: goods lines may be credited
+// by value too, restocking nothing (a garage's insurer paying less than its
+// bill: the credit note follows the bill's lines and their GST).
+async function postReturn(db, business, user, doc, { reason, requestKey, hash, lines, values = null, goodsByValue = false }) {
   {
     const previous = await repo.one(db, 'SELECT * FROM business_returns WHERE business_id=$1 AND request_key=$2', [business.id, requestKey]);
     if (previous) {
@@ -74,7 +76,8 @@ async function postReturn(db, business, user, doc, { reason, requestKey, hash, l
       const credit = values?.get(Number(line.id));
       if (credit !== undefined) {
         const gross = cents(line.net) + cents(line.tax);
-        if (line.tracking !== 'none') fail(`${line.label} is goods: it comes back by quantity`);
+        // Goods are credited by value only when the caller asks (a garage's insurer paying less than its bill): nothing comes back into stock.
+        if (line.tracking !== 'none' && !goodsByValue) fail(`${line.label} is goods: it comes back by quantity`);
         if (!Number.isSafeInteger(credit) || credit <= 0 || credit > gross) fail(`${line.label} can be credited at most ${(gross / 100).toFixed(2)}`);
         const earlier = await repo.one(db, 'SELECT 1 FROM business_return_lines WHERE business_id=$1 AND line_id=$2 LIMIT 1', [business.id, line.id]);
         if (earlier) fail(`${line.label} on ${doc.document_no} has already been credited`, 409);

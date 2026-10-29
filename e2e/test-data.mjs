@@ -46,6 +46,8 @@ export const LOGINS = [
   // The general store's cashier, with a PIN of their own, whom its shared till
   // is switched to (small-items.spec.js).
   { role: "TILL_CASHIER", name: "Deepak Rao", email: "cashier@general.e2e.invalid", businesses: ["general_retail"], businessRole: "cashier" },
+  // The garage's mechanic, on a job card of their own (business-garage-more.spec.js).
+  { role: "MECHANIC", name: "Raju Goud", email: "mechanic@garage.e2e.invalid", businesses: ["garage"], businessRole: "mechanic" },
 ];
 
 // The staff login a spec makes in the grocery's Staff & access, as the owner
@@ -322,6 +324,10 @@ export const GARAGE = {
   owner: { name: "Lakshmi Prasad", phone: "9876501234" },
   scooter: { registrationNo: "TS10EV0042", make: "Honda", model: "Activa 6G", fuel: "petrol", serviceInDays: 3 },
   scooterOwner: { name: "Kiran Reddy", phone: "9123456780" },
+  // The scooter's job card, assigned to the mechanic, its estimate approved and the work started.
+  mechanicJob: { complaint: "Brakes squeak when cold" },
+  // An older number of the oil filter, none in stock, replaced by the filter; both fit the car.
+  oldFilter: { name: "Oil filter, old number (Swift)", code: "FLT-SW-OLD", price: 360, hsn: "84212300" },
 };
 
 // The gym: a monthly plan at 5% GST with a joining fee, two freezes and grace

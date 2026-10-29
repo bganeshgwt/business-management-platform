@@ -16,6 +16,7 @@ import { Badge, BusinessHeader, Field } from "../../core/pages/ui";
 import { businessToday, useOpenBusiness } from "../../core/pages/hooks";
 import GarageApproval from "./GarageApproval";
 import VehicleDialog from "./VehicleDialog";
+import { OutOfStock } from "./Substitutes";
 import { DUE_KINDS, FUELS, STATUSES, approvalBody, emptyApproval, km, wordOf } from "./garage";
 import "../../fashion/styles/business-fashion-electronics.css";
 import "../styles/garage.css";
@@ -78,9 +79,11 @@ export default function VehiclePage() {
           <dt>Make and model</dt><dd>{vehicle.vehicle_name}</dd>
           {vehicle.chassis_no && <><dt>Chassis number</dt><dd className="mono">{vehicle.chassis_no}</dd></>}
           {vehicle.engine_no && <><dt>Engine number</dt><dd className="mono">{vehicle.engine_no}</dd></>}
+          {vehicle.engine_code && <><dt>Engine code</dt><dd className="mono">{vehicle.engine_code}</dd></>}
           {vehicle.notes && <><dt>Notes</dt><dd>{vehicle.notes}</dd></>}
         </dl>
       </SectionCard>
+      <PartsThatFit biz={biz} vehicle={vehicle} />
       <SectionCard flush icon="clipboard" title="Job cards">
         <DataGrid variant="compact" id="garage-vehicle-jobs" caption="Job cards of this vehicle" rows={vehicle.jobs} rowKey={(j) => j.id} currency={biz.symbol} rowNoun={["job card", "job cards"]}
           onRowClick={(j) => navigate(biz.path(`job-cards/${j.id}`))} empty="No job cards yet" columns={[
@@ -166,5 +169,35 @@ function ReadingDialog({ vehicle, onClose, onSaved }) {
       {lower && <GarageApproval permission="garage.approve" selfWithoutPin title={`A reading lower than the last (${km(last)}) needs a manager`} reasonLabel="Why it is lower"
         reasonPlaceholder="e.g. Instrument cluster replaced" value={approval} onChange={setApproval} />}
     </FormDialog>
+  );
+}
+
+// The parts that fit this vehicle (Parts fitment), in stock first; a part out
+// of stock shows what can be used instead.
+function PartsThatFit({ biz, vehicle }) {
+  const [q, setQ] = useState("");
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      businessRead(biz.id, `garage/vehicles/${vehicle.id}/parts`, q.trim() ? { q: q.trim() } : undefined, controller.signal)
+        .then((result) => { setData(result); setError(""); })
+        .catch((err) => { if (!controller.signal.aborted) setError(getErrorMessage(err)); });
+    }, 250);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [biz.id, vehicle.id, q]);
+  return (
+    <SectionCard flush icon="box" title="Parts that fit" description="From the makes and models each part fits (Parts & services › Parts fitment), in stock first.">
+      <DataGrid variant="compact" id="garage-vehicle-parts" caption="Parts that fit this vehicle" rows={data?.parts || []} rowKey={(p) => p.id} currency={biz.symbol} rowNoun={["part", "parts"]}
+        loading={!data && !error} error={error} toolbar={<input className="gar-search" type="search" aria-label="Find a part" placeholder="Find a part" value={q} onChange={(e) => setQ(e.target.value)} />}
+        empty="No part is recorded as fitting it" emptyHint="Record the makes and models each part fits under Parts & services › Parts fitment." columns={[
+          { key: "label", header: "Part", value: (p) => p.label, mobile: "title", render: (p) => <span className="bz-two-line"><span>{p.label}</span><small className="muted mono">{p.code}</small></span> },
+          { key: "fits", header: "Fits", value: (p) => `${p.fits}${p.check_it ? " (check the variant, fuel, year or engine)" : ""}`, defaultHidden: true },
+          { key: "price", header: "Price", type: "money", exact: true, value: (p) => Number(p.price) },
+          { key: "in_stock", header: "In stock", type: "number", value: (p) => p.in_stock, mobile: "show",
+            render: (p) => (p.in_stock > 0 ? `${p.in_stock} ${p.unit}` : p.substitutes.length ? <span className="bz-two-line"><span className="bz-minus">none</span><OutOfStock biz={biz} sku={p} /></span> : <span className="bz-minus">none</span>) },
+        ]} />
+    </SectionCard>
   );
 }

@@ -1116,6 +1116,26 @@ export async function buildTestData({ api, logins, sql }) {
     businesses.salon.client = { id: client.id, name: client.name };
   }
 
+  // The garage's mechanic (business-garage-more.spec.js): a job card on the
+  // scooter assigned to them, its estimate approved and the work started; and
+  // the parts that fit the car: the oil filter, and an older number of it
+  // (none in stock) replaced by it.
+  {
+    const B = at("garage");
+    const shop = businesses.garage;
+    const job = await owner("POST", B("garage/job-cards"), { requestKey: requestKey(), locationId: shop.locationId, vehicleId: shop.scooter.id,
+      complaints: [GARAGE.mechanicJob.complaint], mechanicIds: [staffAccounts.MECHANIC] }, 201);
+    await owner("PUT", B(`garage/job-cards/${job.id}/estimate`), { requestKey: requestKey(), lines: [
+      { kind: "labour", skuId: shop.labour.id, quantity: "1" }, { kind: "part", skuId: shop.oil.id, quantity: "1" }] });
+    await owner("POST", B(`garage/job-cards/${job.id}/approvals`), { requestKey: requestKey(), approvedBy: GARAGE.scooterOwner.name, channel: "phone" }, 201);
+    await owner("POST", B(`garage/job-cards/${job.id}/status`), { status: "in_progress" });
+    const old = await owner("POST", B("catalog"), { name: GARAGE.oldFilter.name, code: GARAGE.oldFilter.code, kind: "goods", unit: "each", tracking: "quantity",
+      price: String(GARAGE.oldFilter.price), hsnCode: GARAGE.oldFilter.hsn, taxRate: "18" }, 201);
+    for (const skuId of [shop.filter.id, old.id]) await owner("POST", B("garage/part-fitments"), { skuId, make: GARAGE.car.make, model: GARAGE.car.model }, 201);
+    await owner("PUT", B(`garage/parts/${old.id}`), { supersededBySkuId: shop.filter.id });
+    Object.assign(shop, { mechanicJob: { id: job.id, jobNo: job.job_no }, oldFilter: { id: old.id, name: old.label } });
+  }
+
   // The logins nothing above signed in as choose their own password now, so
   // a spec signing in as any of them meets no first-sign-in step.
   for (const person of logins.filter((item) => !signedIn.has(item.role))) {

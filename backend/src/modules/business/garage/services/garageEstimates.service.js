@@ -7,6 +7,8 @@ const pricing = require('../../core/services/businessPricing');
 const c = require('./garageCommon');
 const money = require('./garageMoney');
 const jobs = require('./garageJobCards.service');
+// The parts held for a job (issued to a mechanic): a line keeps at least what is held.
+const work = () => require('./garageWork.service');
 
 // The estimate of a job card (module "garage", garages): its lines and every
 // version of them.
@@ -25,10 +27,15 @@ const jobs = require('./garageJobCards.service');
 //              mechanic adds the parts they used. A revision that comes to more
 //              than the owner approved goes back to the owner for approval.
 //   the work   a mechanic ticks each line done (the work done, the part fitted).
-//   the claim  the insurer (a customer), cashless or reimbursement, the policy
-//              and claim numbers, the surveyor, the amount the insurer approved,
-//              the deductible and the depreciation. Taking the claim off makes
-//              every line the customer's.
+//   the claim  the insurer (a customer), cashless or reimbursement (billed to
+//              the customer, or in the insurer's name and paid by the
+//              customer), the day it was intimated, the policy and claim
+//              numbers, the surveyor, the amount the insurer approved, the
+//              deductible and the depreciation. Taking the claim off makes every
+//              line the customer's; a claim that has moved on (surveyed, or
+//              later) stays.
+//   quotation  an open quotation of the customer's becomes the estimate of a
+//              job card with none yet, at its prices; the quotation is closed.
 // Money is integer paise; quantities integer thousandths.
 
 const { fail, id } = c;
@@ -140,6 +147,17 @@ const unchanged = (p) => p.kept && p.kind === p.kept.kind && p.payer === p.kept.
 async function applyVersion(db, business, user, job, current, priced, { source, note, requestKey, hash, rounding }) {
   const removed = current.filter((l) => !priced.some((p) => p.kept && Number(p.kept.id) === Number(l.id)));
   if (!removed.length && priced.every(unchanged) && priced.length === current.length) return false;
+  // Parts issued for a line are held for it: it keeps at least that much, and its item.
+  const held = await work().heldByLine(db, business, job.id);
+  for (const line of removed) {
+    if ((held.get(Number(line.id)) || 0) > 0) fail(`${line.label} has parts issued for it: bring them back into stock before taking it off`, 409);
+  }
+  for (const p of priced.filter((x) => x.kept)) {
+    const keep = held.get(Number(p.kept.id)) || 0;
+    if (keep > 0 && (Number(p.sku.id) !== Number(p.kept.sku_id) || Math.round(Number(p.quantity) * 1000) < keep)) {
+      fail(`${p.kept.label}: ${keep / 1000} ${p.kept.unit} is issued for it; bring back what is not used before lowering it`, 409);
+    }
+  }
   for (const line of removed) await db.query('DELETE FROM garage_job_card_lines WHERE business_id=$1 AND id=$2', [business.id, line.id]);
   const ids = [];
   for (const p of priced) {
@@ -149,7 +167,7 @@ async function applyVersion(db, business, user, job, current, priced, { source, 
       // New work (another item, or another quantity) is not done yet.
       const sameWork = Number(p.sku.id) === Number(p.kept.sku_id) && Math.round(Number(p.quantity) * 1000) === Math.round(Number(p.kept.quantity) * 1000);
       await db.query(`UPDATE garage_job_card_lines SET kind=$3,payer=$4,sku_id=$5,label=$6,unit=$7,quantity=$8,unit_price=$9,amount=$10,tax_rate=$11,net=$12,tax=$13,
-          price_rule_id=$14,hsn_code=$15,mrp=$16,description=$17,vendor_name=$18,vendor_bill_no=$19,
+          price_rule_id=$14,hsn_code=$15,mrp=$16,description=$17,vendor_name=$18,vendor_bill_no=$19,old_part=CASE WHEN $3='part' THEN old_part END,
           done=CASE WHEN $20 THEN done ELSE false END,done_by=CASE WHEN $20 THEN done_by END,done_at=CASE WHEN $20 THEN done_at END
         WHERE business_id=$1 AND id=$2`, [business.id, p.kept.id, ...values, sameWork]);
       ids.push(p.kept.id);
@@ -173,7 +191,8 @@ async function applyVersion(db, business, user, job, current, priced, { source, 
   await db.query(`UPDATE garage_job_cards SET estimate_version=$3,subtotal=$4,tax=$5,round_off=$6,total=$7,status=$8,updated_by=$9,updated_at=now() WHERE business_id=$1 AND id=$2`,
     [business.id, job.id, version, money.rupees(totals.subtotal), money.rupees(totals.tax), money.rupees(totals.roundOff), money.rupees(totals.total), status, user.id]);
   // The history names no amounts: a mechanic reads it too.
-  const words = source === 'parts' ? `Estimate version ${version}: parts used` : source === 'claim' ? `Estimate version ${version}: the claim taken off` : `Estimate version ${version}`;
+  const words = source === 'parts' ? `Estimate version ${version}: parts used` : source === 'claim' ? `Estimate version ${version}: the claim taken off`
+    : source === 'quotation' ? `Estimate version ${version}: from the quotation` : `Estimate version ${version}`;
   await jobs.history(db, business, user, job, job.status, status, [words, note, status !== job.status ? 'more than the owner approved: ask the owner again' : null].filter(Boolean).join(' · '));
   await repo.audit(db, business.id, user.id, 'job_card.estimate_revised', job.id, { jobNo: job.job_no, version, source, totalBefore: job.total, totalAfter: money.rupees(totals.total),
     lines: priced.length, ...(status !== job.status ? { backToOwner: true } : {}) });
@@ -301,6 +320,80 @@ async function recordWork(business, user, jobId, body) {
   });
 }
 
+// The open quotations a job card's estimate may come from: the customer's or
+// the vehicle owner's, still valid, in the job card's price terms.
+async function quotationsFor(business, jobId) {
+  c.requireGarage(business);
+  await access.require(business, 'quotations.view');
+  const job = await jobs.load(repo.pool, business, id(jobId, 'Job card'));
+  return repo.all(repo.pool, `SELECT q.id,q.quotation_no,q.customer_name,q.total,q.valid_until::text AS valid_until,q.created_at,
+      (SELECT count(*)::int FROM business_quotation_lines x WHERE x.business_id=q.business_id AND x.quotation_id=q.id) AS lines
+    FROM business_quotations q JOIN businesses b ON b.id=q.business_id
+    WHERE q.business_id=$1 AND q.status='open' AND q.valid_until >= (now() AT TIME ZONE b.timezone)::date AND q.tax_mode=$2 AND q.contact_id=ANY($3::bigint[])
+      AND ($4::bigint IS NULL OR q.location_id=$4)
+      AND NOT EXISTS (SELECT 1 FROM business_quotation_billed x WHERE x.business_id=q.business_id AND x.quotation_id=q.id) ORDER BY q.id DESC LIMIT 50`,
+  [business.id, job.tax_mode, [job.contact_id, job.vehicle?.owner_id].filter(Boolean), business.location_scope || null]);
+}
+
+// An open quotation of the customer's becomes the estimate of a job card with
+// none yet, at its prices (each line's value for one unit, in the job card's
+// price terms). The quotation is closed, naming the job card.
+// body: { requestKey, quotationId }
+async function fromQuotation(business, user, jobId, body) {
+  c.requireGarage(business);
+  await c.requireDesk(business);
+  await access.require(business, 'sales.create');
+  await access.require(business, 'quotations.view');
+  const requestKey = core.uuid(body.requestKey);
+  const hash = jobs.hashOf({ ...body, jobId: String(jobId) });
+  const quotationId = id(body.quotationId, 'Quotation');
+  return repo.transaction(async (db) => {
+    const job = await jobs.lockJob(db, business, jobId);
+    const done = await repo.one(db, 'SELECT job_card_id,request_hash FROM garage_estimate_versions WHERE business_id=$1 AND request_key=$2', [business.id, requestKey]);
+    if (done) {
+      if (done.request_hash !== hash || Number(done.job_card_id) !== Number(job.id)) fail('This request key was already used for different data', 409);
+      return jobs.shape(business, await jobs.load(db, business, job.id));
+    }
+    jobs.requireOpen(job);
+    const settings = await checkTerms(db, business, job);
+    const current = await currentLines(db, business, job);
+    if (current.length) fail(`Job card ${job.job_no} has an estimate already: revise it instead`, 409);
+    if (job.quotation_id) fail(`Job card ${job.job_no} has its quotation already`, 409);
+    const q = await repo.one(db, `SELECT q.*,(q.valid_until < (now() AT TIME ZONE b.timezone)::date) AS expired FROM business_quotations q JOIN businesses b ON b.id=q.business_id
+      WHERE q.business_id=$1 AND q.id=$2 FOR UPDATE OF q`, [business.id, quotationId]);
+    if (!q) fail('Quotation not found', 404);
+    access.requireLocation(business, q.location_id);
+    if (q.status !== 'open') fail(`Quotation ${q.quotation_no} is ${q.status}: only an open quotation becomes an estimate`, 409);
+    // A quotation billed in part is billed to its end or cancelled, never turned into an estimate.
+    const billed = await repo.one(db, 'SELECT count(*)::int AS n FROM business_quotation_billed WHERE business_id=$1 AND quotation_id=$2', [business.id, q.id]);
+    if (billed.n) fail(`Quotation ${q.quotation_no} is part billed: bill what is left, or cancel it and write the estimate`, 409);
+    if (q.expired) fail(`Quotation ${q.quotation_no} was valid until ${c.dateWords(q.valid_until)}. Revise it to bring its prices up to date first.`, 409);
+    if (q.tax_mode !== job.tax_mode) fail(`Quotation ${q.quotation_no} is priced in other terms than the job card: write the estimate instead`, 409);
+    const vehicle = await repo.one(db, 'SELECT contact_id FROM garage_vehicles WHERE business_id=$1 AND id=$2', [business.id, job.vehicle_id]);
+    if (q.contact_id && ![Number(job.contact_id), Number(vehicle.contact_id)].includes(Number(q.contact_id))) fail(`Quotation ${q.quotation_no} is another customer's`, 409);
+    const quoted = await repo.all(db, `SELECT x.*,p.kind AS product_kind FROM business_quotation_lines x JOIN catalog_skus s ON s.business_id=x.business_id AND s.id=x.sku_id
+      JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id WHERE x.business_id=$1 AND x.quotation_id=$2 ORDER BY x.id`, [business.id, q.id]);
+    if (!quoted.length) fail(`Quotation ${q.quotation_no} has no lines`, 409);
+    if (quoted.length > MAX_LINES) fail(`An estimate has up to ${MAX_LINES} lines`);
+    const inclusive = job.tax_mode === 'inclusive';
+    const inputs = quoted.map((x) => {
+      const value = money.paise(x.net) + (inclusive ? money.paise(x.tax) : 0);
+      const quantity = Number(x.quantity);
+      return { lineId: null, kind: x.product_kind === 'goods' ? 'part' : 'labour', skuId: Number(x.sku_id), quantity, quantityText: String(quantity),
+        unitPrice: Number((value / 100 / quantity).toFixed(2)), payer: 'customer', description: null, vendorName: null, vendorBillNo: null };
+    });
+    // The quotation's prices were given when it was made: a price below the item's is its discount.
+    const priced = await priceLines(db, business, job, inputs, { current, canDiscount: true, hasClaim: await hasClaim(db, business, job) });
+    await applyVersion(db, business, user, job, current, priced, { source: 'quotation', note: `Quotation ${q.quotation_no}`, requestKey, hash, rounding: settings?.rounding });
+    await db.query('UPDATE garage_job_cards SET quotation_id=$3 WHERE business_id=$1 AND id=$2', [business.id, job.id, q.id]);
+    const reason = `Made into the estimate of job card ${job.job_no}`;
+    await db.query("UPDATE business_quotations SET status='cancelled',closed_by=$3,closed_at=now(),cancel_reason=$4 WHERE business_id=$1 AND id=$2", [business.id, q.id, user.id, reason]);
+    await repo.audit(db, business.id, user.id, 'quotation.cancelled', q.id, { quotationNo: q.quotation_no, reason, jobCard: job.job_no });
+    await repo.event(db, business.id, user.id, 'quotation.cancelled', 'quotation', q.id, { quotationNo: q.quotation_no, reason, jobCardId: Number(job.id) });
+    return jobs.shape(business, await jobs.load(db, business, job.id));
+  });
+}
+
 // --- The claim ---------------------------------------------------------------------------------
 
 function readAmount(value, name) {
@@ -308,7 +401,8 @@ function readAmount(value, name) {
   return core.decimal(String(value).trim(), name, 2, 0, 100000000);
 }
 
-// body: { insurerId, mode: cashless | reimbursement, policyNo, claimNo?, surveyorName?, surveyorPhone?, approvedAmount?, deductible?, depreciation? }
+// body: { insurerId, mode: cashless | reimbursement, insurerNamed? (reimbursement billed in the insurer's name), intimatedOn?, policyNo, claimNo?,
+//   surveyorName?, surveyorPhone?, approvedAmount?, deductible?, depreciation? }
 async function saveClaim(business, user, jobId, body) {
   c.requireGarage(business);
   await c.requireDesk(business);
@@ -324,6 +418,9 @@ async function saveClaim(business, user, jobId, body) {
   if (approvedAsked === 0) fail('The amount the insurer approved is more than 0; leave it empty until the surveyor approves');
   const deductibleAsked = given('deductible') ? readAmount(body.deductible, 'Deductible') ?? 0 : undefined;
   const depreciationAsked = given('depreciation') ? readAmount(body.depreciation, 'Depreciation') ?? 0 : undefined;
+  const insurerNamed = v.requiredBoolean(body.insurerNamed ?? false, 'Billed in the insurer\'s name');
+  if (insurerNamed && mode !== 'reimbursement') fail('A cashless claim is billed to the insurer already: a bill in its name paid by the customer is for a reimbursement claim');
+  const intimatedAsked = c.given(body.intimatedOn) ? c.readDate(body.intimatedOn, 'Intimated on') : null;
   return repo.transaction(async (db) => {
     const job = await jobs.lockJob(db, business, jobId);
     jobs.requireOpen(job);
@@ -331,6 +428,11 @@ async function saveClaim(business, user, jobId, body) {
     if (!insurer) fail('Choose the insurer from your customers (add the insurance company as a customer, with its GSTIN)', 404);
     if (Number(insurer.id) === Number(job.contact_id)) fail('The insurer is not the job card\'s own customer: choose the insurance company');
     const before = await repo.one(db, 'SELECT * FROM garage_claims WHERE business_id=$1 AND job_card_id=$2', [business.id, job.id]);
+    const today = await c.today(db, business);
+    const intimatedOn = intimatedAsked || (before?.intimated_on ? String(before.intimated_on).slice(0, 10) : today);
+    if (intimatedOn > today) fail('The claim was intimated today or earlier');
+    const firstStep = await repo.one(db, 'SELECT min(on_date)::text AS on FROM garage_claim_steps WHERE business_id=$1 AND job_card_id=$2', [business.id, job.id]);
+    if (firstStep?.on && intimatedOn > firstStep.on) fail(`The claim was intimated before it was surveyed or approved (${c.dateWords(firstStep.on)})`);
     const approved = approvedAsked !== undefined ? approvedAsked : before?.approved_amount ? Number(before.approved_amount) : null;
     const deductible = deductibleAsked !== undefined ? deductibleAsked : Number(before?.deductible || 0);
     const depreciation = depreciationAsked !== undefined ? depreciationAsked : Number(before?.depreciation || 0);
@@ -347,16 +449,18 @@ async function saveClaim(business, user, jobId, body) {
         fail(`The approved amount, deductible and depreciation come to more than the insurer's lines (${Number(covered).toFixed(2)})`);
       }
     }
-    await db.query(`INSERT INTO garage_claims(business_id,job_card_id,insurer_id,mode,policy_no,claim_no,surveyor_name,surveyor_phone,approved_amount,deductible,depreciation,created_by,updated_by)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12)
+    await db.query(`INSERT INTO garage_claims(business_id,job_card_id,insurer_id,mode,policy_no,claim_no,surveyor_name,surveyor_phone,approved_amount,deductible,depreciation,created_by,updated_by,
+        insurer_named,intimated_on)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12,$13,$14)
       ON CONFLICT (business_id,job_card_id) DO UPDATE SET insurer_id=EXCLUDED.insurer_id,mode=EXCLUDED.mode,policy_no=EXCLUDED.policy_no,claim_no=EXCLUDED.claim_no,
         surveyor_name=EXCLUDED.surveyor_name,surveyor_phone=EXCLUDED.surveyor_phone,approved_amount=EXCLUDED.approved_amount,deductible=EXCLUDED.deductible,
-        depreciation=EXCLUDED.depreciation,updated_by=EXCLUDED.updated_by,updated_at=now()`,
-    [business.id, job.id, insurer.id, mode, policyNo, claimNo, surveyorName, surveyorPhone, approved === null ? null : approved.toFixed(2), deductible.toFixed(2), depreciation.toFixed(2), user.id]);
+        depreciation=EXCLUDED.depreciation,insurer_named=EXCLUDED.insurer_named,intimated_on=EXCLUDED.intimated_on,updated_by=EXCLUDED.updated_by,updated_at=now()`,
+    [business.id, job.id, insurer.id, mode, policyNo, claimNo, surveyorName, surveyorPhone, approved === null ? null : approved.toFixed(2), deductible.toFixed(2), depreciation.toFixed(2), user.id,
+      insurerNamed, intimatedOn]);
     await db.query('UPDATE garage_job_cards SET updated_by=$3,updated_at=now() WHERE business_id=$1 AND id=$2', [business.id, job.id, user.id]);
     // The history names the claim, not its amounts.
     await jobs.history(db, business, user, job, job.status, job.status, `${before ? 'Claim changed' : 'Claim recorded'}: ${insurer.name}, policy ${policyNo}${claimNo ? `, claim ${claimNo}` : ''} (${mode})`);
-    await repo.audit(db, business.id, user.id, before ? 'job_card.claim_changed' : 'job_card.claim_recorded', job.id, { jobNo: job.job_no, insurer: insurer.name, mode, policyNo, claimNo,
+    await repo.audit(db, business.id, user.id, before ? 'job_card.claim_changed' : 'job_card.claim_recorded', job.id, { jobNo: job.job_no, insurer: insurer.name, mode, insurerNamed, intimatedOn, policyNo, claimNo,
       approvedAmount: approved === null ? null : approved.toFixed(2), deductible: deductible.toFixed(2), depreciation: depreciation.toFixed(2),
       ...(before ? { before: { insurerId: Number(before.insurer_id), mode: before.mode, approvedAmount: before.approved_amount, deductible: before.deductible, depreciation: before.depreciation } } : {}) });
     return jobs.shape(business, await jobs.load(db, business, job.id));
@@ -374,6 +478,8 @@ async function removeClaim(business, user, jobId) {
     const claim = await repo.one(db, 'SELECT g.*,k.name AS insurer_name FROM garage_claims g JOIN business_contacts k ON k.business_id=g.business_id AND k.id=g.insurer_id WHERE g.business_id=$1 AND g.job_card_id=$2',
       [business.id, job.id]);
     if (!claim) fail(`Job card ${job.job_no} has no claim`, 404);
+    const moved = await repo.one(db, 'SELECT step FROM garage_claim_steps WHERE business_id=$1 AND job_card_id=$2 ORDER BY id DESC LIMIT 1', [business.id, job.id]);
+    if (moved) fail(`The claim on ${job.job_no} is ${moved.step.replace('_', ' ')}: it stays on the job card`, 409);
     const current = await currentLines(db, business, job);
     if (current.some((l) => l.payer === 'insurer')) {
       const settings = await checkTerms(db, business, job);
@@ -389,4 +495,4 @@ async function removeClaim(business, user, jobId) {
   });
 }
 
-module.exports = { preview, save, addParts, recordWork, saveClaim, removeClaim };
+module.exports = { preview, save, addParts, recordWork, quotationsFor, fromQuotation, saveClaim, removeClaim };

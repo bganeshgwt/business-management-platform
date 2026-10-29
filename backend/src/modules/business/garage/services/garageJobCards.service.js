@@ -11,6 +11,10 @@ const vehicles = require('./garageVehicles.service');
 // Advance refunds and the manager's PIN (shared with the salon, repairs and optical).
 const refunds = () => require('../../salon-weight/services/businessAdvanceRefunds');
 const pins = () => require('../../salon-weight/services/businessManagerPin');
+// The job card's photos, work and claim (they read job cards through this file).
+const files = () => require('./garageFiles.service');
+const work = () => require('./garageWork.service');
+const claims = () => require('./garageClaims.service');
 
 // Job cards (module "garage", garages).
 //
@@ -19,6 +23,8 @@ const pins = () => require('../../salon-weight/services/businessManagerPin');
 //             and fuel level in, the customer's complaints, inspection notes,
 //             the bay, the mechanics, the promised time; an advance taken is a
 //             numbered collection receipt (the customer's money on account).
+//             A service booking for the day (or one past) may open it: the
+//             booking is marked done and the job card names it.
 //   estimate  parts, labour and outside work priced as charged, each with who
 //             pays it; every save is a new version (garageEstimates.service.js).
 //   approval  who approved the estimate as it stands, how (in person, by phone
@@ -104,7 +110,11 @@ function withoutMoney(job) {
       lines: (ver.lines || []).map((l) => ({ ...l, unitPrice: null, amount: null, net: null, tax: null })) }));
   }
   if (Array.isArray(out.approvals)) out.approvals = out.approvals.map((a) => ({ ...a, amount: null }));
-  if (out.claim) out.claim = { ...out.claim, approved_amount: null, deductible: null, depreciation: null };
+  if (out.claim) {
+    out.claim = { ...out.claim, approved_amount: null, deductible: null, depreciation: null, insurer_bill: null,
+      settlement: out.claim.settlement ? { ...out.claim.settlement, short_amount: null } : null };
+  }
+  if (Array.isArray(out.parts_held)) out.parts_held = out.parts_held.map((x) => ({ ...x, cost: null }));
   return { ...out, money: false };
 }
 const shape = (business, job) => (c.seesMoney(business) ? { ...job, money: true } : withoutMoney(job));
@@ -189,6 +199,7 @@ async function settingsOf(db, business) {
   const share = row?.claim_share_sku_id ? await repo.one(db, `SELECT s.id,s.label,s.code,s.unit,s.tax_rate,s.hsn_code,(s.active AND p.active) AS active,p.kind,s.internal_use
     FROM catalog_skus s JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id WHERE s.business_id=$1 AND s.id=$2`, [business.id, row.claim_share_sku_id]) : null;
   return { service_months: Number(row?.service_months || 6), service_km: Number(row?.service_km || 5000), claim_share_sku_id: row?.claim_share_sku_id || null, share,
+    issue_parts: Boolean(row?.issue_parts), road_test_required: Boolean(row?.road_test_required),
     updated_at: row?.updated_at || null, updated_by_name: row?.updated_by_name || null };
 }
 
@@ -237,22 +248,46 @@ async function load(db, business, jobId) {
     WHERE e.business_id=$1 AND e.job_card_id=$2 ORDER BY e.id`, [business.id, j.id]);
   const advance = j.advance_collection_id ? await repo.one(db, ADVANCE_SQL('k'), [business.id, j.advance_collection_id]) : null;
   const settings = await repo.one(db, 'SELECT * FROM business_settings WHERE business_id=$1', [business.id]);
+  const garage = await settingsOf(db, business);
   const open = c.OPEN.includes(j.status);
+  // The inspection and its photos, the parts held for the job, the road tests, the gate pass and the claim's progress.
+  const inspection = await files().ofJob(db, business, j.id);
+  const held = await work().heldOf(db, business, j.id);
+  const partsHeld = lines.filter((l) => l.kind === 'part').map((l) => {
+    const rows = held.filter((h) => Number(h.line_id) === Number(l.id));
+    const issued = rows.reduce((sum, h) => sum + Math.round(Number(h.issued) * 1000), 0), now = rows.reduce((sum, h) => sum + Math.round(Number(h.held) * 1000), 0);
+    return { line_id: Number(l.id), label: l.label, unit: l.unit, tracking: l.tracking, quantity: l.quantity, issued: (issued / 1000).toFixed(3), held: (now / 1000).toFixed(3),
+      returned: ((issued - now) / 1000).toFixed(3), cost: rows.reduce((sum, h) => sum + Number(h.cost), 0).toFixed(2) };
+  });
+  const issues = await repo.all(db, `SELECT i.id,i.line_id,i.kind,i.quantity,i.lot_code,i.created_at,l.label,l.unit,m.name AS mechanic_name,u.name AS by_name
+    FROM garage_part_issues i JOIN garage_job_card_lines l ON l.business_id=i.business_id AND l.id=i.line_id JOIN users u ON u.id=i.created_by
+    LEFT JOIN users m ON m.id=i.mechanic_id WHERE i.business_id=$1 AND i.job_card_id=$2 ORDER BY i.id`, [business.id, j.id]);
+  const roadTests = await repo.all(db, `SELECT t.id,t.distance_km,t.passed,t.remarks,t.created_at,d.name AS tested_by_name FROM garage_road_tests t JOIN users d ON d.id=t.tested_by
+    WHERE t.business_id=$1 AND t.job_card_id=$2 ORDER BY t.id`, [business.id, j.id]);
+  const gatePass = await repo.one(db, `SELECT g.issued_at,g.left_at,g.left_note,i.name AS issued_by_name,o.name AS left_recorded_by_name FROM garage_gate_passes g
+    JOIN users i ON i.id=g.issued_by LEFT JOIN users o ON o.id=g.left_recorded_by WHERE g.business_id=$1 AND g.job_card_id=$2`, [business.id, j.id]);
+  const claimProgress = claim ? await claims().ofJob(db, business, j) : null;
+  const booking = j.appointment_id ? await repo.one(db, `SELECT a.id,a.starts_at,a.status,s.label AS service FROM business_appointments a JOIN catalog_skus s ON s.business_id=a.business_id AND s.id=a.sku_id
+    WHERE a.business_id=$1 AND a.id=$2`, [business.id, j.appointment_id]) : null;
+  const quotation = j.quotation_id ? await repo.one(db, 'SELECT id,quotation_no FROM business_quotations WHERE business_id=$1 AND id=$2', [business.id, j.quotation_id]) : null;
   let bill = null;
   if (open && lines.length) {
-    const garage = claim?.mode === 'cashless' ? await settingsOf(db, business) : null;
-    const p = money.plan(j, lines, claim, settings?.rounding, garage?.share || null);
+    const p = money.plan(j, lines, claim, settings?.rounding, garage.share || null);
     const left = advance ? Math.max(0, money.paise(advance.free)) : 0;
     const own = p.customer ? p.customer.figures.total : 0;
     bill = { ...money.figuresText(p.job), insurer: p.insurer ? money.figuresText(p.insurer.figures) : null, customer: p.customer ? money.figuresText(p.customer.figures) : null,
-      advance: money.rupees(Math.min(left, own)), due: money.rupees(Math.max(0, own - left)), problem: p.problem, claim: p.claim,
+      advance: money.rupees(Math.min(left, own)), due: money.rupees(Math.max(0, own - left)), problem: p.problem, claim: p.claim, insurer_named: p.insurerNamed,
+      share_lines: p.customer ? p.customer.values.filter((x) => x.line.share).map((x) => ({ label: x.line.label, rate: x.rate.toFixed(2), net: money.rupees(x.net), tax: money.rupees(x.tax) })) : [],
       rate_changed: lines.some((l) => Number(l.tax_rate_now) !== Number(l.tax_rate)) };
   }
   const latest = approvals.at(-1) || null;
   const statusSince = [...events].reverse().find((e) => e.to_status === j.status && e.from_status !== e.to_status)?.created_at || j.created_at;
   const { request_hash: _hash, location, ...rest } = j;
   return { ...rest, vehicle, lines, mechanics: mechanicRows, versions, approvals, approval: latest ? { version: latest.version, amount: latest.amount, approved_by: latest.approved_by } : null,
-    claim: claim || null, events, advance, bill, work: { done: lines.filter((l) => l.done).length, lines: lines.length },
+    claim: claim ? { ...claim, ...claimProgress } : null, events, advance, bill, work: { done: lines.filter((l) => l.done).length, lines: lines.length },
+    inspection_items: inspection.items, photos: inspection.photos, parts_held: partsHeld, part_issues: issues, road_tests: roadTests, gate_pass: gatePass || null,
+    booking: booking || null, quotation: quotation || null,
+    garage: { issue_parts: garage.issue_parts, road_test_required: garage.road_test_required, road_tested: open ? await work().roadTested(db, business, j) : null },
     seller: core.branchSeller(settings, location), next: nextMoves(business, j), status_since: statusSince };
 }
 
@@ -284,8 +319,42 @@ async function history(db, business, user, job, from, to, note) {
 
 // --- Opening a job card ----------------------------------------------------------------------------
 
+// A service booking a job card is opened from: booked, on the business's day
+// or before (a vehicle that comes in early that day), for the job card's
+// customer or the vehicle's owner, and not already on a job card.
+async function bookingFor(db, business, appointmentId, customers) {
+  const booking = await repo.one(db, `SELECT a.*,(a.starts_at AT TIME ZONE b.timezone)::date::text AS day,(now() AT TIME ZONE b.timezone)::date::text AS today
+    FROM business_appointments a JOIN businesses b ON b.id=a.business_id WHERE a.business_id=$1 AND a.id=$2 FOR UPDATE OF a`, [business.id, appointmentId]);
+  if (!booking) fail('Service booking not found', 404);
+  await access.requireAppointmentLocation(db, business, booking);
+  if (booking.status !== 'booked') fail(`That service booking is ${booking.status.replace('_', '-')}: a job card is opened from a booking still booked`, 409);
+  if (booking.day > booking.today) fail('That service booking is on a later day: open its job card when the vehicle comes in', 409);
+  if (!customers.map(Number).includes(Number(booking.contact_id))) fail('That service booking is another customer\'s', 409);
+  const used = await repo.one(db, 'SELECT job_no FROM garage_job_cards WHERE business_id=$1 AND appointment_id=$2', [business.id, booking.id]);
+  if (used) fail(`That service booking is on job card ${used.job_no} already`, 409);
+  return booking;
+}
+
+// Service bookings a job card may be opened from: booked, today or earlier
+// (the last week), with no job card yet; at the person's location.
+async function openBookings(business) {
+  c.requireGarage(business);
+  await access.require(business, 'garage.create');
+  if (!business.modules.includes('appointments')) return [];
+  return repo.all(repo.pool, `SELECT a.id,a.starts_at,a.ends_at,a.contact_id,k.name AS customer_name,k.phone AS customer_phone,s.label AS service,r.name AS resource_name,
+      (SELECT json_agg(json_build_object('id',v.id,'registration_no',v.registration_no,'vehicle_name',concat_ws(' ',v.make,v.model,v.variant)) ORDER BY v.registration_no)
+        FROM garage_vehicles v WHERE v.business_id=a.business_id AND v.contact_id=a.contact_id AND v.active) AS vehicles
+    FROM business_appointments a JOIN businesses b ON b.id=a.business_id JOIN business_contacts k ON k.business_id=a.business_id AND k.id=a.contact_id
+    JOIN catalog_skus s ON s.business_id=a.business_id AND s.id=a.sku_id JOIN business_resources r ON r.business_id=a.business_id AND r.id=a.resource_id
+    WHERE a.business_id=$1 AND a.status='booked' AND (a.starts_at AT TIME ZONE b.timezone)::date BETWEEN (now() AT TIME ZONE b.timezone)::date - 7 AND (now() AT TIME ZONE b.timezone)::date
+      AND ($2::bigint IS NULL OR r.location_id=$2)
+      AND NOT EXISTS (SELECT 1 FROM garage_job_cards j WHERE j.business_id=a.business_id AND j.appointment_id=a.id)
+    ORDER BY a.starts_at LIMIT 100`, [business.id, business.location_scope || business.member_location_id || null]);
+}
+
 // body: { requestKey, locationId, vehicleId, contactId? (the vehicle's owner), odometerKm?, odometerApproval?: { reason, approverId?, pin? },
-//   fuelLevel?, complaints: [..], inspectionNotes?, bay?, promisedAt?, mechanicIds?: [..], notes?, advance?: { amount, method | methodId, reference? } }
+//   fuelLevel?, complaints: [..], inspectionNotes?, bay?, promisedAt?, mechanicIds?: [..], notes?, advance?: { amount, method | methodId, reference? },
+//   appointmentId? (the service booking it comes from) }
 async function open(business, user, body) {
   c.requireGarage(business);
   await access.require(business, 'garage.create');
@@ -304,6 +373,7 @@ async function open(business, user, body) {
   if (mechanicIds.length) await access.require(business, 'garage.edit');
   const advance = await readAdvance(business, body.advance);
   const approval = await vehicles.readLowerApproval(business, user, body.odometerApproval);
+  const appointmentId = c.given(body.appointmentId) ? id(body.appointmentId, 'Service booking') : null;
   access.requireLocation(business, locationId);
   return repo.transaction(async (db) => {
     await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
@@ -320,6 +390,7 @@ async function open(business, user, body) {
     const contact = await repo.one(db, "SELECT * FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind='customer' AND active", [business.id, contactId]);
     if (!contact) fail('Customer not found', 404);
     const people = await checkMechanics(db, business, mechanicIds);
+    const booking = appointmentId ? await bookingFor(db, business, appointmentId, [contact.id, vehicle.contact_id]) : null;
     const settings = await repo.one(db, 'SELECT tax_mode FROM business_settings WHERE business_id=$1', [business.id]);
     const number = await numbering.nextNumber(db, business.id, location.id, 'job_card', user.id);
     let collection = null;
@@ -334,17 +405,23 @@ async function open(business, user, body) {
     }
     const vehicleName = [vehicle.make, vehicle.model, vehicle.variant].filter(Boolean).join(' ');
     const saved = await repo.one(db, `INSERT INTO garage_job_cards(business_id,location_id,job_no,series_id,vehicle_id,registration_no,vehicle_name,contact_id,customer_name,customer_phone,
-        odometer_in,fuel_level,complaints,inspection_notes,bay,promised_at,tax_mode,notes,advance_collection_id,request_key,request_hash,created_by,updated_by)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$22) RETURNING *`,
+        odometer_in,fuel_level,complaints,inspection_notes,bay,promised_at,tax_mode,notes,advance_collection_id,request_key,request_hash,created_by,updated_by,appointment_id)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$22,$23) RETURNING *`,
     [business.id, location.id, number.number, number.seriesId, vehicle.id, vehicle.registration_no, vehicleName, contact.id, contact.name, contact.phone || null,
-      odometer, fuelLevel, complaints, inspection, bay, promisedAt, settings?.tax_mode || 'exclusive', notes, collection?.id || null, requestKey, hash, user.id]);
+      odometer, fuelLevel, complaints, inspection, bay, promisedAt, settings?.tax_mode || 'exclusive', notes, collection?.id || null, requestKey, hash, user.id, booking?.id || null]);
+    // The service booking is done: the vehicle came in on it.
+    if (booking) {
+      await db.query("UPDATE business_appointments SET status='completed' WHERE business_id=$1 AND id=$2 AND status='booked'", [business.id, booking.id]);
+      await repo.audit(db, business.id, user.id, 'appointment.completed', booking.id, { jobCard: number.number });
+      await repo.event(db, business.id, user.id, 'appointment.completed', 'appointment', booking.id, { status: 'completed', jobCardId: Number(saved.id) });
+    }
     if (odometer !== null) await vehicles.recordReading(db, business, user, vehicle, odometer, { source: 'job_in', jobCardId: saved.id, approval });
     for (const person of people) {
       await db.query('INSERT INTO garage_job_card_mechanics(business_id,job_card_id,user_id,assigned_by) VALUES($1,$2,$3,$4)', [business.id, saved.id, person.id, user.id]);
     }
     // The history names the receipt, not the amounts: a mechanic reads it too.
-    await history(db, business, user, saved, null, 'received', ['Received', collection ? `advance taken (${collection.collection_no})` : null,
-      people.length ? `mechanics: ${c.listWords(people.map((p) => p.name))}` : null].filter(Boolean).join(' · '));
+    await history(db, business, user, saved, null, 'received', ['Received', booking ? `from the service booking of ${c.dateWords(booking.day)}` : null,
+      collection ? `advance taken (${collection.collection_no})` : null, people.length ? `mechanics: ${c.listWords(people.map((p) => p.name))}` : null].filter(Boolean).join(' · '));
     await repo.audit(db, business.id, user.id, 'job_card.opened', saved.id, { jobNo: saved.job_no, registrationNo: vehicle.registration_no, customer: contact.name,
       ...(odometer !== null ? { odometerKm: odometer } : {}), ...(promisedAt ? { promisedAt } : {}) });
     await repo.event(db, business.id, user.id, 'job_card.opened', 'job_card', saved.id, { jobNo: saved.job_no, locationId: location.id, vehicleId: vehicle.id, contactId: contact.id,
@@ -426,6 +503,10 @@ async function setStatus(business, user, jobId, body) {
         : `Job card ${job.job_no} is ${c.STATUS_WORDS[job.status]}: it cannot go to ${c.STATUS_WORDS[status]}`, 409);
     }
     if (job.status === 'ready' && !note) fail('Say why the vehicle goes back to work');
+    // A shop that asks for a road test marks a job ready only after a passed one.
+    if (status === 'ready' && (await settingsOf(db, business)).road_test_required && !(await work().roadTested(db, business, job))) {
+      fail(`Record a passed road test on ${job.job_no} before marking it ready`, 409);
+    }
     await db.query('UPDATE garage_job_cards SET status=$3,updated_by=$4,updated_at=now() WHERE business_id=$1 AND id=$2', [business.id, job.id, status, user.id]);
     const words = status === 'estimate_sent' ? `Estimate version ${job.estimate_version} sent to the owner` : null;
     await history(db, business, user, job, job.status, status, [words, note].filter(Boolean).join(' · ') || null);
@@ -505,6 +586,8 @@ async function cancel(business, user, jobId, body) {
     // Asking again is the same cancellation.
     if (job.status === 'cancelled') return shape(business, await load(db, business, job.id));
     requireOpen(job);
+    const held = [...(await work().heldByLine(db, business, job.id)).values()].some((m) => m > 0);
+    if (held) fail(`Parts issued for ${job.job_no} are still held for it: bring them back into stock before cancelling`, 409);
     await db.query(`UPDATE garage_job_cards SET status='cancelled',cancel_reason=$3,cancelled_by=$4,cancelled_at=now(),updated_by=$4,updated_at=now()
       WHERE business_id=$1 AND id=$2`, [business.id, job.id, reason, user.id]);
     await history(db, business, user, job, job.status, 'cancelled', reason);
@@ -612,5 +695,5 @@ async function bell(business, base, limit) {
   });
 }
 
-module.exports = { open, detail, updateDetails, setMechanics, setStatus, approve, logMessage, cancel, takeAdvance, refundAdvance, board, mechanicList, bell,
+module.exports = { open, openBookings, detail, updateDetails, setMechanics, setStatus, approve, logMessage, cancel, takeAdvance, refundAdvance, board, mechanicList, bell,
   listShape, shape, load, lockJob, requireOpen, history, linesOf, claimOf, settingsOf, ADVANCE_SQL, FREE_SQL, derivedKey, hashOf };

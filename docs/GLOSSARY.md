@@ -317,12 +317,27 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Approved amount** | The repair cost the insurer agreed to pay (the approved claim cost). |
 | **Deductible** | The compulsory deductible: the part of a claim the policy leaves to the owner. |
 | **Depreciation** | What the insurer takes off the price of the parts it replaces, for their age; the owner pays it. |
-| **Owner's share** | The insurer's lines less the approved amount: the deductible, the depreciation and what was not allowed, billed to the owner as one line of the claim-share item. |
+| **Owner's share** | The insurer's lines less the approved amount: the deductible, the depreciation and what was not allowed, billed to the owner as lines of the claim-share item, one at each GST slab of the insurer's lines. |
 | **Claim-share item** | The service item that bills the owner's share of a cashless claim (*Insurance claim: owner's share*), set in *Settings › Garage settings*. |
 | **PUC** | A vehicle's Pollution Under Control certificate, kept with the day it runs out. |
 | **Service due** | The vehicles whose next service falls within a week, by date or by the reading they will probably reach, and those whose insurance or PUC runs out within 30 days. |
 | **Statement** | A customer's vehicles with the job cards on each, and what was billed, paid and is still due. |
-| **Mechanic** | Someone who works on vehicles; in a garage, the role that sees the job cards assigned to it, records the work done and the parts used, and sees no money. |
+| **Mechanic** | Someone who works on vehicles; in a garage, the role that sees the job cards assigned to it (on a screen made for a phone), records the work done, the parts used, notes, photos and road tests, and sees no money. |
+| **Fitment** | The makes and models (and variants, fuels, years and engines) a part fits; a vehicle's parts are those whose fitment matches it. |
+| **Newer number (superseded part)** | A part's number replaced by a new one; the old and new are offered for each other when one is out of stock. |
+| **Interchangeable group** | Parts that do the same job, offered for one another when one is out of stock. |
+| **Substitute** | A part offered in place of one out of stock: its newer or older number, or a part of its group. |
+| **Engine code** | The maker's name for a vehicle's engine (K12M), used by fitment and service plans. |
+| **Inspection item** | An area of the vehicle checked when it came in (Front bumper), with what was found and its photos. |
+| **Parts issued** | Parts the store gives a mechanic for a job: they leave stock then, held for the job, and the bill takes them; parts not used are brought back. |
+| **Road test** | A drive of the vehicle after the work: who drove, how far, whether it passed. |
+| **Gate pass** | The slip made when the vehicle is handed over, by which it leaves the workshop; its leaving is recorded. |
+| **Intimation** | Telling the insurer of a claim; the day it was made starts the claim's progress (surveyed, approved, work done, re-inspected, invoiced, settled). |
+| **Re-inspection** | The surveyor's check of the vehicle after the work, before the insurer settles. |
+| **Short payment** | What an insurer did not pay of its bill; written off by a manager or billed to the owner, with a credit note on the insurer's bill. |
+| **Claim file** | The estimate, the bills, the photos and the payments, printed for the owner to claim from the insurer. |
+| **Service plan** | The kilometres and days to the next service for a model or engine, whichever comes first. |
+| **Commission (mechanic's)** | A share of the labour a mechanic did, at a rate per labour item or per mechanic, paid through the expense book. |
 
 ### Gyms, studios & coaching
 

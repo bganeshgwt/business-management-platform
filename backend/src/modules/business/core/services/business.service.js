@@ -770,6 +770,10 @@ const named = (value) => value !== undefined && value !== null && value !== '';
 // `charge`: a charge a type's own service raises on a named customer's
 // account (a farm-input shop's interest on overdue season credit): billed
 // whatever the customer's credit limit.
+// `issued`: a sale's lines whose goods left stock before the bill (parts a
+// garage issued to a mechanic for the job, held for it), one entry per input
+// line ({ unitCost } or null): such a line takes nothing out of stock and keeps
+// the stock cost it was issued at.
 // Free units and trade discount on a purchase line, in the line's own unit
 // (packs when it is entered in packs). null when neither is given.
 function readScheme(input) {
@@ -783,7 +787,7 @@ function readScheme(input) {
 }
 
 async function postDocument(db, business, user, body, { kind, requestKey, hash, lines: inputLines, paidNow, fixed = null, quote = false, walkInPays = false, voucher = null, finance = null,
-  membership = false, dueDay = null, jewellery = false, tenders = [], rental = false, fuel = false, lodging = false, noStock = false, advance = null, charge = false }) {
+  membership = false, dueDay = null, jewellery = false, tenders = [], rental = false, fuel = false, lodging = false, noStock = false, advance = null, charge = false, issued = null }) {
   {
     // Serializes document posting within a business: one lock order for every
     // posting (business, then document, then stock lots).
@@ -1032,6 +1036,12 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
         line.freeQuantity || 0, line.discountPercent || 0]);
       line.id = savedLine.id;
       if (line.sku.tracking === 'none' || noStock) continue;
+      // Goods issued for a job left stock then: the bill keeps their cost and takes nothing again.
+      const held = kind === 'sale' ? issued?.[line.inputIndex] : null;
+      if (held) {
+        await db.query('UPDATE business_document_lines SET stock_unit_cost=$3 WHERE business_id=$1 AND id=$2', [business.id, savedLine.id, Number(held.unitCost).toFixed(4)]);
+        continue;
+      }
       // A tinted line's base leaves stock when its job is tinted (deliverLine).
       if (tinted?.has(line)) continue;
       if (kind === 'purchase') {

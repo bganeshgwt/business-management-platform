@@ -5,7 +5,7 @@ import { GOODS, SERVICES, UDHAAR, WEIGHED } from './businessTypes.js';
 export const WORKSPACES = {
   pharmacyBilling: ['rx-sale','counter'],
   // A rental business's products open on its rental items.
-  products: ['rental-items', 'products', 'rates', 'variants', 'books', 'drug-master', 'salon-setup', 'categories', 'kits', 'labels', 'offers', 'pricing', 'laundry-prices', 'tax-changes'],
+  products: ['rental-items', 'products', 'rates', 'variants', 'books', 'drug-master', 'salon-setup', 'categories', 'kits', 'labels', 'offers', 'pricing', 'laundry-prices', 'tax-changes', 'garage-parts'],
   // A jeweller's stock opens on its tagged pieces.
   stock: ['pieces', 'stock', 'weight-stock', 'movements', 'counts', 'near-expiry', 'pharmacy-batches', 'transfers', 'serials', 'processing', 'wastage', 'karigar-work', 'hallmarking', 'fine-weight', 'agri-seed-lots', 'agri-kept-apart', 'lens-stock'],
   purchases: ['purchases', 'suppliers', 'purchase-orders', 'claims', 'metal-account', 'agri-schemes'],
@@ -17,7 +17,7 @@ export const WORKSPACES = {
   care: ['clinic-today', 'clinic-queue', 'visits', 'appointments', 'doctors'],
   patients: ['patients', 'customers'],
   laboratory: ['lab-orders', 'lab-tests', 'lab-qc'],
-  reports: ['reports', 'retail-reports', 'wholesale-reports', 'variant-reports', 'weight-reports', 'salon-reports', 'commissions', 'fitter-reports', 'cash-report', 'fuel-outlets', 'activity', 'referrals'],
+  reports: ['reports', 'retail-reports', 'wholesale-reports', 'variant-reports', 'weight-reports', 'salon-reports', 'commissions', 'fitter-reports', 'cash-report', 'fuel-outlets', 'activity', 'referrals', 'mechanic-commission'],
   settings: ['settings', 'tax-rates', 'payment-methods', 'number-series', 'locations', 'units', 'resources', 'health-settings', 'licences', 'privacy', 'agri-settings', 'garage-settings', 'member-plans', 'jewellery-settings', 'scheme-plans', 'fuel-pumps', 'lodging-rates'],
   // A seeds, fertilisers & pesticides shop's own area.
   farm: ['farmers', 'agri-subsidy', 'agri-registers', 'molecules', 'agri-seasons', 'agri-crops'],

@@ -144,6 +144,8 @@ const VehiclePage = lazy(() => import("../../garage/pages/VehiclePage"));
 const StatementPage = lazy(() => import("../../garage/pages/StatementPage"));
 const ServiceDuePage = lazy(() => import("../../garage/pages/ServiceDuePage"));
 const GarageSettingsPage = lazy(() => import("../../garage/pages/GarageSettingsPage"));
+const GaragePartsPage = lazy(() => import("../../garage/pages/GaragePartsPage"));
+const MechanicCommissionPage = lazy(() => import("../../garage/pages/MechanicCommissionPage"));
 // Gyms, studios and coaching centres.
 const CheckInPage = lazy(() => import("../../memberships/pages/CheckInPage"));
 const MembersPage = lazy(() => import("../../memberships/pages/MembersPage"));
@@ -361,6 +363,8 @@ function screens(type) {
     "vehicles": <VehiclesPage />,
     "service-due": <ServiceDuePage />,
     "garage-settings": <GarageSettingsPage />,
+    "garage-parts": <GaragePartsPage />,
+    "mechanic-commission": <MechanicCommissionPage />,
     "check-in": <CheckInPage />,
     "members": <MembersPage />,
     "renewals": <RenewalsPage />,

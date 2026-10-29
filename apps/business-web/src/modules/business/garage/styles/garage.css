@@ -234,3 +234,194 @@
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
 }
+
+/* The inspection: each area checked with its photos; photos of the work. */
+.gar-inspection {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+.gar-inspection-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.gar-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.gar-photo {
+  display: grid;
+  gap: 4px;
+  width: 140px;
+  margin: 0;
+}
+.gar-photo img,
+.gar-photo-empty {
+  width: 140px;
+  height: 105px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  background: var(--surface-2);
+}
+.gar-photo-empty {
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+  font-size: var(--text-sm);
+}
+.gar-inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2) var(--space-3);
+}
+.gar-inline-form .field {
+  margin: 0;
+}
+
+/* Parts issued and brought back, the claim's progress, substitutes. */
+.gar-issue-log {
+  margin: 0;
+  padding: var(--space-2) var(--space-4) var(--space-3);
+  color: var(--text-2);
+}
+.gar-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  margin: var(--space-2) 0;
+  padding: 0;
+  list-style: none;
+}
+.gar-steps li {
+  padding: 2px var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill, 999px);
+  color: var(--text-3);
+  font-size: var(--text-sm);
+}
+.gar-steps li.is-done {
+  border-color: var(--success-border, var(--border));
+  color: var(--success-text);
+}
+.gar-steps li.is-skipped {
+  color: var(--text-2);
+}
+.gar-subs {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gar-subs li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.gar-out {
+  color: var(--warning-text);
+}
+.gar-search {
+  min-width: 0;
+  max-width: 220px;
+}
+
+/* A mechanic's own screen: phone first, big touch targets. */
+.gar-phone {
+  display: grid;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 560px;
+  min-width: 0;
+}
+.gar-phone-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gar-phone-card {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+}
+.gar-phone-card.is-late {
+  border-color: var(--danger-border);
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+.gar-phone-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.gar-phone-head h1 {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-lg);
+}
+.gar-phone-head p {
+  margin: 2px 0 0;
+}
+.gar-phone-section {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.gar-phone-section h2 {
+  margin: 0;
+  font-size: var(--text-md, 1rem);
+}
+.gar-phone-section textarea {
+  width: 100%;
+  min-width: 0;
+}
+.gar-phone-ticks {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gar-phone-tick {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+}
+.gar-phone-tick input {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+}
+.gar-phone-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.gar-phone-actions .button {
+  min-height: 44px;
+}

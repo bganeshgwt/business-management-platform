@@ -1,13 +1,13 @@
 import { escapeHtml, printDocument } from "../../../../services/print";
 import { dateShort } from "@bmp/shared/format";
 import { barcodeSvg } from "../../retail/services/barcode";
-import { FUEL_LEVELS, LINE_KINDS, PAYERS, atWords, km, lineWords, wordOf } from "./garage";
+import { FUEL_LEVELS, LINE_KINDS, OLD_PARTS, PAYERS, atWords, km, lineWords, wordOf } from "./garage";
 import { privacyLine } from "../../../personal-data/printLine";
 
 // Printing for a garage: the job card's customer copy (what was booked in, the
 // estimate with its prices, the advance and the claim, for the owner to sign)
-// and its workshop copy (the work to do, never the prices), and a customer's
-// statement of jobs per vehicle.
+// and its workshop copy (the work to do, never the prices), the gate pass, the
+// claim file for an insurer, and a customer's statement of jobs per vehicle.
 
 const fmt = (value) => escapeHtml(dateShort(value, { year: true }));
 const BASE = "body{font:12px system-ui;color:#111} h1{font-size:17px;margin:0} h2{font-size:14px;margin:10px 0 4px} small{color:#555}"
@@ -99,5 +99,62 @@ export function printStatement(biz, statement) {
       ${groups}
       ${money ? `<dl><dt>Billed</dt><dd>${escapeHtml(biz.exact(statement.billed))}</dd><dt>Paid</dt><dd>${escapeHtml(biz.exact(statement.paid))}</dd>
         <dt>Due on these jobs</dt><dd><strong>${escapeHtml(biz.exact(statement.due))}</strong></dd></dl>` : ""}`,
+  });
+}
+
+// The gate pass: the vehicle may leave; the security keeps it.
+export function printGatePass(biz, job) {
+  const pass = job.gate_pass || {};
+  printDocument({
+    title: `${job.job_no} gate pass`,
+    styles: `@page{size:A6;margin:8mm} ${BASE}`,
+    body: `${shopHead(biz, job.seller, "Gate pass", job.job_no)}
+      <dl><dt>Vehicle</dt><dd><strong>${escapeHtml(job.registration_no)}</strong> · ${escapeHtml(job.vehicle_name)}</dd>
+      <dt>Job card</dt><dd>${escapeHtml(job.job_no)}${job.document_no ? ` · bill ${escapeHtml(job.document_no)}` : ""}${job.insurer_document_no ? ` · insurer's bill ${escapeHtml(job.insurer_document_no)}` : ""}</dd>
+      <dt>Customer</dt><dd>${escapeHtml(job.customer_name)}</dd>
+      <dt>Delivered</dt><dd>${escapeHtml(atWords(job.delivered_at))}${job.delivered_by_name ? ` by ${escapeHtml(job.delivered_by_name)}` : ""}</dd>
+      ${pass.left_at ? `<dt>Left</dt><dd>${escapeHtml(atWords(pass.left_at))}</dd>` : ""}</dl>
+      <div class="sign"><span>Handed over by</span><span>Security</span></div>`,
+  });
+}
+
+// The claim file the customer gives the insurer (a reimbursement claim): the
+// estimate as approved, the bills with their lines and GST, the photos, and
+// the payments received. bills: [{ title, doc }] (core documents with lines
+// and payments); photos: [{ url, caption }].
+export function printClaimFile(biz, job, { bills = [], photos = [] } = {}) {
+  const claim = job.claim || {};
+  const version = job.versions?.at(-1);
+  const estimate = (version?.lines || []).map((l) => `<tr><td>${escapeHtml(l.label)}${l.description ? ` <small>${escapeHtml(l.description)}</small>` : ""}</td>
+    <td class="r">${escapeHtml(`${Number(l.quantity)} ${l.unit}`)}</td><td>${escapeHtml(wordOf(PAYERS, l.payer))}</td>
+    <td class="r">${escapeHtml(biz.exact(Number(l.net) + Number(l.tax)))}</td></tr>`).join("");
+  const billHtml = bills.map(({ title, doc }) => {
+    const rows = (doc.lines || []).map((l) => `<tr><td>${escapeHtml(l.label)}</td><td>${escapeHtml(l.hsn_code || "")}</td><td class="r">${escapeHtml(`${Number(l.quantity)} ${l.unit}`)}</td>
+      <td class="r">${escapeHtml(biz.exact(l.net))}</td><td class="r">${escapeHtml(`${Number(l.tax_rate)}%`)}</td><td class="r">${escapeHtml(biz.exact(l.tax))}</td></tr>`).join("");
+    const paid = (doc.payments || []).map((p) => `<li>${escapeHtml(biz.exact(p.amount))} by ${escapeHtml(p.method_name || p.method)}${p.reference ? ` (${escapeHtml(p.reference)})` : ""} on ${fmt(p.created_at)}</li>`).join("");
+    return `<h2>${escapeHtml(title)}: ${escapeHtml(doc.document_no)} of ${fmt(doc.created_at)}</h2>
+      <dl><dt>Billed to</dt><dd>${escapeHtml(doc.contact_name || "")}${doc.buyer_gstin ? ` · GSTIN ${escapeHtml(doc.buyer_gstin)}` : ""}</dd></dl>
+      <table><thead><tr><th>Item</th><th>HSN / SAC</th><th class="r">Qty</th><th class="r">Taxable value</th><th class="r">GST</th><th class="r">GST amount</th></tr></thead><tbody>${rows}</tbody></table>
+      <dl><dt>Total</dt><dd><strong>${escapeHtml(biz.exact(doc.total))}</strong></dd></dl>
+      ${paid ? `<p><strong>Payment received</strong></p><ul>${paid}</ul>` : ""}`;
+  }).join("");
+  const salvage = (job.lines || []).filter((l) => l.old_part).map((l) => `<li>${escapeHtml(l.label)}: ${escapeHtml(wordOf(OLD_PARTS, l.old_part).toLowerCase())}</li>`).join("");
+  const pictures = photos.map((p) => `<figure style="display:inline-block;width:46%;margin:4px"><img src="${escapeHtml(p.url)}" style="width:100%"/><figcaption><small>${escapeHtml(p.caption || "")}</small></figcaption></figure>`).join("");
+  printDocument({
+    title: `${job.job_no} claim file`,
+    styles: `@page{size:A4;margin:12mm} ${BASE}`,
+    body: `${shopHead(biz, job.seller, `Claim file · job card ${job.job_no}`, job.job_no)}
+      <dl><dt>Insurer</dt><dd>${escapeHtml(claim.insurer_name || "")}${claim.insurer_gstin ? ` · GSTIN ${escapeHtml(claim.insurer_gstin)}` : ""}</dd>
+      <dt>Policy</dt><dd>${escapeHtml(claim.policy_no || "")}${claim.claim_no ? ` · claim ${escapeHtml(claim.claim_no)}` : ""} · ${escapeHtml(claim.mode === "cashless" ? "cashless" : "reimbursement")}</dd>
+      ${claim.intimated_on ? `<dt>Intimated</dt><dd>${fmt(claim.intimated_on)}</dd>` : ""}
+      ${claim.surveyor_name ? `<dt>Surveyor</dt><dd>${escapeHtml(claim.surveyor_name)}</dd>` : ""}
+      <dt>Vehicle</dt><dd><strong>${escapeHtml(job.registration_no)}</strong> · ${escapeHtml(job.vehicle_name)}</dd>
+      <dt>Insured</dt><dd>${escapeHtml(job.customer_name)}</dd></dl>
+      <h2>Estimate${version ? ` (version ${version.version})` : ""}</h2>
+      ${estimate ? `<table><thead><tr><th>Work and parts</th><th class="r">Qty</th><th>Paid by</th><th class="r">Amount</th></tr></thead><tbody>${estimate}</tbody></table>` : "<p>No estimate.</p>"}
+      ${salvage ? `<h2>Old parts</h2><ul>${salvage}</ul>` : ""}
+      ${billHtml}
+      ${pictures ? `<h2>Photos</h2>${pictures}` : ""}
+      ${privacyLine(biz) ? `<p><small>${escapeHtml(privacyLine(biz))}</small></p>` : ""}`,
   });
 }

@@ -8,15 +8,17 @@ const core = require('../../core/services/business.service');
 //               the day (a price including GST keeps its total, one before GST
 //               keeps its taxable value)
 //   the bills   one bill to the customer with every line; or, for a cashless
-//               claim, the insurer's bill for exactly the amount it approved,
-//               spread over its lines in proportion, and the customer's bill
-//               for their own lines and the owner's share of the claim (the
-//               insurer's lines less what it approved: the deductible, the
-//               depreciation and whatever the surveyor did not allow), billed
-//               as one line of the claim-share item. The two add up to the job:
-//               the approved amount is in whole rupees when the business rounds
-//               its bills to the rupee, so rounding the customer's bill rounds
-//               the job.
+//               claim (and a reimbursement claim billed in the insurer's name),
+//               the insurer's bill for exactly the amount it approved, spread
+//               over its lines in proportion, and the customer's bill for their
+//               own lines and the owner's share of the claim (the insurer's
+//               lines less what it approved: the deductible, the depreciation
+//               and whatever the surveyor did not allow), billed as lines of
+//               the claim-share item, one for each GST slab of the insurer's
+//               lines (each line's share is what it carries less its part of
+//               the approved amount). The two add up to the job: the approved
+//               amount is in whole rupees when the business rounds its bills to
+//               the rupee, so rounding the customer's bill rounds the job.
 // Pure functions: the services read the rows, these only count.
 
 const paise = (value) => Math.round(Number(value) * 100);
@@ -78,6 +80,17 @@ function fromGross(gross, rate) {
   return { net, tax: gross - net };
 }
 
+// Values of `gross` paise at each GST rate, one per rate: [{ rate, gross }]
+// -> [{ rate, gross, net, tax }] by rate, each with GST taken out of it.
+function bySlab(parts) {
+  const sums = new Map();
+  for (const part of parts) if (part.gross > 0) sums.set(part.rate, (sums.get(part.rate) || 0) + part.gross);
+  return [...sums.entries()].sort((a, b) => a[0] - b[0]).map(([rate, gross]) => ({ rate, gross, ...fromGross(gross, rate) }));
+}
+// A claim-share line at one slab (the claim-share item, billed at the slab of the lines its value comes from).
+const shareLine = (share, rate) => ({ share: true, sku_id: share.id, label: `${share.label} (GST ${Number(rate)}%)`.slice(0, 150), unit: share.unit, quantity: '1.000',
+  sku_kind: 'service', tracking: 'none' });
+
 // The bills of a job card as they would be posted today.
 //   job       the job card row (tax_mode)
 //   lines     its lines with tax_rate_now
@@ -91,9 +104,10 @@ function fromGross(gross, rate) {
 function plan(job, lines, claim, rounding, share) {
   const values = todayValues(job, lines);
   const all = figures(values, rounding);
-  const cashless = claim && claim.mode === 'cashless';
-  if (!cashless) {
-    return { job: all, insurer: null, customer: values.length ? { values, figures: all } : null, claim: claim ? claimWords(claim, values, null) : null, problem: null };
+  // Two bills: a cashless claim, or a reimbursement claim billed in the insurer's name (the customer pays both).
+  const split = claim && (claim.mode === 'cashless' || claim.insurer_named);
+  if (!split) {
+    return { job: all, insurer: null, customer: values.length ? { values, figures: all } : null, claim: claim ? claimWords(claim, values, null) : null, problem: null, insurerNamed: false };
   }
   const covered = values.filter((x) => x.line.payer === 'insurer');
   const own = values.filter((x) => x.line.payer !== 'insurer');
@@ -103,7 +117,8 @@ function plan(job, lines, claim, rounding, share) {
   const breakdown = claimWords(claim, values, approved);
   let problem = null;
   if (!covered.length) problem = 'No line of this job card is the insurer\'s: mark the lines the insurer pays, or take the claim off';
-  else if (approved === null) problem = 'Enter the amount the insurer approved before billing the job';
+  else if (approved === null) problem = claim.mode === 'cashless' ? 'Enter the amount the insurer approved before billing the job'
+    : 'Enter the amount the insurer approved before billing it in the insurer\'s name';
   else if (!claim.claim_no) problem = 'Enter the claim number before billing the insurer';
   else if (rounding === 'nearest_rupee' && approved % 100 !== 0) problem = 'The amount the insurer approved is in whole rupees: this business rounds its bills to the rupee';
   else if (approved > coveredGross) problem = `The insurer approved ${rupees(approved)}, more than its lines on the job card (${rupees(coveredGross)}): add the work it approved to the estimate, or correct the amount`;
@@ -114,19 +129,20 @@ function plan(job, lines, claim, rounding, share) {
   if (!problem && excess > 0 && (!share || !share.active || share.kind !== 'service' || share.internal_use)) {
     problem = 'Choose the item that bills the owner\'s share of a claim, under Settings › Garage settings';
   }
-  if (problem) return { job: all, insurer: null, customer: null, claim: breakdown, problem };
+  const insurerNamed = claim.mode === 'reimbursement';
+  if (problem) return { job: all, insurer: null, customer: null, claim: breakdown, problem, insurerNamed };
   // The insurer: exactly what it approved, spread over its lines by their value.
   const parts = apportion(approved, covered.map((x) => x.net + x.tax));
   const insurerValues = covered.map((x, i) => ({ line: x.line, rate: x.rate, ...fromGross(parts[i], x.rate) }));
-  // The customer: their own lines, and the owner's share of the insurer's lines.
+  // The customer: their own lines, and the owner's share of the insurer's lines,
+  // at the slabs of the lines it comes from (each line less its part of the approval).
   const customerValues = [...own];
-  if (excess > 0) {
-    customerValues.push({ line: { share: true, sku_id: share.id, label: share.label, unit: share.unit, quantity: '1.000', sku_kind: 'service', tracking: 'none' },
-      rate: Number(share.tax_rate), ...fromGross(excess, Number(share.tax_rate)) });
+  for (const slab of bySlab(covered.map((x, i) => ({ rate: x.rate, gross: x.net + x.tax - parts[i] })))) {
+    customerValues.push({ line: shareLine(share, slab.rate), rate: slab.rate, net: slab.net, tax: slab.tax });
   }
   const insurer = { values: insurerValues, figures: figures(insurerValues, rounding) };
   const customer = customerValues.length ? { values: customerValues, figures: figures(customerValues, rounding) } : null;
-  return { job: all, insurer, customer, claim: breakdown, problem: null };
+  return { job: all, insurer, customer, claim: breakdown, problem: null, insurerNamed };
 }
 
 // The claim in figures: the insurer's lines, what it approved, the owner's
@@ -140,4 +156,4 @@ function claimWords(claim, values, approved) {
     not_allowed: share === null ? null : rupees(Math.max(0, share - deductible - depreciation)) };
 }
 
-module.exports = { paise, rupees, lineFigures, figures, figuresText, todayValues, apportion, fromGross, plan };
+module.exports = { paise, rupees, lineFigures, figures, figuresText, todayValues, apportion, fromGross, bySlab, shareLine, plan };

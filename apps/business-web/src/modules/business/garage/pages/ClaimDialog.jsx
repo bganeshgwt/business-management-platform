@@ -3,7 +3,7 @@ import SearchPicker from "../../../../components/SearchPicker";
 import { businessRead, businessWrite } from "../../../../services/business.service";
 import FormDialog from "../../core/pages/FormDialog";
 import { Field } from "../../core/pages/ui";
-import { useOpenBusiness } from "../../core/pages/hooks";
+import { businessToday, useOpenBusiness } from "../../core/pages/hooks";
 import { CLAIM_MODES } from "./garage";
 
 // A job card's insurance claim. The insurer is one of the business's
@@ -11,7 +11,9 @@ import { CLAIM_MODES } from "./garage";
 // own name). Cashless: the insurer is billed for the amount it approved and
 // the owner for the rest (the deductible, the depreciation and what was not
 // covered). Reimbursement: the owner is billed for the whole job and claims
-// from the insurer. The approved amount is entered once the surveyor approves.
+// from the insurer, or (bill to the insurer, collect from the customer) billed
+// in the insurer's name and paid by the customer, who claims with the claim
+// file. The approved amount is entered once the surveyor approves.
 export default function ClaimDialog({ job, onClose, onSaved }) {
   const biz = useOpenBusiness();
   const claim = job.claim;
@@ -19,14 +21,16 @@ export default function ClaimDialog({ job, onClose, onSaved }) {
   const num = (x) => (x === null || x === undefined ? "" : String(Number(x)));
   const [form, setForm] = useState({ mode: claim?.mode || "cashless", policyNo: claim?.policy_no || "", claimNo: claim?.claim_no || "", surveyorName: claim?.surveyor_name || "",
     surveyorPhone: claim?.surveyor_phone || "", approvedAmount: num(claim?.approved_amount), deductible: claim && Number(claim.deductible) ? num(claim.deductible) : "",
-    depreciation: claim && Number(claim.depreciation) ? num(claim.depreciation) : "" });
-  const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
+    depreciation: claim && Number(claim.depreciation) ? num(claim.depreciation) : "", intimatedOn: claim?.intimated_on ? String(claim.intimated_on).slice(0, 10) : businessToday(biz.business.timezone),
+    insurerNamed: Boolean(claim?.insurer_named) });
+  const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
   const money = job.money !== false;
   const submit = () => {
     if (!insurer) throw new Error("Choose the insurer from your customers");
-    const { approvedAmount, deductible, depreciation, ...rest } = form;
+    const { approvedAmount, deductible, depreciation, insurerNamed, ...rest } = form;
     // Someone who sees no money leaves the amounts as they are.
-    return businessWrite(biz.id, `garage/job-cards/${job.id}/claim`, { insurerId: insurer.id, ...rest, ...(money ? { approvedAmount, deductible, depreciation } : {}) }, "put");
+    return businessWrite(biz.id, `garage/job-cards/${job.id}/claim`, { insurerId: insurer.id, ...rest, insurerNamed: form.mode === "reimbursement" && insurerNamed,
+      ...(money ? { approvedAmount, deductible, depreciation } : {}) }, "put");
   };
   return (
     <FormDialog title={claim ? `The claim on ${job.job_no}` : `Record a claim on ${job.job_no}`} icon="shield" width={760} onClose={onClose} onSaved={onSaved} onSubmit={submit}
@@ -37,6 +41,10 @@ export default function ClaimDialog({ job, onClose, onSaved }) {
           getLabel={(c) => c.name} getDescription={(c) => (c.gstin ? `GSTIN ${c.gstin}` : "No GSTIN saved")} />
       </div>
       <Field label="Claim" wide><select value={form.mode} onChange={set("mode")}>{CLAIM_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></Field>
+      {form.mode === "reimbursement" && (
+        <label className="checkbox bz-check field-wide"><input type="checkbox" checked={form.insurerNamed} onChange={set("insurerNamed")} /> Bill it in the insurer's name: the customer pays it, and the insurer takes input tax credit on it</label>
+      )}
+      <Field label="Intimated on"><input type="date" required max={businessToday(biz.business.timezone)} value={form.intimatedOn} onChange={set("intimatedOn")} /></Field>
       <Field label="Policy number"><input required maxLength={60} value={form.policyNo} onChange={set("policyNo")} /></Field>
       <Field label="Claim number" hint="Needed to bill a cashless claim."><input maxLength={60} value={form.claimNo} onChange={set("claimNo")} /></Field>
       <Field label="Surveyor (optional)"><input maxLength={150} value={form.surveyorName} onChange={set("surveyorName")} /></Field>

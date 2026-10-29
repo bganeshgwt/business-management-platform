@@ -28,6 +28,15 @@ export const CHANNELS = [{ value: "in_person", label: "In person" }, { value: "p
 export const DUE_KINDS = { service: "Service", insurance: "Insurance", puc: "PUC" };
 export const CLAIM_MODES = [{ value: "cashless", label: "Cashless (the insurer pays the garage)" }, { value: "reimbursement", label: "Reimbursement (the owner pays and claims)" }];
 export const wordOf = (list, value) => list.find((x) => x.value === value)?.label || "";
+// A claim's progress, in order: intimated, then the steps the desk records, then invoiced (the bills) and settled.
+export const CLAIM_STEPS = [{ value: "intimated", label: "Intimated" }, { value: "surveyed", label: "Surveyed" }, { value: "approved", label: "Approved" },
+  { value: "work_done", label: "Work done" }, { value: "reinspected", label: "Re-inspected" }, { value: "invoiced", label: "Invoiced" }, { value: "settled", label: "Settled" }];
+// What became of a part line's old part (salvage).
+export const OLD_PARTS = [{ value: "returned", label: "Handed back to the customer" }, { value: "surveyor", label: "Kept for the surveyor" }, { value: "scrap", label: "Sold as scrap" }];
+// The steps the desk records itself (invoiced and settled come with the bills and the insurer's payments).
+export const CLAIM_DESK_STEPS = ["surveyed", "approved", "work_done", "reinspected"];
+// Whether a person's role works only on the job cards assigned to it (a mechanic: garage.edit without garage.view).
+export const mechanicOnly = (biz) => biz.can("garage.edit") && !biz.can("garage.view");
 
 // Kilometres as Indian readers group them: 41,603 km.
 export const km = (value) => (value === null || value === undefined || value === "" ? "—" : `${Number(value).toLocaleString("en-IN")} km`);

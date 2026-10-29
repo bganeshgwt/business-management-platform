@@ -11,7 +11,7 @@ import { newKey, useOpenBusiness } from "../../core/pages/hooks";
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import GarageApproval from "./GarageApproval";
 import VehicleDialog from "./VehicleDialog";
-import { FUEL_LEVELS, STATUSES, approvalBody, emptyApproval, fromLocalInput, km, plateOf } from "./garage";
+import { FUEL_LEVELS, STATUSES, approvalBody, atWords, emptyApproval, fromLocalInput, km, plateOf } from "./garage";
 import "../styles/garage.css";
 
 // Opening a job card: the vehicle (found by its plate however it is typed, or
@@ -41,6 +41,15 @@ export default function JobCardDialog({ vehicleId, onClose, onSaved }) {
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
   const canAssign = biz.can("garage.edit");
   const canAdvance = biz.can("sales.edit");
+  // Today's service bookings (and the last week's) the vehicle may have come in on.
+  const [bookings, setBookings] = useState([]);
+  const [bookingId, setBookingId] = useState("");
+  useEffect(() => {
+    if (!biz.has("appointments")) return undefined;
+    const controller = new AbortController();
+    businessRead(biz.id, "garage/bookings", undefined, controller.signal).then(setBookings).catch(() => {});
+    return () => controller.abort();
+  }, [biz.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // A vehicle chosen first (from its page): read it by its plate.
   useEffect(() => {
@@ -85,7 +94,7 @@ export default function JobCardDialog({ vehicleId, onClose, onSaved }) {
     if (!vehicle.active) throw new Error(`${vehicle.registration_no} is switched off: switch it on again on its page first`);
     if (form.otherPayer && !payer) throw new Error("Choose the customer who pays");
     return businessWrite(biz.id, "garage/job-cards", {
-      requestKey, locationId: form.locationId, vehicleId: vehicle.id, ...(form.otherPayer ? { contactId: payer.id } : {}),
+      requestKey, locationId: form.locationId, vehicleId: vehicle.id, ...(form.otherPayer ? { contactId: payer.id } : {}), ...(bookingId ? { appointmentId: bookingId } : {}),
       odometerKm: form.odometerKm || undefined, ...(lower ? { odometerApproval: approvalBody(approval, user?.id) } : {}),
       fuelLevel: form.fuelLevel || undefined, complaints: form.complaints.map((x) => x.trim()).filter(Boolean),
       inspectionNotes: form.inspectionNotes.trim() || undefined, bay: form.bay.trim() || undefined, promisedAt: fromLocalInput(form.promisedAt),
@@ -102,6 +111,19 @@ export default function JobCardDialog({ vehicleId, onClose, onSaved }) {
     <FormDialog title="Open a job card" icon="clipboard" width={900} onClose={onClose} onSaved={onSaved} onSubmit={submit} submitLabel="Open the job card"
       description="The vehicle, what the customer says and the reading in. Write the estimate on the job card next, and send it to the owner.">
       <FormError message={lookupError} />
+      {bookings.length > 0 && (
+        <Field label="From a service booking (optional)" wide>
+          <select value={bookingId} onChange={(e) => {
+            const chosen = bookings.find((b) => String(b.id) === e.target.value);
+            setBookingId(e.target.value);
+            if (chosen?.vehicles?.length === 1 && !plate) setPlate(chosen.vehicles[0].registration_no);
+            if (chosen && !form.complaints.some((x) => x.trim())) setForm((f) => ({ ...f, complaints: [chosen.service] }));
+          }}>
+            <option value="">None</option>
+            {bookings.map((b) => <option key={b.id} value={b.id}>{atWords(b.starts_at)} · {b.customer_name} · {b.service}{b.vehicles?.length ? ` · ${b.vehicles.map((v) => v.registration_no).join(", ")}` : ""}</option>)}
+          </select>
+        </Field>
+      )}
       <Field label="Registration number" hint="As on the plate; spaces and dashes are fine.">
         <input required autoFocus={!vehicleId} maxLength={20} className="mono" value={plate} onChange={(e) => setPlate(e.target.value)} placeholder="TS09AB1234" />
       </Field>

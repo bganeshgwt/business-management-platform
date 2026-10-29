@@ -47,6 +47,8 @@ router.use(require("../modules/live/routes/live.routes"));
 router.use(require("../modules/business/jewellery/routes/jewelleryUploads.routes"));
 // A rental business's photos and signatures of a handover and a return (multipart), before the JSON-only /businesses router.
 router.use(require("../modules/business/rentals/routes/rentalsUploads.routes"));
+// A garage's job card photos (multipart), before the JSON-only /businesses router.
+router.use(require("../modules/business/garage/routes/garageUploads.routes"));
 router.use("/businesses", require("../modules/business/core/routes/business.routes"));
 router.use("/restaurants", restaurantRoutes);
 router.use("/outlets", outletRoutes);

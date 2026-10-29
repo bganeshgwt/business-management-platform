@@ -10,7 +10,7 @@ const pins = () => require('../../salon-weight/services/businessManagerPin');
 //
 //   a vehicle   its registration number as printed (upper case, letters and
 //               digits only; one vehicle per number), make, model, variant,
-//               fuel, year, chassis and engine numbers, insurance and PUC
+//               fuel, year, engine code, chassis and engine numbers, insurance and PUC
 //               expiry, the next service due, notes. Switched off when sold
 //               or scrapped, never deleted.
 //   owners      the owner now (a customer); a change of owner is kept by the
@@ -30,7 +30,7 @@ repo.addLists({
   // Every vehicle, the latest first, with its owner, the latest reading, the
   // next service and an open job card if there is one.
   'garage-vehicles': {
-    sql: `SELECT v.id,v.registration_no,v.make,v.model,v.variant,v.fuel,v.year,v.contact_id,c.name AS owner_name,c.phone AS owner_phone,v.chassis_no,v.engine_no,
+    sql: `SELECT v.id,v.registration_no,v.make,v.model,v.variant,v.fuel,v.year,v.engine_code,v.contact_id,c.name AS owner_name,c.phone AS owner_phone,v.chassis_no,v.engine_no,
       v.odometer_km,v.odometer_at,v.insurance_expires_on,v.puc_expires_on,v.next_service_on,v.next_service_km,v.active,v.created_at,
       concat_ws(' ',v.make,v.model,v.variant) AS vehicle_name,
       (SELECT count(*)::int FROM garage_job_cards j WHERE j.business_id=v.business_id AND j.vehicle_id=v.id AND j.status<>'cancelled') AS jobs,
@@ -55,6 +55,14 @@ function readYear(value) {
   return Number(text);
 }
 
+// The engine's code as the maker writes it (K12M, 1.2 VVT is 12VVT): letters, digits and dashes. Empty is none.
+function readEngineCode(value) {
+  if (!c.given(value)) return null;
+  const text = String(value).toUpperCase().replace(/[\s.]+/g, '');
+  if (!/^[A-Z0-9-]{2,30}$/.test(text)) fail('Engine code must be 2 to 30 letters, digits or dashes, like K12M');
+  return text;
+}
+
 // What a vehicle says about itself; on a change, what is left out stays.
 function readVehicle(body, current = null) {
   const keep = (key, column, read) => (body[key] === undefined && current ? current[column] : read(body[key]));
@@ -67,6 +75,7 @@ function readVehicle(body, current = null) {
     year: keep('year', 'year', readYear),
     chassis_no: keep('chassisNo', 'chassis_no', (x) => c.readFrameNumber(x, 'Chassis number', 5)),
     engine_no: keep('engineNo', 'engine_no', (x) => c.readFrameNumber(x, 'Engine number', 3)),
+    engine_code: keep('engineCode', 'engine_code', readEngineCode),
     insurance_expires_on: keep('insuranceExpiresOn', 'insurance_expires_on', (x) => c.readDate(x, 'Insurance valid until', true)),
     puc_expires_on: keep('pucExpiresOn', 'puc_expires_on', (x) => c.readDate(x, 'PUC valid until', true)),
     next_service_on: keep('nextServiceOn', 'next_service_on', (x) => c.readDate(x, 'Next service on', true)),
@@ -169,10 +178,10 @@ async function create(business, user, body) {
     await checkUnique(db, business, fields);
     const contact = await ownerContact(db, business, user, owner);
     const vehicle = await repo.one(db, `INSERT INTO garage_vehicles(business_id,registration_no,make,model,variant,fuel,year,contact_id,chassis_no,engine_no,
-        insurance_expires_on,puc_expires_on,next_service_on,next_service_km,notes,created_by,updated_by)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$16) RETURNING *`,
+        insurance_expires_on,puc_expires_on,next_service_on,next_service_km,notes,created_by,updated_by,engine_code)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$16,$17) RETURNING *`,
     [business.id, fields.registration_no, fields.make, fields.model, fields.variant, fields.fuel, fields.year, contact.id, fields.chassis_no, fields.engine_no,
-      fields.insurance_expires_on, fields.puc_expires_on, fields.next_service_on, fields.next_service_km, fields.notes, user.id]);
+      fields.insurance_expires_on, fields.puc_expires_on, fields.next_service_on, fields.next_service_km, fields.notes, user.id, fields.engine_code]);
     await repo.audit(db, business.id, user.id, 'vehicle.added', vehicle.id, { registrationNo: vehicle.registration_no, owner: contact.name, ...(owner.contactId ? {} : { newCustomer: true }) });
     if (readingKm !== null) await recordReading(db, business, user, vehicle, readingKm, { source: 'vehicle' });
     return load(db, business, vehicle.id);
@@ -278,7 +287,7 @@ async function find(business, query) {
   await access.requireAny(business, ['garage.view', 'garage.create']);
   const plate = c.plateOf(query.registration);
   if (plate.length < 4) fail('Type the registration number on the plate');
-  const vehicle = await repo.one(repo.pool, `SELECT v.id,v.registration_no,concat_ws(' ',v.make,v.model,v.variant) AS vehicle_name,v.make,v.model,v.variant,v.fuel,v.year,v.active,
+  const vehicle = await repo.one(repo.pool, `SELECT v.id,v.registration_no,concat_ws(' ',v.make,v.model,v.variant) AS vehicle_name,v.make,v.model,v.variant,v.fuel,v.year,v.engine_code,v.active,
       v.contact_id,k.name AS owner_name,k.phone AS owner_phone,v.odometer_km,v.odometer_at,v.next_service_on,v.next_service_km,v.insurance_expires_on,v.puc_expires_on,
       (SELECT json_build_object('id',j.id,'job_no',j.job_no,'status',j.status) FROM garage_job_cards j WHERE j.business_id=v.business_id AND j.vehicle_id=v.id
         AND j.status NOT IN ('delivered','cancelled') ORDER BY j.id DESC LIMIT 1) AS open_job

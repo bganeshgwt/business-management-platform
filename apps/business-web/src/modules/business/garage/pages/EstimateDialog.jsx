@@ -7,6 +7,7 @@ import { getErrorMessage } from "../../../../services/api";
 import FormDialog from "../../core/pages/FormDialog";
 import { Field, FormError } from "../../core/pages/ui";
 import { newKey, quantity, useOpenBusiness, useOptions } from "../../core/pages/hooks";
+import { OutOfStock } from "./Substitutes";
 import { LINE_KINDS, PAYERS } from "./garage";
 import "../styles/garage.css";
 
@@ -86,6 +87,9 @@ export default function EstimateDialog({ job, onClose, onSaved }) {
               <div className="field">
                 <SearchPicker label={row.kind === "part" ? "Part" : row.kind === "labour" ? "Labour" : "Outside work (a service item)"} placeholder="Name, code or barcode"
                   value={sku} onChange={(s) => setLine(row.key, { skuId: s ? String(s.id) : "", unitPrice: "" })} {...pick(row.kind)} />
+                {sku && sku.kind === "goods" && sku.tracking !== "none" && Number(sku.stock) <= 0 && biz.type === "garage" && (
+                  <OutOfStock biz={biz} sku={sku} locationId={job.location_id} onPick={(s) => setLine(row.key, { skuId: String(s.id), unitPrice: "" })} />
+                )}
               </div>
               <Field label={sku ? `Qty (${sku.unit})` : "Qty"}><input inputMode="decimal" value={row.quantity} onChange={(e) => setLine(row.key, { quantity: e.target.value })} /></Field>
               <Field label="Rate" hint={row.kind === "part" ? "Empty: the customer's price" : undefined}>

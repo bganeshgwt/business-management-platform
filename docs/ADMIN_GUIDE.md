@@ -4436,8 +4436,9 @@ with **Vehicles & job cards** on. Recommended in Settings › Business tools:
 bookings*), **Wholesale price lists** (mechanic and retailer rates on the parts
 counter) and **Quotations**; batches, serials, warranties and offers can be
 switched on too. Job cards have a daily entry of their own, *Job cards*; the
-vehicles and the service-due list are under *Customers*, and the garage's
-settings under *Settings › Garage settings*.
+vehicles and the service-due list are under *Customers*, the parts' fitment
+under *Parts & services › Parts fitment*, the mechanics' commission under
+*Reports*, and the garage's settings under *Settings › Garage settings*.
 
 **Before trading:**
 
@@ -4457,7 +4458,13 @@ settings under *Settings › Garage settings*.
    the owner's share (*Settings › Garage settings*, *Make the item*).
 4. **Mechanics** — a staff login for each with the **Mechanic** role (*Staff &
    access*), so they can be put on job cards and see the ones assigned to
-   them.
+   them, on their phone.
+5. **How the workshop works** (*Settings › Garage settings*) — whether parts
+   are issued to mechanics (they leave stock when issued) or leave stock when
+   the job is billed, whether a road test comes before ready, service plans
+   for the models and engines you service, and the mechanics' commission
+   rates. Record which parts fit which vehicles in *Parts & services › Parts
+   fitment* (or import them from a spreadsheet).
 
 **The screens:**
 
@@ -4481,8 +4488,12 @@ settings under *Settings › Garage settings*.
   scratches, what was left in the vehicle), the bay, the promised time
   (within a year), the mechanics, and an advance (cash, UPI, card or bank: a
   numbered receipt in the customer's name, taken off their bill). When the
-  vehicle already has a job card open, the form says so and links to it. Job
-  cards are numbered *JC/2627/0001* (Settings › Number series).
+  vehicle already has a job card open, the form says so and links to it. With
+  *Appointments* on, *From a service booking* lists today's bookings (and the
+  last week's) still booked: choosing one fills the complaint (and the plate,
+  when the customer has one vehicle), and the booking is marked done when the
+  job card opens. Job cards are numbered *JC/2627/0001* (Settings › Number
+  series).
 - **The estimate** — *Write the estimate* on the job card: parts (items kept
   in stock, at the customer's price unless a rate is typed: a lower rate is a
   discount, for those who may give one, and no part is charged above its
@@ -4491,9 +4502,15 @@ settings under *Settings › Garage settings*.
   number), each with its quantity and, on a job card with a claim, who pays
   it. Every figure is the server's, with GST at each item's slab and the
   round-off. Each change saved is a new version, kept as it was (*Versions
-  and approvals*). Parts leave stock when the job is billed, not before: the job
-  card shows a part not in usable stock at its location, and billing waits
-  until it is received.
+  and approvals*). A part out of stock shows *Out of stock: substitutes*: its
+  newer number and the parts that do the same job, in stock, to use instead.
+  *Use a quotation* (on a job card with no estimate yet) takes an open
+  quotation of the customer's as the estimate, at its prices, and closes the
+  quotation. *Old part* on each part line records what became of the part it
+  replaced: handed back to the customer, kept for the surveyor, or sold as
+  scrap. Parts leave stock when the job is billed (or, in a garage that
+  issues them, when they are issued): the job card shows a part not in usable
+  stock at its location, and billing waits until it is received.
 - **The owner's approval** — *Send the estimate* (with a note, say *Sent on
   WhatsApp*) puts the job card at *Estimate sent*; *Record the owner's
   approval* keeps who approved, how (in person, on the phone or on WhatsApp),
@@ -4506,9 +4523,26 @@ settings under *Settings › Garage settings*.
   each with a note kept in the history (sending a ready vehicle back to work
   needs the reason). *Record the work done* ticks each line as done; *Add
   parts used* puts the parts a mechanic fitted on the estimate at the
-  customer's price, as a new version. *Mechanics* names who works on it;
-  *Change details* changes the complaints, inspection notes, bay, promised
-  time, fuel level and notes while the job card is open.
+  customer's price, as a new version. *Add a note* puts a note in the
+  history. *Mechanics* names who works on it; *Change details* changes the
+  complaints, inspection notes, bay, promised time, fuel level and notes while
+  the job card is open.
+- **Inspection and photos** — on the job card: each area checked (*Front
+  bumper*) with what was found, and *Add a photo* beside it (from the phone's
+  camera: JPG, PNG or WebP up to 5 MB); photos of the work are kept too.
+  Photos are never changed or deleted, and are seen only by those who see the
+  job card.
+- **Parts issued for the job** — in a garage that issues parts, *Issue parts*
+  (the store: a role that corrects stock) issues each part line's parts to a
+  mechanic: they leave stock now, held for the job; *Bring back unused* puts
+  what was not used back in stock. The card shows each part's quantity on the
+  estimate, issued, brought back and held. The bill takes the parts held and
+  nothing more; a part line not issued in full stops the billing.
+  Serial-numbered parts (batteries, tyres) leave stock on the bill, by their
+  numbers.
+- **Road test** — *Record a road test*: who drove, how far, passed or not
+  (and what it found). A garage that asks for one marks a job ready only after
+  a passed road test.
 - **Insurance claim** — *Insurance claim* on the job card: the insurer (one of
   the customers, never the job card's own), cashless (the insurer pays the
   garage) or reimbursement (the owner pays the garage and claims from the
@@ -4517,8 +4551,22 @@ settings under *Settings › Garage settings*.
   whole rupees), the deductible and the depreciation. Mark on the estimate the
   lines the insurer pays. The approved amount, and the approved amount with
   the deductible and the depreciation added, are never more than the
-  insurer's lines.
-  *Take the claim off* makes every line the customer's, in a new version.
+  insurer's lines. A reimbursement claim may be billed in the insurer's name
+  (*Bill it in the insurer's name*): the insurer is billed for the amount it
+  approved and the customer for the rest, and the customer pays both at
+  delivery. *Intimated on* is the day the claim was made. *Record the claim's
+  progress* marks it surveyed, approved, work done and re-inspected, each with
+  its date; it is invoiced when the job is billed. *Take the claim off* makes
+  every line the customer's, in a new version, while the claim is only
+  intimated.
+- **The insurer's payment and what it did not pay** — on a billed claim,
+  *Record the insurer's payment* (bank, cheque or UPI, with the UTR or cheque
+  number) against its bill; paid in full, the claim is settled. When it pays
+  less, *Settle what the insurer did not pay*: *Writing it off* (a manager,
+  or a manager's PIN) or *Billing it to the customer* (a bill in their name at
+  the same GST slabs); either way a credit note takes it off the insurer's
+  bill. *Claim file* prints the estimate, the bills with their GST, the photos
+  and the payments, for the customer to claim with.
 - **Customer copy and workshop copy** — *Customer copy* prints, on A5 or A4,
   the vehicle, the reading and fuel in, what the customer says, the estimate
   with its prices, the advance and the claim, with a place for the customer
@@ -4540,18 +4588,26 @@ settings under *Settings › Garage settings*.
   amount it approved, spread over its lines, which waits on the insurer's
   dues; and one to the customer for their own lines and the owner's share of
   the claim (the deductible, the depreciation and what the surveyor did not
-  allow), billed as one line of the claim-share item. The two bills come to
-  the job's total to the paisa. The parts leave stock now (serial-numbered
-  parts by the numbers typed, batches by the oldest expiry first). The advance pays the customer's bill first; the rest is
-  collected now (cash, UPI, card or bank) or goes on the customer's dues. The
-  odometer at delivery (optional) goes into the vehicle's log, and the next
-  service is set on the vehicle: 6 months and 5,000 km after this job to
-  start with (*Settings › Garage settings*), or the day and reading typed. A
-  job card with nothing on it is delivered with no bill and leaves the
-  vehicle's next service as it was. A bill over ₹2,00,000 asks for the
-  buyer's PAN or their declaration, as every bill does.
-- **Cancelling** — *Cancel the job card*, with a reason. Nothing is billed and
-  nothing leaves stock. The advance stays the customer's: *Hand back the
+  allow), billed as lines of the claim-share item, one at each GST slab of
+  the insurer's lines (the tractor parts' share at 5%, the labour's at 18%).
+  The two bills come to the job's total to the paisa. A reimbursement claim
+  billed in the insurer's name is billed the same way, and *The insurer's bill
+  paid by* takes the customer's payment of it. The parts leave stock now
+  (serial-numbered parts by the numbers typed, batches by the oldest expiry
+  first), except those issued for the job, which left stock then. The advance
+  pays the customer's bill first; the rest is collected now (cash, UPI, card
+  or bank) or goes on the customer's dues. The odometer at delivery
+  (optional) goes into the vehicle's log, and the next service is set on the
+  vehicle: the service plan of its model or engine, or else 6 months and
+  5,000 km after this job to start with (*Settings › Garage settings*), or
+  the day and reading typed. The gate pass is made (*Print the gate pass*);
+  *The vehicle has left* records it going out. Each labour line's commission
+  goes to its mechanic. A job card with nothing on it is delivered with no
+  bill and leaves the vehicle's next service as it was. A bill over
+  ₹2,00,000 asks for the buyer's PAN or their declaration, as every bill
+  does.
+- **Cancelling** — *Cancel the job card*, with a reason (parts issued for it
+  are brought back first). Nothing is billed and nothing leaves stock. The advance stays the customer's: *Hand back the
   advance* (cash, UPI or bank, a reason and a manager's PIN; a receipt
   prints), or it stays on their account for a later bill (*Customer dues*).
 - **Vehicles** (*Customers › Vehicles*) — every vehicle with its owner, last
@@ -4559,10 +4615,11 @@ settings under *Settings › Garage settings*.
   card open in the workshop; the search finds a plate however it is typed, a
   make or model, an owner, a phone or a chassis number. *Add a vehicle*: the
   registration number, make, model, variant, fuel, year, chassis and engine
-  numbers (a chassis number belongs to one vehicle), the owner (a customer,
-  or a new one by name and phone), the odometer, the insurance and PUC dates
-  and the next service. A vehicle's page has its readings, job cards, owners
-  and the reminders given; *Change owner* keeps every owner it has had; a
+  numbers (a chassis number belongs to one vehicle), the engine code (for
+  fitment and service plans), the owner (a customer, or a new one by name and
+  phone), the odometer, the insurance and PUC dates and the next service. A
+  vehicle's page has *Parts that fit* (in stock first, with the substitutes of
+  one out of stock), its readings, job cards, owners and the reminders given; *Change owner* keeps every owner it has had; a
   vehicle sold or scrapped is switched off (*Change*, untick *In use*) once no
   job card of it is open, and is never deleted.
 - **The odometer log** — every reading: in and out of each job card, or typed
@@ -4588,20 +4645,46 @@ settings under *Settings › Garage settings*.
   kilometres to the next service after a job (6 and 5,000 to start with), and
   the claim-share item: the service item that bills the owner's share of a
   cashless claim. *Make the item* makes one (*Insurance claim: owner's
-  share*, SAC 998714, at 18%). The owner's share is billed at that item's
-  slab whatever the slabs of the lines it comes from: have an accountant
-  confirm it for claims on tractor parts (5%).
+  share*, SAC 998714). The owner's share is billed as lines of that item at
+  the slabs of the insurer's lines it comes from. *Issue parts to mechanics*
+  and *A passed road test before a job is marked ready* set how the workshop
+  works. *Service plans by model*: a make's model or engine with the
+  kilometres and days to its next service, whichever first, in place of the
+  months and kilometres above. *Mechanics' commission*: a rate for a labour
+  item (it comes first) or for a mechanic.
+- **Parts fitment** (*Parts & services › Parts fitment*) — *Add a fitment*: a
+  part and the make it fits, with the model, variant, fuel, years and engine
+  code when it fits only those; *Import from a CSV file* takes them from a
+  spreadsheet (the part's code, make, model, variant, fuel, years from and
+  to, engine code), checked first. *Newer number or group*: the part that
+  replaces an old number, and a group of parts that do the same job. The
+  shop's own data: nothing is shipped.
+- **The parts counter** — at *Quick bill*, a part added that is out of stock
+  here shows the parts in stock that can be used instead; choosing one takes
+  its place on the bill.
+- **A mechanic's screen** — a mechanic opens *Job cards* on their phone: their
+  own job cards, and on each the complaints, the labour to tick done, the
+  parts and what was issued for them, a note or a photo, the road test and
+  the next step. No prices.
+- **Mechanics' commission** (*Reports › Mechanics' commission*) — for the
+  dates chosen, each mechanic's labour billed, the commission earned and paid,
+  and what is due now; a mechanic's name opens their lines. *Pay* pays it (a
+  manager), as an expense of the day.
 - **The bell** — vehicles ready to deliver, and job cards past their promised
   time.
 
 Who does what: a cashier adds vehicles, opens job cards, writes and sends
-estimates, records approvals and claims, takes advances and bills the job;
-the **Mechanic**, a garage's own role, sees the job cards assigned to them,
-records the work done and the parts used, moves the job along and prints its
-copies, and sees no prices and takes no money; a stock keeper, an accountant
-and a viewer see the job cards, vehicles and the service-due list; a manager
-does all of it, approves a lower odometer reading, cancels job cards and
-gives discounts.
+estimates, records approvals, claims and the claim's progress, takes
+advances, bills the job and bills a short payment to the customer; the
+**Mechanic**, a garage's own role, sees the job cards assigned to them on
+their phone, records the work done, the parts used, notes, photos and road
+tests, moves the job along and prints its copies, and sees no prices and
+takes no money; a stock keeper keeps the parts' fitment and issues and brings
+back parts; an accountant records the insurer's payments and reads the
+commission report; a stock keeper, an accountant and a viewer see the job
+cards, vehicles and the service-due list; a manager does all of it, approves
+a lower odometer reading, writes off what an insurer did not pay, pays
+commission, cancels job cards and gives discounts.
 
 ## Gyms, studios & coaching
 
@@ -6408,7 +6491,7 @@ do more than yours; the Owner role cannot be handed out or changed.
 | Lab technician (clinic only) | Samples and results, in the lab workspace or Business Admin; see patients |
 | Pathologist (clinic only) | As the lab technician, plus approving reports and exporting |
 | Optometrist (optical shops only) | Record and correct prescriptions; pass or fail spectacles at the quality check; book and complete eye tests; see customers, products and spectacle orders without their money; no money |
-| Mechanic (garages only) | See the job cards assigned to them; record the work done and the parts used, and move the job along; print its copies; see products, stock and service bookings; no prices and no money |
+| Mechanic (garages only) | See the job cards assigned to them, on a screen made for a phone; record the work done, the parts used, notes, photos and road tests, and move the job along; print its copies; see products, stock and service bookings; no prices and no money |
 | Trainer (gyms, studios & coaching only) | See members, their plans and check-ins; check members in; see personal-training sessions and mark them done or missed; no prices and no money |
 | Karigar / goldsmith (jewellery shops only) | See the pieces with their weights, stones and HUIDs; tag pieces already in stock, record their weights, stones and HUIDs, and send them on approval or to the karigar and take them back; see products and stock; no prices and no money |
 | Pump attendant (DSM) (fuel stations only) | Open and close their own shift: the nozzle readings, the 5-litre test, the credit slips, the UPI, card and fleet-card takings and the cash; take the morning dips; see the tanks, the tanker loads and the registers, and only their own shifts and money; no settings |

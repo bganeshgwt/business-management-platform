@@ -43,6 +43,8 @@ import { useTintCharge, usesTinting } from "../../hardware/pages/hardware";
 // A farm-input shop's bill: the PoS receipt, the crop, a walk-in farmer and season credit.
 import AgriBillFields from "../../agri/pages/AgriBillFields";
 import { agriBillBody, agriNeedsOf, agriProblem, emptyAgriBill, stopOf, useCounterChecks, useMolecules, usesAgri } from "../../agri/pages/agri";
+// A garage's part out of stock: the parts that can be used instead.
+import { CounterSubstitutes } from "../../garage/pages/Substitutes";
 
 // Quick bill: the counter of every goods shop (grocery, supermarket, books,
 // pharmacy, fashion, electronics, meat and other weight shops). Scan a
@@ -157,6 +159,8 @@ export default function CounterPage() {
   const [posted, setPosted] = useState(null);
   const [scanError, setScanError] = useState("");
   const [scanTip, setScanTip] = useState("");
+  // A garage's part just added: its substitutes are offered when it is out of stock here.
+  const [lastPart, setLastPart] = useState(null);
   // What is typed in the item box: the shelf below it narrows to match.
   const [shelfQuery, setShelfQuery] = useState("");
   const changeSearch = useCallback((query) => { setShelfQuery(query); setScanError(""); }, []);
@@ -262,6 +266,7 @@ export default function CounterPage() {
       });
       return;
     }
+    if (biz.type === "garage" && biz.has("garage")) setLastPart(sku);
     setLines((all) => {
       const weighed = isWeighed(sku);
       const scaleQuantity = result.quantity !== null && result.quantity !== undefined ? String(result.quantity) : null;
@@ -697,6 +702,8 @@ export default function CounterPage() {
               placeholder={`Scan a barcode${scanWords.length ? `, ${scanWords.join(", ")}` : ""} or type a name  (F2 or Alt+S)`} />
             <ErrorMessage message={scanError} />
             {scanTip && <p className="small muted rt-scan-tip" role="status">{scanTip}</p>}
+            {lastPart && <CounterSubstitutes key={lastPart.id} biz={biz} sku={lastPart} locationId={locationId} onClose={() => setLastPart(null)}
+              onPick={(part) => { const out = lastPart.id; setLastPart(null); setLines((all) => all.filter((l) => l.sku.id !== out)); lookUp(part.code); }} />}
             {locations.length > 1 && (
               <Field label="Selling from">
                 <select value={locationId} onChange={(e) => changeTill(e.target.value)}>

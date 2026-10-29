@@ -353,6 +353,8 @@ export function businessSections(type) {
         { section: "laundry-prices", label: "Price list", icon: "priceList", need: "laundry.view", types: LAUNDRY },
         // A rental business's items with their rates, units and deposits, and the handover settings.
         { section: "rental-items", label: "Rental items", icon: "box", need: "rentals.view", types: RENTALS },
+        // A garage's parts: the makes and models each fits, newer numbers and parts that do the same job.
+        { section: "garage-parts", label: "Parts fitment", icon: "products", need: "catalog.view", module: "garage", types: GARAGE },
       ],
     },
     {
@@ -400,6 +402,8 @@ export function businessSections(type) {
         { section: "salon-reports", label: "Service profitability", icon: "inventoryInsights", need: "reports.view", types: SALON },
         { section: "commissions", label: "Staff commissions", icon: "payroll", need: "commissions.view" },
         { section: "fitter-reports", label: "Fitters' commission", icon: "payroll", need: "fitter_commission.view", types: HARDWARE },
+        // A garage's mechanics' commission on the labour billed, and its payouts.
+        { section: "mechanic-commission", label: "Mechanics' commission", icon: "payroll", need: "reports.view", module: "garage", types: GARAGE },
         // A jeweller's cash with each customer, flagged at ₹10 lakh, and the monthly worksheet.
         { section: "cash-report", label: "Cash report", icon: "reports", need: "jewellery.export", module: "jewellery", types: JEWELLERY },
         { section: "activity", label: "Activity log", icon: "activity", need: "audit.view" },

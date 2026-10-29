@@ -23,8 +23,12 @@ import BillDialog from "./BillDialog";
 import ClaimDialog from "./ClaimDialog";
 import EstimateDialog from "./EstimateDialog";
 import GarageApproval from "./GarageApproval";
+import { ClaimProgress, GatePassCard, InspectionCard, PartsHeldCard, QuotationDialog, RoadTestCard } from "./JobCardMore";
+import { OutOfStock } from "./Substitutes";
+import { MechanicJobCard } from "./MechanicJobs";
 import { printCustomerCopy, printWorkshopCopy } from "./garagePrint";
-import { CHANNELS, FUEL_LEVELS, LINE_KINDS, MESSAGE_STAGES, PAYERS, STATUSES, STEP_WORDS, approvalBody, atWords, emptyApproval, fromLocalInput, jobMessage, km, lineWords, stageFor, toLocalInput, wordOf } from "./garage";
+import { CHANNELS, FUEL_LEVELS, LINE_KINDS, MESSAGE_STAGES, OLD_PARTS, PAYERS, STATUSES, STEP_WORDS, approvalBody, atWords, emptyApproval, fromLocalInput, jobMessage, km, lineWords, mechanicOnly,
+  stageFor, toLocalInput, wordOf } from "./garage";
 import "../styles/garage.css";
 
 // One job card on screen: its status as the headline with how long it has
@@ -35,7 +39,10 @@ import "../styles/garage.css";
 // vehicle, the complaints and the inspection; the estimate with who pays each
 // line; the bill as it would be posted today (the insurer's and the
 // customer's for a cashless claim); every version and approval; the advance;
-// the history; and the customer and workshop copies.
+// the history; and the customer and workshop copies. Beside them
+// (JobCardMore.jsx): the inspection with its photos, parts issued for the job,
+// the road test, the gate pass, the claim's progress and the insurer's
+// payments. A mechanic sees their own phone-first screen (MechanicJobs.jsx).
 
 const ADVANCE_KINDS = ["cash", "upi", "card", "bank"];
 const REFUND_KINDS = ["cash", "upi", "bank"];
@@ -57,6 +64,7 @@ export default function JobCardPage() {
   }, [biz.id, jobId, version]);
   const refresh = (message) => { setDialog(null); if (message) toast.success(message); setVersion((n) => n + 1); };
   if (!job) return <div className="stack"><BusinessHeader icon="clipboard" title="Job card" /><ErrorMessage message={error} />{!error && <Loading />}</div>;
+  if (mechanicOnly(biz)) return <MechanicJobCard biz={biz} job={job} onChanged={(message) => refresh(message)} />;
 
   const open = !["delivered", "cancelled"].includes(job.status);
   const money = job.money !== false;
@@ -73,6 +81,9 @@ export default function JobCardPage() {
   const call = () => businessWrite(biz.id, `garage/job-cards/${job.id}/messages`, { channel: "call", stage: stageFor(job.status) }).then(() => refresh()).catch(() => {});
   const stepWord = (to) => (job.status === "ready" ? `Back to ${to === "in_progress" ? "work" : "waiting for parts"}` : STEP_WORDS[to]);
   const lines = job.lines.map((l) => ({ ...l, what: lineWords(l) }));
+  // What became of a part's old part (salvage), while the job card is open.
+  const setOldPart = (line, value) => businessWrite(biz.id, `garage/job-cards/${job.id}/old-parts`, { lines: [{ lineId: line.id, oldPart: value || null }] }, "put")
+    .then(() => refresh()).catch((err) => toast.error(getErrorMessage(err)));
 
   return (
     <div className="stack">
@@ -109,8 +120,10 @@ export default function JobCardPage() {
               <button key={to} type="button" className={`button ${index === 0 && !canBill && !toApprove ? "" : "button-secondary"}`} onClick={() => setDialog({ kind: "step", to })}>{stepWord(to)}</button>
             ))}
             {canEstimate && <button type="button" className="button button-secondary" onClick={() => setDialog("estimate")}><Icon name="edit" size={15} /> {job.estimate_version ? "Revise the estimate" : "Write the estimate"}</button>}
+            {canEstimate && !job.lines.length && biz.has("quotations") && biz.can("quotations.view") && <button type="button" className="button button-secondary" onClick={() => setDialog("quotation")}><Icon name="list" size={15} /> Use a quotation</button>}
             {biz.can("garage.edit") && job.lines.length > 0 && <button type="button" className="button button-secondary" onClick={() => setDialog("work")}><Icon name="check-circle" size={15} /> Record the work done</button>}
             {biz.can("garage.edit") && job.status !== "estimate_sent" && <button type="button" className="button button-secondary" onClick={() => setDialog("parts")}><Icon name="plus" size={15} /> Add parts used</button>}
+            {biz.can("garage.edit") && <button type="button" className="button button-secondary" onClick={() => setDialog("note")}><Icon name="message" size={15} /> Add a note</button>}
             {desk && <button type="button" className="button button-secondary" onClick={() => setDialog("details")}>Change details</button>}
             {desk && <button type="button" className="button button-secondary" onClick={() => setDialog("mechanics")}><Icon name="users" size={15} /> Mechanics</button>}
             {desk && <button type="button" className="button button-secondary" onClick={() => setDialog("claim")}><Icon name="shield" size={15} /> {job.claim ? "The claim" : "Insurance claim"}</button>}
@@ -118,7 +131,7 @@ export default function JobCardPage() {
             {biz.can("garage.cancel") && <button type="button" className="button button-secondary" onClick={() => setDialog("cancel")}>Cancel the job card</button>}
           </div>
           {money && job.status === "ready" && job.bill?.problem && <p className="gar-note">{job.bill.problem}</p>}
-          {open && job.lines.some((l) => l.in_stock !== null && Number(l.in_stock) < Number(l.quantity)) && <p className="gar-note">A part is not in usable stock here: billing waits until it is received.</p>}
+          {open && job.lines.some((l) => short(job, l)) && <p className="gar-note">A part is not in usable stock here: billing waits until it is received, or use a substitute.</p>}
         </SectionCard>
       )}
       {open && biz.can("garage.view") && (
@@ -140,13 +153,16 @@ export default function JobCardPage() {
           <dt>What the customer says</dt><dd><ol className="gar-list">{job.complaints.map((x, i) => <li key={i}>{x}</li>)}</ol></dd>
           {job.inspection_notes && <><dt>Inspection</dt><dd>{job.inspection_notes}</dd></>}
           {job.notes && <><dt>Notes</dt><dd>{job.notes}</dd></>}
+          {job.booking && <><dt>Service booking</dt><dd>{job.booking.service} · {atWords(job.booking.starts_at)}</dd></>}
+          {job.quotation && <><dt>Quotation</dt><dd>{job.quotation.quotation_no} became the estimate</dd></>}
           {job.cancel_reason && <><dt>Cancelled because</dt><dd>{job.cancel_reason} ({job.cancelled_by_name}, {dateTime(job.cancelled_at)})</dd></>}
           {job.delivered_at && <><dt>Delivered</dt><dd>{dateTime(job.delivered_at)} by {job.delivered_by_name}{job.document_no ? ` · bill ${job.document_no}` : ""}{job.insurer_document_no ? ` · insurer's bill ${job.insurer_document_no}` : ""}</dd></>}
           {job.status === "delivered" && (job.next_service_on || job.next_service_km) && <><dt>Next service set</dt><dd>{job.next_service_on ? dateShort(job.next_service_on, { year: true }) : "—"}{job.next_service_km ? ` · ${km(job.next_service_km)}` : ""}</dd></>}
         </dl>
       </SectionCard>
+      <InspectionCard biz={biz} job={job} onChanged={refresh} />
       <SectionCard flush icon="list" title={job.estimate_version ? `Estimate · version ${job.estimate_version}` : "Estimate"}
-        description={open ? "Parts leave stock when the job is billed; a part not in usable stock here stops the billing until it is received." : undefined}>
+        description={open ? (job.garage?.issue_parts ? "Parts leave stock when they are issued to a mechanic (below); the bill takes them and nothing more." : "Parts leave stock when the job is billed; a part not in usable stock here stops the billing until it is received.") : undefined}>
         <DataGrid variant="compact" id="garage-job-lines" caption="Estimate lines" rows={lines} rowKey={(l) => l.id} currency={biz.symbol} rowNoun={["line", "lines"]}
           empty="No estimate yet" emptyHint={canEstimate ? "Write the estimate once the vehicle is checked." : undefined} columns={[
             { key: "kind", header: "Kind", value: (l) => wordOf(LINE_KINDS, l.kind), mobile: "subtitle" },
@@ -156,15 +172,26 @@ export default function JobCardPage() {
             money && { key: "amount", header: "Amount", type: "money", exact: true, value: (l) => (l.net === null ? null : Number(l.net) + Number(l.tax)), total: "sum", mobile: "show",
               render: (l) => (l.net === null ? <span className="muted">—</span> : biz.exact(Number(l.net) + Number(l.tax))) },
             { key: "done", header: "Done", value: (l) => (l.done ? "Done" : ""), render: (l) => (l.done ? <span className="bz-two-line"><span>Done</span><small className="muted">{l.done_by_name}</small></span> : <span className="muted">—</span>) },
+            job.lines.some((l) => l.kind === "part") && { key: "old_part", header: "Old part", value: (l) => (l.kind === "part" ? wordOf(OLD_PARTS, l.old_part) : ""),
+              render: (l) => (l.kind !== "part" ? <span className="muted">—</span> : open && biz.can("garage.edit") ? (
+                <select aria-label={`Old part of ${l.label}`} value={l.old_part || ""} onChange={(e) => setOldPart(l, e.target.value)}>
+                  <option value="">Not recorded</option>{OLD_PARTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              ) : wordOf(OLD_PARTS, l.old_part) || <span className="muted">—</span>) },
             open && { key: "stock", header: "In stock here", type: "number", value: (l) => (l.in_stock === null ? null : Number(l.in_stock)),
-              render: (l) => (l.in_stock === null ? <span className="muted">—</span> : Number(l.in_stock) >= Number(l.quantity) ? quantity(l.in_stock, l.unit) : <span className="bz-minus">{quantity(l.in_stock, l.unit)}: receive it first</span>) },
+              render: (l) => (l.in_stock === null ? <span className="muted">—</span> : !short(job, l) ? quantity(l.in_stock, l.unit)
+                : <span className="bz-two-line"><span className="bz-minus">{quantity(l.in_stock, l.unit)}: receive it first</span><OutOfStock biz={biz} sku={{ id: l.sku_id }} locationId={job.location_id} /></span>) },
           ].filter(Boolean)} />
       </SectionCard>
+      <PartsHeldCard biz={biz} job={job} onChanged={refresh} />
+      <RoadTestCard biz={biz} job={job} onChanged={refresh} />
+      <GatePassCard biz={biz} job={job} onChanged={refresh} />
       {money && job.bill && (
         <SectionCard icon="receipt" title="The bill at delivery" description={job.bill.rate_changed ? "An item's GST rate changed after the estimate: the bill keeps the agreed price and works out GST at the rate of the day." : "As it would be posted today."}>
           <dl className="fe-facts">
             <dt>The job</dt><dd><strong>{biz.exact(job.bill.total)}</strong> ({biz.exact(job.bill.subtotal)} before GST, GST {biz.exact(job.bill.tax)}{Number(job.bill.round_off) !== 0 ? `, round-off ${biz.exact(job.bill.round_off)}` : ""})</dd>
-            {job.bill.insurer && <><dt>The insurer's bill</dt><dd>{biz.exact(job.bill.insurer.total)}</dd></>}
+            {job.bill.insurer && <><dt>The insurer's bill</dt><dd>{biz.exact(job.bill.insurer.total)}{job.bill.insurer_named ? ", paid by the customer at delivery" : ""}</dd></>}
+            {job.bill.share_lines?.length > 0 && <><dt>The owner's share</dt><dd>{job.bill.share_lines.map((s) => `${biz.exact(Number(s.net) + Number(s.tax))} at GST ${Number(s.rate)}%`).join(", ")}</dd></>}
             {job.bill.customer && <><dt>{job.bill.insurer ? "The customer's bill" : "The bill"}</dt><dd>{biz.exact(job.bill.customer.total)}</dd></>}
             {Number(job.bill.advance) > 0 && <><dt>Advance</dt><dd>{biz.exact(job.bill.advance)}</dd></>}
             <dt>The customer pays at delivery</dt><dd><strong>{biz.exact(job.bill.due)}</strong></dd>
@@ -174,8 +201,10 @@ export default function JobCardPage() {
       )}
       {job.claim && (
         <SectionCard icon="shield" title={`Insurance claim · ${job.claim.mode === "cashless" ? "cashless" : "reimbursement"}`}
-          description={job.claim.mode === "cashless" ? "The insurer is billed for the amount it approved; the customer for the rest (the deductible, the depreciation and what was not covered)." : "The customer is billed for the whole job and claims the approved amount from the insurer."}
-          actions={open && desk && <button type="button" className="button button-secondary button-sm" onClick={() => setDialog("claim-off")}>Take the claim off</button>}>
+          description={job.claim.mode === "cashless" ? "The insurer is billed for the amount it approved; the customer for the rest (the deductible, the depreciation and what was not covered)."
+            : job.claim.insurer_named ? "Billed in the insurer's name for the amount it approved and to the customer for the rest; the customer pays both at delivery and claims from the insurer with the claim file."
+              : "The customer is billed for the whole job and claims the approved amount from the insurer."}
+          actions={open && desk && job.claim.status === "intimated" && <button type="button" className="button button-secondary button-sm" onClick={() => setDialog("claim-off")}>Take the claim off</button>}>
           <dl className="fe-facts">
             <dt>Insurer</dt><dd>{job.claim.insurer_name}{job.claim.insurer_gstin ? ` · GSTIN ${job.claim.insurer_gstin}` : ""}</dd>
             <dt>Policy</dt><dd>{job.claim.policy_no}{job.claim.claim_no ? ` · claim ${job.claim.claim_no}` : " · no claim number yet"}</dd>
@@ -189,6 +218,7 @@ export default function JobCardPage() {
             )}
             {money && !job.bill && job.claim.approved_amount && <><dt>Approved by the insurer</dt><dd>{biz.exact(job.claim.approved_amount)} (deductible {biz.exact(job.claim.deductible)}, depreciation {biz.exact(job.claim.depreciation)})</dd></>}
           </dl>
+          <ClaimProgress biz={biz} job={job} onChanged={refresh} />
         </SectionCard>
       )}
       {job.versions.length > 0 && (
@@ -196,7 +226,8 @@ export default function JobCardPage() {
           <DataGrid variant="compact" id="garage-job-versions" caption="Versions of the estimate" rows={[...job.versions].reverse()} rowKey={(x) => x.version} rowNoun={["version", "versions"]} columns={[
             { key: "version", header: "Version", type: "number", value: (x) => x.version, mobile: "title" },
             { key: "created_at", header: "When", type: "datetime", value: (x) => x.created_at, mobile: "subtitle" },
-            { key: "what", header: "What changed", value: (x) => [x.source === "parts" ? "Parts used" : x.source === "claim" ? "Claim taken off" : x.version === 1 ? "Estimate written" : "Revised", x.note].filter(Boolean).join(" · ") },
+            { key: "what", header: "What changed", value: (x) => [x.source === "parts" ? "Parts used" : x.source === "claim" ? "Claim taken off" : x.source === "quotation" ? "From the quotation"
+              : x.version === 1 ? "Estimate written" : "Revised", x.note].filter(Boolean).join(" · ") },
             { key: "by", header: "By", value: (x) => x.created_by_name },
             money && { key: "total", header: "Total", type: "money", exact: true, value: (x) => Number(x.total) },
             { key: "approved", header: "Approved", value: (x) => job.approvals.filter((a) => a.version === x.version).map((a) => `${a.approved_by} ${wordOf(CHANNELS, a.channel).toLowerCase()} · ${atWords(a.approved_at)}`).join("; ") },
@@ -238,6 +269,8 @@ export default function JobCardPage() {
           onSubmit={() => businessWrite(biz.id, `garage/job-cards/${job.id}/claim`, undefined, "delete")} />
       )}
       {dialog === "advance" && <AdvanceDialog job={job} onClose={() => setDialog(null)} onSaved={() => refresh("Advance taken.")} />}
+      {dialog === "quotation" && <QuotationDialog biz={biz} job={job} onClose={() => setDialog(null)} onSaved={() => refresh("The quotation is the estimate now.")} />}
+      {dialog === "note" && <NoteDialog job={job} onClose={() => setDialog(null)} onSaved={() => refresh("Note added.")} />}
       {dialog === "bill" && <BillDialog job={job} onClose={() => setDialog(null)} onSaved={(j) => refresh(j.document_no || j.insurer_document_no ? `${j.job_no} billed and delivered.` : `${j.job_no} delivered; nothing to bill.`)} />}
       {dialog === "cancel" && (
         <ReasonDialog title={`Cancel ${job.job_no}`} submitLabel="Cancel the job card"
@@ -250,6 +283,25 @@ export default function JobCardPage() {
         refresh(`${r.refund_no}: ${biz.exact(r.amount)} handed back.`);
       }} />}
     </div>
+  );
+}
+
+// A part not in usable stock for its line, less what is held for the job (issued to a mechanic).
+function short(job, line) {
+  if (line.in_stock === null || line.in_stock === undefined) return false;
+  const held = (job.parts_held || []).find((p) => Number(p.line_id) === Number(line.id));
+  return Number(line.in_stock) + Number(held?.held || 0) < Number(line.quantity);
+}
+
+// A note in the job card's history.
+function NoteDialog({ job, onClose, onSaved }) {
+  const biz = useOpenBusiness();
+  const [note, setNote] = useState("");
+  return (
+    <FormDialog title={`A note on ${job.job_no}`} icon="message" width={520} onClose={onClose} onSaved={onSaved} submitLabel="Add the note"
+      onSubmit={() => businessWrite(biz.id, `garage/job-cards/${job.id}/notes`, { note })}>
+      <Field label="Note" wide hint="Kept in the job card's history."><input autoFocus required maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} /></Field>
+    </FormDialog>
   );
 }
 
@@ -326,7 +378,10 @@ function PartsDialog({ job, onClose, onSaved }) {
       {parts.map((p) => (
         <div key={p.key} className="field-wide gar-complaint">
           <div className="field"><SearchPicker aria-label="Part" placeholder="Name, code or barcode" value={p.sku} onChange={(s) => set(p.key, { sku: s })}
-            options={items} getLabel={(s) => s.label} getKeywords={(s) => `${s.code} ${s.barcode || ""}`} getDescription={(s) => `${s.code} · ${quantity(s.stock, s.unit)} in stock`} /></div>
+            options={items} getLabel={(s) => s.label} getKeywords={(s) => `${s.code} ${s.barcode || ""}`} getDescription={(s) => `${s.code} · ${quantity(s.stock, s.unit)} in stock`} />
+            {p.sku && p.sku.tracking !== "none" && Number(p.sku.stock) <= 0 && (
+              <OutOfStock biz={biz} sku={p.sku} locationId={job.location_id} onPick={(s) => set(p.key, { sku: items.find((x) => Number(x.id) === Number(s.id)) || null })} />
+            )}</div>
           <Field label={p.sku ? `Qty (${p.sku.unit})` : "Qty"}><input inputMode="decimal" value={p.quantity} onChange={(e) => set(p.key, { quantity: e.target.value })} /></Field>
         </div>
       ))}

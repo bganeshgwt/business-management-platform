@@ -7,6 +7,11 @@ const jobs = require('./garageJobCards.service');
 const vehicles = require('./garageVehicles.service');
 // The core's stock picking and the pricing of a line's pieces (quotations).
 const quotes = () => require('../../quotations/services/businessQuotations.service');
+// Parts held for the job, the claim's progress, mechanics' commission and service plans.
+const work = () => require('./garageWork.service');
+const claims = () => require('./garageClaims.service');
+const commission = () => require('./garageCommission.service');
+const plans = () => require('./garagePlans.service');
 
 // "Bill the job" (module "garage", garages): a ready job card becomes its
 // bills, posted by the core at the job card's prices with GST at each item's
@@ -20,19 +25,30 @@ const quotes = () => require('../../quotations/services/businessQuotations.servi
 //               for exactly the amount it approved, spread over its lines; one
 //               to the customer for their own lines and the owner's share of
 //               the claim (the deductible, the depreciation and whatever the
-//               surveyor did not allow), billed as one line of the claim-share
-//               item. The two come to the job's total to the paisa.
-//   stock       the parts leave stock now, on whichever bill carries them (batch
-//               and serial items as chosen, or the oldest expiry first); a part
-//               not in usable stock at the job card's location stops the billing
-//               until it is received.
+//               surveyor did not allow), billed as lines of the claim-share
+//               item, one for each GST slab of the insurer's lines. The two
+//               come to the job's total to the paisa. A reimbursement claim
+//               billed in the insurer's name is billed the same way, and the
+//               customer pays the insurer's bill in full now (bill to the
+//               insurer, collect from the customer).
+//   stock       parts issued to a mechanic for the job left stock then: the bill
+//               takes them at the cost they were issued at and takes nothing
+//               again. The rest leave stock now, on whichever bill carries them
+//               (batch and serial items as chosen, or the oldest expiry first); a
+//               part not in usable stock at the job card's location stops the
+//               billing until it is received. A garage that issues parts bills
+//               a part line only once it is issued in full.
+//   with it     the gate pass for the vehicle; the claim invoiced (and, paid in
+//               full now, settled); each labour line's commission to its
+//               mechanic.
 //   money       the advance pays the customer's bill first; the rest is paid now
 //               or left on the customer's dues. The insurer's bill waits on its
 //               dues.
 //   delivery    the odometer at delivery (optional) goes into the vehicle's log;
 //               the next service is set on the vehicle: the day and reading given,
-//               or the garage's months and kilometres after this job (a job card
-//               with nothing on it leaves the vehicle's as it was).
+//               or the service plan of its model or engine (days and kilometres),
+//               or else the garage's months and kilometres after this job (a job
+//               card with nothing on it leaves the vehicle's as it was).
 //   who         the desk (garage.edit with garage.view): a mechanic does not bill.
 // Money is integer paise; quantities integer thousandths.
 
@@ -62,27 +78,49 @@ function checkBillable(values) {
 
 // The bill's lines and fixed prices for a bill's values: each line from the
 // stock it comes out of, at its share of the value (pricePieces keeps a split
-// line adding up to the paisa), in the business's price terms now.
-async function piecesOf(db, business, job, values, choices, mode) {
+// line adding up to the paisa), in the business's price terms now. A part
+// line takes the parts held for it first (issued to a mechanic: `held` on the
+// piece, its stock cost), then stock now. A claim-share line keeps the slab
+// and words of the lines it comes from.
+async function piecesOf(db, business, job, values, choices, mode, held, issueMode) {
   const pieces = [];
   for (const value of values) {
     const line = value.line;
-    const stockLine = { ...line, sku: { kind: line.share ? 'service' : line.sku_kind, tracking: line.share ? 'none' : line.tracking } };
-    const picks = await quotes().stockPieces(db, business, job, stockLine, line.share ? undefined : choices.get(Number(line.id)));
     const each = (value.net + (mode === 'inclusive' ? value.tax : 0)) / 100 / Number(line.quantity);
     const priced = { sku_id: line.sku_id, quantity: line.quantity, net: rupees(value.net), tax: rupees(value.tax), discount: '0', unit_price: each.toFixed(4),
       unit_factor: null, entered_unit: null, entered_unit_price: null, price_rule_id: line.share ? null : line.price_rule_id || null };
-    pieces.push(...quotes().pricePieces({ tax_mode: mode }, priced, picks));
+    if (line.share) {
+      for (const piece of quotes().pricePieces({ tax_mode: mode }, priced, [{ lotCode: '', quantityMilli: 1000 }])) {
+        pieces.push({ ...piece, fixed: { ...piece.fixed, taxRate: Number(value.rate).toFixed(2), label: line.label }, held: null });
+      }
+      continue;
+    }
+    const issued = line.sku_kind === 'goods' ? held.get(Number(line.id)) || [] : [];
+    const rest = milli(line.quantity) - issued.reduce((sum, p) => sum + p.quantityMilli, 0);
+    if (rest < 0) fail(`More of ${line.label} is held for the job than it bills: bring back what is not used first`, 409);
+    if (rest > 0 && issueMode && line.sku_kind === 'goods' && ['quantity', 'batch'].includes(line.tracking)) {
+      fail(`Issue ${(rest / 1000).toString()} ${line.unit} more of ${line.label} to the mechanic before billing, or take it off the estimate`, 409);
+    }
+    const picks = issued.map((p) => ({ lotCode: p.lotCode, quantityMilli: p.quantityMilli, unitCost: p.unitCost }));
+    if (rest > 0) {
+      const stockLine = { ...line, quantity: (rest / 1000).toFixed(3), sku: { kind: line.sku_kind, tracking: line.tracking } };
+      picks.push(...await quotes().stockPieces(db, business, job, stockLine, choices.get(Number(line.id))));
+    }
+    quotes().pricePieces({ tax_mode: mode }, priced, picks).forEach((piece, index) => {
+      pieces.push({ ...piece, held: picks[index].unitCost === undefined ? null : { unitCost: picks[index].unitCost } });
+    });
   }
   return pieces;
 }
 
-// The next service: as given (empty for none), or the garage's months and
-// kilometres after this job.
-function nextService(body, garage, day, baseKm, latestKm) {
-  const on = body.nextServiceOn === undefined ? c.addMonths(day, garage.service_months) : c.readDate(body.nextServiceOn, 'Next service on', true);
+// The next service: as given (empty for none), or the vehicle's service plan
+// (days and kilometres), or the garage's months and kilometres after this job.
+function nextService(body, garage, day, baseKm, latestKm, plan) {
+  const on = body.nextServiceOn !== undefined ? c.readDate(body.nextServiceOn, 'Next service on', true)
+    : plan ? c.addDays(day, Number(plan.interval_days)) : c.addMonths(day, garage.service_months);
   const kmGiven = body.nextServiceKm !== undefined;
-  const km = kmGiven ? c.readKm(body.nextServiceKm, 'Next service at') : baseKm === null || baseKm === undefined ? null : Number(baseKm) + garage.service_km;
+  const km = kmGiven ? c.readKm(body.nextServiceKm, 'Next service at') : baseKm === null || baseKm === undefined ? null
+    : Number(baseKm) + (plan ? Number(plan.interval_km) : garage.service_km);
   if (on !== null && (on <= day || on > c.addDays(day, MAX_NEXT_SERVICE_DAYS))) fail('The next service is a day after today, within five years');
   if (km !== null && latestKm !== null && km <= latestKm) fail(`The next service is at more than ${c.km(latestKm)} km, the vehicle's reading now`);
   if (km !== null && km > 9999999) fail('Next service at must be at most 9,999,999 km');
@@ -90,6 +128,7 @@ function nextService(body, garage, day, baseKm, latestKm) {
 }
 
 // body: { requestKey, payment? | payments? ({ amount | "full", method | methodId, reference?, tendered? }),
+//   insurerPayment?: { method | methodId, reference? } (a bill in the insurer's name, paid in full by the customer now),
 //   lines?: [{ lineId, lots: [{ lotCode, quantity }] | serials: [code] }], buyer?: { pan?, panDeclaration? },
 //   odometerOutKm?, odometerApproval?, nextServiceOn?, nextServiceKm?, note? }
 async function bill(business, user, jobId, body) {
@@ -99,6 +138,7 @@ async function bill(business, user, jobId, body) {
   const billKey = core.uuid(body.requestKey);
   const hash = jobs.hashOf({ ...body, jobId: String(jobId) });
   const parts = core.readPayments(body);
+  const insurerParts = body.insurerPayment ? core.readPayments({ payment: { ...body.insurerPayment, amount: 'full' } }) : [];
   const choices = quotes().readStockChoices(body);
   const note = c.optionalText(body.note, 'Note', 300);
   const outKm = c.readKm(body.odometerOutKm, 'Odometer at delivery');
@@ -118,7 +158,7 @@ async function bill(business, user, jobId, body) {
     const lines = await jobs.linesOf(db, business, job);
     for (const lineId of choices.keys()) if (!lines.some((l) => Number(l.id) === lineId && l.sku_kind === 'goods')) fail('That line is not a part on this job card', 404);
     if (lines.length) await access.require(business, 'sales.create');
-    if (parts.length) await access.require(business, 'sales.edit');
+    if (parts.length || insurerParts.length) await access.require(business, 'sales.edit');
     const settings = await repo.one(db, 'SELECT tax_mode,rounding FROM business_settings WHERE business_id=$1', [business.id]);
     const mode = settings?.tax_mode || 'exclusive';
     const claim = await jobs.claimOf(db, business, job.id);
@@ -126,6 +166,11 @@ async function bill(business, user, jobId, body) {
     const plan = money.plan(job, lines, claim, settings?.rounding, garage.share);
     if (plan.problem) fail(plan.problem, 409);
     checkBillable(money.todayValues(job, lines));
+    if (plan.insurerNamed && plan.insurer && !insurerParts.length) fail('The customer pays the bill in the insurer\'s name now: choose how they pay it', 400);
+    if (insurerParts.length && !plan.insurerNamed) fail('Only a reimbursement claim billed in the insurer\'s name is paid by the customer on the insurer\'s bill');
+    // Parts issued for the job, and whether this garage issues them.
+    const held = await work().heldPicks(db, business, job.id);
+    const issueMode = await work().issueSetting(db, business);
     const words = [`Job card ${job.job_no}`, job.registration_no];
     // The insurer's bill: what it approved, on its own credit.
     let insurerDoc = null;
@@ -134,11 +179,13 @@ async function bill(business, user, jobId, body) {
       if (plan.insurer.figures.total > PAN_ABOVE_PAISE && !claim.insurer_pan && !claim.insurer_gstin) {
         fail(`The insurer's bill is over ₹2,00,000: save ${claim.insurer_name}'s GSTIN or PAN on its customer record first`, 409);
       }
-      const pieces = await piecesOf(db, business, job, plan.insurer.values, choices, mode);
+      const pieces = await piecesOf(db, business, job, plan.insurer.values, choices, mode, held, issueMode);
       const documentBody = { kind: 'sale', locationId: job.location_id, contactId: claim.insurer_id, lines: pieces.map((p) => p.input),
-        notes: [...words, `claim ${claim.claim_no} (policy ${claim.policy_no})`, 'cashless', `owner: ${job.customer_name}`].join(' · ').slice(0, 500) };
+        notes: [...words, `claim ${claim.claim_no} (policy ${claim.policy_no})`, plan.insurerNamed ? `reimbursement, paid by ${job.customer_name}` : 'cashless',
+          `owner: ${job.customer_name}`].join(' · ').slice(0, 500) };
       insurerDoc = await core.postDocument(db, business, user, documentBody, { kind: 'sale', requestKey: jobs.derivedKey(billKey, 'insurer'), hash, lines: documentBody.lines,
-        paidNow: null, fixed: pieces.map((p) => p.fixed) });
+        paidNow: plan.insurerNamed ? insurerParts.map((p) => ({ ...p, reference: p.reference || `paid by ${job.customer_name}`.slice(0, 100) })) : null,
+        fixed: pieces.map((p) => p.fixed), issued: pieces.map((p) => p.held) });
       if (paise(insurerDoc.total) !== plan.insurer.figures.total) {
         fail(`The insurer's bill would come to ${insurerDoc.total}, not the ${rupees(plan.insurer.figures.total)} it approved. Try again.`, 409);
       }
@@ -155,14 +202,14 @@ async function bill(business, user, jobId, body) {
       const fixedPaid = parts.filter((p) => p.amount !== 'full').reduce((sum, p) => sum + paise(p.amount), 0);
       if (fixedPaid > due) fail(`Only ${rupees(due)} is left to pay after the advance`);
       const paidNow = parts.map((p) => (p.amount === 'full' ? { ...p, amount: Number(rupees(due - fixedPaid)) } : p)).filter((p) => paise(p.amount) > 0);
-      const pieces = await piecesOf(db, business, job, plan.customer.values, choices, mode);
+      const pieces = await piecesOf(db, business, job, plan.customer.values, choices, mode, held, issueMode);
       const share = plan.customer.values.some((x) => x.line.share)
         ? `owner's share of claim ${claim.claim_no}: deductible ₹${plan.claim.deductible}, depreciation ₹${plan.claim.depreciation}` : null;
-      const reimbursement = claim && claim.mode === 'reimbursement' ? `claim ${claim.claim_no || `on policy ${claim.policy_no}`} with ${claim.insurer_name} (reimbursement)` : null;
+      const reimbursement = claim && claim.mode === 'reimbursement' && !plan.insurerNamed ? `claim ${claim.claim_no || `on policy ${claim.policy_no}`} with ${claim.insurer_name} (reimbursement)` : null;
       const documentBody = { kind: 'sale', locationId: job.location_id, contactId: job.contact_id, lines: pieces.map((p) => p.input),
         notes: [...words, share, reimbursement, note].filter(Boolean).join(' · ').slice(0, 500), buyer: { pan: buyer.pan, panDeclaration: buyer.panDeclaration } };
       customerDoc = await core.postDocument(db, business, user, documentBody, { kind: 'sale', requestKey: jobs.derivedKey(billKey, 'customer'), hash, lines: documentBody.lines,
-        paidNow, fixed: pieces.map((p) => p.fixed) });
+        paidNow, fixed: pieces.map((p) => p.fixed), issued: pieces.map((p) => p.held) });
       if (paise(customerDoc.total) !== total) fail(`The bill would come to ${customerDoc.total}, not the ${rupees(total)} worked out for the job card. Try again.`, 409);
       if (advanceUse > 0) {
         const receipt = await repo.one(db, 'SELECT collection_no,method FROM business_collections WHERE business_id=$1 AND id=$2', [business.id, job.advance_collection_id]);
@@ -183,7 +230,8 @@ async function bill(business, user, jobId, body) {
     // A job with work on it sets the next service; a job card with nothing on it
     // leaves the vehicle's as it was, unless one is given.
     const setNext = lines.length > 0 || body.nextServiceOn !== undefined || body.nextServiceKm !== undefined;
-    const next = setNext ? nextService(body, garage, day, outKm ?? job.odometer_in, latestKm) : { on: null, km: null };
+    const servicePlan = setNext ? await plans().planFor(db, business, vehicle) : null;
+    const next = setNext ? nextService(body, garage, day, outKm ?? job.odometer_in, latestKm, servicePlan) : { on: null, km: null };
     if (setNext) {
       await db.query('UPDATE garage_vehicles SET next_service_on=$3,next_service_km=$4,updated_by=$5,updated_at=now() WHERE business_id=$1 AND id=$2',
         [business.id, vehicle.id, next.on, next.km, user.id]);
@@ -191,13 +239,18 @@ async function bill(business, user, jobId, body) {
     await db.query(`UPDATE garage_job_cards SET status='delivered',document_id=$3,insurer_document_id=$4,bill_key=$5,next_service_on=$6,next_service_km=$7,
       delivered_by=$8,delivered_at=now(),updated_by=$8,updated_at=now() WHERE business_id=$1 AND id=$2`,
     [business.id, job.id, customerDoc?.id || null, insurerDoc?.id || null, billKey, next.on, next.km, user.id]);
+    // The gate pass for the vehicle; the claim invoiced (settled when the customer paid the insurer's bill now); each labour line's commission.
+    await db.query('INSERT INTO garage_gate_passes(business_id,job_card_id,issued_by) VALUES($1,$2,$3)', [business.id, job.id, user.id]);
+    if (claim) await claims().invoiced(db, business, user, job, day, { settled: Boolean(plan.insurerNamed && insurerDoc) });
+    const earned = lines.length ? await commission().earn(db, business, job, money.todayValues(job, lines), day) : [];
     // The history names the bills, not their amounts.
     await jobs.history(db, business, user, job, job.status, 'delivered', [customerDoc ? `Bill ${customerDoc.document_no}` : null,
       insurerDoc ? `insurer's bill ${insurerDoc.document_no}` : null, advanceUse > 0 ? 'the advance taken off' : null,
       !customerDoc && !insurerDoc ? 'Nothing to bill' : null, note].filter(Boolean).join(' · '));
     const figures = { documentNo: customerDoc?.document_no || null, insurerDocumentNo: insurerDoc?.document_no || null, total: rupees(billed),
       customerTotal: customerDoc ? customerDoc.total : '0.00', insurerTotal: insurerDoc ? insurerDoc.total : '0.00', advanceUsed: rupees(advanceUse) };
-    await repo.audit(db, business.id, user.id, 'job_card.billed', job.id, { jobNo: job.job_no, ...figures, nextServiceOn: next.on, nextServiceKm: next.km });
+    await repo.audit(db, business.id, user.id, 'job_card.billed', job.id, { jobNo: job.job_no, ...figures, nextServiceOn: next.on, nextServiceKm: next.km,
+      ...(servicePlan ? { servicePlanId: Number(servicePlan.id) } : {}), ...(earned.length ? { commission: earned } : {}) });
     await repo.event(db, business.id, user.id, 'job_card.billed', 'job_card', job.id, { jobNo: job.job_no, documentId: customerDoc?.id || null,
       insurerDocumentId: insurerDoc?.id || null, ...figures });
     return jobs.shape(business, await jobs.load(db, business, job.id));
