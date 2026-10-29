@@ -112,6 +112,8 @@ const READERS = {
   "modules/business/agri/services/agriSeasons.service.js": "gate",
   // A fuel station's interest on overdue fleet credit is billed at its interest item's slab.
   "modules/business/fuel/services/fuelFleet.service.js": "gate",
+  // A membership's fees (a freeze, a transfer, a late instalment, a class penalty) are billed at its plan item's slab.
+  "modules/business/memberships/services/memberFees.service.js": "gate",
 };
 
 function* sourceFiles(dir) {

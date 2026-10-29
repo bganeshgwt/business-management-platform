@@ -19,8 +19,17 @@ const receivables = () => require('../../wholesale/services/businessReceivables.
 //   kept, let in or not. The membership used: the one asked for, else a
 //   membership by time before a pack (no session is used then), the pack
 //   ending first before the others.
+//   A membership lets its member in only at the branches and between the
+//   hours its plan allows, and within its visits a day, a week (Monday to
+//   Sunday on the business's calendar), a month or in all; else the member
+//   is turned away with that reason. Each member of a shared membership (its
+//   seats) checks in on their own. A member checking in for a class booked
+//   now (starting within the hour, or begun up to half an hour ago) is marked
+//   attended; the class takes the pack's session for the day.
 
 const { fail, id, paise, rupees } = c;
+// A class booked on the membership: its attendance is marked with the check-in.
+const classes = () => require('./memberClasses.service');
 
 // Fees overdue by more than `days` days: bills past their due day (a bill in
 // instalments counts by its instalments instead), and instalments past
@@ -45,28 +54,58 @@ async function overdueFees(db, business, contactId, day, days) {
   return { amount, days: most };
 }
 
-// The member's memberships that have not been closed, with their status
-// today and whether they let the member in.
-async function membershipsOf(db, business, contactId, day) {
+// The member's memberships that have not been closed (their own, or a seat
+// of a shared one), with their status today, their visits in the plan's
+// period, and whether they let the member in here and now.
+async function membershipsOf(db, business, contactId, day, { locationId = null, time = null } = {}) {
   const list = await repo.all(db, `SELECT m.id,m.membership_no,m.plan_name,m.kind,m.start_on::text AS start_on,m.end_on::text AS end_on,m.grace_days,m.sessions_total,m.sessions_used,
+      m.seats,m.access_locations,m.access_from::text AS access_from,m.access_to::text AS access_to,m.visit_limit,m.visit_period,
       ${c.STATUS_SQL('m', '$3::date')} AS status,(m.end_on IS NOT NULL AND $3::date > m.end_on AND $3::date <= m.end_on+m.grace_days) AS in_grace,
       (SELECT (f.starts_on+f.days-1)::text FROM member_freezes f WHERE f.business_id=m.business_id AND f.membership_id=m.id AND f.days>0
         AND $3::date BETWEEN f.starts_on AND f.starts_on+f.days-1 LIMIT 1) AS frozen_until,
-      EXISTS (SELECT 1 FROM member_checkins k WHERE k.business_id=m.business_id AND k.membership_id=m.id AND k.day=$3::date AND k.session_used) AS session_today,
-      (SELECT min(k.created_at) FROM member_checkins k WHERE k.business_id=m.business_id AND k.membership_id=m.id AND k.day=$3::date AND k.allowed) AS first_today
-    FROM member_memberships m WHERE m.business_id=$1 AND m.contact_id=$2 AND m.closed IS NULL
+      EXISTS (SELECT 1 FROM member_checkins k WHERE k.business_id=m.business_id AND k.membership_id=m.id AND k.contact_id=$2 AND k.day=$3::date AND k.session_used) AS session_today,
+      (SELECT min(k.created_at) FROM member_checkins k WHERE k.business_id=m.business_id AND k.membership_id=m.id AND k.contact_id=$2 AND k.day=$3::date AND k.allowed) AS first_today,
+      (SELECT count(*)::int FROM member_checkins k WHERE k.business_id=m.business_id AND k.membership_id=m.id AND k.contact_id=$2 AND k.allowed
+        AND k.day BETWEEN CASE m.visit_period WHEN 'day' THEN $3::date WHEN 'week' THEN date_trunc('week', $3::date)::date WHEN 'month' THEN date_trunc('month', $3::date)::date
+          ELSE m.start_on END AND $3::date) AS visits,
+      EXISTS (SELECT 1 FROM member_class_bookings b JOIN member_class_sessions s ON s.business_id=b.business_id AND s.id=b.session_id WHERE b.business_id=m.business_id
+        AND b.membership_id=m.id AND b.contact_id=$2 AND s.day=$3::date AND b.status IN ('booked','promoted','attended')) AS class_today,
+      (SELECT array_agg(l.name ORDER BY l.name) FROM business_locations l WHERE l.business_id=m.business_id AND l.id=ANY(m.access_locations)) AS location_names
+    FROM member_memberships m WHERE m.business_id=$1 AND m.closed IS NULL
+      AND ((m.seats=1 AND m.contact_id=$2) OR (m.seats>1 AND EXISTS (SELECT 1 FROM member_seats s WHERE s.business_id=m.business_id AND s.membership_id=m.id AND s.contact_id=$2
+        AND s.removed_at IS NULL)))
     ORDER BY (m.sessions_total IS NOT NULL), m.end_on NULLS LAST, m.id`, [business.id, contactId, day]);
-  return list.map((m) => ({ ...m, usable: m.status === 'active' || (m.status === 'expired' && m.in_grace && !(m.sessions_total && m.sessions_used >= m.sessions_total)) }));
+  return list.map((m) => {
+    const runs = m.status === 'active' || (m.status === 'expired' && m.in_grace && !(m.sessions_total && m.sessions_used >= m.sessions_total));
+    const limit = runs ? limitOf(m, locationId, time) : null;
+    return { ...m, limit, usable: runs && !limit };
+  });
+}
+
+// Why a running membership does not let the member in here and now: another
+// branch, outside its hours, or its visits used.
+function limitOf(m, locationId, time) {
+  if (locationId && m.access_locations && !m.access_locations.map(Number).includes(Number(locationId))) {
+    return { reason: 'branch', words: `${m.plan_name} lets the member in at ${(m.location_names || []).join(', ')} only` };
+  }
+  if (time && m.access_from && (time < m.access_from || time >= m.access_to)) {
+    return { reason: 'time_of_day', words: `${m.plan_name} lets the member in from ${c.hhmm(m.access_from)} to ${c.hhmm(m.access_to)}` };
+  }
+  if (m.visit_limit && Number(m.visits) >= Number(m.visit_limit)) {
+    return { reason: 'visit_limit', words: `${m.plan_name} allows ${m.visit_limit} visit${Number(m.visit_limit) === 1 ? '' : 's'} ${c.PERIOD_WORDS[m.visit_period]}: all are used` };
+  }
+  return null;
 }
 
 // Why a membership does not let the member in, and in words.
 function refusalOf(m) {
+  if (m.limit) return m.limit;
   if (m.status === 'frozen') return { reason: 'frozen', words: `${m.plan_name} is frozen until ${c.dateWords(m.frozen_until)}` };
   if (m.status === 'upcoming') return { reason: 'not_started', words: `${m.plan_name} starts on ${c.dateWords(m.start_on)}` };
   if (m.status === 'used_up' || (m.sessions_total && m.sessions_used >= m.sessions_total)) return { reason: 'no_sessions', words: `all ${m.sessions_total} sessions of ${m.plan_name} are used` };
   return { reason: 'expired', words: `${m.plan_name} ended on ${c.dateWords(m.end_on)}${Number(m.grace_days) ? ` (its ${m.grace_days} grace days are over)` : ''}` };
 }
-const REFUSAL_ORDER = ['frozen', 'not_started', 'no_sessions', 'expired'];
+const REFUSAL_ORDER = ['branch', 'time_of_day', 'visit_limit', 'frozen', 'not_started', 'no_sessions', 'expired'];
 
 async function findMember(db, business, body) {
   if (c.given(body.contactId)) {
@@ -92,7 +131,7 @@ async function resultOf(db, business, row) {
     LEFT JOIN member_memberships m ON m.business_id=k.business_id AND m.id=k.membership_id
     JOIN business_locations l ON l.business_id=k.business_id AND l.id=k.location_id WHERE k.business_id=$1 AND k.id=$2`, [business.id, row.id]);
   const earlier = k.allowed && !k.session_used && k.membership_id ? await repo.one(db, `SELECT min(created_at) AS at FROM member_checkins WHERE business_id=$1 AND membership_id=$2
-    AND day=$3::date AND allowed AND id<$4`, [business.id, k.membership_id, k.day, k.id]) : null;
+    AND day=$3::date AND allowed AND id<$4 AND contact_id=$5`, [business.id, k.membership_id, k.day, k.id, k.contact_id]) : null;
   return { ...k, again_today: Boolean(earlier?.at), first_today_at: earlier?.at || null, words: k.allowed ? null : `${k.member_name}: ${k.note}`, others: [] };
 }
 
@@ -110,10 +149,11 @@ async function checkIn(business, user, body) {
     const location = await repo.one(db, 'SELECT id FROM business_locations WHERE business_id=$1 AND id=$2 AND active', [business.id, locationId]);
     if (!location) fail('Location not found', 404);
     const { member, foundBy } = await findMember(db, business, body);
-    const day = await c.today(db, business);
-    // The member's memberships, locked: a pack's session is counted once a day.
-    await db.query('SELECT id FROM member_memberships WHERE business_id=$1 AND contact_id=$2 AND closed IS NULL FOR UPDATE', [business.id, member.id]);
-    const list = await membershipsOf(db, business, member.id, day);
+    const { day, time } = await c.now(db, business);
+    // The member's memberships (and seats), locked: a pack's session is counted once a day.
+    await db.query(`SELECT id FROM member_memberships m WHERE m.business_id=$1 AND m.closed IS NULL AND (m.contact_id=$2 OR EXISTS (SELECT 1 FROM member_seats s
+      WHERE s.business_id=m.business_id AND s.membership_id=m.id AND s.contact_id=$2 AND s.removed_at IS NULL)) ORDER BY id FOR UPDATE`, [business.id, member.id]);
+    const list = await membershipsOf(db, business, member.id, day, { locationId: location.id, time });
     let chosen = null, refusal = null;
     if (asked) {
       chosen = list.find((m) => Number(m.id) === asked);
@@ -141,10 +181,13 @@ async function checkIn(business, user, body) {
       }
       if (!refusal && chosen.in_grace) note = `${chosen.plan_name} ended on ${c.dateWords(chosen.end_on)}: in its grace days until ${c.dateWords(c.addDays(chosen.end_on, Number(chosen.grace_days)))}`;
     }
-    const sessionUsed = !refusal && Boolean(chosen.sessions_total) && !chosen.session_today;
+    // A pack's session for the day: none when a class booked today on it takes one.
+    const sessionUsed = !refusal && Boolean(chosen.sessions_total) && !chosen.session_today && !chosen.class_today;
     const row = await repo.one(db, `INSERT INTO member_checkins(business_id,location_id,contact_id,membership_id,day,found_by,allowed,reason,note,session_used,request_key,created_by)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`, [business.id, location.id, member.id, chosen?.id || null, day, foundBy, !refusal, refusal?.reason || null,
       (refusal ? refusal.words : note)?.slice(0, 300) || null, sessionUsed, requestKey, user.id]);
+    // A class booked now is attended.
+    const attended = refusal ? [] : await classes().attendAtCheckIn(db, business, user, member.id);
     await repo.audit(db, business.id, user.id, refusal ? 'member.checkin_refused' : 'member.checked_in', row.id, { member: member.name, membershipNo: chosen?.membership_no || null,
       ...(refusal ? { reason: refusal.reason } : {}), ...(sessionUsed ? { sessionUsed: true } : {}) });
     if (sessionUsed) {
@@ -155,7 +198,7 @@ async function checkIn(business, user, body) {
     const others = list.filter((m) => m.usable && Number(m.id) !== Number(chosen?.id)).map((m) => ({ id: m.id, membership_no: m.membership_no, plan_name: m.plan_name,
       sessions_left: m.sessions_total ? Number(m.sessions_total) - Number(m.sessions_used) : null, session_today: m.session_today }));
     return { ...(await resultOf(db, business, row)), fees_overdue: refusal?.amount && ms.seesMoney(business) ? rupees(refusal.amount) : null,
-      others: refusal?.reason === 'dues' ? [] : others };
+      others: refusal?.reason === 'dues' ? [] : others, classes: attended };
   });
 }
 

@@ -6,30 +6,39 @@ const core = require('../../core/services/business.service');
 const returns = require('../../core/services/businessReturns.service');
 const c = require('./memberCommon');
 const ms = require('./memberships.service');
+const fees = require('./memberFees.service');
 const quotes = () => require('../../quotations/services/businessQuotations.service');
 // A manager's say-so with their PIN (shared with the salon, repairs and garages).
 const pins = () => require('../../salon-weight/services/businessManagerPin');
 
 // Changes to a running membership (module "member_plans"):
 //
-//   freeze     from a day (today or later) for some days, within the plan's
-//              limits as sold; its last day moves on by the frozen days. Ended
-//              early when the member comes back (or called off before it
-//              begins), which gives the days back.
+//   freeze     from a day (today or later, after the plan's days of notice)
+//              for some days, within the plan's limits as sold; its last day
+//              moves on by the frozen days, and a renewal that follows it
+//              moves on with it. The plan's freeze fee is billed. Ended early
+//              when the member comes back (or called off before it begins),
+//              which gives the days back (and moves the renewal back).
 //   transfer   what is left of it (its days or sessions, its freezes left) to
 //              another member, when its plan allows it and its bill is paid;
 //              it is closed as transferred and the other member's membership
-//              carries on from today on the same bill.
+//              carries on from today on the same bill. The plan's transfer
+//              fee is billed to the member passing it on.
 //   upgrade    to another plan from today: the part not used (by days, or by
 //              sessions for a pack, the smaller for a pack with a time) comes
 //              back as a credit note on its bill, and what the member paid
 //              beyond what is now due on it pays the new plan's bill first.
+//              To a cheaper plan, what is left over after the new bill stays
+//              with the member on the credit note, or is refunded (now or on
+//              a day) with a manager's approval and PIN.
 //   cancel     with a reason; the part not used may come back (a credit note
-//              on its bill, at most that pro-rata part, and the joining fee if
-//              chosen) with a manager's approval and PIN, and what the member
-//              paid beyond what is now due goes back to them (the core's
-//              refund). Nothing comes back from a membership passed on by
-//              another member: its bill is theirs.
+//              on its bill, at most that pro-rata part, and the joining fee up
+//              to the plan's share if chosen) with a manager's approval and
+//              PIN, and what the member paid beyond what is now due goes back
+//              to them (the core's refund), now or on a day (a refund due, on
+//              the bell until paid). Nothing comes back from a membership
+//              passed on by another member (its bill is theirs), brought in
+//              from another system or a trial pass.
 // The days used are counted from the first day to the last day counted (the
 // day of cancelling; for an upgrade the day before, as the new plan starts
 // today), less the days frozen. Money is integer paise. A preview runs the
@@ -37,6 +46,8 @@ const pins = () => require('../../salon-weight/services/businessManagerPin');
 
 const { fail, id, paise, rupees } = c;
 const MAX_FREEZE_AHEAD = 60;
+const MAX_REFUND_AHEAD = 90;
+const REFUND_KINDS = ['cash', 'card', 'upi', 'bank'];
 
 // Marker that rolls a preview back with its figures.
 class Preview { constructor(result) { this.result = result; } }
@@ -55,7 +66,7 @@ async function lockMembership(db, business, membershipId) {
   // Same lock order as every posting: the business, then the record.
   await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
   const day = await c.today(db, business);
-  const m = await repo.one(db, `SELECT m.*,${c.STATUS_SQL('m', '$3::date')} AS status,ct.name AS member_name FROM member_memberships m
+  const m = await repo.one(db, `SELECT m.*,m.end_on::text AS end_on,m.start_on::text AS start_on,${c.STATUS_SQL('m', '$3::date')} AS status,ct.name AS member_name FROM member_memberships m
     JOIN business_contacts ct ON ct.business_id=m.business_id AND ct.id=m.contact_id WHERE m.business_id=$1 AND m.id=$2 FOR UPDATE OF m`,
   [business.id, id(membershipId, 'Membership'), day]);
   if (!m) fail('Membership not found', 404);
@@ -82,17 +93,58 @@ async function lockBill(db, business, documentId) {
 async function creditLeft(db, business, documentId) {
   return -(await lockBill(db, business, documentId)).due;
 }
-const memberWords = (m) => `${m.member_name}'s membership ${m.membership_no}`;
+// Payments taken with a fee: they need Sales: edit.
+async function feePayments(business, body) {
+  const parts = core.readPayments(body);
+  if (parts.length) await access.require(business, 'sales.edit');
+  return parts;
+}
+// How a refund goes back: { method | methodId }.
+const refundHow = (body) => (body.refund && typeof body.refund === 'object' && !Array.isArray(body.refund) ? body.refund : {});
+// A day money goes back on: today (empty) or a later day, within 90 days.
+function readRefundOn(value, day) {
+  if (!c.given(value)) return day;
+  const on = c.readDate(value, 'Refund on');
+  if (on < day) fail('A refund is paid today or on a later day');
+  if (on > c.addDays(day, MAX_REFUND_AHEAD)) fail(`A refund is paid within ${MAX_REFUND_AHEAD} days`);
+  return on;
+}
 
 // --- Freezes -----------------------------------------------------------------------------------------
 
-// body: { requestKey, startsOn? (today), days, reason? }
+// The renewals that follow a membership end to end move with its last day by
+// `delta` days (each before it begins); one with a freeze planned does not move.
+async function moveRenewals(db, business, user, m, oldEnd, delta) {
+  if (!delta || !oldEnd) return [];
+  const moved = [];
+  let previous = { id: m.id, end: oldEnd, no: m.membership_no };
+  for (;;) {
+    const r = await repo.one(db, `SELECT id,membership_no,start_on::text AS start_on,end_on::text AS end_on FROM member_memberships WHERE business_id=$1 AND renewal_of=$2 AND closed IS NULL
+      FOR UPDATE`, [business.id, previous.id]);
+    if (!r || r.start_on !== c.addDays(previous.end, 1)) break;
+    if (await repo.one(db, 'SELECT 1 FROM member_freezes WHERE business_id=$1 AND membership_id=$2 AND days>0', [business.id, r.id])) {
+      fail(`Membership ${r.membership_no}, the renewal of ${previous.no}, has a freeze planned: call it off first`, 409);
+    }
+    await db.query(`UPDATE member_memberships SET start_on=start_on+$3::int,base_end_on=base_end_on+$3::int,end_on=end_on+$3::int,moved_days=moved_days+$3::int,updated_by=$4,
+      updated_at=now() WHERE business_id=$1 AND id=$2`, [business.id, r.id, delta, user.id]);
+    const startOn = c.addDays(r.start_on, delta);
+    await ms.event(db, business, user, r.id, 'moved', `Moved ${delta > 0 ? 'on' : 'back'} ${Math.abs(delta)} day${Math.abs(delta) === 1 ? '' : 's'} with ${previous.no}: starts on ${c.dateWords(startOn)}`,
+      { by: delta, startOnBefore: r.start_on, startOn });
+    moved.push({ membershipNo: r.membership_no, startOn });
+    if (!r.end_on) break;
+    previous = { id: r.id, end: r.end_on, no: r.membership_no };
+  }
+  return moved;
+}
+
+// body: { requestKey, startsOn? (today), days, reason?, payment? | payments? (with the freeze fee) }
 async function freeze(business, user, membershipId, body) {
   c.requireMemberships(business);
   await access.require(business, 'member_plans.edit');
   const requestKey = core.uuid(body.requestKey);
   const hash = c.hashOf({ ...body, membershipId: String(membershipId) });
   const reason = c.optionalText(body.reason, 'Reason', 300);
+  const parts = await feePayments(business, body);
   return repo.transaction(async (db) => {
     const { m, freezes, day } = await lockMembership(db, business, membershipId);
     const old = await repo.one(db, 'SELECT id,request_hash,membership_id FROM member_freezes WHERE business_id=$1 AND request_key=$2', [business.id, requestKey]);
@@ -103,10 +155,12 @@ async function freeze(business, user, membershipId, body) {
     requireRunning(m, 'frozen');
     if (!m.end_on) fail(`Membership ${m.membership_no} is a pack of sessions with no end date: it is not frozen`, 409);
     if (Number(m.max_freezes) === 0) fail(`${m.plan_name} is not frozen: its plan allows no freezes`, 409);
-    const renewal = await repo.one(db, 'SELECT membership_no,start_on::text AS start_on FROM member_memberships WHERE business_id=$1 AND renewal_of=$2 AND closed IS NULL', [business.id, m.id]);
-    if (renewal) fail(`Membership ${m.membership_no} is followed by its renewal ${renewal.membership_no} from ${c.dateWords(renewal.start_on)}: it is not frozen any more`, 409);
     const startsOn = c.given(body.startsOn) ? c.readDate(body.startsOn, 'Frozen from') : day;
     if (startsOn < day) fail('A freeze starts today or later');
+    const notice = Number(m.freeze_notice_days);
+    if (notice && startsOn < c.addDays(day, notice)) {
+      fail(`${m.plan_name} needs ${notice} day${notice === 1 ? '' : 's'}' notice for a freeze: it can start on ${c.dateWords(c.addDays(day, notice))} or later`, 400, { reason: 'notice' });
+    }
     if (startsOn > c.addDays(day, MAX_FREEZE_AHEAD)) fail(`A freeze starts within ${MAX_FREEZE_AHEAD} days`);
     const taken = freezes.filter((f) => Number(f.days) > 0);
     const daysLeft = Number(m.max_freeze_days) - taken.reduce((s, f) => s + Number(f.days), 0);
@@ -114,13 +168,20 @@ async function freeze(business, user, membershipId, body) {
     if (daysLeft <= 0) fail(`Membership ${m.membership_no} has been frozen for all the ${m.max_freeze_days} days its plan allows`, 409);
     const days = Number(core.decimal(body.days, 'Days frozen', 0, 1, 365));
     if (days > daysLeft) fail(`Membership ${m.membership_no} can be frozen for ${daysLeft} more day${daysLeft === 1 ? '' : 's'} at most`);
+    const fee = paise(m.freeze_fee);
+    if (fee > 0 && m.origin !== 'trial') await access.require(business, 'sales.create');
     const row = await repo.one(db, `INSERT INTO member_freezes(business_id,membership_id,starts_on,planned_days,days,reason,request_key,request_hash,created_by)
       VALUES($1,$2,$3,$4,$4,$5,$6,$7,$8) RETURNING *`, [business.id, m.id, startsOn, days, reason, requestKey, hash, user.id]);
     const after = await repo.one(db, 'SELECT end_on::text AS end_on FROM member_memberships WHERE business_id=$1 AND id=$2', [business.id, m.id]);
+    const moved = await moveRenewals(db, business, user, m, m.end_on, c.daysBetween(m.end_on, after.end_on));
     const until = c.addDays(startsOn, days - 1);
+    // The plan's freeze fee, billed to the member (a trial pass takes none).
+    const bill = fee > 0 && m.origin !== 'trial' ? await fees.bill(db, business, user, m, { kind: 'freeze', amount: fee, label: `${m.membership_no}, ${days} days from ${c.dateWords(startsOn)}`,
+      requestKey, paidNow: parts }) : null;
     await ms.event(db, business, user, m.id, 'frozen', `Frozen from ${c.dateWords(startsOn)} to ${c.dateWords(until)}${reason ? ` · ${reason}` : ''}`,
-      { startsOn, days, until, endOnBefore: m.end_on, endOn: after.end_on });
-    await repo.audit(db, business.id, user.id, 'membership.frozen', m.id, { membershipNo: m.membership_no, startsOn, days, endOn: after.end_on, ...(reason ? { reason } : {}) });
+      { startsOn, days, until, endOnBefore: m.end_on, endOn: after.end_on, ...(moved.length ? { moved } : {}), ...(bill ? { feeDocumentNo: bill.document_no, fee: bill.total } : {}) });
+    await repo.audit(db, business.id, user.id, 'membership.frozen', m.id, { membershipNo: m.membership_no, startsOn, days, endOn: after.end_on, ...(reason ? { reason } : {}),
+      ...(moved.length ? { moved } : {}), ...(bill ? { fee: bill.total } : {}) });
     await repo.event(db, business.id, user.id, 'membership.frozen', 'membership', m.id, { membershipNo: m.membership_no, contactId: m.contact_id, freezeId: row.id, startsOn, days, endOn: after.end_on });
     return ms.shape(business, await ms.load(db, business, m.id));
   });
@@ -146,11 +207,13 @@ async function unfreeze(business, user, membershipId, body) {
     const days = Math.max(0, c.daysBetween(freezeRow.starts_on, day));
     await db.query('UPDATE member_freezes SET ended_on=$3,days=$4,ended_by=$5,ended_at=now() WHERE business_id=$1 AND id=$2', [business.id, freezeRow.id, day, days, user.id]);
     const after = await repo.one(db, 'SELECT end_on::text AS end_on FROM member_memberships WHERE business_id=$1 AND id=$2', [business.id, m.id]);
+    const moved = await moveRenewals(db, business, user, m, m.end_on, c.daysBetween(m.end_on, after.end_on));
     const calledOff = days === 0;
     await ms.event(db, business, user, m.id, 'freeze_ended', calledOff ? `Freeze from ${c.dateWords(freezeRow.starts_on)} called off`
       : `Back on ${c.dateWords(day)}: frozen for ${days} day${days === 1 ? '' : 's'} of the ${freezeRow.planned_days} planned`,
-    { freezeId: freezeRow.id, startsOn: freezeRow.starts_on, plannedDays: freezeRow.planned_days, days, endOnBefore: m.end_on, endOn: after.end_on });
-    await repo.audit(db, business.id, user.id, 'membership.unfrozen', m.id, { membershipNo: m.membership_no, freezeId: freezeRow.id, days, plannedDays: freezeRow.planned_days, endOn: after.end_on });
+    { freezeId: freezeRow.id, startsOn: freezeRow.starts_on, plannedDays: freezeRow.planned_days, days, endOnBefore: m.end_on, endOn: after.end_on, ...(moved.length ? { moved } : {}) });
+    await repo.audit(db, business.id, user.id, 'membership.unfrozen', m.id, { membershipNo: m.membership_no, freezeId: freezeRow.id, days, plannedDays: freezeRow.planned_days, endOn: after.end_on,
+      ...(moved.length ? { moved } : {}) });
     await repo.event(db, business.id, user.id, 'membership.unfrozen', 'membership', m.id, { membershipNo: m.membership_no, contactId: m.contact_id, freezeId: freezeRow.id, days, endOn: after.end_on });
     return ms.shape(business, await ms.load(db, business, m.id));
   });
@@ -158,7 +221,7 @@ async function unfreeze(business, user, membershipId, body) {
 
 // --- Transfer -----------------------------------------------------------------------------------------
 
-// body: { requestKey, toContactId | toMember: { name, phone?, email? }, reason? }
+// body: { requestKey, toContactId | toMember: { name, phone?, email? }, reason?, payment? | payments? (with the transfer fee) }
 async function transfer(business, user, membershipId, body) {
   c.requireMemberships(business);
   await access.require(business, 'member_plans.edit');
@@ -170,6 +233,7 @@ async function transfer(business, user, membershipId, body) {
   if (toContactId && newMember) fail('Choose the member it goes to or type a new one, not both');
   if (newMember) await access.require(business, 'contacts.create');
   const reason = c.optionalText(body.reason, 'Reason', 300);
+  const parts = await feePayments(business, body);
   return repo.transaction(async (db) => {
     const { m, freezes, day } = await lockMembership(db, business, membershipId);
     const done = await repo.one(db, 'SELECT id,request_hash FROM member_memberships WHERE business_id=$1 AND request_key=$2', [business.id, requestKey]);
@@ -178,11 +242,15 @@ async function transfer(business, user, membershipId, body) {
       return ms.shape(business, await ms.load(db, business, done.id));
     }
     if (!m.transferable) fail(`${m.plan_name} memberships are not passed on to another member`, 409);
+    if (m.origin !== 'sale') fail(`Membership ${m.membership_no} ${m.origin === 'trial' ? 'is a trial pass' : 'was brought in from another system'}: it is not passed on`, 409);
+    if (Number(m.seats) > 1) fail(`Membership ${m.membership_no} is shared: change who uses its seats instead`, 409);
     if (m.status === 'frozen') fail(`Membership ${m.membership_no} is frozen today: end the freeze first`, 409);
     requireRunning(m, 'passed on');
     if (freezes.some((f) => !f.ended_on && f.starts_on > day)) fail(`Membership ${m.membership_no} has a freeze to come: call it off first`, 409);
     const bill = await lockBill(db, business, m.document_id);
     if (bill.due > 0) fail(`${rupees(bill.due)} is still to pay on ${bill.doc.document_no}, the bill of ${m.membership_no}: collect it before passing the membership on`, 409);
+    const fee = paise(m.transfer_fee);
+    if (fee > 0) await access.require(business, 'sales.create');
     const to = toContactId ? await ms.customer(db, business, toContactId) : await core.createContact(business, user, newMember, db);
     if (Number(to.id) === Number(m.contact_id)) fail('A membership is passed on to another member', 409);
     const start = m.start_on > day ? m.start_on : day;
@@ -204,10 +272,13 @@ async function transfer(business, user, membershipId, body) {
       locationId: m.location_id, contactId: to.id, plan, sessionsTotal: m.sessions_total === null ? null : Number(m.sessions_total) - Number(m.sessions_used),
       net: paise(m.price_net), tax: paise(m.price_tax), taxRate: m.tax_rate, joiningFee: 0, policyVersion: m.policy_version,
       maxFreezeDays: freezesLeft ? freezeDaysLeft : 0, maxFreezes: freezesLeft, start, end: m.end_on, transferredFrom: m.id, documentId: m.document_id, lineId: m.line_id,
-      notes: reason, requestKey, hash,
+      notes: reason, requestKey, hash, terms: { ...c.termsOf(m), freeze_fee: freezesLeft ? m.freeze_fee : 0, freeze_notice_days: freezesLeft ? m.freeze_notice_days : 0 },
+      soldBy: m.sold_by, trainerId: m.trainer_id,
     });
+    // The plan's transfer fee, billed to the member passing it on.
+    const feeBill = fee > 0 ? await fees.bill(db, business, user, m, { kind: 'transfer', amount: fee, label: `${m.membership_no} to ${to.name}`, requestKey, paidNow: parts }) : null;
     const details = { from: m.membership_no, to: next.membership_no, fromMember: m.member_name, toMember: to.name, startOn: start, endOn: m.end_on,
-      sessionsLeft: next.sessions_total, freezesLeft, freezeDaysLeft: freezesLeft ? freezeDaysLeft : 0 };
+      sessionsLeft: next.sessions_total, freezesLeft, freezeDaysLeft: freezesLeft ? freezeDaysLeft : 0, ...(feeBill ? { feeDocumentNo: feeBill.document_no, fee: feeBill.total } : {}) };
     await ms.event(db, business, user, m.id, 'transferred', `Passed on to ${to.name} (${next.membership_no})${reason ? ` · ${reason}` : ''}`, details);
     await ms.event(db, business, user, next.id, 'transfer', `Passed on by ${m.member_name} (${m.membership_no})`, details);
     await repo.audit(db, business.id, user.id, 'membership.transferred', m.id, { ...details, ...(reason ? { reason } : {}) });
@@ -216,17 +287,34 @@ async function transfer(business, user, membershipId, body) {
   });
 }
 
-// --- Upgrade --------------------------------------------------------------------------------------------
+// --- Upgrade, or a move to a cheaper plan -------------------------------------------------------------
 
 // The day an upgrade's old membership counts to: yesterday (the new plan
 // starts today), or the day before it began when it has not begun.
 const upgradeLastDay = (m, day) => (m.start_on < day ? c.addDays(day, -1) : c.addDays(m.start_on, -1));
 
-// body: { requestKey, locationId?, planId, discount?, payment? | payments?, instalments?, notes?, buyer? }
-async function runUpgrade(db, business, user, membershipId, body, { quote }) {
+// A refund due on a bill: written, and paid at once when its day is today
+// and the way it goes back is given (else it waits on the bell).
+async function refundDue(db, business, user, { m, kind, documentId, amount, dueOn, day, approvedBy, requestKey, how, reason }) {
+  const row = await repo.one(db, `INSERT INTO member_refunds(business_id,membership_id,kind,document_id,amount,due_on,approved_by,request_key,created_by)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`, [business.id, m.id, kind, documentId, rupees(amount), dueOn, approvedBy || null, c.derivedKey(requestKey, 'refund-due'), user.id]);
+  await ms.event(db, business, user, m.id, 'refund_due', `${rupees(amount)} to go back on ${c.dateWords(dueOn)}`, { amount: rupees(amount), dueOn, kind });
+  if (dueOn !== day) return { due: row, refund: null };
+  if (!c.given(how.method) && !c.given(how.methodId)) fail(`${rupees(amount)} goes back to ${m.member_name}: choose how (cash, card, UPI or bank), or a later day`, 400, { reason: 'refund_method', refund: rupees(amount) });
+  const doc = await repo.one(db, 'SELECT * FROM business_documents WHERE business_id=$1 AND id=$2', [business.id, documentId]);
+  const input = returns.readRefund({ amount: rupees(amount), method: how.method, methodId: how.methodId, reason: reason.slice(0, 300), requestKey: c.derivedKey(requestKey, 'refund') });
+  const refund = await returns.postRefund(db, business, user, doc, input);
+  await db.query('UPDATE member_refunds SET refund_id=$3,paid_by=$4,paid_at=now() WHERE business_id=$1 AND id=$2', [business.id, row.id, refund.id, user.id]);
+  await ms.event(db, business, user, m.id, 'refund_paid', `${refund.amount} refunded`, { amount: refund.amount, method: refund.method });
+  return { due: row, refund };
+}
+
+// body: { requestKey, locationId?, planId, discount?, payment? | payments?, instalments?, notes?, buyer?,
+//   difference?: credit | refund (a cheaper plan: what is left over), refund?: { method | methodId }, refundOn?, approval? }
+async function runUpgrade(db, business, user, membershipId, body, { quote, approval = null }) {
   // A preview takes keys of its own: those of the real upgrade may be taken already.
   const requestKey = quote ? crypto.randomUUID() : core.uuid(body.requestKey);
-  const hash = c.hashOf({ ...body, membershipId: String(membershipId) });
+  const hash = c.hashOf({ ...body, approval: undefined, membershipId: String(membershipId) });
   const { m, freezes, day } = await lockMembership(db, business, membershipId);
   if (!quote) {
     const done = await repo.one(db, 'SELECT id,request_hash FROM member_memberships WHERE business_id=$1 AND request_key=$2', [business.id, requestKey]);
@@ -237,6 +325,7 @@ async function runUpgrade(db, business, user, membershipId, body, { quote }) {
   }
   requireRunning(m, 'upgraded');
   if (m.transferred_from) fail(`Membership ${m.membership_no} was passed on by another member, on their bill: it is not upgraded. Renew it, or sell a new plan.`, 409);
+  if (m.origin !== 'sale') fail(`Membership ${m.membership_no} ${m.origin === 'trial' ? 'is a trial pass' : 'was brought in from another system'} and has no bill here: sell the new plan instead.`, 409);
   const plan = await ms.planFor(db, business, id(body.planId, 'New plan'));
   if (Number(plan.id) === Number(m.plan_id)) fail(`Membership ${m.membership_no} is already ${plan.name}: renew it instead`, 409);
   const locationId = c.given(body.locationId) ? id(body.locationId, 'Location') : m.location_id;
@@ -251,50 +340,61 @@ async function runUpgrade(db, business, user, membershipId, body, { quote }) {
   // The old membership closes first: its credit note is the upgrade's own.
   const creditKey = credit > 0 ? c.derivedKey(requestKey, 'credit') : null;
   await db.query(`UPDATE member_memberships SET closed='upgraded',closed_on=$3,close_reason=$4,closed_by=$5,closed_at=now(),close_key=$6,close_hash=$7,credit_key=$8,updated_by=$5,updated_at=now()
-    WHERE business_id=$1 AND id=$2`, [business.id, m.id, lastDay, `Upgraded to ${plan.name}`, user.id, requestKey, hash, creditKey]);
+    WHERE business_id=$1 AND id=$2`, [business.id, m.id, lastDay, `Moved to ${plan.name}`, user.id, requestKey, hash, creditKey]);
   let creditNote = null;
   const bill = await lockBill(db, business, m.document_id);
   if (credit > 0) {
-    const returnBody = { reason: `Upgraded to ${plan.name}: the unused part of ${m.membership_no}`, lines: [{ lineId: m.line_id }], credit };
+    const returnBody = { reason: `Moved to ${plan.name}: the unused part of ${m.membership_no}`, lines: [{ lineId: m.line_id }], credit };
     creditNote = await returns.postReturn(db, business, user, bill.doc, { reason: returnBody.reason.slice(0, 300), requestKey: creditKey, hash: c.hashOf(returnBody),
       lines: [{ lineId: m.line_id }], values: new Map([[Number(m.line_id), credit]]) });
   }
   const available = Math.max(0, await creditLeft(db, business, m.document_id));
   // The new plan from today, priced as a sale of it now.
-  const sale = await ms.prepare(db, business, user, { planId: plan.id, startOn: day, renewalOf: null, joiningFee: body.joiningFee === true, discount, instalments }, { day, contact });
+  const sale = await ms.prepare(db, business, user, { planId: plan.id, startOn: day, renewalOf: null, joiningFee: body.joiningFee === true, discount, instalments, addons: [] },
+    { day, contact });
   const quoted = await quotes().priceIn(db, business, user, { locationId, contact, lines: sale.lines, discount });
   const newTotal = paise(quoted.total);
-  if (available > newTotal) {
-    fail(`The credit of ${rupees(available)} is more than the ${rupees(newTotal)} bill of ${plan.name}. An upgrade is to a plan that costs at least the credit; to move to a cheaper plan, cancel this membership with its refund and sell the new one.`,
-      409, { reason: 'credit_exceeds_plan', credit: rupees(available), newTotal: rupees(newTotal) });
-  }
-  const applied = available;
+  // A cheaper plan: the credit pays its whole bill and what is left over stays
+  // on the credit note with the member, or goes back with a manager's approval.
+  const applied = Math.min(available, newTotal);
+  const over = available - applied;
+  const difference = over > 0 ? v.requiredEnum(body.difference ?? 'credit', 'What is left over', ['credit', 'refund']) : null;
   const due = newTotal - applied;
+  const refundOn = difference === 'refund' ? readRefundOn(body.refundOn, day) : null;
   const figures = { membershipNo: m.membership_no, lastDay, used: share.used, left: share.left, whole: share.whole, by: share.by, price: m.price, credit: rupees(credit),
     creditNote: creditNote ? creditNote.total : '0.00', paidBefore: rupees(bill.paid), dueBefore: rupees(Math.max(0, bill.due)), creditApplied: rupees(applied),
     plan: plan.name, startOn: sale.start, endOn: sale.end, sessions: plan.sessions, newSubtotal: quoted.subtotal, newTax: quoted.tax, newRoundOff: quoted.roundOff,
-    newTotal: quoted.total, due: rupees(due), newLines: quoted.lines };
+    newTotal: quoted.total, due: rupees(due), cheaper: over > 0, leftOver: rupees(over), difference, refundOn, newLines: quoted.lines };
   if (quote) throw new Preview(figures);
+  if (difference === 'refund') {
+    await access.require(business, 'member_plans.refund');
+    if (!approval) fail('A manager approves money given back, with their PIN', 400, { reason: 'approval_needed' });
+    access.requireLocation(business, m.location_id);
+  }
   // What is paid now goes after the credit; "full" is what is left.
   const parts = core.readPayments(body);
   if (parts.length) await access.require(business, 'sales.edit');
   const fixedPaid = parts.filter((p) => p.amount !== 'full').reduce((s, p) => s + paise(p.amount), 0);
-  if (fixedPaid > due) fail(`Only ${rupees(due)} is left to pay after the credit`);
+  if (fixedPaid > due) fail(due ? `Only ${rupees(due)} is left to pay after the credit` : 'The credit pays the whole of the new bill: nothing is left to pay');
   const paidNow = parts.map((p) => (p.amount === 'full' ? { ...p, amount: Number(rupees(due - fixedPaid)) } : p)).filter((p) => paise(p.amount) > 0);
   const { membership: next, document } = await ms.postSale(db, business, user, sale, { contact, locationId, requestKey, hash, paidNow, discount, instalments,
-    notes: [`Upgrade of ${m.membership_no}`, c.optionalText(body.notes, 'Notes', 300)].filter(Boolean).join(' · '), buyer: body.buyer, upgradedFrom: m.id, kind: 'upgrade', day,
-    note: `Upgrade of ${m.membership_no} (${m.plan_name})${applied > 0 ? `, ${rupees(applied)} of its credit taken off` : ''}` });
-  if (paise(document.total) !== newTotal) fail(`The bill would come to ${document.total}, not the ${rupees(newTotal)} worked out for the upgrade. Try again.`, 409);
-  if (applied > 0) await moveCredit(db, business, user, { from: bill.doc, to: document, amount: applied, note: creditNote, requestKey, what: `upgrade to ${next.membership_no}` });
+    notes: [`${over > 0 ? 'Move' : 'Upgrade'} of ${m.membership_no}`, c.optionalText(body.notes, 'Notes', 300)].filter(Boolean).join(' · '), buyer: body.buyer, upgradedFrom: m.id,
+    kind: 'upgrade', day, note: `${over > 0 ? 'Moved down' : 'Upgrade'} from ${m.membership_no} (${m.plan_name})${applied > 0 ? `, ${rupees(applied)} of its credit taken off` : ''}`,
+    sellers: { soldBy: Number(user.id), trainerId: m.trainer_id } });
+  if (paise(document.total) !== newTotal) fail(`The bill would come to ${document.total}, not the ${rupees(newTotal)} worked out for the change. Try again.`, 409);
+  if (applied > 0) await moveCredit(db, business, user, { from: bill.doc, to: document, amount: applied, note: creditNote, requestKey, what: `move to ${next.membership_no}` });
   if (creditNote) {
     await db.query('UPDATE member_memberships SET return_id=$3,credit=$4,updated_at=now() WHERE business_id=$1 AND id=$2', [business.id, m.id, creditNote.id, creditNote.total]);
   }
+  const back = difference === 'refund' ? await refundDue(db, business, user, { m, kind: 'downgrade', documentId: m.document_id, amount: over, dueOn: refundOn, day,
+    approvedBy: approval.approver.id, requestKey, how: refundHow(body), reason: `Moved to ${plan.name} from ${m.membership_no}: the credit left over` }) : null;
   const { newLines: _lines, ...said } = figures;
-  const details = { ...said, newMembershipNo: next.membership_no, newDocumentNo: document.document_no, returnNo: creditNote?.return_no || null };
-  await ms.event(db, business, user, m.id, 'upgraded', `Upgraded to ${plan.name} (${next.membership_no})${creditNote ? ` · credit note ${creditNote.return_no}` : ''}`, details);
-  await repo.audit(db, business.id, user.id, 'membership.upgraded', m.id, details);
+  const details = { ...said, newMembershipNo: next.membership_no, newDocumentNo: document.document_no, returnNo: creditNote?.return_no || null,
+    ...(back ? { refundDueOn: refundOn, refunded: back.refund ? back.refund.amount : null, approvedBy: approval.approver.name } : {}) };
+  await ms.event(db, business, user, m.id, 'upgraded', `Moved to ${plan.name} (${next.membership_no})${creditNote ? ` · credit note ${creditNote.return_no}` : ''}`, details);
+  await repo.audit(db, business.id, back ? approval.approver.id : user.id, 'membership.upgraded', m.id, { ...details, requestedBy: user.id });
   await repo.event(db, business.id, user.id, 'membership.upgraded', 'membership', m.id, { membershipNo: m.membership_no, contactId: m.contact_id, membershipId: next.id,
-    newMembershipNo: next.membership_no, documentId: document.id, returnId: creditNote?.id || null, credit: rupees(credit), creditApplied: rupees(applied) });
+    newMembershipNo: next.membership_no, documentId: document.id, returnId: creditNote?.id || null, credit: rupees(credit), creditApplied: rupees(applied), leftOver: rupees(over) });
   return { membershipId: next.id };
 }
 // The credit a credit note left on one bill pays another of the same member:
@@ -309,6 +409,9 @@ async function moveCredit(db, business, user, { from, to, amount, note, requestK
   await core.recordPayment(db, business, user, to, { amount: rupees(amount), method: 'credit_note', reference: note?.return_no || from.document_no, key: c.derivedKey(requestKey, 'credit-in') });
 }
 
+// A manager's PIN, checked before the transaction (a PIN check holds no locks).
+const approvalOf = (business, user, body, reason) => (body.approval ? pins().readApproval(business, user, { ...body.approval, reason }, 'member_plans.approve', { reasonLabel: 'Reason' }) : null);
+
 async function upgradePreview(business, user, membershipId, body) {
   c.requireMemberships(business);
   await access.require(business, 'member_plans.edit');
@@ -318,8 +421,9 @@ async function upgrade(business, user, membershipId, body) {
   c.requireMemberships(business);
   await access.require(business, 'member_plans.edit');
   await access.require(business, 'sales.create');
+  const approval = body.difference === 'refund' ? await approvalOf(business, user, body, 'Credit left over from a move to a cheaper plan') : null;
   return repo.transaction(async (db) => {
-    const { membershipId: next } = await runUpgrade(db, business, user, membershipId, body, { quote: false });
+    const { membershipId: next } = await runUpgrade(db, business, user, membershipId, body, { quote: false, approval });
     return ms.shape(business, await ms.load(db, business, next));
   });
 }
@@ -331,9 +435,11 @@ async function upgrade(business, user, membershipId, body) {
 const cancelLastDay = (m, day) => (m.start_on <= day ? day : c.addDays(m.start_on, -1));
 
 // body: { requestKey, reason, credit? (the plan's part given back; at most
-//   the pro-rata part, which is the default), joiningFee? (give the joining fee
-//   back too), refund?: { method | methodId, reference? } (how money goes back),
-//   approval?: { approverId?, pin? } (a manager's PIN when anything comes back) }
+//   the pro-rata part, which is the default), joiningFee? (give back the
+//   plan's share of the joining fee), joiningCredit? (a part of that share),
+//   refund?: { method | methodId } (how money goes back), refundOn? (a later
+//   day: a refund due), approval?: { approverId?, pin? } (a manager's PIN
+//   when anything comes back) }
 async function runCancel(db, business, user, membershipId, body, { quote, approval }) {
   const requestKey = quote ? null : core.uuid(body.requestKey);
   const hash = c.hashOf({ ...body, approval: undefined, membershipId: String(membershipId) });
@@ -347,41 +453,56 @@ async function runCancel(db, business, user, membershipId, body, { quote, approv
   const lastDay = cancelLastDay(m, day);
   const share = c.unusedShare(m, freezes, lastDay);
   const transferred = Boolean(m.transferred_from);
-  const most = transferred ? 0 : c.shareOf(paise(m.price), share);
+  const noBill = m.origin !== 'sale';
+  const most = transferred || noBill ? 0 : c.shareOf(paise(m.price), share);
   const planCredit = c.given(body.credit) ? paise(core.decimal(body.credit, 'Given back for the plan', 2, 0, 100000000)) : most;
-  if (planCredit > most) fail(transferred ? `Membership ${m.membership_no} was passed on by another member, on their bill: nothing comes back from it` : `At most ${rupees(most)} of the plan comes back: the part not used`);
-  const joining = body.joiningFee === true;
-  if (joining && (transferred || !m.joining_line_id)) fail(`Membership ${m.membership_no} has no joining fee to give back`);
-  const joiningCredit = joining ? paise(m.joining_fee) : 0;
+  if (planCredit > most) {
+    fail(transferred ? `Membership ${m.membership_no} was passed on by another member, on their bill: nothing comes back from it`
+      : noBill ? `Membership ${m.membership_no} ${m.origin === 'trial' ? 'is a trial pass' : 'was brought in from another system'}: nothing comes back from it here`
+        : `At most ${rupees(most)} of the plan comes back: the part not used`);
+  }
+  // The joining fee: the plan's share of it (its policy as sold), or a part of that share.
+  const joiningMost = transferred || noBill || !m.joining_line_id ? 0 : c.percentOf(paise(m.joining_fee), m.joining_refund_percent);
+  const joiningAsked = c.given(body.joiningCredit) ? paise(core.decimal(body.joiningCredit, 'Joining fee given back', 2, 0, 100000000)) : body.joiningFee === true ? joiningMost : 0;
+  if ((body.joiningFee === true || c.given(body.joiningCredit)) && (transferred || noBill || !m.joining_line_id)) fail(`Membership ${m.membership_no} has no joining fee to give back`);
+  if ((body.joiningFee === true || joiningAsked > 0) && joiningMost === 0) fail(`The plan of membership ${m.membership_no} keeps the joining fee`);
+  if (joiningAsked > joiningMost) fail(`At most ${rupees(joiningMost)} of the joining fee comes back (${m.joining_refund_percent}% by the plan's policy)`);
+  const joiningCredit = joiningAsked;
   const giving = planCredit + joiningCredit;
   if (!quote && giving > 0) {
     await access.require(business, 'member_plans.refund');
     if (!approval) fail('A manager approves what a cancelled membership gives back, with their PIN', 400, { reason: 'approval_needed' });
   }
   if (giving > 0) access.requireLocation(business, m.location_id);
+  const refundOn = readRefundOn(body.refundOn, day);
   const creditKey = giving > 0 ? (quote ? c.derivedKey(c.hashOf({ m: m.id, day }), 'credit') : c.derivedKey(requestKey, 'credit')) : null;
   await db.query(`UPDATE member_memberships SET closed='cancelled',closed_on=$3,close_reason=$4,closed_by=$5,closed_at=now(),close_key=$6,close_hash=$7,credit_key=$8,approved_by=$9,
     updated_by=$5,updated_at=now() WHERE business_id=$1 AND id=$2`, [business.id, m.id, lastDay, reason, user.id, requestKey || c.derivedKey(creditKey || hash, 'quote'), hash, creditKey,
     giving > 0 ? approval?.approver.id || null : null]);
-  const bill = await lockBill(db, business, m.document_id);
+  const bill = m.document_id ? await lockBill(db, business, m.document_id) : { paid: 0, due: 0 };
   let creditNote = null;
   if (giving > 0) {
-    const lines = [...(planCredit > 0 ? [{ lineId: m.line_id }] : []), ...(joiningCredit > 0 ? [{ lineId: m.joining_line_id, quantity: '1', restock: false }] : [])];
-    const returnBody = { reason: `Membership ${m.membership_no} cancelled: ${reason}`, lines, planCredit };
-    creditNote = await returns.postReturn(db, business, user, bill.doc, { reason: returnBody.reason.slice(0, 300), requestKey: creditKey, hash: c.hashOf(returnBody), lines,
-      values: planCredit > 0 ? new Map([[Number(m.line_id), planCredit]]) : null });
+    const lines = [...(planCredit > 0 ? [{ lineId: m.line_id }] : []), ...(joiningCredit > 0 ? [{ lineId: m.joining_line_id }] : [])];
+    const values = new Map([...(planCredit > 0 ? [[Number(m.line_id), planCredit]] : []), ...(joiningCredit > 0 ? [[Number(m.joining_line_id), joiningCredit]] : [])]);
+    const returnBody = { reason: `Membership ${m.membership_no} cancelled: ${reason}`, lines, planCredit, ...(joiningCredit > 0 ? { joiningCredit } : {}) };
+    creditNote = await returns.postReturn(db, business, user, bill.doc, { reason: returnBody.reason.slice(0, 300), requestKey: creditKey, hash: c.hashOf(returnBody), lines, values });
   }
   // What the member paid beyond what is now due on the bill goes back to them.
   const back = creditNote ? Math.max(0, Math.min(await creditLeft(db, business, m.document_id), paise(creditNote.total))) : 0;
-  const after = await lockBill(db, business, m.document_id);
+  const after = m.document_id ? await lockBill(db, business, m.document_id) : { due: 0 };
   const figures = { membershipNo: m.membership_no, lastDay, used: share.used, left: share.left, whole: share.whole, by: share.by, price: m.price, most: rupees(most),
-    planCredit: rupees(planCredit), joiningFee: rupees(joiningCredit), creditNote: creditNote ? creditNote.total : '0.00', paid: rupees(bill.paid), dueBefore: rupees(Math.max(0, bill.due)),
-    refund: rupees(back), stillDue: rupees(Math.max(0, after.due + back)), transferred };
+    planCredit: rupees(planCredit), joiningFee: rupees(joiningCredit), joiningMost: rupees(joiningMost), joiningRefundPercent: m.joining_refund_percent,
+    creditNote: creditNote ? creditNote.total : '0.00', paid: rupees(bill.paid), dueBefore: rupees(Math.max(0, bill.due)),
+    refund: rupees(back), refundOn: back > 0 ? refundOn : null, stillDue: rupees(Math.max(0, after.due + back)), transferred, origin: m.origin };
   if (quote) throw new Preview(figures);
-  let refund = null;
-  if (back > 0) {
-    const how = body.refund && typeof body.refund === 'object' && !Array.isArray(body.refund) ? body.refund : {};
-    if (!c.given(how.method) && !c.given(how.methodId)) fail(`${rupees(back)} goes back to ${m.member_name}: choose how (cash, card, UPI or bank)`, 400, { reason: 'refund_method', refund: rupees(back) });
+  let refund = null, refundRow = null;
+  if (back > 0 && refundOn !== day) {
+    // Paid on a later day: a refund due, on the bell until it is paid.
+    ({ due: refundRow } = await refundDue(db, business, user, { m, kind: 'cancelled', documentId: m.document_id, amount: back, dueOn: refundOn, day, approvedBy: approval?.approver.id,
+      requestKey, how: {}, reason: `Membership ${m.membership_no} cancelled: ${reason}` }));
+  } else if (back > 0) {
+    const how = refundHow(body);
+    if (!c.given(how.method) && !c.given(how.methodId)) fail(`${rupees(back)} goes back to ${m.member_name}: choose how (cash, card, UPI or bank), or a later day`, 400, { reason: 'refund_method', refund: rupees(back) });
     const input = returns.readRefund({ amount: rupees(back), method: how.method, methodId: how.methodId, reason: `Membership ${m.membership_no} cancelled: ${reason}`.slice(0, 300),
       requestKey: c.derivedKey(requestKey, 'refund') });
     refund = await returns.postRefund(db, business, user, bill.doc, input);
@@ -390,9 +511,10 @@ async function runCancel(db, business, user, membershipId, body, { quote, approv
     await db.query('UPDATE member_memberships SET return_id=$3,credit=$4,refund_id=$5,refunded=$6,updated_at=now() WHERE business_id=$1 AND id=$2',
       [business.id, m.id, creditNote.id, creditNote.total, refund?.id || null, refund ? refund.amount : null]);
   }
-  const details = { ...figures, returnNo: creditNote?.return_no || null, refundMethod: refund?.method || null, ...(approval && giving > 0 ? { approvedBy: approval.approver.name } : {}) };
+  const details = { ...figures, returnNo: creditNote?.return_no || null, refundMethod: refund?.method || null, ...(refundRow ? { refundDueOn: refundOn } : {}),
+    ...(approval && giving > 0 ? { approvedBy: approval.approver.name } : {}) };
   await ms.event(db, business, user, m.id, 'cancelled', [`Cancelled: ${reason}`, creditNote ? `credit note ${creditNote.return_no}` : null,
-    refund ? `${refund.amount} refunded` : null].filter(Boolean).join(' · '), details);
+    refund ? `${refund.amount} refunded` : refundRow ? `${refundRow.amount} to go back on ${c.dateWords(refundOn)}` : null].filter(Boolean).join(' · '), details);
   return { membershipId: m.id, details, creditNote, refund };
 }
 
@@ -405,7 +527,7 @@ async function cancel(business, user, membershipId, body) {
   c.requireMemberships(business);
   await access.require(business, 'member_plans.cancel');
   // A manager's PIN is checked before the transaction (a PIN check holds no locks).
-  const giving = (c.given(body.credit) ? Number(body.credit) > 0 : true) || body.joiningFee === true;
+  const giving = (c.given(body.credit) ? Number(body.credit) > 0 : true) || body.joiningFee === true || Number(body.joiningCredit) > 0;
   const approval = giving && body.approval ? await pins().readApproval(business, user, { ...body.approval, reason: body.reason }, 'member_plans.approve', { reasonLabel: 'Reason' }) : null;
   return repo.transaction(async (db) => {
     const done = await runCancel(db, business, user, membershipId, body, { quote: false, approval });
@@ -420,4 +542,5 @@ async function cancel(business, user, membershipId, body) {
   });
 }
 
-module.exports = { freeze, unfreeze, transfer, upgrade, upgradePreview, cancel, cancelPreview, upgradeLastDay, cancelLastDay, lockMembership };
+module.exports = { freeze, unfreeze, transfer, upgrade, upgradePreview, cancel, cancelPreview, upgradeLastDay, cancelLastDay, lockMembership, lockBill, creditLeft,
+  refundDue, REFUND_KINDS };

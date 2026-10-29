@@ -50,7 +50,7 @@ const TABLES = {
   health_patients: { label: 'Patient record', keep: 'Medical records are kept for the years in Clinic & lab settings; the patient\'s details stay with them.' },
   pharmacy_prescriptions: { label: 'Prescriptions dispensed', keep: 'The pharmacy registers keep the patient on each prescription, for the years in Pharmacy settings.' },
   pharmacy_debit_notes: { label: 'Debit notes', party: 'supplier' },
-  member_profiles: { label: 'Member code', keep: 'A member code holds no personal details beyond the erased record.' },
+  member_profiles: { label: 'Member code, date of birth, school and class', erase: { date_of_birth: null, school: null, class_name: null } },
   member_memberships: { label: 'Memberships', keep: 'Memberships are part of the bills that sold them.' },
   member_checkins: { label: 'Check-ins', keep: 'A log of visits, kept at least a year as the DPDP Rules ask of processing logs.' },
   laundry_orders: { label: 'Garment orders', erase: { customer_name: ERASED_NAME, customer_phone: null, notes: null } },
@@ -107,6 +107,12 @@ const TABLES = {
   fuel_indent_books: { label: 'Fleet slip books', keep: 'The slip books issued are checked against the fills billed; they name the customer only through the erased record.' },
   fuel_month_invoices: { label: 'Monthly fuel invoices', keep: 'Part of the tax invoices.' },
   fuel_fleet_interest: { label: 'Interest on overdue fuel credit', keep: 'Part of the bills that charged it.' },
+  member_seats: { label: 'Seats of shared memberships', keep: 'A shared membership\'s roster says who used its seats; it holds no personal details beyond the erased record.' },
+  member_class_bookings: { label: 'Class bookings', keep: 'A class booking holds no personal details beyond the erased record.' },
+  member_guardians: { label: 'Guardians', erase: { name: ERASED_NAME, relation: null, phone: null } },
+  member_test_results: { label: 'Test results', erase: { remarks: null } },
+  member_leads: { label: 'Enquiries', erase: { name: ERASED_NAME, phone: null, email: null, interest: null, notes: null } },
+  member_acceptances: { label: 'Signed acceptance of the refund policy', keep: 'The member\'s signature accepting the refund policy is the record of what they agreed to; it stays with the membership.' },
 };
 
 // Children of the rows above that the export also shows: the lines of each bill.

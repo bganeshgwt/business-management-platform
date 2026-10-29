@@ -22,7 +22,17 @@ const STATUS_WORDS = { upcoming: 'not started yet', active: 'active', frozen: 'f
   transferred: 'transferred', upgraded: 'upgraded' };
 // Why a member is turned away at the desk, as the desk's screen labels it.
 const REASONS = { no_membership: 'No membership', not_started: 'Not started yet', expired: 'Membership over', frozen: 'Frozen',
-  no_sessions: 'No sessions left', dues: 'Fees overdue' };
+  no_sessions: 'No sessions left', dues: 'Fees overdue', branch: 'Another branch', time_of_day: 'Outside its hours', visit_limit: 'Visits used up' };
+const VISIT_PERIODS = ['day', 'week', 'month', 'total'];
+const PERIOD_WORDS = { day: 'a day', week: 'a week', month: 'a month', total: 'in all' };
+// A plan's terms that a membership keeps as sold (its columns, the same on both tables).
+const TERMS = ['visit_limit', 'visit_period', 'access_locations', 'access_from', 'access_to', 'seats', 'class_names', 'personal_training', 'freeze_fee',
+  'freeze_notice_days', 'transfer_fee', 'late_fee', 'late_fee_after_days', 'joining_refund_percent'];
+const termsOf = (row) => Object.fromEntries(TERMS.map((key) => [key, row[key] ?? null]));
+// "06:00" from a TIME column ("06:00:00").
+const hhmm = (value) => (value ? String(value).slice(0, 5) : null);
+// The hours a plan lets a member in, in words: "06:00 to 16:00".
+const hoursWords = (m) => (m.access_from ? `${hhmm(m.access_from)} to ${hhmm(m.access_to)}` : null);
 
 const id = (value, name = 'Record ID') => v.requiredId(value, name);
 const given = (value) => value !== undefined && value !== null && String(value).trim() !== '';
@@ -134,5 +144,13 @@ async function checkLooseSale(db, business, lines) {
   if (plan) fail(`${plan.name} is a membership plan: sell it from the Members screen, which makes the membership with its bill`, 409);
 }
 
+// A share of an amount in paise by a percentage with two decimals, to the paisa (halves up).
+const percentOf = (amount, percent) => roundedDivide(BigInt(amount) * BigInt(Math.round(Number(percent) * 100)), 10000n);
+// The business's date and time of day now: { day, time: 'HH:MM:SS' }.
+async function now(db, business) {
+  return repo.one(db, "SELECT (now() AT TIME ZONE $1)::date::text AS day,to_char(now() AT TIME ZONE $1,'HH24:MI:SS') AS time", [business.timezone || 'Asia/Kolkata']);
+}
+
 module.exports = { fail, requireMemberships, KINDS, UNITS, STATUSES, STATUS_WORDS, REASONS, RUNNING, id, given, paise, rupees, roundedDivide, hashOf, derivedKey,
-  optionalText, readDate, addDays, daysBetween, addMonths, dateWords, today, lastDayOf, termWords, STATUS_SQL, overlap, unusedShare, shareOf, checkLooseSale };
+  optionalText, readDate, addDays, daysBetween, addMonths, dateWords, today, lastDayOf, termWords, STATUS_SQL, overlap, unusedShare, shareOf, checkLooseSale,
+  VISIT_PERIODS, PERIOD_WORDS, TERMS, termsOf, hhmm, hoursWords, percentOf, now };

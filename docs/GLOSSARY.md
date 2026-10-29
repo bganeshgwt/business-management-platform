@@ -355,13 +355,36 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Grace days** | Days after a membership's last day on which the member is still let in. |
 | **Check-in** | A member arriving at the desk: let in on a membership that runs that day, or turned away with the reason; every one is kept. |
 | **Renewal** | A new membership for the same member, starting the day after the one renewed ends. |
-| **Upgrade** | A membership moved to another plan from today: the part not used comes back as a credit note that pays the new bill first. |
+| **Upgrade (change of plan)** | A membership moved to another plan from today, dearer or cheaper: the part not used comes back as a credit note that pays the new bill first. |
+| **Downgrade** | A move to a cheaper plan: the credit pays the whole new bill, and what is left over stays with the member as credit or is refunded with a manager's approval. |
 | **Transfer (passing on)** | What is left of a membership given to another member, on the first member's bill, when its plan allows it. |
 | **Pro-rata refund** | What comes back when a membership is cancelled: the part of its price not used, by the days or sessions left, to the paisa. |
 | **Instalments** | A fee split into parts with their due days, adding up to the bill; payments on the bill cover them in order. |
 | **Fees due** | The instalments falling due or overdue, with what is left of each to pay. |
 | **Trainer** | Someone who trains members; in a gym, studio or coaching centre, the role that sees members, their plans and check-ins, checks members in and sees no money. |
 | **5% without input tax credit** | The GST on the services of a gym, health club, fitness centre or yoga centre from 22 September 2025: 5%, with no credit for what was bought for them, and no choice of 18% with credit. |
+| **Visit limit** | The visits a plan allows a day, a week (Monday to Sunday), a month or in all; each check-in let in is a visit. |
+| **Off-peak plan** | A plan that lets members in only between two times of day (06:00 to 16:00, say). |
+| **Seats** | The members who may use one shared membership: 2 for a couple, more for a family or a company; the holder pays, and each checks in on their own. |
+| **Add-on** | A service sold with a membership or after it (a locker with its number, a towel, a diet plan, a personal-training pack) that ends with the membership. |
+| **Freeze fee, transfer fee** | What a plan charges for a freeze or for passing a membership on, billed as a service at the plan's slab. |
+| **Late fee** | A plan's charge on an instalment overdue by more than some days, told to the member at the sale and billed when the desk confirms it. |
+| **Refund due** | Money to go back to a member on a later day, on the bell until it is paid. |
+| **Brought in** | A membership running in another system, entered with its dates, sessions left and what was paid there: no bill, never a sale. |
+| **Timetable** | The weekly classes: each on its weekday and time, in a room, with its instructor, places, booking window, cancel cut-off and waitlist. |
+| **Class** | One day's class made from the timetable; members book it on their memberships. |
+| **Waitlist** | Members waiting for a place in a full class; the first is promoted when a place frees. |
+| **Booking window** | How many hours before a class its booking opens. |
+| **Cancel cut-off** | How many hours before a class a cancel is still free; after it, it is a late cancel. |
+| **Late cancel, no-show** | A booking cancelled after the cut-off, or not attended; each takes the shop's penalty: a session off the pack, or a fee. |
+| **Trainer pay** | What a trainer earns in a month: a fixed sum, per class taken, per personal-training session given, and a share of the plans sold for them; paid through the expense book. |
+| **Commission (gym)** | A salesperson's share of the plans they sold, before GST. |
+| **Personal training (PT)** | One-to-one sessions with a trainer: a plan marked so counts as PT sales for the trainer's pay. |
+| **Enquiry (lead)** | Someone who asked about joining: how they came, what they want and when to call back. |
+| **Trial pass** | A free pass of some days (and visits) of a plan, with no bill and no mandate, one per person. |
+| **Guardian** | A coaching student's parent or guardian, with a phone and whether they agreed to WhatsApp. |
+| **Test result** | A student's marks in a test, out of what, shown in order as their progress. |
+| **Signed acceptance** | The member's signature on the screen accepting the refund policy, kept with its version. |
 
 ### Laundry & dry cleaning
 

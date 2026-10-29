@@ -342,6 +342,10 @@ export const MEMBERSHIPS = {
   policy: "If you cancel, the fee for the days (or sessions) you have not used is refunded pro rata. The joining fee is not refunded.",
   member: { name: "Deepa Menon", phone: "9876500101" },
   trialMember: { name: "Rahul Verma", phone: "9876500102" },
+  // A trainer with a fixed monthly pay from this month; a studio room; an enquiry walked in.
+  trainer: { name: "Coach Arjun", fixedMonthly: 12000 },
+  room: { name: "Studio A", capacity: 12 },
+  enquiry: { name: "Neha Kapoor", phone: "9876500104", interest: "Morning yoga" },
 };
 
 // The laundry: dry cleaning (SAC 999712), wash and iron, and wash and fold by

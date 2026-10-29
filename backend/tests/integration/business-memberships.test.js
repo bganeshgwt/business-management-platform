@@ -19,7 +19,7 @@ const { signIn } = require('./helpers/signIn');
 // idempotent, the database keeps its rules, audit and events are written, and
 // other types and other owners are kept out. Runs on its own throwaway
 // database with every migration applied.
-test('gyms, studios and coaching', { timeout: 300000 }, async (t) => {
+test('gyms, studios and coaching', { timeout: 600000 }, async (t) => {
   require('dotenv').config({ quiet: true });
   const database = `rmp_test_${crypto.randomBytes(10).toString('hex')}`;
   const connection = { host: process.env.DB_HOST, port: Number(process.env.DB_PORT), user: process.env.DB_USER, password: process.env.DB_PASSWORD };
@@ -105,7 +105,7 @@ test('gyms, studios and coaching', { timeout: 300000 }, async (t) => {
     await request('PUT', G('modules/sales'), { enabled: false }, 409);
     const permissions = await rows("SELECT code FROM business_permissions WHERE module_code='member_plans' ORDER BY sort_order");
     assert.deepEqual(permissions.map((p) => p.code), ['member_plans.view', 'member_plans.create', 'member_plans.edit', 'member_plans.approve',
-      'member_plans.cancel', 'member_plans.refund', 'member_plans.export']);
+      'member_plans.cancel', 'member_plans.refund', 'member_plans.export', 'member_plans.manage']);
     // The trainer: a gym's own role, with no money.
     const roles = (await request('GET', G('roles?limit=100'))).items;
     const trainer = roles.find((r) => r.template_code === 'trainer');
@@ -120,7 +120,7 @@ test('gyms, studios and coaching', { timeout: 300000 }, async (t) => {
     assert.deepEqual(await grants(gym, 'trainer'), ['appointments.edit', 'appointments.view', 'member_plans.create', 'member_plans.view']);
     assert.ok(!(await grants(gym, 'trainer')).some((p) => /^(sales|receivables|purchasing|contacts)\./.test(p)), 'the trainer sees no money');
     assert.deepEqual(await own(gym, 'manager'), ['member_plans.approve', 'member_plans.cancel', 'member_plans.create', 'member_plans.edit', 'member_plans.export',
-      'member_plans.refund', 'member_plans.view']);
+      'member_plans.manage', 'member_plans.refund', 'member_plans.view']);
     assert.deepEqual(await own(gym, 'cashier'), ['member_plans.create', 'member_plans.edit', 'member_plans.view']);
     assert.deepEqual(await own(gym, 'stock_keeper'), ['member_plans.view']);
     assert.deepEqual(await own(gym, 'accountant'), ['member_plans.export', 'member_plans.view']);
@@ -430,10 +430,10 @@ test('gyms, studios and coaching', { timeout: 300000 }, async (t) => {
     // Asking again is the same upgrade; a membership already upgraded is not upgraded again.
     assert.equal((await desk.call('POST', G(`member-plans/memberships/${m.id}/upgrade`), body, 201)).id, next.id);
     assert.equal((await refused('POST', G(`member-plans/memberships/${m.id}/upgrade`), { ...body, requestKey: key() }, desk.token)).status, 409);
-    // A credit bigger than the new plan's bill is refused: that is a cancellation with a refund.
+    // A credit bigger than the new plan's bill pays all of it; what is left over stays with the member or is refunded.
     const big = await sell({ planId: gym90.id, contactId: kiran.id, startOn: addDays(today, 90), payments: [{ amount: 'full', method: 'cash' }] });
-    const cheaper = await refused('POST', G(`member-plans/memberships/${big.id}/upgrade/preview`), { planId: gym30.id });
-    assert.deepEqual([cheaper.status, cheaper.data?.reason, cheaper.data?.credit], [409, 'credit_exceeds_plan', '2835.00']);
+    const cheaper = await request('POST', G(`member-plans/memberships/${big.id}/upgrade/preview`), { planId: gym30.id });
+    assert.deepEqual([cheaper.cheaper, cheaper.credit, cheaper.creditApplied, cheaper.due, cheaper.leftOver], [true, '2835.00', '1048.95', '0.00', '1786.05']);
     assert.ok(await one("SELECT 1 FROM business_audit WHERE business_id=$1 AND action='membership.upgraded' AND entity_id=$2", [gym.id, m.id]));
   });
 

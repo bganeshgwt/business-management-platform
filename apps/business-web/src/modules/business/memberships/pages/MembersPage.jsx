@@ -11,6 +11,7 @@ import { toast } from "../../../../services/toast";
 import { Badge, BusinessHeader } from "../../core/pages/ui";
 import { useOpenBusiness, useServerList } from "../../core/pages/hooks";
 import MembershipDialog from "./MembershipDialog";
+import { BringInDialog } from "./MemberExtras";
 import { dayWords, endWords, statusOf } from "./memberships";
 import "../../fashion/styles/business-fashion-electronics.css";
 import "../styles/memberships.css";
@@ -32,6 +33,7 @@ export default function MembersPage() {
   const [counts, setCounts] = useState(null);
   const canSell = biz.can("member_plans.create") && biz.can("sales.create");
   const [selling, setSelling] = useState(() => params.get("new") === "1" && canSell);
+  const [bringing, setBringing] = useState(false);
   useEffect(() => {
     if (params.get("new")) setParams((p) => { const next = new URLSearchParams(p); next.delete("new"); return next; }, { replace: true });
   }, [params, setParams]);
@@ -64,7 +66,8 @@ export default function MembersPage() {
     <div className="stack">
       <BusinessHeader icon="users" title="Members & plans"
         description="Every member with their current membership, its status today and its last day or sessions left. A member opens their page: renew, upgrade, freeze, pass on or cancel there."
-        primary={canSell && <button type="button" className="button" onClick={() => setSelling(true)}><Icon name="plus" size={16} /> Sell a membership</button>} />
+        primary={canSell && <button type="button" className="button" onClick={() => setSelling(true)}><Icon name="plus" size={16} /> Sell a membership</button>}
+        secondary={biz.can("member_plans.edit") && <button type="button" className="button button-secondary" onClick={() => setBringing(true)}>Bring in a membership</button>} />
       {counts && (
         <div className="stat-grid">
           <StatTile icon="users" tone="success" label="Active" value={String(counts.active)} note={counts.in_grace ? `and ${counts.in_grace} in their grace days` : undefined} />
@@ -86,6 +89,8 @@ export default function MembersPage() {
           exportName={biz.can("member_plans.export") ? `${biz.business.code}-members` : undefined}
           empty="No members yet" emptyHint={canSell ? "Sell a membership: the member gets a code with their first one." : undefined} emptyIcon="users" />
       </SectionCard>
+      {bringing && <BringInDialog onClose={() => setBringing(false)}
+        onSaved={(m) => { setBringing(false); toast.success(`${m.membership_no} brought in for ${m.member_name}.`); navigate(biz.path(`members/${m.contact_id}`)); }} />}
       {selling && <MembershipDialog mode="sell" onClose={() => setSelling(false)}
         onSaved={(m) => { setSelling(false); toast.success(`${m.membership_no} sold: ${m.plan_name} for ${m.member_name} (${m.member_code}).`); navigate(biz.path(`members/${m.contact_id}`)); }} />}
     </div>

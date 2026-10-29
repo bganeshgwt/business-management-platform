@@ -16,8 +16,10 @@ import "../styles/memberships.css";
 // on their card (a scanner types it and presses Enter), or their name or
 // phone searched; the answer comes at once in large type: let in (with the
 // plan, its last day or the sessions left, and grace days or a second visit
-// today said), or turned away with the reason. A member with a pack as well
-// can use a session of it instead. Today's check-ins are below.
+// today said), or turned away with the reason (another branch, outside the
+// plan's hours or its visits used among them). A member with a pack as well
+// can use a session of it instead; a class booked now is marked attended.
+// Today's check-ins are below.
 
 const CODE = /^[A-Za-z0-9][A-Za-z0-9-]{1,19}$/;
 
@@ -140,6 +142,9 @@ function Answer({ result: r, busy, onUse }) {
           : r.words}
         {r.fees_overdue ? ` (${biz.exact(r.fees_overdue)})` : ""}
       </p>
+      {(r.classes || []).length > 0 && (
+        <p className="mem-answer-words">Attended: {r.classes.map((k) => `${k.className} at ${k.time}${k.sessionUsed ? " (a session used)" : ""}`).join(", ")}</p>
+      )}
       <div className="form-actions bz-start">
         {(r.others || []).map((m) => (
           <button key={m.id} type="button" className="button button-secondary button-sm" disabled={busy || m.session_today} onClick={() => onUse(m)}>

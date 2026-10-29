@@ -152,6 +152,9 @@ const MembersPage = lazy(() => import("../../memberships/pages/MembersPage"));
 const MemberPage = lazy(() => import("../../memberships/pages/MemberPage"));
 const RenewalsPage = lazy(() => import("../../memberships/pages/RenewalsPage"));
 const PlansPage = lazy(() => import("../../memberships/pages/PlansPage"));
+const ClassesPage = lazy(() => import("../../memberships/pages/ClassesPage"));
+const LeadsPage = lazy(() => import("../../memberships/pages/LeadsPage"));
+const TrainerPayPage = lazy(() => import("../../memberships/pages/TrainerPayPage"));
 // Laundries and dry cleaners.
 const IntakePage = lazy(() => import("../../laundry/pages/IntakePage"));
 const GarmentOrdersPage = lazy(() => import("../../laundry/pages/GarmentOrdersPage"));
@@ -369,6 +372,9 @@ function screens(type) {
     "members": <MembersPage />,
     "renewals": <RenewalsPage />,
     "member-plans": <PlansPage />,
+    "member-classes": <ClassesPage />,
+    "member-leads": <LeadsPage />,
+    "member-pay": <TrainerPayPage />,
     "laundry-new": <IntakePage />,
     "garment-orders": <GarmentOrdersPage />,
     "ready-racks": <ReadyRacksPage />,

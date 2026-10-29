@@ -16,7 +16,8 @@ import { newKey, useOpenBusiness } from "../../core/pages/hooks";
 import MembershipDialog from "./MembershipDialog";
 import { CancelDialog, FreezeDialog, TransferDialog } from "./ChangeDialogs";
 import { printMembership } from "./membershipPrint";
-import { EVENT_WORDS, HOW, INSTALMENT_STATUSES, REASONS, dayWords, endWords, isRunning, messageLink, renewalMessage, runWords, statusOf } from "./memberships";
+import { BOOKING_STATUSES, EVENT_WORDS, HOW, INSTALMENT_STATUSES, REASONS, dayWords, endWords, isRunning, messageLink, renewalMessage, runWords, statusOf, termLines } from "./memberships";
+import { MembershipExtras, StudentCard } from "./MemberExtras";
 // A renewal reminder needs the member's consent to reminders (asked first, in one tap).
 import ConsentLink from "../../../personal-data/components/ConsentLink";
 import { useShopPrivacy } from "../../../personal-data/usePrivacy";
@@ -25,9 +26,12 @@ import "../styles/memberships.css";
 // One member on screen: their code and their memberships, the current ones
 // first, each with its terms as sold (the price, the policy version, the
 // freezes left), its bill and what is still to pay, its instalments, its
-// history and the steps this person may take (renew, upgrade, freeze or end
-// the freeze, pass it on, cancel); the member's last check-ins; a check-in
-// now; the membership slip with its policy and the member's code as a QR.
+// history and the steps this person may take (renew, change the plan, freeze
+// or end the freeze, pass it on, cancel), its seats, add-ons, fees, refunds
+// due and the signed policy (MemberExtras.jsx); the member's last check-ins
+// and classes; their details (date of birth, a student's school, guardians
+// and test results); a check-in now; the membership slip with its policy and
+// the member's code as a QR.
 
 export default function MemberPage() {
   const biz = useOpenBusiness();
@@ -86,9 +90,17 @@ export default function MemberPage() {
         )}>
         {!memberships.length && <p className="muted">No membership yet. Sell one to give {member.name} a member code.</p>}
         <div className="mem-cards">
-          {memberships.map((m) => <MembershipCard key={m.id} m={m} member={member} onDialog={(kind) => setDialog({ kind, m })} />)}
+          {memberships.map((m) => <MembershipCard key={m.id} m={m} member={member} onDialog={(kind) => setDialog({ kind, m })} onChanged={refresh} />)}
         </div>
       </SectionCard>
+      <StudentCard data={data} onChanged={refresh} />
+      {(data.classes || []).length > 0 && (
+        <SectionCard icon="calendar" title="Classes" description="The last 20 classes booked.">
+          <ul className="mem-list">
+            {data.classes.map((k) => <li key={k.id}>{k.class_name} · {dateTime(k.starts_at)} · <Badge tone={BOOKING_STATUSES[k.status]?.tone} label={BOOKING_STATUSES[k.status]?.label} /></li>)}
+          </ul>
+        </SectionCard>
+      )}
       <SectionCard flush icon="clock" title="Check-ins" description="The last 30, let in or turned away.">
         <DataGrid variant="compact" id="member-checkins" caption="Check-ins" rows={checkins} rowKey={(k) => k.id} rowNoun={["check-in", "check-ins"]}
           empty="No check-ins yet" columns={[
@@ -102,7 +114,7 @@ export default function MemberPage() {
       </SectionCard>
       {dialog?.kind === "sell" && <MembershipDialog mode="sell" member={member} onClose={() => setDialog(null)} onSaved={(r) => refresh(`${r.membership_no} sold: ${r.plan_name}.`)} />}
       {dialog?.kind === "renew" && <MembershipDialog mode="renew" member={member} membership={dialog.m} onClose={() => setDialog(null)} onSaved={(r) => refresh(`Renewed: ${r.membership_no} from ${dayWords(r.start_on)}.`)} />}
-      {dialog?.kind === "upgrade" && <MembershipDialog mode="upgrade" member={member} membership={dialog.m} onClose={() => setDialog(null)} onSaved={(r) => refresh(`Upgraded to ${r.plan_name} (${r.membership_no}).`)} />}
+      {dialog?.kind === "upgrade" && <MembershipDialog mode="upgrade" member={member} membership={dialog.m} onClose={() => setDialog(null)} onSaved={(r) => refresh(`Moved to ${r.plan_name} (${r.membership_no}).`)} />}
       {dialog?.kind === "freeze" && <FreezeDialog membership={dialog.m} onClose={() => setDialog(null)} onSaved={() => refresh(`${dialog.m.membership_no} frozen.`)} />}
       {dialog?.kind === "transfer" && <TransferDialog membership={dialog.m} onClose={() => setDialog(null)}
         onSaved={(r) => { setDialog(null); toast.success(`${dialog.m.membership_no} passed on to ${r.member_name} (${r.membership_no}).`); navigate(biz.path(`members/${r.contact_id}`)); }} />}
@@ -118,7 +130,7 @@ export default function MemberPage() {
   );
 }
 
-function MembershipCard({ m, member, onDialog }) {
+function MembershipCard({ m, member, onDialog, onChanged }) {
   const biz = useOpenBusiness();
   const privacy = useShopPrivacy();
   const status = statusOf(m);
@@ -139,7 +151,8 @@ function MembershipCard({ m, member, onDialog }) {
         <Badge tone={status.tone} label={status.label} />
       </header>
       <dl className="fe-facts">
-        <dt>Term</dt><dd>{m.term}{m.grace_days ? ` · ${m.grace_days} grace days` : ""}{m.transferable ? " · can be passed on" : ""}</dd>
+        <dt>Term</dt><dd>{m.term}{m.grace_days ? ` · ${m.grace_days} grace days` : ""}{m.transferable ? " · can be passed on" : ""}{Number(m.seats) > 1 ? ` · ${m.seats} seats` : ""}</dd>
+        {termLines(m, biz).map(([label, words]) => <Fragment key={label}><dt>{label}</dt><dd>{words}</dd></Fragment>)}
         {money && <><dt>Price as sold</dt><dd>{biz.exact(m.price)} ({biz.exact(m.price_net)} + GST {biz.exact(m.price_tax)}){Number(m.joining_fee) > 0 ? ` · joining fee ${biz.exact(m.joining_fee)}` : ""}</dd></>}
         {money && m.bill && <><dt>Bill</dt><dd><span className="mono">{m.bill.document_no}</span>
           {Number(m.bill.due) > 0 ? <span className="bz-minus"> · {biz.exact(m.bill.due)} to pay</span> : " · paid"}</dd></>}
@@ -153,11 +166,11 @@ function MembershipCard({ m, member, onDialog }) {
       </dl>
       <div className="form-actions bz-start">
         {renewable && canSell && <button type="button" className="button button-sm" onClick={() => onDialog("renew")}><Icon name="refresh" size={14} /> Renew</button>}
-        {running && canEdit && canSell && !m.transferred_from && <button type="button" className="button button-secondary button-sm" onClick={() => onDialog("upgrade")}>Upgrade</button>}
+        {running && canEdit && canSell && !m.transferred_from && m.origin === "sale" && <button type="button" className="button button-secondary button-sm" onClick={() => onDialog("upgrade")}>Change plan</button>}
         {running && canEdit && m.end_on && m.max_freezes > 0 && !freezing && m.freeze_left.freezes > 0 && m.freeze_left.days > 0 &&
           <button type="button" className="button button-secondary button-sm" onClick={() => onDialog("freeze")}><Icon name="clock" size={14} /> Freeze</button>}
         {freezing && canEdit && <button type="button" className="button button-secondary button-sm" onClick={() => onDialog("unfreeze")}>{freezing.current ? "End the freeze" : "Call off the freeze"}</button>}
-        {running && canEdit && m.transferable && m.status !== "frozen" && <button type="button" className="button button-secondary button-sm" onClick={() => onDialog("transfer")}><Icon name="users" size={14} /> Pass on</button>}
+        {running && canEdit && m.transferable && m.origin === "sale" && Number(m.seats) < 2 && m.status !== "frozen" && <button type="button" className="button button-secondary button-sm" onClick={() => onDialog("transfer")}><Icon name="users" size={14} /> Pass on</button>}
         {running && biz.can("member_plans.cancel") && <button type="button" className="button button-secondary button-sm" onClick={() => onDialog("cancel")}>Cancel</button>}
         {member.phone && m.end_on && !m.closed && (
           <ConsentLink privacy={privacy} purpose="reminders" person={{ id: member.id, name: member.name }} href={messageLink(member.phone, text)}
@@ -181,6 +194,7 @@ function MembershipCard({ m, member, onDialog }) {
             render: (i) => <Badge tone={INSTALMENT_STATUSES[i.status]?.tone} label={`${INSTALMENT_STATUSES[i.status]?.label}${i.days_overdue ? ` · ${i.days_overdue} days` : ""}`} /> },
         ].filter(Boolean)} />
       )}
+      <MembershipExtras m={m} member={member} onChanged={onChanged} />
       {m.events?.length > 0 && (
         <details className="mem-history">
           <summary>History ({m.events.length})</summary>

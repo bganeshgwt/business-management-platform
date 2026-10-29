@@ -4694,9 +4694,10 @@ members. A new one starts with **Plans & memberships** on. Recommended in
 Settings › Business tools: **Appointments** (personal-training sessions and
 trial classes, under *Sessions & trials*); offers, loyalty and stock for a shop
 counter can be switched on too. The front desk's **Check-in** is a daily entry
-of its own; **Members** holds the members with their memberships, the renewal
-calls (*Renewals*) and the contacts behind them (*Member contacts*); the plans
-are under *Settings › Membership plans*.
+of its own, with the week's **Classes** beside it; **Members** holds the
+members with their memberships, the renewal calls (*Renewals*), the contacts
+behind them (*Member contacts*) and the **Enquiries**; the plans are under
+*Settings › Membership plans*, and trainers' pay under *Reports › Trainer pay*.
 
 **Before trading:**
 
@@ -4721,19 +4722,34 @@ are under *Settings › Membership plans*.
    is turned away at the desk; change the days, or switch it off, on the same
    screen.
 5. **Trainers** — a staff login for each with the **Trainer** role (*Staff &
-   access*): they check members in and see personal-training sessions, and
-   see no money.
-6. **A coaching centre** — the Ministry of Education's Guidelines for
+   access*): they check members in, book classes and mark attendance, and see
+   personal-training sessions, and see no money. Each trainer is also listed
+   under *Settings › Trainers & studios*, as their sessions and
+   classes are booked to them; their rates are set under *Reports › Trainer
+   pay*.
+6. **Classes** — *Check-in › Classes*, *Timetable*: the rooms with their
+   places, then each class on its weekday and time, with its room, instructor,
+   places, when booking opens (hours before), the cancel cut-off (hours
+   before) and its waitlist. The penalty for a late cancel or a no-show (none,
+   a session off the pack, or a fee) is in *Settings › Membership plans*.
+7. **Members from another system** — *Members*, *Bring in a membership*: each
+   running membership with its first day, its last day or the sessions left,
+   and what was paid there. No bill is made and it is never a sale.
+8. **A coaching centre** — the Ministry of Education's Guidelines for
    Registration and Regulation of Coaching Centre 2024 (advisory: each state
    puts them in force) ask, as reported, for a receipt for every fee paid, a
    course fee that is not raised while the course runs, and a pro-rata refund
    within 10 days for a student who leaves midway. Sell each course as a plan
    by months, with its fee in instalments if paid in parts (each payment is a
    numbered receipt); its price is kept as sold for the whole course; and
-   cancel a student's membership on the day they leave, with its refund. A
+   cancel a student's membership on the day they leave, with its refund (paid
+   that day, or on a later day within the 10). Keep each student's date of
+   birth, school and class, guardians and test results on their page. A late
+   fee on an instalment is set on the plan and shown before the sale. A
    state's own law can add more (Rajasthan's Assembly passed a coaching
    centres bill in September 2025, and Assam's cabinet approved one in March
-   2025): check with an adviser where the centre works.
+   2025): check with an adviser where the centre works; the state rules are
+   not checked by the software.
 
 **The screens:**
 
@@ -4742,22 +4758,47 @@ are under *Settings › Membership plans*.
   them by name or phone. The answer comes in large type: *is in*, with the
   plan, its last day or the sessions left, and grace days or a second visit
   today said; or turned away, with the reason: no membership, not started
-  yet, membership over (its grace days past too), frozen, no sessions left, or
-  fees overdue. A pack loses one session a day: coming back the same day uses
-  none. A member who also holds a pack can use a session of it instead (*Use
-  …*). Every check-in is kept, let in or not: *Today's check-ins* below.
+  yet, membership over (its grace days past too), frozen, no sessions left,
+  another branch (the plan is for other branches), outside its hours, visits
+  used up (the plan's visits a day, a week, a month or in all), or fees
+  overdue. A pack loses one session a day: coming back the same day uses
+  none, and on a day with a class booked on the pack the class takes it. A
+  class the member booked that starts within the hour (or began up to half an
+  hour ago) is marked attended. Each member using a seat of a shared
+  membership checks in with their own code. A member who also holds a pack can
+  use a session of it instead (*Use …*). Every check-in is kept, let in or
+  not: *Today's check-ins* below.
+- **Classes** (*Check-in › Classes*) — the week's classes, day by day, each with
+  its time, room, instructor and places booked; *Week before* and *Week after*
+  move through the weeks. A class opens its class list: *Book a member* (by
+  name, phone or code; on a membership that runs that day, books that class,
+  is for that branch and hour, and on a pack has a session left beyond those
+  booked); a full class puts the member on its waitlist while it has room.
+  *Cancel* before the class begins: free before the cut-off, a late cancel
+  after it (with the shop's penalty); the first on the waitlist is promoted
+  when a place frees. *Attended* takes a session off a pack; *No-show* (once
+  the class has begun) takes the penalty. *Call off* cancels every booking
+  without a penalty. *Timetable* holds the rooms and the weekly classes; a
+  change makes again the classes to come that nobody has booked.
 - **Members** (*Members*) — every member with their current membership (a
   plan by time before a pack, the one ending first), its status today
   (*Active*, *Frozen*, *Not started yet*, *In grace days*, *Over*, *Used up*,
   *Cancelled*, *Transferred*, *Upgraded*), its last day or the sessions left,
   what they owe and their last check-in, with the day's figures above.
   *Sell a membership*: a member already saved, or *A new member* (name and
-  phone); the plan; the day it starts (today or later, within 180 days); the
-  joining fee, ticked for a member's first membership; a discount, for those
-  who may give one; what is paid now, the rest staying on the member's dues;
-  and *The fee in instalments*. The bill is worked out by the server as it
-  will be posted (the plan's price, the member's own prices, offers, GST) and
-  shown as it changes. A member gets a code (*M0001*) with their first
+  phone); the plan; the day it starts (today or later, within 180 days); who
+  sold it (*Sold by*, for their commission) and the trainer it counts for; a
+  shared plan's seats (the member holding it takes the first; *A member for a
+  seat* or *A new member for a seat* for the others); add-ons (a locker with
+  its number, a towel, a diet plan, a personal-training pack: each a service
+  item, ending with the membership); the joining fee, ticked for a member's
+  first membership; a discount, for those who may give one; what is paid now,
+  the rest staying on the member's dues; and *The fee in instalments*. The
+  bill is worked out by the server as it will be posted (the plan's price, the
+  member's own prices, offers, GST) and shown as it changes, with the terms to
+  tell the member (visits, hours, seats, the freeze and transfer fees, the
+  late fee on an instalment). *Bring in a membership* enters one running in
+  another system, with no bill. A member gets a code (*M0001*) with their first
   membership; *Member code*, on their page, changes it to the number on a card
   they already hold. Memberships are numbered *MS/2627/0001* (Settings ›
   Number series). A plan's item goes on a bill only from here: a bill made
@@ -4771,41 +4812,80 @@ are under *Settings › Membership plans*.
   - *Renew* — a new membership, of the same plan or another, from the day
     after this one ends (while it runs or within its grace days; once they
     are past, from today).
-  - *Upgrade* — to another plan from today: the part of this membership not
-    used comes back as a credit note on its bill, and what the member paid
-    beyond what is now due on it pays the new bill first; the figures show
-    before anything is posted. A credit bigger than the new plan's bill is
-    refused: that is a cancellation with its refund, then a new sale.
-  - *Freeze* — from today or a day within 60 days, for some days, within the
-    freezes and the days in all its plan allows; its last day moves on by
-    them. *End the freeze* when the member comes back early gives the days
-    back, and a freeze still to come can be called off (it does not count). A
-    membership followed by its renewal is not frozen.
-  - *Pass on* — when its plan allows it, it is not frozen and its bill is
-    paid: what is left (to its last day, its sessions and its freezes) goes to
-    another member from today, on the same bill; this membership closes as
-    transferred.
+  - *Change plan* — to another plan from today, dearer or cheaper: the part of
+    this membership not used comes back as a credit note on its bill, and
+    what the member paid beyond what is now due on it pays the new bill
+    first; the figures show before anything is posted. On a cheaper plan,
+    *What is left over* either stays with the member as credit, or goes back
+    to them (now, or on a day: *Refund on*) with a manager's PIN.
+  - *Freeze* — from today or a day within 60 days (after the plan's days of
+    notice), for some days, within the freezes and the days in all its plan
+    allows; its last day moves on by them, and a renewal after it moves on
+    with it. The plan's freeze fee is billed (*The fee … is paid now*, or left
+    on the dues). *End the freeze* when the member comes back early gives the
+    days back (and moves the renewal back), and a freeze still to come can be
+    called off (it does not count).
+  - *Pass on* — when its plan allows it, it is not frozen, its bill is paid
+    and it is not shared: what is left (to its last day, its sessions and its
+    freezes) goes to another member from today, on the same bill; this
+    membership closes as transferred, and the plan's transfer fee is billed
+    to the member passing it on.
   - *Cancel* — with a reason. What comes back is worked out on the screen: the
     days used (from its first day to today, less the days frozen) or the
     sessions used, and the part of the price as billed that was not used (for
     sessions within a time, the smaller of the two parts left), or less if the
-    policy keeps a part; the joining fee too if chosen. It comes back as a
-    credit note on its bill, and what the member paid beyond what is then due
-    is refunded (cash, UPI, card or bank); what they had not paid yet is
-    simply owed less. A manager approves it with their PIN. A membership
-    passed on by another member gives nothing back: its bill is theirs.
+    policy keeps a part; the joining fee too if chosen, up to the plan's share
+    of it (or a part of that). It comes back as a credit note on its bill,
+    and what the member paid beyond what is then due is refunded (cash, UPI,
+    card or bank) now, or on a later day (*Paid on a later day*: a refund due,
+    on the bell and in *Renewals › Refunds due* until paid); what they had
+    not paid yet is simply owed less. A manager approves it with their PIN. A
+    membership passed on by another member, brought in or a trial pass gives
+    nothing back.
   - *Membership slip* prints the member's code as a QR, the plan and its terms
     and the refund policy of the version sold, for the member to sign;
-    *The bill* prints its invoice; *WhatsApp* opens a renewal message.
+    *The member signs the policy* takes the signature on the screen instead,
+    kept with the version; *The bill* prints its invoice; *WhatsApp* opens a
+    renewal message.
+  - Below the steps: a shared membership's seats (*Give a seat*, *Give up*),
+    its add-ons (*Add-on* sells one on its own bill) with the day they end,
+    the fees billed on it, money to go back (*Pay it*), *Change the
+    instalments* (a manager: due days and amounts, the total kept, the old
+    schedule kept) and *Bill the late fee* on an instalment overdue past the
+    plan's days.
+
+  Below the memberships, *Details and progress*: the member's date of birth
+  (with the age), a student's school and class, guardians (each with a phone
+  and whether they agreed to WhatsApp) and test results with their marks as
+  a progress bar; and the classes booked lately.
 - **Renewals** (*Members › Renewals*) — the calls to make: memberships ending
   in the next 7 or 15 days, and those that ended in the last 30, not yet
   renewed and with nothing else running after them (a renewal not started yet
   is listed too when it ends within those days). WhatsApp opens with the
   message ready (or a call), and each reminder is kept with how many were
-  given; *Renew* sells the renewal from the row. *Fees due* lists each
-  instalment falling due or overdue with what is left of it to pay; *Collect*
-  takes it as a numbered receipt set against its bill (the shared
-  collections).
+  given; *Renew* sells the renewal from the row. *Grace days ending*,
+  *Sessions running low* (packs with as few sessions left as the business's
+  setting) and *Birthdays* (the next seven days) each have a WhatsApp message
+  ready; a birthday wish needs the member's consent to offers, the others to
+  reminders. *Fees due* lists each instalment falling due or overdue with
+  what is left of it to pay; *Collect* takes it as a numbered receipt set
+  against its bill (the shared collections). *Refunds due* lists the money to
+  go back to members, with *Pay it*.
+- **Enquiries** (*Members › Enquiries*) — *Add an enquiry*: the name and phone,
+  how they came (walked in, a call, WhatsApp, social media, the website, a
+  member's referral), what they want and the day to follow up. *To follow up*
+  lists those due today or before; *Follow up* notes the call and the next
+  day, or closes it as lost with why. *Trial pass* gives a pass of 1 to 30
+  days (and visits, if given) of a plan: it checks in like a membership, with
+  no bill and no mandate, one per person. *Make a member* sells the membership
+  from the enquiry, which closes as the member they became.
+- **Trainer pay** (*Reports › Trainer pay*) — each trainer's and
+  salesperson's month: the classes taken (with someone attending), the
+  personal-training sessions given, the personal-training and other plans
+  sold (before GST, less credits), and the pay worked out from their rate;
+  *Pay* records it in the expense book as wages, once a month per person.
+  *Set a rate*: a trainer's fixed sum a month, per class, per personal-training
+  session and shares of sales, or a salesperson's shares, from a month on.
 - **Fees in instalments** — on a sale, *The fee in instalments* splits the bill
   into 2 to 36 parts, one a month from a day, each part's day and amount
   editable; they must add up to the bill exactly, and the bill falls due on
@@ -4817,21 +4897,32 @@ are under *Settings › Membership plans*.
   before GST with its GST slab and SAC (the plan is made as a service item of
   its own, named as the plan), or an existing service item; the joining fee
   item; how many freezes and how many days in all (none for a pack with no end
-  date); grace days after the last day; whether it can be passed on; and its
-  refund policy. A change applies to memberships sold from then on; a changed
+  date), with a freeze fee and days of notice; grace days after the last day;
+  whether it can be passed on, with a transfer fee; visits allowed (a day, a
+  week, a month or in all); the hours and branches it lets a member in; seats
+  (2 for a couple, more for a family or a company); the classes it books;
+  whether it is personal training; a late fee on an instalment overdue past
+  some days; the part of the joining fee that can come back; and its refund
+  policy. A change applies to memberships sold from then on; a changed
   policy becomes its next version. A plan is switched off (*Sold* unticked),
-  never deleted. *Fees overdue at check-in*: the days (7 to start with), or
-  *Never turn a member away for fees*.
+  never deleted. *Check-in, classes and reminders*: the days overdue that turn
+  a member away (7 to start with), or *Never turn a member away for fees*; the
+  penalty for a late cancel and for a no-show, and the penalty fee; and the
+  sessions left that count as running low (2).
 - **The bell** — memberships ending in the next three days or in their grace
-  days, and instalments overdue.
+  days, instalments overdue, and money to go back to members until it is
+  paid.
 
 Who does what: a cashier at the front desk checks members in, sells and
-renews memberships, freezes, passes on and upgrades them; the **Trainer**, a
-gym's, studio's or coaching centre's own role, sees members, their plans and
-check-ins, checks members in, and sees personal-training sessions and marks
+renews memberships, freezes, passes on and changes their plans, books classes,
+keeps the enquiries and gives trial passes, and keeps the timetable and the
+students' details; the **Trainer**, a gym's, studio's or coaching centre's own
+role, sees members, their plans and check-ins, checks members in, books
+classes and marks attendance, and sees personal-training sessions and marks
 them done or missed, with no prices and no money; a manager does all of it,
-cancels memberships and approves with their PIN what a cancellation gives
-back; an accountant and a viewer see the screens and export them.
+cancels memberships, approves with their PIN what a cancellation or a move to
+a cheaper plan gives back, changes instalment schedules, and sets and pays
+trainers' pay; an accountant and a viewer see the screens and export them.
 
 ## Laundry & dry cleaning
 

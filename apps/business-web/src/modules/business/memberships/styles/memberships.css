@@ -193,7 +193,129 @@
   min-width: 160px;
 }
 
+/* A membership's seats, add-ons, fees, refunds and signatures. */
+.mem-extras {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+.mem-extra {
+  flex-basis: 100%;
+  font-size: var(--text-sm);
+}
+.mem-list {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-4);
+  font-size: var(--text-sm);
+}
+.mem-list li {
+  margin-bottom: var(--space-1);
+}
+.mem-signature {
+  max-width: 100%;
+  max-height: 240px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.mem-seats,
+.mem-addons,
+.mem-branches {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+}
+
+/* A student's test results as progress. */
+.mem-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+.mem-progress-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.2fr) 2fr auto auto;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--text-sm);
+}
+.mem-progress-bar {
+  height: 8px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.mem-progress-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+}
+.mem-progress-remarks {
+  grid-column: 1 / -1;
+}
+
+/* The week's classes. */
+.mem-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.mem-day h3 {
+  font-size: var(--text-sm);
+  margin: 0 0 var(--space-2);
+}
+.mem-class {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-2);
+  margin-bottom: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.mem-class small {
+  color: var(--text-2);
+}
+.mem-class:hover {
+  background: var(--surface-hover);
+}
+.mem-class.is-open {
+  border-color: var(--primary);
+}
+.mem-class.is-off {
+  opacity: 0.6;
+}
+.mem-book {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: flex-end;
+  padding: var(--space-3);
+}
+.mem-book > :first-child {
+  flex: 1 1 260px;
+}
+
+@media (max-width: 900px) {
+  .mem-week {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 640px) {
+  .mem-progress-row {
+    grid-template-columns: 1fr;
+  }
   .mem-checkin {
     flex-direction: column;
   }

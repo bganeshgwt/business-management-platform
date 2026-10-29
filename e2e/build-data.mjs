@@ -585,7 +585,12 @@ export async function buildTestData({ api, logins, sql }) {
       payments: [{ amount: "full", method: "cash" }] }, 201);
     const sold = await sell(monthly.id, MEMBERSHIPS.member);
     const tried = await sell(trial.id, MEMBERSHIPS.trialMember);
+    // A trainer of Trainers & studios, paid a fixed sum a month from this month.
+    const coach = await owner("POST", B("resources"), { locationId: businesses.memberships.locationId, name: MEMBERSHIPS.trainer.name, roleLabel: "Trainer" }, 201);
+    const month = new Date().toLocaleDateString("en-CA", { timeZone: TIMEZONE }).slice(0, 7);
+    await owner("POST", B("member-plans/pay/rules"), { trainerId: coach.id, fromMonth: month, fixedMonthly: String(MEMBERSHIPS.trainer.fixedMonthly) }, 201);
     Object.assign(businesses.memberships, {
+      trainer: { id: coach.id, name: coach.name },
       monthly: { id: monthly.id, name: monthly.name }, yoga: { id: yoga.id, name: yoga.name }, trial: { id: trial.id, name: trial.name },
       member: { id: sold.contact_id, name: sold.member_name, code: sold.member_code, membershipId: sold.id, membershipNo: sold.membership_no },
       trialMember: { id: tried.contact_id, name: tried.member_name, code: tried.member_code, membershipId: tried.id, membershipNo: tried.membership_no },

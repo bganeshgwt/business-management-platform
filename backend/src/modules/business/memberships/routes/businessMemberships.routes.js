@@ -9,6 +9,10 @@ const memberships = require('../services/memberships.service');
 const changes = require('../services/memberChanges.service');
 const checkins = require('../services/memberCheckins.service');
 const renewals = require('../services/memberRenewals.service');
+const account = require('../services/memberAccount.service');
+const classes = require('../services/memberClasses.service');
+const pay = require('../services/memberPay.service');
+const people = require('../services/memberPeople.service');
 
 // Gyms, studios and coaching centres, added to the Business Admin router so
 // they share its login, membership, module and permission checks (context)
@@ -22,6 +26,15 @@ const renewals = require('../services/memberRenewals.service');
 //   /:businessId/member-plans/renewals        memberships ending soon or ended lately, not yet renewed
 //   /:businessId/member-plans/instalments     fees in instalments, due and overdue
 //   /:businessId/member-plans/counts|approvers  the day's picture; who may approve what a cancellation gives back
+//   /:businessId/member-plans/memberships/brought-in  a running membership from another system (no bill)
+//   /:businessId/member-plans/memberships/:id/seats|addons|instalments|late-fee  a shared membership's seats, add-ons, the schedule, a late fee
+//   /:businessId/member-plans/refunds…        refunds due, and paying one
+//   /:businessId/member-plans/rooms|class-slots|classes…  rooms, the weekly timetable, the classes and their bookings and attendance
+//   /:businessId/member-plans/pay…            trainers' pay and sales commission: rules, the month, payouts
+//   /:businessId/member-plans/members/:contactId/profile|guardians|results, /guardians/:id, /results/:id  a student's details
+//   /:businessId/member-plans/leads…          enquiries, the follow-up list, trial passes
+//   /:businessId/member-plans/birthdays|sessions-low|grace-end  the reminder lists
+// The member's signed acceptance of the refund policy is a file: memberUploads.routes.js.
 // Another type of business never has the module, so `context` refuses it;
 // the services repeat every check and answer 404 for another type.
 
@@ -84,4 +97,59 @@ module.exports = function membershipsRoutes(router, { context, send, b }) {
   // Renewal calls and fees due.
   list('/member-plans/renewals', 'member-renewals', 'member_plans.view', null, memberships.listShape);
   list('/member-plans/instalments', 'member-instalments', 'member_plans.view', seesSales);
+  // The reminder lists: birthdays, packs running low, grace days ending.
+  list('/member-plans/birthdays', 'member-birthdays', 'member_plans.view');
+  list('/member-plans/sessions-low', 'member-sessions-low', 'member_plans.view', null, memberships.listShape);
+  list('/member-plans/grace-end', 'member-grace-end', 'member_plans.view', null, memberships.listShape);
+
+  // Brought in from another system; and a membership's seats, add-ons, schedule and late fee.
+  router.post(b('/member-plans/memberships/brought-in'), context('member_plans.edit'), async (req, res) => send(res, await memberships.bringIn(req.business, req.user, req.body), 201));
+  router.post(b('/member-plans/memberships/:id/seats'), context('member_plans.edit'), async (req, res) => send(res, await account.addSeat(req.business, req.user, req.params.id, req.body), 201));
+  router.post(b('/member-plans/memberships/:id/seats/:seatId/remove'), context('member_plans.edit'), async (req, res) =>
+    send(res, await account.removeSeat(req.business, req.user, req.params.id, req.params.seatId)));
+  router.post(b('/member-plans/memberships/:id/addons'), context('member_plans.create'), async (req, res) => send(res, await account.addAddon(req.business, req.user, req.params.id, req.body), 201));
+  router.put(b('/member-plans/memberships/:id/instalments'), context('member_plans.approve'), async (req, res) =>
+    send(res, await account.changeInstalments(req.business, req.user, req.params.id, req.body)));
+  router.post(b('/member-plans/memberships/:id/late-fee'), context('member_plans.edit'), async (req, res) => send(res, await account.lateFee(req.business, req.user, req.params.id, req.body), 201));
+
+  // Refunds due.
+  list('/member-plans/refunds', 'member-refunds', 'member_plans.view', seesSales);
+  router.post(b('/member-plans/refunds/:id/pay'), context('member_plans.refund'), async (req, res) => send(res, await account.payRefund(req.business, req.user, req.params.id, req.body)));
+
+  // Classes: rooms, the weekly timetable, the classes of the days, bookings and attendance.
+  router.get(b('/member-plans/rooms'), context('member_plans.view'), async (req, res) => send(res, await classes.rooms(req.business)));
+  router.post(b('/member-plans/rooms'), context('member_plans.edit'), async (req, res) => send(res, await classes.saveRoom(req.business, req.user, null, req.body), 201));
+  router.put(b('/member-plans/rooms/:id'), context('member_plans.edit'), async (req, res) => send(res, await classes.saveRoom(req.business, req.user, req.params.id, req.body)));
+  router.get(b('/member-plans/class-slots'), context('member_plans.view'), async (req, res) => send(res, await classes.slots(req.business)));
+  router.post(b('/member-plans/class-slots'), context('member_plans.edit'), async (req, res) => send(res, await classes.saveSlot(req.business, req.user, null, req.body), 201));
+  router.put(b('/member-plans/class-slots/:id'), context('member_plans.edit'), async (req, res) => send(res, await classes.saveSlot(req.business, req.user, req.params.id, req.body)));
+  router.get(b('/member-plans/classes'), context('member_plans.view'), async (req, res) => send(res, await classes.week(req.business, req.query)));
+  router.get(b('/member-plans/classes/:id'), context('member_plans.view'), async (req, res) => send(res, await classes.session(req.business, req.params.id)));
+  router.post(b('/member-plans/classes/:id/bookings'), context('member_plans.create'), async (req, res) => send(res, await classes.book(req.business, req.user, req.params.id, req.body), 201));
+  router.post(b('/member-plans/classes/:id/call-off'), context('member_plans.edit'), async (req, res) => send(res, await classes.callOff(req.business, req.user, req.params.id, req.body)));
+  router.post(b('/member-plans/class-bookings/:id/cancel'), context('member_plans.create'), async (req, res) => send(res, await classes.cancelBooking(req.business, req.user, req.params.id)));
+  router.post(b('/member-plans/class-bookings/:id/attendance'), context('member_plans.create'), async (req, res) =>
+    send(res, await classes.mark(req.business, req.user, req.params.id, req.body)));
+
+  // Trainers' pay and sales commission.
+  router.get(b('/member-plans/pay'), context('member_plans.manage'), async (req, res) => send(res, await pay.report(req.business, req.query)));
+  router.get(b('/member-plans/pay/rules'), context('member_plans.manage'), async (req, res) => send(res, await pay.rules(req.business)));
+  router.post(b('/member-plans/pay/rules'), context('member_plans.manage'), async (req, res) => send(res, await pay.addRule(req.business, req.user, req.body), 201));
+  router.post(b('/member-plans/pay/payouts'), context('member_plans.manage'), async (req, res) => send(res, await pay.payout(req.business, req.user, req.body), 201));
+
+  // A student's details, guardians and test results.
+  router.put(b('/member-plans/members/:contactId/profile'), context('member_plans.edit'), async (req, res) =>
+    send(res, await people.saveProfile(req.business, req.user, req.params.contactId, req.body)));
+  router.post(b('/member-plans/members/:contactId/guardians'), context('member_plans.edit'), async (req, res) =>
+    send(res, await people.addGuardian(req.business, req.user, req.params.contactId, req.body), 201));
+  router.put(b('/member-plans/guardians/:id'), context('member_plans.edit'), async (req, res) => send(res, await people.updateGuardian(req.business, req.user, req.params.id, req.body)));
+  router.post(b('/member-plans/members/:contactId/results'), context('member_plans.edit'), async (req, res) =>
+    send(res, await people.addResult(req.business, req.user, req.params.contactId, req.body), 201));
+  router.put(b('/member-plans/results/:id'), context('member_plans.edit'), async (req, res) => send(res, await people.updateResult(req.business, req.user, req.params.id, req.body)));
+
+  // Enquiries and trial passes.
+  list('/member-plans/leads', 'member-leads', 'member_plans.view');
+  router.post(b('/member-plans/leads'), context('member_plans.create'), async (req, res) => send(res, await people.addLead(req.business, req.user, req.body), 201));
+  router.put(b('/member-plans/leads/:id'), context('member_plans.create'), async (req, res) => send(res, await people.updateLead(req.business, req.user, req.params.id, req.body)));
+  router.post(b('/member-plans/leads/:id/trial'), context('member_plans.create'), async (req, res) => send(res, await people.trial(req.business, req.user, req.params.id, req.body), 201));
 };

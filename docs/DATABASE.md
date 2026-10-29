@@ -1093,7 +1093,7 @@ Linked sections: [data model §1](BUSINESS_PLATFORM_DATA_MODEL.md#1-platform) an
 Purpose: the permission catalogue. Each row is one `<module>.<action>` pair; the codes are listed under [Business permission codes](#business-permission-codes).
 Key columns: `code` (TEXT PK), `module_code` -> `platform_modules`, `action` (view, create, edit, approve, cancel, refund, export, print, discount, assign, review, manage, view_clinical, edit_clinical), `name`, `sort_order`.
 Rules: UNIQUE (`module_code`, `action`). CHECK `code = module_code || '.' || action`. The action CHECK lists every value, so a migration that adds an action rewrites the whole list.
-Added by: 1791300000001 business-roles-and-permissions; codes also from 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791540000000, 1791580000000, 1791620000000, 1791620001000, 1791620002000, 1791620004000, 1791950400000, 1791961000000, 1791962000000, 1791963000000, 1791964000000, 1791965000000, 1791966000000, 1791967000000, 1791968000000, 1791969000000, 1791970000000, 1791977000000 and 1791979050000.
+Added by: 1791300000001 business-roles-and-permissions; codes also from 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791540000000, 1791580000000, 1791620000000, 1791620001000, 1791620002000, 1791620004000, 1791950400000, 1791961000000, 1791962000000, 1791963000000, 1791964000000, 1791965000000, 1791966000000, 1791967000000, 1791968000000, 1791969000000, 1791970000000, 1791977000000, 1791979050000 and memberships-more (`member_plans.manage`).
 
 #### `business_role_templates`
 Purpose: the standard roles the platform defines once: owner, manager, cashier, stock_keeper, accountant and viewer for every type, plus pharmacist for a pharmacy, doctor, lab_technician and pathologist for healthcare, optometrist for an optical shop, mechanic for a garage, trainer for a gym, studio or coaching centre, karigar for a jeweller, pump_attendant for a fuel station, and front_desk and housekeeping for a hotel, lodge or guest house.
@@ -3173,22 +3173,23 @@ Rules: UNIQUE (business, expense) and (business, request key); index `garage_com
 
 ## Gyms, studios & coaching
 
-A gym's, studio's or coaching centre's own tables (type `memberships`), added by 1791965000000 memberships. Module `member_plans` ("Plans & memberships", optional, memberships only, on) needs catalog, contacts and sales; permissions `member_plans.view`, `member_plans.create` (check members in; sell and renew memberships), `member_plans.edit` (set up plans; freeze, transfer and upgrade memberships), `member_plans.approve` (approve what a cancellation gives back), `member_plans.cancel`, `member_plans.refund` and `member_plans.export`. The role template `trainer` is given to these businesses only (`business_role_templates.business_types`). Memberships are numbered in the series kind `membership` (prefix `MS`). A plan is sold as a service item of its own (`catalog_skus`); a membership's bill is an ordinary sale (`business_documents`), and what a cancellation or an upgrade gives back is an ordinary credit note (`business_returns`) with, for a cancellation, an ordinary refund (`business_refunds`). The trigger `business_return_lines_member_plan` (function `member_plan_line_return`) on `business_return_lines` refuses a return of a bill line that sold a membership (its plan's or its joining fee's) unless the return's request key is the membership's own `credit_key`.
+A gym's, studio's or coaching centre's own tables (type `memberships`), added by 1791965000000 memberships. Module `member_plans` ("Plans & memberships", optional, memberships only, on) needs catalog, contacts and sales; permissions `member_plans.view`, `member_plans.create` (check members in; sell and renew memberships), `member_plans.edit` (set up plans; freeze, transfer and upgrade memberships), `member_plans.approve` (approve what a cancellation gives back), `member_plans.cancel`, `member_plans.refund`, `member_plans.export` and `member_plans.manage` (trainers' pay and commission, added by memberships-more). The classes, trainers' pay, plan options, fees, refunds due, members brought in, students and enquiries are added by the migration memberships-more. The role template `trainer` is given to these businesses only (`business_role_templates.business_types`). Memberships are numbered in the series kind `membership` (prefix `MS`). A plan is sold as a service item of its own (`catalog_skus`); a membership's bill is an ordinary sale (`business_documents`), and what a cancellation or an upgrade gives back is an ordinary credit note (`business_returns`) with, for a cancellation, an ordinary refund (`business_refunds`). The trigger `business_return_lines_member_plan` (function `member_plan_line_return`) on `business_return_lines` refuses a return of a bill line that sold a membership (its plan's or its joining fee's) unless the return's request key is the membership's own `credit_key`.
 
 #### `member_settings`
-Purpose: when overdue fees turn a member away at check-in, and the last member code given out.
-Key columns: PK `business_id`, `dues_block_days` (0-365, default 7; NULL: never), `last_member_no`, `updated_by`, `updated_at`. 7 days are used until the row is made (on first save, or with the first member code).
-Added by: 1791965000000.
+Purpose: when overdue fees turn a member away at check-in, the class penalties, when a pack runs low, and the last member code given out.
+Key columns: PK `business_id`, `dues_block_days` (0-365, default 7; NULL: never), `late_cancel_penalty` and `no_show_penalty` (none, session, fee; default none), `penalty_fee` (>= 0; > 0 when a penalty is a fee: CHECK `member_settings_penalty_fee`), `low_sessions` (1-100, default 2), `last_member_no`, `updated_by`, `updated_at`. The defaults are used until the row is made (on first save, or with the first member code).
+Added by: 1791965000000; memberships-more (the penalties, `penalty_fee`, `low_sessions`).
 
 #### `member_plan_types`
 Purpose: a plan the business sells.
-Key columns: `name` (unique index `member_plan_types_name` on the business and the name in any case), `kind` (duration, sessions, both), `duration_unit` (days, months) and `duration` (at most 3,660 days or 120 months), `sessions` (1-1,000), `price_sku_id`, `joining_sku_id`, `max_freeze_days` (0-365), `max_freezes` (0-12), `grace_days` (0-90), `transferable`, `policy_version`, `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Key columns: `name` (unique index `member_plan_types_name` on the business and the name in any case), `kind` (duration, sessions, both), `duration_unit` (days, months) and `duration` (at most 3,660 days or 120 months), `sessions` (1-1,000), `price_sku_id`, `joining_sku_id`, `max_freeze_days` (0-365), `max_freezes` (0-12), `grace_days` (0-90), `transferable`, `policy_version`, `active`, `created_by`/`created_at`, `updated_by`/`updated_at`; the options (memberships-more): `visit_limit` (1-1,000) and `visit_period` (day, week, month, total; both or neither), `access_locations` (branch ids, 1-50; NULL: every branch), `access_from` and `access_to` (times of day, both or neither, the first earlier), `seats` (1-50, default 1), `class_names` (NULL: every class; empty: none), `personal_training`, `freeze_fee`, `freeze_notice_days` (0-60), `transfer_fee`, `late_fee` and `late_fee_after_days` (0-90), `joining_refund_percent` (0-100, default 100).
 Relations: (`business_id`, `price_sku_id`) and (`business_id`, `joining_sku_id`) -> `catalog_skus`; (`business_id`, `id`, `policy_version`) -> `member_plan_policies` (deferrable, checked at the end of the transaction: `member_plan_types_policy_fkey`).
 Rules:
 - CHECK a duration and its unit exactly unless a pack of sessions; sessions exactly unless a plan by time; the joining fee item not the price item; freezes and freeze days both or neither, and none on a pack of sessions.
 - UNIQUE (business, price item).
 - Trigger `member_plan_types_check`: never deleted; keeps its price item, who made it and when; starts at policy version 1 and goes up one at a time; the price item is a service of the business and not a kit, and no other plan's joining fee; the joining fee is a service, not a kit, and no plan's price item.
-Added by: 1791965000000.
+- CHECK `member_plan_types_visits` and `member_plan_types_hours` (memberships-more).
+Added by: 1791965000000; memberships-more (the options).
 
 #### `member_plan_policies`
 Purpose: every version of a plan's refund policy, as it was written.
@@ -3198,23 +3199,23 @@ Rules: trigger `member_plan_policies_append_only` (function `member_append_only`
 Added by: 1791965000000.
 
 #### `member_profiles`
-Purpose: a member's code, for their card and the desk.
-Key columns: PK (`business_id`, `contact_id`), `member_code` (`^[A-Z0-9][A-Z0-9-]{1,19}$`), `created_by`/`created_at`, `updated_by`/`updated_at`.
+Purpose: a member's code, for their card and the desk, and their own details.
+Key columns: PK (`business_id`, `contact_id`), `member_code` (`^[A-Z0-9][A-Z0-9-]{1,19}$`), `date_of_birth` (from 1900), `school`, `class_name`, `created_by`/`created_at`, `updated_by`/`updated_at`.
 Relations: (`business_id`, `contact_id`) -> `business_contacts`.
-Rules: UNIQUE (business, member code); trigger `member_profiles_customer` (function `business_contact_is_customer`): a member is a customer.
-Added by: 1791965000000.
+Rules: UNIQUE (business, member code); trigger `member_profiles_customer` (function `business_contact_is_customer`): a member is a customer. An erasure blanks the date of birth, school and class.
+Added by: 1791965000000; memberships-more (`date_of_birth`, `school`, `class_name`).
 
 #### `member_memberships`
 Purpose: a membership: a plan sold to a member, with its terms as sold.
-Key columns: `location_id`, `membership_no` (series kind `membership`), `series_id`, `contact_id`, `plan_id`, `plan_name`, `kind`, `duration_unit`, `duration`, `sessions_total` (1-1,000), `sessions_used`, `price`, `price_net`, `price_tax`, `tax_rate`, `joining_fee`, `policy_version`, `max_freeze_days`, `max_freezes`, `grace_days`, `transferable`, `start_on`, `base_end_on`, `frozen_days`, `end_on`, `renewal_of`, `upgraded_from`, `transferred_from`, `document_id`, `line_id`, `joining_line_id`, `closed` (cancelled, transferred, upgraded), `closed_on`, `close_reason`, `closed_by`, `closed_at`, `close_key`, `close_hash`, `credit_key`, `return_id`, `credit` (> 0), `refund_id`, `refunded` (> 0), `approved_by`, `notes`, `request_key`, `request_hash`, `created_by`/`created_at`, `updated_by`/`updated_at`.
-Relations: (`business_id`, ...) -> `business_locations`, `business_number_series`, `business_contacts`, `member_plan_types`, `member_plan_policies` (plan and version), `member_memberships` (`renewal_of`, `upgraded_from`, `transferred_from`), `business_documents`, `business_document_lines` (`line_id`, `joining_line_id`) and `business_returns`; `refund_id` -> `business_refunds`.
+Key columns: `location_id`, `membership_no` (series kind `membership`), `series_id`, `contact_id`, `plan_id`, `plan_name`, `kind`, `duration_unit`, `duration`, `sessions_total` (1-1,000), `sessions_used`, `price`, `price_net`, `price_tax`, `tax_rate`, `joining_fee`, `policy_version`, `max_freeze_days`, `max_freezes`, `grace_days`, `transferable`, `start_on`, `base_end_on`, `frozen_days`, `end_on`, `renewal_of`, `upgraded_from`, `transferred_from`, `document_id`, `line_id`, `joining_line_id`, `closed` (cancelled, transferred, upgraded), `closed_on`, `close_reason`, `closed_by`, `closed_at`, `close_key`, `close_hash`, `credit_key`, `return_id`, `credit` (> 0), `refund_id`, `refunded` (> 0), `approved_by`, `notes`, `request_key`, `request_hash`, `created_by`/`created_at`, `updated_by`/`updated_at`; memberships-more: `origin` (sale, brought_in, trial; a sale exactly when it has a bill and line: CHECK `member_memberships_origin_bill`), `paid_elsewhere` (exactly when brought in), the plan's options as sold (`visit_limit`, `visit_period`, `access_locations`, `access_from`, `access_to`, `seats`, `class_names`, `personal_training`, `freeze_fee`, `freeze_notice_days`, `transfer_fee`, `late_fee`, `late_fee_after_days`, `joining_refund_percent`), `sold_by` -> `users`, `trainer_id` (-> `business_resources`), `moved_days` (the days a renewal moved with a freeze of the one before it). `document_id` and `line_id` are empty for a membership brought in or a trial pass.
+Relations: (`business_id`, ...) -> `business_locations`, `business_number_series`, `business_contacts`, `member_plan_types`, `member_plan_policies` (plan and version), `member_memberships` (`renewal_of`, `upgraded_from`, `transferred_from`), `business_documents`, `business_document_lines` (`line_id`, `joining_line_id`), `business_returns` and `business_resources` (`trainer_id`); `refund_id` -> `business_refunds`; `sold_by` -> `users`.
 Rules:
 - CHECK a duration exactly unless a pack of sessions, and sessions exactly unless a plan by time; sessions used not above the sessions; price = net + GST; a last day exactly unless a pack of sessions, not before the first day, and `end_on` = `base_end_on` + `frozen_days`; at most one of renewal, upgrade and transfer; a joining fee only with its line; closed exactly with its last day, reason, who, when and request (key and hash); the last day counted not before the day before the first day; a credit key only on a cancellation or an upgrade, a credit note only with it and with its value, a refund only on a cancelled membership with a credit note and with its amount, an approver only on a cancellation.
-- UNIQUE (business, membership number) and (business, request key); unique indexes `member_memberships_line` (one membership per bill line, transfers apart), `member_memberships_upgraded_from` and `member_memberships_transferred_from`; indexes `member_memberships_member`, `member_memberships_period`, the partial `member_memberships_running` (not closed, by last day), `member_memberships_plan`, `member_memberships_document` and `member_memberships_joining_line`.
+- UNIQUE (business, membership number) and (business, request key); unique indexes `member_memberships_line` (one membership per bill line, transfers apart), `member_memberships_upgraded_from` and `member_memberships_transferred_from`; indexes `member_memberships_member`, `member_memberships_period`, the partial `member_memberships_running` (not closed, by last day), `member_memberships_plan`, `member_memberships_document`, `member_memberships_joining_line`, and the partial `member_memberships_sold_by` and `member_memberships_trainer`.
 - Trigger `member_memberships_customer` (function `business_contact_is_customer`).
-- Trigger `member_memberships_insert_check`: a new membership is running with nothing used, frozen or given back; it is on a line of its plan's price item on the bill named, a joining fee on the same bill; a sale's bill is the member's own sale; a transfer carries on a membership closed as transferred, on its bill, line and plan, to another member; a renewal or an upgrade is of the member's own membership, an upgrade of one closed as upgraded.
-- Trigger `member_memberships_guard`: never deleted; keeps its member, plan, terms, start, last day as sold, bill and request; its frozen days only follow its freezes; its sessions used never go down; once closed it changes no more, but its credit note and refund are written once; nothing is given back while it runs.
-Added by: 1791965000000.
+- Trigger `member_memberships_insert_check` (body replaced by memberships-more): a new membership is running with nothing used, frozen, moved or given back; a sale is on a line of its plan's price item on the bill named, a joining fee on the same bill; a sale's bill is the member's own sale; a transfer carries on a membership closed as transferred, on its bill, line and plan, to another member; a renewal or an upgrade is of the member's own membership, an upgrade of one closed as upgraded; one brought in or a trial pass has no bill and begins on its own.
+- Trigger `member_memberships_guard` (body replaced by memberships-more): never deleted; keeps its member, plan, terms, start, last day as sold, bill and request, but a renewal not yet begun (and not closed) moves its start and last day by the same days as `moved_days`; its frozen days only follow its freezes; its sessions used never go down; once closed it changes no more, but its credit note and refund are written once; nothing is given back while it runs.
+Added by: 1791965000000; memberships-more (the columns above; both trigger bodies).
 
 #### `member_freezes`
 Purpose: each freeze of a membership.
@@ -3228,37 +3229,132 @@ Rules:
 Added by: 1791965000000.
 
 #### `member_instalments`
-Purpose: a membership's fee in instalments.
-Key columns: PK (`business_id`, `membership_id`, `seq` (1-36)), `due_on`, `amount` (> 0).
+Purpose: a membership's fee in instalments, in versions: version 1 as sold, each manager's change the next.
+Key columns: PK (`business_id`, `membership_id`, `version` (1-100), `seq` (1-36)), `due_on`, `amount` (> 0), `reason` (exactly on a version after the first), `created_by`, `created_at`, `replaced_by` and `replaced_at` (both or neither: the version replaced).
 Relations: (`business_id`, `membership_id`) -> `member_memberships`.
-Rules: index `member_instalments_due`; trigger `member_instalments_append_only` (function `member_append_only`): never changed or deleted; constraint trigger `member_instalments_check` (deferred to the end of the transaction): written with its membership (not a transfer's), two or more numbered from 1, each due after the one before, adding up to the membership's bill.
-Added by: 1791965000000.
+Rules: indexes `member_instalments_due` and the partial `member_instalments_current` (in force); trigger `member_instalments_append_only` (function `member_instalments_guard`, memberships-more): never changed or deleted, but a version in force is marked replaced once; constraint trigger `member_instalments_check` (deferred to the end of the transaction; body replaced by memberships-more): version 1 is written with its membership (not a transfer's, nor one with no bill) and adds up to its bill; a later version replaces the one in force in the same change and keeps its total; each version has two or more numbered from 1, each due after the one before; one version is in force.
+Added by: 1791965000000; memberships-more (versions).
 
 #### `member_checkins`
 Purpose: every check-in at the desk.
-Key columns: `location_id`, `contact_id`, `membership_id`, `day` (the business's date of `created_at`, set by the database), `found_by` (search, code), `allowed`, `reason` (no_membership, not_started, expired, frozen, no_sessions, dues), `note`, `session_used`, `request_key`, `created_by`, `created_at`.
+Key columns: `location_id`, `contact_id`, `membership_id`, `day` (the business's date of `created_at`, set by the database), `found_by` (search, code), `allowed`, `reason` (no_membership, not_started, expired, frozen, no_sessions, dues, branch, time_of_day, visit_limit), `note`, `session_used`, `request_key`, `created_by`, `created_at`.
 Relations: (`business_id`, ...) -> `business_locations`, `business_contacts` and `member_memberships`.
 Rules:
 - CHECK a reason exactly when turned away; a session used only when let in; a membership when let in; no membership exactly when the reason is no_membership.
-- UNIQUE (business, request key); unique index `member_checkins_one_session_a_day` (one session used a membership a day); indexes `member_checkins_day` and `member_checkins_member`.
+- UNIQUE (business, request key); unique index `member_checkins_one_session_a_day` (one session used a membership a member a day); indexes `member_checkins_day` and `member_checkins_member`.
 - Trigger `member_checkins_customer` (function `business_contact_is_customer`); trigger `member_checkins_append_only` (function `member_append_only`).
-- Trigger `member_checkins_check`: sets the day; the membership is the member's own; a session is counted only on a pack; letting in needs a membership not closed, started, within its last day and grace days, not frozen that day, and a session left when one is used.
+- Trigger `member_checkins_check` (body replaced by memberships-more): sets the day; the membership is the member's own (or, for a shared one, a seat they hold); a session is counted only on a pack; letting in needs a membership not closed, started, within its last day and grace days, not frozen that day, a session left when one is used, at a branch and an hour it allows, and a visit left in its period (a week from Monday, a month from its first, on the business's calendar).
 - Trigger `member_checkins_session`: a session used is added to the membership's `sessions_used`.
-Added by: 1791965000000.
+Added by: 1791965000000; memberships-more (the reasons; the index on the member too; the trigger body).
 
 #### `member_events`
 Purpose: everything that happened to a membership.
-Key columns: `membership_id`, `kind` (sold, renewal, upgrade, transfer, frozen, freeze_ended, transferred, upgraded, cancelled), `note`, `details` (JSONB object), `created_by`, `created_at`.
+Key columns: `membership_id`, `kind` (sold, renewal, upgrade, transfer, frozen, freeze_ended, transferred, upgraded, cancelled; memberships-more: brought_in, trial, moved, seat_added, seat_removed, addon, fee, instalments_changed, refund_due, refund_paid, accepted), `note`, `details` (JSONB object), `created_by`, `created_at`.
 Relations: (`business_id`, `membership_id`) -> `member_memberships`.
 Rules: index `member_events_membership`; trigger `member_events_append_only` (function `member_append_only`).
 Added by: 1791965000000.
 
 #### `member_reminders`
-Purpose: each renewal or fees reminder given about a membership.
-Key columns: `membership_id`, `kind` (renewal, fees), `channel` (whatsapp, call, sms), `created_by`, `created_at`.
+Purpose: each reminder given about a membership.
+Key columns: `membership_id`, `kind` (renewal, fees; memberships-more: birthday, sessions_low, grace_end), `channel` (whatsapp, call, sms), `created_by`, `created_at`.
 Relations: (`business_id`, `membership_id`) -> `member_memberships`.
 Rules: index `member_reminders_membership`; trigger `member_reminders_append_only` (function `member_append_only`).
-Added by: 1791965000000.
+Added by: 1791965000000; memberships-more (the kinds).
+
+#### `member_seats`
+Purpose: who uses the seats of a shared membership (its roster).
+Key columns: `membership_id`, `contact_id`, `created_by`/`created_at`, `removed_by`/`removed_at` (both or neither: the seat given up).
+Relations: (`business_id`, ...) -> `member_memberships` and `business_contacts`.
+Rules: unique index `member_seats_current` (one current seat per member and membership); index `member_seats_contact`; trigger `member_seats_customer` (function `business_contact_is_customer`); trigger `member_seats_check`: never deleted; given up once; a new seat is on a membership not closed, with two or more seats, and never more than its seats (the membership locked first).
+Added by: memberships-more.
+
+#### `member_addons`
+Purpose: an add-on sold with a membership or after it, ending with it.
+Key columns: `membership_id`, `kind` (locker, towel, diet, personal_training, other), `sku_id`, `label`, `locker_no` (exactly for a locker), `document_id`, `line_id`, `request_key`, `request_hash`, `created_by`, `created_at`.
+Relations: (`business_id`, ...) -> `member_memberships`, `catalog_skus`, `business_documents`, `business_document_lines`.
+Rules: UNIQUE (business, line) and (business, request key); indexes `member_addons_membership` and `member_addons_locker`; trigger `member_addons_check`: never changed or deleted; of a membership not closed and not over; on its member's bill, on a line of its item; a locker not held by another running membership.
+Added by: memberships-more.
+
+#### `member_fees`
+Purpose: each fee billed on a membership: a freeze, a transfer, a late instalment, a class's late cancel or no-show.
+Key columns: `membership_id`, `kind` (freeze, transfer, late, late_cancel, no_show), `instalment_due_on` and `instalment_seq` (exactly for a late fee), `booking_id` (exactly for a class penalty), `amount` (the bill's total), `document_id`, `created_by`, `created_at`.
+Relations: (`business_id`, ...) -> `member_memberships`, `business_documents`, `member_class_bookings`.
+Rules: UNIQUE (business, document); unique indexes `member_fees_late_once` (one late fee per instalment's due day) and `member_fees_booking_once`; index `member_fees_membership`.
+Added by: memberships-more.
+
+#### `member_refunds`
+Purpose: money to go back to a member on a day: a cancellation's refund paid later, or what a move to a cheaper plan leaves over.
+Key columns: `membership_id`, `kind` (cancelled, downgrade), `document_id` (the bill it is paid on), `amount` (> 0), `due_on`, `approved_by`, `request_key`, `refund_id` -> `business_refunds`, `paid_by`, `paid_at` (all three exactly when paid), `created_by`, `created_at`.
+Relations: (`business_id`, ...) -> `member_memberships` and `business_documents`.
+Rules: UNIQUE (business, request key); partial index `member_refunds_open`; trigger `member_refunds_guard`: never deleted; changed only to be paid, once.
+Added by: memberships-more.
+
+#### `member_rooms`
+Purpose: a room classes are held in.
+Key columns: `location_id`, `name` (unique per location in any case: `member_rooms_name`), `capacity` (1-500), `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, `location_id`) -> `business_locations`.
+Added by: memberships-more.
+
+#### `member_class_slots`
+Purpose: the weekly timetable: a class on a weekday at a time.
+Key columns: `location_id`, `room_id`, `class_name`, `weekday` (1 Monday … 7 Sunday), `starts_at` (a time), `minutes` (5-600), `trainer_id` (of Trainers & studios), `capacity` (1-500), `book_hours` (1-720, default 168), `cancel_hours` (0-168, default 2), `waitlist_size` (0-100), `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, ...) -> `business_locations`, `member_rooms`, `business_resources`.
+Rules: partial index `member_class_slots_day`.
+Added by: memberships-more.
+
+#### `member_class_sessions`
+Purpose: a class on a day, made from the timetable with its terms then.
+Key columns: `slot_id`, `location_id`, `room_id`, `trainer_id`, `class_name`, `day`, `starts_at`, `ends_at`, `capacity`, `book_from` (before the start), `cancel_until` (not after the start), `waitlist_size`, `cancelled_at`, `cancelled_by`, `cancel_reason` (all three or none), `created_at`.
+Relations: (`business_id`, ...) -> `member_class_slots`, `business_locations`, `member_rooms`, `business_resources`.
+Rules: UNIQUE (business, slot, day); indexes `member_class_sessions_day` and `member_class_sessions_trainer`; trigger `member_class_sessions_guard`: kept as made; called off once; deleted only when nobody booked it and it is not called off (to be made again after a change to its timetable entry).
+Added by: memberships-more.
+
+#### `member_class_bookings`
+Purpose: a member's place in a class.
+Key columns: `session_id`, `contact_id`, `membership_id`, `status` (booked, waitlisted, promoted, attended, no_show, cancelled, late_cancel), `promoted_at`, `session_used` (a pack's session taken), `penalty` (session, fee; only on a no-show or a late cancel), `marked_by`/`marked_at`, `request_key`, `created_by`, `created_at`.
+Relations: (`business_id`, ...) -> `member_class_sessions`, `business_contacts`, `member_memberships`.
+Rules: UNIQUE (business, request key); unique index `member_class_bookings_one` (one booking per member and class not cancelled); indexes `member_class_bookings_session` and `member_class_bookings_member`; trigger `member_class_bookings_customer`; trigger `member_class_bookings_check`: never deleted; the class locked first; a booking starts booked or waitlisted; booked, promoted, attended and no-shows never more than the class's places, the waitlist never more than its size; waitlisted moves only to promoted or cancelled, booked or promoted only to attended, no-show, cancelled or late cancel; nothing but a cancellation on a class called off; a booking marked is kept.
+Added by: memberships-more.
+
+#### `member_pay_rules`
+Purpose: what a trainer or a salesperson earns from a month on.
+Key columns: `trainer_id` (-> `business_resources`) or `user_id` (-> `users`), exactly one; `from_month` (a month's first day), `fixed_monthly`, `per_class`, `per_pt_session`, `pt_sales_percent` and `plan_sales_percent` (0-100), `created_by`, `created_at`.
+Rules: index `member_pay_rules_person`; trigger `member_pay_rules_append_only` (function `member_pay_append_only`): never changed or deleted (a new rule from a month replaces the one before).
+Added by: memberships-more.
+
+#### `member_payouts`
+Purpose: a month's pay to one person, as worked out then.
+Key columns: `trainer_id` or `user_id` (exactly one), `month` (its first day), `amount` (> 0), `figures` (JSONB object: the figures, the parts and the rule), `expense_id` -> `business_expenses`, `request_key`, `request_hash`, `created_by`, `created_at`.
+Rules: UNIQUE (business, request key); index `member_payouts_month`; trigger `member_payouts_append_only` (function `member_pay_append_only`). One payout a month per person whose expense is not reversed (the service, under the business's lock).
+Added by: memberships-more.
+
+#### `member_guardians`
+Purpose: a coaching student's guardians.
+Key columns: `contact_id` (the student), `name`, `relation`, `phone`, `whatsapp_consent` (with `consent_at`), `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, `contact_id`) -> `business_contacts`.
+Rules: index `member_guardians_student`. An erasure blanks the name, relation and phone.
+Added by: memberships-more.
+
+#### `member_test_results`
+Purpose: a student's test results.
+Key columns: `contact_id`, `test_name`, `taken_on`, `marks` (0 to `out_of`), `out_of` (> 0), `remarks`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, `contact_id`) -> `business_contacts`.
+Rules: index `member_test_results_student`. An erasure blanks the remarks.
+Added by: memberships-more.
+
+#### `member_leads`
+Purpose: an enquiry, its trial pass and the member it became.
+Key columns: `location_id`, `name`, `phone`, `email`, `source` (walk_in, phone, whatsapp, social, website, referral, other), `interest`, `follow_up_on`, `status` (open, trial, member, lost), `notes`, `lost_reason` (exactly when lost), `contact_id`, `trial_membership_id` (with a contact; on a trial), `membership_id` (exactly when a member), `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, ...) -> `business_locations`, `business_contacts`, `member_memberships` (trial and membership).
+Rules: partial index `member_leads_follow_up` (open or on a trial); partial index `member_leads_contact`. An erasure blanks the name (to the erased name), phone, e-mail, interest and notes.
+Added by: memberships-more.
+
+#### `member_acceptances`
+Purpose: the member's signature accepting the refund policy, a picture kept privately (`PRIVATE_UPLOADS_DIR/memberships/<business>/`).
+Key columns: `membership_id`, `contact_id` (the holder or a seat's member), `policy_version`, `signed_by_name`, `stored_name` (unique, generated), `mime_type` (png, jpeg, webp), `size_bytes`, `created_by`, `created_at`.
+Relations: (`business_id`, ...) -> `member_memberships` and `business_contacts`.
+Rules: index `member_acceptances_membership`; trigger `member_acceptances_check`: never changed or deleted; the membership's own policy version; signed by its member or one holding a seat.
+Added by: memberships-more.
 
 ## Laundry & dry cleaning
 
@@ -4649,7 +4745,7 @@ Each code is a `<module>.<action>` row of `business_permissions`, listed here by
 | agri | `agri.view` (farmers, village dues, the subsidy reconciliation, the registers and the molecule list; season credit, crops), `agri.create` (type the PoS device's stock), `agri.edit` (farmers' details; bulk consumers' tags, the shop's crops, returns marked sent), `agri.approve` (tag pest-control operators and government bodies, allow restricted-use pesticides and subsidised bags over the limit, set season credit terms and bill its interest; managers) | 1791962000000; `agri.approve` 1791979114000 |
 | optical | `optical.view` (prescriptions, spectacle orders, the recall list, contact lenses running out and on trial, the referral report), `optical.create` (record and correct prescriptions; book spectacle orders; give contact-lens trials), `optical.edit` (the lab and workshop steps, an order's details, its frame's hold and more advances, delivery), `optical.approve` (pass or fail the quality check), `optical.cancel`, `optical.print` (job cards, customer slips and prescriptions), `optical.manage` (change a booked order's frame, lenses and prices) | 1791963000000; optical-more (`optical.manage`) |
 | garage | `garage.view` (every vehicle and job card, the service-due list and customers' statements), `garage.create` (add vehicles, open job cards), `garage.edit` (work on job cards: the estimate, mechanics, the work done and parts used, the claim, the advance and billing), `garage.approve` (an odometer reading lower than the last), `garage.cancel`, `garage.print` (job cards and customers' statements) | 1791964000000 |
-| member_plans | `member_plans.view` (plans, members and their memberships, check-ins, renewals; the fees due with `sales.view`), `member_plans.create` (check members in; sell and renew memberships, with `sales.create`), `member_plans.edit` (set up plans; freeze, transfer and upgrade memberships), `member_plans.approve` (approve with a PIN what a cancelled membership gives back), `member_plans.cancel`, `member_plans.refund` (give back the unused part of a cancelled membership), `member_plans.export` | 1791965000000 |
+| member_plans | `member_plans.view` (plans, members and their memberships, check-ins, renewals, classes, enquiries; the fees and refunds due with `sales.view`), `member_plans.create` (check members in; sell and renew memberships, with `sales.create`; book classes and mark attendance; enquiries and trial passes), `member_plans.edit` (set up plans and the timetable; freeze, transfer and change plans; seats; students' details; bring in memberships), `member_plans.approve` (approve with a PIN what a cancelled membership or a move to a cheaper plan gives back; change an instalment schedule), `member_plans.cancel`, `member_plans.refund` (give back the unused part of a cancelled membership; pay a refund due), `member_plans.export`, `member_plans.manage` (trainers' pay and commission; managers) | 1791965000000; memberships-more (`manage`) |
 | laundry | `laundry.view` (garment orders, the racks, orders not collected, damage claims and the price list), `laundry.create` (take garment orders in), `laundry.edit` (the work and the racks, re-tagging, the promised day, handovers, record damage claims), `laundry.cancel` (cancel garments), `laundry.print` (order receipts and tag labels), `laundry.refund` (decide damage claims; money back for them and for cancelled garments) | 1791966000000 |
 | jewellery | `jewellery.view` (today's rates with `sales.view`; pieces, items and the shop's metal; the bills, old gold and gold schemes, with `sales.view`), `jewellery.create` (the jewellery bill; old gold taken in, used on a bill and put back; customers enrolled in schemes and their instalments; custom orders booked and their advances, with `sales.edit`; an order's design), `jewellery.edit` (tag and change pieces; jewellery items; karigars' issue challans and receipts, labour invoices with `purchasing.create`; approval challans and their returns; hallmarking consignments; splitting, merging and new tags with `inventory.edit`; photos; counts against the fine-weight book; metal received or given with `purchasing.create`), `jewellery.approve` (set the day's rates; melt pieces; pay out old gold, several at once; approve another deduction on old gold; what becomes of its metal; refinery challans; scheme plans; approve stopping a scheme; close a scheme on its day 364; offers on making; karigars, their rates and write-offs; fixing the rate on the metal account), `jewellery.cancel` (cancel old gold; stop a scheme; cancel a custom order), `jewellery.print` (tags, old gold vouchers, scheme passbooks, challans, consignments and order slips), `jewellery.export` (the money held for schemes; the cash report and its family groups; the ITC-04 data; the HUID list), `jewellery.manage` (customers' KYC in full: numbers, PANs and copies; set aside), `jewellery.review` (the suspicious transaction log; given to no role template) | 1791967000000; jewellery-work; jewellery-money |
 | rentals | `rentals.view` (bookings, the board, availability, rental items and the handover settings; money and the deposits held with `sales.view`), `rentals.create` (quotes and bookings; reserve a quote), `rentals.edit` (change and extend bookings, hand over and take back with charges, units in and out of service), `rentals.approve` (a handover with less deposit than asked), `rentals.cancel` (cancel quotes and bookings, with a cancellation charge), `rentals.refund` (hand back deposits and advances held), `rentals.print` (booking and handover slips, deposit receipts) | 1791968000000 |

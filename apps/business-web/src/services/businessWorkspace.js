@@ -17,7 +17,7 @@ export const WORKSPACES = {
   care: ['clinic-today', 'clinic-queue', 'visits', 'appointments', 'doctors'],
   patients: ['patients', 'customers'],
   laboratory: ['lab-orders', 'lab-tests', 'lab-qc'],
-  reports: ['reports', 'retail-reports', 'wholesale-reports', 'variant-reports', 'weight-reports', 'salon-reports', 'commissions', 'fitter-reports', 'cash-report', 'fuel-outlets', 'activity', 'referrals', 'mechanic-commission'],
+  reports: ['reports', 'retail-reports', 'wholesale-reports', 'variant-reports', 'weight-reports', 'salon-reports', 'commissions', 'fitter-reports', 'cash-report', 'fuel-outlets', 'activity', 'referrals', 'mechanic-commission', 'member-pay'],
   settings: ['settings', 'tax-rates', 'payment-methods', 'number-series', 'locations', 'units', 'resources', 'health-settings', 'licences', 'privacy', 'agri-settings', 'garage-settings', 'member-plans', 'jewellery-settings', 'scheme-plans', 'fuel-pumps', 'lodging-rates'],
   // A seeds, fertilisers & pesticides shop's own area.
   farm: ['farmers', 'agri-subsidy', 'agri-registers', 'molecules', 'agri-seasons', 'agri-crops'],
@@ -26,8 +26,8 @@ export const WORKSPACES = {
   // A garage's job cards, in its daily menu.
   jobCards: ['job-cards'],
   // A gym's, studio's or coaching centre's front desk, and its members (in place of customers).
-  checkIn: ['check-in'],
-  members: ['members', 'renewals', 'customers', 'loyalty'],
+  checkIn: ['check-in', 'member-classes'],
+  members: ['members', 'renewals', 'customers', 'loyalty', 'member-leads'],
   // A laundry's counter (a new order taken in), and its orders with the racks and those not collected.
   laundryNew: ['laundry-new'],
   garmentOrders: ['garment-orders', 'ready-racks', 'unclaimed'],

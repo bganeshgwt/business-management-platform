@@ -225,6 +225,10 @@ export function businessSections(type) {
         { section: "members", label: "Members", icon: "customers", need: "member_plans.view", types: MEMBERSHIPS },
         // Memberships ending soon or ended lately, and fees falling due, with a reminder ready to send.
         { section: "renewals", label: "Renewals", icon: "recurring", need: "member_plans.view", types: MEMBERSHIPS },
+        // The class timetable: the week's classes, their bookings, waitlists and attendance (beside the desk).
+        { section: "member-classes", label: "Classes", icon: "calendar", need: "member_plans.view", types: MEMBERSHIPS },
+        // Enquiries with their follow-up day, trial passes, and the members they become.
+        { section: "member-leads", label: "Enquiries", icon: "guestInsights", need: "member_plans.view", types: MEMBERSHIPS },
       ],
     },
     {
@@ -407,6 +411,8 @@ export function businessSections(type) {
         // A jeweller's cash with each customer, flagged at ₹10 lakh, and the monthly worksheet.
         { section: "cash-report", label: "Cash report", icon: "reports", need: "jewellery.export", module: "jewellery", types: JEWELLERY },
         { section: "activity", label: "Activity log", icon: "activity", need: "audit.view" },
+        // A gym's, studio's or coaching centre's trainers' pay and sales commission, by month, paid through the expense book.
+        { section: "member-pay", label: "Trainer pay", icon: "payroll", need: "member_plans.manage", types: MEMBERSHIPS },
       ],
     },
     {
