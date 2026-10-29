@@ -7,6 +7,7 @@ export const STATES = {
   expired: { label: "Expired", tone: "danger" },
   billed: { label: "Billed", tone: "success" },
   ordered: { label: "On a sales order", tone: "success" },
+  booked: { label: "On a spectacle order", tone: "success" },
   cancelled: { label: "Cancelled", tone: "inactive" },
 };
 

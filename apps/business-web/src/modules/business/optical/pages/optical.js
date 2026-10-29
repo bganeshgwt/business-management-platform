@@ -10,7 +10,9 @@ export const usesOptical = (biz) => biz.type === "optical" && biz.has("optical")
 
 export const EYES = [{ value: "right", label: "Right eye", short: "R" }, { value: "left", label: "Left eye", short: "L" }];
 export const ZONES = [{ value: "distance", label: "Distance" }, { value: "intermediate", label: "Intermediate" }, { value: "near", label: "Near" }];
-export const PRISM_BASES = [{ value: "in", label: "Base in" }, { value: "out", label: "Base out" }, { value: "up", label: "Base up" }, { value: "down", label: "Base down" }];
+// A horizontal prism's base (in or out) and a vertical one's (up or down), each its own prism.
+export const PRISM_BASES = [{ value: "in", label: "Base in" }, { value: "out", label: "Base out" }];
+export const VERTICAL_BASES = [{ value: "up", label: "Base up" }, { value: "down", label: "Base down" }];
 export const LENS_TYPES = [{ value: "single_vision", label: "Single vision" }, { value: "bifocal", label: "Bifocal" }, { value: "progressive", label: "Progressive" }];
 export const MATERIALS = [{ value: "cr39", label: "CR-39 (plastic)" }, { value: "polycarbonate", label: "Polycarbonate" }, { value: "trivex", label: "Trivex" },
   { value: "glass", label: "Glass" }, { value: "other", label: "Other" }];
@@ -20,6 +22,15 @@ export const REMAKE_REASONS = [{ value: "power_change", label: "Power changed" }
   { value: "measurement", label: "Measurement or fitting error" }, { value: "lab_defect", label: "Lab defect" }, { value: "breakage", label: "Breakage" },
   { value: "coating", label: "Coating peeled" }, { value: "other", label: "Other" }];
 export const COST_BEARERS = [{ value: "lab", label: "The lab" }, { value: "shop", label: "The shop" }, { value: "customer", label: "The customer" }];
+// A prescription for spectacles, or for contact lenses.
+export const KINDS = [{ value: "spectacles", label: "Spectacles" }, { value: "contact_lens", label: "Contact lenses" }];
+// How often a contact lens is replaced, and in how many days (as the server counts them).
+export const MODALITIES = [{ value: "daily", label: "Daily", days: 1 }, { value: "fortnightly", label: "Fortnightly", days: 14 }, { value: "monthly", label: "Monthly", days: 30 },
+  { value: "quarterly", label: "Every three months", days: 90 }, { value: "half_yearly", label: "Every six months", days: 180 }, { value: "yearly", label: "Yearly", days: 365 }];
+// The workshop's steps, in order, before the quality check.
+export const WORKSHOP_STEPS = [{ value: "cutting", label: "Cutting" }, { value: "edging", label: "Edging" }, { value: "fitting", label: "Fitting" }];
+// The groups a customer's recall months may come from.
+export const RECALL_GROUPS = [{ key: "child", label: "Child" }, { key: "lens_wearer", label: "Contact lenses" }, { key: "progressive", label: "Progressive" }];
 export const STATUSES = {
   booked: { label: "Booked", tone: "info" }, at_lab: { label: "At the lab", tone: "warning" }, in_workshop: { label: "In the workshop", tone: "info" },
   quality_check: { label: "Quality check", tone: "warning" }, ready: { label: "Ready to collect", tone: "success" }, delivered: { label: "Delivered", tone: "neutral" },
@@ -59,12 +70,22 @@ export function rxSummary(rows) {
   };
   return [eye("right"), eye("left")].filter(Boolean).join(" · ");
 }
+// A contact-lens prescription in one line: "R -2.00 BC 8.4 DIA 14 · L -2.25 / -0.75 × 180 BC 8.6 DIA 14.5".
+export function lensSummary(lenses) {
+  return (lenses || []).map((l) => `${l.eye === "right" ? "R" : "L"} ${power(l.power)}${l.cyl !== null && l.cyl !== undefined ? ` / ${power(l.cyl)} × ${l.axis}` : ""}`
+    + `${l.add !== null && l.add !== undefined ? ` ADD ${power(l.add)}` : ""} BC ${Number(l.base_curve)} DIA ${Number(l.diameter)}${l.colour ? ` ${l.colour}` : ""}`).join(" · ");
+}
+// A prescription's powers in one line, whichever kind it is.
+export const powersSummary = (p) => (p?.kind === "contact_lens" ? lensSummary(p.lenses) : rxSummary(p?.rows));
+// A prism as written: "1 in", "0.5 down"; a row may have both.
+export const prismText = (r) => [r?.prism ? `${Number(r.prism)} ${r.prism_base || r.prismBase || ""}`.trim() : "",
+  r?.prism_vertical ? `${Number(r.prism_vertical)} ${r.prism_vertical_base || ""}`.trim() : ""].filter(Boolean).join(", ");
 // The PD as written: "63" both eyes, or "31.5 / 31" each eye.
 export const pdText = (p) => (p?.pd_binocular ? `${Number(p.pd_binocular)}` : p?.pd_right ? `${Number(p.pd_right)} / ${Number(p.pd_left)}` : "");
 
 // The prescription editor's value: { "right:distance": { sph, cyl, axis, add, prism, prismBase, acuity }, … },
 // from a prescription's rows, and the rows it sends (every row, empty ones too: the server leaves those out).
-const emptyRow = () => ({ sph: "", cyl: "", axis: "", add: "", prism: "", prismBase: "", acuity: "" });
+const emptyRow = () => ({ sph: "", cyl: "", axis: "", add: "", prism: "", prismBase: "", prismVertical: "", prismVerticalBase: "", acuity: "" });
 const text = (value, format) => (value === null || value === undefined ? "" : format(value));
 export function editorValue(rows) {
   const value = {};
@@ -72,15 +93,54 @@ export function editorValue(rows) {
     const r = rowOf(rows, eye.value, zone.value);
     value[`${eye.value}:${zone.value}`] = r ? {
       sph: text(r.sph, power), cyl: text(r.cyl, power), axis: text(r.axis, String), add: text(r.add, power),
-      prism: text(r.prism, (x) => String(Number(x))), prismBase: r.prism_base || "", acuity: r.acuity || "",
+      prism: text(r.prism, (x) => String(Number(x))), prismBase: r.prism_base || "", prismVertical: text(r.prism_vertical, (x) => String(Number(x))),
+      prismVerticalBase: r.prism_vertical_base || "", acuity: r.acuity || "",
     } : emptyRow();
   }
   return value;
 }
 export const editorRows = (value) => Object.entries(value).map(([key, r]) => {
   const [eye, zone] = key.split(":");
-  return { eye, zone, sph: r.sph, cyl: r.cyl, axis: r.axis, add: zone === "distance" ? "" : r.add, prism: r.prism, prismBase: r.prism ? r.prismBase : "", acuity: r.acuity };
+  return { eye, zone, sph: r.sph, cyl: r.cyl, axis: r.axis, add: zone === "distance" ? "" : r.add, prism: r.prism, prismBase: r.prism ? r.prismBase : "",
+    prismVertical: r.prismVertical, prismVerticalBase: r.prismVertical ? r.prismVerticalBase : "", acuity: r.acuity };
 });
+
+// The contact-lens editor's value: { right: { baseCurve, diameter, power, cyl, axis, add, colour, brand, modality, wearingSchedule }, left: … },
+// from a prescription's lenses, and the lenses it sends (an eye left empty is skipped by the server).
+const emptyLens = () => ({ baseCurve: "", diameter: "", power: "", cyl: "", axis: "", add: "", colour: "", brand: "", modality: "", wearingSchedule: "" });
+export function lensEditorValue(lenses) {
+  const value = {};
+  for (const eye of EYES) {
+    const l = (lenses || []).find((x) => x.eye === eye.value);
+    value[eye.value] = l ? {
+      baseCurve: String(Number(l.base_curve)), diameter: String(Number(l.diameter)), power: text(l.power, power), cyl: text(l.cyl, power), axis: text(l.axis, String),
+      add: text(l.add, power), colour: l.colour || "", brand: l.brand || "", modality: l.modality || "", wearingSchedule: l.wearing_schedule || "",
+    } : emptyLens();
+  }
+  return value;
+}
+export const lensEditorRows = (value) => EYES.map((eye) => ({ eye: eye.value, ...value[eye.value] }));
+
+// A lens item's own details (index, material, coatings, design, tint), as an order picks them.
+export const lensDetailsOf = (sku) => {
+  const a = sku?.attributes || {};
+  return { lensType: a.lensDesign || "", index: a.lensIndex || "", material: a.lensMaterial || "", coatings: Array.isArray(a.coatings) ? a.coatings : [], tint: a.tint || "" };
+};
+// An item keeps details of a spectacle lens or a contact lens.
+export const isContactLensItem = (sku) => Boolean(sku?.attributes?.baseCurve);
+// The item form's spectacle lens details from an item, and the attributes it
+// sends (empty ones clear a detail on an item changed).
+const LENS_ITEM_KEYS = ["lensDesign", "lensIndex", "lensMaterial", "coatings", "tint"];
+export const lensItemForm = (sku) => {
+  const a = sku?.attributes || {};
+  return { on: Boolean(a.lensDesign || a.lensIndex || a.lensMaterial || a.coatings || a.tint), lensDesign: a.lensDesign || "", lensIndex: a.lensIndex || "",
+    lensMaterial: a.lensMaterial || "", coatings: Array.isArray(a.coatings) ? a.coatings : [], tint: a.tint || "" };
+};
+export function lensItemAttributes(value, { editing = false, was = null } = {}) {
+  if (!value.on) return editing && was?.on ? Object.fromEntries(LENS_ITEM_KEYS.map((key) => [key, ""])) : {};
+  const out = { lensDesign: value.lensDesign, lensIndex: value.lensIndex, lensMaterial: value.lensMaterial, coatings: value.coatings, tint: value.tint };
+  return editing ? out : Object.fromEntries(Object.entries(out).filter(([, v]) => (Array.isArray(v) ? v.length : v)));
+}
 
 // Plus and minus cylinder are the same prescription: add the CYL to the SPH,
 // change the CYL's sign and turn the AXIS by 90°.
@@ -96,20 +156,29 @@ export function lensWords(line) {
   return [wordOf(LENS_TYPES, line.lens_type), line.lens_index ? Number(line.lens_index).toFixed(2) : null, wordOf(MATERIALS, line.material) || null,
     ...(line.coatings || []).map((c) => wordOf(COATINGS, c)), line.tint ? `tint ${line.tint}` : null, line.brand].filter(Boolean).join(" · ");
 }
+// The frame's size as written on a job card: "52 □ 18 · B 38".
+export const frameSizeText = (o) => (o?.frame_a || o?.frame_dbl ? `${o.frame_a ? Number(o.frame_a) : "—"} □ ${o.frame_dbl ? Number(o.frame_dbl) : "—"}${o.frame_b ? ` · B ${Number(o.frame_b)}` : ""}` : "");
 
 // The contact-lens power grid on the item form (with Variants on): the base
 // curve, the diameter and up to four ranges of powers, each power becoming an
 // item of the one lens product.
-export const emptyGrid = () => ({ on: false, baseCurve: "", diameter: "", ranges: [{ from: "-0.50", to: "-6.00", step: "0.25" }] });
+export const emptyGrid = () => ({ on: false, baseCurve: "", diameter: "", ranges: [{ from: "-0.50", to: "-6.00", step: "0.25" }],
+  modality: "", lensesPerPack: "", toric: false, cylinders: "", axes: "", adds: "", colours: "" });
+// A list typed with commas or spaces: "-0.75, -1.25" → ["-0.75", "-1.25"].
+export const listOf = (text) => String(text || "").split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean);
+// A list of names typed with commas: "Blue, Grey" → ["Blue", "Grey"].
+export const namesOf = (text) => String(text || "").split(/[,;]+/).map((x) => x.trim()).filter(Boolean);
 // How many powers the ranges make (each power once), as the server counts them.
-export function gridCount(ranges) {
+export function gridCount(ranges, grid = {}) {
   const powers = new Set();
   for (const r of ranges || []) {
     const from = Math.round(Number(r.from) * 100), to = Math.round(Number(r.to) * 100), step = Math.round(Number(r.step) * 100);
     if (!Number.isFinite(from) || !Number.isFinite(to) || r.from === "" || r.to === "" || !step) continue;
-    for (let p = Math.min(from, to); p <= Math.max(from, to) && powers.size <= 300; p += step) powers.add(p);
+    for (let p = Math.min(from, to); p <= Math.max(from, to) && powers.size <= 3000; p += step) powers.add(p);
   }
-  return powers.size;
+  // Each power with each CYL and AXIS (a toric), ADD (a multifocal) and colour.
+  const times = (list) => Math.max(1, list.length);
+  return powers.size * (grid.toric ? times(listOf(grid.cylinders)) * times(listOf(grid.axes)) : 1) * times(listOf(grid.adds)) * times(namesOf(grid.colours));
 }
 // The power grid's request from the item form: a new lens product, or more powers for one chosen.
 export function gridBody(form, taxRateId) {
@@ -120,6 +189,9 @@ export function gridBody(form, taxRateId) {
     }),
     price: form.price, mrp: form.mrp || undefined, baseCurve: form.lensGrid.baseCurve, diameter: form.lensGrid.diameter,
     ranges: form.lensGrid.ranges.filter((r) => r.from !== "" && r.to !== ""),
+    ...(form.lensGrid.toric ? { cylinders: listOf(form.lensGrid.cylinders), axes: listOf(form.lensGrid.axes) } : {}),
+    ...(listOf(form.lensGrid.adds).length ? { adds: listOf(form.lensGrid.adds) } : {}), ...(namesOf(form.lensGrid.colours).length ? { colours: namesOf(form.lensGrid.colours) } : {}),
+    ...(form.productId ? {} : { modality: form.lensGrid.modality || undefined, lensesPerPack: form.lensGrid.lensesPerPack || undefined }),
   };
 }
 
@@ -130,6 +202,13 @@ export function recallMessage(biz, customer) {
   return `Namaste ${customer.name}, it has been a while${since}. Eyes change over time: please visit us for an eye test.${biz.settings.phone ? ` Call ${biz.settings.phone} to book a time.` : ""}\n— ${shop}`;
 }
 export const recallLink = (biz, customer) => whatsappLink(customer.phone, recallMessage(biz, customer));
+// Contact lenses running out: the reminder to buy the next pack.
+export function lensDueMessage(biz, row) {
+  const shop = biz.settings.display_name || biz.business.name;
+  return `Namaste ${row.name}, the contact lenses you bought on ${dateShort(row.sold_on, { year: true })} will run out around ${dateShort(row.due_on, { year: true })}. `
+    + `Please visit us for your next pack${biz.settings.phone ? `, or call ${biz.settings.phone}` : ""}.\n— ${shop}`;
+}
+export const lensDueLink = (biz, row) => whatsappLink(row.phone, lensDueMessage(biz, row));
 
 export function orderMessage(biz, order, stage) {
   const shop = biz.settings.display_name || biz.business.name;

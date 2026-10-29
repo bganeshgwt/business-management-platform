@@ -16,9 +16,11 @@ import { inPacks, packOf } from "../../wholesale/pages/tradeFormat";
 // A farm-input shop's items: what kind of input each is (seeds, fertilisers & pesticides).
 import AgriItemFields from "../../agri/pages/AgriItemFields";
 import { agriBody, agriFormOf, classOf, kindWord } from "../../agri/pages/agri";
-// An optical shop's contact lenses: one item for each power (with Variants on).
+// An optical shop's contact lenses: one item for each power (with Variants on);
+// its spectacle lenses keep their details, picked on a spectacle order.
 import PowerGridFields from "../../optical/pages/PowerGridFields";
-import { emptyGrid, gridBody, usesOptical } from "../../optical/pages/optical";
+import LensItemFields from "../../optical/pages/LensItemFields";
+import { emptyGrid, gridBody, lensItemAttributes, lensItemForm, usesOptical } from "../../optical/pages/optical";
 // An item's GST history: its GST rate changes by date (modules/tax-changes).
 import TaxHistoryDialog from "../../../tax-changes/pages/TaxHistoryDialog";
 import { shopChanges } from "../../../tax-changes/services/taxChanges.service";
@@ -157,6 +159,7 @@ function CatalogDialog({ sku, onClose, onSaved }) {
     ...Object.fromEntries([...FIGURES, ...CHANGEABLE_TEXTS].map((key) => [key, sku.attributes?.[key] ? String(sku.attributes[key]) : ""])),
     agri: agriFormOf(sku),
     lensGrid: emptyGrid(),
+    lensItem: lensItemForm(sku),
     // Stock already on the shelf when the item is added.
     openingQuantity: "", openingCost: "", openingLocation: String(biz.locations.find((l) => l.active)?.id || ""), openingLot: "", openingExpiry: "",
   }));
@@ -177,10 +180,13 @@ function CatalogDialog({ sku, onClose, onSaved }) {
   // A farm-input shop's goods carry what kind of input they are (the whole classification, every save).
   const agri = biz.has("agri") && form.kind === "goods";
   const agriAttributes = agri ? agriBody(form.agri) : {};
-  const { agri: _agriForm, lensGrid: _lensGrid, ...fields } = form;
+  const { agri: _agriForm, lensGrid: _lensGrid, lensItem: _lensItem, ...fields } = form;
   // A contact lens made as one item for each power (an optical shop with Variants on).
   const lensGridOffered = !editing && form.kind === "goods" && usesOptical(biz) && biz.has("variants");
   const grid = lensGridOffered && form.lensGrid.on;
+  // A spectacle lens's details (an optical shop's goods; not a contact lens made by powers).
+  const lensItemOffered = form.kind === "goods" && usesOptical(biz) && !grid && !sku.attributes?.baseCurve;
+  const lensAttributes = lensItemOffered ? lensItemAttributes(form.lensItem, { editing, was: lensItemForm(sku) }) : {};
 
   const submit = () => (grid
     ? businessWrite(biz.id, "optical/power-grid", gridBody(form, taxRateId)).then((r) => ({ ...r, label: `${r.product.name}: ${r.created} ${r.created === 1 ? "power" : "powers"}` }))
@@ -188,10 +194,10 @@ function CatalogDialog({ sku, onClose, onSaved }) {
     ? businessWrite(biz.id, `catalog/${sku.id}`, { label: form.label, price: form.price, taxRateId: taxRateId || undefined, taxRate: taxRateId ? undefined : sku.tax_rate,
       categoryId: form.categoryId || null, reorderLevel: form.reorderLevel || 0, active: form.active, mrp: form.mrp, hsnCode: form.hsnCode, barcode: form.barcode,
       shelfLocation: form.shelfLocation, ...(biz.has("loyalty") ? { memberPrice: form.memberPrice } : {}), ...(usedInServices ? { internalUse: form.internalUse } : {}),
-      ...(figureFields.length || agri ? { attributes: { ...Object.fromEntries(figureFields.map(([key]) => [key, form[key] || ""])), ...agriAttributes } } : {}) }, "patch")
+      ...(figureFields.length || agri || Object.keys(lensAttributes).length ? { attributes: { ...Object.fromEntries(figureFields.map(([key]) => [key, form[key] || ""])), ...agriAttributes, ...lensAttributes } } : {}) }, "patch")
     : businessWrite(biz.id, "catalog", {
       ...fields, taxRateId: taxRateId || undefined, categoryId: form.categoryId || undefined, productId: form.productId || undefined, reorderLevel: form.reorderLevel || 0,
-      attributes: { ...Object.fromEntries(attributeFields.map(([key]) => [key, form[key] || ""])), ...agriAttributes },
+      attributes: { ...Object.fromEntries(attributeFields.map(([key]) => [key, form[key] || ""])), ...agriAttributes, ...lensAttributes },
       ...(canOpening && form.kind === "goods" && form.tracking !== "serial" && Number(form.openingQuantity) > 0 ? { openingStock: {
         quantity: form.openingQuantity, unitCost: form.openingCost || "0", locationId: form.openingLocation,
         ...(form.tracking === "batch" ? { lotCode: form.openingLot, expiresOn: form.openingExpiry || undefined } : {}),
@@ -307,6 +313,7 @@ function CatalogDialog({ sku, onClose, onSaved }) {
         </div>
       )}
       {agri && <AgriItemFields biz={biz} value={form.agri} onChange={(next) => setForm((f) => ({ ...f, agri: next }))} tracking={editing ? sku.tracking : form.tracking} />}
+      {lensItemOffered && <LensItemFields value={form.lensItem} onChange={(next) => setForm((f) => ({ ...f, lensItem: next }))} />}
       {(editing ? figureFields : grid ? [] : attributeFields).map(([key, label]) => (
         <Field key={key} label={label}>
           {FIGURES.includes(key)

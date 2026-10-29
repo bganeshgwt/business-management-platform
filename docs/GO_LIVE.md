@@ -458,7 +458,12 @@ training run does not count as a real-service sign-off. Take a verified backup
 4. Receive a purchase with batch and expiry, send a **Transfer** to another
    location and receive it there, and enter and approve a **Stock count**.
 5. A pharmacy also makes a **Prescription sale** of a Schedule H1 medicine with
-   the prescription and its scan, and checks the H1 register.
+   the prescription and its scan, and checks the H1 register. An optical shop
+   keeps each selling location's MD-42 registration under *Settings ›
+   Licences* (a contact-lens bill is refused there without it), bills a box of
+   contact lenses to a customer with a contact-lens prescription, and books a
+   spectacle order with an advance, through the workshop's steps and the
+   quality check to delivery.
 6. Close: each cashier closes their shift with a blind count. The manager opens
    **Daily money**, makes the cash check (*Count cash*), compares the cash
    counted and every payment method's totals, and prints the end-of-day slip.

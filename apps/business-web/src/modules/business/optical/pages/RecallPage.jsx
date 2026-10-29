@@ -10,15 +10,17 @@ import { dateShort } from "@bmp/shared/format";
 import { toast } from "../../../../services/toast";
 import { BusinessHeader, Field } from "../../core/pages/ui";
 import { useOpenBusiness, useServerList } from "../../core/pages/hooks";
-import { recallLink } from "./optical";
+import { RECALL_GROUPS, recallLink } from "./optical";
 // A reminder needs the customer's consent to reminders (asked first, in one tap).
 import ConsentLink from "../../../personal-data/components/ConsentLink";
 import { useConsentGate } from "../../../personal-data/useConsentGate";
 import { useShopPrivacy } from "../../../personal-data/usePrivacy";
 import "../styles/optical.css";
 
-// The recall list: every customer whose last eye test was the shop's recall
-// months ago or more (12 until changed here), longest due first, with their
+// The recall list: every customer whose last eye test was their recall
+// months ago or more, longest due first: the shop's months (12 until changed
+// here), or a group's own (children under 18, contact-lens wearers,
+// progressive wearers; the shortest of a customer's groups), with their
 // phone, when they were last reminded and their last order. A reminder opens
 // WhatsApp with the message ready (or a call), and is kept, so the list shows
 // who was reminded in the last 30 days.
@@ -29,12 +31,17 @@ export default function RecallPage() {
   const list = useServerList("optical/recall", { gridId: "optical-recall", params: notReminded ? { reminded: "false" } : {} });
   const [settings, setSettings] = useState(null);
   const [months, setMonths] = useState("");
+  const [groups, setGroups] = useState({ child: "", lens: "", progressive: "" });
   const [saving, setSaving] = useState(false);
   const [version, setVersion] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
     businessRead(biz.id, "optical/settings", undefined, controller.signal)
-      .then((s) => { setSettings(s); setMonths(String(s.recall_months)); })
+      .then((s) => {
+        setSettings(s); setMonths(String(s.recall_months));
+        const text = (x) => (x ? String(x) : "");
+        setGroups({ child: text(s.recall_months_child), lens: text(s.recall_months_contact_lens), progressive: text(s.recall_months_progressive) });
+      })
       .catch(() => {});
     return () => controller.abort();
   }, [biz.id, version]);
@@ -42,8 +49,9 @@ export default function RecallPage() {
     event.preventDefault();
     setSaving(true);
     try {
-      const saved = await businessWrite(biz.id, "optical/settings", { recallMonths: months }, "put");
-      toast.success(`Customers are due ${saved.recall_months} months after their last eye test.`);
+      const saved = await businessWrite(biz.id, "optical/settings", { recallMonths: months, recallMonthsChild: groups.child, recallMonthsContactLens: groups.lens,
+        recallMonthsProgressive: groups.progressive }, "put");
+      toast.success(`Customers are due ${saved.recall_months} months after their last eye test, unless a group of theirs says sooner or later.`);
       setVersion((n) => n + 1);
       list.reload();
     } catch (err) { toast.error(getErrorMessage(err)); } finally { setSaving(false); }
@@ -67,7 +75,9 @@ export default function RecallPage() {
     { key: "examined_on", header: "Last eye test", type: "date", value: (r) => r.examined_on,
       render: (r) => <span className="bz-two-line"><span>{dateShort(r.examined_on, { year: true })}</span><small className="muted">{r.examiner_name}</small></span> },
     { key: "due_on", header: "Due since", type: "date", value: (r) => r.due_on, mobile: "show",
-      render: (r) => <span className="bz-two-line"><span>{dateShort(r.due_on, { year: true })}</span><small className="muted">{Number(r.days_overdue) === 0 ? "today" : `${r.days_overdue} days`}</small></span> },
+      render: (r) => <span className="bz-two-line"><span>{dateShort(r.due_on, { year: true })}</span><small className="muted">{Number(r.days_overdue) === 0 ? "today" : `${r.days_overdue} days`} · after {r.months} months</small></span> },
+    { key: "group", header: "Group", value: (r) => RECALL_GROUPS.filter((g) => r[g.key]).map((g) => g.label).join(", "),
+      render: (r) => RECALL_GROUPS.filter((g) => r[g.key]).map((g) => g.label).join(", ") || <span className="muted">—</span> },
     { key: "reminded_at", header: "Last reminded", type: "date", value: (r) => r.reminded_at,
       render: (r) => (r.reminded_at ? <span className="bz-two-line"><span>{dateShort(r.reminded_at)}</span><small className="muted">{r.reminders} {r.reminders === 1 ? "reminder" : "reminders"}</small></span> : <span className="muted">Never</span>) },
     { key: "last_order_no", header: "Last order", value: (r) => r.last_order_no || "", className: "mono", defaultHidden: true },
@@ -85,12 +95,15 @@ export default function RecallPage() {
   return (
     <div className="stack">
       <BusinessHeader icon="bell" title="Recall list"
-        description={`Customers whose last eye test was ${settings ? settings.recall_months : 12} months ago or more, longest due first. WhatsApp opens with the reminder ready; each reminder is kept.`} />
+        description={`Customers whose last eye test was ${settings ? settings.recall_months : 12} months ago or more (or their group's months), longest due first. WhatsApp opens with the reminder ready; each reminder is kept.`} />
       {biz.can("settings.edit") && (
         <SectionCard icon="settings" title="When a customer is due">
           <form className="opt-setting" onSubmit={save}>
             <Field label="Months after the last eye test"><input type="number" min="1" max="60" step="1" required value={months} onChange={(e) => setMonths(e.target.value)} /></Field>
-            <button type="submit" className="button button-secondary" disabled={saving || !settings || months === String(settings.recall_months)}>{saving ? "Saving…" : "Save"}</button>
+            <Field label="Children (months, optional)" hint="Under 18 at their latest test."><input type="number" min="1" max="60" step="1" value={groups.child} onChange={(e) => setGroups((g) => ({ ...g, child: e.target.value }))} placeholder="As above" /></Field>
+            <Field label="Contact-lens wearers (months, optional)"><input type="number" min="1" max="60" step="1" value={groups.lens} onChange={(e) => setGroups((g) => ({ ...g, lens: e.target.value }))} placeholder="As above" /></Field>
+            <Field label="Progressive wearers (months, optional)"><input type="number" min="1" max="60" step="1" value={groups.progressive} onChange={(e) => setGroups((g) => ({ ...g, progressive: e.target.value }))} placeholder="As above" /></Field>
+            <button type="submit" className="button button-secondary" disabled={saving || !settings}>{saving ? "Saving…" : "Save"}</button>
             {settings?.updated_by_name && <small className="muted">Set by {settings.updated_by_name} on {dateShort(settings.updated_at, { year: true })}</small>}
           </form>
         </SectionCard>

@@ -510,7 +510,9 @@ test('GST rates by date', { timeout: 900000 }, async (t) => {
 
     // Optical: ₹2,360 including GST keeps its total, with 5% inside it.
     const { O, spectacles } = types.optical;
-    for (const status of ['in_workshop', 'quality_check', 'ready']) await request('POST', O(`optical/orders/${spectacles.id}/status`), { status });
+    await request('POST', O(`optical/orders/${spectacles.id}/status`), { status: 'in_workshop' });
+    await request('POST', O(`optical/orders/${spectacles.id}/workshop`), { step: 'fitting' });
+    for (const status of ['quality_check', 'ready']) await request('POST', O(`optical/orders/${spectacles.id}/status`), { status });
     const delivered = await request('POST', O(`optical/orders/${spectacles.id}/deliver`), { requestKey: key(), payment: { amount: 'full', method: 'card' } });
     const [opticalLine] = await linesOf(types.optical.business, { id: delivered.document_id });
     assert.deepEqual({ rate: Number(opticalLine.tax_rate), net: opticalLine.net, tax: opticalLine.tax }, { rate: 5, net: '2247.62', tax: '112.38' });

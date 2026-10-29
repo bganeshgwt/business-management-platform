@@ -196,6 +196,12 @@ export function businessSections(type) {
         { section: "prescriptions", label: "Prescriptions", icon: "logbook", need: "optical.view", types: OPTICAL },
         // Customers due for an eye test, with a reminder ready to send.
         { section: "recall", label: "Recall list", icon: "reservations", need: "optical.view", types: OPTICAL },
+        // Contact lenses running out, with a reminder ready to send, and free trials (with its customers).
+        { section: "contact-lenses", label: "Contact lenses", icon: "recurring", need: "optical.view", types: OPTICAL },
+        // Contact lenses in stock, power by power (with its stock).
+        { section: "lens-stock", label: "Contact lens stock", icon: "stock", need: "inventory.view", module: "optical", types: OPTICAL },
+        // The referring doctors and their referrals (with its reports).
+        { section: "referrals", label: "Referrals", icon: "reports", need: "optical.view", types: OPTICAL },
       ],
     },
     {

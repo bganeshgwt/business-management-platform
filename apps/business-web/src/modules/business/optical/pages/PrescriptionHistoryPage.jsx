@@ -11,7 +11,7 @@ import { toast } from "../../../../services/toast";
 import { Badge, BusinessHeader } from "../../core/pages/ui";
 import { businessToday, useOpenBusiness } from "../../core/pages/hooks";
 import PrescriptionDialog from "./PrescriptionDialog";
-import { RxTable } from "./RxGrid";
+import { LensTable, RxTable } from "./RxGrid";
 import { printPrescription } from "./opticalPrint";
 import { EYES, STATUSES, pdText, power, recallLink, rowOf } from "./optical";
 // A reminder needs the customer's consent to reminders (asked first, in one tap).
@@ -21,8 +21,9 @@ import "../styles/optical.css";
 
 // One customer's eye tests side by side, newest first: each power for each
 // eye with how it moved since the test before, the PD and who examined;
-// then each prescription in full, the spectacle orders made on them, and
-// when the next eye test is due.
+// then each prescription in full (spectacles, or contact lenses), the
+// spectacle orders made on them, and when the next eye test is due (by the
+// shop's months, or a group's: child, contact-lens wearer, progressive wearer).
 
 // The rows of the side-by-side table: what each eye's distance and near powers are.
 const LINES = EYES.flatMap((eye) => [
@@ -60,11 +61,14 @@ export default function PrescriptionHistoryPage() {
 
   const { customer, prescriptions, orders, recall } = data;
   const latest = prescriptions[0] || null;
+  // Spectacles are made from a spectacle prescription; the powers side by side are theirs.
+  const spectacles = prescriptions.filter((p) => p.kind !== "contact_lens");
+  const latestSpectacles = spectacles[0] || null;
   const today = businessToday(biz.business.timezone);
   const due = recall.due_on && recall.due_on <= today;
   const canRecord = biz.can("optical.create");
   const canBook = canRecord && biz.can("sales.create");
-  const shown = prescriptions.slice(0, 6);
+  const shown = spectacles.slice(0, 6);
   const remind = async () => {
     if (!(await gate.ensure("reminders", { id: customer.id, name: customer.name }))) return;
     if (customer.phone) window.open(recallLink(biz, { ...customer, examined_on: latest?.examined_on }), "_blank", "noopener");
@@ -85,14 +89,14 @@ export default function PrescriptionHistoryPage() {
         secondary={(
           <>
             <Link className="button button-secondary" to={biz.path("prescriptions")}><Icon name="arrow-left" size={15} /> All prescriptions</Link>
-            {canBook && latest && <button type="button" className="button button-secondary" onClick={() => navigate(biz.path(`spectacle-orders?new=1&prescription=${latest.id}`))}><Icon name="clipboard" size={15} /> Book a spectacle order</button>}
+            {canBook && latestSpectacles && <button type="button" className="button button-secondary" onClick={() => navigate(biz.path(`spectacle-orders?new=1&prescription=${latestSpectacles.id}`))}><Icon name="clipboard" size={15} /> Book a spectacle order</button>}
           </>
         )} />
       <ErrorMessage message={error} />
       <div className="stat-grid">
         <StatTile icon="eye" tone="primary" label="Last eye test" value={latest ? dateShort(latest.examined_on, { year: true }) : "None"} note={latest ? `by ${latest.examiner_name}` : undefined} />
         <StatTile icon="calendar" tone={due ? "warning" : "neutral"} label="Next test due" value={recall.due_on ? dateShort(recall.due_on, { year: true }) : "—"}
-          note={recall.reminded_at ? `reminded ${dateShort(recall.reminded_at)}` : `${recall.months} months after the last test`} />
+          note={recall.reminded_at ? `reminded ${dateShort(recall.reminded_at)}` : `${recall.months} months after the last test${recall.groups?.length ? ` (${recall.groups.join(", ")})` : ""}`} />
         <StatTile icon="clipboard" label="Spectacle orders" value={String(orders.length)} note={orders[0] ? `last ${orders[0].order_no}` : undefined} />
       </div>
       {due && (
@@ -131,17 +135,22 @@ export default function PrescriptionHistoryPage() {
         </SectionCard>
       )}
       {prescriptions.map((p) => (
-        <SectionCard key={p.id} icon="eye" title={`Eye test of ${dateShort(p.examined_on, { year: true })}`}
-          description={[`by ${p.examiner_name}${p.registration_no ? ` (Reg. no. ${p.registration_no})` : ""}`, `PD ${pdText(p) || "—"}`, `valid until ${dateShort(p.valid_until, { year: true })}`].join(" · ")}
+        <SectionCard key={p.id} icon="eye" title={`${p.kind === "contact_lens" ? "Contact-lens test" : "Eye test"} of ${dateShort(p.examined_on, { year: true })}`}
+          description={[`by ${p.examiner_name}${p.registration_no ? ` (Reg. no. ${p.registration_no}${p.registration_council ? `, ${p.registration_council}` : ""})` : ""}`,
+            p.kind === "contact_lens" ? null : `PD ${pdText(p) || "—"}`, p.vertex_distance ? `vertex ${Number(p.vertex_distance)} mm` : null,
+            p.age_years !== null && p.age_years !== undefined ? `age ${p.age_years}` : null, p.referred_by ? `referred by ${p.referred_by}` : null,
+            `valid until ${dateShort(p.valid_until, { year: true })}`].filter(Boolean).join(" · ")}
           actions={(
             <span className="bz-row-actions">
               {p.lapsed && <Badge tone="warning" label="Lapsed" />}
-              {canBook && <button type="button" className="chip-button" onClick={() => navigate(biz.path(`spectacle-orders?new=1&prescription=${p.id}`))}>Book an order</button>}
+              {p.registration_lapsed && <Badge tone="danger" label="Registration ran out" />}
+              {canBook && p.kind !== "contact_lens" && <button type="button" className="chip-button" onClick={() => navigate(biz.path(`spectacle-orders?new=1&prescription=${p.id}`))}>Book an order</button>}
               {canRecord && !p.orders && <button type="button" className="chip-button" onClick={() => correct(p)}>Correct</button>}
               {biz.can("optical.print") && <button type="button" className="chip-button" onClick={() => print(p)}><Icon name="print" size={13} /> Print</button>}
             </span>
           )}>
-          <RxTable rows={p.rows} caption={`Powers of ${dateShort(p.examined_on, { year: true })}`} />
+          {p.kind === "contact_lens" ? <LensTable lenses={p.lenses} caption={`Contact lenses of ${dateShort(p.examined_on, { year: true })}`} />
+            : <RxTable rows={p.rows} caption={`Powers of ${dateShort(p.examined_on, { year: true })}`} />}
           {p.notes && <p className="muted small">{p.notes}</p>}
           {orders.filter((o) => o.prescription_id === p.id).length > 0 && (
             <p className="small">Orders on it: {orders.filter((o) => o.prescription_id === p.id).map((o, i) => (

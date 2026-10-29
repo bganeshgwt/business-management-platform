@@ -193,3 +193,24 @@
 .opt-item-row > .field:nth-child(2) {
   flex: 0 0 7rem;
 }
+
+/* The workshop's steps done on an order, and the contact-lens stock grid. */
+.opt-steps {
+  margin: 0 0 var(--space-2);
+  padding-left: var(--space-4);
+  font-size: var(--text-sm);
+}
+.opt-stock td {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.opt-stock td.opt-held {
+  font-weight: var(--weight-medium);
+  color: var(--success-text);
+}
+.opt-stock td.opt-none {
+  color: var(--muted);
+}
+.opt-setting select {
+  width: auto;
+}

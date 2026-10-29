@@ -69,6 +69,7 @@ const TABLES = {
   optical_prescriptions: { label: 'Eye tests and prescriptions', keep: 'Linked only to the erased record, they no longer say whose they are.' },
   optical_orders: { label: 'Spectacle orders', erase: { customer_name: ERASED_NAME, customer_phone: null } },
   optical_recall_reminders: { label: 'Recall reminders sent', keep: 'A log of the reminders sent, kept at least a year as the DPDP Rules ask of processing logs.' },
+  optical_contact_lens_trials: { label: 'Contact-lens trials', keep: 'Contact lenses given out, with their batch: records of medical devices kept at least two years under the MD-42 registration.' },
   hardware_sites: { label: 'Sites', erase: { name: 'Site', address: null, contact_person: null, phone: null, active: false } },
   wholesale_claims: { label: 'Claims', keep: 'Trade records of the invoices they settle.' },
   wholesale_customer_beats: { label: 'Beat', keep: 'A beat holds no personal details.' },

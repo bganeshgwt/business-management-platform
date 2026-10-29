@@ -9,20 +9,25 @@ const c = require('./opticalCommon');
 // given (-0.50 to -6.00 in steps of 0.25, +0.50 to +4.00, …) becomes an item
 // of the product, at one price, its label and code naming the power, and its
 // power, base curve and diameter kept with its details (catalog_skus
-// attributes). More powers can be added to the product later; a power it
-// already has is left as it is. Stock comes in through purchases, by batch
-// and expiry where batches are on.
+// attributes). A toric lens's items are each power with each CYL and AXIS
+// given, a multifocal's each power with each ADD, and a coloured lens's each
+// power in each colour (these combine). How often the lens is replaced and
+// how many lenses one unit holds go with every item too (the replacement
+// reminders count them). More powers can be added to the product later; one
+// it already has is left as it is. Stock comes in through purchases, by batch
+// and expiry where batches are on; the stock view shows each power held.
 
 const { fail } = c;
 const id = (value, name = 'Record ID') => v.requiredId(value, name);
-// The most items one lens product may have, and the most powers one request makes.
-const MAX_POWERS = 300;
-const MAX_NEW = 200;
+// The most items one lens product may have, and the most one request makes.
+const MAX_POWERS = 2400;
+const MAX_NEW = 600;
 const codePart = (text, length) => String(text).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, length);
 // -2.50 -> "-2.50", 1.25 -> "+1.25", 0 -> "0.00" (hundredths in, text out).
 const powerText = (hundredths) => `${hundredths > 0 ? '+' : ''}${(hundredths / 100).toFixed(2)}`;
 // -2.50 -> "M250", +1.25 -> "P125", 0 -> "000".
 const powerCode = (hundredths) => (hundredths === 0 ? '000' : `${hundredths < 0 ? 'M' : 'P'}${String(Math.abs(hundredths)).padStart(3, '0')}`);
+const hundredths = (text) => Math.round(Number(text) * 100);
 
 function requireVariants(business) {
   if (!business.modules.includes('variants')) fail('Variants are not switched on for this business. An owner can turn them on in Settings › Business tools.', 403);
@@ -41,13 +46,59 @@ function readRanges(value) {
     const to = c.readPower(range.to, `${name}: to`, { min: -20, max: 20 });
     if (from === null || to === null) fail(`${name}: give the first and the last power`);
     const step = Math.round(Number(v.requiredEnum(String(range.step ?? '0.25'), `${name}: step`, ['0.25', '0.5', '0.50'])) * 100);
-    const low = Math.min(Math.round(Number(from) * 100), Math.round(Number(to) * 100));
-    const high = Math.max(Math.round(Number(from) * 100), Math.round(Number(to) * 100));
+    const low = Math.min(hundredths(from), hundredths(to));
+    const high = Math.max(hundredths(from), hundredths(to));
     if ((high - low) % step !== 0) fail(`${name}: from ${powerText(low)} to ${powerText(high)} does not go in steps of ${(step / 100).toFixed(2)}`);
     for (let p = low; p <= high; p += step) powers.add(p);
   }
-  if (powers.size > MAX_NEW) fail(`Make at most ${MAX_NEW} powers at a time`);
   return [...powers].sort((a, b) => a - b);
+}
+// A list of values given once each, read by `read`: a toric's cylinders and
+// axes, a multifocal's ADDs, a coloured lens's colours. [] when none.
+function readList(value, name, read, max) {
+  if (value === undefined || value === null || value === '') return [];
+  const list = v.requiredArray(value, name);
+  if (list.length > max) fail(`${name}: at most ${max}`);
+  const out = [];
+  for (const item of list) {
+    const read1 = read(item);
+    if (read1 === null) continue;
+    if (out.some((x) => String(x).toLowerCase() === String(read1).toLowerCase())) fail(`${name}: ${read1} is given twice`);
+    out.push(read1);
+  }
+  return out;
+}
+// The variants of each power: [{ cyl, axis, add, colour }] (one with none of them for a plain spherical lens).
+function readVariants(body) {
+  const cylinders = readList(body.cylinders, 'Cylinders', (x) => {
+    const cyl = c.readPower(x, 'Cylinder', { min: -10, max: 10 });
+    if (cyl !== null && Number(cyl) === 0) fail('Cylinders: a CYL of 0.00 is not toric');
+    return cyl;
+  }, 12);
+  const axes = readList(body.axes, 'Axes', (x) => c.readAxis(x, 'Axis'), 36);
+  if ((cylinders.length > 0) !== (axes.length > 0)) fail('A toric lens has its cylinders and its axes: give both, or neither');
+  const adds = readList(body.adds, 'ADDs', (x) => c.readPower(x, 'ADD', { min: 0.25, max: 4 }), 8);
+  const colours = readList(body.colours, 'Colours', (x) => c.optionalText(x, 'Colour', 40), 12);
+  const list = [];
+  for (const cyl of cylinders.length ? cylinders : [null]) {
+    for (const axis of axes.length ? axes : [null]) {
+      for (const add of adds.length ? adds : [null]) {
+        for (const colour of colours.length ? colours : [null]) list.push({ cyl, axis, add, colour });
+      }
+    }
+  }
+  return { list, toric: cylinders.length > 0, multifocal: adds.length > 0, coloured: colours.length > 0 };
+}
+// How often the lens is replaced, and how many lenses one unit holds.
+function readWear(body) {
+  const modality = v.optionalEnum(body.modality, 'Replaced', c.MODALITIES, null);
+  let perPack = null;
+  if (c.given(body.lensesPerPack)) {
+    const text = String(body.lensesPerPack).trim();
+    if (!/^\d{1,4}$/.test(text) || Number(text) < 1 || Number(text) > 1000) fail('Lenses in one unit must be a whole number from 1 to 1000');
+    perPack = text;
+  }
+  return { modality, perPack };
 }
 // Base curve and diameter in mm, up to two decimals.
 function readMm(value, name, min, max) {
@@ -67,6 +118,9 @@ async function readSlab(db, business, body) {
   return { taxRateId: slab?.id || null, rate };
 }
 
+// One item's place in the grid, the same whichever way its details were written.
+const keyOf = (a) => [hundredths(a.power), a.cyl ? hundredths(a.cyl) : '', a.axis ? Number(a.axis) : '', a.add ? hundredths(a.add) : '', String(a.colour || '').toLowerCase()].join('|');
+
 // A lens product with the powers it has, each with its stock (at one location or all).
 async function powersOf(db, business, productId, locationId = null) {
   const product = await repo.one(db, 'SELECT * FROM catalog_products WHERE business_id=$1 AND id=$2', [business.id, productId]);
@@ -78,31 +132,69 @@ async function powersOf(db, business, productId, locationId = null) {
   return { product, skus, powered };
 }
 
+// A lens product's powers in the grid's shape: lowest power first, then CYL, AXIS, ADD and colour.
+function gridOf(product, powered) {
+  const first = powered[0]?.attributes || {};
+  const powers = powered.map((s) => ({ sku_id: s.id, code: s.code, label: s.label, power: s.attributes.power, cyl: s.attributes.cyl || null, axis: s.attributes.axis || null,
+    add: s.attributes.add || null, colour: s.attributes.colour || null, price: s.price, active: s.active, stock: s.stock }))
+    .sort((a, b) => Number(a.power) - Number(b.power) || Number(a.cyl || 0) - Number(b.cyl || 0) || Number(a.axis || 0) - Number(b.axis || 0)
+      || Number(a.add || 0) - Number(b.add || 0) || String(a.colour || '').localeCompare(String(b.colour || '')));
+  return { product, base_curve: first.baseCurve || null, diameter: first.diameter || null, modality: first.modality || null, lenses_per_pack: first.lensesPerPack || null,
+    toric: powered.some((s) => s.attributes.cyl), multifocal: powered.some((s) => s.attributes.add), coloured: powered.some((s) => s.attributes.colour), powers };
+}
+
 // The powers a lens product has (the item form's power grid, adding more).
 async function grid(business, productId, query = {}) {
   c.requireOptical(business);
   await access.require(business, 'catalog.view');
   requireVariants(business);
   const { product, powered } = await powersOf(repo.pool, business, id(productId, 'Product'), c.given(query.locationId) ? id(query.locationId, 'Location') : null);
-  const first = powered[0]?.attributes || {};
-  return { product, base_curve: first.baseCurve || null, diameter: first.diameter || null,
-    powers: powered.map((s) => ({ sku_id: s.id, code: s.code, label: s.label, power: s.attributes.power, price: s.price, active: s.active, stock: s.stock }))
-      .sort((a, b) => Number(a.power) - Number(b.power)) };
+  return gridOf(product, powered);
+}
+
+// The contact-lens products and the stock of each (at one location, or every
+// location): the stock view's choices.
+async function lensProducts(business, query = {}) {
+  c.requireOptical(business);
+  await access.require(business, 'inventory.view');
+  const locationId = c.given(query.locationId) ? id(query.locationId, 'Location') : business.location_scope || null;
+  if (locationId) access.requireLocation(business, locationId);
+  return repo.all(repo.pool, `SELECT p.id,p.name,p.brand,p.active,count(s.id)::int AS items,min(s.attributes->>'baseCurve') AS base_curve,min(s.attributes->>'diameter') AS diameter,
+      min(s.attributes->>'modality') AS modality,bool_or(s.attributes->>'cyl' IS NOT NULL) AS toric,bool_or(s.attributes->>'add' IS NOT NULL) AS multifocal,
+      bool_or(s.attributes->>'colour' IS NOT NULL) AS coloured,COALESCE(sum(st.quantity),0) AS stock,count(*) FILTER (WHERE st.quantity > 0)::int AS powers_in_stock
+    FROM catalog_products p JOIN catalog_skus s ON s.business_id=p.business_id AND s.product_id=p.id
+    LEFT JOIN LATERAL (SELECT sum(l.quantity) AS quantity FROM business_stock_lots l WHERE l.business_id=s.business_id AND l.sku_id=s.id AND ($2::bigint IS NULL OR l.location_id=$2)) st ON TRUE
+    WHERE p.business_id=$1 AND s.attributes->>'baseCurve' IS NOT NULL GROUP BY p.id ORDER BY p.active DESC,p.name`, [business.id, locationId]);
+}
+
+// One lens product's stock, power by power (the stock view).
+async function lensStock(business, productId, query = {}) {
+  c.requireOptical(business);
+  await access.require(business, 'inventory.view');
+  const locationId = c.given(query.locationId) ? id(query.locationId, 'Location') : business.location_scope || null;
+  if (locationId) access.requireLocation(business, locationId);
+  const { product, powered } = await powersOf(repo.pool, business, id(productId, 'Product'), locationId);
+  if (!powered.length) fail(`${product.name} is not a contact lens made by powers`, 404);
+  return { ...gridOf(product, powered), location_id: locationId };
 }
 
 // A new lens product with its powers, or more powers for one made here before.
 // body: { productId? | name, brand?, categoryId?, unit, tracking?, price, taxRateId? | taxRate, mrp?, hsnCode?, reorderLevel?,
-//   codePrefix?, baseCurve, diameter, ranges: [{ from, to, step }] }
+//   codePrefix?, baseCurve, diameter, ranges: [{ from, to, step }], cylinders?, axes?, adds?, colours?, modality?, lensesPerPack? }
 async function createGrid(business, user, body) {
   c.requireOptical(business);
   await access.require(business, 'catalog.create');
   requireVariants(business);
   const powers = readRanges(body.ranges);
+  const variants = readVariants(body);
+  if (powers.length * variants.list.length > MAX_NEW) fail(`Make at most ${MAX_NEW} items at a time (these come to ${powers.length * variants.list.length})`);
   const baseCurve = readMm(body.baseCurve, 'Base curve', 7, 10);
   const diameter = readMm(body.diameter, 'Diameter', 12, 16);
   const mrp = core.readMrp(body.mrp);
+  const wear = readWear(body);
   return repo.transaction(async (db) => {
     let product, base, created = [];
+    const wanted = powers.flatMap((power) => variants.list.map((variant) => ({ power, ...variant })));
     if (c.given(body.productId)) {
       product = await repo.one(db, 'SELECT * FROM catalog_products WHERE business_id=$1 AND id=$2 AND active FOR UPDATE', [business.id, id(body.productId, 'Product')]);
       if (!product) fail('Product not found', 404);
@@ -112,12 +204,20 @@ async function createGrid(business, user, body) {
       if (first.attributes.baseCurve !== baseCurve || first.attributes.diameter !== diameter) {
         fail(`${product.name} has base curve ${first.attributes.baseCurve} and diameter ${first.attributes.diameter}: another base curve or diameter is another lens product`, 409);
       }
+      // The same kind of lens: toric, multifocal and coloured as its items are.
+      const shape = gridOf(product, powered);
+      for (const [kind, words, given] of [['toric', 'a toric lens: give its cylinders and axes', variants.toric], ['multifocal', 'a multifocal lens: give its ADDs', variants.multifocal],
+        ['coloured', 'a coloured lens: give its colours', variants.coloured]]) {
+        if (shape[kind] && !given) fail(`${product.name} is ${words}`, 409);
+        if (!shape[kind] && given) fail(`${product.name} is not ${words.split(':')[0].replace(/^an? /, 'a ')}: another kind of lens is another lens product`, 409);
+      }
       await core.requireDepartmentItem(db, business, { categoryId: product.category_id });
       const price = c.given(body.price) ? core.decimal(body.price, 'Price') : Number(first.price);
       base = { unit: first.unit, tracking: first.tracking, taxRate: Number(first.tax_rate), taxRateId: first.tax_rate_id, reorderLevel: first.reorder_level,
-        hsn: first.hsn_code, mrp: c.given(body.mrp) ? mrp : first.mrp, price, prefix: String(first.code).split('-')[0] };
-      const have = new Set(powered.map((s) => Math.round(Number(s.attributes.power) * 100)));
-      const fresh = powers.filter((p) => !have.has(p));
+        hsn: first.hsn_code, mrp: c.given(body.mrp) ? mrp : first.mrp, price, prefix: String(first.code).split('-')[0],
+        modality: first.attributes.modality || null, perPack: first.attributes.lensesPerPack || null };
+      const have = new Set(powered.map((s) => keyOf(s.attributes)));
+      const fresh = wanted.filter((w) => !have.has(keyOf({ ...w, power: (w.power / 100).toFixed(2) })));
       if (!fresh.length) fail(`${product.name} already has every one of these powers`, 409);
       if (skus.length + fresh.length > MAX_POWERS) fail(`A lens product can have at most ${MAX_POWERS} powers`);
       created = await insertPowers(db, business, product, base, fresh, { baseCurve, diameter });
@@ -142,12 +242,15 @@ async function createGrid(business, user, body) {
       product = await repo.one(db, "INSERT INTO catalog_products(business_id,name,category_id,brand,kind) VALUES($1,$2,$3,$4,'goods') RETURNING *",
         [business.id, name, categoryId, c.optionalText(body.brand, 'Brand', 100)]);
       base = { unit: unit.code, tracking, taxRate: tax.rate, taxRateId: tax.taxRateId, reorderLevel: core.decimal(body.reorderLevel ?? 0, 'Reorder level', 3),
-        hsn: hsnOf(body.hsnCode), mrp, price: core.decimal(body.price, 'Price'), prefix };
-      created = await insertPowers(db, business, product, base, powers, { baseCurve, diameter });
+        hsn: hsnOf(body.hsnCode), mrp, price: core.decimal(body.price, 'Price'), prefix, modality: wear.modality, perPack: wear.perPack };
+      created = await insertPowers(db, business, product, base, wanted, { baseCurve, diameter });
     }
+    const first = created[0].attributes, last = created.at(-1).attributes;
     await repo.audit(db, business.id, user.id, 'catalog.lens_powers_created', product.id, { product: product.name, powers: created.length,
-      from: powerText(Math.round(Number(created[0].attributes.power) * 100)), to: powerText(Math.round(Number(created.at(-1).attributes.power) * 100)), baseCurve, diameter });
-    return { product, created: created.length, items: created.map((s) => ({ id: s.id, code: s.code, label: s.label, power: s.attributes.power })) };
+      from: powerText(hundredths(first.power)), to: powerText(hundredths(last.power)), baseCurve, diameter,
+      ...(variants.toric ? { toric: true } : {}), ...(variants.multifocal ? { multifocal: true } : {}), ...(variants.coloured ? { coloured: true } : {}) });
+    return { product, created: created.length, items: created.map((s) => ({ id: s.id, code: s.code, label: s.label, power: s.attributes.power, cyl: s.attributes.cyl || null,
+      axis: s.attributes.axis || null, add: s.attributes.add || null, colour: s.attributes.colour || null })) };
   });
 }
 
@@ -159,22 +262,29 @@ function hsnOf(value) {
   return text;
 }
 
-async function insertPowers(db, business, product, base, powers, { baseCurve, diameter }) {
+// Each item: its label names the power and its variant ("Air Optix · -2.50 / -0.75 × 180 · ADD +1.50 · Blue"),
+// its code the prefix and the same (AO6-M250-C075X180-A150-BLU).
+async function insertPowers(db, business, product, base, wanted, { baseCurve, diameter }) {
   const settings = await repo.one(db, 'SELECT tax_mode FROM business_settings WHERE business_id=$1', [business.id]);
   const created = [];
-  for (const power of powers) {
-    const label = `${product.name} · ${powerText(power)}`.slice(0, 150);
+  for (const w of wanted) {
+    const words = [powerText(w.power), w.cyl ? `/ ${powerText(hundredths(w.cyl))} × ${w.axis}` : null].filter(Boolean).join(' ');
+    const label = [`${product.name} · ${words}`, w.add ? `ADD ${powerText(hundredths(w.add))}` : null, w.colour].filter(Boolean).join(' · ').slice(0, 150);
     core.checkMrp(label, base.price, base.taxRate, settings?.tax_mode || 'exclusive', base.mrp);
-    let code = `${base.prefix}-${powerCode(power)}`;
-    for (let n = 2; await repo.one(db, 'SELECT 1 FROM catalog_skus WHERE business_id=$1 AND code=$2', [business.id, code]); n += 1) code = `${base.prefix}-${powerCode(power)}-${n}`;
+    const stem = [base.prefix, powerCode(w.power), w.cyl ? `C${String(Math.abs(hundredths(w.cyl))).padStart(3, '0')}X${String(w.axis).padStart(3, '0')}` : null,
+      w.add ? `A${String(hundredths(w.add)).padStart(3, '0')}` : null, w.colour ? codePart(w.colour, 3) || null : null].filter(Boolean).join('-');
+    let code = stem;
+    for (let n = 2; await repo.one(db, 'SELECT 1 FROM catalog_skus WHERE business_id=$1 AND code=$2', [business.id, code]); n += 1) code = `${stem}-${n}`;
     if (code.length > 60) fail('The item codes would be longer than 60 characters: use a shorter code prefix');
+    const attributes = { power: (w.power / 100).toFixed(2), baseCurve, diameter, ...(w.cyl ? { cyl: w.cyl, axis: String(w.axis) } : {}), ...(w.add ? { add: w.add } : {}),
+      ...(w.colour ? { colour: w.colour } : {}), ...(base.modality ? { modality: base.modality } : {}), ...(base.perPack ? { lensesPerPack: base.perPack } : {}) };
     const sku = await repo.one(db, `INSERT INTO catalog_skus(business_id,product_id,code,label,unit,price,tax_rate,tax_rate_id,tracking,reorder_level,attributes,hsn_code,mrp)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
     [business.id, product.id, code, label, base.unit, Number(base.price).toFixed(2), base.taxRate, base.taxRateId, base.tracking, base.reorderLevel,
-      JSON.stringify({ power: (power / 100).toFixed(2), baseCurve, diameter }), base.hsn, base.mrp ?? null]);
+      JSON.stringify(attributes), base.hsn, base.mrp ?? null]);
     created.push(sku);
   }
   return created;
 }
 
-module.exports = { grid, createGrid, readRanges };
+module.exports = { grid, createGrid, readRanges, lensProducts, lensStock };

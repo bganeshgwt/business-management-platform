@@ -2935,10 +2935,15 @@ general store, an optical shop, a jeweller and a wholesaler. It is under
   customer on credit hold is let through here as on *Sales orders*: someone
   with credit control gives the reason; anyone else chooses a manager, who
   types their PIN, and gives the reason.
+- **Book a spectacle order** — at an optical shop, for a saved customer, while
+  nothing of the quotation is billed: a spectacle order at the quoted prices,
+  its frame and lenses chosen from the quotation's lines ([Optical
+  shops](#optical-shops)). The quotation shows *On a spectacle order* with the
+  order's number.
 - **Cancel** — with a reason (*Cancel what is left* once part is billed: what
-  was billed stays billed). A billed, ordered or cancelled quotation never
-  changes, and one part billed is not revised: cancel what is left and quote
-  it again.
+  was billed stays billed). A billed, ordered, booked or cancelled quotation
+  never changes, and one part billed is not revised: cancel what is left and
+  quote it again.
 
 Who does what: a cashier makes, revises, prints and bills quotations; a
 manager also cancels them; an accountant and a viewer see them (the
@@ -2950,7 +2955,8 @@ The licences and registrations a business must hold, kept for each location
 with the dates they are valid. Every type but a restaurant can switch on
 **Licences & registrations** (Settings › Business tools); a seeds,
 fertilisers & pesticides shop starts with it, and it is recommended for an
-optical shop (the MD-42 registration for contact lenses), a jeweller (the BIS
+optical shop (the MD-42 registration for contact lenses: without it in force,
+its contact-lens bills are refused), a jeweller (the BIS
 registration), a fuel station (the PESO licence) and a pharmacy (its trade
 licence, FSSAI and other registrations; drug licences stay in Pharmacy
 settings). It is under *Settings › Licences*.
@@ -4177,7 +4183,9 @@ Recommended in Settings › Business tools: **Batches** (contact-lens expiry),
 **Appointments** (eye tests with the optometrist), **Quotations** and
 **Licences & registrations**; offers, loyalty and exchanges can be switched on
 too. Spectacle orders have a daily entry of their own, *Spectacle orders*; the
-prescriptions and the recall list are under *Customers*.
+prescriptions, the recall list and the contact lenses running out are under
+*Customers*, the contact-lens stock under *Stock*, and the referral report
+under *Reports*.
 
 **Before trading:**
 
@@ -4187,42 +4195,73 @@ prescriptions and the recall list are under *Customers*.
    decides the GST at the counter and on every spectacle order. Have an
    accountant confirm them.
 2. **The MD-42 registration** — selling contact lenses needs the medical
-   device sale registration (MD-42). Keep it under *Settings › Licences*
-   (kind *Medical device sale registration (MD-42)*) with its number and the
-   date it was issued, and note when its retention fee falls due
-   ([Licences](#licences)).
+   device sale registration (MD-42). Switch on **Licences & registrations**
+   and keep it under *Settings › Licences* (kind *Medical device sale
+   registration (MD-42)*) for each location that sells them, with its number
+   and the date it was issued; note when its retention fee falls due
+   ([Licences](#licences)). A bill with contact lenses, and a free trial of
+   them, is refused at a location with no MD-42 registration in force that
+   day.
 3. **Items** — frames as goods kept by quantity; lenses as items too, either
    stock lenses kept by quantity or a lens made to order by the lab (a
    service item, or goods received with the lab's bill); the fitting charge as
-   a service.
+   a service. A spectacle lens item can keep its details (tick *A spectacle
+   lens* on the item form: its design, index, material, coatings and tint):
+   an order billed as it then takes them, so nobody types them. A contact
+   lens is made by its powers (below), with how often it is replaced and how
+   many lenses a box holds.
+4. **Warranty and recall months** — on *Spectacle orders*, *Warranty on
+   lenses*: how many months a lens and its coatings are under warranty from
+   delivery (empty: none), and whether a remake under warranty is free or
+   charged. On the *Recall list*, the months after which a customer is due
+   for an eye test, and a child's, a contact-lens wearer's and a progressive
+   wearer's own months if they differ.
 
 **The screens:**
 
-- **Prescriptions** (*Customers › Prescriptions*) — *Record a prescription*:
-  the customer (found by name or phone, or added there), the day of the eye
-  test, who examined (a member of the shop, or an outside doctor or
-  optometrist, whose registration number is then required; a member's is
-  optional and comes back on their next one), and the powers. Each eye has a
-  distance row, a near row and, ticked, an intermediate row: SPH and CYL in
-  steps of 0.25 from -30 to +30 (plano is 0.00), AXIS 1 to 180 (with a CYL,
-  and only then), ADD +0.25 to +4.00 on the near or intermediate row, a prism
-  with its base (in, out, up or down) and the visual acuity as written. *Left
-  eye same as right* copies the right eye; *Transpose the cylinder* turns
-  plus-cylinder powers into minus-cylinder ones, or back. The PD is both eyes
-  together or each eye. *Valid until* is a year after the test unless you
-  change it. The server checks every power and says which one is wrong. The
-  list shows each customer's latest prescription (untick *Latest of each
-  customer only* to see all), with the powers in one line and lapsed ones
-  greyed; *Print* prints it (A5) with the examiner's registration number.
+- **Prescriptions** (*Customers › Prescriptions*) — *Record a prescription*,
+  for *Spectacles* or *Contact lenses*: the customer (found by name or phone,
+  or added there), the day of the eye test, who examined (a member of the
+  shop, or an outside doctor or optometrist, whose registration number is
+  then required; a member's is optional and comes back on their next one),
+  the council they are registered with and the day their registration is
+  valid until (a registration that ran out before the test is warned of, and
+  the prescription is kept with the warning), the customer's age, and the
+  doctor who referred them.
+  - **Spectacles:** each eye has a distance row, a near row and, ticked, an
+    intermediate row: SPH and CYL in steps of 0.25 from -30 to +30 (plano is
+    0.00), AXIS 1 to 180 (with a CYL, and only then), ADD +0.25 to +4.00 on
+    the near or intermediate row, a horizontal prism with its base (in or
+    out) and a vertical prism with its base (up or down), and the visual
+    acuity as written. *Left eye same as right* copies the right eye;
+    *Transpose the cylinder* turns plus-cylinder powers into minus-cylinder
+    ones, or back. The PD is both eyes together or each eye; the vertex
+    distance (5 to 25 mm) for powers beyond about ±4.00.
+  - **Contact lenses:** each eye's lens: power, base curve (6 to 10 mm),
+    diameter (8 to 25 mm), CYL and AXIS for a toric lens, ADD for a
+    multifocal one, colour, brand, how often it is replaced and the wearing
+    schedule. *Left lens same as right* copies the right lens.
+  - *Valid until* is a year after the test unless you change it. The server
+    checks every power and says which one is wrong. The list shows each
+    customer's latest prescription of the kind chosen (*Spectacles* or
+    *Contact lenses*; untick *Latest of each customer only* to see all), with
+    the powers in one line and lapsed ones greyed; *Print* prints it (A5)
+    with the examiner's registration.
+- **From an eye-test booking** — on *Appointments*, *Done* on an eye test
+  opens *Record a prescription* for that customer, kept with the booking.
+  The booking gives one spectacle prescription and one contact-lens
+  prescription at most.
 - **Correcting a prescription** — *Correct* is offered while no spectacle
-  order uses it: anything can be put right, its customer too, and the
-  activity log keeps what was and what is. Once an order uses it, it never
-  changes: record a new prescription instead.
+  order uses it: anything but its kind can be put right, its customer too
+  (not one from a booking), and the activity log keeps what was and what is.
+  Once an order uses it, it never changes: record a new prescription instead.
 - **A customer's prescriptions** (a customer's name in the list) — the eye
   tests side by side, newest first: each eye's SPH, CYL, AXIS, ADD and acuity,
   with how each power changed since the test before; the PD; when the next
-  eye test is due (with *Remind on WhatsApp* once it is); each prescription in
-  full with the orders made on it; *Book a spectacle order* on the latest.
+  eye test is due, and the group that set it (with *Remind on WhatsApp* once
+  it is); each prescription in full (a contact-lens one as its lenses) with
+  the orders made on it; *Book a spectacle order* on the latest spectacle
+  prescription.
 - **Spectacle orders** (*Spectacle orders*) — the open orders, with chips for
   *Due today*, *Ready to collect*, *Overdue* and each step (*Booked*, *At the
   lab*, *In the workshop*, *Quality check*), each row with *WhatsApp*; *All
@@ -4230,42 +4269,71 @@ prescriptions and the recall list are under *Customers*.
   job card on screen.
 - **Booking an order** — *Book an order* on *Spectacle orders* or on a
   prescription (on a customer's prescriptions, *Book a spectacle order* takes
-  the latest): the customer and their prescription (the latest to start
-  with), copied onto the order as it is; the frame, from stock or the
-  customer's own (say what it is); the right and the left lens (untick one to
-  make only the other), each with its type (single vision, bifocal or
-  progressive), *Billed as* a lens item or left empty when the lens is billed
-  on another line, its index, material, coatings, tint and brand; *Same as the
-  right lens*. A lens item sold by the pair goes on the right lens only. *Add
-  an item* puts a case, the fitting charge or the lab's lens charge on the
-  order. Each eye's fitting PD comes from the prescription (half of the PD of
-  both eyes) and can be changed; a bifocal or progressive lens needs that
-  eye's fitting height, and its near power (ADD) on the prescription. *Made*:
-  at a lab (its name, and its order number when known) or in our workshop.
-  *Promised for*. A manager's discount with its reason. The advance (cash,
-  UPI, card or bank): a numbered receipt in the customer's name, never more
-  than the total. Every figure is the server's, priced as a sale of the items
-  would be now (customer and slab prices, offers, the discount, GST and
+  the latest): the customer and their spectacle prescription (the latest to
+  start with), copied onto the order as it is; the frame, from stock or the
+  customer's own (say what it is), and *Hold the frame in stock for this
+  order*; the right and the left lens (untick one to make only the other),
+  each *Billed as* a lens item or left empty when the lens is billed on
+  another line, with its type (single vision, bifocal or progressive), index,
+  material, coatings, tint and brand: a lens item that keeps its details
+  fills them in and they are not typed; *Same as the right lens*. A lens item
+  sold by the pair goes on the right lens only. *Add an item* puts a case,
+  the fitting charge or the lab's lens charge on the order. Each eye's
+  fitting PD comes from the prescription (half of the PD of both eyes) and
+  can be changed; a bifocal or progressive lens needs that eye's fitting
+  height, and its near power (ADD) on the prescription. The frame's size: A
+  (the lens width), B (its height) and DBL (the bridge), in mm. *Made*: at a
+  lab (its name, and its order number when known) or in our workshop.
+  *Promised for*. *Referred by*: the doctor on the prescription, or another.
+  A manager's discount with its reason. The advance (cash, UPI, card or
+  bank): a numbered receipt in the customer's name, never more than the
+  total. Every figure is the server's, priced as a sale of the items would
+  be now (customer and slab prices, offers, the discount, GST and
   round-off), and the order keeps those prices. Nothing leaves stock at
   booking. Orders are numbered *SPO/2627/0001* (Settings › Number series).
+- **From a quotation** — on an open quotation for a saved customer, *Book a
+  spectacle order*: the quotation's customer and location, a line of one
+  unit for the frame (or the customer's own frame) and for each lens (or the
+  lens billed on another line); every other line of the quotation goes on
+  the order as it is. The order keeps the quotation's prices and discount,
+  and the quotation closes as *On a spectacle order*.
+- **Changing a booked order** — while it is booked, before it goes to the lab
+  or the workshop, someone who may manage orders (the owner or a manager)
+  can *Change frame and lenses*: the frame, the lenses, the other items, the
+  discount and the measurements, priced again as at booking, with the reason.
+  The activity log keeps what was and what is; the history notes it. The
+  advances taken never come to more than the new total, and a frame held for
+  the order goes back to stock when the frame changes.
+- **The frame held in stock** — a frame from stock can be held for the order,
+  at booking or later (*Hold the frame*): one in usable stock at the order's
+  location is kept for it, and no bill, transfer, count or adjustment takes
+  it (*Quick bill* says which order holds it). *Release the hold* puts it
+  back; cancelling the order releases it; delivery bills it from its hold.
+- **Advances** — *Take another advance* on an open order: each a numbered
+  receipt in the customer's name; together they never pass the order's
+  total. At delivery they pay first, oldest first.
 - **The work** — the next step is the main button on the order: *Send to the
-  lab* (with the lab's order number), *Into the workshop* (lenses back for
-  fitting), *Ready for the quality check*. At the quality check, someone who
-  may pass it (the owner, a manager or the optometrist) checks the spectacles
-  against the prescription: *Passed the quality check*, stamped with who and
-  when, or *Failed: back to the workshop* (or *the lab*) with what was wrong.
+  lab* (with the lab's order number), *Into the workshop*, *Ready for the
+  quality check*. In the workshop the steps are *Cutting done*, *Edging done*
+  and *Fitting done*, in that order, each kept with who did it and when (a
+  step done at the lab is left out; none is done after a later one); the
+  quality check after the workshop needs the fitting done. At the quality
+  check, someone who may pass it (the owner, a manager or the optometrist)
+  checks the spectacles against the prescription: *Passed the quality
+  check*, stamped with who and when, or *Failed: back to the workshop* (or
+  *the lab*) with what was wrong; back in the workshop, it is fitted again.
   Spectacles found wrong once ready go back the same way, with the reason.
   Steps are never skipped, and each is kept in the history with who did it.
-  *Change details* changes the promised day, the fitting, the lab and the
-  notes while the order is open; the frame, the lenses and the prices stay
-  as booked.
+  *Change details* changes the promised day, the fitting, the frame's size,
+  the referring doctor, the lab and the notes while the order is open.
 - **Job card and customer slip** — *Job card* prints, on A5 or A4, what the
-  lab or the workshop needs: the prescription as booked, each eye's fitting
-  PD and height, the frame, both lenses, the lab and its order number, and
-  lines for who made the spectacles and who passed the quality check; never
-  the prices. *Customer slip* prints the order, the day it is ready by, the
-  items and their prices, the advance and what is left to pay; it says it is
-  not a tax invoice, as the bill is made at delivery.
+  lab or the workshop needs: the prescription as booked (with the vertex
+  distance), each eye's fitting PD and height, the frame's size, the frame,
+  both lenses, the lab and its order number, and lines for who made the
+  spectacles and who passed the quality check; never the prices. *Customer
+  slip* prints the order, the day it is ready by, the items and their
+  prices, the advances and what is left to pay; it says it is not a tax
+  invoice, as the bill is made at delivery.
 - **Tell the customer** — WhatsApp opens with the message for the stage
   (booked, ready to collect with the amount to pay, running late, a collect
   reminder), or *Call*; each is noted in the history.
@@ -4273,48 +4341,90 @@ prescriptions and the recall list are under *Customers*.
   check: the bill is posted at the booked prices, with GST at each item's
   rate on the day (a price that includes GST keeps its total when a rate
   changes; *The bill at delivery* on an open order shows the figures as they
-  would be posted today). The frame and other goods leave stock now: an item
-  not in usable stock at the order's location stops the delivery until it is
-  received, and the order shows it. The advance pays first; the rest is
-  collected now (cash, UPI, card or bank) or goes on the customer's dues. A
-  bill over ₹2,00,000 asks for the buyer's PAN or their declaration, as every
-  bill does.
+  would be posted today). The frame and other goods leave stock now (a held
+  frame from its hold): an item not in usable stock at the order's location
+  stops the delivery until it is received, and the order shows it. The
+  advances pay first; the rest is collected now (cash, UPI, card or bank) or
+  goes on the customer's dues. A bill over ₹2,00,000 asks for the buyer's
+  PAN or their declaration, as every bill does. Each lens's warranty, and its
+  coatings', is dated from today by the shop's months and shows on the
+  order.
 - **Cancelling** — *Cancel the order*, with a reason. Nothing is billed and
-  nothing leaves stock. The advance stays the customer's: *Hand back the
-  advance* (cash, UPI or bank, a reason and a manager's PIN; a receipt
-  prints), or it stays on their account for a later bill (*Customer dues*).
+  nothing leaves stock; a held frame goes back to stock. The advances stay
+  the customer's: *Hand back* on each (cash, UPI or bank, a reason and a
+  manager's PIN; a receipt prints), or it stays on their account for a later
+  bill (*Customer dues*).
 - **Remakes** — on a delivered order, *Book a remake*: a new order linked to
-  it, with the reason (power changed, could not get used to them, measurement
-  or fitting error, lab defect, breakage, coating peeled, other) and who bears
-  the cost (the lab, the shop or the customer). When the lab or the shop bears
-  it the customer pays nothing: no discount and no advance, and its bill (when
-  it takes a frame or lenses from stock) comes to ₹0.
+  it, with the reason (power changed, could not get used to them,
+  measurement or fitting error, lab defect, breakage, coating peeled, other)
+  and who bears the cost (the lab, the shop or the customer). When the lab or
+  the shop bears it the customer pays nothing: no discount and no advance,
+  and its bill (when it takes a frame or lenses from stock) comes to ₹0. A
+  lab defect or breakage within the lens warranty, or a peeled coating
+  within the coating warranty, is a remake under warranty: when the shop's
+  rule makes it free, the customer cannot be made to bear it.
 - **Recall list** (*Customers › Recall list*) — every customer whose last eye
-  test was 12 months ago or more (an owner sets the months, 1 to 60, on the
-  list), longest due first, with their phone, when they were last reminded
-  and their last order. *WhatsApp* opens the reminder ready to send and *Call*
-  dials; each reminder is kept. *Not reminded in the last 30 days* narrows the
-  list.
-- **Contact lenses** (*Frames, lenses & products*, *Add item*, with Variants
-  on) — tick *Contact lenses: one item for each power*. The lens's name, unit
-  (a box), price, MRP, GST slab and stock tracking (batch and expiry with
-  Batches on) go for every power; give the base curve and the diameter, and
-  the powers from and to in steps of 0.25 or 0.50 (up to four ranges, from
-  -20.00 to +20.00). Each power becomes an item (*Acuvue Oasys · -2.50*, code
-  *AO6-M250*) that keeps its power, base curve and diameter. Choosing the lens
-  under *Variant of* adds the powers it does not have yet. Each power is
+  test was their months ago or more: the shop's months (12 to start with),
+  or a group's own: children (under 18 at their latest test that gives an
+  age), contact-lens wearers (a contact-lens prescription here) and
+  progressive wearers (a spectacle order with a progressive lens); the
+  shortest of a customer's groups applies. Longest due first, with the group,
+  their phone, when they were last reminded and their last order.
+  *WhatsApp* opens the reminder ready to send and *Call* dials; each
+  reminder is kept. *Not reminded in the last 30 days* narrows the list.
+- **Contact lenses at the counter** — a bill with contact lenses (items made
+  by the power grid) needs the location's MD-42 registration in force. Each
+  lens is checked against the customer's contact-lens prescription in force:
+  a power, base curve, diameter, CYL and AXIS, ADD or colour that matches no
+  eye of it, no such prescription, or no customer named, posts the bill with
+  a warning that *Quick bill* shows and the activity log keeps. The batch of
+  each box sold stays on the bill.
+- **Contact lenses** (*Customers › Contact lenses*) — *Running out*: each
+  customer's latest bill with contact lenses that say how often they are
+  replaced: the lenses kept (less those returned) ÷ 2 eyes × the days one
+  lens lasts, from the day of the bill (two boxes of 6 monthly lenses last
+  180 days). Those running out within 14 days or run out are listed, with
+  *WhatsApp* (the reminder to buy the next pack, after their consent to
+  reminders) and *Call*; each reminder is kept. *Free trials*: *Give a
+  trial* takes the lenses out of stock with their batch (under the MD-42
+  registration) for 1 to 60 days; the trial converts by itself when the
+  customer buys lenses of the same product, or is marked *Lapsed*.
+- **Contact lens stock** (*Stock › Contact lens stock*) — each contact lens
+  made by its powers, and for the one chosen a grid: powers down the side,
+  a toric's cylinder and axis, a multifocal's ADD or a colour across, each
+  cell the stock held (at one location, or every location); *Only powers in
+  stock* narrows it.
+- **Contact lenses on the item form** (*Frames, lenses & products*, *Add item*,
+  with Variants on) — tick *Contact lenses: one item for each power*. The
+  lens's name, unit (a box), price, MRP, GST slab and stock tracking (batch
+  and expiry with Batches on) go for every power; give the base curve and
+  the diameter, how often it is replaced and how many lenses one unit holds,
+  and the powers from and to in steps of 0.25 or 0.50 (up to four ranges,
+  from -20.00 to +20.00). *Toric* makes each power with each cylinder and
+  axis given; ADDs make a multifocal's, and colours a coloured lens's (at
+  most 600 items at a time). Each item (*Acuvue Oasys · -2.50*, code
+  *AO6-M250*; *Air Optix for Astigmatism · -2.00 / -0.75 × 90*, code
+  *AOT-M200-C075X090*) keeps its details. Choosing the lens under *Variant of*
+  adds the powers it does not have yet, of the same kind. Each power is
   received and sold like any other item.
+- **Referrals** (*Reports › Referrals*) — for the dates chosen, each doctor
+  written on prescriptions and spectacle orders (*Referred by*; the same name
+  in any case or spacing counts once): their customers' spectacle and
+  contact-lens prescriptions, the customers, the orders booked and delivered,
+  and (for someone who sees sales) what the orders come to and what was
+  billed.
 - **The bell** — spectacles ready to collect, and orders past their promised
   day.
 
 Who does what: a cashier records prescriptions (from a doctor's slip, say),
-books and delivers orders, takes advances and moves the work along; the
-**Optometrist**, an optical shop's own role, records and corrects
+books and delivers orders, takes advances, gives trials and moves the work
+along; the **Optometrist**, an optical shop's own role, records and corrects
 prescriptions, sees customers, appointments and spectacle orders (without
 their money) and passes or fails the quality check, and takes no money; a
-stock keeper moves the work along (the lab, the workshop) and sees no money;
-a manager does all of it, cancels orders and gives discounts; an accountant
-and a viewer see the screens.
+stock keeper moves the work along (the lab, the workshop and its steps) and
+sees no money; a manager does all of it, changes booked orders (*Manage*),
+cancels orders and gives discounts; an accountant and a viewer see the
+screens.
 
 ## Vehicle service & auto parts
 

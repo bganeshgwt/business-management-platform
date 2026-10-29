@@ -265,21 +265,33 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Plano** | A power of 0.00. |
 | **CYL and AXIS** | The cylinder (the extra power for astigmatism) and the direction it lies in, in degrees from 1 to 180 (a horizontal axis is 180). A CYL other than 0 always has its AXIS. |
 | **ADD** | The addition: the extra power for reading (and for intermediate vision), added to the distance power, from +0.25 to +4.00. |
-| **Prism and base** | A power that shifts the image, in prism dioptres, and the way its base points: in, out, up or down. |
+| **Prism and base** | A power that shifts the image, in prism dioptres, and the way its base points: a horizontal prism's in or out, a vertical prism's up or down; a row may have both. |
+| **Vertex distance** | How far the back of the spectacle lens sits from the eye, in mm; it matters for powers beyond about ±4.00. |
+| **Contact-lens prescription** | The lens fitted to each eye, kept apart from the spectacle prescription: power, base curve, diameter, a toric's CYL and AXIS, a multifocal's ADD, colour, brand, how often it is replaced and the wearing schedule. |
+| **Toric, multifocal, coloured lens** | A contact lens that corrects astigmatism (with a CYL and AXIS); one with a reading ADD; one that changes the eye's colour. |
+| **Modality** | How often a contact lens is replaced: daily, fortnightly, monthly, every three or six months, yearly. |
+| **Wearing schedule** | How long a contact lens is worn each day, as the optometrist writes it. |
 | **Transpose** | Rewriting a cylinder in the other form (plus or minus cylinder): the same prescription, written another way. |
 | **Visual acuity** | How clearly the eye sees, as written on the test (6/6, 6/9, N6). |
 | **PD** | The pupillary distance in mm: between the pupils (both eyes), or from each pupil to the middle of the nose (each eye, monocular PD). |
 | **Fitting height** | How high the centre of the pupil sits above the bottom of the lens in the chosen frame, in mm; a bifocal or progressive lens is placed by it. |
+| **Frame size (A, B, DBL)** | A frame's lens width (A), lens height (B) and the distance between the lenses at the bridge (DBL), in mm, as printed on the frame (52 □ 18). |
 | **Single vision, bifocal, progressive** | A lens with one power; with a reading segment below; with powers that change smoothly from distance at the top to reading at the bottom. |
 | **Lens index** | How strongly the lens material bends light (1.50, 1.56, 1.60, 1.67, 1.74): a higher index makes a thinner lens. |
 | **Spectacle order (job card)** | An order to make spectacles from a prescription: the frame, the right and left lens, the fitting, the lab or the workshop, the promised day and the advance (SPO/2627/0001). |
 | **Lab order number** | The number the outside lab gives the order it makes the lenses for. |
+| **Cutting, edging, fitting** | The workshop's steps: the lens blank cut roughly to the frame, its edge ground to the frame's shape, and the lens fitted into the frame. |
+| **Frame held** | A frame from stock kept for a spectacle order until it is delivered: no bill, transfer or count takes it. |
 | **Quality check** | Checking finished spectacles against the prescription (on the lensometer) before they are ready to collect: passed, or sent back with what was wrong. |
 | **Remake** | A spectacle order made again for a delivered one, with the reason and who bears the cost: the lab, the shop or the customer. |
-| **Recall list** | The customers due for an eye test: their last test was the set months ago or more. |
+| **Warranty remake** | A remake for a lab defect or breakage within the lens warranty, or for a peeled coating within the coating warranty; free or charged by the shop's rule. |
+| **Referring doctor** | The doctor who sent the customer to the shop, written on the prescription or the order; the referral report counts each doctor's referrals. |
+| **Recall list** | The customers due for an eye test: their last test was the set months ago or more (a child's, a contact-lens wearer's or a progressive wearer's own months when the shop sets them). |
+| **Replacement reminder** | The message that a customer's contact lenses are running out: the lenses bought ÷ 2 eyes × the days one lasts, from the day of the bill. |
+| **Free trial** | Contact lenses given to a customer to try, taken out of stock with their batch; converted when they buy lenses of the same product, or lapsed. |
 | **Power grid** | Making a contact lens's powers as its items in one go: one item for each power of the ranges given. |
 | **Base curve and diameter** | A contact lens's curve and width in mm; one lens product has one of each. |
-| **MD-42** | The registration certificate for selling medical devices such as contact lenses, kept as a licence. |
+| **MD-42** | The registration certificate for selling medical devices such as contact lenses, kept as a licence; a contact-lens bill is refused at a location without it in force. |
 | **Optometrist** | The professional who tests eyes and writes prescriptions; in an optical shop, the role that records prescriptions and passes the quality check, and takes no money. |
 
 ### Vehicle service & auto parts

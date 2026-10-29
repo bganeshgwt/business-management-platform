@@ -8,7 +8,7 @@ import { businessRead, businessWrite } from "../../../../services/business.servi
 import { getErrorMessage } from "../../../../services/api";
 import { dateShort, duration } from "@bmp/shared/format";
 import { toast } from "../../../../services/toast";
-import { Badge, BusinessHeader, PeriodFilter } from "../../core/pages/ui";
+import { Badge, BusinessHeader, Field, PeriodFilter } from "../../core/pages/ui";
 import { businessToday, useOpenBusiness, useServerList } from "../../core/pages/hooks";
 import { Segmented } from "../../fashion/pages/shared";
 import { whatsappLink } from "../../retail/pages/retail";
@@ -19,7 +19,9 @@ import "../styles/optical.css";
 // Spectacle orders: the day's board. Open orders with a chip for today's
 // due, the ones ready to collect, the overdue ones and each step (booked, at
 // the lab, in the workshop, at the quality check), each row with WhatsApp;
-// all orders by date; and booking a new one. An order opens its job card.
+// all orders by date; booking a new one (from a prescription, or from a
+// quotation); and the shop's warranty on lenses and coatings. An order opens
+// its job card.
 
 const CHIPS = [
   ["open", "All open"], ["due_today", "Due today"], ["ready", "Ready to collect"], ["overdue", "Overdue"],
@@ -42,9 +44,9 @@ export default function SpectacleOrdersPage() {
   const money = biz.can("sales.view");
   const many = biz.locations.length > 1;
   const today = businessToday(biz.business.timezone);
-  const [booking, setBooking] = useState(() => (params.get("new") === "1" && canBook ? { prescriptionId: params.get("prescription") || null } : null));
+  const [booking, setBooking] = useState(() => (params.get("new") === "1" && canBook ? { prescriptionId: params.get("prescription") || null, quotationId: params.get("quotation") || null } : null));
   useEffect(() => {
-    if (params.get("new")) setParams((p) => { const next = new URLSearchParams(p); next.delete("new"); next.delete("prescription"); return next; }, { replace: true });
+    if (params.get("new")) setParams((p) => { const next = new URLSearchParams(p); for (const name of ["new", "prescription", "quotation"]) next.delete(name); return next; }, { replace: true });
   }, [params, setParams]);
   useEffect(() => {
     const controller = new AbortController();
@@ -111,8 +113,51 @@ export default function SpectacleOrdersPage() {
           empty={view === "open" ? "No open spectacle orders here" : "No spectacle orders in these dates"}
           emptyHint={view === "open" ? (canBook ? "Book an order from a customer's prescription." : undefined) : "Pick other dates."} emptyIcon="clipboard" />
       </SectionCard>
-      {booking && <SpectacleOrderDialog prescriptionId={booking.prescriptionId || null} onClose={() => setBooking(null)}
+      {biz.can("settings.edit") && <WarrantySettings />}
+      {booking && <SpectacleOrderDialog prescriptionId={booking.prescriptionId || null} quotationId={booking.quotationId || null} onClose={() => setBooking(null)}
         onSaved={(o) => { setBooking(null); setVersion((n) => n + 1); toast.success(`Order ${o.order_no} booked.`); navigate(biz.path(`spectacle-orders/${o.id}`)); }} />}
     </div>
+  );
+}
+
+// The shop's warranty on lenses and on their coatings, from delivery (empty:
+// none), and whether a remake under warranty is free or charged.
+function WarrantySettings() {
+  const biz = useOpenBusiness();
+  const [saved, setSaved] = useState(null);
+  const [form, setForm] = useState(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    businessRead(biz.id, "optical/settings", undefined, controller.signal).then((s) => {
+      setSaved(s);
+      setForm({ lens: s.lens_warranty_months ? String(s.lens_warranty_months) : "", coating: s.coating_warranty_months ? String(s.coating_warranty_months) : "", rule: s.warranty_remakes });
+    }).catch(() => {});
+    return () => controller.abort();
+  }, [biz.id]);
+  if (!form) return null;
+  const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
+  const save = async (event) => {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      const s = await businessWrite(biz.id, "optical/settings", { lensWarrantyMonths: form.lens, coatingWarrantyMonths: form.coating, warrantyRemakes: form.rule }, "put");
+      setSaved(s);
+      toast.success("Warranty saved: it applies to spectacles delivered from now on.");
+    } catch (err) { toast.error(getErrorMessage(err)); } finally { setBusy(false); }
+  };
+  return (
+    <SectionCard icon="shield" title="Warranty on lenses"
+      description="Each lens's warranty, and its coatings', runs from the day the spectacles are delivered. A remake for a lab defect or breakage under the lens warranty, or a peeled coating under the coating warranty, follows the rule below.">
+      <form className="opt-setting" onSubmit={save}>
+        <Field label="Lens warranty (months)"><input type="number" min="1" max="60" step="1" value={form.lens} onChange={set("lens")} placeholder="None" /></Field>
+        <Field label="Coating warranty (months)"><input type="number" min="1" max="60" step="1" value={form.coating} onChange={set("coating")} placeholder="None" /></Field>
+        <Field label="A remake under warranty">
+          <select value={form.rule} onChange={set("rule")}><option value="free">Is free (the shop or the lab bears it)</option><option value="charged">Is charged as any order</option></select>
+        </Field>
+        <button type="submit" className="button button-secondary" disabled={busy}>{busy ? "Saving…" : "Save"}</button>
+        {saved?.updated_by_name && <small className="muted">Set by {saved.updated_by_name} on {dateShort(saved.updated_at, { year: true })}</small>}
+      </form>
+    </SectionCard>
   );
 }

@@ -10,6 +10,9 @@ import { businessPath, word } from "../../../../services/businessNav";
 import FormDialog from "./FormDialog";
 import { Badge, BusinessHeader, Field, PeriodFilter } from "./ui";
 import { useOpenBusiness, useOptions, useServerList } from "./hooks";
+// An optical shop's eye test, done, opens its prescription for the customer.
+import PrescriptionDialog from "../../optical/pages/PrescriptionDialog";
+import { usesOptical } from "../../optical/pages/optical";
 import "../../health/styles/health.css";
 
 const clock = (value) => new Date(value).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
@@ -30,6 +33,7 @@ export default function AppointmentsPage() {
   const [booking, setBooking] = useState(() => params.get("new") === "1" && biz.can("appointments.create") && !salon);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [recording, setRecording] = useState(null);
   useEffect(() => {
     if (params.get("new")) setParams((p) => new URLSearchParams(p.get("open") ? { open: p.get("open") } : {}), { replace: true });
   }, [params, setParams]);
@@ -39,6 +43,8 @@ export default function AppointmentsPage() {
       await businessWrite(biz.id, `appointments/${row.id}`, { status: next }, "patch");
       setNotice(`${row.contact_name}'s appointment marked ${next === "no_show" ? "no-show" : next}.`);
       list.reload();
+      // An eye test done: record its prescription now.
+      if (next === "completed" && usesOptical(biz) && biz.can("optical.create")) setRecording({ customer: { id: row.contact_id, name: row.contact_name }, appointmentId: row.id });
     } catch (err) {
       setError(getErrorMessage(err));
     }
@@ -96,6 +102,8 @@ export default function AppointmentsPage() {
           empty="No appointments in these dates" emptyIcon="calendar" />
       </SectionCard>
       {booking && <BookDialog onClose={() => setBooking(false)} onSaved={() => { setBooking(false); setNotice("Appointment booked."); list.reload(); }} />}
+      {recording && <PrescriptionDialog customer={recording.customer} appointmentId={recording.appointmentId} onClose={() => setRecording(null)}
+        onSaved={(p) => { setRecording(null); setNotice(`${p.customer_name}'s prescription saved.`); }} />}
     </div>
   );
 }

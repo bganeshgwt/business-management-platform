@@ -39,13 +39,14 @@ import "../styles/quotations.css";
 // lines would be (a kit as one line). One is revised while open, printed on
 // A4 with the business's terms or sent on WhatsApp, and once the customer
 // agrees becomes bills, all at once or a part at a time, or (with Sales
-// orders on) a sales order for what is left, at the quoted prices. After its
-// date it must be revised before it is billed.
+// orders on) a sales order for what is left, or at an optical shop a
+// spectacle order, at the quoted prices. After its date it must be revised
+// before it is billed.
 
 const SHOW = [
   { value: "open,part_billed", label: "Open" },
   { value: "expired", label: "Expired" },
-  { value: "billed,ordered", label: "Billed or ordered" },
+  { value: "billed,ordered,booked", label: "Billed or ordered" },
   { value: "cancelled", label: "Cancelled" },
   { value: "", label: "All" },
 ];
@@ -134,6 +135,8 @@ export function QuotationDetail({ quotationId, onClose, onChanged }) {
   const billedSome = (q?.bills || []).length > 0;
   const canBill = live && biz.can("quotations.edit") && biz.can("sales.create");
   const canOrder = live && biz.can("quotations.edit") && biz.has("sales_orders") && biz.can("sales_orders.create");
+  // An optical shop's quotation for a saved customer becomes a spectacle order at its prices.
+  const canSpectacles = live && q?.contact_id && biz.type === "optical" && biz.has("optical") && biz.can("quotations.edit") && biz.can("optical.create") && biz.can("sales.create");
   const share = async () => {
     if (!(await gate.ensure("bills_digital", q.contact_id ? { id: q.contact_id, name: q.customer_name } : null))) return;
     window.open(whatsappLink(q.customer_phone, quotationMessage(q, biz)), "_blank", "noopener");
@@ -165,6 +168,10 @@ export function QuotationDetail({ quotationId, onClose, onChanged }) {
             {q.status === "ordered" && (
               <p className="small" role="status">On sales order <strong className="mono">{q.order_no}</strong>{billedSome ? " for what was left" : ""}{q.closed_by_name ? ` by ${q.closed_by_name}` : ""} · {dateTime(q.closed_at)}
                 {biz.can("sales_orders.view") && <> · <Link to={businessPath(biz.id, `sales-orders?order=${q.order_id}`)}>Open the order</Link></>}</p>
+            )}
+            {q.status === "booked" && (
+              <p className="small" role="status">On spectacle order <strong className="mono">{q.spectacle_order_no}</strong>{q.closed_by_name ? ` by ${q.closed_by_name}` : ""} · {dateTime(q.closed_at)}
+                {biz.can("optical.view") && <> · <Link to={businessPath(biz.id, `spectacle-orders/${q.spectacle_order_id}`)}>Open the order</Link></>}</p>
             )}
             {q.status === "cancelled" && <p className="small" role="status">{billedSome ? "What was left is cancelled" : "Cancelled"}{q.closed_by_name ? ` by ${q.closed_by_name}` : ""} · {dateTime(q.closed_at)} · {q.cancel_reason}</p>}
             {billedSome && (q.status !== "billed" || q.bills.length > 1) && (
@@ -220,6 +227,7 @@ export function QuotationDetail({ quotationId, onClose, onChanged }) {
             <div className="form-actions bz-start">
               {canBill && <button type="button" className="button" onClick={() => setAction("bill")}><Icon name="receipt" size={15} /> {billedSome ? "Bill what is left" : "Make the bill"}</button>}
               {canOrder && <button type="button" className="button button-secondary" onClick={() => setAction("order")}><Icon name="clipboard" size={15} /> {billedSome ? "Sales order for what is left" : "Make a sales order"}</button>}
+              {canSpectacles && !billedSome && <Link className="button button-secondary" to={businessPath(biz.id, `spectacle-orders?new=1&quotation=${q.id}`)}><Icon name="eye" size={15} /> Book a spectacle order</Link>}
               {open && !billedSome && biz.can("quotations.edit") && <button type="button" className="button button-secondary" onClick={() => setAction("revise")}><Icon name="edit" size={15} /> Revise</button>}
               {biz.can("quotations.print") && <button type="button" className="button button-secondary" onClick={() => printQuotation(q, biz)}><Icon name="print" size={15} /> Print (A4)</button>}
               {biz.can("quotations.print") && <button type="button" className="button button-secondary" onClick={share}><Icon name="message" size={15} /> Share on WhatsApp</button>}

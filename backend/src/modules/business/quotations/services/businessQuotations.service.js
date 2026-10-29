@@ -22,7 +22,8 @@ const { GOODS_TYPES } = require('../../core/services/businessTypes');
 //           prices (`fixed`, as a dispatched order is billed), all at once or
 //           a part at a time (lines and quantities up to what is left; a kit
 //           as its parts at their quoted shares); with Sales orders on, what
-//           is left becomes a sales order at those prices; or it is cancelled.
+//           is left becomes a sales order at those prices; at an optical shop a
+//           spectacle order at those prices (booked); or it is cancelled.
 // Expired is the date, not a status: an open quotation past its validity
 // date shows as expired and becomes a bill or an order only after a
 // revision brings its prices up to date. Billed is when nothing is left. A
@@ -59,10 +60,10 @@ const credit = () => require('../../wholesale/services/businessWholesaleCredit.s
 const taxChanges = () => require('../../../tax-changes/services/taxChangesShop');
 
 repo.addLists({
-  // state: open, part_billed (open, some of it billed), expired (open and past its date), billed, ordered or cancelled.
+  // state: open, part_billed (open, some of it billed), expired (open and past its date), billed, ordered, booked (a spectacle order) or cancelled.
   quotations: {
     sql: `SELECT x.*,CASE WHEN x.expired THEN 'expired' WHEN x.status='open' AND x.bill_count>0 THEN 'part_billed' ELSE x.status END AS state FROM (
-      SELECT q.*,l.name AS location_name,d.document_no,o.order_no,u.name AS created_by_name,
+      SELECT q.*,l.name AS location_name,d.document_no,COALESCE(o.order_no,so.order_no) AS order_no,u.name AS created_by_name,
       (q.status='open' AND q.valid_until < (now() AT TIME ZONE b.timezone)::date) AS expired,
       (SELECT count(*)::int FROM business_quotation_lines x WHERE x.business_id=q.business_id AND x.quotation_id=q.id) AS line_count,
       (SELECT count(DISTINCT x.document_id)::int FROM business_quotation_billed x WHERE x.business_id=q.business_id AND x.quotation_id=q.id) AS bill_count,
@@ -72,6 +73,7 @@ repo.addLists({
       JOIN users u ON u.id=q.created_by
       LEFT JOIN business_documents d ON d.business_id=q.business_id AND d.id=q.document_id
       LEFT JOIN wholesale_orders o ON o.business_id=q.business_id AND o.id=q.order_id
+      LEFT JOIN optical_orders so ON so.business_id=q.business_id AND so.quotation_id=q.id
       LEFT JOIN hardware_quotation_sites hs ON hs.business_id=q.business_id AND hs.quotation_id=q.id
       LEFT JOIN hardware_sites s ON s.business_id=hs.business_id AND s.id=hs.site_id
       WHERE q.business_id=$1) x`,
@@ -224,6 +226,7 @@ async function load(db, business, quotationId) {
     (q.status='open' AND q.valid_until < (now() AT TIME ZONE b.timezone)::date) AS expired,
     c.gstin AS contact_gstin,c.address AS contact_address,c.phone AS contact_phone,c.pan AS contact_pan,
     d.document_no,d.total AS document_total,d.created_at AS billed_at,o.order_no,o.status AS order_status,
+    so.id AS spectacle_order_id,so.order_no AS spectacle_order_no,
     cu.name AS created_by_name,uu.name AS updated_by_name,xu.name AS closed_by_name
     FROM business_quotations q JOIN businesses b ON b.id=q.business_id
     JOIN business_locations l ON l.business_id=q.business_id AND l.id=q.location_id
@@ -231,6 +234,7 @@ async function load(db, business, quotationId) {
     LEFT JOIN business_contacts c ON c.business_id=q.business_id AND c.id=q.contact_id
     LEFT JOIN business_documents d ON d.business_id=q.business_id AND d.id=q.document_id
     LEFT JOIN wholesale_orders o ON o.business_id=q.business_id AND o.id=q.order_id
+    LEFT JOIN optical_orders so ON so.business_id=q.business_id AND so.quotation_id=q.id
     WHERE q.business_id=$1 AND q.id=$2`, [business.id, quotationId]);
   if (!q) fail('Quotation not found', 404);
   access.requireLocation(business, q.location_id);
@@ -379,6 +383,10 @@ async function closedWords(db, business, q) {
     const order = await repo.one(db, 'SELECT order_no FROM wholesale_orders WHERE business_id=$1 AND id=$2', [business.id, q.order_id]);
     return `on sales order ${order?.order_no || ''}`.trim();
   }
+  if (q.status === 'booked') {
+    const order = await repo.one(db, 'SELECT order_no FROM optical_orders WHERE business_id=$1 AND quotation_id=$2', [business.id, q.id]);
+    return `on spectacle order ${order?.order_no || ''}`.trim();
+  }
   return 'cancelled';
 }
 
@@ -393,7 +401,7 @@ async function cancel(business, user, quotationId, body) {
     // Asking again is the same cancellation.
     if (current.status === 'cancelled') return load(db, business, current.id);
     if (current.status !== 'open') {
-      fail(`Quotation ${current.quotation_no} is ${await closedWords(db, business, current)}; it cannot be cancelled. ${current.status === 'billed' ? 'To undo the sale, take the goods back on the bill.' : 'Close the sales order instead.'}`, 409);
+      fail(`Quotation ${current.quotation_no} is ${await closedWords(db, business, current)}; it cannot be cancelled. ${current.status === 'billed' ? 'To undo the sale, take the goods back on the bill.' : current.status === 'booked' ? 'Cancel the spectacle order instead.' : 'Close the sales order instead.'}`, 409);
     }
     const saved = await repo.one(db, "UPDATE business_quotations SET status='cancelled',closed_by=$3,closed_at=now(),cancel_reason=$4 WHERE business_id=$1 AND id=$2 RETURNING *",
       [business.id, current.id, user.id, reason]);
@@ -792,5 +800,6 @@ async function order(business, user, quotationId, body) {
 }
 
 // priceIn, readDiscount, readStockChoices, stockPieces and pricePieces also price
-// and bill an optical shop's spectacle orders (optical/services/opticalOrders.service.js).
-module.exports = { preview, detail, create, revise, cancel, bill, order, priceIn, readDiscount, readStockChoices, stockPieces, pricePieces };
+// and bill an optical shop's spectacle orders, and readyToClose and
+// checkedLines book one from a quotation (optical/services/opticalOrders.service.js).
+module.exports = { preview, detail, create, revise, cancel, bill, order, priceIn, readDiscount, readStockChoices, stockPieces, pricePieces, readyToClose, checkedLines };

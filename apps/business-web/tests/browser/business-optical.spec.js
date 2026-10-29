@@ -5,7 +5,9 @@ import { OPTICAL, business, localDate, signIn } from "../../../../e2e/fixture.mj
 // The optical shop's screens. Signs in as the test restaurant's admin, who
 // owns the test optical shop (e2e/test-data.mjs): a frame and a single-vision
 // lens in stock, the fitting charge, a customer with today's prescription and
-// one whose last eye test is over a year old.
+// one whose last eye test is over a year old. Contact-lens prescriptions, the
+// workshop's steps, a booked order changed, and the contact lenses, lens
+// stock and referral pages too.
 let shop = null;
 test.beforeEach(async ({ page }) => {
   shop = business("optical");
@@ -147,5 +149,91 @@ test("contact lenses: the item form makes one item for each power", async ({ pag
   await dialog.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Acuvue Oasys (box of 6): 23 powers saved.")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("Acuvue Oasys (box of 6) · -2.50").first()).toBeVisible({ timeout: 15_000 });
+  expect(errors).toEqual([]);
+});
+
+test("a contact-lens prescription: each eye's lens, listed with the contact-lens prescriptions", async ({ page }) => {
+  const errors = errorsOf(page);
+  await page.goto(`/business-admin/${shop.id}/prescriptions?new=1`);
+  const dialog = page.getByRole("dialog", { name: "Record a prescription" });
+  await expect(dialog).toBeVisible({ timeout: 30_000 });
+  await dialog.getByRole("group", { name: "Prescription for" }).getByRole("button", { name: "Contact lenses" }).click();
+  await pick(page, dialog.getByRole("combobox", { name: "Customer" }), OPTICAL.customer.name);
+  await dialog.getByLabel("Right eye lens: power").fill("-2.00");
+  await dialog.getByLabel("Right eye lens: base curve").fill("8.6");
+  await dialog.getByLabel("Right eye lens: diameter").fill("14.2");
+  await dialog.getByLabel("Right eye lens: replaced").selectOption("monthly");
+  await dialog.getByRole("button", { name: "Left lens same as right" }).click();
+  await expect(dialog.getByLabel("Left eye lens: base curve")).toHaveValue("8.6");
+  await dialog.getByRole("button", { name: "Save the prescription" }).click();
+  await expect(dialog).toBeHidden({ timeout: 15_000 });
+  await page.getByRole("group", { name: "Prescriptions for" }).getByRole("button", { name: "Contact lenses" }).click();
+  await expect(page.getByText("R -2.00 BC 8.6 DIA 14.2 · L -2.00 BC 8.6 DIA 14.2")).toBeVisible({ timeout: 15_000 });
+  // The customer's history shows it as a contact-lens test, beside the spectacle ones.
+  await page.getByRole("button", { name: OPTICAL.customer.name }).first().click();
+  await expect(page.getByRole("heading", { name: /^Contact-lens test of / })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("table", { name: /^Contact lenses of / })).toContainText("8.6");
+  expect(errors).toEqual([]);
+});
+
+test("a booked order changed, then made in the workshop step by step before the quality check", async ({ page }) => {
+  const errors = errorsOf(page);
+  await page.goto(`/business-admin/${shop.id}/spectacle-orders?new=1&prescription=${shop.prescription.id}`);
+  const dialog = page.getByRole("dialog", { name: "Book a spectacle order" });
+  await expect(dialog).toBeVisible({ timeout: 30_000 });
+  await expect(dialog.getByRole("combobox", { name: "Customer" })).toHaveValue(OPTICAL.customer.name, { timeout: 15_000 });
+  await pick(page, dialog.getByRole("combobox", { name: "Frame from stock" }), OPTICAL.frame.name);
+  await pick(page, dialog.getByRole("combobox", { name: "Billed as (optional)" }).first(), OPTICAL.lens.name);
+  await dialog.getByRole("button", { name: "Same as the right lens" }).click();
+  await dialog.getByLabel("Made", { exact: true }).selectOption("in_house");
+  await dialog.getByLabel("Promised for").fill(localDate(2));
+  await dialog.getByLabel("Frame size A (mm, optional)").fill("52");
+  await dialog.getByLabel("DBL (mm, optional)").fill("18");
+  await expect(dialog.getByText(/Total ₹4,999\.00/)).toBeVisible({ timeout: 15_000 });
+  await dialog.getByRole("button", { name: "Book the order" }).click();
+  await expect(page.getByRole("heading", { name: /^Order SPO\//, level: 1 })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("52 □ 18")).toBeVisible();
+  // Booked: its frame and lenses change, priced again (only the right lens now).
+  await page.getByRole("button", { name: "Change frame and lenses" }).click();
+  const change = page.getByRole("dialog", { name: /^Change SPO\// });
+  await expect(change).toBeVisible();
+  await change.getByLabel("Left eye lens", { exact: true }).uncheck();
+  await change.getByLabel("Why it is changed (optional)").fill("One lens only");
+  await expect(change.getByText(/Total ₹3,749\.00/)).toBeVisible({ timeout: 15_000 });
+  await change.getByRole("button", { name: "Save the change" }).click();
+  await expect(change).toBeHidden({ timeout: 15_000 });
+  await expect(page.getByText(/^Frame and lenses changed: One lens only/)).toBeVisible({ timeout: 15_000 });
+  // Into the workshop: cutting, edging and fitting, each kept with who did it.
+  await page.getByRole("button", { name: "Into the workshop", exact: true }).click();
+  const into = page.getByRole("dialog", { name: "Into the workshop" });
+  await into.getByRole("button", { name: "Into the workshop" }).click();
+  await expect(into).toBeHidden({ timeout: 15_000 });
+  for (const step of ["Cutting", "Edging", "Fitting"]) {
+    await page.getByRole("button", { name: `${step} done`, exact: true }).click();
+    const form = page.getByRole("dialog", { name: new RegExp(`^${step} done on SPO`) });
+    await form.getByRole("button", { name: `${step} done` }).click();
+    await expect(form).toBeHidden({ timeout: 15_000 });
+  }
+  await expect(page.locator(".opt-steps li")).toHaveCount(3);
+  await page.getByRole("button", { name: "Ready for the quality check", exact: true }).click();
+  const check = page.getByRole("dialog", { name: "Ready for the quality check" });
+  await check.getByRole("button", { name: "Ready for the quality check" }).click();
+  await expect(check).toBeHidden({ timeout: 15_000 });
+  await expect(page.getByText("Quality check").first()).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("contact lenses running out and on trial, their stock power by power, and the referral report open", async ({ page }) => {
+  const errors = errorsOf(page);
+  await page.goto(`/business-admin/${shop.id}/contact-lenses`);
+  await expect(page.getByRole("heading", { name: "Contact lenses", level: 1 })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("Nobody's lenses are running out")).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("group", { name: "Show" }).getByRole("button", { name: "Free trials" }).click();
+  await expect(page.getByRole("button", { name: "Give a trial" })).toBeVisible({ timeout: 15_000 });
+  await page.goto(`/business-admin/${shop.id}/lens-stock`);
+  await expect(page.getByRole("heading", { name: "Contact lens stock", level: 1 })).toBeVisible({ timeout: 30_000 });
+  await page.goto(`/business-admin/${shop.id}/referrals`);
+  await expect(page.getByRole("heading", { name: "Referrals", level: 1 })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("No referrals in these dates")).toBeVisible({ timeout: 15_000 });
   expect(errors).toEqual([]);
 });

@@ -19,10 +19,15 @@ const attributes = {
   // of one unit. The agri service reads and checks them
   // (agri/services/agriItems.service.js), and they may change after the item is made.
   agri: ['inputKind', 'subsidised', 'seedClass', 'seedCrop', 'seedVariety', 'molecules', 'formulation', 'netKg', 'approvedCrops', 'household', 'dosePerAcre', 'safetyDays', 'ppe'],
-  // An optical shop's contact lenses: each power of a lens product is its own
-  // item, keeping its power, base curve and diameter (the power grid,
-  // optical/services/opticalLenses.service.js, writes them).
-  optical: ['power', 'baseCurve', 'diameter'],
+  // An optical shop's lenses: a spectacle lens keeps its design, index,
+  // material, coatings (a list) and tint, picked on a spectacle order; a
+  // contact lens (each power of a lens product is its own item) keeps its
+  // power, base curve and diameter, a toric's CYL and AXIS, a multifocal's
+  // ADD, its colour, how often it is replaced and the lenses one unit holds
+  // (the power grid, optical/services/opticalLenses.service.js, writes them).
+  // The optical service reads and checks them (optical/services/opticalItems.service.js),
+  // and they may change after the item is made.
+  optical: ['power', 'baseCurve', 'diameter', 'cyl', 'axis', 'add', 'colour', 'modality', 'lensesPerPack', 'lensDesign', 'lensIndex', 'lensMaterial', 'coatings', 'tint'],
 };
 // Attributes that hold a figure (more than 0, up to two decimals), by the
 // words a refusal uses. They may also be changed after the item is made.

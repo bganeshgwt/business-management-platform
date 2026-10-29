@@ -321,8 +321,8 @@ const readFigure = (value, name) => (value === undefined || value === null || va
 async function updateFigures(db, business, current, given) {
   if (!given || typeof given !== 'object' || Array.isArray(given)) fail('Attributes must be an object');
   const allowed = business.capabilities.flatMap((cap) => attributes[cap] || []).filter((key) => figures[key] || texts[key]);
-  // A farm-input shop's classification is changed by its own service (updateCatalog).
-  const classified = business.capabilities.includes('agri') ? attributes.agri : [];
+  // A farm-input shop's classification and an optical shop's lens details are changed by their own services (updateCatalog).
+  const classified = [...(business.capabilities.includes('agri') ? attributes.agri : []), ...(business.capabilities.includes('optical') ? attributes.optical : [])];
   const next = { ...(current.attributes || {}) };
   for (const [key, value] of Object.entries(given)) {
     if (classified.includes(key)) continue;
@@ -381,8 +381,8 @@ async function createCatalog(business, user, body, extend, inTransaction = null)
   const extra = {};
   for (const [key, value] of Object.entries(body.attributes || {})) {
     if (!allowed.includes(key)) fail(`Unsupported attribute: ${key}`);
-    // A farm-input shop's classification is read by its own service (below).
-    if (attributes.agri.includes(key)) continue;
+    // A farm-input shop's classification and an optical shop's lens details are read by their own services (below).
+    if (attributes.agri.includes(key) || attributes.optical.includes(key)) continue;
     const text = figures[key] ? readFigure(value, figures[key]) : v.optionalString(value, texts[key] || key, texts[key] ? 40 : 150);
     if (text) extra[key] = text;
   }
@@ -393,6 +393,8 @@ async function createCatalog(business, user, body, extend, inTransaction = null)
   return run(async (db) => {
     // What kind of farm input it is (seeds, fertilisers & pesticides): checked against the molecule master.
     if (caps.includes('agri')) Object.assign(extra, await agriItems().classify(db, business, body.attributes || {}, { kind, tracking, opening, creating: true }));
+    // A spectacle lens's or a contact lens's details (an optical shop).
+    if (caps.includes('optical')) Object.assign(extra, opticalItems().classify(body.attributes || {}));
     const unit = await readUnit(db, business.id, body.unit);
     const serviceUnit = ['time', 'service'].includes(unit.kind);
     if (tracking === 'serial' && unit.kind !== 'count') fail('Serialized items must be counted in whole units');
@@ -507,6 +509,9 @@ async function updateCatalog(business, user, skuId, body, inTransaction = null) 
     if (body.attributes !== undefined) sku.attributes = await updateFigures(db, business, current, body.attributes);
     if (body.attributes && business.capabilities.includes('agri') && attributes.agri.some((key) => key in body.attributes)) {
       sku.attributes = await agriItems().reclassify(db, business, user, { ...current, label: sku.label }, sku.attributes, body.attributes);
+    }
+    if (body.attributes && business.capabilities.includes('optical') && attributes.optical.some((key) => key in body.attributes)) {
+      sku.attributes = await opticalItems().reclassify(db, business, user, { ...current, label: sku.label }, sku.attributes, body.attributes);
     }
     await repo.audit(db, business.id, user.id, 'catalog.updated', sku.id);
     return sku;
@@ -705,6 +710,10 @@ const hardwareTinting = () => require('../../hardware/services/hardwareTinting.s
 // the licence, molecule, crop and seed-lot checks, PoS receipts and season credit.
 const agriItems = () => require('../../agri/services/agriItems.service');
 const agriSales = () => require('../../agri/services/agriSales.service');
+// An optical shop's lenses: their details, and contact lenses at the counter (the MD-42
+// registration, the customer's contact-lens prescription, free trials converted).
+const opticalItems = () => require('../../optical/services/opticalItems.service');
+const opticalLenses = () => require('../../optical/services/opticalContactLenses.service');
 // A gym's, studio's or coaching centre's plans: their items are sold from Members & plans.
 const memberPlans = () => require('../../memberships/services/memberCommon');
 // A jeweller's tagged pieces: their items are sold on the jewellery bill, priced by weight.
@@ -923,8 +932,11 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     const agri = kind === 'sale' && agriSales().applies(business) ? await agriSales().checkSale(db, business, { prepared, body, location, contact, user, charge }) : null;
     if (!agri && agriSales().given(body)) fail('Crops, PoS receipts and season credit go on the sales of a seeds, fertilisers & pesticides shop with its tools switched on');
     const purchaseWarnings = kind === 'purchase' && agriSales().applies(business) ? await agriSales().checkPurchase(db, business, { prepared, contact, location }) : [];
+    // An optical shop's contact lenses: sold only under the location's MD-42
+    // registration in force, and checked against the customer's contact-lens prescription (a warning).
+    const lenses = kind === 'sale' && business.modules.includes('optical') ? await opticalLenses().checkSale(db, business, { prepared, location, contact }) : null;
     // What the bill or receipt is posted with but warned of: with it in the activity log and the answer.
-    const warnings = [...(agri?.warnings || []), ...purchaseWarnings];
+    const warnings = [...(agri?.warnings || []), ...purchaseWarnings, ...(lenses?.warnings || [])];
     // A plan's item is sold from Members & plans, which makes the membership with its bill.
     if (kind === 'sale' && !membership && business.modules.includes('member_plans')) await memberPlans().checkLooseSale(db, business, prepared);
     // A jeweller's tagged pieces are sold on the jewellery bill, priced by weight at the day's rate.
@@ -1052,6 +1064,8 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     if (kind === 'sale' && (named(body.siteId) || named(body.fitterId) || tinted || named(body.calculations))) await hardwareSales().recordSale(db, business, user, saved, prepared, body, tinted);
     // A farm-input shop's lines as billed (input, PoS receipt, crop) and its season or walk-in farmer.
     if (agri) await agriSales().recordSale(db, business, user, saved, agri);
+    // The customer's free contact-lens trials of what they paid for now are converted.
+    if (lenses) await opticalLenses().recordSale(db, business, user, saved, lenses, contact);
     // New shelf prices from this receipt (the person may change the catalogue).
     if (priceUpdates.length) {
       const saleMode = settings?.tax_mode || 'exclusive';

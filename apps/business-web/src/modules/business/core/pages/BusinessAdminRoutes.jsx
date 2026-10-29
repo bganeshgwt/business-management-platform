@@ -133,6 +133,9 @@ const PrescriptionHistoryPage = lazy(() => import("../../optical/pages/Prescript
 const SpectacleOrdersPage = lazy(() => import("../../optical/pages/SpectacleOrdersPage"));
 const SpectacleOrderPage = lazy(() => import("../../optical/pages/SpectacleOrderPage"));
 const RecallPage = lazy(() => import("../../optical/pages/RecallPage"));
+const ContactLensesPage = lazy(() => import("../../optical/pages/ContactLensesPage"));
+const LensStockPage = lazy(() => import("../../optical/pages/LensStockPage"));
+const ReferralsPage = lazy(() => import("../../optical/pages/ReferralsPage"));
 // Garages.
 const JobCardsPage = lazy(() => import("../../garage/pages/JobCardsPage"));
 const JobCardPage = lazy(() => import("../../garage/pages/JobCardPage"));
@@ -345,6 +348,9 @@ function screens(type) {
     "prescriptions": <PrescriptionsPage />,
     "spectacle-orders": <SpectacleOrdersPage />,
     "recall": <RecallPage />,
+    "contact-lenses": <ContactLensesPage />,
+    "lens-stock": <LensStockPage />,
+    "referrals": <ReferralsPage />,
     "job-cards": <JobCardsPage />,
     "vehicles": <VehiclesPage />,
     "service-due": <ServiceDuePage />,

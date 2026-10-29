@@ -23,17 +23,19 @@ import { Segmented } from "../../fashion/pages/shared";
 import SpectacleOrderDialog from "./SpectacleOrderDialog";
 import { RxTable } from "./RxGrid";
 import { printCustomerSlip, printJobCard } from "./opticalPrint";
-import { COST_BEARERS, MESSAGE_STAGES, REMAKE_REASONS, STATUSES, STEP_WORDS, lensWords, orderMessage, pdText, stageFor, wordOf } from "./optical";
+import { COST_BEARERS, MESSAGE_STAGES, REMAKE_REASONS, STATUSES, STEP_WORDS, WORKSHOP_STEPS, frameSizeText, lensWords, orderMessage, pdText, stageFor, wordOf } from "./optical";
 import "../styles/optical.css";
 
 // One spectacle order, the job card on screen: its status as the headline
 // with how long it has been there, the next step as the main button (sending
-// it to the lab with the lab's order number, the workshop, the quality check
-// passed or failed by someone who may approve it), WhatsApp or a call with a
-// message for the stage, the prescription as booked, the fitting and the
-// lab, the frame and lenses with their prices, the bill as it would be posted
-// today, the advance, delivery with the bill, cancelling with the advance
-// handed back, remakes, the history, and the job card and customer slip.
+// it to the lab with the lab's order number, the workshop and its steps, the
+// quality check passed or failed by someone who may approve it), WhatsApp or
+// a call with a message for the stage, the prescription as booked, the
+// fitting, the frame's size and the lab, the frame (held in stock or not) and
+// lenses with their prices and warranties, the bill as it would be posted
+// today, the advances (another taken, one handed back), delivery with the
+// bill, changing a booked order, cancelling, remakes, the history, and the
+// job card and customer slip.
 
 // Delivery takes cash, UPI, card or bank; an advance goes back by cash, UPI or bank.
 const PAY_KINDS = ["cash", "upi", "card", "bank"];
@@ -65,6 +67,10 @@ export default function SpectacleOrderPage() {
   const checking = order.status === "quality_check";
   const canStep = checking ? biz.can("optical.approve") : biz.can("optical.edit");
   const canDeliver = order.status === "ready" && biz.can("optical.edit") && biz.can("sales.create");
+  const freeRemake = Boolean(order.remake_of && order.remake_cost_by !== "customer");
+  const canChange = order.status === "booked" && biz.can("optical.manage") && biz.can("sales.create");
+  const frameLine = order.lines.find((l) => l.part === "frame");
+  const held = order.hold?.status === "held";
   const advanceFree = order.advance ? Number(order.advance.free) : 0;
   const today = businessToday(biz.business.timezone);
   const tell = (stage) => {
@@ -75,7 +81,9 @@ export default function SpectacleOrderPage() {
   // Each next step as its button says it; a quality check that fails says so.
   const stepWord = (to) => (checking && to !== "ready" ? `Failed: back to ${to === "at_lab" ? "the lab" : "the workshop"}` : order.status === "ready" ? `Back to ${to === "at_lab" ? "the lab" : "the workshop"}` : STEP_WORDS[to]);
   const lines = order.lines.map((l) => ({ ...l, what: l.part === "frame" ? (l.own_frame ? `Customer's own frame: ${l.description}` : l.label) : l.part === "lens" ? lensWords(l) : l.label,
-    part_word: l.part === "frame" ? "Frame" : l.part === "lens" ? `${l.eye === "right" ? "Right" : "Left"} lens` : "Item" }));
+    part_word: l.part === "frame" ? "Frame" : l.part === "lens" ? `${l.eye === "right" ? "Right" : "Left"} lens` : "Item",
+    warranty: [l.warranty_until ? `warranty to ${dateShort(l.warranty_until, { year: true })}` : null,
+      l.coating_warranty_until ? `coating warranty to ${dateShort(l.coating_warranty_until, { year: true })}` : null].filter(Boolean).join(" · ") }));
   const short = open && order.lines.some((l) => l.in_stock !== null && l.in_stock !== undefined && Number(l.in_stock) < Number(l.quantity));
 
   return (
@@ -117,10 +125,34 @@ export default function SpectacleOrderPage() {
               <button key={to} type="button" className={`button ${index === 0 && !canDeliver ? "" : "button-secondary"}`} onClick={() => setDialog({ kind: "step", to })}>{stepWord(to)}</button>
             ))}
             {biz.can("optical.edit") && <button type="button" className="button button-secondary" onClick={() => setDialog("details")}><Icon name="edit" size={15} /> Change details</button>}
+            {canChange && <button type="button" className="button button-secondary" onClick={() => setDialog("change")}><Icon name="edit" size={15} /> Change frame and lenses</button>}
             {biz.can("optical.cancel") && <button type="button" className="button button-secondary" onClick={() => setDialog("cancel")}>Cancel the order</button>}
           </div>
           {short && <p className="opt-note">An item is not in usable stock here: delivery waits until it is received.</p>}
         </SectionCard>
+      )}
+      {order.status === "in_workshop" && order.workshop && (
+        <SectionCard icon="settings" title="In the workshop" description="Cutting, edging and fitting, in order; a step done at the lab is left out. The quality check needs the fitting done.">
+          {order.workshop.steps.length > 0 && (
+            <ul className="opt-steps">
+              {order.workshop.steps.map((s, i) => <li key={i}><strong>{wordOf(WORKSHOP_STEPS, s.step)}</strong> · {s.by_name} · {dateTime(s.created_at)}{s.note ? ` · ${s.note}` : ""}</li>)}
+            </ul>
+          )}
+          {biz.can("optical.edit") && (
+            <div className="form-actions bz-start">
+              {/* The steps still open on this visit: the next one and any after it (none once fitted). */}
+              {WORKSHOP_STEPS.slice(order.workshop.next ? WORKSHOP_STEPS.findIndex((x) => x.value === order.workshop.next) : WORKSHOP_STEPS.length).map((s) => (
+                <button key={s.value} type="button" className={`button ${s.value === order.workshop.next ? "" : "button-secondary"} button-sm`} onClick={() => setDialog({ kind: "workshop", step: s })}>{s.label} done</button>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+      )}
+      {open && frameLine?.sku_id && biz.can("optical.edit") && (
+        <SectionCard icon="box" title={held ? "Frame held in stock" : "Frame not held"}
+          description={held ? `${frameLine.label}${order.hold.lot_code ? ` (${order.hold.lot_code})` : ""} is kept for this order since ${dateTime(order.hold.held_at)} (${order.hold.held_by_name}): nobody else is sold it.`
+            : "Hold it to keep one in stock for this order: no bill, transfer or count takes it until it is delivered or released."}
+          actions={<button type="button" className="button button-secondary button-sm" onClick={() => setDialog(held ? "release" : "hold")}>{held ? "Release the hold" : "Hold the frame"}</button>} />
       )}
       {open && (
         <SectionCard icon="message" title="Tell the customer" description="Opens WhatsApp with the message ready; it is noted in the history below.">
@@ -147,7 +179,10 @@ export default function SpectacleOrderPage() {
         <dl className="fe-facts">
           <dt>Fitting PD</dt><dd>{order.pd_right ? `R ${Number(order.pd_right)} mm` : "R —"} · {order.pd_left ? `L ${Number(order.pd_left)} mm` : "L —"}</dd>
           <dt>Fitting height</dt><dd>{order.fitting_height_right || order.fitting_height_left ? `R ${order.fitting_height_right ? Number(order.fitting_height_right) : "—"} mm · L ${order.fitting_height_left ? Number(order.fitting_height_left) : "—"} mm` : "—"}</dd>
+          <dt>Frame size</dt><dd>{frameSizeText(order) || "—"}</dd>
           <dt>Made</dt><dd>{order.made_at === "lab" ? `At ${order.lab_name}${order.lab_order_no ? ` · lab order ${order.lab_order_no}` : ""}` : "In our workshop"}</dd>
+          {order.referred_by && <><dt>Referred by</dt><dd>{order.referred_by}</dd></>}
+          {order.quotation_no && <><dt>Quotation</dt><dd>{order.quotation_no}</dd></>}
           {order.notes && <><dt>Notes</dt><dd>{order.notes}</dd></>}
           {order.cancel_reason && <><dt>Cancelled because</dt><dd>{order.cancel_reason} ({order.cancelled_by_name}, {dateTime(order.cancelled_at)})</dd></>}
           {order.delivered_at && <><dt>Delivered</dt><dd>{dateTime(order.delivered_at)} by {order.delivered_by_name}{order.document_no ? ` · bill ${order.document_no}` : ""}</dd></>}
@@ -158,7 +193,7 @@ export default function SpectacleOrderPage() {
         <DataGrid variant="compact" id="optical-order-lines" caption="Frame and lenses" rows={lines} rowKey={(l) => l.id} currency={biz.symbol} rowNoun={["line", "lines"]} columns={[
           { key: "part", header: "Part", value: (l) => l.part_word, mobile: "subtitle" },
           { key: "what", header: "What", value: (l) => l.what, mobile: "title",
-            render: (l) => <span className="bz-two-line"><span>{l.what}</span><small className="muted">{[l.part === "lens" && l.label ? `billed as ${l.label}` : null, l.part === "lens" && !l.sku_id ? "billed on another line" : null, l.part !== "frame" || !l.own_frame ? l.description : null].filter(Boolean).join(" · ")}</small></span> },
+            render: (l) => <span className="bz-two-line"><span>{l.what}</span><small className="muted">{[l.part === "lens" && l.label ? `billed as ${l.label}` : null, l.part === "lens" && !l.sku_id ? "billed on another line" : null, l.part !== "frame" || !l.own_frame ? l.description : null, l.warranty || null].filter(Boolean).join(" · ")}</small></span> },
           { key: "quantity", header: "Qty", type: "number", value: (l) => (l.quantity === null ? null : Number(l.quantity)), render: (l) => (l.quantity === null ? <span className="muted">—</span> : quantity(l.quantity, l.unit)) },
           money && { key: "amount", header: "Amount", type: "money", exact: true, value: (l) => (l.net === null ? null : Number(l.net) + Number(l.tax)), total: "sum", mobile: "show",
             render: (l) => (l.net === null ? <span className="muted">—</span> : biz.exact(Number(l.net) + Number(l.tax))) },
@@ -178,22 +213,26 @@ export default function SpectacleOrderPage() {
           </dl>
         </SectionCard>
       )}
-      {money && order.advance && (
-        <SectionCard icon="wallet" title="Advance"
-          description={open ? "Taken off the bill at delivery. If the order is cancelled, it is handed back here (a manager's PIN) or stays on the customer's account." : advanceFree > 0 ? `${biz.exact(advanceFree)} of the advance is still the customer's: hand it back, or it stays on their account for a later bill.` : undefined}
-          actions={!open && advanceFree > 0 && biz.can("sales.edit") && <button type="button" className="button" onClick={() => setDialog("refund")}><Icon name="wallet" size={15} /> Hand back the advance</button>}>
-          <dl className="fe-facts">
-            <dt>Taken</dt><dd>{biz.exact(order.advance.amount)} ({order.advance.collection_no}, {dateShort(order.advance.created_at)})</dd>
-            <dt>Used on the bill</dt><dd>{biz.exact(order.advance.used)}</dd>
-            <dt>Handed back</dt><dd>{biz.exact(order.advance.refunded)}</dd>
-            <dt>Left</dt><dd><strong>{biz.exact(order.advance.free)}</strong></dd>
-          </dl>
-          {(order.advance.refunds || []).length > 0 && (
+      {money && (order.advance || (open && !freeRemake && biz.can("sales.edit"))) && (
+        <SectionCard icon="wallet" title={order.advances?.length > 1 ? "Advances" : "Advance"}
+          description={open ? "Taken off the bill at delivery, oldest first. If the order is cancelled, each is handed back here (a manager's PIN) or stays on the customer's account." : advanceFree > 0 ? `${biz.exact(advanceFree)} of the advance is still the customer's: hand it back, or it stays on their account for a later bill.` : undefined}
+          actions={open && !freeRemake && biz.can("sales.edit") && <button type="button" className="button button-secondary" onClick={() => setDialog("advance")}><Icon name="wallet" size={15} /> Take {order.advance ? "another" : "an"} advance</button>}>
+          {(order.advances || []).length > 0 && (
+            <ul className="fe-refunds">
+              {order.advances.map((a) => (
+                <li key={a.id}>
+                  <span>{a.collection_no} · {biz.exact(a.amount)} by {a.method_name || (a.method === "upi" ? "UPI" : a.method)} · {dateShort(a.created_at)} · used {biz.exact(a.used)} · handed back {biz.exact(a.refunded)} · left <strong>{biz.exact(a.free)}</strong></span>
+                  {!open && Number(a.free) > 0 && biz.can("sales.edit") && <button type="button" className="chip-button" onClick={() => setDialog({ kind: "refund", advance: a })}><Icon name="wallet" size={13} /> Hand back</button>}
+                </li>
+              ))}
+            </ul>
+          )}
+          {(order.advance?.refunds || []).length > 0 && (
             <ul className="fe-refunds">
               {order.advance.refunds.map((r) => (
                 <li key={r.id}>
                   <span>{r.refund_no} · {biz.exact(r.amount)} by {r.method_name || (r.method === "upi" ? "UPI" : r.method)} · {dateTime(r.created_at)} · approved by {r.approved_by_name} — {r.reason}</span>
-                  <button type="button" className="chip-button" onClick={() => printRefundReceipt(biz, { ...r, collection_no: order.advance.collection_no }, order.customer_name)}><Icon name="print" size={13} /> Receipt</button>
+                  <button type="button" className="chip-button" onClick={() => printRefundReceipt(biz, r, order.customer_name)}><Icon name="print" size={13} /> Receipt</button>
                 </li>
               ))}
             </ul>
@@ -216,12 +255,27 @@ export default function SpectacleOrderPage() {
         <ReasonDialog title={`Cancel ${order.order_no}`} submitLabel="Cancel the order"
           description={`Nothing is billed and nothing leaves stock.${advanceFree > 0 ? ` The advance of ${biz.exact(advanceFree)} stays the customer's: hand it back next, with a manager's PIN, or keep it on their account.` : ""}`}
           onClose={() => setDialog(null)} onSubmit={(reason) => businessWrite(biz.id, `optical/orders/${order.id}/cancel`, { reason })}
-          onSaved={() => { if (advanceFree > 0 && biz.can("sales.edit")) { toast.success(`${order.order_no} cancelled. Hand back the advance now if the customer wants it.`); setVersion((n) => n + 1); setDialog("refund"); } else refresh(`${order.order_no} cancelled.`); }} />
+          onSaved={() => { if (advanceFree > 0 && biz.can("sales.edit")) { toast.success(`${order.order_no} cancelled. Hand back the advance now if the customer wants it.`); setVersion((n) => n + 1); setDialog({ kind: "refund", advance: (order.advances || []).find((a) => Number(a.free) > 0) }); } else refresh(`${order.order_no} cancelled.`); }} />
       )}
-      {dialog === "refund" && <RefundDialog order={order} free={advanceFree} onClose={() => setDialog(null)} onSaved={(r) => {
-        printRefundReceipt(biz, { ...r, collection_no: order.advance.collection_no }, order.customer_name);
+      {dialog?.kind === "refund" && dialog.advance && <RefundDialog order={order} advance={dialog.advance} onClose={() => setDialog(null)} onSaved={(r) => {
+        printRefundReceipt(biz, r, order.customer_name);
         refresh(`${r.refund_no}: ${biz.exact(r.amount)} handed back.`);
       }} />}
+      {dialog === "advance" && <AdvanceDialog order={order} onClose={() => setDialog(null)} onSaved={() => refresh("Advance taken.")} />}
+      {dialog === "change" && <SpectacleOrderDialog changing={order} onClose={() => setDialog(null)} onSaved={(o) => refresh(`${o.order_no} changed.`)} />}
+      {dialog?.kind === "workshop" && (
+        <ReasonDialog title={`${dialog.step.label} done on ${order.order_no}`} submitLabel={`${dialog.step.label} done`} label="Note (optional)" required={false} icon="check"
+          description="Kept in the order's history with who did it and when." onClose={() => setDialog(null)}
+          onSubmit={(note) => businessWrite(biz.id, `optical/orders/${order.id}/workshop`, { step: dialog.step.value, note: note || undefined })}
+          onSaved={() => refresh(`${dialog.step.label} done.`)} />
+      )}
+      {(dialog === "hold" || dialog === "release") && (
+        <ReasonDialog title={dialog === "hold" ? `Hold the frame for ${order.order_no}` : `Release the frame of ${order.order_no}`} submitLabel={dialog === "hold" ? "Hold it" : "Release it"} icon="box"
+          label={dialog === "hold" ? "Batch or serial (optional)" : "Why (optional)"} required={false} onClose={() => setDialog(null)}
+          description={dialog === "hold" ? "One in usable stock here is kept for this order." : "It goes back to stock and can be sold to anyone."}
+          onSubmit={(text) => businessWrite(biz.id, `optical/orders/${order.id}/frame-hold`, dialog === "hold" ? { hold: true, lotCode: text || undefined } : { hold: false, reason: text || undefined })}
+          onSaved={() => refresh(dialog === "hold" ? "Frame held in stock." : "Frame hold released.")} />
+      )}
       {dialog === "remake" && <SpectacleOrderDialog remake={order} onClose={() => setDialog(null)} onSaved={(o) => { setDialog(null); toast.success(`Remake ${o.order_no} booked.`); navigate(biz.path(`spectacle-orders/${o.id}`)); }} />}
     </div>
   );
@@ -258,13 +312,15 @@ function DetailsDialog({ order, onClose, onSaved }) {
   const today = businessToday(biz.business.timezone);
   const num = (x) => (x === null || x === undefined ? "" : String(Number(x)));
   const [form, setForm] = useState({ promisedOn: order.promised_on, notes: order.notes || "", madeAt: order.made_at, labName: order.lab_name || "", labOrderNo: order.lab_order_no || "",
-    pdRight: num(order.pd_right), pdLeft: num(order.pd_left), heightRight: num(order.fitting_height_right), heightLeft: num(order.fitting_height_left) });
+    pdRight: num(order.pd_right), pdLeft: num(order.pd_left), heightRight: num(order.fitting_height_right), heightLeft: num(order.fitting_height_left),
+    frameA: num(order.frame_a), frameB: num(order.frame_b), frameDbl: num(order.frame_dbl), referredBy: order.referred_by || "" });
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
   return (
     <FormDialog title={`Change ${order.order_no}`} icon="edit" width={720} onClose={onClose} onSaved={onSaved}
-      onSubmit={() => businessWrite(biz.id, `optical/orders/${order.id}`, { promisedOn: form.promisedOn, notes: form.notes, madeAt: form.madeAt,
+      onSubmit={() => businessWrite(biz.id, `optical/orders/${order.id}`, { promisedOn: form.promisedOn, notes: form.notes, madeAt: form.madeAt, referredBy: form.referredBy,
         ...(form.madeAt === "lab" ? { labName: form.labName, labOrderNo: form.labOrderNo } : {}),
-        measurements: { pdRight: form.pdRight, pdLeft: form.pdLeft, fittingHeightRight: form.heightRight, fittingHeightLeft: form.heightLeft } }, "patch")}>
+        measurements: { pdRight: form.pdRight, pdLeft: form.pdLeft, fittingHeightRight: form.heightRight, fittingHeightLeft: form.heightLeft,
+          frameA: form.frameA, frameB: form.frameB, frameDbl: form.frameDbl } }, "patch")}>
       <Field label="Promised for"><input type="date" required min={form.promisedOn < today ? form.promisedOn : today} value={form.promisedOn} onChange={set("promisedOn")} /></Field>
       <Field label="Made"><select value={form.madeAt} onChange={set("madeAt")}><option value="lab">At a lab</option><option value="in_house">In our workshop</option></select></Field>
       {form.madeAt === "lab" && (
@@ -277,6 +333,10 @@ function DetailsDialog({ order, onClose, onSaved }) {
       <Field label="Fitting PD, left eye (mm)"><input inputMode="decimal" value={form.pdLeft} onChange={set("pdLeft")} /></Field>
       <Field label="Fitting height, right eye (mm)"><input inputMode="decimal" value={form.heightRight} onChange={set("heightRight")} /></Field>
       <Field label="Fitting height, left eye (mm)"><input inputMode="decimal" value={form.heightLeft} onChange={set("heightLeft")} /></Field>
+      <Field label="Frame size A (mm)"><input inputMode="decimal" value={form.frameA} onChange={set("frameA")} /></Field>
+      <Field label="Frame size B (mm)"><input inputMode="decimal" value={form.frameB} onChange={set("frameB")} /></Field>
+      <Field label="DBL (mm)"><input inputMode="decimal" value={form.frameDbl} onChange={set("frameDbl")} /></Field>
+      <Field label="Referred by"><input maxLength={150} value={form.referredBy} onChange={set("referredBy")} /></Field>
       <Field label="Notes" wide><input maxLength={500} value={form.notes} onChange={set("notes")} /></Field>
     </FormDialog>
   );
@@ -319,11 +379,31 @@ function DeliverDialog({ order, onClose, onSaved }) {
   );
 }
 
-// The advance handed back (cash, UPI or bank) with a manager's PIN.
-function RefundDialog({ order, free, onClose, onSaved }) {
+// Another advance on an open order: a numbered receipt in the customer's name.
+function AdvanceDialog({ order, onClose, onSaved }) {
+  const biz = useOpenBusiness();
+  const [requestKey] = useState(newKey);
+  const methods = usePaymentMethods();
+  const left = Math.max(0, Number(order.total) - Number(order.advance?.amount || 0));
+  const [form, setForm] = useState({ amount: "", method: "cash", reference: "" });
+  const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
+  return (
+    <FormDialog title={`Advance on ${order.order_no}`} icon="wallet" width={520} submitLabel="Take the advance" onClose={onClose} onSaved={onSaved}
+      description={`Up to ${biz.exact(left)} more: the advances together never pass the order's total. A receipt is made in ${order.customer_name}'s name.`}
+      onSubmit={() => businessWrite(biz.id, `optical/orders/${order.id}/advances`, { requestKey, amount: form.amount, ...methods.body(form.method, PAY_KINDS), reference: form.reference.trim() || undefined })}>
+      <Field label={`Amount (${biz.symbol})`}><input required autoFocus type="number" min="1" max={left} step="0.01" value={form.amount} onChange={set("amount")} /></Field>
+      <Field label="Paid by"><select value={methods.resolve(form.method, PAY_KINDS)} onChange={set("method")}>{methods.options(PAY_KINDS).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}</select></Field>
+      <Field label="Reference (optional)" wide><input maxLength={100} value={form.reference} onChange={set("reference")} /></Field>
+    </FormDialog>
+  );
+}
+
+// An advance handed back (cash, UPI or bank) with a manager's PIN.
+function RefundDialog({ order, advance, onClose, onSaved }) {
   const biz = useOpenBusiness();
   const { user } = useAuth();
   const [requestKey] = useState(newKey);
+  const free = Number(advance.free);
   const [form, setForm] = useState({ amount: free.toFixed(2), method: "cash", reference: "" });
   const methods = usePaymentMethods();
   const kind = methods.kindOf(form.method, REFUND_KINDS);
@@ -331,8 +411,8 @@ function RefundDialog({ order, free, onClose, onSaved }) {
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
   return (
     <FormDialog title={`Hand back the advance on ${order.order_no}`} icon="wallet" width={600} submitLabel="Hand it back" onClose={onClose} onSaved={onSaved}
-      description={`${biz.exact(free)} is left of the advance ${order.advance.collection_no}. A receipt prints for the customer to sign.`}
-      onSubmit={() => businessWrite(biz.id, `optical/orders/${order.id}/advance-refund`, { amount: form.amount, ...methods.body(form.method, REFUND_KINDS), reference: form.reference || null, requestKey, ...approvalFor(approval, user?.id) })}>
+      description={`${biz.exact(free)} is left of the advance ${advance.collection_no}. A receipt prints for the customer to sign.`}
+      onSubmit={() => businessWrite(biz.id, `optical/orders/${order.id}/advance-refund`, { collectionId: advance.id, amount: form.amount, ...methods.body(form.method, REFUND_KINDS), reference: form.reference || null, requestKey, ...approvalFor(approval, user?.id) })}>
       <Field label={`Amount (${biz.symbol})`}><input required type="number" min="0.01" max={free} step="0.01" value={form.amount} onChange={set("amount")} /></Field>
       <Field label="Paid back by"><select value={methods.resolve(form.method, REFUND_KINDS)} onChange={set("method")}>{methods.options(REFUND_KINDS).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}</select></Field>
       {kind !== "cash" && <Field label="Reference" wide><input required maxLength={100} value={form.reference} onChange={set("reference")} /></Field>}

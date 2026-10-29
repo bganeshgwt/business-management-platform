@@ -86,7 +86,7 @@ test('the optical shop', { timeout: 300000 }, async (t) => {
     // The sales module stays on while the optical tools need it.
     await request('PUT', `/businesses/${optical.id}/modules/sales`, { enabled: false }, 409);
     const permissions = await rows("SELECT code FROM business_permissions WHERE module_code='optical' ORDER BY sort_order");
-    assert.deepEqual(permissions.map((p) => p.code), ['optical.view', 'optical.create', 'optical.edit', 'optical.approve', 'optical.cancel', 'optical.print']);
+    assert.deepEqual(permissions.map((p) => p.code), ['optical.view', 'optical.create', 'optical.edit', 'optical.approve', 'optical.cancel', 'optical.print', 'optical.manage']);
     // The optometrist: an optical shop's own role, with no money.
     const roles = (await request('GET', `/businesses/${optical.id}/roles?limit=100`)).items;
     const optometrist = roles.find((r) => r.template_code === 'optometrist');
@@ -101,7 +101,7 @@ test('the optical shop', { timeout: 300000 }, async (t) => {
     assert.deepEqual(await grants(optical, 'optometrist'), ['appointments.create', 'appointments.edit', 'appointments.view', 'catalog.view', 'contacts.create', 'contacts.view',
       'optical.approve', 'optical.create', 'optical.print', 'optical.view']);
     assert.ok(!(await grants(optical, 'optometrist')).some((p) => /^(sales|receivables|purchasing)\./.test(p)), 'the optometrist takes no money');
-    assert.deepEqual(await opticalGrants(optical, 'manager'), ['optical.approve', 'optical.cancel', 'optical.create', 'optical.edit', 'optical.print', 'optical.view']);
+    assert.deepEqual(await opticalGrants(optical, 'manager'), ['optical.approve', 'optical.cancel', 'optical.create', 'optical.edit', 'optical.manage', 'optical.print', 'optical.view']);
     assert.deepEqual(await opticalGrants(optical, 'cashier'), ['optical.create', 'optical.edit', 'optical.print', 'optical.view']);
     assert.deepEqual(await opticalGrants(optical, 'stock_keeper'), ['optical.edit', 'optical.view']);
     assert.deepEqual(await opticalGrants(optical, 'accountant'), ['optical.print', 'optical.view']);
@@ -239,7 +239,7 @@ test('the optical shop', { timeout: 300000 }, async (t) => {
     const examiners = await optometrist('GET', O('optical/examiners'));
     assert.ok(examiners.staff.some((s) => s.name === 'optical-optometrist'));
     assert.ok(!examiners.staff.some((s) => s.name === 'optical-viewer'), 'a viewer does not examine');
-    assert.deepEqual(examiners.outside, [{ name: 'Dr. S. Rao', registration_no: 'APMC/45678' }]);
+    assert.deepEqual(examiners.outside, [{ name: 'Dr. S. Rao', registration_no: 'APMC/45678', registration_council: null, registration_valid_until: null }]);
     // Another type is refused (it has no such tools); another owner sees nothing.
     await request('GET', `/businesses/${grocery.id}/optical/prescriptions`, undefined, 403);
     await request('PUT', `/businesses/${fashion.id}/optical/settings`, { recallMonths: 6 }, 404);
@@ -327,21 +327,27 @@ test('the optical shop', { timeout: 300000 }, async (t) => {
       ['at_lab', 'CL-7781', null, false, null, null, null, null]);
     assert.ok(!now.events.some((e) => /\d+\.\d{2}/.test(e.note || '')), 'the history names no amounts');
     now = await move(keeper, order, 'in_workshop', { note: 'Lenses back from the lab for fitting' });
+    // From the workshop, the quality check needs the fitting done.
+    await keeper('POST', O(`optical/orders/${order.id}/workshop`), { step: 'fitting' });
     now = await move(keeper, order, 'quality_check');
     // Passing or failing it needs optical.approve; a fail says what failed.
     await move(cashier, order, 'ready', {}, 403);
     await move(optometrist, order, 'in_workshop', {}, 400);
     now = await move(optometrist, order, 'in_workshop', { note: 'Right lens axis at 170, not 180' });
+    await keeper('POST', O(`optical/orders/${order.id}/workshop`), { step: 'fitting', note: 'Right lens turned to 180' });
     now = await move(keeper, order, 'quality_check');
     now = await move(optometrist, order, 'ready', { note: 'Checked on the lensometer' });
     assert.deepEqual([now.status, now.checked_by_name, Boolean(now.checked_at), now.next], ['ready', 'optical-optometrist', true, ['in_workshop', 'at_lab']]);
-    assert.deepEqual(now.events.map((e) => e.to_status), ['booked', 'at_lab', 'in_workshop', 'quality_check', 'in_workshop', 'quality_check', 'ready']);
-    assert.match(now.events[1].note, /^Sent to Crystal Lens Lab · lab order CL-7781/);
-    assert.match(now.events[4].note, /^Quality check failed: Right lens axis at 170/);
-    assert.match(now.events[6].note, /^Quality check passed: Checked on the lensometer/);
+    const moves = now.events.filter((e) => !e.step);
+    assert.deepEqual(moves.map((e) => e.to_status), ['booked', 'at_lab', 'in_workshop', 'quality_check', 'in_workshop', 'quality_check', 'ready']);
+    assert.match(moves[1].note, /^Sent to Crystal Lens Lab · lab order CL-7781/);
+    assert.match(moves[4].note, /^Quality check failed: Right lens axis at 170/);
+    assert.match(moves[6].note, /^Quality check passed: Checked on the lensometer/);
+    assert.deepEqual(now.events.filter((e) => e.step).map((e) => [e.step, e.by_name]), [['fitting', 'optical-keeper'], ['fitting', 'optical-keeper']]);
     // The database keeps the steps, the prices and the lines, and deletes nothing.
     await assert.rejects(pool.query("UPDATE optical_orders SET status='booked' WHERE id=$1", [order.id]), /cannot go from ready to booked/);
-    await assert.rejects(pool.query('UPDATE optical_orders SET total=1 WHERE id=$1', [order.id]), /keeps its number, customer, prescription, prices and advance/);
+    await assert.rejects(pool.query('UPDATE optical_orders SET total=1 WHERE id=$1', [order.id]), /keeps its prices once it has gone to the lab or the workshop/);
+    await assert.rejects(pool.query('UPDATE optical_orders SET contact_id=$2 WHERE id=$1', [order.id, ravi.id]), /keeps its number, customer, prescription and advance/);
     await assert.rejects(pool.query('UPDATE optical_order_lines SET net=0 WHERE order_id=$1', [order.id]), /kept as they were booked/);
     await assert.rejects(pool.query('DELETE FROM optical_orders WHERE id=$1', [order.id]), /never deleted/);
     await assert.rejects(pool.query('DELETE FROM optical_order_events WHERE order_id=$1', [order.id]), /history is kept as it was written/);
@@ -446,6 +452,7 @@ test('the optical shop', { timeout: 300000 }, async (t) => {
     // The frame's slab moves to 18% after booking: the bill keeps the agreed price and works out GST at 18%.
     await request('PATCH', O(`catalog/${frame2.id}`), { label: frame2.label, price: '6990', mrp: '6990', taxRateId: gst18.id });
     await move(keeper, third, 'in_workshop');
+    await keeper('POST', O(`optical/orders/${third.id}/workshop`), { step: 'fitting' });
     await move(keeper, third, 'quality_check');
     assert.equal((await move(optometrist, third, 'ready')).bill, null, 'the optometrist sees no money');
     const ready = await cashier('GET', O(`optical/orders/${third.id}`));
@@ -463,6 +470,7 @@ test('the optical shop', { timeout: 300000 }, async (t) => {
     assert.equal(await stock(frame.id), 1);
     await request('POST', O('documents'), { kind: 'sale', requestKey: key(), locationId: shop.id, lines: [{ skuId: frame.id, quantity: '1' }], payment: { amount: 'full', method: 'cash' } }, 201);
     await move(keeper, fourth, 'in_workshop');
+    await keeper('POST', O(`optical/orders/${fourth.id}/workshop`), { step: 'fitting' });
     await move(keeper, fourth, 'quality_check');
     const ready = await move(optometrist, fourth, 'ready');
     assert.equal(Number(ready.lines[0].in_stock), 0);
@@ -553,12 +561,16 @@ test('the optical shop', { timeout: 300000 }, async (t) => {
     // The product's powers, lowest first, each with its stock.
     const powers = await cashier('GET', O(`optical/power-grid/${made.product.id}`));
     assert.deepEqual([powers.powers.length, powers.powers[0].power, powers.powers.at(-1).power, powers.base_curve, powers.diameter], [34, '-8.00', '2.00', '8.4', '14.0']);
-    // Each power sells like any item: received by batch, billed at the counter.
+    // Each power sells like any item: received by batch, billed at the counter under the shop's MD-42 registration.
     const minus250 = made.items.find((s) => s.power === '-2.50');
     await request('POST', O('documents'), { kind: 'purchase', requestKey: key(), locationId: shop.id, contactId: supplier.id,
       lines: [{ skuId: minus250.id, quantity: '4', unitPrice: '1600', lotCode: 'B4471', expiresOn: daysFrom(500) }] }, 201);
-    const sold = await cashier('POST', O('documents'), { kind: 'sale', requestKey: key(), locationId: shop.id, lines: [{ skuId: minus250.id, quantity: '1', lotCode: 'B4471' }],
-      payment: { amount: 'full', method: 'cash' } }, 201);
+    const sale = { kind: 'sale', requestKey: key(), locationId: shop.id, lines: [{ skuId: minus250.id, quantity: '1', lotCode: 'B4471' }], payment: { amount: 'full', method: 'cash' } };
+    assert.match((await refused('POST', O('documents'), sale)).message, /is a contact lens, sold under an MD-42 registration/);
+    await request('PUT', O('modules/licences'), { enabled: true });
+    await request('POST', O('licences'), { locationId: shop.id, kind: 'md42', name: 'Medical device sale registration (MD-42)', licenceNo: 'MD42/TS/2025/0101',
+      validFrom: daysFrom(-100) }, 201);
+    const sold = await cashier('POST', O('documents'), sale, 201);
     assert.equal(sold.total, '2450.00');
     assert.ok(await one("SELECT 1 FROM business_audit WHERE business_id=$1 AND action='catalog.lens_powers_created' AND entity_id=$2", [optical.id, made.product.id]));
   });
@@ -570,7 +582,7 @@ test('the optical shop', { timeout: 300000 }, async (t) => {
     const booked = await one("SELECT payload FROM business_events WHERE business_id=$1 AND kind='spectacle_order.booked' AND entity_id=$2", [optical.id, order.id]);
     assert.deepEqual([booked.payload.orderNo, booked.payload.total, booked.payload.advanceCollectionId], [order.order_no, '5099.00', Number(order.advance_collection_id)]);
     const audit = await rows("SELECT action FROM business_audit WHERE business_id=$1 AND entity_id=$2 AND action LIKE 'spectacle_order.%' ORDER BY id", [optical.id, order.id]);
-    assert.deepEqual([...new Set(audit.map((a) => a.action))], ['spectacle_order.booked', 'spectacle_order.status_changed', 'spectacle_order.customer_told', 'spectacle_order.delivered']);
+    assert.deepEqual([...new Set(audit.map((a) => a.action))], ['spectacle_order.booked', 'spectacle_order.status_changed', 'spectacle_order.workshop_step', 'spectacle_order.customer_told', 'spectacle_order.delivered']);
     // The advance and the bill went through the core's own records.
     assert.ok(await one("SELECT 1 FROM business_events WHERE business_id=$1 AND kind='collection.recorded' AND entity_id=$2", [optical.id, order.advance_collection_id]));
     assert.ok(await one("SELECT 1 FROM business_events WHERE business_id=$1 AND kind='sale.posted' AND entity_id=$2", [optical.id, (await one('SELECT document_id FROM optical_orders WHERE id=$1', [order.id])).document_id]));

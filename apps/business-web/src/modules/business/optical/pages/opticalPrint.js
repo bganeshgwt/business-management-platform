@@ -1,13 +1,14 @@
 import { escapeHtml, printDocument } from "../../../../services/print";
 import { dateShort } from "@bmp/shared/format";
 import { barcodeSvg } from "../../retail/services/barcode";
-import { COST_BEARERS, EYES, REMAKE_REASONS, lensWords, power, rowOf, wordOf, zonesOf } from "./optical";
+import { COST_BEARERS, EYES, MODALITIES, REMAKE_REASONS, frameSizeText, lensWords, power, prismText, rowOf, wordOf, zonesOf } from "./optical";
 import { privacyLine } from "../../../personal-data/printLine";
 
-// Printing for an optical shop: a prescription for the customer, the job
-// card for the lab or the workshop (A5 or A4, with the prescription and the
-// fitting, never the prices), and the customer's slip with the promised day,
-// the price, the advance paid and what is left to pay.
+// Printing for an optical shop: a prescription for the customer (spectacles,
+// or contact lenses), the job card for the lab or the workshop (A5 or A4,
+// with the prescription, the fitting and the frame's size, never the
+// prices), and the customer's slip with the promised day, the price, the
+// advances paid and what is left to pay.
 
 const fmt = (value) => escapeHtml(dateShort(value, { year: true }));
 const BASE = "body{font:12px system-ui;color:#111} h1{font-size:17px;margin:0} h2{font-size:14px;margin:10px 0 4px} small{color:#555}"
@@ -30,7 +31,7 @@ function rxHtml(rows) {
   const zones = zonesOf(rows);
   const body = EYES.flatMap((eye) => zones.map((zone, index) => {
     const r = rowOf(rows, eye.value, zone.value);
-    const prism = r?.prism ? `${Number(r.prism)} ${r.prism_base || ""}` : "";
+    const prism = prismText(r);
     return `<tr>${index === 0 ? `<th rowspan="${zones.length}">${eye.short}</th>` : ""}<td>${zone.label}</td><td>${r ? power(r.sph) : ""}</td><td>${r ? power(r.cyl) : ""}</td>
       <td>${r?.axis ?? ""}</td><td>${r ? power(r.add) : ""}</td><td>${escapeHtml(prism)}</td><td>${escapeHtml(r?.acuity || "")}</td></tr>`;
   })).join("");
@@ -39,17 +40,32 @@ function rxHtml(rows) {
 const pd = (p) => (p.pdBinocular || p.pd_binocular ? `${Number(p.pdBinocular || p.pd_binocular)} mm (both eyes)`
   : p.pdRight || p.pd_right ? `R ${Number(p.pdRight || p.pd_right)} mm · L ${Number(p.pdLeft || p.pd_left)} mm` : "—");
 
+// A contact-lens prescription's lenses as a table: a row per eye.
+function lensHtml(lenses) {
+  const body = EYES.map((eye) => {
+    const l = (lenses || []).find((x) => x.eye === eye.value);
+    return `<tr><th>${eye.short}</th><td>${l ? power(l.power) : ""}</td><td>${l ? power(l.cyl) : ""}</td><td>${l?.axis ?? ""}</td><td>${l ? power(l.add) : ""}</td>
+      <td>${l ? Number(l.base_curve) : ""}</td><td>${l ? Number(l.diameter) : ""}</td><td>${escapeHtml(l?.colour || "")}</td><td>${escapeHtml(l?.brand || "")}</td>
+      <td>${escapeHtml(l?.modality ? wordOf(MODALITIES, l.modality) : "")}</td></tr>`;
+  }).join("");
+  return `<table><thead><tr><th>Eye</th><th>Power</th><th>CYL</th><th>AXIS</th><th>ADD</th><th>BC</th><th>DIA</th><th>Colour</th><th>Brand</th><th>Replaced</th></tr></thead><tbody>${body}</tbody></table>`;
+}
+
 // A prescription, for the customer to keep.
 export function printPrescription(biz, p) {
+  const lenses = p.kind === "contact_lens";
+  const wearing = (p.lenses || []).map((l) => l.wearing_schedule).filter(Boolean);
   printDocument({
     title: `Prescription ${p.customer_name}`,
     styles: `@page{size:A5;margin:10mm} ${BASE}`,
-    body: `${shopHead(biz, null, "Eye prescription")}
-      <dl><dt>Name</dt><dd>${escapeHtml(p.customer_name)}${p.customer_phone ? ` · ${escapeHtml(p.customer_phone)}` : ""}</dd>
+    body: `${shopHead(biz, null, lenses ? "Contact lens prescription" : "Eye prescription")}
+      <dl><dt>Name</dt><dd>${escapeHtml(p.customer_name)}${p.customer_phone ? ` · ${escapeHtml(p.customer_phone)}` : ""}${p.age_years !== null && p.age_years !== undefined ? ` · age ${p.age_years}` : ""}</dd>
       <dt>Day of the test</dt><dd>${fmt(p.examined_on)}</dd>
-      <dt>Examined by</dt><dd>${escapeHtml(p.examiner_name)}${p.registration_no ? ` · Reg. no. ${escapeHtml(p.registration_no)}` : ""}</dd></dl>
-      ${rxHtml(p.rows)}
-      <dl><dt>PD</dt><dd>${escapeHtml(pd(p))}</dd><dt>Valid until</dt><dd>${fmt(p.valid_until)}</dd>
+      <dt>Examined by</dt><dd>${escapeHtml(p.examiner_name)}${p.registration_no ? ` · Reg. no. ${escapeHtml(p.registration_no)}` : ""}${p.registration_council ? `, ${escapeHtml(p.registration_council)}` : ""}</dd>
+      ${p.referred_by ? `<dt>Referred by</dt><dd>${escapeHtml(p.referred_by)}</dd>` : ""}</dl>
+      ${lenses ? lensHtml(p.lenses) : rxHtml(p.rows)}
+      <dl>${lenses ? "" : `<dt>PD</dt><dd>${escapeHtml(pd(p))}</dd>`}${p.vertex_distance ? `<dt>Vertex distance</dt><dd>${Number(p.vertex_distance)} mm</dd>` : ""}
+      ${wearing.length ? `<dt>Wearing schedule</dt><dd>${escapeHtml([...new Set(wearing)].join("; "))}</dd>` : ""}<dt>Valid until</dt><dd>${fmt(p.valid_until)}</dd>
       ${p.notes ? `<dt>Notes</dt><dd>${escapeHtml(p.notes)}</dd>` : ""}</dl>
       <div class="sign"><span>Signature</span><span>${escapeHtml(p.examiner_name)}</span></div>`,
   });
@@ -78,13 +94,14 @@ export function printJobCard(biz, order, size = "A5") {
       <dt>Made</dt><dd>${order.made_at === "lab" ? `At ${escapeHtml(order.lab_name)}${order.lab_order_no ? ` · lab order ${escapeHtml(order.lab_order_no)}` : ""}` : "In our workshop"}</dd>
       ${order.remake_of_no ? `<dt>Remake of</dt><dd>${escapeHtml(order.remake_of_no)} · ${escapeHtml(wordOf(REMAKE_REASONS, order.remake_reason))} · cost borne by ${escapeHtml(wordOf(COST_BEARERS, order.remake_cost_by).toLowerCase())}</dd>` : ""}</dl>
       <h2>Prescription</h2>
-      <small>Tested ${fmt(rx.examinedOn)} by ${escapeHtml(rx.examinerName || "")}${rx.registrationNo ? ` (Reg. no. ${escapeHtml(rx.registrationNo)})` : ""} · PD ${escapeHtml(pd(rx))}</small>
+      <small>Tested ${fmt(rx.examinedOn)} by ${escapeHtml(rx.examinerName || "")}${rx.registrationNo ? ` (Reg. no. ${escapeHtml(rx.registrationNo)})` : ""} · PD ${escapeHtml(pd(rx))}${rx.vertexDistance ? ` · vertex ${Number(rx.vertexDistance)} mm` : ""}</small>
       ${rxHtml(rx.rows || [])}
       <h2>Fitting</h2>
       <table><thead><tr><th></th><th>Right eye</th><th>Left eye</th></tr></thead><tbody>
         <tr><th>Fitting PD</th><td>${order.pd_right ? `${Number(order.pd_right)} mm` : ""}</td><td>${order.pd_left ? `${Number(order.pd_left)} mm` : ""}</td></tr>
         <tr><th>Fitting height</th><td>${order.fitting_height_right ? `${Number(order.fitting_height_right)} mm` : ""}</td><td>${order.fitting_height_left ? `${Number(order.fitting_height_left)} mm` : ""}</td></tr>
       </tbody></table>
+      ${frameSizeText(order) ? `<p><strong>Frame size:</strong> ${escapeHtml(frameSizeText(order))} mm</p>` : ""}
       <h2>Frame and lenses</h2>
       <table><tbody>${rows}</tbody></table>
       ${order.notes ? `<p><strong>Notes:</strong> ${escapeHtml(order.notes)}</p>` : ""}
@@ -106,7 +123,7 @@ export function printCustomerSlip(biz, order) {
       <dt>Booked</dt><dd>${fmt(order.created_at)}</dd><dt>Ready by</dt><dd><strong>${fmt(order.promised_on)}</strong></dd></dl>
       ${rows ? `<table><thead><tr><th></th><th>Item</th>${money ? '<th class="r">Amount</th>' : ""}</tr></thead><tbody>${rows}</tbody></table>` : ""}
       ${money ? `<dl><dt>Total</dt><dd><strong>${escapeHtml(biz.exact(order.total))}</strong> including GST</dd>
-        ${order.advance ? `<dt>Advance paid</dt><dd>${escapeHtml(biz.exact(advance))} (${escapeHtml(order.advance.collection_no)})</dd>` : ""}
+        ${order.advance ? `<dt>Advance${order.advances?.length > 1 ? "s" : ""} paid</dt><dd>${escapeHtml(biz.exact(advance))} (${escapeHtml(order.advance.collection_no)})</dd>` : ""}
         <dt>To pay on collection</dt><dd><strong>${escapeHtml(biz.exact(Math.max(0, Number(order.total) - advance)))}</strong></dd></dl>` : ""}
       <p><small>Please bring this slip when you collect your spectacles. This slip is not a tax invoice: the bill is made when you collect them.</small></p>
       ${privacyLine(biz) ? `<p><small>${escapeHtml(privacyLine(biz))}</small></p>` : ""}`,

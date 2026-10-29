@@ -17,7 +17,9 @@ const EYES = ['right', 'left'];
 const ZONES = ['distance', 'near', 'intermediate'];
 const EYE_WORDS = { right: 'right eye', left: 'left eye' };
 const ZONE_WORDS = { distance: 'distance', near: 'near', intermediate: 'intermediate' };
-const PRISM_BASES = ['in', 'out', 'up', 'down'];
+// A prism's base: horizontal (in or out) and vertical (up or down), each its own prism.
+const PRISM_BASES = ['in', 'out'];
+const VERTICAL_BASES = ['up', 'down'];
 const LENS_TYPES = ['single_vision', 'bifocal', 'progressive'];
 const LENS_WORDS = { single_vision: 'single vision', bifocal: 'bifocal', progressive: 'progressive' };
 const MATERIALS = ['cr39', 'polycarbonate', 'trivex', 'glass', 'other'];
@@ -27,6 +29,19 @@ const COST_BEARERS = ['shop', 'lab', 'customer'];
 const STATUS_WORDS = { booked: 'booked', at_lab: 'at the lab', in_workshop: 'in the workshop', quality_check: 'at the quality check', ready: 'ready to collect',
   delivered: 'delivered', cancelled: 'cancelled' };
 const OPEN = ['booked', 'at_lab', 'in_workshop', 'quality_check', 'ready'];
+// A prescription for spectacles, or for contact lenses.
+const KINDS = ['spectacles', 'contact_lens'];
+// The workshop's steps, in order, before the quality check.
+const WORKSHOP_STEPS = ['cutting', 'edging', 'fitting'];
+// How often a contact lens is replaced, and in how many days.
+const MODALITIES = ['daily', 'fortnightly', 'monthly', 'quarterly', 'half_yearly', 'yearly'];
+const MODALITY_DAYS = { daily: 1, fortnightly: 14, monthly: 30, quarterly: 90, half_yearly: 180, yearly: 365 };
+// A spectacle lens's details kept with its item: picked on an order instead of typed.
+const LENS_ITEM_KEYS = ['lensDesign', 'lensIndex', 'lensMaterial', 'coatings', 'tint'];
+// A contact lens's details kept with its item (each power of a lens product is its own item).
+const CONTACT_LENS_KEYS = ['power', 'baseCurve', 'diameter', 'cyl', 'axis', 'add', 'colour', 'modality', 'lensesPerPack'];
+// An item is a contact lens when it keeps a base curve (the power grid writes one).
+const isContactLens = (attributes) => Boolean(attributes && attributes.baseCurve !== undefined && attributes.baseCurve !== null && attributes.baseCurve !== '');
 
 const given = (value) => value !== undefined && value !== null && String(value).trim() !== '';
 
@@ -81,5 +96,28 @@ async function today(db, business) {
 const listWords = (items) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`);
 const optionalText = (value, name, max) => v.optionalString(value === undefined || value === null ? value : String(value), name, max);
 
-module.exports = { fail, requireOptical, EYES, ZONES, EYE_WORDS, ZONE_WORDS, PRISM_BASES, LENS_TYPES, LENS_WORDS, MATERIALS, COATINGS, REMAKE_REASONS, COST_BEARERS,
-  STATUS_WORDS, OPEN, given, readPower, readAxis, readMillimetres, readDate, addDays, addMonths, dateWords, today, listWords, optionalText };
+// A lens's index (1.40 to 2.00), as typed: "1.6" is 1.60.
+function readIndex(value, name) {
+  if (!given(value)) return null;
+  const text = String(value).trim();
+  if (!/^\d\.\d{1,2}$/.test(text) || Number(text) < 1.4 || Number(text) > 2) fail(`${name} must be from 1.40 to 2.00 (1.50, 1.56, 1.60, 1.67, 1.74)`);
+  return Number(text).toFixed(2);
+}
+// A list of coatings, each named once, in a set order.
+function readCoatings(value, name) {
+  if (value === undefined || value === null || value === '') return [];
+  const list = v.requiredArray(value, name);
+  for (const coating of list) v.requiredEnum(coating, name.replace(/s$/, ''), COATINGS);
+  if (new Set(list).size !== list.length) fail(`${name}: each coating is named once`);
+  return [...list].sort();
+}
+// A whole number of months from 1 to 60, or none.
+function readMonths(value, name) {
+  if (!given(value)) return null;
+  const text = String(value).trim();
+  if (!/^\d{1,2}$/.test(text) || Number(text) < 1 || Number(text) > 60) fail(`${name} is 1 to 60 whole months, or left empty`);
+  return Number(text);
+}
+module.exports = { fail, requireOptical, EYES, ZONES, EYE_WORDS, ZONE_WORDS, PRISM_BASES, VERTICAL_BASES, LENS_TYPES, LENS_WORDS, MATERIALS, COATINGS, REMAKE_REASONS, COST_BEARERS,
+  STATUS_WORDS, OPEN, KINDS, WORKSHOP_STEPS, MODALITIES, MODALITY_DAYS, LENS_ITEM_KEYS, CONTACT_LENS_KEYS, isContactLens,
+  given, readPower, readAxis, readMillimetres, readDate, addDays, addMonths, dateWords, today, listWords, optionalText, readIndex, readCoatings, readMonths };
