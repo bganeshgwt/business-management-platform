@@ -15,6 +15,7 @@ const { dashboard, kitchenNow, openDays } = require("./report/dashboard");
 const { employeeOutlets, expensesByCategory, purchasesByMonth, refundsByMonth, revenueByMonth, stockCostByMonth } = require("./report/profitLoss");
 const { dayBook } = require("./report/dayBook");
 const { paymentCorrections, theft } = require("./report/theft");
+const { kitchenStations } = require("./report/kitchen");
 
 module.exports = {
   dayAt,
@@ -70,4 +71,5 @@ module.exports = {
   employeeOutlets,
   dayBook,
   theft,
+  kitchenStations,
 };

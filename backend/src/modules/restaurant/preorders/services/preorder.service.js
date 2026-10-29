@@ -268,6 +268,24 @@ const create = async (restaurantId, data, userId, ctx = {}) => {
   try {
     await client.query("BEGIN");
     await client.query("SELECT id FROM restaurants WHERE id = $1 FOR UPDATE", [restaurantId]);
+
+    // The outlet's row, held until the pre-order is saved: an outlet being
+    // closed or deleted at this moment holds it too (outlet.service), so
+    // either the close comes first and the outlet is found closed here, or
+    // this comes first and the close finds the pre-order and is refused.
+    if (ctx.outletId) {
+      const outlet = (await client.query(
+        "SELECT name, status FROM outlets WHERE restaurant_id = $1 AND id = $2 FOR SHARE",
+        [restaurantId, ctx.outletId]
+      )).rows[0];
+
+      if (!outlet || outlet.status !== "active") {
+        throw new AppError(409, outlet
+          ? `"${outlet.name}" has just been closed, so it takes no pre-orders. Book it at an outlet that is open.`
+          : "This outlet no longer exists. Book the pre-order at an outlet that is open.");
+      }
+    }
+
     const next = (await client.query(
       "SELECT COALESCE(max(substring(preorder_number from '[0-9]+$')::int), 0) + 1 AS n FROM restaurant_preorders WHERE restaurant_id = $1",
       [restaurantId]

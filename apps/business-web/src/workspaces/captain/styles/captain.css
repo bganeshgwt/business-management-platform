@@ -350,6 +350,32 @@
   justify-content: center;
 }
 
+/* A dish served on its own, while the rest of its ticket cooks. */
+.cpt-ready-dish {
+  align-items: center;
+}
+
+.cpt-ready-dish > span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+
+.cpt-serve-dish {
+  flex-shrink: 0;
+  min-height: 40px;
+}
+
+.cpt-ready-cooking {
+  margin: 0;
+}
+
+/* Asking the counter for the bill, on a table's sheet. */
+.cpt-sheet-bill .button {
+  width: 100%;
+  min-height: 48px;
+  justify-content: center;
+}
+
 .cpt-card-error {
   margin: 0;
   color: var(--danger);

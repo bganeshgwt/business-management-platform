@@ -22,6 +22,31 @@ const findById = async (restaurantId, id) => {
   return result.rows[0] || null;
 };
 
+// Runs `work(db, outlet)` in one transaction holding the outlet's row
+// (outlet null when it does not exist). Closing or deleting an outlet takes
+// it this way, and booking a pre-order there takes it too (FOR SHARE, in
+// preorder.service), so the two can never both pass at the same moment: the
+// second waits for the first and then sees what it did.
+const withOutletLocked = async (restaurantId, id, work) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+    const locked = await client.query(
+      `SELECT ${COLUMNS} FROM outlets WHERE restaurant_id = $1 AND id = $2 FOR UPDATE`,
+      [restaurantId, id]
+    );
+    const result = await work(client, locked.rows[0] || null);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 const create = async (restaurantId, data, userId) => {
   const result = await pool.query(
     `INSERT INTO outlets (restaurant_id, name, code, contact, address, gst_number, order_prefix, invoice_prefix, status, created_by, updated_by,
@@ -36,8 +61,8 @@ const create = async (restaurantId, data, userId) => {
   return result.rows[0];
 };
 
-const update = async (restaurantId, id, data, userId) => {
-  const result = await pool.query(
+const update = async (restaurantId, id, data, userId, db = pool) => {
+  const result = await db.query(
     `UPDATE outlets
      SET name = $3, code = $4, contact = $5, address = $6,
          gst_number = CASE WHEN $12::boolean THEN $7 ELSE gst_number END,
@@ -111,11 +136,11 @@ const SETUP = [
 
 // Stock still on the outlet's shelf would vanish with it (the balance row is
 // removed along with the outlet), so it counts as history too.
-const usage = async (restaurantId, outletId) => {
+const usage = async (restaurantId, outletId, db = pool) => {
   const count = (table) =>
     `(SELECT COUNT(*) FROM ${table} WHERE outlet_id = $2 AND restaurant_id = $1)::int AS "${table}"`;
 
-  const result = await pool.query(
+  const result = await db.query(
     `SELECT ${[...HISTORY, ...SETUP].map(([table]) => count(table)).join(",\n            ")},
             (SELECT COUNT(*) FROM stock_balances
              WHERE outlet_id = $2 AND restaurant_id = $1 AND quantity <> 0)::int AS stock_on_hand,
@@ -145,8 +170,8 @@ const usage = async (restaurantId, outletId) => {
 // The numbers of the pre-orders still to be baked and handed over at an
 // outlet (booked, in production or ready), soonest due first. They are on
 // that outlet's bake list and on no other till's.
-const openPreorders = async (restaurantId, outletId) => {
-  const result = await pool.query(
+const openPreorders = async (restaurantId, outletId, db = pool) => {
+  const result = await db.query(
     `SELECT preorder_number FROM restaurant_preorders
      WHERE restaurant_id = $1 AND outlet_id = $2 AND status IN ('booked', 'in_production', 'ready')
      ORDER BY due_at, id`,
@@ -156,8 +181,8 @@ const openPreorders = async (restaurantId, outletId) => {
   return result.rows.map((row) => row.preorder_number);
 };
 
-const remove = async (restaurantId, id) => {
-  const result = await pool.query(
+const remove = async (restaurantId, id, db = pool) => {
+  const result = await db.query(
     "DELETE FROM outlets WHERE restaurant_id = $1 AND id = $2 RETURNING id",
     [restaurantId, id]
   );
@@ -168,6 +193,7 @@ const remove = async (restaurantId, id) => {
 module.exports = {
   findAll,
   findById,
+  withOutletLocked,
   create,
   update,
   usage,

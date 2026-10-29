@@ -19,6 +19,13 @@ export const setTicketStatus = async (id, status) =>
   (await api.patch(`/kitchen/kots/${id}/status`, { status })).data;
 export const setTicketItemDone = async (kotId, itemId, done) =>
   (await api.patch(`/kitchen/kots/${kotId}/items/${itemId}`, { done })).data;
+// One dish the kitchen ticked done, served from the floor on its own; the
+// last one serves the ticket.
+export const serveTicketItem = async (kotId, itemId) =>
+  (await api.post(`/kitchen/kots/${kotId}/items/${itemId}/serve`)).data;
+// An earlier day's tickets with their times, read only:
+// { date, settings, stats, more, tickets }.
+export const getKitchenDay = async (date) => (await api.get("/kitchen/day", { params: { date } })).data.data;
 export const recallTicket = async (id) => (await api.post(`/kitchen/kots/${id}/recall`)).data;
 export const recallLastTicket = async (stationId) =>
   (await api.post("/kitchen/recall", stationId ? { stationId } : {})).data;

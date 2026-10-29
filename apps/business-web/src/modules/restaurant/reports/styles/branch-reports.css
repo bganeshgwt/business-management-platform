@@ -183,3 +183,22 @@
   overflow: auto;
   font-size: var(--text-xs);
 }
+
+/* The kitchen-station report: tickets sent in each hour of the day. */
+.report-hours {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.report-hours li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}

@@ -6,10 +6,12 @@ import {
   countsOf,
   marksOf,
   orderLink,
+  passSince,
   passTone,
   sectionOf,
   shownTables,
   waitingAt,
+  waitingDishes,
   waitingList,
 } from "../src/workspaces/captain/captainFloor.js";
 import { addLine, buildItems, noteLine } from "../src/modules/restaurant/orders/services/orderCart.js";
@@ -114,7 +116,7 @@ test("only what is new at the tables shown rings, never what was there when the 
   const before = waitingAt(TABLES, FLOOR);
   const first = arrivals(null, [T1, T2], before);
   assert.deepEqual(first.fresh, [], "the first look rings nothing");
-  assert.deepEqual([...first.keys].sort(), ["calls:11", "calls:12", "ready:21"]);
+  assert.deepEqual([...first.keys].sort(), ["calls:11", "calls:12", "ready:21", "ready:21.210", "ready:21.211"]);
   const later = waitingAt(TABLES, { ...FLOOR, requests: [...FLOOR.requests, call(16, 2, "water")], tickets: [...FLOOR.tickets, ticket(23, 101, 0)] });
   const next = arrivals(first.keys, [T1, T2], later);
   assert.deepEqual(next.fresh.map(arrivalText), ["Table T2: asked for water", "Food ready for table T1"]);
@@ -122,6 +124,40 @@ test("only what is new at the tables shown rings, never what was there when the 
   const hers = waitingAt(TABLES, { ...FLOOR, requests: [...FLOOR.requests, call(17, 3, "water")] });
   assert.deepEqual(arrivals(first.keys, [T1, T2], hers).fresh, []);
   assert.equal(arrivalText({ kind: "orders", table: T3, entry: FLOOR.requests[3] }), "Table T3 sent an order from its QR code");
+});
+
+test("a dish the kitchen ticked done waits at the pass on its own; a bill a captain asked for does not ring their own phone", () => {
+  // T2's ticket still cooking: the dal is done, the naan is not.
+  const T2running = { ...T2, live: { orderId: 102, orderNumber: "ORD-0102", guestCount: 2, placedAt: ago(20), orderTotal: 400 } };
+  const cooking = {
+    id: 31, orderId: 102, status: "cooking", readyAt: null, passSince: ago(2),
+    items: [
+      { id: 310, name: "Dal makhani", liveQuantity: 1, isDone: true, servedAt: null },
+      { id: 311, name: "Butter naan", liveQuantity: 2, isDone: false, servedAt: null },
+    ],
+  };
+  const waiting = waitingAt([T1, T2running], { tickets: [cooking] });
+  assert.deepEqual(waitingDishes(cooking).map((item) => item.name), ["Dal makhani"]);
+  assert.equal(passSince(cooking), cooking.passSince);
+  assert.deepEqual(marksOf(T2running, waiting.get("2"), { now: NOW }).map((mark) => mark.label), ["Food ready · 1 dish", "2 guests"]);
+  assert.equal(passTone(cooking, NOW, 8), "calm");
+  const first = arrivals(null, [T2running], waiting);
+  assert.deepEqual([...first.keys].sort(), ["ready:31", "ready:31.310"]);
+  // The dal carried out: nothing rings. The naan up: it rings again.
+  const served = { ...cooking, items: [{ ...cooking.items[0], servedAt: ago(1) }, cooking.items[1]] };
+  assert.deepEqual(arrivals(first.keys, [T2running], waitingAt([T2running], { tickets: [served] })).fresh, []);
+  const naanUp = { ...served, status: "ready", readyAt: ago(0), items: [served.items[0], { ...cooking.items[1], isDone: true }] };
+  assert.deepEqual(waitingDishes(naanUp).map((item) => item.name), ["Butter naan"]);
+  assert.deepEqual(arrivals(first.keys, [T2running], waitingAt([T2running], { tickets: [naanUp] })).fresh.map(arrivalText), ["Food ready for table T2"]);
+
+  // The bill asked for by Ramesh (user 7) himself rings his phone no more;
+  // another captain's phone rings for it.
+  const asked = { ...call(41, 1, "bill"), askedBy: 7, askedByName: "Ramesh" };
+  const quiet = waitingAt([T1], {});
+  const now = waitingAt([T1], { requests: [asked] });
+  const seen = arrivals(null, [T1], quiet).keys;
+  assert.deepEqual(arrivals(seen, [T1], now, { userId: 7 }).fresh, []);
+  assert.deepEqual(arrivals(seen, [T1], now, { userId: 9 }).fresh.map(arrivalText), ["Table T1: wants the bill"]);
 });
 
 test("a note typed on a dish just added goes to the kitchen with it; a dish already sent keeps its own", () => {

@@ -44,6 +44,27 @@
   opacity: 0.6;
 }
 
+/* The courses' names, one row each, course 1 first. */
+.svc-courses {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.svc-course {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 420px;
+}
+
+.svc-course .field {
+  flex: 1;
+  min-width: 0;
+}
+
 .svc-choices {
   display: flex;
   flex-wrap: wrap;

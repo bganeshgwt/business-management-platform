@@ -1149,13 +1149,14 @@ const fireCourse = async (restaurantId, orderId, courseNo, userId) => {
      FROM orders o
      WHERE oi.order_id = o.id AND o.restaurant_id = $1 AND o.id = $2
        AND o.order_status = 'open' AND oi.item_status<>'cancelled' AND oi.course_no = $3 AND oi.fire_status = 'held'
-     RETURNING oi.id`,
+     RETURNING oi.id, oi.course_name`,
     [restaurantId, orderId, courseNo, userId]
   );
   if (result.rowCount === 0) {await db.query('ROLLBACK');return null;}
   await db.query("UPDATE orders SET kitchen_status=CASE WHEN kitchen_status IN ('served','ready') THEN 'pending' ELSE kitchen_status END, updated_by = $3, updated_at = NOW() WHERE restaurant_id = $1 AND id = $2", [restaurantId, orderId, userId]);
   await db.query('COMMIT');
-  return { count: result.rowCount };
+  // The course's name when its dishes were sent under one (the captain app).
+  return { count: result.rowCount, courseName: result.rows.map((row) => row.course_name).find(Boolean) || null };
   }catch(error){await db.query('ROLLBACK');throw error;}finally{db.release();}
 };
 

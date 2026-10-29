@@ -451,10 +451,12 @@ const createCall = (data) =>
       }
     }
 
+    // created_by: a waiter asking the counter for the table's bill from the
+    // captain app; NULL for a guest's own call from the QR code.
     const inserted = await client.query(
       `INSERT INTO table_requests
-         (restaurant_id, outlet_id, table_id, business_day_id, request_type, client_key, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+         (restaurant_id, outlet_id, table_id, business_day_id, request_type, client_key, notes, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING id`,
       [
         data.restaurantId,
@@ -464,11 +466,34 @@ const createCall = (data) =>
         data.requestType,
         data.clientKey,
         data.notes,
+        data.createdBy || null,
       ]
     );
 
     return { id: inserted.rows[0].id, repeated: false, duplicate: false };
   });
+
+// A table, for a waiter asking the counter for its bill: its outlet, and the
+// order running on it (open, or billed already), if any.
+const findTableForBill = async (restaurantId, tableId) => {
+  const result = await pool.query(
+    `SELECT t.id, t.table_no, t.outlet_id, t.status,
+            o.id AS order_id, o.order_number, o.order_status
+     FROM dining_tables t
+     LEFT JOIN LATERAL (
+       SELECT o2.id, o2.order_number, o2.order_status
+       FROM orders o2
+       WHERE o2.restaurant_id = t.restaurant_id AND o2.table_id = t.id
+         AND o2.order_status IN ('open', 'billed')
+       ORDER BY o2.placed_at DESC
+       LIMIT 1
+     ) o ON TRUE
+     WHERE t.restaurant_id = $1 AND t.id = $2`,
+    [restaurantId, tableId]
+  );
+
+  return result.rows[0] || null;
+};
 
 // How long a guest's phone can follow a request, and how long after a table
 // has paid up its guests can still see what they ordered.
@@ -597,6 +622,7 @@ const STAFF_COLUMNS = `r.id, r.table_id, r.outlet_id, r.request_type, r.status, 
             live.outlet_name AS live_order_outlet_name,
             r.channel, r.service_type, r.delivery_address, r.delivery_landmark, r.payment_mode,
             r.delivery_charge, r.online_link_id, place.name AS outlet_name,
+            r.created_by AS asked_by, asker.name AS asked_by_name,
             COALESCE(items.list, '[]') AS items`;
 
 // Joined once for the list and once for a single request, so both describe a
@@ -610,6 +636,8 @@ const STAFF_JOINS = `
      LEFT JOIN orders o ON o.id = r.order_id
      LEFT JOIN users ack ON ack.id = r.acknowledged_by
      LEFT JOIN users res ON res.id = r.resolved_by
+     -- A waiter who asked the counter for the table's bill (captain app).
+     LEFT JOIN users asker ON asker.id = r.created_by
      LEFT JOIN LATERAL (
        SELECT JSON_AGG(JSON_BUILD_OBJECT(
                 'id', i.id, 'productId', i.product_id, 'productVariantId', i.product_variant_id,
@@ -989,6 +1017,7 @@ module.exports = {
   findModifierLinksForCart,
   createOrderRequest,
   createCall,
+  findTableForBill,
   cancelForTable,
   findForTable,
   findRecentFeedback,

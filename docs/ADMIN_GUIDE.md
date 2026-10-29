@@ -809,7 +809,12 @@ so (tap it to read the board now). Cooks move tickets on — **Start cooking →
 Mark ready → Served** (and back if tapped by mistake) — with `kot.manage`; a
 screen with only `kds.view` watches without buttons. A ticket marked ready
 also shows on the **Captain app**'s *Ready* tab, where the waiter who carries
-it out marks it served. The toolbar has
+it out marks it served; so does a dish the cook has ticked done on a ticket
+still cooking, which the waiter may carry out on its own. The board then
+shows that dish struck through, *Served from the floor by* the waiter, and it
+stays done; serving the last dish serves the ticket. A ticket sent under a
+named course (the captain app's *Starters*, *Mains*…) shows the course's name,
+and its KOT prints it. The toolbar has
 **All-day** (how many of each dish are still to cook), **Recall** (the last
 served ticket, up to 3 hours back), **Change slips**, **Sold out** (mark a dish
 sold out for today), a chime, and **Focus** (full screen for a wall TV).
@@ -911,8 +916,11 @@ bookmark, and signing in from it comes back to it. It has a header of its own
 - **Ready** — the food the kitchen has marked ready for those tables, the
   oldest at the pass first, with how long it has waited. **Served** takes the
   ticket off the pass in the captain's name, as the kitchen display's *Served*
-  does, and its dishes are served on the order. The tab shows while the
-  kitchen display is on, to roles that handle KOTs (`kot.manage`).
+  does, and its dishes are served on the order. A dish the cook has ticked done
+  on a ticket still cooking is here too, with **Served** of its own and a line
+  saying what is still cooking: it goes out on its own, and serving the last
+  dish of a ticket serves the ticket. The tab shows while the kitchen display
+  is on, to roles that handle KOTs (`kot.manage`).
 
 **Taking an order** opens the POS itself in its phone layout, on the table
 tapped: dishes by category or search, sizes, add-ons and combo choices in the
@@ -922,10 +930,14 @@ out, serving times, the price of the hour, a table held for a booking, a dish
 the kitchen already has, the business day. Two things are the captain app's
 own:
 
-- **Send to the kitchen** — *Now*, *Course 2 later* or *Course 3 later*, for
-  a dine-in table. Dishes added under a later course wait on the order, marked
-  *Course 2 · held*, until **Fire course 2** is pressed on it; they then reach
-  the kitchen as a round of their own, in the name of whoever fired them.
+- **Send to the kitchen** — the course the dishes go under, by its name
+  (*Starters*, *Mains*, *Desserts* to start; **Service settings → Courses**),
+  for a dine-in table. The first course goes to the kitchen when the order is
+  sent, unless **Hold until I fire it** is ticked; a later course always waits.
+  Held dishes wait on the order, marked *Mains · held*, until **Fire Mains** is
+  pressed on it; they then reach the kitchen as a round of their own, in the
+  name of whoever fired them, and the KOT and the kitchen display show the
+  course's name. The POS itself sends every dish at once, with no course.
 - **Add a note** on a dish just added gives it a note for the kitchen ("less
   spicy") without opening the dish again. A dish the kitchen already has keeps
   the note it was sent with.
@@ -939,8 +951,16 @@ without saving.
 (`billing.manage`) presses **Bill** on the table: the order's bill opens in
 the same bill window as the POS, where it prints and, only for someone who
 may take payments (`payments.manage`), takes the payment. A captain without
-the billing permission is told *The counter raises the bill when the guests
-ask for it*; once the counter has raised it, the table shows *Bill printed*
+the billing permission presses **Ask the counter for the bill** on the
+table's sheet: it reaches the counter as the table's bill request, the same
+one a guest's *Request bill* makes from the QR code, marked *Asked by* the
+captain on **Table requests**, the POS's badges and the other captains'
+phones (never ringing the asker's own). A second ask while the request is
+still open counts on it (*Asked 2×*), and the sheet says the counter has it.
+The ask needs QR ordering switched on, because the counter's inbox for a
+table's requests is QR ordering's; without it, the sheet says *The counter
+raises the bill when the guests ask for it*. Once the counter has raised it,
+the table shows *Bill printed*
 and **Open bill** shows the bill as the guest sees it, to print at the table
 (the first copy; a second needs `bills.reprint` or a manager's PIN). Taking
 the money stays at the counter.
@@ -1047,8 +1067,13 @@ under UPI, Cheque under Other), pick the type; some require a reference.
   goes through without one: the PAN goes on the bill with the payment, or
   press *Record on the bill* to record it alone, for a bill to be collected
   later on an account. A company's GSTIN on the bill carries its PAN, and
-  that PAN goes on the bill with its first payment. *Change* replaces a PAN
-  until the bill is settled; the bill prints it.
+  that PAN goes on the bill with its first payment. So does the PAN the guest
+  book keeps for the guest the bill names: the form says *The guest's PAN
+  from the guest book, ••••••234F, goes on the bill with this payment* (in
+  full for someone who may see guests' contact details), and nobody types it.
+  A guest the guest book marks as having no PAN is not taken as declared: a
+  declaration is signed for each bill, so the form reminds the cashier to take
+  one. *Change* replaces a PAN until the bill is settled; the bill prints it.
 - **The cash limit** — no bill takes ₹2,00,000 or more in cash, and no guest
   pays that much in cash in a day (Income-tax Act 2025, section 186). On a
   bill over ₹2,00,000, or one owing more than cash may still pay, the payment
@@ -1057,8 +1082,13 @@ under UPI, Cheque under Other), pick the type; some require a reference.
   counts with its payment. Typing more cash shows *More cash than the limit
   allows* with a button to take the most allowed; a cash payment that would
   reach the limit is refused, and the reason shows above *Take*. Take the
-  rest by UPI, card, bank transfer or cheque. A walk-in bill with no guest
-  chosen is limited bill by bill.
+  rest by UPI, card, bank transfer or cheque. One person's cash adds up
+  across bills by their PAN too: a walk-in bill (no guest chosen) carrying
+  the buyer's PAN counts with every other walk-in bill carrying it that day
+  and with the guests whose guest book holds it, and the form says *Under the
+  buyer's PAN ending 234F today: ₹… more*; a guest's own figure counts the
+  walk-in bills under their PAN. A walk-in bill with no PAN on it is limited
+  bill by bill.
 - When the bill is fully paid the guest earns points, and it can print by
   itself (Settings → Printing).
 
@@ -1286,6 +1316,14 @@ Changing it needs `tables.manage`.
 
 ### Token numbers and the pickup screen
 
+**Service settings → Courses**: the names of the courses a waiter sends a
+table's dishes under on the captain app, in the order they are served —
+*Starters*, *Mains* and *Desserts* to start, one to six of them, each at most
+30 characters and no two the same. The first is course 1. The KOT and the
+kitchen display show the name a dish was sent under; renaming a course
+changes only what is sent after. The POS sends every dish at once and uses no
+course. Changing them needs `orders.manage`.
+
 **Service settings → Token numbers and the pickup screen**: **Give parcels a
 token number** gives each takeaway, delivery or online order a short number,
 restarting at 1 every business day and per outlet, printed large on the KOT.
@@ -1392,9 +1430,12 @@ anything until they are moved.
 An outlet with **open pre-orders** (booked, in production or ready) is neither
 closed nor deleted until they are handed over or cancelled in *Pre-orders &
 cakes* ([BUSINESS_RULES.md › Pre-orders](BUSINESS_RULES.md#pre-orders)), and
-the message names them. *Remove…* still offers to close or delete such an
-outlet, and the refusal then shows at the top of the Outlets page; setting
-*Status* to *Inactive (closed)* in *Edit* shows it in the dialog.
+the message names them. *Remove…* says so before offering anything: it lists
+the open pre-orders' numbers, offers no *Close* or *Delete*, and links to
+*Pre-orders & cakes*. Setting *Status* to *Inactive (closed)* in *Edit* is
+refused the same way, in the dialog. A pre-order being booked at the outlet
+at the very moment it is closed waits for the close and is then refused
+(*has just been closed*), so a closed outlet never keeps a pre-order to bake.
 
 **Business hours** are the opening and closing times per weekday, up to three
 service periods a day, including closed days. They drive the bell's "the day
@@ -1506,8 +1547,11 @@ A feature another one needs shows *… needs this* and cannot be switched off
 until that one is.
 
 **Before switching off**, the screen says what will be hidden (open complaints,
-bookings still to come, guests holding points, purchase orders still open, tips
-not yet shared out…) and asks you to confirm. It **refuses** when switching
+bookings still to come, pre-orders still open, guests holding points, purchase
+orders still open, tips not yet shared out…) and asks you to confirm. Pre-orders
+still open (booked, in production or ready) are kept but hidden: nobody can
+bake, hand them over or cancel them until *Pre-orders & cakes* is back on, so
+hand them over or cancel them first. It **refuses** when switching
 off would leave money stranded, and says what to do first:
 
 - **Advances & deposits** — an advance still holds money: use it on a bill or
@@ -1876,6 +1920,16 @@ the name is needed: a mobile is never a condition. Searchable by name or mobile.
 is stored one way (10 digits for an Indian number), so the same guest typed three ways is
 one guest.
 
+**PAN, for a bill over ₹2,00,000.** A regular who books banquets or parties keeps their
+PAN here (*For a bill over ₹2,00,000*), checked as a bill's is (five letters, four digits
+and a letter), or a tick that they declared they have none (Form 97). Their bill over
+₹2,00,000 then takes the PAN with its first payment, and the cashier does not type it;
+their cash and the walk-in bills carrying that PAN add up for the cash limit. Staff who do
+not see guests' contact details (`customers.contact`) see its last four characters only,
+and an empty PAN box from them keeps what is on file. Every change is on the activity log
+(*Changed a guest's PAN*), with the PAN masked. Erasing a guest's details erases it too,
+and a merge keeps the PAN of either record.
+
 Attaching a customer to an order at the POS is what makes this useful. Clicking a name
 opens their **history** — visits (what they ordered, when, and the bill) and points.
 
@@ -2218,6 +2272,7 @@ One date range at the top, the reports beneath it on three shelves — **Sales**
 | Control | **Theft control** | Voids, refunds, large discounts, reprints, dishes taken off after the KOT and days closed short, by staff member — see below |
 | Control | **Cancellations & voids** | What was undone, on which business day, by whom, who approved it, and why |
 | Control | **Stock consumption** | What did we buy, use and waste, and what is left — "used" is net of voided bills |
+| Control | **Kitchen stations** | How did each station cook? See below |
 | Control | **Day end · Z report** | One day's closing sheet — see below |
 
 ### GST filing
@@ -2345,6 +2400,31 @@ A normal item report counts what was sold, so a dish that sold nothing has no ro
 invisible. This one starts from the menu and joins the sales on, so the dishes that sold
 **nothing at all** finally appear — each marked `Never sold` or `12 days ago`, with
 anything over 30 days in red.
+
+### Kitchen stations
+
+How each kitchen station cooked over the dates chosen (the business days dated
+in the range, so a night that runs past midnight stays on its day), at the
+outlet in the top bar or across all of them. For each station, and for the
+whole kitchen in the tiles above: the **tickets** and **dishes**; the time from
+**sent to ready**, as the average and as the time nine tickets in ten beat (the
+90th percentile); the same from **ready to served**, for the tickets that
+waited at the pass (a ticket bumped straight to served has no wait there); the
+tickets that went past the kitchen's **late** mark (the late minutes under
+**Stations & routing → Kitchen timers**); the tickets cleared without anyone
+pressing *Served*; and the **busiest hours**, with every station's tickets by
+the hour they were sent below. **Cancelled tickets are left out**, and the
+report says how many. The times are those the kitchen display records, so
+the report needs the Kitchen display feature on; it needs *View reports*
+alone (no takings). Print and **Export CSV** work as on every report; the CSV
+gives the times in seconds.
+
+**An earlier day's tickets.** The dashboard's **Kitchen** card opens its panel
+on *Late* and *All open*; **Earlier day** there reads one chosen day (the day
+before to start), read only: every ticket with its station and dishes, when it
+was sent, marked ready and served, how long it took, and how it ended (served,
+cleared unserved or cancelled), late ones in red, with the day's figures above.
+It needs `kds.view`, as the kitchen display does.
 
 ### Day end · Z report
 

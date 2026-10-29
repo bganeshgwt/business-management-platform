@@ -12,6 +12,7 @@ import {
   getExpenseReport,
   getGstReport,
   getItemReport,
+  getKitchenStationReport,
   getProfitabilityReport,
   getOutletReport,
   getProfitLoss,
@@ -40,7 +41,8 @@ import DayBookReport from "./DayBookReport";
 import TheftReport from "./TheftReport";
 import StaffReport from "./StaffReport";
 import DayEndReport from "./DayEndReport";
-import { cancellationsCsv, consumptionCsv, dayBookCsv, dayEndCsv, discountsCsv, expenseCsv, gstCsv, itemsCsv, profitabilityCsv, outletsCsv, profitLossCsv, salesCsv, staffCsv, theftCsv } from "./reportCsv";
+import { cancellationsCsv, consumptionCsv, dayBookCsv, dayEndCsv, discountsCsv, expenseCsv, gstCsv, itemsCsv, kitchenStationsCsv, profitabilityCsv, outletsCsv, profitLossCsv, salesCsv, staffCsv, theftCsv } from "./reportCsv";
+import KitchenStationReport from "./KitchenStationReport";
 import { dayAndDate, periodLabel, printedAt, shortDate } from "./reportFormat";
 import "../../../../styles/reports.css";
 import "../styles/branch-reports.css";
@@ -72,6 +74,8 @@ const TABS = [
   { key: "theft", label: "Theft control", group: "Control", needs: ["audit.view"] },
   { key: "cancellations", label: "Cancellations & voids", group: "Control", needs: ["sales.view"] },
   { key: "consumption", label: "Stock consumption", group: "Control", needs: [], feature: "stock_recipes" },
+  // The kitchen display records the ticket times this report reads.
+  { key: "kitchen", label: "Kitchen stations", group: "Control", needs: [], feature: "kitchen_display" },
   { key: "dayEnd", label: "Day end · Z report", group: "Control", needs: ["sales.view"] },
 ];
 
@@ -95,6 +99,7 @@ const TAB_INFO = {
   theft: { icon: "shield", purpose: "Voids, refunds, big discounts, reprints and dishes taken off, and who did each." },
   cancellations: { icon: "x-circle", purpose: "Voided bills and cancelled orders, with the reason and who approved them." },
   consumption: { icon: "box", purpose: "Stock bought, used and wasted in the period, valued at cost." },
+  kitchen: { icon: "chef", purpose: "How each kitchen station did: tickets and dishes, the time from sent to ready and from ready to served, late tickets and the busiest hours." },
   dayEnd: { icon: "clipboard", purpose: "The closing sheet for one business day, ready to print as the X or Z report." },
 };
 
@@ -146,6 +151,7 @@ const LOADERS = {
   cancellations: (range) =>
     getCancellationReport({ ...range, voidPage: 1, cancelPage: 1, pageSize: rememberedPageSize("report-voided-bills", 25) }),
   consumption: (range) => getConsumptionReport(range),
+  kitchen: (range) => getKitchenStationReport(range),
   // One day, not a range: the sheet is for the day the range ends on. With no
   // date picked it is the days being traded: the outlet's own, or for All
   // outlets every day still open, each counter on its own date, added up.
@@ -169,6 +175,7 @@ const CSV = {
   theft: (data) => theftCsv(data),
   cancellations: (data) => cancellationsCsv(data),
   consumption: (data) => consumptionCsv(data),
+  kitchen: (data) => kitchenStationsCsv(data),
   dayEnd: (data) => dayEndCsv(data),
 };
 
@@ -726,6 +733,7 @@ export default function ReportsPage() {
             <CancellationReport key={`${current.from}-${current.to}-${current.outletId || ""}`} data={current} currency={currency} />
           )}
           {tab === "consumption" && <ConsumptionReport data={current} currency={currency} />}
+          {tab === "kitchen" && <KitchenStationReport data={current} />}
           {tab === "dayEnd" && (
             <DayEndReport
               data={current}

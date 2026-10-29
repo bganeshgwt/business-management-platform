@@ -25,9 +25,21 @@ const fromGuest = (guest) => ({
   gstin: guest?.gstin || "",
   tags: guest?.tags || [],
   allergies: guest?.allergies || "",
+  // Their PAN, for a bill over ₹2,00,000, or that they declared they have none.
+  pan: guest?.pan || "",
+  panDeclaration: Boolean(guest?.panDeclaration),
   // What they agree to, per purpose, as tapped on this form (Personal data).
   consents: {},
 });
+
+// The PAN as typed, checked as the server checks it.
+const panHint = (value) => {
+  const pan = value.replace(/\s/g, "").toUpperCase();
+
+  return /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan)
+    ? { ok: true, text: "Looks right" }
+    : { ok: false, text: "A PAN is five letters, four digits and a letter, like ABCDE1234F" };
+};
 
 function Hint({ hint, fallback }) {
   if (!hint) {
@@ -133,6 +145,9 @@ export default function GuestFormModal({ guest, onClose, onSaved }) {
       gstin: tidyGstin(form.gstin) || null,
       tags: form.tags,
       allergies: form.allergies.trim() || null,
+      // Empty from someone who sees it masked keeps what is on file.
+      pan: form.panDeclaration ? null : form.pan.replace(/\s/g, "").toUpperCase() || null,
+      panDeclaration: form.panDeclaration,
       ...(consentChanges(form.consents, consentStatus?.purposes || []) ? { consents: consentChanges(form.consents, consentStatus?.purposes || []) } : {}),
       ...(twin && differentNumber ? { sameDigitsConfirmed: true } : {}),
     };
@@ -303,6 +318,43 @@ export default function GuestFormModal({ guest, onClose, onSaved }) {
                   A change applies to new bills. Bills already issued keep the GSTIN they were made out to.
                 </small>
               )}
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset className="field field-wide crm-fieldset">
+          <legend className="section-heading">For a bill over ₹2,00,000</legend>
+          <p className="muted small crm-fieldset-help">
+            A bill over ₹2,00,000 that names them takes this PAN with its first payment, so the cashier does not type it
+            again. Every change is in the activity log.
+          </p>
+          <div className="crm-two">
+            <label className="field">
+              <span>PAN</span>
+              <input
+                value={form.pan}
+                onChange={change("pan")}
+                maxLength={10}
+                placeholder={hidden && guest.panMasked ? guest.panMasked : "ABCDE1234F"}
+                className="mono"
+                autoCapitalize="characters"
+                disabled={form.panDeclaration}
+              />
+              <Hint
+                hint={form.pan.trim() ? panHint(form.pan) : null}
+                fallback={hidden && guest.panMasked ? "Hidden for your role. Leave empty to keep it." : "Five letters, four digits and a letter"}
+              />
+            </label>
+            <label className="checkbox crm-pan-declared">
+              <input
+                type="checkbox"
+                checked={form.panDeclaration}
+                onChange={(event) => setForm({ ...form, panDeclaration: event.target.checked, pan: event.target.checked ? "" : form.pan })}
+              />
+              <span>
+                Has no PAN: declared it (Form 97)
+                <small className="muted">A declaration is signed for each bill: this only reminds the cashier to take one.</small>
+              </span>
             </label>
           </div>
         </fieldset>

@@ -31,6 +31,10 @@ router.get("/settings", authorize("orders.view"), tableRequestController.getSett
 router.put("/settings", authorize("orders.manage"), tableRequestController.updateSettings);
 
 router.post("/close-earlier", authorize("orders.manage"), tableRequestController.closeEarlier);
+// A waiter asks the counter for a table's bill from the captain app: whoever
+// takes orders. It reaches the counter as a table's bill request, which the
+// inbox shows only while QR ordering is on, so it needs QR ordering.
+router.post("/bill-asks", requireFeature("qr_ordering"), authorize("orders.create"), tableRequestController.askForBill);
 router.get("/:id", authorize("orders.view"), tableRequestController.getById);
 router.post("/:id/accept", authorize("orders.create"), tableRequestController.accept);
 router.post("/:id/reject", authorize("orders.create"), tableRequestController.reject);

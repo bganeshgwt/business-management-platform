@@ -22,6 +22,12 @@ export const acknowledgeTableRequest = async (id) =>
 export const completeTableRequest = async (id) =>
   (await api.post(`/table-requests/${id}/done`)).data;
 
+// A waiter asks the counter for a table's bill (the captain app): the table's
+// bill request, marked as theirs. `clientKey` is this tap's own: sent again,
+// the same request comes back.
+export const askTableBill = async (tableId, clientKey) =>
+  (await api.post("/table-requests/bill-asks", { tableId, clientKey })).data;
+
 export const getTableRequestSettings = async () =>
   (await api.get("/table-requests/settings")).data.data;
 

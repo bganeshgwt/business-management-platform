@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import DataGrid from "../../../../../components/DataGrid/DataGrid";
-import { clearOldTickets, getBoard as getKitchenBoard, setTicketStatus } from "../../../kitchen/services/kitchen.service";
+import { clearOldTickets, getBoard as getKitchenBoard, getKitchenDay, setTicketStatus } from "../../../kitchen/services/kitchen.service";
 import { getDeliveryBoard, setDeliveryStatus } from "../../../deliveries/services/delivery.service";
 import RiderModal from "../../../deliveries/pages/RiderModal";
 import {
@@ -45,6 +45,121 @@ const dishesOf = (ticket) =>
 // here, and a manager (kot.manage + orders.manage) can clear tickets left
 // open for hours or from earlier days in one go.
 export function KitchenPanel({ ctx, view }) {
+  return view === "day" ? <KitchenDayPanel ctx={ctx} /> : <KitchenNowPanel ctx={ctx} view={view} />;
+}
+
+// "19:05" on the restaurant's clock (the browser's own zone when unknown).
+const clockAt = (value, timeZone) =>
+  value ? new Date(value).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", ...(timeZone ? { timeZone } : {}) }) : "—";
+
+// Minutes between two moments, or null.
+const minutesBetween = (from, to) => (from && to ? Math.max(0, Math.round((new Date(to) - new Date(from)) / 60000)) : null);
+
+const DONE = {
+  served: ["Served", "success"],
+  cancelled: ["Cancelled", "neutral"],
+  new: ["New", "info"],
+  cooking: ["Cooking", "warning"],
+  ready: ["Ready", "success"],
+};
+
+// An earlier day's tickets, read only: the day chosen (yesterday to start,
+// on the restaurant's calendar), each ticket with when it was sent, ready and
+// served, and the day's figures as the kitchen display counted them. Nothing
+// here moves a ticket.
+function KitchenDayPanel({ ctx }) {
+  const kitchen = ctx.live ? ctx.live.kitchen : null;
+  const timeZone = ctx.data && ctx.data.timezone ? ctx.data.timezone : undefined;
+  const today = (kitchen && kitchen.businessDate) || (ctx.data && ctx.data.businessDate) || new Date().toLocaleDateString("en-CA", timeZone ? { timeZone } : {});
+  const [date, setDate] = useState(() => {
+    const day = new Date(`${today}T00:00:00Z`);
+    day.setUTCDate(day.getUTCDate() - 1);
+    return day.toISOString().slice(0, 10);
+  });
+  const query = usePanelQuery("kitchen-day", date, () => getKitchenDay(date), { keepPrevious: true });
+  const day = query.data && query.data.date === date ? query.data : null;
+  const lateMinutes = day ? day.settings.lateMinutes : 20;
+  const lateAt = (ticket) =>
+    ticket.status !== "cancelled" && (minutesBetween(ticket.createdAt, ticket.readyAt || (ticket.clearedReason ? ticket.servedAt : null)) ?? 0) > lateMinutes;
+
+  return (
+    <>
+      <label className="field dash-panel-day">
+        <span>Day</span>
+        <input type="date" value={date} max={today} onChange={(event) => event.target.value && setDate(event.target.value)} />
+      </label>
+      {day && day.stats && (
+        <PanelFacts
+          items={[
+            { label: "Tickets", value: count(day.stats.totalCount) },
+            { label: "Average ticket time", value: day.stats.timedCount > 0 ? `${Math.round(day.stats.avgReadySeconds / 60)} min` : "—" },
+            { label: `Late (over ${lateMinutes} min)`, value: count(day.stats.lateCount), tone: day.stats.lateCount > 0 ? "danger" : null },
+            { label: "Cleared unserved", value: count(day.stats.clearedCount) },
+          ]}
+        />
+      )}
+      {day && day.more && (
+        <PanelMessage tone="info" message="The day had more tickets than this list shows: the Kitchen stations report reads them all." />
+      )}
+      <DataGrid
+        id="dash-panel-kitchen-day"
+        caption={`Kitchen tickets of ${date}`}
+        variant="compact"
+        columns={[
+          {
+            key: "ticket",
+            header: "Ticket",
+            value: (ticket) => ticket.kotNo,
+            mobile: "title",
+            render: (ticket) => (
+              <span className="panel-cell-stack">
+                <strong>{ticket.kotNo}</strong>
+                <span className="muted">{[ticketFor(ticket), ticket.stationName, ticket.courseName].filter(Boolean).join(" · ")}</span>
+              </span>
+            ),
+          },
+          { key: "dishes", header: "Dishes", value: dishesOf, render: (ticket) => <span className="small">{dishesOf(ticket)}</span> },
+          { key: "sent", header: "Sent", value: (ticket) => ticket.createdAt, render: (ticket) => clockAt(ticket.createdAt, timeZone), mobile: "show" },
+          { key: "ready", header: "Ready", value: (ticket) => ticket.readyAt || "", render: (ticket) => clockAt(ticket.readyAt, timeZone) },
+          {
+            key: "took",
+            header: "Sent to ready",
+            align: "right",
+            value: (ticket) => minutesBetween(ticket.createdAt, ticket.readyAt) ?? -1,
+            render: (ticket) => {
+              const took = minutesBetween(ticket.createdAt, ticket.readyAt);
+              return took === null ? "—" : waitText(took);
+            },
+            mobile: "show",
+          },
+          { key: "served", header: "Served", value: (ticket) => ticket.servedAt || "", render: (ticket) => clockAt(ticket.servedAt, timeZone) },
+          {
+            key: "status",
+            header: "How it ended",
+            value: (ticket) => ticket.status,
+            render: (ticket) =>
+              ticket.clearedReason
+                ? badge("Cleared unserved", "warning")
+                : badge(...(DONE[ticket.status] || [ticket.status, "neutral"])),
+          },
+        ]}
+        rows={day ? day.tickets : []}
+        rowKey={(ticket) => ticket.id}
+        rowClassName={(ticket) => (lateAt(ticket) ? "dg-tone-danger" : ticket.status === "cancelled" ? "dg-tone-muted" : "")}
+        defaultSort={{ key: "sent", direction: "asc" }}
+        loading={!day && (query.isLoading || query.isFetching)}
+        error={errorText(query)}
+        onRetry={() => query.refetch()}
+        empty="No kitchen ticket that day"
+        emptyIcon="chef"
+        rowNoun={["ticket", "tickets"]}
+        search={false}
+      />
+    </>
+  );
+}
+
+function KitchenNowPanel({ ctx, view }) {
   const { hasPermission } = ctx;
   const query = usePanelQuery("kitchen", null, () => getKitchenBoard());
   const [busy, setBusy] = useState(null);

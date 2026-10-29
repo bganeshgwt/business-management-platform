@@ -101,6 +101,9 @@ export const RESTAURANT = {
     guest: { name: "Lakshmi Caterers", mobile: "9845098450" },
     pan: "AAACL1234K",
     cash: 150000,
+    // A regular whose guest book keeps their PAN: their banquet bill takes it
+    // with its first payment, and nobody types it (restaurant-cash-pan.spec.js).
+    regular: { name: "Kavya Events", mobile: "9845098451", pan: "AAKCK5678M" },
   },
   // The captain app (captain.spec.js): a garden floor whose tables are the
   // CAPTAIN's section today (Tables & QR → Captain sections), none tied to an

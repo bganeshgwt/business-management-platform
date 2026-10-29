@@ -7,6 +7,10 @@ const webAddress = require("../../../../utils/webAddress");
 
 const TOKEN_ORDER_TYPES = ["takeaway", "delivery", "online"];
 const POS_ORDER_TYPES = ["dine_in", "takeaway", "delivery"];
+// A restaurant's courses start as these three; it keeps one to six.
+const COURSE_NAMES = ["Starters", "Mains", "Desserts"];
+const MAX_COURSES = 6;
+const COURSE_NAME_LENGTH = 30;
 
 const requireRestaurantId = (restaurantId) => {
   if (!restaurantId) {
@@ -23,6 +27,9 @@ const toSettings = (row) => ({
   // The kinds of order the POS takes and the one it starts on (the format's).
   posOrderTypes: row.pos_order_types || POS_ORDER_TYPES,
   defaultOrderType: row.default_order_type || "dine_in",
+  // The courses' names, course 1 first: the captain app sends dishes under
+  // them and the KOT prints the name.
+  courseNames: row.course_names || COURSE_NAMES,
   updatedAt: row.updated_at,
 });
 
@@ -106,4 +113,40 @@ const updatePos = async (restaurantId, input, userId) => {
   return toSettings(await serviceSettingsRepository.update(restaurantId, { pos_order_types: types, default_order_type: start }, userId));
 };
 
-module.exports = { TOKEN_ORDER_TYPES, POS_ORDER_TYPES, get, updateTokens, updatePos, updateWebAddress };
+// The courses' names, in the order they are served: the first is course 1.
+// Each is tidied of extra spaces; one to six, none empty or the same as
+// another, each at most 30 characters. A dish keeps the name it was sent
+// under; a renamed course changes only what is sent after.
+const updateCourses = async (restaurantId, names, userId) => {
+  requireRestaurantId(restaurantId);
+
+  const tidy = names.map((name) => String(name ?? "").replace(/\s+/g, " ").trim());
+
+  if (tidy.length === 0 || tidy.length > MAX_COURSES) {
+    throw new AppError(400, `Keep between one and ${MAX_COURSES} courses.`);
+  }
+
+  if (tidy.some((name) => name === "")) {
+    throw new AppError(400, "Give every course a name, or take it off the list.");
+  }
+
+  const tooLong = tidy.find((name) => name.length > COURSE_NAME_LENGTH);
+
+  if (tooLong) {
+    throw new AppError(400, `"${tooLong.slice(0, 40)}" is too long for a course: use at most ${COURSE_NAME_LENGTH} characters.`);
+  }
+
+  const seen = new Set();
+
+  for (const name of tidy) {
+    if (seen.has(name.toLowerCase())) {
+      throw new AppError(400, `"${name}" is on the list twice. Each course needs a name of its own.`);
+    }
+
+    seen.add(name.toLowerCase());
+  }
+
+  return toSettings(await serviceSettingsRepository.update(restaurantId, { course_names: tidy }, userId));
+};
+
+module.exports = { TOKEN_ORDER_TYPES, POS_ORDER_TYPES, COURSE_NAMES, get, updateTokens, updatePos, updateWebAddress, updateCourses };

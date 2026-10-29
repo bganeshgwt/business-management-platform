@@ -161,6 +161,7 @@ export async function buildTestData({ api, logins, sql }) {
     name: RESTAURANT.banquet.dish.name, price: RESTAURANT.banquet.dish.price, foodType: RESTAURANT.banquet.dish.foodType, isAvailable: true,
   }, 201);
   const banquetGuest = await owner("POST", "/crm/customers", RESTAURANT.banquet.guest, 201);
+  const banquetRegular = await owner("POST", "/crm/customers", RESTAURANT.banquet.regular, 201);
   // The captain app's garden floor and its dish in two sizes with an add-on.
   const { captain: CAPTAIN_DATA } = RESTAURANT;
   const garden = await owner("POST", "/tables/floors", { name: CAPTAIN_DATA.floor }, 201);
@@ -1089,7 +1090,7 @@ export async function buildTestData({ api, logins, sql }) {
       paidBill: { id: bill.id, number: bill.billNumber, orderId: takeaway.id, total: bill.totalAmount },
       runningOrder: { id: running.id, number: running.orderNumber, tableId: busyTable.id, tableNo: busyTable.tableNo },
       leftOpenOrder: { id: leftOpen.id, number: leftOpen.orderNumber, tableId: leftOpenTable.id, tableNo: leftOpenTable.tableNo },
-      banquet: { dishId: banquetDish.id, guestId: banquetGuest.id, guestName: banquetGuest.name },
+      banquet: { dishId: banquetDish.id, guestId: banquetGuest.id, guestName: banquetGuest.name, regularId: banquetRegular.id },
       captain: {
         userId: staffIds.CAPTAIN,
         floor: { id: garden.id, name: garden.name },

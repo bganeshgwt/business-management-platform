@@ -24,6 +24,8 @@ export const getStaffReport = async (range) => get("staff", range);
 export const getWaiterReport = async (range) => get("waiters", range);
 export const getCancellationReport = async (range) => get("cancellations", range);
 export const getConsumptionReport = async (range) => get("consumption", range);
+// Each kitchen station's tickets, dishes and times over the range.
+export const getKitchenStationReport = async (range) => get("kitchen-stations", range);
 export const getOutletReport = async (filters) => get("outlets", filters);
 // Either the internal day id or, far more usefully to a person, the date.
 export const getDayEndReport = async (params) => get("day-end", params || undefined);

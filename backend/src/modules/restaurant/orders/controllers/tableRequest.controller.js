@@ -298,6 +298,41 @@ const done = async (req, res) => {
   res.json({ success: true, message: `Done — table ${request.tableNo}`, data: forViewer(req)(request) });
 };
 
+// POST /bill-asks { tableId, clientKey }: a waiter asks the counter for the
+// table's bill (captain app). The key is the phone's own for this tap: the
+// same key again gives back the same request.
+const CLIENT_KEY = /^[A-Za-z0-9-]{8,64}$/;
+
+const askForBill = async (req, res) => {
+  const body = req.body || {};
+  const clientKey = v.requiredString(body.clientKey, "Request key", 64);
+
+  if (!CLIENT_KEY.test(clientKey)) {
+    throw new AppError(400, "Request key must be 8 to 64 letters, digits or hyphens");
+  }
+
+  const result = await tableRequestService.askForBill(
+    req.user.restaurantId,
+    { tableId: v.requiredId(body.tableId, "Table"), clientKey },
+    req.user.id,
+    outletOf(req)
+  );
+
+  if (!result.duplicate) {
+    logAction(req, "ask_bill", "table_request", {
+      id: result.request.id,
+      label: `Bill asked for table ${result.request.tableNo}`,
+      details: { tableId: result.request.tableId, repeated: result.repeated },
+    });
+  }
+
+  res.status(result.repeated || result.duplicate ? 200 : 201).json({
+    success: true,
+    message: result.message,
+    data: forViewer(req)(result.request),
+  });
+};
+
 const getSettings = async (req, res) => {
   res.json({ success: true, data: await tableRequestService.getSettings(req.user.restaurantId) });
 };
@@ -330,6 +365,7 @@ module.exports = {
   reject,
   acknowledge,
   done,
+  askForBill,
   getSettings,
   updateSettings,
 };

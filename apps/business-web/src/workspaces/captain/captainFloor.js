@@ -97,10 +97,24 @@ export const waitingAt = (tables, { orders = [], requests = [], tickets = [] } =
 
 const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`;
 
+// When a ticket's food came up at the pass: the ticket's ready time, else
+// (a ticket still cooking) the first of its dishes the kitchen ticked done.
+export const passSince = (ticket) => (ticket ? ticket.readyAt || ticket.passSince || null : null);
+
+// The dishes of a ticket at the pass that wait to be carried out: on a ready
+// ticket every live dish not yet served, on a ticket still cooking the ones
+// the kitchen has ticked done. Each is served on its own, or the whole ticket
+// at once when it is ready.
+export const waitingDishes = (ticket) =>
+  ((ticket && ticket.items) || []).filter(
+    (item) => Number(item.liveQuantity) > 0 && !item.servedAt && (ticket.status === "ready" || item.isDone)
+  );
+
 // How long plated food has waited at the pass: going cold at half the
 // kitchen's pass time, late after all of it (the kitchen display's marks).
 export const passTone = (ticket, now, passMinutes = 8) => {
-  const since = ticket && ticket.readyAt ? now - new Date(ticket.readyAt).getTime() : 0;
+  const at = passSince(ticket);
+  const since = at ? now - new Date(at).getTime() : 0;
 
   return since >= passMinutes * 60000 ? "late" : since >= (passMinutes * 60000) / 2 ? "warning" : "calm";
 };
@@ -135,7 +149,7 @@ export const marksOf = (table, waiting, { now = Date.now(), passMinutes = 8 } = 
 
   if (at.ready.length > 0) {
     const dishes = at.ready.reduce(
-      (sum, ticket) => sum + (ticket.items || []).reduce((count, item) => count + Math.max(0, Number(item.liveQuantity) || 0), 0),
+      (sum, ticket) => sum + waitingDishes(ticket).reduce((count, item) => count + Math.max(0, Number(item.liveQuantity) || 0), 0),
       0
     );
     const late = at.ready.some((ticket) => passTone(ticket, now, passMinutes) === "late");
@@ -195,25 +209,33 @@ export const waitingList = (tables, waiting, kind) => {
     }
   }
 
-  const since = ({ entry }) => new Date(entry.readyAt || entry.createdAt || 0).getTime();
+  const since = ({ entry }) => new Date(passSince(entry) || entry.createdAt || 0).getTime();
 
   return list.sort((a, b) => since(a) - since(b));
 };
 
 // What rings the phone: a call, a QR order or food at the pass at the tables
 // shown that was not there at the last look. `seen` is the keys of the last
-// look (null the first time, when nothing rings). Returns { keys, fresh }:
-// every key now, and the new ones as { kind, table, entry }.
-export const arrivals = (seen, tables, waiting) => {
+// look (null the first time, when nothing rings). A bill request the person
+// asked for themselves (`userId`) never rings their own phone. Food rings
+// again when more of a ticket comes up (a dish, then the rest). Returns
+// { keys, fresh }: every key now, and the new ones as { kind, table, entry }.
+export const arrivals = (seen, tables, waiting, { userId = null } = {}) => {
   const keys = new Set();
   const fresh = [];
 
   for (const kind of ["calls", "orders", "ready"]) {
     for (const { table, entry } of waitingList(tables, waiting, kind)) {
-      const key = `${kind}:${entry.id}`;
-      keys.add(key);
+      // Food: the ticket, and each dish waiting on it, so a dish coming up
+      // after another rings too, and one carried out rings nothing.
+      const own = [`${kind}:${entry.id}`, ...(kind === "ready" ? waitingDishes(entry).map((item) => `${kind}:${entry.id}.${item.id}`) : [])];
+      const askedHere = kind === "calls" && userId && same(entry.askedBy, userId);
 
-      if (seen && !seen.has(key)) {
+      for (const key of own) {
+        keys.add(key);
+      }
+
+      if (seen && !askedHere && own.some((key) => !seen.has(key))) {
         fresh.push({ kind, table, entry });
       }
     }

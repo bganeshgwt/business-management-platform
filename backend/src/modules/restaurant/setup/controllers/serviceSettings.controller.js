@@ -67,6 +67,20 @@ const updatePos = async (req, res) => {
   res.json({ success: true, message: "POS order types saved", data: settings });
 };
 
+// The courses' names, course 1 first (the captain app and the KOT).
+const updateCourses = async (req, res) => {
+  const names = v.requiredArray(req.body?.courseNames, "Courses");
+
+  if (names.some((name) => typeof name !== "string")) {
+    throw new AppError(400, "Each course is a name");
+  }
+
+  const settings = await serviceSettingsService.updateCourses(req.user.restaurantId, names, req.user.id);
+
+  logAction(req, "update", "service_settings", { label: "Courses", details: { courses: settings.courseNames } });
+  res.json({ success: true, message: "Courses saved", data: settings });
+};
+
 // The guest pages' web address (QR codes). Who may set up tables may set it.
 const updateWebAddress = async (req, res) => {
   const body = req.body || {};
@@ -194,4 +208,4 @@ const replaceOnlineLink = async (req, res) => {
   });
 };
 
-module.exports = { get, updateTokens, updateWebAddress, listOnlineLinks, updateOnlineLink, replaceOnlineLink, updatePos };
+module.exports = { get, updateTokens, updateWebAddress, listOnlineLinks, updateOnlineLink, replaceOnlineLink, updatePos, updateCourses };

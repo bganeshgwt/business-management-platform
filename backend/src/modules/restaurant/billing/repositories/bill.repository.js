@@ -182,7 +182,17 @@ const findById = async (restaurantId, id, outletId = null) => {
             CASE WHEN cg.id IS NOT NULL
                  THEN restaurant_cash_from_guest(b.restaurant_id, cg.id, COALESCE(s.timezone, 'Asia/Kolkata'),
                                                  (NOW() AT TIME ZONE COALESCE(s.timezone, 'Asia/Kolkata'))::date)
-                 END AS cash_from_guest_today
+                 END AS cash_from_guest_today,
+            -- A walk-in bill carrying the buyer's PAN: the cash under that PAN
+            -- today, every walk-in bill carrying it and the guests whose guest
+            -- book holds it.
+            CASE WHEN cg.id IS NULL AND b.buyer_pan IS NOT NULL
+                 THEN restaurant_cash_from_person(b.restaurant_id, NULL, b.buyer_pan, COALESCE(s.timezone, 'Asia/Kolkata'),
+                                                  (NOW() AT TIME ZONE COALESCE(s.timezone, 'Asia/Kolkata'))::date)
+                 END AS cash_from_pan_today,
+            -- The PAN the guest book holds for the guest the bill names, or
+            -- their declaration of none: the first payment takes the PAN.
+            cg.pan AS guest_book_pan, cg.pan_declaration AS guest_book_pan_declaration
      FROM bills b
      JOIN orders o ON o.id = b.order_id
      JOIN restaurants r ON r.id = b.restaurant_id

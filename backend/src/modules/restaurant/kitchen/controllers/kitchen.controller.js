@@ -2,6 +2,7 @@ const kitchenService = require("../services/kitchen.service");
 const { logAction } = require("../../../../utils/audit");
 const v = require("../../../../utils/validate");
 const AppError = require("../../../../utils/AppError");
+const { isCalendarDate } = require("../../../../utils/calendarDate");
 
 const TICKET_STATUSES = ["new", "cooking", "ready", "served"];
 
@@ -178,6 +179,38 @@ const setItemDone = async (req, res) => {
   );
 
   res.json({ success: true, data: ticket });
+};
+
+// One dish carried out from the pass on its own (the captain app), with the
+// same permission as serving a whole ticket.
+const serveItem = async (req, res) => {
+  const kotId = readId(req.params.id, "Ticket id");
+  const itemId = readId(req.params.itemId, "Item id");
+  const result = await kitchenService.serveItem(req.user.restaurantId, kotId, itemId, req.user.id, req.outletId);
+  const dish = result.ticket.items.find((item) => Number(item.id) === itemId);
+  const name = dish ? dish.name : "The dish";
+
+  res.json({
+    success: true,
+    message: !result.changed
+      ? `${name} was already served`
+      : result.ticketServed
+        ? `${name} is served, and with it the whole of ${result.ticket.kotNo}`
+        : `${name} is served`,
+    data: result.ticket,
+  });
+};
+
+// An earlier day's tickets, read only: ?date=YYYY-MM-DD on the restaurant's
+// calendar.
+const day = async (req, res) => {
+  const date = v.requiredString(req.query.date, "Date", 10);
+
+  if (!isCalendarDate(date)) {
+    throw new AppError(400, "Date must be a real date like 2026-10-28");
+  }
+
+  res.json({ success: true, data: await kitchenService.day(req.user.restaurantId, date, req.outletId) });
 };
 
 // Chosen from 1, 2 or 4 hours on the board; anything from an hour to a day
@@ -425,6 +458,8 @@ module.exports = {
   recallTicket,
   recallLast,
   setItemDone,
+  serveItem,
+  day,
   clearOld,
   recordPrint,
   stationSetup,

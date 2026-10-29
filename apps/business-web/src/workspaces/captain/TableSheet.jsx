@@ -39,9 +39,11 @@ const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`;
 // table: the dashboard floor's own actions (useFloorActions: Start order,
 // Open order, Bill, Take payment or Open bill, Reprint, Mark ready, Seat a
 // booking or a walk-in), with orders opened on the captain app's order screen.
-export default function TableSheet({ table, waiting = NOTHING, floor, actions, requests, serving, now, canBill, onClose }) {
+export default function TableSheet({ table, waiting = NOTHING, floor, actions, requests, serving, billAsk = null, now, canBill, onClose }) {
   const info = describeTable(table, null);
   const live = table.live;
+  // The table's bill request still open: a guest's from the QR code, or a waiter's.
+  const billCall = waiting.calls.find((call) => call.type === "bill") || null;
   const list = actions.actionsFor(table);
   const working = Boolean(actions.busy && actions.busy.endsWith(`-${table.id}`));
   const canTakeOrders = Boolean(floor.can.accept);
@@ -101,7 +103,27 @@ export default function TableSheet({ table, waiting = NOTHING, floor, actions, r
           </div>
         )}
         {table.floorState === "running" && !canBill && !live.joinedTo && (
-          <p className="muted small cpt-sheet-note">The counter raises the bill when the guests ask for it.</p>
+          // A captain who does not bill asks the counter for it in one tap:
+          // the table's bill request, as a guest's Request bill makes it.
+          <div className="cpt-sheet-bill">
+            {billCall ? (
+              <p className="muted small cpt-sheet-note">
+                The counter has the bill request
+                {billCall.askedByName ? `, asked by ${String(billCall.askedBy) === String(floor.user.id) ? "you" : billCall.askedByName}` : ", from the guests' QR code"}
+                {billCall.repeatCount > 0 ? ` (asked ${billCall.repeatCount + 1} times)` : ""}. It raises the bill.
+              </p>
+            ) : floor.can.askBill && billAsk ? (
+              <>
+                <button type="button" className="button button-secondary" onClick={() => billAsk.ask(table)} disabled={billAsk.busy === table.id}>
+                  <Icon name="receipt" size={16} />
+                  {billAsk.busy === table.id ? "Asking…" : "Ask the counter for the bill"}
+                </button>
+                <ErrorMessage message={billAsk.error} />
+              </>
+            ) : (
+              <p className="muted small cpt-sheet-note">The counter raises the bill when the guests ask for it.</p>
+            )}
+          </div>
         )}
 
         {waiting.ready.length > 0 && (
@@ -114,9 +136,10 @@ export default function TableSheet({ table, waiting = NOTHING, floor, actions, r
                 now={now}
                 passMinutes={floor.pass.passMinutes}
                 canServe={floor.can.serve}
-                busy={Boolean(serving.busy[ticket.id])}
+                busy={serving.busy}
                 error={serving.errors[ticket.id]}
                 onServe={serving.serve}
+                onServeDish={serving.serveDish}
               />
             ))}
           </section>

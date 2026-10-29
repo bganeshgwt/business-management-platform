@@ -444,7 +444,7 @@ const planOrder = ({ order, items, lines, eligible }) => {
         .filter((line) => liveQuantity(line) > 0)
         .sort(
           (a, b) =>
-            Number(a.kot_status === "served") - Number(b.kot_status === "served") ||
+            Number(lineServed(a)) - Number(lineServed(b)) ||
             Number(a.is_done) - Number(b.is_done) ||
             new Date(b.kot_created_at) - new Date(a.kot_created_at) ||
             b.id - a.id
@@ -511,18 +511,22 @@ const planOrder = ({ order, items, lines, eligible }) => {
   return { additions, lineUpdates: changed };
 };
 
+// A ticket line that has gone out: its ticket was served, or the dish was
+// served from the floor on its own while the rest of the ticket cooked.
+const lineServed = (line) => line.kot_status === "served" || Boolean(line.served_at);
+
 // Each order line's kitchen status, from the ticket lines covering it.
 // Describes what is still outstanding for that line.
 const statusOf = (covering) => {
-  if (covering.every((line) => line.kot_status === "served")) {
+  if (covering.every(lineServed)) {
     return "served";
   }
 
-  if (covering.every((line) => line.is_done || line.kot_status === "ready" || line.kot_status === "served")) {
+  if (covering.every((line) => line.is_done || line.kot_status === "ready" || lineServed(line))) {
     return "ready";
   }
 
-  if (covering.every((line) => line.kot_status === "served" || (line.kot_status === "new" && !line.is_done))) {
+  if (covering.every((line) => lineServed(line) || (line.kot_status === "new" && !line.is_done))) {
     return "pending";
   }
 
@@ -579,7 +583,7 @@ const loadOrderItems = async (db, orderIds) => {
   const result = await db.query(
     `SELECT oi.id, oi.order_id, oi.product_id, oi.product_variant_id, oi.item_name,
             oi.variant_name, oi.quantity, oi.notes, oi.item_status, oi.created_at, oi.course_no,
-            oi.fire_status, oi.fired_at, oi.created_by, oi.fired_by,
+            oi.course_name, oi.fire_status, oi.fired_at, oi.created_by, oi.fired_by,
             p.category_id, p.food_type, p.is_combo,
             -- The kitchen names the ticket is cut with.
             p.kitchen_name, pv.kitchen_name AS variant_kitchen_name,
@@ -605,7 +609,7 @@ const loadOrderItems = async (db, orderIds) => {
 const loadTicketLines = async (db, orderIds) => {
   const result = await db.query(
     `SELECT ki.id, ki.kot_id, ki.order_id, ki.order_item_id, ki.line_key, ki.quantity,
-            ki.cancelled_quantity, ki.is_done, k.kot_status, k.created_at AS kot_created_at,
+            ki.cancelled_quantity, ki.is_done, ki.served_at, k.kot_status, k.created_at AS kot_created_at,
             k.kot_number, k.station_id, k.print_count, ki.item_name, ki.variant_name,
             ki.kitchen_name, ki.variant_kitchen_name
      FROM kot_items ki
@@ -934,9 +938,10 @@ const sync = async (restaurantId, options = {}) =>
             `INSERT INTO kot_items (kot_id, restaurant_id, order_id, order_item_id, product_id,
                                     line_key, item_name, variant_name, modifiers, components,
                                     notes, food_type, quantity, created_at, is_done, done_at,
-                                    kitchen_name, variant_kitchen_name, modifier_kitchen_names)
+                                    kitchen_name, variant_kitchen_name, modifier_kitchen_names,
+                                    course_name)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::boolean,
-                     CASE WHEN $15::boolean THEN NOW() END, $16, $17, $18)`,
+                     CASE WHEN $15::boolean THEN NOW() END, $16, $17, $18, $19)`,
             [
               kotId,
               restaurantId,
@@ -956,6 +961,9 @@ const sync = async (restaurantId, options = {}) =>
               item.kitchen_name || null,
               item.variant_kitchen_name || null,
               JSON.stringify((item.modifiers || []).map((modifier) => modifier.kitchenName || null)),
+              // The course the dish was sent under (Starters, Mains), when
+              // the captain app named one: the KOT shows it.
+              item.course_name || null,
             ]
           );
         }
@@ -1032,12 +1040,15 @@ const attachItems = async (db, tickets) => {
   }
 
   const result = await db.query(
-    `SELECT id, kot_id, item_name, variant_name, modifiers, components, notes, food_type,
-            quantity, cancelled_quantity, is_done, done_at,
-            kitchen_name, variant_kitchen_name, modifier_kitchen_names
-     FROM kot_items
-     WHERE kot_id = ANY($1::bigint[])
-     ORDER BY kot_id, id`,
+    `SELECT ki.id, ki.kot_id, ki.item_name, ki.variant_name, ki.modifiers, ki.components, ki.notes, ki.food_type,
+            ki.quantity, ki.cancelled_quantity, ki.is_done, ki.done_at,
+            ki.kitchen_name, ki.variant_kitchen_name, ki.modifier_kitchen_names,
+            -- A dish served from the floor on its own, and by whom.
+            ki.served_at, su.name AS served_by_name, ki.course_name
+     FROM kot_items ki
+     LEFT JOIN users su ON su.id = ki.served_by
+     WHERE ki.kot_id = ANY($1::bigint[])
+     ORDER BY ki.kot_id, ki.id`,
     [tickets.map((ticket) => ticket.id)]
   );
 
@@ -1144,20 +1155,37 @@ const findRecentlyServed = async (restaurantId, outletId, stationId = null, limi
   return attachItems(pool, result.rows);
 };
 
-// Food at the pass: tickets the kitchen has marked ready that nobody has
-// served yet, oldest first, for the floor to carry out (the captain app's
-// Ready list). Only tickets still really in the kitchen, by the rules the
-// board clears them by (stillInKitchenSql): a table that has paid, an order
-// cancelled or served from the orders screen is not waited on. Read only:
-// unlike the board, nothing is cut or cleared here.
+// A live dish of ticket `k` the kitchen has ticked done that nobody has
+// served yet: on a ticket still cooking, it waits at the pass on its own.
+const DISH_WAITING_SQL = `SELECT 1 FROM kot_items kw
+  WHERE kw.kot_id = k.id AND kw.is_done AND kw.served_at IS NULL AND kw.quantity > kw.cancelled_quantity`;
+
+// Food at the pass, for the floor to carry out (the captain app's Ready
+// list), the longest waiting first: tickets the kitchen has marked ready that
+// nobody has served yet, and on tickets still cooking the dishes it has
+// ticked done (each served on its own). `pass_since` is when the food came
+// up: the ticket's ready time, else its first dish waiting. Only tickets
+// still really in the kitchen, by the rules the board clears them by
+// (stillInKitchenSql): a table that has paid, an order cancelled or served
+// from the orders screen is not waited on. Read only: unlike the board,
+// nothing is cut or cleared here.
 const findAtPass = async (restaurantId, outletId) => {
   const result = await pool.query(
-    `${TICKET_SELECT}
-     WHERE k.restaurant_id = $1
-       AND ($2::bigint IS NULL OR k.outlet_id = $2)
-       AND k.kot_status = 'ready'
-       AND ${stillInKitchenSql("NOW()")}
-     ORDER BY k.ready_at NULLS LAST, k.id`,
+    `SELECT * FROM (
+       ${TICKET_SELECT.replace(
+         "SELECT k.id,",
+         `SELECT CASE WHEN k.kot_status = 'ready' THEN k.ready_at
+                      ELSE (SELECT MIN(kw.done_at) FROM kot_items kw
+                            WHERE kw.kot_id = k.id AND kw.is_done AND kw.served_at IS NULL
+                              AND kw.quantity > kw.cancelled_quantity) END AS pass_since, k.id,`
+       )}
+       WHERE k.restaurant_id = $1
+         AND ($2::bigint IS NULL OR k.outlet_id = $2)
+         AND (k.kot_status = 'ready'
+              OR (k.kot_status IN ('new', 'cooking') AND EXISTS (${DISH_WAITING_SQL})))
+         AND ${stillInKitchenSql("NOW()")}
+     ) AS pass
+     ORDER BY pass_since NULLS LAST, id`,
     [restaurantId, outletId || null]
   );
 
@@ -1307,9 +1335,10 @@ const markAllDone = (client, id, userId) =>
     [id, userId]
   );
 
+// A dish already served from the floor stays done: it has gone out.
 const clearDone = (client, id) =>
   client.query(
-    "UPDATE kot_items SET is_done = FALSE, done_at = NULL, done_by = NULL WHERE kot_id = $1 AND is_done",
+    "UPDATE kot_items SET is_done = FALSE, done_at = NULL, done_by = NULL WHERE kot_id = $1 AND is_done AND served_at IS NULL",
     [id]
   );
 
@@ -1381,6 +1410,12 @@ const setStatus = async (restaurantId, id, status, userId) =>
          WHERE id = $1`,
         [id, userId]
       );
+      // Every dish is back on the pass, those served from the floor one by
+      // one included.
+      await client.query(
+        "UPDATE kot_items SET served_at = NULL, served_by = NULL WHERE kot_id = $1 AND served_at IS NOT NULL",
+        [id]
+      );
     } else if (status === "ready") {
       await client.query(
         `UPDATE kots SET kot_status = 'ready', ready_at = NOW(), ready_by = $2,
@@ -1442,7 +1477,7 @@ const setItemDone = async (restaurantId, kotId, itemId, done, userId) =>
     }
 
     const line = await client.query(
-      "SELECT id, quantity, cancelled_quantity FROM kot_items WHERE id = $1 AND kot_id = $2",
+      "SELECT id, quantity, cancelled_quantity, served_at FROM kot_items WHERE id = $1 AND kot_id = $2",
       [itemId, kotId]
     );
 
@@ -1452,6 +1487,11 @@ const setItemDone = async (restaurantId, kotId, itemId, done, userId) =>
 
     if (liveQuantity(line.rows[0]) <= 0) {
       return { error: "ITEM_CANCELLED" };
+    }
+
+    // A dish served from the floor has gone out: it is not undone.
+    if (line.rows[0].served_at) {
+      return done ? { ticket: await findTicketById(restaurantId, kotId, client) } : { error: "ITEM_SERVED" };
     }
 
     await client.query(
@@ -1498,6 +1538,100 @@ const setItemDone = async (restaurantId, kotId, itemId, done, userId) =>
 
     return { ticket: await findTicketById(restaurantId, kotId, client) };
   });
+
+// One dish served from the floor while the rest of its ticket cooks: a dish
+// the kitchen has ticked done, carried out on its own. Serving the last dish
+// still waiting serves the ticket, in the same person's name, exactly as
+// Served on the ticket does. Locks the order, then the ticket, like every
+// other ticket write. Returns { error } or { ticket, changed, ticketServed }.
+const serveItem = async (restaurantId, kotId, itemId, userId) =>
+  withTransaction(async (client) => {
+    const ticket = await lockTicket(client, restaurantId, kotId);
+
+    if (!ticket) {
+      return { error: "NOT_FOUND" };
+    }
+
+    if (ticket.kot_status === "served" || ticket.kot_status === "cancelled") {
+      return { error: "TICKET_CLOSED", status: ticket.kot_status };
+    }
+
+    const line = (
+      await client.query(
+        "SELECT id, quantity, cancelled_quantity, is_done, served_at FROM kot_items WHERE id = $1 AND kot_id = $2",
+        [itemId, kotId]
+      )
+    ).rows[0];
+
+    if (!line) {
+      return { error: "ITEM_NOT_FOUND" };
+    }
+
+    if (liveQuantity(line) <= 0) {
+      return { error: "ITEM_CANCELLED" };
+    }
+
+    if (line.served_at) {
+      return { ticket: await findTicketById(restaurantId, kotId, client), changed: false, ticketServed: false };
+    }
+
+    if (!line.is_done) {
+      return { error: "ITEM_NOT_DONE" };
+    }
+
+    await client.query("UPDATE kot_items SET served_at = NOW(), served_by = $2 WHERE id = $1", [itemId, userId]);
+
+    const left = await client.query(
+      `SELECT 1 FROM kot_items
+       WHERE kot_id = $1 AND quantity > cancelled_quantity AND served_at IS NULL
+       LIMIT 1`,
+      [kotId]
+    );
+    const ticketServed = left.rows.length === 0;
+
+    if (ticketServed) {
+      await client.query(
+        `UPDATE kots SET kot_status = 'served', served_at = NOW(), served_by = $2,
+                         ready_at = COALESCE(ready_at, NOW()), ready_by = COALESCE(ready_by, $2),
+                         started_at = COALESCE(started_at, NOW()),
+                         started_by = COALESCE(started_by, $2), updated_by = $2
+         WHERE id = $1`,
+        [kotId, userId]
+      );
+    }
+
+    await recomputeStatuses(client, [ticket.order_id], userId);
+
+    return { ticket: await findTicketById(restaurantId, kotId, client), changed: true, ticketServed };
+  });
+
+// The tickets cut on one earlier day (the business days dated `date`), the
+// kitchen's or one outlet's, oldest first, with their dishes: read only, for
+// the dashboard's kitchen panel. At most `limit` tickets.
+const findDayTickets = async (restaurantId, date, outletId, limit = 2000) => {
+  const result = await pool.query(
+    `${TICKET_SELECT}
+     WHERE k.restaurant_id = $1
+       AND k.business_day_id IN (SELECT bd.id FROM business_days bd WHERE bd.restaurant_id = $1 AND bd.business_date = $2::date)
+       AND ($3::bigint IS NULL OR k.outlet_id = $3)
+     ORDER BY k.created_at, k.id
+     LIMIT $4`,
+    [restaurantId, date, outletId || null, limit]
+  );
+
+  return attachItems(pool, result.rows);
+};
+
+// The ids of the business days dated `date` (every one, or the outlet's own
+// and the main counter's, whose tickets an outlet may carry).
+const findDayIdsOn = async (restaurantId, date) => {
+  const result = await pool.query(
+    "SELECT id FROM business_days WHERE restaurant_id = $1 AND business_date = $2::date ORDER BY id",
+    [restaurantId, date]
+  );
+
+  return result.rows.map((row) => row.id);
+};
 
 // A manager's end-of-rush tidy: open tickets older than this were almost
 // certainly served without anyone pressing Served. They leave the board as
@@ -1781,6 +1915,9 @@ module.exports = {
   setStatus,
   findLastServedId,
   setItemDone,
+  serveItem,
+  findDayTickets,
+  findDayIdsOn,
   recordPrint,
   findStations,
   findStationById,

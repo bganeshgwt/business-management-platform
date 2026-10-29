@@ -3,6 +3,7 @@
 // it is; money is written as plain two-decimal numbers so Excel adds it up.
 import { orderTypeLabel, paymentMethodLabel } from "../../../../services/labels.js";
 import { csvHeader, csvMoney, gstDate } from "./reportFormat.js";
+import { hoursText } from "./kitchenReportWords.js";
 
 const m = csvMoney;
 
@@ -560,6 +561,43 @@ export const consumptionCsv = (data) => [
     row.currentStock,
   ]),
 ];
+
+// The kitchen stations, then the whole kitchen; times in whole seconds so a
+// sheet can add them up, and the busiest hours as the screen says them.
+export const kitchenStationsCsv = (data) => {
+  const row = (name, figures) => [
+    name,
+    figures.tickets,
+    figures.dishes,
+    figures.avgReadySeconds ?? "",
+    figures.p90ReadySeconds ?? "",
+    figures.avgServeSeconds ?? "",
+    figures.p90ServeSeconds ?? "",
+    figures.late,
+    figures.cleared,
+    hoursText(figures.busiestHours),
+  ];
+
+  return [
+    ...csvHeader("Kitchen stations", data),
+    [`Late: not ready ${data.lateMinutes} minutes after it was sent. Cancelled tickets left out: ${data.cancelledLeftOut}.`],
+    [],
+    [
+      "Station",
+      "Tickets",
+      "Dishes",
+      "Sent to ready, average (s)",
+      "Sent to ready, 90th percentile (s)",
+      "Ready to served, average (s)",
+      "Ready to served, 90th percentile (s)",
+      "Late",
+      "Cleared unserved",
+      "Busiest hours",
+    ],
+    ...data.stations.map((station) => row(station.stationName, station)),
+    ...(data.total ? [row("Whole kitchen", data.total)] : []),
+  ];
+};
 
 export const cancellationsCsv = (data) => [
   ...csvHeader("Cancellations & voids", data),

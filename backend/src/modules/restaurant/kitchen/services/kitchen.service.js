@@ -1,5 +1,6 @@
 const kitchenRepository = require("../repositories/kitchen.repository");
 const kitchenSlipRepository = require("../repositories/kitchenSlip.repository");
+const tradingDay = require("../../business-day/services/tradingDay");
 const AppError = require("../../../../utils/AppError");
 
 const DUPLICATE = "23505";
@@ -51,7 +52,23 @@ const toItem = (row) => {
     foodType: row.food_type,
     isDone: row.is_done,
     doneAt: row.done_at,
+    // Served from the floor on its own, while the rest of the ticket cooked.
+    servedAt: row.served_at || null,
+    servedByName: row.served_by_name || null,
+    // The course it was sent under (Starters, Mains), when one was named.
+    courseName: row.course_name || null,
   };
+};
+
+// The course a ticket's dishes were sent under, when they share one.
+const courseOf = (items) => {
+  const names = new Set(
+    (items || [])
+      .filter((item) => Number(item.quantity) > Number(item.cancelled_quantity))
+      .map((item) => item.course_name || null)
+  );
+
+  return names.size === 1 ? [...names][0] : null;
 };
 
 // A guest's own order from the QR code on their table. Accepting it at the
@@ -119,6 +136,11 @@ const toTicket = (row) => ({
   sentByLabel: sentByLabel(row),
   // "menu", "kitchen" or "both" — which name the KOT prints.
   nameMode: row.kitchen_name_mode || "both",
+  // The course its dishes were sent under (Starters, Mains), printed on the KOT.
+  courseName: courseOf(row.items),
+  // On the pass only: when the food came up (the ticket's ready time, else
+  // its first dish waiting there on its own).
+  ...(row.pass_since !== undefined ? { passSince: row.pass_since } : {}),
   items: (row.items || []).map(toItem),
   // Only on the board: the same order's tickets at other stations.
   ...(row.siblings
@@ -421,7 +443,101 @@ const setItemDone = async (restaurantId, kotId, itemId, done, userId, outletId =
     throw new AppError(409, "That dish was cancelled at the till, so it cannot be marked done.");
   }
 
+  if (result.error === "ITEM_SERVED") {
+    throw new AppError(409, "That dish has already been served from the floor, so it stays done.");
+  }
+
   return toTicket(result.ticket);
+};
+
+// One dish served from the floor (the captain app's Ready list): a dish the
+// kitchen ticked done on a ticket still cooking, carried out on its own.
+// Serving the last dish still waiting serves the ticket. Another outlet's
+// ticket is not found, as on the board.
+const serveItem = async (restaurantId, kotId, itemId, userId, outletId = null) => {
+  requireRestaurantId(restaurantId);
+
+  if (outletId) {
+    await requireTicket(restaurantId, kotId, outletId);
+  }
+
+  const result = await kitchenRepository.serveItem(restaurantId, kotId, itemId, userId);
+
+  if (result.error === "NOT_FOUND") {
+    throw new AppError(404, "Ticket not found");
+  }
+
+  if (result.error === "ITEM_NOT_FOUND") {
+    throw new AppError(404, "That dish is not on this ticket");
+  }
+
+  if (result.error === "TICKET_CLOSED") {
+    throw new AppError(
+      409,
+      result.status === "cancelled"
+        ? "This ticket was cancelled at the till."
+        : "This ticket has already gone out, with every dish on it."
+    );
+  }
+
+  if (result.error === "ITEM_CANCELLED") {
+    throw new AppError(409, "That dish was cancelled at the till, so there is nothing to serve.");
+  }
+
+  if (result.error === "ITEM_NOT_DONE") {
+    throw new AppError(409, "The kitchen has not marked that dish done yet. Serve it once it is up at the pass.");
+  }
+
+  return { ticket: toTicket(result.ticket), changed: result.changed, ticketServed: result.ticketServed };
+};
+
+// One earlier day's tickets, read only: every ticket cut on the business days
+// dated `date` (the outlet's own, when one is chosen), oldest first, with its
+// times, and the day's figures as the kitchen display counts them. A day
+// after today on the restaurant's calendar has none to read.
+const DAY_LIMIT = 2000;
+
+const day = async (restaurantId, date, outletId = null) => {
+  requireRestaurantId(restaurantId);
+
+  const today = await tradingDay.restaurantToday(restaurantId);
+
+  if (date > today) {
+    throw new AppError(400, "Pick today or an earlier day: a later day has no tickets yet");
+  }
+
+  const [settings, dayIds, tickets] = await Promise.all([
+    kitchenRepository.findSettings(restaurantId),
+    kitchenRepository.findDayIdsOn(restaurantId, date),
+    kitchenRepository.findDayTickets(restaurantId, date, outletId, DAY_LIMIT + 1),
+  ]);
+  const stats =
+    dayIds.length > 0
+      ? await kitchenRepository.findStats(restaurantId, {
+          dayIds,
+          stationId: null,
+          outletId,
+          lateMinutes: settings.late_minutes,
+        })
+      : null;
+
+  return {
+    date,
+    settings: toSettings(settings),
+    stats: stats
+      ? {
+          avgReadySeconds: stats.avg_ready_seconds,
+          timedCount: stats.timed_count,
+          lateCount: stats.late_count,
+          servedCount: stats.served_count,
+          clearedCount: stats.cleared_count,
+          totalCount: stats.total_count,
+        }
+      : null,
+    // More than the list holds: the station report reads the whole day.
+    more: tickets.length > DAY_LIMIT,
+    tickets: tickets.slice(0, DAY_LIMIT).map(toTicket),
+  };
 };
 
 // "Clear old tickets": open tickets older than this leave the board as
@@ -693,6 +809,8 @@ module.exports = {
   recallTicket,
   recallLast,
   setItemDone,
+  serveItem,
+  day,
   clearOld,
   recordPrint,
   claimSlips,

@@ -8,6 +8,7 @@ const { round2, toPaise, fromPaise, splitGst } = require("../../../../../utils/m
 const { maskMobile, formatMobile } = require("../../../../../utils/phone");
 const { gstinState } = require("../../../../../utils/gstin");
 const { cashLimitOf, panInGstin, panNeeded } = require("../cashAndPan");
+const { maskPan } = require("../../../../gst-thresholds/services/gstThresholdsRules");
 
 // Restaurant service is SAC 996331; it heads every tax invoice.
 const RESTAURANT_SAC = "996331";
@@ -387,6 +388,16 @@ const toBill = (row, { reveal = false } = {}) => {
     panDeclaration: Boolean(row.pan_declaration),
     panNeeded: panNeeded(row.total_amount),
     panInGstin: row.buyer_pan ? null : panInGstin(row.buyer_gstin),
+    // Else the PAN the guest book holds for the guest the bill names, which
+    // the first payment writes on the bill too: in full for staff who see
+    // guests' contact details, its last four characters for everyone else.
+    // A declaration of none in the guest book only reminds the cashier: a
+    // declaration (Form 97) is taken for each purchase.
+    panInGuestBook:
+      row.buyer_pan || row.pan_declaration || panInGstin(row.buyer_gstin) || !row.guest_book_pan
+        ? null
+        : { pan: reveal ? row.guest_book_pan : null, masked: maskPan(row.guest_book_pan) },
+    guestDeclaredNoPan: Boolean(row.guest_book_pan_declaration) && !row.buyer_pan && !row.pan_declaration,
     // The cash limit: the cash taken for this bill and from its guest today,
     // and how much more of each can be taken (the full read only).
     cashLimit: row.cash_on_bill === undefined ? undefined : cashLimitOf(row),

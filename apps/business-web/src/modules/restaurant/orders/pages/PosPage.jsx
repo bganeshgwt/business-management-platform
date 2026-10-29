@@ -104,13 +104,15 @@ const STAGE_WORDS = {
 // A saved dish of a course held back until someone presses Fire.
 const isHeld = (line) => Boolean(line.holdCourse);
 
-// On the captain's phone, when the dishes being added go to the kitchen: now,
-// or held as a later course until someone presses Fire (dine-in only).
-const COURSE_CHOICES = [
-  { course: 1, hold: false, label: "Now" },
-  { course: 2, hold: true, label: "Course 2 later" },
-  { course: 3, hold: true, label: "Course 3 later" },
-];
+// On the captain's phone, the course the dishes being added go under, named
+// from the restaurant's own list (Service settings › Courses; course 1 is
+// the first name): the first course goes to the kitchen now, or is held until
+// someone presses Fire; a later course is always held until Fire (dine-in
+// only).
+const COURSE_NAMES = ["Starters", "Mains", "Desserts"];
+
+// The name a course goes by: its own, else "Course 2".
+const courseLabel = (line) => line.courseName || `Course ${line.courseNo || 1}`;
 
 // How far the kitchen had got with a dish being taken off, in words.
 const KITCHEN_STAGE_WORDS = {
@@ -365,7 +367,8 @@ export default function PosPage({ captain = null }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   // The captain app: when the dishes being added go to the kitchen (now, or a
   // later course held until Fire), and the dish whose note is being typed.
-  const [course, setCourse] = useState(COURSE_CHOICES[0]);
+  const [course, setCourse] = useState({ course: 1, hold: false });
+  const courseNames = posSetup?.courseNames?.length ? posSetup.courseNames : COURSE_NAMES;
   const [noting, setNoting] = useState(null);
   const navigate = useNavigate();
 
@@ -683,7 +686,11 @@ export default function PosPage({ captain = null }) {
 
     getServiceSettings()
       .then((loaded) => {
-        setPosSetup({ posOrderTypes: loaded.posOrderTypes || ["dine_in", "takeaway", "delivery"], defaultOrderType: loaded.defaultOrderType || "dine_in" });
+        setPosSetup({
+          posOrderTypes: loaded.posOrderTypes || ["dine_in", "takeaway", "delivery"],
+          defaultOrderType: loaded.defaultOrderType || "dine_in",
+          courseNames: loaded.courseNames || COURSE_NAMES,
+        });
         // A fresh till starts on the format's kind of order; one already
         // holding an order (a draft, a table opened) keeps its own.
         setOrderType((current) => ((loaded.posOrderTypes || []).includes(current) ? current : loaded.defaultOrderType || current));
@@ -991,7 +998,7 @@ export default function PosPage({ captain = null }) {
     setBusyOrder(null);
     setSheetOpen(false);
     setNotice("");
-    setCourse(COURSE_CHOICES[0]);
+    setCourse({ course: 1, hold: false });
     clearDraft(readSession(), storageKey);
   };
 
@@ -1075,7 +1082,8 @@ export default function PosPage({ captain = null }) {
     // A happy-hour price is for this dish in this size, exactly as the server
     // charges it. Add-ons are still on top.
     const { unitPrice, offer } = unitPriceFor(product, variant, offers);
-    const held = Boolean(captain) && orderType === "dine_in" && course.hold;
+    const coursing = Boolean(captain) && orderType === "dine_in";
+    const held = coursing && course.hold;
 
     setCart((current) =>
       addLine(current, {
@@ -1101,10 +1109,11 @@ export default function PosPage({ captain = null }) {
         comboSelections,
         priceWindowName: offer ? offer.windowName : null,
         // Coursing is not offered at the till: every dish goes to the
-        // kitchen when the order is sent. The captain's phone may hold a
-        // table's dishes for a later course, sent when someone presses Fire.
-        courseNo: held ? course.course : 1,
-        courseName: null,
+        // kitchen when the order is sent. The captain's phone sends each
+        // dish under a named course, and may hold it until someone presses
+        // Fire; the KOT prints the course's name.
+        courseNo: coursing ? course.course : 1,
+        courseName: coursing ? courseNames[course.course - 1] || null : null,
         holdCourse: held,
       })
     );
@@ -2081,32 +2090,40 @@ export default function PosPage({ captain = null }) {
   const inCart = (productId) =>
     cart.filter((line) => !line.saved && line.productId === productId).reduce((sum, line) => sum + line.quantity, 0);
 
-  // The captain's phone: when the dishes being added go to the kitchen. A
-  // later course waits on the order until Fire is pressed.
+  // The captain's phone: the course the dishes being added go under, by
+  // name. The first goes to the kitchen now unless it is held; a later course
+  // waits on the order until Fire is pressed.
+  const courseName = courseNames[course.course - 1] || `Course ${course.course}`;
   const courseRow = captain && orderType === "dine_in" && !orderBilled && (
     <div className="pos-course-row">
       <span className="pos-course-label" id="pos-course-label">
         Send to the kitchen
       </span>
       <div className="segmented pos-course" role="radiogroup" aria-labelledby="pos-course-label">
-        {COURSE_CHOICES.map((choice) => (
+        {courseNames.map((name, index) => (
           <button
-            key={choice.course}
+            key={name}
             type="button"
             role="radio"
-            aria-checked={course.course === choice.course}
-            className={`segment ${course.course === choice.course ? "is-active" : ""}`}
-            onClick={() => setCourse(choice)}
+            aria-checked={course.course === index + 1}
+            className={`segment ${course.course === index + 1 ? "is-active" : ""}`}
+            onClick={() => setCourse({ course: index + 1, hold: index > 0 })}
           >
-            {choice.label}
+            {name}
           </button>
         ))}
       </div>
-      {course.hold && (
-        <p className="muted small pos-course-hint">
-          Dishes added now wait on the order until you press Fire course {course.course}.
-        </p>
+      {course.course === 1 && (
+        <label className="checkbox pos-course-hold">
+          <input type="checkbox" checked={course.hold} onChange={(event) => setCourse({ course: 1, hold: event.target.checked })} />
+          <span>Hold until I fire it</span>
+        </label>
       )}
+      <p className="muted small pos-course-hint">
+        {course.hold
+          ? `Dishes added now wait on the order until you press Fire ${courseName}.`
+          : `Dishes added now go to the kitchen as ${courseName} when the order is sent.`}
+      </p>
     </div>
   );
 
@@ -2381,7 +2398,7 @@ export default function PosPage({ captain = null }) {
                         <span className="oc-chip oc-chip-held" title="Not sent to the kitchen until Fire is pressed">
                           Held · not sent
                         </span>
-                        <span className="muted small">Course {line.courseNo || 1} · press Fire</span>
+                        <span className="muted small">{courseLabel(line)} · press Fire</span>
                       </>
                     ) : line.saved ? (
                       <>
@@ -2392,7 +2409,7 @@ export default function PosPage({ captain = null }) {
                       <>
                         <span className="oc-chip oc-chip-new">New</span>
                         {line.holdCourse && (
-                          <span className="oc-chip oc-chip-held">Course {line.courseNo || 1} · held</span>
+                          <span className="oc-chip oc-chip-held">{courseLabel(line)} · held</span>
                         )}
                       </>
                     )}
@@ -2497,12 +2514,18 @@ export default function PosPage({ captain = null }) {
         {/* Orders saved earlier with a held course can still be fired. */}
         {editingOrder && cart.some((line) => line.saved && line.holdCourse) && (
           <div className="pos-fire-row">
-            {[...new Set(cart.filter((line) => line.saved && line.holdCourse).map((line) => line.courseNo))].map((number) => (
-              <button key={number} type="button" className="button button-secondary" onClick={async () => {
-                try { afterSave(await fireOrderCourse(editingOrder.id, number)); setSuccess(`Course ${number} sent to the kitchen`); }
-                catch (err) { setError(getErrorMessage(err)); }
-              }}>Fire course {number}</button>
-            ))}
+            {[...new Set(cart.filter((line) => line.saved && line.holdCourse).map((line) => line.courseNo))].map((number) => {
+              // The course by the name its dishes were sent under, else "course 2".
+              const named = cart.find((line) => line.saved && line.holdCourse && line.courseNo === number && line.courseName);
+              const name = named ? named.courseName : `course ${number}`;
+
+              return (
+                <button key={number} type="button" className="button button-secondary" onClick={async () => {
+                  try { afterSave(await fireOrderCourse(editingOrder.id, number)); setSuccess(`${named ? name : `Course ${number}`} sent to the kitchen`); }
+                  catch (err) { setError(getErrorMessage(err)); }
+                }}>Fire {name}</button>
+              );
+            })}
           </div>
         )}
       </div>

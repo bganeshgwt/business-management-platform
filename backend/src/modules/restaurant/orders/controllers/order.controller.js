@@ -89,9 +89,9 @@ const fireCourse = async (req, res) => {
   const id = v.requiredId(req.params.id, "Order id");
   const courseNo = v.requiredNumber(req.params.courseNo, "Course", { min: 1, max: 20 });
   if(!Number.isInteger(courseNo))throw new AppError(400,'Course must be a whole number');
-  const order = await orderService.fireCourse(req.user.restaurantId, id, courseNo, req.user.id);
-  logAction(req, "fire", "order", { id, label: order.orderNumber, details: { courseNo } });
-  res.json({ success: true, message: `Course ${courseNo} sent to the kitchen`, data: order });
+  const { firedCourseName, ...order } = await orderService.fireCourse(req.user.restaurantId, id, courseNo, req.user.id);
+  logAction(req, "fire", "order", { id, label: order.orderNumber, details: { courseNo, ...(firedCourseName ? { courseName: firedCourseName } : {}) } });
+  res.json({ success: true, message: `${firedCourseName || `Course ${courseNo}`} sent to the kitchen`, data: order });
 };
 
 // Only ids, quantities and notes are accepted: prices come from the menu.

@@ -213,7 +213,9 @@ export default function BillModal({
   // (typed, or the PAN inside the buyer's GSTIN, which its first payment
   // records) or their declaration. The fields show until then, or while a
   // PAN on it is being changed.
-  const panOnBill = Boolean(bill.buyerPan || bill.panDeclaration || bill.panInGstin);
+  // The guest's own PAN in the guest book counts the same way: the first
+  // payment writes it on the bill, and the cashier does not type it again.
+  const panOnBill = Boolean(bill.buyerPan || bill.panDeclaration || bill.panInGstin || bill.panInGuestBook);
   const panAsked = unsettled && Boolean(bill.panNeeded) && (!panOnBill || editingPan);
   const panBody = () => (pan.declaration ? { panDeclaration: true } : { pan: pan.number.trim() });
   // The bill sent to the guest's WhatsApp (wa.me: no API, the till's own
@@ -1225,9 +1227,14 @@ export default function BillModal({
               From {cashLimit.guest.name || "this guest"} today: {money(cashLimit.guest.left)} more
             </span>
           )}
+          {cashLimit.pan && (
+            <span>
+              Under the buyer&apos;s PAN ending {cashLimit.pan.panEnding} today: {money(cashLimit.pan.left)} more
+            </span>
+          )}
           <span className="muted">
-            Cash of ₹2,00,000 or more cannot be taken for one bill, or from one guest in a day (Income-tax Act 2025,
-            section 186). Take the rest by UPI, card, bank transfer or cheque.
+            Cash of ₹2,00,000 or more cannot be taken for one bill, or from one person in a day, a guest or one PAN
+            (Income-tax Act 2025, section 186). Take the rest by UPI, card, bank transfer or cheque.
           </span>
         </div>
       )}
@@ -1373,6 +1380,11 @@ export default function BillModal({
       {panAsked && (
         <fieldset className="bill-pan">
           <legend>A bill over ₹2,00,000 records the buyer&apos;s PAN</legend>
+          {bill.guestDeclaredNoPan && !editingPan && (
+            <p className="small muted">
+              The guest book says this guest has no PAN. Take their declaration (Form 97) for this bill and tick it below.
+            </p>
+          )}
           <label className="field">
             <span>Buyer&apos;s PAN{pan.declaration ? "" : " *"}</span>
             <input
@@ -1422,9 +1434,15 @@ export default function BillModal({
             </>
           ) : bill.panDeclaration ? (
             "The buyer's declaration that they have no PAN (Form 97) is on the bill."
-          ) : (
+          ) : bill.panInGstin ? (
             <>
               The PAN in the buyer&apos;s GSTIN, <span className="mono">{bill.panInGstin}</span>, goes on the bill with
+              this payment.
+            </>
+          ) : (
+            <>
+              The guest&apos;s PAN from the guest book,{" "}
+              <span className="mono">{bill.panInGuestBook.pan || bill.panInGuestBook.masked}</span>, goes on the bill with
               this payment.
             </>
           )}{" "}

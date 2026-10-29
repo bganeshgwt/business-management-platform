@@ -14,6 +14,7 @@ const {
   tenDigitTwin,
 } = require("../../../../utils/phone");
 const { gstinState } = require("../../../../utils/gstin");
+const { maskPan } = require("../../../gst-thresholds/services/gstThresholdsRules");
 
 const DUPLICATE = "23505";
 
@@ -76,7 +77,30 @@ const toCustomer = (row, reveal = true) => ({
   duplicateOf: row.duplicate_of ?? null,
   erased: Boolean(row.erased_at),
   erasedAt: row.erased_at ?? null,
+  // The guest's PAN, for a bill over ₹2,00,000: in full for staff who see
+  // guests' contact details, its last four characters for everyone else.
+  // Or the guest's declaration that they have none (Form 97).
+  pan: reveal ? row.pan || null : null,
+  panMasked: row.pan ? maskPan(row.pan) : null,
+  panDeclaration: Boolean(row.pan_declaration),
 });
+
+// What a guest's PAN record changed, for the activity log, with the PAN
+// masked (the log is read by people who may not see it): { pan: [before,
+// after] } and { panDeclaration: [before, after] } where they moved, or null.
+const panChangeOf = (before, after) => {
+  const changes = {};
+
+  if ((before.pan || null) !== (after.pan || null)) {
+    changes.pan = [before.pan ? maskPan(before.pan) : null, after.pan ? maskPan(after.pan) : null];
+  }
+
+  if (Boolean(before.pan_declaration) !== Boolean(after.pan_declaration)) {
+    changes.panDeclaration = [Boolean(before.pan_declaration), Boolean(after.pan_declaration)];
+  }
+
+  return Object.keys(changes).length > 0 ? changes : null;
+};
 
 const toBookRow = (row, reveal) => ({
   ...toCustomer(row, reveal),
@@ -463,6 +487,13 @@ const editCustomer = async (restaurantId, id, data, userId, options = {}) => {
           tidy[field] = existing[column];
         }
       }
+
+      // The PAN is masked for them too: an empty box with no declaration
+      // ticked keeps what is on file.
+      if (!tidy.pan && !tidy.panDeclaration && (tidy.pan !== undefined || tidy.panDeclaration !== undefined)) {
+        tidy.pan = existing.pan || null;
+        tidy.panDeclaration = Boolean(existing.pan_declaration);
+      }
     }
 
     // Checked only when the number changes: a guest keeps the number they
@@ -497,7 +528,7 @@ const editCustomer = async (restaurantId, id, data, userId, options = {}) => {
         [row] = await crmRepository.lockCustomers(client, restaurantId, [id]);
       }
 
-      return { before: toCustomer(existing), after: toCustomer(row, reveal) };
+      return { before: toCustomer(existing), after: toCustomer(row, reveal), panChange: panChangeOf(existing, row) };
     } catch (error) {
       if (error.code === DUPLICATE) {
         throw new AppError(409, "A customer with this mobile number already exists");
@@ -1629,4 +1660,5 @@ module.exports = {
   customerSalesReport,
   todayFor,
   maskEmail,
+  panChangeOf,
 };

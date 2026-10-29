@@ -50,6 +50,13 @@ const listWords = (items) => {
   return words.length > 1 ? `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}` : words[0];
 };
 
+// "PRE-0003, PRE-0004 and 2 more": the open pre-orders' numbers, soonest due first.
+const preorderNames = (numbers) => {
+  const shown = numbers.length > 4 ? [...numbers.slice(0, 3), `${numbers.length - 3} more`] : numbers;
+
+  return shown.length > 1 ? `${shown.slice(0, -1).join(", ")} and ${shown[shown.length - 1]}` : shown[0];
+};
+
 // Closing or deleting an outlet changes what the top-bar switcher may offer,
 // and the switcher reads its list once. The page is reloaded so every screen
 // agrees — and if the outlet was the one this device was working in, the
@@ -88,6 +95,8 @@ export default function OutletsPage() {
 
   // Removing an outlet: { outlet, usage } once what is recorded there is known.
   const [removing, setRemoving] = useState(null);
+  // The open pre-orders of the outlet being removed (the usage counts them).
+  const preordersOpen = (removing && removing.usage.openPreorders) || [];
 
   // The invoice series each till actually prints: an
   // outlet without a prefix of its own prints one worked out from its code.
@@ -641,11 +650,31 @@ export default function OutletsPage() {
       {removing && (
         <Modal
           title={`Remove "${removing.outlet.name}"`}
-          icon={removing.usage.mustDeactivate || removing.usage.setup.length > 0 ? "alert" : "trash"}
+          icon={removing.usage.mustDeactivate || removing.usage.setup.length > 0 || preordersOpen.length > 0 ? "alert" : "trash"}
           onClose={() => setRemoving(null)}
           width={480}
         >
-          {removing.usage.mustDeactivate ? (
+          {preordersOpen.length > 0 ? (
+            // Pre-orders still to bake and hand over here: the outlet can be
+            // neither closed nor deleted until they are handed over or cancelled.
+            <>
+              <p>
+                {preordersOpen.length === 1 ? "One pre-order is" : `${preordersOpen.length} pre-orders are`} still open
+                here, to be baked and handed over at this outlet ({preorderNames(preordersOpen)}). Until{" "}
+                {preordersOpen.length === 1 ? "it is" : "they are"} handed over or cancelled, &quot;{removing.outlet.name}&quot; can
+                be neither closed nor deleted.
+              </p>
+              <p className="muted small">Hand them over or cancel them in Pre-orders &amp; cakes, then come back here.</p>
+              <div className="form-actions">
+                <button type="button" className="button button-secondary" onClick={() => setRemoving(null)}>
+                  Keep it open
+                </button>
+                <Link to="/preorders" className="button">
+                  Open Pre-orders &amp; cakes
+                </Link>
+              </div>
+            </>
+          ) : removing.usage.mustDeactivate ? (
             <>
               <p>
                 This outlet has {listWords(removing.usage.history)} on record. They are part of your accounts and

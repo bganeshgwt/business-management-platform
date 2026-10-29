@@ -754,6 +754,63 @@ const callStaff = async (token, input) => {
   };
 };
 
+// A waiter asking the counter for a table's bill from the captain app (a
+// captain who does not bill): the same request a guest's Request bill makes
+// from the table's QR code, marked as asked by that waiter, so it reaches the
+// counter on Table requests and the POS badges. A second ask while the
+// table's bill request is still open (the guest's or a waiter's) is not a
+// second request: it is counted on the one there, as a guest's second press
+// is. The same key and the table give back the same request. `outletId`: the
+// outlet the person works in; another outlet's table is not found.
+const askForBill = async (restaurantId, input, userId, outletId = null) => {
+  requireRestaurantId(restaurantId);
+
+  const table = await tableRequestRepository.findTableForBill(restaurantId, input.tableId);
+
+  if (!table || (outletId && table.outlet_id && Number(table.outlet_id) !== Number(outletId))) {
+    throw new AppError(404, outletId ? "Table not found in this outlet" : "Table not found");
+  }
+
+  if (!table.order_id) {
+    throw new AppError(409, `Table ${table.table_no} has no order running, so there is no bill to ask for.`);
+  }
+
+  if (table.order_status === "billed") {
+    throw new AppError(
+      409,
+      `The bill for table ${table.table_no} is already raised. Print it from the table's sheet; the counter takes the payment.`
+    );
+  }
+
+  const day = await tableRequestRepository.findDayWindow(restaurantId, table.outlet_id || null);
+  const result = await tableRequestRepository.createCall({
+    restaurantId,
+    outletId: table.outlet_id,
+    tableId: table.id,
+    businessDayId: day.business_day_id,
+    requestType: "bill",
+    clientKey: input.clientKey,
+    notes: null,
+    createdBy: userId,
+  });
+
+  if (result.error === "KEY_IN_USE") {
+    throw new AppError(409, "This key was already used for another request from this table. Try again.");
+  }
+
+  const request = toStaffRequest(await tableRequestRepository.findById(restaurantId, result.id, null));
+
+  return {
+    request,
+    repeated: result.repeated,
+    duplicate: result.duplicate,
+    message:
+      result.repeated || (result.duplicate && request.repeatCount > 0)
+        ? `The counter already has table ${table.table_no}'s bill request; it now shows it was asked again.`
+        : `The counter has table ${table.table_no}'s bill request.`,
+  };
+};
+
 // ---------------------------------------------------------------- feedback
 
 // Into the restaurant's own feedback book, marked as from the QR code. The
@@ -857,6 +914,10 @@ const toStaffRequest = (row) => ({
   acknowledgedByName: row.acknowledged_by_name,
   resolvedAt: row.resolved_at,
   resolvedByName: row.resolved_by_name,
+  // The waiter who asked the counter for the table's bill from the captain
+  // app; null for a guest's own call from the QR code.
+  askedBy: row.asked_by ? Number(row.asked_by) : null,
+  askedByName: row.asked_by_name || null,
   createdAt: row.created_at,
   // Sent before the business day it would be served on began. Never shown
   // among today's requests; an order of an earlier day can only be rejected.
@@ -1474,6 +1535,7 @@ module.exports = {
   getRequest,
   cancelRequest,
   callStaff,
+  askForBill,
   leaveFeedback,
   list,
   getById,

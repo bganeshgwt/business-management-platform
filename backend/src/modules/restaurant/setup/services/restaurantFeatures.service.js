@@ -252,6 +252,22 @@ const LIVE_DATA = {
     return { blockers, warnings };
   },
   kitchen_display: async () => ({ warnings: ["Kitchen screens stop showing tickets. KOTs keep printing as before."] }),
+  preorders: async (db, rid) => {
+    const open = await first(
+      db,
+      `SELECT count(*)::int AS n, count(*) FILTER (WHERE advance_id IS NOT NULL)::int AS advances
+       FROM restaurant_preorders WHERE restaurant_id = $1 AND status IN ('booked', 'in_production', 'ready')`,
+      [rid]
+    );
+
+    return open.n
+      ? {
+          warnings: [
+            `${plural(open.n, "pre-order is", "pre-orders are")} still open (booked, in production or ready). ${open.n === 1 ? "It is" : "They are"} kept but hidden: nobody can bake, hand over or cancel ${open.n === 1 ? "it" : "them"} until Pre-orders & cakes is switched back on.${open.advances ? ` ${plural(open.advances, "advance taken for them stays", "advances taken for them stay")} under Dues & accounts › Advances.` : ""}`,
+          ],
+        }
+      : {};
+  },
   captain_sections: async (db, rid) => {
     const today = await first(db, "SELECT count(DISTINCT user_id)::int AS n FROM captain_assignments WHERE restaurant_id = $1 AND shift_date >= CURRENT_DATE - 1", [rid]);
 
@@ -365,6 +381,7 @@ const HIDES = {
   online_ordering: ["The online ordering page", "Table requests (online orders)"],
   deliveries: ["Deliveries", "Riders and rider cash", "Sales channels"],
   kitchen_display: ["Kitchen display"],
+  preorders: ["Pre-orders & cakes", "The bake list", "Pre-orders on the dashboard"],
   captain_sections: ["Captain sections on the floor plan"],
   tips: ["Tips", "The tip box at payment", "Tips on payroll"],
   advances: ["Advances & deposits"],

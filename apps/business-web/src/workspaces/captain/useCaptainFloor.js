@@ -42,6 +42,9 @@ export default function useCaptainFloor() {
     () => ({
       calls: hasFeature("qr_ordering") && hasPermission("orders.view"),
       accept: hasPermission("orders.create"),
+      // Asking the counter for a table's bill: a table's bill request, which
+      // the counter's inbox shows while QR ordering is on.
+      askBill: hasFeature("qr_ordering") && hasPermission("orders.create"),
       pass: hasFeature("kitchen_display") && (hasPermission("kot.manage") || hasPermission("kds.view")),
       serve: hasFeature("kitchen_display") && hasPermission("kot.manage"),
       // A table's running total is for someone who may see takings, as on
@@ -172,7 +175,7 @@ export default function useCaptainFloor() {
     }
 
     const showing = shown.map((table) => table.id).join(",");
-    const { keys, fresh } = arrivals(seenFor.current === showing ? seen.current : null, shown, waiting);
+    const { keys, fresh } = arrivals(seenFor.current === showing ? seen.current : null, shown, waiting, { userId: user.id });
     seen.current = keys;
     seenFor.current = showing;
 
@@ -185,7 +188,7 @@ export default function useCaptainFloor() {
     }
 
     toast.info(fresh.length === 1 ? arrivalText(fresh[0]) : fresh.map(arrivalText).join(". "), { id: "captain-arrival", duration: 6000 });
-  }, [loaded, shown, waiting, alerts]);
+  }, [loaded, shown, waiting, alerts, user.id]);
 
   // Alerts switched on earlier on this device: the first tap lets the
   // browser play the chime again.

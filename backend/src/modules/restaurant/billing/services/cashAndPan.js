@@ -7,10 +7,14 @@
 //
 //   - Cash of ₹2,00,000 or more is never taken for one bill (its cash
 //     payments with their cash tips, and what it took from an advance paid in
-//     cash), or from one guest on one day of the restaurant's calendar (cash
-//     on the bills that name them, and their advances taken in cash).
+//     cash), or from one person on one day of the restaurant's calendar (cash
+//     on the bills that name a guest, their advances taken in cash, and the
+//     cash on walk-in bills carrying the PAN their guest book holds; a
+//     walk-in bill's PAN adds up the same way; the migration restaurant-rest).
 //   - A bill over ₹2,00,000 takes no payment until it records the buyer's
-//     PAN, or their declaration that they have none (Form 97).
+//     PAN, or their declaration that they have none (Form 97); the PAN the
+//     guest book holds for the guest it names goes on it with its first
+//     payment.
 
 const AppError = require("../../../../utils/AppError");
 const v = require("../../../../utils/validate");
@@ -77,22 +81,32 @@ const cashLeft = (taken) => fromPaise(Math.max(0, CASH_LIMIT_PAISE - 1 - toPaise
 
 // A bill's cash figures, from its full read: the cash taken for it and what
 // more it may take, and the same for the guest it names, today on the
-// restaurant's clock. `left` is the most cash the bill can still take now.
+// restaurant's clock (with the cash under the PAN their guest book holds).
+// A walk-in bill that carries the buyer's PAN has the same for that PAN:
+// every walk-in bill carrying it, and the guests whose guest book holds it.
+// `left` is the most cash the bill can still take now.
 const cashLimitOf = (row) => {
   const taken = fromPaise(toPaise(row.cash_on_bill));
   const bill = { taken, left: cashLeft(taken) };
   let guest = null;
+  let pan = null;
 
   if (row.cash_guest_id) {
     const today = fromPaise(toPaise(row.cash_from_guest_today));
     guest = { customerId: Number(row.cash_guest_id), name: row.cash_guest_name || null, taken: today, left: cashLeft(today) };
+  } else if (row.cash_from_pan_today !== null && row.cash_from_pan_today !== undefined) {
+    const today = fromPaise(toPaise(row.cash_from_pan_today));
+    pan = { panEnding: String(row.buyer_pan).slice(-4), taken: today, left: cashLeft(today) };
   }
+
+  const person = guest || pan;
 
   return {
     limit: fromPaise(CASH_LIMIT_PAISE),
     bill,
     guest,
-    left: guest ? Math.min(bill.left, guest.left) : bill.left,
+    ...(pan ? { pan } : {}),
+    left: person ? Math.min(bill.left, person.left) : bill.left,
   };
 };
 
@@ -102,6 +116,7 @@ const ruleRefusal = (error) =>
   error && error.code === "23514" && !error.constraint && error.message ? new AppError(409, error.message) : null;
 
 module.exports = {
+  readPan,
   readBuyerPan,
   panNeeded,
   panInGstin,

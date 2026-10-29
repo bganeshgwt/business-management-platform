@@ -185,7 +185,7 @@ const HEADINGS = {
 const HIDDEN = new Set(['request_key', 'request_hash', 'guest_token']);
 
 async function exportOf(db, restaurantId, customerId) {
-  const person = await repo.one(db, `SELECT id,name,mobile,email,address,date_of_birth,anniversary_date,company_name,gstin,tags,allergies,notes,status,
+  const person = await repo.one(db, `SELECT id,name,mobile,email,address,date_of_birth,anniversary_date,company_name,gstin,pan,pan_declaration,tags,allergies,notes,status,
       loyalty_points,created_at,updated_at,erased_at FROM customers WHERE restaurant_id=$1 AND id=$2`, [restaurantId, customerId]);
   const sections = [];
   for (const ref of await guestReferences(db)) {

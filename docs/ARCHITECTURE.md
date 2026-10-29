@@ -1189,12 +1189,14 @@ file behind an index file with the module's name, which callers import:
   `sales.js`, `items.js`, `gstData.js` (the GST machinery that the GST pack,
   the day end and the day book share), `gst.js`, `staff.js`, `stock.js`,
   `dayEnd.js`, `dashboard.js`, `periods.js` (months and cost sharing for the
-  P&L and expenses), `profitLoss.js`, `expenses.js`, `dayBook.js`, `theft.js`.
+  P&L and expenses), `profitLoss.js`, `expenses.js`, `dayBook.js`, `theft.js`,
+  `kitchen.js` (the kitchen-station report).
 - `restaurant/reports/repositories/report.repository.js` gathers
   `repositories/report/`: `sql.js` (shared SQL fragments: scope, trading day,
   live bills, bill lines, recipients, stock movements, voided bills),
   `sales.js`, `items.js`, `gst.js`, `staff.js`, `stock.js`, `drawers.js`,
-  `dayEnd.js`, `dashboard.js`, `profitLoss.js`, `dayBook.js`, `theft.js`.
+  `dayEnd.js`, `dashboard.js`, `profitLoss.js`, `dayBook.js`, `theft.js`,
+  `kitchen.js`.
 - `restaurant/billing/services/bill.service.js` gathers `services/bill/`:
   `shape.js` (a bill as the screens see it), `offers.js` (coupons, loyalty),
   `rules.js`, `raise.js` (list, raise, adjust, print), `payments.js`

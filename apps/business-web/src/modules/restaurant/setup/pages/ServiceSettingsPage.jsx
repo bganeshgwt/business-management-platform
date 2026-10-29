@@ -90,6 +90,62 @@ function PosSection({ settings, canEdit, onSaved }) {
   );
 }
 
+// The courses' names, in the order they are served: the captain app sends a
+// table's dishes under them (the first now or held, a later one held until
+// Fire), and the KOT prints the name. One to six; course 1 is the first.
+const MAX_COURSES = 6;
+
+function CoursesSection({ settings, canEdit, onSaved }) {
+  const [names, setNames] = useState(settings.courseNames || ["Starters", "Mains", "Desserts"]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState("");
+  const rename = (index, value) => setNames((current) => current.map((name, at) => (at === index ? value : name)));
+  const save = async (event) => {
+    event.preventDefault();
+    setSaving(true); setError(""); setSaved("");
+    try {
+      const result = await updateServiceSettings("courses", { courseNames: names });
+      setSaved(result.message);
+      setNames(result.data.courseNames);
+      onSaved(result.data);
+    } catch (err) { setError(getErrorMessage(err)); } finally { setSaving(false); }
+  };
+  return (
+    <SectionCard as="form" onSubmit={save} id="courses" icon="utensils" title="Courses"
+      description="The courses a waiter sends a table's dishes under on the captain app, in the order they are served. The KOT prints the name; a later course waits until someone presses Fire. The POS sends every dish at once.">
+      <ErrorMessage message={error} />
+      <SuccessMessage message={saved} />
+      <ol className="svc-courses">
+        {names.map((name, index) => (
+          <li key={index} className="svc-course">
+            <label className="field">
+              <span>Course {index + 1}</span>
+              <input value={name} maxLength={30} onChange={(event) => rename(index, event.target.value)} disabled={!canEdit} required />
+            </label>
+            {canEdit && names.length > 1 && (
+              <button type="button" className="button button-ghost button-sm" aria-label={`Take ${name || `course ${index + 1}`} off the list`}
+                onClick={() => setNames((current) => current.filter((_, at) => at !== index))}>
+                <Icon name="trash" size={15} />
+              </button>
+            )}
+          </li>
+        ))}
+      </ol>
+      {canEdit && (
+        <div className="form-actions">
+          {names.length < MAX_COURSES && (
+            <button type="button" className="button button-secondary" onClick={() => setNames((current) => [...current, ""])}>
+              <Icon name="plus" size={15} /> Add a course
+            </button>
+          )}
+          <button type="submit" className="button" disabled={saving}>{saving ? "Saving…" : "Save courses"}</button>
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
 function TokensSection({ settings, canEdit, onSaved }) {
   const [form, setForm] = useState({
     tokensEnabled: settings.tokensEnabled,
@@ -668,6 +724,7 @@ export default function ServiceSettingsPage() {
         <SettingsLayout
           sections={[
             { id: "pos", label: "Orders the POS takes" },
+            { id: "courses", label: "Courses" },
             { id: "tokens", label: "Token numbers" },
             ...(onlineOn ? [{ id: "online-ordering", label: "Online ordering page" }] : []),
             ...(guestPagesOn ? [{ id: "guest-address", label: "Guest web address" }] : []),
@@ -675,6 +732,11 @@ export default function ServiceSettingsPage() {
         >
         <div className="svc-sections">
           <PosSection
+            settings={settings}
+            canEdit={hasPermission("orders.manage")}
+            onSaved={(next) => setSettings((current) => ({ ...current, ...next }))}
+          />
+          <CoursesSection
             settings={settings}
             canEdit={hasPermission("orders.manage")}
             onSaved={(next) => setSettings((current) => ({ ...current, ...next }))}

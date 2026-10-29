@@ -340,6 +340,7 @@ const buildKot = (ticket, { restaurantName: kitchenName = "" } = {}) => {
     <p class="kot">${escape(ticket.kotNo)}</p>
     ${ticket.tokenNo ? `<p class="token">TOKEN ${escape(ticket.tokenNo)}</p>` : ""}
     <p class="where">${escape(where.primary)}${covers}</p>
+    ${ticket.courseName ? `<p class="token">${escape(ticket.courseName.toUpperCase())}</p>` : ""}
     <p class="meta">${escape(where.secondary || "")}${where.secondary ? " &middot; " : ""}${escape(
       ticket.orderNumber
     )}${round}<br/>${escape(timeOfDay(sent))} &middot; ${escape(kotDate(sent))}</p>

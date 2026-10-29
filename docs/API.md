@@ -132,11 +132,11 @@ online ordering) answer 403 with a sentence for the guest and the same `data`.
 | `guests` | `/api/crm/*`, `/api/guest-insights/*`, `/api/crm/customers/:id/addresses/*`, `GET /api/orders/guest`; an order naming a `customerId`; putting a bill on a guest's account; QR feedback |
 | `guest_loyalty` | `GET /api/discounts/loyalty`, `GET /api/crm/reports/loyalty`; `loyaltyPoints` on `POST /api/bills` and `PATCH /api/bills/:id/adjust` |
 | `reservations` | `/api/reservations/*`; the public booking link `/api/public/booking/:token*` |
-| `qr_ordering` | `GET /api/tables/qr-settings`; the table QR pages `/api/public/tables/:token/*`; accepting a QR request |
+| `qr_ordering` | `GET /api/tables/qr-settings`; the table QR pages `/api/public/tables/:token/*`; accepting a QR request; `POST /api/table-requests/bill-asks` |
 | `online_ordering` | `/api/orders/service-settings/online-ordering*`; the ordering page `/api/public/online/:token/*`; accepting an online order |
 | `qr_ordering` or `online_ordering` | `/api/table-requests/*` (with only one on, lists and counters show that one's requests only) |
 | `deliveries` | `/api/deliveries/*` except `/api/deliveries/channels*`; `POST /api/orders` with `orderType: "delivery"`; the online ordering page offers takeaway only |
-| `kitchen_display` | `GET /api/kitchen/board`, `GET /api/kitchen/pass`, `POST /api/kitchen/sync`, `POST /api/kitchen/recall`, `POST /api/kitchen/clear-old`, `GET /api/kitchen/kots/:id`, `PATCH /api/kitchen/kots/:id/status`, `PATCH /api/kitchen/kots/:id/items/:itemId`, `POST /api/kitchen/kots/:id/recall`, `GET /api/reports/live/kitchen` (stations, slips, printing and an order's tickets stay) |
+| `kitchen_display` | `GET /api/kitchen/board`, `GET /api/kitchen/pass`, `POST /api/kitchen/sync`, `POST /api/kitchen/recall`, `POST /api/kitchen/clear-old`, `GET /api/kitchen/kots/:id`, `PATCH /api/kitchen/kots/:id/status`, `PATCH /api/kitchen/kots/:id/items/:itemId`, `POST /api/kitchen/kots/:id/items/:itemId/serve`, `POST /api/kitchen/kots/:id/recall`, `GET /api/kitchen/day`, `GET /api/reports/live/kitchen`, `GET /api/reports/kitchen-stations` (stations, slips, printing and an order's tickets stay) |
 | `captain_sections` | `/api/tables/sections*` |
 | `preorders` | `/api/preorders/*` |
 | `brands` | `GET/POST /api/menu/brands`, `PUT /api/menu/brands/:id`, `GET /api/menu/brands/report` |
@@ -1363,7 +1363,7 @@ Returns: `data` = `{ serverTime, businessDay, settings, stationId, stations[], t
 The food at the pass, for the waiters who carry it out (the captain app's *Ready* list and its tables). Read only: unlike the board it cuts and clears no ticket.
 Permission: `kds.view` or `kot.manage`; feature `kitchen_display`
 Query/Body: none. The outlet the caller works in (`resolveOutlet`), or the whole restaurant.
-Returns: `data` = `{ serverTime, passMinutes, tickets[] }`: the tickets marked ready and not yet served, the oldest at the pass first (`readyAt`), each a ticket object with its order, table and dishes. Only tickets still in the kitchen by the board's own rules are listed: an open business day's, and not those of a cancelled order, a table that has paid or an order served from the orders screen. `passMinutes` is how long plated food may wait (the kitchen timers, 8 by default). A ticket is served with `PATCH /api/kitchen/kots/:id/status` `{ status: "served" }`.
+Returns: `data` = `{ serverTime, passMinutes, tickets[] }`: the tickets marked ready and not yet served, and the tickets still cooking with a dish the kitchen has ticked done and nobody has served, the oldest at the pass first (`passSince`: the ticket's `readyAt`, else its first dish waiting), each a ticket object with its order, table and dishes (each dish with `isDone`, `servedAt`, `servedByName` and `courseName`). Only tickets still in the kitchen by the board's own rules are listed: an open business day's, and not those of a cancelled order, a table that has paid or an order served from the orders screen. `passMinutes` is how long plated food may wait (the kitchen timers, 8 by default). A ticket is served with `PATCH /api/kitchen/kots/:id/status` `{ status: "served" }`, one dish with `POST /api/kitchen/kots/:id/items/:itemId/serve`.
 Errors: 401 not signed in; 403 neither permission; 403 `{ reason: "feature_off", feature: "kitchen_display" }`.
 
 #### `POST /api/kitchen/sync`
@@ -1393,7 +1393,21 @@ Errors: 404 not found; 409 move not allowed (cancelled, already served, ready ba
 Permission: `kot.manage`
 Query/Body: `done` (boolean, required)
 Returns: `data` = the ticket.
-Errors: 400 `done` missing; 404 ticket not found / dish not on this ticket; 409 ticket cancelled or already served; 409 dish cancelled at the till.
+Errors: 400 `done` missing; 404 ticket not found / dish not on this ticket; 409 ticket cancelled or already served; 409 dish cancelled at the till; 409 the dish was served from the floor (`done: false`).
+
+#### `POST /api/kitchen/kots/:id/items/:itemId/serve`
+One dish served from the floor on its own (the captain app's *Ready* list): a dish the kitchen has ticked done, while the rest of its ticket cooks. Serving the last dish still waiting serves the ticket, in the same person's name, as `PATCH …/status` `{ status: "served" }` does. A dish served stays done; a recall of the ticket brings every dish back to the pass. The order's line is *served* once every ticket line covering it is.
+Permission: `kot.manage`; feature `kitchen_display`
+Query/Body: none.
+Returns: `data` = the ticket (its dish with `servedAt`, `servedByName`); the message says whether the whole ticket went with it, or that the dish was already served (nothing changes).
+Errors: 403 without `kot.manage`; 404 ticket not found (in this outlet), dish not on this ticket; 409 ticket cancelled or already served; 409 the dish was cancelled at the till; 409 the kitchen has not marked the dish done.
+
+#### `GET /api/kitchen/day`
+An earlier day's tickets, read only (the dashboard's kitchen panel, *Earlier day*). Nothing is cut or cleared.
+Permission: `kds.view`; feature `kitchen_display`
+Query: `date` (YYYY-MM-DD on the restaurant's calendar, required). The outlet the caller works in (`resolveOutlet`), or the whole restaurant.
+Returns: `data` = `{ date, settings, stats, more, tickets[] }`: every ticket cut on the business days dated `date`, oldest first, each a ticket object (with `createdAt`, `readyAt`, `servedAt`, `cancelledAt`, `clearedReason`, `courseName`); `stats` = `{ avgReadySeconds, timedCount, lateCount, servedCount, clearedCount, totalCount }` as the board counts them, or null with no business day that date; at most 2,000 tickets (`more` true when there were more).
+Errors: 400 `date` missing or not a real date; 400 a day after today; 403 without `kds.view`.
 
 #### `POST /api/kitchen/kots/:id/recall`
 Permission: `kot.manage`
@@ -1598,7 +1612,7 @@ Errors: 409 `outdated_screen` (a browser sent a whole cart, or changed the heade
 #### `POST /api/orders/:id/courses/:courseNo/fire`
 Permission: `orders.create`
 Body: none. `courseNo` is a whole number from 1 to 20.
-Returns: `data` = the order. Message: "Course N sent to the kitchen".
+Returns: `data` = the order. Message: "Mains sent to the kitchen" when the course's dishes were sent under a name (the captain app), else "Course N sent to the kitchen". Logged (`fire` `order`, with `courseNo` and `courseName`). Any course, the first included, can be held (`holdCourse: true` on `POST /api/orders`); its tickets carry the course's name on each dish (`courseName`) and on the ticket when every dish shares it.
 Errors: 404 order not found; 409 the order is not open; 409 that course is not being held.
 
 #### `PATCH /api/orders/:id/items/:itemId/cancel`
@@ -1643,7 +1657,7 @@ Mounted inside the orders router at `/api/orders/service-settings` (serviceSetti
 
 #### `GET /api/orders/service-settings`
 Permission: `orders.view`
-Returns: `data` = `{ guestWebAddress, tokensEnabled, tokenOrderTypes[], collectionClearMinutes, posOrderTypes[], defaultOrderType, updatedAt }`. `posOrderTypes` are the kinds of order the POS takes (`dine_in`, `takeaway`, `delivery`; all three until changed) and `defaultOrderType` the one a new order starts on.
+Returns: `data` = `{ guestWebAddress, tokensEnabled, tokenOrderTypes[], collectionClearMinutes, posOrderTypes[], defaultOrderType, courseNames[], updatedAt }`. `courseNames` are the courses' names, course 1 first (Starters, Mains, Desserts until changed). `posOrderTypes` are the kinds of order the POS takes (`dine_in`, `takeaway`, `delivery`; all three until changed) and `defaultOrderType` the one a new order starts on.
 
 #### `PUT /api/orders/service-settings/tokens`
 Permission: `orders.manage`
@@ -1656,6 +1670,12 @@ Permission: `orders.manage`
 Body (only the fields sent change): `posOrderTypes[]` (`dine_in`, `takeaway`, `delivery`; at least one), `defaultOrderType` (one of them). When the start is not sent, it stays if the POS still takes it, else it becomes the first kind in the list. A cloud kitchen, for instance, takes no dine-in.
 Returns: `data` = the settings. From then on, `POST /api/orders` refuses an order of a kind the POS does not take (400 `order_type_off`); QR and website orders keep their own switches.
 Errors: 400 an unknown kind of order; 400 no kind of order; 400 the start is not a kind the POS takes.
+
+#### `PUT /api/orders/service-settings/courses`
+Permission: `orders.manage`
+Body: `courseNames[]` (strings, course 1 first). Each is tidied of extra spaces; one to six, none empty, at most 30 characters, no two the same (case aside). The captain app sends a dine-in table's dishes under these names (`courseNo` and `courseName` on each item of `POST /api/orders`); the KOT prints the name. Renaming changes only what is sent after.
+Returns: `data` = the settings. Logged (`update` `service_settings`, *Courses*).
+Errors: 400 not a list, or a name not text; 400 none or more than six; 400 an empty name; 400 a name too long; 400 a name twice; 403 without `orders.manage`.
 
 #### `PUT /api/orders/service-settings/guest-web-address`
 Permission: `tables.manage`
@@ -1752,7 +1772,7 @@ Errors: 404 pre-order not found, or (for staff tied to an outlet) another outlet
 
 ### Table requests (QR orders, calls and online orders, staff side)
 
-Mounted at `/api/table-requests` (tableRequest.routes.js). The user must be signed in, and `resolveOutlet` runs. The inbox is scoped to the request's outlet, plus tables that belong to no outlet. A request from another outlet answers 404. The inbox also holds orders from the online ordering page (`channel: "website"`, with no table). The request shape is `{ id, type (order, call_waiter, bill, water, other), status, tableId, tableNo, channel (qr, website), serviceType, deliveryAddress, paymentMode, deliveryCharge, outletId, guestName, guestMobile, notes, itemCount, estimatedTotal, items[], orderId, orderNumber, orderAction, rejectReason, repeatCount, acknowledgedAt, resolvedAt, createdAt, fromEarlierDay, responseSeconds, tableOrder }`. `guestMobile` is masked for users without `customers.contact`. A bad `:id` answers 404 "Request not found".
+Mounted at `/api/table-requests` (tableRequest.routes.js). The user must be signed in, and `resolveOutlet` runs. The inbox is scoped to the request's outlet, plus tables that belong to no outlet. A request from another outlet answers 404. The inbox also holds orders from the online ordering page (`channel: "website"`, with no table). The request shape is `{ id, type (order, call_waiter, bill, water, other), status, tableId, tableNo, channel (qr, website), serviceType, deliveryAddress, paymentMode, deliveryCharge, outletId, guestName, guestMobile, notes, itemCount, estimatedTotal, items[], orderId, orderNumber, orderAction, rejectReason, repeatCount, acknowledgedAt, resolvedAt, askedBy, askedByName, createdAt, fromEarlierDay, responseSeconds, tableOrder }`. `askedBy` and `askedByName` name the waiter who asked for a table's bill from the captain app (null for a guest's own request). `guestMobile` is masked for users without `customers.contact`. A bad `:id` answers 404 "Request not found".
 
 #### `GET /api/table-requests`
 Permission: `orders.view`
@@ -1778,6 +1798,13 @@ Permission: `orders.manage`
 Body: `reason` (200; the guest sees it; default "Not taken: sent on an earlier day").
 Returns: `data` = `{ rejected, done, skipped }`. Every order still pending from an earlier day is rejected with the reason, and every call still open from an earlier day is marked done: in the request's outlet (plus tables of no outlet), for the channels switched on, at most 2,000 at a time. One that cannot be closed (another device answered it meanwhile) is counted in `skipped`. The message says what was closed.
 Errors: 400 `reason` is not text or is too long.
+
+#### `POST /api/table-requests/bill-asks`
+A waiter asks the counter for a table's bill (the captain app): the table's bill request, as a guest's *Request bill* makes it from the QR code, marked as asked by the caller (`created_by`). While the table's bill request is still open (pending or on the way), a second ask is counted on it (`repeatCount`, `lastAskedAt`) rather than made again; the same `clientKey` gives back the same request.
+Permission: `orders.create`; feature `qr_ordering` (the inbox shows a table's requests only while QR ordering is on)
+Body: `tableId` (required), `clientKey` (required; 8 to 64 letters, digits or hyphens, this tap's own).
+Returns: 201 and `data` = the request for a new one; 200 for the same key again or a second ask. Logged (`ask_bill` `table_request`), except a repeat of the same key.
+Errors: 400 `tableId` or `clientKey` missing or malformed; 403 without `orders.create`; 403 `{ reason: "feature_off", feature: "qr_ordering" }`; 404 table not found (in this outlet); 409 no order running on the table; 409 the table's bill is already raised; 409 the key was used for another kind of request.
 
 #### `GET /api/table-requests/:id`
 Permission: `orders.view`
@@ -2931,9 +2958,9 @@ Errors: 400 bad limit.
 
 #### `POST /api/crm/customers`
 Permission: `customers.manage`
-Body: `name` (string, required, <=150), `mobile` (normalised to one format), `email`, `address` (<=500), `dateOfBirth` / `anniversaryDate` (YYYY-MM-DD, not in the future), `notes` (<=500), `status` (`active`|`inactive`, default active), `companyName` (<=150), `gstin`, `tags` (array or comma list of `vip`,`allergy`,`jain`,`vegan`,`corporate`,`family`,`blogger`), `allergies` (<=300), `consents` (`{ bills_digital?, reminders?, offers? }`, each yes or no: recorded, or withdrawn, as the guest's consents on the restaurant's privacy notice; see [Personal data](#personal-data)), `marketingOptIn` (bool: the consent to offers, when `consents` leaves it out), `sameDigitsConfirmed` (bool)
-Returns: 201, `data` = the customer.
-Errors: 400 GSTIN without `companyName`; 400 tag `allergy` without `allergies`; 409 mobile already held (`data: { existingId, existingName }`); 409 same ten digits in the other form (`data.reason: "same_digits"`, resend with `sameDigitsConfirmed: true` if genuinely different); 409 `data.reason: "no_privacy_notice"` for a consent before the restaurant publishes its notice, and 409 for offers to a guest marked as a child (nothing is saved).
+Body: `name` (string, required, <=150), `mobile` (normalised to one format), `email`, `address` (<=500), `dateOfBirth` / `anniversaryDate` (YYYY-MM-DD, not in the future), `notes` (<=500), `status` (`active`|`inactive`, default active), `companyName` (<=150), `gstin`, `tags` (array or comma list of `vip`,`allergy`,`jain`,`vegan`,`corporate`,`family`,`blogger`), `allergies` (<=300), `pan` (the guest's PAN: five letters, four digits and a letter, any case, kept in capitals) or `panDeclaration` (bool: they declared they have none, Form 97; not both), `consents` (`{ bills_digital?, reminders?, offers? }`, each yes or no: recorded, or withdrawn, as the guest's consents on the restaurant's privacy notice; see [Personal data](#personal-data)), `marketingOptIn` (bool: the consent to offers, when `consents` leaves it out), `sameDigitsConfirmed` (bool)
+Returns: 201, `data` = the customer. A customer carries `pan` (in full only for `customers.contact`, else null), `panMasked` (`••••••234F`) and `panDeclaration`. A PAN or declaration given is logged (`pan` `customer`, the PAN masked).
+Errors: 400 PAN not in its shape, or both a PAN and the declaration; 400 GSTIN without `companyName`; 400 tag `allergy` without `allergies`; 409 mobile already held (`data: { existingId, existingName }`); 409 same ten digits in the other form (`data.reason: "same_digits"`, resend with `sameDigitsConfirmed: true` if genuinely different); 409 `data.reason: "no_privacy_notice"` for a consent before the restaurant publishes its notice, and 409 for offers to a guest marked as a child (nothing is saved).
 
 #### `GET /api/crm/guest-book`
 Permission: `customers.view`
@@ -3000,7 +3027,7 @@ Errors: 400 missing reason; 404 not found; 409 already erased; 409 `data: { reas
 
 #### `PUT /api/crm/customers/:id`
 Permission: `customers.manage`
-Body: as for create; a field left out keeps its value, a field sent empty is cleared. A masked contact box sent back empty by a user without `customers.contact` keeps the stored contact.
+Body: as for create; a field left out keeps its value, a field sent empty is cleared. A masked contact box sent back empty by a user without `customers.contact` keeps the stored contact; so does an empty `pan` with `panDeclaration` false from such a user. Every change to the PAN or the declaration is logged (`pan` `customer`, `details.changes` with the PAN masked).
 Returns: `data` = the updated customer.
 Errors: 400 validation as for create; 404 not found; 409 erased guest / mobile taken / `same_digits`.
 
@@ -3565,6 +3592,12 @@ Permission: `reports.view`
 Query: `from`, `to`
 Returns: `data` = range header + `{ rows[] }` (stock used, in money terms).
 
+#### `GET /api/reports/kitchen-stations`
+Permission: `reports.view`; feature `kitchen_display`
+Query: `from`, `to` (the business days dated in the range; the trading day when left out). The outlet chosen in the top bar narrows it.
+Returns: `data` = range header + `{ warnMinutes, lateMinutes, cancelledLeftOut, total, stations[], hours[] }`. Each station (and `total`, the whole kitchen, null with no ticket) = `{ stationId, stationName, stationColor, tickets, dishes, timedReady, avgReadySeconds, p90ReadySeconds, timedServe, avgServeSeconds, p90ServeSeconds, late, cleared, busiestHours[{ hour, tickets }] }`: tickets and dishes (live quantities), sent to ready and ready to served in whole seconds (average and 90th percentile; ready to served for the tickets marked ready before they were served), the tickets past the late mark (`lateMinutes`, the kitchen timers), those cleared without being served, and the three hours with the most tickets sent (restaurant's clock). `hours` is the whole kitchen's tickets by hour sent. Cancelled tickets are left out and counted in `cancelledLeftOut`.
+Errors: 400 a date not real, the end before the start, or more than two years; 403 without `reports.view`; 403 `feature_off`.
+
 #### `GET /api/reports/expenses`
 Permission: `reports.view` and `expenses.view`
 Query: `from`, `to`
@@ -3636,9 +3669,9 @@ Errors: 400 end date before start date; 400 bad page size; 400 `businessDays` no
 #### `GET /api/bills/:id`
 Permission: `orders.view`
 Query/Body: none
-Returns: `data` = the bill: `{ id, billNumber, orderId, orderType, brandName, outletId, businessDayId, businessDate, customerId, subtotal, couponDiscount, manualDiscount, itemDiscountAmount, discountReason, taxAmount, serviceCharge, serviceChargeWaived, deliveryCharge, roundOff, totalAmount, paidAmount, refundedAmount, creditedAmount, heldAmount, dueAmount, billStatus, isComplimentary, loyaltyPointsUsed, printCount, isSplit, items[], payments[], tipTotal, corrections[], refunds[], creditNotes[], accountCustomerId, accountName, invoice, pointsEarned, pointsTakenBack, pointsBalance, buyerPan, panDeclaration, panNeeded, panInGstin, cashLimit }` and more (`bill.service.js` `toBill`). Mobiles are masked without `customers.contact`.
-The buyer's PAN: `buyerPan` (the PAN on the bill, or null), `panDeclaration` (the buyer's Form 97 declaration that they have none), `panNeeded` (the bill is over ₹2,00,000, so a payment needs one of the two), `panInGstin` (with no PAN on the bill, the PAN inside the buyer's GSTIN, which the first payment writes on it). The list (`GET /api/bills`) carries these too, without `panInGstin`.
-The cash limit (this read only): `cashLimit` = `{ limit: 200000, bill: { taken, left }, guest: { customerId, name, taken, left } | null, left }`: the cash taken for the bill (cash payments with their tips, and payments from advances paid in cash), the cash taken today on the restaurant's clock from the guest it names (null for a walk-in), what more each can take in cash (₹1,99,999.99 less what was taken, at least 0), and `left`, the smaller. Someone who sees bills as the guest does (`orders.view` without `sales.view` or `payments.manage`) gets `cashLimit: null`.
+Returns: `data` = the bill: `{ id, billNumber, orderId, orderType, brandName, outletId, businessDayId, businessDate, customerId, subtotal, couponDiscount, manualDiscount, itemDiscountAmount, discountReason, taxAmount, serviceCharge, serviceChargeWaived, deliveryCharge, roundOff, totalAmount, paidAmount, refundedAmount, creditedAmount, heldAmount, dueAmount, billStatus, isComplimentary, loyaltyPointsUsed, printCount, isSplit, items[], payments[], tipTotal, corrections[], refunds[], creditNotes[], accountCustomerId, accountName, invoice, pointsEarned, pointsTakenBack, pointsBalance, buyerPan, panDeclaration, panNeeded, panInGstin, panInGuestBook, guestDeclaredNoPan, cashLimit }` and more (`bill.service.js` `toBill`). Mobiles are masked without `customers.contact`.
+The buyer's PAN: `buyerPan` (the PAN on the bill, or null), `panDeclaration` (the buyer's Form 97 declaration that they have none), `panNeeded` (the bill is over ₹2,00,000, so a payment needs one of the two), `panInGstin` (with no PAN on the bill, the PAN inside the buyer's GSTIN, which the first payment writes on it), `panInGuestBook` (failing those, `{ pan, masked }`: the PAN the guest book keeps for the guest the bill names, which the first payment writes on it; `pan` is null without `customers.contact`), `guestDeclaredNoPan` (the guest book says the guest declared none: a reminder only, the declaration is taken on each bill). The list (`GET /api/bills`) carries these too, without `panInGstin` and `panInGuestBook`.
+The cash limit (this read only): `cashLimit` = `{ limit: 200000, bill: { taken, left }, guest: { customerId, name, taken, left } | null, pan?: { panEnding, taken, left }, left }`: the cash taken for the bill (cash payments with their tips, and payments from advances paid in cash), the cash taken today on the restaurant's clock from the guest it names (with the walk-in bills carrying the PAN their guest book holds; null for a walk-in), for a walk-in bill carrying the buyer's PAN the cash under that PAN today (`pan`: every walk-in bill carrying it and the guests whose guest book holds it), what more each can take in cash (₹1,99,999.99 less what was taken, at least 0), and `left`, the smaller. Someone who sees bills as the guest does (`orders.view` without `sales.view` or `payments.manage`) gets `cashLimit: null`.
 Errors: 404 not found or another outlet's bill.
 
 #### `POST /api/bills`
@@ -3965,7 +3998,7 @@ Errors: 404 not found.
 #### `GET /api/outlets/:id/usage`
 Permission: `outlets.manage`
 Query/Body: none
-Returns: `data` = `{ history[{ table, label, count }], setup[{ table, label, count }], lastBillAt, canDelete, mustDeactivate }`. `history` covers sales, stock, days and money (these must stay). `setup` covers people, tables and floors (these can be moved). Open pre-orders are not counted: `canDelete` can be true for an outlet that `DELETE` still refuses until they are handed over or cancelled.
+Returns: `data` = `{ history[{ table, label, count }], setup[{ table, label, count }], lastBillAt, openPreorders[], canClose, canDelete, mustDeactivate }`. `history` covers sales, stock, days and money (these must stay). `setup` covers people, tables and floors (these can be moved). `openPreorders` are the numbers of the pre-orders still to be baked and handed over there (booked, in production or ready), soonest due first: while there are any, `canClose` and `canDelete` are false, and closing (`PUT` with `status: "inactive"`) or deleting the outlet is refused. Closing and deleting hold the outlet's row while they check, as booking a pre-order there does, so the two never both pass.
 Errors: 404 not found.
 
 #### `POST /api/outlets`

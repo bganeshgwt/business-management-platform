@@ -103,6 +103,10 @@ router.delete(
 // Stock in money terms: a stock report, not takings.
 router.get("/consumption", requireFeature("stock_recipes"), authorize("reports.view"), reportController.consumption);
 
+// The kitchen's stations over a range of days: tickets, dishes and times, no
+// takings. The kitchen display records the times it reads.
+router.get("/kitchen-stations", requireFeature("kitchen_display"), authorize("reports.view"), reportController.kitchenStations);
+
 // Where the money went: for whoever may see expenses.
 router.get("/expenses", authorize("reports.view"), authorize("expenses.view"), reportController.expenses);
 

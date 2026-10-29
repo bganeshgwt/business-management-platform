@@ -64,6 +64,7 @@ const PHRASES = {
   "fire:order": "Sent a course to the kitchen",
   "accept:table_request": "Accepted an order from a table's QR",
   "reject:table_request": "Turned down an order from a table's QR",
+  "ask_bill:table_request": "Asked the counter for a table's bill",
   // Bookings and the waiting list.
   "confirm:reservation": "Confirmed a booking",
   "seat:reservation": "Seated a booking",
@@ -106,6 +107,7 @@ const PHRASES = {
   // Guests.
   "view_contact:customer": "Looked at a guest's phone or email",
   "update_business:customer": "Changed a guest's company or GSTIN",
+  "pan:customer": "Changed a guest's PAN",
   "erase:customer": "Erased a guest's personal details",
   "merge:customer": "Merged two guest records",
   "not_duplicate:customer": "Marked two guests as different people",

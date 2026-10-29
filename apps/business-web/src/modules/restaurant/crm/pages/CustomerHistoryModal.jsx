@@ -191,6 +191,11 @@ export default function CustomerHistoryModal({ customer, currency = "₹", canMa
                     {guest.gstin ? ` · GSTIN ${guest.gstin}${guest.gstState ? ` (${guest.gstState})` : ""}` : ""}
                   </p>
                 )}
+                {(guest.panMasked || guest.panDeclaration) && (
+                  <p className="small muted">
+                    {guest.panMasked ? `PAN ${guest.pan || guest.panMasked}` : "Declared they have no PAN (Form 97)"}
+                  </p>
+                )}
                 <p className="small muted">
                   {guest.marketingOptIn
                     ? `Agreed to receive offers${guest.marketingOptInAt ? ` on ${shortDate(guest.marketingOptInAt)}` : ""}`

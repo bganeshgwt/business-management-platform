@@ -7,7 +7,10 @@ import { fixture, RESTAURANT, signIn } from "../../../../e2e/fixture.mjs";
 // cash the bill, and the caterer it names, can take today; it refuses cash of
 // ₹2,00,000 or more with the law's own sentence; it takes the most cash the
 // cashier chooses under the limit, with the PAN, and the rest by UPI; and the
-// printed bill carries the PAN.
+// printed bill carries the PAN. A regular whose guest book keeps their PAN
+// (masked for the cashier) has it go on their banquet bill with its first
+// payment, typed by nobody; a walk-in bill raised with the same PAN shows the
+// cash that PAN can still take today.
 //
 // Signs in as the test restaurant's cashier (e2e/test-data.mjs). The banquet
 // dish and the caterer are in the test data; the spec places a takeaway of
@@ -127,6 +130,66 @@ test("a banquet bill: the PAN asked, cash refused at the limit, the rest by UPI"
     await dialog.getByRole("button", { name: /Print bill|Reprint/ }).click();
   }
   await expect.poll(printed, { timeout: 30_000 }).toMatch(new RegExp(`Buyer PAN\\s*${RESTAURANT.banquet.pan}`));
+
+  expect(problems).toEqual([]);
+});
+
+test("a regular's PAN from the guest book goes on their banquet bill; a walk-in bill under one PAN shows that PAN's cash", async ({ page }, testInfo) => {
+  test.setTimeout(180_000);
+  const problems = [];
+  page.on("pageerror", (error) => problems.push(error.message));
+  page.on("response", (response) => {
+    if (response.status() >= 500 && response.url().includes("/api/")) problems.push(`${response.status()} ${response.url()}`);
+  });
+
+  await signIn(page, "CASHIER");
+  await expect(page.locator("main.content-scroll")).toBeVisible({ timeout: 60_000 });
+  const { banquet } = fixture().restaurant;
+  const { regular } = RESTAURANT.banquet;
+  const masked = `••••••${regular.pan.slice(-4)}`;
+
+  // The guest book keeps the regular's PAN: a cashier sees its last four only.
+  const [guest] = (await api(page, "GET", `/crm/customers?search=${encodeURIComponent(regular.name)}`)).data;
+  expect([guest.pan, guest.panMasked]).toEqual([null, masked]);
+
+  // Their banquet: the bill names the PAN from the guest book, and the
+  // cashier takes the payment without typing it.
+  const placed = await api(page, "POST", "/orders", {
+    orderType: "takeaway",
+    customerId: banquet.regularId,
+    items: [{ productId: banquet.dishId, quantity: RESTAURANT.banquet.thalis }],
+  });
+  expect(placed.status, placed.message).toBe(201);
+  await page.goto(`/pos?order=${placed.data.id}&bill=1`);
+  const dialog = page.locator(".modal").filter({ has: page.locator(".bill-modal") });
+  await expect(dialog.locator(".bill-pay-button")).toBeVisible({ timeout: 90_000 });
+  await expect(dialog.getByText(`The guest's PAN from the guest book, ${masked}, goes on the bill with this payment.`)).toBeVisible();
+  await expect(dialog.getByLabel("Buyer's PAN")).toHaveCount(0);
+  await expect(dialog.getByText("Buyer's PAN needed")).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("pan-from-guest-book.png") });
+  const form = dialog.locator(".bill-pay");
+  await form.getByRole("radio", { name: "UPI" }).click();
+  await form.getByLabel("Reference").fill("UTR-REGULAR-1");
+  await dialog.locator(".bill-pay-button").click();
+  const [bill] = (await api(page, "GET", `/bills?orderId=${placed.data.id}`)).data.items;
+  await expect(dialog.getByText(`${bill.billNumber} settled`)).toBeVisible({ timeout: 30_000 });
+  await expect(dialog.getByText(`PAN · ${regular.pan}`)).toBeVisible();
+  expect((await api(page, "GET", `/bills/${bill.id}`)).data.buyerPan).toBe(regular.pan);
+
+  // A walk-in banquet with the same PAN typed when the bill is raised: the
+  // cash note counts that PAN's cash today, the regular's included.
+  const walkIn = await api(page, "POST", "/orders", { orderType: "takeaway", items: [{ productId: banquet.dishId, quantity: RESTAURANT.banquet.thalis }] });
+  expect(walkIn.status, walkIn.message).toBe(201);
+  const raised = await api(page, "POST", "/bills", { orderId: walkIn.data.id, buyer: { pan: regular.pan } });
+  expect(raised.status, raised.message).toBe(201);
+  await page.goto(`/pos?order=${walkIn.data.id}&bill=1`);
+  await expect(dialog.locator(".bill-pay-button")).toBeVisible({ timeout: 90_000 });
+  const cashNote = dialog.getByRole("note", { name: "Cash still allowed" });
+  await expect(cashNote).toContainText(`Under the buyer's PAN ending ${regular.pan.slice(-4)} today: ${rupees(199999.99)} more`);
+  await page.screenshot({ path: testInfo.outputPath("walk-in-pan-cash.png") });
+  // Settled by UPI, so no other spec meets an unpaid bill.
+  const paid = await api(page, "POST", `/bills/${raised.data.id}/payments`, { paymentMethod: "upi", amount: raised.data.totalAmount, transactionRef: "UTR-WALKIN-1" });
+  expect(paid.status, paid.message).toBe(201);
 
   expect(problems).toEqual([]);
 });

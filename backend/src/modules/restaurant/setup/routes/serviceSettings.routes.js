@@ -14,6 +14,9 @@ router.get("/", authorize("orders.view"), controller.get);
 router.put("/tokens", authorize("orders.manage"), controller.updateTokens);
 // The kinds of order the POS takes and the one it starts on.
 router.put("/pos", authorize("orders.manage"), controller.updatePos);
+// The courses' names, which the captain app sends dishes under and the KOT
+// prints: how the floor runs.
+router.put("/courses", authorize("orders.manage"), controller.updateCourses);
 // The web address table QR codes open: part of setting up the tables.
 router.put("/guest-web-address", authorize("tables.manage"), controller.updateWebAddress);
 // The restaurant's own online ordering page: one link per selling

@@ -1402,6 +1402,7 @@ function TicketCard({ ticket, now, settings, fresh, busy, canManage, siblings, o
           </span>
         )}
         {ticket.round > 1 && <span className="kot-flag">Round {ticket.round}</span>}
+        {ticket.courseName && <span className="kot-flag is-course">{ticket.courseName}</span>}
         {cookedIn !== null && (
           <span className="kot-flag is-good">Cooked in {Math.max(1, Math.round(cookedIn / 60000))} min</span>
         )}
@@ -1432,7 +1433,9 @@ function TicketCard({ ticket, now, settings, fresh, busy, canManage, siblings, o
       <ul className="kot-lines">
         {ticket.items.map((item) => {
           const gone = item.liveQuantity <= 0;
-          const tappable = canTap && !gone;
+          // Served from the floor on its own: it has gone out, and stays done.
+          const served = Boolean(item.servedAt) && !gone;
+          const tappable = canTap && !gone && !served;
           // The kitchen's own names, as the kitchen settings choose.
           const names = itemNames(item, ticket.nameMode);
 
@@ -1460,6 +1463,11 @@ function TicketCard({ ticket, now, settings, fresh, busy, canManage, siblings, o
                 )}
                 {item.notes && <span className="kot-note">{item.notes}</span>}
                 {gone && <span className="kot-void-tag">Cancelled</span>}
+                {served && (
+                  <span className="kot-served-tag">
+                    Served from the floor{item.servedByName ? ` by ${item.servedByName}` : ""}
+                  </span>
+                )}
                 {!gone && item.cancelledQuantity > 0 && (
                   <span className="kot-void-tag">{qty(item.cancelledQuantity)} cancelled</span>
                 )}
@@ -1472,7 +1480,7 @@ function TicketCard({ ticket, now, settings, fresh, busy, canManage, siblings, o
             </>
           );
 
-          const className = `kot-line ${item.isDone && !gone ? "is-done" : ""} ${gone ? "is-gone" : ""}`;
+          const className = `kot-line ${item.isDone && !gone ? "is-done" : ""} ${gone ? "is-gone" : ""} ${served ? "is-served" : ""}`;
 
           return (
             <li key={item.id}>

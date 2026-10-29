@@ -7,7 +7,9 @@ import ReadyTicket from "./ReadyTicket";
 
 // Food the kitchen has marked ready for the captain's tables, the oldest at
 // the pass first, each ticket served with one tap (the kitchen display's own
-// Served: the ticket leaves the pass and its dishes are served on the order).
+// Served: the ticket leaves the pass and its dishes are served on the order),
+// and the dishes it ticked done on a ticket still cooking, each served on its
+// own.
 export default function CaptainReadyPage() {
   const floor = useFloor();
   const serverNow = useServerNow(floor.offset, 1000);
@@ -57,9 +59,10 @@ export default function CaptainReadyPage() {
               now={serverNow}
               passMinutes={floor.pass.passMinutes}
               canServe={floor.can.serve}
-              busy={Boolean(serving.busy[entry.id])}
+              busy={serving.busy}
               error={serving.errors[entry.id]}
               onServe={serving.serve}
+              onServeDish={serving.serveDish}
             />
           ))}
         </div>

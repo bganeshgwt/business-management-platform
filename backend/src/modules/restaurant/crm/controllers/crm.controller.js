@@ -4,6 +4,7 @@ const v = require("../../../../utils/validate");
 const AppError = require("../../../../utils/AppError");
 const { readMobile } = require("../../../../utils/phone");
 const { readGstin } = require("../../../../utils/gstin");
+const { readPan } = require("../../billing/services/cashAndPan");
 const consents = require("../../../personal-data/services/consents");
 const personalData = require("../../../personal-data/services/personalDataRestaurant");
 
@@ -144,6 +145,17 @@ const readCustomerBody = (body = {}, today) => {
     data.allergies = v.optionalString(body.allergies, "Allergies", 300);
   }
 
+  // The guest's PAN, checked as a bill's is, or that they declared they have
+  // none (Form 97): one or the other. Read only when sent.
+  if (has(body, "pan") || has(body, "panDeclaration")) {
+    data.pan = readPan(body.pan, "PAN");
+    data.panDeclaration = v.requiredBoolean(body.panDeclaration, "PAN declaration", false);
+
+    if (data.pan && data.panDeclaration) {
+      throw new AppError(400, "Give the guest's PAN or record that they declared they have none, not both");
+    }
+  }
+
   if (has(body, "marketingOptIn")) {
     data.marketingOptIn = v.requiredBoolean(body.marketingOptIn, "Offers consent", false);
   }
@@ -255,12 +267,14 @@ const exportGuestBook = async (req, res) => {
 // A consent given or withdrawn on the form is logged with the consent itself,
 // in the same transaction (modules/personal-data).
 const createCustomer = async (req, res) => {
-  const customer = await crmService.createCustomer(
-    req.user.restaurantId,
-    readCustomerBody(req.body, await crmService.todayFor(req.user.restaurantId)),
-    req.user.id,
-    { userName: req.user.name }
-  );
+  const data = readCustomerBody(req.body, await crmService.todayFor(req.user.restaurantId));
+  const customer = await crmService.createCustomer(req.user.restaurantId, data, req.user.id, { userName: req.user.name });
+  // Every change to a guest's PAN is in the activity log, masked.
+  const panChanged = crmService.panChangeOf({}, { pan: data.pan, pan_declaration: data.panDeclaration });
+
+  if (panChanged) {
+    logAction(req, "pan", "customer", { id: customer.id, label: customer.name, details: { changes: panChanged } });
+  }
 
   res.status(201).json({ success: true, message: "Customer created", data: customer });
 };
@@ -268,7 +282,7 @@ const createCustomer = async (req, res) => {
 const updateCustomer = async (req, res) => {
   const id = v.requiredId(req.params.id, "Customer id");
   const reveal = canSeeContacts(req);
-  const { before, after } = await crmService.editCustomer(
+  const { before, after, panChange } = await crmService.editCustomer(
     req.user.restaurantId,
     id,
     readCustomerBody(req.body, await crmService.todayFor(req.user.restaurantId)),
@@ -286,6 +300,10 @@ const updateCustomer = async (req, res) => {
         gstin: [before.gstin, after.gstin],
       },
     });
+  }
+
+  if (panChange) {
+    logAction(req, "pan", "customer", { id, label: after.name, details: { changes: panChange } });
   }
 
   res.json({ success: true, message: "Customer updated", data: after });

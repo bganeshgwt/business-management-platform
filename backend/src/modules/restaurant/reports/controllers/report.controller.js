@@ -124,6 +124,11 @@ const expenses = rangeReport((restaurantId, range, outletId) =>
   reportService.expenseReport(restaurantId, range, outletId)
 );
 
+// Each kitchen station's tickets, dishes and times over the range.
+const kitchenStations = rangeReport((restaurantId, range, outletId) =>
+  reportService.kitchenStationReport(restaurantId, range, outletId)
+);
+
 // Supplier bills, returns and payments are the purchasing module's money:
 // they go into the day book only for someone who may see purchasing, the way
 // salaries go in only for someone who may see salaries. Left out, the screen
@@ -295,4 +300,5 @@ module.exports = {
   profitability,
   kitchenLive,
   tradingDay,
+  kitchenStations,
 };

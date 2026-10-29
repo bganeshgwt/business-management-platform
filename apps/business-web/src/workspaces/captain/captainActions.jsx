@@ -4,10 +4,11 @@ import { toast } from "../../services/toast";
 import {
   acceptTableRequest,
   acknowledgeTableRequest,
+  askTableBill,
   completeTableRequest,
   rejectTableRequest,
 } from "../../modules/restaurant/orders/services/tableRequest.service";
-import { setTicketStatus } from "../../modules/restaurant/kitchen/services/kitchen.service";
+import { serveTicketItem, setTicketStatus } from "../../modules/restaurant/kitchen/services/kitchen.service";
 import { RejectDialog } from "../../modules/restaurant/orders/pages/TableRequestsPage";
 
 // What the captain app does about what is waiting at a table, through the
@@ -89,24 +90,56 @@ export function useRequestActions(floor) {
   };
 }
 
+// Serving from the pass: a whole ticket the kitchen marked ready, or one dish
+// it ticked done on a ticket still cooking (the last one serves the ticket).
+// `busy` is keyed by the ticket's id, or "ticket.dish" for one dish.
 export function useServe(floor) {
   const [busy, setBusy] = useState({});
   const [errors, setErrors] = useState({});
 
-  const serve = async (ticket) => {
-    setBusy((current) => ({ ...current, [ticket.id]: true }));
+  const run = async (ticket, key, call) => {
+    setBusy((current) => ({ ...current, [key]: true }));
     setErrors((current) => without(current, ticket.id));
 
     try {
-      const response = await setTicketStatus(ticket.id, "served");
+      const response = await call();
       toast.success(`${response.message}${ticket.tableNo ? ` · table ${ticket.tableNo}` : ""}`);
     } catch (err) {
       setErrors((current) => ({ ...current, [ticket.id]: getErrorMessage(err) }));
     } finally {
-      setBusy((current) => without(current, ticket.id));
+      setBusy((current) => without(current, key));
       await Promise.all([floor.reload.pass(), floor.reload.orders()]);
     }
   };
 
-  return { busy, errors, serve };
+  return {
+    busy,
+    errors,
+    serve: (ticket) => run(ticket, ticket.id, () => setTicketStatus(ticket.id, "served")),
+    serveDish: (ticket, item) => run(ticket, `${ticket.id}.${item.id}`, () => serveTicketItem(ticket.id, item.id)),
+  };
+}
+
+// Asking the counter for a table's bill: one tap, a key of its own, so a
+// tap sent twice (a dropped connection) is still one request.
+export function useBillAsk(floor) {
+  const [busy, setBusy] = useState(null);
+  const [error, setError] = useState("");
+
+  const ask = async (table) => {
+    setBusy(table.id);
+    setError("");
+
+    try {
+      const response = await askTableBill(table.id, crypto.randomUUID());
+      toast.success(response.message);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setBusy(null);
+      await floor.reload.requests();
+    }
+  };
+
+  return { busy, error, ask };
 }

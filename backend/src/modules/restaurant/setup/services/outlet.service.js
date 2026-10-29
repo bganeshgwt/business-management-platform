@@ -42,9 +42,9 @@ const listWords = (items) => andList(items.map((item) => `${item.count.toLocaleS
 // outlet's bake list and handed over there. A closed outlet's list is on no
 // till, and a deleted outlet's pre-orders would fall to the main counter's,
 // so the outlet stays until they are handed over or cancelled.
-// doing: "closed" or "deleted".
-const refuseOpenPreorders = async (restaurantId, outlet, doing) => {
-  const numbers = await outletRepository.openPreorders(restaurantId, outlet.id);
+// doing: "closed" or "deleted". `db`: the transaction holding the outlet's row.
+const refuseOpenPreorders = async (restaurantId, outlet, doing, db) => {
+  const numbers = await outletRepository.openPreorders(restaurantId, outlet.id, db);
 
   if (numbers.length === 0) {
     return;
@@ -96,18 +96,19 @@ const update = async (restaurantId, id, data, userId) => {
   requireRestaurantId(restaurantId);
   await checkPrefix(restaurantId, data.invoicePrefix);
 
-  // Closing an open outlet (setting it inactive) waits for its open
-  // pre-orders. One closed already is saved as usual.
-  if (data.status === "inactive") {
-    const outlet = await outletRepository.findById(restaurantId, id);
-
-    if (outlet && outlet.status === "active") {
-      await refuseOpenPreorders(restaurantId, outlet, "closed");
-    }
-  }
-
   try {
-    const updated = await outletRepository.update(restaurantId, id, data, userId);
+    // Closing an open outlet (setting it inactive) waits for its open
+    // pre-orders. One closed already is saved as usual. The check and the
+    // save hold the outlet's row, so a pre-order booked there at the same
+    // moment either comes first (and the close is refused) or waits for the
+    // close (and is refused itself).
+    const updated = await outletRepository.withOutletLocked(restaurantId, id, async (db, outlet) => {
+      if (data.status === "inactive" && outlet && outlet.status === "active") {
+        await refuseOpenPreorders(restaurantId, outlet, "closed", db);
+      }
+
+      return outletRepository.update(restaurantId, id, data, userId, db);
+    });
 
     if (!updated) {
       throw new AppError(404, "Outlet not found");
@@ -128,11 +129,19 @@ const update = async (restaurantId, id, data, userId) => {
 const usage = async (restaurantId, id) => {
   await getById(restaurantId, id);
 
-  const found = await outletRepository.usage(restaurantId, id);
+  const [found, preorders] = await Promise.all([
+    outletRepository.usage(restaurantId, id),
+    outletRepository.openPreorders(restaurantId, id),
+  ]);
 
   return {
     ...found,
-    canDelete: found.history.length === 0 && found.setup.length === 0,
+    // The numbers of the open pre-orders still to be baked and handed over
+    // there, soonest due first: until they are handed over or cancelled, the
+    // outlet can be neither closed nor deleted.
+    openPreorders: preorders,
+    canClose: preorders.length === 0,
+    canDelete: found.history.length === 0 && found.setup.length === 0 && preorders.length === 0,
     // Anything already sold, bought or counted there has to stay for the
     // accounts; closing the outlet is the way to stop using it.
     mustDeactivate: found.history.length > 0,
@@ -154,30 +163,38 @@ const remove = async (restaurantId, id) => {
     throw new AppError(404, "Outlet not found");
   }
 
-  await refuseOpenPreorders(restaurantId, outlet, "deleted");
-
-  const found = await outletRepository.usage(restaurantId, id);
-
-  if (found.history.length > 0) {
-    throw new AppError(
-      409,
-      `"${outlet.name}" has ${listWords(found.history)} on record, which must stay for your accounts, so it cannot be deleted. Set it to Inactive instead: it stops taking orders and leaves the outlet list.`,
-      { reason: "outlet_has_history", history: found.history }
-    );
-  }
-
-  if (found.setup.length > 0) {
-    throw new AppError(
-      409,
-      `"${outlet.name}" still has ${listWords(found.setup)} assigned to it. Move them to another outlet first, or set the outlet to Inactive.`,
-      { reason: "outlet_in_use", setup: found.setup }
-    );
-  }
-
   let removed;
 
   try {
-    removed = await outletRepository.remove(restaurantId, id);
+    // The checks and the delete hold the outlet's row, as closing it does:
+    // a pre-order booked there at the same moment cannot slip in between.
+    removed = await outletRepository.withOutletLocked(restaurantId, id, async (db, current) => {
+      if (!current) {
+        return null;
+      }
+
+      await refuseOpenPreorders(restaurantId, outlet, "deleted", db);
+
+      const found = await outletRepository.usage(restaurantId, id, db);
+
+      if (found.history.length > 0) {
+        throw new AppError(
+          409,
+          `"${outlet.name}" has ${listWords(found.history)} on record, which must stay for your accounts, so it cannot be deleted. Set it to Inactive instead: it stops taking orders and leaves the outlet list.`,
+          { reason: "outlet_has_history", history: found.history }
+        );
+      }
+
+      if (found.setup.length > 0) {
+        throw new AppError(
+          409,
+          `"${outlet.name}" still has ${listWords(found.setup)} assigned to it. Move them to another outlet first, or set the outlet to Inactive.`,
+          { reason: "outlet_in_use", setup: found.setup }
+        );
+      }
+
+      return outletRepository.remove(restaurantId, id, db);
+    });
   } catch (error) {
     // Something recorded there that the check above does not know about yet
     // (a module added later): still a sentence, never "Internal server error".

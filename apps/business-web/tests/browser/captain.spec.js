@@ -5,11 +5,14 @@ import { fixture, RESTAURANT, signIn } from "../../../../e2e/fixture.mjs";
 // The captain app (/captain), on phones of 375 × 812 and 412 × 915: a captain
 // sees only their own section (the garden floor, theirs today: Tables & QR →
 // Captain sections); takes an order at a table with a size, an add-on and
-// notes, a later course held until fired, and it reaches the kitchen display;
-// answers a guest's QR call; serves food the kitchen marked ready; and, without
-// the billing permission, leaves the bill to the counter and prints it once it
-// is raised, while a cashier on the same app raises it and takes the payment
-// in the POS's own bill window.
+// notes, the starters sent now and the mains held until fired, and it reaches
+// the kitchen display with each course's name; answers a guest's QR call;
+// serves a dish the kitchen ticked done while the rest cooks, then the rest
+// once ready, and the kitchen display shows the dish served from the floor;
+// and, without the billing permission, asks the counter for the bill from the
+// table's sheet and prints it once it is raised, while a cashier on the same
+// app sees the request as the captain's, raises the bill and takes the
+// payment in the POS's own bill window.
 //
 // Every phone and screen here is live (its safety net set to an hour with
 // rmp_live_poll_ms), so each change must arrive by itself within seconds. What
@@ -137,9 +140,14 @@ test("a captain sees only their section and takes an order at the table that rea
     await picker.getByRole("button", { name: "Add to order", exact: true }).click();
     await expect(picker).toHaveCount(0);
 
-    // The dal as a later course: held on the order until fired.
-    await page.getByRole("radio", { name: "Course 2 later", exact: true }).click();
-    await expect(page.getByText("Dishes added now wait on the order until you press Fire course 2.")).toBeVisible();
+    // Courses by name (Service settings › Courses): the biryani went as
+    // Starters, sent now; the first course could be held too.
+    await expect(page.getByRole("radio", { name: "Starters", exact: true })).toHaveAttribute("aria-checked", "true");
+    await expect(page.getByText("Dishes added now go to the kitchen as Starters when the order is sent.")).toBeVisible();
+    await expect(page.getByRole("checkbox", { name: "Hold until I fire it" })).not.toBeChecked();
+    // The dal as the mains: held on the order until fired.
+    await page.getByRole("radio", { name: "Mains", exact: true }).click();
+    await expect(page.getByText("Dishes added now wait on the order until you press Fire Mains.")).toBeVisible();
     await search.fill(dal.name);
     await page.locator(".pos-dish-button").filter({ hasText: dal.name }).click();
     await noSidewaysScroll(page);
@@ -150,7 +158,7 @@ test("a captain sees only their section and takes an order at the table that rea
     const order = page.getByRole("dialog", { name: "The order" });
     await order.getByLabel("Guests").fill("2");
     const dalLine = order.locator(".cart-line").filter({ hasText: dal.name });
-    await expect(dalLine).toContainText("Course 2 · held");
+    await expect(dalLine).toContainText("Mains · held");
     await dalLine.getByRole("button", { name: "Add a note", exact: true }).click();
     const note = page.getByRole("dialog", { name: `Note for ${dal.name}` });
     await note.getByLabel("Note for the kitchen").fill("No cream");
@@ -186,16 +194,19 @@ test("a captain sees only their section and takes an order at the table that rea
     await expect(biryaniTicket).toContainText(half.name);
     await expect(biryaniTicket).toContainText(section.dish.addOn.name);
     await expect(biryaniTicket).toContainText("Less spicy");
+    await expect(biryaniTicket.locator(".kot-flag.is-course")).toHaveText("Starters");
     await expect(tickets.filter({ hasText: dal.name })).toHaveCount(0);
 
-    // Course 2 fired from the order: the dal reaches the kitchen with its note.
+    // The mains fired from the order: the dal reaches the kitchen with its
+    // note, under its course's name.
     await tile(page, g1.tableNo).click();
     await page.getByRole("dialog", { name: `Table ${g1.tableNo}` }).getByRole("button", { name: "Open order", exact: true }).click();
     await page.getByRole("button", { name: /View order/ }).click();
-    await page.getByRole("dialog", { name: "The order" }).getByRole("button", { name: "Fire course 2", exact: true }).click();
+    await page.getByRole("dialog", { name: "The order" }).getByRole("button", { name: "Fire Mains", exact: true }).click();
     const dalTicket = tickets.filter({ hasText: dal.name });
     await expect(dalTicket).toHaveCount(1, QUICKLY);
     await expect(dalTicket).toContainText("No cream");
+    await expect(dalTicket.locator(".kot-flag.is-course")).toHaveText("Mains");
     expect(problems.flat()).toEqual([]);
   } finally {
     // The order goes again, so no other spec meets it on the floor.
@@ -214,7 +225,7 @@ test("calls and ready food reach the captain by themselves; the bill is the coun
   test.setTimeout(360_000);
   const { captain: section, products, tables } = fixture().restaurant;
   const [, g2, g3] = section.tables;
-  const [dish] = products;
+  const [dish, side] = products;
   const outside = tables.find((table) => table.tableNo === "1");
   const captainPhone = await device(browser, LARGE);
   const cashierPhone = await device(browser, LARGE);
@@ -232,9 +243,10 @@ test("calls and ready food reach the captain by themselves; the bill is the coun
     await page.getByRole("button", { name: "Alerts off", exact: true }).click();
     await expect(page.getByRole("button", { name: "Alerts on", exact: true })).toHaveAttribute("aria-pressed", "true");
 
-    // Guests at G3, served by the captain: an order with the kitchen.
+    // Guests at G3, served by the captain: an order of two dishes with the kitchen.
     const order = await api(page, "POST", "/orders", {
-      orderType: "dine_in", tableId: g3.id, guestCount: 3, source: "captain", items: [{ productId: dish.id, quantity: 1 }],
+      orderType: "dine_in", tableId: g3.id, guestCount: 3, source: "captain",
+      items: [{ productId: dish.id, quantity: 1 }, { productId: side.id, quantity: 1 }],
     }, 201);
     await expect(tile(page, g3.tableNo)).toContainText("3 guests", QUICKLY);
     // A captain sees no takings: no amount on the table.
@@ -274,34 +286,66 @@ test("calls and ready food reach the captain by themselves; the bill is the coun
     await expect(waterCall).toHaveCount(0);
     await page.getByRole("radio", { name: /^My tables/ }).click();
 
-    // The kitchen marks G3's food ready: the Ready tab says so by itself.
+    // The kitchen ticks G3's first dish done, the other still cooking: the
+    // Ready tab says so by itself, and the dish is served on its own.
     const [ticket] = await api(kitchen, "GET", `/kitchen/orders/${order.id}/kots`);
-    await api(kitchen, "PATCH", `/kitchen/kots/${ticket.id}/status`, { status: "ready" });
+    const [first, second] = ticket.items;
+    await api(kitchen, "PATCH", `/kitchen/kots/${ticket.id}/items/${first.id}`, { done: true });
     const ready = page.getByRole("navigation", { name: "Captain app" }).getByRole("link", { name: /^Ready/ });
     await expect(ready).toHaveAccessibleName("Ready · 1 waiting", QUICKLY);
     await ready.click();
     const atPass = page.getByRole("article", { name: `Food ready for table ${g3.tableNo}, ${ticket.kotNo}` });
     await expect(atPass).toContainText(dish.name);
+    await expect(atPass).toContainText(`Still cooking: 1 × ${side.name}`);
+    await page.screenshot({ path: testInfo.outputPath("ready-dish-412.png") });
+    await atPass.getByRole("button", { name: `Served: ${dish.name}, table ${g3.tableNo}`, exact: true }).click();
+    await expect(atPass).toHaveCount(0, QUICKLY);
+    let kots = await api(page, "GET", `/kitchen/orders/${order.id}/kots`);
+    expect(kots[0].status).toBe("cooking");
+    expect(kots[0].items.find((item) => item.id === first.id).servedByName).toBe("Suresh Nair");
+    // The kitchen display shows the dish served from the floor.
+    await kitchen.goto(`${fixture().urls.staff}/kitchen`);
+    const onBoard = kitchen.locator("article").filter({ hasText: ticket.kotNo });
+    await expect(onBoard.locator(".kot-served-tag")).toHaveText("Served from the floor by Suresh Nair", { timeout: 30_000 });
+
+    // The rest is ready: the whole ticket is served with one tap.
+    await api(kitchen, "PATCH", `/kitchen/kots/${ticket.id}/items/${second.id}`, { done: true });
+    await expect(atPass).toHaveCount(1, QUICKLY);
+    await expect(atPass).toContainText(side.name);
+    await expect(atPass).not.toContainText(dish.name);
     await page.screenshot({ path: testInfo.outputPath("ready-412.png") });
     await atPass.getByRole("button", { name: "Served", exact: true }).click();
     await expect(atPass).toHaveCount(0, QUICKLY);
-    const served = (await api(page, "GET", `/kitchen/orders/${order.id}/kots`)).find((row) => row.id === ticket.id);
+    kots = await api(page, "GET", `/kitchen/orders/${order.id}/kots`);
+    const served = kots.find((row) => row.id === ticket.id);
     expect(served.status).toBe("served");
     expect(served.servedByName).toBe("Suresh Nair");
 
-    // The bill: the captain has no billing permission, so the counter raises it.
+    // The bill: the captain has no billing permission, so asks the counter
+    // for it in one tap, from the table's sheet.
     await page.getByRole("navigation", { name: "Captain app" }).getByRole("link", { name: /^Tables/ }).click();
     await tile(page, g3.tableNo).click();
     let sheet = page.getByRole("dialog", { name: `Table ${g3.tableNo}` });
     await expect(sheet.getByRole("button", { name: "Open order", exact: true })).toBeVisible();
     await expect(sheet.getByRole("button", { name: "Bill", exact: true })).toHaveCount(0);
-    await expect(sheet).toContainText("The counter raises the bill when the guests ask for it.");
+    await sheet.getByRole("button", { name: "Ask the counter for the bill", exact: true }).click();
+    await expect(sheet).toContainText("The counter has the bill request, asked by you. It raises the bill.", QUICKLY);
+    await expect(sheet.getByRole("button", { name: "Ask the counter for the bill", exact: true })).toHaveCount(0);
+    await expect(tile(page, g3.tableNo)).toContainText("Wants the bill");
+    await page.screenshot({ path: testInfo.outputPath("bill-asked-412.png") });
     await page.keyboard.press("Escape");
     await expect(sheet).toHaveCount(0);
 
-    // A cashier on the same app (every table: no section of theirs) raises
-    // it: the POS's own bill window, with its payment form.
+    // A cashier on the same app (every table: no section of theirs) sees the
+    // request as the captain's, closes it and raises the bill: the POS's own
+    // bill window, with its payment form.
     await openCaptainApp(cashier, "CASHIER", "Tables");
+    await cashier.getByRole("navigation", { name: "Captain app" }).getByRole("link", { name: /^Calls/ }).click();
+    const billCall = cashier.locator("article.tr-call").filter({ hasText: `Table ${g3.tableNo} · Wants the bill` });
+    await expect(billCall).toContainText("Asked by Suresh Nair from the captain app");
+    await billCall.getByRole("button", { name: "Done", exact: true }).click();
+    await expect(billCall).toHaveCount(0);
+    await cashier.getByRole("navigation", { name: "Captain app" }).getByRole("link", { name: /^Tables/ }).click();
     // Someone who may see takings sees the table's running total.
     await expect(tile(cashier, g3.tableNo).locator(".pos-table-money")).toHaveCount(1);
     await tile(cashier, g3.tableNo).click();

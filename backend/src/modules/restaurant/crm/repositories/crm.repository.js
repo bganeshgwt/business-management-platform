@@ -9,7 +9,8 @@ const CUSTOMER_COLUMNS = `id, name, mobile, email, address, date_of_birth, anniv
                           loyalty_points, notes, status, created_at,
                           company_name, gstin, tags, allergies,
                           marketing_opt_in, marketing_opt_in_at,
-                          duplicate_of, erased_at`;
+                          duplicate_of, erased_at,
+                          pan, pan_declaration`;
 
 const customerColumns = (alias) =>
   CUSTOMER_COLUMNS.split(",")
@@ -156,10 +157,10 @@ const createCustomer = async (restaurantId, data, userId, client = pool) => {
     `INSERT INTO customers (restaurant_id, name, mobile, email, address, date_of_birth,
                             notes, status, created_by, updated_by,
                             company_name, gstin, tags, allergies,
-                            anniversary_date)
+                            anniversary_date, pan, pan_declaration)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9,
              $10, $11, COALESCE($12::text[], '{}'), $13,
-             $14)
+             $14, $15, $16)
      RETURNING ${CUSTOMER_COLUMNS}`,
     [
       restaurantId,
@@ -176,6 +177,8 @@ const createCustomer = async (restaurantId, data, userId, client = pool) => {
       data.tags ?? null,
       data.allergies ?? null,
       data.anniversaryDate ?? null,
+      data.pan ?? null,
+      Boolean(data.panDeclaration),
     ]
   );
 
@@ -192,6 +195,9 @@ const OPTIONAL_UPDATES = [
   ["tags", "tags", "::text[]"],
   ["allergies", "allergies"],
   ["anniversaryDate", "anniversary_date", "::date"],
+  // The guest's PAN, or that they declared none (Form 97): one of the two.
+  ["pan", "pan"],
+  ["panDeclaration", "pan_declaration", "::boolean"],
 ];
 
 // client: optional, to write inside the caller's transaction.
@@ -657,6 +663,9 @@ const absorbCustomer = async (client, restaurantId, keep, merged, userId, option
          company_name = CASE WHEN $15::boolean THEN $7 ELSE COALESCE(company_name, $7) END,
          gstin = CASE WHEN $15::boolean THEN $8 ELSE COALESCE(gstin, $8) END,
          allergies = COALESCE(allergies, $9),
+         -- The PAN (or the declaration of none) the kept record lacks.
+         pan = CASE WHEN pan IS NULL AND NOT pan_declaration THEN $17::char(10) ELSE pan END,
+         pan_declaration = CASE WHEN pan IS NULL AND NOT pan_declaration THEN $18::boolean ELSE pan_declaration END,
          tags = ARRAY(SELECT DISTINCT UNNEST(tags || $10::text[]) ORDER BY 1),
          notes = NULLIF($11, ''),
          loyalty_points = loyalty_points + $12,
@@ -682,6 +691,8 @@ const absorbCustomer = async (client, restaurantId, keep, merged, userId, option
       userId,
       Boolean(business),
       merged.anniversary_date ?? null,
+      merged.pan || null,
+      Boolean(merged.pan_declaration),
     ]
   );
 
@@ -862,6 +873,7 @@ const eraseCustomer = async (client, restaurantId, customer, userId) => {
      SET name = 'Erased guest #' || id,
          mobile = NULL, email = NULL, address = NULL, date_of_birth = NULL, anniversary_date = NULL, notes = NULL,
          company_name = NULL, gstin = NULL, tags = '{}', allergies = NULL,
+         pan = NULL, pan_declaration = FALSE,
          duplicate_of = NULL, status = 'inactive',
          erased_at = NOW(), erased_by = $3, updated_by = $3
      WHERE restaurant_id = $1 AND id = $2

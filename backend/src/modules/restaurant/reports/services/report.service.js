@@ -1,6 +1,7 @@
 // Restaurant reports. Each family of reports lives in its own file under
 // report/ (sales, items, GST, staff, stock, day end, dashboard, P&L,
-// expenses, day book, theft; scope.js and common.js are the shared helpers).
+// expenses, day book, theft, kitchen stations; scope.js and common.js are the
+// shared helpers).
 // This file only gathers them, so callers keep one require.
 
 const { tradingDay } = require("./report/scope");
@@ -15,6 +16,7 @@ const { profitAndLoss } = require("./report/profitLoss");
 const { expenseReport } = require("./report/expenses");
 const { dayBook } = require("./report/dayBook");
 const { theftReport } = require("./report/theft");
+const { kitchenStationReport } = require("./report/kitchen");
 
 module.exports = {
   kitchenLive,
@@ -38,4 +40,5 @@ module.exports = {
   expenseReport,
   dayBook,
   theftReport,
+  kitchenStationReport,
 };

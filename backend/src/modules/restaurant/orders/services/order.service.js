@@ -2604,7 +2604,7 @@ const fireCourse = async (restaurantId, orderId, courseNo, userId) => {
   const fired = await orderRepository.fireCourse(restaurantId, orderId, courseNo, userId);
   if (!fired) throw new AppError(409, `Course ${courseNo} is not being held`);
   await syncKitchen(restaurantId, orderId);
-  return getById(restaurantId, orderId);
+  return { ...(await getById(restaurantId, orderId)), firedCourseName: fired.courseName };
 };
 
 module.exports = {

@@ -465,6 +465,13 @@ export function CallCard({ request, now, busy, error, fresh, canOpenPos, onAckno
 
       {request.type === "other" && request.notes && <p className="tr-call-message">“{request.notes}”</p>}
 
+      {/* A waiter asked for the table's bill from the captain app, not the guests. */}
+      {request.askedByName && (
+        <p className="tr-muted-line tr-asked-by">
+          Asked by {myUserId !== null && String(request.askedBy) === String(myUserId) ? "you" : request.askedByName} from the captain app
+        </p>
+      )}
+
       {(request.repeatCount > 0 && open) || request.status === "acknowledged" ? (
         <div className="tr-call-meta">
           {request.repeatCount > 0 && open && (

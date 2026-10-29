@@ -33,6 +33,9 @@ router.get("/board", requireFeature("kitchen_display"), authorize("kds.view"), k
 // whoever may read an order's tickets, as below. Nothing is cut or cleared.
 router.get("/pass", requireFeature("kitchen_display"), authorizeAny("kds.view", "kot.manage"), kitchenController.pass);
 router.post("/sync", requireFeature("kitchen_display"), authorizeAny("kds.view", "kot.manage"), kitchenController.sync);
+// An earlier day's tickets and their times, read only (the dashboard's
+// kitchen panel): the kitchen display's own permission. Nothing is cut.
+router.get("/day", requireFeature("kitchen_display"), authorize("kds.view"), kitchenController.day);
 router.get(
   "/orders/:orderId/kots",
   authorizeAny("kds.view", "kot.manage"),
@@ -48,6 +51,8 @@ router.post("/clear-old", requireFeature("kitchen_display"), authorize("kot.mana
 router.get("/kots/:id", requireFeature("kitchen_display"), authorize("kds.view"), kitchenController.getTicket);
 router.patch("/kots/:id/status", requireFeature("kitchen_display"), authorize("kot.manage"), kitchenController.setStatus);
 router.patch("/kots/:id/items/:itemId", requireFeature("kitchen_display"), authorize("kot.manage"), kitchenController.setItemDone);
+// A dish ticked done, served from the floor on its own: as serving a ticket.
+router.post("/kots/:id/items/:itemId/serve", requireFeature("kitchen_display"), authorize("kot.manage"), kitchenController.serveItem);
 router.post("/kots/:id/recall", requireFeature("kitchen_display"), authorize("kot.manage"), kitchenController.recallTicket);
 router.post("/kots/:id/print", authorizeAny("kds.view", "kot.manage"), kitchenController.recordPrint);
 

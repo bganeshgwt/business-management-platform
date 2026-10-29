@@ -145,11 +145,12 @@ const PANELS = {
     views: [
       { key: "late", label: "Late", title: "Kitchen tickets late", rule: (ctx) => `Tickets not ready ${live(ctx, "kitchen") ? live(ctx, "kitchen").lateMinutes : 20} minutes after they were sent.` },
       { key: "open", label: "All open", title: "Kitchen tickets open", rule: () => "Every ticket new, cooking or ready at the pass." },
+      { key: "day", label: "Earlier day", title: "Kitchen tickets of an earlier day", rule: () => "Read only: every ticket of the day chosen, with its times." },
     ],
     icon: "chef",
     count: (ctx, view) => {
       const kitchen = live(ctx, "kitchen");
-      return kitchen ? count(view === "open" ? kitchen.openCount : kitchen.lateNow) : null;
+      return kitchen && view !== "day" ? count(view === "open" ? kitchen.openCount : kitchen.lateNow) : null;
     },
     href: () => "/kitchen",
     Content: ({ ctx, view }) => <KitchenPanel ctx={ctx} view={view} />,

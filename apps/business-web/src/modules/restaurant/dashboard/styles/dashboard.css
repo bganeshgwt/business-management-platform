@@ -1224,3 +1224,9 @@
   font-weight: 400;
   opacity: 0.7;
 }
+
+/* The kitchen panel's earlier day: the date it reads. */
+.dash-panel-day {
+  max-width: 220px;
+  margin-bottom: 12px;
+}

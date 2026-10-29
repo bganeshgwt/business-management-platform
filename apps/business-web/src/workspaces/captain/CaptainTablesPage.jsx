@@ -5,7 +5,7 @@ import TableGrid from "../../modules/restaurant/orders/pages/TableGrid";
 import { useFloorActions } from "../../modules/restaurant/dashboard/pages/panels/floorActions";
 import { marksOf, ORDER_SCREEN } from "./captainFloor.js";
 import { useFloor } from "./floorContext";
-import { useRequestActions, useServe, useServerNow } from "./captainActions";
+import { useBillAsk, useRequestActions, useServe, useServerNow } from "./captainActions";
 import MineSwitch from "./MineSwitch";
 import TableSheet from "./TableSheet";
 import "../../modules/restaurant/orders/styles/orders.css";
@@ -30,6 +30,7 @@ export default function CaptainTablesPage() {
   );
   const requests = useRequestActions(floor);
   const serving = useServe(floor);
+  const billAsk = useBillAsk(floor);
 
   const close = () => {
     setOpenId(null);
@@ -70,6 +71,7 @@ export default function CaptainTablesPage() {
           actions={actions}
           requests={requests}
           serving={serving}
+          billAsk={billAsk}
           now={serverNow}
           canBill={hasPermission("billing.manage")}
           onClose={close}

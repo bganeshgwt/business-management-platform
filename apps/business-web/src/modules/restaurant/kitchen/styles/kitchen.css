@@ -1003,6 +1003,28 @@ button.kot-line:focus-visible {
   letter-spacing: 0.04em;
 }
 
+/* A dish served from the floor on its own while the rest of the ticket cooks. */
+.kot-served-tag {
+  align-self: flex-start;
+  padding: 0 7px;
+  border-radius: 5px;
+  background: var(--success-bg);
+  color: var(--success-text);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.kot-line.is-served .kot-dish-name {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+/* The course the ticket's dishes were sent under (Starters, Mains). */
+.kot-flag.is-course {
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+
 .kot-check {
   display: inline-flex;
   align-items: center;
