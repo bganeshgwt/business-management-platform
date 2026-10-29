@@ -105,8 +105,11 @@ test('GST rates by date', { timeout: 900000 }, async (t) => {
   // second for "the day of".
   const zones = ZONES.map((zone) => ({ zone, date: today(zone), hour: hourNow(zone) }));
   let clock = null;
-  for (const later of zones.filter((z) => z.hour <= 20)) {
-    const earlier = zones.find((z) => z.date === addDays(later.date, -1) && z.hour <= 21);
+  // Up to 22:00 in both: at least an hour before midnight, against a run of
+  // minutes, and a pair at every hour of the day (with 20:00 and 21:00 there
+  // was none from 09:00 to 10:00 UTC).
+  for (const later of zones.filter((z) => z.hour <= 22)) {
+    const earlier = zones.find((z) => z.date === addDays(later.date, -1) && z.hour <= 22);
     if (earlier) { clock = { before: earlier, after: later }; break; }
   }
   assert.ok(clock, 'two zones a day apart');
