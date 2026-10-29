@@ -1,4 +1,5 @@
-const repo = require('../../core/repositories/business.repository');
+// The database layer, loaded on first use: the readers here load no database.
+const repo = () => require('../../core/repositories/business.repository');
 const v = require('../../../../utils/validate');
 const { attributes } = require('../../core/services/businessModules');
 const c = require('./opticalCommon');
@@ -91,7 +92,7 @@ async function reclassify(db, business, user, current, now, given) {
   const from = opticalOf(current.attributes), to = opticalOf(next);
   if (JSON.stringify(from) === JSON.stringify(to)) return now;
   await db.query('UPDATE catalog_skus SET attributes=$3 WHERE business_id=$1 AND id=$2', [business.id, current.id, JSON.stringify(next)]);
-  await repo.audit(db, business.id, user.id, 'catalog.lens_details_changed', current.id, { label: current.label, from, to });
+  await repo().audit(db, business.id, user.id, 'catalog.lens_details_changed', current.id, { label: current.label, from, to });
   return next;
 }
 

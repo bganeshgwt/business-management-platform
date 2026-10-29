@@ -1,4 +1,5 @@
-const repo = require('../../core/repositories/business.repository');
+// The database layer, loaded on first use: the readers here load no database.
+const repo = () => require('../../core/repositories/business.repository');
 const v = require('../../../../utils/validate');
 const AppError = require('../../../../utils/AppError');
 
@@ -90,7 +91,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const dateWords = (day) => { const [y, m, d] = String(day).slice(0, 10).split('-'); return `${Number(d)} ${MONTHS[Number(m) - 1]} ${y}`; };
 // The business's own date (its time zone), as YYYY-MM-DD.
 async function today(db, business) {
-  return (await repo.one(db, 'SELECT (now() AT TIME ZONE $1)::date::text AS day', [business.timezone || 'Asia/Kolkata'])).day;
+  return (await repo().one(db, 'SELECT (now() AT TIME ZONE $1)::date::text AS day', [business.timezone || 'Asia/Kolkata'])).day;
 }
 // "a, b and c".
 const listWords = (items) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`);
