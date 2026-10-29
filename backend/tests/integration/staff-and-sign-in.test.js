@@ -139,7 +139,9 @@ test("access features: two-step, tips, leave, statutory pay, register, roster, l
   const lastStep = new Map();
   const nextCode = async (typedKey) => {
     const key = typedKey.replace(/\s/g, "");
-    const target = Math.max((lastStep.get(key) ?? -Infinity) + 1, totp.stepAt() - 1);
+    // The current step at the earliest, not the one before: a code of the step
+    // before is refused if the request lands after the next step begins.
+    const target = Math.max((lastStep.get(key) ?? -Infinity) + 1, totp.stepAt());
     while (target > totp.stepAt() + 1) {
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
