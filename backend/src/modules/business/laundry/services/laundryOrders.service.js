@@ -6,6 +6,7 @@ const numbering = require('../../core/services/businessNumbering');
 const paymentMethods = require('../../core/services/businessPaymentMethods.service');
 const c = require('./laundryCommon');
 const money = require('./laundryMoney');
+const pricing = require('./laundryPricing');
 
 // Garment orders (module "laundry", laundries and dry cleaners).
 //
@@ -38,13 +39,7 @@ const MAX_ITEMS = 200;
 const MAX_PROMISED_DAYS = 90;
 const ADVANCE_KINDS = ['cash', 'card', 'upi', 'bank'];
 const MONEY_FIELDS = ['total', 'subtotal', 'tax', 'round_off', 'billed', 'due', 'unbilled', 'advance', 'advance_left', 'balance', 'bill', 'bills', 'paid'];
-const ITEM_MONEY = ['rate', 'base', 'surcharge', 'amount', 'net', 'tax', 'declared_value', 'credited'];
-
-const whole = (value, name, min, max) => {
-  const text = String(value ?? '').trim();
-  if (!/^\d+$/.test(text) || Number(text) < min || Number(text) > max) fail(`${name} must be a whole number from ${min} to ${max}`);
-  return Number(text);
-};
+const ITEM_MONEY = ['rate', 'base', 'surcharge', 'amount', 'net', 'tax', 'declared_value', 'credited', 'package_amount', 'offer_amount', 'discount_amount'];
 
 // --- Lists -----------------------------------------------------------------------------------------
 
@@ -57,21 +52,28 @@ const DUE_SQL = (d) => `(${d}.total
 const FREE_SQL = (k) => `${k}.amount-COALESCE((SELECT sum(p.amount) FROM business_payments p WHERE p.business_id=${k}.business_id AND p.collection_id=${k}.id),0)
   -COALESCE((SELECT sum(f.amount) FROM business_collection_refunds f WHERE f.business_id=${k}.business_id AND f.collection_id=${k}.id),0)`;
 
+// The bills of an order: those of its garments, those a garment's change replaced, and those of garments added.
+const BILLS_OF_SQL = (business, order) => `SELECT document_id FROM laundry_order_items WHERE business_id=${business} AND order_id=${order} AND document_id IS NOT NULL
+  UNION SELECT document_id FROM laundry_item_changes WHERE business_id=${business} AND order_id=${order} AND document_id IS NOT NULL
+  UNION SELECT document_id FROM laundry_order_additions WHERE business_id=${business} AND order_id=${order} AND document_id IS NOT NULL
+  UNION SELECT r.document_id FROM laundry_item_changes ch JOIN business_returns r ON r.business_id=ch.business_id AND r.id=ch.return_id WHERE ch.business_id=${business} AND ch.order_id=${order}`;
+
 // Every order with its garments counted, its status worked out from them, the
 // day's flags (on the business's date) and its money: the bills posted for it,
 // what is still due on them, what is not billed yet, and the advance left.
 const ORDERS_SQL = `SELECT y.*,
-    CASE WHEN y.items=y.cancelled_items THEN 'cancelled' WHEN y.open_items=0 THEN 'delivered' WHEN y.delivered_items>0 THEN 'part_delivered'
+    CASE WHEN y.items=y.cancelled_items THEN 'cancelled' WHEN y.open_items=0 THEN 'delivered' WHEN y.delivered_items>0 OR y.partly_items>0 THEN 'part_delivered'
       WHEN y.ready_items=y.open_items THEN 'ready' WHEN y.ready_items>0 THEN 'part_ready' WHEN y.process_items>0 THEN 'in_process' ELSE 'received' END AS status,
     CASE WHEN y.open_items>0 THEN 'open' ELSE 'closed' END AS stage,
     (y.open_items>y.ready_items AND y.promised_on<y.today) AS overdue,
     (y.open_items>y.ready_items AND y.promised_on=y.today) AS due_today,
     (y.ready_items>0 AND y.open_items=y.ready_items AND y.days_ready>=y.unclaimed_days) AS unclaimed,
+    (y.qc_items>0) AS at_qc,
     GREATEST(0,y.due+y.unbilled-COALESCE(y.advance_left,0)) AS balance
   FROM (
   SELECT o.id,o.order_no,o.location_id,l.name AS location_name,o.contact_id,o.customer_name,o.customer_phone,o.promised_on,o.express,o.bill_at,o.part_delivery,
     o.total,o.created_at,o.updated_at,o.document_id,t.today,COALESCE(ls.unclaimed_days,30) AS unclaimed_days,
-    g.items,g.pieces,g.open_items,g.process_items,g.ready_items,g.delivered_items,g.cancelled_items,g.ready_pieces,g.ready_since,g.racks,g.tags,g.garments,g.unbilled,
+    g.items,g.pieces,g.open_items,g.process_items,g.qc_items,g.packed_items,g.partly_items,g.ready_items,g.delivered_items,g.cancelled_items,g.ready_pieces,g.ready_since,g.racks,g.tags,g.garments,g.unbilled,
     CASE WHEN g.ready_since IS NULL THEN NULL ELSE t.today-(g.ready_since AT TIME ZONE b.timezone)::date END AS days_ready,
     COALESCE(m.billed,0) AS billed,COALESCE(m.due,0) AS due,
     k.amount AS advance,CASE WHEN k.id IS NULL THEN NULL ELSE ${FREE_SQL('k')} END AS advance_left,
@@ -83,8 +85,11 @@ const ORDERS_SQL = `SELECT y.*,
   LEFT JOIN laundry_settings ls ON ls.business_id=o.business_id
   LEFT JOIN business_collections k ON k.business_id=o.business_id AND k.id=o.advance_collection_id
   CROSS JOIN LATERAL (SELECT count(*)::int AS items,COALESCE(sum(i.pieces),0)::int AS pieces,
-      count(*) FILTER (WHERE i.status IN ('received','in_process','ready'))::int AS open_items,
-      count(*) FILTER (WHERE i.status='in_process')::int AS process_items,
+      count(*) FILTER (WHERE i.status IN ${c.OPEN_SQL})::int AS open_items,
+      count(*) FILTER (WHERE i.status IN ('in_process','qc','packed'))::int AS process_items,
+      count(*) FILTER (WHERE i.status='qc')::int AS qc_items,
+      count(*) FILTER (WHERE i.status='packed')::int AS packed_items,
+      count(*) FILTER (WHERE i.status='ready' AND i.pieces_delivered>0)::int AS partly_items,
       count(*) FILTER (WHERE i.status='ready')::int AS ready_items,
       count(*) FILTER (WHERE i.status='delivered')::int AS delivered_items,
       count(*) FILTER (WHERE i.status='cancelled')::int AS cancelled_items,
@@ -93,24 +98,24 @@ const ORDERS_SQL = `SELECT y.*,
       string_agg(DISTINCT i.rack,', ') FILTER (WHERE i.status='ready') AS racks,
       string_agg(i.tag_no,' ' ORDER BY i.seq) AS tags,
       string_agg(DISTINCT i.garment_name,', ') AS garments,
-      COALESCE(sum(i.net+i.tax) FILTER (WHERE i.status IN ('received','in_process','ready') AND i.line_id IS NULL),0) AS unbilled
+      COALESCE(sum(i.net+i.tax) FILTER (WHERE i.status IN ${c.OPEN_SQL} AND i.line_id IS NULL),0) AS unbilled
     FROM laundry_order_items i WHERE i.business_id=o.business_id AND i.order_id=o.id) g
   LEFT JOIN LATERAL (SELECT sum(d.total) AS billed,sum(${DUE_SQL('d')}) AS due FROM business_documents d
-    WHERE d.business_id=o.business_id AND d.id IN (SELECT i.document_id FROM laundry_order_items i WHERE i.business_id=o.business_id AND i.order_id=o.id AND i.document_id IS NOT NULL)) m ON TRUE
+    WHERE d.business_id=o.business_id AND d.id IN (${BILLS_OF_SQL('o.business_id', 'o.id')})) m ON TRUE
   WHERE o.business_id=$1) y`;
 const ORDER_LIST = {
   sql: ORDERS_SQL,
   search: ['order_no', 'customer_name', 'customer_phone', 'tags', 'garments', 'racks'], date: 'created_at',
   filters: { status: 'status', stage: 'stage', location: 'location_id', contact: 'contact_id', overdue: 'overdue', due_today: 'due_today', unclaimed: 'unclaimed',
-    express: 'express', claim_open: 'claim_open', bill_at: 'bill_at' },
+    express: 'express', claim_open: 'claim_open', bill_at: 'bill_at', at_qc: 'at_qc' },
 };
 
 // Every garment with its order and customer, for the search by tag, phone or
 // order number and for the racks.
-const ITEMS_SQL = `SELECT i.id,i.order_id,o.order_no,i.seq,i.tag_no,i.garment_name,i.service_name,i.counted_as,i.colour,i.brand,i.per,i.quantity,i.pieces,i.status,i.rack,
+const ITEMS_SQL = `SELECT i.id,i.order_id,o.order_no,i.seq,i.tag_no,i.garment_name,i.service_name,i.counted_as,i.colour,i.brand,i.per,i.quantity,i.pieces,i.pieces_delivered,i.status,i.rack,
     i.ready_at,i.delivered_at,i.defects,i.risk_note,i.acknowledged,o.customer_name,o.customer_phone,o.contact_id,o.location_id,o.promised_on,o.express,o.created_at,
     CASE WHEN i.status='ready' THEN t.today-(i.ready_at AT TIME ZONE b.timezone)::date END AS days_ready,
-    (i.status IN ('received','in_process','ready')) AS in_shop
+    (i.status IN ${c.OPEN_SQL}) AS in_shop
   FROM laundry_order_items i JOIN laundry_orders o ON o.business_id=i.business_id AND o.id=i.order_id
   JOIN businesses b ON b.id=i.business_id CROSS JOIN LATERAL (SELECT (now() AT TIME ZONE b.timezone)::date AS today) t
   WHERE i.business_id=$1`;
@@ -142,42 +147,15 @@ const listShape = (business, page) => (c.seesMoney(business) ? page : { ...page,
 
 // --- Reading a request -----------------------------------------------------------------------------
 
-function readItem(raw, index) {
-  const name = `Garment ${index + 1}`;
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) fail(`${name} must be an object`);
-  const defects = raw.defects === undefined || raw.defects === null ? [] : v.requiredArray(raw.defects, `${name}: defects`);
-  for (const defect of defects) v.requiredEnum(defect, `${name}: defect`, c.DEFECTS);
-  if (new Set(defects).size !== defects.length) fail(`${name}: each defect is noted once`);
-  const item = {
-    garmentTypeId: id(raw.garmentTypeId, `${name}: garment`), serviceId: id(raw.serviceId, `${name}: service`),
-    // How many (or how many kilos) and the pieces: read with the price, which says whether it is by the kilo.
-    quantity: raw.quantity, pieces: raw.pieces,
-    tagNo: c.readTag(raw.tagNo, `${name}: tag`),
-    colour: c.optionalText(raw.colour, `${name}: colour`, 40), brand: c.optionalText(raw.brand, `${name}: brand`, 60),
-    defects: [...defects].sort(), defectNote: c.optionalText(raw.defectNote, `${name}: note on its defects`, 300),
-    instructions: c.optionalText(raw.instructions, `${name}: instructions`, 300),
-    riskNote: c.optionalText(raw.riskNote, `${name}: what the customer was told about the risk`, 300),
-    acknowledged: v.requiredBoolean(raw.acknowledged, `${name}: acknowledged by the customer`, false),
-    declaredValue: c.given(raw.declaredValue) ? core.decimal(raw.declaredValue, `${name}: value declared by the customer`, 2, 0.01, 100000000) : null,
-  };
-  if (item.acknowledged && !item.defects.length && !item.defectNote && !item.riskNote) {
-    fail(`${name}: the customer acknowledges the defects or the risk noted on a garment: note them, or untick it`);
-  }
-  return item;
-}
-
 // The order as asked: what the preview prices and the intake keeps.
 function readOrder(body) {
-  const items = v.requiredArray(body.items, 'Garments');
-  if (!items.length) fail('Add the garments taken in');
-  if (items.length > MAX_ITEMS) fail(`An order takes at most ${MAX_ITEMS} garments: take in the rest on another order`);
   const contactId = c.given(body.contactId) ? id(body.contactId, 'Customer') : null;
   const newCustomer = body.customer && typeof body.customer === 'object' && !Array.isArray(body.customer)
     ? { kind: 'customer', name: body.customer.name, phone: body.customer.phone, consents: body.customer.consents } : null;
   return {
     locationId: id(body.locationId, 'Location'), contactId, newCustomer,
     express: v.requiredBoolean(body.express, 'Express', false), notes: c.optionalText(body.notes, 'Notes', 500),
-    items: items.map(readItem),
+    ...pricing.readGarments(body, MAX_ITEMS),
   };
 }
 
@@ -191,57 +169,9 @@ async function readAdvance(db, business, value) {
   return { amount, ...await paymentMethods.pick(db, business.id, value, 'Advance paid by', ADVANCE_KINDS), reference: c.optionalText(value.reference, 'Reference', 100) };
 }
 
-// --- Pricing ---------------------------------------------------------------------------------------
-
-// Each garment priced from the price list, as a bill of it would be now: the
-// garment and its service in use, the price for each one or by the kilo, the
-// express surcharge and GST at the service item's rate.
-async function priceOrder(db, business, items, expressPercent) {
-  const settings = await repo.one(db, 'SELECT tax_mode,rounding FROM business_settings WHERE business_id=$1', [business.id]);
-  const taxMode = settings?.tax_mode || 'exclusive';
-  const garments = await repo.all(db, 'SELECT * FROM laundry_garment_types WHERE business_id=$1 AND id=ANY($2::bigint[])', [business.id, [...new Set(items.map((i) => i.garmentTypeId))]]);
-  const services = await repo.all(db, `SELECT ls.*,s.label,s.tax_rate,s.hsn_code,s.internal_use,(s.active AND p.active) AS item_active FROM laundry_services ls
-    JOIN catalog_skus s ON s.business_id=ls.business_id AND s.id=ls.sku_id JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id
-    WHERE ls.business_id=$1 AND ls.id=ANY($2::bigint[])`, [business.id, [...new Set(items.map((i) => i.serviceId))]]);
-  const prices = await repo.all(db, 'SELECT * FROM laundry_prices WHERE business_id=$1 AND garment_type_id=ANY($2::bigint[]) AND service_id=ANY($3::bigint[])',
-    [business.id, garments.map((g) => g.id), services.map((s) => s.id)]);
-  const priced = items.map((item, index) => {
-    const garment = garments.find((g) => Number(g.id) === item.garmentTypeId);
-    const service = services.find((s) => Number(s.id) === item.serviceId);
-    if (!garment) fail('Garment not found', 404);
-    if (!service) fail('Service not found', 404);
-    if (!garment.active) fail(`${garment.name} is switched off on the price list: switch it on to take it in`, 409);
-    if (!service.active) fail(`${service.label} is not offered now: switch it on in the price list`, 409);
-    if (!service.item_active) fail(`${service.label}, the item it is billed as, is switched off in the catalogue`, 409);
-    if (service.internal_use) fail(`${service.label} is kept for use in services only and is not billed`, 409);
-    const row = prices.find((p) => Number(p.garment_type_id) === item.garmentTypeId && Number(p.service_id) === item.serviceId);
-    if (!row) fail(`${garment.name} has no price for ${service.label} on the price list: add one first`, 409);
-    const name = `Garment ${index + 1} (${garment.name})`;
-    let quantity, pieces;
-    if (row.per === 'kg') {
-      if (!c.given(item.quantity)) fail(`${name} is priced by the kilo: give its weight`);
-      quantity = core.decimal(item.quantity, `${name}: kilos`, 3, 0.001, 999.999);
-      if (!c.given(item.pieces)) fail(`${name}: count the pieces in the bundle as well as weighing it`);
-      pieces = whole(item.pieces, `${name}: pieces in the bundle`, 1, 999);
-    } else {
-      quantity = c.given(item.quantity) ? whole(item.quantity, `${name}: how many`, 1, 999) : 1;
-      pieces = c.given(item.pieces) ? whole(item.pieces, `${name}: pieces`, 1, 999) : Math.min(999, quantity * Number(garment.pieces));
-    }
-    const figures = money.garmentFigures({ per: row.per, rate: row.price, quantity, expressPercent, taxRate: service.tax_rate, taxMode });
-    return { ...item, garment, service, per: row.per, rate: row.price, quantity, pieces, figures };
-  });
-  return { taxMode, rounding: settings?.rounding || 'none', items: priced, figures: money.billFigures(priced.map((p) => p.figures), settings?.rounding) };
-}
-
-const pricedText = (p, index) => ({
-  index, garmentTypeId: p.garmentTypeId, serviceId: p.serviceId, garmentName: p.garment.name, serviceName: p.service.label, countedAs: p.garment.counted_as,
-  per: p.per, rate: Number(p.rate).toFixed(2), quantity: p.per === 'kg' ? p.quantity.toFixed(3) : String(p.quantity), pieces: p.pieces, taxRate: p.service.tax_rate,
-  base: money.rupees(p.figures.base), surcharge: money.rupees(p.figures.surcharge), amount: money.rupees(p.figures.amount),
-  net: money.rupees(p.figures.net), tax: money.rupees(p.figures.tax),
-});
-
 // The figures for an order being typed (the intake screen), nothing saved,
-// with the rules it would be taken in under and the promised day suggested.
+// with the rules it would be taken in under and the promised day suggested:
+// the customer's own prices and packages once they are chosen.
 async function preview(business, user, body) {
   c.requireLaundry(business);
   await access.require(business, 'laundry.create');
@@ -250,11 +180,12 @@ async function preview(business, user, body) {
   return repo.transaction(async (db) => {
     const settings = await c.settingsOf(db, business.id);
     const expressPercent = input.express ? Number(settings.express_percent) : 0;
-    const priced = await priceOrder(db, business, input.items, expressPercent);
-    const day = await c.today(db, business);
+    const priced = await pricing.priceGarments(db, business, input.items, { contactId: input.contactId, locationId: input.locationId, expressPercent, discount: input.discount });
+    const day = await pricing.promisedFor(db, business, priced.items, input.express);
     return { taxMode: priced.taxMode, billAt: settings.bill_at, partDelivery: settings.part_delivery, expressPercent: expressPercent.toFixed(2),
-      promisedOn: c.addDays(day, input.express ? Number(settings.express_days) : Number(settings.ready_days)), today: day,
-      items: priced.items.map(pricedText), ...money.figuresText(priced.figures), pieces: priced.items.reduce((s, p) => s + p.pieces, 0) };
+      promisedOn: day.promisedOn, days: day.days, today: day.day, items: priced.items.map(pricing.pricedText), ...money.figuresText(priced.figures),
+      discount: money.rupees(priced.items.reduce((s, p) => s + p.discountAmount, 0)), offers: money.rupees(priced.items.reduce((s, p) => s + p.offerAmount, 0)),
+      packages: money.rupees(priced.items.reduce((s, p) => s + p.packageAmount, 0)), pieces: priced.items.reduce((s, p) => s + p.pieces, 0) };
   });
 }
 
@@ -267,7 +198,7 @@ async function assignTags(db, business, items) {
   const twice = typed.find((tag, index) => typed.indexOf(tag) !== index);
   if (twice) fail(`Tag ${twice} is on two garments of this order`);
   const inUse = async (tags) => repo.all(db, `SELECT i.tag_no,o.order_no FROM laundry_order_items i JOIN laundry_orders o ON o.business_id=i.business_id AND o.id=i.order_id
-    WHERE i.business_id=$1 AND i.tag_no=ANY($2::text[]) AND i.status IN ('received','in_process','ready')`, [business.id, tags]);
+    WHERE i.business_id=$1 AND i.tag_no=ANY($2::text[]) AND i.status IN ${c.OPEN_SQL}`, [business.id, tags]);
   const taken = typed.length ? await inUse(typed) : [];
   if (taken.length) fail(`Tag ${taken[0].tag_no} is on a garment of order ${taken[0].order_no} still in the shop: give this one another tag`, 409);
   const tags = [];
@@ -285,8 +216,53 @@ async function assignTags(db, business, items) {
   return tags;
 }
 
-// body: { requestKey, locationId, contactId | customer: { name, phone? }, promisedOn, express?, notes?,
-//   items: [{ garmentTypeId, serviceId, quantity?, pieces?, tagNo?, colour?, brand?, defects?, defectNote?, instructions?, riskNote?, acknowledged?, declaredValue? }],
+// Billed at intake (or garments added to an order billed at intake): one bill
+// of these garments, one line a garment at its own price, paid now or later.
+async function billGarments(db, business, user, { order, contact, location, priced, tags, requestKey, parts, buyer, words }) {
+  const values = priced.items.map((p, index) => ({
+    item: { ...pricing.garmentRow(p), tag_no: tags[index] }, net: p.net, tax: p.tax,
+  }));
+  const lines = money.billLines(values, priced.taxMode);
+  const documentBody = { kind: 'sale', locationId: location.id, contactId: contact.id, lines: lines.map((l) => l.input), notes: words,
+    buyer: { pan: buyer?.pan, panDeclaration: buyer?.panDeclaration } };
+  const document = await core.postDocument(db, business, user, documentBody, { kind: 'sale', requestKey, hash: c.hashOf(documentBody),
+    lines: documentBody.lines, paidNow: parts, fixed: lines.map((l) => l.fixed) });
+  if (c.paise(document.total) !== priced.figures.total) fail(`The bill would come to ${document.total}, not the ${money.rupees(priced.figures.total)} worked out for the garments. Try again.`, 409);
+  const lineIds = (await repo.all(db, 'SELECT id FROM business_document_lines WHERE business_id=$1 AND document_id=$2 ORDER BY id', [business.id, document.id])).map((l) => l.id);
+  if (lineIds.length !== priced.items.length) fail('The bill does not have a line for each garment. Try again.', 409);
+  return { document, lineIds, order };
+}
+
+// Keeps priced garments on an order (taken in with it, or added to it later).
+async function insertGarments(db, business, order, priced, { tags, seqFrom, document = null, lineIds = [], addition = null, user = null }) {
+  for (const [index, p] of priced.items.entries()) {
+    const row = pricing.garmentRow(p);
+    await db.query(`INSERT INTO laundry_order_items(business_id,order_id,seq,tag_no,garment_type_id,service_id,garment_name,service_name,sku_id,counted_as,per,quantity,pieces,
+        length_ft,width_ft,rate,base,surcharge,amount,tax_rate,net,tax,price_source,price_override_id,package_id,package_quantity,package_amount,offer_id,offer_name,offer_percent,
+        offer_amount,discount_amount,colour,brand,defects,defect_note,instructions,risk_note,acknowledged,declared_value,document_id,line_id,addition_id,added_by,added_at)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,
+        CASE WHEN $44::bigint IS NULL THEN NULL ELSE now() END)`,
+    [business.id, order.id, seqFrom + index, tags[index], row.garment_type_id, row.service_id, row.garment_name, row.service_name, row.sku_id, row.counted_as, row.per, row.quantity,
+      row.pieces, row.length_ft, row.width_ft, row.rate, row.base, row.surcharge, row.amount, row.tax_rate, row.net, row.tax, row.price_source, row.price_override_id, row.package_id,
+      row.package_quantity, row.package_amount, row.offer_id, row.offer_name, row.offer_percent, row.offer_amount, row.discount_amount, p.colour, p.brand, p.defects, p.defectNote,
+      p.instructions, p.riskNote, p.acknowledged, p.declaredValue === null ? null : p.declaredValue.toFixed(2), document?.id || null, lineIds[index] || null, addition?.id || null,
+      addition ? user.id : null]);
+  }
+}
+
+// The order's figures from its garments not cancelled, as one bill of them would be.
+async function refigure(db, business, user, order) {
+  const settings = await repo.one(db, 'SELECT rounding FROM business_settings WHERE business_id=$1', [business.id]);
+  const items = await repo.all(db, "SELECT net,tax FROM laundry_order_items WHERE business_id=$1 AND order_id=$2 AND status<>'cancelled'", [business.id, order.id]);
+  const f = money.billFigures(items.map((i) => ({ net: c.paise(i.net), tax: c.paise(i.tax) })), settings?.rounding);
+  await db.query('UPDATE laundry_orders SET subtotal=$3,tax=$4,round_off=$5,total=$6,updated_by=$7,updated_at=now() WHERE business_id=$1 AND id=$2',
+    [business.id, order.id, money.rupees(f.subtotal), money.rupees(f.tax), money.rupees(f.roundOff), money.rupees(f.total), user.id]);
+}
+
+// body: { requestKey, locationId, contactId | customer: { name, phone? }, promisedOn? (the suggested day), express?, notes?,
+//   items: [{ garmentTypeId, serviceId, quantity?, pieces?, length?, width? (feet, by the square foot), tagNo?, colour?, brand?, defects?, defectNote?, instructions?,
+//     riskNote?, acknowledged?, declaredValue?, packageId?, discount?: { percent | amount } }],
+//   discount?: { percent | amount, reason } (the reason also goes with a garment's own discount),
 //   advance?: { amount, method | methodId, reference? } (billed at delivery), payment? | payments? (billed at intake: paid now), buyer?: { pan?, panDeclaration? } }
 async function takeIn(business, user, body) {
   c.requireLaundry(business);
@@ -308,10 +284,6 @@ async function takeIn(business, user, body) {
     }
     const location = await repo.one(db, 'SELECT id FROM business_locations WHERE business_id=$1 AND id=$2 AND active', [business.id, input.locationId]);
     if (!location) fail('Location not found', 404);
-    const day = await c.today(db, business);
-    const promisedOn = c.readDate(body.promisedOn, 'Promised for');
-    if (promisedOn < day) fail('The promised day cannot be one that has passed');
-    if (promisedOn > c.addDays(day, MAX_PROMISED_DAYS)) fail(`Promise the garments within ${MAX_PROMISED_DAYS} days`);
     const settings = await c.settingsOf(db, business.id);
     const intake = settings.bill_at === 'intake';
     if (intake) await access.require(business, 'sales.create');
@@ -330,27 +302,20 @@ async function takeIn(business, user, body) {
       contact = await core.createContact(business, user, input.newCustomer, db);
     }
     const expressPercent = input.express ? Number(settings.express_percent) : 0;
-    const priced = await priceOrder(db, business, input.items, expressPercent);
+    const priced = await pricing.priceGarments(db, business, input.items, { contactId: input.contactId, locationId: location.id, expressPercent, discount: input.discount });
+    const day = await pricing.promisedFor(db, business, priced.items, input.express);
+    const promisedOn = c.given(body.promisedOn) ? c.readDate(body.promisedOn, 'Promised for') : day.promisedOn;
+    if (promisedOn < day.day) fail('The promised day cannot be one that has passed');
+    if (promisedOn > c.addDays(day.day, MAX_PROMISED_DAYS)) fail(`Promise the garments within ${MAX_PROMISED_DAYS} days`);
     const tags = await assignTags(db, business, priced.items);
     if (advance && c.paise(advance.amount) > priced.figures.total) fail(`The advance is part of the order's total: at most ${money.rupees(priced.figures.total)}`);
     const number = await numbering.nextNumber(db, business.id, location.id, 'laundry_order', user.id);
     // Billed at intake: the bill now, one line a garment at its own price.
     let document = null, lineIds = [];
     if (intake) {
-      const values = priced.items.map((p, index) => ({
-        item: { sku_id: p.service.sku_id, per: p.per, quantity: p.quantity, pieces: p.pieces, garment_name: p.garment.name, service_name: p.service.label,
-          surcharge: money.rupees(p.figures.surcharge), tag_no: tags[index] },
-        net: p.figures.net, tax: p.figures.tax,
-      }));
-      const lines = money.billLines(values, priced.taxMode);
-      const buyer = body.buyer && typeof body.buyer === 'object' && !Array.isArray(body.buyer) ? body.buyer : {};
-      const documentBody = { kind: 'sale', locationId: location.id, contactId: contact.id, lines: lines.map((l) => l.input),
-        notes: [`Laundry order ${number.number}`, input.express ? 'express' : null].filter(Boolean).join(' · '), buyer: { pan: buyer.pan, panDeclaration: buyer.panDeclaration } };
-      document = await core.postDocument(db, business, user, documentBody, { kind: 'sale', requestKey: c.derivedKey(requestKey, 'bill'), hash: c.hashOf(documentBody),
-        lines: documentBody.lines, paidNow: parts, fixed: lines.map((l) => l.fixed) });
-      if (c.paise(document.total) !== priced.figures.total) fail(`The bill would come to ${document.total}, not the ${money.rupees(priced.figures.total)} worked out for the order. Try again.`, 409);
-      lineIds = (await repo.all(db, 'SELECT id,sku_id FROM business_document_lines WHERE business_id=$1 AND document_id=$2 ORDER BY id', [business.id, document.id])).map((l) => l.id);
-      if (lineIds.length !== priced.items.length) fail('The bill does not have a line for each garment. Try again.', 409);
+      ({ document, lineIds } = await billGarments(db, business, user, { contact, location, priced, tags, requestKey: c.derivedKey(requestKey, 'bill'), parts,
+        buyer: body.buyer && typeof body.buyer === 'object' && !Array.isArray(body.buyer) ? body.buyer : {},
+        words: [`Laundry order ${number.number}`, input.express ? 'express' : null].filter(Boolean).join(' · ') }));
     }
     // Billed at delivery: the advance, a numbered receipt of the customer's money on account.
     let collection = null;
@@ -365,30 +330,31 @@ async function takeIn(business, user, body) {
     }
     const f = priced.figures;
     const saved = await repo.one(db, `INSERT INTO laundry_orders(business_id,location_id,order_no,series_id,contact_id,customer_name,customer_phone,promised_on,express,express_percent,
-        bill_at,part_delivery,tax_mode,subtotal,tax,round_off,total,terms,notes,advance_collection_id,document_id,request_key,request_hash,created_by,updated_by)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$24) RETURNING *`,
+        bill_at,part_delivery,tax_mode,subtotal,tax,round_off,total,terms,notes,advance_collection_id,document_id,request_key,request_hash,created_by,updated_by,
+        discount_percent,discount_amount,discount_reason)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$24,$25,$26,$27) RETURNING *`,
     [business.id, location.id, number.number, number.seriesId, contact.id, contact.name, contact.phone || null, promisedOn, input.express, expressPercent.toFixed(2),
       settings.bill_at, settings.part_delivery, priced.taxMode, money.rupees(f.subtotal), money.rupees(f.tax), money.rupees(f.roundOff), money.rupees(f.total),
-      settings.receipt_terms || null, input.notes, collection?.id || null, document?.id || null, requestKey, hash, user.id]);
-    for (const [index, p] of priced.items.entries()) {
-      await db.query(`INSERT INTO laundry_order_items(business_id,order_id,seq,tag_no,garment_type_id,service_id,garment_name,service_name,sku_id,counted_as,per,quantity,pieces,
-          rate,base,surcharge,amount,tax_rate,net,tax,colour,brand,defects,defect_note,instructions,risk_note,acknowledged,declared_value,document_id,line_id)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)`,
-      [business.id, saved.id, index + 1, tags[index], p.garment.id, p.service.id, p.garment.name, p.service.label, p.service.sku_id, p.garment.counted_as, p.per,
-        p.per === 'kg' ? p.quantity.toFixed(3) : p.quantity, p.pieces, Number(p.rate).toFixed(2), money.rupees(p.figures.base), money.rupees(p.figures.surcharge),
-        money.rupees(p.figures.amount), p.service.tax_rate, money.rupees(p.figures.net), money.rupees(p.figures.tax), p.colour, p.brand, p.defects, p.defectNote,
-        p.instructions, p.riskNote, p.acknowledged, p.declaredValue === null ? null : p.declaredValue.toFixed(2), document?.id || null, lineIds[index] || null]);
-    }
+      settings.receipt_terms || null, input.notes, collection?.id || null, document?.id || null, requestKey, hash, user.id,
+      input.discount?.percent ? input.discount.percent.toFixed(2) : null, input.discount?.amount ? money.rupees(input.discount.amount) : null, input.discountReason]);
+    await insertGarments(db, business, saved, priced, { tags, seqFrom: 1, document, lineIds });
     const pieces = priced.items.reduce((s, p) => s + p.pieces, 0);
+    const discounted = priced.items.reduce((s, p) => s + p.discountAmount, 0);
+    const fromPackages = priced.items.filter((p) => p.packageId);
     // The history names the bill or the receipt, not the amounts: someone who does not see sales reads it too.
     await history(db, business, user, saved, null, null, null, [`Taken in: ${c.plural(priced.items.length, 'garment')} (${c.plural(pieces, 'piece')})`,
-      input.express ? 'express' : null, document ? `bill ${document.document_no}` : null, collection ? `advance taken (${collection.collection_no})` : null].filter(Boolean).join(' · '));
+      input.express ? 'express' : null, fromPackages.length ? `${c.plural(fromPackages.length, 'garment')} from a package` : null,
+      priced.items.some((p) => p.offer) ? 'offer taken off' : null, discounted ? `discount: ${input.discountReason}` : null,
+      document ? `bill ${document.document_no}` : null, collection ? `advance taken (${collection.collection_no})` : null].filter(Boolean).join(' · '));
     await repo.audit(db, business.id, user.id, 'laundry_order.taken_in', saved.id, { orderNo: saved.order_no, customer: contact.name, garments: priced.items.length, pieces,
-      total: saved.total, promisedOn, express: input.express, billAt: settings.bill_at, ...(document ? { documentNo: document.document_no } : {}) });
+      total: saved.total, promisedOn, express: input.express, billAt: settings.bill_at, ...(document ? { documentNo: document.document_no } : {}),
+      ...(discounted ? { discount: money.rupees(priced.manual), discountReason: input.discountReason } : {}),
+      ...(priced.items.some((p) => p.offer) ? { offers: priced.items.filter((p) => p.offer).map((p) => ({ offer: p.offer.name, amount: money.rupees(p.offerAmount) })) } : {}) });
     await repo.event(db, business.id, user.id, 'laundry_order.taken_in', 'laundry_order', saved.id, {
       orderNo: saved.order_no, locationId: location.id, contactId: contact.id, total: saved.total, promisedOn, express: input.express, billAt: settings.bill_at,
       documentId: document?.id || null, advanceCollectionId: collection?.id || null,
-      garments: priced.items.map((p, index) => ({ tag: tags[index], garmentTypeId: p.garment.id, serviceId: p.service.id, per: p.per, quantity: String(p.quantity), pieces: p.pieces })),
+      garments: priced.items.map((p, index) => ({ tag: tags[index], garmentTypeId: p.garment.id, serviceId: p.service.id, per: p.per, quantity: String(p.quantity), pieces: p.pieces,
+        ...(p.packageId ? { packageId: p.packageId, packageQuantity: String(p.packageQuantity) } : {}) })),
     });
     return shape(business, await load(db, business, saved.id));
   });
@@ -407,23 +373,29 @@ function orderStatus(items) {
   const open = items.filter((i) => c.OPEN.includes(i.status)).length;
   if (items.length && count('cancelled') === items.length) return 'cancelled';
   if (!open) return 'delivered';
-  if (count('delivered')) return 'part_delivered';
+  if (count('delivered') || items.some((i) => i.status === 'ready' && Number(i.pieces_delivered) > 0)) return 'part_delivered';
   if (count('ready') === open) return 'ready';
   if (count('ready')) return 'part_ready';
-  if (count('in_process')) return 'in_process';
+  if (count('in_process') || count('qc') || count('packed')) return 'in_process';
   return 'received';
 }
 
 // The garments of an order (locked when asked) with their item as it is now and what was credited on their bill line.
 async function itemsOf(db, business, order, { lock = false } = {}) {
   return repo.all(db, `SELECT i.*,s.tax_rate AS tax_rate_now,(s.active AND p.active) AS sku_active,s.internal_use,d.document_no,
-      rb.name AS ready_by_name,dv.name AS delivered_by_name,cb.name AS cancelled_by_name,
+      rb.name AS ready_by_name,dv.name AS delivered_by_name,cb.name AS cancelled_by_name,qb.name AS qc_by_name,pb.name AS packed_by_name,ab.name AS added_by_name,
+      pk.name AS package_name,pk.unit AS package_unit,
+      (SELECT count(*)::int FROM laundry_files f WHERE f.business_id=i.business_id AND f.item_id=i.id AND f.stage='intake') AS intake_photos,
+      (SELECT count(*)::int FROM laundry_files f WHERE f.business_id=i.business_id AND f.item_id=i.id AND f.stage='qc') AS qc_photos,
+      (SELECT count(*)::int FROM laundry_item_changes ch WHERE ch.business_id=i.business_id AND ch.item_id=i.id) AS changes,
       CASE WHEN i.line_id IS NULL THEN NULL ELSE COALESCE((SELECT sum(rl.net+rl.tax) FROM business_return_lines rl WHERE rl.business_id=i.business_id AND rl.line_id=i.line_id),0) END AS credited,
       (SELECT count(*)::int FROM laundry_claims cl WHERE cl.business_id=i.business_id AND cl.item_id=i.id) AS claims,
       EXISTS (SELECT 1 FROM laundry_claims cl WHERE cl.business_id=i.business_id AND cl.item_id=i.id AND cl.decision IS NULL) AS claim_open
     FROM laundry_order_items i JOIN catalog_skus s ON s.business_id=i.business_id AND s.id=i.sku_id JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id
     LEFT JOIN business_documents d ON d.business_id=i.business_id AND d.id=i.document_id
     LEFT JOIN users rb ON rb.id=i.ready_by LEFT JOIN users dv ON dv.id=i.delivered_by LEFT JOIN users cb ON cb.id=i.cancelled_by
+    LEFT JOIN users qb ON qb.id=i.qc_by LEFT JOIN users pb ON pb.id=i.packed_by LEFT JOIN users ab ON ab.id=i.added_by
+    LEFT JOIN laundry_packages pk ON pk.business_id=i.business_id AND pk.id=i.package_id
     WHERE i.business_id=$1 AND i.order_id=$2 ORDER BY i.seq${lock ? ' FOR UPDATE OF i' : ''}`, [business.id, order.id]);
 }
 
@@ -434,7 +406,7 @@ async function billsOf(db, business, order) {
       COALESCE((SELECT sum(amount) FROM business_payments p WHERE p.business_id=d.business_id AND p.document_id=d.id),0) AS paid,
       COALESCE((SELECT sum(amount) FROM business_refunds f WHERE f.business_id=d.business_id AND f.document_id=d.id),0) AS refunded,
       ${DUE_SQL('d')} AS due
-    FROM business_documents d WHERE d.business_id=$1 AND d.id IN (SELECT document_id FROM laundry_order_items WHERE business_id=$1 AND order_id=$2 AND document_id IS NOT NULL)
+    FROM business_documents d WHERE d.business_id=$1 AND d.id IN (${BILLS_OF_SQL('$1', '$2')})
     ORDER BY d.id`, [business.id, order.id]);
 }
 
@@ -452,7 +424,8 @@ async function load(db, business, orderId) {
     JOIN users u ON u.id=e.created_by LEFT JOIN laundry_order_items i ON i.business_id=e.business_id AND i.id=e.item_id
     WHERE e.business_id=$1 AND e.order_id=$2 ORDER BY e.id`, [business.id, o.id]);
   const deliveries = await repo.all(db, `SELECT dv.id,dv.document_id,d.document_no,d.total,dv.on_account,dv.collected_by,dv.note,dv.created_at,u.name AS by_name,
-      (SELECT array_agg(i.tag_no ORDER BY i.seq) FROM laundry_delivery_items di JOIN laundry_order_items i ON i.business_id=di.business_id AND i.id=di.item_id
+      (SELECT array_agg(i.tag_no || CASE WHEN di.pieces<i.pieces THEN ' (' || di.pieces || ' of ' || i.pieces || ')' ELSE '' END ORDER BY i.seq)
+        FROM laundry_delivery_items di JOIN laundry_order_items i ON i.business_id=di.business_id AND i.id=di.item_id
         WHERE di.business_id=dv.business_id AND di.delivery_id=dv.id) AS tags
     FROM laundry_deliveries dv JOIN users u ON u.id=dv.created_by LEFT JOIN business_documents d ON d.business_id=dv.business_id AND d.id=dv.document_id
     WHERE dv.business_id=$1 AND dv.order_id=$2 ORDER BY dv.id`, [business.id, o.id]);
@@ -465,6 +438,15 @@ async function load(db, business, orderId) {
   const notices = await repo.all(db, `SELECT n.kind,n.channel,n.created_at,u.name AS by_name FROM laundry_notices n JOIN users u ON u.id=n.created_by
     WHERE n.business_id=$1 AND n.order_id=$2 ORDER BY n.id DESC LIMIT 20`, [business.id, o.id]);
   const bills = await billsOf(db, business, o);
+  // Photos of the garments and the customer's signature (read through their own route), and the garments changed after intake.
+  const files = await repo.all(db, `SELECT f.id,f.item_id,f.stage,f.kind,f.created_at,u.name AS by_name FROM laundry_files f JOIN users u ON u.id=f.created_by
+    WHERE f.business_id=$1 AND f.order_id=$2 ORDER BY f.id`, [business.id, o.id]);
+  const changes = await repo.all(db, `SELECT ch.id,ch.item_id,i.tag_no,ch.was,ch.became,ch.reason,ch.created_at,u.name AS by_name,rt.return_no,d.document_no
+    FROM laundry_item_changes ch JOIN laundry_order_items i ON i.business_id=ch.business_id AND i.id=ch.item_id JOIN users u ON u.id=ch.created_by
+    LEFT JOIN business_returns rt ON rt.business_id=ch.business_id AND rt.id=ch.return_id LEFT JOIN business_documents d ON d.business_id=ch.business_id AND d.id=ch.document_id
+    WHERE ch.business_id=$1 AND ch.order_id=$2 ORDER BY ch.id`, [business.id, o.id]);
+  // The customer's packages in force with something left (for garments added or changed).
+  const packages = (await pricing.packagesOf(db, business, o.contact_id)).filter((p) => p.status === 'active' && p.in_force && Number(p.left_now) > 0);
   const advance = o.advance_collection_id ? await repo.one(db, `SELECT k.id,k.collection_no,k.amount,k.method,k.method_name,k.created_at,${FREE_SQL('k')} AS free,
       COALESCE((SELECT sum(p.amount) FROM business_payments p WHERE p.business_id=k.business_id AND p.collection_id=k.id),0) AS used,
       COALESCE((SELECT sum(f.amount) FROM business_collection_refunds f WHERE f.business_id=k.business_id AND f.collection_id=k.id),0) AS refunded,
@@ -491,7 +473,8 @@ async function load(db, business, orderId) {
     ...rest, status, items, events, deliveries, claims, notices, bills, advance, bill, paid: money.rupees(bills.reduce((s, b) => s + c.paise(b.paid) - c.paise(b.refunded), 0)),
     due: money.rupees(due), counts: { garments: items.length, pieces: items.reduce((s, i) => s + Number(i.pieces), 0), open: items.filter((i) => c.OPEN.includes(i.status)).length,
       ready: ready.length, delivered: items.filter((i) => i.status === 'delivered').length, cancelled: items.filter((i) => i.status === 'cancelled').length },
-    unclaimed_days: Number(laundry.unclaimed_days), seller: core.branchSeller(settings, location),
+    unclaimed_days: Number(laundry.unclaimed_days), seller: core.branchSeller(settings, location), files, changes, packages,
+    signed: files.some((f) => f.kind === 'signature'), checks: { qc: laundry.qc_required, packing: laundry.packing_required },
   };
 }
 
@@ -529,34 +512,48 @@ function pick(items, ids, order) {
 
 // --- The work --------------------------------------------------------------------------------------
 
-// body: { status: in_process | ready, itemIds? (the garments that can take the step), rack?, note? }.
-// Into the work: received garments, or ready ones sent back (saying why). Ready:
-// received or in process ones, onto the rack given.
+// The step each garment takes, and what it may come from: into the work
+// (received ones; packed or ready ones sent back, saying why); to its quality
+// check (received or in the work); packed (received or in the work, when the
+// shop does not require the check); ready on a rack (received, in the work or
+// packed). The shop's settings say whether the check and packing come first
+// (the database holds them too).
+const STEPS = {
+  in_process: { from: ['received', 'packed', 'ready'], first: ['received'], words: 'into the work' },
+  qc: { from: ['received', 'in_process'], first: ['received', 'in_process'], words: 'to its quality check' },
+  packed: { from: ['received', 'in_process'], first: ['received', 'in_process'], words: 'to packed' },
+  ready: { from: ['received', 'in_process', 'packed'], first: ['received', 'in_process', 'packed'], words: 'to ready' },
+};
+// body: { status: in_process | qc | packed | ready, itemIds? (the garments that can take the step), rack?, note? }.
 async function setStatus(business, user, orderId, body) {
   c.requireLaundry(business);
   await access.require(business, 'laundry.edit');
-  const status = v.requiredEnum(body.status, 'Status', ['in_process', 'ready']);
+  const status = v.requiredEnum(body.status, 'Status', Object.keys(STEPS));
   const ids = readItemIds(body.itemIds);
   const rack = c.readRack(body.rack, 'Rack');
   const note = c.optionalText(body.note, 'Note', 500);
   if (rack && status !== 'ready') fail('A rack is given when garments are ready');
+  const step = STEPS[status];
   return repo.transaction(async (db) => {
     const order = await lockOrder(db, business, orderId);
     const items = await itemsOf(db, business, order, { lock: true });
-    const from = status === 'ready' ? ['received', 'in_process'] : ['received', 'ready'];
-    const moving = ids ? pick(items, ids, order) : items.filter((i) => (status === 'ready' ? from.includes(i.status) : i.status === 'received'));
-    if (!moving.length) fail(`No garment of order ${order.order_no} can go ${status === 'ready' ? 'to ready' : 'into the work'} now`, 409);
+    const moving = ids ? pick(items, ids, order) : items.filter((i) => step.first.includes(i.status));
+    if (!moving.length) fail(`No garment of order ${order.order_no} can go ${step.words} now`, 409);
     for (const item of moving) {
       if (item.status === status) continue;
-      if (!from.includes(item.status)) fail(`Garment ${item.tag_no} is ${c.STATUS_WORDS[item.status]}: it cannot go ${status === 'ready' ? 'to ready' : 'into the work'}`, 409);
-      if (item.status === 'ready' && !note) fail(`Say why garment ${item.tag_no} goes back into the work`);
+      if (!step.from.includes(item.status)) fail(`Garment ${item.tag_no} is ${c.STATUS_WORDS[item.status]}: it cannot go ${step.words}`, 409);
+      if (status === 'in_process' && item.status !== 'received' && !note) fail(`Say why garment ${item.tag_no} goes back into the work`);
+      if (status === 'in_process' && Number(item.pieces_delivered) > 0) fail(`Garment ${item.tag_no} has pieces handed over already: hand over the rest`, 409);
     }
     const changing = moving.filter((i) => i.status !== status);
     for (const item of changing) {
       if (status === 'ready') {
         await db.query("UPDATE laundry_order_items SET status='ready',rack=$3,ready_at=now(),ready_by=$4 WHERE business_id=$1 AND id=$2", [business.id, item.id, rack, user.id]);
+      } else if (status === 'packed') {
+        await db.query("UPDATE laundry_order_items SET status='packed',packed_at=now(),packed_by=$3 WHERE business_id=$1 AND id=$2", [business.id, item.id, user.id]);
       } else {
-        await db.query("UPDATE laundry_order_items SET status='in_process',rack=NULL,ready_at=NULL,ready_by=NULL WHERE business_id=$1 AND id=$2", [business.id, item.id]);
+        await db.query(`UPDATE laundry_order_items SET status=$3,rack=NULL,ready_at=NULL,ready_by=NULL,qc_at=NULL,qc_by=NULL,packed_at=NULL,packed_by=NULL
+          WHERE business_id=$1 AND id=$2`, [business.id, item.id, status]);
       }
       await history(db, business, user, order, item, item.status, status, [status === 'ready' && rack ? `On rack ${rack}` : null, note].filter(Boolean).join(' · ') || null);
     }
@@ -565,6 +562,46 @@ async function setStatus(business, user, orderId, body) {
       await repo.audit(db, business.id, user.id, 'laundry_order.garments_moved', order.id, { orderNo: order.order_no, to: status, tags, ...(rack ? { rack } : {}), ...(note ? { note } : {}) });
       await repo.event(db, business.id, user.id, 'laundry_order.garments_moved', 'laundry_order', order.id, { orderNo: order.order_no, to: status, itemIds: changing.map((i) => i.id), rack });
     }
+    return shape(business, await load(db, business, order.id));
+  });
+}
+
+// The quality check of garments at QC: passed (packed next when the shop
+// packs, else ready on the rack given), or sent back to be washed again with
+// the reason (rewashed once more). body: { result: pass | rewash, itemIds? (every garment at QC), reason? (rewash), rack? (passed to ready) }
+async function qualityCheck(business, user, orderId, body) {
+  c.requireLaundry(business);
+  await access.require(business, 'laundry.edit');
+  const result = v.requiredEnum(body.result, 'Result', ['pass', 'rewash']);
+  const ids = readItemIds(body.itemIds);
+  const reason = c.optionalText(body.reason, 'Reason', 300);
+  const rack = c.readRack(body.rack, 'Rack');
+  if (result === 'rewash' && !reason) fail('Say why the garment is washed again');
+  if (result === 'rewash' && rack) fail('A rack is given when garments pass');
+  return repo.transaction(async (db) => {
+    const order = await lockOrder(db, business, orderId);
+    const settings = await c.settingsOf(db, business.id);
+    const items = await itemsOf(db, business, order, { lock: true });
+    const checking = ids ? pick(items, ids, order) : items.filter((i) => i.status === 'qc');
+    if (!checking.length) fail(`No garment of order ${order.order_no} is at its quality check`, 409);
+    for (const item of checking) if (item.status !== 'qc') fail(`Garment ${item.tag_no} is ${c.STATUS_WORDS[item.status]}: only a garment at its quality check is checked`, 409);
+    const next = result === 'rewash' ? 'in_process' : settings.packing_required ? 'packed' : 'ready';
+    if (rack && next !== 'ready') fail('A rack is given when garments are ready: these are packed first');
+    for (const item of checking) {
+      if (result === 'rewash') {
+        await db.query("UPDATE laundry_order_items SET status='in_process',rewashes=rewashes+1 WHERE business_id=$1 AND id=$2", [business.id, item.id]);
+      } else if (next === 'packed') {
+        await db.query("UPDATE laundry_order_items SET status='packed',qc_at=now(),qc_by=$3,packed_at=now(),packed_by=$3 WHERE business_id=$1 AND id=$2", [business.id, item.id, user.id]);
+      } else {
+        await db.query("UPDATE laundry_order_items SET status='ready',qc_at=now(),qc_by=$3,rack=$4,ready_at=now(),ready_by=$3 WHERE business_id=$1 AND id=$2",
+          [business.id, item.id, user.id, rack]);
+      }
+      await history(db, business, user, order, item, 'qc', next, result === 'rewash' ? `Quality check: washed again · ${reason}`
+        : ['Quality check passed', next === 'packed' ? 'packed' : null, rack ? `on rack ${rack}` : null].filter(Boolean).join(' · '));
+    }
+    const tags = checking.map((i) => i.tag_no);
+    await repo.audit(db, business.id, user.id, 'laundry_order.quality_checked', order.id, { orderNo: order.order_no, result, tags, to: next, ...(reason ? { reason } : {}) });
+    await repo.event(db, business.id, user.id, 'laundry_order.quality_checked', 'laundry_order', order.id, { orderNo: order.order_no, result, itemIds: checking.map((i) => i.id), to: next });
     return shape(business, await load(db, business, order.id));
   });
 }
@@ -585,7 +622,7 @@ async function updateItem(business, user, orderId, itemId, body) {
     const notes = [];
     if (tag !== undefined && tag !== item.tag_no) {
       const taken = await repo.one(db, `SELECT o.order_no FROM laundry_order_items i JOIN laundry_orders o ON o.business_id=i.business_id AND o.id=i.order_id
-        WHERE i.business_id=$1 AND i.tag_no=$2 AND i.status IN ('received','in_process','ready') AND i.id<>$3`, [business.id, tag, item.id]);
+        WHERE i.business_id=$1 AND i.tag_no=$2 AND i.status IN ${c.OPEN_SQL} AND i.id<>$3`, [business.id, tag, item.id]);
       if (taken) fail(`Tag ${tag} is on a garment of order ${taken.order_no} still in the shop`, 409);
       await db.query('UPDATE laundry_order_items SET tag_no=$3 WHERE business_id=$1 AND id=$2', [business.id, item.id, tag]);
       notes.push(`Re-tagged from ${item.tag_no} to ${tag}`);
@@ -661,6 +698,7 @@ async function counts(business) {
       count(*) FILTER (WHERE status='ready')::int AS ready, count(*) FILTER (WHERE status='part_delivered')::int AS part_delivered,
       count(*) FILTER (WHERE due_today)::int AS due_today, count(*) FILTER (WHERE overdue)::int AS overdue, count(*) FILTER (WHERE unclaimed)::int AS unclaimed,
       count(*) FILTER (WHERE stage='open' AND express)::int AS express, count(*) FILTER (WHERE claim_open)::int AS claim_open,
+      count(*) FILTER (WHERE at_qc)::int AS at_qc,
       COALESCE(sum(ready_pieces) FILTER (WHERE stage='open'),0)::int AS ready_pieces
     FROM (${ORDERS_SQL}) x WHERE ($2::bigint IS NULL OR x.location_id=$2)`, [business.id, business.location_scope || null]);
 }
@@ -697,5 +735,6 @@ async function approvers(business, query = {}) {
     ORDER BY u.name`, [business.id, permission]);
 }
 
-module.exports = { ORDERS_SQL, DUE_SQL, FREE_SQL, shape, listShape, withoutMoney, preview, takeIn, detail, load, lockOrder, itemsOf, billsOf, history, readItemIds, pick,
+module.exports = { ORDERS_SQL, DUE_SQL, FREE_SQL, MAX_ITEMS, shape, listShape, withoutMoney, preview, takeIn, detail, load, lockOrder, itemsOf, billsOf, history, readItemIds, pick,
+  assignTags, billGarments, insertGarments, refigure, qualityCheck,
   setStatus, updateItem, updateDetails, logNotice, counts, bell, approvers, orderStatus };

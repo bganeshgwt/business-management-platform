@@ -17,9 +17,12 @@ function requireLaundry(business) {
   if (!business.modules.includes('laundry')) fail('Garment orders is not switched on for this business. An owner can turn it on in Settings › Business tools.', 403);
 }
 
-// A garment's way through the shop, and the words for it.
-const OPEN = ['received', 'in_process', 'ready'];
-const STATUS_WORDS = { received: 'received', in_process: 'in process', ready: 'ready', delivered: 'delivered', cancelled: 'cancelled' };
+// A garment's way through the shop, and the words for it: received, in the
+// work, at its quality check (qc), packed, ready on a rack, then delivered.
+const OPEN = ['received', 'in_process', 'qc', 'packed', 'ready'];
+const OPEN_SQL = "('received','in_process','qc','packed','ready')";
+const STATUS_WORDS = { received: 'received', in_process: 'in process', qc: 'at its quality check', packed: 'packed', ready: 'ready', delivered: 'delivered',
+  cancelled: 'cancelled' };
 // An order's status, worked out from its garments.
 const ORDER_WORDS = { received: 'received', in_process: 'in process', part_ready: 'partly ready', ready: 'ready to collect', part_delivered: 'partly delivered',
   delivered: 'delivered', cancelled: 'cancelled' };
@@ -68,6 +71,19 @@ function readDate(value, name) {
   return text;
 }
 const addDays = (day, n) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+// The ISO weekday of a date (1 Monday … 7 Sunday).
+const weekday = (day) => ((new Date(`${day}T00:00:00Z`).getUTCDay() + 6) % 7) + 1;
+// So many days the shop is open after a day: the days it is closed each week are skipped.
+function addOpenDays(day, n, closed = []) {
+  const shut = new Set((closed || []).map(Number));
+  if (shut.size >= 7) return addDays(day, n);
+  let at = day;
+  for (let left = n; left > 0;) {
+    at = addDays(at, 1);
+    if (!shut.has(weekday(at))) left -= 1;
+  }
+  return at;
+}
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const dateWords = (day) => { const [y, m, d] = String(day).slice(0, 10).split('-'); return `${Number(d)} ${MONTHS[Number(m) - 1]} ${y}`; };
 // The business's own date (its time zone), as YYYY-MM-DD.
@@ -82,11 +98,12 @@ const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const seesMoney = (business) => access.can(business, 'sales.view');
 
 // The settings as a business has them (the defaults until first saved).
-const DEFAULTS = { bill_at: 'delivery', part_delivery: 'whole_order', express_percent: '0.00', ready_days: 3, express_days: 1, unclaimed_days: 30, receipt_terms: null, last_tag_no: 0 };
+const DEFAULTS = { bill_at: 'delivery', part_delivery: 'whole_order', express_percent: '0.00', ready_days: 3, express_days: 1, unclaimed_days: 30, receipt_terms: null, last_tag_no: 0,
+  area_rounding: 'exact', closed_days: [], qc_required: false, packing_required: false };
 async function settingsOf(db, businessId) {
   const row = await repo.one(db, 'SELECT * FROM laundry_settings WHERE business_id=$1', [businessId]);
   return row ? { ...DEFAULTS, ...row } : { ...DEFAULTS, business_id: businessId, updated_at: null, updated_by: null };
 }
 
-module.exports = { fail, id, requireLaundry, OPEN, STATUS_WORDS, ORDER_WORDS, DEFECTS, DEFECT_WORDS, COUNTED_AS, ISSUES, ISSUE_WORDS, DECISIONS, NOTICES, CHANNELS,
-  given, optionalText, paise, rupees, hashOf, derivedKey, readTag, readRack, readDate, addDays, dateWords, today, listWords, plural, seesMoney, DEFAULTS, settingsOf };
+module.exports = { fail, id, requireLaundry, OPEN, OPEN_SQL, STATUS_WORDS, ORDER_WORDS, DEFECTS, DEFECT_WORDS, COUNTED_AS, ISSUES, ISSUE_WORDS, DECISIONS, NOTICES, CHANNELS,
+  given, optionalText, paise, rupees, hashOf, derivedKey, readTag, readRack, readDate, addDays, addOpenDays, weekday, dateWords, today, listWords, plural, seesMoney, DEFAULTS, settingsOf };

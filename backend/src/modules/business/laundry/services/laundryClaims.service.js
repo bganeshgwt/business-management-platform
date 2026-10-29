@@ -148,16 +148,17 @@ async function decide(business, user, claimId, body) {
     // Reprocessing: the garment goes back into the work.
     let movedTo = null;
     if (decision === 'reprocess') {
-      if (item.status === 'ready') {
-        await db.query("UPDATE laundry_order_items SET status='in_process',rack=NULL,ready_at=NULL,ready_by=NULL WHERE business_id=$1 AND id=$2", [business.id, item.id]);
+      if (['ready', 'qc', 'packed'].includes(item.status)) {
+        await db.query(`UPDATE laundry_order_items SET status='in_process',rack=NULL,ready_at=NULL,ready_by=NULL,qc_at=NULL,qc_by=NULL,packed_at=NULL,packed_by=NULL
+          WHERE business_id=$1 AND id=$2`, [business.id, item.id]);
         movedTo = 'in_process';
       } else if (item.status === 'delivered') {
         const newTag = tag || item.tag_no;
         const taken = await repo.one(db, `SELECT o.order_no FROM laundry_order_items i JOIN laundry_orders o ON o.business_id=i.business_id AND o.id=i.order_id
-          WHERE i.business_id=$1 AND i.tag_no=$2 AND i.status IN ('received','in_process','ready') AND i.id<>$3`, [business.id, newTag, item.id]);
+          WHERE i.business_id=$1 AND i.tag_no=$2 AND i.status IN ${c.OPEN_SQL} AND i.id<>$3`, [business.id, newTag, item.id]);
         if (taken) fail(`Tag ${newTag} is on a garment of order ${taken.order_no} now: give this garment a new tag`, 409, { reason: 'tag_taken' });
-        await db.query(`UPDATE laundry_order_items SET status='received',tag_no=$3,rack=NULL,ready_at=NULL,ready_by=NULL,delivered_at=NULL,delivered_by=NULL
-          WHERE business_id=$1 AND id=$2`, [business.id, item.id, newTag]);
+        await db.query(`UPDATE laundry_order_items SET status='received',tag_no=$3,rack=NULL,ready_at=NULL,ready_by=NULL,delivered_at=NULL,delivered_by=NULL,
+          qc_at=NULL,qc_by=NULL,packed_at=NULL,packed_by=NULL,pieces_delivered=0 WHERE business_id=$1 AND id=$2`, [business.id, item.id, newTag]);
         movedTo = 'received';
       } else if (tag) {
         fail(`Garment ${item.tag_no} is still in the shop: it keeps its tag`);
@@ -177,4 +178,41 @@ async function decide(business, user, claimId, body) {
   });
 }
 
-module.exports = { record, decide, listShape };
+// The claims of a period (the days they were reported, on the business's
+// clock), added up by service, by the person who took the garment in (the one
+// who took the order in, or added the garment to it), or by month: how many,
+// waiting, and decided each way, with the compensation given (the credit notes
+// with their GST, and the money refunded of them) and what customers asked.
+// Money only for someone who sees sales.
+const BY = {
+  service: 'i.service_name',
+  staff: 'COALESCE(ab.name,cu.name)',
+  month: "to_char(cl.reported_at AT TIME ZONE b.timezone,'YYYY-MM')",
+};
+async function report(business, query = {}) {
+  c.requireLaundry(business);
+  await access.require(business, 'laundry.view');
+  const by = v.requiredEnum(query.by ?? 'service', 'Add up by', Object.keys(BY));
+  const from = c.given(query.from) ? core.dateText(query.from, 'From date') : null;
+  const to = c.given(query.to) ? core.dateText(query.to, 'To date') : null;
+  if (from && to && to < from) fail('The end date is before the start date');
+  const rows = await repo.all(repo.pool, `SELECT ${BY[by]} AS key,count(*)::int AS claims,count(*) FILTER (WHERE cl.decision IS NULL)::int AS waiting,
+      count(*) FILTER (WHERE cl.decision='refund')::int AS refunds,count(*) FILTER (WHERE cl.decision='credit')::int AS credits,
+      count(*) FILTER (WHERE cl.decision='reprocess')::int AS reprocessed,count(*) FILTER (WHERE cl.decision='rejected')::int AS rejected,
+      COALESCE(sum(rt.total),0) AS compensation,COALESCE(sum(cl.refunded),0) AS refunded,COALESCE(sum(cl.asked_amount),0) AS asked
+    FROM laundry_claims cl JOIN laundry_orders o ON o.business_id=cl.business_id AND o.id=cl.order_id
+    JOIN laundry_order_items i ON i.business_id=cl.business_id AND i.id=cl.item_id JOIN businesses b ON b.id=cl.business_id
+    JOIN users cu ON cu.id=o.created_by LEFT JOIN users ab ON ab.id=i.added_by
+    LEFT JOIN business_returns rt ON rt.business_id=cl.business_id AND rt.id=cl.return_id
+    WHERE cl.business_id=$1 AND ($2::date IS NULL OR (cl.reported_at AT TIME ZONE b.timezone)::date>=$2) AND ($3::date IS NULL OR (cl.reported_at AT TIME ZONE b.timezone)::date<=$3)
+      AND ($4::bigint IS NULL OR o.location_id=$4)
+    GROUP BY 1 ORDER BY ${by === 'month' ? '1' : 'claims DESC,1'}`, [business.id, from, to, business.location_scope || null]);
+  const add = (key) => rows.reduce((sum, r) => sum + (['compensation', 'refunded', 'asked'].includes(key) ? c.paise(r[key]) : Number(r[key])), 0);
+  const totals = { claims: add('claims'), waiting: add('waiting'), refunds: add('refunds'), credits: add('credits'), reprocessed: add('reprocessed'), rejected: add('rejected'),
+    compensation: c.rupees(add('compensation')), refunded: c.rupees(add('refunded')), asked: c.rupees(add('asked')) };
+  const money = c.seesMoney(business);
+  const hide = (r) => (money ? r : { ...r, compensation: null, refunded: null, asked: null });
+  return { by, from, to, money, rows: rows.map(hide), totals: hide(totals) };
+}
+
+module.exports = { record, decide, listShape, report };

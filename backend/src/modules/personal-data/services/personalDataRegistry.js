@@ -116,6 +116,10 @@ const TABLES = {
   lodging_groups: { label: 'Group bookings', erase: { name: ERASED_NAME, notes: null } },
   lodging_folios: { label: 'Folios of stays and groups', keep: 'A folio names whom it is billed to only through the erased record; its bill is a tax record.' },
   lodging_guest_profiles: { label: 'Guest preferences and notes', erase: { preferences: null, notes: null } },
+  laundry_group_members: { label: 'Laundry customer group', keep: 'A group a customer is priced with holds no personal details.' },
+  laundry_price_overrides: { label: 'Laundry prices agreed', keep: 'A price agreed holds no personal details.' },
+  laundry_packages: { label: 'Laundry packages', keep: 'Packages are part of the bills that sold them, and of the garment orders they paid for.' },
+  laundry_files: { label: 'Garment photos and signatures', keep: 'The photos of garments at intake and at their quality check, and the signature on the order, are the record of what was taken in and of any claim on it; they stay with the order.' },
 };
 
 // Children of the rows above that the export also shows: the lines of each bill.

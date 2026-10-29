@@ -16,11 +16,14 @@ const pins = () => require('../../salon-weight/services/businessManagerPin');
 //               handed back from the order once nothing is left on it to bill
 //               (a manager's PIN), or kept on their account.
 //   billed      each garment's bill line is credited in full, one credit note
-//               a bill (the core's credit note, GST in the line's own
+//               a bill (a line a package paid for in full charged nothing and
+//               needs none; the core's credit note, GST in the line's own
 //               proportion). What the customer paid beyond what is then due on
 //               the bill goes back when asked, through the core's refund, with
 //               a manager's approval and PIN; otherwise it stays to their
 //               credit on the bill.
+// What a package paid for a cancelled garment goes back into the package. The
+// order's figures then follow the garments left.
 // Money is integer paise.
 
 const { fail } = c;
@@ -56,10 +59,11 @@ async function cancel(business, user, orderId, body) {
       if (!c.OPEN.includes(item.status)) fail(`Garment ${item.tag_no} is ${c.STATUS_WORDS[item.status]}: only a garment still in the shop is cancelled`, 409);
       if (item.claim_open) fail(`Garment ${item.tag_no} has a damage claim waiting: decide it first`, 409);
       if (item.line_id && c.paise(item.credited) > 0) fail(`Garment ${item.tag_no} was credited on a damage claim, so its charge is settled: it is not cancelled`, 409);
+      if (Number(item.pieces_delivered) > 0) fail(`Garment ${item.tag_no} has pieces handed over already: hand over the rest`, 409);
     }
     // Billed garments: each bill's lines credited in full on one credit note.
     const byBill = new Map();
-    for (const item of cancelling.filter((i) => i.line_id)) byBill.set(Number(item.document_id), [...(byBill.get(Number(item.document_id)) || []), item]);
+    for (const item of cancelling.filter((i) => i.line_id && c.paise(i.net) + c.paise(i.tax) > 0)) byBill.set(Number(item.document_id), [...(byBill.get(Number(item.document_id)) || []), item]);
     const settled = [];
     for (const [documentId, list] of byBill) {
       const creditKey = c.derivedKey(requestKey, `credit:${documentId}`);
@@ -88,6 +92,7 @@ async function cancel(business, user, orderId, body) {
         [business.id, item.id, reason, user.id, requestKey]);
       await orders.history(db, business, user, order, item, item.status, 'cancelled', reason);
     }
+    await orders.refigure(db, business, user, order);
     const tags = cancelling.map((i) => i.tag_no);
     await orders.history(db, business, user, order, null, null, null, [`Cancelled: ${c.plural(cancelling.length, 'garment')} (tag ${tags.join(', ')})`,
       ...settled.map((s) => `credit note ${s.returnNo} on ${s.documentNo}${s.refund ? ', the money refunded' : ''}`)].join(' · '));

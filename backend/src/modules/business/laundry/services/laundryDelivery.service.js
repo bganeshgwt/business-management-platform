@@ -27,8 +27,13 @@ const orders = require('./laundryOrders.service');
 //               on the account: a bailee who has done work on goods may keep
 //               them until paid (Indian Contract Act, section 170), and credit
 //               agreed with the customer sets that aside.
-//   the record  a handover with its garments, its bill, who collected and a
-//               note; each garment delivered.
+//   pieces      several pieces under one tag (three shirts, a two-piece suit)
+//               may leave one by one: the pieces handed over are counted, and
+//               the garment is delivered with its last piece. Its bill and the
+//               money its rule asks for go with its first piece.
+//   the record  a handover with its garments and their pieces, its bill, who
+//               collected and a note; each garment delivered once all its
+//               pieces have left.
 // Money is integer paise.
 
 const { fail } = c;
@@ -59,7 +64,8 @@ async function payOnBills(db, business, user, order, parts, key) {
   return paid;
 }
 
-// body: { requestKey, itemIds? (every ready garment), payment? | payments? ({ amount | "full", method | methodId, reference? }),
+// body: { requestKey, itemIds? (every ready garment), pieces?: { [itemId]: how many of its pieces left now (the rest of them) },
+//   payment? | payments? ({ amount | "full", method | methodId, reference? }),
 //   onAccount? (money still owed goes on the customer's account), collectedBy?, note?, buyer?: { pan?, panDeclaration? } }
 async function deliver(business, user, orderId, body) {
   c.requireLaundry(business);
@@ -67,6 +73,8 @@ async function deliver(business, user, orderId, body) {
   const deliveryKey = core.uuid(body.requestKey);
   const hash = c.hashOf({ ...body, orderId: String(orderId) });
   const ids = orders.readItemIds(body.itemIds);
+  const asked = body.pieces === undefined || body.pieces === null ? {} : body.pieces;
+  if (typeof asked !== 'object' || Array.isArray(asked)) fail('Pieces must say how many of each garment\'s pieces leave');
   const parts = core.readPayments(body);
   if (parts.length) await access.require(business, 'sales.edit');
   const onAccount = v.requiredBoolean(body.onAccount, 'On the customer\'s account', false);
@@ -87,6 +95,16 @@ async function deliver(business, user, orderId, body) {
     for (const item of handing) {
       if (item.status !== 'ready') fail(`Garment ${item.tag_no} is ${c.STATUS_WORDS[item.status]}: only a ready garment is handed over`, 409);
     }
+    // The pieces of each garment that leave now: all those left unless fewer are asked.
+    for (const key of Object.keys(asked)) if (!handing.some((i) => String(i.id) === String(key))) fail('Pieces are given for the garments handed over');
+    const leaving = new Map(handing.map((item) => {
+      const left = Number(item.pieces) - Number(item.pieces_delivered);
+      const given = asked[item.id] ?? asked[String(item.id)];
+      if (given === undefined || given === null || given === '') return [Number(item.id), left];
+      const text = String(given).trim();
+      if (!/^\d+$/.test(text) || Number(text) < 1 || Number(text) > left) fail(`Garment ${item.tag_no}: from 1 to ${left} of its pieces leave now`);
+      return [Number(item.id), Number(text)];
+    }));
     const whole = order.part_delivery === 'whole_order';
     // The garments this handover bills (an order billed at delivery).
     const toBill = order.bill_at !== 'delivery' ? [] : whole ? items.filter((i) => c.OPEN.includes(i.status) && !i.line_id) : handing.filter((i) => !i.line_id);
@@ -138,14 +156,14 @@ async function deliver(business, user, orderId, body) {
       owed = document ? Math.max(0, c.paise(bills.find((b) => Number(b.id) === Number(document.id)).due)) : 0;
     } else {
       // Billed at intake, each handover paying for its garments: the garments
-      // delivered so far and these, at their charge less what was credited on
-      // them, against what was paid on the bill.
-      const bill = bills[0];
+      // delivered so far (or begun) and these, at their charge less what was
+      // credited on them, against what was paid on the order's bills.
       const handed = new Set(handing.map((i) => Number(i.id)));
-      const value = items.filter((i) => i.status === 'delivered' || handed.has(Number(i.id)))
+      const value = items.filter((i) => i.status === 'delivered' || Number(i.pieces_delivered) > 0 || handed.has(Number(i.id)))
         .reduce((sum, i) => sum + c.paise(i.net) + c.paise(i.tax) - c.paise(i.credited || 0), 0);
-      const paid = c.paise(bill.paid) - c.paise(bill.refunded);
-      owed = Math.min(Math.max(0, c.paise(bill.due)), Math.max(0, value - paid));
+      const paid = bills.reduce((sum, b) => sum + c.paise(b.paid) - c.paise(b.refunded), 0);
+      const due = bills.reduce((sum, b) => sum + Math.max(0, c.paise(b.due)), 0);
+      owed = Math.min(due, Math.max(0, value - paid));
     }
     if (owed > 0) {
       const account = await repo.one(db, 'SELECT (credit_days>0 OR COALESCE(credit_limit,0)>0) AS has FROM business_contacts WHERE business_id=$1 AND id=$2', [business.id, order.contact_id]);
@@ -161,11 +179,19 @@ async function deliver(business, user, orderId, body) {
     const delivery = await repo.one(db, `INSERT INTO laundry_deliveries(business_id,order_id,document_id,on_account,collected_by,note,request_key,request_hash,created_by)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`, [business.id, order.id, document?.id || null, owed > 0, collectedBy, note, deliveryKey, hash, user.id]);
     for (const item of handing) {
-      await db.query('INSERT INTO laundry_delivery_items(business_id,delivery_id,order_id,item_id) VALUES($1,$2,$3,$4)', [business.id, delivery.id, order.id, item.id]);
-      await db.query("UPDATE laundry_order_items SET status='delivered',delivered_at=now(),delivered_by=$3 WHERE business_id=$1 AND id=$2", [business.id, item.id, user.id]);
-      await orders.history(db, business, user, order, item, 'ready', 'delivered', null);
+      const pieces = leaving.get(Number(item.id));
+      const done = Number(item.pieces_delivered) + pieces === Number(item.pieces);
+      await db.query('INSERT INTO laundry_delivery_items(business_id,delivery_id,order_id,item_id,pieces) VALUES($1,$2,$3,$4,$5)', [business.id, delivery.id, order.id, item.id, pieces]);
+      if (done) {
+        await db.query("UPDATE laundry_order_items SET status='delivered',pieces_delivered=pieces,delivered_at=now(),delivered_by=$3 WHERE business_id=$1 AND id=$2", [business.id, item.id, user.id]);
+        await orders.history(db, business, user, order, item, 'ready', 'delivered', Number(item.pieces_delivered) > 0 ? `the last ${c.plural(pieces, 'piece')}` : null);
+      } else {
+        await db.query('UPDATE laundry_order_items SET pieces_delivered=pieces_delivered+$3 WHERE business_id=$1 AND id=$2', [business.id, item.id, pieces]);
+        await orders.history(db, business, user, order, item, null, null, `${c.plural(pieces, 'piece')} of ${item.pieces} handed over; ${Number(item.pieces) - Number(item.pieces_delivered) - pieces} still on the rack`);
+      }
     }
-    const tags = handing.map((i) => i.tag_no);
+    const tags = handing.map((i) => (leaving.get(Number(i.id)) < Number(i.pieces) - Number(i.pieces_delivered) || Number(i.pieces_delivered) > 0
+      ? `${i.tag_no} (${leaving.get(Number(i.id))} of ${i.pieces})` : i.tag_no));
     // The history names the bill and the receipt, not the amounts.
     await orders.history(db, business, user, order, null, null, null, [`Handed over: ${c.plural(handing.length, 'garment')} (tag ${tags.join(', ')})`,
       document ? `bill ${document.document_no}` : null, advanceUse > 0 ? 'the advance taken off' : null, owed > 0 ? 'the rest on the customer\'s account' : null,
@@ -173,7 +199,8 @@ async function deliver(business, user, orderId, body) {
     const figures = { orderNo: order.order_no, deliveryId: delivery.id, tags, documentNo: document?.document_no || null, billTotal: document?.total || null,
       advanceUsed: money.rupees(advanceUse), onAccount: owed > 0, owedOnAccount: money.rupees(owed) };
     await repo.audit(db, business.id, user.id, 'laundry_order.delivered', order.id, figures);
-    await repo.event(db, business.id, user.id, 'laundry_order.delivered', 'laundry_order', order.id, { ...figures, documentId: document?.id || null, itemIds: handing.map((i) => i.id) });
+    await repo.event(db, business.id, user.id, 'laundry_order.delivered', 'laundry_order', order.id, { ...figures, documentId: document?.id || null, itemIds: handing.map((i) => i.id),
+      pieces: Object.fromEntries([...leaving.entries()].map(([k, n]) => [k, n])) });
     return orders.shape(business, await orders.load(db, business, order.id));
   });
 }

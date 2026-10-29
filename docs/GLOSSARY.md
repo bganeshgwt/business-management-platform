@@ -392,7 +392,7 @@ Most arguments about numbers are really arguments about words. Settle these firs
 |---|---|
 | **Garment order** | Garments taken in from a customer at the counter, each with its tag and service, from intake to the handover (LO/2627/0001). Not a GST document: its bill is. |
 | **Tag** | The number on a garment (or on several of a kind under one tag, or on a bundle by the kilo) from intake until it leaves; printed as a label for every piece, with its barcode. No two garments in the shop hold the same tag. |
-| **Price list** | Each garment's price for each service: for each piece, pair or set, or by the kilo. |
+| **Price list** | Each garment's price for each service: for each piece, pair or set, by the kilo, or by the square foot. |
 | **Per piece, per pair, per set** | How a garment is counted and priced: a shirt is a piece, socks a pair, a two-piece suit a set of two pieces. |
 | **By the kilo** | A bundle (wash and fold, say) weighed at the counter and priced by its weight, with its pieces counted too. |
 | **Express** | An order done sooner, at a surcharge: the shop's percentage added to every garment's price. |
@@ -410,6 +410,15 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Damage claim** | A customer's complaint that a garment came back damaged, stained, shrunk, with its colour run, lost or missing a part; a manager decides it: money back, a credit note, reprocessing or rejected. |
 | **Reprocess** | The work done again at no charge, the garment taken back in under a damage claim. |
 | **SAC 99971** | The GST group of laundry, dry cleaning, pressing and dyeing (dry cleaning 999712): 18% with input tax credit. |
+| **Price of its own** | A garment and service at a price for one counter, one customer or a customer group, from a date; a customer's comes first, then their group's, then the counter's, then the price list's. |
+| **Customer group** | Customers priced together, such as a housing society or the hotels a laundry serves. |
+| **By the square foot** | A carpet or curtain priced by its area: its length × width in feet, rounded as the shop sets. |
+| **Package (kilo or piece)** | Kilos or pieces of a laundry's services paid for in advance, for so many days, sold on a bill with GST and drawn on as garments are taken in; what is left may be carried into the next one as its plan says. |
+| **Carry-forward** | What is left of a package moved into the customer's next one of the same unit: nothing, all, or up to a quantity, when it is bought within the plan's days of the end. |
+| **Quality check (QC)** | A look at a garment after the work: passed (packed next, or onto the rack) or sent back to be washed again with the reason. |
+| **Rewash** | A garment sent back from its quality check to be washed again; counted on the garment. |
+| **Packed** | A garment folded or bagged after its quality check, waiting for its rack. |
+| **Pieces handed over** | The pieces of a garment under one tag (three shirts, a suit) that have left; the garment is delivered with its last piece. |
 
 ### Jewellery & gold
 

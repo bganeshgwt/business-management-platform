@@ -1,13 +1,15 @@
 import { escapeHtml, printDocument } from "../../../../services/print";
 import { dateShort, dateTime } from "@bmp/shared/format";
 import { barcodeSvg } from "../../retail/services/barcode";
-import { LIEN_NOTE, defectWords, quantityWords } from "./laundry";
+import { LIEN_NOTE, defectWords, offWords, quantityWords } from "./laundry";
 import { privacyLine } from "../../../personal-data/printLine";
 
 // Printing for a laundry: the order receipt for the customer (every garment
 // with its tag, what was noted about it at intake and what the customer
-// acknowledged, the prices when the person sees money, the shop's terms and
-// the hold until paid, with a line for the customer to sign), and the tag
+// acknowledged, the photos taken as a count, the prices when the person sees
+// money with what a package, an offer or a discount took off, the shop's
+// terms and the hold until paid, with a line for the customer to sign or a
+// note that they signed on the screen), and the tag
 // labels: one for every piece, with its tag number as a barcode, on a label
 // roll or an A4 sheet.
 
@@ -41,8 +43,9 @@ export function printOrderReceipt(biz, order) {
   const items = order.items.filter((i) => i.status !== "cancelled");
   const rows = items.map((i) => `<tr><td><strong>${escapeHtml(i.tag_no)}</strong></td><td>${escapeHtml(i.garment_name)}${[i.colour, i.brand].some(Boolean) ? `<br><small>${escapeHtml([i.colour, i.brand].filter(Boolean).join(" · "))}</small>` : ""}</td>
     <td>${escapeHtml(i.service_name)}</td><td>${escapeHtml(quantityWords(i))}</td><td>${notedHtml(i)}${i.declared_value ? `<br><small>Value declared: ${escapeHtml(biz.exact(i.declared_value))}</small>` : ""}</td>
-    ${money ? `<td class="r">${escapeHtml(biz.exact(Number(i.net) + Number(i.tax)))}</td>` : ""}</tr>`).join("");
+    ${money ? `<td class="r">${escapeHtml(biz.exact(Number(i.net) + Number(i.tax)))}${offWords(biz.exact, i) ? `<br><small>${escapeHtml(offWords(biz.exact, i))}</small>` : ""}</td>` : ""}</tr>`).join("");
   const pieces = items.reduce((s, i) => s + Number(i.pieces), 0);
+  const photos = (order.files || []).filter((f) => f.kind === "photo").length;
   const noted = items.some((i) => notedHtml(i));
   const paid = money && order.bills.length ? Number(order.paid) : 0;
   const advance = money && order.advance ? Number(order.advance.amount) : 0;
@@ -54,7 +57,8 @@ export function printOrderReceipt(biz, order) {
       <dl><dt>Customer</dt><dd>${escapeHtml(order.customer_name)}${order.customer_phone ? ` · ${escapeHtml(order.customer_phone)}` : ""}</dd>
       <dt>Taken in</dt><dd>${escapeHtml(dateTime(order.created_at))}</dd>
       <dt>Ready by</dt><dd><strong>${fmt(order.promised_on)}</strong>${order.express ? " · <strong>EXPRESS</strong>" : ""}</dd>
-      <dt>Garments</dt><dd>${items.length} (${pieces} ${pieces === 1 ? "piece" : "pieces"})</dd></dl>
+      <dt>Garments</dt><dd>${items.length} (${pieces} ${pieces === 1 ? "piece" : "pieces"})</dd>
+      ${photos ? `<dt>Photos</dt><dd>${photos} ${photos === 1 ? "photo" : "photos"} kept with the order</dd>` : ""}</dl>
       <table><thead><tr><th>Tag</th><th>Garment</th><th>Service</th><th>How many</th><th>Noted at intake</th>${money ? '<th class="r">Amount</th>' : ""}</tr></thead><tbody>${rows}</tbody></table>
       ${money ? `<dl><dt>Total</dt><dd><strong>${escapeHtml(biz.exact(order.total))}</strong> including GST</dd>
         ${order.bills.length ? `<dt>Paid</dt><dd>${escapeHtml(biz.exact(paid))}</dd>` : advance ? `<dt>Advance paid</dt><dd>${escapeHtml(biz.exact(advance))} (${escapeHtml(order.advance.collection_no)})</dd>` : ""}
@@ -62,7 +66,7 @@ export function printOrderReceipt(biz, order) {
       <p class="note">${escapeHtml(LIEN_NOTE)} Please bring this receipt when you collect your garments.${order.bill_at === "delivery" ? " The bill is made when you collect them." : ""}</p>
       ${order.terms ? `<div class="terms">${escapeHtml(order.terms)}</div>` : ""}
       ${privacyLine(biz) ? `<p class="note">${escapeHtml(privacyLine(biz))}</p>` : ""}
-      <div class="sign"><span>${noted ? "Customer: I have seen what is noted above about my garments" : "Customer"}</span><span>For ${escapeHtml(biz.settings.display_name || biz.business.name)}</span></div>`,
+      <div class="sign"><span>${order.signed ? "Signed by the customer on the screen at intake" : noted ? "Customer: I have seen what is noted above about my garments" : "Customer"}</span><span>For ${escapeHtml(biz.settings.display_name || biz.business.name)}</span></div>`,
   });
 }
 

@@ -162,6 +162,8 @@ const GarmentOrderPage = lazy(() => import("../../laundry/pages/GarmentOrderPage
 const ReadyRacksPage = lazy(() => import("../../laundry/pages/ReadyRacksPage"));
 const UnclaimedPage = lazy(() => import("../../laundry/pages/UnclaimedPage"));
 const PriceListPage = lazy(() => import("../../laundry/pages/PriceListPage"));
+const LaundryPackagesPage = lazy(() => import("../../laundry/pages/LaundryPackagesPage"));
+const LaundryClaimsPage = lazy(() => import("../../laundry/pages/LaundryClaimsPage"));
 // Jewellery shops.
 const GoldRatesPage = lazy(() => import("../../jewellery/pages/RatesPage"));
 const RateBoardPage = lazy(() => import("../../jewellery/pages/RateBoardPage"));
@@ -382,6 +384,8 @@ function screens(type) {
     "ready-racks": <ReadyRacksPage />,
     "unclaimed": <UnclaimedPage />,
     "laundry-prices": <PriceListPage />,
+    "laundry-packages": <LaundryPackagesPage />,
+    "laundry-claims": <LaundryClaimsPage />,
     "gold-rates": <GoldRatesPage />,
     "rate-board": <RateBoardPage />,
     "pieces": <PiecesPage />,

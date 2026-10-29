@@ -4931,8 +4931,9 @@ every garment, and bills its services with prices before GST. A new one starts
 with **Garment orders** on; offers, loyalty and stock for what it sells over
 the counter can be switched on in Settings › Business tools. **New order** (the
 intake screen) and **Orders** are daily entries of their own; *Orders* holds
-*Ready & racks* and *Unclaimed*; the price list and the order settings are
-under *Services & items › Price list*.
+*Ready & racks*, *Unclaimed* and *Claims*; the price list and the order
+settings are under *Services & items › Price list*, and prepaid packages under
+*Customers › Packages*.
 
 **Before trading:**
 
@@ -4965,17 +4966,36 @@ under *Services & items › Price list*.
      order (none until set);
    - the days to the promised day (3), and for express (1);
    - *Unclaimed after (days ready)* (30);
+   - *Closed each week*: the days the shop is shut; the promised day skips them;
+   - *Area by the square foot, rounded*: to the hundredth (to start with), to
+     the nearest whole square foot, or up to the next;
+   - *A quality check before the rack* and *Packed before the rack* (neither
+     to start with);
    - *Terms printed on every receipt*: the shop's terms in its own words.
 
-   Orders keep the rules they were taken in under.
-5. **What the receipt says** — a printed "no responsibility" disclaimer does
+   Orders keep the rules they were taken in under. *Days* on a service gives
+   it its own days to the promised day, and for express (empty: the shop's).
+5. **Prices of their own and groups** (optional) — *Prices of their own*: a
+   garment and service at a price for one counter, one customer or a *Customer
+   group* (a housing society, the hotels), from a day; a customer's comes
+   first, then their group's, then the counter's, then the list. A new one
+   ends the one in force the day before; *End* stops one (never deleted).
+   Carpets and curtains are priced *a sq ft*: the counter types their length
+   and width in feet.
+6. **Packages** (optional) — *Customers › Packages*, *Add a plan*: so many
+   kilos (for bundles by the kilo) or pieces (for garments by the piece) of
+   the services it covers, for so many days, at a price and GST slab (the
+   plan is sold as its own service item, so GST is charged when it is sold),
+   and what is left when the customer buys the next one: nothing, all, or up
+   to a quantity, if bought within so many days of the end.
+7. **What the receipt says** — a printed "no responsibility" disclaimer does
    not protect a laundry from its own negligence: a district consumer
    commission has held so over a silk saree returned with stains. Claims turn
    on proof: consumer commissions accept a shop's own WhatsApp messages as
    evidence, and a customer who collects and pays without protest weakens a
    later claim. Note each garment's defects and the risk explained to the
    customer at intake, and have them acknowledge it (below).
-6. **The tag labels** — a label roll of 50 × 25 mm, or an A4 sheet of 40
+8. **The tag labels** — a label roll of 50 × 25 mm, or an A4 sheet of 40
    labels: chosen on an order's page (*Roll* or *A4*).
 
 **The screens:**
@@ -4992,9 +5012,19 @@ under *Services & items › Price list*.
   told about the risk to it, *The customer saw and acknowledged this*, a value
   they declared, and a tag typed by hand (empty: the next number). The risk
   note records what was said and acknowledged; it never limits a claim.
-  *Another* adds one more of the same with its own tag. *Express* adds the
-  surcharge to every garment. The promised day is suggested from the days
-  set, today to 90 days ahead. Billed at delivery, an *Advance taken* (cash,
+  *Another* adds one more of the same with its own tag. A carpet or curtain
+  priced by the square foot takes its *Length (ft)* and *Width (ft)*. When
+  the customer has a package in force, *Paid by package* lets it pay for a
+  bundle by the kilo or a garment by the piece of a service it covers (what
+  it holds pays; the rest is charged). *Noted* also takes photos of the
+  garment and, for a role that may give discounts, *Discount on this garment*
+  (10% or an amount). *Express* adds the surcharge to every garment. The
+  promised day is suggested from the slowest service's days, counted on the
+  days the shop is open, today to 90 days ahead. *Discount on the order*
+  (10% or an amount off what the customer pays) needs a reason and stays
+  within the business's most discount. An offer running on a service
+  (*Offers & discounts*) comes off by itself and shows on the line. *Customer
+  signs on the screen* keeps their drawn signature with the order. Billed at delivery, an *Advance taken* (cash,
   UPI, card or bank) is a numbered receipt that comes off the bill at the
   handover; billed at intake, *Paid now* goes on the bill and the rest stays
   on the customer's dues. The figures are the server's, as the order will be
@@ -5014,25 +5044,41 @@ under *Services & items › Price list*.
   ready), the total and what is to pay. The steps, each shown to those who
   may take it:
   - *Into the work* — received garments, all or those chosen;
-  - *Ready on a rack* — garments received or in the work, onto a rack and
-    slot (*B-7*) where they hang;
-  - *Back into the work* — a ready garment, saying why;
+  - *To the quality check* — garments received or in the work;
+  - *Quality check* — the garments at QC: *Passed* (packed next when the
+    shop packs them, else onto a rack) or *Wash again*, saying why (counted
+    on the garment);
+  - *Packed* — garments received or in the work, when the shop does not
+    require a quality check;
+  - *Ready on a rack* — garments received, in the work or packed, onto a rack
+    and slot (*B-7*) where they hang;
+  - *Back into the work* — a packed or ready garment, saying why;
+  - *Add garments* — more garments for the order while some are in the shop,
+    priced as at intake, each with its tag (billed at intake: on a bill of
+    their own);
   - *Hand over* and *Cancel garments* — below;
   - *Promised day* — a new day, and the order's notes.
 
   *Tell the customer* opens WhatsApp with the message ready (taken in, ready
   to collect, running late, a reminder to collect) or calls them, and notes it
   in the history. The garments show each tag, garment and service, colour and
-  brand, what was noted at intake, the status and rack, and the charge with
-  its bill; *Re-tag* gives a garment in the shop another tag (no two garments
-  in the shop hold the same tag), *Tag or rack* moves a ready one, and *Tag*
-  prints its label again. *Bills and money* shows each bill with what was
+  brand, what was noted at intake, the photos, the status and rack (with who
+  checked it and how many times it was washed again), and the charge with its
+  bill and what a package, an offer or a discount took off; *Re-tag* gives a
+  garment in the shop another tag (no two garments in the shop hold the same
+  tag), *Tag or rack* moves a ready one, *Tag* prints its label again,
+  *Photo* adds one (at intake while it is received, at its quality check
+  after), and *Change* (a manager, before its work starts) changes its
+  service, price or quantity with a reason: billed, its line is credited and
+  it is billed again, what was paid paying the new bill first. *Photos and
+  signature* shows the pictures kept with the order. *Bills and money* shows each bill with what was
   credited, paid and is still due (its number prints the tax invoice), what
   the garments not billed yet come to today, and the advance with what is
   left of it. *Handovers*, *Damage claims* and the *History* of every step
   follow. *Receipt* prints the order receipt for the customer: every garment
   with its tag, what was noted and acknowledged, the prices (for those who
-  see money), the shop's terms and the hold until paid, with a line to sign.
+  see money), how many photos were kept, the shop's terms and the hold until
+  paid, with a line to sign (or a note that they signed on the screen).
   *Tags* prints a label for every piece of the garments in the shop, with its
   tag number as a barcode.
 - **Handing over** (*Hand over*) — the ready garments, all or those chosen.
@@ -5048,7 +5094,9 @@ under *Services & items › Price list*.
   Act, section 170), unless agreed otherwise. A customer with an account with
   the shop (credit days or a credit limit on their customer record) may take
   them with money still owed, *On the customer's account*. *Collected by*
-  names someone else who collected them.
+  names someone else who collected them. A garment of several pieces under
+  one tag may leave piece by piece: *Pieces leaving now* (the rest stay on the
+  rack); it is billed with its first piece and delivered with its last.
 - **Cancelling** (*Cancel garments*) — garments still in the shop, all or
   those chosen, with a reason. Not billed yet: they are cancelled, and an
   advance stays the customer's: *Hand back the advance* (with a manager's
@@ -5088,15 +5136,27 @@ under *Services & items › Price list*.
   only once it is billed; compensation beyond it (the garment's value) is paid
   outside the bill. What was noted and acknowledged at intake stays on the
   garment, and each claim keeps when it was reported.
+- **Claims** (*Orders › Claims*) — every damage claim, those waiting first
+  (each opens its order), and the claims of a period added up by service, by
+  who took the garment in, or by month, with the compensation given and the
+  money refunded.
+- **Packages** (*Customers › Packages*) — the plans, and the customers'
+  packages with what each still holds, what was carried in and on, and its
+  days. *Sell a package* posts its bill (paid now or later) and carries in
+  what is left of the customer's last one as its plan says. *Cancel* (a
+  manager) cancels one never used; its bill line can then be credited from
+  the bill.
 - **The bell** — orders past their promised day with garments not ready, and
   the orders ready and not collected for the shop's days.
 
-Who does what: a cashier at the counter takes orders in, moves garments
-through the work and onto the racks, hands them over with their bills and
-money, records damage claims and prints receipts and tags; a stock keeper
-(the presser, say) moves garments through the work and onto the racks and
-sees the orders without their money; a manager does all of it, cancels
-garments and decides damage claims, approving money back with their PIN; an
+Who does what: a cashier at the counter takes orders in, adds garments,
+sells packages, moves garments through the work and onto the racks, hands
+them over with their bills and money, records damage claims and prints
+receipts and tags; a stock keeper (the presser, say) moves garments through
+the work, the quality check and onto the racks, photographs them at QC and
+sees the orders without their money; a manager does all of it, gives
+discounts, changes garments before their work starts, cancels garments and
+packages and decides damage claims, approving money back with their PIN; an
 accountant sees and prints, and a viewer sees.
 
 ## Jewellery & gold

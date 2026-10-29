@@ -605,23 +605,33 @@ export async function buildTestData({ api, logins, sql }) {
     const service = (body) => owner("POST", B("laundry/services"), body, 201);
     await service({ item: { name: LAUNDRY.dryCleaning.name, hsnCode: LAUNDRY.dryCleaning.sac } });
     await service({ item: { name: LAUNDRY.washIron.name } });
-    let list = await service({ item: { name: LAUNDRY.washFold.name } });
-    for (const garment of [LAUNDRY.shirt, LAUNDRY.saree, LAUNDRY.mixed]) list = await owner("POST", B("laundry/garments"), { name: garment.name }, 201);
+    await service({ item: { name: LAUNDRY.washFold.name } });
+    let list = await service({ item: { name: LAUNDRY.carpetShampoo.name } });
+    for (const garment of [LAUNDRY.shirt, LAUNDRY.saree, LAUNDRY.mixed, LAUNDRY.carpet]) list = await owner("POST", B("laundry/garments"), { name: garment.name }, 201);
     const serviceId = (name) => list.services.find((s) => s.name === name).id;
     const garmentId = (name) => list.garments.find((g) => g.name === name).id;
     const price = (garment, service, value, per = "item") => ({ garmentTypeId: garmentId(garment), serviceId: serviceId(service), per, price: String(value) });
     await owner("PUT", B("laundry/prices"), { prices: [price(LAUNDRY.shirt.name, LAUNDRY.washIron.name, LAUNDRY.shirt.washIron),
       price(LAUNDRY.shirt.name, LAUNDRY.dryCleaning.name, LAUNDRY.shirt.dryCleaning), price(LAUNDRY.saree.name, LAUNDRY.dryCleaning.name, LAUNDRY.saree.dryCleaning),
-      price(LAUNDRY.mixed.name, LAUNDRY.washFold.name, LAUNDRY.mixed.washFoldKg, "kg")] }, 200);
+      price(LAUNDRY.mixed.name, LAUNDRY.washFold.name, LAUNDRY.mixed.washFoldKg, "kg"), price(LAUNDRY.carpet.name, LAUNDRY.carpetShampoo.name, LAUNDRY.carpet.shampooSqft, "sqft")] }, 200);
     await owner("PUT", B("laundry/settings"), { expressPercent: String(LAUNDRY.express), receiptTerms: LAUNDRY.terms }, 200);
     const customer = await owner("POST", B("contacts"), { kind: "customer", name: LAUNDRY.customer.name, phone: LAUNDRY.customer.phone }, 201);
     const day = (days) => new Date(Date.now() + days * 86400000).toLocaleDateString("en-CA", { timeZone: TIMEZONE });
     const order = await owner("POST", B("laundry/orders"), { requestKey: requestKey(), locationId: businesses.laundry.locationId, contactId: customer.id, promisedOn: day(2),
       items: [{ garmentTypeId: garmentId(LAUNDRY.shirt.name), serviceId: serviceId(LAUNDRY.washIron.name), quantity: "2" },
         { garmentTypeId: garmentId(LAUNDRY.saree.name), serviceId: serviceId(LAUNDRY.dryCleaning.name), defects: ["stain"], riskNote: "Silk: colour may run", acknowledged: true }] }, 201);
+    // The kilo package, sold to the customer; a second order for the quality check and a change.
+    const plans = await owner("POST", B("laundry/plans"), { name: LAUNDRY.plan.name, unit: "kg", quantity: String(LAUNDRY.plan.kilos), validityDays: String(LAUNDRY.plan.days),
+      serviceIds: [serviceId(LAUNDRY.washFold.name)], price: String(LAUNDRY.plan.price) }, 201);
+    const pack = await owner("POST", B("laundry/packages"), { requestKey: requestKey(), planId: plans.find((p) => p.name === LAUNDRY.plan.name).id, contactId: customer.id,
+      locationId: businesses.laundry.locationId, payment: { amount: "full", method: "cash" } }, 201);
+    const second = await owner("POST", B("laundry/orders"), { requestKey: requestKey(), locationId: businesses.laundry.locationId, contactId: customer.id,
+      items: [{ garmentTypeId: garmentId(LAUNDRY.shirt.name), serviceId: serviceId(LAUNDRY.dryCleaning.name) }] }, 201);
     Object.assign(businesses.laundry, {
       customer: { id: customer.id, name: customer.name },
       order: { id: order.id, orderNo: order.order_no, total: order.total, tags: order.items.map((item) => item.tag_no) },
+      package: { id: pack.id, documentNo: pack.document_no },
+      order2: { id: second.id, orderNo: second.order_no, tag: second.items[0].tag_no },
     });
   }
 

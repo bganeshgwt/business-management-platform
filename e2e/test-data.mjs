@@ -364,6 +364,12 @@ export const LAUNDRY = {
   express: 50,
   terms: "Please check your garments when you collect them, and tell us of any problem the same day.",
   customer: { name: "Sunita Kapoor", phone: "9876500201" },
+  // Carpets shampooed by the square foot; a kilo package of wash and fold the
+  // customer bought (30 kg for 30 days, ₹2,499 + 18% GST); and a second order of
+  // a shirt for dry cleaning, for the quality check and a change before its work.
+  carpetShampoo: { name: "Carpet shampoo" },
+  carpet: { name: "Carpet", shampooSqft: 25.5 },
+  plan: { name: "Wash & fold 30 kg", kilos: 30, days: 30, price: 2499 },
 };
 
 // The jeweller: the morning's rates from the local association, set on the

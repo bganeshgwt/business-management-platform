@@ -1388,6 +1388,7 @@ Rules:
 - Trigger `business_return_lines_salon_plan` (function `salon_plan_line_return`) refuses to return a line that sold a salon package or membership while that plan is still active.
 - Trigger `business_return_lines_member_plan` (function `member_plan_line_return`) refuses to return a line that sold a gym's membership (its plan or its joining fee) unless the return is the credit note the membership made (its `credit_key`): a cancellation or an upgrade.
 - Trigger `business_return_lines_laundry` (function `laundry_line_return`) refuses to return a line that charges a laundry garment unless the return is the credit note its order made (the garment's `credit_key`): a cancelled garment, or a damage claim settled with money back or a credit note.
+- Trigger `business_return_lines_laundry_package` (function `laundry_package_line_return`, laundry-more) refuses to return a line that sold a laundry package while the package is active.
 - Trigger `business_return_lines_fuel` (function `fuel_line_return`, replaced by 1791979600000) refuses to return a line of a fuel bill a shift's close posted (the walk-in bill, a fleet customer's, a big fill's), unless its shift is being reopened at that moment, a line of a tanker load's purchase, unless the load is being cancelled at that moment, and a fleet fill billed on a month's invoice.
 - Index `business_return_lines_line` (business, line) lets the bills lists read a line's returns without scanning the table.
 - Trigger `business_return_lines_jewellery` (function `jewellery_line_return`) refuses to return a line that sells a jeweller's tagged piece unless it goes back to stock; trigger `business_return_lines_jewellery_returned` (function `jewellery_line_returned`, after the row) brings the piece back into stock with its history.
@@ -3358,19 +3359,19 @@ Added by: memberships-more.
 
 ## Laundry & dry cleaning
 
-A laundry's and dry cleaner's own tables (type `laundry`), added by 1791966000000 laundry. Module `laundry` ("Garment orders", optional, laundry only, on) needs catalog, contacts and sales; permissions `laundry.view`, `laundry.create` (take orders in), `laundry.edit` (the work, the racks, handovers, damage claims recorded), `laundry.cancel` (cancel garments), `laundry.print` (order receipts and tag labels) and `laundry.refund` (decide damage claims; money back). Garment orders are numbered in the series kind `laundry_order` (prefix `LO`; not a GST document). A service is billed as a service item (`catalog_skus`); a garment order's bill is an ordinary sale (`business_documents`, one line a garment), its advance an ordinary receipt (`business_collections`) handed back as a `business_collection_refunds` row of source `laundry`, and what a cancellation or a damage claim gives back an ordinary credit note (`business_returns`) with an ordinary refund (`business_refunds`). The trigger `business_return_lines_laundry` (function `laundry_line_return`) on `business_return_lines` refuses a return of a bill line that charges a garment unless the return's request key is the garment's own `credit_key`.
+A laundry's and dry cleaner's own tables (type `laundry`), added by 1791966000000 laundry and laundry-more (prices of their own, customer groups, packages, photos, the quality check, changes and additions). Module `laundry` ("Garment orders", optional, laundry only, on) needs catalog, contacts and sales; permissions `laundry.view`, `laundry.create` (take orders in), `laundry.edit` (the work, the racks, handovers, damage claims recorded), `laundry.cancel` (cancel garments), `laundry.print` (order receipts and tag labels) and `laundry.refund` (decide damage claims; money back). Garment orders are numbered in the series kind `laundry_order` (prefix `LO`; not a GST document). A service is billed as a service item (`catalog_skus`); a garment order's bill is an ordinary sale (`business_documents`, one line a garment), its advance an ordinary receipt (`business_collections`) handed back as a `business_collection_refunds` row of source `laundry`, and what a cancellation or a damage claim gives back an ordinary credit note (`business_returns`) with an ordinary refund (`business_refunds`). The trigger `business_return_lines_laundry` (function `laundry_line_return`) on `business_return_lines` refuses a return of a bill line that charges a garment unless the return's request key is the garment's own `credit_key`.
 
 #### `laundry_settings`
 Purpose: how a laundry bills and hands over its orders, and its tag count.
 Key columns: PK `business_id`, `bill_at` (delivery, intake; default delivery), `part_delivery` (whole_order, garments; default whole_order), `express_percent` (0-200, default 0), `ready_days` (0-60, default 3), `express_days` (0-60, default 1), `unclaimed_days` (1-365, default 30), `receipt_terms` (up to 2,000 characters), `last_tag_no`, `updated_by`, `updated_at`. The defaults are used until the row is made (on first save, or with the first tag given).
-Added by: 1791966000000.
+Added by: 1791966000000; laundry-more (`area_rounding` exact, nearest or up, default exact; `closed_days` SMALLINT[] of ISO weekdays, never all seven; `qc_required` and `packing_required`, default false).
 
 #### `laundry_services`
 Purpose: a service on the price list, billed as a service item.
 Key columns: `sku_id`, `sort_order`, `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
 Relations: (`business_id`, `sku_id`) -> `catalog_skus`.
 Rules: UNIQUE (business, item). Trigger `laundry_services_check`: never deleted; keeps its item, who made it and when; the item is a service of the business, not a kit.
-Added by: 1791966000000.
+Added by: 1791966000000; laundry-more (`ready_days`, `express_days`: 0-60, the service's own days to the promised day; none for the shop's).
 
 #### `laundry_garment_types`
 Purpose: a kind of garment taken in, and how one is counted.
@@ -3380,10 +3381,55 @@ Added by: 1791966000000.
 
 #### `laundry_prices`
 Purpose: the price list: a garment and a service at a price.
-Key columns: PK (`business_id`, `garment_type_id`, `service_id`), `per` (item, kg), `price` (> 0), `updated_by`, `updated_at`.
+Key columns: PK (`business_id`, `garment_type_id`, `service_id`), `per` (item, kg, sqft), `price` (> 0), `updated_by`, `updated_at`.
 Relations: (`business_id`, `garment_type_id`) -> `laundry_garment_types`; (`business_id`, `service_id`) -> `laundry_services`.
 Rules: index `laundry_prices_service`. Changed in place or taken off; each change is in `business_audit` (`laundry_price.changed`).
-Added by: 1791966000000.
+Added by: 1791966000000; laundry-more (`per` sqft: by the square foot).
+
+#### `laundry_customer_groups`
+Purpose: a group of customers priced together.
+Key columns: `name` (unique index `laundry_customer_groups_name` in any case), `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Rules: switched off, never deleted (the service).
+Added by: laundry-more.
+
+#### `laundry_group_members`
+Purpose: the group a customer is in.
+Key columns: PK (`business_id`, `contact_id`), `group_id`, `created_by`, `created_at`.
+Relations: (`business_id`, `contact_id`) -> `business_contacts`; (`business_id`, `group_id`) -> `laundry_customer_groups`.
+Rules: one group a customer; index `laundry_group_members_group`; trigger `laundry_group_members_customer` (function `business_contact_is_customer`). Personal data: kept (`personalDataRegistry.js`).
+Added by: laundry-more.
+
+#### `laundry_price_overrides`
+Purpose: a garment and service at a price of its own for one location, group or customer, from a date.
+Key columns: `garment_type_id`, `service_id`, `location_id` / `group_id` / `contact_id` (exactly one), `per` (item, kg, sqft), `price` (> 0), `valid_from`, `valid_to` (open, or at least the day before `valid_from`: then never in force), `created_by`/`created_at`, `ended_by`/`ended_at`.
+Relations: (`business_id`, ...) -> `laundry_garment_types`, `laundry_services`, `business_locations`, `laundry_customer_groups`, `business_contacts`.
+Rules: index `laundry_price_overrides_lookup`; trigger `laundry_price_overrides_customer`; trigger `laundry_price_overrides_guard`: never deleted; only its end changes, earlier; two for the same garment, service and party never in force on the same day. Personal data: kept.
+Added by: laundry-more.
+
+#### `laundry_plans`
+Purpose: a prepaid package for sale: so many kilos or pieces of the services it covers, for so many days, sold as its own service item.
+Key columns: `sku_id`, `name` (unique index `laundry_plans_name` in any case), `unit` (kg, piece), `quantity` (whole for pieces), `validity_days` (1-3650), `carry_forward` (none, all, up_to), `carry_max` (exactly with up_to), `carry_days` (0-365), `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, `sku_id`) -> `catalog_skus` (UNIQUE).
+Rules: trigger `laundry_plans_guard`: never deleted; keeps its item and unit; the item is a service of the business, not a kit.
+Added by: laundry-more.
+
+#### `laundry_plan_services`
+Purpose: the services a plan covers.
+Key columns: PK (`business_id`, `plan_id`, `service_id`).
+Relations: (`business_id`, `plan_id`) -> `laundry_plans`; (`business_id`, `service_id`) -> `laundry_services`.
+Added by: laundry-more.
+
+#### `laundry_packages`
+Purpose: a package a customer bought, with the plan as it was then.
+Key columns: `plan_id`, `contact_id`, `name`, `unit`, `quantity`, `carry_forward`, `carry_max`, `carry_days`, `service_ids` (BIGINT[]), `starts_on`, `ends_on`, `document_id`, `line_id` (the bill line that sold it), `price` (with GST), `carried_from`, `carried_in`, `status` (active, cancelled), `cancel_reason`, `cancelled_by`, `cancelled_at`, `request_key`, `request_hash`, `created_by`, `created_at`.
+Relations: (`business_id`, ...) -> `laundry_plans`, `business_contacts`, `business_documents`, `business_document_lines`, `laundry_packages` (carried from).
+Rules:
+- CHECK carried in exactly when carried from; the cancellation's reason, who and when exactly when cancelled. UNIQUE (business, line), (business, request key), (business, carried from); index `laundry_packages_contact`.
+- Trigger `laundry_packages_customer`; trigger `laundry_packages_guard`: sold on a bill line of its plan's item to its customer; carried in only from the same customer's active package of the same unit; then only cancelled, while nothing was drawn, carried in or carried on; never deleted.
+- Constraint trigger `laundry_packages_holds` (and `laundry_order_items_package_holds`, function `laundry_package_holds`): a package never gives more than it holds (`laundry_package_left(business, package)`: its quantity and what was carried in, less what garments not cancelled drew and what was carried on).
+- Trigger `business_return_lines_laundry_package` (function `laundry_package_line_return`): a line that sold a package is credited only once it is cancelled. Deferred constraint trigger `business_document_lines_laundry_plan` (function `laundry_plan_line_sold`): a bill line of a plan's item has its package made with it.
+- Personal data: kept.
+Added by: laundry-more.
 
 #### `laundry_orders`
 Purpose: a garment order, as it was taken in.
@@ -3393,8 +3439,8 @@ Rules:
 - CHECK `total` = `subtotal` + `tax` + `round_off`; an express percentage only when express; a bill exactly when billed at intake; an advance only when billed at delivery.
 - UNIQUE (business, order number), (business, request key), (business, bill) and (business, advance); indexes `laundry_orders_period`, `laundry_orders_contact` and `laundry_orders_promised`.
 - Trigger `laundry_orders_customer` (function `business_contact_is_customer`).
-- Trigger `laundry_orders_guard`: never deleted; only `promised_on`, `notes`, `updated_by` and `updated_at` change.
-Added by: 1791966000000; 1791977000000 (`laundry_orders_guard` lets an erasure's change through: `business_privacy_erasing`).
+- Trigger `laundry_orders_guard`: never deleted; only `promised_on`, `notes`, the figures (`subtotal`, `tax`, `round_off`, `total`, which follow its garments), `updated_by` and `updated_at` change.
+Added by: 1791966000000; 1791977000000 (`laundry_orders_guard` lets an erasure's change through: `business_privacy_erasing`); laundry-more (`discount_percent` or `discount_amount` with `discount_reason`: the discount on the whole order as given; the figures follow the garments).
 
 #### `laundry_order_items`
 Purpose: each garment of an order (or several of a kind under one tag, or a bundle by the kilo), from intake to the handover.
@@ -3405,7 +3451,32 @@ Rules:
 - UNIQUE (business, order, seq) and (business, line); unique index `laundry_order_items_open_tag` (a tag on one garment received, in process or ready at a time); indexes `laundry_order_items_order`, `laundry_order_items_tag`, the partial `laundry_order_items_open` and `laundry_order_items_document`.
 - Trigger `laundry_order_items_insert_check`: written only in the transaction that takes its order in; starts received with nothing delivered, cancelled or credited; its item is its service's and its counting its garment's; on an order billed at intake, on a line of the order's own bill, of its item.
 - Trigger `laundry_order_items_guard`: never deleted; keeps what was noted and priced; a cancelled one never changes; moves only received → in_process, ready or cancelled; in_process → ready or cancelled; ready → in_process, delivered or cancelled; delivered → received only with a damage claim decided `reprocess` in the same transaction; delivered only with its bill line and in a handover made in the same transaction; a billed one cancelled only once its line has a return; its line (of its own item, on a sale to the order's customer) and its credit key given once; re-tagged only while in the shop or when taken back in.
-Added by: 1791966000000.
+Added by: 1791966000000; laundry-more:
+- columns `length_ft`, `width_ft` (exactly by the square foot), `price_source` (list, location, group, customer, manual) with `price_override_id` (exactly a party's price), `package_id`, `package_quantity`, `package_amount`, `offer_id` (-> `retail_offers`), `offer_name`, `offer_percent`, `offer_amount`, `discount_amount`, `qc_at`/`qc_by`, `packed_at`/`packed_by`, `rewashes`, `pieces_delivered` (all of them exactly when delivered), `addition_id` (-> `laundry_order_additions`), `added_by`/`added_at`;
+- statuses `qc` and `packed`; `per` sqft; CHECK `amount` = `base` + `surcharge` - `package_amount` - `offer_amount` - `discount_amount` (at least nil); back in the work with no quality check or packing kept; packed with who and when;
+- the open tag and open indexes cover qc and packed; index `laundry_order_items_package`;
+- `laundry_order_items_insert_check`: also a garment added later (`added_at` now) to an order with garments in the shop, billed on a sale bill to the order's customer when billed at intake; a package of its customer's, active, in force, of its unit, covering its service;
+- `laundry_order_items_guard`: its service, price and quantity change only with a `laundry_item_changes` row made now while received (its bill line then moves to the new one once the old is credited, or charged nothing); received → in_process, qc, packed, ready or cancelled; in_process → qc, packed, ready or cancelled; qc → in_process (a rewash, counted), packed, ready or cancelled; packed → in_process, ready or cancelled; ready → in_process, delivered or cancelled; packed or ready only past a quality check when `qc_required`, ready only from packed when `packing_required`; pieces handed over only while ready, in a handover now, once billed; a garment with pieces handed over is not cancelled; a billed one is cancelled without a credit note only when its line charged nothing.
+
+#### `laundry_order_additions`
+Purpose: garments added to an open order, with the bill made for them.
+Key columns: `order_id`, `document_id` (billed at intake), `request_key`, `request_hash`, `created_by`, `created_at`.
+Rules: UNIQUE (business, request key); trigger `laundry_order_additions_append_only` (function `laundry_append_only`).
+Added by: laundry-more.
+
+#### `laundry_item_changes`
+Purpose: a garment's service, price or quantity changed before its work started.
+Key columns: `order_id`, `item_id`, `was`, `became` (JSONB: service, unit, quantity, pieces, rate, charge, package, size), `reason`, `return_id` (the credit note on its old line), `document_id` (the bill of the new one), `request_key`, `request_hash`, `created_by`, `created_at`.
+Relations: (`business_id`, `order_id`, `item_id`) -> `laundry_order_items`; (`business_id`, ...) -> `business_returns`, `business_documents`.
+Rules: UNIQUE (business, request key); index `laundry_item_changes_item`; trigger `laundry_item_changes_append_only`.
+Added by: laundry-more.
+
+#### `laundry_files`
+Purpose: photos of a garment at intake and at its quality check, and the customer's signature at intake.
+Key columns: `order_id`, `item_id` (exactly a photo), `contact_id` (the order's customer), `stage` (intake, qc; a signature at intake), `kind` (photo, signature), `stored_name` (`[a-f0-9]{32}.jpg|png|webp`, under `PRIVATE_UPLOADS_DIR/laundry/<business>/`), `file_name`, `mime_type`, `size_bytes`, `created_by`, `created_at`.
+Relations: (`business_id`, ...) -> `laundry_orders`, `laundry_order_items`, `business_contacts`.
+Rules: UNIQUE (business, stored name); unique index `laundry_files_signature` (one an order); index `laundry_files_order`; trigger `laundry_files_guard`: never changed or deleted; of the order's customer; an intake photo of a garment received, a QC photo of one in the work, at QC, packed or ready; a signature while the order has garments in the shop. Personal data: kept.
+Added by: laundry-more.
 
 #### `laundry_deliveries`
 Purpose: each handover of an order's garments.
@@ -3416,7 +3487,7 @@ Added by: 1791966000000.
 
 #### `laundry_delivery_items`
 Purpose: the garments of each handover.
-Key columns: PK (`business_id`, `delivery_id`, `item_id`), `order_id`.
+Key columns: PK (`business_id`, `delivery_id`, `item_id`), `order_id`, `pieces` (the garment's pieces handed over; laundry-more).
 Relations: (`business_id`, `delivery_id`) -> `laundry_deliveries`; (`business_id`, `order_id`, `item_id`) -> `laundry_order_items`.
 Rules: index `laundry_delivery_items_item`; trigger `laundry_delivery_items_check`: of the handover's own order; trigger `laundry_delivery_items_append_only` (function `laundry_append_only`).
 Added by: 1791966000000.

@@ -4,7 +4,7 @@ const v = require('../../../../utils/validate');
 const AppError = require('../../../../utils/AppError');
 const access = require('./businessAccess.service');
 const numbering = require('./businessNumbering');
-const { decimal, kindPermission } = require('./business.service');
+const { decimal, kindPermission, recordPayment } = require('./business.service');
 const retailOffers = require('../../retail/services/businessOffers');
 const paymentMethods = require('./businessPaymentMethods.service');
 
@@ -210,6 +210,32 @@ async function postRefund(db, business, user, doc, { amount, choice, reason, req
   await repo.event(db, business.id, user.id, `${doc.kind}.refunded`, 'refund', result.id, { documentId: doc.id, documentNo: doc.document_no, amount: result.amount, method });
   return result;
 }
+// Credit left on one sale bill (paid beyond what is due after its credit
+// notes) moved to another bill of the same customer, inside the caller's
+// transaction, with no money changing hands: a 'credit_note' refund on the
+// first and a 'credit_note' payment on the second, as an exchange moves it.
+// At most what is free on the first and due on the second; returns the paise
+// moved. The caller checks permissions and locks both bills.
+async function moveCredit(db, business, user, from, to, { reason, requestKey }) {
+  if (from.kind !== 'sale' || to.kind !== 'sale' || String(from.contact_id) !== String(to.contact_id)) fail('Credit moves between sale bills of the same customer');
+  const sums = async (doc) => repo.one(db, `SELECT
+    COALESCE((SELECT sum(amount) FROM business_payments WHERE business_id=$1 AND document_id=$2),0) AS paid,
+    COALESCE((SELECT sum(total) FROM business_returns WHERE business_id=$1 AND document_id=$2),0) AS returned,
+    COALESCE((SELECT sum(amount) FROM business_refunds WHERE business_id=$1 AND document_id=$2),0) AS refunded`, [business.id, doc.id]);
+  const a = await sums(from), b = await sums(to);
+  const free = cents(a.paid) - cents(a.refunded) - (cents(from.total) - cents(a.returned));
+  const due = cents(to.total) - cents(b.returned) - cents(b.paid) + cents(b.refunded);
+  const amount = Math.min(free, due);
+  if (amount <= 0) return 0;
+  const out = await repo.one(db, `INSERT INTO business_refunds(business_id,document_id,amount,method,reason,request_key,created_by)
+    VALUES($1,$2,$3,'credit_note',$4,$5,$6) RETURNING *`, [business.id, from.id, (amount / 100).toFixed(2), String(reason).slice(0, 300), key(requestKey), user.id]);
+  await repo.audit(db, business.id, user.id, 'sale.refunded', out.id, { documentId: from.id, amount: out.amount, method: 'credit_note', movedTo: to.document_no });
+  await repo.event(db, business.id, user.id, 'sale.refunded', 'refund', out.id, { documentId: from.id, documentNo: from.document_no, amount: out.amount, method: 'credit_note' });
+  const inKey = crypto.createHash('sha256').update(`${requestKey}:credit-in`).digest('hex');
+  await recordPayment(db, business, user, to, { amount: out.amount, method: 'credit_note', reference: from.document_no,
+    key: `${inKey.slice(0, 8)}-${inKey.slice(8, 12)}-4${inKey.slice(13, 16)}-8${inKey.slice(17, 20)}-${inKey.slice(20, 32)}` });
+  return amount;
+}
 // A signed quantity: "-0.200" for a shortage, "1.5" for a surplus.
 function signedQuantity(value) {
   const raw = String(value ?? '');
@@ -275,4 +301,4 @@ async function adjust(business, user, lotId, body) {
     return adjustment;
   });
 }
-module.exports = { createReturn, postReturn, lockDocument, refund, readRefund, postRefund, adjust, applyAdjustment, receiveSerial, lockLot };
+module.exports = { createReturn, postReturn, lockDocument, refund, readRefund, postRefund, moveCredit, adjust, applyAdjustment, receiveSerial, lockLot };

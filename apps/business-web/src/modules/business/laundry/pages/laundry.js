@@ -10,7 +10,8 @@ export const usesLaundry = (biz) => biz.type === "laundry" && biz.has("laundry")
 
 // A garment's status, and an order's (worked out from its garments).
 export const ITEM_STATUSES = {
-  received: { label: "Received", tone: "info" }, in_process: { label: "In process", tone: "warning" }, ready: { label: "Ready", tone: "success" },
+  received: { label: "Received", tone: "info" }, in_process: { label: "In process", tone: "warning" }, qc: { label: "At QC", tone: "warning" },
+  packed: { label: "Packed", tone: "info" }, ready: { label: "Ready", tone: "success" },
   delivered: { label: "Delivered", tone: "neutral" }, cancelled: { label: "Cancelled", tone: "neutral" },
 };
 export const ORDER_STATUSES = {
@@ -18,7 +19,7 @@ export const ORDER_STATUSES = {
   ready: { label: "Ready to collect", tone: "success" }, part_delivered: { label: "Partly delivered", tone: "info" }, delivered: { label: "Delivered", tone: "neutral" },
   cancelled: { label: "Cancelled", tone: "neutral" },
 };
-export const OPEN = ["received", "in_process", "ready"];
+export const OPEN = ["received", "in_process", "qc", "packed", "ready"];
 export const DEFECTS = [
   { value: "stain", label: "Stain" }, { value: "tear", label: "Tear" }, { value: "hole", label: "Hole" }, { value: "missing_button", label: "Missing button" },
   { value: "colour_bleed", label: "Colour bleed" }, { value: "fading", label: "Fading" }, { value: "shrinkage", label: "Shrinkage" }, { value: "burn", label: "Burn mark" },
@@ -37,10 +38,11 @@ export const DECISIONS = [
 export const COUNTED = [{ value: "piece", label: "A piece" }, { value: "pair", label: "A pair" }, { value: "set", label: "A set of pieces" }];
 export const wordOf = (list, value) => list.find((x) => x.value === value)?.label || value || "";
 
-// "3 pieces", "1 pair", "2 sets of 2", "2.345 kg · 11 pieces".
+// "3 pieces", "1 pair", "2 sets of 2", "2.345 kg · 11 pieces", "8.5 × 5.75 ft · 48.88 sq ft".
 export function quantityWords(item) {
   const pieces = Number(item.pieces);
   if (item.per === "kg") return `${Number(item.quantity)} kg · ${pieces} ${pieces === 1 ? "piece" : "pieces"}`;
+  if (item.per === "sqft") return `${Number(item.length_ft)} × ${Number(item.width_ft)} ft · ${Number(item.quantity)} sq ft`;
   const n = Number(item.quantity);
   if (item.counted_as === "pair") return `${n} ${n === 1 ? "pair" : "pairs"}`;
   if (item.counted_as === "set") return `${n} ${n === 1 ? "set" : "sets"} of ${pieces / n}`;
@@ -48,8 +50,27 @@ export function quantityWords(item) {
 }
 // What was noted at intake, in one line: "Stain, tear · near the collar".
 export const defectWords = (item) => [(item.defects || []).map((d) => wordOf(DEFECTS, d)).join(", "), item.defect_note].filter(Boolean).join(" · ");
-// "₹40.00 each", "₹89.90 a kg".
-export const rateWords = (exact, price) => `${exact(price.price)} ${price.per === "kg" ? "a kg" : "each"}`;
+// "₹40.00 each", "₹89.90 a kg", "₹25.50 a sq ft".
+export const PER_WORDS = { item: "each", kg: "a kg", sqft: "a sq ft" };
+export const rateWords = (exact, price) => `${exact(price.price)} ${PER_WORDS[price.per] || "each"}`;
+// The days of the week as the shop closes them (ISO: 1 Monday … 7 Sunday).
+export const WEEKDAYS = [{ value: 1, label: "Mon" }, { value: 2, label: "Tue" }, { value: 3, label: "Wed" }, { value: 4, label: "Thu" }, { value: 5, label: "Fri" },
+  { value: 6, label: "Sat" }, { value: 7, label: "Sun" }];
+// Where a garment's price came from.
+export const PRICE_SOURCES = { list: "price list", location: "this counter's price", group: "the customer's group price", customer: "the customer's own price",
+  manual: "a manager's price" };
+// What took money off a garment, in one line: "package 3 kg · offer Monsoon −₹70.00 · discount −₹3.29".
+export function offWords(exact, item) {
+  return [Number(item.package_amount) > 0 ? `package ${Number(item.package_quantity)}${item.per === "kg" ? " kg" : " pieces"} −${exact(item.package_amount)}` : null,
+    Number(item.offer_amount) > 0 ? `${item.offer_name} −${exact(item.offer_amount)}` : null,
+    Number(item.discount_amount) > 0 ? `discount −${exact(item.discount_amount)}` : null].filter(Boolean).join(" · ");
+}
+// A discount as typed in a box: "10%" is a percentage, "50" an amount off what the customer pays.
+export function discountBody(text) {
+  const value = String(text || "").trim();
+  if (!value) return undefined;
+  return value.endsWith("%") ? { percent: value.slice(0, -1).trim() } : { amount: value };
+}
 
 // The prepared WhatsApp messages about an order.
 export function orderMessage(biz, order, kind) {

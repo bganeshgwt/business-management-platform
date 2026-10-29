@@ -10,7 +10,7 @@ export const WORKSPACES = {
   stock: ['pieces', 'stock', 'weight-stock', 'movements', 'counts', 'near-expiry', 'pharmacy-batches', 'transfers', 'serials', 'processing', 'wastage', 'karigar-work', 'hallmarking', 'fine-weight', 'agri-seed-lots', 'agri-kept-apart', 'lens-stock'],
   purchases: ['purchases', 'suppliers', 'purchase-orders', 'claims', 'metal-account', 'agri-schemes'],
   dues: ['udhaar', 'outstanding', 'collections'],
-  customers: ['customers', 'loyalty', 'sites', 'fitters', 'prescriptions', 'recall', 'contact-lenses', 'vehicles', 'service-due', 'fuel-fleet'],
+  customers: ['customers', 'loyalty', 'sites', 'fitters', 'prescriptions', 'recall', 'contact-lenses', 'vehicles', 'service-due', 'fuel-fleet', 'laundry-packages'],
   sales: ['sales', 'quotations', 'tinting', 'exchanges', 'warranties', 'pickup-orders', 'custom-orders', 'approvals'],
   orders: ['sales-orders', 'back-orders', 'dispatch', 'price-groups', 'pricing', 'routes'],
   appointments: ['salon-calendar', 'appointments'],
@@ -28,9 +28,9 @@ export const WORKSPACES = {
   // A gym's, studio's or coaching centre's front desk, and its members (in place of customers).
   checkIn: ['check-in', 'member-classes'],
   members: ['members', 'renewals', 'customers', 'loyalty', 'member-leads'],
-  // A laundry's counter (a new order taken in), and its orders with the racks and those not collected.
+  // A laundry's counter (a new order taken in), and its orders with the racks, those not collected and the damage claims.
   laundryNew: ['laundry-new'],
-  garmentOrders: ['garment-orders', 'ready-racks', 'unclaimed'],
+  garmentOrders: ['garment-orders', 'ready-racks', 'unclaimed', 'laundry-claims'],
   // A jeweller's counter (the jewellery bill, with Quick bill beside it), and today's rates with the rate board.
   jewelleryBilling: ['jewellery-bill', 'counter'],
   goldRates: ['gold-rates', 'rate-board'],

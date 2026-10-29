@@ -1273,13 +1273,13 @@ A laundry or dry cleaner bills its services on bills of the shared core ([Shops 
 
 ### What was noted at intake stays on the garment
 
-- **Rule:** at intake a garment may have its defects (stain, tear, hole, missing button, colour bleed, fading, shrinkage, burn mark, worn, loose threads) and a note on them, the customer's instructions, what the customer was told about the risk to it, whether they acknowledged it (only when something is noted), and a value they declared. All of it, and the garment, service and price, is kept as taken in: the database refuses any change, and a garment is never deleted. The acknowledgement records what the customer was told; it never limits a claim, and nothing here caps what a claim may be.
+- **Rule:** at intake a garment may have its defects (stain, tear, hole, missing button, colour bleed, fading, shrinkage, burn mark, worn, loose threads) and a note on them, the customer's instructions, what the customer was told about the risk to it, whether they acknowledged it (only when something is noted), and a value they declared. All of it, and the garment, service and price, is kept as taken in: the database refuses any change but a manager's change before the work starts (below), and a garment is never deleted. The acknowledgement records what the customer was told; it never limits a claim, and nothing here caps what a claim may be.
 - **Why:** consumer commissions hold a laundry liable for its own negligence even when its receipt says it takes no responsibility, and claims turn on proof: what was noted and acknowledged at intake is that proof.
 - **Change it:** nothing to set; the shop's own terms on *Services & items › Price list* print on every receipt.
 
 ### A garment's steps, and the order's status
 
-- **Rule:** a garment goes from received into the work (in process) and to ready on a rack, or straight from received to ready (a quick press); a ready one goes back into the work only with the reason, or is handed over. A garment in the shop is cancelled with a reason. A delivered garment comes back only for reprocessing under a damage claim decided at that moment. The database refuses any other move, and a cancelled garment never changes. The order's status is worked out from its garments: received, in process, partly ready, ready to collect, partly delivered, delivered (nothing left in the shop), or cancelled (every garment cancelled). An order is late when its promised day has passed with garments not ready. Garments go on an order only when it is taken in: more garments are a new order. An order keeps its number, customer, rules, prices and terms; only its promised day (not one that has passed, within 90 days) and notes change. Every step is kept in the history, with who made it, and never changed.
+- **Rule:** a garment goes from received into the work (in process), to its quality check and packed (when the shop asks for them, below), and to ready on a rack, or straight from received to ready (a quick press); a packed or ready one goes back into the work only with the reason, or a ready one is handed over. A garment in the shop is cancelled with a reason. A delivered garment comes back only for reprocessing under a damage claim decided at that moment. The database refuses any other move, and a cancelled garment never changes. The order's status is worked out from its garments: received, in process, partly ready, ready to collect, partly delivered, delivered (nothing left in the shop), or cancelled (every garment cancelled). An order is late when its promised day has passed with garments not ready. Garments go on an order when it is taken in, or are added to it while it has garments in the shop (below). An order keeps its number, customer, rules, discount and terms; its promised day (not one that has passed, within 90 days) and notes change, and its figures follow its garments when one is added, changed or cancelled. Every step is kept in the history, with who made it, and never changed.
 - **Why:** the board shows where every garment is, and the history who did what.
 - **Change it:** who moves garments is the role's `laundry.edit` (the owner, a manager, a cashier and a stock keeper by default); who cancels, `laundry.cancel` (the owner and a manager).
 
@@ -1318,6 +1318,66 @@ A laundry or dry cleaner bills its services on bills of the shared core ([Shops 
 - **Rule:** orders, garments, handovers and claims show without prices, totals, bills or dues to anyone whose role does not hold `sales.view` (a stock keeper pressing the garments, say), and the order's history names bills and receipts, never amounts. Taking orders in needs `laundry.create` (with `sales.create` when they are billed at intake), and taking money `sales.edit`.
 - **Why:** the work is the floor's; the money is the counter's.
 - **Change it:** *Roles & permissions*.
+
+### A price of its own for a counter, a group or a customer, from a date
+
+- **Rule:** besides the price list, a garment and service may have a price of its own for one counter (location), one group of customers or one customer, from a day (today or later) to a day or open. A garment is priced at the customer's own price in force on the business's date, else their group's, else the counter's, else the list's; one of its own counts only in the list's unit for that garment and service. A new one for the same garment, service and party ends the one in force the day before it starts; one starting on or after that day must be ended first. One is ended (a price not yet in force ends the day before it starts), never deleted or changed, and never two for the same party on the same day: the database holds it. A customer is in one group at a time; a group is switched off, never deleted. The garment keeps its price and where it came from.
+- **Why:** a housing society or a hotel is quoted its own rates, a counter in a dearer area charges more, and a price agreed from a date must not change orders already taken in.
+- **Change it:** *Services & items › Price list*, *Prices of their own* and *Customer groups*, by a role that holds `catalog.edit`.
+
+### Carpets and curtains by the square foot
+
+- **Rule:** a garment may be priced by the square foot: its length and width are typed in feet (to two places) at intake, and the area is rounded as the shop sets: to the hundredth of a square foot (halves up), to the nearest whole one, or up to the next whole one. Its price is the rate times the area, to the paisa, halves up; the bill line names its size and area.
+- **Why:** carpets and curtains are charged by their size, not by the piece.
+- **Change it:** *Area by the square foot, rounded* in the order settings (to the hundredth to start with).
+
+### The promised day from the slowest garment
+
+- **Rule:** each service may have its own days to the promised day, and for express its own (at most its ordinary days); a service without them takes the shop's. An order's promised day is suggested from its slowest garment: that many days the shop is open after the business's date, skipping the weekdays the shop is closed (never all seven). The counter may promise another day, from today to 90 days ahead.
+- **Why:** a silk saree dry cleaned takes longer than a shirt pressed; a day the shop is shut does not count.
+- **Change it:** *Days* on each service and *Closed each week* in the order settings (*Services & items › Price list*).
+
+### Discounts and offers are kept as taken in
+
+- **Rule:** a discount may be given on a garment and on the whole order (a percentage, or an amount off what the customer pays, spread over the garments by what each pays), with a reason, by a role that holds `sales.discount`; together they are at most the business's most discount on a bill (*Business settings*), the owner any. An offer of a percentage off a service's item running now (*Offers & discounts*, when switched on: its dates, days and hours, its least bill and its most a bill) comes off at intake, the best one for each garment. Each comes off the garment's price after what a package pays, and before GST; the garment keeps its offer and discount as taken in, and its bill line names them.
+- **Why:** as at the counter's bills: a discount is given at the time of supply, so GST follows it, and a second person's permission keeps it honest.
+- **Change it:** the most discount in *Business settings*; offers in *Offers & discounts*.
+
+### Prepaid kilo and piece packages
+
+- **Rule:** a package plan holds so many kilos (for bundles washed by the kilo) or pieces (for garments by the piece) of the services it covers, for so many days. It is sold as the salon sells its packages: a bill of the plan's own service item, with GST at that item's slab, and the customer's package is made with it, keeping the plan as it was then; the plan's item goes on no other bill. A garment taken in draws on a package of its customer's in force on the business's date, of its unit and covering its service: the package pays its share of the price for what it still holds, and the bill line charges the rest (a line it paid in full charges nothing). A garment cancelled gives back what it drew. When the customer buys the next package of the same unit within the plan's days of the old one's end, what was left of it is carried in as its plan says: nothing, all, or up to a quantity. A package never gives more than it holds, is cancelled only while unused (then its bill line can be credited), and its line is credited only after it is cancelled. A money wallet with bonus value is not offered.
+- **Why:** customers on a monthly wash prepay; GST on a prepaid service is due when it is paid for, as with a salon's packages.
+- **Change it:** *Customers › Packages*: the plans (by a role that holds `catalog.edit`; the price on the plan's item), selling one (`laundry.create` with `sales.create`), cancelling (`laundry.cancel`).
+
+### Photos and the customer's signature
+
+- **Rule:** a garment may be photographed at intake (while it is received) and at its quality check (while it is in the work, at QC, packed or ready), up to six at each stage, and the customer may sign on the screen at intake, once an order. Each picture (JPG, PNG or WebP, checked by its bytes, up to 5 MB) is kept privately with the order and read only by someone who sees the order; none is changed or deleted. The receipt prints how many photos were kept and that the customer signed on the screen.
+- **Why:** claims turn on proof of the garment's state when it came in and when it was checked; a signature drawn at the counter sits beside the tick and the printed receipt.
+- **Change it:** nothing to set.
+
+### The quality check and packing before the rack
+
+- **Rule:** a garment may go to its quality check after the work; there it passes (packed next when the shop packs garments, else ready on a rack) or goes back to be washed again with the reason, counted. When the shop requires a quality check, a garment is packed or ready only once it has passed one; when it requires packing, it goes on the rack only once packed. Each step keeps who made it and when; the database refuses the rest.
+- **Why:** a stain missed reaches the customer; a second look before the rack catches it, and the history shows who looked.
+- **Change it:** *A quality check before the rack* and *Packed before the rack* in the order settings (neither to start with); taking the steps is the role's `laundry.edit`.
+
+### A garment changed before its work starts, and garments added
+
+- **Rule:** while a garment is received, a manager (`laundry.cancel`) may change its service, its price (one typed in place of the list's) or its quantity, with a reason; what it was and became is kept. A billed garment's old line is credited in full on a credit note, it is billed again on a bill of its own, and what the customer paid on the old bill beyond what is due there pays the new one first, with no money moving. Garments may be added to an order with garments still in the shop, priced as at intake (the customer's prices, the order's express percentage, a package, the offers running now, a discount), each with its tag; billed at intake, on a bill of their own.
+- **Why:** customers change their minds at the counter, and a second bag arrives the next day; the bills stay right without cancelling the order.
+- **Change it:** who changes garments is the role's `laundry.cancel` (the owner and a manager); who adds them, `laundry.create`.
+
+### Pieces under one tag leave one by one
+
+- **Rule:** a garment of several pieces under one tag (three shirts, a three-piece suit, a bundle) may be handed over piece by piece: the pieces handed over are counted, and the garment is delivered with its last piece. It is billed, and paid for as the order's rule says, with its first piece; a garment with pieces handed over is not cancelled or sent back into the work.
+- **Why:** a customer collects the suit's jacket for tonight and the trousers later.
+- **Change it:** nothing to set.
+
+### Claims added up
+
+- **Rule:** the claims of a period (the days they were reported, on the business's clock) are added up by service, by the person who took the garment in (who took the order in, or added the garment), or by month: how many, waiting, and decided each way, with the compensation given (the credit notes, with their GST) and the money refunded of it.
+- **Why:** a service or a counter with many claims needs a look.
+- **Change it:** nothing to set; the money only for a role that holds `sales.view`.
 
 ## Jewellery & gold
 

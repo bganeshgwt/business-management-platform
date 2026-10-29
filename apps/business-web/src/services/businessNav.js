@@ -242,6 +242,10 @@ export function businessSections(type) {
         { section: "ready-racks", label: "Ready & racks", icon: "pickup", need: "laundry.view", types: LAUNDRY },
         // Orders ready and not collected for the shop's days, with the reminders sent.
         { section: "unclaimed", label: "Unclaimed", icon: "hours", need: "laundry.view", types: LAUNDRY },
+        // Damage claims, and the claims added up by service, by who took the garment in and by month.
+        { section: "laundry-claims", label: "Claims", icon: "complaints", need: "laundry.view", types: LAUNDRY },
+        // Prepaid kilo and piece packages: the plans, and the customers' packages with what is left.
+        { section: "laundry-packages", label: "Packages", icon: "package", need: "laundry.view", types: LAUNDRY },
       ],
     },
     {

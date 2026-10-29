@@ -144,10 +144,12 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   assert.ok(floor.some(l=>l.section==='check-in')&&floor.some(l=>l.section==='members'),'a trainer finds the desk and the members');
   assert.ok(!floor.some(l=>['sales','udhaar','outstanding','day-close'].includes(l.section)),'a trainer has no money screens');
   for(const type of ['grocery','salon','garage'])for(const section of ['check-in','members','renewals','member-plans'])assert.ok(!typeAllows(sectionRule(section,type),type),`${type}: no ${section}`);
-  // A laundry's counter: New order and its Orders (with Ready & racks and Unclaimed) are daily entries of their own; its price list sits with its services.
+  // A laundry's counter: New order and its Orders (with Ready & racks, Unclaimed and Claims) are daily entries of their own; its price list sits with its services, its packages with its customers.
   const daily=businessMenu(33,'laundry',()=>true,()=>true).find(g=>g.title==='Daily work').links;
   assert.deepEqual(daily.slice(1,3).map(l=>[l.section,l.label]),[['laundry-new','New order'],['garment-orders','Orders']]);
-  assert.deepEqual(daily.find(l=>l.section==='garment-orders').pages.map(p=>p.label),['Orders','Ready & racks','Unclaimed']);
+  assert.deepEqual(daily.find(l=>l.section==='garment-orders').pages.map(p=>p.label),['Orders','Ready & racks','Unclaimed','Claims']);
+  assert.equal(workspaceFor('laundry-packages','laundry'),'customers');
+  assert.ok(pages('laundry').some(p=>p.to.endsWith('/laundry-packages')&&p.label==='Packages'),'laundry: its packages with its customers');
   assert.equal(workspaceFor('ready-racks','laundry'),'garmentOrders');
   assert.equal(workspaceFor('laundry-prices','laundry'),'products');
   assert.equal(menu('laundry').find(l=>l.section==='products').label,'Services & items');

@@ -1,16 +1,19 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import useAuth from "../../../../hooks/useAuth";
-import { businessWrite } from "../../../../services/business.service";
+import { businessRead, businessWrite } from "../../../../services/business.service";
 import FormDialog from "../../core/pages/FormDialog";
 import { Field } from "../../core/pages/ui";
 import { businessToday, newKey, useOpenBusiness } from "../../core/pages/hooks";
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import LaundryApproval from "./LaundryApproval";
-import { DECISIONS, ISSUES, OPEN, approvalBody, emptyApproval, quantityWords } from "./laundry";
+import { DECISIONS, ISSUES, OPEN, approvalBody, discountBody, emptyApproval, quantityWords, rateWords } from "./laundry";
 
 // The dialogs of a garment order: a step of the work for some of its
-// garments (into the work, ready on a rack), a garment re-tagged or moved to
-// another rack, the handover with what it bills and what is paid, cancelling
+// garments (into the work, to the quality check, packed, ready on a rack), the
+// quality check (passed, or washed again with the reason), a garment changed
+// before its work starts (a manager), garments added, a garment re-tagged or
+// moved to another rack, the handover (piece by piece) with what it bills and
+// what is paid, cancelling
 // garments (a billed one with its credit note, and money back with a
 // manager's PIN), a damage claim and a manager's decision on it, the promised
 // day, and an advance handed back. Every rule is the server's; these only ask.
@@ -36,15 +39,19 @@ function GarmentPicks({ items, chosen, onChange, legend }) {
   );
 }
 
-// Into the work, or ready on a rack. `back`: ready garments sent back into the work (saying why).
+// The steps of the work and the garments that can take them.
+const STEP_FROM = { ready: ["received", "in_process", "packed"], qc: ["received", "in_process"], packed: ["received", "in_process"], in_process: ["received"] };
+const STEP_TITLES = { ready: "Ready on a rack", qc: "To the quality check", packed: "Packed", in_process: "Into the work" };
+
+// A step of the work. `back`: packed or ready garments sent back into the work (saying why).
 export function StatusDialog({ order, to, back = false, onClose, onSaved }) {
   const biz = useOpenBusiness();
-  const from = to === "ready" ? ["received", "in_process"] : back ? ["ready"] : ["received"];
-  const items = order.items.filter((i) => from.includes(i.status));
+  const from = back ? ["packed", "ready"] : STEP_FROM[to];
+  const items = order.items.filter((i) => from.includes(i.status) && !(back && Number(i.pieces_delivered) > 0));
   const [chosen, setChosen] = useState(() => items.map((i) => i.id));
   const [form, setForm] = useState({ rack: "", note: "" });
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
-  const title = to === "ready" ? "Ready on a rack" : back ? "Back into the work" : "Into the work";
+  const title = back ? "Back into the work" : STEP_TITLES[to];
   return (
     <FormDialog title={title} icon="check" width={620} onClose={onClose} onSaved={onSaved} submitLabel={title} description={`${order.order_no} · ${order.customer_name}`}
       onSubmit={() => {
@@ -102,8 +109,10 @@ export function DeliverDialog({ order, onClose, onSaved }) {
   const [requestKey] = useState(newKey);
   const ready = order.items.filter((i) => i.status === "ready");
   const [chosen, setChosen] = useState(() => ready.map((i) => i.id));
+  const [pieces, setPieces] = useState({});
   const money = order.money !== false;
   const { owed, bill, billing } = owedFor(order, chosen);
+  const several = ready.filter((i) => chosen.includes(i.id) && Number(i.pieces) - Number(i.pieces_delivered) > 1);
   const [form, setForm] = useState({ amount: "", method: "cash", reference: "", onAccount: false, collectedBy: "", note: "", pan: "", declaration: false });
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
   const amount = form.amount === "" ? (owed > 0 ? owed.toFixed(2) : "") : form.amount;
@@ -119,12 +128,28 @@ export function DeliverDialog({ order, onClose, onSaved }) {
       onSubmit={() => {
         if (!chosen.length) throw new Error("Choose the garments handed over");
         const exact = Math.abs(Number(amount) - owed) < 0.005;
-        return businessWrite(biz.id, `laundry/orders/${order.id}/deliver`, { requestKey, itemIds: chosen,
+        const asked = Object.fromEntries(Object.entries(pieces).filter(([itemId, n]) => chosen.includes(Number(itemId)) && n !== ""));
+        return businessWrite(biz.id, `laundry/orders/${order.id}/deliver`, { requestKey, itemIds: chosen, ...(Object.keys(asked).length ? { pieces: asked } : {}),
           ...(paying ? { payment: { amount: exact && order.bill_at === "delivery" && billing ? "full" : amount, ...methods.body(form.method, PAY_KINDS), reference: form.reference.trim() || undefined } } : {}),
           ...(form.onAccount ? { onAccount: true } : {}), collectedBy: form.collectedBy.trim() || undefined, note: form.note.trim() || undefined,
           ...(big ? { buyer: { pan: form.pan.trim() || undefined, panDeclaration: form.declaration } } : {}) });
       }}>
       <GarmentPicks items={ready} chosen={chosen} onChange={setChosen} legend="Garments handed over" />
+      {several.length > 0 && (
+        <fieldset className="field-wide ldy-picks">
+          <legend>Pieces leaving now (the rest stay on the rack)</legend>
+          {several.map((i) => {
+            const left = Number(i.pieces) - Number(i.pieces_delivered);
+            return (
+              <label key={i.id} className="field">
+                <span><span className="mono">{i.tag_no}</span> {i.garment_name} · {left} of {i.pieces} left</span>
+                <input className="ldy-piece-count" type="number" min="1" max={left} aria-label={`Pieces of ${i.tag_no} leaving now`} value={pieces[i.id] ?? String(left)}
+                  onChange={(e) => setPieces((p) => ({ ...p, [i.id]: e.target.value }))} />
+              </label>
+            );
+          })}
+        </fieldset>
+      )}
       {canCollect && !form.onAccount && (
         <>
           <Field label="Collected now"><input type="number" min="0" step="0.01" value={amount} onChange={set("amount")} /></Field>
@@ -285,3 +310,155 @@ export function AdvanceRefundDialog({ order, free, onClose, onSaved }) {
   );
 }
 
+
+// The quality check of the garments at QC: passed (packed next when the shop
+// packs them, else ready on a rack), or washed again with the reason.
+export function QcDialog({ order, onClose, onSaved }) {
+  const biz = useOpenBusiness();
+  const items = order.items.filter((i) => i.status === "qc");
+  const [chosen, setChosen] = useState(() => items.map((i) => i.id));
+  const [form, setForm] = useState({ result: "pass", reason: "", rack: "" });
+  const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
+  const packs = order.checks?.packing;
+  return (
+    <FormDialog title="Quality check" icon="check" width={620} onClose={onClose} onSaved={onSaved} submitLabel={form.result === "pass" ? "Passed" : "Wash again"}
+      description={`${order.order_no} · ${order.customer_name}`}
+      onSubmit={() => {
+        if (!chosen.length) throw new Error("Choose the garments");
+        return businessWrite(biz.id, `laundry/orders/${order.id}/qc`, { result: form.result, itemIds: chosen, reason: form.reason.trim() || undefined,
+          ...(form.result === "pass" && !packs && form.rack.trim() ? { rack: form.rack.trim() } : {}) });
+      }}>
+      <GarmentPicks items={items} chosen={chosen} onChange={setChosen} legend="Garments at QC" />
+      <fieldset className="field-wide ldy-picks">
+        <legend>Result</legend>
+        <label className="checkbox"><input type="radio" name="qc" checked={form.result === "pass"} onChange={() => setForm((f) => ({ ...f, result: "pass" }))} /> Passed
+          <small className="muted"> · {packs ? "packed next" : "ready on a rack"}</small></label>
+        <label className="checkbox"><input type="radio" name="qc" checked={form.result === "rewash"} onChange={() => setForm((f) => ({ ...f, result: "rewash" }))} /> Wash again
+          <small className="muted"> · back into the work</small></label>
+      </fieldset>
+      {form.result === "rewash" && <Field label="Why it is washed again" wide><input required maxLength={300} value={form.reason} onChange={set("reason")} placeholder="e.g. Collar still grey" /></Field>}
+      {form.result === "pass" && !packs && <Field label="Rack and slot (optional)"><input maxLength={20} className="mono" value={form.rack} onChange={set("rack")} placeholder="A-12" /></Field>}
+    </FormDialog>
+  );
+}
+
+// The price list for the dialogs that price garments.
+function usePriceList(biz) {
+  const [list, setList] = useState(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    businessRead(biz.id, "laundry/price-list", undefined, controller.signal).then(setList).catch(() => {});
+    return () => controller.abort();
+  }, [biz.id]);
+  const priceOf = (garmentTypeId, serviceId) => (list?.prices || []).find((p) => String(p.garment_type_id) === String(garmentTypeId) && String(p.service_id) === String(serviceId)) || null;
+  const servicesFor = (garmentTypeId) => (list?.services || []).filter((s) => s.active && s.item_active && priceOf(garmentTypeId, s.id));
+  return { list, priceOf, servicesFor };
+}
+
+// The quantity boxes for a garment as its price counts it: how many, a weight and its pieces, or a size.
+function QuantityFields({ per, value, onChange }) {
+  const set = (name) => (e) => onChange({ ...value, [name]: e.target.value });
+  if (per === "kg") return (
+    <>
+      <Field label="Weight (kg)"><input type="number" min="0.001" step="0.001" required value={value.quantity} onChange={set("quantity")} /></Field>
+      <Field label="Pieces"><input type="number" min="1" max="999" required value={value.pieces} onChange={set("pieces")} /></Field>
+    </>
+  );
+  if (per === "sqft") return (
+    <>
+      <Field label="Length (ft)"><input type="number" min="0.01" step="0.01" required value={value.length} onChange={set("length")} /></Field>
+      <Field label="Width (ft)"><input type="number" min="0.01" step="0.01" required value={value.width} onChange={set("width")} /></Field>
+    </>
+  );
+  return <Field label="How many"><input type="number" min="1" max="999" required value={value.quantity} onChange={set("quantity")} /></Field>;
+}
+const quantityBody = (per, value) => (per === "sqft" ? { length: value.length, width: value.width } : per === "kg" ? { quantity: value.quantity, pieces: value.pieces }
+  : { quantity: value.quantity });
+
+// A garment changed before its work starts (a manager): its service, a price typed in place of the list's, or how many, with the reason.
+// Billed: its line is credited and it is billed again; what was paid on the old bill pays the new one first.
+export function ChangeDialog({ order, item, onClose, onSaved }) {
+  const biz = useOpenBusiness();
+  const methods = usePaymentMethods();
+  const [requestKey] = useState(newKey);
+  const { list, priceOf, servicesFor } = usePriceList(biz);
+  const [form, setForm] = useState({ serviceId: String(item.service_id), price: "", reason: "", discount: "", packageId: item.package_id ? String(item.package_id) : "", amount: "", method: "cash" });
+  const [size, setSize] = useState({ quantity: item.per === "item" ? String(Number(item.quantity)) : String(Number(item.quantity)), pieces: String(item.pieces),
+    length: item.length_ft ? String(Number(item.length_ft)) : "", width: item.width_ft ? String(Number(item.width_ft)) : "" });
+  const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
+  const per = priceOf(item.garment_type_id, form.serviceId)?.per || item.per;
+  const fits = (order.packages || []).filter((p) => (p.unit === "kg" ? per === "kg" : per === "item") && p.service_ids.map(String).includes(String(form.serviceId)));
+  if (item.package_id && !fits.some((p) => String(p.id) === String(item.package_id))) fits.push({ id: item.package_id, name: item.package_name || "Its package" });
+  const billed = Boolean(item.line_id);
+  return (
+    <FormDialog title={`Change garment ${item.tag_no}`} icon="edit" width={640} onClose={onClose} onSaved={onSaved} submitLabel="Change it"
+      description={`${item.garment_name} · ${item.service_name} · ${quantityWords(item)}. ${billed ? "Its bill line is credited and it is billed again; what was paid pays the new bill first." : "It is billed when it is handed over."}`}
+      onSubmit={() => businessWrite(biz.id, `laundry/orders/${order.id}/items/${item.id}/change`, { requestKey, reason: form.reason.trim(),
+        ...(form.serviceId !== String(item.service_id) ? { serviceId: form.serviceId } : {}), ...(form.price ? { price: form.price } : {}),
+        ...quantityBody(per, size), packageId: form.packageId || null, ...(discountBody(form.discount) ? { discount: discountBody(form.discount) } : {}),
+        ...(billed && Number(form.amount) > 0 ? { payment: { amount: form.amount, ...methods.body(form.method, ["cash", "upi", "card", "bank"]) } } : {}) })}>
+      {!list ? <p className="field-wide muted">Loading the price list…</p> : (
+        <Field label="Service" wide>
+          <select value={form.serviceId} onChange={set("serviceId")}>{servicesFor(item.garment_type_id).map((x) => <option key={x.id} value={x.id}>{x.name} · {rateWords(biz.exact, priceOf(item.garment_type_id, x.id))}</option>)}</select>
+        </Field>
+      )}
+      <QuantityFields per={per} value={size} onChange={setSize} />
+      <Field label="Price (optional)" hint="In place of the price list's, for one, a kilo or a square foot."><input type="number" min="0.01" step="0.01" value={form.price} onChange={set("price")} /></Field>
+      {fits.length > 0 && <Field label="Paid by package"><select value={form.packageId} onChange={set("packageId")}><option value="">No</option>
+        {fits.map((p) => <option key={p.id} value={p.id}>{p.name}{p.left_now !== undefined ? ` (${Number(p.left_now)} left)` : ""}</option>)}</select></Field>}
+      {biz.can("sales.discount") && <Field label="Discount (optional)" hint="10% or an amount off what the customer pays."><input maxLength={12} value={form.discount} onChange={set("discount")} /></Field>}
+      {billed && biz.can("sales.edit") && <Field label="Paid now on the new bill (optional)"><input type="number" min="0" step="0.01" value={form.amount} onChange={set("amount")} /></Field>}
+      <Field label="Reason" wide><input required maxLength={300} value={form.reason} onChange={set("reason")} placeholder="e.g. Customer asked for a wash instead of dry cleaning" /></Field>
+    </FormDialog>
+  );
+}
+
+// Garments added to an open order, priced as at intake (each with its tag).
+export function AddGarmentsDialog({ order, onClose, onSaved }) {
+  const biz = useOpenBusiness();
+  const methods = usePaymentMethods();
+  const [requestKey] = useState(newKey);
+  const { list, priceOf, servicesFor } = usePriceList(biz);
+  const blank = { garmentTypeId: "", serviceId: "", quantity: "1", pieces: "", length: "", width: "", packageId: "" };
+  const [rows, setRows] = useState([blank]);
+  const [form, setForm] = useState({ amount: "", method: "cash" });
+  const setRow = (index, change) => setRows((all) => all.map((r, i) => (i === index ? { ...r, ...change } : r)));
+  const garments = (list?.garments || []).filter((g) => g.active && servicesFor(g.id).length);
+  const intake = order.bill_at === "intake";
+  return (
+    <FormDialog title={`Add garments to ${order.order_no}`} icon="plus" width={720} onClose={onClose} onSaved={onSaved} submitLabel="Add them"
+      description={intake ? "Priced as at intake and billed now on a bill of their own." : "Priced as at intake; billed when they are handed over."}
+      onSubmit={() => {
+        const items = rows.filter((r) => r.garmentTypeId && r.serviceId).map((r) => ({ garmentTypeId: r.garmentTypeId, serviceId: r.serviceId,
+          ...quantityBody(priceOf(r.garmentTypeId, r.serviceId)?.per, r), ...(r.packageId ? { packageId: r.packageId } : {}) }));
+        if (!items.length) throw new Error("Choose the garments added");
+        return businessWrite(biz.id, `laundry/orders/${order.id}/items`, { requestKey, items,
+          ...(intake && Number(form.amount) > 0 ? { payment: { amount: form.amount, ...methods.body(form.method, ["cash", "upi", "card", "bank"]) } } : {}) });
+      }}>
+      {!list ? <p className="field-wide muted">Loading the price list…</p> : rows.map((r, index) => {
+        const per = priceOf(r.garmentTypeId, r.serviceId)?.per;
+        const fits = (order.packages || []).filter((p) => (p.unit === "kg" ? per === "kg" : per === "item") && p.service_ids.map(String).includes(String(r.serviceId)));
+        return (
+          <fieldset key={index} className="field-wide ldy-picks">
+            <legend>Garment {index + 1}</legend>
+            <Field label="Garment"><select value={r.garmentTypeId} onChange={(e) => setRow(index, { garmentTypeId: e.target.value, serviceId: String(servicesFor(e.target.value)[0]?.id || "") })}>
+              <option value="">Choose…</option>{garments.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select></Field>
+            <Field label="Service"><select value={r.serviceId} onChange={(e) => setRow(index, { serviceId: e.target.value })}>
+              <option value="">Choose…</option>{servicesFor(r.garmentTypeId).map((x) => <option key={x.id} value={x.id}>{x.name} · {rateWords(biz.exact, priceOf(r.garmentTypeId, x.id))}</option>)}</select></Field>
+            {per && <QuantityFields per={per} value={r} onChange={(value) => setRow(index, value)} />}
+            {fits.length > 0 && <Field label="Paid by package"><select value={r.packageId} onChange={(e) => setRow(index, { packageId: e.target.value })}><option value="">No</option>
+              {fits.map((p) => <option key={p.id} value={p.id}>{p.name} ({Number(p.left_now)} left)</option>)}</select></Field>}
+          </fieldset>
+        );
+      })}
+      <button type="button" className="chip-button" onClick={() => setRows((all) => [...all, blank])}>Another garment</button>
+      {intake && biz.can("sales.edit") && (
+        <>
+          <Field label="Paid now (optional)"><input type="number" min="0" step="0.01" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} /></Field>
+          <Field label="Paid by"><select value={methods.resolve(form.method, ["cash", "upi", "card", "bank"])} onChange={(e) => setForm((f) => ({ ...f, method: e.target.value }))}>
+            {methods.options(["cash", "upi", "card", "bank"]).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}</select></Field>
+        </>
+      )}
+    </FormDialog>
+  );
+}

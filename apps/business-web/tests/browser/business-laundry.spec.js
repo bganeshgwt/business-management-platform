@@ -117,3 +117,105 @@ test("the price list: a price changed and kept, the order settings, and the uncl
   await expect(page.getByText(/Garments are held until paid/)).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test("the counter: a carpet by the square foot, a bundle paid by the customer's package, and the customer's signature on the screen", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  await page.goto(`/business-admin/${shop.id}/laundry-new`);
+  await expect(page.getByRole("heading", { name: "New order", level: 1 })).toBeVisible({ timeout: 15_000 });
+  await pick(page, page.getByRole("combobox", { name: "Customer" }), LAUNDRY.customer.name);
+  await expect(page.getByText(new RegExp(`Packages: ${LAUNDRY.plan.name}`))).toBeVisible({ timeout: 15_000 });
+  // A carpet, measured: 8.5 × 5.75 ft = 48.88 sq ft at 25.50 = 1,246.44 + 224.36 GST.
+  await page.getByRole("button", { name: LAUNDRY.carpet.name, exact: true }).click();
+  await page.getByLabel("Length (ft)").fill("8.5");
+  await page.getByLabel("Width (ft)").fill("5.75");
+  await expect(page.getByText("48.88 sq ft")).toBeVisible({ timeout: 15_000 });
+  // A bundle by the kilo, paid for by the package: nothing more to pay for it.
+  await page.getByRole("button", { name: LAUNDRY.mixed.name, exact: true }).click();
+  await page.getByLabel("Weight (kg)").fill("5");
+  await page.getByLabel("Pieces", { exact: true }).fill("12");
+  await page.getByLabel("Paid by package").selectOption({ index: 1 });
+  await expect(page.getByText("Total ₹1,470.80")).toBeVisible({ timeout: 15_000 });
+  // The customer signs on the screen.
+  await page.getByRole("button", { name: "Customer signs on the screen" }).click();
+  const pad = page.getByLabel("Sign here");
+  const box = await pad.boundingBox();
+  await page.mouse.move(box.x + 20, box.y + 40);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 120, box.y + 90, { steps: 8 });
+  await page.mouse.move(box.x + 220, box.y + 50, { steps: 8 });
+  await page.mouse.up();
+  await page.getByRole("button", { name: "Save signature" }).click();
+  await expect(page.getByText("The customer signed on the screen.")).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("intake-carpet-package.png"), fullPage: true });
+  await page.getByRole("button", { name: "Take in the order" }).click();
+  await expect(page.getByRole("heading", { name: /^Order LO\//, level: 1 })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Signed by the customer on the screen")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("img", { name: "The customer's signature" })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("table", { name: "Garments on this order" }).getByText(/8\.5 × 5\.75 ft/)).toBeVisible();
+  await expect(page.getByRole("table", { name: "Garments on this order" }).getByText(/package 5 kg/)).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("a garment changed before its work starts, then the quality check: washed again with the reason, passed and ready", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  await page.goto(`/business-admin/${shop.id}/garment-orders/${shop.order2.id}`);
+  await expect(page.getByRole("heading", { name: `Order ${shop.order2.orderNo}`, level: 1 })).toBeVisible({ timeout: 15_000 });
+  const garments = page.getByRole("table", { name: "Garments on this order" });
+  // Changed by a manager (the owner): wash and iron in place of dry cleaning.
+  await garments.getByRole("button", { name: "Change", exact: true }).click();
+  const change = page.getByRole("dialog", { name: `Change garment ${shop.order2.tag}` });
+  await change.getByLabel("Service").selectOption({ label: `${LAUNDRY.washIron.name} · ₹${LAUNDRY.shirt.washIron}.00 each` });
+  await change.getByLabel("Reason").fill("Customer asked for a wash instead");
+  await change.getByRole("button", { name: "Change it" }).click();
+  await expect(change).toBeHidden({ timeout: 15_000 });
+  await expect(garments.getByText(`${LAUNDRY.shirt.name} · ${LAUNDRY.washIron.name}`)).toBeVisible({ timeout: 15_000 });
+  // To the quality check, washed again with the reason.
+  await page.getByRole("button", { name: "To the quality check", exact: true }).click();
+  const toQc = page.getByRole("dialog", { name: "To the quality check" });
+  await toQc.getByRole("button", { name: "To the quality check", exact: true }).click();
+  await expect(toQc).toBeHidden({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Quality check", exact: true }).click();
+  let check = page.getByRole("dialog", { name: "Quality check" });
+  await check.getByRole("radio", { name: /Wash again/ }).check();
+  await check.getByLabel("Why it is washed again").fill("Collar still grey");
+  await check.getByRole("button", { name: "Wash again" }).click();
+  await expect(check).toBeHidden({ timeout: 15_000 });
+  await expect(garments.getByText(/washed again once/)).toBeVisible({ timeout: 15_000 });
+  // Back to QC, passed, onto its rack.
+  await page.getByRole("button", { name: "To the quality check", exact: true }).click();
+  await page.getByRole("dialog", { name: "To the quality check" }).getByRole("button", { name: "To the quality check", exact: true }).click();
+  await page.getByRole("button", { name: "Quality check", exact: true }).click();
+  check = page.getByRole("dialog", { name: "Quality check" });
+  await check.getByLabel("Rack and slot (optional)").fill("c-3");
+  await check.getByRole("button", { name: "Passed" }).click();
+  await expect(check).toBeHidden({ timeout: 15_000 });
+  await expect(page.getByText("Ready to collect").first()).toBeVisible({ timeout: 15_000 });
+  await expect(garments.getByText(/rack C-3/)).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("quality-check.png"), fullPage: true });
+  expect(errors).toEqual([]);
+});
+
+test("packages, claims added up, prices of their own and customer groups", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  // The customer's package, sold on its own bill.
+  await page.goto(`/business-admin/${shop.id}/laundry-packages`);
+  await expect(page.getByRole("heading", { name: "Packages", level: 1 })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("table", { name: "Package plans" }).getByText(LAUNDRY.plan.name)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("table", { name: "Customers' packages" }).getByText(shop.package.documentNo)).toBeVisible({ timeout: 15_000 });
+  await page.screenshot({ path: testInfo.outputPath("packages.png"), fullPage: true });
+  // Claims added up for the month.
+  await page.goto(`/business-admin/${shop.id}/laundry-claims`);
+  await expect(page.getByRole("heading", { name: "Claims", level: 1 })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("table", { name: "Claims added up" })).toBeVisible({ timeout: 15_000 });
+  // A customer group on the price list.
+  await page.goto(`/business-admin/${shop.id}/laundry-prices`);
+  await expect(page.getByRole("heading", { name: "Price list", level: 1 })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Add a group" }).click();
+  const group = page.getByRole("dialog", { name: "Add a customer group" });
+  await group.getByLabel("Group").fill("Green Meadows Society");
+  await group.getByRole("button", { name: "Add the group" }).click();
+  await expect(group).toBeHidden({ timeout: 15_000 });
+  await expect(page.getByRole("table", { name: "Customer groups" }).getByText("Green Meadows Society")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("table", { name: "Prices of their own" })).toBeVisible();
+  expect(errors).toEqual([]);
+});
