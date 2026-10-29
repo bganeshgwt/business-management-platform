@@ -84,6 +84,12 @@ const TABLES = {
   jewellery_approvals: { label: 'Approval challans', keep: 'An approval challan records pieces that went out and came back or were sold; it names the customer only through the erased record.' },
   jewellery_hallmark_consignments: { label: 'Hallmarking consignments', party: 'supplier' },
   jewellery_supplier_metal: { label: 'Metal with suppliers', party: 'supplier' },
+  agri_buyer_tags: { label: 'Buyer tags (pest-control operator, government body, bulk consumer)', erase: { reference: 'Erased', notes: null, active: false } },
+  agri_overrides: { label: 'Managers\' overrides at the counter', keep: 'A log of what a manager allowed on a bill, with the bill it was used on.' },
+  agri_season_credits: { label: 'Season credit', erase: { guarantor_name: null, guarantor_phone: null, guarantor_address: null, crop_pledged: null, notes: null },
+    also: 'The season\'s terms and its bills stay: they are accounting records.' },
+  agri_produce_receipts: { label: 'Produce taken against dues', keep: 'Payments received in produce are accounting records.' },
+  agri_schemes: { label: 'Company schemes', party: 'supplier' },
 };
 
 // Children of the rows above that the export also shows: the lines of each bill.

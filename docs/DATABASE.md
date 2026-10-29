@@ -1261,7 +1261,7 @@ Added by: 1791280000000; 1791300000003 (`category_id`).
 Purpose: the sellable and stocked item: a variant, a pack or a service.
 Key columns: `product_id` -> `catalog_products`, `code`, `barcode`, `label`, `unit`, `price`, `tax_rate`, `tax_rate_id` -> `business_tax_rates`, `tracking` (none, quantity, batch or serial), `reorder_level`, `attributes` (a JSONB object), `active`, `hsn_code` (4, 6 or 8 digits), `mrp`, `is_kit` (a kit; its parts are `catalog_kit_components`), `shelf_location` (where it sits, "Aisle 3 · Shelf B"; not blank when set), `member_price` (> 0, what a loyalty customer pays when it is below the list price), `internal_use` (kept in stock only to be used up inside services, a salon's back-bar colour or a clinic's gloves: never sold on a bill, and the bill screens leave it out).
 Relations: (`business_id`, `unit`) -> `business_units(business_id, code)`. A branch's own price is in `business_sku_location_prices`.
-Rules: `code` and `barcode` are each unique per business. `tax_rate` stays the rate actually charged. CHECK `catalog_skus_price_within_mrp`: the price is never above the MRP. CHECK `catalog_skus_kit_untracked`: a kit is tracked `none`, so it has no stock of its own. Trigger `catalog_skus_agri_molecules` (function `agri_item_molecules_check`, on insert and on a change of `attributes` that holds `molecules`): the molecules are a list, and none is banned in `agri_molecules`. Trigger `catalog_skus_fuel_item` (function `fuel_item_guard`, on a change of `tax_rate`, `unit` or `tracking`): a fuel station's fuel stays on the GST nil slab, in its unit and kept by quantity.
+Rules: `code` and `barcode` are each unique per business. `tax_rate` stays the rate actually charged. CHECK `catalog_skus_price_within_mrp`: the price is never above the MRP. CHECK `catalog_skus_kit_untracked`: a kit is tracked `none`, so it has no stock of its own. Trigger `catalog_skus_agri_molecules` (function `agri_item_molecules_check`, on insert and on a change of `attributes` that holds `molecules`): the molecules are a list, none is banned in `agri_molecules`, and a molecule kept for sale only in one formulation has that formulation (1791979114000). Triggers `catalog_skus_price_history` (after insert or a change of `price` or `mrp`) keep `business_price_history`. Trigger `catalog_skus_fuel_item` (function `fuel_item_guard`, on a change of `tax_rate`, `unit` or `tracking`): a fuel station's fuel stays on the GST nil slab, in its unit and kept by quantity.
 Added by: 1791280000000; 1791300000002 (`tax_rate_id`); 1791300000003 (the unit FK); 1791540000000 (`hsn_code`, `mrp`); 1791620002000 (`is_kit`); 1791950404000 (`shelf_location`, `member_price`); 1791950406000 catalog-internal-use (`internal_use`); 1791962000000 (trigger `catalog_skus_agri_molecules`); 1791969000000 (trigger `catalog_skus_fuel_item`).
 
 #### `catalog_sku_units`
@@ -1309,8 +1309,15 @@ Added by: 1791280000002 business-price-rules; 1791410000001 (`unit_code`, the in
 Purpose: a branch that sells an item at its own price. With no row, the branch sells at the item's own price.
 Key columns: PK (`business_id`, `sku_id`, `location_id`), `price` (> 0), `updated_by` (NOT NULL), `updated_at`.
 Relations: (`business_id`, `sku_id`) -> `catalog_skus`; (`business_id`, `location_id`) -> `business_locations`.
-Rules: index `business_sku_location_prices_location` (business, location).
-Added by: 1791950404000 retail-completion.
+Rules: index `business_sku_location_prices_location` (business, location). Trigger `business_sku_location_prices_history` (after insert, a change of `price` or delete) keeps `business_price_history`.
+Added by: 1791950404000 retail-completion; 1791979114000 (the history trigger).
+
+#### `business_price_history`
+Purpose: every selling price and MRP an item had (`location_id` NULL), and every price a branch set for it (`price` NULL: back to the item's own), from when it changed, whichever screen changed it. A day gone by reads its prices from here (a farm-input shop's stock and price board).
+Key columns: `id`, `business_id`, `sku_id`, `location_id`, `price`, `mrp` (the item's rows only), `changed_at`.
+Relations: (`business_id`, `sku_id`) -> `catalog_skus`; (`business_id`, `location_id`) -> `business_locations`.
+Rules: CHECK an item's row has its price; a branch row has no MRP. Index `business_price_history_sku` (business, item, location, time DESC). Written only by the triggers `catalog_skus_price_history` (function `business_price_history_item`) and `business_sku_location_prices_history` (function `business_price_history_branch`); trigger `business_price_history_fixed`: never changed or deleted. Filled when it was added with each item's price and MRP from when the item was made, and each branch price from when it was last set.
+Added by: 1791979114000 agri-more.
 
 ### Documents, payments, returns
 
@@ -2689,18 +2696,18 @@ Added by: 1791979050000.
 
 ## Seeds, fertilisers & pesticides
 
-A krishi kendra's own tables (type `agri_inputs`), added by 1791962000000 licences-and-agri-inputs. Module `agri` ("Seeds, fertilisers & pesticides", optional, agri_inputs only, on) needs catalog, contacts, sales, inventory and batches; permissions `agri.view`, `agri.create` (type the PoS stock) and `agri.edit` (farmers' details). Item classification is kept in `catalog_skus.attributes` (keys `inputKind`, `subsidised`, `seedClass`, `seedCrop`, `seedVariety`, `molecules`, `formulation`, `netKg`; no table). How they are used: [BUSINESS_PLATFORM_DATA_MODEL.md › Seeds, fertilisers & pesticides](BUSINESS_PLATFORM_DATA_MODEL.md#seeds-fertilisers--pesticides).
+A krishi kendra's own tables (type `agri_inputs`), added by 1791962000000 licences-and-agri-inputs. Module `agri` ("Seeds, fertilisers & pesticides", optional, agri_inputs only, on) needs catalog, contacts, sales, inventory and batches; permissions `agri.view`, `agri.create` (type the PoS stock), `agri.edit` (farmers' details) and `agri.approve` (1791979114000 agri-more: tag pest-control operators and government bodies, give overrides, season credit's terms and interest). Item classification is kept in `catalog_skus.attributes` (keys `inputKind`, `subsidised`, `seedClass`, `seedCrop`, `seedVariety`, `molecules`, `formulation`, `netKg`, and `approvedCrops`, `household`, `dosePerAcre`, `safetyDays`, `ppe` from 1791979114000; no table). How they are used: [BUSINESS_PLATFORM_DATA_MODEL.md › Seeds, fertilisers & pesticides](BUSINESS_PLATFORM_DATA_MODEL.md#seeds-fertilisers--pesticides).
 
 #### `agri_molecules`
 Purpose: the molecules a shop cannot sell freely. Platform data: no `business_id`, the same for every shop, changed only by migrations.
-Key columns: `code` (primary key: lower-case letters and `_`), `name`, `status` (banned, restricted_use, crop_restricted), `restriction` (the rule in words), `source` (the order or list it comes from).
-Rules: unique index `agri_molecules_name` (lower(name)); CHECK a restricted-use molecule has its rule; the source is not blank. Each row names its source. The rows: dicofol, dinocap and methomyl (banned, S.O. 4294(E) of 3 October 2023); dichlorvos, phorate and triazophos (banned for use, the list as on 31 March 2024); aluminium phosphide, methyl bromide, cypermethrin (its 3% smoke generator), DDT and carbofuran (restricted use); chlorpyrifos, dimethoate, malathion, mancozeb, oxyfluorfen, quinalphos and monocrotophos (barred on named crops, S.O. 4294(E)). The official list is longer; what is left to add is in [BACKLOG.md](BACKLOG.md).
-Added by: 1791962000000.
+Key columns: `code` (primary key: lower-case letters and `_`), `name`, `status` (banned, restricted_use, crop_restricted), `restriction` (the rule in words), `source` (the order or list it comes from), `users_only` (sold only to a tagged pest-control operator or government body), `users_formulation` (that rule only for this formulation), `only_formulation` (kept for sale only in it).
+Rules: unique index `agri_molecules_name` (lower(name)); CHECK a restricted-use molecule has its rule; the source is not blank; CHECK `agri_molecules_users_formulation`: a formulation only with `users_only`. Aluminium phosphide, methyl bromide and DDT are `users_only`, cypermethrin `users_only` for its smoke generator, carbofuran `only_formulation` 3% CG (1791979114000). Each row names its source. The rows: dicofol, dinocap and methomyl (banned, S.O. 4294(E) of 3 October 2023); dichlorvos, phorate and triazophos (banned for use, the list as on 31 March 2024); aluminium phosphide, methyl bromide, cypermethrin (its 3% smoke generator), DDT and carbofuran (restricted use); chlorpyrifos, dimethoate, malathion, mancozeb, oxyfluorfen, quinalphos and monocrotophos (barred on named crops, S.O. 4294(E)). The official list is longer; what is left to add is in [BACKLOG.md](BACKLOG.md).
+Added by: 1791962000000; 1791979114000 (`users_only`, `users_formulation`, `only_formulation`).
 
 #### `agri_crops`
 Purpose: the crops and crop groups the cited orders name, which a bill's crop is matched to.
-Key columns: `code` (primary key), `name` (unique, any case), `aliases` (TEXT[]: other names, such as jowar for sorghum).
-Added by: 1791962000000.
+Key columns: `code` (primary key), `name` (unique, any case), `aliases` (TEXT[]: other names, such as jowar for sorghum), `is_group` (a group of crops: vegetables, fruits, pulses, cereals and millets, oilseeds, fruits and vegetables eaten raw).
+Added by: 1791962000000; 1791979114000 (`is_group`, and the groups fruits, pulses, cereals and oilseeds).
 
 #### `agri_molecule_crops`
 Purpose: the crops a crop-restricted molecule must not be used on.
@@ -2718,25 +2725,25 @@ Rules:
 Added by: 1791962000000; 1791977000000 (`agri_farmers_guard` lets an erasure's change through: `business_privacy_erasing`).
 
 #### `agri_bills`
-Purpose: a sale's farm-input details: the season of a credit bill, or a walk-in farmer's name and village.
-Key columns: PK (`business_id`, `document_id`), `season` (kharif, rabi, zaid), `season_year` (2000-2100), `buyer_name`, `village`, `created_by`, `created_at`. The season bill's due date is the document's own `due_on`.
-Relations: (`business_id`, `document_id`) -> `business_documents`.
+Purpose: a sale's farm-input details: the season of a credit bill and the season's credit it is on, a walk-in farmer's name and village, the buyer's tags when billed, a manager's override of the bag limit.
+Key columns: PK (`business_id`, `document_id`), `season` (kharif, rabi, zaid), `season_year` (2000-2100), `buyer_name`, `village`, `season_credit_id`, `buyer_tags` (TEXT[]), `bag_override_id`, `created_by`, `created_at`. The season bill's due date is the document's own `due_on`.
+Relations: (`business_id`, `document_id`) -> `business_documents`; (`business_id`, `season_credit_id`) -> `agri_season_credits`; (`business_id`, `bag_override_id`) -> `agri_overrides`.
 Rules:
-- CHECK season and year together; at least a season, a name or a village.
+- CHECK season and year together; CHECK `agri_bills_keeps_something`: a season, a name, a village, a tag or an override; CHECK `agri_bills_season_credit_season`: a season's credit with its season. Partial index `agri_bills_season_credit`.
 - Index `agri_bills_season` (business, year, season) of season bills.
-- Trigger `agri_bills_check` (before insert): the document is a sale; a season only on a named customer's sale; a name or village only on a walk-in's.
+- Trigger `agri_bills_check` (before insert): the document is a sale; a season only on a named customer's sale; a name or village only on a walk-in's; a season's credit only the bill's own customer's, for the bill's season (1791979114000).
 - Trigger `agri_bills_append_only` (function `agri_append_only`): never changed or deleted.
-Added by: 1791962000000.
+Added by: 1791962000000; 1791979114000 (`season_credit_id`, `buyer_tags`, `bag_override_id`; `agri_bills_check`).
 
 #### `agri_sale_lines`
 Purpose: each fertiliser, seed, pesticide or bio-input line of a sale, as it was billed.
-Key columns: PK (`business_id`, `line_id`), `document_id`, `sku_id`, `input_kind` (fertiliser, seed, pesticide, bio_input), `subsidised`, `pos_receipt` (letters, digits, `-` and `/`, 3-40), `crop` (as said), `crop_code` -> `agri_crops`, `molecules` (TEXT[], the item's then), `created_at`.
+Key columns: PK (`business_id`, `line_id`), `document_id`, `sku_id`, `input_kind` (fertiliser, seed, pesticide, bio_input), `subsidised`, `pos_receipt` (letters, digits, `-` and `/`, 3-40), `crop` (as said), `crop_code` -> `agri_crops`, `molecules` (TEXT[], the item's then), `shop_crop_id` -> `agri_shop_crops` (the shop's crop it matched), `formulation` (the item's then), `off_label` (a crop not on its label), `restricted_by` (pest_control_operator, government, override: who a restricted-use pesticide went to), `override_id` -> `agri_overrides`, `advisory` (the advice line printed), `created_at`.
 Relations: (`business_id`, `line_id`) -> `business_document_lines`; (`business_id`, `document_id`) -> `business_documents`; (`business_id`, `sku_id`) -> `catalog_skus`.
 Rules:
-- CHECK subsidised exactly when there is a PoS receipt; subsidised only for a fertiliser; a matched crop only with the crop said.
+- CHECK subsidised exactly when there is a PoS receipt; subsidised only for a fertiliser; a matched crop only with the crop said; one matched crop, the platform's or the shop's; an override exactly when it went by one.
 - Indexes `agri_sale_lines_document` and the partial `agri_sale_lines_subsidised` (business, item).
-- Trigger `agri_sale_lines_check` (function `agri_sale_line_check`): never changed or deleted; on insert, the document is a sale, no molecule is banned, the matched crop is not barred for any molecule, a fertiliser, seed or pesticide line has a licence in force covering it at the sale's location that day, for wholesale sales when the buyer has a GSTIN and retail sales otherwise, while the business has `licences` on (`business_licence_covering`), and a seed line's lot is not past its validity.
-Added by: 1791962000000; 1791979050000 (`agri_sale_line_check`: the licence for the kind of sale, and in force by a renewal applied for).
+- Trigger `agri_sale_lines_check` (function `agri_sale_line_check`): never changed or deleted; on insert, the document is a sale, no molecule is banned, the matched crop (or a group it is in) is not barred for any molecule, a molecule kept only in one formulation is in it, a restricted-use molecule goes to a buyer tagged in force or on an override that covers it, a fertiliser, seed or pesticide line has a licence in force covering it at the sale's location that day, for wholesale sales when the buyer has a GSTIN and retail sales otherwise, while the business has `licences` on (`business_licence_covering`), and a seed line's lot is not past its validity.
+Added by: 1791962000000; 1791979050000 (`agri_sale_line_check`: the licence for the kind of sale, and in force by a renewal applied for); 1791979114000 (the crop groups, formulation, restricted use and the new columns).
 
 #### `agri_pos_checks`
 Purpose: the PoS device's stock typed in at a location on a business day.
@@ -2753,9 +2760,124 @@ Rules: trigger `agri_pos_check_lines_append_only`: never changed or deleted.
 Added by: 1791962000000.
 
 #### `agri_settings`
-Purpose: a farm-input shop's setting: a pesticide not endorsed on the location's insecticide licence, or whose manufacturer has no principal certificate on it in force, is billed with a warning (warn) or refused (block). No row: warn.
-Key columns: `business_id` (primary key), `endorsement_check` (warn, block), `updated_by`, `updated_at`.
-Added by: 1791979050000.
+Purpose: a farm-input shop's settings: a pesticide not endorsed on the location's insecticide licence, or whose manufacturer has no principal certificate on it in force, is billed with a warning (warn) or refused (block); a restricted-use pesticide for a buyer not tagged, and subsidised bags over the limit, are stopped (block) or allowed by a manager's override (override); the service item interest on season credit is billed as; the advice line on bills. No row: warn, block, block, none, off.
+Key columns: `business_id` (primary key), `endorsement_check` (warn, block), `restricted_use`, `bag_limit_mode` (block, override), `interest_sku_id` -> `catalog_skus`, `advisory_on`, `updated_by`, `updated_at`.
+Added by: 1791979050000; 1791979114000 (`restricted_use`, `bag_limit_mode`, `interest_sku_id`, `advisory_on`).
+
+#### `agri_crop_groups`
+Purpose: the platform's crops in their groups: a molecule barred on a group is barred on each crop in it, and a label naming a group approves its crops. Platform data, changed only by migrations.
+Key columns: PK (`crop_code`, `group_code`), each -> `agri_crops` (the group one with `is_group`).
+Rules: CHECK a crop is not its own group. The rows: ber, citrus and guava in fruits; potato in vegetables; pea in pulses; sorghum in cereals and millets; soybean, castor, sunflower and groundnut in oilseeds.
+Added by: 1791979114000 agri-more.
+
+#### `agri_shop_crops`
+Purpose: a shop's own crop (a name), or what it adds to one of the platform's crops (other names its farmers use, more groups).
+Key columns: `id`, `business_id`, `crop_code` -> `agri_crops` (a platform crop) or `name` (a crop of its own; one of the two), `aliases` (TEXT[], up to 10), `groups` (TEXT[] of group codes, up to 10), `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Rules: unique indexes `agri_shop_crops_platform` (business, crop code) and `agri_shop_crops_name` (business, lower(name)). Trigger `agri_shop_crops_check`: never deleted (switched off); a crop keeps its name or platform crop; only the list's groups; a group is not put into another group.
+Added by: 1791979114000.
+
+#### `agri_buyer_tags`
+Purpose: a customer tagged as a pest-control operator or a government body (who may buy a restricted-use pesticide) or a bulk consumer (Form XIII).
+Key columns: PK (`business_id`, `contact_id`, `tag`), `tag` (pest_control_operator, government, bulk_consumer), `reference` (the licence number or order; required but for a bulk consumer), `valid_until`, `notes`, `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, `contact_id`) -> `business_contacts`.
+Rules: trigger `agri_buyer_tags_customer` (function `business_contact_is_customer`); trigger `agri_buyer_tags_guard`: never deleted (switched off); the customer, tag and who made it never change. Personal data: erased, its reference becomes "Erased", its notes go and it is switched off.
+Added by: 1791979114000.
+
+#### `agri_overrides`
+Purpose: a manager's override at the counter, given before the bill for one bill: a restricted-use pesticide for a buyer not tagged, or a farmer's subsidised bags over the month's limit.
+Key columns: `id`, `kind` (restricted_use, bag_limit), `location_id`, `contact_id` (required for bag_limit), `sku_ids` (BIGINT[], 1-100 for restricted_use), `given_on` (the business's date), `reason`, `approved_by`, `document_id` (the bill that used it), `request_key`, `request_hash` (no PIN in it), `created_by`, `created_at`.
+Relations: (`business_id`, …) -> `business_locations`, `business_contacts`, `business_documents`.
+Rules: UNIQUE (business, request key); partial index `agri_overrides_document`. Trigger `agri_overrides_guard`: never deleted; only `document_id` is ever set, once.
+Added by: 1791979114000.
+
+#### `agri_seed_lots`
+Purpose: a seed lot's tag: its date of test, germination, physical purity, tag number and validity, one for each item and lot number wherever it is held.
+Key columns: `id`, `sku_id`, `lot_code`, `tested_on`, `germination` and `purity` (0-100, two places), `tag_no`, `valid_until` (after the test: 9 months on, 6 more for each passing retest), `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, `sku_id`) -> `catalog_skus`. Its lots are the `business_stock_lots` of the item and lot number, whose `expires_on` follows `valid_until`.
+Rules: UNIQUE (business, item, lot number). Trigger `agri_seed_lots_guard`: never deleted; the item, lot number and who made it never change; the test stays as it was once the lot is retested.
+Added by: 1791979114000.
+
+#### `agri_seed_retests`
+Purpose: each retest of a seed lot, as entered.
+Key columns: `id`, `seed_lot_id`, `tested_on`, `germination`, `purity`, `passed`, `report_no`, `valid_before`, `valid_after`, `notes`, `request_key`, `request_hash`, `created_by`, `created_at`.
+Rules: UNIQUE (business, request key); CHECK passed exactly when the validity moves on; index `agri_seed_retests_lot`. Trigger `agri_seed_retests_fixed` (function `agri_records_fixed`): never changed or deleted.
+Added by: 1791979114000.
+
+#### `agri_seed_qr_codes`
+Purpose: the SATHI QR texts scanned for a seed lot or its packs. Nothing is filed with them.
+Key columns: `id`, `seed_lot_id`, `qr_text` (unique per business, up to 1000), `created_by`, `created_at`.
+Rules: index `agri_seed_qr_codes_lot`; trigger `agri_seed_qr_codes_fixed`: never changed or deleted.
+Added by: 1791979114000.
+
+#### `agri_stock_holds`
+Purpose: stock kept apart, taken out of saleable stock by a core stock adjustment: expired (segregated, not for sale, until disposed of: the register of expired stock), seized by an inspector, or sampled.
+Key columns: `id`, `kind` (expired, seized, sampled), `location_id`, `sku_id`, `lot_id`, `lot_code`, `expires_on`, `quantity` (> 0), `held_on`, `officer`, `officer_reference` (both required when seized or sampled), `notes`, `adjustment_id`, `status` (held, closed, released), `closed_on`, `closed_how`, `closed_reference`, `close_adjustment_id` (a release's), `closed_by`, `closed_at`, `request_key`, `request_hash`, `created_by`, `created_at`.
+Relations: (`business_id`, …) -> `business_locations`, `catalog_skus`, `business_stock_lots`, `business_stock_adjustments` (both adjustments).
+Rules: UNIQUE (business, request key); CHECKs: released only when seized, with its adjustment; held exactly while not closed; closed with how, by whom, on or after the day kept apart. Index `agri_stock_holds_list` (business, kind, status, day). Trigger `agri_stock_holds_guard`: never deleted; what was kept apart never changes, and it is closed once.
+Added by: 1791979114000.
+
+#### `agri_food_locations`
+Purpose: a location that also stores or sells food or feed (Insecticides Rules 1971, rule 10C): an insecticide received or kept there warns.
+Key columns: PK (`business_id`, `location_id`), `set_by`, `set_at`.
+Added by: 1791979114000.
+
+#### `agri_bag_limits`
+Purpose: the subsidised bags a farmer may take in a month, for a state the shop's locations are in; a state without a row allows 50.
+Key columns: PK (`business_id`, `state_code` (two digits)), `bags_per_month` (1-10000), `updated_by`, `updated_at`.
+Added by: 1791979114000.
+
+#### `agri_season_credits`
+Purpose: a farmer's credit for one season: its limit, the date its bills fall due, its interest on overdue, a guarantor and the crop pledged.
+Key columns: `id`, `contact_id`, `season` (kharif, rabi, zaid), `season_year`, `due_on`, `credit_limit` (> 0, or none), `interest` (none, after_due, from_bill), `interest_rate` (% a month, > 0 up to 10; exactly when there is interest), `guarantor_name`, `guarantor_phone`, `guarantor_address`, `crop_pledged`, `notes`, `closed_at`/`closed_by`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Relations: (`business_id`, `contact_id`) -> `business_contacts`; its bills are the `agri_bills` that name it.
+Rules: UNIQUE (business, customer, season, year). Trigger `agri_season_credits_customer` (function `business_contact_is_customer`). Trigger `agri_season_credits_guard`: never deleted (closed instead); the customer, season and who made it never change; the due date and interest are fixed once a bill is on it. Personal data: erased, the guarantor and the crop pledged go.
+Added by: 1791979114000.
+
+#### `agri_season_interest`
+Purpose: interest billed on a season's credit: the bill posted through the core, the day it was worked out to, the amount and the workings bill by bill.
+Key columns: `id`, `season_credit_id`, `document_id` (unique), `worked_to`, `amount` (> 0), `workings` (JSONB array), `request_key`, `request_hash`, `created_by`, `created_at`.
+Rules: UNIQUE (business, request key); index `agri_season_interest_credit`; trigger `agri_season_interest_fixed`: never changed or deleted.
+Added by: 1791979114000.
+
+#### `agri_produce_receipts`
+Purpose: produce taken from a farmer against what they owe on a season, numbered PR-1, PR-2… for the business.
+Key columns: `id`, `receipt_no` (unique per business), `season_credit_id`, `contact_id`, `location_id`, `crop`, `quantity` (> 0, three places), `unit` (quintal, kg, bag, tonne), `rate`, `value` (CHECK = round(quantity × rate, 2)), `notes`, `request_key`, `request_hash`, `created_by`, `created_at`.
+Rules: UNIQUE (business, request key); trigger `agri_produce_receipts_fixed`: never changed or deleted.
+Added by: 1791979114000.
+
+#### `agri_produce_payments`
+Purpose: the core payments (method `credit_note`, named Produce) a produce receipt made on the season's bills.
+Key columns: PK (`business_id`, `payment_id` -> `business_payments`), `receipt_id`, `document_id`, `amount` (> 0).
+Rules: index `agri_produce_payments_receipt`; trigger `agri_produce_payments_fixed`: never changed or deleted.
+Added by: 1791979114000.
+
+#### `agri_schemes`
+Purpose: a supplier's scheme for a season: the items it counts, its dates and what reaching each quantity earns.
+Key columns: `id`, `contact_id` (a supplier), `name`, `season`, `season_year`, `starts_on`, `ends_on` (on or after the start), `notes`, `active`, `created_by`/`created_at`, `updated_by`/`updated_at`.
+Rules: trigger `agri_schemes_supplier` (function `business_contact_is_supplier`); trigger `agri_schemes_guard`: never deleted (switched off); the supplier never changes.
+Added by: 1791979114000.
+
+#### `agri_scheme_items`
+Purpose: the items a scheme counts. Key columns: PK (`business_id`, `scheme_id`, `sku_id`). Replaced whole when the terms change.
+Added by: 1791979114000.
+
+#### `agri_scheme_benefits`
+Purpose: what reaching a quantity earns: per_unit (a rebate on every unit at the slab reached), target (an amount), free_goods (an item and quantity) or a gift.
+Key columns: `id`, `scheme_id`, `kind`, `min_quantity` (>= 0), `rate`, `amount`, `free_sku_id`, `free_quantity`, `gift` (each only for its kind).
+Rules: UNIQUE (business, scheme, kind, quantity). Replaced whole when the terms change.
+Added by: 1791979114000.
+
+#### `agri_scheme_claims`
+Purpose: a claim made on a scheme (money, free goods or a gift) and what came back on it.
+Key columns: `id`, `scheme_id`, `kind`, `claimed_on`, `reference`, `amount` (money), `quantity` (free goods), `description`, `received_on`, `received_amount`, `received_quantity`, `received_reference`, `received_note`, `received_by`/`received_at`, `created_by`, `created_at`.
+Rules: CHECKs each figure for its kind, received with who and when, on or after the claim; index `agri_scheme_claims_scheme`. Trigger `agri_scheme_claims_guard` (function `agri_schemes_guard`): never deleted; what was claimed never changes, and what came back is recorded once.
+Added by: 1791979114000.
+
+#### `agri_returns_filed`
+Purpose: a month's return marked as sent for a location: Form XIV (insecticides, by the 15th) or Form D (the seed stock return, by the 5th).
+Key columns: `id`, `form` (form_xiv, form_d), `location_id`, `month_start` (the 1st), `filed_on` (on or after the month starts), `reference`, `notes`, `created_by`, `created_at`.
+Rules: UNIQUE (business, form, location, month); trigger `agri_returns_filed_fixed`: never changed or deleted.
+Added by: 1791979114000.
 
 ## Optical shops
 
@@ -4125,7 +4247,7 @@ Each code is a `<module>.<action>` row of `business_permissions`, listed here by
 | hardware_sites | `hardware_sites.view`, `hardware_sites.edit` (add and change sites; set the site of a bill, quotation or order) | 1791961000000 |
 | fitter_commission | `fitter_commission.view`, `fitter_commission.create` (name a fitter on a bill; add fitters), `fitter_commission.edit` (change fitters and rules), `fitter_commission.approve` (pay fitters) | 1791961000000 |
 | licences | `licences.view`, `licences.edit` (add, renew, change and switch off licences) | 1791962000000 |
-| agri | `agri.view` (farmers, village dues, the subsidy reconciliation, the registers and the molecule list), `agri.create` (type the PoS device's stock), `agri.edit` (farmers' details) | 1791962000000 |
+| agri | `agri.view` (farmers, village dues, the subsidy reconciliation, the registers and the molecule list; season credit, crops), `agri.create` (type the PoS device's stock), `agri.edit` (farmers' details; bulk consumers' tags, the shop's crops, returns marked sent), `agri.approve` (tag pest-control operators and government bodies, allow restricted-use pesticides and subsidised bags over the limit, set season credit terms and bill its interest; managers) | 1791962000000; `agri.approve` 1791979114000 |
 | optical | `optical.view` (prescriptions, spectacle orders and the recall list), `optical.create` (record and correct prescriptions; book spectacle orders), `optical.edit` (the lab and workshop steps, an order's details, delivery), `optical.approve` (pass or fail the quality check), `optical.cancel`, `optical.print` (job cards, customer slips and prescriptions) | 1791963000000 |
 | garage | `garage.view` (every vehicle and job card, the service-due list and customers' statements), `garage.create` (add vehicles, open job cards), `garage.edit` (work on job cards: the estimate, mechanics, the work done and parts used, the claim, the advance and billing), `garage.approve` (an odometer reading lower than the last), `garage.cancel`, `garage.print` (job cards and customers' statements) | 1791964000000 |
 | member_plans | `member_plans.view` (plans, members and their memberships, check-ins, renewals; the fees due with `sales.view`), `member_plans.create` (check members in; sell and renew memberships, with `sales.create`), `member_plans.edit` (set up plans; freeze, transfer and upgrade memberships), `member_plans.approve` (approve with a PIN what a cancelled membership gives back), `member_plans.cancel`, `member_plans.refund` (give back the unused part of a cancelled membership), `member_plans.export` | 1791965000000 |

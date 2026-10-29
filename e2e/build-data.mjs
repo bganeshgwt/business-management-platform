@@ -480,6 +480,27 @@ export async function buildTestData({ api, logins, sql }) {
       seed: { id: seed.id, name: seed.label },
       farmer: { id: farmer.contact_id, name: farmer.name },
     });
+    // The farmer's kharif credit with a bill of paddy seed on it; a pest-control
+    // firm (tagged on the screen); aluminium phosphide tablets, received.
+    const season = await owner("POST", B("agri/season-credits"), { contactId: farmer.contact_id, season: AGRI.season.season, seasonYear: Number(day(0).slice(0, 4)),
+      dueOn: day(60), creditLimit: AGRI.season.creditLimit, interest: "after_due", interestRate: AGRI.season.interestRate }, 201);
+    await owner("POST", B("documents"), { kind: "sale", requestKey: requestKey(), locationId, contactId: farmer.contact_id,
+      lines: [{ skuId: seed.id, quantity: AGRI.season.seedKg, lotCode: AGRI.seed.lot }], agri: { seasonCreditId: season.season.id } }, 201);
+    const pestControl = await owner("POST", B("contacts"), { kind: "customer", name: AGRI.pestControl.name, phone: AGRI.pestControl.phone }, 201);
+    const fumigant = await owner("POST", B("catalog"), {
+      name: AGRI.fumigant.name, code: AGRI.fumigant.code, kind: "goods", unit: AGRI.fumigant.unit, tracking: "batch", price: String(AGRI.fumigant.price),
+      mrp: String(AGRI.fumigant.mrp), hsnCode: AGRI.fumigant.hsn, taxRate: "18",
+      attributes: { inputKind: "pesticide", molecules: [AGRI.fumigant.molecule], formulation: AGRI.fumigant.formulation, manufacturer: AGRI.fumigant.manufacturer },
+    }, 201);
+    await owner("POST", B("documents"), {
+      kind: "purchase", requestKey: requestKey(), locationId, contactId: supplier.id, supplierBillNo: "IF-2203",
+      lines: [{ skuId: fumigant.id, quantity: "30", unitPrice: "120", lotCode: AGRI.fumigant.lot, expiresOn: day(500) }],
+    }, 201);
+    Object.assign(businesses.agri_inputs, {
+      season: { id: season.season.id },
+      pestControl: { id: pestControl.id, name: pestControl.name },
+      fumigant: { id: fumigant.id, name: fumigant.label },
+    });
   }
 
   // The optical shop: its frame and lens in stock, the fitting charge, a

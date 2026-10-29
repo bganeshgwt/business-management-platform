@@ -16,7 +16,8 @@ import FormDialog from "../../core/pages/FormDialog";
 import { Badge, BusinessHeader, Field } from "../../core/pages/ui";
 import { useOpenBusiness, useOptions, useServerList } from "../../core/pages/hooks";
 import { DocumentDetail } from "../../core/pages/DocumentsPage";
-import { seasonWord } from "./agri";
+import { TAGS, seasonWord, tagWord } from "./agri";
+import useConfirm from "../../../../hooks/useConfirm";
 import "../styles/agri.css";
 import { NewCustomerConsents } from "../../../personal-data/components/ConsentChoices";
 import { consentChanges } from "../../../personal-data/personalData";
@@ -25,14 +26,16 @@ import { consentChanges } from "../../../personal-data/personalData";
 // father's or husband's name, land, crops and Agri Stack Farmer ID; never an
 // Aadhaar number), and what each village owes: the customers' balances as
 // Udhaar shows them, what is overdue, and what is on season credit with the
-// next harvest date one falls due. Payments are taken on Udhaar.
+// next harvest date one falls due. Payments are taken on Udhaar. Tagged
+// buyers: customers who are pest-control operators or government bodies (who
+// may buy a restricted-use pesticide) or bulk consumers (Form XIII).
 
-const TABS = [{ value: "farmers", label: "Farmers" }, { value: "dues", label: "Village dues" }];
+const TABS = [{ value: "farmers", label: "Farmers" }, { value: "dues", label: "Village dues" }, { value: "buyers", label: "Tagged buyers" }];
 
 export default function FarmersPage() {
   const biz = useOpenBusiness();
   const [params, setParams] = useSearchParams();
-  const tab = params.get("tab") === "dues" ? "dues" : "farmers";
+  const tab = TABS.some((t) => t.value === params.get("tab")) ? params.get("tab") : "farmers";
   const [village, setVillage] = useState(params.get("village") || "");
   const [dueOnly, setDueOnly] = useState(false);
   const [editing, setEditing] = useState(() => (params.get("new") === "1" && biz.can("agri.edit") ? {} : null));
@@ -93,9 +96,9 @@ export default function FarmersPage() {
                 empty="No farmers yet" emptyHint="Add a farmer, or give a customer their village and land with Add a farmer." emptyIcon="users" />
             </SectionCard>
           </>
-        ) : (
+        ) : tab === "dues" ? (
           <VillageDues money={money} onVillage={(key) => { setVillage(key || ""); setDueOnly(true); showTab("farmers"); }} />
-        )}
+        ) : <TaggedBuyers />}
       </ContentTabs>
       {editing && <FarmerDialog farmer={editing} villages={villages.map(([, name]) => name)} onClose={() => setEditing(null)}
         onSaved={(f) => { setEditing(null); toast.success(`${f.name}'s details saved.`); list.reload(); }} />}
@@ -147,6 +150,109 @@ function VillageDues({ money, onVillage }) {
           empty="Nothing owed yet" emptyHint="Bills left on udhaar for farmers show here by their village." emptyIcon="map-pin" />
       </SectionCard>
     </>
+  );
+}
+
+// Customers tagged as buyers: a pest-control operator or a government body
+// (with the licence or order it buys under), who may buy a restricted-use
+// pesticide, or a bulk consumer, whose insecticide purchases go in Form XIII.
+// Tagging an operator or a government body is a manager's (agri.approve).
+function TaggedBuyers() {
+  const biz = useOpenBusiness();
+  const confirm = useConfirm();
+  const [tag, setTag] = useState("");
+  const [editing, setEditing] = useState(null);
+  const list = useServerList("agri/buyer-tags", { gridId: "agri-buyer-tags", params: tag ? { tag } : {} });
+  const { reload } = list;
+  const may = (value) => biz.can(value === "bulk_consumer" ? "agri.edit" : "agri.approve");
+  const canTag = TAGS.some((t) => may(t.value));
+  const columns = useMemo(() => {
+    const allowed = (value) => biz.can(value === "bulk_consumer" ? "agri.edit" : "agri.approve");
+    async function switchOff(t) {
+      if (!(await confirm({ title: `${t.name}: switch off the ${tagWord(t.tag).toLowerCase()} tag?`, message: "It is switched off from now on. Bills already made keep it.", confirmLabel: "Switch it off" }))) return;
+      try {
+        await businessWrite(biz.id, `agri/buyer-tags/${t.contact_id}`, { tag: t.tag, reference: t.reference, validUntil: t.valid_until, notes: t.notes, active: false }, "put");
+        toast.success(`${t.name} is no longer tagged as a ${tagWord(t.tag).toLowerCase()}.`);
+        reload();
+      } catch (err) {
+        toast.error(getErrorMessage(err));
+      }
+    }
+    return [
+      { key: "name", header: "Customer", value: (t) => t.name, mobile: "title", pin: true,
+        render: (t) => <span className="bz-two-line"><span>{t.name}</span>{t.phone && <small className="muted">{t.phone}</small>}</span> },
+      { key: "tag", header: "Tagged as", value: (t) => tagWord(t.tag), mobile: "subtitle",
+        render: (t) => <span className="bz-inline">{tagWord(t.tag)}{!t.active ? <Badge tone="neutral" label="Switched off" /> : !t.in_force && <Badge tone="danger" label="Lapsed" />}</span> },
+      { key: "reference", header: "Licence or order", value: (t) => t.reference || "", className: "mono" },
+      { key: "valid_until", header: "Valid until", type: "date", value: (t) => t.valid_until,
+        render: (t) => (t.valid_until ? dateShort(t.valid_until, { year: true }) : <span className="muted">No end date</span>) },
+      { key: "notes", header: "Notes", value: (t) => t.notes || "", defaultHidden: true },
+      { key: "updated_by_name", header: "Last changed by", value: (t) => t.updated_by_name || "", defaultHidden: true },
+      { key: "actions", header: "", label: "Actions", type: "actions", render: (t) => allowed(t.tag) && (
+        <span className="bz-row-actions">
+          <button type="button" className="chip-button" onClick={() => setEditing(t)}>{t.active ? "Edit" : "Switch on"}</button>
+          {t.active && <button type="button" className="chip-button" onClick={() => switchOff(t)}>Switch off</button>}
+        </span>
+      ) },
+    ];
+  }, [biz, confirm, reload]);
+  return (
+    <>
+      <ErrorMessage message={list.error} />
+      <SectionCard flush icon="shield" title="Tagged buyers"
+        actions={canTag && <button type="button" className="button button-sm" onClick={() => setEditing({})}><Icon name="plus" size={14} /> Tag a buyer</button>}>
+        <DataGrid {...list.gridProps} caption="Tagged buyers" columns={columns} rowNoun={["tag", "tags"]}
+          rowClassName={(t) => (t.active && !t.in_force ? "dg-tone-warning" : "")}
+          toolbar={(
+            <label className="field">
+              <span>Tagged as</span>
+              <select value={tag} onChange={(e) => setTag(e.target.value)}>
+                <option value="">Any tag</option>
+                {TAGS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </label>
+          )}
+          exportName={biz.can("contacts.export") ? `${biz.business.code}-tagged-buyers` : undefined}
+          empty="No tagged buyers" emptyHint="Tag a pest-control operator or a government body before they buy a restricted-use pesticide, and a bulk consumer for Form XIII." emptyIcon="shield" />
+      </SectionCard>
+      {editing && <TagDialog tag={editing} may={may} onClose={() => setEditing(null)}
+        onSaved={(t) => { setEditing(null); reload(); toast.success(`${t.name} is tagged as a ${tagWord(t.tag).toLowerCase()}.`); }} />}
+    </>
+  );
+}
+
+function TagDialog({ tag, may, onClose, onSaved }) {
+  const biz = useOpenBusiness();
+  const editing = Boolean(tag.contact_id);
+  const { options } = useOptions(editing ? [] : ["contacts?kind=customer&active=true"]);
+  const allowed = TAGS.filter((t) => may(t.value));
+  const [form, setForm] = useState({ contactId: "", tag: tag.tag || allowed[0]?.value || "", reference: tag.reference || "", validUntil: tag.valid_until || "", notes: tag.notes || "" });
+  const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
+  const kind = TAGS.find((t) => t.value === form.tag);
+  const submit = () => businessWrite(biz.id, `agri/buyer-tags/${editing ? tag.contact_id : form.contactId}`, { tag: form.tag, reference: form.reference.trim() || null,
+    validUntil: form.validUntil || null, notes: form.notes.trim() || null, active: true }, "put");
+  return (
+    <FormDialog title={editing ? `${tag.name}: ${tagWord(tag.tag).toLowerCase()}` : "Tag a buyer"} icon="shield" width={600} onClose={onClose} onSaved={onSaved} onSubmit={submit}
+      description="A pest-control operator or a government body may buy a restricted-use pesticide while the tag is in force. A bulk consumer's insecticide purchases go in Form XIII.">
+      {!editing && (
+        <>
+          <Field label="Customer" wide>
+            <select required value={form.contactId} onChange={set("contactId")}>
+              <option value="">Choose the customer…</option>
+              {(options?.["contacts?kind=customer&active=true"] || []).map((c) => <option key={c.id} value={c.id}>{c.name}{c.phone ? ` · ${c.phone}` : ""}</option>)}
+            </select>
+          </Field>
+          <Field label="Tagged as">
+            <select value={form.tag} onChange={set("tag")}>{allowed.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select>
+          </Field>
+        </>
+      )}
+      <Field label={kind?.reference || "Reference"}>
+        <input required={form.tag !== "bulk_consumer"} maxLength={80} className="mono" value={form.reference} onChange={set("reference")} />
+      </Field>
+      <Field label="Valid until (optional)" hint="The tag lapses after this date."><input type="date" value={form.validUntil} onChange={set("validUntil")} /></Field>
+      <Field label="Notes (optional)" wide><input maxLength={300} value={form.notes} onChange={set("notes")} /></Field>
+    </FormDialog>
   );
 }
 

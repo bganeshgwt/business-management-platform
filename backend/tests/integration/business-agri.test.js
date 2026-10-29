@@ -97,7 +97,7 @@ test('licences and the seeds, fertilisers & pesticides shop', { timeout: 300000 
     const grants = async (business, template) => (await one(`SELECT COALESCE(array_agg(rp.permission_code ORDER BY rp.permission_code),'{}') AS p FROM business_role_permissions rp
       JOIN business_roles r ON r.business_id=rp.business_id AND r.id=rp.role_id WHERE r.business_id=$1 AND r.template_code=$2
       AND rp.permission_code ~ '^(licences|agri)\\.'`, [business.id, template])).p;
-    assert.deepEqual(await grants(agri, 'manager'), ['agri.create', 'agri.edit', 'agri.view', 'licences.edit', 'licences.view']);
+    assert.deepEqual(await grants(agri, 'manager'), ['agri.approve', 'agri.create', 'agri.edit', 'agri.view', 'licences.edit', 'licences.view']);
     assert.deepEqual(await grants(agri, 'cashier'), ['agri.create', 'agri.edit', 'agri.view']);
     assert.deepEqual(await grants(agri, 'stock_keeper'), ['agri.create', 'agri.view']);
     assert.deepEqual(await grants(agri, 'accountant'), ['agri.view', 'licences.view']);
@@ -527,7 +527,8 @@ test('licences and the seeds, fertilisers & pesticides shop', { timeout: 300000 
       lines: [{ skuId: chlorpyrifos.id, quantity: '1', lotCode: 'CP-11' }] })).status, 400);
     // The bill shows its farm-input details and the licences it prints.
     const shown = await request('GET', A(`documents/${credit.id}`));
-    assert.deepEqual(shown.agri.bill, { season: 'kharif', season_year: year, buyer_name: null, village: null });
+    assert.deepEqual([shown.agri.bill.season, shown.agri.bill.season_year, shown.agri.bill.buyer_name, shown.agri.bill.village, shown.agri.bill.season_due_on],
+      ['kharif', year, null, null, harvest]);
     assert.deepEqual([shown.agri.farmer.village, shown.agri.farmer.relative_name, shown.agri.farmer.farmer_id], ['Kothur', 'Venkaiah Goud', 'TS-1029384756']);
     assert.deepEqual(shown.agri.lines.map((l) => [l.input_kind, l.crop]), [['seed', 'Paddy'], ['pesticide', 'Paddy']]);
     assert.deepEqual(shown.agri.licences.map((l) => l.licence_no), ['INS/RR/0457', 'SDL/1123/2025']);

@@ -154,14 +154,15 @@ function pharmacyBlock(doc) {
   return `<div class="small">${licences ? `D.L. No. ${licences}` : ""}${ph.pharmacist ? `${licences ? "<br>" : ""}Registered pharmacist: ${escapeHtml(ph.pharmacist.name)} (Reg. ${escapeHtml(ph.pharmacist.registration_no)})` : ""}${rx ? `<br>Rx: ${escapeHtml(rx.doctor_name)} (Reg. ${escapeHtml(rx.doctor_reg_no)}), ${escapeHtml(String(rx.prescribed_on).slice(0, 10))} · Patient ${escapeHtml(rx.patient_name)}` : ""}</div>`;
 }
 
-// A farm-input shop's bill: each line's PoS receipt and the crop it was
-// bought for; the licences the location sold under; the farmer (a customer's
-// village, father's or husband's name and Farmer ID, or a walk-in's name and
-// village) and the season of a credit bill.
+// A farm-input shop's bill: each line's PoS receipt, the crop it was bought
+// for and its advisory line (dose, safety interval, protective gear, when the
+// shop prints it); the licences the location sold under; the farmer (a
+// customer's village, father's or husband's name and Farmer ID, or a
+// walk-in's name and village) and the season of a credit bill.
 function agriLine(doc, line) {
   const x = (doc.agri?.lines || []).find((l) => l.line_id === line.id);
   if (!x) return "";
-  return [x.pos_receipt && `PoS receipt ${x.pos_receipt}`, x.crop && `For ${x.crop}`].filter(Boolean).join(" · ");
+  return [x.pos_receipt && `PoS receipt ${x.pos_receipt}`, x.crop && `For ${x.crop}`, x.advisory].filter(Boolean).join(" · ");
 }
 // A hardware shop's tinted line: the shade its base is tinted to.
 function tintLine(doc, line) {
@@ -181,7 +182,7 @@ function agriFacts(doc, date) {
   return [
     farmer && [farmer.village && `Village ${farmer.village}`, farmer.relative_name && `Father's or husband's name ${farmer.relative_name}`, farmer.farmer_id && `Farmer ID ${farmer.farmer_id}`].filter(Boolean).map(escapeHtml).join(" · "),
     a.bill?.buyer_name || a.bill?.village ? escapeHtml([a.bill.buyer_name, a.bill.village].filter(Boolean).join(", ")) : "",
-    a.bill?.season ? `Season credit ${escapeHtml(`${SEASON_WORDS[a.bill.season] || a.bill.season} ${a.bill.season_year}`)}${doc.due_on ? `, due ${date(doc.due_on)}` : ""}` : "",
+    a.bill?.season ? `${a.interest ? "Interest on season credit " : "Season credit "}${escapeHtml(`${SEASON_WORDS[a.bill.season] || a.bill.season} ${a.bill.season_year}`)}${doc.due_on ? `, due ${date(doc.due_on)}` : ""}` : "",
   ].filter(Boolean);
 }
 function farmerBox(doc, date) {

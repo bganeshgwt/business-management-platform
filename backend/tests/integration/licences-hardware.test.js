@@ -269,10 +269,10 @@ test('the rest of licences, and of the hardware shop', { timeout: 900000 }, asyn
     assert.match(sold.warnings[0], /^Dhanuka Agritech's principal certificate on .+'s insecticide licence \(INS\/RR\/0911\) was withdrawn on \d+ \w+ \d{4}, so Chlorpyrifos 20% EC 500 ml is not sold under it\.$/);
 
     // The shop's setting: stop such a bill instead of warning.
-    assert.deepEqual(await request('GET', A('agri/settings')), { endorsementCheck: 'warn' });
+    assert.equal((await request('GET', A('agri/settings'))).endorsementCheck, 'warn');
     await agriCashier.call('PUT', A('agri/settings'), { endorsementCheck: 'block' }, 403);
     assert.equal((await refused('PUT', A('agri/settings'), { endorsementCheck: 'sometimes' })).status, 400);
-    assert.deepEqual(await request('PUT', A('agri/settings'), { endorsementCheck: 'block' }), { endorsementCheck: 'block' });
+    assert.equal((await request('PUT', A('agri/settings'), { endorsementCheck: 'block' })).endorsementCheck, 'block');
     assert.deepEqual((await audited(agri, 'agri.settings_changed', agri.id)).details, { endorsementCheck: { from: 'warn', to: 'block' } });
     const stopped = await refused('POST', A('documents'), { kind: 'sale', requestKey: key(), locationId: agriShop.id, ...cash, lines: [pesticideLine(chlorpyrifos)], ...paddyCrop });
     assert.equal(stopped.status, 409);

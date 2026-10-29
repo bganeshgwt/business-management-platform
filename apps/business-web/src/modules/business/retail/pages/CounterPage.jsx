@@ -42,7 +42,7 @@ import TintField from "../../hardware/pages/TintField";
 import { useTintCharge, usesTinting } from "../../hardware/pages/hardware";
 // A farm-input shop's bill: the PoS receipt, the crop, a walk-in farmer and season credit.
 import AgriBillFields from "../../agri/pages/AgriBillFields";
-import { agriBillBody, agriNeedsOf, agriProblem, emptyAgriBill, useLicenceNotes, useMolecules, usesAgri } from "../../agri/pages/agri";
+import { agriBillBody, agriNeedsOf, agriProblem, emptyAgriBill, stopOf, useCounterChecks, useMolecules, usesAgri } from "../../agri/pages/agri";
 
 // Quick bill: the counter of every goods shop (grocery, supermarket, books,
 // pharmacy, fashion, electronics, meat and other weight shops). Scan a
@@ -116,6 +116,8 @@ export default function CounterPage() {
   const [fitterId, setFitterId] = useState("");
   const [agriBill, setAgriBill] = useState(emptyAgriBill);
   const agriMaster = useMolecules(biz);
+  // A manager's override is given for one till and one customer: it goes when either changes.
+  useEffect(() => { setAgriBill((value) => (Object.keys(value.overrides || {}).length ? { ...value, overrides: {} } : value)); }, [locationId, customer?.id]);
   const [buyer, setBuyer] = useState({ name: "", phone: "", pan: "", panDeclaration: false });
   const [redeem, setRedeem] = useState(() => carried?.redeem || "");
   const [discount, setDiscount] = useState(() => carried?.discount || { mode: "amount", value: "", reason: "" });
@@ -428,9 +430,16 @@ export default function CounterPage() {
   // A farm-input shop's bill: what its fertilisers, seeds and pesticides need first (agri).
   const agriNeeds = usesAgri(biz) ? agriNeedsOf(lines, agriMaster) : null;
   const agriCredit = udhaar && Boolean(customer) && onCredit > 0;
-  // The licences the location holds for these farm inputs, asked ahead: what stops the bill, what it is billed with a warning about.
-  const licenceNotes = useLicenceNotes(biz, { locationId, contactId: customer?.id || null, skuIds: agriNeeds?.any ? lines.map((l) => l.sku.id) : [] });
-  const agriStop = agriProblem(agriNeeds, agriBill, agriMaster, { credit: agriCredit, today: businessToday(biz.business.timezone) }) || licenceNotes.stop?.message || "";
+  // What the bill's farm inputs will be checked for, asked ahead (the licences, restricted-use pesticides, a crop
+  // off a label, a farmer's subsidised bags this month): what stops the bill, what it is billed with a warning about.
+  // Each line's quantity in its item's stock unit, as the server priced it (a line in packs once it is priced).
+  const checkedLines = agriNeeds?.any ? lines.filter((l) => Number(l.quantity) > 0).map((l) => {
+    const priced = quoteLine(l);
+    return { skuId: l.sku.id, quantity: priced && !priced.parts ? priced.quantity : (!l.unit || l.unit === l.sku.unit ? l.quantity : undefined) };
+  }) : [];
+  const agriChecks = useCounterChecks(biz, { locationId, contactId: customer?.id || null, lines: checkedLines, crop: agriBill.crop });
+  const agriStop = agriProblem(agriNeeds, agriBill, agriMaster, { credit: agriCredit, today: businessToday(biz.business.timezone), customer })
+    || stopOf(agriChecks.notes, agriBill.overrides)?.message || "";
   const ready = !posted && bill && !stale && !problem && !posting && !waiting.length && (!udhaar || customer) && !short && !walkInUnpaid && emiOk && panOk && !agriStop;
 
   async function applyVoucher() {
@@ -734,7 +743,7 @@ export default function CounterPage() {
               <FitterField biz={biz} value={fitterId} onChange={setFitterId} label="Fitter who brought the customer" />
             </SectionCard>
           )}
-          {agriNeeds && <AgriBillFields biz={biz} needs={agriNeeds} value={agriBill} onChange={setAgriBill} master={agriMaster} customer={customer} credit={agriCredit} notes={licenceNotes.notes} />}
+          {agriNeeds && <AgriBillFields biz={biz} needs={agriNeeds} value={agriBill} onChange={setAgriBill} master={agriMaster} customer={customer} credit={agriCredit} checks={agriChecks} locationId={locationId} />}
           {needsBuyer && (
             <SectionCard icon="shield" title={emi ? "Buyer" : "Warranty for"} description={emi ? "Name and phone of the buyer, for the financier and the warranty." : "Name and phone of the buyer, so the warranty is registered with this bill."}>
               <div className="rt-inline">

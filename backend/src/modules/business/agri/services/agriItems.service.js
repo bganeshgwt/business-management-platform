@@ -14,14 +14,25 @@ const common = require('./agriCommon');
 //   seedClass    certified or truthfully_labelled; seedCrop, seedVariety
 //   molecules    a pesticide's active molecules (a list of names; those of the
 //                molecule master take its spelling) and its formulation
+//   approvedCrops  the crops a pesticide's label approves it for (names;
+//                those on the crop list take its spelling; a group stands for
+//                its crops): a crop not on it warns at the counter
+//   household    "yes" for a registered household insecticide (it may be kept
+//                where food or feed is, rule 10C)
+//   dosePerAcre, safetyDays, ppe  a pesticide's dose per acre, the days to
+//                wait before harvest and the protective gear: the advisory
+//                line a bill prints when the shop switches it on
 //   netKg        the weight of one unit, for registers kept in quintals
-// An item made of a banned molecule is refused (and the database refuses it
-// too: catalog_skus_agri_molecules). A seed or pesticide is kept by batch,
-// so each lot's validity or expiry is checked when it is sold.
+// An item made of a banned molecule is refused, and one of a molecule
+// allowed in one formulation only (carbofuran, 3% CG) in another; the
+// database refuses both too (catalog_skus_agri_molecules). A seed or
+// pesticide is kept by batch, so each lot's validity or expiry is checked
+// when it is sold.
 
 const { fail, INPUT_KINDS, SEED_CLASSES, normal, KIND_WORDS } = common;
 const KEYS = attributes.agri;
 const MAX_MOLECULES = 5;
+const MAX_CROPS = 30;
 
 const blank = (value) => value === undefined || value === null || value === '';
 function readNetKg(value) {
@@ -79,7 +90,36 @@ async function classify(db, business, given, { kind, tracking, opening = null, c
       names.push(name);
     }
     out.molecules = names;
+    // A molecule allowed in one formulation only (carbofuran: its 3% CG).
+    const limited = names.map((name) => byName.get(normal(name))).find((m) => m?.only_formulation && common.formulaKey(m.only_formulation) !== common.formulaKey(given.formulation));
+    if (limited) {
+      fail(`${limited.name} may be kept for sale only as its ${limited.only_formulation} formulation (${limited.source}): give the formulation ${limited.only_formulation}, or the item cannot be kept.`, 409);
+    }
   }
+  if (only('approvedCrops', ['pesticide'], 'The crops its label approves')) {
+    const list = v.requiredArray(given.approvedCrops, 'Crops its label approves');
+    if (list.length > MAX_CROPS) fail(`Name at most ${MAX_CROPS} crops on the label`);
+    const entries = await common.cropsOf(db, business);
+    const crops = [];
+    for (const raw of list) {
+      const typed = v.requiredString(raw, 'Crop on the label', 80).replace(/\s+/g, ' ');
+      const name = common.matchCrop(entries, typed)?.name || typed;
+      if (crops.some((c) => normal(c) === normal(name))) fail(`${name} is named twice on the label`);
+      crops.push(name);
+    }
+    out.approvedCrops = crops;
+  }
+  if (only('household', ['pesticide'], 'A registered household insecticide')) {
+    if (![true, 'yes', 'true'].includes(given.household)) fail('A registered household insecticide is yes or no');
+    out.household = 'yes';
+  }
+  if (only('dosePerAcre', ['pesticide'], 'The dose per acre')) out.dosePerAcre = v.requiredString(given.dosePerAcre, 'Dose per acre', 120);
+  if (only('safetyDays', ['pesticide'], 'The safety interval')) {
+    const days = String(given.safetyDays).trim();
+    if (!/^\d{1,3}$/.test(days) || Number(days) > 365) fail('The safety interval is a whole number of days, up to 365');
+    out.safetyDays = String(Number(days));
+  }
+  if (only('ppe', ['pesticide'], 'The protective gear')) out.ppe = v.requiredString(given.ppe, 'Protective gear', 120);
   const netKg = readNetKg(given.netKg);
   if (netKg) out.netKg = netKg;
   // A seed lot's validity and a pesticide batch's expiry are checked at the counter.
@@ -106,11 +146,15 @@ async function reclassify(db, business, user, current, now, given) {
   return next;
 }
 
-// The molecule master and its crops (platform data, read-only to shops):
-// the item form's molecule list, the counter's crop question and the Molecules screen.
+// The molecule master (platform data, read-only to shops) and the crops the
+// shop's bills are matched against (the platform's, in their groups, with
+// the shop's own crops and additions): the item form's molecule and crop
+// lists, the counter's crop question and the Molecules and Crops screens.
+// Each crop has a `key`: its platform code, or "shop-<id>" for the shop's own.
 async function master(business) {
   common.requireAgri(business);
-  const { list, crops } = await common.molecules(repo.pool);
+  const { list } = await common.molecules(repo.pool);
+  const crops = (await common.cropsOf(repo.pool, business)).map((c) => ({ ...c, key: c.code || `shop-${c.shopCropId}` }));
   return { molecules: list, crops };
 }
 

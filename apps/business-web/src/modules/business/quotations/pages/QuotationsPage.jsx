@@ -21,7 +21,8 @@ import { whatsappLink } from "../../retail/pages/retail";
 // A hardware shop's tinted lines and the calculators' workings kept with the quotation.
 import { TintedLines, Workings } from "../../hardware/pages/BillExtras";
 import FitterField from "../../hardware/pages/FitterField";
-import { usesAgri } from "../../agri/pages/agri";
+import { SEASONS, seasonWord, useOpenSeasons, usesAgri } from "../../agri/pages/agri";
+import AgriOverrideDialog from "../../agri/pages/AgriOverrideDialog";
 import QuotationDialog from "./QuotationDialog";
 import { STATES, validityWords } from "./quotation";
 import { printQuotation, quotationMessage } from "./quotationPrint";
@@ -221,24 +222,50 @@ function BillDialog({ quotation: q, onClose, onSaved }) {
   const walkIn = !q.contact_id;
   const mustPay = walkIn && GOODS.includes(biz.type) && !biz.settings.walk_in_credit;
   const panNeeded = Number(q.total) > 200000 && !(q.contact_pan || q.contact_gstin);
-  const [form, setForm] = useState({ paidNow: mustPay ? q.total : "", method: "cash", reference: "", notes: "", pan: "", panDeclaration: false, fitterId: "", posReceipt: "", crop: "" });
+  const year = Number(businessToday(biz.business.timezone).slice(0, 4));
+  const [form, setForm] = useState({ paidNow: mustPay ? q.total : "", method: "cash", reference: "", notes: "", pan: "", panDeclaration: false, fitterId: "", posReceipt: "", crop: "",
+    seasonCreditId: "", season: "kharif", seasonYear: String(year), dueOn: "" });
   const agri = usesAgri(biz);
+  // A farm-input shop's bill left on credit may go on the customer's season credit,
+  // and a manager may allow what the bill was stopped for (a restricted-use pesticide, bags over the limit).
+  const seasons = useOpenSeasons(biz, agri && !walkIn ? q.contact_id : null);
+  const onCredit = agri && !walkIn && !mustPay && Number(form.paidNow || 0) < Number(q.total);
+  const [overrides, setOverrides] = useState([]);
+  const [asking, setAsking] = useState(null);
+  const season = onCredit && form.seasonCreditId
+    ? (form.seasonCreditId === "new" ? { season: form.season, seasonYear: Number(form.seasonYear), dueOn: form.dueOn } : { seasonCreditId: Number(form.seasonCreditId) }) : {};
+  const agriBody = { ...(form.posReceipt.trim() ? { posReceipt: form.posReceipt.trim() } : {}), ...(form.crop.trim() ? { crop: form.crop.trim() } : {}), ...season,
+    ...(overrides.length ? { overrideIds: overrides.map((o) => o.id) } : {}) };
   const [serials, setSerials] = useState({});
   const set = (name) => (event) => setForm((f) => ({ ...f, [name]: event.target.type === "checkbox" ? event.target.checked : event.target.value }));
   const canPay = biz.can("sales.edit");
-  const submit = () => businessWrite(biz.id, `quotations/${q.id}/bill`, {
+  const make = () => businessWrite(biz.id, `quotations/${q.id}/bill`, {
     requestKey, notes: form.notes.trim() || undefined,
     ...(Number(form.paidNow) > 0 || mustPay ? { payment: { amount: mustPay ? "full" : form.paidNow, ...methods.body(form.method, PAY_KINDS), reference: form.reference.trim() || undefined } } : {}),
     ...(panNeeded ? { buyer: form.panDeclaration ? { panDeclaration: true } : { pan: form.pan.trim().toUpperCase() || undefined } } : {}),
     ...(serialLines.length ? { lines: serialLines.map((l) => ({ lineId: l.id, serials: serials[l.id] || [] })) } : {}),
     ...(form.fitterId ? { fitterId: form.fitterId } : {}),
-    ...(agri && (form.posReceipt.trim() || form.crop.trim()) ? { agri: { ...(form.posReceipt.trim() ? { posReceipt: form.posReceipt.trim() } : {}), ...(form.crop.trim() ? { crop: form.crop.trim() } : {}) } } : {}),
+    ...(agri && Object.keys(agriBody).length ? { agri: agriBody } : {}),
   });
+  const submit = async () => {
+    try {
+      return await make();
+    } catch (err) {
+      const refused = err?.response?.data?.data;
+      // Stopped for what a manager may allow: ask for it, then the bill is made again.
+      if (agri && refused?.override && ["restricted_use", "bag_limit"].includes(refused.reason)) {
+        setAsking({ kind: refused.reason, skuIds: refused.skuIds || [] });
+        throw new Error(`${getErrorMessage(err)} Once a manager allows it, press the button again.`);
+      }
+      throw err;
+    }
+  };
   const toggleSerial = (line, code) => setSerials((all) => {
     const mine = all[line.id] || [];
     return { ...all, [line.id]: mine.includes(code) ? mine.filter((c) => c !== code) : [...mine, code].slice(0, Number(line.quantity)) };
   });
   return (
+    <>
     <FormDialog title={`Make the bill for ${q.quotation_no}`} icon="receipt" width={640} submitLabel={`Make the bill · ${biz.exact(q.total)}`} onClose={onClose} onSaved={onSaved} onSubmit={submit}
       description={`${q.customer_name} · the ${q.lines.length === 1 ? "line goes" : `${q.lines.length} lines go`} on the bill at the quoted prices. Stock leaves this location now.`}>
       {q.lines.some((l) => l.tracking === "batch") && <p className="field-wide small muted">Items kept by batch go out oldest expiry first.</p>}
@@ -286,10 +313,32 @@ function BillDialog({ quotation: q, onClose, onSaved }) {
             <input maxLength={40} className="mono" value={form.posReceipt} onChange={set("posReceipt")} />
           </Field>
           <Field label="Crop it is for (pesticides)" hint="Asked for a pesticide that must not be used on some crops."><input maxLength={100} value={form.crop} onChange={set("crop")} /></Field>
+          {onCredit && (
+            <Field label="Season credit (optional)" hint="What is left to pay goes on the farmer's credit for the season, due at its harvest date.">
+              <select value={form.seasonCreditId} onChange={set("seasonCreditId")} disabled={seasons === null}>
+                <option value="">{seasons === null ? "Looking…" : "Not on season credit"}</option>
+                {(seasons || []).map((c) => <option key={c.id} value={c.id}>{seasonWord(c.season, c.season_year)} · due {dateShort(c.due_on, { year: true })}</option>)}
+                <option value="new">A new season…</option>
+              </select>
+            </Field>
+          )}
+          {onCredit && form.seasonCreditId === "new" && (
+            <>
+              <Field label="Season"><select value={form.season} onChange={set("season")}>{SEASONS.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}</select></Field>
+              <Field label="Year"><select value={form.seasonYear} onChange={set("seasonYear")}>{[year - 1, year, year + 1].map((y) => <option key={y} value={y}>{y}</option>)}</select></Field>
+              <Field label="Falls due on (the harvest)"><input type="date" required min={businessToday(biz.business.timezone)} value={form.dueOn} onChange={set("dueOn")} /></Field>
+            </>
+          )}
+          {overrides.length > 0 && <p className="field-wide small muted">Allowed for this bill by {overrides.map((o) => o.approved_by_name).join(", ")}.</p>}
         </>
       )}
       <Field label="Notes on the bill (optional)" wide><input maxLength={300} value={form.notes} onChange={set("notes")} /></Field>
     </FormDialog>
+    {/* Beside the bill's form, not in it: its own form's submit must not reach the bill's. */}
+    {asking && <AgriOverrideDialog kind={asking.kind} locationId={q.location_id} contactId={q.contact_id || null} skuIds={asking.skuIds}
+      items={q.lines.filter((l) => asking.skuIds.map(Number).includes(Number(l.sku_id))).map((l) => l.label)}
+      onClose={() => setAsking(null)} onSaved={(o) => { setAsking(null); setOverrides((list) => [...list, o]); }} />}
+    </>
   );
 }
 

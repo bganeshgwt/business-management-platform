@@ -122,6 +122,11 @@ const SubsidyPage = lazy(() => import("../../agri/pages/SubsidyPage"));
 const AgriRegistersPage = lazy(() => import("../../agri/pages/AgriRegistersPage"));
 const MoleculesPage = lazy(() => import("../../agri/pages/MoleculesPage"));
 const AgriSettingsPage = lazy(() => import("../../agri/pages/AgriSettingsPage"));
+const SeasonCreditPage = lazy(() => import("../../agri/pages/SeasonCreditPage"));
+const CropsPage = lazy(() => import("../../agri/pages/CropsPage"));
+const SeedLotsPage = lazy(() => import("../../agri/pages/SeedLotsPage"));
+const KeptApartPage = lazy(() => import("../../agri/pages/KeptApartPage"));
+const CompanySchemesPage = lazy(() => import("../../agri/pages/CompanySchemesPage"));
 // Optical shops.
 const PrescriptionsPage = lazy(() => import("../../optical/pages/PrescriptionsPage"));
 const PrescriptionHistoryPage = lazy(() => import("../../optical/pages/PrescriptionHistoryPage"));
@@ -332,6 +337,11 @@ function screens(type) {
     "agri-registers": <AgriRegistersPage />,
     "molecules": <MoleculesPage />,
     "agri-settings": <AgriSettingsPage />,
+    "agri-seasons": <SeasonCreditPage />,
+    "agri-crops": <CropsPage />,
+    "agri-seed-lots": <SeedLotsPage />,
+    "agri-kept-apart": <KeptApartPage />,
+    "agri-schemes": <CompanySchemesPage />,
     "prescriptions": <PrescriptionsPage />,
     "spectacle-orders": <SpectacleOrdersPage />,
     "recall": <RecallPage />,

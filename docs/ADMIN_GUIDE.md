@@ -3821,8 +3821,9 @@ names its batch (lot and expiry). A new shop starts with **Seeds,
 fertilisers & pesticides** (the farm-input tools) and **Licences &
 registrations** on; **Wholesale price lists** (dealer rates) is recommended,
 and weight, offers and quotations can be switched on too. Its own screens
-are under **Farm inputs**, and its checks under *Settings › Farm input
-checks*.
+are under **Farm inputs**, its seed lots and stock kept apart under
+**Stock**, its company schemes under **Purchases**, and its checks under
+*Settings › Farm input checks*.
 
 **Before the first bill:**
 
@@ -3847,16 +3848,30 @@ checks*.
      the test date on its tag plus 9 months;
    - *Pesticide*, with its active molecules as on the label (type each and
      *Add*; the molecule list's names are offered) and its formulation. A
-     pesticide is kept by batch too. A banned molecule is refused, and a
-     molecule barred on some crops is marked;
+     pesticide is kept by batch too. A banned molecule is refused, a
+     molecule barred on some crops is marked, and carbofuran is kept only as
+     its 3% CG. Optional: the crops or groups on its label (*Add the crop to
+     the label*; a crop not on it is billed with a warning), *A registered
+     household insecticide*, and its dose per acre, safety interval in days
+     and protective gear, for the advice line on the bill;
    - *Bio-input* or *Other item* (sprayers, tools).
    *Weight of one unit in kg* (50 for a 50 kg bag, 0.45 for a 450 g packet)
    lets the registers show quintals. The kind can be changed later; the
    activity log keeps what it was.
 3. **Receiving seed** — a seed lot comes in with its validity date as its
-   expiry; a purchase line of a seed without one is refused. Fertiliser
-   received from a supplier with no certificate of source (Form O) on the
-   location's authorisation comes in with a warning.
+   expiry; a purchase line of a seed without one is refused. Then keep its
+   tag under *Stock › Seed lots* (below). Fertiliser received from a supplier
+   with no certificate of source (Form O) on the location's authorisation
+   comes in with a warning, and an insecticide received at a location marked
+   as keeping food or feed comes in with a warning too.
+4. **The checks** (*Settings › Farm input checks*, a role that changes the
+   settings) — whether a restricted-use pesticide for a buyer not tagged is
+   stopped outright or allowed by a manager's override; the subsidised bags
+   a farmer may take in a month in each state the shop's locations are in
+   (50 to start with) and whether more are stopped or allowed by an
+   override; the service item interest on season credit is billed as (make
+   one under Products first: its GST slab is the item's); *Advice on the
+   bill*; and the locations that also keep food or feed.
 
 **At Quick bill**, the *Farm inputs* card asks for what the bill needs, and
 the bill is not taken until it is given:
@@ -3866,13 +3881,27 @@ the bill is not taken until it is given:
   number, which is not asked for or kept).
 - **A pesticide barred on some crops** — *Crop it is for*; the card says
   which crops it must not be used on, and a barred crop stops the bill (jowar
-  counts as sorghum). For any other farm input the crop is optional and is
-  kept with the line.
+  counts as sorghum; tomato stops one barred on vegetables). For any other
+  farm input the crop is optional and is kept with the line; a crop not on a
+  pesticide's label shows a warning, and the bill goes through.
+- **A restricted-use pesticide** (aluminium phosphide and the like) — the
+  customer must be tagged a pest-control operator or a government body
+  (*Tagged buyers*, below). Anyone else is stopped; where the shop allows
+  it, *Ask a manager to allow it*: the manager chooses themselves (or gives
+  their PIN at the cashier's till) and says why, for this one bill.
+- **Sulphur** — the buyer's name and village (a walk-in), or a customer with
+  an address or a village, for the register of sulphur buyers.
+- **Subsidised bags for a named farmer** — the card counts the farmer's bags
+  this month against the limit: a warning near it, and a stop over it (or a
+  manager's override, where the shop allows one).
 - **A walk-in buying farm inputs** — the farmer's name and village, optional,
   for the insecticide register.
-- **On udhaar, for a farmer** — *Season credit*: kharif, rabi or zaid of a
-  year, and the harvest date it falls due. That date becomes the bill's due
-  date, so Udhaar, the bell and the dues by village count it from then.
+- **On udhaar, for a farmer** — *Season credit*: one of the farmer's open
+  seasons, or a new one (kharif, rabi or zaid of a year, and the harvest date
+  it falls due). The season's date becomes the bill's due date, so Udhaar,
+  the bell and the dues by village count it from then. A bill that would
+  take the season over its limit, or one on a season closed or past its
+  date, is stopped.
 - **What the licences say** — as the lines are typed, the card shows what
   the location's licences say of them: a line the bill would be refused for
   (no licence in force for the kind of sale: a customer with a GSTIN buys
@@ -3881,7 +3910,9 @@ the bill is not taken until it is given:
   principal certificate in force, which is billed with the warning or
   stopped, as *Settings › Farm input checks* says.
 
-A quotation's *Make the bill* asks for the PoS receipt and the crop too.
+A quotation's *Make the bill* asks for the PoS receipt, the crop and, for a
+bill left on credit, the season too; stopped for a restricted-use pesticide
+or bags over the limit, it asks for a manager's override and is made again.
 Whichever screen bills them, the same checks apply, and the server refuses
 with the reason: a molecule banned in India, no licence in force at the location for the kind of sale, a
 seed lot past its validity or a pesticide batch past its expiry (keep it
@@ -3902,7 +3933,31 @@ husband's name and Farmer ID, and the season of a credit bill.
   credit and the next harvest date one falls due, with customers without
   farmer details who owe on one row; a village opens its farmers. Payments
   are taken on Udhaar. What farmers owe (the amounts, *Owing only* and
-  *Village dues*) shows only to a role that also sees sales or udhaar.
+  *Village dues*) shows only to a role that also sees sales or udhaar. The
+  *Tagged buyers* tab: *Tag a buyer* tags a customer a pest-control operator
+  (with their licence number) or a government body (with the order it buys
+  under), a manager's to give, who may then buy restricted-use pesticides;
+  or a bulk consumer, whose insecticide purchases go in Form XIII. A tag may
+  have a date it lapses; *Switch off* ends it.
+- **Season credit** — each farmer's credit for a season. *Give season credit*
+  (a manager): the farmer, the season and year, the harvest date it falls
+  due, a limit (or none), the interest on overdue (none, a % a month after
+  the due date, or a % a month from each bill's date), a guarantor and the
+  crop pledged. *Show* open, overdue, closed or all. A season opens on its
+  bills (each with what is left and its interest to date), the interest
+  worked out to today bill by bill (*How the interest is worked out*), and
+  the produce taken. *Bill the interest of ₹…* (a manager) makes a bill of the
+  interest item on the season, due at once: interest is never charged until
+  then. *Take produce against it*: the crop, quantity, unit and rate; its
+  value pays the season's bills, oldest due first, as a payment named
+  *Produce*; no money moves, and the day's money does not count it. *Change
+  the terms* (the due date and interest stay once a bill is on it); *Close
+  it* stops new bills on it.
+- **Crops** — the crops the counter matches a farmer's word against, in
+  their groups. *Add a crop*: a crop the shop's farmers grow, with its
+  groups and the other names they use; *Add names or groups* on one of the
+  platform's crops. A molecule barred on a group is barred on each crop in
+  it. The shop's own crops are switched off, never deleted.
 - **Subsidy PoS reconciliation** — for a location and dates, day by day and
   fertiliser: the bags billed, the bills and PoS receipts, what came back,
   and the PoS device's stock typed in against the shop's own stock then.
@@ -3913,28 +3968,70 @@ husband's name and Farmer ID, and the season of a credit bill.
 - **Registers & board** —
   - *Stock & price board*: each fertiliser's and seed's opening stock on a
     day (and its closing stock for a day gone by), its price at that location
-    and its MRP. *Print the board* prints it large for display, with the
-    location's licence numbers.
+    and its MRP: today's now, a day gone by's as they were that day (a price
+    changed during the day shows its price at the start too). *Print the
+    board* prints it large for display, with the location's licence numbers.
   - *Seed stock return*: for a month, each seed's crop, variety and class,
     the stock on the first, what was bought and sold (net of goods returned),
     other changes (corrections, counts, transfers) and the closing stock, in
     quintals where the item's weight is known. Due to the licensing authority
-    by the 5th of the next month; *Print the return*.
+    by the 5th of the next month; *Print the return*, then *Mark it sent*
+    (with the date and acknowledgement) once it has gone; the bell reminds
+    until then.
   - *Insecticide sale register*: every pesticide sold in the dates, with the
     bill, the farmer and village, the product and its molecules, the batch,
-    the manufacturer, the quantity, what came back, the expiry and the crop.
-    *Print the register*.
+    the manufacturer, the quantity, what came back, the expiry and the crop
+    (marked when it is not on the pesticide's label). *Print the register*.
+  - *Form XIV return*: for a month, each insecticide's stock on the first,
+    what was received and sold (and of it, to dealers and bulk consumers),
+    other changes and the closing stock. Due by the 15th of the next month;
+    *Print the return* and *Mark it sent*, as for the seed return.
+  - *Form XIII*: insecticides sold to dealers (a bill to a GSTIN) and to
+    customers tagged bulk consumers, insecticide by insecticide, with each
+    buyer's GSTIN or reference and address.
+  - *Sulphur buyers*: every sale of sulphur, with the buyer's name and
+    address.
   Each is worked out from the bills, purchases and stock movements, and
   exports to CSV for someone who exports reports.
 - **Molecules** — the list the bills are checked against: each banned,
-  restricted or crop-restricted molecule, the crops it must not be used on,
-  its rule and the order it comes from. The platform keeps it; it cannot be
-  changed here.
+  restricted or crop-restricted molecule, the crops or groups it must not be
+  used on, its rule (who may buy it, the one formulation it is kept in) and
+  the order it comes from. The platform keeps it; it cannot be changed here.
 
-Who does what: a cashier adds farmers, bills with the checks and types the
-PoS stock; a stock keeper types the PoS stock and sees the farm-input
-screens without customers' dues; a manager does all of it and keeps the
-licences; an accountant and a viewer see the screens and the dues.
+**Stock and purchases:**
+
+- **Seed lots** (*Stock › Seed lots*) — each seed lot received, with its tag.
+  *Keep the tag*: the date of test, germination, physical purity, the tag
+  number and its SATHI QR (scanned into the box); the lot is then valid until
+  9 months after its test, at every location that holds it. A lot opens on
+  its tag, where it is held, its retests and QR texts: *Record a retest*
+  (passed, valid 6 months longer; failed, kept and nothing changes), *Scan a
+  QR*, and *Correct the tag* until it is retested. *Show* lapsed lots, those
+  running out within 30 days, or those whose tag is not kept yet.
+- **Kept apart** (*Stock › Kept apart*) — *Keep stock apart*: an expired
+  batch (the register of expired stock, until it is disposed of), stock
+  seized by an inspector (with their name and seizure receipt) or a sample
+  drawn (with the sample slip): find the batch, give the quantity, and it
+  comes out of stock at once, so it cannot be sold. *Dispose of it*,
+  *Close the seizure* or *Close the sample* records the date and what was
+  done; *Release it* puts seized stock back into its batch. *Print the
+  register* prints the expired stock.
+- **Company schemes** (*Purchases › Company schemes*) — *Add a scheme*: the
+  company (supplier), the season, its dates, the items it counts (in one
+  unit) and its tiers (a rebate on every unit from a quantity, a target
+  rebate, free goods, a gift). Its ledger shows what was bought (from the
+  purchases, less what went back), what that earns at the tier reached,
+  what is still to buy for the next tier, and the claims: *Record a claim*,
+  then *Mark received* with what came back. Enter the company's credit note
+  or free goods as any other purchase: the ledger only keeps the account.
+
+Who does what: a cashier adds farmers, bills with the checks, takes produce
+against a season and types the PoS stock; a stock keeper types the PoS stock,
+keeps seed tags and stock kept apart, and sees the farm-input screens without
+customers' dues; a manager does all of it, keeps the licences, gives season
+credit and its interest bills, tags pest-control operators and government
+bodies, and allows overrides (`agri.approve`);
+an accountant and a viewer see the screens and the dues.
 
 ## Optical shops
 

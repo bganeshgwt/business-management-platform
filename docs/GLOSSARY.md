@@ -220,18 +220,37 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **iFMS** | The government's integrated fertiliser management system, which records every PoS sale and the stock the PoS shows for the shop. |
 | **Farmer ID** | A farmer's number in the Agri Stack farmer registry, kept with their details. |
 | **Kharif, rabi, zaid** | The three cropping seasons: kharif (monsoon), rabi (winter) and zaid (summer). A season credit bill names one, with its year. |
-| **Season credit** | A farmer's bill left on udhaar for a season's crop, due at the harvest date given on it. |
+| **Season credit** | A farmer's credit for a season's crop: its limit, the harvest date its bills fall due, its interest on overdue, a guarantor and the crop pledged. Bills left on udhaar go on it. |
 | **Village dues** | What the farmers of each village owe, with what is overdue and what is on season credit. |
 | **Molecule** | The active ingredient of a pesticide (chlorpyrifos, mancozeb…), as its label names it. |
 | **Banned molecule** | A molecule India bans for use: an item made of it is never sold. |
 | **Crop-restricted molecule** | A molecule that must not be used on some named crops (chlorpyrifos on ber, citrus and tobacco): sold only for another crop, which the bill names. |
-| **Restricted use** | A molecule allowed only to some users or in one formulation (aluminium phosphide by approved pest-control experts; carbofuran only as 3% CG). |
+| **Restricted use** | A molecule allowed only to some users or in one formulation (aluminium phosphide by approved pest-control operators and government bodies; carbofuran only as 3% CG). |
 | **Formulation** | How a pesticide is made up for use, as its label says: 20% EC, 75% WP, 3% CG and so on. |
 | **Certified seed / truthfully labelled seed** | The two classes of seed a dealer sells: certified by the state's seed certification agency, or labelled by its producer as true to the label. |
 | **Seed lot validity** | The date up to which a seed lot may be sold: 9 months from its test date, 6 months more after a passing retest. It is the lot's expiry. |
 | **Stock and price board** | The daily display of the opening stock and price of each fertiliser and seed, printed for the shop. |
 | **Seed stock return** | The monthly return of each seed's opening stock, purchases, sales and closing stock in quintals, due by the 5th of the next month (Form D). |
 | **Insecticide sale register** | The record of every pesticide sold: date, bill, farmer, product, batch, manufacturer, quantity and expiry. |
+| **Crop group** | Crops named together by an order (vegetables, fruits, pulses, cereals and millets, oilseeds, fruits and vegetables eaten raw): a molecule barred on a group is barred on each crop in it. |
+| **Label-approved crops** | The crops a pesticide's label names it for; billed for another crop, it carries a warning (*not on its label*). |
+| **Pest-control operator (PCO)** | A licensed firm that fumigates and treats pests for others; tagged with its licence, it may buy restricted-use pesticides. |
+| **Bulk consumer** | A buyer who uses insecticides in bulk (an estate, a cooperative); tagged, its purchases go in Form XIII. |
+| **Manager's override** | A manager's leave, with their PIN and a reason, for one bill: a restricted-use pesticide for a buyer not tagged, or subsidised bags over the month's limit. |
+| **Bag limit** | The subsidised fertiliser bags a farmer may take in a month, set by the state (50 to start with). |
+| **Seed tag** | The certification tag on a seed lot: its date of test, germination, physical purity and tag number, with a SATHI QR code. |
+| **SATHI** | The national seed traceability system; its QR code on a seed tag or pack is scanned and kept with the lot. |
+| **Retest** | A seed lot tested again before its validity ends; passing, it is valid 6 months longer. |
+| **Germination / physical purity** | A seed lot's test results: the share of seeds that sprout, and the share that is pure seed of the variety. |
+| **Kept apart** | Stock taken out of saleable stock: expired (until disposed of), seized by an inspector, or drawn as a sample. |
+| **Rule 10A, 10B, 10C** | Insecticides Rules 1971: expired stock kept apart and recorded until disposal (10A); a register of sulphur's buyers (10B); insecticides not kept with food or feed (10C). |
+| **Form XIII** | The register of insecticides sold to dealers and bulk consumers. |
+| **Form XIV** | The monthly return of insecticides to the licensing authority, due by the 15th of the next month. |
+| **Produce taken** | Crop taken from a farmer at a rate against what they owe on a season: it pays the season's bills, and no money moves. |
+| **Company scheme** | A supplier's scheme for a season: a rebate on every unit at the slab reached, target rebates, free goods or gifts on the purchases. |
+| **Slab** | The quantity from which a scheme's rebate rate applies; the highest slab reached sets the rate for every unit. |
+| **Advice line** | A pesticide's dose per acre, safety interval (days to wait before harvest) and protective gear, printed on the bill. |
+| **Safety interval** | The days to wait between spraying a pesticide and harvesting the crop. |
 
 ### Optical shops
 

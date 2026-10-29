@@ -182,6 +182,9 @@ export function businessSections(type) {
         { section: "agri-subsidy", label: "Subsidy PoS reconciliation", icon: "counts", need: "agri.view", types: AGRI },
         { section: "agri-registers", label: "Registers & board", icon: "logbook", need: "agri.view", types: AGRI },
         { section: "molecules", label: "Molecules", icon: "categories", need: "agri.view", types: AGRI },
+        // Each farmer's credit for a season (its limit, harvest date and interest), and the crops in their groups.
+        { section: "agri-seasons", label: "Season credit", icon: "dues", need: "agri.view", types: AGRI },
+        { section: "agri-crops", label: "Crops", icon: "products", need: "agri.view", types: AGRI },
       ],
     },
     {
@@ -308,6 +311,8 @@ export function businessSections(type) {
         { section: "purchase-orders", label: "Purchase orders", icon: "purchaseOrders", need: "purchasing.view", module: "inventory" },
         { section: "suppliers", label: "Suppliers", icon: "suppliers", need: "contacts.view", module: "purchasing" },
         { section: "claims", label: "Claims on suppliers", icon: "returns", need: "purchasing.view", module: "sales_orders" },
+        // A farm-input shop's company schemes: what its purchases earn, the claims and what is still due.
+        { section: "agri-schemes", label: "Company schemes", icon: "discounts", need: "purchasing.view", module: "agri", types: AGRI },
       ],
     },
     {
@@ -347,6 +352,9 @@ export function businessSections(type) {
         { section: "weight-stock", label: "Stock by weight", icon: "inventoryInsights", need: "inventory.view", module: "weight", types: WEIGHED },
         { section: "processing", label: WEIGHED.includes(type) ? "Cutting & processing" : word(type, "processing", "Cutting & yield"), icon: "kitchen", need: "processing.view" },
         { section: "wastage", label: "Wastage", icon: "returns", need: "wastage.view" },
+        // A farm-input shop's seed lots with their tags, and stock kept apart (expired, seized, sampled).
+        { section: "agri-seed-lots", label: "Seed lots", icon: "inventoryInsights", need: "inventory.view", module: "agri", types: AGRI },
+        { section: "agri-kept-apart", label: "Kept apart", icon: "returns", need: "inventory.view", module: "agri", types: AGRI },
       ],
     },
     {

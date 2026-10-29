@@ -13,10 +13,12 @@ const attributes = {
   // Seeds, fertilisers & pesticides (agri): what kind of farm input an item
   // is; for a fertiliser whether it is subsidised; for a seed its class, crop
   // and variety; for a pesticide its active molecules (a list) and
-  // formulation; and the weight of one unit. The agri service reads and
-  // checks them (agri/services/agriItems.service.js), and they may change
-  // after the item is made.
-  agri: ['inputKind', 'subsidised', 'seedClass', 'seedCrop', 'seedVariety', 'molecules', 'formulation', 'netKg'],
+  // formulation, the crops its label approves (a list), whether it is a
+  // registered household insecticide, and its dose per acre, safety interval
+  // (days) and protective gear for the bill's advisory line; and the weight
+  // of one unit. The agri service reads and checks them
+  // (agri/services/agriItems.service.js), and they may change after the item is made.
+  agri: ['inputKind', 'subsidised', 'seedClass', 'seedCrop', 'seedVariety', 'molecules', 'formulation', 'netKg', 'approvedCrops', 'household', 'dosePerAcre', 'safetyDays', 'ppe'],
   // An optical shop's contact lenses: each power of a lens product is its own
   // item, keeping its power, base curve and diameter (the power grid,
   // optical/services/opticalLenses.service.js, writes them).

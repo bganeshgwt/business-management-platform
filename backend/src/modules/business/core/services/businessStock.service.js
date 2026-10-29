@@ -289,4 +289,26 @@ async function cancelCount(business, user, countId, body) {
   });
 }
 
-module.exports = { createTransfer, receiveTransfer, cancelTransfer, transferDetail, createCount, countDetail, enterCounts, postCount, cancelCount };
+// --- A lot's expiry ------------------------------------------------------
+//
+// A batch's expiry changed everywhere the batch is (a seed lot's validity, set
+// from its tag or extended by a passing retest): each location's lot of the
+// item with that code, and the lines carrying it in transfers still in
+// transit, so a receipt never finds two dates for one batch. Inside the
+// caller's transaction, the business row locked first; the caller checks
+// permissions. Each lot changed goes in the activity log. Returns the lots changed.
+async function setLotExpiry(db, business, user, { skuId, lotCode, expiresOn, reason }) {
+  const lots = await repo.all(db, `SELECT l.id,l.location_id,l.expires_on::text AS expires_on,s.label FROM business_stock_lots l
+    JOIN catalog_skus s ON s.business_id=l.business_id AND s.id=l.sku_id
+    WHERE l.business_id=$1 AND l.sku_id=$2 AND l.lot_code=$3 AND l.expires_on IS DISTINCT FROM $4::date FOR UPDATE OF l`, [business.id, id(skuId, 'Item'), lotCode, expiresOn]);
+  for (const lot of lots) {
+    await db.query('UPDATE business_stock_lots SET expires_on=$3 WHERE business_id=$1 AND id=$2', [business.id, lot.id, expiresOn]);
+    await repo.audit(db, business.id, user.id, 'stock.expiry_changed', lot.id, { label: lot.label, lotCode, locationId: lot.location_id, from: lot.expires_on, to: expiresOn, reason });
+  }
+  await db.query(`UPDATE business_stock_transfer_lines x SET expires_on=$4 FROM business_stock_transfers t
+    WHERE x.business_id=$1 AND x.sku_id=$2 AND x.lot_code=$3 AND t.business_id=x.business_id AND t.id=x.transfer_id AND t.status='in_transit'
+      AND x.expires_on IS DISTINCT FROM $4::date`, [business.id, skuId, lotCode, expiresOn]);
+  return lots.length;
+}
+
+module.exports = { createTransfer, receiveTransfer, cancelTransfer, transferDetail, createCount, countDetail, enterCounts, postCount, cancelCount, setLotExpiry };

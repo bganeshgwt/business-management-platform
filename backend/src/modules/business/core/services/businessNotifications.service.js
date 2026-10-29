@@ -22,6 +22,8 @@ const access = require('./businessAccess.service');
 //                      day, room nights the night audit has still to post (hotels, lodges and guest houses)
 //   appointments       still to come today
 //   licences           running out within 60 days, or run out
+//   farm inputs        last month's Form XIV and Form D returns not marked sent; insecticides kept
+//                      where food or feed is stored or sold (seeds, fertilisers & pesticides shops)
 //   personal data      requests due within 15 days or past their 90 days, a breach's 72 hours
 //                      for the Board's report, the privacy notice not yet published
 //   GST thresholds     the turnover of the owner's businesses under this business's PAN nearing or
@@ -177,6 +179,10 @@ async function feed(business) {
           + (row.renewal_applied_on ? ` · renewal applied for on ${licences.dateWords(row.renewal_applied_on)} (${row.renewal_reference})` : ''),
         at: `${row.valid_until}T00:00:00.000Z`, link: `${base}/licences` });
     }
+  }
+  // A farm-input shop's monthly returns not yet sent, and insecticides kept where food or feed is.
+  if (has('agri') && can('agri.view') && business.business_type === 'agri_inputs') {
+    items.push(...await require('../../agri/services/agriBell.service').bell(business, base, LIMIT));
   }
   // Personal data: requests nearing their 90 days, a breach's report to the Board, a notice not yet published.
   // (A restaurant's are on the restaurant's own bell.)

@@ -10,8 +10,10 @@ import { MOLECULE_STATUS, listWords } from "./agri";
 // The molecule master: the molecules a shop cannot sell freely, each with
 // the order it comes from. Platform data, the same for every shop and read
 // only here. Every bill is checked against it: an item made of a banned
-// molecule is never sold, and one barred on some crops is sold only once the
-// crop the farmer is buying for is given.
+// molecule is never sold, and one barred on some crops (or a group of crops)
+// is sold only once the crop the farmer is buying for is given. A
+// restricted-use one is sold only to a tagged pest-control operator or
+// government body; one allowed in a single formulation, only in it.
 export default function MoleculesPage() {
   const biz = useOpenBusiness();
   const [data, setData] = useState(null);
@@ -30,7 +32,11 @@ export default function MoleculesPage() {
       render: (m) => <Badge tone={MOLECULE_STATUS[m.status]?.tone} label={MOLECULE_STATUS[m.status]?.label || m.status} />, mobile: "show" },
     { key: "crops", header: "Not to be used on", value: (m) => m.crops.map((c) => c.name).join(", "),
       render: (m) => (m.crops.length ? listWords(m.crops.map((c) => c.name.toLowerCase())) : <span className="muted">—</span>) },
-    { key: "restriction", header: "Rule", value: (m) => m.restriction || "", render: (m) => m.restriction || <span className="muted">—</span>, minWidth: 220 },
+    { key: "restriction", header: "Rule", value: (m) => m.restriction || "", minWidth: 220,
+      render: (m) => (m.restriction || m.users_only || m.only_formulation ? (
+        <span className="bz-two-line">{m.restriction && <span>{m.restriction}</span>}
+          {m.users_only && <small className="muted">{m.users_formulation ? `Its ${m.users_formulation} sold` : "Sold"} only to a tagged pest-control operator or government body</small>}
+          {m.only_formulation && <small className="muted">Kept for sale only as {m.only_formulation}</small>}</span>) : <span className="muted">—</span>) },
     { key: "source", header: "Source", value: (m) => m.source, minWidth: 220, mobile: "subtitle" },
   ], []);
   const counts = (data?.molecules || []).reduce((n, m) => ({ ...n, [m.status]: (n[m.status] || 0) + 1 }), {});
@@ -43,7 +49,7 @@ export default function MoleculesPage() {
           onRetry={() => setVersion((n) => n + 1)} rowNoun={["molecule", "molecules"]} defaultSort={{ key: "status", direction: "asc" }}
           empty="No molecules listed" emptyIcon="leaf" />
       </SectionCard>
-      <p className="small muted">The platform keeps this list and adds to it as orders change; it holds only the entries whose orders are cited here, so a molecule not on it is not cleared by it. A crop given at the counter is matched to the crops listed (sorghum and jowar are the same crop).</p>
+      <p className="small muted">The platform keeps this list and adds to it as orders change; it holds only the entries whose orders are cited here, so a molecule not on it is not cleared by it. A crop given at the counter is matched to the crops listed (sorghum and jowar are the same crop), and a molecule barred on a group of crops is barred on each crop in it (Farm inputs › Crops).</p>
     </div>
   );
 }

@@ -254,6 +254,14 @@ export const AGRI = {
   source: { certificateNo: "FO/IFFCO/2025/311" },
   unendorsed: { name: "Thiamethoxam 25% WG 100 g", code: "THM-100", unit: "packet", price: 210, mrp: 230, hsn: "3808", molecule: "Thiamethoxam", formulation: "25% WG",
     lot: "TM-07", manufacturer: "Syngenta India" },
+  // The farmer's kharif credit (falling due in 60 days, 2% a month after it)
+  // with 10 kg of the paddy seed billed on it; a pest-control firm, a customer
+  // tagged on the screen; aluminium phosphide tablets (restricted use), kept by
+  // batch and received.
+  season: { season: "kharif", creditLimit: "20000", interestRate: "2", seedKg: "10" },
+  pestControl: { name: "Deccan Pest Control Services", phone: "9849011122", licenceNo: "PCO/TS/2024/0311" },
+  fumigant: { name: "Aluminium phosphide 56% tablets 10 g", code: "ALP-10", unit: "packet", price: 180, mrp: 195, hsn: "3808", molecule: "Aluminium phosphide",
+    formulation: "56% TB", lot: "AP-03", manufacturer: "UPL Limited" },
 };
 
 // The hardware shop: cement by the bag and binding wire by the kilo in 25 kg

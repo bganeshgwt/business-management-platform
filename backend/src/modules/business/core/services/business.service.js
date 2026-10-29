@@ -758,6 +758,9 @@ const named = (value) => value !== undefined && value !== null && value !== '';
 // { collectionId, free (paise), method, reference, key }. It pays after any
 // voucher and tenders, up to what is left of the bill, as a payment from the
 // receipt; "full" is then what is left.
+// `charge`: a charge a type's own service raises on a named customer's
+// account (a farm-input shop's interest on overdue season credit): billed
+// whatever the customer's credit limit.
 // Free units and trade discount on a purchase line, in the line's own unit
 // (packs when it is entered in packs). null when neither is given.
 function readScheme(input) {
@@ -771,7 +774,7 @@ function readScheme(input) {
 }
 
 async function postDocument(db, business, user, body, { kind, requestKey, hash, lines: inputLines, paidNow, fixed = null, quote = false, walkInPays = false, voucher = null, finance = null,
-  membership = false, dueDay = null, jewellery = false, tenders = [], rental = false, fuel = false, lodging = false, noStock = false, advance = null }) {
+  membership = false, dueDay = null, jewellery = false, tenders = [], rental = false, fuel = false, lodging = false, noStock = false, advance = null, charge = false }) {
   {
     // Serializes document posting within a business: one lock order for every
     // posting (business, then document, then stock lots).
@@ -916,7 +919,7 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     // PoS receipt); its receipts bring seed lots in with their validity, and
     // fertiliser from a supplier with no Form O on the location's
     // authorisation is received with a warning.
-    const agri = kind === 'sale' && agriSales().applies(business) ? await agriSales().checkSale(db, business, { prepared, body, location, contact }) : null;
+    const agri = kind === 'sale' && agriSales().applies(business) ? await agriSales().checkSale(db, business, { prepared, body, location, contact, user, charge }) : null;
     if (!agri && agriSales().given(body)) fail('Crops, PoS receipts and season credit go on the sales of a seeds, fertilisers & pesticides shop with its tools switched on');
     const purchaseWarnings = kind === 'purchase' && agriSales().applies(business) ? await agriSales().checkPurchase(db, business, { prepared, contact, location }) : [];
     // What the bill or receipt is posted with but warned of: with it in the activity log and the answer.
@@ -954,10 +957,10 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     if (walkInPays && !settings?.walk_in_credit && !contact && rounded > 0 && paidPaise + prepaid + financed < rounded) {
       fail('A walk-in customer pays the whole bill now. To give udhaar, choose the customer first.', 409);
     }
-    // Season credit (a farm-input shop): a named customer's bill left on credit.
-    if (agri) agriSales().checkCredit(agri, { contact, unpaid: rounded - paidPaise - prepaid - financed });
+    // Season credit (a farm-input shop): a named customer's bill left on credit, within the season's limit.
+    if (agri) await agriSales().checkCredit(db, business, agri, { contact, unpaid: rounded - paidPaise - prepaid - financed });
     // Credit limit: what this customer would owe after this sale, less what they pay now.
-    if (kind === 'sale' && !fuel && contact?.credit_limit !== null && contact?.credit_limit !== undefined) {
+    if (kind === 'sale' && !fuel && !charge && contact?.credit_limit !== null && contact?.credit_limit !== undefined) {
       const owed = await repo.one(db, `SELECT ${repo.contactBalanceSql('c')} AS balance FROM business_contacts c WHERE c.business_id=$1 AND c.id=$2`, [business.id, contact.id]);
       // A held advance is already off what they owe (money on account), so it is not taken off twice.
       const after = paise(Number(owed.balance)) + rounded - paidPaise - prepaid - financed + advanceUse;

@@ -105,6 +105,9 @@ const READERS = {
   "modules/tax-changes/services/taxChangesMenu.js": "module",
   "modules/tax-changes/services/taxChangesShop.js": "module",
   "modules/business/salon-weight/services/businessWeight.service.js": "gate",
+  // A farm-input shop's settings show the interest item's slab; season interest is billed at it.
+  "modules/business/agri/services/agriSales.service.js": "gate",
+  "modules/business/agri/services/agriSeasons.service.js": "gate",
 };
 
 function* sourceFiles(dir) {

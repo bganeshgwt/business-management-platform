@@ -79,14 +79,17 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   assert.equal(sectionRule('rates','hardware').module,'hardware_rates');
   assert.equal(sectionRule('rates','meat').module,'weight');
   assert.ok(!typeAllows(sectionRule('rates','grocery'),'grocery'),'grocery: no rate board');
-  // A farm-input shop's own area keeps its name (Farm inputs › Molecules) and holds its four pages;
+  // A farm-input shop's own area keeps its name (Farm inputs › Molecules) and holds its six pages;
   // its bill checks and every shop's licences sit with Settings.
   const farm=menu('agri_inputs').find(l=>l.section==='farmers');
   assert.equal(farm.label,'Farm inputs');
-  assert.deepEqual(farm.pages.map(p=>p.to.split('/').pop()),['farmers','agri-subsidy','agri-registers','molecules']);
+  assert.deepEqual(farm.pages.map(p=>p.to.split('/').pop()),['farmers','agri-subsidy','agri-registers','molecules','agri-seasons','agri-crops']);
   assert.equal(workspaceFor('molecules','agri_inputs'),'farm');
   assert.ok(!menu('agri_inputs',m=>m!=='agri').some(l=>l.section==='farmers'),'no farm area while the module is off');
   for(const type of ['grocery','hardware','optical'])assert.ok(!typeAllows(sectionRule('farmers',type),type),`${type}: no farm inputs`);
+  // Its seed lots and stock kept apart sit with Stock, its company schemes with Purchases, while the module is on.
+  assert.deepEqual(['agri-seed-lots','agri-kept-apart','agri-schemes'].map(s=>workspaceFor(s,'agri_inputs')),['stock','stock','purchases']);
+  for(const s of ['agri-seed-lots','agri-kept-apart','agri-schemes'])assert.ok(pages('agri_inputs').some(p=>p.to.endsWith(`/${s}`))&&!pages('agri_inputs',m=>m!=='agri').some(p=>p.to.endsWith(`/${s}`))&&!pages('hardware').some(p=>p.to.endsWith(`/${s}`)),s);
   assert.equal(workspaceFor('licences','optical'),'settings');
   for(const type of ['agri_inputs','optical','grocery'])assert.ok(pages(type).some(p=>p.to.endsWith('/licences')),`${type}: licences under Settings`);
   assert.ok(!pages('optical',m=>m!=='licences').some(p=>p.to.endsWith('/licences')),'no licences page while the tool is off');

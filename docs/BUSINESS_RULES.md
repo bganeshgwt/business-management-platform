@@ -729,21 +729,21 @@ A farm-input shop sells as every goods shop does ([Shops and the shared core](#s
 
 ### A molecule barred on some crops is never sold for them
 
-- **Rule:** a pesticide made of a molecule barred on some crops (for example chlorpyrifos on ber, citrus and tobacco) is billed only with the crop the farmer is buying it for: the line's own, or the bill's. The crop is matched to the crops the list names, by name or another name (jowar is sorghum); a barred crop refuses the bill. Any other crop is kept with the line as it was said. A crop the list names as a group (vegetables; fruits and vegetables eaten raw) is matched only when it is said as that group, so the counter shows the barred crops for the cashier to ask about.
-- **Why:** S.O. 4294(E) of 3 October 2023 bars some molecules on named crops while allowing them on others; only the crop tells the two apart.
-- **Change it:** nothing to set.
+- **Rule:** a pesticide made of a molecule barred on some crops (for example chlorpyrifos on ber, citrus and tobacco) is billed only with the crop the farmer is buying it for: the line's own, or the bill's. The crop is matched to the crops the shop knows, by name or another name (jowar is sorghum): the platform's crops, with the other names and groups the shop added to them, and the shop's own crops. A molecule barred on a group (vegetables; fruits; pulses; cereals and millets; oilseeds; fruits and vegetables eaten raw) is barred on each crop in it, so tomato stops a molecule barred on vegetables, and the refusal says so ("… must not be used on vegetables (tomato is one)"). A crop the shop does not know is kept with the line as it was said.
+- **Why:** S.O. 4294(E) of 3 October 2023 bars some molecules on named crops, and some on whole groups of crops, while allowing them on others; only the crop tells them apart.
+- **Change it:** the shop's own crops, their other names and their groups under *Farm inputs › Crops*; the platform's crops and groups only by a migration.
 
 ### The molecule list is the platform's, and only what is cited
 
-- **Rule:** the molecule list (*Farm inputs › Molecules*) is platform data, the same for every shop and changed only by the platform. Each entry has its status (banned, restricted use or barred on some crops), the crops it must not be used on, its rule in words and the order it comes from. It holds only entries with a cited source: six banned molecules, five restricted ones and seven barred on named crops. A restricted-use molecule (aluminium phosphide, methyl bromide, DDT, the 3% smoke generator of cypermethrin, carbofuran other than its 3% CG) is shown with its rule on the item form and at the counter; the bill is not refused for it.
+- **Rule:** the molecule list (*Farm inputs › Molecules*) is platform data, the same for every shop and changed only by the platform. Each entry has its status (banned, restricted use or barred on some crops), the crops it must not be used on, its rule in words and the order it comes from. It holds only entries with a cited source: six banned molecules, five restricted ones and seven barred on named crops. A restricted-use molecule (aluminium phosphide, methyl bromide, DDT, the smoke generator of cypermethrin) is sold only to a tagged buyer, and carbofuran is kept for sale only as its 3% CG (below).
 - **Why:** a list a shop could edit would not protect anyone, and an entry without its source cannot be checked.
 - **Change it:** the platform adds and corrects entries with a migration as orders change ([BACKLOG.md › Left inside built modules](BACKLOG.md#7-left-inside-built-modules)).
 
 ### A seed lot is sold only while valid
 
-- **Rule:** a seed is kept by batch, and a seed lot's expiry is its validity date: the test date on its tag plus 9 months (6 months more after a passing retest). A receipt of seed, or a seed's opening stock, needs that date. A lot past it is not sold: the bill is refused, naming the lot and the date. A pesticide is kept by batch too, and a batch past its expiry is refused the same way, to be kept apart and marked not for sale.
-- **Why:** seed certification fixes a lot's validity from its test date, and the Insecticides Rules forbid selling expired stock.
-- **Change it:** nothing to set; a lot's date is the one given when it is received.
+- **Rule:** a seed is kept by batch, and a seed lot's expiry is its validity date. A receipt of seed, or a seed's opening stock, needs that date. The lot's tag is kept under *Stock › Seed lots*: the date of test, germination, physical purity, the tag number and the SATHI QR texts scanned for it. The lot is then valid until 9 months after its test; each passing retest makes it valid 6 months longer, from the date it was valid until; a failed retest is kept and changes nothing; every retest is kept as entered. The lot's expiry, at every location that holds it and on transfers in transit, follows the validity, so the counter sells it until then and not after: the bill is refused, naming the lot and the date. A receipt of a lot whose tag is kept takes the tag's date (another date is refused). The test is corrected only until the lot is retested. A pesticide is kept by batch too, and a batch past its expiry is refused the same way, to be kept apart ([Stock kept apart is never sold](#stock-kept-apart-is-never-sold)).
+- **Why:** the Seeds (Control) Order and seed certification fix a lot's validity from its test date and allow its extension by retesting; the Insecticides Rules forbid selling expired stock.
+- **Change it:** nothing to set; the tag and its retests under *Stock › Seed lots*.
 
 ### A subsidised fertiliser carries its PoS receipt
 
@@ -757,17 +757,89 @@ A farm-input shop sells as every goods shop does ([Shops and the shared core](#s
 - **Why:** the shop's stock and the PoS's must agree; the difference is what the company and the inspector look at.
 - **Change it:** nothing to set.
 
-### Season credit is due at the harvest
+### Season credit is due at the harvest, within its limit
 
-- **Rule:** a bill left on udhaar for a named customer may carry the season it is for (kharif, rabi or zaid, of the year before, this year or the next) and the harvest date it falls due (today or later, at most 400 days away). That date is the bill's due date, so the bell, Udhaar and the dues by village count it as overdue only after it. A walk-in's bill, or one paid in full, carries no season. The season is kept with the bill and never changed.
-- **Why:** farmers buy on credit for a crop and pay when it is harvested.
-- **Change it:** given on each bill at Quick bill.
+- **Rule:** a customer's credit for a season (kharif, rabi or zaid, of the year before, this year or the next) is kept once under *Farm inputs › Season credit*, given by a manager (`agri.approve`): the harvest date it falls due (today or later, at most 400 days away), a limit (or none), its interest on overdue, a guarantor and the crop pledged. A bill left on udhaar for the customer may go on it, at the counter or from a quotation; naming a season with its year and date at the counter opens the customer's credit for it (no limit, no interest) when there is none. The season's date is the bill's due date, so the bell, Udhaar and the dues by village count it as overdue only after it. A bill is refused on a season that is closed, past its due date (new credit goes on a new season), with another due date, or that its unpaid part would take over the season's limit. A walk-in's bill, or one paid in full, carries no season. The season is kept with the bill and never changed. Once a bill is on it, its due date and interest stay as they were given; its limit, guarantor and crop pledged may change. A season's credit is never deleted: it is closed.
+- **Why:** farmers buy on credit for a crop and pay when it is harvested; the limit, the guarantor and the crop pledged are what the shop gives the credit on.
+- **Change it:** the terms under *Farm inputs › Season credit* (`agri.approve`).
+
+### Season interest is worked out to the paisa, and billed only when confirmed
+
+- **Rule:** a season carries no interest, a % a month after its due date, or a % a month from each bill's date (0.01% to 10%). It is simple interest, never on interest: each day after the start, up to and including today on the business's clock, earns a thirtieth of the month's % on what was still owed on the bill at the end of that day (its total less returns and payments, plus refunds, from the day each happened); each bill's interest is rounded to the paisa, half up, once. Nothing is charged until someone confirms it: *Bill the interest* (`agri.approve` and `sales.create`) posts, through the core, a bill of the shop's interest item for the interest due (worked out less what was billed before) on the season, due at once, at the item's GST slab and the shop's price terms and rounding; it is never held to a credit limit, and a bill of interest earns none. The interest seen must still be the interest due (a payment in between refuses it). The workings, bill by bill and day by day, are kept with it.
+- **Why:** interest the shop may charge is what was agreed and confirmed, worked out the same way every time; charging it as a bill puts it in the books and in GST as any other supply.
+- **Change it:** the season's interest when it is given; the interest item under *Settings › Farm input checks*.
+
+### Produce taken pays the season's bills, and no money moves
+
+- **Rule:** produce taken from a farmer against their season (crop, quantity in quintals, kilos, bags or tonnes, rate) is valued at quantity × rate, half up to the paisa, numbered PR-1, PR-2… for the business, and pays the season's bills oldest due first, as core payments on the bills named *Produce* (a credit-note method): no money moves, so the drawer and the day's takings do not count it. It is never worth more than is owed on the season. The produce is not taken into stock.
+- **Why:** a farmer often settles season credit with the crop; recording it as a payment on the bills keeps their dues and the shop's books right without inventing cash.
+- **Change it:** nothing to set; taken by a role with `receivables.create`.
 
 ### The registers come from the transactions
 
-- **Rule:** the stock and price board (each fertiliser's and seed's opening stock on a day, and its closing stock once the day is over), the monthly seed stock return and the insecticide sale register are worked out from the bills, purchases, returns and stock movements of the location, on the business's own clock; nothing is typed twice. The board shows today's price and MRP. The seed return gives quintals where an item's unit is a weight or its weight of one is given; its other changes are corrections, counts and transfers. It is due by the 5th of the next month.
-- **Why:** the Fertiliser (Control) Order and the Seeds (Control) Order require a daily display of stock and prices, the Seeds (Control) Order a monthly return, and the Insecticides Rules a record of insecticide sales with their batches; working them out from the same records keeps them true to the books.
+- **Rule:** the stock and price board (each fertiliser's and seed's opening stock on a day, and its closing stock once the day is over), the monthly seed stock return (Form D), the insecticide sale register, the monthly return of insecticides (Form XIV), Form XIII (insecticides sold to dealers, a bill to a GSTIN, and to customers tagged bulk consumers) and the register of sulphur buyers are worked out from the bills, purchases, returns and stock movements of the location, on the business's own clock; nothing is typed twice. The board shows today's price and MRP now, and a day gone by at that day's prices, as they stood at its end (every price an item and a branch had is kept, from when). The seed return gives quintals where an item's unit is a weight or its weight of one is given; other changes are corrections, counts, stock kept apart and transfers. The seed return is due by the 5th of the next month and Form XIV by the 15th; each is marked sent once, and the bell reminds until it is (critical after its date).
+- **Why:** the Fertiliser (Control) Order and the Seeds (Control) Order require a daily display of stock and prices, the Seeds (Control) Order a monthly return, and the Insecticides Rules a record of insecticide sales with their batches, Forms XIII and XIV and a register of sulphur's buyers; working them out from the same records keeps them true to the books.
 - **Change it:** nothing to set.
+
+### A restricted-use pesticide goes only to a tagged buyer
+
+- **Rule:** a pesticide made of a restricted-use molecule (aluminium phosphide, methyl bromide, DDT; cypermethrin only as its smoke generator) is sold only to a customer tagged a pest-control operator (with their licence number) or a government body (with the order or authority it buys under), the tag on and not past its date. Anyone else, a walk-in too, is refused; where the shop chooses *Stop it unless a manager allows it*, a manager's override lets that one bill through. The tag the line was sold under is kept with it and shows in the insecticide register. Tagging an operator or a government body is a manager's (`agri.approve`); a tag is switched off, never deleted.
+- **Why:** the registration of these molecules confines their use to government bodies and approved pest-control operators.
+- **Change it:** the tags on *Farm inputs › Farmers & village dues*, Tagged buyers; stop or allow an override under *Settings › Farm input checks*.
+
+### A molecule allowed in one formulation is kept only in it
+
+- **Rule:** an item made of a molecule the list allows in one formulation only (carbofuran: 3% CG) is refused when it is added or given another (or no) formulation, and never billed in another. The formulation is kept with each pesticide line.
+- **Why:** carbofuran's other formulations are banned; only its 3% CG remains registered.
+- **Change it:** nothing to set.
+
+### A crop not on the label is billed with a warning
+
+- **Rule:** a pesticide may name the crops or groups on its label. Billed for a crop not among them (by name, other name or group), the bill goes through with a warning, and the line is kept as *not on its label* in the insecticide register.
+- **Why:** using a pesticide on a crop it is not registered for is the farmer's risk; the shop says so and keeps a record, but the label is the company's, not a ban.
+- **Change it:** the crops on the item's label (Products).
+
+### A manager's override is for one bill
+
+- **Rule:** an override (a restricted-use pesticide for a buyer not tagged, or subsidised bags over the limit) is given before the bill, at that till, with the reason and the PIN of a member whose role holds `agri.approve` (none for a manager allowing their own bill; the PIN is never kept). It is for that day, that till, the customer it names (bags: always a customer) and, for restricted use, the items it names; one bill uses it up. It is offered only where the shop's setting allows it. The bill keeps it, and the activity log keeps who allowed what and why.
+- **Why:** an exception needs someone answerable for it, and must not be reused for another sale.
+- **Change it:** *Settings › Farm input checks*: stop outright, or allow a manager's override, for each.
+
+### A farmer's subsidised bags are held to the month's limit
+
+- **Rule:** a named customer's subsidised fertiliser in a month (on the business's own calendar, in each fertiliser's stock unit, less what came back on those bills) is held to the limit of the state the selling location is in: 50 bags a month unless the shop sets its state's. From 80% of it the counter warns; a bill that would take the farmer over it is refused, or, where the shop allows, let through by a manager's override. A walk-in's bags are not counted.
+- **Why:** states cap the subsidised fertiliser one farmer may take in a month, to stop diversion; the cap differs by state and season.
+- **Change it:** the limit of each state and stop-or-override under *Settings › Farm input checks* (`settings.edit`).
+
+### Stock kept apart is never sold
+
+- **Rule:** stock is kept apart under *Stock › Kept apart* as expired (a batch past its expiry: segregated, marked not for sale, until it is disposed of as the Central Government specifies; this is the register of expired stock), seized by an inspector (with their name and the seizure receipt) or sampled (with the sample slip). Each takes the quantity out of saleable stock by a core stock adjustment, so none of it can be billed; each is closed once, with the date and how it was disposed of or what came of it. Seized stock released goes back into the batch it came from by another stock adjustment. Entries are never changed or deleted.
+- **Why:** the Insecticides Rules 1971 require expired stock to be kept apart, marked and recorded until disposal (rule 10A), and an inspector's seizure or sample to be accounted for.
+- **Change it:** nothing to set.
+
+### Insecticides are not kept with food or feed
+
+- **Rule:** a location may be marked as also storing or selling food or animal feed. An insecticide other than a registered household one received there comes in with a warning, and while it holds any, the bell says so. Nothing is refused.
+- **Why:** the Insecticides Rules 1971 forbid storing or displaying insecticides with food or feed (rule 10C); the shop is the one to put it right.
+- **Change it:** the locations under *Settings › Farm input checks*.
+
+### Sulphur is sold with its buyer's name and address
+
+- **Rule:** a bill with an item made of sulphur needs its buyer: a walk-in's name and village, or a customer with an address or a village as a farmer. Each sale goes in the register of sulphur buyers.
+- **Why:** the Insecticides Rules 1971 require a register of sulphur's buyers with their names and addresses (rule 10B).
+- **Change it:** nothing to set.
+
+### A company scheme's ledger comes from the purchases
+
+- **Rule:** a supplier's scheme for a season names its items (in one unit), its dates and what reaching each quantity earns: a rebate on every unit at the slab reached, a target rebate, free goods, a gift; of each kind, the highest tier reached counts. What it counts is worked out from the receipts of those items from that supplier in its dates (on the business's clock), the units paid for (free units on the bill are not), less what went back. The claims made and what came back on each set what is still due. The ledger keeps account only: a credit note or free goods from the company are entered as any other purchase.
+- **Why:** the shop must know what it is owed by each company and chase it; the purchases already say what was bought.
+- **Change it:** the schemes under *Purchases › Company schemes* (`purchasing.edit`).
+
+### The advice line is printed when switched on
+
+- **Rule:** with *Advice on the bill* on, each pesticide line on the bill carries a line of advice from the item's details: its dose an acre, the days to wait before harvest and the protection to wear. It is kept with the line as it was billed.
+- **Why:** the safe use of a pesticide is told best on the bill the farmer takes home.
+- **Change it:** *Settings › Farm input checks*.
 
 ## Optical shops
 
