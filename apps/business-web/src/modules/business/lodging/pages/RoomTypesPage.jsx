@@ -12,7 +12,7 @@ import FormDialog from "../../core/pages/FormDialog";
 import { ActiveBadge, Badge, BusinessHeader, Field } from "../../core/pages/ui";
 import { useOpenBusiness } from "../../core/pages/hooks";
 import { ROOM_STATUS, SLAB_NOTE, WEEKDAYS } from "./lodging";
-import { DayUseTab, PoliciesTab, RateCalendarTab, RatePlansTab, SeasonsTab } from "./LodgingRates";
+import { ChecklistsTab, DayUseTab, PoliciesTab, RateCalendarTab, RatePlansTab, SeasonsTab } from "./LodgingRates";
 import "../styles/lodging.css";
 
 // Room types & rates (Settings): the two GST slabs a room night is billed at
@@ -23,10 +23,12 @@ import "../styles/lodging.css";
 // counted in nights; and the rooms with their numbers, floors and types. A
 // stay keeps the rates it was booked at. The other tabs: rate plans with
 // their meal plans, seasons, the rate calendar, day-use prices and policies
-// (LodgingRates.jsx); the check-in and check-out times are with the slabs.
+// (LodgingRates.jsx); the check-in and check-out times, inspection before a
+// room is let and the no-show cut-off are with the slabs; each room type's
+// linen and minibar checklist has its own tab.
 
 const TABS = [{ value: "rooms", label: "Room types & rooms" }, { value: "plans", label: "Rate plans" }, { value: "seasons", label: "Seasons" }, { value: "calendar", label: "Rate calendar" },
-  { value: "day-use", label: "Day use" }, { value: "policies", label: "Policies" }];
+  { value: "day-use", label: "Day use" }, { value: "policies", label: "Policies" }, { value: "checklists", label: "Linen & minibar" }];
 
 const blankType = { name: "", hsnCode: "", baseOccupancy: "2", maxOccupancy: "2", maxExtraBeds: "0", rack: "", weekend: "", extraAdult: "", child: "", extraBed: "", description: "" };
 const money = (value) => (value === null || value === undefined ? "" : String(Number(value)));
@@ -60,6 +62,7 @@ export default function RoomTypesPage() {
       {tab === "calendar" && <RateCalendarTab setup={setup} />}
       {tab === "day-use" && <DayUseTab setup={setup} />}
       {tab === "policies" && <PoliciesTab />}
+      {tab === "checklists" && <ChecklistsTab setup={setup} />}
       {tab === "rooms" && <>
       <SlabSettings setup={setup} onSaved={() => done("Saved.")} />
       <SectionCard flush icon="home" title="Room types" actions={canItems && <button type="button" className="button button-sm" onClick={() => setDialog({ kind: "type" })}><Icon name="plus" size={14} /> Add a room type</button>}>
@@ -105,7 +108,7 @@ function SlabSettings({ setup, onSaved }) {
   const s = setup.settings;
   const pick = (rate) => String(setup.slabs.find((x) => Number(x.rate) === rate)?.id || "");
   const [form, setForm] = useState({ low: String(s.lowTaxRateId || pick(5)), high: String(s.highTaxRateId || pick(18)), limit: String(Number(s.slabLimit)), weekend: s.weekendNights, terms: s.terms || "",
-    checkIn: s.checkInTime || "12:00", checkOut: s.checkOutTime || "11:00" });
+    checkIn: s.checkInTime || "12:00", checkOut: s.checkOutTime || "11:00", inspection: Boolean(s.inspectionRequired), cutoff: s.noShowCutoff || "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const canEdit = biz.can("settings.edit");
@@ -117,7 +120,7 @@ function SlabSettings({ setup, onSaved }) {
     setError("");
     try {
       await businessWrite(biz.id, "lodging/settings", { lowTaxRateId: form.low, highTaxRateId: form.high, slabLimit: form.limit, weekendNights: form.weekend, terms: form.terms.trim() || null,
-        checkInTime: form.checkIn, checkOutTime: form.checkOut }, "put");
+        checkInTime: form.checkIn, checkOutTime: form.checkOut, inspectionRequired: form.inspection, noShowCutoff: form.cutoff || null }, "put");
       onSaved();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -144,6 +147,9 @@ function SlabSettings({ setup, onSaved }) {
           </div>
           <Field label="Check-in from" hint="The property's own time: before it on the arrival day, the policy's early check-in charge applies."><input required type="time" value={form.checkIn} onChange={set("checkIn")} /></Field>
           <Field label="Check-out by" hint="After it on the departure day, the policy's late check-out charge applies."><input required type="time" value={form.checkOut} onChange={set("checkOut")} /></Field>
+          <Field label="No-show cut-off (optional)" hint="A reservation not checked in by this time on its arrival day is marked a no-show by the night audit, its charge by its policy. None: marked by hand.">
+            <input type="time" value={form.cutoff} onChange={set("cutoff")} /></Field>
+          <label className="checkbox bz-check field-wide"><input type="checkbox" checked={form.inspection} onChange={(e) => setForm((f) => ({ ...f, inspection: e.target.checked }))} /> A room is inspected after it is cleaned, before it is let</label>
           <Field label="Terms on the registration card (optional)" wide><textarea rows={3} maxLength={2000} value={form.terms} onChange={set("terms")} /></Field>
         </fieldset>
         {error && <div className="field-wide"><ErrorMessage message={error} /></div>}

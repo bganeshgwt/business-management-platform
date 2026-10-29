@@ -159,3 +159,13 @@ test("a policy's charges are worked out from the room nights' values", () => {
   assert.equal(money.depositDue(policy, { total: 1512000, firstNight: 420000 }), 453600);
   assert.equal(money.depositDue({ depositKind: "first_night" }, { total: 1512000, firstNight: 420000 }), 420000);
 });
+
+test("the house's figures: occupancy over the rooms available, ADR over the nights sold, RevPAR over the rooms available", () => {
+  // Six rooms available (one out of order is not), three nights sold for 11,500 before GST.
+  assert.deepEqual(money.ratios({ sold: 3, available: 6, revenue: 1150000 }), { occupancy: 50, adr: 383333, revpar: 191667 });
+  assert.deepEqual(money.ratios({ sold: 1, available: 3, revenue: 400000 }), { occupancy: 33.3, adr: 400000, revpar: 133333 });
+  assert.deepEqual(money.ratios({ sold: 2, available: 3, revenue: 750000 }), { occupancy: 66.7, adr: 375000, revpar: 250000 });
+  // Nothing sold, or nothing available: no rate to divide by.
+  assert.deepEqual(money.ratios({ sold: 0, available: 1, revenue: 0 }), { occupancy: 0, adr: null, revpar: 0 });
+  assert.deepEqual(money.ratios({ sold: 0, available: 0, revenue: 0 }), { occupancy: null, adr: null, revpar: null });
+});

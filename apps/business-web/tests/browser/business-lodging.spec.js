@@ -15,7 +15,12 @@ import { LODGING, business, localDate, networkQuiet, signIn, watchNetwork } from
 // their own line in a reservation's preview; a group booking of two rooms a
 // week ahead with its rooming list; a folio opened for a company on the
 // walk-in's stay with the room routed to it; a child joining that stay and
-// leaving; and the walk-in's preferences saved on their profile.
+// leaving; and the walk-in's preferences saved on their profile. Then the
+// house: housekeeping's cleaning steps on room 201 (dirty, being cleaned,
+// clean, inspected), do not disturb on the walk-in's room, room 201 booked out
+// of order ahead with why, and a maintenance ticket started and done; and the
+// house's figures for tonight (occupancy, ADR, RevPAR) with room 201 out of
+// order on the reservations calendar.
 let lodge = null;
 test.beforeEach(async ({ page }) => {
   lodge = business("lodging");
@@ -37,6 +42,8 @@ const inr = (p) => `₹${(p / 100).toLocaleString("en-IN", { minimumFractionDigi
 const gst = (net, rate) => Math.floor((net * Math.round(rate * 100) + 5000) / 10000);
 // A night at the weekend rate: its date's day of the week (on the lodge's clock) is one of the weekend nights.
 const weekend = (day) => LODGING.weekendNights.includes(new Date(`${day}T00:00:00Z`).getUTCDay() || 7);
+// "26 Oct", as the screens say a night.
+const dayWords = (day) => `${Number(day.slice(8, 10))} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(day.slice(5, 7)) - 1]}`;
 const rate = (type, day) => Math.round(Number(weekend(day) && type.rates.weekend ? type.rates.weekend : type.rates.rack) * 100);
 const foreigner = LODGING.walkIn.foreigner;
 // Types into a search box and takes the option that names `text`.
@@ -385,5 +392,92 @@ test("the walk-in's preferences saved on their guest profile", async ({ page }, 
   await expect(dialog).toBeHidden({ timeout: 15_000 });
   await expect(profile).toContainText(LODGING.preferences, { timeout: 15_000 });
   await page.screenshot({ path: testInfo.outputPath("profile.png"), fullPage: true });
+  expect(errors).toEqual([]);
+});
+
+test("housekeeping: the cleaning steps with who and when, do not disturb, a room booked out of order ahead, and a maintenance ticket", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  const { outOfOrder, ticket } = LODGING.house;
+  await signIn(page, "HOUSEKEEPER");
+  await page.goto(`/business-admin/${lodge.id}/lodging-rooms`);
+  await expect(page.getByRole("heading", { name: "Rooms & housekeeping", level: 1 })).toBeVisible({ timeout: 15_000 });
+  // Room 201: dirty, being cleaned, clean, inspected, each a step of its own.
+  const clean = page.getByRole("region", { name: "Vacant clean" });
+  await clean.getByRole("listitem", { name: "Room 201" }).getByRole("button", { name: "Mark dirty", exact: true }).click();
+  const dirty = page.getByRole("region", { name: "Vacant dirty" }).getByRole("listitem", { name: "Room 201" });
+  await dirty.getByRole("button", { name: "Start cleaning", exact: true }).click();
+  await expect(dirty).toContainText("Being cleaned", { timeout: 15_000 });
+  await dirty.getByRole("button", { name: "Mark clean", exact: true }).click();
+  const ready = clean.getByRole("listitem", { name: "Room 201" });
+  await ready.getByRole("button", { name: "Inspected", exact: true }).click();
+  await expect(ready).toContainText("inspected by", { timeout: 15_000 });
+  await expect(ready.getByRole("button", { name: "Inspected", exact: true })).toHaveCount(0);
+  // The guest in 101 asks not to be disturbed, then takes the sign off.
+  const occupied = page.getByRole("region", { name: "Occupied" }).getByRole("listitem", { name: "Room 101" });
+  await occupied.getByRole("button", { name: "Do not disturb", exact: true }).click();
+  await expect(occupied.getByRole("button", { name: "Disturb again", exact: true })).toBeVisible({ timeout: 15_000 });
+  await occupied.getByRole("button", { name: "Disturb again", exact: true }).click();
+  await expect(occupied.getByRole("button", { name: "Do not disturb", exact: true })).toBeVisible({ timeout: 15_000 });
+  // Room 201 booked out of order ahead, with why: on the list of periods and on its card.
+  await ready.getByRole("button", { name: "Out of order", exact: true }).click();
+  const down = page.getByRole("dialog", { name: "Room 201 out of order" });
+  await down.getByLabel("From the night of").fill(localDate(outOfOrder.inDays));
+  await down.getByLabel("To the night of (optional)").fill(localDate(outOfOrder.lastInDays));
+  await down.getByLabel("Why").fill(outOfOrder.reason);
+  await down.getByRole("button", { name: "Put it out of order" }).click();
+  await expect(down).toBeHidden({ timeout: 15_000 });
+  await expect(page.getByRole("table", { name: "Out of order" }).getByRole("row").filter({ hasText: "Room 201" })).toContainText(outOfOrder.reason, { timeout: 15_000 });
+  await expect(ready).toContainText(`Out of order from ${dayWords(localDate(outOfOrder.inDays))}: ${outOfOrder.reason}`);
+  await page.screenshot({ path: testInfo.outputPath("housekeeping-steps.png"), fullPage: true });
+  // A ticket for room 102, urgent: started, then done.
+  await page.goto(`/business-admin/${lodge.id}/lodging-maintenance`);
+  await expect(page.getByRole("heading", { name: "Maintenance", level: 1 })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Open a ticket" }).click();
+  const form = page.getByRole("dialog", { name: "Open a maintenance ticket" });
+  await form.getByLabel("Room", { exact: true }).selectOption({ label: `Room ${ticket.room} · ${LODGING.deluxe.name}` });
+  await form.getByLabel("Priority", { exact: true }).selectOption("urgent");
+  await form.getByLabel("The issue").fill(ticket.issue);
+  await form.getByRole("button", { name: "Open the ticket" }).click();
+  await expect(form).toBeHidden({ timeout: 15_000 });
+  const tickets = page.getByRole("table", { name: "Maintenance tickets" });
+  const row = tickets.getByRole("row").filter({ hasText: ticket.issue });
+  await expect(row).toContainText("Urgent", { timeout: 15_000 });
+  await expect(row).toContainText("Open");
+  await row.getByRole("button", { name: "Start", exact: true }).click();
+  await expect(row).toContainText("In progress", { timeout: 15_000 });
+  await row.getByRole("button", { name: "Done", exact: true }).click();
+  const done = page.getByRole("dialog", { name: /^Ticket \d+: work done$/ });
+  await done.getByLabel("What was done (optional)").fill(ticket.outcome);
+  await done.getByRole("button", { name: "Mark it done" }).click();
+  await expect(done).toBeHidden({ timeout: 15_000 });
+  // Done, it leaves the open tickets; every ticket keeps it.
+  await expect(tickets.getByRole("row").filter({ hasText: ticket.issue })).toHaveCount(0, { timeout: 15_000 });
+  await page.getByRole("button", { name: "Every ticket" }).click();
+  await expect(tickets.getByRole("row").filter({ hasText: ticket.issue })).toContainText("Done", { timeout: 15_000 });
+  await page.screenshot({ path: testInfo.outputPath("maintenance.png"), fullPage: true });
+  expect(errors).toEqual([]);
+});
+
+test("the house's figures for tonight: occupancy, ADR and RevPAR; room 201 out of order on the reservations calendar", async ({ page }, testInfo) => {
+  const errors = errorsOf(page);
+  watchNetwork(page);
+  await signIn(page);
+  await page.goto(`/business-admin/${lodge.id}/lodging-reports`);
+  await expect(page.getByRole("heading", { name: "Occupancy & revenue", level: 1 })).toBeVisible({ timeout: 15_000 });
+  await page.getByLabel("From").fill(localDate(0));
+  await networkQuiet(page);
+  // Tonight: room 101 sold of the three rooms (33.3%), at the walk-in's rate before GST; the Deluxe rooms half sold.
+  const night = rate(LODGING.deluxe, localDate(0));
+  await expect(page.getByText("1 of 3 room nights")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("33.3%").first()).toBeVisible();
+  const deluxe = page.getByRole("table", { name: "By room type" }).getByRole("row").filter({ hasText: LODGING.deluxe.name });
+  await expect(deluxe).toContainText("50%");
+  await expect(deluxe).toContainText(inr(night));
+  await expect(deluxe).toContainText(inr(Math.round(night / 2)));
+  await page.screenshot({ path: testInfo.outputPath("occupancy.png"), fullPage: true });
+  // The reservations calendar shows room 201 out of order on its nights.
+  await page.goto(`/business-admin/${lodge.id}/lodging-reservations`);
+  await expect(page.getByRole("heading", { name: "Reservations", level: 1 })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("table", { name: "Reservations calendar" }).getByRole("row").filter({ hasText: "Room 201" })).toContainText("Out of order", { timeout: 15_000 });
   expect(errors).toEqual([]);
 });

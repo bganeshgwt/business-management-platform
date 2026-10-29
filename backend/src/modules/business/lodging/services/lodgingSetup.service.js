@@ -9,8 +9,9 @@ const c = require('./lodgingCommon');
 //   settings    the two GST slabs a room night is billed at (the lower one at
 //               or below the limit a room a night, the higher above it), the
 //               limit (₹7,500 until changed), the weekend nights and the terms
-//               on the registration card. Nothing is reserved or billed until
-//               the slabs are set.
+//               on the registration card; whether a room is inspected before
+//               it is let; the no-show cut-off. Nothing is reserved or billed
+//               until the slabs are set.
 //   room types  each billed as a service item counted in nights (an existing
 //               one, or one made with it: its name and SAC typed with it), with
 //               its base and most occupancy, its extra beds, and its rate plan
@@ -18,8 +19,8 @@ const c = require('./lodgingCommon');
 //               night before GST). A change applies to stays booked after it:
 //               a stay keeps the rates it was booked at. Switched off, never deleted.
 //   rooms       each room's number, type, floor and location; out of use, never deleted.
-//   status      housekeeping marks a room clean or dirty, and puts it out of order
-//               (with why) and back; a room is occupied while a guest is checked in.
+//   history     every change of a room's status, cleanliness, service and do not
+//               disturb (lodgingHousekeeping.service.js makes them).
 // A room type's nights are billed only from a stay's folio (checkLooseSale).
 
 const { fail, id } = c;
@@ -39,7 +40,7 @@ const ROOM_ORDER = 'r.active DESC,l.name,r.sort_order,lower(r.floor),length(r.ro
 const settingsShape = (s) => ({ lowTaxRateId: s.low_tax_rate_id, highTaxRateId: s.high_tax_rate_id, lowName: s.low_name || null, highName: s.high_name || null,
   lowRate: s.low_rate === undefined || s.low_rate === null ? null : Number(s.low_rate).toFixed(2), highRate: s.high_rate === undefined || s.high_rate === null ? null : Number(s.high_rate).toFixed(2),
   slabLimit: Number(s.slab_limit).toFixed(2), weekendNights: s.weekend_nights, terms: s.terms, checkInTime: c.hhmm(s.check_in_time), checkOutTime: c.hhmm(s.check_out_time),
-  updatedAt: s.updated_at, ready: Boolean(s.low_tax_rate_id) });
+  inspectionRequired: Boolean(s.inspection_required), noShowCutoff: s.no_show_cutoff ? c.hhmm(s.no_show_cutoff) : null, updatedAt: s.updated_at, ready: Boolean(s.low_tax_rate_id) });
 
 async function load(db, business) {
   const roomTypes = await repo.all(db, `SELECT * FROM (${TYPES_SQL}) x ORDER BY active DESC,sort_order,lower(name),id LIMIT 200`, [business.id]);
@@ -58,7 +59,8 @@ async function setup(business) {
 
 // --- Settings ----------------------------------------------------------------------------------------
 
-// body: { lowTaxRateId?, highTaxRateId?, slabLimit?, weekendNights?: [1-7], terms? } — what is left out stays.
+// body: { lowTaxRateId?, highTaxRateId?, slabLimit?, weekendNights?: [1-7], terms?, checkInTime?, checkOutTime?, inspectionRequired?, noShowCutoff? (HH:MM; null: none) }
+// — what is left out stays.
 async function saveSettings(business, user, body) {
   c.requireLodging(business);
   await access.require(business, 'settings.edit');
@@ -85,16 +87,24 @@ async function saveSettings(business, user, body) {
       // The property's check-in and check-out times (its policy: no regulation fixes them).
       check_in_time: body.checkInTime === undefined ? c.hhmm(before.check_in_time) : c.readTime(body.checkInTime, 'The check-in time'),
       check_out_time: body.checkOutTime === undefined ? c.hhmm(before.check_out_time) : c.readTime(body.checkOutTime, 'The check-out time'),
+      // A room inspected before it is let, and the no-show cut-off the night audit marks no-shows by (none: marked by hand).
+      inspection_required: v.requiredBoolean(body.inspectionRequired, 'Inspected before it is let', Boolean(before.inspection_required)),
+      no_show_cutoff: body.noShowCutoff === undefined ? (before.no_show_cutoff ? c.hhmm(before.no_show_cutoff) : null)
+        : c.given(body.noShowCutoff) ? c.readTime(body.noShowCutoff, 'The no-show cut-off') : null,
     };
     if (next.low_tax_rate_id && Number(next.low_tax_rate_id) === Number(next.high_tax_rate_id)) fail('The two slabs are different slabs: the lower one, and the higher one above the limit');
-    await db.query(`INSERT INTO lodging_settings(business_id,low_tax_rate_id,high_tax_rate_id,slab_limit,weekend_nights,terms,updated_by,check_in_time,check_out_time) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+    await db.query(`INSERT INTO lodging_settings(business_id,low_tax_rate_id,high_tax_rate_id,slab_limit,weekend_nights,terms,updated_by,check_in_time,check_out_time,inspection_required,
+        no_show_cutoff) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
       ON CONFLICT (business_id) DO UPDATE SET low_tax_rate_id=EXCLUDED.low_tax_rate_id,high_tax_rate_id=EXCLUDED.high_tax_rate_id,slab_limit=EXCLUDED.slab_limit,
-        weekend_nights=EXCLUDED.weekend_nights,terms=EXCLUDED.terms,updated_by=EXCLUDED.updated_by,updated_at=now(),check_in_time=EXCLUDED.check_in_time,check_out_time=EXCLUDED.check_out_time`,
-    [business.id, next.low_tax_rate_id, next.high_tax_rate_id, Number(next.slab_limit).toFixed(2), next.weekend_nights, next.terms, user.id, next.check_in_time, next.check_out_time]);
+        weekend_nights=EXCLUDED.weekend_nights,terms=EXCLUDED.terms,updated_by=EXCLUDED.updated_by,updated_at=now(),check_in_time=EXCLUDED.check_in_time,check_out_time=EXCLUDED.check_out_time,
+        inspection_required=EXCLUDED.inspection_required,no_show_cutoff=EXCLUDED.no_show_cutoff`,
+    [business.id, next.low_tax_rate_id, next.high_tax_rate_id, Number(next.slab_limit).toFixed(2), next.weekend_nights, next.terms, user.id, next.check_in_time, next.check_out_time,
+      next.inspection_required, next.no_show_cutoff]);
     const was = { lowTaxRateId: before.low_tax_rate_id, highTaxRateId: before.high_tax_rate_id, slabLimit: Number(before.slab_limit).toFixed(2), weekendNights: before.weekend_nights, terms: before.terms,
-      checkInTime: c.hhmm(before.check_in_time), checkOutTime: c.hhmm(before.check_out_time) };
+      checkInTime: c.hhmm(before.check_in_time), checkOutTime: c.hhmm(before.check_out_time), inspectionRequired: Boolean(before.inspection_required),
+      noShowCutoff: before.no_show_cutoff ? c.hhmm(before.no_show_cutoff) : null };
     const now = { lowTaxRateId: next.low_tax_rate_id, highTaxRateId: next.high_tax_rate_id, slabLimit: Number(next.slab_limit).toFixed(2), weekendNights: next.weekend_nights, terms: next.terms,
-      checkInTime: next.check_in_time, checkOutTime: next.check_out_time };
+      checkInTime: next.check_in_time, checkOutTime: next.check_out_time, inspectionRequired: next.inspection_required, noShowCutoff: next.no_show_cutoff };
     const changed = Object.keys(now).filter((k) => JSON.stringify(was[k] ?? null) !== JSON.stringify(now[k] ?? null));
     if (changed.length) {
       await repo.audit(db, business.id, user.id, 'lodging_settings.updated', null, { from: Object.fromEntries(changed.map((k) => [k, was[k]])), to: Object.fromEntries(changed.map((k) => [k, now[k]])) });
@@ -291,57 +301,6 @@ async function updateRoom(business, user, roomId, body) {
   });
 }
 
-// --- Housekeeping ----------------------------------------------------------------------------------------
-
-// Rooms by status, each with the guest in it (and when they leave) or the next guest due today.
-async function board(business) {
-  c.requireLodging(business);
-  await access.require(business, 'lodging.view');
-  const rooms = await repo.all(repo.pool, `SELECT x.*,
-      (SELECT json_build_object('id',s.id,'stay_no',s.stay_no,'guest_name',s.guest_name,'departure',s.departure,'adults',s.adults,'children',s.children)
-        FROM lodging_stays s WHERE s.business_id=x.business_id AND s.room_id=x.id AND s.status='in_house' LIMIT 1) AS guest,
-      (SELECT json_build_object('id',s.id,'stay_no',s.stay_no,'guest_name',s.guest_name,'arrival',s.arrival)
-        FROM lodging_stays s WHERE s.business_id=x.business_id AND s.room_id=x.id AND s.status='reserved' AND s.arrival<=(now() AT TIME ZONE z.timezone)::date
-        ORDER BY s.arrival,s.id LIMIT 1) AS arriving
-    FROM (SELECT r.*,l.name AS location_name,k.label AS room_type,u.name AS status_by_name FROM lodging_rooms r
-      JOIN business_locations l ON l.business_id=r.business_id AND l.id=r.location_id
-      JOIN lodging_room_types t ON t.business_id=r.business_id AND t.id=r.room_type_id JOIN catalog_skus k ON k.business_id=t.business_id AND k.id=t.sku_id
-      JOIN users u ON u.id=r.status_by WHERE r.business_id=$1 AND r.active AND ($2::bigint IS NULL OR r.location_id=$2)) x
-    JOIN businesses z ON z.id=x.business_id
-    ORDER BY x.location_name,x.sort_order,lower(x.floor),length(x.room_no),lower(x.room_no),x.id`, [business.id, business.location_scope || null]);
-  const counts = Object.fromEntries(c.ROOM_STATUSES.map((s) => [s, rooms.filter((r) => r.status === s).length]));
-  return { rooms, counts, today: await c.today(repo.pool, business) };
-}
-
-// What housekeeping and the front desk may set: clean, dirty, out of order (with why).
-const SETTABLE = { vacant_clean: ['vacant_dirty', 'out_of_order'], vacant_dirty: ['vacant_clean', 'out_of_order'], out_of_order: ['vacant_clean', 'vacant_dirty'], occupied: [] };
-
-// body: { status: vacant_clean | vacant_dirty | out_of_order, note? (why it is out of order) }
-async function setRoomStatus(business, user, roomId, body) {
-  c.requireLodging(business);
-  await access.require(business, 'lodging.edit');
-  const status = v.requiredEnum(body.status, 'Room status', ['vacant_clean', 'vacant_dirty', 'out_of_order']);
-  const note = c.optionalText(body.note, status === 'out_of_order' ? 'Why it is out of order' : 'Note', 300);
-  if (status === 'out_of_order' && !note) fail('Say why the room is out of order');
-  return repo.transaction(async (db) => {
-    await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
-    const room = await repo.one(db, 'SELECT * FROM lodging_rooms WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(roomId, 'Room')]);
-    if (!room) fail('Room not found', 404);
-    access.requireLocation(business, room.location_id);
-    if (!room.active) fail(`Room ${room.room_no} is out of use`, 409);
-    if (room.status === status && (note || null) === (room.status_note || null)) return { room: await roomRow(db, business, room.id), repeated: true };
-    if (room.status === 'occupied') fail(`Room ${room.room_no} has a guest in it: it is made up after they check out`, 409);
-    if (room.status !== status && !SETTABLE[room.status].includes(status)) fail(`Room ${room.room_no} is ${c.ROOM_WORDS[room.status]}`, 409);
-    await db.query('UPDATE lodging_rooms SET status=$3,status_note=$4,status_by=$5,status_at=now(),updated_by=$5,updated_at=now() WHERE business_id=$1 AND id=$2',
-      [business.id, room.id, status, note, user.id]);
-    const details = { roomNo: room.room_no, from: room.status, to: status, ...(note ? { note } : {}) };
-    await repo.audit(db, business.id, user.id, 'lodging_room.status_changed', room.id, details);
-    await repo.event(db, business.id, user.id, 'lodging_room.status_changed', 'lodging_room', room.id, { ...details, locationId: room.location_id });
-    return { room: await roomRow(db, business, room.id), repeated: false };
-  });
-}
-const roomRow = (db, business, roomId) => repo.one(db, `${ROOMS_SQL} AND r.id=$2`, [business.id, roomId]);
-
 // A room's status history, newest first.
 async function history(business, roomId) {
   c.requireLodging(business);
@@ -349,7 +308,8 @@ async function history(business, roomId) {
   const room = await repo.one(repo.pool, `${ROOMS_SQL} AND r.id=$2`, [business.id, id(roomId, 'Room')]);
   if (!room) fail('Room not found', 404);
   access.requireLocation(business, room.location_id);
-  const log = await repo.all(repo.pool, `SELECT g.id,g.from_status,g.to_status,g.note,g.created_at,u.name AS by_name FROM lodging_room_status_log g JOIN users u ON u.id=g.created_by
+  const log = await repo.all(repo.pool, `SELECT g.id,g.from_status,g.to_status,g.note,g.cleaning,g.out_of_service,g.dnd,g.created_at,u.name AS by_name FROM lodging_room_status_log g
+    JOIN users u ON u.id=g.created_by
     WHERE g.business_id=$1 AND g.room_id=$2 ORDER BY g.id DESC LIMIT 100`, [business.id, room.id]);
   return { room, log };
 }
@@ -362,4 +322,4 @@ async function checkLooseSale(db, business, lines) {
   if (type) fail(`${type.label} is a room type: its nights are billed on the stay's folio at check-out`, 409);
 }
 
-module.exports = { TYPES_SQL, ROOMS_SQL, setup, load, saveSettings, createRoomType, updateRoomType, addRooms, updateRoom, board, setRoomStatus, history, checkLooseSale };
+module.exports = { TYPES_SQL, ROOMS_SQL, setup, load, saveSettings, createRoomType, updateRoomType, addRooms, updateRoom, history, checkLooseSale };

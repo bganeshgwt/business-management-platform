@@ -17,7 +17,10 @@ import "../styles/lodging.css";
 // and today's departures (and guests past their departure day), each with the
 // step to take; the rooms by status; and the night audit, which posts every
 // room night up to tonight not posted yet, each at its night's rate and the
-// GST slab its value decides. Run again, it posts nothing twice.
+// GST slab its value decides, marks the reservations past the property's
+// no-show cut-off as no-shows (their charge by their policy), and closes the
+// day with the day close's money. Run again, it posts and marks nothing twice.
+// The business date is the date on the property's clock: the audit closes it.
 
 export default function FrontDeskPage() {
   const biz = useOpenBusiness();
@@ -37,7 +40,8 @@ export default function FrontDeskPage() {
     try {
       const result = await businessWrite(biz.id, "lodging/night-audit", {});
       setAudit(result);
-      toast.success(result.nights ? `${result.nights} ${result.nights === 1 ? "room night" : "room nights"} posted.` : "Every room night up to tonight is posted already.");
+      toast.success([result.nights ? `${result.nights} ${result.nights === 1 ? "room night" : "room nights"} posted` : "Every room night up to tonight is posted already",
+        result.noShows.length ? `${result.noShows.length} marked ${result.noShows.length === 1 ? "a no-show" : "no-shows"}` : null].filter(Boolean).join(" · ") + ".");
       setVersion((n) => n + 1);
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -89,8 +93,13 @@ export default function FrontDeskPage() {
           to={biz.path("lodging-rooms")} />
       </div>
       {day.audit.nights > 0 && <p className="ldg-note">{day.audit.nights} {day.audit.nights === 1 ? "room night" : "room nights"} up to tonight not posted yet ({day.audit.stays} {day.audit.stays === 1 ? "stay" : "stays"}): run the night audit.</p>}
+      <p className={`ldg-note ${day.audit.yesterdayOpen && day.audit.last ? "ldg-warn" : ""}`}>
+        {day.audit.last ? `Last night audit: ${dateWords(day.audit.last.day)}, by ${day.audit.last.by_name}${day.audit.last.no_shows ? ` · ${day.audit.last.no_shows} no-shows marked` : ""}.` : "No night audit run yet."}
+        {day.audit.yesterdayOpen && day.audit.last ? " Yesterday was not closed by an audit." : ""}
+        {day.audit.noShowCutoff ? ` Reservations not checked in by ${day.audit.noShowCutoff} on their arrival day are marked no-shows by the audit.` : " No-shows are marked by hand (no cut-off is set)."}
+      </p>
       {audit && (
-        <SectionCard flush icon="clock" title="Night audit" description={audit.nights ? `${audit.nights} ${audit.nights === 1 ? "room night" : "room nights"} posted for ${dateWords(audit.today)}` : "Nothing new to post: every room night up to tonight is posted."}>
+        <SectionCard flush icon="clock" title={`Night audit of ${dateWords(audit.today)}`} description={audit.nights ? `${audit.nights} ${audit.nights === 1 ? "room night" : "room nights"} posted` : "Nothing new to post: every room night up to tonight is posted."}>
           {audit.posted.length > 0 && (
             <table className="ldg-bill" aria-label="Room nights posted">
               <thead><tr><th>Stay</th><th>Room</th><th>Night</th><th>Rate</th>{money && <th className="r">Value</th>}{money && <th className="r">GST</th>}</tr></thead>
@@ -101,6 +110,22 @@ export default function FrontDeskPage() {
                 )))}
               </tbody>
             </table>
+          )}
+          {(audit.noShows.length > 0 || audit.noShowsLeft.length > 0) && (
+            <ul className="ldg-list" aria-label="No-shows">
+              {audit.noShows.map((n) => (
+                <li key={n.stayId} className="ldg-row"><span className="ldg-row-main"><strong>{n.guestName}</strong><span className="ldg-row-meta"><span className="mono">{n.stayNo}</span>
+                  <span>no-show, arriving {dateWords(n.arrival)}</span>{money && n.documentNo && <span>charged {biz.exact(n.total)} ({n.documentNo})</span>}{!n.documentNo && <span>no charge</span>}</span></span></li>
+              ))}
+              {audit.noShowsLeft.map((n) => (
+                <li key={n.stayId} className="ldg-row is-late"><span className="ldg-row-main"><strong>{n.guestName}</strong><span className="ldg-row-meta"><span className="mono">{n.stayNo}</span>
+                  <span>past the cut-off: someone who may cancel marks the no-show</span></span></span></li>
+              ))}
+            </ul>
+          )}
+          {audit.dayClose && money && (
+            <p className="ldg-audit">The day: {audit.dayClose.bills} {audit.dayClose.bills === 1 ? "bill" : "bills"} for {biz.exact(audit.dayClose.sales)} · money in {biz.exact(audit.dayClose.received.total)}
+              {" "}(cash {biz.exact(audit.dayClose.received.cash)}, UPI {biz.exact(audit.dayClose.received.upi)}, card {biz.exact(audit.dayClose.received.card)}) · cash in hand {biz.exact(audit.dayClose.cashInHand)}.</p>
           )}
         </SectionCard>
       )}

@@ -214,6 +214,8 @@ const LodgingRegisterPage = lazy(() => import("../../lodging/pages/GuestRegister
 const LodgingRatesPage = lazy(() => import("../../lodging/pages/RoomTypesPage"));
 const LodgingGroupFormPage = lazy(() => import("../../lodging/pages/GroupFormPage"));
 const LodgingGroupPage = lazy(() => import("../../lodging/pages/GroupPage"));
+const LodgingMaintenancePage = lazy(() => import("../../lodging/pages/MaintenancePage"));
+const LodgingReportsPage = lazy(() => import("../../lodging/pages/LodgingReportsPage"));
 
 function Notice({ title, children }) {
   return (
@@ -424,6 +426,8 @@ function screens(type) {
     "lodging-form-iii": <LodgingFormIIIPage />,
     "lodging-register": <LodgingRegisterPage />,
     "lodging-rates": <LodgingRatesPage />,
+    "lodging-maintenance": <LodgingMaintenancePage />,
+    "lodging-reports": <LodgingReportsPage />,
   };
 }
 

@@ -229,7 +229,8 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   // A lodging business's day: the Front desk (with the rooms, the reservations calendar and every stay) and the foreign guests (with the guest register); its room types and rates in Settings.
   const ldaily=businessMenu(33,'lodging',()=>true,()=>true).find(g=>g.title==='Daily work').links;
   assert.deepEqual(ldaily.slice(1,3).map(l=>[l.section,l.label]),[['lodging-desk','Front desk'],['lodging-form-iii','Foreign guests (Form-III)']]);
-  assert.deepEqual(ldaily.find(l=>l.section==='lodging-desk').pages.map(p=>p.label),['Front desk','Rooms & housekeeping','Reservations','Stays']);
+  assert.deepEqual(ldaily.find(l=>l.section==='lodging-desk').pages.map(p=>p.label),['Front desk','Rooms & housekeeping','Reservations','Stays','Maintenance']);
+  assert.ok(menu('lodging').find(l=>l.section==='reports').pages.some(p=>p.label==='Occupancy & revenue'),'lodging: occupancy, ADR and RevPAR in Reports');
   assert.deepEqual(ldaily.find(l=>l.section==='lodging-form-iii').pages.map(p=>p.label),['Foreign guests (Form-III)','Guest register']);
   assert.equal(workspaceFor('lodging-reservations','lodging'),'lodgingDesk');
   assert.equal(workspaceFor('lodging-register','lodging'),'lodgingGuests');

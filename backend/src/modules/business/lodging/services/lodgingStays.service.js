@@ -174,19 +174,36 @@ async function roomClash(db, business, roomId, arrival, departure, exceptStay = 
 }
 const clashWords = (clash) => `Room ${clash.room_no} is ${clash.status === 'in_house' ? 'occupied' : 'booked'} by ${clash.stay_no} (${clash.guest_name}) for ${c.nightsWords(clash.arrival, clash.departure)}`;
 
-// The first night a room type has no room left for one more stay (leaving a stay out): { night, held, rooms } or null.
+// The first night a room type has no room left for one more stay (leaving a stay out), its rooms out of order that night not sold:
+// { night, held, rooms, down, why } or null.
 async function typeFull(db, business, typeId, locationId, arrival, departure, exceptStay = null) {
   const rooms = (await repo.one(db, 'SELECT count(*)::int AS n FROM lodging_rooms WHERE business_id=$1 AND location_id=$2 AND room_type_id=$3 AND active',
     [business.id, locationId, typeId])).n;
-  const busiest = await repo.one(db, `SELECT n::date::text AS night,count(x.id)::int AS held
-    FROM generate_series($4::date::timestamp,($5::date-1)::timestamp,interval '1 day') n
-    LEFT JOIN lodging_stays x ON x.business_id=$1 AND x.location_id=$2 AND x.room_type_id=$3 AND x.status IN ('reserved','in_house') AND NOT x.day_use AND x.arrival<=n::date AND x.departure>n::date
-      AND ($6::bigint IS NULL OR x.id<>$6)
-    GROUP BY n HAVING count(x.id)+1>$7 ORDER BY n LIMIT 1`, [business.id, locationId, typeId, arrival, departure, exceptStay, rooms]);
+  const busiest = await repo.one(db, `SELECT q.* FROM (SELECT n::date::text AS night,
+      (SELECT count(*)::int FROM lodging_stays x WHERE x.business_id=$1 AND x.location_id=$2 AND x.room_type_id=$3 AND x.status IN ('reserved','in_house') AND NOT x.day_use
+        AND x.arrival<=n::date AND x.departure>n::date AND ($6::bigint IS NULL OR x.id<>$6)) AS held,d.down,d.why
+    FROM generate_series($4::date::timestamp,($5::date-1)::timestamp,interval '1 day') n CROSS JOIN LATERAL lodging_rooms_down($1,$2,$3,n::date) d) q
+    WHERE q.held+1>$7-q.down ORDER BY q.night LIMIT 1`, [business.id, locationId, typeId, arrival, departure, exceptStay, rooms]);
   return busiest ? { ...busiest, rooms } : null;
 }
 const fullWords = (type, full) => (full.rooms === 0 ? `There are no ${type.name} rooms at this location yet: add them under Settings › Room types & rates`
-  : `Every ${type.name} room is taken on the night of ${c.dayWords(full.night)} (${full.held} ${full.held === 1 ? 'stay' : 'stays'} for ${full.rooms} ${full.rooms === 1 ? 'room' : 'rooms'}): choose other dates or another room type`);
+  : `Every ${type.name} room is taken on the night of ${c.dayWords(full.night)} (${full.held} ${full.held === 1 ? 'stay' : 'stays'} for ${full.rooms} ${full.rooms === 1 ? 'room' : 'rooms'}${
+    full.down ? `, ${full.down} out of order: ${full.why}` : ''}): choose other dates or another room type`);
+
+// When the property asks for it, a guest checks in (or moves) to a room inspected after it was cleaned.
+async function checkInspected(db, business, room) {
+  const settings = await c.settingsOf(db, business.id);
+  if (settings.inspection_required && room.cleaning !== 'inspected') {
+    fail(`Room ${room.room_no} is not inspected yet: a guest checks in to a room inspected after it was cleaned`, 409);
+  }
+}
+// The stay and the stays it continues (a guest moved from another property), newest first: their advances and deposits pay its bill.
+async function chainOf(db, business, stay) {
+  const rows = await repo.all(db, `WITH RECURSIVE chain AS (SELECT id,moved_from_stay_id,1 AS depth FROM lodging_stays WHERE business_id=$1 AND id=$2
+      UNION ALL SELECT s.id,s.moved_from_stay_id,chain.depth+1 FROM lodging_stays s JOIN chain ON s.id=chain.moved_from_stay_id WHERE s.business_id=$1 AND chain.depth<30)
+    SELECT id FROM chain ORDER BY depth`, [business.id, stay.id]);
+  return rows.map((r) => Number(r.id));
+}
 
 // --- Pricing ---------------------------------------------------------------------------------------------
 
@@ -300,14 +317,16 @@ async function preview(business, user, body) {
       hours = await dayUseHours(db, business, nights.arrival, dayUse);
       rows = [{ night: nights.arrival, rateKind: 'day_use', roomRate: await rateCards.dayUseRate(db, business, type, dayUse.hours), extraAdult: null, child: null, extraBed: null, mealSkuId: null }];
       const held = await hoursClash(db, business, room.id, { from: hours.day_from, until: hours.day_until, dayUse: true }, existing?.id || null);
-      clash = held ? { words: hoursWords(held) } : null;
+      const down = held ? null : await c.outOfOrderOn(db, business, room.id, nights.arrival, nights.departure);
+      clash = held ? { words: hoursWords(held) } : down ? { words: c.downWords(down) } : null;
     } else {
       rows = await rateCards.nightsFor(db, business, { type, plan, arrival: nights.arrival, departure: nights.departure, agreed });
       checkNightParty(type, party, rows);
       const found = money.restriction(rows, { arrival: nights.arrival, nights: rows.length });
       calendarWords = found ? rateCards.restrictionWords(type, found) : null;
       const night = room ? await roomClash(db, business, room.id, nights.arrival, nights.departure, existing?.id || null) : null;
-      clash = night ? { words: clashWords(night) } : null;
+      const down = room && !night ? await c.outOfOrderOn(db, business, room.id, nights.arrival, nights.departure) : null;
+      clash = night ? { words: clashWords(night) } : down ? { words: c.downWords(down) } : null;
       full = await typeFull(db, business, type.id, locationId, nights.arrival, nights.departure, existing?.id || null);
     }
     const est = await priceNights(db, business, rows, { ...party, baseOccupancy: type.base_occupancy }, percent);
@@ -505,8 +524,9 @@ function readReservation(body) {
 }
 
 // A reservation saved, inside the caller's transaction (the business locked). r: readReservation's; `contact`: the guest's contact
-// when the caller has it; `groupId`: the group it belongs to. Returns the stay's id (the one made before with this key, if any).
-async function reserveIn(db, business, user, r, { requestKey, hash, contact = null, groupId = null }) {
+// when the caller has it; `groupId`: the group it belongs to; `movedFrom`: the stay at another property it continues. Returns the
+// stay's id (the one made before with this key, if any).
+async function reserveIn(db, business, user, r, { requestKey, hash, contact = null, groupId = null, movedFrom = null }) {
   const old = await repo.one(db, 'SELECT id,request_hash FROM lodging_stays WHERE business_id=$1 AND request_key=$2', [business.id, requestKey]);
   if (old) {
     if (old.request_hash !== hash) fail('This request key was already used for different data', 409);
@@ -522,9 +542,14 @@ async function reserveIn(db, business, user, r, { requestKey, hash, contact = nu
   if (!type.active) fail(`${type.name} is switched off: switch it on to book it`, 409);
   const plan = r.planId ? await rateCards.planOf(db, business, r.planId, type) : null;
   if (plan && !plan.active) fail(`${plan.name} is switched off: choose another plan`, 409);
+  rateCards.checkPlanPlace(plan, location.id);
   const rates = { ...typeRates(type), agreed_rate: r.agreed === null ? null : money.rupees(r.agreed) };
   checkParty(type, party, rates);
   const room = c.given(r.roomId) ? await roomFor(db, business, r.roomId, type, location.id) : null;
+  if (room) {
+    const down = await c.outOfOrderOn(db, business, room.id, nights.arrival, nights.departure);
+    if (down) fail(`${c.downWords(down)}: choose another room`, 409);
+  }
   let rows, hours = null;
   if (r.dayUse) {
     if (!room) fail('A day use names its room');
@@ -560,14 +585,14 @@ async function reserveIn(db, business, user, r, { requestKey, hash, contact = nu
   const stay = await repo.one(db, `INSERT INTO lodging_stays(business_id,location_id,stay_no,series_id,contact_id,guest_name,guest_phone,bill_to_contact_id,source,ota_name,ota_booking_id,
       status,arrival,departure,room_type_id,room_id,adults,children,extra_beds,base_occupancy,rack_rate,weekend_rate,extra_adult_rate,child_rate,extra_bed_rate,agreed_rate,
       estimate_subtotal,estimate_tax,estimate_total,notes,request_key,request_hash,created_by,updated_by,rate_plan_id,policy,discount_percent,discount_reason,day_use,day_from,day_until,
-      day_hours,group_id)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'reserved',$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41)
+      day_hours,group_id,moved_from_stay_id)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'reserved',$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42)
     RETURNING *`,
   [business.id, location.id, number.number, number.seriesId, contact.id, contact.name, contact.phone || null, billTo?.id || null, source.source, source.otaName, source.otaBookingId,
     nights.arrival, nights.departure, type.id, room?.id || null, party.adults, party.children, party.extraBeds, rates.base_occupancy, rates.rack_rate, rates.weekend_rate,
     rates.extra_adult_rate, rates.child_rate, rates.extra_bed_rate, rates.agreed_rate, money.rupees(est.subtotal), money.rupees(est.tax), money.rupees(est.total), r.notes,
     requestKey, hash, user.id, plan?.id || null, policy, r.discount?.percent ?? null, r.discount?.reason ?? null, Boolean(r.dayUse), hours?.day_from || null, hours?.day_until || null,
-    r.dayUse?.hours || null, groupId]);
+    r.dayUse?.hours || null, groupId, movedFrom]);
   await saveNights(db, business, stay.id, rows, { arrival: nights.arrival, departure: nights.departure, replace: true });
   await history(db, business, user, stay, null, 'reserved', [`Reserved: ${type.name}${plan ? ` (${plan.name}, ${plan.meal_plan})` : ''}${room ? `, room ${room.room_no}` : ''}`,
     r.dayUse ? `day use ${r.dayUse.from} for ${c.plural(r.dayUse.hours, 'hour')} on ${c.dayWords(nights.arrival)}` : c.nightsWords(nights.arrival, nights.departure),
@@ -643,6 +668,7 @@ async function update(business, user, stayId, body) {
     const plan = planId ? await rateCards.planOf(db, business, planId, type) : null;
     const planChanged = Number(planId || 0) !== Number(stay.rate_plan_id || 0);
     if (plan && planChanged && !plan.active) fail(`${plan.name} is switched off: choose another plan`, 409);
+    if (planChanged) rateCards.checkPlanPlace(plan, stay.location_id);
     if (inHouse && (rateChange || planChanged)) await access.require(business, 'lodging.approve');
     const discountGiven = readDiscount(body.discount);
     const discount = discountGiven === undefined ? (stay.discount_percent === null ? null : { percent: Number(stay.discount_percent), reason: stay.discount_reason }) : discountGiven;
@@ -659,6 +685,7 @@ async function update(business, user, stayId, body) {
     if (typeChanged && !roomGiven && stay.room_id) fail('Choose a room of the new room type, or none yet');
     const moving = inHouse && roomId && Number(roomId) !== Number(stay.room_id);
     if (moving && room.status !== 'vacant_clean') fail(`Room ${room.room_no} is ${c.ROOM_WORDS[room.status]}${room.status_note ? ` (${room.status_note})` : ''}: a guest moves to a room that is vacant and clean`, 409);
+    if (moving) await checkInspected(db, business, room);
     const notes = body.notes === undefined ? stay.notes : c.optionalText(body.notes, 'Notes', 500);
     const register = {
       arrivedFrom: body.arrivedFrom === undefined ? stay.arrived_from : c.optionalText(body.arrivedFrom, 'Coming from', 150),
@@ -672,6 +699,8 @@ async function update(business, user, stayId, body) {
       if (roomId) {
         const clash = await roomClash(db, business, roomId, nights.arrival, nights.departure, stay.id);
         if (clash) fail(`${clashWords(clash)}: choose another room`, 409);
+        const down = await c.outOfOrderOn(db, business, roomId, inHouse ? [today, nights.arrival].sort().at(-1) : nights.arrival, nights.departure);
+        if (down) fail(`${c.downWords(down)}: choose another room`, 409);
         const day = await hoursClash(db, business, roomId, { ...await nightHeld(db, business, nights.arrival, nights.departure), dayUse: false }, stay.id);
         if (day) fail(`${hoursWords(day)}: choose another room`, 409);
       }
@@ -712,7 +741,7 @@ async function update(business, user, stayId, body) {
     let movedFrom = null;
     if (moving) {
       movedFrom = await repo.one(db, 'SELECT id,room_no FROM lodging_rooms WHERE business_id=$1 AND id=$2', [business.id, stay.room_id]);
-      await db.query("UPDATE lodging_rooms SET status='vacant_dirty',status_note=$3,status_by=$4,status_at=now() WHERE business_id=$1 AND id=$2",
+      await db.query("UPDATE lodging_rooms SET status='vacant_dirty',cleaning='dirty',dnd=FALSE,status_note=$3,status_by=$4,status_at=now() WHERE business_id=$1 AND id=$2",
         [business.id, stay.room_id, `Moved to room ${room.room_no}: ${stay.stay_no}`.slice(0, 300), user.id]);
       await db.query("UPDATE lodging_rooms SET status='occupied',status_note=$3,status_by=$4,status_at=now() WHERE business_id=$1 AND id=$2",
         [business.id, room.id, `Moved in: ${stay.stay_no}`.slice(0, 300), user.id]);
@@ -853,52 +882,60 @@ async function cancel(business, user, stayId, body) {
       if (stay.cancel_key !== requestKey || stay.cancel_hash !== hash) fail(`Stay ${stay.stay_no} is ${c.STATUS_WORDS[stay.status]} already`, 409);
       return shape(business, await load(db, business, stay.id));
     }
-    if (stay.status !== 'reserved') fail(`Stay ${stay.stay_no} is ${c.STATUS_WORDS[stay.status]}: ${stay.status === 'in_house' ? 'a guest in the house checks out instead' : 'it no longer changes'}`, 409);
-    const today = await c.today(db, business);
-    if (noShow && today < c.dayOf(stay.arrival)) fail(`Stay ${stay.stay_no} arrives on ${c.dateWords(stay.arrival)}: a guest is a no-show once the arrival day has come; cancel it instead`, 409);
-    // The charge: the policy's, worked out (a manager may waive it); typed only for a stay booked under no policy.
-    const terms = await policyNow(db, business, stay);
-    let charge = typed || 0;
-    if (stay.policy) {
-      const worked = noShow ? terms.noShow : terms.cancel;
-      if (typed !== null && typed !== worked.amount) {
-        fail(`The ${noShow ? 'no-show' : 'cancellation'} charge is worked out by the stay's policy: ${money.rupees(worked.amount)} before GST. A manager may waive it.`, 409, { reason: 'policy_charge' });
-      }
-      charge = worked.amount;
-      if (waiver && charge > 0) {
-        await recordWaiver(db, business, user, stay, { charge: noShow ? 'no_show' : 'cancellation', amount: charge, waiver });
-        charge = 0;
-      }
-    } else if (waiver) fail(`Stay ${stay.stay_no} was booked under no policy: there is no charge to waive`, 409);
-    if (charge > 0) await access.require(business, 'sales.create');
-    if (parts.length && !charge) fail('A payment goes with a cancellation charge: there is nothing else to pay');
-    let bill = null;
-    if (charge > 0) {
-      // What the property keeps is billed with GST as the room's nights, at the slab of the first night booked.
-      const first = { slab: terms.cancel.slab };
-      const type = await repo.one(db, `SELECT t.sku_id,s.label AS name FROM lodging_room_types t JOIN catalog_skus s ON s.business_id=t.business_id AND s.id=t.sku_id
-        WHERE t.business_id=$1 AND t.id=$2`, [business.id, stay.room_type_id]);
-      const tax = money.taxOn(charge, first.slab.rate);
-      const label = `${noShow ? 'No-show charge' : 'Cancellation charge'} · ${type.name} · ${stay.stay_no}`.slice(0, 150);
-      const row = await repo.one(db, `INSERT INTO lodging_charges(business_id,stay_id,kind,night,sku_id,label,quantity,unit_price,amount,tax_mode,tax_rate_id,tax_rate,net,tax,note,request_key,created_by)
-        VALUES($1,$2,'cancellation',$3,$4,$5,1,$6,$6,'exclusive',$7,$8,$6,$9,$10,$11,$12) RETURNING *`,
-      [business.id, stay.id, today, type.sku_id, label, money.rupees(charge), first.slab.id, Number(first.slab.rate).toFixed(2), money.rupees(tax), reason, c.derivedKey(requestKey, 'charge'), user.id]);
-      bill = await postBill(db, business, user, stay, { values: [{ skuId: type.sku_id, quantity: 1, net: charge, tax, taxRate: first.slab.rate, label }], contactId: stay.contact_id,
-        parts, buyer: body.buyer, key: requestKey, hash, notes: `Stay ${stay.stay_no} · ${noShow ? 'no-show' : 'cancelled'} · ${reason}` });
-      await db.query('UPDATE lodging_charges SET line_id=$3 WHERE business_id=$1 AND id=$2', [business.id, row.id, bill.lineIds[0]]);
-    }
-    const status = noShow ? 'no_show' : 'cancelled';
-    await db.query(`UPDATE lodging_stays SET status=$3,cancelled_at=now(),cancelled_by=$4,cancel_reason=$5,cancel_key=$6,cancel_hash=$7,document_id=$8,updated_by=$4,updated_at=now()
-      WHERE business_id=$1 AND id=$2`, [business.id, stay.id, status, user.id, reason, requestKey, hash, bill?.document.id || null]);
-    const back = how ? await refundLeft(db, business, user, stay, { how, approval, key: requestKey }) : [];
-    await history(db, business, user, stay, 'reserved', status, [reason, bill ? `${noShow ? 'no-show' : 'cancellation'} charge billed (${bill.document.document_no})` : null,
-      back.length ? `${money.rupees(back.reduce((s, r) => s + money.paise(r.amount), 0))} handed back (${back.map((r) => r.refund_no).join(', ')})` : null].filter(Boolean).join(' · '));
-    const details = { stayNo: stay.stay_no, reason, noShow, documentNo: bill?.document.document_no || null, charged: bill ? bill.document.total : null,
-      refunded: back.map((r) => ({ refundNo: r.refund_no, amount: r.amount, purpose: r.purpose })), ...(approval ? { approvedBy: approval.approver.name } : {}) };
-    await repo.audit(db, business.id, approval?.approver.id || user.id, noShow ? 'lodging_stay.no_show' : 'lodging_stay.cancelled', stay.id, details);
-    await repo.event(db, business.id, user.id, noShow ? 'lodging_stay.no_show' : 'lodging_stay.cancelled', 'lodging_stay', stay.id, { ...details, documentId: bill?.document.id || null });
+    await cancelIn(db, business, user, stay, { requestKey, hash, reason, noShow, typed, parts, how, approval, waiver, buyer: body.buyer });
     return shape(business, await load(db, business, stay.id));
   });
+}
+
+// A reservation cancelled, or marked a no-show, inside the caller's transaction (the stay locked; the caller checked the permissions and
+// read the payments, the money handed back and the waiver): the policy's charge billed (or waived), what is held paying it first.
+// Returns { bill, back, charge (paise, before GST) }.
+async function cancelIn(db, business, user, stay, { requestKey, hash, reason, noShow, typed = null, parts = [], how = null, approval = null, waiver = null, buyer }) {
+  if (stay.status !== 'reserved') fail(`Stay ${stay.stay_no} is ${c.STATUS_WORDS[stay.status]}: ${stay.status === 'in_house' ? 'a guest in the house checks out instead' : 'it no longer changes'}`, 409);
+  const today = await c.today(db, business);
+  if (noShow && today < c.dayOf(stay.arrival)) fail(`Stay ${stay.stay_no} arrives on ${c.dateWords(stay.arrival)}: a guest is a no-show once the arrival day has come; cancel it instead`, 409);
+  // The charge: the policy's, worked out (a manager may waive it); typed only for a stay booked under no policy.
+  const terms = await policyNow(db, business, stay);
+  let charge = typed || 0;
+  if (stay.policy) {
+    const worked = noShow ? terms.noShow : terms.cancel;
+    if (typed !== null && typed !== worked.amount) {
+      fail(`The ${noShow ? 'no-show' : 'cancellation'} charge is worked out by the stay's policy: ${money.rupees(worked.amount)} before GST. A manager may waive it.`, 409, { reason: 'policy_charge' });
+    }
+    charge = worked.amount;
+    if (waiver && charge > 0) {
+      await recordWaiver(db, business, user, stay, { charge: noShow ? 'no_show' : 'cancellation', amount: charge, waiver });
+      charge = 0;
+    }
+  } else if (waiver) fail(`Stay ${stay.stay_no} was booked under no policy: there is no charge to waive`, 409);
+  if (charge > 0) await access.require(business, 'sales.create');
+  if (parts.length && !charge) fail('A payment goes with a cancellation charge: there is nothing else to pay');
+  let bill = null;
+  if (charge > 0) {
+    // What the property keeps is billed with GST as the room's nights, at the slab of the first night booked.
+    const first = { slab: terms.cancel.slab };
+    const type = await repo.one(db, `SELECT t.sku_id,s.label AS name FROM lodging_room_types t JOIN catalog_skus s ON s.business_id=t.business_id AND s.id=t.sku_id
+      WHERE t.business_id=$1 AND t.id=$2`, [business.id, stay.room_type_id]);
+    const tax = money.taxOn(charge, first.slab.rate);
+    const label = `${noShow ? 'No-show charge' : 'Cancellation charge'} · ${type.name} · ${stay.stay_no}`.slice(0, 150);
+    const row = await repo.one(db, `INSERT INTO lodging_charges(business_id,stay_id,kind,night,sku_id,label,quantity,unit_price,amount,tax_mode,tax_rate_id,tax_rate,net,tax,note,request_key,created_by)
+      VALUES($1,$2,'cancellation',$3,$4,$5,1,$6,$6,'exclusive',$7,$8,$6,$9,$10,$11,$12) RETURNING *`,
+    [business.id, stay.id, today, type.sku_id, label, money.rupees(charge), first.slab.id, Number(first.slab.rate).toFixed(2), money.rupees(tax), reason, c.derivedKey(requestKey, 'charge'), user.id]);
+    bill = await postBill(db, business, user, stay, { values: [{ skuId: type.sku_id, quantity: 1, net: charge, tax, taxRate: first.slab.rate, label }], contactId: stay.contact_id,
+      parts, buyer, key: requestKey, hash, notes: `Stay ${stay.stay_no} · ${noShow ? 'no-show' : 'cancelled'} · ${reason}` });
+    await db.query('UPDATE lodging_charges SET line_id=$3 WHERE business_id=$1 AND id=$2', [business.id, row.id, bill.lineIds[0]]);
+  }
+  const status = noShow ? 'no_show' : 'cancelled';
+  await db.query(`UPDATE lodging_stays SET status=$3,cancelled_at=now(),cancelled_by=$4,cancel_reason=$5,cancel_key=$6,cancel_hash=$7,document_id=$8,updated_by=$4,updated_at=now()
+    WHERE business_id=$1 AND id=$2`, [business.id, stay.id, status, user.id, reason, requestKey, hash, bill?.document.id || null]);
+  const back = how ? await refundLeft(db, business, user, stay, { how, approval, key: requestKey }) : [];
+  await history(db, business, user, stay, 'reserved', status, [reason, bill ? `${noShow ? 'no-show' : 'cancellation'} charge billed (${bill.document.document_no})` : null,
+    back.length ? `${money.rupees(back.reduce((s, r) => s + money.paise(r.amount), 0))} handed back (${back.map((r) => r.refund_no).join(', ')})` : null].filter(Boolean).join(' · '));
+  const details = { stayNo: stay.stay_no, reason, noShow, documentNo: bill?.document.document_no || null, charged: bill ? bill.document.total : null,
+    refunded: back.map((r) => ({ refundNo: r.refund_no, amount: r.amount, purpose: r.purpose })), ...(approval ? { approvedBy: approval.approver.name } : {}) };
+  await repo.audit(db, business.id, approval?.approver.id || user.id, noShow ? 'lodging_stay.no_show' : 'lodging_stay.cancelled', stay.id, details);
+  await repo.event(db, business.id, user.id, noShow ? 'lodging_stay.no_show' : 'lodging_stay.cancelled', 'lodging_stay', stay.id, { ...details, documentId: bill?.document.id || null });
+  return { bill, back, charge };
 }
 
 // What is left of the advances and deposits of a stay that has ended, handed back (deposits first) by cash, UPI or
@@ -994,6 +1031,10 @@ async function load(db, business, stayId) {
     WHERE f.business_id=$1 AND (f.stay_id=$2 OR (f.group_id IS NOT NULL AND f.group_id=$3)) ORDER BY f.group_id IS NULL,f.id`, [business.id, s.id, s.group_id]);
   const routes = Object.fromEntries((await repo.all(db, 'SELECT category,folio_id FROM lodging_routes WHERE business_id=$1 AND stay_id=$2', [business.id, s.id])).map((r) => [r.category, r.folio_id]));
   const profile = await repo.one(db, 'SELECT preferences,notes FROM lodging_guest_profiles WHERE business_id=$1 AND contact_id=$2', [business.id, s.contact_id]);
+  // A guest moved between properties: the stay this one continues, and the one that continues it.
+  const moves = await repo.all(db, `SELECT x.id,x.stay_no,x.status,l.name AS location_name,x.arrival::text AS arrival,x.departure::text AS departure,(x.id=$3) AS from_here
+    FROM lodging_stays x JOIN business_locations l ON l.business_id=x.business_id AND l.id=x.location_id
+    WHERE x.business_id=$1 AND (x.id=$3 OR x.moved_from_stay_id=$2) ORDER BY x.id`, [business.id, s.id, s.moved_from_stay_id]);
   // The folio so far: the charges posted and not voided, and the nights still to post.
   const live = charges.filter((x) => !x.voided_at);
   const toPost = nights.filter((n) => !n.posted);
@@ -1006,6 +1047,7 @@ async function load(db, business, stayId) {
     ...rest, arrival: c.dayOf(s.arrival), departure: c.dayOf(s.departure), nights_count: money.nightCount(c.dayOf(s.arrival), c.dayOf(s.departure)),
     guests, charges, nights, folio, receipts, deposit, advance_summary: advance, bill, events, terms: lodging.terms, slabs_ready: Boolean(lodging.low_tax_rate_id),
     plan, policy_charges: policyCharges, group, folios, routes, profile, check_in_time: c.hhmm(lodging.check_in_time), check_out_time: c.hhmm(lodging.check_out_time),
+    moved_from: moves.find((m) => m.from_here) || null, moved_to: moves.find((m) => !m.from_here) || null,
     seller: core.branchSeller(settings, location), timezone: business.timezone,
   };
 }
@@ -1039,5 +1081,5 @@ async function approvers(business, query = {}) {
 
 module.exports = { STAYS_SQL, shape, listShape, withoutMoney, readNights, readParty, roomTypeOf, typeRates, checkParty, roomFor, roomClash, clashWords, typeFull, fullWords, priceNights,
   nightText, preview, takeReceipt, readMoney, receiptsOf, applyReceipts, refundLeft, readBack, partsAfterHeld, postBill, history, lockStay, billToOf, posting, create, update,
-  receive, cancel, refundHeld, load, detail, heldReceipts, approvers, partyOf, nightRows, policyNow, readWaiver, waiverKey, recordWaiver, readGuest, guestContact, readReservation,
-  reserveIn };
+  receive, cancel, cancelIn, refundHeld, load, detail, heldReceipts, approvers, partyOf, nightRows, policyNow, readWaiver, waiverKey, recordWaiver, readGuest, guestContact, readReservation,
+  reserveIn, checkInspected, chainOf };

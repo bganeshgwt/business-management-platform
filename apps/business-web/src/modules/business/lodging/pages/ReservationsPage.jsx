@@ -12,8 +12,9 @@ import { STATUS_WORDS, addDays, dayWords, nightsWords } from "./lodging";
 import "../styles/lodging.css";
 
 // Reservations: two weeks of nights on the property's clock, for every room
-// type: how many rooms are left each night, each room with the stay in it (or
-// booked for it) each night, and the reservations with no room chosen yet.
+// type, at every property or one: how many rooms are left each night, each
+// room with the stay in it (or booked for it, or out of order) each night, and
+// the reservations with no room chosen yet.
 // A stay opens from its night. The server checks every stay again when it is
 // saved: a room is never booked twice, nor a room type over its rooms.
 
@@ -27,16 +28,18 @@ export default function ReservationsPage() {
   const [from, setFrom] = useState(today);
   const [days, setDays] = useState("14");
   const [typeId, setTypeId] = useState("");
+  const [location, setLocation] = useState("");
+  const many = biz.locations.length > 1;
   const [names, setNames] = useState([]);
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   useEffect(() => {
     const controller = new AbortController();
-    businessRead(biz.id, "lodging/calendar", { from, days, roomType: typeId || undefined }, controller.signal)
+    businessRead(biz.id, "lodging/calendar", { from, days, roomType: typeId || undefined, location: location || undefined }, controller.signal)
       .then((d) => { setData(d); setError(""); if (!typeId) setNames(d.types.map((t) => ({ id: t.id, name: t.name }))); })
       .catch((err) => { if (!controller.signal.aborted) setError(getErrorMessage(err)); });
     return () => controller.abort();
-  }, [biz.id, from, days, typeId]);
+  }, [biz.id, from, days, typeId, location]);
   const open = (stay) => navigate(biz.path(`lodging-stays/${stay.id}`));
   const step = Number(days);
   // A stay's chip on the night it starts (or the first night shown), spanning the nights it holds that are on show.
@@ -68,6 +71,12 @@ export default function ReservationsPage() {
               <option value="">Every room type</option>
               {names.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
+            {many && (
+              <select aria-label="Property" value={location} onChange={(e) => setLocation(e.target.value)}>
+                <option value="">Every property</option>
+                {biz.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>
+            )}
           </span>
         )}>
         {!data ? (!error && <Loading />) : !data.types.length ? (
@@ -83,7 +92,7 @@ export default function ReservationsPage() {
               </thead>
               <tbody>
                 {data.types.map((type) => (
-                  <TypeRows key={type.id} type={type} days={data.days} today={today} chip={chip} />
+                  <TypeRows key={type.id} type={type} days={data.days} today={today} chip={chip} many={many && !location} />
                 ))}
               </tbody>
             </table>
@@ -94,7 +103,7 @@ export default function ReservationsPage() {
   );
 }
 
-function TypeRows({ type, days, today, chip }) {
+function TypeRows({ type, days, today, chip, many }) {
   return (
     <>
       <tr className="ldg-cal-group">
@@ -103,8 +112,14 @@ function TypeRows({ type, days, today, chip }) {
       </tr>
       {type.rooms.map((room) => (
         <tr key={room.id}>
-          <th scope="row"><span className="bz-two-line"><span>Room {room.roomNo}</span>{room.status === "out_of_order" && <small className="muted">out of order</small>}</span></th>
-          {room.nights.map((n) => <td key={n.day} className={`ldg-cell ${n.day === today ? "is-today" : ""}`}>{n.stay ? chip(n.stay, n.day, days) : null}</td>)}
+          <th scope="row"><span className="bz-two-line"><span>Room {room.roomNo}</span>
+            {(many || room.status === "out_of_order" || room.outOfService) && <small className="muted">{[many ? room.locationName : null, room.status === "out_of_order" ? "out of order" : null,
+              room.outOfService ? "out of service" : null].filter(Boolean).join(" · ")}</small>}</span></th>
+          {room.nights.map((n) => (
+            <td key={n.day} className={`ldg-cell ${n.day === today ? "is-today" : ""}`}>
+              {n.stay ? chip(n.stay, n.day, days) : n.down ? <small className="ldg-late" title={n.down}>Out of order</small> : null}
+            </td>
+          ))}
         </tr>
       ))}
       {type.unassigned.map((stay) => (

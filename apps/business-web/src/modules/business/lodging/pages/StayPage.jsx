@@ -13,6 +13,7 @@ import { useOpenBusiness } from "../../core/pages/hooks";
 import { printTaxInvoice } from "../../core/pages/invoice";
 import { CancelDialog, ChangeStayDialog, ChargeDialog, CheckInDialog, CheckOutDialog, ReceiptDialog, RefundDialog, VoidDialog } from "./LodgingDialogs";
 import { printMoneyBack, printRegistrationCard } from "./lodgingPrint";
+import { MovePropertyDialog } from "./HouseDialogs";
 import { AddOccupantDialog, FoliosSection, LeaveDialog, MoveChargeDialog, OpenFolioDialog, PolicySection, ProfileDialog, ProfileSection, RoutingDialog } from "./StayParts";
 import { CHARGE_KINDS, MEAL_PLANS, RATE_KINDS, SOURCES, STAGES, STATUS_WORDS, atWords, dateWords, folioName, idWords, partyWords, stayWords, wordOf } from "./lodging";
 import "../styles/lodging.css";
@@ -26,7 +27,8 @@ import "../styles/lodging.css";
 // Its rate plan, discount, day use and group; the policy it was booked under
 // with what it charges now; its folios with the routing of its charges and a
 // charge moved; an occupant joining or leaving partway; the guest's profile
-// (StayParts.jsx).
+// (StayParts.jsx). A guest in the house moved to another property: checked
+// out and billed here, checked in there, the two stays linked (HouseDialogs.jsx).
 // ?do=check-in or ?do=check-out opens that step (from the front desk).
 
 export default function StayPage() {
@@ -105,6 +107,9 @@ export default function StayPage() {
             {stay.status === "in_house" && can("lodging.create") && <button type="button" className="button" onClick={() => setDialog({ kind: "checkout" })}><Icon name="check" size={15} /> Check out</button>}
             {stay.status === "in_house" && can("lodging.create") && <button type="button" className="button button-secondary" onClick={() => setDialog({ kind: "charge" })}><Icon name="plus" size={15} /> Add a charge</button>}
             {stay.status === "in_house" && can("lodging.create") && <button type="button" className="button button-secondary" onClick={() => setDialog({ kind: "change" })}><Icon name="edit" size={15} /> Extend or move</button>}
+            {stay.status === "in_house" && !stay.day_use && !stay.group && biz.locations.length > 1 && can("lodging.create") && can("sales.create") && (
+              <button type="button" className="button button-secondary" onClick={() => setDialog({ kind: "property" })}><Icon name="home" size={15} /> Move to another property</button>
+            )}
             {stay.status === "reserved" && can("lodging.create") && <button type="button" className="button button-secondary" onClick={() => navigate(biz.path(`lodging-stays/new?edit=${stay.id}`))}><Icon name="edit" size={15} /> Change</button>}
             {["reserved", "in_house"].includes(stay.status) && money && can("lodging.create") && can("sales.edit") && (
               <button type="button" className="button button-secondary" onClick={() => setDialog({ kind: "receipt", purpose: "advance" })}><Icon name="money" size={15} /> Take an advance</button>
@@ -128,6 +133,8 @@ export default function StayPage() {
           {stay.checked_in_at && <div className="ldg-fact"><dt>Checked in</dt><dd>{atWords(stay.checked_in_at, biz)} by {stay.checked_in_by_name}</dd></div>}
           {stay.checked_out_at && <div className="ldg-fact"><dt>Checked out</dt><dd>{atWords(stay.checked_out_at, biz)} by {stay.checked_out_by_name}</dd></div>}
           {stay.cancelled_at && <div className="ldg-fact"><dt>{stay.status === "no_show" ? "No-show" : "Cancelled"}</dt><dd>{atWords(stay.cancelled_at, biz)} by {stay.cancelled_by_name} · {stay.cancel_reason}</dd></div>}
+          {stay.moved_from && <div className="ldg-fact"><dt>Moved from</dt><dd><Link to={biz.path(`lodging-stays/${stay.moved_from.id}`)}>{stay.moved_from.stay_no}</Link> · {stay.moved_from.location_name}</dd></div>}
+          {stay.moved_to && <div className="ldg-fact"><dt>Moved to</dt><dd><Link to={biz.path(`lodging-stays/${stay.moved_to.id}`)}>{stay.moved_to.stay_no}</Link> · {stay.moved_to.location_name}</dd></div>}
           {stay.group && <div className="ldg-fact"><dt>Group booking</dt><dd><Link to={biz.path(`lodging-groups/${stay.group.id}`)}>{stay.group.group_no} · {stay.group.name}</Link></dd></div>}
           {stay.plan && <div className="ldg-fact"><dt>Rate plan</dt><dd>{stay.plan.name} · {wordOf(MEAL_PLANS, stay.plan.meal_plan)}{stay.plan.meal_item ? ` (meals billed as ${stay.plan.meal_item})` : ""}{stay.plan.refundable ? "" : " · not refundable"}</dd></div>}
           {stay.discount_percent && <div className="ldg-fact"><dt>Discount</dt><dd>{Number(stay.discount_percent)}% · {stay.discount_reason}</dd></div>}
@@ -230,6 +237,7 @@ export default function StayPage() {
       {dialog?.kind === "profile" && <ProfileDialog stay={stay} onClose={() => setDialog(null)} onSaved={() => refresh("Profile saved.")} />}
       {dialog?.kind === "charge" && <ChargeDialog stay={stay} onClose={() => setDialog(null)} onSaved={() => refresh("Added to the folio.")} />}
       {dialog?.kind === "void" && <VoidDialog stay={stay} charge={dialog.charge} onClose={() => setDialog(null)} onSaved={() => refresh("Charge voided.")} />}
+      {dialog?.kind === "property" && <MovePropertyDialog stay={stay} onClose={() => setDialog(null)} onSaved={(s) => { setDialog(null); toast.success(`Moved: ${s.stay_no} at ${s.location_name}.`); navigate(biz.path(`lodging-stays/${s.id}`)); }} />}
       {dialog?.kind === "change" && <ChangeStayDialog stay={stay} onClose={() => setDialog(null)} onSaved={(s) => refresh(`${s.stay_no} changed.`)} />}
       {dialog?.kind === "receipt" && <ReceiptDialog stay={stay} purpose={dialog.purpose} onClose={() => setDialog(null)} onSaved={() => refresh(dialog.purpose === "deposit" ? "Deposit taken." : "Advance taken.")} />}
       {dialog?.kind === "cancel" && <CancelDialog stay={stay} onClose={() => setDialog(null)} onSaved={(s) => refresh(`${s.stay_no} ${s.status === "no_show" ? "marked a no-show" : "cancelled"}.`)} />}

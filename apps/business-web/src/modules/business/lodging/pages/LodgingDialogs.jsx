@@ -17,7 +17,8 @@ import { GENDERS, ID_KINDS, ROOM_STATUS, addDays, approvalBody, blankGuest, date
 // what is left handed back with a PIN), a change for a guest in the house (the
 // departure, a move to another room, extra beds, an agreed rate), cancelling or
 // a no-show (with a cancellation charge), money held handed back, a charge
-// voided, a room put out of order, and a Form-III report marked made. A
+// voided, and a Form-III report marked made (a room put out of order:
+// HouseDialogs.jsx). A
 // policy's charge (early check-in, late check-out, cancellation, no-show) is
 // worked out by the server and may be waived with a reason: by a manager, or
 // with a manager's PIN. Every rule is the server's; these only ask.
@@ -138,7 +139,7 @@ export function CheckInDialog({ stay, onClose, onSaved }) {
       <Field label="Room" hint="A room of the stay's type that is vacant and clean, and free over its nights.">
         <select required value={roomId} onChange={(e) => setRoomId(e.target.value)}>
           <option value="">Choose the room…</option>
-          {(rooms || []).map((r) => <option key={r.id} value={r.id}>{r.roomNo}{r.floor ? ` · floor ${r.floor}` : ""} · {ROOM_STATUS[r.status].label.toLowerCase()}{r.free ? "" : ` · taken (${r.clash.stayNo})`}</option>)}
+          {(rooms || []).map((r) => <option key={r.id} value={r.id}>{r.roomNo}{r.floor ? ` · floor ${r.floor}` : ""} · {ROOM_STATUS[r.status].label.toLowerCase()}{r.free ? "" : r.clash.outOfOrder ? " · out of order" : ` · taken (${r.clash.stayNo})`}</option>)}
         </select>
       </Field>
       {problem && <p className="field-wide ldg-clash" role="alert">{problem}</p>}
@@ -474,19 +475,6 @@ export function RefundDialog({ stay, held, onClose, onSaved }) {
 }
 
 // --- Rooms and Form-III ------------------------------------------------------------------------------
-
-// A room put out of order, with why.
-export function OutOfOrderDialog({ room, onClose, onSaved }) {
-  const biz = useOpenBusiness();
-  const [note, setNote] = useState("");
-  return (
-    <FormDialog title={`Room ${room.room_no} out of order`} icon="ban" width={520} onClose={onClose} onSaved={onSaved} submitLabel="Put it out of order"
-      description="It is not given to a guest until it is back in order."
-      onSubmit={() => businessWrite(biz.id, `lodging/rooms/${room.id}/status`, { status: "out_of_order", note: note.trim() })}>
-      <Field label="Why" wide><input required maxLength={300} autoFocus value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. AC not cooling, technician called" /></Field>
-    </FormDialog>
-  );
-}
 
 // A Form-III report made on the portal, marked with its acknowledgement number.
 export function FormIIIDialog({ guest, event, onClose, onSaved }) {

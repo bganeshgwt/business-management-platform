@@ -255,5 +255,18 @@ function depositDue(policy, { total, firstNight }) {
   return policy.depositKind === 'percent' ? percentOf(total, policy.depositValue) : firstNight;
 }
 
+// The house's figures for a period (the reports):
+//   occupancy  room nights sold ÷ room nights available (a room's nights out of
+//              order are not available), as a percentage to one place
+//   ADR        the average daily rate: room revenue ÷ room nights sold
+//   RevPAR     room revenue ÷ room nights available
+// Room revenue is the room nights' value before GST (after a stay's discount),
+// without meals and extras. sold, available: room nights; revenue: paise. A
+// figure with nothing to divide by is null.
+function ratios({ sold, available, revenue }) {
+  const per = (n) => (n > 0 ? roundedDivide(BigInt(revenue), BigInt(n)) : null);
+  return { occupancy: available > 0 ? Math.round((sold * 1000) / available) / 10 : null, adr: per(sold), revpar: per(available) };
+}
+
 module.exports = { paise, rupees, milli, taxOn, netOf, addDays, nightCount, nightsOf, isoDay, ratesOf, nightValue, slabFor, priceNight, estimate, extraFigures,
-  billFigures, figuresText, billLines, resolveNights, restriction, nightRow, discountOf, priceRow, estimateRows, timeCharge, cancelCharge, noShowCharge, depositDue };
+  billFigures, figuresText, billLines, resolveNights, restriction, nightRow, discountOf, priceRow, estimateRows, timeCharge, cancelCharge, noShowCharge, depositDue, ratios };

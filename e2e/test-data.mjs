@@ -537,6 +537,8 @@ export const LODGING = {
   group: { name: "Sharma wedding party", organiser: "Anil Sharma", phone: "9811100011", inDays: 7, roomGuest: "Sunita Sharma" },
   joining: { fullName: "Aarav Mehta" },
   preferences: "A quiet room away from the lift; extra pillows",
+  // The house (the spec's last tests): room 201 booked out of order ahead, and a ticket for room 102.
+  house: { outOfOrder: { inDays: 10, lastInDays: 11, reason: "Bathroom tiles relaid" }, ticket: { room: "102", issue: "Curtain rod loose", outcome: "Rod refixed" } },
 };
 
 // The clinic's front desk (live-updates.spec.js): a patient registered with

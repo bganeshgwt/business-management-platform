@@ -325,6 +325,9 @@ export function businessSections(type) {
         { section: "lodging-stays", label: "Stays", icon: "hours", need: "lodging.view", types: LODGING },
         { section: "lodging-form-iii", label: "Foreign guests (Form-III)", icon: "profile", need: "lodging.create", types: LODGING },
         { section: "lodging-register", label: "Guest register", icon: "logbook", need: "lodging.print", types: LODGING },
+        // Maintenance tickets for the rooms, and the house's figures (occupancy, ADR, RevPAR: money, for those who see reports).
+        { section: "lodging-maintenance", label: "Maintenance", icon: "repair", need: "lodging.view", types: LODGING },
+        { section: "lodging-reports", label: "Occupancy & revenue", icon: "reports", need: "reports.view", module: "lodging", types: LODGING },
       ],
     },
     {

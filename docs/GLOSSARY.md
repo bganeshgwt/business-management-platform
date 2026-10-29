@@ -636,7 +636,17 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **No-show** | A reservation whose guest did not come on the arrival day, marked so, with the charge its policy works out. |
 | **Vacant clean, vacant dirty** | A room ready for a guest, and one left by a guest and not yet made up. |
 | **Occupied** | A room a guest is checked in to. |
-| **Out of order** | A room not given to guests (under repair, say), with the reason. |
+| **Out of order** | A room off sale for some nights (under repair, say), booked ahead with the reason, to a last night or until put back in order: a reservation that would need it is refused with the reason. |
+| **Out of service** | A room still sold but flagged with why (a TV not working, a view blocked). |
+| **Inspected** | A room checked by a supervisor after it was cleaned; a property may let only inspected rooms. |
+| **Do not disturb (DND)** | A guest's request not to be disturbed: no cleaning starts in their room while it is on. |
+| **Maintenance ticket** | A room's repair: the issue, its priority, who does it, when it started and ended, and the out-of-order period it needs. |
+| **Minibar check** | Housekeeping counting a room's minibar against what it holds: what the guest used goes on their folio as goods. |
+| **No-show cut-off** | The time of the arrival day by which a reservation not checked in is marked a no-show by the night audit. |
+| **Business date (of a property)** | The date the front desk works on, closed by the night audit: here always the date on the business's own clock. |
+| **Occupancy** | Room nights sold ÷ room nights available (a room's nights out of order are not available). |
+| **ADR (average daily rate)** | Room revenue ÷ room nights sold: the room nights' value before GST, without meals and extras. |
+| **RevPAR (revenue per available room)** | Room revenue ÷ room nights available. |
 | **Make up (a room)** | Clean and prepare a room for the next guest; housekeeping then marks it clean. |
 | **Room move** | A guest in the house moved to another room, which must be vacant and clean; the room left is marked dirty. |
 | **Overstay** | A guest still in the house after the departure day: the stay is extended before the check-out. |

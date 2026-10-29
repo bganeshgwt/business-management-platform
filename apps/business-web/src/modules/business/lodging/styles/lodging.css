@@ -359,3 +359,19 @@
   margin: 0;
   padding: var(--space-3);
 }
+/* The house: a room's cleanliness and flags, side by side; a report's dates and property. */
+.ldg-room-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.ldg-when {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+.ldg-when > .field {
+  flex: 1 1 220px;
+  min-width: 0;
+}

@@ -12,14 +12,24 @@ const rateCards = require('../services/lodgingRates.service');
 const folios = require('../services/lodgingFolios.service');
 const occupants = require('../services/lodgingOccupants.service');
 const groups = require('../services/lodgingGroups.service');
+const housekeeping = require('../services/lodgingHousekeeping.service');
+const maintenance = require('../services/lodgingMaintenance.service');
+const nightAudit = require('../services/lodgingAudit.service');
+const reports = require('../services/lodgingReports.service');
+const moves = require('../services/lodgingMoves.service');
 
 // Hotels, lodges and guest houses, added to the Business Admin router so they
 // share its login, membership, module and permission checks (context) and its
 // database-error translation:
 //   /:businessId/lodging/setup|settings              room types with their rooms, the GST slabs of a room night, the weekend nights, the terms
-//   /:businessId/lodging/room-types|rooms            room types and their rate plans; rooms; housekeeping status and its history
+//   /:businessId/lodging/room-types|rooms            room types and their rate plans; rooms; the housekeeping board, cleaning steps, do not disturb and
+//                                                    out of service, linen and minibar checks, and a room's history
+//   /:businessId/lodging/out-of-order|checklists     out-of-order periods booked ahead and ended; each room type's linen and minibar checklist
+//   /:businessId/lodging/tickets…                    maintenance tickets: opened (with an out-of-order period), started, done or cancelled
 //   /:businessId/lodging/desk|calendar|free          the front desk's day, the reservations calendar, the rooms free over some nights
-//   /:businessId/lodging/night-audit                 the room nights up to tonight, posted
+//   /:businessId/lodging/night-audit                 the room nights up to tonight posted, the no-shows marked, the day closed
+//   /:businessId/lodging/reports                     occupancy, ADR and RevPAR by property, room type, source and plan
+//   /:businessId/lodging/stays/:id/move              a guest moved to another property mid-stay
 //   /:businessId/lodging/stays…                      reservations (with a preview), changes and moves, advances and deposits, the check-in with
 //                                                    every occupant, extras on the folio and voids, the check-out (with a preview) and its bill,
 //                                                    cancelling and no-shows, the money held handed back, occupants' details corrected
@@ -60,16 +70,38 @@ module.exports = function lodgingRoutes(router, { context, send, b }) {
   router.post(b('/lodging/room-types'), context('catalog.edit'), async (req, res) => send(res, await setup.createRoomType(req.business, req.user, req.body), 201));
   router.patch(b('/lodging/room-types/:id'), context('catalog.edit'), async (req, res) => send(res, await setup.updateRoomType(req.business, req.user, req.params.id, req.body)));
   router.post(b('/lodging/rooms'), context('catalog.edit'), async (req, res) => send(res, await setup.addRooms(req.business, req.user, req.body), 201));
-  router.get(b('/lodging/rooms/board'), context('lodging.view'), async (req, res) => send(res, await setup.board(req.business)));
+  router.get(b('/lodging/rooms/board'), context('lodging.view'), async (req, res) => send(res, await housekeeping.board(req.business)));
   router.patch(b('/lodging/rooms/:id'), context('catalog.edit'), async (req, res) => send(res, await setup.updateRoom(req.business, req.user, req.params.id, req.body)));
-  router.post(b('/lodging/rooms/:id/status'), context('lodging.edit'), async (req, res) => send(res, await setup.setRoomStatus(req.business, req.user, req.params.id, req.body)));
+  router.post(b('/lodging/rooms/:id/status'), context('lodging.edit'), async (req, res) => send(res, await housekeeping.setCleaning(req.business, req.user, req.params.id, req.body)));
   router.get(b('/lodging/rooms/:id/history'), context('lodging.view'), async (req, res) => send(res, await setup.history(req.business, req.params.id)));
+
+  // Housekeeping: do not disturb and out of service, linen and minibar checks, out-of-order periods, the checklists.
+  router.post(b('/lodging/rooms/:id/flags'), context('lodging.edit'), async (req, res) => send(res, await housekeeping.setFlags(req.business, req.user, req.params.id, req.body)));
+  router.get(b('/lodging/rooms/:id/checks'), context('lodging.view'), async (req, res) => send(res, await housekeeping.roomChecks(req.business, req.params.id)));
+  router.post(b('/lodging/rooms/:id/checks'), context('lodging.edit'), async (req, res) => send(res, await housekeeping.checkRoom(req.business, req.user, req.params.id, req.body), 201));
+  router.get(b('/lodging/out-of-order'), context('lodging.view'), async (req, res) => send(res, await housekeeping.periods(req.business)));
+  router.post(b('/lodging/out-of-order'), context('lodging.edit'), async (req, res) => send(res, await housekeeping.bookOutOfOrder(req.business, req.user, req.body), 201));
+  router.patch(b('/lodging/out-of-order/:id'), context('lodging.edit'), async (req, res) => send(res, await housekeeping.changeOutOfOrder(req.business, req.user, req.params.id, req.body)));
+  router.post(b('/lodging/out-of-order/:id/back'), context('lodging.edit'),
+    async (req, res) => send(res, await housekeeping.changeOutOfOrder(req.business, req.user, req.params.id, req.body, { back: true })));
+  router.get(b('/lodging/checklists'), context('lodging.view'), async (req, res) => send(res, await housekeeping.checklists(req.business)));
+  router.put(b('/lodging/checklists'), context('catalog.edit'), async (req, res) => send(res, await housekeeping.setChecklist(req.business, req.user, req.body)));
+
+  // Maintenance tickets.
+  list('/lodging/tickets', 'lodging-tickets', 'lodging.view');
+  router.get(b('/lodging/tickets/staff'), context('lodging.view'), async (req, res) => send(res, await maintenance.staff(req.business)));
+  router.post(b('/lodging/tickets'), context('lodging.edit'), async (req, res) => send(res, await maintenance.create(req.business, req.user, req.body), 201));
+  router.patch(b('/lodging/tickets/:id'), context('lodging.edit'), async (req, res) => send(res, await maintenance.update(req.business, req.user, req.params.id, req.body)));
+  router.post(b('/lodging/tickets/:id/start'), context('lodging.edit'), async (req, res) => send(res, await maintenance.step(req.business, req.user, req.params.id, 'in_progress', req.body)));
+  router.post(b('/lodging/tickets/:id/done'), context('lodging.edit'), async (req, res) => send(res, await maintenance.step(req.business, req.user, req.params.id, 'done', req.body)));
+  router.post(b('/lodging/tickets/:id/cancel'), context('lodging.edit'), async (req, res) => send(res, await maintenance.step(req.business, req.user, req.params.id, 'cancelled', req.body)));
 
   // The front desk's day, the calendar, what is free, and the night audit.
   router.get(b('/lodging/desk'), context('lodging.view'), async (req, res) => send(res, await desk.desk(req.business)));
   router.get(b('/lodging/calendar'), context('lodging.view'), async (req, res) => send(res, await desk.calendar(req.business, req.query)));
   router.get(b('/lodging/free'), context('lodging.view'), async (req, res) => send(res, await desk.free(req.business, req.query)));
-  router.post(b('/lodging/night-audit'), context('lodging.create'), async (req, res) => send(res, await folio.nightAudit(req.business, req.user)));
+  router.post(b('/lodging/night-audit'), context('lodging.create'), async (req, res) => send(res, await nightAudit.run(req.business, req.user, req.body)));
+  router.get(b('/lodging/reports'), context('reports.view'), async (req, res) => send(res, await reports.report(req.business, req.query)));
 
   // Reservations and stays.
   list('/lodging/stays', 'lodging-stays', 'lodging.view', stays.listShape);
@@ -88,6 +120,7 @@ module.exports = function lodgingRoutes(router, { context, send, b }) {
   router.post(b('/lodging/stays/:id/check-out'), context('lodging.create'), async (req, res) => send(res, await folio.checkOut(req.business, req.user, req.params.id, req.body)));
   router.post(b('/lodging/stays/:id/cancel'), context('lodging.cancel'), async (req, res) => send(res, await stays.cancel(req.business, req.user, req.params.id, req.body)));
   router.post(b('/lodging/stays/:id/refund'), context('lodging.refund'), async (req, res) => send(res, await stays.refundHeld(req.business, req.user, req.params.id, req.body), 201));
+  router.post(b('/lodging/stays/:id/move'), context('lodging.create'), async (req, res) => send(res, await moves.moveProperty(req.business, req.user, req.params.id, req.body), 201));
 
   // Foreign guests' Form-III reports, and the guest register.
   router.get(b('/lodging/form-iii'), context('lodging.create'), async (req, res) => send(res, await guests.formIII(req.business, req.query)));

@@ -1943,7 +1943,7 @@ A hotel, lodge or guest house bills on bills of the shared core ([Shops and the 
 
 ### The night audit posts each night once
 
-- **Rule:** the night audit posts, for every stay in the house, each of its nights from the arrival to tonight (or to the night before its departure) not posted yet, at the stay's rate for that night and the slab its value decides, with the night's meals of its plan as a line of their own. A night is posted once it has come, and once only: run again, or from two screens at once, the audit posts nothing twice (the database keeps one room night a night). A night posted by mistake is voided by a manager with the reason before it is billed, and posted again at the stay's rates as they now are. The check-out posts any night still to post. Charges are kept as posted, never deleted.
+- **Rule:** the night audit (for one property or every property) posts, for every stay in the house, each of its nights from the arrival to tonight (or to the night before its departure) not posted yet, at the stay's rate for that night and the slab its value decides, with the night's meals of its plan as a line of their own; marks the day's no-shows ([No-shows at the night audit](#no-shows-at-the-night-audit)); and keeps the day close's money as it then stood with the audit, which closes the business date (the date on the business's own clock: a front-desk date lagging the calendar is not kept). A night is posted once it has come, and once only: run again, or from two screens at once, the audit posts nothing twice (the database keeps one room night a night). A night posted by mistake is voided by a manager with the reason before it is billed, and posted again at the stay's rates as they now are. The check-out posts any night still to post. Charges are kept as posted, never deleted.
 - **Why:** each night is charged and its slab decided as it is stayed; the folio shows the guest what is owed so far.
 - **Change it:** who runs it is `lodging.create`; who voids `lodging.approve` (the owner and a manager by default).
 
@@ -1973,7 +1973,7 @@ A hotel, lodge or guest house bills on bills of the shared core ([Shops and the 
 
 ### Housekeeping and the rooms
 
-- **Rule:** a room is vacant clean, vacant dirty, occupied or out of order (with the reason). It is occupied only while a guest is checked in to it, and is left vacant dirty when they check out or move; housekeeping marks it clean once made up, or dirty again, puts it out of order and back (to be made up). Only a vacant clean room is checked in to or moved into. Every change of status is kept with who made it and when. A room keeps its location and is never deleted; its type changes, and it goes out of use, only while no stay is reserved for it or in it and its type's reservations still fit in the rooms left.
+- **Rule:** a room's status has three parts kept apart: occupancy (vacant, or occupied while a guest is checked in to it), cleanliness (dirty, being cleaned, clean, inspected) and availability (out of order for the nights of a period booked for it, [Out of order ahead](#out-of-order-ahead); out of service, still sold). A room is vacant clean when it is clean or inspected and vacant dirty when it is dirty or being cleaned; it is left dirty when its guest checks out or moves. Only a vacant clean room, not out of order over the stay's nights, is checked in to or moved into ([Cleaning steps and inspection](#cleaning-steps-and-inspection)). Every change is kept with who made it and when. A room keeps its location and is never deleted; its type changes, and it goes out of use, only while no stay is reserved for it or in it and its type's reservations still fit in the rooms left.
 - **Why:** a guest is given a room that is ready, and the history shows who made up each room.
 - **Change it:** who marks rooms is `lodging.edit` (housekeeping, the front desk, a cashier and a manager by default).
 
@@ -2060,6 +2060,60 @@ A hotel, lodge or guest house bills on bills of the shared core ([Shops and the 
 - **Rule:** a guest's preferences (a quiet room, a high floor, a pillow) and the desk's notes are kept with their contact and shown on each of their stays; the profile also lists their past stays, without money for someone who does not see sales. They are personal data: in the guest's access export, and erased on request.
 - **Why:** the desk greets a returning guest with what they asked for before.
 - **Change it:** who saves a profile is `lodging.create`.
+
+### Out of order ahead
+
+- **Rule:** a room is put out of order for a period booked from today or ahead, with its reason, to a last night or until put back in order. Its nights are off sale: the room type's rooms on a night are those in use less those out of order that night, so a reservation that would need the room is refused with the reason (a reservation naming the room too), checked by the server and by the database when the work is saved, two saved at once included. A period is refused while a stay holds the room over its nights (move the stay first) or while the room type's stays on one of its nights would no longer fit; two periods of a room never cover the same night. It ends early (its last night last night) or, not begun, is withdrawn; the nights gone stay as they were; never deleted.
+- **Why:** a room under repair cannot be sold, and selling it ahead would overbook the type; the reason tells the desk why a night is full.
+- **Change it:** who books and ends periods is `lodging.edit` (housekeeping, the front desk, a cashier and a manager by default).
+
+### Out of service
+
+- **Rule:** a room out of service stays on sale and is let; it is flagged with why on the board, the calendar and the rooms offered at check-in. Taken off, the flag goes.
+- **Why:** a small fault (a TV, a view) does not stop a room being sold, but the desk should know before giving it.
+- **Change it:** who flags rooms is `lodging.edit`.
+
+### Cleaning steps and inspection
+
+- **Rule:** a room's cleanliness goes dirty → being cleaned (or straight to clean) → clean → inspected; any step goes back to dirty. Each step is kept with who took it and when, and the room keeps who cleaned it last and who inspected it last. A guest's room is cleaned while they stay (it stays occupied); no cleaning starts while its guest asked not to be disturbed (do not disturb, only on a guest's room, off at check-out). With *A room is inspected after it is cleaned, before it is let* set, a guest checks in or moves only to an inspected room (the database checks it too).
+- **Why:** the facts of a front office: cleanliness is a state apart from occupancy, and a property may want a supervisor's check before a guest is given a room. No regulation applies to housekeeping.
+- **Change it:** the inspection setting under *Settings › Room types & rates* (`settings.edit`); who takes the steps is `lodging.edit`.
+
+### Linen and minibar checks
+
+- **Rule:** each room type keeps a checklist of linen (named) and minibar items (goods kept in stock by quantity), each with how many a room holds; an item taken off is switched off, never deleted. A room's check counts every item on its type's list. A minibar item found below what the room holds is posted, for what was used, to the folio of the guest in the room as goods at the item's catalogue price and slab (the goods-on-the-folio path: it leaves stock when the folio is billed, and is refused beyond the stock at the property); with no guest in the room nothing is charged. Linen is recorded. A check is kept as written; retried with its key it charges nothing twice.
+- **Why:** minibar consumption is charged to the guest's folio; the linen count shows what is missing.
+- **Change it:** the checklists under *Settings › Room types & rates › Linen & minibar* (`catalog.edit`); who checks rooms is `lodging.edit`.
+
+### Maintenance tickets
+
+- **Rule:** a ticket names a room, the issue, a priority (urgent, high, normal, low) and, if given, a member of staff who looks after the rooms; it may book the out-of-order period the work needs (as [Out of order ahead](#out-of-order-ahead)). It goes open → in progress → done, or is cancelled with why while not done; the work's start and end are kept with who. Done or cancelled, the room's period ends last night (or is withdrawn if it had not begun) unless kept. Done or cancelled, a ticket no longer changes; never deleted. Tickets are listed open first, the most urgent first. *Tasks* still hold the rounds.
+- **Why:** a room's repairs are tracked to the end, and the room goes back on sale when the work is done.
+- **Change it:** who opens and closes tickets is `lodging.edit`.
+
+### No-shows at the night audit
+
+- **Rule:** with a *No-show cut-off* set, the night audit marks as a no-show every reservation not checked in by that time of its arrival day on the business's clock (or whose arrival day has passed): its charge worked out by the policy it was booked under (none under no policy) and billed as at [Cancellations and no-shows](#cancellations-and-no-shows), what is held paying first. Only someone who may cancel (and bill, when there is a charge) marks them; for anyone else the audit lists them. Run again, it marks nothing twice. With no cut-off, no-shows are marked by hand.
+- **Why:** the night audit closes the day: a guest who did not come by the property's cut-off is a no-show, charged as their booking's policy says.
+- **Change it:** the cut-off under *Settings › Room types & rates* (`settings.edit`); who marks them is `lodging.cancel`.
+
+### Occupancy, ADR and RevPAR
+
+- **Rule:** for dates on the business's calendar, at one property or every property: room nights available (each room in use, a night for each date from the day it was added, less its nights out of order), sold (the room nights posted and not voided; a day use is not a room night) and the room revenue (those nights' value before GST, after a stay's discount, without meals, extras, early check-in or late check-out). Occupancy is sold ÷ available, ADR revenue ÷ sold, RevPAR revenue ÷ available; each per property and in all, by room type (against that type's rooms), and by source (walk-in, phone, each OTA by its name) and rate plan (each against all the rooms available). A figure with nothing to divide by is left empty.
+- **Why:** the house's usual measures, on the business's own dates.
+- **Change it:** who sees them is `reports.view`.
+
+### Rate plans per property
+
+- **Rule:** a rate plan is shared by every property or kept for one; a stay takes a plan of its own property or a shared one (the database checks it too), and two plans of a room type share a name only at different properties. A plan made one property's while a stay at another is on it is refused.
+- **Why:** a group of properties may sell one plan everywhere or price one property apart.
+- **Change it:** the plans under *Settings › Room types & rates* (`catalog.edit`).
+
+### A guest moved to another property
+
+- **Rule:** a guest in the house moves to another property of the business from their second day: a check-out at the first property (every folio billed there with its own GST invoice, the place of supply that property's state, paid first by the stay's advances and deposits) and, in the same step, a reservation and check-in at the other for the same guest, party, source and company billed, arriving today on that property's rates and rooms, its occupants recorded again there; the two stays are linked. No late check-out or early check-in is charged for the move. What is left of the first stay's advances and deposits carries on and pays the new stay's bill. A move on the arrival day, of a day use or of a group's room is refused.
+- **Why:** GST is per property (each its own GSTIN and state), so the folio is billed, not carried.
+- **Change it:** who moves a guest is `lodging.create` with `sales.create`.
 
 ## Restaurant and food formats
 

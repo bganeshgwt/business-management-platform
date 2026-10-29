@@ -17,8 +17,9 @@ import { MEAL_PLANS, RATE_KINDS, WEEKDAYS, addDays, dateWords, policyWords, week
 // alone decides its slab), seasons, the rate calendar (each date's rate and
 // its minimum stay, closed to arrival and stop-sell), day-use prices by the
 // block of hours, and the policies (early check-in, late check-out,
-// cancellation, no-show, deposit). Every rate is before GST; the server works
-// out and checks every stay against them.
+// cancellation, no-show, deposit), and each room type's linen and minibar
+// checklist. A rate plan is one property's, or shared by every property. Every
+// rate is before GST; the server works out and checks every stay against them.
 
 const text = (value) => (value === null || value === undefined ? "" : String(Number(value)));
 const orNull = (value) => (String(value ?? "").trim() === "" ? null : String(value).trim());
@@ -66,6 +67,7 @@ export function RatePlansTab({ setup }) {
         rowClassName={(p) => (p.active ? "" : "dg-tone-muted")} empty="No rate plans yet" emptyHint="Without a plan a stay takes its room type's rates, room only." emptyIcon="receipt" columns={[
           { key: "name", header: "Plan", value: (p) => p.name, mobile: "title", pin: true },
           { key: "room_type", header: "Room type", value: (p) => p.room_type, mobile: "subtitle" },
+          { key: "location", header: "Property", value: (p) => p.location_name || "Every property", defaultHidden: biz.locations.length < 2 },
           { key: "meal_plan", header: "Meal plan", value: (p) => p.meal_plan_words, mobile: "show" },
           { key: "meals", header: "Meals a night", value: (p) => (p.meal_item ? `${p.meal_item} · adult ${biz.exact(p.meal_adult_rate)}${p.meal_child_rate !== null ? ` · child ${biz.exact(p.meal_child_rate)}` : ""}` : "") },
           { key: "room_rate", header: "Room a night", type: "money", exact: true, value: (p) => (p.room_rate === null ? null : Number(p.room_rate)) },
@@ -86,13 +88,14 @@ function PlanDialog({ setup, policies, plan, onClose, onSaved }) {
   const types = setup.roomTypes.filter((t) => t.active);
   const [form, setForm] = useState(plan ? { roomTypeId: String(plan.room_type_id), name: plan.name, mealPlan: plan.meal_plan, mealSkuId: plan.meal_sku_id ? String(plan.meal_sku_id) : "",
     mealAdultRate: text(plan.meal_adult_rate), mealChildRate: text(plan.meal_child_rate), roomRate: text(plan.room_rate), weekendRate: text(plan.weekend_rate), refundable: plan.refundable,
-    policyId: plan.policy_id ? String(plan.policy_id) : "", active: plan.active }
-    : { roomTypeId: String(types[0]?.id || ""), name: "", mealPlan: "EP", mealSkuId: "", mealAdultRate: "", mealChildRate: "", roomRate: "", weekendRate: "", refundable: true, policyId: "", active: true });
+    policyId: plan.policy_id ? String(plan.policy_id) : "", active: plan.active, locationId: plan.location_id ? String(plan.location_id) : "" }
+    : { roomTypeId: String(types[0]?.id || ""), name: "", mealPlan: "EP", mealSkuId: "", mealAdultRate: "", mealChildRate: "", roomRate: "", weekendRate: "", refundable: true, policyId: "", active: true,
+      locationId: "" });
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
   const withMeals = form.mealPlan !== "EP";
   const body = () => ({ name: form.name.trim(), mealPlan: form.mealPlan,
     ...(withMeals ? { mealSkuId: form.mealSkuId, mealAdultRate: form.mealAdultRate, mealChildRate: orNull(form.mealChildRate) } : {}),
-    roomRate: orNull(form.roomRate), weekendRate: orNull(form.weekendRate), refundable: form.refundable, policyId: form.policyId || null });
+    roomRate: orNull(form.roomRate), weekendRate: orNull(form.weekendRate), refundable: form.refundable, policyId: form.policyId || null, locationId: form.locationId || null });
   return (
     <FormDialog title={plan ? `Edit ${plan.name}` : "Add a rate plan"} icon="receipt" width={680} onClose={onClose} onSaved={onSaved} submitLabel={plan ? "Save" : "Add the plan"}
       description="A stay booked under a plan keeps its rates. Leave the plan's room rates empty to use the room type's (and the seasons and the calendar's)."
@@ -101,6 +104,8 @@ function PlanDialog({ setup, policies, plan, onClose, onSaved }) {
       {meals.error && <p className="field-wide ldg-clash" role="alert">{meals.error}</p>}
       {!plan && <Field label="Room type"><select required value={form.roomTypeId} onChange={set("roomTypeId")}>{types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></Field>}
       <Field label="Plan name"><input required maxLength={80} value={form.name} onChange={set("name")} placeholder="e.g. Half board, Saver" /></Field>
+      {biz.locations.length > 1 && <Field label="Property"><select value={form.locationId} onChange={set("locationId")}>
+        <option value="">Every property</option>{biz.locations.filter((l) => l.active || String(l.id) === form.locationId).map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></Field>}
       <Field label="Meal plan"><select value={form.mealPlan} onChange={set("mealPlan")}>{MEAL_PLANS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></Field>
       {withMeals && (
         <>
@@ -391,6 +396,70 @@ function PolicyDialog({ policy, onClose, onSaved }) {
       {form.depositKind === "percent" && <Field label="Deposit (% of the stay)"><input required type="number" min="0.01" max="100" step="0.01" value={form.depositValue} onChange={set("depositValue")} /></Field>}
       {form.depositKind && <Field label="Deposit due (days before arrival)"><input required type="number" min="0" max="365" value={form.depositDays} onChange={set("depositDays")} /></Field>}
       {policy && <label className="checkbox bz-check field-wide"><input type="checkbox" checked={form.active} onChange={set("active")} /> In use</label>}
+    </FormDialog>
+  );
+}
+
+// --- Linen and minibar checklists ------------------------------------------------------------------------
+
+// Each room type's linen (named) and minibar (goods kept in stock by quantity) with how many a room holds: housekeeping counts a room
+// against it, and what a guest used of the minibar goes on their folio.
+export function ChecklistsTab({ setup }) {
+  const biz = useOpenBusiness();
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  const [version, setVersion] = useState(0);
+  const [dialog, setDialog] = useState(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    businessRead(biz.id, "lodging/checklists", undefined, controller.signal).then((d) => { setData(d); setError(""); })
+      .catch((err) => { if (!controller.signal.aborted) setError(getErrorMessage(err)); });
+    return () => controller.abort();
+  }, [biz.id, version]);
+  if (!data) return waiting(error);
+  const canEdit = biz.can("catalog.edit");
+  const rows = setup.roomTypes.filter((t) => t.active).map((t) => ({ ...t, items: data.items.filter((i) => Number(i.room_type_id) === Number(t.id)) }));
+  const words = (items, kind) => items.filter((i) => i.kind === kind).map((i) => `${i.name} × ${i.par}`).join(", ");
+  return (
+    <SectionCard flush icon="check" title="Linen & minibar"
+      description="What a room of each type holds. Housekeeping counts a room against it; what a guest used of the minibar goes on their folio as goods, and leaves stock when the folio is billed.">
+      <DataGrid variant="compact" id="lodging-checklists" caption="Linen and minibar" rows={rows} rowKey={(t) => t.id} rowNoun={["room type", "room types"]} empty="No room types yet" emptyIcon="home" columns={[
+        { key: "name", header: "Room type", value: (t) => t.name, mobile: "title", pin: true },
+        { key: "linen", header: "Linen", value: (t) => words(t.items, "linen") || "", mobile: "show" },
+        { key: "minibar", header: "Minibar", value: (t) => words(t.items, "minibar") || "", mobile: "subtitle" },
+        canEdit && { key: "actions", header: "", type: "actions", render: (t) => <button type="button" className="link-button" onClick={() => setDialog(t)}>Edit</button> },
+      ].filter(Boolean)} />
+      {dialog && <ChecklistDialog type={dialog} onClose={() => setDialog(null)} onSaved={() => { setDialog(null); toast.success(`${dialog.name}: checklist saved.`); setVersion((n) => n + 1); }} />}
+    </SectionCard>
+  );
+}
+
+function ChecklistDialog({ type, onClose, onSaved }) {
+  const biz = useOpenBusiness();
+  const { options } = useOptions(["catalog?kind=goods&active=true"]);
+  const goods = useMemo(() => (options?.["catalog?kind=goods&active=true"] || []).filter((s) => !s.is_kit && !["batch", "serial"].includes(s.tracking)), [options]);
+  const [lines, setLines] = useState(() => type.items.map((i) => ({ kind: i.kind, name: i.kind === "linen" ? i.name : "", skuId: i.sku_id ? String(i.sku_id) : "", par: String(i.par) })));
+  const change = (index, name, value) => setLines((list) => list.map((l, i) => (i === index ? { ...l, [name]: value } : l)));
+  const add = (kind) => setLines((list) => [...list, { kind, name: "", skuId: "", par: kind === "linen" ? "2" : "1" }]);
+  return (
+    <FormDialog title={`${type.name}: linen and minibar`} icon="check" width={680} onClose={onClose} onSaved={onSaved} submitLabel="Save the checklist"
+      description="An item taken off is switched off, never deleted: the checks made with it are kept."
+      onSubmit={() => businessWrite(biz.id, "lodging/checklists", { roomTypeId: type.id, items: lines.map((l) => (l.kind === "linen" ? { kind: "linen", name: l.name.trim(), par: l.par }
+        : { kind: "minibar", skuId: l.skuId, par: l.par })) }, "put")}>
+      {lines.map((l, index) => (
+        <div key={index} className="field-wide ldg-when">
+          {l.kind === "linen"
+            ? <Field label="Linen"><input required maxLength={80} value={l.name} onChange={(e) => change(index, "name", e.target.value)} placeholder="e.g. Bath towel" /></Field>
+            : <Field label="Minibar item"><select required value={l.skuId} onChange={(e) => change(index, "skuId", e.target.value)}>
+              <option value="">Choose…</option>{goods.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}</select></Field>}
+          <Field label="A room holds"><input required type="number" min="1" max="99" step="1" value={l.par} onChange={(e) => change(index, "par", e.target.value)} /></Field>
+          <button type="button" className="link-button" onClick={() => setLines((list) => list.filter((_, i) => i !== index))}>Take off</button>
+        </div>
+      ))}
+      <div className="form-actions field-wide bz-start">
+        <button type="button" className="button button-secondary button-sm" onClick={() => add("linen")}><Icon name="plus" size={14} /> Linen</button>
+        <button type="button" className="button button-secondary button-sm" onClick={() => add("minibar")}><Icon name="plus" size={14} /> Minibar item</button>
+      </div>
     </FormDialog>
   );
 }

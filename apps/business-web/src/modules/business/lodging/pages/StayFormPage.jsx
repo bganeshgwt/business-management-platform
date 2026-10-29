@@ -79,7 +79,9 @@ export default function StayFormPage() {
   const type = types.find((t) => String(t.id) === form.roomTypeId) || null;
   const dayUse = form.dayUse;
   const datesValid = dayUse ? Boolean(form.arrival) : form.arrival && form.departure && form.departure > form.arrival;
-  const typePlans = plans.filter((p) => String(p.room_type_id) === form.roomTypeId && (p.active || String(p.id) === form.ratePlanId));
+  // The room type's plans shared by every property, or the property's own.
+  const typePlans = plans.filter((p) => String(p.room_type_id) === form.roomTypeId && (!p.location_id || String(p.location_id) === form.locationId)
+    && (p.active || String(p.id) === form.ratePlanId));
   const canDiscount = biz.can("sales.discount");
   const discountBody = Number(form.discount) > 0 ? { percent: form.discount, reason: form.discountReason.trim() } : null;
 
@@ -223,7 +225,7 @@ export default function StayFormPage() {
           <Field label="Room" hint={dayUse ? "A day use names its room." : "Or choose it at check-in."}><select required={dayUse} disabled={existing?.day_use} value={form.roomId} onChange={set("roomId")}>
             <option value="">{dayUse ? "Choose the room…" : "No room yet"}</option>
             {existing?.day_use && <option value={form.roomId}>{existing.room_no}</option>}
-            {roomList.map((r) => <option key={r.id} value={r.id}>{r.roomNo}{r.floor ? ` · floor ${r.floor}` : ""}{r.free ? "" : ` · taken (${r.clash.stayNo})`}{r.status === "out_of_order" ? ` · ${ROOM_STATUS.out_of_order.label.toLowerCase()}` : ""}</option>)}
+            {roomList.map((r) => <option key={r.id} value={r.id}>{r.roomNo}{r.floor ? ` · floor ${r.floor}` : ""}{r.free ? "" : r.clash.outOfOrder ? ` · ${ROOM_STATUS.out_of_order.label.toLowerCase()}` : ` · taken (${r.clash.stayNo})`}{r.outOfService ? " · out of service" : ""}</option>)}
           </select></Field>
           <Field label="Adults"><input type="number" required disabled={existing?.day_use} min="1" max={type?.max_occupancy || 30} value={form.adults} onChange={set("adults")} /></Field>
           <Field label="Children"><input type="number" disabled={existing?.day_use} min="0" max="30" value={form.children} onChange={set("children")} /></Field>

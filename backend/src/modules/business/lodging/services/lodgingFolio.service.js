@@ -10,7 +10,8 @@ const stays = require('./lodgingStays.service');
 //
 //   check-in    a reservation checks in from its arrival day to the night before
 //               its departure (a day use on its day), to a room of its type that
-//               is vacant and clean and free over its nights; every occupant is
+//               is vacant and clean (inspected, when the property asks for it),
+//               free over its nights and not out of order; every occupant is
 //               recorded, adults and children, not only the one who booked: their
 //               name, photo ID (of an Aadhaar card only the last four digits are
 //               kept) and nationality, and for a foreigner (an OCI cardholder too)
@@ -28,8 +29,9 @@ const stays = require('./lodgingStays.service');
 //               billed) posted by the desk; each charge on the folio its routing
 //               sends it to; a mistake voided by a manager (a night posted again
 //               at the stay's rates now).
-//   night audit every stay in the house gets its room nights up to tonight that
-//               are not posted yet; run again, it posts nothing twice.
+//   night audit its postings (lodgingAudit.service.js runs it): every stay in
+//               the house gets its room nights up to tonight that are not
+//               posted yet; run again, it posts nothing twice.
 //   check-out   on the business's date: the nights up to last night (one at
 //               least) posted, a night posted ahead and not stayed voided, the
 //               stay ending today; after the property's check-out time on the
@@ -114,7 +116,7 @@ async function postPolicyCharge(db, business, user, stay, { kind, amount, slab, 
 
 // The check-in inside the caller's transaction (the stay locked): the occupants, the room, the early check-in charge or the day use's price,
 // an advance and a deposit. Returns nothing; the caller loads the stay.
-async function checkInIn(db, business, user, stay, body, { requestKey, hash, register, waiver }) {
+async function checkInIn(db, business, user, stay, body, { requestKey, hash, register, waiver, moving = false }) {
   if (stay.status !== 'reserved') fail(`Stay ${stay.stay_no} is ${c.STATUS_WORDS[stay.status]}: a reservation checks in`, 409);
   const today = await c.today(db, business);
   const arrival = c.dayOf(stay.arrival), departure = c.dayOf(stay.departure);
@@ -137,11 +139,16 @@ async function checkInIn(db, business, user, stay, body, { requestKey, hash, reg
     const clash = await stays.roomClash(db, business, room.id, arrival, departure, stay.id);
     if (clash) fail(`${stays.clashWords(clash)}: choose another room`, 409);
   }
+  // A room out of order over the nights to come is not given; when the property asks for it, the room is inspected first.
+  const down = await c.outOfOrderOn(db, business, room.id, today, departure);
+  if (down) fail(`${c.downWords(down)}: choose another room`, 409);
+  await stays.checkInspected(db, business, room);
   const advance = await stays.readMoney(db, business, body.advance, 'Advance');
   const deposit = await stays.readMoney(db, business, body.deposit, 'Deposit');
   // Before the property's check-in time on the arrival day: the policy's early check-in charge (a manager may waive it).
   const terms = stay.day_use ? null : await stays.policyNow(db, business, stay);
-  const early = terms?.early.now && terms.early.amount > 0 ? terms.early : null;
+  // A guest moved from another property continues their stay: no early check-in charge.
+  const early = !moving && terms?.early.now && terms.early.amount > 0 ? terms.early : null;
   if (waiver && !early) fail(`Stay ${stay.stay_no} has no early check-in charge to waive`, 409);
   await db.query(`UPDATE lodging_stays SET status='in_house',room_id=$3,checked_in_at=now(),checked_in_by=$4,checkin_key=$5,checkin_hash=$6,
       arrived_from=COALESCE($7,arrived_from),going_to=COALESCE($8,going_to),purpose=COALESCE($9,purpose),updated_by=$4,updated_at=now() WHERE business_id=$1 AND id=$2`,
@@ -273,42 +280,34 @@ async function repostNights(db, business, user, stay, reason) {
   return open.length;
 }
 
-// The night audit: every stay in the house (at the caller's location) gets its room nights up to tonight, or the night
-// before it leaves, that are not posted yet, with their meals. Run again, it posts nothing twice. body: {} — returns what it posted.
-async function nightAudit(business, user) {
-  c.requireLodging(business);
-  await access.require(business, 'lodging.create');
-  return repo.transaction(async (db) => {
-    await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
-    const settings = c.slabsOf(await c.settingsOf(db, business.id));
-    const today = await c.today(db, business);
-    const inHouse = await repo.all(db, `SELECT * FROM lodging_stays WHERE business_id=$1 AND status='in_house' AND NOT day_use AND ($2::bigint IS NULL OR location_id=$2) ORDER BY id FOR UPDATE`,
-      [business.id, business.location_scope || null]);
-    const posted = [];
-    for (const stay of inHouse) {
-      const last = [today, c.addDays(c.dayOf(stay.departure), -1)].sort()[0];
-      if (last < c.dayOf(stay.arrival)) continue;
-      const names = await namesOf(db, business, stay);
-      const routes = await routesOf(db, business, stay.id);
-      const nights = [];
-      for (const night of await missingNights(db, business, stay, last)) {
-        const row = await postNight(db, business, user, stay, night, settings, names, routes);
-        if (row) nights.push(row);
-      }
-      if (!nights.length) continue;
-      const words = nights.map((n) => `${c.dayWords(n.night)} ${n.amount} at ${Number(n.tax_rate)}%${n.meal ? `, meals ${n.meal.amount} at ${Number(n.meal.tax_rate)}%` : ''}`);
-      await stays.history(db, business, user, stay, null, null, `Night audit: ${c.plural(nights.length, 'room night')} posted (${words.join('; ')})`);
-      await repo.event(db, business.id, user.id, 'lodging_stay.nights_posted', 'lodging_stay', stay.id, { stayNo: stay.stay_no,
-        nights: nights.map((n) => ({ night: n.night, amount: n.amount, taxRate: n.tax_rate, tax: n.tax, ...(n.meal ? { meals: n.meal.amount, mealsTaxRate: n.meal.tax_rate } : {}) })) });
-      posted.push({ stayId: stay.id, stayNo: stay.stay_no, guestName: stay.guest_name, roomNo: names.roomNo,
-        nights: nights.map((n) => ({ night: n.night, rateKind: n.rate_kind, amount: n.amount, discount: n.discount, taxRate: n.tax_rate, tax: n.tax,
-          meals: n.meal ? { amount: n.meal.amount, taxRate: n.meal.tax_rate, tax: n.meal.tax } : null })) });
+// The night audit's postings (lodgingAudit.service.js), inside the caller's transaction (the business locked): every stay in the house at
+// `locationId` (else the person's location, else every property) gets its room nights up to tonight, or the night before it leaves, that are
+// not posted yet, with their meals. Run again, it posts nothing twice. Returns { posted (by stay), nights, stays }.
+async function postNightsIn(db, business, user, { today, locationId = null }) {
+  const settings = c.slabsOf(await c.settingsOf(db, business.id));
+  const inHouse = await repo.all(db, `SELECT * FROM lodging_stays WHERE business_id=$1 AND status='in_house' AND NOT day_use AND ($2::bigint IS NULL OR location_id=$2) ORDER BY id FOR UPDATE`,
+    [business.id, locationId || business.location_scope || null]);
+  const posted = [];
+  for (const stay of inHouse) {
+    const last = [today, c.addDays(c.dayOf(stay.departure), -1)].sort()[0];
+    if (last < c.dayOf(stay.arrival)) continue;
+    const names = await namesOf(db, business, stay);
+    const routes = await routesOf(db, business, stay.id);
+    const nights = [];
+    for (const night of await missingNights(db, business, stay, last)) {
+      const row = await postNight(db, business, user, stay, night, settings, names, routes);
+      if (row) nights.push(row);
     }
-    const count = posted.reduce((s, p) => s + p.nights.length, 0);
-    await repo.audit(db, business.id, user.id, 'lodging.night_audit', null, { today, stays: posted.length, nights: count });
-    const shaped = c.seesMoney(business) ? posted : posted.map((p) => ({ ...p, nights: p.nights.map((n) => ({ night: n.night, rateKind: n.rateKind })) }));
-    return { today, posted: shaped, nights: count, stays: inHouse.length };
-  });
+    if (!nights.length) continue;
+    const words = nights.map((n) => `${c.dayWords(n.night)} ${n.amount} at ${Number(n.tax_rate)}%${n.meal ? `, meals ${n.meal.amount} at ${Number(n.meal.tax_rate)}%` : ''}`);
+    await stays.history(db, business, user, stay, null, null, `Night audit: ${c.plural(nights.length, 'room night')} posted (${words.join('; ')})`);
+    await repo.event(db, business.id, user.id, 'lodging_stay.nights_posted', 'lodging_stay', stay.id, { stayNo: stay.stay_no,
+      nights: nights.map((n) => ({ night: n.night, amount: n.amount, taxRate: n.tax_rate, tax: n.tax, ...(n.meal ? { meals: n.meal.amount, mealsTaxRate: n.meal.tax_rate } : {}) })) });
+    posted.push({ stayId: stay.id, stayNo: stay.stay_no, guestName: stay.guest_name, roomNo: names.roomNo,
+      nights: nights.map((n) => ({ night: n.night, rateKind: n.rate_kind, amount: n.amount, discount: n.discount, taxRate: n.tax_rate, tax: n.tax,
+        meals: n.meal ? { amount: n.meal.amount, taxRate: n.meal.tax_rate, tax: n.meal.tax } : null })) });
+  }
+  return { posted, nights: posted.reduce((sum, p) => sum + p.nights.length, 0), stays: inHouse.length };
 }
 
 // The folio a charge is posted to: as given (one of the stay's own or its group's, not billed), else its routing.
@@ -321,9 +320,59 @@ async function folioChoice(db, business, stay, value, routes, kind) {
   return folio.id;
 }
 
+// An extra (a service item) or goods kept in stock by quantity (a minibar's, toiletries) posted to the folio of a stay in the house, inside the
+// caller's transaction (the stay locked). `quantityText`: how many, as typed; `price`: paise in the business's price terms (the item's price when
+// left out); `folioId`: as given (null: the main folio), or left out (undefined) for the stay's routing. Goods leave stock when their folio is billed;
+// there must be enough at the property for those on the folios not yet billed. Returns the charge.
+async function chargeIn(db, business, user, stay, { skuId, quantityText, price: typedPrice = null, note = null, folioId: folioValue, requestKey }) {
+  if (stay.status !== 'in_house') fail(`Stay ${stay.stay_no} is ${c.STATUS_WORDS[stay.status]}: charges go on the folio while the guest is in the house`, 409);
+  const sku = await repo.one(db, `SELECT s.*,p.kind,u.decimals AS unit_decimals,(s.active AND p.active) AS in_use FROM catalog_skus s JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id
+    JOIN business_units u ON u.business_id=s.business_id AND u.code=s.unit WHERE s.business_id=$1 AND s.id=$2`, [business.id, skuId]);
+  if (!sku) fail('Item not found', 404);
+  if (!sku.in_use) fail(`${sku.label} is switched off in the catalogue`, 409);
+  if (sku.internal_use) fail(`${sku.label} is kept for use in services only and is not billed`, 409);
+  if (sku.is_kit) fail(`${sku.label} is a kit: sell it on a bill of its own`, 409);
+  if (await repo.one(db, 'SELECT 1 FROM lodging_room_types WHERE business_id=$1 AND sku_id=$2', [business.id, sku.id])) fail(`${sku.label} is a room type's nights: the night audit posts them`, 409);
+  const kind = sku.kind === 'service' ? 'extra' : 'goods';
+  if (kind === 'goods' && ['batch', 'serial'].includes(sku.tracking)) fail(`${sku.label} is kept by batch or serial number: sell it on a bill of its own`, 409);
+  const decimals = (quantityText.split('.')[1] || '').length;
+  if (decimals > Number(sku.unit_decimals)) fail(`${sku.label} is counted in whole ${sku.unit === 'service' ? 'services' : `${sku.unit}s`}`);
+  const settings = await repo.one(db, 'SELECT tax_mode FROM business_settings WHERE business_id=$1', [business.id]);
+  const taxMode = settings?.tax_mode || 'exclusive';
+  const price = typedPrice !== null ? typedPrice : money.paise(sku.price);
+  if (price <= 0) fail(`${sku.label} has no price in the catalogue: type the price charged`);
+  if (kind === 'goods') {
+    core.checkMrp(sku.label, price / 100, sku.tax_rate, taxMode, sku.mrp);
+    if (sku.tracking !== 'none') {
+      // Enough in stock at the property for these and the goods on folios not yet billed (they leave stock when billed).
+      const stock = await repo.one(db, `SELECT COALESCE(sum(l.quantity),0) AS on_hand,
+          (SELECT COALESCE(sum(ch.quantity),0) FROM lodging_charges ch JOIN lodging_stays x ON x.business_id=ch.business_id AND x.id=ch.stay_id
+            WHERE ch.business_id=$1 AND ch.sku_id=$3 AND ch.kind='goods' AND ch.voided_at IS NULL AND ch.line_id IS NULL AND x.location_id=$2) AS on_folios
+        FROM business_stock_lots l WHERE l.business_id=$1 AND l.location_id=$2 AND l.sku_id=$3 AND (l.expires_on IS NULL OR l.expires_on>=(now() AT TIME ZONE $4)::date)`,
+      [business.id, stay.location_id, sku.id, business.timezone || 'Asia/Kolkata']);
+      const free = money.milli(stock.on_hand) - money.milli(stock.on_folios);
+      if (free < money.milli(quantityText)) {
+        fail(`Only ${Math.max(0, free) / 1000} of ${sku.label} is in stock at this property${Number(stock.on_folios) ? ` beyond the ${Number(stock.on_folios)} on folios not yet billed` : ''}`, 409);
+      }
+    }
+  }
+  const figures = money.extraFigures({ price, quantity: quantityText, taxRate: sku.tax_rate, taxMode });
+  if (figures.amount <= 0) fail('The charge comes to nothing');
+  const today = await c.today(db, business);
+  const folioId = await folioChoice(db, business, stay, folioValue, await routesOf(db, business, stay.id), kind);
+  const label = [sku.label, note].filter(Boolean).join(' · ').slice(0, 150);
+  const row = await repo.one(db, `INSERT INTO lodging_charges(business_id,stay_id,kind,night,sku_id,label,quantity,unit_price,amount,tax_mode,tax_rate_id,tax_rate,net,tax,note,request_key,created_by,folio_id)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`, [business.id, stay.id, kind, today, sku.id, label, quantityText, (price / 100).toFixed(4),
+    money.rupees(figures.amount), taxMode, sku.tax_rate_id, Number(sku.tax_rate).toFixed(2), money.rupees(figures.net), money.rupees(figures.tax), note, requestKey, user.id, folioId]);
+  await stays.history(db, business, user, stay, null, null, `Charged: ${label} ${money.rupees(figures.net + (taxMode === 'inclusive' ? 0 : figures.tax))}`);
+  const details = { stayNo: stay.stay_no, item: sku.label, kind, quantity: quantityText, amount: money.rupees(figures.amount), taxRate: Number(sku.tax_rate).toFixed(2), folioId };
+  await repo.audit(db, business.id, user.id, 'lodging_charge.posted', stay.id, details);
+  await repo.event(db, business.id, user.id, 'lodging_charge.posted', 'lodging_stay', stay.id, { ...details, skuId: sku.id });
+  return row;
+}
+
 // body: { requestKey, skuId, quantity?, price? (in the business's price terms; the item's price when left out), note?, folioId? (null: the main folio;
 //   left out: as the stay's routing sends it) } — an extra (a service item) or goods kept in stock by quantity (a minibar's, toiletries) on the folio.
-// Goods leave stock when their folio is billed; there must be enough at the property for those on the folios not yet billed.
 async function addCharge(business, user, stayId, body) {
   c.requireLodging(business);
   await access.require(business, 'lodging.create');
@@ -332,6 +381,7 @@ async function addCharge(business, user, stayId, body) {
   const quantityText = c.given(body.quantity) ? String(body.quantity).trim() : '1';
   if (!/^\d{1,5}(\.\d{1,3})?$/.test(quantityText) || Number(quantityText) <= 0) fail('How many is a quantity from 0.001 to 10000');
   const note = c.optionalText(body.note, 'Note', 300);
+  const price = c.given(body.price) ? money.paise(core.decimal(body.price, 'Price', 2, 0.01, 10000000)) : null;
   return repo.transaction(async (db) => {
     const stay = await stays.lockStay(db, business, stayId);
     const old = await repo.one(db, 'SELECT id,stay_id,sku_id,quantity FROM lodging_charges WHERE business_id=$1 AND request_key=$2', [business.id, requestKey]);
@@ -339,49 +389,7 @@ async function addCharge(business, user, stayId, body) {
       if (Number(old.stay_id) !== Number(stay.id) || Number(old.sku_id) !== skuId || Number(old.quantity) !== Number(quantityText)) fail('This request key was already used for different data', 409);
       return stays.shape(business, await stays.load(db, business, stay.id));
     }
-    if (stay.status !== 'in_house') fail(`Stay ${stay.stay_no} is ${c.STATUS_WORDS[stay.status]}: charges go on the folio while the guest is in the house`, 409);
-    const sku = await repo.one(db, `SELECT s.*,p.kind,u.decimals AS unit_decimals,(s.active AND p.active) AS in_use FROM catalog_skus s JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id
-      JOIN business_units u ON u.business_id=s.business_id AND u.code=s.unit WHERE s.business_id=$1 AND s.id=$2`, [business.id, skuId]);
-    if (!sku) fail('Item not found', 404);
-    if (!sku.in_use) fail(`${sku.label} is switched off in the catalogue`, 409);
-    if (sku.internal_use) fail(`${sku.label} is kept for use in services only and is not billed`, 409);
-    if (sku.is_kit) fail(`${sku.label} is a kit: sell it on a bill of its own`, 409);
-    if (await repo.one(db, 'SELECT 1 FROM lodging_room_types WHERE business_id=$1 AND sku_id=$2', [business.id, sku.id])) fail(`${sku.label} is a room type's nights: the night audit posts them`, 409);
-    const kind = sku.kind === 'service' ? 'extra' : 'goods';
-    if (kind === 'goods' && ['batch', 'serial'].includes(sku.tracking)) fail(`${sku.label} is kept by batch or serial number: sell it on a bill of its own`, 409);
-    const decimals = (quantityText.split('.')[1] || '').length;
-    if (decimals > Number(sku.unit_decimals)) fail(`${sku.label} is counted in whole ${sku.unit === 'service' ? 'services' : `${sku.unit}s`}`);
-    const settings = await repo.one(db, 'SELECT tax_mode FROM business_settings WHERE business_id=$1', [business.id]);
-    const taxMode = settings?.tax_mode || 'exclusive';
-    const price = c.given(body.price) ? money.paise(core.decimal(body.price, 'Price', 2, 0.01, 10000000)) : money.paise(sku.price);
-    if (price <= 0) fail(`${sku.label} has no price in the catalogue: type the price charged`);
-    if (kind === 'goods') {
-      core.checkMrp(sku.label, price / 100, sku.tax_rate, taxMode, sku.mrp);
-      if (sku.tracking !== 'none') {
-        // Enough in stock at the property for these and the goods on folios not yet billed (they leave stock when billed).
-        const stock = await repo.one(db, `SELECT COALESCE(sum(l.quantity),0) AS on_hand,
-            (SELECT COALESCE(sum(ch.quantity),0) FROM lodging_charges ch JOIN lodging_stays x ON x.business_id=ch.business_id AND x.id=ch.stay_id
-              WHERE ch.business_id=$1 AND ch.sku_id=$3 AND ch.kind='goods' AND ch.voided_at IS NULL AND ch.line_id IS NULL AND x.location_id=$2) AS on_folios
-          FROM business_stock_lots l WHERE l.business_id=$1 AND l.location_id=$2 AND l.sku_id=$3 AND (l.expires_on IS NULL OR l.expires_on>=(now() AT TIME ZONE $4)::date)`,
-        [business.id, stay.location_id, sku.id, business.timezone || 'Asia/Kolkata']);
-        const free = money.milli(stock.on_hand) - money.milli(stock.on_folios);
-        if (free < money.milli(quantityText)) {
-          fail(`Only ${Math.max(0, free) / 1000} of ${sku.label} is in stock at this property${Number(stock.on_folios) ? ` beyond the ${Number(stock.on_folios)} on folios not yet billed` : ''}`, 409);
-        }
-      }
-    }
-    const figures = money.extraFigures({ price, quantity: quantityText, taxRate: sku.tax_rate, taxMode });
-    if (figures.amount <= 0) fail('The charge comes to nothing');
-    const today = await c.today(db, business);
-    const folioId = await folioChoice(db, business, stay, body.folioId, await routesOf(db, business, stay.id), kind);
-    const label = [sku.label, note].filter(Boolean).join(' · ').slice(0, 150);
-    await db.query(`INSERT INTO lodging_charges(business_id,stay_id,kind,night,sku_id,label,quantity,unit_price,amount,tax_mode,tax_rate_id,tax_rate,net,tax,note,request_key,created_by,folio_id)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`, [business.id, stay.id, kind, today, sku.id, label, quantityText, (price / 100).toFixed(4), money.rupees(figures.amount),
-      taxMode, sku.tax_rate_id, Number(sku.tax_rate).toFixed(2), money.rupees(figures.net), money.rupees(figures.tax), note, requestKey, user.id, folioId]);
-    await stays.history(db, business, user, stay, null, null, `Charged: ${label} ${money.rupees(figures.net + (taxMode === 'inclusive' ? 0 : figures.tax))}`);
-    const details = { stayNo: stay.stay_no, item: sku.label, kind, quantity: quantityText, amount: money.rupees(figures.amount), taxRate: Number(sku.tax_rate).toFixed(2), folioId };
-    await repo.audit(db, business.id, user.id, 'lodging_charge.posted', stay.id, details);
-    await repo.event(db, business.id, user.id, 'lodging_charge.posted', 'lodging_stay', stay.id, { ...details, skuId: sku.id });
+    await chargeIn(db, business, user, stay, { skuId, quantityText, price, note, folioId: body.folioId, requestKey });
     return stays.shape(business, await stays.load(db, business, stay.id));
   });
 }
@@ -482,7 +490,7 @@ async function planCheckout(db, business, stay) {
   const total = bills.reduce((s, b) => s + b.figures.total, 0);
   // The advances and deposits pay the bills of the guest who paid them (a receipt settles only its own customer's bills).
   const own = bills.filter((b) => b.contactId === Number(stay.contact_id)).reduce((s, b) => s + b.figures.total, 0);
-  const receipts = (await stays.receiptsOf(db, business, stay.id)).filter((r) => Number(r.contact_id) === Number(stay.contact_id));
+  const receipts = (await stays.receiptsOf(db, business, await stays.chainOf(db, business, stay))).filter((r) => Number(r.contact_id) === Number(stay.contact_id));
   const free = (purpose) => receipts.filter((r) => r.purpose === purpose).reduce((s, r) => s + Math.max(0, money.paise(r.free)), 0);
   const advance = Math.min(free('advance'), own);
   const deposit = Math.min(free('deposit'), own - advance);
@@ -531,7 +539,7 @@ function readFolioPayments(body) {
 }
 
 // The check-out inside the caller's transaction (the stay locked). Returns nothing; the caller loads the stay.
-async function checkOutIn(db, business, user, stay, body, { requestKey, hash, parts, folioParts, how, approval, waiver }) {
+async function checkOutIn(db, business, user, stay, body, { requestKey, hash, parts, folioParts, how, approval, waiver, moving = false }) {
   if (stay.status !== 'in_house') fail(`Stay ${stay.stay_no} is ${c.STATUS_WORDS[stay.status]}: a guest in the house checks out`, 409);
   // Who is billed: as the stay has it, or changed now.
   if (body.billToContactId !== undefined) {
@@ -542,6 +550,8 @@ async function checkOutIn(db, business, user, stay, body, { requestKey, hash, pa
     }
   }
   const plan = await planCheckout(db, business, stay);
+  // A guest moving to another property continues their stay there: no late check-out charge.
+  if (moving) plan.late = null;
   // Nights (and their meals) posted ahead and not stayed (the guest leaves early) are voided; the nights to last night are posted.
   for (const x of plan.ahead) {
     await db.query('UPDATE lodging_charges SET voided_at=now(),voided_by=$3,void_reason=$4 WHERE business_id=$1 AND id=$2',
@@ -563,8 +573,9 @@ async function checkOutIn(db, business, user, stay, body, { requestKey, hash, pa
     [business.id, stay.id]);
   const folios = await foliosOf(db, business, stay);
   const posted = [];
+  const stayIds = await stays.chainOf(db, business, stay);
   for (const b of billsOf(stay, charges, folios)) {
-    const bill = await stays.postBill(db, business, user, stay, { values: b.charges.map(valueOf), contactId: b.contactId, parts: b.folioId ? folioParts[b.folioId] || [] : parts,
+    const bill = await stays.postBill(db, business, user, stay, { values: b.charges.map(valueOf), contactId: b.contactId, parts: b.folioId ? folioParts[b.folioId] || [] : parts, stayIds,
       buyer: body.buyer, key: b.folioId ? c.derivedKey(requestKey, `folio:${b.folioId}`) : requestKey, hash,
       notes: `Stay ${stay.stay_no} · room ${plan.names.roomNo} · ${stay.day_use ? `day use on ${c.dateWords(stay.arrival)}` : c.nightsWords(c.dayOf(stay.arrival), plan.ends)} · guest ${stay.guest_name}${b.folio ? ` · folio ${b.folio.name}` : ''}` });
     // What is still due once the advances and deposits paid: a company's stays on its dues; the guest's own needs a manager.
@@ -581,8 +592,8 @@ async function checkOutIn(db, business, user, stay, body, { requestKey, hash, pa
   await db.query(`UPDATE lodging_stays SET status='checked_out',departure=$3,checked_out_at=now(),checked_out_by=$4,checkout_key=$5,checkout_hash=$6,document_id=$7,updated_by=$4,updated_at=now()
     WHERE business_id=$1 AND id=$2`, [business.id, stay.id, plan.ends, user.id, requestKey, hash, main?.document.id || null]);
   await db.query('UPDATE lodging_stay_guests SET departed_at=now(),updated_by=$3,updated_at=now() WHERE business_id=$1 AND stay_id=$2 AND departed_at IS NULL', [business.id, stay.id, user.id]);
-  await db.query("UPDATE lodging_rooms SET status='vacant_dirty',status_note=$3,status_by=$4,status_at=now() WHERE business_id=$1 AND id=$2",
-    [business.id, stay.room_id, `Checked out: ${stay.stay_no}`, user.id]);
+  await db.query("UPDATE lodging_rooms SET status='vacant_dirty',cleaning='dirty',dnd=FALSE,status_note=$3,status_by=$4,status_at=now() WHERE business_id=$1 AND id=$2",
+    [business.id, stay.room_id, `${moving ? 'Moved to another property' : 'Checked out'}: ${stay.stay_no}`, user.id]);
   const back = how ? await stays.refundLeft(db, business, user, stay, { how, approval, key: requestKey }) : [];
   const refunded = back.reduce((s, r) => s + money.paise(r.amount), 0);
   const used = posted.reduce((s, p) => ({ advance: s.advance + p.used.advance, deposit: s.deposit + p.used.deposit }), { advance: 0, deposit: 0 });
@@ -636,5 +647,5 @@ async function checkOut(business, user, stayId, body) {
   });
 }
 
-module.exports = { readGuest, readGuests, GUEST_COLUMNS, guestValues, readRegister, checkIn, checkInIn, postNight, postDayUse, namesOf, missingNights, repostNights, nightAudit,
-  addCharge, voidCharge, routesOf, foliosOf, valueOf, planCheckout, checkoutPreview, checkOut, checkOutIn, readCheckout };
+module.exports = { readGuest, readGuests, GUEST_COLUMNS, guestValues, readRegister, checkIn, checkInIn, postNight, postDayUse, namesOf, missingNights, repostNights, postNightsIn,
+  chargeIn, addCharge, voidCharge, routesOf, foliosOf, valueOf, planCheckout, checkoutPreview, checkOut, checkOutIn, readCheckout };

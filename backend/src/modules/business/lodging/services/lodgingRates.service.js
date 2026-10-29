@@ -13,7 +13,8 @@ const money = require('./lodgingMoney');
 //                lines as the food service item the property names (at its
 //                slab), so a room night's value and slab are the room's alone;
 //                the plan's own room rates if not the room type's; refundable
-//                or not; its policy. Switched off, never deleted.
+//                or not; its policy; one property's, or shared by every property.
+//                Switched off, never deleted.
 //   seasons      a date range's weekday and weekend rates (and extra persons'
 //                rates and a minimum stay) for a room type or one of its plans;
 //                two of the same never cover the same night.
@@ -46,6 +47,10 @@ async function planOf(db, business, planId, type = null) {
   if (!plan) fail('Rate plan not found', 404);
   if (type && Number(plan.room_type_id) !== Number(type.id)) fail(`${plan.name} is a plan of another room type`, 409);
   return plan;
+}
+// A plan is shared by every property, or kept for its own.
+function checkPlanPlace(plan, locationId) {
+  if (plan?.location_id && Number(plan.location_id) !== Number(locationId)) fail(`${plan.name} is a plan of another property`, 409);
 }
 
 // --- The rates of a stay's nights --------------------------------------------------------------------
@@ -112,7 +117,8 @@ async function dayUseRate(db, business, type, hours) {
 
 // --- The rates screen ----------------------------------------------------------------------------------
 
-const PLANS_SQL = `SELECT p.*,k.label AS meal_item,k.tax_rate AS meal_tax_rate,y.name AS policy_name,ts.label AS room_type FROM lodging_rate_plans p
+const PLANS_SQL = `SELECT p.*,k.label AS meal_item,k.tax_rate AS meal_tax_rate,y.name AS policy_name,ts.label AS room_type,pl.name AS location_name FROM lodging_rate_plans p
+  LEFT JOIN business_locations pl ON pl.business_id=p.business_id AND pl.id=p.location_id
   JOIN lodging_room_types t ON t.business_id=p.business_id AND t.id=p.room_type_id JOIN catalog_skus ts ON ts.business_id=t.business_id AND ts.id=t.sku_id
   LEFT JOIN catalog_skus k ON k.business_id=p.business_id AND k.id=p.meal_sku_id LEFT JOIN lodging_policies y ON y.business_id=p.business_id AND y.id=p.policy_id
   WHERE p.business_id=$1 ORDER BY p.active DESC,p.room_type_id,p.sort_order,lower(p.name),p.id`;
@@ -181,16 +187,28 @@ async function readPlan(db, business, body, current = null) {
     if (!policy.active && Number(policy.id) !== Number(current?.policy_id)) fail(`${policy.name} is switched off`, 409);
     policyId = policy.id;
   }
-  return { name, mealPlan, mealSkuId, mealAdult, mealChild, roomRate, weekendRate, refundable, policyId,
+  // One property's plan, or one every property shares (none).
+  const placeValue = body.locationId === undefined && current ? current.location_id : body.locationId;
+  let locationId = null;
+  if (c.given(placeValue)) {
+    const location = await repo.one(db, 'SELECT id FROM business_locations WHERE business_id=$1 AND id=$2', [business.id, id(placeValue, 'Property')]);
+    if (!location) fail('Property not found', 404);
+    locationId = location.id;
+  }
+  return { name, mealPlan, mealSkuId, mealAdult, mealChild, roomRate, weekendRate, refundable, policyId, locationId,
     sortOrder: c.given(body.sortOrder) ? c.whole(body.sortOrder, 'Order on the list', 0, 999) : current ? Number(current.sort_order) : 0,
     active: v.requiredBoolean(body.active, 'In use', current ? current.active : true) };
 }
 const planValues = (p) => [p.name, p.mealPlan, p.mealSkuId, rateText(p.mealAdult), rateText(p.mealChild), rateText(p.roomRate), rateText(p.weekendRate), p.refundable, p.policyId,
-  p.sortOrder, p.active];
+  p.sortOrder, p.active, p.locationId];
 const planAudit = (p) => ({ name: p.name, mealPlan: p.mealPlan, mealSkuId: p.mealSkuId, mealAdultRate: rateText(p.mealAdult), mealChildRate: rateText(p.mealChild),
-  roomRate: rateText(p.roomRate), weekendRate: rateText(p.weekendRate), refundable: p.refundable, policyId: p.policyId, active: p.active });
+  roomRate: rateText(p.roomRate), weekendRate: rateText(p.weekendRate), refundable: p.refundable, policyId: p.policyId, active: p.active, locationId: p.locationId });
+// Another plan of the room type with this name at the same property (or shared), in the caller's transaction.
+const sameName = (db, business, typeId, p, exceptId = null) => repo.one(db, `SELECT 1 FROM lodging_rate_plans WHERE business_id=$1 AND room_type_id=$2 AND lower(name)=lower($3)
+  AND COALESCE(location_id,0)=$4 AND ($5::bigint IS NULL OR id<>$5)`, [business.id, typeId, p.name, p.locationId || 0, exceptId]);
 
-// body: { roomTypeId, name, mealPlan: EP | CP | MAP | AP, mealSkuId?, mealAdultRate?, mealChildRate?, roomRate?, weekendRate?, refundable?, policyId?, sortOrder? }
+// body: { roomTypeId, name, mealPlan: EP | CP | MAP | AP, mealSkuId?, mealAdultRate?, mealChildRate?, roomRate?, weekendRate?, refundable?, policyId?, sortOrder?,
+//   locationId? (one property's plan; none: shared by every property) }
 async function createPlan(business, user, body) {
   c.requireLodging(business);
   await access.require(business, 'catalog.edit');
@@ -199,11 +217,9 @@ async function createPlan(business, user, body) {
     const type = await typeOf(db, business, body.roomTypeId);
     if (!type.active) fail(`${type.name} is switched off`, 409);
     const plan = await readPlan(db, business, body);
-    if (await repo.one(db, 'SELECT 1 FROM lodging_rate_plans WHERE business_id=$1 AND room_type_id=$2 AND lower(name)=lower($3)', [business.id, type.id, plan.name])) {
-      fail(`${type.name} has a plan called ${plan.name} already`, 409);
-    }
+    if (await sameName(db, business, type.id, plan)) fail(`${type.name} has a plan called ${plan.name} already`, 409);
     const row = await repo.one(db, `INSERT INTO lodging_rate_plans(business_id,room_type_id,name,meal_plan,meal_sku_id,meal_adult_rate,meal_child_rate,room_rate,weekend_rate,refundable,policy_id,
-        sort_order,active,created_by,updated_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$14) RETURNING id`, [business.id, type.id, ...planValues(plan), user.id]);
+        sort_order,active,location_id,created_by,updated_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$15) RETURNING id`, [business.id, type.id, ...planValues(plan), user.id]);
     await repo.audit(db, business.id, user.id, 'lodging_rate_plan.created', row.id, { roomType: type.name, ...planAudit(plan) });
   });
   return rates(business, { roomType: body.roomTypeId });
@@ -219,12 +235,15 @@ async function updatePlan(business, user, planId, body) {
     const current = await planOf(db, business, planId);
     typeId = current.room_type_id;
     const plan = await readPlan(db, business, body, current);
-    if (plan.name.toLowerCase() !== current.name.toLowerCase()
-      && await repo.one(db, 'SELECT 1 FROM lodging_rate_plans WHERE business_id=$1 AND room_type_id=$2 AND lower(name)=lower($3) AND id<>$4', [business.id, typeId, plan.name, current.id])) {
-      fail(`The room type has a plan called ${plan.name} already`, 409);
+    if (await sameName(db, business, typeId, plan, current.id)) fail(`The room type has a plan called ${plan.name} already`, 409);
+    // A plan made one property's keeps no reservation of another property.
+    if (plan.locationId && Number(plan.locationId) !== Number(current.location_id || 0)) {
+      const elsewhere = await repo.one(db, `SELECT stay_no FROM lodging_stays WHERE business_id=$1 AND rate_plan_id=$2 AND location_id<>$3 AND status IN ('reserved','in_house') LIMIT 1`,
+        [business.id, current.id, plan.locationId]);
+      if (elsewhere) fail(`Stay ${elsewhere.stay_no} at another property is on ${current.name}: it stays shared until that stay is done`, 409);
     }
     await db.query(`UPDATE lodging_rate_plans SET name=$3,meal_plan=$4,meal_sku_id=$5,meal_adult_rate=$6,meal_child_rate=$7,room_rate=$8,weekend_rate=$9,refundable=$10,policy_id=$11,
-        sort_order=$12,active=$13,updated_by=$14,updated_at=now() WHERE business_id=$1 AND id=$2`, [business.id, current.id, ...planValues(plan), user.id]);
+        sort_order=$12,active=$13,location_id=$14,updated_by=$15,updated_at=now() WHERE business_id=$1 AND id=$2`, [business.id, current.id, ...planValues(plan), user.id]);
     await repo.audit(db, business.id, user.id, 'lodging_rate_plan.updated', current.id, { name: plan.name, to: planAudit(plan) });
   });
   return rates(business, { roomType: typeId });
@@ -473,5 +492,5 @@ async function updatePolicy(business, user, policyId, body) {
   return rates(business, {});
 }
 
-module.exports = { MEAL_PLANS, MEAL_WORDS, typeOf, planOf, nightsFor, restrictionWords, checkRestrictions, policyFor, dayUseRate, rates, createPlan, updatePlan, createSeason, updateSeason, setDays,
+module.exports = { MEAL_PLANS, MEAL_WORDS, typeOf, planOf, checkPlanPlace, nightsFor, restrictionWords, checkRestrictions, policyFor, dayUseRate, rates, createPlan, updatePlan, createSeason, updateSeason, setDays,
   setDayUseRates, createPolicy, updatePolicy };

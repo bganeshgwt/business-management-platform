@@ -109,7 +109,8 @@ const seesMoney = (business) => access.can(business, 'sales.view');
 const seesIds = (business) => access.can(business, 'lodging.create') || access.can(business, 'lodging.print');
 
 // The settings as a business has them (the defaults until first saved), with its two slabs.
-const DEFAULTS = { low_tax_rate_id: null, high_tax_rate_id: null, slab_limit: '7500.00', weekend_nights: [5, 6], terms: null, check_in_time: '12:00:00', check_out_time: '11:00:00' };
+const DEFAULTS = { low_tax_rate_id: null, high_tax_rate_id: null, slab_limit: '7500.00', weekend_nights: [5, 6], terms: null, check_in_time: '12:00:00', check_out_time: '11:00:00',
+  inspection_required: false, no_show_cutoff: null };
 async function settingsOf(db, businessId) {
   const row = await repo.one(db, `SELECT s.*,lo.name AS low_name,lo.rate AS low_rate,hi.name AS high_name,hi.rate AS high_rate FROM lodging_settings s
     LEFT JOIN business_tax_rates lo ON lo.business_id=s.business_id AND lo.id=s.low_tax_rate_id
@@ -157,6 +158,21 @@ function roomTaken(error) {
   return error;
 }
 
+// A room's cleanliness: dirty → being cleaned → clean → inspected.
+const CLEANING = ['dirty', 'cleaning', 'clean', 'inspected'];
+const CLEANING_WORDS = { dirty: 'dirty', cleaning: 'being cleaned', clean: 'clean', inspected: 'clean and inspected' };
+
+// The first out-of-order period of a room over the nights from `from` to the night before `until`, or null.
+async function outOfOrderOn(db, business, roomId, from, until) {
+  return repo.one(db, `SELECT o.id,o.starts_on::text AS starts_on,o.ends_on::text AS ends_on,o.reason,r.room_no FROM lodging_out_of_order o
+    JOIN lodging_rooms r ON r.business_id=o.business_id AND r.id=o.room_id
+    WHERE o.business_id=$1 AND o.room_id=$2 AND o.cancelled_at IS NULL AND o.starts_on<$4::date AND (o.ends_on IS NULL OR o.ends_on>=$3::date)
+    ORDER BY o.starts_on LIMIT 1`, [business.id, roomId, from, until]);
+}
+// "Room 101 is out of order from 26 Oct to 28 Oct (AC not cooling)".
+const downWords = (o) => `Room ${o.room_no} is out of order from ${dayWords(o.starts_on)}${o.ends_on ? ` to ${dayWords(o.ends_on)}` : ' until it is put back in order'} (${o.reason})`;
+
 module.exports = { fail, id, requireLodging, STATUS_WORDS, ROOM_STATUSES, ROOM_WORDS, SOURCES, SOURCE_WORDS, ID_KINDS, GENDERS, RECEIPT_KINDS, MAX_NIGHTS, MAX_RATE,
   MAX_TOTAL, given, optionalText, paise, rupees, hashOf, derivedKey, whole, readDate, addDays, dateWords, dayWords, dayOf, timeWords, today, listWords, plural,
-  nightsWords, readId, readRate, seesMoney, seesIds, DEFAULTS, settingsOf, slabsOf, FREE_SQL, DUE_SQL, roomTaken, readTime, hhmm, CATEGORY, CATEGORIES };
+  nightsWords, readId, readRate, seesMoney, seesIds, DEFAULTS, settingsOf, slabsOf, FREE_SQL, DUE_SQL, roomTaken, readTime, hhmm, CATEGORY, CATEGORIES, CLEANING,
+  CLEANING_WORDS, outOfOrderOn, downWords };

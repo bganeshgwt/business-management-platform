@@ -24,6 +24,16 @@ export const ROOM_STATUS = {
   vacant_dirty: { label: "Vacant dirty", tone: "warning" }, vacant_clean: { label: "Vacant clean", tone: "success" }, occupied: { label: "Occupied", tone: "info" },
   out_of_order: { label: "Out of order", tone: "danger" },
 };
+// A room's cleanliness, kept apart from whether it is occupied or out of order: dirty → being cleaned → clean → inspected.
+export const CLEANING = {
+  dirty: { label: "Dirty", tone: "warning" }, cleaning: { label: "Being cleaned", tone: "info" }, clean: { label: "Clean", tone: "success" },
+  inspected: { label: "Inspected", tone: "success" },
+};
+// Maintenance tickets: their priorities (urgent first) and where they stand.
+export const PRIORITIES = [{ value: "urgent", label: "Urgent", tone: "danger" }, { value: "high", label: "High", tone: "warning" }, { value: "normal", label: "Normal", tone: "info" },
+  { value: "low", label: "Low", tone: "neutral" }];
+export const TICKET_STATUS = { open: { label: "Open", tone: "warning" }, in_progress: { label: "In progress", tone: "info" }, done: { label: "Done", tone: "success" },
+  cancelled: { label: "Cancelled", tone: "neutral" } };
 export const SOURCES = [{ value: "walk_in", label: "Walk-in" }, { value: "phone", label: "Phone" }, { value: "ota", label: "OTA" }];
 export const ID_KINDS = [
   { value: "aadhaar", label: "Aadhaar card" }, { value: "driving_licence", label: "Driving licence" }, { value: "voter_id", label: "Voter ID" },

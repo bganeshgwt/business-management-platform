@@ -6296,7 +6296,8 @@ night, and the departure date is the morning the guest leaves.
    type's), is *Refundable* or not (not refundable: a cancellation costs the
    full stay), and may name its *Policy* (none: the property's). A plan is
    switched off (*In use*), never deleted. A stay with no plan takes the room
-   type's rates, room only.
+   type's rates, room only. With several properties, *Property* keeps a plan
+   for one of them (none: shared by every property).
 9. **Seasons and the rate calendar** (the *Seasons* and *Rate calendar* tabs)
    — *Add a season* for a room type, or for one of its plans, with its dates
    (*From*, *To (the last night)*), its weekday and weekend rates a night, and
@@ -6323,6 +6324,16 @@ night, and the departure date is the morning the guest leaves.
     night), due so many days before the arrival. A stay keeps the policy it
     was booked under. With no policy nothing is charged for an early or late
     time, and a cancellation charge is typed.
+12. **Inspection and the no-show cut-off** — with the slabs: *A room is
+    inspected after it is cleaned, before it is let* (then a guest checks in
+    only to an inspected room), and *No-show cut-off*: a reservation not
+    checked in by that time of its arrival day is marked a no-show by the
+    night audit, its charge by its policy (left empty: no-shows are marked by
+    hand).
+13. **Linen and minibar** (the *Linen & minibar* tab) — *Edit* for a room
+    type: each linen item (bath towel, bedsheet) and each minibar item (goods
+    kept in stock by quantity, from the catalogue) with how many a room
+    holds.
 
 **The screens:**
 
@@ -6332,7 +6343,8 @@ night, and the departure date is the morning the guest leaves.
   *Check in*), *In the house* (each with the nights still to post) and
   *Departures* (leaving today, and those past their departure day: extend the
   stay or *Check out*). *New reservation* starts one, and *Run the night
-  audit* posts the room nights (below).
+  audit* posts the room nights (below). The last audit and the no-show
+  cut-off are shown under the tiles.
 - **A reservation** (*New reservation*) — the guest (found among *Guests &
   companies*, or *New guest* with a name and phone), *Booked by* (a walk-in,
   the phone, or an OTA with its name and booking id) and a company billed
@@ -6381,8 +6393,14 @@ night, and the departure date is the morning the guest leaves.
   occupant's details are corrected while they are in the house.
 - **Night audit** (*Front desk › Run the night audit*) — posts every room
   night of the guests in the house up to tonight that is not posted yet, each
-  at its rate and slab, and lists what it posted. Run it at the end of each
-  day; run again, it posts nothing twice. The bell warns of nights before
+  at its rate and slab; marks as no-shows the reservations past the no-show
+  cut-off and not checked in (their charge worked out by their policy, paid
+  first from what is held; someone who may not cancel sees them listed); and
+  closes the day with the day's money from the day close (bills, money in by
+  cash, UPI and card, cash in hand). It lists what it did. Run it at the end
+  of each day; run again, it posts and marks nothing twice. The business date
+  is the date on the property's clock: the audit closes it, and the front
+  desk shows when yesterday was not closed. The bell warns of nights before
   today still to post.
 - **Check-out** (*Check out*, on the departure day or earlier) — the bill as
   the server works it out: every night up to last night (one at least) and the
@@ -6404,13 +6422,48 @@ night, and the departure date is the morning the guest leaves.
   is billed as the room type's nights at the slab of the first night booked
   and paid first from the advance; what is left goes back with a manager's
   PIN.
-- **Rooms & housekeeping** — every room by its status: vacant dirty (to make
-  up, first), vacant clean (ready for a guest), occupied (with the guest and
-  when they leave) and out of order (with why). *Mark clean* once made up,
-  *Mark dirty* again, *Out of order* with the reason, and *Back in order* (to
-  be made up). A room is occupied only while a guest is checked in, and only a
-  vacant clean room is given to a guest. Every change is kept with who made it
-  and when.
+- **Rooms & housekeeping** — every room by where it stands tonight: vacant
+  dirty (to make up, first), vacant clean (ready for a guest), occupied (with
+  the guest and when they leave) and out of order (a period covers tonight,
+  with why). Each card shows the room's cleanliness apart (*Dirty*, *Being
+  cleaned*, *Clean*, *Inspected*), who cleaned and inspected it last, *Do not
+  disturb*, *Out of service* and open tickets. The steps: *Start cleaning*,
+  *Mark clean*, *Inspected* (a supervisor, once clean) and *Mark dirty*; a
+  guest's room is cleaned too, and *Do not disturb* (and *Disturb again*)
+  holds the cleaning back. *Out of service* flags a room still sold, with
+  why (*Back in service*). *Out of order* books a period: *From the night
+  of* (today or ahead), *To the night of* (empty: until put back) and *Why*;
+  a reservation that would need the room is refused with the reason, and a
+  room held by a stay, or one its type's stays need, is not put out of order.
+  *Back in order* ends it (a period not begun is withdrawn). *Linen* and
+  *Minibar* count the room against its room type's checklist: what the guest
+  in the room used of the minibar goes on their folio as goods; with no guest,
+  the count is kept. *Ticket* opens a maintenance ticket for the room. Below,
+  *Out of order tonight and ahead* lists every period. Only a vacant clean
+  room (inspected, when the property asks for it) is given to a guest. Every
+  change is kept with who made it and when.
+- **Maintenance** (*Front desk › Maintenance*) — each room's tickets, open
+  first and the most urgent first: *Open a ticket* (the room, the issue, the
+  priority, who it is given to, and *The work needs the room out of order*
+  with its nights), *Start*, *Done* (what was done) and *Cancel* (why). Done
+  or cancelled, the room is back in order from tonight unless *Keep the room
+  out of order*. *Every ticket* shows those finished too.
+- **Occupancy & revenue** (*Reports › Occupancy & revenue*) — for dates on
+  the business's calendar, at every property or one: occupancy (room nights
+  sold ÷ available; a room's nights out of order are not available), ADR
+  (room revenue ÷ nights sold) and RevPAR (room revenue ÷ nights available),
+  room revenue being the nights' value before GST without meals and extras;
+  by property, room type, source (walk-in, phone, each OTA) and rate plan,
+  each table exported like other reports.
+- **Several properties** — the business's locations are its properties, each
+  with its own rooms and its own GSTIN and state. *Reservations* and *Stays*
+  show every property (the calendar's *Property* shows one); a rate plan is
+  shared or one property's; the reports are per property and in all. *Move to
+  another property* on a stay in the house (from the second day): the guest is
+  checked out here (every folio billed with this property's GST, the advance
+  first) and checked in at the other property tonight, in a room free and
+  clean there, with the same occupants, the two stays linked (*Moved from*,
+  *Moved to*); what is left of the advance pays the new stay's bill.
 - **Reservations** — a calendar of a week or two weeks (*Today*, earlier and
   later): for each room type, its rooms night by night with the stay in each,
   the reservations with no room yet, and the rooms left each night.
@@ -6511,8 +6564,10 @@ night, and the departure date is the morning the guest leaves.
 Who does what: the front desk takes reservations and advances, checks guests
 in and out with every occupant, posts charges, runs the night audit, marks
 the Form-III reports, prints registration cards and the register, marks rooms
-and cancels reservations; housekeeping sees the rooms and marks them clean or
-dirty, out of order and back, and sees no money and no guest's ID; a cashier
+and cancels reservations; housekeeping sees the rooms, takes the cleaning
+steps, sets do not disturb and out of service, books rooms out of order and
+back, counts linen and the minibar, and opens and closes maintenance tickets,
+and sees no money and no guest's ID; a cashier
 does the front desk's work but cancelling; a manager does all of it, changes
 the rate of a guest in the house, voids charges, checks a guest out with the
 bill left to pay and hands money back with their PIN; an accountant sees and
@@ -6529,7 +6584,11 @@ discounts (within the most a bill takes off), and a policy's charge is waived
 by a manager, or at the desk with a manager's PIN. The front desk opens
 folios and routes charges, makes group bookings and their rooming lists, and
 records occupants joining and leaving; housekeeping sees a guest's profile
-but does not change it.
+but does not change it. The linen and minibar checklists are set by those
+who keep the catalogue, the inspection setting and the no-show cut-off by
+those who keep the settings; the night audit marks no-shows only for those
+who may cancel; *Occupancy & revenue* is for those who see reports; a guest
+is moved to another property by those who check guests out.
 
 ---
 

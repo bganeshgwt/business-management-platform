@@ -126,7 +126,7 @@ export default function GroupFormPage() {
                 <legend>Room {i + 1}</legend>
                 <Field label="Room type"><select required value={r.roomTypeId} onChange={change(i, "roomTypeId")}>{types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></Field>
                 <Field label="Rate plan"><select value={r.ratePlanId} onChange={change(i, "ratePlanId")}>
-                  <option value="">No plan</option>{plans.filter((p) => String(p.room_type_id) === r.roomTypeId).map((p) => <option key={p.id} value={p.id}>{p.name} ({p.meal_plan})</option>)}</select></Field>
+                  <option value="">No plan</option>{plans.filter((p) => String(p.room_type_id) === r.roomTypeId && (!p.location_id || String(p.location_id) === form.locationId)).map((p) => <option key={p.id} value={p.id}>{p.name} ({p.meal_plan})</option>)}</select></Field>
                 <Field label="Room"><select value={r.roomId} onChange={change(i, "roomId")}>
                   <option value="">No room yet</option>{typeRooms.map((x) => <option key={x.id} value={x.id}>{x.room_no}</option>)}</select></Field>
                 <Field label="Adults"><input type="number" required min="1" max={type?.max_occupancy || 30} value={r.adults} onChange={change(i, "adults")} /></Field>
