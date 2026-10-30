@@ -105,7 +105,9 @@ test("a shop never opens under the restaurant's header: loaded directly, switche
   try {
     await expect(page.locator('header.topbar[data-layout="business"]')).toBeVisible();
     await expect(page.locator("main.content-scroll .screen-loading")).toBeVisible();
-    expect(holding).toBe(true);
+    // The loading screen shows as the module is asked for; the route sees
+    // that request a moment later on a busy machine.
+    await expect.poll(() => holding).toBe(true);
   } finally {
     release();
   }
