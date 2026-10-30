@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import useAuth from "../../../../hooks/useAuth";
 import { businessRead } from "../../../../services/business.service";
 import { useOpenBusiness } from "../../core/pages/hooks";
+import { meChoice, notOwnReason, optionText, pinNote } from "../../core/pages/approvers";
 
 // A manager's say-so inside a rental form: who approves (someone whose role
 // holds the permission) and their PIN. Money handed back (rentals.refund)
@@ -22,8 +23,11 @@ export default function RentalApproval({ permission, title, reasonLabel, reasonP
     return () => controller.abort();
   }, [biz.id, permission]);
   const set = (name) => (e) => onChange({ ...value, [name]: e.target.value });
-  const chosen = value.approverId || (self ? String(user?.id || "") : "");
+  const myself = meChoice(people, user, !pinOptional);
+  const others = (people || []).filter((p) => String(p.id) !== String(user?.id));
+  const chosen = value.approverId || (self && myself.ready ? String(user?.id || "") : "");
   const isMe = self && chosen === String(user?.id || "");
+  const why = notOwnReason(others, { me: self && !myself.ready });
   const needsPin = !(pinOptional && isMe);
   return (
     <fieldset className="field-wide rnt-approval">
@@ -37,10 +41,10 @@ export default function RentalApproval({ permission, title, reasonLabel, reasonP
       <label className="field">
         <span>Approved by</span>
         <select required value={chosen} onChange={(e) => onChange({ ...value, approverId: e.target.value, pin: "" })}>
-          {!self && <option value="">Choose the manager…</option>}
-          {self && <option value={String(user?.id || "")}>Me ({user?.name || "you"})</option>}
-          {(people || []).filter((p) => String(p.id) !== String(user?.id)).map((p) => (
-            <option key={p.id} value={p.id} disabled={!p.has_pin}>{p.name}{p.has_pin ? "" : " (no PIN set)"}</option>
+          {!(self && myself.ready) && <option value="">Choose the manager…</option>}
+          {self && <option value={String(user?.id || "")} disabled={!myself.ready}>{myself.text}</option>}
+          {others.map((p) => (
+            <option key={p.id} value={p.id} disabled={Boolean(pinNote(p))}>{optionText(p)}</option>
           ))}
         </select>
       </label>
@@ -50,6 +54,7 @@ export default function RentalApproval({ permission, title, reasonLabel, reasonP
           <input type="password" inputMode="numeric" autoComplete="off" required minLength={4} maxLength={8} pattern="\d{4,8}" title="4 to 8 digits" value={value.pin} onChange={set("pin")} />
         </label>
       )}
+      {why && <p className="field-wide small muted">{why}</p>}
     </fieldset>
   );
 }

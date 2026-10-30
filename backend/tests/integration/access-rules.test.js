@@ -10,15 +10,17 @@
 //     whose login is also used elsewhere (no new password from here);
 //   - Table requests for every restaurant: with QR ordering off, a waiter's
 //     bill ask from the captain app reaches the inbox, its summary (the POS's
-//     badges) and the bell, the guests' requests stay out of them, and the
-//     guests' own routes are refused;
+//     badges), the dashboard's Table requests block and the bell, the guests'
+//     requests stay out of them, and the guests' own routes are refused;
 //   - a PIN someone else sets (an admin, under Users) is marked: it switches a
 //     shared till to its person (the session then answers nothing but
 //     choosing their own) and unlocks one (the answer asks for their own),
 //     but approves, signs and confirms nothing: the restaurant's approvals, a
 //     business manager's PIN, a credit hold's release, a clinic's signature
 //     and a counter bill's PIN refuse it (409 pin_not_own) before reading it;
-//     the person's own PIN clears the mark; both are audited;
+//     the person's own PIN clears the mark; both are audited; every list a
+//     business's PIN prompt offers people from marks such a person
+//     (pin_given; the till's people pinGiven) until they choose their own;
 //   - the migration's Down half and Up again.
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
@@ -267,7 +269,9 @@ test("access rules: who moves pre-orders, a department's staff list, table reque
 
   // ---------------------------------------------------------------- table requests
 
-  await t.test("Table requests with QR ordering off: a waiter's bill ask reaches the inbox, the badges and the bell; the guests' requests stay out", async () => {
+  await t.test("Table requests with QR ordering off: a waiter's bill ask reaches the inbox, the badges, the dashboard and the bell; the guests' requests stay out", async () => {
+    // The dashboard's Table requests block, as the counter's dashboard reads it.
+    const dashboard = async () => (await request("GET", "/reports/dashboard/live?blocks=requests", undefined, 200, cashier)).data.blocks.requests;
     // While QR ordering is on, a guest at T1 asks for water and one at T2 for the bill.
     const guestCall = async (tableRow, type) => {
       const response = await fetch(`${base}/public/tables/${tableRow.qr_token}/calls`, {
@@ -303,6 +307,9 @@ test("access rules: who moves pre-orders, a department's staff list, table reque
         [["T1", asked.data.id, "bill", "Suresh captain"], ["T2", guestBill, "bill", "Suresh captain"]]);
       const summary = (await request("GET", "/table-requests/summary", undefined, 200, cashier)).data;
       assert.deepEqual([summary.openCallsByType.bill, summary.openCallsByType.water, summary.unansweredCalls, summary.pendingOrders], [2, 0, 2, 0]);
+      // The dashboard's Table requests block is read without them too, counting the waiters' asks alone.
+      const block = (await dashboard()).data;
+      assert.deepEqual([block.openCalls, block.unansweredCalls, block.pendingOrders, block.openCallsByType.bill, block.openCallsByType.water], [2, 2, 0, 2, 0]);
       // The bell says it too, once it has waited, and not the guests' calls.
       const bell = await require("../../src/notifications/providers/tableRequests").collect({ restaurantId: rid, now: new Date(Date.now() + 10 * 60000), pool });
       assert.deepEqual(bell.map((alert) => alert.title.split(" — ")[0]).sort(), ["Table T1 asked for the bill", "Table T2 asked for the bill"]);
@@ -317,9 +324,11 @@ test("access rules: who moves pre-orders, a department's staff list, table reque
     } finally {
       await feature("qr_ordering", true);
     }
-    // QR ordering back on: the guest's water is in the inbox again.
+    // QR ordering back on: the guest's water is in the inbox again, and on the dashboard.
     const back = (await request("GET", "/table-requests?view=pending", undefined, 200, cashier)).data;
     assert.deepEqual(back.items.map((row) => row.id), [water]);
+    const block = (await dashboard()).data;
+    assert.deepEqual([block.openCalls, block.openCallsByType.water, block.openCallsByType.bill], [1, 1, 0]);
     await request("POST", `/table-requests/${water}/done`, {}, 200, cashier);
   });
 
@@ -512,5 +521,74 @@ test("access rules: who moves pre-orders, a department's staff list, table reque
     const proofed = (await request("POST", G("counter/switch"), { userId: managerId, pin: OWN }, 200, owner)).data;
     assert.ok(proofed.billProof);
     assert.equal(proofed.user.pinChangeRequired, false);
+  });
+
+  await t.test("a business's PIN prompts show a person whose PIN someone else set as such: every list marks them (pin_given), the server still refuses the PIN, and their own clears the mark", async () => {
+    const G = at(grocery);
+    const H = at(clinic);
+    // The other trades' prompts, each in a business of its own where the
+    // manager works as its manager (the grocery's and the clinic's since the test above).
+    const trades = ["wholesale", "laundry", "rentals", "jewellery", "memberships", "lodging", "garage", "agri_inputs", "hardware"];
+    const shops = Object.fromEntries((await createBusinesses(ownerRequest, "ACCESS", trades)).map((business) => [business.business_type, business]));
+    await O("PUT", `/businesses/${shops.hardware.id}/modules/hardware_tinting`, { enabled: true });
+    for (const business of Object.values(shops)) await O("POST", at(business)("members"), { userId: managerId, roleId: (await roleOf(business, "manager")).id }, 201);
+
+    // Every list a prompt reads to offer who approves or signs; a signatory is found by their login.
+    const lists = [
+      [G("service-approvers?permission=sales.refund"), (rows) => rows],
+      [at(shops.hardware)("hardware/tinting/approvers"), (rows) => rows],
+      [at(shops.wholesale)("hold-releasers"), (rows) => rows],
+      [at(shops.laundry)("laundry/approvers"), (rows) => rows],
+      [at(shops.rentals)("rentals/approvers?permission=rentals.approve"), (rows) => rows],
+      [at(shops.jewellery)("jewellery/schemes/approvers"), (rows) => rows],
+      [at(shops.memberships)("member-plans/approvers"), (rows) => rows],
+      [at(shops.lodging)("lodging/approvers"), (rows) => rows],
+      [at(shops.garage)("garage/approvers?permission=sales.refund"), (rows) => rows],
+      [at(shops.agri_inputs)("agri/overrides/approvers"), (rows) => rows],
+      [H("health/signatories?kind=pathologist"), (rows) => rows.map((row) => ({ ...row, id: row.user_id }))],
+      [H("health/settings"), (data) => data.signatories.map((row) => ({ ...row, id: row.user_id }))],
+    ];
+    // [route, has a PIN, set by someone else] for the manager on each, and on the till's people.
+    const marks = async () => {
+      const seen = [];
+      for (const [route, rowsOf] of lists) {
+        const rows = rowsOf(await O("GET", route));
+        const row = rows.find((one) => Number(one.id) === managerId);
+        assert.ok(row, `${route} lists the manager`);
+        seen.push([route, row.has_pin, row.pin_given]);
+        // The owner, and anyone else on it, set their own PIN or have none.
+        for (const other of rows.filter((one) => Number(one.id) !== managerId)) assert.equal(other.pin_given, false, `${route}: ${other.name}`);
+      }
+      const till = (await O("GET", G("counter/staff"))).people.find((person) => person.id === managerId);
+      seen.push(["counter/staff", till.hasPin, till.pinGiven]);
+      return seen;
+    };
+    const every = (given) => [...lists.map(([route]) => [route, true, given]), ["counter/staff", true, given]];
+
+    const GIVEN = "4718";
+    const OWN = "8352";
+    await request("PUT", `/users/${managerId}/pin`, { pin: GIVEN, confirmPin: GIVEN }, 200, owner);
+    assert.deepEqual(await marks(), every(true));
+
+    // The screens only show it: the server refuses the PIN as before, before it is read.
+    const access = require("../../src/modules/business/core/services/businessAccess.service");
+    const pins = require("../../src/modules/business/salon-weight/services/businessManagerPin");
+    const credit = require("../../src/modules/business/wholesale/services/businessWholesaleCredit.service");
+    const health = require("../../src/modules/business/health/services/healthCommon");
+    const ownerUser = { id: ownerId, name: "Hearth owner" };
+    const notOwn = (error) => error.statusCode === 409 && error.details.reason === "pin_not_own";
+    await assert.rejects(pins.readApproval(await access.load(ownerUser, shops.laundry.id), ownerUser, { reason: "Shirt torn in the wash", approverId: managerId, pin: GIVEN }, "laundry.refund"), notOwn);
+    await assert.rejects(credit.readRelease(await access.load(ownerUser, shops.wholesale.id), ownerUser, { reason: "Pays on Friday", approverId: managerId, pin: GIVEN }), notOwn);
+    const signer = (await O("GET", H("health/signatories?kind=pathologist"))).find((row) => Number(row.user_id) === managerId);
+    await assert.rejects(health.verifySignature(await access.load(ownerUser, clinic.id), "pathologist", { signatoryId: signer.id, pin: GIVEN }, "Approving the report"), notOwn);
+    const location = (await O("GET", G("locations"))).items[0];
+    const bag = await O("POST", G("catalog"), { name: "Cloth carry bag", code: "CBAG", kind: "service", unit: "service", price: "10", taxRate: "18" }, 201);
+    await refused("POST", G("documents"), { kind: "sale", requestKey: crypto.randomUUID(), locationId: location.id, channel: "counter", lines: [{ skuId: bag.id, quantity: "1" }],
+      payment: { method: "cash", amount: "full" }, counterPin: GIVEN }, 409, manager, "pin_not_own", /^Your PIN was set by someone else, so it cannot confirm a bill/);
+    assert.equal((await one("SELECT pin_failed_count FROM users WHERE id = $1", [managerId])).pin_failed_count, 0);
+
+    // Their own PIN takes the mark off every list.
+    await request("PUT", "/auth/me/pin", { password: ownPassword("anil@access.invalid"), pin: OWN, confirmPin: OWN }, 200, manager);
+    assert.deepEqual(await marks(), every(false));
   });
 });

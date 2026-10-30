@@ -630,9 +630,11 @@ const API_MAX = 500;
 // (today: still-waiting ones first, oldest first). `refreshKey` reloads the
 // page on show: today's list follows the inbox's 10-second refresh, history
 // reloads only after an action taken here (it does not change under the
-// reader).
+// reader). Without `guests` (QR ordering and the online ordering page off)
+// it holds the waiters' bill asks alone.
 function RequestGrid({
   mode,
+  guests,
   refreshKey,
   busy,
   cardErrors,
@@ -647,7 +649,9 @@ function RequestGrid({
   const history = mode === "history";
   const [fromParam, setFrom] = useQueryFilter("from");
   const [toParam, setTo] = useQueryFilter("to");
-  const [type, setType] = useQueryFilter("type");
+  const [typeParam, setType] = useQueryFilter("type");
+  // The kinds are the guests' orders and calls: without them, every row is a bill ask.
+  const type = guests ? typeParam : "";
   // The last seven days, until the reader picks a range. Today's own
   // requests are never in this list (the API keeps them to Waiting and
   // Today), so a range that reaches today, or a business day still open
@@ -901,9 +905,13 @@ function RequestGrid({
         icon={history ? "history" : "list"}
         title={history ? "Earlier days" : "Today's requests"}
         description={
-          history
-            ? "QR orders and calls by the business day they were sent on, newest first. One never answered can still be rejected or closed here; an order from an earlier day is never cooked."
-            : "Every QR order and call since the day opened: the ones still waiting first, then the newest."
+          !guests
+            ? history
+              ? "The bills your waiters asked for, by the business day they asked on, newest first. One never answered can still be closed here."
+              : "Every bill your waiters asked for since the day opened: the ones still waiting first, then the newest."
+            : history
+              ? "QR orders and calls by the business day they were sent on, newest first. One never answered can still be rejected or closed here; an order from an earlier day is never cooked."
+              : "Every QR order and call since the day opened: the ones still waiting first, then the newest."
         }
         className="tr-history"
         flush
@@ -930,7 +938,9 @@ function RequestGrid({
         emptyHint={
           history
             ? `No ${kindWords} from ${dayMonth(from)} to ${dayMonth(to)}.`
-            : "Orders and calls from guests' phones show here as they arrive."
+            : guests
+              ? "Orders and calls from guests' phones show here as they arrive."
+              : "The bills your waiters ask for show here as they arrive."
         }
         rowClassName={(request) =>
           OPEN.includes(request.status) && request.fromEarlierDay ? "dg-tone-danger" : ""
@@ -966,6 +976,7 @@ function RequestGrid({
                 }}
               />
             )}
+            {guests && (
             <label className="field">
               <span>Kind</span>
               <select
@@ -981,6 +992,7 @@ function RequestGrid({
                 <option value="service">Calls</option>
               </select>
             </label>
+            )}
           </>
         }
       />
@@ -1411,7 +1423,9 @@ export default function TableRequestsPage() {
 
   const emptyCalls = {
     message: "Nobody is waiting",
-    hint: "Calls for a waiter, the bill or water from guests' phones land here.",
+    hint: guestsOn
+      ? "Calls for a waiter, the bill or water from guests' phones land here."
+      : "The bills your waiters ask for from the captain app land here.",
   };
 
   return (
@@ -1460,8 +1474,11 @@ export default function TableRequestsPage() {
         }
       />
 
+      {/* Without QR ordering and the online ordering page no guest orders
+          come: their tiles and lane are left out, the waiters' bill asks stay. */}
       {summary && (
-        <div className="stat-grid tr-stats">
+        <div className={`stat-grid tr-stats ${guestsOn ? "" : "is-calls-only"}`}>
+          {guestsOn && (
           <StatTile
             icon="utensils"
             tone={
@@ -1475,6 +1492,7 @@ export default function TableRequestsPage() {
             label="Orders waiting"
             note={summary.pendingOrders > 0 ? `Oldest ${clock(oldestOrder)}` : "All answered"}
           />
+          )}
           <StatTile
             icon="bell"
             tone={
@@ -1488,6 +1506,7 @@ export default function TableRequestsPage() {
             label="Tables calling"
             note={summary.openCalls > 0 ? callBreakdown : `${count(summary.callsDoneToday)} answered today`}
           />
+          {guestsOn && (
           <StatTile
             icon="check-circle"
             tone="success"
@@ -1501,6 +1520,7 @@ export default function TableRequestsPage() {
                 : `of ${count(summary.ordersToday)} ordered today`
             }
           />
+          )}
           <StatTile
             icon="clock"
             tone="neutral"
@@ -1508,6 +1528,7 @@ export default function TableRequestsPage() {
             label="Average response"
             note="today, to first action"
           />
+          {guestsOn && (
           <StatTile
             icon="x-circle"
             tone={summary.rejectedToday > 0 ? "danger" : "neutral"}
@@ -1515,6 +1536,7 @@ export default function TableRequestsPage() {
             label="Rejected today"
             note={`of ${plural(summary.ordersToday, "guest order", "guest orders")} today`}
           />
+          )}
         </div>
       )}
 
@@ -1554,7 +1576,7 @@ export default function TableRequestsPage() {
           ))}
         </div>
 
-        {!inGrid && (
+        {!inGrid && guestsOn && (
         <div className="segmented tr-lanes" role="tablist" aria-label="Column">
           <button
             type="button"
@@ -1592,6 +1614,7 @@ export default function TableRequestsPage() {
         <RequestGrid
           key={activeView}
           mode={activeView}
+          guests={guestsOn}
           refreshKey={activeView === "today" ? `${version}:${lastLoaded}` : version}
           busy={busy}
           cardErrors={cardErrors}
@@ -1606,7 +1629,8 @@ export default function TableRequestsPage() {
       ) : loading ? (
         <Loading />
       ) : (
-        <div className={`tr-board show-${lane}`}>
+        <div className={`tr-board show-${lane} ${guestsOn ? "" : "is-calls-only"}`}>
+          {guestsOn && (
           <section className="tr-lane tr-lane-orders" aria-labelledby="tr-orders-title">
             <header className="tr-lane-head">
               <span className="tr-lane-icon is-orders">
@@ -1657,6 +1681,7 @@ export default function TableRequestsPage() {
               </div>
             )}
           </section>
+          )}
 
           <section className="tr-lane tr-lane-calls" aria-labelledby="tr-calls-title">
             <header className="tr-lane-head">

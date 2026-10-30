@@ -2,13 +2,15 @@ import { useEffect, useState } from "react";
 import useAuth from "../../../../hooks/useAuth";
 import { businessRead } from "../../../../services/business.service";
 import { useOpenBusiness } from "../../core/pages/hooks";
+import { meChoice, notOwnReason, optionText, pinNote } from "../../core/pages/approvers";
 import "../styles/salon.css";
 
 // A manager's say-so inside a form: the reason, who
 // approves and their PIN. Used for booking outside a stylist's hours
 // (appointments.approve; a manager approving their own booking gives only
 // the reason) and for handing back an advance (sales.refund; always a PIN,
-// the person's own when they are the manager).
+// the person's own when they are the manager). Someone whose PIN another
+// person set is listed but cannot be picked (core/pages/approvers.js).
 //   value: { reason, approverId, pin }    onChange(next)
 //   selfWithoutPin: the person holding the permission needs no PIN.
 // approval.js: emptyApproval() and approvalFor(value, userId), the API body.
@@ -24,9 +26,12 @@ export default function ManagerApproval({ permission, value, onChange, selfWitho
     return () => controller.abort();
   }, [biz.id, permission]);
   const set = (name) => (e) => onChange({ ...value, [name]: e.target.value });
-  const chosen = value.approverId || (self ? String(user?.id || "") : "");
+  const myself = meChoice(people, user, !selfWithoutPin);
+  const others = (people || []).filter((p) => String(p.id) !== String(user?.id));
+  const chosen = value.approverId || (self && myself.ready ? String(user?.id || "") : "");
   const isMe = self && chosen === String(user?.id || "");
   const needsPin = !(isMe && selfWithoutPin);
+  const why = notOwnReason(others, { me: self && !myself.ready });
   return (
     <fieldset className="field-wide sw-approval">
       {title && <legend>{title}</legend>}
@@ -38,10 +43,10 @@ export default function ManagerApproval({ permission, value, onChange, selfWitho
       <label className="field">
         <span>Approved by</span>
         <select required value={chosen} onChange={(e) => onChange({ ...value, approverId: e.target.value, pin: "" })}>
-          {!self && <option value="">Choose the manager…</option>}
-          {self && <option value={String(user?.id || "")}>Me ({user?.name || "you"})</option>}
-          {(people || []).filter((p) => String(p.id) !== String(user?.id)).map((p) => (
-            <option key={p.id} value={p.id} disabled={!p.has_pin}>{p.name}{p.has_pin ? "" : " (no PIN set)"}</option>
+          {!(self && myself.ready) && <option value="">Choose the manager…</option>}
+          {self && <option value={String(user?.id || "")} disabled={!myself.ready}>{myself.text}</option>}
+          {others.map((p) => (
+            <option key={p.id} value={p.id} disabled={Boolean(pinNote(p))}>{optionText(p)}</option>
           ))}
         </select>
       </label>
@@ -52,6 +57,7 @@ export default function ManagerApproval({ permission, value, onChange, selfWitho
             value={value.pin} onChange={set("pin")} />
         </label>
       )}
+      {why && <p className="field-wide small muted">{why}</p>}
     </fieldset>
   );
 }

@@ -46,11 +46,13 @@ const SELLERS = `FROM business_memberships m
   WHERE m.business_id=$1 AND m.active
     AND (r.full_access OR EXISTS (SELECT 1 FROM business_role_permissions p WHERE p.business_id=r.business_id AND p.role_id=r.id AND p.permission_code='sales.create'))`;
 
+// pinGiven: someone else set the PIN. It still switches the till to its
+// person, but confirms no bill, so the till's bill PIN does not offer it.
 async function staff(business, user) {
   await access.require(business, 'sales.create');
-  const rows = await repo.all(repo.pool, `SELECT u.id,u.name,r.name AS role_name,(u.pin_hash IS NOT NULL) AS has_pin,
+  const rows = await repo.all(repo.pool, `SELECT u.id,u.name,r.name AS role_name,(u.pin_hash IS NOT NULL) AS has_pin,u.pin_must_change AS pin_given,
       COALESCE(u.pin_locked_until > now(),false) AS locked ${SELLERS} ORDER BY u.name`, [business.id]);
-  return { current: Number(user.id), people: rows.map((r) => ({ id: Number(r.id), name: r.name, roleName: r.role_name, hasPin: r.has_pin, locked: r.locked })) };
+  return { current: Number(user.id), people: rows.map((r) => ({ id: Number(r.id), name: r.name, roleName: r.role_name, hasPin: r.has_pin, pinGiven: r.pin_given, locked: r.locked })) };
 }
 
 // The till carries on as another member: their PIN, every lock rule. Returns

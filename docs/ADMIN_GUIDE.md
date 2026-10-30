@@ -191,9 +191,13 @@ till, takes a till over for you and switches a shop's till to you, and then
 twice, and **Save and continue**. Nothing else opens until you do, and the new
 PIN cannot be the one you were given; **Not you? Sign out** leaves the till.
 Until you choose your own it approves nothing as you: a manager's approval, a
-signature or a counter bill's PIN with it is refused with the reason. *My
-profile › Personal PIN* says *Set by someone else* and replaces it the same
-way ([BUSINESS_RULES.md › A PIN someone else set is replaced at its first use](BUSINESS_RULES.md#a-pin-someone-else-set-is-replaced-at-its-first-use)).
+signature or a counter bill's PIN with it is refused with the reason, and
+every prompt that lists who may approve or sign shows you greyed, with *PIN
+not their own yet* and why, so you cannot be picked: the restaurant's
+*Manager approval*, a shop's *Approved by*, a credit hold's *Manager*, a
+pharmacist's or pathologist's sign-off and Quick bill's *Your PIN for this
+bill*. *My profile › Personal PIN* says *Set by someone else* and replaces it
+the same way ([BUSINESS_RULES.md › A PIN someone else set is replaced at its first use](BUSINESS_RULES.md#a-pin-someone-else-set-is-replaced-at-its-first-use)).
 
 **Your profile** (from your name): change your name and mobile, your PIN
 (password needed), your password (which signs you out everywhere else), turn
@@ -208,7 +212,8 @@ their name and types their PIN. The approval covers only what is shown
 minutes. If the action then fails for another reason, the approval is used
 up and the manager must approve again. The activity log names both people. A
 manager whose PIN someone else set is shown with *PIN not their own yet* and
-cannot be chosen until they choose their own.
+cannot be chosen until they choose their own; a business's own prompts show
+them the same way, with the reason under the list.
 
 ## The first platform login and the platform screens
 
@@ -413,7 +418,9 @@ allows.
    (*Clinic & lab settings*): the lab's name and registration, and the
    **doctors** and the **pathologist** with their registration numbers; a
    doctor's appointment calendar makes its tokens their own queue in the
-   clinic workspace.
+   clinic workspace. The list's *PIN* says whether each has a PIN of their
+   own: one someone else set is *PIN not their own yet* and signs nothing
+   until they choose their own.
 8. **Products.** Add each item with its price, GST slab, HSN code and MRP
    ([Products, prices and opening stock](#products-prices-and-opening-stock)),
    or import the catalogue from an Excel or CSV file
@@ -743,8 +750,11 @@ beside it.
 **Live service** has one card per area — Pre-orders (when that feature is
 on), Floor, Kitchen, Reservations today, Table requests, Deliveries, Staff on
 duty, Stock, Guests (with birthdays) — each shown only to roles that can open
-that screen. Floor, kitchen, reservations, requests and deliveries follow the
-selected outlet; staff, stock and guests always cover the whole restaurant,
+that screen; Table requests is every restaurant's card, and without QR
+ordering and the online ordering page it counts the bills the waiters ask
+for, with no QR orders in it. Floor, kitchen, reservations, requests and
+deliveries follow the selected outlet; staff, stock and guests always cover
+the whole restaurant,
 and so do pre-orders, except for staff tied to an outlet, who see that
 outlet's. Pre-orders are read when the page opens; the other cards arrive in
 one request, and a card that fails keeps its last figures while the others
@@ -893,7 +903,10 @@ that turns amber and then red. A request appears within a second or two
 (**Live** in the header), with a chime when the sound is on, and on the POS's
 badges and the alerts bell. Switching QR ordering off takes the guests'
 requests out of it; a captain's ask counted on a guest's bill request still
-open then puts the captain's name on it, so it shows.
+open then puts the captain's name on it, so it shows. With QR ordering and
+the online ordering page both off, the screen is about those asks alone: the
+*Tables calling* and *Average response* figures and the calls, with no
+guests' order figures, *Orders* lane or *Kind* filter.
 
 Its **QR ordering** window (the settings button, while QR ordering or the
 online ordering page is on) switches *Guests can order
@@ -3299,7 +3312,8 @@ reload, the PIN is asked as usual.
 PINs are each person's own (My profile, or set by an admin under Users); five
 wrong tries lock a PIN. A PIN an admin set switches the till to its person,
 who then chooses their own before billing (it gives the next bill no free
-pass and confirms no bill until then).
+pass and confirms no bill until then: *Your PIN for this bill* shows them
+*PIN not your own yet*, with the reason, and asks no PIN of them).
 
 **The till.** Only locations that sell at the counter are offered as the till
 (Settings › Locations › *Sells at the counter*). The till is remembered on the

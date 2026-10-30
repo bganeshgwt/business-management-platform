@@ -4,6 +4,7 @@ import { businessRead, businessWrite } from "../../../../services/business.servi
 import FormDialog from "../../core/pages/FormDialog";
 import { Field } from "../../core/pages/ui";
 import { newKey, useOpenBusiness } from "../../core/pages/hooks";
+import { notOwnReason, optionText, pinNote } from "../../core/pages/approvers";
 import "../styles/agri.css";
 
 // A manager's override at the counter, given before the bill with the
@@ -45,11 +46,11 @@ export default function AgriOverrideDialog({ kind, locationId, contactId, skuIds
   return (
     <FormDialog title={words.title} icon="shield" width={560} submitLabel="Allow it for this bill" onClose={onClose} onSaved={onSaved} onSubmit={submit}
       description={`${items?.length ? `${items.join(", ")}, ` : ""}${words.lead}. A manager allows it for this one bill, at this till, today.`}>
-      <Field label="Allowed by">
+      <Field label="Allowed by" hint={notOwnReason(others) || undefined}>
         <select required value={form.approverId} onChange={(e) => setForm((f) => ({ ...f, approverId: e.target.value, pin: "" }))}>
           {!self && <option value="">Choose the manager…</option>}
           {self && <option value={me}>Me ({user?.name || "you"})</option>}
-          {others.map((p) => <option key={p.id} value={p.id} disabled={!p.has_pin}>{p.name}{p.has_pin ? "" : " (no PIN set)"}</option>)}
+          {others.map((p) => <option key={p.id} value={p.id} disabled={Boolean(pinNote(p))}>{optionText(p)}</option>)}
         </select>
       </Field>
       <Field label={isMe ? "Your PIN (optional for your own bill)" : "Their PIN"}>

@@ -114,8 +114,6 @@ Known gaps, not defects. The owner decides when each is built.
 | **Meat / weight shops** | A live scale (§2). | The scale and its protocol (§2). |
 | **Pharmacy** | An NDPS licence holder's own narcotic forms. Narcotic sales go into the Schedule X register. | The NDPS licence details. |
 | **Clinic & lab** | The prescription is checked against the clinic's own drug list only (a known allergy, the same medicine or allergy group twice, a day's dose over the most): no licensed drug database is behind it, so nothing checks two different medicines against each other (interactions), a medicine against the patient's conditions, or a child's dose by weight, and a line written by hand is checked by its name only. | The owner's choice of a licensed drug database and a doctor's review of the checks it should make; then code. |
-| **Every business type** | A business's own PIN prompts (a manager's approval of a refund or an override, a credit hold's release, a pharmacist's, doctor's or pathologist's signature) still offer a person whose PIN someone else set, as having a PIN: the PIN is refused with the reason when it is typed, where the restaurant's approval prompt shows them as not ready. | Code only. |
-| **Restaurant** | Without QR ordering and the online ordering page, a waiter's bill ask is on *Table requests*, the POS's badges and the bell, but the dashboard shows no Table requests block. | Code only. |
 
 ## 8. Needed in the code before go-live
 

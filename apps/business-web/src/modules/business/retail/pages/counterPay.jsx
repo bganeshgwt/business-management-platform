@@ -10,6 +10,7 @@ import { deviceTokens } from "../../../../services/auth.service";
 import { keepBillProof } from "../../../../services/billProof";
 import { Field } from "../../core/pages/ui";
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
+import { NOT_YOURS } from "../../core/pages/approvers";
 import { newPart, PART_KINDS, partsSummary, round2 } from "./counterPayState";
 import "../styles/counter-pay.css";
 
@@ -124,6 +125,10 @@ export function BillerButton({ biz, onSwitch }) {
   );
 }
 
+// A PIN someone else set switches the till to its person but confirms no
+// bill: "confirm" does not offer it for the person billing, and says why.
+const NOT_YOURS_WHY = "Your PIN was set by someone else: it confirms no bill until you choose your own under My profile.";
+
 // mode "switch": pick a person and type their PIN (the till carries on as
 // them). mode "confirm": the PIN of the person billing, for this bill. With
 // the PIN asked for every bill, the PIN typed to switch counts for the next
@@ -143,7 +148,8 @@ export function BillerDialog({ biz, mode, onClose, onSwitched, onConfirm, error:
       .catch((err) => { if (!controller.signal.aborted) setError(getErrorMessage(err)); });
     return () => controller.abort();
   }, [biz.id]);
-  const person = people?.find((p) => p.id === who) || (who === Number(user.id) ? { id: Number(user.id), name: user.name, hasPin: user.hasPin } : null);
+  const person = people?.find((p) => p.id === who) || (who === Number(user.id) ? { id: Number(user.id), name: user.name, hasPin: user.hasPin, pinGiven: user.pinGiven } : null);
+  const notOwn = (p) => mode === "confirm" && p.id === Number(user.id) && Boolean(p.pinGiven);
 
   async function submit(event) {
     event?.preventDefault();
@@ -176,22 +182,23 @@ export function BillerDialog({ biz, mode, onClose, onSwitched, onConfirm, error:
           <div className="rt-biller-people" role="group" aria-label="People who bill here">
             {people.map((p) => (
               <button key={p.id} type="button" className={`rt-biller-person ${who === p.id ? "is-active" : ""}`} aria-pressed={who === p.id}
-                disabled={!p.hasPin || p.locked || busy} onClick={() => { setWho(p.id); setPin(""); setError(""); }}
-                title={!p.hasPin ? "No PIN yet: set one under My profile" : p.locked ? "PIN locked after wrong tries" : p.roleName}>
+                disabled={!p.hasPin || p.locked || notOwn(p) || busy} onClick={() => { setWho(p.id); setPin(""); setError(""); }}
+                title={!p.hasPin ? "No PIN yet: set one under My profile" : p.locked ? "PIN locked after wrong tries" : notOwn(p) ? NOT_YOURS_WHY : p.roleName}>
                 <strong>{p.name}{p.id === Number(user.id) ? " (now)" : ""}</strong>
-                <small className="muted">{!p.hasPin ? "No PIN yet" : p.locked ? "PIN locked" : p.roleName}</small>
+                <small className="muted">{!p.hasPin ? "No PIN yet" : p.locked ? "PIN locked" : notOwn(p) ? NOT_YOURS : p.roleName}</small>
               </button>
             ))}
           </div>
         )}
         {person && !person.hasPin && <p className="small rt-warn">{person.name} has no PIN yet. Set one under My profile, or an admin sets it under Users.</p>}
-        {person && person.hasPin !== false && (
+        {person && person.hasPin && notOwn(person) && <p className="small rt-warn">{NOT_YOURS_WHY}</p>}
+        {person && person.hasPin !== false && !notOwn(person) && (
           <PinPad key={person.id} value={pin} onChange={setPin} onSubmit={submit} disabled={busy} shakeKey={refusals} label={`${person.name}'s PIN`} />
         )}
         <ErrorMessage message={error} />
         <div className="form-actions">
           <button type="button" className="button button-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" className="button" disabled={busy || !person || person.hasPin === false}>
+          <button type="submit" className="button" disabled={busy || !person || person.hasPin === false || notOwn(person)}>
             {busy ? "Checking…" : mode === "confirm" && person?.id === Number(user.id) ? "Take the payment" : person && person.id !== Number(user.id) ? `Continue as ${person.name.split(" ")[0]}` : "Done"}
           </button>
         </div>

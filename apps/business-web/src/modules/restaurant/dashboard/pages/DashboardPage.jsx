@@ -83,13 +83,15 @@ const OUTLET_LIVE = ["kitchen", "reservations", "requests", "deliveries", "stock
 // Each live block: its key, the permission it needs, and (third) restaurant
 // features of which one must be on (Settings -> Features). A feature's own
 // permissions (kds.view, inventory.view, ...) also follow its switch, through
-// hasPermission below.
+// hasPermission below. Table requests are every restaurant's (its waiters'
+// bill asks); the guests' orders and calls come with QR ordering or the
+// online ordering page.
 const LIVE_BLOCKS = [
   ["alerts", null],
   ["tables", "tables.view"],
   ["kitchen", "kds.view"],
   ["reservations", "reservations.view"],
-  ["requests", "orders.view", ["qr_ordering", "online_ordering"]],
+  ["requests", "orders.view"],
   ["deliveries", "orders.view", ["deliveries"]],
   ["staff", "staff.clock"],
   ["stock", "inventory.view"],
@@ -140,6 +142,9 @@ export default function DashboardPage() {
     [holds, hasFeature]
   );
   const [now, setNow] = useState(() => Date.now());
+  // The guests' orders and calls reach Table requests only with QR ordering or
+  // the online ordering page on; its block and panel show them only then.
+  const guestRequests = hasFeature("qr_ordering") || hasFeature("online_ordering");
   // Whose and which outlet's figures these are: part of every key, so after a
   // switch of person or outlet nothing read for the last one is shown.
   const scope = sessionScope();
@@ -256,8 +261,9 @@ export default function DashboardPage() {
       canSeeSales: salesOk,
       salesPeriod: data.businessDate === calendar ? "today" : shortDate(data.businessDate),
       wholeRestaurant: Boolean(data.outletName),
+      guestRequests,
     };
-  }, [data, feedData, liveSources, hasPermission, currency, now]);
+  }, [data, feedData, liveSources, hasPermission, currency, now, guestRequests]);
 
   // Keeps the "updated ..." line honest between reloads.
   useEffect(() => {
@@ -741,7 +747,7 @@ export default function DashboardPage() {
               {liveSources.kitchen && <KitchenBlock entry={feed.kitchen} />}
               {liveSources.reservations && <ReservationsBlock entry={feed.reservations} />}
               {liveSources.requests && (
-                <RequestsBlock entry={feed.requests} canSeeSales={canSeeSales} currency={currency} />
+                <RequestsBlock entry={feed.requests} guests={guestRequests} canSeeSales={canSeeSales} currency={currency} />
               )}
               {liveSources.deliveries && (
                 <DeliveriesBlock entry={feed.deliveries} canSeeSales={canSeeSales} currency={currency} />

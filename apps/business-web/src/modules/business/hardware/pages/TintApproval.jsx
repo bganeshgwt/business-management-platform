@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import useAuth from "../../../../hooks/useAuth";
 import { businessRead } from "../../../../services/business.service";
 import { useOpenBusiness } from "../../core/pages/hooks";
+import { meChoice, notOwnReason, optionText, pinNote } from "../../core/pages/approvers";
 import "../styles/hardware.css";
 
 // A manager's say-so inside a paint shop's form: who approves (someone whose
@@ -25,20 +26,22 @@ export default function TintApproval({ permission = "sales.refund", title, value
     return () => controller.abort();
   }, [biz.id]);
   const me = String(user?.id || "");
-  const chosen = value.approverId || (self ? me : "");
+  const myself = meChoice(people, user);
+  const chosen = value.approverId || (self && myself.ready ? me : "");
   const isMe = self && chosen === me;
   const mine = (people || []).find((p) => String(p.id) === me);
   const others = (people || []).filter((p) => String(p.id) !== me);
+  const why = notOwnReason(others, { me: self && !myself.ready });
   return (
     <fieldset className="field-wide hw-approval">
       {title && <legend>{title}</legend>}
       <label className="field">
         <span>Approved by</span>
         <select required value={chosen} onChange={(e) => onChange({ ...value, approverId: e.target.value, pin: "" })}>
-          {!self && <option value="">Choose the manager…</option>}
-          {self && <option value={me}>Me ({user?.name || "you"}){mine && !mine.has_pin ? " (no PIN set)" : ""}</option>}
+          {!(self && myself.ready) && <option value="">Choose the manager…</option>}
+          {self && <option value={me} disabled={!myself.ready}>{myself.text}{mine && !mine.has_pin ? " (no PIN set)" : ""}</option>}
           {others.map((p) => (
-            <option key={p.id} value={p.id} disabled={!p.has_pin}>{p.name}{p.has_pin ? "" : " (no PIN set)"}</option>
+            <option key={p.id} value={p.id} disabled={Boolean(pinNote(p))}>{optionText(p)}</option>
           ))}
         </select>
       </label>
@@ -47,6 +50,7 @@ export default function TintApproval({ permission = "sales.refund", title, value
         <input type="password" inputMode="numeric" autoComplete="off" required minLength={4} maxLength={8} pattern="\d{4,8}" title="4 to 8 digits"
           value={value.pin} onChange={(e) => onChange({ ...value, pin: e.target.value })} />
       </label>
+      {why && <p className="field-wide small muted">{why}</p>}
       {people && !self && !others.some((p) => p.has_pin) && <p className="small muted">No one who may take goods back has set a PIN yet.</p>}
     </fieldset>
   );

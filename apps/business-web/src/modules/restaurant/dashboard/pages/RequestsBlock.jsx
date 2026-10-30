@@ -3,24 +3,28 @@ import { plural } from "../../reports/pages/reportFormat";
 import LiveBlock, { Facts, Figures } from "./LiveBlock";
 import { minutesFrom, secondsText, waitText } from "./liveFormat";
 
-// Guests asking from their table (orders.view): QR orders waiting to be
-// accepted, calls for a waiter, the bill or water, and how fast they are
-// answered. The money the accepted orders brought in is shown only to people
+// What the tables are asking for (orders.view), and how fast it is answered:
+// the bills the waiters ask for from the captain app, in every restaurant;
+// with QR ordering or the online ordering page on (`guests`), the guests' calls
+// for a waiter, the bill or water too, and their orders waiting to be
+// accepted. The money the accepted orders brought in is shown only to people
 // who may see takings.
-export default function RequestsBlock({ entry, canSeeSales, currency }) {
+export default function RequestsBlock({ entry, guests, canSeeSales, currency }) {
   return (
     <LiveBlock
-      icon="qr"
+      icon={guests ? "qr" : "bell"}
       tone="warning"
       title="Table requests"
       to="/table-requests"
-      panel={entry && entry.data && entry.data.pendingOrders === 0 && entry.data.openCalls > 0 ? "requests.calls" : "requests.orders"}
+      panel={!guests || (entry && entry.data && entry.data.pendingOrders === 0 && entry.data.openCalls > 0) ? "requests.calls" : "requests.orders"}
       openLabel="Open table requests"
       entry={entry}
       summary={(requests) =>
         requests.pendingOrders + requests.openCalls === 0
           ? "All answered"
-          : `${plural(requests.pendingOrders, "order", "orders")} and ${plural(requests.openCalls, "call", "calls")} open`
+          : guests
+            ? `${plural(requests.pendingOrders, "order", "orders")} and ${plural(requests.openCalls, "call", "calls")} open`
+            : `${plural(requests.openCalls, "call", "calls")} open`
       }
       alert={(requests) =>
         requests.pendingOrders + requests.unansweredCalls > 0
@@ -32,7 +36,7 @@ export default function RequestsBlock({ entry, canSeeSales, currency }) {
         <>
           <Figures
             items={[
-              {
+              guests && {
                 label: "QR orders",
                 title: "QR orders waiting to be accepted",
                 value: count(requests.pendingOrders),
@@ -68,7 +72,7 @@ export default function RequestsBlock({ entry, canSeeSales, currency }) {
                   value: waitText(minutesFrom(requests.oldestCallAt, requests.serverTime)),
                   tone: "warning",
                 },
-              {
+              guests && {
                 icon: "receipt",
                 label: "QR orders accepted today",
                 value: canSeeSales

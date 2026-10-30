@@ -37,7 +37,8 @@ const LogbookPanel = part("LogbookPanel");
 //   rule           one line saying exactly what is counted
 //   href           the full screen, for "Open full page" (and for Ctrl-click
 //                  on the thing that opened the panel)
-//   views          [{ key, label }] — a row of choices under the heading
+//   views          [{ key, label }] — a row of choices under the heading; a
+//                  view with when(ctx) is offered only while that holds
 //   Content        the body: ({ ctx, view }) => …
 //
 // ctx: the dashboard's figures (data), its live blocks (live.kitchen …),
@@ -174,7 +175,8 @@ const PANELS = {
   requests: {
     allowed: (ctx) => ctx.hasPermission("orders.view") && Boolean(ctx.liveSources.requests),
     views: [
-      { key: "orders", label: "QR orders", title: "QR orders to accept", rule: () => "Orders guests sent from a table's QR code today, waiting to be accepted." },
+      // The guests' orders reach Table requests only with QR ordering or the online ordering page on.
+      { key: "orders", label: "QR orders", title: "QR orders to accept", when: (ctx) => ctx.guestRequests, rule: () => "Orders guests sent from a table's QR code today, waiting to be accepted." },
       { key: "unanswered", label: "Unanswered calls", title: "Table calls unanswered", rule: () => "Calls for a waiter, the bill or water that nobody has answered yet." },
       { key: "calls", label: "All open calls", title: "Table calls open", rule: () => "Calls not yet closed — waiting, or answered and still being looked after." },
     ],
@@ -351,14 +353,15 @@ export const resolvePanel = (key, ctx) => {
     return null;
   }
 
-  const view = panel.views ? panel.views.find((one) => one.key === rawView) || panel.views[0] : null;
+  const views = panel.views ? panel.views.filter((one) => !one.when || one.when(ctx)) : null;
+  const view = views ? views.find((one) => one.key === rawView) || views[0] : null;
   const pick = (value) => (typeof value === "function" ? value(ctx, view ? view.key : null) : value);
 
   return {
     name,
     key: view ? `${name}.${view.key}` : name,
     view: view ? view.key : null,
-    views: panel.views || null,
+    views,
     title: view ? view.title : pick(panel.title),
     rule: view ? pick(view.rule) : pick(panel.rule),
     icon: panel.icon,

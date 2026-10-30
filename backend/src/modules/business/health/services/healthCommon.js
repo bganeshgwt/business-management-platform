@@ -143,7 +143,8 @@ async function saveSettings(business, user, body) {
 
 // --- People who sign --------------------------------------------------------------------------
 
-const signatoryList = (db, businessId) => repo.all(db, `SELECT g.*,u.name AS user_name,(u.pin_hash IS NOT NULL) AS has_pin,r.name AS resource_name
+// pin_given: someone else set the person's PIN, which signs nothing until they choose their own.
+const signatoryList = (db, businessId) => repo.all(db, `SELECT g.*,u.name AS user_name,(u.pin_hash IS NOT NULL) AS has_pin,u.pin_must_change AS pin_given,r.name AS resource_name
   FROM health_signatories g JOIN users u ON u.id=g.user_id LEFT JOIN business_resources r ON r.business_id=g.business_id AND r.id=g.resource_id
   WHERE g.business_id=$1 ORDER BY g.active DESC,g.kind,g.name`, [businessId]);
 

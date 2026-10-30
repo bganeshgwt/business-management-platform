@@ -33,7 +33,10 @@ const BLOCKS = {
   // report does (a closed outlet's history can be read).
   kitchen: { perm: "kds.view", feature: ["kitchen_display"], chain: [reportOutlet, reportController.kitchenLive] },
   reservations: { perm: "reservations.view", feature: ["reservations"], chain: [resolveOutlet, reservationController.board] },
-  requests: { perm: "orders.view", feature: ["qr_ordering", "online_ordering"], chain: [resolveOutlet, tableRequestController.summary] },
+  // Every restaurant's: its waiters ask for bills from the captain app. The
+  // guests' orders and calls are in it only while QR ordering or the online
+  // ordering page is on (the inbox's own summary).
+  requests: { perm: "orders.view", chain: [resolveOutlet, tableRequestController.summary] },
   deliveries: { perm: "orders.view", feature: ["deliveries"], chain: [resolveOutlet, deliveryController.summary] },
   staff: { perm: "staff.clock", feature: ["staff_payroll"], chain: [timeclockController.board] },
   stock: { perm: "inventory.view", feature: ["stock_recipes"], chain: [resolveOutlet, inventoryInsightController.summary] },
@@ -176,7 +179,7 @@ const can = (req, permission) => (req.user.permissions || []).includes(permissio
 // A block of a restaurant feature switched off (Settings -> Features) is not
 // read at all, like a block the person may not read: its key is simply not in
 // the answer, so its cards and panels stay away. `feature` is a list of which
-// any one will do (the request inbox serves QR codes and the online page).
+// any one will do.
 const featureOn = (req, block) => !block.feature || block.feature.some((code) => (req.user.features || []).includes(code));
 
 const readLive = async (req, keys) => {

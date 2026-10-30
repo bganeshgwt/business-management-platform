@@ -173,15 +173,17 @@ function Timetable({ onChanged }) {
   const [dialog, setDialog] = useState(null);
   const [version, setVersion] = useState(0);
   const canEdit = biz.can("member_plans.edit");
+  // The trainers come from the appointment calendar's people, read only where it is on and may be seen.
+  const seesTrainers = biz.has("appointments") && biz.can("appointments.view");
   useEffect(() => {
     const controller = new AbortController();
     Promise.all([businessRead(biz.id, "member-plans/rooms", undefined, controller.signal), businessRead(biz.id, "member-plans/class-slots", undefined, controller.signal)])
       .then(([r, s]) => { setRooms(r); setSlots(s); }).catch((err) => toast.error(getErrorMessage(err)));
-    if (biz.has("appointments") && biz.can("appointments.view")) {
+    if (seesTrainers) {
       businessRead(biz.id, "resources", { limit: 100 }, controller.signal).then((page) => setTrainers(page.items || [])).catch(() => setTrainers([]));
     }
     return () => controller.abort();
-  }, [biz.id, version]);
+  }, [biz.id, version, seesTrainers]);
   const saved = (message) => { setDialog(null); toast.success(message); setVersion((n) => n + 1); onChanged(); };
   if (!rooms || !slots) return <Loading />;
   return (

@@ -10,18 +10,22 @@ import { account, ACCESS_RULES, business, fixture, localDate, signIn } from "../
 //     role with "Move pre-orders to In production and Ready" ticked and tied to
 //     no outlet, picks whose bake list to read and moves a pre-order along;
 //   - Table requests is on every restaurant's menu: with QR ordering and the
-//     online ordering page off, it opens for the bills the waiters ask for,
-//     and the captain app's Ask the counter for the bill reaches it and the
-//     POS's badges;
+//     online ordering page off, it opens for the bills the waiters ask for
+//     (no guests' order tiles or lane), and the captain app's Ask the counter
+//     for the bill reaches it, the POS's badges and the dashboard's Table
+//     requests block;
 //   - a department head's Staff & access lists their department's people
-//     alone, and offers no Password for a login also used elsewhere.
+//     alone, and offers no Password for a login also used elsewhere;
+//   - a business's own PIN prompt (the tent house's manager agreeing to waive
+//     a cancellation charge) shows someone whose PIN another person set as
+//     not ready, with the reason, as the restaurant's approval prompt does.
 //
 // Signs in as the test restaurant's admin, its baker and captain, and the
 // clothes shop's Menswear head (e2e/test-data.mjs, ACCESS_RULES). What a test
-// changes it puts back: the restaurant's switches, the baker's PIN, the
-// pre-order (cancelled), the captain's order (cancelled) and its request
-// (closed). Screenshots for the visual review go to each test's own folder
-// under test-results.
+// changes it puts back: the restaurant's switches, the baker's PIN and their
+// access to the tent house, the pre-order (cancelled), the captain's order
+// (cancelled) and its request (closed). Screenshots for the visual review go
+// to each test's own folder under test-results.
 
 // Script errors, and API requests the server failed on.
 function watch(page) {
@@ -202,10 +206,32 @@ test("Table requests is on the menu without QR ordering, and the captain's bill 
     // At the counter, by itself: on Table requests as the captain's, and on the POS's badges.
     const call = page.locator("article.tr-call").filter({ hasText: `Table ${g1.tableNo} · Wants the bill` });
     await expect(call).toContainText("Asked by Suresh Nair from the captain app", { timeout: 30_000 });
+    // No guests' orders can come: their tiles and lane are left out, the calls stay.
+    await expect(page.locator(".tr-stats .stat-tile-label")).toHaveText(["Tables calling", "Average response"]);
+    await expect(page.locator(".tr-lane-orders")).toHaveCount(0);
+    await expect(page.getByRole("heading", { level: 2, name: "Calls from tables", exact: true })).toBeVisible();
     await settled(page);
     await page.screenshot({ path: testInfo.outputPath("table-requests-without-qr.png"), fullPage: true });
     await page.goto("/pos");
     await expect(page.locator(".pos-badge-call")).toContainText(/\d+ tables? calling/, { timeout: 30_000 });
+
+    // The dashboard's Table requests block counts the waiters' asks, with nothing of QR orders.
+    await page.goto("/");
+    const block = page.locator(".dash-block").filter({ has: page.getByRole("heading", { level: 2, name: "Table requests", exact: true }) });
+    await expect(block).toContainText(/\d+ calls? open/, { timeout: 30_000 });
+    await expect(block.locator(".stat-tile-label")).toHaveText(["Calls open", "Answer time"]);
+    await expect(block).not.toContainText("QR order");
+    await block.scrollIntoViewIfNeeded();
+    await settled(page);
+    await block.screenshot({ path: testInfo.outputPath("dashboard-requests-without-qr.png") });
+    // Its panel opens on the calls, the captain's among them, with no QR orders to choose.
+    await block.getByRole("link", { name: "Open table requests" }).click();
+    const panel = page.locator(".side-panel");
+    await expect(panel.locator(".side-panel-title")).toContainText("Table calls open");
+    await expect(panel.getByRole("radio")).toHaveText(["Unanswered calls", "All open calls"]);
+    await expect(panel).toContainText(`Table ${g1.tableNo}`, { timeout: 30_000 });
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
     expect(problems).toEqual([]);
     expect(phoneProblems).toEqual([]);
   } finally {
@@ -247,4 +273,51 @@ test("a department head's Staff & access lists their department's people alone, 
   await expect(row("@fashion.e2e.invalid")).toHaveCount(1, { timeout: 30_000 });
   expect(await noSideScroll(page)).toBe(true);
   expect(problems).toEqual([]);
+});
+
+test("a business's own PIN prompt shows someone whose PIN another person set as not ready, with the reason", async ({ page }, testInfo) => {
+  test.setTimeout(180_000);
+  const problems = watch(page);
+  await signIn(page);
+  const owner = (method, path, body, expected) => api(page, method, path, body, expected);
+  const shop = business("rentals");
+  const baker = account("BAKER");
+  const bakerRow = (await owner("GET", "/users")).find((row) => row.email === baker.email);
+  const managerRole = (await owner("GET", `/businesses/${shop.id}/roles?limit=100`)).items.find((role) => role.template_code === "manager");
+  const me = await owner("GET", "/auth/me");
+  const given = freshPin();
+  try {
+    // The baker also manages the tent house, and the admin sets their PIN, as Users › ⋯ sets one.
+    await owner("POST", `/businesses/${shop.id}/members`, { userId: bakerRow.id, roleId: managerRole.id }, 201);
+    expect((await owner("PUT", `/users/${bakerRow.id}/pin`, { pin: given, confirmPin: given })).pinGiven).toBe(true);
+
+    // A reserved booking's cancellation charge waived: a manager agrees to it.
+    await page.goto(`/business-admin/${shop.id}/rental-bookings/${shop.cancelling.id}`);
+    await expect(page.getByRole("heading", { level: 1, name: `Booking ${shop.cancelling.bookingNo}` })).toBeVisible({ timeout: 30_000 });
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: `Cancel ${shop.cancelling.bookingNo}` });
+    await dialog.getByRole("checkbox", { name: /Waive the charge/ }).check();
+    const approver = dialog.getByLabel("Approved by");
+    // The baker is listed, greyed and not to be picked, with the reason under the list; the others as before.
+    // (An option's own state: toBeDisabled would read the select its label names.)
+    const bakerOption = approver.locator("option", { hasText: baker.name });
+    await expect(bakerOption).toHaveText(`${baker.name} (PIN not their own yet)`, { timeout: 15_000 });
+    await expect(bakerOption).toHaveJSProperty("disabled", true);
+    await expect(dialog.getByText(`${baker.name}'s PIN was set by someone else: it approves nothing until they choose their own under My profile.`, { exact: true })).toBeVisible();
+    const managerOption = approver.locator("option", { hasText: shop.manager.name });
+    await expect(managerOption).toHaveText(shop.manager.name);
+    await expect(managerOption).toHaveJSProperty("disabled", false);
+    await expect(approver).toHaveValue(String(me.id));
+    await settled(page);
+    await page.screenshot({ path: testInfo.outputPath("pin-not-their-own-yet.png"), fullPage: true });
+    // Nothing is cancelled: the booking stays for the tent house's own tests.
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.getByRole("dialog", { name: "Discard your changes?" }).getByRole("button", { name: "Discard changes", exact: true }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    expect(await noSideScroll(page)).toBe(true);
+    expect(problems).toEqual([]);
+  } finally {
+    await owner("DELETE", `/users/${bakerRow.id}/pin`);
+    await owner("POST", `/businesses/${shop.id}/members`, { userId: bakerRow.id, roleId: managerRole.id, active: false }, 201);
+  }
 });

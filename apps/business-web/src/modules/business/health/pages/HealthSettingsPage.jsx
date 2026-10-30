@@ -10,6 +10,7 @@ import { toast } from "../../../../services/toast";
 import FormDialog from "../../core/pages/FormDialog";
 import { BusinessHeader, Field } from "../../core/pages/ui";
 import { useDirtyGuard, useOpenBusiness, useOptions } from "../../core/pages/hooks";
+import { NOT_OWN } from "../../core/pages/approvers";
 import "../styles/health.css";
 
 // Pharmacy settings (drug licences, retention, near-expiry window) or Clinic &
@@ -68,7 +69,9 @@ export default function HealthSettingsPage() {
     { key: "kind", header: "Signs as", value: (s) => KIND_WORDS[s.kind], mobile: "subtitle" },
     { key: "reg", header: "Registration", value: (s) => s.registration_no, render: (s) => <span className="bz-two-line"><span className="mono">{s.registration_no}</span><small className="muted">{s.council || ""}</small></span> },
     { key: "calendar", header: "Calendar", value: (s) => s.resource_name || "", defaultHidden: pharmacy },
-    { key: "pin", header: "PIN", value: (s) => (s.has_pin ? "Set" : "Not set"), render: (s) => (s.has_pin ? <StatusBadge status="active" label="PIN set" /> : <StatusBadge tone="warning" label="No PIN yet" />) },
+    // A PIN someone else set signs nothing until its person chooses their own.
+    { key: "pin", header: "PIN", value: (s) => (!s.has_pin ? "Not set" : s.pin_given ? NOT_OWN : "Set"),
+      render: (s) => (!s.has_pin ? <StatusBadge tone="warning" label="No PIN yet" /> : s.pin_given ? <StatusBadge tone="warning" label={NOT_OWN} /> : <StatusBadge status="active" label="PIN set" />) },
     { key: "active", header: "Status", value: (s) => (s.active ? "Active" : "Off"), render: (s) => <StatusBadge status={s.active ? "active" : "inactive"} label={s.active ? "Active" : "Switched off"} /> },
     canEdit && { key: "actions", header: "", label: "Actions", type: "actions", render: (s) => <button type="button" className="chip-button" onClick={() => setAdding(s)}>Edit</button> },
   ].filter(Boolean);

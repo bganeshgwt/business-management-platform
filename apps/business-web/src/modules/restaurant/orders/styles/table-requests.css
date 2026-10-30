@@ -150,6 +150,18 @@
   align-items: start;
 }
 
+/* Without QR ordering and the online ordering page the board is the calls
+   lane alone (the waiters' bill asks): it takes the width, its cards side by
+   side. */
+.tr-board.is-calls-only {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.tr-board.is-calls-only .tr-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+}
+
 .tr-lane {
   display: flex;
   flex-direction: column;
@@ -919,6 +931,11 @@
 
   .tr-stats .stat-tile:first-child {
     border-left: 0;
+  }
+
+  /* Two figures without the guests' orders: the calls, and the time. */
+  .tr-stats.stat-grid.is-calls-only {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
   }
 
   /* Number first, its name under it, and the colour on the number. */

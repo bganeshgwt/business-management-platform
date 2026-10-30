@@ -1,5 +1,6 @@
 import StatusBadge from "../../../../components/StatusBadge";
 import { Field } from "../../core/pages/ui";
+import { notOwnReason, optionText, pinNote } from "../../core/pages/approvers";
 import { FLAG_WORDS, LAB_STATES, isFlagged } from "./healthFormat";
 import "../styles/health.css";
 
@@ -27,6 +28,7 @@ export function FlagBadge({ flag }) {
 }
 
 // Who signs, and their own PIN (My profile › Personal PIN): Schedule X sales, lab reports.
+// Someone whose PIN another person set is listed but cannot be picked (core/pages/approvers.js).
 export function SignOff({ kind, signatories, value, onChange, hint }) {
   const list = signatories || [];
   const word = kind === "pharmacist" ? "Registered pharmacist" : kind === "pathologist" ? "Pathologist" : "Doctor";
@@ -35,10 +37,10 @@ export function SignOff({ kind, signatories, value, onChange, hint }) {
   }
   return (
     <>
-      <Field label={word}>
+      <Field label={word} hint={notOwnReason(list, { signs: true }) || undefined}>
         <select required value={value.signatoryId || ""} onChange={(e) => onChange({ ...value, signatoryId: e.target.value })}>
           <option value="">Choose…</option>
-          {list.map((s) => <option key={s.id} value={s.id} disabled={!s.has_pin}>{s.name} · Reg. {s.registration_no}{s.has_pin ? "" : " (no PIN set)"}</option>)}
+          {list.map((s) => <option key={s.id} value={s.id} disabled={Boolean(pinNote(s))}>{optionText(s, `${s.name} · Reg. ${s.registration_no}`)}</option>)}
         </select>
       </Field>
       <Field label={`${word}'s PIN`} hint={hint || "Their own PIN from My profile › Personal PIN. Checked on the server; never stored with the record."}>

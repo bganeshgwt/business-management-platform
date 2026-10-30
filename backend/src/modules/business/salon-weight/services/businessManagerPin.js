@@ -54,11 +54,12 @@ async function readApproval(business, user, body, permission, { reasonLabel = 'R
   return { reason, approver: { id: Number(person.id), name: person.name } };
 }
 
-// Who may approve: members whose role holds the permission, with whether they have a PIN.
+// Who may approve: members whose role holds the permission, with whether they have a PIN
+// and whether someone else set it (pin_given: it approves nothing until they choose their own).
 const APPROVALS = ['appointments.approve', 'sales.refund'];
 async function approvers(business, permission) {
   if (!APPROVALS.includes(permission)) fail('Unknown approval', 400);
-  return repo.all(repo.pool, `SELECT u.id,u.name,(u.pin_hash IS NOT NULL) AS has_pin FROM business_memberships m JOIN users u ON u.id=m.user_id AND u.status='active'
+  return repo.all(repo.pool, `SELECT u.id,u.name,(u.pin_hash IS NOT NULL) AS has_pin,u.pin_must_change AS pin_given FROM business_memberships m JOIN users u ON u.id=m.user_id AND u.status='active'
     JOIN business_roles r ON r.business_id=m.business_id AND r.id=m.role_id AND r.active
     WHERE m.business_id=$1 AND m.active AND (r.full_access OR EXISTS (SELECT 1 FROM business_role_permissions p WHERE p.business_id=r.business_id AND p.role_id=r.id AND p.permission_code=$2))
     ORDER BY u.name`, [business.id, permission]);
