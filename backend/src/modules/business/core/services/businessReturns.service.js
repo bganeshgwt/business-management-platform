@@ -7,6 +7,10 @@ const numbering = require('./businessNumbering');
 const { decimal, kindPermission, recordPayment } = require('./business.service');
 const retailOffers = require('../../retail/services/businessOffers');
 const paymentMethods = require('./businessPaymentMethods.service');
+// Free goods kept on a return of a dispatched order's invoice, and a garage's
+// mechanic's commission on labour credited (loaded on use: they need this module).
+const freeGoods = () => require('../../wholesale/services/businessWholesaleFreeGoods.service');
+const garageCommission = () => require('../../garage/services/garageCommission.service');
 
 const fail = (message, status = 400) => { throw new AppError(status, message); };
 const id = (value) => v.requiredId(value, 'Record ID');
@@ -58,7 +62,12 @@ async function createReturn(business, user, documentId, body) {
 // closed: the rest of it was used. `goodsByValue`: goods lines may be credited
 // by value too, restocking nothing (a garage's insurer paying less than its
 // bill: the credit note follows the bill's lines and their GST).
-async function postReturn(db, business, user, doc, { reason, requestKey, hash, lines, values = null, goodsByValue = false }) {
+// On a dispatched order's invoice, the free goods that came with the paid goods
+// returned and are kept come off the credit (businessWholesaleFreeGoods). On a
+// garage's bill, the labour credited takes back the commission it earned
+// (garageCommission.reverse), unless `rebilled`: the credit's value is billed
+// again on another bill (a garage's short payment billed to the owner).
+async function postReturn(db, business, user, doc, { reason, requestKey, hash, lines, values = null, goodsByValue = false, rebilled = false }) {
   {
     const previous = await repo.one(db, 'SELECT * FROM business_returns WHERE business_id=$1 AND request_key=$2', [business.id, requestKey]);
     if (previous) {
@@ -102,6 +111,9 @@ async function postReturn(db, business, user, doc, { reason, requestKey, hash, l
       const restock = doc.kind === 'purchase' ? true : v.requiredBoolean(input.restock, 'Restock', true);
       prepared.push({ line, quantity, net, tax, restock }); total += net + tax;
     }
+    // Free goods kept (a dispatched order's scheme): their value with GST comes off this credit.
+    const free = doc.kind === 'sale' && business.modules.includes('sales_orders') ? await freeGoods().forReturn(db, business, doc, prepared) : null;
+    if (free) total -= free.charged;
     // The sale's round-off comes back in proportion to the value returned so
     // far (cumulative, so the shares add up exactly to the whole round-off once
     // everything is back). Returns can then never add up to more than the
@@ -111,9 +123,10 @@ async function postReturn(db, business, user, doc, { reason, requestKey, hash, l
       FROM business_return_lines l JOIN business_returns r ON r.business_id=l.business_id AND r.id=l.return_id
       WHERE r.business_id=$1 AND r.document_id=$2`, [business.id, doc.id]);
     const gross = cents(doc.subtotal) + cents(doc.tax);
-    const returnedValue = cents(before.value) + total;
+    const returnedValue = cents(before.value) - (free?.earlier || 0) + total;
     const roundOff = gross === 0 ? 0 : signedRound(BigInt(cents(doc.round_off)) * BigInt(returnedValue), BigInt(gross)) - cents(before.round_off);
     total += roundOff;
+    if (total < 0) fail('The free goods kept come to more than this return gives back: take some of them back with it', 409);
     const number = await numbering.nextNumber(db, business.id, doc.location_id, doc.kind === 'sale' ? 'sales_return' : 'purchase_return', user.id);
     const saved = await repo.one(db, `INSERT INTO business_returns(business_id,document_id,return_no,series_id,reason,total,round_off,request_key,request_hash,created_by)
      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
@@ -140,10 +153,18 @@ async function postReturn(db, business, user, doc, { reason, requestKey, hash, l
       await db.query(`INSERT INTO business_stock_movements(business_id,lot_id,document_id,return_id,quantity,balance_after) VALUES($1,$2,$3,$4,$5,$6)`,
         [business.id, lot.id, doc.id, saved.id, direction * item.quantity, updated.quantity]);
     }
-    await repo.audit(db, business.id, user.id, `${doc.kind}.returned`, saved.id, { documentId: doc.id, total: saved.total, returnNo: saved.return_no });
+    // After the lines: the database checks the free goods kept against what came back.
+    const kept = free?.charges.length ? await freeGoods().record(db, business, saved, doc, free.charges) : [];
+    if (kept.length) saved.free_goods = kept;
+    // A garage's labour credited takes back the mechanic's commission it earned.
+    if (business.business_type === 'garage' && doc.kind === 'sale' && !rebilled) await garageCommission().reverse(db, business, user, saved);
+    const keptWords = kept.map((k) => ({ label: k.label, quantity: k.quantity, unitValue: k.unit_value, net: k.net, tax: k.tax }));
+    await repo.audit(db, business.id, user.id, `${doc.kind}.returned`, saved.id, { documentId: doc.id, total: saved.total, returnNo: saved.return_no,
+      ...(kept.length ? { freeGoodsKept: keptWords } : {}) });
     await repo.event(db, business.id, user.id, `${doc.kind}.returned`, 'return', saved.id, {
       documentId: doc.id, documentNo: doc.document_no, returnNo: saved.return_no, total: saved.total,
       lines: prepared.map((p) => ({ lineId: p.line.id, skuId: p.line.sku_id, quantity: p.quantity, restock: p.restock })),
+      ...(kept.length ? { freeGoodsKept: keptWords } : {}),
     });
     // Points the customer spent on this bill come back in proportion
     // (a loyalty setting), then the points the sale earned go back

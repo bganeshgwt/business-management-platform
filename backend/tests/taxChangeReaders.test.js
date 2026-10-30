@@ -77,6 +77,7 @@ const READERS = {
   "modules/business/salon-weight/services/businessWeightDaily.service.js": "gate",
   "modules/business/wholesale/services/businessWholesale.service.js": "gate",
   "modules/business/wholesale/services/businessWholesaleDelivery.service.js": "stored",
+  "modules/business/wholesale/services/businessWholesaleFreeGoods.service.js": "stored",
   "modules/business/wholesale/services/businessWholesalePurchase.service.js": "gate",
   "modules/gst-thresholds/services/gstThresholds.service.js": "gate",
   "modules/gst-thresholds/services/gstTurnover.js": "menu",

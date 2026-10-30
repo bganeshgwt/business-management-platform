@@ -60,8 +60,9 @@ const indiaToday = async (db = repo.pool) => (await repo.one(db, "SELECT (now() 
 //   year, lastYear  { from, to } (financialYear)
 // A shop: its sales (business_documents of kind sale) at their value before
 // GST (subtotal: every line's value, nil-rated and exempt lines included),
-// less its sale returns at the value of the lines taken back, each on its
-// own posting date in the business's time zone, as Reports count them. A
+// less its sale returns at the value of the lines taken back (less the free
+// goods kept on them), each on its own posting date in the business's time
+// zone, as Reports count them. A
 // restaurant: its bills (all but void ones) at their value of supply before
 // GST (taxable_amount: the dishes after discounts, the service and delivery
 // charges), less its credit notes at their taxable value, each on its own
@@ -83,6 +84,7 @@ async function turnover(businesses, year, lastYear, db = repo.pool) {
         UNION ALL
         SELECT x.business_id, (x.created_at AT TIME ZONE b.timezone)::date,
           -COALESCE((SELECT sum(l.net) FROM business_return_lines l WHERE l.business_id = x.business_id AND l.return_id = x.id), 0)
+          + COALESCE((SELECT sum(k.net) FROM wholesale_free_goods_kept k WHERE k.business_id = x.business_id AND k.return_id = x.id), 0)
         FROM r JOIN businesses b ON b.id = r.id
         JOIN business_returns x ON x.business_id = r.id AND x.created_at >= ($2::date::timestamp AT TIME ZONE b.timezone)
         JOIN business_documents d ON d.business_id = x.business_id AND d.id = x.document_id AND d.kind = 'sale')

@@ -1320,11 +1320,14 @@ async function reports(business, filters) {
   const location = filters.location ? id(filters.location, 'Location') : null;
   // Each event is reported on its own posting date. A return today does not
   // silently rewrite yesterday's trading; collections have their own dates.
+  // A credit note's value is its lines' less the free goods kept on it.
   const rows = (await repo.pool.query(`WITH events AS (
     SELECT (created_at AT TIME ZONE $4)::date AS day,kind,total,subtotal AS net,tax FROM business_documents WHERE business_id=$1 AND kind=ANY($5) AND ($6::bigint IS NULL OR location_id=$6)
     UNION ALL SELECT (r.created_at AT TIME ZONE $4)::date,d.kind||'_return',r.total,
-      COALESCE((SELECT sum(net) FROM business_return_lines l WHERE l.business_id=r.business_id AND l.return_id=r.id),0),
+      COALESCE((SELECT sum(net) FROM business_return_lines l WHERE l.business_id=r.business_id AND l.return_id=r.id),0)
+        -COALESCE((SELECT sum(net) FROM wholesale_free_goods_kept k WHERE k.business_id=r.business_id AND k.return_id=r.id),0),
       COALESCE((SELECT sum(tax) FROM business_return_lines l WHERE l.business_id=r.business_id AND l.return_id=r.id),0)
+        -COALESCE((SELECT sum(tax) FROM wholesale_free_goods_kept k WHERE k.business_id=r.business_id AND k.return_id=r.id),0)
       FROM business_returns r JOIN business_documents d ON d.business_id=r.business_id AND d.id=r.document_id WHERE r.business_id=$1 AND d.kind=ANY($5) AND ($6::bigint IS NULL OR d.location_id=$6)
     -- Store credit (a credit-note collection) is no money in; it counts when a bill uses it.
     UNION ALL SELECT (p.created_at AT TIME ZONE $4)::date,d.kind||'_payment',p.amount,0,0

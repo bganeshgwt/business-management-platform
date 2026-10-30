@@ -8,10 +8,11 @@ const core = require('./business.service');
 const products = require('./businessImportProducts');
 const contacts = require('./businessImportContacts');
 
-// A shop's products, customers and suppliers from a CSV file, for every
-// business on the shared core (Import from a CSV file on its Products,
-// Customers and Suppliers screens). The browser reads the file with the staff
-// app's one CSV reader and sends its rows, heading to cell; everything is
+// A shop's products, customers and suppliers from a spreadsheet, for every
+// business on the shared core (Import from Excel or CSV on its Products,
+// Customers and Suppliers screens). The browser reads the file (a CSV file, or
+// the first or a chosen sheet of an Excel workbook) with the staff app's one
+// spreadsheet reader and sends its rows, heading to cell; everything is
 // checked here, with the shared sheet reader's safety (utils/sheetImport.js).
 //
 //   1. The check (dryRun): each row planned against the records here: new,
@@ -60,6 +61,10 @@ async function check(db, business, spec, request) {
   if (planned.rows.some((row) => row.write?.opening) && !access.can(business, 'inventory.edit')) {
     fail('Your role may not bring stock in: leave the Opening stock column out of the file, or ask someone whose role corrects stock to import it.', 403);
   }
+  // Pack sizes need the permission that makes them on Settings › Units & pack sizes.
+  if (planned.rows.some((row) => row.write?.pack) && !access.can(business, 'catalog.edit')) {
+    fail('Your role may not add pack sizes: leave the Pack unit and Units in pack columns out of the file, or ask someone whose role changes items to import it.', 403);
+  }
   return { planned, summary: sheet.summarise(planned, planned.columns) };
 }
 
@@ -73,6 +78,8 @@ function describe(spec, summary, dryRun) {
     ? [`${plural(summary.created, `new ${spec.one}`, `new ${spec.many}`)}`, `${summary.updated} to update`, `${summary.unchanged} unchanged`]
     : [`${plural(summary.created, `${spec.one} added`, `${spec.many} added`)}`, `${summary.updated} updated`];
   if (summary.skipped) parts.push(`${summary.skipped} already here left as ${summary.skipped === 1 ? 'it is' : 'they are'}`);
+  if (summary.styles?.count) parts.push(`${plural(summary.styles.variants, 'variant', 'variants')} of ${plural(summary.styles.count, 'style', 'styles')}`);
+  if (summary.packs) parts.push(`${plural(summary.packs, 'pack size', 'pack sizes')}${dryRun ? '' : ' saved'}`);
   if (summary.opening?.items) parts.push(`opening stock for ${plural(summary.opening.items, 'item', 'items')}${dryRun ? '' : ' brought in'}`);
   if (summary.balances?.count) parts.push(`${plural(summary.balances.count, 'opening balance', 'opening balances')}${dryRun ? '' : ' set'}`);
   const refused = summary.refused ? `; ${plural(summary.refused, 'row', 'rows')} refused and left out` : '';
@@ -109,7 +116,8 @@ async function importFile(business, user, kind, body) {
       await spec.imports.apply(db, business, user, planned);
       const message = describe(spec, summary, false);
       const result = { message, created: summary.created, updated: summary.updated, unchanged: summary.unchanged, skipped: summary.skipped, refused: summary.refused,
-        ...(summary.opening ? { opening: summary.opening, newCategories: summary.newCategories } : {}), ...(summary.balances ? { balances: summary.balances } : {}) };
+        ...(summary.opening ? { opening: summary.opening, newCategories: summary.newCategories } : {}), ...(summary.balances ? { balances: summary.balances } : {}),
+        ...(summary.styles?.count ? { styles: summary.styles } : {}), ...(summary.packs ? { packs: summary.packs } : {}) };
       const saved = await repo.one(db, `INSERT INTO business_imports(business_id,kind,request_key,request_hash,file_name,update_matching,rows_read,created_count,updated_count,
         unchanged_count,skipped_count,refused_count,result,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id`,
       [business.id, kind, requestKey, hash, request.fileName, request.update, request.rows.length, result.created, result.updated, result.unchanged, result.skipped,
@@ -119,6 +127,7 @@ async function importFile(business, user, kind, body) {
         skipped: result.skipped, refused: result.refused, mode: request.update ? 'update' : 'skip',
         ...(summary.opening ? { openingStock: summary.opening.items, newCategories: summary.newCategories.length } : {}),
         ...(summary.balances ? { openingBalances: summary.balances.count } : {}),
+        ...(summary.styles?.count ? { styles: summary.styles.count, variants: summary.styles.variants } : {}), ...(summary.packs ? { packSizes: summary.packs } : {}),
       });
       return { message, data: { ...summary, ...result, importId: saved.id } };
     });

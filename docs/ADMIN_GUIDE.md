@@ -71,7 +71,7 @@ on record.
 - [The screens every type shares](#the-screens-every-type-shares)
   - [Several locations (branches)](#several-locations-branches)
   - [Products, prices and opening stock](#products-prices-and-opening-stock)
-  - [Products, customers and suppliers from a CSV file](#products-customers-and-suppliers-from-a-csv-file)
+  - [Products, customers and suppliers from Excel or CSV](#products-customers-and-suppliers-from-excel-or-csv)
   - [GST rate changes](#gst-rate-changes)
   - [Daily money, expenses and cashier shifts](#daily-money-expenses-and-cashier-shifts)
   - [Payment methods](#payment-methods)
@@ -416,8 +416,8 @@ allows.
    clinic workspace.
 8. **Products.** Add each item with its price, GST slab, HSN code and MRP
    ([Products, prices and opening stock](#products-prices-and-opening-stock)),
-   or import the catalogue from a CSV file
-   ([Products, customers and suppliers from a CSV file](#products-customers-and-suppliers-from-a-csv-file)).
+   or import the catalogue from an Excel or CSV file
+   ([Products, customers and suppliers from Excel or CSV](#products-customers-and-suppliers-from-excel-or-csv)).
    Then the type's own set-up, described with each type in Part 3: a
    wholesaler's routes, beats, salespeople and price groups; a garment shop's
    sizes and colours; an electronics shop's models and warranty terms; a
@@ -426,7 +426,7 @@ allows.
    timings, tests and panels.
 9. **Customers and suppliers.** Typed in on their screens, added on the
    spot (*+ New customer* at Quick bill, *+ New supplier* on a purchase), or
-   imported from a CSV file with what each owed when you started.
+   imported from an Excel or CSV file with what each owed when you started.
 10. **Stock.** It comes in with the item (*Opening stock* on *Add item*, or
     the *Opening stock* column of an import) or through a purchase
     (*Purchases › Receive a purchase*). A stock count
@@ -2641,11 +2641,11 @@ reorder level.
   in services only), with *Edit* to give it its full code. It shows no
   turnover, and goes once every item has one.
 
-### Products, customers and suppliers from a CSV file
+### Products, customers and suppliers from Excel or CSV
 
 A shop that comes to the platform with its catalogue, customers or suppliers
 in another system (Tally, Vyapar, Marg), a spreadsheet or an udhaar book
-brings them in at once. **Import from a CSV file** is on **Products &
+brings them in at once. **Import from Excel or CSV** is on **Products &
 services**, **Customers** and **Suppliers**, beside *Add item*, *Add customer*
 and *Add supplier*, for whoever may add those by hand.
 
@@ -2655,8 +2655,13 @@ and *Add supplier*, for whoever may add those by hand.
    matched whatever their case, spaces or punctuation, and the usual ones of
    other systems are understood (*Item name*, *SKU*, *GST %*, *Party name*,
    *Mobile No.*); a heading it does not know is listed as ignored.
-2. **Choose a CSV file** (in Excel: File → Save As → CSV UTF-8), up to 5,000
-   rows. It is checked first, and nothing is saved: each row is shown as
+2. **Choose an Excel or CSV file**, up to 5,000 rows and 5 MB. An Excel
+   workbook (*.xlsx*) is read as it is: its first sheet with rows, or the one
+   chosen under *Sheet* when it has several (each sheet is checked as a file
+   of its own). Its cells are read as a CSV of the sheet would hold them: a
+   number as written, a date as its day, a formula as the value Excel worked
+   out. An Excel 97-2003 workbook (*.xls*) is saved as *.xlsx* or as CSV
+   first. It is checked first, and nothing is saved: each row is shown as
    **New**, **Changes** (each value old and new), **Already here** (left as it
    is), **No change**, or **Refused** with the reason in words and the column
    it is about. A problem with the whole file (no *Code* column for products)
@@ -2712,16 +2717,33 @@ What goes in, by the same rules as the screens:
   come in as items kept by batch, and their drug details are added in the
   *Drug master*; a farm-input shop says what kind of input each item is on
   its item form.
+- **Styles and their variants** (with *Variants* on in *Settings › Business
+  tools*): the rows of one *Style* become one product with its variants, as
+  *Variant of* makes them on *Add item*: each row an item of its own, with its
+  own code, barcode, price, *Size*, *Colour*, *Fabric* and opening stock. A
+  row with no name is named for its style, colour and size (*Oxford shirt ·
+  Blue / M*). A style's rows share one kind, unit, stock tracking, GST rate,
+  HSN code and category: give them on one row and the rest take them; two
+  rows that give two GST rates (or units, or categories) refuse the whole
+  style, naming the rows. A style whose product is already here gains the new
+  rows, which take its items' unit, GST rate and HSN, and are in its
+  category; a size and colour it already has is refused. An item's style,
+  size, colour and fabric never change from a file.
+- **Pack sizes**: a *Pack unit* (box, case, dozen: one of your units, not the
+  item's own) and *Units in pack* (how many of the item's unit it holds),
+  made as *Settings › Units & pack sizes* makes them, for a new item or one
+  already here (another quantity changes it when you update items already
+  here). A pack is billed at the price of what it holds.
 
 **Who may import.** Products need *Add products, services, categories and
-units* (`catalog.create`), updating them `catalog.edit` and opening stock
-`inventory.edit`; customers and suppliers need `contacts.create`, and
-updating them `contacts.edit`. Someone tied to one location brings opening
-stock into that location only, and someone tied to a department imports
-that department's items. Each import is one line of the **Activity log**
-(*Products imported from a CSV file*, with the file's name and what it did),
-and each item or contact it makes or changes has its own line, as when made
-by hand.
+units* (`catalog.create`), updating them and adding pack sizes `catalog.edit`,
+and opening stock `inventory.edit`; customers and suppliers need
+`contacts.create`, and updating them `contacts.edit`. Someone tied to one
+location brings opening stock into that location only, and someone tied to a
+department imports that department's items. Each import is one line of the
+**Activity log** (*Products imported from a spreadsheet*, with the file's name
+and sheet and what it did), and each item, pack size or contact it makes or
+changes has its own line, as when made by hand.
 
 ### GST rate changes
 
@@ -3359,7 +3381,14 @@ trade or a walk-in customer.
    (cases or pieces) of an item, get M free of the same item or of **another
    item** (with its pack), and/or a discount %; tick *Don't combine with slab
    prices* when the scheme must not stack on a case slab. Free goods go on the
-   invoice at ₹0 as "Free · scheme name" and leave stock.
+   invoice at ₹0 as "Free · scheme name" and leave stock. When paid goods come
+   back, the free goods that belong to them (free × paid returned ÷ paid
+   bought) come back with them at no value: *Take back items* on the invoice
+   offers them with the paid line chosen, and goods back in the van list the
+   free lines too. Those kept are charged off the credit note at what a unit
+   of the paid goods cost, with GST at its rate, shown on the return as *Free
+   goods kept: 24 × ₹9.80*. Free goods kept and brought back later give that
+   back.
 7. **Credit hold.** Outstanding › More › *Credit hold rules*: hold new orders when a
    bill is more than N days overdue. A held order needs a reason and a
    manager's PIN (or a manager taking it). A customer can be marked *never put
@@ -4632,8 +4661,10 @@ under *Parts & services › Parts fitment*, the mechanics' commission under
   5,000 km after this job to start with (*Settings › Garage settings*), or
   the day and reading typed. The gate pass is made (*Print the gate pass*);
   *The vehicle has left* records it going out. Each labour line's commission
-  goes to its mechanic. A job card with nothing on it is delivered with no
-  bill and leaves the vehicle's next service as it was. A bill over
+  goes to its mechanic; a credit of its bill line later (a return, or an
+  insurer's short payment written off) takes it back in proportion. A job
+  card with nothing on it is delivered with no bill and leaves the vehicle's
+  next service as it was. A bill over
   ₹2,00,000 asks for the buyer's PAN or their declaration, as every bill
   does.
 - **Cancelling** — *Cancel the job card*, with a reason (parts issued for it
@@ -4697,9 +4728,15 @@ under *Parts & services › Parts fitment*, the mechanics' commission under
   parts and what was issued for them, a note or a photo, the road test and
   the next step. No prices.
 - **Mechanics' commission** (*Reports › Mechanics' commission*) — for the
-  dates chosen, each mechanic's labour billed, the commission earned and paid,
-  and what is due now; a mechanic's name opens their lines. *Pay* pays it (a
-  manager), as an expense of the day.
+  dates chosen, each mechanic's labour billed, the commission earned, taken
+  back and paid, and what is due now; a mechanic's name opens their lines and
+  what was taken back, with each credit note. When the bill line that carried
+  a labour line is credited (a return, or an insurer's short payment written
+  off), the commission it earned is taken back in proportion to the labour
+  credited, dated the credit's day; a short payment billed to the owner takes
+  nothing back. A payout already made stays: what is taken back comes off
+  what is due next, and *Due now* below nothing shows what the mechanic owes.
+  *Pay* pays it (a manager), as an expense of the day.
 - **The bell** — vehicles ready to deliver, and job cards past their promised
   time.
 
@@ -6950,12 +6987,12 @@ the link you were sent).
   Users in a restaurant, Staff & access › *Password* in a business, and the
   platform screens for a restaurant's admin or a business's owner. The person
   signs in with it once and then chooses their own.
-- **A CSV import makes plain items and contacts.** A style's sizes and
-  colours, pack sizes, kits, price lists, shelf places, member prices and a
-  type's own details of an item (a book's, a medicine's drug details, a farm
-  input's kind) are added on their screens after the import, and customers'
-  consents on each customer's form ([Products, customers and suppliers from
-  a CSV file](#products-customers-and-suppliers-from-a-csv-file)).
+- **A spreadsheet import makes items, styles with their variants, pack sizes
+  and contacts.** Kits, branch prices, price lists, shelf places, member
+  prices and a type's own details of an item (a book's, a medicine's drug
+  details, a farm input's kind) are added on their screens after the import,
+  and customers' consents on each customer's form ([Products, customers and
+  suppliers from Excel or CSV](#products-customers-and-suppliers-from-excel-or-csv)).
 - **Ownership is changed by the platform.**
 
   The Owner role is given only when the platform's super admin creates a

@@ -963,7 +963,8 @@ workspaces; the backend has its own install.
 ├── e2e/                      the browser tests' harness: playwright.config.mjs (both apps' specs, and
 │                             their web servers on the test ports of servers.mjs), global-setup.mjs
 │                             (a database and an API per run), build-data.mjs and test-data.mjs (the
-│                             run's data), fixture.mjs (what the specs import)
+│                             run's data), fixture.mjs (what the specs import), xlsx.mjs (a small
+│                             Excel workbook writer for the import's tests)
 ├── docs/                     the documentation
 ├── backend/
 │   ├── src/
@@ -1048,7 +1049,9 @@ workspaces; the backend has its own install.
 │   │   │   ├── routes/ProtectedRoute.jsx   login + permission + restaurant feature guard; someone whose
 │   │   │   │                 password someone else set goes to the sign-in's Choose your own password step
 │   │   │   ├── services/     shared: api.js, queryClient, live and liveClient (live updates), approval, features,
-│   │   │   │                 csv, print, customerWeb, healthWorkspaces (the clinic a workspace opens),
+│   │   │   │                 csv, spreadsheet (an import's file read into rows: CSV, or an Excel
+│   │   │   │                 workbook's sheet with read-excel-file), print, customerWeb,
+│   │   │   │                 healthWorkspaces (the clinic a workspace opens),
 │   │   │   │                 plannedWorkspaces, the menus (businessNav, businessWorkspace,
 │   │   │   │                 restaurantWorkspace) …, and the API services shared code uses (auth,
 │   │   │   │                 outlet, notification, business)

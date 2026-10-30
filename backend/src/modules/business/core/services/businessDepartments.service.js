@@ -70,16 +70,27 @@ async function report(business, query) {
       WHERE dl.business_id=$1 AND d.kind='sale' AND (d.created_at AT TIME ZONE $4)::date BETWEEN $2::date AND $3::date
         AND ($5::bigint IS NULL OR d.location_id=$5)),
     returned AS (
-      SELECT cat.department_id,sum(rl.net) AS net,sum(rl.quantity*COALESCE(dl.stock_unit_cost,0)) AS cost
-      FROM business_return_lines rl JOIN business_returns r ON r.business_id=rl.business_id AND r.id=rl.return_id
-      JOIN business_documents d ON d.business_id=r.business_id AND d.id=r.document_id
-      JOIN business_document_lines dl ON dl.business_id=rl.business_id AND dl.id=rl.line_id
-      JOIN catalog_skus s ON s.business_id=dl.business_id AND s.id=dl.sku_id
-      JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id
-      LEFT JOIN catalog_categories cat ON cat.business_id=p.business_id AND cat.id=p.category_id
-      WHERE rl.business_id=$1 AND d.kind='sale' AND (r.created_at AT TIME ZONE $4)::date BETWEEN $2::date AND $3::date
-        AND ($5::bigint IS NULL OR d.location_id=$5)
-      GROUP BY cat.department_id)
+      SELECT department_id,sum(net) AS net,sum(cost) AS cost FROM (
+        SELECT cat.department_id,rl.net,rl.quantity*COALESCE(dl.stock_unit_cost,0) AS cost
+        FROM business_return_lines rl JOIN business_returns r ON r.business_id=rl.business_id AND r.id=rl.return_id
+        JOIN business_documents d ON d.business_id=r.business_id AND d.id=r.document_id
+        JOIN business_document_lines dl ON dl.business_id=rl.business_id AND dl.id=rl.line_id
+        JOIN catalog_skus s ON s.business_id=dl.business_id AND s.id=dl.sku_id
+        JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id
+        LEFT JOIN catalog_categories cat ON cat.business_id=p.business_id AND cat.id=p.category_id
+        WHERE rl.business_id=$1 AND d.kind='sale' AND (r.created_at AT TIME ZONE $4)::date BETWEEN $2::date AND $3::date
+          AND ($5::bigint IS NULL OR d.location_id=$5)
+        -- Free goods kept on a credit note come off it, in the department of the paid goods they came with.
+        UNION ALL SELECT cat.department_id,-k.net,0
+        FROM wholesale_free_goods_kept k JOIN business_returns r ON r.business_id=k.business_id AND r.id=k.return_id
+        JOIN business_documents d ON d.business_id=r.business_id AND d.id=r.document_id
+        JOIN wholesale_order_lines x ON x.business_id=k.business_id AND x.id=k.order_line_id
+        JOIN catalog_skus s ON s.business_id=x.business_id AND s.id=x.sku_id
+        JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id
+        LEFT JOIN catalog_categories cat ON cat.business_id=p.business_id AND cat.id=p.category_id
+        WHERE k.business_id=$1 AND (r.created_at AT TIME ZONE $4)::date BETWEEN $2::date AND $3::date
+          AND ($5::bigint IS NULL OR d.location_id=$5)) t
+      GROUP BY department_id)
     SELECT dep.id AS department_id,COALESCE(dep.name,'No department') AS department,
       count(DISTINCT l.document_id)::int AS bills,COALESCE(sum(l.net),0)::numeric(16,2) AS net_sales,COALESCE(sum(l.tax),0)::numeric(16,2) AS tax,
       COALESCE(max(rt.net),0)::numeric(16,2) AS returns,(COALESCE(sum(l.cost),0)-COALESCE(max(rt.cost),0))::numeric(16,2) AS cost

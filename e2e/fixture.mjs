@@ -17,6 +17,8 @@ export { CSV_IMPORT } from "./test-data.mjs";
 export { CLINIC_LAB } from "./test-data.mjs";
 // The owner's rules for access (access-rules.spec.js).
 export { ACCESS_RULES } from "./test-data.mjs";
+// The shops' import of an Excel workbook and of a style with its variants (business-csv-import.spec.js).
+export { SPREADSHEET_IMPORT } from "./test-data.mjs";
 
 let data = null;
 

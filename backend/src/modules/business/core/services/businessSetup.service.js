@@ -375,9 +375,11 @@ async function updateUnit(business, user, unitId, body) {
     return row;
   });
 }
-async function createPackSize(business, user, body) {
+// `inTransaction`: the caller's own transaction (a spreadsheet import makes many at once).
+async function createPackSize(business, user, body, inTransaction = null) {
   await access.require(business, 'catalog.edit');
-  return repo.transaction(async (db) => {
+  const run = inTransaction ? (work) => work(inTransaction) : repo.transaction;
+  return run(async (db) => {
     const sku = await repo.one(db, 'SELECT s.*,u.decimals FROM catalog_skus s JOIN business_units u ON u.business_id=s.business_id AND u.code=s.unit WHERE s.business_id=$1 AND s.id=$2',
       [business.id, id(body.skuId, 'Item')]);
     if (!sku) fail('Item not found', 404);

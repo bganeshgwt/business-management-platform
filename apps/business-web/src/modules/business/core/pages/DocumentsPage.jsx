@@ -21,6 +21,8 @@ const PAY_KINDS = ["cash", "upi", "card", "bank"];
 // The one collection form and wholesale delivery words.
 import { CollectionDialog } from "../../receivables/pages/receivablesParts";
 import { DELIVERY } from "../../wholesale/pages/deliveryFormat";
+// Free goods that came with a dispatched order's line: taken back with a return, or kept and charged.
+import { freeGoodsOf, freePreview, spreadBack } from "../../wholesale/pages/freeGoods";
 // A hardware shop's sites: on a new sale, as a Sales history filter, and on a bill;
 // and the fitter a new sale names, shown on the bill with their commission.
 import SiteField, { SiteDialog } from "../../hardware/pages/SiteField";
@@ -547,7 +549,10 @@ export function DocumentDetail({ documentId, onClose, onChanged, initialAction =
             <ul className="bz-history">
               {doc.payments.map((p) => <li key={`p${p.id}`}><Badge status="completed" label="Payment" /> {biz.exact(p.amount)} by {p.method === "credit_note" ? p.method_name || "credit note" : p.method === "finance" ? "EMI (owed by the financier)" : p.method_name || p.method.toUpperCase()} {p.reference ? `· ${p.reference}` : ""}{p.tendered && Number(p.tendered) > Number(p.amount) ? ` · ${biz.exact(p.tendered)} handed over, ${biz.exact(Number(p.tendered) - Number(p.amount))} change` : ""} · {dateTime(p.created_at)}</li>)}
               {(doc.finance || []).map((f) => <li key={`emi${f.id}`}><Badge status={f.status === "pending" ? "pending" : f.status === "settled" ? "completed" : "cancelled"} label="EMI" /> {f.financier_name} · loan {f.loan_no}{f.do_no ? ` · DO ${f.do_no}` : ""} · financed {biz.exact(f.financed_amount)} · down payment {biz.exact(f.down_payment)}{f.status === "pending" ? " · awaiting payout" : f.status === "settled" ? " · paid out" : " · cancelled"}</li>)}
-              {doc.returns.map((r) => <li key={`r${r.id}`}><Badge status="no_show" label="Return" /> {r.return_no || `#${r.id}`} · {biz.exact(r.total)} · {r.reason} · {dateTime(r.created_at)}</li>)}
+              {doc.returns.map((r) => <li key={`r${r.id}`}><Badge status="no_show" label="Return" /> {r.return_no || `#${r.id}`} · {biz.exact(r.total)} · {r.reason} · {dateTime(r.created_at)}
+                {(doc.wholesale?.kept || []).filter((k) => String(k.return_id) === String(r.id)).map((k) => (
+                  <span key={`k${k.free_line_id}`} className="bz-two-line"><small>{k.words} ({k.label}): {biz.exact(Math.abs(Number(k.net) + Number(k.tax)))} with GST {Number(k.quantity) > 0 ? "off the credit" : "given back"}</small></span>
+                ))}</li>)}
               {doc.refunds.map((r) => <li key={`f${r.id}`}><Badge status="cancelled" label="Refund" /> {biz.exact(r.amount)} by {r.method === "credit_note" ? "credit note" : r.method === "finance" ? "EMI reversed (financier)" : r.method_name || r.method.toUpperCase()} · {r.reason} · {dateTime(r.created_at)}</li>)}
             </ul>
           )}
@@ -583,8 +588,15 @@ function DocumentAction({ doc, action, balance, onClose, onSaved }) {
   const methods = usePaymentMethods();
   const [form, setForm] = useState({ amount: action === "payments" ? balance.toFixed(2) : action === "refunds" ? Math.abs(balance).toFixed(2) : "", method: "cash", reference: "", reason: "", lineId: String(open[0]?.id || ""), quantity: "", restock: true });
   const set = (name) => (event) => setForm((f) => ({ ...f, [name]: event.target.type === "checkbox" ? event.target.checked : event.target.value }));
+  // Free goods that came with the line chosen (a dispatched order's scheme): how many of each come back with it.
+  const [freeBack, setFreeBack] = useState({});
+  const group = action === "returns" ? freeGoodsOf(doc, form.lineId) : null;
+  // Until it is typed, the field holds what belongs; typed empty, none come back.
+  const typedBack = (free) => (freeBack[free.order_line_id] === undefined ? undefined : freeBack[free.order_line_id] || "0");
+  const previews = group ? group.free.map((free) => ({ free, ...freePreview(group, free, form.quantity, typedBack(free)) })) : [];
+  const freeLines = previews.flatMap((p) => spreadBack(p.free, p.back).map((part) => ({ ...part, restock: form.restock })));
   const submit = () => businessWrite(biz.id, `documents/${doc.id}/${action}`, action === "returns"
-    ? { reason: form.reason, requestKey, lines: [{ lineId: form.lineId, quantity: form.quantity, ...(doc.kind === "sale" ? { restock: form.restock } : {}) }] }
+    ? { reason: form.reason, requestKey, lines: [{ lineId: form.lineId, quantity: form.quantity, ...(doc.kind === "sale" ? { restock: form.restock } : {}) }, ...freeLines] }
     : { amount: form.amount, ...methods.body(form.method, PAY_KINDS), ...(action === "payments" ? { reference: form.reference || undefined } : { reason: form.reason }), requestKey });
   const titles = { payments: doc.kind === "sale" ? "Record a collection" : "Record a supplier payment", returns: doc.kind === "sale" ? "Take back items" : "Return goods to the supplier", refunds: doc.kind === "sale" ? "Refund the customer" : "Record a refund from the supplier" };
   return (
@@ -602,6 +614,26 @@ function DocumentAction({ doc, action, balance, onClose, onSaved }) {
           {doc.kind === "sale" && (
             <label className="checkbox bz-check"><input type="checkbox" checked={form.restock} onChange={set("restock")} /> Put back into stock (untick for damaged goods)</label>
           )}
+          {previews.map(({ free, belongs, left, back, kept }) => {
+            const each = Number(free.unit_value);
+            const withGst = (milli) => (Math.abs(milli) / 1000) * each * (1 + Number(group.tax_rate) / 100);
+            const n = (milli) => Number((milli / 1000).toFixed(3));
+            return (
+              <div key={free.order_line_id} className="field-wide">
+                <Field label={`Free ${free.label} back (${free.unit})`}
+                  hint={`${n(belongs)} of the ${n(Number(free.quantity) * 1000)} free with it belong${belongs === 1000 ? "s" : ""} to the goods returned so far; ${n(left)} can still come back.`}>
+                  <input type="number" min="0" max={n(left)} step={Number(free.unit_decimals) === 0 ? "1" : "0.001"} value={freeBack[free.order_line_id] ?? n(back)}
+                    onChange={(e) => setFreeBack((all) => ({ ...all, [free.order_line_id]: e.target.value }))} />
+                </Field>
+                {kept !== 0 && (
+                  <p className="small muted">
+                    {kept > 0 ? `Free goods kept: ${n(kept)} × ${biz.exact(each)}, about ${biz.exact(withGst(kept))} with GST, come off the credit.`
+                      : `Free goods brought back: ${n(-kept)} × ${biz.exact(each)}, about ${biz.exact(withGst(kept))} with GST, given back for those kept before.`}
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </>
       ) : (
         <>

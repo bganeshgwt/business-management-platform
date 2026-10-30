@@ -16,9 +16,10 @@ import "../styles/garage.css";
 
 // Mechanics' commission on labour for a period: each mechanic's labour billed,
 // the commission it earned (a rate per labour item, or per mechanic, in
-// Settings › Garage settings) and what was paid, and what each is due now; a
-// mechanic's lines; and a payout, which goes through the expense book so the
-// drawer and the day's money see it.
+// Settings › Garage settings), what was taken back when the labour was
+// credited, and what was paid, and what each is due now (below nothing, the
+// mechanic owes it); a mechanic's lines; and a payout, which goes through the
+// expense book so the drawer and the day's money see it.
 
 const PAY_KINDS = ["cash", "upi", "bank"];
 
@@ -48,17 +49,21 @@ export default function MechanicCommissionPage() {
     { key: "lines", header: "Labour lines", type: "number", value: (r) => r.lines, total: "sum" },
     { key: "labour", header: "Labour billed (before GST)", type: "money", exact: true, value: (r) => Number(r.labour), total: "sum" },
     { key: "earned", header: "Earned", type: "money", exact: true, value: (r) => Number(r.earned), total: "sum" },
+    { key: "taken_back", header: "Taken back", type: "money", exact: true, value: (r) => Number(r.taken_back), total: "sum" },
     { key: "paid", header: "Paid", type: "money", exact: true, value: (r) => Number(r.paid), total: "sum" },
-    { key: "due", header: "Due now", type: "money", exact: true, value: (r) => Number(r.due), total: "sum", mobile: "show" },
+    // Below nothing: commission taken back after it was paid, owed by the mechanic.
+    { key: "due", header: "Due now", type: "money", exact: true, value: (r) => Number(r.due), total: "sum", mobile: "show",
+      render: (r) => (Number(r.due) < 0 ? <span className="bz-due">{biz.exact(-Number(r.due))} owed by them</span> : biz.exact(r.due)) },
     canPay && { key: "pay", header: "", value: () => "", render: (r) => (Number(r.due) > 0 ? <button type="button" className="button button-secondary button-sm" onClick={() => setPaying(r)}>Pay</button> : null) },
-  ].filter(Boolean), [canPay]);
+  ].filter(Boolean), [biz, canPay]);
   return (
     <div className="stack">
       <BusinessHeader icon="percent" title="Mechanics' commission"
-        description="Commission on the labour billed in these dates, by mechanic: a labour line earns its rate for the mechanic who did it (or the job card's mechanics, shared). Rates are in Settings › Garage settings." />
+        description="Commission on the labour billed in these dates, by mechanic: a labour line earns its rate for the mechanic who did it (or the job card's mechanics, shared), and a credit of its bill line takes it back. Rates are in Settings › Garage settings." />
       <div className="stat-grid">
         <StatTile icon="percent" tone="primary" label="Earned" money={totals?.earned} loading={!totals && !error} note={totals ? `on ${totals.lines} labour line${totals.lines === 1 ? "" : "s"}` : undefined} />
         <StatTile icon="receipt" label="Labour billed" money={totals?.labour} loading={!totals && !error} note="before GST" />
+        <StatTile icon="undo" label="Taken back" money={totals?.taken_back} loading={!totals && !error} note="on labour credited" />
         <StatTile icon="wallet" tone="success" label="Paid" money={totals?.paid} loading={!totals && !error} />
         <StatTile icon="clock" tone="warning" label="Due now" money={totals?.due} loading={!totals && !error} note="to every mechanic, whatever the dates" />
       </div>
@@ -96,6 +101,16 @@ function PersonLines({ biz, person, range, onClose }) {
             { key: "percent", header: "Rate", value: (i) => `${Number(i.percent)}%` },
             { key: "amount", header: "Earned", type: "money", exact: true, value: (i) => Number(i.amount), total: "sum", mobile: "show" },
           ]} />
+        {data?.taken_back?.length > 0 && (
+          <DataGrid variant="compact" id="garage-commission-taken-back" caption="Taken back on credits" rows={data.taken_back} rowKey={(i) => i.id}
+            currency={biz.symbol} rowNoun={["credit", "credits"]} columns={[
+              { key: "reversed_on", header: "Credited", type: "date", value: (i) => i.reversed_on, mobile: "subtitle" },
+              { key: "credit", header: "Credit note", value: (i) => `${i.return_no} on ${i.document_no}` },
+              { key: "label", header: "Labour", value: (i) => `${i.label} · ${i.job_no}`, mobile: "title" },
+              { key: "base", header: "Their part credited", type: "money", exact: true, value: (i) => Number(i.base), total: "sum" },
+              { key: "amount", header: "Taken back", type: "money", exact: true, value: (i) => Number(i.amount), total: "sum", mobile: "show" },
+            ]} />
+        )}
         {data?.payouts?.length > 0 && <p className="small">Paid: {data.payouts.map((p) => `${biz.exact(p.amount)} on ${dateShort(p.spent_on)}${p.voided_at ? " (reversed)" : ""}`).join("; ")}</p>}
       </div>
     </FormDialog>

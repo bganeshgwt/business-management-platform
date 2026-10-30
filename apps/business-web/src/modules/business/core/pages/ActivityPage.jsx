@@ -29,8 +29,8 @@ const WORDS = {
   // GST rate changes by date: entered ahead, cancelled before their date, or taking effect on it (in the name of who entered them).
   "tax_change.scheduled": "GST rate change scheduled", "tax_change.cancelled": "GST rate change cancelled", "tax_change.item_cancelled": "GST rate change cancelled for an item",
   "catalog.tax_changed": "Item's GST changed on its date", "catalog.slab_changed": "Item's GST slab changed",
-  // A CSV file of products, customers or suppliers (the rows each made or changed have entries of their own).
-  "catalog.imported": "Products imported from a CSV file", "customers.imported": "Customers imported from a CSV file", "suppliers.imported": "Suppliers imported from a CSV file",
+  // A spreadsheet of products, customers or suppliers (the rows each made or changed have entries of their own).
+  "catalog.imported": "Products imported from a spreadsheet", "customers.imported": "Customers imported from a spreadsheet", "suppliers.imported": "Suppliers imported from a spreadsheet",
 };
 const words = (action) => WORDS[action] || action.replace(/[._]/g, " ").replace(/^./, (c) => c.toUpperCase());
 

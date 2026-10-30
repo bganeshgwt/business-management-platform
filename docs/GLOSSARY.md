@@ -118,6 +118,7 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Advance** | Collected money not yet put against a bill. It already lowers what the customer owes. |
 | **Outstanding / Udhaar** | What customers owe. Wholesale calls it outstanding and a kirana calls it udhaar: the same records. |
 | **Ageing** | Outstanding money split by how old the bill is: 0–30, 31–60, 61–90 and over 90 days by default. An owner can set the three edges in Business settings › Rules. |
+| **Free goods kept** | Free goods (a scheme's, or given by hand) that came with paid goods returned and did not come back: charged off the credit note at a unit's value, with GST, as a line of its own. Brought back later, they give the charge back. |
 
 ### Salon & spa
 
@@ -179,7 +180,9 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Retail / wholesale licence** | Whether a licence lets its location sell to farmers and other buyers (retail), to dealers (wholesale) or both. A sale to a buyer with a GSTIN is a wholesale sale. |
 | **Qualified person** | The person a dealer's licence names as qualified, kept as written: their name, their qualification and its certificate's number, or why they are exempt. |
 | **Scanned copy** (of a licence) | A PDF or photo of a licence, kept with the dates the licence had when it was added; each renewal's copy is kept beside the earlier ones. |
-| **CSV import** | Products, customers or suppliers brought in from a CSV file (a spreadsheet saved as CSV), up to 5,000 rows at a time. The file is checked first: each row is shown as new, changing, already here, unchanged or refused with its reason. Then the rows not refused go in together, or none of them do. |
+| **Spreadsheet import** (CSV import) | Products, customers or suppliers brought in from an Excel workbook (its first sheet, or the one chosen) or a CSV file, up to 5,000 rows and 5 MB at a time. The file is checked first: each row is shown as new, changing, already here, unchanged or refused with its reason. Then the rows not refused go in together, or none of them do. |
+| **Style** (in an import) | The product a row of a products file is a variant of: the rows of one style become one product, each row an item of its own with its size, colour, code, price and stock. A style's rows share one GST rate, unit, HSN code and category. |
+| **Pack size** | A pack an item also comes in (a box of 12, a case of 48): one of the business's units with how many of the item's own unit it holds. |
 | **Opening balance** | What a customer owed the shop, or the shop owed a supplier, when it started on the platform, with the day it was true. It is the first line of their account, so Udhaar, Outstanding and what is owed to suppliers count it. |
 
 ### Hardware, paints & building materials
@@ -339,6 +342,7 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Claim file** | The estimate, the bills, the photos and the payments, printed for the owner to claim from the insurer. |
 | **Service plan** | The kilometres and days to the next service for a model or engine, whichever comes first. |
 | **Commission (mechanic's)** | A share of the labour a mechanic did, at a rate per labour item or per mechanic, paid through the expense book. |
+| **Taken back** (mechanic's commission) | Commission a credit of its bill line undoes, in proportion to the labour credited, dated the credit's day; it comes off what the mechanic is due next. |
 
 ### Gyms, studios & coaching
 

@@ -126,7 +126,7 @@ test('a shop imports its products, customers and suppliers from a CSV file', { t
     const guide = await request('GET', G('catalog/import-guide'));
     assert.equal(guide.maxRows, 5000);
     assert.deepEqual(guide.columns.map((c) => c.label), ['Name', 'Code', 'Barcode', 'Category', 'Kind', 'Unit', 'Stock tracking', 'HSN / SAC', 'GST rate', 'MRP',
-      'Sale price', 'Purchase price', 'Reorder level', 'Opening stock', 'Location', 'Batch', 'Expiry']);
+      'Sale price', 'Purchase price', 'Reorder level', 'Opening stock', 'Location', 'Batch', 'Expiry', 'Pack unit', 'Units in pack']);
     assert.deepEqual(guide.sample.columns, guide.columns.map((c) => c.label));
     assert.ok(guide.sample.rows.every((row) => row.length === guide.sample.columns.length));
     assert.match(guide.columns.find((c) => c.key === 'unit').help, new RegExp(`Yours: ${units}\\.$`));

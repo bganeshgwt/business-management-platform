@@ -7,6 +7,7 @@ const core = require('../../core/services/business.service');
 const returns = require('../../core/services/businessReturns.service');
 const numbering = require('../../core/services/businessNumbering');
 const wholesale = require('./businessWholesale.service');
+const freeGoods = require('./businessWholesaleFreeGoods.service');
 
 // Getting orders out of the godown and to the shops.
 //
@@ -314,7 +315,9 @@ async function recordDelivery(business, user, dispatchId, body) {
 // --- Invoice extras (the shared tax invoice of a dispatched order) -------------------------------
 
 // Order, salesperson, route, transport and e-way bill, and each line's
-// discount and free goods — what the tax invoice prints for a wholesale sale.
+// discount and free goods — what the tax invoice prints for a wholesale sale —
+// with each paid line's free goods (to take back with a return) and the free
+// goods kept on each credit note (businessWholesaleFreeGoods.service.js).
 async function invoiceExtras(db, businessId, documentId) {
   const dispatchRow = await repo.one(db, `SELECT d.id,d.vehicle_no,d.driver_name,d.transporter_name,d.transporter_id,d.lr_no,d.eway_bill_no,d.eway_bill_date,d.distance_km,d.challan_no,
     d.delivery_status,d.run_id,o.order_no,o.created_at AS ordered_at,s.name AS salesperson_name,r.name AS route_name
@@ -326,7 +329,7 @@ async function invoiceExtras(db, businessId, documentId) {
     FROM wholesale_dispatch_lines dl JOIN wholesale_order_lines x ON x.business_id=dl.business_id AND x.id=dl.order_line_id
     LEFT JOIN wholesale_schemes sc ON sc.business_id=x.business_id AND sc.id=x.scheme_id
     WHERE dl.business_id=$1 AND dl.dispatch_id=$2`, [businessId, dispatchRow.id]);
-  return { ...dispatchRow, lines };
+  return { ...dispatchRow, lines, ...await freeGoods.extras(db, businessId, documentId) };
 }
 
 // --- Delivery challan -------------------------------------------------------------

@@ -27,7 +27,7 @@ import { shopChanges } from "../../../tax-changes/services/taxChanges.service";
 import { WORDS, onDate } from "../../../tax-changes/taxChanges";
 // The HSN / SAC codes to fix once 6-digit codes apply to the business's PAN (modules/gst-thresholds).
 import HsnToFix from "../../../gst-thresholds/pages/HsnToFix";
-// The catalogue from a CSV file, checked row by row first.
+// The catalogue from an Excel or CSV file, checked row by row first.
 import ImportDialog from "./ImportDialog";
 
 // Extra details a product may carry, by the module that allows them.
@@ -108,7 +108,7 @@ export default function CatalogPage() {
     <div className="stack">
       <BusinessHeader icon="tag" title={title}
         description="Everything you sell, with its price, GST slab, category and stock. Changing a price never changes a bill already posted."
-        secondary={biz.can("catalog.create") && <button type="button" className="button button-secondary" onClick={() => setImporting(true)}><Icon name="upload" size={16} /> Import from a CSV file</button>}
+        secondary={biz.can("catalog.create") && <button type="button" className="button button-secondary" onClick={() => setImporting(true)}><Icon name="upload" size={16} /> Import from Excel or CSV</button>}
         primary={biz.can("catalog.create") && <button type="button" className="button" onClick={() => setEditing({})}><Icon name="plus" size={16} /> Add item</button>} />
       <SuccessMessage message={notice} />
       <ErrorMessage message={list.error} />

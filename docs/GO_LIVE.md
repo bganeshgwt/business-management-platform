@@ -124,11 +124,11 @@ on their own every minute meanwhile.
   and the screens reconnect within a few seconds, to whichever process the
   load balancer picks.
 
-### A shop's CSV import through the proxy
+### A shop's spreadsheet import through the proxy
 
-A shop's import of products, customers or suppliers from a CSV file
-([ADMIN_GUIDE › Products, customers and suppliers from a CSV
-file](ADMIN_GUIDE.md#products-customers-and-suppliers-from-a-csv-file)) sends
+A shop's import of products, customers or suppliers from an Excel or CSV file
+([ADMIN_GUIDE › Products, customers and suppliers from Excel or
+CSV](ADMIN_GUIDE.md#products-customers-and-suppliers-from-excel-or-csv)) sends
 a whole file's rows in one request, `POST /api/businesses/<id>/catalog/import`
 or `…/contacts/import`: up to 5,000 rows, a few megabytes. The API takes up to
 5 MB there (1 MB everywhere else), and a file of thousands of products with
@@ -451,8 +451,8 @@ training run does not count as a real-service sign-off. Take a verified backup
 
 1. The owner checks the business settings, locations, payment methods, tax
    rates, products and prices, and the staff's roles. Where the products,
-   customers and suppliers came from the shop's old system by **Import from a
-   CSV file**, check that the stock's value and what customers and suppliers
+   customers and suppliers came from the shop's old system by **Import from
+   Excel or CSV**, check that the stock's value and what customers and suppliers
    owe add up to the old system's figures for the same day.
 2. Each cashier opens a shift at **Quick bill** with the cash in the drawer.
    Bill by barcode and by name, and by weight where the shop sells loose

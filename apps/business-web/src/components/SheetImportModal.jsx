@@ -6,7 +6,8 @@ import SuccessCheck from "./SuccessCheck";
 import { ErrorMessage } from "./Feedback";
 import DataGrid from "./DataGrid/DataGrid";
 import useShake from "../hooks/useShake";
-import { downloadCsv, parseCsv } from "../services/csv";
+import { downloadCsv } from "../services/csv";
+import { EXCEL_ACCEPT, MAX_FILE_BYTES, isCsvFile, isExcelFile, isOldExcelFile, readCsvRows, readWorkbook } from "../services/spreadsheet";
 import { getErrorMessage } from "../services/api";
 import { count } from "@bmp/shared/format";
 import "../styles/menu.css";
@@ -15,7 +16,9 @@ import "../styles/backoffice.css";
 // One import screen for every spreadsheet import: the restaurant's stock
 // items, suppliers, recipes and guest book, a hardware shop's shades, and a
 // shop's products, customers and suppliers. The file is read here with the
-// app's one CSV reader and sent as plain rows (heading → cell); the server
+// app's one spreadsheet reader (services/spreadsheet.js: a CSV file, or with
+// `excel` an Excel workbook, its first sheet or the one chosen) and sent as
+// plain rows (heading → cell); the server
 // checks it first and says, row by row and column by column, what is wrong or
 // what would change. Nothing is written until Import is pressed, and what is
 // imported is exactly what was previewed: if a record changed in between, the
@@ -38,6 +41,7 @@ import "../styles/backoffice.css";
 //                               their reasons); otherwise any problem stops the file
 //   requestKeys                 the import carries a request key, the same for every
 //                               try of one check, so a retry is done once
+//   excel                       an Excel workbook (.xlsx) is read as well as a CSV file
 //   onClose(), onImported(message)
 
 const NEED_WORDS = {
@@ -60,29 +64,6 @@ const ACTION_WORDS = { create: "New", update: "Changes", skipped: "Already here"
 const needsLook = (row) => row.action !== "unchanged" || (row.notes || []).length > 0;
 // An import of thousands of rows takes a while: say so while it runs.
 const LONG_FILE = 500;
-
-// A spreadsheet read into { heading: cell } rows, headings exactly as typed.
-const readSheet = (text) => {
-  const lines = parseCsv(text);
-
-  if (lines.length < 2) {
-    return [];
-  }
-
-  const headings = lines[0].map((heading) => String(heading).trim());
-
-  return lines.slice(1).map((line) => {
-    const row = {};
-
-    headings.forEach((heading, index) => {
-      if (heading) {
-        row[heading] = line[index] === undefined ? "" : line[index];
-      }
-    });
-
-    return row;
-  });
-};
 
 const shown = (value) => (value === null || value === undefined || value === "" ? "—" : String(value));
 
@@ -110,6 +91,9 @@ const DETAIL_WORDS = {
   pan: "PAN",
   creditLimit: "Credit limit",
   balance: "Opening balance",
+  style: "Style",
+  variant: "Variant",
+  pack: "Pack size",
 };
 
 const detailText = (details) =>
@@ -134,6 +118,7 @@ export default function SheetImportModal({
   describeRow = null,
   partial = false,
   requestKeys = false,
+  excel = false,
   onClose,
   onImported,
 }) {
@@ -142,6 +127,10 @@ export default function SheetImportModal({
   const [guide, setGuide] = useState(null);
   const [rows, setRows] = useState([]);
   const [fileName, setFileName] = useState("");
+  // A workbook's sheets ({ name, rows }), the one being read, and the file's own name.
+  const [sheets, setSheets] = useState([]);
+  const [sheetIndex, setSheetIndex] = useState(0);
+  const [sourceName, setSourceName] = useState("");
   const [check, setCheck] = useState(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -198,6 +187,14 @@ export default function SheetImportModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [optionKey]);
 
+  // A workbook with several sheets names the one read: "items.xlsx (Prices)".
+  const nameOf = (file, list, index) => (list.length > 1 ? `${file} (${list[index].name})` : file);
+
+  const refuseFile = (message) => {
+    setError(message);
+    shake();
+  };
+
   const readFile = async (event) => {
     const file = event.target.files && event.target.files[0];
 
@@ -206,29 +203,84 @@ export default function SheetImportModal({
     setNotice("");
     setRows([]);
     setFileName("");
+    setSheets([]);
+    setSheetIndex(0);
     setFilter("changes");
 
     if (!file) {
       return;
     }
 
-    if (!/\.csv$/i.test(file.name) && file.type !== "text/csv") {
-      setError("Choose a .csv file. In Excel: File → Save As → CSV UTF-8, then choose that file here.");
-      shake();
+    const workbook = excel && isExcelFile(file);
+
+    if (!workbook && !isCsvFile(file)) {
+      refuseFile(excel && isOldExcelFile(file)
+        ? "An Excel 97-2003 workbook (.xls) is not read: in Excel, File → Save As → Excel Workbook (.xlsx), then choose that file here."
+        : excel
+          ? "Choose an Excel workbook (.xlsx) or a .csv file."
+          : "Choose a .csv file. In Excel: File → Save As → CSV UTF-8, then choose that file here.");
       return;
     }
 
-    const parsed = readSheet(await file.text());
-
-    if (parsed.length === 0) {
-      setError("That file has no rows under its heading row.");
-      shake();
+    if (file.size > MAX_FILE_BYTES) {
+      refuseFile("That file is over 5 MB. Split it and import it in parts.");
       return;
     }
 
-    setRows(parsed);
-    setFileName(file.name);
-    await runCheck(parsed, file.name);
+    let list = [];
+
+    if (workbook) {
+      setBusy(true);
+
+      try {
+        list = await readWorkbook(file);
+      } catch {
+        setBusy(false);
+        refuseFile("That file could not be read as an Excel workbook. Open it in Excel and save it again as a workbook (.xlsx), or as CSV UTF-8.");
+        return;
+      }
+
+      setBusy(false);
+    } else {
+      list = [{ name: file.name, rows: readCsvRows(await file.text()) }];
+    }
+
+    // The first sheet, or the first with rows under its heading row.
+    const first = Math.max(0, list.findIndex((sheet) => sheet.rows.length > 0));
+
+    if (!list[first] || list[first].rows.length === 0) {
+      refuseFile(workbook ? "That workbook has no rows under a heading row." : "That file has no rows under its heading row.");
+      return;
+    }
+
+    setSheets(workbook ? list : []);
+    setSheetIndex(first);
+    setSourceName(file.name);
+    setRows(list[first].rows);
+    setFileName(nameOf(file.name, list, first));
+    await runCheck(list[first].rows, nameOf(file.name, list, first));
+  };
+
+  // Another sheet of the workbook: read and checked as a file of its own.
+  const chooseSheet = async (index) => {
+    const sheet = sheets[index];
+    const base = sourceName;
+
+    setSheetIndex(index);
+    setCheck(null);
+    setError("");
+    setNotice("");
+    setFilter("changes");
+
+    if (sheet.rows.length === 0) {
+      setRows([]);
+      refuseFile(`The sheet ${sheet.name} has no rows under its heading row.`);
+      return;
+    }
+
+    setRows(sheet.rows);
+    setFileName(nameOf(base, sheets, index));
+    await runCheck(sheet.rows, nameOf(base, sheets, index));
   };
 
   const confirm = async () => {
@@ -352,6 +404,19 @@ export default function SheetImportModal({
           </div>
         )}
         {optionsControl}
+        {sheets.length > 1 && (
+          <label className="field">
+            <span>Sheet</span>
+            <select value={sheetIndex} onChange={(event) => chooseSheet(Number(event.target.value))} disabled={busy}>
+              {sheets.map((sheet, index) => (
+                <option key={`${sheet.name}-${index}`} value={index}>
+                  {sheet.name} · {count(sheet.rows.length)} row{sheet.rows.length === 1 ? "" : "s"}
+                </option>
+              ))}
+            </select>
+            <small className="muted">This workbook has {sheets.length} sheets: the one chosen is checked and imported.</small>
+          </label>
+        )}
 
         {!check && (
           <>
@@ -375,13 +440,15 @@ export default function SheetImportModal({
             </ul>
 
             <label className={`mnu-drop${busy ? " is-busy" : ""}`}>
-              <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={readFile} disabled={busy} />
+              <input ref={fileRef} type="file" accept={excel ? `.csv,text/csv,${EXCEL_ACCEPT}` : ".csv,text/csv"} onChange={readFile} disabled={busy} />
               <span className="mnu-drop-icon" aria-hidden="true">
                 {busy ? <span className="spinner" /> : <Icon name="upload" size={22} />}
               </span>
-              <span className="mnu-drop-title">{busy ? "Checking the file…" : "Choose a CSV file"}</span>
+              <span className="mnu-drop-title">{busy ? "Checking the file…" : excel ? "Choose an Excel or CSV file" : "Choose a CSV file"}</span>
               <span className="muted small">
-                From Excel or Google Sheets: File → Save As / Download → CSV. Up to {guide ? count(guide.maxRows) : "2,000"} rows.
+                {excel
+                  ? `An Excel workbook (.xlsx: its first sheet, or the one you choose) or a CSV file. Up to ${guide ? count(guide.maxRows) : "5,000"} rows and 5 MB.`
+                  : `From Excel or Google Sheets: File → Save As / Download → CSV. Up to ${guide ? count(guide.maxRows) : "2,000"} rows.`}
               </span>
             </label>
 
@@ -449,6 +516,7 @@ export default function SheetImportModal({
                 onClick={() => {
                   setCheck(null);
                   setRows([]);
+                  setSheets([]);
                   setNotice("");
                   if (fileRef.current) {
                     fileRef.current.value = "";

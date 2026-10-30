@@ -40,7 +40,8 @@ const plans = () => require('./garagePlans.service');
 //               a part line only once it is issued in full.
 //   with it     the gate pass for the vehicle; the claim invoiced (and, paid in
 //               full now, settled); each labour line's commission to its
-//               mechanic.
+//               mechanic, with the bill line that carries it (a credit of that
+//               line takes the commission back).
 //   money       the advance pays the customer's bill first; the rest is paid now
 //               or left on the customer's dues. The insurer's bill waits on its
 //               dues.
@@ -91,7 +92,7 @@ async function piecesOf(db, business, job, values, choices, mode, held, issueMod
       unit_factor: null, entered_unit: null, entered_unit_price: null, price_rule_id: line.share ? null : line.price_rule_id || null };
     if (line.share) {
       for (const piece of quotes().pricePieces({ tax_mode: mode }, priced, [{ lotCode: '', quantityMilli: 1000 }])) {
-        pieces.push({ ...piece, fixed: { ...piece.fixed, taxRate: Number(value.rate).toFixed(2), label: line.label }, held: null });
+        pieces.push({ ...piece, fixed: { ...piece.fixed, taxRate: Number(value.rate).toFixed(2), label: line.label }, held: null, lineId: null });
       }
       continue;
     }
@@ -107,7 +108,7 @@ async function piecesOf(db, business, job, values, choices, mode, held, issueMod
       picks.push(...await quotes().stockPieces(db, business, job, stockLine, choices.get(Number(line.id))));
     }
     quotes().pricePieces({ tax_mode: mode }, priced, picks).forEach((piece, index) => {
-      pieces.push({ ...piece, held: picks[index].unitCost === undefined ? null : { unitCost: picks[index].unitCost } });
+      pieces.push({ ...piece, held: picks[index].unitCost === undefined ? null : { unitCost: picks[index].unitCost }, lineId: Number(line.id) });
     });
   }
   return pieces;
@@ -172,6 +173,19 @@ async function bill(business, user, jobId, body) {
     const held = await work().heldPicks(db, business, job.id);
     const issueMode = await work().issueSetting(db, business);
     const words = [`Job card ${job.job_no}`, job.registration_no];
+    // Which bill line carries each job card line (each piece's item, in the bill's order): the
+    // commission a labour line earns is taken back when its bill line is credited.
+    const billLines = new Map();
+    const carry = async (doc, pieces) => {
+      const docLines = await repo.all(db, 'SELECT id,sku_id FROM business_document_lines WHERE business_id=$1 AND document_id=$2 ORDER BY id', [business.id, doc.id]);
+      const taken = new Set();
+      for (const piece of pieces) {
+        const found = docLines.find((l) => !taken.has(String(l.id)) && String(l.sku_id) === String(piece.input.skuId));
+        if (!found) continue;
+        taken.add(String(found.id));
+        if (piece.lineId) billLines.set(piece.lineId, Number(found.id));
+      }
+    };
     // The insurer's bill: what it approved, on its own credit.
     let insurerDoc = null;
     if (plan.insurer) {
@@ -189,6 +203,7 @@ async function bill(business, user, jobId, body) {
       if (paise(insurerDoc.total) !== plan.insurer.figures.total) {
         fail(`The insurer's bill would come to ${insurerDoc.total}, not the ${rupees(plan.insurer.figures.total)} it approved. Try again.`, 409);
       }
+      await carry(insurerDoc, pieces);
     }
     // The customer's bill: the advance first, then what is paid now.
     let customerDoc = null, advanceUse = 0;
@@ -211,6 +226,7 @@ async function bill(business, user, jobId, body) {
       customerDoc = await core.postDocument(db, business, user, documentBody, { kind: 'sale', requestKey: jobs.derivedKey(billKey, 'customer'), hash, lines: documentBody.lines,
         paidNow, fixed: pieces.map((p) => p.fixed), issued: pieces.map((p) => p.held) });
       if (paise(customerDoc.total) !== total) fail(`The bill would come to ${customerDoc.total}, not the ${rupees(total)} worked out for the job card. Try again.`, 409);
+      await carry(customerDoc, pieces);
       if (advanceUse > 0) {
         const receipt = await repo.one(db, 'SELECT collection_no,method FROM business_collections WHERE business_id=$1 AND id=$2', [business.id, job.advance_collection_id]);
         await core.recordPayment(db, business, user, customerDoc, { amount: rupees(advanceUse), method: receipt.method, reference: receipt.collection_no,
@@ -242,7 +258,7 @@ async function bill(business, user, jobId, body) {
     // The gate pass for the vehicle; the claim invoiced (settled when the customer paid the insurer's bill now); each labour line's commission.
     await db.query('INSERT INTO garage_gate_passes(business_id,job_card_id,issued_by) VALUES($1,$2,$3)', [business.id, job.id, user.id]);
     if (claim) await claims().invoiced(db, business, user, job, day, { settled: Boolean(plan.insurerNamed && insurerDoc) });
-    const earned = lines.length ? await commission().earn(db, business, job, money.todayValues(job, lines), day) : [];
+    const earned = lines.length ? await commission().earn(db, business, job, money.todayValues(job, lines), day, billLines) : [];
     // The history names the bills, not their amounts.
     await jobs.history(db, business, user, job, job.status, 'delivered', [customerDoc ? `Bill ${customerDoc.document_no}` : null,
       insurerDoc ? `insurer's bill ${insurerDoc.document_no}` : null, advanceUse > 0 ? 'the advance taken off' : null,

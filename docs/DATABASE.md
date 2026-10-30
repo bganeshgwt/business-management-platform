@@ -1228,7 +1228,7 @@ Rules:
 Added by: 1791300000005 business-events-and-provisioning; 1791974000000 (live updates: `business_events_live`).
 
 #### `business_imports`
-Purpose: each confirmed CSV import of a shop's products, customers or suppliers (`businessImports.service.js`): who imported which file, when, and what it did. The records themselves are made and changed through the core's own paths, each with its own audit row; this row keeps the import's request key, so the same import sent twice is done once.
+Purpose: each confirmed spreadsheet import (an Excel workbook's sheet or a CSV file) of a shop's products, customers or suppliers (`businessImports.service.js`): who imported which file, when, and what it did. The records themselves are made and changed through the core's own paths, each with its own audit row; this row keeps the import's request key, so the same import sent twice is done once.
 Key columns: `kind` (products, customers or suppliers), `request_key` (UUID), `request_hash` (SHA-256 of the kind, the update choice and the file's rows), `file_name` (not blank when set), `update_matching` (whether records already here were updated), `rows_read` (more than 0), `created_count`, `updated_count`, `unchanged_count`, `skipped_count`, `refused_count` (each 0 or more), `result` (a JSON object: the answer given, its counts and totals, sent again to a repeated request), `created_by`, `created_at`.
 Rules:
 - UNIQUE (`business_id`, `request_key`).
@@ -1378,7 +1378,7 @@ Added by: 1791280000000; 1791410000000 (`collection_id`, the collection trigger,
 
 #### `business_returns`
 Purpose: a credit note (on a sale) or a debit note (on a purchase).
-Key columns: `document_id`, `return_no` (unique per business), `series_id`, `reason`, `total`, `round_off` (between -1 and 1), `request_key`, `request_hash`.
+Key columns: `document_id`, `return_no` (unique per business), `series_id`, `reason`, `total` (its lines' credit, less the free goods kept on it: `wholesale_free_goods_kept`, plus its share of the round-off), `round_off` (between -1 and 1), `request_key`, `request_hash`.
 Added by: 1791280000001 business-returns-and-stock-control; 1791300000002 (the number, series and round-off).
 
 #### `business_return_lines`
@@ -1922,6 +1922,13 @@ Key columns: PK (`business_id`, `document_line_id`), `receipt_id`, `po_line_id`,
 Relations: (`business_id`, `receipt_id`) -> `wholesale_purchase_receipts`; (`business_id`, `po_line_id`) -> `wholesale_purchase_order_lines`. `document_line_id` is the purchase's line in `business_document_lines` (no FK).
 Rules: fixed once written (trigger `wholesale_purchase_receipt_lines_fixed`, function `wholesale_purchase_receipts_fixed`); index `wholesale_purchase_receipt_lines_line` (business, order line).
 Added by: 1791620003000_wholesale-purchase-orders-challan-schemes-bounces.
+
+#### `wholesale_free_goods_kept`
+Purpose: free goods (a scheme's, or given by hand) that came with paid goods on a dispatched order's invoice and were kept when the paid goods came back: charged off the credit note, or given back when they came back later. What a credit note's rows come to is taken off its `total` and, by Reports and the owner's turnover, off its value before GST and its GST.
+Key columns: `return_id` (the credit note), `document_id` (the invoice), `order_line_id` (the paid order line), `free_line_id` (the free order line), `quantity` (kept: more than nothing; brought back after being kept: less), `unit_value` (one unit's value before GST: the paid lines' own per unit for the same item, the free item's order price before GST for another), `net` and `tax` (the change's value and its GST at the paid line's rate, with the sign of `quantity`), `tax_rate`, `created_at`.
+Relations: (`business_id`, `return_id`) -> `business_returns`; (`business_id`, `document_id`) -> `business_documents`; (`business_id`, `order_line_id`) and (`business_id`, `free_line_id`) -> `wholesale_order_lines`.
+Rules: UNIQUE (business, return, free line); index `wholesale_free_goods_kept_document`. Trigger `wholesale_free_goods_kept_check`: the free line is free of the paid line on the credit note's own invoice, and what is kept of it (all its rows) is never below nothing nor more than belongs to the paid goods returned so far (free × paid returned ÷ paid bought, to the thousandth of the free goods' unit) and did not come back. Trigger `wholesale_free_goods_kept_fixed`: never changed or deleted.
+Added by: import-returns-commission.
 
 ## Fashion
 
@@ -3012,7 +3019,7 @@ Added by: optical-more.
 
 ## Vehicle service & auto parts
 
-A garage's own tables (type `garage`), added by 1791964000000 garage and garage-more (parts fitment and substitutes, the inspection's photos, parts issued, road tests and gate passes, a claim's progress and settlement, service plans, mechanics' commission). Module `garage` ("Vehicles & job cards", optional, garage only, on) needs catalog, contacts and sales; permissions `garage.view`, `garage.create` (add vehicles, open job cards), `garage.edit` (work on job cards), `garage.approve` (an odometer reading lower than the last), `garage.cancel` and `garage.print`. The role template `mechanic` is given to garages only (`business_role_templates.business_types`). Job cards are numbered in the series kind `job_card` (prefix `JC`); the advance of a cancelled job card is handed back as a `business_collection_refunds` row with `source` garage. A job card's bills are ordinary sales (`business_documents`): the customer's, and on a cashless claim the insurer's. How they are used: [BUSINESS_PLATFORM_DATA_MODEL.md › Vehicle service & auto parts](BUSINESS_PLATFORM_DATA_MODEL.md#vehicle-service--auto-parts).
+A garage's own tables (type `garage`), added by 1791964000000 garage, garage-more (parts fitment and substitutes, the inspection's photos, parts issued, road tests and gate passes, a claim's progress and settlement, service plans, mechanics' commission) and import-returns-commission (commission taken back on a credit). Module `garage` ("Vehicles & job cards", optional, garage only, on) needs catalog, contacts and sales; permissions `garage.view`, `garage.create` (add vehicles, open job cards), `garage.edit` (work on job cards), `garage.approve` (an odometer reading lower than the last), `garage.cancel` and `garage.print`. The role template `mechanic` is given to garages only (`business_role_templates.business_types`). Job cards are numbered in the series kind `job_card` (prefix `JC`); the advance of a cancelled job card is handed back as a `business_collection_refunds` row with `source` garage. A job card's bills are ordinary sales (`business_documents`): the customer's, and on a cashless claim the insurer's. How they are used: [BUSINESS_PLATFORM_DATA_MODEL.md › Vehicle service & auto parts](BUSINESS_PLATFORM_DATA_MODEL.md#vehicle-service--auto-parts).
 
 #### `garage_settings`
 Purpose: a garage's months and kilometres to the next service after a job, and the item that bills the owner's share of a cashless claim.
@@ -3184,15 +3191,23 @@ Rules: unique partial indexes `garage_commission_rates_item` and `garage_commiss
 
 #### `garage_commissions`
 Purpose: the commission a billed labour line earned its mechanic.
-Key columns: `job_card_id`, `line_id`, `user_id`, `base` (the mechanic's part of the line's value before GST), `percent`, `amount`, `earned_on` (the business's date of the bill), `created_at`.
-Relations: (`business_id`, `job_card_id`) -> `garage_job_cards`; (`business_id`, `line_id`) -> `garage_job_card_lines`.
-Rules: UNIQUE (business, line, mechanic); index `garage_commissions_person`; trigger `garage_commissions_kept` (function `garage_kept`).
+Key columns: `job_card_id`, `line_id`, `user_id`, `base` (the mechanic's part of the line's value before GST), `percent`, `amount`, `earned_on` (the business's date of the bill), `document_line_id` (the bill line that carries the labour; none for commission earned before it was kept), `line_net` (the labour line's whole value billed, before GST), `created_at`.
+Relations: (`business_id`, `job_card_id`) -> `garage_job_cards`; (`business_id`, `line_id`) -> `garage_job_card_lines`; (`business_id`, `document_line_id`) -> `business_document_lines`.
+Rules: UNIQUE (business, line, mechanic) and (business, id); indexes `garage_commissions_person` and `garage_commissions_document_line`; trigger `garage_commissions_kept` (function `garage_kept`).
+Added by: garage-more; import-returns-commission (`document_line_id`, `line_net`).
 
 #### `garage_commission_payouts`
 Purpose: a commission paid to a mechanic, through the expense book.
 Key columns: `user_id`, `expense_id` (the `business_expenses` row: reversing it there makes the amount due again), `amount`, `notes`, `request_key`, `request_hash`, `created_by`, `created_at`.
 Relations: (`business_id`, `expense_id`) -> `business_expenses`.
 Rules: UNIQUE (business, expense) and (business, request key); index `garage_commission_payouts_person`; trigger `garage_commission_payouts_kept` (function `garage_kept`).
+
+#### `garage_commission_reversals`
+Purpose: commission taken back when the bill line that carried its labour is credited (a return, or a credit by value such as an insurer's short payment written off; not one billed to the owner): in proportion to the labour credited so far against the labour line's whole value, to the paisa. It comes off what the mechanic is due; a payout made stays.
+Key columns: `commission_id`, `user_id`, `return_id` (the credit note), `line_id` (the bill line it credited), `base` (the mechanic's part of the labour credited, before GST), `amount` (the commission taken back), `reversed_on` (the business's date of the credit), `created_at`.
+Relations: (`business_id`, `commission_id`) -> `garage_commissions`; (`business_id`, `return_id`) -> `business_returns`; (`return_id`, `line_id`) -> `business_return_lines`.
+Rules: UNIQUE (commission, return); CHECK a base or an amount more than nothing; index `garage_commission_reversals_person`; trigger `garage_commission_reversals_kept`: never changed or deleted.
+Added by: import-returns-commission.
 
 ## Gyms, studios & coaching
 

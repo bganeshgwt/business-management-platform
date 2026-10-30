@@ -22,7 +22,7 @@ import ConsentChoices from "../../../personal-data/components/ConsentChoices";
 import { consentChanges } from "../../../personal-data/personalData";
 import { consentStore, useConsent } from "../../../personal-data/consentStore";
 import { useShopPrivacy } from "../../../personal-data/usePrivacy";
-// Customers or suppliers from a CSV file, checked row by row first.
+// Customers or suppliers from an Excel or CSV file, checked row by row first.
 import ImportDialog from "./ImportDialog";
 // A jeweller's customer: their KYC, and their old gold paid out at once.
 import { usesJewellery } from "../../jewellery/pages/jewellery";
@@ -88,7 +88,7 @@ export default function ContactsPage({ kind }) {
     <div className="stack">
       <BusinessHeader icon={customer ? "users" : "truck"} title={plural}
         description={customer ? "Who buys from you, their GSTIN for B2B invoices, how much credit they get and what they owe now." : "Who you buy from, their GSTIN, the credit days they give you and what you owe them."}
-        secondary={biz.can("contacts.create") && <button type="button" className="button button-secondary" onClick={() => setImporting(true)}><Icon name="upload" size={16} /> Import from a CSV file</button>}
+        secondary={biz.can("contacts.create") && <button type="button" className="button button-secondary" onClick={() => setImporting(true)}><Icon name="upload" size={16} /> Import from Excel or CSV</button>}
         primary={biz.can("contacts.create") && <button type="button" className="button" onClick={() => setEditing({})}><Icon name="plus" size={16} /> Add {singular}</button>} />
       <SuccessMessage message={notice} />
       <ErrorMessage message={list.error} />

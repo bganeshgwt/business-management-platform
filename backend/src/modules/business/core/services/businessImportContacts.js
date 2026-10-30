@@ -6,7 +6,7 @@ const { normaliseMobile, formatMobile } = require('../../../../utils/phone');
 const core = require('./business.service');
 const { attempt, plainAmount, plainSigned, tidy, nameKey, moneyWords, samePaise, plainNumber, dayWords } = require('./businessImportCells');
 
-// Customers or suppliers from a CSV file: a shop's udhaar book or its list of
+// Customers or suppliers from a spreadsheet: a shop's udhaar book or its list of
 // parties from another system, with GSTINs, credit terms and what each owed
 // when the shop started, planned row by row against the contacts already here
 // (businessImports.service.js runs the check and the import).

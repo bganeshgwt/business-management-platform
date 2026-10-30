@@ -654,3 +654,28 @@ export const ACCESS_RULES = {
   shared: { name: "Joseph Thomas", email: "joseph@fashion.e2e.invalid", alsoAt: "electronics" },
   womenswear: { name: "Lata Shah", email: "lata@fashion.e2e.invalid" },
 };
+
+// The shops' import of an Excel workbook and of a style with its variants
+// (business-csv-import.spec.js), in the general store, where Variants is on: a
+// workbook whose first sheet is a note and whose second holds the items, and a
+// file of one style in three variants, with a pack size on one of them.
+export const SPREADSHEET_IMPORT = {
+  business: "general_retail",
+  workbook: {
+    name: "stock-list.xlsx",
+    note: { name: "Read me", rows: [["Note"], ["Prices include GST"]] },
+    items: { name: "Items", rows: [["Name", "Code", "Unit", "GST rate", "Sale price", "Opening stock"], ["Steel water bottle", "BOTTLE-1", "each", "18%", 349, 12],
+      ["Lunch box", "LUNCH-1", "each", "18%", 299, ""]] },
+    names: ["Steel water bottle", "Lunch box"],
+  },
+  styles: {
+    headings: ["Style", "Size", "Colour", "Code", "Unit", "GST rate", "Sale price", "Opening stock", "Pack unit", "Units in pack"],
+    rows: [
+      ["Cotton socks", "S", "Black", "SOCK-BLK-S", "each", "5%", "120", "10", "pack", "3"],
+      ["Cotton socks", "M", "Black", "SOCK-BLK-M", "", "", "120", "10", "", ""],
+      ["Cotton socks", "M", "Grey", "SOCK-GRY-M", "", "", "130", "", "", ""],
+    ],
+    style: "Cotton socks",
+    names: ["Cotton socks · Black / S", "Cotton socks · Black / M", "Cotton socks · Grey / M"],
+  },
+};

@@ -175,8 +175,9 @@ async function settleShort(business, user, jobId, body) {
     const parts = money.apportion(short, lines.map((l) => paise(l.net) + paise(l.tax)));
     const values = new Map(lines.map((l, i) => [Number(l.id), parts[i]]).filter(([, p]) => p > 0));
     const words = how === 'written_off' ? 'written off' : 'billed to the customer';
+    // Written off, the labour credited takes back its mechanic's commission; billed to the owner, the labour is still billed.
     const credit = await returns.postReturn(db, business, user, doc, { reason: `Claim ${claim.claim_no || claim.policy_no}: the insurer's short payment ${words} · ${approval.reason}`.slice(0, 300),
-      requestKey: derivedKey(requestKey, 'credit'), hash, lines: [...values.keys()].map((lineId) => ({ lineId })), values, goodsByValue: true });
+      requestKey: derivedKey(requestKey, 'credit'), hash, lines: [...values.keys()].map((lineId) => ({ lineId })), values, goodsByValue: true, rebilled: how === 'billed' });
     let ownerDoc = null;
     if (how === 'billed') {
       const garage = await jobs.settingsOf(db, business);
