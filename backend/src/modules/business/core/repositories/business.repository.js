@@ -43,10 +43,18 @@ async function platformCatalogue() {
 // The modules switched on that the business's plan also unlocks today
 // (business_active_capabilities, migration paid-plans): what every module check reads.
 const capabilitiesSql = `COALESCE(array_to_json(business_active_capabilities(b.id)),'[]')`;
+// Each business's paid plan for the list of businesses: its state and dates as
+// its context carries them (subscriptions.service bannerOf), never prices.
+// daysLeft counts to the end of the time it is in, both days included; NULL
+// when that time has no end.
+const planSql = `(SELECT json_build_object('state',s.state,'accessEndsOn',s.access_ends_on,'trialEndsOn',s.trial_ends_on,'graceEndsOn',s.grace_ends_on,
+   'daysLeft',CASE WHEN e.ends_on IS NOT NULL THEN GREATEST(0,e.ends_on-business_local_today(b.id)+1) END)
+  FROM business_plan_state(b.id) s CROSS JOIN LATERAL (SELECT CASE s.state WHEN 'trial' THEN s.trial_ends_on WHEN 'paid' THEN s.access_ends_on
+   WHEN 'given' THEN s.access_ends_on WHEN 'grace' THEN s.grace_ends_on WHEN 'checking' THEN s.checking_until END AS ends_on) e)`;
 const list = async (userId) => (await pool.query(`
  SELECT b.id,b.name,b.code,b.business_type,b.legacy_restaurant_id,b.status,b.currency,b.timezone,
   CASE rf.format WHEN 'cafe' THEN 'Café' WHEN 'bakery' THEN 'Bakery' WHEN 'cloud_kitchen' THEN 'Cloud kitchen' ELSE t.name END AS type_name,rf.format AS restaurant_format,
-  m.role_id,r.name AS role_name,r.full_access,m.last_opened_at,${capabilitiesSql} AS capabilities
+  m.role_id,r.name AS role_name,r.full_access,m.last_opened_at,${capabilitiesSql} AS capabilities,${planSql} AS plan
  FROM businesses b JOIN business_types t ON t.code=b.business_type LEFT JOIN restaurants rf ON rf.id=b.legacy_restaurant_id
  JOIN business_memberships m ON m.business_id=b.id
  JOIN business_roles r ON r.business_id=m.business_id AND r.id=m.role_id

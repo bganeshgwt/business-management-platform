@@ -12,6 +12,10 @@ import { AddBusinessDialog } from "./NewBusinessForm";
 import { moneyShort } from "@bmp/shared/format";
 import { businessPath, TYPE_ICONS } from "../../../../services/businessNav";
 import { UDHAAR } from "../../../../services/businessTypes";
+import StatusBadge from "../../../../components/StatusBadge";
+// Each business's plan in a few words (modules/plan).
+import { stateBadge, todayIn } from "../../../plan/planWords";
+import "../../../plan/plan.css";
 // An owner's turnover under each PAN (modules/gst-thresholds).
 import OwnerThresholdsCard from "../../../gst-thresholds/pages/OwnerThresholdsCard";
 import "../styles/business-admin.css";
@@ -114,6 +118,8 @@ function BusinessCard({ business, onOpen }) {
     "receivables_owed" in summary && Number(summary.receivables_owed) > 0 && `${UDHAAR.includes(business.business_type) ? "Udhaar" : "Owed"}${moneyShort(summary.receivables_owed)}`,
     alerts > 0 && `${alerts} to look at`,
   ].filter(Boolean) : [];
+  // Its plan: the trial's days left, paid or given until, renew by, ended.
+  const plan = stateBadge(business.plan, { today: todayIn(business.timezone) });
   return (
     <button type="button" className="bz-business-card" onClick={onOpen}
       disabled={restaurant && !business.is_signed_in_restaurant} title={business.name}>
@@ -123,6 +129,7 @@ function BusinessCard({ business, onOpen }) {
       <span className="bz-business-card-text">
         <strong>{business.name}</strong>
         <small>{business.type_name} · {business.role_name}</small>
+        {plan && <StatusBadge className="plan-state" tone={plan.tone} label={plan.label} />}
         {figures.length > 0 && <span className="bz-business-figures">{figures.map((f, i) => <span key={f} className={i === 2 ? "is-alert" : ""}>{f}</span>)}</span>}
         {restaurant && <span className="bz-business-figures"><span>{business.is_signed_in_restaurant ? "Opens the restaurant admin" : "Sign in to that restaurant to manage it"}</span></span>}
       </span>

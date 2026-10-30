@@ -4248,7 +4248,7 @@ These three routes have no `:businessId`, so they skip the membership check. Nor
 #### `GET /api/businesses`
 Permission: login only
 Query/Body: none
-Returns: `data = { types: { code: { name } }, modules[{ code, name, kind }], businesses[] }`. Each business is `{ id, name, code, business_type, type_name, restaurant_format, legacy_restaurant_id, status, currency, timezone, role_id, role_name, full_access, last_opened_at, capabilities[], is_signed_in_restaurant }`, by name; a restaurant's `type_name` is its format's name (Café, Bakery, Cloud kitchen) when it is not a full-service restaurant. Only active memberships of active businesses are listed.
+Returns: `data = { types: { code: { name } }, modules[{ code, name, kind }], businesses[] }`. Each business is `{ id, name, code, business_type, type_name, restaurant_format, legacy_restaurant_id, status, currency, timezone, role_id, role_name, full_access, last_opened_at, capabilities[], plan, is_signed_in_restaurant }`, by name; `plan` is its paid plan's state and dates as its context carries them (`{ state, accessEndsOn, trialEndsOn, graceEndsOn, daysLeft }`, never prices), for its card on Your businesses; a restaurant's `type_name` is its format's name (Café, Bakery, Cloud kitchen) when it is not a full-service restaurant. Only active memberships of active businesses are listed.
 
 #### `POST /api/businesses`
 Permission: login, as the owner of an active business (or a restaurant's `RESTAURANT_ADMIN`, or the platform's own account)

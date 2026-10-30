@@ -13,6 +13,9 @@ import { getErrorMessage } from "../../../../services/api";
 import { listFeatures, previewFeature, setFeature } from "../../../../services/features";
 import "../../../../styles/features.css";
 import FormatCard from "./FormatCard";
+import PlanBadge from "../../../plan/components/PlanBadge";
+import { moduleBadge } from "../../../plan/planWords";
+import { useOwnerPlan, usePlanScope } from "../../../plan/usePlan";
 
 // Settings -> Features: the parts of the restaurant this restaurant uses.
 // Switching one off hides it everywhere (menu, pages, buttons, dashboard,
@@ -29,6 +32,7 @@ const ICONS = {
   online_ordering: "store",
   deliveries: "scooter",
   kitchen_display: "chef",
+  captain_app: "phone",
   captain_sections: "map-pin",
   tips: "heart",
   advances: "wallet",
@@ -72,6 +76,11 @@ export default function FeaturesPage() {
   const [success, setSuccess] = useState("");
   const [busy, setBusy] = useState("");
   const [asking, setAsking] = useState(null);
+  // The plan's badge on each feature (modules/plan): the owner's with the
+  // prices of the choice for after the trial and the way to add one, staff's
+  // only why a switch stays off.
+  const planScope = usePlanScope();
+  const ownerPlan = useOwnerPlan(planScope);
 
   const load = useCallback(() => {
     return listFeatures()
@@ -261,10 +270,14 @@ export default function FeaturesPage() {
                 {group.features.map((feature) => {
                   const missing = feature.requires.filter((code) => !byCode.get(code)?.enabled);
                   const neededBy = feature.requiredBy.filter((code) => byCode.get(code)?.enabled);
-                  const locked = feature.enabled ? neededBy.length > 0 : missing.length > 0;
+                  // Outside the plan a feature works as switched off, and cannot be switched on.
+                  const outside = feature.inPlan === false;
+                  const locked = feature.enabled ? neededBy.length > 0 : missing.length > 0 || outside;
                   const hint = feature.enabled
                     ? neededBy.length > 0 && `${neededBy.map(nameOf).join(" and ")} ${neededBy.length === 1 ? "needs" : "need"} it: switch ${neededBy.length === 1 ? "that" : "those"} off first.`
+                    : outside ? "Not in your plan."
                     : missing.length > 0 && `Needs ${missing.map(nameOf).join(" and ")}: switch ${missing.length === 1 ? "that" : "those"} on first.`;
+                  const badge = moduleBadge({ code: feature.code, kind: "optional", inPlan: !outside }, { plan: planScope?.plan, view: ownerPlan, isOwner: Boolean(planScope?.isOwner) });
 
                   return (
                     <div key={feature.code} className={`feature-card ${feature.enabled ? "is-on" : "is-off"}`} data-feature={feature.code}>
@@ -273,6 +286,7 @@ export default function FeaturesPage() {
                       </span>
                       <div className="feature-card-text">
                         <strong>{feature.name}</strong>
+                        <PlanBadge badge={badge} addTo={planScope?.isOwner && planScope.planPath ? `${planScope.planPath}?add=${feature.code}` : null} />
                         <p>{feature.description}</p>
                         {(feature.requires.length > 0 || neededBy.length > 0) && (
                           <div className="feature-card-needs">

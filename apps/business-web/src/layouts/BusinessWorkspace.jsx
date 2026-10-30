@@ -13,6 +13,7 @@ import SectionCard from "../components/SectionCard";
 import { ScreenLoading } from "../components/Feedback";
 import { businessPath } from "../services/businessNav";
 import { HEALTH_WORKSPACES, healthWorkspacePath, workspaceClinics } from "../services/healthWorkspaces";
+import PlanBanner from "../modules/plan/components/PlanBanner";
 import "../styles/access.css";
 import "../styles/business-workspace.css";
 
@@ -143,6 +144,8 @@ export function WorkspaceFrame({ kind, live, tabs = [], tools, children }) {
       )}
       <main className="content-scroll ws-main" id="ws-main" ref={mainRef} tabIndex={-1}>
         <div className="content ws-content">
+          {/* The clinic's plan, when its end is near or has come (modules/plan). */}
+          <PlanBanner working />
           <Suspense fallback={<ScreenLoading />}>{children}</Suspense>
         </div>
       </main>

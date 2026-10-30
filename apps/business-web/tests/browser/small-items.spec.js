@@ -237,6 +237,10 @@ test("an order for pickup takes an advance, which comes off its bill at Quick bi
   const advance = page.locator(".rt-totals").filter({ hasText: "Advance" });
   await expect(advance).toContainText("−₹100.00", { timeout: 15_000 });
   await expect(advance.locator(".rt-grand")).toContainText("Left to pay₹260.00");
+  // The counter's note about the order can sit over the take button, and stays
+  // while the pointer rests on it: the pointer moves off, and the note goes first.
+  await page.mouse.move(0, 0);
+  await expect(page.getByTestId("toast").filter({ hasText: `${meat.hotel.name}'s order is on the bill` })).toHaveCount(0, { timeout: 15_000 });
   await page.getByRole("button", { name: /^Take ₹260\.00/ }).click();
   const saved = page.getByRole("dialog", { name: /^Bill \S+ saved$/ });
   await expect(saved).toBeVisible({ timeout: 15_000 });

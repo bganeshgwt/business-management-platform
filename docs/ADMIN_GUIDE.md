@@ -53,6 +53,7 @@ on record.
 - [Getting around the restaurant admin](#getting-around-the-restaurant-admin)
 - [Lists: the data grid](#lists-the-data-grid)
 - [The platform's public site and signing up](#the-platforms-public-site-and-signing-up)
+- [Your plan, the free trial and paying](#your-plan-the-free-trial-and-paying)
 
 **[Part 2 — The restaurant](#part-2--the-restaurant)**
 
@@ -637,7 +638,8 @@ quotations (except at a hardware shop), fitters' commission, licences (except
 at a seeds, fertilisers & pesticides shop), tasks, issues and
 projects stay off until the owner or a manager switches them on. A tool most businesses of the type use is marked *Recommended*, with the
 reason, and listed first. Switching a tool off hides its screens and keeps its
-history.
+history. A tool the business's plan does not unlock says *Not in your plan*
+and cannot be switched on ([Your plan, the free trial and paying](#your-plan-the-free-trial-and-paying)).
 
 **Staff logins.** In Staff & access, *New staff login* creates a login for
 someone who has none (name, email, first password, role, where they work and,
@@ -1099,6 +1101,91 @@ is a lead for the platform's team, in **Platform › Leads & trials**; a later
 sign-up with the same mobile number or email joins that lead. The `ref` or
 `utm_source` of the link that brought the visitor (`/welcome?ref=facebook`)
 is kept on the lead as its source, for their whole visit.
+
+## Your plan, the free trial and paying
+
+Each business pays for its own plan: a plan for its type (each type starts
+with **Basic**) with the modules and applications added to it, by the month
+or by the year. Prices are before GST, which the invoice adds (18%).
+
+**The free trial.** A new business starts on a free trial (14 days, unless
+the platform has set another length) in which every module and application
+its type can use is unlocked. Nothing is charged until it ends.
+
+**Your plan** is the owner's: in Business Admin it is *Settings › Your plan*,
+for the business's Owner role only, and a restaurant's owner finds it among
+the restaurant's settings (`/plan`). It shows:
+
+- **Where your plan stands:** the trial, paid time, time the platform has
+  given, grace, a payment being checked or the end; its dates; and what is
+  unlocked now.
+- **Choose your plan** (during the trial), **Your next period** (on paid
+  time) or **Renew your plan** (in grace or after the end): the plan,
+  *Monthly* or *Yearly* (a year costs less than twelve months), and the
+  modules and applications to add, each with its price. A module switched on
+  now that the choice leaves out says *In use now*: it switches off when the
+  time that unlocks it ends. **Save choice** keeps the choice; paying keeps
+  it too. A change of plan starts with the next period. During time the
+  platform has given, the choice is the platform's: the card says whom to
+  contact.
+- **Pay now** (**Renew now** after the trial) makes an order: its lines, the
+  GST (CGST and SGST within the platform company's state, IGST from another
+  state) and the total, its prices held for 7 days. A business with no state
+  yet is asked for it first: it is the place of supply on the invoice. The
+  new period starts the day after the time the business already has, so no
+  day is lost; after the end, it starts today.
+- **Pay for your plan:** the company's UPI ID with a QR code for the exact
+  amount (any UPI app fills in the amount and the order number) and its bank
+  account. Once you have paid, **I have paid** takes how (UPI, bank transfer,
+  cash or cheque), the payment's reference (the UPI transaction ID or UTR,
+  the bank's reference or the cheque number) and the date. The order then
+  shows *Payment being checked* until the platform confirms it; a business
+  whose time has run out keeps working for up to 2 days meanwhile. A payment
+  that could not be confirmed says why, and can be entered again.
+- **Add to this period** (on paid time): a module or application from today
+  to the end of the period, at its price for the period times the days left
+  over the days in the period.
+- **Orders, payments and invoices:** each confirmed payment has the company's
+  GST invoice; **Print** prints it, or saves it as a PDF from the print
+  window. An invoice issued while the company's GSTIN is still the sample one
+  is marked *SAMPLE — NOT A TAX INVOICE*.
+
+**The banner.** While there is something to know about the plan, every
+screen of the business has a line at its top: *Free trial: 9 days left*;
+from 15 days before paid or given time ends, *Your plan ends on 12 Nov*; in
+grace, *Your plan ended on 12 Nov. Renew by 19 Nov to keep billing*; *We are
+checking your payment*; and after the end, that the business is read-only.
+The owner's banner opens Your plan. Staff see the same banner with no link
+and no price; once the end is near or has come, it asks them to ask the owner
+to renew. On the billing screens
+(the POS, the kitchen display, Quick bill and the other counters) and in the
+clinic's and the lab's workspaces, it shows only in the last 3 days before
+the end, in grace, while a payment is being checked, and after the end.
+
+**After the end: read-only.** Once paid or given time and its grace (7 days,
+unless the platform has set another length) have passed, or a trial has
+ended unpaid, the business is read-only: everything can still be seen,
+printed and exported, and nothing is deleted, but nothing can be added or
+changed. A save refused this way says *This business's plan has ended. You
+can still see and export everything; renew in Your plan to add or change
+anything*, and, outside a dialog, a notice says once on the page what to do:
+the owner gets **Renew**, staff are asked to ask the owner. Paying from Your
+plan brings everything back.
+
+**Plan badges.** In *Settings › Business tools* (a restaurant's *Settings →
+Features*):
+
+- during the trial, the owner sees where each module stands after it: *In
+  your plan*, or *Add-on · ₹1,999/year after the trial* (by the month or the
+  year, as the choice is);
+- after the trial, a module the plan does not unlock says *Not in your
+  plan*, to everyone. It works as switched off, its records kept, and its
+  switch stays off; the owner's **Add to plan** opens Your plan with it
+  offered (on paid time, for the rest of the period).
+
+**Your businesses** shows each business's plan on its card: *Free trial · 9
+days left*, *Paid until 12 Nov 2027*, *Given until 31 Dec*, *Ended · renew by
+19 Nov* (in grace), *Payment being checked* or *Ended · read-only*.
 
 ---
 
@@ -1928,6 +2015,7 @@ several of these at once; see Café, bakery and cloud kitchen.
 | Service | **Online ordering page** (needs Guests) | Your own ordering web page | On |
 | Service | **Deliveries & rider cash** | The Delivery order type, the Deliveries board, riders and their cash | On |
 | Service | **Kitchen display (KDS)** | The kitchen screen. With it off, KOTs still print and orders work the same way | On |
+| Service | **Captain app** | The waiters' phone screen (`/captain`): their tables, the guests' calls and the food ready at the pass, and orders taken at the table | On |
 | Service | **Captain sections** | Giving each captain a set of tables | On |
 | Service | **Pre-orders & cakes** (needs Guests) | Cake and party orders taken ahead (with an advance while Advances & deposits is on), the bake list | Off |
 | Service | **Brands (one kitchen, several names)** | Selling under several brand names, brand on orders, KOTs and bills, sales by brand | Off |
@@ -1973,6 +2061,13 @@ switcher, and the Outlets page is where it adds its first branch.
 their history stay exactly as they are; switch the feature back on and
 everything is back. Stock keeps being taken off for what is sold while Stock is
 off, so the numbers are right when it comes back.
+
+**Not in your plan.** A feature the restaurant's plan does not unlock says
+*Not in your plan*: it works as switched off, its records kept, and its
+switch stays off until the plan unlocks it (the owner's **Add to plan** opens
+Your plan). During the free trial the owner sees where each feature stands
+after it: *In your plan*, or *Add-on · ₹2,999/year after the trial* for one
+the choice leaves out. See [Your plan, the free trial and paying](#your-plan-the-free-trial-and-paying).
 
 **Needs.** Loyalty points, the Online ordering page and Pre-orders & cakes
 need Guests; Issues and Projects need Tasks & checklists. A feature

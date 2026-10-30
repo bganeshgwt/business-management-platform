@@ -1,0 +1,264 @@
+/* Your plan (modules/plan): the plan's banner in the app's frame, a module's
+   plan badge, a business's state on the list of businesses, and the Your plan
+   page. Colours are the @bmp/ui tokens only, so light and dark both follow. */
+
+/* --- The banner ------------------------------------------------------------ */
+
+.plan-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 0 0 16px;
+  padding: 9px 14px;
+  border: 1px solid var(--info-border);
+  border-radius: var(--radius);
+  background: var(--info-bg);
+  color: var(--info-text);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.plan-banner.is-warn {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.plan-banner.is-danger {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.plan-banner-icon {
+  flex-shrink: 0;
+}
+
+.plan-banner-text {
+  flex: 1 1 16rem;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.plan-banner-action {
+  flex-shrink: 0;
+}
+
+/* --- A module's badge, a business's state ------------------------------------ */
+
+.plan-badge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin-top: 6px;
+}
+
+.plan-badge-add {
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+
+.plan-state {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+/* --- Your plan --------------------------------------------------------------- */
+
+.plan-standing {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.plan-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px 14px;
+  margin: 12px 0 0;
+  font-size: 0.875rem;
+}
+
+.plan-facts dt {
+  color: var(--muted);
+}
+
+.plan-facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.plan-fieldset,
+.plan-group {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.plan-fieldset {
+  gap: 18px;
+}
+
+.plan-group > legend {
+  margin-bottom: 8px;
+  padding: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.plan-options,
+.plan-addon-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 10px;
+}
+
+.plan-option,
+.plan-addon {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.plan-option.is-chosen,
+.plan-addon.is-chosen {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+  background: color-mix(in srgb, var(--primary-soft) 60%, var(--surface));
+}
+
+.plan-option input,
+.plan-addon input {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.plan-addon.is-blocked {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.plan-option-text,
+.plan-addon-text {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.plan-option-text small,
+.plan-addon-text small {
+  color: var(--muted);
+}
+
+.plan-price {
+  font-size: 0.875rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.plan-summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.plan-summary {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.plan-summary-row .form-actions {
+  margin: 0;
+}
+
+.plan-lines th {
+  font-weight: 500;
+  text-align: left;
+}
+
+.plan-lines th small {
+  color: var(--muted);
+}
+
+.plan-lines .is-total th,
+.plan-lines .is-total td {
+  border-top: 2px solid var(--border-strong);
+  font-weight: 800;
+}
+
+.plan-pay {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.plan-pay h3,
+.plan-paid-form h3,
+.plan-history h3 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.plan-pay p {
+  margin: 8px 0;
+  font-size: 0.875rem;
+}
+
+.plan-qr {
+  display: block;
+  width: 180px;
+  height: 180px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.plan-checking {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.plan-checking p {
+  margin: 4px 0 0;
+}
+
+.plan-paid-form {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.plan-history {
+  display: grid;
+  gap: 18px;
+}
+
+.plan-contact {
+  margin: 0;
+}

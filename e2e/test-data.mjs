@@ -53,6 +53,11 @@ export const LOGINS = [
   // Menswear head.
   { role: "BAKER", name: "Anita Joseph", email: "baker@bistro.e2e.invalid", accessRules: true },
   { role: "MENSWEAR_HEAD", name: "Farhan Ali", email: "menswear@fashion.e2e.invalid", accessRules: true },
+  // Your plan (your-plan.spec.js): the owner of businesses of their own, made
+  // with them by the platform, and a cashier in one of them, made in its
+  // Staff & access. Both are made with YOUR_PLAN below.
+  { role: "PLAN_OWNER", name: "Mohan Das", email: "owner@plans.e2e.invalid", yourPlan: true },
+  { role: "PLAN_CASHIER", name: "Anil Kumar", email: "cashier@plans.e2e.invalid", yourPlan: true },
 ];
 
 // The staff login a spec makes in the grocery's Staff & access, as the owner
@@ -724,4 +729,33 @@ export const PLATFORM_CONSOLE = {
   price: { type: "Grocery & kirana", plan: "Basic", yearly: "5499", words: "₹5,499 a year + 18% GST" },
   shop: { type: "Hardware, paints & building materials", name: "Console Hardware", stateCode: "29", owner: "Suresh Bhat", days: 60, reason: "Pilot customer" },
   kirana: { name: "Console Kirana", stateCode: "29", owner: "Lakshmi Narayan" },
+};
+
+// Your plan (your-plan.spec.js): the PLAN_OWNER's own businesses, made by the
+// platform with that login. The gift shop is on its free trial, with no state
+// set: the spec pays for a year of Basic with Loyalty points by UPI, its state
+// Karnataka (₹4,999 + ₹1,999, and 18% IGST as the company's sample GSTIN is
+// in another state: ₹8,257.64), and the platform confirms the payment. The
+// kirana's time given by the platform ended a month ago (set in the
+// database): it is read-only, and the PLAN_CASHIER works there. The provision
+// store is ten days into a month of Basic (paid for, set in the database);
+// Offers & discounts, which it switched on in its trial, is not in that plan.
+// The company's details an invoice needs and how owners pay it, in sample
+// mode, are set by the spec itself (e2e/platform-actions.mjs).
+export const YOUR_PLAN = {
+  trial: { type: "general_retail", name: "Mangala Gift Corner", code: "E2E-PLAN-TRIAL" },
+  ended: { type: "grocery", name: "Kaveri Kirana Stores", code: "E2E-PLAN-ENDED" },
+  paid: { type: "grocery", name: "Sagar Provision Store", code: "E2E-PLAN-PAID" },
+  addon: { code: "loyalty", name: "Loyalty points", yearly: "₹1,999" },
+  outside: { code: "offers", name: "Offers & discounts" },
+  state: { code: "29", name: "Karnataka" },
+  reference: "UTR123",
+  total: "₹8,257.64",
+  company: {
+    legalName: "Kalpa Software Private Limited", addressLine1: "12 Jail Road", city: "Raipur", postalCode: "492001",
+    upiId: "kalpasoft@okaxis", upiPayee: "Kalpa Software", bankName: "HDFC Bank", bankAccountName: "Kalpa Software Private Limited",
+    bankAccountNumber: "50200012345678", bankIfsc: "HDFC0001234",
+  },
+  // A supplier the read-only kirana tries to add.
+  supplier: "Cauvery Traders",
 };

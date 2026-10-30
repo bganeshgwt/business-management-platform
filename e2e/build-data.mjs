@@ -11,6 +11,7 @@ import { AGRI, BUSINESSES, CLINIC, FUEL, GARAGE, GROCERY, GST_CHANGE, GST_THRESH
 import { CLINIC_LAB } from "./test-data.mjs";
 import { ACCESS_RULES } from "./test-data.mjs";
 import { DASHBOARDS } from "./test-data.mjs";
+import { YOUR_PLAN } from "./test-data.mjs";
 
 // Every call names the status it expects, so a set-up that goes wrong stops
 // at the first wrong answer, with the API's own message, rather than leaving
@@ -126,7 +127,7 @@ export async function buildTestData({ api, logins, sql }) {
   // owner's and their manager's, and the access rules' logins.
   const roles = await owner("GET", "/roles");
   const staffIds = {};
-  for (const person of logins.filter((item) => !["SUPER_ADMIN", "RESTAURANT_ADMIN"].includes(item.role) && !item.businesses && !item.gstOwner && !item.accessRules)) {
+  for (const person of logins.filter((item) => !["SUPER_ADMIN", "RESTAURANT_ADMIN"].includes(item.role) && !item.businesses && !item.gstOwner && !item.accessRules && !item.yourPlan)) {
     const role = roles.find((item) => item.code === person.role && item.isSystem);
     const made = await owner("POST", "/users", { name: person.name, email: person.email, password: person.password, roleIds: [role.id] }, 201);
     staffIds[person.role] = made.id;
@@ -1301,6 +1302,61 @@ export async function buildTestData({ api, logins, sql }) {
     dashboards.enquiry = { id: lead.id, name: enquiry.name };
   }
 
+  // Your plan (your-plan.spec.js): the PLAN_OWNER's businesses, made by the
+  // platform with that login (the first) and then for it, and the kirana's
+  // cashier, made in its Staff & access. The provision store switches Offers
+  // on in its trial and chooses a month of Basic alone; then a payment
+  // confirmed ten days ago (its order paid, its period from then) and the
+  // kirana's time given by the platform, ended a month ago, are set in the
+  // database, as no request can date them back.
+  const yourPlan = {};
+  {
+    const person = login("PLAN_OWNER");
+    for (const key of ["trial", "ended", "paid"]) {
+      const shop = YOUR_PLAN[key];
+      const made = (await platform("POST", "/users/platform/businesses", {
+        businessType: shop.type, name: shop.name, code: shop.code, timezone: TIMEZONE,
+        owner: key === "trial" ? { name: person.name, email: person.email, password: person.password } : { email: person.email },
+      }, 201)).business;
+      yourPlan[key] = { id: made.id, name: made.name, code: made.code };
+    }
+    const planOwner = caller(api, await signIn("PLAN_OWNER"));
+    const cashier = login("PLAN_CASHIER");
+    const cashierRole = (await planOwner("GET", `/businesses/${yourPlan.ended.id}/roles`)).items.find((role) => role.template_code === "cashier");
+    await planOwner("POST", `/businesses/${yourPlan.ended.id}/staff-accounts`, {
+      name: cashier.name, email: cashier.email, password: cashier.password, roleId: cashierRole.id,
+    }, 201);
+
+    const paid = yourPlan.paid.id;
+    await planOwner("PUT", `/businesses/${paid}/modules/${YOUR_PLAN.outside.code}`, { enabled: true });
+    const { selection } = await planOwner("GET", `/businesses/${paid}/plan`);
+    await planOwner("PUT", `/businesses/${paid}/plan/selection`, { planCode: selection.planCode, billingPeriod: "month", addons: [] });
+    const [order] = await sql(`INSERT INTO platform_orders(business_id,kind,plan_code,billing_period,starts_on,ends_on,valid_until,buyer,
+        supplier_state_code,place_of_supply_code,gst_rate,taxable_amount,igst_amount,total_amount,status,paid_at)
+      SELECT b.id,'subscription',$2,'month',business_local_today(b.id)-10,(business_local_today(b.id)-10+interval '1 month'-interval '1 day')::date,
+        business_local_today(b.id)-10,jsonb_build_object('name',b.name,'stateCode','29'),'22','29',18,499,89.82,588.82,'paid',now()-interval '10 days'
+      FROM businesses b WHERE b.id=$1 RETURNING id`, [paid, selection.planCode]);
+    await sql("UPDATE business_access_periods SET cancelled_at=now(),cancel_reason=$2 WHERE business_id=$1 AND kind='trial' AND cancelled_at IS NULL",
+      [paid, "Paid for before the trial ended"]);
+    const [period] = await sql(`INSERT INTO business_access_periods(business_id,kind,starts_on,ends_on,plan_code,modules,order_id)
+      SELECT o.business_id,'paid',o.starts_on,o.ends_on,o.plan_code,
+        COALESCE((SELECT array_agg(m.module_code ORDER BY m.module_code) FROM platform_plan_modules m WHERE m.plan_code=o.plan_code),'{}'),o.id
+      FROM platform_orders o WHERE o.id=$1 RETURNING id`, [order.id]);
+    if (!period) {
+      throw new Error("Test data: the provision store's paid month could not be set.");
+    }
+
+    const ended = yourPlan.ended.id;
+    await sql("UPDATE business_access_periods SET cancelled_at=now(),cancel_reason=$2 WHERE business_id=$1 AND kind='trial' AND cancelled_at IS NULL",
+      [ended, "Replaced by time the platform gave"]);
+    await sql(`INSERT INTO business_access_periods(business_id,kind,starts_on,ends_on,everything,reason)
+      VALUES($1,'given',business_local_today($1)-60,business_local_today($1)-30,TRUE,$2)`, [ended, "Pilot customer"]);
+    const [state] = await sql("SELECT state FROM business_plan_state($1)", [ended]);
+    if (state.state !== "ended") {
+      throw new Error(`Test data: ${YOUR_PLAN.ended.name} is ${state.state}, not ended.`);
+    }
+  }
+
   // The logins nothing above signed in as choose their own password now, so
   // a spec signing in as any of them meets no first-sign-in step.
   for (const person of logins.filter((item) => !signedIn.has(item.role))) {
@@ -1347,5 +1403,6 @@ export async function buildTestData({ api, logins, sql }) {
     businesses,
     gstThresholds,
     dashboards,
+    yourPlan,
   };
 }

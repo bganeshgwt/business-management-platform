@@ -11,6 +11,9 @@ import { useDirtyGuard, useOpenBusiness } from "./hooks";
 import { confirmAction } from "../../../../services/confirm";
 import SettingsLayout, { SettingsSaveBar } from "../../../../components/SettingsLayout";
 import { toast } from "../../../../services/toast";
+import PlanBadge from "../../../plan/components/PlanBadge";
+import { moduleBadge } from "../../../plan/planWords";
+import { useOwnerPlan, usePlanScope } from "../../../plan/usePlan";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const fromRow = (s) => ({
@@ -233,6 +236,11 @@ function ModulesCard() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState("");
   const [version, setVersion] = useState(0);
+  // The plan's badge on each module (modules/plan): the owner's with the
+  // prices of the choice for after the trial and the way to add one, staff's
+  // only why a switch stays off.
+  const planScope = usePlanScope();
+  const ownerPlan = useOwnerPlan(planScope);
   // A restaurant's modules are its features: the same switches as the
   // restaurant's own Settings -> Features, under the same rules (a switch
   // that would strand money is refused; the restaurant's activity log
@@ -284,11 +292,15 @@ function ModulesCard() {
   const card = (m) => {
     const neededBy = (modules || []).filter((other) => other.enabled && other.requires.includes(m.code));
     const missing = m.requires.filter((code) => !modules.find((other) => other.code === code)?.enabled);
+    // Outside the plan a module works as switched off, and cannot be switched on.
+    const outside = m.kind !== "core" && m.in_plan === false;
+    const badge = moduleBadge({ code: m.code, kind: m.kind, inPlan: m.in_plan !== false }, { plan: planScope?.plan, view: ownerPlan, isOwner: Boolean(planScope?.isOwner) });
     return (
       <div key={m.code} className={`bz-module ${m.enabled ? "is-on" : ""}`}>
         <div>
           <strong>{m.name}</strong>
           {m.recommended && !m.enabled && <span className="bz-module-recommended">Recommended</span>}
+          <PlanBadge badge={badge} addTo={planScope?.isOwner && planScope.planPath ? `${planScope.planPath}?add=${m.code}` : null} />
           <p className="muted small">{m.description}</p>
           {m.recommended && !m.enabled && m.recommended_note && <p className="small bz-module-why">{m.recommended_note}</p>}
           {m.requires.filter((code) => code !== "restaurant").length > 0 && (
@@ -298,7 +310,8 @@ function ModulesCard() {
         </div>
         {editable ? (
           <label className="bz-switch">
-            <input type="checkbox" role="switch" checked={m.enabled} disabled={busy === m.code} onChange={() => toggle(m)} aria-label={`${m.name}: ${m.enabled ? "on" : "off"}`} />
+            <input type="checkbox" role="switch" checked={m.enabled} disabled={busy === m.code || outside} onChange={() => toggle(m)} aria-label={`${m.name}: ${m.enabled ? "on" : "off"}`}
+              title={outside ? "Not in your plan" : undefined} />
             <span aria-hidden="true" />
           </label>
         ) : <Badge tone={m.enabled ? "active" : "inactive"} label={m.enabled ? "On" : "Off"} />}

@@ -194,6 +194,14 @@ api.interceptors.response.use(
       window.dispatchEvent(new CustomEvent("pin:required"));
     }
 
+    // The business's plan has ended, so it is read-only until it is renewed
+    // (402 plan_ended). The screen shows the server's sentence as it shows any
+    // refusal; the app's frame reads the plan again for its banner and says
+    // once on the page what to do (modules/plan/components/PlanBanner.jsx).
+    if (status === 402 && error.response?.data?.data?.reason === "plan_ended") {
+      window.dispatchEvent(new CustomEvent("plan:ended", { detail: error.response.data.data }));
+    }
+
     // A manager's approval is needed: open the PIN dialog, then send the same
     // request again with the one-time token. Once only — a refused token the
     // second time round is shown as the error it is.

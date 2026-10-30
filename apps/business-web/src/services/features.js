@@ -15,6 +15,7 @@ const FEATURE_NAMES = {
   online_ordering: "Online ordering page",
   deliveries: "Deliveries & rider cash",
   kitchen_display: "Kitchen display (KDS)",
+  captain_app: "Captain app",
   captain_sections: "Captain sections",
   tips: "Tips",
   advances: "Advances & deposits",

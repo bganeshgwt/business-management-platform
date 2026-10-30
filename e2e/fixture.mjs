@@ -25,6 +25,8 @@ export { DASHBOARDS } from "./test-data.mjs";
 export { SITE_SIGNUP } from "./test-data.mjs";
 // The platform console's operations (platform-console.spec.js).
 export { PLATFORM_CONSOLE } from "./test-data.mjs";
+// The owner's own plan: paid for, ended, and on paid time (your-plan.spec.js).
+export { YOUR_PLAN } from "./test-data.mjs";
 
 let data = null;
 

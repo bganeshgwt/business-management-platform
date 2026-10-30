@@ -186,8 +186,9 @@ export default function App() {
 
       {/* The captain app: a waiter's phone, its own header and tabs, no menus.
           Whoever may take orders opens it, as the POS; each screen asks the
-          API only what the person may read. */}
-      <Route element={<ProtectedRoute permission="orders.create" />}>
+          API only what the person may read. It is a feature of its own
+          (Settings -> Features): switched off, it says so instead of opening. */}
+      <Route element={<ProtectedRoute permission="orders.create" feature="captain_app" />}>
         <Route path="/captain" element={<CaptainLayout />}>
           <Route index element={<CaptainTablesPage />} />
           <Route path="/captain/calls" element={<CaptainCallsPage />} />

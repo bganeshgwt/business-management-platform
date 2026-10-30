@@ -28,6 +28,7 @@ import { ScreenLoading } from "../components/Feedback";
 import { featuresAllow } from "../services/features";
 import "../styles/access.css";
 import { formatLabel } from "../services/restaurantFormats";
+import PlanBanner from "../modules/plan/components/PlanBanner";
 
 const PINNED_KEY = "rmp_nav_pinned";
 
@@ -63,7 +64,7 @@ const NAV_SECTIONS = [
     links: [
       { to: "/pos", label: "POS", icon: "pos", permission: "orders.create" },
       // The waiters' phone screen, around their own tables (workspaces/captain).
-      { to: "/captain", label: "Captain app", icon: "captain", permission: "orders.create", notFormats: ["cloud_kitchen", "bakery"] },
+      { to: "/captain", label: "Captain app", icon: "captain", permission: "orders.create", notFormats: ["cloud_kitchen", "bakery"], feature: "captain_app" },
       { to: "/orders", label: "Orders", icon: "orders", permission: "orders.view" },
       { to: "/bills", label: "Bills & payments", icon: "bills", permission: "orders.view" },
       { to: "/dues", label: "Dues & accounts", icon: "dues", permission: "sales.view" },
@@ -688,6 +689,8 @@ function AppShell() {
             ready, but shows a new one's loading screen). */}
         <main className="content-scroll" ref={scrollRef} id="main-content" tabIndex={-1}>
           <div className="content" key={`${user.id}:${businessMode ? `business:${businessId}` : chooser ? "chooser" : "restaurant"}`} ref={contentRef}>
+            {/* The plan's banner: the trial's days left, the end coming, read-only (modules/plan). */}
+            {!chooser && <PlanBanner />}
             <Suspense fallback={<ScreenLoading />}>
               {!businessMode && user.restaurantId && <RestaurantWorkspaceNav sections={availableSections} pathname={pathname} />}
               <Outlet />
