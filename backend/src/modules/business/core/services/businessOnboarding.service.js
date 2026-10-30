@@ -77,7 +77,7 @@ async function createBusiness(db, actor, body, ownerId) {
   const type = v.requiredString(body.businessType, 'Business type', 40);
   const known = await repo.one(db, 'SELECT code,name FROM business_types WHERE code=$1', [type]);
   if (!known) fail('Unknown business type');
-  if (type === 'restaurant') fail('A restaurant is set up from Platform › Restaurants (it has its own menu, tables and kitchen set-up).');
+  if (type === 'restaurant') fail('A restaurant has its own set-up and a login of its own: sign it up on the platform\'s public site with another email and mobile number, or ask the platform to set it up.');
   const name = v.requiredString(body.name, 'Business name', 150);
   const code = readCode(body.code);
   if (await repo.one(db, 'SELECT 1 FROM businesses WHERE upper(code)=$1', [code])) fail(`The business code ${code} is already taken`, 409);

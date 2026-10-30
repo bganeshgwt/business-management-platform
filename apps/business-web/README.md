@@ -6,8 +6,9 @@ how its code is laid out, how sign-in works, and how to add a page.
 React 19 + Vite. Where owners, managers, cashiers, captains, kitchen staff,
 clinic front desks, doctors and lab staff work, for every business type:
 Business Admin, the restaurant admin, the POS, the captain app, the kitchen
-display, the pickup screen, the clinic and lab workspaces and the platform
-console. It talks to the Express API in `../../backend`. The guests' pages (table QR ordering,
+display, the pickup screen, the clinic and lab workspaces, an owner's Your plan,
+the platform console, and the platform's public site (home, pricing, sign-up and
+policies, no login). It talks to the Express API in `../../backend`. The guests' pages (table QR ordering,
 online ordering, booking) are their own app, `../customer-web`.
 
 The project setup is in [../../README.md](../../README.md).
@@ -62,9 +63,11 @@ tests need. See [../../docs/TESTING.md](../../docs/TESTING.md).
 src/
 ├── main.jsx            The shared look (@bmp/ui/styles.css) → QueryClientProvider → BrowserRouter →
 │                       AuthProvider → App (+ ApprovalDialog, ConfirmHost, Toaster)
-├── App.jsx             Routes, including the captain app (/captain/*), the clinic and lab
-│                       workspaces (/clinic/*, /lab/*) and guest links opened on this app (/order,
-│                       /online, /book), which go on to the guests' site
+├── App.jsx             Routes, including the public site (/welcome, /pricing, /signup, /terms,
+│                       /privacy-policy, /refunds, /contact), the captain app (/captain/*), the
+│                       clinic and lab workspaces (/clinic/*, /lab/*), Your plan (/plan) and
+│                       guest links opened on this app (/order, /online, /book), which go on to
+│                       the guests' site
 ├── context/            AuthProvider (user, permissions, features), BusinessProvider (open business,
 │                       or the one a workspace's address names)
 ├── hooks/              useAuth, useBusiness, useLiveRefresh, useServerNow, motion hooks …
@@ -73,6 +76,7 @@ src/
 │                       WorkspaceStart (a clinic's workspaces: their frame, the clinic they open),
 │                       NotFoundPage, PlannedPage (a planned screen), GuestSiteRedirect
 ├── modules/            access (sign-in, profile, users, roles), platform (the platform console),
+│                       site (the public site), plan (Your plan and the plan banner),
 │                       restaurant/<area>, business/<core, a type or a shared area>, tasks.
 │                       Each holds pages/ (one file per screen), and the services/ and
 │                       styles/ it alone uses
