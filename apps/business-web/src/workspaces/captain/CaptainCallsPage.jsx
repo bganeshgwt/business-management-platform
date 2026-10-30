@@ -7,12 +7,14 @@ import MineSwitch from "./MineSwitch";
 
 const OPEN_ORDER = ["pending", "processing"];
 
-// Guests at the captain's tables, from the QR code on each: their calls (a
-// waiter, water, the bill, something else), answered with On my way (the
-// guest sees someone is coming) and closed with Done; and their own orders,
-// accepted (to the kitchen and the bill) or rejected with a reason they read.
-// The longest waiting first, with the inbox's own cards and clocks. Orders
-// from the online ordering page have no table: the counter takes those.
+// The calls at the captain's tables: the bill a waiter asked the counter for,
+// and, while QR ordering is on, the guests' own from the QR code on each
+// table (a waiter, water, the bill, something else), answered with On my way
+// (the guest sees someone is coming) and closed with Done; and their own
+// orders, accepted (to the kitchen and the bill) or rejected with a reason
+// they read. The longest waiting first, with the inbox's own cards and
+// clocks. Orders from the online ordering page have no table: the counter
+// takes those.
 export default function CaptainCallsPage() {
   const floor = useFloor();
   const serverNow = useServerNow(floor.offset, 1000);
@@ -26,8 +28,8 @@ export default function CaptainCallsPage() {
         </div>
         <EmptyState
           icon="bell"
-          message="Guests' calls come from the QR codes on the tables"
-          hint="QR ordering is switched off here, or your role cannot see orders."
+          message="Calls are for people who can see orders"
+          hint="Your role cannot see orders. Ask your manager if you answer the tables' calls."
         />
       </section>
     );

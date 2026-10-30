@@ -94,10 +94,18 @@ const setPin = async (req, res) => {
   }
 
   const { user, hadPin } = await userService.setPin(req.user.restaurantId, id, pin, req.user);
+  // Set for someone else: marked as theirs to replace at its first use.
+  const forAnother = Number(id) !== Number(req.user.id);
 
-  logAction(req, hadPin ? "reset" : "create", "user_pin", { id, label: user.name });
+  logAction(req, hadPin ? "reset" : "create", "user_pin", { id, label: user.name, ...(forAnother ? { details: { setByAnother: true } } : {}) });
 
-  res.json({ success: true, message: `PIN ${hadPin ? "changed" : "set"} for ${user.name}`, data: user });
+  res.json({
+    success: true,
+    message: forAnother
+      ? `PIN ${hadPin ? "changed" : "set"} for ${user.name}. It opens a till for them, and they choose their own the first time they use it; until then it approves nothing.`
+      : `PIN ${hadPin ? "changed" : "set"} for ${user.name}`,
+    data: user,
+  });
 };
 
 const clearPin = async (req, res) => {

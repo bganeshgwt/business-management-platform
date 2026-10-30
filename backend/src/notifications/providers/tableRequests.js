@@ -50,11 +50,17 @@ const { TODAY_FROM, DAY_START } = require("../../modules/restaurant/orders/repos
 const place = (row) =>
   [row.floor_name, row.area_name].filter(Boolean).join(" · ") || "Dining room";
 
+// What the inbox holds (its own rule): a waiter's bill ask from the captain
+// app in every restaurant, and the guests' requests from the tables' QR codes
+// and the online ordering page while each is switched on (Settings ->
+// Features).
+const IN_INBOX = `(r.created_by IS NOT NULL
+  OR (COALESCE(r.channel, 'qr') = 'qr' AND 'qr_ordering' = ANY(restaurant_features($1)))
+  OR (r.channel = 'website' AND 'online_ordering' = ANY(restaurant_features($1))))`;
+
 module.exports = {
   key: "table-requests",
   permission: "orders.view",
-  // Not asked while this restaurant feature is switched off (Settings -> Features).
-  feature: ["qr_ordering", "online_ordering"],
 
   collect: async ({ restaurantId, now, pool }) => {
     try {
@@ -74,6 +80,7 @@ module.exports = {
            ${TODAY_FROM("$1")}
            WHERE r.restaurant_id = $1
              AND r.created_at >= ${DAY_START}
+             AND ${IN_INBOX}
              AND ((r.request_type = 'order' AND r.status IN ('pending', 'processing')
                    AND r.created_at <= $2::timestamptz - make_interval(mins => $3))
                   OR (r.request_type <> 'order' AND r.status IN ('pending', 'acknowledged')

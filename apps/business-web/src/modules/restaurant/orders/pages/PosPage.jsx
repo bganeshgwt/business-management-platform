@@ -221,7 +221,8 @@ export default function PosPage({ captain = null }) {
   const canSwitchDishes = hasPermission("menu.availability");
   const canPrintKot = hasPermission("kot.manage") || hasPermission("kds.view");
   const canManageDelivery = hasPermission("orders.manage");
-  const canSeeRequests = hasPermission("orders.view") && (hasFeature("qr_ordering") || hasFeature("online_ordering"));
+  // Every restaurant's inbox: waiters' bill asks, and the guests' requests where QR or online ordering is on.
+  const canSeeRequests = hasPermission("orders.view");
   const canSeeBookings = hasPermission("reservations.view") && hasFeature("reservations");
 
   const [categories, setCategories] = useState([]);

@@ -1162,7 +1162,7 @@ function SettingsModal({ onClose, onSaved, canManage, canPreview }) {
 // ---------------------------------------------------------------- the page
 
 export default function TableRequestsPage() {
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, hasFeature } = useAuth();
   // The outlet this person works in (tied to it, or the switcher on it).
   const workingOutlet = user.outletId || outletStorage.get() || null;
   const canAct = hasPermission("orders.create");
@@ -1170,6 +1170,10 @@ export default function TableRequestsPage() {
   const canOpenPos = hasPermission("orders.create");
   const canPreview = hasPermission("tables.view");
   const canReadSettings = hasPermission("restaurant.settings.view");
+  // Every restaurant has this inbox, for the bills its waiters ask for from
+  // the captain app; the guests' orders and calls come too while a table's QR
+  // code or the online ordering page is on.
+  const guestsOn = hasFeature("qr_ordering") || hasFeature("online_ordering");
 
   const [view, setView] = useQueryFilter("view", "pending");
   const activeView =
@@ -1178,7 +1182,7 @@ export default function TableRequestsPage() {
   const inGrid = activeView !== "pending";
   // Bumped after every action, so the grids reload too.
   const [version, setVersion] = useState(0);
-  const [lane, setLane] = useState("orders");
+  const [lane, setLane] = useState(guestsOn ? "orders" : "calls");
 
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
@@ -1415,7 +1419,11 @@ export default function TableRequestsPage() {
       <PageHeader
         icon="bell"
         title="Table requests"
-        description="Orders and calls from guests' phones — table QR codes and your online ordering page. Nothing is cooked until you accept an order."
+        description={
+          guestsOn
+            ? "Orders and calls from guests' phones — table QR codes and your online ordering page — and the bills your waiters ask for. Nothing is cooked until you accept an order."
+            : "The bills your waiters ask for from the captain app. With QR ordering on (Settings → Features), guests' orders and calls come here too."
+        }
         action={
           <div className="tr-header-actions">
             <span className={`tr-live ${error || live === "reconnecting" ? "is-down" : ""}`} role="status" data-live={live}>
@@ -1436,16 +1444,18 @@ export default function TableRequestsPage() {
               <Glyph name={sound ? "bell" : "bell-off"} size={16} />
               <span>{sound ? "Sound on" : "Sound off"}</span>
             </button>
-            <button
-              type="button"
-              className="button button-secondary tr-icon-button"
-              onClick={() => setSettingsOpen(true)}
-              aria-label="QR ordering settings"
-              title="QR ordering settings"
-            >
-              <Icon name="qr" size={16} />
-              <span>QR ordering</span>
-            </button>
+            {guestsOn && (
+              <button
+                type="button"
+                className="button button-secondary tr-icon-button"
+                onClick={() => setSettingsOpen(true)}
+                aria-label="QR ordering settings"
+                title="QR ordering settings"
+              >
+                <Icon name="qr" size={16} />
+                <span>QR ordering</span>
+              </button>
+            )}
           </div>
         }
       />

@@ -308,11 +308,22 @@ const setMyPin = async (req, res) => {
   }
 
   const hadPin = req.user.hasPin;
+  // A PIN someone else set, replaced by the person's own (My profile, or the
+  // step a till asks for after that PIN opened it).
+  const given = req.user.pinGiven;
   const profile = await authService.setOwnPin(req.user, body.password, pin);
 
-  logAction(req, hadPin ? "reset" : "create", "user_pin", { id: req.user.id, label: req.user.name });
+  logAction(req, hadPin ? "reset" : "create", "user_pin", {
+    id: req.user.id,
+    label: req.user.name,
+    ...(given ? { details: { replacedGivenPin: true } } : {}),
+  });
 
-  res.json({ success: true, message: hadPin ? "PIN changed" : "PIN set", data: profile });
+  res.json({
+    success: true,
+    message: given ? "Your own PIN is set. Use it from now on." : hadPin ? "PIN changed" : "PIN set",
+    data: profile,
+  });
 };
 
 // Your password is needed to remove your PIN, as it is to set one.

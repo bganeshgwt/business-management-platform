@@ -147,19 +147,59 @@ const counterOf = async (restaurantId, outletId) => {
   return outlets.rowCount ? { outletId: null, name: "Main counter" } : null;
 };
 
-// What to bake for a day at this till: the open pre-orders booked at its
+// The tills whose bake list someone not tied to an outlet may pick: the main
+// counter and each open outlet. None in a restaurant without outlets, which
+// has a single list.
+const countersOf = async (restaurantId) => {
+  const outlets = (await pool.query(
+    "SELECT id, name FROM outlets WHERE restaurant_id = $1 AND status = 'active' ORDER BY name, id",
+    [restaurantId]
+  )).rows;
+
+  return outlets.length
+    ? [{ outletId: null, name: "Main counter" }, ...outlets.map((outlet) => ({ outletId: Number(outlet.id), name: outlet.name }))]
+    : null;
+};
+
+// What to bake for a day at one till: the open pre-orders booked at its
 // outlet (at the main counter, those booked with no outlet) due that day,
-// added up by item, each with its messages. Another outlet's cakes are on
-// that outlet's list, not on this one. With no day asked for, the day the
-// till is trading on (the open business day, else the restaurant's own
+// added up by item, each with its messages and where it has got to. Another
+// outlet's cakes are on that outlet's list, not on this one. Staff tied to an
+// outlet read their own; anyone else picks the till (ctx.asked: an outlet's
+// id, or null for the main counter), else the outlet the request works in,
+// and gets the tills to pick from (counters). With no day asked for, the day
+// that till is trading on (the open business day, else the restaurant's own
 // date), not the server's: on a server clock in UTC, a bake list opened after
 // midnight in India would otherwise show the day before.
 const bakeList = async (restaurantId, asked, ctx = {}) => {
-  const outletId = ctx.outletId || null;
+  const pinned = pinnedOf(ctx);
+  let outletId = ctx.outletId || null;
+
+  if (ctx.asked !== undefined) {
+    if (pinned && Number(ctx.asked || 0) !== Number(pinned)) {
+      throw new AppError(403, "You are set up to work at one outlet only, so its bake list is the one you read.");
+    }
+
+    if (ctx.asked) {
+      const outlet = await outletRepository.findById(restaurantId, ctx.asked);
+
+      if (!outlet) {
+        throw new AppError(404, "Outlet not found");
+      }
+
+      if (outlet.status !== "active") {
+        throw new AppError(400, `The outlet "${outlet.name}" is not active`);
+      }
+    }
+
+    outletId = ctx.asked || null;
+  }
+
   const day = asked || (await tradingDay.currentDateOf(restaurantId, outletId, await restaurantRepository.findSettings(restaurantId, outletId)));
   const rows = (await pool.query(
     `SELECT i.product_id, pr.name || COALESCE(' (' || v.name || ')', '') AS name, pr.sold_by, sum(i.quantity) AS quantity,
-        json_agg(json_build_object('number', p.preorder_number, 'dueAt', p.due_at, 'quantity', i.quantity, 'notes', i.notes, 'customer', c.name) ORDER BY p.due_at) AS orders
+        json_agg(json_build_object('id', p.id, 'number', p.preorder_number, 'status', p.status, 'dueAt', p.due_at, 'quantity', i.quantity,
+          'notes', i.notes, 'customer', c.name) ORDER BY p.due_at) AS orders
      FROM restaurant_preorder_items i
      JOIN restaurant_preorders p ON p.id = i.preorder_id
      JOIN restaurant_settings s ON s.restaurant_id = p.restaurant_id
@@ -175,6 +215,7 @@ const bakeList = async (restaurantId, asked, ctx = {}) => {
   return {
     day,
     counter: await counterOf(restaurantId, outletId),
+    counters: pinned ? null : await countersOf(restaurantId),
     items: rows.map((row) => ({ productId: Number(row.product_id), name: row.name, soldBy: row.sold_by, quantity: n(row.quantity), orders: row.orders })),
   };
 };

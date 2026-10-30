@@ -5,6 +5,7 @@ import { getCurrentUser, loginRequest, rememberRestaurantCode } from "../service
 import { setApprovalPermissions } from "../services/approval";
 import { closeLive } from "../services/live";
 import LogbookHandoverNotice from "../modules/restaurant/logbook/pages/LogbookHandoverNotice";
+import PinChangePrompt from "../components/PinChangePrompt";
 
 const LOCK_KEY = "rmp_locked";
 
@@ -90,7 +91,14 @@ export default function AuthProvider({ children }) {
     };
 
     window.addEventListener("features:changed", reload);
-    return () => window.removeEventListener("features:changed", reload);
+    // The server refused a request because this session must choose its own
+    // PIN first (a till switched to it with a PIN someone else set): the
+    // profile read again says so, and the prompt opens.
+    window.addEventListener("pin:required", reload);
+    return () => {
+      window.removeEventListener("features:changed", reload);
+      window.removeEventListener("pin:required", reload);
+    };
   }, [adopt]);
 
   // api.js fires this when the server rejects the token: expired, the password
@@ -266,19 +274,25 @@ export default function AuthProvider({ children }) {
     [user, loading, login, acceptSession, logout, hasPermission, hasFeature, refreshUser, replaceToken, locked, lock, unlock, switchUser, signedOutReason, previousUserId],
   );
 
+  // A shared till switched to this person with a PIN someone else set: they
+  // choose their own before anything else, in place of the app, as the server
+  // answers nothing else meanwhile; the screens then open afresh as them.
+  const choosePin = Boolean(user?.pinChangeRequired) && !user?.passwordChangeRequired;
+
   // Someone who keeps the log book, just signed in: what the last shift
   // handed over that they have not read (see LogbookHandoverNotice). Not
-  // before they have chosen their own password, when nothing else opens.
+  // before they have chosen their own password or PIN, when nothing else opens.
   const showHandover =
     signIns > 0 &&
     Boolean(user?.restaurantId) &&
     !locked &&
     !user?.passwordChangeRequired &&
+    !user?.pinChangeRequired &&
     Boolean(user?.permissions.includes("logbook.view"));
 
   return (
     <AuthContext.Provider value={value}>
-      {children}
+      {choosePin ? <PinChangePrompt /> : children}
       {showHandover && <LogbookHandoverNotice key={`${user.id}-${signIns}`} />}
     </AuthContext.Provider>
   );

@@ -108,12 +108,16 @@ const documentTotalsSql = `COALESCE((SELECT SUM(amount) FROM business_payments p
 // in, the timestamp its date range applies to, the filters it accepts and its
 // order. Values are always bound parameters.
 const lists = {
+  // login_elsewhere: the login is also used in another business or a restaurant
+  // other than this one's, so its password is not this business's to change.
   members: { sql: `SELECT m.user_id AS id,m.role_id,r.name AS role_name,r.full_access,m.active,m.last_opened_at,m.created_at,u.name,u.email,
-    m.location_id,l.name AS location_name,m.department_id,dep.name AS department_name
-    FROM business_memberships m JOIN users u ON u.id=m.user_id JOIN business_roles r ON r.business_id=m.business_id AND r.id=m.role_id
+    m.location_id,l.name AS location_name,m.department_id,dep.name AS department_name,
+    (EXISTS (SELECT 1 FROM business_memberships o WHERE o.user_id=m.user_id AND o.business_id<>m.business_id AND o.active)
+      OR (u.restaurant_id IS NOT NULL AND u.restaurant_id IS DISTINCT FROM b.legacy_restaurant_id)) AS login_elsewhere
+    FROM business_memberships m JOIN businesses b ON b.id=m.business_id JOIN users u ON u.id=m.user_id JOIN business_roles r ON r.business_id=m.business_id AND r.id=m.role_id
     LEFT JOIN business_locations l ON l.business_id=m.business_id AND l.id=m.location_id
     LEFT JOIN business_departments dep ON dep.business_id=m.business_id AND dep.id=m.department_id WHERE m.business_id=$1`,
-  search: ['name', 'email', 'role_name', 'location_name'], filters: { role: 'role_id', location: 'location_id' }, order: 'full_access DESC,name' },
+  search: ['name', 'email', 'role_name', 'location_name'], filters: { role: 'role_id', location: 'location_id', department: 'department_id' }, order: 'full_access DESC,name' },
   roles: { sql: `SELECT r.*,(SELECT count(*)::int FROM business_memberships m WHERE m.business_id=r.business_id AND m.role_id=r.id AND m.active) AS member_count,
     CASE WHEN r.full_access THEN (SELECT count(*)::int FROM business_permissions) ELSE (SELECT count(*)::int FROM business_role_permissions p WHERE p.business_id=r.business_id AND p.role_id=r.id) END AS permission_count,
     CASE WHEN r.full_access THEN (SELECT json_agg(code) FROM business_permissions) ELSE COALESCE((SELECT json_agg(permission_code) FROM business_role_permissions p WHERE p.business_id=r.business_id AND p.role_id=r.id),'[]') END AS permissions

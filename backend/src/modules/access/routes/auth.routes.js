@@ -46,14 +46,17 @@ router.post("/two-factor/enable", passwordChangeLimiter, authenticate, authContr
 router.post("/two-factor/disable", passwordChangeLimiter, authenticate, authController.disableTwoFactor);
 router.post("/two-factor/recovery-codes", passwordChangeLimiter, authenticate, authController.newRecoveryCodes);
 
-// Your personal PIN, for approvals and the shared till.
-router.put("/me/pin", passwordChangeLimiter, authenticate, authController.setMyPin);
+// Your personal PIN, for approvals and the shared till. Setting it is open to
+// a session a shared till opened with a PIN someone else set: the person
+// chooses their own there first.
+router.put("/me/pin", passwordChangeLimiter, authenticate.duringPinChange, authController.setMyPin);
 router.delete("/me/pin", passwordChangeLimiter, authenticate, authController.clearMyPin);
 
-// The shared till: who can take it over, taking it over, unlocking it.
-router.get("/till-users", authenticate, authController.tillUsers);
-router.post("/pin-login", pinLimiter, authenticate, authController.pinLogin);
-router.post("/unlock", pinLimiter, authenticate, authController.unlock);
+// The shared till: who can take it over, taking it over, unlocking it. Its
+// lock screen works while the person it was switched to chooses their own PIN.
+router.get("/till-users", authenticate.duringPinChange, authController.tillUsers);
+router.post("/pin-login", pinLimiter, authenticate.duringPinChange, authController.pinLogin);
+router.post("/unlock", pinLimiter, authenticate.duringPinChange, authController.unlock);
 
 // Manager approval: who can approve, and approving one action.
 router.get("/approvers", authenticate, authController.approvers);

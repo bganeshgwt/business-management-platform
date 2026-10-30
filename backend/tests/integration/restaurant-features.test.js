@@ -218,7 +218,7 @@ test("restaurant features switch on and off", { timeout: 600000 }, async (t) => 
     }
   });
 
-  await t.test("QR ordering and Online ordering off: QR codes, the request inbox and the online settings are refused", async () => {
+  await t.test("QR ordering and Online ordering off: QR codes, the guests' part of the request inbox and the online settings are refused", async () => {
     const tables = await O("GET", "/tables");
     const qrToken = (tables.items || tables).find((row) => Number(row.id) === Number(table.id)).qrToken;
     assert.ok(qrToken);
@@ -228,11 +228,13 @@ test("restaurant features switch on and off", { timeout: 600000 }, async (t) => 
     assert.equal(qr.status, 403);
     assert.equal((await qr.json()).data.feature, "qr_ordering");
     await off("GET", "/tables/qr-settings", "qr_ordering");
-    // The inbox still serves the online ordering page...
-    await O("GET", "/table-requests/summary");
+    // The guests' settings still serve the online ordering page...
+    await O("GET", "/table-requests/settings");
     await setFeature("online_ordering", false);
-    // ...until both are off.
-    await off("GET", "/table-requests/summary", "qr_ordering");
+    // ...until both are off. The inbox itself is every restaurant's (the
+    // waiters' bill asks from the captain app).
+    await off("GET", "/table-requests/settings", "qr_ordering");
+    await O("GET", "/table-requests/summary");
     await off("GET", "/orders/service-settings/online-ordering", "online_ordering");
     await setFeature("qr_ordering", true);
     await setFeature("online_ordering", true);

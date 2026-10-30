@@ -22,7 +22,9 @@ const DUMMY_PASSWORD_HASH = bcrypt.hashSync("dummy-password-for-timing", BCRYPT_
 
 const WRONG_LOGIN = "That sign-in is not right. Check the email, mobile or staff code and the password.";
 
-const toProfile = (user) => ({
+// `session.openedWithGivenPin`: this session began on a shared till with a PIN
+// someone else set for the person (see switchToRow).
+const toProfile = (user, session = {}) => ({
   id: user.id,
   name: user.name,
   email: user.email,
@@ -42,6 +44,12 @@ const toProfile = (user) => ({
   // Restaurant features switched on for the restaurant (Settings -> Features).
   features: user.features || [],
   hasPin: Boolean(user.pin_set_at),
+  // Someone else set the PIN (an admin, under Users): it approves nothing as
+  // the person until they choose their own.
+  pinGiven: Boolean(user.pin_set_at && user.pin_must_change),
+  // This session was opened with that PIN: the person chooses their own before
+  // anything else (authenticate refuses every other route meanwhile).
+  pinChangeRequired: Boolean(session.openedWithGivenPin && user.pin_set_at && user.pin_must_change),
   // On or off only: the secret behind it is never sent anywhere.
   twoFactorEnabled: Boolean(user.two_factor_enabled_at),
   // Someone else set the password (a new login, a reset): the person chooses
@@ -151,10 +159,11 @@ const deviceHashes = (tokens) =>
 // changing or resetting the password, or "sign out everywhere", bumps the
 // version and every older token stops working. Each token has a random id
 // (jti), so two sign-ins in the same second are still two sessions (a till
-// switch's PIN proof is good only in the session it was given to).
-const issueToken = (user, tokenVersion) =>
+// switch's PIN proof is good only in the session it was given to). `claims`:
+// pg, a session opened on a shared till with a PIN someone else set.
+const issueToken = (user, tokenVersion, claims = {}) =>
   jwt.sign(
-    { restaurantId: user.restaurant_id ?? user.restaurantId ?? null, tv: tokenVersion ?? user.token_version ?? 0 },
+    { restaurantId: user.restaurant_id ?? user.restaurantId ?? null, tv: tokenVersion ?? user.token_version ?? 0, ...claims },
     config.jwt.secret,
     { subject: String(user.id), expiresIn: config.jwt.expiresIn, jwtid: crypto.randomBytes(12).toString("base64url") }
   );
@@ -715,7 +724,7 @@ const getUserFromToken = async (token) => {
     });
   }
 
-  return toProfile(user);
+  return toProfile(user, { openedWithGivenPin: Boolean(payload.pg) });
 };
 
 // Sliding session: while someone is working the screen swaps its token for a
@@ -882,9 +891,19 @@ const hashPin = (pin) => bcrypt.hash(pin, PIN_ROUNDS);
 
 // Setting your own PIN needs your password: a PIN approves voids and opens a
 // shared till, so someone at an unlocked screen must not be able to set one.
+// It is also how a person replaces a PIN someone else set for them (My
+// profile, or the step a till asks for after that PIN opened it): the one
+// change that clears the mark. Their own is not the PIN they were given; that
+// is checked only after the password, so the screen never says what it was.
 const setOwnPin = async (user, password, pin) => {
   assertGoodPin(pin, user.mobile);
   await verifyOwnPassword(user, password, "Your password is not right");
+
+  const current = await userRepository.findPinById(user.id);
+
+  if (current && current.pin_must_change && current.pin_hash && (await bcrypt.compare(pin, current.pin_hash))) {
+    throw new AppError(400, "Choose a PIN of your own, not the one you were given");
+  }
 
   await userRepository.setPin(user.id, await hashPin(pin), user.id);
 
@@ -912,6 +931,23 @@ const pinLocked = (name, until, zone) =>
     : new AppError(429, `Too many PIN tries for ${name} at once. Wait a minute and try again.`, {
         reason: "too_many_attempts",
       });
+
+// A PIN someone else set (an admin, under Users) opens a shared till for its
+// person, but until they choose their own it approves nothing as them, signs
+// nothing for them and confirms no bill: anyone who set it knows it. Checked
+// before the PIN is read, so no try is spent on it. `self`: the person is the
+// one typing it (a bill's PIN); `what` says what it was asked to do.
+const assertOwnPin = (row, { self = false, what = "approve anything" } = {}) => {
+  if (row && row.pin_hash && row.pin_must_change) {
+    throw new AppError(
+      409,
+      self
+        ? `Your PIN was set by someone else, so it cannot ${what} until you choose your own: My profile › Personal PIN.`
+        : `${row.name}'s PIN was set by someone else, so it cannot ${what} until ${row.name} chooses their own: My profile › Personal PIN.`,
+      { reason: "pin_not_own" }
+    );
+  }
+};
 
 // Checks a person's PIN. The try is counted before the compare, so however
 // many arrive together, at most five are ever checked before the PIN locks.
@@ -974,7 +1010,9 @@ const pinLogin = async (currentUser, { userId, pin, deviceTokens }, meta = {}) =
 // over this till (the restaurant's own staff above; a business's members at
 // its counter, modules/business/core/services/businessCounter.service.js).
 // Every rule is the same either way: account lock, two-step device, the PIN's
-// own five-try lock, and the sign-in history.
+// own five-try lock, and the sign-in history. A PIN someone else set switches
+// the till too, and the session it opens (pg) answers nothing but choosing the
+// person's own PIN until they have (authenticate, pin_change_required).
 const switchToRow = async (currentUser, row, { pin, deviceTokens }, meta = {}) => {
   const history = {
     restaurantId: row.restaurant_id,
@@ -1046,13 +1084,16 @@ const switchToRow = async (currentUser, row, { pin, deviceTokens }, meta = {}) =
   await userRepository.recordSignIn({ ...history, outcome: "success" });
 
   const full = await userRepository.findProfileById(row.id);
-  const token = issueToken(full);
+  const given = Boolean(full.pin_must_change);
+  const token = issueToken(full, undefined, given ? { pg: true } : {});
 
-  return { token, expiresAt: sessionOf(token), user: toProfile(full) };
+  return { token, expiresAt: sessionOf(token), user: toProfile(full, { openedWithGivenPin: given }) };
 };
 
 // Unlocking your own locked till: your PIN, or your password if you have no
 // PIN yet. Nothing about the session changes; the screen simply opens again.
+// With a PIN someone else set, the answer says so (pinChangeRequired): the
+// till asks the person to choose their own before it opens.
 const unlock = async (user, { pin, password }, meta = {}) => {
   const history = {
     restaurantId: user.restaurantId,
@@ -1062,9 +1103,11 @@ const unlock = async (user, { pin, password }, meta = {}) => {
     ip: meta.ip,
     userAgent: meta.userAgent,
   };
+  let given = false;
 
   if (pin) {
     const row = await userRepository.findPinById(user.id);
+    given = Boolean(row && row.pin_must_change);
 
     try {
       await checkPin(row, pin);
@@ -1091,7 +1134,7 @@ const unlock = async (user, { pin, password }, meta = {}) => {
 
   await userRepository.recordSignIn({ ...history, outcome: "success" });
 
-  return { unlocked: true };
+  return given ? { unlocked: true, pinChangeRequired: true } : { unlocked: true };
 };
 
 // Who can take over this till: everyone active in the restaurant with a PIN.
@@ -1251,6 +1294,7 @@ module.exports = {
   clearOwnPin,
   pinLogin,
   switchToRow,
+  assertOwnPin,
   checkPin,
   unlock,
   tillUsers,

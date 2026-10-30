@@ -262,11 +262,11 @@ export default function App() {
           <Route element={<ProtectedRoute permission="orders.view" />}>
             <Route path="orders" element={<OrdersPage />} />
             <Route path="bills" element={<BillsPage />} />
+            {/* Every restaurant's inbox: waiters' bill asks from the captain
+                app, and the guests' requests while QR or online ordering is on. */}
+            <Route path="table-requests" element={<TableRequestsPage />} />
             {/* Each feature page says so when its feature is switched off
                 (Settings -> Features); the API refuses it too. */}
-            <Route element={<ProtectedRoute featureAny={["qr_ordering", "online_ordering"]} />}>
-              <Route path="table-requests" element={<TableRequestsPage />} />
-            </Route>
             <Route element={<ProtectedRoute feature="deliveries" />}>
               <Route path="deliveries" element={<DeliveriesPage />} />
             </Route>

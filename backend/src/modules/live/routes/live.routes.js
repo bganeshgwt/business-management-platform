@@ -25,12 +25,16 @@ const tokenOf = (req) => String(req.headers.authorization || "").split(" ")[1];
 
 // What a stream's person must still be for as long as it is open: signed in
 // with this token (its version, their login and their restaurant still on),
-// and not waiting to choose a password of their own.
+// and not waiting to choose a password, or a PIN, of their own.
 const signedIn = async (token) => {
   const user = await authService.getUserFromToken(token);
 
   if (user.passwordChangeRequired) {
     throw new AppError(403, "Choose a password of your own before you carry on.", { reason: "password_change_required" });
+  }
+
+  if (user.pinChangeRequired) {
+    throw new AppError(403, "Choose a PIN of your own before you carry on.", { reason: "pin_change_required" });
   }
 
   return user;

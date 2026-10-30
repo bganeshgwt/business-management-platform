@@ -5,6 +5,7 @@ import useAuth from "../hooks/useAuth";
 import useShake from "../hooks/useShake";
 import { listTillUsers, pinLogin, unlockTill } from "../services/auth.service";
 import { getErrorMessage } from "../services/api";
+import ChoosePin from "../modules/access/pages/ChoosePin";
 
 const initials = (name) =>
   String(name || "")
@@ -22,8 +23,14 @@ const clock = () => new Date().toLocaleTimeString("en-IN", { hour: "numeric", mi
 // exactly where they were with their PIN. Anyone else taps their name and
 // types their own PIN, and the till carries on as them; the activity log then
 // says who did what, instead of everything happening under one login.
+//
+// A PIN someone else set (an admin, under Users) unlocks the till only once
+// its person has chosen their own, here and then (ChoosePin); taking over the
+// till with one opens the same step over the app (PinChangePrompt).
 export default function LockScreen() {
-  const { user, unlock, switchUser, logout } = useAuth();
+  const { user, unlock, switchUser, logout, refreshUser } = useAuth();
+  // The PIN that unlocked it was set by someone else: its person chooses their own first.
+  const [choosingPin, setChoosingPin] = useState(false);
   const [people, setPeople] = useState([]);
   // null = the person who locked it; otherwise the one taking over.
   const [who, setWho] = useState(null);
@@ -72,7 +79,14 @@ export default function LockScreen() {
 
     try {
       if (who === null) {
-        await unlockTill(usesPassword ? { password } : { pin });
+        const result = await unlockTill(usesPassword ? { password } : { pin });
+
+        if (result?.pinChangeRequired) {
+          setPin("");
+          setChoosingPin(true);
+          return;
+        }
+
         unlock();
       } else {
         switchUser(await pinLogin(who.id, pin));
@@ -90,6 +104,25 @@ export default function LockScreen() {
       setBusy(false);
     }
   };
+
+  if (choosingPin) {
+    return (
+      <div className="acc-lock" role="dialog" aria-modal="true" aria-label="Choose your own PIN">
+        <div className="acc-lock-panel acc-pin-panel">
+          <ChoosePin
+            user={user}
+            onChosen={(profile) => {
+              refreshUser(profile);
+              setChoosingPin(false);
+              unlock();
+            }}
+            onCancel={() => setChoosingPin(false)}
+            cancelLabel="Back to the locked till"
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="acc-lock" role="dialog" aria-modal="true" aria-labelledby="acc-lock-title">

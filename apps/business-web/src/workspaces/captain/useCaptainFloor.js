@@ -16,7 +16,8 @@ import { arrivalText, arrivals, countsOf, sectionOf, shownTables, waitingAt } fr
 // the kitchen already use, each only where this person may read it:
 //   GET /tables                    the room, each table's captain of the day
 //   GET /orders (open, today's)    where each order is in the kitchen
-//   GET /table-requests (waiting)  guests' calls and QR orders (QR ordering)
+//   GET /table-requests (waiting)  waiters' bill asks; guests' calls and QR
+//                                  orders too while QR ordering is on
 //   GET /kitchen/pass              food at the pass (the kitchen display)
 //   GET /orders/day                whether orders can be taken
 // Live updates read again what a change touches, within a second; the
@@ -40,11 +41,13 @@ export default function useCaptainFloor() {
   // What this person may read and do, as the API decides it.
   const can = useMemo(
     () => ({
-      calls: hasFeature("qr_ordering") && hasPermission("orders.view"),
+      // Every restaurant's inbox: the waiters' bill asks, and the guests'
+      // calls and QR orders while QR ordering is on.
+      calls: hasPermission("orders.view"),
       accept: hasPermission("orders.create"),
       // Asking the counter for a table's bill: a table's bill request, which
-      // the counter's inbox shows while QR ordering is on.
-      askBill: hasFeature("qr_ordering") && hasPermission("orders.create"),
+      // the counter's inbox shows with QR ordering on or off.
+      askBill: hasPermission("orders.create"),
       pass: hasFeature("kitchen_display") && (hasPermission("kot.manage") || hasPermission("kds.view")),
       serve: hasFeature("kitchen_display") && hasPermission("kot.manage"),
       // A table's running total is for someone who may see takings, as on

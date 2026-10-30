@@ -15,6 +15,8 @@ export { AGRI, BUSINESSES, CLINIC, FUEL, GARAGE, GROCERY, GST_CHANGE, GST_THRESH
 export { CSV_IMPORT } from "./test-data.mjs";
 // The clinic's lab by department, billing ordered tests later and its drug list (clinic-lab-more.spec.js).
 export { CLINIC_LAB } from "./test-data.mjs";
+// The owner's rules for access (access-rules.spec.js).
+export { ACCESS_RULES } from "./test-data.mjs";
 
 let data = null;
 

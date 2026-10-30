@@ -24,7 +24,9 @@ const access = require('./businessAccess.service');
 // Nothing new about PINs: the person's own PIN (My profile, or set by an
 // admin under Users), checked by the access module with its five-try lock,
 // the account lock and the two-step device rule (auth.service › switchToRow,
-// checkPin).
+// checkPin). A PIN an admin set switches the till to its person, who then
+// chooses their own before anything else; it gives no bill proof and confirms
+// no bill (auth.service › assertOwnPin).
 
 const fail = (message, status = 400, details) => { throw new AppError(status, message, details); };
 const PROOF_MINUTES = 2;
@@ -63,17 +65,20 @@ async function switchTo(business, user, body, meta = {}) {
   if (typeof body.pin !== 'string' || !/^\d{4,6}$/.test(body.pin)) fail('Enter the PIN (4 to 6 digits)');
   const row = await users().findPinById(userId);
   const session = await auth().switchToRow(user, row, { pin: body.pin, deviceTokens: body.deviceTokens }, meta);
+  // A PIN someone else set switches the till, but counts for no bill: the
+  // person chooses their own first, and that one is asked for the bill.
+  const given = Boolean(row.pin_must_change);
   const issued = await repo.transaction(async (db) => {
     const setting = await repo.one(db, 'SELECT counter_pin_every_bill FROM business_settings WHERE business_id=$1', [business.id]);
     let proof = null, expiresAt = null;
-    if (setting?.counter_pin_every_bill) {
+    if (setting?.counter_pin_every_bill && !given) {
       // Proofs run out in minutes; a day later they are no use even as a record.
       await db.query("DELETE FROM business_counter_bill_proofs WHERE business_id=$1 AND expires_at < now() - interval '1 day'", [business.id]);
       proof = crypto.randomBytes(32).toString('base64url');
       expiresAt = (await repo.one(db, `INSERT INTO business_counter_bill_proofs(business_id,user_id,switched_by,proof_hash,session_hash,expires_at)
         VALUES($1,$2,$3,$4,$5,now() + make_interval(mins => $6)) RETURNING expires_at`, [business.id, userId, user.id, sha256(proof), sha256(session.token), PROOF_MINUTES])).expires_at;
     }
-    await repo.audit(db, business.id, userId, 'counter.switched', null, { from: Number(user.id), to: userId, billProof: Boolean(proof) });
+    await repo.audit(db, business.id, userId, 'counter.switched', null, { from: Number(user.id), to: userId, billProof: Boolean(proof), ...(given ? { pinGiven: true } : {}) });
     return proof ? { billProof: proof, billProofExpiresAt: new Date(expiresAt).toISOString() } : null;
   });
   return { ...session, ...issued };
@@ -90,6 +95,8 @@ async function checkBill(business, user, { pin, proof, session } = {}) {
   if (given(pin)) {
     if (typeof pin !== 'string' || !/^\d{4,6}$/.test(pin)) fail('Enter the PIN (4 to 6 digits)', 400, { reason: 'wrong_pin' });
     const row = await users().findPinById(user.id);
+    // A PIN someone else set confirms no bill: anyone who set it knows it.
+    auth().assertOwnPin(row, { self: true, what: 'confirm a bill' });
     await auth().checkPin(row, pin);
     return null;
   }

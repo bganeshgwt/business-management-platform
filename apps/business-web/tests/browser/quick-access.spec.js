@@ -108,6 +108,8 @@ test("mobile setup, keyboard focus and short-screen navigation remain usable", a
   await page.screenshot({ path: testInfo.outputPath("quick-access-sidebar-mobile-dark.png") });
   await quickLinks(page).filter({ hasText: "Reports" }).click();
   await expect(page).toHaveURL(/\/reports/);
+  // The address changes at once; the menu follows when the page itself shows.
+  await expect(page.getByRole("heading", { name: "Reports", level: 1 })).toBeVisible();
   await expect(page.locator(".sidebar")).not.toBeVisible();
 
   await page.setViewportSize({ width: 740, height: 390 });

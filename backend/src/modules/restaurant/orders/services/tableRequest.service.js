@@ -757,13 +757,16 @@ const callStaff = async (token, input) => {
 // A waiter asking the counter for a table's bill from the captain app (a
 // captain who does not bill): the same request a guest's Request bill makes
 // from the table's QR code, marked as asked by that waiter, so it reaches the
-// counter on Table requests and the POS badges. A second ask while the
-// table's bill request is still open (the guest's or a waiter's) is not a
-// second request: it is counted on the one there, as a guest's second press
-// is. The same key and the table give back the same request. `outletId`: the
-// outlet the person works in; another outlet's table is not found.
+// counter on Table requests and the POS badges, in every restaurant, with QR
+// ordering on or off. A second ask while the table's bill request is still
+// open is not a second request: it is counted on the one there, as a guest's
+// second press is; with QR ordering off, a guest's request still open from
+// before then takes the waiter's name, so the inbox shows it. The same key
+// and the table give back the same request. `outletId`: the outlet the person
+// works in; another outlet's table is not found.
 const askForBill = async (restaurantId, input, userId, outletId = null) => {
   requireRestaurantId(restaurantId);
+  const guestsCalling = (await restaurantFeatures.featuresOf(restaurantId)).includes("qr_ordering");
 
   const table = await tableRequestRepository.findTableForBill(restaurantId, input.tableId);
 
@@ -792,6 +795,7 @@ const askForBill = async (restaurantId, input, userId, outletId = null) => {
     clientKey: input.clientKey,
     notes: null,
     createdBy: userId,
+    claimForStaff: !guestsCalling,
   });
 
   if (result.error === "KEY_IN_USE") {

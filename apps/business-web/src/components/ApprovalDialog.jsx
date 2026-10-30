@@ -113,7 +113,8 @@ export default function ApprovalDialog() {
         setCapped(data.notAllowed || []);
         setDescribed(data.summary ? { summary: data.summary, facts: data.facts || [] } : null);
 
-        const open = data.approvers.filter((row) => !row.lockedUntil);
+        // A PIN someone else set approves nothing until its person chooses their own.
+        const open = data.approvers.filter((row) => !row.lockedUntil && !row.pinGiven);
 
         if (open.length === 1) {
           setApproverId(open[0].id);
@@ -338,7 +339,8 @@ export default function ApprovalDialog() {
                       role="radio"
                       aria-checked={approverId === row.id}
                       className={`acc-approver ${approverId === row.id ? "is-active" : ""}`}
-                      disabled={Boolean(row.lockedUntil) || busy}
+                      disabled={Boolean(row.lockedUntil) || Boolean(row.pinGiven) || busy}
+                      title={row.pinGiven ? `${row.name}'s PIN was set by someone else: it approves nothing until they choose their own under My profile` : undefined}
                       onClick={() => {
                         setApproverId(row.id);
                         setPicking(false);
@@ -350,6 +352,7 @@ export default function ApprovalDialog() {
                       </span>
                       <span className="acc-approver-name">{row.name}</span>
                       {row.lockedUntil && <span className="badge badge-danger">PIN locked</span>}
+                      {!row.lockedUntil && row.pinGiven && <span className="badge badge-neutral">PIN not their own yet</span>}
                     </button>
                   ))}
                   {!term &&

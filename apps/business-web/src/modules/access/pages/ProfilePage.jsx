@@ -129,7 +129,7 @@ export default function ProfilePage() {
       const result = await setMyPin(pinForm.password, pinForm.pin, pinForm.confirmPin);
       refreshUser(result.data);
       setPinForm({ password: "", pin: "", confirmPin: "" });
-      setPinSuccess(user.hasPin ? "PIN changed" : "PIN set. You can now unlock a till and approve with it.");
+      setPinSuccess(user.pinGiven ? result.message : user.hasPin ? "PIN changed" : "PIN set. You can now unlock a till and approve with it.");
     } catch (err) {
       setPinError(getErrorMessage(err));
     } finally {
@@ -190,9 +190,9 @@ export default function ProfilePage() {
   const roleText = (user.roleNames || user.roles || []).join(", ");
 
   const pinBadge = (
-    <span className={`badge status-badge ${user.hasPin ? "badge-active" : "badge-warning"}`}>
+    <span className={`badge status-badge ${user.hasPin && !user.pinGiven ? "badge-active" : "badge-warning"}`}>
       <span className="badge-dot" aria-hidden="true" />
-      {user.hasPin ? "PIN set" : "No PIN yet"}
+      {user.pinGiven ? "Set by someone else" : user.hasPin ? "PIN set" : "No PIN yet"}
     </span>
   );
 
@@ -313,6 +313,11 @@ export default function ProfilePage() {
           <div className="form-grid">
             <ErrorMessage message={pinError} />
             <SuccessMessage message={pinSuccess} />
+            {user.pinGiven && (
+              <div className="alert alert-notice field-wide" role="status">
+                Someone else set your PIN. It opens a shared till for you, but approves nothing as you until you choose your own here.
+              </div>
+            )}
 
             <label className="field field-wide">
               <span>Your password</span>

@@ -1,5 +1,10 @@
 // QR orders and service requests, as staff see them.
 //
+// Every restaurant has the inbox: a waiter's request for a table's bill from
+// the captain app comes here whatever is switched on. A table's QR code
+// (QR ordering) and the online ordering page bring the guests' orders and
+// calls too, while each is on (the controller's channelsOf).
+//
 // Reading the inbox and answering a call (acknowledge, done) is orders.view:
 // anyone who can see the floor's orders can walk a glass of water over.
 // Accepting or rejecting an order request creates or changes an order, so it
@@ -15,8 +20,8 @@ const resolveOutlet = require("../../../../middlewares/resolveOutlet");
 const router = express.Router();
 
 router.use(authenticate);
-// Guests' requests from a table's QR code and from the online ordering page.
-router.use(requireFeature.any("qr_ordering", "online_ordering"));
+// The guests' own part: their orders, and what they may do from a table.
+const guestsOn = requireFeature.any("qr_ordering", "online_ordering");
 // The outlet the user is working in scopes the inbox: staff tied to one branch
 // (or a manager switched to one) see and answer only that branch's tables and
 // those that belong to no branch. An accepted request opens its order in the
@@ -27,17 +32,17 @@ router.use(resolveOutlet);
 // Fixed paths before "/:id", so they are never read as an id.
 router.get("/", authorize("orders.view"), tableRequestController.list);
 router.get("/summary", authorize("orders.view"), tableRequestController.summary);
-router.get("/settings", authorize("orders.view"), tableRequestController.getSettings);
-router.put("/settings", authorize("orders.manage"), tableRequestController.updateSettings);
+router.get("/settings", guestsOn, authorize("orders.view"), tableRequestController.getSettings);
+router.put("/settings", guestsOn, authorize("orders.manage"), tableRequestController.updateSettings);
 
 router.post("/close-earlier", authorize("orders.manage"), tableRequestController.closeEarlier);
 // A waiter asks the counter for a table's bill from the captain app: whoever
-// takes orders. It reaches the counter as a table's bill request, which the
-// inbox shows only while QR ordering is on, so it needs QR ordering.
-router.post("/bill-asks", requireFeature("qr_ordering"), authorize("orders.create"), tableRequestController.askForBill);
+// takes orders. It reaches the counter as a table's bill request, on Table
+// requests and the POS's badges, with QR ordering on or off.
+router.post("/bill-asks", authorize("orders.create"), tableRequestController.askForBill);
 router.get("/:id", authorize("orders.view"), tableRequestController.getById);
-router.post("/:id/accept", authorize("orders.create"), tableRequestController.accept);
-router.post("/:id/reject", authorize("orders.create"), tableRequestController.reject);
+router.post("/:id/accept", guestsOn, authorize("orders.create"), tableRequestController.accept);
+router.post("/:id/reject", guestsOn, authorize("orders.create"), tableRequestController.reject);
 router.post("/:id/acknowledge", authorize("orders.view"), tableRequestController.acknowledge);
 router.post("/:id/done", authorize("orders.view"), tableRequestController.done);
 

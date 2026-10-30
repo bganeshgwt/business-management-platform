@@ -424,7 +424,10 @@ const createOrderRequest = (data, items, maxWaiting) =>
 // A call for a waiter, the bill or water. If the same kind of call from this
 // table is still open, this press is counted on it rather than making a
 // second card for the floor to trip over. A key already used is the same
-// call only if it was the same kind of call.
+// call only if it was the same kind of call. `claimForStaff`: a waiter's ask
+// while the guests' calls are out of the inbox (QR ordering off) counted on a
+// guest's call still open from before also puts the waiter's name on it, so
+// the inbox shows it as theirs.
 const createCall = (data) =>
   withTransaction(async (client) => {
     await lockTableForGuest(client, data.tableId);
@@ -440,10 +443,11 @@ const createCall = (data) =>
     if (data.requestType !== "other") {
       const open = await client.query(
         `UPDATE table_requests
-         SET repeat_count = repeat_count + 1, last_asked_at = NOW()
+         SET repeat_count = repeat_count + 1, last_asked_at = NOW(),
+             created_by = CASE WHEN $3::boolean THEN COALESCE(created_by, $4::bigint) ELSE created_by END
          WHERE table_id = $1 AND request_type = $2 AND status IN ('pending', 'acknowledged')
          RETURNING id`,
-        [data.tableId, data.requestType]
+        [data.tableId, data.requestType, Boolean(data.claimForStaff), data.createdBy || null]
       );
 
       if (open.rows[0]) {
@@ -679,6 +683,13 @@ const outletScopeSql = (param, alias = "r") =>
   `(${param}::bigint IS NULL OR ${alias}.outlet_id = ${param}::bigint
     OR (${alias}.outlet_id IS NULL AND ${alias}.channel = 'qr'))`;
 
+// What the inbox holds: in every restaurant, a waiter's own ask for a table's
+// bill from the captain app (created_by); and the guests' requests from the
+// places switched on (`param`: 'qr' for the tables' QR codes, 'website' for
+// the online ordering page).
+const inboxSql = (param, alias = "r") =>
+  `(${alias}.created_by IS NOT NULL OR COALESCE(${alias}.channel, 'qr') = ANY(${param}::text[]))`;
+
 // Sent before the business day it would be served on began: a guest who
 // ordered or called on an earlier day. Never news, never accepted.
 const FROM_EARLIER_DAY = `(r.created_at < ${DAY_START}) AS from_earlier_day, today_clock.zone AS time_zone`;
@@ -717,7 +728,7 @@ const findAll = async (restaurantId, filters) => {
               OR ($3::text = 'service' AND r.request_type <> 'order'))
          AND ($8::date IS NULL OR ${FILED_DATE} >= $8::date)
          AND ($9::date IS NULL OR ${FILED_DATE} <= $9::date)
-         AND COALESCE(r.channel, 'qr') = ANY($10::text[])
+         AND ${inboxSql("$10")}
        ORDER BY CASE WHEN $2::text = 'history' THEN NULL ELSE (r.status = ANY($5::text[])) END DESC,
                 CASE WHEN $2::text <> 'history' AND r.status = ANY($5::text[]) THEN r.created_at END ASC,
                 r.created_at DESC, r.id DESC
@@ -732,8 +743,9 @@ const findAll = async (restaurantId, filters) => {
         offset,
         filters.from || null,
         filters.to || null,
-        // Which inboxes are switched on (Settings -> Features): table QR
-        // codes ('qr') and the online ordering page ('website').
+        // Which guests' inboxes are switched on (Settings -> Features): table
+        // QR codes ('qr') and the online ordering page ('website'). A
+        // waiter's bill ask is in the inbox either way (inboxSql).
         filters.channels || ["qr", "website"],
       ]
     );
@@ -823,7 +835,7 @@ const summary = async (restaurantId, outletId = null, channels = ["qr", "website
        ${TODAY_FROM("$1")}
        WHERE r.restaurant_id = $1
          AND ${outletScopeSql("$2")}
-         AND COALESCE(r.channel, 'qr') = ANY($3::text[])
+         AND ${inboxSql("$3")}
      ) req
      -- Today only, waiting ones included: a request an earlier day left
      -- unanswered is history, not a guest waiting now (the owner's rule for
@@ -983,7 +995,7 @@ const findEarlierWaiting = async (restaurantId, outletId = null, channels = ["qr
      ${TODAY_FROM("$1")}
      WHERE r.restaurant_id = $1
        AND ${outletScopeSql("$2")}
-       AND COALESCE(r.channel, 'qr') = ANY($3::text[])
+       AND ${inboxSql("$3")}
        AND r.created_at < ${DAY_START}
        AND ((r.request_type = 'order' AND r.status = 'pending')
             OR (r.request_type <> 'order' AND r.status IN ('pending', 'acknowledged')))

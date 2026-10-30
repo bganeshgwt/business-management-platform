@@ -48,6 +48,11 @@ export const LOGINS = [
   { role: "TILL_CASHIER", name: "Deepak Rao", email: "cashier@general.e2e.invalid", businesses: ["general_retail"], businessRole: "cashier" },
   // The garage's mechanic, on a job card of their own (business-garage-more.spec.js).
   { role: "MECHANIC", name: "Raju Goud", email: "mechanic@garage.e2e.invalid", businesses: ["garage"], businessRole: "mechanic" },
+  // The owner's rules for access (access-rules.spec.js), each made with
+  // ACCESS_RULES below: the restaurant's baker, and the clothes shop's
+  // Menswear head.
+  { role: "BAKER", name: "Anita Joseph", email: "baker@bistro.e2e.invalid", accessRules: true },
+  { role: "MENSWEAR_HEAD", name: "Farhan Ali", email: "menswear@fashion.e2e.invalid", accessRules: true },
 ];
 
 // The staff login a spec makes in the grocery's Staff & access, as the owner
@@ -630,4 +635,22 @@ export const CLINIC_LAB = {
   allergic: { name: "Farida Begum", phone: "9000012002", sex: "female", ageYears: 44, allergies: "Penicillin (rash)" },
   reason: "Took amoxicillin last year with no reaction; watched for 30 minutes",
   byHand: "Cough syrup",
+};
+
+// The owner's rules for access (access-rules.spec.js). The restaurant's
+// BAKER works in a copy of the Kitchen Staff role with "Move pre-orders to In
+// production and Ready" ticked, tied to no outlet: the spec sets their PIN as
+// an admin does under Users, takes the till over with it, chooses their own
+// and bakes from the bake list of the outlet they pick. The clothes shop's
+// MENSWEAR_HEAD works in Menswear, in a role of the shop's own with Staff &
+// access; Menswear also has a cashier, and one whose login is also used in
+// the electronics shop; Womenswear has a cashier the head does not see.
+export const ACCESS_RULES = {
+  bakerRole: "Kitchen with pre-orders",
+  business: "fashion",
+  departments: ["Menswear", "Womenswear"],
+  headRole: "Department head",
+  menswear: { name: "Imran Khan", email: "imran@fashion.e2e.invalid" },
+  shared: { name: "Joseph Thomas", email: "joseph@fashion.e2e.invalid", alsoAt: "electronics" },
+  womenswear: { name: "Lata Shah", email: "lata@fashion.e2e.invalid" },
 };

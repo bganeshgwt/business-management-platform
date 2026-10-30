@@ -787,6 +787,20 @@
   box-shadow: var(--shadow-lg);
 }
 
+/* Choosing your own PIN (ChoosePin): one narrow form, its own card's frame
+   left to the panel. */
+.acc-pin-panel {
+  width: min(440px, 100%);
+}
+
+.acc-pin-panel .login-card {
+  max-width: none;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
 .acc-lock-top {
   display: flex;
   justify-content: space-between;

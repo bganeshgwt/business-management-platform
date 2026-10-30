@@ -144,8 +144,9 @@ const forViewer = (req) => {
     request && request.guestMobile ? { ...request, guestMobile: maskMobile(request.guestMobile) } : request;
 };
 
-// The inboxes switched on (Settings -> Features): a table's QR code and the
-// online ordering page each bring requests here.
+// The guests' inboxes switched on (Settings -> Features): a table's QR code
+// and the online ordering page each bring requests here. A waiter's bill ask
+// from the captain app is here whatever is on (the repository's inboxSql).
 const channelsOf = (req) => [
   ...(restaurantFeatures.has(req.user, "qr_ordering") ? ["qr"] : []),
   ...(restaurantFeatures.has(req.user, "online_ordering") ? ["website"] : []),

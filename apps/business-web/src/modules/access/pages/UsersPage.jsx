@@ -495,6 +495,11 @@ export default function UsersPage() {
         <span className="badge-dot" aria-hidden="true" />
         Locked till {timeOf(row.pinLockedUntil)}
       </span>
+    ) : row.pinGiven ? (
+      <span className="badge badge-warning status-badge" title="Set by someone else: they choose their own the first time they use it">
+        <span className="badge-dot" aria-hidden="true" />
+        Set by an admin
+      </span>
     ) : row.hasPin ? (
       <span className="badge badge-active status-badge">
         <span className="badge-dot" aria-hidden="true" />
@@ -871,7 +876,7 @@ export default function UsersPage() {
                   key: "pin",
                   header: "PIN",
                   width: 98,
-                  value: (row) => (row.pinLockedUntil ? "Locked" : row.hasPin ? "Set" : "Not set"),
+                  value: (row) => (row.pinLockedUntil ? "Locked" : row.pinGiven ? "Set by an admin" : row.hasPin ? "Set" : "Not set"),
                   render: (row) => <span className="nowrap">{pinBadge(row)}</span>,
                 },
                 {
@@ -1183,11 +1188,15 @@ export default function UsersPage() {
       {pinFor && (
         <Modal
           title={`${pinFor.hasPin ? "Change" : "Set"} PIN — ${pinFor.name}`}
-          description={`4 to 6 digits. They use it to unlock or take over a shared till${
-            pinFor.roles.some((code) => ["MANAGER", "RESTAURANT_ADMIN"].includes(code))
-              ? " and to approve voids, refunds and day close"
-              : ""
-          }.`}
+          description={
+            pinFor.id === currentUser.id
+              ? "4 to 6 digits. You use it to unlock or take over a shared till and to approve."
+              : `4 to 6 digits. It unlocks or takes over a shared till for them, and they then choose their own${
+                  pinFor.roles.some((code) => ["MANAGER", "RESTAURANT_ADMIN"].includes(code))
+                    ? ", which approves voids, refunds and day close"
+                    : ""
+                }.`
+          }
           icon="key"
           onClose={() => setPinFor(null)}
           width={440}
@@ -1224,7 +1233,11 @@ export default function UsersPage() {
               />
             </label>
 
-            <p className="muted small field-wide">Tell them the PIN; they can change it under My profile.</p>
+            {pinFor.id !== currentUser.id && (
+              <p className="muted small field-wide">
+                Tell them the PIN. The first time they use it, they choose their own; until then it approves nothing as them.
+              </p>
+            )}
 
             <div className="form-actions field-wide">
               <button type="button" className="button button-secondary" onClick={() => setPinFor(null)}>

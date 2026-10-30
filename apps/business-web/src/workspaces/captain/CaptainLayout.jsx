@@ -18,7 +18,8 @@ import "./styles/captain.css";
 // screen into a real one):
 //
 //   /captain          the tables: the captain's own section, or every table
-//   /captain/calls    guests' calls and QR orders at those tables
+//   /captain/calls    the calls at those tables: waiters' bill asks, and the
+//                     guests' calls and QR orders while QR ordering is on
 //   /captain/ready    food the kitchen has marked ready, to serve
 //   /captain/order    taking an order: the POS's own screen, in its phone
 //                     layout (?table= starts one, ?order= opens one,

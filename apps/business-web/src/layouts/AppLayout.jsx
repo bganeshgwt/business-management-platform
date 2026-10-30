@@ -68,7 +68,7 @@ const NAV_SECTIONS = [
       { to: "/bills", label: "Bills & payments", icon: "bills", permission: "orders.view" },
       { to: "/dues", label: "Dues & accounts", icon: "dues", permission: "sales.view" },
       { to: "/kitchen", label: "Kitchen display", icon: "kitchen", permission: "kds.view", feature: "kitchen_display" },
-      { to: "/table-requests", label: "Table requests", icon: "tableRequests", permission: "orders.view", featureAny: ["qr_ordering", "online_ordering"] },
+      { to: "/table-requests", label: "Table requests", icon: "tableRequests", permission: "orders.view" },
       { to: "/reservations", label: "Reservations", icon: "reservations", permission: "reservations.view", feature: "reservations" },
       { to: "/deliveries", label: "Deliveries", icon: "deliveries", permission: "orders.view", feature: "deliveries" },
       { to: "/preorders", label: "Pre-orders & cakes", icon: "reservations", permissionAny: ["orders.view", "kds.view"], feature: "preorders" },

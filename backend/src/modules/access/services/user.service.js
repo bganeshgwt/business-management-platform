@@ -36,6 +36,8 @@ const toUser = (row) => ({
   employeeCode: row.employee_code || null,
   hasPin: Boolean(row.pin_set_at),
   pinSetAt: row.pin_set_at || null,
+  // Set by someone else: the person chooses their own at its first use.
+  pinGiven: Boolean(row.pin_set_at && row.pin_must_change),
   pinLockedUntil: isFuture(row.pin_locked_until) ? row.pin_locked_until : null,
   loginLockedUntil: isFuture(row.login_locked_until) ? row.login_locked_until : null,
   // Two-step sign-in: on or off, and whether one of their roles requires it.
@@ -287,8 +289,9 @@ const resetPassword = async (restaurantId, id, password, caller) => {
   return toUser(target);
 };
 
-// An admin setting someone's PIN (a new captain on day one). The person can
-// change it themselves afterwards under My profile.
+// An admin setting someone's PIN (a new captain on day one). It is marked as
+// set by someone else: it opens a till for the person, who then chooses their
+// own at once, and it approves nothing as them until they have.
 const setPin = async (restaurantId, id, pin, caller) => {
   requireRestaurantId(restaurantId);
 

@@ -187,6 +187,13 @@ api.interceptors.response.use(
       window.dispatchEvent(new CustomEvent("features:changed"));
     }
 
+    // This session must choose its own PIN first (a till was switched to it
+    // with a PIN someone else set): the app reads the profile again, which
+    // opens the prompt.
+    if (status === 403 && error.response?.data?.data?.reason === "pin_change_required") {
+      window.dispatchEvent(new CustomEvent("pin:required"));
+    }
+
     // A manager's approval is needed: open the PIN dialog, then send the same
     // request again with the one-time token. Once only — a refused token the
     // second time round is shown as the error it is.

@@ -191,10 +191,12 @@ async function requireManages(db, business, member) {
 }
 
 // The staff list's answer, for each person, to whether the caller manages
-// them: Staff & access shows Change and Password only where it is true. It
-// needs access.edit, and is never true for the owner or for the caller
-// themselves (Give access and a new password refuse both); otherwise it is
-// requireManages' answer. Sets `manages` on each row.
+// them: Staff & access shows Change and Password only where it is true, and
+// Password only for a login used nowhere else (login_elsewhere, which a new
+// password refuses). It needs access.edit, and is never true for the owner or
+// for the caller themselves (Give access and a new password refuse both);
+// otherwise it is requireManages' answer. Sets `manages` on each row. A
+// manager tied to a department lists only its people (business.routes).
 async function markManaged(business, members) {
   const edits = can(business, 'access.edit');
   const roles = edits ? await roleRights(repo.pool, business, members.map((m) => m.role_id)) : new Map();

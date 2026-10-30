@@ -178,11 +178,12 @@ const LIVE_DATA = {
 
     return { warnings };
   },
+  // The guests' requests waiting; a waiter's bill ask stays on Table requests.
   qr_ordering: async (db, rid) => {
     const pending = await first(
       db,
       `SELECT count(*)::int AS n FROM table_requests
-       WHERE restaurant_id = $1 AND COALESCE(channel, 'qr') <> 'website' AND status IN ('pending', 'acknowledged', 'processing')`,
+       WHERE restaurant_id = $1 AND COALESCE(channel, 'qr') <> 'website' AND created_by IS NULL AND status IN ('pending', 'acknowledged', 'processing')`,
       [rid]
     );
 

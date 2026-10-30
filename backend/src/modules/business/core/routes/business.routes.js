@@ -121,8 +121,9 @@ for (const [name, permission] of Object.entries(listPermissions)) {
     // unless a location is asked for, or the person is tied to one.
     const unscoped = name === 'members' && !req.business.location_tied ? new Set(req.locationFilledIn || []) : new Set();
     for (const key of repo.listFilters(name)) if (req.query[key] !== undefined && req.query[key] !== '' && !unscoped.has(key)) filters[key] = String(req.query[key]).slice(0, 60);
-    // A person tied to a department sees that department's products and stock.
-    if (req.business.member_department_id && ['catalog', 'stock'].includes(name)) filters.department = String(req.business.member_department_id);
+    // A person tied to a department sees that department's products and stock,
+    // and its people alone on the staff list (its count and search too).
+    if (req.business.member_department_id && ['catalog', 'stock', 'members'].includes(name)) filters.department = String(req.business.member_department_id);
     // A document list shows only the kinds this person may see.
     if (name === 'documents') {
       const kinds = ['sale', 'purchase'].filter((kind) => access.can(req.business, service.kindPermission(kind, 'view')));

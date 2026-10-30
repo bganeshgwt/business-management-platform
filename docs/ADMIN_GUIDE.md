@@ -184,6 +184,17 @@ runs (1234, 1111) and the end of your own mobile are refused; five wrong
 PINs lock that PIN for 15 minutes. A PIN only works on a till already signed
 in to the restaurant — it never lets anyone in from outside.
 
+**A PIN someone else set.** A PIN an admin sets for you (Users, the row's
+**⋯** menu) is yours to replace the first time you use it. It unlocks your
+till, takes a till over for you and switches a shop's till to you, and then
+**Choose your own PIN** opens at once: your password, then your new PIN
+twice, and **Save and continue**. Nothing else opens until you do, and the new
+PIN cannot be the one you were given; **Not you? Sign out** leaves the till.
+Until you choose your own it approves nothing as you: a manager's approval, a
+signature or a counter bill's PIN with it is refused with the reason. *My
+profile › Personal PIN* says *Set by someone else* and replaces it the same
+way ([BUSINESS_RULES.md › A PIN someone else set is replaced at its first use](BUSINESS_RULES.md#a-pin-someone-else-set-is-replaced-at-its-first-use)).
+
 **Your profile** (from your name): change your name and mobile, your PIN
 (password needed), your password (which signs you out everywhere else), turn
 two-step on or off, see your last 20 sign-ins and **Sign out all other
@@ -195,7 +206,9 @@ refusal they get a **Manager approval** panel: a manager standing nearby taps
 their name and types their PIN. The approval covers only what is shown
 (this bill, this amount, this item) once, and lapses after about two
 minutes. If the action then fails for another reason, the approval is used
-up and the manager must approve again. The activity log names both people.
+up and the manager must approve again. The activity log names both people. A
+manager whose PIN someone else set is shown with *PIN not their own yet* and
+cannot be chosen until they choose their own.
 
 ## The first platform login and the platform screens
 
@@ -335,7 +348,10 @@ password, only when you manage them: if you are tied to a location or a
 department, they are tied to that same one (not to every location or every
 department), and their role can do nothing yours cannot. *Change* and
 *Password* show only beside the people you manage, never beside the owner or
-yourself
+yourself, and *Password* only for a login used in this business alone (one
+also used in another business or a restaurant is changed there, or by the
+person). A manager tied to a department sees only that department's people
+on the list, in its count and in its search
 ([BUSINESS_RULES.md › Who a manager can change in Staff & access](BUSINESS_RULES.md#who-a-manager-can-change-in-staff--access)).
 
 **Currency and time zone** are in Business settings. The currency can change
@@ -867,14 +883,20 @@ cashiers and managers appear too.
 
 ### Table requests
 
-**Orders → Table requests** is the captain's inbox for guests' phones: orders
-and calls (waiter, bill, water) from the QR code on each table, and orders
-from the restaurant's own **online ordering page**. **Nothing is cooked until
+**Orders → Table requests** is every restaurant's inbox for the tables: the
+bills the captains ask for from the captain app (*Ask the counter for the
+bill*), whatever is switched on; with **QR table ordering** on, the guests'
+orders and calls (waiter, bill, water) from the QR code on each table; and
+with the **online ordering page** on, its orders. **Nothing is cooked until
 someone accepts it.** Waiting requests come first, oldest first, with a clock
-that turns amber and then red. A guest's order or call appears within a second
-or two (**Live** in the header), with a chime when the sound is on.
+that turns amber and then red. A request appears within a second or two
+(**Live** in the header), with a chime when the sound is on, and on the POS's
+badges and the alerts bell. Switching QR ordering off takes the guests'
+requests out of it; a captain's ask counted on a guest's bill request still
+open then puts the captain's name on it, so it shows.
 
-Its **QR ordering** window (the settings button) switches *Guests can order
+Its **QR ordering** window (the settings button, while QR ordering or the
+online ordering page is on) switches *Guests can order
 from the table* and *Guests can call staff* on or off, sets a note shown at
 the top of the guest menu, and opens *See what guests see* for any table
 (*Open guest menu* opens it where the table's QR code does: at the
@@ -908,12 +930,13 @@ bookmark, and signing in from it comes back to it. It has a header of its own
   **Bill**, **Take payment** or **Open bill**, **Reprint**, **Mark ready**,
   **Seat booking**, **Seat walk-in** or **No-show**: the same actions, by the
   same permissions, as the dashboard's Floor panel.
-- **Calls** — guests' calls from the QR codes at those tables, the longest
-  waiting first: **On my way** (the guest's phone shows someone is coming) and
-  **Done**; and their QR orders: **Accept** (to the kitchen and the bill) or
-  **Reject** with a reason the guest reads. Orders from the online ordering
-  page have no table: the counter takes them under Orders → Table requests.
-  The tab shows while QR ordering is on.
+- **Calls** — the calls at those tables, the longest waiting first: the bills
+  captains asked the counter for, and, while QR ordering is on, the guests'
+  calls from the QR codes: **On my way** (the guest's phone shows someone is
+  coming) and **Done**; and their QR orders: **Accept** (to the kitchen and
+  the bill) or **Reject** with a reason the guest reads. Orders from the
+  online ordering page have no table: the counter takes them under Orders →
+  Table requests. The tab shows to anyone who may see orders.
 - **Ready** — the food the kitchen has marked ready for those tables, the
   oldest at the pass first, with how long it has waited. **Served** takes the
   ticket off the pass in the captain's name, as the kitchen display's *Served*
@@ -958,10 +981,8 @@ one a guest's *Request bill* makes from the QR code, marked *Asked by* the
 captain on **Table requests**, the POS's badges and the other captains'
 phones (never ringing the asker's own). A second ask while the request is
 still open counts on it (*Asked 2×*), and the sheet says the counter has it.
-The ask needs QR ordering switched on, because the counter's inbox for a
-table's requests is QR ordering's; without it, the sheet says *The counter
-raises the bill when the guests ask for it*. Once the counter has raised it,
-the table shows *Bill printed*
+The ask works with QR ordering on or off: Table requests is every
+restaurant's. Once the counter has raised it, the table shows *Bill printed*
 and **Open bill** shows the bill as the guest sees it, to print at the table
 (the first copy; a second needs `bills.reprint` or a manager's PIN). Taking
 the money stays at the counter.
@@ -986,7 +1007,8 @@ staff app*, *Lock / switch user* and *Sign out*.
    any role that can take orders (`orders.create`).
 2. Set their PIN under Users (⋯ › *Set PIN*), or let them choose one under
    *My profile › Personal PIN*: it unlocks the phone and lets another waiter
-   take over a shared phone.
+   take over a shared phone. A PIN you set is theirs to replace: the first
+   time they use it, they choose their own.
 3. Each day, give them their tables under **Tables & QR → Captain
    sections** (*Copy yesterday's plan* makes it quick).
 4. On their phone they sign in, open **Daily work → Captain app** and add it
@@ -1493,7 +1515,7 @@ several of these at once; see Café, bakery and cloud kitchen.
 | Guests | **Guests & CRM** | The guest book, the guest box at the till, feedback, complaints, guest insights | On |
 | Guests | **Loyalty points** (needs Guests) | Earning and paying with points; the earn and redeem rules stay in Settings → Loyalty | Off |
 | Service | **Reservations** | Bookings, the waitlist, the online booking link | On |
-| Service | **QR table ordering** | Table QR codes, guests ordering and calling from the table, Table requests | On |
+| Service | **QR table ordering** | Table QR codes, guests ordering and calling from the table, their orders and calls on Table requests (the waiters' bill asks stay there) | On |
 | Service | **Online ordering page** (needs Guests) | Your own ordering web page | On |
 | Service | **Deliveries & rider cash** | The Delivery order type, the Deliveries board, riders and their cash | On |
 | Service | **Kitchen display (KDS)** | The kitchen screen. With it off, KOTs still print and orders work the same way | On |
@@ -1510,7 +1532,8 @@ several of these at once; see Café, bakery and cloud kitchen.
 | Operations | **Issues** (needs Tasks) | Reporting and fixing issues | On |
 | Operations | **Projects** (needs Tasks) | Projects with milestones and task lists | On |
 
-**Always on** (not on the list): POS and orders, bills and payments, dues and
+**Always on** (not on the list): POS and orders, Table requests (for the bills
+the captains ask for), bills and payments, dues and
 accounts, menu, tables, outlets, business day (and its cash in and out),
 expenses, log book, reports, users and roles, settings and the activity log.
 Outlets stay always on: a restaurant with no outlets already sees no outlet
@@ -2478,8 +2501,9 @@ A café, a bakery and a cloud kitchen run on the restaurant: the same POS, menu,
 - **Booking:** *New pre-order* takes the guest (their name, and their mobile if they want to be told it is ready; a mobile typed finds a guest already in the book however it is written), when it is due, pickup or delivery, the items with each cake's message or flavour, and an advance. An item is counted in whole pieces, or in kg in steps of 50 g when it is sold by weight. The advance is an ordinary advance (*Dues & accounts → Advances*), in the day's cash. If the till cannot take it (no business day open, or cash that would take the guest to the ₹2,00,000 cash limit for the day), the pre-order is still booked and a warning says so: take it later with *Take advance* on the pre-order.
 - **Advances:** taking one needs *Advances & deposits* (*Settings → Features*; on for a new restaurant, and choosing the Bakery format switches it on). While it is off, *New pre-order* has no advance: whoever takes payments sees a line saying so instead, with a link to *Settings → Features* for those who can open Settings. Pre-orders have no *Take advance*, and *Advances held* is hidden, on the page and in the dashboard's Pre-orders block. If it is switched off while the dialog is open, booking with an advance is refused, the advance field goes, and booking again goes through without it.
 - **Outlets:** a pre-order is booked at the outlet picked in the top bar (yours, when you are tied to one), or at the main counter under *All outlets*, and its row names the outlet after its number (*PRE-0004 · Kondapur*). Staff tied to an outlet see only that outlet's pre-orders, in the lists, the tiles and the dashboard's Pre-orders block, and cannot open, move along, hand over, cancel or take an advance on another outlet's or the main counter's. Everyone else sees every outlet's, whichever outlet is picked; with an outlet picked, the dashboard's Pre-orders block says *All outlets*. An outlet with open pre-orders can be neither closed nor deleted ([Outlets](#restaurant--profile-outlets-hours-settings-payment-types)).
-- **Baking:** the **Bake list** adds up what is due on a day by item, with every message, and can be printed for the kitchen. Each outlet, and the main counter, has its own list of the pre-orders booked there: the screen shows the list of the outlet picked in the top bar (yours, when you are tied to one), or the main counter's under *All outlets*, with its name beside the date and on the print. A restaurant without outlets has one list. It opens on tomorrow; pick any day. *Start baking*, then *Ready*.
-- **Kitchen:** the kitchen's login (the built-in *Kitchen Staff* role, or any role with `kds.view` but not `orders.view`) finds *Pre-orders & cakes* under *Daily work* while the feature is on, and gets the bake list alone: pick the day, *Print*. It has no tiles, no *Open*, *Collected* or *Cancelled*, no *New pre-order*, no *Start baking*, *Ready*, *Hand over & bill* or *Cancel*, and no Pre-orders block on the dashboard. *Kitchen display* need not be on. A baker tied to an outlet gets that outlet's list, and one tied to none the main counter's, as the *Kitchen Staff* role has no outlet picker: tie each outlet's baker to it in *Users*.
+- **Baking:** the **Bake list** adds up what is due on a day by item, with every message and where each pre-order has got to (*Booked*, *Baking*, *Ready*), and can be printed for the kitchen. Each outlet, and the main counter, has its own list of the pre-orders booked there: the screen shows the list of the outlet picked in the top bar (yours, when you are tied to one), or the main counter's under *All outlets*, with its name beside the date and on the print. A restaurant without outlets has one list. It opens on tomorrow; pick any day. *Start baking*, then *Ready*, on the list or on each pre-order of the bake list.
+- **Who moves them along:** *Start baking* and *Ready* need the permission *Move pre-orders to In production and Ready* (`preorders.produce`, under *Kitchen* in the role editor). Every role that takes orders has it, the built-in ones and your own copies alike; a kitchen role gets it only when you tick it: copy *Kitchen Staff* under *Users & access → Roles & permissions*, tick it, and move the bakers onto the copy. *Hand over & bill* still needs `orders.create`, and *Cancel* `orders.manage`.
+- **Kitchen:** the kitchen's login (the built-in *Kitchen Staff* role, or any role with `kds.view` but not `orders.view`) finds *Pre-orders & cakes* under *Daily work* while the feature is on, and gets the bake list alone: pick the day, *Print*, and, with `preorders.produce`, *Start baking* and *Ready* on each pre-order. It has no tiles, no *Open*, *Collected* or *Cancelled*, no *New pre-order*, no *Hand over & bill* or *Cancel*, and no Pre-orders block on the dashboard. *Kitchen display* need not be on. A baker tied to an outlet gets that outlet's list; one tied to none picks whose list to read (*Bake list of*: the main counter or an outlet), and the screen keeps the choice on that device.
 - **Hand-over:** *Hand over & bill* makes a takeaway order on today's business day and opens its bill with the advance taken first.
 - **Cancelling:** a cancelled pre-order keeps its advance held, to hand back from *Dues & accounts → Advances*; the cancel dialog says so when an advance is held.
 - **Dashboard:** a Pre-orders block shows how many are due today and tomorrow, the first four due today with their times, and, while *Advances & deposits* is on, the advances held.
@@ -3251,7 +3275,9 @@ cashier who has just switched to themselves is not asked again: for that one
 bill, within 2 minutes of the switch, on that screen. After it, or a page
 reload, the PIN is asked as usual.
 PINs are each person's own (My profile, or set by an admin under Users); five
-wrong tries lock a PIN.
+wrong tries lock a PIN. A PIN an admin set switches the till to its person,
+who then chooses their own before billing (it gives the next bill no free
+pass and confirms no bill until then).
 
 **The till.** Only locations that sell at the counter are offered as the till
 (Settings › Locations › *Sells at the counter*). The till is remembered on the
@@ -6783,7 +6809,7 @@ version and change that.
 | **Accountant** | The books: reports and takings, the business day (to read), expenses, supplier bills and payments, staff and salaries, the activity log; sees tasks, issues and projects. No till and no menu |
 | **Store keeper** | The store: stock, counts, wastage, indents, purchase orders, receiving goods and returns, the supplier list and the menu (to read), reporting issues. No payments, reports or salaries |
 | **Captain / Waiter** | Menu, tables, take orders, KOTs, the captain app, mark a dish sold out, reservations, pickup screen, reporting issues — no billing and no takings |
-| **Kitchen Staff** | Kitchen display and KOTs, sold out, read stock, log wastage, count stock, raise indents, pickup screen, reporting issues, the bake list (*Pre-orders & cakes*, when on) |
+| **Kitchen Staff** | Kitchen display and KOTs, sold out, read stock, log wastage, count stock, raise indents, pickup screen, reporting issues, the bake list (*Pre-orders & cakes*, when on; moving pre-orders to In production and Ready needs a copy with *Move pre-orders to In production and Ready* ticked) |
 | **Collection display** | The pickup-screen TV (`orders.collection`) and nothing else |
 | Super Admin | The platform's own login ([The first platform login](#the-first-platform-login-and-the-platform-screens)); never shown or assignable in a restaurant |
 
@@ -6807,7 +6833,10 @@ inactive or locked), one or more roles, and optionally the outlet they are
 tied to. An admin can reset a password but never read one, set or remove a
 PIN, unlock sign-in, sign someone out everywhere and reset their two-step
 sign-in. A new user's first password, and a password an admin resets, works
-for one sign-in: the person then chooses their own. The tab
+for one sign-in: the person then chooses their own. A PIN an admin sets for
+someone shows *Set by an admin* in the PIN column: it opens a till for them,
+and they choose their own the first time they use it; until then it approves
+nothing as them ([A PIN someone else set](#signing-in-and-staying-safe)). The tab
 **Till lock & sign-in** sets the automatic till lock and the roles that must
 use two-step sign-in.
 
@@ -6819,7 +6848,12 @@ Cashier / sales, Stock keeper, Accountant and Viewer; a pharmacy also gets
 an optical shop **Optometrist**, a garage **Mechanic**, a gym, studio or coaching centre **Trainer**, a jeweller **Karigar / goldsmith**, a fuel station **Pump attendant (DSM)**, and a hotel, lodge or guest house **Front desk** and **Housekeeping** — plus any roles
 its owner makes, edited on a module × action grid. You cannot give what you
 do not have, nor change, or set a new password for, someone whose role can
-do more than yours; the Owner role cannot be handed out or changed.
+do more than yours; the Owner role cannot be handed out or changed. A
+business is part of the owner's subscription with the platform (a basic plan,
+plus the modules and applications chosen): the platform's super admin creates
+it with its owner's login and switches its modules and applications on, the
+owner gives their staff access in *Staff & access*, and only the super admin
+changes who owns it, never the admin application.
 
 | Role | May do |
 | --- | --- |
@@ -6861,7 +6895,7 @@ permission codes](DATABASE.md#business-permission-codes).
 | Service | Host | **Reservations**, **Tables** | Answer online requests, seat bookings and walk-ins |
 | Service | Captain | **Captain app** | Take orders at *My tables*, answer guests' calls, serve food from the pass |
 | Service | Cashier | **POS**, **Bills & payments** | Raise bills, apply offers, take payment (and tips), print |
-| Service | Counter | **Table requests** | Accept QR and online orders — nothing is cooked until accepted |
+| Service | Counter | **Table requests** | Raise the bills the captains ask for; accept QR and online orders — nothing is cooked until accepted |
 | Service | Manager | **Dashboard** | Watch takings, live service and *Needs attention* |
 | Deliveries | Stores | **Purchase orders** | Receive goods and the supplier's bill — this is what puts stock on the shelf |
 | After deliveries | Cashier | **Deliveries → Settle cash** | Settle each rider's cash |
@@ -6916,20 +6950,19 @@ the link you were sent).
   Users in a restaurant, Staff & access › *Password* in a business, and the
   platform screens for a restaurant's admin or a business's owner. The person
   signs in with it once and then chooses their own.
-- **A PIN an admin sets is not changed by itself.** A PIN set for someone in
-  Users (⋯ › *Set PIN*) stays until they change it under My profile › Personal
-  PIN: ask them to straight away.
 - **A CSV import makes plain items and contacts.** A style's sizes and
   colours, pack sizes, kits, price lists, shelf places, member prices and a
   type's own details of an item (a book's, a medicine's drug details, a farm
   input's kind) are added on their screens after the import, and customers'
   consents on each customer's form ([Products, customers and suppliers from
   a CSV file](#products-customers-and-suppliers-from-a-csv-file)).
-- **A business cannot be handed over.**
+- **Ownership is changed by the platform.**
 
-  The Owner role is given only when a business is created and cannot be
-  handed out: give the person who runs it a role in Staff & access (Manager,
-  or a role made under Roles & permissions).
+  The Owner role is given only when the platform's super admin creates a
+  business, and only the super admin changes it, under the owner's
+  subscription; there is no screen for it yet. Meanwhile give the person who
+  runs it a role in Staff & access (Manager, or a role made under Roles &
+  permissions).
 - **A GST rate change moves items and dishes only.** On the change's date,
   change by hand the rates kept in settings: a fashion shop's *GST by price*,
   a lodge's two room-night slabs, and a restaurant's default GST rate (its

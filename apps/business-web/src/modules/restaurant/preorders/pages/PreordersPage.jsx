@@ -27,7 +27,9 @@ import "../styles/preorders.css";
 // sends no other, so the tiles count those alone); everyone else sees every
 // outlet's, each named on its row. The kitchen (kds.view without
 // orders.view) gets the bake list alone: it books, hands over and cancels
-// nothing.
+// nothing. Moving a pre-order to In production and Ready is a permission of
+// its own (preorders.produce), on the list and the bake list alike: the owner
+// gives it to the roles that bake, a kitchen's among them.
 const STATUS = {
   booked: ["neutral", "Booked"], in_production: ["info", "Baking"], ready: ["success", "Ready"],
   collected: ["neutral", "Collected"], cancelled: ["neutral", "Cancelled"],
@@ -63,6 +65,8 @@ export default function PreordersPage() {
   }, [bakeOnly, view, version]);
 
   const canTake = hasPermission("orders.create");
+  const canProduce = hasPermission("preorders.produce");
+  const canAct = canTake || canProduce || hasPermission("orders.manage") || (advancesOn && hasPermission("payments.manage"));
   const move = async (row, status) => {
     try { await setPreorderStatus(row.id, status); toast.success(`${row.number}: ${STATUS[status][1].toLowerCase()}`); reload(); } catch (err) { toast.error(getErrorMessage(err)); }
   };
@@ -94,23 +98,23 @@ export default function PreordersPage() {
         <small className="muted">{r.advanceAmount ? `${moneyExact(r.advanceAmount, currency)} paid · ${moneyExact(r.balanceDue, currency)} due` : "No advance"}</small></span>) },
     { key: "status", header: "Status", value: (r) => r.status, mobile: "show", width: 130, render: (r) => (
       <StatusBadge tone={STATUS[r.status][0]} label={`${STATUS[r.status][1]}${r.orderNumber ? ` · ${r.orderNumber}` : ""}`} />) },
-    canTake && { key: "actions", header: "", label: "Actions", type: "actions", width: 210, render: (r) => (
+    canAct && { key: "actions", header: "", label: "Actions", type: "actions", width: 210, render: (r) => (
       ["booked", "in_production", "ready"].includes(r.status) ? (
         <span className="po-actions">
-          {r.status === "booked" && <button type="button" className="button button-secondary button-sm" onClick={() => move(r, "in_production")}>Start baking</button>}
-          {r.status === "in_production" && <button type="button" className="button button-secondary button-sm" onClick={() => move(r, "ready")}>Ready</button>}
-          {r.status === "ready" && <button type="button" className="button button-sm" onClick={() => collect(r)}>Hand over & bill</button>}
+          {canProduce && r.status === "booked" && <button type="button" className="button button-secondary button-sm" onClick={() => move(r, "in_production")}>Start baking</button>}
+          {canProduce && r.status === "in_production" && <button type="button" className="button button-secondary button-sm" onClick={() => move(r, "ready")}>Ready</button>}
+          {canTake && r.status === "ready" && <button type="button" className="button button-sm" onClick={() => collect(r)}>Hand over & bill</button>}
           {!r.advanceId && advancesOn && hasPermission("payments.manage") && <button type="button" className="link-button" onClick={() => setDialog({ advance: r })}>Take advance</button>}
           {hasPermission("orders.manage") && <button type="button" className="link-button danger" onClick={() => setDialog({ cancel: r })}>Cancel</button>}
         </span>
       ) : null) },
-  ].filter(Boolean), [advancesOn, canTake, currency, today]); // eslint-disable-line react-hooks/exhaustive-deps
+  ].filter(Boolean), [advancesOn, canAct, canProduce, canTake, currency, today]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (bakeOnly) {
     return (
       <div className="stack">
         <PageHeader icon="calendar" title="Pre-orders & cakes" description="The bake list: what the open pre-orders need on a day, added up by item, with each cake's message." />
-        <BakeList />
+        <BakeList canProduce={canProduce} />
       </div>
     );
   }
@@ -131,7 +135,7 @@ export default function PreordersPage() {
         ))}
       </div>
       <ErrorMessage message={error} />
-      {view === "bake" ? <BakeList /> : !rows && !error ? <Loading /> : rows?.length === 0 ? (
+      {view === "bake" ? <BakeList canProduce={canProduce} onMoved={reload} /> : !rows && !error ? <Loading /> : rows?.length === 0 ? (
         <EmptyState icon="calendar" title={view === "open" ? "No pre-orders waiting" : "Nothing here yet"} description="Book a birthday cake or a party order with New pre-order." />
       ) : rows && (
         <DataGrid id={`preorders-${view}`} caption="Pre-orders" rows={rows} rowKey={(r) => r.id} columns={columns}
@@ -144,27 +148,76 @@ export default function PreordersPage() {
   );
 }
 
-// What the kitchen bakes for a day at this till: its open pre-orders' items,
-// added up, with each cake's message. Each outlet has its own list, and the
-// main counter's is the pre-orders booked with no outlet picked; the head
-// names which (counter: none in a restaurant without outlets, which has a
-// single list).
-function BakeList() {
+// Whose bake list this device last read, for someone who picks it (a
+// kitchen not tied to an outlet): an outlet's id, or "main".
+const BAKE_COUNTER_KEY = "rmp_bake_counter";
+const readBakeCounter = () => {
+  try {
+    return localStorage.getItem(BAKE_COUNTER_KEY) || undefined;
+  } catch {
+    return undefined;
+  }
+};
+const keepBakeCounter = (value) => {
+  try {
+    if (value) localStorage.setItem(BAKE_COUNTER_KEY, value);
+    else localStorage.removeItem(BAKE_COUNTER_KEY);
+  } catch {
+    // Storage blocked: the list is picked again next time.
+  }
+};
+
+// What the kitchen bakes for a day at one till: its open pre-orders' items,
+// added up, with each cake's message and where it has got to. Each outlet
+// has its own list, and the main counter's is the pre-orders booked with no
+// outlet picked; the head names which (counter: none in a restaurant without
+// outlets, which has a single list). Someone not tied to an outlet and
+// without the outlet switcher at the top (a kitchen's login) picks whose list
+// it reads. With preorders.produce, each pre-order on it is moved to In
+// production and Ready from here.
+function BakeList({ canProduce, onMoved }) {
+  const { user, hasPermission } = useAuth();
+  const picks = !user.outletId && !hasPermission("outlets.view");
   const [day, setDay] = useState(() => addDays(todayText(), 1));
+  const [asked, setAsked] = useState(() => (picks ? readBakeCounter() : undefined));
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  const [version, setVersion] = useState(0);
+  const [busy, setBusy] = useState(null);
   useEffect(() => {
     let live = true;
-    getBakeList(day).then((d) => { if (live) { setData(d); setError(""); } }).catch((err) => { if (live) setError(getErrorMessage(err)); });
+    getBakeList(day, asked).then((d) => { if (live) { setData(d); setError(""); } }).catch((err) => {
+      if (!live) return;
+      // The list this device read last is no longer there (its outlet closed): back to the usual one.
+      if (asked !== undefined && err?.response?.status < 500) { keepBakeCounter(""); setAsked(undefined); return; }
+      setError(getErrorMessage(err));
+    });
     return () => { live = false; };
-  }, [day]);
+  }, [day, asked, version]);
   const counter = data?.counter || null;
+  const counters = picks && data?.counters?.length > 1 ? data.counters : null;
   const bookedAt = counter ? `booked at ${counter.outletId ? counter.name : "the main counter"} and ` : "";
+  const pick = (value) => { keepBakeCounter(value); setAsked(value); };
+  const move = async (order, status) => {
+    setBusy(order.id);
+    try {
+      await setPreorderStatus(order.id, status);
+      toast.success(`${order.number}: ${STATUS[status][1].toLowerCase()}`);
+      setVersion((n) => n + 1);
+      if (onMoved) onMoved();
+    } catch (err) { toast.error(getErrorMessage(err)); } finally { setBusy(null); }
+  };
   return (
     <section className="po-bake">
       <div className="po-bake-head">
         <div className="po-bake-for">
           <label className="field"><span>Bake for</span><input type="date" value={day} onChange={(e) => e.target.value && setDay(e.target.value)} /></label>
+          {counters && (
+            <label className="field"><span>Bake list of</span>
+              <select value={counter?.outletId ? String(counter.outletId) : "main"} onChange={(e) => pick(e.target.value)}>
+                {counters.map((c) => <option key={c.outletId || "main"} value={c.outletId ? String(c.outletId) : "main"}>{c.name}</option>)}
+              </select></label>
+          )}
           {counter && <span className="po-bake-counter"><Icon name="store" size={14} /><span className="sr-only">Pre-orders booked at</span> {counter.name}</span>}
         </div>
         <button type="button" className="button button-secondary" onClick={() => window.print()}><Icon name="print" size={16} /> Print</button>
@@ -177,7 +230,14 @@ function BakeList() {
               <div className="po-bake-line"><strong>{item.soldBy === "weight" ? `${item.quantity} kg` : `${item.quantity} ×`} {item.name}</strong></div>
               <ul>{item.orders.map((o) => (
                 <li key={`${o.number}-${o.notes}`}><span className="mono">{o.number}</span> · {dueText(o.dueAt)} · {o.customer} · {item.soldBy === "weight" ? `${o.quantity} kg` : `${o.quantity} ×`}
-                  {o.notes && <span className="po-message"> “{o.notes}”</span>}</li>
+                  {o.notes && <span className="po-message"> “{o.notes}”</span>}
+                  {STATUS[o.status] && <> <StatusBadge tone={STATUS[o.status][0]} label={STATUS[o.status][1]} /></>}
+                  {canProduce && o.status === "booked" && (
+                    <> <button type="button" className="button button-secondary button-sm" disabled={busy === o.id} onClick={() => move(o, "in_production")}>Start baking</button></>
+                  )}
+                  {canProduce && o.status === "in_production" && (
+                    <> <button type="button" className="button button-secondary button-sm" disabled={busy === o.id} onClick={() => move(o, "ready")}>Ready</button></>
+                  )}</li>
               ))}</ul>
             </li>
           ))}

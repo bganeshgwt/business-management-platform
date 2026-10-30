@@ -34,12 +34,15 @@ export default function StaffAccessPage() {
     { key: "last", header: "Last opened", type: "datetime", value: (m) => m.last_opened_at, render: (m) => (String(m.id) === String(user.id) ? <span>Using it now</span> : m.last_opened_at ? dateTime(m.last_opened_at) : <span className="muted">Not yet</span>) },
     { key: "active", header: "Access", type: "status", value: (m) => (m.active ? "active" : "inactive"), render: (m) => <ActiveBadge active={m.active} />, mobile: "show" },
     // Only for people the server says you manage: never the owner or yourself;
-    // if you are tied to a location or a department, only that one's people;
-    // and only someone whose role can do nothing yours cannot.
+    // if you are tied to a location or a department, only that one's people
+    // (the only ones the list then has); and only someone whose role can do
+    // nothing yours cannot. Password only for a login used here alone: one
+    // also used in another business or restaurant is changed there, or by
+    // the person.
     editable && { key: "actions", header: "", label: "Actions", type: "actions", render: (m) => m.manages && (
       <span className="bz-actions">
         <button type="button" className="chip-button" onClick={() => setEditing(m)}>Change</button>
-        <button type="button" className="chip-button" onClick={() => setPassword(m)}>Password</button>
+        {!m.login_elsewhere && <button type="button" className="chip-button" onClick={() => setPassword(m)}>Password</button>}
       </span>
     ) },
   ];

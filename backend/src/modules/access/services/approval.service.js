@@ -12,6 +12,9 @@ const { safeZone } = require("../../restaurant/staff/services/timeclock.service"
 const AppError = require("../../../utils/AppError");
 const { round2 } = require("../../../utils/money");
 
+// The PIN rules (auth.service), on first use.
+const authService = () => require("./auth.service");
+
 // What each permission lets someone do, as the approval prompt says it:
 // "A manager's approval is needed to void a bill".
 const ACTION_LABELS = {
@@ -534,6 +537,9 @@ const listApprovers = async (requester, permission, rawScope = null) => {
       id: row.id,
       name: row.name,
       lockedUntil: isLocked(row) ? new Date(row.pin_locked_until).toISOString() : null,
+      // Their PIN was set by someone else: it approves nothing until they
+      // choose their own, so the prompt shows them but does not take it.
+      pinGiven: Boolean(row.pin_must_change),
     })),
     // People who could approve a smaller discount, for the prompt to say why
     // they are not offered: "Kiran (up to 10%)".
@@ -635,6 +641,10 @@ const findApprover = async (requester, permission, pin, input, db) => {
       });
     }
 
+    // A PIN someone else set approves nothing as its person: refused before
+    // it is read, so no try is spent on it.
+    authService().assertOwnPin(chosen);
+
     const slot = await userRepository.reservePinAttempt(chosen.id, config.accountLock, db);
 
     if (!slot.allowed) {
@@ -694,8 +704,9 @@ const findApprover = async (requester, permission, pin, input, db) => {
   }
 
   // No name given (the API allows a PIN on its own): the PIN is tried against
-  // everyone who could approve. The till-wide limit above caps these tries.
-  for (const row of candidates.filter((candidate) => !isLocked(candidate))) {
+  // everyone who could approve with a PIN of their own. The till-wide limit
+  // above caps these tries.
+  for (const row of candidates.filter((candidate) => !isLocked(candidate) && !candidate.pin_must_change)) {
     if (await bcrypt.compare(pin, row.pin_hash)) {
       return row;
     }

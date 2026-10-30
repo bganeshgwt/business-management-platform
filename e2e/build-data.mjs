@@ -9,6 +9,7 @@ import crypto from "node:crypto";
 
 import { AGRI, BUSINESSES, CLINIC, FUEL, GARAGE, GROCERY, GST_CHANGE, GST_THRESHOLDS, HARDWARE, JEWELLERY, LAUNDRY, LODGING, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, PRIVACY, RENTALS, RESTAURANT, SALON, SMALL_ITEMS, TIMEZONE, WHOLESALE } from "./test-data.mjs";
 import { CLINIC_LAB } from "./test-data.mjs";
+import { ACCESS_RULES } from "./test-data.mjs";
 
 // Every call names the status it expects, so a set-up that goes wrong stops
 // at the first wrong answer, with the API's own message, rather than leaving
@@ -121,10 +122,10 @@ export async function buildTestData({ api, logins, sql }) {
 
   // The restaurant's own staff. A login with businesses of its own works in
   // those shops only, and is made with them further down; so is the GST
-  // owner's and their manager's.
+  // owner's and their manager's, and the access rules' logins.
   const roles = await owner("GET", "/roles");
   const staffIds = {};
-  for (const person of logins.filter((item) => !["SUPER_ADMIN", "RESTAURANT_ADMIN"].includes(item.role) && !item.businesses && !item.gstOwner)) {
+  for (const person of logins.filter((item) => !["SUPER_ADMIN", "RESTAURANT_ADMIN"].includes(item.role) && !item.businesses && !item.gstOwner && !item.accessRules)) {
     const role = roles.find((item) => item.code === person.role && item.isSystem);
     const made = await owner("POST", "/users", { name: person.name, email: person.email, password: person.password, roleIds: [role.id] }, 201);
     staffIds[person.role] = made.id;
@@ -1204,6 +1205,39 @@ export async function buildTestData({ api, logins, sql }) {
     const visit = await owner("POST", B("clinic/visits"), { contactId: allergic.contact_id, resourceId: clinic.doctor.resourceId }, 201);
     clinic.lab = { sugar: { id: sugar.id, code: sugar.code }, worklistOrder: { id: order.id, orderNo: order.order_no }, billedLater: { contactId: billedLater.contact_id },
       allergicVisit: { id: visit.id, visitNo: visit.visit_no } };
+  }
+
+  // The owner's rules for access (access-rules.spec.js): the restaurant's
+  // baker in a copy of the Kitchen Staff role with pre-orders moved along, as
+  // the role editor makes one; the clothes shop's departments, its Menswear
+  // head in a role with Staff & access, made as Staff & access makes logins,
+  // and the departments' people, one of them given access to the electronics
+  // shop too.
+  {
+    const kitchen = roles.find((item) => item.code === "KITCHEN" && item.isSystem);
+    const copy = await owner("POST", `/roles/${kitchen.id}/copy`, { name: ACCESS_RULES.bakerRole }, 201);
+    await owner("PUT", `/roles/${copy.id}`, { name: copy.name, description: copy.description, permissions: [...copy.permissions, "preorders.produce"] });
+    const baker = login("BAKER");
+    staffIds.BAKER = (await owner("POST", "/users", { name: baker.name, email: baker.email, password: baker.password, roleIds: [copy.id] }, 201)).id;
+
+    const B = at(ACCESS_RULES.business);
+    const departments = [];
+    for (const name of ACCESS_RULES.departments) departments.push(await owner("POST", B("departments"), { name }, 201));
+    const here = (await owner("GET", B("roles?limit=100"))).items;
+    const template = (rows, code) => rows.find((role) => role.template_code === code);
+    const headRole = await owner("POST", B("roles"), { name: ACCESS_RULES.headRole, description: "Runs one department, its people's access included.",
+      permissions: [...template(here, "manager").permissions, "access.view", "access.edit"] }, 201);
+    const staffLogin = (person, roleId, department) =>
+      owner("POST", B("staff-accounts"), { name: person.name, email: person.email, password: person.password || crypto.randomBytes(12).toString("base64url"),
+        roleId, workDepartmentId: department.id }, 201);
+    const head = login("MENSWEAR_HEAD");
+    await staffLogin(head, headRole.id, departments[0]);
+    await staffLogin(ACCESS_RULES.menswear, template(here, "cashier").id, departments[0]);
+    const shared = await staffLogin(ACCESS_RULES.shared, template(here, "cashier").id, departments[0]);
+    const elsewhere = (await owner("GET", at(ACCESS_RULES.shared.alsoAt)("roles?limit=100"))).items;
+    await owner("POST", at(ACCESS_RULES.shared.alsoAt)("members"), { userId: shared.user_id, roleId: template(elsewhere, "cashier").id }, 201);
+    await staffLogin(ACCESS_RULES.womenswear, template(here, "cashier").id, departments[1]);
+    businesses[ACCESS_RULES.business].departments = departments.map((department) => ({ id: department.id, name: department.name }));
   }
 
   // The logins nothing above signed in as choose their own password now, so

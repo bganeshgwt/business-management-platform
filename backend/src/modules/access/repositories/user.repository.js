@@ -72,7 +72,7 @@ const findByEmployeeCode = async (restaurantCode, employeeCode) => {
 const findProfileById = async (id) => {
   const result = await pool.query(
     `SELECT u.id, u.restaurant_id, u.outlet_id, u.name, u.email, u.mobile, u.status,
-            u.token_version, u.pin_set_at, u.pin_locked_until, u.two_factor_enabled_at, u.password_must_change,
+            u.token_version, u.pin_set_at, u.pin_locked_until, u.pin_must_change, u.two_factor_enabled_at, u.password_must_change,
             r.name AS restaurant_name, r.code AS restaurant_code, r.status AS restaurant_status, r.format AS restaurant_format,
             o.name AS outlet_name, o.status AS outlet_status,
             COALESCE(ras.idle_lock_minutes, 0) AS idle_lock_minutes,
@@ -367,7 +367,7 @@ const bumpTokenVersion = async (id) => {
 
 const findPinById = async (id) => {
   const result = await pool.query(
-    `SELECT u.id, u.restaurant_id, u.name, u.mobile, u.status, u.pin_hash, u.pin_set_at,
+    `SELECT u.id, u.restaurant_id, u.name, u.mobile, u.status, u.pin_hash, u.pin_set_at, u.pin_must_change,
             u.pin_failed_count, u.pin_first_failed_at, u.pin_locked_until, u.login_locked_until,
             r.status AS restaurant_status
      FROM users u
@@ -379,11 +379,14 @@ const findPinById = async (id) => {
   return result.rows[0] || null;
 };
 
+// A PIN set for a person by someone else (an admin, under Users) is marked
+// (pin_must_change): until they choose their own, it opens a till for them
+// but approves nothing as them. Their own PIN, or no PIN, clears the mark.
 const setPin = async (id, pinHash, byUserId) => {
   const result = await pool.query(
     `UPDATE users
      SET pin_hash = $2, pin_set_at = NOW(), pin_failed_count = 0, pin_first_failed_at = NULL,
-         pin_locked_until = NULL, updated_by = $3
+         pin_locked_until = NULL, pin_must_change = COALESCE(id <> $3::bigint, TRUE), updated_by = $3
      WHERE id = $1
      RETURNING id`,
     [id, pinHash, byUserId]
@@ -396,7 +399,7 @@ const clearPin = async (id, byUserId) => {
   const result = await pool.query(
     `UPDATE users
      SET pin_hash = NULL, pin_set_at = NULL, pin_failed_count = 0, pin_first_failed_at = NULL,
-         pin_locked_until = NULL, updated_by = $2
+         pin_locked_until = NULL, pin_must_change = FALSE, updated_by = $2
      WHERE id = $1
      RETURNING id`,
     [id, byUserId]
@@ -423,10 +426,11 @@ const findTillUsers = async (restaurantId) => {
 };
 
 // The people who can approve one permission: active, holding it through an
-// active role, with a PIN set. pin_hash comes back for the PIN-only check.
+// active role, with a PIN set. pin_hash comes back for the PIN-only check, and
+// pin_must_change for a PIN someone else set, which approves nothing.
 const findApprovers = async (restaurantId, permission, db = pool) => {
   const result = await db.query(
-    `SELECT DISTINCT u.id, u.name, u.pin_hash, u.pin_locked_until
+    `SELECT DISTINCT u.id, u.name, u.pin_hash, u.pin_locked_until, u.pin_must_change
      FROM users u
      JOIN user_roles ur ON ur.user_id = u.id
      JOIN roles ro ON ro.id = ur.role_id AND ro.status = 'active'
@@ -511,7 +515,7 @@ const saveAccessSettings = async (restaurantId, data, userId) => {
 const LIST_QUERY = `
   SELECT u.id, u.name, u.email, u.mobile, u.status, u.outlet_id, u.last_login_at,
          u.created_at, u.updated_at, u.pin_set_at, u.pin_locked_until, u.login_locked_until,
-         u.two_factor_enabled_at,
+         u.pin_must_change, u.two_factor_enabled_at,
          -- One of their roles is on the restaurant's "must use two-step" list.
          EXISTS (SELECT 1 FROM user_roles tur
                  JOIN restaurant_two_factor_roles tfr ON tfr.role_id = tur.role_id

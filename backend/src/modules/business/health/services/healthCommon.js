@@ -191,8 +191,10 @@ async function verifySignature(business, kind, body, what) {
   if (!signer) fail(`That person is not a registered ${kind} of this business`, 403, { reason: 'not_a_signatory' });
   // Still a member with access to the business.
   try { await access.load({ id: signer.user_id }, business.id); } catch { fail(`${signer.name} no longer has access to this business`, 403, { reason: 'not_a_signatory' }); }
-  const person = await repo.one(repo.pool, "SELECT id,name,pin_hash FROM users WHERE id=$1 AND status='active'", [signer.user_id]);
+  const person = await repo.one(repo.pool, "SELECT id,name,pin_hash,pin_must_change FROM users WHERE id=$1 AND status='active'", [signer.user_id]);
   if (!person?.pin_hash) fail(`${signer.name} has not set a PIN yet (My profile › Personal PIN).`, 409, { reason: 'no_pin' });
+  // A PIN someone else set signs nothing until its person chooses their own.
+  require('../../../access/services/auth.service').assertOwnPin({ ...person, name: signer.name }, { what: 'sign anything' });
   const slot = await userRepository.reservePinAttempt(person.id, config.accountLock);
   if (!slot.allowed) fail(`${signer.name}'s PIN is locked after too many wrong tries. Try again later.`, 423, { reason: 'pin_locked' });
   if (!(await bcrypt.compare(pin, person.pin_hash))) {

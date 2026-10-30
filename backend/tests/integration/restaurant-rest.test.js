@@ -520,7 +520,8 @@ test("restaurant: kitchen reports, pre-orders, the guest's PAN and the captain a
     assert.notEqual(fresh.data.id, asked.data.id);
 
     // Refusals: no order on the table, the bill already raised, another
-    // outlet's table, a role that takes no orders, and with QR ordering off.
+    // outlet's table, a role that takes no orders. With QR ordering off it is
+    // asked all the same (Table requests is every restaurant's).
     await refused("POST", "/table-requests/bill-asks", { tableId: T4.id, clientKey: crypto.randomUUID() }, 409, /Table T4 has no order running/, captain);
     await C("POST", "/bills", { orderId: order.id }, 201);
     await C("POST", `/table-requests/${fresh.data.id}/done`, {});
@@ -533,8 +534,7 @@ test("restaurant: kitchen reports, pre-orders, the guest's PAN and the captain a
     await request("POST", "/table-requests/bill-asks", { tableId: T1.id, clientKey: crypto.randomUUID() }, 403, cook);
     await request("POST", "/table-requests/bill-asks", { tableId: T1.id, clientKey: crypto.randomUUID() }, 404, other);
     await feature("qr_ordering", false);
-    const off = await refused("POST", "/table-requests/bill-asks", { tableId: T1.id, clientKey: crypto.randomUUID() }, 403, /QR table ordering is switched off/, captain);
-    assert.equal(off.data.reason, "feature_off");
+    await refused("POST", "/table-requests/bill-asks", { tableId: T1.id, clientKey: crypto.randomUUID() }, 409, /The bill for table T1 is already raised/, captain);
     await feature("qr_ordering", true);
   });
 

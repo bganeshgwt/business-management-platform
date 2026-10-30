@@ -228,7 +228,10 @@ serve them: [GO_LIVE › Serve the two web apps](GO_LIVE.md#3-serve-the-two-web-
    ├─ middlewares, in the route's order:
    │    authenticate          JWT → req.user (id, restaurantId, outletId, roles, permissions, features);
    │                          a password someone else set: 403 password_change_required, but for
-   │                          /auth/me and /auth/change-password (authenticate.duringPasswordChange)
+   │                          /auth/me and /auth/change-password (authenticate.duringPasswordChange);
+   │                          a till session opened with a PIN someone else set (the token's pg):
+   │                          403 pin_change_required, but for /auth/me, PUT /auth/me/pin and the
+   │                          till's lock screen (authenticate.duringPinChange)
    │    resolveOutlet         restaurant only: X-Outlet-Id → req.outletId (pinned staff cannot change it)
    │    requireFeature(code)  restaurant only: feature switched on? (§4.2)
    │    authorize(perm)       restaurant only: req.user.permissions has it?
@@ -1038,7 +1041,8 @@ workspaces; the backend has its own install.
 │   │   │   ├── layouts/      AppLayout.jsx (header, switchers, bell, side menu), BusinessWorkspace and
 │   │   │   │                 WorkspaceStart (a clinic's workspace: its frame, and the clinic it opens),
 │   │   │   │                 NotFoundPage, PlannedPage, GuestSiteRedirect
-│   │   │   ├── context/      AuthProvider (user, permissions, features), BusinessProvider (open business)
+│   │   │   ├── context/      AuthProvider (user, permissions, features; in place of the app, Choose your
+│   │   │   │                 own PIN for a till session a PIN someone else set opened), BusinessProvider (open business)
 │   │   │   ├── hooks/        useAuth, useBusiness, useLiveRefresh (live updates), useLiveChange (a figure's
 │   │   │   │                 motion), useServerNow (the server's clock), useQueryFilter, motion hooks …
 │   │   │   ├── routes/ProtectedRoute.jsx   login + permission + restaurant feature guard; someone whose
@@ -1200,7 +1204,7 @@ the guests' pages are in `apps/customer-web/src/modules/<area>/pages/`.
 | Module (`modules/…`) | Backend | Frontend pages | Main tables |
 | --- | --- | --- | --- |
 | `restaurant/setup` | `restaurant.*`, `outlet.*`, `serviceSettings.*`, `paymentType.*`, `taxRate.*`, `restaurantFeatures.*`, `restaurantFormat` (the format and what it sets), `ruleSettings` (the restaurant's own alerts and timings) | profile and set-up checklist, settings (with alerts and timings), hours, outlets, features and the format, payment types, service settings | `restaurants`, `outlets`, `restaurant_settings`, `business_hours`, `service_settings`, `payment_types` |
-| `access` | `auth.*`, `user.*`, `role.*`, `twoFactor.*`, `approval.*`, `audit` (repository), `activityLog`; its middlewares (`authenticate`, `authorize`, `authorizeOrApprove`) are in `src/middlewares` | `LoginPage` (with `ChoosePassword`, the step after a password someone else set), `ProfilePage`, users, roles, two-step | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`, `approvals`, `user_sign_ins`, `audit_logs` |
+| `access` | `auth.*`, `user.*`, `role.*`, `twoFactor.*`, `approval.*`, `audit` (repository), `activityLog`; its middlewares (`authenticate`, `authorize`, `authorizeOrApprove`) are in `src/middlewares` | `LoginPage` (with `ChoosePassword`, the step after a password someone else set), `ChoosePin` (the step after a PIN someone else set opened a till: the lock screen's, and `components/PinChangePrompt` in place of the app), `ProfilePage`, users, roles, two-step | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`, `approvals`, `user_sign_ins`, `audit_logs` |
 | `restaurant/menu` | `menu.*`, `menuCard`, `menuCommon`, `menuExtras`, `menuImport`, `menuPriceRevision`, `menuServiceOptions`, `menuBulk`, `combo`, `addonGroups`, `priceWindow`, `sellingRules`, `recipe`, `recipeImport`, `availability`, `brand` (controller and service), `category` / `product` repositories | products, categories, modifiers, price windows, tax rates, recipes, brands | `categories`, `products`, `modifiers`, `product_recipes`, `combo_items`, `price_windows`, `tax_rates`, `restaurant_brands` |
 | `restaurant/tables` | `table.*`, `captainSection.*` | floors, tables, captain plan, QR sheet | `floors`, `dining_tables`, `captain_assignments` |
 | `restaurant/orders` | `order.*`, `tableRequest.*`, `public.routes`, `publicMenu`, `tradingClock` (when today's trading day began, for the live screens) | POS (with the weighing dialog), orders, bills list, bill dialog, table requests, collection display (the guests' QR page: `apps/customer-web/src/modules/table-order`) | `orders`, `order_items`, `table_requests` |

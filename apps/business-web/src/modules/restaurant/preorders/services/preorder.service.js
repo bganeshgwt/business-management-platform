@@ -3,7 +3,9 @@ import api from "../../../../services/api";
 // Pre-orders: cakes and party orders for a later day (feature "preorders").
 // filters: { status: open | all | booked | in_production | ready | collected | cancelled, from, to, search }
 export const listPreorders = async (filters = {}) => (await api.get("/preorders", { params: filters })).data.data;
-export const getBakeList = async (day) => (await api.get("/preorders/bake-list", { params: { day } })).data.data;
+// outletId: whose list (an outlet's id, or "main" for the main counter's);
+// left out, the outlet this person works in, else the main counter's.
+export const getBakeList = async (day, outletId) => (await api.get("/preorders/bake-list", { params: { day, outletId } })).data.data;
 export const createPreorder = async (payload) => (await api.post("/preorders", payload)).data;
 export const takePreorderAdvance = async (id, payload) => (await api.post(`/preorders/${id}/advance`, payload)).data;
 export const setPreorderStatus = async (id, status) => (await api.post(`/preorders/${id}/status`, { status })).data.data;

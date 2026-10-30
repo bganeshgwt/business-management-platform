@@ -1,11 +1,12 @@
 // Pre-orders: cakes and party orders for a later day (feature "preorders").
-// Seeing them is part of taking orders (orders.view); booking, moving them
-// along and handing them over is taking an order (orders.create); taking the
-// advance is a payment (payments.manage), and needs the feature "advances"
-// too (the service refuses it, on booking or later, when that is off);
-// cancelling is orders.manage. The bake list is also the kitchen's, which
-// bakes from it: the kitchen display's own permission (kds.view) reads it,
-// and nothing else here.
+// Seeing them is part of taking orders (orders.view); booking and handing them
+// over is taking an order (orders.create); moving them to In production and
+// Ready is its own permission (preorders.produce), which the owner gives to
+// the roles that make them, a kitchen's among them; taking the advance is a
+// payment (payments.manage), and needs the feature "advances" too (the
+// service refuses it, on booking or later, when that is off); cancelling is
+// orders.manage. The bake list is also the kitchen's, which bakes from it:
+// the kitchen display's own permission (kds.view) reads it.
 //
 // Staff tied to one outlet see and act on that outlet's pre-orders only: any
 // other answers 404, as another outlet's bill or advance does (ctxOf).
@@ -59,10 +60,33 @@ router.get("/", authorize("orders.view"), wrap(async (req, res) => {
   }, ctxOf(req)));
 }));
 
+// Whose bake list: an outlet's id, or "main" for the main counter's (the
+// pre-orders booked with no outlet). Not given: the outlet this request works
+// in (resolveOutlet), else the main counter.
+const readCounter = (value) => {
+  if (value === undefined || value === "") {
+    return undefined;
+  }
+
+  if (value === "main") {
+    return null;
+  }
+
+  if (typeof value !== "string" || !/^\d{1,16}$/.test(value)) {
+    throw new AppError(400, "Choose an outlet, or the main counter");
+  }
+
+  return Number(value);
+};
+
 router.get("/bake-list", authorize.any("orders.view", "kds.view"), wrap(async (req, res) => {
-  // This till's list: its outlet's pre-orders, or the main counter's. No day
-  // asked for: the day this till is trading on (see the service).
-  send(res, await preorders.bakeList(req.user.restaurantId, isoDay(req.query.day, "Day"), ctxOf(req)));
+  // One till's list: an outlet's pre-orders, or the main counter's. Staff
+  // tied to an outlet read their own; anyone else picks whose (outletId). No
+  // day asked for: the day that till is trading on (see the service).
+  send(res, await preorders.bakeList(req.user.restaurantId, isoDay(req.query.day, "Day"), {
+    ...ctxOf(req),
+    asked: readCounter(req.query.outletId),
+  }));
 }));
 
 router.get("/:id", authorize("orders.view"), wrap(async (req, res) => {
@@ -127,11 +151,13 @@ router.post("/:id/advance", authorize("payments.manage"), wrap(async (req, res) 
   send(res, updated, 201, `Advance ${updated.advanceReceipt} taken`);
 }));
 
-router.post("/:id/status", authorize("orders.create"), wrap(async (req, res) => {
+router.post("/:id/status", authorize("preorders.produce"), wrap(async (req, res) => {
   const status = v.requiredEnum((req.body || {}).status, "Status", ["in_production", "ready"]);
   const updated = await preorders.setStatus(req.user.restaurantId, v.requiredId(req.params.id, "Pre-order"), status, req.user.id, ctxOf(req));
   logAction(req, "status", "preorder", { id: updated.id, label: updated.number, details: { status } });
-  send(res, updated);
+  // The kitchen, which reads only the bake list, is told what it changed and
+  // no more: not the guest's mobile or the money.
+  send(res, req.user.permissions.includes("orders.view") ? updated : { id: updated.id, number: updated.number, status: updated.status });
 }));
 
 router.post("/:id/cancel", authorize("orders.manage"), wrap(async (req, res) => {
