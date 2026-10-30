@@ -711,3 +711,17 @@ export const SITE_SIGNUP = {
   addon: "loyalty",
   callBack: { name: "Suresh Babu", mobile: "98491 55667", city: "Nizamabad" },
 };
+
+// The platform console's operations (platform-console.spec.js), as its super
+// admin uses them: the company's details with a real GSTIN (its check
+// character worked out by the spec), a plan's yearly price raised, a hardware
+// shop set up with time given until a date, and a kirana whose owner pays for
+// its plan by UPI reference. The spec makes both businesses, their owners'
+// e-mail addresses and passwords fresh on each run, and puts the company's
+// details, its GSTIN and the price back afterwards.
+export const PLATFORM_CONSOLE = {
+  company: { legalName: "E2E Console Soft Private Limited", addressLine1: "12 MG Road", city: "Bengaluru", postalCode: "560001", gstinFirst14: "29AACCE2026F1Z" },
+  price: { type: "Grocery & kirana", plan: "Basic", yearly: "5499", words: "₹5,499 a year + 18% GST" },
+  shop: { type: "Hardware, paints & building materials", name: "Console Hardware", stateCode: "29", owner: "Suresh Bhat", days: 60, reason: "Pilot customer" },
+  kirana: { name: "Console Kirana", stateCode: "29", owner: "Lakshmi Narayan" },
+};

@@ -336,6 +336,51 @@ Before it is shared with anyone:
 - **The prices** on the home page, *Pricing* and the sign-up are the price
   list as it stands: review it first.
 
+### The platform's own plans and invoices
+
+The platform sells itself: businesses pay for their plans, and the super admin
+confirms each payment, which issues the company's GST invoice
+([ADMIN_GUIDE › Platform › Payments](ADMIN_GUIDE.md#platform--payments)).
+Before the first real payment, in **Platform › Settings**:
+
+1. **The real GSTIN** (Company tab). Until it is entered the company's GSTIN is
+   the sample one (22AAAAA0000A1ZC): every invoice is a SAMPLE, not a tax
+   invoice, from a series of its own, and Payments and Invoices say so. The
+   real series starts at 1 when the real GSTIN is saved. An order paid while
+   the GSTIN was the sample one then gets its tax invoice from its business's
+   page (*Issue tax invoice*), once.
+2. **The company's details** (Company tab): the legal name, address, city and
+   PIN code, which every invoice prints and without which no payment can be
+   confirmed; the PAN; the phone, email and website; the support contact and
+   the grievance officer named on the privacy policy; and the invoice prefix
+   (BMP to start with), which is fixed for a year once its first invoice is
+   issued.
+3. **The prices** (Prices tab). The plans and module prices the platform
+   starts with are a starting point, not a decision: review each type's plans
+   and the modules they include, and every module's and application's price,
+   then save, which marks the price list reviewed.
+4. **The payment details** (Payment details tab): the UPI ID and payee name,
+   and the bank, account name, account number and IFSC owners pay to, with a
+   note on what to write in the payment's remarks.
+5. **The trial and grace days** (Trial & renewal tab), if 14 and 7 do not
+   suit.
+
+**The accountant (CA) confirms:**
+
+- **The SAC code** printed on each line (998315 to start with) for a software
+  subscription sold per month or year, and the GST rate (18 %).
+- **The signature.** An invoice prints "Authorised signatory, <legal name>"
+  with no signature. Whether a printed or PDF invoice needs one (signed by
+  hand, or a digital signature on the PDF) under CGST Rules, rule 46.
+- **TDS.** A business customer may deduct TDS when it pays. A payment is
+  recorded for the order's whole total; how a payment short by TDS is
+  received and accounted for.
+- **The GST timing of a payment confirmed later.** An invoice is dated the
+  day the payment is confirmed (or, for an order invoiced as a sample, the day
+  its tax invoice is issued) and names the day the money came, which may be
+  earlier: whether that date is right for the time of supply, above all when
+  the two fall in different months or financial years.
+
 ## 5. Backups and restore
 
 **Back up:** in `backend`, run `npm run db:backup -- --verify`. It writes a

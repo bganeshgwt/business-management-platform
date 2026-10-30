@@ -1,0 +1,295 @@
+/* The platform console's screens (Platform › Settings, Businesses, Payments,
+   Invoices). They use the app's cards, grids and tokens; this file adds only
+   what those screens need on top, in tokens, so light and dark both work. */
+
+.pc-page {
+  min-width: 0;
+}
+
+/* Facts side by side: a business's state, plan, owners. */
+.pc-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.pc-facts > div {
+  min-width: 0;
+}
+
+.pc-facts dt {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: var(--space-1);
+}
+
+.pc-facts dd {
+  margin: 0;
+  display: grid;
+  gap: 2px;
+  overflow-wrap: anywhere;
+}
+
+.pc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pc-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  font-size: var(--text-sm);
+}
+
+.pc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.pc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.pc-toolbar input[type="search"] {
+  min-width: 200px;
+}
+
+/* A choice between a few things, each with a line saying what it means. */
+.pc-choices {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.pc-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.pc-choice:has(input:checked) {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.pc-choice input {
+  width: auto;
+  margin-top: 3px;
+  accent-color: var(--primary);
+}
+
+.pc-choice span {
+  display: grid;
+  gap: 2px;
+}
+
+.pc-modules {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 6px var(--space-3);
+}
+
+/* One plan of a business type in the price list. */
+.pc-plan {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.pc-plan-head {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-3);
+  align-items: end;
+}
+
+.pc-price-input {
+  max-width: 140px;
+}
+
+/* The invoice on screen: the same document as the paper, drawn as a sheet. */
+.pc-sheet {
+  position: relative;
+  overflow: hidden;
+  max-width: 820px;
+  padding: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  box-shadow: var(--shadow-sm);
+}
+
+.pc-sheet .pi-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.pc-sheet .pi-kind {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pc-sheet .pi-top {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 2px solid var(--text);
+}
+
+.pc-sheet .pi-right {
+  text-align: right;
+}
+
+.pc-sheet .pi-muted,
+.pc-sheet small {
+  color: var(--muted);
+}
+
+.pc-sheet .pi-parties {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+}
+
+.pc-sheet .pi-box {
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow-wrap: anywhere;
+}
+
+.pc-sheet .pi-box b {
+  display: block;
+  font-size: var(--text-xs);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+
+.pc-sheet table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pc-sheet th,
+.pc-sheet td {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.pc-sheet th {
+  background: var(--surface-2);
+  font-size: var(--text-xs);
+}
+
+.pc-sheet .pi-r {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pc-sheet .pi-totals {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.pc-sheet .pi-totals table td {
+  border: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.pc-sheet .pi-grand td {
+  font-weight: 700;
+  font-size: var(--text-md);
+  border-top: 2px solid var(--text);
+}
+
+.pc-sheet .pi-words {
+  font-style: italic;
+}
+
+.pc-sheet .pi-sign {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+
+.pc-sheet .pi-sample-band {
+  margin-bottom: var(--space-3);
+  padding: 6px;
+  border: 2px solid var(--danger);
+  color: var(--danger);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+
+/* On paper the mark is fixed, so it prints on every page; on screen it stays
+   inside the sheet. */
+.pc-sheet .pi-sample-mark {
+  position: absolute;
+  top: 42%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--danger);
+  opacity: 0.12;
+  transform: rotate(-20deg);
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .pc-sheet {
+    padding: var(--space-4);
+  }
+
+  .pc-sheet .pi-right {
+    text-align: left;
+  }
+
+  .pc-sheet .pi-totals {
+    grid-template-columns: 1fr;
+  }
+
+  .pc-toolbar input[type="search"] {
+    min-width: 0;
+    width: 100%;
+  }
+}

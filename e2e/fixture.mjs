@@ -23,6 +23,8 @@ export { SPREADSHEET_IMPORT } from "./test-data.mjs";
 export { DASHBOARDS } from "./test-data.mjs";
 // Signing up and asking for a call back on the platform's public site (site.spec.js).
 export { SITE_SIGNUP } from "./test-data.mjs";
+// The platform console's operations (platform-console.spec.js).
+export { PLATFORM_CONSOLE } from "./test-data.mjs";
 
 let data = null;
 

@@ -39,6 +39,10 @@ on record.
   - [Platform › Overview](#platform--overview)
   - [Platform › Leads & trials](#platform--leads--trials)
   - [Platform › Reports](#platform--reports)
+  - [A business's page](#a-businesss-page)
+  - [Platform › Payments](#platform--payments)
+  - [Platform › Invoices](#platform--invoices)
+  - [Platform › Settings](#platform--settings)
 - [Starting a business](#starting-a-business)
   - [Business settings › Rules](#business-settings--rules)
 - [First steps in a new business](#first-steps-in-a-new-business)
@@ -230,12 +234,14 @@ sign-in asks for a password of its own, as every new login's does. Everything
 else is made on the screens.
 
 The Super Admin belongs to no restaurant. It opens on **Platform ›
-Overview**, and only the platform's own logins see the **Platform** group
-of the menu (Overview, Businesses, Restaurants, Leads & trials, Payments,
-Invoices, Reports, Settings). The platform screens add restaurants
-and businesses, switch them off and on, and set new passwords for locked-out
-owners; they never show a restaurant's or a business's bills, guests or
-sales.
+Overview**, and only the platform's own logins see the **Platform** group of
+the menu (Overview, Businesses, Restaurants, Leads & trials, Payments,
+Invoices, Reports, Settings). The platform screens add restaurants and
+businesses, give them time and change their plans, confirm the payments
+owners make for their plans and keep the company's GST invoices, switch
+businesses off and on, and set new passwords for locked-out owners; they
+never show a restaurant's or a business's bills, guests or sales, only
+counts and dates.
 
 ### Platform › Restaurants
 
@@ -278,31 +284,221 @@ or code, show all, active or switched-off restaurants, and *Export CSV*.
 
 ### Platform › Businesses
 
-Every business on the platform except restaurants: its code, type, owner,
-city, locations and people, when it was created and its status (GSTIN,
-currency and time zone are columns you can show). Search by name, code, city
-or GSTIN, and filter by type and status.
+Every business on the platform, restaurants included (a restaurant, café,
+bakery or cloud kitchen appears as its business): the state of its plan, its
+plan for the next order (monthly or yearly) and how many add-ons it has, the
+day its time ends, its owner (a restaurant's admins), its city and state,
+when it was created and when it was last active (the last sign-in of one of
+its people, or the last time one opened it). The GSTIN, people, locations and
+whether it is switched on are columns you can show. Search by name, code,
+city or GSTIN, and filter by:
 
-- **Add a business** asks for the **type** (fixed once created: it decides
-  the screens and rules), the **business name**, the **business code** (short
-  and unique; letters, digits and dashes; fixed once created), the legal
-  name, GSTIN and GST state code, the address, phone and email, the
-  **currency**, the **time zone**, the **first location** and its code (used
-  in bill numbers; *Main store* and MAIN when left empty), and **the owner's
-  login**. The owner is an existing login, found by its email (the business
-  is added to it and appears in its switcher), or a new login with a name, a
-  mobile (optional) and a password of 8 to 72 characters; the owner chooses
-  their own password at the first sign-in.
-- The owner signs in and finds the business ready: its roles, GST slabs,
-  units, payment methods and its type's everyday business tools are set up.
-  It has no products, customers, suppliers, staff or stock yet ([First steps
-  in a new business](#first-steps-in-a-new-business)).
-- **Switch off** takes a business out of its people's switchers and closes it
-  to them until it is switched on again. Nothing is deleted. **Switch on**
-  opens it again.
-- **Owner password** sets a new password for an owner locked out of their
-  own business; their open sessions end, and they choose their own password
-  at their next sign-in.
+- **State** — On trial, Paying, Given time, In grace, Payment being checked,
+  Ended (read-only) or Switched off;
+- **Type** and **plan**;
+- **Ends** — time that ends within 7, 30 or 90 days of the business's today.
+
+The filters are kept in the page's address (`?state=given&endsWithin=30`), so
+a link can open the list filtered. *Export CSV* takes every row shown. A row
+opens [the business's page](#a-businesss-page).
+
+**New business** sets up a business of any type for a customer, on one form:
+
+- **The business** — the type (fixed once created); for a restaurant, its
+  format (restaurant, café, bakery or cloud kitchen: how its POS opens and
+  the features it starts with, which the owner can change later); the name
+  and the code (fixed once created); for any other type, the legal name and
+  GSTIN; the **state**, the place of supply on the platform's invoices to it
+  (required for a restaurant, taken from the GSTIN otherwise); the address,
+  phone and email; the currency (not for a restaurant); the time zone, which
+  decides its "today", its trial and its end date; and, for any type but a
+  restaurant, its first location and code (*Main store* and MAIN when left
+  empty).
+- **The owner** — for any type but a restaurant, an existing login found by
+  its email (the business is added to it and appears in its switcher), or a
+  new login with a name, a mobile (optional) and a first password of 8 to 72
+  characters. **A restaurant's owner is always a new login**: a restaurant's
+  people belong to that restaurant alone, so an email or a mobile number that
+  already has a login is refused with "A restaurant needs a login of its own.
+  Use another email and mobile number." The owner chooses their own password
+  at the first sign-in.
+- **Plan** — one of the type's plans, monthly or yearly, and add-ons on top
+  of it, each with its price before GST: what its next order holds.
+- **How long it may be used**:
+  - **Free until a date** (the usual), with a reason such as "Pilot
+    customer";
+  - **Free with no end date**, with a reason;
+  - **Free trial** of the trial days set in Settings, from today, unlocking
+    everything its type offers (not offered while the trial is 0 days).
+
+  Time you give replaces the free trial every new business starts with (the
+  trial is cancelled with the same reason) and unlocks the plan and add-ons
+  above or, with *Unlock everything its type offers*, every module and
+  application of its type.
+
+Everything on the form is checked before anything is made: a mistake (an
+add-on that needs another module, a date already past, an email taken) is
+said, and nothing is left half made. A restaurant also gets everything a new
+restaurant starts with, as from Platform › Restaurants, and then its
+format's set-up under the plan it was given: a feature of its format that
+the plan leaves out stays off, and the message names it.
+
+### A business's page
+
+*Platform › Businesses*, then a business. Its page shows:
+
+- **Plan** — its state and when its time ends ("Given until 29 Dec 2026",
+  "Trial until …", "Paid until …", or in grace "Ended on …; works until …"),
+  with the days left; its next order's plan, billing and add-ons with their
+  price; what it may use now (everything its type offers, or its modules);
+  its owners with their email, mobile and last sign-in; its city, state,
+  GSTIN, time zone and currency.
+- **How much it is used** — counts and dates only: when it was last active
+  and its last sign-in; its sales this month and in all (a restaurant's
+  bills, void ones left out); its active people; its active locations (a
+  restaurant's outlets). Never its customers, bills, patients or what its
+  sales came to.
+- **Time it may be used** — every trial, paid time and given time as it was
+  made, with what it unlocks and its reason. One replaced or cancelled shows
+  "Cancelled" with the reason; the one in force is marked *Now*.
+- **Modules given or bought** — a module unlocked on its own dates, on top of
+  its plan.
+- **Orders and payments** — each order with what it is for, its dates, its
+  total with GST and its state, and the payments made for it (method,
+  reference, state, and the reason of a rejection).
+- **Invoices** — each with its number (it opens to print), date and total; a
+  SAMPLE one is marked.
+
+What the platform does here, each kept in the business's activity log:
+
+- **Give time** (the main button) — until a date or with no end date, with a
+  reason, unlocking everything its type offers or a plan and modules. It
+  replaces given time that covers today: the old time is cancelled with the
+  reason, and the new time keeps its start. On a free trial it replaces the
+  trial too, unless you untick *Replace the free trial*, when it starts after
+  the trial ends. Otherwise it starts after the time the business already
+  has.
+- **Give a module** (*More*) — modules or applications unlocked at once until
+  a date, with a reason, on top of its plan.
+- **Change the plan** (*More*) — the plan, monthly or yearly, and the add-ons
+  of its next order. It never changes what the business may use today. The
+  platform may change it during given time, when the owner may not.
+- **Make an order** (*More*) — the order its owner pays: its plan and add-ons
+  for a month or a year, starting the day after its current time ends; or,
+  in paid time, modules for the rest of that time at the days left. A new
+  order replaces an open one that has no payment being checked. A business
+  with no state for GST is asked for it.
+- **Record a payment** — money the company received for the open order (UPI,
+  bank transfer, cash or cheque, its reference and the date paid). It is
+  confirmed at once: the invoice is issued and the time added.
+- **Issue tax invoice** (on an order) — once the real GSTIN is saved, the tax
+  invoice for a paid order whose only invoice is a SAMPLE one: dated the day
+  it is issued, naming the day the money came, with the next number of the
+  real series. Once per order.
+- **Switch off / Switch on** (*More*) — a switched-off business is closed to
+  its people until it is switched on; nothing is deleted. A restaurant's is
+  switched with the restaurant itself, as in Platform › Restaurants.
+- **Owner's password** (*More*) — a new password for a locked-out owner (for a
+  restaurant, one of its admins); their sessions end, and they choose their
+  own at their next sign-in.
+
+### Platform › Payments
+
+The payments owners make for their plans. Until online payment arrives, an
+owner pays the company outside the app (by UPI or bank transfer to the
+payment details in Settings, or by cash or cheque) and enters the payment's
+reference in Your plan.
+
+- **Being checked** comes first: each payment an owner entered, with its
+  business, amount, method, reference, the date paid, when it was entered and
+  what it is for. Find it in the bank statement or the UPI app by its
+  reference, then:
+  - **Confirm**, once the money is in the company's account. That issues its
+    invoice (the message names its number), adds the paid time (or unlocks
+    the modules bought), and the payment leaves the list. Confirming it twice
+    does nothing more.
+  - **Reject**, with a reason the owner sees ("No such UTR in the bank
+    statement"). The order stays open, so the owner can enter the payment
+    again.
+
+  Confirming waits until the company's details are complete in Settings
+  (legal name, address, city, PIN code and GSTIN).
+- **Open orders, not paid yet** — orders with no payment being checked.
+  *Record payment* enters money the company received some other way and
+  confirms it at once.
+- **Every payment**, by state (being checked, confirmed, rejected), the dates
+  paid (this month to start with) and a search by business, code or
+  reference: its amount, method, reference, date paid, state, who entered it
+  ("Recorded by …" for one the platform recorded), who decided and when, the
+  reason of a rejection, and its invoice, which opens to print. *Export
+  CSV*.
+
+While the company's GSTIN is the sample one, the page says **Sample mode —
+enter your real GSTIN before taking real payments**: invoices issued then are
+SAMPLE invoices.
+
+### Platform › Invoices
+
+The company's GST tax invoices, one for each payment confirmed: the register
+its GST return is filed from. For the dates chosen (this month to start with)
+and a search by number, business, buyer or GSTIN, each invoice with its
+number (it opens to print), date, business, the buyer's GSTIN (or
+*Unregistered*), place of supply, taxable value, CGST, SGST, IGST and total,
+and the period's totals. While the GSTIN is the sample one it shows the same
+sample-mode notice as Payments.
+
+- **CSV for the GST return** downloads every tax invoice of the dates chosen,
+  whatever the search box holds, with the columns GSTR-1 asks for: invoice
+  number, invoice date (30-Oct-2026), buyer name, buyer GSTIN, place of
+  supply (29-Karnataka), taxable value, GST rate, CGST, SGST, IGST and
+  invoice value. A SAMPLE invoice is never in it. More than 5,000 invoices in
+  the dates are refused: download a shorter period, such as a month at a
+  time (the list then says it shows only the first 5,000).
+- **SAMPLE invoices** lists those issued while the GSTIN was the sample one,
+  apart from the tax invoices. Once the real GSTIN is saved, each such
+  order's tax invoice is issued from its business's page.
+- **An invoice** shows as it prints, with **Print (A4)**: the company's name,
+  address and GSTIN; the number, the date and the day it was paid; the buyer,
+  with their GSTIN when registered; the place of supply; each line with its
+  SAC and taxable value (an add-on bought mid-period says for how many of the
+  period's days); CGST and SGST within the company's state, or IGST to
+  another; the total and the amount in words (in lakh and crore); "Tax is not
+  payable on reverse charge"; and the authorised signatory. A SAMPLE invoice
+  prints "SAMPLE — NOT A TAX INVOICE" at the top and across every page.
+
+### Platform › Settings
+
+Four tabs (`?tab=company`, `trial`, `prices` or `payment` in the address opens
+one):
+
+- **Company** — the supplier on every invoice: brand name, legal name,
+  address, city, PIN code, **GSTIN** (its first two digits are the company's
+  state, which decides CGST and SGST or IGST), PAN (the one inside the
+  GSTIN), phone, email, website, **SAC code** (998315 to start with), **GST
+  rate** (18 %), **invoice prefix** (2 to 5 letters, digits or dashes, not
+  ending in a digit: invoices are numbered BMP/2627/00001, from 1 again each
+  financial year), the support phone and email, and the grievance officer
+  named on the privacy policy. Until the real GSTIN is entered it is the
+  sample one, flagged here: invoices are SAMPLE ones with a series of their
+  own, and the real series starts at 1 when the real GSTIN is saved. The tab
+  also says what is still missing before payments can be confirmed.
+- **Trial & renewal** — the free trial's days (0 to 30; 14 to start with),
+  for trials that start afterwards (0: a new business pays first), and the
+  grace days (0 to 30; 7 to start with) a business keeps working after paid
+  or given time ends.
+- **Prices**, before GST. For each type of business (chosen at the top), its
+  plans: name, monthly and yearly price, the modules each includes, whether
+  it is the default a new business starts with, and whether owners are
+  offered it; *Add a plan* adds another. Below, each module's and
+  application's monthly and yearly price (0 is free, empty is not for sale
+  yet), whether it is sold as a module or an application, and whether owners
+  may add it; a module's price is the same for every type that can use it.
+  **Save prices** saves every change at once and marks the price list
+  reviewed (saving with no change marks it reviewed too). A new price
+  reaches a business at its next order; open orders keep theirs.
+- **Payment details** — the UPI ID (owners see it with a QR code), the UPI
+  payee name, the bank name, account name, account number and IFSC, and a
+  note for owners, such as what to write in the payment's remarks.
 
 ### Platform › Overview
 
@@ -400,9 +596,10 @@ Three reports, each with *Export CSV*.
 
 ## Starting a business
 
-A restaurant is created in **Platform › Restaurants**, or by its owner's
-sign-up on the platform's public site, and so is a café, a bakery or a cloud
-kitchen, which run on the restaurant. A business of any other type (shops,
+A restaurant, and a café, a bakery or a cloud kitchen, which run on the
+restaurant, is created by the platform (in **Platform › Restaurants**, or as a
+new business of its type in **Platform › Businesses**) or by its owner's
+sign-up on the platform's public site. A business of any other type (shops,
 wholesale, fashion, electronics, salon, meat and weight shops, pharmacy,
 clinic, and the trades in [Newer trades](#newer-trades-on-the-shared-core))
 is created in one of three ways:

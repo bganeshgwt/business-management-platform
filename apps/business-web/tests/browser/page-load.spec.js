@@ -98,12 +98,19 @@ test("the platform console's pages open for the platform's super admin, whose ho
   const menu = page.locator('.nav-section[data-section="Platform"] a.nav-link');
   await expect(menu.locator(".nav-label")).toHaveText(["Overview", "Businesses", "Restaurants", "Leads & trials", "Payments", "Invoices", "Reports", "Settings"]);
   await expect(menu.locator("svg.nav-icon")).toHaveCount(8);
-  // A business of the run, and an invoice number it has none of.
+  // A business of the run.
   const pages = ["/platform", "/platform/businesses/new", `/platform/businesses/${business("grocery").id}`, "/platform/leads", "/platform/payments",
-    "/platform/invoices", "/platform/invoices/1", "/platform/reports", "/platform/settings"];
+    "/platform/invoices", "/platform/reports", "/platform/settings"];
   for (const route of pages) {
     await opens(page, route, errors);
   }
+  // An invoice number the run has none of says so, with the way back to the
+  // register; the API's answer that it is not found is all the console logs.
+  await page.goto("/platform/invoices/999999999");
+  await expect(page.getByRole("heading", { level: 1, name: "Invoice not found" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("link", { name: "All invoices" })).toBeVisible();
+  await networkQuiet(page);
+  expect(errors.filter((text) => !/status of 404/.test(text))).toEqual([]);
 });
 
 test("Your plan opens for the restaurant's owner and a shop's owner, among their settings", async ({ page }) => {
