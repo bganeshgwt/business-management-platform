@@ -285,3 +285,17 @@ test('a clinic\'s menu opens its two workspaces, each only for a role that may o
   assert.deepEqual(sections(['patients.view','lab.view'],m=>m!=='lab'),['clinic-workspace'],'no lab workspace while the lab is off');
   for(const type of ['grocery','pharmacy','salon','lodging'])for(const section of ['clinic-workspace','lab-workspace'])assert.ok(!typeAllows(sectionRule(section,type),type),`${type}: no ${section}`);
 });
+test('Your plan sits among the settings, for the business\'s owner and the restaurant\'s',()=>{
+  for(const type of TYPES){
+    const menu=owner=>businessMenu(33,type,()=>true,()=>true,owner).flatMap(g=>g.links);
+    const settings=menu(true).find(l=>l.label==='Settings');
+    assert.ok(settings.pages.some(p=>p.to==='/business-admin/33/plan'&&p.label==='Your plan'),`${type}: the owner's plan in Settings`);
+    assert.equal(settings.to,'/business-admin/33/settings',`${type}: Settings still opens on the business settings`);
+    assert.ok(!menu(false).flatMap(l=>l.pages).some(p=>p.to.endsWith('/plan')),`${type}: no plan for a role without full access`);
+  }
+  assert.equal(workspaceFor('plan','grocery'),'settings');
+  assert.ok(sectionRule('plan','grocery').owner,'the page guard knows it is the owner\'s');
+  assert.ok(!typeAllows(sectionRule('plan','restaurant'),'restaurant'),'a restaurant\'s plan is its own /plan');
+  const restaurant=restaurantMenu([{title:'Restaurant',links:[{to:'/restaurant/settings',label:'Settings'},{to:'/privacy',label:'Personal data'},{to:'/plan',label:'Your plan'}]}]);
+  assert.deepEqual(restaurant.flatMap(g=>g.links).find(l=>l.label==='Settings').related.map(l=>l.to),['/restaurant/settings','/privacy','/plan']);
+});

@@ -26,4 +26,10 @@ router.post("/businesses", async (req, res) => send(res, await onboarding.platfo
 router.put("/businesses/:id/status", async (req, res) => send(res, await onboarding.platformSetStatus(req.user, req.params.id, req.body || {})));
 router.post("/businesses/:id/owner-password", async (req, res) => send(res, await onboarding.platformResetOwnerPassword(req.user, req.params.id, req.body || {})));
 
+// Paid plans: the console's operations (settings and prices, a business's
+// plan and time, payments, invoices) and its dashboards (the overview, leads
+// and trials, reports).
+router.use(require("./console.routes"));
+router.use(require("./dashboards.routes"));
+
 module.exports = router;

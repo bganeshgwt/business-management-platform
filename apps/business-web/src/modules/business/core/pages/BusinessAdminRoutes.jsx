@@ -218,6 +218,8 @@ const LodgingGroupFormPage = lazy(() => import("../../lodging/pages/GroupFormPag
 const LodgingGroupPage = lazy(() => import("../../lodging/pages/GroupPage"));
 const LodgingMaintenancePage = lazy(() => import("../../lodging/pages/MaintenancePage"));
 const LodgingReportsPage = lazy(() => import("../../lodging/pages/LodgingReportsPage"));
+// Your plan (modules/plan), for the business's owner; the same screen serves a restaurant at /plan.
+const YourPlanPage = lazy(() => import("../../../plan/pages/YourPlanPage"));
 
 function Notice({ title, children }) {
   return (
@@ -242,7 +244,7 @@ function Guard({ section, children, nav = true }) {
       </Notice>
     );
   }
-  if (rule && ((rule.need && !can(rule.need)) || (rule.module && !has(rule.module)))) {
+  if (rule && ((rule.need && !can(rule.need)) || (rule.module && !has(rule.module)) || (rule.owner && !context?.role?.full_access))) {
     const moduleCode = rule.need?.split(".")[0];
     return (
       <Notice title="Not available here">
@@ -431,6 +433,7 @@ function screens(type) {
     "lodging-rates": <LodgingRatesPage />,
     "lodging-maintenance": <LodgingMaintenancePage />,
     "lodging-reports": <LodgingReportsPage />,
+    "plan": <YourPlanPage />,
   };
 }
 

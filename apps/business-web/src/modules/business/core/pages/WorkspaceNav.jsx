@@ -15,7 +15,7 @@ export default function WorkspaceNav({ section }) {
   const wanted = workspaceSections(key, type);
   const rules = businessSections(type).flatMap((group) => group.links);
   const links = wanted.map((name) => rules.find((rule) => rule.section === name && typeAllows(rule, type)))
-    .filter((rule) => rule && (!rule.need || can(rule.need)) && (!rule.module || has(rule.module)))
+    .filter((rule) => rule && (!rule.need || can(rule.need)) && (!rule.module || has(rule.module)) && (!rule.owner || context.role?.full_access))
     .map((rule) => ({ ...rule, label: workspaceLabel(rule.section, type, rule.label) }));
   if (links.length < 2) return null;
   return <WorkspaceTabs items={links.map(link=>({...link,to:businessPath(context.business.id,link.section)}))}

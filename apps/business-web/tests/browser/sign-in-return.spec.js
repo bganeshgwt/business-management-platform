@@ -5,7 +5,7 @@ import { account, fixture } from "../../../../e2e/fixture.mjs";
 // After signing in, the staff app goes back to the page the person was on,
 // but only for the same person. Someone else signing in on this browser
 // starts at their own home page: a restaurant admin signing in after the
-// platform admin signed out on Restaurants must not land on "Access denied".
+// platform admin signed out on the platform console must not land on "Access denied".
 
 // Signs out from the account menu, on the page shown now.
 async function signOut(page, role) {
@@ -27,7 +27,7 @@ async function signInHere(page, role) {
 test("someone else signing in after a sign-out starts at their own home page", async ({ page }) => {
   await page.goto(`${fixture().urls.staff}/login`);
   await signInHere(page, "SUPER_ADMIN");
-  await expect(page).toHaveURL(/\/platform\/restaurants$/);
+  await expect(page).toHaveURL(/\/platform$/);
 
   await signOut(page, "SUPER_ADMIN");
   await signInHere(page, "RESTAURANT_ADMIN");

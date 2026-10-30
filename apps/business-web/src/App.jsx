@@ -6,6 +6,13 @@ import ProtectedRoute from "./routes/ProtectedRoute";
 import AppLayout from "./layouts/AppLayout";
 import { ScreenLoading } from "./components/Feedback";
 const LoginPage = lazy(() => import("./modules/access/pages/LoginPage"));
+// The platform's public site (modules/site): its home page, pricing, sign-up,
+// policies and contact, with no login and outside the app's frame.
+const WelcomePage = lazy(() => import("./modules/site/pages/WelcomePage"));
+const PricingPage = lazy(() => import("./modules/site/pages/PricingPage"));
+const SignupPage = lazy(() => import("./modules/site/pages/SignupPage"));
+const PolicyPage = lazy(() => import("./modules/site/pages/PolicyPage"));
+const ContactPage = lazy(() => import("./modules/site/pages/ContactPage"));
 const BusinessAdminPage = lazy(() => import("./modules/business/core/pages/BusinessAdminPage"));
 const BusinessAdminRoutes = lazy(() => import("./modules/business/core/pages/BusinessAdminRoutes"));
 // An owner's GST thresholds across their businesses, beside Your businesses (modules/gst-thresholds).
@@ -68,9 +75,23 @@ const MyWorkPage = lazy(() => import("./modules/restaurant/staff/pages/MyWorkPag
 const LogbookPage = lazy(() => import("./modules/restaurant/logbook/pages/LogbookPage"));
 const PlatformRestaurantsPage = lazy(() => import("./modules/platform/pages/PlatformRestaurantsPage"));
 const PlatformBusinessesPage = lazy(() => import("./modules/platform/pages/PlatformBusinessesPage"));
+// The rest of the platform console: its overview (the platform's home), a
+// business set up or seen by the platform, leads and trials, payments,
+// invoices, reports and settings.
+const PlatformOverviewPage = lazy(() => import("./modules/platform/pages/PlatformOverviewPage"));
+const PlatformNewBusinessPage = lazy(() => import("./modules/platform/pages/PlatformNewBusinessPage"));
+const PlatformBusinessPage = lazy(() => import("./modules/platform/pages/PlatformBusinessPage"));
+const PlatformLeadsPage = lazy(() => import("./modules/platform/pages/PlatformLeadsPage"));
+const PlatformPaymentsPage = lazy(() => import("./modules/platform/pages/PlatformPaymentsPage"));
+const PlatformInvoicesPage = lazy(() => import("./modules/platform/pages/PlatformInvoicesPage"));
+const PlatformInvoicePage = lazy(() => import("./modules/platform/pages/PlatformInvoicePage"));
+const PlatformReportsPage = lazy(() => import("./modules/platform/pages/PlatformReportsPage"));
+const PlatformSettingsPage = lazy(() => import("./modules/platform/pages/PlatformSettingsPage"));
 const CollectionDisplayPage = lazy(() => import("./modules/restaurant/orders/pages/CollectionDisplayPage"));
 const ServiceSettingsPage = lazy(() => import("./modules/restaurant/setup/pages/ServiceSettingsPage"));
 const FeaturesPage = lazy(() => import("./modules/restaurant/setup/pages/FeaturesPage"));
+// Your plan (modules/plan): the restaurant's here; a business's is a section of Business Admin.
+const YourPlanPage = lazy(() => import("./modules/plan/pages/YourPlanPage"));
 // Food formats: a bakery's and café's pre-orders and the day-end unsold count.
 const PreordersPage = lazy(() => import("./modules/restaurant/preorders/pages/PreordersPage"));
 const DayEndUnsoldPage = lazy(() => import("./modules/restaurant/inventory/pages/DayEndUnsoldPage"));
@@ -113,7 +134,7 @@ function Home() {
   const { user, hasPermission } = useAuth();
 
   if (!user.restaurantId && hasPermission("platform.restaurants.manage")) {
-    return <Navigate to="/platform/restaurants" replace />;
+    return <Navigate to="/platform" replace />;
   }
 
   // A TV signed in with the Collection display role has one screen.
@@ -137,6 +158,18 @@ export default function App() {
     <Suspense fallback={<ScreenLoading />}>
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+
+      {/* The platform's public site: no login, outside the app's frame. A
+          visitor at the bare address lands on its home page
+          (routes/ProtectedRoute.jsx). /privacy is a restaurant's own
+          Personal data screen, so the platform's policy is /privacy-policy. */}
+      <Route path="/welcome" element={<WelcomePage />} />
+      <Route path="/pricing" element={<PricingPage />} />
+      <Route path="/signup" element={<SignupPage />} />
+      <Route path="/terms" element={<PolicyPage kind="terms" />} />
+      <Route path="/privacy-policy" element={<PolicyPage kind="privacy" />} />
+      <Route path="/refunds" element={<PolicyPage kind="refunds" />} />
+      <Route path="/contact" element={<ContactPage />} />
 
       {/* The guests' pages (table QR ordering, online ordering, booking) are
           their own app, apps/customer-web. A QR code or link that still opens
@@ -230,8 +263,17 @@ export default function App() {
           </Route>
 
           <Route element={<ProtectedRoute permission="platform.restaurants.manage" />}>
+            <Route path="platform" element={<PlatformOverviewPage />} />
             <Route path="platform/restaurants" element={<PlatformRestaurantsPage />} />
             <Route path="platform/businesses" element={<PlatformBusinessesPage />} />
+            <Route path="platform/businesses/new" element={<PlatformNewBusinessPage />} />
+            <Route path="platform/businesses/:businessId" element={<PlatformBusinessPage />} />
+            <Route path="platform/leads" element={<PlatformLeadsPage />} />
+            <Route path="platform/payments" element={<PlatformPaymentsPage />} />
+            <Route path="platform/invoices" element={<PlatformInvoicesPage />} />
+            <Route path="platform/invoices/:invoiceId" element={<PlatformInvoicePage />} />
+            <Route path="platform/reports" element={<PlatformReportsPage />} />
+            <Route path="platform/settings" element={<PlatformSettingsPage />} />
           </Route>
 
           {/* Each area also requires its own permission, checked again by the API. */}
@@ -241,6 +283,12 @@ export default function App() {
             <Route path="restaurant/settings" element={<RestaurantSettingsPage />} />
             {/* Settings -> Features: which parts of the restaurant are switched on. */}
             <Route path="restaurant/features" element={<FeaturesPage />} />
+          </Route>
+
+          {/* Your plan, among the restaurant's settings: for its owner, who
+              alone changes them (restaurant.settings.manage). */}
+          <Route element={<ProtectedRoute permission="restaurant.settings.manage" />}>
+            <Route path="plan" element={<YourPlanPage />} />
           </Route>
 
           <Route element={<ProtectedRoute permission="outlets.view" />}>

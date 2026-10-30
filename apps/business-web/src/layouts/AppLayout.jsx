@@ -86,6 +86,8 @@ const NAV_SECTIONS = [
       { to: "/restaurant/features", label: "Features", icon: "sliders", permission: "restaurant.settings.view" },
       // Personal data (modules/personal-data, shared with Business Admin): requests, breaches, the privacy notice.
       { to: "/privacy", label: "Personal data", icon: "privacy", permission: "privacy.view" },
+      // The plan the restaurant pays for (modules/plan), for its owner.
+      { to: "/plan", label: "Your plan", icon: "package", permission: "restaurant.settings.manage" },
     ],
   },
   {
@@ -186,8 +188,14 @@ const NAV_SECTIONS = [
   {
     title: "Platform",
     links: [
+      { to: "/platform", label: "Overview", icon: "dashboard", permission: "platform.restaurants.manage", end: true },
+      { to: "/platform/businesses", label: "Businesses", icon: "outlets", permission: "platform.restaurants.manage" },
       { to: "/platform/restaurants", label: "Restaurants", icon: "platform", permission: "platform.restaurants.manage" },
-      { to: "/platform/businesses", label: "Businesses", icon: "store", permission: "platform.restaurants.manage" },
+      { to: "/platform/leads", label: "Leads & trials", icon: "customers", permission: "platform.restaurants.manage" },
+      { to: "/platform/payments", label: "Payments", icon: "collection", permission: "platform.restaurants.manage" },
+      { to: "/platform/invoices", label: "Invoices", icon: "bills", permission: "platform.restaurants.manage" },
+      { to: "/platform/reports", label: "Reports", icon: "reports", permission: "platform.restaurants.manage" },
+      { to: "/platform/settings", label: "Settings", icon: "settings", permission: "platform.restaurants.manage" },
     ],
   },
 ];
@@ -304,7 +312,7 @@ function AppShell() {
   const bellFeed = useMemo(() => (businessMode && businessId ? businessFeed(businessId, user.id) : null), [businessMode, businessId, user.id]);
   const availableSections = useMemo(() => {
     if (businessMode) {
-      return businessContext ? businessMenu(businessId, businessContext.business.business_type, can, has) : [];
+      return businessContext ? businessMenu(businessId, businessContext.business.business_type, can, has, Boolean(businessContext.role?.full_access)) : [];
     }
     const resolved = NAV_SECTIONS.filter((section) => user.restaurantId || section.title === "Platform").map((section) => ({
       ...section,

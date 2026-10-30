@@ -1,15 +1,19 @@
+import { useContext } from "react";
 import { Link } from "react-router-dom";
 import Icon from "@bmp/ui/Icon";
-import useBusiness from "../hooks/useBusiness";
+import { BusinessContext } from "../context/business-context";
 import { PLANNED_WORKSPACES } from "../services/plannedWorkspaces";
 import "../styles/planned.css";
 
-// A workspace that is planned but not built yet (services/plannedWorkspaces.js).
-// Its address works today: the page says what is coming and what to use until
-// then, with links, instead of "Page not found".
-export default function PlannedPage({ workspace }) {
-  const { businesses } = useBusiness();
-  const plan = PLANNED_WORKSPACES[workspace];
+// A workspace or a screen that is planned but not built yet. Its address
+// works today: the page says what is coming and what to use until then, with
+// links, instead of "Page not found". A workspace is listed in
+// services/plannedWorkspaces.js (workspace="<key>"); a screen whose page file
+// is already in place passes its own, in the same shape (plan={…}). It also
+// opens on the public site, outside the app's frame, with no business to link
+// into.
+export default function PlannedPage({ workspace, plan = PLANNED_WORKSPACES[workspace] }) {
+  const businesses = useContext(BusinessContext)?.businesses || [];
   const pick = (value) => (typeof value === "function" ? value({ businesses }) : value);
 
   return (

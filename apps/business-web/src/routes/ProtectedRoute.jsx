@@ -22,6 +22,14 @@ export default function ProtectedRoute({ permission, permissionAny, feature, fea
   }
 
   if (!user) {
+    // A visitor at the bare address sees the platform's public home page,
+    // with the query of the link that brought them (where they came from).
+    // Someone whose session has just ended here, on a shared till say, is
+    // asked to sign in again, as at every other address.
+    if (location.pathname === "/" && previousUserId == null) {
+      return <Navigate to={{ pathname: "/welcome", search: location.search }} replace />;
+    }
+
     // Remember where the user was going, and who was signed in here before
     // (none on a fresh visit), so login can send that same person back there.
     return <Navigate to="/login" replace state={{ from: location, forUser: previousUserId }} />;

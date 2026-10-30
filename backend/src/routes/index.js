@@ -35,6 +35,8 @@ const router = express.Router();
 
 router.use("/", healthRoutes);
 router.use("/auth", authRoutes);
+// The platform's public site (its prices, sign-up into a free trial, requests to be called back): no login.
+router.use("/site", require("../modules/platform/routes/site.routes"));
 // Tasks, issues & projects: /tasks (restaurant) and /businesses/:id/tasks (before the /businesses router).
 router.use(require("../modules/tasks/routes/tasks.routes"));
 // Prescription scans (multipart) for pharmacies, before the JSON-only /businesses router.

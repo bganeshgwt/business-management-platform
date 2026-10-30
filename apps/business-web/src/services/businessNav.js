@@ -91,6 +91,7 @@ export const TYPE_ICONS = {
 // section: the URL piece under /business-admin/<id>/; need: the permission
 // (its module must be on too); module: an extra module the screen needs;
 // types: only for these business types; except: not for these types;
+// owner: only for the business's owner (the Owner role, full access);
 // href(id): the address of a workspace of its own outside Business Admin
 // (the clinic's, the lab's), which the menu link opens instead.
 export function businessSections(type) {
@@ -450,6 +451,8 @@ export function businessSections(type) {
         { section: "fuel-pumps", label: "Pumps & nozzles", icon: "serviceSettings", need: "settings.view", module: "fuel", types: FUEL },
         // A lodging business's room types with their rates and rooms, the GST slabs of a room night, the weekend nights.
         { section: "lodging-rates", label: "Room types & rates", icon: "serviceSettings", need: "lodging.view", types: LODGING },
+        // The plan the business pays for (modules/plan), for its owner; a restaurant's is its own /plan.
+        { section: "plan", label: "Your plan", icon: "package", owner: true, except: ['restaurant'] },
       ],
     },
     {
@@ -462,10 +465,11 @@ export function businessSections(type) {
   ];
 }
 
-// The menu this person sees in this business, as the main layout draws it.
-export function businessMenu(businessId, type, can, has) {
+// The menu this person sees in this business, as the main layout draws it;
+// owner: whether they hold its Owner role.
+export function businessMenu(businessId, type, can, has, owner = false) {
   const rules = businessSections(type).flatMap((group) => group.links);
-  const allowed = (link) => link && typeAllows(link, type) && (!link.need || can(link.need)) && (!link.module || has(link.module));
+  const allowed = (link) => link && typeAllows(link, type) && (!link.need || can(link.need)) && (!link.module || has(link.module)) && (!link.owner || owner);
   return dailyWorkspaces(type).map((group) => ({
     title: group.title,
     links: group.keys.map((key) => {

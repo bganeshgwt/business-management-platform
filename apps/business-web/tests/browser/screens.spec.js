@@ -9,10 +9,13 @@ const source = fs.readFileSync(new URL("../../src/App.jsx", import.meta.url), "u
 const routes = ["/", ...source.matchAll(/<Route path="([^"*:]+)"/g)]
   .map(item => typeof item === "string" ? item : "/" + item[1].replace(/^\//, ""))
   .filter(route => route !== "/login");
+// The platform's public site needs no sign-in and sits outside the app's
+// frame: page-load.spec.js opens its pages signed out.
+const SITE = ["/welcome", "/pricing", "/signup", "/terms", "/privacy-policy", "/refunds", "/contact"];
 // The platform console belongs to the platform's own super admin; a restaurant
 // admin must be turned away there, so it is checked separately below.
-const platformRoutes = routes.filter(route => route.startsWith("/platform/"));
-const restaurantRoutes = routes.filter(route => !route.startsWith("/platform/"));
+const platformRoutes = routes.filter(route => route === "/platform" || route.startsWith("/platform/"));
+const restaurantRoutes = routes.filter(route => !platformRoutes.includes(route) && !SITE.includes(route));
 
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
   test(`all authenticated screens load at ${viewport.width}px`, async ({ page }) => {
