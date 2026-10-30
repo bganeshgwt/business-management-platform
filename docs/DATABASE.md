@@ -1081,7 +1081,7 @@ A restaurant's switch is a `business_capabilities` row of the business it appear
 
 | Function | What it does |
 |---|---|
-| `restaurant_business_id(restaurant_id) → bigint` | The business a restaurant appears as, created (with a free code: the restaurant's, else `R<id>`) when it has none. The provisioning trigger gives it roles, settings and the type's default modules, and `businesses_start_plan` its plan and trial; nobody becomes a member. Creating a restaurant calls it at once (`createRestaurant`); paid-plans linked every restaurant that had no business. |
+| `restaurant_business_id(restaurant_id) → bigint` | The business a restaurant appears as, created (with a free code: the restaurant's, else `R<id>`) when it has none. The provisioning trigger gives it roles, settings and the type's default modules, and `businesses_start_plan` its plan and trial; nobody becomes a member. Creating a restaurant calls it at once (`createRestaurant`), and the paid-plans migration calls it for every restaurant that has no business. |
 | `restaurant_features(restaurant_id) → text[]` | The feature codes switched on that the restaurant's plan also unlocks (`business_active_capabilities`), sorted (STABLE). A restaurant with no business yet has its type's defaults. Read into every signed-in profile (`users.findProfileById` → `req.user.features`), the public pages, the notification bell, `findSettings` (`loyalty_enabled`) and the loyalty and guest report queries. |
 | `restaurant_feature_set(restaurant_id, code, on, user_id = NULL) → boolean` | Switches one feature (an insert or delete of the capability row, behind the triggers); true when something changed. The API wraps it with the money checks and the activity log; tests call it directly. |
 
@@ -1142,7 +1142,7 @@ Linked section: [data model §3](BUSINESS_PLATFORM_DATA_MODEL.md#3-business-tena
 #### `businesses`
 Purpose: the tenant root. A restaurant appears here as one row whose `legacy_restaurant_id` points to `restaurants` ([five layers](BUSINESS_PLATFORM_DATA_MODEL.md#the-five-layers)).
 Key columns: `name` (the switcher's and every screen's; changed in Business settings, audited `business.renamed`; a restaurant's row keeps its restaurant's, through trigger `restaurants_business_name` on `restaurants`), `code` (unique), `business_type` -> `business_types`, `legacy_restaurant_id` (unique, -> `restaurants`), `status` (active or inactive), `currency` (default INR; the owner changes it in Business settings until the first document), `timezone` (default Asia/Kolkata; editable), `is_demo` (boolean, default false; no application code reads it), `created_by`.
-Created by: Platform › Businesses (the platform console) or an owner's *Add a business*, both in `businessOnboarding.service.js`. A restaurant's row comes from *Link my restaurant* (`linkRestaurant` in `business.service.js`) or from `restaurant_business_id()` (see [Restaurant features](#restaurant-features)), which creating a restaurant calls at once.
+Created by: Platform › Businesses (the platform console), an owner's *Add a business* or the public site's sign-up (`site.service.js`), all through `businessOnboarding.service.js`. A restaurant's row comes from *Link my restaurant* (`linkRestaurant` in `business.service.js`) or from `restaurant_business_id()` (see [Restaurant features](#restaurant-features)), which creating a restaurant calls at once.
 Rules:
 - CHECK: `legacy_restaurant_id` may be set only when the type is `restaurant`.
 - Trigger `businesses_type_is_fixed` refuses any change of type.
@@ -4808,7 +4808,7 @@ Added by: 1791978000000.
 
 ## Paid plans
 
-Linked sections: [data model, Commercial plans](BUSINESS_PLATFORM_DATA_MODEL.md#commercial-plans), [BUSINESS_RULES.md › Paid plans](BUSINESS_RULES.md#paid-plans) and [API.md › Your plan](API.md#your-plan). Migration `paid-plans`; module code `backend/src/modules/platform/` (services `planMath.js`, `planSettings.service.js`, `planCatalogue.service.js`, `subscriptions.service.js`, `planInvoices.service.js`) and `backend/src/middlewares/planGuard.js`.
+Linked sections: [data model, Commercial plans](BUSINESS_PLATFORM_DATA_MODEL.md#commercial-plans), [BUSINESS_RULES.md › Paid plans](BUSINESS_RULES.md#paid-plans) and API.md's [public site](API.md#the-platforms-public-site), [Your plan](API.md#your-plan) and [platform console](API.md#the-platform-console). Migration `paid-plans`; module code `backend/src/modules/platform/` (services `planMath.js`, `planSettings.service.js`, `planCatalogue.service.js`, `subscriptions.service.js`, `planInvoices.service.js`, with `site.service.js`, `console.service.js` and `dashboards.service.js` for the public site and the console) and `backend/src/middlewares/planGuard.js`.
 
 What the platform sells, what each business may use and until when, and the platform company's own orders, payments, GST invoices and leads. A business pays per business for a plan of its type plus optional modules and applications (add-ons), monthly or yearly. Prices are before GST, `NUMERIC(12,2)`, worked in whole paise. The platform's tables carry no `business_id` (settings, plans, prices, leads); a business's carry it.
 
@@ -4826,7 +4826,7 @@ What the platform sells, what each business may use and until when, and the plat
 
 **A new business's plan and trial.** The AFTER INSERT trigger `businesses_start_plan` on `businesses` (named to run after the provisioning triggers) adds the business's `business_subscriptions` row on its type's default plan (billing period year) and, while `platform_settings.trial_days` is above 0, a trial period from `business_local_today()` for that many days that unlocks everything. With 0 trial days it starts ended and pays first.
 
-**Businesses that existed before paid plans.** The migration linked every restaurant to its business (`restaurant_business_id()`), switched `captain_app` on for every restaurant, and gave every business a subscription on its type's default plan and given time from its own today with no end that unlocks everything (reason "Set up before paid plans began"), so nothing changed for any of them.
+**Businesses already in the database.** The migration links every restaurant to its business (`restaurant_business_id()`), switches `captain_app` on for every restaurant, and gives every business a subscription on its type's default plan and given time from its own today with no end that unlocks everything (reason "Set up before paid plans began"), so each keeps everything it uses.
 
 #### `platform_settings`
 Purpose: one row (`id = 1`): the platform company's settings.
@@ -4927,8 +4927,8 @@ Rules: trigger `platform_lead_notes_kept`: never changed or deleted.
 Added by: paid-plans.
 
 #### `platform_audit`
-Purpose: the super admin's changes to settings, prices and leads (a business's own changes stay in `business_audit`: `plan.selection_changed`, `plan.order_created`, `plan.payment_submitted`, `plan.payment_confirmed`, `plan.payment_rejected`, `plan.time_given`, `plan.addons_given`, `plan.tax_invoice_issued`, `settings.state_set`).
-Key columns: `actor_id` -> `users`, `action` (`<area>.<what>`, such as `platform.settings_updated`, `platform.prices_updated`), `entity_type`, `entity_id`, `details` (JSONB object), `created_at`.
+Purpose: the super admin's changes to settings, prices and leads (a business's own changes stay in `business_audit`: `plan.selection_changed`, `plan.order_created`, `plan.order_granted`, `plan.payment_submitted`, `plan.payment_confirmed`, `plan.payment_rejected`, `plan.time_given`, `plan.addons_given`, `plan.tax_invoice_issued`, `settings.state_set`, and a sign-up's `business.signed_up`).
+Key columns: `actor_id` -> `users`, `action` (`<area>.<what>`: `platform.settings_updated`, `platform.prices_updated`, `platform.lead_status_changed`, `platform.lead_note_added`), `entity_type`, `entity_id`, `details` (JSONB object), `created_at`.
 Added by: paid-plans.
 
 ## Business types

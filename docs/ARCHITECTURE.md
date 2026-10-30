@@ -128,14 +128,14 @@ written down.
 
 | Application | State |
 | --- | --- |
-| **Staff app** (`apps/business-web`, port 5173 in development) | Built. A switcher in the header opens any business you belong to. For a restaurant (run as a restaurant, café, bakery or cloud kitchen) it is the full restaurant admin, with the POS screen, the kitchen display and the captain app. For the other types it is Business Admin, whose menu is built from that business's modules. It also holds the platform console. |
+| **Staff app** (`apps/business-web`, port 5173 in development) | Built. A switcher in the header opens any business you belong to. For a restaurant (run as a restaurant, café, bakery or cloud kitchen) it is the full restaurant admin, with the POS screen, the kitchen display and the captain app. For the other types it is Business Admin, whose menu is built from that business's modules. It also holds the platform's public site, each owner's *Your plan* and the platform console. |
 | **Guests' site** (`apps/customer-web`, port 5174) | Built: QR table ordering, online ordering and table booking, with no sign-in. Its planned pages answer already, with what is coming. |
 | **API** (`backend`, port 5010 as `.env.example` sets it) | Built: one Express API and one PostgreSQL database for both apps. |
 | POS app (an offline-capable till) | Planned. The POS *screen* is in the staff app (`/pos`). |
 | Captain / waiter app | Built, as part of the staff app (`/captain`): a route group with a layout of its own (`src/workspaces/captain`), phone first, on the POS's own order screen and the order, KOT, table-request and captain-section APIs, with live updates. |
 | Kitchen display app | Planned as a separate app. The screen is in the staff app (`/kitchen`). |
 | Clinic and lab workspaces | Built, as part of the staff app (`/clinic`, `/lab`): route groups with layouts of their own (`src/workspaces/clinic`, `src/workspaces/lab`, both in `src/layouts/BusinessWorkspace.jsx`), for the front desk's computer, a doctor's tablet and the lab bench, on the health module's own pages and APIs, with live updates. |
-| Platform admin and subscriptions | Planned. A platform Super Admin runs the platform console in the staff app (`/platform/restaurants`, `/platform/businesses`). There are no plans or subscriptions; their shape is set in [DATA_MODEL › Commercial plans](BUSINESS_PLATFORM_DATA_MODEL.md#commercial-plans). |
+| Public site, paid plans and the platform console | Built, as part of the staff app: the public site with its sign-up into a free trial (`/welcome` and the pages beside it, no sign-in, outside the app's frame, `src/modules/site`), the owner's *Your plan* (`src/modules/plan`) and the Super Admin's console (`/platform/…`, `src/modules/platform`), on the API's `modules/platform`. The data: [DATA_MODEL › Commercial plans](BUSINESS_PLATFORM_DATA_MODEL.md#commercial-plans). The console may become an app of its own (§9.4). |
 
 ### 2.2 Every address
 
@@ -143,16 +143,18 @@ written down.
 
 | Address | For | State |
 | --- | --- | --- |
-| `/` | Home. A restaurant's staff get the restaurant dashboard. Staff of other businesses land on the business they used last, or on their first one. The platform Super Admin lands on `/platform/restaurants`. A pickup-counter TV signed in with the Collection display role lands on `/collection`. | Built |
+| `/` | Home. A restaurant's staff get the restaurant dashboard. Staff of other businesses land on the business they used last, or on their first one. The platform Super Admin lands on `/platform`. A pickup-counter TV signed in with the Collection display role lands on `/collection`. Someone not signed in lands on the public site's `/welcome` (the link's query kept), or on `/login` when their session has just ended in that tab. | Built |
 | `/orders`, `/menu/…`, `/reports`, `/tasks/…` … | The restaurant admin's screens, one per menu link | Built |
 | `/login`, `/profile`, `/notifications` | Everyone: signing in, their own profile, every alert | Built |
+| `/welcome`, `/pricing`, `/signup`, `/terms`, `/privacy-policy`, `/refunds`, `/contact` | Visitors, with no sign-in: the platform's public site (its home page, prices, the sign-up into a free trial, its policies, its contact page and the call-back form) | Built |
 | `/business-admin` | The person's businesses: with `?all` the list itself, otherwise the one opened last | Built |
 | `/business-admin/gst-thresholds` | An owner: their businesses' turnover by PAN against the GST thresholds (from the switcher and *Your businesses*) | Built |
-| `/business-admin/:id/…` | Every business type's admin: sales, stock, customers and the type's own screens | Built |
+| `/business-admin/:id/…` | Every business type's admin: sales, stock, customers and the type's own screens, and the owner's *Your plan* (`/business-admin/:id/plan`) | Built |
 | `/pos` | Cashiers and captains | Built |
 | `/kitchen` | Kitchen staff: the kitchen display | Built |
 | `/collection` | The pickup counter's TV | Built |
-| `/platform/restaurants`, `/platform/businesses` | The platform Super Admin | Built; moves to its own app later |
+| `/plan` | A restaurant's owner (Restaurant Admin): *Your plan* | Built |
+| `/platform`, `/platform/businesses` (`/new`, `/:id`), `/platform/restaurants`, `/platform/leads`, `/platform/payments`, `/platform/invoices` (`/:id`), `/platform/reports`, `/platform/settings` | The platform Super Admin: the console, in the order of its menu (Overview, Businesses with a new business and a business's page, Restaurants, Leads & trials, Payments, Invoices with an invoice to print, Reports, Settings) | Built; may move to its own app (§9.4) |
 | `/captain`, `/captain/calls`, `/captain/ready`, `/captain/order` | Waiters, on a phone: the captain app (their tables, guests' calls, food at the pass, taking an order) | Built |
 | `/clinic`, `/clinic/:id/…` | Reception and doctors: the clinic workspace (the desk with the queue by doctor, the consultation, today, patients, visits). `/clinic` opens the clinic chosen last, or asks which | Built |
 | `/lab`, `/lab/:id/…` | Lab staff and pathologists: the lab workspace (collection, worklist, approval, released reports, every order, quality control, tests). `/lab` opens the clinic chosen last, or asks which | Built |
@@ -174,11 +176,11 @@ On the guests' site, a planned address opens a page marked *Coming soon* that
 says what is coming and what to do until then. A bookmark or a tablet set up
 on it keeps working when the screen arrives. The guests' planned pages are
 listed in `apps/customer-web/src/plannedPages.js`. Every staff app address is
-built; a planned one is listed in
-`apps/business-web/src/services/plannedWorkspaces.js` and opens the staff
-app's planned page (`layouts/PlannedPage.jsx`, marked *Planned · not built
-yet*: what it will do, then what to use until then, with buttons to go there)
-(§8.9).
+built, the public site, *Your plan* and the platform console included, so
+`apps/business-web/src/services/plannedWorkspaces.js` lists none. A staff
+screen planned next is listed there and opens the staff app's planned page
+(`layouts/PlannedPage.jsx`, marked *Planned · not built yet*: what it will
+do, then what to use until then, with buttons to go there) (§8.9).
 
 ### 2.3 Running them locally
 
@@ -231,7 +233,9 @@ serve them: [GO_LIVE › Serve the two web apps](GO_LIVE.md#3-serve-the-two-web-
    │                          /auth/me and /auth/change-password (authenticate.duringPasswordChange);
    │                          a till session opened with a PIN someone else set (the token's pg):
    │                          403 pin_change_required, but for /auth/me, PUT /auth/me/pin and the
-   │                          till's lock screen (authenticate.duringPinChange)
+   │                          till's lock screen (authenticate.duringPinChange);
+   │                          a write to a business whose plan has ended: 402 plan_ended, but for
+   │                          the writes planGuard.ALWAYS_ALLOWED lists (middlewares/planGuard.js)
    │    resolveOutlet         restaurant only: X-Outlet-Id → req.outletId (pinned staff cannot change it)
    │    requireFeature(code)  restaurant only: feature switched on? (§4.2)
    │    authorize(perm)       restaurant only: req.user.permissions has it?
@@ -489,11 +493,13 @@ business layers are shaped as they are:
 
 The business platform, which every type but the restaurant runs on, stacks
 five layers of tables. The **platform** holds what all businesses share: the
-module and permission catalogues and the role templates (later the plans and
-subscriptions). **Identity and access** links users to businesses through
+module and permission catalogues and the role templates, and what the
+platform sells: its plans and prices, its own orders, payments, invoices and
+leads. **Identity and access** links users to businesses through
 memberships and business roles. The **business** (tenant) layer holds each
 business with its settings, tax rates, number series, switched-on modules
-(capabilities), locations, payment methods and departments. The **shared
+(capabilities), locations, payment methods and departments, and its plan:
+the selection for its next order and its dated access periods. The **shared
 core** holds the catalogue, contacts, price rules, documents and payments,
 receivables, stock, appointments, expenses, cash checks and cashier shifts.
 **Type extensions** are `<type>_*` tables (`retail_*`, `wholesale_*`,
@@ -529,17 +535,21 @@ These overlap with the shared core: the restaurant has its own `customers`,
 
 **The bridge.** A restaurant appears on the platform as one `businesses` row
 of type `restaurant`, whose `legacy_restaurant_id` points at `restaurants.id`
-(unique). *Link my restaurant* (`POST /api/businesses/link-restaurant`, for a
-restaurant admin) creates that row, gives the admin who presses it an Owner
-membership and switches on the `restaurant` capability. `restaurant_business_id()` creates the row,
-without a membership, the first time a feature switch or a task needs it. The
-restaurant tables keep their own names and keys.
+(unique). Creating a restaurant makes that row at once
+(`restaurant_business_id()`, without a membership), with its plan and its free
+trial; the same function makes it for a restaurant made outside the app the
+first time a feature switch or a task needs it. *Link my restaurant*
+(`POST /api/businesses/link-restaurant`, for a restaurant admin) makes sure
+the row exists, gives the admin who presses it an Owner membership and
+switches on the `restaurant` capability. The restaurant tables keep their own
+names and keys.
 
 **Restaurant feature switches.** A restaurant's optional parts (reservations,
 deliveries, loyalty, tips…) are modules of the same platform catalogue. Each
 switch is a `business_capabilities` row of the restaurant's business, so the
-platform's triggers enforce dependencies, and a later plan can set the
-switches like any other module. Which switches exist, their groups and their
+platform's triggers enforce dependencies, and the business's plan unlocks the
+features like any other module: one outside the plan counts as off, its
+switch kept. Which switches exist, their groups and their
 defaults: [DATA_MODEL › Restaurant features](BUSINESS_PLATFORM_DATA_MODEL.md#restaurant-features).
 In the code:
 
@@ -567,7 +577,8 @@ In the code:
   tables, not new business types. `restaurants.format` says which
   (`restaurant`, `cafe`, `bakery`, `cloud_kitchen`).
 - The format is chosen when the restaurant is created (Platform ›
-  Restaurants) and changed on Settings › Features
+  Restaurants, a restaurant's New business on Platform › Businesses, or the
+  owner's sign-up on the public site) and changed on Settings › Features
   (`modules/restaurant/setup/services/restaurantFormat.service.js`). It sets
   how the POS opens (`service_settings.pos_order_types`,
   `default_order_type`, tokens) and switches features through the same rules
@@ -920,6 +931,7 @@ One module writes each kind of record. The others call its service.
 | Logins, PINs, two-step sign-in | `access` (both) | `access` (both) |
 | Roles and permissions | `access` (restaurant roles) | `business/core` (`businessAccess.service`: memberships and roles) |
 | Businesses and their switched-on modules | `platform` console; `restaurant/setup` (features) | `platform` console and `business/core` (`businessOnboarding`, `businessSetup`); both write `business_capabilities` |
+| A business's plan: its selection, access periods, orders, payments and the platform's invoices | `platform` (`subscriptions.service`, with `planInvoices.service`) | the same |
 
 An industry folder adds its own rules (salon commissions, pharmacy batches,
 wholesale routes) and calls the core for stock, bills and payments. It never
@@ -975,7 +987,9 @@ workspaces; the backend has its own install.
 │   │   ├── routes/index.js   mounts every module's router under /api (the only file in routes/)
 │   │   ├── modules/          one folder per module, each with routes/ controllers/ services/ repositories/
 │   │   │   ├── access/       sign-in, users, roles, two-step, approvals, the activity log
-│   │   │   ├── platform/     the platform console (mounted at /api/users/platform)
+│   │   │   ├── platform/     the platform console (mounted at /api/users/platform), paid plans (the
+│   │   │   │                 plan's state, orders, payments and invoices; Your plan at
+│   │   │   │                 /api/businesses/:id/plan and /api/plan) and the public site (/api/site)
 │   │   │   ├── health/       /api/health, /api/db-health
 │   │   │   ├── restaurant/   setup, menu, tables, orders, kitchen, reservations, online, preorders,
 │   │   │   │                 deliveries, billing, business-day, crm, inventory, purchasing, expenses, staff,
@@ -992,7 +1006,8 @@ workspaces; the backend has its own install.
 │   │   │   └── tasks/        tasks, issues & projects for every business (+ library/ of built-in templates)
 │   │   ├── config/           env.js (reads and checks .env), database.js (pg pool + DB_POOL_GUARD)
 │   │   ├── middlewares/      authenticate, authorize, authorizeOrApprove, resolveOutlet, requireFeature,
-│   │   │                     reportOutlet, writeoffApproval, rateLimiters, upload, notFound, errorHandler
+│   │   │                     reportOutlet, writeoffApproval, rateLimiters, upload, notFound, errorHandler,
+│   │   │                     planGuard (an ended business's writes: 402)
 │   │   ├── notifications/    the bell: index.js + one provider file per module
 │   │   └── utils/            AppError, validate, money, audit, docNumber, gstin, phone, totp, calendarDate, guestLinks,
 │   │                         sheetImport (what every spreadsheet import shares) …
@@ -1014,11 +1029,15 @@ workspaces; the backend has its own install.
 │   │   │   │                 providers: QueryClient, Router, AuthProvider;
 │   │   │   │                 ApprovalDialog, ConfirmHost, Toaster
 │   │   │   ├── App.jsx       every restaurant route (lazy imports from modules/) + /business-admin; the clinic
-│   │   │   │                 and lab workspaces (/clinic/*, /lab/*); the captain app (/captain/*); old guest
+│   │   │   │                 and lab workspaces (/clinic/*, /lab/*); the captain app (/captain/*); the public
+│   │   │   │                 site (/welcome …, no login); the console (/platform/*); old guest
 │   │   │   │                 links → GuestSiteRedirect; all inside PageLoadBoundary
 │   │   │   ├── modules/      one folder per module, each with pages/ (+ services/, styles/ where it has its own)
 │   │   │   │   ├── access/   sign-in, profile, users, roles, two-step
-│   │   │   │   ├── platform/ the platform console
+│   │   │   │   ├── platform/ the platform console (/platform/*): overview, businesses, restaurants, leads
+│   │   │   │   │             and trials, payments, invoices, reports, settings
+│   │   │   │   ├── site/     the platform's public site (/welcome, /pricing, /signup, the policies, /contact)
+│   │   │   │   ├── plan/     Your plan (/plan, …/plan), the plan's banner and badges
 │   │   │   │   ├── restaurant/  the same areas as the backend (except imports/), plus dashboard/
 │   │   │   │   ├── business/ core/ (Business Admin, BusinessAdminRoutes.jsx, hooks.js, ui.jsx) and one
 │   │   │   │   │             folder per type: retail, wholesale, receivables, fashion, electronics, salon,
@@ -1229,7 +1248,7 @@ the guests' pages are in `apps/customer-web/src/modules/<area>/pages/`.
 | `restaurant/logbook` | `logbook.*` | log book, follow-ups, handover notice | `logbook_entries` |
 | `restaurant/notifications` | `notification.*` (the bell's API; the providers are in `src/notifications/providers/`) | `NotificationsPage` (the bell itself is `components/NotificationBell`) | `notification_reads` |
 | `restaurant/imports` | `sheetImport.controller` (one controller for the spreadsheet imports of stock items, suppliers, recipes and guests; the menu has its own, `menuImport`); the reader they share is `utils/sheetImport`, which a hardware shop's shades and a shop's products, customers and suppliers use too | none (the screen is the shared `components/SheetImportModal`) | none |
-| `platform` | `platform.*` (the businesses part calls `business/core`'s `businessOnboarding.service`) | `PlatformRestaurantsPage`, `PlatformBusinessesPage` | `restaurants`, `businesses`, `users` |
+| `platform` | `platform.*` (restaurants; the businesses part calls `business/core`'s `businessOnboarding.service`), `console.*` (a business's page and plan, payments, invoices, settings and prices), `dashboards.*` (overview, leads and the trial funnel, reports), `plan.routes` with `subscriptions.service` (Your plan: the state, selection, orders, payments, `applyPayment`, given time), `planSettings`, `planCatalogue`, `planInvoices`, `planMath` (pure sums), `site.*` (the public site); middleware `planGuard` | `platform/`: `PlatformOverviewPage`, `PlatformBusinessesPage`, `PlatformNewBusinessPage`, `PlatformBusinessPage`, `PlatformRestaurantsPage`, `PlatformLeadsPage`, `PlatformPaymentsPage`, `PlatformInvoicesPage`, `PlatformInvoicePage`, `PlatformReportsPage`, `PlatformSettingsPage`; `site/`: `WelcomePage`, `PricingPage`, `SignupPage`, `PolicyPage`, `ContactPage`; `plan/`: `YourPlanPage`, `PlanBanner`, `PlanBadge` | `restaurants`, `businesses`, `users`, `platform_*`, `business_subscriptions` (+ `_addons`), `business_access_periods`, `business_access_addons` |
 | `health` | `health.*` | none | none |
 
 **The split report and bill files.** Each family of functions is its own
@@ -1361,8 +1380,9 @@ Where each area's tests are: [TESTING.md](TESTING.md).
   the server.
 - **Don't import one app's files from another app.** Share through a
   package.
-- **Don't mix payment kinds.** Subscription payments (a business pays for the
-  platform) and sale payments (a customer pays a business) stay separate.
+- **Don't mix payment kinds.** Plan payments (a business pays for the
+  platform: `platform_payments`, with the platform company's own invoices)
+  and sale payments (a customer pays a business) stay separate.
 
 ---
 
@@ -1445,7 +1465,12 @@ inside the right `ProtectedRoute`, a link in `NAV_SECTIONS`
    new business of that type its roles, settings, GST slabs, units, payment
    methods and default modules. A role only this type has (as a pharmacy's
    Pharmacist) is a role template with the type in
-   `business_role_templates.business_types`.
+   `business_role_templates.business_types`. Its plan: a default plan in
+   `platform_plans` (`<type>_basic`, active, with its prices) and the modules
+   it includes in `platform_plan_modules`, as the paid-plans migration makes
+   one for each type; `businesses_start_plan` puts every new business on it.
+   Without one, a business of the type has no plan to order and the public
+   site offers none.
 2. If it needs a new document kind, widen the
    `business_number_series.document_kind` CHECK **keeping the whole list**,
    and add the kind with its prefix to `SHORT` in
@@ -1464,7 +1489,9 @@ inside the right `ProtectedRoute`, a link in `NAV_SECTIONS`
    `business-shared-commerce.test.js` checks it), `TYPE_WORDS` and
    `TYPE_ICONS` in `services/businessNav.js`, links with `types: [...]`, its menu in `dailyWorkspaces()` in
    `services/businessWorkspace.js`, and pages in
-   `modules/business/<type>/pages/`. When the type keeps more about a
+   `modules/business/<type>/pages/`. The public site names the type in its
+   group, with a line of what it does (`TYPE_GROUPS` and `TYPE_LINES` in
+   `modules/site/siteWords.js`). When the type keeps more about a
    customer than a name and a number, its line in `KEPT` in
    `modules/personal-data/services/privacyNotice.js` (the starter privacy
    notice).
@@ -1491,13 +1518,20 @@ Pharmacy and clinic / lab have their own module (`business/health`).
 3. `platform_module_business_types` for the types it applies to and the
    default (new businesses start lean: specialist tools default to off), with
    `recommended` and a `recommended_note` for a trade that mostly uses it.
-4. Switch it on for **existing** businesses whose type has it on by default
+4. Its price: a `platform_module_prices` row (`sold_as` module or
+   application, the monthly and yearly price, `available`), without which it
+   is neither sold nor listed on *Platform › Settings › Prices*; and its
+   `platform_plan_modules` rows for the plans that include it. A trial, and
+   time that unlocks everything, reach a new module at once; a paid or given
+   period unlocks only the modules copied onto it, so a business on paid time
+   gets it with its next order, or as an add-on.
+5. Switch it on for **existing** businesses whose type has it on by default
    (`INSERT INTO business_capabilities … SELECT … ON CONFLICT DO NOTHING`),
    only where its dependencies are on.
-5. Its permissions (§8.4).
-6. Write the Down half (delete the capabilities, grants, permissions and
-   module rows).
-7. Staff app: links with `module: "<code>"`, or a `need` whose module is the
+6. Its permissions (§8.4).
+7. Write the Down half (delete the capabilities, grants, permissions, price,
+   plan and module rows).
+8. Staff app: links with `module: "<code>"`, or a `need` whose module is the
    new code. Nothing else: Settings › Business tools reads the catalogue.
 
 The server caches the catalogue per process (`platformCatalogue()`), so
@@ -1686,7 +1720,7 @@ shape of the code and the data.
 | **Very large files** | `PosPage.jsx` (about 3,000 lines, nearly all one component: it needs a real refactor, not a move), `order.service.js` (about 2,600), `InventoryInsightsPage.jsx` (about 2,500), `order.repository.js` and `TimeClockPage.jsx` (about 2,400 each), `bill.repository.js` (about 2,300), `KitchenDisplayPage.jsx` (about 2,200), and `base.css` in the staff app's `src/styles/app` (about 2,100). | Slow to read and risky to change. |
 | **Migrations** | Many files fix earlier ones, and a fresh database replays them all. | A baseline before go-live (plan F) makes new installs simple. |
 | **Outside messages** | Staff screens are live (§3.5), but nothing publishes the outbox outside: no WhatsApp, SMS or webhook. The guests' pages still ask every few seconds. | §8.8 describes the publisher; plan E, step 3 adds the restaurant's events. |
-| **Kept answers** | The dashboard's and the bell's answers are kept per API process (`utils/dashboardCache.js`, `notifications/index.js`), and so is the standing behind an owner's GST thresholds (`gst-thresholds/services/standingCache.js`, five minutes). A change the database announces clears the first two in every process (§3.5); any other write (an expense, a purchase, stock) only in the one that made it, and a PAN recorded or a warning level saved clears the GST standing only there. | Several API processes need a shared cache, or sticky sessions, for those. |
+| **Kept answers** | The dashboard's and the bell's answers are kept per API process (`utils/dashboardCache.js`, `notifications/index.js`), and so are the standing behind an owner's GST thresholds (`gst-thresholds/services/standingCache.js`, five minutes) and the public site's prices and company details (`platform/services/site.service.js`, a minute). A change the database announces clears the first two in every process (§3.5); any other write (an expense, a purchase, stock) only in the one that made it, and a PAN recorded or a warning level saved clears the GST standing only there, as a save in Platform › Settings clears the public site's. | Several API processes need a shared cache, or sticky sessions, for those. |
 
 ### 9.2 Target structure
 
@@ -1739,9 +1773,9 @@ the screens it touched ([TESTING.md](TESTING.md)).
 
 **D. One identity and one role system per business**
 
-1. Make sure every restaurant has its `businesses` row
-   (`restaurant_business_id()` creates it when missing) and every active
-   restaurant user a membership (a migration).
+1. Give every active restaurant user a membership of its restaurant's
+   business (a migration). Every restaurant has its `businesses` row already:
+   creating one makes it (`restaurant_business_id()`), with its plan.
 2. Add the restaurant's permission codes to `business_permissions` under
    restaurant modules (`orders`, `billing`, `kitchen` …, each a
    `platform_modules` row applying to `restaurant`), with a mapping table from
@@ -1824,5 +1858,5 @@ keeping the old tables until the reports agree.
 
 | Folder | What goes in it | Made when |
 | --- | --- | --- |
-| `backend/src/integrations/` and `backend/src/jobs/` | The payment gateway and SMS / WhatsApp; expiry and low-stock alerts | The first integration is built |
+| `backend/src/integrations/` and `backend/src/jobs/` | The payment gateway (with UPI AutoPay for the plans, through `applyPayment`) and SMS, WhatsApp and email; expiry and low-stock alerts, and renewal reminders | The first integration is built |
 | `apps/platform-admin/` | The platform console as its own app | The platform team releases on its own |

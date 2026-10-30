@@ -50,10 +50,11 @@ The tables behind these endpoints are in [DATABASE.md](DATABASE.md), and how a r
 38. [Live updates](#live-updates)
 39. [Personal data](#personal-data)
 40. [Owner's GST thresholds](#owners-gst-thresholds)
-41. [Your plan](#your-plan)
-42. [The platform's public site](#the-platforms-public-site)
+41. [The platform's public site](#the-platforms-public-site)
+42. [Your plan](#your-plan)
+43. [The platform console](#the-platform-console)
 
-Sections 2 to 19 are the restaurant module's API, with the sign-in and platform routes every app uses. Sections 20 to 36 are the Business Admin's, under `/api/businesses`. Sections 37 to 41 serve both. Section 42 is the platform's public site, with no login.
+Sections 2 to 19 are the restaurant module's API, with the sign-in routes every app uses. Sections 20 to 36 are the Business Admin's, under `/api/businesses`. Sections 37 to 40 serve both. Sections 41 to 43 are the platform's own, in the order of its screens: its public site, with no login; Your plan, for the owner of a business or a restaurant; and the platform console, for its Super Admin.
 
 ## Conventions
 
@@ -73,7 +74,8 @@ endpoints that answer outside `data`.
 ### Authentication
 
 Every endpoint except the health checks, `POST /api/auth/login` (and its
-two-step steps) and the `/api/public/...` guest pages needs
+two-step steps), the `/api/public/...` guest pages and the platform's public
+site (`/api/site/...`) needs
 
 ```
 Authorization: Bearer <token>
@@ -534,210 +536,7 @@ Returns: `{ items[], total (first page only, else null), nextCursor (null on the
 Errors: 400 `too_many_rows` `{ total, max }` (more than 200,000 matches, first page); 400 unreadable cursor; 400 date errors.
 
 ### Users: platform console
-Mounted at `/api/users/platform` (modules/platform/routes/platform.routes.js, after `authenticate`). Permission `platform.restaurants.manage` (Super Admin only; no restaurant can grant it), and the caller must not belong to a restaurant (403 "The platform console is for the platform's own accounts"). Restaurant actions are written to the target restaurant's activity log under "<name> (platform)"; business actions go to that business's audit (`business_audit`), and changes to the platform's settings and prices to `platform_audit`. The first Super Admin login is made on the server with `npm --prefix backend run user:create`, leaving the restaurant code empty (see [README.md](../README.md)).
-
-#### `GET /api/users/platform/restaurants`
-Permission: `platform.restaurants.manage`
-Query/Body: `status` (`active | inactive`), `search` (<=100, name or code), `limit` (1-200, default 50), `offset`
-Returns: `{ items: [{ id, name, code, status, statusLabel, contact, email, outlets, users, activeUsers, lastActivity, createdAt }], total, limit, offset, counts }`.
-Errors: 403 restaurant user.
-
-#### `POST /api/users/platform/restaurants`
-Permission: `platform.restaurants.manage`
-Query/Body: `name` (required, <=150), `code` (required, 2-30 letters/digits/`_-`, stored upper case), `contact`, `email`, `address`, `timezone` (default `Asia/Kolkata`), `invoicePrefix` (default `INV`, `A-Z0-9/-`, <=10), `orderPrefix` (default `ORD`), `format` (`restaurant` default, `cafe`, `bakery`, `cloud_kitchen`), `admin: { name, email, mobile?, password (8-72) }` (required)
-Returns: 201, `{ id, adminId, code, name, defaults, format }`. One transaction: GST rates, settings, delivery channels, kitchen station, the first Restaurant Admin, who chooses their own password at the first sign-in, and the business the restaurant appears as, with its plan and its trial ([Your plan](#your-plan)). A café, bakery or cloud kitchen then gets its format's starting setup, as `PUT /api/restaurants/current/format` gives it.
-Errors: 400 validation (code, prefixes, timezone); 403 restaurant user; 409 code taken; 409 admin email taken.
-
-#### `PUT /api/users/platform/restaurants/:id/status`
-Permission: `platform.restaurants.manage`
-Query/Body: `status` (`active | inactive`, required)
-Returns: the restaurant after the change. Switched off, all its logins are refused (`restaurant_inactive`), open sessions on their next request.
-Errors: 403; 404 restaurant not found; 409 already in that status.
-
-#### `GET /api/users/platform/restaurants/:id/admins`
-Permission: `platform.restaurants.manage`
-Query/Body: none
-Returns: `{ restaurant, admins: [{ id, name, email, mobile, status, lastLoginAt, locked }] }` (admins = users holding both `users.manage` and `roles.manage`).
-Errors: 403; 404 restaurant not found.
-
-#### `POST /api/users/platform/restaurants/:id/admin-password`
-Permission: `platform.restaurants.manage`
-Query/Body: `userId` (id, required; one of that restaurant's admins), `password` (8-72, required)
-Returns: `{ id, name }`. Their sessions end, lockout lifted, 30-day two-step trust ended (two-step stays on); they choose their own password at their next sign-in.
-Errors: 403; 404 restaurant not found; 404 not an admin of that restaurant.
-
-#### `GET /api/users/platform/businesses`
-Permission: `platform.restaurants.manage`
-Query/Body: `q` (<=100; name, code, city or GSTIN), `type` (a business type code), `status` (`active | inactive`), `state` (`unmanaged`, `off`, `trial`, `paid`, `given`, `grace`, `checking`, `ended`), `plan` (a plan code: the one its next order holds), `endsWithin` (0-3650 whole days: time that ends from the business's today to that many days later)
-Returns: `{ items: [{ id, name, code, business_type, type_name, status, currency, timezone, created_at, restaurant_id, format, gstin, city, state_code, state_name, state, access_ends_on, trial_ends_on, grace_ends_on, period_kind, everything, plan_code, plan_name, billing_period, addons, locations, people, owners: [{ id, name, email }], last_active_at }], types: [{ code, name }], plans: [{ code, name, businessType, active }] }`: every business, restaurants included, newest first, at most 500. `state` and its dates are `business_plan_state()`'s ([Your plan](#your-plan)); `addons` counts the add-ons of its next order; `last_active_at` is the latest sign-in of its people or the last time one of them opened it. For a restaurant's business, `restaurant_id` and `format` are the restaurant's, `owners` its admins, `people` its active logins and `locations` its active outlets.
-Errors: 400 an unknown `state`, or `endsWithin` not a whole number from 0 to 3650; 403 restaurant user.
-
-#### `POST /api/users/platform/businesses`
-Permission: `platform.restaurants.manage`
-Query/Body: `businessType` (required; any type), `name` (required, <=150), `code` (required, 2-40 letters, digits and dashes, spaces become dashes, stored upper case), `legalName`, `gstin` (validated), `stateCode` (2 digits; defaults to the GSTIN's and must match it), `addressLine1`, `addressLine2`, `city`, `postalCode` (6 digits), `phone`, `email`, `currency` (ISO code, default `INR`), `timezone` (default `Asia/Kolkata`), `locationName` (default "Main store"), `locationCode` (default `MAIN`), `owner: { email (required), name, password (8-72), mobile? }`. An email that already has an active login makes that person the owner; otherwise `name` and `password` are required and a new login is made, which chooses its own password at its first sign-in.
-- **A restaurant** (`businessType: "restaurant"`) runs the restaurant's own set-up, as `POST /api/users/platform/restaurants` does: `format` (`restaurant` default, `cafe`, `bakery`, `cloud_kitchen`), `code` (2-30 letters, digits, `-` and `_`), `phone` (<=20), `email`, `timezone`, and the address lines, city and PIN code, joined into the restaurant's address; `stateCode` (a GST state code), the address, city, PIN code, phone and email also go on its business's settings (the state is the place of supply of the platform's invoices to it). Its format's set-up comes once its time is settled, so its features are switched on under the plan it was given; those the plan leaves out stay off and are named in `restaurant.skipped`. `legalName`, `gstin`, `currency` and the location are not taken. Its `owner` (`name`, `email`, `password`, `mobile?`) is always a new login: a restaurant's people belong to that restaurant alone.
-- `selection` (optional): `{ planCode, billingPeriod (month, year), addons[] }`, the plan, billing and add-ons of its next order, saved as `PUT /api/users/platform/businesses/:id/selection` saves them.
-- `access` (optional): `{ kind, endsOn, reason, everything }`. `kind: "until"` (with `endsOn`, today or later on the business's clock) and `"no_end"` give time, with `reason` (<=300), as `POST /api/users/platform/businesses/:id/given-time` does with `replaceTrial`: the trial every new business starts with is cancelled with that reason and the time starts the day it began, unlocking everything its type offers (`everything: true`) or the selection's plan (without a selection, the type's default) and add-ons. `kind: "trial"` keeps the trial. Without `access` the business keeps what it started with: a trial, or nothing when the trial days are 0.
-
-The selection and the access are checked before anything is made, with the same rules as the routes they stand for, so a refusal leaves nothing behind.
-Returns: 201, `{ business, owner: { id, name, created }, plan, restaurant? }`: `plan` is the state as in [Your plan](#your-plan); a restaurant adds `restaurant: { id, code, format, skipped: [{ feature, enabled, reason }] }`. The business with its roles, settings, GST slabs, units, default modules and payment methods, its first location and the owner's membership are one transaction (a restaurant's set-up is its own); the selection and the time follow, each audited (`business.created`, `plan.selection_changed`, `plan.time_given`).
-Errors: 400 validation (unknown type, code, GSTIN, state code, PIN code, currency, time zone; a restaurant's format, code, state or owner); 400 the selection (a plan not of the type or no longer offered, a billing period, an add-on the type cannot use, "X needs Y. Add Y too.") or the access (an unknown kind, no reason, no date or one already past); 403 restaurant user; 409 the business code is taken (a restaurant's: "A restaurant with code … already exists"); 409 the owner's login is not active; 409 the mobile already has a login; 409 a restaurant's owner whose email or mobile has a login: "A restaurant needs a login of its own. Use another email and mobile number."; 409 `kind: "trial"` while the trial days are 0.
-
-#### `PUT /api/users/platform/businesses/:id/status`
-Permission: `platform.restaurants.manage`
-Query/Body: `status` (`active | inactive`, required)
-Returns: `{ id, name, status }`. A switched-off business drops out of its members' business lists, and its routes answer 404.
-Errors: 403; 404 business not found; 409 a restaurant's business, which is switched off and on with its restaurant (`PUT /api/users/platform/restaurants/:id/status`).
-
-#### `POST /api/users/platform/businesses/:id/owner-password`
-Permission: `platform.restaurants.manage`
-Query/Body: `userId` (id, required; one of that business's owners), `password` (8-72, required)
-Returns: `{ id, name }`. Their sessions end on their next request, their sign-in lockout is lifted, and they choose their own password at their next sign-in. A restaurant's admins are given a new password with `POST /api/users/platform/restaurants/:id/admin-password`.
-Errors: 403; 404 "That person is not an owner of this business".
-
-**The console's operations: settings, prices, a business's plan, payments and invoices.**
-Mounted from `modules/platform/routes/console.routes.js` inside the platform console's router; the service is `modules/platform/services/console.service.js`. Each route also refuses (403 "The platform console is for the platform's own accounts") a restaurant's user who holds `platform.restaurants.manage` through a role. Every change goes through the paid plans' services (`planSettings`, `planCatalogue`, `subscriptions`; [Your plan](#your-plan)), which check the rules and write the audit: settings and prices to `platform_audit`, a business's plan to its `business_audit`. Money is a decimal string of rupees with two decimals; dates are `YYYY-MM-DD`.
-
-#### `GET /api/users/platform/settings`
-Permission: `platform.restaurants.manage`
-Returns: `{ trialDays, graceDays, brandName, legalName, addressLine1, addressLine2, city, postalCode, gstin, stateCode, stateName, sampleGstin, pan, phone, email, website, sacCode, gstRate, invoicePrefix, supportPhone, supportEmail, grievanceOfficerName, grievanceOfficerEmail, upiId, upiPayeeName, bankName, bankAccountName, bankAccountNumber, bankIfsc, paymentNote, pricesReviewedAt, updatedAt, companyProblems[] }`. `sampleGstin` is true while the GSTIN is the sample one (22AAAAA0000A1ZC); `companyProblems` names what payments cannot be confirmed without (legal name, address, city, PIN code, GSTIN).
-Errors: 403.
-
-#### `PUT /api/users/platform/settings`
-Permission: `platform.restaurants.manage`
-Query/Body: any of the fields above but the state, `sampleGstin`, `pricesReviewedAt`, `updatedAt` and `companyProblems`; a field left out keeps its value, an empty one is cleared. `trialDays` and `graceDays` 0-30 (trial days apply to trials that start afterwards); `brandName` (required, <=80); `gstin` (required; its check character is checked; the sample one may be entered again); `pan` (the PAN inside a real GSTIN); `postalCode` (6 digits); `sacCode` (6 digits, required); `gstRate` (0-40, two decimals at most); `invoicePrefix` (2 to 5 letters, digits or dashes, starting with a letter and not ending in a digit, never SAMPLE); `upiId` (name@bank); `bankAccountNumber` (6-20 digits); `bankIfsc` (like SBIN0001234); the emails.
-Returns: the settings, as `GET`. Audited `platform.settings_updated` with the columns that changed.
-Errors: 400 a value it cannot take, with the field's name; 400 "Nothing to change"; 403.
-
-#### `GET /api/users/platform/prices`
-Permission: `platform.restaurants.manage`
-Returns: `{ plans: [{ code, businessType, name, description, monthly, yearly, isDefault, active, sortOrder, modules[] }], prices: [{ code, name, soldAs (module, application), monthly, yearly, available, types[] }], pricesReviewedAt, types: [{ code, name }] }`: every plan of every type (`modules` the module codes it includes), every optional module's price (`types` the business types that can use it, so a plan of a type may hold the modules whose `types` include it), and every business type. Prices are before GST; null is "not set yet".
-Errors: 403.
-
-#### `PUT /api/users/platform/prices`
-Permission: `platform.restaurants.manage`
-Query/Body: `plans[]` (`{ code, businessType, name, description?, monthly, yearly, isDefault, active, sortOrder?, modules[] }`; a new code is small letters, digits and `_`, 2 to 40; prices more than nothing with two decimals at most, or empty for "not set yet") and `prices[]` (`{ code, soldAs, monthly, yearly, available }`; 0 is free). Only what is sent changes; both may be empty.
-Returns: the price list, as `GET`. It stamps `pricesReviewedAt` even when nothing changed, and is audited `platform.prices_updated` with the codes sent. A price reaches a business at its next order: orders keep the prices they were made with.
-Errors: 400 a price that is not an amount, a plan priced at nothing, a default plan not offered, a plan's type changed or unknown, a plan or a module twice, no such module; 400 "Each business type needs a default plan"; 409 a module a plan's type cannot use ("A plan holds only modules its business type can use (not …)"); 403.
-
-#### `GET /api/users/platform/businesses/:id`
-Permission: `platform.restaurants.manage`
-Returns: `{ business: { id, name, code, type, typeName, status, currency, timezone, createdAt, restaurantId, restaurantCode, restaurantStatus, format, legalName, gstin, city, stateCode, stateName, lastActiveAt, today, placeOfSupplyCode, placeOfSupplyName }, owners: [{ id, name, email, mobile, lastLoginAt }], plan, selection, entitled[], catalogue, usage: { lastSignInAt, salesThisMonth, salesTotal, activeUsers, activeLocations }, periods: [{ id, kind, startsOn, endsOn, everything, planCode, planName, modules[], orderId, reason, createdAt, createdBy, cancelledAt, cancelledBy, cancelReason }], grants: [{ id, moduleCode, moduleName, kind, startsOn, endsOn, orderId, reason, createdAt, createdBy, cancelledAt, cancelReason }], orders[], invoices: [{ id, number, issuedOn, paidOn, orderId, total, sample }], moduleNames: { code: name }, sampleMode, gstRate }`. `plan`, `selection`, `entitled`, `catalogue` and each order (with its lines and payments; the latest 100) are as in [Your plan](#your-plan). `today` is the business's own date (a restaurant's own time zone); `placeOfSupplyCode` is the state its orders will name (its GSTIN's, a restaurant's own GSTIN included, else its state), null when it has neither yet. A restaurant's owners are its admins. `usage` is counts and dates only, never what was sold, to whom or for how much: the last sign-in of its people, its sales documents this month (its own month) and in all (a restaurant's bills, void ones left out), its active people and its active locations (a restaurant's outlets).
-Errors: 400 a business id that is not a number; 403; 404 business not found.
-
-#### `PUT /api/users/platform/businesses/:id/selection`
-Permission: `platform.restaurants.manage`
-Query/Body: `planCode`, `billingPeriod` (`month`, `year`), `addons[]`, as the owner's `PUT …/plan/selection`
-Returns: the selection. The platform may change it during given time, and may add a module owners are not offered. Audited `plan.selection_changed` (`by: "platform"`).
-Errors: 400 as the owner's; 403; 404.
-
-#### `POST /api/users/platform/businesses/:id/given-time`
-Permission: `platform.restaurants.manage`
-Query/Body: `endsOn` (a date, today or later) or `noEnd: true`; `everything: true`, or `planCode` (a plan of its type) and `modules[]` (on top of the plan's); `reason` (required, <=300); `replaceTrial` (true: a trial covering today is replaced too)
-Returns: 201, the access period made. It replaces given time covering today (cancelled with the reason; the new period keeps its start); otherwise it starts after the time the business already has. Audited `plan.time_given`.
-Errors: 400 no reason, no date or one before the time starts, a plan of another type; 403; 404; 409 the business already has given time with no end.
-
-#### `POST /api/users/platform/businesses/:id/given-addons`
-Permission: `platform.restaurants.manage`
-Query/Body: `modules[]` (modules or applications its type can use), `endsOn` (today or later), `reason` (required, <=300)
-Returns: 201, the add-on grants made, from today to `endsOn`. Audited `plan.addons_given`.
-Errors: 400 no module, no reason, a date already past, a module its type cannot use; 403; 404.
-
-#### `POST /api/users/platform/businesses/:id/orders`
-Permission: `platform.restaurants.manage`
-Query/Body: as the owner's `POST …/plan/orders` (`kind`, `modules[]` for an add-on order, `stateCode`)
-Returns: 201, the order, as the owner's. The platform may make one during given time that has an end; the order starts the day after it.
-Errors: as the owner's (but never `given_time`); 409 the business has given time with no end; 403; 404.
-
-#### `POST /api/users/platform/businesses/:id/payments`
-Permission: `platform.restaurants.manage`
-Query/Body: `orderId` (one of its open orders), `method` (`upi`, `bank`, `cash`, `cheque`), `reference` (required, <=100), `paidOn` (a date, not after the company's today)
-Returns: 201, `{ payment, order, invoice, period, grants }`: a payment the company received, entered and confirmed at once (as confirming below).
-Errors: 400 a method, reference or date it cannot take; 403; 404 the order is not its; 409 the order is already paid or cancelled; 409 a payment the owner entered for it is waiting (`reason: "payment_being_checked"`): confirm or reject that one; 409 the company's details are not complete (`reason: "company_incomplete"`).
-
-#### `GET /api/users/platform/payments`
-Permission: `platform.restaurants.manage`
-Query/Body: `status` (`pending`, `confirmed`, `rejected`), `from` and `to` (dates paid), `q` (business name or code, or the reference)
-Returns: `{ items: [{ id, businessId, businessName, businessCode, businessType, typeName, orderId, orderKind, orderStatus, planCode, billingPeriod, startsOn, endsOn, amount, method, reference, paidOn, status, submittedAt, submittedBy, decidedAt, decidedBy, decisionNote, recorded, invoiceId, invoiceNumber, invoiceSample }], pendingCount, openOrders: [{ id, businessId, businessName, businessCode, kind, planCode, billingPeriod, startsOn, endsOn, total, validUntil, createdAt, expired }], sampleMode }`. Payments being checked first, then the newest; at most 1,000. `recorded`: entered by the platform itself. `invoiceNumber`: the payment's tax invoice, else its SAMPLE one. `openOrders`: open orders with no payment being checked (`expired` past the 7 days its prices are held), at most 500. `sampleMode`: the GSTIN is the sample one.
-Errors: 400 an unknown status, a date that is not one; 403.
-
-#### `POST /api/users/platform/payments/:id/confirm`
-Permission: `platform.restaurants.manage`
-Returns: `{ payment, order, invoice, period, grants }` from `applyPayment`: the payment confirmed, its order paid, a paid period after the current end (or paid add-on grants to the period's end) and the invoice issued, in one transaction. Confirming it again (a second click, two people at once) returns what the first made and changes nothing. Audited `plan.payment_confirmed`.
-Errors: 403; 404 payment not found; 409 the payment was rejected, or its order is no longer open; 409 the company's details are not complete (`reason: "company_incomplete"`, `problems[]`).
-
-#### `POST /api/users/platform/payments/:id/reject`
-Permission: `platform.restaurants.manage`
-Query/Body: `reason` (required, <=500; the owner sees it)
-Returns: the payment, rejected. Its order stays open. Audited `plan.payment_rejected`.
-Errors: 400 no reason; 403; 404; 409 the payment is already confirmed or rejected.
-
-#### `GET /api/users/platform/invoices`
-Permission: `platform.restaurants.manage`
-Query/Body: `sample` (`false`, the default: tax invoices; `true`: SAMPLE ones), `from` and `to` (dates issued), `q` (number, business name or code, buyer's name or GSTIN)
-Returns: `{ items: [{ id, number, issuedOn, paidOn, businessId, businessName, businessCode, orderId, buyerName, buyerGstin, placeOfSupplyCode, placeOfSupplyName, gstRate, taxable, cgst, sgst, igst, total, sample, supplierGstin }], totals: { count, taxable, cgst, sgst, igst, total }, truncated, sampleCount, sampleMode }`: the register, in the order issued, at most 5,000 invoices (`truncated`: there were more, and `items` and `totals` are the first 5,000). The GST return is filed from the tax invoices; SAMPLE ones are never mixed in.
-Errors: 400 `sample` not true or false, a date that is not one; 403.
-
-#### `GET /api/users/platform/invoices/:id`
-Permission: `platform.restaurants.manage`
-Returns: the invoice as the owner's `GET …/plan/invoices/:invoiceId` gives it, with `businessName`, `businessCode` and `otherInvoice: { id, number, sample }` (the order's other invoice: the tax invoice issued for a sample, or the sample), for its print view.
-Errors: 400 an id that is not a number; 403; 404 invoice not found.
-
-#### `POST /api/users/platform/orders/:orderId/tax-invoice`
-Permission: `platform.restaurants.manage`
-Returns: 201, the tax invoice for a paid order whose only invoice is a SAMPLE one: from the real series, dated the day it is issued, naming the day the money came, with the order's total. Audited `plan.tax_invoice_issued`.
-Errors: 403; 404 order not found; 409 the GSTIN is still the sample one (`reason: "sample_gstin"`); 409 the company's details are not complete; 409 the order is not paid, has no SAMPLE invoice, or already has its tax invoice.
-
-### Users: platform dashboards
-Mounted with the console under `/api/users/platform` (modules/platform/routes/dashboards.routes.js), behind the same checks: `platform.restaurants.manage`, and never a login tied to a restaurant, whatever its role (403 "The platform console is for the platform's own accounts"). They read paid plans' records and change nothing but a lead's follow-up and notes, each written to `platform_audit`. Money is a decimal string of rupees with two decimals; the company's dates (invoices, enquiries, an order's age) are India's, a business's dates its own. How each figure is worked out: [BUSINESS_RULES.md › Paid plans](BUSINESS_RULES.md#paid-plans).
-
-#### `GET /api/users/platform/overview`
-Permission: `platform.restaurants.manage`
-Query/Body: none
-Returns: `{ today, money, states, funnel30, renewals, todo }`. `money`: `{ today, thisMonth, lastMonth, thisFy, fyStart, beforeGstThisMonth, gstThisMonth, byMonth: [{ month: "YYYY-MM", collected, beforeGst }] (the 12 months to this one, oldest first), sampleInvoices: { count, total }, mrr, arr, payingBusinesses }`: the company's tax invoices by the day they were issued, SAMPLE ones left out and counted in `sampleInvoices`; `mrr` the monthly recurring income of the businesses in paid time or in grace after it, `arr` twelve times it. `states`: how many businesses are in each state today, `{ trial, paid, given, grace, checking, ended, off }`. `funnel30`: the funnel below for the last 30 days. `renewals`: `{ in7: { count, value }, in30: { count, value }, endedThisMonthNotRenewed }`, paid time ending within 7 and 30 days with its renewals' value before GST. `todo`: `{ paymentsToConfirm, newEnquiries, taxInvoicesToIssue, companyProblems[], sampleGstin, pricesReviewed, paymentDetailsMissing }`: payments waiting, enquiries still `new`, paid orders with only a SAMPLE invoice, and what going live still needs.
-Errors: 403.
-
-#### `GET /api/users/platform/leads/funnel`
-Permission: `platform.restaurants.manage`
-Query/Body: `from`, `to` (dates: the trials' first days, and the days enquiries came in; the 30 days to today unless given), `type` (business type), `state` (GST state code), `ref` (source tag, any case), `plan` (plan code), `trialDays` (1-365), `by` (`type | state | ref | plan | trialDays`), `list` (the name of a number below)
-Returns: `{ from, to, filters, enquiries, enquiriesSignedUp, trialsStarted, fromEnquiries, direct, ownerAdded, platformAdded, activated, stillOnTrial, continued, continuedDuringTrial, continuedAfterTrial, stopped, stoppedLast30, conversion, avgDaysToPay, groups, choices }`. `conversion`: continued over continued and stopped, as a percentage with two decimals (`"66.67"`), null when no trial has finished; `avgDaysToPay`: to one decimal, null when none paid. `enquiries` and `enquiriesSignedUp` are null with `plan` or `trialDays`. `groups`, with `by`: `[{ key, label, trialsStarted, activated, stillOnTrial, continued, stopped, conversion }]`, most trials first; else null. `choices`: `{ types[], plans[], refs[], trialLengths[], states[] }` for the filters. With `list`: `{ bucket, from, to, filters, items }`, at most 1,000: for a trial's number, each business `{ businessId, name, code, businessType, typeName, ownerName, ownerMobile, ownerEmail, source (enquiry, signup, owner, platform), ref, leadId, stateCode, stateName, planCode, planName, trialStartsOn, trialEndsOn, trialDays, firstSaleOn, outcome (on_trial, continued, stopped), state, paidOn, daysToPay }`; for `enquiries` and `enquiriesSignedUp`, each lead as `GET /leads` gives it.
-Errors: 400 a date that is not a real one, `from` after `to`, an unknown `by` or `list`, a trial length that is not a whole number from 1 to 365, an unknown state code; 403.
-
-#### `GET /api/users/platform/leads`
-Permission: `platform.restaurants.manage`
-Query/Body: `status` (`new | contacted | not_interested`), `source` (`enquiry | signup`), `q` (<=100; name, mobile, email, business, city or source tag), `from`, `to` (the day it came in)
-Returns: `{ items, total }`, newest first, at most 500. A lead: `{ id, source, name, mobile, email, businessName, businessType, typeName, city, stateCode, stateName, message, ref, status, createdAt, updatedAt, consentAt, signedUpAt, business: { id, name, code, state } | null, outcome, notes: [{ id, note, createdAt, by }] }`: `outcome` is `not_signed_up`, or the state its business is in today; notes newest first.
-Errors: 400 an unknown status or source, a date that is not a real one; 403.
-
-#### `PUT /api/users/platform/leads/:id`
-Permission: `platform.restaurants.manage`
-Query/Body: `status` (`new | contacted | not_interested`, required)
-Returns: the lead. The same status again changes nothing; a change is audited `platform.lead_status_changed` with `{ from, to }`.
-Errors: 400 an unknown status or id; 403; 404 lead not found.
-
-#### `POST /api/users/platform/leads/:id/notes`
-Permission: `platform.restaurants.manage`
-Query/Body: `note` (required, <=2000)
-Returns: 201, `{ id, note, createdAt, by }`. Audited `platform.lead_note_added` with `{ noteId }`. A note is never changed or deleted.
-Errors: 400 a blank or too long note; 403; 404 lead not found.
-
-#### `GET /api/users/platform/reports/sales`
-Permission: `platform.restaurants.manage`
-Query/Body: `from`, `to` (the invoices' dates; this financial year to today unless given), `by` (`month | plan | module | application | type | state | kind | period`, default `month`)
-Returns: `{ from, to, by, rows: [{ key, label, invoices, taxable, gst, total }], totals: { invoices, taxable, gst, total }, sample: { invoices, total } }`, from the company's tax invoices alone (`sample` counts the SAMPLE ones left out). By `plan`, `module` or `application` a row is what the invoices' lines of that kind came to before GST (`gst` and `total` null); by anything else it is whole invoices. `kind`: `new` (a business's first paid plan), `renewal` or `add_on`; `period`: `month` or `year`; `state`: the place of supply. Months come in order, kinds as new, renewal, add-on, and the rest largest first.
-Errors: 400 an unknown `by`, a date that is not a real one, `from` after `to`; 403.
-
-#### `GET /api/users/platform/reports/renewals`
-Permission: `platform.restaurants.manage`
-Query/Body: `within` (1-365 days, default 30)
-Returns: `{ within, items, totals: { count, value } }`: paid time ending within the days, and paid time already in grace, soonest first, each `{ businessId, name, code, businessType, typeName, state, endsOn, graceEndsOn, daysLeft (negative in grace), planCode, planName, billingPeriod, value, ownerName, ownerMobile, ownerEmail, openOrder: { id, total, checking } | null }`. `value`: the business's selection (plan and add-ons, month or year) at today's prices, before GST.
-Errors: 400 `within` not a whole number from 1 to 365; 403.
-
-#### `GET /api/users/platform/reports/dues`
-Permission: `platform.restaurants.manage`
-Query/Body: none
-Returns: `{ today, items, bands: [{ band, label, count, total }], totals: { count, total } }`: every open order, oldest first, each `{ orderId, businessId, name, code, businessType, typeName, state, kind, billingPeriod, createdOn, validUntil, expired, taxable, total, ageDays, band, checking, ownerName, ownerMobile, ownerEmail }`; `band` `0-30`, `31-60`, `61-90` or `90+` days old; `checking`: a payment of it is being checked.
-Errors: 403.
+The platform console's routes, under `/api/users/platform`, are in [The platform console](#the-platform-console).
 
 ### Roles and permissions
 Mounted at `/api/roles` (routes/role.routes.js), all need a session. Lists show the restaurant's own roles plus shared built-in (system) roles. Built-in roles cannot be edited or deleted; copy them. You can only add permissions you hold yourself, and only remove permissions from (or switch off, or delete) a role whose permissions and holders are no stronger than you. The restaurant must keep an active user with `users.manage` + `roles.manage` (409). Role shape: `{ id, code, name, description, isSystem, status, permissions[], userCount }`.
@@ -4253,7 +4052,7 @@ Returns: `data = { types: { code: { name } }, modules[{ code, name, kind }], bus
 #### `POST /api/businesses`
 Permission: login, as the owner of an active business (or a restaurant's `RESTAURANT_ADMIN`, or the platform's own account)
 Query/Body: the business fields of `POST /api/users/platform/businesses` (`businessType`, `name`, `code`, `legalName`, `gstin`, `stateCode`, address, `phone`, `email`, `currency`, `timezone`, `locationName`, `locationCode`), without `owner`
-Returns: 201, the new business row. The caller becomes its owner. A restaurant is set up from the platform console instead.
+Returns: 201, the new business row. The caller becomes its owner, and the business starts a free trial of its own on its type's default plan ([Your plan](#your-plan)). A restaurant is set up from the platform console or the public site's sign-up instead (400).
 Errors: 400 validation (as the platform route); 403 "Only the owner of a business can add another business"; 409 the business code is taken.
 
 #### `POST /api/businesses/link-restaurant`
@@ -7781,40 +7580,6 @@ How the rules work: [BUSINESS_RULES.md › An owner's GST thresholds](BUSINESS_R
 | 404 | A business the person is not a member of |
 | 409 | A PAN recorded for a business that takes its PAN from its GSTIN, or whose GSTINs carry different PANs; the codes to fix asked for a business whose PAN the HSN rule does not apply to, now or from the next 1 April |
 
-## Your plan
-
-A business's paid plan, for its owner: its state and dates, its selection for the next order, orders with GST, payments entered by reference, and the company's invoices. One service (`backend/src/modules/platform/services/subscriptions.service.js`), two doors, both for the owner only:
-
-- `/api/businesses/:businessId/plan…` — a business's owner (its full-access role). Mounted in `routes/index.js` before the `/businesses` router; the business is opened as on every business route (404 for someone who is not a member, 403 for a member who is not the owner).
-- `/api/plan…` — the signed-in restaurant's owner (`restaurant.settings.manage`), for the restaurant's business (linked now if it was not yet).
-
-How the rules work: [BUSINESS_RULES.md › Paid plans](BUSINESS_RULES.md#paid-plans); the tables: [DATABASE.md › Paid plans](DATABASE.md#paid-plans). Money is a decimal string of rupees with two decimals; dates are `YYYY-MM-DD` on the business's own clock (a restaurant's, in its own time zone).
-
-**The plan's state** (`plan` below, from `business_plan_state()`): `{ state, accessEndsOn, trialEndsOn, graceEndsOn, checkingUntil, periodKind, everything, daysLeft }`. `state` is `trial`, `paid`, `given`, `grace`, `checking` (a payment entered within two days is being checked), `ended` (read-only), `off` (switched off) or `unmanaged` (a business made outside the app: nothing is enforced). `daysLeft` counts today to the end of the time it is in (the trial, the paid or given time, the grace, the check), both included; null when that has no end. Every member sees the state without prices: `GET /api/businesses/:businessId/context` carries `plan: { state, accessEndsOn, trialEndsOn, graceEndsOn, daysLeft }`, and a restaurant login's profile (`GET /api/auth/me`, and the session sign-in returns) carries `plan: { businessId, state, accessEndsOn, trialEndsOn, graceEndsOn, daysLeft }`, null for a restaurant not linked to its business yet and for anyone not tied to a restaurant.
-
-| Method and path (after the door) | Body | Returns |
-| --- | --- | --- |
-| `GET /` | — | `{ plan, selection, entitled[], catalogue, openOrder, orders[], payments[], invoices[], payTo, company, gstRate }`. `selection`: `{ planCode, planName, planOffered, billingPeriod, monthly, yearly, updatedAt, addons: [{ code, name, soldAs, monthly, yearly }] }`. `entitled`: the module codes the plan unlocks today. `catalogue`: `{ plans: [{ code, name, description, monthly, yearly, isDefault, modules: [{ code, name }] }], addons: [{ code, name, description, soldAs (module, application), monthly, yearly, available, recommended, requires[] }] }`, the type's active plans and its add-ons. `openOrder`: an order (below) or null. `orders[]`: `{ id, kind, planCode, billingPeriod, startsOn, endsOn, total, status, createdAt, paidAt }`; `payments[]` as below; `invoices[]`: `{ id, number, issuedOn, paidOn, orderId, total, sample }`. `payTo`: `{ upiId, upiPayee, bankName, bankAccountName, bankAccountNumber, bankIfsc, note, upiLink }`, `upiLink` the open order's `upi://pay?pa=…&pn=…&am=…&cu=INR&tn=Order <id>` (null without an open order or a UPI ID). `company`: `{ name, legalName, phone, email }` |
-| `PUT /selection` | `planCode` (an active plan of the business's type), `billingPeriod` (`month`, `year`), `addons[]` (module codes; one the plan includes is left out) | the selection. Free during a trial; after it, it shapes the next order only. An add-on must be one the type can use and owners may add, and every module it needs must be in the plan or among the add-ons. Audited `plan.selection_changed` |
-| `POST /orders` | `kind` (`subscription`, or `add_on` with `modules[]`), `stateCode` (optional: the GST state code, saved to Business settings when the business has none) | 201, the order: `{ id, kind, planCode, billingPeriod, startsOn, endsOn, modules[], validUntil, buyer: { name, gstin, addressLine1, addressLine2, city, postalCode, stateCode, stateName }, supplierStateCode, placeOfSupplyCode, placeOfSupply, gstRate, taxable, cgst, sgst, igst, total, status, createdAt, paidAt, cancelledAt, lines: [{ lineNo, itemKind (plan, module, application), itemCode, name, fullPrice, chargedDays, periodDays, amount }], payments[] }`. A subscription is the selection at full prices for one month or year, starting the day after the current time ends (in grace, the day after the old end; once ended, today). An add-on order, in paid time only, charges each module its full price × the days left ÷ the days in the period, from today to the period's end. The order replaces an older open one (cancelled) and holds its prices 7 days. Audited `plan.order_created`. An order with nothing to pay (add-ons priced at nothing) comes back `status: "paid"` with `paidAt`: what it holds is unlocked at once, with no payment and no invoice, an open order is left as it is, and it is audited `plan.order_granted` too |
-| `POST /orders/:orderId/payments` | `method` (`upi`, `bank`, `cash`, `cheque`), `reference` (required, ≤100), `paidOn` (a date, not in the future) | 201, the payment: `{ id, orderId, amount (the order's total), method, reference, paidOn, status: "pending", submittedAt, decidedAt, decisionNote }`. While it is being checked an ended business works for up to two days, once per order. Audited `plan.payment_submitted` |
-| `GET /invoices/:invoiceId` | — | the invoice, for its print view: `{ id, number, fiscalYear, businessId, orderId, paymentId, issuedOn, paidOn, supplier, buyer, placeOfSupply: { code, name }, lines: [{ lineNo, description, itemKind, itemCode, sac, fullPrice, chargedDays, periodDays, taxable }], taxable, cgst, sgst, igst, total, gstRate, sample, reverseCharge: false, signatory }`. A sample (`sample: true`, number `SAMPLE/<FY>/<n>`) prints "SAMPLE — NOT A TAX INVOICE" |
-
-The super admin confirms or rejects a payment, records one, gives time and add-ons and issues the tax invoice for an order invoiced as a sample through the same service (`applyPayment`, `rejectPayment`, `recordPayment`, `giveTime`, `giveAddons`, `issueTaxInvoice`; each writes its `business_audit` row: `plan.payment_confirmed`, `plan.payment_rejected`, `plan.time_given`, `plan.addons_given`, `plan.tax_invoice_issued`). Confirming is one idempotent transaction (the business row, then the order, then the invoice series): the payment confirmed, the order paid, a paid period after the current end (a subscription) or paid add-on grants to the period's end (an add-on order, its modules joining the selection), and the invoice issued from the series of the company's GSTIN and financial year (`SAMPLE` while the GSTIN is the sample one; a number is unique per company GSTIN). Confirming the same payment again returns what it made and changes nothing. A tax invoice issued later from a GSTIN in another state than the order's keeps the order's total tax: all of it as IGST, or CGST at half the rate and SGST the rest.
-
-**Errors**
-
-| Status | When |
-| --- | --- |
-| 400 | An unknown or inactive plan, or one of another type; a billing period other than month or year; an add-on the type cannot use, not offered to owners, or without a module it needs; an unknown order kind or GST state code; a payment method other than the four, a blank reference, a date paid that is not a date or is in the future |
-| 403 | Not the business's owner (a business), or not holding `restaurant.settings.manage` (a restaurant) |
-| 404 | A business the person is not a member of; an order or invoice not this business's |
-| 409 | During given time the owner changes the selection or orders: "Your access is arranged by <brand>. Contact us to change it." (`reason: "given_time"`); no state for GST (`reason: "state_required"`); a plan no longer offered; "Price not set yet …" (`reason: "price_not_set"`); an add-on order during the trial (`reason: "trial"`) or outside paid time (`reason: "not_paid_time"`), or for a module already unlocked; a renewal leaving out a module switched on now whose switch-off check fails, with that check's sentence (`reason: "module_in_use"`, `module`, `blockers[]`); a new order while a payment of the open one is being checked, or a second payment of an order (`reason: "payment_being_checked"`); a payment of an order already paid or cancelled; an order past its 7 days (`reason: "order_expired"`) |
-
-**Read-only (402).** A write (POST, PUT, PATCH, DELETE) to a business whose state is `ended` answers 402 `{ success: false, message: "This business's plan has ended. You can still see and export everything; renew in Your plan to add or change anything.", data: { reason: "plan_ended", businessId } }`. `authenticate` checks it on every signed-in request (`backend/src/middlewares/planGuard.js`), after the person is known; reads are never checked. The business is the one in the path for `/api/businesses/:businessId/…` (and the routers mounted before `/businesses` with the same shape), otherwise the signed-in restaurant's business. The path is read as the router reads it: the path of the request's URL (an absolute URL too), each segment decoded and an id read as a number (`5.0`, `+5`, `%35`, `0x5` and `5e0` are business 5), both for the business and for the list below. Always allowed: `/api/auth/…` (sign-in, the session, one's own profile, password, PIN and two-step sign-in, a manager's approval), Your plan (`/api/plan…`, `/api/businesses/:id/plan…`), `POST /api/businesses` (another business of one's own), `POST /api/businesses/:id/open`, `POST /api/notifications/read|unread|read-all`, personal data (`/api/privacy…`, `/api/businesses/:id/privacy…`), the platform console (`/api/users/platform…`) and the super admin, and these requests that only print or preview: `POST /api/bills/:id/print`, `POST /api/bills/:id/adjust/check`, `POST /api/kitchen/kots/:id/print`, `POST /api/kitchen/slips/:id/print`, `POST /api/restaurants/current/features/:code/preview`, `POST /api/staff/tips/preview`, `POST …/agri/licence-check`, `POST …/agri/counter-check`, `POST …/hardware/calculate`, `POST …/clinic/visits/:id/prescription-check`, `POST …/jewellery/bills/preview` and `POST …/jewellery/old-gold/preview`. The list is `planGuard.ALWAYS_ALLOWED`; `backend/tests/integration/paid-plans-read-only.test.js` pins it.
-
-**The guests' pages.** While a restaurant's business has ended or is switched off, its table QR code takes no orders or calls (`POST /api/public/tables/:token/orders`, `…/calls`), its online ordering page no orders (`POST /api/public/online/:token/orders`) and its booking link no bookings (`POST /api/public/booking/:token/requests`): 409 `{ reason: "not_taking_orders" }`, "This restaurant isn't taking orders online right now." Their menus and status pages still answer.
-
 ## The platform's public site
 
 What the platform's public pages in the staff app (`/welcome`, `/pricing`, `/signup`, `/terms`, `/privacy-policy`, `/refunds`, `/contact`) read and send, with no login: `backend/src/modules/platform/routes/site.routes.js` and `services/site.service.js`. Money is a decimal string of rupees with two decimals, before GST.
@@ -7837,3 +7602,272 @@ What the platform's public pages in the staff app (`/welcome`, `/pricing`, `/sig
 | 400 | `website` not empty: "This form could not be sent. Please try again." (nothing is made); the body not a JSON object; `acceptedTerms` not `true`: "Accept the terms of service and the privacy policy to sign up"; `consent` not `true`: "Tick the box to agree to be contacted, so we can call you back"; a name, email, password, mobile ("Mobile is required", or the mobile's problem), business name or city missing or not valid; an unknown type ("Choose the type of your business") or restaurant format ("Choose the restaurant's format"); no state, or 97 or 99 ("Choose your business's state"); a GSTIN not valid, or of another state ("The state must be the one in the GSTIN (Maharashtra)"); a plan not on offer for the type ("That plan is not offered for this type of business"); a billing period other than month or year; an add-on the type cannot use, owners may not add, or without a module it needs ("Exchanges needs Stock. Add Stock too.") |
 | 409 | Sign-up: the email or the mobile number already has a login (a mobile as sign-in reads it, by its last ten digits): "That email already has a login. Sign in instead." / "That mobile number already has a login. Sign in instead."; for a restaurant, either: "A restaurant needs a login of its own. Use another email and mobile number, or contact us." Two sign-ups with one email at the same moment: the second is answered so. |
 | 429 | A form sent more than `SITE_FORM_LIMIT` times in an hour from one address, or the reads more than 300 times in a minute. |
+
+## Your plan
+
+A business's paid plan, for its owner: its state and dates, its selection for the next order, orders with GST, payments entered by reference, and the company's invoices. One service (`backend/src/modules/platform/services/subscriptions.service.js`), two doors, both for the owner only:
+
+- `/api/businesses/:businessId/plan…` — a business's owner (its full-access role). Mounted in `routes/index.js` before the `/businesses` router; the business is opened as on every business route (404 for someone who is not a member, 403 for a member who is not the owner).
+- `/api/plan…` — the signed-in restaurant's owner (`restaurant.settings.manage`), for the restaurant's business (linked now if it was not yet).
+
+How the rules work: [BUSINESS_RULES.md › Paid plans](BUSINESS_RULES.md#paid-plans); the tables: [DATABASE.md › Paid plans](DATABASE.md#paid-plans). Money is a decimal string of rupees with two decimals; dates are `YYYY-MM-DD` on the business's own clock (a restaurant's, in its own time zone).
+
+**The plan's state** (`plan` below, from `business_plan_state()`): `{ state, accessEndsOn, trialEndsOn, graceEndsOn, checkingUntil, periodKind, everything, daysLeft }`. `state` is `trial`, `paid`, `given`, `grace`, `checking` (a payment entered within two days is being checked), `ended` (read-only), `off` (switched off) or `unmanaged` (a business made outside the app: nothing is enforced). `daysLeft` counts today to the end of the time it is in (the trial, the paid or given time, the grace, the check), both included; null when that has no end. Every member sees the state without prices: `GET /api/businesses/:businessId/context` carries `plan: { state, accessEndsOn, trialEndsOn, graceEndsOn, daysLeft }`, and a restaurant login's profile (`GET /api/auth/me`, and the session sign-in returns) carries `plan: { businessId, state, accessEndsOn, trialEndsOn, graceEndsOn, daysLeft }`, null for a restaurant not linked to its business yet and for anyone not tied to a restaurant.
+
+| Method and path (after the door) | Body | Returns |
+| --- | --- | --- |
+| `GET /` | — | `{ plan, selection, entitled[], catalogue, openOrder, orders[], payments[], invoices[], payTo, company, gstRate }`. `selection`: `{ planCode, planName, planOffered, billingPeriod, monthly, yearly, updatedAt, addons: [{ code, name, soldAs, monthly, yearly }] }`. `entitled`: the module codes the plan unlocks today. `catalogue`: `{ plans: [{ code, name, description, monthly, yearly, isDefault, modules: [{ code, name }] }], addons: [{ code, name, description, soldAs (module, application), monthly, yearly, available, recommended, requires[] }] }`, the type's active plans and its add-ons. `openOrder`: an order (below) or null. `orders[]`: `{ id, kind, planCode, billingPeriod, startsOn, endsOn, total, status, createdAt, paidAt }`; `payments[]` as below; `invoices[]`: `{ id, number, issuedOn, paidOn, orderId, total, sample }`. `payTo`: `{ upiId, upiPayee, bankName, bankAccountName, bankAccountNumber, bankIfsc, note, upiLink }`, `upiLink` the open order's `upi://pay?pa=…&pn=…&am=…&cu=INR&tn=Order <id>` (null without an open order or a UPI ID). `company`: `{ name, legalName, phone, email }` |
+| `PUT /selection` | `planCode` (an active plan of the business's type), `billingPeriod` (`month`, `year`), `addons[]` (module codes; one the plan includes is left out) | the selection. Free during a trial; after it, it shapes the next order only. An add-on must be one the type can use and owners may add, and every module it needs must be in the plan or among the add-ons. Audited `plan.selection_changed` |
+| `POST /orders` | `kind` (`subscription`, or `add_on` with `modules[]`), `stateCode` (optional: the GST state code, saved to Business settings when the business has none) | 201, the order: `{ id, kind, planCode, billingPeriod, startsOn, endsOn, modules[], validUntil, buyer: { name, gstin, addressLine1, addressLine2, city, postalCode, stateCode, stateName }, supplierStateCode, placeOfSupplyCode, placeOfSupply, gstRate, taxable, cgst, sgst, igst, total, status, createdAt, paidAt, cancelledAt, lines: [{ lineNo, itemKind (plan, module, application), itemCode, name, fullPrice, chargedDays, periodDays, amount }], payments[] }`. A subscription is the selection at full prices for one month or year, starting the day after the current time ends (in grace, the day after the old end; once ended, today). An add-on order, in paid time only, charges each module its full price × the days left ÷ the days in the period, from today to the period's end. The order replaces an older open one (cancelled) and holds its prices 7 days. Audited `plan.order_created`. An order with nothing to pay (add-ons priced at nothing) comes back `status: "paid"` with `paidAt`: what it holds is unlocked at once, with no payment and no invoice, an open order is left as it is, and it is audited `plan.order_granted` too |
+| `POST /orders/:orderId/payments` | `method` (`upi`, `bank`, `cash`, `cheque`), `reference` (required, ≤100), `paidOn` (a date, not in the future) | 201, the payment: `{ id, orderId, amount (the order's total), method, reference, paidOn, status: "pending", submittedAt, decidedAt, decisionNote }`. While it is being checked an ended business works for up to two days, once per order. Audited `plan.payment_submitted` |
+| `GET /invoices/:invoiceId` | — | the invoice, for its print view: `{ id, number, fiscalYear, businessId, orderId, paymentId, issuedOn, paidOn, supplier, buyer, placeOfSupply: { code, name }, lines: [{ lineNo, description, itemKind, itemCode, sac, fullPrice, chargedDays, periodDays, taxable }], taxable, cgst, sgst, igst, total, gstRate, sample, reverseCharge: false, signatory }`. A sample (`sample: true`, number `SAMPLE/<FY>/<n>`) prints "SAMPLE — NOT A TAX INVOICE" |
+
+The super admin ([The platform console](#the-platform-console)) confirms or rejects a payment, records one, gives time and add-ons and issues the tax invoice for an order invoiced as a sample through the same service (`applyPayment`, `rejectPayment`, `recordPayment`, `giveTime`, `giveAddons`, `issueTaxInvoice`; each writes its `business_audit` row: `plan.payment_confirmed`, `plan.payment_rejected`, `plan.time_given`, `plan.addons_given`, `plan.tax_invoice_issued`). Confirming is one idempotent transaction (the business row, then the order, then the invoice series): the payment confirmed, the order paid, a paid period after the current end (a subscription) or paid add-on grants to the period's end (an add-on order, its modules joining the selection), and the invoice issued from the series of the company's GSTIN and financial year (`SAMPLE` while the GSTIN is the sample one; a number is unique per company GSTIN). Confirming the same payment again returns what it made and changes nothing. A tax invoice issued later from a GSTIN in another state than the order's keeps the order's total tax: all of it as IGST, or CGST at half the rate and SGST the rest.
+
+**Errors**
+
+| Status | When |
+| --- | --- |
+| 400 | An unknown or inactive plan, or one of another type; a billing period other than month or year; an add-on the type cannot use, not offered to owners, or without a module it needs; an unknown order kind or GST state code; a payment method other than the four, a blank reference, a date paid that is not a date or is in the future |
+| 403 | Not the business's owner (a business), or not holding `restaurant.settings.manage` (a restaurant) |
+| 404 | A business the person is not a member of; an order or invoice not this business's |
+| 409 | During given time the owner changes the selection or orders: "Your access is arranged by <brand>. Contact us to change it." (`reason: "given_time"`); no state for GST (`reason: "state_required"`); a plan no longer offered; "Price not set yet …" (`reason: "price_not_set"`); an add-on order during the trial (`reason: "trial"`) or outside paid time (`reason: "not_paid_time"`), or for a module already unlocked; a renewal leaving out a module switched on now whose switch-off check fails, with that check's sentence (`reason: "module_in_use"`, `module`, `blockers[]`); a new order while a payment of the open one is being checked, or a second payment of an order (`reason: "payment_being_checked"`); a payment of an order already paid or cancelled; an order past its 7 days (`reason: "order_expired"`) |
+
+**Read-only (402).** A write (POST, PUT, PATCH, DELETE) to a business whose state is `ended` answers 402 `{ success: false, message: "This business's plan has ended. You can still see and export everything; renew in Your plan to add or change anything.", data: { reason: "plan_ended", businessId } }`. `authenticate` checks it on every signed-in request (`backend/src/middlewares/planGuard.js`), after the person is known; reads are never checked. The business is the one in the path for `/api/businesses/:businessId/…` (and the routers mounted before `/businesses` with the same shape), otherwise the signed-in restaurant's business. The path is read as the router reads it: the path of the request's URL (an absolute URL too), each segment decoded and an id read as a number (`5.0`, `+5`, `%35`, `0x5` and `5e0` are business 5), both for the business and for the list below. Always allowed: `/api/auth/…` (sign-in, the session, one's own profile, password, PIN and two-step sign-in, a manager's approval), Your plan (`/api/plan…`, `/api/businesses/:id/plan…`), `POST /api/businesses` (another business of one's own), `POST /api/businesses/:id/open`, `POST /api/notifications/read|unread|read-all`, personal data (`/api/privacy…`, `/api/businesses/:id/privacy…`), the platform console (`/api/users/platform…`) and the super admin, and these requests that only print or preview: `POST /api/bills/:id/print`, `POST /api/bills/:id/adjust/check`, `POST /api/kitchen/kots/:id/print`, `POST /api/kitchen/slips/:id/print`, `POST /api/restaurants/current/features/:code/preview`, `POST /api/staff/tips/preview`, `POST …/agri/licence-check`, `POST …/agri/counter-check`, `POST …/hardware/calculate`, `POST …/clinic/visits/:id/prescription-check`, `POST …/jewellery/bills/preview` and `POST …/jewellery/old-gold/preview`. The list is `planGuard.ALWAYS_ALLOWED`; `backend/tests/integration/paid-plans-read-only.test.js` pins it.
+
+**The guests' pages.** While a restaurant's business has ended or is switched off, its table QR code takes no orders or calls (`POST /api/public/tables/:token/orders`, `…/calls`), its online ordering page no orders (`POST /api/public/online/:token/orders`) and its booking link no bookings (`POST /api/public/booking/:token/requests`): 409 `{ reason: "not_taking_orders" }`, "This restaurant isn't taking orders online right now." Their menus and status pages still answer.
+
+## The platform console
+
+For the platform's Super Admin: the routes behind the *Platform* screens of the staff app ([ADMIN_GUIDE.md › The first platform login and the platform screens](ADMIN_GUIDE.md#the-first-platform-login-and-the-platform-screens)), in the order of its menu. Mounted at `/api/users/platform`, after `authenticate`, from `modules/platform/routes/platform.routes.js` (restaurants and businesses), which mounts `console.routes.js` (a business's page and its plan, payments, invoices, settings and prices; service `console.service.js`) and `dashboards.routes.js` (the overview, leads and the free-trial funnel, the reports; service `dashboards.service.js`). Permission `platform.restaurants.manage` (Super Admin only; no restaurant can grant it), and the caller must not belong to a restaurant, whatever role it holds (403 "The platform console is for the platform's own accounts"). The first Super Admin login is made on the server with `npm --prefix backend run user:create`, leaving the restaurant code empty (see [README.md](../README.md)).
+
+Every change goes through the service that keeps its rules and writes its audit: a restaurant's to the restaurant's activity log under "<name> (platform)"; a business's, its plan included (`subscriptions`, the service of [Your plan](#your-plan)), to that business's `business_audit`; the platform's settings and prices (`planSettings`, `planCatalogue`) and a lead's follow-up and notes to `platform_audit`. The overview, the funnel and the reports read and change nothing. Money is a decimal string of rupees with two decimals; dates are `YYYY-MM-DD`, the company's (invoices, enquiries, an order's age) on India's clock and a business's on its own. How each figure is worked out: [BUSINESS_RULES.md › Paid plans](BUSINESS_RULES.md#paid-plans).
+
+### Platform › Overview
+
+The screen: [ADMIN_GUIDE.md › Platform › Overview](ADMIN_GUIDE.md#platform--overview).
+
+#### `GET /api/users/platform/overview`
+Permission: `platform.restaurants.manage`
+Query/Body: none
+Returns: `{ today, money, states, funnel30, renewals, todo }`. `money`: `{ today, thisMonth, lastMonth, thisFy, fyStart, beforeGstThisMonth, gstThisMonth, byMonth: [{ month: "YYYY-MM", collected, beforeGst }] (the 12 months to this one, oldest first), sampleInvoices: { count, total }, mrr, arr, payingBusinesses }`: the company's tax invoices by the day they were issued, SAMPLE ones left out and counted in `sampleInvoices`; `mrr` the monthly recurring income of the businesses in paid time or in grace after it, `arr` twelve times it. `states`: how many businesses are in each state today, `{ trial, paid, given, grace, checking, ended, off }`. `funnel30`: the funnel below for the last 30 days. `renewals`: `{ in7: { count, value }, in30: { count, value }, endedThisMonthNotRenewed }`, paid time ending within 7 and 30 days with its renewals' value before GST. `todo`: `{ paymentsToConfirm, newEnquiries, taxInvoicesToIssue, companyProblems[], sampleGstin, pricesReviewed, paymentDetailsMissing }`: payments waiting, enquiries still `new`, paid orders with only a SAMPLE invoice, and what going live still needs.
+Errors: 403.
+
+### Platform › Businesses
+
+The screen: [ADMIN_GUIDE.md › Platform › Businesses](ADMIN_GUIDE.md#platform--businesses). The list and a new business, then a business's page and what the platform does there ([A business's page](ADMIN_GUIDE.md#a-businesss-page)).
+
+#### `GET /api/users/platform/businesses`
+Permission: `platform.restaurants.manage`
+Query/Body: `q` (<=100; name, code, city or GSTIN), `type` (a business type code), `status` (`active | inactive`), `state` (`unmanaged`, `off`, `trial`, `paid`, `given`, `grace`, `checking`, `ended`), `plan` (a plan code: the one its next order holds), `endsWithin` (0-3650 whole days: time that ends from the business's today to that many days later)
+Returns: `{ items: [{ id, name, code, business_type, type_name, status, currency, timezone, created_at, restaurant_id, format, gstin, city, state_code, state_name, state, access_ends_on, trial_ends_on, grace_ends_on, period_kind, everything, plan_code, plan_name, billing_period, addons, locations, people, owners: [{ id, name, email }], last_active_at }], types: [{ code, name }], plans: [{ code, name, businessType, active }] }`: every business, restaurants included, newest first, at most 500. `state` and its dates are `business_plan_state()`'s ([Your plan](#your-plan)); `addons` counts the add-ons of its next order; `last_active_at` is the latest sign-in of its people or the last time one of them opened it. For a restaurant's business, `restaurant_id` and `format` are the restaurant's, `owners` its admins, `people` its active logins and `locations` its active outlets.
+Errors: 400 an unknown `state`, or `endsWithin` not a whole number from 0 to 3650; 403 restaurant user.
+
+#### `POST /api/users/platform/businesses`
+Permission: `platform.restaurants.manage`
+Query/Body: `businessType` (required; any type), `name` (required, <=150), `code` (required, 2-40 letters, digits and dashes, spaces become dashes, stored upper case), `legalName`, `gstin` (validated), `stateCode` (2 digits; defaults to the GSTIN's and must match it), `addressLine1`, `addressLine2`, `city`, `postalCode` (6 digits), `phone`, `email`, `currency` (ISO code, default `INR`), `timezone` (default `Asia/Kolkata`), `locationName` (default "Main store"), `locationCode` (default `MAIN`), `owner: { email (required), name, password (8-72), mobile? }`. An email that already has an active login makes that person the owner; otherwise `name` and `password` are required and a new login is made, which chooses its own password at its first sign-in.
+- **A restaurant** (`businessType: "restaurant"`) runs the restaurant's own set-up, as `POST /api/users/platform/restaurants` does: `format` (`restaurant` default, `cafe`, `bakery`, `cloud_kitchen`), `code` (2-30 letters, digits, `-` and `_`), `phone` (<=20), `email`, `timezone`, and the address lines, city and PIN code, joined into the restaurant's address; `stateCode` (a GST state code), the address, city, PIN code, phone and email also go on its business's settings (the state is the place of supply of the platform's invoices to it). Its format's set-up comes once its time is settled, so its features are switched on under the plan it was given; those the plan leaves out stay off and are named in `restaurant.skipped`. `legalName`, `gstin`, `currency` and the location are not taken. Its `owner` (`name`, `email`, `password`, `mobile?`) is always a new login: a restaurant's people belong to that restaurant alone.
+- `selection` (optional): `{ planCode, billingPeriod (month, year), addons[] }`, the plan, billing and add-ons of its next order, saved as `PUT /api/users/platform/businesses/:id/selection` saves them.
+- `access` (optional): `{ kind, endsOn, reason, everything }`. `kind: "until"` (with `endsOn`, today or later on the business's clock) and `"no_end"` give time, with `reason` (<=300), as `POST /api/users/platform/businesses/:id/given-time` does with `replaceTrial`: the trial every new business starts with is cancelled with that reason and the time starts the day it began, unlocking everything its type offers (`everything: true`) or the selection's plan (without a selection, the type's default) and add-ons. `kind: "trial"` keeps the trial. Without `access` the business keeps what it started with: a trial, or nothing when the trial days are 0.
+
+The selection and the access are checked before anything is made, with the same rules as the routes they stand for, so a refusal leaves nothing behind.
+Returns: 201, `{ business, owner: { id, name, created }, plan, restaurant? }`: `plan` is the state as in [Your plan](#your-plan); a restaurant adds `restaurant: { id, code, format, skipped: [{ feature, enabled, reason }] }`. The business with its roles, settings, GST slabs, units, default modules and payment methods, its first location and the owner's membership are one transaction (a restaurant's set-up is its own); the selection and the time follow, each audited (`business.created`, `plan.selection_changed`, `plan.time_given`).
+Errors: 400 validation (unknown type, code, GSTIN, state code, PIN code, currency, time zone; a restaurant's format, code, state or owner); 400 the selection (a plan not of the type or no longer offered, a billing period, an add-on the type cannot use, "X needs Y. Add Y too.") or the access (an unknown kind, no reason, no date or one already past); 403 restaurant user; 409 the business code is taken (a restaurant's: "A restaurant with code … already exists"); 409 the owner's login is not active; 409 the mobile already has a login; 409 a restaurant's owner whose email or mobile has a login: "A restaurant needs a login of its own. Use another email and mobile number."; 409 `kind: "trial"` while the trial days are 0.
+
+#### `GET /api/users/platform/businesses/:id`
+Permission: `platform.restaurants.manage`
+Returns: `{ business: { id, name, code, type, typeName, status, currency, timezone, createdAt, restaurantId, restaurantCode, restaurantStatus, format, legalName, gstin, city, stateCode, stateName, lastActiveAt, today, placeOfSupplyCode, placeOfSupplyName }, owners: [{ id, name, email, mobile, lastLoginAt }], plan, selection, entitled[], catalogue, usage: { lastSignInAt, salesThisMonth, salesTotal, activeUsers, activeLocations }, periods: [{ id, kind, startsOn, endsOn, everything, planCode, planName, modules[], orderId, reason, createdAt, createdBy, cancelledAt, cancelledBy, cancelReason }], grants: [{ id, moduleCode, moduleName, kind, startsOn, endsOn, orderId, reason, createdAt, createdBy, cancelledAt, cancelReason }], orders[], invoices: [{ id, number, issuedOn, paidOn, orderId, total, sample }], moduleNames: { code: name }, sampleMode, gstRate }`. `plan`, `selection`, `entitled`, `catalogue` and each order (with its lines and payments; the latest 100) are as in [Your plan](#your-plan). `today` is the business's own date (a restaurant's own time zone); `placeOfSupplyCode` is the state its orders will name (its GSTIN's, a restaurant's own GSTIN included, else its state), null when it has neither yet. A restaurant's owners are its admins. `usage` is counts and dates only, never what was sold, to whom or for how much: the last sign-in of its people, its sales documents this month (its own month) and in all (a restaurant's bills, void ones left out), its active people and its active locations (a restaurant's outlets).
+Errors: 400 a business id that is not a number; 403; 404 business not found.
+
+#### `PUT /api/users/platform/businesses/:id/selection`
+Permission: `platform.restaurants.manage`
+Query/Body: `planCode`, `billingPeriod` (`month`, `year`), `addons[]`, as the owner's `PUT …/plan/selection`
+Returns: the selection. The platform may change it during given time, and may add a module owners are not offered. Audited `plan.selection_changed` (`by: "platform"`).
+Errors: 400 as the owner's; 403; 404.
+
+#### `POST /api/users/platform/businesses/:id/given-time`
+Permission: `platform.restaurants.manage`
+Query/Body: `endsOn` (a date, today or later) or `noEnd: true`; `everything: true`, or `planCode` (a plan of its type) and `modules[]` (on top of the plan's); `reason` (required, <=300); `replaceTrial` (true: a trial covering today is replaced too)
+Returns: 201, the access period made. It replaces given time covering today (cancelled with the reason; the new period keeps its start); otherwise it starts after the time the business already has. Audited `plan.time_given`.
+Errors: 400 no reason, no date or one before the time starts, a plan of another type; 403; 404; 409 the business already has given time with no end.
+
+#### `POST /api/users/platform/businesses/:id/given-addons`
+Permission: `platform.restaurants.manage`
+Query/Body: `modules[]` (modules or applications its type can use), `endsOn` (today or later), `reason` (required, <=300)
+Returns: 201, the add-on grants made, from today to `endsOn`. Audited `plan.addons_given`.
+Errors: 400 no module, no reason, a date already past, a module its type cannot use; 403; 404.
+
+#### `POST /api/users/platform/businesses/:id/orders`
+Permission: `platform.restaurants.manage`
+Query/Body: as the owner's `POST …/plan/orders` (`kind`, `modules[]` for an add-on order, `stateCode`)
+Returns: 201, the order, as the owner's. The platform may make one during given time that has an end; the order starts the day after it.
+Errors: as the owner's (but never `given_time`); 409 the business has given time with no end; 403; 404.
+
+#### `POST /api/users/platform/businesses/:id/payments`
+Permission: `platform.restaurants.manage`
+Query/Body: `orderId` (one of its open orders), `method` (`upi`, `bank`, `cash`, `cheque`), `reference` (required, <=100), `paidOn` (a date, not after the company's today)
+Returns: 201, `{ payment, order, invoice, period, grants }`: a payment the company received, entered and confirmed at once (as confirming below).
+Errors: 400 a method, reference or date it cannot take; 403; 404 the order is not its; 409 the order is already paid or cancelled; 409 a payment the owner entered for it is waiting (`reason: "payment_being_checked"`): confirm or reject that one; 409 the company's details are not complete (`reason: "company_incomplete"`).
+
+#### `PUT /api/users/platform/businesses/:id/status`
+Permission: `platform.restaurants.manage`
+Query/Body: `status` (`active | inactive`, required)
+Returns: `{ id, name, status }`. A switched-off business drops out of its members' business lists, and its routes answer 404.
+Errors: 403; 404 business not found; 409 a restaurant's business, which is switched off and on with its restaurant (`PUT /api/users/platform/restaurants/:id/status`).
+
+#### `POST /api/users/platform/businesses/:id/owner-password`
+Permission: `platform.restaurants.manage`
+Query/Body: `userId` (id, required; one of that business's owners), `password` (8-72, required)
+Returns: `{ id, name }`. Their sessions end on their next request, their sign-in lockout is lifted, and they choose their own password at their next sign-in. A restaurant's admins are given a new password with `POST /api/users/platform/restaurants/:id/admin-password`.
+Errors: 403; 404 "That person is not an owner of this business".
+
+### Platform › Restaurants
+
+The screen: [ADMIN_GUIDE.md › Platform › Restaurants](ADMIN_GUIDE.md#platform--restaurants).
+
+#### `GET /api/users/platform/restaurants`
+Permission: `platform.restaurants.manage`
+Query/Body: `status` (`active | inactive`), `search` (<=100, name or code), `limit` (1-200, default 50), `offset`
+Returns: `{ items: [{ id, name, code, status, statusLabel, contact, email, outlets, users, activeUsers, lastActivity, createdAt }], total, limit, offset, counts }`.
+Errors: 403 restaurant user.
+
+#### `POST /api/users/platform/restaurants`
+Permission: `platform.restaurants.manage`
+Query/Body: `name` (required, <=150), `code` (required, 2-30 letters/digits/`_-`, stored upper case), `contact`, `email`, `address`, `timezone` (default `Asia/Kolkata`), `invoicePrefix` (default `INV`, `A-Z0-9/-`, <=10), `orderPrefix` (default `ORD`), `format` (`restaurant` default, `cafe`, `bakery`, `cloud_kitchen`), `admin: { name, email, mobile?, password (8-72) }` (required)
+Returns: 201, `{ id, adminId, code, name, defaults, format }`. One transaction: GST rates, settings, delivery channels, kitchen station, the first Restaurant Admin, who chooses their own password at the first sign-in, and the business the restaurant appears as, with its plan and its trial ([Your plan](#your-plan)). A café, bakery or cloud kitchen then gets its format's starting setup, as `PUT /api/restaurants/current/format` gives it.
+Errors: 400 validation (code, prefixes, timezone); 403 restaurant user; 409 code taken; 409 admin email taken.
+
+#### `PUT /api/users/platform/restaurants/:id/status`
+Permission: `platform.restaurants.manage`
+Query/Body: `status` (`active | inactive`, required)
+Returns: the restaurant after the change. Switched off, all its logins are refused (`restaurant_inactive`), open sessions on their next request.
+Errors: 403; 404 restaurant not found; 409 already in that status.
+
+#### `GET /api/users/platform/restaurants/:id/admins`
+Permission: `platform.restaurants.manage`
+Query/Body: none
+Returns: `{ restaurant, admins: [{ id, name, email, mobile, status, lastLoginAt, locked }] }` (admins = users holding both `users.manage` and `roles.manage`).
+Errors: 403; 404 restaurant not found.
+
+#### `POST /api/users/platform/restaurants/:id/admin-password`
+Permission: `platform.restaurants.manage`
+Query/Body: `userId` (id, required; one of that restaurant's admins), `password` (8-72, required)
+Returns: `{ id, name }`. Their sessions end, lockout lifted, 30-day two-step trust ended (two-step stays on); they choose their own password at their next sign-in.
+Errors: 403; 404 restaurant not found; 404 not an admin of that restaurant.
+
+### Platform › Leads & trials
+
+The screen: [ADMIN_GUIDE.md › Platform › Leads & trials](ADMIN_GUIDE.md#platform--leads--trials).
+
+#### `GET /api/users/platform/leads/funnel`
+Permission: `platform.restaurants.manage`
+Query/Body: `from`, `to` (dates: the trials' first days, and the days enquiries came in; the 30 days to today unless given), `type` (business type), `state` (GST state code), `ref` (source tag, any case), `plan` (plan code), `trialDays` (1-365), `by` (`type | state | ref | plan | trialDays`), `list` (the name of a number below)
+Returns: `{ from, to, filters, enquiries, enquiriesSignedUp, trialsStarted, fromEnquiries, direct, ownerAdded, platformAdded, activated, stillOnTrial, continued, continuedDuringTrial, continuedAfterTrial, stopped, stoppedLast30, conversion, avgDaysToPay, groups, choices }`. `conversion`: continued over continued and stopped, as a percentage with two decimals (`"66.67"`), null when no trial has finished; `avgDaysToPay`: to one decimal, null when none paid. `enquiries` and `enquiriesSignedUp` are null with `plan` or `trialDays`. `groups`, with `by`: `[{ key, label, trialsStarted, activated, stillOnTrial, continued, stopped, conversion }]`, most trials first; else null. `choices`: `{ types[], plans[], refs[], trialLengths[], states[] }` for the filters. With `list`: `{ bucket, from, to, filters, items }`, at most 1,000: for a trial's number, each business `{ businessId, name, code, businessType, typeName, ownerName, ownerMobile, ownerEmail, source (enquiry, signup, owner, platform), ref, leadId, stateCode, stateName, planCode, planName, trialStartsOn, trialEndsOn, trialDays, firstSaleOn, outcome (on_trial, continued, stopped), state, paidOn, daysToPay }`; for `enquiries` and `enquiriesSignedUp`, each lead as `GET /leads` gives it.
+Errors: 400 a date that is not a real one, `from` after `to`, an unknown `by` or `list`, a trial length that is not a whole number from 1 to 365, an unknown state code; 403.
+
+#### `GET /api/users/platform/leads`
+Permission: `platform.restaurants.manage`
+Query/Body: `status` (`new | contacted | not_interested`), `source` (`enquiry | signup`), `q` (<=100; name, mobile, email, business, city or source tag), `from`, `to` (the day it came in)
+Returns: `{ items, total }`, newest first, at most 500. A lead: `{ id, source, name, mobile, email, businessName, businessType, typeName, city, stateCode, stateName, message, ref, status, createdAt, updatedAt, consentAt, signedUpAt, business: { id, name, code, state } | null, outcome, notes: [{ id, note, createdAt, by }] }`: `outcome` is `not_signed_up`, or the state its business is in today; notes newest first.
+Errors: 400 an unknown status or source, a date that is not a real one; 403.
+
+#### `PUT /api/users/platform/leads/:id`
+Permission: `platform.restaurants.manage`
+Query/Body: `status` (`new | contacted | not_interested`, required)
+Returns: the lead. The same status again changes nothing; a change is audited `platform.lead_status_changed` with `{ from, to }`.
+Errors: 400 an unknown status or id; 403; 404 lead not found.
+
+#### `POST /api/users/platform/leads/:id/notes`
+Permission: `platform.restaurants.manage`
+Query/Body: `note` (required, <=2000)
+Returns: 201, `{ id, note, createdAt, by }`. Audited `platform.lead_note_added` with `{ noteId }`. A note is never changed or deleted.
+Errors: 400 a blank or too long note; 403; 404 lead not found.
+
+### Platform › Payments
+
+The screen: [ADMIN_GUIDE.md › Platform › Payments](ADMIN_GUIDE.md#platform--payments).
+
+#### `GET /api/users/platform/payments`
+Permission: `platform.restaurants.manage`
+Query/Body: `status` (`pending`, `confirmed`, `rejected`), `from` and `to` (dates paid), `q` (business name or code, or the reference)
+Returns: `{ items: [{ id, businessId, businessName, businessCode, businessType, typeName, orderId, orderKind, orderStatus, planCode, billingPeriod, startsOn, endsOn, amount, method, reference, paidOn, status, submittedAt, submittedBy, decidedAt, decidedBy, decisionNote, recorded, invoiceId, invoiceNumber, invoiceSample }], pendingCount, openOrders: [{ id, businessId, businessName, businessCode, kind, planCode, billingPeriod, startsOn, endsOn, total, validUntil, createdAt, expired }], sampleMode }`. Payments being checked first, then the newest; at most 1,000. `recorded`: entered by the platform itself. `invoiceNumber`: the payment's tax invoice, else its SAMPLE one. `openOrders`: open orders with no payment being checked (`expired` past the 7 days its prices are held), at most 500. `sampleMode`: the GSTIN is the sample one.
+Errors: 400 an unknown status, a date that is not one; 403.
+
+#### `POST /api/users/platform/payments/:id/confirm`
+Permission: `platform.restaurants.manage`
+Returns: `{ payment, order, invoice, period, grants }` from `applyPayment`: the payment confirmed, its order paid, a paid period after the current end (or paid add-on grants to the period's end) and the invoice issued, in one transaction. Confirming it again (a second click, two people at once) returns what the first made and changes nothing. Audited `plan.payment_confirmed`.
+Errors: 403; 404 payment not found; 409 the payment was rejected, or its order is no longer open; 409 the company's details are not complete (`reason: "company_incomplete"`, `problems[]`).
+
+#### `POST /api/users/platform/payments/:id/reject`
+Permission: `platform.restaurants.manage`
+Query/Body: `reason` (required, <=500; the owner sees it)
+Returns: the payment, rejected. Its order stays open. Audited `plan.payment_rejected`.
+Errors: 400 no reason; 403; 404; 409 the payment is already confirmed or rejected.
+
+### Platform › Invoices
+
+The screen: [ADMIN_GUIDE.md › Platform › Invoices](ADMIN_GUIDE.md#platform--invoices).
+
+#### `GET /api/users/platform/invoices`
+Permission: `platform.restaurants.manage`
+Query/Body: `sample` (`false`, the default: tax invoices; `true`: SAMPLE ones), `from` and `to` (dates issued), `q` (number, business name or code, buyer's name or GSTIN)
+Returns: `{ items: [{ id, number, issuedOn, paidOn, businessId, businessName, businessCode, orderId, buyerName, buyerGstin, placeOfSupplyCode, placeOfSupplyName, gstRate, taxable, cgst, sgst, igst, total, sample, supplierGstin }], totals: { count, taxable, cgst, sgst, igst, total }, truncated, sampleCount, sampleMode }`: the register, in the order issued, at most 5,000 invoices (`truncated`: there were more, and `items` and `totals` are the first 5,000). The GST return is filed from the tax invoices; SAMPLE ones are never mixed in.
+Errors: 400 `sample` not true or false, a date that is not one; 403.
+
+#### `GET /api/users/platform/invoices/:id`
+Permission: `platform.restaurants.manage`
+Returns: the invoice as the owner's `GET …/plan/invoices/:invoiceId` gives it, with `businessName`, `businessCode` and `otherInvoice: { id, number, sample }` (the order's other invoice: the tax invoice issued for a sample, or the sample), for its print view.
+Errors: 400 an id that is not a number; 403; 404 invoice not found.
+
+#### `POST /api/users/platform/orders/:orderId/tax-invoice`
+Permission: `platform.restaurants.manage`
+Returns: 201, the tax invoice for a paid order whose only invoice is a SAMPLE one: from the real series, dated the day it is issued, naming the day the money came, with the order's total. Audited `plan.tax_invoice_issued`.
+Errors: 403; 404 order not found; 409 the GSTIN is still the sample one (`reason: "sample_gstin"`); 409 the company's details are not complete; 409 the order is not paid, has no SAMPLE invoice, or already has its tax invoice.
+
+### Platform › Reports
+
+The screen: [ADMIN_GUIDE.md › Platform › Reports](ADMIN_GUIDE.md#platform--reports).
+
+#### `GET /api/users/platform/reports/sales`
+Permission: `platform.restaurants.manage`
+Query/Body: `from`, `to` (the invoices' dates; this financial year to today unless given), `by` (`month | plan | module | application | type | state | kind | period`, default `month`)
+Returns: `{ from, to, by, rows: [{ key, label, invoices, taxable, gst, total }], totals: { invoices, taxable, gst, total }, sample: { invoices, total } }`, from the company's tax invoices alone (`sample` counts the SAMPLE ones left out). By `plan`, `module` or `application` a row is what the invoices' lines of that kind came to before GST (`gst` and `total` null); by anything else it is whole invoices. `kind`: `new` (a business's first paid plan), `renewal` or `add_on`; `period`: `month` or `year`; `state`: the place of supply. Months come in order, kinds as new, renewal, add-on, and the rest largest first.
+Errors: 400 an unknown `by`, a date that is not a real one, `from` after `to`; 403.
+
+#### `GET /api/users/platform/reports/renewals`
+Permission: `platform.restaurants.manage`
+Query/Body: `within` (1-365 days, default 30)
+Returns: `{ within, items, totals: { count, value } }`: paid time ending within the days, and paid time already in grace, soonest first, each `{ businessId, name, code, businessType, typeName, state, endsOn, graceEndsOn, daysLeft (negative in grace), planCode, planName, billingPeriod, value, ownerName, ownerMobile, ownerEmail, openOrder: { id, total, checking } | null }`. `value`: the business's selection (plan and add-ons, month or year) at today's prices, before GST.
+Errors: 400 `within` not a whole number from 1 to 365; 403.
+
+#### `GET /api/users/platform/reports/dues`
+Permission: `platform.restaurants.manage`
+Query/Body: none
+Returns: `{ today, items, bands: [{ band, label, count, total }], totals: { count, total } }`: every open order, oldest first, each `{ orderId, businessId, name, code, businessType, typeName, state, kind, billingPeriod, createdOn, validUntil, expired, taxable, total, ageDays, band, checking, ownerName, ownerMobile, ownerEmail }`; `band` `0-30`, `31-60`, `61-90` or `90+` days old; `checking`: a payment of it is being checked.
+Errors: 403.
+
+### Platform › Settings
+
+The screen: [ADMIN_GUIDE.md › Platform › Settings](ADMIN_GUIDE.md#platform--settings).
+
+#### `GET /api/users/platform/settings`
+Permission: `platform.restaurants.manage`
+Returns: `{ trialDays, graceDays, brandName, legalName, addressLine1, addressLine2, city, postalCode, gstin, stateCode, stateName, sampleGstin, pan, phone, email, website, sacCode, gstRate, invoicePrefix, supportPhone, supportEmail, grievanceOfficerName, grievanceOfficerEmail, upiId, upiPayeeName, bankName, bankAccountName, bankAccountNumber, bankIfsc, paymentNote, pricesReviewedAt, updatedAt, companyProblems[] }`. `sampleGstin` is true while the GSTIN is the sample one (22AAAAA0000A1ZC); `companyProblems` names what payments cannot be confirmed without (legal name, address, city, PIN code, GSTIN).
+Errors: 403.
+
+#### `PUT /api/users/platform/settings`
+Permission: `platform.restaurants.manage`
+Query/Body: any of the fields above but the state, `sampleGstin`, `pricesReviewedAt`, `updatedAt` and `companyProblems`; a field left out keeps its value, an empty one is cleared. `trialDays` and `graceDays` 0-30 (trial days apply to trials that start afterwards); `brandName` (required, <=80); `gstin` (required; its check character is checked; the sample one may be entered again); `pan` (the PAN inside a real GSTIN); `postalCode` (6 digits); `sacCode` (6 digits, required); `gstRate` (0-40, two decimals at most); `invoicePrefix` (2 to 5 letters, digits or dashes, starting with a letter and not ending in a digit, never SAMPLE); `upiId` (name@bank); `bankAccountNumber` (6-20 digits); `bankIfsc` (like SBIN0001234); the emails.
+Returns: the settings, as `GET`. Audited `platform.settings_updated` with the columns that changed.
+Errors: 400 a value it cannot take, with the field's name; 400 "Nothing to change"; 403.
+
+#### `GET /api/users/platform/prices`
+Permission: `platform.restaurants.manage`
+Returns: `{ plans: [{ code, businessType, name, description, monthly, yearly, isDefault, active, sortOrder, modules[] }], prices: [{ code, name, soldAs (module, application), monthly, yearly, available, types[] }], pricesReviewedAt, types: [{ code, name }] }`: every plan of every type (`modules` the module codes it includes), every optional module's price (`types` the business types that can use it, so a plan of a type may hold the modules whose `types` include it), and every business type. Prices are before GST; null is "not set yet".
+Errors: 403.
+
+#### `PUT /api/users/platform/prices`
+Permission: `platform.restaurants.manage`
+Query/Body: `plans[]` (`{ code, businessType, name, description?, monthly, yearly, isDefault, active, sortOrder?, modules[] }`; a new code is small letters, digits and `_`, 2 to 40; prices more than nothing with two decimals at most, or empty for "not set yet") and `prices[]` (`{ code, soldAs, monthly, yearly, available }`; 0 is free). Only what is sent changes; both may be empty.
+Returns: the price list, as `GET`. It stamps `pricesReviewedAt` even when nothing changed, and is audited `platform.prices_updated` with the codes sent. A price reaches a business at its next order: orders keep the prices they were made with.
+Errors: 400 a price that is not an amount, a plan priced at nothing, a default plan not offered, a plan's type changed or unknown, a plan or a module twice, no such module; 400 "Each business type needs a default plan"; 409 a module a plan's type cannot use ("A plan holds only modules its business type can use (not …)"); 403.

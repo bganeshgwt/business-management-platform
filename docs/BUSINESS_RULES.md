@@ -54,7 +54,7 @@ These are not settings. Changing one means changing the code; the PIN lockout is
 
 ### Where staff land after signing in
 
-- **Rule:** someone with no restaurant role (a kirana cashier, say) lands straight on their business: the one they opened last, else the first in their list. Restaurant staff land on their restaurant's dashboard, or on the business they opened last when that is another business. A platform Super Admin lands on *Platform › Overview*. Until a person's businesses are known, the home address shows the loading screen with no header or menu, so a business never opens under the restaurant's header first; opening another business from the switcher draws its header with its loading screen at once.
+- **Rule:** someone with no restaurant role (a kirana cashier, say) lands straight on their business: the one they opened last, else the first in their list. Restaurant staff land on their restaurant's dashboard, or on the business they opened last when that is another business. A platform Super Admin lands on *Platform › Overview*. Until a person's businesses are known, the home address shows the loading screen with no header or menu, so a business never opens under the restaurant's header first; opening another business from the switcher draws its header with its loading screen at once. Someone not signed in who opens the bare address lands on the platform's public site (`/welcome`, the link's query kept); someone whose session has just ended in that tab is asked to sign in again.
 - **Why:** a shop's staff should never see the restaurant dashboard, and a header that says the restaurant while a shop opens sends people to the wrong menu.
 - **Change it:** nothing to set. The business switcher moves between businesses.
 
@@ -235,17 +235,47 @@ For every business and the restaurant. What applies to a taxpayer's invoices in 
 
 ## Paid plans
 
-For every business and the restaurant. A business pays per business for a plan of its type plus optional modules and applications (add-ons), monthly or yearly, at the prices the super admin keeps in the platform's price list. Until online payment arrives, the owner pays outside the app and enters the payment's reference; the super admin confirms it, which issues the company's GST invoice and extends the business. The tables are in [DATABASE.md › Paid plans](DATABASE.md#paid-plans), the owner's routes in [API.md › Your plan](API.md#your-plan).
+For every business and the restaurant. A business pays per business for a plan of its type plus optional modules and applications (add-ons), monthly or yearly, at the prices the super admin keeps in *Platform › Settings › Prices*. The owner pays outside the app and enters the payment's reference; the super admin confirms it, which issues the company's GST invoice and extends the business (there is no online payment: [BACKLOG.md › The platform layer](BACKLOG.md#3-the-platform-layer)). The rules follow the screens: the public site, Your plan, then the platform console. The tables are in [DATABASE.md › Paid plans](DATABASE.md#paid-plans), and the routes in [API.md › The platform's public site](API.md#the-platforms-public-site), [Your plan](API.md#your-plan) and [The platform console](API.md#the-platform-console).
+
+### Signing up starts a business set up as its owner chose
+
+- **Rule:** on the public site's sign-up an owner registers their login and one business, chooses its plan (the type's default to start with), month or year, and add-ons, and is signed in at once, with the password they chose as their own. The business is made as the platform makes one (a restaurant as Platform › Restaurants makes it, the owner its admin, then its format) and starts its trial (with 0 trial days, read-only until it pays). Its plan's modules and the chosen add-ons are switched on and every other module its type starts with is switched off, each switch after the ones it needs; for a café, bakery or cloud kitchen, a module its format switches off stays off unless the owner chose it as an add-on. The choice is kept as the selection for the first order. Everything is checked before anything is made. The business's code is the first words of its name and four digits.
+- **Why:** an owner starts on their own, without a call; the business shows what they will pay for, so nothing they did not choose goes away when the trial ends, and a café still starts as a café.
+- **Change it:** the plans, add-ons and whether owners may add each, in *Platform › Settings › Prices*; the trial days, in *Trial & renewal*.
+
+### A restaurant needs a login of its own
+
+- **Rule:** a sign-up whose email or mobile number already has a login is refused: "That email already has a login. Sign in instead." (or the mobile's sentence); an owner with a login adds a business from *Your businesses › Add a business*. For a restaurant: "A restaurant needs a login of its own. Use another email and mobile number, or contact us." A mobile number is matched as sign-in reads it, by its last ten digits.
+- **Why:** a restaurant's logins belong to that restaurant alone, and its screens rely on that; one sign-in across a restaurant and other businesses is a separate, larger change ([BACKLOG.md › The platform layer](BACKLOG.md#3-the-platform-layer)).
+- **Change it:** nothing to set.
+
+### The public forms keep scripts out
+
+- **Rule:** both public forms (signing up, asking to be called back) carry a field people never see; a form with anything in it is refused, "This form could not be sent. Please try again.", and nothing is made. Each form is taken five times an hour from one network address, counting every one sent, refused or not; the next is refused for the rest of the hour. A sign-up needs the terms of service and the privacy policy accepted; a call back needs the visitor's agreement to be contacted about the platform at that number and email, kept with its time.
+- **Why:** an open form invites scripts that make logins and leads; the agreement is the reason the platform may call (DPDP Act 2023).
+- **Change it:** `SITE_FORM_LIMIT` in the API's settings (5 at first); behind a proxy, `TRUST_PROXY`, so each visitor's own address is counted.
+
+### A sign-up joins the lead of its call-back request
+
+- **Rule:** a sign-up whose mobile number or email matches a request to be called back that has no business yet (the latest one) gives that lead its business: the lead keeps its source (`enquiry`) and its link's ref, and takes the details it lacked. Otherwise the sign-up makes a lead of its own (source `signup`). The `ref` or `utm_source` of the link that brought the visitor is kept for their visit and saved on the lead, lower case. A business the platform's team makes is not a lead.
+- **Why:** the trial funnel counts a person once, from their first interest to their trial, and shows which links bring owners.
+- **Change it:** nothing to set.
+
+### The policies state what the platform does, with today's figures
+
+- **Rule:** the terms of service, the privacy policy and refunds, cancellation and service delivery say what the platform really does: the trial, payment by reference until online payment, access from the confirmed payment, no refund of a paid period, grace and then read-only with the records kept and export always open, the platform as the processor of a business's customers' data, and the grievance officer. Their trial days, grace days and GST rate are the settings in force, and the company is named from its details ("the platform company" until its legal name is entered).
+- **Why:** what an owner agrees to must match what the platform does, and a figure written into the words would go stale when the settings change.
+- **Change it:** *Platform › Settings*; the words in `apps/business-web/src/modules/site/sitePolicies.js`, which a lawyer reads before the first payment ([GO_LIVE.md › Before the platform takes its first payment](GO_LIVE.md#before-the-platform-takes-its-first-payment)).
 
 ### Every new business starts with a free trial that unlocks everything
 
-- **Rule:** a business made in any way (an owner, the platform, a restaurant set up in the console) starts a trial from its own today for the trial days in force, both days included: 14 days run from today to today + 13. A trial unlocks every module and application its type can use, whatever plan is chosen. With 0 trial days there is no trial: the business pays first. Changing the trial days changes trials that start afterwards. Every business an owner adds starts its own trial.
+- **Rule:** a business made in any way (signed up on the public site, added by an owner, or made by the platform, a restaurant included) starts a trial from its own today for the trial days in force, both days included: 14 days run from today to today + 13. A trial unlocks every module and application its type can use, whatever plan is chosen. With 0 trial days there is no trial: the business pays first. Changing the trial days changes trials that start afterwards. Every business an owner adds starts its own trial.
 - **Why:** an owner tries everything before choosing what to pay for; records never move between businesses, so another trial gives nothing worth abusing.
-- **Change it:** *Trial days* (0 to 30, 14 at first) in the platform's settings.
+- **Change it:** *Free trial (days)*, 0 to 30 (14 at first), in *Platform › Settings › Trial & renewal*.
 
 ### A business's state is the first of these that holds
 
-- **Rule:** on the business's own date (a restaurant's, in its own time zone): **switched off** (the business, or its restaurant, is off); **trial**, **paid** or **given** (a period of that kind covers today; given time with no end always does); **grace** (the time that ended last was paid or given time, and today is within the grace days after its end); **payment being checked**; **ended**. A business whose first period has not started yet by its own date (its time zone was moved back after it was made) is already in it. Periods never overlap: a new one starts after the time the business has. A business made outside the app, with no plan row, is not checked.
+- **Rule:** on the business's own date (a restaurant's, in its own time zone): **switched off** (the business, or its restaurant, is off); **trial**, **paid** or **given** (a period of that kind covers today; given time with no end always does); **grace** (the time that ended last was paid or given time, and today is within the grace days after its end); **payment being checked**; **ended**. The platform's lists and badges name them *Switched off*, *On trial*, *Paying*, *Given time*, *In grace*, *Payment being checked* and *Ended (read-only)*. A business whose first period has not started yet by its own date (its time zone was moved back after it was made) is already in it. Periods never overlap: a new one starts after the time the business has, or replaces given time ([Time the platform gives replaces the given time in force](#time-the-platform-gives-replaces-the-given-time-in-force)). A business made outside the app, with no plan row, is not checked.
 - **Why:** one answer for every screen, list and check: the database works it out (`business_plan_state`).
 - **Change it:** nothing to set.
 
@@ -253,7 +283,7 @@ For every business and the restaurant. A business pays per business for a plan o
 
 - **Rule:** for the grace days after paid or given time ends the business works as before, with a warning that names the last day of grace. A trial has no grace: when it ends, the business is read-only until it pays.
 - **Why:** a renewal paid a few days late should not stop a restaurant in the middle of service; a trial was free.
-- **Change it:** *Grace days* (0 to 30, 7 at first) in the platform's settings.
+- **Change it:** *Grace (days)*, 0 to 30 (7 at first), in *Platform › Settings › Trial & renewal*.
 
 ### A payment being checked keeps an ended business working for two days, once per order
 
@@ -289,7 +319,7 @@ For every business and the restaurant. A business pays per business for a plan o
 
 - **Rule:** an order copies its lines, prices, buyer and GST when it is made and is valid for 7 days; after that it is made again at the prices of the day. A business has one open order: a new one cancels the old one, unless a payment of it is being checked (then the new order is refused). An order with nothing to pay (an add-on priced at nothing) is paid as it is made: what it holds is unlocked at once, with no payment and no invoice, and an open order is left as it was. A plan or module with no price for the chosen month or year cannot be bought: "Price not set yet". A renewal that leaves out a module switched on now must pass the checks of switching it off (a restaurant's money still held, rider cash, an open drawer; expenses already recorded), or the order is refused with that reason.
 - **Why:** a price change never changes an order already made; leaving a module out must not strand money.
-- **Change it:** the prices, in the platform's price list.
+- **Change it:** the prices, in *Platform › Settings › Prices*.
 
 ### An add-on mid-period costs its share of the period
 
@@ -301,19 +331,7 @@ For every business and the restaurant. A business pays per business for a plan o
 
 - **Rule:** prices are before GST. The place of supply is the buyer's state: its GSTIN's when it has one, else its state in Business settings (a restaurant's order asks for it once). The supplier's state is the first two digits of the company's GSTIN. In the same state CGST and SGST are each the rate's half of the taxable value, rounded to the paisa; otherwise IGST is the whole rate, rounded to the paisa. The total is not rounded to the rupee. An order cannot be made without the buyer's state. A tax invoice issued later from a GSTIN in another state than the one the order was made under keeps the order's total tax: all of it as IGST, or CGST at half the rate (rounded to the paisa) and SGST the rest, so the two may differ by a paisa.
 - **Why:** CBIC Circular 242/36/2024 asks for the customer's state on every online-service invoice.
-- **Change it:** the GST rate (18 at first) and the SAC code (998315 at first) in the platform's settings.
-
-### Invoice numbers, and the sample GSTIN
-
-- **Rule:** a confirmed payment issues the company's tax invoice, numbered `<prefix>/<financial year>/<n>` (BMP/2627/00001), at most 16 characters, one series per company GSTIN and financial year (April to March), never going back. The prefix is 2 to 5 letters, digits or dashes, starting with a letter and not ending in a digit, and never SAMPLE, which leaves room for 99,999 invoices a year. A number is never used twice under one GSTIN; a GSTIN corrected during the year starts its own series at 1. Until the real GSTIN is entered the company's GSTIN is the sample one (22AAAAA0000A1ZC): invoices then come from its own series with the prefix SAMPLE (SAMPLE/2627/0001), print "SAMPLE — NOT A TAX INVOICE" and are kept out of the GST register, so the real series starts at 1 when the real GSTIN is saved. The super admin then issues the tax invoice for a paid order whose only invoice is a sample, once, dated the day it is issued and naming the day the money came. Confirming waits until the company's legal name, address, city, PIN code and GSTIN are complete. An invoice is never changed.
-- **Why:** a tax invoice under a made-up GSTIN must never pass for a real one; the flow can still be tried end to end before going live.
-- **Change it:** the GSTIN and the invoice prefix (BMP at first; the prefix of a year's series is fixed once its first invoice is issued) in the platform's settings.
-
-### The starting price list
-
-- **Rule:** each business type starts with one plan, Basic, its default: its type's modules that start on, without the applications. Basic costs ₹499 a month or ₹4,999 a year for a grocery, general store, books, meat, weight-based, optical, seeds and fertilisers, hardware, garments, electronics or pharmacy business; ₹799 / ₹7,999 for a supermarket, wholesaler, jeweller, fuel station or restaurant (whose Basic also holds pre-orders and brands); ₹599 / ₹5,999 for a salon, gym, laundry, garage or rental business; ₹1,199 / ₹11,999 for a clinic or a hotel. Other modules cost ₹199 / ₹1,999; of the applications, the captain app, the kitchen display and QR table ordering cost ₹299 / ₹2,999, the online ordering page ₹399 / ₹3,999 and the laboratory ₹499 / ₹4,999. Businesses that existed before paid plans have given time with no end that unlocks everything, and every restaurant has the captain app on.
-- **Why:** a starting point the super admin reviews before going live; nothing changed for anyone already using the platform.
-- **Change it:** the platform's price list.
+- **Change it:** the GST rate (18 at first) and the SAC code (998315 at first), in *Platform › Settings › Company*.
 
 ### The platform's money is its tax invoices
 
@@ -326,6 +344,12 @@ For every business and the restaurant. A business pays per business for a plan o
 - **Rule:** the monthly recurring income is, for every business in paid time or in grace after paid time, the price before GST of its current paid period over the months in it (a year's over 12), plus each add-on it bought in that period at the add-on's full price for the period over its months; rounded to the paisa once, at the end. The yearly recurring income is twelve times the monthly before that rounding. Trials, given time and grace after given time count nothing. What a renewal is worth is the business's selection (plan and add-ons, month or year) at today's prices before GST: what its next order would ask.
 - **Why:** trials, time the super admin gives and paid time are never added together; recurring income is what paying businesses bring each month.
 - **Change it:** nothing to set.
+
+### Time the platform gives replaces the given time in force
+
+- **Rule:** the super admin gives a business time, with a reason: until a date (today or later) or with no end date, unlocking everything its type offers, or a plan and modules copied when the time is given. It replaces given time that covers the business's today (that time is cancelled with the reason, and the new time keeps its start) and, when the super admin asks, a trial that covers today, as setting a business up with given time does (the trial is cancelled with the same reason); otherwise it starts after the time the business already has, or today once that has ended. A module or application can also be given on its own, from today to a date, with a reason. During given time the owner can neither change the selection nor make an order: the super admin does both, and an order made during given time with an end starts the day after it.
+- **Why:** a pilot customer, a partner or a business set up by hand is the company's arrangement, not a sale: each grant keeps its reason, and the free-trial funnel never counts it as continuing.
+- **Change it:** *Give time* and *Give a module* on the business's page in *Platform › Businesses*.
 
 ### The free-trial funnel
 
@@ -342,41 +366,23 @@ For every business and the restaurant. A business pays per business for a plan o
 - **Why:** the platform sees who tries it, who pays and who walks away; time the super admin gives is an arrangement, not a sale, so it never counts as continuing.
 - **Change it:** nothing to set.
 
+### Invoice numbers, and the sample GSTIN
+
+- **Rule:** a confirmed payment issues the company's tax invoice, numbered `<prefix>/<financial year>/<n>` (BMP/2627/00001), at most 16 characters, one series per company GSTIN and financial year (April to March), never going back. The prefix is 2 to 5 letters, digits or dashes, starting with a letter and not ending in a digit, and never SAMPLE, which leaves room for 99,999 invoices a year. A number is never used twice under one GSTIN; a GSTIN corrected during the year starts its own series at 1. Until the real GSTIN is entered the company's GSTIN is the sample one (22AAAAA0000A1ZC), and the platform is in sample mode: invoices then come from its own series with the prefix SAMPLE (SAMPLE/2627/0001), print "SAMPLE — NOT A TAX INVOICE" and are kept out of the GST register, so the real series starts at 1 when the real GSTIN is saved. The super admin then issues the tax invoice for a paid order whose only invoice is a sample, once, dated the day it is issued and naming the day the money came. Confirming waits until the company's legal name, address, city, PIN code and GSTIN are complete. An invoice is never changed.
+- **Why:** a tax invoice under a made-up GSTIN must never pass for a real one; the flow can still be tried end to end before going live.
+- **Change it:** the GSTIN and the invoice prefix (BMP at first; the prefix of a year's series is fixed once its first invoice is issued), in *Platform › Settings › Company*.
+
 ### Renewals due and orders not paid
 
 - **Rule:** a renewal is due when a paying business's paid time ends within the days asked (7 and 30 on the overview), and overdue while it is in grace; the overview also counts the paying businesses whose paid time ended this month with no renewal (in grace, being checked or ended). An order not paid is every open order, by how many days old it is on the company's date: up to 30, 31 to 60, 61 to 90 and over 90. An order's prices hold for 7 days, so an older one is made again before it is paid.
 - **Why:** a call before the end keeps a business paying; an old unpaid order is a sale lost, or a payment the owner never entered.
 - **Change it:** nothing to set.
 
-### Signing up starts a business set up as its owner chose
+### The starting price list
 
-- **Rule:** on the public site's sign-up an owner registers their login and one business, chooses its plan (the type's default to start with), month or year, and add-ons, and is signed in at once, with the password they chose as their own. The business is made as the platform makes one (a restaurant as Platform › Restaurants makes it, the owner its admin, then its format) and starts its trial (with 0 trial days, read-only until it pays). Its plan's modules and the chosen add-ons are switched on and every other module its type starts with is switched off, each switch after the ones it needs; for a café, bakery or cloud kitchen, a module its format switches off stays off unless the owner chose it as an add-on. The choice is kept as the selection for the first order. Everything is checked before anything is made. The business's code is the first words of its name and four digits.
-- **Why:** an owner starts on their own, without a call; the business shows what they will pay for, so nothing they did not choose goes away when the trial ends, and a café still starts as a café.
-- **Change it:** the plans, add-ons and whether owners may add each, in the platform's price list; the trial days.
-
-### A restaurant needs a login of its own
-
-- **Rule:** a sign-up whose email or mobile number already has a login is refused: "That email already has a login. Sign in instead." (or the mobile's sentence); an owner with a login adds a business from *Your businesses › Add a business*. For a restaurant: "A restaurant needs a login of its own. Use another email and mobile number, or contact us." A mobile number is matched as sign-in reads it, by its last ten digits.
-- **Why:** a restaurant's logins belong to that restaurant alone, and its screens rely on that; one sign-in across a restaurant and other businesses is a separate, larger change.
-- **Change it:** nothing to set.
-
-### The public forms keep scripts out
-
-- **Rule:** both public forms (signing up, asking to be called back) carry a field people never see; a form with anything in it is refused, "This form could not be sent. Please try again.", and nothing is made. Each form is taken five times an hour from one network address, counting every one sent, refused or not; the next is refused for the rest of the hour. A sign-up needs the terms of service and the privacy policy accepted; a call back needs the visitor's agreement to be contacted about the platform at that number and email, kept with its time.
-- **Why:** an open form invites scripts that make logins and leads; the agreement is the reason the platform may call (DPDP Act 2023).
-- **Change it:** `SITE_FORM_LIMIT` in the API's settings (5 at first); behind a proxy, `TRUST_PROXY`, so each visitor's own address is counted.
-
-### A sign-up joins the lead of its call-back request
-
-- **Rule:** a sign-up whose mobile number or email matches a request to be called back that has no business yet (the latest one) gives that lead its business: the lead keeps its source (`enquiry`) and its link's ref, and takes the details it lacked. Otherwise the sign-up makes a lead of its own (source `signup`). The `ref` or `utm_source` of the link that brought the visitor is kept for their visit and saved on the lead, lower case. A business the platform's team makes is not a lead.
-- **Why:** the trial funnel counts a person once, from their first interest to their trial, and shows which links bring owners.
-- **Change it:** nothing to set.
-
-### The policies state what the platform does, with today's figures
-
-- **Rule:** the terms of service, the privacy policy and refunds, cancellation and service delivery say what the platform really does: the trial, payment by reference until online payment, access from the confirmed payment, no refund of a paid period, grace and then read-only with the records kept and export always open, the platform as the processor of a business's customers' data, and the grievance officer. Their trial days, grace days and GST rate are the settings in force, and the company is named from its details ("the platform company" until its legal name is entered).
-- **Why:** what an owner agrees to must match what the platform does, and a figure written into the words would go stale when the settings change.
-- **Change it:** the platform's settings; the words in `apps/business-web/src/modules/site/sitePolicies.js`, which a lawyer reads before the first payment ([GO_LIVE.md](GO_LIVE.md#the-public-site)).
+- **Rule:** each business type starts with one plan, Basic, its default: its type's modules that start on, without the applications. Basic costs ₹499 a month or ₹4,999 a year for a grocery, general store, books, meat, weight-based, optical, seeds and fertilisers, hardware, garments, electronics or pharmacy business; ₹799 / ₹7,999 for a supermarket, wholesaler, jeweller, fuel station or restaurant (whose Basic also holds pre-orders and brands); ₹599 / ₹5,999 for a salon, gym, laundry, garage or rental business; ₹1,199 / ₹11,999 for a clinic or a hotel. Other modules cost ₹199 / ₹1,999; of the applications, the captain app, the kitchen display and QR table ordering cost ₹299 / ₹2,999, the online ordering page ₹399 / ₹3,999 and the laboratory ₹499 / ₹4,999. A business already on the platform when the paid-plans migration runs is given time with no end that unlocks everything, and every restaurant gets the captain app switched on.
+- **Why:** a starting point the super admin reviews before the first payment; a business already on the platform keeps everything it uses.
+- **Change it:** *Platform › Settings › Prices*.
 
 ## Shops and the shared core
 
@@ -484,9 +490,9 @@ These rules apply to every business type but the restaurant. The goods rules app
 
 ### Who owns a business
 
-- **Rule:** a business is part of its owner's subscription with the platform (a basic plan, plus the modules and applications chosen). The platform's super admin creates it with its owner's login and switches its modules and applications on; the owner then gives their staff access in *Staff & access*. The Owner role is given only then, and is never handed out or changed from the admin application: only the super admin changes who owns a business.
-- **Why:** the owner is the platform's customer for that business; handing it over is a change to the subscription, not a staff matter.
-- **Change it:** the super admin, from the platform; not built yet ([BACKLOG.md › The platform layer](BACKLOG.md#3-the-platform-layer)).
+- **Rule:** a business's owner is the login that signs it up on the public site, adds it from *Your businesses › Add a business*, or that the platform's super admin names when it creates the business. The owner pays for its plan ([Paid plans](#paid-plans)) and gives their staff access in *Staff & access*. The Owner role is given only then, and is never handed out or changed from the admin application: only the platform changes who owns a business.
+- **Why:** the owner is the platform's customer for that business; handing it over is the platform's matter, not a staff matter.
+- **Change it:** the platform; there is no screen for it ([BACKLOG.md › The platform layer](BACKLOG.md#3-the-platform-layer)).
 
 ### Items used in services
 
@@ -2326,7 +2332,7 @@ A hotel, lodge or guest house bills on bills of the shared core ([Shops and the 
 ### Formats: restaurant, café, bakery, cloud kitchen
 
 - **Rule:** a restaurant is a restaurant, a café, a bakery or a cloud kitchen. The format sets the kinds of order the POS takes, the one a new order starts on, token numbers, and the features it starts with. A café starts on takeaway with tokens. A bakery takes takeaway and delivery, with recipes, advances and pre-orders, and no tables. A cloud kitchen starts on delivery, with online ordering, deliveries and brands, and no tables. The server refuses a kind of order the POS does not take. Each setting can be changed afterwards, and changing the format deletes nothing.
-- **Change it:** the platform team picks the format when it creates the restaurant (*Platform › Restaurants*). Afterwards the owner changes it in *Settings › Features › Format*, and the kinds of order in *Service settings › Orders the POS takes*.
+- **Change it:** the format is chosen when the restaurant is made: by the platform team (*Platform › Restaurants*, or a restaurant's *New business* on *Platform › Businesses*) or by its owner's sign-up on the public site. Afterwards the owner changes it in *Settings › Features › Format*, and the kinds of order in *Service settings › Orders the POS takes*.
 
 ### Pre-orders
 

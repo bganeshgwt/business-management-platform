@@ -24,7 +24,9 @@ pharmacy's registers and the clinic's lab, and what is not built yet, is in
 where owners and staff work: a switcher in the header opens any business you
 belong to, with a menu built from the modules that business uses and the
 permissions your role there gives you; the POS, kitchen display and pickup
-screen are part of it, and so is the platform console. The **guests' site**
+screen are part of it, and so are the platform's public site (its home page,
+prices and sign-up into a free trial, with no sign-in), each owner's *Your
+plan* and the platform console. The **guests' site**
 (`apps/customer-web`) is what a restaurant's guests open from a table's QR
 code, the online ordering link or the booking link; nobody signs in there.
 
@@ -151,14 +153,20 @@ owners and their businesses, never the platform's own login.
 2. Start the apps ([Run](#run)) and sign in to the staff app,
    http://localhost:5173, with that login. The sign-in then asks for a
    password of your own: this login runs the whole platform, so make it a
-   strong one. The Super Admin opens on **Platform › Restaurants**.
-3. Create each restaurant in **Platform › Restaurants** (*Add restaurant*: a
-   restaurant, café, bakery or cloud kitchen, with its admin's login), and each
-   business of another type in **Platform › Businesses** (*Add a business*,
-   with its owner's login). Each one is created with everything it needs to
-   start; never insert one into the database by hand. The owners then sign in
-   and follow
+   strong one. The Super Admin opens on **Platform › Overview**.
+3. Owners sign their businesses up themselves on the public site
+   (http://localhost:5173/welcome, then *Start free trial*), each into a free
+   trial. The Super Admin can also set a business of any type up for a
+   customer in **Platform › Businesses** (*New business*: its owner's login,
+   its plan and how long it may be used), or a restaurant, café, bakery or
+   cloud kitchen in **Platform › Restaurants** (*Add restaurant*, with its
+   admin's login). Each one is created with everything it needs to start;
+   never insert one into the database by hand. The owners then sign in and
+   follow
    [ADMIN_GUIDE › First steps in a new business](docs/ADMIN_GUIDE.md#first-steps-in-a-new-business).
+   Before the platform takes a real payment, fill in **Platform › Settings**
+   and have the reviews done:
+   [GO_LIVE › Before the platform takes its first payment](docs/GO_LIVE.md#before-the-platform-takes-its-first-payment).
 4. More logins come from the staff screens (a restaurant's **Users & access ›
    Users**, a business's **Staff & access**), or from `user:create` with a
    restaurant's code and one of the built-in restaurant roles:
@@ -192,7 +200,7 @@ npm run dev:customer   # the guests' site
 | App | Address |
 | --- | --- |
 | API | http://localhost:5010/api (the `PORT` in `backend/.env`); http://localhost:5010/api/health answers when it is up |
-| Staff app | http://localhost:5173 |
+| Staff app | http://localhost:5173; signed out, the bare address opens the platform's public site (`/welcome`) |
 | Guests' site | http://localhost:5174, opened from a table's QR code, a restaurant's online ordering link or its booking link. The bare address says how to find the right link. |
 
 The API refuses to start while a migration is pending, and says so;
@@ -282,7 +290,8 @@ What each suite covers, what it needs and how to run part of one:
 2. Every tenant query filters by the signed-in user's restaurant or by a
    business membership checked on the server, never by an id from the request.
 3. Always use `$1`, `$2` placeholders in SQL.
-4. Every route except health, sign-in and the public guest pages requires
-   `authenticate`, and a permission check unless it acts only on the
-   signed-in person's own account or tasks.
+4. Every route except health, sign-in, the public guest pages and the
+   platform's public site (`/api/site`) requires `authenticate`, and a
+   permission check unless it acts only on the signed-in person's own account
+   or tasks.
 5. Never commit `.env`. Add new settings to `.env.example` with fake values.

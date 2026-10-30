@@ -42,8 +42,10 @@ with these differences.
   expense, a purchase, stock) only in the process that made it. With several
   processes, a screen can then show a figure from before such a change made
   through another process until that answer runs out (at most a few minutes).
-  Live updates themselves work with several processes: each listens for every
-  change.
+  The public site's prices and company details are kept a minute in each
+  process the same way: a save in Platform › Settings reaches the other
+  processes within that minute. Live updates themselves work with several
+  processes: each listens for every change.
 - **HTTPS** sits in front of the API and both web apps, usually in the hosting
   proxy. Set `TRUST_PROXY` to match (§2), and set the proxy up for live
   updates (below).
@@ -273,12 +275,18 @@ calls (`/api/public/…`) from any address, so such a domain needs no
    the whole platform: give it a strong password and keep it to the people who
    run the platform.
 2. Sign in to the staff app with it, and choose its own password when the
-   sign-in asks: the one typed in the terminal works once. Create the
-   customer's restaurant in **Platform › Restaurants**, or a business of
-   another type in **Platform › Businesses**, each with its owner's login.
-3. The owner signs in, chooses their own password, and works through
+   sign-in asks: the one typed in the terminal works once. Before the public
+   site is shared or a customer pays, work through
+   [Before the platform takes its first payment](#before-the-platform-takes-its-first-payment).
+3. The customer's business: the owner signs it up on the public site
+   (`/signup`), into a free trial, or the Super Admin sets it up in
+   **Platform › Businesses** (*New business*, any type, a restaurant
+   included: with the owner's login, its plan and how long it may be used)
+   or a restaurant in **Platform › Restaurants**.
+4. The owner signs in (an owner the platform made chooses their own password
+   first) and works through
    [ADMIN_GUIDE › First steps in a new business](ADMIN_GUIDE.md#first-steps-in-a-new-business).
-4. Before real trading, two reviews:
+5. Before real trading, two reviews:
    - **The accountant** confirms the tax settings and, in a restaurant, the GST
      filing export and the day book for Tally. In the other types, Reports is
      an operational register, not a GST filing pack. For an owner with several
@@ -291,7 +299,7 @@ calls (`/api/public/…`) from any address, so such a domain needs no
      a doctor and a legal adviser. The rules follow standard Indian practice;
      [BUSINESS_RULES › Pharmacy, clinic and lab](BUSINESS_RULES.md#pharmacy-clinic-and-lab)
      gives each rule, its legal source and where it is changed.
-5. Personal data, below.
+6. Personal data, below.
 
 ### Personal data
 
@@ -316,70 +324,69 @@ processor. The data fiduciary duties of the DPDP Rules 2025 apply from
   and why, and the notice to the people a breach affects
   ([BACKLOG §10](BACKLOG.md#10-new-business-types)).
 
-### The public site
+### Before the platform takes its first payment
 
-Owners sign themselves up on the platform's public site
-([ADMIN_GUIDE › The platform's public site and signing up](ADMIN_GUIDE.md#the-platforms-public-site-and-signing-up)).
-Before it is shared with anyone:
-
-- **The company's details.** Enter the legal name, address, phone, email and
-  website, the support contact and the grievance officer's name and email in
-  **Platform › Settings**. The site's footer, *Contact us* and the policies
-  show them; until the legal name is entered, they say "the platform company".
-- **A lawyer reads the policy pages:** the terms of service (`/terms`), the
-  privacy policy (`/privacy-policy`) and refunds, cancellation and service
-  delivery (`/refunds`), against what the company offers and the law (the
-  DPDP Act 2023, the Consumer Protection (E-Commerce) Rules). They state what
-  the platform does, with the trial days, grace days and GST rate in force;
-  their words are in `apps/business-web/src/modules/site/sitePolicies.js`, and
-  a change the lawyer asks for is made there.
-- **The prices** on the home page, *Pricing* and the sign-up are the price
-  list as it stands: review it first.
-
-### The platform's own plans and invoices
-
-The platform sells itself: businesses pay for their plans, and the super admin
-confirms each payment, which issues the company's GST invoice
+The platform sells itself: owners sign their businesses up on its public site
+([ADMIN_GUIDE › The platform's public site and signing up](ADMIN_GUIDE.md#the-platforms-public-site-and-signing-up))
+and pay for their plans, and the super admin confirms each payment, which
+issues the company's GST invoice
 ([ADMIN_GUIDE › Platform › Payments](ADMIN_GUIDE.md#platform--payments)).
-Before the first real payment, in **Platform › Settings**:
+Before the site is shared with anyone and before the first real payment
+(*Platform › Overview › Before you go live* marks the first four as they are
+done):
 
-1. **The real GSTIN** (Company tab). Until it is entered the company's GSTIN is
-   the sample one (22AAAAA0000A1ZC): every invoice is a SAMPLE, not a tax
-   invoice, from a series of its own, and Payments and Invoices say so. The
-   real series starts at 1 when the real GSTIN is saved. An order paid while
-   the GSTIN was the sample one then gets its tax invoice from its business's
-   page (*Issue tax invoice*), once.
+1. **The real GSTIN replaces the sample** (*Platform › Settings › Company*).
+   Until it is entered the company's GSTIN is the sample one
+   (22AAAAA0000A1ZC): every invoice is a SAMPLE, not a tax invoice, from a
+   series of its own, and Payments and Invoices say so. The real series
+   starts at 1 when the real GSTIN is saved. An order paid while the GSTIN
+   was the sample one then gets its tax invoice from its business's page
+   (*Issue tax invoice*), once.
 2. **The company's details** (Company tab): the legal name, address, city and
    PIN code, which every invoice prints and without which no payment can be
    confirmed; the PAN; the phone, email and website; the support contact and
-   the grievance officer named on the privacy policy; and the invoice prefix
-   (BMP to start with), which is fixed for a year once its first invoice is
-   issued.
-3. **The prices** (Prices tab). The plans and module prices the platform
-   starts with are a starting point, not a decision: review each type's plans
-   and the modules they include, and every module's and application's price,
-   then save, which marks the price list reviewed.
-4. **The payment details** (Payment details tab): the UPI ID and payee name,
-   and the bank, account name, account number and IFSC owners pay to, with a
-   note on what to write in the payment's remarks.
+   the grievance officer's name and email, named on the privacy policy; and
+   the invoice prefix (BMP to start with), which is fixed for a year once its
+   first invoice is issued. The site's footer, *Contact us* and the policies
+   show them; until the legal name is entered, they say "the platform
+   company".
+3. **The prices reviewed** (Prices tab). The plans and module prices the
+   platform starts with are a starting point, not a decision: review each
+   type's plans and the modules they include, and every module's and
+   application's price, then save, which marks the price list reviewed. The
+   home page, *Pricing* and the sign-up show the price list as it stands.
+4. **The UPI and bank details** (Payment details tab): the UPI ID and payee
+   name, and the bank, account name, account number and IFSC owners pay to,
+   with a note on what to write in the payment's remarks. Owners see them in
+   *Your plan*, never on the public site.
 5. **The trial and grace days** (Trial & renewal tab), if 14 and 7 do not
    suit.
-
-**The accountant (CA) confirms:**
-
-- **The SAC code** printed on each line (998315 to start with) for a software
-  subscription sold per month or year, and the GST rate (18 %).
-- **The signature.** An invoice prints "Authorised signatory, <legal name>"
-  with no signature. Whether a printed or PDF invoice needs one (signed by
-  hand, or a digital signature on the PDF) under CGST Rules, rule 46.
-- **TDS.** A business customer may deduct TDS when it pays. A payment is
-  recorded for the order's whole total; how a payment short by TDS is
-  received and accounted for.
-- **The GST timing of a payment confirmed later.** An invoice is dated the
-  day the payment is confirmed (or, for an order invoiced as a sample, the day
-  its tax invoice is issued) and names the day the money came, which may be
-  earlier: whether that date is right for the time of supply, above all when
-  the two fall in different months or financial years.
+6. **A lawyer reads the policy pages:** the terms of service (`/terms`), the
+   privacy policy (`/privacy-policy`) and refunds, cancellation and service
+   delivery (`/refunds`), against what the company offers and the law (the
+   DPDP Act 2023, the Consumer Protection (E-Commerce) Rules). They state what
+   the platform does, with the trial days, grace days and GST rate in force;
+   their words are in `apps/business-web/src/modules/site/sitePolicies.js`,
+   and a change the lawyer asks for is made there.
+7. **The accountant (CA) answers:**
+   - **The SAC code** printed on each line (998315 to start with) for a
+     software subscription sold per month or year, and the GST rate (18 %).
+   - **The signature.** An invoice prints "Authorised signatory, <legal
+     name>" with no signature. Whether a printed or PDF invoice needs one
+     (signed by hand, or a digital signature on the PDF) under CGST Rules,
+     rule 46.
+   - **TDS.** A business customer may deduct TDS when it pays. A payment is
+     recorded for the order's whole total; how a payment short by TDS is
+     received and accounted for.
+   - **The GST timing of a payment confirmed later.** An invoice is dated the
+     day the payment is confirmed (or, for an order invoiced as a sample, the
+     day its tax invoice is issued) and names the day the money came, which
+     may be earlier: whether that date is right for the time of supply, above
+     all when the two fall in different months or financial years.
+8. **`TRUST_PROXY` set behind a proxy** (§2), so that the public site's
+   forms, each taken five times an hour from one address
+   (`SITE_FORM_LIMIT`), count each visitor's own address and not the
+   proxy's.
 
 ## 5. Backups and restore
 

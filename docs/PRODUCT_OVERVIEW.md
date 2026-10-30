@@ -8,11 +8,12 @@ Business Admin, the staff application of the Business Management Platform, runs 
 
 - **Who it is for:** owners, managers and staff of small and mid-sized Indian businesses, including chains with several branches and kitchens that sell under several brands.
 - **What it covers:** selling, buying, stock, customer credit, staff and access, daily money, reports and daily tasks, plus the special work of each business type.
-- **Where it stands:** the admin side and the guests' site are built and tested end to end. They have not yet run in a live business.
+- **How it is sold:** per business, on the platform's own public site: an owner signs up into a free trial, then pays for a plan of their type with the modules and applications they add, monthly or yearly. The platform's team runs prices, payments, its GST invoices and the trial funnel from its console ([Plans, the free trial and the platform console](#plans-the-free-trial-and-the-platform-console)).
+- **Where it stands:** the admin side, the guests' site, the paid plans with their free trial, the public site and the super admin's console with its dashboards are built and tested end to end. They have not yet run in a live business.
 - **Not built yet:**
-  - outside connections: payment gateway, SMS and WhatsApp, live Swiggy and Zomato links, maps;
+  - waiting on outside accounts: the payment gateway with UPI AutoPay, OTP, and reminders and messages by SMS, WhatsApp and email; live Swiggy and Zomato links; maps;
   - hardware links: silent printing, scales;
-  - paid plans, separate mobile apps, and going live on a server.
+  - going live on a server, and separate mobile apps.
 
   These wait on decisions and outside accounts. [What comes next](#what-comes-next) sums them up, and [BACKLOG.md](BACKLOG.md) lists them in full.
 
@@ -38,7 +39,7 @@ A restaurant also chooses its format: **restaurant, café, bakery or cloud kitch
 ![How Business Admin is organised](images/business-admin-overview.png)
 
 Read the diagram top to bottom:
-1. The platform sets up restaurants and businesses.
+1. The platform sets up restaurants and businesses, or their owners sign them up on its public site.
 2. One login opens every business a person belongs to.
 3. The shared core does the common work.
 4. Each business type adds only its own modules.
@@ -330,7 +331,7 @@ A business can run several shops, counters, godowns, clinics or outlets. Each is
 
 ## People, roles and security
 
-Every action needs two keys: the business must have that module switched on, and the person's role must allow the action. The server checks both on every request.
+Every action needs two keys: the business must have that module switched on (and unlocked by its plan), and the person's role must allow the action. The server checks both on every request.
 
 - **One login, many businesses**, each with its own role.
 - **Ready-made roles:** Owner, Manager, Cashier / sales, Stock keeper, Accountant and Viewer in every business; a pharmacy adds a Pharmacist, a clinic adds a Doctor, a Lab technician and a Pathologist, an optical shop adds an Optometrist, and a garage adds a Mechanic. A restaurant has its own set: Restaurant Admin, Manager, Cashier, Captain / Waiter, Kitchen staff, Accountant, Store keeper and a Collection display for the pickup screen. An owner can add roles of their own, and a manager can never give more than they hold.
@@ -358,9 +359,10 @@ Business rules are settings the owner changes, not values fixed in the program. 
 | Day cut-off: when late-night work still belongs to the day before | A restaurant: the Business day screen (Cash rules). Other businesses: Settings › Business settings › Rules, where it applies to tasks |
 | Currency and time zone | Settings › Business settings (the currency only until the first bill or purchase); a restaurant sets them in its own Settings |
 | Doctor fees and OPD: each doctor's fee, follow-up rule, slot length, share, timings and leave | Doctors, fees & OPD (clinic) |
-| Restaurant format, which sets the POS order types, token numbers and starting features | Chosen in Platform › Restaurants; changed later in the restaurant's Settings › Features |
+| Restaurant format, which sets the POS order types, token numbers and starting features | Chosen at sign-up, or by the platform when it sets the restaurant up; changed later in the restaurant's Settings › Features |
 | Restaurant features: pre-orders, brands, deliveries, reservations, QR ordering, loyalty, stock, payroll and more | The restaurant's Settings › Features |
 | Restaurant alert lines: when the bell warns | The restaurant's Settings › Alerts and timings |
+| The business's plan, monthly or yearly, and the modules and applications added to it | Settings › Your plan (the owner alone; a restaurant's Settings › Your plan) |
 
 A few rules are fixed on purpose, such as the GST rules, the permission list and the PIN lockout; [BUSINESS_RULES.md › Fixed on purpose](BUSINESS_RULES.md#fixed-on-purpose) lists them with the reasons.
 
@@ -394,20 +396,34 @@ Every list can be searched, paged and exported, and lists of records can be filt
 
 ## Setting up a new customer
 
-The platform's own Super Admin creates a new customer's business in the Platform screens; its login is made when the platform is installed. Creating a business takes a few minutes. Filling it in is the owner's work.
+A new customer signs their business up on the platform's public site, into a free trial, or the platform's own Super Admin creates it in the Platform screens (its login is made when the platform is installed). Creating a business takes a few minutes. Filling it in is the owner's work.
 
-- **Platform › Restaurants:** adds a restaurant with its owner's login (a Restaurant Admin). The platform team chooses the format: restaurant, café, bakery or cloud kitchen. The restaurant starts set up for that format, with its GST rates, settings, delivery channels and a kitchen station. The owner adds the menu, tables, staff, GSTIN and FSSAI number after signing in.
-- **Platform › Businesses:** adds a business of any other type, with its legal details, first location and owner's login (a new login, or an existing one by its email). The owner signs in and finds it ready: roles, GST slabs, units, payment methods and the type's everyday business tools are set up.
-- **Add a business:** an owner, or a restaurant's admin, can start another business of their own and becomes its owner.
-- **Modules on demand:** each business switches modules on or off within what its type allows, in Settings › Business tools. This is ready to be tied to paid plans later.
+- **Sign-up on the public site:** the owner gives their name, mobile, email and password, then the business's name, type (a restaurant also its format), city and state, and chooses a plan, monthly or yearly, and its add-ons. They are signed in at once, and the business starts its free trial.
+- **Platform › Businesses:** sets up a business of any type, a restaurant included, with its owner's login (a new login; for any type but a restaurant, also an existing one by its email), its plan, and how long it may be used: free until a date, with no end date, or a free trial. The owner signs in and finds it ready: roles, GST slabs, units, payment methods and the type's everyday business tools are set up.
+- **Platform › Restaurants:** adds a restaurant with its owner's login (a Restaurant Admin). The platform team chooses the format: restaurant, café, bakery or cloud kitchen. The restaurant starts set up for that format, with its GST rates, settings, delivery channels and a kitchen station, and its free trial. The owner adds the menu, tables, staff, GSTIN and FSSAI number after signing in.
+- **Add a business:** an owner, or a restaurant's admin, can start another business of their own and becomes its owner; it starts a free trial of its own.
+- **Modules on demand:** each business switches modules on or off within what its type allows and its plan unlocks, in Settings › Business tools.
 
-The owner then enters products, prices, customers, suppliers and staff logins, typed in or imported from Excel or CSV files. Handing a business over to a new owner is not built yet.
+The owner then enters products, prices, customers, suppliers and staff logins, typed in or imported from Excel or CSV files. Handing a business over to a new owner has no screen yet.
 
 How the Platform screens work: [ADMIN_GUIDE.md › The first platform login and the platform screens](ADMIN_GUIDE.md#the-first-platform-login-and-the-platform-screens). What a new business fills in first: [ADMIN_GUIDE.md › First steps in a new business](ADMIN_GUIDE.md#first-steps-in-a-new-business).
 
+## Plans, the free trial and the platform console
+
+The platform sells itself, per business:
+
+- **The public site:** a home page that says what the platform does for each type of business, its prices, a one-page sign-up into a free trial, its terms, privacy and refund policies, and a form to ask for a call back.
+- **The free trial:** every new business starts with 14 days (to start with: the platform's setting) in which everything its type can use is unlocked.
+- **Plans:** each type has its plans (*Basic* to start with), monthly or yearly, and the owner adds the modules and applications they want: the captain app, the kitchen display, QR table ordering, the online ordering page, the laboratory and the other optional modules. Prices are before GST, from the platform's price list; a price change reaches a business at its next order.
+- **Paying:** the owner pays by UPI (a QR code for the exact amount) or bank transfer and enters the payment's reference in *Your plan*; the platform confirms it, which issues the company's GST invoice and extends the business. A banner tells the owner and the staff when the trial or the plan is ending.
+- **After the end:** a few days' grace (7 to start with), then the business is read-only: everything can still be seen, printed and exported, and nothing is ever deleted for not paying.
+- **The platform console:** the platform's team keeps the prices, the trial and the company's details; sets businesses up and gives them time; confirms payments and keeps the company's GST invoices; and follows the money collected, the recurring income, the free-trial funnel (how many tried, paid or stopped), the renewals due and the orders not paid. It sees counts and dates only, never a business's sales, customers or patients.
+
+How each part works: [ADMIN_GUIDE.md › The platform's public site and signing up](ADMIN_GUIDE.md#the-platforms-public-site-and-signing-up), [Your plan, the free trial and paying](ADMIN_GUIDE.md#your-plan-the-free-trial-and-paying) and [The first platform login and the platform screens](ADMIN_GUIDE.md#the-first-platform-login-and-the-platform-screens).
+
 ## Safeguards
 
-Automated tests cover the admin side and the guests' site; the integration tests and the browser tests each build a fresh database on every run. Real staff have not yet used the platform in a live business; a pilot comes first ([GO_LIVE.md](GO_LIVE.md)).
+Automated tests cover the admin side, the guests' site, the public site, the paid plans and the platform console; the integration tests and the browser tests each build a fresh database on every run. Real staff have not yet used the platform in a live business; a pilot comes first ([GO_LIVE.md](GO_LIVE.md)).
 
 Where a mistake would lose money, stock or medical records, the database refuses it as well as the program. For example:
 - a duplicate bill number;
@@ -420,9 +436,9 @@ Where a mistake would lose money, stock or medical records, the database refuses
 
 ## What comes next
 
-Most of the work left lies outside the admin application: going live on a server, outside services, hardware links, paid plans and separate apps. Each item waits on a decision or an account from management, such as a server budget, provider contracts, the printer and scale models, plan prices, or a pharmacist, a doctor and an accountant to review the rules. [BACKLOG.md › At a glance](BACKLOG.md#at-a-glance) lists every item with what it needs.
+Most of the work left lies outside the admin application: the outside accounts first (the payment gateway with UPI AutoPay, and OTP and reminders by SMS, WhatsApp and email), then hardware links, going live on a server, live Swiggy and Zomato links, maps and separate apps. Each item waits on a decision or an account from management, such as a server budget, provider contracts, the printer and scale models, or a pharmacist, a doctor, a lawyer and an accountant to review the rules and the policies. [BACKLOG.md › At a glance](BACKLOG.md#at-a-glance) lists every item with what it needs.
 
 Recommended order:
-1. Run a pilot first, with one restaurant (or café) and one shop ([GO_LIVE.md](GO_LIVE.md)).
-2. Add the payment gateway and WhatsApp.
-3. Add plans and pricing.
+1. Run a pilot first, with one restaurant (or café) and one shop ([GO_LIVE.md](GO_LIVE.md)); before the platform takes its first payment, its own checklist ([GO_LIVE.md › Before the platform takes its first payment](GO_LIVE.md#before-the-platform-takes-its-first-payment)).
+2. Connect the outside accounts: the payment gateway with UPI AutoPay, and OTP and reminders by SMS, WhatsApp and email.
+3. Link the hardware: silent printing, the cash drawer and scales.

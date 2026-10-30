@@ -19,6 +19,11 @@ gets the Business Admin screens its business tools switch on. Guests never
 sign in: they order and book on the **guests' site**, the pages a
 restaurant's QR codes and links open.
 
+Owners sign their businesses up on the platform's own **public site**, into
+a free trial, and pay for each business's plan in **Your plan**; the
+platform's team runs prices, payments and its GST invoices from the
+**platform console**.
+
 **Two rules hold everywhere.** You only see what your role allows: a screen
 you may not use is not greyed out, it is absent, and the server checks the
 same permission again on every action, so hiding a button is presentation,
@@ -33,15 +38,17 @@ on record.
 **[Part 1 — Getting started](#part-1--getting-started)**
 
 - [Signing in and staying safe](#signing-in-and-staying-safe)
+- [The platform's public site and signing up](#the-platforms-public-site-and-signing-up)
+- [Your plan, the free trial and paying](#your-plan-the-free-trial-and-paying)
 - [The first platform login and the platform screens](#the-first-platform-login-and-the-platform-screens)
-  - [Platform › Restaurants](#platform--restaurants)
-  - [Platform › Businesses](#platform--businesses)
   - [Platform › Overview](#platform--overview)
-  - [Platform › Leads & trials](#platform--leads--trials)
-  - [Platform › Reports](#platform--reports)
+  - [Platform › Businesses](#platform--businesses)
   - [A business's page](#a-businesss-page)
+  - [Platform › Restaurants](#platform--restaurants)
+  - [Platform › Leads & trials](#platform--leads--trials)
   - [Platform › Payments](#platform--payments)
   - [Platform › Invoices](#platform--invoices)
+  - [Platform › Reports](#platform--reports)
   - [Platform › Settings](#platform--settings)
 - [Starting a business](#starting-a-business)
   - [Business settings › Rules](#business-settings--rules)
@@ -52,8 +59,6 @@ on record.
   - [GST thresholds across your businesses](#gst-thresholds-across-your-businesses)
 - [Getting around the restaurant admin](#getting-around-the-restaurant-admin)
 - [Lists: the data grid](#lists-the-data-grid)
-- [The platform's public site and signing up](#the-platforms-public-site-and-signing-up)
-- [Your plan, the free trial and paying](#your-plan-the-free-trial-and-paying)
 
 **[Part 2 — The restaurant](#part-2--the-restaurant)**
 
@@ -224,6 +229,194 @@ manager whose PIN someone else set is shown with *PIN not their own yet* and
 cannot be chosen until they choose their own; a business's own prompts show
 them the same way, with the reason under the list.
 
+## The platform's public site and signing up
+
+The platform has a public site of its own, inside the staff app, which needs
+no sign-in: its home page (`/welcome`), *Pricing* (`/pricing`), *Start free
+trial* (`/signup`), the terms of service (`/terms`), the privacy policy
+(`/privacy-policy`), refunds, cancellation and service delivery (`/refunds`)
+and *Contact us* (`/contact`). Someone who opens the app's bare address
+without being signed in lands on the home page, the link's query kept;
+someone whose session has just ended there is asked to sign in again. The
+sign-in page links to the site: *New here? Start a free trial* and *About the
+platform*.
+
+What the pages say comes from the platform's settings and price list, as the
+super admin keeps them in **Platform › Settings**:
+
+- the brand, and the company's name, address, phone, email and website, its
+  support contact and its grievance officer, in the footer, *Contact us* and
+  the policies; until the company's legal name is entered, they say "the
+  platform company";
+- the trial days, the grace days and the GST rate, on every page that names
+  them;
+- each type's plans and add-ons with their prices, on *Pricing* and the
+  sign-up.
+
+A save in Platform › Settings, of the settings or the prices, shows on the
+site at once. How owners pay (the UPI ID and bank account) is never on the
+site: an owner sees it in *Your plan*. Each page has its own title and
+description, for search engines and shared links.
+
+**The home page** says what the platform does for each type of business, in
+the product overview's groups (food, shops, trade, speciality retail,
+building and farm, vehicles and fuel, services, stays, health, weight-based),
+what every business gets, and how pricing works, with the lowest plan's
+monthly price. Its ways in are *Start free trial*, *Sign in* and *Request a
+call back*. A type's name opens its prices.
+
+**Pricing** shows one type at a time (*Your type of business*), monthly or
+yearly: its plans, each with its price before GST, what it includes and what a
+year saves, and the modules and applications that can be added, each with its
+price. *Recommended* marks the add-ons most businesses of the type use. A
+plan's *Start free trial* opens the sign-up with the type, the plan and the
+period filled in.
+
+**Signing up** is one page:
+
+1. *About you*: the owner's name, mobile, email and a password of 8 to 72
+   characters. The owner signs in with the email or the mobile.
+2. *Your business*: its name and type (a restaurant also chooses its format:
+   restaurant, café, bakery or cloud kitchen), its city and state, and its
+   GSTIN if it has one, whose first two digits must be the state's.
+3. *Your plan*: the plan (the type's default to start with), monthly or
+   yearly, and the add-ons. Ticking an add-on ticks what it needs; unticking
+   one unticks what needs it. *What it comes to* sums it up, for example "Free
+   for 14 days, then ₹6,998 + 18% GST a year".
+4. The terms of service and the privacy policy accepted, then *Start free
+   trial*.
+
+The owner is signed in at once, with the password they chose as their own
+(nothing asks them to change it), and lands in the business: a shop, or any
+other type, in its Business Admin; a restaurant on its dashboard. The
+business:
+
+- starts its free trial; with 0 trial days it starts read-only and pays
+  first, in *Your plan*;
+- has its plan's modules and the chosen add-ons switched on, and the other
+  modules its type starts with switched off. A café, bakery or cloud kitchen
+  gets its format's set-up, as from Platform › Restaurants, and a module its
+  format switches off stays off unless the owner chose it as an add-on. During
+  the trial the owner may switch on anything the type has, in Settings ›
+  Business tools (a restaurant's Settings → Features);
+- keeps the plan, the period and the add-ons as its selection for its first
+  order, which the owner changes in *Your plan*;
+- gets its code from the first words of its name and four digits
+  (SRI-LAKSHMI-4821); a restaurant's staff type it beside their staff code.
+
+A sign-up is refused when:
+
+- the email or the mobile number already has a login: "That email already has
+  a login. Sign in instead." Someone who has a login adds a business of their
+  own from **Your businesses › Add a business**;
+- the business is a restaurant and its email or mobile number already has a
+  login: "A restaurant needs a login of its own. Use another email and mobile
+  number, or contact us." A restaurant's logins belong to it alone;
+- one network address has sent the sign-up five times in the last hour (and
+  the same for the call-back form): "Too many forms sent from this network in
+  the last hour. Please try again later."
+
+**Request a call back**, on the home page and *Contact us*: the visitor's name
+and mobile number and, if they give them, their email, type of business, city
+and a message, with the box agreeing to be contacted about the platform at
+that number and email. It answers "Thank you, we will call you." Each request
+is a lead for the platform's team, in **Platform › Leads & trials**; a later
+sign-up with the same mobile number or email joins that lead. The `ref` or
+`utm_source` of the link that brought the visitor (`/welcome?ref=facebook`)
+is kept on the lead as its source, for their whole visit.
+
+## Your plan, the free trial and paying
+
+Each business pays for its own plan: a plan for its type (each type starts
+with **Basic**) with the modules and applications added to it, by the month
+or by the year. Prices are before GST, which the invoice adds (18%, unless
+the platform has set another rate).
+
+**The free trial.** A new business starts on a free trial (14 days, unless
+the platform has set another length) in which every module and application
+its type can use is unlocked. Nothing is charged until it ends.
+
+**Time given by the platform.** A business the platform sets up for a
+customer may have given time instead: free until a date, or with no end
+date, with what it unlocks chosen by the platform. Its card says *Given
+until …*; during it the plan is the platform's to change, and Your plan says
+whom to contact.
+
+**Your plan** is the owner's: in Business Admin it is *Settings › Your plan*,
+for the business's Owner role only, and in a restaurant *Settings → Your
+plan* (`/plan`), for its Restaurant Admin. It shows:
+
+- **Where your plan stands:** the trial, paid time, time the platform has
+  given, grace, a payment being checked or the end; its dates; and what is
+  unlocked now.
+- **Choose your plan** (during the trial), **Your next period** (on paid
+  time) or **Renew your plan** (in grace or after the end): the plan,
+  *Monthly* or *Yearly* (a year costs less than twelve months), and the
+  modules and applications to add, each with its price. A module switched on
+  now that the choice leaves out says *In use now*: it switches off when the
+  time that unlocks it ends. **Save choice** keeps the choice; paying keeps
+  it too. A change of plan starts with the next period. During time the
+  platform has given, the choice is the platform's: the card says whom to
+  contact.
+- **Pay now** (**Renew now** after the trial) makes an order: its lines, the
+  GST (CGST and SGST within the platform company's state, IGST from another
+  state) and the total, its prices held for 7 days. A business with no state
+  yet is asked for it first: it is the place of supply on the invoice. The
+  new period starts the day after the time the business already has, so no
+  day is lost; after the end, it starts today.
+- **Pay for your plan:** the company's UPI ID with a QR code for the exact
+  amount (any UPI app fills in the amount and the order number) and its bank
+  account. Once you have paid, **I have paid** takes how (UPI, bank transfer,
+  cash or cheque), the payment's reference (the UPI transaction ID or UTR,
+  the bank's reference or the cheque number) and the date. The order then
+  shows *Payment being checked* until the platform confirms it; a business
+  whose time has run out keeps working for up to 2 days meanwhile. A payment
+  that could not be confirmed says why, and can be entered again.
+- **Add to this period** (on paid time): a module or application from today
+  to the end of the period, at its price for the period times the days left
+  over the days in the period.
+- **Orders, payments and invoices:** each confirmed payment has the company's
+  GST invoice; **Print** prints it, or saves it as a PDF from the print
+  window. An invoice issued while the company's GSTIN is still the sample one
+  is marked *SAMPLE — NOT A TAX INVOICE*.
+
+**The banner.** While there is something to know about the plan, every
+screen of the business has a line at its top: *Free trial: 9 days left*;
+from 15 days before paid or given time ends, *Your plan ends on 12 Nov*; in
+grace, *Your plan ended on 12 Nov. Renew by 19 Nov to keep billing*; *We are
+checking your payment*; and after the end, that the business is read-only.
+The owner's banner opens Your plan. Staff see the same banner with no link
+and no price; once the end is near or has come, it asks them to ask the owner
+to renew. On the billing screens
+(the POS, the kitchen display, Quick bill and the other counters) and in the
+clinic's and the lab's workspaces, it shows only in the last 3 days before
+the end, in grace, while a payment is being checked, and after the end.
+
+**After the end: read-only.** Once paid or given time and its grace (7 days,
+unless the platform has set another length) have passed, or a trial has
+ended unpaid, the business is read-only: everything can still be seen,
+printed and exported, and nothing is deleted, but nothing can be added or
+changed. A save refused this way says *This business's plan has ended. You
+can still see and export everything; renew in Your plan to add or change
+anything*, and, outside a dialog, a notice says once on the page what to do:
+the owner gets **Renew**, staff are asked to ask the owner. Paying from Your
+plan brings everything back.
+
+**Plan badges.** In *Settings › Business tools* (a restaurant's *Settings →
+Features*):
+
+- during the trial, the owner sees where each module stands after it: *In
+  your plan*, or *Add-on · ₹1,999/year after the trial* (by the month or the
+  year, as the choice is);
+- after the trial, a module the plan does not unlock says *Not in your
+  plan*, to everyone. It works as switched off, its records kept, and its
+  switch stays off; the owner's **Add to plan** opens Your plan with it
+  offered (on paid time, for the rest of the period).
+
+**Your businesses** shows each business's plan on its card: *Free trial · 9
+days left*, *Paid until 12 Nov 2027*, *Given until 31 Dec*, *Ended · renew by
+19 Nov* (in grace), *Payment being checked* or *Ended · read-only*.
+
 ## The first platform login and the platform screens
 
 A new installation is empty: no restaurant, business, product or staff login
@@ -237,51 +430,48 @@ else is made on the screens.
 The Super Admin belongs to no restaurant. It opens on **Platform ›
 Overview**, and only the platform's own logins see the **Platform** group of
 the menu (Overview, Businesses, Restaurants, Leads & trials, Payments,
-Invoices, Reports, Settings). The platform screens add restaurants and
-businesses, give them time and change their plans, confirm the payments
-owners make for their plans and keep the company's GST invoices, switch
-businesses off and on, and set new passwords for locked-out owners; they
-never show a restaurant's or a business's bills, guests or sales, only
-counts and dates.
+Invoices, Reports, Settings). The platform screens keep the company's
+prices, trial and details, add restaurants and businesses, give them time
+and change their plans, confirm the payments owners make for their plans and
+keep the company's GST invoices, follow its sales, its free trials and the
+renewals due, switch businesses off and on, and set new passwords for
+locked-out owners; they never show a restaurant's or a business's bills,
+guests or sales, only counts and dates.
 
-### Platform › Restaurants
+### Platform › Overview
 
-Every restaurant on the platform, cafés, bakeries and cloud kitchens
-included, most recently active first: its code, format and phone, its status,
-its outlets, how many of its logins are active, and its last activity. Tiles
-count the restaurants, the active ones and those switched off. Search by name
-or code, show all, active or switched-off restaurants, and *Export CSV*.
+The platform's home: what the company has taken, its businesses by state, the
+free trials, the renewals coming up and what is waiting. *Refresh* reads it
+again. The rules behind each figure are in [BUSINESS_RULES.md › Paid
+plans](BUSINESS_RULES.md#paid-plans).
 
-- **Add restaurant** asks for:
-  - the **format**: restaurant, café, bakery or cloud kitchen. It sets how the
-    POS opens and the features the restaurant starts with; the owner can
-    change them later;
-  - the **name** and the **code** (letters and digits, fixed once created;
-    staff type it with their staff code at sign-in);
-  - the phone, email and address;
-  - the **bill number prefix** (INV unless changed) and the **order number
-    prefix** (ORD);
-  - **the owner's login**: full name, email, mobile (optional) and a first
-    password of 8 to 72 characters. The owner becomes the restaurant's
-    **Restaurant Admin** and chooses their own password at the first sign-in.
-- **What a new restaurant starts with:** four GST rates (Exempt; GST 5 % for
-  restaurant service, SAC 996331, the default for new dishes; GST 18 %; GST
-  40 %), its settings (time zone Asia/Kolkata and the two prefixes), five
-  sales channels (Own delivery, Swiggy, Zomato, Phone and Website), the
-  kitchen display's *Main kitchen* station, and its first admin. It has no
-  menu, no tables and no staff: the owner adds them ([First steps in a new
-  business](#first-steps-in-a-new-business)). A café, bakery or cloud kitchen
-  also starts with its format's set-up ([Café, bakery and cloud
-  kitchen](#café-bakery-and-cloud-kitchen)). The owner fills in the GSTIN and
-  FSSAI number under Settings → GST and invoice.
-- **Switch off** (*More* on the row) signs out everyone who works there and
-  tells them their restaurant is not active, until it is switched on again.
-  Nothing is deleted. **Switch on** lets its staff sign in again at once.
-- **Admins** lists the people who manage the restaurant's users and roles,
-  with their last sign-in and whether they are locked out. **New password**
-  gives one of them a new password: they are signed out everywhere and any
-  lockout is lifted. Tell them the password; they choose their own at their
-  next sign-in.
+- **Money** is the company's tax invoices, GST included: collected today, this
+  month (with what it came to before GST, and the GST), last month and this
+  financial year (from 1 April), and a chart of the last 12 months. SAMPLE
+  invoices, issued while the company's GSTIN is the sample one, are left out
+  and counted in a line under the tiles. **Monthly recurring income** is what
+  the paying businesses' plans and add-ons come to in a month, before GST;
+  **yearly recurring income** is a year of it. Trials and given time bring
+  none.
+- **Businesses by state**: on trial, paying, given time, in grace, payment
+  being checked, ended (read-only) and switched off, each on the business's
+  own date. A tile opens the list of businesses in that state.
+- **Free trials, last 30 days**: the funnel of Leads & trials for the trials
+  that started in the last 30 days, and *Leads & trials* for any other dates.
+- **Renewals**: paying businesses whose paid time ends within 7 and within 30
+  days, with what their renewals would ask before GST, and paid time that
+  ended this month without a renewal (in grace, a payment being checked, or
+  ended). The two tiles of renewals due open *Renewals due* in the reports.
+- **To do**: the payments owners have entered for you to confirm (opens
+  Payments), the requests to be called back still marked new (opens Leads &
+  trials) and, once the real GSTIN is saved, the paid orders that still have
+  only a SAMPLE invoice (opens Invoices). **Before you go live** lists what
+  is left until each is done: the company's details complete, its real
+  GSTIN, the price list reviewed, and the UPI ID or bank account owners pay
+  to. Each step not done has a button to the Settings tab that does it; once
+  all four are done, a line says the platform is ready to go live. The whole
+  list, with the reviews no screen can mark, is in
+  [GO_LIVE.md › Before the platform takes its first payment](GO_LIVE.md#before-the-platform-takes-its-first-payment).
 
 ### Platform › Businesses
 
@@ -403,12 +593,94 @@ What the platform does here, each kept in the business's activity log:
   restaurant, one of its admins); their sessions end, and they choose their
   own at their next sign-in.
 
+### Platform › Restaurants
+
+Every restaurant on the platform, cafés, bakeries and cloud kitchens
+included, most recently active first: its code, format and phone, its status,
+its outlets, how many of its logins are active, and its last activity. Tiles
+count the restaurants, the active ones and those switched off. Search by name
+or code, show all, active or switched-off restaurants, and *Export CSV*. Each
+restaurant is also a business on [Platform › Businesses](#platform--businesses),
+which shows its plan. A restaurant can be added there too, with its plan and
+the time it may be used, and its owner can sign it up on the public site.
+
+- **Add restaurant** asks for:
+  - the **format**: restaurant, café, bakery or cloud kitchen. It sets how the
+    POS opens and the features the restaurant starts with; the owner can
+    change them later;
+  - the **name** and the **code** (letters and digits, fixed once created;
+    staff type it with their staff code at sign-in);
+  - the phone, email and address;
+  - the **bill number prefix** (INV unless changed) and the **order number
+    prefix** (ORD);
+  - **the owner's login**: full name, email, mobile (optional) and a first
+    password of 8 to 72 characters. The owner becomes the restaurant's
+    **Restaurant Admin** and chooses their own password at the first sign-in.
+- **What a new restaurant starts with:** four GST rates (Exempt; GST 5 % for
+  restaurant service, SAC 996331, the default for new dishes; GST 18 %; GST
+  40 %), its settings (time zone Asia/Kolkata and the two prefixes), five
+  sales channels (Own delivery, Swiggy, Zomato, Phone and Website), the
+  kitchen display's *Main kitchen* station, and its first admin; like every
+  new business, it starts its free trial on its type's default plan
+  ([Your plan, the free trial and paying](#your-plan-the-free-trial-and-paying)).
+  It has no menu, no tables and no staff: the owner adds them ([First steps
+  in a new business](#first-steps-in-a-new-business)). A café, bakery or cloud kitchen
+  also starts with its format's set-up ([Café, bakery and cloud
+  kitchen](#café-bakery-and-cloud-kitchen)). The owner fills in the GSTIN and
+  FSSAI number under Settings → GST and invoice.
+- **Switch off** (*More* on the row) signs out everyone who works there and
+  tells them their restaurant is not active, until it is switched on again.
+  Nothing is deleted. **Switch on** lets its staff sign in again at once.
+- **Admins** lists the people who manage the restaurant's users and roles,
+  with their last sign-in and whether they are locked out. **New password**
+  gives one of them a new password: they are signed out everywhere and any
+  lockout is lifted. Tell them the password; they choose their own at their
+  next sign-in.
+
+### Platform › Leads & trials
+
+The free-trial funnel, and every lead with its follow-up.
+
+- **The funnel** counts the trials that started between two dates (the last
+  30 days at first), each on the business's own date, and the requests to be
+  called back that came in between them:
+  - **Enquiries (call-back requests)**, with how many have signed up so far;
+  - **Free trials started**, and where each came from: a direct sign-up, an
+    enquiry that signed up, an owner adding another business, or a business
+    the platform set up on a free trial. A business the platform sets up with
+    given time has no trial and is not counted;
+  - **Made a sale during the trial**: a sale, or a restaurant's bill, dated
+    inside the trial, the earliest sign of who will pay;
+  - **Still on trial**; **Continued (paid)**, split into paid before the trial
+    ended and paid after it; and **Stopped (did not pay)**, with how many
+    stopped in the last 30 days, still worth a call;
+  - the share of the finished trials that continued, and the average days
+    from a trial's start to its first payment.
+- **Filters**: business type, state, source tag (the `ref` of the link the
+  person came from), the plan chosen and the trial's length. Enquiries have
+  no plan or trial length, so those two filters leave them out. **Split by**
+  shows the numbers by one of them in a table, with *Export CSV*.
+- **Every number opens its list**, under the funnel: the businesses with their
+  owner's name and mobile to call, the trial's dates and length, how it went
+  and the state the business is in today, its first sale and first payment,
+  where it came from and its state; for the enquiries, the people, their
+  details and whether they signed up. Each list has *Export CSV*.
+- **Leads** lists every request to be called back and every sign-up, newest
+  first (the latest 500): name, mobile, email, business, type, city, source
+  and source tag, the follow-up, how it went (not signed up yet, or the state
+  its business is in today) and the notes. Set the **follow-up** (new,
+  contacted, not interested) on the row as you call. **Notes** shows the
+  person's details, their message and the notes so far, newest first, and
+  adds one; a note is kept as it was written. Each follow-up and note is
+  written to the platform's audit with who made it. Filter by follow-up and
+  by source, search, and *Export CSV* (the notes come with it).
+
 ### Platform › Payments
 
-The payments owners make for their plans. Until online payment arrives, an
-owner pays the company outside the app (by UPI or bank transfer to the
-payment details in Settings, or by cash or cheque) and enters the payment's
-reference in Your plan.
+The payments owners make for their plans. An owner pays the company outside
+the app (by UPI or bank transfer to the payment details in Settings, or by
+cash or cheque) and enters the payment's reference in Your plan; there is no
+online payment ([BACKLOG.md › The platform layer](BACKLOG.md#3-the-platform-layer)).
 
 - **Being checked** comes first: each payment an owner entered, with its
   business, amount, method, reference, the date paid, when it was entered and
@@ -467,6 +739,29 @@ sample-mode notice as Payments.
   payable on reverse charge"; and the authorised signatory. A SAMPLE invoice
   prints "SAMPLE — NOT A TAX INVOICE" at the top and across every page.
 
+### Platform › Reports
+
+Three reports, each with *Export CSV*.
+
+- **Sales**: the company's tax invoices between two dates (this financial
+  year at first), never a SAMPLE one, by month, plan, module, application,
+  business type, state (the place of supply), new or renewal (a business's
+  first paid plan, a later one, or add-ons bought mid-period) and monthly or
+  yearly. Whole invoices show their sales before GST, the GST and the total;
+  plans, modules and applications are lines of an invoice, so they show what
+  their lines came to before GST. Tiles add the invoices up, and a line says
+  how many SAMPLE invoices fall in the dates.
+- **Renewals due**: paying businesses whose paid time ends within 7, 15, 30,
+  60 or 90 days, and those already in grace, soonest first: when the paid
+  time ends and the days left (or how long ago it ended and the last day of
+  grace), the plan they renew on, what the renewal would ask before GST at
+  today's prices, the owner to call and any order they have open.
+- **Orders not paid**: every open order, oldest first, with how many days old
+  it is (up to 30, 31 to 60, 61 to 90, over 90; tiles add each up), its
+  total, whether a payment of it is being checked, the day its prices are
+  held to (7 days after it was made; after that the owner makes it again) and
+  the owner to call.
+
 ### Platform › Settings
 
 Four tabs (`?tab=company`, `trial`, `prices` or `payment` in the address opens
@@ -501,100 +796,6 @@ one):
   payee name, the bank name, account name, account number and IFSC, and a
   note for owners, such as what to write in the payment's remarks.
 
-### Platform › Overview
-
-The platform's home: what the company has taken, its businesses by state, the
-free trials, the renewals coming up and what is waiting. *Refresh* reads it
-again. The rules behind each figure are in [BUSINESS_RULES.md › Paid
-plans](BUSINESS_RULES.md#paid-plans).
-
-- **Money** is the company's tax invoices, GST included: collected today, this
-  month (with what it came to before GST, and the GST), last month and this
-  financial year (from 1 April), and a chart of the last 12 months. SAMPLE
-  invoices, issued while the company's GSTIN is the sample one, are left out
-  and counted in a line under the tiles. **Monthly recurring income** is what
-  the paying businesses' plans and add-ons come to in a month, before GST;
-  **yearly recurring income** is a year of it. Trials and given time bring
-  none.
-- **Businesses by state**: on trial, paying, given time, in grace, payment
-  being checked, ended (read-only) and switched off, each on the business's
-  own date. A tile opens the list of businesses in that state.
-- **Free trials, last 30 days**: the funnel of Leads & trials for the trials
-  that started in the last 30 days, and *Leads & trials* for any other dates.
-- **Renewals**: paying businesses whose paid time ends within 7 and within 30
-  days, with what their renewals would ask before GST, and paid time that
-  ended this month without a renewal (in grace or ended). The two tiles of
-  renewals due open *Renewals due* in the reports.
-- **To do**: the payments owners have entered for you to confirm (opens
-  Payments), the requests to be called back still marked new (opens Leads &
-  trials) and, once the real GSTIN is saved, the paid orders that still have
-  only a SAMPLE invoice (opens Invoices). **Before you go live** lists what
-  is left until each is done: the company's details complete, its real
-  GSTIN, the price list reviewed, and the UPI ID or bank account owners pay
-  to. Each step not done has a button to the Settings tab that does it; once
-  all four are done, a line says the platform is ready to go live.
-
-### Platform › Leads & trials
-
-The free-trial funnel, and every lead with its follow-up.
-
-- **The funnel** counts the trials that started between two dates (the last
-  30 days at first), each on the business's own date, and the requests to be
-  called back that came in between them:
-  - **Enquiries (call-back requests)**, with how many have signed up so far;
-  - **Free trials started**, and where each came from: a direct sign-up, an
-    enquiry that signed up, an owner adding another business, or a business
-    the platform set up on a free trial. A business the platform sets up with
-    given time has no trial and is not counted;
-  - **Made a sale during the trial**: a sale, or a restaurant's bill, dated
-    inside the trial, the earliest sign of who will pay;
-  - **Still on trial**; **Continued (paid)**, split into paid before the trial
-    ended and paid after it; and **Stopped (did not pay)**, with how many
-    stopped in the last 30 days, still worth a call;
-  - the share of the finished trials that continued, and the average days
-    from a trial's start to its first payment.
-- **Filters**: business type, state, source tag (the `ref` of the link the
-  person came from), the plan chosen and the trial's length. Enquiries have
-  no plan or trial length, so those two filters leave them out. **Split by**
-  shows the numbers by one of them in a table, with *Export CSV*.
-- **Every number opens its list**, under the funnel: the businesses with their
-  owner's name and mobile to call, the trial's dates and length, how it went
-  and the state the business is in today, its first sale and first payment,
-  where it came from and its state; for the enquiries, the people, their
-  details and whether they signed up. Each list has *Export CSV*.
-- **Leads** lists every request to be called back and every sign-up, newest
-  first (the latest 500): name, mobile, email, business, type, city, source
-  and source tag, the follow-up, how it went (not signed up yet, or the state
-  its business is in today) and the notes. Set the **follow-up** (new,
-  contacted, not interested) on the row as you call. **Notes** shows the
-  person's details, their message and the notes so far, newest first, and
-  adds one; a note is kept as it was written. Each follow-up and note is
-  written to the platform's audit with who made it. Filter by follow-up and
-  by source, search, and *Export CSV* (the notes come with it).
-
-### Platform › Reports
-
-Three reports, each with *Export CSV*.
-
-- **Sales**: the company's tax invoices between two dates (this financial
-  year at first), never a SAMPLE one, by month, plan, module, application,
-  business type, state (the place of supply), new or renewal (a business's
-  first paid plan, a later one, or add-ons bought mid-period) and monthly or
-  yearly. Whole invoices show their sales before GST, the GST and the total;
-  plans, modules and applications are lines of an invoice, so they show what
-  their lines came to before GST. Tiles add the invoices up, and a line says
-  how many SAMPLE invoices fall in the dates.
-- **Renewals due**: paying businesses whose paid time ends within 7, 15, 30,
-  60 or 90 days, and those already in grace, soonest first: when the paid
-  time ends and the days left (or how long ago it ended and the last day of
-  grace), the plan they renew on, what the renewal would ask before GST at
-  today's prices, the owner to call and any order they have open.
-- **Orders not paid**: every open order, oldest first, with how many days old
-  it is (up to 30, 31 to 60, 61 to 90, over 90; tiles add each up), its
-  total, whether a payment of it is being checked, the day its prices are
-  held to (7 days after it was made; after that the owner makes it again) and
-  the owner to call.
-
 ## Starting a business
 
 A restaurant, and a café, a bakery or a cloud kitchen, which run on the
@@ -613,6 +814,11 @@ is created in one of three ways:
 - **The public site's sign-up** (`/signup`): a new owner, with a login of
   their own, into a free trial
   ([The platform's public site and signing up](#the-platforms-public-site-and-signing-up)).
+
+However it is made, a new business (a restaurant too) starts its own free
+trial on its type's default plan, unless the platform gives it time instead
+or has set the trial to 0 days
+([Your plan, the free trial and paying](#your-plan-the-free-trial-and-paying)).
 
 The type and the code are fixed once the business is created. The rest can
 change later: the business's name and details in Business settings, and its
@@ -827,7 +1033,8 @@ business*, by name, type or code) and pick from **Restaurants & food** and
   broken promises, repairs ready, orders to dispatch). With more than six
   businesses a *Find a business* box narrows the cards.
   - The owner of a business, or a restaurant's admin, starts another business
-    here with **Add a business**.
+    here with **Add a business**. It starts a free trial of its own and pays
+    for its own plan; a restaurant is not added here.
   - A Restaurant Admin whose restaurant is not on the list yet sees **Link my
     restaurant**, which adds it, with them as its owner.
   - Someone who belongs to no business yet is told so, and asks a business's
@@ -931,8 +1138,8 @@ pages you may use. In this guide an arrow goes one level down the menu:
 | --- | --- |
 | Daily work | Dashboard · POS · **Orders** (Orders, Pickup screen, Table requests, Deliveries) · Pre-orders & cakes · Bills & payments · Dues & accounts · Kitchen display · Expenses · Business day |
 | Operations | **Menu** (Products, Categories, Brands, Modifiers, Happy hour, Tax rates) · **Tables & QR** (Tables & QR, Floors & areas; not in a bakery or cloud kitchen) · Reservations · **Stock** (Items & stock, Stock movements, Waste & reorder, Day-end unsold for a bakery or café, Transfers & indents, Stock & purchasing settings) · **Purchases & suppliers** (Purchase orders, Suppliers, Returns & payments) · **Customers** (Customers, Feedback, Complaints, Guest insights) · **Staff** (Employees, Shifts & roster, Attendance, Time clock, Payroll, Tips, and My work for a login linked to a staff record) |
-| Management | **Reports** (Reports, Activity log, Log book) · **Tasks** (its own strip of task screens) · **Settings** (Settings, Profile, Business hours, Features, Outlets, Service settings, Discounts & offers) · **Users & access** (Users, Roles & permissions) |
-| Platform | Restaurants · Businesses (the platform's own logins only) |
+| Management | **Reports** (Reports, Activity log, Log book) · **Tasks** (its own strip of task screens) · **Settings** (Settings, Profile, Business hours, Features, Outlets, Service settings, Discounts & offers, Personal data, and Your plan for the Restaurant Admin) · **Users & access** (Users, Roles & permissions) |
+| Platform | Overview · Businesses · Restaurants · Leads & trials · Payments · Invoices · Reports · Settings (the platform's own logins only) |
 
 - Only the group you are in is open; click another group's title to pin it
   open (remembered in this browser). **Jump to…** at the top finds any page
@@ -1005,187 +1212,6 @@ everywhere:
   written to the activity log. In other businesses every export needs that
   area's export permission (for example `catalog.export`, `reports.export`).
 - On a phone a list becomes cards.
-
-## The platform's public site and signing up
-
-The platform has a public site of its own, inside the staff app, which needs
-no sign-in: its home page (`/welcome`), *Pricing* (`/pricing`), *Start free
-trial* (`/signup`), the terms of service (`/terms`), the privacy policy
-(`/privacy-policy`), refunds, cancellation and service delivery (`/refunds`)
-and *Contact us* (`/contact`). Someone who opens the app's bare address
-without being signed in lands on the home page, the link's query kept;
-someone whose session has just ended there is asked to sign in again. The
-sign-in page links to the site: *New here? Start a free trial* and *About the
-platform*.
-
-What the pages say comes from the platform's settings and price list, as the
-super admin keeps them in **Platform › Settings**:
-
-- the brand, and the company's name, address, phone, email and website, its
-  support contact and its grievance officer, in the footer, *Contact us* and
-  the policies; until the company's legal name is entered, they say "the
-  platform company";
-- the trial days, the grace days and the GST rate, on every page that names
-  them;
-- each type's plans and add-ons with their prices, on *Pricing* and the
-  sign-up.
-
-A save in Platform › Settings, of the settings or the prices, shows on the
-site at once. How owners pay (the UPI ID and bank account) is never on the
-site: an owner sees it in *Your plan*. Each page has its own title and
-description, for search engines and shared links.
-
-**The home page** says what the platform does for each type of business, in
-the product overview's groups (food, shops, trade, speciality retail,
-building and farm, vehicles and fuel, services, stays, health, weight-based),
-what every business gets, and how pricing works, with the lowest plan's
-monthly price. Its ways in are *Start free trial*, *Sign in* and *Request a
-call back*. A type's name opens its prices.
-
-**Pricing** shows one type at a time (*Your type of business*), monthly or
-yearly: its plans, each with its price before GST, what it includes and what a
-year saves, and the modules and applications that can be added, each with its
-price. *Recommended* marks the add-ons most businesses of the type use. A
-plan's *Start free trial* opens the sign-up with the type, the plan and the
-period filled in.
-
-**Signing up** is one page:
-
-1. *About you*: the owner's name, mobile, email and a password of 8 to 72
-   characters. The owner signs in with the email or the mobile.
-2. *Your business*: its name and type (a restaurant also chooses its format:
-   restaurant, café, bakery or cloud kitchen), its city and state, and its
-   GSTIN if it has one, whose first two digits must be the state's.
-3. *Your plan*: the plan (the type's default to start with), monthly or
-   yearly, and the add-ons. Ticking an add-on ticks what it needs; unticking
-   one unticks what needs it. *What it comes to* sums it up, for example "Free
-   for 14 days, then ₹6,998 + 18% GST a year".
-4. The terms of service and the privacy policy accepted, then *Start free
-   trial*.
-
-The owner is signed in at once, with the password they chose as their own
-(nothing asks them to change it), and lands in the business: a shop, or any
-other type, in its Business Admin; a restaurant on its dashboard. The
-business:
-
-- starts its free trial; with 0 trial days it starts read-only and pays
-  first, in *Your plan*;
-- has its plan's modules and the chosen add-ons switched on, and the other
-  modules its type starts with switched off. A café, bakery or cloud kitchen
-  gets its format's set-up, as from Platform › Restaurants, and a module its
-  format switches off stays off unless the owner chose it as an add-on. During
-  the trial the owner may switch on anything the type has, in Settings ›
-  Business tools (a restaurant's Settings → Features);
-- keeps the plan, the period and the add-ons as its selection for its first
-  order, which the owner changes in *Your plan*;
-- gets its code from the first words of its name and four digits
-  (SRI-LAKSHMI-4821); a restaurant's staff type it beside their staff code.
-
-A sign-up is refused when:
-
-- the email or the mobile number already has a login: "That email already has
-  a login. Sign in instead." Someone who has a login adds a business of their
-  own from **Your businesses › Add a business**;
-- the business is a restaurant and its email or mobile number already has a
-  login: "A restaurant needs a login of its own. Use another email and mobile
-  number, or contact us." A restaurant's logins belong to it alone;
-- one network address has sent the sign-up five times in the last hour (and
-  the same for the call-back form): "Too many forms sent from this network in
-  the last hour. Please try again later."
-
-**Request a call back**, on the home page and *Contact us*: the visitor's name
-and mobile number and, if they give them, their email, type of business, city
-and a message, with the box agreeing to be contacted about the platform at
-that number and email. It answers "Thank you, we will call you." Each request
-is a lead for the platform's team, in **Platform › Leads & trials**; a later
-sign-up with the same mobile number or email joins that lead. The `ref` or
-`utm_source` of the link that brought the visitor (`/welcome?ref=facebook`)
-is kept on the lead as its source, for their whole visit.
-
-## Your plan, the free trial and paying
-
-Each business pays for its own plan: a plan for its type (each type starts
-with **Basic**) with the modules and applications added to it, by the month
-or by the year. Prices are before GST, which the invoice adds (18%).
-
-**The free trial.** A new business starts on a free trial (14 days, unless
-the platform has set another length) in which every module and application
-its type can use is unlocked. Nothing is charged until it ends.
-
-**Your plan** is the owner's: in Business Admin it is *Settings › Your plan*,
-for the business's Owner role only, and a restaurant's owner finds it among
-the restaurant's settings (`/plan`). It shows:
-
-- **Where your plan stands:** the trial, paid time, time the platform has
-  given, grace, a payment being checked or the end; its dates; and what is
-  unlocked now.
-- **Choose your plan** (during the trial), **Your next period** (on paid
-  time) or **Renew your plan** (in grace or after the end): the plan,
-  *Monthly* or *Yearly* (a year costs less than twelve months), and the
-  modules and applications to add, each with its price. A module switched on
-  now that the choice leaves out says *In use now*: it switches off when the
-  time that unlocks it ends. **Save choice** keeps the choice; paying keeps
-  it too. A change of plan starts with the next period. During time the
-  platform has given, the choice is the platform's: the card says whom to
-  contact.
-- **Pay now** (**Renew now** after the trial) makes an order: its lines, the
-  GST (CGST and SGST within the platform company's state, IGST from another
-  state) and the total, its prices held for 7 days. A business with no state
-  yet is asked for it first: it is the place of supply on the invoice. The
-  new period starts the day after the time the business already has, so no
-  day is lost; after the end, it starts today.
-- **Pay for your plan:** the company's UPI ID with a QR code for the exact
-  amount (any UPI app fills in the amount and the order number) and its bank
-  account. Once you have paid, **I have paid** takes how (UPI, bank transfer,
-  cash or cheque), the payment's reference (the UPI transaction ID or UTR,
-  the bank's reference or the cheque number) and the date. The order then
-  shows *Payment being checked* until the platform confirms it; a business
-  whose time has run out keeps working for up to 2 days meanwhile. A payment
-  that could not be confirmed says why, and can be entered again.
-- **Add to this period** (on paid time): a module or application from today
-  to the end of the period, at its price for the period times the days left
-  over the days in the period.
-- **Orders, payments and invoices:** each confirmed payment has the company's
-  GST invoice; **Print** prints it, or saves it as a PDF from the print
-  window. An invoice issued while the company's GSTIN is still the sample one
-  is marked *SAMPLE — NOT A TAX INVOICE*.
-
-**The banner.** While there is something to know about the plan, every
-screen of the business has a line at its top: *Free trial: 9 days left*;
-from 15 days before paid or given time ends, *Your plan ends on 12 Nov*; in
-grace, *Your plan ended on 12 Nov. Renew by 19 Nov to keep billing*; *We are
-checking your payment*; and after the end, that the business is read-only.
-The owner's banner opens Your plan. Staff see the same banner with no link
-and no price; once the end is near or has come, it asks them to ask the owner
-to renew. On the billing screens
-(the POS, the kitchen display, Quick bill and the other counters) and in the
-clinic's and the lab's workspaces, it shows only in the last 3 days before
-the end, in grace, while a payment is being checked, and after the end.
-
-**After the end: read-only.** Once paid or given time and its grace (7 days,
-unless the platform has set another length) have passed, or a trial has
-ended unpaid, the business is read-only: everything can still be seen,
-printed and exported, and nothing is deleted, but nothing can be added or
-changed. A save refused this way says *This business's plan has ended. You
-can still see and export everything; renew in Your plan to add or change
-anything*, and, outside a dialog, a notice says once on the page what to do:
-the owner gets **Renew**, staff are asked to ask the owner. Paying from Your
-plan brings everything back.
-
-**Plan badges.** In *Settings › Business tools* (a restaurant's *Settings →
-Features*):
-
-- during the trial, the owner sees where each module stands after it: *In
-  your plan*, or *Add-on · ₹1,999/year after the trial* (by the month or the
-  year, as the choice is);
-- after the trial, a module the plan does not unlock says *Not in your
-  plan*, to everyone. It works as switched off, its records kept, and its
-  switch stays off; the owner's **Add to plan** opens Your plan with it
-  offered (on paid time, for the rest of the period).
-
-**Your businesses** shows each business's plan on its card: *Free trial · 9
-days left*, *Paid until 12 Nov 2027*, *Given until 31 Dec*, *Ended · renew by
-19 Nov* (in grace), *Payment being checked* or *Ended · read-only*.
 
 ---
 
@@ -2986,7 +3012,7 @@ number is disputed.
 A café, a bakery and a cloud kitchen run on the restaurant: the same POS, menu, KOT, kitchen screen, bills and day close.
 
 **Choosing the format.**
-- *Platform › Restaurants › Add restaurant* has a **Format** choice.
+- *Platform › Restaurants › Add restaurant*, a restaurant's *New business* on *Platform › Businesses* and the public site's sign-up each have a **Format** choice.
 - An existing restaurant changes it in *Settings → Features → Format*. This sets how the POS opens, the token numbers and the features it starts with. Any of these can be changed again afterwards, and nothing is deleted.
 - The header and the business switcher show the format.
 
@@ -3061,7 +3087,7 @@ panel over it.
 | Business | The type's own records: **Registers & prescriptions** (pharmacy), **Booklists & orders** (books), **Repairs** (electronics), **Packages** (salon), **Lab orders** (clinic), **Farm inputs** (seeds, fertilisers & pesticides) | Described with each type below. |
 | Management | **Reports**, with the type's own reports, Staff commissions and Activity log | Money by day, locations compared, departments; who did what. |
 | Management | **Tasks** | See [Part 4](#part-4--tasks-issues--projects). |
-| Management | **Settings**: Business settings (with Business tools), Tax rates, Payment methods, Number series, Locations, Units & pack sizes, Staff & rooms (*Doctors & rooms* in a clinic), Licences (with Licences & registrations on), and Pharmacy settings, Clinic & lab settings, Farm input checks, Garage settings, Membership plans, Pumps & nozzles or Room types & rates | Legal name, GSTIN, prices with or without GST, rounding, financial year, the most a manager may take off a bill at the counter (with a reason; the owner is not limited), whether a walk-in may leave a bill unpaid, and the shared till's PIN rule. Number series give each location its own bill numbers per financial year, with no gaps and no duplicates. A pack size turns "3 boxes" into 72 pieces exactly. A location holding stock cannot be closed. |
+| Management | **Settings**: Business settings (with Business tools), Tax rates, Payment methods, Number series, Locations, Units & pack sizes, Staff & rooms (*Doctors & rooms* in a clinic), Licences (with Licences & registrations on), Personal data, and Pharmacy settings, Clinic & lab settings, Farm input checks, Garage settings, Membership plans, Pumps & nozzles or Room types & rates; and Your plan, for the owner alone | Legal name, GSTIN, prices with or without GST, rounding, financial year, the most a manager may take off a bill at the counter (with a reason; the owner is not limited), whether a walk-in may leave a bill unpaid, and the shared till's PIN rule. Number series give each location its own bill numbers per financial year, with no gaps and no duplicates. A pack size turns "3 boxes" into 72 pieces exactly. A location holding stock cannot be closed. |
 | Management | **Staff & access**, with Roles & permissions | Give a person from your staff list a role in this business, change it or switch it off. |
 
 **Two rules people notice:** prices, tax and totals are always worked out by the
@@ -7391,11 +7417,12 @@ an optical shop **Optometrist**, a garage **Mechanic**, a gym, studio or coachin
 its owner makes, edited on a module × action grid. You cannot give what you
 do not have, nor change, or set a new password for, someone whose role can
 do more than yours; the Owner role cannot be handed out or changed. A
-business is part of the owner's subscription with the platform (a basic plan,
-plus the modules and applications chosen): the platform's super admin creates
-it with its owner's login and switches its modules and applications on, the
-owner gives their staff access in *Staff & access*, and only the super admin
-changes who owns it, never the admin application.
+business's owner is the login that signs it up on the public site, adds it
+from *Your businesses*, or that the platform's super admin names when it
+creates the business; the owner pays for its plan
+([Your plan](#your-plan-the-free-trial-and-paying)) and gives their staff
+access in *Staff & access*. Only the platform changes who owns a business,
+never the admin application.
 
 | Role | May do |
 | --- | --- |
@@ -7468,6 +7495,12 @@ the link you were sent).
 - **Payments are recorded by people.** A UPI QR can be shown for the exact
   amount, but nothing confirms the money arrived until a payment gateway is
   connected. Online orders are pay-at-collection or cash on delivery.
+- **A plan is paid by reference.** The owner pays the platform company by
+  UPI or bank transfer (or cash or cheque) and enters the payment's reference
+  in *Your plan*; the platform confirms it in *Platform › Payments*. There is
+  no online payment or UPI AutoPay, and no reminder by SMS, WhatsApp or
+  email: the banner in the app says when the trial or the plan ends, and
+  *Platform › Reports › Renewals due* lists the owners to call.
 - **The system sends no SMS, WhatsApp or email by itself** (booking status,
   waitlist, reminders); guests follow their own status pages. A *WhatsApp*
   button opens WhatsApp on the device with the message ready, and a person
@@ -7491,7 +7524,8 @@ the link you were sent).
 - **There is no self-service password reset.** An admin sets a new password:
   Users in a restaurant, Staff & access › *Password* in a business, and the
   platform screens for a restaurant's admin or a business's owner. The person
-  signs in with it once and then chooses their own.
+  signs in with it once and then chooses their own. Nor does the sign-up on
+  the public site check the mobile number or email with a one-time code.
 - **A spreadsheet import makes items, styles with their variants, pack sizes
   and contacts.** Kits, branch prices, price lists, shelf places, member
   prices and a type's own details of an item (a book's, a medicine's drug
@@ -7500,9 +7534,9 @@ the link you were sent).
   suppliers from Excel or CSV](#products-customers-and-suppliers-from-excel-or-csv)).
 - **Ownership is changed by the platform.**
 
-  The Owner role is given only when the platform's super admin creates a
-  business, and only the super admin changes it, under the owner's
-  subscription; there is no screen for it yet. Meanwhile give the person who
+  The Owner role is given only when a business is made (to the login that
+  signs it up, adds it or that the platform names), and only the platform
+  changes it; there is no screen for it yet. Meanwhile give the person who
   runs it a role in Staff & access (Manager, or a role made under Roles &
   permissions).
 - **A GST rate change moves items and dishes only.** On the change's date,
