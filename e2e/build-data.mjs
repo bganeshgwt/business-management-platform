@@ -10,6 +10,7 @@ import crypto from "node:crypto";
 import { AGRI, BUSINESSES, CLINIC, FUEL, GARAGE, GROCERY, GST_CHANGE, GST_THRESHOLDS, HARDWARE, JEWELLERY, LAUNDRY, LODGING, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, PRIVACY, RENTALS, RESTAURANT, SALON, SMALL_ITEMS, TIMEZONE, WHOLESALE } from "./test-data.mjs";
 import { CLINIC_LAB } from "./test-data.mjs";
 import { ACCESS_RULES } from "./test-data.mjs";
+import { DASHBOARDS } from "./test-data.mjs";
 
 // Every call names the status it expects, so a set-up that goes wrong stops
 // at the first wrong answer, with the API's own message, rather than leaving
@@ -1240,6 +1241,66 @@ export async function buildTestData({ api, logins, sql }) {
     businesses[ACCESS_RULES.business].departments = departments.map((department) => ({ id: department.id, name: department.name }));
   }
 
+  // The platform's dashboards (platform-dashboards.spec.js): two groceries the
+  // platform sets up, whose owners signed up from the site, each trial moved
+  // to the days it ran (no request makes a trial that started weeks ago): one
+  // stopped without paying, the other paid during its trial and was confirmed
+  // today, with its paid order, payment, paid year and tax invoice (under the
+  // company's GSTIN of the time, from that GSTIN's own series); and a request
+  // to be called back. The platform's site makes leads; here they are written
+  // as it writes them.
+  const dashboards = {};
+  {
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: TIMEZONE });
+    const [year, month] = today.split("-").map(Number);
+    const start = month >= 4 ? year : year - 1;
+    const fiscalYear = `${String(start % 100).padStart(2, "0")}${String((start + 1) % 100).padStart(2, "0")}`;
+    for (const key of ["stopped", "paid"]) {
+      const shop = DASHBOARDS[key];
+      const { business } = await platform("POST", "/users/platform/businesses", {
+        businessType: "grocery", name: shop.name, code: shop.code, city: shop.city, stateCode: "29",
+        owner: { ...shop.owner, password: crypto.randomBytes(12).toString("base64url") },
+      }, 201);
+      await sql(`INSERT INTO platform_leads(source,name,mobile,email,business_name,business_type,city,state_code,ref,business_id,signed_up_at,consent_at,created_at)
+        VALUES('signup',$1,$2,$3,$4,'grocery',$5,'29',$6,$7,now()-make_interval(days => $8::int),now()-make_interval(days => $8::int),now()-make_interval(days => $8::int))`,
+      [shop.owner.name, shop.owner.mobile, shop.owner.email, shop.name, shop.city, shop.ref, business.id, shop.trialFrom]);
+      await sql("UPDATE business_access_periods SET cancelled_at=now(),cancel_reason='Moved to the days the trial ran' WHERE business_id=$1 AND kind='trial' AND cancelled_at IS NULL",
+        [business.id]);
+      await sql(`INSERT INTO business_access_periods(business_id,kind,starts_on,ends_on,everything)
+        VALUES($1,'trial',business_local_today($1)-$2::int,business_local_today($1)-$2::int+13,TRUE)`, [business.id, shop.trialFrom]);
+      dashboards[key] = { id: business.id, name: business.name };
+    }
+    // A year of Basic from today, paid by UPI during the trial: CGST and SGST, as the company's GSTIN was in Karnataka too.
+    const paid = DASHBOARDS.paid;
+    const [order] = await sql(`INSERT INTO platform_orders(business_id,kind,plan_code,billing_period,starts_on,ends_on,modules,valid_until,buyer,supplier_state_code,
+        place_of_supply_code,gst_rate,taxable_amount,cgst_amount,sgst_amount,total_amount,status,paid_at,created_at)
+      SELECT $1,'subscription','grocery_basic','year',business_local_today($1),(business_local_today($1)+interval '1 year'-interval '1 day')::date,
+        COALESCE((SELECT array_agg(module_code ORDER BY module_code) FROM platform_plan_modules WHERE plan_code='grocery_basic'),'{}'),business_local_today($1)-$2::int+7,
+        $3::jsonb,'29','29',18,4999.00,449.91,449.91,5898.82,'paid',now(),now()-make_interval(days => $2::int)
+      RETURNING id,ends_on-starts_on+1 AS days`, [dashboards.paid.id, paid.paidDaysAgo, JSON.stringify({ name: paid.name, stateCode: "29", stateName: "Karnataka" })]);
+    await sql(`INSERT INTO platform_order_lines(order_id,line_no,item_kind,item_code,name,full_price,charged_days,period_days,amount)
+      VALUES($1,1,'plan','grocery_basic','Basic plan',4999.00,$2,$2,4999.00)`, [order.id, order.days]);
+    await sql(`INSERT INTO platform_payments(business_id,order_id,amount,method,reference,paid_on,status,submitted_at,decided_at)
+      VALUES($1,$2,5898.82,'upi','UTR-E2E-TRIAL-PAID',business_local_today($1)-$3::int,'confirmed',now()-make_interval(days => $3::int),now())`,
+    [dashboards.paid.id, order.id, paid.paidDaysAgo]);
+    await sql(`INSERT INTO business_access_periods(business_id,kind,starts_on,ends_on,plan_code,modules,order_id)
+      SELECT business_id,'paid',starts_on,ends_on,plan_code,modules,id FROM platform_orders WHERE id=$1`, [order.id]);
+    await sql("INSERT INTO platform_invoice_series(gstin,fiscal_year,prefix,next_number) VALUES($1,$2,'BMP',2)", [DASHBOARDS.gstin, fiscalYear]);
+    await sql(`INSERT INTO platform_invoices(number,supplier_gstin,fiscal_year,business_id,order_id,payment_id,issued_on,paid_on,supplier,buyer,place_of_supply,lines,
+        taxable_amount,cgst_amount,sgst_amount,igst_amount,total_amount,sample)
+      SELECT $1,$2,$3,o.business_id,o.id,p.id,(now() AT TIME ZONE 'Asia/Kolkata')::date,p.paid_on,$4::jsonb,o.buyer,'{"code":"29","name":"Karnataka"}'::jsonb,$5::jsonb,
+        o.taxable_amount,o.cgst_amount,o.sgst_amount,o.igst_amount,o.total_amount,FALSE
+      FROM platform_orders o JOIN platform_payments p ON p.order_id=o.id WHERE o.id=$6`,
+    [`BMP/${fiscalYear}/00001`, DASHBOARDS.gstin, fiscalYear, JSON.stringify({ name: "Platform company", gstin: DASHBOARDS.gstin, stateCode: "29", stateName: "Karnataka" }),
+      JSON.stringify([{ lineNo: 1, description: "Basic plan", itemKind: "plan", itemCode: "grocery_basic", sac: "998315", fullPrice: "4999.00",
+        chargedDays: order.days, periodDays: order.days, taxable: "4999.00" }]), order.id]);
+    const enquiry = DASHBOARDS.enquiry;
+    const [lead] = await sql(`INSERT INTO platform_leads(source,name,mobile,email,business_name,business_type,city,state_code,message,consent_at,created_at)
+      VALUES('enquiry',$1,$2,$3,$4,'grocery',$5,'29',$6,now()-interval '2 days',now()-interval '2 days') RETURNING id`,
+    [enquiry.name, enquiry.mobile, enquiry.email, enquiry.businessName, enquiry.city, enquiry.message]);
+    dashboards.enquiry = { id: lead.id, name: enquiry.name };
+  }
+
   // The logins nothing above signed in as choose their own password now, so
   // a spec signing in as any of them meets no first-sign-in step.
   for (const person of logins.filter((item) => !signedIn.has(item.role))) {
@@ -1285,5 +1346,6 @@ export async function buildTestData({ api, logins, sql }) {
     platform: { restaurants: PLATFORM.restaurants },
     businesses,
     gstThresholds,
+    dashboards,
   };
 }

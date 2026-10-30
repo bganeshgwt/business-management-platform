@@ -54,7 +54,7 @@ These are not settings. Changing one means changing the code; the PIN lockout is
 
 ### Where staff land after signing in
 
-- **Rule:** someone with no restaurant role (a kirana cashier, say) lands straight on their business: the one they opened last, else the first in their list. Restaurant staff land on their restaurant's dashboard, or on the business they opened last when that is another business. A platform Super Admin lands on *Platform › Restaurants*. Until a person's businesses are known, the home address shows the loading screen with no header or menu, so a business never opens under the restaurant's header first; opening another business from the switcher draws its header with its loading screen at once.
+- **Rule:** someone with no restaurant role (a kirana cashier, say) lands straight on their business: the one they opened last, else the first in their list. Restaurant staff land on their restaurant's dashboard, or on the business they opened last when that is another business. A platform Super Admin lands on *Platform › Overview*. Until a person's businesses are known, the home address shows the loading screen with no header or menu, so a business never opens under the restaurant's header first; opening another business from the switcher draws its header with its loading screen at once.
 - **Why:** a shop's staff should never see the restaurant dashboard, and a header that says the restaurant while a shop opens sends people to the wrong menu.
 - **Change it:** nothing to set. The business switcher moves between businesses.
 
@@ -314,6 +314,39 @@ For every business and the restaurant. A business pays per business for a plan o
 - **Rule:** each business type starts with one plan, Basic, its default: its type's modules that start on, without the applications. Basic costs ₹499 a month or ₹4,999 a year for a grocery, general store, books, meat, weight-based, optical, seeds and fertilisers, hardware, garments, electronics or pharmacy business; ₹799 / ₹7,999 for a supermarket, wholesaler, jeweller, fuel station or restaurant (whose Basic also holds pre-orders and brands); ₹599 / ₹5,999 for a salon, gym, laundry, garage or rental business; ₹1,199 / ₹11,999 for a clinic or a hotel. Other modules cost ₹199 / ₹1,999; of the applications, the captain app, the kitchen display and QR table ordering cost ₹299 / ₹2,999, the online ordering page ₹399 / ₹3,999 and the laboratory ₹499 / ₹4,999. Businesses that existed before paid plans have given time with no end that unlocks everything, and every restaurant has the captain app on.
 - **Why:** a starting point the super admin reviews before going live; nothing changed for anyone already using the platform.
 - **Change it:** the platform's price list.
+
+### The platform's money is its tax invoices
+
+- **Rule:** the money on the platform's overview and in its sales report is the company's tax invoices, each counted on the day it was issued, on the company's own date (India), GST included unless it says before GST. Today, this month, last month, this financial year (from 1 April) and the last 12 months are counted so. An invoice issued under the sample GSTIN (SAMPLE) is never counted: the overview and the report say how many there are and what they came to. Once the real GSTIN is saved, the tax invoice issued for such an order counts on its own date. Sales by plan, module or application are what the invoices' lines of that kind came to before GST, since GST is charged on the whole invoice. A sale is new when it is a business's first paid plan, a renewal when it is a later one, and an add-on when it is modules bought for the rest of a paid period.
+- **Why:** a sample invoice is a try-out, not a sale; and the platform's sales must agree with the GST register its accountant files from.
+- **Change it:** nothing to set.
+
+### Recurring income counts paying businesses alone
+
+- **Rule:** the monthly recurring income is, for every business in paid time or in grace after paid time, the price before GST of its current paid period over the months in it (a year's over 12), plus each add-on it bought in that period at the add-on's full price for the period over its months; rounded to the paisa once, at the end. The yearly recurring income is twelve times the monthly before that rounding. Trials, given time and grace after given time count nothing. What a renewal is worth is the business's selection (plan and add-ons, month or year) at today's prices before GST: what its next order would ask.
+- **Why:** trials, time the super admin gives and paid time are never added together; recurring income is what paying businesses bring each month.
+- **Change it:** nothing to set.
+
+### The free-trial funnel
+
+- **Rule:** the funnel counts the businesses whose trial started between two dates, each on the business's own date (the last 30 days unless other dates are chosen). A cancelled trial, replaced by time the super admin gave (as when the platform sets a business up with given time), is no trial. Each trial came from an enquiry that signed up, a direct sign-up, an owner adding another business, or the platform setting a business up on a free trial.
+  - **Made a sale during the trial:** a sale, or a restaurant's bill not voided, dated inside the trial.
+  - **Still on trial:** the trial covers the business's today and it has no paid time.
+  - **Continued (paid):** it has paid time, at any time; paid before the trial ended when the date paid of its first confirmed payment is on or before the trial's last day, else after it.
+  - **Stopped (did not pay):** its trial has ended and it has no paid time, whatever time it was given since; of these, how many ended in the last 30 days.
+  - **Conversion:** continued ÷ (continued + stopped), to two decimals; none while no trial has finished.
+  - **Average days to pay:** from a trial's first day to the date paid of the business's first payment, over those that continued.
+  - **Enquiries:** counted on the day they came in (India), with how many have signed up since.
+
+  Every number splits by business type, state (the business's GSTIN's, else its state in Business settings, else its lead's), source tag (the link's `ref`), the plan chosen (the business's selection) and the trial's length (each trial keeps the length it started with), and opens the businesses behind it with the owner to call. Enquiries have no plan or trial length: those two filters leave them out.
+- **Why:** the platform sees who tries it, who pays and who walks away; time the super admin gives is an arrangement, not a sale, so it never counts as continuing.
+- **Change it:** nothing to set.
+
+### Renewals due and orders not paid
+
+- **Rule:** a renewal is due when a paying business's paid time ends within the days asked (7 and 30 on the overview), and overdue while it is in grace; the overview also counts the paying businesses whose paid time ended this month with no renewal (in grace, being checked or ended). An order not paid is every open order, by how many days old it is on the company's date: up to 30, 31 to 60, 61 to 90 and over 90. An order's prices hold for 7 days, so an older one is made again before it is paid.
+- **Why:** a call before the end keeps a business paying; an old unpaid order is a sale lost, or a payment the owner never entered.
+- **Change it:** nothing to set.
 
 ## Shops and the shared core
 

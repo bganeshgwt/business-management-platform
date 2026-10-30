@@ -589,6 +589,57 @@ Query/Body: `userId` (id, required; one of that business's owners), `password` (
 Returns: `{ id, name }`. Their sessions end on their next request, their sign-in lockout is lifted, and they choose their own password at their next sign-in.
 Errors: 403; 404 "That person is not an owner of this business".
 
+### Users: platform dashboards
+Mounted with the console under `/api/users/platform` (modules/platform/routes/dashboards.routes.js), behind the same checks: `platform.restaurants.manage`, and never a login tied to a restaurant, whatever its role (403 "The platform console is for the platform's own accounts"). They read paid plans' records and change nothing but a lead's follow-up and notes, each written to `platform_audit`. Money is a decimal string of rupees with two decimals; the company's dates (invoices, enquiries, an order's age) are India's, a business's dates its own. How each figure is worked out: [BUSINESS_RULES.md › Paid plans](BUSINESS_RULES.md#paid-plans).
+
+#### `GET /api/users/platform/overview`
+Permission: `platform.restaurants.manage`
+Query/Body: none
+Returns: `{ today, money, states, funnel30, renewals, todo }`. `money`: `{ today, thisMonth, lastMonth, thisFy, fyStart, beforeGstThisMonth, gstThisMonth, byMonth: [{ month: "YYYY-MM", collected, beforeGst }] (the 12 months to this one, oldest first), sampleInvoices: { count, total }, mrr, arr, payingBusinesses }`: the company's tax invoices by the day they were issued, SAMPLE ones left out and counted in `sampleInvoices`; `mrr` the monthly recurring income of the businesses in paid time or in grace after it, `arr` twelve times it. `states`: how many businesses are in each state today, `{ trial, paid, given, grace, checking, ended, off }`. `funnel30`: the funnel below for the last 30 days. `renewals`: `{ in7: { count, value }, in30: { count, value }, endedThisMonthNotRenewed }`, paid time ending within 7 and 30 days with its renewals' value before GST. `todo`: `{ paymentsToConfirm, newEnquiries, taxInvoicesToIssue, companyProblems[], sampleGstin, pricesReviewed, paymentDetailsMissing }`: payments waiting, enquiries still `new`, paid orders with only a SAMPLE invoice, and what going live still needs.
+Errors: 403.
+
+#### `GET /api/users/platform/leads/funnel`
+Permission: `platform.restaurants.manage`
+Query/Body: `from`, `to` (dates: the trials' first days, and the days enquiries came in; the 30 days to today unless given), `type` (business type), `state` (GST state code), `ref` (source tag, any case), `plan` (plan code), `trialDays` (1-365), `by` (`type | state | ref | plan | trialDays`), `list` (the name of a number below)
+Returns: `{ from, to, filters, enquiries, enquiriesSignedUp, trialsStarted, fromEnquiries, direct, ownerAdded, platformAdded, activated, stillOnTrial, continued, continuedDuringTrial, continuedAfterTrial, stopped, stoppedLast30, conversion, avgDaysToPay, groups, choices }`. `conversion`: continued over continued and stopped, as a percentage with two decimals (`"66.67"`), null when no trial has finished; `avgDaysToPay`: to one decimal, null when none paid. `enquiries` and `enquiriesSignedUp` are null with `plan` or `trialDays`. `groups`, with `by`: `[{ key, label, trialsStarted, activated, stillOnTrial, continued, stopped, conversion }]`, most trials first; else null. `choices`: `{ types[], plans[], refs[], trialLengths[], states[] }` for the filters. With `list`: `{ bucket, from, to, filters, items }`, at most 1,000: for a trial's number, each business `{ businessId, name, code, businessType, typeName, ownerName, ownerMobile, ownerEmail, source (enquiry, signup, owner, platform), ref, leadId, stateCode, stateName, planCode, planName, trialStartsOn, trialEndsOn, trialDays, firstSaleOn, outcome (on_trial, continued, stopped), state, paidOn, daysToPay }`; for `enquiries` and `enquiriesSignedUp`, each lead as `GET /leads` gives it.
+Errors: 400 a date that is not a real one, `from` after `to`, an unknown `by` or `list`, a trial length that is not a whole number from 1 to 365, an unknown state code; 403.
+
+#### `GET /api/users/platform/leads`
+Permission: `platform.restaurants.manage`
+Query/Body: `status` (`new | contacted | not_interested`), `source` (`enquiry | signup`), `q` (<=100; name, mobile, email, business, city or source tag), `from`, `to` (the day it came in)
+Returns: `{ items, total }`, newest first, at most 500. A lead: `{ id, source, name, mobile, email, businessName, businessType, typeName, city, stateCode, stateName, message, ref, status, createdAt, updatedAt, consentAt, signedUpAt, business: { id, name, code, state } | null, outcome, notes: [{ id, note, createdAt, by }] }`: `outcome` is `not_signed_up`, or the state its business is in today; notes newest first.
+Errors: 400 an unknown status or source, a date that is not a real one; 403.
+
+#### `PUT /api/users/platform/leads/:id`
+Permission: `platform.restaurants.manage`
+Query/Body: `status` (`new | contacted | not_interested`, required)
+Returns: the lead. The same status again changes nothing; a change is audited `platform.lead_status_changed` with `{ from, to }`.
+Errors: 400 an unknown status or id; 403; 404 lead not found.
+
+#### `POST /api/users/platform/leads/:id/notes`
+Permission: `platform.restaurants.manage`
+Query/Body: `note` (required, <=2000)
+Returns: 201, `{ id, note, createdAt, by }`. Audited `platform.lead_note_added` with `{ noteId }`. A note is never changed or deleted.
+Errors: 400 a blank or too long note; 403; 404 lead not found.
+
+#### `GET /api/users/platform/reports/sales`
+Permission: `platform.restaurants.manage`
+Query/Body: `from`, `to` (the invoices' dates; this financial year to today unless given), `by` (`month | plan | module | application | type | state | kind | period`, default `month`)
+Returns: `{ from, to, by, rows: [{ key, label, invoices, taxable, gst, total }], totals: { invoices, taxable, gst, total }, sample: { invoices, total } }`, from the company's tax invoices alone (`sample` counts the SAMPLE ones left out). By `plan`, `module` or `application` a row is what the invoices' lines of that kind came to before GST (`gst` and `total` null); by anything else it is whole invoices. `kind`: `new` (a business's first paid plan), `renewal` or `add_on`; `period`: `month` or `year`; `state`: the place of supply. Months come in order, kinds as new, renewal, add-on, and the rest largest first.
+Errors: 400 an unknown `by`, a date that is not a real one, `from` after `to`; 403.
+
+#### `GET /api/users/platform/reports/renewals`
+Permission: `platform.restaurants.manage`
+Query/Body: `within` (1-365 days, default 30)
+Returns: `{ within, items, totals: { count, value } }`: paid time ending within the days, and paid time already in grace, soonest first, each `{ businessId, name, code, businessType, typeName, state, endsOn, graceEndsOn, daysLeft (negative in grace), planCode, planName, billingPeriod, value, ownerName, ownerMobile, ownerEmail, openOrder: { id, total, checking } | null }`. `value`: the business's selection (plan and add-ons, month or year) at today's prices, before GST.
+Errors: 400 `within` not a whole number from 1 to 365; 403.
+
+#### `GET /api/users/platform/reports/dues`
+Permission: `platform.restaurants.manage`
+Query/Body: none
+Returns: `{ today, items, bands: [{ band, label, count, total }], totals: { count, total } }`: every open order, oldest first, each `{ orderId, businessId, name, code, businessType, typeName, state, kind, billingPeriod, createdOn, validUntil, expired, taxable, total, ageDays, band, checking, ownerName, ownerMobile, ownerEmail }`; `band` `0-30`, `31-60`, `61-90` or `90+` days old; `checking`: a payment of it is being checked.
+Errors: 403.
+
 ### Roles and permissions
 Mounted at `/api/roles` (routes/role.routes.js), all need a session. Lists show the restaurant's own roles plus shared built-in (system) roles. Built-in roles cannot be edited or deleted; copy them. You can only add permissions you hold yourself, and only remove permissions from (or switch off, or delete) a role whose permissions and holders are no stronger than you. The restaurant must keep an active user with `users.manage` + `roles.manage` (409). Role shape: `{ id, code, name, description, isSystem, status, permissions[], userCount }`.
 

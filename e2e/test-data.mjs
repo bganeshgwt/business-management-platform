@@ -679,3 +679,25 @@ export const SPREADSHEET_IMPORT = {
     names: ["Cotton socks · Black / S", "Cotton socks · Black / M", "Cotton socks · Grey / M"],
   },
 };
+
+// The platform's dashboards (platform-dashboards.spec.js): a request to be
+// called back that nobody has followed up yet; a grocery that signed up from
+// the site and let its trial end without paying (it started `trialFrom` days
+// ago); and one that paid during its trial (the payment `paidDaysAgo` days
+// ago), confirmed today with its tax invoice under the company's GSTIN of the
+// time. Each owner has a mobile to call.
+export const DASHBOARDS = {
+  enquiry: {
+    name: "Kavitha Rao", mobile: "9876512301", email: "kavitha@provisions.invalid", businessName: "Kavitha Provisions", city: "Mangaluru",
+    message: "Please call me about billing for my shop.", note: "Called back: she wants to see Quick bill on Monday.",
+  },
+  stopped: {
+    name: "Trial Over Provisions", code: "E2E-TRIAL-OVER", city: "Udupi", ref: "facebook", trialFrom: 20,
+    owner: { name: "Prakash Shetty", email: "prakash@trialover.invalid", mobile: "9876512302" },
+  },
+  paid: {
+    name: "Trial Paid Provisions", code: "E2E-TRIAL-PAID", city: "Mysuru", ref: "google", trialFrom: 25, paidDaysAgo: 15,
+    owner: { name: "Rekha Iyer", email: "rekha@trialpaid.invalid", mobile: "9876512303" },
+  },
+  gstin: "29AAECE2026E1Z0",
+};

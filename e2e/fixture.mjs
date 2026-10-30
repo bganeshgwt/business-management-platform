@@ -19,6 +19,8 @@ export { CLINIC_LAB } from "./test-data.mjs";
 export { ACCESS_RULES } from "./test-data.mjs";
 // The shops' import of an Excel workbook and of a style with its variants (business-csv-import.spec.js).
 export { SPREADSHEET_IMPORT } from "./test-data.mjs";
+// The platform's dashboards: a lead, a trial that stopped and one that paid (platform-dashboards.spec.js).
+export { DASHBOARDS } from "./test-data.mjs";
 
 let data = null;
 

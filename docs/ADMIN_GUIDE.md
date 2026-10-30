@@ -36,6 +36,9 @@ on record.
 - [The first platform login and the platform screens](#the-first-platform-login-and-the-platform-screens)
   - [Platform › Restaurants](#platform--restaurants)
   - [Platform › Businesses](#platform--businesses)
+  - [Platform › Overview](#platform--overview)
+  - [Platform › Leads & trials](#platform--leads--trials)
+  - [Platform › Reports](#platform--reports)
 - [Starting a business](#starting-a-business)
   - [Business settings › Rules](#business-settings--rules)
 - [First steps in a new business](#first-steps-in-a-new-business)
@@ -226,8 +229,9 @@ sign-in asks for a password of its own, as every new login's does. Everything
 else is made on the screens.
 
 The Super Admin belongs to no restaurant. It opens on **Platform ›
-Restaurants**, and only the platform's own logins see the **Platform** group
-of the menu (Restaurants, Businesses). The platform screens add restaurants
+Overview**, and only the platform's own logins see the **Platform** group
+of the menu (Overview, Businesses, Restaurants, Leads & trials, Payments,
+Invoices, Reports, Settings). The platform screens add restaurants
 and businesses, switch them off and on, and set new passwords for locked-out
 owners; they never show a restaurant's or a business's bills, guests or
 sales.
@@ -298,6 +302,100 @@ or GSTIN, and filter by type and status.
 - **Owner password** sets a new password for an owner locked out of their
   own business; their open sessions end, and they choose their own password
   at their next sign-in.
+
+### Platform › Overview
+
+The platform's home: what the company has taken, its businesses by state, the
+free trials, the renewals coming up and what is waiting. *Refresh* reads it
+again. The rules behind each figure are in [BUSINESS_RULES.md › Paid
+plans](BUSINESS_RULES.md#paid-plans).
+
+- **Money** is the company's tax invoices, GST included: collected today, this
+  month (with what it came to before GST, and the GST), last month and this
+  financial year (from 1 April), and a chart of the last 12 months. SAMPLE
+  invoices, issued while the company's GSTIN is the sample one, are left out
+  and counted in a line under the tiles. **Monthly recurring income** is what
+  the paying businesses' plans and add-ons come to in a month, before GST;
+  **yearly recurring income** is a year of it. Trials and given time bring
+  none.
+- **Businesses by state**: on trial, paying, given time, in grace, payment
+  being checked, ended (read-only) and switched off, each on the business's
+  own date. A tile opens the list of businesses in that state.
+- **Free trials, last 30 days**: the funnel of Leads & trials for the trials
+  that started in the last 30 days, and *Leads & trials* for any other dates.
+- **Renewals**: paying businesses whose paid time ends within 7 and within 30
+  days, with what their renewals would ask before GST, and paid time that
+  ended this month without a renewal (in grace or ended). The two tiles of
+  renewals due open *Renewals due* in the reports.
+- **To do**: the payments owners have entered for you to confirm (opens
+  Payments), the requests to be called back still marked new (opens Leads &
+  trials) and, once the real GSTIN is saved, the paid orders that still have
+  only a SAMPLE invoice (opens Invoices). **Before you go live** lists what
+  is left until each is done: the company's details complete, its real
+  GSTIN, the price list reviewed, and the UPI ID or bank account owners pay
+  to. Each step not done has a button to the Settings tab that does it; once
+  all four are done, a line says the platform is ready to go live.
+
+### Platform › Leads & trials
+
+The free-trial funnel, and every lead with its follow-up.
+
+- **The funnel** counts the trials that started between two dates (the last
+  30 days at first), each on the business's own date, and the requests to be
+  called back that came in between them:
+  - **Enquiries (call-back requests)**, with how many have signed up so far;
+  - **Free trials started**, and where each came from: a direct sign-up, an
+    enquiry that signed up, an owner adding another business, or a business
+    the platform set up on a free trial. A business the platform sets up with
+    given time has no trial and is not counted;
+  - **Made a sale during the trial**: a sale, or a restaurant's bill, dated
+    inside the trial, the earliest sign of who will pay;
+  - **Still on trial**; **Continued (paid)**, split into paid before the trial
+    ended and paid after it; and **Stopped (did not pay)**, with how many
+    stopped in the last 30 days, still worth a call;
+  - the share of the finished trials that continued, and the average days
+    from a trial's start to its first payment.
+- **Filters**: business type, state, source tag (the `ref` of the link the
+  person came from), the plan chosen and the trial's length. Enquiries have
+  no plan or trial length, so those two filters leave them out. **Split by**
+  shows the numbers by one of them in a table, with *Export CSV*.
+- **Every number opens its list**, under the funnel: the businesses with their
+  owner's name and mobile to call, the trial's dates and length, how it went
+  and the state the business is in today, its first sale and first payment,
+  where it came from and its state; for the enquiries, the people, their
+  details and whether they signed up. Each list has *Export CSV*.
+- **Leads** lists every request to be called back and every sign-up, newest
+  first (the latest 500): name, mobile, email, business, type, city, source
+  and source tag, the follow-up, how it went (not signed up yet, or the state
+  its business is in today) and the notes. Set the **follow-up** (new,
+  contacted, not interested) on the row as you call. **Notes** shows the
+  person's details, their message and the notes so far, newest first, and
+  adds one; a note is kept as it was written. Each follow-up and note is
+  written to the platform's audit with who made it. Filter by follow-up and
+  by source, search, and *Export CSV* (the notes come with it).
+
+### Platform › Reports
+
+Three reports, each with *Export CSV*.
+
+- **Sales**: the company's tax invoices between two dates (this financial
+  year at first), never a SAMPLE one, by month, plan, module, application,
+  business type, state (the place of supply), new or renewal (a business's
+  first paid plan, a later one, or add-ons bought mid-period) and monthly or
+  yearly. Whole invoices show their sales before GST, the GST and the total;
+  plans, modules and applications are lines of an invoice, so they show what
+  their lines came to before GST. Tiles add the invoices up, and a line says
+  how many SAMPLE invoices fall in the dates.
+- **Renewals due**: paying businesses whose paid time ends within 7, 15, 30,
+  60 or 90 days, and those already in grace, soonest first: when the paid
+  time ends and the days left (or how long ago it ended and the last day of
+  grace), the plan they renew on, what the renewal would ask before GST at
+  today's prices, the owner to call and any order they have open.
+- **Orders not paid**: every open order, oldest first, with how many days old
+  it is (up to 30, 31 to 60, 61 to 90, over 90; tiles add each up), its
+  total, whether a payment of it is being checked, the day its prices are
+  held to (7 days after it was made; after that the owner makes it again) and
+  the owner to call.
 
 ## Starting a business
 

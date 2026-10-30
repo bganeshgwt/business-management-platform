@@ -1,0 +1,245 @@
+/* The platform console's dashboards: the overview, Leads & trials and the
+   reports. Colours are the app's tokens only, so both themes work. */
+
+.pd-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.pd-filters .field {
+  min-width: 0;
+}
+
+.pd-filter-box {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.pd-filters select,
+.pd-filters input[type="search"] {
+  max-width: 100%;
+}
+
+.pd-two {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.pd-subhead {
+  margin: 18px 0 8px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.pd-note {
+  margin: 10px 0 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.pd-two-line {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.pd-two-line small {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.pd-nowrap {
+  white-space: nowrap;
+}
+
+/* --- The funnel: a number per row, the parts that open their own list ------- */
+
+.pd-funnel {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pd-funnel-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  align-items: baseline;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.pd-funnel-row:last-child {
+  border-bottom: 0;
+}
+
+.pd-funnel-row.is-nested {
+  padding-left: 22px;
+}
+
+.pd-funnel-label {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pd-funnel-count {
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--primary);
+  font: inherit;
+  font-size: var(--text-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-decoration: underline dotted;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
+.pd-funnel-count:hover:not(:disabled) {
+  color: var(--primary-hover);
+}
+
+.pd-funnel-count:disabled {
+  color: var(--text-2);
+  text-decoration: none;
+  cursor: default;
+}
+
+.pd-funnel-meta {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.pd-funnel-part {
+  padding: 2px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--text-xs);
+}
+
+button.pd-funnel-part {
+  cursor: pointer;
+}
+
+button.pd-funnel-part:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.pd-funnel-summary {
+  margin: 12px 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-2);
+}
+
+/* --- The overview's to-do and the checklist before going live ----------- */
+
+.pd-checklist {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pd-checklist li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.pd-checklist .pd-check-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.pd-check-done {
+  color: var(--success-text);
+}
+
+.pd-check-todo {
+  color: var(--warning-text);
+}
+
+.pd-ready {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 0;
+  color: var(--success-text);
+  font-size: var(--text-sm);
+}
+
+/* --- A lead's notes -------------------------------------------------------- */
+
+.pd-notes {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pd-notes li {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.pd-notes p {
+  margin: 0 0 4px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.pd-lead-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px 12px;
+  margin: 0 0 14px;
+  font-size: var(--text-sm);
+}
+
+.pd-lead-facts dt {
+  color: var(--muted);
+}
+
+.pd-lead-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .pd-two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .pd-filters > .field,
+  .pd-filters > label {
+    flex: 1 1 140px;
+  }
+
+  .pd-funnel-row.is-nested {
+    padding-left: 12px;
+  }
+}
