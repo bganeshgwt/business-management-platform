@@ -1,4 +1,5 @@
 const authService = require("../modules/access/services/auth.service");
+const planGuard = require("./planGuard");
 const AppError = require("../utils/AppError");
 
 // The person the "Authorization: Bearer <token>" header names, read fresh
@@ -41,6 +42,9 @@ const pinRefused = () =>
 // same way (403 pin_change_required) until the person chooses their own PIN:
 // authenticate.duringPinChange lets through only what that needs (setting it,
 // and the till's own lock screen), and who am I.
+//
+// A write to a business whose plan has ended is refused with 402 plan_ended
+// (planGuard.js): it can still be seen, printed and exported.
 const authenticate = async (req, res, next) => {
   req.user = await signedIn(req);
 
@@ -52,11 +56,13 @@ const authenticate = async (req, res, next) => {
     throw pinRefused();
   }
 
+  await planGuard.assertWritable(req);
   next();
 };
 
 authenticate.duringPasswordChange = async (req, res, next) => {
   req.user = await signedIn(req);
+  await planGuard.assertWritable(req);
   next();
 };
 
@@ -67,6 +73,7 @@ authenticate.duringPinChange = async (req, res, next) => {
     throw passwordRefused();
   }
 
+  await planGuard.assertWritable(req);
   next();
 };
 

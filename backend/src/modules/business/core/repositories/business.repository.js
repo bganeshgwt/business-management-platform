@@ -40,7 +40,9 @@ async function platformCatalogue() {
   return catalogue;
 }
 
-const capabilitiesSql = `COALESCE((SELECT json_agg(capability ORDER BY capability) FROM business_capabilities WHERE business_id=b.id),'[]')`;
+// The modules switched on that the business's plan also unlocks today
+// (business_active_capabilities, migration paid-plans): what every module check reads.
+const capabilitiesSql = `COALESCE(array_to_json(business_active_capabilities(b.id)),'[]')`;
 const list = async (userId) => (await pool.query(`
  SELECT b.id,b.name,b.code,b.business_type,b.legacy_restaurant_id,b.status,b.currency,b.timezone,
   CASE rf.format WHEN 'cafe' THEN 'Café' WHEN 'bakery' THEN 'Bakery' WHEN 'cloud_kitchen' THEN 'Cloud kitchen' ELSE t.name END AS type_name,rf.format AS restaurant_format,

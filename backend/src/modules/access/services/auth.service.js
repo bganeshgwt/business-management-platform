@@ -43,6 +43,9 @@ const toProfile = (user, session = {}) => ({
   permissions: user.permissions,
   // Restaurant features switched on for the restaurant (Settings -> Features).
   features: user.features || [],
+  // The restaurant's paid plan for the banner: { businessId, state,
+  // accessEndsOn, trialEndsOn, graceEndsOn, daysLeft }; null when none is kept.
+  plan: user.plan || null,
   hasPin: Boolean(user.pin_set_at),
   // Someone else set the PIN (an admin, under Users): it approves nothing as
   // the person until they choose their own.

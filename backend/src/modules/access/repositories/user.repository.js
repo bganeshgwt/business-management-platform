@@ -80,6 +80,17 @@ const findProfileById = async (id) => {
             -- The restaurant features switched on (Settings -> Features); every
             -- feature check on this request reads this one list.
             restaurant_features(u.restaurant_id) AS features,
+            -- The restaurant's paid plan: its state and dates for the banner
+            -- and the read-only check, never prices. NULL for a restaurant not
+            -- linked to its business yet, and for anyone not tied to one.
+            -- daysLeft counts to the end of the time it is in, both days
+            -- included; NULL when that has no end (given time with no end, ended).
+            (SELECT json_build_object('businessId', b.id, 'state', s.state, 'accessEndsOn', s.access_ends_on, 'trialEndsOn', s.trial_ends_on,
+                    'graceEndsOn', s.grace_ends_on, 'daysLeft', CASE WHEN e.ends_on IS NOT NULL THEN GREATEST(0, e.ends_on - business_local_today(b.id) + 1) END)
+             FROM businesses b CROSS JOIN LATERAL business_plan_state(b.id) s
+             CROSS JOIN LATERAL (SELECT CASE s.state WHEN 'trial' THEN s.trial_ends_on WHEN 'paid' THEN s.access_ends_on WHEN 'given' THEN s.access_ends_on
+               WHEN 'grace' THEN s.grace_ends_on WHEN 'checking' THEN s.checking_until END AS ends_on) e
+             WHERE b.legacy_restaurant_id = u.restaurant_id) AS plan,
             COALESCE(ARRAY_AGG(DISTINCT ro.code) FILTER (WHERE ro.code IS NOT NULL), '{}') AS roles,
             -- The code is what permission checks compare against; the name is
             -- what a person should ever see on screen.

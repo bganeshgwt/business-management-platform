@@ -18,6 +18,7 @@ The everyday numbers, such as expiring-soon days, voucher validity, credit age g
 - [Every business](#every-business)
 - [Personal data](#personal-data)
 - [An owner's GST thresholds](#an-owners-gst-thresholds)
+- [Paid plans](#paid-plans)
 - [Shops and the shared core](#shops-and-the-shared-core)
 - [Money and the day](#money-and-the-day)
 - [Wholesale](#wholesale)
@@ -231,6 +232,88 @@ For every business and the restaurant. What applies to a taxpayer's invoices in 
 - **Rule:** the warnings say when e-invoicing and the IRP's 30 days apply; the platform makes no e-invoice, reports nothing to an IRP and files no return. E-invoices are made outside the platform.
 - **Why:** e-invoicing goes through an IRP, an outside integration ([BACKLOG.md §1](BACKLOG.md#1-outside-integrations)).
 - **Change it:** nothing to set.
+
+## Paid plans
+
+For every business and the restaurant. A business pays per business for a plan of its type plus optional modules and applications (add-ons), monthly or yearly, at the prices the super admin keeps in the platform's price list. Until online payment arrives, the owner pays outside the app and enters the payment's reference; the super admin confirms it, which issues the company's GST invoice and extends the business. The tables are in [DATABASE.md › Paid plans](DATABASE.md#paid-plans), the owner's routes in [API.md › Your plan](API.md#your-plan).
+
+### Every new business starts with a free trial that unlocks everything
+
+- **Rule:** a business made in any way (an owner, the platform, a restaurant set up in the console) starts a trial from its own today for the trial days in force, both days included: 14 days run from today to today + 13. A trial unlocks every module and application its type can use, whatever plan is chosen. With 0 trial days there is no trial: the business pays first. Changing the trial days changes trials that start afterwards. Every business an owner adds starts its own trial.
+- **Why:** an owner tries everything before choosing what to pay for; records never move between businesses, so another trial gives nothing worth abusing.
+- **Change it:** *Trial days* (0 to 30, 14 at first) in the platform's settings.
+
+### A business's state is the first of these that holds
+
+- **Rule:** on the business's own date (a restaurant's, in its own time zone): **switched off** (the business, or its restaurant, is off); **trial**, **paid** or **given** (a period of that kind covers today; given time with no end always does); **grace** (the time that ended last was paid or given time, and today is within the grace days after its end); **payment being checked**; **ended**. A business whose first period has not started yet by its own date (its time zone was moved back after it was made) is already in it. Periods never overlap: a new one starts after the time the business has. A business made outside the app, with no plan row, is not checked.
+- **Why:** one answer for every screen, list and check: the database works it out (`business_plan_state`).
+- **Change it:** nothing to set.
+
+### Grace after paid or given time, never after a trial
+
+- **Rule:** for the grace days after paid or given time ends the business works as before, with a warning that names the last day of grace. A trial has no grace: when it ends, the business is read-only until it pays.
+- **Why:** a renewal paid a few days late should not stop a restaurant in the middle of service; a trial was free.
+- **Change it:** *Grace days* (0 to 30, 7 at first) in the platform's settings.
+
+### A payment being checked keeps an ended business working for two days, once per order
+
+- **Rule:** when the owner enters a payment's reference for an open order, a business that would be read-only works for up to 2 days from that moment while the super admin checks it, with the modules of the order being paid unlocked too (so a business made with no trial can start). A payment of that order already rejected gives no more days.
+- **Why:** the owner has paid; the check is the company's work, not theirs. Once per order, so a made-up reference cannot keep it open.
+- **Change it:** nothing to set.
+
+### An ended business is read-only, and nothing is deleted
+
+- **Rule:** with no trial, paid or given time, no grace and no payment being checked, a business can still be opened, seen, printed and exported, but every request that adds or changes something is refused with "This business's plan has ended. You can still see and export everything; renew in Your plan to add or change anything." Signing in, one's own profile, password and PIN, Your plan, adding another business, opening one, marking notifications read, personal-data requests, the platform console, and requests that only print or preview (printing a bill, a kitchen ticket or a change slip; a few previews, listed in `backend/src/middlewares/planGuard.js`) stay open. A restaurant's guests' table QR codes, online ordering page and online booking take nothing while its plan has ended or it is switched off: "This restaurant isn't taking orders online right now."
+- **Why:** GST law makes a business keep its records for years: it never loses them, or its access to them, for not paying.
+- **Change it:** renew in Your plan.
+
+### What a business may use: its period's copy, and the add-ons it bought
+
+- **Rule:** a module works when it is switched on (Business tools, a restaurant's Features) and the business's plan unlocks it today: every module of its type during a trial (and given time marked "Everything"); otherwise the plan and modules copied onto its paid or given period when the period was made, plus modules bought or given for their own dates, plus, for a restaurant, the restaurant itself. While it is ended, what its last period unlocked stays readable. A module outside the plan works exactly like a switched-off one: its screens and routes say so, its records are kept, and its switch is kept as the owner left it; switching it on is refused with "Not in your plan. The owner can add it in Your plan." A change to a plan's modules, a plan taken off sale or a new selection changes nothing in a running period: it reaches the business at its next order. Only the super admin unlocks something at once without an order (given time, given add-ons). Two legal checks in the database go by the switch alone, so they keep applying even if a plan leaves their module out: a prescription medicine is sold only with its prescription while Pharmacy is switched on, and a farm input only under a licence in force while Licences is switched on (Basic includes both).
+- **Why:** an owner pays for what a period holds; a later price-list change must not take away what was paid for, nor give what was not.
+- **Change it:** the plan and add-ons for the next order, in Your plan; the super admin's given time or given add-ons.
+
+### The selection shapes the next order only
+
+- **Rule:** the plan, month or year, and add-ons in Your plan are what the next order is made of. Changing them is free; it never changes what the business may use today, and taking an add-on out leaves what was paid for unlocked to the end of its period. During given time the owner cannot change the selection or make an order: "Your access is arranged by <brand>. Contact us to change it." An add-on needs the modules it depends on in the plan or among the add-ons.
+- **Why:** plans change at renewal; paid days are not refunded.
+- **Change it:** nothing to set.
+
+### A renewal starts the day after the current time ends
+
+- **Rule:** a subscription order's period starts the day after the business's trial, paid or given time ends (a renewal bought early is queued after it); in grace, the day after the old end; once ended, today. A month runs to the day before the same date next month, or to the last day of a month too short for it (31 January runs to 28 February, 29 in a leap year); a year to the day before the same date next year (29 February to 28 February). Confirming a payment adds the period with the order's dates, moved after the current end if time was added since the order was made.
+- **Why:** no trial, paid or given day is lost by paying early.
+- **Change it:** nothing to set.
+
+### An order holds its prices for 7 days; one open order at a time
+
+- **Rule:** an order copies its lines, prices, buyer and GST when it is made and is valid for 7 days; after that it is made again at the prices of the day. A business has one open order: a new one cancels the old one, unless a payment of it is being checked (then the new order is refused). An order with nothing to pay (an add-on priced at nothing) is paid as it is made: what it holds is unlocked at once, with no payment and no invoice, and an open order is left as it was. A plan or module with no price for the chosen month or year cannot be bought: "Price not set yet". A renewal that leaves out a module switched on now must pass the checks of switching it off (a restaurant's money still held, rider cash, an open drawer; expenses already recorded), or the order is refused with that reason.
+- **Why:** a price change never changes an order already made; leaving a module out must not strand money.
+- **Change it:** the prices, in the platform's price list.
+
+### An add-on mid-period costs its share of the period
+
+- **Rule:** during paid time an owner may add a module or application for the rest of the current paid period: its full price for that period times the days left (today to the period's end, both included) over the days in the period, to the paisa (a half paisa up). Once paid it is unlocked from the order's start to the period's end, and it joins the selection so the next order includes it. Add-ons are not sold during a trial (everything is unlocked) or given time.
+- **Why:** an owner pays for the days they use it.
+- **Change it:** nothing to set.
+
+### GST on the company's invoices: CGST and SGST within the state, IGST across states
+
+- **Rule:** prices are before GST. The place of supply is the buyer's state: its GSTIN's when it has one, else its state in Business settings (a restaurant's order asks for it once). The supplier's state is the first two digits of the company's GSTIN. In the same state CGST and SGST are each the rate's half of the taxable value, rounded to the paisa; otherwise IGST is the whole rate, rounded to the paisa. The total is not rounded to the rupee. An order cannot be made without the buyer's state. A tax invoice issued later from a GSTIN in another state than the one the order was made under keeps the order's total tax: all of it as IGST, or CGST at half the rate (rounded to the paisa) and SGST the rest, so the two may differ by a paisa.
+- **Why:** CBIC Circular 242/36/2024 asks for the customer's state on every online-service invoice.
+- **Change it:** the GST rate (18 at first) and the SAC code (998315 at first) in the platform's settings.
+
+### Invoice numbers, and the sample GSTIN
+
+- **Rule:** a confirmed payment issues the company's tax invoice, numbered `<prefix>/<financial year>/<n>` (BMP/2627/00001), at most 16 characters, one series per company GSTIN and financial year (April to March), never going back. The prefix is 2 to 5 letters, digits or dashes, starting with a letter and not ending in a digit, and never SAMPLE, which leaves room for 99,999 invoices a year. A number is never used twice under one GSTIN; a GSTIN corrected during the year starts its own series at 1. Until the real GSTIN is entered the company's GSTIN is the sample one (22AAAAA0000A1ZC): invoices then come from its own series with the prefix SAMPLE (SAMPLE/2627/0001), print "SAMPLE — NOT A TAX INVOICE" and are kept out of the GST register, so the real series starts at 1 when the real GSTIN is saved. The super admin then issues the tax invoice for a paid order whose only invoice is a sample, once, dated the day it is issued and naming the day the money came. Confirming waits until the company's legal name, address, city, PIN code and GSTIN are complete. An invoice is never changed.
+- **Why:** a tax invoice under a made-up GSTIN must never pass for a real one; the flow can still be tried end to end before going live.
+- **Change it:** the GSTIN and the invoice prefix (BMP at first; the prefix of a year's series is fixed once its first invoice is issued) in the platform's settings.
+
+### The starting price list
+
+- **Rule:** each business type starts with one plan, Basic, its default: its type's modules that start on, without the applications. Basic costs ₹499 a month or ₹4,999 a year for a grocery, general store, books, meat, weight-based, optical, seeds and fertilisers, hardware, garments, electronics or pharmacy business; ₹799 / ₹7,999 for a supermarket, wholesaler, jeweller, fuel station or restaurant (whose Basic also holds pre-orders and brands); ₹599 / ₹5,999 for a salon, gym, laundry, garage or rental business; ₹1,199 / ₹11,999 for a clinic or a hotel. Other modules cost ₹199 / ₹1,999; of the applications, the captain app, the kitchen display and QR table ordering cost ₹299 / ₹2,999, the online ordering page ₹399 / ₹3,999 and the laboratory ₹499 / ₹4,999. Businesses that existed before paid plans have given time with no end that unlocks everything, and every restaurant has the captain app on.
+- **Why:** a starting point the super admin reviews before going live; nothing changed for anyone already using the platform.
+- **Change it:** the platform's price list.
 
 ## Shops and the shared core
 

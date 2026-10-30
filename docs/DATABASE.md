@@ -8,11 +8,11 @@ PostgreSQL 15 or newer (built and tested on 18). One database holds the whole pl
 | --- | --- | --- |
 | [Platform and access (restaurant module)](#platform-and-access) | restaurants, outlets, users, roles, permissions, sign-in and approvals | `restaurant_id` |
 | [Restaurant module](#restaurant-module) | settings, menu, tables, orders, kitchen, bills and payments, cash, guests, stock and purchasing, staff and pay | `restaurant_id`, and `outlet_id` where a branch matters |
-| [Business platform](#business-platform) | platform catalogue, business access, business core, shared core, one extension group per business type, tasks, issues & projects, GST rates by date, personal data, and an owner's GST thresholds (both engines) | `business_id` on every row, with composite foreign keys (an owner's own settings by `user_id`; the platform's figures by none) |
+| [Business platform](#business-platform) | platform catalogue, business access, business core, shared core, one extension group per business type, tasks, issues & projects, GST rates by date, personal data, an owner's GST thresholds (both engines), and paid plans (the platform's plans, each business's access periods, the platform's orders, payments, invoices and leads) | `business_id` on every row, with composite foreign keys (an owner's own settings by `user_id`; the platform's figures, prices and leads by none) |
 | [Live updates](#live-updates) | no tables: the triggers that announce each committed change to the live screens, for both engines | the restaurant or business named in each notification |
 | [Catalogues](#business-types) | business types, platform module codes, business and restaurant permission codes | — |
 
-**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Licences](#licences) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) · [Optical shops](#optical-shops) · [Vehicle service & auto parts](#vehicle-service--auto-parts) · [Gyms, studios & coaching](#gyms-studios--coaching) · [Laundry & dry cleaning](#laundry--dry-cleaning) · [Jewellery & gold](#jewellery--gold) · [Rentals & hire](#rentals--hire) · [Fuel stations](#fuel-stations) · [Hotels, lodges & guest houses](#hotels-lodges--guest-houses) · [Tasks, issues & projects](#tasks-issues--projects) · [GST rates by date](#gst-rates-by-date) · [Live updates](#live-updates) · [Personal data](#personal-data) · [Owner's GST thresholds](#owners-gst-thresholds). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
+**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Licences](#licences) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) · [Optical shops](#optical-shops) · [Vehicle service & auto parts](#vehicle-service--auto-parts) · [Gyms, studios & coaching](#gyms-studios--coaching) · [Laundry & dry cleaning](#laundry--dry-cleaning) · [Jewellery & gold](#jewellery--gold) · [Rentals & hire](#rentals--hire) · [Fuel stations](#fuel-stations) · [Hotels, lodges & guest houses](#hotels-lodges--guest-houses) · [Tasks, issues & projects](#tasks-issues--projects) · [GST rates by date](#gst-rates-by-date) · [Live updates](#live-updates) · [Personal data](#personal-data) · [Owner's GST thresholds](#owners-gst-thresholds) · [Paid plans](#paid-plans). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
 
 The business platform's design (its five layers, the rules every table follows, and why) is explained in [BUSINESS_PLATFORM_DATA_MODEL.md](BUSINESS_PLATFORM_DATA_MODEL.md). This file gives the table-by-table reference and links there instead of repeating it. A restaurant also appears on the platform as one `businesses` row whose `legacy_restaurant_id` points at it; its own tables are unchanged.
 
@@ -57,8 +57,8 @@ cash limit and buyer's PAN do (`middlewares/errorHandler.js`).
 Purpose: the tenant. Every restaurant-module row hangs off one restaurant.
 Key columns: `name` (varchar 150), `code` (varchar 30, globally unique short code; also asked for when signing in by mobile across restaurants), `contact`, `email`, `address`, `status` (`active` / `inactive` / `suspended`), `format` (`restaurant` / `cafe` / `bakery` / `cloud_kitchen`, default `restaurant`: full service, counter first, production and pre-orders, or delivery only). Choosing a format also sets the POS order types and tokens in `service_settings` and switches features once; that is code (`restaurantFormat.service.js`), and the owner can change each afterwards.
 Relations: `created_by`, `updated_by` -> `users` (FKs fk_restaurants_created_by / fk_restaurants_updated_by, added once `users` existed).
-Rules: `code` UNIQUE; status and format CHECKs. AFTER UPDATE OF `name` trigger `restaurants_business_name` (function `restaurant_business_name()`): the restaurant's business (`businesses.legacy_restaurant_id`) takes the new name in the same statement, with a `business_audit` row `business.renamed` (`from`, `to`) by `updated_by` when it is set.
-Added by: 1789636492039_create-restaurants-and-outlets; FKs in 1789636494559_create-users-roles-permissions; 1791950410000_food-formats (format); 1791974000000_live-updates (live updates: `trg_restaurants_live_session`); 1791979112000_small-items (`restaurants_business_name`).
+Rules: `code` UNIQUE; status and format CHECKs. AFTER UPDATE OF `name` trigger `restaurants_business_name` (function `restaurant_business_name()`): the restaurant's business (`businesses.legacy_restaurant_id`) takes the new name in the same statement, with a `business_audit` row `business.renamed` (`from`, `to`) by `updated_by` when it is set. AFTER UPDATE OF `status` trigger `restaurants_business_status`: switched off or on, the restaurant takes its business row's `status` with it (`suspended` counts as off), so a restaurant and its business are never off on one side only ([Paid plans](#paid-plans)).
+Added by: 1789636492039_create-restaurants-and-outlets; FKs in 1789636494559_create-users-roles-permissions; 1791950410000_food-formats (format); 1791974000000_live-updates (live updates: `trg_restaurants_live_session`); 1791979112000_small-items (`restaurants_business_name`); paid-plans (`restaurants_business_status`).
 
 #### `outlets`
 Purpose: a branch of a restaurant. Business days, orders, KOTs, counters and stock can be per outlet.
@@ -1073,16 +1073,16 @@ Added by: 1791300000000; each module's migration adds its rows.
 
 ### Restaurant features
 
-Linked section: [data model, Restaurant features](BUSINESS_PLATFORM_DATA_MODEL.md#restaurant-features). Added by 1791470000000_restaurant-feature-switches; `preorders` by 1791950410000_food-formats and `brands` by 1791950411000_kitchen-brands.
+Linked section: [data model, Restaurant features](BUSINESS_PLATFORM_DATA_MODEL.md#restaurant-features). Added by 1791470000000_restaurant-feature-switches; `preorders` by 1791950410000_food-formats, `brands` by 1791950411000_kitchen-brands and `captain_app` by paid-plans.
 
-The parts of a restaurant it may switch off (Settings → Features) are the optional `platform_modules` that apply only to business type `restaurant` (`platform_module_business_types`): `guests`, `guest_loyalty`, `reservations`, `qr_ordering`, `online_ordering`, `deliveries`, `kitchen_display`, `captain_sections`, `preorders`, `brands`, `tips`, `advances`, `cash_drawers`, `coupons`, `stock_recipes` and `staff_payroll`. Each depends on `restaurant`, and `guest_loyalty`, `online_ordering` and `preorders` also on `guests`. All are on by default except `guest_loyalty`, `preorders` (Pre-orders & cakes) and `brands` (one kitchen, several names); the café and bakery formats switch on pre-orders and the cloud kitchen format brands (code, `restaurantFormat.service.js`). Tasks, issues and projects are listed on the same screen but apply to every type.
+The parts of a restaurant it may switch off (Settings → Features) are the optional `platform_modules` that apply only to business type `restaurant` (`platform_module_business_types`): `guests`, `guest_loyalty`, `reservations`, `qr_ordering`, `online_ordering`, `deliveries`, `kitchen_display`, `captain_sections`, `preorders`, `brands`, `captain_app` (the captain app on a phone), `tips`, `advances`, `cash_drawers`, `coupons`, `stock_recipes` and `staff_payroll`. Each depends on `restaurant`, and `guest_loyalty`, `online_ordering` and `preorders` also on `guests`. All are on by default except `guest_loyalty`, `preorders` (Pre-orders & cakes) and `brands` (one kitchen, several names); the café and bakery formats switch on pre-orders and the cloud kitchen format brands (code, `restaurantFormat.service.js`). Tasks, issues and projects are listed on the same screen but apply to every type.
 
-A restaurant's switch is a `business_capabilities` row of the business it appears as (`businesses.legacy_restaurant_id`), so `business_capabilities_enforce` refuses a missing dependency or switching off something another feature needs. Switching a feature changes no restaurant table; nothing is deleted when a feature is switched off.
+A restaurant's switch is a `business_capabilities` row of the business it appears as (`businesses.legacy_restaurant_id`), so `business_capabilities_enforce` refuses a missing dependency or switching off something another feature needs. Switching a feature changes no restaurant table; nothing is deleted when a feature is switched off. A feature its plan does not unlock counts as off and cannot be switched on ([Paid plans](#paid-plans)).
 
 | Function | What it does |
 |---|---|
-| `restaurant_business_id(restaurant_id) → bigint` | The business a restaurant appears as, created (with a free code: the restaurant's, else `R<id>`) when it has none. The provisioning trigger gives it roles, settings and the type's default modules; nobody becomes a member. |
-| `restaurant_features(restaurant_id) → text[]` | The feature codes switched on, sorted (STABLE). A restaurant with no business yet has its type's defaults. Read into every signed-in profile (`users.findProfileById` → `req.user.features`), the public pages, the notification bell, `findSettings` (`loyalty_enabled`) and the loyalty and guest report queries. |
+| `restaurant_business_id(restaurant_id) → bigint` | The business a restaurant appears as, created (with a free code: the restaurant's, else `R<id>`) when it has none. The provisioning trigger gives it roles, settings and the type's default modules, and `businesses_start_plan` its plan and trial; nobody becomes a member. Creating a restaurant calls it at once (`createRestaurant`); paid-plans linked every restaurant that had no business. |
+| `restaurant_features(restaurant_id) → text[]` | The feature codes switched on that the restaurant's plan also unlocks (`business_active_capabilities`), sorted (STABLE). A restaurant with no business yet has its type's defaults. Read into every signed-in profile (`users.findProfileById` → `req.user.features`), the public pages, the notification bell, `findSettings` (`loyalty_enabled`) and the loyalty and guest report queries. |
 | `restaurant_feature_set(restaurant_id, code, on, user_id = NULL) → boolean` | Switches one feature (an insert or delete of the capability row, behind the triggers); true when something changed. The API wraps it with the money checks and the activity log; tests call it directly. |
 
 ### Permissions and role templates
@@ -1142,7 +1142,7 @@ Linked section: [data model §3](BUSINESS_PLATFORM_DATA_MODEL.md#3-business-tena
 #### `businesses`
 Purpose: the tenant root. A restaurant appears here as one row whose `legacy_restaurant_id` points to `restaurants` ([five layers](BUSINESS_PLATFORM_DATA_MODEL.md#the-five-layers)).
 Key columns: `name` (the switcher's and every screen's; changed in Business settings, audited `business.renamed`; a restaurant's row keeps its restaurant's, through trigger `restaurants_business_name` on `restaurants`), `code` (unique), `business_type` -> `business_types`, `legacy_restaurant_id` (unique, -> `restaurants`), `status` (active or inactive), `currency` (default INR; the owner changes it in Business settings until the first document), `timezone` (default Asia/Kolkata; editable), `is_demo` (boolean, default false; no application code reads it), `created_by`.
-Created by: Platform › Businesses (the platform console) or an owner's *Add a business*, both in `businessOnboarding.service.js`. A restaurant's row comes from *Link my restaurant* (`linkRestaurant` in `business.service.js`) or from `restaurant_business_id()` (see [Restaurant features](#restaurant-features)).
+Created by: Platform › Businesses (the platform console) or an owner's *Add a business*, both in `businessOnboarding.service.js`. A restaurant's row comes from *Link my restaurant* (`linkRestaurant` in `business.service.js`) or from `restaurant_business_id()` (see [Restaurant features](#restaurant-features)), which creating a restaurant calls at once.
 Rules:
 - CHECK: `legacy_restaurant_id` may be set only when the type is `restaurant`.
 - Trigger `businesses_type_is_fixed` refuses any change of type.
@@ -1150,7 +1150,8 @@ Rules:
 - AFTER INSERT trigger `businesses_default_payment_methods` (function `business_default_payment_methods`) gives every business except a restaurant the five usual payment methods (`business_payment_methods`); a restaurant keeps its own `payment_types`.
 - AFTER INSERT trigger `businesses_default_financiers` (function `electronics_default_financiers`) gives an electronics shop its four financiers (see [`electronics_financiers`](#electronics_financiers)).
 - AFTER INSERT trigger `businesses_default_lab_departments` (function `businesses_lab_departments`, which calls `lab_default_departments`) gives a clinic (type healthcare) the eight lab departments (see [`lab_departments`](#lab_departments)).
-Added by: 1791280000000; triggers from 1791300000000, 1791300000005 business-events-and-provisioning, 1791620002000 (financiers) and 1791640000000 (payment methods); 1791974000000 (live updates: `businesses_live_session`); 1791979112000 (a restaurant's row given its restaurant's name once, where the two differed); clinic-lab-more (lab departments).
+- AFTER INSERT trigger `businesses_start_plan` (function `businesses_start_plan`), named to run after the others, gives every new business its [`business_subscriptions`](#business_subscriptions) row on its type's default plan and, while `platform_settings.trial_days` is above 0, a trial period from its own today (see [Paid plans](#paid-plans)).
+Added by: 1791280000000; triggers from 1791300000000, 1791300000005 business-events-and-provisioning, 1791620002000 (financiers) and 1791640000000 (payment methods); 1791974000000 (live updates: `businesses_live_session`); 1791979112000 (a restaurant's row given its restaurant's name once, where the two differed); clinic-lab-more (lab departments); paid-plans (`businesses_start_plan`; every restaurant linked to its business).
 
 #### `business_settings`
 Purpose: one row per business with its legal and display details, tax mode, rounding and fiscal year.
@@ -1194,7 +1195,8 @@ Rules:
   - a module whose dependency is off;
   - deleting a module that another enabled module needs.
 - Trigger `business_capabilities_no_update` stops a row from being re-pointed to another business or module.
-Added by: 1791280000000; 1791300000000 (the FK to `platform_modules`, `enabled_at`, `enabled_by` and both triggers).
+- These rows are the owner's switches. What a business may use is the modules switched on that its plan also unlocks today, `business_active_capabilities()` ([Paid plans](#paid-plans)), which every module check reads: `capabilitiesSql` in `business.repository.js` (a business's `capabilities` and `modules`) and `restaurant_features()`. A row the plan does not unlock is kept and counts as off.
+Added by: 1791280000000; 1791300000000 (the FK to `platform_modules`, `enabled_at`, `enabled_by` and both triggers); paid-plans (`captain_app` on for every restaurant; read through `business_active_capabilities`).
 
 #### `business_locations`
 Purpose: the outlets and godowns of a business.
@@ -4804,6 +4806,131 @@ Key columns: `user_id` (the key), `warn_percent` (a whole percent, 50 to 99, def
 Relations: `user_id` -> `users`.
 Added by: 1791978000000.
 
+## Paid plans
+
+Linked sections: [data model, Commercial plans](BUSINESS_PLATFORM_DATA_MODEL.md#commercial-plans), [BUSINESS_RULES.md › Paid plans](BUSINESS_RULES.md#paid-plans) and [API.md › Your plan](API.md#your-plan). Migration `paid-plans`; module code `backend/src/modules/platform/` (services `planMath.js`, `planSettings.service.js`, `planCatalogue.service.js`, `subscriptions.service.js`, `planInvoices.service.js`) and `backend/src/middlewares/planGuard.js`.
+
+What the platform sells, what each business may use and until when, and the platform company's own orders, payments, GST invoices and leads. A business pays per business for a plan of its type plus optional modules and applications (add-ons), monthly or yearly. Prices are before GST, `NUMERIC(12,2)`, worked in whole paise. The platform's tables carry no `business_id` (settings, plans, prices, leads); a business's carry it.
+
+**Functions and the view.** Every list and check reads these, so the screens, the server and the dashboards agree:
+
+| Function | What it does |
+|---|---|
+| `business_time_zone(business_id) → text` | The zone a business keeps its dates in: a restaurant's own (`restaurant_settings.timezone`, the one its screens and business day use), any other business's `businesses.timezone`; Asia/Kolkata when neither is set. |
+| `business_local_today(business_id) → date` | Today on that clock. |
+| `business_plan_state(business_id) → table` | The business's state today and its dates: `state`, `access_ends_on`, `trial_ends_on`, `grace_ends_on`, `checking_until`, `period_id`, `period_kind`, `everything`. The state is the first that holds of `off` (the business or its restaurant switched off), `unmanaged` (no `business_subscriptions` row: made outside the app; nothing is enforced), `trial`, `paid` or `given` (a period of that kind covers today; given time with no end always does), `grace` (the period that ended last is paid or given time and today is within `grace_days` after it), `checking` (a payment entered within the last two days on an open order with no rejected payment) and `ended`. The governing period is the one covering today, else the latest that has ended; a business whose first period has not started by its own date (its time zone moved back) is already in it. `access_ends_on` is the last day of its uncancelled periods (NULL when given time has no end); `grace_ends_on` is the last day of grace after the period that ends last, when that is paid or given time with an end. |
+| `business_entitled_modules(business_id) → text[]` | The optional modules its plan unlocks today: every module its type can use while it is unmanaged or its governing period unlocks everything (every trial), else the modules copied onto that period; while a payment is being checked, also the modules its open order holds (a business made with no trial has no period before it); plus the add-on grants covering today; plus `restaurant` for a restaurant. |
+| `business_active_capabilities(business_id) → text[]` | Its switched-on modules (`business_capabilities`) that are also unlocked today, sorted: what every module check reads. |
+| `platform_module_sellable(module, business_type) → boolean` | Whether a module may be sold to a type: an optional module the type can use, never `restaurant` itself. The guard triggers below use it. |
+| view `platform_business_plan_states` | Every business with `business_plan_state()`: `business_id`, `state`, `access_ends_on`, `trial_ends_on`, `grace_ends_on`, `checking_until`, `period_kind`, `everything`. |
+
+**A new business's plan and trial.** The AFTER INSERT trigger `businesses_start_plan` on `businesses` (named to run after the provisioning triggers) adds the business's `business_subscriptions` row on its type's default plan (billing period year) and, while `platform_settings.trial_days` is above 0, a trial period from `business_local_today()` for that many days that unlocks everything. With 0 trial days it starts ended and pays first.
+
+**Businesses that existed before paid plans.** The migration linked every restaurant to its business (`restaurant_business_id()`), switched `captain_app` on for every restaurant, and gave every business a subscription on its type's default plan and given time from its own today with no end that unlocks everything (reason "Set up before paid plans began"), so nothing changed for any of them.
+
+#### `platform_settings`
+Purpose: one row (`id = 1`): the platform company's settings.
+Key columns: `trial_days` (0–30, default 14; applies to trials that start afterwards), `grace_days` (0–30, default 7), `brand_name` (default "Business Management Platform"); the supplier printed on every invoice: `legal_name`, `address_line1`, `address_line2`, `city`, `postal_code` (6 digits), `gstin` (GSTIN pattern; default the sample GSTIN `22AAAAA0000A1ZC`; its first two digits are the supplier's state), `pan`, `phone`, `email`, `website`, `sac_code` (6 digits, default 998315), `gst_rate` (0–40, default 18.00), `invoice_prefix` (`^[A-Z][A-Z0-9-]{0,3}[A-Z-]$`: 2 to 5 characters, never SAMPLE; default BMP); support: `support_phone`, `support_email`, `grievance_officer_name`, `grievance_officer_email`; how owners pay: `upi_id`, `upi_payee_name`, `bank_name`, `bank_account_name`, `bank_account_number`, `bank_ifsc` (IFSC pattern), `payment_note`; `prices_reviewed_at` (set when the price list is saved), `updated_by`, `updated_at`.
+Rules: CHECK `id = 1`. The API checks the GSTIN's check character and that a PAN and a real GSTIN carry the same PAN; a change is audited in `platform_audit` (`platform.settings_updated`).
+Added by: paid-plans (the row, with the sample GSTIN, trial 14 and grace 7).
+
+#### `platform_plans`
+Purpose: the plans of each business type: a name, monthly and yearly prices before GST and the modules included ([`platform_plan_modules`](#platform_plan_modules)).
+Key columns: `code` (TEXT PK, `^[a-z][a-z0-9_]{1,39}$`), `business_type` -> `business_types`, `name`, `description`, `monthly_price` and `yearly_price` (NULL is not set yet; more than 0 when set), `is_default`, `active` (on offer), `sort_order`, `created_by`, `created_at`, `updated_by`, `updated_at`.
+Rules: one default per type (partial unique index `platform_plans_one_default`); CHECK: the default is active; trigger `platform_plans_type_fixed` refuses changing a plan's type.
+Added by: paid-plans: one `<type>_basic` "Basic" plan per type, default and active, at ₹499 / ₹4,999 (grocery, general_retail, books, meat, weight_retail, optical, agri_inputs, hardware, fashion, electronics, pharmacy), ₹799 / ₹7,999 (supermarket, wholesale, jewellery, fuel_station, restaurant), ₹599 / ₹5,999 (salon, memberships, laundry, garage, rentals) or ₹1,199 / ₹11,999 (healthcare, lodging) a month / a year.
+
+#### `platform_plan_modules`
+Purpose: the optional modules a plan includes.
+Key columns: PK (`plan_code` -> `platform_plans`, `module_code` -> `platform_modules`).
+Rules: trigger `platform_plan_modules_check`: the module is one the plan's type can use, never `restaurant` (`platform_module_sellable`).
+Added by: paid-plans: each Basic plan holds its type's modules that start on, without the applications and `restaurant`; the restaurant's also holds `preorders` and `brands`.
+
+#### `platform_module_prices`
+Purpose: each optional module's price and how it is sold.
+Key columns: `module_code` (PK -> `platform_modules`), `sold_as` (`module`, or `application`: its own screen or device for its own people), `monthly_price`, `yearly_price` (NULL is not set yet; 0 or more: 0 is free), `available` (owners may add it), `created_by`, `created_at`, `updated_by`, `updated_at`.
+Rules: trigger `platform_module_prices_check`: optional modules only, never `restaurant`.
+Added by: paid-plans: every optional module but `restaurant`, available; modules at ₹199 / ₹1,999; the applications `captain_app`, `kitchen_display` and `qr_ordering` at ₹299 / ₹2,999, `online_ordering` at ₹399 / ₹3,999 and `lab` at ₹499 / ₹4,999.
+
+#### `business_subscriptions`
+Purpose: a business's selection for its next order: its plan and month or year. It never changes what the business may use today.
+Key columns: `business_id` (PK -> `businesses`), `plan_code` -> `platform_plans` (NULL only while the type has no default plan), `billing_period` (`month` or `year`, default `year`), `created_by`, `created_at`, `updated_by`, `updated_at`.
+Rules: trigger `business_subscriptions_check`: the plan is of the business's type. A business with no row is unmanaged ([`business_plan_state`](#paid-plans)).
+Added by: paid-plans (a row for every business; `businesses_start_plan` adds one for each new business).
+
+#### `business_subscription_addons`
+Purpose: the add-ons of the selection: modules and applications bought on top of the plan with the next order.
+Key columns: PK (`business_id` -> `business_subscriptions`, `module_code` -> `platform_modules`), `added_by`, `added_at`.
+Rules: trigger `business_subscription_addons_check`: the business's type can use the module (never `restaurant`) and the selected plan does not already include it.
+Added by: paid-plans.
+
+#### `business_access_periods`
+Purpose: dated time a business may be used, both days included: `trial`, `paid` (from a paid order) or `given` (by the super admin, with a reason). Each copies what it unlocks when it is made: everything, or its plan and the optional modules it covers.
+Key columns: `business_id`, `kind`, `starts_on`, `ends_on` (NULL only for given time), `everything`, `plan_code` -> `platform_plans` (NULL when everything), `modules` (TEXT[]; empty when everything), `order_id` (paid only), `reason` (given only), `created_by`, `created_at`, `cancelled_at`, `cancelled_by`, `cancel_reason`.
+Relations: (`business_id`, `order_id`) -> `platform_orders`.
+Rules:
+- CHECKs: a trial is everything; `everything` exactly when there is no plan, with no modules; paid time has an order and only paid time does; given time has a reason; the cancel columns are set together.
+- Trigger `business_access_periods_check` (before insert): the plan is of the business's type, every module is one the type can use, and the period does not overlap another uncancelled period of the business.
+- Trigger `business_access_periods_kept` (`business_access_kept()`): never deleted; never changed except setting the cancel columns, once.
+- Index (`business_id`, `ends_on`).
+Added by: paid-plans.
+
+#### `business_access_addons`
+Purpose: add-on grants: one module or application unlocked for its own dates: `paid` (from an add-on order, to the end of the paid period it was bought in) or `given` (by the super admin, with a reason and an end).
+Key columns: `business_id`, `module_code` -> `platform_modules`, `kind`, `starts_on`, `ends_on`, `order_id` (paid only), `reason` (given only), `created_by`, `created_at`, the cancel columns.
+Relations: (`business_id`, `order_id`) -> `platform_orders`.
+Rules: CHECKs as for periods; trigger `business_access_addons_check`: a module the type can use; trigger `business_access_addons_kept`: the same append-only rule. Index (`business_id`, `ends_on`).
+Added by: paid-plans.
+
+#### `platform_orders`
+Purpose: what a business is asked to pay: `subscription` (its plan and add-ons for one period) or `add_on` (modules for the rest of the current paid period). Its lines, buyer, prices and GST are copies made when it is made; `modules` is what it unlocks once paid.
+Key columns: `business_id`, `kind`, `plan_code` (subscriptions only), `billing_period`, `starts_on`, `ends_on`, `modules` (TEXT[]), `valid_until` (made + 7 days), `buyer` (JSONB: name, GSTIN, address, state), `supplier_state_code`, `place_of_supply_code`, `gst_rate`, `taxable_amount`, `cgst_amount`, `sgst_amount`, `igst_amount`, `total_amount`, `status` (`open`, `paid`, `cancelled`), `created_by`, `created_at`, `paid_at`, `cancelled_at`.
+Rules: CHECKs: a plan exactly for a subscription; `ends_on >= starts_on`; total = taxable + CGST + SGST + IGST; CGST equals SGST, and IGST only without them; `paid_at` and `cancelled_at` go with their status. One open order per business (partial unique index `platform_orders_one_open`). Trigger `platform_orders_one_way`: never deleted; an open order only becomes paid or cancelled, and nothing else about it changes.
+Added by: paid-plans.
+
+#### `platform_order_lines`
+Purpose: an order's lines: the plan and each add-on at its full price for the period, or an add-on bought mid-period at that price for the days left.
+Key columns: PK (`order_id` -> `platform_orders`, `line_no`), `item_kind` (`plan`, `module`, `application`), `item_code`, `name`, `full_price`, `charged_days`, `period_days`, `amount`.
+Rules: `charged_days` from 1 to `period_days`; trigger `platform_order_lines_kept` (`platform_record_kept()`): never changed or deleted.
+Added by: paid-plans.
+
+#### `platform_payments`
+Purpose: payments of orders: entered by an owner with its reference (UPI, bank transfer, cash or cheque) for the super admin to confirm or reject, or recorded and confirmed by the super admin at once.
+Key columns: `business_id`, `order_id`, `amount` (the order's total), `method` (`upi`, `bank`, `cash`, `cheque`), `reference`, `paid_on`, `status` (`pending`, `confirmed`, `rejected`), `submitted_by`, `submitted_at`, `decided_by`, `decided_at`, `decision_note` (the reason, required to reject).
+Relations: (`business_id`, `order_id`) -> `platform_orders`.
+Rules: one pending and one confirmed payment per order (partial unique indexes `platform_payments_one_pending`, `platform_payments_one_confirmed`); trigger `platform_payments_one_way`: never deleted; a pending payment is confirmed or rejected once and then stays as it is.
+Added by: paid-plans.
+
+#### `platform_invoice_series`
+Purpose: the company's invoice numbers: one series per company GSTIN and financial year (`2627` is 2026-27). The sample GSTIN's series has the prefix SAMPLE, so a sample invoice never takes a real number, and the real series starts at 1 when the real GSTIN is saved. A number is taken with `UPDATE … next_number + 1` in the issuing transaction.
+Key columns: PK (`gstin`, `fiscal_year`), `prefix`, `next_number`, `created_at`, `updated_at`.
+Rules: CHECK: the prefix is SAMPLE for the sample GSTIN's series and for no other, and a real series's prefix is 2 to 5 characters (as `platform_settings.invoice_prefix`), so its 16-character numbers have room for 99,999 invoices a year. Trigger `platform_invoice_series_forward_only`: `next_number` never goes back; the prefix is fixed once an invoice has been issued; the GSTIN and the year never change.
+Added by: paid-plans.
+
+#### `platform_invoices`
+Purpose: the company's GST tax invoice for each confirmed payment (CGST Rules, rule 46): the supplier, the buyer and the place of supply as issued, each line with its SAC, the tax by rate and the total. `sample`: issued under the sample GSTIN (printed "SAMPLE — NOT A TAX INVOICE" and kept out of the GST register). Its total is always its order's: where the supplier's state now splits the tax otherwise than the order did (an order invoiced as a sample, then for real), within the state CGST is half the rate and SGST the rest of the order's tax, and across states all of it is IGST.
+Key columns: `number` (at most 16 characters), `supplier_gstin` (the GSTIN it was issued under), `fiscal_year`, `business_id`, `order_id`, `payment_id` -> `platform_payments`, `issued_on`, `paid_on`, `supplier`, `buyer`, `place_of_supply`, `lines` (JSONB), `taxable_amount`, `cgst_amount`, `sgst_amount`, `igst_amount`, `total_amount`, `sample`, `created_by`, `created_at`.
+Relations: (`business_id`, `order_id`) -> `platform_orders`.
+Rules: a number is unique for its supplier GSTIN, ignoring case (`platform_invoices_number` on `supplier_gstin`, `upper(number)`): a GSTIN corrected during the year starts its own series. At most one real and one sample invoice per order (partial unique indexes `platform_invoices_one_real`, `platform_invoices_one_sample`); CHECKs: total = taxable + CGST + SGST + IGST, IGST only without CGST and SGST, and CGST and SGST at most a paisa apart; trigger `platform_invoices_kept`: never changed or deleted.
+Added by: paid-plans.
+
+#### `platform_leads`
+Purpose: someone who showed interest: a call-back enquiry (`source` enquiry) or a sign-up (`signup`).
+Key columns: `source`, `name`, `mobile`, `email` (one of the two at least), `business_name`, `business_type` -> `business_types`, `city`, `state_code`, `message`, `ref` (the `ref` or `utm_source` of the link the person came from), `status` (`new`, `contacted`, `not_interested`), `business_id` (unique -> `businesses`: the business the person signed up) with `signed_up_at`, `consent_at`, `created_at`, `updated_at`, `updated_by`.
+Rules: indexes on `mobile`, `lower(email)` and `created_at`.
+Added by: paid-plans.
+
+#### `platform_lead_notes`
+Purpose: the super admin's notes on a lead.
+Key columns: `lead_id` -> `platform_leads`, `note`, `created_by`, `created_at`.
+Rules: trigger `platform_lead_notes_kept`: never changed or deleted.
+Added by: paid-plans.
+
+#### `platform_audit`
+Purpose: the super admin's changes to settings, prices and leads (a business's own changes stay in `business_audit`: `plan.selection_changed`, `plan.order_created`, `plan.payment_submitted`, `plan.payment_confirmed`, `plan.payment_rejected`, `plan.time_given`, `plan.addons_given`, `plan.tax_invoice_issued`, `settings.state_set`).
+Key columns: `actor_id` -> `users`, `action` (`<area>.<what>`, such as `platform.settings_updated`, `platform.prices_updated`), `entity_type`, `entity_id`, `details` (JSONB object), `created_at`.
+Added by: paid-plans.
+
 ## Business types
 
 The rows of `business_types`: the first twelve created by 1791280000000 multi-business-admin, the other eleven by 1791960000000 more-business-types.
@@ -4901,6 +5028,7 @@ Core modules are always on and never stored per business; every other module is 
 | `captain_sections` | optional | restaurant | restaurant; on | 1791470000000 |
 | `preorders` | optional | restaurant, guests | restaurant; off | 1791950410000 |
 | `brands` | optional | restaurant | restaurant; off | 1791950411000 |
+| `captain_app` | optional | restaurant | restaurant; on (sold as an application: [Paid plans](#paid-plans)) | paid-plans |
 | `tips` | optional | restaurant | restaurant; on | 1791470000000 |
 | `advances` | optional | restaurant | restaurant; on | 1791470000000 |
 | `cash_drawers` | optional | restaurant | restaurant; on | 1791470000000 |

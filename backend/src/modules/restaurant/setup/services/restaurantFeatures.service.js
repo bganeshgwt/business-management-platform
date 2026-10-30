@@ -9,7 +9,8 @@ const auditRepository = require("../../../access/repositories/audit.repository")
 // its business (migration 1791470000000). The database is the one source of
 // truth:
 //
-//   restaurant_features(restaurant_id)   the codes switched on, read into the
+//   restaurant_features(restaurant_id)   the codes switched on and unlocked by
+//                                        the restaurant's plan, read into the
 //                                        signed-in profile on every request
 //                                        (req.user.features)
 //   restaurant_feature_set(...)          switches one, behind the capability
@@ -401,13 +402,56 @@ const HIDES = {
   staff_payroll: ["Employees", "Shifts & roster", "Attendance", "Time clock", "Payroll", "My work"],
 };
 
-// What stands in the way of a change, and what it will hide. Dependencies
-// first: they decide whether the change can happen at all.
+// A feature outside the restaurant's plan cannot be switched on: it works as
+// if switched off, its records kept, until the plan unlocks it.
+const NOT_IN_PLAN = "Not in your plan. The owner can add it in Your plan.";
+
+// The features the restaurant's plan unlocks today (paid plans), or null
+// for a restaurant not linked to its business yet, whose plan is not kept.
+const entitledOf = async (db, restaurantId) => {
+  const result = await db.query(
+    "SELECT business_entitled_modules(b.id) AS modules FROM businesses b WHERE b.legacy_restaurant_id = $1",
+    [restaurantId]
+  );
+
+  return result.rows[0] ? result.rows[0].modules : null;
+};
+
+const inPlan = (entitled, code) => entitled === null || entitled.includes(code);
+
+// The switches themselves, whatever the plan unlocks: what switching off
+// changes, and what the database's dependency check reads. A restaurant not
+// linked to its business yet has its type's defaults.
+const switchedOnOf = async (db, restaurantId) => {
+  const result = await db.query(
+    `SELECT COALESCE((SELECT array_agg(c.capability ORDER BY c.capability) FROM business_capabilities c WHERE c.business_id = b.id), '{}') AS codes
+     FROM businesses b WHERE b.legacy_restaurant_id = $1`,
+    [restaurantId]
+  );
+
+  return result.rows[0] ? result.rows[0].codes : featuresOf(restaurantId, db);
+};
+
+// Whether a change would change nothing: switching on goes by what works (a
+// feature switched on outside the plan is off, and switching it on is refused
+// as not in the plan); switching off goes by the switch itself, so a feature
+// left switched on outside the plan can still be switched off.
+const unchanged = async (db, restaurantId, features, code, enabled) =>
+  enabled ? features.includes(code) : !(await switchedOnOf(db, restaurantId)).includes(code);
+
+// What stands in the way of a change, and what it will hide. The plan, then
+// dependencies: they decide whether the change can happen at all. Switching
+// off waits for every feature switched on that needs this one, in the plan
+// or not, as the database does.
 const assess = async (db, restaurantId, features, feature, enabled) => {
   const blockers = [];
   const warnings = [];
 
   if (enabled) {
+    if (!inPlan(await entitledOf(db, restaurantId), feature.code)) {
+      blockers.push(NOT_IN_PLAN);
+    }
+
     for (const code of feature.requires) {
       if (!features.includes(code)) {
         blockers.push(`${feature.name} needs ${await nameOf(code)}. Switch that on first.`);
@@ -417,8 +461,10 @@ const assess = async (db, restaurantId, features, feature, enabled) => {
     return { blockers, warnings };
   }
 
+  const switchedOn = await switchedOnOf(db, restaurantId);
+
   for (const code of feature.requiredBy) {
-    if (features.includes(code)) {
+    if (switchedOn.includes(code)) {
       blockers.push(`${await nameOf(code)} needs ${feature.name}. Switch ${await nameOf(code)} off first.`);
     }
   }
@@ -440,10 +486,16 @@ const requireRestaurant = (user) => {
 
 const canChange = (user) => Boolean(user.permissions && user.permissions.includes(OWNER_PERMISSION));
 
+// inPlan: the restaurant's plan unlocks the feature today.
 const listFor = async (restaurantId, db = pool) => {
   const features = await featuresOf(restaurantId, db);
+  const entitled = await entitledOf(db, restaurantId);
 
-  return (await loadCatalogue()).map((feature) => ({ ...feature, enabled: features.includes(feature.code) }));
+  return (await loadCatalogue()).map((feature) => ({
+    ...feature,
+    enabled: features.includes(feature.code),
+    inPlan: inPlan(entitled, feature.code),
+  }));
 };
 
 const list = async (user) => {
@@ -458,7 +510,7 @@ const preview = async (user, code, enabled) => {
   const feature = await findFeature(code);
   const features = await featuresOf(user.restaurantId);
 
-  if (features.includes(code) === enabled) {
+  if (await unchanged(pool, user.restaurantId, features, code, enabled)) {
     return { code, enabled, changed: false, blockers: [], warnings: [] };
   }
 
@@ -485,9 +537,13 @@ const apply = async ({ restaurantId, actor, code, enabled, via }) => {
     await client.query("SELECT id FROM businesses WHERE id = $1 FOR UPDATE", [business]);
     const features = await featuresOf(restaurantId, client);
 
-    if (features.includes(code) === enabled) {
+    if (await unchanged(client, restaurantId, features, code, enabled)) {
       await client.query("COMMIT");
       return { code, enabled, changed: false, warnings: [] };
+    }
+
+    if (enabled && !inPlan(await entitledOf(client, restaurantId), code)) {
+      throw new AppError(409, NOT_IN_PLAN, { reason: "not_in_plan", feature: code });
     }
 
     const { blockers, warnings } = await assess(client, restaurantId, features, feature, enabled);
@@ -564,6 +620,16 @@ const setForBusiness = async (business, actor, code, enabled) => {
 
 const isFeature = async (code) => (await loadCatalogue()).some((row) => row.code === code);
 
+// The money that switching a feature off would strand, for a restaurant
+// business: what a renewal leaving the feature out must pass too (paid plans).
+const switchOffBlockers = async (db, business, code) => {
+  if (!business.legacy_restaurant_id || !LIVE_DATA[code]) {
+    return [];
+  }
+
+  return (await LIVE_DATA[code](db, business.legacy_restaurant_id)).blockers || [];
+};
+
 module.exports = {
   OWNER_PERMISSION,
   featuresOf,
@@ -577,4 +643,5 @@ module.exports = {
   setForBusiness,
   isFeature,
   apply,
+  switchOffBlockers,
 };

@@ -18,6 +18,7 @@ const reservationService = require("./reservation.service");
 const { logFor } = require("../../../../utils/audit");
 const { maskMobile } = require("../../../../utils/phone");
 const AppError = require("../../../../utils/AppError");
+const planGuard = require("../../../../middlewares/planGuard");
 const ruleSettings = require("../../setup/services/ruleSettings.service");
 const personalData = require("../../../personal-data/services/personalData.service");
 
@@ -306,6 +307,8 @@ const newGuestToken = () => crypto.randomBytes(24).toString("base64url");
 const request = async (token, input) => {
   const link = await resolveLink(token);
   requireOpen(link);
+  // A restaurant whose plan has ended (or is switched off) takes no bookings online.
+  await planGuard.assertTakingOrders(link.restaurant_id);
 
   if (input.partySize > link.max_party_size) {
     throw new AppError(

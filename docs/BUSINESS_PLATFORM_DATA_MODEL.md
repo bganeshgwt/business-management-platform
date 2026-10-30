@@ -17,11 +17,14 @@ Read it with:
  1 Platform          platform_modules ─┬─ platform_module_business_types ── business_types
                                        └─ platform_module_dependencies
                      business_permissions · business_role_templates (+ _permissions)
-                     (planned: platform_plans, platform_plan_modules, business_subscriptions)
+                     platform_plans (+ _modules) · platform_module_prices · platform_settings
+                     platform_orders (+ lines) · platform_payments · platform_invoices (+ series)
+                     platform_leads (+ notes) · platform_audit
  2 Identity & access users ── business_memberships ── business_roles ── business_role_permissions
  3 Business (tenant) businesses ── business_settings · business_tax_rates · business_number_series
                      business_capabilities · business_locations · business_payment_methods
                      business_departments · business_licences
+                     business_subscriptions (+ _addons) · business_access_periods · business_access_addons
  4 Shared core       catalog_categories ── catalog_products ── catalog_skus ── catalog_sku_units
                      catalog_kit_components · business_sku_location_prices
                      business_units · business_contacts · business_price_rules
@@ -69,6 +72,8 @@ The restaurant module keeps its own tables (`restaurants`, `restaurant_*`, `outl
 | Outbox rows are only ever stamped once | A trigger on `business_events` allows only setting `published_at`, once; unpublished rows cannot be deleted |
 | A serial number is in one place at a time | Constraint trigger `electronics_serial_lot_rules`, with an advisory lock ([Electronics](#electronics)) |
 | No ₹2,00,000 in cash for one bill, or from one customer in a day | Triggers `business_payments_cash_limit` and `business_collections_cash_limit` ([Documents](#documents)) |
+| A business's access periods never overlap and are only ever cancelled; orders, payments and invoices go one way and are never edited | Triggers on `business_access_periods`, `business_access_addons`, `platform_orders`, `platform_order_lines`, `platform_payments` and `platform_invoices`; one open order and one pending and one confirmed payment per order (partial unique indexes) ([Commercial plans](#commercial-plans)) |
+| The company's invoice numbers never repeat or go back, and a sample invoice never takes a real number | `platform_invoice_series`, one per GSTIN and financial year, taken with `UPDATE … RETURNING`, and a trigger forbids moving it backwards |
 
 ### What only the code checks
 
@@ -100,16 +105,23 @@ Platform-wide tables start with `platform_` or `business_`, and the shared catal
 
 ### Commercial plans
 
-There are no plan tables. Instead of empty tables whose columns would be guesses, the shape is fixed here, so adding plans later is purely additive:
+A business pays per business for a **plan** of its type plus optional modules and applications (**add-ons**), monthly or yearly. The platform's catalogue sells them; each business's **access periods** say until when, and what, it may use; the platform's own orders, payments and invoices are the money. Every table is in [DATABASE.md › Paid plans](DATABASE.md#paid-plans), and the rules with their reasons in [BUSINESS_RULES.md › Paid plans](BUSINESS_RULES.md#paid-plans).
 
-```
-platform_plans            (code PK, name, billing_period, price_paise, active)
-platform_plan_modules     (plan_code → platform_plans, module_code → platform_modules, limits JSONB)
-business_subscriptions    (id, business_id → businesses, plan_code, starts_on, ends_on, status, …)
-business_capabilities     + source TEXT ('plan' | 'owner' | 'type_default'), + subscription_id (nullable FK)
-```
+| Table | What it holds |
+|---|---|
+| `platform_settings` | One row: trial days (14) and grace days (7), the company's details and GSTIN for its invoices (the sample GSTIN until the real one is entered), the SAC code and GST rate, the invoice prefix, support and grievance contacts, how owners pay (UPI ID, bank), when the prices were last reviewed. |
+| `platform_plans` (+ `platform_plan_modules`) | Each type's plans: name, monthly and yearly price before GST (NULL: not set yet), the optional modules included; one default plan per type, Basic to start with. |
+| `platform_module_prices` | Every optional module's monthly and yearly price, whether it is sold as a `module` or an `application`, and whether owners may add it. |
+| `business_subscriptions` (+ `_addons`) | A business's **selection** for its next order: plan, month or year, add-ons. It shapes the next order only. |
+| `business_access_periods` | Dated `trial`, `paid` or `given` time, each with a **copy** of what it unlocks (everything, or its plan and module list), made when the period is made. Never overlapping; only ever cancelled. |
+| `business_access_addons` | One module unlocked for its own dates: bought mid-period, or given by the super admin. |
+| `platform_orders` (+ `_lines`), `platform_payments` | What a business is asked to pay, with GST and a copy of its buyer, lines and the modules it unlocks; the payments owners enter by reference and the super admin confirms or rejects. |
+| `platform_invoice_series`, `platform_invoices` | The company's GST invoices, one number series per company GSTIN and financial year; the sample GSTIN's own series (prefix SAMPLE). |
+| `platform_leads` (+ `_notes`), `platform_audit` | Enquiries and sign-ups; the super admin's changes to settings, prices and leads. |
 
-A subscription will only *write* `business_capabilities` rows (and read limits). Every check in the server reads `business_capabilities`, so no query, screen or test changes when plans arrive. Without plans, the owner switches modules on and off within what the type allows: Settings › Business tools (permission `settings.edit`), or a restaurant's own Features screen ([Restaurant features](#restaurant-features)).
+**State and entitlement are SQL**, so the server, the lists and the dashboards read one answer: `business_plan_state(business)` gives a business's state today on its own clock (`business_local_today`: a restaurant's own time zone) with its dates, and `business_entitled_modules(business)` what its plan unlocks (everything during a trial, else the governing period's copy, plus add-on grants covering today, plus a restaurant's `restaurant` module). **Effective modules** are `business_active_capabilities(business)`: the switched-on `business_capabilities` rows that are also entitled. Every module check reads them: a business's `capabilities` and `modules` (`capabilitiesSql` in `business.repository.js`) and `restaurant_features()`. So a module outside the plan behaves exactly like a switched-off one, its records and its switch kept, and paying brings it back. The owner still switches modules on and off within what the type allows (Settings › Business tools, or a restaurant's Features screen); switching on a module the plan does not unlock is refused.
+
+**How a business moves.** The insert trigger `businesses_start_plan` gives every new business its selection (its type's default plan) and a trial. An owner's order copies the selection's lines and prices; confirming its payment (`applyPayment`, one idempotent transaction locking the business row, then the order, then the invoice series) adds a paid period after the current end, or paid add-on grants to the period's end, and issues the invoice. A write to a business whose state is `ended` is refused in `authenticate` (`planGuard.js`, 402 `plan_ended`); reads, Your plan, printing and personal-data requests stay open. Businesses that existed before paid plans have given time with no end that unlocks everything.
 
 ### Restaurant features
 
@@ -118,7 +130,7 @@ A restaurant is one business of type `restaurant` (`legacy_restaurant_id`). The 
 | Group | Codes | A new restaurant starts with it |
 |---|---|---|
 | Guests | `guests`; `guest_loyalty` (needs `guests`) | on; loyalty **off** |
-| Service | `reservations`, `qr_ordering`, `online_ordering` (needs `guests`), `deliveries`, `kitchen_display`, `captain_sections` | on |
+| Service | `reservations`, `qr_ordering`, `online_ordering` (needs `guests`), `deliveries`, `kitchen_display`, `captain_sections`, `captain_app` (the captain app on a phone) | on |
 | Service | `preorders` (needs `guests`), `brands` | **off** (the café and bakery formats switch on pre-orders, the cloud kitchen brands) |
 | Money | `tips`, `advances`, `cash_drawers`, `coupons` | on |
 | Back office | `stock_recipes`, `staff_payroll` | on |
@@ -140,7 +152,7 @@ How the switches work:
 - **One source of truth.** A restaurant's switch is its business's `business_capabilities` row, read through `restaurant_features(restaurant_id)`. A restaurant not yet linked to a business has the type defaults; `restaurant_business_id()` links it on its first switch. The restaurant's Features screen (Settings › Features) and the Business Admin's module switches for the restaurant business (`PUT /api/businesses/:id/modules/:code`) read and write the same rows, through the same service (`restaurantFeatures.service.js`: dependencies, refusing a switch that would strand money, the activity log).
 - **Loyalty.** The switch is `guest_loyalty`; the earn and redeem rules stay in `restaurant_settings`.
 - **Enforced on the server.** `req.user.features` comes with the signed-in profile. `requireFeature(code)` refuses a switched-off feature's endpoints with 403 `{ reason: "feature_off", feature }`. The public QR, booking and online pages check the restaurant's features themselves, and notification providers name their `feature` and are not asked while it is off.
-- **Plans.** A subscription plan will set these switches exactly as it sets any other module: `platform_plan_modules` lists restaurant feature codes like any module code, and a subscription writes (or removes) the restaurant business's `business_capabilities` rows with `source = 'plan'`. Nothing in the restaurant reads anything but `restaurant_features()`, so no screen, query or test changes when plans arrive. A plan dropping a feature must pass the same money checks (an advance still held, rider cash not settled) before it removes the row.
+- **Plans.** A restaurant's plan unlocks features exactly as it unlocks any module ([Commercial plans](#commercial-plans)): `restaurant_features()` gives the features switched on that the plan also unlocks, so a feature outside the plan is off everywhere that reads it, its switch kept. Plans never write the switches. A renewal that leaves out a feature switched on now must pass the same money checks as switching it off (an advance still held, rider cash not settled), or the order is refused. The `restaurant` module itself is always unlocked. A restaurant made in the platform console is linked to its business at once, and so starts its plan and trial.
 
 ## 2. Identity & access
 
@@ -148,7 +160,7 @@ How the switches work:
 - **Per-business roles.** `business_roles` holds each business's own copies of the shared templates (`template_code`), its type's own templates (a pharmacy's Pharmacist; a clinic's Doctor, Lab technician and Pathologist), and roles the business makes itself (`template_code` NULL). Copies, not shared rows: one business editing its "Manager" never changes another's. Each module adds its permissions to the templates that should hold them; the type sections below list these grants.
 - **The Owner.** The database allows at most one `full_access` role per business (unique index `business_roles_one_full`), and only the active copy of the `owner` template may have it (CHECK). Provisioning gives every business exactly one. The Owner holds no permission rows (a trigger refuses them) and always has every permission, including ones later migrations add.
 - **Memberships.** `business_memberships.role_id` → `business_roles(business_id, id)` (composite: a membership can only hold its own business's role). `last_opened_at` remembers the business a person last opened. `location_id` ties a person to one location and `department_id` to one department (NULL = all). Nobody is tied to a closed location, and the owner is never tied to one (trigger).
-- **Two checks on every request, both on the server:** the permission's module must be on for the business (`business_capabilities`), and the person's role must hold the permission. A person tied to a location works there only; one tied to a department sees and changes only its products and stock, and sees only its people on the staff list.
+- **Two checks on every request, both on the server:** the permission's module must be on for the business and unlocked by its plan (`business_active_capabilities`), and the person's role must hold the permission. A person tied to a location works there only; one tied to a department sees and changes only its products and stock, and sees only its people on the staff list.
 - **No escalation** (`businessAccess.service.js`). Nobody can hand out the Owner role, change the owner's access or change their own. A person with `access.edit` can give only roles and permissions they hold themselves, and only at their own location or department when they are tied to one. They change, and set a new password for, only someone they manage (`requireManages`): someone whose role holds nothing beyond theirs and who, when they are tied to a location or a department, is tied to that same one. Whoever sets a password can sign in as that person once (the password then has to be replaced by one of the person's own, `users.password_must_change`). The staff list gives each person the same answer (`markManaged`, the `manages` flag), and Staff & access offers *Change* and *Password* only for the people the caller manages, *Password* only for a login used in this business alone (`login_elsewhere`). Ownership is changed only by the platform's super admin, under the owner's subscription.
 
 ## 3. Business (tenant)
@@ -162,7 +174,8 @@ How the switches work:
 | `business_locations` | A business's shops, godowns and branches: name, code, active. A location has its own address, city, PIN, `state_code`, `gstin` and `phone`, printed on the bills it raises (the place of supply follows its state), and its `opening_hours`. A location with staff tied to it cannot close (trigger). |
 | `business_departments` | A store's departments. A top-level category belongs to one (`catalog_categories.department_id`) and its sub-categories take the same one; a person may be tied to one (`business_memberships.department_id`). |
 | `business_payment_methods` | The business's own names for the ways it takes money, each of five fixed kinds: cash, UPI, card, bank, cheque. Every type but the restaurant starts with Cash, UPI, Card, Bank transfer and Cheque; the restaurant keeps its own payment types. The last method switched on stays on (trigger). Money rows count the kind and keep the name ([Money](#money)). |
-| `business_capabilities` | The optional modules switched on ([§1](#1-platform)). |
+| `business_capabilities` | The optional modules switched on ([§1](#1-platform)); those the plan also unlocks are the ones that work ([Commercial plans](#commercial-plans)). |
+| `business_subscriptions`, `business_access_periods`, `business_access_addons` | The business's selection for its next order, and its dated trial, paid and given time and add-on grants ([Commercial plans](#commercial-plans)). |
 
 **Fixed once documents exist.** The financial-year start month cannot change once the business has a number series (documents would land in the wrong year's series). A newly created series starts after the highest number already used with its prefix.
 
@@ -173,7 +186,7 @@ How the switches work:
 - its GST slabs (`business_seed_tax_rates`) and units (`business_seed_units`);
 - its type's default modules.
 
-Two more insert triggers add the five payment methods to every type but the restaurant (`businesses_default_payment_methods`) and four financiers to an electronics shop (`businesses_default_financiers`). A restaurant gets no GST slabs and no units: `business_seed_tax_rates` skips it, and `business_seed_units` skips a restaurant with no catalogue items, as every new one is. The restaurant module keeps its own tax rates and units. Doing all this in the database means no code path can forget a piece.
+Two more insert triggers add the five payment methods to every type but the restaurant (`businesses_default_payment_methods`) and four financiers to an electronics shop (`businesses_default_financiers`), and the last to run (`businesses_start_plan`) gives the business its selection on its type's default plan and its free trial ([Commercial plans](#commercial-plans)). A restaurant gets no GST slabs and no units: `business_seed_tax_rates` skips it, and `business_seed_units` skips a restaurant with no catalogue items, as every new one is. The restaurant module keeps its own tax rates and units. Doing all this in the database means no code path can forget a piece.
 
 ## 4. Shared core
 

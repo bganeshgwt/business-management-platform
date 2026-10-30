@@ -101,8 +101,9 @@ test("restaurant features switch on and off", { timeout: 600000 }, async (t) => 
     const list = await O("GET", "/restaurants/current/features");
     assert.equal(list.canChange, true);
     // 14 restaurant features + tasks, issues and projects (1791620000000), which apply to every type,
-    // + pre-orders and brands (food formats, 1791950410000 and 1791950411000), which start off like loyalty.
-    assert.equal(list.features.length, 19);
+    // + pre-orders and brands (food formats, 1791950410000 and 1791950411000), which start off like loyalty,
+    // + the captain app (paid plans), which starts on.
+    assert.equal(list.features.length, 20);
     for (const feature of list.features) {
       assert.equal(feature.enabled, !["guest_loyalty", "preorders", "brands"].includes(feature.code), feature.code);
       assert.ok(feature.name && feature.description && feature.group, feature.code);
@@ -110,7 +111,7 @@ test("restaurant features switch on and off", { timeout: 600000 }, async (t) => 
     assert.deepEqual(list.features.find((f) => f.code === "guest_loyalty").requires, ["guests"]);
     assert.deepEqual(list.features.find((f) => f.code === "guests").requiredBy.sort(), ["guest_loyalty", "online_ordering", "preorders"]);
     const me = await O("GET", "/auth/me");
-    assert.equal(me.features.length, 16);
+    assert.equal(me.features.length, 17);
     assert.ok(!me.features.includes("guest_loyalty"));
   });
 

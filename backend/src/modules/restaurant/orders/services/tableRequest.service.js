@@ -12,6 +12,7 @@ const personalData = require("../../../personal-data/services/personalData.servi
 const personalDataRestaurant = () => require("../../../personal-data/services/personalDataRestaurant");
 const AppError = require("../../../../utils/AppError");
 const { round2 } = require("../../../../utils/money");
+const planGuard = require("../../../../middlewares/planGuard");
 
 // A QR token is the 32 hex characters the Tables screen generates. Anything
 // that could not be one is turned away before it costs a database read.
@@ -578,6 +579,8 @@ const checkCart = async (restaurantId, lines) => {
 const placeOrder = async (token, input) => {
   const table = await resolveTable(token);
   const restaurantId = table.restaurant_id;
+  // A restaurant whose plan has ended (or is switched off) takes no orders from guests.
+  await planGuard.assertTakingOrders(restaurantId);
 
   const [settings, day] = await Promise.all([
     tableRequestRepository.findSettings(restaurantId),
@@ -717,6 +720,7 @@ const cancelRequest = async (token, id) => {
 const callStaff = async (token, input) => {
   const table = await resolveTable(token);
   const restaurantId = table.restaurant_id;
+  await planGuard.assertTakingOrders(restaurantId);
 
   const [settings, day] = await Promise.all([
     tableRequestRepository.findSettings(restaurantId),

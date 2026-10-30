@@ -613,6 +613,10 @@ const createRestaurant = async (data) => {
       await client.query("UPDATE restaurants SET created_by = $2, updated_by = $2 WHERE id = $1", [restaurantId, adminId]);
     }
 
+    // The restaurant appears as its business at once, so it starts its plan
+    // and its trial now, on its own clock (the settings above hold its time zone).
+    await client.query("SELECT restaurant_business_id($1)", [restaurantId]);
+
     await client.query("COMMIT");
     return { id: restaurantId, adminId };
   } catch (error) {

@@ -18,6 +18,7 @@ const onlineOrderRepository = require("../repositories/onlineOrder.repository");
 const tableRequestRepository = require("../../orders/repositories/tableRequest.repository");
 const restaurantRepository = require("../../setup/repositories/restaurant.repository");
 const salesChannelRepository = require("../../deliveries/repositories/salesChannel.repository");
+const planGuard = require("../../../../middlewares/planGuard");
 const { effectiveStatusSql } = require("../../deliveries/repositories/delivery.repository");
 const AppError = require("../../../../utils/AppError");
 const { round2 } = require("../../../../utils/money");
@@ -461,6 +462,8 @@ const readBack = async (guestToken) => {
 
 const placeOrder = async (token, input) => {
   const link = await resolveLink(token);
+  // A restaurant whose plan has ended (or is switched off) takes no orders online.
+  await planGuard.assertTakingOrders(link.restaurant_id);
   const context = await loadContext(link);
 
   if (!context.state.enabled) {

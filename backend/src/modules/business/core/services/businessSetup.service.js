@@ -157,12 +157,24 @@ async function modules(business) {
   const rows = await repo.all(repo.pool, `SELECT t.module_code,t.enabled_by_default,t.recommended,t.recommended_note,
     COALESCE((SELECT json_agg(requires_module_code) FROM platform_module_dependencies d WHERE d.module_code=t.module_code),'[]') AS requires
     FROM platform_module_business_types t WHERE t.business_type=$1`, [business.business_type]);
+  const entitled = (await repo.one(repo.pool, 'SELECT business_entitled_modules($1) AS m', [business.id])).m;
   return all.filter((m) => m.kind === 'core' || rows.some((r) => r.module_code === m.code)).map((m) => {
     const row = rows.find((r) => r.module_code === m.code);
     // recommended: most businesses of this trade use it (with why), for an owner choosing tools.
+    // in_plan: the business's plan unlocks it today; a module outside it works as if switched off.
     return { ...m, enabled: business.modules.includes(m.code), enabled_by_default: row?.enabled_by_default ?? true, requires: row?.requires || [],
-      recommended: Boolean(row?.recommended), recommended_note: row?.recommended_note || null };
+      recommended: Boolean(row?.recommended), recommended_note: row?.recommended_note || null, in_plan: m.kind === 'core' || entitled.includes(m.code) };
   });
+}
+const NOT_IN_PLAN = 'Not in your plan. The owner can add it in Your plan.';
+const EXPENSES_KEPT = 'Expenses must stay enabled once money has been recorded, so historical reports remain complete.';
+// What stops a module being switched off, or being left out of the next
+// order of the business's plan: money recorded in Expenses; for a restaurant,
+// its own checks (money still held, rider cash, an open drawer).
+async function switchOffBlockers(db, business, code) {
+  if (business.business_type === 'restaurant') return restaurantFeatures.switchOffBlockers(db, business, code);
+  if (code === 'expenses' && await repo.one(db, 'SELECT id FROM business_expenses WHERE business_id=$1 LIMIT 1', [business.id])) return [EXPENSES_KEPT];
+  return [];
 }
 async function setModule(business, user, code, body) {
   await access.require(business, 'settings.edit');
@@ -182,8 +194,13 @@ async function setModule(business, user, code, body) {
   }
   return repo.transaction(async (db) => {
     await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
-    if (code === 'expenses' && !enabled && await repo.one(db,'SELECT id FROM business_expenses WHERE business_id=$1 LIMIT 1',[business.id])) {
-      fail('Expenses must stay enabled once money has been recorded, so historical reports remain complete.',409);
+    // A module the business's plan does not unlock cannot be switched on.
+    if (enabled && !(await repo.one(db, 'SELECT $2 = ANY (business_entitled_modules($1)) AS ok', [business.id, code])).ok) {
+      throw new AppError(409, NOT_IN_PLAN, { reason: 'not_in_plan', module: code });
+    }
+    if (!enabled) {
+      const [blocker] = await switchOffBlockers(db, business, code);
+      if (blocker) fail(blocker, 409);
     }
     // The database refuses a module the type does not have, a missing
     // dependency, or switching off something another module needs.
@@ -406,5 +423,5 @@ async function updatePackSize(business, user, packId, body) {
   });
 }
 
-module.exports = { getSettings, updateSettings, modules, setModule, createTaxRate, updateTaxRate, createSeries, updateSeries,
+module.exports = { getSettings, updateSettings, modules, setModule, switchOffBlockers, createTaxRate, updateTaxRate, createSeries, updateSeries,
   createCategory, updateCategory, createUnit, updateUnit, createPackSize, updatePackSize };
