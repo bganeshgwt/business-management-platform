@@ -25,15 +25,19 @@ import "../styles/health.css";
 // of an order's values are out of range shows only to those who see results
 // (the lab and the doctors); the server leaves it out for anyone else. Live:
 // an order, a sample or a result changed on any screen shows within a second.
+// An order's billing: none, part (some tests left to bill) or billed.
+const BILLING = { none: ["warning", "Not billed"], part: ["warning", "Part billed"], billed: ["success", "Billed"] };
+
 export default function LabOrdersPage() {
   const biz = useOpenBusiness();
   const navigate = useNavigate();
   const [status, setStatus] = useState("");
+  const [billing, setBilling] = useState("");
   const [work, setWork] = useState(null);
   const [scan, setScan] = useState("");
   const [ordering, setOrdering] = useState(false);
   const seesResults = biz.can("lab.edit") || biz.can("lab.approve") || biz.can("patients.view_clinical");
-  const list = useServerList("lab/orders", { gridId: "lab-orders", period: "today", params: status ? { status } : {} });
+  const list = useServerList("lab/orders", { gridId: "lab-orders", period: "today", params: { ...(status ? { status } : {}), ...(billing ? { billing } : {}) } });
   const live = useLiveRefresh({ business: biz.id }, ["lab"], list.reload);
   useEffect(() => {
     const controller = new AbortController();
@@ -58,7 +62,8 @@ export default function LabOrdersPage() {
     seesResults && { key: "flagged", header: "Out of range", type: "number", value: (o) => o.flagged, render: (o) => (o.flagged ? <StatusBadge tone="warning" label={String(o.flagged)} /> : <span className="muted">—</span>) },
     { key: "outside", header: "Outside lab", value: (o) => o.outside_lab || "", defaultHidden: true },
     { key: "by", header: "Referred by", value: (o) => o.referred_by || "", defaultHidden: true },
-    { key: "bill", header: "Bill", value: (o) => o.document_no || "", defaultHidden: true },
+    { key: "bill", header: "Billing", value: (o) => o.bill_nos || BILLING[o.billing]?.[1] || "",
+      render: (o) => <span className="bz-two-line"><StatusBadge tone={BILLING[o.billing]?.[0] || "neutral"} label={BILLING[o.billing]?.[1] || o.billing} />{o.bill_nos && <small className="muted">{o.bill_nos}</small>}</span> },
   ].filter(Boolean), [seesResults]);
   return (
     <div className="stack">
@@ -78,6 +83,9 @@ export default function LabOrdersPage() {
               <PeriodFilter list={list} />
               <label className="field hl-inline-field"><span>Status</span>
                 <select value={status} onChange={(e) => setStatus(e.target.value)}><option value="">All</option>{Object.entries(LAB_STATES).map(([v, [, l]]) => <option key={v} value={v}>{l}</option>)}</select>
+              </label>
+              <label className="field hl-inline-field"><span>Billing</span>
+                <select value={billing} onChange={(e) => setBilling(e.target.value)}><option value="">All</option>{Object.entries(BILLING).map(([v, [, l]]) => <option key={v} value={v}>{l}</option>)}</select>
               </label>
               <form className="hl-scan" onSubmit={findBarcode}><label className="field hl-inline-field"><span>Sample barcode</span><input value={scan} onChange={(e) => setScan(e.target.value.toUpperCase())} placeholder="Scan or type" /></label></form>
             </>

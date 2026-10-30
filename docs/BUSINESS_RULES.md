@@ -659,6 +659,30 @@ These rules apply to every business type but the restaurant. The goods rules app
 - **Why:** referral commissions are an ethical and legal question. The IMC Regulations 2002 (6.4) forbid doctors from giving or receiving a commission for referrals, and "cut practice" is treated as misconduct. Take advice before switching it on.
 - **Change it:** *Clinic & lab settings › Referral commission*, by someone whose role holds `settings.edit` (the Owner and the Manager by default).
 
+#### Lab departments
+
+- **Rule:** every clinic starts with eight departments: Haematology, Biochemistry, Microbiology, Serology / immunology, Clinical pathology, Histopathology, Imaging and Other. The lab adds its own, renames any, and switches one off once no test in use is in it. Other stays on. Each test and profile is in one department: a new test starts in Other unless another is chosen, as did every test kept before departments. The lab workspace's worklist is gathered by department, with how many tests wait in each. Someone tied to a department (a lab technician) finds their own departments first: this decides nothing about what they may do.
+- **Why:** a lab works bench by bench; a technician finds their bench's work without searching the whole list.
+- **Change it:** *Lab orders › Tests & panels* (a test's department, and the *Departments* card: add, rename, switch off, who works in each), by roles with `lab.edit`.
+
+#### Billing the tests ordered
+
+- **Rule:** an ordered test is billed once, as its service at its price, through the core's sale: as it is ordered (by someone who bills), later from its order (*Bill these tests*: all that is left, or some of it), or with the visit's bill (the consultation and the visit's tests not billed yet, on one bill). Each test billed keeps its bill line, and the database refuses a second one. A profile's tests are billed as the profile, one line, while none of them is billed; after that, or when the profile has no service, each by its own. A test with no service (*Billed as*) is not billed from its order. Part of an order can be billed now and the rest later. A test is cancelled on its own while its order is open and none of its results is typed: one not billed needs nothing more; one billed is returned on its bill (*Sales*), as any line is. Cancelling the last test cancels the order. A referral commission is worked out on what the order's tests were billed at, not on the whole of a visit's bill. Billing needs `sales.create`, and taking the money then `sales.edit`, as every bill.
+- **Why:** a doctor's role does not bill, so the desk bills the tests a doctor orders, whenever the patient pays; a bill linked to each test means none is billed twice or forgotten.
+- **Change it:** *Lab orders › Tests & panels* (*Billed as*: each test's and profile's service and so its price).
+
+#### The clinic's drug list
+
+- **Rule:** each clinic keeps its own drug list: a medicine's generic name, brand names, strength, form, route, the usual dose and how often, the most a day (an amount in mg, g, mcg, ml, IU, units, tablets, capsules, puffs, drops or sachets) and its allergy group. One entry per generic name, strength and form; a medicine is switched off, never deleted. The doctors keep it (`patients.edit_clinical`), and it can be imported from a spreadsheet, checked first and taken all or nothing. The prescription picks from it, filling the strength and the usual dose and timing; a medicine written by hand is still allowed and is marked as not on the list. A pharmacy's drug master stays its own.
+- **Why:** the owner's rule: each clinic keeps its own list. A licensed drug database can come later.
+- **Change it:** *Today's patients › Drug list*.
+
+#### Prescription warnings
+
+- **Rule:** each line of a prescription is checked as it is written, when it is saved and again when the consultation is completed: a known allergy of the patient (as written on the clinical card) meeting the medicine's generic name, a brand name or its allergy group, or the allergy group of a medicine on the list the allergy names (an allergy to aspirin, an NSAID on the list, warns for ibuprofen too); the same medicine, or two medicines of one allergy group, on one prescription (the later line); a day's dose over the medicine's most. A day's dose is the line's dose (one of the form when none is written) times how often: a pattern adds up its numbers (1-0-1 is two), OD and HS are one, BD two, TDS three, QID four, every N hours 24 ÷ N; it goes through the strength (650 mg a tablet, 125 mg in 5 ml) into the unit of the most a day. A dose taken as needed (SOS), or one written so that no figure follows, is not checked, nor is the dose of a line written by hand. The doctor may go on, giving a reason for each warning: a save without one is refused, and the warnings and the reasons are kept with the line. They are clinical data, kept with the consultation under the patient's record.
+- **Why:** a safety net for the doctor, who decides; what was warned and why the doctor went on stays in the medical record.
+- **Change it:** the drug list's allergy groups and most a day. The checks themselves are code, for a doctor's review (see [BACKLOG.md › At a glance](BACKLOG.md#at-a-glance), expert review).
+
 ### Roles by business type
 
 - **Rule:** some roles belong to one type of business: Pharmacist to a pharmacy; Doctor, Lab technician and Pathologist to a clinic & lab; Optometrist to an optical shop; Mechanic to a garage; Trainer to a gym, studio or coaching centre; Karigar / goldsmith to a jeweller; Pump attendant (DSM) to a fuel station; Front desk and Housekeeping to a hotel, lodge or guest house. A business of that type starts with them, and other types do not get them.

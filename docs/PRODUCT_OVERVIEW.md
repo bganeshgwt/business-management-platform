@@ -169,7 +169,7 @@ Each business type adds only what is truly its own on top of the shared core. Th
   - the front desk finds or registers the patient, with their consent, and gives a token; beside it, each doctor's queue with how long everyone has waited, live;
   - a doctor sees their own queue first, calls the next patient and starts the consultation, which keeps the queue and the patient's history (allergies, current medicines, earlier visits) beside it;
   - the front desk never sees clinical data.
-- **Lab workspace** (`/lab`): one screen for sample collection and the lab: samples to collect (with their labels), received or rejected with the reason; worklists by test; reports waiting for the pathologist; reports released today, to print. Every list changes by itself within a second.
+- **Lab workspace** (`/lab`): one screen for sample collection and the lab: samples to collect (with their labels), received or rejected with the reason; worklists by department (a technician's own first) and by test; reports waiting for the pathologist; reports released today, to print. Every list changes by itself within a second.
 - **Today's patients and the token queue:**
   - each patient gets a token on arrival, and priority patients are called first;
   - the doctor calls the next patient and starts the consultation from the token;
@@ -180,9 +180,11 @@ Each business type adds only what is truly its own on top of the shared core. Th
   - appointments are booked only into a doctor's free slots;
   - the bill picks the right fee;
   - an earnings report shows each doctor's patients, fees and share.
-- **Patients and consent, consultations:** registration with recorded consent; vitals, diagnosis, prescription (the clinic's earlier medicines offered as the doctor types), follow-up and a referral with its printed letter (doctors only).
+- **Patients and consent, consultations:** registration with recorded consent; vitals, diagnosis, prescription, follow-up and a referral with its printed letter (doctors only).
+- **The clinic's drug list and the prescription:** the clinic keeps its own list of medicines (strength, form, usual dose, the most a day, allergy group), imported from a spreadsheet or typed; the prescription picks from it, filling the usual dose, or takes a medicine written by hand; each line is checked as it is written for the patient's allergies, the same medicine or group twice and a day's dose over the most, and the doctor goes on with a reason that stays with the prescription.
 - **Lab:**
-  - orders, sample barcodes, results and pathologist approval;
+  - orders, sample barcodes, results and pathologist approval; each test in a department of the lab;
+  - the tests a doctor orders are billed by the front desk with the visit's bill, or later from the order, all or part of them, never twice; one test can be cancelled on its own;
   - amended reports keep every signed version and print as "amended", with the reason; older versions print as "superseded";
   - quality control: each morning's control runs are judged by the standard Westgard rules, a failed control holds that test's reports until QC passes again, and a chart shows the control's trend.
 

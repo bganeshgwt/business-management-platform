@@ -3,9 +3,11 @@ const v = require('../../../../utils/validate');
 const access = require('../../core/services/businessAccess.service');
 const quality = require('./businessLabQuality.service');
 const core = require('../../core/services/business.service');
-const paymentMethods = require('../../core/services/businessPaymentMethods.service');
 const h = require('./healthCommon');
+const billingRules = require('./labBilling');
 const clinic = require('./businessClinic.service');
+const billing = require('./businessLabBilling.service');
+const departments = require('./businessLabDepartments.service');
 
 // Laboratory.
 //
@@ -27,6 +29,12 @@ const clinic = require('./businessClinic.service');
 //               only when the business switches it on (default off: an
 //               ethical and legal question, see docs/BUSINESS_RULES.md ›
 //               Outside-lab referral commission).
+//   Department  each test and profile is in one of the lab's departments
+//               (businessLabDepartments); the bench gathers its worklist by them.
+//   Billing     each test is billed once, as it is ordered, later from its
+//               order or with the visit's bill (businessLabBilling); a test
+//               is cancelled on its own while its order is open and none of
+//               its results is typed (the last one cancels the order).
 // Results are clinical data: only lab.edit, lab.approve or
 // patients.view_clinical see them, and each read is written to business_audit.
 
@@ -41,26 +49,35 @@ const DAY_YEARS = 365.25;
 
 repo.addLists({
   'lab-tests': {
-    sql: `SELECT t.*,s.label AS sku_label,s.price AS sku_price,
+    sql: `SELECT t.*,s.label AS sku_label,s.price AS sku_price,dp.name AS department_name,dp.code AS department_code,
       (SELECT count(*)::int FROM lab_parameters p WHERE p.business_id=t.business_id AND p.test_id=t.id AND p.active) AS parameter_count,
       (SELECT string_agg(x.code,', ' ORDER BY m.sort_order) FROM lab_profile_tests m JOIN lab_tests x ON x.business_id=m.business_id AND x.id=m.test_id
         WHERE m.business_id=t.business_id AND m.profile_id=t.id) AS profile_codes
-      FROM lab_tests t LEFT JOIN catalog_skus s ON s.business_id=t.business_id AND s.id=t.sku_id WHERE t.business_id=$1`,
-    search: ['code', 'name', 'sample_type', 'method'], filters: { kind: 'kind', active: 'active', sample: 'sample_type' }, order: 'kind DESC,name',
+      FROM lab_tests t LEFT JOIN catalog_skus s ON s.business_id=t.business_id AND s.id=t.sku_id
+      JOIN lab_departments dp ON dp.business_id=t.business_id AND dp.id=t.department_id WHERE t.business_id=$1`,
+    search: ['code', 'name', 'sample_type', 'method', 'department_name'], filters: { kind: 'kind', active: 'active', sample: 'sample_type', department: 'department_id' }, order: 'kind DESC,name',
   },
+  // billing: none (nothing billed), part, or billed (no test left to bill);
+  // bill_nos: the bills its tests are on.
   'lab-orders': {
     sql: `SELECT o.id,o.order_no,o.location_id,o.contact_id,o.visit_id,o.status,o.priority,o.referred_by,o.created_at,o.approved_at,o.outside_lab,o.document_id,
       c.name AS patient_name,c.phone AS patient_phone,p.patient_no,p.sex,d.document_no,v.visit_no,(o.outside_lab IS NOT NULL) AS outside,
       (SELECT string_agg(t.code,', ' ORDER BY ot.id) FROM lab_order_tests ot JOIN lab_tests t ON t.business_id=ot.business_id AND t.id=ot.test_id
-        WHERE ot.business_id=o.business_id AND ot.order_id=o.id) AS tests,
+        WHERE ot.business_id=o.business_id AND ot.order_id=o.id AND ot.cancelled_at IS NULL) AS tests,
+      (SELECT CASE WHEN count(*) FILTER (WHERE ot.document_line_id IS NOT NULL)=0 THEN 'none'
+          WHEN count(*) FILTER (WHERE ot.document_line_id IS NULL AND ot.cancelled_at IS NULL)=0 THEN 'billed' ELSE 'part' END
+        FROM lab_order_tests ot WHERE ot.business_id=o.business_id AND ot.order_id=o.id) AS billing,
+      (SELECT string_agg(DISTINCT bd.document_no,', ') FROM lab_order_tests ot JOIN business_document_lines bl ON bl.business_id=ot.business_id AND bl.id=ot.document_line_id
+        JOIN business_documents bd ON bd.business_id=bl.business_id AND bd.id=bl.document_id WHERE ot.business_id=o.business_id AND ot.order_id=o.id) AS bill_nos,
       (SELECT string_agg(s.barcode,' ' ORDER BY s.id) FROM lab_samples s WHERE s.business_id=o.business_id AND s.order_id=o.id) AS barcodes,
       (SELECT count(*)::int FROM lab_results r WHERE r.business_id=o.business_id AND r.order_id=o.id AND r.flag IN ('low','high','critical_low','critical_high','abnormal')) AS flagged
       FROM lab_orders o JOIN business_contacts c ON c.business_id=o.business_id AND c.id=o.contact_id
       JOIN health_patients p ON p.business_id=o.business_id AND p.contact_id=o.contact_id
       LEFT JOIN business_documents d ON d.business_id=o.business_id AND d.id=o.document_id
       LEFT JOIN health_visits v ON v.business_id=o.business_id AND v.id=o.visit_id WHERE o.business_id=$1`,
-    search: ['order_no', 'patient_name', 'patient_phone', 'patient_no', 'barcodes', 'tests', 'referred_by', 'outside_lab'], date: 'created_at',
-    filters: { status: 'status', priority: 'priority', patient: 'contact_id', outside: 'outside', visit: 'visit_id', location: 'location_id' }, order: "priority='urgent' DESC,created_at DESC,id DESC",
+    search: ['order_no', 'patient_name', 'patient_phone', 'patient_no', 'barcodes', 'tests', 'referred_by', 'outside_lab', 'bill_nos'], date: 'created_at',
+    filters: { status: 'status', priority: 'priority', patient: 'contact_id', outside: 'outside', visit: 'visit_id', location: 'location_id', billing: 'billing' },
+    order: "priority='urgent' DESC,created_at DESC,id DESC",
   },
 });
 
@@ -99,7 +116,7 @@ function readTest(body) {
     code, kind, name: v.requiredString(body.name, 'Test name', 150), skuId: optionalId(body.skuId, 'Billed as'),
     sampleType: v.optionalEnum(body.sampleType, 'Sample', SAMPLE_TYPES, 'blood'), container: text(body.container, 'Container', 60), method: text(body.method, 'Method', 100),
     turnaround: body.turnaroundHours === undefined || body.turnaroundHours === '' ? 24 : v.requiredNumber(Number(body.turnaroundHours), 'Report in (hours)', { min: 1, max: 720 }),
-    active: v.requiredBoolean(body.active, 'Active', true), parameters, testIds,
+    active: v.requiredBoolean(body.active, 'Active', true), parameters, testIds, departmentId: body.departmentId,
   };
 }
 
@@ -118,11 +135,14 @@ async function saveTest(business, user, testId, body) {
       const current = await repo.one(db, 'SELECT * FROM lab_tests WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(testId, 'Test')]);
       if (!current) fail('Test not found', 404);
       if (current.kind !== f.kind) fail('A test cannot become a profile or the other way round');
-      test = await repo.one(db, `UPDATE lab_tests SET code=$3,name=$4,sku_id=$5,sample_type=$6,container=$7,method=$8,turnaround_hours=$9,active=$10 WHERE business_id=$1 AND id=$2 RETURNING *`,
-        [business.id, current.id, f.code, f.name, f.skuId, f.sampleType, f.container, f.method, f.turnaround, f.active]);
+      const departmentId = await departments.readDepartment(db, business, f.departmentId, current.department_id);
+      test = await repo.one(db, `UPDATE lab_tests SET code=$3,name=$4,sku_id=$5,sample_type=$6,container=$7,method=$8,turnaround_hours=$9,active=$10,department_id=$11 WHERE business_id=$1 AND id=$2 RETURNING *`,
+        [business.id, current.id, f.code, f.name, f.skuId, f.sampleType, f.container, f.method, f.turnaround, f.active, departmentId]);
     } else {
-      test = await repo.one(db, `INSERT INTO lab_tests(business_id,code,name,kind,sku_id,sample_type,container,method,turnaround_hours,active,created_by)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`, [business.id, f.code, f.name, f.kind, f.skuId, f.sampleType, f.container, f.method, f.turnaround, f.active, user.id]);
+      // No department given: the database puts the test in Other.
+      const departmentId = await departments.readDepartment(db, business, f.departmentId);
+      test = await repo.one(db, `INSERT INTO lab_tests(business_id,code,name,kind,sku_id,sample_type,container,method,turnaround_hours,active,created_by,department_id)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`, [business.id, f.code, f.name, f.kind, f.skuId, f.sampleType, f.container, f.method, f.turnaround, f.active, user.id, departmentId]);
     }
     if (f.kind === 'profile') {
       const members = await repo.all(db, "SELECT id FROM lab_tests WHERE business_id=$1 AND id=ANY($2::bigint[]) AND kind='test'", [business.id, f.testIds]);
@@ -154,14 +174,15 @@ async function saveTest(business, user, testId, body) {
       // Parameters left out are switched off (results already typed keep them).
       await db.query('UPDATE lab_parameters SET active=false WHERE business_id=$1 AND test_id=$2 AND NOT (id=ANY($3::bigint[]))', [business.id, test.id, kept]);
     }
-    await repo.audit(db, business.id, user.id, testId ? 'lab.test_updated' : 'lab.test_created', test.id, { code: f.code, name: f.name });
+    await repo.audit(db, business.id, user.id, testId ? 'lab.test_updated' : 'lab.test_created', test.id, { code: f.code, name: f.name, departmentId: test.department_id });
     return testDetail(db, business, test.id);
   });
 }
 
 async function testDetail(db, business, testId) {
-  const test = await repo.one(db, 'SELECT t.*,s.label AS sku_label,s.price AS sku_price FROM lab_tests t LEFT JOIN catalog_skus s ON s.business_id=t.business_id AND s.id=t.sku_id WHERE t.business_id=$1 AND t.id=$2',
-    [business.id, testId]);
+  const test = await repo.one(db, `SELECT t.*,s.label AS sku_label,s.price AS sku_price,dp.name AS department_name,dp.code AS department_code FROM lab_tests t
+    LEFT JOIN catalog_skus s ON s.business_id=t.business_id AND s.id=t.sku_id JOIN lab_departments dp ON dp.business_id=t.business_id AND dp.id=t.department_id
+    WHERE t.business_id=$1 AND t.id=$2`, [business.id, testId]);
   if (!test) fail('Test not found', 404);
   const parameters = await repo.all(db, `SELECT p.*,COALESCE((SELECT json_agg(json_build_object('id',r.id,'sex',r.sex,'ageFrom',round(r.age_from_days/365.25,1),'ageTo',round(r.age_to_days/365.25,1),
       'low',r.low,'high',r.high,'criticalLow',r.critical_low,'criticalHigh',r.critical_high,'normalText',r.normal_text) ORDER BY r.sex,r.age_from_days)
@@ -179,16 +200,22 @@ async function test(business, testId) {
 
 // --- Orders ----------------------------------------------------------------------------------
 
+// A sample still needed: one of its tests is not cancelled.
+const NEEDED = 'EXISTS (SELECT 1 FROM lab_order_tests x WHERE x.business_id=s.business_id AND x.sample_id=s.id AND x.cancelled_at IS NULL)';
+
+// The order's stage from its samples and results, its cancelled tests (and
+// the samples only they needed) left out.
 async function recompute(db, business, orderId) {
   const order = await repo.one(db, 'SELECT * FROM lab_orders WHERE business_id=$1 AND id=$2', [business.id, orderId]);
   if (['approved', 'cancelled'].includes(order.status)) return order;
   const facts = await repo.one(db, `SELECT
-      (SELECT count(*)::int FROM lab_samples WHERE business_id=$1 AND order_id=$2) AS samples,
-      (SELECT count(*)::int FROM lab_samples WHERE business_id=$1 AND order_id=$2 AND status IN ('collected','received')) AS collected,
-      (SELECT count(*)::int FROM lab_samples WHERE business_id=$1 AND order_id=$2 AND status='received') AS received,
+      (SELECT count(*)::int FROM lab_samples s WHERE s.business_id=$1 AND s.order_id=$2 AND ${NEEDED}) AS samples,
+      (SELECT count(*)::int FROM lab_samples s WHERE s.business_id=$1 AND s.order_id=$2 AND s.status IN ('collected','received') AND ${NEEDED}) AS collected,
+      (SELECT count(*)::int FROM lab_samples s WHERE s.business_id=$1 AND s.order_id=$2 AND s.status='received' AND ${NEEDED}) AS received,
       (SELECT count(*)::int FROM lab_order_tests ot JOIN lab_parameters p ON p.business_id=ot.business_id AND p.test_id=ot.test_id AND p.active
-        WHERE ot.business_id=$1 AND ot.order_id=$2) AS expected,
-      (SELECT count(*)::int FROM lab_results WHERE business_id=$1 AND order_id=$2) AS results`, [business.id, orderId]);
+        WHERE ot.business_id=$1 AND ot.order_id=$2 AND ot.cancelled_at IS NULL) AS expected,
+      (SELECT count(*)::int FROM lab_results r JOIN lab_order_tests ot ON ot.business_id=r.business_id AND ot.id=r.order_test_id
+        WHERE r.business_id=$1 AND r.order_id=$2 AND ot.cancelled_at IS NULL) AS results`, [business.id, orderId]);
   let status = 'ordered';
   if (facts.expected > 0 && facts.results >= facts.expected) status = 'resulted';
   else if (facts.results > 0) status = 'in_process';
@@ -209,12 +236,7 @@ async function createOrder(business, user, body) {
   if (!chosen.length || chosen.length > 40) fail('Choose between 1 and 40 tests');
   const bill = body.bill === true;
   if (bill) await access.require(business, 'sales.create');
-  let paidNow = null;
-  if (bill && body.payment) {
-    await access.require(business, 'sales.edit');
-    const amount = body.payment.amount === 'full' ? 'full' : core.decimal(body.payment.amount, 'Amount paid now', 2, 0, 100000000);
-    paidNow = amount === 'full' || amount > 0 ? { amount, ...paymentMethods.readChoice(body.payment, 'Payment method'), reference: text(body.payment.reference, 'Payment reference', 100) } : null;
-  }
+  const paidNow = bill ? await billing.paymentOf(business, body.payment) : null;
   return repo.transaction(async (db) => {
     await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
     const old = await repo.one(db, 'SELECT * FROM lab_orders WHERE business_id=$1 AND request_key=$2', [business.id, key]);
@@ -247,18 +269,12 @@ async function createOrder(business, user, body) {
         for (const m of members) if (!tests.has(Number(m.id))) tests.set(Number(m.id), { test: m, profileId: t.id });
       } else if (!tests.has(Number(t.id))) tests.set(Number(t.id), { test: t, profileId: null });
     }
-    let documentId = optionalId(body.documentId, 'Bill');
+    // A bill raised before (its lines for these tests are linked to them), or billed now.
+    const documentId = optionalId(body.documentId, 'Bill');
     if (documentId) {
       const doc = await repo.one(db, "SELECT id,contact_id FROM business_documents WHERE business_id=$1 AND id=$2 AND kind='sale'", [business.id, documentId]);
       if (!doc || Number(doc.contact_id) !== contactId) fail('That bill is not this patient\'s', 409);
-    }
-    if (bill) {
-      if (documentId) fail('This order already names its bill');
-      const lines = picked.filter((t) => t.sku_id).map((t) => ({ skuId: Number(t.sku_id), quantity: '1' }));
-      if (!lines.length) fail('None of these tests is linked to a billable service; bill them on the Sales screen');
-      const input = { kind: 'sale', locationId: location.id, contactId, lines, payment: body.payment, notes: 'Lab tests' };
-      const doc = await core.postDocument(db, business, user, input, { kind: 'sale', requestKey: key, hash, lines, paidNow });
-      documentId = doc.id;
+      if (bill) fail('This order already names its bill');
     }
     const orderNo = await h.nextNumber(db, business.id, 'lab_order');
     const order = await repo.one(db, `INSERT INTO lab_orders(business_id,order_no,location_id,contact_id,visit_id,referred_by,priority,document_id,notes,request_key,request_hash,created_by)
@@ -273,7 +289,14 @@ async function createOrder(business, user, body) {
       }
       await db.query('INSERT INTO lab_order_tests(business_id,order_id,test_id,profile_id,sample_id) VALUES($1,$2,$3,$4,$5)', [business.id, order.id, t.id, profileId, samples.get(t.sample_type).id]);
     }
-    await repo.audit(db, business.id, user.id, 'lab.order_created', order.id, { orderNo, patientNo: patient.patient_no, tests: [...tests.values()].map((x) => x.test.code), billed: Boolean(documentId) });
+    if (documentId) await billing.linkExisting(db, business, user, order, documentId);
+    if (bill) {
+      const { units } = billingRules.billingUnits(await billing.rowsOf(db, business, [order.id]));
+      if (!units.length) fail('None of these tests has a service to bill it as (Lab orders › Tests & panels, Billed as); order them without billing, or bill them on the Sales screen');
+      await billing.postUnits(db, business, user, order, units, { requestKey: key, hash, payment: body.payment, paidNow, locationId: location.id, notes: `Lab tests ${orderNo}` });
+    }
+    await repo.audit(db, business.id, user.id, 'lab.order_created', order.id, { orderNo, patientNo: patient.patient_no, tests: [...tests.values()].map((x) => x.test.code),
+      billed: Boolean(documentId) || bill });
     await repo.event(db, business.id, user.id, 'lab.order_created', 'lab_order', order.id, { orderNo, contactId, visitId: visit?.id || null });
     return orderDetail(db, business, order.id, { log: false });
   });
@@ -288,6 +311,9 @@ async function sampleAction(business, user, sampleId, body) {
       [business.id, id(sampleId, 'Sample')]);
     if (!sample) fail('Sample not found', 404);
     if (['approved', 'cancelled'].includes(sample.order_status)) fail('This order is closed', 409);
+    if (action !== 'reject' && !await repo.one(db, `SELECT 1 FROM lab_samples s WHERE s.business_id=$1 AND s.id=$2 AND ${NEEDED}`, [business.id, sample.id])) {
+      fail('Every test of this sample was cancelled: it is not needed', 409);
+    }
     if (action === 'collect') {
       if (!['awaited', 'rejected'].includes(sample.status)) fail('This sample is already collected', 409);
       await db.query("UPDATE lab_samples SET status='collected',collected_at=now(),collected_by=$3,received_at=NULL,received_by=NULL,reject_reason=NULL WHERE business_id=$1 AND id=$2", [business.id, sample.id, user.id]);
@@ -358,6 +384,7 @@ async function enterResults(business, user, orderId, body) {
       const orderTest = await repo.one(db, `SELECT ot.*,s.status AS sample_status FROM lab_order_tests ot JOIN lab_samples s ON s.business_id=ot.business_id AND s.id=ot.sample_id
         WHERE ot.business_id=$1 AND ot.order_id=$2 AND ot.id=$3`, [business.id, order.id, id(input?.orderTestId, 'Ordered test')]);
       if (!orderTest) fail('That test is not on this order', 404);
+      if (orderTest.cancelled_at) fail('This test was cancelled: no result is typed for it', 409);
       if (orderTest.sample_status !== 'received' && !order.outside_lab) fail('Receive the sample in the lab before entering its results', 409);
       const parameter = await repo.one(db, 'SELECT * FROM lab_parameters WHERE business_id=$1 AND id=$2 AND test_id=$3', [business.id, id(input.parameterId, 'Parameter'), orderTest.test_id]);
       if (!parameter) fail('That parameter is not part of the test', 404);
@@ -422,8 +449,42 @@ async function cancelOrder(business, user, orderId, body) {
     if (!order) fail('Lab order not found', 404);
     if (['approved', 'cancelled'].includes(order.status)) fail('This order is already closed', 409);
     await db.query("UPDATE lab_orders SET status='cancelled',cancel_reason=$3,updated_at=now() WHERE business_id=$1 AND id=$2", [business.id, order.id, reason]);
-    await repo.audit(db, business.id, user.id, 'lab.order_cancelled', order.id, { orderNo: order.order_no, reason, billed: Boolean(order.document_id) });
+    const billed = await repo.one(db, 'SELECT count(*)::int AS n FROM lab_order_tests WHERE business_id=$1 AND order_id=$2 AND document_line_id IS NOT NULL', [business.id, order.id]);
+    await repo.audit(db, business.id, user.id, 'lab.order_cancelled', order.id, { orderNo: order.order_no, reason, billed: billed.n > 0 });
     return orderDetail(db, business, order.id, { log: false });
+  });
+}
+
+// One test of an order cancelled, with the reason, while the order is open
+// and none of its results is typed. An unbilled test needs nothing more; a
+// billed one is returned on its bill (Sales), as any line is: the answer
+// says which bill (cancelled_test.billed_on). The last test cancelled
+// cancels the order.
+async function cancelTest(business, user, orderId, orderTestId, body) {
+  requireLab(business);
+  await access.require(business, 'lab.create');
+  const reason = v.requiredString(body.reason, 'Reason', 300);
+  return repo.transaction(async (db) => {
+    const order = await repo.one(db, 'SELECT * FROM lab_orders WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(orderId, 'Lab order')]);
+    if (order) access.requireLocation(business, order.location_id);
+    if (!order) fail('Lab order not found', 404);
+    const row = await repo.one(db, `SELECT ot.*,t.name,t.code,d.document_no FROM lab_order_tests ot JOIN lab_tests t ON t.business_id=ot.business_id AND t.id=ot.test_id
+      LEFT JOIN business_document_lines l ON l.business_id=ot.business_id AND l.id=ot.document_line_id LEFT JOIN business_documents d ON d.business_id=l.business_id AND d.id=l.document_id
+      WHERE ot.business_id=$1 AND ot.order_id=$2 AND ot.id=$3 FOR UPDATE OF ot`, [business.id, order.id, id(orderTestId, 'Ordered test')]);
+    if (!row) fail('That test is not on this order', 404);
+    const told = { id: row.id, name: row.name, billed_on: row.document_no || null };
+    if (row.cancelled_at) return { ...(await orderDetail(db, business, order.id, { log: false })), cancelled_test: told, repeated: true };
+    if (['approved', 'cancelled'].includes(order.status)) fail('This order is closed', 409);
+    const typed = await repo.one(db, 'SELECT count(*)::int AS n FROM lab_results WHERE business_id=$1 AND order_test_id=$2', [business.id, row.id]);
+    if (typed.n) fail(`Results are typed for ${row.name}: clear them before cancelling it`, 409);
+    await db.query('UPDATE lab_order_tests SET cancelled_at=now(),cancelled_by=$3,cancel_reason=$4 WHERE business_id=$1 AND id=$2', [business.id, row.id, user.id, reason]);
+    await repo.audit(db, business.id, user.id, 'lab.test_cancelled', order.id, { orderNo: order.order_no, test: row.code, reason, billedOn: told.billed_on });
+    const left = await repo.one(db, 'SELECT count(*)::int AS n FROM lab_order_tests WHERE business_id=$1 AND order_id=$2 AND cancelled_at IS NULL', [business.id, order.id]);
+    if (!left.n) {
+      await db.query("UPDATE lab_orders SET status='cancelled',cancel_reason=$3,updated_at=now() WHERE business_id=$1 AND id=$2", [business.id, order.id, reason]);
+      await repo.audit(db, business.id, user.id, 'lab.order_cancelled', order.id, { orderNo: order.order_no, reason, lastTest: row.code });
+    } else await recompute(db, business, order.id);
+    return { ...(await orderDetail(db, business, order.id, { log: false })), cancelled_test: told };
   });
 }
 
@@ -445,8 +506,10 @@ async function refer(business, user, orderId, body) {
       if (!settings.referral_commission_enabled) fail('Referral commissions are switched off for this business (Clinic settings).', 409, { reason: 'referral_commission_off' });
       commission = core.decimal(body.referralCommission, 'Referral commission', 2, 0, 10000000);
     } else if (settings.referral_commission_enabled && Number(settings.referral_commission_percent) > 0) {
-      const billed = order.document_id ? await repo.one(db, 'SELECT total FROM business_documents WHERE business_id=$1 AND id=$2', [business.id, order.document_id]) : null;
-      const basis = billed ? Number(billed.total) : charge || 0;
+      // What the order's tests were billed at (their lines, with GST), whichever bills they are on.
+      const billed = await repo.one(db, `SELECT count(*)::int AS lines,COALESCE(sum(l.net+l.tax),0) AS total FROM business_document_lines l WHERE l.business_id=$1
+        AND l.id IN (SELECT document_line_id FROM lab_order_tests WHERE business_id=$1 AND order_id=$2 AND document_line_id IS NOT NULL)`, [business.id, order.id]);
+      const basis = billed.lines ? Number(billed.total) : charge || 0;
       commission = Math.round(basis * Number(settings.referral_commission_percent)) / 100;
     }
     const row = await repo.one(db, `UPDATE lab_orders SET outside_lab=$3,outside_ref_no=$4,outside_charge=$5,referral_commission=$6,outside_sent_at=now(),updated_at=now()
@@ -468,13 +531,21 @@ async function orderDetail(db, business, orderId, { log = true, forceResults = f
     LEFT JOIN business_documents d ON d.business_id=o.business_id AND d.id=o.document_id LEFT JOIN health_visits v ON v.business_id=o.business_id AND v.id=o.visit_id
     LEFT JOIN health_signatories g ON g.business_id=o.business_id AND g.id=o.approved_signatory_id WHERE o.business_id=$1 AND o.id=$2`, [business.id, orderId]);
   if (!order) fail('Lab order not found', 404);
+  // Each sample says whether it is still needed (one of its tests is not cancelled); each
+  // test its department, whether it was cancelled and why, and the bill it is on.
   const [samples, tests] = await Promise.all([
-    repo.all(db, `SELECT s.*,cu.name AS collected_by_name,ru.name AS received_by_name FROM lab_samples s LEFT JOIN users cu ON cu.id=s.collected_by LEFT JOIN users ru ON ru.id=s.received_by
-      WHERE s.business_id=$1 AND s.order_id=$2 ORDER BY s.id`, [business.id, order.id]),
-    repo.all(db, `SELECT ot.id,ot.test_id,ot.sample_id,ot.profile_id,t.code,t.name,t.method,t.sample_type,pt.name AS profile_name FROM lab_order_tests ot
-      JOIN lab_tests t ON t.business_id=ot.business_id AND t.id=ot.test_id LEFT JOIN lab_tests pt ON pt.business_id=ot.business_id AND pt.id=ot.profile_id
+    repo.all(db, `SELECT s.*,cu.name AS collected_by_name,ru.name AS received_by_name,${NEEDED} AS needed FROM lab_samples s
+      LEFT JOIN users cu ON cu.id=s.collected_by LEFT JOIN users ru ON ru.id=s.received_by WHERE s.business_id=$1 AND s.order_id=$2 ORDER BY s.id`, [business.id, order.id]),
+    repo.all(db, `SELECT ot.id,ot.test_id,ot.sample_id,ot.profile_id,t.code,t.name,t.method,t.sample_type,pt.name AS profile_name,t.department_id,dp.name AS department,
+        ot.cancelled_at,ot.cancel_reason,xu.name AS cancelled_by_name,bl.document_id AS billed_document_id,bd.document_no AS billed_document_no
+      FROM lab_order_tests ot JOIN lab_tests t ON t.business_id=ot.business_id AND t.id=ot.test_id LEFT JOIN lab_tests pt ON pt.business_id=ot.business_id AND pt.id=ot.profile_id
+      JOIN lab_departments dp ON dp.business_id=t.business_id AND dp.id=t.department_id LEFT JOIN users xu ON xu.id=ot.cancelled_by
+      LEFT JOIN business_document_lines bl ON bl.business_id=ot.business_id AND bl.id=ot.document_line_id
+      LEFT JOIN business_documents bd ON bd.business_id=bl.business_id AND bd.id=bl.document_id
       WHERE ot.business_id=$1 AND ot.order_id=$2 ORDER BY ot.id`, [business.id, order.id]),
   ]);
+  // The order's billing: none, part or billed, its bills, and what is left to bill.
+  const billingOf = billing.summaryOf(await billing.rowsOf(db, business, [order.id]));
   const age = h.ageOn({ date_of_birth: order.date_of_birth, age_years: order.age_years, created_at: order.registered_at }, new Date(order.created_at).toISOString().slice(0, 10)).years;
   const results = forceResults || seesResults(business);
   if (results) {
@@ -493,7 +564,7 @@ async function orderDetail(db, business, orderId, { log = true, forceResults = f
   const qc = ['received', 'in_process', 'resulted'].includes(order.status) ? await quality.orderQc(db, business, order.id) : [];
   // Why a signed report is being amended often quotes its values ("95 entered
   // for 105"): it is for those who see the results.
-  return { ...order, ...(results ? {} : { amend_reason: null }), age, samples, tests, results_visible: results, qc };
+  return { ...order, ...(results ? {} : { amend_reason: null }), age, samples, tests, results_visible: results, qc, billing: billingOf };
 }
 async function order(business, orderId) {
   requireLab(business);
@@ -505,6 +576,8 @@ async function report(business, orderId, query = {}) {
   requireLab(business);
   await access.require(business, 'lab.print');
   const detail = await orderDetail(repo.pool, business, id(orderId, 'Lab order'), { log: false, forceResults: true });
+  // A test cancelled is on no report.
+  detail.tests = detail.tests.filter((t) => !t.cancelled_at);
   const asked = query.version === undefined || query.version === '' ? null : v.requiredNumber(Number(query.version), 'Version', { min: 1, max: 999 });
   const versionRows = await repo.all(repo.pool, `SELECT x.version,x.amend_reason,x.approved_at,x.results,g.name AS pathologist_name,g.qualification AS pathologist_qualification,
       g.registration_no AS pathologist_reg_no FROM lab_report_versions x LEFT JOIN health_signatories g ON g.business_id=x.business_id AND g.id=x.signatory_id
@@ -555,9 +628,11 @@ async function worklist(business) {
 // The lab's bench (the lab workspace): every open order, whatever its day,
 // and those reported today, at the branch in view: each with its samples and
 // where they are (to collect, collected, in the lab, rejected and why) and its
-// tests with how many of their results are typed. Never a result: how many
-// values are out of range (and critical) only for those who see results.
-// Urgent orders first, then the oldest; reported ones last.
+// tests with their department and how many of their results are typed (a
+// cancelled test, and a sample only it needed, left out). Never a result: how
+// many values are out of range (and critical) only for those who see results.
+// Urgent orders first, then the oldest; reported ones last. With the lab's
+// departments and the signed-in person's own (their worklist's first).
 const BENCH_LIMIT = 300;
 async function bench(business, query = {}) {
   requireLab(business);
@@ -568,12 +643,15 @@ async function bench(business, query = {}) {
       COALESCE((SELECT json_agg(json_build_object('id',s.id,'barcode',s.barcode,'sample_type',s.sample_type,'container',s.container,'status',s.status,
           'reject_reason',s.reject_reason,'collected_at',s.collected_at,'collected_by_name',cu.name,'received_at',s.received_at,'received_by_name',ru.name) ORDER BY s.id)
         FROM lab_samples s LEFT JOIN users cu ON cu.id=s.collected_by LEFT JOIN users ru ON ru.id=s.received_by
-        WHERE s.business_id=o.business_id AND s.order_id=o.id),'[]') AS samples,
+        WHERE s.business_id=o.business_id AND s.order_id=o.id AND ${NEEDED}),'[]') AS samples,
       COALESCE((SELECT json_agg(json_build_object('id',ot.id,'test_id',ot.test_id,'code',t.code,'name',t.name,'sample_id',ot.sample_id,'profile_name',pt.name,
+          'department_id',t.department_id,'department',dp.name,
           'parameters',(SELECT count(*) FROM lab_parameters pm WHERE pm.business_id=ot.business_id AND pm.test_id=ot.test_id AND pm.active),
           'entered',(SELECT count(*) FROM lab_results r WHERE r.business_id=ot.business_id AND r.order_test_id=ot.id)) ORDER BY ot.id)
         FROM lab_order_tests ot JOIN lab_tests t ON t.business_id=ot.business_id AND t.id=ot.test_id
-        LEFT JOIN lab_tests pt ON pt.business_id=ot.business_id AND pt.id=ot.profile_id WHERE ot.business_id=o.business_id AND ot.order_id=o.id),'[]') AS tests,
+        JOIN lab_departments dp ON dp.business_id=t.business_id AND dp.id=t.department_id
+        LEFT JOIN lab_tests pt ON pt.business_id=ot.business_id AND pt.id=ot.profile_id
+        WHERE ot.business_id=o.business_id AND ot.order_id=o.id AND ot.cancelled_at IS NULL),'[]') AS tests,
       (SELECT count(*)::int FROM lab_results r WHERE r.business_id=o.business_id AND r.order_id=o.id AND r.flag IN ('low','high','critical_low','critical_high','abnormal')) AS flagged,
       (SELECT count(*)::int FROM lab_results r WHERE r.business_id=o.business_id AND r.order_id=o.id AND r.flag IN ('critical_low','critical_high')) AS critical
     FROM lab_orders o JOIN businesses b ON b.id=o.business_id
@@ -584,7 +662,12 @@ async function bench(business, query = {}) {
     ORDER BY (o.status='approved'),(o.priority='urgent') DESC,o.created_at,o.id LIMIT $3`, [business.id, location, BENCH_LIMIT + 1]);
   const results = seesResults(business);
   const orders = rows.slice(0, BENCH_LIMIT).map(({ flagged, critical, ...row }) => (results ? { ...row, flagged, critical } : row));
-  return { day: await h.today(repo.pool, business), server_time: new Date().toISOString(), results_visible: results, orders, more: rows.length > BENCH_LIMIT };
+  const [lab, mine] = await Promise.all([
+    repo.all(repo.pool, 'SELECT id,code,name,active,sort_order FROM lab_departments WHERE business_id=$1 ORDER BY sort_order,lower(name)', [business.id]),
+    departments.mineOf(repo.pool, business),
+  ]);
+  return { day: await h.today(repo.pool, business), server_time: new Date().toISOString(), results_visible: results, orders, more: rows.length > BENCH_LIMIT,
+    departments: lab, my_departments: mine };
 }
 
-module.exports = { requireLab, seesResults, saveTest, test, createOrder, sampleAction, sampleByBarcode, enterResults, approve, cancelOrder, refer, order, report, worklist, bench };
+module.exports = { requireLab, seesResults, saveTest, test, createOrder, sampleAction, sampleByBarcode, enterResults, approve, cancelOrder, cancelTest, refer, order, report, worklist, bench };

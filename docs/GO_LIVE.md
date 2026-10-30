@@ -485,14 +485,19 @@ training run does not count as a real-service sign-off. Take a verified backup
 1. The owner checks the clinic and lab settings, each doctor's fees and OPD
    timings, each doctor's appointment calendar on their registration (so the
    clinic workspace shows them their own queue), the tests and their reference
-   ranges, and the roles: Cashier (the front desk), Doctor, Lab technician and
-   Pathologist.
+   ranges, each test's service (*Billed as*) and department, who works in each
+   department, the clinic's drug list (with each medicine's most a day and
+   allergy group, which the doctors check), and the roles: Cashier (the front
+   desk), Doctor, Lab technician and Pathologist.
 2. The front desk opens the **clinic workspace** (`/clinic`) on the desk's
    computer, registers a patient with their consent and gives a token.
 3. The doctor opens the clinic workspace on their tablet or computer, calls
-   the patient with **Next patient**, starts the consultation, orders a test,
-   completes the visit and prints the prescription. The front desk bills the
-   visit, and the test on *Sales*. With the display board open on the waiting
+   the patient with **Next patient**, starts the consultation, prescribes from
+   the drug list (a patient's allergy on the card warns, and the doctor gives a
+   reason to go on), orders a test, completes the visit and prints the
+   prescription. The front desk bills the visit with the ordered test on the
+   same bill (*Bill this visit*), or the test later from its order (*Bill these
+   tests*). With the display board open on the waiting
    room's screen too, a token given or called at the desk shows there within a
    second or two.
 4. The lab opens the **lab workspace** (`/lab`) and records the day's

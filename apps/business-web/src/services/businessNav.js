@@ -171,6 +171,8 @@ export function businessSections(type) {
         { section: "lab-tests", label: "Tests & panels", icon: "categories", need: "lab.view", types: CLINIC },
         { section: "lab-qc", label: "Quality control", icon: "activity", need: "lab.view", types: CLINIC },
         { section: "doctors", label: "Doctors, fees & OPD", icon: "employees", need: "appointments.view", types: CLINIC },
+        // The clinic's own drug list, which the prescription picks from (kept by the doctors).
+        { section: "clinic-drugs", label: "Drug list", icon: "products", need: "patients.view_clinical", types: CLINIC },
       ],
     },
     {

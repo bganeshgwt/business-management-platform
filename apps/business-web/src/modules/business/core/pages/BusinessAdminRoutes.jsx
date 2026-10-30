@@ -100,6 +100,8 @@ const LabTestsPage = lazy(() => import("../../health/pages/LabTestsPage"));
 const DoctorsPage = lazy(() => import("../../health/pages/DoctorsPage"));
 const TokenQueuePage = lazy(() => import("../../health/pages/TokenQueuePage"));
 const LabQcPage = lazy(() => import("../../health/pages/LabQcPage"));
+// The clinic's own drug list, which the prescription picks from.
+const ClinicDrugsPage = lazy(() => import("../../health/pages/ClinicDrugsPage"));
 // Tasks, issues & projects (modules/tasks), the same screens as the restaurant's.
 const TasksRoutes = lazy(() => import("../../../tasks/pages/TasksRoutes"));
 // Quotations (every type but a restaurant).
@@ -340,6 +342,7 @@ function screens(type) {
     "clinic-today": <ClinicTodayPage />,
     "clinic-queue": <TokenQueuePage />,
     doctors: <DoctorsPage />,
+    "clinic-drugs": <ClinicDrugsPage />,
     "lab-qc": <LabQcPage />,
     "patients": <PatientsPage />,
     "visits": <VisitsPage />,

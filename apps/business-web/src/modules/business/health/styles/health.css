@@ -27,6 +27,10 @@
 .hl-vitals { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--space-3); }
 .hl-notes { margin: 0; padding-left: var(--space-5); display: flex; flex-direction: column; gap: var(--space-2); }
 .hl-notes p { margin: var(--space-1) 0 0; }
+/* A prescription's warnings, each with the doctor's reason to go on. */
+.hl-warnings { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-3); }
+.hl-warnings li { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.hl-warnings .hl-note { margin: 0; }
 .hl-test-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: var(--space-2); max-height: 22rem; overflow: auto; padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-md); }
 .hl-test-list > strong { grid-column: 1 / -1; }
 .hl-scan { display: contents; }

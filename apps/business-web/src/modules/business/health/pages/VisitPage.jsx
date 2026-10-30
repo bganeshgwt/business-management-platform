@@ -8,7 +8,7 @@ import LiveIndicator from "../../../../components/LiveIndicator";
 import useLiveRefresh from "../../../../hooks/useLiveRefresh";
 import { ErrorMessage, Loading } from "../../../../components/Feedback";
 import { businessRead, businessWrite } from "../../../../services/business.service";
-import { getErrorMessage } from "../../../../services/api";
+import api, { getErrorMessage } from "../../../../services/api";
 import { dateShort, dateTime } from "@bmp/shared/format";
 import { toast } from "../../../../services/toast";
 import FormDialog from "../../core/pages/FormDialog";
@@ -26,11 +26,15 @@ import "../styles/health.css";
 // examination, diagnosis (free text and an optional ICD-10 code), advice, the
 // prescription by generic name, the follow-up date and a referral (to whom
 // and why, with its letter); completing it closes the record (a later
-// correction is a dated note) and marks the appointment done. As a doctor
-// types a medicine, the ones this clinic has prescribed before are offered,
-// each with its usual strength, dose and timing. The front desk sees only
-// who, when, the bill and whether the report is ready, and bills the visit or
-// orders tests from here.
+// correction is a dated note) and marks the appointment done. A medicine is
+// picked from the clinic's drug list (filling its strength and its usual dose
+// and timing), or written by hand (marked not on the list); the ones this
+// clinic has prescribed before are offered too. As the prescription is
+// written it is checked (a known allergy, the same medicine or group twice, a
+// day's dose over the most): the doctor gives a reason for each warning to go
+// on, and both are kept with the line. The front desk sees only who, when,
+// the bill and whether the report is ready, and bills the visit (with the
+// tests ordered for it) or orders tests from here.
 //
 // Live: the visit's own changes and those of its lab orders (a sample taken,
 // a report approved) show within a second, unless something is being typed
@@ -43,8 +47,17 @@ import "../styles/health.css";
 const VITALS = [["bpSystolic", "bp_systolic", "BP systolic", "mmHg", 40, 300, 1], ["bpDiastolic", "bp_diastolic", "BP diastolic", "mmHg", 20, 200, 1],
   ["pulse", "pulse", "Pulse", "/min", 20, 250, 1], ["temperatureC", "temperature_c", "Temperature", "°C", 30, 45, 0.1], ["spo2", "spo2", "SpO₂", "%", 50, 100, 1],
   ["respRate", "resp_rate", "Breathing", "/min", 4, 80, 1], ["weightKg", "weight_kg", "Weight", "kg", 0.5, 400, 0.1], ["heightCm", "height_cm", "Height", "cm", 20, 250, 0.1]];
-const blankItem = () => ({ key: newKey(), drugName: "", strength: "", dose: "", frequency: "", duration: "", instructions: "" });
+const blankItem = () => ({ key: newKey(), drugId: null, drugName: "", strength: "", dose: "", frequency: "", duration: "", instructions: "", reasons: {} });
 const RX_FIELDS = ["strength", "dose", "frequency", "duration", "instructions"];
+// A medicine of the drug list as the prescription offers it.
+const drugLabel = (d) => [d.generic_name, d.strength, d.form].filter(Boolean).join(" ");
+// The lines sent to the server: the named ones, each with its medicine of the list and its reasons.
+const sentLines = (items) => items.filter((i) => i.drugName.trim()).map(({ key: _key, ...rest }) => rest);
+// The server's warnings (line: a position among the lines sent) on the lines' own keys.
+const warningsOn = (items, warnings) => {
+  const named = items.filter((i) => i.drugName.trim());
+  return (warnings || []).map((w) => ({ ...w, itemKey: named[w.line]?.key })).filter((w) => w.itemKey);
+};
 
 export default function VisitPage({ onLoaded, onOrdered }) {
   const biz = useOpenBusiness();
@@ -59,6 +72,8 @@ export default function VisitPage({ onLoaded, onOrdered }) {
   const [version, setVersion] = useState(0);
   const [dialog, setDialog] = useState(null);
   const [medicines, setMedicines] = useState([]);
+  const [drugs, setDrugs] = useState([]);
+  const [warnings, setWarnings] = useState([]);
   const medicineList = useId();
   const loaded = useRef(onLoaded);
   const typing = useRef(false);
@@ -73,7 +88,11 @@ export default function VisitPage({ onLoaded, onOrdered }) {
       setForm(Object.fromEntries([...VITALS.map(([key, col]) => [key, v[col] ?? ""]), ["complaints", v.complaints || ""], ["examination", v.examination || ""], ["diagnosis", v.diagnosis || ""],
         ["icd10Code", v.icd10_code || ""], ["advice", v.advice || ""], ["followUpOn", v.follow_up_on ? String(v.follow_up_on).slice(0, 10) : ""],
         ["referredTo", v.referred_to || ""], ["referralReason", v.referral_reason || ""]]));
-      setItems((v.prescription || []).map((p) => ({ key: String(p.id), drugName: p.drug_name, strength: p.strength || "", dose: p.dose || "", frequency: p.frequency || "", duration: p.duration || "", instructions: p.instructions || "" })));
+      const lines = (v.prescription || []).map((p) => ({ key: String(p.id), drugId: p.drug_id || null, drugName: p.drug_name, strength: p.strength || "", dose: p.dose || "", frequency: p.frequency || "",
+        duration: p.duration || "", instructions: p.instructions || "", reasons: Object.fromEntries((p.warnings || []).map((w) => [w.kind, w.reason])) }));
+      setItems(lines);
+      // The warnings kept with the lines, with the reasons given.
+      setWarnings((v.prescription || []).flatMap((p, index) => (p.warnings || []).map((w) => ({ line: index, kind: w.kind, message: w.message, itemKey: lines[index].key }))));
       orderIds.current = (v.lab_orders || []).map((o) => String(o.id));
       if (loaded.current) loaded.current(v);
     }).catch((err) => { if (!controller.signal.aborted) setError(getErrorMessage(err)); });
@@ -91,18 +110,38 @@ export default function VisitPage({ onLoaded, onOrdered }) {
     if (!writing) return undefined;
     const controller = new AbortController();
     businessRead(biz.id, "clinic/medicines", undefined, controller.signal).then(setMedicines).catch(() => {});
+    businessRead(biz.id, "clinic/drugs/picker", undefined, controller.signal).then(setDrugs).catch(() => {});
     return () => controller.abort();
   }, [biz.id, writing]);
+  // The prescription checked as it is written (nothing is saved), a moment after the last change.
+  useEffect(() => {
+    if (!writing) return undefined;
+    const lines = sentLines(items);
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      if (!lines.length) { setWarnings([]); return; }
+      api.post(`/businesses/${biz.id}/clinic/visits/${visitId}/prescription-check`, { prescription: lines }, { signal: controller.signal })
+        .then((r) => setWarnings(warningsOn(items, r.data.data.warnings))).catch(() => {});
+    }, 400);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [biz.id, visitId, writing, items]);
   const set = (key) => (e) => { setForm((f) => ({ ...f, [key]: e.target.value })); setDirty(true); };
   const setItem = (key, patch) => { setItems((all) => all.map((i) => (i.key === key ? { ...i, ...patch } : i))); setDirty(true); };
-  // A medicine this clinic has prescribed before fills its usual strength,
-  // dose, timing and duration, on a line that has none of them yet.
+  const setReason = (key, kind, reason) => { setItems((all) => all.map((i) => (i.key === key ? { ...i, reasons: { ...i.reasons, [kind]: reason } } : i))); setDirty(true); };
+  // A medicine of the drug list fills its strength and its usual dose and
+  // timing (those left empty); one written by hand is not on the list, and
+  // one this clinic has prescribed before fills its usual strength, dose,
+  // timing and duration on a line that has none of them yet.
   const setMedicine = (key, value) => {
+    const listed = drugs.find((d) => drugLabel(d).toLowerCase() === value.trim().toLowerCase());
     const known = medicines.find((m) => m.drug_name.toLowerCase() === value.trim().toLowerCase());
     setItems((all) => all.map((i) => {
       if (i.key !== key) return i;
+      if (listed) {
+        return { ...i, drugId: listed.id, drugName: listed.generic_name, strength: listed.strength || i.strength, dose: i.dose || listed.usual_dose || "", frequency: i.frequency || listed.usual_frequency || "" };
+      }
       const blank = RX_FIELDS.every((field) => !i[field]);
-      return known && blank ? { ...i, drugName: value, ...Object.fromEntries(RX_FIELDS.map((field) => [field, known[field] || ""])) } : { ...i, drugName: value };
+      return known && blank ? { ...i, drugId: null, drugName: value, ...Object.fromEntries(RX_FIELDS.map((field) => [field, known[field] || ""])) } : { ...i, drugId: null, drugName: value };
     }));
     setDirty(true);
   };
@@ -110,13 +149,15 @@ export default function VisitPage({ onLoaded, onOrdered }) {
   async function save(complete) {
     setBusy(true); setError("");
     try {
-      const body = { ...Object.fromEntries(Object.entries(form).map(([k, val]) => [k, val === "" ? null : val])), followUpOn: form.followUpOn || null,
-        prescription: items.filter((i) => i.drugName.trim()).map(({ key: _key, ...rest }) => rest) };
+      const body = { ...Object.fromEntries(Object.entries(form).map(([k, val]) => [k, val === "" ? null : val])), followUpOn: form.followUpOn || null, prescription: sentLines(items) };
       await businessWrite(biz.id, `clinic/visits/${visitId}`, body, "patch");
       if (complete) await businessWrite(biz.id, `clinic/visits/${visitId}`, { complete: true }, "patch");
       toast.success(complete ? "Consultation completed" : "Saved");
       setVersion((n) => n + 1);
     } catch (err) {
+      // A warning without a reason: shown at its line, to answer or change.
+      const data = err?.response?.data?.data;
+      if (data?.reason === "prescription_warnings") setWarnings(warningsOn(items, data.warnings));
       setError(getErrorMessage(err));
     } finally { setBusy(false); }
   }
@@ -130,7 +171,8 @@ export default function VisitPage({ onLoaded, onOrdered }) {
     if (!onOrdered) { navigate(biz.path(`lab-orders/${order.id}`)); return; }
     setDialog(null);
     orderIds.current = [...orderIds.current, String(order.id)];
-    setVisit((v) => ({ ...v, lab_status: "pending", lab_orders: [...(v.lab_orders || []), { id: order.id, order_no: order.order_no, status: order.status, approved_at: order.approved_at }] }));
+    setVisit((v) => ({ ...v, lab_status: "pending", lab_orders: [...(v.lab_orders || []), { id: order.id, order_no: order.order_no, status: order.status, approved_at: order.approved_at,
+      billing: order.billing?.state || "none", bill_nos: (order.billing?.bills || []).map((b) => b.document_no) }] }));
     onOrdered(order);
   };
 
@@ -149,6 +191,9 @@ export default function VisitPage({ onLoaded, onOrdered }) {
         more={[clinical && biz.can("patients.print") && { label: "Print prescription", icon: "print", onClick: withSeller(printPrescription) },
           clinical && visit.referred_to && biz.can("patients.print") && { label: "Print referral letter", icon: "print", onClick: withSeller(printReferral) },
           !visit.document_id && biz.can("sales.create") && { label: "Bill this visit", icon: "receipt", onClick: () => setDialog("bill") },
+          // Billed already, with tests ordered since: their order bills them (Bill these tests).
+          visit.document_id && visit.lab_to_bill?.length > 0 && biz.can("sales.create") && { label: "Bill the ordered tests", icon: "receipt",
+            onClick: () => navigate(biz.path(`lab-orders/${visit.lab_to_bill[0].order_id}`)) },
           biz.has("lab") && biz.can("lab.create") && { label: "Order tests", icon: "activity", onClick: () => setDialog("lab") }].filter(Boolean)} />
       <div className="hl-strip">
         <StatusBadge status={open ? "open" : "completed"} label={open ? "In consultation" : `Completed ${dateTime(visit.completed_at)}`} />
@@ -184,22 +229,47 @@ export default function VisitPage({ onLoaded, onOrdered }) {
               </div>
             </SectionCard>
             <SectionCard flush icon="file" title="Prescription"
-              description={canWrite && medicines.length ? "By generic name; the medicines this clinic has prescribed before are offered as you type. Printed with the doctor's registration number."
-                : "By generic name. Printed with the doctor's registration number."}
+              description={canWrite && drugs.length ? "From the clinic's drug list (its usual dose and timing filled in), or by generic name; each line is checked as you write. Printed with the doctor's registration number."
+                : canWrite && medicines.length ? "By generic name; the medicines this clinic has prescribed before are offered as you type. Printed with the doctor's registration number."
+                  : "By generic name. Printed with the doctor's registration number."}
               actions={canWrite && <button type="button" className="button button-secondary" onClick={() => { setItems((all) => [...all, blankItem()]); setDirty(true); }}><Icon name="plus" size={15} /> Add medicine</button>}>
-              {canWrite && medicines.length > 0 && (
+              {canWrite && (drugs.length > 0 || medicines.length > 0) && (
                 <datalist id={medicineList}>
-                  {medicines.map((m) => <option key={m.drug_name} value={m.drug_name} label={[m.strength, m.dose, m.frequency, m.duration].filter(Boolean).join(" · ")} />)}
+                  {drugs.map((d) => <option key={`list-${d.id}`} value={drugLabel(d)} label={[d.brand_names, d.usual_dose, d.usual_frequency].filter(Boolean).join(" · ") || "On the drug list"} />)}
+                  {medicines.filter((m) => !drugs.some((d) => d.generic_name.toLowerCase() === m.drug_name.toLowerCase())).map((m) => (
+                    <option key={m.drug_name} value={m.drug_name} label={[m.strength, m.dose, m.frequency, m.duration].filter(Boolean).join(" · ")} />
+                  ))}
                 </datalist>
               )}
               <DataGrid id="clinic-visit-prescription" caption="Prescription" variant="editor" rows={items} rowKey={(i) => i.key} pageSize={false} columns={[
                 ["drugName", "Medicine (generic)", 150], ["strength", "Strength", 60], ["dose", "Dose", 60], ["frequency", "When (1-0-1)", 60], ["duration", "For", 60], ["instructions", "Instructions", 200],
               ].map(([key, header, max]) => ({ key, header, value: (i) => i[key], render: (i, ctx) => (key === "drugName"
-                ? <input aria-label={ctx.label} maxLength={max} required list={canWrite && medicines.length ? medicineList : undefined} autoComplete="off" value={i[key]} onChange={(e) => setMedicine(i.key, e.target.value)} />
+                ? <input aria-label={ctx.label} maxLength={max} required list={canWrite && (drugs.length || medicines.length) ? medicineList : undefined} autoComplete="off" value={i[key]} onChange={(e) => setMedicine(i.key, e.target.value)} />
                 : <input aria-label={ctx.label} maxLength={max} value={i[key]} onChange={(e) => setItem(i.key, { [key]: e.target.value })} />) }))
+                .concat([{ key: "list", header: "Drug list", value: (i) => (i.drugId ? "On the list" : i.drugName ? "Not on the list" : ""),
+                  render: (i) => (!i.drugName ? null : i.drugId ? <StatusBadge tone="success" label="On the list" /> : <StatusBadge tone="neutral" label="Not on the list" />) }])
                 .concat(canWrite ? [{ key: "actions", header: "", label: "Actions", type: "actions", render: (i) => <button type="button" className="link-button danger" onClick={() => { setItems((all) => all.filter((x) => x.key !== i.key)); setDirty(true); }}>Remove</button> }] : [])}
-                empty="No medicines" emptyHint={canWrite ? "Add each medicine by its generic name." : undefined} />
+                empty="No medicines" emptyHint={canWrite ? "Add each medicine from the drug list, or by its generic name." : undefined} />
             </SectionCard>
+            {warnings.length > 0 && (
+              <SectionCard icon="alert" title="Prescription warnings"
+                description={canWrite ? "Give your reason to go on with each, or change the line. The warnings and your reasons are kept with the prescription." : "Kept with the prescription, with the doctor's reason for each."}>
+                <ul className="hl-warnings">
+                  {warnings.map((w) => {
+                    const line = items.findIndex((i) => i.key === w.itemKey);
+                    const reason = items[line]?.reasons?.[w.kind] || "";
+                    return (
+                      <li key={`${w.itemKey}-${w.kind}`}>
+                        <p className="hl-note hl-note-warning"><Icon name="alert" size={15} /> Line {line + 1}: {w.message}</p>
+                        {canWrite
+                          ? <Field label={`Reason to go on, line ${line + 1}`}><input maxLength={300} value={reason} onChange={(e) => setReason(w.itemKey, w.kind, e.target.value)} placeholder="Why the patient takes it anyway" /></Field>
+                          : <small className="muted">Reason: {reason || "—"}</small>}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </SectionCard>
+            )}
             {canWrite && (
               <div className="form-actions">
                 <button type="button" className="button button-secondary" disabled={busy || !dirty} onClick={() => save(false)}>{busy ? "Saving…" : "Save draft"}</button>
@@ -230,6 +300,9 @@ export default function VisitPage({ onLoaded, onOrdered }) {
             { key: "no", header: "Order", value: (o) => o.order_no, className: "mono", mobile: "title" },
             { key: "status", header: "Status", value: (o) => o.status, render: (o) => <LabStatus status={o.status} />, mobile: "show" },
             { key: "approved", header: "Reported", type: "datetime", value: (o) => o.approved_at },
+            { key: "bill", header: "Billing", value: (o) => (o.bill_nos || []).join(", "),
+              render: (o) => (o.status === "cancelled" ? <span className="muted">—</span> : o.billing === "billed" ? <StatusBadge status="paid" label={`Billed ${(o.bill_nos || []).join(", ")}`} />
+                : <StatusBadge tone="warning" label={o.billing === "part" ? `Part billed ${(o.bill_nos || []).join(", ")}` : "Not billed"} />) },
           ]} />
         </SectionCard>
       )}
@@ -252,7 +325,9 @@ function NoteDialog({ visitId, onClose, onSaved }) {
 }
 
 // The consultation is the doctor's fee: full for a first visit, the follow-up
-// fee (or nothing) within their follow-up days, else the booked service.
+// fee (or nothing) within their follow-up days, else the booked service. The
+// tests ordered for the visit and not billed yet go on the same bill (all
+// ticked), each at its price and linked to its order.
 const FEE_WORDS = { consultation: "Consultation", follow_up: "Follow-up", free_follow_up: "Free follow-up", booked_service: "Booked service" };
 function BillDialog({ visit, onClose, onSaved }) {
   const biz = useOpenBusiness();
@@ -260,16 +335,27 @@ function BillDialog({ visit, onClose, onSaved }) {
   const methods = usePaymentMethods();
   const [key] = useState(newKey);
   const [fee, setFee] = useState(null);
+  const tests = visit.lab_to_bill || [];
+  const testKey = (u) => `${u.order_id}:${u.order_test_ids.join(",")}`;
+  const [chosen, setChosen] = useState(() => tests.map(testKey));
   useEffect(() => { businessRead(biz.id, `clinic/visits/${visit.id}/fee`).then(setFee).catch(() => setFee({ kind: "none" })); }, [biz.id, visit.id]);
+  const picked = tests.filter((u) => chosen.includes(testKey(u)));
   const free = fee?.kind === "free_follow_up";
+  const charged = fee && !["none", "free_follow_up"].includes(fee.kind);
+  // A bill is made when there is a fee or a test to bill; a free follow-up alone is recorded without one.
+  const billed = charged || picked.length > 0;
   const last = fee?.last_consultation;
+  const total = (charged ? Number(fee.price || 0) : 0) + picked.reduce((sum, u) => sum + Number(u.price || 0), 0);
+  const toggle = (k) => setChosen((all) => (all.includes(k) ? all.filter((x) => x !== k) : [...all, k]));
   return (
-    <FormDialog title={`Bill ${visit.visit_no}`} icon="receipt" width={520} onClose={onClose} onSaved={onSaved} disabled={!fee || fee.kind === "none"}
-      submitLabel={free ? "Record free follow-up" : "Bill and take payment"}
+    <FormDialog title={`Bill ${visit.visit_no}`} icon="receipt" width={560} onClose={onClose} onSaved={onSaved} disabled={!fee || (fee.kind === "none" && !picked.length)}
+      submitLabel={billed ? "Bill and take payment" : "Record free follow-up"}
       successMessage={(r) => (r.document ? `Billed ${r.document.document_no}` : "Recorded as a free follow-up")}
-      description={!fee ? "Working out the fee…" : fee.kind === "none" ? "No fee is set for this doctor and nothing was booked; bill it on the Sales screen, or set the doctor's fee under Doctors."
+      description={!fee ? "Working out the fee…" : fee.kind === "none" && !tests.length ? "No fee is set for this doctor and nothing was booked; bill it on the Sales screen, or set the doctor's fee under Doctors."
         : "Consultations are exempt from GST."}
-      onSubmit={() => businessWrite(biz.id, `clinic/visits/${visit.id}/bill`, { requestKey: key, locationId: visit.location_id, ...(free ? {} : { payment: { amount: "full", ...methods.body(method, PAY_KINDS) } }) })}>
+      onSubmit={() => businessWrite(biz.id, `clinic/visits/${visit.id}/bill`, { requestKey: key, locationId: visit.location_id,
+        ...(fee?.kind === "none" ? { includeConsultation: false } : {}), ...(picked.length ? { labTests: picked.flatMap((u) => u.order_test_ids) } : {}),
+        ...(billed ? { payment: { amount: "full", ...methods.body(method, PAY_KINDS) } } : {}) })}>
       {fee && fee.kind !== "none" && (
         <div className="field-wide hl-fee">
           <span className="bz-two-line"><strong>{FEE_WORDS[fee.kind]}{fee.label && !free ? `: ${fee.label}` : ""}</strong>
@@ -277,7 +363,17 @@ function BillDialog({ visit, onClose, onSaved }) {
           <strong>{free ? biz.amount(0) : biz.amount(fee.price)}</strong>
         </div>
       )}
-      {!free && <Field label="Paid by"><select value={methods.resolve(method, PAY_KINDS)} onChange={(e) => setMethod(e.target.value)}>{methods.options(PAY_KINDS).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}</select></Field>}
+      {tests.length > 0 && (
+        <div className="field-wide hl-test-list">
+          <strong>Tests ordered for this visit</strong>
+          {tests.map((u) => (
+            <label key={testKey(u)} className="hl-check"><input type="checkbox" checked={chosen.includes(testKey(u))} onChange={() => toggle(testKey(u))} />
+              <span><strong>{u.label}</strong> <small className="muted">{u.order_no} · {u.code}{u.price ? ` · ${biz.exact(u.price)}` : ""}</small></span></label>
+          ))}
+        </div>
+      )}
+      {billed && <p className="field-wide"><strong>{biz.exact(total)}</strong> <span className="muted">before any GST</span></p>}
+      {billed && <Field label="Paid by"><select value={methods.resolve(method, PAY_KINDS)} onChange={(e) => setMethod(e.target.value)}>{methods.options(PAY_KINDS).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}</select></Field>}
     </FormDialog>
   );
 }

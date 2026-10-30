@@ -1,7 +1,7 @@
 // The lab workspace's bench, worked out from GET /lab/bench (every open order
 // and those reported today, each with its samples and tests): the samples the
-// collection desk handles, the worklist by test, the reports waiting for the
-// pathologist and those released today. Nothing here decides a rule of its
+// collection desk handles, the worklist by department and by test, the
+// reports waiting for the pathologist and those released today. Nothing here decides a rule of its
 // own: an order's stage is the server's, and whether a result may be typed or
 // a report signed is checked again by the API.
 //
@@ -27,6 +27,27 @@ export function worklistRows(orders) {
   return (orders || []).filter(isOpen).flatMap((order) => (order.tests || [])
     .filter((test) => (order.outside_lab || sampleOf(order, test)?.status === "received") && Number(test.entered) < Number(test.parameters))
     .map((test) => ({ key: `${order.id}:${test.id}`, order, test, sample: sampleOf(order, test) })));
+}
+
+// The worklist's departments, to choose one: each with tests waiting (and
+// each of the person's own, even with none), with how many wait in it; the
+// person's own first, then the busiest. departments: the bench's; mine: the
+// ids of the person's departments.
+export function worklistDepartments(rows, departments, mine) {
+  const counts = new Map();
+  for (const { test } of rows || []) counts.set(String(test.department_id), (counts.get(String(test.department_id)) || 0) + 1);
+  const own = new Set((mine || []).map(String));
+  return (departments || []).filter((d) => counts.has(String(d.id)) || own.has(String(d.id)))
+    .map((d) => ({ id: d.id, name: d.name, count: counts.get(String(d.id)) || 0, mine: own.has(String(d.id)) }))
+    .sort((a, b) => Number(b.mine) - Number(a.mine) || b.count - a.count || a.name.localeCompare(b.name));
+}
+
+// The worklist rows of a choice: every department ("all"), the person's own
+// ("mine"), or one department (its id).
+export function worklistIn(rows, choice, mine) {
+  if (!choice || choice === "all") return rows || [];
+  const own = new Set((mine || []).map(String));
+  return (rows || []).filter((row) => (choice === "mine" ? own.has(String(row.test.department_id)) : same(row.test.department_id, choice)));
 }
 
 // The tests on the worklist, to choose one: each with how many orders wait

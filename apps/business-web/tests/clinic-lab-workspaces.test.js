@@ -1,15 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { deskDoctors, myCalendar, openTokensOf, queueOf, registrationFrom, waitingCounts } from "../src/workspaces/clinic/clinicDesk.js";
-import { approvalRows, benchCounts, collectionRows, releasedRows, worklistRows, worklistTests } from "../src/workspaces/lab/labBench.js";
+import { approvalRows, benchCounts, collectionRows, releasedRows, worklistDepartments, worklistIn, worklistRows, worklistTests } from "../src/workspaces/lab/labBench.js";
 import { HEALTH_WORKSPACES, chosenClinic, healthWorkspacePath, workspaceClinics } from "../src/services/healthWorkspaces.js";
 
 // The clinic's and the lab's workspaces: which clinic /clinic and /lab open
 // and where their screens' links lead (services/healthWorkspaces.js); the
 // desk's queue, whose queue is the signed-in doctor's and what a patient at
 // the desk already holds (workspaces/clinic/clinicDesk.js); and the lab's
-// bench: the samples to collect and receive, the worklist by test, the
-// reports to approve and those released (workspaces/lab/labBench.js).
+// bench: the samples to collect and receive, the worklist by department and
+// by test, the reports to approve and those released (workspaces/lab/labBench.js).
 
 test("the workspaces open the only clinic, or the one chosen last, with their tool switched on", () => {
   const clinic = (id, name, capabilities, last = null) => ({ id, name, business_type: "healthcare", capabilities, last_opened_at: last });
@@ -125,4 +125,20 @@ test("the lab's bench: samples to collect and receive, the worklist by test, app
   assert.deepEqual(releasedRows(orders).map((o) => o.order_no), ["LAB00007", "LAB00006"]);
   assert.deepEqual(benchCounts(orders), { collect: 2, receive: 1, work: 2, approve: 1, released: 2 });
   assert.deepEqual(benchCounts([]), { collect: 0, receive: 0, work: 0, approve: 0, released: 0 });
+});
+
+test("the worklist by department: each with how many wait, the person's own first", () => {
+  const departments = [{ id: 1, name: "Haematology" }, { id: 2, name: "Biochemistry" }, { id: 3, name: "Microbiology" }, { id: 8, name: "Other" }];
+  const row = (id, code, department) => ({ key: `${id}`, order: { id }, test: { code, department_id: department } });
+  const rows = [row(1, "CBC", 1), row(2, "LFT", 2), row(3, "KFT", 2), row(4, "HB", 1), row(5, "ESR", "1"), row(6, "TSH", 8)];
+  // The busiest first, then by name; a department with nothing waiting is left out.
+  assert.deepEqual(worklistDepartments(rows, departments, []).map((d) => [d.name, d.count, d.mine]), [["Haematology", 3, false], ["Biochemistry", 2, false], ["Other", 1, false]]);
+  // Someone who works in Microbiology and Biochemistry finds theirs first, even with nothing waiting.
+  assert.deepEqual(worklistDepartments(rows, departments, [3, "2"]).map((d) => [d.name, d.count, d.mine]),
+    [["Biochemistry", 2, true], ["Microbiology", 0, true], ["Haematology", 3, false], ["Other", 1, false]]);
+  assert.deepEqual(worklistIn(rows, "mine", [3, 2]).map((r) => r.test.code), ["LFT", "KFT"]);
+  assert.deepEqual(worklistIn(rows, 1, []).map((r) => r.test.code), ["CBC", "HB", "ESR"]);
+  assert.deepEqual(worklistIn(rows, "all", [3]).length, 6);
+  assert.deepEqual(worklistIn(rows, null, []).length, 6);
+  assert.deepEqual(worklistDepartments([], departments, null), []);
 });

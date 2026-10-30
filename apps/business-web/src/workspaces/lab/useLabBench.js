@@ -33,6 +33,9 @@ export default function useLabBench() {
     live,
     now,
     counts,
+    // The lab's departments, and the signed-in person's own (their worklist's first).
+    departments: data?.departments || [],
+    mine: data?.my_departments || [],
     // How many values are out of range: only for those who see results (the server decides).
     resultsVisible: Boolean(data?.results_visible),
     can: { collect: biz.can("lab.create"), enter: biz.can("lab.edit"), approve: biz.can("lab.approve"), print: biz.can("lab.print") },

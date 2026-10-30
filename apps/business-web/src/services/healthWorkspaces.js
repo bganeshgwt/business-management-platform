@@ -18,7 +18,7 @@ export const HEALTH_WORKSPACES = {
     title: "Lab workspace",
     module: "lab",
     need: "lab.view",
-    lead: "Sample collection and the lab: samples collected and received, worklists by test, the pathologist's approval and the reports released.",
+    lead: "Sample collection and the lab: samples collected and received, worklists by department and test, the pathologist's approval and the reports released.",
     refused: "the lab workspace",
   },
 };

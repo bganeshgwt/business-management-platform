@@ -9,14 +9,17 @@ const clinic = require('../services/businessClinic.service');
 const lab = require('../services/businessLab.service');
 const desk = require('../services/businessClinicDesk.service');
 const quality = require('../services/businessLabQuality.service');
+const drugs = require('../services/businessClinicDrugs.service');
+const departments = require('../services/businessLabDepartments.service');
+const labBilling = require('../services/businessLabBilling.service');
 
 // Pharmacy, clinic and lab routes, added to the Business Admin
 // router so they share its login, membership, module and permission checks
 // (context) and its database-error translation:
 //   /:businessId/health/…     settings and the people who sign (pharmacist, doctor, pathologist)
 //   /:businessId/pharmacy/…   drug master, prescription sales, registers, recalls, expiry returns
-//   /:businessId/clinic/…     patients, consent, consultations, today's patients, the token queue
-//   /:businessId/lab/…        tests and panels, orders, samples, results, approval, reports, the bench
+//   /:businessId/clinic/…     patients, consent, consultations, today's patients, the token queue, the drug list
+//   /:businessId/lab/…        tests and panels, departments, orders and their billing, samples, results, approval, reports, the bench
 // Services repeat every permission check. The prescription scan upload
 // (multipart) is mounted before the JSON-only business router: healthUploads.routes.js.
 
@@ -89,6 +92,27 @@ module.exports = function healthRoutes(router, { context, send, b }) {
   router.post(b('/clinic/visits/:id/notes'), context('patients.edit_clinical'), async (req, res) => send(res, await clinic.addVisitNote(req.business, req.user, req.params.id, req.body), 201));
   router.post(b('/clinic/visits/:id/bill'), context('sales.create'), async (req, res) => send(res, await clinic.billVisit(req.business, req.user, req.params.id, req.body), 201));
   router.get(b('/clinic/visits/:id/fee'), context(['sales.create', 'patients.view']), async (req, res) => send(res, await desk.visitFee(req.business, req.params.id)));
+  // The warnings a prescription would raise, before it is saved (nothing is written).
+  router.post(b('/clinic/visits/:id/prescription-check'), context('patients.edit_clinical'), async (req, res) => send(res, await drugs.check(req.business, req.params.id, req.body)));
+
+  // The clinic's own drug list.
+  list('/clinic/drugs', 'health-clinic-drugs', ['patients.view_clinical', 'patients.edit_clinical'], isClinic);
+  router.get(b('/clinic/drugs/picker'), context('patients.edit_clinical'), async (req, res) => send(res, await drugs.picker(req.business)));
+  router.get(b('/clinic/drugs/import-guide'), context('patients.edit_clinical'), async (req, res) => { clinic.requireClinic(req.business); send(res, drugs.importGuide()); });
+  // A check that finds problems still worked: the dry run answers 200 with them; a real import of such a file is refused.
+  router.post(b('/clinic/drugs/import'), context('patients.edit_clinical'), async (req, res) => {
+    const result = await drugs.importDrugs(req.business, req.user, req.body);
+    const dryRun = req.body.dryRun === true;
+    const many = (n, one, more) => `${n} ${n === 1 ? one : more}`;
+    if (!result.ok) {
+      return res.status(dryRun ? 200 : 400).json({ success: dryRun, data: result,
+        message: `${many(result.problems.length, 'problem', 'problems')} in the file. ${dryRun ? 'Fix them and check the file again.' : 'Nothing was imported.'}` });
+    }
+    return res.json({ success: true, data: result, message: dryRun ? `Ready: ${result.created} new medicines, ${result.updated} to update, ${result.unchanged} unchanged`
+      : `Imported: ${many(result.created, 'medicine', 'medicines')} added, ${result.updated} updated` });
+  });
+  router.post(b('/clinic/drugs'), context('patients.edit_clinical'), async (req, res) => send(res, await drugs.create(req.business, req.user, req.body), 201));
+  router.put(b('/clinic/drugs/:id'), context('patients.edit_clinical'), async (req, res) => send(res, await drugs.update(req.business, req.user, req.params.id, req.body)));
 
   // Doctors' fees, OPD sessions and leave; appointment slots; the token queue.
   router.get(b('/clinic/doctors'), context('appointments.view'), async (req, res) => send(res, await desk.doctors(req.business, req.query)));
@@ -120,8 +144,17 @@ module.exports = function healthRoutes(router, { context, send, b }) {
   router.post(b('/lab/orders/:id/approve'), context('lab.approve'), async (req, res) => send(res, await lab.approve(req.business, req.user, req.params.id, req.body)));
   router.post(b('/lab/orders/:id/cancel'), context('lab.create'), async (req, res) => send(res, await lab.cancelOrder(req.business, req.user, req.params.id, req.body)));
   router.post(b('/lab/orders/:id/refer'), context('lab.create'), async (req, res) => send(res, await lab.refer(req.business, req.user, req.params.id, req.body)));
+  // Bill these tests (all left to bill, or those asked for) on a bill of their own; one test cancelled.
+  router.post(b('/lab/orders/:id/bill'), context('sales.create'), async (req, res) => send(res, await labBilling.billOrder(req.business, req.user, req.params.id, req.body), 201));
+  router.post(b('/lab/orders/:id/tests/:testId/cancel'), context('lab.create'), async (req, res) =>
+    send(res, await lab.cancelTest(req.business, req.user, req.params.id, req.params.testId, req.body)));
   router.get(b('/lab/samples/barcode/:code'), context('lab.view'), async (req, res) => send(res, await lab.sampleByBarcode(req.business, req.params.code)));
   router.post(b('/lab/samples/:id'), context('lab.create'), async (req, res) => send(res, await lab.sampleAction(req.business, req.user, req.params.id, req.body)));
+
+  // The lab's departments, and who works in each.
+  router.get(b('/lab/departments'), context('lab.view'), async (req, res) => send(res, await departments.list(req.business)));
+  router.post(b('/lab/departments'), context('lab.edit'), async (req, res) => send(res, await departments.create(req.business, req.user, req.body), 201));
+  router.put(b('/lab/departments/:id'), context('lab.edit'), async (req, res) => send(res, await departments.update(req.business, req.user, req.params.id, req.body)));
 
   // Quality control: controls, runs (Westgard) and today's state.
   list('/lab/qc/materials', 'lab-qc-materials', 'lab.view', isLab);

@@ -238,7 +238,9 @@ test('the clinic and lab workspaces', { timeout: 600000 }, async (t) => {
     const first = await visitFor(lakshmi);
     await doctor.call('PATCH', C(`clinic/visits/${first.id}`), { complaints: 'Headache', prescription: [amlo, { drugName: 'Paracetamol', strength: '650 mg', frequency: '1-1-1', duration: '3 days' }] });
     const second = await visitFor(swathi);
-    await doctor.call('PATCH', C(`clinic/visits/${second.id}`), { complaints: 'Review', prescription: [amlo, { drugName: 'amlodipine', strength: '10 mg', frequency: '0-0-1', duration: '15 days' }] });
+    // The same medicine twice is a warning the doctor goes on with, giving the reason (clinic-lab-more.test.js).
+    await doctor.call('PATCH', C(`clinic/visits/${second.id}`), { complaints: 'Review', prescription: [amlo, { drugName: 'amlodipine', strength: '10 mg', frequency: '0-0-1', duration: '15 days',
+      reasons: { same_medicine: 'A second dose at night for two weeks' } }] });
     // Another owner's clinic prescribes something else: never offered here.
     const theirs = await other('POST', E('clinic/patients'), { name: 'Imran Khan', sex: 'male', ageYears: 50, consent: { purposes: ['treatment'], method: 'verbal', givenBy: 'Self' } }, 201);
     const theirVisit = await other('POST', E('clinic/visits'), { contactId: theirs.contact_id }, 201);

@@ -14,7 +14,7 @@ export const WORKSPACES = {
   sales: ['sales', 'quotations', 'tinting', 'exchanges', 'warranties', 'pickup-orders', 'custom-orders', 'approvals'],
   orders: ['sales-orders', 'back-orders', 'dispatch', 'price-groups', 'pricing', 'routes'],
   appointments: ['salon-calendar', 'appointments'],
-  care: ['clinic-today', 'clinic-queue', 'visits', 'appointments', 'doctors'],
+  care: ['clinic-today', 'clinic-queue', 'visits', 'appointments', 'doctors', 'clinic-drugs'],
   patients: ['patients', 'customers'],
   laboratory: ['lab-orders', 'lab-tests', 'lab-qc'],
   reports: ['reports', 'retail-reports', 'wholesale-reports', 'variant-reports', 'weight-reports', 'salon-reports', 'commissions', 'fitter-reports', 'cash-report', 'fuel-outlets', 'activity', 'referrals', 'mechanic-commission', 'member-pay', 'lodging-reports'],

@@ -18,7 +18,8 @@ import "./styles/lab.css";
 //   /lab/<id>                    collection: samples to collect (labels with
 //                                the sample's barcode) and on their way to
 //                                the lab, collected, received or rejected
-//   /lab/<id>/worklist           the worklist by test: results to type
+//   /lab/<id>/worklist           the worklist by department and test: results
+//                                to type, the person's own departments first
 //   /lab/<id>/approval           reports waiting for the pathologist
 //   /lab/<id>/released           reports released today, to print
 //   /lab/<id>/orders[/<order>]   every order (Lab orders), and an order:

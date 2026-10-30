@@ -13,6 +13,8 @@ import { TIMEZONE } from "./test-data.mjs";
 export { AGRI, BUSINESSES, CLINIC, FUEL, GARAGE, GROCERY, GST_CHANGE, GST_THRESHOLDS, HARDWARE, JEWELLERY, LAUNDRY, LODGING, LOGINS, MEAT, MEMBERSHIPS, NEW_STAFF, OPTICAL, PLATFORM, PRIVACY, RENTALS, RESTAURANT, SALON, SMALL_ITEMS, TIMEZONE, WHOLESALE } from "./test-data.mjs";
 // A shop's CSV import (business-csv-import.spec.js).
 export { CSV_IMPORT } from "./test-data.mjs";
+// The clinic's lab by department, billing ordered tests later and its drug list (clinic-lab-more.spec.js).
+export { CLINIC_LAB } from "./test-data.mjs";
 
 let data = null;
 

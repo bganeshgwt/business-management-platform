@@ -114,11 +114,13 @@ export function printLabReport(report) {
 }
 
 export function printSampleLabels(order) {
-  const labels = order.samples.map((s) => {
+  // A cancelled test, and a sample only it needed, get no label.
+  const tests = order.tests.filter((t) => !t.cancelled_at);
+  const labels = order.samples.filter((s) => s.needed !== false).map((s) => {
     let svg = "";
     try { svg = barcodeSvg(s.barcode, { height: 34 }).svg; } catch { svg = ""; }
     return `<div class="label">${svg}<div><strong>${e(s.barcode)}</strong> · ${e(s.sample_type)}</div><div>${e(order.patient_name)} · ${e(order.patient_no)}</div>
-      <div>${e(order.order_no)} · ${e(order.tests.filter((t) => String(t.sample_id) === String(s.id)).map((t) => t.code).join(", "))}</div><div>${e(s.container || "")}</div></div>`;
+      <div>${e(order.order_no)} · ${e(tests.filter((t) => String(t.sample_id) === String(s.id)).map((t) => t.code).join(", "))}</div><div>${e(s.container || "")}</div></div>`;
   }).join("");
   printDocument({
     title: `Sample labels ${order.order_no}`,

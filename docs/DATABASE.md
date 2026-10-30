@@ -1149,7 +1149,8 @@ Rules:
 - AFTER INSERT trigger `businesses_provision_defaults` runs `business_provision_defaults()`. It gives the business the roles of its type (`business_seed_roles()`), its settings row (`business_seed_settings()`), GST slabs (`business_seed_tax_rates()`; none for a restaurant), units (`business_seed_units()`; none for a restaurant without SKUs) and its type's default modules.
 - AFTER INSERT trigger `businesses_default_payment_methods` (function `business_default_payment_methods`) gives every business except a restaurant the five usual payment methods (`business_payment_methods`); a restaurant keeps its own `payment_types`.
 - AFTER INSERT trigger `businesses_default_financiers` (function `electronics_default_financiers`) gives an electronics shop its four financiers (see [`electronics_financiers`](#electronics_financiers)).
-Added by: 1791280000000; triggers from 1791300000000, 1791300000005 business-events-and-provisioning, 1791620002000 (financiers) and 1791640000000 (payment methods); 1791974000000 (live updates: `businesses_live_session`); 1791979112000 (a restaurant's row given its restaurant's name once, where the two differed).
+- AFTER INSERT trigger `businesses_default_lab_departments` (function `businesses_lab_departments`, which calls `lab_default_departments`) gives a clinic (type healthcare) the eight lab departments (see [`lab_departments`](#lab_departments)).
+Added by: 1791280000000; triggers from 1791300000000, 1791300000005 business-events-and-provisioning, 1791620002000 (financiers) and 1791640000000 (payment methods); 1791974000000 (live updates: `businesses_live_session`); 1791979112000 (a restaurant's row given its restaurant's name once, where the two differed); clinic-lab-more (lab departments).
 
 #### `business_settings`
 Purpose: one row per business with its legal and display details, tax mode, rounding and fiscal year.
@@ -2335,7 +2336,7 @@ Linked section: [pharmacy, clinic and lab](BUSINESS_PLATFORM_DATA_MODEL.md#pharm
 
 Modules `pharmacy` (type pharmacy; needs sales, batches, contacts), `patients` (type healthcare; needs contacts, appointments) and `lab` (healthcare; needs patients, sales). `pharmacy` and `patients` are on by default; `lab` is off by default and recommended for healthcare. Permissions `pharmacy.*` (view, create, edit, approve, export, print), `patients.*` (view, create, edit, **view_clinical**, **edit_clinical**, export, print) and `lab.*` (view, create, edit, approve, print, export). The role templates `pharmacist` (pharmacy), `doctor`, `lab_technician` and `pathologist` (healthcare) are given to their type only (`business_role_templates.business_types`).
 
-Every table here is scoped by `business_id` with composite foreign keys. "Append-only" means trigger function `health_append_only()`: a row is kept as written (only `created_at` may be corrected) and never deleted. The tables come from 1791620004000_pharmacy-clinic-lab, except a pharmacy branch's own licences (1791630000000), doctors' fees, OPD sessions, leave and the token queue (1791950408000), and lab report versions and quality control (1791950409000); each entry names its migrations.
+Every table here is scoped by `business_id` with composite foreign keys. "Append-only" means trigger function `health_append_only()`: a row is kept as written (only `created_at` may be corrected) and never deleted. The tables come from 1791620004000_pharmacy-clinic-lab, except a pharmacy branch's own licences (1791630000000), doctors' fees, OPD sessions, leave and the token queue (1791950408000), lab report versions and quality control (1791950409000), and the clinic's drug list and the lab's departments (clinic-lab-more); each entry names its migrations.
 
 ### Shared: settings, numbers, signatories, files
 
@@ -2474,19 +2475,39 @@ Added by: 1791620004000.
 
 #### `health_prescription_items`
 Purpose: the doctor's prescription lines on a consultation.
-Key columns: `visit_id`, `drug_name` (generic name, not blank), `strength`, `dose`, `frequency`, `duration`, `instructions`, `sort_order`.
-Relations: (`business_id`, `visit_id`) -> `health_visits`.
-Rules: trigger `health_prescription_open` refuses inserts, changes and deletes once the visit is completed; index `health_prescription_items_visit`.
-Added by: 1791620004000.
+Key columns: `visit_id`, `drug_name` (generic name, not blank), `strength`, `dose`, `frequency`, `duration`, `instructions`, `sort_order`; `drug_id` (the medicine of the clinic's drug list it was picked from; NULL: written by hand, not on the list); `warnings` (jsonb array, `[]` by default: each warning the doctor was shown, `{ kind (allergy, same_medicine, same_group, dose_over_max), message, reason }`, with the reason they gave to go on). Clinical data, kept with the consultation under the patient's record.
+Relations: (`business_id`, `visit_id`) -> `health_visits`; (`business_id`, `drug_id`) -> `health_clinic_drugs` (`health_prescription_items_drug_fkey`).
+Rules: trigger `health_prescription_open` refuses inserts, changes and deletes once the visit is completed; CHECK `health_prescription_items_warnings_answered` (function `health_warnings_answered(jsonb)`): the warnings are an array and each has a kind and a reason that is not blank; index `health_prescription_items_visit`.
+Added by: 1791620004000; clinic-lab-more (`drug_id`, `warnings`).
+
+#### `health_clinic_drugs`
+Purpose: the clinic's own drug list, which the prescription picks from and checks against (a pharmacy's drug master, `pharmacy_drugs`, is its own).
+Key columns: `generic_name` (not blank), `brand_names`, `strength`, `form`, `route`, `usual_dose`, `usual_frequency` (filled into a prescription line when picked), `max_daily_amount` (> 0, 3 decimals) and `max_daily_unit` (mg, g, mcg, ml, IU, units, tablets, capsules, puffs, drops, sachets): the most a day, both or neither (CHECK `health_clinic_drugs_max_daily`); `allergy_group` (an allergy to one medicine of the group warns for all of it); `active`; `created_by`, `updated_by`, `updated_at`.
+Relations: `business_id` -> `businesses`; the target of `health_prescription_items.drug_id`.
+Rules: one entry per generic name, strength and form, ignoring case (unique index `health_clinic_drugs_entry`); switched off, never deleted by the service (a medicine on a prescription is kept by its foreign key).
+Added by: clinic-lab-more.
 
 ### Lab
 
 #### `lab_tests`
 Purpose: a test (one or many parameters: CBC, LFT, lipid profile) or a profile (several tests sold together). A test may name the catalogue service it is billed as.
-Key columns: `code` (`^[A-Z0-9][A-Z0-9_-]{0,29}$`, unique per business), `name` (not blank), `kind` (test, profile), `sku_id`, `sample_type` (blood, serum, plasma, urine, stool, swab, sputum, other), `container`, `method`, `turnaround_hours` (1–720, default 24), `active`, `created_by`.
-Relations: (`business_id`, `sku_id`) -> `catalog_skus`.
-Rules: one test per service (partial unique index `lab_tests_sku`).
-Added by: 1791620004000.
+Key columns: `code` (`^[A-Z0-9][A-Z0-9_-]{0,29}$`, unique per business), `name` (not blank), `kind` (test, profile), `sku_id`, `sample_type` (blood, serum, plasma, urine, stool, swab, sputum, other), `container`, `method`, `turnaround_hours` (1–720, default 24), `active`, `created_by`, `department_id` (not null: its department; the tests kept before departments are in Other).
+Relations: (`business_id`, `sku_id`) -> `catalog_skus`; (`business_id`, `department_id`) -> `lab_departments` (`lab_tests_department_fkey`).
+Rules: one test per service (partial unique index `lab_tests_sku`); trigger `lab_tests_department_default` (BEFORE INSERT) puts a test saved without a department in its business's Other; index `lab_tests_by_department`.
+Added by: 1791620004000; clinic-lab-more (`department_id`).
+
+#### `lab_departments`
+Purpose: the lab's departments, which its tests are in and its worklists are gathered by.
+Key columns: `code` (one of the eight every lab has: haematology, biochemistry, microbiology, serology, clinical_pathology, histopathology, imaging, other; NULL for one the lab added; unique per business), `name` (not blank; unique per business ignoring case, index `lab_departments_name`), `active`, `sort_order` (10–80 for the eight, 100 for the lab's own), `created_by`, `created_at`, `updated_at`.
+Relations: `business_id` -> `businesses`; the target of `lab_tests.department_id` and `lab_department_staff`.
+Rules: CHECK `lab_departments_other_on` (Other is never switched off); the eight are made with every clinic by function `lab_default_departments(business)`, called by the AFTER INSERT trigger `businesses_default_lab_departments` on `businesses` (function `businesses_lab_departments`, for a business of type healthcare only) and, for the clinics kept before, by the migration. Renamed or switched off (once no test in use is in it), never deleted.
+Added by: clinic-lab-more.
+
+#### `lab_department_staff`
+Purpose: who works in a department (a lab technician): their worklist opens on their departments first. A preference of the worklist, not an access rule.
+Key columns: PK (`business_id`, `department_id`, `user_id`), `created_by`, `created_at`.
+Relations: (`business_id`, `department_id`) -> `lab_departments`; (`business_id`, `user_id`) -> `business_memberships` (ON DELETE CASCADE); index `lab_department_staff_user`.
+Added by: clinic-lab-more.
 
 #### `lab_profile_tests`
 Purpose: the tests a profile is made of.
@@ -2510,7 +2531,7 @@ Added by: 1791620004000.
 
 #### `lab_orders`
 Purpose: a lab order for a patient, from ordering to the approved report.
-Key columns: `order_no` (`LAB00001`, unique per business), `location_id`, `contact_id` (the patient), `visit_id`, `referred_by`, `priority` (routine, urgent), `status` (ordered → collected → received → in_process → resulted → approved, or cancelled), `document_id` (the bill), an outside lab's `outside_lab`, `outside_ref_no`, `outside_sent_at`, `outside_charge` and `referral_commission` (what it pays back, when the setting allows), `approved_by`, `approved_signatory_id`, `approved_at`, `cancel_reason`, `notes`, `request_key` (unique per business), `request_hash`, `created_by`; amendment `version` (how many times the report has been signed; 0 before the first), `amend_reason`, `amend_requested_by`, `amend_requested_at`.
+Key columns: `order_no` (`LAB00001`, unique per business), `location_id`, `contact_id` (the patient), `visit_id`, `referred_by`, `priority` (routine, urgent), `status` (ordered → collected → received → in_process → resulted → approved, or cancelled), `document_id` (the first bill its tests were billed on; each test's own line is `lab_order_tests.document_line_id`), an outside lab's `outside_lab`, `outside_ref_no`, `outside_sent_at`, `outside_charge` and `referral_commission` (what it pays back, when the setting allows), `approved_by`, `approved_signatory_id`, `approved_at`, `cancel_reason`, `notes`, `request_key` (unique per business), `request_hash`, `created_by`; amendment `version` (how many times the report has been signed; 0 before the first), `amend_reason`, `amend_requested_by`, `amend_requested_at`.
 Relations: composite FKs to `business_locations`, `health_patients`, `health_visits`, `business_documents` and `health_signatories`; `amend_requested_by` -> `users`.
 Rules: CHECKs approved ⇔ approved_at, a cancelled order has a reason, the outside-lab columns only with an outside lab, and `lab_orders_amending` (an amendment reason is held only while the report is reopened, not approved). Indexes `lab_orders_time`, `lab_orders_visit` and `lab_orders_open` (orders not yet approved or cancelled).
 Added by: 1791620004000; 1791950409000 lab-report-versions-qc (the amendment columns); 1791976000000 (live updates: `lab_orders_live`).
@@ -2523,10 +2544,11 @@ Rules: UNIQUE (business, order, sample type); CHECKs a collected or received sam
 Added by: 1791620004000; 1791976000000 (live updates: `lab_samples_live`).
 
 #### `lab_order_tests`
-Purpose: a test on an order, the sample it is run on, and the profile it came with, if any.
-Key columns: `order_id`, `test_id` (once per order), `profile_id`, `sample_id`.
-Relations: composite FKs to `lab_orders`, `lab_tests` (test and profile) and `lab_samples`.
-Added by: 1791620004000.
+Purpose: a test on an order, the sample it is run on, the profile it came with, if any, the bill line it is billed on, and its cancellation.
+Key columns: `order_id`, `test_id` (once per order), `profile_id`, `sample_id`; `document_line_id` (the line of the sale it is billed on: its service's, or its profile's line shared by the profile's tests; NULL while not billed); `cancelled_at`, `cancelled_by`, `cancel_reason` (all three or none: CHECK `lab_order_tests_cancelled`).
+Relations: composite FKs to `lab_orders`, `lab_tests` (test and profile), `lab_samples` and `business_document_lines` (`lab_order_tests_line_fkey`); `cancelled_by` -> `users`.
+Rules: trigger `lab_order_test_billing` (BEFORE INSERT, UPDATE, DELETE): a test's bill line, once set, never changes (billed once); a line is taken only from a sale to the order's own patient, and only one no other test holds (the tests of one profile on one order share theirs); a cancelled test is not billed and stays cancelled; no ordered test is deleted. Index `lab_order_tests_billed_line` (partial). The migration linked the tests of orders billed as they were ordered to their bill's lines.
+Added by: 1791620004000; clinic-lab-more (`document_line_id`, the cancellation, `lab_order_test_billing`, live updates: `lab_order_tests_live`).
 
 #### `lab_results`
 Purpose: one value per parameter of an ordered test, with its flag and the unit and range it was judged by.
@@ -4633,7 +4655,7 @@ Functions:
 - `live_restaurant_row()` (trigger, arguments: the area and the column holding the id): a restaurant row with its own `restaurant_id` and, when it has one, `outlet_id`. An update that changes nothing but `updated_at` is no change; a row moved to another outlet is announced at both.
 - `live_restaurant_part()` (trigger, arguments: the parent's area and the column pointing at it): a row announced as its parent (`orders`, `kots`, `bills` or `reservations`), with the parent's restaurant, outlet and id; moved from one parent to another, for both. A parent removed in the same statement announced itself.
 - `live_business_row()` (trigger, arguments: the area and the column holding the id): a business row with its `business_id` and, when it has them, `location_id` and `outlet_id`.
-- `live_lab_order_part()` (trigger): a lab sample or result announced as its order (`lab`, the order's id), at the order's location. An update that changes nothing but `updated_at` is no change.
+- `live_lab_order_part()` (trigger): a lab sample, result or ordered test announced as its order (`lab`, the order's id), at the order's location. An update that changes nothing but `updated_at` is no change.
 - `live_business_event()` (trigger): an event of the outbox, in the area its `kind` starts with (`sale.posted` is `sale`), for its `entity_id`, at the location its payload's `locationId` names.
 - `live_session()` (trigger, arguments: pairs of a key and the column holding its id): sends a `live_session` notification.
 
@@ -4661,6 +4683,7 @@ Triggers (all `AFTER … FOR EACH ROW`):
 | `health_tokens_live` | `health_tokens` | insert, update, delete | `token` |
 | `lab_orders_live` | `lab_orders` | insert, update, delete | `lab`, the order |
 | `lab_samples_live`, `lab_results_live` | `lab_samples`, `lab_results` | insert, update, delete | `lab`, the order they belong to (`live_lab_order_part()`) |
+| `lab_order_tests_live` | `lab_order_tests` | insert, update, delete | `lab`, the order it belongs to (`live_lab_order_part()`): a test billed or cancelled |
 | `business_appointments_live` | `business_appointments` | insert, update, delete | `appointment` |
 | `salon_walk_ins_live` | `salon_walk_ins` | insert, update, delete | `walk_in` |
 | `business_tasks_live`, `business_task_assignees_live`, `business_task_items_live` | `business_tasks`, `business_task_assignees`, `business_task_items` | insert, update, delete | `task`, the task |
@@ -4673,7 +4696,7 @@ Triggers (all `AFTER … FOR EACH ROW`):
 | `business_memberships_live_session_gone` | `business_memberships` | delete | `live_session` `{user, business}` |
 | `business_roles_live_session` | `business_roles` | update of `active` (when it changes) | `live_session` `{business}` |
 
-1791974000000's Down half drops its 34 triggers and 7 functions; 1791976000000's drops the lab's three triggers and `live_lab_order_part()`.
+1791974000000's Down half drops its 34 triggers and 7 functions; 1791976000000's drops the lab's three triggers and `live_lab_order_part()`; clinic-lab-more's drops `lab_order_tests_live`.
 
 ## Personal data
 

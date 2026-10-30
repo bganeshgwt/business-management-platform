@@ -8,6 +8,7 @@
 import crypto from "node:crypto";
 
 import { AGRI, BUSINESSES, CLINIC, FUEL, GARAGE, GROCERY, GST_CHANGE, GST_THRESHOLDS, HARDWARE, JEWELLERY, LAUNDRY, LODGING, MEAT, MEMBERSHIPS, OPTICAL, PLATFORM, PRIVACY, RENTALS, RESTAURANT, SALON, SMALL_ITEMS, TIMEZONE, WHOLESALE } from "./test-data.mjs";
+import { CLINIC_LAB } from "./test-data.mjs";
 
 // Every call names the status it expects, so a set-up that goes wrong stops
 // at the first wrong answer, with the API's own message, rather than leaving
@@ -1163,6 +1164,46 @@ export async function buildTestData({ api, logins, sql }) {
     for (const skuId of [shop.filter.id, old.id]) await owner("POST", B("garage/part-fitments"), { skuId, make: GARAGE.car.make, model: GARAGE.car.model }, 201);
     await owner("PUT", B(`garage/parts/${old.id}`), { supersededBySkuId: shop.filter.id });
     Object.assign(shop, { mechanicJob: { id: job.id, jobNo: job.job_no }, oldFilter: { id: old.id, name: old.label } });
+  }
+
+  // The clinic's lab by department, billing ordered tests later and its drug
+  // list (clinic-lab-more.spec.js), as Tests & panels, the lab and the doctors
+  // set them: the haemoglobin moved to Haematology and a fasting sugar test in
+  // Biochemistry; the lab technician working in Haematology; an order of both
+  // for a patient, its samples collected and received (on the worklist); the
+  // patient whose test the front desk bills later; the drug list; and a
+  // patient allergic to penicillin with a visit open with the doctor.
+  {
+    const B = at("healthcare");
+    const clinic = businesses.healthcare;
+    const consent = { purposes: ["treatment"], method: "signed_form", givenBy: "Self" };
+    const { departments } = await owner("GET", B("lab/departments"));
+    const department = (code) => departments.find((item) => item.code === code).id;
+    const hb = await owner("GET", B(`lab/tests/${clinic.test.id}`));
+    await owner("PUT", B(`lab/tests/${hb.id}`), { code: hb.code, name: hb.name, sampleType: hb.sample_type, container: hb.container, skuId: hb.sku_id, departmentId: department("haematology"),
+      parameters: hb.parameters.map((p) => ({ id: p.id, name: p.name, unit: p.unit, decimals: p.decimals, ranges: p.ranges })) });
+    const sugarService = await owner("POST", B("catalog"), {
+      name: CLINIC_LAB.sugar.service, code: "SVC-FBS", kind: "service", unit: "service", tracking: "none", price: String(CLINIC_LAB.sugar.price), taxRate: "0",
+    }, 201);
+    const sugar = await owner("POST", B("lab/tests"), {
+      code: CLINIC_LAB.sugar.code, name: CLINIC_LAB.sugar.name, sampleType: "plasma", container: "Fluoride (grey top)", skuId: sugarService.id, departmentId: department("biochemistry"),
+      parameters: [{ name: CLINIC_LAB.sugar.name, unit: CLINIC_LAB.sugar.unit, decimals: 0, ranges: [{ low: CLINIC_LAB.sugar.low, high: CLINIC_LAB.sugar.high }] }],
+    }, 201);
+    await owner("PUT", B(`lab/departments/${department("haematology")}`), { staff: [staffAccounts.LAB_TECH] });
+    const onWorklist = await owner("POST", B("clinic/patients"), { ...CLINIC_LAB.worklistPatient, consent }, 201);
+    const order = await owner("POST", B("lab/orders"), { requestKey: requestKey(), locationId: clinic.locationId, contactId: onWorklist.contact_id, testIds: [hb.id, sugar.id] }, 201);
+    for (const sample of order.samples) {
+      await owner("POST", B(`lab/samples/${sample.id}`), { action: "collect" });
+      await owner("POST", B(`lab/samples/${sample.id}`), { action: "receive" });
+    }
+    const billedLater = await owner("POST", B("clinic/patients"), { ...CLINIC_LAB.billedLater, consent }, 201);
+    for (const drug of CLINIC_LAB.drugs) await owner("POST", B("clinic/drugs"), drug, 201);
+    const { allergies, ...person } = CLINIC_LAB.allergic;
+    const allergic = await owner("POST", B("clinic/patients"), { ...person, consent }, 201);
+    await owner("PUT", B(`clinic/patients/${allergic.contact_id}/clinical`), { allergies });
+    const visit = await owner("POST", B("clinic/visits"), { contactId: allergic.contact_id, resourceId: clinic.doctor.resourceId }, 201);
+    clinic.lab = { sugar: { id: sugar.id, code: sugar.code }, worklistOrder: { id: order.id, orderNo: order.order_no }, billedLater: { contactId: billedLater.contact_id },
+      allergicVisit: { id: visit.id, visitNo: visit.visit_no } };
   }
 
   // The logins nothing above signed in as choose their own password now, so

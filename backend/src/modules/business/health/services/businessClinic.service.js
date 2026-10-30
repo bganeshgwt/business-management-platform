@@ -5,6 +5,8 @@ const core = require('../../core/services/business.service');
 const paymentMethods = require('../../core/services/businessPaymentMethods.service');
 const consents = require('../../../personal-data/services/consents');
 const h = require('./healthCommon');
+const drugs = require('./businessClinicDrugs.service');
+const labBilling = require('./businessLabBilling.service');
 
 // Clinic: patients, consent and consultations.
 //
@@ -289,17 +291,16 @@ async function openVisit(business, user, body) {
   });
 }
 
-function readItems(value) {
-  const items = v.requiredArray(value, 'Prescription');
-  if (items.length > 30) fail('A prescription has at most 30 medicines');
-  return items.map((item, index) => ({
-    drugName: v.requiredString(item?.drugName, `Medicine ${index + 1}`, 150), strength: text(item.strength, 'Strength', 60), dose: text(item.dose, 'Dose', 60),
-    frequency: text(item.frequency, 'How often', 60), duration: text(item.duration, 'For how long', 60), instructions: text(item.instructions, 'Instructions', 200),
-  }));
-}
+// The stored prescription, as the check reads a prescription sent.
+const storedItems = (rows) => rows.map((row) => ({ drugId: row.drug_id, drugName: row.drug_name, strength: row.strength, dose: row.dose, frequency: row.frequency,
+  duration: row.duration, instructions: row.instructions, reasons: Object.fromEntries((row.warnings || []).map((w) => [w.kind, w.reason])) }));
 
 // Saves the consultation (vitals, notes, diagnosis, prescription, follow-up);
-// `complete: true` closes it and marks its appointment completed.
+// `complete: true` closes it and marks its appointment completed. Each
+// prescription line is checked against the clinic's drug list and the
+// patient's allergies (businessClinicDrugs): a warning without the doctor's
+// reason stops the save (409 prescription_warnings), and completing checks
+// the prescription again as it stands.
 async function saveVisit(business, user, visitId, body) {
   requireClinic(business);
   await access.require(business, 'patients.edit_clinical');
@@ -345,17 +346,24 @@ async function saveVisit(business, user, visitId, body) {
       await db.query(`UPDATE health_visits SET ${keys.map((k, i) => `${k}=$${i + 3}`).join(',')},updated_by=$${keys.length + 3},updated_at=now() WHERE business_id=$1 AND id=$2`,
         [business.id, visit.id, ...keys.map((k) => sets[k]), user.id]);
     }
+    let warned = [];
     if (body.prescription !== undefined) {
-      const items = readItems(body.prescription);
+      const lines = await drugs.prepare(db, business, visit.contact_id, drugs.readItems(body.prescription));
+      drugs.requireAnswers(lines);
       await db.query('DELETE FROM health_prescription_items WHERE business_id=$1 AND visit_id=$2', [business.id, visit.id]);
-      for (const [index, item] of items.entries()) {
-        await db.query(`INSERT INTO health_prescription_items(business_id,visit_id,drug_name,strength,dose,frequency,duration,instructions,sort_order) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-          [business.id, visit.id, item.drugName, item.strength, item.dose, item.frequency, item.duration, item.instructions, index]);
+      for (const [index, item] of lines.entries()) {
+        await db.query(`INSERT INTO health_prescription_items(business_id,visit_id,drug_name,strength,dose,frequency,duration,instructions,sort_order,drug_id,warnings)
+          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, [business.id, visit.id, item.drugName, item.strength, item.dose, item.frequency, item.duration, item.instructions, index,
+          item.drugId, JSON.stringify(item.warnings)]);
       }
+      warned = lines.flatMap((line) => line.warnings.map((w) => ({ drug: line.drugName, kind: w.kind })));
     }
     if (body.complete === true) {
       const now = await repo.one(db, 'SELECT * FROM health_visits WHERE business_id=$1 AND id=$2', [business.id, visit.id]);
       if (!now.complaints && !now.diagnosis) fail('Write the complaints or the diagnosis before completing the consultation');
+      // The prescription as it stands, checked again (an allergy recorded since).
+      const stored = await repo.all(db, 'SELECT * FROM health_prescription_items WHERE business_id=$1 AND visit_id=$2 ORDER BY sort_order,id', [business.id, visit.id]);
+      if (stored.length) drugs.requireAnswers(await drugs.prepare(db, business, visit.contact_id, storedItems(stored)));
       await db.query("UPDATE health_visits SET status='completed',completed_by=$3,completed_at=now(),updated_at=now() WHERE business_id=$1 AND id=$2", [business.id, visit.id, user.id]);
       await db.query("UPDATE health_tokens SET status='done',done_at=now() WHERE business_id=$1 AND visit_id=$2 AND status IN ('waiting','called','in_consultation','skipped')", [business.id, visit.id]);
       if (visit.appointment_id) {
@@ -367,7 +375,8 @@ async function saveVisit(business, user, visitId, body) {
       }
       await repo.event(db, business.id, user.id, 'visit.completed', 'visit', visit.id, { contactId: visit.contact_id, followUpOn: now.follow_up_on });
     }
-    await repo.audit(db, business.id, user.id, body.complete === true ? 'visit.completed' : 'visit.updated', visit.id, { visitNo: visit.visit_no, fields: keys, prescription: body.prescription !== undefined });
+    await repo.audit(db, business.id, user.id, body.complete === true ? 'visit.completed' : 'visit.updated', visit.id, { visitNo: visit.visit_no, fields: keys, prescription: body.prescription !== undefined,
+      ...(warned.length ? { warnings: warned } : {}) });
     return repo.one(db, 'SELECT * FROM health_visits WHERE business_id=$1 AND id=$2', [business.id, visit.id]);
   });
 }
@@ -402,17 +411,22 @@ async function visit(business, visitId) {
     WHERE v.business_id=$1 AND v.id=$2`, [business.id, id(visitId, 'Visit')]);
   if (!row) fail('Visit not found', 404);
   const orders = business.modules.includes('lab') ? await repo.all(repo.pool, `SELECT id,order_no,status,approved_at FROM lab_orders WHERE business_id=$1 AND visit_id=$2 ORDER BY id`, [business.id, row.id]) : [];
+  // Each order's billing, and the tests still to bill (for the visit's bill).
+  const billing = orders.length ? await labBilling.visitBilling(repo.pool, business, row.id) : { byOrder: {}, toBill: [] };
   const age = h.ageOn({ date_of_birth: row.date_of_birth, age_years: row.age_years, created_at: row.registered_at }, String(new Date(row.created_at).toISOString()).slice(0, 10)).years;
   const front = {
     id: row.id, visit_no: row.visit_no, contact_id: row.contact_id, patient_name: row.patient_name, patient_phone: row.patient_phone, patient_no: row.patient_no, sex: row.sex, age,
     appointment_id: row.appointment_id, appointment_at: row.appointment_at, resource_id: row.resource_id, doctor_name: row.doctor_name, status: row.status,
     created_at: row.created_at, completed_at: row.completed_at, follow_up_on: row.follow_up_on, document_id: row.document_id, document_no: row.document_no, bill_total: row.bill_total,
-    lab_orders: orders, lab_status: !orders.filter((o) => o.status !== 'cancelled').length ? 'none' : orders.every((o) => ['approved', 'cancelled'].includes(o.status)) ? 'ready' : 'pending',
+    lab_orders: orders.map((o) => ({ ...o, billing: billing.byOrder[String(o.id)]?.state || 'none', bill_nos: (billing.byOrder[String(o.id)]?.bills || []).map((b) => b.document_no) })),
+    lab_status: !orders.filter((o) => o.status !== 'cancelled').length ? 'none' : orders.every((o) => ['approved', 'cancelled'].includes(o.status)) ? 'ready' : 'pending',
+    lab_to_bill: billing.toBill.map(({ order_id, order_no, kind, code, label, price, order_test_ids }) => ({ order_id, order_no, kind, code, label, price, order_test_ids })),
     clinical_access: canClinical(business),
   };
   if (!canClinical(business)) return front;
   const [items, notes, results] = await Promise.all([
-    repo.all(repo.pool, 'SELECT * FROM health_prescription_items WHERE business_id=$1 AND visit_id=$2 ORDER BY sort_order,id', [business.id, row.id]),
+    repo.all(repo.pool, `SELECT i.*,(i.drug_id IS NOT NULL) AS on_list,d.form,d.route,d.allergy_group FROM health_prescription_items i
+      LEFT JOIN health_clinic_drugs d ON d.business_id=i.business_id AND d.id=i.drug_id WHERE i.business_id=$1 AND i.visit_id=$2 ORDER BY i.sort_order,i.id`, [business.id, row.id]),
     repo.all(repo.pool, 'SELECT n.*,u.name AS created_by_name FROM health_visit_notes n JOIN users u ON u.id=n.created_by WHERE n.business_id=$1 AND n.visit_id=$2 ORDER BY n.id', [business.id, row.id]),
     orders.length ? repo.all(repo.pool, `SELECT o.order_no,o.status,t.name AS test_name,pm.name AS parameter,r.value_numeric,r.value_text,r.unit,r.range_text,r.flag FROM lab_results r
       JOIN lab_orders o ON o.business_id=r.business_id AND o.id=r.order_id JOIN lab_order_tests ot ON ot.business_id=r.business_id AND ot.id=r.order_test_id
@@ -431,11 +445,17 @@ async function visit(business, visitId) {
 // sale; the visit keeps the bill. The consultation is the doctor's fee (or the
 // follow-up fee, or free, within the follow-up days), else the booked service.
 // A free follow-up with nothing else to bill is recorded without a bill.
+// `labTests`: tests ordered for this visit still to bill (their ids; a
+// profile's test brings its profile), added to the same bill at their prices,
+// each linked to its line (businessLabBilling).
 async function billVisit(business, user, visitId, body) {
   requireClinic(business);
   await access.require(business, 'sales.create');
   const key = body.documentId ? null : h.requestKey(body.requestKey);
   const extra = body.lines === undefined ? [] : v.requiredArray(body.lines, 'Lines');
+  const labTests = body.labTests === undefined || body.documentId ? [] : [...new Set(v.requiredArray(body.labTests, 'Tests').map((t) => id(t, 'Test')))];
+  if (labTests.length > 40) fail('Choose up to 40 tests');
+  if (labTests.length && !business.modules.includes('lab')) fail('Laboratory is not switched on for this business. An owner can turn it on in Settings › Business tools.', 403);
   let paidNow = null;
   if (body.payment) {
     await access.require(business, 'sales.edit');
@@ -473,6 +493,12 @@ async function billVisit(business, user, visitId, body) {
       lines.push({ skuId: a.sku_id, quantity: '1' });
     }
     for (const line of extra) lines.push({ skuId: id(line?.skuId, 'Item'), quantity: String(line.quantity ?? '1') });
+    // The visit's ordered tests on the same bill: each as its own line, never also as an extra line.
+    const units = labTests.length ? await labBilling.unitsForVisit(db, business, visitRow, labTests) : [];
+    if (units.some((unit) => lines.some((line) => String(line.skuId) === String(unit.sku_id)))) {
+      fail('A test ordered for this visit is billed as that test: tick it under Tests, not as a line of its own', 409);
+    }
+    for (const unit of units) lines.push({ skuId: Number(unit.sku_id), quantity: '1' });
     if (!lines.length && fee?.kind === 'free_follow_up') {
       await db.query("UPDATE health_visits SET fee_kind='free_follow_up' WHERE business_id=$1 AND id=$2", [business.id, visitRow.id]);
       await repo.audit(db, business.id, user.id, 'visit.free_follow_up', visitRow.id, { visitNo: visitRow.visit_no, after: fee.last_consultation?.visit_no });
@@ -483,7 +509,9 @@ async function billVisit(business, user, visitId, body) {
     const document = await core.postDocument(db, business, user, input, { kind: 'sale', requestKey: key, hash: h.hashOf({ visitId: visitRow.id, ...input }), lines, paidNow });
     // The time stamp alone is written by the database (a completed visit is otherwise fixed).
     await db.query('UPDATE health_visits SET document_id=$3,fee_kind=$4,fee_sku_id=$5 WHERE business_id=$1 AND id=$2', [business.id, visitRow.id, document.id, fee?.kind || null, fee?.skuId || null]);
-    await repo.audit(db, business.id, user.id, 'visit.billed', visitRow.id, { visitNo: visitRow.visit_no, documentNo: document.document_no, fee: fee?.kind || null });
+    await labBilling.linkVisitBill(db, business, user, document, units);
+    await repo.audit(db, business.id, user.id, 'visit.billed', visitRow.id, { visitNo: visitRow.visit_no, documentNo: document.document_no, fee: fee?.kind || null,
+      ...(units.length ? { tests: units.map((unit) => unit.code) } : {}) });
     return { visit: { ...visitRow, document_id: document.id, fee_kind: fee?.kind || null }, document, fee };
   });
 }

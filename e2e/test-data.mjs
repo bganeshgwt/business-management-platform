@@ -608,3 +608,26 @@ export const CSV_IMPORT = {
     owes: "₹1,500.00",
   },
 };
+
+// The clinic's lab by department, its ordered tests billed later and its drug
+// list (clinic-lab-more.spec.js), with CLINIC's haemoglobin test, doctor and
+// lab technician: the haemoglobin in Haematology and a fasting sugar test in
+// Biochemistry, the LAB_TECH working in Haematology, an order of both for a
+// patient with its samples in the lab (on the worklist by department), a
+// patient whose test the front desk orders without billing and bills from
+// the order, the clinic's drug list, and a patient allergic to penicillin
+// with a visit open with the doctor, who prescribes amoxicillin with a reason.
+export const CLINIC_LAB = {
+  sugar: { code: "FBS", name: "Fasting blood sugar", service: "Fasting sugar test", price: 80, unit: "mg/dL", low: 70, high: 100 },
+  worklistPatient: { name: "Gopal Rao", phone: "9000012001", sex: "male", ageYears: 61 },
+  billedLater: { name: "Sunita Rao", phone: "9000012003", sex: "female", ageYears: 33 },
+  drugs: [
+    { genericName: "Amoxicillin", brandNames: "Mox, Novamox", strength: "500 mg", form: "Capsule", route: "Oral", usualDose: "1 cap", usualFrequency: "TDS",
+      maxDailyAmount: 3000, maxDailyUnit: "mg", allergyGroup: "Penicillins" },
+    { genericName: "Paracetamol", brandNames: "Dolo, Calpol", strength: "650 mg", form: "Tablet", route: "Oral", usualDose: "1 tab", usualFrequency: "1-1-1",
+      maxDailyAmount: 4000, maxDailyUnit: "mg" },
+  ],
+  allergic: { name: "Farida Begum", phone: "9000012002", sex: "female", ageYears: 44, allergies: "Penicillin (rash)" },
+  reason: "Took amoxicillin last year with no reaction; watched for 30 minutes",
+  byHand: "Cough syrup",
+};
