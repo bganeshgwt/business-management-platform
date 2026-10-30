@@ -223,4 +223,4 @@ async function resetStaffPassword(business, user, staffId, body) {
   });
 }
 
-module.exports = { readCurrency, readTimezone, platformList, platformCreate, platformSetStatus, platformResetOwnerPassword, ownerCreate, createStaffAccount, resetStaffPassword };
+module.exports = { readCurrency, readTimezone, platformList, platformCreate, platformSetStatus, platformResetOwnerPassword, ownerCreate, createStaffAccount, resetStaffPassword, createBusiness };

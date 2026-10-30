@@ -130,6 +130,7 @@ async function update(user, body = {}) {
     await db.query(`INSERT INTO platform_audit(actor_id,action,entity_type,details) VALUES($1,'platform.prices_updated','price_list',$2)`,
       [user.id, JSON.stringify({ plans: plans.map((p) => p.code), prices: prices.map((p) => p.code) })]);
   });
+  require('./site.service').forgetSiteCache();
   return all();
 }
 

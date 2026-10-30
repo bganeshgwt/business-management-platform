@@ -116,7 +116,7 @@ async function update(user, body = {}) {
     await db.query(`INSERT INTO platform_audit(actor_id,action,entity_type,entity_id,details) VALUES($1,'platform.settings_updated','platform_settings',1,$2)`,
       [user.id, JSON.stringify({ changed })]);
     return row;
-  });
+  }).finally(() => require('./site.service').forgetSiteCache());
 }
 
 // The settings as the console shows them, with what still stops invoicing.

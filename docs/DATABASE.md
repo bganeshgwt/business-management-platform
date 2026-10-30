@@ -4915,7 +4915,7 @@ Rules: a number is unique for its supplier GSTIN, ignoring case (`platform_invoi
 Added by: paid-plans.
 
 #### `platform_leads`
-Purpose: someone who showed interest: a call-back enquiry (`source` enquiry) or a sign-up (`signup`).
+Purpose: someone who showed interest: a call-back enquiry (`source` enquiry) or a sign-up (`signup`). The public site writes them (`backend/src/modules/platform/services/site.service.js`): a sign-up gives its business to the latest enquiry with the same mobile or email that has none yet, or makes a lead of its own.
 Key columns: `source`, `name`, `mobile`, `email` (one of the two at least), `business_name`, `business_type` -> `business_types`, `city`, `state_code`, `message`, `ref` (the `ref` or `utm_source` of the link the person came from), `status` (`new`, `contacted`, `not_interested`), `business_id` (unique -> `businesses`: the business the person signed up) with `signed_up_at`, `consent_at`, `created_at`, `updated_at`, `updated_by`.
 Rules: indexes on `mobile`, `lower(email)` and `created_at`.
 Added by: paid-plans.

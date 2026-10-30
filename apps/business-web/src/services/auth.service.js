@@ -44,7 +44,7 @@ const readDevices = () => {
 
 export const deviceTokens = () => Object.values(readDevices()).filter((token) => typeof token === "string");
 
-const rememberDevice = (userId, token) => {
+export const rememberDevice = (userId, token) => {
   if (!userId || !token) {
     return;
   }

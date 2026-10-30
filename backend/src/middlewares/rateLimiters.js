@@ -69,8 +69,26 @@ const pinLimiter = rateLimit({
   },
 });
 
+// The public site's forms: signing up and asking to be called back. Anyone
+// can send them, so every one sent counts, refused or not, and each form has
+// its own count. Five an hour from one address keeps a script from flooding
+// the platform with logins and leads; SITE_FORM_LIMIT changes it.
+const siteFormLimiter = rateLimit({
+  ...shared,
+  keyGenerator: (req) => `${req.baseUrl}${req.path}:${ipKeyGenerator(clientIp(req))}`,
+  windowMs: 60 * 60 * 1000,
+  limit: config.siteFormsPerHour,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many forms sent from this network in the last hour. Please try again later.",
+  },
+});
+
 module.exports = {
   loginLimiter,
   passwordChangeLimiter,
   pinLimiter,
+  siteFormLimiter,
 };

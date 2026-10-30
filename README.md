@@ -140,8 +140,9 @@ the task categories. No restaurant, business or login exists yet.
 
 ### 3. The first login
 
-There is no sign-up page. The first login is the platform's **Super Admin**,
-made in the terminal by `backend/scripts/create-user.js`.
+The first login is the platform's **Super Admin**, made in the terminal by
+`backend/scripts/create-user.js`. The public site's sign-up (`/signup`) makes
+owners and their businesses, never the platform's own login.
 
 1. Run `npm --prefix backend run user:create` and leave the restaurant code
    empty. Then give a name, an email, a mobile (optional) and a password of 8

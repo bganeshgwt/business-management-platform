@@ -701,3 +701,13 @@ export const DASHBOARDS = {
   },
   gstin: "29AAECE2026E1Z0",
 };
+
+// The platform's public site (site.spec.js): a new owner signing up their
+// grocery shop on its type's default plan with one add-on, into a free trial;
+// and a visitor asking to be called back. The password is made by the spec.
+export const SITE_SIGNUP = {
+  owner: { name: "Kavya Reddy", mobile: "98491 22334", email: "kavya@site-signup.e2e.invalid" },
+  business: { name: "Kavya Fresh Mart", type: "grocery", city: "Warangal", state: "Telangana" },
+  addon: "loyalty",
+  callBack: { name: "Suresh Babu", mobile: "98491 55667", city: "Nizamabad" },
+};

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import useAuth from "../../../hooks/useAuth";
 import useShake from "../../../hooks/useShake";
 import { getErrorMessage } from "../../../services/api";
@@ -320,6 +320,13 @@ export default function LoginPage() {
               {submitting && <span className="spinner spinner-inverse" aria-hidden="true" />}
               {submitting ? "Signing in…" : "Sign in"}
             </button>
+
+            {/* The platform's public site: signing up a business, and what the platform is. */}
+            <p className="muted small">
+              New here? <Link to="/signup">Start a free trial</Link>
+              {" · "}
+              <Link to="/welcome">About the platform</Link>
+            </p>
 
             <p className="login-help">
               <Icon name="info" size={15} />

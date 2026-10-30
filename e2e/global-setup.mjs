@@ -244,6 +244,9 @@ async function startApi(run) {
       // lock the shared logins out.
       LOGIN_ATTEMPT_LIMIT: "5000",
       ACCOUNT_LOCK_ATTEMPTS: "50",
+      // The public site's forms (signing up, a call back) take more than five
+      // an hour from the run's one address.
+      SITE_FORM_LIMIT: "5000",
       // Logged, never refused: a hold-and-wait the tests happen to reach shows in the API's log.
       DB_POOL_GUARD: "warn",
     },

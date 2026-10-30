@@ -293,6 +293,10 @@ module.exports = {
   // stopped by the per-account lockout below, so this can afford to be
   // generous; an automated test run sets it far higher.
   loginAttemptsPerQuarterHour: intFrom("LOGIN_ATTEMPT_LIMIT", 30, { min: 1 }),
+  // How many times one internet address may send each of the public site's
+  // forms (signing up, asking to be called back) in an hour; an automated test
+  // run sets it far higher.
+  siteFormsPerHour: intFrom("SITE_FORM_LIMIT", 5, { min: 1 }),
   // Per-account lockout: this many wrong passwords (or wrong PINs) inside
   // lockWindowMinutes locks that one account (or PIN) for lockMinutes.
   accountLock: {

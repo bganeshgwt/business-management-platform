@@ -348,6 +348,36 @@ For every business and the restaurant. A business pays per business for a plan o
 - **Why:** a call before the end keeps a business paying; an old unpaid order is a sale lost, or a payment the owner never entered.
 - **Change it:** nothing to set.
 
+### Signing up starts a business set up as its owner chose
+
+- **Rule:** on the public site's sign-up an owner registers their login and one business, chooses its plan (the type's default to start with), month or year, and add-ons, and is signed in at once, with the password they chose as their own. The business is made as the platform makes one (a restaurant as Platform › Restaurants makes it, the owner its admin, then its format) and starts its trial (with 0 trial days, read-only until it pays). Its plan's modules and the chosen add-ons are switched on and every other module its type starts with is switched off, each switch after the ones it needs; for a café, bakery or cloud kitchen, a module its format switches off stays off unless the owner chose it as an add-on. The choice is kept as the selection for the first order. Everything is checked before anything is made. The business's code is the first words of its name and four digits.
+- **Why:** an owner starts on their own, without a call; the business shows what they will pay for, so nothing they did not choose goes away when the trial ends, and a café still starts as a café.
+- **Change it:** the plans, add-ons and whether owners may add each, in the platform's price list; the trial days.
+
+### A restaurant needs a login of its own
+
+- **Rule:** a sign-up whose email or mobile number already has a login is refused: "That email already has a login. Sign in instead." (or the mobile's sentence); an owner with a login adds a business from *Your businesses › Add a business*. For a restaurant: "A restaurant needs a login of its own. Use another email and mobile number, or contact us." A mobile number is matched as sign-in reads it, by its last ten digits.
+- **Why:** a restaurant's logins belong to that restaurant alone, and its screens rely on that; one sign-in across a restaurant and other businesses is a separate, larger change.
+- **Change it:** nothing to set.
+
+### The public forms keep scripts out
+
+- **Rule:** both public forms (signing up, asking to be called back) carry a field people never see; a form with anything in it is refused, "This form could not be sent. Please try again.", and nothing is made. Each form is taken five times an hour from one network address, counting every one sent, refused or not; the next is refused for the rest of the hour. A sign-up needs the terms of service and the privacy policy accepted; a call back needs the visitor's agreement to be contacted about the platform at that number and email, kept with its time.
+- **Why:** an open form invites scripts that make logins and leads; the agreement is the reason the platform may call (DPDP Act 2023).
+- **Change it:** `SITE_FORM_LIMIT` in the API's settings (5 at first); behind a proxy, `TRUST_PROXY`, so each visitor's own address is counted.
+
+### A sign-up joins the lead of its call-back request
+
+- **Rule:** a sign-up whose mobile number or email matches a request to be called back that has no business yet (the latest one) gives that lead its business: the lead keeps its source (`enquiry`) and its link's ref, and takes the details it lacked. Otherwise the sign-up makes a lead of its own (source `signup`). The `ref` or `utm_source` of the link that brought the visitor is kept for their visit and saved on the lead, lower case. A business the platform's team makes is not a lead.
+- **Why:** the trial funnel counts a person once, from their first interest to their trial, and shows which links bring owners.
+- **Change it:** nothing to set.
+
+### The policies state what the platform does, with today's figures
+
+- **Rule:** the terms of service, the privacy policy and refunds, cancellation and service delivery say what the platform really does: the trial, payment by reference until online payment, access from the confirmed payment, no refund of a paid period, grace and then read-only with the records kept and export always open, the platform as the processor of a business's customers' data, and the grievance officer. Their trial days, grace days and GST rate are the settings in force, and the company is named from its details ("the platform company" until its legal name is entered).
+- **Why:** what an owner agrees to must match what the platform does, and a figure written into the words would go stale when the settings change.
+- **Change it:** the platform's settings; the words in `apps/business-web/src/modules/site/sitePolicies.js`, which a lawyer reads before the first payment ([GO_LIVE.md](GO_LIVE.md#the-public-site)).
+
 ## Shops and the shared core
 
 These rules apply to every business type but the restaurant. The goods rules apply to the shops that sell goods: grocery and kirana, supermarket, books & stationery, pharmacy, fashion, electronics, meat and other weight-based shops, general stores, hardware and building materials, seeds and fertilisers, optical shops, garages and auto parts, jewellers and fuel stations.

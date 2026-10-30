@@ -85,6 +85,9 @@ A request is allowed only when **both** hold: the business has the module switch
 | **Order** | What a business is asked to pay: its plan and add-ons for a month or a year, or add-ons for the rest of its paid period, with GST. Its prices hold for 7 days. | `platform_orders`, `platform_order_lines` |
 | **Sample GSTIN, sample invoice** | The GSTIN the company's invoices carry until the real one is entered (22AAAAA0000A1ZC), and an invoice issued under it: numbered in its own SAMPLE series and printed "SAMPLE — NOT A TAX INVOICE". | `platform_settings.gstin`; `platform_invoices.sample` |
 | **Lead** | Someone who showed interest in the platform: a call-back enquiry from the home page, or a sign-up. | `platform_leads` |
+| **Public site** | The platform's own pages for visitors, with no sign-in: its home page, pricing, the sign-up, its policies and its contact page. | `/welcome`, `/pricing`, `/signup`, `/terms`, `/privacy-policy`, `/refunds`, `/contact`; `/api/site` |
+| **Sign-up** | An owner registering their own login and one business on the public site, into its free trial, signed in at once. | `POST /api/site/signup` |
+| **Call-back request** | A visitor's request, from the home page or *Contact us*, to be called about the platform: a lead whose source is an enquiry. | `POST /api/site/enquiries`; `platform_leads.source` |
 
 Table names follow fixed prefixes (`platform_`, `business_`, `catalog_` and each type's own). [BUSINESS_PLATFORM_DATA_MODEL.md › Table names](BUSINESS_PLATFORM_DATA_MODEL.md#table-names) sets them out.
 

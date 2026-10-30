@@ -81,11 +81,11 @@ PostgreSQL database holds every business. Each business sees only its own
 data and only the parts (modules) it has switched on. One person can belong
 to several businesses, with a different role in each.
 
-There is no sign-up page, and the database holds no businesses until someone
-creates them. The first login is a platform Super Admin, made with
-`npm --prefix backend run user:create`
-([README › The first login](../README.md#3-the-first-login)). It creates
-restaurants and businesses in the platform console, and their owners add
+The database holds no businesses until someone creates them: an owner
+signing up on the platform's public site (`/signup`, `/api/site`), or the
+platform's Super Admin in its console. The first login is that Super Admin,
+made with `npm --prefix backend run user:create`
+([README › The first login](../README.md#3-the-first-login)). Owners add
 everything else. On an empty database the migrations create only what every
 business shares: the business types, the module and permission catalogues,
 the role templates and system roles, and the task categories.

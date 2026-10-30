@@ -21,6 +21,8 @@ export { ACCESS_RULES } from "./test-data.mjs";
 export { SPREADSHEET_IMPORT } from "./test-data.mjs";
 // The platform's dashboards: a lead, a trial that stopped and one that paid (platform-dashboards.spec.js).
 export { DASHBOARDS } from "./test-data.mjs";
+// Signing up and asking for a call back on the platform's public site (site.spec.js).
+export { SITE_SIGNUP } from "./test-data.mjs";
 
 let data = null;
 

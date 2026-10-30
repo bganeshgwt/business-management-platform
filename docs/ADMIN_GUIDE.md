@@ -48,6 +48,7 @@ on record.
   - [GST thresholds across your businesses](#gst-thresholds-across-your-businesses)
 - [Getting around the restaurant admin](#getting-around-the-restaurant-admin)
 - [Lists: the data grid](#lists-the-data-grid)
+- [The platform's public site and signing up](#the-platforms-public-site-and-signing-up)
 
 **[Part 2 — The restaurant](#part-2--the-restaurant)**
 
@@ -399,17 +400,21 @@ Three reports, each with *Export CSV*.
 
 ## Starting a business
 
-A restaurant is created only in **Platform › Restaurants**, and so is a café,
-a bakery or a cloud kitchen, which run on the restaurant. A business of any
-other type (shops, wholesale, fashion, electronics, salon, meat and weight
-shops, pharmacy, clinic, and the trades in [Newer trades](#newer-trades-on-the-shared-core))
-is created in one of two ways:
+A restaurant is created in **Platform › Restaurants**, or by its owner's
+sign-up on the platform's public site, and so is a café, a bakery or a cloud
+kitchen, which run on the restaurant. A business of any other type (shops,
+wholesale, fashion, electronics, salon, meat and weight shops, pharmacy,
+clinic, and the trades in [Newer trades](#newer-trades-on-the-shared-core))
+is created in one of three ways:
 
 - **Platform › Businesses** (the platform's Super Admin), with the owner's
   login, as above.
 - **Your businesses › Add a business** (the owner of a business, or a
   restaurant's admin): the same details without an owner's login; whoever
   adds it becomes its owner.
+- **The public site's sign-up** (`/signup`): a new owner, with a login of
+  their own, into a free trial
+  ([The platform's public site and signing up](#the-platforms-public-site-and-signing-up)).
 
 The type and the code are fixed once the business is created. The rest can
 change later: the business's name and details in Business settings, and its
@@ -801,6 +806,102 @@ everywhere:
   written to the activity log. In other businesses every export needs that
   area's export permission (for example `catalog.export`, `reports.export`).
 - On a phone a list becomes cards.
+
+## The platform's public site and signing up
+
+The platform has a public site of its own, inside the staff app, which needs
+no sign-in: its home page (`/welcome`), *Pricing* (`/pricing`), *Start free
+trial* (`/signup`), the terms of service (`/terms`), the privacy policy
+(`/privacy-policy`), refunds, cancellation and service delivery (`/refunds`)
+and *Contact us* (`/contact`). Someone who opens the app's bare address
+without being signed in lands on the home page, the link's query kept;
+someone whose session has just ended there is asked to sign in again. The
+sign-in page links to the site: *New here? Start a free trial* and *About the
+platform*.
+
+What the pages say comes from the platform's settings and price list, as the
+super admin keeps them in **Platform › Settings**:
+
+- the brand, and the company's name, address, phone, email and website, its
+  support contact and its grievance officer, in the footer, *Contact us* and
+  the policies; until the company's legal name is entered, they say "the
+  platform company";
+- the trial days, the grace days and the GST rate, on every page that names
+  them;
+- each type's plans and add-ons with their prices, on *Pricing* and the
+  sign-up.
+
+A save in Platform › Settings, of the settings or the prices, shows on the
+site at once. How owners pay (the UPI ID and bank account) is never on the
+site: an owner sees it in *Your plan*. Each page has its own title and
+description, for search engines and shared links.
+
+**The home page** says what the platform does for each type of business, in
+the product overview's groups (food, shops, trade, speciality retail,
+building and farm, vehicles and fuel, services, stays, health, weight-based),
+what every business gets, and how pricing works, with the lowest plan's
+monthly price. Its ways in are *Start free trial*, *Sign in* and *Request a
+call back*. A type's name opens its prices.
+
+**Pricing** shows one type at a time (*Your type of business*), monthly or
+yearly: its plans, each with its price before GST, what it includes and what a
+year saves, and the modules and applications that can be added, each with its
+price. *Recommended* marks the add-ons most businesses of the type use. A
+plan's *Start free trial* opens the sign-up with the type, the plan and the
+period filled in.
+
+**Signing up** is one page:
+
+1. *About you*: the owner's name, mobile, email and a password of 8 to 72
+   characters. The owner signs in with the email or the mobile.
+2. *Your business*: its name and type (a restaurant also chooses its format:
+   restaurant, café, bakery or cloud kitchen), its city and state, and its
+   GSTIN if it has one, whose first two digits must be the state's.
+3. *Your plan*: the plan (the type's default to start with), monthly or
+   yearly, and the add-ons. Ticking an add-on ticks what it needs; unticking
+   one unticks what needs it. *What it comes to* sums it up, for example "Free
+   for 14 days, then ₹6,998 + 18% GST a year".
+4. The terms of service and the privacy policy accepted, then *Start free
+   trial*.
+
+The owner is signed in at once, with the password they chose as their own
+(nothing asks them to change it), and lands in the business: a shop, or any
+other type, in its Business Admin; a restaurant on its dashboard. The
+business:
+
+- starts its free trial; with 0 trial days it starts read-only and pays
+  first, in *Your plan*;
+- has its plan's modules and the chosen add-ons switched on, and the other
+  modules its type starts with switched off. A café, bakery or cloud kitchen
+  gets its format's set-up, as from Platform › Restaurants, and a module its
+  format switches off stays off unless the owner chose it as an add-on. During
+  the trial the owner may switch on anything the type has, in Settings ›
+  Business tools (a restaurant's Settings → Features);
+- keeps the plan, the period and the add-ons as its selection for its first
+  order, which the owner changes in *Your plan*;
+- gets its code from the first words of its name and four digits
+  (SRI-LAKSHMI-4821); a restaurant's staff type it beside their staff code.
+
+A sign-up is refused when:
+
+- the email or the mobile number already has a login: "That email already has
+  a login. Sign in instead." Someone who has a login adds a business of their
+  own from **Your businesses › Add a business**;
+- the business is a restaurant and its email or mobile number already has a
+  login: "A restaurant needs a login of its own. Use another email and mobile
+  number, or contact us." A restaurant's logins belong to it alone;
+- one network address has sent the sign-up five times in the last hour (and
+  the same for the call-back form): "Too many forms sent from this network in
+  the last hour. Please try again later."
+
+**Request a call back**, on the home page and *Contact us*: the visitor's name
+and mobile number and, if they give them, their email, type of business, city
+and a message, with the box agreeing to be contacted about the platform at
+that number and email. It answers "Thank you, we will call you." Each request
+is a lead for the platform's team, in **Platform › Leads & trials**; a later
+sign-up with the same mobile number or email joins that lead. The `ref` or
+`utm_source` of the link that brought the visitor (`/welcome?ref=facebook`)
+is kept on the lead as its source, for their whole visit.
 
 ---
 
