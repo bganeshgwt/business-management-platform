@@ -1,3 +1,5 @@
+import { salesBusinessOnDevice } from "../../workspaces/sales/salesDevice.js";
+
 // The screens that open with no network (docs/ARCHITECTURE.md › Offline
 // boot). A reload with no connection opens one of these from this device's
 // copies of the person's profile and business; every other screen says
@@ -30,11 +32,16 @@ export const OFFLINE_SCREENS = [
     open: () => null,
   },
   {
-    // The salesperson app: its beat, orders and collections offline.
+    // The salesperson app: its beat, orders and collections offline, for a
+    // person who opened it on this device before, in the business they used
+    // last (workspaces/sales/salesDevice.js).
     id: "sales",
     pattern: /^\/sales(\/|$)/,
     label: "Salesperson app",
-    open: () => null,
+    open: (user) => {
+      const businessId = salesBusinessOnDevice(user?.id);
+      return businessId ? `/sales/${businessId}` : null;
+    },
   },
 ];
 

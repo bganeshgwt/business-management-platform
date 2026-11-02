@@ -164,7 +164,7 @@ async function summary(business) {
 
 // --- A salesperson's beat sheet ---------------------------------------------------
 
-// The shops on a salesperson's beats for a weekday (today by default): what
+// The shops on a salesperson's beats for a weekday (today by default), in each beat's visit order: what
 // they owe, how late, their last order — to print or open on the phone.
 async function beatSheet(business, salespersonId, query) {
   await access.require(business, 'sales_orders.view');
@@ -185,7 +185,7 @@ async function beatSheet(business, salespersonId, query) {
     JOIN business_contacts c ON c.business_id=cb.business_id AND c.id=cb.contact_id AND c.active
     LEFT JOIN a ON a.contact_id=c.id
     WHERE b.business_id=$1 AND b.salesperson_id=$3 AND b.active AND (b.visit_day=$4 OR b.visit_day IS NULL)
-    ORDER BY b.name,c.name`, [business.id, null, salesperson.id, weekday]);
+    ORDER BY b.name,cb.visit_order NULLS LAST,c.name`, [business.id, null, salesperson.id, weekday]);
   return { salesperson, weekday, shops };
 }
 

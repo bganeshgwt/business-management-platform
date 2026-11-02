@@ -8,15 +8,20 @@ import { getErrorMessage } from "../../../../services/api";
 import { dateShort } from "@bmp/shared/format";
 import { escapeHtml, printDocument } from "../../../../services/print";
 import { toast } from "../../../../services/toast";
+import { confirmAction } from "../../../../services/confirm";
 import FormDialog from "../../core/pages/FormDialog";
 import { ActiveBadge, BusinessHeader, Field, FormError } from "../../core/pages/ui";
 import { useOpenBusiness, useOptions, useServerList } from "../../core/pages/hooks";
 import { Segmented } from "./shared";
 import { DAYS } from "./tradeFormat";
+import "../styles/field-sales.css";
 
 // Field sales set-up: salespeople, delivery routes, the beats on each route
-// (shops visited on one day by one salesperson) and which beat each customer
-// is on. Orders and collections pick up the route and salesperson from it.
+// (shops visited on one day by one salesperson, in their visit order) and
+// which beat each customer is on. Orders and collections pick up the route and
+// salesperson from it. With the salesperson app on, a beat's shops show the
+// place each has saved (the office may clear one), and a salesperson's
+// recorded places can be erased.
 
 const TABS = [
   { value: "beats", label: "Beats" },
@@ -58,6 +63,21 @@ function Salespeople({ edit, onSaved }) {
   const sheet = async (s) => {
     try { printBeatSheet(await businessRead(biz.id, `salespeople/${s.id}/beat-sheet`), biz); } catch (err) { toast.error(getErrorMessage(err)); }
   };
+  // The places a salesperson's phone recorded are their personal data: erased on the business's word.
+  const erasePlaces = biz.has("salesperson_app") && biz.can("privacy.manage");
+  const erase = async (s) => {
+    const sure = await confirmAction({
+      title: `Erase ${s.name}'s recorded places?`,
+      message: <p>Every place their phone recorded (their day&apos;s start and end, each check-in) is blanked for good. Their days and visits stay, with their times, distances from the shops and outcomes.</p>,
+      confirmLabel: "Erase their places",
+      cancelLabel: "Keep them",
+    });
+    if (!sure) return;
+    try {
+      const done = await businessWrite(biz.id, `sales/salespeople/${s.id}/erase-places`, { reason: "Erased on the business's word, from Routes & salespeople" });
+      onSaved(`${s.name}'s places erased: ${done.erased.wholesale_visits} check-ins and ${done.erased.wholesale_salesperson_days} days.`);
+    } catch (err) { toast.error(getErrorMessage(err)); }
+  };
   const columns = useMemo(() => [
     { key: "name", header: "Name", value: (s) => s.name, mobile: "title", pin: true },
     { key: "phone", header: "Phone", value: (s) => s.phone || "", mobile: "subtitle" },
@@ -74,9 +94,10 @@ function Salespeople({ edit, onSaved }) {
       <div className="row-actions">
         <button type="button" className="chip-button" onClick={() => sheet(s)}><Icon name="print" size={13} /> Today's beat</button>
         {edit && <button type="button" className="chip-button" onClick={() => setEditing(s)}>Edit</button>}
+        {erasePlaces && <button type="button" className="chip-button" onClick={() => erase(s)}>Erase places</button>}
       </div>
     ) },
-  ], [edit, biz]); // eslint-disable-line react-hooks/exhaustive-deps
+  ], [edit, biz, erasePlaces]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <>
       <ErrorMessage message={list.error} />
@@ -146,6 +167,7 @@ function Beats({ edit, onSaved }) {
   const list = useServerList("beats", { gridId: "wholesale-beats" });
   const { options, error } = useOptions(["routes?active=true", "salespeople?active=true"]);
   const [editing, setEditing] = useState(null);
+  const [ordering, setOrdering] = useState(null);
   const columns = useMemo(() => [
     { key: "name", header: "Beat", value: (b) => b.name, mobile: "title", pin: true },
     { key: "route", header: "Route", value: (b) => b.route_name, mobile: "subtitle", filter: "select" },
@@ -153,8 +175,13 @@ function Beats({ edit, onSaved }) {
     { key: "salesperson", header: "Salesperson", value: (b) => b.salesperson_name || "", mobile: "show" },
     { key: "customers", header: "Customers", type: "number", value: (b) => b.customer_count },
     { key: "active", header: "Status", type: "status", value: (b) => (b.active ? "active" : "inactive"), render: (b) => <ActiveBadge active={b.active} /> },
-    edit && { key: "actions", header: "", label: "Actions", type: "actions", render: (b) => <button type="button" className="chip-button" onClick={() => setEditing(b)}>Edit</button> },
-  ].filter(Boolean), [edit]);
+    { key: "actions", header: "", label: "Actions", type: "actions", render: (b) => (
+      <div className="row-actions">
+        {b.customer_count > 0 && <button type="button" className="chip-button" onClick={() => setOrdering(b)}>{edit ? "Visit order" : "Shops"}</button>}
+        {edit && <button type="button" className="chip-button" onClick={() => setEditing(b)}>Edit</button>}
+      </div>
+    ) },
+  ], [edit]);
   const routes = options?.["routes?active=true"] || [];
   return (
     <>
@@ -173,7 +200,64 @@ function Beats({ edit, onSaved }) {
           save={(form) => (editing.id ? businessWrite(biz.id, `beats/${editing.id}`, form, "patch") : businessWrite(biz.id, "beats", form))}
           onClose={() => setEditing(null)} onSaved={(b) => { setEditing(null); onSaved(`${b.name} saved.`); list.reload(); }} />
       )}
+      {ordering && <VisitOrder beat={ordering} edit={edit} onClose={() => setOrdering(null)} onSaved={(message) => { setOrdering(null); onSaved(message); }} />}
     </>
+  );
+}
+
+// A beat's shops in the order they are visited (the salesperson app and the
+// printed beat sheet follow it), moved with the arrows; with the app on, the
+// place each shop has saved, which the office may clear (it moved, or was
+// saved in the wrong spot): the next check-in there may save it again.
+function VisitOrder({ beat, edit, onClose, onSaved }) {
+  const biz = useOpenBusiness();
+  const [shops, setShops] = useState(null);
+  const [error, setError] = useState("");
+  const places = biz.has("salesperson_app");
+  const canClear = biz.can("salesperson_app.edit");
+  const load = () => businessRead(biz.id, `sales/beats/${beat.id}/shops`).then((r) => setShops(r.shops)).catch((err) => setError(getErrorMessage(err)));
+  useEffect(() => {
+    load();
+  }, [beat.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const move = (index, by) => setShops((list) => {
+    const next = [...list];
+    const [shop] = next.splice(index, 1);
+    next.splice(Math.max(0, Math.min(next.length, index + by)), 0, shop);
+    return next;
+  });
+  const clear = async (shop) => {
+    try {
+      await businessWrite(biz.id, `sales/places/${shop.id}/clear`, {});
+      toast.success(`${shop.name}'s place cleared`);
+      load();
+    } catch (err) { setError(getErrorMessage(err)); }
+  };
+  return (
+    <FormDialog title={`${beat.name}: visit order`} icon="list" width={620} submitLabel="Save the order" hideSubmit={!edit}
+      description="The salesperson visits the shops in this order; the app and the printed beat sheet list them so."
+      onSubmit={() => businessWrite(biz.id, `sales/beats/${beat.id}/order`, { contactIds: shops.map((x) => x.id) }, "put")}
+      onClose={onClose} onSaved={() => onSaved(`${beat.name}'s visit order saved.`)}>
+      <ErrorMessage message={error} />
+      {!shops ? <p className="muted field-wide">Reading the beat…</p> : (
+        <ol className="bz-visit-order field-wide">
+          {shops.map((shop, i) => (
+            <li key={shop.id}>
+              <span className="bz-visit-order-no">{i + 1}</span>
+              <span className="bz-visit-order-name">
+                <strong>{shop.name}</strong>
+                <small className="muted">{[shop.address, places ? (shop.maps ? `place saved${shop.place_saved_by_name ? ` by ${shop.place_saved_by_name}` : ""}` : "no saved place") : null].filter(Boolean).join(" · ")}</small>
+              </span>
+              <span className="row-actions">
+                {places && shop.maps && <a className="chip-button" href={shop.maps} target="_blank" rel="noopener noreferrer">Map</a>}
+                {places && shop.maps && canClear && <button type="button" className="chip-button" onClick={() => clear(shop)}>Clear place</button>}
+                {edit && <button type="button" className="chip-button" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Move ${shop.name} up`}><Icon name="arrow-up" size={13} /></button>}
+                {edit && <button type="button" className="chip-button" onClick={() => move(i, 1)} disabled={i === shops.length - 1} aria-label={`Move ${shop.name} down`}><Icon name="arrow-down" size={13} /></button>}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </FormDialog>
   );
 }
 

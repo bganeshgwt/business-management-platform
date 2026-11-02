@@ -5,15 +5,16 @@ import BusinessProvider from "../context/BusinessProvider";
 import SectionCard from "../components/SectionCard";
 import { ErrorMessage, ScreenLoading } from "../components/Feedback";
 import { openBusiness } from "../services/business.service";
-import { HEALTH_WORKSPACES, chosenClinic, workspaceClinics } from "../services/healthWorkspaces";
+import { WORKSPACE_APPS, chosenBusiness, workspaceBusinesses } from "../services/workspaceApps";
 import "../styles/access.css";
 import "../styles/business-workspace.css";
 
-// /clinic and /lab with no clinic in the address (a bookmark, a tablet set up
-// on it): the only clinic, or the one this person chose last, opens straight
-// away. Someone who works in several clinics, with none chosen yet or asking
-// for another (?choose), picks one here; the choice is kept (it is the clinic
-// they opened last, as the Business Admin switcher keeps it).
+// /clinic, /lab and /sales with no business in the address (a bookmark, a
+// tablet or a phone set up on it): the only business it opens, or the one
+// this person chose last, opens straight away. Someone who works in several,
+// with none chosen yet or asking for another (?choose), picks one here; the
+// choice is kept (it is the business they opened last, as the Business Admin
+// switcher keeps it).
 export default function WorkspaceStart({ kind }) {
   return (
     <BusinessProvider>
@@ -23,18 +24,19 @@ export default function WorkspaceStart({ kind }) {
 }
 
 function Start({ kind }) {
-  const plan = HEALTH_WORKSPACES[kind];
+  const plan = WORKSPACE_APPS[kind];
+  const words = plan.words;
   const { directory, directoryError, businesses } = useBusiness();
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  if (!directory && !directoryError) return <ScreenLoading label="Opening your clinic…" />;
-  const clinics = workspaceClinics(businesses, kind);
-  const chosen = params.has("choose") ? null : chosenClinic(clinics);
+  if (!directory && !directoryError) return <ScreenLoading label={words.starting} />;
+  const choices = workspaceBusinesses(businesses, kind);
+  const chosen = params.has("choose") ? null : chosenBusiness(choices);
   if (chosen) return <Navigate to={`/${kind}/${chosen.id}`} replace />;
-  const open = (clinic) => {
-    // Remembering is a convenience: a failure must not stop the clinic opening.
-    openBusiness(clinic.id).catch(() => {});
-    navigate(`/${kind}/${clinic.id}`);
+  const open = (business) => {
+    // Remembering is a convenience: a failure must not stop the business opening.
+    openBusiness(business.id).catch(() => {});
+    navigate(`/${kind}/${business.id}`);
   };
   return (
     <div className="app-shell ws-shell">
@@ -43,7 +45,7 @@ function Start({ kind }) {
           <BrandMark size={34} />
           <span className="brand-text">
             <span className="brand-name">{plan.title}</span>
-            <span className="brand-restaurant">Choose the clinic</span>
+            <span className="brand-restaurant">{words.choose}</span>
           </span>
         </span>
         <div className="ws-bar-tools">
@@ -55,14 +57,14 @@ function Start({ kind }) {
           <h1>{plan.title}</h1>
           <p className="muted">{plan.lead}</p>
           <ErrorMessage message={directoryError} />
-          {clinics.length > 0 ? (
-            <SectionCard icon="activity" title="Which clinic?" description="The one you choose opens next time too.">
+          {choices.length > 0 ? (
+            <SectionCard icon={plan.icon} title={words.which} description="The one you choose opens next time too.">
               <ul className="ws-choices">
-                {clinics.map((clinic) => (
-                  <li key={clinic.id}>
-                    <button type="button" className="ws-choice" onClick={() => open(clinic)}>
-                      <strong>{clinic.name}</strong>
-                      <small className="muted">{[clinic.role_name, clinic.last_opened_at ? "chosen last" : null].filter(Boolean).join(" · ")}</small>
+                {choices.map((business) => (
+                  <li key={business.id}>
+                    <button type="button" className="ws-choice" onClick={() => open(business)}>
+                      <strong>{business.name}</strong>
+                      <small className="muted">{[business.role_name, business.last_opened_at ? "chosen last" : null].filter(Boolean).join(" · ")}</small>
                     </button>
                   </li>
                 ))}
@@ -70,8 +72,8 @@ function Start({ kind }) {
             </SectionCard>
           ) : (
             !directoryError && (
-              <SectionCard icon="lock" title="No clinic to open">
-                <p>None of your businesses is a clinic using {kind === "lab" ? "the laboratory" : "patient records"}. A clinic&apos;s owner gives you a role there in Staff &amp; access.</p>
+              <SectionCard icon="lock" title={words.none}>
+                <p>{words.noneText}</p>
               </SectionCard>
             )
           )}

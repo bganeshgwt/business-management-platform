@@ -31,6 +31,8 @@ export { YOUR_PLAN } from "./test-data.mjs";
 export { ONLINE_BOOKING } from "./test-data.mjs";
 // The online shop: a guest's order (online-shop.spec.js) and the staff's board (online-orders.spec.js).
 export { ONLINE_ORDERS, ONLINE_SHOP } from "./test-data.mjs";
+// The wholesaler's salesperson on the salesperson app (salesperson-app.spec.js).
+export { SALES_APP } from "./test-data.mjs";
 
 let data = null;
 

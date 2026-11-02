@@ -1,7 +1,8 @@
 // The clinic's two workspaces, screens of their own outside Business Admin
 // (src/workspaces/clinic, src/workspaces/lab): the front desk and the doctors
 // at /clinic/<clinic>, sample collection and the lab at /lab/<clinic>. The
-// bare /clinic and /lab open the clinic chosen last. Who may open each is the
+// bare /clinic and /lab open the clinic chosen last (services/workspaceApps.js,
+// shared with the other workspaces of a business). Who may open each is the
 // clinic's own roles and permissions, as for the screens they gather.
 //
 // Kept free of React, so the rules can be tested on their own.
@@ -41,18 +42,3 @@ export function healthWorkspacePath(businessId, section) {
     default: return null;
   }
 }
-
-// The clinics a workspace can open for this person: their healthcare
-// businesses with its tool switched on (their role is checked as it opens),
-// the one opened last first.
-export function workspaceClinics(businesses, kind) {
-  const module = HEALTH_WORKSPACES[kind].module;
-  return (businesses || [])
-    .filter((business) => business.business_type === "healthcare" && (business.capabilities || []).includes(module))
-    .sort((a, b) => String(b.last_opened_at || "").localeCompare(String(a.last_opened_at || "")) || String(a.name).localeCompare(String(b.name)));
-}
-
-// The clinic the bare address opens: the only one, or the one chosen last
-// (in a workspace or Business Admin's switcher); null when the person must
-// choose.
-export const chosenClinic = (clinics) => (clinics.length === 1 ? clinics[0] : clinics.find((clinic) => clinic.last_opened_at) || null);

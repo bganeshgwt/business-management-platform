@@ -35,6 +35,8 @@ const access = require('./businessAccess.service');
 //   wholesale overdue  (same overdue query, worded as invoices)
 //   online orders      new online orders waiting for an answer (warning when one is about to be declined by
 //                      itself); complaints a day unacknowledged, past their 48 hours, or near or past their month
+//   field sales        orders from the salesperson app refused on arrival and not yet let through,
+//                      and shops added in the field waiting for approval (wholesale)
 
 const LIMIT = 15;
 // Goods shops call customer credit udhaar and have its screen (businessTypes.js).
@@ -211,6 +213,10 @@ async function feed(business) {
   // The online shop: new orders waiting for an answer, and complaints past a day unacknowledged or near their month.
   if (has('online_shop') && can('online_shop.view')) {
     items.push(...await require('../../shop/services/shopReports.service').bell(business, base));
+  }
+  // The salesperson app (wholesale): orders refused on arrival, and shops from the field waiting for approval.
+  if (has('salesperson_app') && can('salesperson_app.view') && business.business_type === 'wholesale') {
+    items.push(...await require('../../wholesale/services/salespersonAppOffice.service').bell(business, base, LIMIT));
   }
   const counts = { critical: 0, warning: 0, info: 0 };
   for (const item of items) counts[item.severity] += 1;

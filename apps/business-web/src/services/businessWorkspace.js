@@ -12,7 +12,7 @@ export const WORKSPACES = {
   dues: ['udhaar', 'outstanding', 'collections'],
   customers: ['customers', 'loyalty', 'sites', 'fitters', 'prescriptions', 'recall', 'contact-lenses', 'vehicles', 'service-due', 'fuel-fleet', 'laundry-packages'],
   sales: ['sales', 'quotations', 'tinting', 'exchanges', 'warranties', 'pickup-orders', 'custom-orders', 'approvals'],
-  orders: ['sales-orders', 'back-orders', 'dispatch', 'price-groups', 'pricing', 'routes'],
+  orders: ['sales-orders', 'back-orders', 'dispatch', 'price-groups', 'pricing', 'routes', 'field-sales'],
   appointments: ['salon-calendar', 'appointments', 'online-booking'],
   care: ['clinic-today', 'clinic-queue', 'visits', 'appointments', 'doctors', 'clinic-drugs', 'online-booking'],
   patients: ['patients', 'customers'],
@@ -125,6 +125,8 @@ export function dailyWorkspaces(type) {
     // A clinic's two workspaces (screens of their own: /clinic and /lab), then its day in Business Admin.
     type === 'healthcare' ? 'clinic-workspace' : null, type === 'healthcare' ? 'lab-workspace' : null,
     type === 'healthcare' ? 'care' : null,
+    // A wholesaler's salesperson app (a screen of its own: /sales), then its orders.
+    type === 'wholesale' ? 'salesperson-app' : null,
     ['wholesale', 'hardware'].includes(type) ? 'orders' : null,
     ['salon', 'optical', 'garage', 'memberships'].includes(type) ? 'appointments' : null,
     type === 'optical' ? 'spectacles' : null,

@@ -226,6 +226,9 @@ const OnlineBookingPage = lazy(() => import("../../online-booking/pages/OnlineBo
 const OnlineOrdersPage = lazy(() => import("../../shop/pages/OnlineOrdersPage"));
 const OnlineOrderPage = lazy(() => import("../../shop/pages/OnlineOrderPage"));
 const OnlineShopSettingsPage = lazy(() => import("../../shop/pages/OnlineShopSettingsPage"));
+// The salesperson app (wholesale): the office's day of its salespeople, and the app's own page here.
+const FieldSalesPage = lazy(() => import("../../wholesale/pages/FieldSalesPage"));
+const SalespersonAppPage = lazy(() => import("../../wholesale/pages/SalespersonAppPage"));
 
 function Notice({ title, children }) {
   return (
@@ -443,6 +446,8 @@ function screens(type) {
     "online-booking": <OnlineBookingPage />,
     "online-orders": <OnlineOrdersPage />,
     "online-shop": <OnlineShopSettingsPage />,
+    "field-sales": <FieldSalesPage />,
+    "salesperson-app": <SalespersonAppPage />,
   };
 }
 

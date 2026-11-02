@@ -50,7 +50,8 @@ with these differences.
   proxy. Set `TRUST_PROXY` to match (§2), and set the proxy up for live
   updates (below). The staff app needs it for more than safety: browsers
   install an app, run its service worker (opening it with no network) and
-  deliver alerts on a closed phone only from an https address
+  deliver alerts on a closed phone only from an https address, and give a
+  page the phone's place (the salesperson app's check-ins) only there too
   ([ARCHITECTURE › The installable app](ARCHITECTURE.md#36-the-installable-app-working-offline-alerts-on-a-closed-phone)).
 - **Alerts on a closed phone** need the server's own key pair (§2) and the
   server reaching the browsers' push services over https: `fcm.googleapis.com`

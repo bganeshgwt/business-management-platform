@@ -2,10 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { deskDoctors, myCalendar, openTokensOf, queueOf, registrationFrom, waitingCounts } from "../src/workspaces/clinic/clinicDesk.js";
 import { approvalRows, benchCounts, collectionRows, releasedRows, worklistDepartments, worklistIn, worklistRows, worklistTests } from "../src/workspaces/lab/labBench.js";
-import { HEALTH_WORKSPACES, chosenClinic, healthWorkspacePath, workspaceClinics } from "../src/services/healthWorkspaces.js";
+import { HEALTH_WORKSPACES, healthWorkspacePath } from "../src/services/healthWorkspaces.js";
+import { chosenBusiness as chosenClinic, workspaceBusinesses as workspaceClinics } from "../src/services/workspaceApps.js";
 
 // The clinic's and the lab's workspaces: which clinic /clinic and /lab open
-// and where their screens' links lead (services/healthWorkspaces.js); the
+// (services/workspaceApps.js) and where their screens' links lead
+// (services/healthWorkspaces.js); the
 // desk's queue, whose queue is the signed-in doctor's and what a patient at
 // the desk already holds (workspaces/clinic/clinicDesk.js); and the lab's
 // bench: the samples to collect and receive, the worklist by department and

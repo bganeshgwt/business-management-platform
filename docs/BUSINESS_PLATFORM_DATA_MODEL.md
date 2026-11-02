@@ -462,6 +462,11 @@ For `sales_orders`: *create* takes and changes orders, *edit* sets up routes, be
 | `wholesale_schemes` | Buy N (cases or pieces) get M free, and/or a discount %, for a period, for everyone or one group. The free goods may be another item (`free_sku_id`, counted in `free_unit_code`), and `no_slab` stops a scheme stacking on a slab price. |
 | `wholesale_claims` | Claims on suppliers (scheme, damage, expiry, rate difference, shortage, other): open → submitted → settled or rejected. |
 | `wholesale_free_goods_kept` | Free goods that came with paid goods returned and were kept (charged off the credit note at a unit's value with GST at the paid line's rate), or brought back after being kept (given back): one row per credit note and free line, checked by the database against what belongs to the paid goods returned, never changed. |
+| `wholesale_salesperson_days` | The salesperson app: a salesperson's working day (one per salesperson and date), when it started and ended, the phone's place at each while the business records places, and the cash the phone counted at the end. |
+| `wholesale_visits` | A visit to a shop: the check-in (time, the phone's place and accuracy, the distance from the shop's saved place, *far* or *off the beat* with the reason given) and the check-out (an order, or no order with a reason from a fixed list, and a promise to pay). A place is kept only within the salesperson's started day. |
+| `wholesale_field_orders`, `wholesale_field_collections` | An order or a receipt taken in the app: its visit (by the visit's request key, so either may reach the server first), when it was taken, whether with no network, and an order's total as the phone priced it. |
+| `wholesale_field_refusals` | An order from the app refused on arrival (credit hold, credit limit, a new shop's cash only), one row per request key with its tries, until a try goes through; a credit hold's release by credit control. |
+| `wholesale_customer_profiles` (field columns), `wholesale_customer_beats.visit_order`, `wholesale_settings` (`checkin_distance_m`, `record_places`) | A shop's saved place; a shop added in the field (`approval` pending until the office approves it, its salesperson and request key); the order a beat's shops are visited in; the check-in distance (100 m) and whether places are recorded. |
 
 Rules:
 
@@ -474,6 +479,7 @@ Rules:
 - **Changing an order** before it goes: an unchanged line keeps its price; a changed line has its unsent part closed and a new line added at today's price (schemes and credit are checked again); a line left out is closed. What was already sent never changes.
 - **Back-order** = ordered − dispatched − closed, for orders still open or part-dispatched. Closing an order sets `closed_quantity` to what was left (status `closed` if something was sent, `cancelled` if nothing was).
 - **Locks:** business row, then order, then order lines, then stock lots, the same order as every other posting. Repeating a request key returns the first result; the same key with different content is a 409.
+- **The salesperson app** (`salesperson_app`, an application for wholesale needing `sales_orders`; its role template *Salesperson*). Every write is the login's own salesperson's, carries a request key, and goes through the module's own services: an order through `placeOrder` (prices, schemes, free goods, the credit limit and the hold), a receipt through `createCollection` (the cash limit is the database's). What the phone did with no network arrives later, in order: a visit names a shop added on the phone by that shop's request key, and an order or a receipt names its visit by the visit's. Places are personal data of the salesperson, kept only within their day and erased on the business's word (`personalDataRegistry.js` › `STAFF_TABLES`). A shop added in the field has no credit, cash only until approved. Live area `field_sales`.
 - Events: `sales_order.placed`, `sales_order.edited`, `sales_order.line_closed`, `sales_order.dispatched` (with the invoice), `sales_order.closed`, `sales_order.cancelled`, `dispatch.<stage>` and `salesperson.settled`, plus the core `sale.posted` and `payment.recorded`, and `collection.recorded` / `collection.applied` from receivables.
 
 ## Fashion
@@ -1223,6 +1229,8 @@ One model for every business type and the restaurant, keyed on `business_id`, as
 | `business_privacy_breaches` (+ `_people`, `_notices`) | The breach register: when a breach was found, what happened, the impact, the steps taken, the people affected, each notice sent to them with its words, and when the Data Protection Board was told and sent its report. Nothing is filed from here. |
 
 A customer whose data is erased keeps a nameless contact (`business_contacts.erased_at`), so the bills still add up; the copies of their details on other records, closed ones included, are blanked, and the guards of those records let exactly that change through. The guest book's consent to offers (`customers.marketing_opt_in`) is a copy the database keeps of the guest's active consent to offers. The module is `privacy` (always on), with the permissions `privacy.view`, `privacy.manage` and `privacy.export` in both engines. The rules a person meets: [BUSINESS_RULES.md › Personal data](BUSINESS_RULES.md#personal-data); every column: [DATABASE.md › Personal data](DATABASE.md#personal-data).
+
+A member of staff's own data has its place too: the places a salesperson's phone recorded on the salesperson app, erased on the business's word, keeping their days and visits with times, distances and outcomes as the trade record ([Wholesale / FMCG](#wholesale--fmcg)).
 
 ## An owner's GST thresholds
 

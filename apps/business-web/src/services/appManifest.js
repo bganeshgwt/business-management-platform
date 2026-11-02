@@ -6,8 +6,9 @@
 // workspace on screen (hooks/useAppManifest.js), so installing from the
 // captain app installs the captain app.
 //
-// A workspace added later (the salesperson app) adds its entry here, its
-// manifest file and its icons (the tool draws them), and calls the hook.
+// A workspace added later adds its entry here, its manifest file and its
+// icons (the tool draws them), and calls the hook, as the salesperson app
+// (/sales, a wholesaler's field salespeople) does.
 
 export const INSTALLABLE_APPS = {
   staff: { name: "Staff app", install: "Install the staff app", manifest: "/manifests/staff.webmanifest", icon: "/icons/staff-apple-180.png", start: "/" },
@@ -16,6 +17,7 @@ export const INSTALLABLE_APPS = {
   clinic: { name: "Clinic", install: "Install the clinic app", manifest: "/manifests/clinic.webmanifest", icon: "/icons/clinic-apple-180.png", start: "/clinic" },
   lab: { name: "Lab", install: "Install the lab app", manifest: "/manifests/lab.webmanifest", icon: "/icons/lab-apple-180.png", start: "/lab" },
   counter: { name: "Counter", install: "Install the counter app", manifest: "/manifests/counter.webmanifest", icon: "/icons/counter-apple-180.png", start: "/business-admin" },
+  sales: { name: "Sales", install: "Install the salesperson app", manifest: "/manifests/sales.webmanifest", icon: "/icons/sales-apple-180.png", start: "/sales" },
 };
 
 const RULES = [
@@ -24,6 +26,7 @@ const RULES = [
   ["clinic", /^\/clinic(\/|$)/],
   ["lab", /^\/lab(\/|$)/],
   ["counter", /^\/business-admin\/\d+\/counter(\/|$)/],
+  ["sales", /^\/sales(\/|$)/],
 ];
 
 // Which app a screen belongs to: its workspace's, else the staff app.

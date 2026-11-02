@@ -1107,13 +1107,13 @@ Linked sections: [data model §1](BUSINESS_PLATFORM_DATA_MODEL.md#1-platform) an
 Purpose: the permission catalogue. Each row is one `<module>.<action>` pair; the codes are listed under [Business permission codes](#business-permission-codes).
 Key columns: `code` (TEXT PK), `module_code` -> `platform_modules`, `action` (view, create, edit, approve, cancel, refund, export, print, discount, assign, review, manage, view_clinical, edit_clinical), `name`, `sort_order`.
 Rules: UNIQUE (`module_code`, `action`). CHECK `code = module_code || '.' || action`. The action CHECK lists every value, so a migration that adds an action rewrites the whole list.
-Added by: 1791300000001 business-roles-and-permissions; codes also from 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791540000000, 1791580000000, 1791620000000, 1791620001000, 1791620002000, 1791620004000, 1791950400000, 1791961000000, 1791962000000, 1791963000000, 1791964000000, 1791965000000, 1791966000000, 1791967000000, 1791968000000, 1791969000000, 1791970000000, 1791977000000, 1791979050000 and memberships-more (`member_plans.manage`).
+Added by: 1791300000001 business-roles-and-permissions; codes also from 1791400000000, 1791410000000, 1791410000001, 1791420000000, 1791420000001, 1791430000000, 1791430000001, 1791540000000, 1791580000000, 1791620000000, 1791620001000, 1791620002000, 1791620004000, 1791950400000, 1791961000000, 1791962000000, 1791963000000, 1791964000000, 1791965000000, 1791966000000, 1791967000000, 1791968000000, 1791969000000, 1791970000000, 1791977000000, 1791979050000, memberships-more (`member_plans.manage`) and 1791979980000 (`salesperson_app`).
 
 #### `business_role_templates`
-Purpose: the standard roles the platform defines once: owner, manager, cashier, stock_keeper, accountant and viewer for every type, plus pharmacist for a pharmacy, doctor, lab_technician and pathologist for healthcare, optometrist for an optical shop, mechanic for a garage, trainer for a gym, studio or coaching centre, karigar for a jeweller, pump_attendant for a fuel station, and front_desk and housekeeping for a hotel, lodge or guest house.
+Purpose: the standard roles the platform defines once: owner, manager, cashier, stock_keeper, accountant and viewer for every type, plus pharmacist for a pharmacy, doctor, lab_technician and pathologist for healthcare, optometrist for an optical shop, mechanic for a garage, trainer for a gym, studio or coaching centre, karigar for a jeweller, pump_attendant for a fuel station, front_desk and housekeeping for a hotel, lodge or guest house, and salesperson for a wholesaler.
 Key columns: `code` (TEXT PK, same pattern as module codes), `name`, `description`, `full_access`, `sort_order`, `business_types` (TEXT[], the types the template is for; NULL = every type).
 Rules: at most one template has full access (partial unique index `business_role_templates_one_full`). That template is `owner`. `business_seed_roles()` copies only the templates of the business's type.
-Added by: 1791300000001; 1791620004000 (`business_types` and the four type templates); 1791963000000 (`optometrist`); 1791964000000 (`mechanic`); 1791965000000 (`trainer`); 1791967000000 (`karigar`); 1791969000000 (`pump_attendant`); 1791970000000 (`front_desk`, `housekeeping`).
+Added by: 1791300000001; 1791620004000 (`business_types` and the four type templates); 1791963000000 (`optometrist`); 1791964000000 (`mechanic`); 1791965000000 (`trainer`); 1791967000000 (`karigar`); 1791969000000 (`pump_attendant`); 1791970000000 (`front_desk`, `housekeeping`); 1791979980000 (`salesperson`).
 
 #### `business_role_template_permissions`
 Purpose: the permissions each template grants. These rows are copied into every business's own roles.
@@ -1802,10 +1802,10 @@ Key columns: `route_id`, `name` (unique per route, ignoring case), `visit_day` (
 Added by: 1791410000001.
 
 #### `wholesale_customer_beats`
-Purpose: the one beat each customer belongs to.
-Key columns: PK (`business_id`, `contact_id`), `beat_id`.
+Purpose: the one beat each customer belongs to, and where it comes in the beat's visit order.
+Key columns: PK (`business_id`, `contact_id`), `beat_id`, `visit_order` (> 0; NULL: after the numbered shops, by name).
 Rules: trigger `wholesale_customer_beats_customer` (`business_contact_is_customer`) requires the contact to be a customer.
-Added by: 1791410000001.
+Added by: 1791410000001; 1791979980000 salesperson-app (`visit_order`).
 
 #### `wholesale_collection_details`
 Purpose: the salesperson and route on a shared collection.
@@ -1830,9 +1830,9 @@ Added by: 1791580000000.
 
 #### `wholesale_customer_profiles`
 Purpose: a trade customer's details.
-Key columns: PK (`business_id`, `contact_id`), `price_group_id`, `contact_person`, `state_code` (two digits) and `pin_code` (the place of supply when the customer has no GSTIN), `pan`, `fssai`, `trade_type` (trade or walk_in; walk-ins stay out of the order and collection lists), `hold_exempt` (never put on credit hold; changing it needs `receivables.approve`), `updated_by`, `updated_at`.
-Rules: trigger `wholesale_customer_profiles_customer` requires the contact to be a customer.
-Added by: 1791580000000.
+Key columns: PK (`business_id`, `contact_id`), `price_group_id`, `contact_person`, `state_code` (two digits) and `pin_code` (the place of supply when the customer has no GSTIN), `pan`, `fssai`, `trade_type` (trade or walk_in; walk-ins stay out of the order and collection lists), `hold_exempt` (never put on credit hold; changing it needs `receivables.approve`), `updated_by`, `updated_at`; the shop's saved place, set from a check-in when the shop has none and the salesperson saves it, cleared by the office: `latitude`, `longitude` (6 places), `place_accuracy_m`, `place_saved_at`, `place_saved_by`; a shop a salesperson added in the field: `added_by_salesperson_id`, `approval` (pending, approved; NULL for a shop the office added), `approved_by`, `approved_at`, `field_request_key` + `field_request_hash` (the app's request key, so a new shop sent twice is made once).
+Rules: trigger `wholesale_customer_profiles_customer` requires the contact to be a customer. CHECKs `wholesale_customer_profiles_place` (both coordinates or neither, in range), `_field` (a shop from the field has its salesperson, approval and request key), `_approved` (approved ⇔ who and when). Unique partial index `wholesale_customer_profiles_field_key`; partial index `wholesale_customer_profiles_pending`.
+Added by: 1791580000000; 1791979980000 salesperson-app (the place and the shop from the field).
 
 #### `wholesale_price_groups`
 Purpose: customer price groups. A trade customer's group is on `wholesale_customer_profiles`, and a group's dated prices are `wholesale_group_prices`.
@@ -1900,8 +1900,8 @@ Bouncing a cheque, settling a salesperson's cash and letting an order through a 
 
 #### `wholesale_settings`
 Purpose: the credit-control settings, one row per business.
-Key columns: PK `business_id`, `hold_overdue_days` (1–365: hold new orders once a bill is this many days overdue; NULL = off), `bounce_charge` (0–100,000, default 500: the bank's charge put on the customer's account for a bounced cheque, editable on each bounce), `bounce_hold_count` (1–20, default 2: hold new orders after this many bounced cheques in the window; NULL = never), `bounce_hold_days` (7–365, default 90: the window), `updated_by`, `updated_at`.
-Added by: 1791580000000; 1791620003000 (the bounce settings).
+Key columns: PK `business_id`, `hold_overdue_days` (1–365: hold new orders once a bill is this many days overdue; NULL = off), `bounce_charge` (0–100,000, default 500: the bank's charge put on the customer's account for a bounced cheque, editable on each bounce), `bounce_hold_count` (1–20, default 2: hold new orders after this many bounced cheques in the window; NULL = never), `bounce_hold_days` (7–365, default 90: the window), `updated_by`, `updated_at`; the salesperson app's `checkin_distance_m` (20–1,000, default 100: a check-in farther from the shop's saved place needs a reason and is flagged) and `record_places` (default true; off, no place is asked for or kept).
+Added by: 1791580000000; 1791620003000 (the bounce settings); 1791979980000 salesperson-app (the check-in distance, recording places).
 
 #### `wholesale_hold_releases`
 Purpose: an order let through a credit hold: the overdue amount and days, the reason, who released it and who asked.
@@ -1950,6 +1950,45 @@ Key columns: `return_id` (the credit note), `document_id` (the invoice), `order_
 Relations: (`business_id`, `return_id`) -> `business_returns`; (`business_id`, `document_id`) -> `business_documents`; (`business_id`, `order_line_id`) and (`business_id`, `free_line_id`) -> `wholesale_order_lines`.
 Rules: UNIQUE (business, return, free line); index `wholesale_free_goods_kept_document`. Trigger `wholesale_free_goods_kept_check`: the free line is free of the paid line on the credit note's own invoice, and what is kept of it (all its rows) is never below nothing nor more than belongs to the paid goods returned so far (free × paid returned ÷ paid bought, to the thousandth of the free goods' unit) and did not come back. Trigger `wholesale_free_goods_kept_fixed`: never changed or deleted.
 Added by: import-returns-commission.
+
+### The salesperson app
+
+A field salesperson's day on the app (`/sales`), and what the office reads of it. Orders and collections are the module's own (`wholesale_orders`, `business_collections`); these tables add the day, the visits and what links an order or a collection to its visit. 1791979980000 salesperson-app also adds the platform module `salesperson_app` (an application for wholesale, needing `sales_orders`, off by default), its permissions `salesperson_app.view`, `.create`, `.edit`, `.approve`, and the role template `salesperson` (wholesale; `salesperson_app.create`, `sales_orders.view`, `sales_orders.create`, `receivables.create`, `contacts.view`), copied into every wholesaler by `business_seed_roles`; the Manager template gets the four permissions, the Accountant and Viewer `salesperson_app.view`, existing businesses' copies of them too. Its Down half moves anyone holding the Salesperson role to Viewer before the role goes. It also adds the consent channel `field` to `business_consents_channel` and `business_consents_withdrawal_channel` (a shop's consent given or withdrawn in person to a salesperson); its Down half first rewrites such rows as `counter`, the note (or, for a withdrawal, its reason) saying they were given or withdrawn in person to a salesperson at the shop, with the consent's guard waiting meanwhile, then restores the two checks' earlier lists. The three live triggers announce area `field_sales` ([Live updates](#live-updates)).
+
+#### `wholesale_salesperson_days`
+Purpose: a salesperson's working day: when it started and ended, with the place the phone gave at each when the business records places, and the cash the phone counted at the end. Places of the salesperson's visits are kept only within it.
+Key columns: `salesperson_id`, `day` (the business's own date of the start), `started_at`, `start_latitude`, `start_longitude`, `start_accuracy_m`, `ended_at`, `end_latitude`, `end_longitude`, `end_accuracy_m`, `cash_in_hand` (>= 0), `end_note`, `start_offline`, `end_offline`, `start_key` + `start_hash`, `end_key` + `end_hash`, `created_by`.
+Relations: (`business_id`, `salesperson_id`) -> `wholesale_salespeople`.
+Rules: UNIQUE (`business_id`, `salesperson_id`, `day`), (`business_id`, `start_key`); CHECKs: the end not before the start; ended ⇔ its request key and hash; both coordinates or neither, in range; an end place only on an ended day. Index `wholesale_salesperson_days_day`. Trigger `wholesale_salesperson_days_live`.
+Added by: 1791979980000 salesperson-app.
+
+#### `wholesale_visits`
+Purpose: a visit to a shop: the check-in (its time, the phone's place and accuracy, the distance from the shop's saved place, a reason when farther than the business allows or when the shop is not on the salesperson's beat that day) and the check-out with its outcome (an order, or no order with a reason and, when one was promised, a payment date and amount).
+Key columns: `salesperson_id`, `contact_id`, `beat_id` (the shop's beat when it was on one of the salesperson's that day), `day`, `checked_in_at`, `checked_out_at`, `latitude`, `longitude`, `accuracy_m`, `distance_m`, `far`, `far_reason`, `off_beat`, `off_beat_reason`, `place_saved` (this check-in saved the shop's place), `outcome` (order, no_order), `no_order_reason` (shop_closed, owner_away, enough_stock, dues_or_hold, price_or_scheme, other_brand, order_later, other), `note`, `promised_on`, `promised_amount`, `offline` (made with no network, sent later), `request_key` + `request_hash` (the phone's key, also how its order and collection find it), `checkout_key` + `checkout_hash`, `created_by`.
+Relations: (`business_id`, `salesperson_id`) -> `wholesale_salespeople`; (`business_id`, `contact_id`) -> `business_contacts`; (`business_id`, `beat_id`) -> `wholesale_beats`.
+Rules: UNIQUE (`business_id`, `request_key`); CHECKs: both coordinates or neither, in range; the check-out not before the check-in, with its key, hash and outcome; no order ⇔ its reason; the reason "other" has a note; a promised amount has its date; a reason only when far or off the beat. Indexes `wholesale_visits_day`, `wholesale_visits_contact`. Trigger `wholesale_visits_customer` (`business_contact_is_customer`); trigger `wholesale_visits_live`.
+Added by: 1791979980000 salesperson-app.
+
+#### `wholesale_field_orders`
+Purpose: an order taken in the app: the visit it was taken on and the total the phone worked out, so a difference from the server's price is shown, never changed silently.
+Key columns: PK (`business_id`, `order_id`), `salesperson_id`, `visit_key` (the visit's request key: either may reach the server first), `phone_total` (>= 0), `taken_at`, `offline`.
+Relations: (`business_id`, `order_id`) -> `wholesale_orders`; (`business_id`, `salesperson_id`) -> `wholesale_salespeople`.
+Rules: partial index `wholesale_field_orders_visit`.
+Added by: 1791979980000 salesperson-app.
+
+#### `wholesale_field_collections`
+Purpose: a collection taken in the app, and the visit it was taken on.
+Key columns: PK (`business_id`, `collection_id`), `salesperson_id`, `visit_key`, `taken_at`, `offline`.
+Relations: (`business_id`, `collection_id`) -> `business_collections`; (`business_id`, `salesperson_id`) -> `wholesale_salespeople`.
+Rules: partial index `wholesale_field_collections_visit`.
+Added by: 1791979980000 salesperson-app.
+
+#### `wholesale_field_refusals`
+Purpose: an order from the app the server refused on arrival (a credit hold, the credit limit, a new shop's cash only), one row per request key however often it is tried, until a try goes through. The office sees it and may let a held order through; the salesperson's next try with the same key is then placed.
+Key columns: `salesperson_id`, `contact_id`, `visit_key`, `request_key` (the order's own), `reason` (credit_hold, credit_limit, cash_only), `message` (the server's words), `phone_total`, `tries`, `first_at`, `last_at`, `released_by`, `released_at`, `release_reason`, `order_id` (once placed).
+Relations: (`business_id`, `salesperson_id`) -> `wholesale_salespeople`; (`business_id`, `contact_id`) -> `business_contacts`; (`business_id`, `order_id`) -> `wholesale_orders`.
+Rules: UNIQUE (`business_id`, `request_key`); CHECKs: released ⇔ who, when and why; only a credit hold is released. Partial index `wholesale_field_refusals_open`. Trigger `wholesale_field_refusals_customer` (`business_contact_is_customer`); trigger `wholesale_field_refusals_live`.
+Added by: 1791979980000 salesperson-app.
 
 ## Fashion
 
@@ -4726,6 +4765,7 @@ Triggers (all `AFTER … FOR EACH ROW`):
 | `business_issues_live` | `business_issues` | insert, update, delete | `issue` |
 | `jewellery_rate_sheets_live` | `jewellery_rate_sheets` | insert | `jewellery_rates` |
 | `business_online_bookings_live` | `business_online_bookings` | insert, update, delete | `online_booking` |
+| `wholesale_salesperson_days_live`, `wholesale_visits_live`, `wholesale_field_refusals_live` | `wholesale_salesperson_days`, `wholesale_visits`, `wholesale_field_refusals` | insert, update, delete | `field_sales`: a salesperson's day, a visit, an order refused on arrival |
 | `trg_users_live_session` | `users` | update of `token_version`, `status`, `restaurant_id`, `outlet_id` or `password_must_change` (when one changes) | `live_session` `{user}` |
 | `trg_restaurants_live_session` | `restaurants` | update of `status` (when it changes) | `live_session` `{restaurant}` |
 | `businesses_live_session` | `businesses` | update of `status` (when it changes) | `live_session` `{business}` |
@@ -4735,7 +4775,7 @@ Triggers (all `AFTER … FOR EACH ROW`):
 | `shop_orders_live` | `shop_orders` | insert, update, delete | `online_order` (a change to an order's lines raises its `revision`, so the order announces it) |
 | `shop_complaints_live` | `shop_complaints` | insert, update, delete | `online_complaint` |
 
-1791974000000's Down half drops its 34 triggers and 7 functions; 1791976000000's drops the lab's three triggers and `live_lab_order_part()`; clinic-lab-more's drops `lab_order_tests_live`; online-appointments' drops `business_online_bookings_live` with its table; online-shop's drops `shop_orders_live` and `shop_complaints_live`.
+1791974000000's Down half drops its 34 triggers and 7 functions; 1791976000000's drops the lab's three triggers and `live_lab_order_part()`; clinic-lab-more's drops `lab_order_tests_live`; online-appointments' drops `business_online_bookings_live` with its table; online-shop's drops `shop_orders_live` and `shop_complaints_live`; salesperson-app's drops its three.
 
 ## Personal data
 
@@ -4760,10 +4800,10 @@ Added by: 1791977000000.
 
 #### `business_consents`
 Purpose: consent per purpose and per business: given (when, where, how, on which notice version, by whom, recorded by whom) and withdrawn once, with the reason and where. A new consent after a withdrawal is a new row. 1791977000000 made it of the clinic's `health_consents` (1791620004000), whose rows keep their ids, and brought the guest book's consent to offers into it (`customers.marketing_opt_in`: one row per guest who had agreed, channel `import`, given when the guest book says).
-Key columns: `contact_id` or `customer_id`, `purpose` (`bills_digital`, `reminders`, `offers`; a clinic patient's `treatment`, `reports_digital`), `notice_id` (the privacy notice shown) and `notice_version` (`v` and its number; a clinic's own consent notice version for a patient's consents given at its desk), `channel` (`counter`, `guests_site`, `phone`, `import`), `method` (`signed_form`, `verbal`, `digital`), `given_by`, `recorded_by` (NULL on the guests' site, and on a consent brought over when the guest book did not say who), `note`, `created_at`, `withdrawn_at`, `withdrawn_by`, `withdrawal_reason`, `withdrawal_channel`.
+Key columns: `contact_id` or `customer_id`, `purpose` (`bills_digital`, `reminders`, `offers`; a clinic patient's `treatment`, `reports_digital`), `notice_id` (the privacy notice shown) and `notice_version` (`v` and its number; a clinic's own consent notice version for a patient's consents given at its desk), `channel` (`counter`, `guests_site`, `phone`, `import`, `field`: in person to a salesperson at the shop, on the salesperson app), `method` (`signed_form`, `verbal`, `digital`), `given_by`, `recorded_by` (NULL on the guests' site, and on a consent brought over when the guest book did not say who), `note`, `created_at`, `withdrawn_at`, `withdrawn_by`, `withdrawal_reason`, `withdrawal_channel`.
 Relations: (`business_id`, `contact_id`) -> `business_contacts`; `customer_id` -> `customers`; (`business_id`, `notice_id`) -> `business_privacy_notices`; user columns -> `users`.
-Rules: CHECKs `business_consents_purpose`, `_method`, `_given_by`, `_channel`, `_withdrawal_channel` (the first three channels), `_one_person`, `_notice_shown` (a notice version unless brought over), `_how` (a method unless brought over), `_recorder` (staff record it, but on the guests' site or brought over), `_withdrawn` (withdrawn ⇔ where it was asked), `_patient` (treatment and reports are a contact's), and `business_consents_check` (the clinic's: withdrawn ⇔ who withdrew it). One active consent per purpose and person: `business_consents_active` (a contact's) and `business_consents_guest_active`; indexes `business_consents_contact`, `business_consents_guest`. Trigger `business_consent_fixed` (function of the same name): never deleted; only the withdrawal is set, once, and a guest's row may move to another guest record (a merge). Trigger `business_consent_rules` (BEFORE INSERT OR UPDATE OF `customer_id`): the person is the business's own; not erased; treatment and reports only for a registered patient; never offers for a person marked as a child; a `notice_id` names its own version; without one, only a row brought over (`import`) or a clinic patient's treatment, reports or reminders on the clinic's notice. Trigger `business_consent_guest_copy` (AFTER INSERT OR UPDATE, an offers row of a guest): keeps `customers.marketing_opt_in`, `_at` and `_by` as a copy of the guest's active consent to offers.
-Added by: 1791620004000 (as `health_consents`); 1791977000000.
+Rules: CHECKs `business_consents_purpose`, `_method`, `_given_by`, `_channel`, `_withdrawal_channel` (every channel but `import`), `_one_person`, `_notice_shown` (a notice version unless brought over), `_how` (a method unless brought over), `_recorder` (staff record it, but on the guests' site or brought over), `_withdrawn` (withdrawn ⇔ where it was asked), `_patient` (treatment and reports are a contact's), and `business_consents_check` (the clinic's: withdrawn ⇔ who withdrew it). One active consent per purpose and person: `business_consents_active` (a contact's) and `business_consents_guest_active`; indexes `business_consents_contact`, `business_consents_guest`. Trigger `business_consent_fixed` (function of the same name): never deleted; only the withdrawal is set, once, and a guest's row may move to another guest record (a merge). Trigger `business_consent_rules` (BEFORE INSERT OR UPDATE OF `customer_id`): the person is the business's own; not erased; treatment and reports only for a registered patient; never offers for a person marked as a child; a `notice_id` names its own version; without one, only a row brought over (`import`) or a clinic patient's treatment, reports or reminders on the clinic's notice. Trigger `business_consent_guest_copy` (AFTER INSERT OR UPDATE, an offers row of a guest): keeps `customers.marketing_opt_in`, `_at` and `_by` as a copy of the guest's active consent to offers.
+Added by: 1791620004000 (as `health_consents`); 1791977000000; 1791979980000 salesperson-app (the channel `field` in `business_consents_channel` and `business_consents_withdrawal_channel`).
 
 #### `business_children`
 Purpose: a person marked as a child, with the parent or guardian whose consent stands for theirs.
@@ -4872,7 +4912,7 @@ Added by: paid-plans: each Basic plan holds its type's modules that start on, wi
 Purpose: each optional module's price and how it is sold.
 Key columns: `module_code` (PK -> `platform_modules`), `sold_as` (`module`, or `application`: its own screen or device for its own people), `monthly_price`, `yearly_price` (NULL is not set yet; 0 or more: 0 is free), `available` (owners may add it), `created_by`, `created_at`, `updated_by`, `updated_at`.
 Rules: trigger `platform_module_prices_check`: optional modules only, never `restaurant`.
-Added by: paid-plans: every optional module but `restaurant`, available; modules at ₹199 / ₹1,999; the applications `captain_app`, `kitchen_display` and `qr_ordering` at ₹299 / ₹2,999, `online_ordering` at ₹399 / ₹3,999 and `lab` at ₹499 / ₹4,999.
+Added by: paid-plans: every optional module but `restaurant`, available; modules at ₹199 / ₹1,999; the applications `captain_app`, `kitchen_display` and `qr_ordering` at ₹299 / ₹2,999, `online_ordering` at ₹399 / ₹3,999 and `lab` at ₹499 / ₹4,999. 1791979980000 salesperson-app: the application `salesperson_app` at ₹499 / ₹4,999.
 
 #### `business_subscriptions`
 Purpose: a business's selection for its next order: its plan and month or year. It never changes what the business may use today.
@@ -5156,8 +5196,9 @@ Core modules are always on and never stored per business; every other module is 
 | `issues` | optional | tasks | every type; on for restaurant; recommended for pharmacy, supermarket | 1791620000000 |
 | `projects` | optional | tasks | every type; on for restaurant | 1791620000000 |
 | `hardware_tinting` | optional | catalog, sales, inventory | hardware; off; recommended for hardware (item attribute `paintBase`) | 1791979050000 |
-| `online_appointments` | optional | appointments | electronics, garage, healthcare, memberships, optical, salon; off; recommended for healthcare (sold as an application: [Paid plans](#paid-plans)) | online-appointments |
-| `online_shop` | optional (an application) | sales, contacts | grocery, supermarket, fashion, electronics, pharmacy, books, meat, weight_retail, general_retail, hardware, agri_inputs, optical; off | online-shop |
+| `online_appointments` | optional | appointments | electronics, garage, healthcare, memberships, optical, salon; off; recommended for healthcare (sold as an application: [Paid plans](#paid-plans)) | 1791979950000 |
+| `online_shop` | optional (an application) | sales, contacts | grocery, supermarket, fashion, electronics, pharmacy, books, meat, weight_retail, general_retail, hardware, agri_inputs, optical; off | 1791979960000 |
+| `salesperson_app` | optional | sales_orders | wholesale; off (sold as an application: [Paid plans](#paid-plans)) | 1791979980000 |
 
 These modules have no permission codes: `restaurant`, `batches`, `serials`, `variants`, `weight` and `books`. Access to them comes from the capability check alone. The restaurant features have none either: the restaurant's own permissions (`roles`, `permissions`) decide who may do what, and the feature decides whether anyone may (see [Restaurant features](#restaurant-features)).
 
@@ -5216,6 +5257,7 @@ Each code is a `<module>.<action>` row of `business_permissions`, listed here by
 | hardware_tinting | `hardware_tinting.view` (shades and the tinting board), `hardware_tinting.create` (tinted paint on bills and quotations; tinted and handed over on the board; taking a tinted line back, with the PIN of someone with `sales.refund`), `hardware_tinting.edit` (add, import and change shades; the tinting charge). Granted to Manager (all), Cashier and Stock keeper (view, create), Accountant and Viewer (view) | 1791979050000 |
 | online_appointments | `online_appointments.view` (online bookings, the requests waiting and the booking link), `online_appointments.approve` (accept or decline a guest's request), `online_appointments.manage` (the booking link, its rules and what shows online); granted to the Manager (all), Cashier / sales and Optometrist (view, approve), and Accountant, Viewer, Doctor, Trainer and Mechanic (view) | online-appointments |
 | online_shop | `online_shop.view` (online orders, their customers and complaints, the shop link's settings and the report), `online_shop.approve` (accept or decline), `online_shop.edit` (pack, ask the customer, send out and hand over; with `sales.create` to bill, `sales.edit` to record the payment), `online_shop.cancel` (cancel an accepted order; refused at the door, with `sales.refund`), `online_shop.review` (acknowledge and resolve complaints), `online_shop.manage` (the link and settings, what shows online, blocked mobiles), `online_shop.export` (the report). Granted to Manager (all), Cashier and Pharmacist (view, approve, edit, cancel, review), Stock keeper (view, edit), Accountant and Viewer (view, export) | online-shop |
+| salesperson_app | `salesperson_app.view` (every salesperson's day: visits and check-in places, orders, collections and new shops; Field sales), `salesperson_app.create` (work their own day on the salesperson app: check in at shops, take orders, collect, add new shops), `salesperson_app.edit` (the check-in distance, whether places are recorded, a shop's saved place cleared), `salesperson_app.approve` (shops added in the field approved, with their credit) | 1791979980000 |
 
 ## Restaurant permission codes
 

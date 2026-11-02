@@ -13,6 +13,7 @@ For everyone who uses or builds the platform: the words on its screens and in th
 | **Captain app** | The waiters' phone screen inside Business Admin (`/captain`): their own tables at a glance, orders taken at the table on the POS's own screen, guests' calls and the food at the pass, live, and alerts on a closed phone. It is part of the staff app, with a layout of its own, and installs as an app of its own. |
 | **Clinic workspace** | The front desk's and the doctors' screen inside Business Admin (`/clinic`): the patient at the desk, tokens and each doctor's queue with waiting times, and the doctor's consultation beside their queue with the patient's history, live. Part of the staff app, with a layout of its own. |
 | **Lab workspace** | The lab's screen inside Business Admin (`/lab`): samples to collect and receive, worklists by department and test, reports to approve and those released today, live. Part of the staff app, with a layout of its own. |
+| **Salesperson app** | A wholesaler's field salespeople's phone screen inside Business Admin (`/sales`): today's beat in visit order, a visit to each shop with its check-in, orders at the shop's own prices and schemes, collections and new shops, working with no network; the office reads each salesperson's day on *Field sales*. Part of the staff app, with a layout of its own, and installable as an app of its own (*Sales*). |
 | **Platform console** | The *Platform* screens inside Business Admin, for the platform's Super Admin: *Overview* (`/platform`, its home), *Businesses* (with a business's page), *Restaurants*, *Leads & trials*, *Payments*, *Invoices*, *Reports* and *Settings*. The Super Admin keeps the prices, the trial and the company's details there, creates restaurants and businesses with their owners' logins and gives them time, confirms the payments owners make, keeps the company's GST invoices, follows sales, the free-trial funnel and the renewals due, switches businesses off and on, and sets a new password for a locked-out owner. It shows no business's bills, customers or patients: only counts and dates. |
 | **Planned page** | The address of a screen that is not built yet. It opens a page that says what is coming and what to use meanwhile, never "Page not found". The guests' site has one, for a guest's own account (`/account`); Business Admin has none (every one of its screens is built, the public site, *Your plan* and the platform console included), and its next planned screen gets one. |
 
@@ -86,7 +87,7 @@ A request is allowed only when **both** hold: the business has the module switch
 | **Lead** | Someone who showed interest in the platform: a call-back request from the home page or *Contact us*, or a sign-up. Followed up in *Platform › Leads & trials*. | `platform_leads` |
 | **Your plan** | The owner's page of a business's plan: its state and dates, the selection, paying, and the invoices. In Business Admin it is *Settings › Your plan*, for the Owner role alone; in a restaurant, *Settings → Your plan*. | `/business-admin/:id/plan`, `/plan`; `/api/businesses/:id/plan`, `/api/plan` |
 | **Plan** | The base of what a business pays for, for one business type: a name, a monthly and a yearly price before GST, and the optional modules it includes. Each type starts with one plan, *Basic*, its default; the super admin may add more. | `platform_plans`, `platform_plan_modules` |
-| **Application** | A module sold as an app: its own screen or device for its own people, such as the captain app, the kitchen display, QR table ordering, the online ordering page and the laboratory. The super admin can mark any module as one. | `platform_module_prices.sold_as` |
+| **Application** | A module sold as an app: its own screen or device for its own people, such as the captain app, the kitchen display, QR table ordering, the online ordering page, the laboratory and the salesperson app. The super admin can mark any module as one. | `platform_module_prices.sold_as` |
 | **Add-on** | A module or application bought on top of the plan. | `business_subscription_addons`; once paid, `business_access_addons` |
 | **Selection** | What a business will buy next: its plan, its add-ons, and month or year. It shapes the next order only, never what the business may use today. | `business_subscriptions`, `business_subscription_addons` |
 | **Free trial** | The first days of every new business (14 to start with, the super admin's setting from 0 to 30), when every module and application of its type is unlocked. | `business_access_periods` kind `trial` |
@@ -158,6 +159,17 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Outstanding / Udhaar** | What customers owe. Wholesale calls it outstanding and a kirana calls it udhaar: the same records. |
 | **Ageing** | Outstanding money split by how old the bill is: 0–30, 31–60, 61–90 and over 90 days by default. An owner can set the three edges in Business settings › Rules. |
 | **Free goods kept** | Free goods (a scheme's, or given by hand) that came with paid goods returned and did not come back: charged off the credit note at a unit's value, with GST, as a line of its own. Brought back later, they give the charge back. |
+| **Visit order** | The order a salesperson walks a beat's shops in; the salesperson app and the printed beat sheet list them so. |
+| **Visit (call)** | A salesperson at a shop on the salesperson app: a check-in and a check-out, with what came of it (an order, or no order and why). Each visit is a call. |
+| **Check-in** (field) | The start of a visit: its time and, while the business records places, the phone's place and how far it is from the shop's saved place. |
+| **Check-in distance** | How far from a shop's saved place a check-in still counts as at the shop: 100 m unless the business changes it. Farther, the visit is flagged with the reason given. |
+| **Off the beat** | A visit to a shop that is not on the salesperson's beat for that day; the app asks why. |
+| **Productive call** | A visit that ended with an order. |
+| **Strike rate** | Productive calls ÷ calls, in per cent: how many of the day's visits gave an order. |
+| **Beat adherence** | The shops planned for the day (on the salesperson's beats for its weekday) that were visited ÷ those planned, in per cent. |
+| **Lines per call** | The order lines of the day ÷ its productive calls: how broad the orders were. |
+| **Shop from the field** | A shop a salesperson added on the phone, waiting for the office's approval and cash only until then. |
+| **Refused on arrival** | An order from the salesperson app that the office's credit rules turned back when it reached the server; the office may let one held for a credit hold through, and the salesperson's next try then goes. |
 
 ### Salon & spa
 

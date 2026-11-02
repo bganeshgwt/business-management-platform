@@ -1,0 +1,1267 @@
+/* The salesperson app (workspaces/sales): a field salesperson's phone, held in
+   one hand on the beat, often in the sun. The header and the tabs stay put
+   while the screen between them scrolls; everything a thumb presses is 44 px
+   or more; on a wider screen the app stays a phone's width, in the middle.
+   Colours from the tokens only, so dark mode follows by itself; motion moves
+   only transform and opacity, and stops under reduced motion. */
+
+.sl-shell {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  height: 100vh;
+  height: 100dvh;
+  background: var(--bg);
+}
+
+/* --- The header -------------------------------------------------------------------- */
+
+.sl-top {
+  position: relative;
+  z-index: 30;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px 12px;
+  padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.sl-brand {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.sl-brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.sl-brand-name,
+.sl-brand-sub {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sl-brand-name {
+  font-size: 0.9375rem;
+  font-weight: 750;
+}
+
+.sl-brand-sub {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.sl-top .live-indicator,
+.sl-more {
+  flex-shrink: 0;
+}
+
+.sl-more .action-menu-trigger {
+  width: 44px;
+  height: 44px;
+}
+
+/* --- The screen between them ---------------------------------------------------------- */
+
+.sl-main {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+
+.sl-main:focus {
+  outline: none;
+}
+
+.sl-content {
+  width: 100%;
+  max-width: 680px;
+  margin-inline: auto;
+  padding: 14px 16px 32px;
+}
+
+.sl-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: sl-in 180ms var(--ease) both;
+}
+
+@keyframes sl-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.sl-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sl-title {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1.25;
+}
+
+.sl-wide {
+  width: 100%;
+  min-height: 48px;
+  justify-content: center;
+}
+
+/* A sheet's footer with more than one way on: one above the other. */
+.sl-foot-stack {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+
+.sl-alert-more {
+  display: block;
+  margin-top: 6px;
+}
+
+.sl-foot {
+  margin: 0;
+  text-align: center;
+}
+
+/* --- Today: the hero card ------------------------------------------------------------------ */
+
+.sl-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 16px 16px;
+  border-radius: var(--radius-lg);
+  background: var(--brand-panel);
+  color: var(--brand-on-deep);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.sl-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 80% at 85% 0%, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 60%);
+  pointer-events: none;
+}
+
+.sl-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.sl-hero-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sl-hero h1 {
+  margin: 2px 0 4px;
+  font-size: 1.3rem;
+  line-height: 1.25;
+}
+
+.sl-hero-eyebrow {
+  margin: 0;
+  color: var(--brand-muted);
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+
+.sl-hero-sub {
+  margin: 0;
+  color: var(--brand-muted);
+  font-size: 0.8125rem;
+}
+
+.sl-day-state {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 750;
+  white-space: nowrap;
+  background: var(--chip-bg);
+  color: var(--text-2);
+}
+
+.sl-hero .sl-day-state {
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--brand-on-deep);
+}
+
+.sl-day-state.is-started {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.sl-hero .sl-day-state.is-started {
+  background: rgba(134, 239, 172, 0.22);
+}
+
+.sl-progress {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+}
+
+.sl-progress-bar {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--brand-on-deep);
+  transform-origin: left center;
+  transition: transform 400ms var(--ease);
+}
+
+.sl-progress-words {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+
+.sl-hero-button.button {
+  min-height: 48px;
+  justify-content: center;
+  border-color: transparent;
+  background: var(--brand-on-deep);
+  color: var(--brand-deep);
+  font-weight: 750;
+}
+
+.sl-hero-button.button:hover {
+  background: var(--brand-on-deep);
+  transform: translateY(-1px);
+}
+
+.sl-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sl-alert-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+/* --- Lists of shops ------------------------------------------------------------------------ */
+
+.sl-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sl-list > li + li {
+  border-top: 1px solid var(--border);
+}
+
+.sl-page > .sl-list {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.sl-list-head {
+  margin: 0;
+  padding: 12px 14px 4px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.sl-shop {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 14px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 120ms var(--ease);
+}
+
+.sl-shop:hover,
+.sl-shop:focus-visible {
+  background: var(--surface-hover);
+}
+
+.sl-shop:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.sl-shop-mark {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--chip-bg);
+  color: var(--text-2);
+  font-size: 0.8125rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-shop-mark.is-order {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.sl-shop-mark.is-no-order {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.sl-shop-mark.is-open {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.sl-shop-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.sl-shop-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.sl-shop.is-visited .sl-shop-name {
+  color: var(--text-2);
+}
+
+.sl-shop-meta {
+  color: var(--muted);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.sl-shop-go {
+  flex-shrink: 0;
+  margin-top: 6px;
+  color: var(--muted);
+}
+
+.sl-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.sl-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1.3;
+  background: var(--chip-bg);
+  color: var(--text-2);
+}
+
+.sl-chip.is-danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.sl-chip.is-warning {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.sl-chip.is-info {
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+
+.sl-chip.is-success {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.sl-segmented {
+  width: 100%;
+}
+
+.sl-segmented .segment {
+  flex: 1 1 0;
+  min-height: 40px;
+  justify-content: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sl-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.sl-search:focus-within {
+  border-color: var(--primary);
+  box-shadow: var(--ring);
+}
+
+.sl-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  font-size: 1rem;
+}
+
+.sl-search input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* --- A shop and its visit ----------------------------------------------------------------- */
+
+.sl-shop-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.sl-shop-head p {
+  margin: 2px 0 0;
+}
+
+.sl-back {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text-2);
+}
+
+.sl-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--border);
+}
+
+.sl-facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  background: var(--surface);
+}
+
+.sl-facts dt {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.sl-facts dd {
+  margin: 0;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-facts dd.is-warning {
+  color: var(--warning-text);
+}
+
+.sl-contact,
+.sl-actions-row,
+.sl-record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sl-visit-start {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sl-visit-start p {
+  margin: 0;
+}
+
+.sl-visit-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 8px;
+}
+
+.sl-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 84px;
+  padding: 10px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 120ms var(--ease), background-color 120ms var(--ease);
+}
+
+.sl-action:hover {
+  background: var(--surface-hover);
+}
+
+.sl-action:active {
+  transform: scale(0.98);
+}
+
+.sl-action.is-primary {
+  border-color: transparent;
+  background: var(--primary);
+  color: var(--primary-text);
+}
+
+.sl-action.is-primary:hover {
+  background: var(--primary-hover);
+}
+
+.sl-records {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sl-record {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+}
+
+.sl-record + .sl-record {
+  border-top: 1px solid var(--border);
+}
+
+.sl-record[data-state="attention"] {
+  background: color-mix(in srgb, var(--danger-bg) 55%, transparent);
+}
+
+.sl-record-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sl-record-head strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.sl-record-meta {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.sl-record-note {
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: 0.8125rem;
+}
+
+.sl-record-why {
+  color: var(--danger);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.sl-record .link-button {
+  align-self: flex-start;
+}
+
+.sl-visit-done {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+/* --- The sheets (Modal) ---------------------------------------------------------------------- */
+
+.sl-sheet .modal-body,
+.sl-sheet > :not(.modal-head):not(.modal-foot) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sl-notice {
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+
+.sl-notice p {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.sl-place {
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+.sl-place p {
+  margin: 0;
+}
+
+.sl-place[data-state="near"] {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.sl-place[data-state="far"] {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.sl-place[data-state="finding"] svg {
+  animation: sl-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes sl-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.sl-reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.sl-reasons legend {
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.sl-reason-chips,
+.sl-quick,
+.sl-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sl-reason-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.sl-reason {
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sl-reason.is-active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.sl-check {
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.sl-check input {
+  margin-top: 3px;
+}
+
+.sl-check span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sl-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sl-two .field-wide {
+  grid-column: 1 / -1;
+}
+
+.sl-handover {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+}
+
+.sl-handover > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sl-handover dt {
+  color: var(--text-2);
+}
+
+.sl-handover dd {
+  margin: 0;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-amount input {
+  font-size: 1.5rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-settles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.sl-settles-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sl-bills {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.875rem;
+}
+
+.sl-bills li,
+.sl-bills label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sl-bills li > span:last-child {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-bills input {
+  width: 120px;
+}
+
+.sl-issue {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.sl-receipt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.sl-receipt-amount {
+  font-size: 1.85rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-receipt-text {
+  width: 100%;
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* --- Taking an order --------------------------------------------------------------------- */
+
+.sl-order {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 84px;
+}
+
+.sl-order-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.sl-order-head p {
+  margin: 2px 0 0;
+}
+
+.sl-order-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sl-cats {
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.sl-cats .sl-reason {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 6px 12px;
+}
+
+.sl-cart {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.sl-cart-line {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+}
+
+.sl-cart-line + .sl-cart-line {
+  border-top: 1px solid var(--border);
+}
+
+.sl-cart-name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sl-free {
+  color: var(--success-text);
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+
+.sl-steppers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.sl-stepper {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.sl-stepper button {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.sl-stepper input {
+  width: 64px;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.sl-stepper small {
+  padding: 0 10px 0 4px;
+  color: var(--muted);
+}
+
+.sl-remove {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-left: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--danger);
+  cursor: pointer;
+}
+
+.sl-items {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  list-style: none;
+}
+
+.sl-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 10px 14px;
+}
+
+.sl-item + .sl-item {
+  border-top: 1px solid var(--border);
+}
+
+.sl-item.is-in {
+  background: var(--primary-soft);
+}
+
+.sl-item-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.sl-item-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.sl-add {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--primary-text);
+  cursor: pointer;
+  transition: transform 120ms var(--ease);
+}
+
+.sl-add:active {
+  transform: scale(0.92);
+}
+
+.sl-more-items {
+  margin: 0;
+  text-align: center;
+}
+
+.sl-order-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: min(680px, 100%);
+  padding: 10px 16px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  transform: translateX(-50%);
+}
+
+.sl-order-bar strong {
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-order-bar .button {
+  min-height: 48px;
+}
+
+.sl-review {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.sl-review td {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.sl-review td small {
+  display: block;
+}
+
+.sl-review td.r {
+  padding-left: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.sl-review tfoot td {
+  color: var(--text-2);
+}
+
+.sl-review .sl-review-total td {
+  border-bottom: 0;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+/* --- The tabs at the thumb ---------------------------------------------------------------- */
+
+.sl-tabs {
+  position: relative;
+  z-index: 30;
+  flex-shrink: 0;
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.sl-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 58px;
+  padding: 6px 4px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.sl-tab:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -4px;
+}
+
+.sl-tab.is-active {
+  color: var(--primary);
+}
+
+.sl-tab-icon {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 52px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  transition: background-color 150ms var(--ease);
+}
+
+.sl-tab.is-active .sl-tab-icon {
+  background: var(--primary-soft);
+}
+
+.sl-tab-count {
+  position: absolute;
+  top: -6px;
+  right: 2px;
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--warning);
+  color: var(--brand-deep);
+  font-size: 0.75rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-tab-count.is-alert {
+  background: var(--danger-solid);
+  color: var(--brand-on-deep);
+}
+
+.sl-shell.is-ordering .sl-main {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (min-width: 560px) {
+  .sl-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 380px) {
+  .sl-two,
+  .sl-reason-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sl-content {
+    padding-inline: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sl-page,
+  .sl-place[data-state="finding"] svg {
+    animation: none;
+  }
+
+  .sl-progress-bar,
+  .sl-action,
+  .sl-add,
+  .sl-shop,
+  .sl-tab-icon {
+    transition: none;
+  }
+}

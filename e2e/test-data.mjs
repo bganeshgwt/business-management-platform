@@ -58,6 +58,8 @@ export const LOGINS = [
   // Staff & access. Both are made with YOUR_PLAN below.
   { role: "PLAN_OWNER", name: "Mohan Das", email: "owner@plans.e2e.invalid", yourPlan: true },
   { role: "PLAN_CASHIER", name: "Anil Kumar", email: "cashier@plans.e2e.invalid", yourPlan: true },
+  // The wholesaler's field salesperson, on the salesperson app (salesperson-app.spec.js), made with SALES_APP below.
+  { role: "SALESPERSON", name: "Sunil Jadhav", email: "salesperson@wholesale.e2e.invalid", businesses: ["wholesale"], businessRole: "salesperson" },
 ];
 
 // The staff login a spec makes in the grocery's Staff & access, as the owner
@@ -843,4 +845,22 @@ export const ONLINE_ORDERS = {
   shop: { pins: "500034, 500081", fee: "40", upiId: "citymobiles@okicici" },
   first: { name: "Ravi Teja", mobile: "9849012345", address: "Plot 14, Road No. 3, Banjara Hills", pinCode: "500034", rider: "Imran", utr: "412345678901" },
   second: { name: "Sana Shaikh", mobile: "9849054321", address: "H.No. 8-2-293, Road No. 10, Jubilee Hills", pinCode: "500081", reason: "Refused at the door: ordered by mistake" },
+};
+
+// The salesperson app (salesperson-app.spec.js): the wholesaler's field
+// salesperson, linked to the SALESPERSON login, with today's beat of three
+// shops in visit order (first the retailer who owes for a case of noodles), a
+// "10 + 1" scheme on the noodles by the case, and what the spec does in the
+// field: a UPI collection's reference, and a new shop added with no network.
+export const SALES_APP = {
+  salesperson: "Sunil Jadhav",
+  route: "Hadapsar route",
+  beat: "Hadapsar market",
+  shops: [
+    { name: "Shree Ganesh Provisions", phone: "9822012001", creditLimit: "50000" },
+    { name: "Navratna Super Bazaar", phone: "9822012002", creditLimit: "50000" },
+  ],
+  scheme: { name: "Noodles 10 + 1", buy: 10, free: 1 },
+  utr: "412345678901",
+  newShop: { name: "Laxmi Kirana & General", phone: "9730045678", address: "Lane 3, Hadapsar gaon, near the Hanuman temple" },
 };

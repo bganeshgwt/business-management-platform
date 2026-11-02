@@ -5,7 +5,7 @@ import FormField from "../../../components/FormField";
 import { ErrorMessage } from "../../../components/Feedback";
 import { getErrorMessage } from "../../../services/api";
 import { dateTime } from "@bmp/shared/format";
-import { METHODS, PURPOSES } from "../personalData";
+import { METHODS, PURPOSES, channelWords } from "../personalData";
 import { consentStore } from "../consentStore";
 import "../styles/personal-data.css";
 
@@ -13,6 +13,10 @@ import "../styles/personal-data.css";
 // how they were seen to be the guardian. A child is never sent offers; what
 // the guardian agrees to (bills, reminders) is recorded as given by them.
 // Gyms, coaching, clinics and laundries meet children most.
+
+// Where a consent was given or withdrawn, as its history says it: " (at the
+// counter)", " (in person, by a salesperson)".
+const where = (channel) => (channel ? ` (${channelWords(channel).replace(/^./, (c) => c.toLowerCase())})` : "");
 
 export function ChildMarkDialog({ privacy, person, onClose, onSaved }) {
   const [form, setForm] = useState({ guardianName: "", guardianRelation: "", consentMethod: "signed_form", verifiedHow: "", purposes: [] });
@@ -142,8 +146,8 @@ export function PersonPrivacy({ privacy, person, onChanged }) {
             <li key={k.id} className={k.withdrawn_at ? "is-withdrawn" : ""}>
               <strong>{PURPOSES[k.purpose]?.label || k.purpose}</strong>
               <small className="muted">
-                {k.withdrawn_at ? `Withdrawn ${dateTime(k.withdrawn_at)}${k.withdrawal_reason ? `: ${k.withdrawal_reason}` : ""} · ` : ""}
-                Given {dateTime(k.created_at)}{k.notice_version ? ` on notice ${k.notice_version}` : ""}{k.given_by ? ` by ${k.given_by}` : ""}{k.recorded_by_name ? `, recorded by ${k.recorded_by_name}` : ""}
+                {k.withdrawn_at ? `Withdrawn ${dateTime(k.withdrawn_at)}${where(k.withdrawal_channel)}${k.withdrawal_reason ? `: ${k.withdrawal_reason}` : ""} · ` : ""}
+                Given {dateTime(k.created_at)}{where(k.channel)}{k.notice_version ? ` on notice ${k.notice_version}` : ""}{k.given_by ? ` by ${k.given_by}` : ""}{k.recorded_by_name ? `, recorded by ${k.recorded_by_name}` : ""}
               </small>
               {!k.withdrawn_at && privacy.canRecord && <button type="button" className="chip-button" disabled={busy} onClick={() => withdraw(k)}>Withdraw</button>}
             </li>

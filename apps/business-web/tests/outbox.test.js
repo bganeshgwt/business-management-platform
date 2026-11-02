@@ -255,3 +255,28 @@ test("nothing is kept to send while nobody is signed in", async () => {
   const { outbox } = make({ person: null });
   await assert.rejects(outbox.add(entry("x")), /nobody is signed in/);
 });
+
+test("told of each item the server took, with its answer, before it is let go; never of one refused", async () => {
+  const told = [];
+  const api = server({ "/orders/refused": { status: 409, data: { message: "On credit hold." } } });
+  let n = 0;
+  const outbox = createOutbox({
+    storage: memory(),
+    send: api.send,
+    now: () => 1_000_000,
+    timers: timersOf(),
+    random: () => 0.5,
+    person: () => ramesh,
+    newId: () => `item-${(n += 1)}`,
+    onDone: async (item) => {
+      told.push([item.id, item.state, item.result?.data?.id]);
+      throw new Error("a listener's own failure");
+    },
+  });
+  await outbox.add(entry("taken"));
+  await outbox.add(entry("refused"));
+  await outbox.add(entry("after"));
+  await outbox.flush();
+  assert.deepEqual(told, [["item-1", "done", 1], ["item-3", "done", 3]]);
+  assert.deepEqual(outbox.snapshot().items.map((item) => [item.label, item.state]), [["refused", "attention"]]);
+});

@@ -137,6 +137,7 @@ written down.
 | Captain / waiter app | Built, as part of the staff app (`/captain`), and installable as an app of its own (the *Captain app*): a route group with a layout of its own (`src/workspaces/captain`), phone first, on the POS's own order screen and the order, KOT, table-request and captain-section APIs, with live updates. Alerts reach the phone while the app is closed too (Web Push, §3.6), and with no network it keeps its screen with the floor as last read; it takes no orders offline. |
 | Kitchen display app | Built, as part of the staff app (`/kitchen`), and installable as an app of its own (the *Kitchen display*) on the kitchen's screen. |
 | Clinic and lab workspaces | Built, as part of the staff app (`/clinic`, `/lab`): route groups with layouts of their own (`src/workspaces/clinic`, `src/workspaces/lab`, both in `src/layouts/BusinessWorkspace.jsx`), for the front desk's computer, a doctor's tablet and the lab bench, on the health module's own pages and APIs, with live updates. |
+| Salesperson app | Built, as part of the staff app (`/sales`), and installable as an app of its own (*Sales*): a route group with a layout of its own (`src/workspaces/sales`, opened through `src/layouts/BusinessWorkspace.jsx`), phone first, for a wholesaler's field salespeople on their beat: the day started and ended, a visit to each shop, orders at the shop's own prices, collections and new shops, on the wholesale module's own rules (`/api/businesses/:id/sales/…`). It works with no network: the day's prices and dues are kept on the phone and what is done waits in the outbox, sent in order when the connection is back (§3.6). The office reads the day in Business Admin (*Field sales*). |
 | Public site, paid plans and the platform console | Built, as part of the staff app: the public site with its sign-up into a free trial (`/welcome` and the pages beside it, no sign-in, outside the app's frame, `src/modules/site`), the owner's *Your plan* (`src/modules/plan`) and the Super Admin's console (`/platform/…`, `src/modules/platform`), on the API's `modules/platform`. The data: [DATA_MODEL › Commercial plans](BUSINESS_PLATFORM_DATA_MODEL.md#commercial-plans). The console may become an app of its own (§9.4). |
 
 ### 2.2 Every address
@@ -160,6 +161,7 @@ written down.
 | `/captain`, `/captain/calls`, `/captain/ready`, `/captain/order` | Waiters, on a phone: the captain app (their tables, guests' calls, food at the pass, taking an order) | Built |
 | `/clinic`, `/clinic/:id/…` | Reception and doctors: the clinic workspace (the desk with the queue by doctor, the consultation, today, patients, visits). `/clinic` opens the clinic chosen last, or asks which | Built |
 | `/lab`, `/lab/:id/…` | Lab staff and pathologists: the lab workspace (collection, worklist, approval, released reports, every order, quality control, tests). `/lab` opens the clinic chosen last, or asks which | Built |
+| `/sales`, `/sales/:id/…` | A wholesaler's field salespeople, on a phone: the salesperson app (today with the day's start and the beat, the shops in visit order, a visit with its order and collection, today's orders and whether each reached the office, the day's figures and its end). The office opens a salesperson's day read-only (`?salesperson=<id>`). `/sales` opens the business chosen last, or asks which | Built |
 | `/order/…`, `/online/…`, `/book/…` | Old guest links and printed QR codes | Sent on to the guests' site, path and query kept |
 
 **Guests' site** (`apps/customer-web`)
@@ -542,8 +544,8 @@ wrapper, and Web Push's signing and encryption in node.
 #### Installing the app
 
 Each workspace is an app of its own: the staff app, the captain app, the
-kitchen display, a clinic's Clinic and Lab, and a shop's Counter
-(`src/services/appManifest.js`). Each has a web app manifest in
+kitchen display, a clinic's Clinic and Lab, a shop's Counter, and a
+wholesaler's Sales (the salesperson app) (`src/services/appManifest.js`). Each has a web app manifest in
 `public/manifests` (its name and short name, start address and scope, an id
 of its own, `standalone`, the brand's colour `--primary` and the page's
 `--bg`) and icons in `public/icons`: 192 and 512 px, a maskable 512 px and the
@@ -551,12 +553,12 @@ iPhone's 180 px, drawn from the shared icon set's marks on the brand's
 gradient by `tools/render-app-icons.mjs` with a browser, never by hand, plus
 the notification's badge. The page's `<link rel="manifest">`, its iPhone icon
 and name follow the workspace on screen (`hooks/useAppManifest.js`, called by
-`AppLayout`, `CaptainLayout` and `BusinessWorkspace`), so installing from the
-captain app installs the captain app. The browser's own offer
-(`beforeinstallprompt`) is kept from the start (`services/install.js`) and
-shown where it helps, through `hooks/useInstall.jsx`: the captain's ⋯ menu,
-Quick bill's More menu, the clinic's and the lab's menus and the account
-menu. Safari on an iPhone or iPad has none: there the same item shows the
+`AppLayout`, `CaptainLayout`, `BusinessWorkspace` and `SalesLayout`), so
+installing from the captain app installs the captain app. The browser's own
+offer (`beforeinstallprompt`) is kept from the start (`services/install.js`)
+and shown where it helps, through `hooks/useInstall.jsx`: the captain's ⋯
+menu, Quick bill's More menu, the clinic's and the lab's menus, the
+salesperson app's ⋯ menu and the account menu. Safari on an iPhone or iPad has none: there the same item shows the
 Share, then Add to Home Screen steps (`components/InstallApp.jsx`).
 
 #### The service worker
@@ -598,7 +600,7 @@ API's address; a new build is therefore a new worker with a cache of its own.
 #### The offline base
 
 `src/services/offline/`, for the screens that work offline (the captain app
-now; the offline till and the salesperson app next):
+and the salesperson app now; the offline till next):
 
 - **`idb.js`:** one IndexedDB database, `bmp-offline`, with a store per kind
   of thing kept (`outbox`, `copies`, `snapshots`), opened by name. Every read
@@ -622,7 +624,9 @@ now; the offline till and the salesperson app next):
   signed-in person's items are sent (a shared device lists the others',
   waiting for their person); one tab sends at a time (Web Locks) and every tab
   shows the same list (BroadcastChannel). `outboxStore.js` is the app's one
-  outbox; `outbox.js` itself knows no browser and is tested on its own.
+  outbox; `outbox.js` itself knows no browser and is tested on its own. A
+  screen that keeps what each write answered hears it as it is sent
+  (`onSent`): the salesperson app's journal of the day.
 - **`online.js`, `hooks/useOnline.js`:** whether the server answers now: the
   browser's network flag together with every API request (any answer means
   yes, none means no, `services/api.js`), asking `/api/health` every 15
@@ -647,8 +651,9 @@ a server that does not answer; the app's start waits at most 15 seconds for
 it), and an opened business's context the same way (`BusinessProvider`'s
 `offline`, the time the copy was read). Only the screens marked
 offline-capable open (`offlineScreens.js`: the captain app, the counter's
-Quick bill and the salesperson app's `/sales`; the last two are marked for
-the screens built on this base); every other screen says *You're offline —
+Quick bill and the salesperson app's `/sales`, which opens the business its
+person used last on this device; Quick bill is marked for the till built on
+this base); every other screen says *You're offline —
 this screen needs the network* (`components/NeedsNetwork.jsx`,
 `routes/ProtectedRoute.jsx`), with the screens that do open. As soon as the
 server answers, the profile is read afresh and everything opens as usual. A
@@ -1054,7 +1059,11 @@ the activity log, the consents and the request, a jeweller's KYC), and
 what is never shown to the person nor named by an erasure (a jeweller's
 suspicious transaction log, which the law forbids telling them about). The integration test reads
 the database's own list of foreign keys and fails on a table the registry
-does not name, so a module added later is placed on purpose. Records whose
+does not name, so a module added later is placed on purpose. A member of
+staff's own personal data is placed there too (`STAFF_TABLES`): the places a
+salesperson's phone recorded during their working day, erased on the
+business's word (`privacy.manage`), the days and visits kept with their
+times, distances and outcomes as the trade record. Records whose
 guards keep them as they were once closed (a job card, a booking, a stay)
 let through exactly the erasure's change (`business_privacy_erasing`, whose
 columns match the registry's). A restaurant's guest is erased by the guest
@@ -1286,9 +1295,12 @@ workspaces; the backend has its own install.
 │   │   │   │                 clinic/ (the clinic workspace: its layout, the desk, the consultation with the
 │   │   │   │                 patient's history; its desk rules in clinicDesk.js); lab/ (the lab workspace:
 │   │   │   │                 its layout, collection, worklist, approval, released reports; its bench rules
-│   │   │   │                 in labBench.js)
+│   │   │   │                 in labBench.js); sales/ (the salesperson app: its layout, today, the shops, a
+│   │   │   │                 visit with its order and collection, the day; the day kept on the phone and
+│   │   │   │                 sent through the outbox in useSalesDay.js, its rules in salesRules.js, its
+│   │   │   │                 prices in salesPricing.js, the day's journal in salesJournal.js)
 │   │   │   ├── layouts/      AppLayout.jsx (header, switchers, bell, side menu), BusinessWorkspace and
-│   │   │   │                 WorkspaceStart (a clinic's workspace: its frame, and the clinic it opens),
+│   │   │   │                 WorkspaceStart (a business's workspace: its frame, and the business it opens),
 │   │   │   │                 NotFoundPage, PlannedPage, GuestSiteRedirect
 │   │   │   ├── context/      AuthProvider (user, permissions, features; in place of the app, Choose your
 │   │   │   │                 own PIN for a till session a PIN someone else set opened), BusinessProvider (open business)
@@ -1299,7 +1311,8 @@ workspaces; the backend has its own install.
 │   │   │   ├── services/     shared: api.js, queryClient, live and liveClient (live updates), approval, features,
 │   │   │   │                 csv, spreadsheet (an import's file read into rows: CSV, or an Excel
 │   │   │   │                 workbook's sheet with read-excel-file), print, customerWeb,
-│   │   │   │                 healthWorkspaces (the clinic a workspace opens),
+│   │   │   │                 healthWorkspaces (where a clinic workspace's links lead), workspaceApps
+│   │   │   │                 (a business's workspaces: who opens each, and the business it opens),
 │   │   │   │                 plannedWorkspaces, the menus (businessNav, businessWorkspace,
 │   │   │   │                 restaurantWorkspace) …, and the API services shared code uses (auth,
 │   │   │   │                 outlet, notification, business); offline/ (the offline base: idb, outbox,
@@ -1441,7 +1454,13 @@ address (`BusinessProvider`'s `businessId`, with the workspace's addresses in
 its `paths`); the desk is the Token queue's cards and dialogs on its
 `useQueue`; the consultation is `VisitPage` itself beside the doctor's queue
 and the patient's history; collection takes a sample's steps through the lab
-order's `sampleStep`.
+order's `sampleStep`. The salesperson app (`workspaces/sales`) writes through
+the wholesale module's own rules: an order through `placeOrder`, with its
+credit hold and limit, and a collection through `createCollection`, with the
+cash limit; the phone's price of a line is the server's own order of prices
+and schemes (`salesPricing.js`, checked to the paisa against the server by
+the salesperson app's integration test), so a shop sees on the phone what it
+is billed.
 
 Adding a page, step by step:
 [apps/business-web/README.md › Adding a page](../apps/business-web/README.md#adding-a-page).
@@ -1546,6 +1565,7 @@ file behind an index file with the module's name, which callers import:
 | Pharmacy, clinics & labs | `business/health`: `businessHealth.routes` (mounted from `business.routes.js`), `healthUploads.routes` (prescription scans, mounted in `routes/index.js` before `/businesses`), `healthCommon` (settings, signatories and PIN sign-off, counters, private files), `businessPharmacy.service` (drug master, prescription sale, registers, recalls, near expiry, debit notes, invoice extras), `businessClinic.service` (patients, consent, visits with their referral and prescription, billing a visit with its ordered tests, the medicines the clinic prescribes), `businessClinicDrugs.service` (the clinic's drug list, its import, and the prescription's lines with their warnings; the rules, pure, in `clinicDrugRules.js`), `businessClinicDesk.service` (doctors' fees and follow-ups, OPD sessions and leave, the token queue), `businessLab.service` (tests, orders, samples, results, approval, report, one test cancelled, the lab's bench), `businessLabDepartments.service` (the lab's departments and who works in each), `businessLabBilling.service` (billing an order's tests as ordered, later or with the visit's bill, each test on its line; the units, pure, in `labBilling.js`), `businessLabQuality.service` (signed report versions and amendments, QC) | `health/` (PharmacyCounter, DrugMaster, PharmacyRegisters, PharmacyBatches, HealthSettings, ClinicToday, TokenQueue, Doctors, ClinicDrugs, Patients, Patient, Visits, Visit, LabOrders, LabOrder, LabTests, LabQc; `healthFormat.js`, `healthParts.jsx`, `healthPrint.js`, the queue's reading and actions in `tokenQueue.js`, a sample's steps in `labSamples.js`) | `pharmacy_*`, `health_*`, `lab_*` |
 | Clinic workspace (`workspaces/clinic`; staff app only) | none of its own: the health module's queue, token, patient, visit, medicines and lab order routes | `ClinicLayout` (in `layouts/BusinessWorkspace.jsx`), `ClinicDeskPage` with `PatientAtDesk`, `ClinicVisitPage` (the health module's `VisitPage` beside the queue) with `PatientHistory`; the health module's Today, Patients, Patient and Visits; the desk in `useClinicDesk` and `clinicDesk.js`; styles `styles/clinic.css` | reads `health_*`, `business_resources`, `lab_orders` |
 | Lab workspace (`workspaces/lab`; staff app only) | none of its own: the health module's lab routes, the bench (`GET …/lab/bench`) first | `LabLayout` (in `layouts/BusinessWorkspace.jsx`), `LabCollectionPage`, `LabWorklistPage`, `LabApprovalPage`, `LabReleasedPage`; the health module's Lab orders, Lab order, Quality control and Tests; the bench in `useLabBench` and `labBench.js`; styles `styles/lab.css` | reads `lab_*` |
+| Salesperson app (`workspaces/sales`; staff app only) | `business/wholesale`: `businessSalespersonApp.routes` (mounted from `business.routes.js`), `salespersonApp.service` (the salesperson's own: the day's pack, a shop, the day started and ended, visits, orders through `placeOrder`, collections through `createCollection`, new shops), `salespersonAppOffice.service` (the office: the day's report, shops to approve, orders refused on arrival let through, the visit order, a shop's place, the settings, the bell), `salespersonAppRules` (pure: reasons for no order, distance from the shop, a place, a UTR and a cheque number, the day's figures) | `SalesLayout` (opened through `layouts/BusinessWorkspace.jsx`), `SalesTodayPage`, `SalesShopsPage`, `SalesShopPage` with `CollectDialog`, `SalesOrderPage`, `SalesOrdersTab`, `SalesDayPage`, `SalesNewShopPage`; the day in `useSalesDay` (the pack and the journal kept on the phone, writes through the outbox), prices in `salesPricing.js` (the server's order, to the paisa), checks in `salesRules.js`, the journal in `salesJournal.js`, the phone's place in `salesLocation.js`; styles `styles/sales.css`; in Business Admin, `wholesale/` Field sales and Salesperson app | `wholesale_salesperson_days`, `wholesale_visits`, `wholesale_field_orders`, `wholesale_field_collections`, `wholesale_field_refusals` |
 | Quotations (every type but the restaurant) | `business/quotations`: `businessQuotations.routes` (mounted from `business.routes.js`), `businessQuotations.service` (priced by `postDocument`'s estimate mode; the bill at `fixed` prices; a sales order through `placeOrder`) | `quotations/` (Quotations, `QuotationDialog`, `quotation.js`, `quotationPrint.js`) | `business_quotations` (+ lines, revisions) |
 | Licences & registrations (every type but the restaurant) | `business/licences`: `businessLicences.routes` (mounted from `business.routes.js`), `licenceUploads.routes` (the scanned copies, multipart, mounted in `routes/index.js` before `/businesses`), `businessLicences.service` (licences per location and the kinds of licence; `standing`, `holds` and `whyNot`, which other modules ask whether a location holds a licence in force for a kind of sale and why not; `expiring`, which the bell reads), `licenceRecords.service` (an insecticide licence's endorsements and principal certificates, a fertiliser authorisation's sources; `insecticideNote` and `sourceNote` for the counter and purchases), `licenceFiles.service` (the scanned copies, in the private uploads folder) | `licences/` (Licences, `LicenceDetail`; helpers in `licences.js`) | `business_licences`, `business_licence_*`, `platform_licence_kinds` (what each kind of licence is and its renewal rule, as platform data) |
 | Hardware, paints & building materials | `business/hardware`: `businessHardware.routes` (mounted from `business.routes.js`), `hardwareSites.service` (sites, a site's ledger, the site of a bill, quotation or order), `hardwareSales.service` (the sale hook: site and fitter; invoice extras), `hardwareFitters.service` (fitters, rules, commission on a bill, payouts through the expense book, statement, report), `hardwareRates.service` (today's rates through the core catalogue update; an item's history from the activity log), `hardwareCalculators.service` (the items with a coverage), `hardwareCalculatorMaths` and `hardwareCalculations.service` (the calculators the server works out, and the workings kept with a quotation or a bill), `hardwareTinting.service` (shades and their import, the tinting charge, tinted lines checked and recorded inside the sale's own posting, the board, the take-back through a core return); `hardwareFitters.service` also names a fitter afterwards and on a sales order | `hardware/` (Sites, `SiteField`, Fitters, `FitterField`, Fitters' commission report, Today's rates, `CalculatorDialog`, Paint tinting (`TintingPage`, `TintField`, `TintApproval`), `BillExtras` on a bill, a quotation and a sales order; helpers in `hardware.js`, `calculators.js` and `workings.js`) | `hardware_*` |
@@ -1939,6 +1959,9 @@ WhatsApp, a webhook or accounting:
   workspace's addresses in its `paths`, so a Business Admin page it shows
   links within the workspace). Business Admin's menu links to them through a
   link's `href` in `businessNav.js`, shown only to those who may open them.
+  What each needs (the business types, the tool, who may open it, its words)
+  is one entry in `services/workspaceApps.js`; the salesperson app (`/sales`)
+  shares the frame's checks and the start, with a layout of its own.
 
 **Something new and planned:** add the route and an entry in the planned
 list first, so the address works from day one.

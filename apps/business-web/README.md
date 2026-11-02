@@ -4,9 +4,10 @@ For developers of the staff app: what it covers, its settings and commands,
 how its code is laid out, how sign-in works, and how to add a page.
 
 React 19 + Vite. Where owners, managers, cashiers, captains, kitchen staff,
-clinic front desks, doctors and lab staff work, for every business type:
-Business Admin, the restaurant admin, the POS, the captain app, the kitchen
-display, the pickup screen, the clinic and lab workspaces, an owner's Your plan,
+clinic front desks, doctors, lab staff and field salespeople work, for every
+business type: Business Admin, the restaurant admin, the POS, the captain app,
+the kitchen display, the pickup screen, the clinic and lab workspaces, the
+salesperson app, an owner's Your plan,
 the platform console, and the platform's public site (home, pricing, sign-up and
 policies, no login). It talks to the Express API in `../../backend`. The guests' pages (table QR ordering,
 online ordering, booking) are their own app, `../customer-web`.
@@ -66,7 +67,8 @@ src/
 │                       service worker registered (production builds only)
 ├── App.jsx             Routes, including the public site (/welcome, /pricing, /signup, /terms,
 │                       /privacy-policy, /refunds, /contact), the captain app (/captain/*), the
-│                       clinic and lab workspaces (/clinic/*, /lab/*), Your plan (/plan) and
+│                       clinic and lab workspaces (/clinic/*, /lab/*), the salesperson app
+│                       (/sales/*), Your plan (/plan) and
 │                       guest links opened on this app (/order, /online, /book), which go on to
 │                       the guests' site
 ├── context/            AuthProvider (user, permissions, features), BusinessProvider (open business,
@@ -74,7 +76,7 @@ src/
 ├── hooks/              useAuth, useBusiness, useLiveRefresh, useServerNow, motion hooks …
 ├── routes/ProtectedRoute.jsx  Requires login, optionally a permission or a feature
 ├── layouts/            AppLayout (header, switchers, side menu), BusinessWorkspace and
-│                       WorkspaceStart (a clinic's workspaces: their frame, the clinic they open),
+│                       WorkspaceStart (a business's workspaces: their frame, the business they open),
 │                       NotFoundPage, PlannedPage (a planned screen), GuestSiteRedirect
 ├── modules/            access (sign-in, profile, users, roles), platform (the platform console),
 │                       site (the public site), plan (Your plan and the plan banner),
@@ -83,7 +85,9 @@ src/
 │                       styles/ it alone uses
 ├── workspaces/         What one role works in: a layout of its own and screens built from the
 │                       modules. captain/ is the captain app, the waiters' phone screens;
-│                       clinic/ and lab/ the clinic's front desk and doctors' screen and the lab's
+│                       clinic/ and lab/ the clinic's front desk and doctors' screen and the lab's;
+│                       sales/ the salesperson app, a wholesaler's field salesperson's phone,
+│                       working offline
 ├── components/         Shared UI (DataGrid, Modal, PageHeader …)
 ├── services/           Shared services: api.js (axios, token, outlet, approvals),
 │                       customerWeb.js (where the guests' site is), businessNav …; offline/

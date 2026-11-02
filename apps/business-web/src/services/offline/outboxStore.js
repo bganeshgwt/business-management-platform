@@ -41,6 +41,9 @@ const send = async (item) => {
   }
 };
 
+// Who hears of an item the server took, with its answer (onSent).
+const sentListeners = new Set();
+
 export const outbox = createOutbox({
   storage: store("outbox"),
   send,
@@ -50,7 +53,20 @@ export const outbox = createOutbox({
     keepStorage();
     channel?.postMessage("changed");
   },
+  onDone: async (item) => {
+    for (const listener of sentListeners) {
+      await listener(item);
+    }
+  },
 });
+
+// Hears of each item this tab sends and the server takes ({ id, kind, queue,
+// requestKey, result, … }): the salesperson app keeps a new order's number
+// and the server's total. Returns the way to stop hearing.
+export const onSent = (listener) => {
+  sentListeners.add(listener);
+  return () => sentListeners.delete(listener);
+};
 
 // The person signed in (or null): only their items are sent.
 export const setOutboxPerson = (user) => {

@@ -12,7 +12,7 @@ import { CLINIC_LAB } from "./test-data.mjs";
 import { ACCESS_RULES } from "./test-data.mjs";
 import { DASHBOARDS } from "./test-data.mjs";
 import { YOUR_PLAN } from "./test-data.mjs";
-import { ONLINE_BOOKING, ONLINE_ORDERS, ONLINE_SHOP } from "./test-data.mjs";
+import { ONLINE_BOOKING, ONLINE_ORDERS, ONLINE_SHOP, SALES_APP } from "./test-data.mjs";
 
 // Every call names the status it expects, so a set-up that goes wrong stops
 // at the first wrong answer, with the API's own message, rather than leaving
@@ -1489,6 +1489,34 @@ export async function buildTestData({ api, logins, sql }) {
   // a spec signing in as any of them meets no first-sign-in step.
   for (const person of logins.filter((item) => !signedIn.has(item.role))) {
     await signIn(person.role);
+  }
+
+  // The salesperson app: the wholesaler's field salesperson (the SALESPERSON
+  // login, made above), today's beat of three shops in the order they are
+  // visited, and a scheme on the noodles by the case. Today is the business's
+  // own day of the week.
+  {
+    const wholesale = businesses.wholesale;
+    const B = at("wholesale");
+    await owner("PUT", `/businesses/${wholesale.id}/modules/salesperson_app`, { enabled: true });
+    const salesperson = await owner("POST", B("salespeople"), { name: SALES_APP.salesperson, phone: "98450 22001", userId: staffAccounts.SALESPERSON, monthlyTarget: "300000" }, 201);
+    const route = await owner("POST", B("routes"), { name: SALES_APP.route, locationId: wholesale.locationId }, 201);
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: TIMEZONE });
+    const weekday = ((new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7) + 1;
+    const beat = await owner("POST", B("beats"), { routeId: route.id, name: SALES_APP.beat, visitDay: weekday, salespersonId: salesperson.id }, 201);
+    // The retailer's last order, which the spec repeats: two cases of noodles.
+    await owner("POST", B("sales-orders"), { requestKey: requestKey(), locationId: wholesale.locationId, contactId: wholesale.customer.id,
+      lines: [{ skuId: wholesale.item.id, quantity: "2", unit: WHOLESALE.packUnit }] }, 201);
+    const shops = [{ id: wholesale.customer.id, name: wholesale.customer.name }];
+    for (const shop of SALES_APP.shops) {
+      const made = await owner("POST", B("contacts"), { kind: "customer", name: shop.name, phone: shop.phone, creditDays: 15, creditLimit: shop.creditLimit }, 201);
+      shops.push({ id: made.id, name: made.name });
+    }
+    for (const shop of shops) await owner("PUT", B(`customer-beats/${shop.id}`), { beatId: beat.id });
+    await owner("PUT", B(`sales/beats/${beat.id}/order`), { contactIds: shops.map((shop) => shop.id) });
+    await owner("POST", B("schemes"), { name: SALES_APP.scheme.name, skuId: wholesale.item.id, unitCode: WHOLESALE.packUnit,
+      buyQuantity: String(SALES_APP.scheme.buy), freeQuantity: String(SALES_APP.scheme.free) }, 201);
+    Object.assign(wholesale, { salesApp: { salespersonId: salesperson.id, routeId: route.id, beatId: beat.id, weekday, shops } });
   }
 
   return {

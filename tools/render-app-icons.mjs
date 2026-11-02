@@ -23,7 +23,7 @@ const SOURCE = fs.readFileSync(path.join(ROOT, "packages", "ui", "src", "Icon.js
 
 // Each app and the mark it carries: the product's own cloche for the staff
 // app, and the mark of each workspace's work for the others.
-const APPS = { staff: "cloche", captain: "table", kitchen: "chef", clinic: "heart", lab: "clipboard", counter: "receipt" };
+const APPS = { staff: "cloche", captain: "table", kitchen: "chef", clinic: "heart", lab: "clipboard", counter: "receipt", sales: "scooter" };
 // The brand gradient (packages/ui base.css --brand-gradient).
 const GRADIENT = ["#0a8874", "#126251"];
 

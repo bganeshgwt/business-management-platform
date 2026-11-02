@@ -133,6 +133,7 @@ Each business type adds only what is truly its own on top of the shared core. Th
 
 - **Sales orders, dispatch and back-orders:** pick list, van load sheet, delivery challan.
 - **Routes and beats, cheques and credit hold.**
+- **Salesperson app:** each field salesperson's phone on the beat, with or without the network: today's shops in visit order, a check-in at each shop, orders at the shop's own prices and schemes, collections by cash, cheque or UPI, and new shops for the office to approve. The office sees each salesperson's day live: calls, productive calls, the strike rate, beat adherence, the money collected and where each visit was checked in.
 - **Price groups, schemes and purchase orders.**
 
 ### Fashion
@@ -418,7 +419,7 @@ The platform sells itself, per business:
 
 - **The public site:** a home page that says what the platform does for each type of business, its prices, a one-page sign-up into a free trial, its terms, privacy and refund policies, and a form to ask for a call back.
 - **The free trial:** every new business starts with 14 days (to start with: the platform's setting) in which everything its type can use is unlocked.
-- **Plans:** each type has its plans (*Basic* to start with), monthly or yearly, and the owner adds the modules and applications they want: the captain app, the kitchen display, QR table ordering, the online ordering page, the laboratory and the other optional modules. Prices are before GST, from the platform's price list; a price change reaches a business at its next order.
+- **Plans:** each type has its plans (*Basic* to start with), monthly or yearly, and the owner adds the modules and applications they want: the captain app, the kitchen display, QR table ordering, the online ordering page, the laboratory, the salesperson app and the other optional modules. Prices are before GST, from the platform's price list; a price change reaches a business at its next order.
 - **Paying:** the owner pays by UPI (a QR code for the exact amount) or bank transfer and enters the payment's reference in *Your plan*; the platform confirms it, which issues the company's GST invoice and extends the business. A banner tells the owner and the staff when the trial or the plan is ending.
 - **After the end:** a few days' grace (7 to start with), then the business is read-only: everything can still be seen, printed and exported, and nothing is ever deleted for not paying.
 - **The platform console:** the platform's team keeps the prices, the trial and the company's details; sets businesses up and gives them time; confirms payments and keeps the company's GST invoices; and follows the money collected, the recurring income, the free-trial funnel (how many tried, paid or stopped), the renewals due and the orders not paid. It sees counts and dates only, never a business's sales, customers or patients.

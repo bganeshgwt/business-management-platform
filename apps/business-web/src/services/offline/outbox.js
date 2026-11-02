@@ -104,6 +104,10 @@ export function createOutbox({
   person = () => null,
   announce = () => {},
   newId = () => globalThis.crypto.randomUUID(),
+  // Told of each item the server took, with its answer (`result`), as it is
+  // done: a screen keeps what it needs of the answer (a new order's number)
+  // before the item is let go.
+  onDone = () => {},
 } = {}) {
   const listeners = new Set();
   let items = [];
@@ -217,6 +221,15 @@ export function createOutbox({
 
     await save(item);
     emit();
+
+    if (outcome.kind === "done") {
+      try {
+        await onDone(item);
+      } catch {
+        // What a screen keeps of an answer never stops the sending.
+      }
+    }
+
     return outcome.kind;
   };
 

@@ -23,7 +23,7 @@ const tokens = fs.readFileSync(new URL("../../../packages/ui/src/styles/base.css
 const token = (name) => new RegExp(`--${name}: (#[0-9a-f]{6});`).exec(tokens)[1];
 
 test("a manifest per workspace: its name, start, scope, standalone, the brand's colours", () => {
-  assert.deepEqual(Object.keys(INSTALLABLE_APPS).sort(), ["captain", "clinic", "counter", "kitchen", "lab", "staff"]);
+  assert.deepEqual(Object.keys(INSTALLABLE_APPS).sort(), ["captain", "clinic", "counter", "kitchen", "lab", "sales", "staff"]);
   const files = fs.readdirSync(new URL("manifests/", PUBLIC)).sort();
   assert.deepEqual(files, Object.keys(INSTALLABLE_APPS).map((app) => `${app}.webmanifest`).sort(), "one file for each app, and no other");
 
@@ -42,7 +42,7 @@ test("a manifest per workspace: its name, start, scope, standalone, the brand's 
 
   assert.equal(manifestOf("captain").scope, "/captain");
   assert.equal(manifestOf("counter").start_url, "/business-admin", "opens the business used last");
-  assert.equal(new Set(Object.keys(INSTALLABLE_APPS).map((app) => manifestOf(app).id)).size, 6, "six ids");
+  assert.equal(new Set(Object.keys(INSTALLABLE_APPS).map((app) => manifestOf(app).id)).size, 7, "seven ids");
 });
 
 test("icons: 192 and 512, a maskable one, and the iPhone's, each its own size; the notification's badge", () => {
@@ -69,6 +69,8 @@ test("which app a screen installs", () => {
   assert.equal(appFor("/lab/4/worklist"), "lab");
   assert.equal(appFor("/business-admin/4/counter"), "counter");
   assert.equal(appFor("/business-admin/4/sales"), "staff");
+  assert.equal(appFor("/sales/4/shops"), "sales");
+  assert.equal(appFor("/salesperson"), "staff");
   assert.equal(appFor("/"), "staff");
   assert.equal(appFor(undefined), "staff");
 });

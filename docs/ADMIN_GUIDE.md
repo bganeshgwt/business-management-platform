@@ -3797,6 +3797,9 @@ form), three chips ask what they agree to be sent: *Bills on WhatsApp*,
 they say yes to; none is needed for a sale, and a phone number never is. On a
 customer chosen at Quick bill or the restaurant's till, a tap records it at
 once. To withdraw one, let its chip go on the customer's form and save.
+A person's consent history says where each was given and withdrawn: at the
+counter, on the phone, on the guests' site, or *in person, by a salesperson*
+for a shop's yes given on the [salesperson app](#salesperson-app).
 
 **A message asks first.** A WhatsApp bill, a quotation on WhatsApp, a dues,
 renewal, recall, service-due, appointment, package, gold-scheme or site-dues
@@ -4189,8 +4192,9 @@ payment, by who billed it (for roles that see staff) and by location.
 ## Wholesale / FMCG
 
 The wholesaler's **Sales orders** entry (Daily work) holds Sales orders,
-Back-orders, Dispatch, Price groups & schemes, Price lists and Routes &
-salespeople. Its money screens are **Outstanding** and **Collections**,
+Back-orders, Dispatch, Price groups & schemes, Price lists, Routes &
+salespeople and, with the salesperson app, Field sales
+([Salesperson app](#salesperson-app)). Its money screens are **Outstanding** and **Collections**,
 named *Customer dues* and *Payments received* in the menu.
 
 **Set up once.** **Routes & salespeople**: routes (the godown the van loads
@@ -4283,6 +4287,136 @@ trade or a walk-in customer.
     salesperson; and *Schemes by retailer* (the orders that earned each
     scheme, what was bought and sent, the free goods sent and their value, and
     the discount given).
+
+### Salesperson app
+
+The **salesperson app** puts each field salesperson's day on their phone:
+today's beat with its shops in visit order, a visit to each shop with its
+check-in, orders at the shop's own prices and schemes, collections by cash,
+cheque or UPI, and new shops for the office to approve. It keeps working with
+no network. It is an application: add it in **Your plan**, then switch it on
+in **Settings › Business tools**. The office reads the day in **Sales orders ›
+Field sales**.
+
+**Set it up once.**
+
+1. **Logins.** Give each salesperson a login with the **Salesperson** role in
+   **Staff & access**. The role works its own beat on the app: it starts and
+   ends its day, checks in at shops, takes orders, collects and adds new
+   shops, and changes no prices, credit or settings. A Manager also has the
+   office's side (every salesperson's day, the settings, approving shops); an
+   Accountant or Viewer reads the office's day.
+2. **Link each login.** In **Sales orders › Routes & salespeople**, *Edit* the
+   salesperson, choose their login and set their monthly target. Every order,
+   visit and collection from that login is theirs on the server; a login not
+   linked is told to ask the office.
+3. **Beats and their visit order.** Put each shop on a beat (route, weekday,
+   salesperson). On the Beats tab, *Visit order* lists a beat's shops: move
+   them with the arrows into the order the salesperson walks them and *Save
+   the order*. The app and the printed *Today's beat* sheet follow it.
+4. **The phone.** *On their phones* on Field sales shows the app's address
+   and a QR code to scan in Chrome on the salesperson's phone; then *Install
+   the salesperson app* from the app's ⋯ menu (on an iPhone: Share, then Add
+   to Home Screen). It opens like any app, as *Sales*. **Salesperson app** in
+   Daily work opens the app itself.
+5. **Settings** (Field sales, its *Settings* button): how far from a shop's
+   saved place a check-in still counts as at the shop (100 m unless changed,
+   20 to 1,000 m), and whether places are recorded at all. With places off,
+   visits keep their times only.
+
+**The day in the field.**
+
+1. ***Start my day.*** The app says what is recorded and why: the phone's
+   place when the day starts, at each check-in and when it ends, and never
+   before the start, after the end or in between. The day's prices, schemes,
+   dues and stock are read once and kept on the phone.
+2. **Today.** The beat planned for today's weekday, its progress (*2 of 12
+   planned shops visited*), the order value and the money collected, and
+   *Next:* the first shop not yet visited. **Shops** lists the beat in visit
+   order, every shop of theirs, and any customer by name, mobile, GSTIN or
+   beat for a visit off the beat (that search needs the network).
+3. ***Check in*** at the shop. The first check-in where a shop has no saved
+   place offers *Save this as the shop's place*; later check-ins show how far
+   the phone is from it. Farther than the setting, the app asks why (*GPS is
+   weak here*, *The shop has moved* … or their own words) and the visit is
+   flagged for the office; a shop not on today's beat asks why too.
+4. ***Take an order.*** The shop's card shows what it owes, what is overdue
+   and how late, the credit left and its last order; *Repeat last order*
+   copies it. Items go in cases and pieces at the shop's own prices (its own
+   price, its price group's, the quantity slab), with the schemes and their
+   free goods worked out on the phone exactly as the office will bill them.
+   An order the office would turn back is stopped before it is taken: the
+   shop on credit hold, over its credit limit (owed, plus ordered and not yet
+   sent, plus this order), or a new shop not yet approved that still owes.
+   The salesperson collects first, calls the office, or sends the order for
+   the office to decide (below). Discounts and free goods by hand stay with
+   the office.
+5. ***Collect.*** Cash, a cheque (its six-digit number, date and bank) or UPI
+   (the 12-digit UTR from the payer's app), settling the oldest bills first or
+   the bills chosen. Cash that would take one shop's cash that day to
+   ₹2,00,000 is refused, with the rest to take by UPI or cheque. The receipt
+   shows on screen and can go on WhatsApp to a shop that agreed to get its
+   bills there; its number follows once it reaches the office.
+6. ***Check out*** with the outcome: an order, or *No order* with the reason
+   (*Shop closed*, *Enough stock*, *Dues pending or credit hold* …) and, when
+   the shop promised to pay, the date and amount, which go in the shop's
+   follow-ups on Outstanding.
+7. ***Add a new shop*** (Shops): name, mobile, GSTIN, address with a
+   landmark, owner, and its consent to bills on WhatsApp after showing the
+   privacy notice (recorded as given *in person, by a salesperson*). A shop already on the books with that mobile or GSTIN is
+   named instead. A new shop buys for **cash only** until the office approves
+   it: an order is taken only when it owes nothing and its last order is
+   delivered.
+8. ***End my day*** (Day): the day's figures, the cash to hand over, and a
+   note. Nothing is recorded after it.
+
+**With no network.** Everything above works on the phone: each visit, order,
+collection and new shop waits on the phone and goes by itself, in the order
+it was done, when the connection is back. A new shop's visit and orders wait
+for the shop and take its number. The top bar says *Offline · 3 waiting to
+send*; the **Orders** tab shows each one as *Waiting to send*, *Sent* or
+*Needs attention*. A reload or a phone restarted with no network opens the app
+from the phone, as it was. Prices and dues are those read that morning: the
+office prices every order again as it arrives, and a difference is shown on
+the order and counted on Field sales, never hidden.
+
+**Refused on arrival.** An order sent for the office to decide, or one the
+office turns back as it arrives (the shop went on hold, or over its limit,
+while the phone was offline), waits on the phone as *Needs attention* with
+the reason, and on **Field sales** under *Orders refused on arrival*. Someone who may let orders through
+a credit hold (`receivables.approve`) presses *Let it through* with a reason;
+for a limit, raise it on the customer or collect; for a new shop, approve it.
+The salesperson then taps *Try again* and the same order goes, once.
+
+**The evening settlement.** Collections from the app carry the salesperson
+and the route, so **Collections › Salesperson settlement** lists them for the
+day as any other. Field sales shows each salesperson's cash not yet handed
+over beside the cash their phone counted at *End my day*.
+
+**The office's day report** (**Sales orders › Field sales**, live as phones
+send their day). For a day, the salespeople out on the beat and those who
+ended their day; calls, productive calls (a visit with an order) and the
+strike rate; beat adherence (planned shops visited of those planned); lines
+per call; the order value and the price differences; collections by cash,
+cheque and UPI; cash not yet handed over; and new shops. Each salesperson's
+card shows when the day started and ended and where (*Start on the map*, *End
+on the map*), the cash the phone counted at the end with its note, the
+month's orders against their target, why shops did not order, and every
+visit with its times, its distance from the shop's saved place, the reasons
+given and a *Map* link. *Their app* opens their day in the app, read-only.
+Above them: the orders refused on arrival, and the **shops from the field to
+approve**: *Approve* sets the credit limit (empty for none), the credit days
+and the price group, and from then on the usual credit rules apply. The bell
+shows both while they wait (a refused order for a week).
+
+**A shop's saved place and a salesperson's places.** *Visit order* on a beat
+shows each shop's saved place with a *Map* link; *Clear place* (for those who
+change the app's settings) clears one that moved or was saved in the wrong
+spot, and the next check-in there may save it again. The places a
+salesperson's phone recorded are their personal data: someone who manages
+personal data can *Erase places* for a salesperson in **Routes &
+salespeople** (they left, or asked), which blanks every recorded place and
+keeps their days and visits with times, distances and outcomes.
 
 ## Fashion
 

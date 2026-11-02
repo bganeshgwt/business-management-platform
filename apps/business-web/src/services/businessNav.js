@@ -151,6 +151,10 @@ export function businessSections(type) {
         { section: "online-booking", label: "Online booking", icon: "calendar", need: "online_appointments.view", types: BOOKS_ONLINE },
         // Orders customers place from the shop's own link: new, packing, ready & out, done; complaints and the report.
         { section: "online-orders", label: "Online orders", icon: "orders", need: "online_shop.view", types: ONLINE_SHOP },
+        // A wholesaler's salesperson app (a screen of its own: /sales), and the
+        // office's day of its salespeople, with shops to approve and orders refused.
+        { section: "salesperson-app", label: "Salesperson app", icon: "captain", need: "salesperson_app.create", types: ["wholesale"], href: (id) => `/sales/${id}` },
+        { section: "field-sales", label: "Field sales", icon: "employees", need: "salesperson_app.view", types: ["wholesale"] },
       ],
     },
     {

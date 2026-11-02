@@ -21,8 +21,9 @@ const fail = (message, status = 400, details) => { throw new AppError(status, me
 const PURPOSES = ['bills_digital', 'reminders', 'offers'];
 const CLINIC_PURPOSES = ['treatment', 'reports_digital'];
 const ALL_PURPOSES = [...PURPOSES, ...CLINIC_PURPOSES];
-// Where it was given or withdrawn; 'import' is only for what came from earlier records.
-const CHANNELS = ['counter', 'guests_site', 'phone'];
+// Where it was given or withdrawn ('field': in person to a salesperson at the
+// shop, on the salesperson app); 'import' is only for what came from earlier records.
+const CHANNELS = ['counter', 'guests_site', 'phone', 'field'];
 const METHODS = ['signed_form', 'verbal', 'digital'];
 const WORDS = {
   bills_digital: 'bills on WhatsApp or SMS',

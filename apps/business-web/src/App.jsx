@@ -125,6 +125,17 @@ const LabOrdersPage = lazy(() => import("./modules/business/health/pages/LabOrde
 const LabOrderPage = lazy(() => import("./modules/business/health/pages/LabOrderPage"));
 const LabQcPage = lazy(() => import("./modules/business/health/pages/LabQcPage"));
 const LabTestsPage = lazy(() => import("./modules/business/health/pages/LabTestsPage"));
+// The salesperson app: a wholesaler's field salesperson's phone, a route group
+// with a layout of its own that works offline (workspaces/sales); /sales opens
+// the business chosen last.
+const SalesLayout = lazy(() => import("./workspaces/sales/SalesLayout"));
+const SalesTodayPage = lazy(() => import("./workspaces/sales/SalesTodayPage"));
+const SalesShopsPage = lazy(() => import("./workspaces/sales/SalesShopsPage"));
+const SalesNewShopPage = lazy(() => import("./workspaces/sales/SalesNewShopPage"));
+const SalesShopPage = lazy(() => import("./workspaces/sales/SalesShopPage"));
+const SalesOrderPage = lazy(() => import("./workspaces/sales/SalesOrderPage"));
+const SalesOrdersTab = lazy(() => import("./workspaces/sales/SalesOrdersTab"));
+const SalesDayPage = lazy(() => import("./workspaces/sales/SalesDayPage"));
 
 // The platform's own super admin has no restaurant, so no dashboard: home is
 // the platform console. Staff of a shop, wholesaler, salon… (no restaurant
@@ -222,6 +233,23 @@ export default function App() {
           <Route path="/lab/:businessId/orders/:orderId" element={<LabOrderPage />} />
           <Route path="/lab/:businessId/qc" element={<LabQcPage />} />
           <Route path="/lab/:businessId/tests" element={<LabTestsPage />} />
+        </Route>
+      </Route>
+
+      {/* The salesperson app: a wholesaler's salesperson on the beat, its own
+          header and tabs at the thumb, working with no network. /sales opens
+          the business chosen last; the business's own roles decide who may
+          open it, and every write is tied to the login's own salesperson. */}
+      <Route element={<ProtectedRoute />}>
+        <Route path="/sales" element={<WorkspaceStart kind="sales" />} />
+        <Route path="/sales/:businessId" element={<SalesLayout />}>
+          <Route index element={<SalesTodayPage />} />
+          <Route path="/sales/:businessId/shops" element={<SalesShopsPage />} />
+          <Route path="/sales/:businessId/shops/new" element={<SalesNewShopPage />} />
+          <Route path="/sales/:businessId/shops/:shopRef" element={<SalesShopPage />} />
+          <Route path="/sales/:businessId/shops/:shopRef/order" element={<SalesOrderPage />} />
+          <Route path="/sales/:businessId/orders" element={<SalesOrdersTab />} />
+          <Route path="/sales/:businessId/day" element={<SalesDayPage />} />
         </Route>
       </Route>
 

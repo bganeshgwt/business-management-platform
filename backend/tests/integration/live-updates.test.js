@@ -67,14 +67,15 @@ test('live updates', { timeout: 900000 }, async (t) => {
         (SELECT count(*)::int FROM pg_trigger WHERE NOT tgisinternal AND (tgname LIKE '%\\_live' OR tgname LIKE '%\\_live\\_session%')) AS triggers`)).rows[0];
     // Its own 34 triggers, the lab's three of migration 1791976000000, the
     // lab's ordered tests of the clinic-lab-more migration, the online
-    // bookings of the online-appointments migration, and the online shop's
-    // orders and complaints (migration 1791979960000).
-    assert.deepEqual(await left(), { functions: 7, triggers: 41 });
+    // bookings of the online-appointments migration, the online shop's
+    // orders and complaints (migration 1791979960000), and the salesperson
+    // app's days, visits and refused orders.
+    assert.deepEqual(await left(), { functions: 7, triggers: 44 });
     // This migration's Down half, after those of every newer one.
     await migrate({ direction: 'down', count: 1791974000000, timestamp: true });
     assert.deepEqual(await left(), { functions: 0, triggers: 0 });
     await migrate({ direction: 'up', count: Infinity });
-    assert.deepEqual(await left(), { functions: 7, triggers: 41 });
+    assert.deepEqual(await left(), { functions: 7, triggers: 44 });
   });
 
   pool = require('../../src/config/database');

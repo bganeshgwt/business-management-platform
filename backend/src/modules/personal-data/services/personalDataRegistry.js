@@ -73,7 +73,7 @@ const TABLES = {
   hardware_sites: { label: 'Sites', erase: { name: 'Site', address: null, contact_person: null, phone: null, active: false } },
   wholesale_claims: { label: 'Claims', keep: 'Trade records of the invoices they settle.' },
   wholesale_customer_beats: { label: 'Beat', keep: 'A beat holds no personal details.' },
-  wholesale_customer_profiles: { label: 'Trade details', erase: { contact_person: null, pin_code: null, pan: null, fssai: null } },
+  wholesale_customer_profiles: { label: 'Trade details', erase: { contact_person: null, pin_code: null, pan: null, fssai: null, latitude: null, longitude: null, place_accuracy_m: null } },
   wholesale_hold_releases: { label: 'Credit hold releases', keep: 'Trade records of the orders released.' },
   wholesale_orders: { label: 'Sales orders', keep: 'Trade records of the invoices they became.' },
   wholesale_purchase_orders: { label: 'Purchase orders', party: 'supplier' },
@@ -126,6 +126,20 @@ const TABLES = {
     also: 'An online order\'s bill stays: it is a tax record.' },
   shop_complaints: { label: 'Complaints about online orders', erase: { details: 'Erased at the customer\'s request' },
     also: 'A complaint\'s ticket, dates and outcome stay, as the record of how it was handled.' },
+  wholesale_visits: { label: 'Visits by salespeople', erase: { note: null } },
+  wholesale_field_refusals: { label: 'Orders refused on arrival', erase: { message: 'Erased at the customer\'s request' } },
+};
+
+// Where a member of staff's own personal data is kept, table by table: the
+// places a salesperson's phone recorded during their working day (the
+// salesperson app). `person` is the column naming them. Erased on the
+// business's word (Sales orders › Routes & salespeople, a salesperson's
+// "Erase their places"), keeping the days and visits with their times,
+// distances and outcomes as the trade record.
+const STAFF_TABLES = {
+  wholesale_salesperson_days: { label: 'Where their working day started and ended', person: 'salesperson_id',
+    erase: { start_latitude: null, start_longitude: null, start_accuracy_m: null, end_latitude: null, end_longitude: null, end_accuracy_m: null } },
+  wholesale_visits: { label: 'Where they checked in at shops', person: 'salesperson_id', erase: { latitude: null, longitude: null, accuracy_m: null } },
 };
 
 // Children of the rows above that the export also shows: the lines of each bill.
@@ -143,4 +157,4 @@ const ALWAYS_KEPT = [
   'The customer\'s consents and this request, as the record.',
 ];
 
-module.exports = { TABLES, CHILDREN, HIDDEN, ALWAYS_KEPT, ERASED_NAME };
+module.exports = { TABLES, CHILDREN, HIDDEN, ALWAYS_KEPT, ERASED_NAME, STAFF_TABLES };

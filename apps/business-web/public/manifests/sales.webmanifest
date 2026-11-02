@@ -1,0 +1,34 @@
+{
+  "id": "/sales",
+  "name": "Sales",
+  "short_name": "Sales",
+  "description": "A salesperson's day on the beat: shops in visit order, orders at each shop's prices, collections and new shops, with or without the network.",
+  "start_url": "/sales",
+  "scope": "/sales",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#08796b",
+  "background_color": "#edf1f6",
+  "lang": "en-IN",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/icons/sales-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/sales-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/sales-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

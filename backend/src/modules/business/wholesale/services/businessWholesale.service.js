@@ -26,7 +26,7 @@ const credit = require('./businessWholesaleCredit.service');
 // (balance + other orders still to dispatch + this order) and again when it
 // is invoiced. Money is integer paise; quantities integer thousandths.
 
-const fail = (message, status = 400) => { throw new AppError(status, message); };
+const fail = (message, status = 400, details) => { throw new AppError(status, message, details); };
 const id = (value, name = 'Record ID') => v.requiredId(value, name);
 const optionalId = (value, name) => (value === undefined || value === null || value === '' ? null : id(value, name));
 const paise = (value) => Math.round(Number(value) * 100);
@@ -245,7 +245,8 @@ async function checkCreditLimit(db, business, contact, thisOrderPending, exceptO
   const pending = await pendingOrderValue(db, business.id, contact.id, exceptOrderId);
   const exposure = paise(owed.balance) + pending + thisOrderPending;
   if (exposure > paise(contact.credit_limit)) {
-    fail(`This order would take ${contact.name} to ${rupees(exposure)} (owed ${rupees(paise(owed.balance))}, ordered and not yet sent ${rupees(pending)}, this order ${rupees(thisOrderPending)}), over their credit limit of ${Number(contact.credit_limit).toFixed(2)}. Collect payment first or raise the limit.`, 409);
+    fail(`This order would take ${contact.name} to ${rupees(exposure)} (owed ${rupees(paise(owed.balance))}, ordered and not yet sent ${rupees(pending)}, this order ${rupees(thisOrderPending)}), over their credit limit of ${Number(contact.credit_limit).toFixed(2)}. Collect payment first or raise the limit.`, 409,
+      { reason: 'credit_limit', limit: Number(contact.credit_limit).toFixed(2), owed: rupees(paise(owed.balance)), pending: rupees(pending), order: rupees(thisOrderPending) });
   }
 }
 

@@ -23,6 +23,7 @@ export const CHANNELS = {
   import: "From earlier records",
   email: "By e-mail",
   letter: "By letter",
+  field: "In person, by a salesperson",
 };
 export const METHODS = { verbal: "Said yes", signed_form: "Signed a form", digital: "Ticked it online" };
 export const channelWords = (channel) => CHANNELS[channel] || channel || "";
