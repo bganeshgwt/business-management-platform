@@ -35,6 +35,13 @@
   box-shadow: var(--shadow-sm);
 }
 
+/* The header is a layer of its own (isolation, for its dots below): a dialog
+   opened from its buttons is drawn inside it, so while one is open the header
+   comes forward with it, over the page and the top bar, as every dialog is. */
+.app-shell .content .page-header:has(.modal-backdrop) {
+  z-index: 50;
+}
+
 .app-shell .content .page-header::before {
   content: "";
   position: absolute;

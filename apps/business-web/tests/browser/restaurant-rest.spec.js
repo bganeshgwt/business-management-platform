@@ -49,7 +49,11 @@ test("the kitchen-station report and an earlier day's tickets read what the kitc
   await signIn(page);
   await expect(page.locator("main.content-scroll")).toBeVisible({ timeout: 60_000 });
   const [dish] = fixture().restaurant.products;
-  const today = localDate();
+  // The date of the restaurant's open business day, which its tickets are
+  // counted under: past midnight, a day opened the evening before is still
+  // trading under the evening's date.
+  const status = await api(page, "GET", "/business-day");
+  const today = status.current ? String(status.current.businessDate).slice(0, 10) : localDate();
 
   // A takeaway sent to the kitchen, marked ready and served.
   const order = await api(page, "POST", "/orders", { orderType: "takeaway", items: [{ productId: dish.id, quantity: 2 }] }, 201);
