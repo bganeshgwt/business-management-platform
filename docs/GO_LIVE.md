@@ -288,7 +288,7 @@ What each build needs (the build stops with a sentence when one is missing):
   the API's address must answer both paths. The API serves both itself. From
   Git Bash, a bare `/api` typed on the command line reaches the build as a
   Windows path (`C:/Program Files/Git/api`): set `MSYS_NO_PATHCONV=1` first, or
-  put it in the app's `.env` (the staff build stops with a sentence then).
+  put it in the app's `.env` (each build stops with a sentence then).
 - **The staff app:** `VITE_CUSTOMER_WEB_URL`, the guests' site's address, or
   `same-origin`.
 

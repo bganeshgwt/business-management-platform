@@ -22,11 +22,12 @@ test("pages: the network first, else this device's copy; never the guests' pages
   for (const path of ["/", "/captain", "/captain/calls?x=1", "/business-admin/4/counter", "/kitchen", "/login", "/welcome"]) {
     assert.equal(RULES.strategyFor(get(path, "navigate"), same), "navigate", path);
   }
-  for (const path of ["/order/abc", "/online/abc/status/x", "/book/x", "/shop/t", "/appointments", "/account", "/guest-assets/a.js"]) {
+  for (const path of ["/order/abc", "/online/abc/status/x", "/book/x", "/privacy-notice/r", "/shop/t", "/appointments", "/account", "/guest-assets/a.js"]) {
     assert.equal(RULES.strategyFor(get(path, "navigate"), same), "none", path);
   }
-  // "/orders" is a staff screen, not a guest's page.
+  // "/orders" and "/privacy" are staff screens, not guests' pages.
   assert.equal(RULES.strategyFor(get("/orders", "navigate"), same), "navigate");
+  assert.equal(RULES.strategyFor(get("/privacy", "navigate"), same), "navigate");
   assert.equal(RULES.NAVIGATION_TIMEOUT_MS, 3500);
 });
 

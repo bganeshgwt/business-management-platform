@@ -17,7 +17,7 @@
   var NAVIGATION_TIMEOUT_MS = 3500;
   // The guests' pages, when one address serves both apps (GO_LIVE › One
   // address): never the staff app's to answer.
-  var GUEST_PAGE = /^\/(order|online|book|shop|appointments|account)(\/|$)/;
+  var GUEST_PAGE = /^\/(order|online|book|privacy-notice|shop|appointments|account)(\/|$)/;
   var GUEST_FILES = /^\/guest-assets\//;
   // Built files whose names carry their content's hash.
   var HASHED_ASSET = /^\/assets\//;
