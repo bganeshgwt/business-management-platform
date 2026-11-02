@@ -256,6 +256,26 @@ const sessionChanged = (note) => {
   }
 };
 
+// In-process consumers of every committed change (the captain app's alerts on
+// a closed phone, modules/push): each is given the change as announced. One
+// that throws, or whose promise fails, never stops the streams.
+const consumers = new Set();
+
+const onChange = (fn) => {
+  consumers.add(fn);
+  return () => consumers.delete(fn);
+};
+
+const tellConsumers = (note) => {
+  for (const consumer of consumers) {
+    try {
+      Promise.resolve(consumer(note)).catch(() => undefined);
+    } catch {
+      // The consumer's own fault: the streams carry on.
+    }
+  }
+};
+
 const received = (channel, payload) => {
   let note;
 
@@ -271,6 +291,7 @@ const received = (channel, payload) => {
 
   if (channel === "live_change") {
     changed(note);
+    tellConsumers(note);
   } else if (channel === "live_session") {
     sessionChanged(note);
   }
@@ -635,4 +656,4 @@ const guestStats = () => ({
   sweeping: Boolean(guestSweeper),
 });
 
-module.exports = { start, open, stop, stats, openGuest, guestStats };
+module.exports = { start, open, stop, stats, onChange, openGuest, guestStats };

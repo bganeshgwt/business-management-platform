@@ -1,0 +1,47 @@
+// The screens that open with no network (docs/ARCHITECTURE.md › Offline
+// boot). A reload with no connection opens one of these from this device's
+// copies of the person's profile and business; every other screen says
+// "You're offline — this screen needs the network" instead of a broken page
+// (components/NeedsNetwork.jsx, routes/ProtectedRoute.jsx). A screen added
+// here must work from what it keeps on the device (services/offline): the
+// captain app shows the floor as last read and says so; the counter and the
+// salesperson app keep their own snapshots and outbox.
+//
+//   id       the screen
+//   pattern  the addresses it answers
+//   label    its name, for the list of what still opens offline
+//   open     where it opens for this person (from the profile kept on the
+//            device), or null when it is not theirs to open
+const can = (user, code) => Boolean(user?.permissions?.includes(code));
+const has = (user, code) => Array.isArray(user?.features) && user.features.includes(code);
+
+export const OFFLINE_SCREENS = [
+  {
+    id: "captain",
+    pattern: /^\/captain(\/|$)/,
+    label: "Captain app",
+    open: (user) => (user?.restaurantId && can(user, "orders.create") && has(user, "captain_app") ? "/captain" : null),
+  },
+  {
+    // Business Admin's Quick bill (the counter): the offline till builds on it.
+    id: "counter",
+    pattern: /^\/business-admin\/\d+\/counter(\/|$)/,
+    label: "Quick bill",
+    open: () => null,
+  },
+  {
+    // The salesperson app: its beat, orders and collections offline.
+    id: "sales",
+    pattern: /^\/sales(\/|$)/,
+    label: "Salesperson app",
+    open: () => null,
+  },
+];
+
+export const offlineScreenFor = (pathname) => OFFLINE_SCREENS.find((screen) => screen.pattern.test(String(pathname || "").split(/[?#]/, 1)[0])) || null;
+
+export const isOfflineCapable = (pathname) => Boolean(offlineScreenFor(pathname));
+
+// What still opens offline for this person: [{ id, label, to }].
+export const offlineScreensFor = (user) =>
+  OFFLINE_SCREENS.map((screen) => ({ id: screen.id, label: screen.label, to: screen.open(user) })).filter((screen) => screen.to);

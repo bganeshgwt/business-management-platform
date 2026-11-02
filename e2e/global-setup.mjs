@@ -203,6 +203,13 @@ function testDatabaseQuery(run) {
   };
 }
 
+// Web Push's settings for the run's API (npm run push:keys makes a pair the same way).
+function pushKeys() {
+  const { generateKeys } = backendRequire("./src/modules/push/services/webPush.js");
+  const { publicKey, privateKey } = generateKeys();
+  return { VAPID_PUBLIC_KEY: publicKey, VAPID_PRIVATE_KEY: privateKey, VAPID_SUBJECT: "mailto:alerts@e2e.invalid" };
+}
+
 // Something answers on the port, on either loopback address.
 const portAnswers = (port) =>
   Promise.all(
@@ -252,6 +259,9 @@ async function startApi(run) {
       SITE_FORM_LIMIT: "5000",
       // Logged, never refused: a hold-and-wait the tests happen to reach shows in the API's log.
       DB_POOL_GUARD: "warn",
+      // Alerts on a closed phone, with a key pair of the run's own; the specs
+      // send them only to a pretend push service on this computer.
+      ...pushKeys(),
     },
     stdio: ["ignore", "pipe", "pipe", "ipc"],
     // Its own process group on Linux and macOS, so the teardown can stop all of it.

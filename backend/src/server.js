@@ -33,6 +33,11 @@ const start = async () => {
     // changes the database announces (modules/live).
     live.start();
 
+    // Alerts on a closed phone (modules/push): the captain app's moments,
+    // heard with the live updates, sent to the phones that asked for them.
+    // Off while the server has no VAPID keys.
+    require("./modules/push/services/captainPush").start(live);
+
     // Stopped by a service manager (SIGTERM) or Ctrl+C: the screens' live
     // streams are told to reconnect and closed, then the server, the live
     // updates' connection and the pool, so nothing is left open.

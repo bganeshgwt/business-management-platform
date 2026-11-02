@@ -75,8 +75,9 @@ export const loginRequest = async (identifier, password, restaurantCode) => {
   return data;
 };
 
-export const getCurrentUser = async () => {
-  const response = await api.get("/auth/me");
+// `config`: a timeout, when the app is starting and must not wait for ever.
+export const getCurrentUser = async (config) => {
+  const response = await api.get("/auth/me", config);
   return response.data.data;
 };
 

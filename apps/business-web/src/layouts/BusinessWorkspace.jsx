@@ -14,6 +14,9 @@ import { ScreenLoading } from "../components/Feedback";
 import { businessPath } from "../services/businessNav";
 import { HEALTH_WORKSPACES, healthWorkspacePath, workspaceClinics } from "../services/healthWorkspaces";
 import PlanBanner from "../modules/plan/components/PlanBanner";
+import OfflineBar from "../components/OfflineBar";
+import useInstall from "../hooks/useInstall";
+import useAppManifest from "../hooks/useAppManifest";
 import "../styles/access.css";
 import "../styles/business-workspace.css";
 
@@ -90,6 +93,9 @@ export function WorkspaceFrame({ kind, live, tabs = [], tools, children }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const mainRef = useRef(null);
+  // Installing from here installs the clinic's or the lab's own app.
+  useAppManifest(kind);
+  const install = useInstall(kind);
   const business = biz.context?.business || null;
   const branch = biz.context?.member?.location_name
     || (biz.context?.currentLocationId ? (biz.context.allLocations || []).find((l) => String(l.id) === String(biz.context.currentLocationId))?.name : null);
@@ -105,6 +111,7 @@ export function WorkspaceFrame({ kind, live, tabs = [], tools, children }) {
   ].filter(Boolean);
   const menu = [...places, ...(places.length ? [{ separator: true }] : []),
     { label: "My profile, password & PIN", icon: "user", onClick: () => navigate("/profile") },
+    ...(install.item ? [install.item] : []),
     { label: "Lock screen / switch user", icon: "lock", onClick: lock },
     { label: "Sign out", icon: "logout", danger: true, onClick: logout }];
 
@@ -125,6 +132,7 @@ export function WorkspaceFrame({ kind, live, tabs = [], tools, children }) {
           </span>
         </Link>
         <div className="ws-bar-tools">
+          <OfflineBar />
           {tools}
           {live && <LiveIndicator status={live} />}
           {business && <BusinessLocationSwitcher className="ws-location" />}
@@ -150,6 +158,7 @@ export function WorkspaceFrame({ kind, live, tabs = [], tools, children }) {
         </div>
       </main>
       {locked && <LockScreen />}
+      {install.dialog}
     </div>
   );
 }

@@ -7518,6 +7518,35 @@ A stream is checked again every minute, and at once when the database announces 
 | 429 | `reason: "live_key_limit"`: three streams of this process already hold the key; `"live_address_limit"`: the client's address (as `TRUST_PROXY` reads it) holds `LIVE_GUEST_STREAMS_PER_ADDRESS` (6 unless set); `"live_full"`: the process holds `LIVE_GUEST_STREAMS_MAX` (2,000 unless set). Opening more than 120 a minute from one address is refused as well. The page reads its status on its own meanwhile and tries again. |
 | 503 | `reason: "restarting"`: the API process is stopping |
 
+### Alerts on a closed phone (Web Push)
+
+The captain app's alerts while the app is closed ([ARCHITECTURE.md › Alerts on a closed phone](ARCHITECTURE.md#alerts-on-a-closed-phone)): a phone subscribes through its browser's push service, and the server sends it a short notification for each call, QR order or food at the pass that the open app would chime for, to the same people. Mounted at `/api/push` by `modules/push/routes/push.routes.js`. Off while the server has no VAPID keys ([GO_LIVE.md › Production settings](GO_LIVE.md#2-production-settings)). A subscription's address and keys travel in the body, never in an address the logs keep, and are never sent back.
+
+| Method and path | Who | What it does |
+| --- | --- | --- |
+| `GET /api/push/key` | anyone | `200 { publicKey }`: the server's VAPID public key (base64url) the browser subscribes with. `404 { reason: "push_off" }`, *Alerts on a closed phone are not set up on this server.*, while it has no keys. |
+| `POST /api/push/subscriptions` | `authenticate`, the *Captain app* feature, `orders.create`; `resolveOutlet` | Saves this phone's subscription for the person signed in, for the outlet they work in (tied to one, or `X-Outlet-Id`; none is the whole restaurant). Body: `{ purpose?: "captain", subscription: { endpoint, keys: { p256dh, auth } }, allTables?: boolean }`, the subscription as the browser's `PushSubscription.toJSON()` gives it. The session it is saved in bounds it (the token's version and end): the app saves it again when it opens, when the session is renewed, and when the captain changes *My tables* or *All tables*. `201` new, `200` the same phone again (it now alerts this person; alerts start afresh when the person, outlet or tables change). Data: `{ purpose, outletId, allTables, watchingSince, sessionEndsAt, lastSuccessAt, createdAt }`. |
+| `DELETE /api/push/subscriptions` | `authenticate` | Removes this phone's subscription: alerts switched off, or the person signing out. Body: `{ endpoint }`. A person removes their own, or one of their restaurant's on a phone they hold. `200 { removed: true \| false }`. |
+| `POST /api/push/subscriptions/renew` | anyone; 30 in 10 minutes from one address | A subscription the browser renewed by itself (the service worker's `pushsubscriptionchange`, often with nobody signed in): `{ oldEndpoint, oldAuth, subscription }`. The old address and its secret prove it is the same phone; its alerts move to the new subscription. `200 { renewed: true }`; `404` no phone in use with that address and secret; `409` the new subscription is saved already. |
+| `POST /api/push/test` | as `POST /api/push/subscriptions`; 5 a minute per person | A test alert to the person's own phone: `{ endpoint }`. `200 { sent: true }` once the push service has taken it. |
+
+**What a phone is sent.** An encrypted message (RFC 8291, `aes128gcm`) signed with the server's VAPID key (RFC 8292: `aud` the push service's origin, `exp` under 24 hours, `sub` the `VAPID_SUBJECT`), with `Urgency: high`, a `TTL` of 120 seconds for a call or a QR order and 300 for food at the pass, and a `Topic` per table and kind (`t12call`, `t12order`, `t12food`) so a newer one replaces one still waiting. The message: `{ title, body, url, tag, kind, table, orderId }`, such as `{ "title": "Table 12 is calling", "body": "Wants a waiter from the table's QR code", "url": "/captain/calls", "tag": "table-12", "kind": "call", "table": "12", "orderId": null }`: never a guest's name, number or note. The test alert is `{ "title": "Test alert", "url": "/captain", "tag": "test", "kind": "test" }`.
+
+**Who is sent what.** The moments and people of the captain app itself (`captainMoments.js`, beside the app's `captainFloor.js`): a guest's call or a waiter's bill ask still open, a QR order waiting, a ticket or a dish at the pass; to a phone whose person still has the *Captain app* feature and `orders.create`, `orders.view` for calls and QR orders (a guest's while *QR ordering* is on), the *Kitchen display* and `kot.manage` or `kds.view` for food; at the tables shown to them (their outlet's and those of no outlet), their own tables today unless they chose all tables or have none; never their own bill ask; nothing older than their alerts or than a quarter of an hour; nobody signed out everywhere, with a new password, an ended session, a switched-off login or restaurant, or clocked out on the time clock. Each moment is sent once per phone, however many API processes hear it (`push_deliveries`).
+
+**Errors:**
+
+| Status | When |
+| --- | --- |
+| 400 | No subscription, an address that is not one of the browsers' push services (Chrome's, Edge's, Firefox's, Safari's; under `NODE_ENV=test` also one on this computer), keys of the wrong size or not on the curve, a purpose other than `captain`, `allTables` not true or false, no endpoint |
+| 401 | No token, or an ended session |
+| 402 | `reason: "plan_ended"`: saving or testing while the restaurant's plan has ended (removing still works on the phone itself: its subscription ends there) |
+| 403 | The *Captain app* feature switched off (`reason: "feature_off"`), a role without `orders.create`, a login with no restaurant |
+| 404 | `reason: "push_off"`: no keys on the server; a test to a phone that is not the person's own |
+| 409 | `reason: "subscription_gone"`: the push service has dropped this phone's address (it answered 404 or 410): the app subscribes the phone afresh |
+| 429 | Too many renewals from one address, or test alerts from one person |
+| 502 | `reason: "push_failed"`: the phone's push service did not take the test alert |
+
 ## Personal data
 
 The DPDP Act 2023 and Rules 2025, for both engines, through one module (`backend/src/modules/personal-data`): the privacy notice and its contact, consent per purpose and per business, a child's mark, requests from a person, and the breach register. The same paths under two front doors:

@@ -11,6 +11,8 @@ import { RUNNING_LIMIT } from "../../modules/restaurant/orders/services/orderCar
 import { getSettings } from "../../modules/restaurant/setup/services/restaurant.service";
 import { alertsWanted, prepareAlerts, rememberAlerts, ring } from "./captainAlerts";
 import { arrivalText, arrivals, countsOf, sectionOf, shownTables, waitingAt } from "./captainFloor";
+import { readSnapshot, saveSnapshot } from "../../services/offline/snapshots";
+import { syncAlerts } from "../../services/push";
 
 // The captain app's floor, read through the APIs the POS, Table requests and
 // the kitchen already use, each only where this person may read it:
@@ -24,6 +26,11 @@ import { arrivalText, arrivals, countsOf, sectionOf, shownTables, waitingAt } fr
 // screens' own minute's read is only a safety net. A call or food at the
 // pass that arrives at the tables shown says so on the screen, and buzzes and
 // chimes the phone once alerts are switched on.
+//
+// The floor as last read is kept on this device (services/offline/snapshots.js):
+// opened with no network, the app shows it, saying from when (`fromCopy`),
+// and reads the floor afresh as soon as the server answers. It takes no
+// orders offline: those need the server.
 
 const AREAS = ["table", "order", "bill", "kot", "table_request", "reservation", "business_day"];
 const ONLY_MINE_KEY = "rmp_captain_tables";
@@ -72,6 +79,33 @@ export default function useCaptainFloor() {
   const [currency, setCurrency] = useState("₹");
   const seen = useRef(null);
   const seenFor = useRef(null);
+  // When the floor shown was read, while it is this device's copy (no network).
+  const [fromCopy, setFromCopy] = useState(null);
+  const shownTablesRef = useRef(null);
+  const workingOutlet = user.outletId || outletStorage.get() || null;
+  const snapshotKey = `captain-floor:${workingOutlet || "all"}`;
+
+  // No answer from the server and nothing shown yet: the floor as last read
+  // on this device, when there is one.
+  const restoreCopy = useCallback(async () => {
+    if (shownTablesRef.current) {
+      return;
+    }
+
+    const kept = await readSnapshot(snapshotKey, user.id);
+
+    if (!kept || shownTablesRef.current) {
+      return;
+    }
+
+    const floor = kept.data;
+    setTables(floor.tables);
+    setOrders(floor.orders || []);
+    setRequests(floor.requests || []);
+    setPass(floor.pass || { tickets: [], passMinutes: 8 });
+    setDayOpen(floor.dayOpen ?? null);
+    setFromCopy(kept.savedAt);
+  }, [snapshotKey, user.id]);
 
   const setError = useCallback(
     (key, text) => setErrors((current) => (current[key] === text ? current : { ...current, [key]: text })),
@@ -81,11 +115,20 @@ export default function useCaptainFloor() {
     () =>
       listTables()
         .then((rows) => {
-          setTables(rows.filter((row) => row.status === "active"));
+          const active = rows.filter((row) => row.status === "active");
+          shownTablesRef.current = active;
+          setTables(active);
+          setFromCopy(null);
           setError("tables", "");
         })
-        .catch((err) => setError("tables", getErrorMessage(err))),
-    [setError]
+        .catch((err) => {
+          if (!err.response) {
+            restoreCopy();
+          }
+
+          setError("tables", getErrorMessage(err));
+        }),
+    [setError, restoreCopy]
   );
 
   const loadOrders = useCallback(
@@ -156,6 +199,13 @@ export default function useCaptainFloor() {
   useEffect(() => {
     refresh({ reasons: ["open"], changes: [] }).finally(() => setLoaded(true));
   }, [refresh]);
+
+  // The floor as read, kept on this device for a reload with no network.
+  useEffect(() => {
+    if (tables && loaded && !fromCopy) {
+      saveSnapshot(snapshotKey, user.id, { tables, orders, requests, pass, dayOpen });
+    }
+  }, [tables, orders, requests, pass, dayOpen, loaded, fromCopy, snapshotKey, user.id]);
 
   // The currency symbol, from the settings every till reads.
   useEffect(() => {
@@ -229,6 +279,9 @@ export default function useCaptainFloor() {
     } catch {
       // Storage blocked: the choice holds until the page reloads.
     }
+
+    // Alerts on a closed phone follow the same tables.
+    syncAlerts(user, { allTables: !value });
   };
 
   return {
@@ -251,8 +304,9 @@ export default function useCaptainFloor() {
     toggleAlerts,
     loaded,
     currency,
+    fromCopy,
     // The outlet this person works in: tied to it, or picked on this device.
-    workingOutlet: user.outletId || outletStorage.get() || null,
+    workingOutlet,
     reload: { tables: loadTables, requests: loadRequests, pass: loadPass, orders: loadOrders },
   };
 }

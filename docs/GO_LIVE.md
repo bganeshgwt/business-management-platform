@@ -48,7 +48,16 @@ with these differences.
   processes: each listens for every change.
 - **HTTPS** sits in front of the API and both web apps, usually in the hosting
   proxy. Set `TRUST_PROXY` to match (§2), and set the proxy up for live
-  updates (below).
+  updates (below). The staff app needs it for more than safety: browsers
+  install an app, run its service worker (opening it with no network) and
+  deliver alerts on a closed phone only from an https address
+  ([ARCHITECTURE › The installable app](ARCHITECTURE.md#36-the-installable-app-working-offline-alerts-on-a-closed-phone)).
+- **Alerts on a closed phone** need the server's own key pair (§2) and the
+  server reaching the browsers' push services over https: `fcm.googleapis.com`
+  (Chrome, Edge on Android, Samsung Internet), `*.notify.windows.com` (Edge on
+  Windows), `*.push.services.mozilla.com` (Firefox) and `*.push.apple.com`
+  (iPhone, iPad and Safari). A firewall that stops outgoing requests must let
+  these through.
 - **Build the web apps** with their production addresses, and serve the builds
   (§3).
 
@@ -59,7 +68,9 @@ with these differences.
 3. In `backend`, run `npm run migrate:up`. The API refuses to start while a
    migration is pending, and names the first one.
 4. Build the web apps again (`npm run build` at the root) and put the new
-   builds in place.
+   builds in place. The staff app's service worker fetches the new build in
+   the background on each device; the app then shows *A new version is
+   ready* and moves to it when someone presses Reload, never by itself.
 5. Restart the API.
 
 ### Live updates through the proxy
@@ -196,6 +207,7 @@ need a production value:
 | `PORT` | The port the proxy forwards to (5000 when left out). |
 | `UPLOADS_DIR`, `PRIVATE_UPLOADS_DIR` | The two upload folders, on storage that survives a redeploy (a disk or volume outside the code's folder). `UPLOADS_DIR` holds the public pictures, served at `/uploads`; `PRIVATE_UPLOADS_DIR` the files only ever sent through the API. Left empty, they are `backend/uploads` and `backend/private_uploads`; a relative path is taken from `backend/`. Both are user data (§5). |
 | `DB_POOL_GUARD` | Empty, the default. `warn` and `throw` are checks for development and test runs. |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | The key pair for alerts on a closed phone (the captain app's Web Push), made once with `npm --prefix backend run push:keys`, which prints the three lines to paste; and `VAPID_SUBJECT`, an address the push services can write to about the alerts: `mailto:` an inbox someone reads, or an `https://` page (Apple's push service refuses a `localhost` address there). All three or none: without them the captain's switch says *Alerts on a closed phone are not set up on this server*. A live server refuses to start with keys that do not work together. The private key is a secret like `JWT_SECRET`: on the server only, never in git. Keep the pair for as long as the server runs: a new pair stops every phone's alerts until each turns them on again. |
 
 The other settings are optional, and each falls back to the default
 `.env.example` shows: `DB_POOL_MAX`, `DB_CONNECT_TIMEOUT_MS`,
@@ -225,6 +237,12 @@ keys and the links to each business's privacy notice (both are made from it).
 Guest pages read them afresh: an open status page asks once and carries on
 live, but a notice link copied before the change no longer opens.
 
+**Set the alerts' key pair once and keep it.** Phones subscribe with the
+public key; a server moved to new hardware takes its `VAPID_*` lines with it,
+and a backup of `.env` keeps them. Check after go-live: a captain turns on
+*⋯ → Alerts → When the app is closed* on their phone, presses **Send a test
+alert**, and the notification arrives within seconds.
+
 **The web apps' settings** are read when the apps are built, not when they run:
 `VITE_API_BASE_URL` (both apps) and `VITE_CUSTOMER_WEB_URL` (the staff app). A
 change needs a new build (§3). Everything in a web build is public, so never
@@ -244,11 +262,33 @@ fetch the new build (`PageLoadBoundary`, [ARCHITECTURE.md](ARCHITECTURE.md)).
 Keeping the previous build's files beside the new ones for a day spares
 people even that reload.
 
+The staff app's service worker keeps a copy of its build on each device, so
+an installed app opens with no network:
+
+- **Never cache `sw.js` and `sw-rules.js` long**: serve them, like
+  `index.html`, with `Cache-Control: no-cache`. The app asks the browser to
+  look past its own cache for them, but a proxy's cache would still hold a new
+  version back. Their names stay the same from build to build; what changes
+  is inside.
+- **A new build** reaches each device by itself: the worker fetches only the
+  files that changed, in the background, and the app offers *A new version is
+  ready*; it never reloads by itself. The device keeps the previous build's
+  copy until the next one, so a tab still on the old version keeps working.
+- **The API is never kept** by the worker, and neither are the guests'
+  pages; uploaded pictures are kept (at most 200) and refreshed whenever the
+  network allows.
+- The manifests (`/manifests/*.webmanifest`) and icons (`/icons/*.png`) are
+  ordinary files of the build, served as they are; `.webmanifest` as
+  `application/manifest+json`.
+
 What each build needs (the build stops with a sentence when one is missing):
 
 - **Both apps:** `VITE_API_BASE_URL`, the API's address ending in `/api`. The
   apps find uploaded images by replacing that last `/api` with `/uploads`, so
-  the API's address must answer both paths. The API serves both itself.
+  the API's address must answer both paths. The API serves both itself. From
+  Git Bash, a bare `/api` typed on the command line reaches the build as a
+  Windows path (`C:/Program Files/Git/api`): set `MSYS_NO_PATHCONV=1` first, or
+  put it in the app's `.env` (the staff build stops with a sentence then).
 - **The staff app:** `VITE_CUSTOMER_WEB_URL`, the guests' site's address, or
   `same-origin`.
 

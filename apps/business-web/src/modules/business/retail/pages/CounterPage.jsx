@@ -28,6 +28,7 @@ import CounterShelf from "./counterShelf";
 import ShiftButton from "./counterShift";
 // Cut to order and orders for pickup at a meat / weight shop.
 import CounterWeightTools from "../../weight/pages/CounterWeightTools";
+import useInstall from "../../../../hooks/useInstall";
 import { advanceOnBill } from "../../weight/pages/pickupMoney";
 // A hardware shop's bill goes to one of the customer's sites.
 import SiteField from "../../hardware/pages/SiteField";
@@ -97,6 +98,8 @@ function cashChips(total) {
 export default function CounterPage() {
   const biz = useOpenBusiness();
   const { user, switchUser } = useAuth();
+  // The counter as an app of its own on the shop's computer or tablet.
+  const install = useInstall("counter");
   // A bill carried over from before the till was switched to this person.
   const [carried] = useState(() => takeCarry(biz.id));
   const confirm = useConfirm();
@@ -646,9 +649,10 @@ export default function CounterPage() {
   }
 
   const lastId = readLast(biz.id);
-  const moreActions = biz.can("sales.refund")
-    ? [{ label: "Return", icon: "undo", onClick: () => setReturning(true) }]
-    : [];
+  const moreActions = [
+    ...(biz.can("sales.refund") ? [{ label: "Return", icon: "undo", onClick: () => setReturning(true) }] : []),
+    ...(install.item ? [install.item] : []),
+  ];
   const headerActions = (
     <>
       {biz.can("sales.create") && <BillerButton biz={biz} onSwitch={switched} />}
@@ -938,6 +942,7 @@ export default function CounterPage() {
       {picking && <VariantPicker biz={biz} locationId={locationId} onClose={() => setPicking(false)} onPick={(v) => { lookUp(v.barcode || v.code); }} />}
       {calculating && <CalculatorDialog biz={biz} target="bill" onAdd={addCalculated} onClose={() => setCalculating(false)} />}
       {lastOpen && <DocumentDetail documentId={lastOpen} onClose={() => setLastOpen(null)} onChanged={() => {}} />}
+      {install.dialog}
       {returning && <ReturnFinder biz={biz} onClose={() => setReturning(false)} onPick={(d) => { setReturning(false); setReturnId(d.id); }} />}
       {returnId && <DocumentDetail documentId={returnId} initialAction="returns" onClose={() => setReturnId(null)} onChanged={() => {}} />}
     </div>

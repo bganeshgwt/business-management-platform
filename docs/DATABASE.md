@@ -6,7 +6,7 @@ PostgreSQL 15 or newer (built and tested on 18). One database holds the whole pl
 
 | Part | Tables | Scoped by |
 | --- | --- | --- |
-| [Platform and access (restaurant module)](#platform-and-access) | restaurants, outlets, users, roles, permissions, sign-in and approvals | `restaurant_id` |
+| [Platform and access (restaurant module)](#platform-and-access) | restaurants, outlets, users, roles, permissions, sign-in and approvals, the phones that get alerts while the captain app is closed | `restaurant_id` |
 | [Restaurant module](#restaurant-module) | settings, menu, tables, orders, kitchen, bills and payments, cash, guests, stock and purchasing, staff and pay | `restaurant_id`, and `outlet_id` where a branch matters |
 | [Business platform](#business-platform) | platform catalogue, business access, business core, shared core, one extension group per business type, tasks, issues & projects, GST rates by date, personal data, an owner's GST thresholds (both engines), and paid plans (the platform's plans, each business's access periods, the platform's orders, payments, invoices and leads) | `business_id` on every row, with composite foreign keys (an owner's own settings by `user_id`; the platform's figures, prices and leads by none) |
 | [Live updates](#live-updates) | no tables: the triggers that announce each committed change to the live screens, for both engines | the restaurant or business named in each notification |
@@ -170,6 +170,20 @@ Key columns: `user_id`, `alert_id` (varchar 200), `seen_members` (text[], for su
 Relations: `restaurant_id` -> `restaurants` (CASCADE); `user_id` -> `users` (CASCADE).
 Rules: uq_notification_reads UNIQUE (restaurant_id, user_id, alert_id). No created_by: a person only marks their own alerts.
 Added by: 1789904000000_create-notification-reads.
+
+#### `push_subscriptions`
+Purpose: the phones that get the captain app's alerts while the app is closed (Web Push): one row per phone, saved by the captain app when its person turns *Alerts when the app is closed* on, and again each time the app opens, the session is renewed or the captain changes *My tables* or *All tables* ([API.md › Alerts on a closed phone](API.md#alerts-on-a-closed-phone-web-push)). Staff data: the push address of a person's phone, kept only while they want alerts on it.
+Key columns: `user_id` (whose phone it is now), `purpose` (`captain`), `restaurant_id`, `outlet_id` (the outlet they work in; NULL the whole restaurant), `all_tables` (*All tables* chosen), `endpoint` (the push service's address for the phone; never shown or logged), `p256dh` and `auth` (the phone's public key and secret, base64url: what each message is encrypted for), `user_agent`, `token_version` and `session_ends_at` (the session it was saved in: a person signed out everywhere, with a new password, or whose session ran out is sent nothing), `watching_since` (nothing from before it is sent: alerts switched on, or the person, outlet or tables changed), `last_success_at`, `last_failure_at`, `failures` (sends failed in a row), `disabled_at`, `disabled_reason` (`push service 404` or `push service 410`: the push service dropped the address).
+Relations: `user_id` -> `users` (CASCADE); `restaurant_id` -> `restaurants` (CASCADE); `outlet_id` -> `outlets` (CASCADE).
+Rules: `endpoint` UNIQUE, 12–2048 characters, `http(s)://`; a row in use has both keys at their exact sizes (87 and 22 base64url characters), one switched off has neither (its keys are wiped when the push service drops it); `disabled_reason` set exactly when `disabled_at` is; `failures` >= 0; partial index idx_push_subscriptions_restaurant (restaurant_id) WHERE disabled_at IS NULL, index on `user_id`; `updated_at` by trigger. The API's dispatcher deletes a row switched off 30 days ago, or whose session ended 30 days ago; removing it (alerts off, signing out) deletes it at once.
+Added by: staff-app-push.
+
+#### `push_deliveries`
+Purpose: which moment each phone was alerted for, written before the send. Every API process hears every change; only the one whose row goes in sends, so a phone is alerted once per moment however many processes run.
+Key columns: `subscription_id`, `moment` (as the captain app keys it: `call:<request>`, `order:<request>`, `ready:<ticket>`, `ready:<ticket>.<dish>`), `created_at`.
+Relations: `subscription_id` -> `push_subscriptions` (CASCADE).
+Rules: PRIMARY KEY (subscription_id, moment); CHECK on the moment's form; index on `created_at`. Rows older than two days are deleted by the dispatcher every hour.
+Added by: staff-app-push.
 
 ## Restaurant module
 

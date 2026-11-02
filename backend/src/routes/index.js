@@ -45,6 +45,8 @@ router.use(require("../modules/business/health/routes/healthUploads.routes"));
 router.use(require("../modules/business/licences/routes/licenceUploads.routes"));
 // Live updates: a screen's stream for its restaurant (/live) or a business (/businesses/:id/live), before the /businesses router.
 router.use(require("../modules/live/routes/live.routes"));
+// Alerts on a closed phone: the captain app's push subscriptions (Web Push).
+router.use("/push", require("../modules/push/routes/push.routes"));
 // A jeweller's piece photos and custom order designs (multipart), before the JSON-only /businesses router.
 router.use(require("../modules/business/jewellery/routes/jewelleryUploads.routes"));
 // A rental business's photos and signatures of a handover and a return (multipart), before the JSON-only /businesses router.

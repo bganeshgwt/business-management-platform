@@ -6,6 +6,7 @@ import { businessContext, listBusinesses, openBusiness } from "../services/busin
 import { getErrorMessage } from "../services/api";
 import { arrivalLanding, businessPath, isRestaurantStaff } from "../services/businessNav";
 import { confirmAction } from "../services/confirm";
+import { readContextCopy, readDirectoryCopy, saveContextCopy, saveDirectoryCopy } from "../services/offline/offlineCopies";
 
 // One Business Admin, many businesses. This provider knows:
 //   - the businesses the signed-in person is a member of (the switcher's list);
@@ -20,6 +21,11 @@ import { confirmAction } from "../services/confirm";
 // business by itself: it passes that business's id as `businessId`, and as
 // `paths(section)` where a screen's links lead there instead (null: to the
 // screen in Business Admin, as always).
+//
+// The list and an opened business's context are kept on this device as they
+// are read (services/offline/offlineCopies.js). With no answer from the
+// server, the copy stands in, and `offline` says since when (a screen that
+// works offline opens from it; docs/ARCHITECTURE.md › Offline boot).
 
 export default function BusinessProvider({ children, businessId: openId = null, paths = null }) {
   const { user } = useAuth();
@@ -29,6 +35,8 @@ export default function BusinessProvider({ children, businessId: openId = null, 
   const [directoryError, setDirectoryError] = useState("");
   const [loaded, setLoaded] = useState(null);
   const [contextError, setContextError] = useState(null);
+  // When the copies shown were read: { directory, context }, null while fresh.
+  const [copied, setCopied] = useState({ directory: null, context: null });
   const [reloadKey, setReloadKey] = useState(0);
   const dirty = useRef(false);
   const landed = useRef(false);
@@ -59,7 +67,8 @@ export default function BusinessProvider({ children, businessId: openId = null, 
       if (!current()) return result;
       const target = landed.current ? null : arrivalLanding(result.businesses, latest.current.restaurantStaff, window.location.pathname);
       landed.current = true;
-      const show = () => { setDirectory(result); setDirectoryError(""); };
+      saveDirectoryCopy(user.id, result);
+      const show = () => { setDirectory(result); setDirectoryError(""); setCopied((c) => ({ ...c, directory: null })); };
       if (target) {
         // The router moves to an address in a transition: the list joins it,
         // so the home screen is never drawn with the list before the move.
@@ -72,10 +81,17 @@ export default function BusinessProvider({ children, businessId: openId = null, 
       }
       return result;
     })
-    .catch((error) => {
+    .catch(async (error) => {
+      // No answer: this device's copy of the list, when it has one.
+      const copy = error?.response ? null : await readDirectoryCopy(user.id);
+      if (copy && current()) {
+        landed.current = true;
+        setDirectory(copy.value); setDirectoryError(""); setCopied((c) => ({ ...c, directory: copy.savedAt }));
+        return copy.value;
+      }
       if (current()) { landed.current = true; setDirectoryError(getErrorMessage(error)); }
       return null;
-    }), []);
+    }), [user.id]);
 
   useEffect(() => {
     let current = true;
@@ -90,11 +106,22 @@ export default function BusinessProvider({ children, businessId: openId = null, 
     }
     const controller = new AbortController();
     businessContext(businessId, controller.signal)
-      .then((data) => { setLoaded({ id: businessId, key: reloadKey, data }); setContextError(null); })
-      .catch((error) => {
-        if (!controller.signal.aborted) {
-          setContextError({ id: businessId, message: getErrorMessage(error), status: error?.response?.status });
+      .then((data) => {
+        setLoaded({ id: businessId, key: reloadKey, data }); setContextError(null);
+        setCopied((c) => ({ ...c, context: null }));
+        saveContextCopy(user.id, businessId, data);
+      })
+      .catch(async (error) => {
+        if (controller.signal.aborted) return;
+        // No answer: this device's copy of the business's context, when it has one.
+        const copy = error?.response ? null : await readContextCopy(user.id, businessId);
+        if (controller.signal.aborted) return;
+        if (copy) {
+          setLoaded({ id: businessId, key: reloadKey, data: copy.value }); setContextError(null);
+          setCopied((c) => ({ ...c, context: copy.savedAt }));
+          return;
         }
+        setContextError({ id: businessId, message: getErrorMessage(error), status: error?.response?.status });
       });
     return () => controller.abort();
     // A till switched to another person (PIN) reloads what their role allows.
@@ -150,8 +177,10 @@ export default function BusinessProvider({ children, businessId: openId = null, 
       reloadContext: () => setReloadKey((n) => n + 1),
       switchTo, confirmLeave, setDirty,
       path: (section) => (paths && paths(section)) || businessPath(businessId, section),
+      // Since when the list or the context shown is this device's copy (no network), else null.
+      offline: copied.context || copied.directory || null,
     };
-  }, [directory, directoryError, businesses, businessId, current, context, error, restaurantBusiness, inAdmin, openId, paths, loadDirectory, switchTo, confirmLeave, setDirty]);
+  }, [directory, directoryError, businesses, businessId, current, context, error, restaurantBusiness, inAdmin, openId, paths, loadDirectory, switchTo, confirmLeave, setDirty, copied]);
 
   return <BusinessContext.Provider value={value}>{children}</BusinessContext.Provider>;
 }

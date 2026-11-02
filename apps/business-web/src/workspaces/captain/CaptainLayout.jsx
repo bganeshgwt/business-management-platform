@@ -1,4 +1,4 @@
-import { Suspense, useLayoutEffect, useRef } from "react";
+import { Suspense, useLayoutEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import Icon, { BrandMark } from "@bmp/ui/Icon";
 import useAuth from "../../hooks/useAuth";
@@ -9,6 +9,13 @@ import { ScreenLoading } from "../../components/Feedback";
 import { FloorContext } from "./floorContext";
 import useCaptainFloor from "./useCaptainFloor";
 import { canVibrate } from "./captainAlerts";
+import CaptainAlertsSheet, { CaptainAlertsBanner } from "./CaptainAlertsSheet";
+import useClosedAlerts from "./useClosedAlerts";
+import OfflineBar from "../../components/OfflineBar";
+import useAppManifest from "../../hooks/useAppManifest";
+import useInstall from "../../hooks/useInstall";
+import useOnline from "../../hooks/useOnline";
+import { snapshotAge } from "../../services/offline/snapshots";
 import "../../styles/access.css";
 import "./styles/captain.css";
 
@@ -29,6 +36,11 @@ import "./styles/captain.css";
 // PIN and someone else taking over the phone work as on the POS: the screen
 // starts fresh for the next person. The floor is read once here and shared
 // by the screens (floorContext), so their badges and lists always agree.
+//
+// It installs as an app of its own (hooks/useAppManifest.js), and alerts a
+// closed phone too when the captain turns that on (CaptainAlertsSheet.jsx). With
+// no network it keeps its screen and says so: the floor as last read, from
+// when; orders, calls and the pass wait for the connection.
 export default function CaptainLayout() {
   const { user } = useAuth();
 
@@ -41,6 +53,13 @@ function CaptainShell() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const mainRef = useRef(null);
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const { online } = useOnline();
+  // Installing from here installs the captain app; its alerts on a closed
+  // phone follow My tables or All tables, as chosen on this phone.
+  useAppManifest("captain");
+  const install = useInstall("captain");
+  const closed = useClosedAlerts(user);
   // Taking an order has the POS's own bar at the thumb: no tabs under it.
   const ordering = pathname.startsWith("/captain/order");
   const firstName = String(user.name || "").split(/\s+/)[0];
@@ -81,6 +100,7 @@ function CaptainShell() {
             </span>
           </Link>
           <LiveIndicator status={floor.live} />
+          <OfflineBar className="cpt-offline-pill" />
           <button
             type="button"
             className={`cpt-icon-button ${floor.alerts ? "is-on" : ""}`}
@@ -109,6 +129,8 @@ function CaptainShell() {
             <ActionMenu
               label={`More for ${user.name}`}
               items={[
+                { label: "Alerts", icon: "bell", onClick: () => setAlertsOpen(true) },
+                ...(install.item ? [install.item] : []),
                 { label: "My profile, password & PIN", icon: "user", onClick: () => navigate("/profile") },
                 { label: "The full staff app", icon: "home", onClick: () => navigate("/") },
                 { label: "Lock / switch user", icon: "switch", onClick: lock },
@@ -118,6 +140,19 @@ function CaptainShell() {
             />
           </span>
         </header>
+
+        {(!online || floor.fromCopy) && (
+          <div className="offline-strip" role="status">
+            <Icon name="alert" size={16} />
+            <span>
+              {floor.fromCopy
+                ? `Offline. The tables show the floor as read ${snapshotAge(floor.fromCopy)}; calls, orders and food at the pass need the network.`
+                : "Offline. The tables show the floor as last read; calls, orders and food at the pass need the network."}
+            </span>
+          </div>
+        )}
+
+        {online && !floor.fromCopy && <CaptainAlertsBanner status={closed.status} onOpen={() => setAlertsOpen(true)} />}
 
         {floor.dayOpen === false && (
           <div className="alert cpt-day-closed" role="status">
@@ -151,6 +186,8 @@ function CaptainShell() {
         )}
 
         {locked && <LockScreen />}
+        {alertsOpen && <CaptainAlertsSheet floor={floor} closed={closed} onClose={() => setAlertsOpen(false)} />}
+        {install.dialog}
       </div>
     </FloorContext.Provider>
   );

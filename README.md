@@ -241,6 +241,7 @@ In `backend`. From the root, put `--prefix backend` after `npm`, as in
 | `npm run migrate:create -- <name>` | A new, empty SQL migration in `migrations/` ([ARCHITECTURE › Add a migration](docs/ARCHITECTURE.md#85-add-a-migration)) |
 | `npm run user:create` | A login made in the terminal: the platform Super Admin (restaurant code left empty) or a restaurant's user with a built-in role ([The first login](#3-the-first-login)) |
 | `npm run db:backup` | Backs up the database and both upload folders (`UPLOADS_DIR` and `PRIVATE_UPLOADS_DIR`) into `backend/.local/backups/`. Add `-- --verify` to restore the copy into a scratch database and check it. `PG_BIN` in `backend/.env` names the folder of `pg_dump` and `pg_restore` when they are not on the PATH. ([GO_LIVE › Backups and restore](docs/GO_LIVE.md#5-backups-and-restore)) |
+| `npm run push:keys` | A new key pair for alerts on a closed phone (the captain app's Web Push), printed as the three `VAPID_*` lines to paste into `backend/.env` once ([GO_LIVE › Production settings](docs/GO_LIVE.md#2-production-settings)) |
 | `npm test` | The backend's unit tests (the root's `npm test` runs them after the web apps' and packages' tests) |
 | `npm run test:integration` | The backend's integration tests, the same as the root's command |
 

@@ -223,6 +223,40 @@ const testFolder = () => {
   return folder;
 };
 
+// --- Alerts on a closed phone (Web Push) ------------------------------------------
+//
+// VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY are the server's key pair for Web
+// Push (npm run push:keys makes one), and VAPID_SUBJECT the address the push
+// services may contact (mailto: or https:). All three or none: without them
+// alerts on a closed phone are off, and the captain app says so. Keys that do
+// not work together are reported; a live server refuses to start with them,
+// since alerts would fail silently. The private key is never logged.
+const push = (() => {
+  const settings = {
+    publicKey: String(process.env.VAPID_PUBLIC_KEY || "").trim(),
+    privateKey: String(process.env.VAPID_PRIVATE_KEY || "").trim(),
+    subject: String(process.env.VAPID_SUBJECT || "").trim(),
+  };
+
+  if (!settings.publicKey && !settings.privateKey && !settings.subject) {
+    return null;
+  }
+
+  const problem = require("../modules/push/services/webPush").vapidProblem(settings);
+
+  if (problem && isLive) {
+    console.error(`Refusing to start (NODE_ENV=${nodeEnv}): ${problem}.`);
+    process.exit(1);
+  }
+
+  if (problem) {
+    console.warn(`${problem}; alerts on a closed phone stay off.`);
+    return null;
+  }
+
+  return settings;
+})();
+
 const uploadFolders = (() => {
   const uploads = folderFrom("UPLOADS_DIR");
   const privateUploads = folderFrom("PRIVATE_UPLOADS_DIR");
@@ -330,4 +364,10 @@ module.exports = {
   // private one (PRIVATE_UPLOADS_DIR), sent only through the API: above.
   uploadsDir: uploadFolders.uploads,
   privateUploadsDir: uploadFolders.privateUploads,
+  // Web Push's keys and subject ({ publicKey, privateKey, subject }), or null
+  // while alerts on a closed phone are not set up: above.
+  push,
+  // A test run (NODE_ENV=test): push messages may go to a pretend push
+  // service on this computer (modules/push).
+  isTest: nodeEnv === "test",
 };

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ErrorMessage, Loading } from "../../components/Feedback";
 import useAuth from "../../hooks/useAuth";
+import useOnline from "../../hooks/useOnline";
 import TableGrid from "../../modules/restaurant/orders/pages/TableGrid";
 import { useFloorActions } from "../../modules/restaurant/dashboard/pages/panels/floorActions";
 import { marksOf, ORDER_SCREEN } from "./captainFloor.js";
@@ -19,6 +20,7 @@ import "../../modules/restaurant/orders/styles/pos.css";
 // the table (TableSheet).
 export default function CaptainTablesPage() {
   const floor = useFloor();
+  const { online } = useOnline();
   const { hasPermission } = useAuth();
   const [openId, setOpenId] = useState(null);
   const table = openId ? (floor.tables || []).find((row) => String(row.id) === String(openId)) || null : null;
@@ -44,7 +46,8 @@ export default function CaptainTablesPage() {
         <MineSwitch />
       </div>
 
-      <ErrorMessage message={floor.errors.tables} />
+      {/* Offline, the strip under the header says so: the floor shown is the last read. */}
+      <ErrorMessage message={online && !floor.fromCopy ? floor.errors.tables : ""} />
 
       {floor.tables ? (
         <TableGrid

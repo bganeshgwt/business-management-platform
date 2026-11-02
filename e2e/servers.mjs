@@ -43,3 +43,14 @@ export const URLS = {
   staff: `http://${HOST}:${PORTS.staff}`,
   guests: `http://${HOST}:${PORTS.guests}`,
 };
+
+// The staff app's production build, served by `vite preview` for the browser
+// test of its service worker (staff-app-offline.spec.js), on a port of its
+// own: 20 above the staff app's unless E2E_PREVIEW_PORT moves it.
+export const PREVIEW_PORT = port("E2E_PREVIEW_PORT", PORTS.staff + 20);
+
+if (Object.values(PORTS).includes(PREVIEW_PORT)) {
+  throw new Error("E2E_PREVIEW_PORT must differ from E2E_API_PORT, E2E_STAFF_PORT and E2E_GUESTS_PORT.");
+}
+
+export const PREVIEW_URL = `http://${HOST}:${PREVIEW_PORT}`;

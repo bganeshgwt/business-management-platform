@@ -6,6 +6,7 @@ import {
   isApprovalRequired,
   requestApproval,
 } from "./approval";
+import { reportReachable, reportUnreachable, setReachabilityProbe } from "./offline/online";
 
 const TOKEN_KEY = "rmp_token";
 const OUTLET_KEY = "rmp_outlet";
@@ -109,7 +110,7 @@ api.interceptors.request.use((config) => {
 // 12-hour shift is never cut off in the middle of service. A till nobody
 // touches simply lets it run out.
 
-const payloadOf = (token) => {
+export const tokenPayload = (token) => {
   try {
     const part = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
     return JSON.parse(atob(part.padEnd(part.length + ((4 - (part.length % 4)) % 4), "=")));
@@ -127,7 +128,7 @@ const refreshIfOld = () => {
     return;
   }
 
-  const payload = payloadOf(token);
+  const payload = tokenPayload(token);
 
   if (!payload || !payload.exp || !payload.iat) {
     return;
@@ -145,6 +146,8 @@ const refreshIfOld = () => {
       // Only if nobody signed in as someone else meanwhile.
       if (tokenStorage.get() === token) {
         tokenStorage.set(response.data.data.token);
+        // What holds on to the session's end (this device's alerts) hears of the new one.
+        window.dispatchEvent(new CustomEvent("auth:token"));
       }
     })
     .catch(() => undefined)
@@ -160,8 +163,16 @@ const signalLogout = (reason) => {
   window.dispatchEvent(new CustomEvent("auth:logout", { detail: { reason } }));
 };
 
+// Whether the server answers at all (services/offline/online.js): any
+// answer means it does; a request that got none (no network, the server
+// down) means it does not, until one does. A request cancelled by the
+// screen says nothing either way.
+setReachabilityProbe(() => api.get("/health", { background: true, skipRefresh: true }));
+
 api.interceptors.response.use(
   (response) => {
+    reportReachable();
+
     if (!response.config?.skipRefresh) {
       refreshIfOld();
     }
@@ -171,6 +182,12 @@ api.interceptors.response.use(
   async (error) => {
     const { config } = error;
     const status = error.response?.status;
+
+    if (error.response) {
+      reportReachable();
+    } else if (!axios.isCancel(error) && error.code !== "ERR_CANCELED" && !error.approvalCapture) {
+      reportUnreachable();
+    }
 
     // A 401 on a request that carried a token means the session has ended:
     // expired, the password was changed or reset, "sign out everywhere", or
@@ -210,7 +227,9 @@ api.interceptors.response.use(
     // this amount), read by the server off the request itself. The prompt
     // shows those figures and the approval is tied to them, so even a screen
     // that never says what it is doing gets an approval for exactly that.
-    if (isApprovalRequired(error) && config && !config.approvalRetried && hasApprovalHandler()) {
+    // Never for a request sent in the background (the outbox, this device's
+    // alerts): a refusal there is shown in the waiting list, not as a prompt.
+    if (isApprovalRequired(error) && config && !config.approvalRetried && !config.background && hasApprovalHandler()) {
       const details = error.response.data.data;
       const token = await requestApproval({
         permission: details.permission,

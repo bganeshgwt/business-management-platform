@@ -14,6 +14,10 @@ import ApprovalDialog from "./components/ApprovalDialog";
 import ConfirmHost from "./components/ConfirmHost";
 import Toaster from "./components/Toaster";
 import { installFormValidation } from "./services/formValidation";
+// The browser's offer to install the app, kept from the start (services/install.js).
+import "./services/install";
+import { registerServiceWorker } from "./services/offline/serviceWorker";
+import UpdateBar from "./components/UpdateBar";
 import App from "./App";
 // One shared memory for answers screens read again and again (the dashboard,
 // the settings): see services/queryClient.js.
@@ -22,6 +26,9 @@ import { queryClient } from "./services/queryClient";
 // Every form's required/email/min checks show as a message under the field
 // instead of the browser's bubble (services/formValidation.js).
 installFormValidation();
+
+// The service worker: production builds only (services/offline/serviceWorker.js).
+registerServiceWorker();
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
@@ -35,6 +42,8 @@ createRoot(document.getElementById("root")).render(
           {/* "Are you sure?" from useConfirm(), and the toasts from services/toast.js. */}
           <ConfirmHost />
           <Toaster />
+          {/* "A new version is ready": reloads only when pressed. */}
+          <UpdateBar />
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>

@@ -31,6 +31,10 @@ import "../styles/access.css";
 import { formatLabel } from "../services/restaurantFormats";
 import PlanBanner from "../modules/plan/components/PlanBanner";
 import { getSiteInfo } from "../modules/site/services/site.service";
+import OfflineBar from "../components/OfflineBar";
+import useInstall from "../hooks/useInstall";
+import useAppManifest from "../hooks/useAppManifest";
+import { appFor } from "../services/appManifest";
 
 const PINNED_KEY = "rmp_nav_pinned";
 
@@ -311,6 +315,10 @@ function AppShell() {
   // and takes no clicks, so nothing waits for it.
   const drawer = usePresence(menuOpen, 200);
   const account = usePresence(accountOpen, 130);
+  // The app installed from here is the workspace on screen: the kitchen
+  // display, the counter, or the staff app (services/appManifest.js).
+  useAppManifest(appFor(pathname));
+  const install = useInstall(appFor(pathname));
 
   // A platform account (no restaurant) runs the platform, nothing inside a
   // restaurant: it sees only the platform's own pages.
@@ -502,6 +510,8 @@ function AppShell() {
         )}
 
         <div className="user-menu">
+          {/* Offline, or changes waiting to reach the server (components/OfflineBar.jsx). */}
+          <OfflineBar />
           <BusinessSwitcher />
           {!businessMode && !chooser && <OutletSwitcher className="acc-outlet-wide" />}
           {businessMode && <BusinessLocationSwitcher className="acc-outlet-wide" />}
@@ -572,6 +582,15 @@ function AppShell() {
                     <small>Staff carry on with their own PIN</small>
                   </span>
                 </button>
+                {install.item && (
+                  <button type="button" role="menuitem" className="acc-menu-item" onClick={() => { setAccountOpen(false); install.item.onClick(); }}>
+                    <Icon name="download" size={17} />
+                    <span>
+                      {install.item.label}
+                      <small>Opens full screen from the home screen, like any app</small>
+                    </span>
+                  </button>
+                )}
                 <div className="acc-menu-separator" role="separator" />
                 <button
                   type="button"
@@ -714,6 +733,7 @@ function AppShell() {
       </div>
 
       {locked && <LockScreen />}
+      {install.dialog}
     </div>
   );
 }

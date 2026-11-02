@@ -38,6 +38,7 @@ on record.
 **[Part 1 — Getting started](#part-1--getting-started)**
 
 - [Signing in and staying safe](#signing-in-and-staying-safe)
+- [Installing the app and working offline](#installing-the-app-and-working-offline)
 - [The platform's public site and signing up](#the-platforms-public-site-and-signing-up)
 - [Your plan, the free trial and paying](#your-plan-the-free-trial-and-paying)
 - [The first platform login and the platform screens](#the-first-platform-login-and-the-platform-screens)
@@ -228,6 +229,79 @@ up and the manager must approve again. The activity log names both people. A
 manager whose PIN someone else set is shown with *PIN not their own yet* and
 cannot be chosen until they choose their own; a business's own prompts show
 them the same way, with the reason under the list.
+
+## Installing the app and working offline
+
+**Install the app.** The staff app installs on a phone, a tablet or a
+computer like any other app: it then opens full screen from its own icon,
+with no address bar, and stays signed in. Each workspace installs as an app of
+its own, with its own name and icon: the **Staff app** itself, the **Captain
+app** (a waiter's phone), the **Kitchen display**, a clinic's **Clinic** and
+**Lab**, and a shop's **Counter** (it opens the business you used last).
+Install each from where it is used:
+
+- **Chrome, Edge or Samsung Internet** (Android phones and tablets, Windows
+  and Mac computers): the captain app's **⋯ → Install the captain app**, Quick
+  bill's **More → Install the counter app**, the clinic's or the lab's menu
+  (**Install the clinic app**, **Install the lab app**), or your name at the
+  top right (**Install the staff app**; on the kitchen display, **Install the
+  kitchen display**). The browser asks once more, and the app's icon then sits
+  with the device's other apps. The item shows only where the browser offers
+  an install, and not once the app is installed.
+- **iPhone and iPad** (Safari): the same item shows the steps: tap **Share**
+  in Safari's toolbar, then **Add to Home Screen**, then **Add**, and open the
+  app from its new icon.
+
+Installing needs the platform's https address, as every live server has
+([GO_LIVE.md › Serve the two web apps](GO_LIVE.md#3-serve-the-two-web-apps)).
+
+**A new version.** When a new version of the platform goes live, the app
+shows **A new version is ready** with **Reload** at the bottom of the screen.
+It never reloads by itself, and never in the middle of a bill or an order:
+press **Reload** when it suits you, between two orders, or **Later** (×) to
+hide it until the next version. A tab still on the old version after another
+tab reloaded says **A new version is in use in another tab**.
+
+**When the network drops.** The app says so calmly at the top of the screen
+(in the top bar, or a workspace's header): **Offline**, and how many changes
+made on this device wait to reach the server, such as *Offline · 3 waiting to
+send*. Nothing pretends to be sent, and nothing is lost. A tap opens **Waiting
+to send**: each change, when it was made and by whom, how often it was tried
+and why it waits.
+
+- **Waiting** — it goes by itself as soon as the connection is back: tried
+  again after a short pause, then at least once a minute, and at once when
+  the device reconnects or the app comes back to the front. **Send now** tries
+  at once.
+- **Needs attention** — the server refused it, and its own reason shows (the
+  plan has ended, a permission, a credit limit …). It stays until someone
+  deals with it: put the cause right and **Send again**, or **Discard…**,
+  which first says what is lost, and what else waits for it.
+- A change made after another it depends on (a new shop's first order after
+  the shop) goes after it, and needs attention if that one is discarded.
+- Another person's changes on a shared device wait for that person to sign
+  in again; they are listed, with their name.
+
+**Opening the app with no network.** An installed app, or a tab opened
+before, opens even with no connection, from this device's copy of the app.
+The screens that work offline open from what the device kept: the captain
+app shows the floor as last read and says from when. Every other screen says
+**You're offline — this screen needs the network**, with **Try again** and
+the screens that do open. Nobody is signed out because the network is down:
+only the server ending the session signs anyone out.
+
+**Signed out while working.** When your session ends while a screen that
+works offline is open (it ran out, or you were signed out everywhere), **Sign
+in again to carry on** opens over the screen: type your password and carry on
+where you were, with everything waiting still waiting. **Sign out** there
+leaves. Elsewhere the sign-in page opens and brings you back to the page you
+were on.
+
+**Signing out with changes waiting.** **Sign out** first names every change
+that has not reached the server, because signing out deletes them from the
+device: **Stay signed in** and let them go when the connection is back, or
+**Sign out and delete**. Signing out also removes your offline copies from the
+device, and stops its alerts on a closed phone.
 
 ## The platform's public site and signing up
 
@@ -1450,11 +1524,13 @@ read the menu and call staff.
 
 **Daily work → Captain app** (the address `/captain`) is the waiters' own
 screen, made for a phone held in one hand at the table. It is part of the
-staff app, not something to install: a captain signs in on their phone, opens
-it, and adds it to the phone's home screen; the address keeps working as a
-bookmark, and signing in from it comes back to it. It has a header of its own
-(the restaurant, who is signed in, **Live**, the alerts bell, the lock and a
-**⋯** menu) and three tabs at the thumb:
+staff app and installs as an app of its own: a captain signs in on their
+phone, opens it and installs it (**⋯ → Install the captain app**; on an
+iPhone, Share, then Add to Home Screen:
+[Installing the app and working offline](#installing-the-app-and-working-offline));
+the address keeps working as a bookmark, and signing in from it comes back to
+it. It has a header of its own (the restaurant, who is signed in, **Live**,
+the alerts bell, the lock and a **⋯** menu) and three tabs at the thumb:
 
 - **Tables** — the tables of the captain's section today (*My tables*, from
   **Tables & QR → Captain sections**), or every table with *All tables*;
@@ -1536,11 +1612,57 @@ at the tables shown also buzzes the phone (where the browser can) and chimes.
 The choice is kept on the phone; the first tap after opening the app lets it
 chime again.
 
+**Alerts on a closed phone.** **⋯ → Alerts → When the app is closed** sends
+the same alerts to the phone while the app is closed, its screen off or in a
+pocket, as a notification: a guest's call or a waiter's bill ask at the
+captain's tables, a QR order waiting, food ready at the pass. They go to the
+same people as the open app's: the captain's own tables today, or every table
+with *All tables* (and for someone with no section), at the outlet they work
+in, only for what their role may see, never for their own bill ask, and never
+while they are clocked out on the time clock. A notification names the table
+and what waits (*Table 12 is calling*, *Table 4: 2 dishes ready*), never a
+guest's name, number or note; a newer one at the same table replaces the one
+before, and tapping it opens the app on **Calls** or **Ready**. A phone that
+is off keeps a call for two minutes and food for five, then drops it.
+
+1. Turn the switch on, and allow notifications when the phone asks (Chrome on
+   Android may ask quietly at the bottom of the screen; allow it there, or
+   from the mark beside the address → *Notifications* → *Allow*).
+2. **Send a test alert**: it arrives as a notification within seconds.
+
+- **iPhone and iPad:** alerts reach a closed phone only from the app on the
+  Home Screen (iOS 16.4 or later). In Safari the switch shows the steps to
+  add it first; then open the app from its icon and turn alerts on there.
+- **Late or missing on an Android phone?** Battery savers (Xiaomi, Redmi,
+  Poco, Oppo, Realme, Vivo, iQOO, OnePlus and Samsung) close the browser in the
+  background, and its alerts wait until the phone wakes. On the phone: Settings
+  → Apps → Chrome (or the installed app) → Battery → **Unrestricted**; turn
+  **Autostart** on for Chrome where the phone has it; lock the app in the
+  recent apps view; and allow its notifications in Do not disturb or Focus.
+  The same short guide is under **⋯ → Alerts**.
+- While alerts are off on the phone (or notifications are blocked), a calm
+  line under the header says so, with **Turn on** and **Not today**.
+- They stop on that phone when the captain signs out, when another waiter
+  takes the phone over with their PIN, when their session ends (signed out
+  everywhere, a new password, or eight hours unused) and while the Captain app
+  feature is off; signing in again on the same phone turns them back on for
+  someone who had them on.
+- *Alerts on a closed phone are not set up on this server* means the server
+  has no keys for them yet: the platform's operator adds them
+  ([GO_LIVE.md › Production settings](GO_LIVE.md#2-production-settings)).
+
+**With no network** the captain app keeps its screen: the **Offline** mark in
+the header and a line under it saying the tables show the floor as last read,
+and from when (also after the app is opened again with no network). Calls, QR
+orders and food at the pass need the network, and an order is not taken
+offline: it waits for the connection, as on the POS.
+
 **Lock and PIN** work as on the POS: the lock button, or the idle time set
 under Users (*Till lock & sign-in*), locks the phone; the captain carries on
 with their PIN, or someone else takes over with theirs and the app starts
-fresh for them. The **⋯** menu has *My profile, password & PIN*, *The full
-staff app*, *Lock / switch user* and *Sign out*.
+fresh for them. The **⋯** menu has *Alerts*, *Install the captain app* (where the
+browser offers it), *My profile, password & PIN*, *The full staff app*,
+*Lock / switch user* and *Sign out*.
 
 **Giving a waiter the captain app:**
 
@@ -1553,8 +1675,10 @@ staff app*, *Lock / switch user* and *Sign out*.
    time they use it, they choose their own.
 3. Each day, give them their tables under **Tables & QR → Captain
    sections** (*Copy yesterday's plan* makes it quick).
-4. On their phone they sign in, open **Daily work → Captain app** and add it
-   to the home screen.
+4. On their phone they sign in, open **Daily work → Captain app**, install it
+   (**⋯ → Install the captain app**; on an iPhone, Share, then Add to Home
+   Screen), and turn on **⋯ → Alerts → When the app is closed**, then **Send a
+   test alert**.
 
 For the bill at the table as well, give their role *Create bills and apply
 discounts* (`billing.manage`); to take the money there too, *Take payments*

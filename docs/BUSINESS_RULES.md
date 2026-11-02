@@ -100,6 +100,18 @@ These are not settings. Changing one means changing the code; the PIN lockout is
 - **Why:** a restaurant that closes after midnight keeps the night on one business day. Read by the calendar date, its dashboard and day book would jump at midnight to a day with no bills.
 - **Change it:** a restaurant's cut-off hour: *Daily work › Business day › Cash rules* (*Last night's day may be opened until*), set by the owner (`restaurant.settings.manage`). A business's task cut-off: *Business settings › Rules › Day cut-off*.
 
+### Nothing made offline is lost, or pretends to be sent
+
+- **Rule:** a change a screen that works offline makes with no network waits on the device and is sent by itself, in order and with its request key, as soon as the server answers. Every change not yet sent is listed and counted (*Offline · 3 waiting to send*). One the server refuses *needs attention*, keeps the server's own reason, and stays until someone sends it again or discards it; it holds back only what waits for it. Discarding first says what is lost. Signing out names every change not yet sent and asks first, since signing out deletes them from the device.
+- **Why:** a shop or a waiter must be able to trust the screen: a bill or an order that looks sent and is not, or vanishes, costs money and trust; one sent twice would be counted twice, which the request key prevents.
+- **Change it:** nothing to set ([ADMIN_GUIDE.md › Installing the app and working offline](ADMIN_GUIDE.md#installing-the-app-and-working-offline)).
+
+### Only the server ends a session
+
+- **Rule:** no network, or a server that does not answer, never signs anyone out. A device signed in before opens with no network from its own copy of the person's profile and business: the screens that work offline open (the captain app now), and every other says it needs the network. Only the server saying the session is over (it ran out, signed out everywhere, a new password, the login switched off) ends it; on a screen that works offline the person then signs in again over it, keeping the screen and what waits to be sent.
+- **Why:** a till or a waiter's phone loses the network often, for a minute; being sent to the sign-in page each time would lose the work on the screen.
+- **Change it:** nothing to set.
+
 ## Personal data
 
 The DPDP Act 2023 and the DPDP Rules 2025, for every business: a shop's customers (every type's members, hirers, lodgers and patients are its customers) and a restaurant's guests. The business is the data fiduciary for the people it serves; the platform holds their data for it. The data fiduciary duties apply from 13 May 2027. The screens are in [ADMIN_GUIDE.md › Personal data](ADMIN_GUIDE.md#personal-data); what is left (the Consent Manager rule, verifiable parental consent, how long tax records are kept, a legal adviser's review) is in [BACKLOG.md §10](BACKLOG.md#10-new-business-types).
@@ -2426,6 +2438,12 @@ A hotel, lodge or guest house bills on bills of the shared core ([Shops and the 
 - **Rule:** a guest's call, a QR order or food at the pass at the tables shown reaches the captain app by itself within a second or two, with a message naming the table. The phone buzzes (where the browser can) and chimes only once the waiter has switched alerts on with the bell in the app's header, on that phone. Nothing rings for what was already waiting when the app opened.
 - **Why:** a browser lets a page vibrate or play a sound only after a tap on it, and the waiter decides whether their phone may buzz.
 - **Change it:** the bell in the captain app's header, phone by phone.
+
+### Alerts on a closed phone go to the same people, for the same moments
+
+- **Rule:** with *Alerts when the app is closed* on, a captain's phone gets a notification while the app is closed for exactly what the open app would chime for, and for the same people: a guest's call or a waiter's bill ask at the tables shown (their own today, or every table with *All tables* or no section), a QR order waiting, food at the pass; at the outlet they work in; only what their role and the restaurant's features let them see; never for their own bill ask; nothing older than their alerts or than a quarter of an hour. Nothing goes to someone signed out (on that phone, everywhere, or by a new password), whose session ran out, or who is clocked out on the time clock. Each moment reaches each phone once. A notification names the table and what waits, never a guest's name, number or note; a newer one at the same table replaces the one before. The phone's push address is kept only while alerts are on: switching off or signing out removes it, and one the push service has dropped is switched off and deleted after 30 days.
+- **Why:** a waiter with the phone in a pocket misses a guest's call; an alert to the wrong waiter, or one that names the guest on a locked screen, does harm.
+- **Change it:** each captain on their phone (*⋯ › Alerts*); the server's keys (`VAPID_*`, [GO_LIVE.md › Production settings](GO_LIVE.md#2-production-settings)); without them, alerts on a closed phone are off.
 
 ### Links to the guests' site
 

@@ -11,6 +11,7 @@
     "migrate:down": "node scripts/migrate.js down",
     "user:create": "node scripts/create-user.js",
     "db:backup": "node scripts/backup.js",
+    "push:keys": "node scripts/push-keys.js",
     "test": "node --test tests/*.test.js",
     "test:integration": "node --test tests/integration/*.test.js"
   },

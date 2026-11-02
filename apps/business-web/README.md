@@ -42,8 +42,8 @@ In this folder:
 | Command | What it does |
 | --- | --- |
 | `npm run dev` | Dev server at http://localhost:5173, always this port: the API's `CORS_ORIGIN` allows it |
-| `npm run build` | Production build into `dist/` |
-| `npm run preview` | Serve the production build at http://localhost:4173. The API answers it only when `CORS_ORIGIN` lists that address. |
+| `npm run build` | Production build into `dist/`, with the service worker's build line filled in (`vite.config.js`) |
+| `npm run preview` | Serve the production build at http://localhost:4173. The API answers it only when `CORS_ORIGIN` lists that address; with `PREVIEW_API_ORIGIN` set (such as `http://localhost:5010`) the preview forwards `/api` and `/uploads` there instead, as one address serves both in production. The build's service worker runs here (development never runs one): open it in a private window to start without it. |
 | `npm test` | Node unit tests (`tests/*.test.js`) |
 
 From the project root, `npm run dev` starts the API, this app and the guests'
@@ -62,7 +62,8 @@ tests need. See [../../docs/TESTING.md](../../docs/TESTING.md).
 ```
 src/
 ├── main.jsx            The shared look (@bmp/ui/styles.css) → QueryClientProvider → BrowserRouter →
-│                       AuthProvider → App (+ ApprovalDialog, ConfirmHost, Toaster)
+│                       AuthProvider → App (+ ApprovalDialog, ConfirmHost, Toaster, UpdateBar); the
+│                       service worker registered (production builds only)
 ├── App.jsx             Routes, including the public site (/welcome, /pricing, /signup, /terms,
 │                       /privacy-policy, /refunds, /contact), the captain app (/captain/*), the
 │                       clinic and lab workspaces (/clinic/*, /lab/*), Your plan (/plan) and
@@ -85,9 +86,17 @@ src/
 │                       clinic/ and lab/ the clinic's front desk and doctors' screen and the lab's
 ├── components/         Shared UI (DataGrid, Modal, PageHeader …)
 ├── services/           Shared services: api.js (axios, token, outlet, approvals),
-│                       customerWeb.js (where the guests' site is), businessNav …
+│                       customerWeb.js (where the guests' site is), businessNav …; offline/
+│                       (IndexedDB, the outbox, this device's copies, offline boot, the
+│                       service worker's registration), install.js and appManifest.js
+│                       (installing the app), push.js (alerts on a closed phone)
 └── styles/             Stylesheets more than one module uses
 ```
+
+`public/` holds the service worker (`sw.js`, with its rules in `sw-rules.js`),
+the installable apps' manifests (`manifests/`) and their icons (`icons/`,
+drawn by `node tools/render-app-icons.mjs` from the project root; never edit
+them by hand): [ARCHITECTURE › The installable app](../../docs/ARCHITECTURE.md#36-the-installable-app-working-offline-alerts-on-a-closed-phone).
 
 Code both apps use is not here: icons and the global styles are in `@bmp/ui`
 (`packages/ui`), formatting and dates in `@bmp/shared` (`packages/shared`).
@@ -112,9 +121,13 @@ Import them by name: `import Icon from "@bmp/ui/Icon"`,
 4. While someone works, `api.js` swaps the token for a fresh one once it is
    past half its life (`POST /auth/refresh`), so a long shift is never cut off.
 5. When the page is reloaded, `AuthProvider` calls `/auth/me` to restore the
-   user, and drops a token the API refuses.
+   user, and drops a token the API refuses. With no answer at all (no
+   network), it opens from this device's copy of the profile, and only the
+   screens that work offline open (`services/offline/offlineScreens.js`).
 6. If the API answers 401 to a request that carried a token, the token is
-   cleared and the app returns to `/login`.
+   cleared and the app returns to `/login`, which brings the same person back
+   to the page; on a screen that works offline the person signs in again over
+   the screen instead (`SessionPrompt`), keeping it and what waits to be sent.
 
 ## Adding a page
 

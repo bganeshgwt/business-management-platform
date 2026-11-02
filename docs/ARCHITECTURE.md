@@ -29,7 +29,8 @@ lives, and how to extend it.
      [3.2 The business switcher](#32-the-business-switcher) ·
      [3.3 Manager approval](#33-manager-approval) ·
      [3.4 Events, audit and the bell](#34-events-audit-and-the-bell) ·
-     [3.5 Live updates](#35-live-updates)
+     [3.5 Live updates](#35-live-updates) ·
+     [3.6 The installable app, working offline, alerts on a closed phone](#36-the-installable-app-working-offline-alerts-on-a-closed-phone)
 4. [The database](#4-the-database)
    - [4.1 The business platform in five layers](#41-the-business-platform-in-five-layers) ·
      [4.2 The restaurant module's own tables and the bridge](#42-the-restaurant-modules-own-tables-and-the-bridge) ·
@@ -129,12 +130,12 @@ written down.
 
 | Application | State |
 | --- | --- |
-| **Staff app** (`apps/business-web`, port 5173 in development) | Built. A switcher in the header opens any business you belong to. For a restaurant (run as a restaurant, café, bakery or cloud kitchen) it is the full restaurant admin, with the POS screen, the kitchen display and the captain app. For the other types it is Business Admin, whose menu is built from that business's modules. It also holds the platform's public site, each owner's *Your plan* and the platform console. |
+| **Staff app** (`apps/business-web`, port 5173 in development) | Built, and installable on a phone, tablet or computer, each workspace as an app of its own (§3.6). A switcher in the header opens any business you belong to. For a restaurant (run as a restaurant, café, bakery or cloud kitchen) it is the full restaurant admin, with the POS screen, the kitchen display and the captain app. For the other types it is Business Admin, whose menu is built from that business's modules. It also holds the platform's public site, each owner's *Your plan* and the platform console. |
 | **Guests' site** (`apps/customer-web`, port 5174) | Built: QR table ordering, online ordering and table booking, with no sign-in; each status page follows its order or booking live (§3.5). A business's privacy notice for its guests, and the shared pieces a business's guest pages are built from (§8.10). Its planned pages answer already, with what is coming. |
 | **API** (`backend`, port 5010 as `.env.example` sets it) | Built: one Express API and one PostgreSQL database for both apps. |
-| POS app (an offline-capable till) | Planned. The POS *screen* is in the staff app (`/pos`). |
-| Captain / waiter app | Built, as part of the staff app (`/captain`): a route group with a layout of its own (`src/workspaces/captain`), phone first, on the POS's own order screen and the order, KOT, table-request and captain-section APIs, with live updates. |
-| Kitchen display app | Planned as a separate app. The screen is in the staff app (`/kitchen`). |
+| POS app (an offline-capable till) | Planned. The POS *screen* is in the staff app (`/pos`). The offline base it builds on is in place: the service worker, the outbox, this device's copies and offline boot (§3.6). |
+| Captain / waiter app | Built, as part of the staff app (`/captain`), and installable as an app of its own (the *Captain app*): a route group with a layout of its own (`src/workspaces/captain`), phone first, on the POS's own order screen and the order, KOT, table-request and captain-section APIs, with live updates. Alerts reach the phone while the app is closed too (Web Push, §3.6), and with no network it keeps its screen with the floor as last read; it takes no orders offline. |
+| Kitchen display app | Built, as part of the staff app (`/kitchen`), and installable as an app of its own (the *Kitchen display*) on the kitchen's screen. |
 | Clinic and lab workspaces | Built, as part of the staff app (`/clinic`, `/lab`): route groups with layouts of their own (`src/workspaces/clinic`, `src/workspaces/lab`, both in `src/layouts/BusinessWorkspace.jsx`), for the front desk's computer, a doctor's tablet and the lab bench, on the health module's own pages and APIs, with live updates. |
 | Public site, paid plans and the platform console | Built, as part of the staff app: the public site with its sign-up into a free trial (`/welcome` and the pages beside it, no sign-in, outside the app's frame, `src/modules/site`), the owner's *Your plan* (`src/modules/plan`) and the Super Admin's console (`/platform/…`, `src/modules/platform`), on the API's `modules/platform`. The data: [DATA_MODEL › Commercial plans](BUSINESS_PLATFORM_DATA_MODEL.md#commercial-plans). The console may become an app of its own (§9.4). |
 
@@ -461,6 +462,11 @@ consultation: each within about a second.
   Connecting, Reconnecting or Not live. Signing out, or another person taking
   over the till, closes the streams at once.
 
+**Within the API process,** `liveHub.onChange(fn)` hands every committed
+change to a consumer of the process's own, besides the streams: the
+captain app's alerts on a closed phone (§3.6) hear the changes that way. A
+consumer that throws, or whose promise fails, never stops the streams.
+
 **Why triggers, not a restaurant outbox.** The restaurant's postings write no
 events (§9.3, plan E, step 3), and the paths that change what its live screens
 show are many: orders, KOTs, table moves, bills, payments, refunds, the QR and
@@ -523,6 +529,177 @@ shows the same way, with no login:
   closes while the tab is hidden, and reads and reopens on return.
   `src/shared/LiveDot.jsx` says *Live*, or *Updates every few seconds* while
   the page reads on its own.
+
+
+### 3.6 The installable app, working offline, alerts on a closed phone
+
+The staff app installs like any app, opens and keeps its screens with no
+network where that makes sense, and alerts a captain's phone while the app is
+closed. All of it is written for this platform with what the browser and node
+give, with no library: a hand-written service worker, a small IndexedDB
+wrapper, and Web Push's signing and encryption in node.
+
+#### Installing the app
+
+Each workspace is an app of its own: the staff app, the captain app, the
+kitchen display, a clinic's Clinic and Lab, and a shop's Counter
+(`src/services/appManifest.js`). Each has a web app manifest in
+`public/manifests` (its name and short name, start address and scope, an id
+of its own, `standalone`, the brand's colour `--primary` and the page's
+`--bg`) and icons in `public/icons`: 192 and 512 px, a maskable 512 px and the
+iPhone's 180 px, drawn from the shared icon set's marks on the brand's
+gradient by `tools/render-app-icons.mjs` with a browser, never by hand, plus
+the notification's badge. The page's `<link rel="manifest">`, its iPhone icon
+and name follow the workspace on screen (`hooks/useAppManifest.js`, called by
+`AppLayout`, `CaptainLayout` and `BusinessWorkspace`), so installing from the
+captain app installs the captain app. The browser's own offer
+(`beforeinstallprompt`) is kept from the start (`services/install.js`) and
+shown where it helps, through `hooks/useInstall.jsx`: the captain's ⋯ menu,
+Quick bill's More menu, the clinic's and the lab's menus and the account
+menu. Safari on an iPhone or iPad has none: there the same item shows the
+Share, then Add to Home Screen steps (`components/InstallApp.jsx`).
+
+#### The service worker
+
+`public/sw.js`, registered by production builds only
+(`src/services/offline/serviceWorker.js`); development never runs one, and
+removes one left at its address, so `npm run dev` never shows a stale screen.
+After a build, a small plugin in `vite.config.js` (`serviceWorkerBuild`)
+writes into the worker's one placeholder line this build's id (a hash of
+every file), every file it keeps a copy of (the app page, the built scripts
+and styles, the manifests, and the two icons a notification shows) and the
+API's address; a new build is therefore a new worker with a cache of its own.
+
+- **Install:** copies this build's files into `bmp-shell-<id>`, taking a file
+  an earlier copy already holds from there (a built file's name changes with
+  its content), so an update downloads only what changed.
+- **Waiting:** a new build's worker waits. The app shows *A new version is
+  ready* (`components/UpdateBar.jsx`) and reloads only when the person presses
+  Reload, never by itself, never in the middle of a bill or an order; the
+  worker then takes over (`SKIP_WAITING`) and that tab reloads. Another tab
+  still on the old version says a new version is in use; it keeps working,
+  because the previous build's copy is kept until the next build.
+- **Activate:** deletes the copies of builds before the previous one, turns
+  on navigation preload, and takes over the pages already open (the first
+  install works offline at once).
+- **Fetch** (the rules are `public/sw-rules.js`, which the worker loads with
+  `importScripts` and the unit tests run as it is): pages from the network
+  first, this device's copy of the app when there is none or it takes over
+  3.5 seconds; built files from the copy; uploaded pictures from the copy at
+  once, refreshed behind, at most 200 of them and none over 3 MB, never an
+  opaque answer; the app's other files the same way. **The API is never
+  kept**, whatever its address, nor anything but a GET, another site, or the
+  guests' pages when one address serves both apps.
+- **Push:** shows the captain app's alert (below) and, when tapped, brings a
+  window of the app forward and moves it to the screen named, without a
+  reload, or opens one. `pushsubscriptionchange` moves a renewed
+  subscription to its new address on the server.
+
+#### The offline base
+
+`src/services/offline/`, for the screens that work offline (the captain app
+now; the offline till and the salesperson app next):
+
+- **`idb.js`:** one IndexedDB database, `bmp-offline`, with a store per kind
+  of thing kept (`outbox`, `copies`, `snapshots`), opened by name. Every read
+  and write is wrapped, so a private window, blocked storage or a full disk
+  fails softly and the app carries on online. Once the device keeps offline
+  data the browser is asked, once, not to clear it (`navigator.storage.persist`).
+  A screen that needs a store of its own adds it to `STORES` and raises the
+  version.
+- **`outbox.js`:** a durable queue of writes, each sent with its request key,
+  so a write sent twice is made once. Items of one queue go in order; an item
+  may wait for another (`after`) and take what that one's answer said
+  (`resultRef`: a new shop's id into its first order, in the body or the
+  address). A 2xx is done, and a repeat of the same request key answering with
+  the first result is done too; a 401 holds everything until the person
+  signs in again; 402, 403, 409 and other refusals *need attention* with the
+  server's own words and hold back only what waits for them; no answer, 408,
+  429 and 5xx are tried again after 1, 2, 4 … seconds, at most a minute, at
+  once when the connection comes back or the app comes to the front, and
+  every 30 seconds. Discarding takes the screen's confirmation of what is
+  lost; what waited for a discarded item then needs attention. Only the
+  signed-in person's items are sent (a shared device lists the others',
+  waiting for their person); one tab sends at a time (Web Locks) and every tab
+  shows the same list (BroadcastChannel). `outboxStore.js` is the app's one
+  outbox; `outbox.js` itself knows no browser and is tested on its own.
+- **`online.js`, `hooks/useOnline.js`:** whether the server answers now: the
+  browser's network flag together with every API request (any answer means
+  yes, none means no, `services/api.js`), asking `/api/health` every 15
+  seconds while there is none.
+- **`components/OfflineBar.jsx`:** the calm mark in the top bar and the
+  workspaces' headers (*Offline*, *Offline · 3 waiting to send*, *1 needs
+  attention*), and the waiting list it opens: every item, its state, its
+  reason, *Send now*, *Send again* and *Discard…*.
+- **`snapshots.js`:** data a screen keeps with the time it was read (the
+  captain app's floor; a till's items and prices; a salesperson's beat),
+  per person, with its age in words.
+- **`offlineCopies.js`:** this device's copies of the signed-in person's
+  profile, their list of businesses and an opened business's context, saved
+  each time they are read (`AuthProvider`, `BusinessProvider`).
+
+#### Offline boot
+
+A reload with no network still opens the app from the worker's copy. The
+person's profile then comes from the device's copy (`AuthProvider`: only the
+server saying the session is over signs anyone out, never a network error or
+a server that does not answer; the app's start waits at most 15 seconds for
+it), and an opened business's context the same way (`BusinessProvider`'s
+`offline`, the time the copy was read). Only the screens marked
+offline-capable open (`offlineScreens.js`: the captain app, the counter's
+Quick bill and the salesperson app's `/sales`; the last two are marked for
+the screens built on this base); every other screen says *You're offline —
+this screen needs the network* (`components/NeedsNetwork.jsx`,
+`routes/ProtectedRoute.jsx`), with the screens that do open. As soon as the
+server answers, the profile is read afresh and everything opens as usual. A
+session that ended while a screen that works offline was open asks for the
+password again over the screen (`components/SessionPrompt.jsx`), keeping the
+screen and the outbox; elsewhere the sign-in page brings the same person back.
+Signing out names whatever has not been sent and, once confirmed, clears the
+person's copies, snapshots and outbox items.
+
+#### Alerts on a closed phone
+
+The captain app's alerts reach a phone with the app closed through Web Push,
+implemented in node (`backend/src/modules/push`):
+
+- **`webPush.js`:** the VAPID token (ES256 with node's `crypto`: `aud` the
+  push service's origin, `exp` 12 hours on, `sub` the operator's address),
+  the message encryption of RFC 8291 (`aes128gcm`: ECDH P-256 and HKDF; tested
+  byte for byte on the RFC's own example), and the request (`TTL`, `Urgency:
+  high`, `Topic`). It sends only to the browsers' push services (Chrome's,
+  Edge's, Firefox's and Safari's), so the server never posts to a place a
+  browser did not choose. The keys come from `VAPID_PUBLIC_KEY`,
+  `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` (`npm --prefix backend run
+  push:keys` makes a pair); without them alerts are off.
+- **Subscriptions** (`push_subscriptions`): the captain's switch (*Alerts
+  when the app is closed*, `src/services/push.js`) asks the browser's
+  permission from the tap itself, subscribes through the service worker, and
+  saves the subscription for the person and the outlet they work in, again
+  whenever the app opens, the session is renewed (it carries the session's
+  token version and end) or *My tables* and *All tables* change. Signing out
+  or another person taking the phone over removes it; signing in brings it
+  back for someone who had it on. Chrome on Android may answer the permission
+  question after the tap: the subscription is made when it does.
+- **The dispatcher** (`captainPush.js`, started by `server.js` with the live
+  updates) hears every committed change through `liveHub.onChange`. A
+  `table_request` or `kot` change of a restaurant with phones subscribed is
+  read as the captain app reads it (`captainMoments.js`, tested beside the
+  app's own `captainFloor.js`): a call or a waiter's bill ask still open, a
+  QR order waiting, a ticket or dish at the pass. The phones that would chime
+  for it are worked out by each person's permissions, features, outlet,
+  section today and choice of tables, never their own bill ask, nobody
+  signed out or clocked out; each claims the moment (`push_deliveries`, one
+  row per moment and phone, so with several API processes only the one whose
+  row goes in sends) and gets one short notification: *Table 12 is calling*,
+  *Table 4: 2 dishes ready*, never a guest's details; a tag per table, so a
+  newer one replaces the one before. A push service answering 404 or 410 has
+  dropped the address: the subscription is switched off, its keys wiped, and
+  the app subscribes again; a busy or unreachable one is tried once more.
+  Old deliveries and dropped phones are pruned every hour.
+- **In the worker,** every push shows a notification, as browsers demand (a
+  site whose pushes show nothing loses its subscription on Safari): quietly
+  when the captain app is open in front of the person, whose own chime rings.
 
 ---
 
@@ -1050,6 +1227,7 @@ workspaces; the backend has its own install.
 │   │   │   ├── tax-changes/  GST rates by date for every business: a shop's items and a restaurant's dishes
 │   │   │   ├── live/         live updates for every business: the LISTEN connection, the screens' streams, and
 │   │   │   │                 guests' streams with their guest live keys (/api/public/live)
+│   │   │   ├── push/         alerts on a closed phone (Web Push): signing and encryption, subscriptions, the dispatcher
 │   │   │   ├── personal-data/  personal data for every business: the privacy notice, consents, requests, breaches
 │   │   │   ├── gst-thresholds/  an owner's GST thresholds: turnover under one PAN across their businesses, the warnings
 │   │   │   └── tasks/        tasks, issues & projects for every business (+ library/ of built-in templates)
@@ -1122,7 +1300,9 @@ workspaces; the backend has its own install.
 │   │   │   │                 healthWorkspaces (the clinic a workspace opens),
 │   │   │   │                 plannedWorkspaces, the menus (businessNav, businessWorkspace,
 │   │   │   │                 restaurantWorkspace) …, and the API services shared code uses (auth,
-│   │   │   │                 outlet, notification, business)
+│   │   │   │                 outlet, notification, business); offline/ (the offline base: idb, outbox,
+│   │   │   │                 online, snapshots, offlineCopies, offlineScreens, serviceWorker), install,
+│   │   │   │                 appManifest and push (installing the app, alerts on a closed phone, §3.6)
 │   │   │   ├── components/   shared UI: DataGrid/, Modal, PageHeader, SectionCard, ActionMenu, motion.js,
 │   │   │   │                 SheetImportModal (every spreadsheet import's screen) …
 │   │   │   └── styles/       sheets used by more than one module (data-grid.css, reservations.css …), and app/:
@@ -1382,6 +1562,7 @@ file behind an index file with the module's name, which callers import:
 | Module | Backend | Frontend (`modules/<module>/pages/`) | Tables |
 | --- | --- | --- | --- |
 | Tasks, issues & projects (`modules/tasks`) | `routes/tasks.routes.js` (both front doors), `controllers/tasks.controller.js`, `services/` (`scope`, `common`, `people`, `templates`, `recurrence`, `tasks`, `issues`, `projects`, `files`, `reports`, `notifications`), `repositories/tasks.repository.js`, `library/`; bell provider `notifications/providers/tasks.js` | `TasksRoutes`, `TasksScope`, `MyTasksPage`, `TaskRunPage`, `BoardPage`, `CalendarPage`, `IssuesPage`, `IssueDetailPage`, `ProjectsPage`, `ProjectDetailPage`, `TemplatesPage`, `RecurringPage`, `TaskReportsPage`, `forms`, `ItemsEditor`, `ScheduleForm`, `parts`, `taskWords`, `useTasks`, `useServerGrid`; API calls `services/tasks.service.js`; styles `styles/tasks.css` | `business_task*`, `business_issues`, `business_project*`, `platform_task_categories` |
+| Alerts on a closed phone (`modules/push`) | `routes/push.routes.js` (mounted at `/api/push`), `services/webPush.js` (VAPID, RFC 8291, the request), `services/push.service.js` (the key, subscriptions, renewal, a test alert), `services/captainMoments.js` (the captain app's moments and people), `services/captainPush.js` (the dispatcher, started by `server.js`), `repositories/push.repository.js`; `scripts/push-keys.js` | `services/push.js` and `pushRules.js` (this device's subscription), `workspaces/captain/CaptainAlertsSheet.jsx` and `useClosedAlerts.js` (the switch, the iPhone's steps, the test alert, the banner); `public/sw.js` shows them | `push_subscriptions`, `push_deliveries` |
 | Live updates (`modules/live`) | `routes/live.routes.js` (both front doors, mounted in `routes/index.js` before `/businesses`), `routes/guestLive.routes.js` (a guest page's stream, `/api/public/live`, mounted before the rest of `/public`), `services/liveListener.js` (the process's one LISTEN connection), `services/liveHub.js` (the streams, staff's and guests', their checks and limits, clearing the kept dashboard and bell answers), `services/guestKeys.js` (the guest live keys the status answers carry); started and stopped by `server.js`; the request log hides a key (`utils/requestLog.js`) | `services/liveClient.js` (the stream, reconnecting, gathering bursts), `services/live.js` (the app's client), `hooks/useLiveRefresh.js`, `components/LiveIndicator.jsx`; used by the live screens and the bell. The guests' site: `services/guestLive.js` (`useGuestLive`), `shared/LiveDot.jsx` | none: triggers on the tables the live screens read (migrations 1791974000000, and 1791976000000 for the lab) |
 | GST rates by date (`modules/tax-changes`) | `routes/taxChanges.routes.js` (both front doors: `businessRoutes`, mounted from `business.routes.js`, and `menuHandlers`, mounted from the restaurant's `menu.routes.js`), `services/` (`taxChanges.service` the shared flows, `taxChangesShop` and `taxChangesMenu` the two worlds with their gates, bells and (a shop's) notices, `taxChangesSettings` the rates kept in settings, `taxChangesImport` a notification's list, `taxChangesMoney` the arithmetic and dates); the gates are called from `businessAccess.open`, `postDocument`, the menu router, the restaurant's settings and advances' GST, `tableRequest.service`, `preorder.service` and `order.service`'s `priceLines`; the restaurant's bell provider `notifications/providers/taxChanges.js` | `BusinessTaxChangesPage`, `MenuTaxChangesPage`, `TaxChangesView`, `TaxChangeTool` (the new change with its preview), `TaxImportTool` (a notification's list), `SettingRatesCard` (a rate kept in settings, by date), `TaxChangeDialog`, `TaxHistoryDialog` (an item's GST history, from the catalogue and the menu's products), `TaxNotices` (the notice on an open quotation or sales order, and the documents a change touches); words, the list's reader and the notice in `taxChanges.js`; API calls `services/taxChanges.service.js`; styles `styles/tax-changes.css` | `business_tax_changes`, `business_tax_change_items`, `business_tax_setting_changes`, `business_tax_change_imports` |
 | Personal data (`modules/personal-data`) | `routes/personalData.routes.js` (both front doors: `businessRoutes`, mounted from `business.routes.js`, and `restaurantRouter`, at `/api/privacy` in `routes/index.js`), `services/` (`personalData.service` the notice, consents and a child's mark; `privacyRegister.service` requests, the access export, erasure and breaches; `personalDataShop` and `personalDataRestaurant` the two worlds; `personalDataRegistry` where a customer's data lives, table by table; `consents` what every module uses to record and check a consent; `privacyNotice` the starter notice); bell provider `notifications/providers/privacy.js`, and a business's bell in `businessNotifications.service.js` | `BusinessPrivacyPage`, `RestaurantPrivacyPage`, `PrivacyView` (the three tabs), `RequestsTab`, `BreachesTab`, `NoticeTab`, `usePagedList`; components `ConsentChoices` (+ `NewCustomerConsents`), `ConsentLink`, `AskConsentDialog`, `ChildMark`; `useConsentGate`, `usePrivacy`, `consentStore.js`, `printLine.js`; words in `personalData.js`; API calls `services/privacy.service.js`; styles `styles/personal-data.css`; the guests' site's `modules/privacy/GuestPrivacy.jsx` | `business_privacy_notices`, `business_consents`, `business_children`, `business_privacy_requests`, `business_privacy_breaches`, `business_privacy_breach_people`, `business_privacy_breach_notices` |

@@ -2,7 +2,9 @@ import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import Icon from "@bmp/ui/Icon";
 import useAuth from "../hooks/useAuth";
 import FeatureOff from "../components/FeatureOff";
+import NeedsNetwork from "../components/NeedsNetwork";
 import { featuresAllow, firstMissing } from "../services/features";
+import { isOfflineCapable } from "../services/offline/offlineScreens";
 
 // Wrap routes that need a logged-in user. Pass `permission` to also require a
 // permission, or a list of them to require every one (payroll: staff.manage
@@ -14,11 +16,17 @@ import { featuresAllow, firstMissing } from "../services/features";
 // of which one is enough) name the restaurant features the page belongs to:
 // switched off in Settings -> Features, the page says so instead of opening.
 export default function ProtectedRoute({ permission, permissionAny, feature, featureAny }) {
-  const { user, loading, hasPermission, hasFeature, previousUserId } = useAuth();
+  const { user, loading, hasPermission, hasFeature, previousUserId, offline, unreachable, retryStart } = useAuth();
   const location = useLocation();
 
   if (loading) {
     return <div className="page-center">Loading…</div>;
+  }
+
+  // Signed in on this device, but no server to ask and no copy of the
+  // profile to open from: the app says it needs the network, still signed in.
+  if (!user && unreachable) {
+    return <NeedsNetwork kind="start" onRetry={retryStart} />;
   }
 
   if (!user) {
@@ -65,6 +73,13 @@ export default function ProtectedRoute({ permission, permissionAny, feature, fea
 
   if ((feature || featureAny) && user.restaurantId && !featuresAllow({ feature, featureAny }, hasFeature)) {
     return <FeatureOff code={firstMissing({ feature, featureAny }, hasFeature)} />;
+  }
+
+  // Opened with no network from this device's copies: only the screens that
+  // work offline open (services/offline/offlineScreens.js); every other one
+  // says it needs the network, instead of a broken page.
+  if (offline && !isOfflineCapable(location.pathname)) {
+    return <NeedsNetwork />;
   }
 
   return <Outlet />;
