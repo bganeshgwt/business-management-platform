@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 
-import {business as businessOf,fixture,localDate,signIn} from '../../../../e2e/fixture.mjs';
+import {BUSINESSES,business as businessOf,localDate,signIn} from '../../../../e2e/fixture.mjs';
 
 // The restaurant's admin owns one business of every type (e2e/test-data.mjs),
 // each with the specialist tools its trade uses switched on; the meat shop
@@ -122,25 +122,26 @@ test('prescription billing has one payment method and optional offers remain rea
   await expect(page.locator('main.content-scroll h1')).toBeVisible();
 });
 
-test('all business main menu destinations render without runtime or API failures',async({page})=>{
-  test.setTimeout(600000);
+// Every business the restaurant's admin owns, one of each type: a test each,
+// so the types run side by side and each has a time limit of its own as their
+// menus grow.
+for(const type of Object.keys(BUSINESSES))test(`main menu destinations for ${type} render without runtime or API failures`,async({page})=>{
+  test.setTimeout(240000);
   const failures=[];
   page.on('pageerror',error=>failures.push(error.message));
   page.on('response',response=>{
     if(response.status()>=500&&response.url().includes('/api/')) failures.push(`${response.status()} ${response.url()}`);
   });
-  // Every business the restaurant's admin owns: one of each type.
-  for(const business of Object.values(fixture().businesses)){
-    await page.goto(`/business-admin/${business.id}/settings`);
-    await expect(page.getByRole('heading',{name:'Business settings',exact:true})).toBeVisible({timeout:30000});
-    const links=await page.locator('.sidebar a.nav-link').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')).filter(href=>href.startsWith('/business-admin/')));
-    for(const href of links){
-      await page.goto(href);
-      await expect(page.locator('main.content-scroll h1').first(),href).toBeVisible({timeout:30000});
-      await expect(page.getByText('This screen belongs to a different kind of business.',{exact:true})).toHaveCount(0);
-      await expect(page.getByText('This tool is turned off for this business.',{exact:true})).toHaveCount(0);
-      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),href).toBeTruthy();
-    }
+  const business=businessOf(type);
+  await page.goto(`/business-admin/${business.id}/settings`);
+  await expect(page.getByRole('heading',{name:'Business settings',exact:true})).toBeVisible({timeout:30000});
+  const links=await page.locator('.sidebar a.nav-link').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')).filter(href=>href.startsWith('/business-admin/')));
+  for(const href of links){
+    await page.goto(href);
+    await expect(page.locator('main.content-scroll h1').first(),href).toBeVisible({timeout:30000});
+    await expect(page.getByText('This screen belongs to a different kind of business.',{exact:true})).toHaveCount(0);
+    await expect(page.getByText('This tool is turned off for this business.',{exact:true})).toHaveCount(0);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),href).toBeTruthy();
   }
   expect(failures).toEqual([]);
 });
