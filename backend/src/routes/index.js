@@ -59,6 +59,8 @@ router.use(require("../modules/business/memberships/routes/memberUploads.routes"
 router.use(require("../modules/business/laundry/routes/laundryUploads.routes"));
 // Your plan, the owner's: a business's (/businesses/:id/plan) before the /businesses router; the restaurant's is /plan below.
 router.use(require("../modules/platform/routes/plan.routes").businessRouter);
+// An online shop's product photos (multipart), before the JSON-only /businesses router.
+router.use(require("../modules/business/shop/routes/shopUploads.routes"));
 router.use("/businesses", require("../modules/business/core/routes/business.routes"));
 router.use("/restaurants", restaurantRoutes);
 router.use("/outlets", outletRoutes);
@@ -104,6 +106,8 @@ router.use("/public/live", require("../modules/live/routes/guestLive.routes"));
 router.use("/public/privacy", require("../modules/business/guests/routes/guestNotice.routes"));
 // A business's online booking: its booking link's page, free times and bookings, and each guest's own booking.
 router.use("/public/appointments", require("../modules/business/online-booking/routes/publicAppointments.routes"));
+// A shop's online shop for its guests, by its shop link (before the rest of /public).
+router.use("/public/shop", require("../modules/business/shop/routes/shopPublic.routes"));
 
 // The one mount with no login in front of it: a guest at a table, holding a
 // QR code. Everything behind it is scoped by that code and rate limited.

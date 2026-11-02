@@ -53,8 +53,9 @@ The tables behind these endpoints are in [DATABASE.md](DATABASE.md), and how a r
 41. [The platform's public site](#the-platforms-public-site)
 42. [Your plan](#your-plan)
 43. [The platform console](#the-platform-console)
+44. [Online shop](#online-shop)
 
-Sections 2 to 19 are the restaurant module's API, with the sign-in routes every app uses. Sections 20 to 36 are the Business Admin's, under `/api/businesses`. Sections 37 to 40 serve both. Sections 41 to 43 are the platform's own, in the order of its screens: its public site, with no login; Your plan, for the owner of a business or a restaurant; and the platform console, for its Super Admin.
+Sections 2 to 19 are the restaurant module's API, with the sign-in routes every app uses. Sections 20 to 36 are the Business Admin's, under `/api/businesses`. Sections 37 to 40 serve both. Sections 41 to 43 are the platform's own, in the order of its screens: its public site, with no login; Your plan, for the owner of a business or a restaurant; and the platform console, for its Super Admin. Section 44 is a goods shop's online shop: its staff's routes under `/api/businesses` and its guests' under `/api/public/shop`.
 
 ## Conventions
 
@@ -7572,6 +7573,8 @@ A stream is checked again every minute, and at once when the database announces 
 | `task`, `issue` | tasks (with their lines and assignees) and issues |
 | `jewellery_rates` | a jeweller's rate sheets |
 | `online_booking` | a booking guests made from a booking link: answered, changed, cancelled or reminded (the booking's id, at its location) |
+| `online_order` | a shop's online orders (each change to an order's lines raises its revision, so the order announces it) |
+| `online_complaint` | complaints about online orders |
 
 **Errors** (JSON, before the stream starts):
 
@@ -8023,3 +8026,160 @@ Permission: `platform.restaurants.manage`
 Query/Body: `plans[]` (`{ code, businessType, name, description?, monthly, yearly, isDefault, active, sortOrder?, modules[] }`; a new code is small letters, digits and `_`, 2 to 40; prices more than nothing with two decimals at most, or empty for "not set yet") and `prices[]` (`{ code, soldAs, monthly, yearly, available }`; 0 is free). Only what is sent changes; both may be empty.
 Returns: the price list, as `GET`. It stamps `pricesReviewedAt` even when nothing changed, and is audited `platform.prices_updated` with the codes sent. A price reaches a business at its next order: orders keep the prices they were made with.
 Errors: 400 a price that is not an amount, a plan priced at nothing, a default plan not offered, a plan's type changed or unknown, a plan or a module twice, no such module; 400 "Each business type needs a default plan"; 409 a module a plan's type cannot use ("A plan holds only modules its business type can use (not …)"); 403.
+
+## Online shop
+
+A goods shop's online shop: its staff's routes under `/api/businesses/:businessId/online-shop` (businessShop.routes.js, with the photo upload in shopUploads.routes.js), and its guests' under `/api/public/shop` (shopPublic.routes.js). The screens: [ADMIN_GUIDE.md › Online shop](ADMIN_GUIDE.md#online-shop); the rules: [BUSINESS_RULES.md › Online shop](BUSINESS_RULES.md#online-shop). Module `online_shop` (an application, needing `sales` and `contacts`); its permissions are `online_shop.view`, `approve` (accept and decline), `edit` (pack and hand over), `cancel` (cancel; refused at the door), `review` (complaints), `manage` (settings, items online, blocked mobiles) and `export` (the report). Each route below also says what else it needs. Amounts are rupees as numbers (two decimals at most); a staff answer about one order is the order's detail (below).
+
+### Settings and items online
+
+#### `GET /api/businesses/:businessId/online-shop/settings`
+Permission: `online_shop.view`
+Returns: `{ links: [{ id, locationId, locationName, locationActive, token, path, url, enabled, paused, pickupEnabled, pickupMinutes, deliveryEnabled, deliveryPins[], deliveryAreaNote, deliveryFee, freeDeliveryAbove, minOrder, deliveryMinutes, slotsEnabled, slots: [{ from, to, cap }], slotCutoffMinutes, takeOrdersWhenClosed, hideOutOfStock, lowStockBelow, maxOpenPerMobile, autoDeclineMinutes, payAtShop, cashOnDelivery, upiOnDelivery, upiId, upiPayee, guestNote, carePhone, careEmail, grievanceName, grievanceDesignation, grievancePhone, grievanceEmail, fssaiLicence, policy, deliveryItemId, updatedAt, waiting, today, readiness: { shown, outOfStock, hidden, withoutPhoto, withoutMaker, withoutHsn, neverOnline: [{ code, count, words }] } }], words: { <rule code>: words } }`. A link is made, off, for every open location the first time (with the trade's starting policy and the owner as grievance officer); a closed location's link is listed only while it is on. `url` is the link on the guests' site (`GUEST_WEB_URL`), or null when the server has none (the staff app then builds it from its own setting). `waiting`: orders not yet accepted; `today`: placed today.
+
+#### `PUT /api/businesses/:businessId/online-shop/settings/:locationId`
+Permission: `online_shop.manage`
+Body: any of the fields above from `enabled` to `policy`; a field left out keeps its value. `deliveryPins[]` 6-digit PIN codes (at most 100); amounts in rupees (the delivery charge up to ₹1,000); `slots[]` at most 12, each 30 minutes to 6 hours, not overlapping, taking 1 to 500 orders; `upiId` like `shopname@bank`; `fssaiLicence` 14 digits; minutes and counts within the ranges the screen shows.
+Returns: the link, as above without `waiting`, `today` and `readiness`. Switching delivery on the first time makes the *Delivery charge* service item (at the business's default slab). Audited `online_shop.settings_updated` with the fields sent.
+Errors: 400 a value it cannot take (with the field), neither pickup nor delivery, no way to pay, pickup without paying at the shop, delivery without cash or UPI on delivery, delivery with no PIN codes, slots on with none; 403 the module is off; 404 no such location; 409 switching on the link of a closed location.
+
+#### `POST /api/businesses/:businessId/online-shop/settings/:locationId/new-link`
+Permission: `online_shop.manage`
+Returns: the link with a new token; the old one opens nothing from now on. Audited `online_shop.link_replaced`.
+
+#### `GET /api/businesses/:businessId/online-shop/items`
+Permission: `online_shop.view` or `catalog.view`
+Query: `location` (the first open location if left out), `q`, `state` (`shown`, `hidden`, `never`, `no_photo`, `no_maker`), `category`, `page` (50 a page).
+Returns: `{ total, page, items: [{ skuId, productId, name, label, code, category, price, stock, unit, hsnCode, photo: { large, small } | null, shown, hidden, categoryHidden, never, neverWords, hasMaker }] }`: the goods as guests would see them, at the location's prices; `never` is the code of the rule that keeps an item off every online shop, and `neverWords` why.
+
+#### `GET /api/businesses/:businessId/online-shop/items/:productId`
+Permission: `online_shop.view` or `catalog.view`
+Returns: `{ productId, name, hidden, photo, makerKind, description, makerName, makerAddress, countryOfOrigin, genericName, netQuantity, consumerCare, bestBefore, categoryHidden, never: [{ skuId, label, code, words }] }`.
+
+#### `PUT /api/businesses/:businessId/online-shop/items/:productId`
+Permission: `catalog.edit` or `online_shop.manage`
+Body: any of `hidden`, `makerKind` (`manufacturer`, `packer`, `importer`, or empty), `description` (500), `makerName` (150), `makerAddress` (300), `countryOfOrigin` (60), `genericName` (150), `netQuantity` (40), `consumerCare` (200), `bestBefore` (100); an empty text clears it.
+Returns: the item's details, as `GET`. Audited `online_shop.item_updated`.
+Errors: 400 nothing to change; 403 an item of another department, for someone tied to one; 404.
+
+#### `POST /api/businesses/:businessId/online-shop/items/:productId/photo`
+Permission: `catalog.edit` or `online_shop.manage`, with the module on. Multipart, mounted before the JSON-only business routes.
+Body: `image` (the large picture, up to 1080 px) and, when the browser made it, `thumb` (up to 400 px): JPG, PNG or WEBP, up to 2 MB each, their bytes checked, kept with the public uploads (`products/…`). The picture it replaces is deleted.
+Returns: 201, `{ productId, photo: { large, small } }`. Audited `online_shop.photo_added`.
+Errors: 400 no picture, or one that is not a JPG, PNG or WEBP; 403; 404.
+
+#### `DELETE /api/businesses/:businessId/online-shop/items/:productId/photo`
+Permission: `catalog.edit` or `online_shop.manage`
+Returns: `{ productId, photo: null }`. Audited `online_shop.photo_removed`.
+
+#### `GET /api/businesses/:businessId/online-shop/categories`, `PUT …/categories/:categoryId`
+Permission: `online_shop.view` or `catalog.view` (GET); `catalog.edit` or `online_shop.manage` (PUT, body `{ hidden }`).
+Returns: `{ hidden: [categoryId] }`; the PUT `{ categoryId, hidden }`, audited `online_shop.category_hidden` or `online_shop.category_shown`. A hidden category keeps its sub-categories off too.
+
+#### `GET /api/businesses/:businessId/online-shop/blocked`, `POST …/blocked`, `POST …/blocked/:blockId/lift`
+Permission: `online_shop.view` (GET); `online_shop.manage` (POST).
+Body (block): `{ mobile, reason }` (an Indian mobile; 300 characters).
+Returns: `{ blocked: [{ id, mobile, reason, blockedAt, blockedBy, orders }] }`; 201 `{ id, mobile }`; `{ id, lifted: true }`. Audited `online_shop.mobile_blocked` and `online_shop.mobile_unblocked`, with the mobile masked.
+Errors: 409 already blocked; 404 not blocked.
+
+### Orders
+
+#### `GET /api/businesses/:businessId/online-shop/orders`
+Permission: `online_shop.view`
+Query: `lane` (`new`: placed; `packing`: accepted; `out`: packed, ready or out for delivery; `done`: completed, declined or cancelled, in the last day unless `from` and `to` name the days), `location`, `q` (order number, name, mobile or PIN code).
+Returns: `{ lane, counts: { new, packing, out, done }, orders: [card], serverTime }`. A card is `{ id, orderNo, status, lane, service, locationId, locationName, name, mobile, pinCode, paymentMode, slot, total, finalTotal, lines, decided, placedAt, placed, autoDeclineAt, packingAt, packedAt, outAt, readyAt, completedAt, declined: { auto, reason } | null, cancelled: { by, reason } | null, changeStatus, openComplaints, riderName, acceptedBy, revision }`; at most 200, oldest first (`done`: newest first). Orders past their time are declined first (with automatic audit rows), and the details of orders never accepted are cleared after 30 days.
+
+#### `GET /api/businesses/:businessId/online-shop/orders/:orderId`
+Permission: `online_shop.view`
+Returns: the order's detail: the card, with `address`, `landmark`, `note`, `consents`, `substitution`, `contactId`, `documentId`, `returnId`, `paidBy`; `lines: [{ id, position, skuId, name, unit, unitName, weighed, quantity, price, amount, state (pending, ok, short, unavailable, replaced), stateWords, packedQuantity, billPrice, packedAmount, added, replacesLineId, substitution, note, shelf, tracking, picked, serials, discountReason, mrp, taxRate, inStock, lots: [{ lotCode, expiresOn, quantity }] }]`; `figures: { goods, delivery, roundOff, total, allowance, ceiling, over, agreed, placedTotal, discountRoom }` (as packed now; `ceiling` is the most the customer agreed to, with the 10% for weighed items until they agree a change); `change` (the one waiting) and `changes[]` (`{ id, status, totalBefore, totalAfter, lines[], note, askedAt, answeredAt, answeredVia }`); `complaints[]`; `document: { id, number, total, paid, returned } | null`; `upi: { id, payee } | null`; `canCancelGuest`.
+
+#### Accepting, declining, cancelling
+- `POST …/orders/:orderId/accept`: `online_shop.approve`. Body `{ revision? }`. Finds or makes the customer by the guest's mobile ([BUSINESS_RULES.md › A guest's customer record](BUSINESS_RULES.md#a-guests-customer-record-from-a-businesss-guest-page)) and records the consents they ticked. 409 `not_placed` (with its own message for an order declined by itself).
+- `POST …/orders/:orderId/decline`: `online_shop.approve`. Body `{ reason }` (the customer sees it; 300). 409 `not_placed`.
+- `POST …/orders/:orderId/cancel`: `online_shop.cancel`. Body `{ reason }`. An accepted order not yet billed; a change waiting is withdrawn. 409 `not_cancellable` (a billed order is refused at the door instead).
+
+Each answers the order's detail, is audited (`online_order.accepted`, `online_order.declined`, `online_order.cancelled`) and has its event.
+
+#### Packing
+- `PATCH …/orders/:orderId/lines/:lineId`: `online_shop.edit`. Body: any of `state` (`pending`, `ok`, `short`, `unavailable`), `packedQuantity` (a weighed item's weight, or how many of a short line), `picked`, `serials[]` (one for each unit, each in stock here), `billPrice` and `discountReason` (a lower price, with `sales.discount`, within the bill discount limit; empty takes it off), `note`, `revision`. 400 a weighed item ticked without its weight, short not fewer than ordered, a price not lower than the customer saw; 409 `changed` (someone changed the order after `revision`).
+- `POST …/orders/:orderId/lines/:lineId/replace`: `online_shop.edit`. Body `{ skuId, quantity?, note?, revision? }`: the line becomes *replaced*, and the replacement is a line of its own (an item that shows online here, in stock).
+- `POST …/orders/:orderId/lines`: `online_shop.edit`. Body `{ skuId, quantity?, note?, revision? }`: an item the customer asked for; 201. 409 the item is on the order already.
+- `POST …/orders/:orderId/lines/:lineId/remove`: `online_shop.edit`. An added line or a replacement (the replaced line goes back to be packed). 409 a line the customer ordered.
+- `POST …/orders/:orderId/ask`: `online_shop.edit`. Body `{ note?, revision? }`: asks the customer to agree to the order as packed; their page shows it at once. 409 `within_agreed` (no need to ask).
+- `POST …/orders/:orderId/changes/:changeId/answer`: `online_shop.edit`. Body `{ accepted }`: the customer's answer on the phone. Agreed, the change's total becomes the most the customer agreed to.
+
+#### `POST /api/businesses/:businessId/online-shop/orders/:orderId/bill`
+Permission: `online_shop.edit` and `sales.create`
+Body: `requestKey` (UUID), `revision?`.
+Returns: `{ order, warnings[] }`. The sale is posted through `postDocument` with each line's price fixed at the order's (GST at the item's rate on the day; apparel at the rate its price decides, as at the counter): the packed quantities from stock (batches with 45 days or more to expiry first, with a warning for a shorter one; serial numbers as chosen), and the delivery charge on the *Delivery charge* item, split across the goods' GST rates by their value, one labelled line for each rate. The bill stays unpaid. The same `requestKey` again returns the order.
+Errors: 409 `not_packed` (lines still to pack), `waiting_for_ok`, `needs_ok` (above what the customer agreed: `{ total, ceiling }`), `nothing_packed`, `billed`, `serials`, `delivery_item_off`, `gst_rates_changed`; stock refusals as for every sale.
+
+#### Handing over
+- `POST …/orders/:orderId/ready`: `online_shop.edit`. A billed pickup order, ready to collect.
+- `POST …/orders/:orderId/out`: `online_shop.edit`. Body `{ riderName }`: a billed delivery, on its way.
+- `POST …/orders/:orderId/complete`: `online_shop.edit` and `sales.edit`. Body `{ requestKey, payment: { method (cash, card, upi, bank, cheque), methodId?, reference? } }`, or `{ requestKey, onAccount: true }`: what is due recorded as paid on the bill (or the bill left on the customer's account), and the order completed. 409 not ready or out yet.
+- `POST …/orders/:orderId/refused`: `online_shop.cancel` and `sales.refund`. Body `{ reason, requestKey }`: refused at the door, or not collected. The whole bill comes back through the returns (`postReturn`, the goods restocked) and the order is cancelled. 409 `not_out` (not billed, or already handed over), `paid` (a payment is on the bill: take the goods back from the bill instead).
+
+### Complaints and the report
+
+#### `GET /api/businesses/:businessId/online-shop/complaints`
+Permission: `online_shop.view`
+Query: `status` (`open`: not yet resolved; `resolved`), `q`.
+Returns: `{ complaints: [{ id, ticketNo, orderId, orderNo, documentId, name, mobile, locationName, kind, kindWords, details, status (open, acknowledged, resolved), createdAt, acknowledgeBy, resolveBy, acknowledgedAt, acknowledgement, acknowledgedBy, resolvedAt, resolvedBy, outcome, outcomeWords, resolution }], serverTime, kinds, outcomes }`: the open ones first, then the newest, at most 200.
+
+#### `POST …/complaints/:complaintId/acknowledge`, `POST …/complaints/:complaintId/resolve`
+Permission: `online_shop.review`
+Body: `{ note }` (what the customer is told; 500); `{ outcome (taken_back, refunded, replaced, explained, other), resolution }` (1,000).
+Returns: `{ id, status }`; the customer's page shows the answer. Audited `online_complaint.acknowledged` and `online_complaint.resolved`.
+Errors: 409 already acknowledged (to acknowledge) or resolved.
+
+#### `GET /api/businesses/:businessId/online-shop/report`
+Permission: `online_shop.view`
+Query: `from`, `to` (up to a year), `location`.
+Returns: `{ from, to, days: [{ day, placed, accepted, completed, declined, declined_auto, cancelled_guest, cancelled_shop, open, value, acceptMinutes, packMinutes }], totals, reasons: [{ kind, by, reason, count }] }`, by the day each order was placed on the business's clock.
+
+**The bell** (`GET /api/businesses/:businessId/notifications`, with `online_shop.view`): "N new online orders" (a warning when one is declined by itself within 10 minutes), and each complaint not acknowledged for a day, past its 48 hours, within a week of its month, or past it.
+
+**Events and live updates.** Events `online_order.placed`, `accepted`, `declined`, `packed`, `ready`, `out_for_delivery`, `completed` and `cancelled` (the board's chime and the bell). Live areas `online_order` (the order's row: its status, and each change to its lines, through its revision) and `online_complaint`. An order declined by itself is audited `online_order.declined` as *Automatic*; what a guest does (placing, cancelling, answering a change, a complaint) as *Guest (online)*.
+
+### The guests' online shop (no login)
+
+Mounted at `/api/public/shop`, before the other public routes. Every answer is `Cache-Control: no-store`, and an answer about one order carries `live` beside `data` while anything can still happen to it ([Guests' live updates](#guests-live-updates)). The link's token and an order's guest token are 48 hex characters each.
+
+| Route | Limits (window: count) | Key |
+|---|---|---|
+| `GET :token`, `GET :token/items`, `GET :token/items/:productId`, `GET status/:guestToken` | address 1 min: 600 | IP |
+| `POST :token/cart` | address 1 min: 120 | IP |
+| `POST :token/orders` | address 10 min: 20; link 10 min: 200; mobile 30 min: 6 | IP; `shop:<token>`; the normalised mobile (a body without one is refused by the order itself) |
+| `GET status/:guestToken` | order 1 min: 60 | `shop-order:<guestToken>` |
+| `POST status/:guestToken/cancel`, `…/change`, `…/changes/:changeId`, `…/complaints` | order 10 min: 30 | `shop-order:<guestToken>` |
+
+#### `GET /api/public/shop/:token`
+Returns: `{ card, shop: { taking, reason (off, not_taking_orders, paused, closed), message, whenClosed, pickup, delivery: { fee, freeAbove, minOrder, minutes, pins, areaNote, slots } | null, payments, autoDeclineMinutes, maxOpenPerMobile, note, policy, seller: { customerCare, grievance, fssai }, roundsToRupee, weighedAllowancePercent }, categories[], countries[], items }`: the business's card (its band, hours, seller details and privacy notice) and the first page of items. With the module or the link off, or the business's plan ended, `taking` is false with the reason, and there are no items. Due GST rate changes take effect before anything is read.
+Errors: 404 `not_found` (no such link, or one replaced).
+
+#### `GET /api/public/shop/:token/items`, `GET /api/public/shop/:token/items/:productId`
+Query: `q`, `category`, `country` (`India` or another), `sort` (`price_low`, `price_high`, `country`), `page` (24 a page).
+Returns: `{ items: [{ productId, name, brand, category, photo, countryOfOrigin, fromPrice, samePrice, variants: [{ skuId, label, size, colour, price, mrp, unit, weighed, step, max, stock (in, low, out), left, netQuantity, unitSalePrice }] }], total, page, pages }`; one item adds `description` and `declarations[]` (made, packed or imported by with the address, the country of origin, the net quantity, consumer care, best before, the generic name). Only what may show online here, at the location's walk-in price with GST, never above the MRP.
+Errors: 403 the module is off; 404; 409 `not_taking_orders`.
+
+#### `POST /api/public/shop/:token/cart`
+Body: `{ service (pickup, delivery), lines: [{ skuId, quantity, price? }] }` (`price`: the one the guest saw).
+Returns: `{ lines[], changed, totals: { items, delivery, roundOff, total, allowance, upTo, moreForFree, moreForMinimum }, state, slots[] }`: the cart priced now, each line the item as above with its `quantity`, `amount`, the `seenPrice` sent and its `problem` (`gone`: no longer sold online; `out`; `less`: fewer left than asked; `quantity`: not a quantity it is sold in; `price`: the price changed), or none.
+
+#### `POST /api/public/shop/:token/orders`
+Body: `clientKey` (`[A-Za-z0-9-]{8,64}`), `service`, `name`, `mobile`, `address: { address, landmark?, pinCode }` (delivery), `slot: { date, from }` (while slots are on), `paymentMode` (`pay_at_shop` for pickup; `cash_on_delivery` or `upi_on_delivery`), `substitution` (`remove`, `similar`, `call`), `note?` (500), `lines: [{ skuId, quantity, substitution? }]`, `total` (the total the guest saw), `consents?[]` with `privacyNoticeId`.
+Returns: 201 (200 for the same `clientKey` and body again), `data` = `{ order, card, shop }` and `live`. The order is `{ orderNo, guestToken, status, stage: { key, label, detail, stopped }, steps[], current, final, service, paymentMode, paymentWords, substitution, substitutionWords, name, address, slot, minutes, placedAt, placed, autoDeclineAt, autoDecline, lines[], totals: { items, delivery, total, agreed, allowance, now, final }, change, changes[], complaints[], canCancel, canChange, canComplain, note, riderName }`, and `shop` is `{ name, phone, policy, seller, linkPath }`.
+Errors: 400 a field (`name`, `mobile`, `address`, `pinCode`, `slot`), or a service or way to pay the shop does not offer; 403 `blocked`; 409 `not_taking_orders`, `paused`, `closed`, `outside_area` (with the PIN codes it delivers to), `too_many_open`, `slot_closed` and `slot_full` (with the slots), `cart_changed` (with the cart as priced now), `below_minimum`, `key_reused`; 429 a limit.
+
+#### `GET /api/public/shop/status/:guestToken`
+Returns: `{ order, card, shop }` and `live`, as above.
+Errors: 404 `not_found`.
+
+#### The guest's own actions
+- `POST /api/public/shop/status/:guestToken/cancel`: before packing starts; 409 `too_late` once it has.
+- `POST /api/public/shop/status/:guestToken/change`: before the shop accepts. The order is cancelled, and its lines come back as `cart: { linkPath, lines }` for the guest's cart.
+- `POST /api/public/shop/status/:guestToken/changes/:changeId`: body `{ accept }`, the guest's answer to a change. 409 `answered` (answered already, or the shop changed the order again since).
+- `POST /api/public/shop/status/:guestToken/complaints`: body `{ clientKey, kind (missing, wrong, damaged, expired, quality, late, billing, other), details }`, a ticket (`TK-0001`); at most three open on one order; the same `clientKey` again returns the order. 409 `too_many`, `key_reused`.
+
+Each answers `{ order, card, shop }` and `live`.

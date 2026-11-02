@@ -12,7 +12,7 @@ import { CLINIC_LAB } from "./test-data.mjs";
 import { ACCESS_RULES } from "./test-data.mjs";
 import { DASHBOARDS } from "./test-data.mjs";
 import { YOUR_PLAN } from "./test-data.mjs";
-import { ONLINE_BOOKING } from "./test-data.mjs";
+import { ONLINE_BOOKING, ONLINE_ORDERS, ONLINE_SHOP } from "./test-data.mjs";
 
 // Every call names the status it expects, so a set-up that goes wrong stops
 // at the first wrong answer, with the API's own message, rather than leaving
@@ -1412,6 +1412,79 @@ export async function buildTestData({ api, logins, sql }) {
       son: { contactId: son.contact_id, name: family.son.name, patientNo: son.patient_no } };
   }
 
+  // The online shop (online-shop.spec.js, online-orders.spec.js). The
+  // supermarket's shop link takes orders: its prices include GST, as a
+  // supermarket's shelf does; sunflower oil in two packs (Variants on), loose
+  // onions, GST at three rates and a cigarette pack that never shows online,
+  // all in stock. The mobile shop has the online shop on and its items in
+  // stock, its link not yet taking orders: the spec sets it up.
+  const onlineShop = {};
+  {
+    const switchOn = async (businessId, codes) => {
+      const modules = await owner("GET", `/businesses/${businessId}/modules`);
+      for (const code of codes) {
+        if (!modules.find((module) => module.code === code)?.enabled) await owner("PUT", `/businesses/${businessId}/modules/${code}`, { enabled: true });
+      }
+    };
+    // The settings as they are, with prices that include GST.
+    const pricesWithGst = async (B) => {
+      const s = await owner("GET", B("settings"));
+      await owner("PUT", B("settings"), {
+        legalName: s.legal_name, displayName: s.display_name, gstin: s.gstin, stateCode: s.state_code, addressLine1: s.address_line1, addressLine2: s.address_line2,
+        city: s.city, postalCode: s.postal_code, phone: s.phone, email: s.email, logoPath: s.logo_path, taxMode: "inclusive", rounding: s.rounding,
+        fiscalYearStartMonth: s.fiscal_year_start_month, invoiceFooter: s.invoice_footer, receiptFooter: s.receipt_footer, dateFormat: s.date_format,
+      });
+    };
+    const stockUp = async (B, locationId, supplierName, list, made) => {
+      const supplier = await owner("POST", B("contacts"), { kind: "supplier", name: supplierName }, 201);
+      await owner("POST", B("documents"), {
+        kind: "purchase", requestKey: requestKey(), locationId, contactId: supplier.id,
+        lines: Object.entries(list).map(([key, item]) => ({ skuId: made[key].skuId, quantity: String(item.stock), unitPrice: String(Math.round(item.price * 0.75)) })),
+      }, 201);
+    };
+
+    const shop = businesses[ONLINE_SHOP.business];
+    const B = at(ONLINE_SHOP.business);
+    await switchOn(shop.id, ["variants", "online_shop"]);
+    await pricesWithGst(B);
+    const categories = {};
+    for (const name of ONLINE_SHOP.categories) categories[name] = (await owner("POST", B("categories"), { name }, 201)).id;
+    const items = {};
+    for (const [key, item] of Object.entries(ONLINE_SHOP.items)) {
+      // A second pack of a product is one more option of it.
+      const sibling = Object.values(items).find((made) => made.name === item.name);
+      const made = await owner("POST", B("catalog"), {
+        ...(sibling ? { productId: sibling.productId } : { name: item.name, categoryId: categories[item.category] }),
+        label: item.label || item.name, code: item.code, kind: "goods", unit: item.unit || "each", tracking: "quantity", price: String(item.price),
+        ...(item.mrp ? { mrp: String(item.mrp) } : {}), taxRate: String(item.gst), hsnCode: item.hsn,
+      }, 201);
+      items[key] = { skuId: made.id, productId: made.product_id, name: item.name, label: made.label };
+    }
+    await stockUp(B, shop.locationId, ONLINE_SHOP.supplier, ONLINE_SHOP.items, items);
+    const link = await owner("PUT", B(`online-shop/settings/${shop.locationId}`), {
+      enabled: true, pickupEnabled: true, deliveryEnabled: true, deliveryPins: ONLINE_SHOP.shop.pins, deliveryFee: String(ONLINE_SHOP.shop.fee),
+      freeDeliveryAbove: String(ONLINE_SHOP.shop.freeAbove), minOrder: String(ONLINE_SHOP.shop.minOrder), payAtShop: true, cashOnDelivery: true, upiOnDelivery: true,
+      upiId: ONLINE_SHOP.shop.upiId, carePhone: ONLINE_SHOP.shop.carePhone, grievanceName: ONLINE_SHOP.shop.grievance,
+      // A slow run never meets the shop's own decline, and the shop takes orders at any hour.
+      autoDeclineMinutes: 240, takeOrdersWhenClosed: true,
+    });
+    onlineShop.guests = { businessId: shop.id, locationId: shop.locationId, token: link.token, path: link.path, items };
+
+    const store = businesses[ONLINE_ORDERS.business];
+    const S = at(ONLINE_ORDERS.business);
+    await switchOn(store.id, ["online_shop"]);
+    await pricesWithGst(S);
+    const goods = {};
+    for (const [key, item] of Object.entries(ONLINE_ORDERS.items)) {
+      const made = await owner("POST", S("catalog"), {
+        name: item.name, code: item.code, kind: "goods", unit: "each", tracking: "quantity", price: String(item.price), mrp: String(item.mrp), taxRate: "18", hsnCode: item.hsn,
+      }, 201);
+      goods[key] = { skuId: made.id, productId: made.product_id, name: made.label };
+    }
+    await stockUp(S, store.locationId, ONLINE_ORDERS.supplier, ONLINE_ORDERS.items, goods);
+    onlineShop.staff = { businessId: store.id, locationId: store.locationId, items: goods };
+  }
+
   // The logins nothing above signed in as choose their own password now, so
   // a spec signing in as any of them meets no first-sign-in step.
   for (const person of logins.filter((item) => !signedIn.has(item.role))) {
@@ -1459,5 +1532,6 @@ export async function buildTestData({ api, logins, sql }) {
     gstThresholds,
     dashboards,
     yourPlan,
+    onlineShop,
   };
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
 import Icon from "@bmp/ui/Icon";
@@ -29,6 +29,8 @@ import { WORDS, onDate } from "../../../tax-changes/taxChanges";
 import HsnToFix from "../../../gst-thresholds/pages/HsnToFix";
 // The catalogue from an Excel or CSV file, checked row by row first.
 import ImportDialog from "./ImportDialog";
+// An item's photo, "Show in the online shop" and its online details (modules/business/shop), saved after the item.
+import OnlineItemFields from "../../shop/pages/OnlineItemFields";
 
 // Extra details a product may carry, by the module that allows them.
 const ATTRIBUTES = {
@@ -144,6 +146,8 @@ function CatalogDialog({ sku, onClose, onSaved }) {
   const biz = useOpenBusiness();
   const editing = Boolean(sku.id);
   const { options, error } = useOptions(["units?active=true", "tax-rates?active=true", "categories?active=true", ...(biz.has("variants") && !editing ? ["catalog"] : [])]);
+  // The online shop's part of the item, when the shop is on (its save follows the item's own).
+  const online = useRef(null);
   const units = options?.["units?active=true"] || [];
   const slabs = options?.["tax-rates?active=true"] || [];
   const categories = options?.["categories?active=true"] || [];
@@ -205,7 +209,7 @@ function CatalogDialog({ sku, onClose, onSaved }) {
     }));
 
   return (
-    <FormDialog title={editing ? `Edit ${sku.label}` : "Add an item"} icon="tag" width={720} onClose={onClose} onSaved={onSaved} onSubmit={submit} disabled={!options}>
+    <FormDialog title={editing ? `Edit ${sku.label}` : "Add an item"} icon="tag" width={720} onClose={onClose} onSaved={onSaved} onSubmit={() => submit().then((saved) => (online.current ? online.current.save(saved) : saved))} disabled={!options}>
       <FormError message={error} />
       {!options && !error && <div className="field-wide"><Loading /></div>}
       {!editing && (
@@ -325,6 +329,9 @@ function CatalogDialog({ sku, onClose, onSaved }) {
         <label className="checkbox bz-check field-wide">
           <input type="checkbox" checked={form.internalUse} onChange={set("internalUse")} /> For use in services only, not sold (e.g. hair colour, developer, spa cream). It stays out of the bill.
         </label>
+      )}
+      {biz.has("online_shop") && (biz.can("catalog.edit") || biz.can("online_shop.manage")) && form.kind === "goods" && !grid && (
+        <OnlineItemFields ref={online} productId={editing ? sku.product_id : null} name={editing ? sku.product_name || sku.label : form.name} />
       )}
       {editing && <label className="checkbox bz-check"><input type="checkbox" checked={form.active} onChange={set("active")} /> Active (switched-off items cannot be sold)</label>}
     </FormDialog>

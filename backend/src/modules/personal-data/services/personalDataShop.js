@@ -66,6 +66,7 @@ async function openItems(db, business, contactId) {
     [`SELECT count(*)::int AS n FROM jewellery_scheme_closes k JOIN jewellery_schemes s ON s.business_id=k.business_id AND s.id=k.scheme_id
        JOIN jewellery_pieces p ON p.business_id=k.business_id AND p.id=k.piece_id WHERE k.business_id=$1 AND s.contact_id=$2 AND p.status = 'safekeeping'`,
     'gold scheme\'s metal in safekeeping, not yet collected'],
+    ["SELECT count(*)::int AS n FROM shop_orders WHERE business_id=$1 AND contact_id=$2 AND status IN ('accepted','packed','ready','out_for_delivery')", 'online order not handed over'],
   ];
   for (const [sql, what] of checks) {
     const n = (await repo.one(db, sql, [b, contactId])).n;

@@ -33,6 +33,8 @@ const access = require('./businessAccess.service');
 //                      past a figure (e-invoicing and 6-digit HSN / SAC codes, the IRP's 30 days),
 //                      for whoever may see the business's money (reports.view)
 //   wholesale overdue  (same overdue query, worded as invoices)
+//   online orders      new online orders waiting for an answer (warning when one is about to be declined by
+//                      itself); complaints a day unacknowledged, past their 48 hours, or near or past their month
 
 const LIMIT = 15;
 // Goods shops call customer credit udhaar and have its screen (businessTypes.js).
@@ -206,6 +208,10 @@ async function feed(business) {
   // Online booking: requests waiting, new online bookings today, requests not answered in time
   // (it marks requests whose time to answer is up expired first).
   items.push(...await require('../../online-booking/services/onlineBookingDesk.service').bell(business, base));
+  // The online shop: new orders waiting for an answer, and complaints past a day unacknowledged or near their month.
+  if (has('online_shop') && can('online_shop.view')) {
+    items.push(...await require('../../shop/services/shopReports.service').bell(business, base));
+  }
   const counts = { critical: 0, warning: 0, info: 0 };
   for (const item of items) counts[item.severity] += 1;
   return { items, counts, generatedAt: nowIso };

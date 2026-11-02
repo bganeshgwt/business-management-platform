@@ -11,6 +11,8 @@ const BookingPage = lazy(() => import("./modules/booking/pages/BookingPage"));
 const PlannedPage = lazy(() => import("./pages/PlannedPage"));
 const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
 const AppointmentsPage = lazy(() => import("./modules/appointments/pages/AppointmentsPage"));
+// A shop's online shop: its items, the cart, checkout and each order's own page.
+const ShopPage = lazy(() => import("./modules/shop/pages/ShopPage"));
 // Lazy as well, so the entry bundle carries no page's stylesheet: each page's
 // CSS arrives with that page only, as it did inside the staff app.
 const StartPage = lazy(() => import("./pages/StartPage"));
@@ -36,9 +38,11 @@ export default function App() {
         {/* A business's booking link, each guest's own booking, and the bookings made on this phone. */}
         <Route path="/appointments/*" element={<AppointmentsPage />} />
 
+        {/* A shop's online shop, from its shop link, and each order's status. */}
+        <Route path="/shop/*" element={<ShopPage />} />
+
         {/* Planned, not built yet (plannedPages.js): the address works and says
             what is coming and what to do until then. A built one replaces its line. */}
-        <Route path="/shop/*" element={<PlannedPage page="shop" />} />
         <Route path="/account/*" element={<PlannedPage page="account" />} />
 
         {/* The site's own address, or a link with part of it missing. */}

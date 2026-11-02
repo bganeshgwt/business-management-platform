@@ -222,6 +222,10 @@ const LodgingReportsPage = lazy(() => import("../../lodging/pages/LodgingReports
 const YourPlanPage = lazy(() => import("../../../plan/pages/YourPlanPage"));
 // Online booking: guests' requests and bookings from the booking link, and the link itself.
 const OnlineBookingPage = lazy(() => import("../../online-booking/pages/OnlineBookingPage"));
+// The online shop (modules/business/shop): its orders board, one order, and its settings.
+const OnlineOrdersPage = lazy(() => import("../../shop/pages/OnlineOrdersPage"));
+const OnlineOrderPage = lazy(() => import("../../shop/pages/OnlineOrderPage"));
+const OnlineShopSettingsPage = lazy(() => import("../../shop/pages/OnlineShopSettingsPage"));
 
 function Notice({ title, children }) {
   return (
@@ -437,6 +441,8 @@ function screens(type) {
     "lodging-reports": <LodgingReportsPage />,
     "plan": <YourPlanPage />,
     "online-booking": <OnlineBookingPage />,
+    "online-orders": <OnlineOrdersPage />,
+    "online-shop": <OnlineShopSettingsPage />,
   };
 }
 
@@ -522,6 +528,7 @@ export default function BusinessAdminRoutes() {
         <Route path="lodging-stays/:stayId" element={page("lodging-stays", <LodgingStayPage />)} />
         <Route path="lodging-groups/new" element={page("lodging-stays", <LodgingGroupFormPage />)} />
         <Route path="lodging-groups/:groupId" element={page("lodging-stays", <LodgingGroupPage />)} />
+        <Route path="online-orders/:orderId" element={page("online-orders", <OnlineOrderPage />)} />
         <Route path="tasks/*" element={page("tasks", <TasksRoutes />)} />
         <Route path="*" element={<Notice title="Page not found"><p>Use the menu on the left to find the screen you need.</p></Notice>} />
       </Routes>

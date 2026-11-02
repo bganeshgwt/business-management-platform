@@ -273,6 +273,8 @@ require('../../../personal-data/routes/personalData.routes').businessRoutes(rout
 require('../../../gst-thresholds/routes/gstThresholds.routes').businessRoutes(router, { context, send, b });
 // Online booking (salons, clinics, optical shops, garages, gyms, electronics): the booking link and its rules, requests to answer, online bookings.
 require('../../online-booking/routes/onlineBooking.routes')(router, { context, send, b });
+// The online shop (goods shops): the shop link's settings, what shows online, the online orders from new to done, complaints.
+require('../../shop/routes/businessShop.routes')(router, { context, send, b });
 
 // Scoped constraint failures are the person's conflict, not a server fault.
 router.use((error, req, res, next) => {

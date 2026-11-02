@@ -2,7 +2,7 @@
 // has switched on and what this person's role allows. The server checks the
 // same two things on every request; the menu only hides what would be refused.
 
-import { AGRI, BOOKS_ONLINE, CLINIC, FUEL, GARAGE, GOODS, HARDWARE, JEWELLERY, LAUNDRY, LODGING, MEMBERSHIPS, OPTICAL, PHARMACY, RENTALS, RETAIL, SALON, WEIGHED } from './businessTypes.js';
+import { AGRI, BOOKS_ONLINE, CLINIC, FUEL, GARAGE, GOODS, HARDWARE, JEWELLERY, LAUNDRY, LODGING, MEMBERSHIPS, ONLINE_SHOP, OPTICAL, PHARMACY, RENTALS, RETAIL, SALON, WEIGHED } from './businessTypes.js';
 import { dailyWorkspaces, WORKSPACES, workspaceLabel, workspaceSections } from './businessWorkspace.js';
 
 export { GOODS };
@@ -149,6 +149,8 @@ export function businessSections(type) {
         { section: "packages", label: "Packages", icon: "package", need: "packages.view", types: SALON },
         // Guests' bookings from the booking link: requests to answer, every online booking, the link and its rules.
         { section: "online-booking", label: "Online booking", icon: "calendar", need: "online_appointments.view", types: BOOKS_ONLINE },
+        // Orders customers place from the shop's own link: new, packing, ready & out, done; complaints and the report.
+        { section: "online-orders", label: "Online orders", icon: "orders", need: "online_shop.view", types: ONLINE_SHOP },
       ],
     },
     {
@@ -455,6 +457,8 @@ export function businessSections(type) {
         { section: "lodging-rates", label: "Room types & rates", icon: "serviceSettings", need: "lodging.view", types: LODGING },
         // The plan the business pays for (modules/plan), for its owner; a restaurant's is its own /plan.
         { section: "plan", label: "Your plan", icon: "package", owner: true, except: ['restaurant'] },
+        // The online shop: each location's shop link and QR poster, delivery and payments, the seller's details, what shows online.
+        { section: "online-shop", label: "Online shop", icon: "outlets", need: "online_shop.view", types: ONLINE_SHOP },
       ],
     },
     {

@@ -122,6 +122,10 @@ const TABLES = {
   laundry_files: { label: 'Garment photos and signatures', keep: 'The photos of garments at intake and at their quality check, and the signature on the order, are the record of what was taken in and of any claim on it; they stay with the order.' },
   business_online_bookings: { label: 'Online bookings', erase: { booker_name: ERASED_NAME, mobile: null, person_name: null, person_age: null, person_sex: null, reason: null, note: null,
     vehicle_no: null, vehicle_make: null, vehicle_model: null } },
+  shop_orders: { label: 'Online orders', erase: { guest_name: ERASED_NAME, guest_mobile: null, address: null, landmark: null, pin_code: null, guest_note: null },
+    also: 'An online order\'s bill stays: it is a tax record.' },
+  shop_complaints: { label: 'Complaints about online orders', erase: { details: 'Erased at the customer\'s request' },
+    also: 'A complaint\'s ticket, dates and outcome stay, as the record of how it was handled.' },
 };
 
 // Children of the rows above that the export also shows: the lines of each bill.
@@ -131,7 +135,7 @@ const CHILDREN = {
 
 // Columns never put in an export: keys that only the program reads.
 const HIDDEN = new Set(['request_key', 'request_hash', 'checkout_key', 'checkout_hash', 'checkin_key', 'checkin_hash', 'cancel_key', 'cancel_hash',
-  'close_key', 'close_hash', 'credit_key', 'delivery_key', 'bill_key', 'passcode', 'guest_token', 'client_key']);
+  'close_key', 'close_hash', 'credit_key', 'delivery_key', 'bill_key', 'passcode', 'guest_token', 'client_key', 'client_hash']);
 
 // What is kept whatever the tables hold, for the record of an erasure.
 const ALWAYS_KEPT = [

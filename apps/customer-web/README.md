@@ -22,13 +22,16 @@ pages. `/appointments/:token` is a business's online booking link (a salon,
 clinic, optical shop, garage, gym or repair shop): the guest books a free time
 and follows the booking at `/appointments/status/:guestToken`, live, with
 *Change the time* and *Cancel*; `/appointments` lists the bookings made on
-this phone. `src/shared/` holds what a business's guest pages are built from
+this phone. `/shop/:token` is a shop's online shop: the guest browses its
+items, fills a cart, checks out for pickup or delivery and follows the order
+at `/shop/status/:guestToken`, live, with any change to OK, *Cancel order* and
+*Report a problem*; `/shop` lists the orders placed from this phone.
+`src/shared/` holds what a business's guest pages are built from
 ([ARCHITECTURE › Build a guest page for a business](../../docs/ARCHITECTURE.md#810-build-a-guest-page-for-a-business)).
 
-Planned pages have their address and say what is coming: `/shop` (order from
-a shop) and `/account` (a guest's orders, bookings and points); see
-`src/plannedPages.js`. Any other address
-shows how to reach the right link, never "Page not found".
+The one planned page has its address and says what is coming: `/account` (a
+guest's orders, bookings and points); see `src/plannedPages.js`. Any other
+address shows how to reach the right link, never "Page not found".
 
 ## Setup
 

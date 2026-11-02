@@ -95,6 +95,7 @@ on record.
   - [Quotations](#quotations)
   - [Licences](#licences)
   - [Personal data](#personal-data)
+  - [Online shop](#online-shop)
 - [Retail counter (grocery / kirana, supermarket, books & stationery)](#retail-counter-grocery--kirana-supermarket-books--stationery)
   - [Quick bill](#quick-bill)
 - [Wholesale / FMCG](#wholesale--fmcg)
@@ -1981,9 +1982,10 @@ and a guest never reaches a staff screen.
   not found": it asks the guest to scan the table's QR code or open the
   restaurant's link again (*Order or book from your link*, *This link isn't
   complete*).
-- The guest pages still to come (`/shop`, `/appointments`, `/account`)
+- The guest pages still to come (`/appointments`, `/account`)
   answer with *Coming soon* and what to do until then ([Part
-  6](#not-built-yet-what-to-do-meanwhile)).
+  6](#not-built-yet-what-to-do-meanwhile)). A shop's own link opens its
+  online shop (`/shop/<link>`, [Online shop](#online-shop)).
 - A table's QR code or a link that opens on the staff application's address
   is passed on to the guests' site, with the rest of the link kept.
 - Once the restaurant's privacy notice is published (*Settings › Personal
@@ -3319,6 +3321,17 @@ reorder level.
   every item that prints a shorter code, or none (not a kit, nor an item used
   in services only), with *Edit* to give it its full code. It shows no
   turnover, and goes once every item has one.
+- **Online shop.** With the online shop on ([Online shop](#online-shop)),
+  *Add item* and *Edit* have an **Online shop** part for goods: the item's
+  **photo** (a clear picture of the product; the phone or computer makes it
+  smaller before it is sent, and the shop's page shows it in a box of a fixed
+  shape), **Show in the online shop**, and the **details shown online** for
+  packaged goods: a short description, made, packed or imported by (with
+  their name and address), the country of origin, the common or generic name,
+  the net quantity, consumer care and best before. An item the law keeps off
+  every online shop says so instead of offering the switch. The category
+  editor has **Show in the online shop, with its sub-categories**. They are
+  saved with the item or category.
 
 ### Products, customers and suppliers from Excel or CSV
 
@@ -3837,6 +3850,176 @@ Who does what: the owner and a manager keep the registers and publish the
 notice (`privacy.view`, `privacy.manage`) and alone see or export a person's
 whole data (`privacy.export`), each view and export logged; whoever takes
 customers (a cashier included) records what they agree to.
+
+### Online shop
+
+A grocery or supermarket, fashion, electronics, pharmacy, books, meat or
+weight shop, general store, hardware shop, seeds and fertiliser shop or
+optician can take orders from its own **shop link**: a page on the guests'
+site where customers search the shop's items, fill a cart and order for
+pickup or home delivery. They pay when they get the order, at the counter,
+in cash or by UPI on delivery; no money is taken online, and nobody signs
+up: a customer gives a name and a mobile number. The online shop is an
+application of its own (*Settings › Business tools*, ₹399 a month or ₹3,999 a
+year; on in the free trial too). Each location has its own link and sells
+its own stock.
+
+**Setting it up** (*Settings › Online shop*):
+
+- **The link.** *Copy*, *Open my shop page*, **QR poster** (an A5 sheet for
+  the counter or the door: the shop's name, the QR code and the link) and
+  **Share on WhatsApp** (the link with a line on how to order). **Take online
+  orders** switches the link on. **Pause new orders** stops new orders for a
+  rush or a short break: the shop's page says it is not taking orders just
+  now, and the orders already placed carry on. **Make a new link** replaces
+  it: the old link and its QR code stop working at once (a poster taken
+  down, or a link shared too widely). A link that would open a local address
+  (this computer or the shop's own network) says so: the guests' site needs
+  its public address first ([GO_LIVE.md](GO_LIVE.md)).
+- **How ready it is.** The items customers can order now, those out of
+  stock, those you keep off, and those without a photo, the maker's details
+  or an HSN code; and what never shows online, with why (below). The counts
+  of items showing, kept off, without a photo and without the maker's
+  details open the list of those items.
+- **Pickup & delivery.** Pickup, ready in so many minutes. Home delivery,
+  delivered in so many minutes, to the **PIN codes you deliver to** only: an
+  address outside them is told so and can choose pickup. The delivery area
+  in words, the **delivery charge** (0 for free delivery), **free delivery
+  above** an amount, and the **minimum order for delivery**. **Delivery
+  slots**: windows of 30 minutes to 6 hours (two hours, say) the customer
+  picks for today or tomorrow, on the days the location is open, each taking
+  so many orders and closing so many minutes before it starts.
+- **Orders.** A new order is **declined by itself** if nobody accepts it
+  within so many minutes (10 to 240; the customer is told the shop did not
+  respond in time). **Open orders one mobile may have** (1 to 10). **Take
+  orders while the shop is closed**: they wait, and the clock starts when the
+  shop opens. **Hide items that are out of stock** (otherwise they show as out
+  of stock). **"Only a few left"** below a quantity (exact stock is never
+  shown). A **note for customers** on the shop's page.
+- **Payments.** Pay at the shop (pickup orders), cash on delivery, UPI on
+  delivery. With a **UPI ID**, the order slip prints a QR code for the exact
+  amount, so the customer pays the right sum.
+- **Seller details & policy.** Customer care phone and email, the
+  **grievance officer** (name, designation, phone, email; the owner to
+  start with), a food shop's **FSSAI licence number**, and the **returns,
+  refunds, exchange, delivery and payment terms**, a starting text written for
+  the trade to change to how the shop works. Every page of the shop shows
+  them, as the law asks of a seller online.
+- **Items online.** Every item for sale at this location, searched or
+  filtered (showing, kept off, no photo, no maker details, never online),
+  with **Show online** / **Keep off** and **Photo & details** (the same as in
+  the item editor, below). **Categories online**: a category kept off hides
+  every item in it and in the categories inside it.
+- **Blocked mobiles.** A mobile that keeps placing orders it never takes
+  cannot order online until you let it again, with the reason kept. It can
+  still buy at the counter.
+
+**What never shows online**, whatever the settings say: services; items
+kept for use in services; kits; jewellery pieces, rentals, fuels, room nights
+and membership plans (sold from their own screens); Schedule H, H1 and X and
+narcotic medicines (sold only against a prescription, at the counter);
+tobacco, nicotine and e-cigarettes; alcoholic drinks; contact lenses;
+subsidised fertilisers (sold through the PoS device, with the farmer's own
+authentication); and pesticides with a banned or restricted molecule. One
+rule decides it for the shop's lists, its search, an item's page, the cart
+check and placing an order, and the item's row says why. Tobacco and
+alcohol are known by the item's HSN code, or, for an item with no HSN code, by
+words in its name or category: give such an item its HSN code ("Rum & raisin
+cake" with its bakery code shows).
+
+**Prices online.** The location's walk-in price, GST included, never above
+the MRP; no member prices, offers, coupons or price lists. Before an order
+is placed, the cart is checked with the shop again: a price, stock or item
+that changed is shown, for the customer to accept. A weighed item (loose
+rice, vegetables, meat) is ordered as "about" a weight and billed by what is
+packed, up to 10% more without asking.
+
+**The orders board** (*Online orders*, daily work): **New**, **Packing**,
+**Ready & out**, **Done** (the last day), **Complaints** and **Report**. A new
+order chimes (*Chime on*; a browser plays sound once the page has been
+touched) and shows its clock to the shop's own decline, amber and then red
+as it runs out. Each card shows the order number (*ON-0001*), the customer,
+pickup or delivery with the PIN code and slot, how long ago, the items, the
+total, how the customer pays, and any OK awaited or complaint open.
+**Accept** (the customer's page says so at once) or **Decline** with the
+reason the customer sees (quick reasons, or typed). Everything moves live
+on every screen, and on the customer's page.
+
+**Packing** (an order): the **pick list** in shelf order (the item's *Shelf
+location*), each line with its shelf and stock:
+
+- Tick each line as it goes in the bag. **Weigh** a loose item: enter what
+  was packed.
+- **Short**: fewer than ordered. **Not available**: nothing of it (not
+  charged).
+- **Replace** it with another item, as the customer chose: *Remove it*,
+  *Replace with something similar* or *Call me*. **Add an item** the customer
+  asked for on the phone; **Remove** an added one.
+- **Lower price** (with the discount permission, within the bill discount
+  limit, with a reason the bill keeps). **Serial numbers** of a
+  serial-numbered item, ticked from those in stock.
+- A batch item packed from a batch with fewer than 45 days to expiry is
+  warned about.
+
+The figures show what the order comes to now against what the customer
+agreed. A dearer replacement, an added item, or a weighed item more than 10%
+over takes it above: **Ask the customer**, and their order's page asks them
+at once, to agree or say no; or call them and press **They agreed on the
+phone** or **They said no**. Nothing is billed above what the customer agreed
+to.
+
+**Billing.** **Bill the order** posts the sale (in *Sales history*) at the
+order's prices, for what was packed; the stock goes out then, batches with
+45 days or more to expiry first. It stays unpaid until it is handed over.
+The delivery charge goes on the bill as the *Delivery charge* service item,
+shared across the goods' GST rates by their value, one line for each rate
+(*Delivery charge (on goods at 5% GST)*), so it carries the GST of the goods
+it delivers. **Order slip**: the slip for the bag, with what is packed, what
+is not, the amount to collect and, with a UPI ID, the QR code for it.
+
+**Handing over.** A pickup order: **Ready for pickup**, then **Collected**. A
+delivery: **Out for delivery** (who is delivering it; the customer sees it),
+then **Delivered**. Both record the payment on the bill: cash, UPI (with its
+reference) or card, or **Not paid now: put it on their account** (udhaar).
+**Refused at the door** (or **Not collected**): the whole bill comes back as
+a return, the goods back into stock, and the order is cancelled with what
+happened. A bill with a payment on it is taken back from *Sales history*
+instead, with its refund. **Cancel** an accepted order not yet billed, with
+the reason the customer sees. Call, WhatsApp and the map of the address are
+a tap away on the order.
+
+**The customer's page.** Each order has its own page, live: the steps, the
+clock to the shop's answer, the change asked (to agree to), and the final
+amount once packed, with what changed. The customer cancels free of charge
+until packing starts, changes the order (it goes back into their cart) until
+the shop accepts it, calls the shop, and **Reports a problem**. *Your
+orders* on their phone lists the orders placed from it.
+
+**Complaints.** *Report a problem* gives the customer a ticket number
+(*TK-0001*). The *Complaints* tab lists each with its clocks: **acknowledge**
+within 48 hours (the bell warns once a day has passed) and **resolve** within
+a month. *Acknowledge* tells the customer who has it and what happens next;
+*Resolve* says what was done (taken back, refunded, replaced, explained). A
+damaged, wrong, expired or late item is taken back on its bill in *Sales
+history* first. The customer sees each answer on their order's page.
+
+**The report**: online orders by day (placed, completed, value, declined and
+not answered in time, cancelled by the customer and by the shop, minutes to
+accept and to pack), and the declines and cancellations by reason.
+
+**The customer record** is made when the shop accepts an order (found by
+mobile number, or new), with the choices the customer ticked; never when it
+is placed, so a declined order leaves no customer behind. An order never
+accepted keeps the name, mobile and address for 30 days. Erasing a person
+(*Settings › Personal data*) blanks their name, mobile and address on their
+orders and complaints; the bills stay.
+
+Who does what: a manager does everything; a cashier and a pharmacist
+accept, pack, hand over, cancel and answer complaints; a stock keeper packs;
+an accountant and a viewer see the board and export the report. Billing
+also needs the right to make sales, a payment the right to edit them,
+*Refused at the door* the right to refund, and a lower price the right to
+give a discount.
 
 ## Retail counter (grocery / kirana, supermarket, books & stationery)
 
@@ -7816,16 +7999,17 @@ last night's takings land on today's sheet.
 
 ## Not built yet: what to do meanwhile
 
-**Guest pages still to come.** Two pages of the guests' site answer with
-*Coming soon* and what to do until then: `/shop` (ordering from a shop: call
-or message the shop) and `/account` (a guest's orders, bookings and points in
-one place: open the link you were sent).
+**Guest pages still to come.** One page of the guests' site answers with
+*Coming soon* and what to do until then: `/account` (a guest's orders,
+bookings and points in one place: open the link you were sent).
 
 **Other things not built yet, and what to do meanwhile:**
 
 - **Payments are recorded by people.** A UPI QR can be shown for the exact
   amount, but nothing confirms the money arrived until a payment gateway is
-  connected. Online orders are pay-at-collection or cash on delivery.
+  connected. Online orders are pay-at-collection or cash on delivery; a
+  shop's online orders are paid at the counter, or in cash or by UPI on
+  delivery, recorded when the order is handed over.
 - **A plan is paid by reference.** The owner pays the platform company by
   UPI or bank transfer (or cash or cheque) and enters the payment's reference
   in *Your plan*; the platform confirms it in *Platform › Payments*. There is

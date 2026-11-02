@@ -38,6 +38,7 @@ The everyday numbers, such as expiring-soon days, voucher validity, credit age g
 - [Hotels, lodges & guest houses](#hotels-lodges--guest-houses)
 - [Online booking](#online-booking)
 - [Restaurant and food formats](#restaurant-and-food-formats)
+- [Online shop](#online-shop)
 
 ## Fixed on purpose
 
@@ -2539,3 +2540,85 @@ A salon's, clinic's, optical shop's, garage's, gym's or repair shop's own bookin
 - **Rule:** every link to a guest's page starts at the restaurant's own guest web address when it has one, else at the guests' site's own address: the server's `GUEST_WEB_URL` for the links the server builds (the online booking link), the staff app's `VITE_CUSTOMER_WEB_URL` for those its screens build (table QR codes, *Open guest menu*, the online ordering link). No link names a host of its own. A live server does not start without a `GUEST_WEB_URL` that guests' phones can open: https, and not a local address.
 - **Why:** a link that leads to the wrong site, or to a computer phones cannot reach, fails the guest at the table or at home.
 - **Change it:** *Settings › Service settings › Guest ordering web address* for the restaurant; `GUEST_WEB_URL` on the server ([GO_LIVE.md](GO_LIVE.md)).
+
+## Online shop
+
+A goods shop's customers order from its shop link for pickup or delivery ([ADMIN_GUIDE.md › Online shop](ADMIN_GUIDE.md#online-shop)). The shop sells its own stock at its own prices, so it is a seller online: an inventory e-commerce entity under the Consumer Protection (E-Commerce) Rules, 2020.
+
+### What never shows online
+
+- **Rule:** whatever the settings say, these never show in an online shop: services; items kept for use in services; kits and bundles; jewellery pieces, rentals, fuels, room nights and membership plans (each sold from its own screen); Schedule H, H1 and X and narcotic medicines; tobacco and nicotine products and e-cigarettes (HSN 2401 to 2403, 2404 11, 12 and 19, 8543 40); alcoholic drinks (HSN 2203 to 2208); contact lenses; subsidised fertilisers; and pesticides with a molecule that is banned, restricted to approved users, barred on some crops or allowed in one formulation only. An item with no HSN code whose name or category says tobacco, cigarettes, bidi, gutkha, vape, beer, wine, whisky and the like is kept off too; a name alone never keeps off an item that has its HSN code. One rule decides it for the shop's lists, its search, an item's page, the cart check and placing an order, and staff see the reason beside the item.
+- **Why:** each is sold only at the counter by law or by the trade's own rules: prescription medicines only on a registered doctor's prescription, by or under a registered pharmacist (Drugs Rules, 1945, r.65); tobacco under COTPA, 2003 and e-cigarettes banned outright (PECA, 2019); alcohol under the states' excise laws; contact lenses against the customer's own contact-lens prescription; subsidised fertilisers through the PoS device with the farmer's own authentication; restricted pesticides to the users and crops their registration allows. A kit and an item a trade sells from its own screen carry rules the cart cannot (parts, weights, dates).
+- **Change it:** nothing to set. An item kept off by its words only is shown once it has its HSN code.
+
+### Prices online
+
+- **Rule:** an item online costs the location's walk-in price, GST included, and never more than its MRP; one price for everyone, with no member prices, offers, coupons or price lists. A packaged item shows its unit sale price (per kg, per litre) and its declarations (maker, packer or importer, country of origin, net quantity, consumer care) where the shop has entered them. Before an order is placed, the cart is checked with the shop: a price, stock or item that changed since it was added is shown, and the guest accepts the new cart before placing it. The order keeps each price the guest saw.
+- **Why:** the customer sees one total, with every charge, before paying anything; an offer or a member's price needs a counter's judgement the cart cannot make. The Legal Metrology (Packaged Commodities) Rules ask an online seller to show a packaged item's declarations.
+- **Change it:** the item's price, or its price at the location (*Products & services*); the details under *Photo & details*.
+
+### Weighed items and the guest's OK
+
+- **Rule:** a weighed item (loose rice, vegetables, meat) is ordered as "about" a weight and billed by what is packed, up to 10% more than ordered without asking. Anything that would take the order above what the guest agreed to (a weighed item more than 10% over, a dearer replacement, an item added on the phone) is asked of the guest: their order's page shows the change and the new total, and they agree or say no there, or staff record their answer on the phone. Nothing is billed above what the guest agreed to. Taking something off (fewer, not available, a cheaper replacement, a lower price) needs no OK.
+- **Why:** a guest who has not paid has not agreed to a bigger bill; asking before billing avoids a dispute at the door.
+- **Change it:** nothing to set.
+
+### An order not accepted in time
+
+- **Rule:** a new order is declined by itself when nobody accepts it within the shop's time (10 to 240 minutes, 30 to start). The guest's page and the staff's board count down the same clock; the activity log shows the decline as *Automatic*. An order placed while the shop is closed (when the shop takes orders then) is counted from its next opening.
+- **Why:** a guest waiting on an order nobody saw is worse off than one told at once to call the shop or order elsewhere.
+- **Change it:** *Settings › Online shop*, *Declined by itself if not accepted within*; *Take orders while the shop is closed*.
+
+### Cancelling and refusing
+
+- **Rule:** the guest cancels free of charge from their order's page until the shop starts packing it, and may change it (back to their cart) until the shop accepts it. The shop cancels an accepted order that is not yet billed, with a reason the guest sees. A billed order the guest refuses at the door, or does not collect, comes back whole through the returns: the bill is returned, the goods go back into stock and the order is cancelled; a bill with a payment on it is taken back from *Sales history* with its refund instead.
+- **Why:** a bill once made is never edited; it is reversed, with its reason, as every return is.
+- **Change it:** nothing to set.
+
+### The delivery charge and its GST
+
+- **Rule:** the delivery charge goes on the bill as the *Delivery charge* service item at the GST of the goods it delivers: split across the goods' GST rates by their value, one line for each rate (*Delivery charge (on goods at 5% GST)*), the paise shared so the lines add up to the charge. Free delivery above an amount is judged on the goods' total at the prices the guest saw.
+- **Why:** goods delivered with a delivery charge are one composite supply whose principal supply is the goods (CGST Act, 2017, s.8(a)); the charge takes the goods' rate. With goods at several rates, a charge shared by value follows each rate's part. The accountant confirms this before going live ([GO_LIVE.md](GO_LIVE.md)).
+- **Change it:** the charge under *Settings › Online shop*; the split is fixed.
+
+### Shelf life of food sold online
+
+- **Rule:** when an order is billed, a batch item is taken from the batch with the earliest expiry among those with 45 days or more left; only when they run short does a nearer expiry go out, and staff are warned. An expired batch never goes out.
+- **Why:** FSSAI's direction to food businesses selling online asks that food reach the customer with at least 30% of its shelf life, or 45 days, before its expiry.
+- **Change it:** nothing to set.
+
+### Paying for an online order
+
+- **Rule:** no money is taken online. A pickup order is paid at the counter; a delivery in cash or by UPI on delivery, the slip's QR asking for the exact amount. The payment is recorded on the bill when the order is handed over (cash, UPI with its reference, card), or the bill goes on the customer's account.
+- **Why:** nothing confirms a UPI payment until a payment gateway is connected ([BACKLOG.md](BACKLOG.md)); a person records what arrived.
+- **Change it:** *Settings › Online shop*, *Payments*.
+
+### Complaints and their clocks
+
+- **Rule:** *Report a problem* on an order's page gives the guest a ticket number. The shop acknowledges it within 48 hours and resolves it within a month; the bell warns once a complaint has waited a day unacknowledged, a week before its month runs out, and when a clock has run out. A damaged, wrong, expired or late item is taken back on its bill (the returns), and its money refunded or the item replaced. An order has at most three open complaints.
+- **Why:** the Consumer Protection (E-Commerce) Rules, 2020 give a seller's grievance officer 48 hours to acknowledge a complaint and one month to redress it.
+- **Change it:** nothing to set; the grievance officer under *Settings › Online shop*, *Seller details & policy*.
+
+### The seller's details on every page
+
+- **Rule:** every page of the shop shows the business's legal name, its address and GSTIN, customer care, the grievance officer (name, designation and how to reach them) and a food shop's FSSAI licence number, with the returns, refunds, exchange, warranty, delivery and payment terms a tap away; the terms start from a text written for the trade.
+- **Why:** the E-Commerce Rules ask a seller to show who it is, how to reach it and its terms before a customer buys.
+- **Change it:** *Settings › Online shop*, *Seller details & policy*; the legal name and address in *Business settings*.
+
+### Limits against mistakes and pranks
+
+- **Rule:** one mobile may have only so many orders open at once (1 to 10, 2 to start); a mobile the shop blocks cannot order online until the shop lets it again (it still buys at the counter); and orders from one network, one link and one mobile are limited in a short time. The same order sent twice (a double tap, a lost network) is placed once.
+- **Why:** an order costs the shop packing and a trip; a pay-on-delivery shop needs a guard against orders nobody takes.
+- **Change it:** *Settings › Online shop*, *Open orders one mobile may have*; *Blocked mobiles*.
+
+### The customer record and an online order's personal data
+
+- **Rule:** the customer record is found or made when the shop accepts an order, never when it is placed, with the choices the guest ticked (bills on WhatsApp, offers). An order never accepted keeps its name, mobile and address for 30 days, then they are cleared. Erasing a person blanks their name, mobile and address on their orders and complaints; the bills stay.
+- **Why:** a declined order leaves no customer behind, and a shop keeps no more than its orders need (DPDP Act, 2023); the law keeps bills for their years.
+- **Change it:** nothing to set.
+
+### A new shop link
+
+- **Rule:** *Make a new link* replaces a location's link at once: the old link and its QR code open nothing, and orders already placed carry on, each on its own page.
+- **Why:** a link shared too widely, or a poster taken down, must stop working the moment the shop decides.
+- **Change it:** *Settings › Online shop*.

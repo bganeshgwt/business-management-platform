@@ -24,6 +24,7 @@ const HOW = {
   writes: "sets an item's rate when it is made or edited, or keeps the rate tables themselves",
   names: "names a rate without reading an item's (the activity log, a restaurant's default rate)",
   module: "the GST rate changes module itself",
+  guests: "a shop's online shop for its guests: its link opened through linkAndCard, which applies due changes first, as access.open does",
 };
 
 const READERS = {
@@ -124,6 +125,12 @@ const READERS = {
   // Online booking's prices with GST: a staff request through the gate, a guest's page behind its
   // booking link, which applies due changes first as the gate does (onlineBookingCommon resolveLink).
   "modules/business/online-booking/services/onlineBookingEngine.js": "gate",
+  // The online shop: the guests' prices and orders behind their own gate; packing and billing
+  // behind the staff's (the bill posted through postDocument); the delivery charge's item made at a slab.
+  "modules/business/shop/services/shopCatalog.service.js": "guests",
+  "modules/business/shop/services/shopOrders.service.js": "guests",
+  "modules/business/shop/services/shopPacking.service.js": "gate",
+  "modules/business/shop/services/shopSettings.service.js": "writes",
 };
 
 function* sourceFiles(dir) {
@@ -183,4 +190,16 @@ test("postings, orders and menus apply due changes before they read a rate", () 
   const menuFor = guests.slice(guests.indexOf("const menuFor = async"));
   assert.ok(menuFor.indexOf("taxChanges.onMenu(") > 0 && menuFor.indexOf("taxChanges.onMenu(") < menuFor.indexOf("findMenuProducts("),
     "the guests' menus apply the trading day's changes first");
+});
+
+test("a shop's online shop applies due changes before its guests' pages read a rate", () => {
+  const orders = read("modules/business/shop/services/shopOrders.service.js");
+  const gate = orders.slice(orders.indexOf("async function linkAndCard("));
+  assert.ok(gate.indexOf(".onOpen(") > 0 && gate.indexOf(".onOpen(") < gate.indexOf("guestBusinessCard("), "linkAndCard applies due changes before the shop is read");
+  // Every guest page that reads an item's rate opens the link through it.
+  for (const name of ["shopPage", "shopItems", "shopItem", "checkCart", "place"]) {
+    const start = orders.indexOf(`async function ${name}(`);
+    assert.ok(start > 0, `${name} is in shopOrders.service.js`);
+    assert.match(orders.slice(start, orders.indexOf("\n}", start)), /linkAndCard\(/, `${name} opens the link through linkAndCard`);
+  }
 });

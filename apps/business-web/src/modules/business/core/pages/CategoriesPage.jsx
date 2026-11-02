@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
 import Icon from "@bmp/ui/Icon";
 import SectionCard from "../../../../components/SectionCard";
@@ -8,6 +8,8 @@ import { getErrorMessage } from "../../../../services/api";
 import FormDialog from "./FormDialog";
 import { ActiveBadge, BusinessHeader, Field } from "./ui";
 import { useOpenBusiness, useOptions, useServerList } from "./hooks";
+// "Show in the online shop" on a category (modules/business/shop), saved after the category.
+import { OnlineCategoryField } from "../../shop/pages/OnlineItemFields";
 
 // The category tree: up to five levels, each name once under its parent.
 export default function CategoriesPage() {
@@ -61,6 +63,7 @@ export default function CategoriesPage() {
 function CategoryDialog({ category, departments, onClose, onSaved }) {
   const biz = useOpenBusiness();
   const editing = Boolean(category.id);
+  const online = useRef(null);
   const { options } = useOptions(["categories"]);
   const [form, setForm] = useState({ name: category.name || "", parentId: category.parent_id ? String(category.parent_id) : "", sortOrder: String(category.sort_order ?? 0), active: category.active ?? true,
     departmentId: category.department_id ? String(category.department_id) : (biz.context.member?.department_id ? String(biz.context.member.department_id) : "") });
@@ -71,7 +74,8 @@ function CategoryDialog({ category, departments, onClose, onSaved }) {
     ...(departments.length && !form.parentId ? { departmentId: form.departmentId || null } : {}) };
   return (
     <FormDialog title={editing ? `Edit ${category.name}` : "Add a category"} icon="layers" width={520} onClose={onClose} onSaved={onSaved}
-      onSubmit={() => (editing ? businessWrite(biz.id, `categories/${category.id}`, body, "patch") : businessWrite(biz.id, "categories", body))}>
+      onSubmit={() => (editing ? businessWrite(biz.id, `categories/${category.id}`, body, "patch") : businessWrite(biz.id, "categories", body))
+        .then((saved) => (online.current ? online.current.save(saved) : saved))}>
       <Field label="Name" wide><input required maxLength={100} value={form.name} onChange={set("name")} /></Field>
       <Field label="Inside" wide>
         <select value={form.parentId} onChange={set("parentId")}>
@@ -89,6 +93,7 @@ function CategoryDialog({ category, departments, onClose, onSaved }) {
       )}
       {departments.length > 0 && form.parentId && <p className="field-wide muted small">A sub-category is in the department of the category it sits inside.</p>}
       <Field label="Order" hint="Lower numbers are listed first."><input type="number" min="0" step="1" value={form.sortOrder} onChange={set("sortOrder")} /></Field>
+      {biz.has("online_shop") && (biz.can("catalog.edit") || biz.can("online_shop.manage")) && <OnlineCategoryField ref={online} categoryId={editing ? category.id : null} />}
       {editing && <label className="checkbox bz-check"><input type="checkbox" checked={form.active} onChange={set("active")} /> Active</label>}
     </FormDialog>
   );

@@ -1,4 +1,4 @@
-import { GOODS, SERVICES, UDHAAR, WEIGHED } from './businessTypes.js';
+import { GOODS, ONLINE_SHOP, SERVICES, UDHAAR, WEIGHED } from './businessTypes.js';
 
 // Presentation groups share the existing route permissions and module guards.
 // A capability being available does not make it a daily sidebar destination.
@@ -18,7 +18,7 @@ export const WORKSPACES = {
   patients: ['patients', 'customers'],
   laboratory: ['lab-orders', 'lab-tests', 'lab-qc'],
   reports: ['reports', 'retail-reports', 'wholesale-reports', 'variant-reports', 'weight-reports', 'salon-reports', 'commissions', 'fitter-reports', 'cash-report', 'fuel-outlets', 'activity', 'referrals', 'mechanic-commission', 'member-pay', 'lodging-reports'],
-  settings: ['settings', 'tax-rates', 'payment-methods', 'number-series', 'locations', 'units', 'resources', 'health-settings', 'licences', 'privacy', 'agri-settings', 'garage-settings', 'member-plans', 'jewellery-settings', 'scheme-plans', 'fuel-pumps', 'lodging-rates', 'plan'],
+  settings: ['settings', 'tax-rates', 'payment-methods', 'number-series', 'locations', 'units', 'resources', 'health-settings', 'licences', 'privacy', 'agri-settings', 'garage-settings', 'member-plans', 'jewellery-settings', 'scheme-plans', 'fuel-pumps', 'lodging-rates', 'plan', 'online-shop'],
   // A seeds, fertilisers & pesticides shop's own area.
   farm: ['farmers', 'agri-subsidy', 'agri-registers', 'molecules', 'agri-seasons', 'agri-crops'],
   // An optical shop's spectacle orders, in its daily menu.
@@ -53,6 +53,8 @@ export const WORKSPACES = {
   offers: ['offers'],
   // Tasks has its own tabs inside (TasksNav); the menu opens the first one this person may use.
   tasks: ['tasks', 'tasks/issues', 'tasks/projects', 'tasks/board', 'tasks/calendar', 'tasks/templates', 'tasks/recurring', 'tasks/reports'],
+  // A shop's online orders from its shop link, in its daily menu while the online shop is on.
+  onlineOrders: ['online-orders'],
 };
 
 // Businesses that book people's time (stylists, doctors, technicians, optometrists, mechanics, trainers).
@@ -127,6 +129,7 @@ export function dailyWorkspaces(type) {
     ['salon', 'optical', 'garage', 'memberships'].includes(type) ? 'appointments' : null,
     type === 'optical' ? 'spectacles' : null,
     type === 'garage' ? 'jobCards' : null,
+    ONLINE_SHOP.includes(type) ? 'onlineOrders' : null,
     'sales', type === 'healthcare' ? 'patients' : type === 'memberships' ? 'members' : 'customers', 'dues', 'money'].filter(Boolean);
   const business = ['products', 'purchases', 'stock'];
   if (type === 'pharmacy') business.push('pharmacy-registers');

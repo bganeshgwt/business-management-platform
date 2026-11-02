@@ -12,7 +12,7 @@ test("a page whose code fails to load reloads once, then says so with a Reload b
   page.on("load", () => loads.push(page.url()));
   await page.route(PLANNED_CODE, (route) => route.fulfill({ status: 503, body: "" }));
 
-  await page.goto("/shop");
+  await page.goto("/account");
   const alert = page.getByRole("alert");
   await expect(alert.getByRole("heading", { name: "This page could not be loaded" })).toBeVisible({ timeout: 15_000 });
   await expect(alert.getByRole("button", { name: "Reload" })).toBeVisible();
@@ -27,5 +27,5 @@ test("a page whose code fails to load reloads once, then says so with a Reload b
   // Once the code can be fetched again, Reload brings the page back.
   await page.unroute(PLANNED_CODE);
   await alert.getByRole("button", { name: "Reload" }).click();
-  await expect(page.getByRole("heading", { name: "Order from a shop" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your account" })).toBeVisible();
 });

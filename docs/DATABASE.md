@@ -4732,8 +4732,10 @@ Triggers (all `AFTER … FOR EACH ROW`):
 | `business_memberships_live_session` | `business_memberships` | update of `active`, `role_id` or `location_id` (when one changes) | `live_session` `{user, business}` |
 | `business_memberships_live_session_gone` | `business_memberships` | delete | `live_session` `{user, business}` |
 | `business_roles_live_session` | `business_roles` | update of `active` (when it changes) | `live_session` `{business}` |
+| `shop_orders_live` | `shop_orders` | insert, update, delete | `online_order` (a change to an order's lines raises its `revision`, so the order announces it) |
+| `shop_complaints_live` | `shop_complaints` | insert, update, delete | `online_complaint` |
 
-1791974000000's Down half drops its 34 triggers and 7 functions; 1791976000000's drops the lab's three triggers and `live_lab_order_part()`; clinic-lab-more's drops `lab_order_tests_live`; online-appointments' drops `business_online_bookings_live` with its table.
+1791974000000's Down half drops its 34 triggers and 7 functions; 1791976000000's drops the lab's three triggers and `live_lab_order_part()`; clinic-lab-more's drops `lab_order_tests_live`; online-appointments' drops `business_online_bookings_live` with its table; online-shop's drops `shop_orders_live` and `shop_complaints_live`.
 
 ## Personal data
 
@@ -4981,6 +4983,71 @@ Key columns: `link_id`, `location_id`, `guest_token` (UNIQUE: the guest's own pa
 Rules: CHECK an advance has its UTR and a UTR its advance; indexes on (`business_id`, `mobile`) and (`business_id`, `created_at`). Trigger `business_online_bookings_live` ([Live updates](#live-updates), area `online_booking`). An erasure blanks the booker's name (to the erased name), the mobile, the person booked for, the reason, the note and the vehicle; the export leaves out `guest_token` and `client_key`.
 Added by: online-appointments.
 
+## Online shop
+
+Linked sections: [ADMIN_GUIDE.md › Online shop](ADMIN_GUIDE.md#online-shop), [BUSINESS_RULES.md › Online shop](BUSINESS_RULES.md#online-shop) and [API.md › Online shop](API.md#online-shop). Migration `…_online-shop.sql`; module code `online_shop` (an application). A goods shop's customers order from a location's shop link on the guests' site, and its staff accept, pack, bill and hand over each order. The bill is an ordinary `sale` in `business_documents` (posted through `postDocument` with fixed prices; the delivery charge on the *Delivery charge* service item, one line per GST rate of the goods), and a bill refused at the door comes back as an ordinary return. The rules that keep an item off every online shop are one SQL expression in the code (modules/business/shop/services/shopRules.js), not a column.
+
+#### `shop_settings`
+Purpose: one shop link per location, the location whose stock it sells, with every setting of its shop.
+Key columns: `token` (48 hex characters, 192 random bits: the link's only name), `enabled`, `paused`, `pickup_enabled`, `pickup_minutes`, `delivery_enabled`, `delivery_pins` (6-digit PIN codes, at most 100), `delivery_area_note`, `delivery_fee` (₹30 to start), `free_delivery_above` (₹500 to start; NULL never free), `min_order`, `delivery_minutes`, `slots_enabled`, `slots` (JSON `[{ from, to, cap }]`, at most 12), `slot_cutoff_minutes`, `take_orders_when_closed`, `hide_out_of_stock`, `low_stock_below`, `max_open_per_mobile` (2 to start), `auto_decline_minutes` (30 to start, 10 to 240), `pay_at_shop`, `cash_on_delivery`, `upi_on_delivery`, `upi_id`, `upi_payee`, `guest_note`, `care_phone`, `care_email`, `grievance_name`, `grievance_designation`, `grievance_phone`, `grievance_email`, `fssai_licence` (14 digits), `policy` (the returns, refunds, exchange, delivery and payment terms; up to 4,000 characters), `delivery_sku_id` (the *Delivery charge* item, made when delivery is first switched on).
+Relations: (`business_id`, `location_id`) -> `business_locations`; (`business_id`, `delivery_sku_id`) -> `catalog_skus`; `created_by`, `updated_by` -> `users`.
+Rules: UNIQUE `token`, (`business_id`, `location_id`), (`business_id`, `id`); CHECKs: pickup or delivery; at least one way to pay; the ranges above.
+Added by: online-shop.
+
+#### `shop_blocked_mobiles`
+Purpose: mobiles a shop stopped from ordering online, with the reason; lifted, never deleted.
+Key columns: `mobile` (10 digits), `reason`, `blocked_by`, `blocked_at`, `lifted_by`, `lifted_at`.
+Rules: one block in force per mobile (`shop_blocked_mobiles_one`, unique while not lifted); lifted ⇔ who lifted it.
+Added by: online-shop.
+
+#### `shop_counters`
+Purpose: the next order number (`ON-0001`) and complaint ticket number (`TK-0001`) of each business. Neither is a tax invoice number: the bill has its own.
+Key columns: (`business_id`, `kind` (`order`, `complaint`)) primary key, `next_number`.
+Added by: online-shop.
+
+#### `shop_orders`
+Purpose: a guest's order: who, where, when, how they pay, what to do with an item that has run out, the consents they ticked, the cart's figures, the most they agreed to pay, its status and times, the customer record made at acceptance, the bill, and the return of a bill refused at the door.
+Key columns: `order_no`, `guest_token` (48 hex characters: the guest's own link), `client_key` + `client_hash` (the same submission once), `source` (`guests_site`), `service` (`pickup`, `delivery`), `guest_name`, `guest_mobile`, `address`, `landmark`, `pin_code`, `slot_on`, `slot_from`, `slot_to`, `payment_mode` (`pay_at_shop`, `cash_on_delivery`, `upi_on_delivery`), `substitution` (`remove`, `similar`, `call`), `guest_note`, `consents[]`, `privacy_notice_id`, `status` (`placed`, `accepted`, `packed`, `ready`, `out_for_delivery`, `completed`, `declined`, `cancelled`), `auto_decline_at`, `packing_at` (packing started: the guest no longer cancels), `decline_reason`, `declined_auto`, `cancel_reason`, `cancelled_by` (`guest`, `shop`), `contact_id`, `document_id`, `return_id`, `rider_name`, `items_total`, `delivery_charge`, `total` (as placed, GST included), `agreed_total` (the most the guest agreed to: raised by a change they accept), `final_total` (the bill's), `paid_by` (`cash`, `upi`, `card`, `bank`, `cheque`, `account`), the times and who of each step, `revision` (raised with every change to the order or its lines), `updated_at`.
+Relations: (`business_id`, `location_id`) -> `business_locations`; (`business_id`, `settings_id`) -> `shop_settings`; (`business_id`, `contact_id`) -> `business_contacts`; (`business_id`, `document_id`) -> `business_documents`; (`business_id`, `return_id`) -> `business_returns`; (`business_id`, `privacy_notice_id`) -> `business_privacy_notices`; user columns -> `users`.
+Rules: UNIQUE `guest_token`, (`business_id`, `order_no`), (`settings_id`, `client_key`); CHECKs: a slot whole or none; a packed, ready, out or completed order has its bill; a declined one its reason; a cancelled one its reason and by whom. Indexes `shop_orders_board`, `shop_orders_mobile` (open orders), `shop_orders_contact`, `shop_orders_slots`. An order never accepted has its name, mobile and address cleared after 30 days. Personal data: an erasure names the guest *Erased* and blanks `guest_mobile`, `address`, `landmark`, `pin_code` and `guest_note`; the bill stays (`personalDataRegistry.js`); `guest_token`, `client_key` and `client_hash` are never exported. A customer with an order accepted and not yet handed over is not erased until it is.
+Added by: online-shop.
+
+#### `shop_order_lines`
+Purpose: each item ordered, at the price the guest saw, and as it was packed.
+Key columns: `position`, `sku_id`, `name`, `unit`, `quantity` (about this much for a weighed item), `price` (one unit, GST included), `mrp`, `tax_rate` (the slab then), `weighed`, `substitution` (the line's own, or NULL for the order's), `state` (`pending`, `ok`, `short`, `unavailable`, `replaced`), `packed_quantity`, `picked`, `bill_price` + `discount_reason` (a lower price staff gave), `serials[]`, `added` (asked for on the phone, or a replacement), `replaces_line_id`, `note`.
+Relations: (`business_id`, `order_id`) -> `shop_orders`; (`business_id`, `sku_id`) -> `catalog_skus`; (`business_id`, `replaces_line_id`) -> `shop_order_lines`.
+Rules: UNIQUE (`order_id`, `position`); CHECKs: a lower price below the price seen, with its reason; only an added line replaces another.
+Added by: online-shop.
+
+#### `shop_order_changes`
+Purpose: a change that would make the guest pay more than they agreed (a dearer replacement, an added item, a weighed item more than 10% over), waiting for their OK on the status page or on the phone.
+Key columns: `status` (`waiting`, `accepted`, `rejected`, `withdrawn`), `answered_via` (`guest`, `phone`), `total_before` (the most agreed then), `total_after`, `lines` (JSON: what changed in the guest's words, `[{ name, was, now, amountBefore, amountAfter, kind }]`), `note`, `asked_by`, `asked_at`, `answered_at`, `answered_by`.
+Relations: (`business_id`, `order_id`) -> `shop_orders`.
+Rules: one waiting per order (`shop_order_changes_waiting`); `total_after` above `total_before`; answered ⇔ not waiting.
+Added by: online-shop.
+
+#### `shop_complaints`
+Purpose: "Report a problem" on an order's page: a ticket, acknowledged within 48 hours and resolved within a month.
+Key columns: `ticket_no`, `client_key`, `kind` (`missing`, `wrong`, `damaged`, `expired`, `quality`, `late`, `billing`, `other`), `details`, `status` (`open`, `acknowledged`, `resolved`), `acknowledge_by`, `resolve_by`, `acknowledged_at`, `acknowledged_by`, `acknowledgement`, `resolved_at`, `resolved_by`, `outcome` (`taken_back`, `refunded`, `replaced`, `explained`, `other`), `resolution`, `created_at`.
+Relations: (`business_id`, `location_id`) -> `business_locations`; (`business_id`, `order_id`) -> `shop_orders`; (`business_id`, `contact_id`) -> `business_contacts`.
+Rules: UNIQUE (`business_id`, `ticket_no`), (`order_id`, `client_key`); CHECKs: acknowledged before resolved; resolved ⇔ its time, with what was done. Personal data: an erasure replaces `details`; the ticket, its dates and outcome stay (`personalDataRegistry.js`).
+Added by: online-shop.
+
+#### `shop_item_details`
+Purpose: a product's online part: "Show in the online shop", its photo, and the details shown online for packaged goods.
+Key columns: (`business_id`, `product_id`) primary key, `hidden`, `photo_path` + `thumb_path` (public uploads: the item's page and the grid), `description`, `maker_kind` (`manufacturer`, `packer`, `importer`), `maker_name`, `maker_address`, `country_of_origin`, `generic_name`, `net_quantity`, `consumer_care`, `best_before`, `updated_by`, `updated_at`.
+Relations: (`business_id`, `product_id`) -> `catalog_products`.
+Rules: a photo has both its sizes. No row: shown, with no photo or details.
+Added by: online-shop.
+
+#### `shop_hidden_categories`
+Purpose: categories kept off the online shop, with the categories inside them.
+Key columns: (`business_id`, `category_id`) primary key, `hidden_by`, `hidden_at`.
+Relations: (`business_id`, `category_id`) -> `catalog_categories`.
+Added by: online-shop.
+
+Also in online-shop: the platform module `online_shop` (needs `sales` and `contacts`; for grocery, supermarket, fashion, electronics, pharmacy, books, meat, weight_retail, general_retail, hardware, agri_inputs and optical, off to start) with its price as an application (₹399 a month, ₹3,999 a year), the seven permission codes, the role templates' grants and their copies in existing businesses' roles, and the live triggers `shop_orders_live` and `shop_complaints_live`. Its Down half takes all of it away.
+
 ## Business types
 
 The rows of `business_types`: the first twelve created by 1791280000000 multi-business-admin, the other eleven by 1791960000000 more-business-types.
@@ -5090,6 +5157,7 @@ Core modules are always on and never stored per business; every other module is 
 | `projects` | optional | tasks | every type; on for restaurant | 1791620000000 |
 | `hardware_tinting` | optional | catalog, sales, inventory | hardware; off; recommended for hardware (item attribute `paintBase`) | 1791979050000 |
 | `online_appointments` | optional | appointments | electronics, garage, healthcare, memberships, optical, salon; off; recommended for healthcare (sold as an application: [Paid plans](#paid-plans)) | online-appointments |
+| `online_shop` | optional (an application) | sales, contacts | grocery, supermarket, fashion, electronics, pharmacy, books, meat, weight_retail, general_retail, hardware, agri_inputs, optical; off | online-shop |
 
 These modules have no permission codes: `restaurant`, `batches`, `serials`, `variants`, `weight` and `books`. Access to them comes from the capability check alone. The restaurant features have none either: the restaurant's own permissions (`roles`, `permissions`) decide who may do what, and the feature decides whether anyone may (see [Restaurant features](#restaurant-features)).
 
@@ -5147,6 +5215,7 @@ Each code is a `<module>.<action>` row of `business_permissions`, listed here by
 | privacy | `privacy.view` (the privacy notice and its versions, the requests and the breach register), `privacy.manage` (publish the notice, log and answer requests, erase a person's data, keep the breach register), `privacy.export` (see or export everything held about one person). Granted to the Manager template and every Manager role | 1791977000000 |
 | hardware_tinting | `hardware_tinting.view` (shades and the tinting board), `hardware_tinting.create` (tinted paint on bills and quotations; tinted and handed over on the board; taking a tinted line back, with the PIN of someone with `sales.refund`), `hardware_tinting.edit` (add, import and change shades; the tinting charge). Granted to Manager (all), Cashier and Stock keeper (view, create), Accountant and Viewer (view) | 1791979050000 |
 | online_appointments | `online_appointments.view` (online bookings, the requests waiting and the booking link), `online_appointments.approve` (accept or decline a guest's request), `online_appointments.manage` (the booking link, its rules and what shows online); granted to the Manager (all), Cashier / sales and Optometrist (view, approve), and Accountant, Viewer, Doctor, Trainer and Mechanic (view) | online-appointments |
+| online_shop | `online_shop.view` (online orders, their customers and complaints, the shop link's settings and the report), `online_shop.approve` (accept or decline), `online_shop.edit` (pack, ask the customer, send out and hand over; with `sales.create` to bill, `sales.edit` to record the payment), `online_shop.cancel` (cancel an accepted order; refused at the door, with `sales.refund`), `online_shop.review` (acknowledge and resolve complaints), `online_shop.manage` (the link and settings, what shows online, blocked mobiles), `online_shop.export` (the report). Granted to Manager (all), Cashier and Pharmacist (view, approve, edit, cancel, review), Stock keeper (view, edit), Accountant and Viewer (view, export) | online-shop |
 
 ## Restaurant permission codes
 

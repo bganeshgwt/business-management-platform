@@ -797,3 +797,50 @@ export const ONLINE_BOOKING = {
     son: { name: "Advik Iyer", phone: "98490 78901", sex: "male", ageYears: 6, guardianName: "Ramesh Iyer" },
   },
 };
+
+// The online shop, on the guests' site (online-shop.spec.js): the supermarket
+// sells from its shop link, for pickup and for delivery to two PIN codes at
+// ₹30 a delivery, free above ₹500, ₹100 the least for delivery, paid in cash
+// or by UPI on delivery. Its items: sunflower oil in two packs (one product,
+// two options), loose onions by the kg, salt, a detergent at 18% GST, and a
+// cigarette pack, which never shows online. The guest orders for delivery,
+// letting the shop replace what runs out with something similar; staff weigh
+// the onions well above what was ordered and ask, and the guest agrees on
+// the order's page.
+export const ONLINE_SHOP = {
+  business: "supermarket",
+  categories: ["Oil & ghee", "Vegetables", "Staples", "Home care", "Tobacco"],
+  supplier: "Karnataka Wholesale Traders",
+  items: {
+    oilSmall: { name: "Fortune sunflower oil", label: "1 L", code: "OIL-FSF-1L", price: 155, mrp: 165, gst: 5, hsn: "15121110", category: "Oil & ghee", stock: 40 },
+    oilLarge: { name: "Fortune sunflower oil", label: "5 L", code: "OIL-FSF-5L", price: 725, mrp: 780, gst: 5, hsn: "15121110", category: "Oil & ghee", stock: 10 },
+    onion: { name: "Onion", code: "VEG-ONION", unit: "kg", price: 40, gst: 0, hsn: "07031010", category: "Vegetables", stock: 100 },
+    salt: { name: "Tata salt 1 kg", code: "SALT-TATA-1", price: 28, mrp: 28, gst: 0, hsn: "25010020", category: "Staples", stock: 50 },
+    detergent: { name: "Surf Excel Easy Wash 1 kg", code: "SURF-EW-1", price: 140, mrp: 150, gst: 18, hsn: "34022090", category: "Home care", stock: 30 },
+    cigarettes: { name: "Gold Flake Kings 10", code: "TOB-GFK-10", price: 180, gst: 18, hsn: "24022090", category: "Tobacco", stock: 20 },
+  },
+  shop: { pins: ["560034", "560095"], fee: 30, freeAbove: 500, minOrder: 100, upiId: "annapoorna@okaxis", carePhone: "080 4123 4567", grievance: "Suresh Gowda" },
+  guest: {
+    name: "Meera Iyer", mobile: "9845012345", address: "Flat 302, Lakshmi Residency, 5th Cross, Koramangala 4th Block", landmark: "Near Forum Mall", pinCode: "560034",
+    outside: "560001", onions: 1, packedOnions: "1.6", problem: "The detergent pack was torn at one corner",
+  },
+};
+
+// Online orders for staff (online-orders.spec.js): the mobile shop has the
+// online shop switched on but its link not yet taking orders. The owner sets
+// delivery and switches the link on under Settings › Online shop, gives the
+// earphones a photo, then runs two orders placed from the link: one packed
+// one charger short, billed, out with the rider and paid by UPI at the door;
+// the other refused at the door, its bill returned and its stock back.
+export const ONLINE_ORDERS = {
+  business: "electronics",
+  supplier: "Hyderabad Mobile Accessories",
+  items: {
+    earphones: { name: "boAt Airdopes 141", code: "BOAT-AD141", price: 1299, mrp: 4490, hsn: "85183000", stock: 10 },
+    charger: { name: "Mi 20W charger", code: "MI-CHG-20W", price: 699, mrp: 999, hsn: "85044030", stock: 10 },
+    cable: { name: "Type-C cable 1 m", code: "CBL-TC-1M", price: 199, mrp: 299, hsn: "85444299", stock: 25 },
+  },
+  shop: { pins: "500034, 500081", fee: "40", upiId: "citymobiles@okicici" },
+  first: { name: "Ravi Teja", mobile: "9849012345", address: "Plot 14, Road No. 3, Banjara Hills", pinCode: "500034", rider: "Imran", utr: "412345678901" },
+  second: { name: "Sana Shaikh", mobile: "9849054321", address: "H.No. 8-2-293, Road No. 10, Jubilee Hills", pinCode: "500081", reason: "Refused at the door: ordered by mistake" },
+};

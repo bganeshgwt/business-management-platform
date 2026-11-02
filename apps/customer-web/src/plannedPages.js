@@ -4,12 +4,6 @@
 // not found". When one is built, its real page takes the route and its entry
 // here is deleted.
 export const PLANNED_PAGES = {
-  shop: {
-    title: "Order from a shop",
-    icon: "store",
-    coming: "Soon you will be able to see a shop's products here and order for pickup or delivery.",
-    today: "please call or message the shop to place your order.",
-  },
   account: {
     title: "Your account",
     icon: "user",

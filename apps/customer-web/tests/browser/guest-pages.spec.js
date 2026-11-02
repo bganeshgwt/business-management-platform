@@ -39,7 +39,7 @@ test("a link with part of it missing says what to do", async ({ page }) => {
 });
 
 test("planned pages say what is coming", async ({ page }) => {
-  for (const [path, title] of [["/shop", "Order from a shop"], ["/account", "Your account"]]) {
+  for (const [path, title] of [["/account", "Your account"]]) {
     await page.goto(path);
     await expect(page.getByRole("heading", { name: title })).toBeVisible();
     await expect(page.getByText("Coming soon")).toBeVisible();

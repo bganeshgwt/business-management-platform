@@ -29,6 +29,8 @@ export { PLATFORM_CONSOLE } from "./test-data.mjs";
 export { YOUR_PLAN } from "./test-data.mjs";
 // Online booking: the salon's and the clinic's booking links, the clinic's paediatrician and the guests (online-appointments.spec.js, online-booking.spec.js).
 export { ONLINE_BOOKING } from "./test-data.mjs";
+// The online shop: a guest's order (online-shop.spec.js) and the staff's board (online-orders.spec.js).
+export { ONLINE_ORDERS, ONLINE_SHOP } from "./test-data.mjs";
 
 let data = null;
 

@@ -369,6 +369,18 @@ calls (`/api/public/…`) from any address, so such a domain needs no
      a doctor and a legal adviser. The rules follow standard Indian practice;
      [BUSINESS_RULES › Pharmacy, clinic and lab](BUSINESS_RULES.md#pharmacy-clinic-and-lab)
      gives each rule, its legal source and where it is changed.
+   - **A shop that sells online** ([ADMIN_GUIDE › Online shop](ADMIN_GUIDE.md#online-shop)):
+     the accountant answers how an online order's **delivery charge** is
+     taxed. The bill puts it at the GST of the goods it delivers, as one
+     composite supply whose principal supply is the goods (CGST Act, s.8(a)),
+     shared across the goods' rates by their value when the order holds goods
+     at several rates: one *Delivery charge* line for each rate
+     ([BUSINESS_RULES › The delivery charge and its GST](BUSINESS_RULES.md#the-delivery-charge-and-its-gst)).
+     If the accountant reads it otherwise (delivery as a service of its own,
+     at its own rate), tell the platform's team before delivery is switched
+     on: the split is fixed in the program. The owner also checks the shop's
+     returns, refunds and delivery terms and its grievance officer, which
+     every page of the shop shows.
 6. Personal data, below.
 
 ### Personal data
@@ -622,6 +634,18 @@ training run does not count as a real-service sign-off. Take a verified backup
    in one tap, and send them a reminder from **Udhaar**; ask a customer who
    has not agreed, and record their answer. In **Settings › Personal data**,
    log a request, save the person's data as a file, and answer it.
+9. A shop that sells online: switch the online shop on (*Settings › Business
+   tools*), set it up under **Settings › Online shop** (the PIN codes it
+   delivers to, the charge, the UPI ID, the seller's details and terms), give
+   the best sellers their photos, print the QR poster and open the link on a
+   phone. From the phone, order for delivery a packed item, a loose item by
+   weight and an item at another GST rate. Accept it on **Online orders** (the
+   chime), pack it with the weighed item more than 10% over, ask the customer
+   and agree on the order's page on the phone, bill it, and check the bill's
+   *Delivery charge* lines; print the slip, send it out, and mark it delivered
+   and paid by scanning the slip's UPI QR. Place a second order and refuse it
+   at the door: the bill comes back, and the stock with it. Report a problem
+   from the first order's page, then acknowledge and resolve it.
 
 ### A clinic
 

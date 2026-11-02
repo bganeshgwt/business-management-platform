@@ -21,6 +21,8 @@ const BUSINESS_AREAS = {
   stock: "green", movements: "green", transfers: "green", counts: "green",
   reports: "indigo", activity: "indigo", settings: "indigo", "tax-rates": "indigo", "number-series": "indigo",
   locations: "indigo", staff: "indigo", roles: "indigo",
+  // The online shop's orders, as the restaurant's online and delivery orders; its settings with the others.
+  "online-orders": "cyan", "online-shop": "indigo",
 };
 
 export function pageAccent(path = "/") {
