@@ -210,14 +210,17 @@ for (const { viewport, colorScheme, phone } of SCREENS) {
         await expect(page.getByRole("button", { name: `Business: ${shop.name}. Switch business`, exact: true })).toBeVisible();
         await expect(page.getByRole("link", { name: `${shop.name} — overview`, exact: true })).toBeVisible();
         await expect(page.locator("main.content-scroll h1")).toBeVisible();
-        // Every page in the menu is this business's own. On a phone the
-        // menu opens from the header's menu button, and closes again.
+        // Every page in the menu is this business's own: its Business Admin
+        // pages, and its own workspace apps (a wholesaler's salesperson app, a
+        // clinic's desk and lab), which open on their own screens. On a phone
+        // the menu opens from the header's menu button, and closes again.
         const toggle = page.getByRole("button", { name: "Toggle menu", exact: true });
         if (phone) await toggle.click();
         const links = page.getByRole("navigation", { name: "All pages" }).getByRole("link");
         await expect(links.first()).toBeVisible();
         const menu = await links.evaluateAll((items) => items.map((link) => link.getAttribute("href")));
-        expect(menu.filter((href) => !href.startsWith(`/business-admin/${shop.id}`)), shop.name).toEqual([]);
+        const own = (href) => href.startsWith(`/business-admin/${shop.id}`) || new RegExp(`^/(sales|clinic|lab)/${shop.id}$`).test(href);
+        expect(menu.filter((href) => !own(href)), shop.name).toEqual([]);
         if (phone) {
           await toggle.click();
           // Closed once the dimmed page behind it has gone.
